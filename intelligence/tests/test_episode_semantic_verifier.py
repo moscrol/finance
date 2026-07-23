@@ -789,6 +789,28 @@ def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
     assert "3）上涨广度维持" not in result.public_answer
 
 
+def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "继续成立的条件：①量能企稳；"
+        "②若指数跌破99999点则失效；"
+        "③上涨广度维持。"
+        "失效条件：①量能萎缩；②主线退潮。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "99999点" not in result.public_answer
+    assert "继续成立的条件：①量能企稳；②上涨广度维持" in result.public_answer
+    assert "失效条件：①量能萎缩；②主线退潮" in result.public_answer
+    assert "③上涨广度维持" not in result.public_answer
+
+
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(

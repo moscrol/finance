@@ -108,6 +108,7 @@ _NEGATIVE_CONTEXT_RE = re.compile(
 _ORDERED_LIST_ITEM_RE = re.compile(
     r"^(?P<indent>\s*)(?P<number>\d+)(?P<suffix>[）).、])(?P<body>.*)$"
 )
+_CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _JUDGE_REPORT_TOOL_NAME = "submit_grounding_report"
 _JUDGE_REPORT_TOOLS = [
@@ -1223,6 +1224,27 @@ def _renumber_ordered_list_items(source: str) -> str:
         if body.strip():
             position = 0
         rendered.append(line)
+    return _renumber_circled_list_items("".join(rendered))
+
+
+def _renumber_circled_list_items(source: str) -> str:
+    """Repair inline circled-number sequences after a rejected item is removed."""
+
+    rendered: list[str] = []
+    position = 0
+    for char in source:
+        if char not in _CIRCLED_LIST_NUMBERS:
+            rendered.append(char)
+            continue
+        if char == _CIRCLED_LIST_NUMBERS[0] or position == 0:
+            position = 1
+        else:
+            position += 1
+        rendered.append(
+            _CIRCLED_LIST_NUMBERS[position - 1]
+            if position <= len(_CIRCLED_LIST_NUMBERS)
+            else char
+        )
     return "".join(rendered)
 
 
