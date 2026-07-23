@@ -863,6 +863,33 @@ def test_missing_structural_contract_fails_closed_without_judge() -> None:
     assert any("contract" in issue for issue in result.issues)
 
 
+def test_missing_contract_never_promotes_structural_failed_status() -> None:
+    frame, structural = _structural("不应公开的失败草稿。")
+    assert structural.contract is not None
+    failed = verify_episode_outcome(
+        structural.contract,
+        replace(structural.outcome, status="failed"),
+    )
+    assert failed.verified_status == "failed"
+    calls: list[object] = []
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda request: calls.append(request)
+    ).verify(
+        frame=frame,
+        structurally_verified=replace(failed, contract=None),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "failed"
+    assert result.judge_status == "unavailable"
+    assert calls == []
+    assert result.public_answer == (
+        "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
+    )
+    assert any("contract" in issue for issue in result.issues)
+
+
 def test_cross_turn_frame_hash_mismatch_never_reuses_a_share_outcome() -> None:
     _market_frame, structural = _structural("A股市场当前偏弱。")
     stock_frame = replace(
@@ -885,6 +912,40 @@ def test_cross_turn_frame_hash_mismatch_never_reuses_a_share_outcome() -> None:
     assert calls == []
     assert "瑞华泰怎么看" in result.public_answer
     assert "A股市场当前偏弱" not in result.public_answer
+    assert any("hash mismatch" in issue for issue in result.issues)
+
+
+def test_cross_frame_guard_never_promotes_structural_failed_status() -> None:
+    _market_frame, structural = _structural("不应跨轮公开的 A 股失败草稿。")
+    assert structural.contract is not None
+    failed = verify_episode_outcome(
+        structural.contract,
+        replace(structural.outcome, status="failed"),
+    )
+    assert failed.verified_status == "failed"
+    stock_frame = replace(
+        _frame(),
+        raw_question="瑞华泰怎么看？",
+        user_goal="判断瑞华泰当前逻辑",
+        subject="瑞华泰",
+        subject_kind="company",
+    )
+    calls: list[object] = []
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda request: calls.append(request)
+    ).verify(
+        frame=stock_frame,
+        structurally_verified=failed,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "failed"
+    assert result.judge_status == "unavailable"
+    assert calls == []
+    assert result.public_answer == (
+        "关于“瑞华泰怎么看？”，现有证据不足，暂不能可靠回答。"
+    )
     assert any("hash mismatch" in issue for issue in result.issues)
 
 

@@ -136,10 +136,13 @@ class SemanticEpisodeVerifier:
 
         structural = structurally_verified
         contract = structural.contract
+        guard_status: SemanticStatus = (
+            "failed" if structural.verified_status == "failed" else "partial"
+        )
         if contract is None:
             return SemanticEpisodeOutcome(
                 verified=structural,
-                status="partial",
+                status=guard_status,
                 public_answer=self._generic_gap_answer(frame),
                 judge_status="unavailable",
                 issues=tuple(
@@ -155,7 +158,7 @@ class SemanticEpisodeVerifier:
         ):
             return SemanticEpisodeOutcome(
                 verified=structural,
-                status="partial",
+                status=guard_status,
                 public_answer=self._generic_gap_answer(frame),
                 judge_status="unavailable",
                 issues=tuple(
