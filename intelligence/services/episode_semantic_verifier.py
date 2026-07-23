@@ -53,8 +53,11 @@ JudgeFn = Callable[..., object]
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
 _CONTROL_FIELD_RE = re.compile(
-    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|hash|internal[_ ]?locator|"
-    r"provider(?:[_ ]?name)?|system[_ ]?prompt|tool(?:[_ ]?calls?)?)\b\s*[:=]?|"
+    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|internal[_ ]?locator|"
+    r"system[_ ]?prompt|tool[_ ]?calls?)\b\s*[:=]?|"
+    r"\bhash\b\s*[:=]|\bprovider(?:[_ ]?name)?\b\s*[:=]|"
+    r"\b_?provider_(?:attempts?|trace)\b\s*[:=]?|"
+    r"\b(?:endpoint|model)\b\s*[:=]|"
     r"\braw[_ ][a-z0-9_]+\b|证据哈希|内容哈希|内部定位|系统提示|工具调用)",
     re.IGNORECASE,
 )
@@ -328,11 +331,6 @@ class SemanticEpisodeVerifier:
         if timeout <= 0.001:
             return _JudgeCall(None, True, False, "semantic judge deadline exhausted")
 
-        # Explicit injection is the deterministic test/canary seam.  It is
-        # considered correlated because it normally shares the primary model.
-        if self._judge_fn is not None:
-            return self._invoke_injected(self._judge_fn, request, timeout, True)
-
         provider = None
         try:
             provider = llm_refine.judge_provider()
@@ -365,6 +363,12 @@ class SemanticEpisodeVerifier:
                     None, True, False, reason or "invalid semantic judge output"
                 )
             return _JudgeCall(report, False, False)
+
+        # Explicit injection is the deterministic test/canary seam only when
+        # no independent LLM_JUDGE provider is configured.  It is correlated
+        # because it normally shares the primary composer model.
+        if self._judge_fn is not None:
+            return self._invoke_injected(self._judge_fn, request, timeout, True)
 
         primary = self._primary_judge
         if primary is None and self._finalizer is not None:
@@ -521,40 +525,30 @@ class SemanticEpisodeVerifier:
             )
         except Exception:
             return None
-        if isinstance(turn, AgentOutcome):
-            repaired_outcome = turn
-            if (
-                repaired_outcome.evidence != structural.outcome.evidence
-                or repaired_outcome.traces != structural.outcome.traces
-            ):
-                return None
-        elif isinstance(turn, ModelTurn):
-            if turn.error or turn.tool_calls:
-                return None
-            try:
-                status, draft, gaps, bindings = _parse_finish(
-                    turn.content,
-                    context=context,
-                    evidence_hashes={
-                        item.content_hash for item in structural.outcome.evidence
-                    },
-                )
-            except Exception:
-                return None
-            repaired_outcome = AgentOutcome(
-                task_frame_hash=structural.outcome.task_frame_hash,
-                status=status,
-                draft=draft,
-                evidence=structural.outcome.evidence,
-                traces=structural.outcome.traces,
-                gaps=tuple(dict.fromkeys((*structural.outcome.gaps, *gaps))),
-                stop_reason="semantic_repair",
-                events=structural.outcome.events,
-                bindings=bindings,
-                usage=structural.outcome.usage,
-            )
-        else:
+        if not isinstance(turn, ModelTurn) or turn.error or turn.tool_calls:
             return None
+        try:
+            status, draft, gaps, bindings = _parse_finish(
+                turn.content,
+                context=context,
+                evidence_hashes={
+                    item.content_hash for item in structural.outcome.evidence
+                },
+            )
+        except Exception:
+            return None
+        repaired_outcome = AgentOutcome(
+            task_frame_hash=structural.outcome.task_frame_hash,
+            status=status,
+            draft=draft,
+            evidence=structural.outcome.evidence,
+            traces=structural.outcome.traces,
+            gaps=tuple(dict.fromkeys((*structural.outcome.gaps, *gaps))),
+            stop_reason="semantic_repair",
+            events=structural.outcome.events,
+            bindings=bindings,
+            usage=structural.outcome.usage,
+        )
         if repaired_outcome.task_frame_hash != frame.task_frame_hash:
             return None
         try:
@@ -605,8 +599,8 @@ class SemanticEpisodeVerifier:
                 verified=verified,
                 status="partial",
                 public_answer=self._gap_answer(frame, verified),
-                judge_status="unavailable",
-                issues=("public projection empty after sanitization",),
+                judge_status=judge_status,
+                issues=tuple(dict.fromkeys((*judge_issues, "public projection empty"))),
                 correlated_judge=correlated_judge,
             )
         citations = _public_citations(verified.outcome)
@@ -814,19 +808,9 @@ def _public_citations(outcome: AgentOutcome) -> str:
 
 
 def _private_tokens(evidence: tuple[AgentEvidence, ...]) -> frozenset[str]:
-    providers = (
-        "zhipu",
-        "glm",
-        "openai",
-        "deepseek",
-        "moonshot",
-        "qwen",
-        "dashscope",
-    )
     return frozenset(
         token.casefold()
         for token in (
-            *providers,
             *(item.tool for item in evidence),
             *(item.content_hash for item in evidence),
         )

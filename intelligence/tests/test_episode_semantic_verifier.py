@@ -272,6 +272,37 @@ def test_independent_judge_provider_records_uncorrelated(monkeypatch) -> None:
     assert result.correlated_judge is False
 
 
+def test_independent_judge_provider_takes_priority_over_injected_judge(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    independent_calls: list[object] = []
+    injected_calls: list[object] = []
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+
+    def independent(*_args, **_kwargs):
+        independent_calls.append(object())
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            provider,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "complete", independent)
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda request: injected_calls.append(request)
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "completed"
+    assert result.correlated_judge is False
+    assert len(independent_calls) == 1
+    assert injected_calls == []
+
+
 def test_repair_cannot_add_or_replace_episode_evidence() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
@@ -289,7 +320,7 @@ def test_repair_cannot_add_or_replace_episode_evidence() -> None:
     assert "new-repair-hash" not in result.public_answer
 
 
-def test_repair_agent_outcome_may_only_change_draft_and_bindings() -> None:
+def test_repair_rejects_agent_outcome_even_when_evidence_is_unchanged() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
     repair = _OutcomeRepair(structural)
@@ -299,9 +330,9 @@ def test_repair_agent_outcome_may_only_change_draft_and_bindings() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
     assert repair.calls == 1
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
-    assert result.status == "completed"
-    assert result.verified.outcome.evidence is structural.outcome.evidence
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
 
 
 def test_repair_internal_type_error_is_not_retried() -> None:
@@ -396,10 +427,38 @@ def test_clean_strict_json_report_is_accepted() -> None:
     assert result.status == "completed"
 
 
+def test_empty_public_projection_preserves_passed_judge_status() -> None:
+    frame, structural = _structural("provider=OpenAI。")
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "partial"
+    assert result.judge_status == "passed"
+    assert "public projection empty" in result.issues
+
+
+def test_empty_repaired_projection_preserves_repaired_judge_status() -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
+    result = SemanticEpisodeVerifier(
+        judge_fn=judge,
+        finalizer=_Repair("provider=OpenAI。"),
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "partial"
+    assert result.judge_status == "repaired"
+    assert "public projection empty" in result.issues
+
+
 def test_public_projection_filters_casefolded_private_tokens_everywhere() -> None:
     frame, structural = _structural(
-        "市场当前偏弱。\nOpenAI provider=PRIVATE。\n"
-        "Zhipu GLM DeepSeek Qwen DashScope。\n"
+        "市场当前偏弱。\nprovider=OpenAI。\nprovider_attempt=2。\n"
+        "_provider_trace=Zhipu。\nendpoint=https://private。\nmodel=GLM。\n"
         "system_prompt=PRIVATE。\nhash=PRIVATE。\nMARKET_DATA。\n"
         "hash_private_sentinel。"
     )
@@ -410,13 +469,11 @@ def test_public_projection_filters_casefolded_private_tokens_everywhere() -> Non
     )
     assert result.status == "completed"
     for sentinel in (
-        "OpenAI",
-        "Zhipu",
-        "GLM",
-        "DeepSeek",
-        "Qwen",
-        "DashScope",
-        "provider",
+        "provider=",
+        "provider_attempt",
+        "_provider_trace",
+        "endpoint=",
+        "model=",
         "system_prompt",
         "hash=",
         "market_data",
@@ -425,22 +482,25 @@ def test_public_projection_filters_casefolded_private_tokens_everywhere() -> Non
         assert sentinel.casefold() not in result.public_answer.casefold()
 
 
-def test_public_sanitizer_keeps_ordinary_financial_drawdown_text() -> None:
-    frame, structural = _structural("当前 drawdown（最大回撤）仍需观察。")
+def test_public_sanitizer_keeps_provider_brand_in_financial_fact() -> None:
+    frame, structural = _structural(
+        "OpenAI资本开支上升，带动光模块需求；当前 drawdown（最大回撤）仍需观察。"
+    )
     result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
     assert result.status == "completed"
+    assert "OpenAI资本开支上升" in result.public_answer
     assert "drawdown" in result.public_answer
 
 
-def test_public_citation_filters_mixed_case_provider_metadata() -> None:
+def test_public_citation_keeps_business_brand_but_filters_provider_diagnostic() -> None:
     frame, structural = _structural(
         "市场当前偏弱。",
-        title="OpenAI Provider Result",
-        source="Zhipu GLM",
+        title="OpenAI公司公告",
+        source="公开来源",
     )
     result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
         frame=frame,
@@ -449,9 +509,21 @@ def test_public_citation_filters_mixed_case_provider_metadata() -> None:
     )
     assert result.status == "completed"
     assert "市场当前偏弱" in result.public_answer
-    assert "OpenAI" not in result.public_answer
-    assert "Zhipu" not in result.public_answer
-    assert "GLM" not in result.public_answer
+    assert "OpenAI公司公告" in result.public_answer
+
+    frame, structural = _structural(
+        "市场当前偏弱。",
+        title="provider=OpenAI",
+        source="_provider_trace=Zhipu",
+    )
+    diagnostic = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert diagnostic.status == "completed"
+    assert "provider=" not in diagnostic.public_answer
+    assert "_provider_trace" not in diagnostic.public_answer
 
 
 def test_structural_gap_filters_private_control_tokens_case_insensitively() -> None:
@@ -482,6 +554,35 @@ def test_structural_gap_filters_private_control_tokens_case_insensitively() -> N
     assert result.status == "partial"
     for sentinel in ("system_prompt", "OpenAI", "hash_private", "market_data"):
         assert sentinel.casefold() not in result.public_answer.casefold()
+
+
+def test_public_gap_keeps_provider_brand_when_it_is_business_context() -> None:
+    frame, structural = _structural(
+        "未核验草稿。",
+        gaps=("OpenAI资本开支证据仍缺",),
+    )
+    original = structural.outcome
+    partial_outcome = AgentOutcome(
+        task_frame_hash=original.task_frame_hash,
+        status="partial",
+        draft=original.draft,
+        evidence=original.evidence,
+        traces=original.traces,
+        gaps=original.gaps,
+        stop_reason=original.stop_reason,
+        events=original.events,
+        bindings=(),
+        usage=original.usage,
+    )
+    assert structural.contract is not None
+    partial = verify_episode_outcome(structural.contract, partial_outcome)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "partial"
+    assert "OpenAI资本开支证据仍缺" in result.public_answer
 
 
 def test_public_gap_never_includes_internal_semantic_repair_issues() -> None:
