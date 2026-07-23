@@ -234,8 +234,13 @@ The judge receives the original question, numbered public-answer sentences,
 required-output bindings, and an evidence registry built only from the
 Episode's collected `AgentEvidence`. It checks subject identity, temporal
 alignment, fact-versus-hypothesis status, unsupported causality, numerical
-support, and cross-topic contamination. It returns strict JSON with
-`passed`, rejected sentence indexes, and issues.
+support, and cross-topic contamination. The primary model adapter is offered
+one no-side-effect `submit_grounding_report` function whose schema contains
+only `passed`, rejected sentence indexes, and issues. Exactly one schema-valid
+function call with no sibling text is accepted. Strict JSON content remains a
+fallback for adapters without function calling; ambiguous, unknown, multiple,
+or malformed calls fail closed. This is a structured transport, not a research
+tool or a new model permission.
 
 Gate behavior:
 

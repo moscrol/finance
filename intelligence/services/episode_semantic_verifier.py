@@ -82,9 +82,37 @@ _CHINESE_QUANTITY_RE = re.compile(
     r"[一二两三四五六七八九十百千万亿]+"
     r"(?:万亿元|亿元|个百分点|点|家|只|个|天|日|周|月|年|倍|成)"
 )
-_NUMERIC_CONDITION_ISSUE = (
-    "unsupported numeric condition without bound evidence"
-)
+_NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
+_JUDGE_REPORT_TOOL_NAME = "submit_grounding_report"
+_JUDGE_REPORT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": _JUDGE_REPORT_TOOL_NAME,
+            "description": "提交逐句语义证据审查结果，不执行任何外部动作。",
+            "parameters": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "passed": {"type": "boolean"},
+                    "rejected_sentence_indexes": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                    },
+                    "issues": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "passed",
+                    "rejected_sentence_indexes",
+                    "issues",
+                ],
+            },
+        },
+    }
+]
 
 _JUDGE_SYSTEM_PROMPT = (
     "你是严格的语义证据审查器。只审查用户 JSON 中的原问题、required-output "
@@ -101,7 +129,8 @@ _JUDGE_SYSTEM_PROMPT = (
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
     "passed=false 并列出句号。必须从第1句检查到最后一句，一次返回全部不合格句号；"
-    "不得发现首批问题后提前停止。"
+    "不得发现首批问题后提前停止。若提供 submit_grounding_report 函数，必须优先"
+    "调用它提交上述三个字段；只有不支持函数调用时才直接输出 JSON。"
 )
 
 _CLAIM_POLICY = {
@@ -488,13 +517,11 @@ class SemanticEpisodeVerifier:
             try:
                 turn = primary.complete(
                     messages=messages,
-                    tools=[],
+                    tools=_JUDGE_REPORT_TOOLS,
                     timeout=attempt_timeout,
                 )
             except Exception as exc:
-                issue, retryable = _stable_semantic_judge_error(
-                    type(exc).__name__
-                )
+                issue, retryable = _stable_semantic_judge_error(type(exc).__name__)
                 if attempt == 0 and retryable and not deadline.expired:
                     continue
                 return _JudgeCall(None, True, True, issue)
@@ -505,23 +532,44 @@ class SemanticEpisodeVerifier:
                     True,
                     "semantic judge invalid provider response",
                 )
-            if turn.tool_calls:
-                return _JudgeCall(
-                    None,
-                    True,
-                    True,
-                    "semantic judge returned an invalid tool call",
-                )
             if turn.error:
                 issue, retryable = _stable_semantic_judge_error(turn.error)
                 if attempt == 0 and retryable and not deadline.expired:
                     continue
                 return _JudgeCall(None, True, True, issue)
+            if turn.tool_calls:
+                report = self._parse_tool_report(
+                    turn,
+                    len(request["sentences"]),
+                )
+                if report is None:
+                    return _JudgeCall(
+                        None,
+                        True,
+                        True,
+                        "semantic judge returned an invalid tool call",
+                    )
+                return _JudgeCall(report, False, True)
             report = self._parse_report(turn.content, len(request["sentences"]))
             if report is None:
                 return _JudgeCall(None, True, True, "invalid semantic judge output")
             return _JudgeCall(report, False, True)
         return _JudgeCall(None, True, True, "semantic judge unavailable")
+
+    @staticmethod
+    def _parse_tool_report(
+        turn: ModelTurn,
+        sentence_count: int,
+    ) -> answer_model.GroundingJudgeReport | None:
+        if turn.content.strip() or len(turn.tool_calls) != 1:
+            return None
+        call = turn.tool_calls[0]
+        if call.name != _JUDGE_REPORT_TOOL_NAME:
+            return None
+        return SemanticEpisodeVerifier._parse_report(
+            call.to_dict()["arguments"],
+            sentence_count,
+        )
 
     @staticmethod
     def _invoke_injected(

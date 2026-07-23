@@ -12,6 +12,7 @@ from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
     EpisodeEvent,
+    ModelToolCall,
     ModelTurn,
     OutputEvidenceBinding,
 )
@@ -157,7 +158,8 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
 
     assert result.status == "completed"
     sent = model.calls[0]
-    assert sent["tools"] == []
+    assert len(sent["tools"]) == 1
+    assert sent["tools"][0]["function"]["name"] == "submit_grounding_report"
     request = json.loads(sent["messages"][1]["content"])
     policy = request["claim_policy"]
     assert policy["observed_facts_require_direct_evidence"] is True
@@ -404,8 +406,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
 def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
     judge = _judge(True)
     frame, structural = _structural(
-        "我的基准判断是反弹仍可持续2至5个交易日。"
-        "若指数跌破3870点则失效。"
+        "我的基准判断是反弹仍可持续2至5个交易日。若指数跌破3870点则失效。"
     )
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -444,7 +445,9 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     assert result.public_answer == "截至2026年7月23日，市场处于反弹阶段。"
 
 
-def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> None:
+def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> (
+    None
+):
     judge = _judge(True)
     frame, structural = _structural(
         "条件1：若指数跌破2026年7月17日低点，则反弹失效。"
@@ -491,12 +494,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
         "## 证据边界\n\n"
         "仍需观察。"
     )
-    expected = (
-        "## 当前判断\n\n\n"
-        "- 市场下跌。\n\n"
-        "## 证据边界\n\n"
-        "仍需观察。"
-    )
+    expected = "## 当前判断\n\n\n- 市场下跌。\n\n## 证据边界\n\n仍需观察。"
     frame, structural = _structural(raw)
     result = SemanticEpisodeVerifier(
         judge_fn=_judge(False, rejected=(3,), issues=("因果证据不足",))
@@ -513,9 +511,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
 
 def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
     missed_claim = "外资将持续流入，因此反弹将延续。"
-    frame, structural = _structural(
-        f"市场下跌。政策变化导致了下跌。{missed_claim}"
-    )
+    frame, structural = _structural(f"市场下跌。政策变化导致了下跌。{missed_claim}")
     calls = 0
 
     def strict_judge(request):
@@ -670,6 +666,122 @@ def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
     assert result.judge_status == "passed"
     assert len(model.calls) == 2
     assert all(0.0 < timeout <= 5.0 for timeout in model.calls)
+
+
+def test_primary_judge_accepts_one_schema_valid_report_tool_call(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class StructuredJudge:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(
+                {"messages": messages, "tools": tools, "timeout": timeout}
+            )
+            return ModelTurn(
+                "",
+                (
+                    ModelToolCall(
+                        "judge-report-1",
+                        "submit_grounding_report",
+                        {
+                            "passed": True,
+                            "rejected_sentence_indexes": [],
+                            "issues": [],
+                        },
+                    ),
+                ),
+                "glm",
+                "",
+            )
+
+    model = StructuredJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert len(model.calls) == 1
+    definitions = model.calls[0]["tools"]
+    assert len(definitions) == 1
+    assert definitions[0]["function"]["name"] == "submit_grounding_report"
+    assert definitions[0]["function"]["parameters"]["additionalProperties"] is False
+
+
+def test_primary_judge_rejects_unknown_report_tool_without_retry(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class WrongToolJudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            return ModelTurn(
+                "",
+                (ModelToolCall("wrong-1", "market_data", {"query": "x"}),),
+                "glm",
+                "",
+            )
+
+    model = WrongToolJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert model.calls == 1
+    assert "semantic judge returned an invalid tool call" in result.issues
+
+
+@pytest.mark.parametrize("variant", ["content_and_tool", "multiple_tools"])
+def test_primary_judge_rejects_ambiguous_report_tool_envelopes(
+    monkeypatch,
+    variant: str,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    report = ModelToolCall(
+        "judge-report-1",
+        "submit_grounding_report",
+        {
+            "passed": True,
+            "rejected_sentence_indexes": [],
+            "issues": [],
+        },
+    )
+
+    class AmbiguousJudge:
+        def complete(self, **_kwargs):
+            return ModelTurn(
+                "同时返回的正文" if variant == "content_and_tool" else "",
+                (report, report) if variant == "multiple_tools" else (report,),
+                "glm",
+                "",
+            )
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=AmbiguousJudge()).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert "semantic judge returned an invalid tool call" in result.issues
 
 
 def test_primary_judge_does_not_retry_configuration_failure(monkeypatch) -> None:
@@ -864,10 +976,11 @@ def test_public_projection_filters_casefolded_private_tokens_everywhere() -> Non
         assert sentinel.casefold() not in result.public_answer.casefold()
 
 
-def test_public_projection_filters_empty_trace_capability_but_keeps_natural_status() -> None:
+def test_public_projection_filters_empty_trace_capability_but_keeps_natural_status() -> (
+    None
+):
     frame, structural = _structural(
-        "本轮资讯检索未命中，外部催化仍待核验。\n"
-        "directional_news status=empty。",
+        "本轮资讯检索未命中，外部催化仍待核验。\ndirectional_news status=empty。",
         traces=(
             ProviderTrace(
                 provider="private:news",
