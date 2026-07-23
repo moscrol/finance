@@ -141,6 +141,29 @@ def test_terminal_claim_reports_exactly_one_winner(store: RunStore) -> None:
     assert observed.error == "executor_timeout"
 
 
+def test_failed_claim_persists_error_and_degrade_in_one_transition(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+
+    claimed, first_won = store.claim_failed_run(
+        run.run_id,
+        error="executor_timeout",
+        degrade="executor_timeout",
+    )
+    observed, second_won = store.claim_failed_run(
+        run.run_id,
+        error="continuous_runtime_failed",
+        degrade="continuous_runtime_failed",
+    )
+
+    assert first_won is True
+    assert second_won is False
+    assert claimed.status == observed.status == run_store.STATUS_FAILED
+    assert observed.error == "executor_timeout"
+    assert observed.degrades == ["executor_timeout"]
+
+
 def test_requeue_incomplete_runs_marks_only_active_runs_queued(store: RunStore) -> None:
     interrupted = store.create_run("q1", "ask")
     completed = store.create_run("q2", "ask")

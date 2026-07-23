@@ -1364,6 +1364,56 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
     assert "本轮执行超时" in messages[-1]["degrades"]
 
 
+def test_executor_timeout_loser_cannot_fail_message_after_completed_claim(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    users_root = tmp_path / "users"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    claimed = threading.Event()
+    release = threading.Event()
+
+    def completed_then_slow(**kwargs: object) -> None:
+        run_store = kwargs["run_store"]
+        run_id = kwargs["run_id"]
+        assert isinstance(run_store, RunStore)
+        assert isinstance(run_id, str)
+        _, won = run_store.claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        assert won is True
+        claimed.set()
+        release.wait(timeout=1)
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", completed_then_slow)
+    with TestClient(
+        app_module.create_app(repo_root=tmp_path, run_timeout_sec=0.05)
+    ) as timeout_client:
+        conversation_id = timeout_client.post(
+            "/api/conversations",
+            json={"title": "完成与超时竞态"},
+        ).json()["conversation_id"]
+        run_id = timeout_client.post(
+            f"/api/conversations/{conversation_id}/messages",
+            json={"content": "先完成再超时", "skill_mode": "auto"},
+        ).json()["run_id"]
+        assert claimed.wait(timeout=1)
+        time.sleep(0.1)
+
+        run = timeout_client.get(f"/api/runs/{run_id}").json()
+        messages = timeout_client.get(
+            f"/api/conversations/{conversation_id}/messages"
+        ).json()
+        events = RunStore().load_stream_events(run_id)
+        release.set()
+
+    assert run["status"] == "completed"
+    assert run["error"] is None
+    assert messages[-1]["status"] == "pending"
+    assert all(event["event_type"] != "message.error" for event in events)
+
+
 def test_cancel_terminalizes_running_conversation_message(
     tmp_path,
     monkeypatch,

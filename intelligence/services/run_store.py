@@ -445,11 +445,19 @@ class RunStore:
             self._write_run(run)
             return run
 
-    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+    def claim_failed_run(
+        self,
+        run_id: str,
+        *,
+        error: str,
+        degrade: str,
+    ) -> tuple[Run, bool]:
+        """Atomically claim failure together with its public degradation reason."""
+
         with self._state_lock:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
-                return run
+                return run, False
             degrade = redact(degrade)
             if degrade not in run.degrades:
                 run.degrades.append(degrade)
@@ -457,7 +465,15 @@ class RunStore:
             run.finished_at = _now_iso()
             run.error = redact(error)
             self._write_run(run)
-            return run
+            return run, True
+
+    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+        run, _claimed = self.claim_failed_run(
+            run_id,
+            error=error,
+            degrade=degrade,
+        )
+        return run
 
     def requeue_incomplete_runs(self, *, reason: str) -> list[Run]:
         recovered: list[Run] = []

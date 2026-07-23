@@ -487,16 +487,18 @@ class RunSupervisor:
             terminal_handler = self._terminal_handlers.get(key)
         if future is None or future.done():
             return
+        _, claimed = store.claim_failed_run(
+            run_id,
+            error="executor_timeout",
+            degrade="executor_timeout",
+        )
+        if not claimed:
+            return
         if signal is not None:
             signal.set("executor_timeout")
         future.cancel()
         if terminal_handler is not None:
             terminal_handler("executor_timeout")
-        store.fail_active_run(
-            run_id,
-            error="executor_timeout",
-            degrade="executor_timeout",
-        )
 
 
 class CreateRunRequest(BaseModel):
