@@ -20,6 +20,7 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal, cast
 
 from intelligence.services import answer_model, llm_refine
@@ -110,6 +111,29 @@ _ORDERED_LIST_ITEM_RE = re.compile(
 )
 _CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
+_CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
+_FULL_ISO_DATE_RE = re.compile(
+    r"(?<!\d)(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})(?!\d)"
+)
+_FULL_CHINESE_DATE_RE = re.compile(
+    r"(?<!\d)(?P<year>20\d{2})年(?P<month>\d{1,2})月"
+    r"(?P<day>\d{1,2})日"
+)
+_DATE_WEEKDAY_RE = re.compile(
+    r"(?:(?P<year>20\d{2})年)?(?P<month>\d{1,2})月"
+    r"(?P<day>\d{1,2})日\s*[（(]?"
+    r"(?P<label>(?:周|星期)[一二三四五六日天])[）)]?"
+)
+_WEEKDAY_INDEX = {
+    "一": 0,
+    "二": 1,
+    "三": 2,
+    "四": 3,
+    "五": 4,
+    "六": 5,
+    "日": 6,
+    "天": 6,
+}
 _JUDGE_REPORT_TOOL_NAME = "submit_grounding_report"
 _JUDGE_REPORT_TOOLS = [
     {
@@ -307,9 +331,16 @@ class SemanticEpisodeVerifier:
             )
 
         preflight_issues: tuple[str, ...] = ()
-        preflight_rejected = _novel_numeric_condition_indexes(
+        numeric_rejected = _novel_numeric_condition_indexes(
             sentences,
             structural,
+        )
+        weekday_rejected = _mismatched_weekday_indexes(
+            sentences,
+            structural,
+        )
+        preflight_rejected = tuple(
+            sorted(set((*numeric_rejected, *weekday_rejected)))
         )
         if preflight_rejected:
             before_repair = structural.outcome.draft
@@ -330,7 +361,14 @@ class SemanticEpisodeVerifier:
                     correlated_judge=False,
                 )
             structural, _preflight_frame = preflight
-            preflight_issues = (_NUMERIC_CONDITION_ISSUE,)
+            preflight_issues = tuple(
+                issue
+                for indexes, issue in (
+                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
+                )
+                if indexes
+            )
             marker_loss = _lost_required_output_markers(
                 contract,
                 before_repair,
@@ -1199,6 +1237,71 @@ def _novel_numeric_condition_indexes(
         ):
             rejected.add(index)
     return tuple(sorted(rejected))
+
+
+def _mismatched_weekday_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Reject date/weekday labels that contradict a bound calendar date."""
+
+    evidence_dates = _bound_evidence_dates(verified.outcome)
+    rejected: set[int] = set()
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int):
+            continue
+        for match in _DATE_WEEKDAY_RE.finditer(text):
+            month = int(match.group("month"))
+            day = int(match.group("day"))
+            raw_year = match.group("year")
+            candidates = {
+                value
+                for value in evidence_dates
+                if value.month == month
+                and value.day == day
+                and (raw_year is None or value.year == int(raw_year))
+            }
+            expected = {value.weekday() for value in candidates}
+            stated = _WEEKDAY_INDEX.get(match.group("label")[-1])
+            if len(expected) == 1 and stated not in expected:
+                rejected.add(index)
+                break
+    return tuple(sorted(rejected))
+
+
+def _bound_evidence_dates(outcome: AgentOutcome) -> frozenset[date]:
+    bound_hashes = {
+        content_hash
+        for binding in outcome.bindings
+        for content_hash in binding.evidence_hashes
+    }
+    parsed: set[date] = set()
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes:
+            continue
+        corpus = " ".join(
+            (
+                item.title,
+                item.detail,
+                item.source,
+                str(item.source_date or ""),
+            )
+        )
+        for pattern in (_FULL_ISO_DATE_RE, _FULL_CHINESE_DATE_RE):
+            for match in pattern.finditer(corpus):
+                try:
+                    parsed.add(
+                        date(
+                            int(match.group("year")),
+                            int(match.group("month")),
+                            int(match.group("day")),
+                        )
+                    )
+                except ValueError:
+                    continue
+    return frozenset(parsed)
 
 
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:

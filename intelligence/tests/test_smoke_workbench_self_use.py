@@ -73,6 +73,24 @@ def test_semantic_smoke_accepts_quantified_mainline_evidence() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_direct_mainline_conclusion() -> None:
+    issues = semantic_answer_issues(
+        "目前市场的主线是什么",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "一、直接结论：科技、医药与电力多线轮动。"
+                    "支持证据：成交额约2.19万亿元。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_forecast_required_outputs() -> None:
     issues = semantic_answer_issues(
         "明天是反弹还是继续下跌，分别给出理由",
@@ -113,6 +131,24 @@ def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> N
                 "content": (
                     "直接判断：本周实际上上涨约3%。"
                     "证据缺口：7月17日单日大跌的精确诱因无法确认。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "直接判断：本周实际上涨约3%。"
+                    "证据边界与缺口：单日大跌缺少时间对齐的事件证据。"
                 ),
             }
         ],

@@ -642,6 +642,27 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert "3876.78点" in result.public_answer
 
 
+def test_local_gate_removes_calendar_weekday_mismatch() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "直接判断：本周整体上涨。"
+        "本周显著下跌的是7月17日（周四），上证下跌约3.05%。",
+        detail="2026-07-17 上证指数下跌约3.05%。",
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "直接判断：本周整体上涨" in result.public_answer
+    assert "周四" not in result.public_answer
+    assert any("weekday mismatch" in issue for issue in result.issues)
+
+
 def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold() -> (
     None
 ):

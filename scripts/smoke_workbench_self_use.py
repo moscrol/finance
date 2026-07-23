@@ -142,6 +142,13 @@ QUANTIFIED_MARKET_OBSERVATION = re.compile(
     r"(?:成交(?:额)?|涨停|跌停|上涨家数|下跌家数|涨跌幅|量比|"
     r"近\s*\d+\s*日)[^。；;\n]{0,48}\d"
 )
+DIRECT_ASSESSMENT = re.compile(
+    r"(?:直接|核心|基准)[^。；;\n]{0,4}(?:回答|判断|结论)"
+)
+EXPLICIT_EVIDENCE_GAP = re.compile(
+    r"(?:证据|数据|信息|消息面|因果|来源)[^。；;\n]{0,16}缺口|"
+    r"缺口[^。；;\n]{0,16}(?:无法|缺少|尚未|未能)"
+)
 
 
 class SmokeProtocolError(RuntimeError):
@@ -177,20 +184,21 @@ def semantic_answer_issues(
             "无法形成可靠",
             "证据缺口",
         )
-    )
+    ) or bool(EXPLICIT_EVIDENCE_GAP.search(assistant_text))
     if answer_status != "complete" and not explicit_gap:
         issues.append(f"answer_status={answer_status!r}")
     if "主线" in question:
-        if not any(
-            marker in assistant_text
-            for marker in (
-                "主线是",
-                "主线偏向",
-                "当前主线",
-                "主线判断",
-                "直接回答",
-                "直接判断",
+        if not (
+            any(
+                marker in assistant_text
+                for marker in (
+                    "主线是",
+                    "主线偏向",
+                    "当前主线",
+                    "主线判断",
+                )
             )
+            or DIRECT_ASSESSMENT.search(assistant_text)
         ):
             issues.append("mainline_direct_assessment_missing")
         if not (
