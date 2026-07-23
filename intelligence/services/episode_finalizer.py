@@ -16,6 +16,8 @@ from intelligence.services.task_frame import TaskFrame
 
 DEFAULT_FINALIZER_TIMEOUT = 20.0
 MIN_FINALIZATION_RECOVERY_SECONDS = 1.0
+MAX_RECOVERY_EVIDENCE = 12
+MAX_RECOVERY_DETAIL_CHARS = 360
 _FAILURE_REASON_CODES = frozenset(
     {
         "deadline_exhausted",
@@ -38,6 +40,7 @@ _RECOVERY_SYSTEM_PROMPT = (
     '"evidence_hashes":["..."],"gap":""}]}。'
     "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
+    "draft 先直接回答用户问题、只保留决定性依据且不超过1200字。"
 )
 
 def _stable_failure_reason(value: object) -> str:
@@ -155,7 +158,7 @@ class EpisodeFinalizer:
                 }
                 for item in context.contract.required_outputs
             ],
-            "evidence": [public_agent_evidence(item) for item in evidence],
+            "evidence": _compact_evidence(evidence),
             "gaps": list(gaps),
             "today": context.today,
             "latest_data_date": context.latest_data_date,
@@ -163,8 +166,46 @@ class EpisodeFinalizer:
         }
 
 
+def _compact_evidence(
+    evidence: tuple[AgentEvidence, ...],
+) -> list[dict[str, object]]:
+    """Select a bounded, tool-balanced view while retaining original hashes."""
+
+    grouped: dict[str, list[AgentEvidence]] = {}
+    for item in evidence:
+        grouped.setdefault(item.tool, []).append(item)
+
+    selected: list[AgentEvidence] = []
+    index = 0
+    while len(selected) < MAX_RECOVERY_EVIDENCE:
+        added = False
+        for items in grouped.values():
+            if index >= len(items):
+                continue
+            selected.append(items[index])
+            added = True
+            if len(selected) >= MAX_RECOVERY_EVIDENCE:
+                break
+        if not added:
+            break
+        index += 1
+
+    projected: list[dict[str, object]] = []
+    for item in selected:
+        public = public_agent_evidence(item)
+        detail = str(public.get("detail") or "")
+        if len(detail) > MAX_RECOVERY_DETAIL_CHARS:
+            public["detail"] = (
+                detail[: MAX_RECOVERY_DETAIL_CHARS - 3].rstrip() + "..."
+            )
+        projected.append(public)
+    return projected
+
+
 __all__ = [
     "DEFAULT_FINALIZER_TIMEOUT",
     "EpisodeFinalizer",
+    "MAX_RECOVERY_DETAIL_CHARS",
+    "MAX_RECOVERY_EVIDENCE",
     "MIN_FINALIZATION_RECOVERY_SECONDS",
 ]

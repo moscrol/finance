@@ -275,6 +275,12 @@ dates, and `failure_reason`. Call `model.complete` once with the two messages,
 an empty tools list, and the remaining synthesis timeout. Do not parse or bless
 the response inside the module.
 
+The evidence field is a compact view, not a second full transcript: select no
+more than twelve records round-robin across producing tools, cap each detail
+excerpt at 360 characters, preserve every selected original hash, and instruct
+the recovery draft to stay within 1,200 Chinese characters. Keep the complete
+evidence tuple in the Episode outcome/artifact.
+
 Add `repair()` on the same module for semantic rejection. Its payload adds only
 numbered rejected sentences and judge issues; it still receives the same
 evidence registry and exposes no tools.

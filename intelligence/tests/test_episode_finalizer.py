@@ -159,6 +159,47 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
     assert 0.0 < sent["timeout"] <= 20.0
 
 
+def test_recovery_compacts_large_evidence_round_robin_without_minting_hashes() -> None:
+    model = RecordingModel(ModelTurn("{}", (), "recording", ""))
+    frame = _frame()
+    evidence = tuple(
+        AgentEvidence(
+            tool=tool,
+            title=f"{tool}-{index}",
+            detail=f"{tool} detail {index} " + ("x" * 800),
+            source="本地证据",
+            source_date="2026-07-23",
+            evidence_tier="L4",
+            content_hash=f"{tool}-{index}-hash",
+        )
+        for index in range(10)
+        for tool in ("market_data", "mainline_context")
+    )
+
+    EpisodeFinalizer(model).recover(
+        task_frame=frame,
+        context=_context(frame),
+        evidence=evidence,
+        gaps=(),
+        failure_reason="provider_error",
+    )
+
+    payload = json.loads(model.calls[0]["messages"][1]["content"])
+    projected = payload["evidence"]
+    assert len(projected) == 12
+    assert [item["tool"] for item in projected[:4]] == [
+        "market_data",
+        "mainline_context",
+        "market_data",
+        "mainline_context",
+    ]
+    original_hashes = {item.content_hash for item in evidence}
+    assert {item["content_hash"] for item in projected} <= original_hashes
+    assert all(len(item["detail"]) <= 360 for item in projected)
+    assert len(json.dumps(projected, ensure_ascii=False)) < 9_000
+    assert "不超过1200字" in model.calls[0]["messages"][0]["content"]
+
+
 def test_recovery_uses_only_remaining_synthesis_time() -> None:
     model = RecordingModel(ModelTurn("{}", (), "recording", ""))
     frame = _frame()

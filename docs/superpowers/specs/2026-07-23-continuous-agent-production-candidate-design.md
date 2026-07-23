@@ -173,6 +173,12 @@ Recovery rules:
 - Input contains the immutable task, required outputs, compact public evidence
   records with their existing hashes, known gaps, data dates, and the original
   failure reason. It contains no hidden reasoning and mints no evidence.
+- The compact view is capped at twelve evidence records, selected round-robin
+  across the tools that produced them, with each detail excerpt capped at 360
+  characters. The full evidence ledger remains in the Episode artifact. The
+  recovery draft is capped by instruction at 1,200 Chinese characters so the
+  provider spends its bounded call on a direct answer rather than reprinting
+  the ledger.
 - The recovered `FINAL_JSON` passes the same parser and structural verifier as
   the normal answer. Recovery cannot upgrade a missing output to completed
   without an existing evidence hash.
