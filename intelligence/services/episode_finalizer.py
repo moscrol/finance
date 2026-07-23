@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -41,16 +40,13 @@ _RECOVERY_SYSTEM_PROMPT = (
     "解释、工具调用或 JSON 之外的文本。"
 )
 
-_REPAIR_SYSTEM_PROMPT = (
-    "你是金融研究 Agent 的定向终局修复器。研究与工具阶段已经永久关闭，不得请求"
-    "或臆造任何新证据。删除或改写用户 JSON 中被拒绝的句子，并逐项解决 judge "
-    "issues；只能使用 evidence 已存在的 content_hash。严格回答原始 TaskFrame 与 "
-    "required_outputs，只输出一个 FINAL_JSON 对象："
-    '{"status":"completed|partial","draft":"自然语言回答",'
-    '"gaps":["..."],"bindings":[{"output_id":"...",'
-    '"evidence_hashes":["..."],"gap":""}]}。'
-    "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
-    "解释、工具调用或 JSON 之外的文本。"
+_DRAFT_REPAIR_SYSTEM_PROMPT = (
+    "你是金融研究 Agent 的措辞修复器。事实、证据、绑定、缺口与完成状态已经冻结，"
+    "你无权修改它们，也不得请求工具。只能在原草稿内删除、收窄或加限定语，以解决"
+    "被拒绝句子和 judge issues；不得新增事实、因果、数字、阈值、日期、主体、证据、"
+    "哈希或绑定。保留未被拒绝且仍通顺的内容。只输出一个严格 JSON 对象，字段必须"
+    '且只能是 {"draft":"修订后的自然语言回答"}；不要输出解释、工具调用或 JSON '
+    "之外的文本。"
 )
 
 
@@ -108,51 +104,6 @@ class EpisodeFinalizer:
     ) -> ModelTurn:
         """Return the provider turn unchanged after one no-tools recovery call."""
 
-        return self._complete(
-            mode="recover",
-            task_frame=task_frame,
-            context=context,
-            evidence=evidence,
-            gaps=gaps,
-            failure_reason=failure_reason,
-        )
-
-    def repair(
-        self,
-        *,
-        task_frame: TaskFrame,
-        context: ResearchRunContext,
-        evidence: tuple[AgentEvidence, ...],
-        gaps: tuple[str, ...],
-        failure_reason: str,
-        rejected_sentences: tuple[str, ...],
-        judge_issues: tuple[str, ...],
-    ) -> ModelTurn:
-        """Return one targeted semantic-repair turn without blessing its content."""
-
-        return self._complete(
-            mode="repair",
-            task_frame=task_frame,
-            context=context,
-            evidence=evidence,
-            gaps=gaps,
-            failure_reason=failure_reason,
-            rejected_sentences=rejected_sentences,
-            judge_issues=judge_issues,
-        )
-
-    def _complete(
-        self,
-        *,
-        mode: Literal["recover", "repair"],
-        task_frame: TaskFrame,
-        context: ResearchRunContext,
-        evidence: tuple[AgentEvidence, ...],
-        gaps: tuple[str, ...],
-        failure_reason: str,
-        rejected_sentences: tuple[str, ...] = (),
-        judge_issues: tuple[str, ...] = (),
-    ) -> ModelTurn:
         payload = self._payload(
             task_frame=task_frame,
             context=context,
@@ -160,12 +111,53 @@ class EpisodeFinalizer:
             gaps=gaps,
             failure_reason=failure_reason,
         )
-        if mode == "repair":
-            payload["rejected_sentences"] = [
+        return self._complete(
+            system_prompt=_RECOVERY_SYSTEM_PROMPT,
+            payload=payload,
+            context=context,
+        )
+
+    def repair_draft(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        draft: str,
+        rejected_sentences: tuple[str, ...],
+        judge_issues: tuple[str, ...],
+    ) -> ModelTurn:
+        """Repair wording only; truth-plane state never enters the model output."""
+
+        payload: dict[str, object] = {
+            "task_frame": task_frame.to_dict(),
+            "required_outputs": [
+                {
+                    "output_id": item.output_id,
+                    "description": item.description,
+                    "required": item.required,
+                }
+                for item in context.contract.required_outputs
+            ],
+            "draft": str(draft),
+            "rejected_sentences": [
                 {"index": index, "sentence": sentence}
                 for index, sentence in enumerate(rejected_sentences, start=1)
-            ]
-            payload["judge_issues"] = list(judge_issues)
+            ],
+            "judge_issues": list(judge_issues),
+        }
+        return self._complete(
+            system_prompt=_DRAFT_REPAIR_SYSTEM_PROMPT,
+            payload=payload,
+            context=context,
+        )
+
+    def _complete(
+        self,
+        *,
+        system_prompt: str,
+        payload: dict[str, object],
+        context: ResearchRunContext,
+    ) -> ModelTurn:
         timeout = context.deadline.synthesis_timeout(self._llm_timeout)
         if timeout <= 0.0:
             raise TimeoutError("finalization deadline exhausted")
@@ -173,11 +165,7 @@ class EpisodeFinalizer:
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        _RECOVERY_SYSTEM_PROMPT
-                        if mode == "recover"
-                        else _REPAIR_SYSTEM_PROMPT
-                    ),
+                    "content": system_prompt,
                 },
                 {
                     "role": "user",

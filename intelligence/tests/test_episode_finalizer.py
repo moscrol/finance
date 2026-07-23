@@ -159,16 +159,14 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
     assert 0.0 < sent["timeout"] <= 20.0
 
 
-def test_repair_adds_only_numbered_rejections_and_judge_issues() -> None:
+def test_repair_draft_sends_only_frozen_draft_and_feedback() -> None:
     model = RecordingModel(ModelTurn("{}", (), "recording", ""))
     frame = _frame()
 
-    EpisodeFinalizer(model).repair(
+    turn = EpisodeFinalizer(model).repair_draft(
         task_frame=frame,
         context=_context(frame),
-        evidence=(_evidence(),),
-        gaps=("missing news",),
-        failure_reason="semantic_rejection",
+        draft="市场下跌。政策变化导致了下跌。",
         rejected_sentences=("市场一定上涨。", "风险已经消失。"),
         judge_issues=("因果证据不足",),
     )
@@ -179,20 +177,27 @@ def test_repair_adds_only_numbered_rejections_and_judge_issues() -> None:
     assert set(payload) == {
         "task_frame",
         "required_outputs",
-        "evidence",
-        "gaps",
-        "today",
-        "latest_data_date",
-        "failure_reason",
+        "draft",
         "rejected_sentences",
         "judge_issues",
     }
+    assert payload["draft"] == "市场下跌。政策变化导致了下跌。"
+    assert payload["required_outputs"] == [
+        {
+            "output_id": "direct_assessment",
+            "description": "给出市场结构判断",
+            "required": True,
+        }
+    ]
     assert payload["rejected_sentences"] == [
         {"index": 1, "sentence": "市场一定上涨。"},
         {"index": 2, "sentence": "风险已经消失。"},
     ]
     assert payload["judge_issues"] == ["因果证据不足"]
+    assert "evidence" not in payload
+    assert "bindings" not in payload
     assert len(sent["messages"]) == 2
+    assert turn is model._turn
 
 
 def test_recovery_uses_only_remaining_synthesis_time() -> None:

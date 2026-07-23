@@ -28,7 +28,6 @@ from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
     ModelTurn,
-    OutputEvidenceBinding,
     public_agent_evidence,
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
@@ -581,13 +580,11 @@ class SemanticEpisodeVerifier:
             ),
         )
         try:
-            turn = _call_repair(
+            turn = _call_draft_repair(
                 finalizer,
                 task_frame=frame,
                 context=context,
-                evidence=structural.outcome.evidence,
-                gaps=tuple(structural.outcome.gaps),
-                failure_reason="semantic_rejection",
+                draft=structural.outcome.draft,
                 rejected_sentences=rejected_sentences,
                 judge_issues=judge_issues,
             )
@@ -596,26 +593,21 @@ class SemanticEpisodeVerifier:
         if not isinstance(turn, ModelTurn) or turn.error or turn.tool_calls:
             return None
         try:
-            status, draft, gaps, bindings = _parse_finish(
-                turn.content,
-                context=context,
-                evidence_hashes={
-                    item.content_hash for item in structural.outcome.evidence
-                },
-            )
+            draft = _parse_draft_repair(turn.content)
         except Exception:
             return None
+        original = structural.outcome
         repaired_outcome = AgentOutcome(
-            task_frame_hash=structural.outcome.task_frame_hash,
-            status=status,
+            task_frame_hash=original.task_frame_hash,
+            status=original.status,
             draft=draft,
-            evidence=structural.outcome.evidence,
-            traces=structural.outcome.traces,
-            gaps=tuple(dict.fromkeys((*structural.outcome.gaps, *gaps))),
+            evidence=original.evidence,
+            traces=original.traces,
+            gaps=original.gaps,
             stop_reason="semantic_repair",
-            events=structural.outcome.events,
-            bindings=bindings,
-            usage=structural.outcome.usage,
+            events=original.events,
+            bindings=original.bindings,
+            usage=original.usage,
         )
         if repaired_outcome.task_frame_hash != frame.task_frame_hash:
             return None
@@ -776,10 +768,10 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
     return fn(request)
 
 
-def _call_repair(finalizer: object, **kwargs: object) -> object:
-    method = getattr(finalizer, "repair", None)
+def _call_draft_repair(finalizer: object, **kwargs: object) -> object:
+    method = getattr(finalizer, "repair_draft", None)
     if method is None or not callable(method):
-        raise TypeError("finalizer does not expose repair")
+        raise TypeError("finalizer does not expose repair_draft")
     try:
         signature = inspect.signature(method)
     except (TypeError, ValueError):
@@ -799,22 +791,20 @@ def _call_repair(finalizer: object, **kwargs: object) -> object:
     return method(**accepted)
 
 
-def _parse_finish(
-    content: str,
-    *,
-    context: ResearchRunContext,
-    evidence_hashes: set[str],
-) -> tuple[object, str, tuple[str, ...], tuple[OutputEvidenceBinding, ...]]:
-    # Keep the exact normal finish parser as the single schema owner.  It is a
-    # private method today, but reusing it prevents repair from inventing a
-    # second, looser FINAL_JSON contract.
-    from intelligence.services.agent_episode import ContinuousAgentEpisode
+def _parse_draft_repair(content: str) -> str:
+    """Accept only the tiny wording-only repair envelope."""
 
-    return ContinuousAgentEpisode._parse_finish(  # type: ignore[attr-defined]
-        content,
-        context=context,
-        evidence_hashes=evidence_hashes,
-    )
+    text = str(content or "").strip()
+    fenced = _STRICT_JSON_FENCE_RE.fullmatch(text)
+    if fenced is not None:
+        text = fenced.group("body")
+    payload = json.loads(text)
+    if not isinstance(payload, dict) or set(payload) != {"draft"}:
+        raise ValueError("draft repair must contain only draft")
+    draft = payload["draft"]
+    if not isinstance(draft, str) or not draft.strip():
+        raise ValueError("draft repair must be non-empty")
+    return draft.strip()
 
 
 def _sanitize_public_answer(
