@@ -246,11 +246,11 @@ class _LateRecoveryDeadline:
 
     def synthesis_timeout(self, configured_limit: float) -> float:
         self._synthesis_calls += 1
-        remaining = 30.0 if self._synthesis_calls < 3 else 0.0
+        remaining = 30.0 if self._synthesis_calls < 4 else 0.0
         return min(configured_limit, remaining)
 
     def remaining(self) -> float:
-        return 30.0 if self._synthesis_calls < 3 else 0.0
+        return 30.0 if self._synthesis_calls < 4 else 0.0
 
     @property
     def expired(self) -> bool:
@@ -880,7 +880,7 @@ def test_model_unavailable_before_evidence_fails_honestly() -> None:
     ],
     ids=("exception", "provider_error"),
 )
-def test_model_failure_after_evidence_gets_exactly_one_compact_recovery(
+def test_planning_failure_after_evidence_closes_research_then_finalizes_continuously(
     failure: Exception | ModelTurn,
     expected_llm_calls: int,
 ) -> None:
@@ -900,27 +900,46 @@ def test_model_failure_after_evidence_gets_exactly_one_compact_recovery(
     )
 
     assert outcome.status == "completed"
-    assert outcome.stop_reason == "finalization_recovered"
+    assert outcome.stop_reason == "model_finish"
     assert len(model.calls) == 3
     assert model.calls[-1]["tools"] == []
     assert outcome.usage.llm_calls == expected_llm_calls
+    finalization_events = [
+        event
+        for event in outcome.events
+        if event.kind == "finalization"
+    ]
+    assert len(finalization_events) == 1
+    assert finalization_events[0].payload["reason"] == "planning_model_unavailable"
+    assert not any(
+        event.kind == "finalization_recovery_started" for event in outcome.events
+    )
+
+
+def test_model_failure_after_tools_close_gets_exactly_one_compact_recovery() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("", (), "glm", "provider unavailable"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 3
+    assert model.calls[1]["tools"] == []
+    assert model.calls[2]["tools"] == []
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
-    recovery_turns = [
-        event
-        for event in outcome.events
-        if event.kind == "model_turn"
-        and event.payload.get("phase") == "finalization_recovery"
-    ]
-    assert len(recovery_turns) == 1
-    recovery_outcomes = [
-        event
-        for event in outcome.events
-        if event.kind == "finalization_recovery_outcome"
-    ]
-    assert len(recovery_outcomes) == 1
-    assert recovery_outcomes[0].payload["status"] == "recovered"
 
 
 def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
@@ -1049,7 +1068,14 @@ def test_compact_recovery_is_not_called_with_less_than_one_second_left() -> None
 
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=frame,
-        context=context,
+        context=ResearchRunContext(
+            contract=context.contract,
+            deadline=context.deadline,
+            policy=ResearchPolicy("quick", 1, 30.0, 0.0),
+            trace_parent_id=context.trace_parent_id,
+            today=context.today,
+            latest_data_date=context.latest_data_date,
+        ),
         registry=_market_registry(_successful_runner),
     )
 
@@ -1082,7 +1108,14 @@ def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
 
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=frame,
-        context=context,
+        context=ResearchRunContext(
+            contract=context.contract,
+            deadline=context.deadline,
+            policy=ResearchPolicy("quick", 1, 30.0, 0.0),
+            trace_parent_id=context.trace_parent_id,
+            today=context.today,
+            latest_data_date=context.latest_data_date,
+        ),
         registry=_market_registry(_successful_runner),
     )
 
@@ -1144,7 +1177,7 @@ def test_recovery_exception_without_attempt_metadata_adds_zero_llm_calls() -> No
         finalizer=_RaisingFinalizer(),  # type: ignore[arg-type]
     ).run(
         task_frame=frame,
-        context=_context(frame),
+        context=_context(frame, max_steps=1),
         registry=_market_registry(_successful_runner),
     )
 

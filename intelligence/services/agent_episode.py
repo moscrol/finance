@@ -248,24 +248,10 @@ class ContinuousAgentEpisode:
                     finalization_reason = "retrieval_deadline_closed"
                 else:
                     finalization_reason = "model_round_budget_exhausted"
-                ledger.add(
-                    "finalization",
-                    {"reason": finalization_reason},
-                )
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
-                            "原始观察，立即基于已有 evidence_hashes 输出 FINAL_JSON；"
-                            "证据不足的 required output 必须标 partial 并写明 gap。"
-                            "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
-                            "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
-                            "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
-                            "必须把直接证据哈希放入对应 output binding，否则删去数字。"
-                            f"关闭原因：{finalization_reason}"
-                        ),
-                    }
+                self._begin_finalization(
+                    messages=messages,
+                    ledger=ledger,
+                    reason=finalization_reason,
                 )
 
             timeout = (
@@ -298,6 +284,20 @@ class ContinuousAgentEpisode:
                 llm_calls += 1
                 reason = f"model_exception:{type(exc).__name__}"
                 ledger.add("model_error", {"reason": reason})
+                if (
+                    not finalization_started
+                    and self._can_recover_finalization(
+                        context=context,
+                        evidence=accumulator.evidence,
+                    )
+                ):
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason="planning_model_unavailable",
+                    )
+                    continue
                 if self._can_recover_finalization(
                     context=context,
                     evidence=accumulator.evidence,
@@ -339,6 +339,20 @@ class ContinuousAgentEpisode:
                 )
             if turn.error:
                 ledger.add("model_error", {"reason": turn.error})
+                if (
+                    not finalization_started
+                    and self._can_recover_finalization(
+                        context=context,
+                        evidence=accumulator.evidence,
+                    )
+                ):
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason="planning_model_unavailable",
+                    )
+                    continue
                 if self._can_recover_finalization(
                     context=context,
                     evidence=accumulator.evidence,
@@ -504,6 +518,30 @@ class ContinuousAgentEpisode:
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+        )
+
+    @staticmethod
+    def _begin_finalization(
+        *,
+        messages: list[dict[str, object]],
+        ledger: _EpisodeLedger,
+        reason: str,
+    ) -> None:
+        ledger.add("finalization", {"reason": reason})
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
+                    "原始观察，立即基于已有 evidence_hashes 输出 FINAL_JSON；"
+                    "证据不足的 required output 必须标 partial 并写明 gap。"
+                    "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
+                    "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
+                    "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
+                    "必须把直接证据哈希放入对应 output binding，否则删去数字。"
+                    f"关闭原因：{reason}"
+                ),
+            }
         )
 
     def _can_recover_finalization(
