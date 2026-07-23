@@ -47,7 +47,7 @@ def verify_episode_outcome(
     contract: ResearchTaskContract,
     outcome: AgentOutcome,
 ) -> VerifiedEpisodeOutcome:
-    """Verify bindings and only ever preserve or downgrade model status."""
+    """Derive structural completion from bindings, not model confidence."""
 
     if (
         not contract.task_frame_hash
@@ -196,10 +196,13 @@ def verify_episode_outcome(
         and outcome.draft.strip()
     )
 
-    if outcome.status == "completed" and structurally_complete:
-        verified_status: VerifiedStatus = "completed"
-    elif outcome.status in {"clarification", "failed"}:
+    if outcome.status in {"clarification", "failed"}:
         verified_status = outcome.status
+    elif structurally_complete:
+        # ``partial`` is frequently used by the model to communicate honest
+        # caveats in top-level gaps.  Those caveats must not suppress the
+        # semantic judge when every required output is structurally fulfilled.
+        verified_status = "completed"
     else:
         verified_status = "partial"
 

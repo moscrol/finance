@@ -51,6 +51,7 @@ def _frame() -> TaskFrame:
 def _structural(
     draft: str,
     *,
+    status: str = "completed",
     detail: str = "市场成交额与结构观察",
     title: str = "A股市场快照",
     source: str = "行情快照",
@@ -81,7 +82,7 @@ def _structural(
     )
     outcome = AgentOutcome(
         task_frame_hash=frame.task_frame_hash,
-        status="completed",
+        status=status,
         draft=draft,
         evidence=(evidence,),
         traces=traces,
@@ -277,6 +278,30 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     system_prompt = sent["messages"][0]["content"]
     assert "只支持检索过程状态" in system_prompt
     assert "不能支持市场事实或因果结论" in system_prompt
+
+
+def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural(
+        "我的判断是反弹仍有数日窗口，但外部催化仍待核验。",
+        status="partial",
+        gaps=("本轮资讯检索未命中",),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(model.calls) == 1
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert result.verified.completion.task_coverage == "fulfilled"
+    assert result.verified.outcome.gaps == ("本轮资讯检索未命中",)
 
 
 def test_unsupported_causality_is_rejected_and_not_publicly_completed() -> None:

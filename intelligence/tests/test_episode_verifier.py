@@ -191,7 +191,7 @@ def test_explicit_gap_is_partial_not_fake_completed() -> None:
     assert all(item.status == "missing" for item in verified.completion.outputs)
 
 
-def test_verifier_never_upgrades_a_partial_model_outcome() -> None:
+def test_fulfilled_bindings_override_partial_model_confidence() -> None:
     market = _evidence("market_data", "market-1")
     outcome = _outcome(
         status="partial",
@@ -204,7 +204,8 @@ def test_verifier_never_upgrades_a_partial_model_outcome() -> None:
 
     verified = verify_episode_outcome(_contract(), outcome)
 
-    assert verified.verified_status == "partial"
+    assert verified.verified_status == "completed"
+    assert verified.completion.business_status == "complete"
 
 
 def test_missing_mandatory_evidence_capability_downgrades_completion() -> None:
