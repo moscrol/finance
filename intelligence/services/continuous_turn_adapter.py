@@ -111,6 +111,12 @@ class ContinuousTurnAdapter:
             )
         ):
             return _declined_result()
+        control_frame = getattr(control, "task_frame", None)
+        if (
+            not isinstance(control_frame, TaskFrame)
+            or frame.task_frame_hash != control_frame.task_frame_hash
+        ):
+            return _control_frame_mismatch_result()
         if control.terminal_kind == "clarification":
             questions = tuple(
                 item.strip() for item in control.clarification_questions if item.strip()
@@ -356,16 +362,55 @@ def _declined_result() -> ContinuousTurnResult:
     )
 
 
+def _control_frame_mismatch_result() -> ContinuousTurnResult:
+    return ContinuousTurnResult(
+        handled=True,
+        status="failed",
+        answer="",
+        as_of=None,
+        citations=(),
+        warnings=("本轮任务边界校验失败，未执行研究。",),
+        private_artifact={
+            "schema_version": 1,
+            "execution_kind": "continuous_episode",
+            "failure": {"code": "control_frame_mismatch"},
+        },
+        events=(
+            {
+                "type": "progress",
+                "stage": "failed",
+                "message": "本轮任务未执行。",
+                "status": "failed",
+            },
+        ),
+    )
+
+
 _PUBLIC_CONTROL_RE = re.compile(
-    r"(?:content[_ ]?hash|evidence[_ ]?hash|system[_ ]?prompt|"
+    r"(?:\b[a-z_]*hash\s*[:=]|"
+    r"(?:任务帧|任务框架|证据|内容|控制面)?哈希(?:值)?\s*[:：=]|"
+    r"system[_ ]?prompt|"
     r"tool[_ ]?calls?|provider(?:[_ ][a-z0-9_-]+)?|"
-    r"\bprovider\s*[:=]|证据哈希|内容哈希|系统提示|工具调用)",
+    r"\bprovider\s*[:=]|系统提示|工具调用)",
     re.IGNORECASE,
 )
 _SECRET_KEY_RE = re.compile(
     r"(?:api[_-]?key|token|secret|password|authorization)",
     re.IGNORECASE,
 )
+
+
+def _contains_public_control(
+    value: object,
+    private_tokens: frozenset[str],
+) -> bool:
+    text = str(value or "")
+    if not text:
+        return False
+    if _PUBLIC_CONTROL_RE.search(text):
+        return True
+    folded = text.casefold()
+    return any(token in folded for token in private_tokens)
 
 
 def _safe_public_text(
@@ -376,12 +421,7 @@ def _safe_public_text(
     lines = []
     for raw in redact(str(value or "")).splitlines():
         line = raw.strip()
-        folded = line.casefold()
-        if (
-            line
-            and not _PUBLIC_CONTROL_RE.search(line)
-            and not any(token in folded for token in private_tokens)
-        ):
+        if line and not _contains_public_control(line, private_tokens):
             lines.append(line)
     return "\n".join(lines).strip()
 
@@ -470,6 +510,7 @@ def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:
     return frozenset(
         token.casefold()
         for token in (
+            outcome.task_frame_hash,
             *(item.tool for item in outcome.evidence),
             *(item.content_hash for item in outcome.evidence),
             *(item.internal_locator for item in outcome.evidence),
@@ -498,10 +539,7 @@ def _public_citation_projection(
             for value in (item.title, item.source, item.source_date)
         )
         if any(
-            _PUBLIC_CONTROL_RE.search(value)
-            or any(token in value.casefold() for token in private_tokens)
-            for value in values
-            if value
+            _contains_public_control(value, private_tokens) for value in values if value
         ):
             continue
         if values in seen or not any(values):

@@ -155,6 +155,75 @@ def test_off_mode_always_declines_without_running_anything() -> None:
     assert result.private_artifact is None
 
 
+def test_cross_frame_control_fails_closed_before_any_dependency() -> None:
+    market_frame = _frame()
+    financial_frame = TaskFrame(
+        raw_question="瑞华泰最新财报怎么看",
+        user_goal="分析瑞华泰最新财务表现",
+        question_type="financial_analysis",
+        subject="瑞华泰",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最新报告期",
+        required_outputs=(
+            "financial_assessment",
+            "metric_evidence",
+            "counterpoint",
+        ),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_financial_evidence",
+        confidence=0.95,
+    )
+    financial_control = _control(
+        financial_frame,
+        capabilities=("evidence_lookup", "l3_lookup"),
+    )
+    dependency_calls: list[str] = []
+
+    def forbidden(name):
+        def call(*_args, **_kwargs):
+            dependency_calls.append(name)
+            raise AssertionError(f"{name} must not be called")
+
+        return call
+
+    class Runtime:
+        run = forbidden("runtime")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=forbidden("context"),
+        registry_factory=forbidden("registry"),
+        fast_path_runner=forbidden("fast_path"),
+        structural_verifier=forbidden("structural"),
+        semantic_verifier=forbidden("semantic"),
+    ).handle(frame=market_frame, control=financial_control)
+
+    assert dependency_calls == []
+    assert result.handled is True
+    assert result.status == "failed"
+    assert result.answer == ""
+    assert result.private_artifact == {
+        "schema_version": 1,
+        "execution_kind": "continuous_episode",
+        "failure": {"code": "control_frame_mismatch"},
+    }
+    assert result.events[-1]["status"] == "failed"
+    public = str(
+        {
+            "answer": result.answer,
+            "citations": result.citations,
+            "warnings": result.warnings,
+            "events": result.events,
+        }
+    )
+    assert market_frame.task_frame_hash not in public
+    assert financial_frame.task_frame_hash not in public
+
+
 def test_clarification_returns_without_registry_model_or_retrieval() -> None:
     frame = _frame(clarification_question="你希望按 A 股还是美股判断？")
     control = _control(
@@ -515,6 +584,109 @@ def test_public_projection_hides_control_plane_fields_and_private_tokens() -> No
     assert result.private_artifact is not None
     assert "sk-abcdefghijk" not in str(result.private_artifact)
     assert "[REDACTED]" in str(result.private_artifact)
+
+
+def test_public_projection_removes_engineering_hash_keys_and_frame_hash() -> None:
+    actual_frame_hash = _frame().task_frame_hash
+    safe = AgentEvidence(
+        tool="market_data",
+        title="A股市场总览",
+        detail="上涨家数增加",
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="safe-citation-1",
+    )
+    poisoned_title = AgentEvidence(
+        tool="market_data",
+        title="task_frame_hash=abc123",
+        detail="控制面字段不得公开",
+        source="公开来源",
+        source_date="2026-07-22",
+        content_hash="poison-title-1",
+    )
+    poisoned_source = AgentEvidence(
+        tool="market_data",
+        title="估值材料",
+        detail="控制面字段不得公开",
+        source="hash=OTHER_HASH",
+        source_date="2026-07-22",
+        content_hash="poison-source-1",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=(
+            "可公开结论。\n"
+            "task_frame_hash=abc123\n"
+            "hash=OTHER_HASH\n"
+            "任务帧哈希：中文控制值\n"
+            f"{actual_frame_hash}"
+        ),
+        evidence=(safe, poisoned_title, poisoned_source),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("safe-citation-1", "poison-title-1", "poison-source-1"),
+            ),
+        ),
+    )
+
+    assert result.answer == "可公开结论。"
+    assert result.citations == (
+        {
+            "title": "A股市场总览",
+            "source": "本地行情",
+            "date": "2026-07-22",
+        },
+    )
+    public = str(
+        {
+            "answer": result.answer,
+            "citations": result.citations,
+            "warnings": result.warnings,
+            "events": result.events,
+        }
+    )
+    for sentinel in (
+        "task_frame_hash",
+        "OTHER_HASH",
+        "任务帧哈希",
+        actual_frame_hash,
+    ):
+        assert sentinel not in public
+
+
+def test_public_projection_preserves_financial_hash_rate_language() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="比特币哈希率月报",
+        detail="全网哈希率环比上升 8%",
+        source="公开矿业数据",
+        source_date="2026-07-22",
+        content_hash="hash-rate-evidence-1",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="比特币网络哈希率上升 8%，矿工收入仍取决于币价与难度。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("hash-rate-evidence-1",),
+            ),
+        ),
+    )
+
+    assert result.status == "completed"
+    assert "哈希率上升 8%" in result.answer
+    assert result.citations == (
+        {
+            "title": "比特币哈希率月报",
+            "source": "公开矿业数据",
+            "date": "2026-07-22",
+        },
+    )
 
 
 def test_canary_requires_isolated_runtime_identifier(
