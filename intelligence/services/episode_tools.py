@@ -287,9 +287,21 @@ def run_deterministic_fast_path(
             "llm_calls": 0,
             "tool_calls": 0,
         }
+    bounded_timeout = min(max(0.0, float(timeout)), 15.0)
+    if bounded_timeout <= 0.0:
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "failed",
+            "answer": "",
+            "gaps": ["deterministic fast path deadline exhausted"],
+            "traces": [],
+            "latency": round(time.monotonic() - started, 4),
+            "llm_calls": 0,
+            "tool_calls": 0,
+        }
     outcome = market_technical.resolve_market_technical(
         frame.raw_question,
-        timeout=max(0.1, min(float(timeout), 15.0)),
+        timeout=bounded_timeout,
     )
     if isinstance(outcome, market_technical.TechnicalGap):
         return {

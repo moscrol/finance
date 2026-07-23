@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -9,6 +10,7 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from scripts import run_agent_episode_ab as episode_ab
 
@@ -250,6 +252,31 @@ def test_live_runner_records_bare_current_and_verified_episode(
                 usage=AgentUsage(llm_calls=2, tool_calls=1),
             )
 
+    class FakeSemanticVerifier:
+        # Simulate an independent LLM_JUDGE provider: it records a physical
+        # llm_refine attempt but bypasses the primary-client counter.
+        provider_attempts = 0
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            ledger = episode_ab.llm_refine.current_call_ledger()
+            assert ledger is not None
+            ledger.record(
+                episode_ab.llm_refine.LLMCallRecord(
+                    caller="synthesis",
+                    provider="independent-judge",
+                    model="judge-model",
+                    status="success",
+                    elapsed_ms=1,
+                )
+            )
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
     def fake_bare(*_args, **_kwargs):
         execution_order.append("bare")
         return {
@@ -281,6 +308,18 @@ def test_live_runner_records_bare_current_and_verified_episode(
         "_build_registry",
         lambda *_args, **_kwargs: ResearchToolRegistry(()),
     )
+    monkeypatch.setattr(
+        episode_ab,
+        "_build_semantic_verifier",
+        lambda *_args, **_kwargs: FakeSemanticVerifier(),
+    )
+    monkeypatch.setattr(
+        episode_ab,
+        "_runtime_identity",
+        lambda: ("canary", "candidate-sha"),
+    )
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "canary")
+    monkeypatch.setenv("CONTINUOUS_RUNTIME_CANARY_ID", "candidate-sha")
 
     code = episode_ab.main(
         [
@@ -302,6 +341,13 @@ def test_live_runner_records_bare_current_and_verified_episode(
     assert case["episode"]["evidence_hashes"] == ["market-1"]
     assert case["episode"]["llm_calls"] == 2
     assert case["episode"]["tool_calls"] == 1
+    assert case["episode"]["structural_status"] == "completed"
+    assert case["episode"]["semantic_status"] == "passed"
+    assert case["episode"]["provider_attempts"] == 3
+    assert case["episode"]["duplicate_queries"] == 0
+    assert case["episode"]["runtime_mode"] == "canary"
+    assert case["episode"]["runtime_revision"] == "candidate-sha"
+    assert 0.0 < case["episode"]["task_alignment_score"] <= 1.0
     assert case["episode"]["outcome"]["usage"] == {
         "llm_calls": 2,
         "tool_calls": 1,
@@ -353,6 +399,11 @@ def test_deterministic_fast_path_is_not_sent_to_episode(
             "tool_calls": 1,
         },
     )
+    monkeypatch.setattr(
+        episode_ab,
+        "_runtime_identity",
+        lambda: ("canary", "candidate-sha"),
+    )
 
     assert (
         episode_ab.main(
@@ -369,3 +420,167 @@ def test_deterministic_fast_path_is_not_sent_to_episode(
     case = json.loads(output.read_text(encoding="utf-8"))["cases"][0]
     assert case["episode"]["execution_kind"] == "deterministic_fast_path"
     assert case["episode"]["llm_calls"] == 0
+    assert case["episode"]["structural_status"] == "completed"
+    assert case["episode"]["semantic_status"] == "passed"
+    assert case["episode"]["semantic_verification_mode"] == "deterministic_contract"
+    assert case["episode"]["provider_attempts"] == 0
+    assert case["episode"]["tool_calls"] == 1
+    assert case["episode"]["duplicate_queries"] == 0
+    assert case["episode"]["runtime_mode"] == "canary"
+    assert case["episode"]["runtime_revision"] == "candidate-sha"
+    assert case["episode"]["task_alignment_score"] == 1.0
+
+
+def test_fast_path_uses_remaining_root_timeout_and_total_latency(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "questions.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "index-space",
+                        "question": "科创50你认为反弹空间有多少",
+                        "timeout": 0.1,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "fast-path-budget.json"
+    received_timeouts: list[float] = []
+
+    monkeypatch.setattr(
+        episode_ab,
+        "_run_bare_arm",
+        lambda *_args, **_kwargs: {
+            "answer": "裸模型答案",
+            "provider": "fake",
+            "reason": "",
+            "latency": 0.0,
+            "llm_calls": 1,
+            "tool_calls": 0,
+        },
+    )
+
+    def capture_fast_path(_frame, timeout):
+        received_timeouts.append(timeout)
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "completed",
+            "answer": "科创50压力区决定反弹空间。",
+            "llm_calls": 0,
+            "tool_calls": 1,
+        }
+
+    monkeypatch.setattr(episode_ab, "_run_fast_path", capture_fast_path)
+    monkeypatch.setattr(
+        episode_ab,
+        "_runtime_identity",
+        lambda: ("canary", "candidate-sha"),
+    )
+
+    assert (
+        episode_ab.main(
+            [
+                "--questions-file",
+                str(questions),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    episode = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["episode"]
+    assert 0.0 < received_timeouts[0] <= 0.1
+    assert episode["latency"] >= 0.0
+
+
+def test_exhausted_root_deadline_does_not_enter_fast_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "questions.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "index-space",
+                        "question": "科创50你认为反弹空间有多少",
+                        "timeout": 0.0001,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "fast-path-exhausted.json"
+    monkeypatch.setattr(
+        episode_ab,
+        "_run_bare_arm",
+        lambda *_args, **_kwargs: {
+            "answer": "裸模型答案",
+            "provider": "fake",
+            "reason": "",
+            "latency": 0.0,
+            "llm_calls": 1,
+            "tool_calls": 0,
+        },
+    )
+    monkeypatch.setattr(
+        episode_ab,
+        "_run_fast_path",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("expired root deadline must not execute fast path")
+        ),
+    )
+    monkeypatch.setattr(
+        episode_ab,
+        "_runtime_identity",
+        lambda: ("canary", "candidate-sha"),
+    )
+
+    assert (
+        episode_ab.main(
+            [
+                "--questions-file",
+                str(questions),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    episode = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["episode"]
+    assert episode["status"] == "failed"
+    assert episode["provider_attempts"] == 0
+    assert episode["tool_calls"] == 0
+
+
+def test_runtime_identity_uses_git_revision_and_marks_dirty(
+    monkeypatch,
+) -> None:
+    revision = "a" * 40
+    results = iter(
+        [
+            SimpleNamespace(stdout=f"{revision}\n"),
+            SimpleNamespace(stdout=" M scripts/run_agent_episode_ab.py\n"),
+        ]
+    )
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "canary")
+    monkeypatch.setenv("CONTINUOUS_RUNTIME_CANARY_ID", "untrusted-label")
+    monkeypatch.setattr(
+        episode_ab.subprocess,
+        "run",
+        lambda *_args, **_kwargs: next(results),
+    )
+
+    assert episode_ab._runtime_identity() == ("canary", f"{revision}-dirty")

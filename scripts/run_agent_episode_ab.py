@@ -7,7 +7,10 @@ import argparse
 from dataclasses import dataclass
 from datetime import date
 import json
+import math
+import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 from typing import Any
@@ -16,15 +19,20 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from intelligence.services import llm_refine
+from intelligence.eval.capability_monotonicity import directness_score
+from intelligence.services.agent_runtime import AgentModelClient, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import (
     build_episode_registry,
     is_deterministic_fast_path,
-    latest_market_date,
     run_deterministic_fast_path,
 )
+from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+)
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.glm_agent_runtime import GLMAgentRuntime, GLMModelClient
 from intelligence.services.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
@@ -75,10 +83,7 @@ def _load_questions(path: Path, *, model_override: str | None) -> list[ABQuestio
             ABQuestion(
                 case_id=case_id,
                 question=question,
-                model=(
-                    model_override
-                    or str(raw.get("model") or "glm-5.2").strip()
-                ),
+                model=(model_override or str(raw.get("model") or "glm-5.2").strip()),
                 timeout=timeout,
                 as_of=str(raw.get("as_of") or date.today().isoformat()),
                 conversation_context=tuple(context),
@@ -104,9 +109,7 @@ def _load_current_results(
             case_id = str(raw.get("case_id") or raw.get("id") or "").strip()
             nested = raw.get("current") if isinstance(raw.get("current"), dict) else {}
             answer = (
-                raw.get("answer")
-                or raw.get("current_answer")
-                or nested.get("answer")
+                raw.get("answer") or raw.get("current_answer") or nested.get("answer")
             )
             if case_id and isinstance(answer, str) and answer.strip():
                 result: dict[str, object] = {"answer": answer.strip()}
@@ -114,6 +117,13 @@ def _load_current_results(
                     "latency",
                     "llm_calls",
                     "tool_calls",
+                    "structural_status",
+                    "semantic_status",
+                    "provider_attempts",
+                    "duplicate_queries",
+                    "runtime_mode",
+                    "runtime_revision",
+                    "task_alignment_score",
                     "terminal_outcome",
                     "failure_stage",
                     "fallback_reason",
@@ -132,9 +142,7 @@ def _load_current_results(
         raise ValueError("current results must be an object or cases document")
     missing = [case.case_id for case in cases if case.case_id not in results]
     if missing:
-        raise ValueError(
-            "current results missing case answers: " + ",".join(missing)
-        )
+        raise ValueError("current results missing case answers: " + ",".join(missing))
     return results
 
 
@@ -188,12 +196,168 @@ def _build_runtime(model: str):
     return GLMAgentRuntime(model)
 
 
+class _AttemptCountingClient:
+    """Count every physical provider attempt made behind one model seam."""
+
+    def __init__(self, delegate: AgentModelClient) -> None:
+        self._delegate = delegate
+        self.provider_attempts = 0
+
+    def complete(
+        self,
+        *,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        timeout: float,
+    ) -> ModelTurn:
+        turn = self._delegate.complete(
+            messages=messages,
+            tools=tools,
+            timeout=timeout,
+        )
+        self.provider_attempts += turn.provider_attempts
+        return turn
+
+
+class _SemanticVerifierRun:
+    """Expose semantic verification together with its physical call usage."""
+
+    def __init__(self, model: str) -> None:
+        client = _AttemptCountingClient(GLMModelClient(model))
+        self._client = client
+        self._verifier = SemanticEpisodeVerifier(
+            primary_judge=client,
+            finalizer=EpisodeFinalizer(client),
+        )
+
+    @property
+    def provider_attempts(self) -> int:
+        return self._client.provider_attempts
+
+    def verify(self, **kwargs):
+        return self._verifier.verify(**kwargs)
+
+
+def _build_semantic_verifier(model: str):
+    """Build the same structural-then-semantic boundary as production."""
+
+    return _SemanticVerifierRun(model)
+
+
 def _build_registry(frame, context):
     return build_episode_registry(frame, context)
 
 
 def _run_fast_path(frame, timeout: float):
     return run_deterministic_fast_path(frame, timeout=timeout)
+
+
+def _runtime_identity() -> tuple[str, str]:
+    configured_mode = (
+        str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "").strip().lower()
+    )
+    mode = configured_mode if configured_mode in {"off", "canary", "on"} else "sidecar"
+    repo_root = str(Path(__file__).resolve().parents[1])
+    try:
+        revision_result = subprocess.run(
+            ["git", "-C", repo_root, "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        dirty_result = subprocess.run(
+            ["git", "-C", repo_root, "status", "--porcelain"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        revision = revision_result.stdout.strip()
+        if dirty_result.stdout.strip():
+            revision = f"{revision}-dirty"
+    except (OSError, subprocess.SubprocessError):
+        revision = "unversioned"
+    return mode, revision
+
+
+def _normalized_structural_status(value: object) -> str:
+    status = str(value or "").strip().lower()
+    return status if status in {"completed", "partial", "failed"} else "partial"
+
+
+def _duplicate_query_count(events: object) -> int:
+    if not isinstance(events, (list, tuple)):
+        return 0
+    return sum(
+        1
+        for event in events
+        if getattr(event, "kind", "") == "tool_error"
+        and getattr(event, "payload", {}).get("error") == "duplicate_query"
+    )
+
+
+def _task_alignment_score(frame, answer: object) -> float:
+    """Deterministic direct-answer score; the Episode never grades itself."""
+
+    text = str(answer or "").strip()
+    if not text:
+        return 0.0
+    subject = str(getattr(frame, "subject", "") or "").strip()
+    return directness_score(
+        str(getattr(frame, "raw_question", "") or ""),
+        text,
+        direct_targets=((subject,) if subject else ()),
+    )
+
+
+def _ledger_call_count(ledger: object | None) -> int:
+    if ledger is None or not callable(getattr(ledger, "summary", None)):
+        return 0
+    value = ledger.summary().get("call_count", 0)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _episode_acceptance_fields(
+    *,
+    structural_status: object,
+    semantic_status: str,
+    provider_attempts: object,
+    tool_calls: object,
+    task_alignment_score: object,
+    duplicate_queries: object = 0,
+) -> dict[str, object]:
+    mode, revision = _runtime_identity()
+
+    def non_negative_int(value: object) -> int:
+        return (
+            value
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+            else 0
+        )
+
+    alignment = (
+        float(task_alignment_score)
+        if isinstance(task_alignment_score, (int, float))
+        and not isinstance(task_alignment_score, bool)
+        and math.isfinite(float(task_alignment_score))
+        and 0.0 <= float(task_alignment_score) <= 1.0
+        else 0.0
+    )
+    return {
+        "structural_status": _normalized_structural_status(structural_status),
+        "semantic_status": (
+            semantic_status
+            if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
+            else "unavailable"
+        ),
+        "provider_attempts": non_negative_int(provider_attempts),
+        "tool_calls": non_negative_int(tool_calls),
+        "duplicate_queries": non_negative_int(duplicate_queries),
+        "runtime_mode": mode,
+        "runtime_revision": revision,
+        "task_alignment_score": round(alignment, 4),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -252,7 +416,11 @@ def main(argv: list[str] | None = None) -> int:
             ),
         )
 
-        def fresh_context():
+        def fresh_context(
+            *,
+            timeout: float | None = None,
+            latest_data_date: str | None = None,
+        ):
             if not control.contract_required:
                 return None
             return build_episode_context(
@@ -260,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
                 task_id=f"ab:{case.case_id}",
                 capabilities=control.capabilities,
                 tier=args.tier,
-                timeout=case.timeout,
+                timeout=(case.timeout if timeout is None else timeout),
                 synthesis_reserve=(
                     GLMAgentRuntime.synthesis_reserve_for_task(
                         tier=args.tier,
@@ -268,7 +436,7 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 ),
                 today=case.as_of,
-                latest_data_date=(None if args.dry_run else latest_market_date()),
+                latest_data_date=latest_data_date,
             )
 
         if args.dry_run:
@@ -284,7 +452,16 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         bare = _run_bare_arm(case)
-        context = fresh_context()
+        episode_started = time.monotonic()
+        episode_deadline = episode_started + case.timeout
+        deterministic = is_deterministic_fast_path(control.task_frame)
+        context = (
+            None
+            if deterministic or control.terminal_kind != "research"
+            else fresh_context(
+                timeout=max(0.0, episode_deadline - time.monotonic()),
+            )
+        )
         record = _base_case_payload(case, control, context)
         if case.case_id in current_results:
             record["current"] = {
@@ -298,50 +475,140 @@ def main(argv: list[str] | None = None) -> int:
                 "status": "clarification",
                 "answer": "\n".join(control.clarification_questions),
                 "llm_calls": 0,
-                "tool_calls": 0,
+                **_episode_acceptance_fields(
+                    structural_status="partial",
+                    semantic_status="unavailable",
+                    provider_attempts=0,
+                    tool_calls=0,
+                    task_alignment_score=1.0,
+                ),
             }
-        elif control.terminal_kind != "research" or context is None:
+        elif control.terminal_kind != "research" or (
+            context is None and not deterministic
+        ):
             record["episode"] = {
                 "execution_kind": "not_applicable",
                 "status": "partial",
                 "answer": "",
                 "gaps": ["case is not a research episode"],
                 "llm_calls": 0,
-                "tool_calls": 0,
+                **_episode_acceptance_fields(
+                    structural_status="partial",
+                    semantic_status="unavailable",
+                    provider_attempts=0,
+                    tool_calls=0,
+                    task_alignment_score=0.0,
+                ),
             }
-        elif is_deterministic_fast_path(control.task_frame):
-            record["episode"] = _run_fast_path(
-                control.task_frame,
-                case.timeout,
-            )
-        else:
-            started = time.monotonic()
-            try:
-                registry = _build_registry(control.task_frame, context)
-                outcome = _build_runtime(case.model).run(
-                    task_frame=control.task_frame,
-                    context=context,
-                    registry=registry,
+        elif deterministic:
+            remaining = max(0.0, episode_deadline - time.monotonic())
+            if remaining <= 0.001:
+                fast_path = {
+                    "execution_kind": "deterministic_fast_path",
+                    "status": "failed",
+                    "answer": "",
+                    "gaps": ["episode root deadline exhausted before fast path"],
+                    "llm_calls": 0,
+                    "tool_calls": 0,
+                }
+            else:
+                fast_path = dict(
+                    _run_fast_path(
+                        control.task_frame,
+                        remaining,
+                    )
                 )
-                verified = verify_episode_outcome(context.contract, outcome)
+            fast_path.update(
+                _episode_acceptance_fields(
+                    structural_status=fast_path.get("status"),
+                    # A completed deterministic result is verified by its
+                    # typed calculator contract, not by an LLM judge. This is
+                    # still a semantic pass, while preserving the zero-LLM
+                    # invariant.
+                    semantic_status=(
+                        "passed"
+                        if fast_path.get("status") == "completed"
+                        and str(fast_path.get("answer") or "").strip()
+                        else "unavailable"
+                    ),
+                    provider_attempts=fast_path.get(
+                        "provider_attempts",
+                        fast_path.get("llm_calls"),
+                    ),
+                    tool_calls=fast_path.get("tool_calls"),
+                    task_alignment_score=_task_alignment_score(
+                        control.task_frame,
+                        fast_path.get("answer"),
+                    ),
+                )
+            )
+            fast_path["semantic_verification_mode"] = "deterministic_contract"
+            fast_path["latency"] = round(time.monotonic() - episode_started, 4)
+            record["episode"] = fast_path
+        else:
+            outcome = None
+            verified = None
+            semantic_verifier = None
+            episode_llm_ledger = None
+            episode_ledger_before = 0
+            semantic_attempts = 0
+            try:
+                with llm_refine.call_ledger_scope() as episode_llm_ledger:
+                    episode_ledger_before = _ledger_call_count(episode_llm_ledger)
+                    registry = _build_registry(control.task_frame, context)
+                    outcome = _build_runtime(case.model).run(
+                        task_frame=control.task_frame,
+                        context=context,
+                        registry=registry,
+                    )
+                    verified = verify_episode_outcome(context.contract, outcome)
+                    semantic_verifier = _build_semantic_verifier(case.model)
+                    semantic_ledger_before = _ledger_call_count(episode_llm_ledger)
+                    semantic = semantic_verifier.verify(
+                        frame=control.task_frame,
+                        structurally_verified=verified,
+                        deadline=context.deadline,
+                    )
+                    semantic_ledger_delta = max(
+                        0,
+                        _ledger_call_count(episode_llm_ledger) - semantic_ledger_before,
+                    )
+                    semantic_attempts = max(
+                        semantic_ledger_delta,
+                        semantic_verifier.provider_attempts,
+                    )
                 episode_payload = verified.to_dict()
                 episode_payload["execution_kind"] = "continuous_episode"
-                episode_payload["answer"] = outcome.draft
+                episode_payload["answer"] = semantic.public_answer
+                episode_payload["semantic_verifier"] = semantic.to_dict()
+                final_outcome = semantic.verified.outcome
                 episode_payload["evidence_hashes"] = [
-                    item.content_hash for item in outcome.evidence
+                    item.content_hash for item in final_outcome.evidence
                 ]
                 episode_payload["traces"] = [
-                    item.to_dict() for item in outcome.traces
+                    item.to_dict() for item in final_outcome.traces
                 ]
-                episode_payload["gaps"] = list(outcome.gaps)
-                episode_payload["stop_reason"] = outcome.stop_reason
-                episode_payload["llm_calls"] = outcome.usage.llm_calls
-                episode_payload["tool_calls"] = outcome.usage.tool_calls
-                episode_payload["invalid_actions"] = (
-                    outcome.usage.invalid_actions
+                episode_payload["gaps"] = list(final_outcome.gaps)
+                episode_payload["stop_reason"] = final_outcome.stop_reason
+                episode_payload["llm_calls"] = final_outcome.usage.llm_calls
+                episode_payload["invalid_actions"] = final_outcome.usage.invalid_actions
+                episode_payload.update(
+                    _episode_acceptance_fields(
+                        structural_status=verified.verified_status,
+                        semantic_status=semantic.judge_status,
+                        provider_attempts=(
+                            final_outcome.usage.llm_calls + semantic_attempts
+                        ),
+                        tool_calls=final_outcome.usage.tool_calls,
+                        task_alignment_score=_task_alignment_score(
+                            control.task_frame,
+                            semantic.public_answer,
+                        ),
+                        duplicate_queries=_duplicate_query_count(final_outcome.events),
+                    )
                 )
                 episode_payload["latency"] = round(
-                    time.monotonic() - started,
+                    time.monotonic() - episode_started,
                     4,
                 )
                 record["episode"] = episode_payload
@@ -351,15 +618,51 @@ def main(argv: list[str] | None = None) -> int:
                     "verified_status": "failed",
                     "answer": "",
                     "issues": [f"{type(exc).__name__}: {str(exc)[:240]}"],
-                    "latency": round(time.monotonic() - started, 4),
-                    "llm_calls": 0,
-                    "tool_calls": 0,
+                    "latency": round(time.monotonic() - episode_started, 4),
+                    "llm_calls": (
+                        outcome.usage.llm_calls if outcome is not None else 0
+                    ),
+                    **_episode_acceptance_fields(
+                        structural_status=(
+                            verified.verified_status
+                            if verified is not None
+                            else "failed"
+                        ),
+                        semantic_status="unavailable",
+                        provider_attempts=(
+                            max(
+                                (outcome.usage.llm_calls if outcome is not None else 0)
+                                + (
+                                    semantic_verifier.provider_attempts
+                                    if semantic_verifier is not None
+                                    else 0
+                                ),
+                                max(
+                                    0,
+                                    _ledger_call_count(episode_llm_ledger)
+                                    - episode_ledger_before,
+                                ),
+                            )
+                        ),
+                        tool_calls=(
+                            outcome.usage.tool_calls if outcome is not None else 0
+                        ),
+                        task_alignment_score=0.0,
+                        duplicate_queries=(
+                            _duplicate_query_count(outcome.events)
+                            if outcome is not None
+                            else 0
+                        ),
+                    ),
                 }
         records.append(record)
 
+    runtime_mode, runtime_revision = _runtime_identity()
     artifact = {
         "schema_version": 1,
         "mode": "dry_run" if args.dry_run else "live",
+        "runtime_mode": runtime_mode,
+        "runtime_revision": runtime_revision,
         "runtime_switched": False,
         "canonical_runtime_port": 8792,
         "canonical_runtime_touched": False,

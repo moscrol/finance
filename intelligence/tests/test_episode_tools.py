@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from intelligence.services import l3_evidence
+from intelligence.services import episode_tools
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import build_episode_registry
@@ -24,6 +25,71 @@ def _l3_frame() -> TaskFrame:
         evidence_policy="company_official_evidence",
         confidence=0.95,
     )
+
+
+def _market_technical_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="科创50你认为反弹空间有多少",
+        user_goal="判断指数反弹空间",
+        question_type="market_technical",
+        subject="科创50",
+        subject_kind="index",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("technical_levels",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="structured_market_data",
+        confidence=1.0,
+    )
+
+
+def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:
+    received: list[float] = []
+
+    def fake_resolve(_question: str, *, timeout: float):
+        received.append(timeout)
+        return episode_tools.market_technical.TechnicalGap(
+            subject="科创50",
+            symbol=None,
+            reason="test gap",
+        )
+
+    monkeypatch.setattr(
+        episode_tools.market_technical,
+        "resolve_market_technical",
+        fake_resolve,
+    )
+
+    result = episode_tools.run_deterministic_fast_path(
+        _market_technical_frame(),
+        timeout=0.05,
+    )
+
+    assert received == [0.05]
+    assert result["tool_calls"] == 1
+
+
+def test_deterministic_fast_path_does_not_call_tool_after_deadline(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        episode_tools.market_technical,
+        "resolve_market_technical",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("expired fast path must not call market provider")
+        ),
+    )
+
+    result = episode_tools.run_deterministic_fast_path(
+        _market_technical_frame(),
+        timeout=0.0,
+    )
+
+    assert result["status"] == "failed"
+    assert result["llm_calls"] == 0
+    assert result["tool_calls"] == 0
 
 
 def test_explicit_l3_capability_is_registered_and_returns_official_evidence(

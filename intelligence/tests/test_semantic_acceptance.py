@@ -43,18 +43,27 @@ def _valid_capability_report(
 ) -> dict[str, object]:
     case = DEFAULT_CAPABILITY_CASES[0]
     score = TaskCapabilityScore(4, 4, 4, 4, 4)
-    result = lambda arm: CapabilityRunResult(
-        case_id=case.case_id,
-        arm=arm,
-        answer="直接回答，并明确事实边界。",
-        score=current_score if arm == "current" and current_score else score,
-        latency=1.0,
-        llm_calls=1,
-        tool_calls=0 if arm == "bare" else 2,
-        fallback_reason=None,
-        protocol_passed=True,
-        protocol_issues=(),
-    )
+
+    def result(arm: str) -> CapabilityRunResult:
+        return CapabilityRunResult(
+            case_id=case.case_id,
+            arm=arm,
+            answer="直接回答，并明确事实边界。",
+            score=current_score if arm == "current" and current_score else score,
+            latency=1.0,
+            llm_calls=1,
+            tool_calls=0 if arm == "bare" else 2,
+            fallback_reason=None,
+            protocol_passed=True,
+            protocol_issues=(),
+            structural_status=("completed" if arm == "episode" else None),
+            semantic_status=("passed" if arm == "episode" else None),
+            provider_attempts=(2 if arm == "episode" else None),
+            runtime_mode=("canary" if arm == "episode" else ""),
+            runtime_revision=("candidate-sha" if arm == "episode" else ""),
+            task_alignment_score=(1.0 if arm == "episode" else None),
+        )
+
     return summarize_three_arm_records(
         [
             ThreeArmRecord(
@@ -68,9 +77,7 @@ def _valid_capability_report(
 
 
 def test_capability_summary_recomputes_each_three_arm_evaluation() -> None:
-    report = _valid_capability_report(
-        current_score=TaskCapabilityScore(1, 1, 1, 4, 1)
-    )
+    report = _valid_capability_report(current_score=TaskCapabilityScore(1, 1, 1, 4, 1))
     report["passed"] = True
 
     summary = semantic_acceptance.summarize_capability_monotonicity(report)
@@ -101,9 +108,7 @@ def test_capability_summary_rejects_missing_episode_arm() -> None:
 
 def test_reported_comparison_regression_cannot_be_hidden_by_top_level_passed() -> None:
     report = _valid_capability_report()
-    report["evaluations"][0]["current"]["failure_reasons"] = [
-        "capability_regression"
-    ]
+    report["evaluations"][0]["current"]["failure_reasons"] = ["capability_regression"]
     report["passed"] = True
 
     summary = semantic_acceptance.summarize_capability_monotonicity(report)
@@ -143,9 +148,7 @@ def test_corrupt_protocol_comparison_cannot_be_hidden_by_top_level_passed(
     )
     evidence = _valid_capability_report()
     evidence["evaluations"][0]["current"]["passed"] = False
-    evidence["evaluations"][0]["current"]["failure_reasons"] = [
-        "protocol_failed"
-    ]
+    evidence["evaluations"][0]["current"]["failure_reasons"] = ["protocol_failed"]
     evidence["passed"] = True
 
     code, summary = semantic_acceptance.run_acceptance(
@@ -360,6 +363,4 @@ def test_run_acceptance_fails_on_independent_capability_regression(
 
     assert code == 1
     assert summary["terminal_outcome"] == "capability_regression"
-    assert summary["capability_monotonicity"]["issues"] == [
-        "capability_regression"
-    ]
+    assert summary["capability_monotonicity"]["issues"] == ["capability_regression"]

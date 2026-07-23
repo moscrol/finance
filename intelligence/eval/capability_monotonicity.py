@@ -9,6 +9,7 @@ and are retained for API compatibility.
 This module is deterministic and side-effect free; it never calls an LLM or a
 runtime itself.
 """
+
 from __future__ import annotations
 
 import math
@@ -28,9 +29,14 @@ _CONTROL_PLANE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("run_id", re.compile(r"\brun[_-]\d{8,}", re.I)),
     ("fallback_reason", re.compile(r"\bfallback_reason\b", re.I)),
     ("provider_trace", re.compile(r"\bProviderTrace\b")),
-    ("artifact_field", re.compile(r"\b(?:answer_spec|decision_brief|registry_tags)\b", re.I)),
+    (
+        "artifact_field",
+        re.compile(r"\b(?:answer_spec|decision_brief|registry_tags)\b", re.I),
+    ),
     ("internal_candidate", re.compile(r"候选来源|generic[_ ]theme|graph_only", re.I)),
 )
+_STRUCTURAL_STATUSES = frozenset({"completed", "partial", "failed"})
+_SEMANTIC_STATUSES = frozenset({"passed", "repaired", "rejected", "unavailable"})
 
 CAPABILITY_SCORE_RUBRIC: Mapping[int, str] = {
     0: "missing or wrong",
@@ -173,9 +179,10 @@ class CapabilityCase:
 
     def __post_init__(self) -> None:
         for name in ("case_id", "question", "model", "as_of"):
-            if not isinstance(getattr(self, name), str) or not getattr(
-                self, name
-            ).strip():
+            if (
+                not isinstance(getattr(self, name), str)
+                or not getattr(self, name).strip()
+            ):
                 raise ValueError(f"{name} must be a non-empty string")
         _require_finite_number(self.temperature, "temperature")
         _require_finite_number(self.timeout, "timeout")
@@ -225,6 +232,13 @@ class CapabilityRunResult:
     fallback_reason: str | None
     protocol_passed: bool
     protocol_issues: tuple[str, ...]
+    structural_status: str | None = None
+    semantic_status: str | None = None
+    provider_attempts: int | None = None
+    duplicate_queries: int = 0
+    runtime_mode: str = ""
+    runtime_revision: str = ""
+    task_alignment_score: float | None = None
 
     def __post_init__(self) -> None:
         if self.arm not in {"bare", "current", "episode"}:
@@ -232,12 +246,45 @@ class CapabilityRunResult:
         if not isinstance(self.protocol_passed, bool):
             raise ValueError("protocol_passed must be a boolean")
         _require_finite_number(self.latency, "latency")
-        for name in ("llm_calls", "tool_calls"):
+        for name in ("llm_calls", "tool_calls", "duplicate_queries"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ValueError(f"{name} must be an integer")
-        if self.latency < 0 or self.llm_calls < 0 or self.tool_calls < 0:
+        provider_attempts = self.provider_attempts
+        if provider_attempts is not None and (
+            isinstance(provider_attempts, bool)
+            or not isinstance(provider_attempts, int)
+        ):
+            raise ValueError("provider_attempts must be an integer or null")
+        if (
+            self.latency < 0
+            or self.llm_calls < 0
+            or self.tool_calls < 0
+            or (provider_attempts is not None and provider_attempts < 0)
+            or self.duplicate_queries < 0
+        ):
             raise ValueError("execution metrics cannot be negative")
+        if (
+            self.structural_status is not None
+            and self.structural_status not in _STRUCTURAL_STATUSES
+        ):
+            raise ValueError("unsupported structural_status")
+        if (
+            self.semantic_status is not None
+            and self.semantic_status not in _SEMANTIC_STATUSES
+        ):
+            raise ValueError("unsupported semantic_status")
+        if not isinstance(self.runtime_mode, str):
+            raise ValueError("runtime_mode must be a string")
+        if not isinstance(self.runtime_revision, str):
+            raise ValueError("runtime_revision must be a string")
+        if self.task_alignment_score is not None:
+            _require_finite_number(
+                self.task_alignment_score,
+                "task_alignment_score",
+            )
+            if not 0.0 <= self.task_alignment_score <= 1.0:
+                raise ValueError("task_alignment_score must be between 0 and 1")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -251,6 +298,13 @@ class CapabilityRunResult:
             "fallback_reason": self.fallback_reason,
             "protocol_passed": self.protocol_passed,
             "protocol_issues": list(self.protocol_issues),
+            "structural_status": self.structural_status,
+            "semantic_status": self.semantic_status,
+            "provider_attempts": self.provider_attempts,
+            "duplicate_queries": self.duplicate_queries,
+            "runtime_mode": self.runtime_mode,
+            "runtime_revision": self.runtime_revision,
+            "task_alignment_score": self.task_alignment_score,
         }
 
     @classmethod
@@ -277,6 +331,33 @@ class CapabilityRunResult:
             fallback_reason=fallback_reason,
             protocol_passed=_boolean_field(value, "protocol_passed"),
             protocol_issues=tuple(protocol_issues),
+            structural_status=(
+                str(value["structural_status"])
+                if value.get("structural_status") is not None
+                else None
+            ),
+            semantic_status=(
+                str(value["semantic_status"])
+                if value.get("semantic_status") is not None
+                else None
+            ),
+            provider_attempts=(
+                _integer_field(value, "provider_attempts")
+                if value.get("provider_attempts") is not None
+                else None
+            ),
+            duplicate_queries=(
+                _integer_field(value, "duplicate_queries")
+                if "duplicate_queries" in value
+                else 0
+            ),
+            runtime_mode=str(value.get("runtime_mode") or ""),
+            runtime_revision=str(value.get("runtime_revision") or ""),
+            task_alignment_score=(
+                float(value["task_alignment_score"])
+                if value.get("task_alignment_score") is not None
+                else None
+            ),
         )
 
 
@@ -324,15 +405,42 @@ def compare_with_bare(
     bare_score = bare.score.normalized_total
     harness_score = harness.score.normalized_total
     threshold_units = margin * Decimal(20)
-    regression = (
-        Decimal(harness.score.total_units) + threshold_units
-        < Decimal(bare.score.total_units)
+    regression = Decimal(harness.score.total_units) + threshold_units < Decimal(
+        bare.score.total_units
     )
     failures: list[str] = []
     if regression:
         failures.append("capability_regression")
     if not harness.protocol_passed:
         failures.append("protocol_failed")
+    if harness.arm == "episode":
+        acceptance_missing = (
+            harness.structural_status is None
+            or harness.semantic_status is None
+            or harness.provider_attempts is None
+            or harness.task_alignment_score is None
+            or not harness.runtime_mode
+            or not harness.runtime_revision
+        )
+        if acceptance_missing:
+            failures.append("acceptance_metadata_missing")
+        if harness.runtime_mode and harness.runtime_mode != "canary":
+            failures.append("runtime_mode_invalid")
+        if harness.runtime_revision and (
+            harness.runtime_revision == "unversioned"
+            or harness.runtime_revision.endswith("-dirty")
+        ):
+            failures.append("runtime_revision_invalid")
+        if harness.structural_status in {
+            "partial",
+            "failed",
+        } and harness.semantic_status in {"passed", "repaired"}:
+            failures.append("acceptance_status_inconsistent")
+    if harness.structural_status == "completed" and harness.semantic_status in {
+        "rejected",
+        "unavailable",
+    }:
+        failures.append("semantic_regression")
     return BareComparison(
         case_id=harness.case_id,
         harness_arm=harness.arm,
@@ -446,6 +554,9 @@ def summarize_three_arm_records(
         "arm_comparison_count": len(comparisons),
         "regression_count": sum(
             "capability_regression" in item.failure_reasons for item in comparisons
+        ),
+        "semantic_regression_count": sum(
+            "semantic_regression" in item.failure_reasons for item in comparisons
         ),
         "failed_comparison_count": sum(not item.passed for item in comparisons),
         "evaluations": [item.to_dict() for item in evaluations],
@@ -593,7 +704,9 @@ def _first_paragraph(answer: str) -> str:
 
 def _contains_any(text: str, values: Sequence[str]) -> bool:
     normalized = _normalized(text)
-    return any(_normalized(value) in normalized for value in values if _normalized(value))
+    return any(
+        _normalized(value) in normalized for value in values if _normalized(value)
+    )
 
 
 def directness_score(
@@ -608,7 +721,9 @@ def directness_score(
         return 0.0
     targets = tuple(direct_targets) or tuple(
         token
-        for token in re.findall(r"[A-Za-z][A-Za-z0-9_-]{1,}|[\u4e00-\u9fff]{2,6}", question)
+        for token in re.findall(
+            r"[A-Za-z][A-Za-z0-9_-]{1,}|[\u4e00-\u9fff]{2,6}", question
+        )
         if token not in {"什么", "怎么", "如何", "认为", "是否", "主要", "这一周"}
     )
     if targets and _contains_any(lead, targets):
@@ -672,7 +787,11 @@ def grounding_score(
 
 def control_plane_leak_score(answer: str) -> tuple[float, tuple[str, ...]]:
     """Return 0 for a clean answer and approach 1 as leak classes accumulate."""
-    kinds = tuple(name for name, pattern in _CONTROL_PLANE_PATTERNS if pattern.search(answer or ""))
+    kinds = tuple(
+        name
+        for name, pattern in _CONTROL_PLANE_PATTERNS
+        if pattern.search(answer or "")
+    )
     return round(min(1.0, len(kinds) / 3), 4), kinds
 
 
@@ -713,7 +832,9 @@ def _phrase_coverage(phrase: str, answer: str) -> float:
     return round(sum(gram in actual for gram in grams) / len(grams), 4)
 
 
-def fallback_fidelity_score(answer: str, decision_brief: Mapping[str, Any] | None) -> float:
+def fallback_fidelity_score(
+    answer: str, decision_brief: Mapping[str, Any] | None
+) -> float:
     """Check that a degraded renderer retains the brief's two semantic anchors."""
     if not decision_brief:
         return 1.0

@@ -25,13 +25,20 @@ def _result(
     protocol_passed: bool = True,
     case_id: str = "rebound-duration",
     tool_calls: int | None = None,
+    structural_status: str | None = None,
+    semantic_status: str | None = None,
+    task_alignment_score: float | None = None,
 ) -> CapabilityRunResult:
+    if arm == "episode":
+        structural_status = structural_status or "completed"
+        semantic_status = semantic_status or "passed"
+        task_alignment_score = (
+            1.0 if task_alignment_score is None else task_alignment_score
+        )
     return CapabilityRunResult(
         case_id=case_id,
         arm=arm,
-        answer=(
-            "回答包含反弹、持续、条件、风险等全部协议关键词。"
-        ),
+        answer=("回答包含反弹、持续、条件、风险等全部协议关键词。"),
         score=score,
         latency=1.0,
         llm_calls=1,
@@ -39,6 +46,12 @@ def _result(
         fallback_reason=None,
         protocol_passed=protocol_passed,
         protocol_issues=(),
+        structural_status=structural_status,
+        semantic_status=semantic_status,
+        provider_attempts=(1 if arm == "episode" else None),
+        runtime_mode=("canary" if arm == "episode" else ""),
+        runtime_revision=("candidate-sha" if arm == "episode" else ""),
+        task_alignment_score=task_alignment_score,
     )
 
 
@@ -77,6 +90,123 @@ def test_harness_passes_when_non_degraded_with_better_truth_boundary() -> None:
     assert comparison.passed is True
     assert comparison.failure_reasons == ()
     assert comparison.harness_score == 1.0
+
+
+@pytest.mark.parametrize("semantic_status", ["rejected", "unavailable"])
+def test_completed_structure_with_unaccepted_semantics_is_a_regression(
+    semantic_status: str,
+) -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    episode = _result(
+        arm="episode",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        structural_status="completed",
+        semantic_status=semantic_status,
+    )
+
+    comparison = compare_with_bare(bare, episode)
+
+    assert comparison.passed is False
+    assert comparison.failure_reasons == ("semantic_regression",)
+
+
+def test_semantic_regression_has_its_own_report_counter() -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+    record = ThreeArmRecord(
+        case=case,
+        bare=_result(
+            arm="bare",
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
+            case_id=case.case_id,
+        ),
+        current=_result(
+            arm="current",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+        ),
+        episode=_result(
+            arm="episode",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+            structural_status="completed",
+            semantic_status="unavailable",
+        ),
+    )
+
+    report = summarize_three_arm_records([record])
+
+    assert report["passed"] is False
+    assert report["regression_count"] == 0
+    assert report["semantic_regression_count"] == 1
+
+
+def test_episode_acceptance_rejects_inconsistent_status_and_dirty_identity() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    inconsistent = CapabilityRunResult(
+        case_id=bare.case_id,
+        arm="episode",
+        answer="直接回答。",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        latency=1.0,
+        llm_calls=1,
+        tool_calls=1,
+        fallback_reason=None,
+        protocol_passed=True,
+        protocol_issues=(),
+        structural_status="failed",
+        semantic_status="passed",
+        provider_attempts=1,
+        runtime_mode="sidecar",
+        runtime_revision="abc123-dirty",
+        task_alignment_score=1.0,
+    )
+
+    comparison = compare_with_bare(bare, inconsistent)
+
+    assert comparison.passed is False
+    assert comparison.failure_reasons == (
+        "runtime_mode_invalid",
+        "runtime_revision_invalid",
+        "acceptance_status_inconsistent",
+    )
+
+
+def test_old_run_result_schema_remains_readable() -> None:
+    old_payload = _result(
+        arm="episode",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+    ).to_dict()
+    for key in (
+        "structural_status",
+        "semantic_status",
+        "provider_attempts",
+        "duplicate_queries",
+        "runtime_mode",
+        "runtime_revision",
+        "task_alignment_score",
+    ):
+        old_payload.pop(key, None)
+
+    restored = CapabilityRunResult.from_dict(old_payload)
+
+    assert restored.structural_status is None
+    assert restored.semantic_status is None
+    assert restored.provider_attempts is None
+    assert restored.duplicate_queries == 0
+    assert restored.task_alignment_score is None
+    assert compare_with_bare(
+        _result(
+            arm="bare",
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
+        ),
+        restored,
+    ).failure_reasons == ("acceptance_metadata_missing",)
 
 
 def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> None:
