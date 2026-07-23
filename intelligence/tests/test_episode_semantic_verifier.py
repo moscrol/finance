@@ -769,6 +769,25 @@ def test_local_gate_keeps_requested_forecast_under_current_conditions() -> None:
     assert assessment in result.public_answer
 
 
+def test_local_gate_keeps_forecast_when_condition_is_descriptive_noun() -> None:
+    judge = _judge(True)
+    assessment = (
+        "主观基准判断：当前尚不具备持续放量主升条件，"
+        "反弹窗口约为数个交易日至两周。"
+    )
+    frame, structural = _structural(assessment)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert assessment in result.public_answer
+
+
 def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
     judge = _judge(True)
     frame, structural = _structural(
