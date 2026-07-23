@@ -65,6 +65,7 @@ class _EpisodeToolAccumulator:
     ledger: _EpisodeLedger
     evidence: list[AgentEvidence] = field(default_factory=list)
     evidence_hashes: set[str] = field(default_factory=set)
+    successful_tools: set[str] = field(default_factory=set)
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
 
@@ -118,6 +119,8 @@ class _EpisodeToolAccumulator:
                 )
             self.traces.append(observation.trace)
             self._extend_unique_gaps(observation.gaps)
+            if observation.evidence:
+                self.successful_tools.add(call.name)
             for item in observation.evidence:
                 if item.content_hash in self.evidence_hashes:
                     continue
@@ -426,6 +429,17 @@ class ContinuousAgentEpisode:
                 )
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                if self._snapshot_surface_satisfied(
+                    registry=registry,
+                    context=context,
+                    successful_tools=accumulator.successful_tools,
+                ):
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason="snapshot_surface_satisfied",
+                    )
                 continue
 
             try:
@@ -542,6 +556,21 @@ class ContinuousAgentEpisode:
                     f"关闭原因：{reason}"
                 ),
             }
+        )
+
+    @staticmethod
+    def _snapshot_surface_satisfied(
+        *,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        successful_tools: set[str],
+    ) -> bool:
+        specs = registry.authorized_specs(
+            context.contract.allowed_capabilities,
+        )
+        return bool(specs) and all(
+            spec.query_scope == "episode" and spec.name in successful_tools
+            for spec in specs
         )
 
     def _can_recover_finalization(

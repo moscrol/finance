@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import Literal
 
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
@@ -54,6 +55,9 @@ class ToolSpec:
     cost: str
     freshness: str
     runner: agent_research.ToolRunner
+    # ``episode`` means the tool returns one complete turn-scoped snapshot;
+    # rewriting its query cannot produce a different evidence surface.
+    query_scope: Literal["query", "episode"] = "query"
 
 
 class ResearchToolRegistry:
@@ -179,6 +183,11 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             cost="local" if freshness == "stable" else "external",
             freshness=freshness,
             runner=tools[name],
+            query_scope=(
+                "episode"
+                if name in {"market_data", "mainline_context"}
+                else "query"
+            ),
         )
         for name, (capability, description, freshness) in _DEFAULT_TOOL_METADATA.items()
         if name in tools

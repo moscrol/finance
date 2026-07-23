@@ -852,6 +852,99 @@ def test_tool_step_exhaustion_preserves_an_extra_finalization_turn() -> None:
     assert model.calls[-1]["tools"] == []
 
 
+def test_complete_episode_snapshot_surface_forces_immediate_finalization() -> None:
+    frame = _frame()
+
+    def snapshot_runner(
+        tool: str,
+        content_hash: str,
+    ):
+        def run(query: str, _context: AgentToolContext):
+            evidence = AgentEvidence(
+                tool=tool,
+                title=f"{tool} snapshot",
+                detail=f"{query} snapshot",
+                source="本地快照",
+                source_date="2026-07-23",
+                content_hash=content_hash,
+            )
+            return (
+                [evidence],
+                f"{tool} observation",
+                ProviderTrace(
+                    provider=f"test:{tool}",
+                    capability=tool,
+                    status="success",
+                    result_count=1,
+                ),
+            )
+
+        return run
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                "market_data",
+                "market_data",
+                "行情快照",
+                "local",
+                "current",
+                snapshot_runner("market_data", "evidence-1"),
+                query_scope="episode",
+            ),
+            ToolSpec(
+                "mainline_context",
+                "mainline_context",
+                "主线快照",
+                "local",
+                "current",
+                snapshot_runner("mainline_context", "evidence-2"),
+                query_scope="episode",
+            ),
+        )
+    )
+    model = ScriptedModel(
+        [
+            ModelTurn(
+                "",
+                (
+                    ModelToolCall(
+                        "market-call",
+                        "market_data",
+                        {"query": "最新行情"},
+                    ),
+                    ModelToolCall(
+                        "mainline-call",
+                        "mainline_context",
+                        {"query": "最新主线"},
+                    ),
+                ),
+                "scripted",
+                "",
+            ),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            allowed_capabilities=("market_data", "mainline_context"),
+        ),
+        registry=registry,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.usage.tool_calls == 2
+    assert len(model.calls) == 2
+    assert model.calls[1]["tools"] == []
+    finalization = next(
+        event for event in outcome.events if event.kind == "finalization"
+    )
+    assert finalization.payload["reason"] == "snapshot_surface_satisfied"
+
+
 def test_model_unavailable_before_evidence_fails_honestly() -> None:
     frame = _frame()
     model = ScriptedModel([ModelTurn("", (), "glm", "provider unavailable")])
