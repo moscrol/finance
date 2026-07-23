@@ -874,7 +874,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
     assert result.verified.outcome.draft == expected
 
 
-def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
+def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
     missed_claim = "外资将持续流入，因此反弹将延续。"
     frame, structural = _structural(f"市场下跌。政策变化导致了下跌。{missed_claim}")
     calls = 0
@@ -890,12 +890,15 @@ def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
             }
         texts = [str(item["text"]) for item in request["sentences"]]
         assert "政策变化导致了下跌。" not in texts
-        assert missed_claim in texts
-        return {
-            "passed": False,
-            "rejected_sentence_indexes": [2],
-            "issues": ["复核发现仍含无据外部因果"],
-        }
+        if calls == 2:
+            assert missed_claim in texts
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": ["复核发现仍含无据外部因果"],
+            }
+        assert texts == ["市场下跌。"]
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
 
     result = SemanticEpisodeVerifier(judge_fn=strict_judge).verify(
         frame=frame,
@@ -903,10 +906,37 @@ def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert calls == 2
+    assert calls == 3
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert missed_claim not in result.public_answer
+
+
+def test_semantic_repair_stops_after_two_targeted_redactions() -> None:
+    frame, structural = _structural(
+        "市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+    )
+    calls = 0
+
+    def judge(request):
+        nonlocal calls
+        calls += 1
+        texts = [str(item["text"]) for item in request["sentences"]]
+        return {
+            "passed": False,
+            "rejected_sentence_indexes": [2],
+            "issues": [f"第2句无据，当前剩余{len(texts)}句"],
+        }
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 3
     assert result.status == "partial"
     assert result.judge_status == "rejected"
-    assert missed_claim not in result.public_answer
 
 
 def test_injected_passing_judge_records_correlated_limit() -> None:

@@ -502,6 +502,114 @@ class SemanticEpisodeVerifier:
                 correlated_judge=correlated,
             )
 
+        if (
+            second.report is not None
+            and second.report.rejected_sentence_indexes
+        ):
+            repaired_twice = self._repair(
+                frame=frame,
+                structural=repaired_verified,
+                rejected_sentence_indexes=second.report.rejected_sentence_indexes,
+            )
+            if repaired_twice is not None:
+                twice_verified, _twice_frame = repaired_twice
+                second_marker_loss = _lost_required_output_markers(
+                    contract,
+                    repaired_verified.outcome.draft,
+                    twice_verified.outcome.draft,
+                )
+                if second_marker_loss:
+                    issues = tuple(
+                        dict.fromkeys(
+                            (
+                                *twice_verified.issues,
+                                *preflight_issues,
+                                *first.report.issues,
+                                *second.report.issues,
+                                *_marker_loss_issues(second_marker_loss),
+                            )
+                        )
+                    )
+                    return SemanticEpisodeOutcome(
+                        verified=twice_verified,
+                        status="partial",
+                        public_answer=self._gap_answer(frame, twice_verified),
+                        judge_status="rejected",
+                        issues=issues,
+                        correlated_judge=correlated,
+                    )
+                if twice_verified.verified_status == "completed":
+                    twice_sentences = _numbered_sentences(
+                        twice_verified.outcome.draft
+                    )
+                    third = self._run_judge(
+                        self._judge_request(
+                            frame,
+                            twice_verified,
+                            twice_sentences,
+                        ),
+                        deadline,
+                    )
+                    if deadline.expired:
+                        third = _JudgeCall(
+                            None,
+                            True,
+                            third.correlated,
+                            "semantic judge deadline exhausted",
+                        )
+                    third = _apply_numeric_condition_gate(
+                        third,
+                        twice_sentences,
+                        twice_verified,
+                    )
+                    correlated = correlated or third.correlated
+                    if third.report is not None and third.report.passed:
+                        return self._completed_public(
+                            frame,
+                            twice_verified,
+                            judge_status="repaired",
+                            judge_issues=tuple(
+                                dict.fromkeys(
+                                    (
+                                        *preflight_issues,
+                                        *first.report.issues,
+                                        *second.report.issues,
+                                        *third.report.issues,
+                                    )
+                                )
+                            ),
+                            correlated_judge=correlated,
+                        )
+                    third_issue = (
+                        third.issue
+                        if third.report is None
+                        else "; ".join(third.report.issues)
+                        or "semantic judge rejected twice-repaired draft"
+                    )
+                    issues = tuple(
+                        dict.fromkeys(
+                            (
+                                *twice_verified.issues,
+                                *preflight_issues,
+                                *first.report.issues,
+                                *second.report.issues,
+                                third_issue,
+                            )
+                        )
+                    )
+                    return SemanticEpisodeOutcome(
+                        verified=twice_verified,
+                        status="partial",
+                        public_answer=self._gap_answer(frame, twice_verified),
+                        judge_status=(
+                            "unavailable"
+                            if third.report is None
+                            else "rejected"
+                        ),
+                        issues=issues,
+                        correlated_judge=correlated,
+                    )
+
         final_issue = (
             second.issue
             if second.report is None
