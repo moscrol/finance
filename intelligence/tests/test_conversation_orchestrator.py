@@ -33,6 +33,7 @@ from intelligence.services.conversation_orchestrator import (
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
+from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.research_contract import TurnIntent
@@ -109,10 +110,7 @@ def _research_controller(query: str, **kwargs: object) -> TurnDecision:
 
 
 def test_public_sanitizer_removes_marker_shells_and_unstable_heading_ordinals() -> None:
-    answer = (
-        "## 三、判断依据\n"
-        "来源 [[G1], [G2], [G3]]；有效区间 [10, 20]。[G4, G5, G6]"
-    )
+    answer = "## 三、判断依据\n来源 [[G1], [G2], [G3]]；有效区间 [10, 20]。[G4, G5, G6]"
 
     cleaned = sanitize_conversation_answer(answer)
 
@@ -307,8 +305,7 @@ def test_old_daily_agent_contract_cannot_own_market_forecast(tmp_path) -> None:
     assert result.status == "completed"
     assert captured[0].question_type_override == "market_forecast"
     warning = (
-        "Skill daily-agent 已降级为证据贡献者；"
-        "需显式声明 owner 元数据后才能接管答案"
+        "Skill daily-agent 已降级为证据贡献者；需显式声明 owner 元数据后才能接管答案"
     )
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert warning in assistant.degrades
@@ -382,6 +379,549 @@ def _prepare_turn(
         last_run_id=run.run_id,
     )
     return run.run_id, assistant.message_id
+
+
+def _continuous_forecast_fixture(tmp_path, query: str):
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="判断市场后续走势",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment", "evidence_boundary"),
+        assumptions=("按A股市场理解",),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type=frame.question_type,
+            capabilities=("market_news",),
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    return (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    )
+
+
+def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "昨天的反弹能持续多久"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="判断反弹持续性",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment", "evidence_boundary"),
+        assumptions=("按A股市场理解",),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type=frame.question_type,
+            capabilities=("market_news",),
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            assert frame is control.task_frame
+            assert control.turn_intent == intent
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="反弹持续性取决于量能与领涨扩散，当前先按条件化修复看待。",
+                as_of="2026-07-22",
+                citations=(
+                    {
+                        "title": "市场量能窗口",
+                        "source": "本地行情",
+                        "date": "2026-07-22",
+                    },
+                ),
+                warnings=(),
+                private_artifact={
+                    "evidence_hash": "PRIVATE_EVIDENCE_HASH",
+                    "provider_attempt": "PRIVATE_PROVIDER_ATTEMPT",
+                    "system_prompt": "PRIVATE_SYSTEM_PROMPT",
+                    "Authorization": "Bearer PRIVATE_SECRET_VALUE",
+                    "api_key": "PRIVATE_API_KEY_VALUE",
+                },
+                events=(
+                    {
+                        "type": "progress",
+                        "stage": "research",
+                        "message": "已完成本轮证据收集。",
+                        "status": "running",
+                    },
+                ),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    revisions = 0
+    real_revise = conversation_store.revise_message
+
+    def counted_revise(*args, **kwargs):
+        nonlocal revisions
+        revisions += 1
+        return real_revise(*args, **kwargs)
+
+    monkeypatch.setattr(conversation_store, "revise_message", counted_revise)
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.content.startswith("反弹持续性取决于")
+    assert revisions == 1
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert assistant.content == result.content
+    assert assistant.status == "completed"
+    assert assistant.turn_intent["task_frame_hash"] == frame.task_frame_hash
+    assert assistant.citations == [
+        {
+            "title": "市场量能窗口",
+            "source": "本地行情",
+            "date": "2026-07-22",
+        }
+    ]
+    run = run_store.load_run(run_id)
+    assert run.status == "completed"
+    assert {item["path"] for item in run.artifacts} == {
+        "answer.md",
+        "continuous-episode.json",
+        "report.json",
+    }
+    private_payload = json.loads(
+        (run_store.run_dir(run_id) / "continuous-episode.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert private_payload["evidence_hash"] == "PRIVATE_EVIDENCE_HASH"
+    assert private_payload["task_frame"]["task_frame_hash"] == frame.task_frame_hash
+    assert private_payload["turn_intent"]["task_frame_hash"] == frame.task_frame_hash
+    assert private_payload["Authorization"] == "[REDACTED]"
+    assert private_payload["api_key"] == "[REDACTED]"
+    private_text = json.dumps(private_payload, ensure_ascii=False)
+    assert "PRIVATE_SECRET_VALUE" not in private_text
+    assert "PRIVATE_API_KEY_VALUE" not in private_text
+    public_stream = json.dumps(
+        run_store.load_stream_events(run_id),
+        ensure_ascii=False,
+    )
+    assert "PRIVATE_EVIDENCE_HASH" not in public_stream
+    assert "PRIVATE_PROVIDER_ATTEMPT" not in public_stream
+    assert "PRIVATE_SYSTEM_PROMPT" not in public_stream
+    assert any(
+        event["event_type"] == "trace.step"
+        for event in run_store.load_stream_events(run_id)
+    )
+
+
+def test_continuous_decline_preserves_legacy_lane_behavior(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "卫星互联网是什么"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="解释概念",
+        question_type="concept_definition",
+        subject="卫星互联网",
+        subject_kind="concept",
+        market_scope="",
+        timeframe="",
+        required_outputs=("definition",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="static_knowledge",
+        confidence=0.95,
+    )
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="knowledge",
+            needs_retrieval=False,
+            needs_memory=False,
+            needs_template=False,
+            question_type=frame.question_type,
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    calls = 0
+
+    class DecliningAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            nonlocal calls
+            calls += 1
+            assert control.task_frame is frame
+            return ContinuousTurnResult(
+                handled=False,
+                status="failed",
+                answer="",
+                as_of=None,
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "declined static knowledge must not retrieve"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "declined static knowledge must not route"
+        ),
+        lane_answer_fn=lambda *_args, **_kwargs: LaneAnswer(
+            "卫星互联网是通过卫星星座提供网络连接的通信系统。"
+        ),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=DecliningAdapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert calls == 1
+    assert result.status == "completed"
+    assert result.content == "卫星互联网是通过卫星星座提供网络连接的通信系统。"
+
+
+def test_continuous_degraded_turn_is_transport_complete_but_business_partial(
+    tmp_path,
+) -> None:
+    query = "明天反弹还是继续下跌"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class DegradedAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="degraded",
+                answer="现有证据只支持条件判断：若量能不能延续，反弹更可能转为震荡。",
+                as_of="2026-07-22",
+                citations=(),
+                warnings=("仍缺次日增量资金确认。",),
+                private_artifact={"judge_status": "unavailable"},
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled degraded turn must not enter legacy synthesis"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled degraded turn must not route"
+        ),
+        lane_answer_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled degraded turn must not use lane generator"
+        ),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=DegradedAdapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert result.status == "completed"
+    assert assistant.status == "completed"
+    assert assistant.degrades == ["仍缺次日增量资金确认。"]
+    assert run_store.load_run(run_id).status == "completed"
+    assert report["transport_status"] == "completed"
+    assert report["research_status"] == "partial"
+    assert report["answer_status"] == "partial"
+    assert report["status"] == "partial"
+    assert snapshots[-1]["payload"]["phase"] == "evidence_gap_fallback"
+
+
+def test_continuous_failed_turn_uses_same_message_and_run_identity(
+    tmp_path,
+) -> None:
+    query = "目前市场的主线是什么"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class FailedAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="failed",
+                answer="",
+                as_of=None,
+                citations=(),
+                warnings=("连续研究执行失败。",),
+                private_artifact={"failure": "fixture"},
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed handled turn must not enter legacy synthesis"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed handled turn must not route"
+        ),
+        lane_answer_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed handled turn must not use lane generator"
+        ),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=FailedAdapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert result.status == "failed"
+    assert assistant.message_id == assistant_message_id
+    assert assistant.run_id == run_id
+    assert assistant.status == "failed"
+    assert run_store.load_run(run_id).status == "failed"
+    assert any(
+        event["event_type"] == "message.error"
+        and event["message_id"] == assistant_message_id
+        and event["run_id"] == run_id
+        for event in run_store.load_stream_events(run_id)
+    )
+
+
+def test_continuous_cancellation_keeps_same_message_and_run_identity(
+    tmp_path,
+) -> None:
+    query = "这一周行情下跌的主要原因是什么"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+    cancelled = Event()
+
+    class CancellingAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            cancelled.set()
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="这个答案不应越过取消边界。",
+                as_of="2026-07-22",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=CancellingAdapter(),
+        is_cancelled=cancelled.is_set,
+        cancellation_reason=lambda: "cancelled_by_user",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert result.status == "cancelled"
+    assert assistant.message_id == assistant_message_id
+    assert assistant.run_id == run_id
+    assert assistant.status == "cancelled"
+    assert run_store.load_run(run_id).status == "cancelled"
+    assert "这个答案不应越过取消边界" not in assistant.content
 
 
 def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
@@ -636,7 +1176,9 @@ def test_long_tail_real_owner_success_chain_keeps_template_isolation(
     """成功链走真实 owner/completion/presenter，只用可回放的假 provider。"""
 
     monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
-    monkeypatch.setattr(agent_research.llm_refine, "detect_provider", lambda _model=None: None)
+    monkeypatch.setattr(
+        agent_research.llm_refine, "detect_provider", lambda _model=None: None
+    )
 
     def web_runner(query: str, _context):
         return (
@@ -852,9 +1394,7 @@ def test_ambiguous_request_uses_clarify_lane_without_retrieval(tmp_path) -> None
         conversation_store=conversation_store,
         run_store=run_store,
         answer_query_fn=lambda *_: pytest.fail("clarify must not retrieve"),
-        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
-            "clarify must not route"
-        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail("clarify must not route"),
         skill_registry=SkillRegistry(),
     ).run_turn(
         conversation_id=conversation.conversation_id,
@@ -887,9 +1427,7 @@ def test_unbound_rebound_clarifies_before_route_or_retrieval(tmp_path) -> None:
         conversation_store=conversation_store,
         run_store=run_store,
         answer_query_fn=lambda *_: pytest.fail("clarify must not retrieve"),
-        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
-            "clarify must not route"
-        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail("clarify must not route"),
         skill_registry=SkillRegistry(),
     ).run_turn(
         conversation_id=conversation.conversation_id,
@@ -958,9 +1496,7 @@ def test_rebound_clarification_resumes_original_forecast_on_second_turn(
     )
 
     assert first.status == "completed"
-    first_assistant = conversation_store.load_messages(
-        conversation.conversation_id
-    )[-1]
+    first_assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert first_assistant.turn_intent is not None
     assert first_assistant.turn_intent["pending_task_frame"]["raw_question"] == (
         first_query
@@ -987,9 +1523,9 @@ def test_rebound_clarification_resumes_original_forecast_on_second_turn(
     assert captured[0].question_type_override == "market_forecast"
     assert captured[0].research_task_contract is not None
     assert captured[0].research_task_contract.question == first_query
-    second_assistant = conversation_store.load_messages(
-        conversation.conversation_id
-    )[-1]
+    second_assistant = conversation_store.load_messages(conversation.conversation_id)[
+        -1
+    ]
     assert second_assistant.turn_intent is not None
     assert second_assistant.turn_intent["question_type"] == "market_forecast"
     assert second_assistant.turn_intent["primary_subject"] == "A股市场"
@@ -1088,16 +1624,21 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.degrades == ["方法论回答生成暂时不可用"]
     controller = next(
-        step for step in run_store.load_trace(run_id) if step["name"] == "turn_controller"
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "turn_controller"
     )
     decision = json.loads(controller["output_summary"])["decision"]
     assert decision["question_type"] == QUESTION_METHODOLOGY
     assert decision["needs_retrieval"] is False
-    assert json.loads(controller["output_summary"])[
-        "decision_diverged_from_legacy"
-    ] is False
+    assert (
+        json.loads(controller["output_summary"])["decision_diverged_from_legacy"]
+        is False
+    )
     generation = next(
-        step for step in run_store.load_trace(run_id) if step["name"] == "lane_direct_answer"
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "lane_direct_answer"
     )
     assert json.loads(generation["output_summary"])["retrieval_attempted"] is False
     snapshots = [
@@ -1150,7 +1691,9 @@ def test_relation_question_skips_theme_skill_router(tmp_path) -> None:
     assert route_output["relation_guard_requested"] is True
 
 
-def test_final_task_gate_marks_candidate_list_partial_even_when_research_complete(tmp_path) -> None:
+def test_final_task_gate_marks_candidate_list_partial_even_when_research_complete(
+    tmp_path,
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -1175,7 +1718,9 @@ def test_final_task_gate_marks_candidate_list_partial_even_when_research_complet
 
     def answer_with_candidate_list(options: AskOptions) -> AskResult:
         assert options.research_task_contract is not None
-        result = _ask_result(query, synthesis="本轮只展示候选来源，仍缺少针对用户问题的直接判断。")
+        result = _ask_result(
+            query, synthesis="本轮只展示候选来源，仍缺少针对用户问题的直接判断。"
+        )
         result.business_status = "complete"
         result.completion_report = {"business_status": "complete"}
         result.citations = [Citation("G1", "2025 市场回顾", "全年回顾性线索")]
@@ -1245,7 +1790,9 @@ def test_final_task_gate_marks_candidate_list_partial_even_when_research_complet
         if artifact["path"] == "report.json"
     )
     report = json.loads(
-        (run_store.run_dir(run_id) / report_artifact["path"]).read_text(encoding="utf-8")
+        (run_store.run_dir(run_id) / report_artifact["path"]).read_text(
+            encoding="utf-8"
+        )
     )
 
     assert result.status == "completed"  # transport remains compatible
@@ -1514,7 +2061,9 @@ def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval
             repo_root=tmp_path,
             conversation_store=conversation_store,
             run_store=run_store,
-            answer_query_fn=lambda *_: pytest.fail("knowledge follow-up must not retrieve"),
+            answer_query_fn=lambda *_: pytest.fail(
+                "knowledge follow-up must not retrieve"
+            ),
             route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
                 "knowledge follow-up must not route"
             ),
@@ -1602,7 +2151,11 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
 
     parent_run_id = None
     run_ids: list[str] = []
-    for query in ("第一轮：液冷怎么样？", "第二轮：证据够硬吗？", "第三轮：下一步看什么？"):
+    for query in (
+        "第一轮：液冷怎么样？",
+        "第二轮：证据够硬吗？",
+        "第三轮：下一步看什么？",
+    ):
         run_id, assistant_message_id = _prepare_turn(
             conversation_store, run_store, conversation.conversation_id, query
         )
@@ -1745,10 +2298,7 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
     assert contextualize_follow_up_query(
         "那它的主要风险和下一步验证是什么？",
         context,
-    ) == (
-        "请个股深挖英维克的液冷业务\n"
-        "追问：那它的主要风险和下一步验证是什么？"
-    )
+    ) == ("请个股深挖英维克的液冷业务\n追问：那它的主要风险和下一步验证是什么？")
     assert contextualize_follow_up_query("今天市场怎么样？", context) == (
         "今天市场怎么样？"
     )
@@ -1767,8 +2317,7 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
         "边际变化呢",
     ):
         assert contextualize_follow_up_query(query, context) == (
-            "请个股深挖英维克的液冷业务\n"
-            f"追问：{query}"
+            f"请个股深挖英维克的液冷业务\n追问：{query}"
         )
 
 
@@ -1807,9 +2356,7 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "target=天阳科技 source=[[天阳科技_最新逻辑跟踪]]，质量 medium"
     )
     module_id = sanitize_user_visible_artifact_text("research_5_telemetry")
-    no_llm_code = sanitize_user_visible_artifact_text(
-        "llm_unavailable_template_answer"
-    )
+    no_llm_code = sanitize_user_visible_artifact_text("llm_unavailable_template_answer")
     answer_route = sanitize_user_visible_artifact_text(
         "answer-orchestrator：未高置信识别问题类型"
     )
@@ -1889,20 +2436,18 @@ def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
         return result
 
     def shadow_spy(prepared) -> AskResult:
-        prepared.result.grounded_composer_shadow = (
-            answer_model.GroundedComposerShadow(
-                status="accepted",
-                decision_brief=answer_model.DecisionBrief(
-                    direct_answer="影子直接回答",
-                    core_tension="影子核心矛盾",
-                    supports=("fixture:direct_assessment",),
-                ),
-                raw_answer="影子原文",
-                presented_answer="影子答案",
-                provider="fixture",
-                model="fixture-model",
-                elapsed_ms=1,
-            )
+        prepared.result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="accepted",
+            decision_brief=answer_model.DecisionBrief(
+                direct_answer="影子直接回答",
+                core_tension="影子核心矛盾",
+                supports=("fixture:direct_assessment",),
+            ),
+            raw_answer="影子原文",
+            presented_answer="影子答案",
+            provider="fixture",
+            model="fixture-model",
+            elapsed_ms=1,
         )
         return prepared.result
 
@@ -1987,16 +2532,14 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
         return result
 
     def shadow_spy(prepared) -> AskResult:
-        prepared.result.grounded_composer_shadow = (
-            answer_model.GroundedComposerShadow(
-                status="judge_unavailable",
-                raw_answer="影子原文",
-                presented_answer="不应落盘的影子答案",
-                provider="fixture",
-                model="fixture-model",
-                failure_reason="timeout",
-                elapsed_ms=1,
-            )
+        prepared.result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="judge_unavailable",
+            raw_answer="影子原文",
+            presented_answer="不应落盘的影子答案",
+            provider="fixture",
+            model="fixture-model",
+            failure_reason="timeout",
+            elapsed_ms=1,
         )
         return prepared.result
 
@@ -2041,9 +2584,7 @@ def test_market_question_automatically_selects_daily_review() -> None:
         llm_complete=lambda _: (None, None, "fixture no llm"),
     )
 
-    assert [selection.skill_id for selection in route.selections] == [
-        "daily-review"
-    ]
+    assert [selection.skill_id for selection in route.selections] == ["daily-review"]
 
 
 def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> None:
@@ -2408,9 +2949,7 @@ def test_routed_skills_execute_in_parallel_with_ordered_outputs(tmp_path) -> Non
     assert a_start < b_end and b_start < a_end
 
 
-def test_parallel_skills_flag_off_falls_back_to_serial(
-    tmp_path, monkeypatch
-) -> None:
+def test_parallel_skills_flag_off_falls_back_to_serial(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("WORKBENCH_PARALLEL_SKILLS", "0")
     result, spans = _run_overlap_turn(tmp_path)
 
@@ -2453,9 +2992,7 @@ def test_compose_ask_options_share_wiki_rag_cache_scope(tmp_path) -> None:
     )
 
     assert captured
-    assert captured[0].wiki_rag_cache_scope == (
-        f"alice:{conversation.conversation_id}"
-    )
+    assert captured[0].wiki_rag_cache_scope == (f"alice:{conversation.conversation_id}")
 
 
 def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> None:
@@ -2563,19 +3100,19 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                 warnings=[],
                 as_of="2026-07-11",
                 raw_result_ref=None,
-                    answer_contract=replace(
-                        build_module_answer_contract(
-                            skill_id=self.skill_id,
-                            title="专项研究",
-                            modules=modules,
-                            citations=citations,
-                            warnings=[],
-                            as_of="2026-07-11",
-                            retrieval_plan=("读取专项正式资料",),
-                            output_contract=("输出五元素裁决",),
-                        ),
-                        question_type="general_finance_qa",
+                answer_contract=replace(
+                    build_module_answer_contract(
+                        skill_id=self.skill_id,
+                        title="专项研究",
+                        modules=modules,
+                        citations=citations,
+                        warnings=[],
+                        as_of="2026-07-11",
+                        retrieval_plan=("读取专项正式资料",),
+                        output_contract=("输出五元素裁决",),
                     ),
+                    question_type="general_finance_qa",
+                ),
             )
 
     class UnusedSkill:
@@ -2792,9 +3329,7 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
 
     trace = run_store.load_trace(run_id)
     route = json.loads(
-        next(step for step in trace if step["name"] == "route_skills")[
-            "output_summary"
-        ]
+        next(step for step in trace if step["name"] == "route_skills")["output_summary"]
     )
     owner_contract = json.loads(
         next(step for step in trace if step["name"] == "skill_answer_owner")[
@@ -2831,7 +3366,9 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
     assert "本轮尚未完成问题所需的直接回答" in result.content
 
 
-def test_cancellation_after_draft_keeps_last_safe_snapshot(tmp_path, monkeypatch) -> None:
+def test_cancellation_after_draft_keeps_last_safe_snapshot(
+    tmp_path, monkeypatch
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -2913,12 +3450,14 @@ def test_cancellation_after_draft_keeps_last_safe_snapshot(tmp_path, monkeypatch
         for artifact in run_store.load_run(run_id).artifacts
         if artifact["path"] == "answer.md"
     )
-    assert (
-        run_store.run_dir(run_id) / answer_artifact["path"]
-    ).read_text(encoding="utf-8") == result.content
+    assert (run_store.run_dir(run_id) / answer_artifact["path"]).read_text(
+        encoding="utf-8"
+    ) == result.content
 
 
-def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:
+def test_skill_failure_degrades_only_its_module_and_ask_still_completes(
+    tmp_path,
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -3083,9 +3622,7 @@ def test_auto_mode_reroutes_after_skill_failure_within_budget(tmp_path) -> None:
         route_calls.append(kwargs)
         if kwargs.get("excluded_skill_ids"):
             return SkillRouteResult(
-                selections=(
-                    SkillSelection("fixture", "llm", "失败后切换证据路径"),
-                ),
+                selections=(SkillSelection("fixture", "llm", "失败后切换证据路径"),),
                 fallback_to_ask=False,
             )
         return SkillRouteResult(
@@ -3285,10 +3822,7 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
 
     events = run_store.load_stream_events(run_id)
     assert events
-    assert all(
-        event["event_id"].startswith("recovery:2:")
-        for event in events
-    )
+    assert all(event["event_id"].startswith("recovery:2:") for event in events)
 
 
 def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
@@ -3451,7 +3985,9 @@ class _StreamingResponse(io.BytesIO):
 
 
 def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"real "}}]}\n\n'
         b'data: {"choices":[{"delta":{"content":"delta"}}]}\n\n'
@@ -3477,7 +4013,9 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
 
 
 def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     captured: dict[str, object] = {}
     body = (
         b'data: {"choices":[{"delta":{"content":"bounded"},"finish_reason":"stop"}]}\n\n'
@@ -3506,7 +4044,9 @@ def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> Non
 
 
 def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":"length"}]}\n\n'
         b"data: [DONE]\n\n"
@@ -3533,7 +4073,9 @@ def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None
 
 
 def test_synthesis_stream_output_too_long_fails_closed(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"too-long"},"finish_reason":"stop"}]}\n\n'
         b"data: [DONE]\n\n"
@@ -3560,7 +4102,9 @@ def test_synthesis_stream_output_too_long_fails_closed(monkeypatch) -> None:
 def test_openai_stream_checks_cancellation_between_provider_deltas(
     monkeypatch,
 ) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
         b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n'
@@ -3592,7 +4136,9 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
 def test_openai_stream_closes_blocking_response_at_absolute_deadline(
     monkeypatch,
 ) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
 
     class BlockingResponse:
         def __init__(self) -> None:
@@ -3634,7 +4180,9 @@ def test_openai_stream_closes_blocking_response_at_absolute_deadline(
 
 
 def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     unsupported = urllib.error.HTTPError(
         "https://llm.invalid/v1/chat/completions",
@@ -3668,7 +4216,9 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
 
 
 def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
         llm_refine,
@@ -3707,7 +4257,9 @@ def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
     assert observed == [2.0]
 
 
-def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_path) -> None:
+def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(
+    tmp_path,
+) -> None:
     store = ConversationStore("alice", root=tmp_path)
     conversation = store.create_conversation()
     pending = store.append_message(
@@ -3728,8 +4280,10 @@ def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_pat
 
     assert store.load_messages(conversation.conversation_id) == [completed]
     raw_lines = (
-        tmp_path / conversation.conversation_id / "messages.jsonl"
-    ).read_text(encoding="utf-8").splitlines()
+        (tmp_path / conversation.conversation_id / "messages.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     assert [json.loads(line)["message_id"] for line in raw_lines] == [
         pending.message_id,
         pending.message_id,
@@ -3749,10 +4303,7 @@ def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
         sanitize_conversation_answer("- 还缺：D8 历史类比库不存在")
         == "- 还缺：历史类比库不存在"
     )
-    assert (
-        sanitize_conversation_answer("D6 中期趋势库不存在")
-        == "中期趋势库不存在"
-    )
+    assert sanitize_conversation_answer("D6 中期趋势库不存在") == "中期趋势库不存在"
 
 
 def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
@@ -3940,14 +4491,10 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     assert "截止时间" in result.content
     trace_before_release = run_store.load_trace(run_id)
     assert any(
-        step["name"] == "ask_stage_agent_loop"
-        and step["status"] == "running"
+        step["name"] == "ask_stage_agent_loop" and step["status"] == "running"
         for step in trace_before_release
     )
-    assert any(
-        step["name"] == "ask_root_timeout"
-        for step in trace_before_release
-    )
+    assert any(step["name"] == "ask_root_timeout" for step in trace_before_release)
 
     release_worker.set()
     assert late_progress_sent.wait(timeout=1)
@@ -4033,9 +4580,7 @@ def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:
         ]
     )
     route = json.loads(
-        next(step for step in trace if step["name"] == "route_skills")[
-            "output_summary"
-        ]
+        next(step for step in trace if step["name"] == "route_skills")["output_summary"]
     )
     verifier = json.loads(
         next(step for step in trace if step["name"] == "task_fulfillment")[

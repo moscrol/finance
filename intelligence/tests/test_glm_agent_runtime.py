@@ -10,6 +10,7 @@ from intelligence.services.glm_agent_runtime import (
     GLMAgentRuntime,
     GLMModelClient,
 )
+from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.research_contract import (
     RequiredOutput,
@@ -43,6 +44,19 @@ def _provider_script(**responses):
 
     complete_fn.calls = calls
     return complete_fn
+
+
+def test_runtime_accepts_one_shared_client_and_finalizer() -> None:
+    client = GLMModelClient(providers=())
+    finalizer = EpisodeFinalizer(client)
+
+    runtime = GLMAgentRuntime(
+        client=client,
+        finalizer=finalizer,
+    )
+
+    assert runtime._episode._model is client
+    assert runtime._episode._finalizer is finalizer
 
 
 def test_runtime_falls_through_transient_primary_failure_and_counts_attempts() -> None:
@@ -357,10 +371,14 @@ def test_runtime_falls_through_falsy_non_list_tool_calls(
         provider = llm_refine.detect_provider()
         assert provider is not None
         if provider.name == "glm":
-            return {
-                "content": "invalid",
-                "tool_calls": raw_tool_calls,
-            }, provider, ""
+            return (
+                {
+                    "content": "invalid",
+                    "tool_calls": raw_tool_calls,
+                },
+                provider,
+                "",
+            )
         return {"content": "ok", "tool_calls": []}, provider, ""
 
     turn = GLMModelClient(
@@ -588,9 +606,7 @@ def test_glm_runtime_runs_episode_through_provider_neutral_adapter() -> None:
         subject=frame.subject,
         subject_kind=frame.subject_kind,
         question_type=frame.question_type,
-        required_outputs=(
-            RequiredOutput("direct_assessment", "直接判断", (), True),
-        ),
+        required_outputs=(RequiredOutput("direct_assessment", "直接判断", (), True),),
         allowed_capabilities=(),
         research_tier="quick",
         task_frame_hash=frame.task_frame_hash,

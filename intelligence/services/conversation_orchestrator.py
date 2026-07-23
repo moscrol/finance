@@ -14,6 +14,7 @@ from concurrent.futures import (
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from threading import Event, Lock, Thread
+from typing import Protocol
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -40,7 +41,6 @@ from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
-    QUESTION_FACT_CHECK,
     QUESTION_GENERAL,
     QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
@@ -55,6 +55,7 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
+from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services import llm_refine
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
@@ -87,8 +88,12 @@ from intelligence.services.research_contract import (
     contextualize_intent_query,
     is_contextual_follow_up,
 )
-from intelligence.services.run_store import RunStore, redact
+from intelligence.services.run_store import RunStore, redact, redact_value
 from intelligence.paths import default_paths
+from intelligence.services.turn_control_core import (
+    TurnControlResult,
+    project_turn_decision,
+)
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence import userspace
@@ -112,6 +117,15 @@ SUMMARY_CHAR_LIMIT = 2400
 _SKILL_POOL_WORKERS = 3
 
 
+class ContinuousTurnHandler(Protocol):
+    def handle(
+        self,
+        *,
+        frame: TaskFrame,
+        control: TurnControlResult,
+    ) -> ContinuousTurnResult: ...
+
+
 def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
     """原因归因题不夹带用户未询问的交易策略段。"""
     if not re.search(
@@ -130,7 +144,11 @@ def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
         "博弈单边反转",
         "非投资建议",
     )
-    lines = [line for line in text.splitlines() if not any(term in line for term in forbidden)]
+    lines = [
+        line
+        for line in text.splitlines()
+        if not any(term in line for term in forbidden)
+    ]
     return "\n".join(lines).strip()
 
 
@@ -200,7 +218,9 @@ def _build_generic_research_contract(
         ),
         freshness="current",
     )
-    is_current_mainline = evidence_plan.profile == "mainline_current" and not is_methodology
+    is_current_mainline = (
+        evidence_plan.profile == "mainline_current" and not is_methodology
+    )
     is_current_market_fact = evidence_plan.profile == "current_market_fact"
     needs_l3 = bool(
         re.search(
@@ -264,19 +284,37 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "direct_assessment",
                 "直接回答关系问题，并区分已核验关系、候选关系和未找到关系边",
-                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
                 True,
             ),
             RequiredOutput(
                 "relation_map",
                 "给出与问题方向一致的关系边、关系角色或明确的缺边结论",
-                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
                 True,
             ),
             RequiredOutput(
                 "supporting_evidence",
                 "至少一条可回查的关系来源或明确的缺口证据",
-                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
                 True,
             ),
         )
@@ -323,7 +361,13 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "direct_assessment",
                 "针对事件可能性或影响窗口的直接判断，并明确条件边界",
-                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
                 True,
             ),
             RequiredOutput(
@@ -335,7 +379,13 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "event_transmission",
                 "事件到行业、公司或资产的传导链，并说明受益/受损方向与边界",
-                ("kb_search", "graph_lookup", "evidence_lookup", "web_search", "news_search"),
+                (
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "web_search",
+                    "news_search",
+                ),
                 True,
             ),
             RequiredOutput(
@@ -353,13 +403,25 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "supporting_evidence",
                 "至少一条支持事件事实或传导链的可回查来源",
-                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
                 True,
             ),
             RequiredOutput(
                 "counter_evidence",
                 "至少一条反证、相反传导方向或明确的证据边界",
-                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
                 True,
             ),
         )
@@ -484,11 +546,19 @@ def _build_generic_research_contract(
         capabilities = ("market_data", "web_search", "news_search")
     elif is_event_forecast:
         capabilities = (
-            "web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"
+            "web_search",
+            "news_search",
+            "kb_search",
+            "graph_lookup",
+            "evidence_lookup",
         )
     elif is_comparison:
         capabilities = (
-            "kb_search", "web_search", "news_search", "graph_lookup", "evidence_lookup"
+            "kb_search",
+            "web_search",
+            "news_search",
+            "graph_lookup",
+            "evidence_lookup",
         )
     elif is_market_cause:
         capabilities = (
@@ -510,14 +580,23 @@ def _build_generic_research_contract(
         )
     contract_outputs = (
         *required_outputs,
-        *(() if (is_market_forecast or is_event_forecast or is_comparison or is_relation_map) else (
-            RequiredOutput(
-                "counterpoint",
-                "反方或证据边界",
-                ("kb_search", "web_search", "news_search", "market_data"),
-                False,
-            ),
-        )),
+        *(
+            ()
+            if (
+                is_market_forecast
+                or is_event_forecast
+                or is_comparison
+                or is_relation_map
+            )
+            else (
+                RequiredOutput(
+                    "counterpoint",
+                    "反方或证据边界",
+                    ("kb_search", "web_search", "news_search", "market_data"),
+                    False,
+                ),
+            )
+        ),
     )
     if task_frame is not None:
         contract_outputs = _merge_frame_outputs(
@@ -537,9 +616,11 @@ def _build_generic_research_contract(
         subject_kind=(
             task_frame.subject_kind
             if task_frame is not None
-            else
-            "market_pattern"
-            if is_current_mainline or is_current_market_fact or is_market_cause or is_market_forecast
+            else "market_pattern"
+            if is_current_mainline
+            or is_current_market_fact
+            or is_market_cause
+            or is_market_forecast
             else "event"
             if is_event_forecast
             else "company_relation"
@@ -576,9 +657,7 @@ def _build_generic_research_contract(
             task_frame.timeframe if task_frame is not None else turn_intent.timeframe
         ),
         evidence_plan=evidence_plan,
-        task_frame_hash=(
-            task_frame.task_frame_hash if task_frame is not None else ""
-        ),
+        task_frame_hash=(task_frame.task_frame_hash if task_frame is not None else ""),
     )
 
 
@@ -692,12 +771,8 @@ def _parallel_skills_enabled() -> bool:
     }
 
 
-_INTERNAL_CITATION_PATTERN = re.compile(
-    r"\[(?:D|P|L|G|R|S|W)\d+\]"
-)
-_INTERNAL_CODE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])"
-)
+_INTERNAL_CITATION_PATTERN = re.compile(r"\[(?:D|P|L|G|R|S|W)\d+\]")
+_INTERNAL_CODE_PATTERN = re.compile(r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])")
 _EVIDENCE_LAYER_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])L([1-4])(?:\s*级(?:别)?)?(?![A-Za-z0-9_])"
 )
@@ -962,9 +1037,7 @@ def _resolve_owner_result(
     contract = output.answer_contract
     if contract is None:
         raise ValueError("skill owner output requires an answer contract")
-    raw = retrieval_cache.get(
-        f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}"
-    )
+    raw = retrieval_cache.get(f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}")
     if not isinstance(raw, AskResult):
         return _skill_owner_result(query, output)
     if raw.answer_spec is not contract.answer_spec:
@@ -981,9 +1054,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         Citation(
             tag=f"K{index}",
             source=str(
-                citation.get("title")
-                or citation.get("source")
-                or output.skill_id
+                citation.get("title") or citation.get("source") or output.skill_id
             ),
             detail=str(citation.get("source") or ""),
         )
@@ -1003,9 +1074,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         citations=citations,
         answer_spec=contract.answer_spec,
     )
-    result.provider_traces.extend(
-        _rehydrate_provider_traces(output.provider_traces)
-    )
+    result.provider_traces.extend(_rehydrate_provider_traces(output.provider_traces))
     return result
 
 
@@ -1045,8 +1114,7 @@ def _skill_output_compatible_with_turn(
         return role == "terminal_owner"
     contract_type = contract.question_type
     accepted_question_types = tuple(
-        str(item)
-        for item in (getattr(definition, "accepted_question_types", ()) or ())
+        str(item) for item in (getattr(definition, "accepted_question_types", ()) or ())
     )
     if accepted_question_types and question_type not in accepted_question_types:
         return False
@@ -1086,10 +1154,7 @@ def _redact_object(value: object) -> object:
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
-        return {
-            redact(str(key)): _redact_object(item)
-            for key, item in value.items()
-        }
+        return {redact(str(key)): _redact_object(item) for key, item in value.items()}
     return value
 
 
@@ -1230,9 +1295,7 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
     )
     cleaned = re.sub(r"行业资料(?:\s*行业资料)+", "行业资料", cleaned)
-    cleaned = re.sub(
-        r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned
-    )
+    cleaned = re.sub(r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned)
     cleaned = re.sub(r"盘面信号(?:\s*盘面信号)+", "盘面信号", cleaned)
     cleaned = re.sub(r"盘面\s*盘面信号", "盘面信号", cleaned)
     cleaned = re.sub(
@@ -1241,7 +1304,9 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
         flags=re.IGNORECASE,
     )
-    cleaned = re.sub(r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned)
+    cleaned = re.sub(
+        r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned
+    )
     cleaned = re.sub(
         r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
     )
@@ -1351,6 +1416,7 @@ class TurnOrchestrator:
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
         event_id_prefix: str = "",
+        continuous_turn_adapter: ContinuousTurnHandler | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.conversation_store = conversation_store
@@ -1365,6 +1431,7 @@ class TurnOrchestrator:
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
+        self.continuous_turn_adapter = continuous_turn_adapter
 
     def _market_db_path(self) -> Path:
         """Resolve the data root separately from the runtime code checkout.
@@ -1401,9 +1468,7 @@ class TurnOrchestrator:
         # copy_context 传播）；同 provider+query 的检索每 turn 只真实执行一次。
         # 两本账结束前以 trace 落盘——预算不再只统计 skill 次数。
         with (
-            llm_refine.call_ledger_scope(
-                max_calls=self.research_policy.max_llm_calls
-            ),
+            llm_refine.call_ledger_scope(max_calls=self.research_policy.max_llm_calls),
             query_ledger.query_ledger_scope(),
         ):
             return self._run_turn_ledgered(
@@ -1480,9 +1545,7 @@ class TurnOrchestrator:
                 else None
             )
             inherited_turn_id = (
-                inherited_message.message_id
-                if inherited_message is not None
-                else None
+                inherited_message.message_id if inherited_message is not None else None
             )
             if (
                 inherited_intent is not None
@@ -1617,6 +1680,30 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            if self.continuous_turn_adapter is not None:
+                continuous_control = project_turn_decision(
+                    decision,
+                    task_frame=task_frame,
+                    turn_intent=turn_intent,
+                )
+                continuous_result = self.continuous_turn_adapter.handle(
+                    frame=task_frame,
+                    control=continuous_control,
+                )
+                self._check_cancelled()
+                if continuous_result.handled:
+                    return self._complete_continuous_turn(
+                        conversation_id=conversation_id,
+                        run_id=run_id,
+                        assistant_message_id=assistant_message_id,
+                        query=query,
+                        report=report,
+                        result=continuous_result,
+                        task_frame=task_frame,
+                        selected_skill_ids=manual_selected,
+                        turn_intent=turn_intent,
+                        research_plan=research_plan,
+                    )
             if decision.lane in {"chat", "meta", "clarify"} or (
                 decision.lane == "knowledge" and not decision.needs_retrieval
             ):
@@ -1644,9 +1731,7 @@ class TurnOrchestrator:
                                 user=self.run_store.user_id,
                                 compose=False,
                                 synthesize=False,
-                                market_db_path=(
-                                    self._market_db_path()
-                                ),
+                                market_db_path=(self._market_db_path()),
                                 conversation_context=context.to_prompt_block(),
                                 include_memory_block=decision.needs_memory,
                                 include_recall_block=decision.needs_memory,
@@ -1728,9 +1813,7 @@ class TurnOrchestrator:
                             "knowledge_fallback_retrieval",
                             {
                                 "status": (
-                                    "completed"
-                                    if result.citations
-                                    else "degraded"
+                                    "completed" if result.citations else "degraded"
                                 ),
                                 "citation_count": len(result.citations),
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
@@ -1801,9 +1884,7 @@ class TurnOrchestrator:
                 or relation_guard_requested
                 or generic_owner_requested
             )
-            if (
-                router_skipped
-            ):
+            if router_skipped:
                 # market_technical：controller 已确定性定型，走 ask 内的
                 # 结构化行情技术位管线，跳过语义 skill router 的额外 LLM。
                 # ownerless general：由 GenericResearchOwner 先接管，固定
@@ -1835,9 +1916,7 @@ class TurnOrchestrator:
                 skill_ids=(
                     tuple(selected)
                     if skill_mode == "manual"
-                    else tuple(
-                        dict.fromkeys((*turn_intent.skill_ids, *selected))
-                    )
+                    else tuple(dict.fromkeys((*turn_intent.skill_ids, *selected)))
                 ),
             )
             research_plan = ResearchPlan.from_intent(turn_intent)
@@ -2003,16 +2082,13 @@ class TurnOrchestrator:
                         launched = submit_skill(skill_id)
                     future, skill_started = launched
                     allowed_seconds = min(
-                        self.skill_registry.definitions[
-                            skill_id
-                        ].timeout_seconds,
+                        self.skill_registry.definitions[skill_id].timeout_seconds,
                         research_budget.remaining_seconds,
                     )
                     output = future.result(
                         timeout=max(
                             0.001,
-                            allowed_seconds
-                            - (time.monotonic() - skill_started),
+                            allowed_seconds - (time.monotonic() - skill_started),
                         )
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -2168,9 +2244,7 @@ class TurnOrchestrator:
                         "execution_feedback": tuple(execution_feedback),
                     }
                     if turn_intent.answer_owner is not None:
-                        fallback_route_kwargs["answer_owner"] = (
-                            turn_intent.answer_owner
-                        )
+                        fallback_route_kwargs["answer_owner"] = turn_intent.answer_owner
                     fallback_route = self.route_skills(
                         contextual_query,
                         "ask",
@@ -2199,9 +2273,7 @@ class TurnOrchestrator:
                                 }
                                 for item in replacements
                             ],
-                            "elapsed_ms": self._elapsed_ms(
-                                fallback_route_started
-                            ),
+                            "elapsed_ms": self._elapsed_ms(fallback_route_started),
                         },
                     )
                     execution_feedback.clear()
@@ -2292,9 +2364,10 @@ class TurnOrchestrator:
                 ),
                 None,
             )
-            market_review_requested = (
-                turn_intent.question_type in {"market_watch", "dated_market_review"}
-            )
+            market_review_requested = turn_intent.question_type in {
+                "market_watch",
+                "dated_market_review",
+            }
             generic_contract = (
                 _build_generic_research_contract(
                     contextual_query,
@@ -2315,8 +2388,7 @@ class TurnOrchestrator:
                 query=contextual_query,
                 date=(
                     daily_review_output.as_of
-                    if daily_review_output is not None
-                    and market_review_requested
+                    if daily_review_output is not None and market_review_requested
                     else None
                 ),
                 user=self.run_store.user_id,
@@ -2341,9 +2413,7 @@ class TurnOrchestrator:
                 ),
                 research_task_contract=generic_contract,
                 controller_capabilities=(
-                    tuple(
-                        dict.fromkeys((*decision.capabilities, "web_search"))
-                    )
+                    tuple(dict.fromkeys((*decision.capabilities, "web_search")))
                     if (
                         route.base_finance_fallback
                         and turn_intent.question_type == QUESTION_GENERAL
@@ -2357,9 +2427,7 @@ class TurnOrchestrator:
                 deadline=generic_deadline,
             )
             if owner_output is not None:
-                result = _resolve_owner_result(
-                    query, owner_output, retrieval_cache
-                )
+                result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
                     run_id,
@@ -2499,16 +2567,14 @@ class TurnOrchestrator:
             )
             draft_text = sanitize_conversation_answer(
                 "\n\n".join(
-                    block
-                    for block in (perspective_header, draft_text)
-                    if block
+                    block for block in (perspective_header, draft_text) if block
                 )
             )
             draft_text = _sanitize_market_cause_answer_text(draft_text, query)
-            has_answer_snapshot = (
-                result.answer_spec is not None
-                and decision.lane in {"research", "workflow"}
-            )
+            has_answer_snapshot = result.answer_spec is not None and decision.lane in {
+                "research",
+                "workflow",
+            }
             if has_answer_snapshot:
                 emit_text_delta(draft_text)
                 self._emit(
@@ -2547,9 +2613,7 @@ class TurnOrchestrator:
                 "answer_synthesis",
                 {
                     "status": (
-                        "validated"
-                        if result.synthesis is not None
-                        else "fallback"
+                        "validated" if result.synthesis is not None else "fallback"
                     ),
                     "fallback_reason": result.llm_fallback_reason,
                     "stream": result.llm_stream_telemetry,
@@ -2559,9 +2623,7 @@ class TurnOrchestrator:
             # owner raw 结果的 warnings 在 skill 阶段已并入过（output.warnings），
             # 只追加新增项，避免 degrades 重复落账。
             fresh_result_warnings = [
-                warning
-                for warning in result.warnings
-                if warning not in warnings
+                warning for warning in result.warnings if warning not in warnings
             ]
             warnings.extend(fresh_result_warnings)
             for warning in fresh_result_warnings:
@@ -2591,9 +2653,7 @@ class TurnOrchestrator:
                 block for block in (perspective_header, fallback_notice) if block
             )
             answer_text = sanitize_conversation_answer(
-                "\n\n".join(
-                    block for block in (answer_prefix, answer_text) if block
-                )
+                "\n\n".join(block for block in (answer_prefix, answer_text) if block)
             )
             answer_text = _sanitize_market_cause_answer_text(answer_text, query)
             fulfillment_outputs = (
@@ -2644,7 +2704,8 @@ class TurnOrchestrator:
                 # existing verifier outcome until they expose a TurnContract.
                 result.answer_status = (
                     result.business_status
-                    if result.business_status in {"complete", "partial", "gap", "missing"}
+                    if result.business_status
+                    in {"complete", "partial", "gap", "missing"}
                     else "complete"
                 )
             turn_intent = replace(
@@ -2653,9 +2714,7 @@ class TurnOrchestrator:
                     tuple(dict.fromkeys((*invoked, *selected)))
                     if skill_mode == "manual"
                     else tuple(
-                        dict.fromkeys(
-                            (*turn_intent.skill_ids, *invoked, *selected)
-                        )
+                        dict.fromkeys((*turn_intent.skill_ids, *invoked, *selected))
                     )
                 ),
             )
@@ -2691,8 +2750,7 @@ class TurnOrchestrator:
                     subject=turn_intent.primary_subject,
                 )
                 followup_payload = [
-                    asdict(followup)
-                    for followup in followup_result.followups
+                    asdict(followup) for followup in followup_result.followups
                 ]
                 self._trace(
                     run_id,
@@ -2737,19 +2795,19 @@ class TurnOrchestrator:
                         phase=(
                             "evidence_gap_fallback"
                             if result.answer_status != "complete"
-                            else
-                            (
+                            else (
                                 "decision_brief_fallback"
                                 if result.answer_spec is not None
-                                and result.answer_spec.presentation_kind == "generic_research"
+                                and result.answer_spec.presentation_kind
+                                == "generic_research"
                                 else "verified_fallback"
                             )
                             if result.grounded_fallback_used
                             else "validated_synthesis"
                             if result.synthesis is not None
+                            # 质检未过的模板降级不得伪装成 verified：
+                            # 此时 render 层已 fail-closed 为证据缺口短答。
                             else (
-                                # 质检未过的模板降级不得伪装成 verified：
-                                # 此时 render 层已 fail-closed 为证据缺口短答。
                                 "evidence_gap_fallback"
                                 if (
                                     result.answer_spec is not None
@@ -2799,11 +2857,7 @@ class TurnOrchestrator:
                     conversation_id,
                     "shadow_synthesize",
                     "grounded_composer_shadow",
-                    (
-                        shadow.to_dict()
-                        if shadow is not None
-                        else {"status": "not_run"}
-                    ),
+                    (shadow.to_dict() if shadow is not None else {"status": "not_run"}),
                 )
 
             llm_ledger = llm_refine.current_call_ledger()
@@ -2927,16 +2981,9 @@ class TurnOrchestrator:
                     title="猜你想问",
                 )
             if result.grounded_composer_shadow is not None:
-                shadow_payload = (
-                    result.grounded_composer_shadow.to_dict()
-                )
-                if (
-                    result.grounded_composer_shadow.decision_brief
-                    is not None
-                ):
-                    shadow_brief = (
-                        result.grounded_composer_shadow.decision_brief
-                    )
+                shadow_payload = result.grounded_composer_shadow.to_dict()
+                if result.grounded_composer_shadow.decision_brief is not None:
+                    shadow_brief = result.grounded_composer_shadow.decision_brief
                     decision_brief_payload = shadow_brief.to_dict()
                     self.run_store.add_artifact(
                         run_id,
@@ -2965,17 +3012,13 @@ class TurnOrchestrator:
                     title="Grounded Composer 影子实验",
                 )
                 if (
-                    result.grounded_composer_shadow.status
-                    in {"accepted", "repaired"}
-                    and result.grounded_composer_shadow.presented_answer
-                    is not None
+                    result.grounded_composer_shadow.status in {"accepted", "repaired"}
+                    and result.grounded_composer_shadow.presented_answer is not None
                 ):
                     self.run_store.add_artifact(
                         run_id,
                         "grounded_composer_shadow.md",
-                        redact(
-                            result.grounded_composer_shadow.presented_answer
-                        ),
+                        redact(result.grounded_composer_shadow.presented_answer),
                         renderer="markdown",
                         title="Grounded Composer 影子答案",
                     )
@@ -3180,6 +3223,245 @@ class TurnOrchestrator:
             invoked_skill_ids=(),
         )
 
+    def _complete_continuous_turn(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        query: str,
+        report: dict[str, object],
+        result: ContinuousTurnResult,
+        task_frame: TaskFrame,
+        selected_skill_ids: Sequence[str],
+        turn_intent: TurnIntent,
+        research_plan: ResearchPlan,
+    ) -> TurnResult:
+        """Persist one Episode-owned terminal result without legacy synthesis."""
+
+        private_artifact = dict(result.private_artifact or {})
+        private_artifact["task_frame"] = task_frame.to_dict()
+        private_artifact["turn_intent"] = turn_intent.to_dict()
+        safe_private_artifact = redact_value(private_artifact)
+        warnings = list(dict.fromkeys(result.warnings))
+        for warning in warnings:
+            self.run_store.add_degrade(run_id, warning)
+        if result.status == "degraded" and not warnings:
+            warning = "连续研究已按证据边界降级。"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+
+        for index, event in enumerate(result.events, start=1):
+            self._emit(
+                run_id,
+                assistant_message_id,
+                f"continuous:step:{index}",
+                "trace.step",
+                {
+                    "step": {
+                        "step_id": f"continuous:{index}",
+                        "name": str(event.get("stage") or "research"),
+                        "status": str(event.get("status") or "completed"),
+                        "output_summary": str(event.get("message") or ""),
+                    }
+                },
+                conversation_id,
+            )
+        citations = _sanitize_citation_list(list(result.citations))
+        for index, citation in enumerate(citations, start=1):
+            self._emit(
+                run_id,
+                assistant_message_id,
+                f"continuous:citation:{index}",
+                "citation.ready",
+                {"citation": citation},
+                conversation_id,
+            )
+
+        answer_text = redact(result.answer).strip()
+        if result.status == "failed" or not answer_text:
+            failure_text = answer_text or "本轮连续研究未取得可公开答案。"
+            report["execution_kind"] = "continuous_episode"
+            report["task_frame_hash"] = turn_intent.task_frame_hash
+            report["turn_intent"] = turn_intent.to_dict()
+            report["status"] = "blocked"
+            report["transport_status"] = "failed"
+            report["research_status"] = "blocked"
+            report["answer_status"] = "missing"
+            report["business_status"] = "blocked"
+            report["as_of"] = result.as_of
+            report["warnings"] = warnings
+            self.run_store.add_artifact(
+                run_id,
+                "continuous-episode.json",
+                json.dumps(
+                    safe_private_artifact,
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="json",
+                title="连续研究私有审计",
+            )
+            self.run_store.add_artifact(
+                run_id,
+                "answer.md",
+                failure_text,
+                renderer="markdown",
+                title=redact(f"对话回答：{query[:24]}"),
+            )
+            self.run_store.add_artifact(
+                run_id,
+                "report.json",
+                json.dumps(
+                    _redact_object(report),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="structured_report",
+                title="结构化对话报告",
+            )
+            assistant = self.conversation_store.revise_message(
+                conversation_id,
+                assistant_message_id,
+                content=failure_text,
+                status="failed",
+                selected_skill_ids=list(selected_skill_ids),
+                invoked_skill_ids=[],
+                citations=citations,
+                degrades=warnings,
+                turn_intent=turn_intent.to_dict(),
+                research_plan=research_plan.to_dict(),
+            )
+            self._emit(
+                run_id,
+                assistant_message_id,
+                "report:error",
+                "report.error",
+                {"report": _redact_object(report)},
+                conversation_id,
+            )
+            self._emit(
+                run_id,
+                assistant_message_id,
+                "message:error",
+                "message.error",
+                {"message": asdict(assistant)},
+                conversation_id,
+            )
+            self.run_store.finish_run(
+                run_id,
+                rs.STATUS_FAILED,
+                error="continuous_runtime_failed",
+            )
+            return TurnResult(
+                status=rs.STATUS_FAILED,
+                content=assistant.content,
+                selected_skill_ids=(),
+                invoked_skill_ids=(),
+            )
+
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:text",
+            "text.delta",
+            {"delta": answer_text},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:answer",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase=(
+                    "validated_synthesis"
+                    if result.status == "completed"
+                    else "evidence_gap_fallback"
+                ),
+                text=answer_text,
+                final=True,
+            ).payload(),
+            conversation_id,
+        )
+        report["execution_kind"] = "continuous_episode"
+        report["turn_intent"] = turn_intent.to_dict()
+        complete_report(
+            report,
+            as_of=result.as_of,
+            warnings=warnings,
+            llm_provider=None,
+            llm_model=self.llm_model,
+            business_status=("complete" if result.status == "completed" else "partial"),
+            answer_status=("complete" if result.status == "completed" else "partial"),
+        )
+        public_report = _redact_object(report)
+        if isinstance(public_report, dict):
+            report = public_report
+        self.run_store.update_provenance(run_id, source_date=result.as_of)
+        self.run_store.add_artifact(
+            run_id,
+            "answer.md",
+            answer_text,
+            renderer="markdown",
+            title=redact(f"对话回答：{query[:24]}"),
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "continuous-episode.json",
+            json.dumps(
+                safe_private_artifact,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            renderer="json",
+            title="连续研究私有审计",
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "report.json",
+            json.dumps(report, ensure_ascii=False, indent=2),
+            renderer="structured_report",
+            title="结构化对话报告",
+        )
+        self._check_cancelled()
+        assistant = self.conversation_store.revise_message(
+            conversation_id,
+            assistant_message_id,
+            content=answer_text,
+            status="completed",
+            selected_skill_ids=list(selected_skill_ids),
+            invoked_skill_ids=[],
+            citations=citations,
+            degrades=warnings,
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "report:complete",
+            "report.complete",
+            {"report": report},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "message:complete",
+            "message.complete",
+            {"message": asdict(assistant)},
+            conversation_id,
+        )
+        self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
+        return TurnResult(
+            status=rs.STATUS_COMPLETED,
+            content=assistant.content,
+            selected_skill_ids=(),
+            invoked_skill_ids=(),
+        )
+
     def _emit(
         self,
         run_id: str,
@@ -3286,12 +3568,8 @@ class TurnOrchestrator:
                 original_text_delta(delta)
 
         def guarded_cancel_check() -> bool:
-            return (
-                not progress_open.is_set()
-                or (
-                    original_cancel_check is not None
-                    and original_cancel_check()
-                )
+            return not progress_open.is_set() or (
+                original_cancel_check is not None and original_cancel_check()
             )
 
         guarded_options = replace(
@@ -3310,9 +3588,7 @@ class TurnOrchestrator:
         future: Future[AskResult] | None = None
         try:
             if deadline.expired:
-                timeout_warning = (
-                    "通用研究主链达到统一截止时间，已返回结构化缺口。"
-                )
+                timeout_warning = "通用研究主链达到统一截止时间，已返回结构化缺口。"
                 if timeout_warning not in warnings:
                     warnings.append(timeout_warning)
                     self.run_store.add_degrade(run_id, timeout_warning)
@@ -3354,9 +3630,7 @@ class TurnOrchestrator:
                 self._check_cancelled()
                 remaining = deadline.remaining()
                 if remaining <= 0:
-                    timeout_warning = (
-                        "通用研究主链达到统一截止时间，已返回结构化缺口。"
-                    )
+                    timeout_warning = "通用研究主链达到统一截止时间，已返回结构化缺口。"
                     if timeout_warning not in warnings:
                         warnings.append(timeout_warning)
                         self.run_store.add_degrade(run_id, timeout_warning)
@@ -3728,9 +4002,7 @@ class TurnOrchestrator:
                         )
                         lines.append(f"  - {prefix}{summary.strip()}")
             if output.warnings:
-                lines.append(
-                    "- 数据质量提示：" + "；".join(output.warnings[:3])
-                )
+                lines.append("- 数据质量提示：" + "；".join(output.warnings[:3]))
         return "\n".join(lines)
 
     @staticmethod
@@ -3755,9 +4027,7 @@ class TurnOrchestrator:
                     continue
                 tag = f"SK{len(citations) + 1}"
                 source = str(
-                    citation.get("title")
-                    or citation.get("source")
-                    or output.skill_id
+                    citation.get("title") or citation.get("source") or output.skill_id
                 )
                 detail = str(citation.get("source") or "")
                 citations.append(Citation(tag, source, detail))

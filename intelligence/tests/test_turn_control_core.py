@@ -9,7 +9,10 @@ from intelligence.services.evidence_capabilities import (
 )
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.turn_control_core import TurnControlCore
+from intelligence.services.turn_control_core import (
+    TurnControlCore,
+    project_turn_decision,
+)
 from intelligence.services.turn_controller import TurnDecision
 
 
@@ -81,13 +84,48 @@ def test_financial_frame_cannot_be_downgraded_to_zero_retrieval() -> None:
             task_frame=frame,
         )
 
-    result = TurnControlCore(legacy_decide=fake_legacy).control(
-        frame.raw_question
-    )
+    result = TurnControlCore(legacy_decide=fake_legacy).control(frame.raw_question)
 
     assert result.needs_retrieval is True
     assert result.contract_required is True
     assert result.terminal_kind == "research"
+    assert {"market_data", "news_search"}.issubset(result.capabilities)
+
+
+def test_frozen_decision_projects_control_without_calling_controller_again() -> None:
+    frame = _financial_frame()
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+    decision = TurnDecision(
+        lane="chat",
+        needs_retrieval=False,
+        needs_memory=False,
+        needs_template=False,
+        question_type=frame.question_type,
+        capabilities=("market_news",),
+        task_frame=frame,
+        turn_intent=intent,
+    )
+
+    result = project_turn_decision(
+        decision,
+        task_frame=frame,
+        turn_intent=intent,
+    )
+
+    assert result.task_frame is frame
+    assert result.turn_intent is intent
+    assert result.terminal_kind == "research"
+    assert result.execution_route == "market_forecast"
     assert {"market_data", "news_search"}.issubset(result.capabilities)
 
 
@@ -114,9 +152,7 @@ def test_research_maps_legacy_capabilities_without_leaking_aliases() -> None:
             task_frame=frame,
         )
 
-    result = TurnControlCore(legacy_decide=fake_legacy).control(
-        frame.raw_question
-    )
+    result = TurnControlCore(legacy_decide=fake_legacy).control(frame.raw_question)
 
     assert {
         "kb_search",

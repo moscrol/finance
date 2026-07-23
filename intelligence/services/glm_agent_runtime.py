@@ -9,10 +9,12 @@ import time
 from intelligence.services import llm_refine
 from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_runtime import (
+    AgentModelClient,
     AgentOutcome,
     ModelToolCall,
     ModelTurn,
 )
+from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -247,7 +249,9 @@ class GLMModelClient:
                 )
 
             effective_provider = returned_provider or provider
-            provider_name = _provider_name(effective_provider) or _provider_name(provider)
+            provider_name = _provider_name(effective_provider) or _provider_name(
+                provider
+            )
             reason_text = str(reason or "")
             if message is None and _is_call_budget_rejection(reason_text):
                 # ``chat_with_tools`` rejected this invocation before its HTTP
@@ -334,15 +338,24 @@ class GLMAgentRuntime:
         providers: tuple[llm_refine.LLMProvider, ...] | None = None,
         complete_fn: ChatWithTools | None = None,
         llm_timeout: float = DEFAULT_GLM_LLM_TIMEOUT,
+        client: AgentModelClient | None = None,
+        finalizer: EpisodeFinalizer | None = None,
     ) -> None:
-        client = GLMModelClient(
+        if client is not None and (
+            model is not None or providers is not None or complete_fn is not None
+        ):
+            raise ValueError(
+                "injected client cannot be combined with model/provider adapter settings"
+            )
+        selected_client = client or GLMModelClient(
             model,
             providers=providers,
             complete_fn=complete_fn,
         )
         self._episode = ContinuousAgentEpisode(
-            client,
+            selected_client,
             llm_timeout=llm_timeout,
+            finalizer=finalizer,
         )
 
     @staticmethod

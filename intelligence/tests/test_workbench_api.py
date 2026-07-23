@@ -137,7 +137,9 @@ def client(tmp_path, monkeypatch):
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
     daily_dir.mkdir(parents=True)
-    (daily_dir / "2026-07-09-daily-agent.html").write_text("<h1>daily</h1>", encoding="utf-8")
+    (daily_dir / "2026-07-09-daily-agent.html").write_text(
+        "<h1>daily</h1>", encoding="utf-8"
+    )
     (daily_dir / "2026-07-09-daily-review.html").write_text(
         """<h2>核心看板</h2><table>
         <tr><th>维度</th><th>结论</th></tr>
@@ -264,7 +266,10 @@ def test_session_byok_api_is_user_scoped_and_never_returns_key(
         "model": "glm-4-air",
     }
     assert "glm-secret-value" not in configured.text
-    assert client.get("/api/llm/config", params={"user": "bob"}).json()["mode"] == "built_in"
+    assert (
+        client.get("/api/llm/config", params={"user": "bob"}).json()["mode"]
+        == "built_in"
+    )
 
     restored = client.delete("/api/llm/config", params={"user": "alice"})
     assert restored.status_code == 200
@@ -297,7 +302,7 @@ def test_session_byok_flows_to_the_conversation_worker(
     finished = threading.Event()
 
     def capture_run_conversation_turn(**kwargs: object) -> None:
-        captured.append(kwargs["llm_provider"])
+        captured.append(kwargs["llm_providers"])
         run_store = kwargs["run_store"]
         run_id = kwargs["run_id"]
         assert isinstance(run_store, RunStore)
@@ -310,14 +315,17 @@ def test_session_byok_flows_to_the_conversation_worker(
         "_run_conversation_turn",
         capture_run_conversation_turn,
     )
-    assert client.put(
-        "/api/llm/config",
-        json={
-            "provider": "zhipu",
-            "api_key": "glm-secret-value",
-            "user": "alice",
-        },
-    ).status_code == 200
+    assert (
+        client.put(
+            "/api/llm/config",
+            json={
+                "provider": "zhipu",
+                "api_key": "glm-secret-value",
+                "user": "alice",
+            },
+        ).status_code
+        == 200
+    )
     conversation_id = client.post(
         "/api/conversations",
         json={"user": "alice"},
@@ -330,7 +338,10 @@ def test_session_byok_flows_to_the_conversation_worker(
 
     assert response.status_code == 202
     assert finished.wait(timeout=2)
-    provider = captured[0]
+    providers = captured[0]
+    assert isinstance(providers, tuple)
+    assert len(providers) == 1
+    provider = providers[0]
     assert isinstance(provider, app_module.LLMProvider)
     assert provider.name == "zhipu"
     assert provider.model == "glm-5.2"
@@ -351,6 +362,22 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
             captured["run_turn"] = kwargs
 
     monkeypatch.setattr(app_module, "TurnOrchestrator", CapturingOrchestrator)
+    continuous_adapter = object()
+    captured_providers: list[tuple[object, ...]] = []
+
+    def build_adapter(**kwargs: object) -> object:
+        providers = kwargs["providers"]
+        assert isinstance(providers, tuple)
+        captured_providers.append(providers)
+        assert kwargs["run_id"] == "run"
+        assert kwargs["assistant_message_id"] == "message"
+        return continuous_adapter
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        build_adapter,
+    )
     provider = app_module.LLMProvider(
         "zhipu",
         "secret-value",
@@ -369,10 +396,43 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         skill_mode="auto",
         selected_skill_ids=[],
         cancellation_signal=app_module.CancellationSignal(),
-        llm_provider=provider,
+        llm_providers=(provider,),
     )
 
     assert captured["llm_model"] == "glm-4-flash"
+    assert captured["continuous_turn_adapter"] is continuous_adapter
+    assert captured_providers == [(provider,)]
+
+
+def test_production_continuous_adapter_shares_provider_client_across_gates() -> None:
+    providers = (
+        app_module.LLMProvider(
+            "zhipu",
+            "primary-secret",
+            "https://glm.example.invalid/v1",
+            "glm-5.2",
+        ),
+        app_module.LLMProvider(
+            "openai",
+            "fallback-secret",
+            "https://openai.example.invalid/v1",
+            "gpt-5",
+        ),
+    )
+
+    adapter = app_module._build_continuous_turn_adapter(
+        providers=providers,
+        run_id="run-a",
+        assistant_message_id="message-b",
+    )
+
+    episode = adapter._runtime._episode
+    semantic = adapter._semantic_verifier
+    assert episode._model is episode._finalizer._model
+    assert semantic._primary_judge is episode._model
+    assert semantic._finalizer is episode._finalizer
+    assert episode._model._providers == providers
+    assert adapter._task_id_factory() == "run-a:message-b"
 
 
 def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None:
@@ -383,10 +443,15 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     conversation = created.json()
     conversation_id = conversation["conversation_id"]
     assert conversation["title"] == "盘面讨论"
-    assert client.get("/api/conversations", params={"user": "alice"}).json() == [conversation]
-    assert client.get(
-        f"/api/conversations/{conversation_id}", params={"user": "alice"}
-    ).json() == conversation
+    assert client.get("/api/conversations", params={"user": "alice"}).json() == [
+        conversation
+    ]
+    assert (
+        client.get(
+            f"/api/conversations/{conversation_id}", params={"user": "alice"}
+        ).json()
+        == conversation
+    )
 
     renamed = client.patch(
         f"/api/conversations/{conversation_id}",
@@ -408,7 +473,10 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     response = sent.json()
     assert response["conversation_id"] == conversation_id
     assert set(response) == {
-        "conversation_id", "user_message_id", "assistant_message_id", "run_id"
+        "conversation_id",
+        "user_message_id",
+        "assistant_message_id",
+        "run_id",
     }
     messages = client.get(
         f"/api/conversations/{conversation_id}/messages", params={"user": "alice"}
@@ -473,9 +541,7 @@ def test_public_run_and_message_payloads_sanitize_diagnostics_without_mutating_s
         error=unsafe_path,
     )
 
-    raw_message = conversation_store.load_messages(
-        conversation["conversation_id"]
-    )[0]
+    raw_message = conversation_store.load_messages(conversation["conversation_id"])[0]
     raw_run = run_store.load_run(run.run_id)
     assert raw_message.message_id == stored_message.message_id
     assert "Traceback" in json.dumps(asdict(raw_message), ensure_ascii=False)
@@ -490,9 +556,7 @@ def test_public_run_and_message_payloads_sanitize_diagnostics_without_mutating_s
         params={"user": "alice"},
     )
     runs_response = client.get("/api/runs", params={"user": "alice"})
-    public_body = "\n".join(
-        [messages.text, run_response.text, runs_response.text]
-    )
+    public_body = "\n".join([messages.text, run_response.text, runs_response.text])
 
     assert messages.status_code == 200
     assert run_response.status_code == 200
@@ -531,9 +595,9 @@ def test_perspective_selection_is_validated_listed_and_persisted(
         }
     ]
     assert client.get("/api/perspectives", params={"user": "bob"}).json() == []
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     sent = client.post(
         f"/api/conversations/{conversation_id}/messages",
@@ -582,9 +646,9 @@ def test_invalid_perspective_selection_is_rejected(
     client: TestClient,
     payload: dict[str, object],
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     response = client.post(
         f"/api/conversations/{conversation_id}/messages",
         json={
@@ -597,10 +661,12 @@ def test_invalid_perspective_selection_is_rejected(
     assert response.status_code == 422
 
 
-def test_conversation_message_run_parent_chains_across_turns(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+def test_conversation_message_run_parent_chains_across_turns(
+    client: TestClient,
+) -> None:
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     first = client.post(
         f"/api/conversations/{conversation_id}/messages",
         json={"content": "第一轮", "skill_mode": "auto", "user": "alice"},
@@ -613,17 +679,23 @@ def test_conversation_message_run_parent_chains_across_turns(client: TestClient)
         f"/api/runs/{second['run_id']}", params={"user": "alice"}
     ).json()
     assert second_run["parent_run_id"] == first["run_id"]
-    assert len(client.get(
-        f"/api/conversations/{conversation_id}/messages", params={"user": "alice"}
-    ).json()) == 4
+    assert (
+        len(
+            client.get(
+                f"/api/conversations/{conversation_id}/messages",
+                params={"user": "alice"},
+            ).json()
+        )
+        == 4
+    )
 
 
 def test_concurrent_messages_are_paired_and_runs_form_one_linear_chain(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     original_create_run = RunStore.create_run
 
     def slow_create_run(self: RunStore, *args: object, **kwargs: object):
@@ -664,22 +736,27 @@ def test_concurrent_messages_are_paired_and_runs_form_one_linear_chain(
         run_id: [child for child in runs.values() if child["parent_run_id"] == run_id]
         for run_id in runs
     }
-    assert sorted(len(children) for children in children_by_parent.values()) == [0, 1, 1, 1, 1, 1]
+    assert sorted(len(children) for children in children_by_parent.values()) == [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
     assert len(client.app.state.conversation_locks) == 1
 
 
 def test_second_message_append_failure_marks_created_run_failed(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     original_append = ConversationStore.append_message
     append_count = 0
 
-    def fail_second_append(
-        self: ConversationStore, *args: object, **kwargs: object
-    ):
+    def fail_second_append(self: ConversationStore, *args: object, **kwargs: object):
         nonlocal append_count
         append_count += 1
         if append_count == 2:
@@ -706,9 +783,9 @@ def test_second_message_append_failure_marks_created_run_failed(
 def test_append_and_failure_state_persistence_errors_surface_generic_runtime_error(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     def fail_append(*args: object, **kwargs: object) -> None:
         raise RuntimeError("secret append detail")
@@ -737,9 +814,9 @@ def test_append_and_failure_state_persistence_errors_surface_generic_runtime_err
 
 
 def test_executor_submit_failure_marks_created_run_failed(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     def fail_submit(*args: object, **kwargs: object) -> None:
         raise RuntimeError("secret executor detail")
@@ -761,13 +838,15 @@ def test_executor_submit_failure_marks_created_run_failed(client: TestClient) ->
     assert [message["role"] for message in messages] == ["user", "assistant"]
 
 
-@pytest.mark.parametrize("path", ["/api/conversations", "/api/conversations/{conversation_id}"])
+@pytest.mark.parametrize(
+    "path", ["/api/conversations", "/api/conversations/{conversation_id}"]
+)
 def test_conversation_titles_reject_blank_whitespace(
     client: TestClient, path: str
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     resolved_path = path.format(conversation_id=conversation_id)
     response = client.request(
         "POST" if path == "/api/conversations" else "PATCH",
@@ -784,7 +863,11 @@ def test_conversation_titles_reject_blank_whitespace(
         ("patch", "/api/conversations/..%2Falice", {"title": "x"}),
         ("post", "/api/conversations/..%2Falice/archive", {}),
         ("get", "/api/conversations/..%2Falice/messages", None),
-        ("post", "/api/conversations/..%2Falice/messages", {"content": "x", "skill_mode": "auto"}),
+        (
+            "post",
+            "/api/conversations/..%2Falice/messages",
+            {"content": "x", "skill_mode": "auto"},
+        ),
         ("post", "/api/runs/..%2Falice/cancel", {}),
     ],
 )
@@ -797,29 +880,35 @@ def test_all_new_id_routes_reject_traversal(
 
 
 def test_conversation_input_validation_and_user_isolation(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     for body in (
         {"content": "", "skill_mode": "auto", "user": "alice"},
         {"content": "   ", "skill_mode": "auto", "user": "alice"},
         {"content": "x", "skill_mode": "invalid", "user": "alice"},
     ):
-        assert client.post(
-            f"/api/conversations/{conversation_id}/messages", json=body
-        ).status_code == 422
-    assert client.get(
-        f"/api/conversations/{conversation_id}", params={"user": "bob"}
-    ).status_code == 404
+        assert (
+            client.post(
+                f"/api/conversations/{conversation_id}/messages", json=body
+            ).status_code
+            == 422
+        )
+    assert (
+        client.get(
+            f"/api/conversations/{conversation_id}", params={"user": "bob"}
+        ).status_code
+        == 404
+    )
     assert client.get("/api/conversations", params={"user": "bob"}).json() == []
 
 
 def test_message_rejects_unknown_product_skill_before_creating_run(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     response = client.post(
         f"/api/conversations/{conversation_id}/messages",
@@ -847,10 +936,7 @@ def test_skills_lists_registered_product_skills(client: TestClient) -> None:
         "news-impact",
         "financial-analysis",
     ]
-    permissions = {
-        skill["skill_id"]: skill["permissions"]
-        for skill in skills
-    }
+    permissions = {skill["skill_id"]: skill["permissions"] for skill in skills}
     assert permissions["us-ai-drawdown"] == ["local_read", "network_read"]
     assert all(
         value == ["local_read"]
@@ -859,7 +945,9 @@ def test_skills_lists_registered_product_skills(client: TestClient) -> None:
     )
 
 
-def test_skills_serializes_only_product_registry_definitions(client: TestClient) -> None:
+def test_skills_serializes_only_product_registry_definitions(
+    client: TestClient,
+) -> None:
     @dataclass(frozen=True)
     class FakeSkillDefinition:
         skill_id: str
@@ -906,25 +994,26 @@ def test_skills_serializes_only_product_registry_definitions(client: TestClient)
 
 def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
     assert client.post("/api/runs/run_missing/cancel").status_code == 404
-    run_id = client.post(
-        "/api/runs", json={"question": "q", "user": "alice"}
-    ).json()["run_id"]
-    assert client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "bob"}
-    ).status_code == 404
+    run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
+        "run_id"
+    ]
+    assert (
+        client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
+        == 404
+    )
     _wait_terminal(client, run_id, user="alice")
     assert client.app.state.cancellation_registry == {}
-    first = client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "alice"}
-    ).json()
-    second = client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "alice"}
-    ).json()
-    assert first == second == {
-        "run_id": run_id,
-        "status": "completed",
-        "cancel_requested": True,
-    }
+    first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+    second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+    assert (
+        first
+        == second
+        == {
+            "run_id": run_id,
+            "status": "completed",
+            "cancel_requested": True,
+        }
+    )
     assert client.app.state.cancellation_registry == {}
 
 
@@ -952,6 +1041,11 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     health = client.get("/api/health").json()
     assert health["status"] == "healthy"
     assert health["dependencies"]["knowledge_wiki"] is True
+    assert health["runtime"]["continuous_agent"] == {
+        "mode": "off",
+        "canary_id": "",
+        "source_revision": health["runtime"]["source_revision"],
+    }
 
     response = client.get("/api/readiness")
 
@@ -967,6 +1061,27 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_health_reports_continuous_canary_without_credentials(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "canary")
+    monkeypatch.setenv("CONTINUOUS_RUNTIME_CANARY_ID", "canary-a17")
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "never-expose-this-key")
+
+    with TestClient(app_module.create_app(repo_root=tmp_path)) as probe:
+        response = probe.get("/api/health")
+
+    continuous = response.json()["runtime"]["continuous_agent"]
+    assert continuous == {
+        "mode": "canary",
+        "canary_id": "canary-a17",
+        "source_revision": response.json()["runtime"]["source_revision"],
+    }
+    assert "never-expose-this-key" not in response.text
 
 
 def test_lifespan_prewarms_enabled_rag_before_ready(
@@ -1065,9 +1180,7 @@ def test_rag_prewarm_failure_keeps_readiness_closed(
     assert payload["workers"]["rag"]["last_error_type"] == "TimeoutError"
 
 
-def test_readiness_fails_when_market_snapshot_is_missing(
-    tmp_path, monkeypatch
-) -> None:
+def test_readiness_fails_when_market_snapshot_is_missing(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
@@ -1090,9 +1203,7 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     assert payload["missing_critical"] == ["market_snapshot"]
 
 
-def test_readiness_fails_when_market_snapshot_is_partial(
-    tmp_path, monkeypatch
-) -> None:
+def test_readiness_fails_when_market_snapshot_is_partial(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
@@ -1302,12 +1413,33 @@ def test_create_app_recovers_interrupted_runs(tmp_path, monkeypatch) -> None:
     assert readiness["recovered_runs"] == 1
 
 
-def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch) -> None:
+def test_create_app_recovers_interrupted_conversation_turn(
+    tmp_path, monkeypatch
+) -> None:
     users_root = tmp_path / "users"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    providers = (
+        app_module.LLMProvider(
+            "zhipu",
+            "recovery-secret",
+            "https://glm.example.invalid/v1",
+            "glm-recovery",
+        ),
+        app_module.LLMProvider(
+            "openai",
+            "fallback-secret",
+            "https://openai.example.invalid/v1",
+            "gpt-recovery",
+        ),
+    )
+    monkeypatch.setattr(
+        app_module.SessionLLMSettings,
+        "runtime_providers_for",
+        lambda self, user_id: providers,
+    )
 
     run_store = RunStore()
     conversation_store = ConversationStore(user_id=run_store.user_id)
@@ -1379,6 +1511,7 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
     assert captured["selected_skill_ids"] == ["daily-agent"]
     assert captured["perspective_mode"] == "compare"
     assert captured["selected_perspective_ids"] == ["fengyuan94"]
+    assert captured["llm_providers"] == providers
     assert str(captured["event_id_prefix"]).startswith("recovery:")
 
 
@@ -1497,7 +1630,9 @@ def test_trace_and_all_sse_payloads_use_path_aware_public_projection(
     assert '"fallback_reason": "provider_timeout"' in event_body
 
 
-def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
+def test_sse_replays_structured_report_modules_and_report_endpoint(
+    client: TestClient,
+) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     store = RunStore()
@@ -1606,10 +1741,16 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
     _wait_terminal(client, run_id)
     store = RunStore()
     start = store.append_stream_event(
-        run_id, event_id="report:start:new", event_type="report.start", payload={"report": {"modules": []}}
+        run_id,
+        event_id="report:start:new",
+        event_type="report.start",
+        payload={"report": {"modules": []}},
     )
     module = store.append_stream_event(
-        run_id, event_id="report:module:new", event_type="report.module", payload={"module": {"module_id": "m1"}}
+        run_id,
+        event_id="report:module:new",
+        event_type="report.module",
+        payload={"module": {"module_id": "m1"}},
     )
 
     full = client.get(f"/api/runs/{run_id}/events").text
@@ -1618,7 +1759,9 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
     assert full.count(f"id: {start['event_id']}") == 1
     assert "event: step" not in full and "event: run" in full
 
-    after = client.get(f"/api/runs/{run_id}/events", params={"after": start["seq"]}).text
+    after = client.get(
+        f"/api/runs/{run_id}/events", params={"after": start["seq"]}
+    ).text
     assert "event: step" not in after
     assert "report:start:new" not in after
     assert "report:module:new" in after
@@ -1635,7 +1778,10 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
 
 def test_sse_rejects_negative_after(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
-    assert client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code == 422
+    assert (
+        client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code
+        == 422
+    )
 
 
 def test_sse_initial_connection_keeps_polling_canonical_events(
@@ -1666,7 +1812,9 @@ def test_sse_initial_connection_keeps_polling_canonical_events(
             run.run_id,
             event_id="trace:s02",
             event_type="trace.step",
-            payload={"step": {"step_id": "s02", "name": "later", "status": "completed"}},
+            payload={
+                "step": {"step_id": "s02", "name": "later", "status": "completed"}
+            },
         )
         store.finish_run(run.run_id, rs.STATUS_COMPLETED)
 
@@ -1702,7 +1850,9 @@ def test_sse_resumed_connection_never_replays_trace(client: TestClient) -> None:
     assert "event: step" not in header
 
 
-def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatch) -> None:
+def test_daily_run_uses_one_pass_llm_and_template_followups(
+    tmp_path, monkeypatch
+) -> None:
     from intelligence.services import ask as ask_svc
     from intelligence.services import followups as followups_svc
     from intelligence.services.ask import AskResult
@@ -1729,7 +1879,9 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatc
         return followups_svc.FollowupResult()
 
     monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
-    monkeypatch.setattr(ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。")
+    monkeypatch.setattr(
+        ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。"
+    )
     monkeypatch.setattr(followups_svc, "generate_followups", fake_followups)
 
     repo_root = tmp_path / "repo"
@@ -1783,7 +1935,9 @@ def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> 
     from intelligence.services import followups as fu_svc
 
     def fake_run_ask(store: RunStore, run_id: str, req) -> None:
-        followups = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
+        followups = fu_svc.generate_followups(
+            req.question, matched_theme="液冷", use_llm=False
+        )
         store.add_artifact(
             run_id,
             "followups.json",
@@ -1794,7 +1948,9 @@ def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> 
         store.finish_run(run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
-    parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()["run_id"]
+    parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()[
+        "run_id"
+    ]
     _wait_terminal(client, parent_id)
 
     document = client.get(f"/api/runs/{parent_id}/followups").json()
@@ -1823,8 +1979,7 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     context = client.get(f"/api/runs/{run_id}/context").json()
     assert context["evidence"][0]["label"] == "盘面快照"
     assert any(
-        item["classification"] == "bound_evidence"
-        and item["label"] == "[S1] 盘面快照"
+        item["classification"] == "bound_evidence" and item["label"] == "[S1] 盘面快照"
         for item in context["evidence"]
     )
     assert any(item["label"] == "盘面证据" for item in context["evidence"])
@@ -1832,8 +1987,12 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     assert context["review"] == []
 
 
-def test_artifact_api_filters_describes_and_serves_registered_content(client: TestClient) -> None:
-    artifacts = client.get("/api/artifacts", params={"category": "daily_agent", "date": "2026-07-09"}).json()
+def test_artifact_api_filters_describes_and_serves_registered_content(
+    client: TestClient,
+) -> None:
+    artifacts = client.get(
+        "/api/artifacts", params={"category": "daily_agent", "date": "2026-07-09"}
+    ).json()
     html_artifact = next(item for item in artifacts if item["format"] == "html")
     assert not html_artifact["source_path"].startswith("/")
     assert html_artifact["canonical_exists"] is True
@@ -1847,7 +2006,9 @@ def test_artifact_api_filters_describes_and_serves_registered_content(client: Te
     assert "sandbox" in content.headers["content-security-policy"]
 
 
-def test_artifact_content_rejects_unregistered_and_traversal_ids(client: TestClient) -> None:
+def test_artifact_content_rejects_unregistered_and_traversal_ids(
+    client: TestClient,
+) -> None:
     assert client.get("/api/artifacts/not-registered/content").status_code == 404
     response = client.get("/api/artifacts/..%2Fetc%2Fpasswd/content")
     assert response.status_code in (404, 405)
@@ -1871,13 +2032,10 @@ def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> 
     assert projection.json()["report_type"] == "daily_agent"
     assert projection.json()["provenance"]["original_report_available"] is True
     assert (
-        projection.json()["provenance"]["original_artifact_id"]
-        != agent["artifact_id"]
+        projection.json()["provenance"]["original_artifact_id"] != agent["artifact_id"]
     )
 
-    review_projection = client.get(
-        f"/api/artifacts/{review['artifact_id']}/projection"
-    )
+    review_projection = client.get(f"/api/artifacts/{review['artifact_id']}/projection")
     assert review_projection.status_code == 200
     assert review_projection.json()["source_mode"] == "legacy_html_projection"
 
@@ -1914,7 +2072,9 @@ def test_workflow_summary_does_not_claim_daily_review_projection(
     assert response.status_code == 404
 
 
-def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient) -> None:
+def test_bootstrap_returns_workflows_runs_and_latest_artifact(
+    client: TestClient,
+) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     bootstrap = client.get("/api/workbench/bootstrap").json()
@@ -1972,9 +2132,7 @@ def test_workbench_overview_uses_configured_finance_root(
 
     assert overview["as_of_date"] == "2026-07-21"
     assert overview["signal_date"] == "2026-07-20"
-    database = next(
-        item for item in overview["data_status"] if item["key"] == "market"
-    )
+    database = next(item for item in overview["data_status"] if item["key"] == "market")
     assert database["status"] == "complete"
     assert overview["agent_artifact"] == (
         "market_feature_store/exports/2026-07-20-daily-agent.json"
@@ -2033,10 +2191,13 @@ def test_learning_feedback_can_be_reviewed_without_editing_verdict(
     assert pending.status_code == 200
     assert len(pending.json()["pending_reflections"]) == 1
     assert len(pending.json()["pending_rules"]) == 1
-    assert client.post(
-        f"/api/workbench/learning-feedback/reflections/{reflection.name}/reject",
-        json={"hypothesis_ids": []},
-    ).status_code == 400
+    assert (
+        client.post(
+            f"/api/workbench/learning-feedback/reflections/{reflection.name}/reject",
+            json={"hypothesis_ids": []},
+        ).status_code
+        == 400
+    )
 
     approved = client.post(
         f"/api/workbench/learning-feedback/reflections/{reflection.name}/approve",
@@ -2053,10 +2214,13 @@ def test_learning_feedback_can_be_reviewed_without_editing_verdict(
     assert rule_approved.status_code == 200
     assert rule_approved.json()["pending_rules"] == []
     assert rule_approved.json()["approved_rule_count"] == 1
-    assert client.post(
-        "/api/workbench/learning-feedback/reflections/not-json.txt/approve",
-        json={"hypothesis_ids": []},
-    ).status_code == 400
+    assert (
+        client.post(
+            "/api/workbench/learning-feedback/reflections/not-json.txt/approve",
+            json={"hypothesis_ids": []},
+        ).status_code
+        == 400
+    )
 
 
 def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:
@@ -2101,9 +2265,7 @@ def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> N
 def test_bootstrap_does_not_create_missing_self_use_ledger(
     client: TestClient,
 ) -> None:
-    ledger_path = (
-        userspace.user_space("read-only").root / "self-use" / "events.jsonl"
-    )
+    ledger_path = userspace.user_space("read-only").root / "self-use" / "events.jsonl"
     assert not ledger_path.exists()
 
     response = client.get(
@@ -2116,9 +2278,7 @@ def test_bootstrap_does_not_create_missing_self_use_ledger(
 
 
 def test_bootstrap_reports_malformed_self_use_ledger(client: TestClient) -> None:
-    ledger_path = (
-        userspace.user_space("corrupt").root / "self-use" / "events.jsonl"
-    )
+    ledger_path = userspace.user_space("corrupt").root / "self-use" / "events.jsonl"
     ledger_path.parent.mkdir(parents=True)
     ledger_path.write_text('{"workflow": ', encoding="utf-8")
 

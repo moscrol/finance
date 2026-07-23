@@ -54,9 +54,20 @@ from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     sanitize_user_visible_artifact_text,
 )
+from intelligence.services.continuous_turn_adapter import (
+    ContinuousTurnAdapter,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
+)
+from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+)
+from intelligence.services.glm_agent_runtime import (
+    GLMAgentRuntime,
+    GLMModelClient,
 )
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
@@ -82,6 +93,7 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+_CONTINUOUS_RUNTIME_MODES = frozenset({"off", "canary", "on"})
 
 
 def _positive_float_env(name: str, default: float) -> float:
@@ -90,6 +102,40 @@ def _positive_float_env(name: str, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
+
+
+def _continuous_runtime_mode() -> str:
+    mode = os.environ.get("ASK_CONTINUOUS_RUNTIME", "off").strip().lower()
+    return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
+
+
+def _build_continuous_turn_adapter(
+    *,
+    providers: tuple[LLMProvider, ...],
+    run_id: str,
+    assistant_message_id: str,
+) -> ContinuousTurnAdapter:
+    """Compose one provider chain into a shared continuous research kernel."""
+
+    client = GLMModelClient(providers=providers)
+    finalizer = EpisodeFinalizer(client)
+    runtime = GLMAgentRuntime(
+        client=client,
+        finalizer=finalizer,
+    )
+    semantic_verifier = SemanticEpisodeVerifier(
+        primary_judge=client,
+        finalizer=finalizer,
+    )
+    task_id = f"{run_id}:{assistant_message_id}"
+    return ContinuousTurnAdapter(
+        runtime=runtime,
+        semantic_verifier=semantic_verifier,
+        mode=_continuous_runtime_mode(),
+        task_id_factory=lambda: task_id,
+    )
+
+
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
 _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
@@ -164,10 +210,7 @@ def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
 def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
     return bool(path) and (
         path[-1] in _PUBLIC_METADATA_STRING_FIELDS
-        or (
-            len(path) >= 2
-            and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS
-        )
+        or (len(path) >= 2 and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS)
     )
 
 
@@ -232,9 +275,7 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
     event_type = event.get("event_type")
-    preserve_paths: set[tuple[str, ...]] = {
-        ("payload", "message", "content")
-    }
+    preserve_paths: set[tuple[str, ...]] = {("payload", "message", "content")}
     if event_type == "answer.snapshot":
         preserve_paths.add(("payload", "text"))
     elif event_type == "text.delta":
@@ -311,7 +352,7 @@ class RunSupervisor:
         perspective_mode: Literal["neutral", "single", "compare"],
         selected_perspective_ids: list[str],
         event_id_prefix: str = "",
-        llm_provider: LLMProvider | None = None,
+        llm_providers: tuple[LLMProvider, ...] = (),
     ) -> None:
         self._submit(
             store,
@@ -330,7 +371,7 @@ class RunSupervisor:
                 selected_perspective_ids=selected_perspective_ids,
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
-                llm_provider=llm_provider,
+                llm_providers=llm_providers,
             ),
             on_terminal=lambda reason: _terminalize_pending_message(
                 conversation_store,
@@ -539,20 +580,19 @@ def _run_conversation_turn(
     perspective_mode: Literal["neutral", "single", "compare"] = "neutral",
     selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
-    llm_provider: LLMProvider | None = None,
+    llm_providers: tuple[LLMProvider, ...] = (),
 ) -> None:
     try:
-        test_delay_ms = int(
-            os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0")
-        )
+        test_delay_ms = int(os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0"))
     except ValueError:
         test_delay_ms = 0
     test_delay_ms = min(5000, max(0, test_delay_ms))
     if test_delay_ms and cancellation_signal.wait(test_delay_ms / 1000):
         return
+    primary_provider = llm_providers[0] if llm_providers else None
     provider_context = (
-        llm_refine.provider_override(llm_provider)
-        if llm_provider is not None
+        llm_refine.provider_override(primary_provider)
+        if primary_provider is not None
         else nullcontext()
     )
     with provider_context:
@@ -560,10 +600,15 @@ def _run_conversation_turn(
             repo_root=repo_root,
             conversation_store=conversation_store,
             run_store=run_store,
-            llm_model=llm_provider.model if llm_provider is not None else None,
+            llm_model=primary_provider.model if primary_provider is not None else None,
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
             event_id_prefix=event_id_prefix,
+            continuous_turn_adapter=_build_continuous_turn_adapter(
+                providers=llm_providers,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+            ),
         ).run_turn(
             conversation_id=conversation_id,
             run_id=run_id,
@@ -598,16 +643,8 @@ def _terminalize_pending_message(
         rs.STATUS_CANCELLED,
     }:
         return
-    status = (
-        rs.STATUS_CANCELLED
-        if reason == "cancelled_by_user"
-        else rs.STATUS_FAILED
-    )
-    warning = (
-        "用户已取消本轮执行"
-        if status == rs.STATUS_CANCELLED
-        else "本轮执行超时"
-    )
+    status = rs.STATUS_CANCELLED if reason == "cancelled_by_user" else rs.STATUS_FAILED
+    warning = "用户已取消本轮执行" if status == rs.STATUS_CANCELLED else "本轮执行超时"
     message = conversation_store.revise_message(
         conversation_id,
         message_id,
@@ -665,7 +702,9 @@ def _run_ask(
 
     if req.task_type == "daily":
         try:
-            report_date, daily_modules, daily_warnings = daily_projection_modules(repo_root)
+            report_date, daily_modules, daily_warnings = daily_projection_modules(
+                repo_root
+            )
             report["as_of"] = report_date
             report_warnings.extend(daily_warnings)
             for module in daily_modules:
@@ -677,8 +716,9 @@ def _run_ask(
             report_warnings.append(warning)
             store.add_degrade(run_id, warning)
 
-    wants_moneyflow = req.task_type == "daily" or market_moneyflow.parse_moneyflow_intent(
-        req.question
+    wants_moneyflow = (
+        req.task_type == "daily"
+        or market_moneyflow.parse_moneyflow_intent(req.question)
     )
     if wants_moneyflow:
         snapshot = market_moneyflow.load_moneyflow_snapshot(
@@ -761,7 +801,9 @@ def _run_ask(
         )
         if found
     ]
-    citation_counts = dict(Counter(citation.tag[:1] for citation in result.citations if citation.tag))
+    citation_counts = dict(
+        Counter(citation.tag[:1] for citation in result.citations if citation.tag)
+    )
     store.append_step(
         run_id,
         step_id="s01",
@@ -803,7 +845,9 @@ def _run_ask(
     summary = {
         "trade_date": result.trade_date,
         "matched_theme": result.matched_theme,
-        "question_type": result.question_plan.question_type if result.question_plan else None,
+        "question_type": result.question_plan.question_type
+        if result.question_plan
+        else None,
         "citations": len(result.citations),
         "citation_counts": citation_counts,
         "citation_records": [asdict(citation) for citation in result.citations],
@@ -909,7 +953,9 @@ def _pending_review_count(repo_root: Path) -> int:
     return sum(
         1
         for manifest in ledger.glob("20??-??-??.manifest.json")
-        if not manifest.with_name(manifest.name.replace(".manifest.json", ".verdict.json")).is_file()
+        if not manifest.with_name(
+            manifest.name.replace(".manifest.json", ".verdict.json")
+        ).is_file()
     )
 
 
@@ -964,7 +1010,9 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                 if not tag or not source:
                     continue
                 binding = [
-                    f"chunk={citation.get('chunk_id')}" if citation.get("chunk_id") else "",
+                    f"chunk={citation.get('chunk_id')}"
+                    if citation.get("chunk_id")
+                    else "",
                     f"hash={str(citation.get('content_hash'))[:12]}"
                     if citation.get("content_hash")
                     else "",
@@ -1050,6 +1098,8 @@ def _resume_conversation_run(
     store: RunStore,
     run: rs.Run,
     repo_root: Path,
+    *,
+    llm_providers: tuple[LLMProvider, ...] = (),
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1087,6 +1137,7 @@ def _resume_conversation_run(
         perspective_mode=user_message.perspective_mode,
         selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
+        llm_providers=llm_providers,
     )
     return True
 
@@ -1101,6 +1152,16 @@ def create_app(
     runtime_provenance = build_runtime_provenance(root)
     runtime_paths = default_paths()
     runtime_provenance["finance_root"] = str(runtime_paths.finance_root.resolve())
+    continuous_mode = _continuous_runtime_mode()
+    runtime_provenance["continuous_agent"] = {
+        "mode": continuous_mode,
+        "canary_id": (
+            os.environ.get("CONTINUOUS_RUNTIME_CANARY_ID", "").strip()
+            if continuous_mode == "canary"
+            else ""
+        ),
+        "source_revision": runtime_provenance.get("source_revision"),
+    }
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
     llm_settings = SessionLLMSettings()
 
@@ -1146,7 +1207,13 @@ def create_app(
             for run in store.requeue_incomplete_runs(reason=_RESTART_REASON):
                 recovered_runs.append(run.run_id)
                 try:
-                    if _resume_conversation_run(supervisor, store, run, root):
+                    if _resume_conversation_run(
+                        supervisor,
+                        store,
+                        run,
+                        root,
+                        llm_providers=llm_settings.runtime_providers_for(user_id),
+                    ):
                         continue
                 except (
                     FileNotFoundError,
@@ -1201,7 +1268,9 @@ def create_app(
             raise HTTPException(500, "自用成熟度台账不可读") from exc
         # passed 由持久化审批驱动：审批指纹须与当前裁决快照一致，否则失效。
         approvals = SelfUseApprovalStore(self_use_dir / "approval.json")
-        passed = bool(result.eligible_for_user_decision and approvals.is_approved_for(result))
+        passed = bool(
+            result.eligible_for_user_decision and approvals.is_approved_for(result)
+        )
         return {
             "distinct_trade_dates": result.metrics["distinct_trade_dates"],
             "success_rate": result.metrics["core_success_rate"],
@@ -1309,9 +1378,7 @@ def create_app(
             "market_snapshot": {
                 "status": snapshot_contract["status"],
                 "ready": snapshot_contract["ready"],
-                "date": snapshot_contract["summary"].get(
-                    "served_trade_date"
-                )
+                "date": snapshot_contract["summary"].get("served_trade_date")
                 or snapshot_contract["date"],
                 "requested_date": snapshot_contract["summary"].get(
                     "requested_trade_date"
@@ -1352,7 +1419,11 @@ def create_app(
             run = store.load_run(run_id)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
-        if run.status not in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+        if run.status not in (
+            rs.STATUS_COMPLETED,
+            rs.STATUS_FAILED,
+            rs.STATUS_CANCELLED,
+        ):
             supervisor.cancel(store, run_id)
             run = store.load_run(run_id)
         return {
@@ -1364,19 +1435,26 @@ def create_app(
     @app.post("/api/conversations")
     def create_conversation(req: CreateConversationRequest) -> dict[str, object]:
         try:
-            return asdict(conversation_store_for(req.user).create_conversation(req.title))
+            return asdict(
+                conversation_store_for(req.user).create_conversation(req.title)
+            )
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations")
     def list_conversations(user: str | None = None) -> list[dict[str, object]]:
         try:
-            return [asdict(item) for item in conversation_store_for(user).list_conversations()]
+            return [
+                asdict(item)
+                for item in conversation_store_for(user).list_conversations()
+            ]
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations/{conversation_id}")
-    def get_conversation(conversation_id: str, user: str | None = None) -> dict[str, object]:
+    def get_conversation(
+        conversation_id: str, user: str | None = None
+    ) -> dict[str, object]:
         return asdict(conversation_or_404(user, conversation_id))
 
     @app.patch("/api/conversations/{conversation_id}")
@@ -1392,7 +1470,9 @@ def create_app(
             )
 
     @app.post("/api/conversations/{conversation_id}/archive")
-    def archive_conversation(conversation_id: str, req: UserRequest) -> dict[str, object]:
+    def archive_conversation(
+        conversation_id: str, req: UserRequest
+    ) -> dict[str, object]:
         with conversation_lock_for(req.user, conversation_id):
             conversation_or_404(req.user, conversation_id)
             return asdict(
@@ -1400,7 +1480,9 @@ def create_app(
             )
 
     @app.get("/api/conversations/{conversation_id}/messages")
-    def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
+    def list_messages(
+        conversation_id: str, user: str | None = None
+    ) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
             _public_message_payload(item)
@@ -1500,7 +1582,7 @@ def create_app(
                     selected_skill_ids=list(req.selected_skill_ids),
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
-                    llm_provider=llm_settings.provider_for(run_store.user_id),
+                    llm_providers=llm_settings.runtime_providers_for(run_store.user_id),
                 )
             except Exception:
                 try:
@@ -1542,8 +1624,7 @@ def create_app(
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
         return [
-            _public_run_payload(run)
-            for run in reversed(store_for(user).list_runs())
+            _public_run_payload(run) for run in reversed(store_for(user).list_runs())
         ]
 
     @app.get("/api/runs/{run_id}")
@@ -1604,7 +1685,11 @@ def create_app(
                 cursor = int(last_event_id)
             else:
                 cursor = next(
-                    (event["seq"] for event in store.load_stream_events(run_id) if event["event_id"] == last_event_id),
+                    (
+                        event["seq"]
+                        for event in store.load_stream_events(run_id)
+                        if event["event_id"] == last_event_id
+                    ),
                     0,
                 )
 
@@ -1626,7 +1711,11 @@ def create_app(
                         f"data: {data}\n\n"
                     )
                 run = store.load_run(run_id)
-                if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+                if run.status in (
+                    rs.STATUS_COMPLETED,
+                    rs.STATUS_FAILED,
+                    rs.STATUS_CANCELLED,
+                ):
                     terminal_message_missing = run.session_id and not any(
                         event["event_type"] in {"message.complete", "message.error"}
                         for event in store.load_stream_events(run_id)
@@ -1655,7 +1744,9 @@ def create_app(
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     @app.get("/api/runs/{run_id}/report")
-    def get_run_report(run_id: str, user: str | None = None) -> dict[str, object] | None:
+    def get_run_report(
+        run_id: str, user: str | None = None
+    ) -> dict[str, object] | None:
         store = store_for(user)
         try:
             run_dir = store.run_dir(run_id)
@@ -1670,7 +1761,11 @@ def create_app(
         report: dict[str, object] | None = None
         for event in store.load_stream_events(run_id):
             payload = event.get("payload", {})
-            if event.get("event_type") in {"report.start", "report.complete", "report.error"}:
+            if event.get("event_type") in {
+                "report.start",
+                "report.complete",
+                "report.error",
+            }:
                 candidate = payload.get("report") if isinstance(payload, dict) else None
                 if isinstance(candidate, dict):
                     report = candidate
@@ -1681,7 +1776,9 @@ def create_app(
         return report
 
     @app.get("/api/runs/{run_id}/artifacts/{name:path}")
-    def get_run_artifact(run_id: str, name: str, user: str | None = None) -> FileResponse:
+    def get_run_artifact(
+        run_id: str, name: str, user: str | None = None
+    ) -> FileResponse:
         store = store_for(user)
         try:
             run_dir = store.run_dir(run_id).resolve()
@@ -1743,12 +1840,9 @@ def create_app(
             raise HTTPException(404, f"产物未注册：{artifact_id}")
         if descriptor.category not in {"daily_agent", "daily_review"}:
             raise HTTPException(404, "该产物不支持原生投影")
-        if (
-            descriptor.category == "daily_review"
-            and not Path(descriptor.source_path).name.endswith(
-                ("-daily-review.html", "-daily-review.md")
-            )
-        ):
+        if descriptor.category == "daily_review" and not Path(
+            descriptor.source_path
+        ).name.endswith(("-daily-review.html", "-daily-review.md")):
             raise HTTPException(404, "该产物不支持原生投影")
 
         original = next(
@@ -1809,7 +1903,9 @@ def create_app(
         return projection
 
     @app.get("/api/artifacts/{artifact_id}")
-    def get_artifact_descriptor(artifact_id: str, user: str | None = None) -> dict[str, object]:
+    def get_artifact_descriptor(
+        artifact_id: str, user: str | None = None
+    ) -> dict[str, object]:
         descriptor = registry_for(user).get(artifact_id)
         if descriptor is None:
             raise HTTPException(404, f"产物未注册：{artifact_id}")
@@ -1838,14 +1934,19 @@ def create_app(
             (
                 artifact
                 for artifact in artifacts
-                if artifact.category in {"daily_review", "daily_agent", "theme_candidates"}
+                if artifact.category
+                in {"daily_review", "daily_agent", "theme_candidates"}
                 and artifact.status != "missing"
             ),
             None,
         )
-        data_cutoff = latest_daily.date if latest_daily else next(
-            (run.source_date for run in runs if run.source_date),
-            None,
+        data_cutoff = (
+            latest_daily.date
+            if latest_daily
+            else next(
+                (run.source_date for run in runs if run.source_date),
+                None,
+            )
         )
         workflows = [
             {
@@ -1878,7 +1979,9 @@ def create_app(
             "workflows": workflows,
             "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
-            "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
+            "latest_daily_artifact": latest_daily.public_dict()
+            if latest_daily
+            else None,
             "pending_review_count": _pending_review_count(root),
             "needs_human_action": sum(
                 1 for artifact in artifacts if artifact.status in {"warn", "missing"}

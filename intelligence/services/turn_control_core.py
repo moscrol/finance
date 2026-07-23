@@ -63,6 +63,65 @@ class TurnControlResult:
     clarification_questions: tuple[str, ...] = ()
 
 
+def project_turn_decision(
+    decision: TurnDecision,
+    *,
+    task_frame: TaskFrame,
+    turn_intent: TurnIntent | None = None,
+) -> TurnControlResult:
+    """Project one already-made decision without invoking understanding again."""
+
+    clarification_questions = tuple(decision.clarification_questions)
+    if not clarification_questions and task_frame.clarification_question:
+        clarification_questions = (task_frame.clarification_question,)
+
+    if decision.lane == "clarify" or clarification_questions:
+        terminal_kind: TerminalKind = "clarification"
+    elif not (
+        decision.needs_retrieval
+        or task_frame_requires_retrieval(task_frame)
+        or resolve_evidence_plan(
+            task_frame.raw_question,
+            question_type=task_frame.question_type,
+            freshness="current",
+        ).requirements
+    ):
+        terminal_kind = "non_research"
+    else:
+        terminal_kind = "research"
+
+    if terminal_kind == "research":
+        mapped_legacy_capabilities = tuple(
+            runtime_name
+            for capability in decision.capabilities
+            if (runtime_name := _LEGACY_CAPABILITY_TO_RUNTIME.get(capability))
+        )
+        capabilities = tuple(
+            dict.fromkeys(
+                (
+                    *runtime_capabilities_for_frame(task_frame),
+                    *mapped_legacy_capabilities,
+                )
+            )
+        )
+        execution_route = task_frame.question_type
+    else:
+        capabilities = ()
+        execution_route = (
+            "clarify" if terminal_kind == "clarification" else decision.lane
+        )
+    return TurnControlResult(
+        task_frame=task_frame,
+        execution_route=execution_route,
+        terminal_kind=terminal_kind,
+        needs_retrieval=terminal_kind == "research",
+        capabilities=capabilities,
+        contract_required=terminal_kind == "research",
+        turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,
+        clarification_questions=clarification_questions,
+    )
+
+
 class TurnControlCore:
     """Project legacy routing into one model-owned control boundary.
 
@@ -95,59 +154,10 @@ class TurnControlCore:
             llm_complete=llm_complete,
         )
         frame = self._frame_for(decision, query, previous_frame)
-        clarification_questions = tuple(decision.clarification_questions)
-        if not clarification_questions and frame.clarification_question:
-            clarification_questions = (frame.clarification_question,)
-
-        if decision.lane == "clarify" or clarification_questions:
-            terminal_kind: TerminalKind = "clarification"
-        elif not (
-            decision.needs_retrieval
-            or task_frame_requires_retrieval(frame)
-            or resolve_evidence_plan(
-                frame.raw_question,
-                question_type=frame.question_type,
-                freshness="current",
-            ).requirements
-        ):
-            terminal_kind = "non_research"
-        else:
-            terminal_kind = "research"
-
-        contract_required = terminal_kind == "research"
-        if terminal_kind == "research":
-            needs_retrieval = True
-            mapped_legacy_capabilities = tuple(
-                runtime_name
-                for capability in decision.capabilities
-                if (
-                    runtime_name := _LEGACY_CAPABILITY_TO_RUNTIME.get(capability)
-                )
-            )
-            capabilities = tuple(
-                dict.fromkeys(
-                    (
-                        *runtime_capabilities_for_frame(frame),
-                        *mapped_legacy_capabilities,
-                    )
-                )
-            )
-            execution_route = frame.question_type
-        else:
-            needs_retrieval = False
-            capabilities = ()
-            execution_route = (
-                "clarify" if terminal_kind == "clarification" else decision.lane
-            )
-        return TurnControlResult(
+        return project_turn_decision(
+            decision,
             task_frame=frame,
-            execution_route=execution_route,
-            terminal_kind=terminal_kind,
-            needs_retrieval=needs_retrieval,
-            capabilities=capabilities,
-            contract_required=contract_required,
             turn_intent=decision.turn_intent,
-            clarification_questions=clarification_questions,
         )
 
     def _call_legacy(self, query: str, **kwargs: object) -> TurnDecision:
