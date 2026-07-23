@@ -65,11 +65,24 @@ _STRICT_JSON_FENCE_RE = re.compile(
 _JUDGE_SYSTEM_PROMPT = (
     "你是严格的语义证据审查器。只审查用户 JSON 中的原问题、required-output "
     "绑定、证据注册表和编号句子；不要引入外部知识，也不要重写句子。检查主体、"
-    "当前时点、事实/假设边界、因果证据、数字支持和跨题污染。只输出一个严格 JSON "
-    "对象，字段必须是 passed(boolean)、rejected_sentence_indexes(integer list)、"
-    "issues(string list)。passed=true 时 rejected_sentence_indexes 必须为空；"
-    "发现任一不受证据支持的句子时 passed=false 并列出句号。"
+    "当前时点、事实/假设边界、因果证据、数字支持和跨题污染。观察事实、事实数字、"
+    "外部因果和历史概率必须有直接证据。分析问题允许从已绑定事实做透明推导：若"
+    "句子明确标注为判断、情景或估计，且推理前提可在证据中核验，不要要求 evidence "
+    "原文已经包含预测结论。用户明确要求持续时间、空间、估值或其他预测时，允许"
+    "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
+    "应拒绝。遵循 claim_policy。只输出一个严格 JSON 对象，字段必须是 "
+    "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
+    "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
+    "passed=false 并列出句号。"
 )
+
+_CLAIM_POLICY = {
+    "observed_facts_require_direct_evidence": True,
+    "labelled_analytical_inference_allowed": True,
+    "requested_conditional_estimate_allowed": True,
+    "unsupported_external_cause_rejected": True,
+    "unsupported_numeric_trigger_rejected": True,
+}
 
 
 @dataclass(frozen=True)
@@ -366,6 +379,7 @@ class SemanticEpisodeVerifier:
             "evidence_registry": [
                 public_agent_evidence(item) for item in verified.outcome.evidence
             ],
+            "claim_policy": dict(_CLAIM_POLICY),
             "sentences": sentences,
         }
 
@@ -718,6 +732,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             required_outputs=request["required_outputs"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
+            claim_policy=request["claim_policy"],
             sentences=request["sentences"],
             timeout=timeout,
         )
@@ -728,6 +743,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "required_outputs",
             "output_bindings",
             "evidence_registry",
+            "claim_policy",
             "sentences",
         )
         if name in parameters
@@ -754,6 +770,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "evidence_registry": request["evidence_registry"],
             "evidence": request["evidence_registry"],
             "registry": request["evidence_registry"],
+            "claim_policy": request["claim_policy"],
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
             "timeout": timeout,

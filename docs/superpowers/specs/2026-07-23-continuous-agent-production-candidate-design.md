@@ -238,6 +238,22 @@ Gate behavior:
 5. Semantic verification never upgrades structural status and never adds
    evidence.
 
+The semantic gate distinguishes claim types instead of treating every sentence
+as a quoted source fact. Observed facts, dates, factual numbers, external
+causes, and claimed historical probabilities need direct evidence. A clearly
+labelled analytical judgment may be derived from already-bound premises. When
+the user explicitly asks for duration, upside, valuation, or another forecast,
+the answer may give a conditional base-case range as an analyst estimate; it
+must not claim that the source itself supplied the forecast, invent supporting
+statistics, or introduce unsupported trigger thresholds. This preserves the
+hard truth plane without making analytical tasks structurally unanswerable.
+
+Structured evidence blocks carry one snapshot identity. Their block-level
+as-of date is propagated to every evidence atom, while historical dates inside
+individual lines remain part of the content. The verifier must not infer that a
+current snapshot is stale merely because a summary line omitted a repeated date
+literal.
+
 The draft-only seam is deliberate. A 2026-07-23 real-GLM canary showed that
 reusing the full finalizer contract made semantic repair resend roughly 18K
 characters of evidence and regenerate every binding. It timed out at 20

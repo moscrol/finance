@@ -186,6 +186,20 @@ def test_structured_evidence_gets_stable_content_hash() -> None:
     assert evidence[0].content_hash == agent_research.evidence_content_hash(evidence[0])
 
 
+def test_structured_evidence_can_inherit_block_snapshot_date() -> None:
+    evidence, _ = agent_research.block_lines_to_evidence(
+        "market_data",
+        "当前成交额21949亿元\n2026-07-20：指数上涨0.85%",
+        "本地 DuckDB",
+        source_date="2026-07-23",
+    )
+
+    assert [item.source_date for item in evidence] == [
+        "2026-07-23",
+        "2026-07-23",
+    ]
+
+
 def test_tool_action_binds_evidence_to_known_hypothesis() -> None:
     contract = ResearchTaskContract(
         task_id="hypothesis-binding",

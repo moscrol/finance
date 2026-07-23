@@ -125,6 +125,9 @@ def build_episode_registry(
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = finance / "db" / "market_feature_store.duckdb"
+    structured_source_date = context.latest_data_date or ask_blocks._market_data_asof(  # noqa: SLF001
+        market_db_path
+    )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
 
     def retrieve_kb(query: str, timeout: float):
@@ -158,6 +161,7 @@ def build_episode_registry(
             source,
             limit=18,
             detail_chars=1000,
+            source_date=structured_source_date,
         )
         evidence = [
             item
@@ -197,6 +201,7 @@ def build_episode_registry(
                 "本地 DuckDB · D4 同日主线结构",
                 limit=12,
                 detail_chars=1000,
+                source_date=structured_source_date,
             )
             evidence = [
                 item

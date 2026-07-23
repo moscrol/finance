@@ -172,6 +172,58 @@ class _ContextRecordingRepair(_Repair):
         return super().repair_draft(**kwargs)
 
 
+class _RecordingJudgeModel:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append(
+            {
+                "messages": messages,
+                "tools": tools,
+                "timeout": timeout,
+            }
+        )
+        return ModelTurn(
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            (),
+            "recording",
+            "",
+        )
+
+
+def test_judge_receives_typed_claim_policy_for_requested_forecast(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural(
+        "截至最新交易日，成交额缩量。我的基准判断是反弹仍有数日窗口，"
+        "这是基于当前量价结构的主观估计。"
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    sent = model.calls[0]
+    assert sent["tools"] == []
+    request = json.loads(sent["messages"][1]["content"])
+    policy = request["claim_policy"]
+    assert policy["observed_facts_require_direct_evidence"] is True
+    assert policy["labelled_analytical_inference_allowed"] is True
+    assert policy["requested_conditional_estimate_allowed"] is True
+    assert policy["unsupported_external_cause_rejected"] is True
+    assert policy["unsupported_numeric_trigger_rejected"] is True
+    system_prompt = sent["messages"][0]["content"]
+    assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
+    assert "外部因果" in system_prompt
+    assert "任意触发阈值" in system_prompt
+
+
 def test_unsupported_causality_is_rejected_and_not_publicly_completed() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))

@@ -45,6 +45,66 @@ def _market_technical_frame() -> TaskFrame:
     )
 
 
+def _market_forecast_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="昨天的反弹能持续多久",
+        user_goal="判断市场反弹持续时间",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("current_baseline", "duration_assessment"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+
+
+def test_market_registry_propagates_context_snapshot_date_to_every_atom(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="market-asof",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-07-23",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "当前成交额21949亿元\n2026-07-20：指数上涨0.85%",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "market_data",
+        "A股最新行情",
+        context=context,
+        step_id="market-asof:1",
+    )
+
+    assert [item.source_date for item in observation.evidence] == [
+        "2026-07-23",
+        "2026-07-23",
+    ]
+
+
 def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:
     received: list[float] = []
 

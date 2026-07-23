@@ -422,6 +422,7 @@ def block_lines_to_evidence(
     *,
     limit: int = 6,
     detail_chars: int = 200,
+    source_date: str | None = None,
 ) -> tuple[list[AgentEvidence], str]:
     """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
 
@@ -434,6 +435,7 @@ def block_lines_to_evidence(
         and not stripped.startswith("#")
     ]
     evidence: list[AgentEvidence] = []
+    snapshot_date = str(source_date or "").strip() or None
     for line in lines[:limit]:
         # 一行可能同时包含窗口起止日。旧实现只取第一个日期，导致
         # ``2026-07-14 ~ 2026-07-20`` 被投影成 as_of=07-14，进而让
@@ -449,7 +451,9 @@ def block_lines_to_evidence(
             detail=line[: max(80, min(int(detail_chars), 1200))],
             source=source,
             source_date=(
-                max(normalized_dates)
+                snapshot_date
+                if snapshot_date is not None
+                else max(normalized_dates)
                 if normalized_dates
                 else None
             ),

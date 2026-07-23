@@ -175,3 +175,47 @@ leaks, zero duplicate queries, and semantic status `passed` or `repaired`.
 
 Run all five fixed questions individually and then in one process. Record every
 answer and failure without rerun-selecting only successes.
+
+### Task 3: Calibrate fact grounding versus requested analytical judgment
+
+The first clean `a3cece8d` canary completed structurally with six provider
+attempts, six tool calls, zero duplicate queries, and a successful compact
+repair, but the rejudge still rejected it. The artifact exposed two independent
+causes:
+
+1. current structured market atoms inherited no block-level `source_date` when
+   an individual rendered line contained no literal date;
+2. the semantic judge required a requested forecast conclusion to already
+   exist verbatim in evidence, making duration/upside/valuation questions
+   impossible to answer even when their premises were grounded.
+
+- [ ] **Step 1: Write RED tests for structured as-of propagation**
+
+Add an optional block-level source date to `block_lines_to_evidence()` and test
+that the market/mainline wrappers pass the current context date to every atom.
+Embedded historical dates remain content, not the source snapshot identity.
+
+- [ ] **Step 2: Write RED tests for a typed semantic-claim policy**
+
+Through the public verifier seam, assert the judge request distinguishes:
+
+- observed facts and factual numbers, which require direct evidence;
+- explicitly labelled analytical judgments, which may be derived from bound
+  premises;
+- user-requested duration/upside/valuation ranges, which may be presented as
+  conditional estimates rather than source facts;
+- external causes, historical probabilities, and precise trigger thresholds,
+  which still require direct support.
+
+- [ ] **Step 3: Tighten repair obligations**
+
+The compact repair must delete every issue-named unsupported fact/threshold
+rather than rephrasing it as “the evidence says”. For an explicitly requested
+forecast it may retain one clearly labelled base-case estimate, but its reasons
+must come only from unrejected premises and it must preserve uncertainty.
+
+- [ ] **Step 4: Re-run focused regression and the preserved canary**
+
+First replay the preserved artifact against the revised judge contract to test
+the hypothesis cheaply. Then rebuild a clean detached runtime and rerun the
+original question exactly once before continuing the remaining four cases.
