@@ -15,6 +15,7 @@ from intelligence.services.ask import (
     _daily_market_overview_block_for_llm,
     _evidence_chain_with_llm_wiki,
     _mainline_context_block_for_llm,
+    _market_cause_window_block_for_llm,
     _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _resolve_market_data_context,
@@ -428,6 +429,49 @@ class RenderComposeTests(unittest.TestCase):
 
 
 class DailyMarketOverviewTests(unittest.TestCase):
+    def test_market_cause_block_names_industry_ratio_as_turnover_share(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  market_stage varchar,
+                  stage_day integer,
+                  total_amount double,
+                  advancers integer,
+                  limit_up integer,
+                  limit_down integer,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  industry_1 varchar,
+                  industry_1_ratio double,
+                  industry_2 varchar,
+                  industry_2_ratio double,
+                  industry_3 varchar,
+                  industry_3_ratio double
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-22', '反弹', 2, 26000, 1500, 47, 8, 3867, 0.07,
+                 '电子', 33.0, '通信', 9.0, '计算机', 6.7),
+                ('2026-07-23', '反弹', 3, 21950, 4260, 116, 2, 3877, 0.25,
+                 '电子', 29.1, '电力设备', 8.5, '通信', 7.8)
+                """
+            )
+            con.close()
+
+            block = _market_cause_window_block_for_llm(db_path)
+
+        self.assertIn("行业成交额占全市场比例前三", block)
+        self.assertIn("绝非行业涨跌幅", block)
+        self.assertNotIn("领先行业 电子(29.1%)", block)
+
     def test_prefers_duckdb_date_over_older_snapshot(self) -> None:
         with mock.patch(
             "intelligence.services.ask._market_data_asof",

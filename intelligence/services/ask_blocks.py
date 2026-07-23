@@ -830,7 +830,8 @@ def _market_cause_window_block_for_llm(
                 f"成交 {row[3] if row[3] is not None else '—'} 亿；"
                 f"上涨 {row[4] if row[4] is not None else '—'} 家；"
                 f"涨停/跌停 {row[5] if row[5] is not None else '—'}/{row[6] if row[6] is not None else '—'}；"
-                f"领先行业 {industries or '—'}。"
+                "行业成交额占全市场比例前三"
+                f"（括号为成交额占比，绝非行业涨跌幅）{industries or '—'}。"
             )
         lines.append("- 因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。")
         return "\n".join(lines)

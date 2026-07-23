@@ -37,7 +37,7 @@ from intelligence.services.turn_control_core import TurnControlResult
 
 
 RuntimeMode = Literal["off", "canary", "on"]
-ContinuousTurnStatus = Literal["completed", "degraded", "failed"]
+ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
 DEFAULT_VERIFICATION_RESERVE_SECONDS = 30.0
 LEGACY_DETERMINISTIC_OWNER_TYPES = frozenset(
@@ -505,6 +505,12 @@ class ContinuousTurnAdapter:
         )
         if semantic.status == "completed" and answer:
             status: ContinuousTurnStatus = "completed"
+        elif (
+            semantic.status == "partial"
+            and semantic.judge_status in {"passed", "repaired"}
+            and answer
+        ):
+            status = "partial"
         elif answer or final_outcome.evidence:
             status = "degraded"
         else:
@@ -793,6 +799,8 @@ def _episode_warnings(
 ) -> tuple[str, ...]:
     if status == "completed":
         return ()
+    if status == "partial":
+        return ()
     if status == "degraded":
         return ("证据或语义核验未完全通过，已按证据边界降级。",)
     return ("本轮未取得可公开的答案或证据。",)
@@ -929,6 +937,7 @@ def _public_events(
     status: ContinuousTurnStatus,
     deterministic: bool = False,
 ) -> tuple[dict[str, object], ...]:
+    terminal_status = "completed" if status == "partial" else status
     if deterministic:
         stages = (
             ("understanding", "已锁定本轮任务边界。"),
@@ -947,7 +956,7 @@ def _public_events(
             "type": "progress",
             "stage": stage,
             "message": message,
-            "status": status if index == len(stages) - 1 else "running",
+            "status": terminal_status if index == len(stages) - 1 else "running",
         }
         for index, (stage, message) in enumerate(stages)
     )

@@ -807,6 +807,79 @@ def test_continuous_degraded_turn_is_transport_complete_but_business_partial(
     ]
 
 
+def test_continuous_verified_partial_is_not_presented_as_degraded(
+    tmp_path,
+) -> None:
+    query = "这一周行情下跌的主要原因是什么"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class PartialAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="partial",
+                answer=(
+                    "本周实际上涨约3%；7月17日单日下跌的事件催化"
+                    "缺少时间对齐证据。"
+                ),
+                as_of="2026-07-23",
+                citations=(),
+                warnings=(),
+                private_artifact={"judge_status": "repaired"},
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled partial turn must not enter legacy synthesis"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled partial turn must not route"
+        ),
+        lane_answer_fn=lambda *_args, **_kwargs: pytest.fail(
+            "handled partial turn must not use lane generator"
+        ),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=PartialAdapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert result.status == "completed"
+    assert assistant.status == "completed"
+    assert assistant.degrades == []
+    assert report["answer_status"] == "partial"
+    assert report["status"] == "partial"
+    assert snapshots[-1]["payload"]["phase"] == "validated_synthesis"
+
+
 def test_continuous_failed_turn_uses_same_message_and_run_identity(
     tmp_path,
 ) -> None:

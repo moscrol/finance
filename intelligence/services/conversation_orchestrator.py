@@ -3468,7 +3468,7 @@ class TurnOrchestrator:
                 revision=2,
                 phase=(
                     "validated_synthesis"
-                    if result.status == "completed"
+                    if result.status in {"completed", "partial"}
                     else "evidence_gap_fallback"
                 ),
                 text=answer_text,

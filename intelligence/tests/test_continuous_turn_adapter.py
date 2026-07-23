@@ -94,6 +94,7 @@ def _scripted_episode_result(
     traces: tuple[ProviderTrace, ...] = (),
     latest_data_date: str | None = None,
     event_payload: dict[str, object] | None = None,
+    judge_status: str | None = None,
 ):
     frame = _frame()
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -138,7 +139,8 @@ def _scripted_episode_result(
                 status=semantic_status,  # type: ignore[arg-type]
                 public_answer=public_answer,
                 judge_status=(
-                    "passed" if semantic_status == "completed" else "rejected"
+                    judge_status
+                    or ("passed" if semantic_status == "completed" else "rejected")
                 ),
             )
 
@@ -927,7 +929,7 @@ def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() 
     assert "market_data" in contract.evidence_plan.mandatory_capabilities
 
 
-def test_semantic_partial_returns_degraded_useful_gap() -> None:
+def test_semantically_verified_partial_is_first_class_not_degraded() -> None:
     evidence = AgentEvidence(
         tool="market_data",
         title="A股市场总览",
@@ -942,11 +944,12 @@ def test_semantic_partial_returns_degraded_useful_gap() -> None:
         public_answer="现有证据只支持最近交易日，持续性仍需补量能验证。",
         evidence=(evidence,),
         bindings=(OutputEvidenceBinding("direct_assessment", ("market-gap-1",)),),
+        judge_status="repaired",
     )
 
-    assert result.status == "degraded"
+    assert result.status == "partial"
     assert "持续性仍需补量能验证" in result.answer
-    assert result.warnings == ("证据或语义核验未完全通过，已按证据边界降级。",)
+    assert result.warnings == ()
 
 
 def test_no_answer_and_no_evidence_returns_failed() -> None:
