@@ -1003,6 +1003,37 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     assert injected_calls == []
 
 
+def test_independent_judge_retries_one_transient_failure(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    calls: list[float] = []
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+
+    def flaky(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        if len(calls) == 1:
+            return None, provider, "LLM 调用失败（ReadTimeout）"
+        return (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            provider,
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "complete", flaky)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert len(calls) == 2
+    assert all(0.0 < timeout <= 5.0 for timeout in calls)
+
+
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
     frame, structural = _structural(
         "RAW_PROVIDER_SENTINEL market_data HASH_PRIVATE_SENTINEL。"
@@ -1640,6 +1671,60 @@ def test_structural_partial_is_not_upgraded_or_judged() -> None:
     )
     assert result.status == "partial"
     assert not calls
+
+
+def test_mixed_structural_partial_can_release_judged_fulfilled_draft() -> None:
+    frame, structural = _structural(
+        "直接判断：本周实际上涨约3%。证据缺口：单日下跌诱因无法确认。"
+    )
+    evidence = structural.outcome.evidence[0]
+    contract = ResearchTaskContract(
+        task_id="semantic-partial-release",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("cause_attribution", "原因归因", ("web_search",), True),
+        ),
+        allowed_capabilities=("market_data", "web_search"),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(
+        contract,
+        replace(
+            structural.outcome,
+            status="partial",
+            gaps=("单日下跌诱因缺少时间对齐证据",),
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_assessment",
+                    (evidence.content_hash,),
+                ),
+                OutputEvidenceBinding(
+                    "cause_attribution",
+                    (),
+                    "单日下跌诱因缺少时间对齐证据",
+                ),
+            ),
+        ),
+    )
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert partial.verified_status == "partial"
+    assert result.status == "partial"
+    assert result.judge_status == "passed"
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert "本周实际上涨约3%" in result.public_answer
+    assert "单日下跌诱因无法确认" in result.public_answer
 
 
 def test_missing_structural_contract_fails_closed_without_judge() -> None:

@@ -84,6 +84,24 @@ def test_semantic_smoke_accepts_question_bound_partial_gap() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "直接判断：本周实际上上涨约3%。"
+                    "证据缺口：7月17日单日大跌的精确诱因无法确认。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_rejects_generic_partial_source_list() -> None:
     issues = semantic_answer_issues(
         "你觉得目前市场的主线是什么，给我你的判断依据",

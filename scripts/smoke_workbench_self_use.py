@@ -165,7 +165,14 @@ def semantic_answer_issues(
         return issues
     explicit_gap = any(
         marker in assistant_text
-        for marker in ("尚未完成", "仍缺少", "尚缺少", "不给出定性结论", "无法形成可靠")
+        for marker in (
+            "尚未完成",
+            "仍缺少",
+            "尚缺少",
+            "不给出定性结论",
+            "无法形成可靠",
+            "证据缺口",
+        )
     )
     if answer_status != "complete" and not explicit_gap:
         issues.append(f"answer_status={answer_status!r}")

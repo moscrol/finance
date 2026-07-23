@@ -273,10 +273,15 @@ class SemanticEpisodeVerifier:
                 ),
                 correlated_judge=False,
             )
-        if structural.verified_status != "completed":
+        if (
+            structural.verified_status != "completed"
+            and not _can_semantically_release_partial(structural)
+        ):
             # A semantic pass cannot promote a structural partial.  Avoid even
-            # calling the judge here: no amount of semantic confidence repairs
-            # a missing output binding.
+            # calling the judge when no useful required output survived or the
+            # partial was caused by anything other than an explicit evidence
+            # gap.  A mixed fulfilled/gap result may still be judged and
+            # released as partial, but can never be promoted to completed.
             status: SemanticStatus = (
                 "failed" if structural.verified_status == "failed" else "partial"
             )
@@ -348,7 +353,10 @@ class SemanticEpisodeVerifier:
                     ),
                     correlated_judge=False,
                 )
-            if structural.verified_status != "completed":
+            if (
+                structural.verified_status != "completed"
+                and not _can_semantically_release_partial(structural)
+            ):
                 return SemanticEpisodeOutcome(
                     verified=structural,
                     status="partial",
@@ -391,7 +399,13 @@ class SemanticEpisodeVerifier:
                 structural,
                 judge_status=("repaired" if preflight_issues else "passed"),
                 judge_issues=tuple(
-                    dict.fromkeys((*preflight_issues, *first.report.issues))
+                    dict.fromkeys(
+                        (
+                            *structural.issues,
+                            *preflight_issues,
+                            *first.report.issues,
+                        )
+                    )
                 ),
                 correlated_judge=first.correlated,
             )
@@ -446,7 +460,10 @@ class SemanticEpisodeVerifier:
                 issues=issues,
                 correlated_judge=first.correlated,
             )
-        if repaired_verified.verified_status != "completed":
+        if (
+            repaired_verified.verified_status != "completed"
+            and not _can_semantically_release_partial(repaired_verified)
+        ):
             issues = tuple(
                 dict.fromkeys(
                     (
@@ -493,6 +510,7 @@ class SemanticEpisodeVerifier:
                 judge_issues=tuple(
                     dict.fromkeys(
                         (
+                            *repaired_verified.issues,
                             *preflight_issues,
                             *first.report.issues,
                             *second.report.issues,
@@ -538,7 +556,10 @@ class SemanticEpisodeVerifier:
                         issues=issues,
                         correlated_judge=correlated,
                     )
-                if twice_verified.verified_status == "completed":
+                if (
+                    twice_verified.verified_status == "completed"
+                    or _can_semantically_release_partial(twice_verified)
+                ):
                     twice_sentences = _numbered_sentences(
                         twice_verified.outcome.draft
                     )
@@ -571,6 +592,7 @@ class SemanticEpisodeVerifier:
                             judge_issues=tuple(
                                 dict.fromkeys(
                                     (
+                                        *twice_verified.issues,
                                         *preflight_issues,
                                         *first.report.issues,
                                         *second.report.issues,
@@ -693,32 +715,46 @@ class SemanticEpisodeVerifier:
         except Exception:
             provider = None
         if provider is not None:
-            try:
-                with llm_refine.provider_override(provider):
-                    content, _used, reason = llm_refine.complete(
-                        [
-                            {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
-                            {
-                                "role": "user",
-                                "content": json.dumps(request, ensure_ascii=False),
-                            },
-                        ],
-                        timeout=timeout,
-                        temperature=0.0,
+            messages = [
+                {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(request, ensure_ascii=False),
+                },
+            ]
+            for attempt in range(2):
+                attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
+                if attempt_timeout <= 0.001:
+                    return _JudgeCall(
+                        None,
+                        True,
+                        False,
+                        "semantic judge deadline exhausted",
                     )
-            except Exception as exc:  # pragma: no cover - adapter boundary
-                return _JudgeCall(
-                    None,
-                    True,
-                    False,
-                    f"semantic judge unavailable: {type(exc).__name__}",
+                try:
+                    with llm_refine.provider_override(provider):
+                        content, _used, reason = llm_refine.complete(
+                            messages,
+                            timeout=attempt_timeout,
+                            temperature=0.0,
+                        )
+                except Exception as exc:  # pragma: no cover - adapter boundary
+                    issue, retryable = _stable_semantic_judge_error(
+                        type(exc).__name__
+                    )
+                    if attempt == 0 and retryable and not deadline.expired:
+                        continue
+                    return _JudgeCall(None, True, False, issue)
+                report = self._parse_report(content, len(request["sentences"]))
+                if report is not None:
+                    return _JudgeCall(report, False, False)
+                issue, retryable = _stable_semantic_judge_error(
+                    reason or "invalid semantic judge output"
                 )
-            report = self._parse_report(content, len(request["sentences"]))
-            if report is None:
-                return _JudgeCall(
-                    None, True, False, reason or "invalid semantic judge output"
-                )
-            return _JudgeCall(report, False, False)
+                if attempt == 0 and retryable and not deadline.expired:
+                    continue
+                return _JudgeCall(None, True, False, issue)
+            return _JudgeCall(None, True, False, "semantic judge unavailable")
 
         # Explicit injection is the deterministic test/canary seam only when
         # no independent LLM_JUDGE provider is configured.  It is correlated
@@ -969,7 +1005,11 @@ class SemanticEpisodeVerifier:
             )
         return SemanticEpisodeOutcome(
             verified=verified,
-            status="completed",
+            status=(
+                "completed"
+                if verified.verified_status == "completed"
+                else "partial"
+            ),
             public_answer=public,
             judge_status=judge_status,
             issues=judge_issues,
@@ -1015,6 +1055,32 @@ class SemanticEpisodeVerifier:
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
         return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+
+
+def _can_semantically_release_partial(
+    verified: VerifiedEpisodeOutcome,
+) -> bool:
+    """Allow a useful partial through the judge without weakening hard gates.
+
+    Only an explicit required-output evidence gap is eligible.  Missing
+    bindings, unknown hashes, frame mismatches, and every other structural
+    issue still fail closed before the semantic judge sees the draft.
+    """
+
+    if verified.verified_status != "partial":
+        return False
+    if not verified.outcome.draft.strip():
+        return False
+    if not any(
+        item.status == "fulfilled" for item in verified.completion.outputs
+    ):
+        return False
+    if not verified.issues:
+        return False
+    return all(
+        issue.startswith("required output reports gap:")
+        for issue in verified.issues
+    )
 
 
 def _numbered_sentences(draft: str) -> list[dict[str, object]]:
