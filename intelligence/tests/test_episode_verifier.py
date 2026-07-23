@@ -89,14 +89,7 @@ def _outcome(
 
 
 def test_valid_evidence_bindings_complete_the_episode() -> None:
-    market = AgentEvidence(
-        tool="market_data",
-        title="market_data evidence",
-        detail="可核验事实",
-        source="test-source",
-        content_hash="market-1",
-        supports=("direct_assessment", "evidence_boundary"),
-    )
+    market = _evidence("market_data", "market-1")
     outcome = _outcome(
         evidence=(market,),
         bindings=(
@@ -113,7 +106,7 @@ def test_valid_evidence_bindings_complete_the_episode() -> None:
     assert verified.issues == ()
 
 
-def test_one_hash_cannot_satisfy_multiple_outputs_without_explicit_support() -> None:
+def test_shared_hash_is_structural_only_and_does_not_overload_supports() -> None:
     market = _evidence("market_data", "market-1")
     outcome = _outcome(
         evidence=(market,),
@@ -125,35 +118,8 @@ def test_one_hash_cannot_satisfy_multiple_outputs_without_explicit_support() -> 
 
     verified = verify_episode_outcome(_contract(), outcome)
 
-    assert verified.verified_status == "partial"
-    assert all(item.status == "missing" for item in verified.completion.outputs)
-    assert any(
-        "evidence reused without explicit output support" in issue
-        for issue in verified.issues
-    )
-
-
-def test_partial_output_support_invalidates_shared_hash_atomically() -> None:
-    market = AgentEvidence(
-        tool="market_data",
-        title="market_data evidence",
-        detail="可核验事实",
-        source="test-source",
-        content_hash="market-1",
-        supports=("direct_assessment",),
-    )
-    outcome = _outcome(
-        evidence=(market,),
-        bindings=(
-            OutputEvidenceBinding("direct_assessment", ("market-1",)),
-            OutputEvidenceBinding("evidence_boundary", ("market-1",)),
-        ),
-    )
-
-    verified = verify_episode_outcome(_contract(), outcome)
-
-    assert verified.verified_status == "partial"
-    assert all(item.status == "missing" for item in verified.completion.outputs)
+    assert verified.verified_status == "completed"
+    assert all(item.status == "fulfilled" for item in verified.completion.outputs)
 
 
 def test_missing_required_output_downgrades_completed_outcome() -> None:

@@ -184,9 +184,7 @@ def test_current_results_preserve_available_runtime_metrics(tmp_path) -> None:
     )
 
     assert code == 0
-    saved = json.loads(output.read_text(encoding="utf-8"))["cases"][0][
-        "current"
-    ]
+    saved = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["current"]
     assert saved["answer"] == "旧工作台答案"
     assert saved["latency"] == 67.5
     assert saved["llm_calls"] == 3
@@ -224,9 +222,6 @@ def test_live_runner_records_bare_current_and_verified_episode(
                 detail="最近交易日市场结构",
                 source="test-market",
                 content_hash="market-1",
-                supports=tuple(
-                    item.output_id for item in context.contract.required_outputs
-                ),
             )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
@@ -359,14 +354,17 @@ def test_deterministic_fast_path_is_not_sent_to_episode(
         },
     )
 
-    assert episode_ab.main(
-        [
-            "--questions-file",
-            str(questions),
-            "--output",
-            str(output),
-        ]
-    ) == 0
+    assert (
+        episode_ab.main(
+            [
+                "--questions-file",
+                str(questions),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
 
     case = json.loads(output.read_text(encoding="utf-8"))["cases"][0]
     assert case["episode"]["execution_kind"] == "deterministic_fast_path"

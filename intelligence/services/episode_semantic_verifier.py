@@ -36,13 +36,10 @@ from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
 )
-from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.research_contract import (
-    RequiredOutput,
     ResearchDeadline,
     ResearchPolicy,
     ResearchRunContext,
-    ResearchTaskContract,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -57,8 +54,8 @@ _CONTROL_FIELD_RE = re.compile(
     r"system[_ ]?prompt|tool[_ ]?calls?)\b\s*[:=]?|"
     r"\bhash\b\s*[:=]|\bprovider(?:[_ ]?name)?\b\s*[:=]|"
     r"\b_?provider_(?:attempts?|trace)\b\s*[:=]?|"
-    r"\b(?:endpoint|model)\b\s*[:=]|"
-    r"\braw[_ ][a-z0-9_]+\b|证据哈希|内容哈希|内部定位|系统提示|工具调用)",
+    r"\bendpoint\b\s*[:=]|"
+    r"证据哈希|内容哈希|内部定位|系统提示|工具调用)",
     re.IGNORECASE,
 )
 
@@ -138,6 +135,36 @@ class SemanticEpisodeVerifier:
         """Run structural-first semantic verification and at most one repair."""
 
         structural = structurally_verified
+        contract = structural.contract
+        if contract is None:
+            return SemanticEpisodeOutcome(
+                verified=structural,
+                status="partial",
+                public_answer=self._generic_gap_answer(frame),
+                judge_status="unavailable",
+                issues=tuple(
+                    dict.fromkeys((*structural.issues, "semantic contract missing"))
+                ),
+                correlated_judge=False,
+            )
+        frame_hash = frame.task_frame_hash
+        if (
+            not contract.task_frame_hash
+            or frame_hash != structural.outcome.task_frame_hash
+            or frame_hash != contract.task_frame_hash
+        ):
+            return SemanticEpisodeOutcome(
+                verified=structural,
+                status="partial",
+                public_answer=self._generic_gap_answer(frame),
+                judge_status="unavailable",
+                issues=tuple(
+                    dict.fromkeys(
+                        (*structural.issues, "semantic frame/contract hash mismatch")
+                    )
+                ),
+                correlated_judge=False,
+            )
         if structural.verified_status != "completed":
             # A semantic pass cannot promote a structural partial.  Avoid even
             # calling the judge here: no amount of semantic confidence repairs
@@ -168,6 +195,13 @@ class SemanticEpisodeVerifier:
 
         request = self._judge_request(frame, structural, sentences)
         first = self._run_judge(request, deadline)
+        if deadline.expired:
+            first = _JudgeCall(
+                None,
+                True,
+                first.correlated,
+                "semantic judge deadline exhausted",
+            )
         if first.report is None:
             issue = first.issue or "semantic judge unavailable"
             return SemanticEpisodeOutcome(
@@ -245,6 +279,13 @@ class SemanticEpisodeVerifier:
             self._judge_request(frame, repaired_verified, repaired_sentences),
             deadline,
         )
+        if deadline.expired:
+            second = _JudgeCall(
+                None,
+                True,
+                second.correlated,
+                "semantic judge deadline exhausted",
+            )
         correlated = first.correlated or second.correlated
         if second.report is not None and second.report.passed:
             return self._completed_public(
@@ -505,12 +546,27 @@ class SemanticEpisodeVerifier:
         finalizer = self._finalizer
         if finalizer is None:
             return None
-        contract = structural.contract or self._fallback_contract(frame, structural)
-        context = self._context or ResearchRunContext(
+        contract = structural.contract
+        if contract is None:
+            return None
+        base_context = self._context
+        context = ResearchRunContext(
             contract=contract,
             deadline=deadline,
-            policy=ResearchPolicy.for_tier(contract.research_tier),
-            trace_parent_id=contract.task_id,
+            policy=(
+                base_context.policy
+                if base_context is not None
+                else ResearchPolicy.for_tier(contract.research_tier)
+            ),
+            trace_parent_id=(
+                base_context.trace_parent_id
+                if base_context is not None
+                else contract.task_id
+            ),
+            today=base_context.today if base_context is not None else None,
+            latest_data_date=(
+                base_context.latest_data_date if base_context is not None else None
+            ),
         )
         try:
             turn = _call_repair(
@@ -557,30 +613,6 @@ class SemanticEpisodeVerifier:
             return None
         return verified, frame
 
-    @staticmethod
-    def _fallback_contract(
-        frame: TaskFrame,
-        structural: VerifiedEpisodeOutcome,
-    ) -> ResearchTaskContract:
-        tools = tuple(dict.fromkeys(item.tool for item in structural.outcome.evidence))
-        return ResearchTaskContract(
-            task_id="semantic-repair",
-            question=frame.raw_question,
-            subject=frame.subject,
-            subject_kind=frame.subject_kind,
-            question_type=frame.question_type,
-            required_outputs=tuple(
-                RequiredOutput(output_id, output_id, tools, True)
-                for output_id in frame.required_outputs
-            ),
-            allowed_capabilities=tools,
-            research_tier="quick",
-            freshness="current",
-            timeframe=frame.timeframe,
-            evidence_plan=EvidencePlan(),
-            task_frame_hash=frame.task_frame_hash,
-        )
-
     def _completed_public(
         self,
         frame: TaskFrame,
@@ -620,23 +652,39 @@ class SemanticEpisodeVerifier:
         frame: TaskFrame,
         verified: VerifiedEpisodeOutcome,
     ) -> str:
-        gaps: list[str] = []
-        for status in verified.completion.outputs:
-            if status.status != "fulfilled" and status.gap:
-                gaps.append(status.gap)
-        gaps.extend(verified.outcome.gaps)
-        private_tokens = _private_tokens(verified.outcome.evidence)
-        clean: list[str] = []
-        for value in gaps:
-            text = _safe_gap_text(value, private_tokens)
-            if text and text not in clean:
-                clean.append(text)
         question = frame.raw_question.strip() or "当前问题"
-        if clean:
-            return (
-                f"关于“{question}”，现有证据不足，暂不能可靠回答。证据缺口："
-                + "；".join(clean[:3])
+        contract = verified.contract
+        if contract is not None:
+            status_by_id = {
+                item.output_id: item.status for item in verified.completion.outputs
+            }
+            required = tuple(
+                item for item in contract.required_outputs if item.required
             )
+            missing = tuple(
+                item
+                for item in required
+                if status_by_id.get(item.output_id) != "fulfilled"
+            )
+            targets = missing or required
+            labels = tuple(
+                dict.fromkeys(
+                    (item.description.strip() or item.output_id)
+                    for item in targets
+                    if item.description.strip() or item.output_id
+                )
+            )
+            if labels:
+                return (
+                    f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+                    + "仍需核验："
+                    + "、".join(labels[:3])
+                )
+        return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+
+    @staticmethod
+    def _generic_gap_answer(frame: TaskFrame) -> str:
+        question = frame.raw_question.strip() or "当前问题"
         return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
 
 
@@ -826,13 +874,6 @@ def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bo
         return True
     folded = text.casefold()
     return any(token in folded for token in private_tokens)
-
-
-def _safe_gap_text(value: object, private_tokens: frozenset[str]) -> str:
-    text = " ".join(str(value or "").split())
-    if not text or _contains_private_token(text, private_tokens):
-        return ""
-    return text[:180]
 
 
 __all__ = ["SemanticEpisodeOutcome", "SemanticEpisodeVerifier"]

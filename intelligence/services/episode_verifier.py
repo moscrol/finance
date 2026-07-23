@@ -79,24 +79,6 @@ def verify_episode_outcome(
 
     statuses: list[OutputStatus] = []
     bound_tools: set[str] = set()
-    # A single hash is not a universal proof for every required output.  It
-    # may be reused only when the evidence itself explicitly declares the
-    # output identities it supports.  ``supports`` also carries hypothesis
-    # IDs in older runners, therefore only exact required-output IDs count.
-    hash_output_ids: dict[str, list[str]] = {}
-    for required in contract.required_outputs:
-        binding = bindings.get(required.output_id)
-        if binding is None or binding.gap:
-            continue
-        for content_hash in binding.evidence_hashes:
-            hash_output_ids.setdefault(content_hash, []).append(required.output_id)
-    invalid_reused_hashes: set[str] = set()
-    for content_hash, output_ids in hash_output_ids.items():
-        if len(output_ids) <= 1:
-            continue
-        item = evidence_by_hash.get(content_hash)
-        if item is None or not set(output_ids).issubset(set(item.supports)):
-            invalid_reused_hashes.add(content_hash)
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
@@ -156,16 +138,6 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
-        reused_without_explicit_support = tuple(
-            content_hash
-            for content_hash in binding.evidence_hashes
-            if content_hash in invalid_reused_hashes
-        )
-        if reused_without_explicit_support:
-            issues.append(
-                "evidence reused without explicit output support for "
-                f"{required.output_id}: " + ",".join(reused_without_explicit_support)
-            )
         if wrong_types:
             issues.append(
                 f"unsupported evidence type for {required.output_id}: "
@@ -177,7 +149,6 @@ def verify_episode_outcome(
             and not unknown_hashes
             and not collided_hashes
             and not wrong_types
-            and not reused_without_explicit_support
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
