@@ -151,6 +151,34 @@ def test_mandatory_market_call_starts_while_slow_web_is_listed_first() -> None:
     assert result.executed_count == 2
 
 
+def test_cancelled_batch_does_not_submit_tool_runner() -> None:
+    cancelled = Event()
+    cancelled.set()
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        del query, context
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", "unexpected")
+
+    result = ToolBatchExecutor().execute(
+        (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+        registry=_registry(market_data=runner),
+        context=_context(),
+        remaining_slots=1,
+        is_cancelled=cancelled.is_set,
+    )
+
+    assert runner_calls == 0
+    assert result.executed_count == 0
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+
+
 def test_two_independent_read_only_tools_overlap_in_wall_clock_time() -> None:
     both_entered = Barrier(2)
     entered: set[str] = set()

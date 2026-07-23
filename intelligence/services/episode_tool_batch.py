@@ -89,6 +89,7 @@ class EpisodeToolBatchSession:
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
         remaining_slots: int,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> ToolBatchResult:
         with self._lock:
             return self._execute_locked(
@@ -96,6 +97,7 @@ class EpisodeToolBatchSession:
                 registry=registry,
                 context=context,
                 remaining_slots=remaining_slots,
+                is_cancelled=is_cancelled,
             )
 
     def _execute_locked(
@@ -105,14 +107,29 @@ class EpisodeToolBatchSession:
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
         remaining_slots: int,
+        is_cancelled: Callable[[], bool] | None,
     ) -> ToolBatchResult:
         ordered_calls = tuple(calls)
+        cancelled = is_cancelled or (lambda: False)
         items: list[ToolCallResult | None] = [None] * len(ordered_calls)
         step_ids = {
             index: f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence + index}"
             for index in range(len(ordered_calls))
         }
         self._next_call_sequence += len(ordered_calls)
+        if cancelled():
+            for index, call in enumerate(ordered_calls):
+                items[index] = ToolCallResult(
+                    call,
+                    "rejected",
+                    error="cancelled",
+                    step_id=step_ids[index],
+                )
+            return self._result(
+                items,
+                executed_count=0,
+                normalized_queries=(),
+            )
         authorized_specs = {
             spec.name: spec
             for spec in registry.authorized_specs(context.contract.allowed_capabilities)
@@ -199,6 +216,19 @@ class EpisodeToolBatchSession:
                 )
             return self._result(items, executed_count=0, normalized_queries=())
 
+        if cancelled():
+            for candidate in selected:
+                items[candidate.index] = ToolCallResult(
+                    candidate.call,
+                    "rejected",
+                    error="cancelled",
+                    step_id=step_ids[candidate.index],
+                )
+            return self._result(
+                items,
+                executed_count=0,
+                normalized_queries=(),
+            )
         self._seen_queries.update(candidate.key for candidate in selected)
         normalized_queries = tuple(
             candidate.key for candidate in selected_in_model_order
@@ -363,6 +393,7 @@ class ToolBatchExecutor:
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
         remaining_slots: int,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> ToolBatchResult:
         """Execute one batch in a fresh ephemeral session.
 
@@ -375,6 +406,7 @@ class ToolBatchExecutor:
             registry=registry,
             context=context,
             remaining_slots=remaining_slots,
+            is_cancelled=is_cancelled,
         )
 
 

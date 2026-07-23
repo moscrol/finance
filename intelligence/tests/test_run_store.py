@@ -121,6 +121,26 @@ def test_terminal_status_cannot_be_overwritten(store: RunStore) -> None:
     assert saved.error == "cancelled"
 
 
+def test_terminal_claim_reports_exactly_one_winner(store: RunStore) -> None:
+    run = store.create_run("q", "ask")
+
+    claimed, first_won = store.claim_terminal_run(
+        run.run_id,
+        run_store.STATUS_FAILED,
+        error="executor_timeout",
+    )
+    observed, second_won = store.claim_terminal_run(
+        run.run_id,
+        run_store.STATUS_FAILED,
+        error="continuous_runtime_failed",
+    )
+
+    assert first_won is True
+    assert second_won is False
+    assert claimed.status == observed.status == run_store.STATUS_FAILED
+    assert observed.error == "executor_timeout"
+
+
 def test_requeue_incomplete_runs_marks_only_active_runs_queued(store: RunStore) -> None:
     interrupted = store.create_run("q1", "ask")
     completed = store.create_run("q2", "ask")

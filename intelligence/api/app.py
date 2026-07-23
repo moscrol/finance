@@ -116,6 +116,7 @@ def _build_continuous_turn_adapter(
     assistant_message_id: str,
     is_cancelled: Callable[[], bool] | None = None,
     timeout: float = 90.0,
+    deadline_expires_at: float | None = None,
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel."""
 
@@ -141,6 +142,7 @@ def _build_continuous_turn_adapter(
         task_id_factory=lambda: task_id,
         timeout=timeout,
         is_cancelled=is_cancelled,
+        deadline_expires_at=deadline_expires_at,
     )
 
 
@@ -629,6 +631,7 @@ def _run_conversation_turn(
                     90.0,
                     cancellation_signal.remaining(90.0),
                 ),
+                deadline_expires_at=cancellation_signal.deadline_expires_at,
             ),
         ).run_turn(
             conversation_id=conversation_id,

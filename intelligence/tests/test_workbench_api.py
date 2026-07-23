@@ -373,6 +373,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         assert kwargs["assistant_message_id"] == "message"
         assert callable(kwargs["is_cancelled"])
         assert 0 < float(kwargs["timeout"]) <= 90
+        assert kwargs["deadline_expires_at"] == signal.deadline_expires_at
         return continuous_adapter
 
     monkeypatch.setattr(
@@ -387,6 +388,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         "glm-4-flash",
     )
 
+    signal = app_module.CancellationSignal(deadline_expires_at=time.monotonic() + 30.0)
     app_module._run_conversation_turn(
         repo_root=tmp_path,
         conversation_store=object(),
@@ -397,7 +399,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         query="研究低空经济",
         skill_mode="auto",
         selected_skill_ids=[],
-        cancellation_signal=app_module.CancellationSignal(),
+        cancellation_signal=signal,
         llm_providers=(provider,),
     )
 
@@ -424,12 +426,14 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
 
     cancelled = threading.Event()
     is_cancelled = cancelled.is_set
+    deadline_expires_at = time.monotonic() + 42.0
     adapter = app_module._build_continuous_turn_adapter(
         providers=providers,
         run_id="run-a",
         assistant_message_id="message-b",
         is_cancelled=is_cancelled,
         timeout=42.0,
+        deadline_expires_at=deadline_expires_at,
     )
 
     episode = adapter._runtime._episode
@@ -441,6 +445,8 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     assert episode._model._is_cancelled is is_cancelled
     assert episode._is_cancelled is is_cancelled
     assert adapter._is_cancelled is is_cancelled
+    assert adapter._deadline_expires_at == deadline_expires_at
+    assert 0 < adapter._remaining_timeout() <= 42.0
     assert adapter._timeout == 42.0
     assert adapter._task_id_factory() == "run-a:message-b"
 

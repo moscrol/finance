@@ -126,6 +126,12 @@ class ContinuousTurnHandler(Protocol):
     ) -> ContinuousTurnResult: ...
 
 
+class RunTerminalClaimLost(RuntimeError):
+    def __init__(self, status: str) -> None:
+        super().__init__(f"run terminal state already claimed: {status}")
+        self.status = status
+
+
 def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
     """原因归因题不夹带用户未询问的交易策略段。"""
     if not re.search(
@@ -3066,6 +3072,23 @@ class TurnOrchestrator:
                 selected_skill_ids=tuple(selected),
                 invoked_skill_ids=tuple(invoked),
             )
+        except RunTerminalClaimLost as claim:
+            current = next(
+                (
+                    message
+                    for message in self.conversation_store.load_messages(
+                        conversation_id
+                    )
+                    if message.message_id == assistant_message_id
+                ),
+                None,
+            )
+            return TurnResult(
+                status=claim.status,
+                content=current.content if current is not None else "",
+                selected_skill_ids=tuple(selected),
+                invoked_skill_ids=tuple(invoked),
+            )
         except LLMStreamCancelled:
             if self.cancellation_reason() == "executor_timeout":
                 return self._fail(
@@ -3472,12 +3495,14 @@ class TurnOrchestrator:
     ) -> None:
         """Linearize one terminal owner before publishing its terminal events."""
 
-        terminal = self.run_store.finish_run(run_id, status, error=error)
-        if terminal.status == status:
+        terminal, claimed = self.run_store.claim_terminal_run(
+            run_id,
+            status,
+            error=error,
+        )
+        if claimed:
             return
-        if terminal.status == rs.STATUS_CANCELLED:
-            raise LLMStreamCancelled()
-        raise RuntimeError(f"run terminal state already claimed: {terminal.status}")
+        raise RunTerminalClaimLost(terminal.status)
 
     def _emit(
         self,

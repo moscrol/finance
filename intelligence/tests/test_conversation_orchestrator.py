@@ -954,29 +954,46 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
                 events=(),
             )
 
-    real_finish = run_store.finish_run
+    real_claim = run_store.claim_terminal_run
     real_revise = conversation_store.revise_message
     cancellation_won = False
     revision_statuses: list[str] = []
-
-    def racing_finish(target_run_id, status, *args, **kwargs):
-        nonlocal cancellation_won
-        if target_run_id == run_id and status == "completed" and not cancellation_won:
-            cancellation_won = True
-            real_finish(
-                target_run_id,
-                "cancelled",
-                error="cancelled_by_user",
-            )
-        return real_finish(target_run_id, status, *args, **kwargs)
-
-    monkeypatch.setattr(run_store, "finish_run", racing_finish)
 
     def counted_revise(*args, **kwargs):
         revision_statuses.append(str(kwargs["status"]))
         return real_revise(*args, **kwargs)
 
     monkeypatch.setattr(conversation_store, "revise_message", counted_revise)
+
+    def racing_claim(target_run_id, status, *args, **kwargs):
+        nonlocal cancellation_won
+        if target_run_id == run_id and status == "completed" and not cancellation_won:
+            cancellation_won = True
+            current = next(
+                message
+                for message in conversation_store.load_messages(
+                    conversation.conversation_id
+                )
+                if message.message_id == assistant_message_id
+            )
+            conversation_store.revise_message(
+                conversation.conversation_id,
+                assistant_message_id,
+                content=current.content,
+                status="cancelled",
+                selected_skill_ids=current.selected_skill_ids,
+                invoked_skill_ids=current.invoked_skill_ids,
+                citations=current.citations,
+                degrades=["用户已取消本轮执行"],
+            )
+            real_claim(
+                target_run_id,
+                "cancelled",
+                error="cancelled_by_user",
+            )
+        return real_claim(target_run_id, status, *args, **kwargs)
+
+    monkeypatch.setattr(run_store, "claim_terminal_run", racing_claim)
     result = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
@@ -1010,6 +1027,105 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
         for event in public_events
     )
     assert "这个答案不应覆盖" not in assistant.content
+
+
+def test_continuous_terminal_cas_does_not_duplicate_executor_timeout_revision(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    query = "这一周行情下跌的主要原因是什么"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class FailedAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="failed",
+                answer="",
+                as_of=None,
+                citations=(),
+                warnings=("连续研究执行失败。",),
+                private_artifact={"failure": "provider_timeout"},
+                events=(),
+            )
+
+    real_claim = run_store.claim_terminal_run
+    real_revise = conversation_store.revise_message
+    timeout_won = False
+    revision_statuses: list[str] = []
+
+    def counted_revise(*args, **kwargs):
+        revision_statuses.append(str(kwargs["status"]))
+        return real_revise(*args, **kwargs)
+
+    monkeypatch.setattr(conversation_store, "revise_message", counted_revise)
+
+    def racing_claim(target_run_id, status, *args, **kwargs):
+        nonlocal timeout_won
+        if target_run_id == run_id and status == "failed" and not timeout_won:
+            timeout_won = True
+            current = next(
+                message
+                for message in conversation_store.load_messages(
+                    conversation.conversation_id
+                )
+                if message.message_id == assistant_message_id
+            )
+            conversation_store.revise_message(
+                conversation.conversation_id,
+                assistant_message_id,
+                content=current.content,
+                status="failed",
+                selected_skill_ids=current.selected_skill_ids,
+                invoked_skill_ids=current.invoked_skill_ids,
+                citations=current.citations,
+                degrades=["本轮执行超时"],
+            )
+            real_claim(
+                target_run_id,
+                "failed",
+                error="executor_timeout",
+            )
+        return real_claim(target_run_id, status, *args, **kwargs)
+
+    monkeypatch.setattr(run_store, "claim_terminal_run", racing_claim)
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=FailedAdapter(),
+        cancellation_reason=lambda: "executor_timeout",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert timeout_won is True
+    assert result.status == "failed"
+    assert revision_statuses == ["failed"]
+    assert assistant.status == "failed"
+    assert assistant.degrades == ["本轮执行超时"]
+    assert run_store.load_run(run_id).error == "executor_timeout"
 
 
 def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(

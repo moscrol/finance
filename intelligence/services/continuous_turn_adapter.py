@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import date
 import os
 import re
+import time
 from typing import Literal, Protocol, cast
 from uuid import uuid4
 
@@ -85,6 +86,7 @@ class ContinuousTurnAdapter:
         today: str | None = None,
         latest_data_date: str | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        deadline_expires_at: float | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -110,6 +112,9 @@ class ContinuousTurnAdapter:
         self._today = today
         self._latest_data_date = latest_data_date
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._deadline_expires_at = (
+            None if deadline_expires_at is None else float(deadline_expires_at)
+        )
 
     @property
     def mode(self) -> RuntimeMode:
@@ -120,6 +125,17 @@ class ContinuousTurnAdapter:
         if self._mode != "canary":
             return ""
         return os.environ.get("CONTINUOUS_RUNTIME_CANARY_ID", "").strip()
+
+    def _remaining_timeout(self) -> float:
+        if self._deadline_expires_at is None:
+            return self._timeout
+        return max(
+            0.0,
+            min(
+                self._timeout,
+                self._deadline_expires_at - time.monotonic(),
+            ),
+        )
 
     def handle(
         self,
@@ -184,7 +200,10 @@ class ContinuousTurnAdapter:
 
     def _run_fast_path(self, frame: TaskFrame) -> ContinuousTurnResult:
         try:
-            raw = self._fast_path_runner(frame, timeout=self._timeout)
+            raw = self._fast_path_runner(
+                frame,
+                timeout=self._remaining_timeout(),
+            )
             if self._is_cancelled():
                 return _cancelled_result()
             if not isinstance(raw, dict):
@@ -277,7 +296,7 @@ class ContinuousTurnAdapter:
                 task_id=task_id,
                 capabilities=control.capabilities,
                 tier=self._tier,
-                timeout=self._timeout,
+                timeout=self._remaining_timeout(),
                 today=self._today,
                 latest_data_date=self._latest_data_date,
             )

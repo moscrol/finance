@@ -408,6 +408,18 @@ class RunStore:
             return run
 
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
+        run, _claimed = self.claim_terminal_run(run_id, status, error=error)
+        return run
+
+    def claim_terminal_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        error: str | None = None,
+    ) -> tuple[Run, bool]:
+        """Atomically claim an active run's terminal transition."""
+
         if status not in _TERMINAL_STATUSES:
             raise ValueError(
                 f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}"
@@ -415,12 +427,12 @@ class RunStore:
         with self._state_lock:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
-                return run
+                return run, False
             run.status = status
             run.finished_at = _now_iso()
             run.error = redact(error) if error else None
             self._write_run(run)
-            return run
+            return run, True
 
     def mark_running(self, run_id: str) -> Run:
         with self._state_lock:

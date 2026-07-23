@@ -404,6 +404,7 @@ class ContinuousAgentEpisode:
                     registry=registry,
                     context=context,
                     remaining_slots=context.policy.max_steps - tool_calls,
+                    is_cancelled=self._is_cancelled,
                 )
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
