@@ -13,7 +13,6 @@ import inspect
 from typing import TYPE_CHECKING, Callable, Literal
 
 from intelligence.services.evidence_capabilities import (
-    resolve_evidence_plan,
     runtime_capabilities_for_frame,
 )
 from intelligence.services.research_contract import TurnIntent
@@ -77,15 +76,7 @@ def project_turn_decision(
 
     if decision.lane == "clarify" or clarification_questions:
         terminal_kind: TerminalKind = "clarification"
-    elif not (
-        decision.needs_retrieval
-        or task_frame_requires_retrieval(task_frame)
-        or resolve_evidence_plan(
-            task_frame.raw_question,
-            question_type=task_frame.question_type,
-            freshness="current",
-        ).requirements
-    ):
+    elif not (decision.needs_retrieval or task_frame_requires_retrieval(task_frame)):
         terminal_kind = "non_research"
     else:
         terminal_kind = "research"

@@ -924,6 +924,85 @@ def test_continuous_cancellation_keeps_same_message_and_run_identity(
     assert "这个答案不应越过取消边界" not in assistant.content
 
 
+def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    query = "目前市场的主线是什么"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class CompletedAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="这个答案不应覆盖已经获胜的取消终态。",
+                as_of="2026-07-22",
+                citations=(),
+                warnings=(),
+                private_artifact={"execution_kind": "continuous_episode"},
+                events=(),
+            )
+
+    real_finish = run_store.finish_run
+    cancellation_won = False
+
+    def racing_finish(target_run_id, status, *args, **kwargs):
+        nonlocal cancellation_won
+        if target_run_id == run_id and status == "completed" and not cancellation_won:
+            cancellation_won = True
+            real_finish(
+                target_run_id,
+                "cancelled",
+                error="cancelled_by_user",
+            )
+        return real_finish(target_run_id, status, *args, **kwargs)
+
+    monkeypatch.setattr(run_store, "finish_run", racing_finish)
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=CompletedAdapter(),
+        cancellation_reason=lambda: "cancelled_by_user",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    public_events = run_store.load_stream_events(run_id)
+    assert cancellation_won is True
+    assert result.status == "cancelled"
+    assert assistant.status == "cancelled"
+    assert assistant.message_id == assistant_message_id
+    assert run_store.load_run(run_id).status == "cancelled"
+    assert not any(
+        event["event_type"] in {"text.delta", "answer.snapshot"}
+        for event in public_events
+    )
+    assert "这个答案不应覆盖" not in assistant.content
+
+
 def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
     tmp_path,
     monkeypatch,

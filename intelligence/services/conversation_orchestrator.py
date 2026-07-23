@@ -3332,6 +3332,11 @@ class TurnOrchestrator:
                 turn_intent=turn_intent.to_dict(),
                 research_plan=research_plan.to_dict(),
             )
+            self._claim_terminal_run(
+                run_id,
+                rs.STATUS_FAILED,
+                error="continuous_runtime_failed",
+            )
             self._emit(
                 run_id,
                 assistant_message_id,
@@ -3348,11 +3353,6 @@ class TurnOrchestrator:
                 {"message": asdict(assistant)},
                 conversation_id,
             )
-            self.run_store.finish_run(
-                run_id,
-                rs.STATUS_FAILED,
-                error="continuous_runtime_failed",
-            )
             return TurnResult(
                 status=rs.STATUS_FAILED,
                 content=assistant.content,
@@ -3360,31 +3360,6 @@ class TurnOrchestrator:
                 invoked_skill_ids=(),
             )
 
-        self._emit(
-            run_id,
-            assistant_message_id,
-            "continuous:text",
-            "text.delta",
-            {"delta": answer_text},
-            conversation_id,
-        )
-        self._emit(
-            run_id,
-            assistant_message_id,
-            "continuous:answer",
-            "answer.snapshot",
-            AnswerSnapshot(
-                revision=1,
-                phase=(
-                    "validated_synthesis"
-                    if result.status == "completed"
-                    else "evidence_gap_fallback"
-                ),
-                text=answer_text,
-                final=True,
-            ).payload(),
-            conversation_id,
-        )
         report["execution_kind"] = "continuous_episode"
         report["turn_intent"] = turn_intent.to_dict()
         complete_report(
@@ -3438,6 +3413,32 @@ class TurnOrchestrator:
             turn_intent=turn_intent.to_dict(),
             research_plan=research_plan.to_dict(),
         )
+        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:text",
+            "text.delta",
+            {"delta": answer_text},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:answer",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase=(
+                    "validated_synthesis"
+                    if result.status == "completed"
+                    else "evidence_gap_fallback"
+                ),
+                text=answer_text,
+                final=True,
+            ).payload(),
+            conversation_id,
+        )
         self._emit(
             run_id,
             assistant_message_id,
@@ -3454,13 +3455,28 @@ class TurnOrchestrator:
             {"message": asdict(assistant)},
             conversation_id,
         )
-        self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
         return TurnResult(
             status=rs.STATUS_COMPLETED,
             content=assistant.content,
             selected_skill_ids=(),
             invoked_skill_ids=(),
         )
+
+    def _claim_terminal_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        error: str | None = None,
+    ) -> None:
+        """Linearize one terminal owner before publishing its terminal events."""
+
+        terminal = self.run_store.finish_run(run_id, status, error=error)
+        if terminal.status == status:
+            return
+        if terminal.status == rs.STATUS_CANCELLED:
+            raise LLMStreamCancelled()
+        raise RuntimeError(f"run terminal state already claimed: {terminal.status}")
 
     def _emit(
         self,

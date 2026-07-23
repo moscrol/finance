@@ -129,6 +129,38 @@ def test_frozen_decision_projects_control_without_calling_controller_again() -> 
     assert {"market_data", "news_search"}.issubset(result.capabilities)
 
 
+def test_frozen_non_research_decision_is_not_upgraded_by_lexical_replanning() -> None:
+    frame = TaskFrame(
+        raw_question="当前市场主线是什么意思",
+        user_goal="解释术语含义",
+        question_type="concept_definition",
+        subject="市场主线",
+        subject_kind="concept",
+        market_scope="A股",
+        timeframe="",
+        required_outputs=("definition",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="stable_knowledge",
+        confidence=0.96,
+    )
+    decision = TurnDecision(
+        lane="knowledge",
+        needs_retrieval=False,
+        needs_memory=False,
+        needs_template=False,
+        question_type=frame.question_type,
+        task_frame=frame,
+    )
+
+    result = project_turn_decision(decision, task_frame=frame)
+
+    assert result.terminal_kind == "non_research"
+    assert result.needs_retrieval is False
+    assert result.capabilities == ()
+
+
 def test_research_maps_legacy_capabilities_without_leaking_aliases() -> None:
     frame = _financial_frame()
     legacy_capabilities = (
