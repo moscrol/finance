@@ -606,6 +606,57 @@ def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidenc
     assert "3876.78点" in result.public_answer
 
 
+def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold() -> (
+    None
+):
+    judge = _judge(True)
+    frame, structural = _structural(
+        "判断失效的条件：成交额若继续缩量，当前已较前一日缩约17%，"
+        "反弹可信度会下降。"
+        "若指数跌破3800点，则反弹失效。",
+        detail="成交额较前一日 -17.27%；上证指数收于3876.777点。",
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "缩约17%" in result.public_answer
+    assert "3800点" not in result.public_answer
+
+
+@pytest.mark.parametrize(
+    ("draft", "detail"),
+    [
+        ("若指数跌破3764点，则反弹失效。", "窗口低点为3764.155点。"),
+        (
+            "若成交额继续低于2.19万亿元，则量能仍然偏弱。",
+            "全市场成交额为21949.97亿元。",
+        ),
+    ],
+)
+def test_local_gate_matches_safe_rounding_across_point_and_currency_units(
+    draft: str,
+    detail: str,
+) -> None:
+    judge = _judge(True)
+    frame, structural = _structural(draft, detail=detail)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert draft in result.public_answer
+
+
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(

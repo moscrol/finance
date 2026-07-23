@@ -262,6 +262,14 @@ visible required-output markers: if deleting rejected sentences removes a
 required answer slot that was present before repair, the result is partial
 rather than a misleading completed answer.
 
+Numeric-condition matching accepts only deterministic rounding of a bound
+observation at the precision shown in the answer, with unit compatibility and
+explicit currency-unit conversion. A sentence saying “缩约 17%” may therefore
+match bound evidence `-17.27%`, and `2.19 万亿元` may match `21949.97 亿元`;
+an unrelated `3800 点` trigger does not match `3876.777 点`. This prevents
+rounding false positives without turning the gate into a broad numeric
+tolerance.
+
 Gate behavior:
 
 1. Structural verification runs first and may only preserve or downgrade.

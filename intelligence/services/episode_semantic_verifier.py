@@ -80,11 +80,19 @@ _DATE_TOKEN_RE = re.compile(
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
     r"(?:\s*(?:至|到|~|～|—|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
-    r"\s*(?:万亿元|亿元|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
+    r"\s*(?:万亿元|万亿|亿元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
 )
 _CHINESE_QUANTITY_RE = re.compile(
-    r"[一二两三四五六七八九十百千万亿]+"
+    r"(?!万亿元)[一二两三四五六七八九十百千万亿]+"
     r"(?:万亿元|亿元|个百分点|点|家|只|个|天|日|周|月|年|倍|成)"
+)
+_QUANTITY_PARSE_RE = re.compile(
+    r"\A(?P<first>[+-]?\d+(?:\.\d+)?)"
+    r"(?:(?:至|到|-)(?P<second>[+-]?\d+(?:\.\d+)?))?"
+    r"(?P<unit>万亿元|万亿|亿元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?\Z"
+)
+_NEGATIVE_CONTEXT_RE = re.compile(
+    r"(?:下降|下滑|减少|缩(?:量|约|减)?|回落|下跌|跌幅|负增长)"
 )
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _JUDGE_REPORT_TOOL_NAME = "submit_grounding_report"
@@ -943,7 +951,11 @@ def _novel_numeric_condition_indexes(
             *_CHINESE_QUANTITY_RE.findall(candidate),
         )
         if any(
-            _normalize_quantity(quantity) not in evidence_quantities
+            not _quantity_supported_by_evidence(
+                quantity,
+                evidence_quantities,
+                sentence=text,
+            )
             for quantity in quantities
             if _normalize_quantity(quantity)
         ):
@@ -987,6 +999,98 @@ def _normalize_quantity(value: object) -> str:
         .replace("~", "至")
         .replace("—", "至")
     )
+
+
+def _quantity_supported_by_evidence(
+    quantity: object,
+    evidence_quantities: frozenset[str],
+    *,
+    sentence: str,
+) -> bool:
+    """Match exact quantities or deterministic same-unit rounding.
+
+    The tolerance is the half-unit implied by the answer's shown precision.
+    For example, ``17%`` may represent evidence ``-17.27%`` when the sentence
+    explicitly says the value fell, while ``3800点`` cannot represent
+    ``3876.777点``. Currency units are converted between 亿元 and 万亿元.
+    """
+
+    normalized = _normalize_quantity(quantity)
+    if normalized in evidence_quantities:
+        return True
+    candidate = _parse_quantity(normalized)
+    if candidate is None:
+        return False
+    for evidence in evidence_quantities:
+        observed = _parse_quantity(evidence)
+        if observed is None or not _same_quantity_dimension(candidate, observed):
+            continue
+        if _rounded_quantity_matches(candidate, observed, sentence=sentence):
+            return True
+    return False
+
+
+def _parse_quantity(
+    value: str,
+) -> tuple[tuple[float, ...], str, int] | None:
+    match = _QUANTITY_PARSE_RE.fullmatch(value)
+    if match is None:
+        return None
+    raw_values = tuple(
+        item
+        for item in (match.group("first"), match.group("second"))
+        if item is not None
+    )
+    if not raw_values:
+        return None
+    decimals = max(
+        len(item.partition(".")[2]) if "." in item else 0 for item in raw_values
+    )
+    return tuple(float(item) for item in raw_values), match.group("unit") or "", decimals
+
+
+def _quantity_dimension(unit: str) -> tuple[str, float]:
+    if unit in {"万亿元", "万亿"}:
+        return "currency_yi", 10000.0
+    if unit in {"亿元", "亿"}:
+        return "currency_yi", 1.0
+    return unit, 1.0
+
+
+def _same_quantity_dimension(
+    left: tuple[tuple[float, ...], str, int],
+    right: tuple[tuple[float, ...], str, int],
+) -> bool:
+    left_dimension, _left_scale = _quantity_dimension(left[1])
+    right_dimension, _right_scale = _quantity_dimension(right[1])
+    return bool(left_dimension and left_dimension == right_dimension)
+
+
+def _rounded_quantity_matches(
+    candidate: tuple[tuple[float, ...], str, int],
+    observed: tuple[tuple[float, ...], str, int],
+    *,
+    sentence: str,
+) -> bool:
+    candidate_values, candidate_unit, candidate_decimals = candidate
+    observed_values, observed_unit, _observed_decimals = observed
+    if len(candidate_values) != len(observed_values):
+        return False
+    _candidate_dimension, candidate_scale = _quantity_dimension(candidate_unit)
+    _observed_dimension, observed_scale = _quantity_dimension(observed_unit)
+    observed_in_candidate_unit = tuple(
+        value * observed_scale / candidate_scale for value in observed_values
+    )
+    tolerance = 0.5 * (10 ** (-candidate_decimals))
+    negative_context = bool(_NEGATIVE_CONTEXT_RE.search(sentence))
+    for expected, actual in zip(candidate_values, observed_in_candidate_unit):
+        if expected * actual < 0:
+            if not (negative_context and expected >= 0 and actual < 0):
+                return False
+            actual = abs(actual)
+        if abs(expected - actual) > tolerance + 1e-12:
+            return False
+    return True
 
 
 def _drop_rejected_sentences(

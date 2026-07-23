@@ -485,6 +485,10 @@ after every valid report. For conditional/trigger sentences, reject quantities
 or ranges absent from evidence bound to the answer. Strip dates and list labels
 before the comparison; preserve the user's requested, clearly labelled
 base-case estimate and any numeric anchor that appears in bound evidence.
+Permit only same-dimension half-unit rounding at the answer's displayed
+precision, including explicit 亿元/万亿元 conversion and sign omission in an
+explicit decline context; do not use percentage or relative-error tolerance
+that could legalize a newly invented threshold.
 Project only answer-bound evidence into local `E1...En` aliases; keep the full
 hash/source ledger private and immutable. The semantic verifier must return
 accepted prose only. Keep structured citation projection solely in
