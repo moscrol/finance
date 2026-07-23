@@ -36,7 +36,13 @@ from intelligence.services.task_frame import TaskFrame
 DEFAULT_LLM_TIMEOUT = 20.0
 MIN_PLANNING_TURN_SECONDS = 8.0
 _FINISH_STATUSES = frozenset({"completed", "partial"})
-_FINAL_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.S | re.I)
+# A few OpenAI-compatible adapters append one unmatched quote after an
+# otherwise exact fenced payload.  Accept only that observed one-character
+# suffix; arbitrary prose before/after the fence remains invalid.
+_FINAL_JSON_RE = re.compile(
+    r"```(?:json)?\s*(\{.*\})\s*```[ \t]*\"?",
+    re.S | re.I,
+)
 
 
 class _EpisodeLedger:

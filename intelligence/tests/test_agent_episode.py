@@ -485,6 +485,28 @@ def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds(
     assert "每条被正文使用的观察事实" in reminder
 
 
+def test_finish_parser_accepts_one_stray_quote_after_strict_json_fence() -> None:
+    frame = _frame()
+    finish = _finish_turn()
+    fenced = ModelTurn(
+        f"```json\n{finish.content}\n```\"",
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel([_tool_turn("A股 最新行情"), fenced])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.draft == "当前更接近条件化修复，持续性取决于量能。"
+    assert outcome.stop_reason == "model_finish"
+
+
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
     calls: list[str] = []
 
