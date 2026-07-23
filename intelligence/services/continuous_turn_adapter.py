@@ -84,6 +84,7 @@ class ContinuousTurnAdapter:
         tier: str = "standard",
         today: str | None = None,
         latest_data_date: str | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -108,6 +109,7 @@ class ContinuousTurnAdapter:
         self._tier = str(tier or "standard").strip()
         self._today = today
         self._latest_data_date = latest_data_date
+        self._is_cancelled = is_cancelled or (lambda: False)
 
     @property
     def mode(self) -> RuntimeMode:
@@ -125,6 +127,8 @@ class ContinuousTurnAdapter:
         frame: TaskFrame,
         control: TurnControlResult,
     ) -> ContinuousTurnResult:
+        if self._is_cancelled():
+            return _cancelled_result()
         if self._mode == "off" or (
             self._mode == "canary"
             and (
@@ -181,6 +185,8 @@ class ContinuousTurnAdapter:
     def _run_fast_path(self, frame: TaskFrame) -> ContinuousTurnResult:
         try:
             raw = self._fast_path_runner(frame, timeout=self._timeout)
+            if self._is_cancelled():
+                return _cancelled_result()
             if not isinstance(raw, dict):
                 raise TypeError("deterministic fast path must return an object")
             llm_calls = raw.get("llm_calls", 0)
@@ -282,6 +288,8 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
+            if self._is_cancelled():
+                return _cancelled_result()
             outcome_candidate = self._runtime.run(
                 task_frame=frame,
                 context=context,
@@ -290,6 +298,8 @@ class ContinuousTurnAdapter:
             if not isinstance(outcome_candidate, AgentOutcome):
                 raise TypeError("runtime must return AgentOutcome")
             outcome = outcome_candidate
+            if self._is_cancelled():
+                return _cancelled_result()
             structural_candidate = self._structural_verifier(
                 context.contract,
                 outcome,
@@ -299,6 +309,8 @@ class ContinuousTurnAdapter:
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
             structural = structural_candidate
+            if self._is_cancelled():
+                return _cancelled_result()
             semantic_candidate = self._semantic_verifier.verify(
                 frame=frame,
                 structurally_verified=structural,
@@ -307,6 +319,8 @@ class ContinuousTurnAdapter:
             if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
                 raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
             semantic = semantic_candidate
+            if self._is_cancelled():
+                return _cancelled_result()
         except Exception as exc:
             partial_artifact: dict[str, object] = {
                 "schema_version": 1,
@@ -447,6 +461,19 @@ class ContinuousTurnAdapter:
 def _declined_result() -> ContinuousTurnResult:
     return ContinuousTurnResult(
         handled=False,
+        status="failed",
+        answer="",
+        as_of=None,
+        citations=(),
+        warnings=(),
+        private_artifact=None,
+        events=(),
+    )
+
+
+def _cancelled_result() -> ContinuousTurnResult:
+    return ContinuousTurnResult(
+        handled=True,
         status="failed",
         answer="",
         as_of=None,

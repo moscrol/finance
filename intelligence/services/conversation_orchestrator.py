@@ -3291,6 +3291,12 @@ class TurnOrchestrator:
             report["business_status"] = "blocked"
             report["as_of"] = result.as_of
             report["warnings"] = warnings
+            self._check_cancelled()
+            self._claim_terminal_run(
+                run_id,
+                rs.STATUS_FAILED,
+                error="continuous_runtime_failed",
+            )
             self.run_store.add_artifact(
                 run_id,
                 "continuous-episode.json",
@@ -3332,11 +3338,6 @@ class TurnOrchestrator:
                 turn_intent=turn_intent.to_dict(),
                 research_plan=research_plan.to_dict(),
             )
-            self._claim_terminal_run(
-                run_id,
-                rs.STATUS_FAILED,
-                error="continuous_runtime_failed",
-            )
             self._emit(
                 run_id,
                 assistant_message_id,
@@ -3374,6 +3375,8 @@ class TurnOrchestrator:
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
             report = public_report
+        self._check_cancelled()
+        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
         self.run_store.update_provenance(run_id, source_date=result.as_of)
         self.run_store.add_artifact(
             run_id,
@@ -3400,7 +3403,6 @@ class TurnOrchestrator:
             renderer="structured_report",
             title="结构化对话报告",
         )
-        self._check_cancelled()
         assistant = self.conversation_store.revise_message(
             conversation_id,
             assistant_message_id,
@@ -3413,7 +3415,6 @@ class TurnOrchestrator:
             turn_intent=turn_intent.to_dict(),
             research_plan=research_plan.to_dict(),
         )
-        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
         self._emit(
             run_id,
             assistant_message_id,

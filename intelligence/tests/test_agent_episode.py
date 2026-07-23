@@ -150,6 +150,39 @@ def _tool_turn(
     )
 
 
+def test_cancellation_after_model_turn_prevents_tool_execution() -> None:
+    cancelled = Event()
+    runner_calls = 0
+
+    class CancellingModel:
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools, timeout
+            cancelled.set()
+            return _tool_turn("不应执行")
+
+    def runner(query: str, context: AgentToolContext):
+        del query, context
+        nonlocal runner_calls
+        runner_calls += 1
+        raise AssertionError("cancelled episode must not execute tools")
+
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(
+        CancellingModel(),
+        is_cancelled=cancelled.is_set,
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(runner),
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "cancelled"
+    assert outcome.usage.llm_calls == 1
+    assert outcome.usage.tool_calls == 0
+    assert runner_calls == 0
+
+
 def _finish_turn(
     *,
     status: str = "completed",

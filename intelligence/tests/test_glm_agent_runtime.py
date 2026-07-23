@@ -96,6 +96,29 @@ def test_runtime_does_not_retry_same_provider_after_auth_failure() -> None:
     assert complete_fn.calls == ["glm", "openai"]
 
 
+def test_runtime_cancellation_stops_before_fallback_provider() -> None:
+    cancelled = threading.Event()
+    calls: list[str] = []
+
+    def complete_fn(**kwargs):
+        del kwargs
+        provider = llm_refine.detect_provider()
+        assert provider is not None
+        calls.append(provider.name)
+        cancelled.set()
+        return None, provider, "TimeoutError"
+
+    turn = GLMModelClient(
+        providers=(_provider("glm"), _provider("openai")),
+        complete_fn=complete_fn,
+        is_cancelled=cancelled.is_set,
+    ).complete(messages=[], tools=[], timeout=5)
+
+    assert calls == ["glm"]
+    assert turn.provider_attempts == 1
+    assert turn.error == "cancelled"
+
+
 def test_runtime_forwards_one_turn_settings_to_each_provider() -> None:
     providers = (_provider("glm"), _provider("openai"))
     messages = [{"role": "user", "content": "q"}]

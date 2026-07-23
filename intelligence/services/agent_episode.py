@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
 import re
@@ -176,6 +177,7 @@ class ContinuousAgentEpisode:
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
@@ -187,6 +189,7 @@ class ContinuousAgentEpisode:
             if finalizer is not None
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
+        self._is_cancelled = is_cancelled or (lambda: False)
 
     def run(
         self,
@@ -221,6 +224,15 @@ class ContinuousAgentEpisode:
         definitions = registry.tool_definitions(context.contract.allowed_capabilities)
         finalization_started = False
         for _round in range(1, context.policy.max_steps + 2):
+            if self._is_cancelled():
+                return self._cancelled_outcome(
+                    task_frame=task_frame,
+                    ledger=ledger,
+                    accumulator=accumulator,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             planning_timeout = context.deadline.stage_timeout(self._llm_timeout)
             should_finalize = (
                 finalization_started
@@ -312,6 +324,15 @@ class ContinuousAgentEpisode:
 
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", turn.to_dict())
+            if self._is_cancelled():
+                return self._cancelled_outcome(
+                    task_frame=task_frame,
+                    ledger=ledger,
+                    accumulator=accumulator,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             if turn.error:
                 ledger.add("model_error", {"reason": turn.error})
                 if self._can_recover_finalization(
@@ -512,6 +533,15 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Attempt exactly one compact recovery and always return a terminal outcome."""
 
+        if self._is_cancelled():
+            return self._cancelled_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
         ledger.add(
             "finalization_recovery_started",
             {"failure_reason": failure_reason},
@@ -637,6 +667,30 @@ class ContinuousAgentEpisode:
             events=tuple(ledger.events),
             bindings=bindings,
             usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+        )
+
+    def _cancelled_outcome(
+        self,
+        *,
+        task_frame: TaskFrame,
+        ledger: _EpisodeLedger,
+        accumulator: _EpisodeToolAccumulator,
+        llm_calls: int,
+        tool_calls: int,
+        invalid_actions: int,
+    ) -> AgentOutcome:
+        return self._stopped_outcome(
+            task_frame=task_frame,
+            status="failed",
+            stop_reason="cancelled",
+            gap="本轮执行已取消",
+            ledger=ledger,
+            evidence=accumulator.evidence,
+            traces=accumulator.traces,
+            gaps=accumulator.gaps,
+            llm_calls=llm_calls,
+            tool_calls=tool_calls,
+            invalid_actions=invalid_actions,
         )
 
     @staticmethod

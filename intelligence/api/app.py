@@ -114,14 +114,20 @@ def _build_continuous_turn_adapter(
     providers: tuple[LLMProvider, ...],
     run_id: str,
     assistant_message_id: str,
+    is_cancelled: Callable[[], bool] | None = None,
+    timeout: float = 90.0,
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel."""
 
-    client = GLMModelClient(providers=providers)
+    client = GLMModelClient(
+        providers=providers,
+        is_cancelled=is_cancelled,
+    )
     finalizer = EpisodeFinalizer(client)
     runtime = GLMAgentRuntime(
         client=client,
         finalizer=finalizer,
+        is_cancelled=is_cancelled,
     )
     semantic_verifier = SemanticEpisodeVerifier(
         primary_judge=client,
@@ -133,6 +139,8 @@ def _build_continuous_turn_adapter(
         semantic_verifier=semantic_verifier,
         mode=_continuous_runtime_mode(),
         task_id_factory=lambda: task_id,
+        timeout=timeout,
+        is_cancelled=is_cancelled,
     )
 
 
@@ -296,9 +304,10 @@ def _public_message_payload(message: object) -> dict[str, object]:
 
 
 class CancellationSignal:
-    def __init__(self) -> None:
+    def __init__(self, *, deadline_expires_at: float | None = None) -> None:
         self._event = Event()
         self.reason: str | None = None
+        self.deadline_expires_at = deadline_expires_at
 
     def set(self, reason: str) -> None:
         self.reason = reason
@@ -309,6 +318,11 @@ class CancellationSignal:
 
     def wait(self, timeout: float) -> bool:
         return self._event.wait(timeout)
+
+    def remaining(self, default: float) -> float:
+        if self.deadline_expires_at is None:
+            return max(0.0, float(default))
+        return max(0.0, self.deadline_expires_at - time.monotonic())
 
 
 class RunSupervisor:
@@ -392,7 +406,9 @@ class RunSupervisor:
     ) -> None:
         key = (store.user_id, run_id)
         store.mark_running(run_id)
-        signal = CancellationSignal()
+        signal = CancellationSignal(
+            deadline_expires_at=time.monotonic() + self.timeout_sec
+        )
         timer = threading.Timer(
             self.timeout_sec,
             self._expire,
@@ -608,6 +624,11 @@ def _run_conversation_turn(
                 providers=llm_providers,
                 run_id=run_id,
                 assistant_message_id=assistant_message_id,
+                is_cancelled=cancellation_signal.is_set,
+                timeout=min(
+                    90.0,
+                    cancellation_signal.remaining(90.0),
+                ),
             ),
         ).run_turn(
             conversation_id=conversation_id,

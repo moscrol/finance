@@ -955,7 +955,9 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
             )
 
     real_finish = run_store.finish_run
+    real_revise = conversation_store.revise_message
     cancellation_won = False
+    revision_statuses: list[str] = []
 
     def racing_finish(target_run_id, status, *args, **kwargs):
         nonlocal cancellation_won
@@ -969,6 +971,12 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
         return real_finish(target_run_id, status, *args, **kwargs)
 
     monkeypatch.setattr(run_store, "finish_run", racing_finish)
+
+    def counted_revise(*args, **kwargs):
+        revision_statuses.append(str(kwargs["status"]))
+        return real_revise(*args, **kwargs)
+
+    monkeypatch.setattr(conversation_store, "revise_message", counted_revise)
     result = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
@@ -993,6 +1001,7 @@ def test_continuous_terminal_cas_prevents_cancelled_run_completed_message_race(
     public_events = run_store.load_stream_events(run_id)
     assert cancellation_won is True
     assert result.status == "cancelled"
+    assert revision_statuses == ["cancelled"]
     assert assistant.status == "cancelled"
     assert assistant.message_id == assistant_message_id
     assert run_store.load_run(run_id).status == "cancelled"

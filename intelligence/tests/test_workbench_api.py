@@ -371,6 +371,8 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         captured_providers.append(providers)
         assert kwargs["run_id"] == "run"
         assert kwargs["assistant_message_id"] == "message"
+        assert callable(kwargs["is_cancelled"])
+        assert 0 < float(kwargs["timeout"]) <= 90
         return continuous_adapter
 
     monkeypatch.setattr(
@@ -420,10 +422,14 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
         ),
     )
 
+    cancelled = threading.Event()
+    is_cancelled = cancelled.is_set
     adapter = app_module._build_continuous_turn_adapter(
         providers=providers,
         run_id="run-a",
         assistant_message_id="message-b",
+        is_cancelled=is_cancelled,
+        timeout=42.0,
     )
 
     episode = adapter._runtime._episode
@@ -432,6 +438,10 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     assert semantic._primary_judge is episode._model
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
+    assert episode._model._is_cancelled is is_cancelled
+    assert episode._is_cancelled is is_cancelled
+    assert adapter._is_cancelled is is_cancelled
+    assert adapter._timeout == 42.0
     assert adapter._task_id_factory() == "run-a:message-b"
 
 

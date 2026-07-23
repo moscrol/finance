@@ -60,8 +60,10 @@ class GLMModelClient:
         *,
         providers: tuple[llm_refine.LLMProvider, ...] | None = None,
         complete_fn: ChatWithTools | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self._model = model
+        self._is_cancelled = is_cancelled or (lambda: False)
         self._retry_single_real_provider = False
         if providers is not None:
             self._providers = tuple(providers)
@@ -113,6 +115,9 @@ class GLMModelClient:
         attempts = 0
         trace: list[dict[str, object]] = []
         for attempt in range(2):
+            if self._is_cancelled():
+                reason = "cancelled"
+                break
             remaining = (
                 configured_timeout
                 if attempt == 0
@@ -136,6 +141,17 @@ class GLMModelClient:
             attempts += 1
             parsed_turn: ModelTurn | None = None
             parse_error = ""
+            if self._is_cancelled():
+                reason = "cancelled"
+                message = None
+                trace.append(
+                    _provider_trace_entry(
+                        provider,
+                        status="failed",
+                        reason=reason,
+                    )
+                )
+                break
             if message is None:
                 trace.append(
                     _provider_trace_entry(
@@ -217,6 +233,9 @@ class GLMModelClient:
         provider_index = 0
         single_retry_used = False
         while provider_index < len(providers):
+            if self._is_cancelled():
+                last_reason = "cancelled"
+                break
             provider = providers[provider_index]
             remaining = max(0.0, expires_at - time.monotonic())
             if remaining <= 0.001:
@@ -260,6 +279,16 @@ class GLMModelClient:
                 break
             attempts += 1
             last_provider = provider
+            if self._is_cancelled():
+                last_reason = "cancelled"
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=last_reason,
+                    )
+                )
+                break
             if message is None:
                 trace.append(
                     _provider_trace_entry(
@@ -340,6 +369,7 @@ class GLMAgentRuntime:
         llm_timeout: float = DEFAULT_GLM_LLM_TIMEOUT,
         client: AgentModelClient | None = None,
         finalizer: EpisodeFinalizer | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -356,6 +386,7 @@ class GLMAgentRuntime:
             selected_client,
             llm_timeout=llm_timeout,
             finalizer=finalizer,
+            is_cancelled=is_cancelled,
         )
 
     @staticmethod
