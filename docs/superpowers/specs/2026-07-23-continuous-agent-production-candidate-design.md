@@ -237,10 +237,12 @@ alignment, fact-versus-hypothesis status, unsupported causality, numerical
 support, and cross-topic contamination. The primary model adapter is offered
 one no-side-effect `submit_grounding_report` function whose schema contains
 only `passed`, rejected sentence indexes, and issues. Exactly one schema-valid
-function call with no sibling text is accepted. Strict JSON content remains a
-fallback for adapters without function calling; ambiguous, unknown, multiple,
-or malformed calls fail closed. This is a structured transport, not a research
-tool or a new model permission.
+function call is accepted. Some OpenAI-compatible adapters return explanatory
+sibling text alongside a valid call; that text is ignored and can never enter
+the judge result or public answer. Strict JSON content remains a fallback for
+adapters without function calling; unknown, multiple, or malformed calls fail
+closed. This is a structured transport, not a research tool or a new model
+permission.
 
 The evidence registry sent to this judge is a semantic projection, not a
 second copy of the complete Episode ledger. It includes only hashes referenced

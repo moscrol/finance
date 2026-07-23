@@ -440,6 +440,9 @@ Build a private evidence registry from `public_agent_evidence`, output bindings,
 and numbered answer sentences. Use `llm_refine.judge_provider()` when present;
 otherwise use the injected primary judge client and record
 `correlated_judge=True`. Parse with `answer_model.parse_grounding_judge_report`.
+The judge may return one schema-valid `submit_grounding_report` call plus
+sibling explanatory text; ignore that text so it never reaches the report or
+public answer. Multiple, unknown, or malformed calls remain fail-closed.
 
 Define:
 

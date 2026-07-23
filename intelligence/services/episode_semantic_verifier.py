@@ -610,7 +610,7 @@ class SemanticEpisodeVerifier:
         turn: ModelTurn,
         sentence_count: int,
     ) -> answer_model.GroundingJudgeReport | None:
-        if turn.content.strip() or len(turn.tool_calls) != 1:
+        if len(turn.tool_calls) != 1:
             return None
         call = turn.tool_calls[0]
         if call.name != _JUDGE_REPORT_TOOL_NAME:

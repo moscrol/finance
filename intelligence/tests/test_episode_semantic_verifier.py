@@ -835,10 +835,8 @@ def test_primary_judge_rejects_unknown_report_tool_without_retry(
     assert "semantic judge returned an invalid tool call" in result.issues
 
 
-@pytest.mark.parametrize("variant", ["content_and_tool", "multiple_tools"])
-def test_primary_judge_rejects_ambiguous_report_tool_envelopes(
+def test_primary_judge_accepts_valid_report_tool_with_ignored_sibling_content(
     monkeypatch,
-    variant: str,
 ) -> None:
     frame, structural = _structural("市场当前偏弱。")
     report = ModelToolCall(
@@ -851,17 +849,47 @@ def test_primary_judge_rejects_ambiguous_report_tool_envelopes(
         },
     )
 
-    class AmbiguousJudge:
+    class SiblingContentJudge:
         def complete(self, **_kwargs):
             return ModelTurn(
-                "同时返回的正文" if variant == "content_and_tool" else "",
-                (report, report) if variant == "multiple_tools" else (report,),
+                "这段兼容性正文不会进入裁判结果或公共答案。",
+                (report,),
                 "glm",
                 "",
             )
 
     monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
-    result = SemanticEpisodeVerifier(primary_judge=AmbiguousJudge()).verify(
+    result = SemanticEpisodeVerifier(primary_judge=SiblingContentJudge()).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "兼容性正文" not in result.public_answer
+
+
+def test_primary_judge_rejects_multiple_report_tool_calls(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    report = ModelToolCall(
+        "judge-report-1",
+        "submit_grounding_report",
+        {
+            "passed": True,
+            "rejected_sentence_indexes": [],
+            "issues": [],
+        },
+    )
+
+    class MultipleReportsJudge:
+        def complete(self, **_kwargs):
+            return ModelTurn("", (report, report), "glm", "")
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=MultipleReportsJudge()).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
