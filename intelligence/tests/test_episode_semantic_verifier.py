@@ -500,6 +500,40 @@ def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> Non
     assert repaired.usage == original.usage
 
 
+def test_judge_issue_sentence_numbers_cannot_escape_targeted_redaction() -> None:
+    frame, structural = _structural(
+        "市场广度已经改善。CPO状态缺少绑定证据。创新药涨幅缺少绑定证据。"
+    )
+    calls = 0
+
+    def judge(request):
+        nonlocal calls
+        calls += 1
+        texts = [str(item["text"]) for item in request["sentences"]]
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [3],
+                "issues": [
+                    "句2包含未绑定的CPO状态。",
+                    "第3句包含未绑定的创新药涨幅。",
+                ],
+            }
+        assert texts == ["市场广度已经改善。"]
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 2
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场广度已经改善。"
+
+
 def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     safe_sentences = [f"已核验市场观察第{index}项。" for index in range(1, 180)]
     rejected_sentence = "政策变化导致市场下跌。"
@@ -662,6 +696,7 @@ def test_local_gate_keeps_requested_forecast_and_bound_condition_context() -> No
     frame, structural = _structural(
         "【反弹可持续时间——主观基准判断】反弹仍可在短期维持惯性，"
         "基准窗口约3-5个交易日。"
+        "7/21涨停121家，7/22骤降至47家，7/23回升至116家。"
         "【反弹失效或降级的条件】1）若成交额延续07-20至07-23的递减趋势，"
         "则反弹降级。"
         "2）半导体三个核心板块当日跌幅为-1.59%至-4.61%，"
@@ -670,6 +705,8 @@ def test_local_gate_keeps_requested_forecast_and_bound_condition_context() -> No
         "4）上证指数跌破反弹起点附近约3764点，则反弹失效。",
         detail=(
             "2026-07-20至2026-07-23成交额逐级递减；"
+            "2026-07-21涨停121家，2026-07-22涨停47家，"
+            "2026-07-23涨停116家；"
             "半导体、存储芯片、半导体设备三个核心板块当日跌幅"
             "为-1.59%至-4.61%；2026-07-23强势股边际变化-66.30%；"
             "上证指数窗口为3764.155 → 3876.777 点。"
@@ -685,6 +722,7 @@ def test_local_gate_keeps_requested_forecast_and_bound_condition_context() -> No
     assert result.status == "completed"
     assert result.judge_status == "passed"
     assert "3-5个交易日" in result.public_answer
+    assert "7/22骤降至47家" in result.public_answer
     assert "07-20至07-23" in result.public_answer
     assert "三个核心板块" in result.public_answer
     assert "3764点" in result.public_answer

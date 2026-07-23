@@ -62,9 +62,13 @@ _STRICT_JSON_FENCE_RE = re.compile(
     r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
     re.DOTALL | re.IGNORECASE,
 )
+_ISSUE_SENTENCE_INDEX_RE = re.compile(
+    r"(?:第\s*(\d+)\s*句|句\s*(\d+)|sentence\s*#?\s*(\d+))",
+    re.IGNORECASE,
+)
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|条件|失效|降级|跌破|站稳|至少|以上|以下|"
-    r"阈值|支撑|骤降|才算成立|才成立)"
+    r"阈值|支撑|才算成立|才成立)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
@@ -81,6 +85,7 @@ _DATE_TOKEN_RE = re.compile(
     r"(?:20\d{2}年\d{1,2}月\d{1,2}日|"
     r"20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|"
     r"\d{1,2}月\d{1,2}日|"
+    r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
 _ARABIC_QUANTITY_RE = re.compile(
@@ -148,7 +153,9 @@ _JUDGE_SYSTEM_PROMPT = (
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
     "passed=false 并列出句号。必须从第1句检查到最后一句，一次返回全部不合格句号；"
-    "不得发现首批问题后提前停止。若提供 submit_grounding_report 函数，必须优先"
+    "不得发现首批问题后提前停止。issues 只能描述不合格句；issues 中明确提到的"
+    "句号集合必须与 rejected_sentence_indexes 一致。若提供 "
+    "submit_grounding_report 函数，必须优先"
     "调用它提交上述三个字段；只有不支持函数调用时才直接输出 JSON。"
 )
 
@@ -733,7 +740,7 @@ class SemanticEpisodeVerifier:
                     return None
                 if any(index < 1 or index > sentence_count for index in rejected):
                     return None
-                return value
+                return _reconcile_issue_sentence_indexes(value, sentence_count)
             if isinstance(value, ModelTurn):
                 if value.error or value.tool_calls:
                     return None
@@ -776,10 +783,13 @@ class SemanticEpisodeVerifier:
             ):
                 return None
             canonical = json.dumps(payload, ensure_ascii=False)
-            return answer_model.parse_grounding_judge_report(
+            report = answer_model.parse_grounding_judge_report(
                 canonical,
                 sentence_count=sentence_count,
             )
+            if report is None:
+                return None
+            return _reconcile_issue_sentence_indexes(report, sentence_count)
         except Exception:
             return None
 
@@ -901,6 +911,41 @@ def _numbered_sentences(draft: str) -> list[dict[str, object]]:
             continue
         sentences.append({"index": len(sentences) + 1, "text": text})
     return sentences
+
+
+def _reconcile_issue_sentence_indexes(
+    report: answer_model.GroundingJudgeReport,
+    sentence_count: int,
+) -> answer_model.GroundingJudgeReport:
+    """Keep the judge's parallel index/issue fields internally consistent.
+
+    Some OpenAI-compatible models correctly describe every rejected sentence
+    in ``issues`` but omit one of those indexes from the sibling integer list.
+    The judge contract says issues describe only rejected sentences, so an
+    explicit ``句N``/``Sentence N`` reference is itself a rejection signal.
+    Adding that existing index can only narrow the draft; it never adds facts
+    or upgrades a result.
+    """
+
+    if report.passed:
+        return report
+    rejected = set(report.rejected_sentence_indexes)
+    for issue in report.issues:
+        for match in _ISSUE_SENTENCE_INDEX_RE.finditer(issue):
+            raw = next((group for group in match.groups() if group), "")
+            if not raw:
+                continue
+            index = int(raw)
+            if 1 <= index <= sentence_count:
+                rejected.add(index)
+    canonical = tuple(sorted(rejected))
+    if canonical == report.rejected_sentence_indexes:
+        return report
+    return answer_model.GroundingJudgeReport(
+        passed=False,
+        rejected_sentence_indexes=canonical,
+        issues=report.issues,
+    )
 
 
 def _apply_numeric_condition_gate(
