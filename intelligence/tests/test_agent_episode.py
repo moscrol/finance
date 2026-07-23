@@ -948,6 +948,130 @@ def test_complete_episode_snapshot_surface_forces_immediate_finalization() -> No
     assert finalization.payload["reason"] == "snapshot_surface_satisfied"
 
 
+def test_episode_snapshot_binding_expands_to_the_complete_atomic_snapshot() -> None:
+    frame = _frame()
+
+    def snapshot_runner(query: str, _context: AgentToolContext):
+        evidence = (
+            AgentEvidence(
+                tool="market_data",
+                title="市场基线",
+                detail=f"{query}：指数上涨",
+                source="本地快照",
+                content_hash="evidence-1",
+            ),
+            AgentEvidence(
+                tool="market_data",
+                title="涨跌结构",
+                detail="涨停47家",
+                source="本地快照",
+                content_hash="evidence-2",
+            ),
+        )
+        return (
+            list(evidence),
+            "complete market snapshot",
+            ProviderTrace(
+                provider="test:market",
+                capability="market_data",
+                status="success",
+                result_count=2,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                "market_data",
+                "market_data",
+                "完整行情快照",
+                "local",
+                "current",
+                snapshot_runner,
+                query_scope="episode",
+            ),
+        )
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("最新行情"),
+            _finish_turn(
+                draft="市场上涨，涨停47家。",
+                hashes=("evidence-1",),
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=registry,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.bindings[0].evidence_hashes == ("evidence-1", "evidence-2")
+
+
+def test_query_scoped_evidence_binding_remains_atomically_opt_in() -> None:
+    frame = _frame()
+
+    def search_runner(query: str, _context: AgentToolContext):
+        return (
+            [
+                AgentEvidence(
+                    tool="web_search",
+                    title="直接来源",
+                    detail=query,
+                    source="网页A",
+                    content_hash="evidence-1",
+                ),
+                AgentEvidence(
+                    tool="web_search",
+                    title="相邻但未引用的来源",
+                    detail="另一网页",
+                    source="网页B",
+                    content_hash="evidence-2",
+                ),
+            ],
+            "search results",
+            ProviderTrace(
+                provider="test:web",
+                capability="web_search",
+                status="success",
+                result_count=2,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                "web_search",
+                "market_data",
+                "查询型网页证据",
+                "external",
+                "current",
+                search_runner,
+                query_scope="query",
+            ),
+        )
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("直接来源", name="web_search"),
+            _finish_turn(hashes=("evidence-1",)),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=registry,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.bindings[0].evidence_hashes == ("evidence-1",)
+
+
 def test_model_unavailable_before_evidence_fails_honestly() -> None:
     frame = _frame()
     model = ScriptedModel([ModelTurn("", (), "glm", "provider unavailable")])

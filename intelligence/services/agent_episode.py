@@ -310,6 +310,7 @@ class ContinuousAgentEpisode:
                         context=context,
                         ledger=ledger,
                         accumulator=accumulator,
+                        registry=registry,
                         failure_reason=reason,
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
@@ -365,6 +366,7 @@ class ContinuousAgentEpisode:
                         context=context,
                         ledger=ledger,
                         accumulator=accumulator,
+                        registry=registry,
                         failure_reason=turn.error,
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
@@ -402,6 +404,7 @@ class ContinuousAgentEpisode:
                             context=context,
                             ledger=ledger,
                             accumulator=accumulator,
+                            registry=registry,
                             failure_reason=reason,
                             llm_calls=llm_calls,
                             tool_calls=tool_calls,
@@ -474,6 +477,7 @@ class ContinuousAgentEpisode:
                         context=context,
                         ledger=ledger,
                         accumulator=accumulator,
+                        registry=registry,
                         failure_reason=reason,
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
@@ -493,6 +497,11 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            bindings = self._expand_episode_snapshot_bindings(
+                bindings=bindings,
+                evidence=tuple(accumulator.evidence),
+                registry=registry,
+            )
             self._extend_unique(accumulator.gaps, final_gaps)
             self._extend_unique(
                 accumulator.gaps,
@@ -575,6 +584,56 @@ class ContinuousAgentEpisode:
             for spec in specs
         )
 
+    @staticmethod
+    def _expand_episode_snapshot_bindings(
+        *,
+        bindings: tuple[OutputEvidenceBinding, ...],
+        evidence: tuple[AgentEvidence, ...],
+        registry: ResearchToolRegistry,
+    ) -> tuple[OutputEvidenceBinding, ...]:
+        """Bind an accepted turn-scoped snapshot as one atomic evidence unit.
+
+        Snapshot runners return one coherent observation split into multiple
+        auditable atoms.  If the model selects any atom from that snapshot for
+        an output, the private binding includes the remaining atoms from the
+        same snapshot.  Query-scoped search evidence remains opt-in per atom.
+        """
+
+        tool_by_hash = {
+            item.content_hash: item.tool for item in evidence if item.content_hash
+        }
+        snapshot_hashes: dict[str, list[str]] = {}
+        for item in evidence:
+            if not item.content_hash:
+                continue
+            try:
+                spec = registry.resolve(item.tool)
+            except ValueError:
+                continue
+            if spec.query_scope == "episode":
+                snapshot_hashes.setdefault(item.tool, []).append(item.content_hash)
+
+        expanded: list[OutputEvidenceBinding] = []
+        for binding in bindings:
+            selected_snapshot_tools = {
+                tool_by_hash[evidence_hash]
+                for evidence_hash in binding.evidence_hashes
+                if evidence_hash in tool_by_hash
+                and tool_by_hash[evidence_hash] in snapshot_hashes
+            }
+            hashes = list(binding.evidence_hashes)
+            for tool in snapshot_hashes:
+                if tool in selected_snapshot_tools:
+                    hashes.extend(snapshot_hashes[tool])
+            expanded.append(
+                OutputEvidenceBinding(
+                    output_id=binding.output_id,
+                    evidence_hashes=tuple(dict.fromkeys(hashes)),
+                    gap=binding.gap,
+                )
+            )
+        return tuple(expanded)
+
     def _can_recover_finalization(
         self,
         *,
@@ -600,6 +659,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         ledger: _EpisodeLedger,
         accumulator: _EpisodeToolAccumulator,
+        registry: ResearchToolRegistry,
         failure_reason: str,
         llm_calls: int,
         tool_calls: int,
@@ -712,6 +772,11 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
 
+        bindings = self._expand_episode_snapshot_bindings(
+            bindings=bindings,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
         self._extend_unique(accumulator.gaps, final_gaps)
         self._extend_unique(
             accumulator.gaps,

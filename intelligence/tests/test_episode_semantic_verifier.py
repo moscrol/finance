@@ -171,6 +171,8 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert policy["unsupported_numeric_trigger_rejected"] is True
     system_prompt = sent["messages"][0]["content"]
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
+    assert "“据此判断”“这说明”“这意味着”" in system_prompt
+    assert "仍须核验其观察前提" in system_prompt
     assert "外部因果" in system_prompt
     assert "任意触发阈值" in system_prompt
     assert "从第1句检查到最后一句" in system_prompt
