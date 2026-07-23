@@ -657,6 +657,39 @@ def test_local_gate_matches_safe_rounding_across_point_and_currency_units(
     assert draft in result.public_answer
 
 
+def test_local_gate_keeps_requested_forecast_and_bound_condition_context() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "【反弹可持续时间——主观基准判断】反弹仍可在短期维持惯性，"
+        "基准窗口约3-5个交易日。"
+        "【反弹失效或降级的条件】1）若成交额延续07-20至07-23的递减趋势，"
+        "则反弹降级。"
+        "2）半导体三个核心板块当日跌幅为-1.59%至-4.61%，"
+        "若继续下跌且无新主线接力，则反弹失效。"
+        "3）07-23强势股边际变化为-66.30%，若动能继续下滑则反弹降级。"
+        "4）上证指数跌破反弹起点附近约3764点，则反弹失效。",
+        detail=(
+            "2026-07-20至2026-07-23成交额逐级递减；"
+            "半导体、存储芯片、半导体设备三个核心板块当日跌幅"
+            "为-1.59%至-4.61%；2026-07-23强势股边际变化-66.30%；"
+            "上证指数窗口为3764.155 → 3876.777 点。"
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "3-5个交易日" in result.public_answer
+    assert "07-20至07-23" in result.public_answer
+    assert "三个核心板块" in result.public_answer
+    assert "3764点" in result.public_answer
+
+
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(

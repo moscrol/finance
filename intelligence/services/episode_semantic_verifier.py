@@ -63,8 +63,8 @@ _STRICT_JSON_FENCE_RE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 _CONDITION_TRIGGER_RE = re.compile(
-    r"(?:若|如果|条件|失效|降级|跌破|站稳|维持|至少|以上|以下|"
-    r"阈值|支撑|保持|骤降|才算成立|才成立)"
+    r"(?:若|如果|条件|失效|降级|跌破|站稳|至少|以上|以下|"
+    r"阈值|支撑|骤降|才算成立|才成立)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?"
@@ -72,14 +72,20 @@ _LEADING_CONDITION_LABEL_RE = re.compile(
     r"(?:\d+|[一二三四五六七八九十]+)?"
     r"\s*(?:[:：、.)）-]\s*)?"
 )
+_LEADING_SECTION_RE = re.compile(r"^\s*【[^】]{1,80}】\s*")
+_LEADING_LIST_LABEL_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:\d+|[一二三四五六七八九十]+)\s*"
+    r"(?:[:：、.)）-]\s*)"
+)
 _DATE_TOKEN_RE = re.compile(
     r"(?:20\d{2}年\d{1,2}月\d{1,2}日|"
     r"20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|"
-    r"\d{1,2}月\d{1,2}日)"
+    r"\d{1,2}月\d{1,2}日|"
+    r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
-    r"(?:\s*(?:至|到|~|～|—|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
+    r"(?:\s*(?:至|到|~|～|—|→|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
     r"\s*(?:万亿元|万亿|亿元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
 )
 _CHINESE_QUANTITY_RE = re.compile(
@@ -942,10 +948,17 @@ def _novel_numeric_condition_indexes(
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
-        if not isinstance(index, int) or not _CONDITION_TRIGGER_RE.search(text):
+        if not isinstance(index, int):
             continue
         candidate = _DATE_TOKEN_RE.sub("", text)
+        candidate = _LEADING_SECTION_RE.sub("", candidate)
+        candidate = _LEADING_LIST_LABEL_RE.sub("", candidate)
         candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
+        trigger = _CONDITION_TRIGGER_RE.search(candidate)
+        if trigger is None:
+            continue
+        if trigger.group(0) in {"若", "如果"}:
+            candidate = candidate[trigger.start() :]
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
@@ -998,6 +1011,7 @@ def _normalize_quantity(value: object) -> str:
         .replace("～", "至")
         .replace("~", "至")
         .replace("—", "至")
+        .replace("→", "至")
     )
 
 
@@ -1074,7 +1088,9 @@ def _rounded_quantity_matches(
 ) -> bool:
     candidate_values, candidate_unit, candidate_decimals = candidate
     observed_values, observed_unit, _observed_decimals = observed
-    if len(candidate_values) != len(observed_values):
+    if len(candidate_values) != len(observed_values) and not (
+        len(candidate_values) == 1 and len(observed_values) > 1
+    ):
         return False
     _candidate_dimension, candidate_scale = _quantity_dimension(candidate_unit)
     _observed_dimension, observed_scale = _quantity_dimension(observed_unit)
@@ -1083,14 +1099,21 @@ def _rounded_quantity_matches(
     )
     tolerance = 0.5 * (10 ** (-candidate_decimals))
     negative_context = bool(_NEGATIVE_CONTEXT_RE.search(sentence))
-    for expected, actual in zip(candidate_values, observed_in_candidate_unit):
+    if len(candidate_values) == 1 and len(observed_in_candidate_unit) > 1:
+        expected_values = candidate_values * len(observed_in_candidate_unit)
+    else:
+        expected_values = candidate_values
+    matches: list[bool] = []
+    for expected, actual in zip(expected_values, observed_in_candidate_unit):
         if expected * actual < 0:
             if not (negative_context and expected >= 0 and actual < 0):
-                return False
+                matches.append(False)
+                continue
             actual = abs(actual)
-        if abs(expected - actual) > tolerance + 1e-12:
-            return False
-    return True
+        matches.append(abs(expected - actual) <= tolerance + 1e-12)
+    if len(candidate_values) == 1 and len(observed_values) > 1:
+        return any(matches)
+    return all(matches)
 
 
 def _drop_rejected_sentences(
