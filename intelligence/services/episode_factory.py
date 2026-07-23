@@ -7,6 +7,8 @@ question and never imports private helpers from the legacy orchestrator.
 from __future__ import annotations
 
 from intelligence.services.evidence_capabilities import (
+    EvidencePlan,
+    EvidenceRequirement,
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
 )
@@ -34,8 +36,8 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "evidence_boundary": "说明证据覆盖范围、数据日期与缺口",
     "technical_levels": "给出结构化行情支持的技术区间或关键位",
     "data_date": "标明行情数据截止日期",
-    "valuation_assessment": "给出估值方法与当前估值判断",
-    "scenario_range": "给出有假设边界的估值情景区间",
+    "valuation_assessment": ("基于当前市场锚点说明估值方法、关键假设与当前估值判断"),
+    "scenario_range": "给出明确方法与假设边界的估值情景区间",
     "causal_chain": "解释时间对齐的原因、传导链和盘面印证",
     "counterpoint": "提供主要反证或竞争性解释",
     "supporting_evidence": "列出与结论直接相关的支持证据",
@@ -44,6 +46,13 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "mainline_structure": "判断当前市场主线及其强弱结构",
     "scenario_paths": "给出条件化情景路径",
 }
+
+_VALUATION_REQUIRED_OUTPUTS = (
+    "valuation_assessment",
+    "scenario_range",
+    "evidence_boundary",
+    "invalidation_conditions",
+)
 
 _PRESENTATION_PROFILES: dict[str, str] = {
     "market_forecast": "market_scenarios",
@@ -64,15 +73,50 @@ def _authorized_capabilities(
     projected = (
         runtime_capabilities_for_frame(frame)
         if capabilities is None
-        else tuple(dict.fromkeys(str(item).strip() for item in capabilities if str(item).strip()))
+        else tuple(
+            dict.fromkeys(
+                str(item).strip() for item in capabilities if str(item).strip()
+            )
+        )
     )
     allowed_names = set(DEFAULT_RESEARCH_CAPABILITIES)
     unknown = tuple(item for item in projected if item not in allowed_names)
     if unknown:
-        raise ValueError(
-            "unknown runtime capability: " + ",".join(sorted(unknown))
-        )
+        raise ValueError("unknown runtime capability: " + ",".join(sorted(unknown)))
     return projected
+
+
+def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
+    plan = resolve_evidence_plan(
+        frame.raw_question,
+        question_type=frame.question_type,
+        freshness="current",
+    )
+    if frame.question_type != "valuation_estimate":
+        return plan
+    requirements = tuple(
+        item for item in plan.requirements if item.capability != "market_data"
+    )
+    return EvidencePlan(
+        profile="valuation_current_anchor",
+        requirements=(
+            EvidenceRequirement(
+                "VALUATION_MARKET",
+                "market_data",
+                True,
+                "current",
+                "当前价格、交易日与可比估值锚点",
+            ),
+            *requirements,
+        ),
+        freshness="current",
+    )
+
+
+def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+    if frame.question_type != "valuation_estimate":
+        return frame.required_outputs
+    return tuple(dict.fromkeys((*frame.required_outputs, *_VALUATION_REQUIRED_OUTPUTS)))
 
 
 def build_episode_context(
@@ -89,11 +133,7 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
-    evidence_plan = resolve_evidence_plan(
-        frame.raw_question,
-        question_type=frame.question_type,
-        freshness="current",
-    )
+    evidence_plan = _episode_evidence_plan(frame)
     authorized = list(_authorized_capabilities(frame, capabilities))
     known = set(DEFAULT_RESEARCH_CAPABILITIES)
     for capability in evidence_plan.mandatory_capabilities:
@@ -136,7 +176,7 @@ def build_episode_context(
                 evidence_types=capability_tuple,
                 required=True,
             )
-            for output_id in frame.required_outputs
+            for output_id in _required_output_ids(frame)
         ),
         allowed_capabilities=capability_tuple,
         research_tier=policy.tier,

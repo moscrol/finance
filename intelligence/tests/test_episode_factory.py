@@ -122,3 +122,29 @@ def test_episode_context_can_reallocate_but_not_inflate_synthesis_reserve() -> N
     assert context.deadline.synthesis_reserve == 45.0
     assert context.deadline.remaining() <= 90.0
     assert context.deadline.stage_timeout(90.0) <= 45.0
+
+
+def test_valuation_contract_has_current_anchor_scenarios_and_invalidation() -> None:
+    control = TurnControlCore().control("瑞华泰的合理估值")
+    context = build_episode_context(
+        control.task_frame,
+        task_id="valuation-contract",
+        capabilities=("evidence_lookup",),
+        timeout=30.0,
+    )
+
+    outputs = {
+        item.output_id: item.description for item in context.contract.required_outputs
+    }
+    assert {
+        "valuation_assessment",
+        "scenario_range",
+        "evidence_boundary",
+        "invalidation_conditions",
+    }.issubset(outputs)
+    assert all(
+        term in outputs["valuation_assessment"]
+        for term in ("当前市场锚点", "方法", "假设")
+    )
+    assert "market_data" in context.contract.allowed_capabilities
+    assert "market_data" in context.contract.evidence_plan.mandatory_capabilities

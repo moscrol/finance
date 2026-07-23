@@ -38,6 +38,7 @@ _NON_EVIDENCE_PREFIXES = (
     "使用要求：",
     "⚠",
 )
+_OFFICIAL_L3_RUNNER = object()
 
 
 def is_deterministic_fast_path(frame: TaskFrame) -> bool:
@@ -51,9 +52,7 @@ def _roots(
     paths = default_paths()
     return (
         Path(finance_root).expanduser() if finance_root else paths.finance_root,
-        Path(knowledge_wiki).expanduser()
-        if knowledge_wiki
-        else paths.knowledge_wiki,
+        Path(knowledge_wiki).expanduser() if knowledge_wiki else paths.knowledge_wiki,
     )
 
 
@@ -120,6 +119,7 @@ def build_episode_registry(
     *,
     finance_root: str | Path | None = None,
     knowledge_wiki: str | Path | None = None,
+    l3_runner: agent_research.ToolRunner | None | object = _OFFICIAL_L3_RUNNER,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -164,12 +164,16 @@ def build_episode_registry(
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
-        return evidence, observation or "结构化行情无可用结果", ProviderTrace(
-            provider="agent:market_data",
-            capability="market_data",
-            status="success" if evidence else "empty",
-            detail=detail,
-            result_count=len(evidence),
+        return (
+            evidence,
+            observation or "结构化行情无可用结果",
+            ProviderTrace(
+                provider="agent:market_data",
+                capability="market_data",
+                status="success" if evidence else "empty",
+                detail=detail,
+                result_count=len(evidence),
+            ),
         )
 
     def mainline_runner(
@@ -199,15 +203,19 @@ def build_episode_registry(
                 for item in evidence
                 if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
             ]
-        return evidence, observation, ProviderTrace(
-            provider="agent:mainline_context",
-            capability="mainline_context",
-            status="success" if evidence else "empty",
-            detail="current_mainline_context",
-            result_count=len(evidence),
+        return (
+            evidence,
+            observation,
+            ProviderTrace(
+                provider="agent:mainline_context",
+                capability="mainline_context",
+                status="success" if evidence else "empty",
+                detail="current_mainline_context",
+                result_count=len(evidence),
+            ),
         )
 
-    def l3_runner(
+    def official_l3_runner(
         query: str,
         tool_context: agent_research.AgentToolContext,
     ):
@@ -233,23 +241,30 @@ def build_episode_registry(
             )
             for item in bundle.items
         ]
-        providers = tuple(
-            dict.fromkeys(item.source_type for item in bundle.items)
-        )
-        return evidence, bundle.to_prompt_block(), ProviderTrace(
-            provider="+".join(providers) or "l3_lookup",
-            capability="l3_lookup",
-            status="success" if evidence else "empty",
-            detail="；".join(bundle.warnings) or "official disclosure lookup",
-            result_count=len(evidence),
+        providers = tuple(dict.fromkeys(item.source_type for item in bundle.items))
+        return (
+            evidence,
+            bundle.to_prompt_block(),
+            ProviderTrace(
+                provider="+".join(providers) or "l3_lookup",
+                capability="l3_lookup",
+                status="success" if evidence else "empty",
+                detail="；".join(bundle.warnings) or "official disclosure lookup",
+                result_count=len(evidence),
+            ),
         )
 
     if "market_data" in context.contract.allowed_capabilities:
         tools["market_data"] = market_data_runner
     if "mainline_context" in context.contract.allowed_capabilities:
         tools["mainline_context"] = mainline_runner
-    if "l3_lookup" in context.contract.allowed_capabilities:
-        tools["l3_lookup"] = l3_runner
+    selected_l3_runner = (
+        official_l3_runner if l3_runner is _OFFICIAL_L3_RUNNER else l3_runner
+    )
+    if "l3_lookup" in context.contract.allowed_capabilities and callable(
+        selected_l3_runner
+    ):
+        tools["l3_lookup"] = selected_l3_runner
     return default_registry(tools)
 
 
@@ -309,9 +324,7 @@ def run_deterministic_fast_path(
             if abs(level.zone_high - level.zone_low) < 1e-9
             else f"{low_pct:.1f}%~{high_pct:.1f}%"
         )
-        resistance_parts.append(
-            f"{zone}（距收盘约 {distance}）"
-        )
+        resistance_parts.append(f"{zone}（距收盘约 {distance}）")
     support_parts = [
         (
             f"{level.zone_low:.2f}"
