@@ -489,6 +489,13 @@ Permit only same-dimension half-unit rounding at the answer's displayed
 precision, including explicit 亿元/万亿元 conversion and sign omission in an
 explicit decline context; do not use percentage or relative-error tolerance
 that could legalize a newly invented threshold.
+Keep `market_forecast` on `market_data + mainline_context`; reserve
+`news_search + web_search` for `market_cause` and other explicitly causal
+contracts. Treat TaskFrame evidence policy as the capability SSOT: legacy
+controller aliases are fallback-only and cannot expand a non-empty frame plan.
+Tell the episode to stop once required outputs have direct evidence,
+and require every exact numeric fact retained in `draft` to include its direct
+hash in that output's binding.
 Project only answer-bound evidence into local `E1...En` aliases; keep the full
 hash/source ledger private and immutable. The semantic verifier must return
 accepted prose only. Keep structured citation projection solely in

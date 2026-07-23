@@ -82,18 +82,19 @@ def project_turn_decision(
         terminal_kind = "research"
 
     if terminal_kind == "research":
+        frame_capabilities = runtime_capabilities_for_frame(task_frame)
         mapped_legacy_capabilities = tuple(
             runtime_name
             for capability in decision.capabilities
             if (runtime_name := _LEGACY_CAPABILITY_TO_RUNTIME.get(capability))
         )
-        capabilities = tuple(
-            dict.fromkeys(
-                (
-                    *runtime_capabilities_for_frame(task_frame),
-                    *mapped_legacy_capabilities,
-                )
-            )
+        # The immutable TaskFrame owns evidence policy. Legacy aliases are a
+        # compatibility fallback only when that policy has no runtime plan;
+        # otherwise unioning them silently expands the model's tool surface.
+        capabilities = (
+            frame_capabilities
+            if frame_capabilities
+            else tuple(dict.fromkeys(mapped_legacy_capabilities))
         )
         execution_route = task_frame.question_type
     else:

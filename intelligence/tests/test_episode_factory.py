@@ -23,7 +23,7 @@ RUNTIME_CAPABILITIES = {
     (
         (
             "昨天的反弹能持续多久",
-            {"market_data", "news_search"},
+            {"market_data", "mainline_context"},
             "duration_assessment",
         ),
         (

@@ -61,8 +61,6 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     "current_market_scenarios": (
         "market_data",
         "mainline_context",
-        "news_search",
-        "web_search",
     ),
     "time_aligned_market_causal": (
         "market_data",

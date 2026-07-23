@@ -270,6 +270,19 @@ an unrelated `3800 点` trigger does not match `3876.777 点`. This prevents
 rounding false positives without turning the gate into a broad numeric
 tolerance.
 
+Tool availability remains task-shaped. A `market_forecast` duration/scenario
+turn receives current structured market and same-day mainline tools; it does
+not receive causal news/web tools merely because it is long-tail. A
+`market_cause` turn retains time-aligned news and web capabilities. This keeps
+the model in control of research while preventing optional, stale commentary
+from consuming the episode budget or being mistaken for a current forecast
+premise. The immutable TaskFrame evidence policy is the single owner of this
+tool surface: mapped legacy controller aliases are used only when the frame has
+no runtime capability plan and may not be unioned into an existing plan. The
+finalization contract additionally requires every retained exact
+number to have its direct evidence hash in the corresponding output binding;
+otherwise the model must omit that number.
+
 Gate behavior:
 
 1. Structural verification runs first and may only preserve or downgrade.

@@ -44,6 +44,26 @@ def test_market_long_tail_is_research_with_contract_and_retrieval() -> None:
     assert result.task_frame.raw_question == "昨天的反弹能持续多久"
 
 
+def test_market_forecast_runtime_uses_current_structure_without_causal_web_tools() -> (
+    None
+):
+    result = TurnControlCore().control("昨天的反弹能持续多久")
+
+    capabilities = runtime_capabilities_for_frame(result.task_frame)
+
+    assert capabilities == ("market_data", "mainline_context")
+
+
+def test_market_cause_runtime_keeps_time_aligned_news_and_web_tools() -> None:
+    result = TurnControlCore().control("这一周行情下跌的主要原因是什么")
+
+    capabilities = runtime_capabilities_for_frame(result.task_frame)
+
+    assert "market_data" in capabilities
+    assert "news_search" in capabilities
+    assert "web_search" in capabilities
+
+
 def test_plain_chat_is_non_research() -> None:
     result = TurnControlCore().control("你好")
 
@@ -89,7 +109,7 @@ def test_financial_frame_cannot_be_downgraded_to_zero_retrieval() -> None:
     assert result.needs_retrieval is True
     assert result.contract_required is True
     assert result.terminal_kind == "research"
-    assert {"market_data", "news_search"}.issubset(result.capabilities)
+    assert result.capabilities == ("market_data", "mainline_context")
 
 
 def test_frozen_decision_projects_control_without_calling_controller_again() -> None:
@@ -126,7 +146,7 @@ def test_frozen_decision_projects_control_without_calling_controller_again() -> 
     assert result.turn_intent is intent
     assert result.terminal_kind == "research"
     assert result.execution_route == "market_forecast"
-    assert {"market_data", "news_search"}.issubset(result.capabilities)
+    assert result.capabilities == ("market_data", "mainline_context")
 
 
 def test_frozen_non_research_decision_is_not_upgraded_by_lexical_replanning() -> None:
@@ -161,7 +181,7 @@ def test_frozen_non_research_decision_is_not_upgraded_by_lexical_replanning() ->
     assert result.capabilities == ()
 
 
-def test_research_maps_legacy_capabilities_without_leaking_aliases() -> None:
+def test_research_legacy_aliases_cannot_expand_task_frame_capabilities() -> None:
     frame = _financial_frame()
     legacy_capabilities = (
         "memory",
@@ -186,15 +206,7 @@ def test_research_maps_legacy_capabilities_without_leaking_aliases() -> None:
 
     result = TurnControlCore(legacy_decide=fake_legacy).control(frame.raw_question)
 
-    assert {
-        "kb_search",
-        "market_data",
-        "news_search",
-        "web_search",
-        "graph_lookup",
-        "l3_lookup",
-        "evidence_lookup",
-    }.issubset(result.capabilities)
+    assert result.capabilities == ("market_data", "mainline_context")
     assert set(result.capabilities).isdisjoint(legacy_capabilities)
 
 

@@ -457,6 +457,9 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "不得在答案中暴露内部工具名、provider 或哈希" in system_prompt
     assert "阶段第N天”只是数据提供方的阶段标签" in system_prompt
     assert "必须给出一个明确标注的基准判断" in system_prompt
+    assert "每个精确数字事实" in system_prompt
+    assert "公开网页中的预测或观点" in system_prompt
+    assert "不得为了耗尽步数调用非必需工具" in system_prompt
 
 
 def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:
@@ -476,6 +479,7 @@ def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds(
     assert "条件写相对变化" in reminder
     assert "不得新增证据中没有的数值阈值" in reminder
     assert "一个明确标注的主观基准区间" in reminder
+    assert "每个保留的精确数字" in reminder
 
 
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
