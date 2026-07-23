@@ -728,6 +728,27 @@ def test_local_gate_keeps_requested_forecast_and_bound_condition_context() -> No
     assert "3764点" in result.public_answer
 
 
+def test_local_gate_does_not_treat_evidence_boundary_above_as_threshold() -> None:
+    judge = _judge(True)
+    boundary = (
+        "证据边界：以上判断基于2026-07-23当日及7/17–7/23五日窗口内的盘面数据。"
+    )
+    frame, structural = _structural(
+        f"当前反弹仍有延续可能。{boundary}",
+        detail="窗口：2026-07-17至2026-07-23，共5个交易日。",
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert boundary in result.public_answer
+
+
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(

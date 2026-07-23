@@ -67,7 +67,7 @@ _ISSUE_SENTENCE_INDEX_RE = re.compile(
     re.IGNORECASE,
 )
 _CONDITION_TRIGGER_RE = re.compile(
-    r"(?:若|如果|条件|失效|降级|跌破|站稳|至少|以上|以下|"
+    r"(?:若|如果|条件|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
