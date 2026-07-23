@@ -78,6 +78,7 @@ class EpisodeToolBatchSession:
 
     def __init__(self, *, executor: Executor | None = None) -> None:
         self._seen_queries: set[tuple[str, str]] = set()
+        self._successful_episode_tools: set[str] = set()
         self._lock = Lock()
         self._next_call_sequence = 1
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
@@ -137,6 +138,7 @@ class EpisodeToolBatchSession:
 
         candidates: list[_Candidate] = []
         batch_queries: set[tuple[str, str]] = set()
+        batch_episode_tools: set[str] = set()
         batch_call_ids: set[str] = set()
         for index, call in enumerate(ordered_calls):
             if call.call_id in batch_call_ids:
@@ -176,6 +178,18 @@ class EpisodeToolBatchSession:
                 )
                 continue
 
+            if spec.query_scope == "episode" and (
+                call.name in self._successful_episode_tools
+                or call.name in batch_episode_tools
+            ):
+                items[index] = ToolCallResult(
+                    call,
+                    "rejected",
+                    error="episode_snapshot_already_collected",
+                    step_id=step_ids[index],
+                )
+                continue
+
             normalized = query_ledger.normalize_query(query)
             key = (call.name, normalized)
             if key in self._seen_queries or key in batch_queries:
@@ -186,6 +200,8 @@ class EpisodeToolBatchSession:
                     step_id=step_ids[index],
                 )
                 continue
+            if spec.query_scope == "episode":
+                batch_episode_tools.add(call.name)
             batch_queries.add(key)
             candidates.append(_Candidate(index, call, query, normalized, spec))
 
@@ -241,6 +257,13 @@ class EpisodeToolBatchSession:
                 context=context,
                 step_ids=step_ids,
                 timeout=timeout,
+            )
+            self._successful_episode_tools.update(
+                candidate.call.name
+                for candidate in selected
+                if candidate.spec.query_scope == "episode"
+                and items[candidate.index] is not None
+                and items[candidate.index].status == "success"
             )
 
         return self._result(

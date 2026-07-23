@@ -438,6 +438,53 @@ def test_same_session_dedupes_across_batches() -> None:
     assert runner_calls == 1
 
 
+def test_episode_scoped_snapshot_succeeds_only_once_across_rewritten_queries() -> (
+    None
+):
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", query)
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="episode snapshot",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                query_scope="episode",
+            ),
+        )
+    )
+    session = ToolBatchExecutor().new_session()
+    first = session.execute(
+        (ModelToolCall("first", "market_data", {"query": "瑞华泰 当前估值"}),),
+        registry=registry,
+        context=_context(allowed=("market_data",)),
+        remaining_slots=2,
+    )
+    second = session.execute(
+        (ModelToolCall("second", "market_data", {"query": "瑞华泰 最新股价"}),),
+        registry=registry,
+        context=_context(allowed=("market_data",)),
+        remaining_slots=1,
+    )
+
+    assert first.items[0].status == "success"
+    assert second.items[0].status == "rejected"
+    assert second.items[0].error == "episode_snapshot_already_collected"
+    assert second.executed_count == 0
+    assert runner_calls == 1
+
+
 def test_same_session_serializes_concurrent_duplicate_admission() -> None:
     runner_started = Event()
     release_runner = Event()
