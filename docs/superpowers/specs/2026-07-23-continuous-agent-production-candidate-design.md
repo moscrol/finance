@@ -242,6 +242,16 @@ fallback for adapters without function calling; ambiguous, unknown, multiple,
 or malformed calls fail closed. This is a structured transport, not a research
 tool or a new model permission.
 
+The evidence registry sent to this judge is a semantic projection, not a
+second copy of the complete Episode ledger. It includes only hashes referenced
+by required-output bindings and aliases them locally as `E1...En`. It preserves
+the evidence text, tool, date, tier, non-default freshness, and any non-empty
+support/contradiction/independence metadata; bindings use the same aliases.
+Source URLs, duplicate titles, repeated capability allowlists, raw hashes, and
+empty metadata stay in the immutable audit ledger rather than consuming judge
+attention. This bounds latency without hiding any evidence that is legally
+capable of supporting the public answer.
+
 Gate behavior:
 
 1. Structural verification runs first and may only preserve or downgrade.
@@ -260,17 +270,19 @@ Gate behavior:
    evidence.
 6. The semantic gate may retry its correlated primary judge once after a
    classified transient failure (timeout, connection interruption, 429/5xx,
-   or empty response). Each attempt is capped at 10 seconds and consumes the
+   or empty response). Each attempt is capped at 25 seconds and consumes the
    same root verification deadline. Authentication, configuration, budget,
    cancellation, malformed-envelope, and tool-call failures are not retried.
    Raw provider diagnostics remain private and are reduced to stable reason
    codes.
-7. A deterministic supplement rejects a numeric condition when its full
-   quantity/range does not occur in evidence bound to the answer. It runs after
-   every model-judge report, so a correlated judge cannot pass a newly invented
-   support level, breadth threshold, or secondary forecast window. Dates, list
-   labels, the one clearly labelled base-case estimate requested by the user,
-   and numeric anchors present in bound evidence are unaffected.
+7. A deterministic preflight rejects a numeric condition when its full
+   quantity/range does not occur in evidence bound to the answer. It redacts
+   those spans before the first model judge and remains active after every
+   report as defense in depth. A correlated judge therefore cannot pass a newly
+   invented support level, breadth threshold, or secondary forecast window,
+   and known-bad spans do not consume a judge/rejudge cycle. Dates, list labels,
+   the one clearly labelled base-case estimate requested by the user, and
+   numeric anchors present in bound evidence are unaffected.
 
 The semantic gate distinguishes claim types instead of treating every sentence
 as a quoted source fact. Observed facts, dates, factual numbers, external
@@ -309,9 +321,13 @@ unavailable, or re-rejected result also fails closed.
 One gate-local transient retry is intentionally owned here rather than inside
 `GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
 configured-adapter contract; the semantic gate, as a critical acceptance
-boundary, decides whether spending one additional call is justified. With the
-10-second per-attempt cap, initial judge, transient retry, and post-redaction
-rejudge remain bounded by the existing 30-second verification reserve.
+boundary, decides whether spending one additional call is justified. A real
+2026-07-23 GLM canary showed that the original 17.7K-character judge request
+timed out deterministically at the old 10-second cap. Bound-only evidence
+aliases and numeric preflight reduced the same request to roughly 8K
+characters; the per-attempt cap is therefore 25 seconds while the existing
+30-second root verification reserve remains unchanged. Retry or rejudge uses
+only the actual remaining root time and fails closed when it is exhausted.
 
 Judge execution reuses the repository's independent `LLM_JUDGE_*` provider
 selection when configured. Without it, canary may use the primary model but

@@ -468,17 +468,19 @@ and verified completion gaps. Preserve rejected drafts only in the private
 outcome/artifact.
 
 The correlated primary judge may retry once only for classified transient
-provider failures. Cap every judge attempt at 10 seconds and reuse the root
+provider failures. Cap every judge attempt at 25 seconds and reuse the root
 verification deadline. Do not retry authentication/configuration, call-budget,
 cancellation, malformed-envelope, or tool-call failures; reduce provider
 diagnostics to stable private reason codes.
 
-Augment every valid model-judge report with a deterministic novel-threshold
-check. For conditional/trigger sentences, reject quantities or ranges absent
-from evidence bound to the answer. Strip dates and list labels before the
-comparison; preserve the user's requested, clearly labelled base-case estimate
-and any numeric anchor that appears in bound evidence. The semantic verifier
-must return accepted prose only. Keep structured citation projection solely in
+Run the deterministic novel-threshold check before the first judge and again
+after every valid report. For conditional/trigger sentences, reject quantities
+or ranges absent from evidence bound to the answer. Strip dates and list labels
+before the comparison; preserve the user's requested, clearly labelled
+base-case estimate and any numeric anchor that appears in bound evidence.
+Project only answer-bound evidence into local `E1...En` aliases; keep the full
+hash/source ledger private and immutable. The semantic verifier must return
+accepted prose only. Keep structured citation projection solely in
 `ContinuousTurnAdapter`; do not append a second `依据：...` ledger to the answer.
 
 - [ ] **Step 4a: Keep UI and A/B budget composition identical**

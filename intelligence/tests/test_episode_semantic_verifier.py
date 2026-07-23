@@ -228,6 +228,67 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     assert "不能支持市场事实或因果结论" in system_prompt
 
 
+def test_judge_receives_only_bound_evidence_with_compact_semantic_fields(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("当前市场偏弱。")
+    unbound = AgentEvidence(
+        tool="web_search",
+        title="不应发送给裁判的未绑定标题",
+        detail="UNBOUND_EVIDENCE_SENTINEL",
+        source="https://example.invalid/unbound",
+        content_hash="unbound-hash",
+    )
+    bound = replace(
+        structural.outcome.evidence[0],
+        supports=("量价判断",),
+        contradicts=("趋势反转",),
+        independent_key="market-snapshot",
+    )
+    expanded = replace(
+        structural.outcome,
+        evidence=(bound, unbound),
+    )
+    structural = verify_episode_outcome(structural.contract, expanded)
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    request = json.loads(model.calls[0]["messages"][1]["content"])
+    assert request["output_bindings"] == [
+        {
+            "output_id": "direct_assessment",
+            "evidence_ids": ["E1"],
+            "gap": "",
+        }
+    ]
+    assert request["evidence_registry"] == [
+        {
+            "evidence_id": "E1",
+            "tool": "market_data",
+            "detail": "市场成交额与结构观察",
+            "source_date": "2026-07-22",
+            "evidence_tier": "",
+            "supports": ["量价判断"],
+            "contradicts": ["趋势反转"],
+            "independent_key": "market-snapshot",
+        }
+    ]
+    serialized = json.dumps(request, ensure_ascii=False)
+    assert "UNBOUND_EVIDENCE_SENTINEL" not in serialized
+    assert "unbound-hash" not in serialized
+    assert "HASH_PRIVATE_SENTINEL" not in serialized
+    assert '"title"' not in serialized
+    assert '"source"' not in serialized
+    assert '"freshness"' not in serialized
+
+
 def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     monkeypatch,
 ) -> None:
@@ -373,7 +434,7 @@ def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> Non
 
 def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     safe_sentences = [f"已核验市场观察第{index}项。" for index in range(1, 180)]
-    rejected_sentence = "成交额跌破9999亿元就意味着反弹结束。"
+    rejected_sentence = "政策变化导致市场下跌。"
     raw = "\n".join((*safe_sentences, rejected_sentence))
     frame, structural = _structural(raw)
     calls = 0
@@ -386,7 +447,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
             return {
                 "passed": False,
                 "rejected_sentence_indexes": [len(texts)],
-                "issues": ["unsupported_numeric_trigger_rejected"],
+                "issues": ["unsupported_external_cause_rejected"],
             }
         assert rejected_sentence not in texts
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
@@ -415,12 +476,18 @@ def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> 
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert "2至5个交易日" in result.public_answer
     assert "3870点" not in result.public_answer
     assert "3870点" not in result.verified.outcome.draft
+    first_sentences = [
+        str(item["text"])
+        for item in judge.calls[0]["sentences"]  # type: ignore[attr-defined]
+    ]
+    assert any("2至5个交易日" in item for item in first_sentences)
+    assert all("3870点" not in item for item in first_sentences)
 
 
 def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
@@ -439,10 +506,13 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.public_answer == "截至2026年7月23日，市场处于反弹阶段。"
+    assert judge.calls[0]["sentences"] == [  # type: ignore[attr-defined]
+        {"index": 1, "text": "截至2026年7月23日，市场处于反弹阶段。"}
+    ]
 
 
 def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> (
@@ -483,6 +553,7 @@ def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
 
     assert result.status == "partial"
     assert result.judge_status == "rejected"
+    assert len(judge.calls) == 0  # type: ignore[attr-defined]
     assert "3870点" not in result.public_answer
 
 
@@ -666,6 +737,23 @@ def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
     assert result.judge_status == "passed"
     assert len(model.calls) == 2
     assert all(0.0 < timeout <= 5.0 for timeout in model.calls)
+
+
+def test_primary_judge_default_attempt_is_bounded_to_twenty_five_seconds(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+
+    assert result.status == "completed"
+    assert model.calls[0]["timeout"] == pytest.approx(25.0)
 
 
 def test_primary_judge_accepts_one_schema_valid_report_tool_call(

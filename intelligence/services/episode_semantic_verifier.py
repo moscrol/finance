@@ -28,7 +28,6 @@ from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
     ModelTurn,
-    public_agent_evidence,
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_verifier import (
@@ -42,6 +41,7 @@ from intelligence.services.task_frame import TaskFrame
 
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
+DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
 JudgeFn = Callable[..., object]
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
@@ -124,7 +124,8 @@ _JUDGE_SYSTEM_PROMPT = (
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
-    "只能用“本轮资讯检索未命中”等自然语言。遵循 claim_policy。只输出一个严格 "
+    "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
+    "E 编号，output_bindings.evidence_ids 与其对应。遵循 claim_policy。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -191,7 +192,7 @@ class SemanticEpisodeVerifier:
         *,
         primary_judge: AgentModelClient | JudgeFn | None = None,
         judge_client: AgentModelClient | JudgeFn | None = None,
-        judge_timeout: float = 10.0,
+        judge_timeout: float = DEFAULT_JUDGE_TIMEOUT_SECONDS,
     ) -> None:
         self._judge_fn = judge_fn
         self._primary_judge = primary_judge or judge_client
@@ -269,6 +270,43 @@ class SemanticEpisodeVerifier:
                 correlated_judge=False,
             )
 
+        preflight_issues: tuple[str, ...] = ()
+        preflight_rejected = _novel_numeric_condition_indexes(
+            sentences,
+            structural,
+        )
+        if preflight_rejected:
+            preflight = self._repair(
+                frame=frame,
+                structural=structural,
+                rejected_sentence_indexes=preflight_rejected,
+            )
+            if preflight is None:
+                return SemanticEpisodeOutcome(
+                    verified=structural,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, structural),
+                    judge_status="rejected",
+                    issues=tuple(
+                        dict.fromkeys((*structural.issues, _NUMERIC_CONDITION_ISSUE))
+                    ),
+                    correlated_judge=False,
+                )
+            structural, _preflight_frame = preflight
+            preflight_issues = (_NUMERIC_CONDITION_ISSUE,)
+            if structural.verified_status != "completed":
+                return SemanticEpisodeOutcome(
+                    verified=structural,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, structural),
+                    judge_status="rejected",
+                    issues=tuple(
+                        dict.fromkeys((*structural.issues, *preflight_issues))
+                    ),
+                    correlated_judge=False,
+                )
+            sentences = _numbered_sentences(structural.outcome.draft)
+
         request = self._judge_request(frame, structural, sentences)
         first = self._run_judge(request, deadline)
         if deadline.expired:
@@ -285,7 +323,9 @@ class SemanticEpisodeVerifier:
                 status="partial",
                 public_answer=self._gap_answer(frame, structural),
                 judge_status="unavailable",
-                issues=tuple(dict.fromkeys((*structural.issues, issue))),
+                issues=tuple(
+                    dict.fromkeys((*structural.issues, *preflight_issues, issue))
+                ),
                 correlated_judge=first.correlated,
             )
 
@@ -295,8 +335,10 @@ class SemanticEpisodeVerifier:
             return self._completed_public(
                 frame,
                 structural,
-                judge_status="passed",
-                judge_issues=first.report.issues,
+                judge_status=("repaired" if preflight_issues else "passed"),
+                judge_issues=tuple(
+                    dict.fromkeys((*preflight_issues, *first.report.issues))
+                ),
                 correlated_judge=first.correlated,
             )
 
@@ -310,6 +352,7 @@ class SemanticEpisodeVerifier:
                 dict.fromkeys(
                     (
                         *structural.issues,
+                        *preflight_issues,
                         *first.report.issues,
                         "semantic repair unavailable",
                     )
@@ -330,6 +373,7 @@ class SemanticEpisodeVerifier:
                 dict.fromkeys(
                     (
                         *repaired_verified.issues,
+                        *preflight_issues,
                         *first.report.issues,
                         "semantic repair remained structurally partial",
                     )
@@ -369,7 +413,13 @@ class SemanticEpisodeVerifier:
                 repaired_verified,
                 judge_status="repaired",
                 judge_issues=tuple(
-                    dict.fromkeys((*first.report.issues, *second.report.issues))
+                    dict.fromkeys(
+                        (
+                            *preflight_issues,
+                            *first.report.issues,
+                            *second.report.issues,
+                        )
+                    )
                 ),
                 correlated_judge=correlated,
             )
@@ -384,6 +434,7 @@ class SemanticEpisodeVerifier:
             dict.fromkeys(
                 (
                     *repaired_verified.issues,
+                    *preflight_issues,
                     *first.report.issues,
                     final_issue,
                 )
@@ -410,7 +461,6 @@ class SemanticEpisodeVerifier:
                 {
                     "output_id": item.output_id,
                     "description": item.description,
-                    "evidence_types": list(item.evidence_types),
                     "required": item.required,
                 }
                 for item in contract.required_outputs
@@ -420,6 +470,9 @@ class SemanticEpisodeVerifier:
                 {"output_id": output_id, "required": True}
                 for output_id in frame.required_outputs
             ]
+        output_bindings, evidence_registry = _semantic_evidence_projection(
+            verified.outcome
+        )
         return {
             "question": frame.raw_question,
             "task_frame": {
@@ -430,12 +483,8 @@ class SemanticEpisodeVerifier:
                 "user_goal": frame.user_goal,
             },
             "required_outputs": required_outputs,
-            "output_bindings": [
-                binding.to_dict() for binding in verified.outcome.bindings
-            ],
-            "evidence_registry": [
-                public_agent_evidence(item) for item in verified.outcome.evidence
-            ],
+            "output_bindings": output_bindings,
+            "evidence_registry": evidence_registry,
             "tool_status_registry": _semantic_tool_status_registry(
                 verified.outcome.traces
             ),
@@ -807,6 +856,29 @@ def _apply_numeric_condition_gate(
     if report is None:
         return call
     rejected = set(report.rejected_sentence_indexes)
+    rejected.update(_novel_numeric_condition_indexes(sentences, verified))
+    if rejected == set(report.rejected_sentence_indexes):
+        return call
+    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
+    return _JudgeCall(
+        answer_model.GroundingJudgeReport(
+            passed=False,
+            rejected_sentence_indexes=tuple(sorted(rejected)),
+            issues=issues,
+        ),
+        call.unavailable,
+        call.correlated,
+        call.issue,
+    )
+
+
+def _novel_numeric_condition_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Return conditional sentences containing quantities absent from evidence."""
+
+    rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     for item in sentences:
         index = item.get("index")
@@ -825,19 +897,7 @@ def _apply_numeric_condition_gate(
             if _normalize_quantity(quantity)
         ):
             rejected.add(index)
-    if rejected == set(report.rejected_sentence_indexes):
-        return call
-    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
-    return _JudgeCall(
-        answer_model.GroundingJudgeReport(
-            passed=False,
-            rejected_sentence_indexes=tuple(sorted(rejected)),
-            issues=issues,
-        ),
-        call.unavailable,
-        call.correlated,
-        call.issue,
-    )
+    return tuple(sorted(rejected))
 
 
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
@@ -942,6 +1002,54 @@ def _semantic_tool_status_registry(
             }
         )
     return statuses
+
+
+def _semantic_evidence_projection(
+    outcome: AgentOutcome,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Alias and project only answer-bound evidence for semantic judging."""
+
+    bound_hashes = {
+        evidence_hash
+        for binding in outcome.bindings
+        for evidence_hash in binding.evidence_hashes
+    }
+    alias_by_hash: dict[str, str] = {}
+    registry: list[dict[str, object]] = []
+    for item in outcome.evidence:
+        if not item.content_hash or item.content_hash not in bound_hashes:
+            continue
+        evidence_id = f"E{len(registry) + 1}"
+        alias_by_hash[item.content_hash] = evidence_id
+        projected: dict[str, object] = {
+            "evidence_id": evidence_id,
+            "tool": item.tool,
+            "detail": item.detail or item.title,
+            "source_date": item.source_date,
+            "evidence_tier": item.evidence_tier,
+        }
+        if item.freshness and item.freshness != "unknown":
+            projected["freshness"] = item.freshness
+        if item.supports:
+            projected["supports"] = list(item.supports)
+        if item.contradicts:
+            projected["contradicts"] = list(item.contradicts)
+        if item.independent_key:
+            projected["independent_key"] = item.independent_key
+        registry.append(projected)
+    bindings = [
+        {
+            "output_id": binding.output_id,
+            "evidence_ids": [
+                alias_by_hash[evidence_hash]
+                for evidence_hash in binding.evidence_hashes
+                if evidence_hash in alias_by_hash
+            ],
+            "gap": binding.gap,
+        }
+        for binding in outcome.bindings
+    ]
+    return bindings, registry
 
 
 def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> object:
