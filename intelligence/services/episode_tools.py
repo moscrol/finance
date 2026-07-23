@@ -125,9 +125,14 @@ def build_episode_registry(
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = finance / "db" / "market_feature_store.duckdb"
-    structured_source_date = context.latest_data_date or ask_blocks._market_data_asof(  # noqa: SLF001
-        market_db_path
-    )
+    structured_source_date = None
+    if frame.question_type != "valuation_estimate":
+        structured_source_date = (
+            context.latest_data_date
+            or ask_blocks._market_data_asof(  # noqa: SLF001
+                market_db_path
+            )
+        )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
 
     def retrieve_kb(query: str, timeout: float):

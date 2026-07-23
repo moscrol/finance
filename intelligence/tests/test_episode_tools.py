@@ -63,6 +63,63 @@ def _market_forecast_frame() -> TaskFrame:
     )
 
 
+def _valuation_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="瑞华泰的合理估值",
+        user_goal="估算瑞华泰合理估值区间",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("valuation_range",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="valuation_with_current_anchor",
+        confidence=0.95,
+    )
+
+
+def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _valuation_frame()
+    context = build_episode_context(
+        frame,
+        task_id="valuation-asof",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-07-22",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "东财实时快照：瑞华泰最新价42.00元",
+            "东财快照 + 本地 DuckDB 可比集",
+            "company_valuation_snapshot",
+        ),
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "market_data",
+        "瑞华泰合理估值",
+        context=context,
+        step_id="valuation-asof:1",
+    )
+
+    assert observation.evidence[0].source_date is None
+
+
 def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     tmp_path,
     monkeypatch,
