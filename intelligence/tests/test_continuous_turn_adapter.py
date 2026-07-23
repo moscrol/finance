@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from intelligence.services import ask_synthesis
+from intelligence.services import ask_synthesis, llm_refine
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
@@ -328,6 +328,13 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     assert result.as_of == "2026-07-22"
     assert result.private_artifact is not None
     assert result.private_artifact["outcome"]["llm_calls"] == 0
+    assert result.private_artifact["metrics"] == {
+        "provider_attempts": 0,
+        "tool_calls": 1,
+        "duplicate_queries": 0,
+        "structural_status": "completed",
+        "semantic_status": "passed",
+    }
     assert "RAW_PROVIDER_SENTINEL" not in str(result.events)
 
 
@@ -542,6 +549,101 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert "structural_verifier" in result.private_artifact
     assert "semantic_verifier" in result.private_artifact
     assert "PRIVATE_HASH_SENTINEL" not in str(result.events)
+
+
+def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-physical-metrics",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="A股市场总览",
+        detail="上涨家数增加，成交保持活跃",
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="physical-metrics-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前更接近条件化修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+            EpisodeEvent(
+                2,
+                "tool_error",
+                {"error": "duplicate_query"},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("physical-metrics-evidence",),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=2, tool_calls=1),
+    )
+
+    def record_provider_attempt(caller: str) -> None:
+        ledger = llm_refine.current_call_ledger()
+        assert ledger is not None
+        ledger.record(
+            llm_refine.LLMCallRecord(
+                caller=caller,
+                provider="test-provider",
+                model="test-model",
+                status="success",
+                elapsed_ms=1,
+            )
+        )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            record_provider_attempt("chat_tools")
+            record_provider_attempt("chat_tools")
+            return outcome
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            record_provider_attempt("chat")
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer="当前更接近条件化修复。",
+                judge_status="passed",
+            )
+
+    with llm_refine.call_ledger_scope():
+        result = ContinuousTurnAdapter(
+            runtime=Runtime(),
+            semantic_verifier=Semantic(),
+            mode="on",
+            context_factory=lambda *_args, **_kwargs: context,
+            registry_factory=lambda *_args, **_kwargs: "registry",
+        ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert result.private_artifact is not None
+    assert result.private_artifact["metrics"] == {
+        "provider_attempts": 3,
+        "tool_calls": 1,
+        "duplicate_queries": 1,
+        "structural_status": "completed",
+        "semantic_status": "passed",
+    }
 
 
 def test_structural_verifier_failure_degrades_from_bound_runtime_evidence() -> None:

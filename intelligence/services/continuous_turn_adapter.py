@@ -17,6 +17,7 @@ import time
 from typing import Literal, Protocol, cast
 from uuid import uuid4
 
+from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
@@ -233,6 +234,13 @@ class ContinuousTurnAdapter:
                                 "type": type(exc).__name__,
                                 "message": str(exc),
                             },
+                            "metrics": {
+                                "provider_attempts": 0,
+                                "tool_calls": 0,
+                                "duplicate_queries": 0,
+                                "structural_status": "failed",
+                                "semantic_status": "unavailable",
+                            },
                         }
                     ),
                 ),
@@ -273,6 +281,21 @@ class ContinuousTurnAdapter:
                         "schema_version": 1,
                         "execution_kind": "deterministic_fast_path",
                         "outcome": raw,
+                        "metrics": {
+                            "provider_attempts": 0,
+                            "tool_calls": _non_negative_int(raw.get("tool_calls")),
+                            "duplicate_queries": 0,
+                            "structural_status": (
+                                raw_status
+                                if raw_status in {"completed", "partial", "failed"}
+                                else "partial"
+                            ),
+                            "semantic_status": (
+                                "passed"
+                                if raw_status == "completed" and answer
+                                else "unavailable"
+                            ),
+                        },
                     }
                 ),
             ),
@@ -287,6 +310,8 @@ class ContinuousTurnAdapter:
         context: ResearchRunContext | None = None
         outcome: AgentOutcome | None = None
         structural: VerifiedEpisodeOutcome | None = None
+        semantic: SemanticEpisodeOutcome | None = None
+        attempts_before = _ledger_attempt_count()
         try:
             task_id = str(self._task_id_factory() or "").strip()
             if not task_id:
@@ -348,6 +373,18 @@ class ContinuousTurnAdapter:
                     "type": type(exc).__name__,
                     "message": str(exc),
                 },
+                "metrics": _episode_metrics(
+                    outcome,
+                    attempts_before=attempts_before,
+                    structural_status=(
+                        structural.verified_status
+                        if structural is not None
+                        else "failed"
+                    ),
+                    semantic_status=(
+                        semantic.judge_status if semantic is not None else "unavailable"
+                    ),
+                ),
             }
             if outcome is not None:
                 partial_artifact["outcome"] = _private_outcome(outcome)
@@ -457,6 +494,12 @@ class ContinuousTurnAdapter:
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
             "semantic_verifier": semantic.to_dict(),
+            "metrics": _episode_metrics(
+                outcome,
+                attempts_before=attempts_before,
+                structural_status=structural.verified_status,
+                semantic_status=semantic.judge_status,
+            ),
         }
         return ContinuousTurnResult(
             handled=True,
@@ -475,6 +518,58 @@ class ContinuousTurnAdapter:
             ),
             events=_public_events(status=status),
         )
+
+
+def _non_negative_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
+
+
+def _ledger_attempt_count() -> int:
+    ledger = llm_refine.current_call_ledger()
+    if ledger is None:
+        return 0
+    summary = ledger.summary()
+    return _non_negative_int(summary.get("call_count"))
+
+
+def _duplicate_query_count(outcome: AgentOutcome | None) -> int:
+    if outcome is None:
+        return 0
+    return sum(
+        1
+        for event in outcome.events
+        if event.kind == "tool_error"
+        and str(event.payload.get("error") or "") == "duplicate_query"
+    )
+
+
+def _episode_metrics(
+    outcome: AgentOutcome | None,
+    *,
+    attempts_before: int,
+    structural_status: str,
+    semantic_status: str,
+) -> dict[str, object]:
+    provider_attempts = max(0, _ledger_attempt_count() - attempts_before)
+    if outcome is not None:
+        provider_attempts = max(provider_attempts, outcome.usage.llm_calls)
+    return {
+        "provider_attempts": provider_attempts,
+        "tool_calls": outcome.usage.tool_calls if outcome is not None else 0,
+        "duplicate_queries": _duplicate_query_count(outcome),
+        "structural_status": (
+            structural_status
+            if structural_status in {"completed", "partial", "failed"}
+            else "failed"
+        ),
+        "semantic_status": (
+            semantic_status
+            if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
+            else "unavailable"
+        ),
+    }
 
 
 def _declined_result() -> ContinuousTurnResult:
