@@ -39,6 +39,7 @@ from intelligence.services.turn_control_core import TurnControlResult
 RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "degraded", "failed"]
 CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
+DEFAULT_VERIFICATION_RESERVE_SECONDS = 30.0
 LEGACY_DETERMINISTIC_OWNER_TYPES = frozenset(
     {"external_market", "quick_fact", "dated_market_review"}
 )
@@ -83,6 +84,7 @@ class ContinuousTurnAdapter:
         structural_verifier: Callable[..., object] = verify_episode_outcome,
         task_id_factory: Callable[[], str] = _new_task_id,
         timeout: float = 90.0,
+        verification_reserve: float = DEFAULT_VERIFICATION_RESERVE_SECONDS,
         tier: str = "standard",
         today: str | None = None,
         latest_data_date: str | None = None,
@@ -109,6 +111,7 @@ class ContinuousTurnAdapter:
         self._semantic_verifier = semantic_verifier
         self._task_id_factory = task_id_factory
         self._timeout = max(0.0, float(timeout))
+        self._verification_reserve = max(0.0, float(verification_reserve))
         self._tier = str(tier or "standard").strip()
         self._today = today
         self._latest_data_date = latest_data_date
@@ -313,6 +316,13 @@ class ContinuousTurnAdapter:
         semantic: SemanticEpisodeOutcome | None = None
         attempts_before = _ledger_attempt_count()
         try:
+            root_timeout = self._remaining_timeout()
+            root_deadline = ResearchDeadline.from_timeout(root_timeout)
+            verification_reserve = min(
+                self._verification_reserve,
+                root_timeout / 3.0,
+            )
+            runtime_timeout = max(0.0, root_timeout - verification_reserve)
             task_id = str(self._task_id_factory() or "").strip()
             if not task_id:
                 raise ValueError("task_id_factory must return a non-empty identity")
@@ -321,7 +331,7 @@ class ContinuousTurnAdapter:
                 task_id=task_id,
                 capabilities=control.capabilities,
                 tier=self._tier,
-                timeout=self._remaining_timeout(),
+                timeout=runtime_timeout,
                 today=self._today,
                 latest_data_date=self._latest_data_date,
             )
@@ -358,7 +368,7 @@ class ContinuousTurnAdapter:
             semantic_candidate = self._semantic_verifier.verify(
                 frame=frame,
                 structurally_verified=structural,
-                deadline=context.deadline,
+                deadline=root_deadline,
             )
             if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
                 raise TypeError("semantic verifier must return SemanticEpisodeOutcome")

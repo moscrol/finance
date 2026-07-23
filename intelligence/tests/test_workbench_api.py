@@ -372,7 +372,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         assert kwargs["run_id"] == "run"
         assert kwargs["assistant_message_id"] == "message"
         assert callable(kwargs["is_cancelled"])
-        assert 0 < float(kwargs["timeout"]) <= 90
+        assert 0 < float(kwargs["timeout"]) <= 120
         assert kwargs["deadline_expires_at"] == signal.deadline_expires_at
         return continuous_adapter
 
@@ -449,6 +449,46 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     assert 0 < adapter._remaining_timeout() <= 42.0
     assert adapter._timeout == 42.0
     assert adapter._task_id_factory() == "run-a:message-b"
+
+
+def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class CapturingOrchestrator:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def run_turn(self, **_kwargs: object) -> None:
+            return None
+
+    monkeypatch.setattr(app_module, "TurnOrchestrator", CapturingOrchestrator)
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **kwargs: captured.setdefault("adapter_kwargs", kwargs),
+    )
+    signal = app_module.CancellationSignal(deadline_expires_at=time.monotonic() + 300.0)
+
+    app_module._run_conversation_turn(
+        repo_root=tmp_path,
+        conversation_store=object(),
+        run_store=object(),
+        conversation_id="conversation",
+        run_id="run",
+        assistant_message_id="message",
+        query="研究当前市场",
+        skill_mode="auto",
+        selected_skill_ids=[],
+        cancellation_signal=signal,
+        llm_providers=(),
+    )
+
+    adapter_kwargs = captured["adapter_kwargs"]
+    assert isinstance(adapter_kwargs, dict)
+    assert adapter_kwargs["timeout"] == pytest.approx(120.0, abs=0.1)
 
 
 def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None:

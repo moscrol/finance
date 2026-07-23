@@ -609,6 +609,15 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
         run_store.load_stream_events(run_id),
         ensure_ascii=False,
     )
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [(snapshot["phase"], snapshot["final"]) for snapshot in snapshots] == [
+        ("verified_draft", False),
+        ("validated_synthesis", True),
+    ]
     assert "PRIVATE_EVIDENCE_HASH" not in public_stream
     assert "PRIVATE_PROVIDER_ATTEMPT" not in public_stream
     assert "PRIVATE_SYSTEM_PROMPT" not in public_stream
@@ -789,7 +798,13 @@ def test_continuous_degraded_turn_is_transport_complete_but_business_partial(
     assert report["research_status"] == "partial"
     assert report["answer_status"] == "partial"
     assert report["status"] == "partial"
-    assert snapshots[-1]["payload"]["phase"] == "evidence_gap_fallback"
+    assert [
+        (snapshot["payload"]["phase"], snapshot["payload"]["final"])
+        for snapshot in snapshots
+    ] == [
+        ("verified_draft", False),
+        ("evidence_gap_fallback", True),
+    ]
 
 
 def test_continuous_failed_turn_uses_same_message_and_run_identity(

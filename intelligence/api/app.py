@@ -93,6 +93,7 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+_CONTINUOUS_TURN_TIMEOUT_SECONDS = 120.0
 _CONTINUOUS_RUNTIME_MODES = frozenset({"off", "canary", "on"})
 
 
@@ -630,8 +631,8 @@ def _run_conversation_turn(
                 assistant_message_id=assistant_message_id,
                 is_cancelled=cancellation_signal.is_set,
                 timeout=min(
-                    90.0,
-                    cancellation_signal.remaining(90.0),
+                    _CONTINUOUS_TURN_TIMEOUT_SECONDS,
+                    cancellation_signal.remaining(_CONTINUOUS_TURN_TIMEOUT_SECONDS),
                 ),
                 deadline_expires_at=cancellation_signal.deadline_expires_at,
             ),

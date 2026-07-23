@@ -504,7 +504,7 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
             calls.append("semantic")
             assert frame is not None
             assert isinstance(structurally_verified, VerifiedEpisodeOutcome)
-            assert deadline is context.deadline
+            assert deadline.remaining() > context.deadline.remaining()
             return SemanticEpisodeOutcome(
                 verified=structurally_verified,
                 status="completed",
@@ -549,6 +549,75 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert "structural_verifier" in result.private_artifact
     assert "semantic_verifier" in result.private_artifact
     assert "PRIVATE_HASH_SENTINEL" not in str(result.events)
+
+
+def test_episode_reserves_root_deadline_for_semantic_verification() -> None:
+    frame = _frame()
+    control = _control(frame)
+    captured: dict[str, float] = {}
+
+    def context_factory(candidate, **kwargs):
+        captured["runtime_timeout"] = float(kwargs["timeout"])
+        return build_episode_context(candidate, **kwargs)
+
+    class Runtime:
+        def run(self, *, task_frame, context, registry):
+            del registry
+            evidence = AgentEvidence(
+                tool="market_data",
+                title="A股市场总览",
+                detail="市场结构已更新",
+                source="本地行情",
+                source_date="2026-07-22",
+                content_hash="deadline-reserve-evidence",
+            )
+            return AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status="completed",
+                draft="当前市场结构已更新。",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(
+                    EpisodeEvent(
+                        1,
+                        "task",
+                        {"task_frame_hash": task_frame.task_frame_hash},
+                    ),
+                ),
+                bindings=(
+                    OutputEvidenceBinding(
+                        "direct_assessment",
+                        ("deadline-reserve-evidence",),
+                    ),
+                ),
+                usage=AgentUsage(llm_calls=1, tool_calls=1),
+            )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, deadline, **_kwargs):
+            captured["semantic_remaining"] = deadline.remaining()
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer="当前市场结构已更新。",
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=context_factory,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        timeout=120.0,
+        verification_reserve=30.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert captured["runtime_timeout"] == pytest.approx(90.0, abs=0.1)
+    assert captured["semantic_remaining"] > 119.0
 
 
 def test_private_artifact_counts_physical_attempts_and_duplicate_queries() -> None:

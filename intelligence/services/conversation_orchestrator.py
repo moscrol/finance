@@ -3441,6 +3441,19 @@ class TurnOrchestrator:
         self._emit(
             run_id,
             assistant_message_id,
+            "continuous:answer:draft",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase="verified_draft",
+                text=answer_text,
+                final=False,
+            ).payload(),
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
             "continuous:text",
             "text.delta",
             {"delta": answer_text},
@@ -3452,7 +3465,7 @@ class TurnOrchestrator:
             "continuous:answer",
             "answer.snapshot",
             AnswerSnapshot(
-                revision=1,
+                revision=2,
                 phase=(
                     "validated_synthesis"
                     if result.status == "completed"

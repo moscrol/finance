@@ -58,6 +58,10 @@ _CONTROL_FIELD_RE = re.compile(
     r"证据哈希|内容哈希|内部定位|系统提示|工具调用)",
     re.IGNORECASE,
 )
+_STRICT_JSON_FENCE_RE = re.compile(
+    r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
+    re.DOTALL | re.IGNORECASE,
+)
 
 _JUDGE_SYSTEM_PROMPT = (
     "你是严格的语义证据审查器。只审查用户 JSON 中的原问题、required-output "
@@ -503,10 +507,15 @@ class SemanticEpisodeVerifier:
             if isinstance(value, Mapping):
                 payload = dict(value)
             elif isinstance(value, str):
-                # Whole-string JSON only.  The shared helper intentionally
-                # accepts fences/free text for legacy callers, so this gate
-                # first applies the stricter public-completion envelope.
-                payload = json.loads(value.strip())
+                # Accept either one bare JSON object or exactly one JSON code
+                # fence.  Some OpenAI-compatible models wrap schema-perfect
+                # JSON even when instructed not to.  Surrounding prose and
+                # trailing text remain invalid.
+                serialized = value.strip()
+                fenced = _STRICT_JSON_FENCE_RE.fullmatch(serialized)
+                if fenced is not None:
+                    serialized = fenced.group("body")
+                payload = json.loads(serialized)
             else:
                 return None
             if not isinstance(payload, dict) or set(payload) != {

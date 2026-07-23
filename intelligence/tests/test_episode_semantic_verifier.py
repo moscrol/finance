@@ -526,11 +526,10 @@ def test_repair_rebuilds_context_with_current_deadline_and_exact_contract() -> N
     "wrapped",
     [
         'I think {"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
-        '```json\n{"passed":true,"rejected_sentence_indexes":[],"issues":[]}\n```',
         '{"passed":true,"rejected_sentence_indexes":[],"issues":[]} trailing',
     ],
 )
-def test_judge_requires_one_unwrapped_json_object(wrapped: str) -> None:
+def test_judge_rejects_json_with_surrounding_prose(wrapped: str) -> None:
     frame, structural = _structural("市场当前偏弱。")
     result = SemanticEpisodeVerifier(judge_fn=lambda _request: wrapped).verify(
         frame=frame,
@@ -539,6 +538,21 @@ def test_judge_requires_one_unwrapped_json_object(wrapped: str) -> None:
     )
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
+
+
+def test_judge_accepts_one_strict_json_code_fence() -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda _request: (
+            '```json\n{"passed":true,"rejected_sentence_indexes":[],"issues":[]}\n```'
+        )
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
 
 
 @pytest.mark.parametrize(
