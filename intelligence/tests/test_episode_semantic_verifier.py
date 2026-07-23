@@ -217,6 +217,8 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert policy["labelled_analytical_inference_allowed"] is True
     assert policy["requested_conditional_estimate_allowed"] is True
     assert policy["unsupported_external_cause_rejected"] is True
+    assert policy["unsupported_historical_probability_rejected"] is True
+    assert policy["unsupported_supporting_statistics_rejected"] is True
     assert policy["unsupported_numeric_trigger_rejected"] is True
     system_prompt = sent["messages"][0]["content"]
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
@@ -344,6 +346,51 @@ def test_draft_repair_preserves_truth_state_and_rejudges() -> None:
     assert repaired.usage == original.usage
     assert repair.kwargs[0]["draft"] == original.draft
     assert repair.kwargs[0]["rejected_sentences"] == ("政策变化导致了下跌。",)
+
+
+@pytest.mark.parametrize(
+    "repaired_draft",
+    [
+        "政策调整引发了市场下跌。",
+        "成交额跌破9999亿元就意味着反弹结束。",
+    ],
+)
+def test_rejudge_rejects_paraphrased_or_new_unsupported_claim(
+    repaired_draft: str,
+) -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    calls = 0
+
+    def strict_judge(request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": ["外部因果无据"],
+            }
+        text = " ".join(str(item["text"]) for item in request["sentences"])
+        assert repaired_draft in text
+        return {
+            "passed": False,
+            "rejected_sentence_indexes": [1],
+            "issues": ["修复稿仍含无据因果或阈值"],
+        }
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=strict_judge,
+        finalizer=_Repair(repaired_draft),
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 2
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
+    assert repaired_draft not in result.public_answer
 
 
 def test_injected_passing_judge_records_correlated_limit() -> None:

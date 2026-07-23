@@ -71,7 +71,7 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     context = build_episode_context(
         frame,
         task_id="market-asof",
-        capabilities=("market_data",),
+        capabilities=("market_data", "mainline_context"),
         timeout=30.0,
         latest_data_date="2026-07-23",
     )
@@ -82,6 +82,13 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
             "当前成交额21949亿元\n2026-07-20：指数上涨0.85%",
             "本地 DuckDB · 预测盘面窗口",
             "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args: (
+            "最新主线为电子\n2026-07-20启动的电力仍在观察"
         ),
     )
     registry = build_episode_registry(
@@ -100,6 +107,16 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     )
 
     assert [item.source_date for item in observation.evidence] == [
+        "2026-07-23",
+        "2026-07-23",
+    ]
+    mainline = registry.execute(
+        "mainline_context",
+        "A股当前主线",
+        context=context,
+        step_id="market-asof:2",
+    )
+    assert [item.source_date for item in mainline.evidence] == [
         "2026-07-23",
         "2026-07-23",
     ]

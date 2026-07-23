@@ -81,6 +81,8 @@ _CLAIM_POLICY = {
     "labelled_analytical_inference_allowed": True,
     "requested_conditional_estimate_allowed": True,
     "unsupported_external_cause_rejected": True,
+    "unsupported_historical_probability_rejected": True,
+    "unsupported_supporting_statistics_rejected": True,
     "unsupported_numeric_trigger_rejected": True,
 }
 
