@@ -550,6 +550,72 @@ def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
     assert "market_data" not in result.public_answer
 
 
+def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class FlakyJudge:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(timeout)
+            if len(self.calls) == 1:
+                return ModelTurn(
+                    "",
+                    (),
+                    "glm",
+                    "LLM 调用失败（ReadTimeout）",
+                )
+            return ModelTurn(
+                '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+                (),
+                "glm",
+                "",
+            )
+
+    model = FlakyJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert len(model.calls) == 2
+    assert all(0.0 < timeout <= 5.0 for timeout in model.calls)
+
+
+def test_primary_judge_does_not_retry_configuration_failure(monkeypatch) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class MisconfiguredJudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            return ModelTurn("", (), "glm", "LLM 调用 HTTP 401")
+
+    model = MisconfiguredJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert model.calls == 1
+    assert "semantic judge configuration error" in result.issues
+    assert all("401" not in issue for issue in result.issues)
+
+
 def test_late_judge_pass_is_unavailable_and_cannot_complete() -> None:
     frame, structural = _structural("市场当前偏弱。")
 

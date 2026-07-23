@@ -461,6 +461,12 @@ and a short question-specific evidence-gap answer assembled from the TaskFrame
 and verified completion gaps. Preserve rejected drafts only in the private
 outcome/artifact.
 
+The correlated primary judge may retry once only for classified transient
+provider failures. Cap every judge attempt at 10 seconds and reuse the root
+verification deadline. Do not retry authentication/configuration, call-budget,
+cancellation, malformed-envelope, or tool-call failures; reduce provider
+diagnostics to stable private reason codes.
+
 - [ ] **Step 5: Run and commit**
 
 ```bash

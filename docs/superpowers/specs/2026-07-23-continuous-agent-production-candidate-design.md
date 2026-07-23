@@ -237,6 +237,13 @@ Gate behavior:
    unverified draft remains in private artifacts for inspection.
 5. Semantic verification never upgrades structural status and never adds
    evidence.
+6. The semantic gate may retry its correlated primary judge once after a
+   classified transient failure (timeout, connection interruption, 429/5xx,
+   or empty response). Each attempt is capped at 10 seconds and consumes the
+   same root verification deadline. Authentication, configuration, budget,
+   cancellation, malformed-envelope, and tool-call failures are not retried.
+   Raw provider diagnostics remain private and are reduced to stable reason
+   codes.
 
 The semantic gate distinguishes claim types instead of treating every sentence
 as a quoted source fact. Observed facts, dates, factual numbers, external
@@ -271,6 +278,13 @@ lines are preserved. If a rejected span contains the direct answer, removing
 it is intentional fail-closed behavior; if no useful draft remains, the public
 projection becomes the question-specific evidence-gap answer. A malformed,
 unavailable, or re-rejected result also fails closed.
+
+One gate-local transient retry is intentionally owned here rather than inside
+`GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
+configured-adapter contract; the semantic gate, as a critical acceptance
+boundary, decides whether spending one additional call is justified. With the
+10-second per-attempt cap, initial judge, transient retry, and post-redaction
+rejudge remain bounded by the existing 30-second verification reserve.
 
 Judge execution reuses the repository's independent `LLM_JUDGE_*` provider
 selection when configured. Without it, canary may use the primary model but

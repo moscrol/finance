@@ -135,7 +135,7 @@ class SemanticEpisodeVerifier:
         *,
         primary_judge: AgentModelClient | JudgeFn | None = None,
         judge_client: AgentModelClient | JudgeFn | None = None,
-        judge_timeout: float = 15.0,
+        judge_timeout: float = 10.0,
     ) -> None:
         self._judge_fn = judge_fn
         self._primary_judge = primary_judge or judge_client
@@ -435,28 +435,59 @@ class SemanticEpisodeVerifier:
             return _JudgeCall(None, True, True, "semantic judge unavailable")
         if callable(primary) and not hasattr(primary, "complete"):
             return self._invoke_injected(cast(JudgeFn, primary), request, timeout, True)
-        try:
-            turn = primary.complete(
-                messages=[
-                    {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": json.dumps(request, ensure_ascii=False),
-                    },
-                ],
-                tools=[],
-                timeout=timeout,
-            )
-        except Exception as exc:
-            return _JudgeCall(
-                None, True, True, f"semantic judge unavailable: {type(exc).__name__}"
-            )
-        if not isinstance(turn, ModelTurn) or turn.error or turn.tool_calls:
-            return _JudgeCall(None, True, True, "semantic judge unavailable")
-        report = self._parse_report(turn.content, len(request["sentences"]))
-        if report is None:
-            return _JudgeCall(None, True, True, "invalid semantic judge output")
-        return _JudgeCall(report, False, True)
+        messages = [
+            {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": json.dumps(request, ensure_ascii=False),
+            },
+        ]
+        for attempt in range(2):
+            attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
+            if attempt_timeout <= 0.001:
+                return _JudgeCall(
+                    None,
+                    True,
+                    True,
+                    "semantic judge deadline exhausted",
+                )
+            try:
+                turn = primary.complete(
+                    messages=messages,
+                    tools=[],
+                    timeout=attempt_timeout,
+                )
+            except Exception as exc:
+                issue, retryable = _stable_semantic_judge_error(
+                    type(exc).__name__
+                )
+                if attempt == 0 and retryable and not deadline.expired:
+                    continue
+                return _JudgeCall(None, True, True, issue)
+            if not isinstance(turn, ModelTurn):
+                return _JudgeCall(
+                    None,
+                    True,
+                    True,
+                    "semantic judge invalid provider response",
+                )
+            if turn.tool_calls:
+                return _JudgeCall(
+                    None,
+                    True,
+                    True,
+                    "semantic judge returned an invalid tool call",
+                )
+            if turn.error:
+                issue, retryable = _stable_semantic_judge_error(turn.error)
+                if attempt == 0 and retryable and not deadline.expired:
+                    continue
+                return _JudgeCall(None, True, True, issue)
+            report = self._parse_report(turn.content, len(request["sentences"]))
+            if report is None:
+                return _JudgeCall(None, True, True, "invalid semantic judge output")
+            return _JudgeCall(report, False, True)
+        return _JudgeCall(None, True, True, "semantic judge unavailable")
 
     @staticmethod
     def _invoke_injected(
@@ -816,6 +847,56 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
         if len(positional) == len(required_positional):
             return fn(*positional)
     return fn(request)
+
+
+def _stable_semantic_judge_error(value: object) -> tuple[str, bool]:
+    """Classify provider failure without projecting raw diagnostics."""
+
+    normalized = str(value or "").strip().casefold()
+    if any(
+        marker in normalized
+        for marker in (
+            "401",
+            "402",
+            "403",
+            "authentication",
+            "authorization",
+            "api key",
+            "未配置",
+            "鉴权",
+            "认证",
+        )
+    ):
+        return "semantic judge configuration error", False
+    if "budget" in normalized or "预算" in normalized:
+        return "semantic judge call budget exhausted", False
+    if "cancel" in normalized or "取消" in normalized:
+        return "semantic judge cancelled", False
+    if any(
+        marker in normalized
+        for marker in (
+            "timeout",
+            "timed out",
+            "remote",
+            "urlerror",
+            "connection",
+            "empty_model_response",
+            "rate limit",
+            "temporar",
+            "429",
+            "500",
+            "502",
+            "503",
+            "504",
+            "限流",
+            "网络",
+            "断开",
+        )
+    ):
+        return "semantic judge transient provider error", True
+    if "invalid" in normalized or "malformed" in normalized:
+        return "semantic judge invalid provider response", False
+    return "semantic judge provider error", False
 
 
 def _sanitize_public_answer(
