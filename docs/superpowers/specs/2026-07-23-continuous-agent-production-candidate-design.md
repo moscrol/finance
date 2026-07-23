@@ -254,6 +254,12 @@ Gate behavior:
    cancellation, malformed-envelope, and tool-call failures are not retried.
    Raw provider diagnostics remain private and are reduced to stable reason
    codes.
+7. A deterministic supplement rejects a numeric condition when its full
+   quantity/range does not occur in evidence bound to the answer. It runs after
+   every model-judge report, so a correlated judge cannot pass a newly invented
+   support level, breadth threshold, or secondary forecast window. Dates, list
+   labels, the one clearly labelled base-case estimate requested by the user,
+   and numeric anchors present in bound evidence are unaffected.
 
 The semantic gate distinguishes claim types instead of treating every sentence
 as a quoted source fact. Observed facts, dates, factual numbers, external
@@ -299,6 +305,13 @@ rejudge remain bounded by the existing 30-second verification reserve.
 Judge execution reuses the repository's independent `LLM_JUDGE_*` provider
 selection when configured. Without it, canary may use the primary model but
 must record that correlated-judge limitation in the artifact.
+
+The semantic verifier owns text acceptance, not citation presentation. It
+returns only the accepted/sanitized draft. `ContinuousTurnAdapter` is the sole
+public citation owner and projects the bound evidence as structured
+`citations`; the verifier must not append the same ledger to answer text. This
+keeps prose concise and prevents two presentation layers from rendering the
+same sources differently.
 
 ## 6. Valuation evidence scheduling
 
@@ -386,10 +399,13 @@ Tests exercise public behavior at four agreed seams:
 
 - unsupported causality, subject swaps, stale-current claims, and fabricated
   numbers are rejected;
+- a model-judge pass cannot preserve a novel numeric condition absent from
+  bound evidence, while dates and evidence-backed numeric anchors remain;
 - targeted repair is rejudged once;
 - judge outage cannot produce public `completed`;
 - passed semantics cannot upgrade a structural partial;
-- public projection contains no internal evidence or provider identifiers.
+- public projection contains no internal evidence or provider identifiers and
+  does not duplicate the adapter-owned structured citation ledger.
 
 ### Conversation API seam
 

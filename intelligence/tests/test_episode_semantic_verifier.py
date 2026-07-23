@@ -401,6 +401,88 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     assert rejected_sentence not in result.verified.outcome.draft
 
 
+def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续2至5个交易日。"
+        "若指数跌破3870点则失效。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "2至5个交易日" in result.public_answer
+    assert "3870点" not in result.public_answer
+    assert "3870点" not in result.verified.outcome.draft
+
+
+def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "截至2026年7月23日，市场处于反弹阶段。"
+        "条件1：至少1至2个子板块走强才算成立。"
+        "条件2：上涨家数维持4000家以上才算成立。"
+        "失效信号3：若指数跌破3760至3800点区域则失效。"
+        "条件4：涨停仍维持百家左右才算成立。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 2  # type: ignore[attr-defined]
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "截至2026年7月23日，市场处于反弹阶段。"
+
+
+def test_local_gate_allows_dates_and_numeric_conditions_present_in_bound_evidence() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "条件1：若指数跌破2026年7月17日低点，则反弹失效。"
+        "若指数跌破3876.78点，则反弹失效。",
+        detail="2026年7月17日为窗口低点；上证指数收于3876.78点。",
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert "2026年7月17日低点" in result.public_answer
+    assert "3876.78点" in result.public_answer
+
+
+def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "若指数跌破3870点，则反弹失效。",
+        detail="另一个市场指数收于13870点。",
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
+    assert "3870点" not in result.public_answer
+
+
 def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
     raw = (
         "## 当前判断\n\n\n"
@@ -430,7 +512,7 @@ def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
 
 
 def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
-    missed_claim = "成交额跌破9999亿元就意味着反弹结束。"
+    missed_claim = "外资将持续流入，因此反弹将延续。"
     frame, structural = _structural(
         f"市场下跌。政策变化导致了下跌。{missed_claim}"
     )
@@ -451,7 +533,7 @@ def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
         return {
             "passed": False,
             "rejected_sentence_indexes": [2],
-            "issues": ["复核发现仍含无据阈值"],
+            "issues": ["复核发现仍含无据外部因果"],
         }
 
     result = SemanticEpisodeVerifier(judge_fn=strict_judge).verify(
@@ -835,7 +917,7 @@ def test_public_sanitizer_keeps_raw_material_and_valuation_model_facts() -> None
     assert "估值 model=DCF，折现率9%" in result.public_answer
 
 
-def test_public_citation_keeps_business_brand_but_filters_provider_diagnostic() -> None:
+def test_semantic_public_answer_does_not_duplicate_citation_ledger() -> None:
     frame, structural = _structural(
         "市场当前偏弱。",
         title="OpenAI公司公告",
@@ -847,22 +929,9 @@ def test_public_citation_keeps_business_brand_but_filters_provider_diagnostic() 
         deadline=ResearchDeadline.from_timeout(5),
     )
     assert result.status == "completed"
-    assert "市场当前偏弱" in result.public_answer
-    assert "OpenAI公司公告" in result.public_answer
-
-    frame, structural = _structural(
-        "市场当前偏弱。",
-        title="provider=OpenAI",
-        source="_provider_trace=Zhipu",
-    )
-    diagnostic = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
-    )
-    assert diagnostic.status == "completed"
-    assert "provider=" not in diagnostic.public_answer
-    assert "_provider_trace" not in diagnostic.public_answer
+    assert result.public_answer == "市场当前偏弱。"
+    assert "OpenAI公司公告" not in result.public_answer
+    assert "依据：" not in result.public_answer
 
 
 def test_structural_gap_filters_private_control_tokens_case_insensitively() -> None:

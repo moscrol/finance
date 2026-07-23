@@ -58,6 +58,33 @@ _STRICT_JSON_FENCE_RE = re.compile(
     r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
     re.DOTALL | re.IGNORECASE,
 )
+_CONDITION_TRIGGER_RE = re.compile(
+    r"(?:若|如果|条件|失效|降级|跌破|站稳|维持|至少|以上|以下|"
+    r"阈值|支撑|保持|骤降|才算成立|才成立)"
+)
+_LEADING_CONDITION_LABEL_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?"
+    r"(?:条件|失效信号|降级信号|触发条件)\s*"
+    r"(?:\d+|[一二三四五六七八九十]+)?"
+    r"\s*(?:[:：、.)）-]\s*)?"
+)
+_DATE_TOKEN_RE = re.compile(
+    r"(?:20\d{2}年\d{1,2}月\d{1,2}日|"
+    r"20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|"
+    r"\d{1,2}月\d{1,2}日)"
+)
+_ARABIC_QUANTITY_RE = re.compile(
+    r"[+-]?\d[\d,]*(?:\.\d+)?"
+    r"(?:\s*(?:至|到|~|～|—|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
+    r"\s*(?:万亿元|亿元|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
+)
+_CHINESE_QUANTITY_RE = re.compile(
+    r"[一二两三四五六七八九十百千万亿]+"
+    r"(?:万亿元|亿元|个百分点|点|家|只|个|天|日|周|月|年|倍|成)"
+)
+_NUMERIC_CONDITION_ISSUE = (
+    "unsupported numeric condition without bound evidence"
+)
 
 _JUDGE_SYSTEM_PROMPT = (
     "你是严格的语义证据审查器。只审查用户 JSON 中的原问题、required-output "
@@ -233,6 +260,8 @@ class SemanticEpisodeVerifier:
                 correlated_judge=first.correlated,
             )
 
+        first = _apply_numeric_condition_gate(first, sentences, structural)
+        assert first.report is not None
         if first.report.passed:
             return self._completed_public(
                 frame,
@@ -299,6 +328,11 @@ class SemanticEpisodeVerifier:
                 second.correlated,
                 "semantic judge deadline exhausted",
             )
+        second = _apply_numeric_condition_gate(
+            second,
+            repaired_sentences,
+            repaired_verified,
+        )
         correlated = first.correlated or second.correlated
         if second.report is not None and second.report.passed:
             return self._completed_public(
@@ -647,9 +681,6 @@ class SemanticEpisodeVerifier:
                 issues=tuple(dict.fromkeys((*judge_issues, "public projection empty"))),
                 correlated_judge=correlated_judge,
             )
-        citations = _public_citations(verified.outcome)
-        if citations:
-            public = f"{public}\n\n{citations}"
         return SemanticEpisodeOutcome(
             verified=verified,
             status="completed",
@@ -708,6 +739,95 @@ def _numbered_sentences(draft: str) -> list[dict[str, object]]:
             continue
         sentences.append({"index": len(sentences) + 1, "text": text})
     return sentences
+
+
+def _apply_numeric_condition_gate(
+    call: _JudgeCall,
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> _JudgeCall:
+    """Augment a model report with deterministic novel-threshold rejection.
+
+    The model remains responsible for semantic entailment.  This narrow gate
+    catches one correlated-judge failure observed in the real canary: a
+    conditional sentence introduced a numeric threshold that did not occur in
+    any evidence bound to the answer.  Dates, list labels, requested baseline
+    estimates, and numeric anchors present in bound evidence are unaffected.
+    """
+
+    report = call.report
+    if report is None:
+        return call
+    rejected = set(report.rejected_sentence_indexes)
+    evidence_quantities = _bound_evidence_quantities(verified.outcome)
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int) or not _CONDITION_TRIGGER_RE.search(text):
+            continue
+        candidate = _DATE_TOKEN_RE.sub("", text)
+        candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
+        quantities = (
+            *_ARABIC_QUANTITY_RE.findall(candidate),
+            *_CHINESE_QUANTITY_RE.findall(candidate),
+        )
+        if any(
+            _normalize_quantity(quantity) not in evidence_quantities
+            for quantity in quantities
+            if _normalize_quantity(quantity)
+        ):
+            rejected.add(index)
+    if rejected == set(report.rejected_sentence_indexes):
+        return call
+    issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
+    return _JudgeCall(
+        answer_model.GroundingJudgeReport(
+            passed=False,
+            rejected_sentence_indexes=tuple(sorted(rejected)),
+            issues=issues,
+        ),
+        call.unavailable,
+        call.correlated,
+        call.issue,
+    )
+
+
+def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
+    bound_hashes = {
+        content_hash
+        for binding in outcome.bindings
+        for content_hash in binding.evidence_hashes
+    }
+    fields: list[str] = []
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes:
+            continue
+        fields.extend(
+            (
+                item.title,
+                item.detail,
+                item.source,
+                str(item.source_date or ""),
+            )
+        )
+    corpus = " ".join(fields)
+    return frozenset(
+        _normalize_quantity(quantity)
+        for quantity in (
+            *_ARABIC_QUANTITY_RE.findall(corpus),
+            *_CHINESE_QUANTITY_RE.findall(corpus),
+        )
+        if _normalize_quantity(quantity)
+    )
+
+
+def _normalize_quantity(value: object) -> str:
+    return (
+        re.sub(r"[\s,，]", "", str(value or ""))
+        .replace("～", "至")
+        .replace("~", "至")
+        .replace("—", "至")
+    )
 
 
 def _drop_rejected_sentences(
@@ -916,38 +1036,6 @@ def _sanitize_public_answer(
             continue
         kept.append(line)
     return "\n".join(kept).strip()
-
-
-def _public_citations(outcome: AgentOutcome) -> str:
-    """Expose only human-readable citation metadata at the public boundary."""
-
-    bound_hashes = {
-        content_hash
-        for binding in outcome.bindings
-        for content_hash in binding.evidence_hashes
-    }
-    private_tokens = _private_tokens(outcome.evidence, outcome.traces)
-    lines: list[str] = []
-    for item in outcome.evidence:
-        if item.content_hash not in bound_hashes:
-            continue
-        title = " ".join(item.title.split())
-        source = " ".join(item.source.split())
-        date = " ".join(str(item.source_date or "").split())
-        if any(
-            _contains_private_token(value, private_tokens)
-            for value in (title, source, date)
-            if value
-        ):
-            continue
-        if not (title or source or date):
-            continue
-        fields = "；".join(value for value in (source, date) if value)
-        citation = title or source or date
-        if fields and fields != citation:
-            citation = f"{citation}（{fields}）"
-        lines.append(f"依据：{citation}")
-    return "\n".join(dict.fromkeys(lines))
 
 
 def _private_tokens(

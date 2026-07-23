@@ -467,6 +467,14 @@ verification deadline. Do not retry authentication/configuration, call-budget,
 cancellation, malformed-envelope, or tool-call failures; reduce provider
 diagnostics to stable private reason codes.
 
+Augment every valid model-judge report with a deterministic novel-threshold
+check. For conditional/trigger sentences, reject quantities or ranges absent
+from evidence bound to the answer. Strip dates and list labels before the
+comparison; preserve the user's requested, clearly labelled base-case estimate
+and any numeric anchor that appears in bound evidence. The semantic verifier
+must return accepted prose only. Keep structured citation projection solely in
+`ContinuousTurnAdapter`; do not append a second `依据：...` ledger to the answer.
+
 - [ ] **Step 4a: Keep UI and A/B budget composition identical**
 
 Inject `GLMAgentRuntime.synthesis_reserve_for_task` at the Workbench
