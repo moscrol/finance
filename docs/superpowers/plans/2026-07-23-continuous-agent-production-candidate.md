@@ -450,16 +450,16 @@ class SemanticEpisodeOutcome:
 
 - [ ] **Step 4: Add one repair/rejudge and fail-closed projection**
 
-Only structurally completed outcomes enter the judge. On rejection, call
-`EpisodeFinalizer.repair_draft()` once. Its compact request includes the frozen
-draft, rejected sentences, judge issues, and required-output descriptions; it
-returns only `{"draft":"..."}`. Rebuild the outcome with the original evidence,
-bindings, gaps, and status unchanged, re-run the structural verifier, then
-judge once more. The repair cannot mint evidence hashes, alter binding
-ownership, or upgrade status. If any step is unavailable/invalid/rejected,
-return `partial` and a short question-specific evidence-gap answer assembled
-from the TaskFrame and verified completion gaps. Preserve rejected drafts only
-in the private outcome/artifact.
+Only structurally completed outcomes enter the judge. On rejection,
+deterministically remove the exact numbered source spans rejected by the
+judge, preserving all accepted text and Markdown layout verbatim. Rebuild the
+outcome with the original evidence, bindings, gaps, status, events, traces,
+and usage unchanged, re-run the structural verifier, then judge once more.
+The repair cannot mint wording, evidence hashes, alter binding ownership, or
+upgrade status. If any step is unavailable/invalid/rejected, return `partial`
+and a short question-specific evidence-gap answer assembled from the TaskFrame
+and verified completion gaps. Preserve rejected drafts only in the private
+outcome/artifact.
 
 - [ ] **Step 5: Run and commit**
 

@@ -226,12 +226,12 @@ Gate behavior:
 1. Structural verification runs first and may only preserve or downgrade.
 2. A structurally completed draft cannot become publicly completed until the
    semantic judge passes.
-3. Rejected sentences trigger one targeted **draft-only** repair, followed by
-   one rejudge. The repair input contains the frozen original draft, rejected
-   sentence texts, judge issues, and required-output descriptions. It does not
-   receive authority to rewrite bindings or add evidence. Its only output is a
-   revised draft; the original evidence, bindings, gaps, and completion status
-   are copied unchanged into the repaired outcome before structural recheck.
+3. Rejected sentences trigger one deterministic **span redaction**, followed
+   by one rejudge. Only the exact numbered spans rejected by the judge are
+   removed; accepted text and Markdown layout remain verbatim. The original
+   evidence, bindings, gaps, completion status, events, traces, and usage are
+   copied unchanged into the repaired outcome before structural recheck. No
+   model receives wording authority during semantic repair.
 4. Invalid/unavailable judge output in canary/on mode fails closed to partial.
    The public response is a short deterministic evidence-gap answer; the
    unverified draft remains in private artifacts for inspection.
@@ -254,16 +254,23 @@ individual lines remain part of the content. The verifier must not infer that a
 current snapshot is stale merely because a summary line omitted a repeated date
 literal.
 
-The draft-only seam is deliberate. A 2026-07-23 real-GLM canary showed that
-reusing the full finalizer contract made semantic repair resend roughly 18K
-characters of evidence and regenerate every binding. It timed out at 20
-seconds; at 40 seconds it returned a long `partial` envelope with new arbitrary
-threshold language. Two rejected alternatives were therefore discarded:
-raising the timeout merely gives the over-broad rewrite more room, while
-deterministically deleting numbered sentences damages Markdown and can remove
-the direct answer. Draft-only repair keeps the truth plane frozen and gives the
-model only wording authority. A malformed, unavailable, or re-rejected repair
-still fails closed to the question-specific evidence-gap answer.
+The repair seam is deliberately non-generative. An initial 2026-07-23 canary
+first rejected full-envelope regeneration because it resent roughly 18K
+characters, timed out, and could mint new threshold language. A smaller
+draft-only model repair was then tested. The real run exposed a hard budget
+contradiction: the 30-second verification reserve had to cover a 15-second
+judge, a 20-second repair, and a 15-second rejudge. The repair consumed the
+remaining budget and made rejudge impossible. Raising the reserve or root
+timeout would trade correctness for user-visible latency.
+
+Deterministic redaction therefore supersedes the draft-only model call. It
+cannot introduce a paraphrased unsupported claim, needs no extra generation
+budget, and leaves enough time for the required second judge. Redaction uses
+source spans rather than sentence re-joining, so headings, lists, and blank
+lines are preserved. If a rejected span contains the direct answer, removing
+it is intentional fail-closed behavior; if no useful draft remains, the public
+projection becomes the question-specific evidence-gap answer. A malformed,
+unavailable, or re-rejected result also fails closed.
 
 Judge execution reuses the repository's independent `LLM_JUDGE_*` provider
 selection when configured. Without it, canary may use the primary model but

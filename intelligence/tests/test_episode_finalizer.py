@@ -159,53 +159,6 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
     assert 0.0 < sent["timeout"] <= 20.0
 
 
-def test_repair_draft_sends_only_frozen_draft_and_feedback() -> None:
-    model = RecordingModel(ModelTurn("{}", (), "recording", ""))
-    frame = _frame()
-
-    turn = EpisodeFinalizer(model).repair_draft(
-        task_frame=frame,
-        context=_context(frame),
-        draft="市场下跌。政策变化导致了下跌。",
-        rejected_sentences=("市场一定上涨。", "风险已经消失。"),
-        judge_issues=("因果证据不足",),
-    )
-
-    sent = model.calls[0]
-    assert sent["tools"] == []
-    payload = json.loads(sent["messages"][1]["content"])
-    assert set(payload) == {
-        "task_frame",
-        "required_outputs",
-        "draft",
-        "rejected_sentences",
-        "judge_issues",
-    }
-    assert payload["draft"] == "市场下跌。政策变化导致了下跌。"
-    assert payload["required_outputs"] == [
-        {
-            "output_id": "direct_assessment",
-            "description": "给出市场结构判断",
-            "required": True,
-        }
-    ]
-    assert payload["rejected_sentences"] == [
-        {"index": 1, "sentence": "市场一定上涨。"},
-        {"index": 2, "sentence": "风险已经消失。"},
-    ]
-    assert payload["judge_issues"] == ["因果证据不足"]
-    assert "evidence" not in payload
-    assert "bindings" not in payload
-    assert len(sent["messages"]) == 2
-    assert turn is model._turn
-    system_prompt = sent["messages"][0]["content"]
-    assert "用户明确要求预测" in system_prompt
-    assert "主观估计" in system_prompt
-    assert "不得把被拒绝内容改写成“证据给出”" in system_prompt
-    assert "内部工具名" in system_prompt
-    assert "改成自然语言过程描述" in system_prompt
-
-
 def test_recovery_uses_only_remaining_synthesis_time() -> None:
     model = RecordingModel(ModelTurn("{}", (), "recording", ""))
     frame = _frame()

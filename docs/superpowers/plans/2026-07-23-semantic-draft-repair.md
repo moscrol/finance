@@ -1,4 +1,14 @@
-# Semantic Draft-Only Repair Implementation Plan
+# Semantic Repair Implementation Plan (Superseded Detail)
+
+> **Status update, 2026-07-23:** The draft-only model call described below was
+> implemented and then rejected by an isolated real-GLM canary. With a
+> 30-second verification reserve, the maximum stage budgets were 15 seconds
+> for the first judge, 20 seconds for repair, and 15 seconds for rejudge. The
+> repair consumed the remaining budget, so public verification could not
+> complete. The production-candidate design now uses deterministic
+> rejected-span redaction plus one rejudge. The historical steps below remain
+> only as the experiment record and must not be treated as the current runtime
+> contract.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

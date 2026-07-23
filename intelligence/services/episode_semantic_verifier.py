@@ -36,11 +36,7 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import (
-    ResearchDeadline,
-    ResearchPolicy,
-    ResearchRunContext,
-)
+from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -77,7 +73,8 @@ _JUDGE_SYSTEM_PROMPT = (
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
-    "passed=false 并列出句号。"
+    "passed=false 并列出句号。必须从第1句检查到最后一句，一次返回全部不合格句号；"
+    "不得发现首批问题后提前停止。"
 )
 
 _CLAIM_POLICY = {
@@ -138,13 +135,11 @@ class SemanticEpisodeVerifier:
         *,
         primary_judge: AgentModelClient | JudgeFn | None = None,
         judge_client: AgentModelClient | JudgeFn | None = None,
-        context: ResearchRunContext | None = None,
         judge_timeout: float = 15.0,
     ) -> None:
         self._judge_fn = judge_fn
         self._primary_judge = primary_judge or judge_client
         self._finalizer = finalizer
-        self._context = context
         self._judge_timeout = max(0.1, float(judge_timeout))
 
     def verify(
@@ -247,17 +242,10 @@ class SemanticEpisodeVerifier:
                 correlated_judge=first.correlated,
             )
 
-        rejected_sentences = tuple(
-            item["text"]
-            for item in sentences
-            if item["index"] in first.report.rejected_sentence_indexes
-        )
         repaired = self._repair(
             frame=frame,
             structural=structural,
-            deadline=deadline,
-            rejected_sentences=rejected_sentences,
-            judge_issues=first.report.issues,
+            rejected_sentence_indexes=first.report.rejected_sentence_indexes,
         )
         if repaired is None:
             issues = tuple(
@@ -573,53 +561,18 @@ class SemanticEpisodeVerifier:
         *,
         frame: TaskFrame,
         structural: VerifiedEpisodeOutcome,
-        deadline: ResearchDeadline,
-        rejected_sentences: tuple[str, ...],
-        judge_issues: tuple[str, ...],
+        rejected_sentence_indexes: tuple[int, ...],
     ) -> tuple[VerifiedEpisodeOutcome, TaskFrame] | None:
-        finalizer = self._finalizer
-        if finalizer is None:
-            return None
         contract = structural.contract
         if contract is None:
             return None
-        base_context = self._context
-        context = ResearchRunContext(
-            contract=contract,
-            deadline=deadline,
-            policy=(
-                base_context.policy
-                if base_context is not None
-                else ResearchPolicy.for_tier(contract.research_tier)
-            ),
-            trace_parent_id=(
-                base_context.trace_parent_id
-                if base_context is not None
-                else contract.task_id
-            ),
-            today=base_context.today if base_context is not None else None,
-            latest_data_date=(
-                base_context.latest_data_date if base_context is not None else None
-            ),
-        )
-        try:
-            turn = _call_draft_repair(
-                finalizer,
-                task_frame=frame,
-                context=context,
-                draft=structural.outcome.draft,
-                rejected_sentences=rejected_sentences,
-                judge_issues=judge_issues,
-            )
-        except Exception:
-            return None
-        if not isinstance(turn, ModelTurn) or turn.error or turn.tool_calls:
-            return None
-        try:
-            draft = _parse_draft_repair(turn.content)
-        except Exception:
-            return None
         original = structural.outcome
+        draft = _drop_rejected_sentences(
+            original.draft,
+            rejected_sentence_indexes,
+        )
+        if not draft:
+            return None
         repaired_outcome = AgentOutcome(
             task_frame_hash=original.task_frame_hash,
             status=original.status,
@@ -726,6 +679,41 @@ def _numbered_sentences(draft: str) -> list[dict[str, object]]:
     return sentences
 
 
+def _drop_rejected_sentences(
+    draft: str,
+    rejected_sentence_indexes: tuple[int, ...],
+) -> str:
+    """Remove rejected spans while preserving accepted Markdown verbatim."""
+
+    source = str(draft or "")
+    rejected = frozenset(rejected_sentence_indexes)
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    for item in _numbered_sentences(source):
+        text = str(item["text"])
+        start = source.find(text, cursor)
+        if start < 0:
+            return ""
+        end = start + len(text)
+        if item["index"] in rejected:
+            delete_start = start
+            line_start = source.rfind("\n", 0, start) + 1
+            if source[line_start:start].strip() == "":
+                delete_start = line_start
+            delete_end = end
+            if (
+                delete_end < len(source)
+                and source[delete_end] == "\n"
+                and (delete_start == 0 or source[delete_start - 1] == "\n")
+            ):
+                delete_end += 1
+            spans.append((delete_start, delete_end))
+        cursor = end
+    for start, end in reversed(spans):
+        source = f"{source[:start]}{source[end:]}"
+    return source.strip()
+
+
 def _semantic_tool_status_registry(
     traces: tuple[ProviderTrace, ...],
 ) -> list[dict[str, object]]:
@@ -828,45 +816,6 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
         if len(positional) == len(required_positional):
             return fn(*positional)
     return fn(request)
-
-
-def _call_draft_repair(finalizer: object, **kwargs: object) -> object:
-    method = getattr(finalizer, "repair_draft", None)
-    if method is None or not callable(method):
-        raise TypeError("finalizer does not expose repair_draft")
-    try:
-        signature = inspect.signature(method)
-    except (TypeError, ValueError):
-        accepted = kwargs
-    else:
-        accepts_all = any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD
-            for parameter in signature.parameters.values()
-        )
-        accepted = {
-            name: value
-            for name, value in kwargs.items()
-            if accepts_all or name in signature.parameters
-        }
-    # Invocation happens exactly once.  A TypeError raised inside the model is
-    # a real failed repair, not a signal to invoke it with a second signature.
-    return method(**accepted)
-
-
-def _parse_draft_repair(content: str) -> str:
-    """Accept only the tiny wording-only repair envelope."""
-
-    text = str(content or "").strip()
-    fenced = _STRICT_JSON_FENCE_RE.fullmatch(text)
-    if fenced is not None:
-        text = fenced.group("body")
-    payload = json.loads(text)
-    if not isinstance(payload, dict) or set(payload) != {"draft"}:
-        raise ValueError("draft repair must contain only draft")
-    draft = payload["draft"]
-    if not isinstance(draft, str) or not draft.strip():
-        raise ValueError("draft repair must be non-empty")
-    return draft.strip()
 
 
 def _sanitize_public_answer(

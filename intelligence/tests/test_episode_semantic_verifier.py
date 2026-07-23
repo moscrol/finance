@@ -13,7 +13,6 @@ from intelligence.services.agent_runtime import (
     AgentUsage,
     EpisodeEvent,
     ModelTurn,
-    ModelToolCall,
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
@@ -22,8 +21,6 @@ from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
-    ResearchPolicy,
-    ResearchRunContext,
     ResearchTaskContract,
 )
 from intelligence.services.research_contract import ResearchDeadline
@@ -122,59 +119,6 @@ def _judge(
     return run
 
 
-class _Repair:
-    def __init__(
-        self,
-        draft: str,
-        *,
-        fenced: bool = False,
-        content: str | None = None,
-        tool_calls: tuple[ModelToolCall, ...] = (),
-        error: str = "",
-    ):
-        self.draft = draft
-        self.calls = 0
-        self.kwargs: list[dict[str, object]] = []
-        self.fenced = fenced
-        self.content = content
-        self.tool_calls = tool_calls
-        self.error = error
-
-    def repair_draft(self, **kwargs):
-        self.calls += 1
-        self.kwargs.append(kwargs)
-        content = self.content
-        if content is None:
-            content = json.dumps({"draft": self.draft}, ensure_ascii=False)
-            if self.fenced:
-                content = f"```json\n{content}\n```"
-        return ModelTurn(
-            content,
-            self.tool_calls,
-            "primary",
-            self.error,
-        )
-
-
-class _TypeErrorRepair:
-    def __init__(self):
-        self.calls = 0
-
-    def repair_draft(self, **_kwargs):
-        self.calls += 1
-        raise TypeError("internal provider type error")
-
-
-class _ContextRecordingRepair(_Repair):
-    def __init__(self, draft: str):
-        super().__init__(draft)
-        self.contexts: list[ResearchRunContext] = []
-
-    def repair_draft(self, **kwargs):
-        self.contexts.append(kwargs["context"])
-        return super().repair_draft(**kwargs)
-
-
 class _RecordingJudgeModel:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -227,6 +171,8 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
     assert "外部因果" in system_prompt
     assert "任意触发阈值" in system_prompt
+    assert "从第1句检查到最后一句" in system_prompt
+    assert "一次返回全部不合格句号" in system_prompt
 
 
 def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
@@ -304,7 +250,7 @@ def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     assert result.verified.outcome.gaps == ("本轮资讯检索未命中",)
 
 
-def test_unsupported_causality_is_rejected_and_not_publicly_completed() -> None:
+def test_unsupported_causality_is_removed_before_public_completion() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
@@ -313,8 +259,8 @@ def test_unsupported_causality_is_rejected_and_not_publicly_completed() -> None:
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
     assert "政策变化导致了下跌" not in result.public_answer
 
 
@@ -369,8 +315,8 @@ def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
     assert "现有证据已完整覆盖判断边界" not in result.public_answer
 
 
@@ -396,15 +342,14 @@ def test_semantic_rejection_downgrades_subject_time_and_number_claims(
     assert result.judge_status == "rejected"
 
 
-def test_draft_repair_preserves_truth_state_and_rejudges() -> None:
+def test_rejected_sentence_redaction_preserves_truth_state_and_rejudges() -> None:
     frame, structural = _structural(
         "市场下跌。政策变化导致了下跌。",
         gaps=("外围催化仍待核验",),
     )
     original = structural.outcome
     judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
-    repair = _Repair("市场下跌，当前证据不足以确认政策因果。")
-    result = SemanticEpisodeVerifier(judge_fn=judge, finalizer=repair).verify(
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
@@ -412,9 +357,9 @@ def test_draft_repair_preserves_truth_state_and_rejudges() -> None:
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.correlated_judge is True
-    assert repair.calls == 1
     assert len(judge.calls) == 2  # type: ignore[attr-defined]
     repaired = result.verified.outcome
+    assert repaired.draft == "市场下跌。"
     assert repaired.evidence == original.evidence
     assert repaired.bindings == original.bindings
     assert repaired.gaps == original.gaps
@@ -422,21 +367,73 @@ def test_draft_repair_preserves_truth_state_and_rejudges() -> None:
     assert repaired.traces == original.traces
     assert repaired.events == original.events
     assert repaired.usage == original.usage
-    assert repair.kwargs[0]["draft"] == original.draft
-    assert repair.kwargs[0]["rejected_sentences"] == ("政策变化导致了下跌。",)
 
 
-@pytest.mark.parametrize(
-    "repaired_draft",
-    [
-        "政策调整引发了市场下跌。",
-        "成交额跌破9999亿元就意味着反弹结束。",
-    ],
-)
-def test_rejudge_rejects_paraphrased_or_new_unsupported_claim(
-    repaired_draft: str,
-) -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
+    safe_sentences = [f"已核验市场观察第{index}项。" for index in range(1, 180)]
+    rejected_sentence = "成交额跌破9999亿元就意味着反弹结束。"
+    raw = "\n".join((*safe_sentences, rejected_sentence))
+    frame, structural = _structural(raw)
+    calls = 0
+
+    def judge(request):
+        nonlocal calls
+        calls += 1
+        texts = [str(item["text"]) for item in request["sentences"]]
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [len(texts)],
+                "issues": ["unsupported_numeric_trigger_rejected"],
+            }
+        assert rejected_sentence not in texts
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 2
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert rejected_sentence not in result.verified.outcome.draft
+
+
+def test_rejected_sentence_redaction_preserves_markdown_layout() -> None:
+    raw = (
+        "## 当前判断\n\n\n"
+        "- 市场下跌。\n"
+        "- 政策变化导致了下跌。\n\n"
+        "## 证据边界\n\n"
+        "仍需观察。"
+    )
+    expected = (
+        "## 当前判断\n\n\n"
+        "- 市场下跌。\n\n"
+        "## 证据边界\n\n"
+        "仍需观察。"
+    )
+    frame, structural = _structural(raw)
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(False, rejected=(3,), issues=("因果证据不足",))
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.verified.outcome.draft == expected
+
+
+def test_rejudge_rejects_an_unsupported_claim_missed_by_first_scan() -> None:
+    missed_claim = "成交额跌破9999亿元就意味着反弹结束。"
+    frame, structural = _structural(
+        f"市场下跌。政策变化导致了下跌。{missed_claim}"
+    )
     calls = 0
 
     def strict_judge(request):
@@ -448,18 +445,16 @@ def test_rejudge_rejects_paraphrased_or_new_unsupported_claim(
                 "rejected_sentence_indexes": [2],
                 "issues": ["外部因果无据"],
             }
-        text = " ".join(str(item["text"]) for item in request["sentences"])
-        assert repaired_draft in text
+        texts = [str(item["text"]) for item in request["sentences"]]
+        assert "政策变化导致了下跌。" not in texts
+        assert missed_claim in texts
         return {
             "passed": False,
-            "rejected_sentence_indexes": [1],
-            "issues": ["修复稿仍含无据因果或阈值"],
+            "rejected_sentence_indexes": [2],
+            "issues": ["复核发现仍含无据阈值"],
         }
 
-    result = SemanticEpisodeVerifier(
-        judge_fn=strict_judge,
-        finalizer=_Repair(repaired_draft),
-    ).verify(
+    result = SemanticEpisodeVerifier(judge_fn=strict_judge).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
@@ -468,7 +463,7 @@ def test_rejudge_rejects_paraphrased_or_new_unsupported_claim(
     assert calls == 2
     assert result.status == "partial"
     assert result.judge_status == "rejected"
-    assert repaired_draft not in result.public_answer
+    assert missed_claim not in result.public_answer
 
 
 def test_injected_passing_judge_records_correlated_limit() -> None:
@@ -535,93 +530,6 @@ def test_independent_judge_provider_takes_priority_over_injected_judge(
     assert injected_calls == []
 
 
-def test_draft_repair_accepts_one_strict_json_code_fence() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
-    result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",)),
-        finalizer=_Repair("市场下跌，政策因果仍待核验。", fenced=True),
-    ).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
-    )
-    assert result.status == "completed"
-    assert result.judge_status == "repaired"
-
-
-@pytest.mark.parametrize(
-    "content",
-    [
-        "",
-        "{}",
-        '{"draft":""}',
-        '{"draft":"修复后的判断。","bindings":[]}',
-        '说明：{"draft":"修复后的判断。"}',
-        '{"draft":"修复后的判断。"} trailing',
-        '```json\n{"draft":"修复后的判断。"}\n```\nextra',
-    ],
-)
-def test_invalid_draft_repair_fails_closed(content: str) -> None:
-    raw = "市场下跌。政策变化导致了下跌。"
-    frame, structural = _structural(raw)
-    repair = _Repair("", content=content)
-    result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",)),
-        finalizer=repair,
-    ).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
-    )
-    assert repair.calls == 1
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
-    assert raw not in result.public_answer
-
-
-@pytest.mark.parametrize(
-    "repair",
-    [
-        _Repair(
-            "",
-            content='{"draft":"修复后的判断。"}',
-            tool_calls=(ModelToolCall("call-1", "web_search", {"query": "x"}),),
-        ),
-        _Repair("", content='{"draft":"修复后的判断。"}', error="provider timeout"),
-    ],
-)
-def test_nonfinal_draft_repair_turn_fails_closed(repair: _Repair) -> None:
-    raw = "市场下跌。政策变化导致了下跌。"
-    frame, structural = _structural(raw)
-    result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",)),
-        finalizer=repair,
-    ).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
-    )
-    assert repair.calls == 1
-    assert result.status == "partial"
-    assert result.judge_status == "rejected"
-    assert raw not in result.public_answer
-
-
-def test_repair_internal_type_error_is_not_retried() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
-    repair = _TypeErrorRepair()
-    result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",)),
-        finalizer=repair,
-    ).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=ResearchDeadline.from_timeout(5),
-    )
-    assert repair.calls == 1
-    assert result.status == "partial"
-
-
 def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
     frame, structural = _structural(
         "RAW_PROVIDER_SENTINEL market_data HASH_PRIVATE_SENTINEL。"
@@ -675,10 +583,7 @@ def test_late_rejudge_pass_is_unavailable_and_cannot_complete() -> None:
         time.sleep(0.03)
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
 
-    result = SemanticEpisodeVerifier(
-        judge_fn=reject_then_late_pass,
-        finalizer=_Repair("市场下跌，政策因果仍待核验。"),
-    ).verify(
+    result = SemanticEpisodeVerifier(judge_fn=reject_then_late_pass).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(0.02),
@@ -687,41 +592,6 @@ def test_late_rejudge_pass_is_unavailable_and_cannot_complete() -> None:
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert any("deadline" in issue for issue in result.issues)
-
-
-def test_repair_rebuilds_context_with_current_deadline_and_exact_contract() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
-    assert structural.contract is not None
-    injected_context = ResearchRunContext(
-        contract=replace(
-            structural.contract,
-            task_id="stale-context",
-            task_frame_hash="stale-context-hash",
-        ),
-        deadline=ResearchDeadline.from_timeout(999),
-        policy=ResearchPolicy.for_tier("quick"),
-        trace_parent_id="stale-trace-parent",
-        today="2026-07-23",
-        latest_data_date="2026-07-22",
-    )
-    verify_deadline = ResearchDeadline.from_timeout(5)
-    repair = _ContextRecordingRepair("市场下跌，政策因果仍待核验。")
-    result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",)),
-        finalizer=repair,
-        context=injected_context,
-    ).verify(
-        frame=frame,
-        structurally_verified=structural,
-        deadline=verify_deadline,
-    )
-    assert result.status == "completed"
-    assert len(repair.contexts) == 1
-    repair_context = repair.contexts[0]
-    assert repair_context.deadline is verify_deadline
-    assert repair_context.contract is structural.contract
-    assert repair_context.today == "2026-07-23"
-    assert repair_context.latest_data_date == "2026-07-22"
 
 
 @pytest.mark.parametrize(
@@ -807,20 +677,17 @@ def test_empty_public_projection_preserves_passed_judge_status() -> None:
     assert "public projection empty" in result.issues
 
 
-def test_empty_repaired_projection_preserves_repaired_judge_status() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
-    judge = _judge(False, rejected=(2,), issues=("因果证据不足",))
-    result = SemanticEpisodeVerifier(
-        judge_fn=judge,
-        finalizer=_Repair("provider=OpenAI。"),
-    ).verify(
+def test_redaction_that_empties_draft_fails_closed() -> None:
+    frame, structural = _structural("政策变化导致了下跌。")
+    judge = _judge(False, rejected=(1,), issues=("因果证据不足",))
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
         frame=frame,
         structurally_verified=structural,
         deadline=ResearchDeadline.from_timeout(5),
     )
     assert result.status == "partial"
-    assert result.judge_status == "repaired"
-    assert "public projection empty" in result.issues
+    assert result.judge_status == "rejected"
+    assert "semantic repair unavailable" in result.issues
 
 
 def test_public_projection_filters_casefolded_private_tokens_everywhere() -> None:
@@ -993,9 +860,9 @@ def test_public_gap_never_projects_business_context_free_text() -> None:
 
 
 def test_public_gap_never_includes_internal_semantic_repair_issues() -> None:
-    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    frame, structural = _structural("政策变化导致了下跌。")
     result = SemanticEpisodeVerifier(
-        judge_fn=_judge(False, rejected=(2,), issues=("因果证据不足",))
+        judge_fn=_judge(False, rejected=(1,), issues=("因果证据不足",))
     ).verify(
         frame=frame,
         structurally_verified=structural,

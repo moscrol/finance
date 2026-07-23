@@ -259,6 +259,9 @@ class ContinuousAgentEpisode:
                             "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
                             "原始观察，立即基于已有 evidence_hashes 输出 FINAL_JSON；"
                             "证据不足的 required output 必须标 partial 并写明 gap。"
+                            "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
+                            "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
+                            "明确标注的主观基准区间及其不确定性。"
                             f"关闭原因：{finalization_reason}"
                         ),
                     }

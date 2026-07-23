@@ -459,6 +459,25 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "必须给出一个明确标注的基准判断" in system_prompt
 
 
+def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:
+    frame = _frame()
+    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    finalization_messages = model.calls[1]["messages"]
+    reminder = finalization_messages[-1]["content"]
+    assert "不要逐条复述全部观察" in reminder
+    assert "只保留最关键依据" in reminder
+    assert "条件写相对变化" in reminder
+    assert "不得新增证据中没有的数值阈值" in reminder
+    assert "一个明确标注的主观基准区间" in reminder
+
+
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
     calls: list[str] = []
 
