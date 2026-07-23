@@ -67,7 +67,7 @@ _ISSUE_SENTENCE_INDEX_RE = re.compile(
     re.IGNORECASE,
 )
 _CONDITION_TRIGGER_RE = re.compile(
-    r"(?:若|如果|条件|失效|降级|跌破|站稳|至少|"
+    r"(?:若|如果|条件(?!下)|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立)"
 )
 _LEADING_CONDITION_LABEL_RE = re.compile(
@@ -104,6 +104,9 @@ _QUANTITY_PARSE_RE = re.compile(
 )
 _NEGATIVE_CONTEXT_RE = re.compile(
     r"(?:下降|下滑|减少|缩(?:量|约|减)?|回落|下跌|跌幅|负增长)"
+)
+_ORDERED_LIST_ITEM_RE = re.compile(
+    r"^(?P<indent>\s*)(?P<number>\d+)(?P<suffix>[）).、])(?P<body>.*)$"
 )
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _JUDGE_REPORT_TOOL_NAME = "submit_grounding_report"
@@ -1165,7 +1168,12 @@ def _drop_rejected_sentences(
     draft: str,
     rejected_sentence_indexes: tuple[int, ...],
 ) -> str:
-    """Remove rejected spans while preserving accepted Markdown verbatim."""
+    """Remove rejected spans and repair presentational list numbering.
+
+    Accepted claim prose stays byte-for-byte unchanged.  Numeric list labels
+    are presentation metadata, so a removed middle item is deterministically
+    renumbered instead of leaking a visibly broken ``1, 3, 4`` sequence.
+    """
 
     source = str(draft or "")
     rejected = frozenset(rejected_sentence_indexes)
@@ -1193,7 +1201,29 @@ def _drop_rejected_sentences(
         cursor = end
     for start, end in reversed(spans):
         source = f"{source[:start]}{source[end:]}"
-    return source.strip()
+    return _renumber_ordered_list_items(source.strip())
+
+
+def _renumber_ordered_list_items(source: str) -> str:
+    """Renumber contiguous Chinese/Markdown ordered-list lines from one."""
+
+    rendered: list[str] = []
+    position = 0
+    for line in source.splitlines(keepends=True):
+        body = line.rstrip("\r\n")
+        ending = line[len(body) :]
+        match = _ORDERED_LIST_ITEM_RE.fullmatch(body)
+        if match is not None:
+            position += 1
+            rendered.append(
+                f"{match.group('indent')}{position}{match.group('suffix')}"
+                f"{match.group('body')}{ending}"
+            )
+            continue
+        if body.strip():
+            position = 0
+        rendered.append(line)
+    return "".join(rendered)
 
 
 def _lost_required_output_markers(

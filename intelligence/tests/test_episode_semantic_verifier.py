@@ -749,6 +749,46 @@ def test_local_gate_does_not_treat_evidence_boundary_above_as_threshold() -> Non
     assert boundary in result.public_answer
 
 
+def test_local_gate_keeps_requested_forecast_under_current_conditions() -> None:
+    judge = _judge(True)
+    assessment = (
+        "基准判断：在当前量能条件下，本轮反弹未来3—5个交易日仍可能反复活跃。"
+    )
+    frame, structural = _structural(assessment)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert assessment in result.public_answer
+
+
+def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "继续成立的条件：\n"
+        "1）量能企稳。\n"
+        "2）若指数跌破99999点则失效。\n"
+        "3）上涨广度维持。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "99999点" not in result.public_answer
+    assert "1）量能企稳" in result.public_answer
+    assert "2）上涨广度维持" in result.public_answer
+    assert "3）上涨广度维持" not in result.public_answer
+
+
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(
