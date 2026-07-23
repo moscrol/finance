@@ -432,6 +432,33 @@ def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
     assert "限制条件写入顶层 gaps 或 draft" in system_prompt
 
 
+def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _finish_turn(
+                status="partial",
+                draft="当前证据不足，先说明边界。",
+                hashes=(),
+                gap="仍缺市场数据",
+            )
+        ]
+    )
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    system_prompt = model.calls[0]["messages"][0]["content"]
+    assert "观察事实与分析判断分开" in system_prompt
+    assert "不得编造精确数值阈值" in system_prompt
+    assert "不得在答案中暴露内部工具名、provider 或哈希" in system_prompt
+    assert "阶段第N天”只是数据提供方的阶段标签" in system_prompt
+    assert "必须给出一个明确标注的基准判断" in system_prompt
+
+
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
     calls: list[str] = []
 

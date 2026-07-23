@@ -35,6 +35,7 @@ from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
 )
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchPolicy,
@@ -70,7 +71,10 @@ _JUDGE_SYSTEM_PROMPT = (
     "句子明确标注为判断、情景或估计，且推理前提可在证据中核验，不要要求 evidence "
     "原文已经包含预测结论。用户明确要求持续时间、空间、估值或其他预测时，允许"
     "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
-    "应拒绝。遵循 claim_policy。只输出一个严格 JSON 对象，字段必须是 "
+    "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
+    "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
+    "只能用“本轮资讯检索未命中”等自然语言。遵循 claim_policy。只输出一个严格 "
+    "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
     "passed=false 并列出句号。"
@@ -381,6 +385,9 @@ class SemanticEpisodeVerifier:
             "evidence_registry": [
                 public_agent_evidence(item) for item in verified.outcome.evidence
             ],
+            "tool_status_registry": _semantic_tool_status_registry(
+                verified.outcome.traces
+            ),
             "claim_policy": dict(_CLAIM_POLICY),
             "sentences": sentences,
         }
@@ -645,6 +652,7 @@ class SemanticEpisodeVerifier:
         public = _sanitize_public_answer(
             verified.outcome.draft,
             verified.outcome.evidence,
+            verified.outcome.traces,
         )
         if not public:
             return SemanticEpisodeOutcome(
@@ -718,6 +726,37 @@ def _numbered_sentences(draft: str) -> list[dict[str, object]]:
     return sentences
 
 
+def _semantic_tool_status_registry(
+    traces: tuple[ProviderTrace, ...],
+) -> list[dict[str, object]]:
+    """Project process status without provider diagnostics or trace identity."""
+
+    statuses: list[dict[str, object]] = []
+    seen: set[tuple[str, str, int, str | None]] = set()
+    for trace in traces:
+        capability = str(trace.capability or "").strip()
+        if not capability:
+            continue
+        key = (
+            capability,
+            trace.status,
+            trace.result_count,
+            trace.source_trade_date,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        statuses.append(
+            {
+                "capability": capability,
+                "status": trace.status,
+                "result_count": trace.result_count,
+                "source_trade_date": trace.source_trade_date,
+            }
+        )
+    return statuses
+
+
 def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> object:
     """Call tiny injected judges without imposing one test-only signature."""
 
@@ -734,6 +773,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             required_outputs=request["required_outputs"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
+            tool_status_registry=request["tool_status_registry"],
             claim_policy=request["claim_policy"],
             sentences=request["sentences"],
             timeout=timeout,
@@ -745,6 +785,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "required_outputs",
             "output_bindings",
             "evidence_registry",
+            "tool_status_registry",
             "claim_policy",
             "sentences",
         )
@@ -772,6 +813,8 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "evidence_registry": request["evidence_registry"],
             "evidence": request["evidence_registry"],
             "registry": request["evidence_registry"],
+            "tool_status_registry": request["tool_status_registry"],
+            "tool_statuses": request["tool_status_registry"],
             "claim_policy": request["claim_policy"],
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
@@ -829,8 +872,9 @@ def _parse_draft_repair(content: str) -> str:
 def _sanitize_public_answer(
     draft: str,
     evidence: tuple[AgentEvidence, ...],
+    traces: tuple[ProviderTrace, ...],
 ) -> str:
-    private_tokens = _private_tokens(evidence)
+    private_tokens = _private_tokens(evidence, traces)
     kept: list[str] = []
     for raw in str(draft or "").splitlines():
         line = raw.strip()
@@ -852,7 +896,7 @@ def _public_citations(outcome: AgentOutcome) -> str:
         for binding in outcome.bindings
         for content_hash in binding.evidence_hashes
     }
-    private_tokens = _private_tokens(outcome.evidence)
+    private_tokens = _private_tokens(outcome.evidence, outcome.traces)
     lines: list[str] = []
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes:
@@ -876,12 +920,16 @@ def _public_citations(outcome: AgentOutcome) -> str:
     return "\n".join(dict.fromkeys(lines))
 
 
-def _private_tokens(evidence: tuple[AgentEvidence, ...]) -> frozenset[str]:
+def _private_tokens(
+    evidence: tuple[AgentEvidence, ...],
+    traces: tuple[ProviderTrace, ...] = (),
+) -> frozenset[str]:
     return frozenset(
         token.casefold()
         for token in (
             *(item.tool for item in evidence),
             *(item.content_hash for item in evidence),
+            *(trace.capability for trace in traces),
         )
         if token
     )

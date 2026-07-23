@@ -19,6 +19,7 @@ from intelligence.services.agent_runtime import (
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
     ResearchPolicy,
@@ -54,6 +55,7 @@ def _structural(
     title: str = "A股市场快照",
     source: str = "行情快照",
     gaps: tuple[str, ...] = (),
+    traces: tuple[ProviderTrace, ...] = (),
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -82,7 +84,7 @@ def _structural(
         status="completed",
         draft=draft,
         evidence=(evidence,),
-        traces=(),
+        traces=traces,
         gaps=gaps,
         stop_reason="model_finish",
         events=(
@@ -224,6 +226,57 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert "不要要求 evidence 原文已经包含预测结论" in system_prompt
     assert "外部因果" in system_prompt
     assert "任意触发阈值" in system_prompt
+
+
+def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural(
+        "本轮资讯检索未命中，因此外部催化仍待核验。",
+        traces=(
+            ProviderTrace(
+                provider="private:eastmoney",
+                capability="directional_news",
+                status="empty",
+                detail="PRIVATE_ENDPOINT_SENTINEL",
+                source_trade_date="2026-07-23",
+                result_count=0,
+                parent_id="PRIVATE_PARENT_SENTINEL",
+                step_id="PRIVATE_STEP_SENTINEL",
+            ),
+        ),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    sent = model.calls[0]
+    request = json.loads(sent["messages"][1]["content"])
+    assert request["tool_status_registry"] == [
+        {
+            "capability": "directional_news",
+            "status": "empty",
+            "result_count": 0,
+            "source_trade_date": "2026-07-23",
+        }
+    ]
+    serialized = json.dumps(request["tool_status_registry"], ensure_ascii=False)
+    for private in (
+        "private:eastmoney",
+        "PRIVATE_ENDPOINT_SENTINEL",
+        "PRIVATE_PARENT_SENTINEL",
+        "PRIVATE_STEP_SENTINEL",
+    ):
+        assert private not in serialized
+    system_prompt = sent["messages"][0]["content"]
+    assert "只支持检索过程状态" in system_prompt
+    assert "不能支持市场事实或因果结论" in system_prompt
 
 
 def test_unsupported_causality_is_rejected_and_not_publicly_completed() -> None:
@@ -769,6 +822,31 @@ def test_public_projection_filters_casefolded_private_tokens_everywhere() -> Non
         "hash_private_sentinel",
     ):
         assert sentinel.casefold() not in result.public_answer.casefold()
+
+
+def test_public_projection_filters_empty_trace_capability_but_keeps_natural_status() -> None:
+    frame, structural = _structural(
+        "本轮资讯检索未命中，外部催化仍待核验。\n"
+        "directional_news status=empty。",
+        traces=(
+            ProviderTrace(
+                provider="private:news",
+                capability="directional_news",
+                status="empty",
+                result_count=0,
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "本轮资讯检索未命中" in result.public_answer
+    assert "directional_news" not in result.public_answer
 
 
 def test_public_sanitizer_keeps_provider_brand_in_financial_fact() -> None:

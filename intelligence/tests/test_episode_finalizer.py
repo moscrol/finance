@@ -202,6 +202,8 @@ def test_repair_draft_sends_only_frozen_draft_and_feedback() -> None:
     assert "用户明确要求预测" in system_prompt
     assert "主观估计" in system_prompt
     assert "不得把被拒绝内容改写成“证据给出”" in system_prompt
+    assert "内部工具名" in system_prompt
+    assert "改成自然语言过程描述" in system_prompt
 
 
 def test_recovery_uses_only_remaining_synthesis_time() -> None:
