@@ -34,6 +34,26 @@ def test_semantic_smoke_rejects_completed_but_unanswered_mainline() -> None:
     assert "mainline_evidence_missing" in issues
 
 
+def test_semantic_smoke_accepts_direct_mainline_judgment_heading() -> None:
+    issues = semantic_answer_issues(
+        "目前市场的主线是什么",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "### 一、直接判断\n"
+                    "当前并非单一主升行情，而是多条线并行、"
+                    "各自处于不同生命周期阶段的存量博弈格局。\n"
+                    "盘面数据表明电力与医药更值得观察。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_forecast_required_outputs() -> None:
     issues = semantic_answer_issues(
         "明天是反弹还是继续下跌，分别给出理由",

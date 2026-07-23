@@ -172,7 +172,14 @@ def semantic_answer_issues(
     if "主线" in question:
         if not any(
             marker in assistant_text
-            for marker in ("主线是", "主线偏向", "当前主线", "主线判断", "直接回答")
+            for marker in (
+                "主线是",
+                "主线偏向",
+                "当前主线",
+                "主线判断",
+                "直接回答",
+                "直接判断",
+            )
         ):
             issues.append("mainline_direct_assessment_missing")
         if not any(
