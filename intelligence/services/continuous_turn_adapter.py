@@ -59,6 +59,7 @@ class ContinuousTurnResult:
     warnings: tuple[str, ...]
     private_artifact: dict[str, object] | None
     events: tuple[dict[str, object], ...]
+    llm_provider: str | None = None
 
 
 class SemanticVerifier(Protocol):
@@ -549,6 +550,7 @@ class ContinuousTurnAdapter:
                 _redact_private(artifact),
             ),
             events=_public_events(status=status),
+            llm_provider=_episode_llm_provider(outcome),
         )
 
 
@@ -575,6 +577,23 @@ def _duplicate_query_count(outcome: AgentOutcome | None) -> int:
         if event.kind == "tool_error"
         and str(event.payload.get("error") or "") == "duplicate_query"
     )
+
+
+def _episode_llm_provider(outcome: AgentOutcome) -> str | None:
+    """Return a stable provider label only for a successful observable turn."""
+
+    for event in outcome.events:
+        if event.kind != "model_turn":
+            continue
+        payload = event.payload
+        provider = str(payload.get("provider_name") or "").strip()
+        error = str(payload.get("error") or "").strip()
+        content = str(payload.get("content") or "").strip()
+        tool_calls = payload.get("tool_calls")
+        has_tool_calls = isinstance(tool_calls, (list, tuple)) and bool(tool_calls)
+        if provider and not error and (content or has_tool_calls):
+            return provider
+    return None
 
 
 def _episode_metrics(

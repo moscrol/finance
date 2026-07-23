@@ -3,8 +3,8 @@
 ``episode_verifier`` proves only the structural part of an episode: every
 required output has a valid evidence binding.  This module is the deliberately
 separate semantic gate.  It gives a private, numbered evidence registry to a
-strict JSON judge, permits one targeted repair, and projects only a safe answer
-to the public boundary.
+    strict JSON judge, permits bounded deletion-only repairs, and projects only
+    a safe answer to the public boundary.
 
 The module is provider-neutral.  Tests and canary callers can inject a small
 ``judge_fn``/primary model; production can use the independent provider chosen
@@ -112,6 +112,7 @@ _ORDERED_LIST_ITEM_RE = re.compile(
 _CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
+_PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
 _FULL_ISO_DATE_RE = re.compile(
     r"(?<!\d)(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})(?!\d)"
 )
@@ -123,6 +124,17 @@ _DATE_WEEKDAY_RE = re.compile(
     r"(?:(?P<year>20\d{2})年)?(?P<month>\d{1,2})月"
     r"(?P<day>\d{1,2})日\s*[（(]?"
     r"(?P<label>(?:周|星期)[一二三四五六日天])[）)]?"
+)
+_TURNOVER_OBSERVATION_RE = re.compile(
+    r"(?P<date>20\d{2}-\d{1,2}-\d{1,2})"
+    r"[^。；;\n]{0,100}?成交(?:额)?\s*"
+    r"(?P<value>\d+(?:\.\d+)?)\s*亿"
+)
+_DOWNWARD_PATH_RE = re.compile(
+    r"一路(?:下跌|下滑|滑落|下降|回落|萎缩|走低)"
+)
+_UPWARD_PATH_RE = re.compile(
+    r"一路(?:上升|上涨|攀升|走高|增长|放大)"
 )
 _WEEKDAY_INDEX = {
     "一": 0,
@@ -339,8 +351,20 @@ class SemanticEpisodeVerifier:
             sentences,
             structural,
         )
+        path_rejected = _mismatched_path_trend_indexes(
+            sentences,
+            structural,
+        )
         preflight_rejected = tuple(
-            sorted(set((*numeric_rejected, *weekday_rejected)))
+            sorted(
+                set(
+                    (
+                        *numeric_rejected,
+                        *weekday_rejected,
+                        *path_rejected,
+                    )
+                )
+            )
         )
         if preflight_rejected:
             before_repair = structural.outcome.draft
@@ -366,6 +390,7 @@ class SemanticEpisodeVerifier:
                 for indexes, issue in (
                     (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
                     (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
+                    (path_rejected, _PATH_TREND_ISSUE),
                 )
                 if indexes
             )
@@ -640,6 +665,52 @@ class SemanticEpisodeVerifier:
                             ),
                             correlated_judge=correlated,
                         )
+                    if (
+                        third.report is not None
+                        and third.report.rejected_sentence_indexes
+                    ):
+                        # The last report has already reviewed every remaining
+                        # sentence.  Removing exactly its rejected indexes is a
+                        # monotonic safety operation, so no fourth model call is
+                        # needed; structural coverage and marker preservation
+                        # still have to pass below.
+                        terminal_repair = self._repair(
+                            frame=frame,
+                            structural=twice_verified,
+                            rejected_sentence_indexes=(
+                                third.report.rejected_sentence_indexes
+                            ),
+                        )
+                        if terminal_repair is not None:
+                            terminal_verified, _terminal_frame = terminal_repair
+                            terminal_marker_loss = _lost_required_output_markers(
+                                contract,
+                                twice_verified.outcome.draft,
+                                terminal_verified.outcome.draft,
+                            )
+                            if not terminal_marker_loss and (
+                                terminal_verified.verified_status == "completed"
+                                or _can_semantically_release_partial(
+                                    terminal_verified
+                                )
+                            ):
+                                return self._completed_public(
+                                    frame,
+                                    terminal_verified,
+                                    judge_status="repaired",
+                                    judge_issues=tuple(
+                                        dict.fromkeys(
+                                            (
+                                                *terminal_verified.issues,
+                                                *preflight_issues,
+                                                *first.report.issues,
+                                                *second.report.issues,
+                                                *third.report.issues,
+                                            )
+                                        )
+                                    ),
+                                    correlated_judge=correlated,
+                                )
                     third_issue = (
                         third.issue
                         if third.report is None
@@ -1274,6 +1345,63 @@ def _mismatched_weekday_indexes(
                 rejected.add(index)
                 break
     return tuple(sorted(rejected))
+
+
+def _mismatched_path_trend_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Reject all-window path language contradicted by bound turnover points.
+
+    Endpoint movement can be correct while the path between those endpoints is
+    not monotonic.  The narrow ``一路`` gate only fires when at least three
+    dated turnover observations are bound, so ordinary two-point comparisons
+    and explicitly local statements such as ``连续两个交易日回落`` remain the
+    semantic judge's responsibility.
+    """
+
+    series = _bound_turnover_series(verified.outcome)
+    if len(series) < 3:
+        return ()
+    values = [value for _trade_date, value in series]
+    is_non_increasing = all(
+        current <= previous for previous, current in zip(values, values[1:])
+    )
+    is_non_decreasing = all(
+        current >= previous for previous, current in zip(values, values[1:])
+    )
+    rejected: set[int] = set()
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int) or "成交额" not in text:
+            continue
+        if _DOWNWARD_PATH_RE.search(text) and not is_non_increasing:
+            rejected.add(index)
+        if _UPWARD_PATH_RE.search(text) and not is_non_decreasing:
+            rejected.add(index)
+    return tuple(sorted(rejected))
+
+
+def _bound_turnover_series(outcome: AgentOutcome) -> tuple[tuple[date, float], ...]:
+    bound_hashes = {
+        content_hash
+        for binding in outcome.bindings
+        for content_hash in binding.evidence_hashes
+    }
+    observations: dict[date, float] = {}
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes:
+            continue
+        corpus = " ".join((item.title, item.detail))
+        for match in _TURNOVER_OBSERVATION_RE.finditer(corpus):
+            try:
+                trade_date = date.fromisoformat(match.group("date"))
+                value = float(match.group("value"))
+            except (TypeError, ValueError):
+                continue
+            observations[trade_date] = value
+    return tuple(sorted(observations.items()))
 
 
 def _bound_evidence_dates(outcome: AgentOutcome) -> frozenset[date]:

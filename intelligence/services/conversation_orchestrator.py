@@ -3390,7 +3390,7 @@ class TurnOrchestrator:
             report,
             as_of=result.as_of,
             warnings=warnings,
-            llm_provider=None,
+            llm_provider=result.llm_provider,
             llm_model=self.llm_model,
             business_status=("complete" if result.status == "completed" else "partial"),
             answer_status=("complete" if result.status == "completed" else "partial"),

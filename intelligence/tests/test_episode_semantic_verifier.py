@@ -666,6 +666,34 @@ def test_local_gate_removes_calendar_weekday_mismatch() -> None:
     assert any("weekday mismatch" in issue for issue in result.issues)
 
 
+def test_local_gate_removes_false_monotonic_turnover_path_claim() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "直接判断：反弹仍处于短周期窗口。"
+        "回看最近5个交易日，成交额从26547.43亿元一路滑落至"
+        "21949.97亿元，量能整体收缩约17.32%。",
+        detail=(
+            "2026-07-17：成交26547.43亿；"
+            "2026-07-20：成交27019.21亿；"
+            "2026-07-21：成交29569.03亿；"
+            "2026-07-22：成交26531.66亿；"
+            "2026-07-23：成交21949.97亿。"
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "直接判断：反弹仍处于短周期窗口" in result.public_answer
+    assert "一路滑落" not in result.public_answer
+    assert any("path trend mismatch" in issue for issue in result.issues)
+
+
 def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold() -> (
     None
 ):
@@ -936,7 +964,9 @@ def test_second_targeted_repair_handles_claim_missed_by_first_scan() -> None:
     assert missed_claim not in result.public_answer
 
 
-def test_semantic_repair_stops_after_two_targeted_redactions() -> None:
+def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth_judge() -> (
+    None
+):
     frame, structural = _structural(
         "市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
     )
@@ -950,6 +980,34 @@ def test_semantic_repair_stops_after_two_targeted_redactions() -> None:
             "passed": False,
             "rejected_sentence_indexes": [2],
             "issues": [f"第2句无据，当前剩余{len(texts)}句"],
+        }
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 3
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场下跌。"
+
+
+def test_terminal_redaction_cannot_remove_required_output_marker() -> None:
+    frame, structural = _structural(
+        "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
+    )
+    calls = 0
+
+    def judge(_request):
+        nonlocal calls
+        calls += 1
+        rejected = 1 if calls == 3 else 2
+        return {
+            "passed": False,
+            "rejected_sentence_indexes": [rejected],
+            "issues": [f"第{rejected}句无据"],
         }
 
     result = SemanticEpisodeVerifier(judge_fn=judge).verify(
