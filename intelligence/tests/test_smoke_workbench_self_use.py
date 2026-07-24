@@ -316,6 +316,25 @@ def test_semantic_smoke_accepts_real_forecast_wording_and_listed_triggers() -> N
     assert issues == []
 
 
+def test_semantic_smoke_accepts_markdown_invalidation_heading() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "**基准判断与持续时间**：本轮反弹预计还可持续1-3个交易日。"
+                    "**失效条件**：①上证指数失守反弹起点；"
+                    "②成交额继续萎缩。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 @pytest.mark.parametrize(
     "non_forecast",
     [

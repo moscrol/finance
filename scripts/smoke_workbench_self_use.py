@@ -195,7 +195,7 @@ INVALIDATION_TRIGGER = re.compile(
     rf"[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
     rf"[^。；;\n]{{0,40}}{MARKET_CHANGE}[^。；;\n]{{0,60}}"
     rf"|【?(?:失效|降级|失效或降级)条件】?\s*[:：]?\s*[①②③④⑤⑥⑦⑧⑨⑩-]*"
-    rf"\s*{MARKET_TRIGGER}[^。；;\n]{{0,40}}{MARKET_CHANGE}"
+    rf"[^。；;\n]{{0,16}}{MARKET_TRIGGER}[^。；;\n]{{0,40}}{MARKET_CHANGE}"
 )
 
 
@@ -247,6 +247,11 @@ def _has_forward_duration(answer: str) -> bool:
         FORECAST_DURATION.search(clause) and FORECAST_LANGUAGE.search(clause)
         for clause in re.split(r"[。；;\n]+", answer)
     )
+
+
+def _has_invalidation_trigger(answer: str) -> bool:
+    markdown_neutral = re.sub(r"[*_`#]", "", answer)
+    return bool(INVALIDATION_TRIGGER.search(markdown_neutral))
 
 
 class SmokeProtocolError(RuntimeError):
@@ -315,7 +320,7 @@ def semantic_answer_issues(
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
         if not _has_forward_duration(assistant_text):
             issues.append("forecast_duration_missing")
-        if not INVALIDATION_TRIGGER.search(assistant_text):
+        if not _has_invalidation_trigger(assistant_text):
             issues.append("forecast_invalidation_missing")
     if "科创50" in question or "支撑点位" in question:
         if "支撑" not in assistant_text:
