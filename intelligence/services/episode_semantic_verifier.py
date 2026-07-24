@@ -2389,11 +2389,18 @@ def _sanitize_public_answer(
         line = raw.strip()
         if not line:
             continue
-        if _contains_private_token(line, private_tokens):
-            continue
         if line.startswith("{") and line.endswith("}"):
             continue
-        kept.append(line)
+        if not _contains_private_token(line, private_tokens):
+            kept.append(line)
+            continue
+        for item in _numbered_sentences(line):
+            sentence = str(item.get("text") or "").strip()
+            if not sentence or _contains_private_token(sentence, private_tokens):
+                continue
+            if sentence.startswith("{") and sentence.endswith("}"):
+                continue
+            kept.append(sentence)
     return "\n".join(kept).strip()
 
 

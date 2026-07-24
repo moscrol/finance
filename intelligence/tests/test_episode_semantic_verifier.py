@@ -2339,6 +2339,36 @@ def test_public_projection_filters_casefolded_private_tokens_everywhere() -> Non
         assert sentinel.casefold() not in result.public_answer.casefold()
 
 
+def test_public_projection_drops_only_contaminated_sentence_in_single_line() -> (
+    None
+):
+    frame, structural = _structural(
+        "本周上证指数实际上涨2.99%。"
+        "news_search未返回对齐资讯。"
+        "7月17日单日下跌约3.05%。",
+        detail="本周上证指数上涨2.99%；7月17日单日下跌3.05%。",
+        traces=(
+            ProviderTrace(
+                provider="private:news",
+                capability="news_search",
+                status="empty",
+                result_count=0,
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "本周上证指数实际上涨2.99%" in result.public_answer
+    assert "7月17日单日下跌约3.05%" in result.public_answer
+    assert "news_search" not in result.public_answer
+
+
 def test_public_projection_filters_empty_trace_capability_but_keeps_natural_status() -> (
     None
 ):
