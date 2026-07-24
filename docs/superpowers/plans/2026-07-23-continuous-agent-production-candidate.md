@@ -487,18 +487,29 @@ assembled from the TaskFrame and verified completion gaps. Preserve rejected
 drafts only in the private outcome/artifact. Once a completed whole-draft
 report has identified exact rejected spans, deterministic deletion plus a
 successful structural recheck may be terminally released as `repaired` if an
-optional later rejudge exhausts the same root deadline. This path may only
-delete text; it cannot add wording or evidence, restore a rejected span, or
-upgrade a structural partial. Carry root-deadline exhaustion as an explicit
-judge-call result instead of inferring it from the clock after return: slow
-malformed/configuration/invalid-tool responses remain fail-closed, while a
-late valid rejection must still delete its named spans.
+optional later rejudge exhausts the same root deadline or returns a typed,
+release-grade transient provider failure. This path may only delete text; it
+cannot add wording or evidence, restore a rejected span, or upgrade a
+structural partial. Carry root-deadline exhaustion and release-grade transient
+identity as explicit judge-call fields instead of inferring either from the
+clock or stable reason text. Restrict release-grade transient identity to
+anchored HTTP 429/5xx or explicit timeout/connection exception identities:
+slow malformed/configuration/model/endpoint/invalid-tool/empty-response
+failures remain fail-closed, while a late valid rejection must still delete
+its named spans. The first judge has no such exception and always fails closed
+when unavailable.
 
 The correlated primary judge may retry once only for classified transient
 provider failures. Cap every judge attempt at 25 seconds and reuse the root
 verification deadline. Do not retry authentication/configuration, call-budget,
 cancellation, malformed-envelope, or tool-call failures; reduce provider
 diagnostics to stable private reason codes.
+
+Regression coverage must include: first-judge consecutive HTTP 503 remains
+partial; optional and final rejudge HTTP 503 preserve only the already-reviewed
+deletion-only remainder; HTTP 400 text containing a numeric `500`, model-not-
+found, endpoint, malformed-envelope, and invalid-tool failures cannot
+masquerade as release-grade transient failures.
 
 Run the deterministic novel-threshold check before the first judge and again
 after every valid report. For conditional/trigger sentences, reject quantities

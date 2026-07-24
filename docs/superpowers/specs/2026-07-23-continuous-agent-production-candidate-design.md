@@ -310,25 +310,32 @@ Gate behavior:
 4. If no completed first judge report exists, invalid/unavailable judge output
    in canary/on mode fails closed to partial. After a completed report has
    reviewed the whole draft and identified exact rejected spans, however, a
-   later optional rejudge timeout may preserve the already-reviewed remainder
-   after deterministic deletion and structural re-verification. That terminal
-   result is recorded as `repaired`; it cannot add or paraphrase text, mint
-   evidence, restore a rejected span, or upgrade a structural partial. This is
-   monotonic recovery from verification-budget exhaustion, not fail-open
-   acceptance of an unreviewed draft. `_JudgeCall` carries an explicit
-   `root_deadline_exhausted` identity; checking the wall clock after a call is
-   insufficient because a slow malformed/configuration/tool-call failure must
-   remain fail-closed. A late valid rejection is retained and its exact spans
-   are still deleted before any release.
+   later optional rejudge may preserve the already-reviewed remainder after
+   deterministic deletion and structural re-verification only when it either
+   exhausts the shared root deadline or ends in a strictly classified
+   transient transport/provider failure. That terminal result is recorded as
+   `repaired`; it cannot add or paraphrase text, mint evidence, restore a
+   rejected span, or upgrade a structural partial. This is monotonic recovery
+   after an already completed whole-draft review, not fail-open acceptance of
+   an unreviewed draft. `_JudgeCall` carries explicit
+   `root_deadline_exhausted` and `transient_provider_failure` identities;
+   checking the wall clock or matching the public reason string is
+   insufficient. Release-grade transient classification is limited to
+   anchored HTTP 429/5xx status or explicit timeout/connection exception
+   identities. Authentication, 4xx configuration, model/endpoint,
+   malformed/empty-envelope, and tool-call failures remain fail-closed. A late
+   valid rejection is retained and its exact spans are still deleted before
+   any release.
 5. Semantic verification never upgrades structural status and never adds
    evidence.
 6. The semantic gate may retry its correlated primary judge once after a
    classified transient failure (timeout, connection interruption, 429/5xx,
    or empty response). Each attempt is capped at 25 seconds and consumes the
-   same root verification deadline. Authentication, configuration, budget,
-   cancellation, malformed-envelope, and tool-call failures are not retried.
-   Raw provider diagnostics remain private and are reduced to stable reason
-   codes.
+   same root verification deadline. Empty response may be retried but is not a
+   release-grade transient. Authentication, configuration, budget,
+   cancellation, malformed-envelope, and tool-call failures are not retried or
+   released. Raw provider diagnostics remain private and are reduced to stable
+   reason codes plus a private typed failure flag.
 7. A deterministic preflight rejects a numeric condition when its full
    quantity/range does not occur in evidence bound to the answer. It redacts
    those spans before the first model judge and remains active after every
@@ -367,10 +374,11 @@ Deterministic redaction therefore supersedes the draft-only model call. It
 cannot introduce a paraphrased unsupported claim and consumes no repair-model
 budget. Up to three judge reports share the existing root verification
 deadline; no extra reserve or wall-clock extension is minted for the second
-repair. A missing first report still fails closed. If a later rejudge exhausts
-the shared root deadline only after one completed whole-draft report and exact
-monotonic redaction, the reviewed remainder may be released as `repaired`;
-malformed output, configuration errors, invalid tool calls, and other
+repair. A missing first report still fails closed. If a later optional rejudge
+exhausts the shared root deadline or returns a release-grade transient failure
+only after one completed whole-draft report and exact monotonic redaction, the
+reviewed remainder may be released as `repaired`; malformed output,
+configuration errors, invalid tool calls, empty responses, and other
 unavailable states remain fail-closed. Redaction uses source spans rather than
 sentence re-joining, so
 headings, lists, and blank lines are preserved. If a rejected span contains
@@ -378,7 +386,7 @@ the direct answer, removing it is intentional fail-closed behavior; if no
 useful draft remains, the public projection becomes the question-specific
 evidence-gap answer. A malformed, configuration-invalid, or otherwise
 unresolved result also fails closed; only the explicitly bounded later
-shared-deadline exhaustion case above has the monotonic-release exception.
+shared-deadline/transient cases above have the monotonic-release exception.
 
 One gate-local transient retry is intentionally owned here rather than inside
 `GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
@@ -501,9 +509,9 @@ Tests exercise public behavior at four agreed seams:
 - targeted repair is deletion-only, bounded to two repair rounds, and every
   newly exposed draft is rejudged when the shared root deadline permits;
 - judge outage before any completed whole-draft report cannot produce public
-  `completed`; only shared-deadline exhaustion on an optional rejudge may
-  preserve the remainder already reviewed and monotonically redacted from a
-  completed prior report;
+  `completed`; only shared-deadline exhaustion or a typed release-grade
+  transient failure on an optional rejudge may preserve the remainder already
+  reviewed and monotonically redacted from a completed prior report;
 - passed semantics cannot upgrade a structural partial;
 - public projection contains no internal evidence or provider identifiers and
   does not duplicate the adapter-owned structured citation ledger.

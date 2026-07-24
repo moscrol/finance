@@ -63,6 +63,10 @@ _STRICT_JSON_FENCE_RE = re.compile(
     r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
     re.DOTALL | re.IGNORECASE,
 )
+_HTTP_STATUS_ERROR_RE = re.compile(
+    r"\b(?:http(?:\s+status)?|status(?:[_\s]+code)?|code)\s*[:=]?\s*(\d{3})\b",
+    re.IGNORECASE,
+)
 _ISSUE_SENTENCE_INDEX_RE = re.compile(
     r"(?:第\s*(\d+)\s*句|句\s*(\d+)|sentence\s*#?\s*(\d+))",
     re.IGNORECASE,
@@ -243,6 +247,7 @@ class _JudgeCall:
     correlated: bool
     issue: str = ""
     root_deadline_exhausted: bool = False
+    transient_provider_failure: bool = False
 
 
 class SemanticEpisodeVerifier:
@@ -585,12 +590,14 @@ class SemanticEpisodeVerifier:
                 correlated_judge=correlated,
             )
 
-        if second.report is None and second.root_deadline_exhausted:
+        if _optional_rejudge_allows_monotonic_release(second):
             # The first completed report reviewed the entire original draft
             # and named the only spans it rejected. Removing those spans is a
             # monotonic operation: it cannot add a claim or evidence. A
-            # best-effort rejudge may catch omissions, but its timeout must not
-            # erase the already-reviewed remainder.
+            # best-effort rejudge may catch omissions, but root-budget expiry
+            # or an explicitly transient provider outage must not erase the
+            # already-reviewed remainder. Invalid/malformed responses are not
+            # transient and remain fail closed.
             second_issue = second.issue or "semantic rejudge unavailable"
             return self._completed_public(
                 frame,
@@ -684,11 +691,12 @@ class SemanticEpisodeVerifier:
                             ),
                             correlated_judge=correlated,
                         )
-                    if third.report is None and third.root_deadline_exhausted:
+                    if _optional_rejudge_allows_monotonic_release(third):
                         # The second completed report reviewed the once-
                         # repaired draft. Its exact rejected spans have now
                         # been removed, so an optional final rejudge timeout
-                        # cannot erase that twice-reviewed remainder.
+                        # or transient provider outage cannot erase that
+                        # twice-reviewed remainder.
                         third_issue = (
                             third.issue or "semantic final rejudge unavailable"
                         )
@@ -925,21 +933,33 @@ class SemanticEpisodeVerifier:
                             temperature=0.0,
                         )
                 except Exception as exc:  # pragma: no cover - adapter boundary
-                    issue, retryable = _stable_semantic_judge_error(
+                    issue, retryable, release_safe = _stable_semantic_judge_error(
                         type(exc).__name__
                     )
                     if attempt == 0 and retryable and not deadline.expired:
                         continue
-                    return _JudgeCall(None, True, False, issue)
+                    return _JudgeCall(
+                        None,
+                        True,
+                        False,
+                        issue,
+                        transient_provider_failure=release_safe,
+                    )
                 report = self._parse_report(content, len(request["sentences"]))
                 if report is not None:
                     return _JudgeCall(report, False, False)
-                issue, retryable = _stable_semantic_judge_error(
+                issue, retryable, release_safe = _stable_semantic_judge_error(
                     reason or "invalid semantic judge output"
                 )
                 if attempt == 0 and retryable and not deadline.expired:
                     continue
-                return _JudgeCall(None, True, False, issue)
+                return _JudgeCall(
+                    None,
+                    True,
+                    False,
+                    issue,
+                    transient_provider_failure=release_safe,
+                )
             return _JudgeCall(None, True, False, "semantic judge unavailable")
 
         # Explicit injection is the deterministic test/canary seam only when
@@ -979,10 +999,18 @@ class SemanticEpisodeVerifier:
                     timeout=attempt_timeout,
                 )
             except Exception as exc:
-                issue, retryable = _stable_semantic_judge_error(type(exc).__name__)
+                issue, retryable, release_safe = _stable_semantic_judge_error(
+                    type(exc).__name__
+                )
                 if attempt == 0 and retryable and not deadline.expired:
                     continue
-                return _JudgeCall(None, True, True, issue)
+                return _JudgeCall(
+                    None,
+                    True,
+                    True,
+                    issue,
+                    transient_provider_failure=release_safe,
+                )
             if not isinstance(turn, ModelTurn):
                 return _JudgeCall(
                     None,
@@ -991,10 +1019,18 @@ class SemanticEpisodeVerifier:
                     "semantic judge invalid provider response",
                 )
             if turn.error:
-                issue, retryable = _stable_semantic_judge_error(turn.error)
+                issue, retryable, release_safe = _stable_semantic_judge_error(
+                    turn.error
+                )
                 if attempt == 0 and retryable and not deadline.expired:
                     continue
-                return _JudgeCall(None, True, True, issue)
+                return _JudgeCall(
+                    None,
+                    True,
+                    True,
+                    issue,
+                    transient_provider_failure=release_safe,
+                )
             if turn.tool_calls:
                 report = self._parse_tool_report(
                     turn,
@@ -1414,6 +1450,7 @@ def _apply_numeric_condition_gate(
         call.correlated,
         call.issue,
         call.root_deadline_exhausted,
+        call.transient_provider_failure,
     )
 
 
@@ -1443,6 +1480,15 @@ def _apply_optional_rejudge_deadline(
             root_deadline_exhausted=True,
         )
     return call
+
+
+def _optional_rejudge_allows_monotonic_release(call: _JudgeCall) -> bool:
+    """Allow only budget expiry or a classified transient after a full review."""
+
+    return call.report is None and (
+        call.root_deadline_exhausted
+        or call.transient_provider_failure
+    )
 
 
 def _novel_numeric_condition_indexes(
@@ -2004,7 +2050,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
     return fn(request)
 
 
-def _stable_semantic_judge_error(value: object) -> tuple[str, bool]:
+def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     """Classify provider failure without projecting raw diagnostics."""
 
     normalized = str(value or "").strip().casefold()
@@ -2022,36 +2068,64 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool]:
             "认证",
         )
     ):
-        return "semantic judge configuration error", False
+        return "semantic judge configuration error", False, False
     if "budget" in normalized or "预算" in normalized:
-        return "semantic judge call budget exhausted", False
+        return "semantic judge call budget exhausted", False, False
     if "cancel" in normalized or "取消" in normalized:
-        return "semantic judge cancelled", False
+        return "semantic judge cancelled", False, False
     if any(
         marker in normalized
         for marker in (
-            "timeout",
-            "timed out",
-            "remote",
-            "urlerror",
-            "connection",
             "empty_model_response",
-            "rate limit",
-            "temporar",
-            "429",
-            "500",
-            "502",
-            "503",
-            "504",
-            "限流",
-            "网络",
-            "断开",
+            "invalid",
+            "malformed",
+            "model not found",
+            "endpoint",
         )
     ):
-        return "semantic judge transient provider error", True
-    if "invalid" in normalized or "malformed" in normalized:
-        return "semantic judge invalid provider response", False
-    return "semantic judge provider error", False
+        retryable = "empty_model_response" in normalized
+        return "semantic judge invalid provider response", retryable, False
+    status_match = _HTTP_STATUS_ERROR_RE.search(normalized)
+    if status_match is not None:
+        status = int(status_match.group(1))
+        if status == 429 or 500 <= status <= 599:
+            return "semantic judge transient provider error", True, True
+        return "semantic judge provider error", False, False
+    if any(
+        marker in normalized
+        for marker in (
+            "timeouterror",
+            "readtimeout",
+            "connecttimeout",
+            "connectionerror",
+            "connectionreseterror",
+            "connectionrefusederror",
+            "connectionabortederror",
+            "urlerror",
+            "remotedisconnected",
+        )
+    ):
+        return "semantic judge transient provider error", True, True
+    if any(
+        marker in normalized
+        for marker in (
+            "timeout error",
+            "timed out",
+            "provider_timeout",
+            "connection error",
+            "connection reset",
+            "connection refused",
+            "connection aborted",
+            "rate limit",
+            "temporarily unavailable",
+            "限流",
+            "网络错误",
+            "网络连接",
+            "连接断开",
+        )
+    ):
+        return "semantic judge transient provider error", True, False
+    return "semantic judge provider error", False, False
 
 
 def _sanitize_public_answer(
