@@ -597,6 +597,25 @@ def test_semantic_smoke_accepts_continuation_condition_gap_wording() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_possible_extension_duration_wording() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "持续时间判断：基准判断为反弹可能再延续1-3个交易日。"
+                    "证据缺口：市场预测的判断继续成立条件中的未核验表述"
+                    "已删除，需补充直接证据。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 @pytest.mark.parametrize(
     "answer",
     (
