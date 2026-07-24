@@ -318,7 +318,10 @@ def test_semantic_smoke_rejects_negated_or_contradicted_gap_claims(
     ("question", "answer"),
     (
         ("瑞华泰的合理估值", "财报并非缺失，估值结论完备。"),
+        ("瑞华泰的合理估值", "财报并不缺失，估值结论完备。"),
         ("瑞华泰的合理估值", "财报缺失已经补齐，估值结论完备。"),
+        ("瑞华泰的合理估值", "估值证据不充分的问题已经解决。"),
+        ("瑞华泰的合理估值", "已解决财报缺失问题，估值结论完备。"),
         (
             "你觉得目前市场的主线是什么，给我你的判断依据",
             "直接判断：当前主线是人工智能。主线证据缺口已经补齐。",
@@ -357,6 +360,23 @@ def test_semantic_smoke_accepts_negative_sufficiency_as_real_valuation_gap() -> 
             {
                 "role": "assistant",
                 "content": "估值证据不充分，财报数据缺失。",
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_accepts_sparse_comparable_sample_as_valuation_gap() -> (
+    None
+):
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": "可比样本太少，无法给出可靠估值。",
             }
         ],
     )

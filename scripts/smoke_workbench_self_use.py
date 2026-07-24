@@ -150,17 +150,7 @@ VALUATION_FIELD = (
     r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效|"
     r"估值证据|估值输入|可比公司|可比样本)"
 )
-VALUATION_DATA_GAP = re.compile(
-    r"(?:"
-    r"(?:缺少|缺乏|尚无|未取得|未获得|无法取得|无法获得)"
-    r"(?:(?!但|而|不过|同时)[^。；;，,\n]){0,48}"
-    rf"{VALUATION_FIELD}"
-    r"|"
-    rf"{VALUATION_FIELD}"
-    r"(?:(?!但|而|不过|同时)[^。；;，,\n]){0,48}"
-    r"(?:缺失|未获取|未取得|未获得|缺少|缺乏|不足|不充分|不完整)"
-    r")"
-)
+VALUATION_FIELD_RE = re.compile(VALUATION_FIELD)
 UNRESOLVED_GAP_ASSERTION = re.compile(
     r"(?:仍|尚|还|目前|当前|依然)?\s*"
     r"(?:缺少|缺乏|缺失|不足|不充分|不完整)|"
@@ -168,14 +158,20 @@ UNRESOLVED_GAP_ASSERTION = re.compile(
     r"(?:获取|取得|获得|核验|确认|完成|形成|建立|检索到|覆盖|对齐|归因|回答)|"
     r"(?:仍需|尚待|有待|需|需要)\s*(?:补充|核验|确认|获取)|"
     r"(?:存在|仍有|尚有|留有)[^。；;，,\n]{0,12}(?:缺口|不足)|"
+    r"(?:样本|数据|证据)(?:数量)?\s*(?:太少|过少)|"
     r"(?:不含|没有)[^。；;，,\n]{0,36}(?:证据|新闻|政策|信息)|"
+    r"无法\s*(?:给出|形成|计算|估算|确定)[^。；;，,\n]{0,10}估值|"
     r"返回空结果"
 )
 GAP_ASSERTION_NEGATION = re.compile(
-    r"(?:并非|并未|没有|不存在|不再)[^。；;，,\n]{0,6}$"
+    r"(?:并非|并未|并不|没有|不存在|不再)[^。；;，,\n]{0,6}$|"
+    r"(?:已|已经|现已|目前已)?\s*"
+    r"(?:补齐|补全|填补|弥补|消除|解决|关闭)"
+    r"[^。；;，,\n]{0,10}$"
 )
 GAP_ASSERTION_RESOLUTION = re.compile(
-    r"^(?:已|已经|现已|目前已)?\s*"
+    r"^(?:的)?(?:问题|缺口)?\s*(?:已|已经|现已|目前已)?\s*"
+    r"(?:得到)?\s*"
     r"(?:补齐|补全|填补|弥补|消除|解决|关闭|归零|为零)"
 )
 GAP_CONTRAST_SPLIT = re.compile(r"(?:但|不过|然而|可是|却)")
@@ -270,10 +266,10 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
     clauses = re.split(r"[。；;\n]+", answer)
     if "估值" in question:
         return any(
-            _segment_asserts_gap(segment)
-            and (
-                VALUATION_DATA_GAP.search(segment)
-                or (
+            _segment_asserts_valuation_gap(segment)
+            or (
+                _segment_asserts_gap(segment)
+                and (
                     "条件" in segment
                     and any(marker in segment for marker in ("失效", "降级"))
                 )
@@ -289,10 +285,6 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
     )
 
 
-def _clause_asserts_gap(clause: str) -> bool:
-    return any(_segment_asserts_gap(segment) for segment in _gap_segments(clause))
-
-
 def _gap_segments(clause: str) -> tuple[str, ...]:
     return tuple(
         segment.strip()
@@ -304,13 +296,20 @@ def _gap_segments(clause: str) -> tuple[str, ...]:
 def _segment_asserts_gap(segment: str) -> bool:
     for match in UNRESOLVED_GAP_ASSERTION.finditer(segment):
         prefix = segment[max(0, match.start() - 10) : match.start()]
-        suffix = segment[match.end() : match.end() + 14]
+        suffix = segment[match.end() : match.end() + 24]
         if GAP_ASSERTION_NEGATION.search(prefix):
             continue
         if GAP_ASSERTION_RESOLUTION.search(suffix):
             continue
         return True
     return False
+
+
+def _segment_asserts_valuation_gap(segment: str) -> bool:
+    return any(
+        VALUATION_FIELD_RE.search(phrase) and _segment_asserts_gap(phrase)
+        for phrase in re.split(r"[，,]+", segment)
+    )
 
 
 def _has_specific_cause_gap(answer: str) -> bool:

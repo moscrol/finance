@@ -355,7 +355,9 @@ Gate behavior:
    amount observations contradict monotonic movement. The amount proxy and
    path word must be locally bound; volume, another metric, negation,
    conditional language, and an explicit local N-day window do not trigger
-   this gate and remain the semantic judge's responsibility.
+   this gate and remain the semantic judge's responsibility. Coordinated
+   amount/market subjects share the path predicate, while contrast boundaries
+   and postposed epistemic negation stay attached to their nearest assertion.
 
 The semantic gate distinguishes claim types instead of treating every sentence
 as a quoted source fact. Observed facts, dates, factual numbers, external
@@ -477,7 +479,10 @@ verification may preserve or downgrade this status, but never upgrade it.
 Release smoke accepts natural task-specific gap wording rather than a fixed
 template, but preserves semantic binding: a deictic ``该窗口`` needs an explicit
 date/time anchor elsewhere in the answer, valuation gaps need a finance field,
-and generic or unrelated missing-data text remains a failure.
+and generic or unrelated missing-data text remains a failure. A gap is accepted
+only when an unresolved predicate such as missing, unavailable, unverified, or
+requiring supplementation binds to that task slot; a resolved or negated gap
+cannot satisfy the release check merely by containing the same keywords.
 
 The legacy path remains callable for the same fixed A/B cases until the canary
 passes. An Episode-owned answer is persisted directly and is never rewritten
