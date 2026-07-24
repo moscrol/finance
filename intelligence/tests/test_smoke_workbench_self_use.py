@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from scripts.smoke_workbench_self_use import PublicLeakScanner, semantic_answer_issues
 
 
@@ -175,6 +177,113 @@ def test_semantic_smoke_accepts_reason_attribution_gap_heading() -> None:
     )
 
     assert issues == []
+
+
+def test_semantic_smoke_accepts_task_specific_partial_without_gap_heading() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "核心结论：本周A股实际上涨约3%，问题前提不成立。"
+                    "同一时间窗口未检索到对齐的新闻证据，无法核验7月17日"
+                    "单日下跌的外部原因。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_rejects_forecast_gap_without_duration() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "关于反弹持续性，现有证据不足，暂不能可靠回答。"
+                    "仍需核验：最新市场基线、持续时间窗口与失效条件。"
+                ),
+            }
+        ],
+    )
+
+    assert "forecast_duration_missing" in issues
+
+
+def test_semantic_smoke_accepts_duration_forecast_with_invalidation() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "核心判断：基准情景还能持续3至5个交易日。"
+                    "若成交继续缩量则判断失效。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+@pytest.mark.parametrize(
+    "non_forecast",
+    [
+        "近5个交易日成交额下降。失效条件尚待观察。",
+        "过去一周市场波动较大。失效条件需要关注。",
+        "判断：近5个交易日成交额下降。若成交继续缩量则判断失效。",
+        "基准数据覆盖近5个交易日。若数据缺失则判断失效。",
+    ],
+)
+def test_semantic_smoke_rejects_historical_duration_as_forecast(
+    non_forecast: str,
+) -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "complete"},
+        [{"role": "assistant", "content": non_forecast}],
+    )
+
+    assert "forecast_duration_missing" in issues
+    if "若成交继续缩量" not in non_forecast:
+        assert "forecast_invalidation_missing" in issues
+
+
+@pytest.mark.parametrize(
+    "generic_gap",
+    ["未检索到资料。", "仍需核验。", "市场下跌。证据缺口。"],
+)
+def test_semantic_smoke_rejects_generic_gap_keywords(generic_gap: str) -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": generic_gap}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
+def test_semantic_smoke_rejects_degraded_even_with_specific_gap() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "degraded"},
+        [
+            {
+                "role": "assistant",
+                "content": "证据缺口：单日下跌原因仍缺时间对齐的新闻。",
+            }
+        ],
+    )
+
+    assert "answer_status='degraded'" in issues
 
 
 def test_semantic_smoke_rejects_generic_partial_source_list() -> None:

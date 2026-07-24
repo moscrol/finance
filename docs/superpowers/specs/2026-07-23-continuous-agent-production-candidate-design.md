@@ -179,6 +179,15 @@ Recovery rules:
   recovery draft is capped by instruction at 1,200 Chinese characters so the
   provider spends its bounded call on a direct answer rather than reprinting
   the ledger.
+- Normal continuous finalization uses a softer 1,000-Chinese-character
+  transport budget. This is not a title, paragraph, or line-count template:
+  the model keeps wording and layout authority, but must prioritize the direct
+  judgment, decisive evidence, uncertainty, and continuation/invalidation
+  conditions so the provider can finish one valid envelope before timeout.
+- The composition root gives the shared finalizer the same provider-call cap
+  as normal Episode turns (currently 75 seconds), still clipped by the one
+  root `ResearchDeadline`. This removes an accidental 20-second recovery-only
+  timeout without minting a second wall-clock budget.
 - The recovered `FINAL_JSON` passes the same parser and structural verifier as
   the normal answer. Recovery cannot upgrade a missing output to completed
   without an existing evidence hash.
@@ -298,9 +307,19 @@ Gate behavior:
    traces, and usage are copied unchanged before every structural recheck. No
    model receives wording authority during semantic repair. Repair may not
    delete a visible required-output marker and still report completion.
-4. Invalid/unavailable judge output in canary/on mode fails closed to partial.
-   The public response is a short deterministic evidence-gap answer; the
-   unverified draft remains in private artifacts for inspection.
+4. If no completed first judge report exists, invalid/unavailable judge output
+   in canary/on mode fails closed to partial. After a completed report has
+   reviewed the whole draft and identified exact rejected spans, however, a
+   later optional rejudge timeout may preserve the already-reviewed remainder
+   after deterministic deletion and structural re-verification. That terminal
+   result is recorded as `repaired`; it cannot add or paraphrase text, mint
+   evidence, restore a rejected span, or upgrade a structural partial. This is
+   monotonic recovery from verification-budget exhaustion, not fail-open
+   acceptance of an unreviewed draft. `_JudgeCall` carries an explicit
+   `root_deadline_exhausted` identity; checking the wall clock after a call is
+   insufficient because a slow malformed/configuration/tool-call failure must
+   remain fail-closed. A late valid rejection is retained and its exact spans
+   are still deleted before any release.
 5. Semantic verification never upgrades structural status and never adds
    evidence.
 6. The semantic gate may retry its correlated primary judge once after a
@@ -348,12 +367,18 @@ Deterministic redaction therefore supersedes the draft-only model call. It
 cannot introduce a paraphrased unsupported claim and consumes no repair-model
 budget. Up to three judge reports share the existing root verification
 deadline; no extra reserve or wall-clock extension is minted for the second
-repair. Redaction uses source spans rather than sentence re-joining, so
+repair. A missing first report still fails closed. If a later rejudge exhausts
+the shared root deadline only after one completed whole-draft report and exact
+monotonic redaction, the reviewed remainder may be released as `repaired`;
+malformed output, configuration errors, invalid tool calls, and other
+unavailable states remain fail-closed. Redaction uses source spans rather than
+sentence re-joining, so
 headings, lists, and blank lines are preserved. If a rejected span contains
 the direct answer, removing it is intentional fail-closed behavior; if no
 useful draft remains, the public projection becomes the question-specific
-evidence-gap answer. A malformed, unavailable, or unresolved result also
-fails closed.
+evidence-gap answer. A malformed, configuration-invalid, or otherwise
+unresolved result also fails closed; only the explicitly bounded later
+shared-deadline exhaustion case above has the monotonic-release exception.
 
 One gate-local transient retry is intentionally owned here rather than inside
 `GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
@@ -474,8 +499,11 @@ Tests exercise public behavior at four agreed seams:
 - a model-judge pass cannot preserve a novel numeric condition absent from
   bound evidence, while dates and evidence-backed numeric anchors remain;
 - targeted repair is deletion-only, bounded to two repair rounds, and every
-  newly exposed draft is rejudged within the same root deadline;
-- judge outage cannot produce public `completed`;
+  newly exposed draft is rejudged when the shared root deadline permits;
+- judge outage before any completed whole-draft report cannot produce public
+  `completed`; only shared-deadline exhaustion on an optional rejudge may
+  preserve the remainder already reviewed and monotonically redacted from a
+  completed prior report;
 - passed semantics cannot upgrade a structural partial;
 - public projection contains no internal evidence or provider identifiers and
   does not duplicate the adapter-owned structured citation ledger.

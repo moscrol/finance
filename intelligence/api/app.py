@@ -66,6 +66,7 @@ from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
 from intelligence.services.glm_agent_runtime import (
+    DEFAULT_GLM_LLM_TIMEOUT,
     GLMAgentRuntime,
     GLMModelClient,
 )
@@ -125,7 +126,10 @@ def _build_continuous_turn_adapter(
         providers=providers,
         is_cancelled=is_cancelled,
     )
-    finalizer = EpisodeFinalizer(client)
+    finalizer = EpisodeFinalizer(
+        client,
+        llm_timeout=DEFAULT_GLM_LLM_TIMEOUT,
+    )
     runtime = GLMAgentRuntime(
         client=client,
         finalizer=finalizer,

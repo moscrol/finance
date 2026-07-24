@@ -275,6 +275,13 @@ dates, and `failure_reason`. Call `model.complete` once with the two messages,
 an empty tools list, and the remaining synthesis timeout. Do not parse or bless
 the response inside the module.
 
+Keep normal finalization within a soft 1,000-Chinese-character transport
+budget, without requiring fixed headings, line counts, or a template. At the
+Workbench composition root, construct the shared finalizer with the same
+provider-call cap as normal Episode turns (currently 75 seconds); both remain
+clipped by the original root deadline, so this parity adds no wall-clock
+budget.
+
 The evidence field is a compact view, not a second full transcript: select no
 more than twelve records round-robin across producing tools, cap each detail
 excerpt at 360 characters, preserve every selected original hash, and instruct
@@ -474,10 +481,18 @@ upgrade status. Normalize literal newline escapes in the natural-language
 draft before sentence numbering. If preflight or repair removes a visible
 marker for a required output that existed before repair, return `partial`;
 evidence bindings alone cannot let a deleted answer slot remain completed.
-If any step is unavailable/invalid/rejected, return `partial`
-and a short question-specific evidence-gap answer assembled from the TaskFrame
-and verified completion gaps. Preserve rejected drafts only in the private
-outcome/artifact.
+If the first judge never returns a completed report, any unavailable/invalid
+result returns `partial` and a short question-specific evidence-gap answer
+assembled from the TaskFrame and verified completion gaps. Preserve rejected
+drafts only in the private outcome/artifact. Once a completed whole-draft
+report has identified exact rejected spans, deterministic deletion plus a
+successful structural recheck may be terminally released as `repaired` if an
+optional later rejudge exhausts the same root deadline. This path may only
+delete text; it cannot add wording or evidence, restore a rejected span, or
+upgrade a structural partial. Carry root-deadline exhaustion as an explicit
+judge-call result instead of inferring it from the clock after return: slow
+malformed/configuration/invalid-tool responses remain fail-closed, while a
+late valid rejection must still delete its named spans.
 
 The correlated primary judge may retry once only for classified transient
 provider failures. Cap every judge attempt at 25 seconds and reuse the root

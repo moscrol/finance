@@ -1380,7 +1380,7 @@ def test_late_judge_pass_is_unavailable_and_cannot_complete() -> None:
     assert any("deadline" in issue for issue in result.issues)
 
 
-def test_late_rejudge_pass_is_unavailable_and_cannot_complete() -> None:
+def test_late_rejudge_preserves_prior_judged_monotonic_redaction() -> None:
     frame, structural = _structural("市场下跌。政策变化导致了下跌。")
     calls = 0
 
@@ -1402,9 +1402,165 @@ def test_late_rejudge_pass_is_unavailable_and_cannot_complete() -> None:
         deadline=ResearchDeadline.from_timeout(0.02),
     )
     assert calls == 2
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场下跌。"
+    assert any("deadline" in issue for issue in result.issues)
+
+
+def test_malformed_rejudge_cannot_release_prior_redaction() -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    calls = 0
+
+    def reject_then_malformed(_request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": ["因果证据不足"],
+            }
+        return None
+
+    result = SemanticEpisodeVerifier(judge_fn=reject_then_malformed).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 2
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
+    assert result.public_answer != "市场下跌。"
+
+
+def test_late_malformed_rejudge_cannot_masquerade_as_deadline_recovery() -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+    calls = 0
+
+    def reject_then_late_malformed(_request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": ["因果证据不足"],
+            }
+        time.sleep(0.03)
+        return None
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=reject_then_late_malformed
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.02),
+    )
+
+    assert calls == 2
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+
+
+def test_late_rejudge_rejection_is_redacted_before_release() -> None:
+    frame, structural = _structural(
+        "市场下跌。资金变化导致了下跌。政策变化导致了下跌。"
+    )
+    calls = 0
+
+    def reject_then_late_reject(_request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [3],
+                "issues": ["政策因果证据不足"],
+            }
+        time.sleep(0.03)
+        return {
+            "passed": False,
+            "rejected_sentence_indexes": [2],
+            "issues": ["资金因果证据不足"],
+        }
+
+    result = SemanticEpisodeVerifier(judge_fn=reject_then_late_reject).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.02),
+    )
+
+    assert calls == 2
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场下跌。"
+    assert "资金变化导致了下跌。" not in result.public_answer
+
+
+def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None:
+    frame, structural = _structural(
+        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+    )
+    calls = 0
+
+    def reject_twice_then_late_pass(_request):
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": [f"第{calls}个因果句证据不足"],
+            }
+        time.sleep(0.03)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=reject_twice_then_late_pass
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.02),
+    )
+
+    assert calls == 3
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场下跌。"
     assert any("deadline" in issue for issue in result.issues)
+
+
+def test_late_malformed_final_rejudge_remains_fail_closed() -> None:
+    frame, structural = _structural(
+        "市场下跌。政策变化导致了下跌。资金变化导致了下跌。"
+    )
+    calls = 0
+
+    def reject_twice_then_late_malformed(_request):
+        nonlocal calls
+        calls += 1
+        if calls <= 2:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [2],
+                "issues": [f"第{calls}个因果句证据不足"],
+            }
+        time.sleep(0.03)
+        return None
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=reject_twice_then_late_malformed
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(0.02),
+    )
+
+    assert calls == 3
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
 
 
 @pytest.mark.parametrize(

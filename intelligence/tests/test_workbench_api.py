@@ -439,6 +439,7 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     episode = adapter._runtime._episode
     semantic = adapter._semantic_verifier
     assert episode._model is episode._finalizer._model
+    assert episode._finalizer._llm_timeout == episode._llm_timeout
     assert semantic._primary_judge is episode._model
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers

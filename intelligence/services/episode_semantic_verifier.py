@@ -240,6 +240,7 @@ class _JudgeCall:
     unavailable: bool
     correlated: bool
     issue: str = ""
+    root_deadline_exhausted: bool = False
 
 
 class SemanticEpisodeVerifier:
@@ -552,13 +553,7 @@ class SemanticEpisodeVerifier:
             self._judge_request(frame, repaired_verified, repaired_sentences),
             deadline,
         )
-        if deadline.expired:
-            second = _JudgeCall(
-                None,
-                True,
-                second.correlated,
-                "semantic judge deadline exhausted",
-            )
+        second = _apply_optional_rejudge_deadline(second, deadline)
         second = _apply_numeric_condition_gate(
             second,
             repaired_sentences,
@@ -577,6 +572,30 @@ class SemanticEpisodeVerifier:
                             *preflight_issues,
                             *first.report.issues,
                             *second.report.issues,
+                        )
+                    )
+                ),
+                correlated_judge=correlated,
+            )
+
+        if second.report is None and second.root_deadline_exhausted:
+            # The first completed report reviewed the entire original draft
+            # and named the only spans it rejected. Removing those spans is a
+            # monotonic operation: it cannot add a claim or evidence. A
+            # best-effort rejudge may catch omissions, but its timeout must not
+            # erase the already-reviewed remainder.
+            second_issue = second.issue or "semantic rejudge unavailable"
+            return self._completed_public(
+                frame,
+                repaired_verified,
+                judge_status="repaired",
+                judge_issues=tuple(
+                    dict.fromkeys(
+                        (
+                            *repaired_verified.issues,
+                            *preflight_issues,
+                            *first.report.issues,
+                            second_issue,
                         )
                     )
                 ),
@@ -634,13 +653,7 @@ class SemanticEpisodeVerifier:
                         ),
                         deadline,
                     )
-                    if deadline.expired:
-                        third = _JudgeCall(
-                            None,
-                            True,
-                            third.correlated,
-                            "semantic judge deadline exhausted",
-                        )
+                    third = _apply_optional_rejudge_deadline(third, deadline)
                     third = _apply_numeric_condition_gate(
                         third,
                         twice_sentences,
@@ -660,6 +673,31 @@ class SemanticEpisodeVerifier:
                                         *first.report.issues,
                                         *second.report.issues,
                                         *third.report.issues,
+                                    )
+                                )
+                            ),
+                            correlated_judge=correlated,
+                        )
+                    if third.report is None and third.root_deadline_exhausted:
+                        # The second completed report reviewed the once-
+                        # repaired draft. Its exact rejected spans have now
+                        # been removed, so an optional final rejudge timeout
+                        # cannot erase that twice-reviewed remainder.
+                        third_issue = (
+                            third.issue or "semantic final rejudge unavailable"
+                        )
+                        return self._completed_public(
+                            frame,
+                            twice_verified,
+                            judge_status="repaired",
+                            judge_issues=tuple(
+                                dict.fromkeys(
+                                    (
+                                        *twice_verified.issues,
+                                        *preflight_issues,
+                                        *first.report.issues,
+                                        *second.report.issues,
+                                        third_issue,
                                     )
                                 )
                             ),
@@ -816,7 +854,13 @@ class SemanticEpisodeVerifier:
     ) -> _JudgeCall:
         timeout = deadline.synthesis_timeout(self._judge_timeout)
         if timeout <= 0.001:
-            return _JudgeCall(None, True, False, "semantic judge deadline exhausted")
+            return _JudgeCall(
+                None,
+                True,
+                False,
+                "semantic judge deadline exhausted",
+                root_deadline_exhausted=True,
+            )
 
         provider = None
         try:
@@ -839,6 +883,7 @@ class SemanticEpisodeVerifier:
                         True,
                         False,
                         "semantic judge deadline exhausted",
+                        root_deadline_exhausted=True,
                     )
                 try:
                     with llm_refine.provider_override(provider):
@@ -893,6 +938,7 @@ class SemanticEpisodeVerifier:
                     True,
                     True,
                     "semantic judge deadline exhausted",
+                    root_deadline_exhausted=True,
                 )
             try:
                 turn = primary.complete(
@@ -1282,7 +1328,36 @@ def _apply_numeric_condition_gate(
         call.unavailable,
         call.correlated,
         call.issue,
+        call.root_deadline_exhausted,
     )
+
+
+def _apply_optional_rejudge_deadline(
+    call: _JudgeCall,
+    deadline: ResearchDeadline,
+) -> _JudgeCall:
+    """Classify only genuine root-deadline exhaustion as releasable.
+
+    A valid late rejection remains useful and must narrow the draft. A valid
+    late pass cannot authorize work after the hard boundary, but the earlier
+    completed report still permits monotonic deletion-only release. Malformed,
+    configuration-invalid, and bad-tool responses retain their original
+    failure identity even when they happen to return after the clock expires.
+    """
+
+    if call.root_deadline_exhausted or not deadline.expired:
+        return call
+    if call.report is not None and not call.report.passed:
+        return call
+    if call.report is not None and call.report.passed:
+        return _JudgeCall(
+            None,
+            True,
+            call.correlated,
+            "semantic judge deadline exhausted",
+            root_deadline_exhausted=True,
+        )
+    return call
 
 
 def _novel_numeric_condition_indexes(

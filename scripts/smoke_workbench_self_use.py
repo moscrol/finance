@@ -150,6 +150,58 @@ EXPLICIT_EVIDENCE_GAP = re.compile(
     r"[^。；;\n]{0,16}缺口|"
     r"缺口[^。；;\n]{0,16}(?:无法|缺少|尚未|未能)"
 )
+GAP_SIGNAL = re.compile(
+    r"尚未完成|仍缺少|尚缺少|不给出定性结论|无法形成可靠|"
+    r"证据(?:边界与)?缺口|原因归因\s*[:：]\s*缺口|仍需核验|未检索到"
+)
+FORECAST_DURATION = re.compile(
+    r"(?:\d+(?:\.\d+)?(?:\s*(?:[-~～至到—]|到)\s*\d+(?:\.\d+)?)?|"
+    r"[一二两三四五六七八九十百]+(?:到|至)?"
+    r"[一二两三四五六七八九十百]*)\s*(?:个)?(?:交易日|天|周|月)"
+)
+FORECAST_LANGUAGE = re.compile(
+    r"预计|预期|还能|将(?:维持|持续)|可持续|大概率(?:持续|维持)|"
+    r"基准情景|反弹(?:的)?(?:持续)?(?:时间)?窗口|倾向于?(?:还能|持续|维持)"
+)
+MARKET_TRIGGER = (
+    r"(?:成交|量能|指数|涨停|跌停|主线|板块|市场宽度|上涨家数|"
+    r"下跌家数|均线|支撑|压力|资金|北向|融资)"
+)
+INVALIDATION_TRIGGER = re.compile(
+    rf"(?:若|如果|一旦|当)[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
+    r"[^。；;\n]{1,80}(?:失效|结束|下调|转弱|转强|改变)"
+    rf"|失效条件\s*[:：]\s*(?:若|如果|一旦|当)"
+    rf"[^。；;\n]{{0,40}}{MARKET_TRIGGER}[^。；;\n]{{1,80}}"
+)
+
+
+def _task_gap_anchors(question: str) -> tuple[str, ...]:
+    if "主线" in question:
+        return ("主线",)
+    if "估值" in question:
+        return ("估值", "市值", "市盈", "市净", "盈利", "收入", "PE", "PB", "PS")
+    if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
+        return ("反弹", "持续", "时长", "交易日", "失效", "量能", "成交")
+    if any(marker in question for marker in ("原因", "下跌")):
+        return ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
+    return ("问题所需", "直接回答")
+
+
+def _has_task_specific_gap(question: str, answer: str) -> bool:
+    anchors = _task_gap_anchors(question)
+    clauses = re.split(r"[。；;\n]+", answer)
+    return any(
+        (GAP_SIGNAL.search(clause) or EXPLICIT_EVIDENCE_GAP.search(clause))
+        and any(anchor in clause for anchor in anchors)
+        for clause in clauses
+    )
+
+
+def _has_forward_duration(answer: str) -> bool:
+    return any(
+        FORECAST_DURATION.search(clause) and FORECAST_LANGUAGE.search(clause)
+        for clause in re.split(r"[。；;\n]+", answer)
+    )
 
 
 class SmokeProtocolError(RuntimeError):
@@ -175,18 +227,10 @@ def semantic_answer_issues(
     if not assistant_text.strip():
         issues.append("assistant_answer_missing")
         return issues
-    explicit_gap = any(
-        marker in assistant_text
-        for marker in (
-            "尚未完成",
-            "仍缺少",
-            "尚缺少",
-            "不给出定性结论",
-            "无法形成可靠",
-            "证据缺口",
-        )
-    ) or bool(EXPLICIT_EVIDENCE_GAP.search(assistant_text))
-    if answer_status != "complete" and not explicit_gap:
+    explicit_gap = _has_task_specific_gap(question, assistant_text)
+    if answer_status == "partial" and not explicit_gap:
+        issues.append(f"answer_status={answer_status!r}")
+    elif answer_status not in {"complete", "partial"}:
         issues.append(f"answer_status={answer_status!r}")
     if "主线" in question:
         if not (
@@ -219,6 +263,11 @@ def semantic_answer_issues(
         ):
             if marker not in assistant_text:
                 issues.append(name)
+    if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
+        if not _has_forward_duration(assistant_text):
+            issues.append("forecast_duration_missing")
+        if not INVALIDATION_TRIGGER.search(assistant_text):
+            issues.append("forecast_invalidation_missing")
     if "科创50" in question or "支撑点位" in question:
         if "支撑" not in assistant_text:
             issues.append("technical_support_missing")
