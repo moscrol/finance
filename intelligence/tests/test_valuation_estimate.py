@@ -57,6 +57,22 @@ class TestBuildValuationBlock(unittest.TestCase):
         block = ve.build_valuation_block(None, [])
         self.assertIn("缺目标估值快照", block)
 
+    def test_loss_making_target_uses_current_pb_sensitivity_not_peer_extremes(self):
+        target = _snap("688323", "亏损公司", mv=49.5, pe=-51.26, pb=4.33)
+        peers = [
+            _snap("600001", "盈利可比甲", pe=40.0, pb=7.73),
+            _snap("600002", "盈利可比乙", pe=60.0, pb=24.91),
+            _snap("600003", "盈利可比丙", pe=80.0, pb=34.19),
+        ]
+
+        block = ve.build_valuation_block(target, peers)
+
+        self.assertIn("亏损公司启发式", block)
+        self.assertIn("保守 3.25 ~ 4.33 倍", block)
+        self.assertIn("中性 4.33 ~ 6.5 倍", block)
+        self.assertIn("乐观 6.5 ~ 8.66 倍", block)
+        self.assertNotIn("保守 7.73 ~", block)
+
     def test_block_fetch_disabled(self):
         block = ve.build_valuation_block(None, [], fetch_disabled=True)
         self.assertIn(ve.FETCH_ENV_FLAG, block)

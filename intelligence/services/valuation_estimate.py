@@ -136,14 +136,22 @@ def _pb_scenario_anchors(
 
     if target.pb is None or target.pb <= 0:
         return None
-    low, median, high = band
-    current = min(max(float(target.pb), low), high)
-    neutral_low, neutral_high = sorted((current, median))
-    intervals = (
-        ("保守", low, neutral_low),
-        ("中性", neutral_low, neutral_high),
-        ("乐观", neutral_high, high),
-    )
+    if target.pe_ttm is not None and target.pe_ttm <= 0:
+        current = float(target.pb)
+        intervals = (
+            ("保守", round(current * 0.75, 2), current),
+            ("中性", current, round(current * 1.5, 2)),
+            ("乐观", round(current * 1.5, 2), round(current * 2.0, 2)),
+        )
+    else:
+        low, median, high = band
+        current = min(max(float(target.pb), low), high)
+        neutral_low, neutral_high = sorted((current, median))
+        intervals = (
+            ("保守", low, neutral_low),
+            ("中性", neutral_low, neutral_high),
+            ("乐观", neutral_high, high),
+        )
     rendered = []
     for label, lower, upper in intervals:
         if target.total_mv_yi is None:
@@ -209,7 +217,13 @@ def build_valuation_block(
                         f"{label} {lower} ~ {upper} 倍{market_cap}"
                     )
                 lines.append(
-                    "- PB 情景计算锚（机械推演，不是目标价；假设净资产不变）："
+                    "- PB 情景计算锚（"
+                    + (
+                        "亏损公司启发式机械推演"
+                        if target.pe_ttm is not None and target.pe_ttm <= 0
+                        else "可比带机械推演"
+                    )
+                    + "，不是目标价；假设净资产不变）："
                     + "；".join(rendered_anchors)
                     + "。情景条件由分析层说明，但不得改写这些数值锚。"
                 )

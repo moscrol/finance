@@ -518,6 +518,7 @@ def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> 
     assert "补充证据" in system_prompt
     assert "PB 情景计算锚" in system_prompt
     assert "不得另造倍数" in system_prompt
+    assert "没有直接 evidence 的项目" in system_prompt
 
 
 def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:

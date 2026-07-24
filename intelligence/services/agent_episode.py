@@ -894,6 +894,8 @@ class ContinuousAgentEpisode:
             "必须至少包含一个 financial_data 证据哈希；KB、公告或业务材料可以作为"
             "补充证据，但不能替代逐季财务硬锚。若 D5 已给出 PB 情景计算锚，优先"
             "逐字复用其保守/中性/乐观数值，模型只补条件与风险，不得另造倍数。"
+            "情景条件优先只用 financial_data 已观察到的营收、净利、毛利率或净利率"
+            "改善/恶化；没有直接 evidence 的项目、产能、客户和业务催化不得写入。"
             if task_frame.question_type == "valuation_estimate"
             else ""
         )

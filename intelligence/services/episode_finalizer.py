@@ -48,6 +48,8 @@ _RECOVERY_SYSTEM_PROMPT = (
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "
     "financial_data 哈希；KB 或业务材料只能作补充。无法满足时返回 partial 并写 gap。"
     "evidence 若含 PB 情景计算锚，逐字复用其三组数值，只补条件与风险，不得另造倍数。"
+    "情景条件优先只使用 financial_data 的营收、净利、毛利率或净利率变化；"
+    "没有直接 evidence 的项目、产能、客户和业务催化不得写入。"
 )
 
 def _stable_failure_reason(value: object) -> str:
