@@ -563,8 +563,9 @@ match.
 ## 16. Dependency strategy
 
 Add `openai-agents` to the Workbench API runtime dependency set only when the SDK
-adapter is implemented. Pin a compatible lower bound after installing and
-recording the resolved version in the isolated runtime. Do not vendor the SDK.
+adapter is implemented. Pin `openai-agents==0.18.3`, the current package version
+confirmed during planning, and record the resolved SDK/OpenAI versions in the
+isolated runtime. Do not vendor the SDK.
 
 The headless adapter uses the installed Codex CLI and Python standard library;
 it does not add an MCP or subprocess framework dependency. CLI availability and
