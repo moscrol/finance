@@ -158,6 +158,11 @@ GAP_SIGNAL = re.compile(
     r"(?:证据|新闻|政策|信息)[^。；;\n]{0,40}"
     r"无法[^。；;\n]{0,32}(?:归因|构建[^。；;\n]{0,12}因果)"
 )
+VALUATION_DATA_GAP = re.compile(
+    r"(?:缺少|缺乏|尚无|未取得|未获得|无法取得|无法获得)"
+    r"[^。；;\n]{0,80}"
+    r"(?:数据|证据|信息|财报|报表|分位|预测|阈值|时效|趋势)"
+)
 CAUSE_TIME = re.compile(
     r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
     r"20\d{2}[-年/.]\d{1,2}(?:[-月/.]\d{1,2})?|\d{1,2}月\d{1,2}日"
@@ -238,7 +243,11 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
     anchors = _task_gap_anchors(question)
     clauses = re.split(r"[。；;\n]+", answer)
     return any(
-        (GAP_SIGNAL.search(clause) or EXPLICIT_EVIDENCE_GAP.search(clause))
+        (
+            GAP_SIGNAL.search(clause)
+            or EXPLICIT_EVIDENCE_GAP.search(clause)
+            or ("估值" in question and VALUATION_DATA_GAP.search(clause))
+        )
         and any(anchor in clause for anchor in anchors)
         for clause in clauses
     )

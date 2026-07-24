@@ -159,6 +159,25 @@ def test_semantic_smoke_accepts_valuation_invalidation_slot_gap() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_task_bound_valuation_data_gaps() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "瑞华泰当前PB为4.35，总市值约49.78亿元。"
+                    "缺少历史PE/PS分位序列、公司最新财务报表及盈利趋势，"
+                    "估值精度受限。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",
