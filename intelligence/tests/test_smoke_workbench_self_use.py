@@ -263,6 +263,57 @@ def test_semantic_smoke_rejects_unrelated_valuation_data_gap() -> None:
     assert "answer_status='partial'" in issues
 
 
+@pytest.mark.parametrize(
+    "unrelated_gap",
+    (
+        "估值结论不变，但缺少天气数据，盈利正常。",
+        "估值结论不变，盈利正常但天气数据缺失。",
+    ),
+)
+def test_semantic_smoke_rejects_cross_phrase_valuation_gap(
+    unrelated_gap: str,
+) -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": unrelated_gap}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    (
+        (
+            "瑞华泰的合理估值",
+            "财报并未缺失，估值结论完备。",
+        ),
+        (
+            "昨天的反弹能持续多久",
+            "预计还能持续1-3个交易日。"
+            "证据缺口：判断继续成立的条件没有问题。",
+        ),
+        (
+            "这一周行情下跌的主要原因是什么",
+            "数据覆盖2026-07-17至2026-07-23。"
+            "天气新闻在该窗口缺失，但原因证据齐全。",
+        ),
+    ),
+)
+def test_semantic_smoke_rejects_negated_or_contradicted_gap_claims(
+    question: str,
+    answer: str,
+) -> None:
+    issues = semantic_answer_issues(
+        question,
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": answer}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
 def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",

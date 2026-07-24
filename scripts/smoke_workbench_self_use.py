@@ -158,18 +158,27 @@ GAP_SIGNAL = re.compile(
     r"(?:证据|新闻|政策|信息)[^。；;\n]{0,40}"
     r"无法[^。；;\n]{0,32}(?:归因|构建[^。；;\n]{0,12}因果)"
 )
+VALUATION_FIELD = (
+    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
+    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
+)
 VALUATION_DATA_GAP = re.compile(
     r"(?:"
     r"(?:缺少|缺乏|尚无|未取得|未获得|无法取得|无法获得)"
-    r"[^。；;\n]{0,80}"
-    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
-    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
+    r"(?:(?!但|而|不过|同时)[^。；;，,\n]){0,48}"
+    rf"{VALUATION_FIELD}"
     r"|"
-    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
-    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
-    r"[^。；;\n]{0,80}"
+    rf"{VALUATION_FIELD}"
+    r"(?:(?!但|而|不过|同时)[^。；;，,\n]){0,48}"
     r"(?:缺失|未获取|未取得|未获得|缺少|缺乏)"
     r")"
+)
+GAP_DENIAL = re.compile(
+    r"(?:并未|没有|并不|不存在|不再)[^。；;，,\n]{0,12}"
+    r"(?:缺失|缺少|缺乏|缺口)|"
+    r"(?:原因|归因|因果|证据|数据|信息|消息|财报|财务|报表|条件)"
+    r"[^。；;，,\n]{0,16}"
+    r"(?:齐全|完整|充分|完备|已核验|没有问题|无问题|无缺口|不缺)"
 )
 CAUSE_TIME = re.compile(
     r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
@@ -260,20 +269,40 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
 def _has_task_specific_gap(question: str, answer: str) -> bool:
     anchors = _task_gap_anchors(question)
     clauses = re.split(r"[。；;\n]+", answer)
-    return any(
-        (
-            GAP_SIGNAL.search(clause)
-            or EXPLICIT_EVIDENCE_GAP.search(clause)
-            or ("估值" in question and VALUATION_DATA_GAP.search(clause))
+    if "估值" in question:
+        return any(
+            _clause_asserts_gap(clause)
+            and (
+                VALUATION_DATA_GAP.search(clause)
+                or (
+                    "条件" in clause
+                    and any(marker in clause for marker in ("失效", "降级"))
+                )
+            )
+            for clause in clauses
         )
+    return any(
+        _clause_asserts_gap(clause)
         and any(anchor in clause for anchor in anchors)
         for clause in clauses
+    )
+
+
+def _clause_asserts_gap(clause: str) -> bool:
+    if GAP_DENIAL.search(clause):
+        return False
+    return bool(
+        GAP_SIGNAL.search(clause)
+        or EXPLICIT_EVIDENCE_GAP.search(clause)
+        or VALUATION_DATA_GAP.search(clause)
     )
 
 
 def _has_specific_cause_gap(answer: str) -> bool:
     explicit_time_context = bool(CAUSE_TIME.search(answer))
     return any(
+        not GAP_DENIAL.search(clause)
+        and
         (
             CAUSE_TIME.search(clause)
             or (explicit_time_context and CAUSE_DEICTIC_TIME.search(clause))
@@ -301,9 +330,10 @@ def _has_specific_invalidation_gap(answer: str) -> bool:
     markdown_neutral = re.sub(r"[*_`#]", "", answer)
     for clause in re.split(r"[。；;\n]+", markdown_neutral):
         has_gap = bool(
-            GAP_SIGNAL.search(clause)
-            or EXPLICIT_EVIDENCE_GAP.search(clause)
+            _clause_asserts_gap(clause)
             or (
+                not GAP_DENIAL.search(clause)
+                and
                 any(marker in clause for marker in ("未核验", "已删除", "需补充"))
                 and any(marker in clause for marker in ("证据", "数据", "阈值"))
             )

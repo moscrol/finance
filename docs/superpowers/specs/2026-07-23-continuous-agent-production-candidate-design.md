@@ -350,6 +350,12 @@ Gate behavior:
    and known-bad spans do not consume a judge/rejudge cycle. Dates, list labels,
    the one clearly labelled base-case estimate requested by the user, and
    numeric anchors present in bound evidence are unaffected.
+8. A deterministic path preflight rejects asserted all-window turnover paths
+   such as ``一路下滑`` or ``量能持续萎缩`` when at least three bound turnover-
+   amount observations contradict monotonic movement. The amount proxy and
+   path word must be locally bound; volume, another metric, negation,
+   conditional language, and an explicit local N-day window do not trigger
+   this gate and remain the semantic judge's responsibility.
 
 The semantic gate distinguishes claim types instead of treating every sentence
 as a quoted source fact. Observed facts, dates, factual numbers, external
@@ -468,6 +474,10 @@ and tool protocol remain private artifacts. Terminal state maps as follows:
 The transport remains terminally completed so clients do not mistake an
 honest evidence boundary for an interrupted run. Structural and semantic
 verification may preserve or downgrade this status, but never upgrade it.
+Release smoke accepts natural task-specific gap wording rather than a fixed
+template, but preserves semantic binding: a deictic ``该窗口`` needs an explicit
+date/time anchor elsewhere in the answer, valuation gaps need a finance field,
+and generic or unrelated missing-data text remains a failure.
 
 The legacy path remains callable for the same fixed A/B cases until the canary
 passes. An Episode-owned answer is persisted directly and is never rewritten

@@ -143,17 +143,28 @@ _UPWARD_PATH_RE = re.compile(
     r"(?:持续|连续)(?:上升|上涨|攀升|走高|增长|放大|放量))"
 )
 _TURNOVER_AMOUNT_SUBJECT_RE = re.compile(
-    r"(?:成交额|成交金额|成交(?!量)|量能)"
+    r"(?:成交额|成交金额|量能|"
+    r"成交(?=\s*(?:从|自|在|由|正|仍|一路|持续|连续)))"
 )
 _PATH_SCOPE_BLOCKER_RE = re.compile(
     r"(?:并未|尚未|未(?!来)|没有|并非|不是|不具备|不能说|"
-    r"尚难确认|无法确认|是否|若|如果|一旦|当)"
-    r"[^，,；;。！？!?\n]{0,16}$"
+    r"尚难确认|无法确认|是否|预计|预期|可能|或将|未来|后续|"
+    r"接下来|若|如果|假如|倘若|只有|除非|一旦|当(?!日))"
+    r"[^，,；;。！？!?\n]{0,20}$"
+)
+_PATH_POST_SCOPE_BLOCKER_RE = re.compile(
+    r"^(?:的说法)?(?:并不成立|不成立|不准确|有待验证|尚未确认|是否)"
+    r"|^(?:时|才|则)"
 )
 _LOCAL_PATH_WINDOW_RE = re.compile(
     r"(?:近|最近|过去|此前|前|连续)?\s*"
     r"(?:\d+|[一二两三四五六七八九十百]+)\s*(?:个)?"
     r"(?:交易日|日|天)"
+)
+_LOCAL_PATH_SEGMENT_RE = re.compile(
+    r"(?:先[^，,；;。！？!?\n]{0,12}(?:后|再)|"
+    r"(?:自|从)[^，,；;。！？!?\n]{1,12}(?:起|开始)|"
+    r"(?:随后|此后|之后|其后))"
 )
 _OTHER_PATH_METRIC_RE = re.compile(
     r"(?:上涨家数|下跌家数|涨停|跌停|指数|股价|板块)"
@@ -1704,30 +1715,81 @@ def _turnover_path_directions(text: str) -> tuple[bool, bool]:
             (_UPWARD_PATH_RE, "up"),
         ):
             for path_match in pattern.finditer(clause):
-                subjects = tuple(
-                    _TURNOVER_AMOUNT_SUBJECT_RE.finditer(
-                        clause[: path_match.start()]
-                    )
+                all_subjects = tuple(
+                    _TURNOVER_AMOUNT_SUBJECT_RE.finditer(clause)
                 )
-                if not subjects:
+                subjects_before = tuple(
+                    subject
+                    for subject in all_subjects
+                    if subject.end() <= path_match.start()
+                )
+                subjects_after = tuple(
+                    subject
+                    for subject in all_subjects
+                    if subject.start() >= path_match.end()
+                )
+                locally_bound = False
+                bound_subject = None
+                if subjects_before:
+                    subject = subjects_before[-1]
+                    bridge = clause[subject.end() : path_match.start()]
+                    locally_bound = (
+                        len(bridge) <= 48
+                        and _OTHER_PATH_METRIC_RE.search(bridge) is None
+                    )
+                    if locally_bound:
+                        bound_subject = subject
+                if not locally_bound and subjects_after:
+                    subject = subjects_after[0]
+                    bridge = clause[path_match.end() : subject.start()]
+                    locally_bound = (
+                        len(bridge) <= 16
+                        and _OTHER_PATH_METRIC_RE.search(bridge) is None
+                    )
+                    if locally_bound:
+                        bound_subject = subject
+                if not locally_bound:
                     continue
-                subject = subjects[-1]
-                bridge = clause[subject.end() : path_match.start()]
-                if len(bridge) > 48 or _OTHER_PATH_METRIC_RE.search(bridge):
-                    continue
-                scope = clause[: path_match.start()]
+                assert bound_subject is not None
+                scope = _path_assertion_scope(
+                    clause,
+                    subject_start=bound_subject.start(),
+                    path_start=path_match.start(),
+                )
                 if _PATH_SCOPE_BLOCKER_RE.search(scope):
                     continue
                 if _LOCAL_PATH_WINDOW_RE.search(scope):
                     continue
-                suffix = clause[path_match.end() : path_match.end() + 16]
+                if _LOCAL_PATH_SEGMENT_RE.search(scope):
+                    continue
+                suffix = clause[path_match.end() : path_match.end() + 24]
                 if _LOCAL_PATH_WINDOW_RE.match(suffix):
+                    continue
+                if _LOCAL_PATH_SEGMENT_RE.match(suffix):
+                    continue
+                if _PATH_POST_SCOPE_BLOCKER_RE.search(suffix):
                     continue
                 if direction == "down":
                     downward = True
                 else:
                     upward = True
     return downward, upward
+
+
+def _path_assertion_scope(
+    clause: str,
+    *,
+    subject_start: int,
+    path_start: int,
+) -> str:
+    """Return only modifiers that can govern the nearest turnover subject."""
+
+    local_start = min(subject_start, path_start)
+    prefix = clause[:local_start]
+    other_metrics = tuple(_OTHER_PATH_METRIC_RE.finditer(prefix))
+    if other_metrics:
+        prefix = prefix[other_metrics[-1].end() :]
+    return prefix[-24:] + clause[local_start:path_start]
 
 
 def _bound_turnover_series(outcome: AgentOutcome) -> tuple[tuple[date, float], ...]:
