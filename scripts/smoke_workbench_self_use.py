@@ -148,7 +148,7 @@ DIRECT_ASSESSMENT = re.compile(
 EXPLICIT_EVIDENCE_GAP = re.compile(
     r"(?:证据|数据|信息|消息面|因果|归因|边界|来源)"
     r"[^。；;\n]{0,16}缺口|"
-    r"缺口[^。；;\n]{0,16}(?:无法|缺少|尚未|未能)"
+    r"缺口[^。；;\n]{0,16}(?:无法|缺少|缺乏|尚未|未能)"
 )
 GAP_SIGNAL = re.compile(
     r"尚未完成|仍缺少|尚缺少|不给出定性结论|无法形成可靠|"

@@ -123,6 +123,24 @@ def test_semantic_smoke_accepts_question_bound_partial_gap() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_valuation_gap_worded_as_lack() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值是多少",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "中性情景合理市值约40-63亿元。"
+                    "关键缺口：缺乏历史PE/PS分位与机构盈利预测。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",
