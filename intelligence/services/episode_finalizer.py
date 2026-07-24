@@ -47,6 +47,7 @@ _RECOVERY_SYSTEM_PROMPT = (
     "条件化情景中的实际估值倍数或市值区间；不能把当前单一 PB、标题或空表当作"
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "
     "financial_data 哈希；KB 或业务材料只能作补充。无法满足时返回 partial 并写 gap。"
+    "evidence 若含 PB 情景计算锚，逐字复用其三组数值，只补条件与风险，不得另造倍数。"
 )
 
 def _stable_failure_reason(value: object) -> str:

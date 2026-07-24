@@ -45,6 +45,11 @@ class TestBuildValuationBlock(unittest.TestCase):
         self.assertIn("[D5]", block)
         self.assertIn("目标公司", block)
         self.assertIn("20.0 ~ 40.0", block)  # PE band
+        self.assertIn("PB 情景计算锚", block)
+        self.assertIn("保守 2.5 ~ 3.0 倍", block)
+        self.assertIn("中性 3.0 ~ 4.0 倍", block)
+        self.assertIn("乐观 4.0 ~ 5.0 倍", block)
+        self.assertIn("假设净资产不变", block)
         self.assertIn("缺历史分位", block)  # explicit gap
         self.assertIn("禁止输出单点目标价", block)
 

@@ -892,7 +892,8 @@ class ContinuousAgentEpisode:
             "当前单一 PB、标题或空表当作情景区间。证据不足时应返回 partial，"
             "并在该 binding.gap 明确说明。financial_business_anchor 的 binding "
             "必须至少包含一个 financial_data 证据哈希；KB、公告或业务材料可以作为"
-            "补充证据，但不能替代逐季财务硬锚。"
+            "补充证据，但不能替代逐季财务硬锚。若 D5 已给出 PB 情景计算锚，优先"
+            "逐字复用其保守/中性/乐观数值，模型只补条件与风险，不得另造倍数。"
             if task_frame.question_type == "valuation_estimate"
             else ""
         )

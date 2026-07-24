@@ -128,6 +128,33 @@ def percentile_rank(values: list[float | None], target: float | None) -> float |
     return round(100.0 * sum(1 for v in clean if v <= target) / len(clean), 1)
 
 
+def _pb_scenario_anchors(
+    target: ValuationSnapshot,
+    band: tuple[float, float, float],
+) -> tuple[tuple[str, float, float, float | None, float | None], ...] | None:
+    """Derive auditable scenario intervals from observed PB anchors only."""
+
+    if target.pb is None or target.pb <= 0:
+        return None
+    low, median, high = band
+    current = min(max(float(target.pb), low), high)
+    neutral_low, neutral_high = sorted((current, median))
+    intervals = (
+        ("保守", low, neutral_low),
+        ("中性", neutral_low, neutral_high),
+        ("乐观", neutral_high, high),
+    )
+    rendered = []
+    for label, lower, upper in intervals:
+        if target.total_mv_yi is None:
+            mv_low = mv_high = None
+        else:
+            mv_low = round(target.total_mv_yi * lower / target.pb, 2)
+            mv_high = round(target.total_mv_yi * upper / target.pb, 2)
+        rendered.append((label, lower, upper, mv_low, mv_high))
+    return tuple(rendered)
+
+
 def build_valuation_block(
     target: ValuationSnapshot | None,
     peers: list[ValuationSnapshot],
@@ -169,6 +196,23 @@ def build_valuation_block(
             lines.append(f"- 可比 PE(TTM) 估值带：{pe_band[0]} ~ {pe_band[2]}，中位 {pe_band[1]}{pos}。")
         if pb_band:
             lines.append(f"- 可比 PB 估值带：{pb_band[0]} ~ {pb_band[2]}，中位 {pb_band[1]}。")
+            scenario_anchors = _pb_scenario_anchors(target, pb_band)
+            if scenario_anchors:
+                rendered_anchors = []
+                for label, lower, upper, mv_low, mv_high in scenario_anchors:
+                    market_cap = (
+                        f"（隐含市值 {mv_low} ~ {mv_high} 亿）"
+                        if mv_low is not None and mv_high is not None
+                        else ""
+                    )
+                    rendered_anchors.append(
+                        f"{label} {lower} ~ {upper} 倍{market_cap}"
+                    )
+                lines.append(
+                    "- PB 情景计算锚（机械推演，不是目标价；假设净资产不变）："
+                    + "；".join(rendered_anchors)
+                    + "。情景条件由分析层说明，但不得改写这些数值锚。"
+                )
         if not pe_band and not pb_band:
             lines.append("- ⚠可比集有效估值不足 2 家，估值带按缺口处理。")
     else:
