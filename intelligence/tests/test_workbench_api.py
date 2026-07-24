@@ -459,6 +459,33 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     )
 
 
+def test_production_adapter_composes_sdk_glm_without_changing_verifier(
+    monkeypatch,
+) -> None:
+    from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
+
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_glm")
+    provider = app_module.LLMProvider(
+        "zhipu",
+        "sdk-secret",
+        "https://open.bigmodel.cn/api/coding/paas/v4",
+        "glm-5.2",
+    )
+
+    adapter = app_module._build_continuous_turn_adapter(
+        providers=(provider,),
+        run_id="sdk-run",
+        assistant_message_id="sdk-message",
+        timeout=42.0,
+    )
+
+    assert isinstance(adapter._runtime, OpenAIAgentsRuntime)
+    assert adapter._runtime_name == "sdk_glm"
+    assert adapter._runtime._backend == "sdk_glm"
+    assert callable(adapter._runtime._model_factory)
+    assert adapter._semantic_verifier._primary_judge._providers == (provider,)
+
+
 def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
     monkeypatch,
     tmp_path,
@@ -1146,6 +1173,50 @@ def test_health_reports_continuous_canary_without_credentials(
         "source_revision": response.json()["runtime"]["source_revision"],
     }
     assert "never-expose-this-key" not in response.text
+
+
+def test_health_reports_selected_sdk_glm_runtime_without_secret(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_glm")
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "test-glm-key")
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_MODEL", "glm-5.2")
+
+    with TestClient(app_module.create_app(repo_root=tmp_path)) as probe:
+        response = probe.get("/api/health")
+
+    runtime = response.json()["runtime"]["agent_runtime"]
+    assert runtime == {
+        "backend": "sdk_glm",
+        "ready": True,
+        "reason": "ready",
+        "model": "glm-5.2",
+        "credential_available": True,
+        "benchmark_only": False,
+    }
+    assert "test-glm-key" not in response.text
+
+
+def test_health_reports_missing_sdk_gpt_key_without_fallback(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with TestClient(app_module.create_app(repo_root=tmp_path)) as probe:
+        response = probe.get("/api/health")
+
+    runtime = response.json()["runtime"]["agent_runtime"]
+    assert runtime["backend"] == "sdk_gpt"
+    assert runtime["ready"] is False
+    assert runtime["reason"] == "openai_api_key_missing"
+    assert runtime["model"] == "gpt-5.6-sol"
+    assert runtime["credential_available"] is False
+    assert runtime["benchmark_only"] is False
 
 
 def test_lifespan_prewarms_enabled_rag_before_ready(

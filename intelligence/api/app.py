@@ -44,6 +44,10 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
+from intelligence.services.agent_runtime_factory import (
+    resolve_runtime_backend,
+    runtime_backend_readiness,
+)
 from intelligence.services.forecast_learning import (
     approve_reflection,
     learning_feedback_projection,
@@ -122,6 +126,7 @@ def _build_continuous_turn_adapter(
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel."""
 
+    selection = resolve_runtime_backend()
     client = GLMModelClient(
         providers=providers,
         is_cancelled=is_cancelled,
@@ -130,11 +135,61 @@ def _build_continuous_turn_adapter(
         client,
         llm_timeout=DEFAULT_GLM_LLM_TIMEOUT,
     )
-    runtime = GLMAgentRuntime(
-        client=client,
-        finalizer=finalizer,
-        is_cancelled=is_cancelled,
-    )
+    if selection.name == "continuous_glm":
+        runtime = GLMAgentRuntime(
+            client=client,
+            finalizer=finalizer,
+            is_cancelled=is_cancelled,
+        )
+    elif selection.name == "sdk_glm":
+        if not providers:
+            raise RuntimeError("sdk_glm provider unavailable")
+        from intelligence.services.openai_agents_runtime import (
+            OpenAIAgentsRuntime,
+            build_glm_sdk_model_factory,
+        )
+
+        provider = providers[0]
+        runtime = OpenAIAgentsRuntime(
+            backend="sdk_glm",
+            model_name=provider.model,
+            model_factory=build_glm_sdk_model_factory(
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                model=provider.model,
+                timeout=timeout,
+            ),
+            is_cancelled=is_cancelled,
+        )
+    elif selection.name == "sdk_gpt":
+        from intelligence.services.openai_agents_runtime import (
+            OpenAIAgentsRuntime,
+            build_gpt_sdk_model,
+        )
+
+        model_name = str(
+            os.environ.get("OPENAI_AGENT_MODEL") or "gpt-5.6-sol"
+        ).strip()
+        runtime = OpenAIAgentsRuntime(
+            backend="sdk_gpt",
+            model_name=model_name,
+            model=build_gpt_sdk_model(model_name),
+            is_cancelled=is_cancelled,
+        )
+    else:
+        if (
+            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
+            != "1"
+        ):
+            raise RuntimeError("Codex headless runtime is benchmark-only")
+        from intelligence.services.codex_headless_runtime import (
+            CodexHeadlessRuntime,
+        )
+
+        runtime = CodexHeadlessRuntime(
+            model=os.environ.get("CODEX_HEADLESS_MODEL"),
+            is_cancelled=is_cancelled,
+        )
     semantic_verifier = SemanticEpisodeVerifier(
         primary_judge=client,
         finalizer=finalizer,
@@ -143,6 +198,7 @@ def _build_continuous_turn_adapter(
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
+        runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
         task_id_factory=lambda: task_id,
         timeout=timeout,
@@ -1194,6 +1250,10 @@ def create_app(
         ),
         "source_revision": runtime_provenance.get("source_revision"),
     }
+    runtime_selection = resolve_runtime_backend()
+    runtime_provenance["agent_runtime"] = runtime_backend_readiness(
+        runtime_selection
+    ).to_dict()
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
     llm_settings = SessionLLMSettings()
 
