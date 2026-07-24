@@ -385,19 +385,19 @@ def run_deterministic_fast_path(
         zone = (
             f"{level.zone_low:.2f}"
             if abs(level.zone_high - level.zone_low) < 1e-9
-            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+            else f"{level.zone_low:.2f}–{level.zone_high:.2f}"
         )
         distance = (
             f"{low_pct:.1f}%"
             if abs(level.zone_high - level.zone_low) < 1e-9
-            else f"{low_pct:.1f}%~{high_pct:.1f}%"
+            else f"{low_pct:.1f}%–{high_pct:.1f}%"
         )
         resistance_parts.append(f"{zone}（距收盘约 {distance}）")
     support_parts = [
         (
             f"{level.zone_low:.2f}"
             if abs(level.zone_high - level.zone_low) < 1e-9
-            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+            else f"{level.zone_low:.2f}–{level.zone_high:.2f}"
         )
         for level in outcome.supports
     ]

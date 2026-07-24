@@ -789,7 +789,7 @@ def _answer_market_technical(
         zone = (
             f"{level.zone_low:.2f}"
             if abs(level.zone_high - level.zone_low) < 1e-9
-            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+            else f"{level.zone_low:.2f}–{level.zone_high:.2f}"
         )
         support_lines.append(
             f"支撑{index}：{zone}（依据：{'；'.join(level.basis)}） [{tag}]"
@@ -799,7 +799,7 @@ def _answer_market_technical(
         zone = (
             f"{level.zone_low:.2f}"
             if abs(level.zone_high - level.zone_low) < 1e-9
-            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+            else f"{level.zone_low:.2f}–{level.zone_high:.2f}"
         )
         resistance_lines.append(
             f"压力{index}：{zone}（依据：{'；'.join(level.basis)}） [{tag}]"
@@ -809,7 +809,7 @@ def _answer_market_technical(
         f"{levels.close:.2f}。下方支撑区（由近到远）："
         + ("；".join(
             f"{lv.zone_low:.2f}" + (
-                f"~{lv.zone_high:.2f}" if abs(lv.zone_high - lv.zone_low) > 1e-9 else ""
+                f"–{lv.zone_high:.2f}" if abs(lv.zone_high - lv.zone_low) > 1e-9 else ""
             )
             for lv in levels.supports
         ) or "当前价下方无可靠支撑候选")

@@ -288,6 +288,9 @@ def test_market_technical_success_skips_all_llm_synthesis(monkeypatch) -> None:
     assert prepared.result.answer_spec is not None
     assert prepared.result.answer_spec.presentation_kind == "market_technical"
     assert prepared.result.prepared_synthesis_messages == []
+    rendered = answer_model.render_answer_spec(prepared.result.answer_spec)
+    assert "1662.65–1669.99" in rendered
+    assert "~" not in rendered
 
 
 def test_fast_path_renders_single_resistance_as_one_percentage(
@@ -322,6 +325,50 @@ def test_fast_path_renders_single_resistance_as_one_percentage(
 
     assert "103.00（距收盘约 3.0%）" in result["answer"]
     assert "3.0%~3.0%" not in result["answer"]
+
+
+def test_fast_path_uses_markdown_safe_range_separator(monkeypatch) -> None:
+    levels = market_technical.TechnicalLevels(
+        subject="科创50",
+        symbol="sh000688",
+        as_of="2026-07-24",
+        close=1787.20,
+        ma={"MA5": 1811.76},
+        supports=(
+            market_technical.SupportLevel(
+                zone_low=1662.65,
+                zone_high=1669.99,
+                basis=("摆动低点",),
+            ),
+            market_technical.SupportLevel(
+                zone_low=1641.17,
+                zone_high=1646.39,
+                basis=("60日低点",),
+            ),
+        ),
+        resistances=(
+            market_technical.SupportLevel(
+                zone_low=1811.76,
+                zone_high=1823.48,
+                basis=("均线压力",),
+            ),
+        ),
+        invalidation="若收盘跌破 1641.17，当前判断失效。",
+    )
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: levels,
+    )
+
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+
+    assert "1662.65–1669.99" in result["answer"]
+    assert "1811.76–1823.48" in result["answer"]
+    assert "~" not in result["answer"]
 
 
 # ---------- AnswerSpec fail-closed 出口 ----------
