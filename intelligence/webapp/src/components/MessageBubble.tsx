@@ -76,11 +76,15 @@ export function MessageBubble({
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
     ) ?? true;
-  const taskType = (live?.report ?? bundle?.structuredReport)?.task_type;
-  const requiresCompanyEvidence =
-    taskType === "ask" ||
-    taskType === "research" ||
-    taskType === "workflow";
+  const report = live?.report ?? bundle?.structuredReport;
+  const taskType = report?.task_type;
+  const taskFrame = report?.task_frame;
+  const requiresCompanyEvidence = taskFrame
+    ? taskFrame.subject_kind === "company" ||
+      taskFrame.evidence_policy.startsWith("company_")
+    : taskType === "ask" ||
+      taskType === "research" ||
+      taskType === "workflow";
   const noEvidenceNotice =
     "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
 

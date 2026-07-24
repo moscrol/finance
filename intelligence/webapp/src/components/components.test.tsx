@@ -1159,6 +1159,53 @@ describe("Chat-first conversation components", () => {
     },
   );
 
+  it("does not show the company evidence warning for an index technical answer", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "科创50支撑区为1662.65–1669.99。",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [],
+          },
+          structuredReport: {
+            schema_version: 1,
+            report_id: "run_market_technical",
+            title: "科创50技术位",
+            task_type: "research",
+            status: "completed",
+            as_of: "2026-07-24",
+            llm: { used: false, provider: null, model: null },
+            modules: [],
+            warnings: [],
+            task_frame: {
+              question_type: "market_technical",
+              subject_kind: "index",
+              evidence_policy: "structured_market_technical",
+            },
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(
+        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+      ),
+    ).toBeNull();
+  });
+
   it.each([
     ["chat", "chat"],
     ["meta", "meta"],

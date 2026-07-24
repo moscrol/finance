@@ -205,6 +205,11 @@ export interface StructuredReport {
   };
   modules: StructuredReportModule[];
   warnings: string[];
+  task_frame?: {
+    question_type: string;
+    subject_kind: string;
+    evidence_policy: string;
+  };
   completed_at?: string;
 }
 
