@@ -2255,6 +2255,70 @@ def test_workbench_overview_uses_configured_finance_root(
     assert health["runtime"]["finance_root"] == str(finance_root.resolve())
 
 
+def test_workbench_overview_coverage_ignores_orphan_child_themes(
+    tmp_path: Path,
+) -> None:
+    from intelligence.services.workbench_overview import build_workbench_overview
+
+    finance_root = tmp_path / "finance"
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    _write_overview_market_db(db_path, trade_date="2026-07-24")
+    con = duckdb.connect(str(db_path))
+    con.execute(
+        """
+        CREATE TABLE fact_mainline_theme_daily (
+            trade_date DATE,
+            theme_code TEXT,
+            theme_name TEXT,
+            sector_count INTEGER,
+            min_sort INTEGER
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO fact_mainline_theme_daily VALUES
+            ('2026-07-24', 'T1', '题材一', 1, 1),
+            ('2026-07-24', 'T2', '题材二', 1, 2),
+            ('2026-07-24', 'T3', '题材三', 1, 3),
+            ('2026-07-24', 'T4', '题材四', 1, 4)
+        """
+    )
+    con.execute(
+        """
+        CREATE TABLE fact_mainline_sector_daily (
+            trade_date DATE,
+            theme_code TEXT,
+            sector_name TEXT,
+            cycle_status TEXT,
+            sort_no INTEGER
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO fact_mainline_sector_daily VALUES
+            ('2026-07-24', 'T1', '板块一', '启动', 1),
+            ('2026-07-24', 'T2', '板块二', '启动', 2),
+            ('2026-07-24', 'T3', '板块三', '启动', 3),
+            ('2026-07-24', 'T4', '板块四', '启动', 4),
+            ('2026-07-24', 'ORPHAN', '孤儿板块', '启动', 5)
+        """
+    )
+    con.close()
+
+    overview = build_workbench_overview(finance_root, wiki)
+    sector = next(
+        item
+        for item in overview["data_status"]
+        if item["key"] == "mainline_sector"
+    )
+
+    assert sector["coverage"] == {"covered": 4, "total": 4, "missing": 0}
+
+
 def test_learning_feedback_can_be_reviewed_without_editing_verdict(
     client: TestClient,
 ) -> None:

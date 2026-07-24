@@ -142,9 +142,15 @@ def _add_theme_coverage(
         covered = int(
             con.execute(
                 f"""
-                SELECT COUNT(DISTINCT theme_code)
-                FROM {table}
-                WHERE trade_date = ?
+                SELECT COUNT(DISTINCT child.theme_code)
+                FROM {table} AS child
+                WHERE child.trade_date = ?
+                  AND EXISTS (
+                      SELECT 1
+                      FROM fact_mainline_theme_daily AS parent
+                      WHERE parent.trade_date = child.trade_date
+                        AND parent.theme_code = child.theme_code
+                  )
                 """,
                 [target_date],
             ).fetchone()[0]
