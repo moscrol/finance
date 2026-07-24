@@ -248,6 +248,7 @@ class _JudgeCall:
     issue: str = ""
     root_deadline_exhausted: bool = False
     transient_provider_failure: bool = False
+    monotonic_release_safe: bool = True
 
 
 class SemanticEpisodeVerifier:
@@ -434,6 +435,8 @@ class SemanticEpisodeVerifier:
                 True,
                 first.correlated,
                 "semantic judge deadline exhausted",
+                root_deadline_exhausted=True,
+                monotonic_release_safe=first.monotonic_release_safe,
             )
         if first.report is None:
             issue = first.issue or "semantic judge unavailable"
@@ -915,15 +918,20 @@ class SemanticEpisodeVerifier:
                     "content": json.dumps(request, ensure_ascii=False),
                 },
             ]
-            for attempt in range(2):
+            prior_failures_release_safe = True
+            for attempt in range(3):
                 attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
                 if attempt_timeout <= 0.001:
+                    failure_chain_release_safe = (
+                        attempt == 0 or prior_failures_release_safe
+                    )
                     return _JudgeCall(
                         None,
                         True,
                         False,
                         "semantic judge deadline exhausted",
                         root_deadline_exhausted=True,
+                        monotonic_release_safe=failure_chain_release_safe,
                     )
                 try:
                     with llm_refine.provider_override(provider):
@@ -936,29 +944,56 @@ class SemanticEpisodeVerifier:
                     issue, retryable, release_safe = _stable_semantic_judge_error(
                         type(exc).__name__
                     )
-                    if attempt == 0 and retryable and not deadline.expired:
+                    should_retry = _should_retry_semantic_judge(
+                        attempt,
+                        retryable=retryable,
+                        release_safe=release_safe,
+                        prior_failures_release_safe=(
+                            prior_failures_release_safe
+                        ),
+                        deadline=deadline,
+                    )
+                    prior_failures_release_safe &= release_safe
+                    if should_retry:
                         continue
                     return _JudgeCall(
                         None,
                         True,
                         False,
                         issue,
-                        transient_provider_failure=release_safe,
+                        transient_provider_failure=(
+                            prior_failures_release_safe
+                        ),
+                        monotonic_release_safe=prior_failures_release_safe,
                     )
                 report = self._parse_report(content, len(request["sentences"]))
                 if report is not None:
-                    return _JudgeCall(report, False, False)
+                    return _JudgeCall(
+                        report,
+                        False,
+                        False,
+                        monotonic_release_safe=prior_failures_release_safe,
+                    )
                 issue, retryable, release_safe = _stable_semantic_judge_error(
                     reason or "invalid semantic judge output"
                 )
-                if attempt == 0 and retryable and not deadline.expired:
+                should_retry = _should_retry_semantic_judge(
+                    attempt,
+                    retryable=retryable,
+                    release_safe=release_safe,
+                    prior_failures_release_safe=prior_failures_release_safe,
+                    deadline=deadline,
+                )
+                prior_failures_release_safe &= release_safe
+                if should_retry:
                     continue
                 return _JudgeCall(
                     None,
                     True,
                     False,
                     issue,
-                    transient_provider_failure=release_safe,
+                    transient_provider_failure=prior_failures_release_safe,
+                    monotonic_release_safe=prior_failures_release_safe,
                 )
             return _JudgeCall(None, True, False, "semantic judge unavailable")
 
@@ -982,15 +1017,20 @@ class SemanticEpisodeVerifier:
                 "content": json.dumps(request, ensure_ascii=False),
             },
         ]
-        for attempt in range(2):
+        prior_failures_release_safe = True
+        for attempt in range(3):
             attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
             if attempt_timeout <= 0.001:
+                failure_chain_release_safe = (
+                    attempt == 0 or prior_failures_release_safe
+                )
                 return _JudgeCall(
                     None,
                     True,
                     True,
                     "semantic judge deadline exhausted",
                     root_deadline_exhausted=True,
+                    monotonic_release_safe=failure_chain_release_safe,
                 )
             try:
                 turn = primary.complete(
@@ -1002,14 +1042,23 @@ class SemanticEpisodeVerifier:
                 issue, retryable, release_safe = _stable_semantic_judge_error(
                     type(exc).__name__
                 )
-                if attempt == 0 and retryable and not deadline.expired:
+                should_retry = _should_retry_semantic_judge(
+                    attempt,
+                    retryable=retryable,
+                    release_safe=release_safe,
+                    prior_failures_release_safe=prior_failures_release_safe,
+                    deadline=deadline,
+                )
+                prior_failures_release_safe &= release_safe
+                if should_retry:
                     continue
                 return _JudgeCall(
                     None,
                     True,
                     True,
                     issue,
-                    transient_provider_failure=release_safe,
+                    transient_provider_failure=prior_failures_release_safe,
+                    monotonic_release_safe=prior_failures_release_safe,
                 )
             if not isinstance(turn, ModelTurn):
                 return _JudgeCall(
@@ -1022,14 +1071,23 @@ class SemanticEpisodeVerifier:
                 issue, retryable, release_safe = _stable_semantic_judge_error(
                     turn.error
                 )
-                if attempt == 0 and retryable and not deadline.expired:
+                should_retry = _should_retry_semantic_judge(
+                    attempt,
+                    retryable=retryable,
+                    release_safe=release_safe,
+                    prior_failures_release_safe=prior_failures_release_safe,
+                    deadline=deadline,
+                )
+                prior_failures_release_safe &= release_safe
+                if should_retry:
                     continue
                 return _JudgeCall(
                     None,
                     True,
                     True,
                     issue,
-                    transient_provider_failure=release_safe,
+                    transient_provider_failure=prior_failures_release_safe,
+                    monotonic_release_safe=prior_failures_release_safe,
                 )
             if turn.tool_calls:
                 report = self._parse_tool_report(
@@ -1043,11 +1101,21 @@ class SemanticEpisodeVerifier:
                         True,
                         "semantic judge returned an invalid tool call",
                     )
-                return _JudgeCall(report, False, True)
+                return _JudgeCall(
+                    report,
+                    False,
+                    True,
+                    monotonic_release_safe=prior_failures_release_safe,
+                )
             report = self._parse_report(turn.content, len(request["sentences"]))
             if report is None:
                 return _JudgeCall(None, True, True, "invalid semantic judge output")
-            return _JudgeCall(report, False, True)
+            return _JudgeCall(
+                report,
+                False,
+                True,
+                monotonic_release_safe=prior_failures_release_safe,
+            )
         return _JudgeCall(None, True, True, "semantic judge unavailable")
 
     @staticmethod
@@ -1451,6 +1519,7 @@ def _apply_numeric_condition_gate(
         call.issue,
         call.root_deadline_exhausted,
         call.transient_provider_failure,
+        call.monotonic_release_safe,
     )
 
 
@@ -1478,6 +1547,7 @@ def _apply_optional_rejudge_deadline(
             call.correlated,
             "semantic judge deadline exhausted",
             root_deadline_exhausted=True,
+            monotonic_release_safe=call.monotonic_release_safe,
         )
     return call
 
@@ -1485,9 +1555,13 @@ def _apply_optional_rejudge_deadline(
 def _optional_rejudge_allows_monotonic_release(call: _JudgeCall) -> bool:
     """Allow only budget expiry or a classified transient after a full review."""
 
-    return call.report is None and (
-        call.root_deadline_exhausted
-        or call.transient_provider_failure
+    return (
+        call.report is None
+        and call.monotonic_release_safe
+        and (
+            call.root_deadline_exhausted
+            or call.transient_provider_failure
+        )
     )
 
 
@@ -2126,6 +2200,23 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     ):
         return "semantic judge transient provider error", True, False
     return "semantic judge provider error", False, False
+
+
+def _should_retry_semantic_judge(
+    attempt: int,
+    *,
+    retryable: bool,
+    release_safe: bool,
+    prior_failures_release_safe: bool,
+    deadline: ResearchDeadline,
+) -> bool:
+    """Spend a third attempt only on a typed release-grade transient."""
+
+    if not retryable or deadline.expired:
+        return False
+    if attempt == 0:
+        return True
+    return attempt == 1 and prior_failures_release_safe and release_safe
 
 
 def _sanitize_public_answer(

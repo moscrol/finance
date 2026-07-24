@@ -328,14 +328,20 @@ Gate behavior:
    any release.
 5. Semantic verification never upgrades structural status and never adds
    evidence.
-6. The semantic gate may retry its correlated primary judge once after a
-   classified transient failure (timeout, connection interruption, 429/5xx,
-   or empty response). Each attempt is capped at 25 seconds and consumes the
-   same root verification deadline. Empty response may be retried but is not a
-   release-grade transient. Authentication, configuration, budget,
+6. The semantic gate may retry its correlated primary judge once after any
+   classified retryable failure. It may spend one final third attempt only
+   when the first two failures both carry typed release-grade identity
+   (anchored HTTP 429/5xx or an explicit timeout/connection exception). Each
+   attempt is capped at 25 seconds and consumes the same root verification
+   deadline; no retry extends that deadline. Empty response and free-text
+   transport hints may be retried once but are not release-grade transients.
+   Authentication, configuration, budget,
    cancellation, malformed-envelope, and tool-call failures are not retried or
    released. Raw provider diagnostics remain private and are reduced to stable
-   reason codes plus a private typed failure flag.
+   reason codes plus private typed failure flags. Root-deadline identity is
+   always preserved separately from the cumulative retry-chain release flag:
+   a real deadline remains observable as a deadline, but cannot unlock the
+   monotonic-release exception after any non-release-grade failure.
 7. A deterministic preflight rejects a numeric condition when its full
    quantity/range does not occur in evidence bound to the answer. It redacts
    those spans before the first model judge and remains active after every
@@ -388,10 +394,11 @@ evidence-gap answer. A malformed, configuration-invalid, or otherwise
 unresolved result also fails closed; only the explicitly bounded later
 shared-deadline/transient cases above have the monotonic-release exception.
 
-One gate-local transient retry is intentionally owned here rather than inside
+Gate-local transient retry is intentionally owned here rather than inside
 `GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
 configured-adapter contract; the semantic gate, as a critical acceptance
-boundary, decides whether spending one additional call is justified. A real
+boundary, decides whether spending one retry is justified and permits a third
+attempt only for two consecutive typed release-grade failures. A real
 2026-07-23 GLM canary showed that the original 17.7K-character judge request
 timed out deterministically at the old 10-second cap. Bound-only evidence
 aliases and numeric preflight reduced the same request to roughly 8K

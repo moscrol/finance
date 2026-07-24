@@ -1477,11 +1477,173 @@ def test_transient_optional_rejudge_preserves_prior_monotonic_redaction(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == 3
+    assert model.calls == 4
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.public_answer == "市场下跌。"
     assert "semantic judge transient provider error" in result.issues
+
+
+@pytest.mark.parametrize(
+    "errors",
+    (
+        ("rate limit exceeded", "LLM 调用 HTTP 503"),
+        ("LLM 调用 HTTP 503", "temporarily unavailable"),
+    ),
+)
+def test_mixed_optional_rejudge_failures_cannot_unlock_monotonic_release(
+    monkeypatch,
+    errors: tuple[str, str],
+) -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+
+    class MixedOptionalRejudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    json.dumps(
+                        {
+                            "passed": False,
+                            "rejected_sentence_indexes": [2],
+                            "issues": ["因果证据不足"],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    (),
+                    "glm",
+                    "",
+                )
+            return ModelTurn("", (), "glm", errors[self.calls - 2])
+
+    model = MixedOptionalRejudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert model.calls == 3
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.public_answer != "市场下跌。"
+
+
+def test_weak_optional_failure_then_retry_deadline_cannot_unlock_release(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+
+    class RetryWindowClosesAfterWeakFailure:
+        def __init__(self) -> None:
+            self.timeout_calls = 0
+
+        def synthesis_timeout(self, _configured_limit: float) -> float:
+            self.timeout_calls += 1
+            return 0.0 if self.timeout_calls >= 5 else 1.0
+
+        @property
+        def expired(self) -> bool:
+            return self.timeout_calls >= 5
+
+    class WeakOptionalRejudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    json.dumps(
+                        {
+                            "passed": False,
+                            "rejected_sentence_indexes": [2],
+                            "issues": ["因果证据不足"],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    (),
+                    "glm",
+                    "",
+                )
+            return ModelTurn("", (), "glm", "rate limit exceeded")
+
+    model = WeakOptionalRejudge()
+    deadline = RetryWindowClosesAfterWeakFailure()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=deadline,  # type: ignore[arg-type]
+    )
+
+    assert model.calls == 2
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.public_answer != "市场下跌。"
+    assert any("deadline" in issue for issue in result.issues)
+
+
+def test_release_grade_optional_failure_then_retry_deadline_allows_release(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场下跌。政策变化导致了下跌。")
+
+    class RetryWindowClosesAfterTypedFailure:
+        def __init__(self) -> None:
+            self.timeout_calls = 0
+
+        def synthesis_timeout(self, _configured_limit: float) -> float:
+            self.timeout_calls += 1
+            return 0.0 if self.timeout_calls >= 5 else 1.0
+
+        @property
+        def expired(self) -> bool:
+            return self.timeout_calls >= 5
+
+    class TypedOptionalRejudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelTurn(
+                    json.dumps(
+                        {
+                            "passed": False,
+                            "rejected_sentence_indexes": [2],
+                            "issues": ["因果证据不足"],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    (),
+                    "glm",
+                    "",
+                )
+            return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
+
+    model = TypedOptionalRejudge()
+    deadline = RetryWindowClosesAfterTypedFailure()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=deadline,  # type: ignore[arg-type]
+    )
+
+    assert model.calls == 2
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "市场下跌。"
+    assert any("deadline" in issue for issue in result.issues)
 
 
 def test_initial_transient_judge_still_fails_closed(monkeypatch) -> None:
@@ -1496,6 +1658,98 @@ def test_initial_transient_judge_still_fails_closed(monkeypatch) -> None:
             return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
 
     model = TransientFirstJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert model.calls == 3
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.public_answer != "市场下跌。"
+
+
+def test_initial_judge_can_recover_on_third_release_grade_attempt(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场下跌。")
+
+    class RecoveringJudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            if self.calls <= 2:
+                return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "passed": True,
+                        "rejected_sentence_indexes": [],
+                        "issues": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "glm",
+                "",
+            )
+
+    model = RecoveringJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert model.calls == 3
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert result.public_answer == "市场下跌。"
+
+
+@pytest.mark.parametrize(
+    "errors",
+    (
+        ("rate limit exceeded", "LLM 调用 HTTP 503"),
+        ("LLM 调用 HTTP 503", "temporarily unavailable"),
+    ),
+)
+def test_mixed_retryable_failures_cannot_unlock_third_judge_attempt(
+    monkeypatch,
+    errors: tuple[str, str],
+) -> None:
+    frame, structural = _structural("市场下跌。")
+
+    class MixedFailureJudge:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            if self.calls <= 2:
+                return ModelTurn("", (), "glm", errors[self.calls - 1])
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "passed": True,
+                        "rejected_sentence_indexes": [],
+                        "issues": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "glm",
+                "",
+            )
+
+    model = MixedFailureJudge()
     monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
 
     result = SemanticEpisodeVerifier(primary_judge=model).verify(
@@ -1727,7 +1981,7 @@ def test_transient_final_rejudge_preserves_twice_judged_monotonic_redaction(
         deadline=ResearchDeadline.from_timeout(5),
     )
 
-    assert model.calls == 4
+    assert model.calls == 5
     assert result.status == "completed"
     assert result.judge_status == "repaired"
     assert result.public_answer == "市场下跌。"

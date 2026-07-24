@@ -499,17 +499,26 @@ failures remain fail-closed, while a late valid rejection must still delete
 its named spans. The first judge has no such exception and always fails closed
 when unavailable.
 
-The correlated primary judge may retry once only for classified transient
-provider failures. Cap every judge attempt at 25 seconds and reuse the root
-verification deadline. Do not retry authentication/configuration, call-budget,
+The correlated primary judge may retry once for a classified retryable
+provider failure. Permit a final third attempt only after two consecutive
+typed release-grade failures (anchored HTTP 429/5xx or an explicit
+timeout/connection exception identity). Cap every judge attempt at 25 seconds
+and reuse the root verification deadline; no retry extends that deadline.
+Free-text transport hints and empty responses may receive the first retry but
+not the third attempt. Do not retry authentication/configuration, call-budget,
 cancellation, malformed-envelope, or tool-call failures; reduce provider
-diagnostics to stable private reason codes.
+diagnostics to stable private reason codes and typed flags.
+Keep root-deadline exhaustion and cumulative retry-chain release eligibility
+as separate typed fields. Never rewrite a real deadline as a provider error;
+after any non-release-grade failure, a later deadline remains observable but
+cannot authorize monotonic release.
 
 Regression coverage must include: first-judge consecutive HTTP 503 remains
-partial; optional and final rejudge HTTP 503 preserve only the already-reviewed
-deletion-only remainder; HTTP 400 text containing a numeric `500`, model-not-
-found, endpoint, malformed-envelope, and invalid-tool failures cannot
-masquerade as release-grade transient failures.
+partial after all bounded attempts, while a third attempt may recover from two
+consecutive typed 503 failures; optional and final rejudge HTTP 503 preserve
+only the already-reviewed deletion-only remainder; HTTP 400 text containing a
+numeric `500`, model-not-found, endpoint, malformed-envelope, and invalid-tool
+failures cannot masquerade as release-grade transient failures.
 
 Run the deterministic novel-threshold check before the first judge and again
 after every valid report. For conditional/trigger sentences, reject quantities
