@@ -87,7 +87,7 @@ Conversation API / same Workbench UI
                  -> structural episode verifier
                  -> SemanticEpisodeVerifier
                       -> accepted public draft
-                      -> one targeted repair + rejudge
+                      -> at most two targeted repairs + bounded rejudges
                       -> fail-closed evidence-gap answer
        -> existing RunStore / ConversationStore / SSE projection
 ```
@@ -288,11 +288,14 @@ Gate behavior:
 1. Structural verification runs first and may only preserve or downgrade.
 2. A structurally completed draft cannot become publicly completed until the
    semantic judge passes.
-3. Rejected sentences trigger one deterministic **span redaction**, followed
-   by one rejudge. Only the exact numbered spans rejected by the judge are
-   removed; accepted text and Markdown layout remain verbatim. The original
-   evidence, bindings, gaps, completion status, events, traces, and usage are
-   copied unchanged into the repaired outcome before structural recheck. No
+3. Rejected sentences trigger deterministic **span redaction**, followed by a
+   bounded rejudge. If that rejudge identifies a different unsupported span,
+   one second deletion-only repair and final rejudge are allowed. Only exact
+   numbered spans rejected by a completed judge report are removed; accepted
+   text and Markdown layout remain verbatim. A final completed judge report may
+   authorize terminal deletion of its rejected spans without a fourth model
+   call. The original evidence, bindings, gaps, completion status, events,
+   traces, and usage are copied unchanged before every structural recheck. No
    model receives wording authority during semantic repair. Repair may not
    delete a visible required-output marker and still report completion.
 4. Invalid/unavailable judge output in canary/on mode fails closed to partial.
@@ -342,13 +345,15 @@ remaining budget and made rejudge impossible. Raising the reserve or root
 timeout would trade correctness for user-visible latency.
 
 Deterministic redaction therefore supersedes the draft-only model call. It
-cannot introduce a paraphrased unsupported claim, needs no extra generation
-budget, and leaves enough time for the required second judge. Redaction uses
-source spans rather than sentence re-joining, so headings, lists, and blank
-lines are preserved. If a rejected span contains the direct answer, removing
-it is intentional fail-closed behavior; if no useful draft remains, the public
-projection becomes the question-specific evidence-gap answer. A malformed,
-unavailable, or re-rejected result also fails closed.
+cannot introduce a paraphrased unsupported claim and consumes no repair-model
+budget. Up to three judge reports share the existing root verification
+deadline; no extra reserve or wall-clock extension is minted for the second
+repair. Redaction uses source spans rather than sentence re-joining, so
+headings, lists, and blank lines are preserved. If a rejected span contains
+the direct answer, removing it is intentional fail-closed behavior; if no
+useful draft remains, the public projection becomes the question-specific
+evidence-gap answer. A malformed, unavailable, or unresolved result also
+fails closed.
 
 One gate-local transient retry is intentionally owned here rather than inside
 `GLMModelClient`. The provider-chain adapter retains its one-attempt-per-
@@ -411,10 +416,18 @@ finalizing. Raw hashes, prompt text, query-ledger keys, provider exceptions,
 and tool protocol remain private artifacts. Terminal state maps as follows:
 
 - semantically verified complete -> completed;
-- honest partial or semantic gate failure -> degraded with a useful answer or
-  explicit evidence gap;
+- semantically verified honest partial -> transport `completed` with
+  `business_status=partial`, a useful answer or explicit task-specific
+  evidence gap, and no runtime degrade;
+- semantic gate failure or runtime/provider failure -> degraded with only the
+  safely verified remainder or an explicit evidence gap;
 - no answer and no evidence -> failed;
 - clarification -> completed clarification without retrieval.
+
+`partial` is a first-class business result, not an infrastructure failure.
+The transport remains terminally completed so clients do not mistake an
+honest evidence boundary for an interrupted run. Structural and semantic
+verification may preserve or downgrade this status, but never upgrade it.
 
 The legacy path remains callable for the same fixed A/B cases until the canary
 passes. An Episode-owned answer is persisted directly and is never rewritten
@@ -460,7 +473,8 @@ Tests exercise public behavior at four agreed seams:
   numbers are rejected;
 - a model-judge pass cannot preserve a novel numeric condition absent from
   bound evidence, while dates and evidence-backed numeric anchors remain;
-- targeted repair is rejudged once;
+- targeted repair is deletion-only, bounded to two repair rounds, and every
+  newly exposed draft is rejudged within the same root deadline;
 - judge outage cannot produce public `completed`;
 - passed semantics cannot upgrade a structural partial;
 - public projection contains no internal evidence or provider identifiers and

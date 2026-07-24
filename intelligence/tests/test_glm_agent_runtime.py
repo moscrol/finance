@@ -119,6 +119,67 @@ def test_runtime_cancellation_stops_before_fallback_provider() -> None:
     assert turn.error == "cancelled"
 
 
+def test_agent_runtime_propagates_cancellation_to_provider_chain() -> None:
+    cancelled = threading.Event()
+    calls: list[str] = []
+
+    def complete_fn(**kwargs):
+        del kwargs
+        provider = llm_refine.detect_provider()
+        assert provider is not None
+        calls.append(provider.name)
+        cancelled.set()
+        return None, provider, "TimeoutError"
+
+    frame = TaskFrame(
+        raw_question="目前市场怎么看",
+        user_goal="判断市场结构",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.9,
+    )
+    contract = ResearchTaskContract(
+        task_id="runtime-cancel-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(RequiredOutput("direct_assessment", "直接判断", (), True),),
+        allowed_capabilities=(),
+        research_tier="quick",
+        task_frame_hash=frame.task_frame_hash,
+    )
+    context = ResearchRunContext(
+        contract=contract,
+        deadline=ResearchDeadline.from_timeout(5.0),
+        policy=ResearchPolicy("quick", 1, 5.0, 0.0),
+        trace_parent_id="runtime-cancel-test",
+    )
+    runtime = GLMAgentRuntime(
+        providers=(_provider("glm"), _provider("openai")),
+        complete_fn=complete_fn,
+        is_cancelled=cancelled.is_set,
+    )
+
+    outcome = runtime.run(
+        task_frame=frame,
+        context=context,
+        registry=ResearchToolRegistry(()),
+    )
+
+    assert calls == ["glm"]
+    assert outcome.stop_reason == "cancelled"
+    assert outcome.usage.llm_calls == 1
+
+
 def test_runtime_forwards_one_turn_settings_to_each_provider() -> None:
     providers = (_provider("glm"), _provider("openai"))
     messages = [{"role": "user", "content": "q"}]

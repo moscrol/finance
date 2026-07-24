@@ -273,7 +273,7 @@ class SemanticEpisodeVerifier:
         structurally_verified: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
     ) -> SemanticEpisodeOutcome:
-        """Run structural-first semantic verification and at most one repair."""
+        """Run structural-first verification with bounded deletion-only repair."""
 
         structural = structurally_verified
         contract = structural.contract
@@ -1184,6 +1184,15 @@ def _can_semantically_release_partial(
         item.status == "fulfilled" for item in verified.completion.outputs
     ):
         return False
+    if (
+        verified.outcome.status == "partial"
+        and not verified.issues
+        and verified.completion.factual_grounding == "fulfilled"
+        and verified.completion.task_coverage == "fulfilled"
+    ):
+        # The runtime declared an honest partial even though every structural
+        # binding is present. Judge the prose, but preserve the partial status.
+        return True
     if not verified.issues:
         return False
     return all(

@@ -42,9 +42,12 @@ class _QuerySubscription:
     active: bool
     publish_cutoff: float | None = None
     monotonic: Callable[[], float] | None = None
+    is_cancelled: Callable[[], bool] | None = None
 
     def is_active(self) -> bool:
         if not self.active:
+            return False
+        if self.is_cancelled is not None and self.is_cancelled():
             return False
         if self.publish_cutoff is None:
             return True
@@ -67,14 +70,16 @@ class QueryPublishGuard:
         *,
         publish_cutoff: float | None = None,
         monotonic: Callable[[], float] | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self._lock = threading.Lock()
         self._open = True
-        self._deactivators: list[Callable[[], None]] = []
+        self._deactivators: list[Callable[[bool], None]] = []
         self._publish_cutoff = publish_cutoff
         self._monotonic = monotonic if monotonic is not None else time.monotonic
+        self._is_cancelled = is_cancelled
 
-    def close(self) -> None:
+    def close(self, *, rollback: bool = False) -> None:
         with self._lock:
             if not self._open:
                 return
@@ -82,16 +87,21 @@ class QueryPublishGuard:
             deactivators = tuple(self._deactivators)
             self._deactivators.clear()
             for deactivate in deactivators:
-                deactivate()
+                deactivate(rollback)
 
     @contextmanager
     def publication_scope(self) -> Iterator[bool]:
         """Hold the guard registration boundary while the ledger mutates."""
 
         with self._lock:
-            yield self._open
+            yield self._open and not (
+                self._is_cancelled is not None and self._is_cancelled()
+            )
 
-    def _add_deactivator_locked(self, deactivate: Callable[[], None]) -> None:
+    def _add_deactivator_locked(
+        self,
+        deactivate: Callable[[bool], None],
+    ) -> None:
         """Register while ``publication_scope`` holds the guard lock."""
 
         self._deactivators.append(deactivate)
@@ -103,6 +113,7 @@ class QueryPublishGuard:
             active=self._open,
             publish_cutoff=self._publish_cutoff,
             monotonic=self._monotonic,
+            is_cancelled=self._is_cancelled,
         )
 
 
@@ -150,6 +161,7 @@ class QueryRecord:
 class _InflightQuery:
     future: Future[Any]
     subscriptions: list[_QuerySubscription] = field(default_factory=list)
+    published_record: QueryRecord | None = None
 
 
 @dataclass
@@ -202,8 +214,11 @@ class QueryLedger:
                 inflight.subscriptions.append(subscription)
                 if guard is not None and subscription.active:
                     guard._add_deactivator_locked(
-                        lambda subscription=subscription: self._deactivate_subscription(
-                            subscription
+                        lambda rollback, subscription=subscription, key=key, inflight=inflight: self._deactivate_subscription(
+                            subscription,
+                            key=key,
+                            inflight=inflight,
+                            rollback=rollback,
                         )
                     )
 
@@ -245,14 +260,30 @@ class QueryLedger:
                     self._inflight.pop(key)
                     if any(item.is_active() for item in inflight.subscriptions):
                         self.entries[key] = record
+                        inflight.published_record = record
             finally:
                 if not inflight.future.done():
                     inflight.future.set_result(result)
         return result
 
-    def _deactivate_subscription(self, subscription: _QuerySubscription) -> None:
+    def _deactivate_subscription(
+        self,
+        subscription: _QuerySubscription,
+        *,
+        key: QueryKey,
+        inflight: _InflightQuery,
+        rollback: bool,
+    ) -> None:
         with self._lock:
             subscription.active = False
+            published = inflight.published_record
+            if (
+                rollback
+                and published is not None
+                and self.entries.get(key) is published
+                and not any(item.is_active() for item in inflight.subscriptions)
+            ):
+                self.entries.pop(key, None)
 
     def summary(self) -> dict[str, object]:
         with self._lock:

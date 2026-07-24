@@ -198,12 +198,12 @@ def verify_episode_outcome(
 
     if outcome.status in {"clarification", "failed"}:
         verified_status = outcome.status
-    elif structurally_complete:
-        # ``partial`` is frequently used by the model to communicate honest
-        # caveats in top-level gaps.  Those caveats must not suppress the
-        # semantic judge when every required output is structurally fulfilled.
+    elif structurally_complete and outcome.status == "completed":
         verified_status = "completed"
     else:
+        # Verification may preserve or downgrade the runtime status, never
+        # upgrade it. A structurally complete partial can still enter the
+        # semantic gate and release useful prose as a first-class partial.
         verified_status = "partial"
 
     completion = CompletionReport(

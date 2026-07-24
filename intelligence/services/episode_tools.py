@@ -157,9 +157,11 @@ def build_episode_registry(
         _query: str,
         tool_context: agent_research.AgentToolContext,
     ):
+        tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
         block, source, detail = _market_block(frame, context, market_db_path)
+        tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
             "market_data",
             block,
@@ -189,6 +191,7 @@ def build_episode_registry(
         _query: str,
         tool_context: agent_research.AgentToolContext,
     ):
+        tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("mainline-context deadline expired")
         block = ask_blocks._market_review_mainline_context_block_for_llm(
@@ -196,6 +199,7 @@ def build_episode_registry(
             frame.subject,
             market_db_path,
         )
+        tool_context.check_cancelled()
         if not block or "当前交易日的题材级主线未知" in block:
             evidence = []
             observation = block or "同日主线结构无可用数据"
@@ -229,6 +233,7 @@ def build_episode_registry(
         query: str,
         tool_context: agent_research.AgentToolContext,
     ):
+        tool_context.check_cancelled()
         timeout = tool_context.deadline.stage_timeout(30.0)
         if timeout <= 0.001:
             raise TimeoutError("l3 lookup deadline expired")
@@ -240,6 +245,7 @@ def build_episode_registry(
                 limit=5,
             ),
         )
+        tool_context.check_cancelled()
         evidence = [
             agent_research.AgentEvidence(
                 tool="l3_lookup",

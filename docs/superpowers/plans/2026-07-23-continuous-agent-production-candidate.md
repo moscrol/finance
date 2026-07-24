@@ -19,13 +19,13 @@
 - Create `intelligence/services/episode_finalizer.py`: one bounded compact-evidence recovery and targeted repair path.
 - Modify `intelligence/services/glm_agent_runtime.py`: make provider-chain attempts explicit at the runtime seam and inject finalizer/verifier dependencies.
 - Modify `intelligence/services/llm_settings.py`: return a single BYOK provider or a built-in provider tuple without leaking secrets.
-- Create `intelligence/services/episode_semantic_verifier.py`: semantic claim/evidence judge, one repair, one rejudge, fail-closed public projection.
+- Create `intelligence/services/episode_semantic_verifier.py`: semantic claim/evidence judge, at most two deletion-only repairs with bounded rejudges, fail-closed public projection.
 - Create `intelligence/services/continuous_turn_adapter.py`: compose TaskFrame, context, registry, runtime and verified public result without importing legacy answer owners.
 - Modify `intelligence/services/conversation_orchestrator.py`: call the adapter immediately after the canonical TaskFrame/control decision and persist its result directly.
 - Modify `intelligence/api/app.py`: pass provider tuples to the worker and expose runtime mode/provenance without changing public secrets.
 - Modify `scripts/run_agent_episode_ab.py`: record structural/semantic status and pressure-run reliability.
 - Add focused tests for every new seam plus Conversation API canary tests.
-- Add `docs/verification/continuous-agent-production-candidate-2026-07-23.md`: final requirement-by-requirement evidence.
+- Add `docs/verification/continuous-agent-production-candidate-2026-07-24.md`: final requirement-by-requirement evidence.
 
 ## Task 1: Schedule and execute a tool batch safely
 
@@ -416,8 +416,9 @@ def test_unsupported_causality_is_rejected_and_cannot_stay_completed() -> None:
 ```
 
 Add a parameterized test whose judge rejects subject swap, stale-current claim,
-and fabricated number, asserting all three downgrade. Add a recording finalizer
-test asserting exactly one repair and two total judge calls. Add judge-outage,
+and fabricated number, asserting all three downgrade. Add bounded-repair tests
+asserting no more than two deletion-only repairs and three total successful
+judge reports. Add judge-outage,
 structural-partial, and public-sanitization tests; their assertions are,
 respectively, `status == "partial" and raw_draft not in public_answer`, no
 status upgrade, and absence of the fixture's hash/tool/provider sentinel text.
@@ -457,13 +458,17 @@ class SemanticEpisodeOutcome:
     correlated_judge: bool
 ```
 
-- [ ] **Step 4: Add one repair/rejudge and fail-closed projection**
+- [ ] **Step 4: Add bounded deletion/rejudge and fail-closed projection**
 
 Only structurally completed outcomes enter the judge. On rejection,
 deterministically remove the exact numbered source spans rejected by the
 judge, preserving all accepted text and Markdown layout verbatim. Rebuild the
 outcome with the original evidence, bindings, gaps, status, events, traces,
-and usage unchanged, re-run the structural verifier, then judge once more.
+and usage unchanged, re-run the structural verifier, then judge again. One
+second deletion-only repair and final rejudge are allowed when the first
+rejudge exposes another rejected span. All calls share the same root deadline;
+no repair creates extra budget. A completed final judge report may authorize
+terminal deletion of its rejected spans without a fourth model call.
 The repair cannot mint wording, evidence hashes, alter binding ownership, or
 upgrade status. Normalize literal newline escapes in the natural-language
 draft before sentence numbering. If preflight or repair removes a visible
@@ -635,9 +640,11 @@ def test_continuous_handled_turn_persists_answer_without_skill_router_or_legacy_
     assert stores.artifact("continuous-episode.json") is not None
 ```
 
-Add a decline test asserting the existing legacy answer fixture is unchanged; a
-degraded test asserting the run/message carry a degrade and never claim the
-semantic gate passed; and a public-SSE test asserting the private fixture
+Add a decline test asserting the existing legacy answer fixture is unchanged;
+an honest-partial test asserting transport completion, partial business status,
+and no runtime degrade; a degraded test asserting a semantic/runtime failure
+carries a degrade and never claims the semantic gate passed; and a public-SSE
+test asserting the private fixture
 sentinels `evidence_hash`, `provider_attempt`, and `system_prompt` are absent.
 
 Add API tests proving the worker receives a provider tuple, BYOK stays single,
@@ -691,7 +698,7 @@ git commit -m "feat: add continuous runtime conversation canary"
 - Modify: `scripts/run_agent_episode_ab.py`
 - Modify: `intelligence/tests/test_agent_episode_ab.py`
 - Modify: `intelligence/tests/test_capability_monotonicity.py`
-- Create: `docs/verification/continuous-agent-production-candidate-2026-07-23.md`
+- Create: `docs/verification/continuous-agent-production-candidate-2026-07-24.md`
 
 - [ ] **Step 1: Add RED artifact-schema tests**
 
@@ -774,7 +781,7 @@ answers.
 ## Task 9: Full regression, review, and handoff
 
 **Files:**
-- Modify: `docs/verification/continuous-agent-production-candidate-2026-07-23.md`
+- Modify: `docs/verification/continuous-agent-production-candidate-2026-07-24.md`
 - Modify: `/Users/a77/agent-memory/20_projects/finance-workspace-private.md`
 
 - [ ] **Step 1: Run focused and complete suites**
@@ -799,7 +806,7 @@ module may be excused by an unrelated historical failure.
 
 - [ ] **Step 2: Run two-axis review**
 
-Review from fixed point `25855601`:
+Review from the original runtime fixed point `7bc8dcff`:
 
 - spec compliance against all ten sections of
   `2026-07-23-continuous-agent-production-candidate-design.md`;
@@ -818,7 +825,7 @@ complete and continue implementation rather than lowering the requirement.
 - [ ] **Step 4: Commit verification and memory**
 
 ```bash
-git add docs/verification/continuous-agent-production-candidate-2026-07-23.md
+git add docs/verification/continuous-agent-production-candidate-2026-07-24.md
 git commit -m "docs: verify continuous agent production candidate"
 ```
 

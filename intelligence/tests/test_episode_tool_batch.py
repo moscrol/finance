@@ -179,6 +179,154 @@ def test_cancelled_batch_does_not_submit_tool_runner() -> None:
     assert result.items[0].error == "cancelled"
 
 
+def test_cancellation_during_wait_returns_without_waiting_for_tool_deadline() -> None:
+    runner_started = Event()
+    release_runner = Event()
+    cancelled = Event()
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        runner_started.set()
+        release_runner.wait(timeout=2.0)
+        return _evidence_result("market_data", query)
+
+    caller = ThreadPoolExecutor(max_workers=1)
+    future = caller.submit(
+        ToolBatchExecutor().execute,
+        (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+        registry=_registry(market_data=runner),
+        context=_context(timeout=2.0),
+        remaining_slots=1,
+        is_cancelled=cancelled.is_set,
+    )
+    assert runner_started.wait(timeout=1.0)
+    cancelled.set()
+    try:
+        result = future.result(timeout=0.4)
+    finally:
+        release_runner.set()
+        caller.shutdown(wait=True, cancel_futures=True)
+
+    assert result.executed_count == 1
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+
+
+def test_cancellation_wins_when_tool_completes_in_same_wait_snapshot() -> None:
+    cancelled = Event()
+
+    def runner(
+        query: str,
+        context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        assert not context.cancelled
+        cancelled.set()
+        assert context.cancelled
+        return _evidence_result("market_data", query)
+
+    with query_ledger.query_ledger_scope() as ledger:
+        result = ToolBatchExecutor().execute(
+            (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=2.0),
+            remaining_slots=1,
+            is_cancelled=cancelled.is_set,
+        )
+
+    assert result.executed_count == 1
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+    assert ledger.summary()["executed_count"] == 0
+
+
+def test_cancel_rolls_back_result_published_in_completion_race() -> None:
+    cancelled = Event()
+
+    class CancelOnPublish(dict):
+        def __setitem__(self, key, value) -> None:
+            cancelled.set()
+            super().__setitem__(key, value)
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        return _evidence_result("market_data", query)
+
+    with query_ledger.query_ledger_scope() as ledger:
+        ledger.entries = CancelOnPublish()
+        result = ToolBatchExecutor().execute(
+            (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=2.0),
+            remaining_slots=1,
+            is_cancelled=cancelled.is_set,
+        )
+
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+    assert ledger.summary()["executed_count"] == 0
+
+
+def test_cancel_rolls_back_nested_ledger_publications_owned_by_guard() -> None:
+    cancelled = Event()
+
+    class CancelOnPublish(dict):
+        def __setitem__(self, key, value) -> None:
+            cancelled.set()
+            super().__setitem__(key, value)
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        query_ledger.executed("inner", query, lambda: "nested result")
+        return _evidence_result("market_data", query)
+
+    with query_ledger.query_ledger_scope() as ledger:
+        ledger.entries = CancelOnPublish()
+        result = ToolBatchExecutor().execute(
+            (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=2.0),
+            remaining_slots=1,
+            is_cancelled=cancelled.is_set,
+        )
+
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+    assert ledger.summary()["executed_count"] == 0
+
+
+def test_cancel_does_not_remove_preexisting_nested_ledger_record() -> None:
+    cancelled = Event()
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        assert query_ledger.executed("inner", query, lambda: "unexpected") == "seed"
+        cancelled.set()
+        return _evidence_result("market_data", query)
+
+    with query_ledger.query_ledger_scope() as ledger:
+        assert query_ledger.executed("inner", "valuation", lambda: "seed") == "seed"
+        result = ToolBatchExecutor().execute(
+            (ModelToolCall("market-1", "market_data", {"query": "valuation"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=2.0),
+            remaining_slots=1,
+            is_cancelled=cancelled.is_set,
+        )
+
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "cancelled"
+    assert ledger.summary()["executed_count"] == 1
+    assert ledger.summary()["deduped_count"] == 1
+
+
 def test_two_independent_read_only_tools_overlap_in_wall_clock_time() -> None:
     both_entered = Barrier(2)
     entered: set[str] = set()
@@ -969,8 +1117,8 @@ def test_call_unfinished_in_wait_snapshot_stays_timeout_after_late_completion(
         release_runner.wait(timeout=1.0)
         return _evidence_result("market_data", query)
 
-    def wait_at_deadline(futures, *, timeout):
-        del timeout
+    def wait_at_deadline(futures, *, timeout, return_when=None):
+        del timeout, return_when
         future_set = set(futures)
         assert runner_started.wait(timeout=1.0)
         deadline_done: set = set()
@@ -1023,8 +1171,8 @@ def test_wait_snapshot_timeout_cannot_publish_after_batch_cutoff(monkeypatch) ->
             lambda: fetch(query),
         )
 
-    def wait_past_cutoff(futures, *, timeout):
-        del timeout
+    def wait_past_cutoff(futures, *, timeout, return_when=None):
+        del timeout, return_when
         future_set = set(futures)
         assert runner_started.wait(timeout=1.0)
         now[0] = 102.0

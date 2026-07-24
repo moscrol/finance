@@ -312,7 +312,7 @@ def test_fulfilled_partial_model_finish_still_reaches_semantic_judge(
     )
 
     assert len(model.calls) == 1
-    assert result.status == "completed"
+    assert result.status == "partial"
     assert result.judge_status == "passed"
     assert result.verified.completion.task_coverage == "fulfilled"
     assert result.verified.outcome.gaps == ("本轮资讯检索未命中",)

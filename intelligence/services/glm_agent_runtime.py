@@ -381,6 +381,7 @@ class GLMAgentRuntime:
             model,
             providers=providers,
             complete_fn=complete_fn,
+            is_cancelled=is_cancelled,
         )
         self._episode = ContinuousAgentEpisode(
             selected_client,

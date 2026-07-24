@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -122,6 +123,7 @@ class ResearchToolRegistry:
         *,
         context: ResearchRunContext,
         step_id: str,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> ToolObservation:
         spec = self.resolve(name)
         if (
@@ -138,8 +140,13 @@ class ResearchToolRegistry:
             evidence, observation, trace = agent_research._run_tool(
                 spec.runner,
                 query,
-                agent_research.AgentToolContext(context.deadline),
+                agent_research.AgentToolContext(
+                    context.deadline,
+                    is_cancelled or (lambda: False),
+                ),
             )
+            if is_cancelled is not None and is_cancelled():
+                raise RuntimeError("agent tool cancelled")
             evidence = [
                 item
                 if item.content_hash

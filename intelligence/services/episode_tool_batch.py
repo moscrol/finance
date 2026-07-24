@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Executor,
+    Future,
+    ThreadPoolExecutor,
+    wait,
+)
 from contextvars import copy_context
 from dataclasses import dataclass, replace
 from functools import partial
@@ -26,6 +32,7 @@ ToolCallStatus = Literal["success", "empty", "rejected", "timeout", "error"]
 _TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "error"})
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
+_CANCELLATION_POLL_SECONDS = 0.05
 _SHARED_TOOL_EXECUTOR = ThreadPoolExecutor(
     max_workers=MAX_GLOBAL_TOOL_WORKERS,
     thread_name_prefix="episode-tool",
@@ -257,6 +264,7 @@ class EpisodeToolBatchSession:
                 context=context,
                 step_ids=step_ids,
                 timeout=timeout,
+                is_cancelled=cancelled,
             )
             self._successful_episode_tools.update(
                 candidate.call.name
@@ -322,11 +330,13 @@ class EpisodeToolBatchSession:
         context: ResearchRunContext,
         step_ids: dict[int, str],
         timeout: float,
+        is_cancelled: Callable[[], bool],
     ) -> None:
         publish_cutoff = monotonic() + timeout
         publish_guard = query_ledger.QueryPublishGuard(
             publish_cutoff=publish_cutoff,
             monotonic=monotonic,
+            is_cancelled=is_cancelled,
         )
         future_candidates: dict[Future[ToolObservation], _Candidate] = {}
         try:
@@ -337,6 +347,7 @@ class EpisodeToolBatchSession:
                     candidate.query,
                     context=context,
                     step_id=step_ids[candidate.index],
+                    is_cancelled=is_cancelled,
                 )
                 worker_context = copy_context()
                 guarded_operation = partial(
@@ -347,18 +358,36 @@ class EpisodeToolBatchSession:
                 future = self._executor.submit(worker_context.run, guarded_operation)
                 future_candidates[future] = candidate
 
-            completed, unfinished = wait(
-                tuple(future_candidates),
-                timeout=max(0.0, publish_cutoff - monotonic()),
-            )
-            publish_guard.close()
+            completed: set[Future[ToolObservation]] = set()
+            unfinished: set[Future[ToolObservation]] = set(future_candidates)
+            cancelled_during_wait = False
+            while unfinished:
+                if is_cancelled():
+                    cancelled_during_wait = True
+                    break
+                remaining = max(0.0, publish_cutoff - monotonic())
+                if remaining <= 0.0:
+                    break
+                newly_completed, still_running = wait(
+                    tuple(unfinished),
+                    timeout=min(_CANCELLATION_POLL_SECONDS, remaining),
+                    return_when=FIRST_COMPLETED,
+                )
+                completed.update(newly_completed)
+                unfinished = set(still_running)
+            if is_cancelled():
+                cancelled_during_wait = True
+            publish_guard.close(rollback=cancelled_during_wait)
+            if cancelled_during_wait:
+                unfinished.update(completed)
+                completed.clear()
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
-                    "timeout",
-                    error="tool_timeout",
+                    "rejected" if cancelled_during_wait else "timeout",
+                    error="cancelled" if cancelled_during_wait else "tool_timeout",
                     step_id=step_ids[candidate.index],
                 )
             for future in completed:

@@ -203,14 +203,29 @@ class AgentLoopResult:
 
 @dataclass(frozen=True)
 class AgentToolContext:
-    """Cooperative absolute deadline passed to agent tools."""
+    """Cooperative deadline and cancellation token passed to agent tools."""
 
     deadline: ResearchDeadline
+    is_cancelled: Callable[[], bool] = field(
+        default=lambda: False,
+        repr=False,
+        compare=False,
+    )
+
+    @property
+    def cancelled(self) -> bool:
+        return bool(self.is_cancelled())
+
+    def check_cancelled(self) -> None:
+        if self.cancelled:
+            raise RuntimeError("agent tool cancelled")
 
     def remaining(self) -> float:
+        self.check_cancelled()
         return self.deadline.remaining()
 
     def timeout(self, configured_limit: float) -> float:
+        self.check_cancelled()
         timeout = self.deadline.stage_timeout(configured_limit)
         if timeout <= 0.001:
             raise TimeoutError("agent tool deadline expired")
@@ -232,6 +247,7 @@ def build_default_tools(
         context: AgentToolContext,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
+        context.check_cancelled()
         hits = list(getattr(rag, "hits", ()) or ())[:5]
         evidence = [
             AgentEvidence(
@@ -264,6 +280,7 @@ def build_default_tools(
             query,
             timeout=context.timeout(20.0),
         )
+        context.check_cancelled()
         evidence = [
             AgentEvidence(
                 tool="web_search",
@@ -294,6 +311,7 @@ def build_default_tools(
             query,
             timeout=context.timeout(8.0),
         )
+        context.check_cancelled()
         evidence = [
             AgentEvidence(
                 tool="news_search",
@@ -332,9 +350,12 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         query: str,
         context: AgentToolContext | None = None,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        del context
+        if context is not None:
+            context.check_cancelled()
         concepts = knowledge.get_concept_matches(query, limit=5)
         exposures = knowledge.get_exposure_matches(query, limit=8)
+        if context is not None:
+            context.check_cancelled()
         evidence: list[AgentEvidence] = []
         for item in (concepts.get("items") or [])[:5]:
             evidence.append(
@@ -379,8 +400,11 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         query: str,
         context: AgentToolContext | None = None,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        del context
+        if context is not None:
+            context.check_cancelled()
         bundle = knowledge.get_evidence(query, limit=6)
+        if context is not None:
+            context.check_cancelled()
         evidence = [
             AgentEvidence(
                 tool="evidence_lookup",
