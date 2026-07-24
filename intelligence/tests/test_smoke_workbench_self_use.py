@@ -132,7 +132,8 @@ def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> N
                 "role": "assistant",
                 "content": (
                     "直接判断：本周实际上上涨约3%。"
-                    "证据缺口：7月17日单日大跌的精确诱因无法确认。"
+                    "证据缺口：7月17日缺少同日新闻，单日大跌的"
+                    "精确诱因无法确认。"
                 ),
             }
         ],
@@ -150,7 +151,8 @@ def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> N
                 "role": "assistant",
                 "content": (
                     "直接判断：本周实际上涨约3%。"
-                    "证据边界与缺口：单日大跌缺少时间对齐的事件证据。"
+                    "证据边界与缺口：单日大跌缺少时间对齐的事件证据，"
+                    "因此无法完成原因归因。"
                 ),
             }
         ],
@@ -198,6 +200,66 @@ def test_semantic_smoke_accepts_task_specific_partial_without_gap_heading() -> N
     assert issues == []
 
 
+def test_semantic_smoke_accepts_explicit_unattributable_cause_boundary() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "直接回答：本周实际上涨2.99%，问题前提与数据不符。"
+                    "现有证据库不含与7月17日对齐的新闻或政策信息，"
+                    "无法将单日下跌归因于特定催化剂。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+@pytest.mark.parametrize(
+    "generic_gap",
+    [
+        "没有新闻。",
+        "现有证据库没有新闻。",
+        "未检索到新闻。",
+        "仍需核验新闻。",
+    ],
+)
+def test_semantic_smoke_rejects_unaligned_generic_cause_gap(
+    generic_gap: str,
+) -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": generic_gap}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
+@pytest.mark.parametrize(
+    "cause_question",
+    [
+        "这一周为什么下跌",
+        "这一周行情下跌的主要诱因是什么",
+        "这轮下跌怎么回事",
+    ],
+)
+def test_semantic_smoke_applies_cause_gate_to_equivalent_phrasings(
+    cause_question: str,
+) -> None:
+    issues = semantic_answer_issues(
+        cause_question,
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": "未检索到新闻。"}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
 def test_semantic_smoke_rejects_forecast_gap_without_duration() -> None:
     issues = semantic_answer_issues(
         "昨天的反弹能持续多久",
@@ -234,6 +296,26 @@ def test_semantic_smoke_accepts_duration_forecast_with_invalidation() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_real_forecast_wording_and_listed_triggers() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "【基准判断与持续时间】主观基准：本轮反弹短期"
+                    "（约3-5个交易日内）仍有惯性但持续性偏弱。"
+                    "【失效或降级条件】①成交继续萎缩；"
+                    "②涨停家数大幅回落、跌停扩散。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 @pytest.mark.parametrize(
     "non_forecast",
     [
@@ -241,6 +323,10 @@ def test_semantic_smoke_accepts_duration_forecast_with_invalidation() -> None:
         "过去一周市场波动较大。失效条件需要关注。",
         "判断：近5个交易日成交额下降。若成交继续缩量则判断失效。",
         "基准数据覆盖近5个交易日。若数据缺失则判断失效。",
+        "本轮反弹发生在近5个交易日。若成交继续缩量则判断失效。",
+        "主观基准数据采用近5个交易日。若成交继续缩量则判断失效。",
+        "本轮反弹已持续5个交易日。若成交继续缩量则判断失效。",
+        "主观基准：过去5个交易日市场上涨。若成交继续缩量则判断失效。",
     ],
 )
 def test_semantic_smoke_rejects_historical_duration_as_forecast(
@@ -255,6 +341,34 @@ def test_semantic_smoke_rejects_historical_duration_as_forecast(
     assert "forecast_duration_missing" in issues
     if "若成交继续缩量" not in non_forecast:
         assert "forecast_invalidation_missing" in issues
+
+
+@pytest.mark.parametrize(
+    "non_trigger",
+    [
+        "【失效条件】成交额为2万亿元。",
+        "【失效条件】成交数据仍待核实。",
+        "失效条件：若成交数据仍待核实。",
+    ],
+)
+def test_semantic_smoke_rejects_observation_as_invalidation(
+    non_trigger: str,
+) -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "主观基准：本轮反弹短期约3-5个交易日，仍有惯性。"
+                    + non_trigger
+                ),
+            }
+        ],
+    )
+
+    assert "forecast_invalidation_missing" in issues
 
 
 @pytest.mark.parametrize(

@@ -152,7 +152,20 @@ EXPLICIT_EVIDENCE_GAP = re.compile(
 )
 GAP_SIGNAL = re.compile(
     r"尚未完成|仍缺少|尚缺少|不给出定性结论|无法形成可靠|"
-    r"证据(?:边界与)?缺口|原因归因\s*[:：]\s*缺口|仍需核验|未检索到"
+    r"证据(?:边界与)?缺口|原因归因\s*[:：]\s*缺口|仍需核验|未检索到|"
+    r"(?:不含|没有|缺少)[^。；;\n]{0,60}"
+    r"(?:同窗|同期|对齐|时间窗口)[^。；;\n]{0,40}"
+    r"(?:证据|新闻|政策|信息)[^。；;\n]{0,40}"
+    r"无法[^。；;\n]{0,32}(?:归因|构建[^。；;\n]{0,12}因果)"
+)
+CAUSE_TIME = re.compile(
+    r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
+    r"20\d{2}[-年/.]\d{1,2}(?:[-月/.]\d{1,2})?|\d{1,2}月\d{1,2}日"
+)
+CAUSE_SOURCE = re.compile(r"新闻|政策|事件|消息|资讯|外部信息")
+CAUSE_OBJECT = re.compile(r"原因|归因|因果|诱因|催化|外部驱动")
+CAUSE_UNCERTAINTY = re.compile(
+    r"无法|不能|不足以|未能|缺口|缺少|尚缺|未检索到|不含|没有"
 )
 FORECAST_DURATION = re.compile(
     r"(?:\d+(?:\.\d+)?(?:\s*(?:[-~～至到—]|到)\s*\d+(?:\.\d+)?)?|"
@@ -161,18 +174,40 @@ FORECAST_DURATION = re.compile(
 )
 FORECAST_LANGUAGE = re.compile(
     r"预计|预期|还能|将(?:维持|持续)|可持续|大概率(?:持续|维持)|"
-    r"基准情景|反弹(?:的)?(?:持续)?(?:时间)?窗口|倾向于?(?:还能|持续|维持)"
+    r"基准情景|反弹(?:的)?(?:持续)?(?:时间)?窗口|"
+    r"倾向于?(?:还能|持续|维持)|"
+    r"(?:主观基准|本轮反弹)[^。；;\n]{0,80}"
+    r"(?:未来|后续|接下来|短期|仍有|仍可|还能|预计|预期|将|可持续|惯性)"
 )
 MARKET_TRIGGER = (
     r"(?:成交|量能|指数|涨停|跌停|主线|板块|市场宽度|上涨家数|"
     r"下跌家数|均线|支撑|压力|资金|北向|融资)"
 )
+MARKET_CHANGE = (
+    r"(?:萎缩|缩量|放量|回落|扩散|跌破|失守|站上|走弱|下降|"
+    r"减少|增加|收窄|转弱|转强|恶化|修复|低于|高于|不足|超过)"
+)
 INVALIDATION_TRIGGER = re.compile(
     rf"(?:若|如果|一旦|当)[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
-    r"[^。；;\n]{1,80}(?:失效|结束|下调|转弱|转强|改变)"
+    rf"[^。；;\n]{{0,40}}{MARKET_CHANGE}"
+    r"[^。；;\n]{0,60}(?:失效|结束|下调|转弱|转强|改变)"
     rf"|失效条件\s*[:：]\s*(?:若|如果|一旦|当)"
-    rf"[^。；;\n]{{0,40}}{MARKET_TRIGGER}[^。；;\n]{{1,80}}"
+    rf"[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
+    rf"[^。；;\n]{{0,40}}{MARKET_CHANGE}[^。；;\n]{{0,60}}"
+    rf"|【?(?:失效|降级|失效或降级)条件】?\s*[:：]?\s*[①②③④⑤⑥⑦⑧⑨⑩-]*"
+    rf"\s*{MARKET_TRIGGER}[^。；;\n]{{0,40}}{MARKET_CHANGE}"
 )
+
+
+def _is_cause_question(question: str) -> bool:
+    has_cause_request = any(
+        marker in question
+        for marker in ("原因", "为什么", "归因", "诱因", "怎么回事")
+    )
+    has_market_context = any(
+        marker in question for marker in ("下跌", "行情", "市场", "大盘", "指数")
+    )
+    return has_cause_request and has_market_context
 
 
 def _task_gap_anchors(question: str) -> tuple[str, ...]:
@@ -182,7 +217,7 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
         return ("估值", "市值", "市盈", "市净", "盈利", "收入", "PE", "PB", "PS")
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
         return ("反弹", "持续", "时长", "交易日", "失效", "量能", "成交")
-    if any(marker in question for marker in ("原因", "下跌")):
+    if _is_cause_question(question):
         return ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
     return ("问题所需", "直接回答")
 
@@ -194,6 +229,16 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
         (GAP_SIGNAL.search(clause) or EXPLICIT_EVIDENCE_GAP.search(clause))
         and any(anchor in clause for anchor in anchors)
         for clause in clauses
+    )
+
+
+def _has_specific_cause_gap(answer: str) -> bool:
+    return any(
+        CAUSE_TIME.search(clause)
+        and CAUSE_SOURCE.search(clause)
+        and CAUSE_OBJECT.search(clause)
+        and CAUSE_UNCERTAINTY.search(clause)
+        for clause in re.split(r"[。；;\n]+", answer)
     )
 
 
@@ -227,7 +272,11 @@ def semantic_answer_issues(
     if not assistant_text.strip():
         issues.append("assistant_answer_missing")
         return issues
-    explicit_gap = _has_task_specific_gap(question, assistant_text)
+    explicit_gap = (
+        _has_specific_cause_gap(assistant_text)
+        if _is_cause_question(question)
+        else _has_task_specific_gap(question, assistant_text)
+    )
     if answer_status == "partial" and not explicit_gap:
         issues.append(f"answer_status={answer_status!r}")
     elif answer_status not in {"complete", "partial"}:
