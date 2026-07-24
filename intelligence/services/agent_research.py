@@ -482,7 +482,11 @@ def block_lines_to_evidence(
                 else None
             ),
             evidence_tier=(
-                "L4_structured" if tool in {"market_data", "mainline_context"} else ""
+                "L4_structured"
+                if tool in {"market_data", "mainline_context"}
+                else "L2_structured"
+                if tool == "financial_data"
+                else ""
             ),
         )
         evidence.append(replace(item, content_hash=evidence_content_hash(item)))

@@ -78,6 +78,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     ),
     "company_valuation_evidence": (
         "market_data",
+        "financial_data",
         "kb_search",
         "evidence_lookup",
         "web_search",
@@ -97,6 +98,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     ),
     "company_financial_evidence": (
         "market_data",
+        "financial_data",
         "kb_search",
         "evidence_lookup",
         "l3_lookup",

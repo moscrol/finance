@@ -8,6 +8,7 @@ from intelligence.services.turn_control_core import TurnControlCore
 
 RUNTIME_CAPABILITIES = {
     "market_data",
+    "financial_data",
     "mainline_context",
     "kb_search",
     "graph_lookup",
@@ -33,7 +34,7 @@ RUNTIME_CAPABILITIES = {
         ),
         (
             "瑞华泰的合理估值",
-            {"market_data", "evidence_lookup"},
+            {"market_data", "financial_data", "evidence_lookup"},
             "valuation_assessment",
         ),
         (
@@ -157,6 +158,7 @@ def test_valuation_contract_has_current_anchor_scenarios_and_invalidation() -> N
     }
     assert {
         "valuation_assessment",
+        "financial_business_anchor",
         "scenario_range",
         "evidence_boundary",
         "invalidation_conditions",
@@ -166,4 +168,14 @@ def test_valuation_contract_has_current_anchor_scenarios_and_invalidation() -> N
         for term in ("当前市场锚点", "方法", "假设")
     )
     assert "market_data" in context.contract.allowed_capabilities
-    assert "market_data" in context.contract.evidence_plan.mandatory_capabilities
+    assert "financial_data" in context.contract.allowed_capabilities
+    assert set(context.contract.evidence_plan.mandatory_capabilities) == {
+        "market_data",
+        "financial_data",
+    }
+    financial_anchor = next(
+        item
+        for item in context.contract.required_outputs
+        if item.output_id == "financial_business_anchor"
+    )
+    assert financial_anchor.evidence_types == ("financial_data",)

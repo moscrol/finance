@@ -37,6 +37,7 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "technical_levels": "给出结构化行情支持的技术区间或关键位",
     "data_date": "标明行情数据截止日期",
     "valuation_assessment": ("基于当前市场锚点说明估值方法、关键假设与当前估值判断"),
+    "financial_business_anchor": "给出至少一项逐季财务或业务兑现硬数据锚点",
     "scenario_range": "给出明确方法与假设边界的估值情景区间",
     "causal_chain": "解释时间对齐的原因、传导链和盘面印证",
     "counterpoint": "提供主要反证或竞争性解释",
@@ -49,6 +50,7 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
 
 _VALUATION_REQUIRED_OUTPUTS = (
     "valuation_assessment",
+    "financial_business_anchor",
     "scenario_range",
     "evidence_boundary",
     "invalidation_conditions",
@@ -135,6 +137,13 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
                 "current",
                 "当前价格、交易日与可比估值锚点",
             ),
+            EvidenceRequirement(
+                "VALUATION_FINANCIAL",
+                "financial_data",
+                True,
+                "current",
+                "逐季营收、利润或盈利质量硬数据锚点",
+            ),
             *requirements,
         ),
         freshness="current",
@@ -145,6 +154,15 @@ def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
     if frame.question_type != "valuation_estimate":
         return frame.required_outputs
     return tuple(dict.fromkeys((*frame.required_outputs, *_VALUATION_REQUIRED_OUTPUTS)))
+
+
+def _required_output_evidence_types(
+    output_id: str,
+    capabilities: tuple[str, ...],
+) -> tuple[str, ...]:
+    if output_id == "financial_business_anchor":
+        return ("financial_data",)
+    return capabilities
 
 
 def build_episode_context(
@@ -201,7 +219,10 @@ def build_episode_context(
             RequiredOutput(
                 output_id=output_id,
                 description=_OUTPUT_DESCRIPTIONS.get(output_id, output_id),
-                evidence_types=capability_tuple,
+                evidence_types=_required_output_evidence_types(
+                    output_id,
+                    capability_tuple,
+                ),
                 required=True,
             )
             for output_id in _required_output_ids(frame)

@@ -12,6 +12,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.episode_output_substance import (
+    required_outputs_without_substance,
+)
 from intelligence.services.generic_research_owner import CompletionReport
 from intelligence.services.research_contract import (
     OutputStatus,
@@ -179,6 +182,25 @@ def verify_episode_outcome(
     if mandatory_missing:
         issues.append(
             "missing mandatory capability evidence: " + ",".join(mandatory_missing)
+        )
+
+    missing_substance = required_outputs_without_substance(contract, outcome.draft)
+    if missing_substance:
+        missing_set = set(missing_substance)
+        statuses = [
+            OutputStatus(
+                status.output_id,
+                "missing",
+                (),
+                f"{required_by_id[status.output_id].description}缺少实质内容",
+            )
+            if status.output_id in missing_set
+            else status
+            for status in statuses
+        ]
+        issues.extend(
+            f"required output lacks substantive answer: {output_id}"
+            for output_id in missing_substance
         )
 
     required_statuses = tuple(

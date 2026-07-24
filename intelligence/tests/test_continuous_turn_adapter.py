@@ -1002,6 +1002,7 @@ def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() 
     outputs = {item.output_id: item.description for item in contract.required_outputs}
     assert {
         "valuation_assessment",
+        "financial_business_anchor",
         "scenario_range",
         "evidence_boundary",
         "invalidation_conditions",
@@ -1010,7 +1011,17 @@ def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() 
     assert "方法" in outputs["valuation_assessment"]
     assert "假设" in outputs["valuation_assessment"]
     assert "market_data" in contract.allowed_capabilities
-    assert "market_data" in contract.evidence_plan.mandatory_capabilities
+    assert "financial_data" in contract.allowed_capabilities
+    assert set(contract.evidence_plan.mandatory_capabilities) == {
+        "market_data",
+        "financial_data",
+    }
+    financial_anchor = next(
+        item
+        for item in contract.required_outputs
+        if item.output_id == "financial_business_anchor"
+    )
+    assert financial_anchor.evidence_types == ("financial_data",)
 
 
 def test_semantically_verified_partial_is_first_class_not_degraded() -> None:

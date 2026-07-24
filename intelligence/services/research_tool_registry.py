@@ -23,6 +23,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
     "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
     "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
     "market_data": ("market_data", "结构化行情与市场时序", "current"),
+    "financial_data": ("financial_data", "结构化逐季财务指标", "current"),
     "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
 }
 DEFAULT_RESEARCH_CAPABILITIES = tuple(
@@ -192,7 +193,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             runner=tools[name],
             query_scope=(
                 "episode"
-                if name in {"market_data", "mainline_context"}
+                if name in {"market_data", "financial_data", "mainline_context"}
                 else "query"
             ),
         )

@@ -31,6 +31,10 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_output_substance import (
+    lost_required_output_substance,
+    remove_lost_output_scaffolding,
+)
 from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
@@ -38,9 +42,7 @@ from intelligence.services.episode_verifier import (
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
-    ResearchTaskContract,
 )
-from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -117,33 +119,6 @@ _CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
 _PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
-_SCENARIO_LABEL_RE = re.compile(
-    r"(?:保守|悲观|下行|中性|基准|乐观|上行)(?:情景)?"
-)
-_VALUATION_VALUE_RE = re.compile(
-    r"[+-]?\d+(?:\.\d+)?"
-    r"(?:\s*(?:至|到|~|～|—|-)\s*[+-]?\d+(?:\.\d+)?)?"
-    r"\s*(?:倍|[xX]|元|亿元|万亿元|%|％)"
-)
-_EXPLICIT_RANGE_VALUE_RE = re.compile(
-    r"[+-]?\d+(?:\.\d+)?\s*(?:至|到|~|～|—|-)\s*"
-    r"[+-]?\d+(?:\.\d+)?\s*(?:倍|[xX]|元|亿元|万亿元|%|％)?"
-)
-_VALUATION_CONTEXT_RE = re.compile(r"(?:估值|市值|PB|PE|PS|EV)", re.IGNORECASE)
-_SCENARIO_GAP_RE = re.compile(
-    r"(?:无法|不能|暂不|缺少|不足|待补|待核验|尚未|未能)"
-)
-_SCENARIO_SECTION_HEADING_RE = re.compile(
-    r"^(?:#{1,6}\s*|【|(?:\d+|[一二三四五六七八九十]+)[、.．）)]\s*)"
-    r".*(?:情景区间|估值区间)"
-)
-_SCENARIO_TABLE_HEADER_RE = re.compile(
-    r"^\|.*情景.*(?:关键条件|隐含\s*(?:PB|PE|PS)|对应市值|估值).*(?:\||$)",
-    re.IGNORECASE,
-)
-_MARKDOWN_TABLE_DIVIDER_RE = re.compile(
-    r"^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$"
-)
 _FULL_ISO_DATE_RE = re.compile(
     r"(?<!\d)(?P<year>20\d{2})-(?P<month>\d{1,2})-(?P<day>\d{1,2})(?!\d)"
 )
@@ -467,7 +442,7 @@ class SemanticEpisodeVerifier:
                 )
                 if indexes
             )
-            marker_loss = _lost_required_output_markers(
+            marker_loss = lost_required_output_substance(
                 contract,
                 before_repair,
                 structural.outcome.draft,
@@ -576,7 +551,7 @@ class SemanticEpisodeVerifier:
             )
 
         repaired_verified, _repaired_frame = repaired
-        marker_loss = _lost_required_output_markers(
+        marker_loss = lost_required_output_substance(
             contract,
             structural.outcome.draft,
             repaired_verified.outcome.draft,
@@ -693,7 +668,7 @@ class SemanticEpisodeVerifier:
             )
             if repaired_twice is not None:
                 twice_verified, _twice_frame = repaired_twice
-                second_marker_loss = _lost_required_output_markers(
+                second_marker_loss = lost_required_output_substance(
                     contract,
                     repaired_verified.outcome.draft,
                     twice_verified.outcome.draft,
@@ -801,7 +776,7 @@ class SemanticEpisodeVerifier:
                         )
                         if terminal_repair is not None:
                             terminal_verified, _terminal_frame = terminal_repair
-                            terminal_marker_loss = _lost_required_output_markers(
+                            terminal_marker_loss = lost_required_output_substance(
                                 contract,
                                 twice_verified.outcome.draft,
                                 terminal_verified.outcome.draft,
@@ -1382,7 +1357,7 @@ class SemanticEpisodeVerifier:
         """Keep reviewed remainder and expose only the deleted slot as a gap."""
 
         public = _sanitize_public_answer(
-            _remove_lost_output_scaffolding(
+            remove_lost_output_scaffolding(
                 verified.outcome.draft,
                 output_ids,
             ),
@@ -2138,92 +2113,11 @@ def _renumber_circled_list_items(source: str) -> str:
     return "".join(rendered)
 
 
-def _lost_required_output_markers(
-    contract: ResearchTaskContract,
-    before: str,
-    after: str,
-) -> tuple[str, ...]:
-    """Prevent sentence repair from silently emptying a visible answer slot."""
-
-    return tuple(
-        item.output_id
-        for item in contract.required_outputs
-        if item.required
-        and _output_slot_has_substance(item.output_id, before)
-        and not _output_slot_has_substance(item.output_id, after)
-    )
-
-
-def _output_slot_has_substance(output_id: str, answer: str) -> bool:
-    """Recognize payload that survives a deletion-only semantic repair.
-
-    Most required outputs are prose slots whose existing marker is enough for
-    this monotonicity check.  A valuation ``scenario_range`` is structured:
-    its heading and Markdown table header can survive after every actual
-    scenario row has been removed.  Those presentation-only remnants do not
-    count as an answer.  At least one labelled numeric scenario, an explicit
-    valuation range, or an honest range-specific gap must remain.
-    """
-
-    if output_id != "scenario_range":
-        return answer_has_output_marker(output_id, answer)
-
-    for raw_line in str(answer or "").splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if _SCENARIO_LABEL_RE.search(line) and _VALUATION_VALUE_RE.search(line):
-            return True
-        if _VALUATION_CONTEXT_RE.search(line) and _EXPLICIT_RANGE_VALUE_RE.search(
-            line
-        ):
-            return True
-        if (
-            ("区间" in line or "范围" in line)
-            and _SCENARIO_GAP_RE.search(line)
-        ):
-            return True
-    return False
-
-
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
         f"semantic repair removed required output: {output_id}"
         for output_id in output_ids
     )
-
-
-def _remove_lost_output_scaffolding(
-    answer: str,
-    output_ids: tuple[str, ...],
-) -> str:
-    """Remove presentation-only remnants for a slot known to have been lost."""
-
-    if "scenario_range" not in output_ids:
-        return answer
-    kept: list[str] = []
-    scenario_heading_removed = False
-    scenario_table_header_removed = False
-    for raw_line in str(answer or "").splitlines():
-        line = raw_line.strip()
-        if _SCENARIO_SECTION_HEADING_RE.search(line):
-            scenario_heading_removed = True
-            scenario_table_header_removed = False
-            continue
-        if scenario_heading_removed and _SCENARIO_TABLE_HEADER_RE.search(line):
-            scenario_table_header_removed = True
-            continue
-        if scenario_table_header_removed and _MARKDOWN_TABLE_DIVIDER_RE.fullmatch(
-            line
-        ):
-            scenario_heading_removed = False
-            scenario_table_header_removed = False
-            continue
-        if line:
-            scenario_heading_removed = False
-            scenario_table_header_removed = False
-        kept.append(raw_line)
-    return "\n".join(kept).strip()
 
 
 def _semantic_tool_status_registry(

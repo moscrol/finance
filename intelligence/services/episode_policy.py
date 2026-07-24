@@ -6,6 +6,7 @@ from __future__ import annotations
 _QUESTION_TOOL_PRIORITY: dict[str, tuple[str, ...]] = {
     "valuation_estimate": (
         "market_data",
+        "financial_data",
         "l3_lookup",
         "evidence_lookup",
         "kb_search",

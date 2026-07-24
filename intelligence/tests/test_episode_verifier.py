@@ -24,6 +24,11 @@ def _contract(
     *,
     outputs: tuple[RequiredOutput, ...] | None = None,
     evidence_plan: EvidencePlan | None = None,
+    allowed_capabilities: tuple[str, ...] = (
+        "market_data",
+        "news_search",
+        "mainline_context",
+    ),
 ) -> ResearchTaskContract:
     return ResearchTaskContract(
         task_id="episode-test",
@@ -44,7 +49,7 @@ def _contract(
                 ("market_data", "news_search"),
             ),
         ),
-        allowed_capabilities=("market_data", "news_search", "mainline_context"),
+        allowed_capabilities=allowed_capabilities,
         evidence_plan=evidence_plan or EvidencePlan(),
         task_frame_hash=TASK_HASH,
     )
@@ -236,6 +241,51 @@ def test_missing_mandatory_evidence_capability_downgrades_completion() -> None:
 
     assert verified.verified_status == "partial"
     assert any("mandatory capability" in issue for issue in verified.issues)
+
+
+def test_market_snapshot_cannot_launder_a_valuation_financial_anchor() -> None:
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data",),
+            ),
+            RequiredOutput(
+                "financial_business_anchor",
+                "财务或业务硬数据锚点",
+                ("financial_data",),
+            ),
+        ),
+        evidence_plan=EvidencePlan(
+            "valuation_current_anchor",
+            (
+                EvidenceRequirement("VALUATION_MARKET", "market_data", True),
+                EvidenceRequirement(
+                    "VALUATION_FINANCIAL",
+                    "financial_data",
+                    True,
+                ),
+            ),
+        ),
+        allowed_capabilities=("market_data", "financial_data"),
+    )
+    market = _evidence("market_data", "market-1")
+    outcome = _outcome(
+        draft="当前PB为4.33倍，但逐季财务锚点未取得。",
+        evidence=(market,),
+        bindings=(
+            OutputEvidenceBinding("valuation_assessment", ("market-1",)),
+            OutputEvidenceBinding("financial_business_anchor", ("market-1",)),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "partial"
+    assert verified.completion.outputs[1].status == "missing"
+    assert any("unsupported evidence type" in issue for issue in verified.issues)
+    assert any("financial_data" in issue for issue in verified.issues)
 
 
 def test_contract_and_outcome_task_hash_must_match() -> None:

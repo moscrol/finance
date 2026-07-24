@@ -120,6 +120,47 @@ def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
     assert observation.evidence[0].source_date is None
 
 
+def test_valuation_registry_exposes_structured_financial_anchor(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _valuation_frame()
+    context = build_episode_context(
+        frame,
+        task_id="valuation-financial-anchor",
+        capabilities=("market_data",),
+        timeout=30.0,
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_financials_block_for_llm",
+        lambda *_args, **_kwargs: (
+            "## 逐季财报数据块 [D7]\n"
+            "- 2026-06-30：营收4.20亿元，归母净利0.52亿元，毛利率38.5%"
+        ),
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "financial_data",
+        "瑞华泰逐季财务",
+        context=context,
+        step_id="valuation-financial-anchor:1",
+    )
+
+    assert observation.evidence
+    assert {item.tool for item in observation.evidence} == {"financial_data"}
+    assert {item.source_date for item in observation.evidence} == {"2026-06-30"}
+    assert observation.trace.capability == "financial_data"
+    assert observation.trace.status == "success"
+
+
 def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     tmp_path,
     monkeypatch,

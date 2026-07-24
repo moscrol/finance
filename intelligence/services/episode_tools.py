@@ -187,6 +187,44 @@ def build_episode_registry(
             ),
         )
 
+    def financial_data_runner(
+        _query: str,
+        tool_context: agent_research.AgentToolContext,
+    ):
+        tool_context.check_cancelled()
+        timeout = tool_context.deadline.stage_timeout(8.0)
+        if timeout <= 0.001:
+            raise TimeoutError("financial-data deadline expired")
+        block = ask_blocks._financials_block_for_llm(
+            f"{frame.subject} {frame.raw_question}",
+            market_db_path,
+            timeout=timeout,
+        )
+        tool_context.check_cancelled()
+        evidence, observation = agent_research.block_lines_to_evidence(
+            "financial_data",
+            block,
+            "东财 F10 / AKShare · D7 逐季财报",
+            limit=12,
+            detail_chars=1000,
+        )
+        evidence = [
+            item
+            for item in evidence
+            if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
+        ]
+        return (
+            evidence,
+            observation or "逐季财务指标无可用结果",
+            ProviderTrace(
+                provider="agent:financial_data",
+                capability="financial_data",
+                status="success" if evidence else "empty",
+                detail="quarterly_financials_snapshot",
+                result_count=len(evidence),
+            ),
+        )
+
     def mainline_runner(
         _query: str,
         tool_context: agent_research.AgentToolContext,
@@ -272,6 +310,8 @@ def build_episode_registry(
 
     if "market_data" in context.contract.allowed_capabilities:
         tools["market_data"] = market_data_runner
+    if "financial_data" in context.contract.allowed_capabilities:
+        tools["financial_data"] = financial_data_runner
     if "mainline_context" in context.contract.allowed_capabilities:
         tools["mainline_context"] = mainline_runner
     selected_l3_runner = (
