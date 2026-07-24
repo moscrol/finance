@@ -490,8 +490,9 @@ no bearer.
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
   intelligence/tests/test_headless_tool_gateway.py \
-  intelligence/tests/test_research_tool_registry.py \
-  intelligence/tests/test_query_ledger.py
+  intelligence/tests/test_episode_tool_batch.py \
+  intelligence/tests/test_p1b_runtime.py -k \
+  'query_ledger or registry or gateway or tool_batch'
 git add intelligence/services/headless_tool_gateway.py \
   intelligence/tests/test_headless_tool_gateway.py
 git commit -m "feat: add headless finance tool gateway"
