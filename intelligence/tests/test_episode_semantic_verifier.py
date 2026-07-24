@@ -743,6 +743,10 @@ def test_local_gate_removes_false_persistent_turnover_path_claim() -> None:
         "若成交持续萎缩，则反弹判断失效。",
         "成交持续萎缩的说法并不成立。",
         "成交持续萎缩时，反弹判断失效。",
+        "成交额持续萎缩尚无法确认。",
+        "成交额持续萎缩并非事实。",
+        "成交额持续萎缩不应解读为趋势。",
+        "成交额持续萎缩的可能性较低。",
         "成交额先增后持续下滑。",
         "自周二起成交额持续回落。",
         "成交连续回落两个交易日，但全周并非单调下降。",
@@ -780,6 +784,9 @@ def test_local_path_gate_preserves_non_assertive_or_other_metric_claims(
     (
         "近两个交易日上涨家数回落而成交额持续萎缩。",
         "不能说上涨家数持续下降但成交额持续萎缩。",
+        "市场先抑后扬而成交额持续萎缩。",
+        "赚钱效应近两个交易日修复而成交额持续萎缩。",
+        "成交额与上涨家数持续下降。",
     ),
 )
 def test_local_path_gate_binds_scope_to_nearest_turnover_subject(

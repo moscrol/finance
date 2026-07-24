@@ -314,6 +314,56 @@ def test_semantic_smoke_rejects_negated_or_contradicted_gap_claims(
     assert "answer_status='partial'" in issues
 
 
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    (
+        ("瑞华泰的合理估值", "财报并非缺失，估值结论完备。"),
+        ("瑞华泰的合理估值", "财报缺失已经补齐，估值结论完备。"),
+        (
+            "你觉得目前市场的主线是什么，给我你的判断依据",
+            "直接判断：当前主线是人工智能。主线证据缺口已经补齐。",
+        ),
+        (
+            "昨天的反弹能持续多久",
+            "预计还能持续1-3个交易日。失效条件证据缺口已经补齐。",
+        ),
+        (
+            "这一周行情下跌的主要原因是什么",
+            "数据覆盖2026-07-17至2026-07-23。"
+            "天气新闻在该窗口缺失，但原因证据足够。",
+        ),
+    ),
+)
+def test_semantic_smoke_rejects_resolved_or_non_target_gap_language(
+    question: str,
+    answer: str,
+) -> None:
+    issues = semantic_answer_issues(
+        question,
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": answer}],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
+def test_semantic_smoke_accepts_negative_sufficiency_as_real_valuation_gap() -> (
+    None
+):
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": "估值证据不充分，财报数据缺失。",
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",

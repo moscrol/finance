@@ -153,8 +153,12 @@ _PATH_SCOPE_BLOCKER_RE = re.compile(
     r"[^，,；;。！？!?\n]{0,20}$"
 )
 _PATH_POST_SCOPE_BLOCKER_RE = re.compile(
-    r"^(?:的说法)?(?:并不成立|不成立|不准确|有待验证|尚未确认|是否)"
-    r"|^(?:时|才|则)"
+    r"^(?:的说法)?(?:并不成立|不成立|不准确|有待验证|尚未确认|是否)|"
+    r"^(?:尚|仍|目前)?(?:无法|不能|难以)(?:确认|核验|验证|成立)|"
+    r"^(?:并非|不是)(?:事实|趋势|结论)|"
+    r"^不应(?:解读|视为|认为)|"
+    r"^(?:的)?可能性(?:较低|不高)|"
+    r"^(?:时|才|则)"
 )
 _LOCAL_PATH_WINDOW_RE = re.compile(
     r"(?:近|最近|过去|此前|前|连续)?\s*"
@@ -1733,10 +1737,7 @@ def _turnover_path_directions(text: str) -> tuple[bool, bool]:
                 if subjects_before:
                     subject = subjects_before[-1]
                     bridge = clause[subject.end() : path_match.start()]
-                    locally_bound = (
-                        len(bridge) <= 48
-                        and _OTHER_PATH_METRIC_RE.search(bridge) is None
-                    )
+                    locally_bound = _turnover_bridge_is_locally_bound(bridge)
                     if locally_bound:
                         bound_subject = subject
                 if not locally_bound and subjects_after:
@@ -1789,7 +1790,21 @@ def _path_assertion_scope(
     other_metrics = tuple(_OTHER_PATH_METRIC_RE.finditer(prefix))
     if other_metrics:
         prefix = prefix[other_metrics[-1].end() :]
+    prefix = re.split(r"(?:但|而|不过|然而|可是|却)", prefix)[-1]
     return prefix[-24:] + clause[local_start:path_start]
+
+
+def _turnover_bridge_is_locally_bound(bridge: str) -> bool:
+    if len(bridge) > 48:
+        return False
+    if _OTHER_PATH_METRIC_RE.search(bridge) is None:
+        return True
+    coordinated_metrics = re.fullmatch(
+        r"\s*(?:(?:与|和|及|、)\s*"
+        r"(?:上涨家数|下跌家数|涨停|跌停|指数|股价|板块))+\s*",
+        bridge,
+    )
+    return coordinated_metrics is not None
 
 
 def _bound_turnover_series(outcome: AgentOutcome) -> tuple[tuple[date, float], ...]:

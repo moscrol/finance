@@ -145,22 +145,10 @@ QUANTIFIED_MARKET_OBSERVATION = re.compile(
 DIRECT_ASSESSMENT = re.compile(
     r"(?:直接|核心|基准)[^。；;\n]{0,4}(?:回答|判断|结论)"
 )
-EXPLICIT_EVIDENCE_GAP = re.compile(
-    r"(?:证据|数据|信息|消息面|因果|归因|边界|来源)"
-    r"[^。；;\n]{0,16}缺口|"
-    r"缺口[^。；;\n]{0,16}(?:无法|缺少|缺乏|尚未|未能)"
-)
-GAP_SIGNAL = re.compile(
-    r"尚未完成|仍缺少|尚缺少|不给出定性结论|无法形成可靠|"
-    r"证据(?:边界与)?缺口|原因归因\s*[:：]\s*缺口|仍需核验|未检索到|"
-    r"(?:不含|没有|缺少)[^。；;\n]{0,60}"
-    r"(?:同窗|同期|对齐|时间窗口)[^。；;\n]{0,40}"
-    r"(?:证据|新闻|政策|信息)[^。；;\n]{0,40}"
-    r"无法[^。；;\n]{0,32}(?:归因|构建[^。；;\n]{0,12}因果)"
-)
 VALUATION_FIELD = (
     r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
-    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
+    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效|"
+    r"估值证据|估值输入|可比公司|可比样本)"
 )
 VALUATION_DATA_GAP = re.compile(
     r"(?:"
@@ -170,16 +158,27 @@ VALUATION_DATA_GAP = re.compile(
     r"|"
     rf"{VALUATION_FIELD}"
     r"(?:(?!但|而|不过|同时)[^。；;，,\n]){0,48}"
-    r"(?:缺失|未获取|未取得|未获得|缺少|缺乏)"
+    r"(?:缺失|未获取|未取得|未获得|缺少|缺乏|不足|不充分|不完整)"
     r")"
 )
-GAP_DENIAL = re.compile(
-    r"(?:并未|没有|并不|不存在|不再)[^。；;，,\n]{0,12}"
-    r"(?:缺失|缺少|缺乏|缺口)|"
-    r"(?:原因|归因|因果|证据|数据|信息|消息|财报|财务|报表|条件)"
-    r"[^。；;，,\n]{0,16}"
-    r"(?:齐全|完整|充分|完备|已核验|没有问题|无问题|无缺口|不缺)"
+UNRESOLVED_GAP_ASSERTION = re.compile(
+    r"(?:仍|尚|还|目前|当前|依然)?\s*"
+    r"(?:缺少|缺乏|缺失|不足|不充分|不完整)|"
+    r"(?:尚未|未能|未|无法|不能)\s*"
+    r"(?:获取|取得|获得|核验|确认|完成|形成|建立|检索到|覆盖|对齐|归因|回答)|"
+    r"(?:仍需|尚待|有待|需|需要)\s*(?:补充|核验|确认|获取)|"
+    r"(?:存在|仍有|尚有|留有)[^。；;，,\n]{0,12}(?:缺口|不足)|"
+    r"(?:不含|没有)[^。；;，,\n]{0,36}(?:证据|新闻|政策|信息)|"
+    r"返回空结果"
 )
+GAP_ASSERTION_NEGATION = re.compile(
+    r"(?:并非|并未|没有|不存在|不再)[^。；;，,\n]{0,6}$"
+)
+GAP_ASSERTION_RESOLUTION = re.compile(
+    r"^(?:已|已经|现已|目前已)?\s*"
+    r"(?:补齐|补全|填补|弥补|消除|解决|关闭|归零|为零)"
+)
+GAP_CONTRAST_SPLIT = re.compile(r"(?:但|不过|然而|可是|却)")
 CAUSE_TIME = re.compile(
     r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
     r"20\d{2}[-年/.]\d{1,2}(?:[-月/.]\d{1,2})?|\d{1,2}月\d{1,2}日"
@@ -271,46 +270,63 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
     clauses = re.split(r"[。；;\n]+", answer)
     if "估值" in question:
         return any(
-            _clause_asserts_gap(clause)
+            _segment_asserts_gap(segment)
             and (
-                VALUATION_DATA_GAP.search(clause)
+                VALUATION_DATA_GAP.search(segment)
                 or (
-                    "条件" in clause
-                    and any(marker in clause for marker in ("失效", "降级"))
+                    "条件" in segment
+                    and any(marker in segment for marker in ("失效", "降级"))
                 )
             )
             for clause in clauses
+            for segment in _gap_segments(clause)
         )
     return any(
-        _clause_asserts_gap(clause)
-        and any(anchor in clause for anchor in anchors)
+        _segment_asserts_gap(segment)
+        and any(anchor in segment for anchor in anchors)
         for clause in clauses
+        for segment in _gap_segments(clause)
     )
 
 
 def _clause_asserts_gap(clause: str) -> bool:
-    if GAP_DENIAL.search(clause):
-        return False
-    return bool(
-        GAP_SIGNAL.search(clause)
-        or EXPLICIT_EVIDENCE_GAP.search(clause)
-        or VALUATION_DATA_GAP.search(clause)
+    return any(_segment_asserts_gap(segment) for segment in _gap_segments(clause))
+
+
+def _gap_segments(clause: str) -> tuple[str, ...]:
+    return tuple(
+        segment.strip()
+        for segment in GAP_CONTRAST_SPLIT.split(clause)
+        if segment.strip()
     )
+
+
+def _segment_asserts_gap(segment: str) -> bool:
+    for match in UNRESOLVED_GAP_ASSERTION.finditer(segment):
+        prefix = segment[max(0, match.start() - 10) : match.start()]
+        suffix = segment[match.end() : match.end() + 14]
+        if GAP_ASSERTION_NEGATION.search(prefix):
+            continue
+        if GAP_ASSERTION_RESOLUTION.search(suffix):
+            continue
+        return True
+    return False
 
 
 def _has_specific_cause_gap(answer: str) -> bool:
     explicit_time_context = bool(CAUSE_TIME.search(answer))
     return any(
-        not GAP_DENIAL.search(clause)
+        _segment_asserts_gap(segment)
         and
         (
-            CAUSE_TIME.search(clause)
-            or (explicit_time_context and CAUSE_DEICTIC_TIME.search(clause))
+            CAUSE_TIME.search(segment)
+            or (explicit_time_context and CAUSE_DEICTIC_TIME.search(segment))
         )
-        and CAUSE_SOURCE.search(clause)
-        and CAUSE_OBJECT.search(clause)
-        and CAUSE_UNCERTAINTY.search(clause)
+        and CAUSE_SOURCE.search(segment)
+        and CAUSE_OBJECT.search(segment)
+        and CAUSE_UNCERTAINTY.search(segment)
         for clause in re.split(r"[。；;\n]+", answer)
+        for segment in _gap_segments(clause)
     )
 
 
@@ -329,23 +345,25 @@ def _has_invalidation_trigger(answer: str) -> bool:
 def _has_specific_invalidation_gap(answer: str) -> bool:
     markdown_neutral = re.sub(r"[*_`#]", "", answer)
     for clause in re.split(r"[。；;\n]+", markdown_neutral):
-        has_gap = bool(
-            _clause_asserts_gap(clause)
-            or (
-                not GAP_DENIAL.search(clause)
-                and
-                any(marker in clause for marker in ("未核验", "已删除", "需补充"))
-                and any(marker in clause for marker in ("证据", "数据", "阈值"))
+        for segment in _gap_segments(clause):
+            has_gap = bool(
+                _segment_asserts_gap(segment)
+                or (
+                    any(
+                        marker in segment
+                        for marker in ("未核验", "已删除", "需补充")
+                    )
+                    and any(
+                        marker in segment for marker in ("证据", "数据", "阈值")
+                    )
+                )
             )
-        )
-        has_invalidation_slot = "失效条件" in clause or (
-            "失效" in clause
-            and any(marker in clause for marker in ("条件", "阈值", "触发"))
-        ) or (
-            "继续成立" in clause and "条件" in clause
-        )
-        if has_gap and has_invalidation_slot:
-            return True
+            has_invalidation_slot = "失效条件" in segment or (
+                "失效" in segment
+                and any(marker in segment for marker in ("条件", "阈值", "触发"))
+            ) or ("继续成立" in segment and "条件" in segment)
+            if has_gap and has_invalidation_slot:
+                return True
     return False
 
 
