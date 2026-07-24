@@ -393,7 +393,13 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     )
 
     assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.judge_status == "repaired"
+    assert "【当前判断】市场处于反弹修复" in result.public_answer
+    assert "99999亿元" not in result.public_answer
+    assert "证据缺口" in result.public_answer
+    assert "继续成立条件" in result.public_answer
+    assert result.gap_output_ids == ("continuation_conditions",)
+    assert result.to_dict()["gap_output_ids"] == ["continuation_conditions"]
     assert (
         "semantic repair removed required output: continuation_conditions"
         in result.issues
@@ -994,7 +1000,9 @@ def test_terminal_redaction_releases_remaining_verified_sentences_without_fourth
     assert result.public_answer == "市场下跌。"
 
 
-def test_terminal_redaction_cannot_remove_required_output_marker() -> None:
+def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed() -> (
+    None
+):
     frame, structural = _structural(
         "【当前判断】市场下跌。政策导致下跌。外资将持续流入。行业一定反转。"
     )
@@ -1018,7 +1026,32 @@ def test_terminal_redaction_cannot_remove_required_output_marker() -> None:
 
     assert calls == 3
     assert result.status == "partial"
-    assert result.judge_status == "rejected"
+    assert result.judge_status == "repaired"
+    assert "【当前判断】市场下跌" not in result.public_answer
+    assert "行业一定反转" in result.public_answer
+    assert "证据缺口" in result.public_answer
+    assert "直接判断" in result.public_answer
+    assert result.gap_output_ids == ("direct_assessment",)
+
+
+def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> None:
+    frame, structural = _structural("market_data")
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(True)
+    )._marker_loss_partial_public(
+        frame,
+        structural,
+        ("direct_assessment",),
+        judge_issues=("semantic repair removed required output",),
+        correlated_judge=True,
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "repaired"
+    assert "现有证据不足" in result.public_answer
+    assert "直接判断" in result.public_answer
+    assert result.gap_output_ids == ("direct_assessment",)
 
 
 def test_injected_passing_judge_records_correlated_limit() -> None:

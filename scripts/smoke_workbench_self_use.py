@@ -254,6 +254,26 @@ def _has_invalidation_trigger(answer: str) -> bool:
     return bool(INVALIDATION_TRIGGER.search(markdown_neutral))
 
 
+def _has_specific_invalidation_gap(answer: str) -> bool:
+    markdown_neutral = re.sub(r"[*_`#]", "", answer)
+    for clause in re.split(r"[。；;\n]+", markdown_neutral):
+        has_gap = bool(
+            GAP_SIGNAL.search(clause)
+            or EXPLICIT_EVIDENCE_GAP.search(clause)
+            or (
+                any(marker in clause for marker in ("未核验", "已删除", "需补充"))
+                and any(marker in clause for marker in ("证据", "数据", "阈值"))
+            )
+        )
+        has_invalidation_slot = "失效条件" in clause or (
+            "失效" in clause
+            and any(marker in clause for marker in ("条件", "阈值", "触发"))
+        )
+        if has_gap and has_invalidation_slot:
+            return True
+    return False
+
+
 class SmokeProtocolError(RuntimeError):
     def __init__(self, stage: str) -> None:
         super().__init__(stage)
@@ -320,7 +340,11 @@ def semantic_answer_issues(
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
         if not _has_forward_duration(assistant_text):
             issues.append("forecast_duration_missing")
-        if not _has_invalidation_trigger(assistant_text):
+        has_specific_invalidation_gap = (
+            answer_status == "partial"
+            and _has_specific_invalidation_gap(assistant_text)
+        )
+        if not _has_invalidation_trigger(assistant_text) and not has_specific_invalidation_gap:
             issues.append("forecast_invalidation_missing")
     if "科创50" in question or "支撑点位" in question:
         if "支撑" not in assistant_text:

@@ -494,7 +494,10 @@ class ContinuousTurnAdapter:
 
         final_outcome = semantic.verified.outcome
         private_tokens = _private_tokens(final_outcome)
-        fulfilled_output_ids = _fulfilled_output_ids(semantic.verified)
+        fulfilled_output_ids = _fulfilled_output_ids(
+            semantic.verified,
+            excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
         answer = _safe_public_text(
             semantic.public_answer,
             private_tokens=private_tokens,
@@ -850,11 +853,14 @@ def _private_tokens(outcome: AgentOutcome) -> frozenset[str]:
 
 def _fulfilled_output_ids(
     structural: VerifiedEpisodeOutcome,
+    *,
+    excluded_output_ids: frozenset[str] = frozenset(),
 ) -> frozenset[str]:
     return frozenset(
         item.output_id
         for item in structural.completion.outputs
         if item.status == "fulfilled"
+        and item.output_id not in excluded_output_ids
     )
 
 
@@ -929,6 +935,8 @@ def _episode_as_of(
         if binding.output_id in allowed_output_ids
         for content_hash in binding.evidence_hashes
     }
+    if not bound_hashes:
+        return None
     dates = tuple(
         parsed
         for item in outcome.evidence

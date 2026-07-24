@@ -220,6 +220,7 @@ class SemanticEpisodeOutcome:
     judge_status: JudgeStatus
     issues: tuple[str, ...] = ()
     correlated_judge: bool = False
+    gap_output_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         """Return the private artifact shape (public text stays sanitized)."""
@@ -230,6 +231,7 @@ class SemanticEpisodeOutcome:
             "judge_status": self.judge_status,
             "issues": list(self.issues),
             "correlated_judge": self.correlated_judge,
+            "gap_output_ids": list(self.gap_output_ids),
             "verified": self.verified.to_dict(),
         }
 
@@ -344,6 +346,7 @@ class SemanticEpisodeVerifier:
             )
 
         preflight_issues: tuple[str, ...] = ()
+        marker_loss_outputs: tuple[str, ...] = ()
         numeric_rejected = _novel_numeric_condition_indexes(
             sentences,
             structural,
@@ -401,22 +404,7 @@ class SemanticEpisodeVerifier:
                 structural.outcome.draft,
             )
             if marker_loss:
-                return SemanticEpisodeOutcome(
-                    verified=structural,
-                    status="partial",
-                    public_answer=self._gap_answer(frame, structural),
-                    judge_status="rejected",
-                    issues=tuple(
-                        dict.fromkeys(
-                            (
-                                *structural.issues,
-                                *preflight_issues,
-                                *_marker_loss_issues(marker_loss),
-                            )
-                        )
-                    ),
-                    correlated_judge=False,
-                )
+                marker_loss_outputs = marker_loss
             if (
                 structural.verified_status != "completed"
                 and not _can_semantically_release_partial(structural)
@@ -458,6 +446,23 @@ class SemanticEpisodeVerifier:
         first = _apply_numeric_condition_gate(first, sentences, structural)
         assert first.report is not None
         if first.report.passed:
+            if marker_loss_outputs:
+                return self._marker_loss_partial_public(
+                    frame,
+                    structural,
+                    marker_loss_outputs,
+                    judge_issues=tuple(
+                        dict.fromkeys(
+                            (
+                                *structural.issues,
+                                *preflight_issues,
+                                *first.report.issues,
+                                *_marker_loss_issues(marker_loss_outputs),
+                            )
+                        )
+                    ),
+                    correlated_judge=first.correlated,
+                )
             return self._completed_public(
                 frame,
                 structural,
@@ -505,6 +510,9 @@ class SemanticEpisodeVerifier:
             structural.outcome.draft,
             repaired_verified.outcome.draft,
         )
+        marker_loss = tuple(
+            dict.fromkeys((*marker_loss_outputs, *marker_loss))
+        )
         if marker_loss:
             issues = tuple(
                 dict.fromkeys(
@@ -516,12 +524,11 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return SemanticEpisodeOutcome(
-                verified=repaired_verified,
-                status="partial",
-                public_answer=self._gap_answer(frame, repaired_verified),
-                judge_status="rejected",
-                issues=issues,
+            return self._marker_loss_partial_public(
+                frame,
+                repaired_verified,
+                marker_loss,
+                judge_issues=issues,
                 correlated_judge=first.correlated,
             )
         if (
@@ -630,12 +637,11 @@ class SemanticEpisodeVerifier:
                             )
                         )
                     )
-                    return SemanticEpisodeOutcome(
-                        verified=twice_verified,
-                        status="partial",
-                        public_answer=self._gap_answer(frame, twice_verified),
-                        judge_status="rejected",
-                        issues=issues,
+                    return self._marker_loss_partial_public(
+                        frame,
+                        twice_verified,
+                        second_marker_loss,
+                        judge_issues=issues,
                         correlated_judge=correlated,
                     )
                 if (
@@ -726,6 +732,32 @@ class SemanticEpisodeVerifier:
                                 twice_verified.outcome.draft,
                                 terminal_verified.outcome.draft,
                             )
+                            if terminal_marker_loss and (
+                                terminal_verified.verified_status == "completed"
+                                or _can_semantically_release_partial(
+                                    terminal_verified
+                                )
+                            ):
+                                return self._marker_loss_partial_public(
+                                    frame,
+                                    terminal_verified,
+                                    terminal_marker_loss,
+                                    judge_issues=tuple(
+                                        dict.fromkeys(
+                                            (
+                                                *terminal_verified.issues,
+                                                *preflight_issues,
+                                                *first.report.issues,
+                                                *second.report.issues,
+                                                *third.report.issues,
+                                                *_marker_loss_issues(
+                                                    terminal_marker_loss
+                                                ),
+                                            )
+                                        )
+                                    ),
+                                    correlated_judge=correlated,
+                                )
                             if not terminal_marker_loss and (
                                 terminal_verified.verified_status == "completed"
                                 or _can_semantically_release_partial(
@@ -1169,6 +1201,59 @@ class SemanticEpisodeVerifier:
             judge_status=judge_status,
             issues=judge_issues,
             correlated_judge=correlated_judge,
+        )
+
+    def _marker_loss_partial_public(
+        self,
+        frame: TaskFrame,
+        verified: VerifiedEpisodeOutcome,
+        output_ids: tuple[str, ...],
+        *,
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+    ) -> SemanticEpisodeOutcome:
+        """Keep reviewed remainder and expose only the deleted slot as a gap."""
+
+        public = _sanitize_public_answer(
+            verified.outcome.draft,
+            verified.outcome.evidence,
+            verified.outcome.traces,
+        )
+        if not public:
+            return SemanticEpisodeOutcome(
+                verified=verified,
+                status="partial",
+                public_answer=self._gap_answer(frame, verified),
+                judge_status="repaired",
+                issues=judge_issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=output_ids,
+            )
+        descriptions = {
+            item.output_id: item.description.strip() or item.output_id
+            for item in (
+                verified.contract.required_outputs if verified.contract else ()
+            )
+        }
+        labels = tuple(
+            dict.fromkeys(
+                descriptions.get(output_id, output_id)
+                for output_id in output_ids
+            )
+        )
+        gap = (
+            "证据缺口："
+            + "、".join(labels)
+            + "中的未核验表述已删除，需补充直接证据后再判断。"
+        )
+        return SemanticEpisodeOutcome(
+            verified=verified,
+            status="partial",
+            public_answer=f"{public}\n{gap}",
+            judge_status="repaired",
+            issues=judge_issues,
+            correlated_judge=correlated_judge,
+            gap_output_ids=output_ids,
         )
 
     @staticmethod

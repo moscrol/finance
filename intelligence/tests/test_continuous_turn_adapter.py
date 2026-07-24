@@ -95,8 +95,10 @@ def _scripted_episode_result(
     latest_data_date: str | None = None,
     event_payload: dict[str, object] | None = None,
     judge_status: str | None = None,
+    required_outputs: tuple[str, ...] = ("direct_assessment",),
+    gap_output_ids: tuple[str, ...] = (),
 ):
-    frame = _frame()
+    frame = _frame(required_outputs=required_outputs)
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
         "market_data",
     )
@@ -142,6 +144,7 @@ def _scripted_episode_result(
                     judge_status
                     or ("passed" if semantic_status == "completed" else "rejected")
                 ),
+                gap_output_ids=gap_output_ids,
             )
 
     return ContinuousTurnAdapter(
@@ -151,6 +154,87 @@ def _scripted_episode_result(
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
     ).handle(frame=frame, control=control)
+
+
+def test_semantic_gap_output_does_not_project_its_citation_or_as_of() -> None:
+    assessment = AgentEvidence(
+        tool="market_data",
+        title="市场状态",
+        detail="指数处于反弹修复",
+        source="市场快照",
+        source_date="2026-07-23",
+        content_hash="assessment-evidence",
+    )
+    invalidation = AgentEvidence(
+        tool="market_data",
+        title="失效阈值",
+        detail="未经核验的失效阈值",
+        source="阈值快照",
+        source_date="2026-07-24",
+        content_hash="invalidation-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="partial",
+        judge_status="repaired",
+        public_answer=(
+            "预计本轮反弹还能持续1-3个交易日。"
+            "证据缺口：失效条件中的未核验阈值已删除。"
+        ),
+        evidence=(assessment, invalidation),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (assessment.content_hash,),
+            ),
+            OutputEvidenceBinding(
+                "invalidation_conditions",
+                (invalidation.content_hash,),
+            ),
+        ),
+        required_outputs=("direct_assessment", "invalidation_conditions"),
+        gap_output_ids=("invalidation_conditions",),
+    )
+
+    assert result.status == "partial"
+    assert result.citations == (
+        {
+            "title": "市场状态",
+            "source": "市场快照",
+            "date": "2026-07-23",
+        },
+    )
+    assert result.as_of == "2026-07-23"
+
+
+def test_gap_only_semantic_result_has_no_citation_or_as_of_fallback() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="已删除判断的行情",
+        detail="只绑定到已转为缺口的判断",
+        source="市场快照",
+        source_date="2026-07-24",
+        content_hash="gap-only-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="partial",
+        judge_status="repaired",
+        public_answer="证据缺口：直接判断中的未核验表述已删除。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        gap_output_ids=("direct_assessment",),
+        latest_data_date="2026-07-24",
+    )
+
+    assert result.status == "partial"
+    assert result.citations == ()
+    assert result.as_of is None
 
 
 def test_off_mode_always_declines_without_running_anything() -> None:
@@ -1655,7 +1739,7 @@ def test_structurally_invalid_bindings_never_project_public_evidence(
 
     assert result.status == "degraded"
     assert result.citations == ()
-    assert result.as_of == "2026-07-22"
+    assert result.as_of is None
     public = str((result.answer, result.as_of, result.citations, result.events))
     assert "无效绑定材料" not in public
     assert "invalid source" not in public

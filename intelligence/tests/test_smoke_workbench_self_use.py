@@ -278,6 +278,56 @@ def test_semantic_smoke_rejects_forecast_gap_without_duration() -> None:
     assert "forecast_duration_missing" in issues
 
 
+def test_semantic_smoke_accepts_partial_forecast_with_specific_invalidation_gap() -> (
+    None
+):
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "基准判断：本轮反弹预计还可持续1-3个交易日。"
+                    "证据缺口：失效条件中的未核验数值阈值已删除，"
+                    "需补充直接证据。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+@pytest.mark.parametrize(
+    "answer",
+    (
+        (
+            "预计本轮反弹还能持续1-3个交易日。"
+            "成交数据存在证据缺口。失效条件尚待观察。"
+        ),
+        (
+            "预计本轮反弹还能持续1-3个交易日。"
+            "量能仍需核验。这里的判断可能失效。"
+        ),
+        (
+            "预计本轮反弹还能持续1-3个交易日。"
+            "证据缺口：反弹依据不足。另需考虑失效。"
+        ),
+    ),
+)
+def test_semantic_smoke_rejects_unrelated_gap_plus_invalidation_word(
+    answer: str,
+) -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": answer}],
+    )
+
+    assert "forecast_invalidation_missing" in issues
+
+
 def test_semantic_smoke_accepts_duration_forecast_with_invalidation() -> None:
     issues = semantic_answer_issues(
         "昨天的反弹能持续多久",
