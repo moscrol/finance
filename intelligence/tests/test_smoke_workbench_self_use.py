@@ -233,6 +233,24 @@ def test_semantic_smoke_accepts_referential_window_cause_gap() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_time_aligned_news_no_result_wording() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "对于7月17日单日下跌的因果关系，多次财经新闻检索"
+                    "均未返回与该时间窗口对齐的资讯。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_rejects_undefined_referential_window_cause_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",
