@@ -182,6 +182,11 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         "_build_semantic_verifier",
         lambda *_args, **_kwargs: FakeSemanticVerifier(),
     )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
 
     code = benchmark.main(
         [
@@ -191,6 +196,10 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
             "sdk_glm",
             "--questions-file",
             str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
             "--output",
             str(output),
         ]
@@ -263,6 +272,11 @@ def test_deterministic_fast_path_is_identical_across_runtime_backends(
             "tool_calls": 1,
         },
     )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
 
     assert benchmark.main(
         [
@@ -274,6 +288,10 @@ def test_deterministic_fast_path_is_identical_across_runtime_backends(
             "codex_headless",
             "--questions-file",
             str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
             "--output",
             str(output),
         ]
@@ -285,3 +303,40 @@ def test_deterministic_fast_path_is_identical_across_runtime_backends(
         arms[0]["artifact_sha256"]
     }
     assert {arm["llm_calls"] for arm in arms} == {0}
+
+
+def test_live_runner_rejects_stale_finance_root_before_runtime(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    output = tmp_path / "stale.json"
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-06-04",
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_run_runtime_arm",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("stale data must fail before runtime execution")
+        ),
+    )
+
+    code = benchmark.main(
+        [
+            "--backend",
+            "continuous_glm",
+            "--questions-file",
+            str(FIXTURE),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 2
+    assert not output.exists()

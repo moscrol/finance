@@ -34,6 +34,7 @@ from intelligence.services.episode_semantic_verifier import (
 from intelligence.services.episode_tools import (
     build_episode_registry,
     is_deterministic_fast_path,
+    latest_market_date,
     run_deterministic_fast_path,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -209,7 +210,12 @@ def _planned_case(
     }
 
 
-def _fresh_context(case: RuntimeBenchmarkCase, control: object):
+def _fresh_context(
+    case: RuntimeBenchmarkCase,
+    control: object,
+    *,
+    latest_data_date: str,
+):
     if not control.contract_required:
         return None
     return build_episode_context(
@@ -223,7 +229,7 @@ def _fresh_context(case: RuntimeBenchmarkCase, control: object):
             question_type=control.task_frame.question_type,
         ),
         today=case.as_of,
-        latest_data_date=case.as_of,
+        latest_data_date=latest_data_date,
     )
 
 
@@ -342,8 +348,19 @@ def _build_semantic_verifier(
     return _SemanticVerifierRun()
 
 
-def _build_registry(frame: object, context: object):
-    return build_episode_registry(frame, context)
+def _build_registry(
+    frame: object,
+    context: object,
+    *,
+    finance_root: Path,
+    knowledge_wiki: Path,
+):
+    return build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=knowledge_wiki,
+    )
 
 
 def _task_alignment_score(frame: object, answer: str) -> float:
@@ -468,16 +485,29 @@ def _run_research_arm(
     case: RuntimeBenchmarkCase,
     control: object,
     backend: str,
+    *,
+    finance_root: Path,
+    knowledge_wiki: Path,
+    latest_data_date: str,
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
     outcome = None
     try:
-        context = _fresh_context(case, control)
+        context = _fresh_context(
+            case,
+            control,
+            latest_data_date=latest_data_date,
+        )
         if context is None:
             raise RuntimeError("research_contract_missing")
         runtime, model = _build_runtime(backend, case, context)
-        registry = _build_registry(control.task_frame, context)
+        registry = _build_registry(
+            control.task_frame,
+            context,
+            finance_root=finance_root,
+            knowledge_wiki=knowledge_wiki,
+        )
         with llm_refine.call_ledger_scope() as ledger:
             outcome = runtime.run(
                 task_frame=control.task_frame,
@@ -639,12 +669,24 @@ def _run_runtime_arm(
     case: RuntimeBenchmarkCase,
     control: object,
     backends: tuple[str, ...],
+    *,
+    finance_root: Path,
+    knowledge_wiki: Path,
+    latest_data_date: str,
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
     ):
         arms = tuple(
-            _run_research_arm(case, control, backend) for backend in backends
+            _run_research_arm(
+                case,
+                control,
+                backend,
+                finance_root=finance_root,
+                knowledge_wiki=knowledge_wiki,
+                latest_data_date=latest_data_date,
+            )
+            for backend in backends
         )
     else:
         arms = _run_non_research_arms(case, control, backends)
@@ -661,6 +703,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--backend", action="append", required=True)
     parser.add_argument("--questions-file", type=Path, required=True)
+    parser.add_argument("--finance-root", type=Path)
+    parser.add_argument("--knowledge-wiki", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -674,6 +718,35 @@ def main(argv: list[str] | None = None) -> int:
         )
         if len(set(backends)) != len(backends):
             raise ValueError("backend names must be unique")
+        finance_root = (
+            args.finance_root.expanduser().resolve()
+            if args.finance_root is not None
+            else None
+        )
+        knowledge_wiki = (
+            args.knowledge_wiki.expanduser().resolve()
+            if args.knowledge_wiki is not None
+            else None
+        )
+        market_data_date = None
+        if not args.dry_run:
+            if finance_root is None or knowledge_wiki is None:
+                raise ValueError(
+                    "live benchmark requires --finance-root and --knowledge-wiki"
+                )
+            if not finance_root.is_dir() or not knowledge_wiki.is_dir():
+                raise ValueError("benchmark data roots must be existing directories")
+            market_data_date = latest_market_date(finance_root)
+            if market_data_date is None:
+                raise ValueError("finance root has no readable market data date")
+            latest_required_date = max(
+                date.fromisoformat(case.as_of) for case in cases
+            ).isoformat()
+            if market_data_date < latest_required_date:
+                raise ValueError(
+                    "finance root market data is stale: "
+                    f"{market_data_date} < {latest_required_date}"
+                )
         frozen = [
             (case, *_freeze_case(case, dry_run=args.dry_run)) for case in cases
         ]
@@ -684,7 +757,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         try:
             executed = [
-                _run_runtime_arm(case, control, backends)
+                _run_runtime_arm(
+                    case,
+                    control,
+                    backends,
+                    finance_root=finance_root,
+                    knowledge_wiki=knowledge_wiki,
+                    latest_data_date=market_data_date,
+                )
                 for case, control, _context in frozen
             ]
             records = [record for record, _arms in executed]
@@ -715,6 +795,11 @@ def main(argv: list[str] | None = None) -> int:
         "runtime_switched": False,
         "canonical_runtime_port": 8792,
         "canonical_runtime_touched": False,
+        "finance_root": str(finance_root) if finance_root is not None else None,
+        "knowledge_wiki": (
+            str(knowledge_wiki) if knowledge_wiki is not None else None
+        ),
+        "market_data_date": market_data_date,
         "cases": records,
     }
     if summary is not None:
