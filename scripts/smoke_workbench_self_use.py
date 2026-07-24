@@ -159,18 +159,27 @@ GAP_SIGNAL = re.compile(
     r"无法[^。；;\n]{0,32}(?:归因|构建[^。；;\n]{0,12}因果)"
 )
 VALUATION_DATA_GAP = re.compile(
+    r"(?:"
     r"(?:缺少|缺乏|尚无|未取得|未获得|无法取得|无法获得)"
     r"[^。；;\n]{0,80}"
-    r"(?:数据|证据|信息|财报|报表|分位|预测|阈值|时效|趋势)"
+    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
+    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
+    r"|"
+    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
+    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效)"
+    r"[^。；;\n]{0,80}"
+    r"(?:缺失|未获取|未取得|未获得|缺少|缺乏)"
+    r")"
 )
 CAUSE_TIME = re.compile(
     r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
     r"20\d{2}[-年/.]\d{1,2}(?:[-月/.]\d{1,2})?|\d{1,2}月\d{1,2}日"
 )
+CAUSE_DEICTIC_TIME = re.compile(r"该(?:时间)?窗口")
 CAUSE_SOURCE = re.compile(r"新闻|政策|事件|消息|资讯|外部信息")
 CAUSE_OBJECT = re.compile(r"原因|归因|因果|诱因|催化|外部驱动")
 CAUSE_UNCERTAINTY = re.compile(
-    r"无法|不能|不足以|未能|缺口|缺少|尚缺|未检索到|不含|没有"
+    r"无法|不能|不足以|未能|缺口|缺少|缺失|尚缺|未检索到|不含|没有"
 )
 FORECAST_DURATION = re.compile(
     r"(?:\d+(?:\.\d+)?(?:\s*(?:[-~～至到—]|到)\s*\d+(?:\.\d+)?)?|"
@@ -233,7 +242,16 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
             "降级",
         )
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
-        return ("反弹", "持续", "时长", "交易日", "失效", "量能", "成交")
+        return (
+            "反弹",
+            "持续",
+            "时长",
+            "交易日",
+            "失效",
+            "继续成立",
+            "量能",
+            "成交",
+        )
     if _is_cause_question(question):
         return ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
     return ("问题所需", "直接回答")
@@ -254,8 +272,12 @@ def _has_task_specific_gap(question: str, answer: str) -> bool:
 
 
 def _has_specific_cause_gap(answer: str) -> bool:
+    explicit_time_context = bool(CAUSE_TIME.search(answer))
     return any(
-        CAUSE_TIME.search(clause)
+        (
+            CAUSE_TIME.search(clause)
+            or (explicit_time_context and CAUSE_DEICTIC_TIME.search(clause))
+        )
         and CAUSE_SOURCE.search(clause)
         and CAUSE_OBJECT.search(clause)
         and CAUSE_UNCERTAINTY.search(clause)
@@ -289,6 +311,8 @@ def _has_specific_invalidation_gap(answer: str) -> bool:
         has_invalidation_slot = "失效条件" in clause or (
             "失效" in clause
             and any(marker in clause for marker in ("条件", "阈值", "触发"))
+        ) or (
+            "继续成立" in clause and "条件" in clause
         )
         if has_gap and has_invalidation_slot:
             return True

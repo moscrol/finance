@@ -135,10 +135,28 @@ _TURNOVER_OBSERVATION_RE = re.compile(
     r"(?P<value>\d+(?:\.\d+)?)\s*亿"
 )
 _DOWNWARD_PATH_RE = re.compile(
-    r"一路(?:下跌|下滑|滑落|下降|回落|萎缩|走低)"
+    r"(?:一路(?:下跌|下滑|滑落|下降|回落|萎缩|走低)|"
+    r"(?:持续|连续)(?:下跌|下滑|下降|回落|萎缩|缩量|走低))"
 )
 _UPWARD_PATH_RE = re.compile(
-    r"一路(?:上升|上涨|攀升|走高|增长|放大)"
+    r"(?:一路(?:上升|上涨|攀升|走高|增长|放大)|"
+    r"(?:持续|连续)(?:上升|上涨|攀升|走高|增长|放大|放量))"
+)
+_TURNOVER_AMOUNT_SUBJECT_RE = re.compile(
+    r"(?:成交额|成交金额|成交(?!量)|量能)"
+)
+_PATH_SCOPE_BLOCKER_RE = re.compile(
+    r"(?:并未|尚未|未(?!来)|没有|并非|不是|不具备|不能说|"
+    r"尚难确认|无法确认|是否|若|如果|一旦|当)"
+    r"[^，,；;。！？!?\n]{0,16}$"
+)
+_LOCAL_PATH_WINDOW_RE = re.compile(
+    r"(?:近|最近|过去|此前|前|连续)?\s*"
+    r"(?:\d+|[一二两三四五六七八九十百]+)\s*(?:个)?"
+    r"(?:交易日|日|天)"
+)
+_OTHER_PATH_METRIC_RE = re.compile(
+    r"(?:上涨家数|下跌家数|涨停|跌停|指数|股价|板块)"
 )
 _WEEKDAY_INDEX = {
     "一": 0,
@@ -1643,10 +1661,10 @@ def _mismatched_path_trend_indexes(
     """Reject all-window path language contradicted by bound turnover points.
 
     Endpoint movement can be correct while the path between those endpoints is
-    not monotonic.  The narrow ``一路`` gate only fires when at least three
-    dated turnover observations are bound, so ordinary two-point comparisons
-    and explicitly local statements such as ``连续两个交易日回落`` remain the
-    semantic judge's responsibility.
+    not monotonic.  The narrow all-path gate covers ``一路`` plus unbounded
+    ``持续/连续`` language only when at least three dated turnover observations
+    are bound. Explicitly local statements such as ``连续两个交易日回落`` do not
+    match these patterns and remain the semantic judge's responsibility.
     """
 
     series = _bound_turnover_series(verified.outcome)
@@ -1663,13 +1681,53 @@ def _mismatched_path_trend_indexes(
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
-        if not isinstance(index, int) or "成交额" not in text:
+        if not isinstance(index, int):
             continue
-        if _DOWNWARD_PATH_RE.search(text) and not is_non_increasing:
+        downward, upward = _turnover_path_directions(text)
+        if downward and not is_non_increasing:
             rejected.add(index)
-        if _UPWARD_PATH_RE.search(text) and not is_non_decreasing:
+        if upward and not is_non_decreasing:
             rejected.add(index)
     return tuple(sorted(rejected))
+
+
+def _turnover_path_directions(text: str) -> tuple[bool, bool]:
+    """Bind amount-like turnover subjects to asserted path words locally."""
+
+    downward = False
+    upward = False
+    for clause in re.split(r"[，,；;。！？!?\n]+", text):
+        if not clause:
+            continue
+        for pattern, direction in (
+            (_DOWNWARD_PATH_RE, "down"),
+            (_UPWARD_PATH_RE, "up"),
+        ):
+            for path_match in pattern.finditer(clause):
+                subjects = tuple(
+                    _TURNOVER_AMOUNT_SUBJECT_RE.finditer(
+                        clause[: path_match.start()]
+                    )
+                )
+                if not subjects:
+                    continue
+                subject = subjects[-1]
+                bridge = clause[subject.end() : path_match.start()]
+                if len(bridge) > 48 or _OTHER_PATH_METRIC_RE.search(bridge):
+                    continue
+                scope = clause[: path_match.start()]
+                if _PATH_SCOPE_BLOCKER_RE.search(scope):
+                    continue
+                if _LOCAL_PATH_WINDOW_RE.search(scope):
+                    continue
+                suffix = clause[path_match.end() : path_match.end() + 16]
+                if _LOCAL_PATH_WINDOW_RE.match(suffix):
+                    continue
+                if direction == "down":
+                    downward = True
+                else:
+                    upward = True
+    return downward, upward
 
 
 def _bound_turnover_series(outcome: AgentOutcome) -> tuple[tuple[date, float], ...]:

@@ -700,6 +700,97 @@ def test_local_gate_removes_false_monotonic_turnover_path_claim() -> None:
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
+def test_local_gate_removes_false_persistent_turnover_path_claim() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "直接判断：反弹仍处于短周期窗口。"
+        "核心理由：成交持续萎缩，周内从约26547.43亿元降至"
+        "约21949.97亿元，动能正在衰减。",
+        detail=(
+            "2026-07-17：成交26547.43亿；"
+            "2026-07-20：成交27019.21亿；"
+            "2026-07-21：成交29569.03亿；"
+            "2026-07-22：成交26531.66亿；"
+            "2026-07-23：成交21949.97亿。"
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "直接判断：反弹仍处于短周期窗口" in result.public_answer
+    assert "成交持续萎缩" not in result.public_answer
+    assert any("path trend mismatch" in issue for issue in result.issues)
+
+
+@pytest.mark.parametrize(
+    "safe_claim",
+    (
+        "成交额先增后降，但上涨家数持续下降。",
+        "成交量持续萎缩，但成交额先增后降。",
+        "成交并未持续萎缩，而是先升后降。",
+        "当前尚不具备成交持续放量的条件。",
+        "若成交持续萎缩，则反弹判断失效。",
+        "成交连续回落两个交易日，但全周并非单调下降。",
+        "成交持续回落两日，但全周并非单调下降。",
+    ),
+)
+def test_local_path_gate_preserves_non_assertive_or_other_metric_claims(
+    safe_claim: str,
+) -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "直接判断：反弹仍处于短周期窗口。" + safe_claim,
+        detail=(
+            "2026-07-17：成交26547.43亿；"
+            "2026-07-20：成交27019.21亿；"
+            "2026-07-21：成交29569.03亿；"
+            "2026-07-22：成交26531.66亿；"
+            "2026-07-23：成交21949.97亿。"
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert safe_claim.rstrip("。") in result.public_answer
+    assert all("path trend mismatch" not in issue for issue in result.issues)
+
+
+def test_local_path_gate_removes_false_amount_proxy_path_claim() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "直接判断：反弹仍处于短周期窗口。量能持续萎缩，动能正在衰减。",
+        detail=(
+            "2026-07-17：成交26547.43亿；"
+            "2026-07-20：成交27019.21亿；"
+            "2026-07-21：成交29569.03亿；"
+            "2026-07-22：成交26531.66亿；"
+            "2026-07-23：成交21949.97亿。"
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "量能持续萎缩" not in result.public_answer
+    assert any("path trend mismatch" in issue for issue in result.issues)
+
+
 def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold() -> (
     None
 ):

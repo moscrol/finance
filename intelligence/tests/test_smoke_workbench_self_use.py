@@ -178,6 +178,24 @@ def test_semantic_smoke_accepts_task_bound_valuation_data_gaps() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_valuation_data_gaps_with_suffix_wording() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "当前PB约4.33。公司最新财报数据未获取，"
+                    "历史PE/PB分位数据缺失，估值不确定性较高。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",
@@ -195,6 +213,54 @@ def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> N
     )
 
     assert issues == []
+
+
+def test_semantic_smoke_accepts_referential_window_cause_gap() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "数据覆盖2026-07-17至2026-07-23。"
+                    "新闻检索在该窗口内返回空结果，原因层面的证据完全缺失。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_rejects_undefined_referential_window_cause_gap() -> None:
+    issues = semantic_answer_issues(
+        "这一周行情下跌的主要原因是什么",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": "新闻在该窗口没有，原因证据完全缺失。",
+            }
+        ],
+    )
+
+    assert "answer_status='partial'" in issues
+
+
+def test_semantic_smoke_rejects_unrelated_valuation_data_gap() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": "估值结论不变，但天气数据缺失。",
+            }
+        ],
+    )
+
+    assert "answer_status='partial'" in issues
 
 
 def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> None:
@@ -346,6 +412,26 @@ def test_semantic_smoke_accepts_partial_forecast_with_specific_invalidation_gap(
                     "基准判断：本轮反弹预计还可持续1-3个交易日。"
                     "证据缺口：失效条件中的未核验数值阈值已删除，"
                     "需补充直接证据。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_accepts_continuation_condition_gap_wording() -> None:
+    issues = semantic_answer_issues(
+        "昨天的反弹能持续多久",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "基准判断：本轮反弹短期内（约1-3个交易日）"
+                    "大概率仍可惯性维持。"
+                    "证据缺口：判断继续成立的可核验条件中的未核验表述"
+                    "已删除，需补充直接证据。"
                 ),
             }
         ],
