@@ -43,6 +43,10 @@ _FINAL_JSON_RE = re.compile(
     r"```(?:json)?\s*(\{.*\})\s*```[ \t]*\"?",
     re.S | re.I,
 )
+_FINAL_JSON_BLOCK_RE = re.compile(
+    r"```(?:json)?\s*(.*?)\s*```",
+    re.S | re.I,
+)
 
 
 class _EpisodeLedger:
@@ -1072,17 +1076,32 @@ class ContinuousAgentEpisode:
 
 
 def _parse_json_object(content: str) -> dict[str, object] | None:
-    text = str(content or "").strip()
-    fenced = _FINAL_JSON_RE.fullmatch(text)
+    raw = str(content or "").strip()
+    fenced = _FINAL_JSON_RE.fullmatch(raw)
     if fenced is not None:
-        text = fenced.group(1)
-    if not text.startswith("{") or not text.endswith("}"):
+        value = _decode_finish_json(fenced.group(1))
+        if value is not None:
+            return value
+    for block in reversed(tuple(_FINAL_JSON_BLOCK_RE.finditer(raw))):
+        value = _decode_finish_json(block.group(1))
+        if value is not None and _looks_like_finish_envelope(value):
+            return value
+    return _decode_finish_json(raw)
+
+
+def _decode_finish_json(text: str) -> dict[str, object] | None:
+    candidate = str(text or "").strip().removesuffix('"').rstrip()
+    if not candidate.startswith("{") or not candidate.endswith("}"):
         return None
     try:
-        value = json.loads(text)
+        value = json.loads(candidate)
     except json.JSONDecodeError:
-        value = _recover_finish_with_raw_draft(text)
+        value = _recover_finish_with_raw_draft(candidate)
     return value if isinstance(value, dict) else None
+
+
+def _looks_like_finish_envelope(value: dict[str, object]) -> bool:
+    return {"status", "draft", "gaps", "bindings"}.issubset(value)
 
 
 def _normalize_natural_language_layout(value: str) -> str:

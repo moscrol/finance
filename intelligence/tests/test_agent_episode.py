@@ -511,6 +511,36 @@ def test_finish_parser_accepts_one_stray_quote_after_strict_json_fence() -> None
     assert outcome.stop_reason == "model_finish"
 
 
+def test_finish_parser_uses_last_complete_fenced_object_after_preamble() -> None:
+    frame = _frame()
+    first = json.loads(_finish_turn().content)
+    first["draft"] = "较早的重复草稿。"
+    final = dict(first)
+    final["draft"] = "最终有效草稿。"
+    noisy = ModelTurn(
+        "我已经完成研究，下面给出结果。\n"
+        f"```json\n{json.dumps(first, ensure_ascii=False)}\n```\n"
+        "让我再规范一次。\n"
+        f"```json\n{json.dumps(final, ensure_ascii=False)}\n```",
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel([_tool_turn("A股 最新行情"), noisy])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.draft == "最终有效草稿。"
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.usage.invalid_actions == 0
+    assert len(model.calls) == 2
+
+
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
     calls: list[str] = []
 
