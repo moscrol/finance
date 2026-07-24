@@ -1,0 +1,558 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+
+import pytest
+
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.codex_headless_runtime import (
+    CodexHeadlessRuntime,
+    HeadlessCommand,
+    HeadlessProcessResult,
+)
+from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import (
+    RequiredOutput,
+    ResearchDeadline,
+    ResearchPolicy,
+    ResearchRunContext,
+    ResearchTaskContract,
+)
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolSpec,
+)
+from intelligence.services.task_frame import TaskFrame
+
+
+def _frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="目前市场的主线是什么",
+        user_goal="判断当前A股市场主线及依据",
+        question_type="market_watch",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment",),
+        assumptions=("按A股市场理解",),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_a_share_market",
+        confidence=0.95,
+    )
+
+
+def _context(frame: TaskFrame) -> ResearchRunContext:
+    contract = ResearchTaskContract(
+        task_id="codex-headless-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                ("mainline_context",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("mainline_context",),
+        research_tier="quick",
+        freshness="current",
+        timeframe=frame.timeframe,
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    return ResearchRunContext(
+        contract=contract,
+        deadline=ResearchDeadline.from_timeout(30.0),
+        policy=ResearchPolicy("quick", 2, 30.0, 0.0),
+        trace_parent_id="codex-headless-test",
+        today="2026-07-25",
+        latest_data_date="2026-07-24",
+    )
+
+
+def _registry(calls: list[str]) -> ResearchToolRegistry:
+    def runner(query: str, _context: AgentToolContext):
+        calls.append(query)
+        evidence = AgentEvidence(
+            tool="mainline_context",
+            title="同日主线结构",
+            detail="截至2026-07-24，医药是韧性核心，电力是轮动支线。",
+            source="本地正式日报",
+            source_date="2026-07-24",
+            evidence_tier="L4",
+            content_hash="mainline-hash",
+        )
+        return (
+            [evidence],
+            "医药是韧性核心，电力是轮动支线。",
+            ProviderTrace(
+                provider="test:mainline",
+                capability="mainline_context",
+                status="success",
+                source_trade_date="2026-07-24",
+                result_count=1,
+            ),
+        )
+
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="mainline_context",
+                capability="mainline_context",
+                description="同日主线与板块结构",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                query_scope="episode",
+            ),
+        )
+    )
+
+
+def _jsonl(
+    *,
+    wrapper_command: str | None,
+    finish: dict[str, object],
+    extra_items: tuple[dict[str, object], ...] = (),
+) -> str:
+    command_events: list[dict[str, object]] = []
+    if wrapper_command is not None:
+        command_events.append(
+            {
+            "type": "item.completed",
+            "item": {
+                "id": "command-1",
+                "type": "command_execution",
+                "command": wrapper_command,
+                "status": "completed",
+                "exit_code": 0,
+            },
+            }
+        )
+    events = [
+        {"type": "thread.started", "thread_id": "thread-headless-test"},
+        *command_events,
+        *extra_items,
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "answer-1",
+                "type": "agent_message",
+                "text": json.dumps(finish, ensure_ascii=False),
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 1200,
+                "cached_input_tokens": 500,
+                "output_tokens": 240,
+                "reasoning_output_tokens": 80,
+            },
+        },
+    ]
+    return "\n".join(json.dumps(item, ensure_ascii=False) for item in events)
+
+
+class ValidFakeCodex:
+    def __init__(self, *, unauthorized: bool = False) -> None:
+        self.commands: list[HeadlessCommand] = []
+        self._unauthorized = unauthorized
+
+    def __call__(self, command: HeadlessCommand) -> HeadlessProcessResult:
+        self.commands.append(command)
+        wrapper = command.cwd / "finance-tool"
+        tool_command = [str(wrapper), "mainline_context", "A股 当前主线"]
+        completed = subprocess.run(
+            tool_command,
+            cwd=command.cwd,
+            env=command.env,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        tool_result = json.loads(completed.stdout)
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心，电力是轮动支线。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": tool_result["evidence_hashes"],
+                    "gap": "",
+                }
+            ],
+        }
+        extra_items: tuple[dict[str, object], ...] = ()
+        if self._unauthorized:
+            extra_items = (
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "command-2",
+                        "type": "command_execution",
+                        "command": "ls -la",
+                        "status": "completed",
+                        "exit_code": 0,
+                    },
+                },
+            )
+        return HeadlessProcessResult(
+            stdout=_jsonl(
+                wrapper_command=shlex.join(tool_command),
+                finish=finish,
+                extra_items=extra_items,
+            ),
+            stderr="",
+            returncode=0,
+            timed_out=False,
+        )
+
+
+def test_headless_runtime_returns_shared_agent_outcome() -> None:
+    frame = _frame()
+    calls: list[str] = []
+    fake = ValidFakeCodex()
+
+    outcome = CodexHeadlessRuntime(
+        command_runner=fake,
+        model="gpt-5.6",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+
+    assert outcome.task_frame_hash == frame.task_frame_hash
+    assert outcome.status == "completed"
+    assert outcome.draft.startswith("截至2026-07-24")
+    assert outcome.bindings[0].evidence_hashes == ("mainline-hash",)
+    assert outcome.evidence[0].content_hash == "mainline-hash"
+    assert outcome.usage.tool_calls == 1
+    assert calls == ["A股 当前主线"]
+    assert tuple(event.sequence for event in outcome.events) == tuple(
+        range(1, len(outcome.events) + 1)
+    )
+
+
+def test_headless_runtime_builds_isolated_read_only_command(monkeypatch) -> None:
+    frame = _frame()
+    calls: list[str] = []
+    fake = ValidFakeCodex()
+    monkeypatch.setenv(
+        "FORESIGHT_BUILTIN_LLM_API_KEY",
+        "PRIVATE_ENV_SECRET_SENTINEL",
+    )
+
+    CodexHeadlessRuntime(command_runner=fake).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+
+    command = fake.commands[0]
+    assert "--json" in command.args
+    assert "--ephemeral" in command.args
+    assert "--ignore-user-config" in command.args
+    assert command.args[command.args.index("--sandbox") + 1] == "read-only"
+    assert "--output-schema" in command.args
+    assert "-m" not in command.args
+    assert "PRIVATE_ENV_SECRET_SENTINEL" not in str(command.env)
+    assert command.env["FINANCE_TOOL_GATEWAY_TOKEN"] not in str(command.args)
+
+
+def test_headless_runtime_forwards_only_an_explicit_model() -> None:
+    frame = _frame()
+    fake = ValidFakeCodex()
+
+    CodexHeadlessRuntime(
+        command_runner=fake,
+        model="supported-codex-model",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    command = fake.commands[0]
+    assert command.args[command.args.index("-m") + 1] == "supported-codex-model"
+
+
+def test_headless_runtime_rejects_non_gateway_command() -> None:
+    frame = _frame()
+    calls: list[str] = []
+
+    outcome = CodexHeadlessRuntime(
+        command_runner=ValidFakeCodex(unauthorized=True),
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+
+    assert outcome.status != "completed"
+    assert "unauthorized_headless_action" in outcome.gaps
+    assert outcome.bindings == ()
+
+
+def test_headless_runtime_preserves_evidence_when_process_times_out() -> None:
+    frame = _frame()
+    calls: list[str] = []
+
+    def timed_out(command: HeadlessCommand) -> HeadlessProcessResult:
+        wrapper = command.cwd / "finance-tool"
+        subprocess.run(
+            [str(wrapper), "mainline_context", "A股 当前主线"],
+            cwd=command.cwd,
+            env=command.env,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        return HeadlessProcessResult("", "timeout", -1, True)
+
+    outcome = CodexHeadlessRuntime(command_runner=timed_out).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "headless_timeout"
+    assert outcome.evidence[0].content_hash == "mainline-hash"
+    assert "PRIVATE" not in str(outcome.to_dict())
+
+
+def test_headless_runtime_classifies_account_usage_limit() -> None:
+    frame = _frame()
+
+    def usage_limited(_command: HeadlessCommand) -> HeadlessProcessResult:
+        return HeadlessProcessResult(
+            stdout="\n".join(
+                (
+                    json.dumps(
+                        {"type": "thread.started", "thread_id": "usage-thread"}
+                    ),
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "message": "You've hit your usage limit. Try again later.",
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "type": "turn.failed",
+                            "error": {"message": "usage limit"},
+                        }
+                    ),
+                )
+            ),
+            stderr="",
+            returncode=1,
+            timed_out=False,
+        )
+
+    outcome = CodexHeadlessRuntime(command_runner=usage_limited).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "headless_usage_limit"
+    assert "headless_usage_limit" in outcome.gaps
+
+
+def test_headless_runtime_allows_one_finish_only_recovery() -> None:
+    frame = _frame()
+    calls: list[str] = []
+    process_calls = 0
+
+    def repairing_runner(command: HeadlessCommand) -> HeadlessProcessResult:
+        nonlocal process_calls
+        process_calls += 1
+        if process_calls == 1:
+            wrapper = command.cwd / "finance-tool"
+            tool_command = [str(wrapper), "mainline_context", "A股 当前主线"]
+            subprocess.run(
+                tool_command,
+                cwd=command.cwd,
+                env=command.env,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            )
+            invalid_events = (
+                {
+                    "type": "thread.started",
+                    "thread_id": "initial-invalid-thread",
+                },
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "command-1",
+                        "type": "command_execution",
+                        "command": shlex.join(tool_command),
+                        "status": "completed",
+                        "exit_code": 0,
+                    },
+                },
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "answer-invalid",
+                        "type": "agent_message",
+                        "text": "not-json",
+                    },
+                },
+                {"type": "turn.completed", "usage": {"input_tokens": 100}},
+            )
+            return HeadlessProcessResult(
+                "\n".join(json.dumps(item) for item in invalid_events),
+                "",
+                0,
+                False,
+            )
+
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心，电力是轮动支线。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["mainline-hash"],
+                    "gap": "",
+                }
+            ],
+        }
+        return HeadlessProcessResult(
+            _jsonl(wrapper_command=None, finish=finish),
+            "",
+            0,
+            False,
+        )
+
+    outcome = CodexHeadlessRuntime(command_runner=repairing_runner).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "headless_finalization_recovered"
+    assert outcome.usage.llm_calls == 2
+    assert outcome.usage.tool_calls == 1
+    assert process_calls == 2
+    runtime_event = next(
+        event for event in outcome.events if event.kind == "runtime_result"
+    )
+    assert runtime_event.payload["input_tokens"] == 1300
+    assert runtime_event.payload["output_tokens"] == 240
+
+
+def test_headless_recovery_rejects_commands_without_a_third_attempt() -> None:
+    frame = _frame()
+    process_calls = 0
+
+    def command_in_recovery(command: HeadlessCommand) -> HeadlessProcessResult:
+        nonlocal process_calls
+        process_calls += 1
+        wrapper = command.cwd / "finance-tool"
+        if process_calls == 1:
+            tool_command = [str(wrapper), "mainline_context", "A股 当前主线"]
+            subprocess.run(
+                tool_command,
+                cwd=command.cwd,
+                env=command.env,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            )
+            return HeadlessProcessResult(
+                _jsonl(wrapper_command=shlex.join(tool_command), finish={}),
+                "",
+                0,
+                False,
+            )
+
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["mainline-hash"],
+                    "gap": "",
+                }
+            ],
+        }
+        forbidden_command = shlex.join(
+            [str(wrapper), "mainline_context", "A股 再检索一次"]
+        )
+        return HeadlessProcessResult(
+            _jsonl(wrapper_command=forbidden_command, finish=finish),
+            "",
+            0,
+            False,
+        )
+
+    outcome = CodexHeadlessRuntime(command_runner=command_in_recovery).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    assert process_calls == 2
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "headless_protocol_rejected"
+    assert "tool_call_during_finalization_recovery" in outcome.gaps
+    assert outcome.usage.llm_calls == 2
+    assert outcome.usage.tool_calls == 1
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_CODEX_HEADLESS_LIVE") != "1",
+    reason="real Codex headless smoke is opt-in",
+)
+def test_real_codex_headless_smoke() -> None:
+    frame = _frame()
+    calls: list[str] = []
+
+    outcome = CodexHeadlessRuntime(
+        model=os.environ.get("CODEX_HEADLESS_MODEL"),
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(calls),
+    )
+    payload = {
+        "runtime_backend": "codex_headless",
+        "outcome": outcome.to_dict(),
+    }
+    Path("/tmp/codex-headless-smoke.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    assert outcome.status in {"completed", "partial"}
+    assert outcome.evidence
+    assert outcome.stop_reason in {"model_finish", "headless_invalid_finish"}
+    assert calls
+    assert "FINANCE_TOOL_GATEWAY_TOKEN" not in json.dumps(payload)

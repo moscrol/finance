@@ -297,12 +297,17 @@ codex exec
   --ignore-user-config
   --skip-git-repo-check
   --output-schema <shared-finish-schema>
-  -m <configured-codex-model>
+  [-m <readiness-proven-codex-model>]
 ```
 
-The default model is the current documented Codex flagship alias
-`gpt-5.6`, configurable for reproducible benchmarks. The exact CLI version,
-model, and reasoning effort are recorded in the private artifact.
+The default model is the Codex account's supported CLI default. An explicit
+`CODEX_HEADLESS_MODEL` may be used for reproducible benchmarks only after a
+readiness probe proves that the installed CLI and current ChatGPT account both
+support it. The exact CLI version, requested model or account-default label,
+and reasoning effort are recorded in the private artifact. This distinction is
+required because the current local CLI rejects the API model slug `gpt-5.6`
+under ChatGPT account authentication even though the API documentation lists
+GPT-5.6 as the current API flagship.
 
 The adapter consumes JSONL events, not human-formatted terminal output. It
 captures the thread ID, model usage, tool/command lifecycle, terminal state,

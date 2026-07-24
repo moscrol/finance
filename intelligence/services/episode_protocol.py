@@ -268,6 +268,50 @@ def validate_episode_finish(
     )
 
 
+def expand_episode_snapshot_bindings(
+    *,
+    bindings: tuple[OutputEvidenceBinding, ...],
+    evidence: tuple[AgentEvidence, ...],
+    registry: ResearchToolRegistry,
+) -> tuple[OutputEvidenceBinding, ...]:
+    """Expand a selected turn-scoped snapshot into one atomic private binding."""
+
+    tool_by_hash = {
+        item.content_hash: item.tool for item in evidence if item.content_hash
+    }
+    snapshot_hashes: dict[str, list[str]] = {}
+    for item in evidence:
+        if not item.content_hash:
+            continue
+        try:
+            spec = registry.resolve(item.tool)
+        except ValueError:
+            continue
+        if spec.query_scope == "episode":
+            snapshot_hashes.setdefault(item.tool, []).append(item.content_hash)
+
+    expanded: list[OutputEvidenceBinding] = []
+    for binding in bindings:
+        selected_snapshot_tools = {
+            tool_by_hash[evidence_hash]
+            for evidence_hash in binding.evidence_hashes
+            if evidence_hash in tool_by_hash
+            and tool_by_hash[evidence_hash] in snapshot_hashes
+        }
+        hashes = list(binding.evidence_hashes)
+        for tool, tool_hashes in snapshot_hashes.items():
+            if tool in selected_snapshot_tools:
+                hashes.extend(tool_hashes)
+        expanded.append(
+            OutputEvidenceBinding(
+                output_id=binding.output_id,
+                evidence_hashes=tuple(dict.fromkeys(hashes)),
+                gap=binding.gap,
+            )
+        )
+    return tuple(expanded)
+
+
 def _finish_object(value: object) -> dict[str, object] | None:
     if isinstance(value, str):
         return _parse_json_object(value)
@@ -347,6 +391,7 @@ __all__ = [
     "EpisodeFinish",
     "build_episode_input",
     "build_episode_instructions",
+    "expand_episode_snapshot_bindings",
     "finish_json_schema",
     "validate_episode_finish",
 ]

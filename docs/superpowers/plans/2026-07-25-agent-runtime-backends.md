@@ -608,7 +608,6 @@ cases pass without invoking real Codex.
 Run a single fixture through an isolated script/test marker with:
 
 ```bash
-CODEX_HEADLESS_MODEL=gpt-5.6 \
 RUN_CODEX_HEADLESS_LIVE=1 \
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -s \
   intelligence/tests/test_codex_headless_runtime.py::test_real_codex_headless_smoke
@@ -618,6 +617,8 @@ The opt-in test writes `/tmp/codex-headless-smoke.json`. Expected: the artifact
 contains `runtime_backend=codex_headless`, a non-empty answer or
 question-specific partial answer, structural/semantic status, Codex CLI/model
 identity, gateway evidence, zero unauthorized actions, and no credential text.
+An explicit `CODEX_HEADLESS_MODEL` is added only after a separate readiness
+probe succeeds for the installed CLI and current ChatGPT account.
 
 - [ ] **Step 7: Commit Task 5**
 

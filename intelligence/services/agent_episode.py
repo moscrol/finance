@@ -15,7 +15,6 @@ from intelligence.services.agent_runtime import (
     EpisodeStatus,
     ModelToolCall,
     ModelTurn,
-    OutputEvidenceBinding,
     public_agent_evidence,
 )
 from intelligence.services.episode_finalizer import (
@@ -25,6 +24,7 @@ from intelligence.services.episode_finalizer import (
 from intelligence.services.episode_protocol import (
     build_episode_input,
     build_episode_instructions,
+    expand_episode_snapshot_bindings,
     validate_episode_finish,
 )
 from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolBatchResult
@@ -504,7 +504,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
-            bindings = self._expand_episode_snapshot_bindings(
+            bindings = expand_episode_snapshot_bindings(
                 bindings=bindings,
                 evidence=tuple(accumulator.evidence),
                 registry=registry,
@@ -594,56 +594,6 @@ class ContinuousAgentEpisode:
             spec.query_scope == "episode" and spec.name in successful_tools
             for spec in specs
         )
-
-    @staticmethod
-    def _expand_episode_snapshot_bindings(
-        *,
-        bindings: tuple[OutputEvidenceBinding, ...],
-        evidence: tuple[AgentEvidence, ...],
-        registry: ResearchToolRegistry,
-    ) -> tuple[OutputEvidenceBinding, ...]:
-        """Bind an accepted turn-scoped snapshot as one atomic evidence unit.
-
-        Snapshot runners return one coherent observation split into multiple
-        auditable atoms.  If the model selects any atom from that snapshot for
-        an output, the private binding includes the remaining atoms from the
-        same snapshot.  Query-scoped search evidence remains opt-in per atom.
-        """
-
-        tool_by_hash = {
-            item.content_hash: item.tool for item in evidence if item.content_hash
-        }
-        snapshot_hashes: dict[str, list[str]] = {}
-        for item in evidence:
-            if not item.content_hash:
-                continue
-            try:
-                spec = registry.resolve(item.tool)
-            except ValueError:
-                continue
-            if spec.query_scope == "episode":
-                snapshot_hashes.setdefault(item.tool, []).append(item.content_hash)
-
-        expanded: list[OutputEvidenceBinding] = []
-        for binding in bindings:
-            selected_snapshot_tools = {
-                tool_by_hash[evidence_hash]
-                for evidence_hash in binding.evidence_hashes
-                if evidence_hash in tool_by_hash
-                and tool_by_hash[evidence_hash] in snapshot_hashes
-            }
-            hashes = list(binding.evidence_hashes)
-            for tool in snapshot_hashes:
-                if tool in selected_snapshot_tools:
-                    hashes.extend(snapshot_hashes[tool])
-            expanded.append(
-                OutputEvidenceBinding(
-                    output_id=binding.output_id,
-                    evidence_hashes=tuple(dict.fromkeys(hashes)),
-                    gap=binding.gap,
-                )
-            )
-        return tuple(expanded)
 
     def _can_recover_finalization(
         self,
@@ -785,7 +735,7 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
 
-        bindings = self._expand_episode_snapshot_bindings(
+        bindings = expand_episode_snapshot_bindings(
             bindings=bindings,
             evidence=tuple(accumulator.evidence),
             registry=registry,
