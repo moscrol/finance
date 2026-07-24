@@ -406,6 +406,120 @@ def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> Non
     )
 
 
+def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> None:
+    frame = replace(
+        _frame(),
+        raw_question="瑞华泰的合理估值",
+        user_goal="估算瑞华泰的合理估值区间",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        required_outputs=(
+            "valuation_assessment",
+            "scenario_range",
+            "evidence_boundary",
+        ),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值快照",
+        detail="当前PB为4.33倍；保守、中性、乐观情景对应3.5、4.5、5.5倍PB。",
+        source="结构化行情与财务快照",
+        source_date="2026-07-23",
+        content_hash="valuation-evidence",
+    )
+    contract = ResearchTaskContract(
+        task_id="valuation-empty-scenario-table-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "scenario_range",
+                "估值情景区间",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "evidence_boundary",
+                "证据边界",
+                ("market_data",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    draft = """### 一、估值判断
+瑞华泰当前PB约4.33倍。
+
+### 二、情景区间（条件化推演）
+| 情景 | 关键条件 | 隐含PB |
+|---|---|---|
+| 保守 | 盈利低于预期 | 3.5倍 |
+| 中性 | 盈利符合预期 | 4.5倍 |
+| 乐观 | 盈利超出预期 | 5.5倍 |
+
+### 三、证据边界
+情景倍数仍需更多可比公司证据核验。"""
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=tuple(
+            OutputEvidenceBinding(output_id, (evidence.content_hash,))
+            for output_id in frame.required_outputs
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    structural = verify_episode_outcome(contract, outcome)
+    assert structural.verified_status == "completed"
+
+    def reject_scenario_rows(request):
+        rejected = tuple(
+            int(item["index"])
+            for item in request["sentences"]
+            if str(item["text"]).startswith(("| 保守", "| 中性", "| 乐观"))
+        )
+        if rejected:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": list(rejected),
+                "issues": ["估值情景倍数缺少透明推导"],
+            }
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=reject_scenario_rows).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "repaired"
+    assert result.gap_output_ids == ("scenario_range",)
+    assert "估值情景区间" in result.public_answer
+    assert "| 情景 | 关键条件 | 隐含PB |" not in result.public_answer
+    assert "| 保守" not in result.public_answer
+    assert "| 中性" not in result.public_answer
+    assert "| 乐观" not in result.public_answer
+
+
 def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
     frame = replace(
         _frame(),
