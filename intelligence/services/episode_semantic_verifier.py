@@ -1381,8 +1381,11 @@ class SemanticEpisodeVerifier:
                 for output_id in output_ids
             )
         )
+        context = _gap_task_context(frame)
+        context_prefix = f"{context}的" if context else ""
         gap = (
             "证据缺口："
+            + context_prefix
             + "、".join(labels)
             + "中的未核验表述已删除，需补充直接证据后再判断。"
         )
@@ -1435,6 +1438,15 @@ class SemanticEpisodeVerifier:
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
         return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+
+
+def _gap_task_context(frame: TaskFrame) -> str:
+    return {
+        "valuation_estimate": "估值",
+        "market_forecast": "市场预测",
+        "market_cause": "原因归因",
+        "market_mainline": "市场主线",
+    }.get(frame.question_type, "")
 
 
 def _can_semantically_release_partial(

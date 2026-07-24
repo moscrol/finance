@@ -402,6 +402,24 @@ def test_semantic_smoke_accepts_sparse_comparable_sample_as_valuation_gap() -> (
     assert issues == []
 
 
+def test_semantic_smoke_accepts_task_bound_valuation_marker_loss_gap() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "当前PB约4.33。证据缺口：估值的证据覆盖范围中的"
+                    "未核验表述已删除，需补充直接证据后再判断。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_evidence_boundary_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",

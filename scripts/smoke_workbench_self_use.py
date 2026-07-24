@@ -148,7 +148,7 @@ DIRECT_ASSESSMENT = re.compile(
 VALUATION_FIELD = (
     r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
     r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效|"
-    r"估值证据|估值输入|可比公司|可比样本)"
+    r"估值|估值证据|估值输入|可比公司|可比样本)"
 )
 VALUATION_FIELD_RE = re.compile(VALUATION_FIELD)
 UNRESOLVED_GAP_ASSERTION = re.compile(

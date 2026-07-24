@@ -1227,6 +1227,31 @@ def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> Non
     assert result.gap_output_ids == ("direct_assessment",)
 
 
+def test_valuation_marker_loss_gap_keeps_task_context() -> None:
+    frame, structural = _structural("瑞华泰当前PB约4.33。")
+    valuation_frame = replace(
+        frame,
+        raw_question="瑞华泰的合理估值",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+    )
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(True)
+    )._marker_loss_partial_public(
+        valuation_frame,
+        structural,
+        ("evidence_boundary",),
+        judge_issues=("semantic repair removed required output",),
+        correlated_judge=True,
+    )
+
+    assert result.status == "partial"
+    assert "证据缺口：估值的" in result.public_answer
+    assert result.gap_output_ids == ("evidence_boundary",)
+
+
 def test_injected_passing_judge_records_correlated_limit() -> None:
     frame, structural = _structural("市场当前偏弱。")
     result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
