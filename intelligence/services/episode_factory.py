@@ -161,7 +161,16 @@ def _required_output_evidence_types(
     capabilities: tuple[str, ...],
 ) -> tuple[str, ...]:
     if output_id == "financial_business_anchor":
-        return ("financial_data",)
+        return tuple(
+            capability
+            for capability in (
+                "financial_data",
+                "l3_lookup",
+                "evidence_lookup",
+                "kb_search",
+            )
+            if capability in capabilities
+        )
     return capabilities
 
 

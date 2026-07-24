@@ -467,6 +467,57 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "1000 汉字以内" in system_prompt
 
 
+def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> None:
+    frame = TaskFrame(
+        raw_question="瑞华泰的合理估值",
+        user_goal="估算瑞华泰合理估值区间",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("scenario_range",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_valuation_evidence",
+        confidence=0.95,
+    )
+    finish = ModelTurn(
+        json.dumps(
+            {
+                "status": "partial",
+                "draft": "当前无法可靠给出估值情景区间。",
+                "gaps": ["缺少估值锚"],
+                "bindings": [
+                    {
+                        "output_id": "scenario_range",
+                        "evidence_hashes": [],
+                        "gap": "缺少估值锚",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel([finish])
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    system_prompt = model.calls[0]["messages"][0]["content"]
+    assert "scenario_range" in system_prompt
+    assert "保守、中性、乐观" in system_prompt
+    assert "financial_data" in system_prompt
+    assert "补充证据" in system_prompt
+
+
 def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:
     frame = _frame()
     model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
@@ -802,6 +853,87 @@ def test_invalid_completed_finish_gets_one_repair_turn_in_same_history() -> None
     assert repair_messages[-1]["role"] == "user"
     assert "required output" in repair_messages[-1]["content"]
     assert any(event.kind == "invalid_action" for event in outcome.events)
+
+
+def test_empty_scenario_finish_gets_one_repair_turn_in_same_history() -> None:
+    frame = TaskFrame(
+        raw_question="瑞华泰的合理估值",
+        user_goal="估算瑞华泰合理估值区间",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("scenario_range",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_valuation_evidence",
+        confidence=0.95,
+    )
+    empty_scenario = ModelTurn(
+        json.dumps(
+            {
+                "status": "completed",
+                "draft": (
+                    "### 情景区间\n"
+                    "| 情景 | 关键条件 | 隐含PB |\n"
+                    "|---|---|---|"
+                ),
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "scenario_range",
+                        "evidence_hashes": ["evidence-1"],
+                        "gap": "",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+    repaired_scenario = ModelTurn(
+        json.dumps(
+            {
+                "status": "completed",
+                "draft": (
+                    "估值区间：保守情景3.5倍、中性情景4.5倍、"
+                    "乐观情景5.5倍。"
+                ),
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "scenario_range",
+                        "evidence_hashes": ["evidence-1"],
+                        "gap": "",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel(
+        [_tool_turn("瑞华泰估值快照"), empty_scenario, repaired_scenario]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert "保守情景3.5倍" in outcome.draft
+    assert outcome.usage.invalid_actions == 1
+    assert len(model.calls) == 3
+    repair_instruction = model.calls[2]["messages"][-1]["content"]
+    assert "scenario_range" in repair_instruction
 
 
 def test_second_invalid_finish_returns_partial_without_template_fallback() -> None:

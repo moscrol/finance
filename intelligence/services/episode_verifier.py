@@ -13,6 +13,7 @@ from typing import Literal
 
 from intelligence.services.agent_runtime import AgentOutcome
 from intelligence.services.episode_output_substance import (
+    required_output_evidence_floor,
     required_outputs_without_substance,
 )
 from intelligence.services.generic_research_owner import CompletionReport
@@ -147,11 +148,24 @@ def verify_episode_outcome(
                 + ",".join(wrong_types)
             )
 
+        evidence_floor = required_output_evidence_floor(required.output_id)
+        missing_floor = tuple(
+            tool
+            for tool in evidence_floor
+            if not any(item.tool == tool for item in evidence_items)
+        )
+        if missing_floor:
+            issues.append(
+                f"missing required evidence type for {required.output_id}: "
+                + ",".join(missing_floor)
+            )
+
         valid = bool(
             binding.evidence_hashes
             and not unknown_hashes
             and not collided_hashes
             and not wrong_types
+            and not missing_floor
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:

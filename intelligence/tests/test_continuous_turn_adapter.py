@@ -1021,7 +1021,10 @@ def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() 
         for item in contract.required_outputs
         if item.output_id == "financial_business_anchor"
     )
-    assert financial_anchor.evidence_types == ("financial_data",)
+    assert financial_anchor.evidence_types[0] == "financial_data"
+    assert "evidence_lookup" in financial_anchor.evidence_types
+    assert "market_data" not in financial_anchor.evidence_types
+    assert "web_search" not in financial_anchor.evidence_types
 
 
 def test_semantically_verified_partial_is_first_class_not_degraded() -> None:

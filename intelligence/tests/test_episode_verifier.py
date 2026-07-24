@@ -288,6 +288,63 @@ def test_market_snapshot_cannot_launder_a_valuation_financial_anchor() -> None:
     assert any("financial_data" in issue for issue in verified.issues)
 
 
+def test_financial_anchor_requires_own_financial_hash_even_with_business_context() -> (
+    None
+):
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data", "financial_data"),
+            ),
+            RequiredOutput(
+                "financial_business_anchor",
+                "财务或业务硬数据锚点",
+                ("financial_data", "kb_search"),
+            ),
+        ),
+        evidence_plan=EvidencePlan(
+            "valuation_current_anchor",
+            (
+                EvidenceRequirement("VALUATION_MARKET", "market_data", True),
+                EvidenceRequirement(
+                    "VALUATION_FINANCIAL",
+                    "financial_data",
+                    True,
+                ),
+            ),
+        ),
+        allowed_capabilities=("market_data", "financial_data", "kb_search"),
+    )
+    market = _evidence("market_data", "market-1")
+    financial = _evidence("financial_data", "financial-1")
+    business = _evidence("kb_search", "business-1")
+    outcome = _outcome(
+        draft="当前PB为4.33倍；业务材料显示公司为PI薄膜厂商。",
+        evidence=(market, financial, business),
+        bindings=(
+            OutputEvidenceBinding(
+                "valuation_assessment",
+                ("market-1", "financial-1"),
+            ),
+            OutputEvidenceBinding(
+                "financial_business_anchor",
+                ("business-1",),
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "partial"
+    assert verified.completion.outputs[1].status == "missing"
+    assert (
+        "missing required evidence type for financial_business_anchor: financial_data"
+        in verified.issues
+    )
+
+
 def test_contract_and_outcome_task_hash_must_match() -> None:
     outcome = _outcome(status="partial", task_hash="different-hash")
 

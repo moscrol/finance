@@ -24,6 +24,10 @@ from intelligence.services.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
+from intelligence.services.episode_output_substance import (
+    required_output_evidence_floor,
+    required_outputs_without_substance,
+)
 from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolBatchResult
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
@@ -459,7 +463,7 @@ class ContinuousAgentEpisode:
                 status, draft, final_gaps, bindings = self._parse_finish(
                     turn.content,
                     context=context,
-                    evidence_hashes=accumulator.evidence_hashes,
+                    evidence=tuple(accumulator.evidence),
                 )
             except ValueError as exc:
                 finish_failures += 1
@@ -769,7 +773,7 @@ class ContinuousAgentEpisode:
             status, draft, final_gaps, bindings = self._parse_finish(
                 turn.content,
                 context=context,
-                evidence_hashes=accumulator.evidence_hashes,
+                evidence=tuple(accumulator.evidence),
             )
         except ValueError as exc:
             invalid_actions += 1
@@ -882,6 +886,16 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> str:
+        valuation_rule = (
+            "估值题专用完成规则：scenario_range 必须给出保守、中性、乐观"
+            "三种条件化情景中的实际估值倍数或市值区间，并写清方法/假设；不能把"
+            "当前单一 PB、标题或空表当作情景区间。证据不足时应返回 partial，"
+            "并在该 binding.gap 明确说明。financial_business_anchor 的 binding "
+            "必须至少包含一个 financial_data 证据哈希；KB、公告或业务材料可以作为"
+            "补充证据，但不能替代逐季财务硬锚。"
+            if task_frame.question_type == "valuation_estimate"
+            else ""
+        )
         return (
             "你是连续运行的金融研究 Agent。始终回答最初的不可变任务；每次看到"
             "工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的"
@@ -911,6 +925,7 @@ class ContinuousAgentEpisode:
             "若 output 已由 evidence_hashes 支持并完成，binding.gap 必须为空，"
             "限制条件写入顶层 gaps 或 draft。"
             "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
+            f"{valuation_rule}\n"
             f"任务哈希：{task_frame.task_frame_hash}\n"
             f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
         )
@@ -961,13 +976,17 @@ class ContinuousAgentEpisode:
         content: str,
         *,
         context: ResearchRunContext,
-        evidence_hashes: set[str],
+        evidence: tuple[AgentEvidence, ...],
     ) -> tuple[
         EpisodeStatus,
         str,
         tuple[str, ...],
         tuple[OutputEvidenceBinding, ...],
     ]:
+        evidence_by_hash = {
+            item.content_hash: item for item in evidence if item.content_hash
+        }
+        evidence_hashes = set(evidence_by_hash)
         value = _parse_json_object(content)
         if value is None:
             raise ValueError("finish must be one JSON object")
@@ -1014,8 +1033,37 @@ class ContinuousAgentEpisode:
 
         if len({item.output_id for item in bindings}) != len(bindings):
             raise ValueError("duplicate output binding")
+        for binding in bindings:
+            bound_tools = tuple(
+                evidence_by_hash[evidence_hash].tool
+                for evidence_hash in binding.evidence_hashes
+            )
+            missing_floor = tuple(
+                tool
+                for tool in required_output_evidence_floor(binding.output_id)
+                if tool not in bound_tools
+            )
+            if binding.evidence_hashes and missing_floor:
+                raise ValueError(
+                    f"required output lacks evidence type {binding.output_id}: "
+                    + ",".join(missing_floor)
+                )
+
+        binding_map = {item.output_id: item for item in bindings}
+        empty_outputs = tuple(
+            output_id
+            for output_id in required_outputs_without_substance(
+                context.contract,
+                draft,
+            )
+            if output_id in binding_map and not binding_map[output_id].gap
+        )
+        if empty_outputs:
+            raise ValueError(
+                "required output lacks substantive answer: "
+                + ",".join(empty_outputs)
+            )
         if status == "completed":
-            binding_map = {item.output_id: item for item in bindings}
             missing = [
                 required.output_id
                 for required in context.contract.required_outputs

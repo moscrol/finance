@@ -98,6 +98,14 @@ def required_outputs_without_substance(
     )
 
 
+def required_output_evidence_floor(output_id: str) -> tuple[str, ...]:
+    """Return evidence types that must occur in this output's own binding."""
+
+    if output_id == "financial_business_anchor":
+        return ("financial_data",)
+    return ()
+
+
 def lost_required_output_substance(
     contract: ResearchTaskContract,
     before: str,
@@ -156,5 +164,6 @@ def remove_lost_output_scaffolding(
 __all__ = [
     "lost_required_output_substance",
     "remove_lost_output_scaffolding",
+    "required_output_evidence_floor",
     "required_outputs_without_substance",
 ]
