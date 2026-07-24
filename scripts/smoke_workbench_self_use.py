@@ -214,7 +214,19 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
     if "主线" in question:
         return ("主线",)
     if "估值" in question:
-        return ("估值", "市值", "市盈", "市净", "盈利", "收入", "PE", "PB", "PS")
+        return (
+            "估值",
+            "市值",
+            "市盈",
+            "市净",
+            "盈利",
+            "收入",
+            "PE",
+            "PB",
+            "PS",
+            "失效",
+            "降级",
+        )
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
         return ("反弹", "持续", "时长", "交易日", "失效", "量能", "成交")
     if _is_cause_question(question):

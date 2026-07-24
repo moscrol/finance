@@ -141,6 +141,24 @@ def test_semantic_smoke_accepts_valuation_gap_worded_as_lack() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_valuation_invalidation_slot_gap() -> None:
+    issues = semantic_answer_issues(
+        "瑞华泰的合理估值是多少",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "基准合理市值约35-60亿元。"
+                    "证据缺口：判断失效或降级条件中的未核验表述已删除。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_useful_partial_with_explicit_evidence_gap() -> None:
     issues = semantic_answer_issues(
         "这一周行情下跌的主要原因是什么",
