@@ -33,6 +33,14 @@ def _arm(
         output_tokens=None,
         protocol_issues=(),
         artifact_sha256="a" * 64,
+        citations=(
+            {
+                "title": "电子行业成交集中度居前",
+                "source": "本地市场数据",
+                "date": "2026-07-24",
+            },
+        ),
+        data_cutoff="2026-07-24",
     )
 
 
@@ -40,6 +48,8 @@ def test_runtime_arm_round_trip() -> None:
     arm = _arm()
 
     assert RuntimeArmResult.from_dict(arm.to_dict()) == arm
+    assert arm.to_dict()["citations"][0]["source"] == "本地市场数据"
+    assert arm.to_dict()["data_cutoff"] == "2026-07-24"
 
 
 def test_runtime_arm_rejects_invalid_metrics_and_hash() -> None:

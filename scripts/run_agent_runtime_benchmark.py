@@ -115,14 +115,48 @@ def _freeze_case(
     *,
     dry_run: bool,
 ) -> tuple[object, object | None]:
-    control = TurnControlCore().control(
+    core = TurnControlCore()
+    llm_complete = (
+        (lambda *_args, **_kwargs: (None, None, "dry_run"))
+        if dry_run
+        else None
+    )
+    previous_control = None
+    prior_transcript: list[str] = []
+    previous_turn_id: str | None = None
+    for index, item in enumerate(case.conversation_context, start=1):
+        if item["role"] == "user":
+            previous_turn_id = (
+                f"runtime-benchmark:{case.case_id}:context:{index}"
+            )
+            previous_control = core.control(
+                item["content"],
+                context="\n".join(prior_transcript),
+                previous_frame=(
+                    previous_control.task_frame
+                    if previous_control is not None
+                    else None
+                ),
+                previous_intent=(
+                    previous_control.turn_intent
+                    if previous_control is not None
+                    else None
+                ),
+                previous_turn_id=previous_turn_id,
+                llm_complete=llm_complete,
+            )
+        prior_transcript.append(f"{item['role']}: {item['content']}")
+    control = core.control(
         case.question,
         context=_context_text(case),
-        llm_complete=(
-            (lambda *_args, **_kwargs: (None, None, "dry_run"))
-            if dry_run
-            else None
+        previous_frame=(
+            previous_control.task_frame if previous_control is not None else None
         ),
+        previous_intent=(
+            previous_control.turn_intent if previous_control is not None else None
+        ),
+        previous_turn_id=previous_turn_id,
+        llm_complete=llm_complete,
     )
     context = None
     if dry_run and control.contract_required:
@@ -351,6 +385,38 @@ def _runtime_tokens(events: object) -> tuple[int | None, int | None]:
     return None, None
 
 
+def _bound_public_citations(
+    outcome: object,
+) -> tuple[tuple[dict[str, str], ...], str | None]:
+    bindings = getattr(outcome, "bindings", ())
+    bound_hashes = {
+        content_hash
+        for binding in bindings
+        for content_hash in getattr(binding, "evidence_hashes", ())
+    }
+    citations: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    cutoffs: list[str] = []
+    for item in getattr(outcome, "evidence", ()):
+        if getattr(item, "content_hash", "") not in bound_hashes:
+            continue
+        title = " ".join(str(getattr(item, "title", "") or "").split())
+        source = " ".join(str(getattr(item, "source", "") or "").split())
+        source_date = str(getattr(item, "source_date", "") or "").strip()
+        key = (title, source, source_date)
+        if not title or not source or key in seen:
+            continue
+        seen.add(key)
+        citations.append(
+            {"title": title, "source": source, "date": source_date}
+        )
+        try:
+            cutoffs.append(date.fromisoformat(source_date).isoformat())
+        except ValueError:
+            pass
+    return tuple(citations), (max(cutoffs) if cutoffs else None)
+
+
 def _artifact_hash(value: object) -> str:
     encoded = json.dumps(
         value,
@@ -427,6 +493,7 @@ def _run_research_arm(
             )
             ledger_calls = _ledger_call_count(ledger)
         final_outcome = semantic.verified.outcome
+        citations, data_cutoff = _bound_public_citations(final_outcome)
         input_tokens, output_tokens = _runtime_tokens(final_outcome.events)
         semantic_attempts = int(
             getattr(semantic_verifier, "provider_attempts", 0) or 0
@@ -463,6 +530,8 @@ def _run_research_arm(
             output_tokens=output_tokens,
             protocol_issues=tuple(issues),
             artifact_sha256=_artifact_hash(final_outcome.to_dict()),
+            citations=citations,
+            data_cutoff=data_cutoff,
         )
     except Exception as exc:
         return _arm_failure(
@@ -492,6 +561,25 @@ def _run_non_research_arms(
         structural = status if status in {"completed", "partial", "failed"} else "failed"
         semantic = "passed" if status == "completed" and answer else "unavailable"
         payload_hash = _artifact_hash(raw)
+        source_trade_date = next(
+            (
+                str(trace.get("source_trade_date") or "").strip()
+                for trace in raw.get("traces", [])
+                if isinstance(trace, dict) and trace.get("source_trade_date")
+            ),
+            "",
+        )
+        citations = (
+            (
+                {
+                    "title": "指数日线结构化行情",
+                    "source": "tencent_kline",
+                    "date": source_trade_date,
+                },
+            )
+            if source_trade_date
+            else ()
+        )
         return tuple(
             RuntimeArmResult(
                 case_id=case.case_id,
@@ -514,6 +602,8 @@ def _run_non_research_arms(
                 output_tokens=None,
                 protocol_issues=(),
                 artifact_sha256=payload_hash,
+                citations=citations,
+                data_cutoff=source_trade_date or None,
             )
             for backend in backends
         )

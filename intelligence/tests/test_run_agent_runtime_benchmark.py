@@ -62,14 +62,12 @@ def test_dry_run_freezes_one_task_frame_per_case_and_all_backends(
     assert all(case["execution_status"] == "planned" for case in payload["cases"])
     by_id = {case["id"]: case for case in payload["cases"]}
     assert by_id["rebound-duration"]["acceptance_contract_gaps"] == []
-    assert by_id["theme-comparison"]["acceptance_contract_gaps"] == [
-        "comparison_conclusion",
-        "supporting_evidence",
+    assert all(not case["acceptance_contract_gaps"] for case in payload["cases"])
+    assert by_id["contextual-follow-up"]["control"]["terminal_kind"] == "research"
+    assert by_id["contextual-follow-up"]["task_frame"]["required_outputs"] == [
         "invalidation_conditions",
+        "supporting_evidence",
     ]
-    assert by_id["contextual-follow-up"]["control"]["terminal_kind"] == (
-        "clarification"
-    )
 
 
 def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
@@ -132,6 +130,7 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
                         detail="当前主线证据",
                         source="test",
                         content_hash=content_hash,
+                        source_date="2026-07-24",
                     )
                 )
                 bindings.append(
@@ -208,6 +207,14 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
     assert len(context_ids) == 2
     assert context_ids[0] != context_ids[1]
     assert payload["summary"]["arm_count"] == 2
+    assert arms[0]["citations"] == [
+        {
+            "title": "continuous_glm evidence",
+            "source": "test",
+            "date": "2026-07-24",
+        }
+    ]
+    assert arms[0]["data_cutoff"] == "2026-07-24"
 
 
 def test_deterministic_fast_path_is_identical_across_runtime_backends(

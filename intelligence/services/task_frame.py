@@ -63,6 +63,19 @@ _QUESTION_LIKE_RE = re.compile(
 _EXPLICIT_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
 )
+_COMPARATIVE_DECISION_RE = re.compile(
+    r"(?:和|与).{0,32}(?:哪个|哪一个|谁).{0,20}(?:更|优先|胜出|主线)"
+)
+_COUNTERFACTUAL_ASSESSMENT_RE = re.compile(
+    r"^(?:如果|若|假设).{0,80}(?:还能|是否|能否).{0,16}(?:算|成立|确认|持续)"
+)
+_DECISION_METHOD_RE = re.compile(
+    r"(?:应该|应当|该|如何|怎么).{0,20}(?:判断|区分|识别).{0,32}"
+    r"(?:候选|噪音|有效|真假|主线)"
+)
+_INVALIDATION_FOLLOWUP_RE = re.compile(
+    r"(?:什么时候|何时|哪些条件|什么条件).{0,16}(?:失效|证伪|不成立|作废)"
+)
 
 
 @dataclass(frozen=True)
@@ -198,6 +211,7 @@ def build_task_frame(
 
     outputs = _merge_strings(
         _default_required_outputs(question_type, question),
+        _explicit_required_outputs(question),
         tuple(str(item) for item in envelope.required_outputs),
     )
     ambiguities = (
@@ -275,6 +289,7 @@ def rebase_task_frame(
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
 
+    explicit_outputs = _explicit_required_outputs(frame.raw_question)
     question_type_changed = question_type != frame.question_type
     canonical_outputs = (
         _default_required_outputs(question_type, frame.raw_question)
@@ -291,17 +306,22 @@ def rebase_task_frame(
         if question_type_changed
         else frame.required_outputs
     )
+    merged_outputs = (
+        explicit_outputs
+        if explicit_outputs
+        else _merge_strings(
+            inherited_outputs,
+            canonical_outputs,
+            required_outputs,
+        )
+    )
     return replace(
         frame,
         question_type=question_type,
         subject=_safe_subject(subject, frame.raw_question),
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
-        required_outputs=_merge_strings(
-            inherited_outputs,
-            canonical_outputs,
-            required_outputs,
-        ),
+        required_outputs=merged_outputs,
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],
@@ -500,7 +520,42 @@ def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
 def _user_goal(question_type: str, question: str, fallback: str) -> str:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return "判断最近一次市场反弹的可持续时间、继续条件与失效条件"
+    if _COMPARATIVE_DECISION_RE.search(question):
+        return "比较候选方向并给出主线胜出判断、依据、反证与失效条件"
+    if _COUNTERFACTUAL_ASSESSMENT_RE.search(question):
+        return "判断反事实条件下原结论是否仍成立，并解释因果链与验证条件"
+    if _DECISION_METHOD_RE.search(question):
+        return "给出可执行的判断方法、证据层级、失败模式与验证路径"
+    if _INVALIDATION_FOLLOWUP_RE.search(question):
+        return "说明上一判断的可核验失效条件及其证据依据"
     return str(fallback or "形成与用户原问题一致的直接回答").strip()
+
+
+def _explicit_required_outputs(question: str) -> tuple[str, ...]:
+    if _COMPARATIVE_DECISION_RE.search(question):
+        return (
+            "comparison_conclusion",
+            "supporting_evidence",
+            "counterpoint",
+            "invalidation_conditions",
+        )
+    if _COUNTERFACTUAL_ASSESSMENT_RE.search(question):
+        return (
+            "direct_assessment",
+            "causal_chain",
+            "counterpoint",
+            "verification_conditions",
+        )
+    if _DECISION_METHOD_RE.search(question):
+        return (
+            "method",
+            "evidence_hierarchy",
+            "failure_modes",
+            "verification_path",
+        )
+    if _INVALIDATION_FOLLOWUP_RE.search(question):
+        return ("invalidation_conditions", "supporting_evidence")
+    return ()
 
 
 def _default_required_outputs(question_type: str, question: str) -> tuple[str, ...]:

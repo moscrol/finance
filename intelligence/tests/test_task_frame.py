@@ -84,6 +84,52 @@ def test_llm_alignment_cannot_append_unowned_required_output() -> None:
 
 
 @pytest.mark.parametrize(
+    ("question", "required_outputs"),
+    (
+        (
+            "低空经济和商业航天，未来一个月哪个更可能成为A股主线，为什么",
+            {
+                "comparison_conclusion",
+                "supporting_evidence",
+                "counterpoint",
+                "invalidation_conditions",
+            },
+        ),
+        (
+            "如果电力板块涨停家数很多但成交占比和核心股承接下降，还能算主线吗",
+            {
+                "direct_assessment",
+                "causal_chain",
+                "counterpoint",
+                "verification_conditions",
+            },
+        ),
+        (
+            "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+            {
+                "method",
+                "evidence_hierarchy",
+                "failure_modes",
+                "verification_path",
+            },
+        ),
+        (
+            "那它什么时候算失效",
+            {"invalidation_conditions", "supporting_evidence"},
+        ),
+    ),
+)
+def test_task_frame_preserves_explicit_long_tail_output_shape(
+    question: str,
+    required_outputs: set[str],
+) -> None:
+    frame = understand_query(question).task_frame
+
+    assert frame is not None
+    assert required_outputs.issubset(frame.required_outputs)
+
+
+@pytest.mark.parametrize(
     ("question_type", "evidence_policy", "required_outputs"),
     (
         (

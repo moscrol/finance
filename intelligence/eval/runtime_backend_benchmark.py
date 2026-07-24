@@ -60,6 +60,8 @@ class RuntimeArmResult:
     output_tokens: int | None
     protocol_issues: tuple[str, ...]
     artifact_sha256: str
+    citations: tuple[dict[str, str], ...] = ()
+    data_cutoff: str | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("case_id", "backend", "model"):
@@ -116,6 +118,21 @@ class RuntimeArmResult:
             self.artifact_sha256
         ):
             raise ValueError("artifact_sha256 must be a lowercase SHA-256 hex digest")
+        citations: list[dict[str, str]] = []
+        for citation in self.citations:
+            if not isinstance(citation, Mapping):
+                raise ValueError("citations must contain mappings")
+            normalized = {
+                key: str(citation.get(key) or "").strip()
+                for key in ("title", "source", "date")
+            }
+            if not normalized["title"] or not normalized["source"]:
+                raise ValueError("citations require title and source")
+            citations.append(normalized)
+        object.__setattr__(self, "citations", tuple(citations))
+        if self.data_cutoff is not None:
+            cutoff = str(self.data_cutoff).strip()
+            object.__setattr__(self, "data_cutoff", cutoff or None)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -136,6 +153,8 @@ class RuntimeArmResult:
             "output_tokens": self.output_tokens,
             "protocol_issues": list(self.protocol_issues),
             "artifact_sha256": self.artifact_sha256,
+            "citations": [dict(item) for item in self.citations],
+            "data_cutoff": self.data_cutoff,
         }
 
     @classmethod
@@ -143,6 +162,9 @@ class RuntimeArmResult:
         raw_issues = value.get("protocol_issues")
         if not isinstance(raw_issues, (list, tuple)):
             raise ValueError("protocol_issues must be a sequence")
+        raw_citations = value.get("citations", ())
+        if not isinstance(raw_citations, (list, tuple)):
+            raise ValueError("citations must be a sequence")
         answer = value.get("answer")
         if not isinstance(answer, str):
             raise ValueError("answer must be a string")
@@ -164,6 +186,12 @@ class RuntimeArmResult:
             output_tokens=value.get("output_tokens"),
             protocol_issues=tuple(raw_issues),
             artifact_sha256=str(value.get("artifact_sha256") or ""),
+            citations=tuple(raw_citations),
+            data_cutoff=(
+                str(value.get("data_cutoff"))
+                if value.get("data_cutoff") is not None
+                else None
+            ),
         )
 
 
