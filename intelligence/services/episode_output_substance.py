@@ -17,7 +17,9 @@ from intelligence.services.task_fulfillment import answer_has_output_marker
 _SECTION_HEADING_RE = re.compile(
     r"^(?:#{1,6}\s*|【|(?:\d+|[一二三四五六七八九十]+)[、.．）)]\s*)"
 )
-_SCENARIO_SECTION_RE = re.compile(r"(?:情景|估值)(?:区间|范围)")
+_SCENARIO_SECTION_RE = re.compile(
+    r"(?:(?:情景|估值)(?:区间|范围)|(?:条件化|估值)情景)"
+)
 _SCENARIO_LABEL_RE = re.compile(r"(?:保守|悲观|下行|中性|基准|乐观|上行)")
 _INLINE_SCENARIO_LABEL_RE = re.compile(
     r"(?:保守|悲观|下行|中性|基准|乐观|上行)情景"

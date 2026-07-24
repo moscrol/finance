@@ -510,6 +510,25 @@ def test_initial_valuation_draft_requires_substantive_scenario_output(
     )
 
 
+def test_initial_valuation_draft_accepts_conditioned_scenario_section() -> None:
+    _frame_value, structural = _valuation_structural(
+        """### 一、估值判断
+瑞华泰当前PB约4.33倍。
+
+【条件化情景（基于PB机械推演）】
+- 保守：PB 3.25~4.33倍，隐含市值37.15~49.5亿元。
+- 中性：PB 4.33~6.5倍，隐含市值49.5~74.31亿元。
+- 乐观：PB 6.5~8.66倍，隐含市值74.31~99.0亿元。
+
+### 三、证据边界
+区间为条件化推演，不是目标价。"""
+    )
+
+    assert structural.verified_status == "completed"
+    assert structural.completion.outputs[1].output_id == "scenario_range"
+    assert structural.completion.outputs[1].status == "fulfilled"
+
+
 def test_valuation_repair_cannot_leave_an_empty_scenario_table_completed() -> None:
     frame = replace(
         _frame(),
