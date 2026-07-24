@@ -3291,6 +3291,27 @@ class TurnOrchestrator:
                 conversation_id,
             )
         citations = _sanitize_citation_list(list(result.citations))
+        if citations:
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "continuous:evidence",
+                "continuous_evidence_binding",
+                {"citation_count": len(citations)},
+                retrieval={
+                    "citation_counts": {"E": len(citations)},
+                    "citations": [
+                        {
+                            "tag": f"E{index}",
+                            "source": str(citation.get("source") or "研究证据"),
+                            "detail": str(citation.get("title") or "已记录引用"),
+                            "source_date": str(citation.get("date") or ""),
+                        }
+                        for index, citation in enumerate(citations, start=1)
+                    ],
+                },
+            )
         for index, citation in enumerate(citations, start=1):
             self._emit(
                 run_id,
