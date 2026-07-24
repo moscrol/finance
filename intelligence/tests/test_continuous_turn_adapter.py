@@ -97,6 +97,7 @@ def _scripted_episode_result(
     judge_status: str | None = None,
     required_outputs: tuple[str, ...] = ("direct_assessment",),
     gap_output_ids: tuple[str, ...] = (),
+    runtime_name: str = "continuous_glm",
 ):
     frame = _frame(required_outputs=required_outputs)
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -149,11 +150,40 @@ def _scripted_episode_result(
 
     return ContinuousTurnAdapter(
         runtime=Runtime(),
+        runtime_name=runtime_name,
         mode="on",
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
     ).handle(frame=frame, control=control)
+
+
+def test_private_artifact_records_runtime_backend_without_public_leak() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场状态",
+        detail="指数处于反弹修复",
+        source="市场快照",
+        source_date="2026-07-24",
+        content_hash="runtime-identity-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前更接近短周期修复。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        runtime_name="sdk_glm",
+    )
+
+    assert result.private_artifact is not None
+    assert result.private_artifact["runtime_backend"] == "sdk_glm"
+    assert "sdk_glm" not in result.answer
 
 
 def test_semantic_gap_output_does_not_project_its_citation_or_as_of() -> None:
@@ -329,6 +359,7 @@ def test_cross_frame_control_fails_closed_before_any_dependency() -> None:
     assert result.private_artifact == {
         "schema_version": 1,
         "execution_kind": "continuous_episode",
+        "runtime_backend": "continuous_glm",
         "failure": {"code": "control_frame_mismatch"},
     }
     assert result.events[-1]["status"] == "failed"

@@ -78,6 +78,7 @@ class ContinuousTurnAdapter:
         *,
         runtime: AgentRuntime,
         semantic_verifier: SemanticVerifier,
+        runtime_name: str = "continuous_glm",
         mode: RuntimeMode | None = None,
         context_factory: Callable[..., object] = build_episode_context,
         registry_factory: Callable[..., object] = build_episode_registry,
@@ -102,6 +103,9 @@ class ContinuousTurnAdapter:
             raise ValueError(f"unsupported continuous runtime mode: {selected_mode}")
         if not callable(getattr(semantic_verifier, "verify", None)):
             raise TypeError("semantic verifier must provide callable verify(...)")
+        cleaned_runtime_name = str(runtime_name or "").strip()
+        if not cleaned_runtime_name:
+            raise ValueError("runtime_name must be non-empty")
         if not callable(task_id_factory):
             raise TypeError("task_id_factory must be callable")
         if synthesis_reserve_for_task is not None and not callable(
@@ -109,6 +113,7 @@ class ContinuousTurnAdapter:
         ):
             raise TypeError("synthesis_reserve_for_task must be callable")
         self._runtime = runtime
+        self._runtime_name = cleaned_runtime_name
         self._mode = cast(RuntimeMode, selected_mode)
         self._context_factory = context_factory
         self._registry_factory = registry_factory
@@ -169,7 +174,7 @@ class ContinuousTurnAdapter:
             not isinstance(control_frame, TaskFrame)
             or frame.task_frame_hash != control_frame.task_frame_hash
         ):
-            return _control_frame_mismatch_result()
+            return _control_frame_mismatch_result(self._runtime_name)
         if frame.question_type in LEGACY_DETERMINISTIC_OWNER_TYPES:
             return _declined_result()
         if control.terminal_kind == "clarification":
@@ -240,6 +245,7 @@ class ContinuousTurnAdapter:
                         {
                             "schema_version": 1,
                             "execution_kind": "deterministic_fast_path",
+                            "runtime_backend": self._runtime_name,
                             "failure": {
                                 "type": type(exc).__name__,
                                 "message": str(exc),
@@ -290,6 +296,7 @@ class ContinuousTurnAdapter:
                     {
                         "schema_version": 1,
                         "execution_kind": "deterministic_fast_path",
+                        "runtime_backend": self._runtime_name,
                         "outcome": raw,
                         "metrics": {
                             "provider_attempts": 0,
@@ -396,6 +403,7 @@ class ContinuousTurnAdapter:
             partial_artifact: dict[str, object] = {
                 "schema_version": 1,
                 "execution_kind": "continuous_episode",
+                "runtime_backend": self._runtime_name,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -524,6 +532,7 @@ class ContinuousTurnAdapter:
         artifact = {
             "schema_version": 1,
             "execution_kind": "continuous_episode",
+            "runtime_backend": self._runtime_name,
             "contract": context.contract.to_dict(),
             "outcome": _private_outcome(outcome),
             "events": [item.to_dict() for item in outcome.events],
@@ -652,7 +661,7 @@ def _cancelled_result() -> ContinuousTurnResult:
     )
 
 
-def _control_frame_mismatch_result() -> ContinuousTurnResult:
+def _control_frame_mismatch_result(runtime_name: str) -> ContinuousTurnResult:
     return ContinuousTurnResult(
         handled=True,
         status="failed",
@@ -663,6 +672,7 @@ def _control_frame_mismatch_result() -> ContinuousTurnResult:
         private_artifact={
             "schema_version": 1,
             "execution_kind": "continuous_episode",
+            "runtime_backend": runtime_name,
             "failure": {"code": "control_frame_mismatch"},
         },
         events=(
