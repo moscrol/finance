@@ -57,6 +57,24 @@ class RuntimeBenchmarkCase:
     conversation_context: tuple[dict[str, str], ...] = ()
 
 
+class RuntimeBenchmarkInfrastructureError(RuntimeError):
+    def __init__(self, *, case_id: str, backend: str, reason: str) -> None:
+        super().__init__(reason)
+        self.case_id = case_id
+        self.backend = backend
+        self.reason = reason
+
+
+_INFRASTRUCTURE_STOP_REASONS = frozenset(
+    {
+        "sdk_auth_unavailable",
+        "sdk_rate_limited",
+        "sdk_upstream_unavailable",
+        "sdk_transport_unavailable",
+    }
+)
+
+
 def _load_cases(path: Path) -> tuple[RuntimeBenchmarkCase, ...]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     raw_cases = payload.get("cases") if isinstance(payload, dict) else None
@@ -545,6 +563,12 @@ def _run_research_arm(
                 context=context,
                 registry=registry,
             )
+            if outcome.stop_reason in _INFRASTRUCTURE_STOP_REASONS:
+                raise RuntimeBenchmarkInfrastructureError(
+                    case_id=case.case_id,
+                    backend=backend,
+                    reason=outcome.stop_reason,
+                )
             verified = verify_episode_outcome(context.contract, outcome)
             semantic_verifier = _build_semantic_verifier(
                 case,
@@ -598,6 +622,8 @@ def _run_research_arm(
             citations=citations,
             data_cutoff=data_cutoff,
         )
+    except RuntimeBenchmarkInfrastructureError:
+        raise
     except Exception as exc:
         return _arm_failure(
             case=case,
@@ -803,20 +829,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"runtime benchmark failed: {exc}", file=sys.stderr)
         return 2
 
+    return_code = 0
+    infrastructure_failure: dict[str, str] | None = None
     if not args.dry_run:
         try:
-            executed = [
-                _run_runtime_arm(
-                    case,
-                    control,
-                    backends,
-                    finance_root=finance_root,
-                    knowledge_wiki=knowledge_wiki,
-                    latest_data_date=market_data_date,
-                    sdk_gpt_providers=sdk_gpt_providers,
+            executed = []
+            for index, (case, control, _context) in enumerate(frozen, start=1):
+                print(
+                    f"runtime benchmark [{index}/{len(frozen)}] {case.case_id}",
+                    flush=True,
                 )
-                for case, control, _context in frozen
-            ]
+                executed.append(
+                    _run_runtime_arm(
+                        case,
+                        control,
+                        backends,
+                        finance_root=finance_root,
+                        knowledge_wiki=knowledge_wiki,
+                        latest_data_date=market_data_date,
+                        sdk_gpt_providers=sdk_gpt_providers,
+                    )
+                )
             records = [record for record, _arms in executed]
             arm_results = tuple(
                 arm for _record, arms in executed for arm in arms
@@ -826,6 +859,24 @@ def main(argv: list[str] | None = None) -> int:
                 results=arm_results,
                 expected_backends=backends,
             )
+        except RuntimeBenchmarkInfrastructureError as exc:
+            records = [record for record, _arms in executed]
+            arm_results = tuple(
+                arm for _record, arms in executed for arm in arms
+            )
+            infrastructure_failure = {
+                "case_id": exc.case_id,
+                "backend": exc.backend,
+                "reason": exc.reason,
+            }
+            summary = {
+                "gate": "runtime_backend_benchmark",
+                "passed": False,
+                "infrastructure_failure": infrastructure_failure,
+                "completed_case_count": len(records),
+                "completed_arm_count": len(arm_results),
+            }
+            return_code = 3
         except Exception as exc:
             print(f"runtime benchmark failed: {exc}", file=sys.stderr)
             return 2
@@ -857,9 +908,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     if summary is not None:
         artifact["summary"] = summary
+    if infrastructure_failure is not None:
+        artifact["infrastructure_failure"] = infrastructure_failure
     _atomic_write_json(args.output, artifact)
     print(f"runtime benchmark artifact written: {args.output}")
-    return 0
+    return return_code
 
 
 if __name__ == "__main__":

@@ -330,6 +330,95 @@ def test_deterministic_fast_path_is_identical_across_runtime_backends(
     assert {arm["llm_calls"] for arm in arms} == {0}
 
 
+def test_live_runner_aborts_batch_on_shared_provider_infrastructure_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "one-case.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "current-mainline",
+                        "question": "目前市场的主线是什么",
+                        "as_of": "2026-07-24",
+                        "tier": "standard",
+                        "timeout": 30.0,
+                        "required_outputs": ["direct_assessment"],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "infra.json"
+
+    class UnavailableRuntime:
+        def run(self, *, task_frame, context, registry):
+            del context, registry
+            return AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status="failed",
+                draft="",
+                evidence=(),
+                traces=(),
+                gaps=("sdk_auth_unavailable",),
+                stop_reason="sdk_auth_unavailable",
+                events=(
+                    EpisodeEvent(
+                        1,
+                        "task",
+                        {"task_frame_hash": task_frame.task_frame_hash},
+                    ),
+                ),
+                bindings=(),
+                usage=AgentUsage(llm_calls=1, invalid_actions=1),
+            )
+
+    monkeypatch.setattr(
+        benchmark,
+        "_build_runtime",
+        lambda *_args, **_kwargs: (UnavailableRuntime(), "gpt-5.6-sol"),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_registry",
+        lambda *_args, **_kwargs: ResearchToolRegistry(()),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
+
+    code = benchmark.main(
+        [
+            "--backend",
+            "sdk_gpt",
+            "--questions-file",
+            str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 3
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+    assert artifact["infrastructure_failure"] == {
+        "case_id": "current-mainline",
+        "backend": "sdk_gpt",
+        "reason": "sdk_auth_unavailable",
+    }
+    assert artifact["summary"]["completed_case_count"] == 0
+    assert artifact["summary"]["passed"] is False
+
+
 def test_live_runner_rejects_stale_finance_root_before_runtime(
     tmp_path,
     monkeypatch,

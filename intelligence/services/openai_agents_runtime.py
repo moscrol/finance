@@ -885,6 +885,27 @@ def _sum_optional_counts(left: int | None, right: int | None) -> int | None:
 
 
 def _sdk_run_error_kind(exc: Exception) -> str:
+    normalized = " ".join(str(exc).lower().split())
+    if any(
+        marker in normalized
+        for marker in ("auth_unavailable", "authentication", "invalid_api_key")
+    ) or "status code: 401" in normalized:
+        return "sdk_auth_unavailable"
+    if any(
+        marker in normalized
+        for marker in ("rate_limit", "rate limit", "status code: 429")
+    ):
+        return "sdk_rate_limited"
+    if any(
+        marker in normalized
+        for marker in ("upstream_error", "service unavailable", "status code: 503")
+    ):
+        return "sdk_upstream_unavailable"
+    if any(
+        marker in normalized
+        for marker in ("connection error", "connecterror", "connection refused")
+    ):
+        return "sdk_transport_unavailable"
     try:
         from agents.exceptions import MaxTurnsExceeded
     except ImportError:

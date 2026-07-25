@@ -451,6 +451,39 @@ def test_sdk_runtime_translates_model_turn_limit_without_fallback() -> None:
     assert outcome.usage.tool_calls == 1
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    (
+        ("auth_unavailable: no auth available", "sdk_auth_unavailable"),
+        ("status code: 429 rate limit", "sdk_rate_limited"),
+        ("status code: 503 service unavailable", "sdk_upstream_unavailable"),
+        ("connection error", "sdk_transport_unavailable"),
+    ),
+)
+def test_sdk_runtime_classifies_provider_infrastructure_failures(
+    message: str,
+    expected: str,
+) -> None:
+    frame = _frame()
+
+    def unavailable(_request: AgentsSdkRequest) -> AgentsSdkResult:
+        raise RuntimeError(message)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=unavailable,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == expected
+    assert outcome.gaps == (expected,)
+
+
 def test_sdk_finish_recovery_failure_stops_after_two_model_calls() -> None:
     frame = _frame()
     runner_calls = 0
