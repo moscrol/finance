@@ -52,7 +52,9 @@ fi
 echo "$$" > "$LOCK_DIR/pid"
 trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
 
-dow=$(date +%u)
+# 按目标日期 $D 判周末（不能用 `date +%u`，那是「今天」的星期——
+# 手动跨日补跑时今天可能是周末而 $D 是工作日，会被误跳过）
+dow=$(date -j -f "%Y-%m-%d" "$D" +%u)
 if [ "$dow" -gt 5 ]; then
   echo "[$(date '+%F %T')] $D 周末，跳过全量复盘"
   exit 0
