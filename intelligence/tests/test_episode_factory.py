@@ -216,3 +216,6 @@ def test_episode_factory_projects_task_semantics_into_grounding_modes(
     assert {
         item.grounding_mode for item in context.contract.required_outputs
     } == {expected_mode}
+    if expected_mode in {"model_reasoning", "user_premise"}:
+        assert context.contract.allowed_capabilities == ()
+        assert context.contract.evidence_plan.requirements == ()

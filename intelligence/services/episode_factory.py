@@ -199,8 +199,19 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
+    grounding_mode = _grounding_mode(frame)
     evidence_plan = _episode_evidence_plan(frame)
     authorized = list(_authorized_capabilities(frame, capabilities))
+    if grounding_mode in {"model_reasoning", "user_premise"}:
+        # These contracts ask the model to reason over a method or an explicit
+        # user-supplied premise.  Retrieving current-world evidence adds cost
+        # and can contaminate the hypothetical without strengthening it.
+        evidence_plan = EvidencePlan(
+            profile=grounding_mode,
+            requirements=(),
+            freshness="stable",
+        )
+        authorized = []
     known = set(DEFAULT_RESEARCH_CAPABILITIES)
     for capability in evidence_plan.mandatory_capabilities:
         if capability not in known:
@@ -244,7 +255,7 @@ def build_episode_context(
                     capability_tuple,
                 ),
                 required=True,
-                grounding_mode=_grounding_mode(frame),
+                grounding_mode=grounding_mode,
             )
             for output_id in _required_output_ids(frame)
         ),

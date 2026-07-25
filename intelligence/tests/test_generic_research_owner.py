@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -971,13 +972,24 @@ def test_registry_definitions_only_expose_authorized_capabilities() -> None:
     }
 
 
-def test_empty_capability_filter_exposes_registered_read_only_tools() -> None:
+def test_empty_capability_filter_exposes_no_tools() -> None:
     registry = _registry()
 
-    assert registry.authorized_specs(()) == (registry.resolve("web_search"),)
-    assert [
-        item["function"]["name"] for item in registry.tool_definitions(())
-    ] == ["web_search"]
+    assert registry.authorized_specs(()) == ()
+    assert registry.tool_definitions(()) == []
+    assert registry.authorized_specs() == (registry.resolve("web_search"),)
+
+
+def test_empty_contract_capabilities_reject_tool_execution() -> None:
+    contract = replace(_contract(), allowed_capabilities=())
+
+    with pytest.raises(UnknownResearchTool, match="能力未授权"):
+        _registry().execute(
+            "web_search",
+            "某公司最新公告",
+            context=_context(contract),
+            step_id="run-test:blocked",
+        )
 
 
 def test_registry_single_flight_dedupes_same_query_in_owner_context() -> None:

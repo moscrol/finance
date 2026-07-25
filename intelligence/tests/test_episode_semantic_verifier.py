@@ -1344,6 +1344,29 @@ def test_semantic_repair_reconciles_explicit_list_count() -> None:
     assert "99999点" not in result.public_answer
 
 
+def test_semantic_repair_renumbers_parenthesized_items_and_layer_count() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "判断有四层共振框架：（1）量能企稳；"
+        "（2）若指数跌破99999点则失效；"
+        "（3）核心股承接；（4）产业链扩散。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "三层共振框架" in result.public_answer
+    assert "四层共振框架" not in result.public_answer
+    assert "（1）量能企稳" in result.public_answer
+    assert "（2）核心股承接" in result.public_answer
+    assert "（3）产业链扩散" in result.public_answer
+    assert "（4）产业链扩散" not in result.public_answer
+
+
 def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
     judge = _judge(True)
     frame, structural = _structural(

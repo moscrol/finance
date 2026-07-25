@@ -78,19 +78,24 @@ class ResearchToolRegistry:
     def capabilities(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(spec.capability for spec in self._specs.values()))
 
-    def authorized_specs(self, allowed: tuple[str, ...] = ()) -> tuple[ToolSpec, ...]:
+    def authorized_specs(
+        self,
+        allowed: tuple[str, ...] | None = None,
+    ) -> tuple[ToolSpec, ...]:
         """Return registered tools whose declared capability is authorized."""
 
+        if allowed is None:
+            return tuple(self._specs.values())
         allowed_set = set(allowed)
         return tuple(
             spec
             for spec in self._specs.values()
-            if not allowed_set or spec.capability in allowed_set
+            if spec.capability in allowed_set
         )
 
     def tool_definitions(
         self,
-        allowed: tuple[str, ...] = (),
+        allowed: tuple[str, ...] | None = None,
     ) -> list[dict[str, object]]:
         """Expose the authorized read-only tools as function-call schemas."""
 
@@ -111,7 +116,7 @@ class ResearchToolRegistry:
             for spec in self.authorized_specs(allowed)
         ]
 
-    def prompt_block(self, allowed: tuple[str, ...] = ()) -> str:
+    def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
         return "\n".join(
             f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）：{spec.description}"
             for spec in self.authorized_specs(allowed)
@@ -127,10 +132,7 @@ class ResearchToolRegistry:
         is_cancelled: Callable[[], bool] | None = None,
     ) -> ToolObservation:
         spec = self.resolve(name)
-        if (
-            context.contract.allowed_capabilities
-            and spec.capability not in context.contract.allowed_capabilities
-        ):
+        if spec.capability not in context.contract.allowed_capabilities:
             raise UnknownResearchTool(
                 f"能力未授权：{spec.capability}（工具 {spec.name}）"
             )

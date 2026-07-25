@@ -122,6 +122,14 @@ _EXPLICIT_LIST_COUNT_RE = re.compile(
     r"(?P<count>\d+|[一二两三四五六七八九十]+)"
     r"(?P<unit>点|条|项|个|方面|种)"
 )
+_PREFIXED_LIST_COUNT_RE = re.compile(
+    r"(?P<count>\d+|[一二两三四五六七八九十]+)"
+    r"(?P<unit>层)"
+    r"(?P<descriptor>[^，,。；;\n]{0,12}?(?:框架|方法|验证|条件|要点))"
+)
+_PAREN_LIST_NUMBER_RE = re.compile(
+    r"(?P<open>[(（])(?P<number>\d{1,2})(?P<close>[)）])"
+)
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
 _PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
@@ -2089,7 +2097,15 @@ def _reconcile_explicit_list_counts(before: str, after: str) -> str:
     count that cannot be mapped safely is removed rather than guessed.
     """
 
-    matches = tuple(_EXPLICIT_LIST_COUNT_RE.finditer(before))
+    matches = tuple(
+        sorted(
+            (
+                *_EXPLICIT_LIST_COUNT_RE.finditer(before),
+                *_PREFIXED_LIST_COUNT_RE.finditer(before),
+            ),
+            key=lambda item: item.start(),
+        )
+    )
     if not matches:
         return after
     replacements: list[tuple[int, int, str]] = []
@@ -2098,7 +2114,7 @@ def _reconcile_explicit_list_counts(before: str, after: str) -> str:
         original_count = _parse_small_count(match.group("count"))
         if original_count is None:
             continue
-        before_group = _next_ordered_group_count(
+        before_group = _next_list_group_count(
             before,
             match.end(),
             contiguous=False,
@@ -2111,23 +2127,28 @@ def _reconcile_explicit_list_counts(before: str, after: str) -> str:
             continue
         after_end = after_start + len(phrase)
         after_cursor = after_end
-        after_group = _next_ordered_group_count(after, after_end)
+        after_group = _next_list_group_count(after, after_end)
         if after_group == original_count:
             continue
         if after_group is None or after_group < 1:
-            replacements.append((after_start, after_end, match.group("label")))
+            label = match.groupdict().get("label") or ""
+            descriptor = match.groupdict().get("descriptor") or ""
+            replacements.append(
+                (after_start, after_end, label or descriptor)
+            )
             continue
         rendered_count = _render_small_count(
             after_group,
             chinese=not match.group("count").isdigit(),
         )
-        replacements.append(
-            (
-                after_start,
-                after_end,
-                f"{match.group('label')}有{rendered_count}{match.group('unit')}",
-            )
+        label = match.groupdict().get("label")
+        descriptor = match.groupdict().get("descriptor")
+        replacement = (
+            f"{label}有{rendered_count}{match.group('unit')}"
+            if label
+            else f"{rendered_count}{match.group('unit')}{descriptor}"
         )
+        replacements.append((after_start, after_end, replacement))
     # Apply from right to left so each replacement keeps later offsets stable.
     for start, end, replacement in reversed(replacements):
         if end <= len(after):
@@ -2165,6 +2186,54 @@ def _next_ordered_group_count(
     return group_count if started else None
 
 
+def _next_list_group_count(
+    text: str,
+    start: int,
+    *,
+    contiguous: bool = True,
+) -> int | None:
+    ordered = _next_ordered_group_count(
+        text,
+        start,
+        contiguous=contiguous,
+    )
+    parenthesized = _next_parenthesized_group_count(
+        text,
+        start,
+        contiguous=contiguous,
+    )
+    if ordered is None:
+        return parenthesized
+    if parenthesized is None:
+        return ordered
+    return max(ordered, parenthesized)
+
+
+def _next_parenthesized_group_count(
+    text: str,
+    start: int,
+    *,
+    contiguous: bool = True,
+) -> int | None:
+    tail = text[start : start + 1200]
+    matches = tuple(_PAREN_LIST_NUMBER_RE.finditer(tail))
+    if not matches or matches[0].start() > 400:
+        return None
+    count = 1
+    expected = int(matches[0].group("number")) + 1
+    previous = matches[0]
+    for match in matches[1:]:
+        bridge = tail[previous.end() : match.start()]
+        if len(bridge) > 400 or re.search(r"[。！？!?\n]", bridge):
+            break
+        if contiguous and int(match.group("number")) != expected:
+            break
+        count += 1
+        expected = int(match.group("number")) + 1
+        previous = match
+    return count if count >= 2 else None
+
+
 def _parse_small_count(value: str) -> int | None:
     if value.isdigit():
         parsed = int(value)
@@ -2197,7 +2266,9 @@ def _render_small_count(value: int, *, chinese: bool) -> str:
     if not chinese:
         return str(value)
     if value <= 10:
-        return "一二两三四五六七八九十"[value - 1]
+        return ("一", "二", "三", "四", "五", "六", "七", "八", "九", "十")[
+            value - 1
+        ]
     if value < 20:
         return "十" + "一二三四五六七八九"[value - 11]
     return str(value)
@@ -2243,7 +2314,48 @@ def _renumber_circled_list_items(source: str) -> str:
             if position <= len(_CIRCLED_LIST_NUMBERS)
             else char
         )
-    return "".join(rendered)
+    return _renumber_parenthesized_list_items("".join(rendered))
+
+
+def _renumber_parenthesized_list_items(source: str) -> str:
+    """Renumber inline ``(2), (3)`` list groups after deletion."""
+
+    matches = list(_PAREN_LIST_NUMBER_RE.finditer(source))
+    groups: list[list[re.Match[str]]] = []
+    current: list[re.Match[str]] = []
+    for match in matches:
+        if not current:
+            current = [match]
+            continue
+        bridge = source[current[-1].end() : match.start()]
+        increasing = int(match.group("number")) > int(
+            current[-1].group("number")
+        )
+        if len(bridge) <= 400 and not re.search(r"[。！？!?\n]", bridge) and increasing:
+            current.append(match)
+            continue
+        if len(current) >= 2:
+            groups.append(current)
+        current = [match]
+    if len(current) >= 2:
+        groups.append(current)
+
+    replacements: list[tuple[int, int, str]] = []
+    for group in groups:
+        numbers = [int(match.group("number")) for match in group]
+        if numbers == list(range(1, len(group) + 1)):
+            continue
+        for index, match in enumerate(group, start=1):
+            replacements.append(
+                (
+                    match.start(),
+                    match.end(),
+                    f"{match.group('open')}{index}{match.group('close')}",
+                )
+            )
+    for start, end, replacement in reversed(replacements):
+        source = f"{source[:start]}{replacement}{source[end:]}"
+    return source
 
 
 def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
