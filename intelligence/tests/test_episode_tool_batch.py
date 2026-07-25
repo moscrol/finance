@@ -633,6 +633,56 @@ def test_episode_scoped_snapshot_succeeds_only_once_across_rewritten_queries() -
     assert runner_calls == 1
 
 
+def test_available_tool_names_remove_collected_episode_snapshot() -> None:
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="episode snapshot",
+                cost="local",
+                freshness="current",
+                runner=lambda query, _context: _evidence_result(
+                    "market_data",
+                    query,
+                ),
+                query_scope="episode",
+            ),
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="query search",
+                cost="local",
+                freshness="stable",
+                runner=lambda query, _context: _evidence_result(
+                    "kb_search",
+                    query,
+                ),
+            ),
+        )
+    )
+    context = _context(allowed=("market_data", "kb_search"))
+    session = ToolBatchExecutor().new_session()
+
+    assert session.available_tool_names(
+        registry=registry,
+        context=context,
+    ) == ("market_data", "kb_search")
+
+    first = session.execute(
+        (ModelToolCall("market", "market_data", {"query": "current"}),),
+        registry=registry,
+        context=context,
+        remaining_slots=2,
+    )
+
+    assert first.items[0].status == "success"
+    assert session.available_tool_names(
+        registry=registry,
+        context=context,
+    ) == ("kb_search",)
+
+
 def test_same_session_serializes_concurrent_duplicate_admission() -> None:
     runner_started = Event()
     release_runner = Event()

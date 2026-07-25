@@ -379,6 +379,27 @@ def test_acceptance_questions_keep_their_semantics_without_controller_llm(
     assert required_output in result.task_frame.required_outputs
 
 
+def test_comparative_mainline_decision_overrides_single_theme_defaults() -> None:
+    result = TurnControlCore().control(
+        "低空经济和商业航天，未来一个月哪个更可能成为A股主线，为什么",
+        llm_complete=lambda _messages: pytest.fail(
+            "explicit comparative decision must not depend on controller LLM"
+        ),
+    )
+
+    assert result.execution_route == "comparison"
+    assert result.task_frame.question_type == "comparison"
+    assert result.task_frame.subject is None
+    assert result.task_frame.timeframe == "未来一个月"
+    assert result.task_frame.required_outputs == (
+        "comparison_conclusion",
+        "supporting_evidence",
+        "counterpoint",
+        "invalidation_conditions",
+    )
+    assert {"market_data", "mainline_context"}.issubset(result.capabilities)
+
+
 @pytest.mark.parametrize(
     ("query", "question_type", "required_output", "coarse_output"),
     (

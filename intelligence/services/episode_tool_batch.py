@@ -90,6 +90,24 @@ class EpisodeToolBatchSession:
         self._next_call_sequence = 1
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
 
+    def available_tool_names(
+        self,
+        *,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+    ) -> tuple[str, ...]:
+        """Return the tools that remain meaningful for the next model turn."""
+
+        with self._lock:
+            return tuple(
+                spec.name
+                for spec in registry.authorized_specs(
+                    context.contract.allowed_capabilities
+                )
+                if spec.query_scope != "episode"
+                or spec.name not in self._successful_episode_tools
+            )
+
     def execute(
         self,
         calls: tuple[ModelToolCall, ...],

@@ -209,10 +209,14 @@ def build_task_frame(
         subject = "A股市场" if market_scope == "A股" else f"{market_scope}市场"
         subject_kind = "market_pattern"
 
-    outputs = _merge_strings(
-        _default_required_outputs(question_type, question),
-        _explicit_required_outputs(question),
-        tuple(str(item) for item in envelope.required_outputs),
+    explicit_outputs = _explicit_required_outputs(question)
+    outputs = (
+        explicit_outputs
+        if explicit_outputs
+        else _merge_strings(
+            _default_required_outputs(question_type, question),
+            tuple(str(item) for item in envelope.required_outputs),
+        )
     )
     ambiguities = (
         ("“这个反弹”缺少可唯一绑定的主体，可能改变工具和结论",)

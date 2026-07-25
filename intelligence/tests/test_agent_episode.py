@@ -1139,6 +1139,61 @@ def test_complete_episode_snapshot_surface_forces_immediate_finalization() -> No
     assert finalization.payload["reason"] == "snapshot_surface_satisfied"
 
 
+def test_next_model_turn_sees_dynamic_tools_and_remaining_budget() -> None:
+    frame = _frame()
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="行情快照",
+                cost="local",
+                freshness="current",
+                runner=_successful_runner,
+                query_scope="episode",
+            ),
+            ToolSpec(
+                name="web_search",
+                capability="web_search",
+                description="网页检索",
+                cost="external",
+                freshness="current",
+                runner=_successful_runner,
+            ),
+        )
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("最新行情"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            max_steps=2,
+            allowed_capabilities=("market_data", "web_search"),
+        ),
+        registry=registry,
+    )
+
+    first_tools = {
+        item["function"]["name"] for item in model.calls[0]["tools"]
+    }
+    second_tools = {
+        item["function"]["name"] for item in model.calls[1]["tools"]
+    }
+    assert first_tools == {"market_data", "web_search"}
+    assert second_tools == {"web_search"}
+    assert model.calls[1]["messages"][-1]["role"] == "tool"
+    budget_payload = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert budget_payload["runtime_budget"]["remaining_tool_calls"] == 1
+    assert outcome.status == "completed"
+    assert outcome.usage.invalid_actions == 0
+
+
 def test_episode_snapshot_binding_expands_to_the_complete_atomic_snapshot() -> None:
     frame = _frame()
 

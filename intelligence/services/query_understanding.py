@@ -264,6 +264,9 @@ _MARKET_CAUSE_RE = re.compile(
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
 )
+_CHINESE_MONTH_HORIZON_RE = re.compile(
+    r"(?:未来|接下来)?\s*(一|二|两)\s*个?月"
+)
 _COMPOSITIONAL_SUBJECT_CUE_RE = re.compile(r"(?:研究|分析|深挖|评估)")
 _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
     "未来",
@@ -285,6 +288,8 @@ _COMPARISON_RE = re.compile(
     r"|[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}(?:和|与)"
     r"[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}.{0,16}"
     r"(?:分别|差异|区别|竞争优势|优劣)"
+    r"|(?:和|与).{0,32}(?:哪个|哪一个|谁).{0,20}"
+    r"(?:更|优先|胜出|主线)"
 )
 _RELATION_RE = re.compile(
     r"(上游|下游|供应|客户|合作|产业链位置|处于.{0,8}环节|关系)"
@@ -678,6 +683,9 @@ def _time_horizon(query: str) -> TimeHorizon:
         if end <= 6:
             return "medium"
         return "long"
+    chinese_month_window = _CHINESE_MONTH_HORIZON_RE.search(text)
+    if chinese_month_window is not None:
+        return "short" if chinese_month_window.group(1) == "一" else "medium"
     if any(term in text for term in ("盘中", "日内", "今天", "今日")):
         return "intraday"
     if any(term in text for term in ("短期", "短线", "未来几周")):
@@ -877,10 +885,17 @@ def understand_query(
         return replace(legacy, task_frame=frame)
 
     timeframe_match = _DATE_RE.search(text)
+    month_horizon_match = (
+        _MONTH_HORIZON_RE.search(text)
+        or _CHINESE_MONTH_HORIZON_RE.search(text)
+    )
     timeframe = (
         timeframe_match.group(0)
         if timeframe_match
-        else next((term for term in _RELATIVE_TIMEFRAMES if term in text), None)
+        else next(
+            (term for term in _RELATIVE_TIMEFRAMES if term in text),
+            month_horizon_match.group(0) if month_horizon_match else None,
+        )
     )
 
     if is_market_cause_query(text):

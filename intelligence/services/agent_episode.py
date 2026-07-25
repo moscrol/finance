@@ -27,7 +27,11 @@ from intelligence.services.episode_protocol import (
     expand_episode_snapshot_bindings,
     validate_episode_finish,
 )
-from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolBatchResult
+from intelligence.services.episode_tool_batch import (
+    EpisodeToolBatchSession,
+    ToolBatchExecutor,
+    ToolBatchResult,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -229,7 +233,6 @@ class ContinuousAgentEpisode:
             },
         ]
         accumulator = _EpisodeToolAccumulator(messages=messages, ledger=ledger)
-        definitions = registry.tool_definitions(context.contract.allowed_capabilities)
         finalization_started = False
         for _round in range(1, context.policy.max_steps + 2):
             if self._is_cancelled():
@@ -283,6 +286,11 @@ class ContinuousAgentEpisode:
                 )
 
             try:
+                definitions = self._available_tool_definitions(
+                    tool_session=tool_session,
+                    registry=registry,
+                    context=context,
+                )
                 turn = self._model.complete(
                     messages=list(messages),
                     tools=[] if finalization_started else definitions,
@@ -437,6 +445,13 @@ class ContinuousAgentEpisode:
                 )
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                self._append_tool_budget_state(
+                    messages=messages,
+                    remaining_slots=max(
+                        0,
+                        context.policy.max_steps - tool_calls,
+                    ),
+                )
                 if self._snapshot_surface_satisfied(
                     registry=registry,
                     context=context,
@@ -549,6 +564,54 @@ class ContinuousAgentEpisode:
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
         )
+
+    @staticmethod
+    def _available_tool_definitions(
+        *,
+        tool_session: EpisodeToolBatchSession,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+    ) -> list[dict[str, object]]:
+        available = set(
+            tool_session.available_tool_names(
+                registry=registry,
+                context=context,
+            )
+        )
+        return [
+            definition
+            for definition in registry.tool_definitions(
+                context.contract.allowed_capabilities
+            )
+            if isinstance(function := definition.get("function"), dict)
+            and function.get("name") in available
+        ]
+
+    @staticmethod
+    def _append_tool_budget_state(
+        *,
+        messages: list[dict[str, object]],
+        remaining_slots: int,
+    ) -> None:
+        if not messages or messages[-1].get("role") != "tool":
+            return
+        content = messages[-1].get("content")
+        if not isinstance(content, str):
+            return
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(payload, dict):
+            return
+        payload["runtime_budget"] = {
+            "remaining_tool_calls": remaining_slots,
+            "instruction": (
+                "下一轮工具调用总数不得超过 remaining_tool_calls；"
+                "只能调用当前菜单中仍可见的工具；证据足够时直接输出 FINAL_JSON。"
+            ),
+        }
+        messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
 
     @staticmethod
     def _begin_finalization(
