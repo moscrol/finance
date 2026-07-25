@@ -26,9 +26,14 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 
-from intelligence.services import llm_refine, market_news, web_research
+from intelligence.services import (
+    closed_loop_retrieval,
+    llm_refine,
+    market_news,
+    web_research,
+)
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_state import EvidenceObservation, ResearchState
 
 ENV_MODE = "ASK_AGENT_LOOP"
@@ -211,6 +216,7 @@ class AgentToolContext:
         repr=False,
         compare=False,
     )
+    information_cutoff: InformationCutoff | None = None
 
     @property
     def cancelled(self) -> bool:
@@ -249,16 +255,19 @@ def build_default_tools(
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
         context.check_cancelled()
         hits = list(getattr(rag, "hits", ()) or ())[:5]
-        evidence = [
-            AgentEvidence(
-                tool="kb_search",
-                title=hit.title,
-                detail=(hit.excerpt or "")[:160],
-                source="本地知识库",
-                internal_locator=hit.file_path,
+        evidence = []
+        for hit in hits:
+            hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
+            evidence.append(
+                AgentEvidence(
+                    tool="kb_search",
+                    title=hit.title,
+                    detail=(hit.excerpt or "")[:160],
+                    source="本地知识库",
+                    internal_locator=hit.file_path,
+                    source_date=hit_date.isoformat() if hit_date is not None else None,
+                )
             )
-            for hit in hits
-        ]
         observation = (
             "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
             or f"无命中（{getattr(getattr(rag, 'telemetry', None), 'status', 'unknown')}）"
@@ -416,6 +425,7 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                 ),
                 source="本地证据索引",
                 internal_locator="wiki/relations/evidence_index.json",
+                source_date=str(item.get("source_date") or "") or None,
             )
             for item in (bundle.get("items") or [])[:6]
             if isinstance(item, dict)

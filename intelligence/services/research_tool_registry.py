@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from intelligence.services import agent_research, query_ledger
+from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 
@@ -146,10 +146,47 @@ class ResearchToolRegistry:
                 agent_research.AgentToolContext(
                     context.deadline,
                     is_cancelled or (lambda: False),
+                    context.information_cutoff,
                 ),
             )
             if is_cancelled is not None and is_cancelled():
                 raise RuntimeError("agent tool cancelled")
+            served_date = closed_loop_retrieval.latest_served_date(
+                evidence,
+                date_getter=lambda item: item.source_date,
+            )
+            if served_date is None:
+                parsed_trade_date = closed_loop_retrieval.parse_source_date(
+                    trace.source_trade_date
+                )
+                served_date = (
+                    parsed_trade_date.isoformat()
+                    if parsed_trade_date is not None
+                    else None
+                )
+            evidence, rejected = closed_loop_retrieval.filter_future_dated(
+                evidence,
+                information_cutoff=context.information_cutoff,
+                date_getter=lambda item: item.source_date,
+            )
+            trace_trade_date = closed_loop_retrieval.parse_source_date(
+                trace.source_trade_date
+            )
+            if (
+                trace_trade_date is not None
+                and trace_trade_date > context.information_cutoff.as_of_date
+                and evidence
+                and not any(item.source_date for item in evidence)
+            ):
+                rejected.extend(evidence)
+                evidence = []
+            if rejected:
+                observation = (
+                    "；".join(
+                        f"{item.title}：{item.detail[:80]}" for item in evidence
+                    )
+                    or "检索结果均因 future_of_cutoff 被过滤"
+                )
             evidence = [
                 item
                 if item.content_hash
@@ -161,8 +198,21 @@ class ResearchToolRegistry:
             ]
             trace = replace(
                 trace,
+                status=(
+                    "future_of_cutoff"
+                    if rejected and not evidence
+                    else trace.status
+                ),
+                detail=(
+                    f"{trace.detail}; future_of_cutoff={len(rejected)}".strip("; ")
+                    if rejected
+                    else trace.detail
+                ),
+                result_count=len(evidence),
                 parent_id=context.trace_parent_id,
                 step_id=step_id,
+                requested_date=context.information_cutoff.as_of_date.isoformat(),
+                served_date=served_date,
             )
             # The content hash is the stable identifier carried into
             # AgentOutcome/verifier. Do not mint a second observation-only ID.
@@ -180,7 +230,10 @@ class ResearchToolRegistry:
             f"generic:{spec.name}",
             normalized,
             fetch,
-            variant=spec.freshness,
+            variant=(
+                f"{spec.freshness};cutoff="
+                f"{context.information_cutoff.as_of_date.isoformat()}"
+            ),
         )
 
 

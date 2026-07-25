@@ -6,6 +6,8 @@ question and never imports private helpers from the legacy orchestrator.
 
 from __future__ import annotations
 
+from datetime import date
+
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,
@@ -13,6 +15,7 @@ from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
 from intelligence.services.research_contract import (
+    InformationCutoff,
     RequiredOutput,
     ResearchDeadline,
     ResearchPolicy,
@@ -196,6 +199,7 @@ def build_episode_context(
     today: str | None = None,
     latest_data_date: str | None = None,
     conversation_context: str = "",
+    information_cutoff: InformationCutoff | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -270,6 +274,10 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
     )
+    cutoff = information_cutoff or _default_information_cutoff(
+        today=today,
+        latest_data_date=latest_data_date,
+    )
     return ResearchRunContext(
         contract=contract,
         deadline=ResearchDeadline.from_timeout(
@@ -281,7 +289,26 @@ def build_episode_context(
         today=today,
         latest_data_date=latest_data_date,
         conversation_context=str(conversation_context or "").strip(),
+        information_cutoff=cutoff,
     )
+
+
+def _default_information_cutoff(
+    *,
+    today: str | None,
+    latest_data_date: str | None,
+) -> InformationCutoff:
+    try:
+        latest = date.fromisoformat(str(latest_data_date or "")[:10])
+    except ValueError:
+        pass
+    else:
+        return InformationCutoff(latest, "latest_available")
+    try:
+        runtime_date = date.fromisoformat(str(today or "")[:10])
+    except ValueError:
+        return InformationCutoff.runtime_default()
+    return InformationCutoff(runtime_date, "runtime_default")
 
 
 __all__ = ["build_episode_context"]

@@ -14,6 +14,7 @@ ProviderStatus = Literal[
     "stale",
     "fallback_success",
     "fallback_failed",
+    "future_of_cutoff",
 ]
 
 
@@ -27,6 +28,8 @@ class ProviderTrace:
     result_count: int = 0
     parent_id: str | None = None
     step_id: str | None = None
+    requested_date: str | None = None
+    served_date: str | None = None
 
     @classmethod
     def from_dict(cls, value: object) -> "ProviderTrace":
@@ -48,6 +51,16 @@ class ProviderTrace:
             ),
             step_id=(
                 str(value["step_id"]) if value.get("step_id") is not None else None
+            ),
+            requested_date=(
+                str(value["requested_date"])
+                if value.get("requested_date") is not None
+                else None
+            ),
+            served_date=(
+                str(value["served_date"])
+                if value.get("served_date") is not None
+                else None
             ),
         )
 

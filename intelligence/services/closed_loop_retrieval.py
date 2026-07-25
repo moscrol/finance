@@ -4,13 +4,16 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Literal, TypeAlias
+from datetime import date
+from typing import Literal, TypeAlias, TypeVar
 
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
+from intelligence.services.research_contract import InformationCutoff
 
 RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
+T = TypeVar("T")
 
 MAX_EMPTY_ATTEMPTS = 3
 MAX_TOTAL_SECONDS = 90.0
@@ -26,6 +29,7 @@ _TERM_RE = re.compile(
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
 )
+_ISO_DATE_RE = re.compile(r"(?<!\d)(20\d{2}-\d{1,2}-\d{1,2})(?!\d)")
 _GENERIC_TERMS = {
     "公司",
     "行业",
@@ -118,6 +122,7 @@ def retrieve_closed_loop(
     anchor: EntityAnchor | None,
     retrieve: Retrieve,
     total_seconds: float | None = None,
+    information_cutoff: InformationCutoff | None = None,
 ) -> ClosedLoopRetrievalResult:
     """闭环检索。``total_seconds`` 由调用方传入 turn 级预算切片；
     与本模块自身的 MAX_TOTAL_SECONDS 取 min——闭环不得突破 turn 根截止时间。"""
@@ -137,6 +142,7 @@ def retrieve_closed_loop(
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
@@ -147,6 +153,7 @@ def retrieve_closed_loop(
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     counter_hits = _run_aperture(
         "counter",
@@ -154,6 +161,7 @@ def retrieve_closed_loop(
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     _bucket_hits(
         (
@@ -188,6 +196,7 @@ def _run_aperture(
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
     budget: _AttemptBudget,
+    information_cutoff: InformationCutoff | None,
 ) -> list[WikiHit]:
     for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
         :MAX_EMPTY_ATTEMPTS
@@ -211,24 +220,98 @@ def _run_aperture(
         started = time.monotonic()
         response = retrieve(candidate)
         budget.observe(time.monotonic() - started)
+        eligible_hits, future_hits = filter_future_dated(
+            response.hits,
+            information_cutoff=information_cutoff,
+            date_getter=wiki_hit_source_date,
+        )
+        for hit in future_hits:
+            result.discarded.append(BucketedHit(aperture, hit))
+        if future_hits:
+            warning = (
+                f"{aperture} retrieval rejected {len(future_hits)} "
+                "future_of_cutoff hit(s)"
+            )
+            if warning not in result.warnings:
+                result.warnings.append(warning)
         if result.telemetry is None or response.hits:
             result.telemetry = response.telemetry
         result.attempts.append(
             RetrievalAttempt(
                 aperture=aperture,
                 query=candidate,
-                status=response.telemetry.status,
-                hit_count=len(response.hits),
+                status=(
+                    "future_of_cutoff"
+                    if future_hits and not eligible_hits
+                    else response.telemetry.status
+                ),
+                hit_count=len(eligible_hits),
             )
         )
         if response.warning:
             if response.warning not in result.warnings:
                 result.warnings.append(response.warning)
-        if response.ok and response.hits:
-            return response.hits
+        if response.ok and eligible_hits:
+            return eligible_hits
         if response.telemetry.status == "timeout":
             break
     return []
+
+
+def parse_source_date(value: object) -> date | None:
+    if type(value) is date:
+        return value
+    if not isinstance(value, str):
+        return None
+    match = _ISO_DATE_RE.search(value.strip())
+    if match is None:
+        return None
+    try:
+        year, month, day = (int(part) for part in match.group(1).split("-"))
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def wiki_hit_source_date(hit: WikiHit) -> date | None:
+    explicit = parse_source_date(hit.source_date)
+    if explicit is not None:
+        return explicit
+    # Content may discuss future forecast dates. Only source metadata or a
+    # date-stamped path is safe to treat as the document's publication date.
+    return parse_source_date(hit.file_path)
+
+
+def filter_future_dated(
+    items: Sequence[T],
+    *,
+    information_cutoff: InformationCutoff | None,
+    date_getter: Callable[[T], object],
+) -> tuple[list[T], list[T]]:
+    if information_cutoff is None:
+        return list(items), []
+    eligible: list[T] = []
+    future: list[T] = []
+    for item in items:
+        item_date = parse_source_date(date_getter(item))
+        if item_date is not None and item_date > information_cutoff.as_of_date:
+            future.append(item)
+        else:
+            eligible.append(item)
+    return eligible, future
+
+
+def latest_served_date(
+    items: Sequence[T],
+    *,
+    date_getter: Callable[[T], object],
+) -> str | None:
+    dates = tuple(
+        parsed
+        for item in items
+        if (parsed := parse_source_date(date_getter(item))) is not None
+    )
+    return max(dates).isoformat() if dates else None
 
 
 def _narrow_queries(query: str, anchor: EntityAnchor | None) -> tuple[str, ...]:

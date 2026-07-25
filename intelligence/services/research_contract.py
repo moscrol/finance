@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import date
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services.query_resolution import (
@@ -23,6 +24,11 @@ AnswerOwner: TypeAlias = Literal[
 OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
 GroundingMode: TypeAlias = Literal["evidence", "user_premise", "model_reasoning"]
+InformationCutoffSource: TypeAlias = Literal[
+    "requested",
+    "latest_available",
+    "runtime_default",
+]
 StageStatus: TypeAlias = Literal[
     "pending",
     "completed",
@@ -556,6 +562,32 @@ class ResearchTaskContract:
 
 
 @dataclass(frozen=True)
+class InformationCutoff:
+    as_of_date: date
+    source: InformationCutoffSource
+
+    def __post_init__(self) -> None:
+        if type(self.as_of_date) is not date:
+            raise ValueError("information cutoff must use a date")
+        if self.source not in {
+            "requested",
+            "latest_available",
+            "runtime_default",
+        }:
+            raise ValueError("unsupported information cutoff source")
+
+    @classmethod
+    def runtime_default(cls) -> InformationCutoff:
+        return cls(date.today(), "runtime_default")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "as_of_date": self.as_of_date.isoformat(),
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True)
 class ResearchRunContext:
     contract: ResearchTaskContract
     deadline: ResearchDeadline
@@ -566,6 +598,9 @@ class ResearchRunContext:
     today: str | None = None
     latest_data_date: str | None = None
     conversation_context: str = ""
+    information_cutoff: InformationCutoff = field(
+        default_factory=InformationCutoff.runtime_default
+    )
 
 
 @dataclass(frozen=True)

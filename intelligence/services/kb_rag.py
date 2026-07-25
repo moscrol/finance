@@ -143,6 +143,7 @@ class WikiHit:
     fact_hardness: str = ""
     source_type: str = ""
     via_neighbor: bool = False
+    source_date: str = ""
 
 
 # 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
@@ -1024,6 +1025,7 @@ def retrieve(
                 fact_hardness=str(item.get("fact_hardness") or ""),
                 source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
+                source_date=str(item.get("source_date") or item.get("date") or ""),
             )
         )
     if rejected_hits:
