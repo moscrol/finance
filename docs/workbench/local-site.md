@@ -112,6 +112,51 @@ UI 会明确显示“未配置 LLM”。产品默认使用服务端托管的 GLM
 首版只开放固定的 HTTPS provider endpoint，不接受任意 Base URL，避免把 BYOK
 接口变成访问内网地址的 SSRF 入口。
 
+### Agent Runtime backend
+
+`AGENT_RUNTIME_BACKEND` 显式选择长尾研究的执行内核；不设置时保持
+`continuous_glm`。支持值：
+
+- `continuous_glm`：仓库自建的连续 Episode 对照组；
+- `sdk_glm`：OpenAI Agents SDK 承载工具循环，模型仍使用托管 GLM；
+- `sdk_gpt`：同一 SDK/工具/verifier 合同，模型改用 `OPENAI_API_KEY` 和
+  `OPENAI_AGENT_MODEL`；
+- `codex_headless`：调用本机 Codex CLI 的质量上界对照，只允许隔离 benchmark，
+  还必须设置 `AGENT_RUNTIME_BENCHMARK_ENABLE=1`。
+
+SDK 是嵌入 Python 进程的 agent 执行库；headless 是启动一个没有图形界面的完整
+Codex CLI 子进程。前者适合垂直产品生产集成，后者只用于判断自建 runtime 与成熟
+harness 的质量差距。所有 backend 共用同一 TaskFrame、只读工具白名单、预算、
+结构/语义 verifier、Conversation/Run/SSE/UI。backend 不可用时 readiness 失败，
+禁止静默切换到其他 backend，否则 A/B 结果和费用归属都会失真。
+
+启动 `sdk_glm` 的示例（密钥值由进程环境或 Keychain 注入，不写入脚本）：
+
+```bash
+AGENT_RUNTIME_BACKEND=sdk_glm \
+ASK_CONTINUOUS_RUNTIME=on \
+FINANCE_WS=/Users/a77/finance-workspace-private \
+python -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8796
+```
+
+冻结九题 benchmark 必须显式传代码之外的真实数据根。runner 会在任何模型调用前
+检查 DuckDB 最新日期；数据早于题集 `as_of` 时 fail-closed，不再用旧快照冒充当前
+证据：
+
+```bash
+python scripts/run_agent_runtime_benchmark.py \
+  --backend continuous_glm \
+  --backend sdk_glm \
+  --questions-file intelligence/tests/fixtures/runtime_backend_cases.json \
+  --finance-root /Users/a77/finance-workspace-private \
+  --knowledge-wiki "/Users/a77/Desktop/c c/知识库/wiki" \
+  --output /Users/a77/.finance-runtime/evals/agent-runtime-backends.json
+```
+
+回滚只需在隔离进程中恢复 `AGENT_RUNTIME_BACKEND=continuous_glm` 并重启；不要在
+同一进程内按单题自动 fallback。切换 canonical 8792 仍须走本文和
+`canonical-8792-cutover.md` 的 clean revision、readiness、数据新鲜度与回滚门禁。
+
 ## 启动
 
 先配置所需的非敏感目录变量和可选的服务端 LLM secret，再从仓库根目录执行：
