@@ -22,6 +22,7 @@ AnswerOwner: TypeAlias = Literal[
 ]
 OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
+GroundingMode: TypeAlias = Literal["evidence", "user_premise", "model_reasoning"]
 StageStatus: TypeAlias = Literal[
     "pending",
     "completed",
@@ -382,6 +383,7 @@ class RequiredOutput:
     description: str
     evidence_types: tuple[str, ...] = ()
     required: bool = True
+    grounding_mode: GroundingMode = "evidence"
 
 
 @dataclass(frozen=True)
@@ -444,6 +446,11 @@ class ResearchTaskContract:
             raise ResearchContractError(f"未知研究档位：{self.research_tier}")
         if any(not item.output_id.strip() for item in self.required_outputs):
             raise ResearchContractError("required output id 不能为空")
+        if any(
+            item.grounding_mode not in {"evidence", "user_premise", "model_reasoning"}
+            for item in self.required_outputs
+        ):
+            raise ResearchContractError("required output grounding_mode 无效")
         for requirement in self.evidence_plan.requirements:
             if not requirement.provider_name.strip() or not requirement.capability.strip():
                 raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
@@ -491,6 +498,7 @@ class ResearchTaskContract:
                     description=str(raw.get("description") or ""),
                     evidence_types=tuple(str(item) for item in evidence_types),
                     required=bool(raw.get("required", True)),
+                    grounding_mode=str(raw.get("grounding_mode") or "evidence"),
                 )
             )
         capabilities = value.get("allowed_capabilities", ())

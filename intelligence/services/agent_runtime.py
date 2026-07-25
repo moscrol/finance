@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
 EpisodeStatus = Literal["completed", "partial", "clarification", "failed"]
 _EPISODE_STATUSES = frozenset({"completed", "partial", "clarification", "failed"})
+GroundingMode = Literal["evidence", "user_premise", "model_reasoning"]
+_GROUNDING_MODES = frozenset({"evidence", "user_premise", "model_reasoning"})
 
 
 def _json_copy(value: object, *, path: str) -> object:
@@ -166,6 +168,7 @@ class OutputEvidenceBinding:
     output_id: str
     evidence_hashes: tuple[str, ...]
     gap: str = ""
+    basis: GroundingMode = "evidence"
 
     def __post_init__(self) -> None:
         if not isinstance(self.output_id, str) or not self.output_id.strip():
@@ -177,17 +180,21 @@ class OutputEvidenceBinding:
         if not isinstance(self.gap, str):
             raise ValueError("output binding gap must be a string")
         gap = self.gap.strip()
-        if not hashes and not gap:
+        if self.basis not in _GROUNDING_MODES:
+            raise ValueError("unsupported grounding basis")
+        if self.basis == "evidence" and not hashes and not gap:
             raise ValueError("output binding must contain evidence or a gap")
         object.__setattr__(self, "output_id", self.output_id.strip())
         object.__setattr__(self, "evidence_hashes", hashes)
         object.__setattr__(self, "gap", gap)
+        object.__setattr__(self, "basis", self.basis)
 
     def to_dict(self) -> dict[str, object]:
         return {
             "output_id": self.output_id,
             "evidence_hashes": list(self.evidence_hashes),
             "gap": self.gap,
+            "basis": self.basis,
         }
 
 

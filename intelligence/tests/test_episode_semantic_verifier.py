@@ -254,6 +254,51 @@ def test_judge_receives_typed_claim_policy_for_requested_forecast(
     assert "一次返回全部不合格句号" in system_prompt
 
 
+def test_judge_receives_output_grounding_modes() -> None:
+    frame, structural = _structural("如果承接下降前提成立，则不能确认主线。")
+    assert structural.contract is not None
+    reasoning_contract = replace(
+        structural.contract,
+        required_outputs=(
+            replace(
+                structural.contract.required_outputs[0],
+                evidence_types=(),
+                grounding_mode="user_premise",
+            ),
+        ),
+        allowed_capabilities=(),
+        evidence_plan=EvidencePlan(),
+    )
+    reasoning_outcome = replace(
+        structural.outcome,
+        evidence=(),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                basis="user_premise",
+            ),
+        ),
+    )
+    reasoning_structural = verify_episode_outcome(
+        reasoning_contract,
+        reasoning_outcome,
+    )
+    model = _RecordingJudgeModel()
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=reasoning_structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    request = json.loads(model.calls[0]["messages"][1]["content"])
+    assert request["required_outputs"][0]["grounding_mode"] == "user_premise"
+    assert request["output_bindings"][0]["basis"] == "user_premise"
+    assert request["output_bindings"][0]["evidence_ids"] == []
+
+
 def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     monkeypatch,
 ) -> None:
@@ -1276,6 +1321,27 @@ def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
     assert "1）量能企稳" in result.public_answer
     assert "2）上涨广度维持" in result.public_answer
     assert "3）上涨广度维持" not in result.public_answer
+
+
+def test_semantic_repair_reconciles_explicit_list_count() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "依据有三点：\n"
+        "1）量能企稳。\n"
+        "2）若指数跌破99999点则失效。\n"
+        "3）上涨广度维持。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert "依据有二点" in result.public_answer
+    assert "依据有三点" not in result.public_answer
+    assert "99999点" not in result.public_answer
 
 
 def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:

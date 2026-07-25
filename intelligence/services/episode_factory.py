@@ -174,6 +174,16 @@ def _required_output_evidence_types(
     return capabilities
 
 
+def _grounding_mode(frame: TaskFrame) -> str:
+    """Project question semantics into the output grounding contract."""
+
+    if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
+        return "model_reasoning"
+    if frame.user_goal.startswith("判断反事实条件"):
+        return "user_premise"
+    return "evidence"
+
+
 def build_episode_context(
     frame: TaskFrame,
     *,
@@ -234,6 +244,7 @@ def build_episode_context(
                     capability_tuple,
                 ),
                 required=True,
+                grounding_mode=_grounding_mode(frame),
             )
             for output_id in _required_output_ids(frame)
         ),

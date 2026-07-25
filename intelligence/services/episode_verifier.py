@@ -99,6 +99,13 @@ def verify_episode_outcome(
                 issues.append(f"missing required output: {required.output_id}")
             continue
 
+        basis_mismatch = binding.basis != required.grounding_mode
+        if basis_mismatch:
+            issues.append(
+                f"grounding basis mismatch for {required.output_id}: "
+                f"expected {required.grounding_mode}, got {binding.basis}"
+            )
+
         if binding.gap:
             statuses.append(
                 OutputStatus(
@@ -161,11 +168,15 @@ def verify_episode_outcome(
             )
 
         valid = bool(
-            binding.evidence_hashes
+            (
+                required.grounding_mode != "evidence"
+                or bool(binding.evidence_hashes)
+            )
             and not unknown_hashes
             and not collided_hashes
             and not wrong_types
             and not missing_floor
+            and not basis_mismatch
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:

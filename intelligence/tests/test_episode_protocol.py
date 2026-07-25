@@ -6,6 +6,7 @@ import json
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_runtime import OutputEvidenceBinding
 from intelligence.services.episode_protocol import (
     EpisodeFinish,
     build_episode_input,
@@ -125,6 +126,13 @@ def test_finish_schema_is_closed_and_requires_all_fields() -> None:
     assert schema["type"] == "object"
     assert schema["additionalProperties"] is False
     assert set(schema["required"]) == {"status", "draft", "gaps", "bindings"}
+    binding_schema = schema["properties"]["bindings"]["items"]
+    assert "basis" in binding_schema["required"]
+    assert binding_schema["properties"]["basis"]["enum"] == [
+        "evidence",
+        "user_premise",
+        "model_reasoning",
+    ]
 
 
 def test_protocol_builds_task_bound_instructions_and_input() -> None:
@@ -202,3 +210,74 @@ def test_validate_finish_returns_immutable_value() -> None:
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         finish.status = "partial"  # type: ignore[misc]
+
+
+def test_validate_finish_accepts_model_reasoning_without_fake_evidence() -> None:
+    frame = _frame()
+    context = _context(frame)
+    context = dataclasses.replace(
+        context,
+        contract=dataclasses.replace(
+            context.contract,
+            required_outputs=(
+                RequiredOutput(
+                    "direct_assessment",
+                    "直接判断",
+                    (),
+                    True,
+                    grounding_mode="model_reasoning",
+                ),
+            ),
+            allowed_capabilities=(),
+        ),
+    )
+
+    finish = validate_episode_finish(
+        {
+            "status": "completed",
+            "draft": "判断新题材时，应先定义可证伪条件，再观察资金接力。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": [],
+                    "basis": "model_reasoning",
+                    "gap": "",
+                }
+            ],
+        },
+        context=context,
+        evidence=(),
+    )
+
+    assert finish.bindings == (
+        OutputEvidenceBinding(
+            "direct_assessment",
+            (),
+            basis="model_reasoning",
+        ),
+    )
+
+
+def test_validate_finish_rejects_basis_that_weakens_evidence_contract() -> None:
+    frame = _frame()
+    context = _context(frame)
+
+    with pytest.raises(ValueError, match="grounding basis"):
+        validate_episode_finish(
+            {
+                "status": "completed",
+                "draft": "当前市场已经转强。",
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": [],
+                        "basis": "model_reasoning",
+                        "gap": "",
+                    }
+                ],
+            },
+            context=context,
+            evidence=(),
+        )

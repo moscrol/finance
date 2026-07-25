@@ -111,6 +111,62 @@ def test_valid_evidence_bindings_complete_the_episode() -> None:
     assert verified.issues == ()
 
 
+@pytest.mark.parametrize("grounding_mode", ("model_reasoning", "user_premise"))
+def test_non_evidence_grounding_can_complete_without_fake_hashes(
+    grounding_mode: str,
+) -> None:
+    contract = _contract(
+        outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "直接判断",
+                (),
+                grounding_mode=grounding_mode,
+            ),
+        ),
+        allowed_capabilities=(),
+    )
+    outcome = _outcome(
+        draft="如果用户给出的承接下降前提成立，则该板块不能按主线确认。",
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                basis=grounding_mode,
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(contract, outcome)
+
+    assert verified.verified_status == "completed"
+    assert verified.completion.outputs[0].status == "fulfilled"
+    assert verified.issues == ()
+
+
+def test_evidence_output_cannot_be_laundered_as_model_reasoning() -> None:
+    outcome = _outcome(
+        draft="当前市场已经转强。",
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                basis="model_reasoning",
+            ),
+            OutputEvidenceBinding(
+                "evidence_boundary",
+                (),
+                basis="model_reasoning",
+            ),
+        ),
+    )
+
+    verified = verify_episode_outcome(_contract(), outcome)
+
+    assert verified.verified_status == "partial"
+    assert any("grounding basis" in issue for issue in verified.issues)
+
+
 def test_shared_hash_is_structural_only_and_does_not_overload_supports() -> None:
     market = _evidence("market_data", "market-1")
     outcome = _outcome(

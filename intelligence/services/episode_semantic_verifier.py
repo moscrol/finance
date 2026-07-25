@@ -116,6 +116,12 @@ _ORDERED_LIST_ITEM_RE = re.compile(
     r"^(?P<indent>\s*)(?P<number>\d+)(?P<suffix>[）).、])(?P<body>.*)$"
 )
 _CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
+_EXPLICIT_LIST_COUNT_RE = re.compile(
+    r"(?P<label>依据|理由|原因|条件|要点|因素|信号|维度|方面)"
+    r"\s*(?:(?:一共|共|有|包括)\s*)?"
+    r"(?P<count>\d+|[一二两三四五六七八九十]+)"
+    r"(?P<unit>点|条|项|个|方面|种)"
+)
 _NUMERIC_CONDITION_ISSUE = "unsupported numeric condition without bound evidence"
 _CALENDAR_WEEKDAY_ISSUE = "calendar weekday mismatch with bound evidence"
 _PATH_TREND_ISSUE = "path trend mismatch with bound evidence"
@@ -232,7 +238,9 @@ _JUDGE_SYSTEM_PROMPT = (
     "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
     "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
     "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
-    "E 编号，output_bindings.evidence_ids 与其对应。遵循 claim_policy。只输出一个严格 "
+    "E 编号，output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+    "grounding_mode 是硬边界：evidence 只能引用直接证据，user_premise 只能评估用户"
+    "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。遵循 claim_policy。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -898,6 +906,7 @@ class SemanticEpisodeVerifier:
                     "output_id": item.output_id,
                     "description": item.description,
                     "required": item.required,
+                    "grounding_mode": item.grounding_mode,
                 }
                 for item in contract.required_outputs
             ]
@@ -2042,6 +2051,7 @@ def _drop_rejected_sentences(
     """
 
     source = str(draft or "")
+    original_source = source
     rejected = frozenset(rejected_sentence_indexes)
     spans: list[tuple[int, int]] = []
     cursor = 0
@@ -2067,7 +2077,130 @@ def _drop_rejected_sentences(
         cursor = end
     for start, end in reversed(spans):
         source = f"{source[:start]}{source[end:]}"
-    return _renumber_ordered_list_items(source.strip())
+    repaired = _renumber_ordered_list_items(source.strip())
+    return _reconcile_explicit_list_counts(original_source, repaired)
+
+
+def _reconcile_explicit_list_counts(before: str, after: str) -> str:
+    """Keep an explicit count aligned with a surviving ordered-list group.
+
+    This is deliberately narrow: only a count phrase immediately followed by
+    one ordered list whose original length equals that count is eligible.  A
+    count that cannot be mapped safely is removed rather than guessed.
+    """
+
+    matches = tuple(_EXPLICIT_LIST_COUNT_RE.finditer(before))
+    if not matches:
+        return after
+    replacements: list[tuple[int, int, str]] = []
+    after_cursor = 0
+    for match in matches:
+        original_count = _parse_small_count(match.group("count"))
+        if original_count is None:
+            continue
+        before_group = _next_ordered_group_count(
+            before,
+            match.end(),
+            contiguous=False,
+        )
+        if before_group != original_count:
+            continue
+        phrase = match.group(0)
+        after_start = after.find(phrase, after_cursor)
+        if after_start < 0:
+            continue
+        after_end = after_start + len(phrase)
+        after_cursor = after_end
+        after_group = _next_ordered_group_count(after, after_end)
+        if after_group == original_count:
+            continue
+        if after_group is None or after_group < 1:
+            replacements.append((after_start, after_end, match.group("label")))
+            continue
+        rendered_count = _render_small_count(
+            after_group,
+            chinese=not match.group("count").isdigit(),
+        )
+        replacements.append(
+            (
+                after_start,
+                after_end,
+                f"{match.group('label')}有{rendered_count}{match.group('unit')}",
+            )
+        )
+    # Apply from right to left so each replacement keeps later offsets stable.
+    for start, end, replacement in reversed(replacements):
+        if end <= len(after):
+            after = f"{after[:start]}{replacement}{after[end:]}"
+    return after
+
+
+def _next_ordered_group_count(
+    text: str,
+    start: int,
+    *,
+    contiguous: bool = True,
+) -> int | None:
+    """Return the first ordered-list line group after ``start``."""
+
+    tail = text[start:].lstrip(" \t:：-")
+    lines = tail.splitlines()
+    group_count = 0
+    expected = 1
+    started = False
+    consumed_chars = 0
+    for line in lines:
+        match = _ORDERED_LIST_ITEM_RE.fullmatch(line)
+        if match is not None and (
+            not contiguous or int(match.group("number")) == expected
+        ):
+            started = True
+            group_count += 1
+            expected += 1
+        elif started:
+            break
+        consumed_chars += len(line) + 1
+        if not started and consumed_chars > 400:
+            break
+    return group_count if started else None
+
+
+def _parse_small_count(value: str) -> int | None:
+    if value.isdigit():
+        parsed = int(value)
+        return parsed if 1 <= parsed <= 20 else None
+    digits = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
+    if value == "十":
+        return 10
+    if len(value) == 1:
+        return digits.get(value)
+    if len(value) == 2 and value[0] == "十" and value[1] in digits:
+        return 10 + digits[value[1]]
+    if len(value) == 2 and value[1] == "十" and value[0] in digits:
+        return digits[value[0]] * 10
+    return None
+
+
+def _render_small_count(value: int, *, chinese: bool) -> str:
+    if not chinese:
+        return str(value)
+    if value <= 10:
+        return "一二两三四五六七八九十"[value - 1]
+    if value < 20:
+        return "十" + "一二三四五六七八九"[value - 11]
+    return str(value)
 
 
 def _renumber_ordered_list_items(source: str) -> str:
@@ -2184,8 +2317,9 @@ def _semantic_evidence_projection(
         if item.independent_key:
             projected["independent_key"] = item.independent_key
         registry.append(projected)
-    bindings = [
-        {
+    bindings: list[dict[str, object]] = []
+    for binding in outcome.bindings:
+        projected_binding: dict[str, object] = {
             "output_id": binding.output_id,
             "evidence_ids": [
                 alias_by_hash[evidence_hash]
@@ -2194,8 +2328,12 @@ def _semantic_evidence_projection(
             ],
             "gap": binding.gap,
         }
-        for binding in outcome.bindings
-    ]
+        # ``evidence`` is the historical default; omit it in the compact
+        # projection for compatibility while making non-evidence semantics
+        # explicit to the judge.
+        if binding.basis != "evidence":
+            projected_binding["basis"] = binding.basis
+        bindings.append(projected_binding)
     return bindings, registry
 
 

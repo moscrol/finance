@@ -182,3 +182,37 @@ def test_valuation_contract_has_current_anchor_scenarios_and_invalidation() -> N
     assert "evidence_lookup" in financial_anchor.evidence_types
     assert "market_data" not in financial_anchor.evidence_types
     assert "web_search" not in financial_anchor.evidence_types
+
+
+@pytest.mark.parametrize(
+    ("question", "expected_mode"),
+    (
+        (
+            "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+            "model_reasoning",
+        ),
+        (
+            "如果电力板块涨停家数很多但成交占比和核心股承接下降，还能算主线吗",
+            "user_premise",
+        ),
+        ("目前市场的主线是什么", "evidence"),
+    ),
+)
+def test_episode_factory_projects_task_semantics_into_grounding_modes(
+    question: str,
+    expected_mode: str,
+) -> None:
+    control = TurnControlCore().control(
+        question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="grounding-mode-test",
+        capabilities=control.capabilities,
+    )
+
+    assert {
+        item.grounding_mode for item in context.contract.required_outputs
+    } == {expected_mode}

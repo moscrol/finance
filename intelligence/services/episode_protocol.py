@@ -71,11 +71,20 @@ def finish_json_schema() -> dict[str, object]:
                             "type": "array",
                             "items": {"type": "string"},
                         },
+                        "basis": {
+                            "type": "string",
+                            "enum": [
+                                "evidence",
+                                "user_premise",
+                                "model_reasoning",
+                            ],
+                        },
                         "gap": {"type": "string"},
                     },
                     "required": [
                         "output_id",
                         "evidence_hashes",
+                        "basis",
                         "gap",
                     ],
                 },
@@ -129,7 +138,11 @@ def build_episode_instructions(
         "只输出一个 JSON 对象："
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
-        '"evidence_hashes":["..."],"gap":""}]}。'
+        '"evidence_hashes":["..."],"basis":"evidence|user_premise|model_reasoning",'
+        '"gap":""}]}。'
+        "每个 binding 的 basis 必须与对应 required output 的 grounding_mode 一致；"
+        "evidence 表示当前世界事实，user_premise 表示只评估用户给出的条件，"
+        "model_reasoning 表示方法论或推理框架，不得伪造证据哈希。"
         "binding.gap 只在该 required output 无法回答时填写；"
         "若 output 已由 evidence_hashes 支持并完成，binding.gap 必须为空，"
         "限制条件写入顶层 gaps 或 draft。"
@@ -209,9 +222,20 @@ def validate_episode_finish(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=tuple(raw_hashes),
             gap=str(raw.get("gap") or ""),
+            basis=str(raw.get("basis") or "evidence"),
         )
         if binding.output_id not in allowed_outputs:
             raise ValueError(f"unknown required output: {binding.output_id}")
+        required = next(
+            item
+            for item in context.contract.required_outputs
+            if item.output_id == binding.output_id
+        )
+        if binding.basis != required.grounding_mode:
+            raise ValueError(
+                f"grounding basis mismatch for {binding.output_id}: "
+                f"expected {required.grounding_mode}, got {binding.basis}"
+            )
         unknown = set(binding.evidence_hashes) - evidence_hashes
         if unknown:
             raise ValueError(
@@ -259,7 +283,11 @@ def validate_episode_finish(
             if required.required
             and (
                 required.output_id not in binding_map
-                or not binding_map[required.output_id].evidence_hashes
+                or binding_map[required.output_id].gap
+                or (
+                    required.grounding_mode == "evidence"
+                    and not binding_map[required.output_id].evidence_hashes
+                )
             )
         ]
         if missing:
@@ -311,6 +339,7 @@ def expand_episode_snapshot_bindings(
                 output_id=binding.output_id,
                 evidence_hashes=tuple(dict.fromkeys(hashes)),
                 gap=binding.gap,
+                basis=binding.basis,
             )
         )
     return tuple(expanded)
