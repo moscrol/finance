@@ -76,7 +76,7 @@
 在隔离 runtime：
 
 ```text
-2864 passed, 3 skipped, 8 warnings
+2867 passed, 3 skipped, 8 warnings
 ```
 
 前端：
