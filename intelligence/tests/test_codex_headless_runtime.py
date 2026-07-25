@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import shlex
 import subprocess
+from threading import Thread
 
 import pytest
 
@@ -12,6 +14,7 @@ from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.codex_headless_runtime import (
     CodexHeadlessRuntime,
     HeadlessCommand,
+    LocalExecCommandRunner,
     HeadlessProcessResult,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
@@ -556,3 +559,125 @@ def test_real_codex_headless_smoke() -> None:
     assert outcome.stop_reason in {"model_finish", "headless_invalid_finish"}
     assert calls
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in json.dumps(payload)
+
+
+def test_local_exec_runner_sends_command_and_environment_to_route() -> None:
+    received: list[dict[str, object]] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802 - stdlib handler contract
+            length = int(self.headers.get("Content-Length") or "0")
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            received.append(payload)
+            body = json.dumps(
+                {
+                    "ok": True,
+                    "exitCode": 0,
+                    "stdout": "jsonl-output",
+                    "stderr": "",
+                    "timedOut": False,
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _format: str, *args: object) -> None:
+            del args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        runner = LocalExecCommandRunner(
+            endpoint=f"http://127.0.0.1:{server.server_address[1]}",
+            token="route-token",
+        )
+        result = runner(
+            HeadlessCommand(
+                args=("/Applications/ChatGPT.app/Contents/Resources/codex", "exec", "prompt"),
+                cwd=Path.cwd(),
+                env={
+                    "FINANCE_TOOL_GATEWAY_URL": "http://127.0.0.1:4321",
+                    "FINANCE_TOOL_GATEWAY_TOKEN": "gateway-token",
+                },
+                timeout=12.5,
+            )
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    assert result == HeadlessProcessResult("jsonl-output", "", 0, False)
+    assert len(received) == 1
+    request = received[0]
+    assert request["cwd"] == str(Path.cwd())
+    assert request["timeout"] == 12.5
+    command = str(request["cmd"])
+    assert "FINANCE_TOOL_GATEWAY_URL=http://127.0.0.1:4321" in command
+    assert "FINANCE_TOOL_GATEWAY_TOKEN=gateway-token" in command
+    assert "/Applications/ChatGPT.app/Contents/Resources/codex exec prompt" in command
+
+
+def test_runtime_can_select_local_exec_transport_without_openai_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    received: list[dict[str, object]] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802 - stdlib handler contract
+            length = int(self.headers.get("Content-Length") or "0")
+            received.append(json.loads(self.rfile.read(length).decode("utf-8")))
+            stdout = json.dumps(
+                {"type": "error", "message": "usage limit reached"}
+            )
+            body = json.dumps(
+                {
+                    "ok": False,
+                    "exitCode": 1,
+                    "stdout": stdout,
+                    "stderr": "",
+                    "timedOut": False,
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, _format: str, *args: object) -> None:
+            del args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(
+        "CODEX_HEADLESS_BIN",
+        "/Applications/ChatGPT.app/Contents/Resources/codex",
+    )
+    try:
+        outcome = CodexHeadlessRuntime(
+            transport="local_exec",
+            local_exec_endpoint=f"http://127.0.0.1:{server.server_address[1]}",
+            local_exec_token="route-token",
+        ).run(
+            task_frame=_frame(),
+            context=_context(_frame()),
+            registry=_registry([]),
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    assert received
+    assert "/Applications/ChatGPT.app/Contents/Resources/codex" in str(
+        received[0]["cmd"]
+    )
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "headless_usage_limit"

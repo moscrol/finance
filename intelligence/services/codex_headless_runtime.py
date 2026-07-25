@@ -13,6 +13,9 @@ import subprocess
 import tempfile
 import time
 from types import MappingProxyType
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from intelligence.services.agent_runtime import (
     AgentOutcome,
@@ -99,6 +102,76 @@ HeadlessCommandRunner = Callable[[HeadlessCommand], HeadlessProcessResult]
 
 
 @dataclass(frozen=True)
+class LocalExecCommandRunner:
+    """Execute a headless command through the authenticated local exec route."""
+
+    endpoint: str
+    token: str
+
+    def __post_init__(self) -> None:
+        endpoint = str(self.endpoint or "").strip().rstrip("/")
+        parsed = urllib.parse.urlparse(endpoint)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"}:
+            raise ValueError("local exec endpoint must use loopback HTTP")
+        if not str(self.token or "").strip():
+            raise ValueError("local exec token is required")
+        object.__setattr__(self, "endpoint", endpoint)
+
+    def __call__(self, command: HeadlessCommand) -> HeadlessProcessResult:
+        environment = ["env"]
+        environment.extend(
+            f"{key}={value}" for key, value in sorted(command.env.items())
+        )
+        shell_command = shlex.join((*environment, *command.args))
+        payload = json.dumps(
+            {
+                "cmd": shell_command,
+                "cwd": str(command.cwd),
+                "timeout": min(command.timeout, 600.0),
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.endpoint}/api/exec",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=min(command.timeout + 5.0, 605.0),
+            ) as response:
+                value = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            return HeadlessProcessResult(
+                "",
+                f"local exec route HTTP {exc.code}",
+                exc.code,
+                False,
+            )
+        except (TimeoutError, urllib.error.URLError):
+            return HeadlessProcessResult("", "local exec route unavailable", -1, True)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return HeadlessProcessResult("", "local exec route returned invalid JSON", -1)
+        if not isinstance(value, dict):
+            return HeadlessProcessResult("", "local exec route returned invalid JSON", -1)
+        stdout = value.get("stdout")
+        stderr = value.get("stderr")
+        returncode = value.get("exitCode")
+        timed_out = value.get("timedOut")
+        return HeadlessProcessResult(
+            stdout if isinstance(stdout, str) else "",
+            stderr if isinstance(stderr, str) else "",
+            returncode if isinstance(returncode, int) and not isinstance(returncode, bool) else -1,
+            timed_out if isinstance(timed_out, bool) else False,
+        )
+
+
+@dataclass(frozen=True)
 class _ParsedJSONL:
     final_text: str
     thread_id: str
@@ -118,10 +191,36 @@ class CodexHeadlessRuntime:
         codex_bin: str | None = None,
         model: str | None = None,
         reasoning_effort: str = "high",
+        transport: str | None = None,
+        local_exec_endpoint: str | None = None,
+        local_exec_token: str | None = None,
         is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
-        self._command_runner = command_runner or _run_subprocess
-        self._codex_bin = str(codex_bin or shutil.which("codex") or "codex")
+        selected_transport = str(
+            transport or os.environ.get("CODEX_HEADLESS_TRANSPORT") or "subprocess"
+        ).strip().lower()
+        if selected_transport not in {"subprocess", "local_exec"}:
+            raise ValueError("unsupported Codex headless transport")
+        if command_runner is not None:
+            self._command_runner = command_runner
+        elif selected_transport == "local_exec":
+            endpoint = str(
+                local_exec_endpoint
+                or os.environ.get("CC_EXEC_URL")
+                or f"http://127.0.0.1:{os.environ.get('CC_EXEC_PORT', '28080')}"
+            )
+            self._command_runner = LocalExecCommandRunner(
+                endpoint=endpoint,
+                token=str(local_exec_token or os.environ.get("CC_EXEC_TOKEN") or ""),
+            )
+        else:
+            self._command_runner = _run_subprocess
+        self._codex_bin = str(
+            codex_bin
+            or os.environ.get("CODEX_HEADLESS_BIN")
+            or shutil.which("codex")
+            or "codex"
+        )
         cleaned_model = str(model or "").strip()
         self._model = cleaned_model or None
         self._reasoning_effort = str(reasoning_effort or "").strip().lower()
@@ -734,4 +833,5 @@ __all__ = [
     "HeadlessCommand",
     "HeadlessCommandRunner",
     "HeadlessProcessResult",
+    "LocalExecCommandRunner",
 ]

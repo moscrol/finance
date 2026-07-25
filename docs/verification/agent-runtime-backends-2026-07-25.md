@@ -94,7 +94,7 @@ pnpm build: passed
 
 `sdk_gpt` 已实现并有离线/缺凭证 readiness 测试，但当前环境没有 `OPENAI_API_KEY`，所以没有真实 GPT 分数。不得把实现存在当成 GPT live 验收。
 
-`codex_headless` 已实现为独立 subprocess benchmark adapter，真实 smoke 被账号 `headless_usage_limit` 阻塞；因此它只能作为待补的质量上界，不是本轮 A/B 的有效第三臂，也不应接入生产 UI。
+`codex_headless` 已实现为独立 subprocess benchmark adapter，并新增显式 `local_exec` 传输：通过 Codex Desktop 的 `28080/api/exec` 在当前已登录会话中启动 CLI，不需要 `OPENAI_API_KEY`。本次 local route smoke 已确认 `/api/ping`、CLI 启动和 adapter 嵌套工具网关均连通；真实 Codex arm 最终被账号 `headless_usage_limit` 阻塞。因此它仍只能作为待补的质量上界，不是本轮有效的第三臂，也不应接入生产 UI。
 
 ## 结论与下一步
 

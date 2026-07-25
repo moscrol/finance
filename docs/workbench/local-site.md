@@ -122,13 +122,35 @@ UI 会明确显示“未配置 LLM”。产品默认使用服务端托管的 GLM
 - `sdk_gpt`：同一 SDK/工具/verifier 合同，模型改用 `OPENAI_API_KEY` 和
   `OPENAI_AGENT_MODEL`；
 - `codex_headless`：调用本机 Codex CLI 的质量上界对照，只允许隔离 benchmark，
-  还必须设置 `AGENT_RUNTIME_BENCHMARK_ENABLE=1`。
+  还必须设置 `AGENT_RUNTIME_BENCHMARK_ENABLE=1`。在 Codex Desktop 已提供本地
+  `/api/exec` 路由时，可再设置 `CODEX_HEADLESS_TRANSPORT=local_exec`，让 CLI
+  通过当前已登录的本地会话执行，不需要 `OPENAI_API_KEY`；`CC_EXEC_TOKEN`
+  只能由本地进程环境注入，禁止写进脚本或仓库。
 
 SDK 是嵌入 Python 进程的 agent 执行库；headless 是启动一个没有图形界面的完整
 Codex CLI 子进程。前者适合垂直产品生产集成，后者只用于判断自建 runtime 与成熟
 harness 的质量差距。所有 backend 共用同一 TaskFrame、只读工具白名单、预算、
 结构/语义 verifier、Conversation/Run/SSE/UI。backend 不可用时 readiness 失败，
 禁止静默切换到其他 backend，否则 A/B 结果和费用归属都会失真。
+
+本地 Codex 路由的隔离 benchmark 示例（由已登录的 Codex Desktop 环境启动，
+不复制 token）：
+
+```bash
+AGENT_RUNTIME_BENCHMARK_ENABLE=1 \
+CODEX_HEADLESS_TRANSPORT=local_exec \
+CODEX_HEADLESS_BIN=/Applications/ChatGPT.app/Contents/Resources/codex \
+python scripts/run_agent_runtime_benchmark.py \
+  --backend codex_headless \
+  --questions-file intelligence/tests/fixtures/runtime_backend_cases.json \
+  --finance-root /Users/a77/finance-workspace-private \
+  --knowledge-wiki "/Users/a77/Desktop/c c/知识库/wiki" \
+  --output /Users/a77/.finance-runtime/evals/codex-headless-local-exec.json
+```
+
+`local_exec` 只改变 Codex CLI 的进程传输方式；金融工具仍通过本轮专属
+`HeadlessToolGateway`，工具白名单、预算、证据和出口 verifier 不变。若路由返回
+额度或认证错误，arm 必须记录失败，不能回退到 GLM。
 
 启动 `sdk_glm` 的示例（密钥值由进程环境或 Keychain 注入，不写入脚本）：
 
