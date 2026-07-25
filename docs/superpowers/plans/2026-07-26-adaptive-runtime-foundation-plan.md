@@ -17,12 +17,14 @@ repair**. It does not add FinanceQuery, sub-agents, memory writeback, or canonic
 8792 migration. Each task produces a focused commit and a review request. The
 producer must not start the next task until the matching light verdict is `PASS`.
 
-The information-cutoff contract is delivered as a complete foundation slice:
-the composition root freezes one cutoff, every model-visible tool result passes
-through the common registry filter, closed-loop knowledge retrieval filters
-before bucketing, and ProviderTrace retains requested/served dates. Future
-FinanceQuery and EvidenceSearch adapters must reuse this contract instead of
-creating provider-local cutoffs.
+This foundation establishes the information-cutoff value and enforces it on the
+continuous runtime's common tool registry plus closed-loop knowledge retrieval.
+It is not yet all-provider production coverage: legacy `ask.py` and
+`evidence_providers.py` callers do not consistently supply the cutoff, and
+undated Graph/L3/KB observations cannot be deterministically classified. The
+next `FinanceQuery + EvidenceSearch` slice must close those gaps before the new
+runtime may own data-bearing production traffic. All future adapters must reuse
+this contract instead of creating provider-local cutoffs.
 
 The live nine-case suite is forbidden during these tasks. Use scripted models,
 cached observations, focused tests, and at most one failing single-case live
@@ -41,8 +43,8 @@ replay after the slice is frozen.
 - Modify: `intelligence/services/research_contract.py` and
   `episode_factory.py` — immutable cutoff in the root run context.
 - Modify: `intelligence/services/research_tool_registry.py` and
-  `closed_loop_retrieval.py` — pre-observation cutoff enforcement for runtime
-  tools and knowledge retrieval.
+  `closed_loop_retrieval.py` — pre-observation cutoff enforcement for continuous
+  runtime tools and dated knowledge retrieval.
 - Modify: `intelligence/services/provider_observability.py`, `agent_research.py`,
   and `kb_rag.py` — requested/served date lineage and source-date propagation.
 - Modify: `intelligence/services/episode_protocol.py` — plan instruction and
@@ -169,10 +171,11 @@ Also run:
 ```
 
 The cutoff tests must prove the composition root freezes one value, every
-model-visible tool observation drops future-dated evidence, closed-loop
+continuous-registry observation drops source-dated future evidence, closed-loop
 retrieval rejects a high-scoring future hit before bucketing, ProviderTrace
 round-trips requested/served dates, and forecast dates inside article text do
-not masquerade as publication dates.
+not masquerade as publication dates. They must not claim coverage for legacy
+providers or undated observations.
 
 - [ ] **Step 5: Commit and request review**
 
@@ -191,9 +194,9 @@ git commit -m "feat: add user task and information cutoff seam"
 ```
 
 Write a review request naming the commit and both focused tests. It must verify
-the common registry filter rather than claim that each provider independently
-implements cutoff logic. Do not modify the producer worktree while the reviewer
-checks it.
+the continuous runtime's common registry filter, list legacy/undated boundaries,
+and avoid claiming that each provider independently implements cutoff logic. Do
+not modify the producer worktree while the reviewer checks it.
 
 ---
 
