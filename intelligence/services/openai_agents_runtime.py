@@ -66,6 +66,16 @@ def _sdk_runtime_timeout(context: ResearchRunContext) -> float:
     )
 
 
+def _allows_evidence_free_completion(context: ResearchRunContext) -> bool:
+    required = tuple(
+        item for item in context.contract.required_outputs if item.required
+    )
+    return bool(required) and all(
+        item.grounding_mode in {"user_premise", "model_reasoning"}
+        for item in required
+    )
+
+
 def build_glm_sdk_model(
     *,
     api_key: str,
@@ -644,7 +654,9 @@ class OpenAIAgentsRuntime:
             )
         except ValueError:
             recovery_timeout = _sdk_runtime_timeout(context)
-            if snapshot.evidence and recovery_timeout >= 1.0:
+            if (
+                snapshot.evidence or _allows_evidence_free_completion(context)
+            ) and recovery_timeout >= 1.0:
                 repair_request = AgentsSdkRequest(
                     instructions=(
                         build_episode_instructions(
@@ -655,7 +667,9 @@ class OpenAIAgentsRuntime:
                         + "\n"
                         "研究阶段已经关闭，禁止调用任何工具。"
                         "只修复终止 JSON envelope，不得增加新事实。"
-                        "只能引用给定证据哈希，缺失输出必须写 gap。"
+                        "evidence grounding 只能引用给定证据哈希；"
+                        "user_premise/model_reasoning 必须按 grounding_mode 完成，"
+                        "不得伪造证据哈希。缺失输出必须写 gap。"
                         "上方工具列表仅用于理解证据来源，本轮没有可调用工具。"
                     ),
                     input=json.dumps(

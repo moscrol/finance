@@ -295,8 +295,111 @@ def test_judge_receives_output_grounding_modes() -> None:
     assert result.status == "completed"
     request = json.loads(model.calls[0]["messages"][1]["content"])
     assert request["required_outputs"][0]["grounding_mode"] == "user_premise"
+    assert request["answer_grounding_mode"] == "user_premise"
     assert request["output_bindings"][0]["basis"] == "user_premise"
     assert request["output_bindings"][0]["evidence_ids"] == []
+    system_prompt = model.calls[0]["messages"][0]["content"]
+    assert "用户明确给出的前提视为真的假设" in system_prompt
+    assert "不能仅因缺少证据而拒绝" in system_prompt
+
+
+def test_model_reasoning_numeric_steps_are_not_treated_as_unsupported_facts() -> None:
+    draft = "验证路径：若T+1承接走弱则降级，T+2再检查扩散是否恢复。"
+    frame, structural = _structural(draft)
+    assert structural.contract is not None
+    contract = replace(
+        structural.contract,
+        required_outputs=(
+            replace(
+                structural.contract.required_outputs[0],
+                evidence_types=(),
+                grounding_mode="model_reasoning",
+            ),
+        ),
+        allowed_capabilities=(),
+        evidence_plan=EvidencePlan(),
+    )
+    outcome = replace(
+        structural.outcome,
+        evidence=(),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                basis="model_reasoning",
+            ),
+        ),
+    )
+    reasoning = verify_episode_outcome(contract, outcome)
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=reasoning,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+    assert draft in result.public_answer
+
+
+def test_user_premise_repair_does_not_require_evidence_style_markers() -> None:
+    frame, structural = _structural(
+        "直接判断：不能确认主线。替代判断：应先观察核心股承接。"
+    )
+    assert structural.contract is not None
+    contract = replace(
+        structural.contract,
+        required_outputs=(
+            replace(
+                structural.contract.required_outputs[0],
+                evidence_types=(),
+                grounding_mode="user_premise",
+            ),
+        ),
+        allowed_capabilities=(),
+        evidence_plan=EvidencePlan(),
+    )
+    outcome = replace(
+        structural.outcome,
+        evidence=(),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                basis="user_premise",
+            ),
+        ),
+    )
+    premise = verify_episode_outcome(contract, outcome)
+    calls = 0
+
+    def judge(_request):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [1],
+                "issues": ["第1句越过用户前提"],
+            }
+        return {
+            "passed": True,
+            "rejected_sentence_indexes": [],
+            "issues": [],
+        }
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=premise,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 2
+    assert result.status == "completed"
+    assert result.gap_output_ids == ()
+    assert "替代判断" in result.public_answer
+    assert "证据缺口" not in result.public_answer
 
 
 def test_judge_receives_sanitized_tool_status_for_empty_retrieval(

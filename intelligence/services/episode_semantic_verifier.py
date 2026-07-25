@@ -248,7 +248,11 @@ _JUDGE_SYSTEM_PROMPT = (
     "只能用“本轮资讯检索未命中”等自然语言。evidence_registry 使用本次裁判内的 "
     "E 编号，output_bindings.evidence_ids 与其对应。required_outputs 中的 "
     "grounding_mode 是硬边界：evidence 只能引用直接证据，user_premise 只能评估用户"
-    "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。遵循 claim_policy。只输出一个严格 "
+    "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。若 "
+    "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
+    "定性判断没有 evidence_ids 而拒绝；只有它把外部事实、历史胜率或当前行情冒充"
+    "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
+    "先证明该前提为真。遵循 claim_policy。只输出一个严格 "
     "JSON 对象，字段必须是 "
     "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
     "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
@@ -257,6 +261,21 @@ _JUDGE_SYSTEM_PROMPT = (
     "句号集合必须与 rejected_sentence_indexes 一致。若提供 "
     "submit_grounding_report 函数，必须优先"
     "调用它提交上述三个字段；只有不支持函数调用时才直接输出 JSON。"
+)
+
+_NON_EVIDENCE_JUDGE_SYSTEM_PROMPT = (
+    "你是方法论与反事实边界审查器。只审查用户 JSON，不引入外部知识，不重写句子。"
+    "answer_grounding_mode 只会是 model_reasoning 或 user_premise。"
+    "model_reasoning 允许模型给出分析框架、定性因果链、T+N 观察窗口、验证清单和"
+    "启发式阈值；这些内容不要求 evidence_ids，不能仅因缺少证据而拒绝。"
+    "user_premise 题中，用户明确给出的前提视为真的假设，不能要求先证明前提，也不能"
+    "把该前提改写成当前市场事实。只拒绝以下句子：冒充已核验的当前/历史外部事实，"
+    "编造历史胜率或支持性统计，把假设偷换成事实，偏离原问题，或暴露工具、provider、"
+    "哈希等控制字段。不要评价方法是否最优，也不要因它是经验规则、步骤或主观推理而"
+    "拒绝。必须检查全部编号句子。只输出严格 JSON：passed(boolean)、"
+    "rejected_sentence_indexes(integer list)、issues(string list)。passed=true 时"
+    "索引列表必须为空；passed=false 时 issues 只能说明被拒绝句并与索引一致。若提供 "
+    "submit_grounding_report 函数，必须优先调用它。"
 )
 
 _CLAIM_POLICY = {
@@ -458,7 +477,7 @@ class SemanticEpisodeVerifier:
                 )
                 if indexes
             )
-            marker_loss = lost_required_output_substance(
+            marker_loss = _lost_grounded_output_substance(
                 contract,
                 before_repair,
                 structural.outcome.draft,
@@ -567,7 +586,7 @@ class SemanticEpisodeVerifier:
             )
 
         repaired_verified, _repaired_frame = repaired
-        marker_loss = lost_required_output_substance(
+        marker_loss = _lost_grounded_output_substance(
             contract,
             structural.outcome.draft,
             repaired_verified.outcome.draft,
@@ -684,7 +703,7 @@ class SemanticEpisodeVerifier:
             )
             if repaired_twice is not None:
                 twice_verified, _twice_frame = repaired_twice
-                second_marker_loss = lost_required_output_substance(
+                second_marker_loss = _lost_grounded_output_substance(
                     contract,
                     repaired_verified.outcome.draft,
                     twice_verified.outcome.draft,
@@ -792,7 +811,7 @@ class SemanticEpisodeVerifier:
                         )
                         if terminal_repair is not None:
                             terminal_verified, _terminal_frame = terminal_repair
-                            terminal_marker_loss = lost_required_output_substance(
+                            terminal_marker_loss = _lost_grounded_output_substance(
                                 contract,
                                 twice_verified.outcome.draft,
                                 terminal_verified.outcome.draft,
@@ -926,6 +945,7 @@ class SemanticEpisodeVerifier:
         output_bindings, evidence_registry = _semantic_evidence_projection(
             verified.outcome
         )
+        answer_grounding_mode = _answer_grounding_mode(contract)
         return {
             "question": frame.raw_question,
             "task_frame": {
@@ -936,6 +956,7 @@ class SemanticEpisodeVerifier:
                 "user_goal": frame.user_goal,
             },
             "required_outputs": required_outputs,
+            "answer_grounding_mode": answer_grounding_mode,
             "output_bindings": output_bindings,
             "evidence_registry": evidence_registry,
             "tool_status_registry": _semantic_tool_status_registry(
@@ -967,7 +988,7 @@ class SemanticEpisodeVerifier:
             provider = None
         if provider is not None:
             messages = [
-                {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
+                {"role": "system", "content": _judge_system_prompt(request)},
                 {
                     "role": "user",
                     "content": json.dumps(request, ensure_ascii=False),
@@ -1066,7 +1087,7 @@ class SemanticEpisodeVerifier:
         if callable(primary) and not hasattr(primary, "complete"):
             return self._invoke_injected(cast(JudgeFn, primary), request, timeout, True)
         messages = [
-            {"role": "system", "content": _JUDGE_SYSTEM_PROMPT},
+            {"role": "system", "content": _judge_system_prompt(request)},
             {
                 "role": "user",
                 "content": json.dumps(request, ensure_ascii=False),
@@ -1640,6 +1661,14 @@ def _novel_numeric_condition_indexes(
     verified: VerifiedEpisodeOutcome,
 ) -> tuple[int, ...]:
     """Return conditional sentences containing quantities absent from evidence."""
+
+    contract = verified.contract
+    if contract is not None and contract.required_outputs and all(
+        item.grounding_mode != "evidence"
+        for item in contract.required_outputs
+        if item.required
+    ):
+        return ()
 
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
@@ -2449,6 +2478,48 @@ def _semantic_evidence_projection(
     return bindings, registry
 
 
+def _answer_grounding_mode(contract: object) -> str:
+    required_outputs = getattr(contract, "required_outputs", ())
+    modes = tuple(
+        dict.fromkeys(
+            str(getattr(item, "grounding_mode", "evidence"))
+            for item in required_outputs
+            if getattr(item, "required", True)
+        )
+    )
+    if not modes:
+        return "evidence"
+    return modes[0] if len(modes) == 1 else "mixed"
+
+
+def _lost_grounded_output_substance(
+    contract: object,
+    before: str,
+    after: str,
+) -> tuple[str, ...]:
+    lost = lost_required_output_substance(contract, before, after)
+    grounding_by_id = {
+        str(getattr(item, "output_id", "")): str(
+            getattr(item, "grounding_mode", "evidence")
+        )
+        for item in getattr(contract, "required_outputs", ())
+    }
+    return tuple(
+        output_id
+        for output_id in lost
+        if grounding_by_id.get(output_id, "evidence") == "evidence"
+    )
+
+
+def _judge_system_prompt(request: Mapping[str, object]) -> str:
+    if request.get("answer_grounding_mode") in {
+        "model_reasoning",
+        "user_premise",
+    }:
+        return _NON_EVIDENCE_JUDGE_SYSTEM_PROMPT
+    return _JUDGE_SYSTEM_PROMPT
+
+
 def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> object:
     """Call tiny injected judges without imposing one test-only signature."""
 
@@ -2463,6 +2534,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
         return fn(
             question=request["question"],
             required_outputs=request["required_outputs"],
+            answer_grounding_mode=request["answer_grounding_mode"],
             output_bindings=request["output_bindings"],
             evidence_registry=request["evidence_registry"],
             tool_status_registry=request["tool_status_registry"],
@@ -2475,6 +2547,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
         for name in (
             "question",
             "required_outputs",
+            "answer_grounding_mode",
             "output_bindings",
             "evidence_registry",
             "tool_status_registry",
@@ -2500,6 +2573,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "payload": request,
             "question": request["question"],
             "required_outputs": request["required_outputs"],
+            "answer_grounding_mode": request["answer_grounding_mode"],
             "output_bindings": request["output_bindings"],
             "bindings": request["output_bindings"],
             "evidence_registry": request["evidence_registry"],

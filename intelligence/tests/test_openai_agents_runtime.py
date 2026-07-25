@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 import asyncio
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -581,6 +582,71 @@ def test_sdk_finish_recovery_failure_stops_after_two_model_calls() -> None:
     assert outcome.stop_reason == "sdk_invalid_finish"
     assert outcome.usage.llm_calls == 2
     assert outcome.usage.tool_calls == 1
+
+
+def test_sdk_recovers_reasoning_finish_without_requiring_fake_evidence() -> None:
+    frame = _frame()
+    context = _context(frame, allowed_capabilities=())
+    context = replace(
+        context,
+        contract=replace(
+            context.contract,
+            required_outputs=(
+                RequiredOutput(
+                    "direct_assessment",
+                    "直接判断",
+                    (),
+                    True,
+                    grounding_mode="model_reasoning",
+                ),
+            ),
+            allowed_capabilities=(),
+        ),
+    )
+    runner_calls = 0
+
+    def repair_reasoning(request: AgentsSdkRequest) -> AgentsSdkResult:
+        nonlocal runner_calls
+        runner_calls += 1
+        assert request.tools == ()
+        if runner_calls == 1:
+            return AgentsSdkResult("not-json", 1)
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "先定义可证伪条件，再逐日更新判断。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": [],
+                            "basis": "model_reasoning",
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    outcome = OpenAIAgentsRuntime(
+        runner=repair_reasoning,
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_registry([]),
+    )
+
+    assert runner_calls == 2
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "sdk_finalization_recovered"
+    assert outcome.usage.llm_calls == 2
+    assert outcome.usage.tool_calls == 0
+    assert outcome.bindings[0].basis == "model_reasoning"
 
 
 @pytest.mark.skipif(
