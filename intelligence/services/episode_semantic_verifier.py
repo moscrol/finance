@@ -298,6 +298,38 @@ class SemanticEpisodeOutcome:
     issues: tuple[str, ...] = ()
     correlated_judge: bool = False
     gap_output_ids: tuple[str, ...] = ()
+    rejected_claim_indexes: tuple[int, ...] = ()
+    repair_output_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.repair_output_ids:
+            object.__setattr__(
+                self,
+                "repair_output_ids",
+                tuple(
+                    dict.fromkeys(
+                        (*self.gap_output_ids, *self.verified.missing_outputs)
+                    )
+                ),
+            )
+        object.__setattr__(
+            self,
+            "gap_output_ids",
+            tuple(dict.fromkeys(self.gap_output_ids)),
+        )
+        object.__setattr__(
+            self,
+            "rejected_claim_indexes",
+            tuple(
+                sorted(
+                    {
+                        index
+                        for index in self.rejected_claim_indexes
+                        if isinstance(index, int) and index >= 0
+                    }
+                )
+            ),
+        )
 
     def to_dict(self) -> dict[str, object]:
         """Return the private artifact shape (public text stays sanitized)."""
@@ -309,6 +341,8 @@ class SemanticEpisodeOutcome:
             "issues": list(self.issues),
             "correlated_judge": self.correlated_judge,
             "gap_output_ids": list(self.gap_output_ids),
+            "rejected_claim_indexes": list(self.rejected_claim_indexes),
+            "repair_output_ids": list(self.repair_output_ids),
             "verified": self.verified.to_dict(),
         }
 

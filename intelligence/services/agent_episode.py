@@ -269,15 +269,19 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
             planning_timeout = context.deadline.stage_timeout(self._llm_timeout)
+            remaining_tool_slots = self._remaining_tool_slots(
+                context=context,
+                tool_calls=tool_calls,
+            )
             should_finalize = (
                 finalization_started
-                or tool_calls >= context.policy.max_steps
+                or remaining_tool_slots <= 0
                 or planning_timeout < MIN_PLANNING_TURN_SECONDS
                 or (_round - plan_turns) > context.policy.max_steps
             )
             if should_finalize and not finalization_started:
                 finalization_started = True
-                if tool_calls >= context.policy.max_steps:
+                if remaining_tool_slots <= 0:
                     finalization_reason = "tool_budget_exhausted"
                 elif planning_timeout < MIN_PLANNING_TURN_SECONDS:
                     finalization_reason = "retrieval_deadline_closed"
@@ -514,7 +518,10 @@ class ContinuousAgentEpisode:
                     turn.tool_calls,
                     registry=registry,
                     context=context,
-                    remaining_slots=context.policy.max_steps - tool_calls,
+                    remaining_slots=self._remaining_tool_slots(
+                        context=context,
+                        tool_calls=tool_calls,
+                    ),
                     is_cancelled=self._is_cancelled,
                 )
                 tool_calls += batch.executed_count
@@ -523,9 +530,15 @@ class ContinuousAgentEpisode:
                     messages=messages,
                     remaining_slots=max(
                         0,
-                        context.policy.max_steps - tool_calls,
+                        self._remaining_tool_slots(
+                            context=context,
+                            tool_calls=tool_calls,
+                        ),
                     ),
                 )
+                if context.root_budget is not None:
+                    for _ in range(batch.executed_count):
+                        context.root_budget.consume_call(seconds=0.0)
                 if self._snapshot_surface_satisfied(
                     registry=registry,
                     context=context,
@@ -639,6 +652,18 @@ class ContinuousAgentEpisode:
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
         )
+
+    @staticmethod
+    def _remaining_tool_slots(
+        *,
+        context: ResearchRunContext,
+        tool_calls: int,
+    ) -> int:
+        policy_remaining = max(0, context.policy.max_steps - tool_calls)
+        root_budget = context.root_budget
+        if root_budget is None:
+            return policy_remaining
+        return max(0, int(root_budget.remaining_calls))
 
     @staticmethod
     def _available_tool_definitions(

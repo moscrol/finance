@@ -4,7 +4,8 @@ import re
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
-from typing import Literal, TypeAlias, cast
+from threading import RLock
+from typing import Literal, Protocol, TypeAlias, cast
 
 from intelligence.services.query_resolution import (
     QueryResolution,
@@ -383,6 +384,118 @@ class ResearchPolicy:
         return policies.get(tier, policies["standard"])
 
 
+class RootBudgetLedger(Protocol):
+    """The single mutable budget authority shared by one research episode."""
+
+    initial_calls: int
+    hard_calls_cap: int
+    initial_seconds: float
+    hard_seconds_cap: float
+    remaining_calls: int
+    remaining_seconds: float
+
+    def grant(self, grant: object) -> bool: ...
+
+    def consume_call(self, *, seconds: float) -> None: ...
+
+
+class InMemoryRootBudgetLedger:
+    """Thread-safe root budget implementation used by runtime adapters.
+
+    Initial allocation is the budget before repair. The hard cap is the
+    episode-wide ceiling; grants reserve unused headroom and never reset
+    already consumed calls or seconds.
+    """
+
+    def __init__(
+        self,
+        *,
+        initial_calls: int,
+        hard_calls_cap: int,
+        initial_seconds: float,
+        hard_seconds_cap: float,
+    ) -> None:
+        for name, value in (
+            ("initial_calls", initial_calls),
+            ("hard_calls_cap", hard_calls_cap),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        if hard_calls_cap < initial_calls:
+            raise ValueError("hard_calls_cap must cover initial_calls")
+        if initial_seconds < 0 or hard_seconds_cap < initial_seconds:
+            raise ValueError("invalid root seconds budget")
+        self.initial_calls = initial_calls
+        self.hard_calls_cap = hard_calls_cap
+        self.initial_seconds = float(initial_seconds)
+        self.hard_seconds_cap = float(hard_seconds_cap)
+        self.remaining_calls = initial_calls
+        self.remaining_seconds = float(initial_seconds)
+        self._allocated_calls = initial_calls
+        self._allocated_seconds = float(initial_seconds)
+        self._grants: set[str] = set()
+        self._lock = RLock()
+
+    def grant(self, grant: object) -> bool:
+        calls = int(getattr(grant, "calls_granted", 0) or 0)
+        seconds = float(getattr(grant, "seconds_granted", 0.0) or 0.0)
+        grant_id = str(getattr(grant, "grant_id", "") or "").strip()
+        episode_id = str(getattr(grant, "episode_id", "") or "").strip()
+        if calls <= 0 or seconds <= 0 or not grant_id or not episode_id:
+            return False
+        with self._lock:
+            if grant_id in self._grants:
+                return False
+            if self._allocated_calls + calls > self.hard_calls_cap:
+                return False
+            if self._allocated_seconds + seconds > self.hard_seconds_cap:
+                return False
+            self._grants.add(grant_id)
+            self._allocated_calls += calls
+            self._allocated_seconds += seconds
+            self.remaining_calls += calls
+            self.remaining_seconds += seconds
+            return True
+
+    def consume_call(self, *, seconds: float) -> None:
+        if seconds < 0:
+            raise ValueError("consumed seconds must be non-negative")
+        with self._lock:
+            if self.remaining_calls <= 0:
+                raise ValueError("root call budget exhausted")
+            if seconds > self.remaining_seconds + 1e-9:
+                raise ValueError("root seconds budget exhausted")
+            self.remaining_calls -= 1
+            self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def to_dict(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "initial_calls": self.initial_calls,
+                "hard_calls_cap": self.hard_calls_cap,
+                "initial_seconds": self.initial_seconds,
+                "hard_seconds_cap": self.hard_seconds_cap,
+                "remaining_calls": self.remaining_calls,
+                "remaining_seconds": self.remaining_seconds,
+            }
+
+
+def root_budget_for_policy(policy: ResearchPolicy) -> InMemoryRootBudgetLedger:
+    """Allocate one root ledger from the immutable tier policy."""
+
+    hard_calls = {
+        "quick": 4,
+        "standard": 8,
+        "deep": 24,
+    }.get(str(policy.tier).strip().lower(), policy.max_steps)
+    return InMemoryRootBudgetLedger(
+        initial_calls=policy.max_steps,
+        hard_calls_cap=max(policy.max_steps, hard_calls),
+        initial_seconds=max(0.0, policy.total_seconds - policy.synthesis_reserve),
+        hard_seconds_cap=policy.total_seconds,
+    )
+
+
 @dataclass(frozen=True)
 class RequiredOutput:
     output_id: str
@@ -601,6 +714,7 @@ class ResearchRunContext:
     information_cutoff: InformationCutoff = field(
         default_factory=InformationCutoff.runtime_default
     )
+    root_budget: RootBudgetLedger | None = None
 
 
 @dataclass(frozen=True)

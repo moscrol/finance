@@ -21,6 +21,7 @@ from intelligence.services.research_contract import (
     ResearchPolicy,
     ResearchRunContext,
     ResearchTaskContract,
+    root_budget_for_policy,
 )
 from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
@@ -290,6 +291,7 @@ def build_episode_context(
         latest_data_date=latest_data_date,
         conversation_context=str(conversation_context or "").strip(),
         information_cutoff=cutoff,
+        root_budget=root_budget_for_policy(policy),
     )
 
 

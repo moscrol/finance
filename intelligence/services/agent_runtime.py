@@ -18,6 +18,8 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
 
 if TYPE_CHECKING:
+    from intelligence.services.episode_session import EpisodeSession
+    from intelligence.services.repair_coordinator import RepairGoal
     from intelligence.services.research_contract import ResearchRunContext
     from intelligence.services.research_tool_registry import ResearchToolRegistry
     from intelligence.services.task_frame import TaskFrame
@@ -352,7 +354,15 @@ class AgentOutcome:
 
 @runtime_checkable
 class AgentRuntime(Protocol):
-    """Run one immutable task through a provider-neutral research episode."""
+    """Start one provider-neutral episode and expose same-history resume."""
+
+    def start(
+        self,
+        task_frame: TaskFrame,
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+    ) -> EpisodeSession: ...
 
     def run(
         self,

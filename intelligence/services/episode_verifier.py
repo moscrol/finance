@@ -37,6 +37,8 @@ class VerifiedEpisodeOutcome:
     # is parsed and re-verified; reconstructing a weaker contract from prose
     # would make that second verification unsound.
     contract: ResearchTaskContract | None = None
+    missing_outputs: tuple[str, ...] = ()
+    mandatory_missing_capabilities: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -44,6 +46,10 @@ class VerifiedEpisodeOutcome:
             "issues": list(self.issues),
             "completion": self.completion.to_dict(),
             "outcome": self.outcome.to_dict(),
+            "missing_outputs": list(self.missing_outputs),
+            "mandatory_missing_capabilities": list(
+                self.mandatory_missing_capabilities
+            ),
         }
 
 
@@ -233,6 +239,11 @@ def verify_episode_outcome(
         for required, status in zip(contract.required_outputs, statuses)
         if required.required
     )
+    missing_outputs = tuple(
+        status.output_id
+        for required, status in zip(contract.required_outputs, statuses)
+        if required.required and status.status != "fulfilled"
+    )
     all_required_fulfilled = all(
         status.status == "fulfilled" for status in required_statuses
     )
@@ -267,6 +278,8 @@ def verify_episode_outcome(
         verified_status=verified_status,
         issues=tuple(dict.fromkeys(issues)),
         contract=contract,
+        missing_outputs=missing_outputs,
+        mandatory_missing_capabilities=mandatory_missing,
     )
 
 
