@@ -17,6 +17,13 @@ repair**. It does not add FinanceQuery, sub-agents, memory writeback, or canonic
 8792 migration. Each task produces a focused commit and a review request. The
 producer must not start the next task until the matching light verdict is `PASS`.
 
+The information-cutoff contract is deliberately **not partially implemented in
+this foundation slice**. It is a separate, complete vertical slice in the next
+`FinanceQuery + EvidenceSearch` plan. Until that slice is merged, the new
+runtime cannot become the production owner for data-bearing runs. That avoids
+the dangerous state where only `closed_loop_retrieval` filters future data while
+news, graph, L3, or provider traces do not.
+
 The live nine-case suite is forbidden during these tasks. Use scripted models,
 cached observations, focused tests, and at most one failing single-case live
 replay after the slice is frozen.
@@ -31,10 +38,6 @@ replay after the slice is frozen.
   bounded repair-cycle policy, and conversion from verifier coverage to goal.
 - Modify: `intelligence/services/agent_runtime.py` — provider-neutral plan and
   plan-event contracts; no provider payloads cross the seam.
-- Modify: `intelligence/services/research_contract.py:559-568` — immutable
-  `InformationCutoff` in `ResearchRunContext`.
-- Modify: `intelligence/services/closed_loop_retrieval.py:115-182` — require
-  the cutoff at the retrieval seam and reject future observations.
 - Modify: `intelligence/services/episode_protocol.py` — plan instruction and
   JSON parsing helpers without imposing a fixed research sequence.
 - Modify: `intelligence/services/agent_episode.py` — record/validate plan,
@@ -46,7 +49,6 @@ replay after the slice is frozen.
 - Modify: `intelligence/services/episode_semantic_verifier.py` — return
   repair-eligible rejected claims without publishing a replacement template.
 - Test: `intelligence/tests/test_user_task.py`
-- Test: `intelligence/tests/test_information_cutoff.py`
 - Test: `intelligence/tests/test_research_plan.py`
 - Test: `intelligence/tests/test_repair_coordinator.py`
 - Test: `intelligence/tests/test_agent_episode.py`
@@ -59,12 +61,7 @@ replay after the slice is frozen.
 
 **Files:**
 - Create: `intelligence/services/user_task.py`
-- Modify: `intelligence/services/research_contract.py:559-568` to carry the
-  immutable information cutoff without changing older positional call sites.
-- Modify: `intelligence/services/closed_loop_retrieval.py:115-182` to apply the
-  cutoff before returning any hit.
 - Test: `intelligence/tests/test_user_task.py`
-- Test: `intelligence/tests/test_information_cutoff.py`
 - Modify: `intelligence/services/task_frame.py:81-168` only to add an explicit
   compatibility projection; do not remove current fields in this task.
 
@@ -149,16 +146,6 @@ inferred A-share default as `product_default`; it must not infer a new topic.
 - [ ] **Step 4: Run the focused test and verify GREEN**
 
 Run the command from Step 2. Expected: all UserTask tests pass.
-
-Also run:
-
-```bash
-/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
-  intelligence/tests/test_information_cutoff.py
-```
-
-The cutoff test must prove a future-dated result is absent from the model
-observation and that the trace retains requested versus served dates.
 
 - [ ] **Step 5: Commit and request review**
 
@@ -301,6 +288,12 @@ git commit -m "feat: record model-owned research plans"
 The review request must require proof that `PLAN` is not an alternate route,
 cannot grant tools/budget, and does not weaken invalid-action accounting.
 
+The authoritative plan shape is the one in the design specification: it must
+include `answer_elements`, `hypotheses`, `evidence_needs`, `candidate_actions`,
+and `open_gaps`, plus a monotonic `revision`. If implementation narrows that
+shape, the design must be amended in a separate docs-only review before code is
+written; the two documents may not silently diverge.
+
 ---
 
 ### Task 3: Implement RepairGoal and same-episode re-entry
@@ -312,9 +305,19 @@ cannot grant tools/budget, and does not weaken invalid-action accounting.
   result dataclass and gate return path
 - Modify: `intelligence/services/agent_episode.py:420-570`
 - Modify: `intelligence/services/continuous_turn_adapter.py:500-550`
+- Modify: `intelligence/services/agent_runtime.py` — expose a provider-neutral
+  `EpisodeSession` continuation seam; `run()` alone is not sufficient because
+  verifiers execute after it returns.
+- Modify: `intelligence/services/research_contract.py` — add the singleton
+  `RootBudgetLedger` interface and distinguish initial allocation from the
+  immutable quick/deep hard cap.
+- Modify: `intelligence/services/evidence_ledger.py` (or the existing canonical
+  evidence-ledger module) — emit immutable before/after snapshots used by the
+  progress predicate.
 - Test: `intelligence/tests/test_repair_coordinator.py`
 - Test: `intelligence/tests/test_episode_verifier.py`
 - Test: `intelligence/tests/test_continuous_turn_adapter.py`
+- Test: `intelligence/tests/test_episode_session.py`
 
 - [ ] **Step 1: Write failing repair tests**
 
@@ -363,12 +366,42 @@ class CoverageDelta:
     newly_supported_outputs: int
 
 @dataclass(frozen=True)
+class ProgressSnapshot:
+    before_evidence_ids: tuple[str, ...]
+    after_evidence_ids: tuple[str, ...]
+    before_covered_outputs: tuple[str, ...]
+    after_covered_outputs: tuple[str, ...]
+    before_open_gaps: tuple[str, ...]
+    after_open_gaps: tuple[str, ...]
+    independent_source_families: tuple[str, ...]
+
+    @property
+    def effective_new_evidence(self) -> int: ...
+
+    @property
+    def coverage_delta(self) -> CoverageDelta: ...
+
+@dataclass(frozen=True)
 class BudgetGrant:
     grant_id: str
     episode_id: str
     cycle: int
     calls_granted: int
     seconds_granted: float
+
+class RootBudgetLedger(Protocol):
+    """The only mutable budget authority for an episode."""
+
+    initial_calls: int
+    hard_calls_cap: int
+    initial_seconds: float
+    hard_seconds_cap: float
+    remaining_calls: int
+    remaining_seconds: float
+
+    def grant(self, grant: BudgetGrant) -> bool: ...
+
+    def consume_call(self, *, seconds: float) -> None: ...
 
 @dataclass(frozen=True)
 class RepairGoal:
@@ -384,22 +417,28 @@ class RepairGoal:
     remaining_seconds: float
 
 def build_repair_goal(...): RepairGoal
-def should_reenter(previous: CoverageDelta, current: CoverageDelta, *, cycle: int, max_cycles: int) -> bool
-def grant_for_progress(goal: RepairGoal, delta: CoverageDelta, *, root_remaining_calls: int, root_remaining_seconds: float) -> BudgetGrant | None
+def progress_from_ledger(before: EvidenceLedgerSnapshot, after: EvidenceLedgerSnapshot) -> ProgressSnapshot
+def should_reenter(progress: ProgressSnapshot, *, cycle: int, max_cycles: int) -> bool
+def grant_for_progress(goal: RepairGoal, progress: ProgressSnapshot, *, root_budget: RootBudgetLedger) -> BudgetGrant | None
 ```
 
-The module computes effective new evidence only for cutoff-valid, nonduplicate,
-non-same-family evidence bound to an uncovered output or active hypothesis. A
-progress predicate is true only when effective new evidence is at least one and
-coverage delta is at least one. A successful grant uses:
+`ProgressSnapshot` is produced by comparing append-only EvidenceLedger snapshots;
+callers may not pass precomputed integer deltas as truth. The ledger builder
+counts only cutoff-valid, nonduplicate, non-same-family evidence bound to an
+uncovered output or active hypothesis. A progress predicate is true only when
+effective new evidence is at least one and coverage delta is at least one. A
+successful grant uses:
 
 ```text
 calls = min(4, max(1, uncovered_output_count + missing_evidence_mode_count))
 seconds = min(30, calls * 8)
 ```
 
-then clips both values by the root ledger. All repair sources share the one
-quick/deep cycle pool. The module never constructs a query or selects a tool. It returns `False` when
+The grant is atomically reserved through `RootBudgetLedger.grant()`; it cannot
+reset consumed calls or extend the hard mode cap. Initial allocation is the
+number of calls available before repair, while the hard cap is the maximum
+across the entire episode. All repair sources share the one quick/deep cycle
+pool. The module never constructs a query or selects a tool. It returns `False` when
 the cycle cap is reached, the deadline is below the configured minimum, or the
 latest attempt made no progress. Tests must assert the exact event sequence:
 `gate_failure -> repair_goal -> model_action(new id) -> observation -> verify`.
@@ -416,14 +455,20 @@ After a structural or semantic failure and before deterministic span redaction:
 
 1. Build a `RepairGoal` from missing outputs, missing capabilities, rejected
    claims, attempted actions, evidence delta, and remaining deadline.
-2. If `should_reenter()` is true, append one user-role message containing the
-   goal and instruction: preserve the original task, choose a new model-owned
-   action, and do not repeat normalized queries.
+2. If `should_reenter()` is true, call the provider-neutral
+   `EpisodeSession.resume(repair_goal)` continuation. `EpisodeSession` owns the
+   original history, `episode_id`, event ledger, EvidenceLedger, QueryLedger,
+   usage ledger, and root deadline; it must not call `AgentRuntime.run()` a
+   second time. The resume operation appends one user-role message containing
+   the goal and instruction: preserve the original task, choose a new
+   model-owned action, and do not repeat normalized queries.
 3. Expose the same current authorized tools; do not add a tool because the
    verifier asked for one. The capability contract remains the hard boundary.
 4. Record `repair_goal` and `repair_reentry` events; keep all previous
    observations in the same messages and ledger.
-5. Re-run the terminal parser and verifiers on the resulting draft.
+5. Re-run the terminal parser and verifiers on the resulting draft through the
+   same session; the test must fail if a second history, QueryLedger, or budget
+   ledger is created.
 6. Only if re-entry is exhausted may optional unsupported spans be removed. If
    removing them would lose a required output, return question-specific
    partial/gap.
