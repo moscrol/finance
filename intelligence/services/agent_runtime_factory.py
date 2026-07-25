@@ -114,7 +114,8 @@ def runtime_backend_readiness(
             benchmark_only=False,
         )
 
-    cli_ready = shutil.which("codex") is not None
+    cli_path = os.environ.get("CODEX_HEADLESS_BIN") or shutil.which("codex")
+    cli_ready = bool(cli_path and os.access(cli_path, os.X_OK))
     benchmark_enabled = (
         os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip() == "1"
     )
