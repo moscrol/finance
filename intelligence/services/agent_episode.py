@@ -49,6 +49,11 @@ from intelligence.services.task_frame import TaskFrame
 
 DEFAULT_LLM_TIMEOUT = 20.0
 MIN_PLANNING_TURN_SECONDS = 8.0
+# Planning is model-owned state, but it must still have a finite allowance so
+# a model cannot keep revising a plan forever without reaching research or
+# finalization.  The allowance is separate from max_steps, which is the
+# finance-tool budget.
+MAX_PLAN_TURNS = 2
 
 
 class _EpisodeLedger:
@@ -231,6 +236,7 @@ class ContinuousAgentEpisode:
         invalid_actions = 0
         finish_failures = 0
         plan_failures = 0
+        plan_turns = 0
         messages: list[dict[str, object]] = [
             {
                 "role": "system",
@@ -247,7 +253,12 @@ class ContinuousAgentEpisode:
         ]
         accumulator = _EpisodeToolAccumulator(messages=messages, ledger=ledger)
         finalization_started = False
-        for _round in range(1, context.policy.max_steps + 2):
+        # max_steps counts finance-tool calls. Valid PLAN-only turns are
+        # added on top of that bounded research budget.
+        for _round in range(
+            1,
+            context.policy.max_steps + MAX_PLAN_TURNS + 2,
+        ):
             if self._is_cancelled():
                 return self._cancelled_outcome(
                     task_frame=task_frame,
@@ -262,7 +273,7 @@ class ContinuousAgentEpisode:
                 finalization_started
                 or tool_calls >= context.policy.max_steps
                 or planning_timeout < MIN_PLANNING_TURN_SECONDS
-                or _round > context.policy.max_steps
+                or (_round - plan_turns) > context.policy.max_steps
             )
             if should_finalize and not finalization_started:
                 finalization_started = True
@@ -413,7 +424,15 @@ class ContinuousAgentEpisode:
                 )
 
             messages.append(self._assistant_message(turn))
-            plan_result = parse_plan_candidate(turn.content)
+            # Once finalization starts, PLAN is no longer a valid model
+            # response.  Let the existing terminal validator/recovery path
+            # handle it as an invalid finish instead of accepting it and
+            # silently skipping the recovery state machine.
+            plan_result = (
+                parse_plan_candidate(turn.content)
+                if not finalization_started
+                else PlanParseResult(None, "")
+            )
             if plan_result.plan is not None:
                 try:
                     if ledger.plan is not None:
@@ -426,9 +445,18 @@ class ContinuousAgentEpisode:
                 except ValueError as exc:
                     plan_result = PlanParseResult(None, str(exc))
                 else:
-                    ledger.record_plan(plan_result.plan)
                     if not turn.tool_calls:
-                        continue
+                        if plan_turns >= MAX_PLAN_TURNS:
+                            plan_result = PlanParseResult(
+                                None,
+                                "PLAN revision allowance exhausted",
+                            )
+                        else:
+                            plan_turns += 1
+                            ledger.record_plan(plan_result.plan)
+                            continue
+                    else:
+                        ledger.record_plan(plan_result.plan)
             if plan_result.error:
                 plan_failures += 1
                 invalid_actions += 1

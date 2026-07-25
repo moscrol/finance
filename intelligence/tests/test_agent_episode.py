@@ -332,6 +332,26 @@ def test_plan_only_first_turn_is_observable_without_granting_or_using_tools() ->
     assert plan_events[0].payload["revision"] == 1
 
 
+def test_plan_only_turn_does_not_consume_the_first_tool_budget_slot() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [_plan_turn(), _tool_turn("A股 最新行情"), _finish_turn()]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.usage.tool_calls == 1
+    assert len(model.calls) == 3
+    assert model.calls[1]["tools"]
+    assert model.calls[2]["tools"] == []
+
+
 def test_latest_valid_plan_revision_is_retained() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -1630,6 +1650,34 @@ def test_tool_call_after_finalization_closed_uses_compact_recovery() -> None:
     assert outcome.usage.tool_calls == 1
     assert outcome.usage.invalid_actions == 1
     assert len(model.calls) == 3
+    assert model.calls[1]["tools"] == []
+    assert model.calls[2]["tools"] == []
+
+
+def test_plan_after_finalization_enters_terminal_recovery_instead_of_being_accepted() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情", call_id="research-call"),
+            _plan_turn(),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert outcome.plan is None
+    assert outcome.usage.tool_calls == 1
+    assert outcome.usage.invalid_actions == 1
+    assert any(
+        event.kind == "finalization_recovery_started" for event in outcome.events
+    )
     assert model.calls[1]["tools"] == []
     assert model.calls[2]["tools"] == []
 
