@@ -11,6 +11,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from scripts import run_agent_runtime_benchmark as benchmark
 
@@ -83,6 +84,30 @@ def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
     assert by_id["contextual-follow-up"]["conversation_context"][0][
         "content"
     ] == "昨天的反弹能持续多久"
+
+
+def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    case = benchmark._load_cases(FIXTURE)[0]
+    provider = LLMProvider(
+        name="openai",
+        api_key="saved-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+
+    runtime, model = benchmark._build_runtime(
+        "sdk_gpt",
+        case,
+        object(),
+        sdk_gpt_providers=(provider,),
+    )
+
+    assert type(runtime).__name__ == "OpenAIAgentsRuntime"
+    assert model == "gpt-5.6-sol"
+    assert "saved-secret-value" not in repr(runtime)
 
 
 def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(

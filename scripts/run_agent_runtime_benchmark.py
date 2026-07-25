@@ -40,6 +40,8 @@ from intelligence.services.episode_tools import (
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.glm_agent_runtime import GLMModelClient
+from intelligence.services.llm_refine import LLMProvider
+from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
@@ -237,6 +239,8 @@ def _build_runtime(
     backend: str,
     case: RuntimeBenchmarkCase,
     context: object,
+    *,
+    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
 ) -> tuple[object, str]:
     del context
     providers = llm_refine.detect_providers()
@@ -270,13 +274,32 @@ def _build_runtime(
             provider.model,
         )
     if backend == "sdk_gpt":
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError("openai_api_key_missing")
         from intelligence.services.openai_agents_runtime import (
             OpenAIAgentsRuntime,
             build_gpt_sdk_model,
+            build_gpt_sdk_model_factory,
         )
 
+        provider = next(
+            (item for item in sdk_gpt_providers if item.name == "openai"),
+            None,
+        )
+        if provider is not None:
+            return (
+                OpenAIAgentsRuntime(
+                    backend="sdk_gpt",
+                    model_name=provider.model,
+                    model_factory=build_gpt_sdk_model_factory(
+                        api_key=provider.api_key,
+                        base_url=provider.base_url,
+                        model=provider.model,
+                        timeout=case.timeout,
+                    ),
+                ),
+                provider.model,
+            )
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise RuntimeError("openai_api_key_missing")
         model = str(os.environ.get("OPENAI_AGENT_MODEL") or "gpt-5.6-sol")
         return (
             OpenAIAgentsRuntime(
@@ -323,9 +346,9 @@ class _AttemptCountingClient:
 
 
 class _SemanticVerifierRun:
-    def __init__(self) -> None:
+    def __init__(self, *, providers: tuple[LLMProvider, ...] = ()) -> None:
         client = _AttemptCountingClient(
-            GLMModelClient(providers=llm_refine.detect_providers())
+            GLMModelClient(providers=providers or llm_refine.detect_providers())
         )
         self._client = client
         self._verifier = SemanticEpisodeVerifier(
@@ -344,8 +367,10 @@ class _SemanticVerifierRun:
 def _build_semantic_verifier(
     _case: RuntimeBenchmarkCase,
     _context: object,
+    *,
+    providers: tuple[LLMProvider, ...] = (),
 ) -> _SemanticVerifierRun:
-    return _SemanticVerifierRun()
+    return _SemanticVerifierRun(providers=providers)
 
 
 def _build_registry(
@@ -489,6 +514,7 @@ def _run_research_arm(
     finance_root: Path,
     knowledge_wiki: Path,
     latest_data_date: str,
+    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
@@ -501,7 +527,12 @@ def _run_research_arm(
         )
         if context is None:
             raise RuntimeError("research_contract_missing")
-        runtime, model = _build_runtime(backend, case, context)
+        runtime, model = _build_runtime(
+            backend,
+            case,
+            context,
+            sdk_gpt_providers=sdk_gpt_providers,
+        )
         registry = _build_registry(
             control.task_frame,
             context,
@@ -515,7 +546,11 @@ def _run_research_arm(
                 registry=registry,
             )
             verified = verify_episode_outcome(context.contract, outcome)
-            semantic_verifier = _build_semantic_verifier(case, context)
+            semantic_verifier = _build_semantic_verifier(
+                case,
+                context,
+                providers=(sdk_gpt_providers if backend == "sdk_gpt" else ()),
+            )
             semantic = semantic_verifier.verify(
                 frame=control.task_frame,
                 structurally_verified=verified,
@@ -673,6 +708,7 @@ def _run_runtime_arm(
     finance_root: Path,
     knowledge_wiki: Path,
     latest_data_date: str,
+    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
@@ -685,6 +721,7 @@ def _run_runtime_arm(
                 finance_root=finance_root,
                 knowledge_wiki=knowledge_wiki,
                 latest_data_date=latest_data_date,
+                sdk_gpt_providers=sdk_gpt_providers,
             )
             for backend in backends
         )
@@ -705,6 +742,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--questions-file", type=Path, required=True)
     parser.add_argument("--finance-root", type=Path)
     parser.add_argument("--knowledge-wiki", type=Path)
+    parser.add_argument(
+        "--keychain-user",
+        help="Load the sdk_gpt provider from macOS Keychain without exporting a key",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -729,6 +770,7 @@ def main(argv: list[str] | None = None) -> int:
             else None
         )
         market_data_date = None
+        sdk_gpt_providers: tuple[LLMProvider, ...] = ()
         if not args.dry_run:
             if finance_root is None or knowledge_wiki is None:
                 raise ValueError(
@@ -747,6 +789,13 @@ def main(argv: list[str] | None = None) -> int:
                     "finance root market data is stale: "
                     f"{market_data_date} < {latest_required_date}"
                 )
+            if args.keychain_user:
+                saved_provider = SessionLLMSettings().byok_provider(
+                    args.keychain_user
+                )
+                if saved_provider is None:
+                    raise ValueError("saved Keychain provider unavailable")
+                sdk_gpt_providers = (saved_provider,)
         frozen = [
             (case, *_freeze_case(case, dry_run=args.dry_run)) for case in cases
         ]
@@ -764,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
                     finance_root=finance_root,
                     knowledge_wiki=knowledge_wiki,
                     latest_data_date=market_data_date,
+                    sdk_gpt_providers=sdk_gpt_providers,
                 )
                 for case, control, _context in frozen
             ]
@@ -800,6 +850,9 @@ def main(argv: list[str] | None = None) -> int:
             str(knowledge_wiki) if knowledge_wiki is not None else None
         ),
         "market_data_date": market_data_date,
+        "credential_source": (
+            "keychain" if sdk_gpt_providers else "environment"
+        ),
         "cases": records,
     }
     if summary is not None:
