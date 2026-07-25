@@ -28,6 +28,22 @@ from intelligence.services.research_tool_registry import (
 from intelligence.services.task_frame import TaskFrame
 
 
+def _plan_turn(*, revision: int = 1, **overrides: object) -> ModelTurn:
+    payload: dict[str, object] = {
+        "kind": "PLAN",
+        "task_summary": "判断市场主线并给出反方",
+        "answer_elements": ["direct_assessment", "counterpoint"],
+        "hypotheses": ["半导体可能是持续主线"],
+        "evidence_needs": ["同日主线与持续性"],
+        "candidate_actions": ["market_data"],
+        "open_gaps": ["缺少反方证据"],
+        "requested_mode": "quick",
+        "revision": revision,
+    }
+    payload.update(overrides)
+    return ModelTurn(json.dumps(payload, ensure_ascii=False), (), "scripted", "")
+
+
 class ScriptedModel:
     def __init__(self, turns: list[ModelTurn | Exception]) -> None:
         self._turns = iter(turns)
@@ -289,6 +305,111 @@ def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None
         event.payload["task_frame_hash"] == frame.task_frame_hash
         for event in outcome.events
     )
+
+
+def test_plan_only_first_turn_is_observable_without_granting_or_using_tools() -> None:
+    frame = _frame()
+    original_hash = frame.task_frame_hash
+    model = ScriptedModel(
+        [_plan_turn(), _tool_turn("A股 最新行情"), _finish_turn()]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert frame.task_frame_hash == original_hash
+    assert outcome.task_frame_hash == original_hash
+    assert outcome.plan is not None
+    assert outcome.plan.revision == 1
+    assert outcome.plan.answer_elements == ("direct_assessment", "counterpoint")
+    assert outcome.usage.tool_calls == 1
+    assert outcome.usage.invalid_actions == 0
+    plan_events = [event for event in outcome.events if event.kind == "plan"]
+    assert len(plan_events) == 1
+    assert plan_events[0].payload["revision"] == 1
+
+
+def test_latest_valid_plan_revision_is_retained() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [_plan_turn(), _plan_turn(revision=2, open_gaps=[]), _finish_turn()]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.plan is not None
+    assert outcome.plan.revision == 2
+    assert outcome.plan.open_gaps == ()
+    assert outcome.usage.tool_calls == 0
+    assert [event.kind for event in outcome.events].count("plan") == 2
+
+
+def test_plan_cannot_authorize_unknown_tool_or_weaken_invalid_action_count() -> None:
+    frame = _frame()
+    plan_with_call = ModelTurn(
+        _plan_turn(candidate_actions=["shell_exec"]).content,
+        (ModelToolCall("call-unsafe", "shell_exec", {"query": "do it"}),),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel(
+        [
+            plan_with_call,
+            _finish_turn(
+                status="partial",
+                draft="未执行未授权工具。",
+                hashes=(),
+                gap="缺少可用证据",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.plan is not None
+    assert outcome.usage.tool_calls == 0
+    assert outcome.usage.invalid_actions == 1
+    assert any(event.kind == "tool_error" for event in outcome.events)
+
+
+def test_malformed_plan_gets_one_same_episode_repair_without_tool_use() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(status="completed"),
+            _plan_turn(),
+            _finish_turn(
+                status="partial",
+                draft="计划已修复，当前仍缺证据。",
+                hashes=(),
+                gap="缺少市场证据",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    repair_message = model.calls[1]["messages"][-1]
+    assert repair_message["role"] == "user"
+    assert "PLAN" in repair_message["content"]
+    assert outcome.plan is not None
+    assert outcome.usage.tool_calls == 0
+    assert outcome.usage.invalid_actions == 1
 
 
 def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order() -> (

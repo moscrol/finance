@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
 
 if TYPE_CHECKING:
     from intelligence.services.research_contract import ResearchRunContext
@@ -273,6 +274,7 @@ class AgentOutcome:
     events: tuple[EpisodeEvent, ...]
     bindings: tuple[OutputEvidenceBinding, ...]
     usage: AgentUsage
+    plan: ResearchPlan | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -301,6 +303,8 @@ class AgentOutcome:
             raise ValueError("bindings must contain OutputEvidenceBinding values")
         if not isinstance(self.usage, AgentUsage):
             raise ValueError("usage must be AgentUsage")
+        if self.plan is not None and not isinstance(self.plan, ResearchPlan):
+            raise ValueError("plan must be ResearchPlan or None")
         gaps = _clean_string_tuple(self.gaps, field_name="gaps")
 
         if not events or events[0].kind != "task":
@@ -342,6 +346,7 @@ class AgentOutcome:
             "events": [event.to_dict() for event in self.events],
             "bindings": [binding.to_dict() for binding in self.bindings],
             "usage": self.usage.to_dict(),
+            "plan": plan_to_public_dict(self.plan) if self.plan is not None else None,
         }
 
 

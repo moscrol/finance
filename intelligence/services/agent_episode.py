@@ -34,6 +34,13 @@ from intelligence.services.episode_tool_batch import (
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_plan import (
+    PlanParseResult,
+    ResearchPlan,
+    parse_plan_candidate,
+    plan_to_public_dict,
+    validate_plan_revision,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
@@ -48,6 +55,7 @@ class _EpisodeLedger:
     def __init__(self, task_frame: TaskFrame) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
         self.events: list[EpisodeEvent] = []
+        self.plan: ResearchPlan | None = None
         self.add(
             "task",
             {
@@ -62,6 +70,10 @@ class _EpisodeLedger:
         event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
         self.events.append(event)
         return event
+
+    def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
+        self.plan = plan
+        return self.add("plan", plan_to_public_dict(plan))
 
 
 @dataclass
@@ -218,6 +230,7 @@ class ContinuousAgentEpisode:
         tool_calls = 0
         invalid_actions = 0
         finish_failures = 0
+        plan_failures = 0
         messages: list[dict[str, object]] = [
             {
                 "role": "system",
@@ -400,6 +413,39 @@ class ContinuousAgentEpisode:
                 )
 
             messages.append(self._assistant_message(turn))
+            plan_result = parse_plan_candidate(turn.content)
+            if plan_result.plan is not None:
+                try:
+                    if ledger.plan is not None:
+                        validate_plan_revision(
+                            ledger.plan,
+                            plan_result.plan,
+                            original_task_id=context.contract.task_id,
+                            current_task_id=context.contract.task_id,
+                        )
+                except ValueError as exc:
+                    plan_result = PlanParseResult(None, str(exc))
+                else:
+                    ledger.record_plan(plan_result.plan)
+                    if not turn.tool_calls:
+                        continue
+            if plan_result.error:
+                plan_failures += 1
+                invalid_actions += 1
+                ledger.add("invalid_action", {"reason": plan_result.error})
+                if plan_failures == 1:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "上一条 PLAN 无效。请保留最初任务与当前 episode，"
+                                "只修复为闭合的 PLAN JSON，或直接调用已授权工具；"
+                                "PLAN 不能授权工具、预算、证据或完成状态。"
+                                f"错误：{plan_result.error}"
+                            ),
+                        }
+                    )
+                    continue
             if turn.tool_calls:
                 if finalization_started:
                     invalid_actions += len(turn.tool_calls)
@@ -549,6 +595,7 @@ class ContinuousAgentEpisode:
                 events=tuple(ledger.events),
                 bindings=bindings,
                 usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+                plan=ledger.plan,
             )
 
         return self._stopped_outcome(
@@ -832,6 +879,7 @@ class ContinuousAgentEpisode:
             events=tuple(ledger.events),
             bindings=bindings,
             usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            plan=ledger.plan,
         )
 
     def _cancelled_outcome(
@@ -954,6 +1002,7 @@ class ContinuousAgentEpisode:
             events=tuple(ledger.events),
             bindings=(),
             usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            plan=ledger.plan,
         )
 
 __all__ = [
