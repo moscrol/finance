@@ -33,6 +33,8 @@ def _arm(
         output_tokens=None,
         protocol_issues=(),
         artifact_sha256="a" * 64,
+        stop_reason="model_finish",
+        effective_timeout_seconds=90.0,
         citations=(
             {
                 "title": "电子行业成交集中度居前",
@@ -50,6 +52,8 @@ def test_runtime_arm_round_trip() -> None:
     assert RuntimeArmResult.from_dict(arm.to_dict()) == arm
     assert arm.to_dict()["citations"][0]["source"] == "本地市场数据"
     assert arm.to_dict()["data_cutoff"] == "2026-07-24"
+    assert arm.to_dict()["stop_reason"] == "model_finish"
+    assert arm.to_dict()["effective_timeout_seconds"] == 90.0
 
 
 def test_runtime_arm_rejects_invalid_metrics_and_hash() -> None:
@@ -59,6 +63,8 @@ def test_runtime_arm_rejects_invalid_metrics_and_hash() -> None:
         replace(_arm(), artifact_sha256="not-a-sha")
     with pytest.raises(ValueError, match="task_alignment_score"):
         replace(_arm(), task_alignment_score=1.1)
+    with pytest.raises(ValueError, match="effective_timeout_seconds"):
+        replace(_arm(), effective_timeout_seconds=-0.1)
 
 
 def test_summary_requires_every_declared_backend() -> None:

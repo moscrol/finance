@@ -60,6 +60,8 @@ class RuntimeArmResult:
     output_tokens: int | None
     protocol_issues: tuple[str, ...]
     artifact_sha256: str
+    stop_reason: str | None = None
+    effective_timeout_seconds: float | None = None
     citations: tuple[dict[str, str], ...] = ()
     data_cutoff: str | None = None
 
@@ -118,6 +120,18 @@ class RuntimeArmResult:
             self.artifact_sha256
         ):
             raise ValueError("artifact_sha256 must be a lowercase SHA-256 hex digest")
+        if self.stop_reason is not None:
+            stop_reason = str(self.stop_reason).strip()
+            object.__setattr__(self, "stop_reason", stop_reason or None)
+        if self.effective_timeout_seconds is not None:
+            object.__setattr__(
+                self,
+                "effective_timeout_seconds",
+                _finite_non_negative(
+                    self.effective_timeout_seconds,
+                    "effective_timeout_seconds",
+                ),
+            )
         citations: list[dict[str, str]] = []
         for citation in self.citations:
             if not isinstance(citation, Mapping):
@@ -153,6 +167,8 @@ class RuntimeArmResult:
             "output_tokens": self.output_tokens,
             "protocol_issues": list(self.protocol_issues),
             "artifact_sha256": self.artifact_sha256,
+            "stop_reason": self.stop_reason,
+            "effective_timeout_seconds": self.effective_timeout_seconds,
             "citations": [dict(item) for item in self.citations],
             "data_cutoff": self.data_cutoff,
         }
@@ -186,6 +202,12 @@ class RuntimeArmResult:
             output_tokens=value.get("output_tokens"),
             protocol_issues=tuple(raw_issues),
             artifact_sha256=str(value.get("artifact_sha256") or ""),
+            stop_reason=(
+                str(value.get("stop_reason"))
+                if value.get("stop_reason") is not None
+                else None
+            ),
+            effective_timeout_seconds=value.get("effective_timeout_seconds"),
             citations=tuple(raw_citations),
             data_cutoff=(
                 str(value.get("data_cutoff"))

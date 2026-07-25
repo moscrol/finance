@@ -521,6 +521,8 @@ def _arm_failure(
         output_tokens=None,
         protocol_issues=(issue,),
         artifact_sha256=_artifact_hash(payload),
+        stop_reason="runner_exception",
+        effective_timeout_seconds=case.timeout,
     )
 
 
@@ -619,6 +621,11 @@ def _run_research_arm(
             output_tokens=output_tokens,
             protocol_issues=tuple(issues),
             artifact_sha256=_artifact_hash(final_outcome.to_dict()),
+            stop_reason=final_outcome.stop_reason,
+            effective_timeout_seconds=min(
+                case.timeout,
+                context.policy.total_seconds,
+            ),
             citations=citations,
             data_cutoff=data_cutoff,
         )
@@ -693,6 +700,12 @@ def _run_non_research_arms(
                 output_tokens=None,
                 protocol_issues=(),
                 artifact_sha256=payload_hash,
+                stop_reason=str(
+                    raw.get("stop_reason")
+                    or raw.get("execution_kind")
+                    or "deterministic_fast_path"
+                ),
+                effective_timeout_seconds=min(case.timeout, 15.0),
                 citations=citations,
                 data_cutoff=source_trade_date or None,
             )
@@ -721,6 +734,8 @@ def _run_non_research_arms(
             output_tokens=None,
             protocol_issues=(),
             artifact_sha256=payload_hash,
+            stop_reason="clarification",
+            effective_timeout_seconds=0.0,
         )
         for backend in backends
     )

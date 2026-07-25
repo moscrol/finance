@@ -249,6 +249,11 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         }
     ]
     assert arms[0]["data_cutoff"] == "2026-07-24"
+    assert [arm["stop_reason"] for arm in arms] == [
+        "model_finish",
+        "model_finish",
+    ]
+    assert [arm["effective_timeout_seconds"] for arm in arms] == [30.0, 30.0]
 
 
 def test_deterministic_fast_path_is_identical_across_runtime_backends(
