@@ -96,6 +96,8 @@ pnpm build: passed
 
 `codex_headless` 已实现为独立 subprocess benchmark adapter，并新增显式 `local_exec` 传输：通过 Codex Desktop 的 `28080/api/exec` 在当前已登录会话中启动 CLI，不需要 `OPENAI_API_KEY`。本次 local route smoke 已确认 `/api/ping`、CLI 启动和 adapter 嵌套工具网关均连通；真实 Codex arm 最终被账号 `headless_usage_limit` 阻塞。因此它仍只能作为待补的质量上界，不是本轮有效的第三臂，也不应接入生产 UI。
 
+本地路由版本 `115b3f1e` 的 Conversation E2E 为 `run_20260725_110105_288243`：`execution_kind=continuous_episode`、`runtime_backend=codex_headless`、`stop_reason=headless_usage_limit`、`tool_calls=0`。结构/语义 verifier 将其投影为问题相关证据缺口短答，未回退 GLM；SSE 仍只有一个终局 `event: run`。这证明本地传输、Run/UI 协议和失败隔离已生效，但不能替代真实 Codex 质量得分。
+
 ## 结论与下一步
 
 当前推荐把 `sdk_glm` 作为隔离的下一阶段 production candidate 继续观察：它的协议问题为 0、延迟略低，并在估值/归因/上下文追问上更稳；但在补齐 GPT live 和 headless 上界前，不切换 canonical 8792，也不能宣称已达到 Codex/Knevo 级别。
