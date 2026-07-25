@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-import ipaddress
 from threading import Lock
-from urllib.parse import urlsplit, urlunsplit
 
 from intelligence.services import llm_refine
+from intelligence.services.keychain_credentials import normalize_provider_base_url
 from intelligence.services.llm_refine import LLMProvider, detect_provider
 
 
@@ -44,40 +43,6 @@ PROVIDER_PRESETS: dict[str, ProviderPreset] = {
         default_model="qwen-plus",
     ),
 }
-
-
-def normalize_provider_base_url(value: str) -> str:
-    """Validate a user-selected model endpoint without retaining URL secrets."""
-
-    cleaned = str(value or "").strip().rstrip("/")
-    if not cleaned:
-        raise ValueError("provider base URL must not be blank")
-    parsed = urlsplit(cleaned)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("provider base URL must use http or https")
-    if parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError("provider base URL must not contain credentials or query data")
-    if parsed.scheme == "http":
-        host = parsed.hostname.lower()
-        is_loopback = host == "localhost"
-        if not is_loopback:
-            try:
-                is_loopback = ipaddress.ip_address(host).is_loopback
-            except ValueError:
-                is_loopback = False
-        if not is_loopback:
-            raise ValueError("provider base URL requires https outside loopback")
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        raise ValueError("provider base URL has an invalid port") from exc
-    hostname = parsed.hostname
-    if ":" in hostname and not hostname.startswith("["):
-        hostname = f"[{hostname}]"
-    netloc = hostname
-    if port is not None:
-        netloc = f"{netloc}:{port}"
-    return urlunsplit((parsed.scheme, netloc, parsed.path or "", "", ""))
 
 
 class SessionLLMSettings:
