@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 import sys
 from threading import Lock
 from typing import Protocol
@@ -65,9 +64,12 @@ def _credential_store_from_environment() -> CredentialStore | None:
     enabled = os.environ.get("FORESIGHT_LLM_KEYCHAIN", "").strip().lower()
     if enabled not in {"1", "true", "yes", "on"}:
         return None
-    if sys.platform != "darwin" or not Path("/usr/bin/security").is_file():
+    if sys.platform != "darwin":
         return None
-    return KeychainCredentialStore()
+    try:
+        return KeychainCredentialStore()
+    except KeychainCredentialError:
+        return None
 
 
 class SessionLLMSettings:

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import ctypes
 import ipaddress
 import json
 import re
-import subprocess
+import sys
+from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 from intelligence.services.llm_refine import LLMProvider
 
 
 DEFAULT_KEYCHAIN_SERVICE = "com.foresight.workbench.llm"
-_SECURITY_BIN = "/usr/bin/security"
 _ALLOWED_PROVIDERS = frozenset(
     {"zhipu", "openai", "deepseek", "moonshot", "dashscope"}
 )
@@ -22,6 +22,251 @@ _MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 
 class KeychainCredentialError(RuntimeError):
     """A sanitized Keychain operation or record validation failure."""
+
+
+class KeychainBackend(Protocol):
+    def save(self, *, service: str, account: str, label: str, payload: bytes) -> None: ...
+    def load(self, *, service: str, account: str) -> bytes | None: ...
+    def delete(self, *, service: str, account: str) -> None: ...
+
+
+class MacOSKeychainBackend:
+    """Call Keychain Services directly so secrets never enter process argv."""
+
+    _ERR_SUCCESS = 0
+    _ERR_DUPLICATE_ITEM = -25299
+    _ERR_ITEM_NOT_FOUND = -25300
+    _UTF8_ENCODING = 0x08000100
+
+    def __init__(self) -> None:
+        if sys.platform != "darwin":
+            raise KeychainCredentialError("macOS Keychain unavailable")
+        try:
+            self._cf = ctypes.CDLL(
+                "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+            )
+            self._security = ctypes.CDLL(
+                "/System/Library/Frameworks/Security.framework/Security"
+            )
+            self._configure_functions()
+            self._constants = {
+                name: self._symbol(self._security, name)
+                for name in (
+                    "kSecClass",
+                    "kSecClassGenericPassword",
+                    "kSecAttrAccount",
+                    "kSecAttrService",
+                    "kSecAttrLabel",
+                    "kSecValueData",
+                    "kSecReturnData",
+                    "kSecMatchLimit",
+                    "kSecMatchLimitOne",
+                )
+            }
+            self._true = self._symbol(self._cf, "kCFBooleanTrue")
+            self._key_callbacks = ctypes.addressof(
+                ctypes.c_byte.in_dll(
+                    self._cf, "kCFTypeDictionaryKeyCallBacks"
+                )
+            )
+            self._value_callbacks = ctypes.addressof(
+                ctypes.c_byte.in_dll(
+                    self._cf, "kCFTypeDictionaryValueCallBacks"
+                )
+            )
+        except (AttributeError, OSError, ValueError) as exc:
+            raise KeychainCredentialError("macOS Keychain unavailable") from exc
+
+    def save(
+        self,
+        *,
+        service: str,
+        account: str,
+        label: str,
+        payload: bytes,
+    ) -> None:
+        refs: list[int] = []
+        try:
+            service_ref = self._string(service, refs)
+            account_ref = self._string(account, refs)
+            label_ref = self._string(label, refs)
+            data_ref = self._data(payload, refs)
+            query = self._dictionary(
+                (
+                    (self._constants["kSecClass"], self._constants["kSecClassGenericPassword"]),
+                    (self._constants["kSecAttrService"], service_ref),
+                    (self._constants["kSecAttrAccount"], account_ref),
+                ),
+                refs,
+            )
+            updates = self._dictionary(
+                (
+                    (self._constants["kSecValueData"], data_ref),
+                    (self._constants["kSecAttrLabel"], label_ref),
+                ),
+                refs,
+            )
+            status = self._security.SecItemUpdate(query, updates)
+            if status == self._ERR_ITEM_NOT_FOUND:
+                add_query = self._dictionary(
+                    (
+                        (self._constants["kSecClass"], self._constants["kSecClassGenericPassword"]),
+                        (self._constants["kSecAttrService"], service_ref),
+                        (self._constants["kSecAttrAccount"], account_ref),
+                        (self._constants["kSecAttrLabel"], label_ref),
+                        (self._constants["kSecValueData"], data_ref),
+                    ),
+                    refs,
+                )
+                status = self._security.SecItemAdd(add_query, None)
+                if status == self._ERR_DUPLICATE_ITEM:
+                    status = self._security.SecItemUpdate(query, updates)
+            if status != self._ERR_SUCCESS:
+                raise KeychainCredentialError("unable to save Keychain credential")
+        finally:
+            self._release(refs)
+
+    def load(self, *, service: str, account: str) -> bytes | None:
+        refs: list[int] = []
+        result = ctypes.c_void_p()
+        try:
+            service_ref = self._string(service, refs)
+            account_ref = self._string(account, refs)
+            query = self._dictionary(
+                (
+                    (self._constants["kSecClass"], self._constants["kSecClassGenericPassword"]),
+                    (self._constants["kSecAttrService"], service_ref),
+                    (self._constants["kSecAttrAccount"], account_ref),
+                    (self._constants["kSecReturnData"], self._true),
+                    (self._constants["kSecMatchLimit"], self._constants["kSecMatchLimitOne"]),
+                ),
+                refs,
+            )
+            status = self._security.SecItemCopyMatching(
+                query, ctypes.byref(result)
+            )
+            if status == self._ERR_ITEM_NOT_FOUND:
+                return None
+            if status != self._ERR_SUCCESS or not result.value:
+                raise KeychainCredentialError("unable to read Keychain credential")
+            length = self._cf.CFDataGetLength(result.value)
+            pointer = self._cf.CFDataGetBytePtr(result.value)
+            return ctypes.string_at(pointer, length)
+        finally:
+            if result.value:
+                self._cf.CFRelease(result.value)
+            self._release(refs)
+
+    def delete(self, *, service: str, account: str) -> None:
+        refs: list[int] = []
+        try:
+            service_ref = self._string(service, refs)
+            account_ref = self._string(account, refs)
+            query = self._dictionary(
+                (
+                    (self._constants["kSecClass"], self._constants["kSecClassGenericPassword"]),
+                    (self._constants["kSecAttrService"], service_ref),
+                    (self._constants["kSecAttrAccount"], account_ref),
+                ),
+                refs,
+            )
+            status = self._security.SecItemDelete(query)
+            if status not in {self._ERR_SUCCESS, self._ERR_ITEM_NOT_FOUND}:
+                raise KeychainCredentialError("unable to delete Keychain credential")
+        finally:
+            self._release(refs)
+
+    def _configure_functions(self) -> None:
+        void_p = ctypes.c_void_p
+        self._cf.CFStringCreateWithCString.argtypes = [
+            void_p,
+            ctypes.c_char_p,
+            ctypes.c_uint32,
+        ]
+        self._cf.CFStringCreateWithCString.restype = void_p
+        self._cf.CFDataCreate.argtypes = [
+            void_p,
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_long,
+        ]
+        self._cf.CFDataCreate.restype = void_p
+        self._cf.CFDictionaryCreateMutable.argtypes = [
+            void_p,
+            ctypes.c_long,
+            void_p,
+            void_p,
+        ]
+        self._cf.CFDictionaryCreateMutable.restype = void_p
+        self._cf.CFDictionarySetValue.argtypes = [void_p, void_p, void_p]
+        self._cf.CFDictionarySetValue.restype = None
+        self._cf.CFDataGetLength.argtypes = [void_p]
+        self._cf.CFDataGetLength.restype = ctypes.c_long
+        self._cf.CFDataGetBytePtr.argtypes = [void_p]
+        self._cf.CFDataGetBytePtr.restype = ctypes.POINTER(ctypes.c_uint8)
+        self._cf.CFRelease.argtypes = [void_p]
+        self._cf.CFRelease.restype = None
+        self._security.SecItemAdd.argtypes = [
+            void_p,
+            ctypes.POINTER(void_p),
+        ]
+        self._security.SecItemAdd.restype = ctypes.c_int32
+        self._security.SecItemUpdate.argtypes = [void_p, void_p]
+        self._security.SecItemUpdate.restype = ctypes.c_int32
+        self._security.SecItemCopyMatching.argtypes = [
+            void_p,
+            ctypes.POINTER(void_p),
+        ]
+        self._security.SecItemCopyMatching.restype = ctypes.c_int32
+        self._security.SecItemDelete.argtypes = [void_p]
+        self._security.SecItemDelete.restype = ctypes.c_int32
+
+    @staticmethod
+    def _symbol(library: ctypes.CDLL, name: str) -> int:
+        value = ctypes.c_void_p.in_dll(library, name).value
+        if value is None:
+            raise KeychainCredentialError("macOS Keychain unavailable")
+        return value
+
+    def _string(self, value: str, refs: list[int]) -> int:
+        result = self._cf.CFStringCreateWithCString(
+            None,
+            value.encode("utf-8"),
+            self._UTF8_ENCODING,
+        )
+        if not result:
+            raise KeychainCredentialError("invalid Keychain attribute")
+        refs.append(result)
+        return result
+
+    def _data(self, value: bytes, refs: list[int]) -> int:
+        buffer = (ctypes.c_uint8 * len(value)).from_buffer_copy(value)
+        result = self._cf.CFDataCreate(None, buffer, len(value))
+        if not result:
+            raise KeychainCredentialError("invalid Keychain payload")
+        refs.append(result)
+        return result
+
+    def _dictionary(
+        self,
+        pairs: tuple[tuple[int, int], ...],
+        refs: list[int],
+    ) -> int:
+        result = self._cf.CFDictionaryCreateMutable(
+            None,
+            0,
+            self._key_callbacks,
+            self._value_callbacks,
+        )
+        if not result:
+            raise KeychainCredentialError("unable to create Keychain query")
+        refs.append(result)
+        for key, value in pairs:
+            self._cf.CFDictionarySetValue(result, key, value)
+        return result
+
+    def _release(self, refs: list[int]) -> None:
+        for ref in reversed(refs):
+            self._cf.CFRelease(ref)
 
 
 def normalize_provider_base_url(value: str) -> str:
@@ -58,27 +303,20 @@ def normalize_provider_base_url(value: str) -> str:
     return urlunsplit((parsed.scheme, netloc, parsed.path or "", "", ""))
 
 
-CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
-
-
 class KeychainCredentialStore:
-    """Persist provider settings with the secret supplied only through stdin."""
+    """Persist provider settings through a replaceable native secret backend."""
 
     def __init__(
         self,
         *,
         service: str = DEFAULT_KEYCHAIN_SERVICE,
-        runner: CommandRunner = subprocess.run,
-        security_bin: str = _SECURITY_BIN,
-        timeout: float = 10.0,
+        backend: KeychainBackend | None = None,
     ) -> None:
         cleaned_service = str(service or "").strip()
         if not cleaned_service:
             raise ValueError("keychain service must not be blank")
         self.service = cleaned_service
-        self._runner = runner
-        self._security_bin = security_bin
-        self._timeout = max(0.1, float(timeout))
+        self._backend = backend or MacOSKeychainBackend()
 
     def __repr__(self) -> str:
         return f"KeychainCredentialStore(service={self.service!r})"
@@ -95,42 +333,31 @@ class KeychainCredentialStore:
             },
             ensure_ascii=False,
             separators=(",", ":"),
-        )
-        args = [
-            self._security_bin,
-            "add-generic-password",
-            "-U",
-            "-a",
-            account,
-            "-s",
-            self.service,
-            "-l",
-            "Foresight Workbench model",
-            "-w",
-        ]
-        result = self._run(args, input=f"{payload}\n{payload}\n")
-        if result.returncode != 0:
-            raise KeychainCredentialError("unable to save Keychain credential")
+        ).encode("utf-8")
+        try:
+            self._backend.save(
+                service=self.service,
+                account=account,
+                label="Foresight Workbench model",
+                payload=payload,
+            )
+        except KeychainCredentialError as exc:
+            raise KeychainCredentialError(
+                "unable to save Keychain credential"
+            ) from exc
 
     def load(self, user_id: str) -> LLMProvider | None:
         account = self._account(user_id)
-        result = self._run(
-            [
-                self._security_bin,
-                "find-generic-password",
-                "-a",
-                account,
-                "-s",
-                self.service,
-                "-w",
-            ]
-        )
-        if result.returncode == 44:
-            return None
-        if result.returncode != 0:
-            raise KeychainCredentialError("unable to read Keychain credential")
         try:
-            value = json.loads(result.stdout.strip())
+            payload = self._backend.load(service=self.service, account=account)
+        except KeychainCredentialError as exc:
+            raise KeychainCredentialError(
+                "unable to read Keychain credential"
+            ) from exc
+        if payload is None:
+            return None
+        try:
+            value = json.loads(payload.decode("utf-8"))
             if not isinstance(value, dict):
                 raise ValueError("record must be an object")
             provider_name = str(value.get("provider") or "").strip()
@@ -145,7 +372,7 @@ class KeychainCredentialStore:
                 raise ValueError("invalid key")
             if not _MODEL_RE.fullmatch(model):
                 raise ValueError("invalid model")
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        except (TypeError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
             raise KeychainCredentialError("invalid saved credential") from exc
         return LLMProvider(
             name=provider_name,
@@ -156,36 +383,12 @@ class KeychainCredentialStore:
 
     def delete(self, user_id: str) -> None:
         account = self._account(user_id)
-        result = self._run(
-            [
-                self._security_bin,
-                "delete-generic-password",
-                "-a",
-                account,
-                "-s",
-                self.service,
-            ]
-        )
-        if result.returncode not in {0, 44}:
-            raise KeychainCredentialError("unable to delete Keychain credential")
-
-    def _run(
-        self,
-        args: list[str],
-        *,
-        input: str | None = None,
-    ) -> subprocess.CompletedProcess[str]:
         try:
-            return self._runner(
-                args,
-                input=input,
-                text=True,
-                capture_output=True,
-                timeout=self._timeout,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise KeychainCredentialError("Keychain command unavailable") from exc
+            self._backend.delete(service=self.service, account=account)
+        except KeychainCredentialError as exc:
+            raise KeychainCredentialError(
+                "unable to delete Keychain credential"
+            ) from exc
 
     @staticmethod
     def _account(user_id: str) -> str:
@@ -199,5 +402,6 @@ __all__ = [
     "DEFAULT_KEYCHAIN_SERVICE",
     "KeychainCredentialError",
     "KeychainCredentialStore",
+    "MacOSKeychainBackend",
     "normalize_provider_base_url",
 ]

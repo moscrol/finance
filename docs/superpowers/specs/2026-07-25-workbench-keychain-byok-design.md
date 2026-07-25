@@ -14,7 +14,15 @@ environment files, application data, logs, or run artifacts.
 Use one macOS generic-password Keychain item per Workbench user. The item stores
 a JSON payload containing `provider`, `base_url`, `model`, and `api_key`. The
 service name is fixed by the application; the Keychain account is the normalized
-Workbench user id.
+Workbench user id. The Python process calls Keychain Services through
+`Security.framework` (`SecItemAdd`, `SecItemUpdate`, `SecItemCopyMatching`, and
+`SecItemDelete`) instead of wrapping the `security` CLI.
+
+The original CLI design was rejected during live acceptance: interactive
+`security ... -w` input truncates password data at 128 characters, which cuts a
+provider JSON record even when the API key itself is short. Native Keychain
+Services keeps the secret out of process arguments and supports the full
+configured key length.
 
 Keychain integration is opt-in at runtime through
 `FORESIGHT_LLM_KEYCHAIN=1`. Existing runtimes, including canonical 8792, keep
@@ -22,10 +30,9 @@ their current behavior unless explicitly enabled.
 
 ## Security Boundary
 
-- Write with `/usr/bin/security add-generic-password ... -w`, placing `-w` last
-  and supplying both password prompts through stdin. The secret never appears in
-  argv or environment variables.
-- Read into process memory only with `security find-generic-password ... -w`.
+- Write and read through the in-process macOS Security framework. The secret
+  never appears in subprocess argv, stdin prompts, environment variables, or
+  shell history.
 - Never include the Keychain payload, command stdout, API key, or base URL in
   errors, API responses, health responses, logs, traces, or artifacts.
 - Continue validating custom endpoints: HTTP is allowed only for loopback;
@@ -66,8 +73,9 @@ API changes:
 
 ## Verification
 
-Unit tests use an injected command runner and never touch the real Keychain.
-They assert that the key is absent from argv and public descriptions, saved
+Unit tests use an injected Keychain backend and never touch the real Keychain.
+They assert that records larger than the CLI prompt limit round-trip, the key is
+absent from public descriptions, saved
 configuration reloads after a new settings instance, built-in selection does
 not delete it, explicit deletion does, and persistence errors do not claim
 success. API and frontend tests cover the new fields and actions.

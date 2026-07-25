@@ -18,9 +18,9 @@
 
 - [ ] **Step 1: Write failing store tests**
 
-Use an injected runner to assert `save()` sends the serialized provider twice
-through stdin, never argv; `load()` reconstructs the provider; `delete()` uses
-only service/account selectors; malformed records return no credential.
+Use an injected native backend to assert records larger than 128 characters
+round-trip without any command argv; `load()` reconstructs the provider;
+`delete()` uses only service/account selectors; malformed records fail closed.
 
 - [ ] **Step 2: Run the tests and verify RED**
 
@@ -42,8 +42,9 @@ def load(self, user_id: str) -> LLMProvider | None: ...
 def delete(self, user_id: str) -> None: ...
 ```
 
-Use `/usr/bin/security`, a fixed service id, bounded timeouts, sanitized
-exceptions, and the existing Base URL validator.
+Use macOS `Security.framework` Keychain Services, a fixed service id, sanitized
+exceptions, and the existing Base URL validator. Do not use the `security` CLI:
+its interactive password input truncates records at 128 characters.
 
 - [ ] **Step 4: Run tests and commit**
 
