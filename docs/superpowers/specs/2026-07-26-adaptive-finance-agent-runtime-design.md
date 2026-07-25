@@ -151,8 +151,10 @@ class InformationCutoff:
 ```
 
 `ResearchRunContext.information_cutoff` is the sole authoritative value. The
-composition root derives it once from the requested date and available market
-snapshot; the model cannot change it. Every FinanceQuery, EvidenceSearch,
+composition root derives it once from the explicit requested/as-of date or the
+runtime date; the model cannot change it. A provider's `latest_data_date` or
+`source_trade_date` is served-data freshness metadata, not a global information
+cutoff, so a stale Friday market snapshot must not hide weekend news. Every FinanceQuery, EvidenceSearch,
 News/Web/Graph/L3 adapter receives the same cutoff and filters before returning
 an observation. A later document, row, or news item is rejected and recorded as
 `future_of_cutoff`; it must never reach model context. `ProviderTrace` records

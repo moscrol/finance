@@ -26,6 +26,10 @@ next `FinanceQuery + EvidenceSearch` slice must close those gaps before the new
 runtime may own data-bearing production traffic. All future adapters must reuse
 this contract instead of creating provider-local cutoffs.
 
+`latest_data_date` and `source_trade_date` remain provider freshness fields; they
+must never lower the global cutoff. For example, a Friday market snapshot must
+not hide Saturday or Sunday news when the run's runtime date is the weekend.
+
 The live nine-case suite is forbidden during these tasks. Use scripted models,
 cached observations, focused tests, and at most one failing single-case live
 replay after the slice is frozen.
