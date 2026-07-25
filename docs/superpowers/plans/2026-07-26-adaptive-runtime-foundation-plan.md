@@ -17,12 +17,12 @@ repair**. It does not add FinanceQuery, sub-agents, memory writeback, or canonic
 8792 migration. Each task produces a focused commit and a review request. The
 producer must not start the next task until the matching light verdict is `PASS`.
 
-The information-cutoff contract is deliberately **not partially implemented in
-this foundation slice**. It is a separate, complete vertical slice in the next
-`FinanceQuery + EvidenceSearch` plan. Until that slice is merged, the new
-runtime cannot become the production owner for data-bearing runs. That avoids
-the dangerous state where only `closed_loop_retrieval` filters future data while
-news, graph, L3, or provider traces do not.
+The information-cutoff contract is delivered as a complete foundation slice:
+the composition root freezes one cutoff, every model-visible tool result passes
+through the common registry filter, closed-loop knowledge retrieval filters
+before bucketing, and ProviderTrace retains requested/served dates. Future
+FinanceQuery and EvidenceSearch adapters must reuse this contract instead of
+creating provider-local cutoffs.
 
 The live nine-case suite is forbidden during these tasks. Use scripted models,
 cached observations, focused tests, and at most one failing single-case live
@@ -38,6 +38,13 @@ replay after the slice is frozen.
   bounded repair-cycle policy, and conversion from verifier coverage to goal.
 - Modify: `intelligence/services/agent_runtime.py` — provider-neutral plan and
   plan-event contracts; no provider payloads cross the seam.
+- Modify: `intelligence/services/research_contract.py` and
+  `episode_factory.py` — immutable cutoff in the root run context.
+- Modify: `intelligence/services/research_tool_registry.py` and
+  `closed_loop_retrieval.py` — pre-observation cutoff enforcement for runtime
+  tools and knowledge retrieval.
+- Modify: `intelligence/services/provider_observability.py`, `agent_research.py`,
+  and `kb_rag.py` — requested/served date lineage and source-date propagation.
 - Modify: `intelligence/services/episode_protocol.py` — plan instruction and
   JSON parsing helpers without imposing a fixed research sequence.
 - Modify: `intelligence/services/agent_episode.py` — record/validate plan,
@@ -49,6 +56,7 @@ replay after the slice is frozen.
 - Modify: `intelligence/services/episode_semantic_verifier.py` — return
   repair-eligible rejected claims without publishing a replacement template.
 - Test: `intelligence/tests/test_user_task.py`
+- Test: `intelligence/tests/test_information_cutoff.py`
 - Test: `intelligence/tests/test_research_plan.py`
 - Test: `intelligence/tests/test_repair_coordinator.py`
 - Test: `intelligence/tests/test_agent_episode.py`
@@ -61,9 +69,15 @@ replay after the slice is frozen.
 
 **Files:**
 - Create: `intelligence/services/user_task.py`
+- Modify: `intelligence/services/research_contract.py`
+- Modify: `intelligence/services/episode_factory.py`
+- Modify: `intelligence/services/research_tool_registry.py`
+- Modify: `intelligence/services/closed_loop_retrieval.py`
+- Modify: `intelligence/services/provider_observability.py`
+- Modify: `intelligence/services/agent_research.py`
+- Modify: `intelligence/services/kb_rag.py`
 - Test: `intelligence/tests/test_user_task.py`
-- Modify: `intelligence/services/task_frame.py:81-168` only to add an explicit
-  compatibility projection; do not remove current fields in this task.
+- Test: `intelligence/tests/test_information_cutoff.py`
 
 - [ ] **Step 1: Write failing value-object tests**
 
@@ -147,17 +161,39 @@ inferred A-share default as `product_default`; it must not infer a new topic.
 
 Run the command from Step 2. Expected: all UserTask tests pass.
 
+Also run:
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_information_cutoff.py
+```
+
+The cutoff tests must prove the composition root freezes one value, every
+model-visible tool observation drops future-dated evidence, closed-loop
+retrieval rejects a high-scoring future hit before bucketing, ProviderTrace
+round-trips requested/served dates, and forecast dates inside article text do
+not masquerade as publication dates.
+
 - [ ] **Step 5: Commit and request review**
 
 ```bash
 git add intelligence/services/user_task.py \
-  intelligence/services/task_frame.py \
-  intelligence/tests/test_user_task.py
-git commit -m "feat: add thin user task seam"
+  intelligence/services/research_contract.py \
+  intelligence/services/episode_factory.py \
+  intelligence/services/research_tool_registry.py \
+  intelligence/services/closed_loop_retrieval.py \
+  intelligence/services/provider_observability.py \
+  intelligence/services/agent_research.py \
+  intelligence/services/kb_rag.py \
+  intelligence/tests/test_user_task.py \
+  intelligence/tests/test_information_cutoff.py
+git commit -m "feat: add user task and information cutoff seam"
 ```
 
-Write a review request naming the commit and `test_user_task.py`; do not modify
-the producer worktree while the reviewer checks it.
+Write a review request naming the commit and both focused tests. It must verify
+the common registry filter rather than claim that each provider independently
+implements cutoff logic. Do not modify the producer worktree while the reviewer
+checks it.
 
 ---
 
@@ -184,13 +220,28 @@ def test_first_model_turn_can_publish_a_plan_without_granting_tools():
             "answer_elements": ["direct_assessment", "counterpoint"],
             "hypotheses": ["半导体可能是持续主线"],
             "evidence_needs": ["同日主线与持续性"],
+            "candidate_actions": ["market_snapshot", "news_search"],
+            "open_gaps": ["缺少反方证据"],
             "requested_mode": "quick",
+            "revision": 1,
         }, ensure_ascii=False),
         tool_calls=(), provider_name="scripted",
     )
     plan = parse_research_plan(turn.content)
     assert plan.answer_elements == ("direct_assessment", "counterpoint")
+    assert plan.candidate_actions == ("market_snapshot", "news_search")
+    assert plan.open_gaps == ("缺少反方证据",)
     assert plan.requested_mode == "quick"
+
+
+def test_plan_revision_must_increase_and_preserve_task_identity():
+    first = parse_research_plan(plan_json(revision=1))
+    second = parse_research_plan(plan_json(revision=2))
+    assert second.revision > first.revision
+    with pytest.raises(ValueError, match="revision"):
+        validate_plan_revision(second, first, original_task_id="task-1", current_task_id="task-1")
+    with pytest.raises(ValueError, match="task identity"):
+        validate_plan_revision(first, second, original_task_id="task-1", current_task_id="task-2")
 ```
 
 Also assert that malformed/unknown plan fields are rejected, the original
@@ -221,6 +272,8 @@ class ResearchPlan:
     answer_elements: tuple[str, ...]
     hypotheses: tuple[str, ...]
     evidence_needs: tuple[str, ...]
+    candidate_actions: tuple[str, ...]
+    open_gaps: tuple[str, ...]
     requested_mode: ResearchMode
     revision: int = 1
 
@@ -234,9 +287,13 @@ def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]: ...
 ```
 
 The parser accepts one JSON object with `kind=PLAN`, bounded string lengths,
-deduplicated arrays, 1-8 answer elements, 1-4 hypotheses, and quick/deep only.
-It never accepts tools, evidence hashes, budgets, completion status, or factual
-claims as plan authority.
+deduplicated arrays, 1-8 answer elements, 1-4 hypotheses, 0-8 candidate
+actions, 0-8 open gaps, a positive integer `revision`, and quick/deep only.
+`validate_plan_revision(previous, current, original_task_id=...,
+current_task_id=...)` requires a strictly larger revision and the same original
+task identity. It never accepts tools,
+evidence hashes, budgets, completion status, or factual claims as plan
+authority.
 
 Extend the provider-neutral event ledger with a `plan` event payload and an
 optional `plan` field on `AgentOutcome`. Keep provider adapters returning the
@@ -308,16 +365,42 @@ written; the two documents may not silently diverge.
 - Modify: `intelligence/services/agent_runtime.py` — expose a provider-neutral
   `EpisodeSession` continuation seam; `run()` alone is not sufficient because
   verifiers execute after it returns.
+- Create: `intelligence/services/episode_session.py` — provider-neutral session
+  protocol and lifecycle result used by every production runtime adapter.
 - Modify: `intelligence/services/research_contract.py` — add the singleton
   `RootBudgetLedger` interface and distinguish initial allocation from the
   immutable quick/deep hard cap.
-- Modify: `intelligence/services/evidence_ledger.py` (or the existing canonical
-  evidence-ledger module) — emit immutable before/after snapshots used by the
-  progress predicate.
+- Create: `intelligence/services/evidence_ledger.py` — canonical append-only
+  evidence snapshot interface for this runtime; it must not become a second
+  user decision ledger.
 - Test: `intelligence/tests/test_repair_coordinator.py`
 - Test: `intelligence/tests/test_episode_verifier.py`
 - Test: `intelligence/tests/test_continuous_turn_adapter.py`
 - Test: `intelligence/tests/test_episode_session.py`
+- Test: `intelligence/tests/test_evidence_ledger.py`
+
+The continuation seam is executable and provider-neutral:
+
+```python
+class EpisodeSession(Protocol):
+    episode_id: str
+    outcome: AgentOutcome
+
+    def resume(self, goal: RepairGoal) -> AgentOutcome: ...
+
+class AgentRuntime(Protocol):
+    def start(self, task: UserTask, *, context: ResearchRunContext) -> EpisodeSession: ...
+```
+
+`AgentRuntime.start()` is called exactly once for a production run. The
+returned session owns the original provider history, episode/event ledger,
+EvidenceLedger, QueryLedger, usage ledger, authorized tool registry, and root
+deadline. `resume()` appends the repair instruction to that session and returns
+the updated outcome; it may not call `start()` or `run()` internally. Terminal,
+cancelled, provider-error, and exhausted-budget outcomes all remain observable
+through `outcome` and preserve the same `episode_id`. Continuous, SDK, and
+headless adapters must implement this interface before they can own production
+traffic; an adapter that cannot do so remains benchmark-only.
 
 - [ ] **Step 1: Write failing repair tests**
 
@@ -330,18 +413,27 @@ def test_missing_required_output_becomes_repair_goal():
         missing_capabilities=("news_search",),
         rejected_claims=(),
         attempted_actions=("market_data:A股",),
-        previous_progress=CoverageDelta(0, 0, 0),
+        previous_progress=ProgressSnapshot(
+            before_evidence_ids=(), after_evidence_ids=("e1",),
+            before_covered_outputs=(), after_covered_outputs=("direct_assessment",),
+            before_open_gaps=("counterpoint",), after_open_gaps=("counterpoint",),
+            independent_source_families=("market",),
+        ),
         remaining_calls=3,
         remaining_seconds=42.0,
     )
     assert goal.missing_answer_elements == ("counterpoint",)
-    assert goal.next_query is None
+    assert not hasattr(goal, "next_query")
 ```
 
 Add episode tests proving an empty tool observation causes a new model turn in
 the same history, the new turn sees the failed observation and repair goal, and
 the executor still rejects an unauthorized or duplicate call. Add a monotonic
-test proving a no-progress cycle does not increase the budget.
+test proving a no-progress cycle does not increase the budget. Add a
+`test_progress_snapshot_is_ledger_derived` fixture that compares two immutable
+EvidenceLedger snapshots, and a root-budget test proving an accepted grant
+decrements the one ledger while a second ledger or a grant above the hard cap
+is rejected.
 
 - [ ] **Step 2: Run repair tests and verify RED**
 
@@ -349,6 +441,10 @@ test proving a no-progress cycle does not increase the budget.
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
   intelligence/tests/test_repair_coordinator.py \
   intelligence/tests/test_episode_verifier.py -k 'repair or gap or missing'
+
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_episode_session.py \
+  intelligence/tests/test_evidence_ledger.py -k 'session or snapshot or budget'
 ```
 
 Expected: failures because coverage is represented only as strings and no
@@ -482,7 +578,9 @@ The root deadline and usage ledger remain singletons; repair does not reset
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
   intelligence/tests/test_repair_coordinator.py \
   intelligence/tests/test_episode_verifier.py \
-  intelligence/tests/test_continuous_turn_adapter.py -k 'repair or gap or partial'
+  intelligence/tests/test_continuous_turn_adapter.py \
+  intelligence/tests/test_episode_session.py \
+  intelligence/tests/test_evidence_ledger.py -k 'repair or gap or partial or session or snapshot or budget'
 ```
 
 Expected: all focused tests pass and existing invalid-action/gate assertions
@@ -496,14 +594,24 @@ git add intelligence/services/repair_coordinator.py \
   intelligence/services/episode_semantic_verifier.py \
   intelligence/services/agent_episode.py \
   intelligence/services/continuous_turn_adapter.py \
+  intelligence/services/agent_runtime.py \
+  intelligence/services/episode_session.py \
+  intelligence/services/research_contract.py \
+  intelligence/services/evidence_ledger.py \
   intelligence/tests/test_repair_coordinator.py \
   intelligence/tests/test_episode_verifier.py \
-  intelligence/tests/test_continuous_turn_adapter.py
+  intelligence/tests/test_continuous_turn_adapter.py \
+  intelligence/tests/test_episode_session.py \
+  intelligence/tests/test_evidence_ledger.py
 git commit -m "feat: reenter research episodes for verified gaps"
 ```
 
 This is a hard architecture review gate. The reviewer must prove that a repair
 executes a new model-owned action and is not merely a renamed fallback.
+The review request must also prove one `AgentRuntime.start()`, one session
+identity, `EpisodeSession.resume()` without a second run, EvidenceLedger-derived
+progress, atomic `RootBudgetLedger` reservation, and unchanged invalid-action
+accounting.
 
 ---
 
