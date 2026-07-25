@@ -31,6 +31,10 @@ replay after the slice is frozen.
   bounded repair-cycle policy, and conversion from verifier coverage to goal.
 - Modify: `intelligence/services/agent_runtime.py` — provider-neutral plan and
   plan-event contracts; no provider payloads cross the seam.
+- Modify: `intelligence/services/research_contract.py:559-568` — immutable
+  `InformationCutoff` in `ResearchRunContext`.
+- Modify: `intelligence/services/closed_loop_retrieval.py:115-182` — require
+  the cutoff at the retrieval seam and reject future observations.
 - Modify: `intelligence/services/episode_protocol.py` — plan instruction and
   JSON parsing helpers without imposing a fixed research sequence.
 - Modify: `intelligence/services/agent_episode.py` — record/validate plan,
@@ -42,6 +46,7 @@ replay after the slice is frozen.
 - Modify: `intelligence/services/episode_semantic_verifier.py` — return
   repair-eligible rejected claims without publishing a replacement template.
 - Test: `intelligence/tests/test_user_task.py`
+- Test: `intelligence/tests/test_information_cutoff.py`
 - Test: `intelligence/tests/test_research_plan.py`
 - Test: `intelligence/tests/test_repair_coordinator.py`
 - Test: `intelligence/tests/test_agent_episode.py`
@@ -54,7 +59,12 @@ replay after the slice is frozen.
 
 **Files:**
 - Create: `intelligence/services/user_task.py`
+- Modify: `intelligence/services/research_contract.py:559-568` to carry the
+  immutable information cutoff without changing older positional call sites.
+- Modify: `intelligence/services/closed_loop_retrieval.py:115-182` to apply the
+  cutoff before returning any hit.
 - Test: `intelligence/tests/test_user_task.py`
+- Test: `intelligence/tests/test_information_cutoff.py`
 - Modify: `intelligence/services/task_frame.py:81-168` only to add an explicit
   compatibility projection; do not remove current fields in this task.
 
@@ -139,6 +149,16 @@ inferred A-share default as `product_default`; it must not infer a new topic.
 - [ ] **Step 4: Run the focused test and verify GREEN**
 
 Run the command from Step 2. Expected: all UserTask tests pass.
+
+Also run:
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_information_cutoff.py
+```
+
+The cutoff test must prove a future-dated result is absent from the model
+observation and that the trace retains requested versus served dates.
 
 - [ ] **Step 5: Commit and request review**
 
@@ -343,7 +363,18 @@ class CoverageDelta:
     newly_supported_outputs: int
 
 @dataclass(frozen=True)
+class BudgetGrant:
+    grant_id: str
+    episode_id: str
+    cycle: int
+    calls_granted: int
+    seconds_granted: float
+
+@dataclass(frozen=True)
 class RepairGoal:
+    episode_id: str
+    repair_goal_id: str
+    cycle: int
     missing_answer_elements: tuple[str, ...]
     unsupported_claims: tuple[str, ...]
     missing_evidence_modes: tuple[str, ...]
@@ -354,11 +385,24 @@ class RepairGoal:
 
 def build_repair_goal(...): RepairGoal
 def should_reenter(previous: CoverageDelta, current: CoverageDelta, *, cycle: int, max_cycles: int) -> bool
+def grant_for_progress(goal: RepairGoal, delta: CoverageDelta, *, root_remaining_calls: int, root_remaining_seconds: float) -> BudgetGrant | None
 ```
 
-The module never constructs a query or selects a tool. It returns `False` when
+The module computes effective new evidence only for cutoff-valid, nonduplicate,
+non-same-family evidence bound to an uncovered output or active hypothesis. A
+progress predicate is true only when effective new evidence is at least one and
+coverage delta is at least one. A successful grant uses:
+
+```text
+calls = min(4, max(1, uncovered_output_count + missing_evidence_mode_count))
+seconds = min(30, calls * 8)
+```
+
+then clips both values by the root ledger. All repair sources share the one
+quick/deep cycle pool. The module never constructs a query or selects a tool. It returns `False` when
 the cycle cap is reached, the deadline is below the configured minimum, or the
-latest attempt made no progress.
+latest attempt made no progress. Tests must assert the exact event sequence:
+`gate_failure -> repair_goal -> model_action(new id) -> observation -> verify`.
 
 Extend `VerifiedEpisodeOutcome` with machine-readable `missing_outputs` and
 `mandatory_missing_capabilities`, preserving its existing `issues` strings for
@@ -437,4 +481,3 @@ The foundation slice is accepted only when all of these are true:
 After this foundation plan is approved by the reviewer, the next independent
 plan is `FinanceQuery + EvidenceSearch`; it will add typed structured retrieval
 without changing this slice's ownership interfaces.
-

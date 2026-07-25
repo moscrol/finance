@@ -72,7 +72,7 @@ Exactly one module owns each decision.
 | Tool choice, query, ordering, retry, and stop | primary model in `ResearchEpisode` | Registry enforces authorization, deadline, and cost |
 | SQL, table access, metrics, and source semantics | `FinanceQuery` | Model selects semantic fields; module compiles safe queries |
 | Evidence identity, lineage, dates, conflicts, and independence | `EvidenceLedger` | Model may interpret but may not mint evidence |
-| Whether a gap justifies another bounded attempt | `RepairCoordinator` | Code grants only configured quick/deep repair budgets |
+| Whether a gap may receive another bounded attempt | `RepairCoordinator` | Code checks only an explicit progress predicate and root budget |
 | Whether content may be published | structural/semantic/task verifier | May reject or request repair; may not invent facts |
 | Final judgment and natural wording | primary model | Must pass the exit verifiers |
 | Promotion into durable memory | `MemoryGate` | Only validated outcomes or explicit user corrections qualify |
@@ -137,6 +137,27 @@ class UserTask:
 It does not contain a long-tail `question_type`, fixed `required_outputs`, an
 evidence plan, an answer owner, a tool list, or a presentation template.
 
+#### Information cutoff
+
+The execution contract carries one immutable information cutoff. It is distinct
+from the user's analysis window: a forecast may discuss a future period while
+all supporting facts must be known no later than this cutoff.
+
+```python
+@dataclass(frozen=True)
+class InformationCutoff:
+    as_of_date: date
+    source: Literal["requested", "latest_available", "runtime_default"]
+```
+
+`ResearchRunContext.information_cutoff` is the sole authoritative value. The
+composition root derives it once from the requested date and available market
+snapshot; the model cannot change it. Every FinanceQuery, EvidenceSearch,
+News/Web/Graph/L3 adapter receives the same cutoff and filters before returning
+an observation. A later document, row, or news item is rejected and recorded as
+`future_of_cutoff`; it must never reach model context. `ProviderTrace` records
+both requested and served dates.
+
 Deterministic resolution remains valuable for stock codes, index aliases,
 trading dates, explicit markets, and conversational references. A product
 default such as A-share must be labelled `product_default`, not user-provided.
@@ -186,6 +207,9 @@ All failed coverage paths converge on one interface:
 ```python
 @dataclass(frozen=True)
 class RepairGoal:
+    episode_id: str
+    repair_goal_id: str
+    cycle: int
     missing_answer_elements: tuple[str, ...]
     unsupported_claims: tuple[str, ...]
     missing_evidence_modes: tuple[str, ...]
@@ -206,6 +230,13 @@ The repair budget is bounded:
 - deep mode: at most three repair cycles;
 - no extension when the latest cycle added no new evidence and narrowed no gap;
 - no repair may exceed the root deadline or mint a second budget ledger.
+
+All repair sources share this one cycle pool. A retrieval empty result,
+task-fulfillment gap, semantic rejection, and budget-near-exhaustion do not each
+receive hidden retries. A granted repair must emit the same `episode_id` and a
+new `repair_goal_id`, then produce a new primary-model action before it can
+count as a successful repair cycle. If the model immediately stops, the result
+is an honest partial and the cycle is unused.
 
 ## 6. Adaptive Quick and Deep Modes
 
@@ -271,6 +302,12 @@ The model decides what to measure, compare, filter, and aggregate. The module
 hides the physical DuckDB tables and compiles the spec through a metric
 registry into parameterized, read-only SQL.
 
+The compiler receives `ResearchRunContext.information_cutoff` separately from
+the model spec and injects `date <= cutoff.as_of_date` into every dataset that
+has a time dimension. Datasets without a time dimension must declare that fact
+in the metric registry. A query that omits or conflicts with the cutoff is
+rejected before execution; the model never gets to choose a later as-of date.
+
 Hard guarantees:
 
 - read-only DuckDB connection;
@@ -315,7 +352,22 @@ It preserves:
 
 The model decides when this compound search is useful and supplies the task or
 hypothesis anchor. The module returns both evidence and a coverage report. An
-empty aperture becomes a `RepairGoal`, not just a warning.
+empty aperture becomes a `RepairGoal`, not just a warning. Its interface
+requires the immutable cutoff:
+
+```python
+EvidenceSearch.search(
+    *,
+    query: str,
+    anchor: EntityAnchor | None,
+    information_cutoff: InformationCutoff,
+    deadline: ResearchDeadline,
+) -> EvidenceSearchResult
+```
+
+The adapter applies the cutoff inside each provider call/result filter, not
+only in the final evidence label. A deterministic negative test must prove a
+high-scoring future document never appears in the model observation.
 
 ### Enforce in evidence state or verifier
 
@@ -370,8 +422,21 @@ The exit path remains layered:
 3. factual, temporal, numeric, and causal grounding;
 4. public projection and leakage checks.
 
-A failed gate produces a `RepairGoal` when budget remains. Deterministic span
-redaction is allowed only for optional unsupported detail after all required
+The normative transition is:
+
+```text
+gate failure
+  -> RepairGoal(episode_id, repair_goal_id, cycle)
+  -> same episode appends goal and failed observation
+  -> primary model emits a new ModelAction
+  -> new observation enters the same ledger
+  -> structural/task/semantic verification runs again
+```
+
+The review receipt must be able to assert these event types and IDs in order.
+The model may choose to stop after seeing the goal; that is a partial outcome,
+not a successful repair. Deterministic span redaction is allowed only for
+optional unsupported detail after all required
 answer elements remain fulfilled. If redaction would remove a requested
 element, the episode must re-enter research or return a clear partial.
 
@@ -384,14 +449,20 @@ The selected memory policy has three layers:
 
 1. **Ephemeral episode state**: raw observations, hypotheses, and gaps for the
    current run.
-2. **Decision ledger**: a dated judgment, assumptions, alternatives, validation
-   window, and future falsification criteria.
+2. **Decision ledger**: reuse the existing user-state canonical writers
+   `intelligence/users/<id>/checkpoints.jsonl` and `verdicts.jsonl` for dated
+   judgments, assumptions, alternatives, validation windows, and falsification
+   criteria. The ledger map remains the source of truth; this runtime does not
+   create a parallel `decision_ledger.jsonl`.
 3. **Durable experience**: only market-validated lessons, stable user
    preferences, or explicit user corrections.
 
 Prices, news, current rankings, temporary company facts, and unverified model
 judgments never become timeless memory. Durable experience is a prior for
-future planning, not current-world evidence.
+future planning, not current-world evidence. `MemoryGate` emits a
+machine-readable `PromotionDecision` whose provenance must reference a
+checkpoint verdict (`hit`, `miss`, or reviewed `partial`) or an explicit
+correction record. A volatile-fact rejection is a first-class negative test.
 
 ## 12. UI and Product Experience
 
@@ -439,6 +510,8 @@ runtime is not yet the product's default owner. Migration is explicit:
 - parameterize or honestly retype the three fixed snapshots;
 - implement RepairGoal re-entry for retrieval, verifier, and budget gaps;
 - export missing answer elements and per-tool traces into benchmark artifacts.
+- enforce one `ResearchRunContext.information_cutoff` through every provider;
+  future rows/documents must be rejected before model context.
 
 ### Phase 3: adaptive deep mode
 
@@ -468,7 +541,20 @@ Only after user approval:
 
 ### Phase 6: deletion
 
-After the new runtime is default and stable:
+After the new runtime is default and stable, the following executable trigger
+must be satisfied before deletion:
+
+- at least 500 representative long-tail runs over 14 calendar days on the
+  approved canary population;
+- no P0 truth, permission, task-fulfillment, or temporal regression;
+- P1 regression rate no higher than the frozen legacy baseline plus 1 percentage
+  point;
+- deterministic and frontend suites green on the same revision;
+- rollback revision and run-store migration snapshot verified;
+- two consecutive daily audit summaries show no unresolved repair-loop or
+  control-plane leakage finding.
+
+Only after this trigger and explicit release approval:
 
 - remove duplicate long-tail classifiers, required-lens builders, retrieval
   planners, and output contracts from the legacy answer pipeline;
@@ -502,6 +588,24 @@ now hidden behind one deep interface, the module can be retired.
 - duplicate and invalid action rates;
 - stop efficiency: useful evidence gained per call and unnecessary calls after
   sufficient coverage.
+
+The code-owned progress predicate for budget grants is:
+
+```text
+effective_new_evidence = evidence that is valid for the cutoff, not duplicate,
+  not same-source, not rejected, and bound to an uncovered answer element or
+  active hypothesis;
+coverage_delta = newly_fulfilled_outputs + newly_narrowed_gaps
+  + newly_supported_or_contradicted_hypotheses;
+progress = effective_new_evidence >= 1 AND coverage_delta >= 1;
+```
+
+`BudgetGrant` is atomic in the root ledger. For a progress-positive repair,
+`calls_granted = min(4, max(1, uncovered_output_count + missing_evidence_mode_count))`
+and `seconds_granted = min(30, calls_granted * 8)`, both clipped by the root
+deadline and remaining mode cap. No progress means zero grant. This formula is
+tested for duplicate, same-family, future, irrelevant, and genuine coverage
+cases; it is not a global budget bump.
 
 ### 14.3 Finance quality metrics
 
