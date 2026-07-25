@@ -602,22 +602,35 @@ class OpenAIAgentsRuntime:
             if snapshot.evidence and context.deadline.remaining() >= 1.0:
                 repair_request = AgentsSdkRequest(
                     instructions=(
+                        build_episode_instructions(
+                            task_frame,
+                            context,
+                            registry,
+                        )
+                        + "\n"
                         "研究阶段已经关闭，禁止调用任何工具。"
                         "只修复终止 JSON envelope，不得增加新事实。"
                         "只能引用给定证据哈希，缺失输出必须写 gap。"
+                        "上方工具列表仅用于理解证据来源，本轮没有可调用工具。"
                     ),
-                    input=(
-                        f"任务：{build_episode_input(task_frame, context)}\n"
-                        "证据："
-                        + json.dumps(
-                            [
+                    input=json.dumps(
+                        {
+                            "task": json.loads(
+                                build_episode_input(task_frame, context)
+                            ),
+                            "required_outputs": context.contract.to_dict()[
+                                "required_outputs"
+                            ],
+                            "evidence": [
                                 public_agent_evidence(item)
                                 for item in snapshot.evidence
                             ],
-                            ensure_ascii=False,
-                        )
-                        + "\n现有缺口："
-                        + json.dumps(list(snapshot.gaps), ensure_ascii=False)
+                            "existing_gaps": list(snapshot.gaps),
+                            "invalid_output": _repair_output_text(
+                                result.final_output
+                            ),
+                        },
+                        ensure_ascii=False,
                     ),
                     tools=(),
                     max_turns=1,
@@ -855,6 +868,14 @@ def _merge_sdk_results(
             recovery.provider_attempts,
         ),
     )
+
+
+def _repair_output_text(value: object, *, max_chars: int = 16000) -> str:
+    if isinstance(value, str):
+        text = value
+    else:
+        text = json.dumps(value, ensure_ascii=False, default=str)
+    return text[:max_chars]
 
 
 def _sum_optional_counts(left: int | None, right: int | None) -> int | None:

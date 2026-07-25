@@ -129,7 +129,13 @@ def test_finish_schema_is_closed_and_requires_all_fields() -> None:
 
 def test_protocol_builds_task_bound_instructions_and_input() -> None:
     frame = _frame()
-    context = _context(frame)
+    context = dataclasses.replace(
+        _context(frame),
+        conversation_context=(
+            "user: 昨天的反弹能持续多久\n"
+            "assistant: 基准判断是短周期修复。"
+        ),
+    )
 
     instructions = build_episode_instructions(frame, context, _registry())
     task_input = json.loads(build_episode_input(frame, context))
@@ -142,6 +148,10 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
         frame.task_frame_hash
     )
     assert task_input["latest_data_date"] == "2026-07-24"
+    assert "基准判断是短周期修复" in task_input["conversation_context"]
+    assert task_input["conversation_context_rule"] == (
+        "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
+    )
 
 
 def test_validate_finish_rejects_unknown_evidence_hash() -> None:

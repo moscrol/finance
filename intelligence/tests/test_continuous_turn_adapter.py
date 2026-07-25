@@ -184,6 +184,33 @@ def test_private_artifact_records_runtime_backend_without_public_leak() -> None:
     assert result.private_artifact is not None
     assert result.private_artifact["runtime_backend"] == "sdk_glm"
     assert "sdk_glm" not in result.answer
+    assert result.llm_provider == "zhipu"
+
+
+def test_sdk_gpt_runtime_reports_openai_provider_without_model_turn_event() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场状态",
+        detail="指数处于反弹修复",
+        source="市场快照",
+        source_date="2026-07-24",
+        content_hash="sdk-gpt-provider-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前更接近短周期修复。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        runtime_name="sdk_gpt",
+    )
+
+    assert result.llm_provider == "openai"
 
 
 def test_semantic_gap_output_does_not_project_its_citation_or_as_of() -> None:

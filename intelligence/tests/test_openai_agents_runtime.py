@@ -378,6 +378,10 @@ def test_sdk_runtime_allows_one_finish_only_recovery() -> None:
             return AgentsSdkResult("not-json", 1, 500, 80, 1)
 
         assert request.tools == ()
+        assert "只输出一个 JSON 对象" in request.instructions
+        assert "研究阶段已经关闭" in request.instructions
+        assert '"invalid_output": "not-json"' in request.input
+        assert '"required_outputs"' in request.input
         finish = {
             "status": "completed",
             "draft": "截至2026-07-24，医药是韧性核心。",

@@ -557,6 +557,7 @@ class ResearchRunContext:
     # positional construction in older integrations backwards compatible.
     today: str | None = None
     latest_data_date: str | None = None
+    conversation_context: str = ""
 
 
 @dataclass(frozen=True)

@@ -185,6 +185,7 @@ def build_episode_context(
     trace_parent_id: str | None = None,
     today: str | None = None,
     latest_data_date: str | None = None,
+    conversation_context: str = "",
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
@@ -257,6 +258,7 @@ def build_episode_context(
         trace_parent_id=trace_parent_id or task_id,
         today=today,
         latest_data_date=latest_data_date,
+        conversation_context=str(conversation_context or "").strip(),
     )
 
 

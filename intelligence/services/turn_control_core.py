@@ -60,6 +60,8 @@ class TurnControlResult:
     contract_required: bool
     turn_intent: TurnIntent | None = None
     clarification_questions: tuple[str, ...] = ()
+    # Prompt-only history: useful for reference resolution, never evidence.
+    conversation_context: str = ""
 
 
 def project_turn_decision(
@@ -67,6 +69,7 @@ def project_turn_decision(
     *,
     task_frame: TaskFrame,
     turn_intent: TurnIntent | None = None,
+    conversation_context: str = "",
 ) -> TurnControlResult:
     """Project one already-made decision without invoking understanding again."""
 
@@ -111,6 +114,7 @@ def project_turn_decision(
         contract_required=terminal_kind == "research",
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,
         clarification_questions=clarification_questions,
+        conversation_context=str(conversation_context or "").strip(),
     )
 
 
@@ -150,6 +154,7 @@ class TurnControlCore:
             decision,
             task_frame=frame,
             turn_intent=decision.turn_intent,
+            conversation_context=context,
         )
 
     def _call_legacy(self, query: str, **kwargs: object) -> TurnDecision:

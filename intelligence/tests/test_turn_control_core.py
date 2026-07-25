@@ -44,6 +44,21 @@ def test_market_long_tail_is_research_with_contract_and_retrieval() -> None:
     assert result.task_frame.raw_question == "昨天的反弹能持续多久"
 
 
+def test_control_core_preserves_conversation_context_outside_task_frame() -> None:
+    context = (
+        "user: 昨天的反弹能持续多久\n"
+        "assistant: 基准判断是短周期修复。"
+    )
+
+    result = TurnControlCore().control(
+        "那它什么时候算失效",
+        context=context,
+    )
+
+    assert result.conversation_context == context
+    assert "conversation_context" not in result.task_frame.to_dict()
+
+
 def test_market_forecast_runtime_uses_current_structure_without_causal_web_tools() -> (
     None
 ):

@@ -1691,6 +1691,7 @@ class TurnOrchestrator:
                     decision,
                     task_frame=task_frame,
                     turn_intent=turn_intent,
+                    conversation_context=context.to_prompt_block(),
                 )
                 continuous_result = self.continuous_turn_adapter.handle(
                     frame=task_frame,

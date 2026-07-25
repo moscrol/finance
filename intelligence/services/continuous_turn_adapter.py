@@ -347,6 +347,7 @@ class ContinuousTurnAdapter:
                 "timeout": runtime_timeout,
                 "today": self._today,
                 "latest_data_date": self._latest_data_date,
+                "conversation_context": control.conversation_context,
             }
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
@@ -562,7 +563,10 @@ class ContinuousTurnAdapter:
                 _redact_private(artifact),
             ),
             events=_public_events(status=status),
-            llm_provider=_episode_llm_provider(outcome),
+            llm_provider=_episode_llm_provider(
+                outcome,
+                runtime_name=self._runtime_name,
+            ),
         )
 
 
@@ -591,7 +595,11 @@ def _duplicate_query_count(outcome: AgentOutcome | None) -> int:
     )
 
 
-def _episode_llm_provider(outcome: AgentOutcome) -> str | None:
+def _episode_llm_provider(
+    outcome: AgentOutcome,
+    *,
+    runtime_name: str,
+) -> str | None:
     """Return a stable provider label only for a successful observable turn."""
 
     for event in outcome.events:
@@ -605,6 +613,11 @@ def _episode_llm_provider(outcome: AgentOutcome) -> str | None:
         has_tool_calls = isinstance(tool_calls, (list, tuple)) and bool(tool_calls)
         if provider and not error and (content or has_tool_calls):
             return provider
+    if outcome.usage.llm_calls > 0:
+        return {
+            "sdk_gpt": "openai",
+            "sdk_glm": "zhipu",
+        }.get(runtime_name)
     return None
 
 
