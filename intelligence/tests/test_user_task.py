@@ -67,6 +67,14 @@ def test_from_task_frame_marks_a_share_default_without_inventing_subject() -> No
     }
 
 
+def test_task_frame_exposes_compatibility_projection() -> None:
+    task = _frame(subject="液冷").to_user_task({"task_id": "compat-1"})
+
+    assert isinstance(task, UserTask)
+    assert task.task_id == "compat-1"
+    assert task.subjects[0].value == "液冷"
+
+
 def test_user_task_rejects_unknown_resolution_source() -> None:
     with pytest.raises(ValueError, match="resolution source"):
         ResolvedValue("A股", "guessed")

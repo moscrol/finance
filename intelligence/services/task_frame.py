@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from intelligence.services.query_understanding import QueryEnvelope
+    from intelligence.services.user_task import UserTask
 
 
 LLMComplete = Callable[
@@ -112,6 +113,15 @@ class TaskFrame:
         payload["question_type"] = self.question_type
         payload["task_frame_hash"] = self.task_frame_hash
         return payload
+
+    def to_user_task(
+        self,
+        context: dict[str, object] | str | None = None,
+    ) -> UserTask:
+        """Expose the migration projection without making TaskFrame a route owner."""
+        from intelligence.services.user_task import UserTask
+
+        return UserTask.from_task_frame(self, context)
 
     @classmethod
     def from_dict(cls, value: object) -> TaskFrame | None:
