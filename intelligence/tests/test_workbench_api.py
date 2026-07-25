@@ -1371,11 +1371,12 @@ def test_health_reports_sdk_gpt_ready_from_saved_default_provider(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FORESIGHT_USER", "runtime-user")
     monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     credential_store = MemoryCredentialStore()
     credential_store.save(
-        userspace.DEFAULT_USER,
+        "runtime-user",
         LLMProvider(
             name="openai",
             api_key="never-expose-this-key",
@@ -1391,7 +1392,7 @@ def test_health_reports_sdk_gpt_ready_from_saved_default_provider(
         initial = probe.get("/api/health")
         assert initial.json()["runtime"]["agent_runtime"]["ready"] is False
         assert credential_store.load_calls == 0
-        probe.get("/api/llm/config", params={"user": "default"})
+        probe.get("/api/llm/config")
         response = probe.get("/api/health")
 
     runtime = response.json()["runtime"]["agent_runtime"]

@@ -1249,6 +1249,7 @@ def create_app(
     llm_settings: SessionLLMSettings | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
+    effective_default_user_id = userspace.resolve_user_id(None)
     runtime_provenance = build_runtime_provenance(root)
     runtime_paths = default_paths()
     runtime_provenance["finance_root"] = str(runtime_paths.finance_root.resolve())
@@ -1297,7 +1298,7 @@ def create_app(
     conversation_locks: dict[tuple[str, str], Lock] = {}
     conversation_locks_guard = Lock()
 
-    user_ids = {userspace.DEFAULT_USER}
+    user_ids = {effective_default_user_id}
     users_root = userspace.users_dir()
     if users_root.is_dir():
         user_ids.update(
@@ -1361,7 +1362,7 @@ def create_app(
         provider id/model and never the provider secret or endpoint.
         """
 
-        if user_id != userspace.DEFAULT_USER:
+        if user_id != effective_default_user_id:
             return
         provider = llm_settings.byok_provider(user_id)
         runtime_provenance["agent_runtime"] = runtime_backend_readiness(
