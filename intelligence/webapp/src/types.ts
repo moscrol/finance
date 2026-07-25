@@ -581,6 +581,7 @@ export interface LLMConfig {
 export interface ConfigureLLMRequest {
   provider: LLMProviderId;
   api_key: string;
+  base_url?: string;
   model?: string;
   user?: string;
 }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ from intelligence.services.openai_agents_runtime import (
     build_glm_sdk_model,
     build_glm_sdk_model_factory,
     build_gpt_sdk_model,
+    build_gpt_sdk_model_factory,
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -267,6 +269,22 @@ def test_sdk_provider_factories_preserve_endpoint_specific_settings() -> None:
     assert gpt_settings.reasoning.effort == "high"
     assert gpt_settings.verbosity == "medium"
     assert gpt_settings.store is False
+
+
+def test_gpt_sdk_factory_builds_explicit_responses_client() -> None:
+    model_factory = build_gpt_sdk_model_factory(
+        api_key="session-secret",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+        timeout=12.0,
+    )
+
+    model, close = model_factory()
+
+    assert type(model).__name__ == "OpenAIResponsesModel"
+    assert str(model._client.base_url) == "http://localhost:57244/v1/"
+    assert callable(close)
+    asyncio.run(close())
 
 
 def test_default_sdk_runner_uses_local_tools_and_disables_trace_export(

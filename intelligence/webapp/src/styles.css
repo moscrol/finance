@@ -4877,7 +4877,8 @@ button.model-choice {
   box-shadow: 0 0 0 3px rgba(198, 95, 62, 0.1);
 }
 
-.byok-key-field {
+.byok-key-field,
+.byok-url-field {
   grid-column: 1 / -1;
 }
 
@@ -5207,7 +5208,8 @@ button.model-choice {
     grid-template-columns: 1fr;
   }
 
-  .byok-key-field {
+  .byok-key-field,
+  .byok-url-field {
     grid-column: auto;
   }
 

@@ -277,6 +277,28 @@ def test_session_byok_api_is_user_scoped_and_never_returns_key(
     assert restored.json()["session_only"] is False
 
 
+def test_session_byok_api_accepts_local_gateway_without_returning_url(
+    client: TestClient,
+) -> None:
+    configured = client.put(
+        "/api/llm/config",
+        json={
+            "provider": "openai",
+            "api_key": "openai-secret-value",
+            "base_url": "http://localhost:57244/v1",
+            "model": "gpt-5.6-sol",
+            "user": "alice",
+        },
+    )
+
+    assert configured.status_code == 200
+    assert configured.json()["provider"] == "openai"
+    assert configured.json()["model"] == "gpt-5.6-sol"
+    assert "base_url" not in configured.json()
+    assert "57244" not in configured.text
+    assert "openai-secret-value" not in configured.text
+
+
 def test_session_byok_api_rejects_unknown_provider_and_short_key(
     client: TestClient,
 ) -> None:
@@ -288,10 +310,21 @@ def test_session_byok_api_rejects_unknown_provider_and_short_key(
         "/api/llm/config",
         json={"provider": "zhipu", "api_key": "short", "user": "alice"},
     )
+    unsafe_url = client.put(
+        "/api/llm/config",
+        json={
+            "provider": "openai",
+            "api_key": "long-enough",
+            "base_url": "http://api.openai.com/v1?token=secret",
+            "user": "alice",
+        },
+    )
 
     assert unknown.status_code == 422
     assert short.status_code == 422
+    assert unsafe_url.status_code == 422
     assert "short" not in short.text
+    assert "token=secret" not in unsafe_url.text
 
 
 def test_session_byok_flows_to_the_conversation_worker(
@@ -482,6 +515,36 @@ def test_production_adapter_composes_sdk_glm_without_changing_verifier(
     assert isinstance(adapter._runtime, OpenAIAgentsRuntime)
     assert adapter._runtime_name == "sdk_glm"
     assert adapter._runtime._backend == "sdk_glm"
+    assert callable(adapter._runtime._model_factory)
+    assert adapter._semantic_verifier._primary_judge._providers == (provider,)
+
+
+def test_production_adapter_composes_sdk_gpt_from_session_provider(
+    monkeypatch,
+) -> None:
+    from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
+
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    provider = app_module.LLMProvider(
+        "openai",
+        "session-secret",
+        "http://localhost:57244/v1",
+        "gpt-5.6-sol",
+    )
+
+    adapter = app_module._build_continuous_turn_adapter(
+        providers=(provider,),
+        run_id="sdk-gpt-run",
+        assistant_message_id="sdk-gpt-message",
+        timeout=42.0,
+    )
+
+    assert isinstance(adapter._runtime, OpenAIAgentsRuntime)
+    assert adapter._runtime_name == "sdk_gpt"
+    assert adapter._runtime._backend == "sdk_gpt"
+    assert adapter._runtime._model_name == "gpt-5.6-sol"
+    assert adapter._runtime._model is None
     assert callable(adapter._runtime._model_factory)
     assert adapter._semantic_verifier._primary_judge._providers == (provider,)
 

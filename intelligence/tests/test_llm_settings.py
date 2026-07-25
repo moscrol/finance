@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from intelligence.services.llm_refine import (
     LLMProvider,
     detect_provider,
@@ -31,6 +33,47 @@ def test_session_byok_is_scoped_and_secret_is_not_represented() -> None:
 
     settings.clear_byok("alice")
     assert settings.byok_provider("alice") is None
+
+
+def test_session_byok_accepts_loopback_openai_gateway_without_exposing_url() -> None:
+    settings = SessionLLMSettings()
+
+    provider = settings.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="openai-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+
+    assert provider.base_url == "http://localhost:57244/v1"
+    assert provider.model == "gpt-5.6-sol"
+    description = settings.describe("alice")
+    assert "base_url" not in description
+    assert "57244" not in repr(description)
+    assert "openai-secret-value" not in repr(description)
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    (
+        "http://api.openai.com/v1",
+        "ftp://localhost:57244/v1",
+        "http://user:pass@localhost:57244/v1",
+        "http://localhost:57244/v1?token=secret",
+    ),
+)
+def test_session_byok_rejects_unsafe_custom_base_url(base_url: str) -> None:
+    settings = SessionLLMSettings()
+
+    with pytest.raises(ValueError, match="base URL"):
+        settings.configure_byok(
+            "alice",
+            provider_id="openai",
+            api_key="openai-secret-value",
+            base_url=base_url,
+            model="gpt-5.6-sol",
+        )
 
 
 def test_provider_override_is_request_local_and_honors_model_override() -> None:

@@ -529,13 +529,19 @@ export default function App() {
   }, []);
 
   const saveBYOK = useCallback(
-    async (provider: LLMProviderId, apiKey: string, model: string) => {
+    async (
+      provider: LLMProviderId,
+      apiKey: string,
+      baseUrl: string,
+      model: string,
+    ) => {
       setModelSettingsSaving(true);
       setModelSettingsError(null);
       try {
         const configured = await configureLLM({
           provider,
           api_key: apiKey,
+          base_url: baseUrl,
           model,
           user,
         });
@@ -1086,8 +1092,8 @@ export default function App() {
         saving={modelSettingsSaving}
         error={modelSettingsError}
         onClose={() => setModelSettingsOpen(false)}
-        onSave={(provider, apiKey, model) => {
-          void saveBYOK(provider, apiKey, model);
+        onSave={(provider, apiKey, baseUrl, model) => {
+          void saveBYOK(provider, apiKey, baseUrl, model);
         }}
         onUseBuiltIn={() => {
           void restoreBuiltInLLM();

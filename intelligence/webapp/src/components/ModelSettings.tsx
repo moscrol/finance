@@ -15,12 +15,13 @@ const providerOptions: Array<{
   id: LLMProviderId;
   label: string;
   model: string;
+  baseUrl: string;
 }> = [
-  { id: "zhipu", label: "智谱 GLM", model: "glm-5.2" },
-  { id: "openai", label: "OpenAI", model: "gpt-4o-mini" },
-  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat" },
-  { id: "moonshot", label: "Kimi", model: "moonshot-v1-8k" },
-  { id: "dashscope", label: "通义千问", model: "qwen-plus" },
+  { id: "zhipu", label: "智谱 GLM", model: "glm-5.2", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+  { id: "openai", label: "OpenAI", model: "gpt-5.6-sol", baseUrl: "https://api.openai.com/v1" },
+  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat", baseUrl: "https://api.deepseek.com/v1" },
+  { id: "moonshot", label: "Kimi", model: "moonshot-v1-8k", baseUrl: "https://api.moonshot.cn/v1" },
+  { id: "dashscope", label: "通义千问", model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
 ];
 
 interface ModelSettingsProps {
@@ -32,6 +33,7 @@ interface ModelSettingsProps {
   onSave: (
     provider: LLMProviderId,
     apiKey: string,
+    baseUrl: string,
     model: string,
   ) => void;
   onUseBuiltIn: () => void;
@@ -48,6 +50,7 @@ export function ModelSettings({
 }: ModelSettingsProps) {
   const [provider, setProvider] = useState<LLMProviderId>("zhipu");
   const [model, setModel] = useState("glm-5.2");
+  const [baseUrl, setBaseUrl] = useState(providerOptions[0].baseUrl);
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export function ModelSettings({
     setModel(config?.mode === "byok" && config.model
       ? config.model
       : preset?.model ?? "");
+    setBaseUrl(preset?.baseUrl ?? "");
     setApiKey("");
   }, [config, open]);
 
@@ -67,7 +71,7 @@ export function ModelSettings({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSave(provider, apiKey.trim(), model.trim());
+    onSave(provider, apiKey.trim(), baseUrl.trim(), model.trim());
   };
 
   return (
@@ -150,6 +154,7 @@ export function ModelSettings({
                   const preset = providerOptions.find((item) => item.id === next);
                   setProvider(next);
                   setModel(preset?.model ?? "");
+                  setBaseUrl(preset?.baseUrl ?? "");
                 }}
               >
                 {providerOptions.map((option) => (
@@ -167,6 +172,18 @@ export function ModelSettings({
                 maxLength={128}
                 onChange={(event) => setModel(event.target.value)}
                 placeholder="glm-5.2"
+                required
+              />
+            </label>
+            <label className="byok-url-field">
+              <span>Base URL</span>
+              <input
+                aria-label="模型 Base URL"
+                type="url"
+                value={baseUrl}
+                maxLength={2048}
+                onChange={(event) => setBaseUrl(event.target.value)}
+                placeholder="https://api.openai.com/v1"
                 required
               />
             </label>

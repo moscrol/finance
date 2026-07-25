@@ -73,6 +73,32 @@ def build_gpt_sdk_model(model: str = "gpt-5.6-sol") -> str:
     return cleaned
 
 
+def build_gpt_sdk_model_factory(
+    *,
+    api_key: str,
+    base_url: str,
+    model: str,
+    timeout: float,
+) -> SdkModelFactory:
+    """Build an explicit Responses adapter for OpenAI or a trusted gateway."""
+
+    def factory() -> tuple[object, Callable[[], Awaitable[None]]]:
+        import httpx
+        from agents.models.openai_responses import OpenAIResponsesModel
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+            http_client=httpx.AsyncClient(trust_env=False),
+        )
+        sdk_model = OpenAIResponsesModel(model=model, openai_client=client)
+        return sdk_model, client.close
+
+    return factory
+
+
 def build_agents_model_settings(backend: SdkBackend) -> object:
     from agents import ModelSettings
 

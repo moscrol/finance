@@ -162,18 +162,26 @@ def _build_continuous_turn_adapter(
             is_cancelled=is_cancelled,
         )
     elif selection.name == "sdk_gpt":
+        if not providers:
+            raise RuntimeError("sdk_gpt provider unavailable")
         from intelligence.services.openai_agents_runtime import (
             OpenAIAgentsRuntime,
-            build_gpt_sdk_model,
+            build_gpt_sdk_model_factory,
         )
 
-        model_name = str(
-            os.environ.get("OPENAI_AGENT_MODEL") or "gpt-5.6-sol"
-        ).strip()
+        provider = providers[0]
+        if provider.name != "openai":
+            raise RuntimeError("sdk_gpt requires an OpenAI provider")
+        model_name = provider.model
         runtime = OpenAIAgentsRuntime(
             backend="sdk_gpt",
             model_name=model_name,
-            model=build_gpt_sdk_model(model_name),
+            model_factory=build_gpt_sdk_model_factory(
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                model=model_name,
+                timeout=timeout,
+            ),
             is_cancelled=is_cancelled,
         )
     else:
@@ -630,6 +638,7 @@ class CreateMessageRequest(BaseModel):
 class ConfigureLLMRequest(BaseModel):
     provider: Literal["zhipu", "openai", "deepseek", "moonshot", "dashscope"]
     api_key: SecretStr
+    base_url: str | None = Field(default=None, min_length=8, max_length=2048)
     model: str | None = Field(
         default=None,
         min_length=1,
@@ -1592,12 +1601,16 @@ def create_app(
         api_key = req.api_key.get_secret_value().strip()
         if not 8 <= len(api_key) <= 4096:
             raise HTTPException(422, "invalid api key")
-        llm_settings.configure_byok(
-            user_id,
-            provider_id=req.provider,
-            api_key=api_key,
-            model=req.model,
-        )
+        try:
+            llm_settings.configure_byok(
+                user_id,
+                provider_id=req.provider,
+                api_key=api_key,
+                base_url=req.base_url,
+                model=req.model,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, "invalid provider base URL") from exc
         return llm_settings.describe(user_id)
 
     @app.delete("/api/llm/config")

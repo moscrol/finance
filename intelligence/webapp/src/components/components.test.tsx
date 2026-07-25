@@ -2002,6 +2002,9 @@ describe("Workbench navigation reliability", () => {
     await user.click(await screen.findByRole("button", { name: "配置模型" }));
     expect(screen.getByRole("dialog", { name: "模型连接" })).toBeVisible();
     await user.selectOptions(screen.getByLabelText("选择模型服务商"), "deepseek");
+    expect(screen.getByLabelText("模型 Base URL")).toHaveValue(
+      "https://api.deepseek.com/v1",
+    );
     await user.type(screen.getByLabelText("模型 API Key"), "sk-private-test");
     await user.click(screen.getByRole("button", { name: "使用自带密钥" }));
 
@@ -2009,6 +2012,7 @@ describe("Workbench navigation reliability", () => {
       expect(apiMocks.configureLLM).toHaveBeenCalledWith({
         provider: "deepseek",
         api_key: "sk-private-test",
+        base_url: "https://api.deepseek.com/v1",
         model: "deepseek-chat",
         user: "default",
       });
