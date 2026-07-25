@@ -57,7 +57,7 @@ def test_old_positional_research_context_construction_still_works() -> None:
     assert context.information_cutoff.source == "runtime_default"
 
 
-def test_episode_context_freezes_latest_available_information_cutoff() -> None:
+def test_market_snapshot_freshness_does_not_truncate_information_cutoff() -> None:
     context = build_episode_context(
         _frame(),
         task_id="cutoff-context",
@@ -67,9 +67,10 @@ def test_episode_context_freezes_latest_available_information_cutoff() -> None:
     )
 
     assert context.information_cutoff == InformationCutoff(
-        date(2026, 7, 24),
-        "latest_available",
+        date(2026, 7, 26),
+        "runtime_default",
     )
+    assert context.latest_data_date == "2026-07-24"
 
 
 def test_future_dated_evidence_never_enters_model_observation() -> None:

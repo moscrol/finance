@@ -298,12 +298,9 @@ def _default_information_cutoff(
     today: str | None,
     latest_data_date: str | None,
 ) -> InformationCutoff:
-    try:
-        latest = date.fromisoformat(str(latest_data_date or "")[:10])
-    except ValueError:
-        pass
-    else:
-        return InformationCutoff(latest, "latest_available")
+    # Market snapshot freshness is provider metadata, not the upper bound on
+    # news or other information available to the user.
+    del latest_data_date
     try:
         runtime_date = date.fromisoformat(str(today or "")[:10])
     except ValueError:
