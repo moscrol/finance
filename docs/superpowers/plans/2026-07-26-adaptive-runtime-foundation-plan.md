@@ -82,6 +82,9 @@ replay after the slice is frozen.
 - Modify: `intelligence/services/provider_observability.py`
 - Modify: `intelligence/services/agent_research.py`
 - Modify: `intelligence/services/kb_rag.py`
+- Modify: `intelligence/services/task_frame.py` — expose an explicit lazy
+  compatibility projection to `UserTask`; do not add routing or presentation
+  decisions to this method.
 - Test: `intelligence/tests/test_user_task.py`
 - Test: `intelligence/tests/test_information_cutoff.py`
 
@@ -192,6 +195,7 @@ git add intelligence/services/user_task.py \
   intelligence/services/provider_observability.py \
   intelligence/services/agent_research.py \
   intelligence/services/kb_rag.py \
+  intelligence/services/task_frame.py \
   intelligence/tests/test_user_task.py \
   intelligence/tests/test_information_cutoff.py
 git commit -m "feat: add user task and information cutoff seam"
