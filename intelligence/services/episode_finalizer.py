@@ -37,7 +37,10 @@ _RECOVERY_SYSTEM_PROMPT = (
     "回答原始 TaskFrame 与 required_outputs。只输出一个 FINAL_JSON 对象："
     '{"status":"completed|partial","draft":"自然语言回答",'
     '"gaps":["..."],"bindings":[{"output_id":"...",'
-    '"evidence_hashes":["..."],"gap":""}]}。'
+    '"evidence_hashes":["..."],"basis":"evidence|user_premise|model_reasoning",'
+    '"gap":""}]}。'
+    "binding.basis 必须与 required_outputs 的 grounding_mode 一致；"
+    "model_reasoning 与 user_premise 可以不带证据哈希，但不得把它们伪装成 evidence。"
     "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
@@ -164,6 +167,7 @@ class EpisodeFinalizer:
                     "description": item.description,
                     "evidence_types": list(item.evidence_types),
                     "required": item.required,
+                    "grounding_mode": item.grounding_mode,
                 }
                 for item in context.contract.required_outputs
             ],

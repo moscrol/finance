@@ -133,6 +133,7 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
             "description": "给出市场结构判断",
             "evidence_types": ["market_data"],
             "required": True,
+            "grounding_mode": "evidence",
         }
     ]
     assert payload["evidence"] == [
