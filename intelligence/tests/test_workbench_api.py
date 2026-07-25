@@ -19,6 +19,8 @@ from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
 from intelligence.services import perspective_lab  # noqa: E402
+from intelligence.services.llm_refine import LLMProvider  # noqa: E402
+from intelligence.services.llm_settings import SessionLLMSettings  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
 from intelligence.services.self_use_maturity import (  # noqa: E402
     SelfUseEvent,
@@ -120,8 +122,31 @@ def _write_overview_market_db(path: Path, *, trade_date: str) -> None:
     con.close()
 
 
+class MemoryCredentialStore:
+    def __init__(self) -> None:
+        self.providers: dict[str, LLMProvider] = {}
+        self.deleted: list[str] = []
+        self.load_calls = 0
+
+    def save(self, user_id: str, provider: LLMProvider) -> None:
+        self.providers[user_id] = provider
+
+    def load(self, user_id: str) -> LLMProvider | None:
+        self.load_calls += 1
+        return self.providers.get(user_id)
+
+    def delete(self, user_id: str) -> None:
+        self.deleted.append(user_id)
+        self.providers.pop(user_id, None)
+
+
 @pytest.fixture()
-def client(tmp_path, monkeypatch):
+def credential_store() -> MemoryCredentialStore:
+    return MemoryCredentialStore()
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch, credential_store):
     users_root = tmp_path / "users"
     repo_root = tmp_path / "repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
@@ -222,7 +247,10 @@ def client(tmp_path, monkeypatch):
         "_run_conversation_turn",
         fake_run_conversation_turn,
     )
-    return TestClient(app_module.create_app(repo_root=repo_root))
+    llm_settings = SessionLLMSettings(credential_store=credential_store)
+    return TestClient(
+        app_module.create_app(repo_root=repo_root, llm_settings=llm_settings)
+    )
 
 
 def _wait_terminal(
@@ -264,6 +292,8 @@ def test_session_byok_api_is_user_scoped_and_never_returns_key(
         "built_in_ready": configured.json()["built_in_ready"],
         "provider": "zhipu",
         "model": "glm-4-air",
+        "credential_persisted": False,
+        "saved_credential_available": False,
     }
     assert "glm-secret-value" not in configured.text
     assert (
@@ -297,6 +327,60 @@ def test_session_byok_api_accepts_local_gateway_without_returning_url(
     assert "base_url" not in configured.json()
     assert "57244" not in configured.text
     assert "openai-secret-value" not in configured.text
+
+
+def test_remembered_byok_survives_restart_and_requires_explicit_forget(
+    client: TestClient,
+    credential_store: MemoryCredentialStore,
+    tmp_path: Path,
+) -> None:
+    configured = client.put(
+        "/api/llm/config",
+        json={
+            "provider": "openai",
+            "api_key": "openai-secret-value",
+            "base_url": "http://localhost:57244/v1",
+            "model": "gpt-5.6-sol",
+            "remember": True,
+            "user": "alice",
+        },
+    )
+
+    assert configured.status_code == 200
+    assert configured.json()["credential_persisted"] is True
+    assert configured.json()["saved_credential_available"] is True
+    assert configured.json()["session_only"] is False
+    assert "openai-secret-value" not in configured.text
+    assert "57244" not in configured.text
+
+    disabled = client.delete("/api/llm/config", params={"user": "alice"})
+    assert disabled.status_code == 200
+    assert disabled.json()["mode"] == "built_in"
+    assert disabled.json()["saved_credential_available"] is True
+    assert "alice" in credential_store.providers
+
+    restarted_settings = SessionLLMSettings(credential_store=credential_store)
+    restarted = TestClient(
+        app_module.create_app(
+            repo_root=tmp_path / "repo",
+            llm_settings=restarted_settings,
+        )
+    )
+    reloaded = restarted.get("/api/llm/config", params={"user": "alice"})
+    assert reloaded.status_code == 200
+    assert reloaded.json()["mode"] == "byok"
+    assert reloaded.json()["credential_persisted"] is True
+    assert "openai-secret-value" not in reloaded.text
+    assert "57244" not in reloaded.text
+
+    forgotten = restarted.delete(
+        "/api/llm/config/saved",
+        params={"user": "alice"},
+    )
+    assert forgotten.status_code == 200
+    assert forgotten.json()["mode"] == "built_in"
+    assert forgotten.json()["saved_credential_available"] is False
+    assert credential_store.deleted == ["alice"]
 
 
 def test_session_byok_api_rejects_unknown_provider_and_short_key(
@@ -1280,6 +1364,44 @@ def test_health_reports_missing_sdk_gpt_key_without_fallback(
     assert runtime["model"] == "gpt-5.6-sol"
     assert runtime["credential_available"] is False
     assert runtime["benchmark_only"] is False
+
+
+def test_health_reports_sdk_gpt_ready_from_saved_default_provider(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    credential_store = MemoryCredentialStore()
+    credential_store.save(
+        userspace.DEFAULT_USER,
+        LLMProvider(
+            name="openai",
+            api_key="never-expose-this-key",
+            base_url="http://localhost:57244/v1",
+            model="gpt-5.6-sol",
+        ),
+    )
+    llm_settings = SessionLLMSettings(credential_store=credential_store)
+
+    with TestClient(
+        app_module.create_app(repo_root=tmp_path, llm_settings=llm_settings)
+    ) as probe:
+        initial = probe.get("/api/health")
+        assert initial.json()["runtime"]["agent_runtime"]["ready"] is False
+        assert credential_store.load_calls == 0
+        probe.get("/api/llm/config", params={"user": "default"})
+        response = probe.get("/api/health")
+
+    runtime = response.json()["runtime"]["agent_runtime"]
+    assert runtime["backend"] == "sdk_gpt"
+    assert runtime["ready"] is True
+    assert runtime["reason"] == "ready"
+    assert runtime["model"] == "gpt-5.6-sol"
+    assert runtime["credential_available"] is True
+    assert "never-expose-this-key" not in response.text
+    assert "57244" not in response.text
 
 
 def test_lifespan_prewarms_enabled_rag_before_ready(

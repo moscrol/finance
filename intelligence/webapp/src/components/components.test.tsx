@@ -46,6 +46,7 @@ const apiMocks = vi.hoisted(() => ({
   archiveConversation: vi.fn(),
   cancelRun: vi.fn(),
   configureLLM: vi.fn(),
+  forgetSavedLLM: vi.fn(),
   createConversation: vi.fn(),
   createConversationMessage: vi.fn(),
   createRun: vi.fn(),
@@ -260,6 +261,8 @@ const llmConfig: LLMConfig = {
   built_in_ready: true,
   provider: "zhipu",
   model: "glm-5.2",
+  credential_persisted: false,
+  saved_credential_available: false,
 };
 
 const bundle: RunBundle = {
@@ -1701,6 +1704,7 @@ describe("Workbench navigation reliability", () => {
       model: "deepseek-chat",
     });
     apiMocks.selectBuiltInLLM.mockResolvedValue(llmConfig);
+    apiMocks.forgetSavedLLM.mockResolvedValue(llmConfig);
   });
 
   it("opens on today and navigates across the five product surfaces", async () => {
@@ -2014,12 +2018,59 @@ describe("Workbench navigation reliability", () => {
         api_key: "sk-private-test",
         base_url: "https://api.deepseek.com/v1",
         model: "deepseek-chat",
+        remember: false,
         user: "default",
       });
     });
     expect(screen.getByRole("button", { name: "配置模型" })).toHaveTextContent(
       "自带密钥",
     );
+    expect(screen.queryByText("sk-private-test")).not.toBeInTheDocument();
+  });
+
+  it("persists BYOK only after opt-in and can explicitly forget it", async () => {
+    apiMocks.getLLMConfig.mockResolvedValueOnce({
+      ...llmConfig,
+      mode: "byok",
+      display_name: "已保存模型",
+      session_only: false,
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      credential_persisted: true,
+      saved_credential_available: true,
+    });
+    apiMocks.configureLLM.mockResolvedValueOnce({
+      ...llmConfig,
+      mode: "byok",
+      display_name: "已保存模型",
+      session_only: false,
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      credential_persisted: true,
+      saved_credential_available: true,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "配置模型" }));
+    expect(screen.getByText("此 Mac 已保存一个模型连接。")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: /在此 Mac 安全记住/ }));
+    await user.type(screen.getByLabelText("模型 API Key"), "sk-private-test");
+    await user.click(screen.getByRole("button", { name: "使用自带密钥" }));
+
+    await waitFor(() => {
+      expect(apiMocks.configureLLM).toHaveBeenCalledWith(
+        expect.objectContaining({
+          api_key: "sk-private-test",
+          remember: true,
+          user: "default",
+        }),
+      );
+    });
+    await user.click(screen.getByRole("button", { name: "删除已保存密钥" }));
+    await waitFor(() => {
+      expect(apiMocks.forgetSavedLLM).toHaveBeenCalledWith("default");
+    });
     expect(screen.queryByText("sk-private-test")).not.toBeInTheDocument();
   });
 

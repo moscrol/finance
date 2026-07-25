@@ -576,6 +576,8 @@ export interface LLMConfig {
   built_in_ready: boolean;
   provider: LLMProviderId | null;
   model: string | null;
+  credential_persisted: boolean;
+  saved_credential_available: boolean;
 }
 
 export interface ConfigureLLMRequest {
@@ -583,6 +585,7 @@ export interface ConfigureLLMRequest {
   api_key: string;
   base_url?: string;
   model?: string;
+  remember?: boolean;
   user?: string;
 }
 

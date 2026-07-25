@@ -35,8 +35,10 @@ interface ModelSettingsProps {
     apiKey: string,
     baseUrl: string,
     model: string,
+    remember: boolean,
   ) => void;
   onUseBuiltIn: () => void;
+  onForgetSaved: () => void;
 }
 
 export function ModelSettings({
@@ -47,11 +49,13 @@ export function ModelSettings({
   onClose,
   onSave,
   onUseBuiltIn,
+  onForgetSaved,
 }: ModelSettingsProps) {
   const [provider, setProvider] = useState<LLMProviderId>("zhipu");
   const [model, setModel] = useState("glm-5.2");
   const [baseUrl, setBaseUrl] = useState(providerOptions[0].baseUrl);
   const [apiKey, setApiKey] = useState("");
+  const [remember, setRemember] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -65,13 +69,14 @@ export function ModelSettings({
       : preset?.model ?? "");
     setBaseUrl(preset?.baseUrl ?? "");
     setApiKey("");
+    setRemember(false);
   }, [config, open]);
 
   if (!open) return null;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSave(provider, apiKey.trim(), baseUrl.trim(), model.trim());
+    onSave(provider, apiKey.trim(), baseUrl.trim(), model.trim(), remember);
   };
 
   return (
@@ -141,7 +146,9 @@ export function ModelSettings({
               <strong>配置自带密钥</strong>
               <small>支持 OpenAI-compatible Chat Completions</small>
             </div>
-            <span className="session-only-badge">仅本次服务会话</span>
+            <span className="session-only-badge">
+              {config?.credential_persisted ? "已安全保存" : "仅本次服务会话"}
+            </span>
           </div>
           <div className="byok-fields">
             <label>
@@ -202,10 +209,37 @@ export function ModelSettings({
               />
             </label>
           </div>
+          <label className="byok-remember-control">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+            />
+            <span>
+              <strong>在此 Mac 安全记住</strong>
+              <small>保存到 macOS Keychain，服务重启后自动复用</small>
+            </span>
+          </label>
           <div className="byok-security-note">
             <ShieldCheck aria-hidden="true" size={16} />
-            <span>密钥不写入磁盘、对话、日志或产物；服务重启后自动清除。</span>
+            <span>
+              {remember
+                ? "密钥仅写入 macOS Keychain，不进入对话、日志或研究产物。"
+                : "密钥只在当前服务内存中使用，重启后自动清除。"}
+            </span>
           </div>
+          {config?.saved_credential_available && (
+            <div className="saved-credential-row">
+              <span>此 Mac 已保存一个模型连接。</span>
+              <button
+                type="button"
+                onClick={onForgetSaved}
+                disabled={saving}
+              >
+                删除已保存密钥
+              </button>
+            </div>
+          )}
           {error && <p className="model-settings-error" role="alert">{error}</p>}
           <footer className="model-settings-actions">
             <button className="secondary-button" type="button" onClick={onClose}>

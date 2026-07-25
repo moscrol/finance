@@ -4,12 +4,32 @@ from unittest.mock import patch
 
 import pytest
 
+from intelligence.services.keychain_credentials import KeychainCredentialError
 from intelligence.services.llm_refine import (
     LLMProvider,
     detect_provider,
     provider_override,
 )
 from intelligence.services.llm_settings import SessionLLMSettings
+
+
+class MemoryCredentialStore:
+    def __init__(self) -> None:
+        self.providers: dict[str, LLMProvider] = {}
+        self.deleted: list[str] = []
+        self.fail_save = False
+
+    def save(self, user_id: str, provider: LLMProvider) -> None:
+        if self.fail_save:
+            raise KeychainCredentialError("unable to save Keychain credential")
+        self.providers[user_id] = provider
+
+    def load(self, user_id: str) -> LLMProvider | None:
+        return self.providers.get(user_id)
+
+    def delete(self, user_id: str) -> None:
+        self.deleted.append(user_id)
+        self.providers.pop(user_id, None)
 
 
 def test_session_byok_is_scoped_and_secret_is_not_represented() -> None:
@@ -52,6 +72,97 @@ def test_session_byok_accepts_loopback_openai_gateway_without_exposing_url() -> 
     assert "base_url" not in description
     assert "57244" not in repr(description)
     assert "openai-secret-value" not in repr(description)
+
+
+def test_persisted_byok_reloads_in_a_new_settings_instance() -> None:
+    store = MemoryCredentialStore()
+    first = SessionLLMSettings(credential_store=store)
+    persisted = first.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="openai-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+        persist=True,
+    )
+
+    second = SessionLLMSettings(credential_store=store)
+    loaded = second.byok_provider("alice")
+
+    assert loaded == persisted
+    description = second.describe("alice")
+    assert description["credential_persisted"] is True
+    assert description["saved_credential_available"] is True
+    assert description["session_only"] is False
+    assert "openai-secret-value" not in repr(description)
+    assert "57244" not in repr(description)
+
+
+def test_selecting_built_in_disables_but_does_not_delete_saved_byok() -> None:
+    store = MemoryCredentialStore()
+    settings = SessionLLMSettings(credential_store=store)
+    settings.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="openai-secret-value",
+        persist=True,
+    )
+
+    settings.disable_byok("alice")
+
+    with patch.dict("os.environ", {}, clear=True):
+        assert settings.provider_for("alice") is None
+        description = settings.describe("alice")
+    assert description["mode"] == "built_in"
+    assert description["saved_credential_available"] is True
+    assert store.deleted == []
+    assert SessionLLMSettings(credential_store=store).byok_provider("alice") is not None
+
+
+def test_forget_saved_byok_deletes_keychain_and_active_session() -> None:
+    store = MemoryCredentialStore()
+    settings = SessionLLMSettings(credential_store=store)
+    settings.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="openai-secret-value",
+        persist=True,
+    )
+
+    settings.forget_saved_byok("alice")
+
+    assert store.deleted == ["alice"]
+    assert settings.byok_provider("alice") is None
+    assert settings.describe("alice")["saved_credential_available"] is False
+
+
+def test_persistence_failure_does_not_activate_or_claim_saved_key() -> None:
+    store = MemoryCredentialStore()
+    store.fail_save = True
+    settings = SessionLLMSettings(credential_store=store)
+
+    with pytest.raises(KeychainCredentialError):
+        settings.configure_byok(
+            "alice",
+            provider_id="openai",
+            api_key="openai-secret-value",
+            persist=True,
+        )
+
+    assert settings.byok_provider("alice") is None
+    assert settings.describe("alice")["saved_credential_available"] is False
+
+
+def test_persist_requires_an_enabled_credential_store() -> None:
+    settings = SessionLLMSettings(credential_store=None)
+
+    with pytest.raises(KeychainCredentialError, match="unavailable"):
+        settings.configure_byok(
+            "alice",
+            provider_id="openai",
+            api_key="openai-secret-value",
+            persist=True,
+        )
 
 
 @pytest.mark.parametrize(

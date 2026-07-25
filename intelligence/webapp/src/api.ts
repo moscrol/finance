@@ -251,6 +251,12 @@ export function selectBuiltInLLM(user?: string): Promise<LLMConfig> {
   });
 }
 
+export function forgetSavedLLM(user?: string): Promise<LLMConfig> {
+  return request<LLMConfig>(withUser("/api/llm/config/saved", user), {
+    method: "DELETE",
+  });
+}
+
 export function cancelRun(
   runId: string,
   user?: string,

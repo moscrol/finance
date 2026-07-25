@@ -66,6 +66,9 @@ def resolve_runtime_backend(value: str | None = None) -> RuntimeBackendSelection
 
 def runtime_backend_readiness(
     selection: RuntimeBackendSelection | None = None,
+    *,
+    session_provider: str | None = None,
+    session_model: str | None = None,
 ) -> RuntimeBackendReadiness:
     selected = selection or resolve_runtime_backend()
     if selected.name in {"continuous_glm", "sdk_glm"}:
@@ -73,6 +76,7 @@ def runtime_backend_readiness(
             os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
             or os.environ.get("ZHIPU_API_KEY")
             or os.environ.get("GLM_API_KEY")
+            or session_provider == "zhipu"
         )
         dependency_ready = (
             selected.name != "sdk_glm"
@@ -89,13 +93,17 @@ def runtime_backend_readiness(
             ready=credential and dependency_ready,
             reason=reason,
             model=str(
-                os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL") or "glm-5.2"
+                session_model
+                or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+                or "glm-5.2"
             ).strip(),
             credential_available=credential,
             benchmark_only=selected.benchmark_only,
         )
     if selected.name == "sdk_gpt":
-        credential = bool(os.environ.get("OPENAI_API_KEY"))
+        credential = bool(
+            os.environ.get("OPENAI_API_KEY") or session_provider == "openai"
+        )
         dependency_ready = importlib.util.find_spec("agents") is not None
         if not dependency_ready:
             reason = "openai_agents_dependency_missing"
@@ -108,7 +116,9 @@ def runtime_backend_readiness(
             ready=credential and dependency_ready,
             reason=reason,
             model=str(
-                os.environ.get("OPENAI_AGENT_MODEL") or "gpt-5.6-sol"
+                session_model
+                or os.environ.get("OPENAI_AGENT_MODEL")
+                or "gpt-5.6-sol"
             ).strip(),
             credential_available=credential,
             benchmark_only=False,

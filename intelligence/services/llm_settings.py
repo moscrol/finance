@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
+import sys
 from threading import Lock
+from typing import Protocol
 
 from intelligence.services import llm_refine
-from intelligence.services.keychain_credentials import normalize_provider_base_url
+from intelligence.services.keychain_credentials import (
+    KeychainCredentialError,
+    KeychainCredentialStore,
+    normalize_provider_base_url,
+)
 from intelligence.services.llm_refine import LLMProvider, detect_provider
 
 
@@ -45,9 +52,39 @@ PROVIDER_PRESETS: dict[str, ProviderPreset] = {
 }
 
 
+class CredentialStore(Protocol):
+    def save(self, user_id: str, provider: LLMProvider) -> None: ...
+    def load(self, user_id: str) -> LLMProvider | None: ...
+    def delete(self, user_id: str) -> None: ...
+
+
+_AUTO_CREDENTIAL_STORE = object()
+
+
+def _credential_store_from_environment() -> CredentialStore | None:
+    enabled = os.environ.get("FORESIGHT_LLM_KEYCHAIN", "").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
+    if sys.platform != "darwin" or not Path("/usr/bin/security").is_file():
+        return None
+    return KeychainCredentialStore()
+
+
 class SessionLLMSettings:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        credential_store: CredentialStore | None | object = _AUTO_CREDENTIAL_STORE,
+    ) -> None:
         self._byok: dict[str, LLMProvider] = {}
+        self._active_persisted_users: set[str] = set()
+        self._saved_users: set[str] = set()
+        self._disabled_users: set[str] = set()
+        self._credential_store = (
+            _credential_store_from_environment()
+            if credential_store is _AUTO_CREDENTIAL_STORE
+            else credential_store
+        )
         self._lock = Lock()
 
     def configure_byok(
@@ -58,6 +95,7 @@ class SessionLLMSettings:
         api_key: str,
         base_url: str | None = None,
         model: str | None = None,
+        persist: bool = False,
     ) -> LLMProvider:
         preset = PROVIDER_PRESETS[provider_id]
         provider = LLMProvider(
@@ -66,21 +104,69 @@ class SessionLLMSettings:
             base_url=normalize_provider_base_url(base_url or preset.base_url),
             model=model or preset.default_model,
         )
+        if persist:
+            store = self._credential_store
+            if store is None:
+                raise KeychainCredentialError("Keychain persistence unavailable")
+            store.save(user_id, provider)
         with self._lock:
             self._byok[user_id] = provider
+            self._disabled_users.discard(user_id)
+            if persist:
+                self._active_persisted_users.add(user_id)
+                self._saved_users.add(user_id)
+            else:
+                self._active_persisted_users.discard(user_id)
         return provider
 
     def byok_provider(self, user_id: str) -> LLMProvider | None:
         with self._lock:
-            return self._byok.get(user_id)
+            if user_id in self._disabled_users:
+                return None
+            provider = self._byok.get(user_id)
+        if provider is not None:
+            return provider
+        store = self._credential_store
+        if store is None:
+            return None
+        try:
+            provider = store.load(user_id)
+        except KeychainCredentialError:
+            return None
+        if provider is None:
+            return None
+        with self._lock:
+            if user_id in self._disabled_users:
+                return None
+            self._byok[user_id] = provider
+            self._active_persisted_users.add(user_id)
+            self._saved_users.add(user_id)
+        return provider
 
     def clear_byok(self, user_id: str) -> None:
+        self.disable_byok(user_id)
+
+    def disable_byok(self, user_id: str) -> None:
         with self._lock:
             self._byok.pop(user_id, None)
+            self._active_persisted_users.discard(user_id)
+            self._disabled_users.add(user_id)
+
+    def forget_saved_byok(self, user_id: str) -> None:
+        store = self._credential_store
+        if store is not None:
+            store.delete(user_id)
+        with self._lock:
+            self._byok.pop(user_id, None)
+            self._active_persisted_users.discard(user_id)
+            self._saved_users.discard(user_id)
+            self._disabled_users.add(user_id)
 
     def clear_all(self) -> None:
         with self._lock:
+            self._disabled_users.update(self._saved_users)
             self._byok.clear()
+            self._active_persisted_users.clear()
 
     def built_in_provider(self) -> LLMProvider | None:
         managed_glm_key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
@@ -126,12 +212,23 @@ class SessionLLMSettings:
         byok = self.byok_provider(user_id)
         built_in = self.built_in_provider()
         active = byok or built_in
+        with self._lock:
+            credential_persisted = (
+                byok is not None and user_id in self._active_persisted_users
+            )
+            saved_credential_available = user_id in self._saved_users
         return {
             "mode": "byok" if byok is not None else "built_in",
-            "display_name": "自带密钥" if byok is not None else "Foresight 默认模型",
+            "display_name": (
+                "已保存模型"
+                if credential_persisted
+                else ("自带密钥" if byok is not None else "Foresight 默认模型")
+            ),
             "ready": active is not None,
-            "session_only": byok is not None,
+            "session_only": byok is not None and not credential_persisted,
             "built_in_ready": built_in is not None,
             "provider": active.name if active is not None else None,
             "model": active.model if active is not None else None,
+            "credential_persisted": credential_persisted,
+            "saved_credential_available": saved_credential_available,
         }

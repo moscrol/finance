@@ -4897,6 +4897,58 @@ button.model-choice {
   color: #4d8464;
 }
 
+.byok-remember-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.byok-remember-control input {
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.byok-remember-control > span {
+  display: grid;
+  gap: 3px;
+}
+
+.byok-remember-control strong {
+  font-size: 10px;
+}
+
+.byok-remember-control small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.saved-credential-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.saved-credential-row button {
+  padding: 0;
+  border: 0;
+  color: var(--red);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
 .model-settings-error {
   margin: 12px 0 0;
   padding: 9px 10px;

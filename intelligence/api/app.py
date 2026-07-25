@@ -75,6 +75,7 @@ from intelligence.services.glm_agent_runtime import (
     GLMModelClient,
 )
 from intelligence.services.llm_refine import LLMProvider
+from intelligence.services.keychain_credentials import KeychainCredentialError
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
@@ -645,6 +646,7 @@ class ConfigureLLMRequest(BaseModel):
         max_length=128,
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
+    remember: bool = False
     user: str | None = None
 
 
@@ -1244,6 +1246,7 @@ def create_app(
     repo_root: Path | None = None,
     run_timeout_sec: float = _SSE_MAX_SECONDS,
     self_use_require_consecutive_trading_days: bool = False,
+    llm_settings: SessionLLMSettings | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     runtime_provenance = build_runtime_provenance(root)
@@ -1259,12 +1262,12 @@ def create_app(
         ),
         "source_revision": runtime_provenance.get("source_revision"),
     }
+    llm_settings = llm_settings or SessionLLMSettings()
     runtime_selection = resolve_runtime_backend()
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
     ).to_dict()
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
-    llm_settings = SessionLLMSettings()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -1349,6 +1352,23 @@ def create_app(
 
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
+
+    def refresh_session_runtime_readiness(user_id: str) -> None:
+        """Refresh global health metadata after the default user's config request.
+
+        Keychain loading remains lazy: this helper is called only after a route
+        has already resolved the user's provider. The projection contains only
+        provider id/model and never the provider secret or endpoint.
+        """
+
+        if user_id != userspace.DEFAULT_USER:
+            return
+        provider = llm_settings.byok_provider(user_id)
+        runtime_provenance["agent_runtime"] = runtime_backend_readiness(
+            runtime_selection,
+            session_provider=provider.name if provider is not None else None,
+            session_model=provider.model if provider is not None else None,
+        ).to_dict()
 
     def self_use_projection(user: str | None) -> dict[str, object]:
         conversation_store = conversation_store_for(user)
@@ -1593,7 +1613,9 @@ def create_app(
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
-        return llm_settings.describe(user_id)
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.put("/api/llm/config")
     def configure_llm(req: ConfigureLLMRequest) -> dict[str, object]:
@@ -1608,16 +1630,34 @@ def create_app(
                 api_key=api_key,
                 base_url=req.base_url,
                 model=req.model,
+                persist=req.remember,
             )
         except ValueError as exc:
             raise HTTPException(422, "invalid provider base URL") from exc
-        return llm_settings.describe(user_id)
+        except KeychainCredentialError as exc:
+            raise HTTPException(503, "无法安全保存模型密钥，请关闭记住选项后重试") from exc
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.delete("/api/llm/config")
     def use_built_in_llm(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
         llm_settings.clear_byok(user_id)
-        return llm_settings.describe(user_id)
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
+
+    @app.delete("/api/llm/config/saved")
+    def forget_saved_llm(user: str | None = None) -> dict[str, object]:
+        user_id = store_for(user).user_id
+        try:
+            llm_settings.forget_saved_byok(user_id)
+        except KeychainCredentialError as exc:
+            raise HTTPException(503, "无法删除已保存的模型密钥") from exc
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.post("/api/conversations/{conversation_id}/messages", status_code=202)
     def create_message(
