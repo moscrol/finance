@@ -42,6 +42,28 @@ SdkModelFactory = Callable[
 _PARTIAL_EXECUTION_GAPS = frozenset(
     {"cancelled", "deadline_exhausted", "tool_budget_exhausted"}
 )
+_SDK_MAX_VERIFIER_RESERVE_SECONDS = 20.0
+_SDK_MIN_VERIFIER_RESERVE_SECONDS = 2.0
+_SDK_STAGE_CLOSED = "research_stage_closed"
+_SDK_STAGE_CLOSED_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
+
+
+def _sdk_verifier_reserve(context: ResearchRunContext) -> float:
+    synthesis_reserve = max(0.0, context.deadline.synthesis_reserve)
+    if synthesis_reserve <= 0.0:
+        return 0.0
+    return min(
+        synthesis_reserve,
+        _SDK_MAX_VERIFIER_RESERVE_SECONDS,
+        max(_SDK_MIN_VERIFIER_RESERVE_SECONDS, synthesis_reserve / 3.0),
+    )
+
+
+def _sdk_runtime_timeout(context: ResearchRunContext) -> float:
+    return max(
+        0.0,
+        context.deadline.remaining() - _sdk_verifier_reserve(context),
+    )
 
 
 def build_glm_sdk_model(
@@ -367,6 +389,17 @@ class _AgentsRunState:
             )
             rejected = self._reservation_error(name, raw_query)
             if rejected is not None:
+                if rejected == _SDK_STAGE_CLOSED:
+                    self._add_event(
+                        "tool_closed",
+                        {"tool": name, "reason": rejected},
+                    )
+                    return {
+                        "status": "closed",
+                        "tool": name,
+                        "error": rejected,
+                        "instruction": _SDK_STAGE_CLOSED_INSTRUCTION,
+                    }
                 if rejected not in self._gaps:
                     self._gaps.append(rejected)
                 self._add_event("tool_error", {"tool": name, "error": rejected})
@@ -420,6 +453,8 @@ class _AgentsRunState:
             return "cancelled"
         if self._context.deadline.expired:
             return "deadline_exhausted"
+        if self._context.deadline.stage_timeout(1.0) <= 0.001:
+            return _SDK_STAGE_CLOSED
         spec = self._authorized.get(name)
         if spec is None:
             return "unknown_or_unauthorized_tool"
@@ -558,12 +593,21 @@ class OpenAIAgentsRuntime:
             context=context,
             is_cancelled=self._is_cancelled,
         )
+        runtime_timeout = _sdk_runtime_timeout(context)
+        if runtime_timeout <= 0.001:
+            return self._failure_from_state(
+                task_frame=task_frame,
+                state=state,
+                stop_reason="sdk_runtime_budget_exhausted",
+                gap="sdk_runtime_budget_exhausted",
+                llm_calls=0,
+            )
         request = AgentsSdkRequest(
             instructions=build_episode_instructions(task_frame, context, registry),
             input=build_episode_input(task_frame, context),
             tools=state.tools(),
             max_turns=max(2, context.policy.max_steps + 2),
-            timeout=max(0.1, context.deadline.remaining()),
+            timeout=runtime_timeout,
             backend=self._backend,
             model_name=self._model_name,
             model=self._model,
@@ -599,7 +643,8 @@ class OpenAIAgentsRuntime:
                 evidence=snapshot.evidence,
             )
         except ValueError:
-            if snapshot.evidence and context.deadline.remaining() >= 1.0:
+            recovery_timeout = _sdk_runtime_timeout(context)
+            if snapshot.evidence and recovery_timeout >= 1.0:
                 repair_request = AgentsSdkRequest(
                     instructions=(
                         build_episode_instructions(
@@ -634,7 +679,7 @@ class OpenAIAgentsRuntime:
                     ),
                     tools=(),
                     max_turns=1,
-                    timeout=max(0.1, context.deadline.remaining()),
+                    timeout=recovery_timeout,
                     backend=self._backend,
                     model_name=self._model_name,
                     model=self._model,

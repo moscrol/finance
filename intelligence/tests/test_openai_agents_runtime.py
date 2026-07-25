@@ -61,6 +61,7 @@ def _context(
     max_steps: int = 2,
     allowed_capabilities: tuple[str, ...] = ("mainline_context",),
     timeout: float = 30.0,
+    synthesis_reserve: float = 0.0,
 ) -> ResearchRunContext:
     contract = ResearchTaskContract(
         task_id="sdk-runtime-test",
@@ -85,8 +86,11 @@ def _context(
     )
     return ResearchRunContext(
         contract=contract,
-        deadline=ResearchDeadline.from_timeout(timeout),
-        policy=ResearchPolicy("quick", max_steps, timeout, 0.0),
+        deadline=ResearchDeadline.from_timeout(
+            timeout,
+            synthesis_reserve=synthesis_reserve,
+        ),
+        policy=ResearchPolicy("quick", max_steps, timeout, synthesis_reserve),
         trace_parent_id="sdk-runtime-test",
         today="2026-07-25",
         latest_data_date="2026-07-24",
@@ -204,6 +208,72 @@ def test_sdk_runtime_exposes_only_authorized_tools_and_returns_outcome() -> None
     assert outcome.usage.llm_calls == 2
     assert outcome.usage.tool_calls == 1
     assert calls == ["A股 当前主线"]
+
+
+def test_sdk_runtime_reserves_part_of_synthesis_budget_for_verifier() -> None:
+    frame = _frame()
+    captured: list[float] = []
+    successful = SuccessfulFakeSdkRunner()
+
+    def capture_timeout(request: AgentsSdkRequest) -> AgentsSdkResult:
+        captured.append(request.timeout)
+        return successful(request)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=capture_timeout,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame, timeout=30.0, synthesis_reserve=10.0),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "completed"
+    assert len(captured) == 1
+    assert 26.0 <= captured[0] < 27.0
+
+
+def test_sdk_stage_close_instructs_finalization_without_public_gap() -> None:
+    frame = _frame()
+    observations: list[dict[str, object]] = []
+
+    def stage_closed_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        observations.append(request.tools[0].invoke("A股 当前主线"))
+        finish = {
+            "status": "partial",
+            "draft": "基于当前可用信息，暂不确认主线。",
+            "gaps": ["仍缺少同日主线证据"],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": [],
+                    "gap": "仍缺少同日主线证据",
+                }
+            ],
+        }
+        return AgentsSdkResult(json.dumps(finish, ensure_ascii=False), 1)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=stage_closed_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame, timeout=10.0, synthesis_reserve=10.0),
+        registry=_registry([]),
+    )
+
+    assert observations == [
+        {
+            "status": "closed",
+            "tool": "mainline_context",
+            "error": "research_stage_closed",
+            "instruction": "研究取证阶段已结束，请使用已有信息完成终止回答。",
+        }
+    ]
+    assert "research_stage_closed" not in outcome.gaps
+    assert outcome.status == "partial"
 
 
 def test_sdk_runtime_turns_tool_budget_exhaustion_into_a_partial_gap() -> None:
