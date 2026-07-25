@@ -13,9 +13,10 @@ import re
 from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
+from intelligence.services.user_task import UserTask
+
 if TYPE_CHECKING:
     from intelligence.services.query_understanding import QueryEnvelope
-    from intelligence.services.user_task import UserTask
 
 
 LLMComplete = Callable[
@@ -119,8 +120,6 @@ class TaskFrame:
         context: dict[str, object] | str | None = None,
     ) -> UserTask:
         """Expose the migration projection without making TaskFrame a route owner."""
-        from intelligence.services.user_task import UserTask
-
         return UserTask.from_task_frame(self, context)
 
     @classmethod

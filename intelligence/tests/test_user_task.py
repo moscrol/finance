@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+from typing import get_type_hints
 
 import pytest
 
@@ -73,6 +74,7 @@ def test_task_frame_exposes_compatibility_projection() -> None:
     assert isinstance(task, UserTask)
     assert task.task_id == "compat-1"
     assert task.subjects[0].value == "液冷"
+    assert get_type_hints(TaskFrame.to_user_task)["return"] is UserTask
 
 
 def test_user_task_rejects_unknown_resolution_source() -> None:
