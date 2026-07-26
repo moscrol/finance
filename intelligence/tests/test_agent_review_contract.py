@@ -16,6 +16,10 @@ from scripts.agent_review.contract import (
     validate_request,
 )
 from scripts.agent_review.submit import submit_request
+from scripts.agent_review.validate_verdict import (
+    validate_verdict,
+    validate_verdict_file,
+)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -330,3 +334,287 @@ def test_submit_rejects_waiver_for_gate_artifact(review_repo, tmp_path: Path):
             intensity="light",
             test_waivers={"intelligence/services/evidence_ledger.py": "no tests needed"},
         )
+
+
+def _verdict(request, request_sha256: str, **overrides: object) -> dict[str, object]:
+    checks = {
+        check: {"status": "PASS", "evidence": "verified"}
+        for check in request.required_checks
+    }
+    for tests in request.artifact_tests.values():
+        for test in tests:
+            checks[test] = {"status": "PASS", "evidence": "1 passed"}
+    checks.update(
+        {
+            "git_diff_check": {"status": "PASS", "evidence": "clean"},
+            "artifact_hygiene": {"status": "PASS", "evidence": "clean"},
+            "canonical_safety": {"status": "PASS", "evidence": "untouched"},
+        }
+    )
+    raw: dict[str, object] = {
+        "schema_version": 2,
+        "review_id": request.review_id,
+        "commit": request.commit,
+        "request_sha256": request_sha256,
+        "status": "PASS",
+        "reviewer": EXTERNAL_REVIEWER,
+        "reviewer_class": "external",
+        "authority": "external",
+        "findings": [],
+        "checks": checks,
+        "reviewed_at": "2026-07-26T12:30:00+08:00",
+        "summary": "All required checks pass.",
+        "next_action": "continue",
+    }
+    raw.update(overrides)
+    return raw
+
+
+@pytest.mark.parametrize(
+    "reviewer",
+    ["codex:producer", "codex:subagent", "claude", "claude:reviewer"],
+)
+def test_non_whitelisted_pass_never_grants_external_authority(
+    review_repo, tmp_path: Path, reviewer: str
+):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+
+    result = validate_verdict(
+        _verdict(request, sha256_file(request_path), reviewer=reviewer),
+        request=request,
+        request_sha256=sha256_file(request_path),
+        repo=repo,
+        authority="external",
+    )
+
+    assert not result.valid
+    assert "reviewer_identity" in result.errors
+    assert result.authority == "none"
+
+
+def test_exact_external_verdict_grants_external_authority(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+
+    result = validate_verdict(
+        _verdict(request, request_hash),
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="external",
+    )
+
+    assert result.valid
+    assert result.authority == "external"
+    assert result.status == "PASS"
+
+
+def test_producer_fallback_can_only_grant_provisional_authority(
+    review_repo, tmp_path: Path
+):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+    verdict = _verdict(
+        request,
+        request_hash,
+        reviewer="codex:producer-fallback",
+        reviewer_class="producer_fallback",
+        authority="provisional",
+    )
+
+    provisional = validate_verdict(
+        verdict,
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="provisional",
+    )
+    external = validate_verdict(
+        verdict,
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="external",
+    )
+
+    assert provisional.valid and provisional.authority == "provisional"
+    assert not external.valid and external.authority == "none"
+
+
+def test_mutated_request_invalidates_verdict_file(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+    verdict_path = state_root / "verdicts" / f"{request.review_id}.json"
+    verdict_path.parent.mkdir(parents=True)
+    verdict_path.write_text(
+        json.dumps(_verdict(request, request_hash)), encoding="utf-8"
+    )
+    request_path.write_text(request_path.read_text() + "\n", encoding="utf-8")
+
+    result = validate_verdict_file(
+        verdict_path,
+        state_root=state_root,
+        repo=repo,
+        authority="external",
+    )
+
+    assert not result.valid
+    assert "request_hash_mismatch" in result.errors
+
+
+def test_external_pass_requires_every_mechanical_check(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+    verdict = _verdict(request, request_hash)
+    verdict["checks"].pop("intelligence/tests/test_evidence_ledger.py")
+
+    result = validate_verdict(
+        verdict,
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="external",
+    )
+
+    assert not result.valid
+    assert "check_manifest" in result.errors
+
+
+def test_verdict_commit_must_match_request(review_repo, tmp_path: Path):
+    repo, parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+
+    result = validate_verdict(
+        _verdict(request, request_hash, commit=parent),
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="external",
+    )
+
+    assert not result.valid
+    assert "verdict_commit" in result.errors
+
+
+def test_verdict_for_non_ancestor_tip_has_no_authority(review_repo, tmp_path: Path):
+    repo, parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+    _git(repo, "checkout", "-b", "abandoned", parent)
+    (repo / "unrelated.py").write_text("VALUE = 3\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "abandoned line")
+    abandoned_tip = _git(repo, "rev-parse", "HEAD")
+
+    result = validate_verdict(
+        _verdict(request, request_hash),
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="external",
+        current_tip=abandoned_tip,
+    )
+
+    assert not result.valid
+    assert "verdict_ancestry" in result.errors
+
+
+def test_release_request_rejects_provisional_authority(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="release candidate",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run full regression",),
+        intensity="release",
+    )
+    request_path = state_root / "requests" / f"{request.review_id}.json"
+    request_hash = sha256_file(request_path)
+
+    result = validate_verdict(
+        _verdict(
+            request,
+            request_hash,
+            reviewer="codex:producer-fallback",
+            reviewer_class="producer_fallback",
+            authority="provisional",
+        ),
+        request=request,
+        request_sha256=request_hash,
+        repo=repo,
+        authority="provisional",
+    )
+
+    assert not result.valid
+    assert "release_requires_external" in result.errors
