@@ -2,13 +2,14 @@
 
 Date: 2026-07-27
 
-Status: `blocked_by_external_runtime`
+Status: `quality_not_green_external_runtime_jitter`
 
 ## Frozen release candidate
 
 | Field | Value |
 | --- | --- |
-| Source revision | `bffdc537425f406b3c12831ba9ec7b5ca800322d` |
+| Source revision (live artifact) | `e179b15cda...` |
+| Current branch tip | `9264065a` |
 | Source dirty | `false` |
 | Branch | `feat/agent-runtime-backends-verify` |
 | Canonical 8792 | untouched |
@@ -43,14 +44,14 @@ general-finance research path rather than a fabricated skill route.
 Provider tolerance and benchmark contracts:
 
 ```text
-77 passed
+64 passed, 1 skipped (focused current-tip suite)
 ```
 
 Credential, runtime-benchmark, and Workbench API regression after the bounded
 Keychain read fix:
 
 ```text
-125 passed
+2865 passed, 2 skipped, 11 baseline failures (full intelligence/tests)
 Ruff passed
 git diff --check passed
 ```
@@ -66,27 +67,25 @@ history:
   replays progress, one terminal Run is emitted, and control-plane leakage is
   zero.
 
-## Live preflight result
+## Live evaluation result
 
-The saved provider exists in macOS Keychain and the already-running 8798
-process remains ready because it holds the provider in memory. A new process,
-however, requires macOS Keychain authorization before the credential payload is
-released.
-
-Before the fix, both the benchmark and a minimal Keychain probe remained stuck
-for more than ten seconds and left live Python processes behind. The credential
-reader now isolates the official macOS `security` command behind a three-second
-timeout. The same release preflight now returns deterministically:
+The Keychain preflight blocker was fixed by isolating the official `security`
+command behind a hard timeout. The frozen five-case suite then executed through
+the Codex headless provider. The latest live artifact is:
 
 ```text
-returncode: 2
-elapsed: 3317 ms
-reason: saved Keychain provider unavailable
+/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-headless-2026-07-27-e179b15c.json
 ```
 
-No benchmark case, model call, tool call, semantic judge, or verifier repair was
-executed. Therefore this is an infrastructure blocker, not a failed answer and
-not a model-quality result. No backend fallback was used.
+The source was clean and per-tool ProviderTrace, cutoff, token, root-budget and
+repair diagnostics were exported. Standard cases used medium reasoning, a
+60-second research window, a 30-second semantic-verifier reserve, and a dynamic
+finalization floor. Two of five cases still hit the headless process boundary
+(`rebound-duration` and `weekly-market-cause`); the other three reached
+structured/semantic acceptance or an honest partial. Separate targeted smokes
+for current-mainline and weekly-cause passed with direct, evidence-bounded
+answers. The remaining variance is provider/runtime tail latency, not a route or
+evidence-seam failure.
 
 ## Claude `ALIGNMENT.md` reconciliation
 
@@ -110,10 +109,12 @@ future live result cannot be detached from the code that produced it.
 
 ## Release conclusion
 
-Result: `blocked_by_external_runtime`.
+Result: `not_release_green`.
 
-The architecture and deterministic release gates are ready for the one-time
-five-case live evaluation, but answer quality on the final revision is not yet
-proven. The blocker is a one-time macOS Keychain authorization for a new Python
-process. Do not ask Claude for final quality review, switch 8792, merge `main`,
-or claim Codex/Knevo parity until the frozen live artifact exists.
+The architecture and deterministic gates are in place, and the headless
+reference now preserves structured-tool freedom, root-budget accounting,
+cutoff/traces, and grounded semantic verification. However, the representative
+five-case live run is not fully green under the current provider's tail latency.
+Do not switch 8792, merge `main`, or claim Codex/Knevo parity. The next release
+action is a provider-stability/latency decision (or a fresh clean-provider
+five-case run), not another route or prompt layer.
