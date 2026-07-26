@@ -104,8 +104,8 @@ class HeadlessToolGateway:
             context.deadline.remaining()
         )
         self._finalization_floor_seconds = min(
-            30.0,
-            max(5.0, initial_research_seconds * 0.45),
+            45.0,
+            max(5.0, initial_research_seconds * 0.65),
         )
         self._is_cancelled = is_cancelled or (lambda: False)
         self._authorized = {
