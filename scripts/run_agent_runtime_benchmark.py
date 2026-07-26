@@ -278,8 +278,14 @@ def _fresh_context(
         # Codex headless performs research and draft generation in one process.
         # GLM's much larger internal-finalizer reserve would leave this backend
         # only 30s on a standard case and terminate it before it can finish.
-        # Keep only the backend-neutral semantic-verifier reserve here.
-        synthesis_reserve = ResearchPolicy.for_tier(case.tier).synthesis_reserve
+        # Keep a bounded verifier reserve here.  The shared semantic judge may
+        # need one full 30s provider attempt; reserving only the GLM policy's
+        # 20s made a structurally valid headless answer become unavailable.
+        policy_reserve = ResearchPolicy.for_tier(case.tier).synthesis_reserve
+        synthesis_reserve = min(
+            ResearchPolicy.for_tier(case.tier).total_seconds * 0.4,
+            max(policy_reserve, 30.0),
+        )
     return build_episode_context(
         control.task_frame,
         task_id=f"runtime-benchmark:{case.case_id}",
