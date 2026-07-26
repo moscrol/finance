@@ -353,6 +353,44 @@ def test_submit_rejects_waiver_for_gate_artifact(review_repo, tmp_path: Path):
         )
 
 
+def test_superseding_repair_requires_milestone_and_explicit_check(
+    review_repo, tmp_path: Path
+):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    first = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="broken slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused",),
+        intensity="light",
+    )
+
+    with pytest.raises(ValueError, match="milestone"):
+        submit_request(
+            repo=repo,
+            state_root=state_root,
+            scope="repair",
+            artifacts=("intelligence/services/evidence_ledger.py",),
+            required_checks=(f"repair:{first.review_id}",),
+            intensity="light",
+            depends_on=(first.review_id,),
+            supersedes=first.review_id,
+        )
+    with pytest.raises(ValueError, match="required check"):
+        submit_request(
+            repo=repo,
+            state_root=state_root,
+            scope="repair",
+            artifacts=("intelligence/services/evidence_ledger.py",),
+            required_checks=("focused",),
+            intensity="milestone",
+            depends_on=(first.review_id,),
+            supersedes=first.review_id,
+        )
+
+
 def _verdict(request, request_sha256: str, **overrides: object) -> dict[str, object]:
     checks = {
         check: {"status": "PASS", "evidence": "verified"}

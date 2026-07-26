@@ -95,6 +95,10 @@ def _load_dependency(state_root: Path, review_id: str) -> Mapping[str, object]:
     return raw
 
 
+def _review_number(review_id: str) -> int:
+    return int(review_id.rsplit("-", 1)[-1])
+
+
 def request_to_dict(request: ReviewRequest) -> dict[str, object]:
     return {
         "schema_version": request.schema_version,
@@ -162,6 +166,32 @@ def submit_request(
                 raise ValueError(f"dependency commit is not on current branch: {dependency}")
         if supersedes is not None:
             _load_dependency(state_root, supersedes)
+            if intensity not in {"milestone", "release"}:
+                raise ValueError("a superseding repair request must use milestone intensity")
+            if f"repair:{supersedes}" not in check_tuple:
+                raise ValueError(
+                    f"a superseding request must include required check repair:{supersedes}"
+                )
+            superseded_number = _review_number(supersedes)
+            latest_number = _review_number(latest_review_id or supersedes)
+            required_artifacts: set[str] = set()
+            for path in request_dir.glob("ARL-*.json"):
+                if not REVIEW_ID_PATTERN.fullmatch(path.stem):
+                    continue
+                number = _review_number(path.stem)
+                if superseded_number <= number <= latest_number:
+                    raw = _load_dependency(state_root, path.stem)
+                    raw_artifacts = raw.get("artifacts")
+                    if isinstance(raw_artifacts, list):
+                        required_artifacts.update(
+                            item for item in raw_artifacts if isinstance(item, str)
+                        )
+            missing_artifacts = required_artifacts.difference(artifact_tuple)
+            if missing_artifacts:
+                raise ValueError(
+                    "superseding repair must include all tainted artifacts: "
+                    + ", ".join(sorted(missing_artifacts))
+                )
 
         review_id = _next_review_id(request_dir)
         commit = git_output(repo, "rev-parse", "HEAD")

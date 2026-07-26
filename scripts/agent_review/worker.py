@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from scripts.agent_review.contract import sha256_file
+from scripts.agent_review.contract import is_ancestor, sha256_file
 from scripts.agent_review.gate import load_reachable_requests
 from scripts.agent_review.validate_verdict import validate_verdict_file
 
@@ -133,10 +133,11 @@ def _select_frontier(repo: Path, state_root: Path, tip: str):
     )
     if invalid:
         return None, WorkerResult("INVALID", invalid[0], "invalid reachable request")
+    verdicts: dict[str, Any] = {}
     for request in requests:
         verdict_path = state_root / "verdicts" / f"{request.review_id}.json"
         if not verdict_path.exists():
-            return request, None
+            continue
         verdict = validate_verdict_file(
             verdict_path,
             state_root=state_root,
@@ -146,7 +147,47 @@ def _select_frontier(repo: Path, state_root: Path, tip: str):
         )
         if not verdict.valid:
             return None, WorkerResult("INVALID", request.review_id, ",".join(verdict.errors))
+        verdicts[request.review_id] = verdict
+
+    blocked_ids = {
+        review_id
+        for review_id, verdict in verdicts.items()
+        if verdict.status in {"CHANGES_REQUIRED", "BLOCKED"}
+    }
+    repair_requests = [
+        request
+        for request in requests
+        if request.supersedes in blocked_ids
+        and f"repair:{request.supersedes}" in request.required_checks
+    ]
+    for repair in repair_requests:
+        repair_verdict = verdicts.get(repair.review_id)
+        if repair_verdict is None:
+            return repair, None
+        if repair_verdict.status != "PASS":
+            return None, WorkerResult(
+                "REVIEW_BLOCKED", repair.review_id, repair_verdict.status
+            )
+
+    covered_ids: set[str] = set()
+    for repair in repair_requests:
+        repair_verdict = verdicts.get(repair.review_id)
+        if repair_verdict is not None and repair_verdict.status == "PASS":
+            covered_ids.update(
+                request.review_id
+                for request in requests
+                if is_ancestor(repo, request.commit, repair.commit)
+            )
+    superseded_ids = {repair.supersedes for repair in repair_requests}
+    for request in requests:
+        if request.review_id in covered_ids:
+            continue
+        verdict = verdicts.get(request.review_id)
+        if verdict is None:
+            return request, None
         if verdict.status == "PASS":
+            continue
+        if request.review_id in superseded_ids:
             continue
         return None, WorkerResult("REVIEW_BLOCKED", request.review_id, verdict.status)
     return None, WorkerResult("IDLE", "", "no external review pending")
@@ -196,6 +237,7 @@ def _default_reviewer_command(
         "Bash(sed *)",
         "Bash(wc *)",
         "Bash(find *)",
+        "Bash(env *)",
         "Bash(/Users/a77/finance-workspace-private/.venv-workbench/bin/python *)",
     )
 

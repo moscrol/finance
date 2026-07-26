@@ -221,6 +221,9 @@ def compute_gate(
         )
 
     request_by_id = {request.review_id: request for request in requests}
+    superseded_review_ids = {
+        request.supersedes for request in requests if request.supersedes is not None
+    }
     sealed_ids: set[str] = set()
     latest_sealed_commit: str | None = None
     for request in requests:
@@ -232,12 +235,31 @@ def compute_gate(
         if verdict is not None and verdict.status == "PASS" and dependencies_sealed:
             sealed_ids.add(request.review_id)
             latest_sealed_commit = request.commit
+        elif (
+            verdict is not None
+            and verdict.status == "PASS"
+            and request.supersedes is not None
+            and f"repair:{request.supersedes}" in request.required_checks
+        ):
+            # submit.py guarantees the repair request contains the union of all
+            # tainted artifacts. An external PASS on that exact descendant can
+            # therefore seal the reviewed fix-forward chain.
+            sealed_ids.update(
+                candidate.review_id
+                for candidate in requests
+                if is_ancestor(repo, candidate.commit, request.commit)
+            )
+            latest_sealed_commit = request.commit
 
     blocking_request: ReviewRequest | None = None
     blocking_status = ""
     for request in requests:
         verdict = external.get(request.review_id)
-        if verdict is not None and verdict.status in {"CHANGES_REQUIRED", "BLOCKED"}:
+        if (
+            verdict is not None
+            and verdict.status in {"CHANGES_REQUIRED", "BLOCKED"}
+            and request.review_id not in superseded_review_ids
+        ):
             blocking_request = request
             blocking_status = verdict.status
             break

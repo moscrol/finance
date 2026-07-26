@@ -9,6 +9,9 @@ from pathlib import Path
 import pytest
 
 from scripts.agent_review.submit import submit_request
+from scripts.agent_review.bootstrap import bootstrap_runtime
+from scripts.agent_review.contract import sha256_file
+from scripts.agent_review.gate import compute_gate
 from scripts.agent_review.producer_fallback import run_fallback_once
 from scripts.agent_review.worker import run_once
 
@@ -103,6 +106,16 @@ if mode == "provisional":
     payload["authority"] = "provisional"
 if mode == "bad_identity":
     payload["reviewer"] = "codex:producer"
+if mode == "changes":
+    payload["status"] = "CHANGES_REQUIRED"
+    payload["findings"] = [{
+        "severity": "high",
+        "file": request["artifacts"][0],
+        "line": 1,
+        "title": "reproduced architecture gap",
+        "evidence": "fake reviewer reproduced the gap",
+        "recommendation": "fix forward",
+    }]
 if mode == "mutate":
     request_path.write_text(request_path.read_text() + "\\n")
 verdict_path.parent.mkdir(parents=True, exist_ok=True)
@@ -346,3 +359,86 @@ def test_fallback_provider_failure_enters_its_own_backoff(worker_case):
     assert first.status == "FALLBACK_INACTIVE"
     assert second.status == "FALLBACK_BACKOFF"
     assert (state_root / "invocations.txt").read_text() == "1"
+
+
+def test_bootstrap_classifies_legacy_without_mutating_history(worker_case):
+    repo, state_root, request, _fake_reviewer = worker_case
+    legacy_request = state_root / "requests/ARL-0998.json"
+    legacy_verdict = state_root / "verdicts/ARL-0998.json"
+    legacy_request.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "review_id": "ARL-0998",
+                "commit": request.commit,
+                "status": "ready",
+            }
+        ),
+        encoding="utf-8",
+    )
+    legacy_verdict.parent.mkdir(parents=True, exist_ok=True)
+    legacy_verdict.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "review_id": "ARL-0998",
+                "commit": request.commit,
+                "status": "PASS",
+                "reviewer": "codex:/root/spec_reviewer",
+            }
+        ),
+        encoding="utf-8",
+    )
+    before_request = sha256_file(legacy_request)
+    before_verdict = sha256_file(legacy_verdict)
+
+    metadata = bootstrap_runtime(repo=repo, state_root=state_root)
+
+    assert metadata["source_commit"] == request.commit
+    assert sha256_file(legacy_request) == before_request
+    assert sha256_file(legacy_verdict) == before_verdict
+    classifications = json.loads(
+        (state_root / "state/legacy-classification.json").read_text()
+    )
+    assert classifications["ARL-0998"]["state"] == "LEGACY_SELF_REVIEW"
+    assert (state_root / "REVIEWER_PROMPT.md").exists()
+    assert (state_root / "reviewer-worker.sh").stat().st_mode & 0o111
+
+
+def test_worker_reviews_superseding_repair_after_external_finding(worker_case):
+    repo, state_root, first, fake_reviewer = worker_case
+    finding = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="changes"),
+    )
+    assert finding.status == "VERDICT_WRITTEN"
+    assert finding.detail == "CHANGES_REQUIRED"
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 3\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "repair slice")
+    repair = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="repair external finding",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused", f"repair:{first.review_id}"),
+        intensity="milestone",
+        depends_on=(first.review_id,),
+        supersedes=first.review_id,
+    )
+
+    repaired = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="pass"),
+    )
+
+    assert repaired.status == "VERDICT_WRITTEN"
+    assert repaired.review_id == repair.review_id
+    decision = compute_gate(repo=repo, state_root=state_root)
+    assert decision.gate_state == "EXTERNAL_PASS"
+    assert decision.provisional_depth == 0
+    assert decision.allowed_next_action == "IMPLEMENT_NEXT"
