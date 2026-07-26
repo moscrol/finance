@@ -93,6 +93,47 @@ class ClosedLoopRetrievalResult:
         }
 
 
+def apply_semantic_filter(
+    result: ClosedLoopRetrievalResult,
+    *,
+    keep_indexes: set[int],
+    reason: str = "",
+) -> ClosedLoopRetrievalResult:
+    """Return a new bucket projection after semantic relevance adjudication."""
+
+    candidates = [*result.conclusion, *result.counter_clues]
+    dropped = [
+        item for index, item in enumerate(candidates) if index not in keep_indexes
+    ]
+    if not dropped:
+        return result
+    dropped_keys = {_bucket_identity(item) for item in dropped}
+
+    def kept(items: Sequence[BucketedHit]) -> list[BucketedHit]:
+        return [item for item in items if _bucket_identity(item) not in dropped_keys]
+
+    discarded = list(result.discarded)
+    existing = {_bucket_identity(item) for item in discarded}
+    discarded.extend(
+        item for item in dropped if _bucket_identity(item) not in existing
+    )
+    diagnostics = [*result.diagnostics]
+    diagnostics.append(
+        f"semantic_judge_discarded={len(dropped)}"
+        + (f"; reason={reason}" if reason else "")
+    )
+    return ClosedLoopRetrievalResult(
+        conclusion=kept(result.conclusion),
+        clues=kept(result.clues),
+        discarded=discarded,
+        counter_clues=kept(result.counter_clues),
+        attempts=list(result.attempts),
+        warnings=list(result.warnings),
+        diagnostics=diagnostics,
+        telemetry=result.telemetry,
+    )
+
+
 @dataclass
 class _AttemptBudget:
     deadline: float
@@ -434,3 +475,7 @@ def _bucket_hits(
             result.clues.append(item)
         elif direct_overlap:
             result.conclusion.append(item)
+
+
+def _bucket_identity(item: BucketedHit) -> tuple[str, str, str]:
+    return item.aperture, item.hit.file_path, item.hit.best_chunk_id

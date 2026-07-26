@@ -315,6 +315,17 @@ def test_timeout_interrupts_connection() -> None:
 
 
 def test_public_schema_contains_only_semantic_dataset_names() -> None:
-    datasets = FINANCE_QUERY_PARAMETERS["properties"]["dataset"]["enum"]
+    branches = FINANCE_QUERY_PARAMETERS["oneOf"]
+    datasets = [
+        branch["properties"]["dataset"]["const"] for branch in branches
+    ]
     assert "market_daily" in datasets
     assert all(not str(name).startswith("fact_") for name in datasets)
+    stock_branch = next(
+        branch
+        for branch in branches
+        if branch["properties"]["dataset"]["const"] == "stock_daily"
+    )
+    assert "limit_up" not in stock_branch["properties"]["metrics"]["items"][
+        "enum"
+    ]

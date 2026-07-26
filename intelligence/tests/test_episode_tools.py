@@ -290,7 +290,17 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
         item["function"]["name"]: item["function"]["parameters"]
         for item in registry.tool_definitions()
     }
-    assert definitions["finance_query"]["properties"]["dataset"]["enum"]
+    assert {
+        branch["properties"]["dataset"]["const"]
+        for branch in definitions["finance_query"]["oneOf"]
+    } == {
+        "market_daily",
+        "stock_daily",
+        "sector_daily",
+        "sector_stock_daily",
+        "mainline_theme_daily",
+        "mainline_sector_daily",
+    }
     assert definitions["evidence_search"] == {
         "type": "object",
         "properties": {"query": {"type": "string", "minLength": 1}},

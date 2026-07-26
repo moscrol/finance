@@ -109,7 +109,7 @@ class EvidenceSearch:
             total_seconds=total_seconds,
             information_cutoff=information_cutoff,
         )
-        self._apply_semantic_judge(
+        loop = self._apply_semantic_judge(
             cleaned_query,
             loop,
             deadline=deadline,
@@ -174,52 +174,29 @@ class EvidenceSearch:
         loop: closed_loop_retrieval.ClosedLoopRetrievalResult,
         *,
         deadline: ResearchDeadline,
-    ) -> None:
+    ) -> closed_loop_retrieval.ClosedLoopRetrievalResult:
         if self._semantic_judge is None:
-            return
+            return loop
         buckets = [*loop.conclusion, *loop.counter_clues]
         if not buckets:
-            return
+            return loop
         timeout = deadline.stage_timeout(evidence_judge.DEFAULT_TIMEOUT)
         if timeout <= 0.001:
-            return
+            return loop
         candidates = tuple(
             (item.hit.title, item.hit.excerpt) for item in buckets
         )
         try:
             verdict = self._semantic_judge(query, candidates, timeout)
-        except Exception as exc:
-            loop.diagnostics.append(
-                f"semantic_judge_unavailable:{type(exc).__name__}"
-            )
-            return
+        except Exception:
+            return loop
         if verdict is None:
-            return
+            return loop
         keep_indexes, reason = verdict
-        dropped = [
-            item for index, item in enumerate(buckets) if index not in keep_indexes
-        ]
-        if not dropped:
-            return
-        dropped_keys = {_bucket_key(item) for item in dropped}
-        loop.conclusion[:] = [
-            item for item in loop.conclusion if _bucket_key(item) not in dropped_keys
-        ]
-        loop.counter_clues[:] = [
-            item
-            for item in loop.counter_clues
-            if _bucket_key(item) not in dropped_keys
-        ]
-        loop.clues[:] = [
-            item for item in loop.clues if _bucket_key(item) not in dropped_keys
-        ]
-        existing_discarded = {_bucket_key(item) for item in loop.discarded}
-        loop.discarded.extend(
-            item for item in dropped if _bucket_key(item) not in existing_discarded
-        )
-        loop.diagnostics.append(
-            f"semantic_judge_discarded={len(dropped)}"
-            + (f"; reason={reason}" if reason else "")
+        return closed_loop_retrieval.apply_semantic_filter(
+            loop,
+            keep_indexes=keep_indexes,
+            reason=reason,
         )
 
     @staticmethod
@@ -305,12 +282,6 @@ def _project_evidence(
         )
         stances.append(stance)
     return tuple(evidence), tuple(stances)
-
-
-def _bucket_key(
-    item: closed_loop_retrieval.BucketedHit,
-) -> tuple[str, str, str]:
-    return item.aperture, item.hit.file_path, item.hit.best_chunk_id
 
 
 def _unique_bucket_count(

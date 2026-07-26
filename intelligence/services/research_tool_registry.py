@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 import json
+from types import MappingProxyType
 from typing import Literal
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
@@ -110,6 +111,91 @@ class PreparedToolArguments:
 
 
 @dataclass(frozen=True)
+class ToolRunResult:
+    evidence: tuple[agent_research.AgentEvidence, ...]
+    observation: str
+    trace: ProviderTrace
+    gaps: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        evidence = tuple(self.evidence)
+        if any(not isinstance(item, agent_research.AgentEvidence) for item in evidence):
+            raise TypeError("tool evidence must contain AgentEvidence values")
+        if not isinstance(self.trace, ProviderTrace):
+            raise TypeError("tool trace must be a ProviderTrace")
+        object.__setattr__(self, "evidence", evidence)
+        object.__setattr__(self, "observation", str(self.observation or ""))
+        object.__setattr__(
+            self,
+            "gaps",
+            tuple(
+                dict.fromkeys(
+                    str(item).strip() for item in self.gaps if str(item).strip()
+                )
+            ),
+        )
+
+
+class ToolRunnerAdapter:
+    """Normalize legacy tuple runners into the registry's one true result type."""
+
+    def __init__(self, runner: agent_research.ToolRunner) -> None:
+        self._runner = runner
+
+    def __call__(
+        self,
+        value: ToolInput,
+        context: agent_research.AgentToolContext,
+    ) -> ToolRunResult:
+        raw = agent_research._run_tool(self._runner, value, context)
+        if isinstance(raw, ToolRunResult):
+            return raw
+        if not isinstance(raw, tuple):
+            raise TypeError("research tool runner must return ToolRunResult")
+        if len(raw) == 3:
+            evidence, observation, trace = raw
+            gaps: tuple[str, ...] = ()
+        elif len(raw) == 4:
+            evidence, observation, trace, raw_gaps = raw
+            gaps = tuple(raw_gaps)
+        else:
+            raise TypeError("legacy research tool runner returned invalid result")
+        return ToolRunResult(
+            evidence=tuple(evidence),
+            observation=str(observation or ""),
+            trace=trace,
+            gaps=gaps,
+        )
+
+
+def _freeze_json(value: object) -> object:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): _freeze_json(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    raise TypeError("tool schema must be JSON-compatible")
+
+
+def _copy_json(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {str(key): _copy_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_copy_json(item) for item in value]
+    return value
+
+
+def copy_tool_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
+    copied = _copy_json(parameters)
+    if not isinstance(copied, dict):
+        raise TypeError("tool parameters must be an object schema")
+    return copied
+
+
+@dataclass(frozen=True)
 class ToolObservation:
     tool: str
     query: str
@@ -127,7 +213,7 @@ class ToolSpec:
     description: str
     cost: str
     freshness: str
-    runner: agent_research.ToolRunner
+    runner: agent_research.ToolRunner | ToolRunnerAdapter
     # ``episode`` means the tool returns one complete turn-scoped snapshot;
     # rewriting its query cannot produce a different evidence surface.
     query_scope: Literal["query", "episode"] = "query"
@@ -135,6 +221,14 @@ class ToolSpec:
         default_factory=lambda: dict(QUERY_TOOL_PARAMETERS)
     )
     parse_arguments: ToolArgumentParser = parse_query_arguments
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.runner, ToolRunnerAdapter):
+            object.__setattr__(self, "runner", ToolRunnerAdapter(self.runner))
+        frozen_parameters = _freeze_json(self.parameters)
+        if not isinstance(frozen_parameters, Mapping):
+            raise TypeError("tool parameters must be an object schema")
+        object.__setattr__(self, "parameters", frozen_parameters)
 
 
 class ResearchToolRegistry:
@@ -180,7 +274,7 @@ class ResearchToolRegistry:
                 "function": {
                     "name": spec.name,
                     "description": spec.description,
-                    "parameters": dict(spec.parameters),
+                    "parameters": copy_tool_parameters(spec.parameters),
                 },
             }
             for spec in self.authorized_specs(allowed)
@@ -259,8 +353,7 @@ class ResearchToolRegistry:
         normalized = prepared.normalized_key
 
         def fetch() -> ToolObservation:
-            raw_result = agent_research._run_tool(
-                spec.runner,
+            run_result = spec.runner(
                 prepared.runner_input,
                 agent_research.AgentToolContext(
                     context.deadline,
@@ -268,20 +361,10 @@ class ResearchToolRegistry:
                     context.information_cutoff,
                 ),
             )
-            if len(raw_result) == 3:
-                evidence, observation, trace = raw_result
-                gaps: tuple[str, ...] = ()
-            elif len(raw_result) == 4:
-                evidence, observation, trace, raw_gaps = raw_result
-                gaps = tuple(
-                    dict.fromkeys(
-                        str(item).strip()
-                        for item in raw_gaps
-                        if str(item).strip()
-                    )
-                )
-            else:
-                raise ValueError("research tool runner returned invalid result")
+            evidence = list(run_result.evidence)
+            observation = run_result.observation
+            trace = run_result.trace
+            gaps = run_result.gaps
             if is_cancelled is not None and is_cancelled():
                 raise RuntimeError("agent tool cancelled")
             served_date = closed_loop_retrieval.latest_served_date(

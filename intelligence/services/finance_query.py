@@ -378,9 +378,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
 }
 
 
-_ALL_FIELDS = tuple(
-    sorted({field for dataset in _DATASETS.values() for field in dataset.fields})
-)
 _SCALAR_SCHEMA = {
     "anyOf": [
         {"type": "string"},
@@ -400,74 +397,100 @@ _SCALAR_SCHEMA = {
         },
     ]
 }
-FINANCE_QUERY_PARAMETERS: dict[str, object] = {
-    "type": "object",
-    "properties": {
-        "dataset": {"type": "string", "enum": list(_DATASETS)},
-        "metrics": {
-            "type": "array",
-            "items": {"type": "string", "enum": list(_ALL_FIELDS)},
-        },
-        "dimensions": {
-            "type": "array",
-            "items": {"type": "string", "enum": list(_ALL_FIELDS)},
-        },
-        "filters": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string", "enum": list(_ALL_FIELDS)},
-                    "op": {"type": "string", "enum": sorted(_FILTER_OPERATORS)},
-                    "value": _SCALAR_SCHEMA,
-                },
-                "required": ["field", "op", "value"],
-                "additionalProperties": False,
+
+
+def _dataset_query_schema(
+    name: str,
+    dataset: _DatasetDefinition,
+) -> dict[str, object]:
+    fields = list(dataset.fields)
+    dimensions = list(dataset.dimensions)
+    metrics = list(dataset.metrics)
+    return {
+        "type": "object",
+        "properties": {
+            "dataset": {"type": "string", "const": name},
+            "metrics": {
+                "type": "array",
+                "items": {"type": "string", "enum": metrics},
+                "uniqueItems": True,
             },
-        },
-        "time_range": {
-            "anyOf": [
-                {
+            "dimensions": {
+                "type": "array",
+                "items": {"type": "string", "enum": dimensions},
+                "uniqueItems": True,
+            },
+            "filters": {
+                "type": "array",
+                "items": {
                     "type": "object",
                     "properties": {
-                        "start": {"type": ["string", "null"]},
-                        "end": {"type": ["string", "null"]},
+                        "field": {"type": "string", "enum": fields},
+                        "op": {
+                            "type": "string",
+                            "enum": sorted(_FILTER_OPERATORS),
+                        },
+                        "value": _SCALAR_SCHEMA,
                     },
-                    "required": ["start", "end"],
+                    "required": ["field", "op", "value"],
                     "additionalProperties": False,
                 },
-                {"type": "null"},
-            ]
-        },
-        "group_by": {
-            "type": "array",
-            "items": {"type": "string", "enum": list(_ALL_FIELDS)},
-        },
-        "order_by": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string", "enum": list(_ALL_FIELDS)},
-                    "direction": {"type": "string", "enum": ["asc", "desc"]},
-                },
-                "required": ["field", "direction"],
-                "additionalProperties": False,
             },
+            "time_range": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "start": {"type": ["string", "null"]},
+                            "end": {"type": ["string", "null"]},
+                        },
+                        "required": ["start", "end"],
+                        "additionalProperties": False,
+                    },
+                    {"type": "null"},
+                ]
+            },
+            "group_by": {
+                "type": "array",
+                "items": {"type": "string", "enum": dimensions},
+                "uniqueItems": True,
+            },
+            "order_by": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "field": {"type": "string", "enum": fields},
+                        "direction": {
+                            "type": "string",
+                            "enum": ["asc", "desc"],
+                        },
+                    },
+                    "required": ["field", "direction"],
+                    "additionalProperties": False,
+                },
+            },
+            "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
         },
-        "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
-    },
-    "required": [
-        "dataset",
-        "metrics",
-        "dimensions",
-        "filters",
-        "time_range",
-        "group_by",
-        "order_by",
-        "limit",
-    ],
-    "additionalProperties": False,
+        "required": [
+            "dataset",
+            "metrics",
+            "dimensions",
+            "filters",
+            "time_range",
+            "group_by",
+            "order_by",
+            "limit",
+        ],
+        "additionalProperties": False,
+    }
+
+
+FINANCE_QUERY_PARAMETERS: dict[str, object] = {
+    "oneOf": [
+        _dataset_query_schema(name, dataset)
+        for name, dataset in _DATASETS.items()
+    ]
 }
 
 

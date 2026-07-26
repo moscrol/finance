@@ -31,6 +31,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
+    copy_tool_parameters,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -190,7 +191,11 @@ class AgentsSdkTool:
     def __post_init__(self) -> None:
         if not self.name.strip() or not self.description.strip():
             raise ValueError("SDK tool identity must be non-empty")
-        object.__setattr__(self, "parameters", dict(self.parameters))
+        object.__setattr__(
+            self,
+            "parameters",
+            copy_tool_parameters(self.parameters),
+        )
 
 
 @dataclass(frozen=True)
@@ -278,7 +283,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
             FunctionTool(
                 name=sdk_tool.name,
                 description=sdk_tool.description,
-                params_json_schema=dict(sdk_tool.parameters),
+                params_json_schema=copy_tool_parameters(sdk_tool.parameters),
                 on_invoke_tool=invoke_tool,
                 strict_json_schema=True,
                 timeout_seconds=request.timeout,

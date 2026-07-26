@@ -167,6 +167,39 @@ def test_tool_definitions_use_each_specs_own_json_schema() -> None:
     assert definitions[1]["function"]["parameters"] == typed_schema
 
 
+def test_tool_spec_deep_freezes_its_schema_contract() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+        "additionalProperties": False,
+    }
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="query tool",
+                cost="local",
+                freshness="stable",
+                runner=lambda query, _context: _evidence_result(
+                    "kb_search", str(query)
+                ),
+                parameters=schema,
+            ),
+        )
+    )
+    schema["properties"]["query"]["type"] = "integer"
+
+    definition = registry.tool_definitions()[0]["function"]["parameters"]
+
+    assert definition["properties"]["query"]["type"] == "string"
+    definition["properties"]["query"]["type"] = "number"
+    assert registry.tool_definitions()[0]["function"]["parameters"][
+        "properties"
+    ]["query"]["type"] == "string"
+
+
 def test_snapshot_tool_schema_is_honestly_no_argument() -> None:
     built = default_registry(
         {

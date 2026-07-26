@@ -28,6 +28,7 @@ from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
+    ToolRunResult,
     default_registry,
 )
 from intelligence.services.task_frame import TaskFrame
@@ -359,10 +360,10 @@ def build_episode_registry(
                 if result.evidence
                 else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
             )
-            return (
-                list(result.evidence),
-                result.observation,
-                ProviderTrace(
+            return ToolRunResult(
+                evidence=tuple(result.evidence),
+                observation=result.observation,
+                trace=ProviderTrace(
                     provider="duckdb_semantic_query",
                     capability="finance_query",
                     status="success" if result.evidence else "empty",
@@ -373,7 +374,7 @@ def build_episode_registry(
                     source_trade_date=result.served_date,
                     result_count=len(result.evidence),
                 ),
-                gaps,
+                gaps=gaps,
             )
 
         specs.append(
@@ -420,11 +421,11 @@ def build_episode_registry(
                 information_cutoff=context.information_cutoff,
                 deadline=tool_context.deadline,
             )
-            return (
-                list(result.evidence),
-                result.observation,
-                result.trace,
-                result.gaps,
+            return ToolRunResult(
+                evidence=tuple(result.evidence),
+                observation=result.observation,
+                trace=result.trace,
+                gaps=result.gaps,
             )
 
         specs.append(
