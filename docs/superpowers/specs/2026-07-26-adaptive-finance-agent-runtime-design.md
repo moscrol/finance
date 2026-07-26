@@ -1,9 +1,9 @@
 # Adaptive Finance Agent Runtime Design
 
 Date: 2026-07-26
-Status: approved direction, written specification awaiting user review
+Status: approved for phased implementation
 Implementation branch: `feat/agent-runtime-backends-verify`
-Current isolated candidate: `a887d1be` on port 8799
+Current isolated candidate: `feat/agent-runtime-backends-verify` development worktree; canonical 8792 unchanged
 
 ## 1. Product Objective
 
