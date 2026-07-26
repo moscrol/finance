@@ -39,10 +39,29 @@ external-review frontier.
 The repair also removes four whitespace defects reported by
 `git diff --check` and adds the plan-required composed acceptance scenario.
 
+The first repair candidate (`ARL-0017`) received a second
+`CHANGES_REQUIRED`. It proved that artifact union alone was insufficient while
+the repair request still used the latest dependency as `parent_commit`: an
+intermediate provisional commit could be marked covered although its hunks
+were outside the reviewer's diff. It also found that a failed repair blocked
+the worker from scheduling a newer repair, and that request artifacts did not
+have to include every changed path.
+
+The second repair changes the invariant rather than adding another label:
+
+- a repair follows the full transitive `supersedes` chain;
+- its review range starts at the original failed request's parent commit;
+- its artifact union covers the same full range;
+- a repair of a failed repair keeps that original review root;
+- the worker ignores an older failed repair only when a newer repair explicitly
+  supersedes it;
+- schema-3 requests must declare every changed path, while immutable schema-2
+  history remains readable under its original contract.
+
 ## Deterministic evidence
 
-- Agent-review suites: `54 passed`.
-- Clean full `intelligence/tests`: `2680 passed, 2 skipped` in 172.29 seconds.
+- Agent-review suites after the second repair: `56 passed`.
+- Clean full `intelligence/tests`: `2682 passed, 2 skipped` in 204.32 seconds.
 - The composed scenario proves:
   - one provisional slice permits progress;
   - two provisional slices stop further speculation;
@@ -56,6 +75,11 @@ The repair also removes four whitespace defects reported by
   - a second worker cannot acquire the external-review lock.
 - The narrow-repair regression proves an older milestone with a distinct
   artifact remains unsealed and is selected as the next external frontier.
+- The repair-of-repair regression proves a newer repair is scheduled after the
+  first repair receives `CHANGES_REQUIRED`, and that both repairs retain the
+  original failed request's parent as their external review base.
+- The schema-3 regression rejects a request that omits any changed path from
+  its declared artifacts.
 
 No deterministic test invokes Claude, Codex, or the nine-case live benchmark.
 

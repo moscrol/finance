@@ -126,6 +126,7 @@ def repair_covers_request(
     repo: Path,
     repair: ReviewRequest,
     candidate: ReviewRequest,
+    coverage_floor_review_id: str,
 ) -> bool:
     """Return whether an externally reviewed repair proves this exact slice.
 
@@ -136,13 +137,35 @@ def repair_covers_request(
 
     if repair.supersedes is None:
         return False
-    lower = review_number(repair.supersedes)
+    lower = review_number(coverage_floor_review_id)
     candidate_number = review_number(candidate.review_id)
     if not lower <= candidate_number <= review_number(repair.review_id):
+        return False
+    if not is_ancestor(repo, repair.parent_commit, candidate.commit):
+        return False
+    if candidate.commit == repair.parent_commit:
         return False
     if not is_ancestor(repo, candidate.commit, repair.commit):
         return False
     return set(candidate.artifacts).issubset(set(repair.artifacts))
+
+
+def repair_chain_floor_review_id(
+    repair: ReviewRequest,
+    requests: Mapping[str, ReviewRequest],
+) -> str:
+    if repair.supersedes is None:
+        raise ValueError("request is not a repair")
+    current_id = repair.supersedes
+    seen: set[str] = set()
+    while True:
+        if current_id in seen:
+            raise ValueError("supersedes chain contains a cycle")
+        seen.add(current_id)
+        current = requests.get(current_id)
+        if current is None or current.supersedes is None:
+            return current_id
+        current_id = current.supersedes
 
 
 def sha256_file(path: Path) -> str:
@@ -289,7 +312,11 @@ def _parse_request(raw: Mapping[str, Any], errors: list[str]) -> ReviewRequest |
     if set(raw) != expected_keys:
         errors.append("request_fields")
     schema_version = raw.get("schema_version")
-    if schema_version != 2:
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version not in {2, 3}
+    ):
         errors.append("schema_version")
     review_id = raw.get("review_id")
     if not isinstance(review_id, str) or not REVIEW_ID_PATTERN.fullmatch(review_id):
@@ -373,7 +400,7 @@ def _parse_request(raw: Mapping[str, Any], errors: list[str]) -> ReviewRequest |
         # independent errors in one pass, but never publish a typed request.
         return None
     return ReviewRequest(
-        schema_version=2,
+        schema_version=schema_version,
         review_id=review_id,
         commit=commit,
         parent_commit=parent_commit,
@@ -442,6 +469,19 @@ def validate_request(raw: Mapping[str, Any], *, repo: Path) -> ValidationResult:
     )
     if dict(request.artifact_tests) != dict(expected_tests):
         errors.append("artifact_test_coverage")
+    if request.schema_version >= 3:
+        changed_result = _git(
+            repo,
+            "diff",
+            "--name-only",
+            f"{request.parent_commit}..{request.commit}",
+            check=False,
+        )
+        changed_paths = {
+            line.strip() for line in changed_result.stdout.splitlines() if line.strip()
+        }
+        if not changed_paths.issubset(set(request.artifacts)):
+            errors.append("artifact_coverage_incomplete")
     for tests in request.artifact_tests.values():
         for test in tests:
             if not _path_exists_at_commit(repo, request.commit, test):

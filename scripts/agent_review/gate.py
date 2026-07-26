@@ -11,6 +11,7 @@ from scripts.agent_review.contract import (
     ReviewRequest,
     git_output,
     is_ancestor,
+    repair_chain_floor_review_id,
     repair_covers_request,
     validate_request,
 )
@@ -86,7 +87,7 @@ def load_reachable_requests(
         if raw is None:
             invalid.append(path.stem)
             continue
-        if raw.get("schema_version") != 2:
+        if raw.get("schema_version") not in {2, 3}:
             continue
         raw_commit = raw.get("commit")
         if isinstance(raw_commit, str) and not is_ancestor(repo, raw_commit, tip):
@@ -245,6 +246,7 @@ def compute_gate(
             # submit.py guarantees the repair request contains the union of all
             # tainted artifacts. An external PASS on that exact descendant can
             # therefore seal the reviewed fix-forward chain.
+            coverage_floor = repair_chain_floor_review_id(request, request_by_id)
             sealed_ids.update(
                 candidate.review_id
                 for candidate in requests
@@ -252,6 +254,7 @@ def compute_gate(
                     repo=repo,
                     repair=request,
                     candidate=candidate,
+                    coverage_floor_review_id=coverage_floor,
                 )
             )
             latest_sealed_commit = request.commit

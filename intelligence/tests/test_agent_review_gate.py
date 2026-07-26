@@ -72,11 +72,12 @@ def gate_case(tmp_path: Path):
             supersedes: str | None = None,
         ):
             created = datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+            declared_artifacts = tuple(dict.fromkeys((*artifacts, "slice.txt")))
             return submit_request(
                 repo=repo,
                 state_root=state_root,
                 scope=f"slice {counter}",
-                artifacts=artifacts,
+                artifacts=declared_artifacts,
                 required_checks=required_checks,
                 intensity=intensity,
                 depends_on=depends_on,
@@ -307,6 +308,7 @@ def test_narrow_repair_does_not_seal_older_unreviewed_milestone(gate_case):
         supersedes=broken.review_id,
     )
     case.verdict(repair, authority="external")
+    assert repair.parent_commit == broken.parent_commit
     case.advance()
     release = case.submit(
         depends_on=(repair.review_id,),
@@ -320,11 +322,6 @@ def test_narrow_repair_does_not_seal_older_unreviewed_milestone(gate_case):
     frontier, selection = select_frontier(repo, state_root, decision.tip)
 
     assert not decision.release_allowed
-    assert older.review_id not in {
-        broken.review_id,
-        repair.review_id,
-        release.review_id,
-    }
     assert selection is None
     assert frontier is not None and frontier.review_id == older.review_id
 

@@ -296,7 +296,10 @@ def test_failing_mechanical_test_produces_changes_required_provisional(worker_ca
         repo=repo,
         state_root=state_root,
         scope="failing slice",
-        artifacts=("intelligence/services/evidence_ledger.py",),
+        artifacts=(
+            "intelligence/services/evidence_ledger.py",
+            "intelligence/tests/test_evidence_ledger.py",
+        ),
         required_checks=("focused",),
         intensity="light",
     )
@@ -442,3 +445,62 @@ def test_worker_reviews_superseding_repair_after_external_finding(worker_case):
     assert decision.gate_state == "EXTERNAL_PASS"
     assert decision.provisional_depth == 0
     assert decision.allowed_next_action == "IMPLEMENT_NEXT"
+
+
+def test_worker_skips_failed_repair_for_newer_superseding_repair(worker_case):
+    repo, state_root, first, fake_reviewer = worker_case
+    first_result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="changes"),
+    )
+    assert first_result.detail == "CHANGES_REQUIRED"
+
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 3\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "first repair")
+    first_repair = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="first repair",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused", f"repair:{first.review_id}"),
+        intensity="milestone",
+        depends_on=(first.review_id,),
+        supersedes=first.review_id,
+    )
+    first_repair_result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="changes"),
+    )
+    assert first_repair_result.review_id == first_repair.review_id
+    assert first_repair_result.detail == "CHANGES_REQUIRED"
+
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 4\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "second repair")
+    second_repair = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="second repair",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused", f"repair:{first_repair.review_id}"),
+        intensity="milestone",
+        depends_on=(first_repair.review_id,),
+        supersedes=first_repair.review_id,
+    )
+    assert second_repair.parent_commit == first.parent_commit
+
+    second_result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="pass"),
+    )
+
+    assert second_result.status == "VERDICT_WRITTEN"
+    assert second_result.review_id == second_repair.review_id

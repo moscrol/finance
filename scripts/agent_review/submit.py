@@ -99,6 +99,23 @@ def _review_number(review_id: str) -> int:
     return int(review_id.rsplit("-", 1)[-1])
 
 
+def _repair_root(
+    state_root: Path,
+    review_id: str,
+) -> tuple[str, Mapping[str, object]]:
+    current_id = review_id
+    seen: set[str] = set()
+    while True:
+        if current_id in seen:
+            raise ValueError("supersedes chain contains a cycle")
+        seen.add(current_id)
+        raw = _load_dependency(state_root, current_id)
+        parent = raw.get("supersedes")
+        if not isinstance(parent, str) or not parent:
+            return current_id, raw
+        current_id = parent
+
+
 def request_to_dict(request: ReviewRequest) -> dict[str, object]:
     return {
         "schema_version": request.schema_version,
@@ -173,7 +190,8 @@ def submit_request(
                 raise ValueError(
                     f"a superseding request must include required check repair:{supersedes}"
                 )
-            superseded_number = _review_number(supersedes)
+            repair_root_id, repair_root_request = _repair_root(state_root, supersedes)
+            superseded_number = _review_number(repair_root_id)
             latest_number = _review_number(latest_review_id or supersedes)
             required_artifacts: set[str] = set()
             for path in request_dir.glob("ARL-*.json"):
@@ -197,10 +215,17 @@ def submit_request(
         review_id = _next_review_id(request_dir)
         commit = tip
         parent_commit = (
-            dependency_commits[max(dependency_tuple, key=_review_number)]
-            if dependency_commits
-            else git_output(repo, "rev-parse", "HEAD^1")
+            str(repair_root_request.get("parent_commit") or "")
+            if supersedes is not None
+            else (
+                dependency_commits[max(dependency_tuple, key=_review_number)]
+                if dependency_commits
+                else git_output(repo, "rev-parse", "HEAD^1")
+            )
         )
+        if supersedes is not None and not parent_commit:
+            root_commit = str(repair_root_request.get("commit") or "")
+            parent_commit = git_output(repo, "rev-parse", f"{root_commit}^1")
         branch = git_output(repo, "branch", "--show-current")
         if not branch:
             raise ValueError("cannot submit from a detached HEAD")
@@ -211,7 +236,7 @@ def submit_request(
             commit=commit,
         )
         payload: dict[str, object] = {
-            "schema_version": 2,
+            "schema_version": 3,
             "review_id": review_id,
             "commit": commit,
             "parent_commit": parent_commit,

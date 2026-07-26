@@ -274,6 +274,7 @@ def test_submit_discovers_tests_and_hashes_immutable_request(
     )
 
     assert request.commit == commit
+    assert request.schema_version == 3
     assert request.review_id == "ARL-0001"
     assert request.artifact_tests["intelligence/services/evidence_ledger.py"] == (
         "intelligence/tests/test_evidence_ledger.py",
@@ -341,6 +342,24 @@ def test_submit_rejects_missing_dependency(review_repo, tmp_path: Path):
             required_checks=("run focused evidence ledger tests",),
             intensity="light",
             depends_on=("ARL-0999",),
+        )
+
+
+def test_schema3_submit_rejects_undeclared_changed_path(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    (repo / "scripts").mkdir(exist_ok=True)
+    (repo / "scripts/hidden_change.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "add undeclared path")
+
+    with pytest.raises(ValueError, match="artifact_coverage_incomplete"):
+        submit_request(
+            repo=repo,
+            state_root=tmp_path / "state",
+            scope="incomplete artifact declaration",
+            artifacts=("intelligence/services/evidence_ledger.py",),
+            required_checks=("focused",),
+            intensity="light",
         )
 
 

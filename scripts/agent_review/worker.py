@@ -13,7 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from scripts.agent_review.contract import repair_covers_request, sha256_file
+from scripts.agent_review.contract import (
+    repair_chain_floor_review_id,
+    repair_covers_request,
+    sha256_file,
+)
 from scripts.agent_review.gate import load_reachable_requests
 from scripts.agent_review.validate_verdict import validate_verdict_file
 
@@ -160,7 +164,10 @@ def select_frontier(repo: Path, state_root: Path, tip: str):
         if request.supersedes in blocked_ids
         and f"repair:{request.supersedes}" in request.required_checks
     ]
+    superseded_ids = {repair.supersedes for repair in repair_requests}
     for repair in repair_requests:
+        if repair.review_id in superseded_ids:
+            continue
         repair_verdict = verdicts.get(repair.review_id)
         if repair_verdict is None:
             return repair, None
@@ -170,9 +177,11 @@ def select_frontier(repo: Path, state_root: Path, tip: str):
             )
 
     covered_ids: set[str] = set()
+    request_by_id = {request.review_id: request for request in requests}
     for repair in repair_requests:
         repair_verdict = verdicts.get(repair.review_id)
         if repair_verdict is not None and repair_verdict.status == "PASS":
+            coverage_floor = repair_chain_floor_review_id(repair, request_by_id)
             covered_ids.update(
                 request.review_id
                 for request in requests
@@ -180,9 +189,9 @@ def select_frontier(repo: Path, state_root: Path, tip: str):
                     repo=repo,
                     repair=repair,
                     candidate=request,
+                    coverage_floor_review_id=coverage_floor,
                 )
             )
-    superseded_ids = {repair.supersedes for repair in repair_requests}
     for request in requests:
         if request.review_id in covered_ids:
             continue

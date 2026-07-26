@@ -82,7 +82,12 @@ current development, sealing, or release authority.
 
 ## 5. Request contract
 
-New requests use schema version 2 and add:
+The first machine-generated requests use schema version 2. After the first
+external falsification cycle, new requests use schema version 3 with the same
+public fields plus a stricter invariant: `artifacts` must cover every path in
+`parent_commit..commit`. Existing schema-2 history remains valid and immutable.
+
+The request shape is:
 
 ```json
 {
@@ -108,6 +113,14 @@ The submitter writes through one helper. The helper resolves the commit,
 discovers required tests, validates dependencies, writes atomically, and stores
 the request SHA-256. Hand-written schema-2 requests are rejected by the gate if
 the mechanical fields do not match recomputation.
+
+For a superseding repair, the helper follows the complete `supersedes` chain
+to its first failed request. The repair's `parent_commit` is that root
+request's parent, not the latest dependency commit. Its artifact union covers
+every request from the root finding through the latest dependency. Therefore
+the external reviewer sees the complete tainted diff, including intermediate
+requests that were developed provisionally. A later repair of a failed repair
+retains the same review root.
 
 ## 6. Mechanical artifact-to-test coverage
 
@@ -201,7 +214,9 @@ Only this validated decision controls progression.
 Release remains impossible unless:
 
 - provisional depth is zero;
-- every reachable milestone slice has an external PASS;
+- every reachable milestone slice is covered by an external PASS, either on
+  its own request or on a superseding repair whose reviewed
+  `parent_commit..commit` range and artifact union include that slice;
 - the current tip has an external `milestone` or `release` verdict;
 - deterministic full regressions pass on the exact tip;
 - a release request runs the frozen live benchmark once;
