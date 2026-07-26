@@ -66,6 +66,10 @@ from intelligence.services.conversation_store import (
     ConversationStore,
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_progress import (
+    RunEpisodeProgressPublisher,
+    project_episode_progress,
+)
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
@@ -121,11 +125,36 @@ def _build_continuous_turn_adapter(
     providers: tuple[LLMProvider, ...],
     run_id: str,
     assistant_message_id: str,
+    run_store: RunStore | None = None,
+    conversation_id: str = "",
+    event_id_prefix: str = "",
     is_cancelled: Callable[[], bool] | None = None,
     timeout: float = 90.0,
     deadline_expires_at: float | None = None,
 ) -> ContinuousTurnAdapter:
     """Compose one provider chain into a shared continuous research kernel."""
+
+    progress_publisher = None
+    if run_store is not None:
+        if not conversation_id.strip():
+            raise ValueError("conversation_id is required with a progress RunStore")
+        progress_publisher = RunEpisodeProgressPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            is_cancelled=is_cancelled,
+            event_id_prefix=event_id_prefix,
+        )
+    elif conversation_id.strip():
+        raise ValueError("progress RunStore is required with conversation_id")
+
+    def publish_episode_event(event) -> None:
+        if progress_publisher is None:
+            return
+        progress = project_episode_progress(event)
+        if progress is not None:
+            progress_publisher.publish(progress)
 
     selection = resolve_runtime_backend()
     client = GLMModelClient(
@@ -141,6 +170,9 @@ def _build_continuous_turn_adapter(
             client=client,
             finalizer=finalizer,
             is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
         )
     elif selection.name == "sdk_glm":
         if not providers:
@@ -214,6 +246,9 @@ def _build_continuous_turn_adapter(
         synthesis_reserve_for_task=GLMAgentRuntime.synthesis_reserve_for_task,
         is_cancelled=is_cancelled,
         deadline_expires_at=deadline_expires_at,
+        progress_sink=(
+            progress_publisher.publish if progress_publisher is not None else None
+        ),
     )
 
 
@@ -701,6 +736,9 @@ def _run_conversation_turn(
                 providers=llm_providers,
                 run_id=run_id,
                 assistant_message_id=assistant_message_id,
+                run_store=run_store,
+                conversation_id=conversation_id,
+                event_id_prefix=event_id_prefix,
                 is_cancelled=cancellation_signal.is_set,
                 timeout=min(
                     _CONTINUOUS_TURN_TIMEOUT_SECONDS,

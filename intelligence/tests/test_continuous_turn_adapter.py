@@ -22,6 +22,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_session import CallbackEpisodeSession
@@ -108,6 +109,7 @@ def _scripted_episode_result(
     required_outputs: tuple[str, ...] = ("direct_assessment",),
     gap_output_ids: tuple[str, ...] = (),
     runtime_name: str = "continuous_glm",
+    progress_sink=None,
 ):
     frame = _frame(required_outputs=required_outputs)
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -165,7 +167,85 @@ def _scripted_episode_result(
         context_factory=lambda *_args, **_kwargs: context,
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
+        progress_sink=progress_sink,
     ).handle(frame=frame, control=control)
+
+
+def test_live_progress_sink_replaces_posthoc_events_at_real_phase_boundaries() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-live-progress",
+        capabilities=control.capabilities,
+        timeout=30.0,
+        latest_data_date="2026-07-26",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数改善，成交保持活跃",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="live-progress-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前市场处于修复阶段。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    progress: list[EpisodeProgress] = []
+
+    class Runtime:
+        def run(self, **_kwargs):
+            assert [item.stage for item in progress] == ["understanding"]
+            return outcome
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            assert progress[-1].stage == "verification"
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        progress_sink=progress.append,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert result.events == ()
+    assert [item.stage for item in progress] == [
+        "understanding",
+        "verification",
+        "finalizing",
+    ]
 
 
 def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None:

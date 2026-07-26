@@ -142,8 +142,14 @@ def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
 
 
 class _EpisodeLedger:
-    def __init__(self, task_frame: TaskFrame) -> None:
+    def __init__(
+        self,
+        task_frame: TaskFrame,
+        *,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
+    ) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
+        self._event_sink = event_sink
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.add(
@@ -159,6 +165,13 @@ class _EpisodeLedger:
         event_payload["task_frame_hash"] = self._task_frame_hash
         event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
         self.events.append(event)
+        if self._event_sink is not None:
+            try:
+                self._event_sink(event)
+            except Exception:
+                # Progress is observability, never an alternate execution
+                # owner. A broken UI sink must not abort financial research.
+                pass
         return event
 
     def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
@@ -330,6 +343,7 @@ class ContinuousAgentEpisode:
         mode_governor: ModeGovernor | None = None,
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
@@ -345,6 +359,7 @@ class ContinuousAgentEpisode:
         self._mode_governor = mode_governor or ModeGovernor()
         self._mode_signals = mode_signals or _default_mode_signals
         self._sub_research_coordinator = sub_research_coordinator
+        self._event_sink = event_sink
 
     def run(
         self,
@@ -361,7 +376,7 @@ class ContinuousAgentEpisode:
         ):
             raise ValueError("research contract task frame hash mismatch")
 
-        ledger = _EpisodeLedger(task_frame)
+        ledger = _EpisodeLedger(task_frame, event_sink=self._event_sink)
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0

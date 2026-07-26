@@ -11,6 +11,7 @@ from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
+    EpisodeEvent,
     ModelToolCall,
     ModelTurn,
 )
@@ -378,6 +379,7 @@ class GLMAgentRuntime:
         mode_governor: ModeGovernor | None = None,
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -406,6 +408,7 @@ class GLMAgentRuntime:
             mode_governor=mode_governor,
             mode_signals=mode_signals,
             sub_research_coordinator=selected_coordinator,
+            event_sink=event_sink,
         )
 
     @staticmethod

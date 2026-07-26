@@ -21,6 +21,7 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -100,6 +101,7 @@ class ContinuousTurnAdapter:
         latest_data_date: str | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         deadline_expires_at: float | None = None,
+        progress_sink: Callable[[EpisodeProgress], None] | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -138,6 +140,7 @@ class ContinuousTurnAdapter:
         self._deadline_expires_at = (
             None if deadline_expires_at is None else float(deadline_expires_at)
         )
+        self._progress_sink = progress_sink
 
     @property
     def mode(self) -> RuntimeMode:
@@ -159,6 +162,33 @@ class ContinuousTurnAdapter:
                 self._deadline_expires_at - time.monotonic(),
             ),
         )
+
+    def _publish_progress(
+        self,
+        *,
+        key: str,
+        stage: str,
+        message: str,
+        status: str,
+    ) -> None:
+        if self._progress_sink is None or self._is_cancelled():
+            return
+        try:
+            self._progress_sink(EpisodeProgress(key, stage, message, status))
+        except Exception:
+            # Run progress is advisory observability. Truth gates and answer
+            # ownership must remain available if the public sink is broken.
+            pass
+
+    def _terminal_events(
+        self,
+        *,
+        status: ContinuousTurnStatus,
+        deterministic: bool = False,
+    ) -> tuple[dict[str, object], ...]:
+        if self._progress_sink is not None:
+            return ()
+        return _public_events(status=status, deterministic=deterministic)
 
     def handle(
         self,
@@ -217,6 +247,12 @@ class ContinuousTurnAdapter:
             )
         if control.terminal_kind != "research":
             return _declined_result()
+        self._publish_progress(
+            key="adapter:understanding",
+            stage="understanding",
+            message="已对齐本轮任务并进入研究。",
+            status="completed",
+        )
         if frame.question_type in CONTINUOUS_FAST_PATH_TYPES:
             return self._run_fast_path(frame)
         return self._run_episode(frame, control)
@@ -267,7 +303,7 @@ class ContinuousTurnAdapter:
                         }
                     ),
                 ),
-                events=_public_events(status="failed", deterministic=True),
+                events=self._terminal_events(status="failed", deterministic=True),
             )
 
         raw_answer = str(raw.get("answer") or "")
@@ -323,7 +359,7 @@ class ContinuousTurnAdapter:
                     }
                 ),
             ),
-            events=_public_events(status=status, deterministic=True),
+            events=self._terminal_events(status=status, deterministic=True),
         )
 
     def _run_episode(
@@ -394,6 +430,12 @@ class ContinuousTurnAdapter:
             outcome = outcome_candidate
             if self._is_cancelled():
                 return _cancelled_result()
+            self._publish_progress(
+                key="adapter:verification",
+                stage="verification",
+                message="正在核验证据绑定与回答完整性。",
+                status="running",
+            )
             structural_candidate = self._structural_verifier(
                 context.contract,
                 outcome,
@@ -539,6 +581,12 @@ class ContinuousTurnAdapter:
                 semantic = semantic_candidate
             if self._is_cancelled():
                 return _cancelled_result()
+            self._publish_progress(
+                key="adapter:finalizing",
+                stage="finalizing",
+                message="核验已完成，正在生成可公开回答。",
+                status="running",
+            )
         except Exception as exc:
             partial_artifact: dict[str, object] = {
                 "schema_version": 1,
@@ -624,7 +672,7 @@ class ContinuousTurnAdapter:
                         dict[str, object],
                         _redact_private(partial_artifact),
                     ),
-                    events=_public_events(status="degraded"),
+                    events=self._terminal_events(status="degraded"),
                 )
             return ContinuousTurnResult(
                 handled=True,
@@ -637,7 +685,7 @@ class ContinuousTurnAdapter:
                     dict[str, object],
                     _redact_private(partial_artifact),
                 ),
-                events=_public_events(status="failed"),
+                events=self._terminal_events(status="failed"),
             )
 
         final_outcome = semantic.verified.outcome
@@ -706,7 +754,7 @@ class ContinuousTurnAdapter:
                 dict[str, object],
                 _redact_private(artifact),
             ),
-            events=_public_events(status=status),
+            events=self._terminal_events(status=status),
             llm_provider=_episode_llm_provider(
                 outcome,
                 runtime_name=self._runtime_name,

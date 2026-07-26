@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
+from intelligence.services.agent_runtime import EpisodeEvent  # noqa: E402
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
 from intelligence.services import perspective_lab  # noqa: E402
 from intelligence.services.llm_refine import LLMProvider  # noqa: E402
@@ -488,6 +489,9 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         captured_providers.append(providers)
         assert kwargs["run_id"] == "run"
         assert kwargs["assistant_message_id"] == "message"
+        assert kwargs["run_store"] is run_store
+        assert kwargs["conversation_id"] == "conversation"
+        assert kwargs["event_id_prefix"] == ""
         assert callable(kwargs["is_cancelled"])
         assert 0 < float(kwargs["timeout"]) <= 120
         assert kwargs["deadline_expires_at"] == signal.deadline_expires_at
@@ -505,11 +509,12 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         "glm-4-flash",
     )
 
+    run_store = object()
     signal = app_module.CancellationSignal(deadline_expires_at=time.monotonic() + 30.0)
     app_module._run_conversation_turn(
         repo_root=tmp_path,
         conversation_store=object(),
-        run_store=object(),
+        run_store=run_store,
         conversation_id="conversation",
         run_id="run",
         assistant_message_id="message",
@@ -525,7 +530,9 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
     assert captured_providers == [(provider,)]
 
 
-def test_production_continuous_adapter_shares_provider_client_across_gates() -> None:
+def test_production_continuous_adapter_shares_provider_client_across_gates(
+    tmp_path: Path,
+) -> None:
     providers = (
         app_module.LLMProvider(
             "zhipu",
@@ -544,10 +551,14 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     cancelled = threading.Event()
     is_cancelled = cancelled.is_set
     deadline_expires_at = time.monotonic() + 42.0
+    run_store = RunStore(user_id="progress", root=tmp_path / "runs")
+    run = run_store.create_run("研究当前市场", "ask", session_id="conversation-a")
     adapter = app_module._build_continuous_turn_adapter(
         providers=providers,
-        run_id="run-a",
+        run_id=run.run_id,
         assistant_message_id="message-b",
+        run_store=run_store,
+        conversation_id="conversation-a",
         is_cancelled=is_cancelled,
         timeout=42.0,
         deadline_expires_at=deadline_expires_at,
@@ -566,7 +577,29 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
     assert adapter._timeout == 42.0
-    assert adapter._task_id_factory() == "run-a:message-b"
+    assert adapter._task_id_factory() == f"{run.run_id}:message-b"
+    assert callable(adapter._progress_sink)
+    assert callable(episode._event_sink)
+    episode._event_sink(
+        EpisodeEvent(
+            3,
+            "tool_request",
+            {
+                "query": "SELECT secret FROM hidden_table",
+                "provider": "private-provider",
+            },
+        )
+    )
+    public_progress = str(
+        (
+            run_store.load_trace(run.run_id),
+            run_store.load_stream_events(run.run_id),
+        )
+    )
+    assert "正在核对计划所需资料" in public_progress
+    assert "SELECT" not in public_progress
+    assert "hidden_table" not in public_progress
+    assert "private-provider" not in public_progress
     assert (
         adapter._synthesis_reserve_for_task(
             tier="standard",

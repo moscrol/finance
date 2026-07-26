@@ -237,6 +237,38 @@ def _finish_turn(
     )
 
 
+def test_progress_sink_observes_append_only_events_before_and_during_model_work() -> None:
+    observed = []
+
+    class ProgressAwareModel(ScriptedModel):
+        def complete(self, *, messages, tools, timeout):
+            if not self.calls:
+                assert [event.kind for event in observed] == ["task"]
+            return super().complete(messages=messages, tools=tools, timeout=timeout)
+
+    frame = _frame()
+    model = ProgressAwareModel(
+        [
+            _plan_turn(),
+            _tool_turn("当前市场结构"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model, event_sink=observed.append).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    observed_kinds = [event.kind for event in observed]
+    assert observed_kinds == [event.kind for event in outcome.events]
+    assert observed_kinds.index("plan") < observed_kinds.index("tool_request")
+    assert observed_kinds.index("tool_request") < observed_kinds.index("tool_result")
+    assert observed_kinds.index("tool_result") < observed_kinds.index("finish")
+
+
 def test_glm_episode_session_resume_keeps_original_model_history() -> None:
     frame = _frame()
     context = _context(frame, max_steps=1, allowed_capabilities=())
@@ -246,7 +278,8 @@ def test_glm_episode_session_resume_keeps_original_model_history() -> None:
             _finish_turn(status="partial", hashes=(), gap="仍缺少行情证据"),
         ]
     )
-    runtime = GLMAgentRuntime(client=model)
+    observed = []
+    runtime = GLMAgentRuntime(client=model, event_sink=observed.append)
 
     session = runtime.start(
         frame,
@@ -276,6 +309,9 @@ def test_glm_episode_session_resume_keeps_original_model_history() -> None:
     second_messages = model.calls[1]["messages"]
     assert any("缺少行情证据" in str(message.get("content")) for message in second_messages)
     assert any("repair-episode-test-1" in str(message.get("content")) for message in second_messages)
+    observed_kinds = [event.kind for event in observed]
+    assert "repair_goal" in observed_kinds
+    assert "repair_reentry" in observed_kinds
 
 
 def test_episode_session_resume_bounds_every_action_by_granted_seconds() -> None:
@@ -2477,9 +2513,11 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
         ]
     )
 
+    observed = []
     outcome = ContinuousAgentEpisode(
         model,
         sub_research_coordinator=StubCoordinator(),
+        event_sink=observed.append,
     ).run(
         task_frame=frame,
         context=context,
@@ -2497,6 +2535,10 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
     assert "SUB_RESEARCH_RESULTS" in str(model.calls[1]["messages"][-1])
     assert "反方驱动证据" in str(model.calls[1]["messages"][-1])
     assert "branch draft" not in str(model.calls[1]["messages"])
+    observed_kinds = [event.kind for event in observed]
+    assert observed_kinds.index("branch_started") < observed_kinds.index(
+        "branch_completed"
+    )
 
 
 def test_continuous_episode_aggregates_optional_token_usage() -> None:
