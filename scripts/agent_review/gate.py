@@ -69,7 +69,7 @@ def _request_number(review_id: str) -> int:
         return 10**12
 
 
-def _load_schema2_requests(
+def load_reachable_requests(
     *,
     repo: Path,
     state_root: Path,
@@ -153,7 +153,7 @@ def compute_gate(
     current_time = now or datetime.now(timezone.utc)
     if current_time.tzinfo is None:
         current_time = current_time.replace(tzinfo=timezone.utc)
-    requests, invalid = _load_schema2_requests(
+    requests, invalid = load_reachable_requests(
         repo=repo,
         state_root=state_root,
         tip=tip,
