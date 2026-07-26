@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from threading import Event
 from uuid import UUID
 
 import pytest
@@ -257,6 +258,339 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.status == "completed"
     assert calls == {"start": 1, "resume": 1, "run": 0}
     assert result.private_artifact["repair_cycles"] == 1
+
+
+def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-semantic-resume",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但持续性仍需语义核对",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="semantic-resume-evidence",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = replace(
+        initial,
+        draft="当前偏修复，但持续性取决于量能。",
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    resume_goals = []
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                resume_goals.append(goal)
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            self.calls += 1
+            if self.calls == 1:
+                return SemanticEpisodeOutcome(
+                    verified=structurally_verified,
+                    status="partial",
+                    public_answer="语义核验发现直接判断仍有缺口。",
+                    judge_status="rejected",
+                    gap_output_ids=("direct_assessment",),
+                    rejected_claim_indexes=(0,),
+                )
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    semantic = Semantic()
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=semantic,
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert semantic.calls == 2
+    assert len(resume_goals) == 1
+    assert resume_goals[0].unsupported_claims == ("claim_index:0",)
+    assert result.private_artifact["repair_cycles"] == 1
+
+
+def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> None:
+    frame = _frame(
+        required_outputs=(
+            "direct_assessment",
+            "counterpoint",
+            "invalidation_conditions",
+        )
+    )
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-repair-deadline",
+        capabilities=control.capabilities,
+        tier="deep",
+        timeout=120.0,
+    )
+    base_evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="deadline-evidence-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    added_evidence = replace(
+        base_evidence,
+        tool="news_search",
+        title="补充线索",
+        content_hash="deadline-evidence-2",
+        independent_key="news",
+        supports=("invalidation_conditions",),
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，反方仍缺。",
+        evidence=(base_evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (base_evidence.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            OutputEvidenceBinding("invalidation_conditions", (), "缺少失效条件"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    exhausted = replace(
+        initial,
+        evidence=(base_evidence, added_evidence),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (base_evidence.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            OutputEvidenceBinding(
+                "invalidation_conditions",
+                (added_evidence.content_hash,),
+            ),
+        ),
+        stop_reason="repair_deadline_exhausted",
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    resume_calls = 0
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(_previous, _goal):
+                nonlocal resume_calls
+                resume_calls += 1
+                if resume_calls > 1:
+                    raise AssertionError("deadline stop must terminate repair reentry")
+                return exhausted
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            self.calls += 1
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="partial",
+                public_answer="修复额度耗尽，反方仍缺。",
+                judge_status="passed",
+            )
+
+    semantic = Semantic()
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=semantic,
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status in {"partial", "degraded"}
+    assert resume_calls == 1
+    assert semantic.calls == 1
+
+
+def test_cancellation_during_repair_prevents_a_second_cycle() -> None:
+    frame = _frame(
+        required_outputs=(
+            "direct_assessment",
+            "counterpoint",
+            "invalidation_conditions",
+        )
+    )
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-repair-cancelled",
+        capabilities=control.capabilities,
+        tier="deep",
+        timeout=120.0,
+    )
+    cancelled = Event()
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="cancel-repair-evidence",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，反方仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            OutputEvidenceBinding("invalidation_conditions", (), "缺少失效条件"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    added_evidence = replace(
+        evidence,
+        tool="news_search",
+        title="补充线索",
+        content_hash="cancel-repair-evidence-2",
+        independent_key="news",
+        supports=("invalidation_conditions",),
+    )
+    repaired = replace(
+        initial,
+        evidence=(evidence, added_evidence),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            OutputEvidenceBinding(
+                "invalidation_conditions",
+                (added_evidence.content_hash,),
+            ),
+        ),
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    resume_calls = 0
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(_previous, _goal):
+                nonlocal resume_calls
+                resume_calls += 1
+                cancelled.set()
+                if resume_calls > 1:
+                    raise AssertionError("cancelled repair must not reenter")
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=_SemanticThatRaises(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        is_cancelled=cancelled.is_set,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "failed"
+    assert result.private_artifact is None
+    assert resume_calls == 1
 
 
 def test_private_artifact_records_runtime_backend_without_public_leak() -> None:

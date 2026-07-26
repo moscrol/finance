@@ -61,6 +61,17 @@ MIN_PLANNING_TURN_SECONDS = 8.0
 MAX_PLAN_TURNS = 2
 
 
+def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
+    ledger = context.root_budget
+    if ledger is None:
+        return True
+    try:
+        ledger.consume_seconds(seconds=max(0.0, float(seconds)))
+    except ValueError:
+        return False
+    return True
+
+
 class _EpisodeLedger:
     def __init__(self, task_frame: TaskFrame) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
@@ -751,14 +762,30 @@ class ContinuousAgentEpisode:
             registry=registry,
             context=repair_context,
         )
+        model_started = monotonic()
         turn = self._model.complete(
             messages=list(messages),
             tools=definitions,
             timeout=timeout,
         )
+        model_elapsed = max(0.0, monotonic() - model_started)
         llm_calls += turn.provider_attempts
         ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
         messages.append(self._assistant_message(turn))
+        if not _consume_root_seconds(repair_context, model_elapsed):
+            return self._stopped_outcome(
+                task_frame=task_frame,
+                status="partial" if accumulator.evidence else "failed",
+                stop_reason="repair_deadline_exhausted",
+                gap="修复阶段截止时间已到",
+                ledger=ledger,
+                evidence=accumulator.evidence,
+                traces=accumulator.traces,
+                gaps=accumulator.gaps,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
             return self._stopped_outcome(
@@ -821,14 +848,30 @@ class ContinuousAgentEpisode:
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
                 )
+            final_started = monotonic()
             final_turn = self._model.complete(
                 messages=list(messages),
                 tools=[],
                 timeout=final_timeout,
             )
+            final_elapsed = max(0.0, monotonic() - final_started)
             llm_calls += final_turn.provider_attempts
             ledger.add("model_turn", {"phase": "repair_finalize", **final_turn.to_dict()})
             messages.append(self._assistant_message(final_turn))
+            if not _consume_root_seconds(repair_context, final_elapsed):
+                return self._stopped_outcome(
+                    task_frame=task_frame,
+                    status="partial" if accumulator.evidence else "failed",
+                    stop_reason="repair_deadline_exhausted",
+                    gap="修复阶段截止时间已到",
+                    ledger=ledger,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             turn = final_turn
         if turn.error or turn.tool_calls:
             invalid_actions += len(turn.tool_calls)

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 import json
 from threading import Event, Lock
 
 import pytest
 
 import intelligence.services.agent_episode as agent_episode_module
+import intelligence.services.episode_tool_batch as episode_tool_batch_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
@@ -362,6 +364,71 @@ def test_episode_session_resume_does_not_dispatch_after_grant_expires(
     assert updated.stop_reason == "repair_deadline_exhausted"
     assert updated.usage.tool_calls == 0
     assert len(calls) == 2
+
+
+def test_episode_session_resume_debits_model_and_tool_wall_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=20.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(episode_tool_batch_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    calls = 0
+
+    class TimedRepairModel:
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools, timeout
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+            if calls == 2:
+                now[0] += 0.4
+                return _tool_turn("补齐行情证据", call_id="timed-repair-call")
+            now[0] += 0.6
+            return _finish_turn()
+
+    def timed_runner(query: str, tool_context: AgentToolContext):
+        now[0] += 0.5
+        return _successful_runner(query, tool_context)
+
+    session = GLMAgentRuntime(client=TimedRepairModel()).start(
+        frame,
+        context=context,
+        registry=_market_registry(timed_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-ledger-time",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=2.5,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    assert root_budget.remaining_calls == 1
+    assert root_budget.remaining_seconds == pytest.approx(8.5)
 
 
 class _ScriptedDeadline:

@@ -158,3 +158,18 @@ def test_root_budget_rejects_a_grant_from_another_episode() -> None:
         )
         is None
     )
+
+
+def test_root_budget_debits_model_seconds_without_spending_a_tool_call() -> None:
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
+        initial_calls=3,
+        hard_calls_cap=5,
+        initial_seconds=30,
+        hard_seconds_cap=60,
+    )
+
+    root.consume_seconds(seconds=4.5)
+
+    assert root.remaining_calls == 3
+    assert root.remaining_seconds == 25.5

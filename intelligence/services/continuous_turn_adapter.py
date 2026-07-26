@@ -407,10 +407,14 @@ class ContinuousTurnAdapter:
             max_repair_cycles = max_repair_cycles_for_tier(
                 context.contract.research_tier
             )
+            repair_terminal = False
             while (
                 session is not None
                 and structural.missing_outputs
                 and repair_cycles < max_repair_cycles
+                and not repair_terminal
+                and not self._is_cancelled()
+                and not context.deadline.expired
             ):
                 repaired = self._resume_for_gap(
                     session=session,
@@ -428,8 +432,11 @@ class ContinuousTurnAdapter:
                 outcome, structural = repaired
                 current_snapshot = _repair_snapshot(outcome, structural, context)
                 repair_cycles += 1
+                repair_terminal = outcome.stop_reason == "repair_deadline_exhausted"
             if self._is_cancelled():
                 return _cancelled_result()
+            if context.deadline.expired:
+                raise TimeoutError("research deadline exhausted before semantic verification")
             semantic_candidate = self._semantic_verifier.verify(
                 frame=frame,
                 structurally_verified=structural,
@@ -446,6 +453,9 @@ class ContinuousTurnAdapter:
                     or semantic.verified.missing_outputs
                 )
                 and repair_cycles < max_repair_cycles
+                and not repair_terminal
+                and not self._is_cancelled()
+                and not context.deadline.expired
             ):
                 repaired = self._resume_for_gap(
                     session=session,
@@ -467,6 +477,13 @@ class ContinuousTurnAdapter:
                 outcome, structural = repaired
                 current_snapshot = _repair_snapshot(outcome, structural, context)
                 repair_cycles += 1
+                repair_terminal = outcome.stop_reason == "repair_deadline_exhausted"
+                if (
+                    repair_terminal
+                    or self._is_cancelled()
+                    or context.deadline.expired
+                ):
+                    break
                 semantic_candidate = self._semantic_verifier.verify(
                     frame=frame,
                     structurally_verified=structural,
@@ -668,14 +685,8 @@ class ContinuousTurnAdapter:
         if root_budget is None or not callable(resume) or not episode_id:
             return None
         progress = progress_from_ledger(previous_snapshot, current_snapshot)
-        remaining_calls = max(
-            0,
-            int(root_budget.hard_calls_cap) - int(root_budget.initial_calls),
-        )
-        remaining_seconds = max(
-            0.0,
-            float(root_budget.hard_seconds_cap) - float(root_budget.initial_seconds),
-        )
+        remaining_calls = max(0, int(root_budget.remaining_calls))
+        remaining_seconds = max(0.0, float(root_budget.remaining_seconds))
         goal = build_repair_goal(
             episode_id=episode_id,
             missing_outputs=tuple(

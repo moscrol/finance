@@ -399,6 +399,8 @@ class RootBudgetLedger(Protocol):
 
     def consume_call(self, *, seconds: float) -> None: ...
 
+    def consume_seconds(self, *, seconds: float) -> None: ...
+
 
 class InMemoryRootBudgetLedger:
     """Thread-safe root budget implementation used by runtime adapters.
@@ -471,6 +473,16 @@ class InMemoryRootBudgetLedger:
             if seconds > self.remaining_seconds + 1e-9:
                 raise ValueError("root seconds budget exhausted")
             self.remaining_calls -= 1
+            self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def consume_seconds(self, *, seconds: float) -> None:
+        """Debit wall time without spending a finance-tool call slot."""
+
+        if seconds < 0:
+            raise ValueError("consumed seconds must be non-negative")
+        with self._lock:
+            if seconds > self.remaining_seconds + 1e-9:
+                raise ValueError("root seconds budget exhausted")
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
 
     def to_dict(self) -> dict[str, object]:
