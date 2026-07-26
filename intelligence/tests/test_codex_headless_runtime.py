@@ -276,6 +276,52 @@ def test_headless_runtime_builds_isolated_read_only_command(monkeypatch) -> None
     assert command.env["FINANCE_TOOL_GATEWAY_TOKEN"] not in str(command.args)
 
 
+def test_headless_runtime_projects_only_model_provider_config(tmp_path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+model = "gpt-5.6-sol"
+model_provider = "local_access"
+
+[model_providers.local_access]
+name = "Local Access"
+base_url = "http://localhost:57244/v1"
+wire_api = "responses"
+experimental_bearer_token = "HEADLESS_PROVIDER_SECRET_SENTINEL"
+requires_openai_auth = false
+supports_websockets = false
+
+[mcp_servers.forbidden]
+command = "must-not-enter-headless"
+""".strip(),
+        encoding="utf-8",
+    )
+    fake = ValidFakeCodex()
+
+    CodexHeadlessRuntime(
+        command_runner=fake,
+        provider_config_path=config_path,
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    command = fake.commands[0]
+    serialized_args = " ".join(command.args)
+    assert "--ignore-user-config" in command.args
+    assert 'model_provider="headless_projected"' in command.args
+    assert "http://localhost:57244/v1" in serialized_args
+    assert "CODEX_HEADLESS_PROVIDER_KEY" in serialized_args
+    assert "HEADLESS_PROVIDER_SECRET_SENTINEL" not in serialized_args
+    assert "must-not-enter-headless" not in serialized_args
+    assert command.env["CODEX_HEADLESS_PROVIDER_KEY"] == (
+        "HEADLESS_PROVIDER_SECRET_SENTINEL"
+    )
+    assert "HEADLESS_PROVIDER_SECRET_SENTINEL" not in repr(command)
+    assert command.args[command.args.index("-m") + 1] == "gpt-5.6-sol"
+
+
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:
     frame = _frame()
     fake = ValidFakeCodex()

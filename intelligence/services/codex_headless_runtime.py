@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
 import tempfile
 import time
+import tomllib
 from types import MappingProxyType
 import urllib.error
 import urllib.parse
@@ -34,6 +36,7 @@ from intelligence.services.headless_tool_gateway import (
     HeadlessGatewaySnapshot,
     HeadlessToolGateway,
 )
+from intelligence.services.keychain_credentials import normalize_provider_base_url
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -61,13 +64,104 @@ _SAFE_ENV_KEYS = (
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
 )
+_HEADLESS_PROVIDER_ENV_KEY = "CODEX_HEADLESS_PROVIDER_KEY"
+_MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
+
+
+@dataclass(frozen=True)
+class _HeadlessProviderProjection:
+    base_url: str
+    wire_api: str
+    bearer_token: str = field(repr=False)
+    model: str | None = None
+    supports_websockets: bool = False
+
+    def __post_init__(self) -> None:
+        normalized_url = normalize_provider_base_url(self.base_url)
+        wire_api = str(self.wire_api or "").strip().lower()
+        token = str(self.bearer_token or "").strip()
+        model = str(self.model or "").strip() or None
+        if wire_api not in {"responses", "chat"}:
+            raise ValueError("unsupported Codex provider wire API")
+        if not 8 <= len(token) <= 4096:
+            raise ValueError("invalid Codex provider credential")
+        if model is not None and not _MODEL_NAME_RE.fullmatch(model):
+            raise ValueError("invalid Codex provider model")
+        object.__setattr__(self, "base_url", normalized_url)
+        object.__setattr__(self, "wire_api", wire_api)
+        object.__setattr__(self, "bearer_token", token)
+        object.__setattr__(self, "model", model)
+
+    def cli_args(self) -> tuple[str, ...]:
+        return (
+            "-c",
+            'model_provider="headless_projected"',
+            "-c",
+            'model_providers.headless_projected.name="Headless Projected"',
+            "-c",
+            f"model_providers.headless_projected.base_url={json.dumps(self.base_url)}",
+            "-c",
+            "model_providers.headless_projected.env_key="
+            f'{json.dumps(_HEADLESS_PROVIDER_ENV_KEY)}',
+            "-c",
+            f"model_providers.headless_projected.wire_api={json.dumps(self.wire_api)}",
+            "-c",
+            "model_providers.headless_projected.requires_openai_auth=false",
+            "-c",
+            "model_providers.headless_projected.supports_websockets="
+            f"{str(self.supports_websockets).lower()}",
+        )
+
+
+def _load_headless_provider_projection(
+    path: Path,
+    *,
+    required: bool,
+) -> _HeadlessProviderProjection | None:
+    config_path = Path(path).expanduser()
+    if not config_path.is_file():
+        if required:
+            raise ValueError("Codex provider config unavailable")
+        return None
+    try:
+        payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        raise ValueError("Codex provider config invalid") from None
+    provider_id = str(payload.get("model_provider") or "").strip()
+    providers = payload.get("model_providers")
+    provider = providers.get(provider_id) if isinstance(providers, dict) else None
+    if not provider_id or not isinstance(provider, dict):
+        if required:
+            raise ValueError("Codex provider config incomplete")
+        return None
+    env_key = str(provider.get("env_key") or "").strip()
+    token = str(provider.get("experimental_bearer_token") or "").strip()
+    if not token and env_key:
+        token = str(os.environ.get(env_key) or "").strip()
+    if not token:
+        if required:
+            raise ValueError("Codex provider credential unavailable")
+        return None
+    base_url = str(provider.get("base_url") or "").strip()
+    wire_api = str(provider.get("wire_api") or "responses").strip()
+    model = str(payload.get("model") or "").strip() or None
+    supports_websockets = provider.get("supports_websockets", False)
+    if not isinstance(supports_websockets, bool):
+        raise ValueError("Codex provider config invalid")
+    return _HeadlessProviderProjection(
+        base_url=base_url,
+        wire_api=wire_api,
+        bearer_token=token,
+        model=model,
+        supports_websockets=supports_websockets,
+    )
 
 
 @dataclass(frozen=True)
 class HeadlessCommand:
     args: tuple[str, ...]
     cwd: Path
-    env: Mapping[str, str]
+    env: Mapping[str, str] = field(repr=False)
     timeout: float
 
     def __post_init__(self) -> None:
@@ -194,6 +288,7 @@ class CodexHeadlessRuntime:
         transport: str | None = None,
         local_exec_endpoint: str | None = None,
         local_exec_token: str | None = None,
+        provider_config_path: Path | None = None,
         is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         selected_transport = str(
@@ -201,6 +296,24 @@ class CodexHeadlessRuntime:
         ).strip().lower()
         if selected_transport not in {"subprocess", "local_exec"}:
             raise ValueError("unsupported Codex headless transport")
+        if provider_config_path is not None and selected_transport != "subprocess":
+            raise ValueError(
+                "Codex provider projection requires subprocess transport"
+            )
+        provider_projection = None
+        if provider_config_path is not None:
+            provider_projection = _load_headless_provider_projection(
+                provider_config_path,
+                required=True,
+            )
+        elif command_runner is None and selected_transport == "subprocess":
+            codex_home = Path(
+                os.environ.get("CODEX_HOME") or (Path.home() / ".codex")
+            ).expanduser()
+            provider_projection = _load_headless_provider_projection(
+                codex_home / "config.toml",
+                required=False,
+            )
         if command_runner is not None:
             self._command_runner = command_runner
         elif selected_transport == "local_exec":
@@ -222,7 +335,10 @@ class CodexHeadlessRuntime:
             or "codex"
         )
         cleaned_model = str(model or "").strip()
-        self._model = cleaned_model or None
+        self._provider_projection = provider_projection
+        self._model = cleaned_model or (
+            provider_projection.model if provider_projection is not None else None
+        )
         self._reasoning_effort = str(reasoning_effort or "").strip().lower()
         self._is_cancelled = is_cancelled or (lambda: False)
         if self._reasoning_effort not in {
@@ -418,6 +534,8 @@ class CodexHeadlessRuntime:
             "-c",
             f'model_reasoning_effort="{self._reasoning_effort}"',
         ]
+        if self._provider_projection is not None:
+            args.extend(self._provider_projection.cli_args())
         if self._model is not None:
             args.extend(("-m", self._model))
         args.extend(
@@ -429,6 +547,10 @@ class CodexHeadlessRuntime:
         )
         env = _safe_environment()
         env.update(environment)
+        if self._provider_projection is not None:
+            env[_HEADLESS_PROVIDER_ENV_KEY] = (
+                self._provider_projection.bearer_token
+            )
         return HeadlessCommand(args=tuple(args), cwd=run_dir, env=env, timeout=timeout)
 
     def _to_outcome(
