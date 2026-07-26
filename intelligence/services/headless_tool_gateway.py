@@ -13,6 +13,7 @@ import re
 import secrets
 import stat
 import tempfile
+import time
 from threading import Event, Lock, Thread
 from types import TracebackType
 import urllib.error
@@ -477,6 +478,7 @@ class HeadlessToolGateway:
             self._executed_count += 1
 
         try:
+            started_at = time.monotonic()
             observation = self._contextvars.copy().run(
                 self._registry.execute,
                 name,
@@ -502,7 +504,31 @@ class HeadlessToolGateway:
                 )
             return {"status": "error", "tool": name, "error": "tool_exception"}
 
+        if not self._charge_root_budget(time.monotonic() - started_at):
+            return {
+                "status": "rejected",
+                "tool": name,
+                "error": "root_budget_exhausted",
+                "budget": self._budget_payload(),
+            }
+
         return self._publish_observation(spec.query_scope, observation)
+
+    def _charge_root_budget(self, elapsed_seconds: float) -> bool:
+        ledger = getattr(self._context, "root_budget", None)
+        consume_call = getattr(ledger, "consume_call", None)
+        if not callable(consume_call):
+            return True
+        try:
+            consume_call(seconds=max(0.001, float(elapsed_seconds)))
+        except (TypeError, ValueError):
+            with self._lock:
+                self._add_event(
+                    "tool_error",
+                    {"tool": "headless", "error": "root_budget_exhausted"},
+                )
+            return False
+        return True
 
     def _reservation_error(
         self,
@@ -583,6 +609,10 @@ class HeadlessToolGateway:
             0,
             int(self._context.policy.max_steps) - self._executed_count,
         )
+        ledger = getattr(self._context, "root_budget", None)
+        ledger_remaining_calls = getattr(ledger, "remaining_calls", None)
+        if isinstance(ledger_remaining_calls, int):
+            remaining_calls = min(remaining_calls, max(0, ledger_remaining_calls))
         remaining_seconds = self._context.deadline.stage_timeout(
             self._context.deadline.remaining()
         )

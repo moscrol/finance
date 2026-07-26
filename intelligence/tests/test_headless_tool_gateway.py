@@ -15,6 +15,7 @@ from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.headless_tool_gateway import HeadlessToolGateway
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
+    InMemoryRootBudgetLedger,
     RequiredOutput,
     ResearchDeadline,
     ResearchPolicy,
@@ -157,6 +158,29 @@ def test_gateway_executes_authorized_registry_tool() -> None:
         "tool_request",
         "tool_result",
     ]
+
+
+def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=2,
+        initial_seconds=10.0,
+        hard_seconds_cap=10.0,
+    )
+    context = replace(base, root_budget=ledger)
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+
+    assert result["status"] == "success"
+    assert ledger.remaining_calls == 1
+    assert 0.0 < ledger.remaining_seconds < 10.0
 
 
 def test_gateway_rejects_duplicate_query_without_second_execution() -> None:
