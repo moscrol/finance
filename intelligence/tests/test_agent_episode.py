@@ -2499,6 +2499,35 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
     assert "branch draft" not in str(model.calls[1]["messages"])
 
 
+def test_continuous_episode_aggregates_optional_token_usage() -> None:
+    frame = _frame()
+    context = _context(frame, max_steps=1, allowed_capabilities=())
+    model = ScriptedModel(
+        [
+            replace(_plan_turn(), input_tokens=11, output_tokens=5),
+            replace(
+                _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+                input_tokens=7,
+                output_tokens=3,
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=ResearchToolRegistry(()),
+    )
+
+    assert outcome.usage.input_tokens == 18
+    assert outcome.usage.output_tokens == 8
+    runtime_event = next(
+        event for event in outcome.events if event.kind == "runtime_result"
+    )
+    assert runtime_event.payload["input_tokens"] == 18
+    assert runtime_event.payload["output_tokens"] == 8
+
+
 def test_model_can_finalize_inside_the_reserved_synthesis_window() -> None:
     frame = _frame()
     base_context = _context(frame, max_steps=1)

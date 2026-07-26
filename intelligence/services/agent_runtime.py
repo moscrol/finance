@@ -121,6 +121,8 @@ class ModelTurn:
     # Physical provider/HTTP attempts. Zero is valid when deadline or budget
     # rejects the turn before the adapter boundary.
     provider_attempts: int = 1
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
@@ -135,6 +137,14 @@ class ModelTurn:
             or self.provider_attempts < 0
         ):
             raise ValueError("provider_attempts must be a non-negative integer")
+        for field_name in ("input_tokens", "output_tokens"):
+            value = getattr(self, field_name)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"{field_name} must be a non-negative integer")
         calls = tuple(self.tool_calls)
         if any(not isinstance(call, ModelToolCall) for call in calls):
             raise ValueError("tool_calls must contain ModelToolCall values")
@@ -143,13 +153,18 @@ class ModelTurn:
         object.__setattr__(self, "error", self.error.strip())
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "content": self.content,
             "tool_calls": [call.to_dict() for call in self.tool_calls],
             "provider_name": self.provider_name,
             "error": self.error,
             "provider_attempts": self.provider_attempts,
         }
+        if self.input_tokens is not None:
+            payload["input_tokens"] = self.input_tokens
+        if self.output_tokens is not None:
+            payload["output_tokens"] = self.output_tokens
+        return payload
 
 
 @runtime_checkable
@@ -232,6 +247,8 @@ class AgentUsage:
     llm_calls: int = 0
     tool_calls: int = 0
     invalid_actions: int = 0
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("llm_calls", "tool_calls", "invalid_actions"):
@@ -239,12 +256,26 @@ class AgentUsage:
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
 
+        for name in ("input_tokens", "output_tokens"):
+            value = getattr(self, name)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative integer")
+
     def to_dict(self) -> dict[str, int]:
-        return {
+        payload = {
             "llm_calls": self.llm_calls,
             "tool_calls": self.tool_calls,
             "invalid_actions": self.invalid_actions,
         }
+        if self.input_tokens is not None:
+            payload["input_tokens"] = self.input_tokens
+        if self.output_tokens is not None:
+            payload["output_tokens"] = self.output_tokens
+        return payload
 
 
 def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:

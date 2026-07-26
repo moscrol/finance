@@ -583,7 +583,13 @@ def _post_chat_message(
         _record_llm_call("chat_tools", provider, "failed", started)
         raise
     _record_llm_call("chat_tools", provider, "success", started)
-    return body["choices"][0]["message"]
+    message = dict(body["choices"][0]["message"])
+    usage = body.get("usage")
+    if isinstance(usage, dict):
+        # Usage is adapter metadata only. Preserve counts without returning the
+        # request prompt, provider body, or hidden reasoning payload.
+        message["_usage"] = dict(usage)
+    return message
 
 
 def chat_with_tools(

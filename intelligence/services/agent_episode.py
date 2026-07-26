@@ -76,6 +76,47 @@ MAX_PLAN_TURNS = 2
 MAX_EPISODE_TOOL_CALLS = 24
 
 
+def _token_usage_from_events(
+    events: list[EpisodeEvent] | tuple[EpisodeEvent, ...],
+) -> tuple[int | None, int | None]:
+    input_total = 0
+    output_total = 0
+    input_observed = False
+    output_observed = False
+    for event in events:
+        if event.kind not in {"model_turn", "branch_completed"}:
+            continue
+        input_value = event.payload.get("input_tokens")
+        output_value = event.payload.get("output_tokens")
+        if isinstance(input_value, int) and not isinstance(input_value, bool):
+            input_total += max(0, input_value)
+            input_observed = True
+        if isinstance(output_value, int) and not isinstance(output_value, bool):
+            output_total += max(0, output_value)
+            output_observed = True
+    return (
+        input_total if input_observed else None,
+        output_total if output_observed else None,
+    )
+
+
+def _agent_usage(
+    ledger: "_EpisodeLedger",
+    *,
+    llm_calls: int,
+    tool_calls: int,
+    invalid_actions: int,
+) -> AgentUsage:
+    input_tokens, output_tokens = _token_usage_from_events(ledger.events)
+    return AgentUsage(
+        llm_calls=llm_calls,
+        tool_calls=tool_calls,
+        invalid_actions=invalid_actions,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+
+
 def _default_mode_signals(
     task_frame: TaskFrame,
     plan: ResearchPlan,
@@ -123,6 +164,18 @@ class _EpisodeLedger:
     def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
         self.plan = plan
         return self.add("plan", plan_to_public_dict(plan))
+
+    def record_runtime_result(self) -> None:
+        input_tokens, output_tokens = _token_usage_from_events(self.events)
+        if input_tokens is None and output_tokens is None:
+            return
+        self.add(
+            "runtime_result",
+            {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            },
+        )
 
 
 @dataclass
@@ -824,6 +877,7 @@ class ContinuousAgentEpisode:
                 registry=registry,
             )
             current_gaps = self._finish_gaps(final_gaps, bindings)
+            ledger.record_runtime_result()
             ledger.add(
                 "finish",
                 {
@@ -843,7 +897,12 @@ class ContinuousAgentEpisode:
                 stop_reason="model_finish",
                 events=tuple(ledger.events),
                 bindings=bindings,
-                usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+                usage=_agent_usage(
+                    ledger,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                ),
                 plan=ledger.plan,
             )
 
@@ -1092,6 +1151,7 @@ class ContinuousAgentEpisode:
         current_gaps = self._finish_gaps(finish.gaps, bindings)
         if not performed_tool_action and not current_gaps:
             current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
+        ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
@@ -1117,7 +1177,12 @@ class ContinuousAgentEpisode:
             ),
             events=tuple(ledger.events),
             bindings=bindings,
-            usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            usage=_agent_usage(
+                ledger,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            ),
             plan=ledger.plan,
         )
 
@@ -1215,6 +1280,8 @@ class ContinuousAgentEpisode:
                     "gap_count": len(branch.gaps),
                     "llm_calls": branch.llm_calls,
                     "tool_calls": branch.tool_calls,
+                    "input_tokens": branch.input_tokens,
+                    "output_tokens": branch.output_tokens,
                 },
             )
         for index, goal in enumerate(plan.branch_goals, start=1):
@@ -1564,6 +1631,7 @@ class ContinuousAgentEpisode:
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},
         )
+        ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
@@ -1583,7 +1651,12 @@ class ContinuousAgentEpisode:
             stop_reason="finalization_recovered",
             events=tuple(ledger.events),
             bindings=bindings,
-            usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            usage=_agent_usage(
+                ledger,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            ),
             plan=ledger.plan,
         )
 
@@ -1704,6 +1777,7 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         final_gaps = list(gaps)
         ContinuousAgentEpisode._extend_unique(final_gaps, (gap,))
+        ledger.record_runtime_result()
         ledger.add(
             "finish",
             {
@@ -1722,7 +1796,12 @@ class ContinuousAgentEpisode:
             stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=(),
-            usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            usage=_agent_usage(
+                ledger,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            ),
             plan=ledger.plan,
         )
 

@@ -121,6 +121,31 @@ def test_model_turn_is_provider_neutral_and_json_safe() -> None:
     json.dumps(payload, ensure_ascii=False)
 
 
+def test_model_turn_and_usage_preserve_optional_token_measurements() -> None:
+    turn = ModelTurn(
+        content="done",
+        tool_calls=(),
+        provider_name="glm",
+        input_tokens=120,
+        output_tokens=35,
+    )
+    usage = AgentUsage(
+        llm_calls=1,
+        input_tokens=120,
+        output_tokens=35,
+    )
+
+    assert turn.to_dict()["input_tokens"] == 120
+    assert turn.to_dict()["output_tokens"] == 35
+    assert usage.to_dict() == {
+        "llm_calls": 1,
+        "tool_calls": 0,
+        "invalid_actions": 0,
+        "input_tokens": 120,
+        "output_tokens": 35,
+    }
+
+
 def test_model_turn_allows_zero_physical_provider_attempts() -> None:
     turn = ModelTurn(
         content="",

@@ -79,6 +79,30 @@ def test_runtime_falls_through_transient_primary_failure_and_counts_attempts() -
     assert turn.content == "ok"
 
 
+def test_glm_adapter_preserves_provider_usage_without_prompt_payload() -> None:
+    client = GLMModelClient(
+        providers=(_provider("glm"),),
+        complete_fn=lambda **_kwargs: (
+            {
+                "content": "ok",
+                "tool_calls": [],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 35,
+                },
+            },
+            _provider("glm"),
+            "",
+        ),
+    )
+
+    turn = client.complete(messages=[], tools=[], timeout=5)
+
+    assert turn.input_tokens == 120
+    assert turn.output_tokens == 35
+    assert "usage" not in turn.to_dict()
+
+
 def test_runtime_does_not_retry_same_provider_after_auth_failure() -> None:
     complete_fn = _provider_script(
         glm=(None, "LLM 调用 HTTP 401"),

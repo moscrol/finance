@@ -70,6 +70,8 @@ class ContinuousSubResearchWorker:
             gaps=outcome.gaps,
             llm_calls=outcome.usage.llm_calls,
             tool_calls=outcome.usage.tool_calls,
+            input_tokens=outcome.usage.input_tokens,
+            output_tokens=outcome.usage.output_tokens,
             error=outcome.stop_reason if status == "failed" else "",
         )
 

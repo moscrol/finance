@@ -510,6 +510,7 @@ def _turn_from_message(
             ),
             "invalid_model_message",
         )
+    input_tokens, output_tokens = _message_token_usage(message)
 
     raw_content = message.get("content")
     if raw_content is None:
@@ -524,6 +525,8 @@ def _turn_from_message(
                 provider_name,
                 "invalid_model_content",
                 provider_attempts=attempts,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             ),
             "invalid_model_content",
         )
@@ -539,6 +542,8 @@ def _turn_from_message(
                 provider_name,
                 "invalid_tool_calls",
                 provider_attempts=attempts,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             ),
             "invalid_tool_calls",
         )
@@ -553,6 +558,8 @@ def _turn_from_message(
                     provider_name,
                     error,
                     provider_attempts=attempts,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
                 ),
                 error,
             )
@@ -566,6 +573,8 @@ def _turn_from_message(
                 provider_name,
                 "empty_model_response",
                 provider_attempts=attempts,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             ),
             "empty_model_response",
         )
@@ -576,8 +585,30 @@ def _turn_from_message(
             provider_name,
             "",
             provider_attempts=attempts,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         ),
         "",
+    )
+
+
+def _message_token_usage(message: Mapping[str, object]) -> tuple[int | None, int | None]:
+    raw = message.get("_usage")
+    if not isinstance(raw, Mapping):
+        raw = message.get("usage")
+    if not isinstance(raw, Mapping):
+        return None, None
+
+    def token_value(*names: str) -> int | None:
+        for name in names:
+            value = raw.get(name)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                return value
+        return None
+
+    return (
+        token_value("input_tokens", "prompt_tokens"),
+        token_value("output_tokens", "completion_tokens"),
     )
 
 

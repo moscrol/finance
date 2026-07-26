@@ -145,6 +145,8 @@ class BranchResult:
     gaps: tuple[str, ...]
     llm_calls: int
     tool_calls: int
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     error: str = ""
 
     def __post_init__(self) -> None:
@@ -160,6 +162,14 @@ class BranchResult:
             value = getattr(self, field_name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"branch {field_name} must be non-negative")
+        for field_name in ("input_tokens", "output_tokens"):
+            value = getattr(self, field_name)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"branch {field_name} must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -174,6 +184,22 @@ class SubResearchResult:
     @property
     def llm_calls(self) -> int:
         return sum(item.llm_calls for item in self.branches)
+
+    @property
+    def input_tokens(self) -> int | None:
+        values = tuple(
+            item.input_tokens for item in self.branches if item.input_tokens is not None
+        )
+        return sum(values) if values else None
+
+    @property
+    def output_tokens(self) -> int | None:
+        values = tuple(
+            item.output_tokens
+            for item in self.branches
+            if item.output_tokens is not None
+        )
+        return sum(values) if values else None
 
     @property
     def evidence(self) -> tuple[AgentEvidence, ...]:
