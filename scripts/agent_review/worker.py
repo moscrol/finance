@@ -4,6 +4,7 @@ import argparse
 import fcntl
 import json
 import os
+import signal
 import shlex
 import shutil
 import subprocess
@@ -38,6 +39,53 @@ class WorkerResult:
             "review_id": self.review_id,
             "detail": self.detail,
         }
+
+
+class WorkerShutdown(Exception):
+    """Raised by CLI signal handlers so reviewer cleanup always runs."""
+
+
+def _terminate_process_group(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=5.0)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    process.wait(timeout=5.0)
+
+
+def _run_reviewer_command(
+    command: Sequence[str],
+    *,
+    cwd: Path,
+    environment: Mapping[str, str],
+    timeout_seconds: float,
+) -> tuple[int, str]:
+    process = subprocess.Popen(
+        tuple(command),
+        cwd=cwd,
+        env=dict(environment),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
+    except BaseException:
+        _terminate_process_group(process)
+        raise
+    return int(process.returncode or 0), (stdout or "") + (stderr or "")
 
 
 def _load_object(path: Path) -> dict[str, Any] | None:
@@ -269,6 +317,11 @@ def _run_locked(
     now_timestamp: float,
     timeout_seconds: float,
 ) -> WorkerResult:
+    started_monotonic = time.monotonic()
+
+    def observed_timestamp() -> float:
+        return now_timestamp + max(0.0, time.monotonic() - started_monotonic)
+
     tip = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=repo,
@@ -331,7 +384,7 @@ def _run_locked(
             state_root,
             review_id=review_id,
             failure_kind="worktree",
-            now_timestamp=now_timestamp,
+            now_timestamp=observed_timestamp(),
         )
         return WorkerResult("REVIEWER_INACTIVE", review_id, "worktree add failed")
 
@@ -369,26 +422,23 @@ def _run_locked(
         }
     )
     try:
-        completed = subprocess.run(
+        returncode, output = _run_reviewer_command(
             command,
             cwd=worktree,
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
+            environment=environment,
+            timeout_seconds=timeout_seconds,
         )
         (run_dir / "reviewer.log").write_text(
-            completed.stdout + completed.stderr,
+            output,
             encoding="utf-8",
         )
-        output = completed.stdout + completed.stderr
-        if completed.returncode != 0 or not staging.exists():
+        if returncode != 0 or not staging.exists():
             failure_kind = "budget" if "Exceeded USD budget" in output else "transport"
             _record_failure(
                 state_root,
                 review_id=review_id,
                 failure_kind=failure_kind,
-                now_timestamp=now_timestamp,
+                now_timestamp=observed_timestamp(),
             )
             return WorkerResult("REVIEWER_INACTIVE", review_id, failure_kind)
         if sha256_file(request_path) != frozen_hash:
@@ -407,7 +457,7 @@ def _run_locked(
                 state_root,
                 review_id=review_id,
                 failure_kind="invalid_verdict",
-                now_timestamp=now_timestamp,
+                now_timestamp=observed_timestamp(),
             )
             return WorkerResult("INVALID_VERDICT", review_id, ",".join(validation.errors))
         destination = state_root / "verdicts" / f"{review_id}.json"
@@ -417,7 +467,7 @@ def _run_locked(
             state_root,
             status="VERDICT_WRITTEN",
             review_id=review_id,
-            now_timestamp=now_timestamp,
+            now_timestamp=observed_timestamp(),
         )
         return WorkerResult("VERDICT_WRITTEN", review_id, validation.status)
     except subprocess.TimeoutExpired:
@@ -425,7 +475,7 @@ def _run_locked(
             state_root,
             review_id=review_id,
             failure_kind="timeout",
-            now_timestamp=now_timestamp,
+            now_timestamp=observed_timestamp(),
         )
         return WorkerResult("REVIEWER_INACTIVE", review_id, "timeout")
     finally:
@@ -483,16 +533,28 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     command = tuple(shlex.split(args.reviewer_command)) if args.reviewer_command else None
-    while True:
-        result = run_once(
-            repo=args.repo,
-            state_root=args.state_root,
-            reviewer_command=command,
-        )
-        print(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True), flush=True)
-        if args.once:
-            return 0 if result.status not in {"INVALID", "INVALID_VERDICT"} else 1
-        time.sleep(max(1.0, args.poll_seconds))
+
+    def request_shutdown(signum: int, _frame: object) -> None:
+        raise WorkerShutdown(f"signal:{signum}")
+
+    for signal_number in (signal.SIGHUP, signal.SIGTERM):
+        signal.signal(signal_number, request_shutdown)
+    try:
+        while True:
+            result = run_once(
+                repo=args.repo,
+                state_root=args.state_root,
+                reviewer_command=command,
+            )
+            print(
+                json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True),
+                flush=True,
+            )
+            if args.once:
+                return 0 if result.status not in {"INVALID", "INVALID_VERDICT"} else 1
+            time.sleep(max(1.0, args.poll_seconds))
+    except WorkerShutdown:
+        return 0
 
 
 if __name__ == "__main__":

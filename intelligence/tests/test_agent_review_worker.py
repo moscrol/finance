@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
+import scripts.agent_review.worker as worker_module
 from scripts.agent_review.submit import submit_request
 from scripts.agent_review.bootstrap import bootstrap_runtime
 from scripts.agent_review.contract import sha256_file
@@ -171,6 +174,93 @@ def test_budget_failure_enters_backoff_without_immediate_retry(worker_case):
     state = json.loads((state_root / "state/external-review.json").read_text())
     assert state["failure_kind"] == "budget"
     assert state["next_retry_at"] > 1001.0
+
+
+def test_backoff_starts_when_long_reviewer_failure_finishes(
+    worker_case,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo, state_root, request, fake_reviewer = worker_case
+    ticks = iter((10.0, 1610.0))
+    monkeypatch.setattr(worker_module.time, "monotonic", lambda: next(ticks))
+
+    result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="budget"),
+        now_timestamp=1000.0,
+    )
+
+    assert result.status == "REVIEWER_INACTIVE"
+    assert result.review_id == request.review_id
+    state = json.loads((state_root / "state/external-review.json").read_text())
+    assert state["updated_at"] == pytest.approx(2600.0)
+    assert state["next_retry_at"] == pytest.approx(2660.0)
+
+
+def test_worker_shutdown_terminates_reviewer_process_group(
+    worker_case,
+    tmp_path: Path,
+) -> None:
+    repo, state_root, request, _fake_reviewer = worker_case
+    reviewer = tmp_path / "slow-reviewer.py"
+    reviewer.write_text(
+        "import os, pathlib, time\n"
+        "pid = pathlib.Path(os.environ['STATE_ROOT'], 'reviewer.pid')\n"
+        "pid.write_text(str(os.getpid()))\n"
+        "time.sleep(60)\n",
+        encoding="utf-8",
+    )
+    command = " ".join((sys.executable, str(reviewer)))
+    worker = subprocess.Popen(
+        (
+            sys.executable,
+            "-m",
+            "scripts.agent_review.worker",
+            "--repo",
+            str(repo),
+            "--state-root",
+            str(state_root),
+            "--once",
+            "--reviewer-command",
+            command,
+        ),
+        cwd=Path(__file__).resolve().parents[2],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    reviewer_pid = 0
+    try:
+        pid_path = state_root / "reviewer.pid"
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not pid_path.exists():
+            time.sleep(0.02)
+        assert pid_path.exists(), "reviewer process did not start"
+        reviewer_pid = int(pid_path.read_text())
+
+        worker.terminate()
+        worker.wait(timeout=5.0)
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            try:
+                os.kill(reviewer_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError("reviewer process survived worker shutdown")
+
+        assert not tuple((state_root / "worktrees").glob(f"*{request.review_id}*"))
+    finally:
+        if worker.poll() is None:
+            worker.kill()
+            worker.wait(timeout=5.0)
+        if reviewer_pid:
+            try:
+                os.kill(reviewer_pid, 9)
+            except ProcessLookupError:
+                pass
 
 
 def test_valid_fake_reviewer_publishes_atomic_external_verdict(worker_case):
