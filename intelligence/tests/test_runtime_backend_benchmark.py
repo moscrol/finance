@@ -84,6 +84,23 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
                 "kind": "invalid_action",
                 "payload": {"reason": "tool arguments were invalid"},
             },
+            {
+                "sequence": 5,
+                "kind": "mode_decision",
+                "payload": {
+                    "requested_mode": "deep",
+                    "effective_mode": "deep",
+                    "approved": True,
+                    "reason": "observable_complexity_approved",
+                    "observable_conditions": ["multiple_evidence_domains"],
+                    "research_tier": "deep",
+                    "tool_call_cap": 24,
+                    "target_seconds": 240.0,
+                    "max_repair_cycles": 3,
+                    "max_branches": 3,
+                    "prompt": "hidden mode prompt",
+                },
+            },
         ),
         provider_traces=(
             {
@@ -123,6 +140,7 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
     assert [event["kind"] for event in diagnostics.events] == [
         "tool_request",
         "invalid_action",
+        "mode_decision",
     ]
     assert diagnostics.events[0]["payload"]["arguments"] == {
         "query": "A股下跌原因"
@@ -130,6 +148,18 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
     assert diagnostics.events[1]["payload"]["reason"] == (
         "tool arguments were invalid"
     )
+    assert diagnostics.events[2]["payload"] == {
+        "requested_mode": "deep",
+        "effective_mode": "deep",
+        "approved": True,
+        "reason": "observable_complexity_approved",
+        "observable_conditions": ["multiple_evidence_domains"],
+        "research_tier": "deep",
+        "tool_call_cap": 24,
+        "target_seconds": 240.0,
+        "max_repair_cycles": 3,
+        "max_branches": 3,
+    }
     assert diagnostics.future_of_cutoff[0]["provider"] == "eastmoney"
     assert diagnostics.root_budget["remaining_calls"] == 2
     assert "sk-live-secret" not in encoded

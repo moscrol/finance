@@ -16,7 +16,9 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
+from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_plan import ResearchPlan
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
 
@@ -371,6 +373,8 @@ class GLMAgentRuntime:
         client: AgentModelClient | None = None,
         finalizer: EpisodeFinalizer | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        mode_governor: ModeGovernor | None = None,
+        mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -389,6 +393,8 @@ class GLMAgentRuntime:
             llm_timeout=llm_timeout,
             finalizer=finalizer,
             is_cancelled=is_cancelled,
+            mode_governor=mode_governor,
+            mode_signals=mode_signals,
         )
 
     @staticmethod

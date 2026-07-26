@@ -19,6 +19,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.mode_governor import ModeSignals
 from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
@@ -2273,6 +2274,141 @@ def test_multiple_tool_calls_cannot_bypass_total_step_budget() -> None:
     assert outcome.usage.tool_calls == 2
     assert outcome.usage.invalid_actions == 1
     assert "tool_budget_exhausted" in model.calls[1]["messages"][-1]["content"]
+
+
+def test_first_model_plan_can_promote_the_same_episode_to_deep_mode() -> None:
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=6,
+        hard_calls_cap=8,
+        initial_seconds=70.0,
+        hard_seconds_cap=90.0,
+    )
+    context = replace(
+        base,
+        contract=replace(base.contract, research_tier="standard"),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(90.0, synthesis_reserve=20.0),
+        root_budget=root_budget,
+    )
+    turns = [
+        _plan_turn(
+            requested_mode="deep",
+            evidence_needs=["盘面结构", "新闻驱动"],
+            open_gaps=["缺少反方证据"],
+        ),
+        *[
+            _tool_turn(f"深度查询 {index}", call_id=f"deep-call-{index}")
+            for index in range(1, 8)
+        ],
+        _finish_turn(hashes=("deep-evidence-7",)),
+    ]
+    model = ScriptedModel(turns)
+
+    def runner(query: str, tool_context: AgentToolContext):
+        suffix = query.rsplit(" ", 1)[-1]
+        evidence = AgentEvidence(
+            tool="market_data",
+            title=f"深度证据 {suffix}",
+            detail=f"{query} 返回可核验事实",
+            source="本地行情",
+            source_date="2026-07-21",
+            evidence_tier="L4",
+            content_hash=f"deep-evidence-{suffix}",
+        )
+        return (
+            [evidence],
+            f"observation {suffix}",
+            ProviderTrace(
+                provider="test:deep",
+                capability="market_data",
+                status="success",
+                source_trade_date="2026-07-21",
+                result_count=1,
+            ),
+        )
+
+    continuation = []
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(runner),
+        _continuation_sink=continuation,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.usage.tool_calls == 7
+    assert outcome.plan is not None
+    assert outcome.plan.requested_mode == "deep"
+    kinds = [event.kind for event in outcome.events]
+    assert kinds.count("mode_decision") == 1
+    plan_index = kinds.index("plan")
+    assert kinds[plan_index + 1] == "mode_decision"
+    decision_event = outcome.events[plan_index + 1]
+    assert decision_event.payload["effective_mode"] == "deep"
+    assert decision_event.payload["tool_call_cap"] == 24
+    assert continuation[0].context.policy.tier == "deep"
+    assert continuation[0].context.root_budget is root_budget
+    assert root_budget.hard_calls_cap == 24
+    final_history = model.calls[-1]["messages"]
+    assert final_history[:2] == model.calls[0]["messages"][:2]
+    for index in range(1, 8):
+        assert f"深度查询 {index}" in str(final_history)
+
+
+def test_deep_plan_without_observable_complexity_keeps_standard_budget() -> None:
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=6,
+        hard_calls_cap=8,
+        initial_seconds=70.0,
+        hard_seconds_cap=90.0,
+    )
+    context = replace(
+        base,
+        contract=replace(base.contract, research_tier="standard"),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(90.0, synthesis_reserve=20.0),
+        root_budget=root_budget,
+    )
+    model = ScriptedModel(
+        [
+            _plan_turn(
+                requested_mode="deep",
+                evidence_needs=["盘面结构"],
+                open_gaps=[],
+            ),
+            *[
+                _tool_turn(f"标准查询 {index}", call_id=f"quick-call-{index}")
+                for index in range(1, 8)
+            ],
+        ]
+    )
+    calls: list[str] = []
+
+    def runner(query: str, tool_context: AgentToolContext):
+        calls.append(query)
+        return _successful_runner(query, tool_context)
+
+    outcome = ContinuousAgentEpisode(
+        model,
+        mode_signals=lambda _frame, _plan: ModeSignals(),
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(runner),
+    )
+
+    assert len(calls) == 6
+    assert outcome.usage.tool_calls == 6
+    assert root_budget.hard_calls_cap == 8
+    decision = next(event for event in outcome.events if event.kind == "mode_decision")
+    assert decision.payload["effective_mode"] == "quick"
+    assert decision.payload["reason"] == "no_observable_deep_condition"
 
 
 def test_model_can_finalize_inside_the_reserved_synthesis_window() -> None:

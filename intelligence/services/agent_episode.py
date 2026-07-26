@@ -35,6 +35,11 @@ from intelligence.services.episode_tool_batch import (
     ToolBatchExecutor,
     ToolBatchResult,
 )
+from intelligence.services.mode_governor import (
+    ModeDecision,
+    ModeGovernor,
+    ModeSignals,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
@@ -61,6 +66,22 @@ MIN_PLANNING_TURN_SECONDS = 8.0
 # finalization.  The allowance is separate from max_steps, which is the
 # finance-tool budget.
 MAX_PLAN_TURNS = 2
+# The loop must be able to represent the largest governed mode without giving
+# quick runs that budget. Actual execution remains bounded by the current root
+# ledger and deadline.
+MAX_EPISODE_TOOL_CALLS = 24
+
+
+def _default_mode_signals(
+    task_frame: TaskFrame,
+    plan: ResearchPlan,
+) -> ModeSignals:
+    user_task = task_frame.to_user_task()
+    return ModeSignals(
+        independent_entities=len(user_task.subjects),
+        evidence_domains=plan.evidence_needs,
+        uncovered_answer_elements=len(plan.open_gaps),
+    )
 
 
 def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
@@ -236,6 +257,8 @@ class ContinuousAgentEpisode:
         tool_executor: ToolBatchExecutor | None = None,
         finalizer: EpisodeFinalizer | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        mode_governor: ModeGovernor | None = None,
+        mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
@@ -248,6 +271,8 @@ class ContinuousAgentEpisode:
             else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._mode_governor = mode_governor or ModeGovernor()
+        self._mode_signals = mode_signals or _default_mode_signals
 
     def run(
         self,
@@ -297,26 +322,27 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             evidence_ledger=evidence_ledger,
         )
+        continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:
-            _continuation_sink.append(
-                _EpisodeContinuationState(
-                    task_frame=task_frame,
-                    context=context,
-                    registry=registry,
-                    tool_session=tool_session,
-                    messages=messages,
-                    ledger=ledger,
-                    accumulator=accumulator,
-                    evidence_ledger=evidence_ledger,
-                    initial_evidence_snapshot=initial_evidence_snapshot,
-                )
+            continuation_state = _EpisodeContinuationState(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                tool_session=tool_session,
+                messages=messages,
+                ledger=ledger,
+                accumulator=accumulator,
+                evidence_ledger=evidence_ledger,
+                initial_evidence_snapshot=initial_evidence_snapshot,
             )
+            _continuation_sink.append(continuation_state)
         finalization_started = False
+        mode_decided = False
         # max_steps counts finance-tool calls. Valid PLAN-only turns are
         # added on top of that bounded research budget.
         for _round in range(
             1,
-            context.policy.max_steps + MAX_PLAN_TURNS + 2,
+            MAX_EPISODE_TOOL_CALLS + MAX_PLAN_TURNS + 2,
         ):
             if self._is_cancelled():
                 return self._cancelled_outcome(
@@ -336,7 +362,7 @@ class ContinuousAgentEpisode:
                 finalization_started
                 or remaining_tool_slots <= 0
                 or planning_timeout < MIN_PLANNING_TURN_SECONDS
-                or (_round - plan_turns) > context.policy.max_steps
+                or (_round - plan_turns) > self._model_round_budget(context)
             )
             if should_finalize and not finalization_started:
                 finalization_started = True
@@ -530,6 +556,7 @@ class ContinuousAgentEpisode:
                 if not finalization_started
                 else PlanParseResult(None, "")
             )
+            pending_mode_message: ModeDecision | None = None
             if plan_result.plan is not None:
                 try:
                     if ledger.plan is not None:
@@ -551,9 +578,32 @@ class ContinuousAgentEpisode:
                         else:
                             plan_turns += 1
                             ledger.record_plan(plan_result.plan)
+                            if not mode_decided:
+                                context, pending_mode_message = self._decide_mode(
+                                    task_frame=task_frame,
+                                    plan=plan_result.plan,
+                                    context=context,
+                                    ledger=ledger,
+                                    continuation_state=continuation_state,
+                                )
+                                mode_decided = True
+                            if pending_mode_message is not None:
+                                self._append_mode_decision_message(
+                                    messages=messages,
+                                    decision=pending_mode_message,
+                                )
                             continue
                     else:
                         ledger.record_plan(plan_result.plan)
+                        if not mode_decided:
+                            context, pending_mode_message = self._decide_mode(
+                                task_frame=task_frame,
+                                plan=plan_result.plan,
+                                context=context,
+                                ledger=ledger,
+                                continuation_state=continuation_state,
+                            )
+                            mode_decided = True
             if plan_result.error:
                 plan_failures += 1
                 invalid_actions += 1
@@ -638,6 +688,11 @@ class ContinuousAgentEpisode:
                         ),
                     ),
                 )
+                if pending_mode_message is not None:
+                    self._append_mode_decision_message(
+                        messages=messages,
+                        decision=pending_mode_message,
+                    )
                 if self._snapshot_surface_satisfied(
                     registry=registry,
                     context=context,
@@ -1019,6 +1074,58 @@ class ContinuousAgentEpisode:
         if root_budget is None:
             return policy_remaining
         return max(0, int(root_budget.remaining_calls))
+
+    @staticmethod
+    def _model_round_budget(context: ResearchRunContext) -> int:
+        root_budget = context.root_budget
+        if root_budget is None:
+            return max(1, int(context.policy.max_steps))
+        return max(1, min(MAX_EPISODE_TOOL_CALLS, root_budget.hard_calls_cap))
+
+    def _decide_mode(
+        self,
+        *,
+        task_frame: TaskFrame,
+        plan: ResearchPlan,
+        context: ResearchRunContext,
+        ledger: _EpisodeLedger,
+        continuation_state: _EpisodeContinuationState | None,
+    ) -> tuple[ResearchRunContext, ModeDecision]:
+        signals = self._mode_signals(task_frame, plan)
+        if not isinstance(signals, ModeSignals):
+            raise TypeError("mode_signals must return ModeSignals")
+        if context.root_budget is None and signals.dependencies_available:
+            signals = replace(signals, dependencies_available=False)
+        decision = self._mode_governor.decide(plan, signals)
+        promoted = self._mode_governor.apply(context, decision)
+        ledger.add("mode_decision", decision.to_dict())
+        if continuation_state is not None:
+            continuation_state.context = promoted
+        return promoted, decision
+
+    @staticmethod
+    def _append_mode_decision_message(
+        *,
+        messages: list[dict[str, object]],
+        decision: ModeDecision,
+    ) -> None:
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "kind": "MODE_DECISION",
+                        **decision.to_dict(),
+                        "instruction": (
+                            "研究深度与总预算已由运行时裁决。保留原计划，"
+                            "继续自主选择查询、工具顺序和停止时点；"
+                            "不得把预算或内部裁决文本写入最终答案。"
+                        ),
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
 
     @staticmethod
     def _available_tool_definitions(

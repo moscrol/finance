@@ -48,6 +48,7 @@ _DIAGNOSTIC_EVENT_KINDS = frozenset(
         "tool_result",
         "tool_error",
         "invalid_action",
+        "mode_decision",
         "finish",
         "finalization",
         "repair_goal",

@@ -396,7 +396,22 @@ class RootBudgetLedger(Protocol):
     remaining_calls: int
     remaining_seconds: float
 
+    @property
+    def allocated_calls(self) -> int: ...
+
+    @property
+    def allocated_seconds(self) -> float: ...
+
     def grant(self, grant: object) -> bool: ...
+
+    def promote_caps(
+        self,
+        *,
+        episode_id: str,
+        promotion_id: str,
+        hard_calls_cap: int,
+        hard_seconds_cap: float,
+    ) -> bool: ...
 
     def consume_call(self, *, seconds: float) -> None: ...
 
@@ -442,7 +457,18 @@ class InMemoryRootBudgetLedger:
         self._allocated_calls = initial_calls
         self._allocated_seconds = float(initial_seconds)
         self._grants: set[str] = set()
+        self._promotions: dict[str, tuple[int, float]] = {}
         self._lock = RLock()
+
+    @property
+    def allocated_calls(self) -> int:
+        with self._lock:
+            return self._allocated_calls
+
+    @property
+    def allocated_seconds(self) -> float:
+        with self._lock:
+            return self._allocated_seconds
 
     def grant(self, grant: object) -> bool:
         calls = int(getattr(grant, "calls_granted", 0) or 0)
@@ -465,6 +491,51 @@ class InMemoryRootBudgetLedger:
             self._allocated_seconds += seconds
             self.remaining_calls += calls
             self.remaining_seconds += seconds
+            return True
+
+    def promote_caps(
+        self,
+        *,
+        episode_id: str,
+        promotion_id: str,
+        hard_calls_cap: int,
+        hard_seconds_cap: float,
+    ) -> bool:
+        """Raise this episode's hard ceiling once without minting a new ledger."""
+
+        episode = str(episode_id or "").strip()
+        promotion = str(promotion_id or "").strip()
+        if (
+            not episode
+            or not promotion
+            or isinstance(hard_calls_cap, bool)
+            or not isinstance(hard_calls_cap, int)
+            or hard_calls_cap < 0
+        ):
+            return False
+        try:
+            seconds_cap = float(hard_seconds_cap)
+        except (TypeError, ValueError):
+            return False
+        if seconds_cap < 0 or hard_calls_cap > 24 or seconds_cap > 240.0:
+            return False
+        with self._lock:
+            if episode != self.episode_id:
+                return False
+            previous = self._promotions.get(promotion)
+            requested = (hard_calls_cap, seconds_cap)
+            if previous is not None:
+                return previous == requested
+            if (
+                hard_calls_cap < self.hard_calls_cap
+                or seconds_cap < self.hard_seconds_cap
+                or hard_calls_cap < self._allocated_calls
+                or seconds_cap < self._allocated_seconds
+            ):
+                return False
+            self.hard_calls_cap = hard_calls_cap
+            self.hard_seconds_cap = seconds_cap
+            self._promotions[promotion] = requested
             return True
 
     def consume_call(self, *, seconds: float) -> None:
@@ -498,6 +569,8 @@ class InMemoryRootBudgetLedger:
                 "hard_seconds_cap": self.hard_seconds_cap,
                 "remaining_calls": self.remaining_calls,
                 "remaining_seconds": self.remaining_seconds,
+                "allocated_calls": self._allocated_calls,
+                "allocated_seconds": self._allocated_seconds,
             }
 
 
