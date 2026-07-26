@@ -1,4 +1,5 @@
 import { upsertStructuredReportModule } from "./structuredReport";
+import { upsertTraceStep } from "./trace";
 import type {
   AnswerPhase,
   ChatMessage,
@@ -8,6 +9,7 @@ import type {
   StreamEnvelope,
   StructuredReport,
   StructuredReportModule,
+  TraceStep,
 } from "./types";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -68,6 +70,7 @@ export function createLiveMessageState(identity: {
     report: null,
     workflow: null,
     skillInvocations: {},
+    progress: [],
     status: "pending",
     connection: "connected",
     cancelRequested: false,
@@ -93,6 +96,28 @@ const isChatMessage = (value: unknown): value is ChatMessage =>
   isRecord(value) &&
   typeof value.message_id === "string" &&
   typeof value.content === "string";
+
+const traceStatuses = new Set<TraceStep["status"]>([
+  "running",
+  "completed",
+  "failed",
+  "skipped",
+]);
+
+const isTraceStep = (value: unknown): value is TraceStep =>
+  isRecord(value) &&
+  typeof value.step_id === "string" &&
+  value.step_id.length > 0 &&
+  typeof value.name === "string" &&
+  value.name.length > 0 &&
+  typeof value.status === "string" &&
+  traceStatuses.has(value.status as TraceStep["status"]) &&
+  typeof value.started_at === "string" &&
+  (typeof value.finished_at === "string" || value.finished_at === null) &&
+  typeof value.input_summary === "string" &&
+  typeof value.output_summary === "string" &&
+  Array.isArray(value.warnings) &&
+  value.warnings.every((warning) => typeof warning === "string");
 
 const answerPhases = new Set<AnswerPhase>([
   "verified_draft",
@@ -180,6 +205,13 @@ export function applyChatStreamEvent(
   if (deduper && !deduper.accept(event)) return state;
 
   const payload = event.payload;
+  if (event.event_type === "trace.step" && isTraceStep(payload.step)) {
+    return {
+      ...state,
+      progress: upsertTraceStep(state.progress, payload.step),
+      status: "streaming",
+    };
+  }
   if (event.event_type === "text.delta") {
     if (state.answerRevision > 0) return state;
     const delta = typeof payload.delta === "string" ? payload.delta : "";

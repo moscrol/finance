@@ -635,6 +635,7 @@ export interface LiveMessageState {
   report: StructuredReport | null;
   workflow: LiveWorkflow | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
+  progress: TraceStep[];
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";
   cancelRequested: boolean;

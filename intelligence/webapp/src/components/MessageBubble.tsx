@@ -6,6 +6,7 @@ import type {
   RunBundle,
   SkillInvocationStatus,
 } from "../types";
+import { userFacingStage, userFacingText } from "../displayText";
 import { MarkdownView } from "./MarkdownView";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
@@ -32,6 +33,15 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
+  const latestProgress =
+    live && live.progress.length > 0
+      ? live.progress[live.progress.length - 1]
+      : null;
+  const progressText = latestProgress
+    ? userFacingText(
+        latestProgress.output_summary || userFacingStage(latestProgress.name),
+      )
+    : "正在检索本轮证据";
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -140,7 +150,7 @@ export function MessageBubble({
             <span className="typing-dot" />
             <span className="typing-dot" />
             <span className="typing-dot" />
-            正在检索本轮证据
+            {progressText}
           </div>
         )}
         {terminalNotice && (

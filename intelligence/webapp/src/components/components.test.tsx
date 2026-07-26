@@ -1285,6 +1285,97 @@ describe("Chat-first conversation components", () => {
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
   });
 
+  it("shows the latest real Episode progress while the answer is pending", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "pending",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          progress: [
+            {
+              step_id: "continuous:episode:3:tool_request",
+              name: "research",
+              status: "running",
+              started_at: "2026-07-27T10:00:00+08:00",
+              finished_at: null,
+              input_summary: "",
+              output_summary: "正在核对计划所需资料。",
+              warnings: [],
+            },
+          ],
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("正在核对计划所需资料。")).toBeVisible();
+    expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("replays and upserts public trace steps in live message state", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const step = {
+      step_id: "continuous:episode:3:tool_request",
+      name: "research",
+      status: "running" as const,
+      started_at: "2026-07-27T10:00:00+08:00",
+      finished_at: null,
+      input_summary: "",
+      output_summary: "正在核对计划所需资料。",
+      warnings: [],
+    };
+    const envelope = (
+      eventId: string,
+      outputSummary: string,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: "trace.step",
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: eventId === "evt-1" ? 1 : 2,
+      created_at: "2026-07-27T10:00:00+08:00",
+      payload: {
+        step: { ...step, output_summary: outputSummary },
+      },
+    });
+
+    const running = applyChatStreamEvent(
+      initial,
+      envelope("evt-1", "正在核对计划所需资料。"),
+    );
+    const replayed = applyChatStreamEvent(
+      running,
+      envelope("evt-2", "已取得一批可核验资料。"),
+    );
+
+    expect(running.progress).toHaveLength(1);
+    expect(replayed.progress).toHaveLength(1);
+    expect(replayed.progress[0].output_summary).toBe(
+      "已取得一批可核验资料。",
+    );
+    expect(replayed.status).toBe("streaming");
+  });
+
   it("applies identity-checked deltas, module upserts and replay deduplication", () => {
     const deduper = new StreamEventDeduper();
     const initial = createLiveMessageState({
