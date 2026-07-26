@@ -146,6 +146,7 @@ def test_future_high_score_hit_never_enters_model_observation() -> None:
     assert result.evidence == ()
     assert "液冷未来订单" not in result.observation
     assert result.coverage.discarded_count == 1
+    assert result.trace.status == "future_of_cutoff"
     assert result.trace.requested_date == "2026-07-24"
     assert result.trace.served_date == "2026-07-25"
 

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import duckdb
+
 from intelligence.services import l3_evidence
 from intelligence.services import episode_tools
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import build_episode_registry
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -218,6 +223,107 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
         "2026-07-23",
         "2026-07-23",
     ]
+
+
+def test_episode_registry_exposes_and_executes_model_owned_research_tools(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_market_daily(
+            trade_date date,
+            market_stage varchar,
+            total_amount double,
+            sh_index_pct_chg double
+        )
+        """
+    )
+    connection.execute(
+        "insert into fact_market_daily values ('2026-07-24', '反弹阶段', 22000, 1.2)"
+    )
+    connection.close()
+
+    def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
+        hit = WikiHit(
+            page_id="mainline",
+            file_path="wiki/sources/mainline.md",
+            title="A股市场主线证据",
+            score=0.9,
+            excerpt="A股市场主线需要成交、强度和持续性共同验证",
+            best_chunk_id="mainline::0",
+            content_hash="mainline-content",
+            source_date="2026-07-24",
+        )
+        return WikiRagResult(
+            ok=True,
+            hits=[hit],
+            telemetry=RetrievalTelemetry(status="ok", hit_count=1),
+            command=query,
+        )
+
+    monkeypatch.setattr(episode_tools.kb_rag, "retrieve", retrieve)
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="model-owned-tools",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        evidence_search_judge=lambda *_args: None,
+    )
+
+    definitions = {
+        item["function"]["name"]: item["function"]["parameters"]
+        for item in registry.tool_definitions()
+    }
+    assert definitions["finance_query"]["properties"]["dataset"]["enum"]
+    assert definitions["evidence_search"] == {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 1}},
+        "required": ["query"],
+        "additionalProperties": False,
+    }
+
+    structured = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct", "total_amount"],
+            "dimensions": ["trade_date", "market_stage"],
+            "filters": [],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "asc"}],
+            "limit": 5,
+        },
+        context=context,
+        step_id="model-owned-tools:finance",
+    )
+    searched = registry.execute(
+        "evidence_search",
+        "A股市场主线",
+        context=context,
+        step_id="model-owned-tools:evidence",
+    )
+
+    assert structured.evidence[0].tool == "finance_query"
+    assert structured.trace.served_date == "2026-07-24"
+    assert searched.evidence[0].tool == "evidence_search"
+    assert searched.trace.requested_date == "2026-07-24"
 
 
 def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:

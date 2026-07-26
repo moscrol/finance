@@ -17,6 +17,16 @@ from intelligence.services.research_contract import ResearchRunContext
 
 
 _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
+    "finance_query": (
+        "finance_query",
+        "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
+        "current",
+    ),
+    "evidence_search": (
+        "evidence_search",
+        "对本地知识证据执行窄口径、宽口径和反方闭环检索",
+        "current",
+    ),
     "kb_search": ("kb_search", "本地知识库检索", "stable"),
     "web_search": ("web_search", "全网网页检索", "current"),
     "news_search": ("news_search", "财经新闻检索", "current"),
@@ -249,7 +259,7 @@ class ResearchToolRegistry:
         normalized = prepared.normalized_key
 
         def fetch() -> ToolObservation:
-            evidence, observation, trace = agent_research._run_tool(
+            raw_result = agent_research._run_tool(
                 spec.runner,
                 prepared.runner_input,
                 agent_research.AgentToolContext(
@@ -258,6 +268,20 @@ class ResearchToolRegistry:
                     context.information_cutoff,
                 ),
             )
+            if len(raw_result) == 3:
+                evidence, observation, trace = raw_result
+                gaps: tuple[str, ...] = ()
+            elif len(raw_result) == 4:
+                evidence, observation, trace, raw_gaps = raw_result
+                gaps = tuple(
+                    dict.fromkeys(
+                        str(item).strip()
+                        for item in raw_gaps
+                        if str(item).strip()
+                    )
+                )
+            else:
+                raise ValueError("research tool runner returned invalid result")
             if is_cancelled is not None and is_cancelled():
                 raise RuntimeError("agent tool cancelled")
             served_date = closed_loop_retrieval.latest_served_date(
@@ -332,6 +356,7 @@ class ResearchToolRegistry:
                 evidence=tuple(evidence),
                 observation=observation,
                 trace=trace,
+                gaps=gaps,
                 evidence_hashes=hashes,
             )
 

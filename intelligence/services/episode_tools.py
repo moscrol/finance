@@ -15,6 +15,9 @@ from intelligence.paths import default_paths
 from intelligence.services import (
     agent_research,
     ask_blocks,
+    entity_anchor,
+    evidence_search,
+    finance_query,
     kb_rag,
     l3_evidence,
     market_technical,
@@ -24,6 +27,7 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
+    ToolSpec,
     default_registry,
 )
 from intelligence.services.task_frame import TaskFrame
@@ -39,6 +43,7 @@ _NON_EVIDENCE_PREFIXES = (
     "⚠",
 )
 _OFFICIAL_L3_RUNNER = object()
+_DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 
 
 def is_deterministic_fast_path(frame: TaskFrame) -> bool:
@@ -120,6 +125,9 @@ def build_episode_registry(
     finance_root: str | Path | None = None,
     knowledge_wiki: str | Path | None = None,
     l3_runner: agent_research.ToolRunner | None | object = _OFFICIAL_L3_RUNNER,
+    evidence_search_judge: evidence_search.SemanticJudge | None | object = (
+        _DEFAULT_EVIDENCE_SEARCH_JUDGE
+    ),
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -321,7 +329,119 @@ def build_episode_registry(
         selected_l3_runner
     ):
         tools["l3_lookup"] = selected_l3_runner
-    return default_registry(tools)
+    base_registry = default_registry(tools)
+    specs = list(base_registry.authorized_specs())
+
+    if "finance_query" in context.contract.allowed_capabilities:
+        query_engine = finance_query.FinanceQuery(market_db_path)
+
+        def parse_finance_arguments(arguments):
+            spec = finance_query.FinanceQuerySpec.from_arguments(arguments)
+            selected = ",".join((*spec.dimensions, *spec.metrics))
+            return spec, f"{spec.dataset}:{selected}"
+
+        def finance_query_runner(
+            value: object,
+            tool_context: agent_research.AgentToolContext,
+        ):
+            if not isinstance(value, finance_query.FinanceQuerySpec):
+                raise finance_query.FinanceQueryValidationError(
+                    "finance query input was not parsed"
+                )
+            result = query_engine.run(
+                value,
+                information_cutoff=context.information_cutoff,
+                deadline=tool_context.deadline,
+                is_cancelled=tool_context.is_cancelled,
+            )
+            gaps = (
+                ()
+                if result.evidence
+                else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
+            )
+            return (
+                list(result.evidence),
+                result.observation,
+                ProviderTrace(
+                    provider="duckdb_semantic_query",
+                    capability="finance_query",
+                    status="success" if result.evidence else "empty",
+                    detail=(
+                        f"dataset={value.dataset}; rows={len(result.evidence)}; "
+                        f"fingerprint={result.audit.sql_fingerprint}"
+                    ),
+                    source_trade_date=result.served_date,
+                    result_count=len(result.evidence),
+                ),
+                gaps,
+            )
+
+        specs.append(
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description=(
+                    "查询本地结构化金融数据。dataset 可选 market_daily、"
+                    "stock_daily、sector_daily、sector_stock_daily、"
+                    "mainline_theme_daily、mainline_sector_daily；由你选择"
+                    "指标、维度、筛选、分组、排序和时间范围。"
+                ),
+                cost="local",
+                freshness="current",
+                runner=finance_query_runner,
+                parameters=finance_query.FINANCE_QUERY_PARAMETERS,
+                parse_arguments=parse_finance_arguments,
+            )
+        )
+
+    if "evidence_search" in context.contract.allowed_capabilities:
+        selected_judge = (
+            evidence_search.default_semantic_judge
+            if evidence_search_judge is _DEFAULT_EVIDENCE_SEARCH_JUDGE
+            else evidence_search_judge
+        )
+
+        def evidence_search_runner(
+            query: str,
+            tool_context: agent_research.AgentToolContext,
+        ):
+            def retrieve_for_search(candidate: str):
+                return retrieve_kb(candidate, tool_context.timeout(30.0))
+
+            search = evidence_search.EvidenceSearch(
+                retrieve_for_search,
+                semantic_judge=(
+                    selected_judge if callable(selected_judge) else None
+                ),
+            )
+            result = search.search(
+                query=query,
+                anchor=entity_anchor.resolve_entity_anchor(query, knowledge),
+                information_cutoff=context.information_cutoff,
+                deadline=tool_context.deadline,
+            )
+            return (
+                list(result.evidence),
+                result.observation,
+                result.trace,
+                result.gaps,
+            )
+
+        specs.append(
+            ToolSpec(
+                name="evidence_search",
+                capability="evidence_search",
+                description=(
+                    "对本地知识证据执行 narrow→broad→counter 闭环检索，"
+                    "适合验证公司、题材、产业链关系、反证和替代解释。"
+                ),
+                cost="local",
+                freshness="current",
+                runner=evidence_search_runner,
+            )
+        )
+
+    return ResearchToolRegistry(tuple(specs))
 
 
 def run_deterministic_fast_path(

@@ -71,6 +71,8 @@ _PRESENTATION_PROFILES: dict[str, str] = {
     "comparison_analog": "comparison",
 }
 
+_MODEL_OWNED_READ_CAPABILITIES = ("finance_query", "evidence_search")
+
 
 def _authorized_capabilities(
     frame: TaskFrame,
@@ -84,6 +86,9 @@ def _authorized_capabilities(
                 str(item).strip() for item in capabilities if str(item).strip()
             )
         )
+    )
+    projected = tuple(
+        dict.fromkeys((*projected, *_MODEL_OWNED_READ_CAPABILITIES))
     )
     allowed_names = set(DEFAULT_RESEARCH_CAPABILITIES)
     unknown = tuple(item for item in projected if item not in allowed_names)

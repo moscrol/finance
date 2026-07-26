@@ -7,6 +7,8 @@ from intelligence.services.turn_control_core import TurnControlCore
 
 
 RUNTIME_CAPABILITIES = {
+    "finance_query",
+    "evidence_search",
     "market_data",
     "financial_data",
     "mainline_context",
@@ -17,6 +19,29 @@ RUNTIME_CAPABILITIES = {
     "web_search",
     "l3_lookup",
 }
+
+
+def test_evidence_grounded_tasks_receive_broad_model_owned_read_tools() -> None:
+    control = TurnControlCore().control(
+        "目前固态电池产业景气度处于什么阶段，给出数据依据",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="broad-read-tools",
+        capabilities=control.capabilities,
+    )
+
+    assert {"finance_query", "evidence_search"}.issubset(
+        context.contract.allowed_capabilities
+    )
+    assert "finance_query" not in {
+        item.capability for item in context.contract.evidence_plan.requirements
+    }
+    assert "evidence_search" not in {
+        item.capability for item in context.contract.evidence_plan.requirements
+    }
 
 
 @pytest.mark.parametrize(

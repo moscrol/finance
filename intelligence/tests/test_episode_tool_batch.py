@@ -255,6 +255,45 @@ def test_structured_arguments_reach_runner_and_deduplicate_canonical_objects() -
     assert result.items[1].error == "duplicate_query"
 
 
+def test_registry_preserves_runner_reported_coverage_gaps() -> None:
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="evidence_search",
+                capability="evidence_search",
+                description="closed loop search",
+                cost="local",
+                freshness="current",
+                runner=lambda query, _context: (
+                    [],
+                    f"{query} 无结果",
+                    ProviderTrace(
+                        provider="test:search",
+                        capability="evidence_search",
+                        status="empty",
+                    ),
+                    (f"尚未找到与“{query}”直接相关的可用证据",),
+                ),
+            ),
+        )
+    )
+    context = _context(
+        allowed=("evidence_search",),
+        mandatory=("evidence_search",),
+    )
+
+    observation = registry.execute(
+        "evidence_search",
+        "陌生问题",
+        context=context,
+        step_id="gap-test:1",
+    )
+
+    assert observation.gaps == (
+        "尚未找到与“陌生问题”直接相关的可用证据",
+    )
+
+
 def test_mandatory_market_call_starts_while_slow_web_is_listed_first() -> None:
     market_started = Event()
 

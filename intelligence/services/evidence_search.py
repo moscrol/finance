@@ -144,7 +144,13 @@ class EvidenceSearch:
         trace = ProviderTrace(
             provider="kb_hybrid_closed_loop",
             capability="evidence_search",
-            status="success" if evidence else "empty",
+            status=(
+                "success"
+                if evidence
+                else "future_of_cutoff"
+                if any(item.status == "future_of_cutoff" for item in loop.attempts)
+                else "empty"
+            ),
             detail=_trace_detail(loop, coverage),
             source_trade_date=served_date,
             result_count=len(evidence),
