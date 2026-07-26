@@ -15,6 +15,7 @@ from scripts.agent_review.contract import (
     sha256_file,
     validate_request,
 )
+from scripts.agent_review.submit import submit_request
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -250,3 +251,82 @@ def test_legacy_external_review_is_distinct_from_self_review(review_repo, tmp_pa
     classifications = classify_legacy_records(root, repo=repo)
 
     assert classifications["ARL-0014"].state == "LEGACY_EXTERNAL_REVIEW"
+
+
+def test_submit_discovers_tests_and_hashes_immutable_request(
+    review_repo, tmp_path: Path
+):
+    repo, _parent, commit = review_repo
+    state_root = tmp_path / "state"
+
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+        created_at="2026-07-26T12:00:00+08:00",
+    )
+
+    assert request.commit == commit
+    assert request.review_id == "ARL-0001"
+    assert request.artifact_tests["intelligence/services/evidence_ledger.py"] == (
+        "intelligence/tests/test_evidence_ledger.py",
+    )
+    request_path = state_root / "requests/ARL-0001.json"
+    claim = json.loads((state_root / "claims/ARL-0001.json").read_text())
+    assert claim["request_sha256"] == sha256_file(request_path)
+    assert claim["commit"] == commit
+    assert not tuple(state_root.rglob("*.tmp"))
+
+
+def test_submit_allocates_ids_under_one_state_root(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    kwargs = {
+        "repo": repo,
+        "state_root": state_root,
+        "scope": "evidence ledger slice",
+        "artifacts": ("intelligence/services/evidence_ledger.py",),
+        "required_checks": ("run focused evidence ledger tests",),
+        "intensity": "light",
+        "created_at": "2026-07-26T12:00:00+08:00",
+    }
+
+    first = submit_request(**kwargs)
+    second = submit_request(**kwargs, depends_on=(first.review_id,))
+
+    assert first.review_id == "ARL-0001"
+    assert second.review_id == "ARL-0002"
+    assert second.depends_on == ("ARL-0001",)
+
+
+def test_submit_rejects_missing_dependency(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+
+    with pytest.raises(ValueError, match="dependency"):
+        submit_request(
+            repo=repo,
+            state_root=tmp_path / "state",
+            scope="evidence ledger slice",
+            artifacts=("intelligence/services/evidence_ledger.py",),
+            required_checks=("run focused evidence ledger tests",),
+            intensity="light",
+            depends_on=("ARL-0999",),
+        )
+
+
+def test_submit_rejects_waiver_for_gate_artifact(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+
+    with pytest.raises(ValueError, match="waiver"):
+        submit_request(
+            repo=repo,
+            state_root=tmp_path / "state",
+            scope="evidence ledger slice",
+            artifacts=("intelligence/services/evidence_ledger.py",),
+            required_checks=("run focused evidence ledger tests",),
+            intensity="light",
+            test_waivers={"intelligence/services/evidence_ledger.py": "no tests needed"},
+        )
