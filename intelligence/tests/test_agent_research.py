@@ -449,3 +449,17 @@ def test_should_run_modes(monkeypatch) -> None:
     assert not should_run(("market_quote",))
     monkeypatch.setenv(agent_research.ENV_MODE, "on")
     assert should_run(())
+
+
+def test_configured_step_budget_supports_deep_hard_ceiling(monkeypatch) -> None:
+    monkeypatch.delenv(agent_research.ENV_MAX_STEPS, raising=False)
+    assert agent_research.max_steps() == agent_research.DEFAULT_MAX_STEPS == 4
+
+    monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "24")
+    assert agent_research.max_steps() == 24
+    monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "25")
+    assert agent_research.max_steps() == 24
+    monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "0")
+    assert agent_research.max_steps() == 1
+    monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "invalid")
+    assert agent_research.max_steps() == agent_research.DEFAULT_MAX_STEPS

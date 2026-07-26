@@ -44,6 +44,7 @@ MODE_ON = "on"
 _VALID_MODES = (MODE_OFF, MODE_AUTO, MODE_ON)
 
 DEFAULT_MAX_STEPS = 4
+MAX_CONFIGURED_STEPS = 24
 DEFAULT_LLM_TIMEOUT = 15
 NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
@@ -103,7 +104,7 @@ def max_steps() -> int:
         value = int(os.environ.get(ENV_MAX_STEPS) or DEFAULT_MAX_STEPS)
     except ValueError:
         return DEFAULT_MAX_STEPS
-    return max(1, min(value, 8))
+    return max(1, min(value, MAX_CONFIGURED_STEPS))
 
 
 def should_run(controller_capabilities: tuple[str, ...]) -> bool:
