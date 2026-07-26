@@ -536,6 +536,8 @@ describe("Workbench components", () => {
       "本地盘面数据",
     );
     expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
+    expect(userFacingStage("understanding")).toBe("理解问题");
+    expect(userFacingStage("verification")).toBe("核验回答");
   });
 
   it("counts only evidence records bound to verifiable citations", () => {

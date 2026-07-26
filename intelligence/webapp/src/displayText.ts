@@ -79,6 +79,12 @@ export function userFacingIssue(issue: string): string {
 }
 
 export const stageLabels: Record<string, string> = {
+  understanding: "理解问题",
+  planning: "形成研究计划",
+  research: "核对研究证据",
+  repair: "补齐关键缺口",
+  verification: "核验回答",
+  finalizing: "形成公开回答",
   route_skills: "选择研究工具",
   ask_current_turn: "检索本轮证据",
   ask_retrieve_compose: "核对数据时效并组织回答",
