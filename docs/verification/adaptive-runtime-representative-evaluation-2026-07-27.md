@@ -9,7 +9,7 @@ Status: `quality_not_green_external_runtime_jitter`
 | Field | Value |
 | --- | --- |
 | Source revision (live artifact) | `e179b15cda...` |
-| Current branch tip | `c7f5301f` |
+| Current branch tip | `d686bb9e` |
 | Source dirty | `false` |
 | Branch | `feat/agent-runtime-backends-verify` |
 | Canonical 8792 | untouched |
@@ -48,13 +48,18 @@ Provider tolerance and benchmark contracts:
 ```
 
 Credential, runtime-benchmark, and Workbench API regression after the bounded
-Keychain read fix:
+Keychain read fix plus fail-closed benchmark/provider wiring:
 
 ```text
-2865 passed, 2 skipped, 11 baseline failures (full intelligence/tests)
+2868 passed, 2 skipped, 11 baseline failures (full intelligence/tests)
 Ruff passed
 git diff --check passed
 ```
+
+The benchmark summary gate now treats any arm with `status=failed` (including
+`model_unavailable`) as a failed release result. The saved session provider is
+also injected into Continuous/SDK arms and their semantic verifier; it is not
+read from a global environment variable.
 
 The existing release-candidate evidence remains valid for the same branch
 history:
@@ -86,6 +91,13 @@ structured/semantic acceptance or an honest partial. Separate targeted smokes
 for current-mainline and weekly-cause passed with direct, evidence-bounded
 answers. The remaining variance is provider/runtime tail latency, not a route or
 evidence-seam failure.
+
+The current candidate was additionally booted on isolated port 8799 at
+`d686bb9e`: health reported a clean revision and distinct code/data roots, and
+the deterministic 科创50 technical-level request completed with a dated,
+numeric, invalidation-bounded answer. The long-tail provider lane was not
+claimed green because the fresh process could not access the persisted Keychain
+record without macOS authorization; no secret was copied or printed.
 
 ## Claude `ALIGNMENT.md` reconciliation
 
