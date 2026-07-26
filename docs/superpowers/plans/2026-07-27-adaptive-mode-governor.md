@@ -32,7 +32,7 @@ The existing asynchronous `RunStore`, supervisor, cancellation, reconnect replay
 - Create: `intelligence/services/mode_governor.py`
 - Create: `intelligence/tests/test_mode_governor.py`
 
-- [ ] **Step 1: Write failing decision-table tests**
+- [x] **Step 1: Write failing decision-table tests**
 
 Cover these independent cases:
 
@@ -46,7 +46,7 @@ assert governor.decide(quick_plan, ModeSignals(user_mode="deep")).effective_mode
 
 Also assert dependency/deadline denial, comparison entities, uncovered answer elements, and explicit complexity flags. No test may mention a route or `question_type`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/pytest \
@@ -55,7 +55,7 @@ Also assert dependency/deadline denial, comparison entities, uncovered answer el
 
 Expected: import failure because the module does not exist.
 
-- [ ] **Step 3: Implement the immutable decision values**
+- [x] **Step 3: Implement the immutable decision values**
 
 Create:
 
@@ -96,7 +96,7 @@ class ModeDecision:
 
 `ModeGovernor.decide()` applies this order: explicit quick denial; dependency/deadline denial; explicit user deep approval; model quick remains quick; model deep requires at least one observable condition. Quick maps to existing `standard` policy (90 seconds, hard cap 8); deep maps to `deep` (240 seconds, hard cap 24). It never edits the plan.
 
-- [ ] **Step 4: Run GREEN and Ruff**
+- [x] **Step 4: Run GREEN and Ruff**
 
 ### Task 2: Make root-budget promotion an explicit atomic authority
 
@@ -106,7 +106,7 @@ class ModeDecision:
 - Modify: `intelligence/tests/test_mode_governor.py`
 - Modify: `intelligence/tests/test_research_contract.py`
 
-- [ ] **Step 1: Write failing promotion invariant tests**
+- [x] **Step 1: Write failing promotion invariant tests**
 
 Create a standard context and prove:
 
@@ -124,11 +124,11 @@ assert promoted.deadline.remaining() > context.deadline.remaining()
 
 Then prove duplicate application is idempotent, denied/quick decisions change nothing, foreign episode IDs cannot promote, caps cannot be lowered, and no promotion exceeds 24 calls/240 seconds.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: the root ledger has no promotion interface and standard hard caps remain 8/90.
 
-- [ ] **Step 3: Add the minimum promotion interface**
+- [x] **Step 3: Add the minimum promotion interface**
 
 Extend `RootBudgetLedger` with:
 
@@ -145,7 +145,7 @@ def promote_caps(
 
 `InMemoryRootBudgetLedger.promote_caps()` is locked, episode-bound, idempotent by `promotion_id`, increase-only, and rejects caps above 24/240. After raising caps, `ModeGovernor.apply()` uses one normal `BudgetGrant` to allocate only the difference between the already allocated standard budget and the deep budget. It returns `replace(context, policy=deep_policy, deadline=extended_deadline)`; it never mints a second ledger.
 
-- [ ] **Step 4: Run GREEN, permanent invariants, and Ruff**
+- [x] **Step 4: Run GREEN, permanent invariants, and Ruff**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/pytest \
@@ -163,7 +163,7 @@ def promote_caps(
 - Modify: `intelligence/tests/test_agent_episode.py`
 - Modify: `intelligence/tests/test_glm_agent_runtime.py`
 
-- [ ] **Step 1: Write failing same-history promotion tests**
+- [x] **Step 1: Write failing same-history promotion tests**
 
 Use a scripted model that emits a valid deep `PLAN`, then enough distinct tool calls to exceed the standard six-call allocation, then a valid finish. Assert:
 
@@ -175,11 +175,11 @@ Use a scripted model that emits a valid deep `PLAN`, then enough distinct tool c
 - a model deep request with no observable condition stays at quick/standard bounds;
 - explicit user quick mode cannot be overridden by the model.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Expected: `requested_mode` is recorded but ignored and the seventh call cannot execute.
 
-- [ ] **Step 3: Inject ModeGovernor without adding a route planner**
+- [x] **Step 3: Inject ModeGovernor without adding a route planner**
 
 Add optional constructor dependencies:
 
@@ -198,7 +198,7 @@ It does not use `question_type`, route tables, fixed tool order, or query text k
 
 The loop keeps a fixed absolute safety range based on the deep policy but continues to finalize from the current context policy and remaining root budget. Quick mode therefore does not gain extra calls merely because the loop can represent deep mode.
 
-- [ ] **Step 4: Run GREEN and adjacent episode suites**
+- [x] **Step 4: Run GREEN and adjacent episode suites**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/pytest \
@@ -215,15 +215,15 @@ The loop keeps a fixed absolute safety range based on the deep policy but contin
 - Modify: `intelligence/eval/runtime_backend_benchmark.py`
 - Modify: `intelligence/tests/test_runtime_backend_benchmark.py`
 
-- [ ] **Step 1: Write a failing diagnostic projection test**
+- [x] **Step 1: Write a failing diagnostic projection test**
 
 Add a `mode_decision` event with approved mode, reason, observable conditions, and caps. Assert it survives the safe projection while task text, prompts, and internal policy objects do not.
 
-- [ ] **Step 2: Add `mode_decision` to the diagnostic event allowlist**
+- [x] **Step 2: Add `mode_decision` to the diagnostic event allowlist**
 
 No new benchmark schema or artifact type is created.
 
-- [ ] **Step 3: Run GREEN, Ruff, and `git diff --check`**
+- [x] **Step 3: Run GREEN, Ruff, and `git diff --check`**
 
 ### Task 5: Verify and document the adaptive-mode milestone
 
@@ -231,12 +231,12 @@ No new benchmark schema or artifact type is created.
 - Modify: `docs/superpowers/plans/2026-07-27-adaptive-mode-governor.md`
 - Create: `docs/verification/adaptive-mode-governor-2026-07-27.md`
 
-- [ ] **Step 1: Run focused and full deterministic suites**
+- [x] **Step 1: Run focused and full deterministic suites**
 
 Record exact counts and preserve the known userspace/subconscious baseline separately.
 
-- [ ] **Step 2: Record non-actions**
+- [x] **Step 2: Record non-actions**
 
 The receipt must state: no sub-research branches yet, no MemoryGate yet, no frozen nine-case run, no 8792 switch, no `main` merge, and no review-harness changes.
 
-- [ ] **Step 3: Commit product code separately from the verification receipt**
+- [x] **Step 3: Commit product code separately from the verification receipt**
