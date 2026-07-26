@@ -31,7 +31,7 @@ unverified model reasoning as evidence.
 - Create: `intelligence/services/memory_gate.py`
 - Create: `intelligence/tests/test_memory_gate.py`
 
-- [ ] **Step 1: Write RED candidate/decision tests**
+- [x] **Step 1: Write RED candidate/decision tests**
 
 ```python
 assert gate.decide(
@@ -52,9 +52,9 @@ unknown checkpoint, missing correction provenance, duplicate terminal verdict
 selection, and candidate content that tries to carry a price/date as timeless
 memory. No test writes a ledger.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Implement immutable values and the decision table**
+- [x] **Step 3: Implement immutable values and the decision table**
 
 Allowed promotion kinds:
 
@@ -69,7 +69,7 @@ or ambiguous provenance. The gate may approve a lesson from a `miss` because a
 failed forecast is durable information about what not to repeat; it must record
 the verdict in provenance.
 
-- [ ] **Step 4: Run GREEN, Ruff, and commit**
+- [x] **Step 4: Run GREEN, Ruff, and commit**
 
 ### Task 2: Expose the gate at the durable-write seam without breaking legacy reads
 
@@ -81,7 +81,7 @@ the verdict in provenance.
 - Modify: `intelligence/tests/test_corrections.py`
 - Modify: `intelligence/tests/test_user_memory.py`
 
-- [ ] **Step 1: Write RED validated-write tests**
+- [x] **Step 1: Write RED validated-write tests**
 
 Add explicit `record_validated_judgment(...)` and
 `record_validated_preference(...)` adapters that require an already approved
@@ -89,15 +89,15 @@ Add explicit `record_validated_judgment(...)` and
 and is marked `promotion_status="legacy_unverified"` only when callers opt in
 to the new metadata.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Implement write adapters**
+- [x] **Step 3: Implement write adapters**
 
 The adapters reject an ineligible decision, persist only the candidate content
 plus sanitized provenance (`checkpoint_id/verdict` or `correction_ts`), and
 never persist provider prompts, SQL, evidence body, or current volatile values.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ### Task 3: Verify the memory milestone
 
@@ -105,11 +105,11 @@ never persist provider prompts, SQL, evidence body, or current volatile values.
 - Create: `docs/verification/memory-gate-2026-07-27.md`
 - Modify: `docs/superpowers/plans/2026-07-27-memory-gate.md`
 
-- [ ] **Step 1: Run gate, ledger, user-memory, and permanent invariant suites**
+- [x] **Step 1: Run gate, ledger, user-memory, and permanent invariant suites**
 
-- [ ] **Step 2: Record that old legacy records remain readable but cannot claim new validated provenance**
+- [x] **Step 2: Record that old legacy records remain readable but cannot claim new validated provenance**
 
-- [ ] **Step 3: Commit the verification receipt separately**
+- [x] **Step 3: Commit the verification receipt separately**
 
 No live nine-case run, no MemoryGate prompt injection, no 8792 switch, no
 `main` merge, and no review-harness expansion.
