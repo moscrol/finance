@@ -453,6 +453,8 @@ class GLMAgentRuntime:
                 previous,
                 goal,
             ),
+            evidence_ledger=state.evidence_ledger,
+            initial_evidence_snapshot=state.initial_evidence_snapshot,
         )
 
 

@@ -200,6 +200,7 @@ def select_frontier(repo: Path, state_root: Path, tip: str):
             repo=repo,
             authority="external",
             current_tip=tip,
+            expected_review_id=request.review_id,
         )
         if not verdict.valid:
             return None, WorkerResult("INVALID", request.review_id, ",".join(verdict.errors))
@@ -269,42 +270,9 @@ def _default_reviewer_command(
     claim_path: Path,
     verdict_path: Path,
 ) -> tuple[str, ...]:
-    prompt_path = repo / "scripts/agent_review/REVIEWER_PROMPT.md"
-    if not prompt_path.exists():
-        prompt_path = state_root / "REVIEWER_PROMPT.md"
-    prompt = prompt_path.read_text(encoding="utf-8")
-    rendered = (
-        f"{prompt}\n\nREVIEW_ID: {review_id}\nCOMMIT: {commit}\n"
-        f"REVIEW_WORKTREE: {worktree}\nREQUEST_FILE: {request_path}\n"
-        f"CLAIM_FILE: {claim_path}\n"
-        f"VERDICT_FILE: {verdict_path}\n"
-    )
-    budget = os.environ.get("REVIEWER_MAX_BUDGET_USD", "12")
-    return (
-        "claude",
-        "-p",
-        rendered,
-        "--add-dir",
-        str(worktree),
-        "--permission-mode",
-        "acceptEdits",
-        "--max-budget-usd",
-        budget,
-        "--allowedTools",
-        "Read",
-        "Write",
-        "Grep",
-        "Glob",
-        "Bash(git *)",
-        "Bash(cd *)",
-        "Bash(ls *)",
-        "Bash(grep *)",
-        "Bash(sed *)",
-        "Bash(wc *)",
-        "Bash(find *)",
-        "Bash(env *)",
-        "Bash(/Users/a77/finance-workspace-private/.venv-workbench/bin/python *)",
-    )
+    del repo, review_id, commit, worktree, request_path, claim_path, verdict_path
+    adapter = state_root / "claude-oneshot-reviewer.py"
+    return (str(adapter),)
 
 
 def _quarantine(staging: Path, destination: Path) -> None:
@@ -421,8 +389,7 @@ def _run_locked(
             "REQUEST_FILE": str(bundled_request),
             "CLAIM_FILE": str(bundled_claim),
             "VERDICT_FILE": str(staging),
-            "STATE_ROOT": str(state_root),
-            "PRODUCER_REPO": str(repo),
+            "REVIEW_SCRATCH_DIR": str(review_bundle / "scratch"),
         }
     )
     try:
@@ -454,8 +421,9 @@ def _run_locked(
             repo=repo,
             authority="external",
             current_tip=tip,
+            expected_review_id=review_id,
         )
-        if not validation.valid:
+        if not validation.valid or validation.review_id != review_id:
             _quarantine(staging, invalid_destination)
             _record_failure(
                 state_root,

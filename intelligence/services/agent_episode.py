@@ -22,6 +22,7 @@ from intelligence.services.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
+from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
     build_episode_input,
     build_episode_instructions,
@@ -101,6 +102,7 @@ class _EpisodeLedger:
 class _EpisodeToolAccumulator:
     messages: list[dict[str, object]]
     ledger: _EpisodeLedger
+    evidence_ledger: EvidenceLedger
     evidence: list[AgentEvidence] = field(default_factory=list)
     evidence_hashes: set[str] = field(default_factory=set)
     successful_tools: set[str] = field(default_factory=set)
@@ -164,6 +166,7 @@ class _EpisodeToolAccumulator:
                     continue
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
+                self.evidence_ledger.append(item)
             public_observation = {
                 "ok": True,
                 "tool": observation.tool,
@@ -217,6 +220,8 @@ class _EpisodeContinuationState:
     messages: list[dict[str, object]]
     ledger: _EpisodeLedger
     accumulator: _EpisodeToolAccumulator
+    evidence_ledger: EvidenceLedger
+    initial_evidence_snapshot: EvidenceLedgerSnapshot
 
 
 class ContinuousAgentEpisode:
@@ -279,7 +284,18 @@ class ContinuousAgentEpisode:
                 "content": build_episode_input(task_frame, context),
             },
         ]
-        accumulator = _EpisodeToolAccumulator(messages=messages, ledger=ledger)
+        evidence_ledger = EvidenceLedger(
+            information_cutoff=context.information_cutoff.as_of_date,
+        )
+        for required in context.contract.required_outputs:
+            if required.required and required.grounding_mode == "evidence":
+                evidence_ledger.open_gap(required.output_id)
+        initial_evidence_snapshot = evidence_ledger.snapshot()
+        accumulator = _EpisodeToolAccumulator(
+            messages=messages,
+            ledger=ledger,
+            evidence_ledger=evidence_ledger,
+        )
         if _continuation_sink is not None:
             _continuation_sink.append(
                 _EpisodeContinuationState(
@@ -290,6 +306,8 @@ class ContinuousAgentEpisode:
                     messages=messages,
                     ledger=ledger,
                     accumulator=accumulator,
+                    evidence_ledger=evidence_ledger,
+                    initial_evidence_snapshot=initial_evidence_snapshot,
                 )
             )
         finalization_started = False
@@ -353,6 +371,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            model_started = monotonic()
             try:
                 definitions = self._available_tool_definitions(
                     tool_session=tool_session,
@@ -365,7 +384,25 @@ class ContinuousAgentEpisode:
                     timeout=timeout,
                 )
             except Exception as exc:
+                budget_remaining = _consume_root_seconds(
+                    context,
+                    max(0.0, monotonic() - model_started),
+                )
                 llm_calls += 1
+                if not budget_remaining:
+                    return self._stopped_outcome(
+                        task_frame=task_frame,
+                        status="partial" if accumulator.evidence else "failed",
+                        stop_reason="deadline_exhausted",
+                        gap="研究截止时间已到，仍有必需输出未覆盖",
+                        ledger=ledger,
+                        evidence=accumulator.evidence,
+                        traces=accumulator.traces,
+                        gaps=accumulator.gaps,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 reason = f"model_exception:{type(exc).__name__}"
                 ledger.add("model_error", {"reason": reason})
                 if (
@@ -411,8 +448,23 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            model_elapsed = max(0.0, monotonic() - model_started)
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", turn.to_dict())
+            if not _consume_root_seconds(context, model_elapsed):
+                return self._stopped_outcome(
+                    task_frame=task_frame,
+                    status="partial" if accumulator.evidence else "failed",
+                    stop_reason="deadline_exhausted",
+                    gap="研究截止时间已到，仍有必需输出未覆盖",
+                    ledger=ledger,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             if self._is_cancelled():
                 return self._cancelled_outcome(
                     task_frame=task_frame,
@@ -772,6 +824,7 @@ class ContinuousAgentEpisode:
         llm_calls += turn.provider_attempts
         ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
         messages.append(self._assistant_message(turn))
+        performed_tool_action = bool(turn.tool_calls)
         if not _consume_root_seconds(repair_context, model_elapsed):
             return self._stopped_outcome(
                 task_frame=task_frame,
@@ -920,20 +973,26 @@ class ContinuousAgentEpisode:
         ledger.add(
             "finish",
             {
-                "status": finish.status,
-                "stop_reason": "repair_model_finish",
+                "status": finish.status if performed_tool_action else "partial",
+                "stop_reason": (
+                    "repair_model_finish"
+                    if performed_tool_action
+                    else "repair_model_stop"
+                ),
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(finish.gaps),
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=finish.status,
+            status=finish.status if performed_tool_action else "partial",
             draft=finish.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
             gaps=tuple(accumulator.gaps),
-            stop_reason="repair_model_finish",
+            stop_reason=(
+                "repair_model_finish" if performed_tool_action else "repair_model_stop"
+            ),
             events=tuple(ledger.events),
             bindings=bindings,
             usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
@@ -1091,6 +1150,7 @@ class ContinuousAgentEpisode:
             "finalization_recovery_started",
             {"failure_reason": failure_reason},
         )
+        recovery_started = monotonic()
         try:
             turn = self._finalizer.recover(
                 task_frame=task_frame,
@@ -1100,7 +1160,22 @@ class ContinuousAgentEpisode:
                 failure_reason=failure_reason,
             )
         except Exception as exc:
+            budget_remaining = _consume_root_seconds(
+                context,
+                max(0.0, monotonic() - recovery_started),
+            )
             llm_calls += self._provider_attempts_from_exception(exc)
+            if not budget_remaining:
+                return self._failed_recovery_outcome(
+                    task_frame=task_frame,
+                    ledger=ledger,
+                    accumulator=accumulator,
+                    reason="finalization_recovery_deadline_exhausted",
+                    public_gap="终局恢复超出截止时间，无法生成可验证回答",
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             reason = f"finalization_recovery_exception:{type(exc).__name__}"
             ledger.add("model_error", {"reason": reason})
             return self._failed_recovery_outcome(
@@ -1114,11 +1189,24 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
 
+        recovery_elapsed = max(0.0, monotonic() - recovery_started)
         llm_calls += turn.provider_attempts
         ledger.add(
             "model_turn",
             {"phase": "finalization_recovery", **turn.to_dict()},
         )
+        if not _consume_root_seconds(context, recovery_elapsed):
+            reason = "finalization_recovery_deadline_exhausted"
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=reason,
+                public_gap="终局恢复超出截止时间，无法生成可验证回答",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
         if (
             context.deadline.synthesis_timeout(self._llm_timeout)
             < MIN_FINALIZATION_RECOVERY_SECONDS

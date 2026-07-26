@@ -142,7 +142,15 @@ def test_request_rejects_non_descendant_parent(review_repo):
 
 @pytest.mark.parametrize(
     "artifact",
-    ["../secret.py", ".env.production", "db/market.duckdb", "cache/value.pyc"],
+    [
+        "../secret.py",
+        ".env.production",
+        "db/market.duckdb",
+        "cache/value.pyc",
+        "config/mcp_config.json",
+        "config/feishu_config.json",
+        "slides/review.pptx",
+    ],
 )
 def test_request_rejects_unsafe_artifact_paths(review_repo, artifact):
     repo, parent, commit = review_repo
@@ -158,6 +166,34 @@ def test_request_rejects_unsafe_artifact_paths(review_repo, artifact):
     )
 
     assert "artifact_path" in result.errors
+
+
+def test_schema3_accepts_artifact_created_and_deleted_inside_review_range(
+    review_repo,
+):
+    repo, _base, parent = review_repo
+    transient = repo / "intelligence/services/transient_adapter.py"
+    transient.write_text("VALUE = 1\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "add transient adapter")
+    transient.unlink()
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "remove transient adapter")
+    commit = _git(repo, "rev-parse", "HEAD")
+    artifact = "intelligence/services/transient_adapter.py"
+
+    result = validate_request(
+        _request(
+            parent,
+            commit,
+            schema_version=3,
+            artifacts=[artifact],
+            artifact_tests={artifact: []},
+        ),
+        repo=repo,
+    )
+
+    assert result.valid, result.errors
 
 
 def test_discovery_finds_conventional_and_exact_import_tests(review_repo):
@@ -640,6 +676,37 @@ def test_mutated_request_invalidates_verdict_file(review_repo, tmp_path: Path):
 
     assert not result.valid
     assert "request_hash_mismatch" in result.errors
+
+
+def test_verdict_file_is_bound_to_the_callers_expected_review_id(
+    review_repo, tmp_path: Path
+):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    first = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="first slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused evidence ledger tests",),
+        intensity="light",
+    )
+    first_path = state_root / "requests" / f"{first.review_id}.json"
+    candidate = tmp_path / "candidate-verdict.json"
+    candidate.write_text(
+        json.dumps(_verdict(first, sha256_file(first_path))), encoding="utf-8"
+    )
+
+    result = validate_verdict_file(
+        candidate,
+        state_root=state_root,
+        repo=repo,
+        authority="external",
+        expected_review_id="ARL-9999",
+    )
+
+    assert not result.valid
+    assert "verdict_review_id" in result.errors
 
 
 def test_external_pass_requires_every_mechanical_check(review_repo, tmp_path: Path):

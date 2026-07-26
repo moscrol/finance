@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 
 PRODUCER_IDENTITY = "codex:producer"
@@ -24,6 +24,7 @@ _FORBIDDEN_SUFFIXES = {
     ".db",
     ".duckdb",
     ".pdf",
+    ".pptx",
     ".pyc",
     ".sqlite",
     ".sqlite3",
@@ -40,6 +41,7 @@ _FORBIDDEN_PARTS = {
     "node_modules",
     "venv",
 }
+_FORBIDDEN_NAMES = {".DS_Store", "feishu_config.json", "mcp_config.json"}
 
 
 class GateState(str, Enum):
@@ -206,9 +208,15 @@ def _safe_repo_path(raw: object) -> str | None:
         return None
     if path.suffix.lower() in _FORBIDDEN_SUFFIXES:
         return None
-    if path.name == ".DS_Store" or path.name.startswith("._"):
+    if path.name in _FORBIDDEN_NAMES or path.name.startswith("._"):
         return None
     return value
+
+
+def forbidden_artifact_paths(paths: Iterable[str]) -> tuple[str, ...]:
+    """Return repository-relative paths forbidden by the project safety contract."""
+
+    return tuple(path for path in paths if _safe_repo_path(path) is None)
 
 
 def _tuple_of_strings(value: object) -> tuple[str, ...] | None:
@@ -226,6 +234,25 @@ def _tuple_of_strings(value: object) -> tuple[str, ...] | None:
 
 def _path_exists_at_commit(repo: Path, commit: str, path: str) -> bool:
     return _git(repo, "cat-file", "-e", f"{commit}:{path}", check=False).returncode == 0
+
+
+def _path_appears_in_commit_range(
+    repo: Path,
+    *,
+    parent_commit: str,
+    commit: str,
+    path: str,
+) -> bool:
+    result = _git(
+        repo,
+        "log",
+        "--format=%H",
+        f"{parent_commit}..{commit}",
+        "--",
+        path,
+        check=False,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
 
 
 def _test_paths_at_commit(repo: Path, commit: str) -> tuple[str, ...]:
@@ -468,7 +495,15 @@ def validate_request(raw: Mapping[str, Any], *, repo: Path) -> ValidationResult:
             repo, request.commit, artifact
         ) or (
             request.schema_version >= 3
-            and _path_exists_at_commit(repo, request.parent_commit, artifact)
+            and (
+                _path_exists_at_commit(repo, request.parent_commit, artifact)
+                or _path_appears_in_commit_range(
+                    repo,
+                    parent_commit=request.parent_commit,
+                    commit=request.commit,
+                    path=artifact,
+                )
+            )
         )
         if not exists_in_review_range:
             errors.append("artifact_missing")

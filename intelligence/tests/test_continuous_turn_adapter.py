@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+import intelligence.services.continuous_turn_adapter as adapter_module
 from intelligence.services import ask_synthesis, llm_refine
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -484,6 +485,157 @@ def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> Non
     assert result.status in {"partial", "degraded"}
     assert resume_calls == 1
     assert semantic.calls == 1
+    assert result.private_artifact["semantic_verifier_stale"] is False
+
+
+def test_episode_deadline_expiry_still_uses_root_semantic_reserve() -> None:
+    frame = _frame()
+    control = _control(frame)
+    base_context = build_episode_context(
+        frame,
+        task_id="adapter-root-semantic-reserve",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+
+    class ExpiredEpisodeDeadline:
+        synthesis_reserve = 0.0
+
+        @property
+        def expired(self) -> bool:
+            return True
+
+        def remaining(self) -> float:
+            return 0.0
+
+    context = replace(base_context, deadline=ExpiredEpisodeDeadline())
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="root-reserve-evidence",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=(OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+    class Runtime:
+        def run(self, *, task_frame, context, registry):
+            del task_frame, context, registry
+            return outcome
+
+    class Semantic:
+        calls = 0
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame
+            self.calls += 1
+            assert deadline.remaining() > 0
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    semantic = Semantic()
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=semantic,
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        timeout=60.0,
+        verification_reserve=15.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert semantic.calls == 1
+
+
+def test_root_deadline_expiry_prevents_semantic_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-expired-root-deadline",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="expired-root-evidence",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=(OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+    class ExpiredRootDeadline:
+        @property
+        def expired(self) -> bool:
+            return True
+
+        def remaining(self) -> float:
+            return 0.0
+
+    monkeypatch.setattr(
+        adapter_module.ResearchDeadline,
+        "from_timeout",
+        staticmethod(lambda *_args, **_kwargs: ExpiredRootDeadline()),
+    )
+
+    class Runtime:
+        def run(self, *, task_frame, context, registry):
+            del task_frame, context, registry
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise AssertionError("expired root deadline must skip semantic verification")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        timeout=60.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.private_artifact["failure"]["type"] == "TimeoutError"
 
 
 def test_cancellation_during_repair_prevents_a_second_cycle() -> None:

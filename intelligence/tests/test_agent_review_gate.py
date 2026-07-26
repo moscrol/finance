@@ -398,3 +398,30 @@ def test_composed_dual_lane_acceptance_through_repair_and_release(gate_case):
             reviewer_command=("false",),
         )
     assert locked.status == "LOCKED"
+
+
+def test_provisional_repair_cannot_override_external_changes_required(gate_case):
+    case, repo, state_root = gate_case
+    case.advance()
+    failed = case.submit(age_minutes=16)
+    case.verdict(
+        failed,
+        authority="external",
+        status="CHANGES_REQUIRED",
+        architecture_finding="same episode repair is incomplete",
+    )
+
+    case.advance()
+    repair = case.submit(
+        depends_on=(failed.review_id,),
+        intensity="milestone",
+        required_checks=("focused", f"repair:{failed.review_id}"),
+        supersedes=failed.review_id,
+    )
+    case.verdict(repair, authority="provisional")
+
+    decision = compute_gate(repo=repo, state_root=state_root)
+
+    assert decision.gate_state == "CHANGES_REQUIRED"
+    assert decision.allowed_next_action == "FIX"
+    assert decision.pending_review_id == failed.review_id

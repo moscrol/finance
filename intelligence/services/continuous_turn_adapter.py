@@ -337,6 +337,7 @@ class ContinuousTurnAdapter:
         semantic: SemanticEpisodeOutcome | None = None
         session: object | None = None
         repair_cycles = 0
+        semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
         try:
             root_timeout = self._remaining_timeout()
@@ -402,8 +403,31 @@ class ContinuousTurnAdapter:
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
             structural = structural_candidate
-            previous_snapshot = _empty_repair_snapshot(context)
-            current_snapshot = _repair_snapshot(outcome, structural, context)
+            episode_evidence_ledger = (
+                getattr(session, "evidence_ledger", None)
+                if session is not None
+                else None
+            )
+            if not isinstance(episode_evidence_ledger, EvidenceLedger):
+                episode_evidence_ledger = EvidenceLedger(
+                    information_cutoff=context.information_cutoff.as_of_date,
+                )
+            initial_snapshot = (
+                getattr(session, "initial_evidence_snapshot", None)
+                if session is not None
+                else None
+            )
+            previous_snapshot = (
+                initial_snapshot
+                if isinstance(initial_snapshot, EvidenceLedgerSnapshot)
+                else _empty_repair_snapshot(context)
+            )
+            current_snapshot = _repair_snapshot(
+                outcome,
+                structural,
+                context,
+                ledger=episode_evidence_ledger,
+            )
             max_repair_cycles = max_repair_cycles_for_tier(
                 context.contract.research_tier
             )
@@ -430,12 +454,21 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural = repaired
-                current_snapshot = _repair_snapshot(outcome, structural, context)
-                repair_cycles += 1
-                repair_terminal = outcome.stop_reason == "repair_deadline_exhausted"
+                current_snapshot = _repair_snapshot(
+                    outcome,
+                    structural,
+                    context,
+                    ledger=episode_evidence_ledger,
+                )
+                repair_terminal = outcome.stop_reason in {
+                    "repair_deadline_exhausted",
+                    "repair_model_stop",
+                }
+                if outcome.stop_reason != "repair_model_stop":
+                    repair_cycles += 1
             if self._is_cancelled():
                 return _cancelled_result()
-            if context.deadline.expired:
+            if root_deadline.expired:
                 raise TimeoutError("research deadline exhausted before semantic verification")
             semantic_candidate = self._semantic_verifier.verify(
                 frame=frame,
@@ -475,14 +508,24 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural = repaired
-                current_snapshot = _repair_snapshot(outcome, structural, context)
-                repair_cycles += 1
-                repair_terminal = outcome.stop_reason == "repair_deadline_exhausted"
+                current_snapshot = _repair_snapshot(
+                    outcome,
+                    structural,
+                    context,
+                    ledger=episode_evidence_ledger,
+                )
+                repair_terminal = outcome.stop_reason in {
+                    "repair_deadline_exhausted",
+                    "repair_model_stop",
+                }
+                if outcome.stop_reason != "repair_model_stop":
+                    repair_cycles += 1
                 if (
                     repair_terminal
                     or self._is_cancelled()
                     or context.deadline.expired
                 ):
+                    semantic_verifier_stale = True
                     break
                 semantic_candidate = self._semantic_verifier.verify(
                     frame=frame,
@@ -626,6 +669,9 @@ class ContinuousTurnAdapter:
             status = "failed"
         if not answer and final_outcome.evidence:
             answer = _episode_gap_answer(frame, structural)
+        semantic_verifier_stale = semantic_verifier_stale or (
+            semantic.verified.outcome.events != outcome.events
+        )
         artifact = {
             "schema_version": 1,
             "execution_kind": "continuous_episode",
@@ -636,6 +682,7 @@ class ContinuousTurnAdapter:
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
             "semantic_verifier": semantic.to_dict(),
+            "semantic_verifier_stale": semantic_verifier_stale,
             "repair_cycles": repair_cycles,
             "metrics": _episode_metrics(
                 outcome,
@@ -686,7 +733,10 @@ class ContinuousTurnAdapter:
             return None
         progress = progress_from_ledger(previous_snapshot, current_snapshot)
         remaining_calls = max(0, int(root_budget.remaining_calls))
-        remaining_seconds = max(0.0, float(root_budget.remaining_seconds))
+        remaining_seconds = min(
+            max(0.0, float(root_budget.remaining_seconds)),
+            max(0.0, float(context.deadline.remaining())),
+        )
         goal = build_repair_goal(
             episode_id=episode_id,
             missing_outputs=tuple(
@@ -729,7 +779,7 @@ def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapsho
         information_cutoff=context.information_cutoff.as_of_date,
     )
     for required in context.contract.required_outputs:
-        if required.required:
+        if required.required and required.grounding_mode == "evidence":
             ledger.open_gap(required.output_id)
     return ledger.snapshot()
 
@@ -738,8 +788,10 @@ def _repair_snapshot(
     outcome: AgentOutcome,
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
+    *,
+    ledger: EvidenceLedger | None = None,
 ) -> EvidenceLedgerSnapshot:
-    ledger = EvidenceLedger(
+    ledger = ledger or EvidenceLedger(
         information_cutoff=context.information_cutoff.as_of_date,
     )
     missing = set(structural.missing_outputs)
@@ -753,7 +805,7 @@ def _repair_snapshot(
         targets = tuple(targets_by_hash.get(item.content_hash, ()))
         ledger.append(item, covered_outputs=targets)
     for required in context.contract.required_outputs:
-        if not required.required:
+        if not required.required or required.grounding_mode != "evidence":
             continue
         if required.output_id in missing:
             ledger.open_gap(required.output_id)
@@ -765,11 +817,14 @@ def _repair_snapshot(
             for content_hash in binding.evidence_hashes
         )
         if flattened:
-            ledger.mark_output_covered(
+            covered = ledger.mark_output_covered(
                 required.output_id,
                 evidence_ids=flattened,
             )
-        ledger.close_gap(required.output_id)
+            if covered:
+                ledger.close_gap(required.output_id)
+                continue
+        ledger.open_gap(required.output_id)
     return ledger.snapshot()
 
 

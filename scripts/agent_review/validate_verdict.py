@@ -127,6 +127,7 @@ def validate_verdict(
     repo: Path,
     authority: Literal["external", "provisional"],
     current_tip: str | None = None,
+    expected_review_id: str | None = None,
 ) -> VerdictValidation:
     errors: list[str] = []
     expected_fields = {
@@ -148,7 +149,9 @@ def validate_verdict(
         errors.append("verdict_fields")
     if raw.get("schema_version") != 2:
         errors.append("schema_version")
-    if raw.get("review_id") != request.review_id:
+    if raw.get("review_id") != request.review_id or (
+        expected_review_id is not None and raw.get("review_id") != expected_review_id
+    ):
         errors.append("verdict_review_id")
     if raw.get("commit") != request.commit:
         errors.append("verdict_commit")
@@ -227,11 +230,21 @@ def validate_verdict_file(
     repo: Path,
     authority: Literal["external", "provisional"],
     current_tip: str | None = None,
+    expected_review_id: str | None = None,
 ) -> VerdictValidation:
     raw_verdict = _load_object(verdict_path)
     if raw_verdict is None:
         return VerdictValidation(False, "none", ("verdict_json",), "")
     review_id = str(raw_verdict.get("review_id", ""))
+    if expected_review_id is not None and review_id != expected_review_id:
+        return VerdictValidation(
+            False,
+            "none",
+            ("verdict_review_id",),
+            str(raw_verdict.get("status", "")),
+            review_id,
+            str(raw_verdict.get("commit", "")),
+        )
     request_path = state_root / "requests" / f"{review_id}.json"
     claim_path = state_root / "claims" / f"{review_id}.json"
     raw_request = _load_object(request_path)
@@ -272,6 +285,7 @@ def validate_verdict_file(
         repo=repo,
         authority=authority,
         current_tip=current_tip,
+        expected_review_id=expected_review_id,
     )
 
 

@@ -269,6 +269,8 @@ def test_glm_episode_session_resume_keeps_original_model_history() -> None:
 
     assert updated.events[: len(before_events)] == before_events
     assert any(event.kind == "model_turn" for event in updated.events[len(before_events) :])
+    assert updated.status == "partial"
+    assert updated.stop_reason == "repair_model_stop"
     second_messages = model.calls[1]["messages"]
     assert any("缺少行情证据" in str(message.get("content")) for message in second_messages)
     assert any("repair-episode-test-1" in str(message.get("content")) for message in second_messages)
@@ -411,6 +413,9 @@ def test_episode_session_resume_debits_model_and_tool_wall_time(
         context=context,
         registry=_market_registry(timed_runner),
     )
+    episode_evidence_ledger = session.evidence_ledger
+    assert episode_evidence_ledger.snapshot().evidence_ids == ()
+    assert session.initial_evidence_snapshot.open_gaps == ("direct_assessment",)
     updated = session.resume(
         RepairGoal(
             episode_id=context.contract.task_id,
@@ -427,7 +432,60 @@ def test_episode_session_resume_debits_model_and_tool_wall_time(
     )
 
     assert updated.stop_reason == "repair_model_finish"
+    assert session.evidence_ledger is episode_evidence_ledger
+    assert episode_evidence_ledger.snapshot().evidence_ids == (
+        "evidence-1",
+    )
     assert root_budget.remaining_calls == 1
+    assert root_budget.remaining_seconds == pytest.approx(8.5)
+
+
+def test_initial_episode_debits_model_and_tool_wall_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=1,
+        hard_calls_cap=1,
+        initial_seconds=10.0,
+        hard_seconds_cap=10.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(episode_tool_batch_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    calls = 0
+
+    class TimedInitialModel:
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools, timeout
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                now[0] += 0.4
+                return _tool_turn("检查行情", call_id="initial-timed-call")
+            now[0] += 0.6
+            return _finish_turn()
+
+    def timed_runner(query: str, tool_context: AgentToolContext):
+        now[0] += 0.5
+        return _successful_runner(query, tool_context)
+
+    outcome = GLMAgentRuntime(client=TimedInitialModel()).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(timed_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert root_budget.remaining_calls == 0
     assert root_budget.remaining_seconds == pytest.approx(8.5)
 
 

@@ -68,10 +68,11 @@ import pathlib
 import sys
 
 mode = sys.argv[1]
+test_state_root = pathlib.Path(sys.argv[2])
 request_path = pathlib.Path(os.environ["REQUEST_FILE"])
 claim_path = pathlib.Path(os.environ["CLAIM_FILE"])
 verdict_path = pathlib.Path(os.environ["VERDICT_FILE"])
-counter_path = pathlib.Path(os.environ["STATE_ROOT"]) / "invocations.txt"
+counter_path = test_state_root / "invocations.txt"
 count = int(counter_path.read_text()) if counter_path.exists() else 0
 counter_path.write_text(str(count + 1))
 if mode == "budget":
@@ -80,6 +81,9 @@ if mode == "budget":
 if mode == "assert_bundled":
     assert request_path.parent.name == ".agent-review"
     assert claim_path.parent.name == ".agent-review"
+if mode == "assert_isolated":
+    assert "STATE_ROOT" not in os.environ
+    assert "PRODUCER_REPO" not in os.environ
 request = json.loads(request_path.read_text())
 claim = json.loads(claim_path.read_text())
 checks = {
@@ -123,7 +127,7 @@ if mode == "changes":
         "recommendation": "fix forward",
     }]
 if mode == "mutate":
-    real_request = pathlib.Path(os.environ["STATE_ROOT"]) / "requests" / f"{request['review_id']}.json"
+    real_request = test_state_root / "requests" / f"{request['review_id']}.json"
     real_request.write_text(real_request.read_text() + "\\n")
 verdict_path.parent.mkdir(parents=True, exist_ok=True)
 verdict_path.write_text(json.dumps(payload))
@@ -131,7 +135,7 @@ verdict_path.write_text(json.dumps(payload))
             + "\n",
             encoding="utf-8",
         )
-        return (sys.executable, str(script), mode)
+        return (sys.executable, str(script), mode, str(state_root))
 
     return repo, state_root, request, fake_reviewer
 
@@ -215,6 +219,42 @@ def test_reviewer_receives_only_bundled_request_and_claim_paths(worker_case) -> 
     assert (state_root / "verdicts" / f"{request.review_id}.json").exists()
 
 
+def test_reviewer_environment_does_not_expose_authority_state(worker_case) -> None:
+    repo, state_root, request, fake_reviewer = worker_case
+
+    result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="assert_isolated"),
+    )
+
+    assert result.status == "VERDICT_WRITTEN"
+    assert (state_root / "verdicts" / f"{request.review_id}.json").exists()
+
+
+def test_default_reviewer_command_uses_no_tool_trusted_adapter(worker_case) -> None:
+    repo, state_root, request, _fake_reviewer = worker_case
+    adapter = state_root / "claude-oneshot-reviewer.py"
+    adapter.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+    command = worker_module._default_reviewer_command(
+        repo=repo,
+        state_root=state_root,
+        review_id=request.review_id,
+        commit=request.commit,
+        worktree=state_root / "detached",
+        request_path=state_root / "bundle/request.json",
+        claim_path=state_root / "bundle/claim.json",
+        verdict_path=state_root / "bundle/verdict.json",
+    )
+
+    assert command == (str(adapter),)
+    rendered = " ".join(command)
+    assert "acceptEdits" not in rendered
+    assert "Write" not in rendered
+    assert "Bash(" not in rendered
+
+
 def test_missing_reviewer_command_enters_transport_backoff(worker_case) -> None:
     repo, state_root, request, _fake_reviewer = worker_case
 
@@ -239,13 +279,13 @@ def test_worker_shutdown_terminates_reviewer_process_group(
     repo, state_root, request, _fake_reviewer = worker_case
     reviewer = tmp_path / "slow-reviewer.py"
     reviewer.write_text(
-        "import os, pathlib, time\n"
-        "pid = pathlib.Path(os.environ['STATE_ROOT'], 'reviewer.pid')\n"
+        "import os, pathlib, sys, time\n"
+        "pid = pathlib.Path(sys.argv[1], 'reviewer.pid')\n"
         "pid.write_text(str(os.getpid()))\n"
         "time.sleep(60)\n",
         encoding="utf-8",
     )
-    command = " ".join((sys.executable, str(reviewer)))
+    command = " ".join((sys.executable, str(reviewer), str(state_root)))
     worker = subprocess.Popen(
         (
             sys.executable,
@@ -304,10 +344,10 @@ def test_reviewer_timeout_kills_descendant_after_leader_exits(
     repo, state_root, request, _fake_reviewer = worker_case
     reviewer = tmp_path / "forking-reviewer.py"
     reviewer.write_text(
-        "import os, pathlib, time\n"
+        "import os, pathlib, sys, time\n"
         "child = os.fork()\n"
         "if child == 0:\n"
-        "    pid = pathlib.Path(os.environ['STATE_ROOT'], 'descendant.pid')\n"
+        "    pid = pathlib.Path(sys.argv[1], 'descendant.pid')\n"
         "    pid.write_text(str(os.getpid()))\n"
         "    time.sleep(60)\n"
         "    raise SystemExit(0)\n"
@@ -319,7 +359,7 @@ def test_reviewer_timeout_kills_descendant_after_leader_exits(
         result = run_once(
             repo=repo,
             state_root=state_root,
-            reviewer_command=(sys.executable, str(reviewer)),
+            reviewer_command=(sys.executable, str(reviewer), str(state_root)),
             timeout_seconds=0.2,
         )
         pid_path = state_root / "descendant.pid"
@@ -390,6 +430,53 @@ def test_invalid_reviewer_output_is_quarantined_not_published(worker_case):
     assert result.status == "INVALID_VERDICT"
     assert not (state_root / "verdicts" / f"{request.review_id}.json").exists()
     assert (state_root / "runs" / request.review_id / "invalid-verdict.json").exists()
+
+
+def test_verdict_for_older_review_cannot_be_published_as_current_frontier(
+    worker_case,
+    tmp_path: Path,
+) -> None:
+    repo, state_root, first, fake_reviewer = worker_case
+    first_result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="pass"),
+    )
+    assert first_result.status == "VERDICT_WRITTEN"
+    foreign_verdict = state_root / "verdicts" / f"{first.review_id}.json"
+
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 3\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "second slice")
+    second = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="second worker slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused",),
+        intensity="light",
+        depends_on=(first.review_id,),
+    )
+    copier = tmp_path / "copy-foreign-verdict.py"
+    copier.write_text(
+        "import os, pathlib, shutil, sys\n"
+        "shutil.copy2(sys.argv[1], pathlib.Path(os.environ['VERDICT_FILE']))\n",
+        encoding="utf-8",
+    )
+
+    result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=(sys.executable, str(copier), str(foreign_verdict)),
+    )
+
+    assert result.status == "INVALID_VERDICT"
+    assert result.review_id == second.review_id
+    assert "verdict_review_id" in result.detail
+    assert not (state_root / "verdicts" / f"{second.review_id}.json").exists()
+    assert (state_root / "runs" / second.review_id / "invalid-verdict.json").exists()
 
 
 def test_external_inactivity_can_create_provisional_only(worker_case):

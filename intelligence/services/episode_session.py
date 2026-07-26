@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
 from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.repair_coordinator import RepairGoal
 
 
@@ -15,6 +16,8 @@ class EpisodeSession(Protocol):
 
     episode_id: str
     outcome: AgentOutcome
+    evidence_ledger: EvidenceLedger
+    initial_evidence_snapshot: EvidenceLedgerSnapshot
 
     def resume(self, goal: RepairGoal) -> AgentOutcome: ...
 
@@ -38,6 +41,8 @@ class CallbackEpisodeSession:
         episode_id: str,
         outcome: AgentOutcome,
         resume_callback: Callable[[AgentOutcome, RepairGoal], AgentOutcome],
+        evidence_ledger: EvidenceLedger | None = None,
+        initial_evidence_snapshot: EvidenceLedgerSnapshot | None = None,
     ) -> None:
         self.episode_id = str(episode_id or "").strip()
         if not self.episode_id:
@@ -47,6 +52,10 @@ class CallbackEpisodeSession:
         if not callable(resume_callback):
             raise TypeError("resume_callback must be callable")
         self.outcome = outcome
+        self.evidence_ledger = evidence_ledger or EvidenceLedger()
+        self.initial_evidence_snapshot = (
+            initial_evidence_snapshot or self.evidence_ledger.snapshot()
+        )
         self._resume_callback = resume_callback
         self._closed = False
         self.resume_count = 0

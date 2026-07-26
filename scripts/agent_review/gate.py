@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal, Sequence
 
 from scripts.agent_review.contract import (
     ReviewRequest,
@@ -120,6 +120,7 @@ def _verdict_for(
         repo=repo,
         authority=authority,
         current_tip=tip,
+        expected_review_id=request.review_id,
     )
 
 
@@ -223,9 +224,6 @@ def compute_gate(
         )
 
     request_by_id = {request.review_id: request for request in requests}
-    superseded_review_ids = {
-        request.supersedes for request in requests if request.supersedes is not None
-    }
     sealed_ids: set[str] = set()
     latest_sealed_commit: str | None = None
     for request in requests:
@@ -266,7 +264,7 @@ def compute_gate(
         if (
             verdict is not None
             and verdict.status in {"CHANGES_REQUIRED", "BLOCKED"}
-            and request.review_id not in superseded_review_ids
+            and request.review_id not in sealed_ids
         ):
             blocking_request = request
             blocking_status = verdict.status

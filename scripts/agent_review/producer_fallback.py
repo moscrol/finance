@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from scripts.agent_review.contract import sha256_file
+from scripts.agent_review.contract import forbidden_artifact_paths, sha256_file
 from scripts.agent_review.gate import compute_gate, load_reachable_requests
 from scripts.agent_review.validate_verdict import validate_verdict_file
 from scripts.agent_review.worker import DEFAULT_REPO, DEFAULT_STATE_ROOT, WorkerResult
@@ -148,15 +148,7 @@ def _mechanical_checks(worktree: Path, request) -> tuple[dict[str, dict[str, str
         capture_output=True,
         text=True,
     ).stdout.splitlines()
-    forbidden = tuple(
-        path
-        for path in changed
-        if path.startswith(".env")
-        or Path(path).suffix.lower()
-        in {".db", ".duckdb", ".pdf", ".sqlite", ".sqlite3", ".zip"}
-        or "__pycache__" in Path(path).parts
-        or ".venv" in Path(path).parts
-    )
+    forbidden = forbidden_artifact_paths(changed)
     checks["artifact_hygiene"] = {
         "status": "FAIL" if forbidden else "PASS",
         "evidence": ", ".join(forbidden) if forbidden else "no forbidden artifacts",
@@ -345,7 +337,7 @@ def _run_fallback_locked(
                     "REQUEST_FILE": str(bundled_request),
                     "CLAIM_FILE": str(bundled_claim),
                     "VERDICT_FILE": str(candidate_path),
-                    "STATE_ROOT": str(state_root),
+                    "REVIEW_SCRATCH_DIR": str(bundle / "scratch"),
                 }
             )
             try:
@@ -397,8 +389,9 @@ def _run_fallback_locked(
             repo=repo,
             authority="provisional",
             current_tip=tip,
+            expected_review_id=review_id,
         )
-        if not validation.valid:
+        if not validation.valid or validation.review_id != review_id:
             _record_fallback_failure(
                 state_root,
                 review_id=review_id,
