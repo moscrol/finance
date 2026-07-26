@@ -295,7 +295,10 @@ class ResearchToolRegistry:
         if isinstance(arguments, str):
             raw: dict[str, object] = {"query": arguments}
         elif isinstance(arguments, Mapping):
-            raw = {str(key): value for key, value in arguments.items()}
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
         else:
             raise InvalidResearchToolArguments("tool arguments must be an object")
         try:

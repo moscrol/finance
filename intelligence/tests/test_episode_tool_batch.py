@@ -1221,7 +1221,7 @@ def test_timed_out_runner_cannot_publish_late_query_ledger_result() -> None:
     assert runner_calls == 2
 
 
-def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -> None:
+def test_calls_beyond_budget_preserve_model_submitted_order() -> None:
     ran: set[str] = set()
     ran_lock = Lock()
 
@@ -1251,7 +1251,7 @@ def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -
         remaining_slots=2,
     )
 
-    assert ran == {"web_search", "market_data"}
+    assert ran == {"web_search", "kb_search"}
     assert [item.call.call_id for item in result.items] == [
         "web-1",
         "kb-1",
@@ -1259,19 +1259,19 @@ def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -
     ]
     assert [item.status for item in result.items] == [
         "success",
-        "rejected",
         "success",
+        "rejected",
     ]
     assert result.items[0].observation is not None
     assert result.items[0].observation.trace.step_id == "tool-batch-test:episode:tool:1"
-    assert result.items[1].error == "tool_budget_exhausted"
-    assert result.items[1].step_id == "tool-batch-test:episode:tool:2"
-    assert result.items[2].observation is not None
-    assert result.items[2].observation.trace.step_id == "tool-batch-test:episode:tool:3"
+    assert result.items[1].observation is not None
+    assert result.items[1].observation.trace.step_id == "tool-batch-test:episode:tool:2"
+    assert result.items[2].error == "tool_budget_exhausted"
+    assert result.items[2].step_id == "tool-batch-test:episode:tool:3"
     assert result.executed_count == 2
     assert result.normalized_queries == (
         ("web_search", "public valuation"),
-        ("market_data", "market valuation"),
+        ("kb_search", "local valuation"),
     )
 
 

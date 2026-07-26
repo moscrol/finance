@@ -234,7 +234,7 @@ def _eligible_entries(
         ("反方", loop.counter_clues),
     ):
         for item in items:
-            key = (item.hit.file_path, item.hit.best_chunk_id)
+            key = _hit_identity(item.hit)
             if key in seen:
                 continue
             seen.add(key)
@@ -287,7 +287,14 @@ def _project_evidence(
 def _unique_bucket_count(
     items: Sequence[closed_loop_retrieval.BucketedHit],
 ) -> int:
-    return len({(item.hit.file_path, item.hit.best_chunk_id) for item in items})
+    return len({_hit_identity(item.hit) for item in items})
+
+
+def _hit_identity(hit: WikiHit) -> tuple[str, str]:
+    content_hash = str(hit.content_hash or "").strip()
+    if content_hash:
+        return ("content_hash", content_hash)
+    return ("source_chunk", f"{hit.file_path}#{hit.best_chunk_id}")
 
 
 def _all_bucket_hits(
@@ -302,7 +309,7 @@ def _all_bucket_hits(
         loop.discarded,
     ):
         for item in bucket:
-            key = (item.hit.file_path, item.hit.best_chunk_id)
+            key = _hit_identity(item.hit)
             if key in seen:
                 continue
             seen.add(key)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 from intelligence.services.entity_anchor import EntityAnchor
@@ -104,6 +105,33 @@ def test_same_chunk_from_two_apertures_becomes_one_evidence_item() -> None:
 
     assert len(result.evidence) == 1
     assert result.evidence[0].content_hash == "hash-same"
+
+
+def test_same_content_hash_from_two_paths_becomes_one_evidence_item() -> None:
+    canonical = _hit("canonical", "液冷证据", "液冷需求与产业链证据")
+    copied = replace(
+        _hit("copied", "液冷证据副本", "液冷需求与产业链证据"),
+        content_hash=canonical.content_hash,
+    )
+
+    def retrieve(query: str) -> WikiRagResult:
+        if "风险" in query:
+            return _response(query)
+        if "上下游" in query:
+            return _response(query, copied)
+        return _response(query, canonical)
+
+    result = EvidenceSearch(retrieve).search(
+        query="液冷需求",
+        anchor=None,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert len(result.evidence) == 1
+    assert result.evidence[0].source == "wiki/sources/canonical.md"
+    assert result.evidence[0].independent_key == "wiki/sources/canonical.md"
+    assert result.coverage.conclusion_count == 1
 
 
 def test_empty_search_returns_question_specific_gap() -> None:

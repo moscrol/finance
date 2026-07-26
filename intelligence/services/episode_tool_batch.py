@@ -19,7 +19,6 @@ from typing import Literal, cast
 
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
-from intelligence.services.episode_policy import tool_priority
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
     InvalidResearchToolArguments,
@@ -229,7 +228,6 @@ class EpisodeToolBatchSession:
 
         selected = self._select(
             candidates,
-            context=context,
             remaining_slots=remaining_slots,
         )
         selected_indexes = {candidate.index for candidate in selected}
@@ -314,27 +312,10 @@ class EpisodeToolBatchSession:
     def _select(
         candidates: list[_Candidate],
         *,
-        context: ResearchRunContext,
         remaining_slots: int,
     ) -> tuple[_Candidate, ...]:
         budget = min(MAX_BATCH_TOOL_CALLS, max(0, int(remaining_slots)))
-        priority = tool_priority(
-            context.contract.question_type,
-            context.contract.evidence_plan.mandatory_capabilities,
-        )
-        ranks = {name: index for index, name in enumerate(priority)}
-        default_rank = len(ranks)
-
-        def rank(candidate: _Candidate) -> tuple[int, int]:
-            return (
-                min(
-                    ranks.get(candidate.call.name, default_rank),
-                    ranks.get(candidate.spec.capability, default_rank),
-                ),
-                candidate.index,
-            )
-
-        return tuple(sorted(candidates, key=rank)[:budget])
+        return tuple(candidates[:budget])
 
     def _dispatch(
         self,

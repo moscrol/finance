@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
+import pytest
 
-from intelligence.services import l3_evidence
-from intelligence.services import episode_tools
+from intelligence.services import episode_tools, finance_query, l3_evidence
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import build_episode_registry
@@ -334,6 +334,134 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     assert structured.trace.served_date == "2026-07-24"
     assert searched.evidence[0].tool == "evidence_search"
     assert searched.trace.requested_date == "2026-07-24"
+
+
+def test_finance_query_invalid_semantic_field_returns_repairable_gap(
+    tmp_path: Path,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="finance-query-invalid-field",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["not_a_public_metric"],
+            "dimensions": ["trade_date"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [],
+            "limit": 5,
+        },
+        context=context,
+        step_id="finance-query-invalid-field:1",
+    )
+
+    assert observation.evidence == ()
+    assert observation.trace.status == "parse_error"
+    assert "invalid_query" in observation.trace.detail
+    assert "not_a_public_metric" in observation.observation
+    assert observation.gaps == (
+        "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试",
+    )
+
+
+@pytest.mark.parametrize(
+    ("failure", "failure_code", "expected_gap"),
+    [
+        (
+            finance_query.FinanceQueryTimedOut("physical sql timeout"),
+            "timeout",
+            "结构化查询超时；请缩小时间范围、字段或结果数量后重试",
+        ),
+        (
+            finance_query.FinanceQueryCancelled("cancelled"),
+            "cancelled",
+            "结构化查询被取消；如任务仍需该数据，请重新发起更窄的查询",
+        ),
+        (
+            finance_query.FinanceQueryLimitExceeded("byte limit"),
+            "limit_exceeded",
+            "结构化查询结果超过资源上限；请缩小时间范围、字段或结果数量后重试",
+        ),
+        (
+            finance_query.FinanceQueryExecutionError(
+                "missing physical table fact_market_daily"
+            ),
+            "request_error",
+            "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据",
+        ),
+    ],
+)
+def test_finance_query_runtime_failure_returns_safe_repairable_gap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    failure_code: str,
+    expected_gap: str,
+) -> None:
+    class FailingFinanceQuery:
+        def __init__(self, _path: Path) -> None:
+            pass
+
+        def run(self, *_args, **_kwargs):
+            raise failure
+
+    monkeypatch.setattr(episode_tools.finance_query, "FinanceQuery", FailingFinanceQuery)
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id=f"finance-query-{failure_code}",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct"],
+            "dimensions": ["trade_date"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [],
+            "limit": 5,
+        },
+        context=context,
+        step_id=f"finance-query-{failure_code}:1",
+    )
+
+    assert observation.evidence == ()
+    assert failure_code in observation.trace.detail
+    assert observation.gaps == (expected_gap,)
+    public_text = f"{observation.observation} {observation.trace.detail}"
+    assert "fact_market_daily" not in public_text
+    assert "physical sql" not in public_text
 
 
 def test_deterministic_fast_path_preserves_subsecond_timeout(monkeypatch) -> None:

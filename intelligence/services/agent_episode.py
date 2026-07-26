@@ -16,6 +16,7 @@ from intelligence.services.agent_runtime import (
     EpisodeStatus,
     ModelToolCall,
     ModelTurn,
+    OutputEvidenceBinding,
     public_agent_evidence,
 )
 from intelligence.services.episode_finalizer import (
@@ -709,18 +710,14 @@ class ContinuousAgentEpisode:
                 evidence=tuple(accumulator.evidence),
                 registry=registry,
             )
-            self._extend_unique(accumulator.gaps, final_gaps)
-            self._extend_unique(
-                accumulator.gaps,
-                tuple(item.gap for item in bindings),
-            )
+            current_gaps = self._finish_gaps(final_gaps, bindings)
             ledger.add(
                 "finish",
                 {
                     "status": status,
                     "stop_reason": "model_finish",
                     "bindings": [item.to_dict() for item in bindings],
-                    "gaps": list(final_gaps),
+                    "gaps": list(current_gaps),
                 },
             )
             return AgentOutcome(
@@ -729,7 +726,7 @@ class ContinuousAgentEpisode:
                 draft=draft,
                 evidence=tuple(accumulator.evidence),
                 traces=tuple(accumulator.traces),
-                gaps=tuple(accumulator.gaps),
+                gaps=current_gaps,
                 stop_reason="model_finish",
                 events=tuple(ledger.events),
                 bindings=bindings,
@@ -775,7 +772,11 @@ class ContinuousAgentEpisode:
         ledger.add("repair_goal", goal.to_dict())
         ledger.add(
             "repair_reentry",
-            {"repair_goal_id": goal.repair_goal_id, "cycle": goal.cycle},
+            {
+                "episode_id": goal.episode_id,
+                "repair_goal_id": goal.repair_goal_id,
+                "cycle": goal.cycle,
+            },
         )
         messages.append(
             {
@@ -974,28 +975,30 @@ class ContinuousAgentEpisode:
             evidence=tuple(accumulator.evidence),
             registry=registry,
         )
-        self._extend_unique(accumulator.gaps, finish.gaps)
-        self._extend_unique(accumulator.gaps, tuple(item.gap for item in bindings))
+        effective_status = finish.status if performed_tool_action else "partial"
+        current_gaps = self._finish_gaps(finish.gaps, bindings)
+        if not performed_tool_action and not current_gaps:
+            current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
         ledger.add(
             "finish",
             {
-                "status": finish.status if performed_tool_action else "partial",
+                "status": effective_status,
                 "stop_reason": (
                     "repair_model_finish"
                     if performed_tool_action
                     else "repair_model_stop"
                 ),
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(finish.gaps),
+                "gaps": list(current_gaps),
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
-            status=finish.status if performed_tool_action else "partial",
+            status=effective_status,
             draft=finish.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=tuple(accumulator.gaps),
+            gaps=current_gaps,
             stop_reason=(
                 "repair_model_finish" if performed_tool_action else "repair_model_stop"
             ),
@@ -1284,11 +1287,7 @@ class ContinuousAgentEpisode:
             evidence=tuple(accumulator.evidence),
             registry=registry,
         )
-        self._extend_unique(accumulator.gaps, final_gaps)
-        self._extend_unique(
-            accumulator.gaps,
-            tuple(item.gap for item in bindings),
-        )
+        current_gaps = self._finish_gaps(final_gaps, bindings)
         ledger.add(
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},
@@ -1299,7 +1298,7 @@ class ContinuousAgentEpisode:
                 "status": status,
                 "stop_reason": "finalization_recovered",
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(final_gaps),
+                "gaps": list(current_gaps),
             },
         )
         return AgentOutcome(
@@ -1308,7 +1307,7 @@ class ContinuousAgentEpisode:
             draft=draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=tuple(accumulator.gaps),
+            gaps=current_gaps,
             stop_reason="finalization_recovered",
             events=tuple(ledger.events),
             bindings=bindings,
@@ -1399,6 +1398,22 @@ class ContinuousAgentEpisode:
             cleaned = str(value or "").strip()
             if cleaned and cleaned not in target:
                 target.append(cleaned)
+
+    @staticmethod
+    def _finish_gaps(
+        declared_gaps: tuple[str, ...],
+        bindings: tuple[OutputEvidenceBinding, ...],
+    ) -> tuple[str, ...]:
+        """Project only currently unresolved gaps; history stays in events."""
+
+        values = (*declared_gaps, *(item.gap for item in bindings))
+        return tuple(
+            dict.fromkeys(
+                cleaned
+                for value in values
+                if (cleaned := str(value or "").strip())
+            )
+        )
 
     @staticmethod
     def _stopped_outcome(

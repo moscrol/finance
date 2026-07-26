@@ -1,22 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
+from pathlib import Path
 from threading import Event
 from uuid import UUID
 
+import duckdb
 import pytest
 
 import intelligence.services.continuous_turn_adapter as adapter_module
-from intelligence.services import ask_synthesis, llm_refine
+from intelligence.services import ask_synthesis, episode_tools, llm_refine
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
     EpisodeEvent,
+    ModelToolCall,
+    ModelTurn,
     OutputEvidenceBinding,
 )
 from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_session import CallbackEpisodeSession
 from intelligence.services.episode_verifier import (
@@ -24,6 +30,7 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.turn_control_core import TurnControlResult
@@ -365,6 +372,333 @@ def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:
     assert len(resume_goals) == 1
     assert resume_goals[0].unsupported_claims == ("claim_index:0",)
     assert result.private_artifact["repair_cycles"] == 1
+
+
+def test_real_episode_rewrites_typed_query_error_and_repairs_in_same_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_market_daily(
+            trade_date date,
+            market_stage varchar,
+            total_amount double,
+            sh_index_pct_chg double
+        )
+        """
+    )
+    connection.execute(
+        "insert into fact_market_daily values ('2026-07-24', '反弹阶段', 22000, 1.2)"
+    )
+    connection.close()
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir()
+
+    def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
+        is_counter = "风险" in query or "反方" in query
+        key = "counter" if is_counter else "support"
+        hit = WikiHit(
+            page_id=key,
+            file_path=f"wiki/sources/{key}.md",
+            title="市场反方证据" if is_counter else "市场结构支持证据",
+            score=0.9,
+            excerpt=(
+                "量能回落会削弱反弹持续性"
+                if is_counter
+                else "成交与指数同步修复支持阶段性反弹"
+            ),
+            best_chunk_id=f"{key}::0",
+            content_hash=f"{key}-content-hash",
+            source_date="2026-07-24",
+        )
+        return WikiRagResult(
+            ok=True,
+            hits=[hit],
+            telemetry=RetrievalTelemetry(status="ok", hit_count=1),
+            command=query,
+        )
+
+    monkeypatch.setattr(episode_tools.kb_rag, "retrieve", retrieve)
+
+    frame = replace(
+        _frame(
+            question_type="comparison",
+            required_outputs=("direct_assessment", "counterpoint"),
+        ),
+        raw_question="比较阶段性反弹与趋势反转两种解释",
+        user_goal="比较两种市场解释",
+    )
+    control = _control(frame, capabilities=())
+
+    class SameHistoryModel:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.saw_typed_gap_before_rewrite = False
+
+        @staticmethod
+        def _tool_payloads(messages) -> list[dict[str, object]]:
+            return [
+                json.loads(message["content"])
+                for message in messages
+                if message.get("role") == "tool"
+            ]
+
+        @staticmethod
+        def _hashes_by_tool(messages) -> dict[str, list[str]]:
+            hashes: dict[str, list[str]] = {}
+            for payload in SameHistoryModel._tool_payloads(messages):
+                if not payload.get("ok"):
+                    continue
+                hashes.setdefault(str(payload["tool"]), []).extend(
+                    str(item) for item in payload.get("evidence_hashes", [])
+                )
+            return hashes
+
+        def complete(self, *, messages, tools, timeout):
+            del timeout
+            self.calls.append({"messages": messages, "tools": tools})
+            call_number = len(self.calls)
+            if call_number == 1:
+                return ModelTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "invalid-finance",
+                            "finance_query",
+                            {
+                                "dataset": "market_daily",
+                                "metrics": ["not_a_public_metric"],
+                                "dimensions": ["trade_date"],
+                                "filters": [],
+                                "group_by": [],
+                                "order_by": [],
+                                "limit": 5,
+                            },
+                        ),
+                    ),
+                    "scripted",
+                    "",
+                )
+            if call_number == 2:
+                payloads = self._tool_payloads(messages)
+                self.saw_typed_gap_before_rewrite = any(
+                    "结构化查询条件无效" in " ".join(payload.get("gaps", []))
+                    and "not_a_public_metric" in str(payload.get("observation"))
+                    for payload in payloads
+                )
+                return ModelTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "valid-finance",
+                            "finance_query",
+                            {
+                                "dataset": "market_daily",
+                                "metrics": ["index_return_pct", "total_amount"],
+                                "dimensions": ["trade_date", "market_stage"],
+                                "filters": [],
+                                "time_range": {
+                                    "start": "2026-07-24",
+                                    "end": "2026-07-24",
+                                },
+                                "group_by": [],
+                                "order_by": [
+                                    {"field": "trade_date", "direction": "asc"}
+                                ],
+                                "limit": 5,
+                            },
+                        ),
+                        ModelToolCall(
+                            "support-search",
+                            "evidence_search",
+                            {"query": "A股市场结构支持"},
+                        ),
+                    ),
+                    "scripted",
+                    "",
+                )
+            hashes = self._hashes_by_tool(messages)
+            if call_number == 3:
+                direct_hashes = [
+                    *hashes.get("finance_query", []),
+                    *hashes.get("evidence_search", []),
+                ]
+                return ModelTurn(
+                    json.dumps(
+                        {
+                            "status": "partial",
+                            "draft": "当前判断偏阶段性修复，但反方证据仍缺。",
+                            "gaps": ["缺少反方证据"],
+                            "bindings": [
+                                {
+                                    "output_id": "direct_assessment",
+                                    "evidence_hashes": direct_hashes,
+                                    "gap": "",
+                                },
+                                {
+                                    "output_id": "counterpoint",
+                                    "evidence_hashes": [],
+                                    "gap": "缺少反方证据",
+                                },
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    (),
+                    "scripted",
+                    "",
+                )
+            if call_number == 4:
+                assert any(
+                    '"kind": "REPAIR_GOAL"' in str(message.get("content"))
+                    and '"episode_id": "integration-episode"'
+                    in str(message.get("content"))
+                    for message in messages
+                )
+                return ModelTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "counter-search",
+                            "evidence_search",
+                            {"query": "A股市场风险反方"},
+                        ),
+                    ),
+                    "scripted",
+                    "",
+                )
+            if call_number == 5:
+                evidence_hashes = hashes.get("evidence_search", [])
+                return ModelTurn(
+                    json.dumps(
+                        {
+                            "status": "completed",
+                            "draft": (
+                                "当前判断偏阶段性修复；主要反证是量能回落会削弱持续性。"
+                            ),
+                            "gaps": [],
+                            "bindings": [
+                                {
+                                    "output_id": "direct_assessment",
+                                    "evidence_hashes": [
+                                        *hashes.get("finance_query", []),
+                                        evidence_hashes[0],
+                                    ],
+                                    "gap": "",
+                                },
+                                {
+                                    "output_id": "counterpoint",
+                                    "evidence_hashes": [evidence_hashes[-1]],
+                                    "gap": "",
+                                },
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    (),
+                    "scripted",
+                    "",
+                )
+            raise AssertionError("unexpected model call")
+
+    class PassingSemanticVerifier:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status=structurally_verified.verified_status,
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    model = SameHistoryModel()
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=PassingSemanticVerifier(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=build_episode_context,
+        registry_factory=lambda frame, context: episode_tools.build_episode_registry(
+            frame,
+            context,
+            finance_root=finance_root,
+            knowledge_wiki=wiki_root,
+            l3_runner=None,
+            evidence_search_judge=lambda *_args: None,
+        ),
+        task_id_factory=lambda: "integration-episode",
+        timeout=60.0,
+        verification_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert model.saw_typed_gap_before_rewrite is True
+    assert result.private_artifact is not None
+    assert result.private_artifact["repair_cycles"] == 1
+    outcome = result.private_artifact["outcome"]
+    finance_traces = [
+        trace
+        for trace in result.private_artifact["traces"]
+        if trace["capability"] == "finance_query"
+    ]
+    tool_events = [
+        event
+        for event in result.private_artifact["events"]
+        if event["kind"] in {"tool_request", "tool_result", "tool_error"}
+        and (
+            event["payload"].get("name") == "finance_query"
+            or event["payload"].get("tool") == "finance_query"
+        )
+    ]
+    finance_event_summary = [
+        (
+            event["kind"],
+            event["payload"].get("error"),
+            event["payload"].get("query"),
+            event["payload"].get("gaps"),
+        )
+        for event in tool_events
+    ]
+    assert any(
+        trace["status"] == "success" for trace in finance_traces
+    ), finance_event_summary
+    assert {item["tool"] for item in outcome["evidence"]} == {
+        "finance_query",
+        "evidence_search",
+    }, result.private_artifact["traces"]
+    assert all(binding["evidence_hashes"] for binding in outcome["bindings"])
+    assert outcome["gaps"] == []
+    events = result.private_artifact["events"]
+    requested_tools = [
+        event["payload"]["name"]
+        for event in events
+        if event["kind"] == "tool_request"
+    ]
+    assert requested_tools == [
+        "finance_query",
+        "finance_query",
+        "evidence_search",
+        "evidence_search",
+    ]
+    repair_goal = next(event for event in events if event["kind"] == "repair_goal")
+    repair_reentry = next(
+        event for event in events if event["kind"] == "repair_reentry"
+    )
+    assert repair_goal["payload"]["episode_id"] == "integration-episode"
+    assert repair_goal["payload"]["missing_answer_elements"] == ["counterpoint"]
+    assert repair_reentry["payload"]["episode_id"] == "integration-episode"
+    assert (
+        repair_reentry["payload"]["repair_goal_id"]
+        == repair_goal["payload"]["repair_goal_id"]
+    )
+    assert repair_reentry["payload"]["cycle"] == 1
 
 
 def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> None:
@@ -1693,6 +2027,32 @@ def test_semantically_verified_partial_is_first_class_not_degraded() -> None:
     assert result.status == "partial"
     assert "持续性仍需补量能验证" in result.answer
     assert result.warnings == ()
+
+
+def test_structural_partial_artifact_exports_missing_output_reasons() -> None:
+    result = _scripted_episode_result(
+        semantic_status="partial",
+        public_answer="现有证据不足以完成直接判断。",
+        evidence=(),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (),
+                gap="仍缺同一窗口的结构化市场数据",
+            ),
+        ),
+        outcome_status="partial",
+        draft="现有证据不足以完成直接判断。",
+        judge_status="passed",
+    )
+
+    assert result.private_artifact is not None
+    assert result.private_artifact["metrics"]["structural_status"] == "partial"
+    structural = result.private_artifact["structural_verifier"]
+    assert structural["missing_outputs"] == ["direct_assessment"]
+    assert structural["completion"]["outputs"][0]["gap"] == (
+        "仍缺同一窗口的结构化市场数据"
+    )
 
 
 def test_no_answer_and_no_evidence_returns_failed() -> None:

@@ -349,12 +349,15 @@ def build_episode_registry(
                 raise finance_query.FinanceQueryValidationError(
                     "finance query input was not parsed"
                 )
-            result = query_engine.run(
-                value,
-                information_cutoff=context.information_cutoff,
-                deadline=tool_context.deadline,
-                is_cancelled=tool_context.is_cancelled,
-            )
+            try:
+                result = query_engine.run(
+                    value,
+                    information_cutoff=context.information_cutoff,
+                    deadline=tool_context.deadline,
+                    is_cancelled=tool_context.is_cancelled,
+                )
+            except finance_query.FinanceQueryError as exc:
+                return _finance_query_failure_result(value, exc)
             gaps = (
                 ()
                 if result.evidence
@@ -443,6 +446,49 @@ def build_episode_registry(
         )
 
     return ResearchToolRegistry(tuple(specs))
+
+
+def _finance_query_failure_result(
+    spec: finance_query.FinanceQuerySpec,
+    error: finance_query.FinanceQueryError,
+) -> ToolRunResult:
+    if isinstance(error, finance_query.FinanceQueryValidationError):
+        failure_code = "invalid_query"
+        status = "parse_error"
+        observation = f"结构化查询参数无效：{str(error)[:160]}"
+        gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+    elif isinstance(error, finance_query.FinanceQueryTimedOut):
+        failure_code = "timeout"
+        status = "request_error"
+        observation = "结构化查询超时，未返回可发布的数据"
+        gap = "结构化查询超时；请缩小时间范围、字段或结果数量后重试"
+    elif isinstance(error, finance_query.FinanceQueryCancelled):
+        failure_code = "cancelled"
+        status = "request_error"
+        observation = "结构化查询已取消，未返回可发布的数据"
+        gap = "结构化查询被取消；如任务仍需该数据，请重新发起更窄的查询"
+    elif isinstance(error, finance_query.FinanceQueryLimitExceeded):
+        failure_code = "limit_exceeded"
+        status = "request_error"
+        observation = "结构化查询结果超过资源上限，未返回截断数据"
+        gap = "结构化查询结果超过资源上限；请缩小时间范围、字段或结果数量后重试"
+    else:
+        failure_code = "request_error"
+        status = "request_error"
+        observation = "结构化数据源暂不可用，未返回可发布的数据"
+        gap = "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据"
+    return ToolRunResult(
+        evidence=(),
+        observation=observation,
+        trace=ProviderTrace(
+            provider="duckdb_semantic_query",
+            capability="finance_query",
+            status=status,
+            detail=f"dataset={spec.dataset}; failure={failure_code}",
+            result_count=0,
+        ),
+        gaps=(gap,),
+    )
 
 
 def run_deterministic_fast_path(
