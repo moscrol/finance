@@ -6,15 +6,18 @@ import unittest
 from datetime import datetime, timedelta
 from unittest import mock
 
+from intelligence.services import market_news
 from intelligence.services.market_news import (
     PROVIDER_EASTMONEY,
     PROVIDER_WEB,
     NewsItem,
+    NewsFetchResult,
     _normalize_time_text,
     _within_days,
     build_news_block,
     english_alias,
     fetch_eastmoney_news,
+    fetch_eastmoney_news_result,
     fetch_web_access_news,
     merge_news_items,
     news_block_for_keyword,
@@ -22,6 +25,7 @@ from intelligence.services.market_news import (
     parse_news_intent,
     resolve_news_keyword,
 )
+from intelligence.services.provider_observability import ProviderTrace
 
 
 class FetchTitleRelevanceFilterTests(unittest.TestCase):
@@ -38,6 +42,139 @@ class FetchTitleRelevanceFilterTests(unittest.TestCase):
             items = fetch_eastmoney_news("后量子密码")
         self.assertEqual(len(items), 1)
         self.assertIn("后量子密码", items[0].title)
+
+
+class EastmoneyQueryToleranceTests(unittest.TestCase):
+    @staticmethod
+    def _result(keyword: str, *items: NewsItem, status: str = "empty"):
+        return NewsFetchResult(
+            tuple(items),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="success" if items else status,
+                detail=f"scripted:{keyword}",
+                result_count=len(items),
+            ),
+        )
+
+    def test_natural_market_question_retries_simpler_keywords(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword == "A股":
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "证券时报",
+                        "A股市场缩量调整",
+                        "https://example.com/a",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls[:2], ["上周A股下跌原因", "A股下跌"])
+        self.assertIn("A股", calls)
+        self.assertLessEqual(len(calls), 4)
+        self.assertEqual([item.title for item in result.items], ["A股市场缩量调整"])
+        self.assertEqual(result.trace.status, "fallback_success")
+        self.assertIn("上周A股下跌原因", result.trace.detail)
+        self.assertIn("A股", result.trace.detail)
+
+    def test_explicit_compound_query_merges_single_keyword_results(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            items = {
+                "低空经济": NewsItem(
+                    "2026-07-24",
+                    "财联社",
+                    "低空经济政策推进",
+                    "https://example.com/low-altitude",
+                ),
+                "商业航天": NewsItem(
+                    "2026-07-23",
+                    "证券时报",
+                    "商业航天发射计划更新",
+                    "https://example.com/space",
+                ),
+            }
+            return self._result(keyword, *([items[keyword]] if keyword in items else []))
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "低空经济 商业航天",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls[:3], ["低空经济 商业航天", "低空经济", "商业航天"])
+        self.assertEqual(
+            [item.title for item in result.items],
+            ["低空经济政策推进", "商业航天发射计划更新"],
+        )
+        self.assertEqual(result.trace.status, "fallback_success")
+
+    def test_provider_error_does_not_trigger_query_fallback_storm(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            return self._result(keyword, status="request_error")
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls, ["上周A股下跌原因"])
+        self.assertEqual(result.trace.status, "request_error")
+
+    def test_fallback_merge_deduplicates_same_url_or_title(self) -> None:
+        duplicate = NewsItem(
+            "2026-07-24",
+            "财联社",
+            "共同标题",
+            "https://example.com/same",
+        )
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            if keyword in {"低空经济", "商业航天"}:
+                return self._result(keyword, duplicate)
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "低空经济 商业航天",
+                timeout=2.0,
+            )
+
+        self.assertEqual(len(result.items), 1)
 
 
 class ParseNewsIntentTests(unittest.TestCase):

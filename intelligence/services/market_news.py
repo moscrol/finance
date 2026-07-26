@@ -18,7 +18,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -110,12 +110,17 @@ def parse_news_intent(query: str) -> bool:
 # 从问句兼射关键词时要剥离的脚手架：时间窗口词 + 提问/意图词（确定性词面，非 NLP）。
 _QUERY_SCAFFOLD_RE = re.compile(
     r"(最近|近|过去)?\s*\d+\s*(天|个月|月|周|年)内?"
-    r"|最近|近期|目前|现在|今年|今天"
+    r"|最近|近期|目前|现在|今年|今天|本周|上周|这周|昨日|昨天|前日|上个交易日"
     r"|有什么|什么|哪些|有没有|是否|怎么样|如何|为什么"
     r"|实质|重大|重要|相关"
-    r"|催化|进展|消息|事件|新闻|资讯|发生了|变化|动态"
+    r"|催化|进展|消息|事件|新闻|资讯|发生了|变化|动态|原因|驱动|影响|逻辑"
     r"|[？?吗呢吧。，,、\s]"
 )
+_COMPOUND_QUERY_SPLIT_RE = re.compile(r"[\s、/|]+")
+_DIRECTION_SUFFIX_RE = re.compile(
+    r"(?:下跌|上涨|反弹|调整|回落|暴跌|大涨|走势|表现)$"
+)
+_MAX_EASTMONEY_FALLBACK_QUERIES = 3
 
 
 def _extract_query_keyword(query: str) -> str | None:
@@ -187,13 +192,125 @@ def fetch_eastmoney_news_result(
     return query_ledger.executed(
         "news_search",
         keyword,
-        lambda: _fetch_eastmoney_news_uncached(
+        lambda: _fetch_eastmoney_news_with_fallback(
             keyword,
             page_size=page_size,
             within_days=within_days,
             timeout=timeout,
         ),
         as_of=f"days={within_days};size={page_size}",
+    )
+
+
+def _eastmoney_fallback_keywords(query: str) -> tuple[str, ...]:
+    original = str(query or "").strip()
+    if not original:
+        return ()
+    candidates: list[str] = []
+
+    def add(value: str) -> None:
+        cleaned = str(value or "").strip()
+        if (
+            2 <= len(cleaned) <= 16
+            and cleaned != original
+            and cleaned not in candidates
+        ):
+            candidates.append(cleaned)
+
+    explicit_parts = tuple(
+        item.strip()
+        for item in _COMPOUND_QUERY_SPLIT_RE.split(original)
+        if item.strip()
+    )
+    if len(explicit_parts) > 1:
+        for part in explicit_parts:
+            add(_QUERY_SCAFFOLD_RE.sub("", part))
+    else:
+        simplified = _QUERY_SCAFFOLD_RE.sub("", original).strip()
+        add(simplified)
+        add(_DIRECTION_SUFFIX_RE.sub("", simplified))
+    return tuple(candidates[:_MAX_EASTMONEY_FALLBACK_QUERIES])
+
+
+def _fetch_eastmoney_news_with_fallback(
+    keyword: str,
+    *,
+    page_size: int,
+    within_days: int,
+    timeout: float,
+) -> NewsFetchResult:
+    configured_timeout = max(0.001, float(timeout))
+    started = time.monotonic()
+    attempted: list[str] = []
+
+    def fetch(candidate: str) -> NewsFetchResult | None:
+        remaining = configured_timeout - (time.monotonic() - started)
+        if remaining <= 0.001:
+            return None
+        attempted.append(candidate)
+        return _fetch_eastmoney_news_uncached(
+            candidate,
+            page_size=page_size,
+            within_days=within_days,
+            timeout=remaining,
+        )
+
+    original = str(keyword or "").strip()
+    first = fetch(original)
+    if first is None:
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="request_error",
+                detail="deadline exhausted before Eastmoney request",
+            ),
+        )
+    def attempted_detail() -> str:
+        return "queries=" + "|".join(attempted)
+    if first.items or first.trace.status != "empty":
+        return NewsFetchResult(
+            first.items,
+            replace(
+                first.trace,
+                detail=f"{first.trace.detail}; {attempted_detail()}".strip("; "),
+            ),
+        )
+
+    items: list[NewsItem] = []
+    last_trace = first.trace
+    for candidate in _eastmoney_fallback_keywords(original):
+        result = fetch(candidate)
+        if result is None:
+            break
+        last_trace = result.trace
+        if result.items:
+            items = merge_news_items(items, list(result.items))[:page_size]
+            if len(items) >= page_size:
+                break
+            continue
+        if result.trace.status != "empty":
+            break
+
+    if items:
+        status = "fallback_success"
+    elif last_trace.status != "empty":
+        status = last_trace.status
+    else:
+        status = "empty"
+    return NewsFetchResult(
+        tuple(items),
+        ProviderTrace(
+            provider=PROVIDER_EASTMONEY,
+            capability="directional_news",
+            status=status,
+            detail=(
+                f"Eastmoney title search; {attempted_detail()}; "
+                f"fallbacks={max(0, len(attempted) - 1)}"
+            ),
+            result_count=len(items),
+        ),
     )
 
 
