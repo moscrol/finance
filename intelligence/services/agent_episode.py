@@ -34,6 +34,7 @@ from intelligence.services.episode_tool_batch import (
     ToolBatchResult,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -193,6 +194,17 @@ class _EpisodeToolAccumulator:
                 self.gaps.append(cleaned)
 
 
+@dataclass
+class _EpisodeContinuationState:
+    task_frame: TaskFrame
+    context: ResearchRunContext
+    registry: ResearchToolRegistry
+    tool_session: EpisodeToolBatchSession
+    messages: list[dict[str, object]]
+    ledger: _EpisodeLedger
+    accumulator: _EpisodeToolAccumulator
+
+
 class ContinuousAgentEpisode:
     """Run a task without rebuilding the model's observable message history."""
 
@@ -223,6 +235,7 @@ class ContinuousAgentEpisode:
         task_frame: TaskFrame,
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> AgentOutcome:
         tool_session = self._tool_executor.new_session()
         if (
@@ -253,6 +266,18 @@ class ContinuousAgentEpisode:
             },
         ]
         accumulator = _EpisodeToolAccumulator(messages=messages, ledger=ledger)
+        if _continuation_sink is not None:
+            _continuation_sink.append(
+                _EpisodeContinuationState(
+                    task_frame=task_frame,
+                    context=context,
+                    registry=registry,
+                    tool_session=tool_session,
+                    messages=messages,
+                    ledger=ledger,
+                    accumulator=accumulator,
+                )
+            )
         finalization_started = False
         # max_steps counts finance-tool calls. Valid PLAN-only turns are
         # added on top of that bounded research budget.
@@ -655,6 +680,197 @@ class ContinuousAgentEpisode:
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+        )
+
+    def resume(
+        self,
+        state: _EpisodeContinuationState,
+        previous: AgentOutcome,
+        goal: RepairGoal,
+    ) -> AgentOutcome:
+        """Continue one captured provider history for a verifier repair goal."""
+
+        context = state.context
+        ledger = state.ledger
+        accumulator = state.accumulator
+        messages = state.messages
+        tool_session = state.tool_session
+        registry = state.registry
+        task_frame = state.task_frame
+        ledger.add("repair_goal", goal.to_dict())
+        ledger.add(
+            "repair_reentry",
+            {"repair_goal_id": goal.repair_goal_id, "cycle": goal.cycle},
+        )
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "kind": "REPAIR_GOAL",
+                        **goal.to_dict(),
+                        "instruction": (
+                            "保留最初任务、全部原始观察和当前工具账本。"
+                            "自主选择一个新的、未重复的动作补齐缺口；"
+                            "不得重启研究或改写用户问题。"
+                        ),
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+        llm_calls = previous.usage.llm_calls
+        tool_calls = previous.usage.tool_calls
+        invalid_actions = previous.usage.invalid_actions
+        timeout = context.deadline.stage_timeout(self._llm_timeout)
+        if timeout <= 0.001:
+            return self._stopped_outcome(
+                task_frame=task_frame,
+                status="partial" if accumulator.evidence else "failed",
+                stop_reason="repair_deadline_exhausted",
+                gap="修复阶段截止时间已到",
+                ledger=ledger,
+                evidence=accumulator.evidence,
+                traces=accumulator.traces,
+                gaps=accumulator.gaps,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+        definitions = self._available_tool_definitions(
+            tool_session=tool_session,
+            registry=registry,
+            context=context,
+        )
+        turn = self._model.complete(
+            messages=list(messages),
+            tools=definitions,
+            timeout=timeout,
+        )
+        llm_calls += turn.provider_attempts
+        ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
+        messages.append(self._assistant_message(turn))
+        if turn.error:
+            ledger.add("model_error", {"reason": turn.error})
+            return self._stopped_outcome(
+                task_frame=task_frame,
+                status="partial" if accumulator.evidence else "failed",
+                stop_reason="repair_model_unavailable",
+                gap=turn.error,
+                ledger=ledger,
+                evidence=accumulator.evidence,
+                traces=accumulator.traces,
+                gaps=accumulator.gaps,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+        if turn.tool_calls:
+            batch_started = monotonic()
+            batch = tool_session.execute(
+                turn.tool_calls,
+                registry=registry,
+                context=context,
+                remaining_slots=min(
+                    goal.remaining_calls,
+                    (
+                        int(context.root_budget.remaining_calls)
+                        if context.root_budget is not None
+                        else goal.remaining_calls
+                    ),
+                ),
+                is_cancelled=self._is_cancelled,
+            )
+            batch_elapsed = max(0.0, monotonic() - batch_started)
+            tool_calls += batch.executed_count
+            invalid_actions += accumulator.consume(batch, context)
+            if context.root_budget is not None and batch.executed_count:
+                seconds_per_call = batch_elapsed / batch.executed_count
+                for _ in range(batch.executed_count):
+                    context.root_budget.consume_call(seconds=seconds_per_call)
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "修复动作已执行。不得再调用工具；请基于同一 episode 的"
+                        "全部观察输出 FINAL_JSON，未补齐项继续明确写 gap。"
+                    ),
+                }
+            )
+            final_turn = self._model.complete(
+                messages=list(messages),
+                tools=[],
+                timeout=context.deadline.synthesis_timeout(self._llm_timeout),
+            )
+            llm_calls += final_turn.provider_attempts
+            ledger.add("model_turn", {"phase": "repair_finalize", **final_turn.to_dict()})
+            messages.append(self._assistant_message(final_turn))
+            turn = final_turn
+        if turn.error or turn.tool_calls:
+            invalid_actions += len(turn.tool_calls)
+            return self._stopped_outcome(
+                task_frame=task_frame,
+                status="partial" if accumulator.evidence else "failed",
+                stop_reason="invalid_repair_finish",
+                gap=turn.error or "修复终止阶段仍尝试调用工具",
+                ledger=ledger,
+                evidence=accumulator.evidence,
+                traces=accumulator.traces,
+                gaps=accumulator.gaps,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+        try:
+            finish = validate_episode_finish(
+                turn.content,
+                context=context,
+                evidence=tuple(accumulator.evidence),
+            )
+        except ValueError as exc:
+            invalid_actions += 1
+            ledger.add("invalid_action", {"reason": str(exc)})
+            return self._stopped_outcome(
+                task_frame=task_frame,
+                status="partial" if accumulator.evidence else "failed",
+                stop_reason="invalid_repair_finish",
+                gap="修复轮未返回可验证的 FINAL_JSON",
+                ledger=ledger,
+                evidence=accumulator.evidence,
+                traces=accumulator.traces,
+                gaps=accumulator.gaps,
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+        bindings = expand_episode_snapshot_bindings(
+            bindings=finish.bindings,
+            evidence=tuple(accumulator.evidence),
+            registry=registry,
+        )
+        self._extend_unique(accumulator.gaps, finish.gaps)
+        self._extend_unique(accumulator.gaps, tuple(item.gap for item in bindings))
+        ledger.add(
+            "finish",
+            {
+                "status": finish.status,
+                "stop_reason": "repair_model_finish",
+                "bindings": [item.to_dict() for item in bindings],
+                "gaps": list(finish.gaps),
+            },
+        )
+        return AgentOutcome(
+            task_frame_hash=task_frame.task_frame_hash,
+            status=finish.status,
+            draft=finish.draft,
+            evidence=tuple(accumulator.evidence),
+            traces=tuple(accumulator.traces),
+            gaps=tuple(accumulator.gaps),
+            stop_reason="repair_model_finish",
+            events=tuple(ledger.events),
+            bindings=bindings,
+            usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+            plan=ledger.plan,
         )
 
     @staticmethod

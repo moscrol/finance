@@ -9,7 +9,7 @@ verification gates.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 import os
 import re
@@ -19,6 +19,7 @@ from uuid import uuid4
 
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
+from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import (
@@ -30,6 +31,12 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
+from intelligence.services.repair_coordinator import (
+    build_repair_goal,
+    grant_for_progress,
+    max_repair_cycles_for_tier,
+    progress_from_ledger,
+)
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
@@ -328,6 +335,8 @@ class ContinuousTurnAdapter:
         outcome: AgentOutcome | None = None
         structural: VerifiedEpisodeOutcome | None = None
         semantic: SemanticEpisodeOutcome | None = None
+        session: object | None = None
+        repair_cycles = 0
         attempts_before = _ledger_attempt_count()
         try:
             root_timeout = self._remaining_timeout()
@@ -369,11 +378,16 @@ class ContinuousTurnAdapter:
             )
             if self._is_cancelled():
                 return _cancelled_result()
-            outcome_candidate = self._runtime.run(
-                task_frame=frame,
-                context=context,
-                registry=registry,
-            )
+            start = getattr(self._runtime, "start", None)
+            if callable(start):
+                session = start(frame, context=context, registry=registry)
+                outcome_candidate = getattr(session, "outcome", None)
+            else:
+                outcome_candidate = self._runtime.run(
+                    task_frame=frame,
+                    context=context,
+                    registry=registry,
+                )
             if not isinstance(outcome_candidate, AgentOutcome):
                 raise TypeError("runtime must return AgentOutcome")
             outcome = outcome_candidate
@@ -388,6 +402,32 @@ class ContinuousTurnAdapter:
                     "structural verifier must return VerifiedEpisodeOutcome"
                 )
             structural = structural_candidate
+            previous_snapshot = _empty_repair_snapshot(context)
+            current_snapshot = _repair_snapshot(outcome, structural, context)
+            max_repair_cycles = max_repair_cycles_for_tier(
+                context.contract.research_tier
+            )
+            while (
+                session is not None
+                and structural.missing_outputs
+                and repair_cycles < max_repair_cycles
+            ):
+                repaired = self._resume_for_gap(
+                    session=session,
+                    context=context,
+                    outcome=outcome,
+                    structural=structural,
+                    previous_snapshot=previous_snapshot,
+                    current_snapshot=current_snapshot,
+                    cycle=repair_cycles + 1,
+                    rejected_claims=(),
+                )
+                if repaired is None:
+                    break
+                previous_snapshot = current_snapshot
+                outcome, structural = repaired
+                current_snapshot = _repair_snapshot(outcome, structural, context)
+                repair_cycles += 1
             if self._is_cancelled():
                 return _cancelled_result()
             semantic_candidate = self._semantic_verifier.verify(
@@ -398,6 +438,45 @@ class ContinuousTurnAdapter:
             if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
                 raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
             semantic = semantic_candidate
+            while (
+                session is not None
+                and (
+                    semantic.gap_output_ids
+                    or semantic.rejected_claim_indexes
+                    or semantic.verified.missing_outputs
+                )
+                and repair_cycles < max_repair_cycles
+            ):
+                repaired = self._resume_for_gap(
+                    session=session,
+                    context=context,
+                    outcome=outcome,
+                    structural=semantic.verified,
+                    previous_snapshot=previous_snapshot,
+                    current_snapshot=current_snapshot,
+                    cycle=repair_cycles + 1,
+                    rejected_claims=tuple(
+                        f"claim_index:{index}"
+                        for index in semantic.rejected_claim_indexes
+                    ),
+                    semantic_gap_outputs=semantic.gap_output_ids,
+                )
+                if repaired is None:
+                    break
+                previous_snapshot = current_snapshot
+                outcome, structural = repaired
+                current_snapshot = _repair_snapshot(outcome, structural, context)
+                repair_cycles += 1
+                semantic_candidate = self._semantic_verifier.verify(
+                    frame=frame,
+                    structurally_verified=structural,
+                    deadline=root_deadline,
+                )
+                if not isinstance(semantic_candidate, SemanticEpisodeOutcome):
+                    raise TypeError(
+                        "semantic verifier must return SemanticEpisodeOutcome"
+                    )
+                semantic = semantic_candidate
             if self._is_cancelled():
                 return _cancelled_result()
         except Exception as exc:
@@ -540,6 +619,7 @@ class ContinuousTurnAdapter:
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
             "semantic_verifier": semantic.to_dict(),
+            "repair_cycles": repair_cycles,
             "metrics": _episode_metrics(
                 outcome,
                 attempts_before=attempts_before,
@@ -568,6 +648,118 @@ class ContinuousTurnAdapter:
                 runtime_name=self._runtime_name,
             ),
         )
+
+    def _resume_for_gap(
+        self,
+        *,
+        session: object,
+        context: ResearchRunContext,
+        outcome: AgentOutcome,
+        structural: VerifiedEpisodeOutcome,
+        previous_snapshot: EvidenceLedgerSnapshot,
+        current_snapshot: EvidenceLedgerSnapshot,
+        cycle: int,
+        rejected_claims: tuple[str, ...],
+        semantic_gap_outputs: tuple[str, ...] = (),
+    ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome] | None:
+        root_budget = context.root_budget
+        resume = getattr(session, "resume", None)
+        episode_id = str(getattr(session, "episode_id", "") or "").strip()
+        if root_budget is None or not callable(resume) or not episode_id:
+            return None
+        progress = progress_from_ledger(previous_snapshot, current_snapshot)
+        remaining_calls = max(
+            0,
+            int(root_budget.hard_calls_cap) - int(root_budget.initial_calls),
+        )
+        remaining_seconds = max(
+            0.0,
+            float(root_budget.hard_seconds_cap) - float(root_budget.initial_seconds),
+        )
+        goal = build_repair_goal(
+            episode_id=episode_id,
+            missing_outputs=tuple(
+                dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+            ),
+            missing_capabilities=structural.mandatory_missing_capabilities,
+            rejected_claims=rejected_claims,
+            attempted_actions=tuple(
+                f"{trace.capability}:{trace.provider}" for trace in outcome.traces
+            ),
+            previous_progress=progress,
+            remaining_calls=remaining_calls,
+            remaining_seconds=remaining_seconds,
+            cycle=cycle,
+        )
+        grant = grant_for_progress(
+            goal,
+            progress,
+            root_budget=root_budget,
+            research_tier=context.contract.research_tier,
+        )
+        if grant is None:
+            return None
+        granted_goal = replace(
+            goal,
+            remaining_calls=grant.calls_granted,
+            remaining_seconds=grant.seconds_granted,
+        )
+        candidate = resume(granted_goal)
+        if not isinstance(candidate, AgentOutcome):
+            raise TypeError("episode session resume must return AgentOutcome")
+        verified = self._structural_verifier(context.contract, candidate)
+        if not isinstance(verified, VerifiedEpisodeOutcome):
+            raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
+        return candidate, verified
+
+
+def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:
+    ledger = EvidenceLedger(
+        information_cutoff=context.information_cutoff.as_of_date,
+    )
+    for required in context.contract.required_outputs:
+        if required.required:
+            ledger.open_gap(required.output_id)
+    return ledger.snapshot()
+
+
+def _repair_snapshot(
+    outcome: AgentOutcome,
+    structural: VerifiedEpisodeOutcome,
+    context: ResearchRunContext,
+) -> EvidenceLedgerSnapshot:
+    ledger = EvidenceLedger(
+        information_cutoff=context.information_cutoff.as_of_date,
+    )
+    missing = set(structural.missing_outputs)
+    targets_by_hash: dict[str, list[str]] = {}
+    for binding in outcome.bindings:
+        if binding.gap or not binding.evidence_hashes:
+            continue
+        for content_hash in binding.evidence_hashes:
+            targets_by_hash.setdefault(content_hash, []).append(binding.output_id)
+    for item in outcome.evidence:
+        targets = tuple(targets_by_hash.get(item.content_hash, ()))
+        ledger.append(item, covered_outputs=targets)
+    for required in context.contract.required_outputs:
+        if not required.required:
+            continue
+        if required.output_id in missing:
+            ledger.open_gap(required.output_id)
+            continue
+        flattened = tuple(
+            content_hash
+            for binding in outcome.bindings
+            if binding.output_id == required.output_id and not binding.gap
+            for content_hash in binding.evidence_hashes
+        )
+        if flattened:
+            ledger.mark_output_covered(
+                required.output_id,
+                evidence_ids=flattened,
+            )
+        ledger.close_gap(required.output_id)
+    return ledger.snapshot()
 
 
 def _non_negative_int(value: object) -> int:

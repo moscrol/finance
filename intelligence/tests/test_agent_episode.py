@@ -7,6 +7,7 @@ from threading import Event, Lock
 import pytest
 
 from intelligence.services.agent_episode import ContinuousAgentEpisode
+from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
     ModelToolCall,
@@ -14,6 +15,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
     RequiredOutput,
@@ -227,6 +229,45 @@ def _finish_turn(
         "scripted",
         "",
     )
+
+
+def test_glm_episode_session_resume_keeps_original_model_history() -> None:
+    frame = _frame()
+    context = _context(frame, max_steps=1, allowed_capabilities=())
+    model = ScriptedModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            _finish_turn(status="partial", hashes=(), gap="仍缺少行情证据"),
+        ]
+    )
+    runtime = GLMAgentRuntime(client=model)
+
+    session = runtime.start(
+        frame,
+        context=context,
+        registry=ResearchToolRegistry(()),
+    )
+    before_events = session.outcome.events
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-1",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.events[: len(before_events)] == before_events
+    assert any(event.kind == "model_turn" for event in updated.events[len(before_events) :])
+    second_messages = model.calls[1]["messages"]
+    assert any("缺少行情证据" in str(message.get("content")) for message in second_messages)
+    assert any("repair-episode-test-1" in str(message.get("content")) for message in second_messages)
 
 
 class _ScriptedDeadline:

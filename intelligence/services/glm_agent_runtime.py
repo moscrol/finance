@@ -15,6 +15,7 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -425,6 +426,33 @@ class GLMAgentRuntime:
             task_frame=task_frame,
             context=context,
             registry=registry,
+        )
+
+    def start(
+        self,
+        task_frame: TaskFrame,
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+    ) -> EpisodeSession:
+        continuation = []
+        outcome = self._episode.run(
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            _continuation_sink=continuation,
+        )
+        if len(continuation) != 1:
+            raise RuntimeError("episode continuation state was not captured")
+        state = continuation[0]
+        return CallbackEpisodeSession(
+            episode_id=context.contract.task_id,
+            outcome=outcome,
+            resume_callback=lambda previous, goal: self._episode.resume(
+                state,
+                previous,
+                goal,
+            ),
         )
 
 

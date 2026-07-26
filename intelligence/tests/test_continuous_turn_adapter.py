@@ -16,6 +16,7 @@ from intelligence.services.agent_runtime import (
 from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+from intelligence.services.episode_session import CallbackEpisodeSession
 from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
@@ -156,6 +157,106 @@ def _scripted_episode_result(
         registry_factory=lambda *_args, **_kwargs: "registry",
         semantic_verifier=Semantic(),
     ).handle(frame=frame, control=control)
+
+
+def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None:
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-resume",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但反方仍待确认",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="resume-evidence-1",
+        supports=("direct_assessment", "counterpoint"),
+        independent_key="market",
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，但反方证据仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("resume-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复，但量能回落构成反方约束。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(*initial_events, EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash})),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("resume-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", ("resume-evidence-1",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    calls = {"start": 0, "resume": 0, "run": 0}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            calls["run"] += 1
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            calls["start"] += 1
+
+            def resume(previous, goal):
+                assert previous is initial
+                assert goal.episode_id == context.contract.task_id
+                calls["resume"] += 1
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert calls == {"start": 1, "resume": 1, "run": 0}
+    assert result.private_artifact["repair_cycles"] == 1
 
 
 def test_private_artifact_records_runtime_backend_without_public_leak() -> None:
