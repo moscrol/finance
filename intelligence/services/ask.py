@@ -1589,7 +1589,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             try:
                 observation = registry.execute(
                     tool_name,
-                    query,
+                    {},
                     context=context,
                     step_id=step_id,
                 )
@@ -1639,7 +1639,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         try:
             observation = registry.execute(
                 "mainline_context",
-                contract.question,
+                {},
                 context=context,
                 step_id=step_id,
             )
@@ -1687,11 +1687,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         try:
             observation = registry.execute(
                 "market_data",
-                (
-                    "预测问题的最新市场总览与最近交易日窗口"
-                    if contract.question_type == QUESTION_MARKET_FORECAST
-                    else "本周市场下跌的周内盘面窗口"
-                ),
+                {},
                 context=context,
                 step_id=f"{contract.task_id}:owner:prefetch",
             )

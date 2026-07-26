@@ -112,7 +112,7 @@ def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
 
     observation = registry.execute(
         "market_data",
-        "瑞华泰合理估值",
+        {},
         context=context,
         step_id="valuation-asof:1",
     )
@@ -149,7 +149,7 @@ def test_valuation_registry_exposes_structured_financial_anchor(
 
     observation = registry.execute(
         "financial_data",
-        "瑞华泰逐季财务",
+        {},
         context=context,
         step_id="valuation-financial-anchor:1",
     )
@@ -199,7 +199,7 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
 
     observation = registry.execute(
         "market_data",
-        "A股最新行情",
+        {},
         context=context,
         step_id="market-asof:1",
     )
@@ -210,7 +210,7 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     ]
     mainline = registry.execute(
         "mainline_context",
-        "A股当前主线",
+        {},
         context=context,
         step_id="market-asof:2",
     )

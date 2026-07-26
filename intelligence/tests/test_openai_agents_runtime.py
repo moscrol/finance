@@ -211,6 +211,101 @@ def test_sdk_runtime_exposes_only_authorized_tools_and_returns_outcome() -> None
     assert calls == ["A股 当前主线"]
 
 
+def test_sdk_runtime_preserves_typed_tool_schema_and_arguments() -> None:
+    frame = _frame()
+    received: list[dict[str, object]] = []
+    typed_schema = {
+        "type": "object",
+        "properties": {
+            "dataset": {"type": "string"},
+            "limit": {"type": "integer"},
+        },
+        "required": ["dataset", "limit"],
+        "additionalProperties": False,
+    }
+
+    def runner(value: object, _context: AgentToolContext):
+        assert isinstance(value, dict)
+        received.append(value)
+        evidence = AgentEvidence(
+            tool="finance_query",
+            title="市场结构",
+            detail="截至2026-07-24，上证指数当日上涨1.2%。",
+            source="本地结构化市场数据",
+            source_date="2026-07-24",
+            evidence_tier="L4_structured",
+            content_hash="finance-query-hash",
+        )
+        return (
+            [evidence],
+            evidence.detail,
+            ProviderTrace(
+                provider="test:finance_query",
+                capability="finance_query",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description="结构化金融查询",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                parameters=typed_schema,
+                parse_arguments=lambda arguments: (
+                    dict(arguments),
+                    str(arguments["dataset"]),
+                ),
+            ),
+        )
+    )
+    captured_schema: dict[str, object] = {}
+
+    def sdk_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        tool = request.tools[0]
+        captured_schema.update(tool.parameters)
+        observation = tool.invoke({"dataset": "market_daily", "limit": 5})
+        return AgentsSdkResult(
+            final_output=json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "截至2026-07-24，上证指数当日上涨1.2%。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": observation["evidence_hashes"],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            llm_calls=2,
+        )
+
+    OpenAIAgentsRuntime(
+        runner=sdk_runner,
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    ).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            allowed_capabilities=("finance_query",),
+        ),
+        registry=registry,
+    )
+
+    assert captured_schema == typed_schema
+    assert received == [{"dataset": "market_daily", "limit": 5}]
+
+
 def test_sdk_runtime_reserves_part_of_synthesis_budget_for_verifier() -> None:
     frame = _frame()
     captured: list[float] = []

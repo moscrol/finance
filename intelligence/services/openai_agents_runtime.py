@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from contextvars import Context, copy_context
 from dataclasses import dataclass
 import json
 from threading import Lock
 from typing import Literal, Protocol
 
-from intelligence.services import query_ledger
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentOutcome,
@@ -27,6 +26,8 @@ from intelligence.services.episode_protocol import (
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
+    InvalidResearchToolArguments,
+    PreparedToolArguments,
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
@@ -183,11 +184,13 @@ def build_glm_sdk_model_factory(
 class AgentsSdkTool:
     name: str
     description: str
-    invoke: Callable[[str], dict[str, object]]
+    parameters: Mapping[str, object]
+    invoke: Callable[[Mapping[str, object] | str], dict[str, object]]
 
     def __post_init__(self) -> None:
         if not self.name.strip() or not self.description.strip():
             raise ValueError("SDK tool identity must be non-empty")
+        object.__setattr__(self, "parameters", dict(self.parameters))
 
 
 @dataclass(frozen=True)
@@ -267,20 +270,15 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
                 value = json.loads(arguments)
             except json.JSONDecodeError:
                 value = None
-            query = value.get("query") if isinstance(value, dict) else None
-            result = await asyncio.to_thread(tool.invoke, query)
+            arguments_object = value if isinstance(value, dict) else {}
+            result = await asyncio.to_thread(tool.invoke, arguments_object)
             return json.dumps(result, ensure_ascii=False)
 
         function_tools.append(
             FunctionTool(
                 name=sdk_tool.name,
                 description=sdk_tool.description,
-                params_json_schema={
-                    "type": "object",
-                    "properties": {"query": {"type": "string", "minLength": 1}},
-                    "required": ["query"],
-                    "additionalProperties": False,
-                },
+                params_json_schema=dict(sdk_tool.parameters),
                 on_invoke_tool=invoke_tool,
                 strict_json_schema=True,
                 timeout_seconds=request.timeout,
@@ -382,22 +380,39 @@ class _AgentsRunState:
             AgentsSdkTool(
                 name=spec.name,
                 description=spec.description,
-                invoke=lambda query, name=spec.name: self.invoke(name, query),
+                parameters=spec.parameters,
+                invoke=lambda arguments, name=spec.name: self.invoke(
+                    name, arguments
+                ),
             )
             for spec in self._authorized.values()
         )
 
-    def invoke(self, name: str, raw_query: str) -> dict[str, object]:
+    def invoke(
+        self,
+        name: str,
+        raw_arguments: Mapping[str, object] | str,
+    ) -> dict[str, object]:
         with self._lock:
+            try:
+                prepared = self._registry.prepare(name, raw_arguments)
+            except (InvalidResearchToolArguments, ValueError) as exc:
+                error = (
+                    exc.code
+                    if isinstance(exc, InvalidResearchToolArguments)
+                    else "unknown_or_unauthorized_tool"
+                )
+                self._add_event("tool_error", {"tool": name, "error": error})
+                return {"status": "rejected", "tool": name, "error": error}
             request_event = self._add_event(
                 "tool_request",
-                {"tool": name, "query": str(raw_query or "")},
+                {"tool": name, "query": prepared.display_query},
             )
             step_id = (
                 f"{self._context.trace_parent_id}:sdk:tool:"
                 f"{request_event.sequence - 1}"
             )
-            rejected = self._reservation_error(name, raw_query)
+            rejected = self._reservation_error(name, prepared)
             if rejected is not None:
                 if rejected == _SDK_STAGE_CLOSED:
                     self._add_event(
@@ -414,9 +429,8 @@ class _AgentsRunState:
                     self._gaps.append(rejected)
                 self._add_event("tool_error", {"tool": name, "error": rejected})
                 return {"status": "rejected", "tool": name, "error": rejected}
-            query = raw_query.strip()
             spec = self._authorized[name]
-            normalized = query_ledger.normalize_query(query)
+            normalized = prepared.normalized_key
             self._seen_queries.add((name, normalized))
             self._executed_count += 1
 
@@ -424,7 +438,7 @@ class _AgentsRunState:
             observation = self._contextvars.copy().run(
                 self._registry.execute,
                 name,
-                query,
+                prepared,
                 context=self._context,
                 step_id=step_id,
                 is_cancelled=self._is_cancelled,
@@ -458,7 +472,11 @@ class _AgentsRunState:
                 duplicate_queries=self._duplicate_queries,
             )
 
-    def _reservation_error(self, name: str, raw_query: object) -> str | None:
+    def _reservation_error(
+        self,
+        name: str,
+        prepared: PreparedToolArguments,
+    ) -> str | None:
         if self._is_cancelled():
             return "cancelled"
         if self._context.deadline.expired:
@@ -468,9 +486,7 @@ class _AgentsRunState:
         spec = self._authorized.get(name)
         if spec is None:
             return "unknown_or_unauthorized_tool"
-        if not isinstance(raw_query, str) or not raw_query.strip():
-            return "invalid_query"
-        key = (name, query_ledger.normalize_query(raw_query))
+        key = (name, prepared.normalized_key)
         if key in self._seen_queries:
             self._duplicate_queries += 1
             return "duplicate_query"

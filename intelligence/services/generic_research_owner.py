@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date
-from typing import Callable
 
 from intelligence.services import (
     agent_research,
@@ -23,7 +22,8 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_state import ResearchGap, ResearchState, state_from_contract
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_state import ResearchGap, state_from_contract
 
 
 @dataclass(frozen=True)
@@ -385,9 +385,14 @@ def run_generic_research(
         ):
             nonlocal step_counter
             step_counter += 1
+            arguments: str | dict[str, object] = (
+                {}
+                if registry.resolve(name).query_scope == "episode"
+                else query
+            )
             observation = registry.execute(
                 name,
-                query,
+                arguments,
                 context=context,
                 step_id=f"{run_id}:owner:{step_counter}",
             )

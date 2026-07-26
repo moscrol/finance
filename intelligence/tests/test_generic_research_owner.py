@@ -966,7 +966,7 @@ def test_registry_definitions_only_expose_authorized_capabilities() -> None:
     assert function["description"] == "结构化行情"
     assert function["parameters"] == {
         "type": "object",
-        "properties": {"query": {"type": "string"}},
+        "properties": {"query": {"type": "string", "minLength": 1}},
         "required": ["query"],
         "additionalProperties": False,
     }

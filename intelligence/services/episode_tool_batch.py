@@ -22,6 +22,8 @@ from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.services.episode_policy import tool_priority
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
+    InvalidResearchToolArguments,
+    PreparedToolArguments,
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
@@ -63,7 +65,7 @@ class ToolBatchResult:
 class _Candidate:
     index: int
     call: ModelToolCall
-    query: str
+    prepared: PreparedToolArguments
     normalized_query: str
     spec: ToolSpec
 
@@ -185,20 +187,13 @@ class EpisodeToolBatchSession:
                     step_id=step_ids[index],
                 )
                 continue
-            if set(call.arguments) != {"query"}:
+            try:
+                prepared = registry.prepare(call.name, call.arguments)
+            except InvalidResearchToolArguments as exc:
                 items[index] = ToolCallResult(
                     call,
                     "rejected",
-                    error="invalid_arguments",
-                    step_id=step_ids[index],
-                )
-                continue
-            query = call.arguments["query"]
-            if not isinstance(query, str) or not query.strip():
-                items[index] = ToolCallResult(
-                    call,
-                    "rejected",
-                    error="invalid_query",
+                    error=exc.code,
                     step_id=step_ids[index],
                 )
                 continue
@@ -215,7 +210,7 @@ class EpisodeToolBatchSession:
                 )
                 continue
 
-            normalized = query_ledger.normalize_query(query)
+            normalized = prepared.normalized_key
             key = (call.name, normalized)
             if key in self._seen_queries or key in batch_queries:
                 items[index] = ToolCallResult(
@@ -228,7 +223,9 @@ class EpisodeToolBatchSession:
             if spec.query_scope == "episode":
                 batch_episode_tools.add(call.name)
             batch_queries.add(key)
-            candidates.append(_Candidate(index, call, query, normalized, spec))
+            candidates.append(
+                _Candidate(index, call, prepared, normalized, spec)
+            )
 
         selected = self._select(
             candidates,
@@ -362,7 +359,7 @@ class EpisodeToolBatchSession:
                 operation = partial(
                     registry.execute,
                     candidate.call.name,
-                    candidate.query,
+                    candidate.prepared,
                     context=context,
                     step_id=step_ids[candidate.index],
                     is_cancelled=is_cancelled,

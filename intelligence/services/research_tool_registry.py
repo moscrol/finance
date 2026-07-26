@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field, replace
+import json
 from typing import Literal
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
@@ -38,6 +39,66 @@ class UnknownResearchTool(ValueError):
     """LLM 选择了未注册工具。"""
 
 
+class InvalidResearchToolArguments(ValueError):
+    """模型给出的工具参数不满足该工具自己的接口。"""
+
+    def __init__(self, message: str, *, code: str = "invalid_arguments") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+QUERY_TOOL_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {"query": {"type": "string", "minLength": 1}},
+    "required": ["query"],
+    "additionalProperties": False,
+}
+EMPTY_TOOL_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+
+ToolInput = object
+ToolArgumentParser = Callable[
+    [Mapping[str, object]],
+    tuple[ToolInput, str],
+]
+
+
+def parse_query_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    if set(arguments) != {"query"}:
+        raise InvalidResearchToolArguments("expected one query argument")
+    query = arguments.get("query")
+    if not isinstance(query, str) or not query.strip():
+        raise InvalidResearchToolArguments(
+            "query must be a non-empty string",
+            code="invalid_query",
+        )
+    cleaned = query.strip()
+    return cleaned, cleaned
+
+
+def parse_snapshot_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    if arguments:
+        raise InvalidResearchToolArguments("snapshot tool accepts no arguments")
+    return "", "snapshot"
+
+
+@dataclass(frozen=True)
+class PreparedToolArguments:
+    tool: str
+    raw: Mapping[str, object]
+    runner_input: ToolInput
+    normalized_key: str
+    display_query: str
+
+
 @dataclass(frozen=True)
 class ToolObservation:
     tool: str
@@ -60,6 +121,10 @@ class ToolSpec:
     # ``episode`` means the tool returns one complete turn-scoped snapshot;
     # rewriting its query cannot produce a different evidence surface.
     query_scope: Literal["query", "episode"] = "query"
+    parameters: Mapping[str, object] = field(
+        default_factory=lambda: dict(QUERY_TOOL_PARAMETERS)
+    )
+    parse_arguments: ToolArgumentParser = parse_query_arguments
 
 
 class ResearchToolRegistry:
@@ -105,16 +170,59 @@ class ResearchToolRegistry:
                 "function": {
                     "name": spec.name,
                     "description": spec.description,
-                    "parameters": {
-                        "type": "object",
-                        "properties": {"query": {"type": "string"}},
-                        "required": ["query"],
-                        "additionalProperties": False,
-                    },
+                    "parameters": dict(spec.parameters),
                 },
             }
             for spec in self.authorized_specs(allowed)
         ]
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -> PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            raw = {str(key): value for key, value in arguments.items()}
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        try:
+            runner_input, display_query = spec.parse_arguments(raw)
+        except InvalidResearchToolArguments:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidResearchToolArguments(str(exc)) from exc
+        try:
+            canonical = json.dumps(
+                raw,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError) as exc:
+            raise InvalidResearchToolArguments(
+                "tool arguments must be JSON serializable"
+            ) from exc
+        normalized_key = (
+            query_ledger.normalize_query(display_query)
+            if set(raw) == {"query"} and isinstance(raw.get("query"), str)
+            else canonical
+        )
+        return PreparedToolArguments(
+            tool=spec.name,
+            raw=raw,
+            runner_input=runner_input,
+            normalized_key=normalized_key,
+            display_query=str(display_query or "").strip() or canonical,
+        )
 
     def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
         return "\n".join(
@@ -125,7 +233,7 @@ class ResearchToolRegistry:
     def execute(
         self,
         name: str,
-        query: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
         *,
         context: ResearchRunContext,
         step_id: str,
@@ -137,12 +245,13 @@ class ResearchToolRegistry:
                 f"能力未授权：{spec.capability}（工具 {spec.name}）"
             )
 
-        normalized = query_ledger.normalize_query(query)
+        prepared = self.prepare(name, arguments)
+        normalized = prepared.normalized_key
 
         def fetch() -> ToolObservation:
             evidence, observation, trace = agent_research._run_tool(
                 spec.runner,
-                query,
+                prepared.runner_input,
                 agent_research.AgentToolContext(
                     context.deadline,
                     is_cancelled or (lambda: False),
@@ -219,7 +328,7 @@ class ResearchToolRegistry:
             hashes = tuple(item.content_hash for item in evidence)
             return ToolObservation(
                 tool=spec.name,
-                query=normalized,
+                query=prepared.display_query,
                 evidence=tuple(evidence),
                 observation=observation,
                 trace=trace,
@@ -250,6 +359,16 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 "episode"
                 if name in {"market_data", "financial_data", "mainline_context"}
                 else "query"
+            ),
+            parameters=(
+                EMPTY_TOOL_PARAMETERS
+                if name in {"market_data", "financial_data", "mainline_context"}
+                else QUERY_TOOL_PARAMETERS
+            ),
+            parse_arguments=(
+                parse_snapshot_arguments
+                if name in {"market_data", "financial_data", "mainline_context"}
+                else parse_query_arguments
             ),
         )
         for name, (capability, description, freshness) in _DEFAULT_TOOL_METADATA.items()

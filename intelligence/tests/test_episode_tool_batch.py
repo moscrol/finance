@@ -27,6 +27,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
+    default_registry,
 )
 
 
@@ -113,6 +114,145 @@ def _registry(**overrides: Runner) -> ResearchToolRegistry:
             for name in ("web_search", "kb_search", "market_data")
         )
     )
+
+
+def test_tool_definitions_use_each_specs_own_json_schema() -> None:
+    typed_schema = {
+        "type": "object",
+        "properties": {
+            "dataset": {"type": "string"},
+            "limit": {"type": "integer"},
+        },
+        "required": ["dataset"],
+        "additionalProperties": False,
+    }
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="kb_search",
+                capability="kb_search",
+                description="query tool",
+                cost="local",
+                freshness="stable",
+                runner=lambda query, _context: _evidence_result(
+                    "kb_search", str(query)
+                ),
+            ),
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description="typed tool",
+                cost="local",
+                freshness="current",
+                runner=lambda value, _context: _evidence_result(
+                    "finance_query", str(value)
+                ),
+                parameters=typed_schema,
+                parse_arguments=lambda arguments: (
+                    dict(arguments),
+                    str(arguments["dataset"]),
+                ),
+            ),
+        )
+    )
+
+    definitions = registry.tool_definitions()
+
+    assert definitions[0]["function"]["parameters"] == {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 1}},
+        "required": ["query"],
+        "additionalProperties": False,
+    }
+    assert definitions[1]["function"]["parameters"] == typed_schema
+
+
+def test_snapshot_tool_schema_is_honestly_no_argument() -> None:
+    built = default_registry(
+        {
+            "market_data": lambda query, _context: _evidence_result(
+                "market_data", str(query)
+            )
+        }
+    )
+
+    definition = built.tool_definitions()[0]["function"]
+    assert definition["parameters"] == {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False,
+    }
+
+    result = ToolBatchExecutor().execute(
+        (ModelToolCall("snapshot-1", "market_data", {"query": "ignored"}),),
+        registry=built,
+        context=_context(allowed=("market_data",)),
+        remaining_slots=1,
+    )
+    assert result.items[0].status == "rejected"
+    assert result.items[0].error == "invalid_arguments"
+
+
+def test_structured_arguments_reach_runner_and_deduplicate_canonical_objects() -> None:
+    received: list[dict[str, object]] = []
+
+    def runner(value: object, _context: agent_research.AgentToolContext):
+        assert isinstance(value, dict)
+        received.append(value)
+        return _evidence_result("finance_query", str(value))
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description="typed query",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"type": "string"},
+                        "limit": {"type": "integer"},
+                    },
+                    "required": ["dataset", "limit"],
+                    "additionalProperties": False,
+                },
+                parse_arguments=lambda arguments: (
+                    dict(arguments),
+                    str(arguments["dataset"]),
+                ),
+            ),
+        )
+    )
+    context = _context(
+        allowed=("finance_query",),
+        mandatory=("finance_query",),
+    )
+
+    result = ToolBatchExecutor().execute(
+        (
+            ModelToolCall(
+                "typed-1",
+                "finance_query",
+                {"dataset": "market_daily", "limit": 10},
+            ),
+            ModelToolCall(
+                "typed-2",
+                "finance_query",
+                {"limit": 10, "dataset": "market_daily"},
+            ),
+        ),
+        registry=registry,
+        context=context,
+        remaining_slots=2,
+    )
+
+    assert received == [{"dataset": "market_daily", "limit": 10}]
+    assert result.items[0].status == "success"
+    assert result.items[1].status == "rejected"
+    assert result.items[1].error == "duplicate_query"
 
 
 def test_mandatory_market_call_starts_while_slow_web_is_listed_first() -> None:
