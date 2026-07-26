@@ -299,11 +299,17 @@ def test_submit_allocates_ids_under_one_state_root(review_repo, tmp_path: Path):
     }
 
     first = submit_request(**kwargs)
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 3\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "next review slice")
     second = submit_request(**kwargs, depends_on=(first.review_id,))
 
     assert first.review_id == "ARL-0001"
     assert second.review_id == "ARL-0002"
     assert second.depends_on == ("ARL-0001",)
+    assert second.parent_commit == first.commit
 
 
 def test_submit_cannot_bypass_latest_request_dependency(review_repo, tmp_path: Path):

@@ -153,17 +153,18 @@ def submit_request(
         if (
             latest_review_id is not None
             and latest_review_id not in dependency_tuple
-            and supersedes != latest_review_id
         ):
             raise ValueError(
-                f"new request must depend on or supersede latest request: {latest_review_id}"
+                f"new request must depend on latest request: {latest_review_id}"
             )
+        tip = git_output(repo, "rev-parse", "HEAD")
+        dependency_commits: dict[str, str] = {}
         for dependency in dependency_tuple:
             raw_dependency = _load_dependency(state_root, dependency)
             dependency_commit = str(raw_dependency.get("commit", ""))
-            tip = git_output(repo, "rev-parse", "HEAD")
             if not is_ancestor(repo, dependency_commit, tip):
                 raise ValueError(f"dependency commit is not on current branch: {dependency}")
+            dependency_commits[dependency] = dependency_commit
         if supersedes is not None:
             _load_dependency(state_root, supersedes)
             if intensity not in {"milestone", "release"}:
@@ -194,8 +195,12 @@ def submit_request(
                 )
 
         review_id = _next_review_id(request_dir)
-        commit = git_output(repo, "rev-parse", "HEAD")
-        parent_commit = git_output(repo, "rev-parse", "HEAD^1")
+        commit = tip
+        parent_commit = (
+            dependency_commits[max(dependency_tuple, key=_review_number)]
+            if dependency_commits
+            else git_output(repo, "rev-parse", "HEAD^1")
+        )
         branch = git_output(repo, "branch", "--show-current")
         if not branch:
             raise ValueError("cannot submit from a detached HEAD")
