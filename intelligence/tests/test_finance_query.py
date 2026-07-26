@@ -314,18 +314,28 @@ def test_timeout_interrupts_connection() -> None:
     assert time.monotonic() - started < 0.5
 
 
-def test_public_schema_contains_only_semantic_dataset_names() -> None:
-    branches = FINANCE_QUERY_PARAMETERS["oneOf"]
-    datasets = [
-        branch["properties"]["dataset"]["const"] for branch in branches
-    ]
+def test_public_schema_is_a_provider_compatible_semantic_object() -> None:
+    assert FINANCE_QUERY_PARAMETERS["type"] == "object"
+    assert "oneOf" not in FINANCE_QUERY_PARAMETERS
+    properties = FINANCE_QUERY_PARAMETERS["properties"]
+    datasets = properties["dataset"]["enum"]
     assert "market_daily" in datasets
     assert all(not str(name).startswith("fact_") for name in datasets)
-    stock_branch = next(
-        branch
-        for branch in branches
-        if branch["properties"]["dataset"]["const"] == "stock_daily"
+    assert set(FINANCE_QUERY_PARAMETERS["required"]) == {
+        "dataset",
+        "metrics",
+        "dimensions",
+    }
+    assert "filters" not in FINANCE_QUERY_PARAMETERS["required"]
+    assert "time_range" not in FINANCE_QUERY_PARAMETERS["required"]
+
+    minimal = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct"],
+            "dimensions": ["trade_date"],
+        }
     )
-    assert "limit_up" not in stock_branch["properties"]["metrics"]["items"][
-        "enum"
-    ]
+    assert minimal.dataset == "market_daily"
+    assert minimal.filters == ()
+    assert minimal.time_range is None

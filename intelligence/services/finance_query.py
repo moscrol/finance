@@ -486,11 +486,85 @@ def _dataset_query_schema(
     }
 
 
+_PUBLIC_DATASETS = sorted(_DATASETS)
+_PUBLIC_DIMENSIONS = sorted(
+    {field for dataset in _DATASETS.values() for field in dataset.dimensions}
+)
+_PUBLIC_METRICS = sorted(
+    {field for dataset in _DATASETS.values() for field in dataset.metrics}
+)
+_PUBLIC_FIELDS = sorted({*_PUBLIC_DIMENSIONS, *_PUBLIC_METRICS})
+
+
+# Keep the provider-facing schema orthogonal and shallow.  Dataset-specific
+# field compatibility remains a code-owned invariant in ``FinanceQuerySpec``
+# and ``_compile_query``; duplicating every dataset as a top-level ``oneOf``
+# made the function schema large enough that compatible providers could emit an
+# empty argument object instead of a query.
 FINANCE_QUERY_PARAMETERS: dict[str, object] = {
-    "oneOf": [
-        _dataset_query_schema(name, dataset)
-        for name, dataset in _DATASETS.items()
-    ]
+    "type": "object",
+    "properties": {
+        "dataset": {"type": "string", "enum": _PUBLIC_DATASETS},
+        "metrics": {
+            "type": "array",
+            "items": {"type": "string", "enum": _PUBLIC_METRICS},
+            "uniqueItems": True,
+        },
+        "dimensions": {
+            "type": "array",
+            "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
+            "uniqueItems": True,
+        },
+        "filters": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field": {"type": "string", "enum": _PUBLIC_FIELDS},
+                    "op": {
+                        "type": "string",
+                        "enum": sorted(_FILTER_OPERATORS),
+                    },
+                    "value": {
+                        "description": "字符串、数字、布尔值或这些标量的数组"
+                    },
+                },
+                "required": ["field", "op", "value"],
+                "additionalProperties": False,
+            },
+        },
+        "time_range": {
+            "type": "object",
+            "properties": {
+                "start": {"type": "string"},
+                "end": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+        "group_by": {
+            "type": "array",
+            "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
+            "uniqueItems": True,
+        },
+        "order_by": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field": {"type": "string", "enum": _PUBLIC_FIELDS},
+                    "direction": {
+                        "type": "string",
+                        "enum": ["asc", "desc"],
+                    },
+                },
+                "required": ["field", "direction"],
+                "additionalProperties": False,
+            },
+        },
+        "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    },
+    "required": ["dataset", "metrics", "dimensions"],
+    "additionalProperties": False,
 }
 
 

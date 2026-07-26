@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date
 
 from intelligence.services import agent_research
 from intelligence.services.agent_research import (
@@ -10,7 +11,7 @@ from intelligence.services.agent_research import (
     should_run,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
 from intelligence.services.research_state import ResearchState
 
@@ -198,6 +199,41 @@ def test_structured_evidence_can_inherit_block_snapshot_date() -> None:
         "2026-07-23",
         "2026-07-23",
     ]
+
+
+def test_default_news_tool_passes_the_episode_information_cutoff(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_news(query: str, **kwargs):
+        captured["query"] = query
+        captured["as_of"] = kwargs.get("as_of")
+        return agent_research.market_news.NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider="东财",
+                capability="directional_news",
+                status="empty",
+            ),
+        )
+
+    monkeypatch.setattr(
+        agent_research.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    tools = agent_research.build_default_tools(lambda *_args, **_kwargs: object())
+    context = agent_research.AgentToolContext(
+        ResearchDeadline.from_timeout(5.0),
+        lambda: False,
+        InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+
+    tools["news_search"]("A股下跌原因", context)
+
+    assert captured == {
+        "query": "A股下跌原因",
+        "as_of": date(2026, 7, 24),
+    }
 
 
 def test_tool_action_binds_evidence_to_known_hypothesis() -> None:

@@ -93,6 +93,39 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
         self.assertIn("上周A股下跌原因", result.trace.detail)
         self.assertIn("A股", result.trace.detail)
 
+    def test_spaced_market_query_keeps_anchor_and_direction_together(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword == "A股调整":
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "证券时报",
+                        "A股下跌原因复盘",
+                        "https://example.com/market-cause",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "A股 本周 下跌 原因 2026年7月",
+                timeout=2.0,
+            )
+
+        self.assertEqual(
+            calls[:3],
+            ["A股 本周 下跌 原因 2026年7月", "A股下跌", "A股调整"],
+        )
+        self.assertEqual([item.title for item in result.items], ["A股下跌原因复盘"])
+
     def test_explicit_compound_query_merges_single_keyword_results(self) -> None:
         calls: list[str] = []
 
@@ -175,6 +208,61 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
             )
 
         self.assertEqual(len(result.items), 1)
+
+    def test_historical_cutoff_pages_until_it_finds_eligible_news(self) -> None:
+        calls: list[tuple[str, int]] = []
+
+        def fake_fetch(keyword: str, **kwargs) -> NewsFetchResult:
+            page_index = int(kwargs.get("page_index", 1))
+            calls.append((keyword, page_index))
+            if keyword != "A股":
+                return self._result(keyword)
+            if page_index == 1:
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-27 09:00:00",
+                        "证券时报",
+                        "A股最新动态",
+                        "https://example.com/future",
+                    ),
+                )
+            return self._result(
+                keyword,
+                NewsItem(
+                    "2026-07-24 15:00:00",
+                    "证券时报",
+                    "A股7月24日缩量调整",
+                    "https://example.com/cutoff",
+                ),
+                NewsItem(
+                    "2026-07-23 15:00:00",
+                    "财联社",
+                    "A股7月23日盘面复盘",
+                    "https://example.com/prior",
+                ),
+            )
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+                as_of="2026-07-24",
+            )
+
+        self.assertIn(("A股", 1), calls)
+        self.assertIn(("A股", 2), calls)
+        self.assertEqual(
+            [item.date[:10] for item in result.items],
+            ["2026-07-24", "2026-07-23"],
+        )
+        self.assertEqual(result.trace.status, "fallback_success")
+        self.assertEqual(result.trace.requested_date, "2026-07-24")
+        self.assertIn("pages=2", result.trace.detail)
 
 
 class ParseNewsIntentTests(unittest.TestCase):

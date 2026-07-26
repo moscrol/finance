@@ -19,7 +19,7 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
@@ -42,6 +42,8 @@ _ALIAS_PATH = Path(__file__).resolve().parents[1] / "data" / "news_keyword_alias
 
 DEFAULT_PAGE_SIZE = 8
 DEFAULT_WITHIN_DAYS = 90
+_HISTORICAL_EASTMONEY_PAGE_SIZE = 50
+_MAX_HISTORICAL_EASTMONEY_PAGES = 4
 
 # 命中即触发（确定性词面）：事件/消息面/催化/横向联想类问题。
 _NEWS_TERMS = (
@@ -120,6 +122,13 @@ _COMPOUND_QUERY_SPLIT_RE = re.compile(r"[\s、/|]+")
 _DIRECTION_SUFFIX_RE = re.compile(
     r"(?:下跌|上涨|反弹|调整|回落|暴跌|大涨|走势|表现)$"
 )
+_DIRECTION_PROVIDER_ALIAS = {
+    "下跌": "调整",
+    "暴跌": "下跌",
+    "回落": "调整",
+    "上涨": "走强",
+    "大涨": "上涨",
+}
 _MAX_EASTMONEY_FALLBACK_QUERIES = 3
 
 
@@ -168,14 +177,54 @@ def resolve_news_keyword(
     return _extract_query_keyword(query_text)
 
 
-def _within_days(date_str: str, within_days: int) -> bool:
+def _within_days(
+    date_str: str,
+    within_days: int,
+    *,
+    reference_date: date | None = None,
+) -> bool:
     if within_days <= 0:
         return True
     try:
         dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
     except ValueError:
         return True  # 日期不可解析时保留，交由上层展示原始日期
-    return dt >= datetime.now() - timedelta(days=within_days)
+    reference = datetime.combine(reference_date, datetime.min.time()) if reference_date else datetime.now()
+    return dt >= reference - timedelta(days=within_days)
+
+
+def _parse_cutoff(value: date | str | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError as exc:
+        raise ValueError("news as_of must be an ISO date") from exc
+
+
+def _news_at_or_before_cutoff(
+    items: tuple[NewsItem, ...],
+    *,
+    cutoff: date,
+    within_days: int,
+) -> tuple[tuple[NewsItem, ...], int]:
+    eligible: list[NewsItem] = []
+    future_count = 0
+    earliest = cutoff - timedelta(days=max(0, within_days))
+    for item in items:
+        try:
+            item_date = date.fromisoformat(str(item.date)[:10])
+        except ValueError:
+            continue
+        if item_date > cutoff:
+            future_count += 1
+            continue
+        if within_days > 0 and item_date < earliest:
+            continue
+        eligible.append(item)
+    return tuple(eligible), future_count
 
 
 def fetch_eastmoney_news_result(
@@ -183,12 +232,15 @@ def fetch_eastmoney_news_result(
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
+    *,
+    as_of: date | str | None = None,
 ) -> NewsFetchResult:
     """东财全文资讯搜索（经 turn 级 QueryLedger 去重），保留 provider 失败原因。
 
     同 turn 内 agent news_search 与 W7 事件块对同一关键词的重复抓取只真实
     执行一次；无活动账本时行为不变。within_days/page_size 入 key 的 as_of
     维度，避免不同窗口参数误共享结果。"""
+    cutoff = _parse_cutoff(as_of)
     return query_ledger.executed(
         "news_search",
         keyword,
@@ -197,8 +249,12 @@ def fetch_eastmoney_news_result(
             page_size=page_size,
             within_days=within_days,
             timeout=timeout,
+            as_of=cutoff,
         ),
-        as_of=f"days={within_days};size={page_size}",
+        as_of=(
+            f"cutoff={cutoff.isoformat() if cutoff else 'current'};"
+            f"days={within_days};size={page_size}"
+        ),
     )
 
 
@@ -223,12 +279,38 @@ def _eastmoney_fallback_keywords(query: str) -> tuple[str, ...]:
         if item.strip()
     )
     if len(explicit_parts) > 1:
+        cleaned_parts = tuple(
+            _QUERY_SCAFFOLD_RE.sub("", part).strip()
+            for part in explicit_parts
+        )
+        anchors = tuple(
+            part
+            for part in cleaned_parts
+            if 2 <= len(part) <= 12
+            and not _DIRECTION_SUFFIX_RE.fullmatch(part)
+            and not re.fullmatch(r"\d{4}年\d{1,2}月", part)
+        )
+        directions = tuple(
+            part
+            for part in cleaned_parts
+            if _DIRECTION_SUFFIX_RE.fullmatch(part)
+        )
+        if anchors and directions:
+            add(anchors[0] + directions[0])
+            alias = _DIRECTION_PROVIDER_ALIAS.get(directions[0])
+            if alias:
+                add(anchors[0] + alias)
         for part in explicit_parts:
             add(_QUERY_SCAFFOLD_RE.sub("", part))
     else:
         simplified = _QUERY_SCAFFOLD_RE.sub("", original).strip()
         add(simplified)
-        add(_DIRECTION_SUFFIX_RE.sub("", simplified))
+        anchor = _DIRECTION_SUFFIX_RE.sub("", simplified)
+        direction = simplified[len(anchor) :]
+        alias = _DIRECTION_PROVIDER_ALIAS.get(direction)
+        if anchor and alias:
+            add(anchor + alias)
+        add(anchor)
     return tuple(candidates[:_MAX_EASTMONEY_FALLBACK_QUERIES])
 
 
@@ -238,21 +320,77 @@ def _fetch_eastmoney_news_with_fallback(
     page_size: int,
     within_days: int,
     timeout: float,
+    as_of: date | None = None,
 ) -> NewsFetchResult:
     configured_timeout = max(0.001, float(timeout))
     started = time.monotonic()
     attempted: list[str] = []
 
     def fetch(candidate: str) -> NewsFetchResult | None:
-        remaining = configured_timeout - (time.monotonic() - started)
-        if remaining <= 0.001:
-            return None
         attempted.append(candidate)
-        return _fetch_eastmoney_news_uncached(
-            candidate,
-            page_size=page_size,
-            within_days=within_days,
-            timeout=remaining,
+        max_pages = _MAX_HISTORICAL_EASTMONEY_PAGES if as_of is not None else 1
+        fetch_size = (
+            max(page_size, _HISTORICAL_EASTMONEY_PAGE_SIZE)
+            if as_of is not None
+            else page_size
+        )
+        future_count = 0
+        last_trace: ProviderTrace | None = None
+        for page_index in range(1, max_pages + 1):
+            remaining = configured_timeout - (time.monotonic() - started)
+            if remaining <= 0.001:
+                return None
+            result = _fetch_eastmoney_news_uncached(
+                candidate,
+                page_size=fetch_size,
+                within_days=within_days,
+                timeout=remaining,
+                page_index=page_index,
+                as_of=as_of,
+            )
+            last_trace = result.trace
+            if as_of is None or not result.items:
+                return result
+            eligible, rejected_future = _news_at_or_before_cutoff(
+                result.items,
+                cutoff=as_of,
+                within_days=within_days,
+            )
+            future_count += rejected_future
+            if eligible:
+                return NewsFetchResult(
+                    eligible[:page_size],
+                    replace(
+                        result.trace,
+                        status="success",
+                        detail=(
+                            f"{result.trace.detail}; pages={page_index}; "
+                            f"future_of_cutoff={future_count}"
+                        ),
+                        source_trade_date=eligible[0].date[:10],
+                        requested_date=as_of.isoformat(),
+                        result_count=min(len(eligible), page_size),
+                    ),
+                )
+            if rejected_future == 0:
+                break
+        trace = last_trace or ProviderTrace(
+            provider=PROVIDER_EASTMONEY,
+            capability="directional_news",
+            status="empty",
+        )
+        return NewsFetchResult(
+            (),
+            replace(
+                trace,
+                status="future_of_cutoff" if future_count else "empty",
+                detail=(
+                    f"{trace.detail}; pages={max_pages}; "
+                    f"future_of_cutoff={future_count}"
+                ),
+                requested_date=as_of.isoformat() if as_of else None,
+                result_count=0,
+            ),
         )
 
     original = str(keyword or "").strip()
@@ -269,7 +407,7 @@ def _fetch_eastmoney_news_with_fallback(
         )
     def attempted_detail() -> str:
         return "queries=" + "|".join(attempted)
-    if first.items or first.trace.status != "empty":
+    if first.items or first.trace.status not in {"empty", "future_of_cutoff"}:
         return NewsFetchResult(
             first.items,
             replace(
@@ -290,13 +428,15 @@ def _fetch_eastmoney_news_with_fallback(
             if len(items) >= page_size:
                 break
             continue
-        if result.trace.status != "empty":
+        if result.trace.status not in {"empty", "future_of_cutoff"}:
             break
 
     if items:
         status = "fallback_success"
-    elif last_trace.status != "empty":
+    elif last_trace.status not in {"empty", "future_of_cutoff"}:
         status = last_trace.status
+    elif last_trace.status == "future_of_cutoff":
+        status = "future_of_cutoff"
     else:
         status = "empty"
     return NewsFetchResult(
@@ -307,9 +447,11 @@ def _fetch_eastmoney_news_with_fallback(
             status=status,
             detail=(
                 f"Eastmoney title search; {attempted_detail()}; "
+                f"{last_trace.detail}; "
                 f"fallbacks={max(0, len(attempted) - 1)}"
             ),
             result_count=len(items),
+            requested_date=as_of.isoformat() if as_of else None,
         ),
     )
 
@@ -319,6 +461,9 @@ def _fetch_eastmoney_news_uncached(
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
+    *,
+    page_index: int = 1,
+    as_of: date | None = None,
 ) -> NewsFetchResult:
     kw = str(keyword or "").strip()
     if not kw:
@@ -343,7 +488,7 @@ def _fetch_eastmoney_news_uncached(
                 # 只搜标题：全文模糊匹配会捞进大量标题无关资讯（正文命中），标题命中才是事件存在性证据
                 "searchScope": "title",
                 "sort": "time",
-                "pageIndex": 1,
+                "pageIndex": max(1, int(page_index)),
                 "pageSize": max(1, int(page_size) * 2),
                 "preTag": "<em>",
                 "postTag": "</em>",
@@ -384,7 +529,7 @@ def _fetch_eastmoney_news_uncached(
     out: list[NewsItem] = []
     for a in articles:
         date_str = str(a.get("date") or "").strip()
-        if not _within_days(date_str, within_days):
+        if not _within_days(date_str, within_days, reference_date=as_of):
             continue
         title = _EM_TAG_RE.sub("", str(a.get("title") or "")).strip()
         if not title:

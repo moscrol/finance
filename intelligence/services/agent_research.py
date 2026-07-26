@@ -320,6 +320,7 @@ def build_default_tools(
         news = market_news.fetch_eastmoney_news_result(
             query,
             timeout=context.timeout(8.0),
+            as_of=context.information_cutoff.as_of_date,
         )
         context.check_cancelled()
         evidence = [
