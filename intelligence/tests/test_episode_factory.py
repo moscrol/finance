@@ -169,6 +169,26 @@ def test_episode_context_can_reallocate_but_not_inflate_synthesis_reserve() -> N
     assert context.deadline.stage_timeout(90.0) <= 45.0
 
 
+def test_high_synthesis_reserve_keeps_one_third_for_research() -> None:
+    control = TurnControlCore().control(
+        "这一周行情下跌的主要原因是什么",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="market-cause-budget-balance",
+        capabilities=control.capabilities,
+        tier="standard",
+        timeout=90.0,
+        synthesis_reserve=75.0,
+    )
+
+    assert context.policy.synthesis_reserve == 60.0
+    assert context.deadline.synthesis_reserve == 60.0
+    assert context.root_budget is not None
+    assert context.root_budget.initial_seconds == 30.0
+
+
 def test_valuation_contract_has_current_anchor_scenarios_and_invalidation() -> None:
     control = TurnControlCore().control("瑞华泰的合理估值")
     context = build_episode_context(

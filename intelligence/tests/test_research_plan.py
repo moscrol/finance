@@ -7,7 +7,6 @@ import pytest
 from intelligence.services.research_plan import (
     parse_research_plan,
     plan_to_public_dict,
-    validate_plan_answer_elements,
     validate_plan_revision,
 )
 
@@ -105,23 +104,6 @@ def test_plan_revision_must_increase_and_preserve_task_identity() -> None:
             second,
             original_task_id="task-1",
             current_task_id="task-2",
-        )
-
-
-def test_plan_answer_elements_must_cover_immutable_task_floor() -> None:
-    complete = parse_research_plan(_plan_json())
-    missing = parse_research_plan(
-        _plan_json(answer_elements=["direct_assessment"])
-    )
-
-    validate_plan_answer_elements(
-        complete,
-        required_answer_elements=("direct_assessment", "counterpoint"),
-    )
-    with pytest.raises(ValueError, match="missing required answer elements"):
-        validate_plan_answer_elements(
-            missing,
-            required_answer_elements=("direct_assessment", "counterpoint"),
         )
 
 

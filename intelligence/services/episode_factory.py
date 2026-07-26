@@ -72,6 +72,7 @@ _PRESENTATION_PROFILES: dict[str, str] = {
 }
 
 _MODEL_OWNED_READ_CAPABILITIES = ("finance_query", "evidence_search")
+_MAX_SYNTHESIS_BUDGET_FRACTION = 2.0 / 3.0
 
 
 def _authorized_capabilities(
@@ -242,7 +243,10 @@ def build_episode_context(
         if synthesis_reserve is None
         else max(0.0, float(synthesis_reserve))
     )
-    reserve = min(requested_reserve, effective_timeout)
+    reserve = min(
+        requested_reserve,
+        effective_timeout * _MAX_SYNTHESIS_BUDGET_FRACTION,
+    )
     policy = ResearchPolicy(
         base_policy.tier,
         base_policy.max_steps,

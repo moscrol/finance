@@ -693,15 +693,14 @@ def test_malformed_plan_gets_one_same_episode_repair_without_tool_use() -> None:
     assert outcome.usage.invalid_actions == 1
 
 
-def test_plan_missing_contract_output_gets_same_episode_protocol_repair() -> None:
+def test_initial_plan_can_express_answer_elements_without_contract_ids() -> None:
     frame = _frame()
     model = ScriptedModel(
         [
-            _plan_turn(answer_elements=["counterpoint"]),
-            _plan_turn(answer_elements=["direct_assessment", "counterpoint"]),
+            _plan_turn(answer_elements=["当前市场判断", "主要反证"]),
             _finish_turn(
                 status="partial",
-                draft="计划已对齐，当前仍缺市场证据。",
+                draft="当前仍缺市场证据。",
                 hashes=(),
                 gap="缺少市场证据",
             ),
@@ -714,14 +713,10 @@ def test_plan_missing_contract_output_gets_same_episode_protocol_repair() -> Non
         registry=_market_registry(_successful_runner),
     )
 
-    repair_message = model.calls[1]["messages"][-1]
-    assert "missing required answer elements" in repair_message["content"]
     assert outcome.plan is not None
-    assert outcome.plan.answer_elements == (
-        "direct_assessment",
-        "counterpoint",
-    )
-    assert outcome.usage.invalid_actions == 1
+    assert outcome.plan.answer_elements == ("当前市场判断", "主要反证")
+    assert outcome.usage.invalid_actions == 0
+    assert len(model.calls) == 2
 
 
 def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order() -> (
