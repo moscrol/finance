@@ -459,6 +459,8 @@ def test_headless_prompt_includes_structured_tool_schema() -> None:
     assert '"dataset"' in prompt
     assert '"metrics"' in prompt
     assert "dataset=..." in prompt
+    assert "本轮工具执行硬上限 2 次" in prompt
+    assert "must_finalize=true" in prompt
 
 
 def test_headless_runtime_preserves_evidence_when_process_times_out() -> None:

@@ -37,6 +37,7 @@ _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
+_HEADLESS_FINALIZATION_FLOOR_SECONDS = 12.0
 
 
 def _is_snapshot_tool(spec: ToolSpec) -> bool:
@@ -440,6 +441,7 @@ class HeadlessToolGateway:
                     "status": "rejected",
                     "tool": name,
                     "error": rejected,
+                    "budget": self._budget_payload(),
                 }
                 if rejected == "invalid_arguments" and spec is not None:
                     rejection.update(
@@ -557,9 +559,29 @@ class HeadlessToolGateway:
                 ],
                 "evidence_hashes": list(observation.evidence_hashes),
                 "gaps": list(observation.gaps),
+                "budget": self._budget_payload(),
             }
             self._add_event("tool_result", payload)
             return payload
+
+    def _budget_payload(self) -> dict[str, object]:
+        remaining_calls = max(
+            0,
+            int(self._context.policy.max_steps) - self._executed_count,
+        )
+        remaining_seconds = self._context.deadline.stage_timeout(
+            self._context.deadline.remaining()
+        )
+        return {
+            "max_tool_calls": int(self._context.policy.max_steps),
+            "executed_tool_calls": self._executed_count,
+            "remaining_tool_calls": remaining_calls,
+            "remaining_research_seconds": round(remaining_seconds, 3),
+            "must_finalize": (
+                remaining_calls <= 0
+                or remaining_seconds <= _HEADLESS_FINALIZATION_FLOOR_SECONDS
+            ),
+        }
 
     def _add_event(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
         event = EpisodeEvent(self._next_sequence, kind, payload)

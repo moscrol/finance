@@ -148,6 +148,8 @@ def test_gateway_executes_authorized_registry_tool() -> None:
 
     assert result["status"] == "success"
     assert result["evidence_hashes"] == ["market-hash"]
+    assert result["budget"]["remaining_tool_calls"] == 2
+    assert result["budget"]["must_finalize"] is False
     assert calls == [("market_data", "A股最近五日")]
     assert snapshot.evidence[0].content_hash == "market-hash"
     assert snapshot.executed_count == 1
@@ -422,6 +424,7 @@ def test_gateway_decodes_structured_json_without_charging_invalid_attempt() -> N
     assert invalid["retryable"] is True
     assert invalid["expected_parameters"]["required"] == ["dataset"]
     assert invalid["expected_parameters"]["properties"]["dataset"]["type"] == "string"
+    assert invalid["budget"]["remaining_tool_calls"] == 3
     assert valid["status"] == "success"
     assert runner_inputs == [{"dataset": "market_daily"}]
     assert snapshot.executed_count == 1
