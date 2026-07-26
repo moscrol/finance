@@ -297,6 +297,12 @@ class CodexHeadlessRuntime:
         ).strip().lower()
         if selected_transport not in {"subprocess", "local_exec"}:
             raise ValueError("unsupported Codex headless transport")
+        self._gateway_transport = (
+            "mailbox" if selected_transport == "subprocess" else "http"
+        )
+        self._sandbox_mode = (
+            "workspace-write" if selected_transport == "subprocess" else "read-only"
+        )
         if provider_config_path is not None and selected_transport != "subprocess":
             raise ValueError(
                 "Codex provider projection requires subprocess transport"
@@ -402,6 +408,7 @@ class CodexHeadlessRuntime:
                 context=context,
                 is_cancelled=self._is_cancelled,
                 run_dir=run_dir,
+                transport=self._gateway_transport,
             ) as gateway:
                 command = self._build_command(
                     task_frame=task_frame,
@@ -544,7 +551,7 @@ class CodexHeadlessRuntime:
             "--json",
             "--ephemeral",
             "--sandbox",
-            "read-only",
+            self._sandbox_mode,
             "--ignore-user-config",
             "--skip-git-repo-check",
             "--output-schema",
@@ -869,6 +876,15 @@ def _authorized_command(value: object, wrapper: Path) -> bool:
         tokens = list(value)
     else:
         return False
+    if (
+        len(tokens) == 3
+        and tokens[0] in {"/bin/zsh", "/bin/bash"}
+        and tokens[1] == "-lc"
+    ):
+        try:
+            tokens = shlex.split(tokens[2])
+        except ValueError:
+            return False
     return len(tokens) == 3 and Path(tokens[0]).resolve() == wrapper.resolve()
 
 

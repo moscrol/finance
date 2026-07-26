@@ -168,9 +168,15 @@ def _jsonl(
 
 
 class ValidFakeCodex:
-    def __init__(self, *, unauthorized: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        unauthorized: bool = False,
+        shell_wrapped: bool = False,
+    ) -> None:
         self.commands: list[HeadlessCommand] = []
         self._unauthorized = unauthorized
+        self._shell_wrapped = shell_wrapped
 
     def __call__(self, command: HeadlessCommand) -> HeadlessProcessResult:
         self.commands.append(command)
@@ -212,9 +218,12 @@ class ValidFakeCodex:
                     },
                 },
             )
+        wrapper_command = shlex.join(tool_command)
+        if self._shell_wrapped:
+            wrapper_command = shlex.join(("/bin/zsh", "-lc", wrapper_command))
         return HeadlessProcessResult(
             stdout=_jsonl(
-                wrapper_command=shlex.join(tool_command),
+                wrapper_command=wrapper_command,
                 finish=finish,
                 extra_items=extra_items,
             ),
@@ -269,11 +278,13 @@ def test_headless_runtime_builds_isolated_read_only_command(monkeypatch) -> None
     assert "--json" in command.args
     assert "--ephemeral" in command.args
     assert "--ignore-user-config" in command.args
-    assert command.args[command.args.index("--sandbox") + 1] == "read-only"
+    assert command.args[command.args.index("--sandbox") + 1] == "workspace-write"
     assert "--output-schema" in command.args
     assert "-m" not in command.args
     assert "PRIVATE_ENV_SECRET_SENTINEL" not in str(command.env)
-    assert command.env["FINANCE_TOOL_GATEWAY_TOKEN"] not in str(command.args)
+    assert "FINANCE_TOOL_MAILBOX" in command.env
+    assert "FINANCE_TOOL_GATEWAY_URL" not in command.env
+    assert "FINANCE_TOOL_GATEWAY_TOKEN" not in command.env
 
 
 def test_headless_runtime_projects_only_model_provider_config(tmp_path) -> None:
@@ -361,6 +372,20 @@ def test_headless_runtime_rejects_non_gateway_command() -> None:
     assert outcome.status != "completed"
     assert "unauthorized_headless_action" in outcome.gaps
     assert outcome.bindings == ()
+
+
+def test_headless_runtime_accepts_codex_shell_wrapped_gateway_command() -> None:
+    outcome = CodexHeadlessRuntime(
+        command_runner=ValidFakeCodex(shell_wrapped=True),
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.usage.invalid_actions == 0
+    assert outcome.bindings[0].evidence_hashes == ("mainline-hash",)
 
 
 def test_headless_runtime_preserves_evidence_when_process_times_out() -> None:

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
+import subprocess
 import urllib.error
 import urllib.request
 
@@ -262,3 +264,33 @@ def test_gateway_requires_ephemeral_bearer_and_never_writes_it_to_wrapper() -> N
         assert environment["FINANCE_TOOL_GATEWAY_TOKEN"] not in snapshot_text
         assert "FINANCE_TOOL_GATEWAY_TOKEN" in wrapper_text
         assert gateway.endpoint.startswith("http://127.0.0.1:")
+
+
+def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
+    calls: list[tuple[str, str]] = []
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=_context(),
+        transport="mailbox",
+    ) as gateway:
+        environment = {**os.environ, **gateway.subprocess_environment()}
+        completed = subprocess.run(
+            [str(gateway.wrapper_path), "market_data", "A股最近五日"],
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        result = json.loads(completed.stdout)
+        snapshot = gateway.snapshot()
+        wrapper = gateway.wrapper_path.read_text(encoding="utf-8")
+
+    assert result["status"] == "success"
+    assert result["evidence_hashes"] == ["market-hash"]
+    assert calls == [("market_data", "A股最近五日")]
+    assert snapshot.executed_count == 1
+    assert set(gateway.subprocess_environment()) == {"FINANCE_TOOL_MAILBOX"}
+    assert "urllib" not in wrapper
+    assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper

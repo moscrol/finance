@@ -7,10 +7,13 @@ from contextvars import Context, copy_context
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
+import re
 import secrets
+import stat
 import tempfile
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 from types import TracebackType
 from typing import cast
 import urllib.error
@@ -30,6 +33,8 @@ from intelligence.services.research_tool_registry import (
 
 _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
+_MAILBOX_NAME = ".finance-tool-mailbox"
+_MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
 
 
 @dataclass(frozen=True)
@@ -62,7 +67,11 @@ class HeadlessToolGateway:
         context: ResearchRunContext,
         is_cancelled: Callable[[], bool] | None = None,
         run_dir: Path | None = None,
+        transport: str = "http",
     ) -> None:
+        selected_transport = str(transport or "").strip().lower()
+        if selected_transport not in {"http", "mailbox"}:
+            raise ValueError("unsupported headless tool transport")
         self._registry = registry
         self._context = context
         self._is_cancelled = is_cancelled or (lambda: False)
@@ -73,11 +82,14 @@ class HeadlessToolGateway:
             )
         }
         self._requested_run_dir = run_dir
+        self._transport = selected_transport
         self._temporary_directory: tempfile.TemporaryDirectory[str] | None = None
         self._run_dir: Path | None = None
         self._wrapper_path: Path | None = None
         self._server: ThreadingHTTPServer | None = None
         self._thread: Thread | None = None
+        self._mailbox_dir: Path | None = None
+        self._mailbox_stop = Event()
         self._endpoint = ""
         self._bearer = secrets.token_urlsafe(32)
         self._lock = Lock()
@@ -133,6 +145,18 @@ class HeadlessToolGateway:
             self._run_dir.mkdir(parents=True, exist_ok=True)
         self._wrapper_path = self._write_wrapper(self._run_dir)
 
+        if self._transport == "mailbox":
+            self._mailbox_dir = self._run_dir / _MAILBOX_NAME
+            (self._mailbox_dir / "requests").mkdir(parents=True, mode=0o700)
+            (self._mailbox_dir / "responses").mkdir(mode=0o700)
+            self._thread = Thread(
+                target=self._serve_mailbox,
+                name="headless-finance-mailbox",
+                daemon=True,
+            )
+            self._thread.start()
+            return self
+
         gateway = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -164,6 +188,7 @@ class HeadlessToolGateway:
         if self._closed:
             return
         self._closed = True
+        self._mailbox_stop.set()
         server, thread = self._server, self._thread
         self._server = None
         self._thread = None
@@ -177,6 +202,10 @@ class HeadlessToolGateway:
             self._temporary_directory = None
 
     def subprocess_environment(self) -> dict[str, str]:
+        if self._transport == "mailbox":
+            if self._mailbox_dir is None:
+                raise RuntimeError("headless tool gateway has not started")
+            return {"FINANCE_TOOL_MAILBOX": str(self._mailbox_dir)}
         return {
             "FINANCE_TOOL_GATEWAY_URL": self.endpoint,
             "FINANCE_TOOL_GATEWAY_TOKEN": self._bearer,
@@ -184,6 +213,10 @@ class HeadlessToolGateway:
 
     def call(self, tool: str, query: str, *, timeout: float = 5.0) -> dict[str, object]:
         """Use the same HTTP surface as the headless child process."""
+
+        if self._transport == "mailbox":
+            del timeout
+            return self._execute_tool(tool, query)
 
         name = urllib.parse.quote(str(tool), safe="")
         request = urllib.request.Request(
@@ -200,6 +233,96 @@ class HeadlessToolGateway:
         if not isinstance(value, dict):
             raise RuntimeError("headless tool gateway returned a non-object")
         return value
+
+    def _serve_mailbox(self) -> None:
+        mailbox = self._mailbox_dir
+        if mailbox is None:
+            return
+        requests_dir = mailbox / "requests"
+        responses_dir = mailbox / "responses"
+        while not self._mailbox_stop.wait(0.01):
+            try:
+                requests = tuple(requests_dir.iterdir())
+            except OSError:
+                continue
+            for request_path in requests:
+                if not _MAILBOX_REQUEST_RE.fullmatch(request_path.name):
+                    continue
+                response_path = responses_dir / request_path.name
+                if response_path.exists():
+                    continue
+                self._process_mailbox_request(request_path, response_path)
+
+    def _process_mailbox_request(
+        self,
+        request_path: Path,
+        response_path: Path,
+    ) -> None:
+        try:
+            raw = self._read_mailbox_request(request_path)
+            payload = json.loads(raw.decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("request must be an object")
+            result = self._execute_tool(
+                str(payload.get("tool") or ""),
+                payload.get("query"),
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            result = {"status": "rejected", "error": "invalid_request"}
+        finally:
+            try:
+                request_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self._write_mailbox_response(response_path, result)
+
+    @staticmethod
+    def _read_mailbox_request(path: Path) -> bytes:
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(path, flags)
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ValueError("request must be a regular file")
+            if metadata.st_size < 1 or metadata.st_size > _MAX_REQUEST_BYTES:
+                raise ValueError("request size is invalid")
+            chunks: list[bytes] = []
+            remaining = metadata.st_size
+            while remaining > 0:
+                chunk = os.read(descriptor, remaining)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            value = b"".join(chunks)
+            if len(value) != metadata.st_size:
+                raise ValueError("request read was incomplete")
+            return value
+        finally:
+            os.close(descriptor)
+
+    @staticmethod
+    def _write_mailbox_response(
+        path: Path,
+        payload: dict[str, object],
+    ) -> None:
+        encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        temporary = path.with_name(
+            f".{path.name}.{secrets.token_hex(4)}.tmp"
+        )
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(temporary, flags, 0o600)
+        try:
+            offset = 0
+            while offset < len(encoded):
+                offset += os.write(descriptor, encoded[offset:])
+        finally:
+            os.close(descriptor)
+        os.replace(temporary, path)
 
     def snapshot(self) -> HeadlessGatewaySnapshot:
         with self._lock:
@@ -382,9 +505,46 @@ class HeadlessToolGateway:
         self._events.append(event)
         return event
 
-    @staticmethod
-    def _write_wrapper(run_dir: Path) -> Path:
+    def _write_wrapper(self, run_dir: Path) -> Path:
         wrapper = run_dir / _WRAPPER_NAME
+        if self._transport == "mailbox":
+            wrapper.write_text(
+                """#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+import time
+import uuid
+
+if len(sys.argv) != 3:
+    raise SystemExit("usage: finance-tool TOOL QUERY")
+mailbox = Path(os.environ["FINANCE_TOOL_MAILBOX"])
+request_id = f"{uuid.uuid4().hex}.json"
+request_path = mailbox / "requests" / request_id
+response_path = mailbox / "responses" / request_id
+temporary = request_path.with_name(f".{request_id}.{os.getpid()}.tmp")
+temporary.write_text(
+    json.dumps({"tool": sys.argv[1], "query": sys.argv[2]}, ensure_ascii=False),
+    encoding="utf-8",
+)
+os.replace(temporary, request_path)
+deadline = time.monotonic() + 60.0
+while time.monotonic() < deadline:
+    try:
+        payload = response_path.read_bytes()
+    except FileNotFoundError:
+        time.sleep(0.02)
+        continue
+    response_path.unlink(missing_ok=True)
+    sys.stdout.buffer.write(payload)
+    raise SystemExit(0)
+raise SystemExit("finance tool mailbox timed out")
+""",
+                encoding="utf-8",
+            )
+            wrapper.chmod(0o700)
+            return wrapper
         wrapper.write_text(
             """#!/usr/bin/env python3
 import json
