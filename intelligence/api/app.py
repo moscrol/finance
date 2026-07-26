@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
@@ -295,6 +296,52 @@ _PUBLIC_METADATA_STRING_LIST_FIELDS = frozenset(
         "selected_perspective_ids",
     }
 )
+_PUBLIC_PROGRESS_STAGES = frozenset(
+    {"understanding", "planning", "research", "repair", "verification", "finalizing"}
+)
+_PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
+    "turn_controller": "understanding",
+    "route_skills": "planning",
+    "ask_current_turn": "research",
+    "ask_retrieve_compose": "research",
+    "continuous_evidence_binding": "verification",
+    "llm_call_ledger": "verification",
+    "query_ledger": "research",
+    "research_execution_budget": "research",
+    "budget": "research",
+    "render_artifacts": "finalizing",
+    "foresight_followups": "finalizing",
+}
+_PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
+    "turn_controller": "已完成问题理解与任务对齐。",
+    "route_skills": "已确认本轮所需研究能力。",
+    "ask_current_turn": "正在检索本轮证据。",
+    "ask_retrieve_compose": "已完成本轮证据检索与整理。",
+    "continuous_evidence_binding": "已完成回答与证据的绑定核对。",
+    "llm_call_ledger": "已完成模型调用状态核对。",
+    "query_ledger": "已完成检索执行状态核对。",
+    "research_execution_budget": "已完成本轮研究预算核对。",
+    "budget": "已完成本轮研究预算核对。",
+    "render_artifacts": "已生成本轮研究产物。",
+    "foresight_followups": "已整理后续核验问题。",
+}
+_PUBLIC_PROGRESS_MESSAGES = {
+    "understanding": "已对齐本轮任务并进入研究。",
+    "planning": "已形成研究计划并确认研究深度。",
+    "research": "已完成一项证据核对。",
+    "repair": "正在针对关键证据缺口定向补证。",
+    "verification": "正在核验证据绑定与回答完整性。",
+    "finalizing": "正在基于核验结果形成公开回答。",
+}
+_PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
+    {
+        "task_frame_hash",
+        "turn_intent",
+        "research_plan",
+        "pending_task_frame",
+        "legacy_query_envelope",
+    }
+)
 
 
 def _public_degrades(values: list[str]) -> list[str]:
@@ -380,17 +427,63 @@ def _public_value(
                 preserve_text_paths=preserve_text_paths,
             )
             for key, item in value.items()
+            if str(key) not in _PUBLIC_HIDDEN_CONTROL_KEYS
         }
     return value
 
 
 def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
-    projected = _public_value(step)
-    return projected if isinstance(projected, dict) else {}
+    raw_name = str(step.get("name") or "").strip()
+    stage = (
+        raw_name
+        if raw_name in _PUBLIC_PROGRESS_STAGES
+        else _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME.get(raw_name, "research")
+    )
+    status = str(step.get("status") or "completed").strip().lower()
+    if status not in {"running", "completed", "failed", "skipped"}:
+        status = "completed"
+    message = _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME.get(raw_name)
+    if message is None:
+        if status == "failed":
+            message = "一项研究步骤未完成，相关结果未纳入结论。"
+        elif status == "running":
+            message = _PUBLIC_PROGRESS_MESSAGES[stage].replace("已完成", "正在完成")
+        else:
+            message = _PUBLIC_PROGRESS_MESSAGES[stage]
+    raw_step_id = str(step.get("step_id") or raw_name or "step")
+    public_step_id = hashlib.sha256(raw_step_id.encode("utf-8")).hexdigest()[:12]
+    warnings = step.get("warnings")
+    return {
+        "step_id": f"step:{public_step_id}",
+        "name": stage,
+        "status": status,
+        "started_at": str(step.get("started_at") or ""),
+        "finished_at": (
+            str(step["finished_at"])
+            if step.get("finished_at") is not None
+            else None
+        ),
+        "input_summary": "",
+        "output_summary": message,
+        "warnings": _public_degrades(
+            [str(item) for item in warnings]
+            if isinstance(warnings, list)
+            else []
+        ),
+    }
 
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
     event_type = event.get("event_type")
+    if event_type == "trace.step":
+        raw_payload = event.get("payload")
+        raw_step = raw_payload.get("step") if isinstance(raw_payload, dict) else None
+        event = {
+            **event,
+            "payload": {
+                "step": _public_trace_step(raw_step if isinstance(raw_step, dict) else {})
+            },
+        }
     preserve_paths: set[tuple[str, ...]] = {("payload", "message", "content")}
     if event_type == "answer.snapshot":
         preserve_paths.add(("payload", "text"))

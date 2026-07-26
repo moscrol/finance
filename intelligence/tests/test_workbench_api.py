@@ -18,6 +18,10 @@ from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.agent_runtime import EpisodeEvent  # noqa: E402
+from intelligence.services.episode_progress import (  # noqa: E402
+    EpisodeProgress,
+    RunEpisodeProgressPublisher,
+)
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
 from intelligence.services import perspective_lab  # noqa: E402
 from intelligence.services.llm_refine import LLMProvider  # noqa: E402
@@ -1298,7 +1302,7 @@ def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
     assert [artifact["path"] for artifact in run["artifacts"]] == ["answer.md"]
 
     trace = client.get(f"/api/runs/{run_id}/trace").json()
-    assert trace[0]["name"] == "ask_retrieve_compose"
+    assert trace[0]["name"] == "research"
 
     answer = client.get(f"/api/runs/{run_id}/artifacts/answer.md")
     assert answer.status_code == 200
@@ -1933,6 +1937,111 @@ def test_sse_does_not_expose_trace_rows_as_public_events(client: TestClient) -> 
     assert events == ["run"]
 
 
+def test_live_episode_progress_is_replayed_before_one_terminal_run_event(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("live progress", "ask")
+    publisher = RunEpisodeProgressPublisher(
+        run_store=store,
+        run_id=run.run_id,
+        conversation_id=run.session_id or "default",
+        message_id="assistant-progress",
+    )
+    publisher.publish(
+        EpisodeProgress(
+            key="adapter:understanding",
+            stage="understanding",
+            message="已对齐本轮任务并进入研究。",
+            status="completed",
+        )
+    )
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    event_types: list[str] = []
+    body = ""
+    with client.stream("GET", f"/api/runs/{run.run_id}/events") as response:
+        body = "\n".join(response.iter_lines())
+        event_types = [
+            line.removeprefix("event: ")
+            for line in body.splitlines()
+            if line.startswith("event: ")
+        ]
+
+    assert event_types == ["trace.step", "run"]
+    assert body.count("event: run") == 1
+    assert "已对齐本轮任务并进入研究" in body
+    assert "assistant-progress" in body
+    assert "SELECT" not in body
+    assert "provider=" not in body
+
+
+def test_public_trace_projection_hides_controller_and_retrieval_control_plane(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("public control-plane safety", "ask")
+    private_summary = json.dumps(
+        {
+            "query": "SELECT secret_metric FROM hidden_table",
+            "provider": "private-provider",
+            "task_frame_hash": "private-task-frame-hash",
+            "route": "internal_route",
+            "prompt": "private system prompt",
+            "message": "raw model message",
+        }
+    )
+    step = store.append_step(
+        run.run_id,
+        step_id="controller:private-provider",
+        name="turn_controller",
+        status="completed",
+        output_summary=private_summary,
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="trace:controller",
+        event_type="trace.step",
+        payload={"step": step},
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="report:complete",
+        event_type="report.complete",
+        payload={
+            "report": {
+                "status": "completed",
+                "task_frame_hash": "private-task-frame-hash",
+                "turn_intent": {"route": "internal_route"},
+                "research_plan": {"prompt": "private system prompt"},
+            }
+        },
+    )
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    raw = json.dumps(
+        (store.load_trace(run.run_id), store.load_stream_events(run.run_id))
+    )
+    trace_body = client.get(f"/api/runs/{run.run_id}/trace").text
+    event_body = client.get(f"/api/runs/{run.run_id}/events").text
+    public = f"{trace_body}\n{event_body}"
+
+    assert "SELECT secret_metric" in raw
+    assert "已完成问题理解与任务对齐" in public
+    for forbidden in (
+        "SELECT",
+        "secret_metric",
+        "hidden_table",
+        "private-provider",
+        "private-task-frame-hash",
+        "internal_route",
+        "private system prompt",
+        "raw model message",
+        "turn_controller",
+    ):
+        assert forbidden not in public
+
+
 def test_trace_and_all_sse_payloads_use_path_aware_public_projection(
     client: TestClient,
 ) -> None:
@@ -2227,7 +2336,8 @@ def test_sse_initial_connection_keeps_polling_canonical_events(
 
     assert body.count("event: trace.step") == 2
     assert "event: step" not in body
-    assert '"step_id": "s02"' in body
+    assert "id: trace:s02" in body
+    assert '"step_id": "s02"' not in body
 
 
 def test_sse_resumed_connection_never_replays_trace(client: TestClient) -> None:
