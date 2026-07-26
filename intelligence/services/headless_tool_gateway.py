@@ -37,7 +37,6 @@ _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
-_HEADLESS_FINALIZATION_FLOOR_SECONDS = 12.0
 
 
 def _is_snapshot_tool(spec: ToolSpec) -> bool:
@@ -101,6 +100,13 @@ class HeadlessToolGateway:
             raise ValueError("unsupported headless tool transport")
         self._registry = registry
         self._context = context
+        initial_research_seconds = context.deadline.stage_timeout(
+            context.deadline.remaining()
+        )
+        self._finalization_floor_seconds = min(
+            30.0,
+            max(5.0, initial_research_seconds * 0.45),
+        )
         self._is_cancelled = is_cancelled or (lambda: False)
         self._authorized = {
             spec.name: spec
@@ -507,6 +513,14 @@ class HeadlessToolGateway:
             return "cancelled"
         if self._context.deadline.expired:
             return "deadline_exhausted"
+        remaining_research_seconds = self._context.deadline.stage_timeout(
+            self._context.deadline.remaining()
+        )
+        if (
+            self._executed_count > 0
+            and remaining_research_seconds <= self._finalization_floor_seconds
+        ):
+            return "research_stage_closed"
         key = (spec.name, prepared.normalized_key)
         if (
             spec.query_scope == "episode"
@@ -579,7 +593,7 @@ class HeadlessToolGateway:
             "remaining_research_seconds": round(remaining_seconds, 3),
             "must_finalize": (
                 remaining_calls <= 0
-                or remaining_seconds <= _HEADLESS_FINALIZATION_FLOOR_SECONDS
+                or remaining_seconds <= self._finalization_floor_seconds
             ),
         }
 

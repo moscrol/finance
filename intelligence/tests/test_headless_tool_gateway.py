@@ -301,6 +301,31 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper
 
 
+def test_gateway_closes_research_stage_before_finalization_budget() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context(max_steps=3)
+    context = replace(
+        base,
+        deadline=ResearchDeadline.from_timeout(5.0),
+        policy=ResearchPolicy("quick", 3, 5.0, 0.0),
+    )
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        first = gateway.call("market_data", "市场")
+        rejected = gateway.call("news_search", "再查一次")
+        snapshot = gateway.snapshot()
+
+    assert first["status"] == "success"
+    assert first["budget"]["must_finalize"] is True
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["budget"]["must_finalize"] is True
+    assert snapshot.executed_count == 1
+    assert calls == [("market_data", "市场")]
+
+
 def test_gateway_adapts_model_query_to_snapshot_arguments() -> None:
     runner_inputs: list[str] = []
 
