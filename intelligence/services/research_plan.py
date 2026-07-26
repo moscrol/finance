@@ -9,7 +9,7 @@ from typing import Literal, cast
 
 ResearchMode = Literal["quick", "deep"]
 
-_PLAN_FIELDS = frozenset(
+_REQUIRED_PLAN_FIELDS = frozenset(
     {
         "kind",
         "task_summary",
@@ -22,6 +22,7 @@ _PLAN_FIELDS = frozenset(
         "revision",
     }
 )
+_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals"))
 _MAX_SUMMARY_LENGTH = 500
 _MAX_ITEM_LENGTH = 300
 
@@ -36,6 +37,7 @@ class ResearchPlan:
     open_gaps: tuple[str, ...]
     requested_mode: ResearchMode
     revision: int = 1
+    branch_goals: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         requested_mode = self.requested_mode
@@ -73,6 +75,11 @@ class ResearchPlan:
                     maximum=maximum,
                 ),
             )
+        object.__setattr__(
+            self,
+            "branch_goals",
+            _bounded_branch_goals(self.branch_goals),
+        )
 
 
 @dataclass(frozen=True)
@@ -127,6 +134,20 @@ def _bounded_items(
     return tuple(result)
 
 
+def _bounded_branch_goals(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("branch_goals must be an array")
+    result = _bounded_items(
+        value,
+        field_name="branch_goals",
+        minimum=0,
+        maximum=3,
+    )
+    if len(result) != len(value):
+        raise ValueError("branch_goals must not contain duplicates")
+    return result
+
+
 def parse_research_plan(content: str) -> ResearchPlan:
     """Parse one closed PLAN object without granting execution authority."""
 
@@ -139,7 +160,7 @@ def parse_research_plan(content: str) -> ResearchPlan:
     if not isinstance(payload, dict):
         raise ValueError("PLAN must be one JSON object")
     unknown = set(payload) - _PLAN_FIELDS
-    missing = _PLAN_FIELDS - set(payload)
+    missing = _REQUIRED_PLAN_FIELDS - set(payload)
     if unknown:
         raise ValueError(f"unknown plan fields: {', '.join(sorted(unknown))}")
     if missing:
@@ -156,6 +177,7 @@ def parse_research_plan(content: str) -> ResearchPlan:
         open_gaps=cast(tuple[str, ...], payload["open_gaps"]),
         requested_mode=cast(ResearchMode, payload["requested_mode"]),
         revision=cast(int, payload["revision"]),
+        branch_goals=cast(tuple[str, ...], payload.get("branch_goals", ())),
     )
 
 
@@ -196,6 +218,14 @@ def validate_plan_revision(
         raise ValueError(
             "plan revision cannot remove answer elements: " + ",".join(removed)
         )
+    removed_branches = tuple(
+        goal for goal in previous.branch_goals if goal not in set(current.branch_goals)
+    )
+    if removed_branches:
+        raise ValueError(
+            "plan revision cannot remove branch goals: "
+            + ",".join(removed_branches)
+        )
 
 
 def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
@@ -208,6 +238,7 @@ def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
         "open_gaps": list(plan.open_gaps),
         "requested_mode": plan.requested_mode,
         "revision": plan.revision,
+        "branch_goals": list(plan.branch_goals),
     }
 
 

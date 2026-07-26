@@ -42,6 +42,7 @@ def test_parse_research_plan_returns_bounded_deduplicated_public_contract() -> N
     assert plan.answer_elements == ("direct_assessment", "counterpoint")
     assert plan.candidate_actions == ("market_snapshot", "news_search")
     assert plan.open_gaps == ("缺少反方证据",)
+    assert plan.branch_goals == ()
     assert plan.requested_mode == "quick"
     assert plan_to_public_dict(plan) == {
         "task_summary": "判断市场主线并给出反方",
@@ -52,7 +53,38 @@ def test_parse_research_plan_returns_bounded_deduplicated_public_contract() -> N
         "open_gaps": ["缺少反方证据"],
         "requested_mode": "quick",
         "revision": 1,
+        "branch_goals": [],
     }
+
+
+def test_research_plan_accepts_at_most_three_explicit_branch_goals() -> None:
+    plan = parse_research_plan(
+        _plan_json(
+            requested_mode="deep",
+            branch_goals=["核验公司兑现", "查找反方驱动"],
+        )
+    )
+
+    assert plan.branch_goals == ("核验公司兑现", "查找反方驱动")
+    assert plan_to_public_dict(plan)["branch_goals"] == [
+        "核验公司兑现",
+        "查找反方驱动",
+    ]
+
+
+@pytest.mark.parametrize(
+    "branch_goals",
+    [
+        ["分支一", "分支二", "分支三", "分支四"],
+        ["重复分支", "重复分支"],
+        [""],
+    ],
+)
+def test_research_plan_rejects_invalid_branch_goals(
+    branch_goals: list[str],
+) -> None:
+    with pytest.raises(ValueError, match="branch_goals"):
+        parse_research_plan(_plan_json(branch_goals=branch_goals))
 
 
 @pytest.mark.parametrize(
@@ -131,6 +163,35 @@ def test_plan_revision_can_add_but_cannot_remove_answer_elements() -> None:
         validate_plan_revision(
             expanded,
             shrunk,
+            original_task_id="task-1",
+            current_task_id="task-1",
+        )
+
+
+def test_plan_revision_cannot_remove_an_already_published_branch_goal() -> None:
+    first = parse_research_plan(
+        _plan_json(branch_goals=["核验公司兑现"], revision=1)
+    )
+    expanded = parse_research_plan(
+        _plan_json(
+            branch_goals=["核验公司兑现", "查找反方驱动"],
+            revision=2,
+        )
+    )
+    removed = parse_research_plan(
+        _plan_json(branch_goals=["查找反方驱动"], revision=3)
+    )
+
+    validate_plan_revision(
+        first,
+        expanded,
+        original_task_id="task-1",
+        current_task_id="task-1",
+    )
+    with pytest.raises(ValueError, match="remove branch goals"):
+        validate_plan_revision(
+            expanded,
+            removed,
             original_task_id="task-1",
             current_task_id="task-1",
         )
