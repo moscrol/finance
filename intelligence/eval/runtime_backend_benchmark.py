@@ -437,6 +437,8 @@ class RuntimeArmResult:
 
 def _derived_protocol_issues(result: RuntimeArmResult) -> tuple[str, ...]:
     issues = list(result.protocol_issues)
+    if result.status == "failed":
+        issues.append("runtime_failed")
     if result.status == "completed" and result.structural_status != "completed":
         issues.append("completed_without_structural_completion")
     if result.status == "completed" and result.semantic_status not in {

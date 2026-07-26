@@ -249,3 +249,27 @@ def test_summary_reports_backend_metrics_and_protocol_failures() -> None:
     assert summary["backends"]["continuous_glm"]["median_latency_seconds"] == 10.2
     assert summary["backends"]["codex_headless"]["input_tokens"] == 1200
     assert summary["arm_count"] == 3
+
+
+def test_summary_fails_closed_when_runtime_arm_failed() -> None:
+    failed = replace(
+        _arm("continuous_glm"),
+        answer="",
+        status="failed",
+        structural_status="failed",
+        semantic_status="unavailable",
+        stop_reason="model_unavailable",
+        provider_attempts=0,
+        llm_calls=0,
+        tool_calls=0,
+    )
+
+    summary = summarize_runtime_benchmark(
+        case_ids=("current-mainline",),
+        results=(failed,),
+        expected_backends=("continuous_glm",),
+    )
+
+    assert summary["passed"] is False
+    assert summary["protocol_failure_count"] == 1
+    assert summary["backends"]["continuous_glm"]["protocol_issue_count"] == 1
