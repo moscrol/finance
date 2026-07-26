@@ -71,6 +71,17 @@ def _next_review_id(request_dir: Path) -> str:
     return f"ARL-{largest + 1:04d}"
 
 
+def _latest_review_id(request_dir: Path) -> str | None:
+    review_ids = [
+        path.stem
+        for path in request_dir.glob("ARL-*.json")
+        if REVIEW_ID_PATTERN.fullmatch(path.stem)
+    ]
+    if not review_ids:
+        return None
+    return max(review_ids, key=lambda value: int(value.rsplit("-", 1)[-1]))
+
+
 def _load_dependency(state_root: Path, review_id: str) -> Mapping[str, object]:
     if not REVIEW_ID_PATTERN.fullmatch(review_id):
         raise ValueError(f"invalid dependency review id: {review_id}")
@@ -134,6 +145,15 @@ def submit_request(
     with _exclusive_lock(lock_path):
         request_dir = state_root / "requests"
         request_dir.mkdir(parents=True, exist_ok=True)
+        latest_review_id = _latest_review_id(request_dir)
+        if (
+            latest_review_id is not None
+            and latest_review_id not in dependency_tuple
+            and supersedes != latest_review_id
+        ):
+            raise ValueError(
+                f"new request must depend on or supersede latest request: {latest_review_id}"
+            )
         for dependency in dependency_tuple:
             raw_dependency = _load_dependency(state_root, dependency)
             dependency_commit = str(raw_dependency.get("commit", ""))

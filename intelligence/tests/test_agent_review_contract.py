@@ -306,6 +306,23 @@ def test_submit_allocates_ids_under_one_state_root(review_repo, tmp_path: Path):
     assert second.depends_on == ("ARL-0001",)
 
 
+def test_submit_cannot_bypass_latest_request_dependency(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    kwargs = {
+        "repo": repo,
+        "state_root": state_root,
+        "scope": "evidence ledger slice",
+        "artifacts": ("intelligence/services/evidence_ledger.py",),
+        "required_checks": ("run focused evidence ledger tests",),
+        "intensity": "light",
+    }
+    submit_request(**kwargs)
+
+    with pytest.raises(ValueError, match="latest request"):
+        submit_request(**kwargs)
+
+
 def test_submit_rejects_missing_dependency(review_repo, tmp_path: Path):
     repo, _parent, _commit = review_repo
 
