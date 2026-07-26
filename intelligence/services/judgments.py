@@ -24,6 +24,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence.services.memory_gate import (
+    PromotionDecision,
+    promotion_metadata,
+)
+
 DEFAULT_WINDOW = 10
 
 
@@ -75,6 +80,43 @@ def record_judgment(
     }
     if session_id and str(session_id).strip():
         record["session_id"] = str(session_id).strip()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return p, record
+
+
+def record_validated_judgment(
+    path: str | Path,
+    *,
+    memo: str,
+    decision: PromotionDecision,
+    themes: list[str] | None = None,
+    stocks: list[str] | None = None,
+    session_id: str | None = None,
+    ts: str | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Append one gate-approved lesson bound to exact reviewed content."""
+
+    text = str(memo or "").strip()
+    provenance = dict(decision.provenance)
+    if (
+        decision.reason != "reviewed_checkpoint_lesson"
+        or not provenance.get("checkpoint_id")
+        or provenance.get("verdict") not in {"hit", "partial", "miss"}
+    ):
+        raise ValueError("judgment promotion requires checkpoint lesson authority")
+    promotion = promotion_metadata(decision, text)
+    record: dict[str, Any] = {
+        "ts": ts or _now().isoformat(timespec="seconds"),
+        "memo": text,
+        "themes": _clean_terms(themes),
+        "stocks": _clean_terms(stocks),
+        "promotion": promotion,
+    }
+    if session_id and str(session_id).strip():
+        record["session_id"] = str(session_id).strip()
+    p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")

@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from intelligence.services import judgments
+from intelligence.services.memory_gate import MemoryCandidate, MemoryGate
 
 
 class RecordJudgmentTests(unittest.TestCase):
@@ -34,6 +35,81 @@ class RecordJudgmentTests(unittest.TestCase):
             path = Path(tmp) / "judgments.jsonl"
             with self.assertRaises(ValueError):
                 judgments.record_judgment(path, memo="   ")
+            self.assertFalse(path.exists())
+
+    def test_validated_judgment_binds_gate_decision_and_provenance(self) -> None:
+        memo = "估值判断应同时检查兑现与反证"
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "lesson-1",
+                "decision_lesson",
+                memo,
+                checkpoint_id="c1",
+            ),
+            checkpoints=({"id": "c1", "claim": "估值框架有效"},),
+            verdicts=({"id": "c1", "verdict": "hit"},),
+            corrections=(),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "judgments.jsonl"
+            _, record = judgments.record_validated_judgment(
+                path,
+                memo=memo,
+                decision=decision,
+                themes=["估值"],
+            )
+
+            self.assertEqual(record["promotion"]["candidate_id"], "lesson-1")
+            self.assertEqual(record["promotion"]["provenance"]["verdict"], "hit")
+            self.assertEqual(
+                record["promotion"]["content_sha256"],
+                decision.content_sha256,
+            )
+
+    def test_validated_judgment_rejects_replayed_decision_for_other_content(self) -> None:
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "lesson-1",
+                "decision_lesson",
+                "原始通过内容",
+                checkpoint_id="c1",
+            ),
+            checkpoints=({"id": "c1", "claim": "已回检"},),
+            verdicts=({"id": "c1", "verdict": "miss"},),
+            corrections=(),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "judgments.jsonl"
+            with self.assertRaises(ValueError):
+                judgments.record_validated_judgment(
+                    path,
+                    memo="被替换的任意内容",
+                    decision=decision,
+                )
+            self.assertFalse(path.exists())
+
+    def test_validated_judgment_rejects_correction_channel_authority(self) -> None:
+        text = "只追问会改变答案的歧义"
+        source = {"ts": "2026-07-27T10:00:00Z", "correction": text}
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "preference-1",
+                "user_preference",
+                text,
+                correction_ts=source["ts"],
+            ),
+            checkpoints=(),
+            verdicts=(),
+            corrections=(source,),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "judgments.jsonl"
+            with self.assertRaises(ValueError):
+                judgments.record_validated_judgment(
+                    path,
+                    memo=text,
+                    decision=decision,
+                )
             self.assertFalse(path.exists())
 
 
