@@ -377,6 +377,35 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     ),
 }
 
+_PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
+    "market_daily": {
+        "limit_up_count": "limit_up",
+        "limit_down_count": "limit_down",
+    }
+}
+
+
+def _normalize_provider_field_aliases(spec: FinanceQuerySpec) -> FinanceQuerySpec:
+    aliases = _PROVIDER_FIELD_ALIASES.get(spec.dataset, {})
+    if not aliases:
+        return spec
+
+    def field(value: str) -> str:
+        return aliases.get(value, value)
+
+    return replace(
+        spec,
+        metrics=tuple(field(value) for value in spec.metrics),
+        dimensions=tuple(field(value) for value in spec.dimensions),
+        filters=tuple(
+            replace(item, field=field(item.field)) for item in spec.filters
+        ),
+        group_by=tuple(field(value) for value in spec.group_by),
+        order_by=tuple(
+            replace(item, field=field(item.field)) for item in spec.order_by
+        ),
+    )
+
 
 _SCALAR_SCHEMA = {
     "anyOf": [
@@ -611,6 +640,7 @@ class FinanceQuery:
         cancelled = is_cancelled or (lambda: False)
         if cancelled():
             raise FinanceQueryCancelled("finance query cancelled")
+        spec = _normalize_provider_field_aliases(spec)
         compiled = _compile_query(
             spec,
             information_cutoff=information_cutoff,

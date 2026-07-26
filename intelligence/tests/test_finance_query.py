@@ -119,6 +119,16 @@ def test_query_filters_rows_and_enforces_information_cutoff(market_db: Path) -> 
     assert result.served_date == "2026-07-24"
 
 
+def test_market_query_accepts_provider_natural_count_alias(market_db: Path) -> None:
+    result = FinanceQuery(market_db).run(
+        _market_spec(metrics=["limit_up_count"], dimensions=["trade_date"]),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [row["limit_up"] for row in result.rows] == [80, 52]
+
+
 def test_filter_values_are_bound_parameters_not_sql(market_db: Path) -> None:
     spec = _market_spec(
         filters=[
