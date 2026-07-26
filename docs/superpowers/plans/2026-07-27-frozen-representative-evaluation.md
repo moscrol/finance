@@ -23,7 +23,7 @@
 - Read: `intelligence/tests/fixtures/runtime_backend_cases.json`
 - Create: `/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-2026-07-27.json`
 
-- [ ] **Step 1: Project exactly five representative cases**
+- [x] **Step 1: Project exactly five representative cases**
 
 Select these existing cases without changing their questions, cutoffs, budgets, or required outputs:
 
@@ -37,7 +37,7 @@ unfamiliar-methodology
 
 This set covers prediction, valuation, causal attribution, current-market judgment, and a non-skill methodology question. It intentionally omits the deterministic technical fast path because that path already has a real UI/SSE acceptance run and is not a long-tail Episode quality test.
 
-- [ ] **Step 2: Run the provider-tolerance and benchmark-contract tests**
+- [x] **Step 2: Run the provider-tolerance and benchmark-contract tests**
 
 Run:
 
@@ -52,11 +52,11 @@ Run:
 
 Expected: all pass.
 
-- [ ] **Step 3: Run one dry benchmark plan**
+- [x] **Step 3: Run one dry benchmark plan**
 
 Run the five-case file with `--dry-run --backend sdk_gpt`. Assert `case_count=5`, every `execution_status=planned`, and every `acceptance_contract_gaps` list is empty.
 
-- [ ] **Step 4: Freeze the exact Git revision**
+- [x] **Step 4: Freeze the exact Git revision**
 
 Record `git rev-parse HEAD` and require `git status --short` to be empty. All live artifacts must record this same revision. Do not edit product code after this point without invalidating the live result.
 
@@ -73,7 +73,7 @@ Enable `FORESIGHT_LLM_KEYCHAIN=on` for the benchmark process and pass `--keychai
 
 Run `sdk_gpt` against the frozen five-case file, the canonical finance data root, and the local knowledge wiki. If Keychain access or the upstream route is unavailable, record an infrastructure blocker and do not substitute another backend silently.
 
-- [ ] **Step 3: Preserve hard gates**
+- [x] **Step 3: Preserve hard gates**
 
 Do not loosen `summarize_runtime_benchmark`, task-fulfillment, citation, cutoff, invalid-action, or semantic grounding rules. A failed arm remains a result to diagnose, not a reason to change the evaluator.
 
@@ -82,7 +82,7 @@ Do not loosen `summarize_runtime_benchmark`, task-fulfillment, citation, cutoff,
 **Files:**
 - Create: `docs/verification/adaptive-runtime-representative-evaluation-2026-07-27.md`
 
-- [ ] **Step 1: Compute bounded metrics**
+- [x] **Step 1: Compute bounded metrics**
 
 Report per case and aggregate:
 
@@ -98,11 +98,11 @@ latency, model calls, tool calls, duplicate queries, invalid actions
 control-plane leakage scan
 ```
 
-- [ ] **Step 2: Judge product quality separately from protocol success**
+- [x] **Step 2: Judge product quality separately from protocol success**
 
 Read only the five public answers. Classify each as `useful`, `honest_partial`, or `unacceptable`; explain whether the result directly addresses the user's ask. A green protocol with a templated or irrelevant answer is not accepted.
 
-- [ ] **Step 3: Write the release conclusion**
+- [x] **Step 3: Write the release conclusion**
 
 State one of:
 
