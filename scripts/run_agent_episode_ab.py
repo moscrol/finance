@@ -458,9 +458,7 @@ def main(argv: list[str] | None = None) -> int:
         context = (
             None
             if deterministic or control.terminal_kind != "research"
-            else fresh_context(
-                timeout=max(0.0, episode_deadline - time.monotonic()),
-            )
+            else fresh_context()
         )
         record = _base_case_payload(case, control, context)
         if case.case_id in current_results:
