@@ -9,7 +9,7 @@ Status: `quality_not_green_external_runtime_jitter`
 | Field | Value |
 | --- | --- |
 | Source revision (live artifact) | `e179b15cda...` |
-| Current branch tip | `9264065a` |
+| Current branch tip | `c7f5301f` |
 | Source dirty | `false` |
 | Branch | `feat/agent-runtime-backends-verify` |
 | Canonical 8792 | untouched |
