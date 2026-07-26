@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import pytest
 
+from intelligence.services import keychain_credentials
 from intelligence.services.keychain_credentials import (
     KeychainCredentialError,
     KeychainCredentialStore,
+    MacOSKeychainBackend,
 )
 from intelligence.services.llm_refine import LLMProvider
 
@@ -109,6 +112,30 @@ def test_keychain_failure_is_sanitized() -> None:
 
     assert "keychain-secret-value" not in str(caught.value)
     assert "native failure" not in str(caught.value)
+
+
+def test_native_keychain_load_times_out_without_exposing_secret(
+    monkeypatch,
+) -> None:
+    def fake_run(command, **kwargs):
+        assert command == [
+            "/usr/bin/security",
+            "find-generic-password",
+            "-s",
+            "com.foresight.workbench.llm",
+            "-a",
+            "alice",
+            "-w",
+        ]
+        assert kwargs["capture_output"] is True
+        assert kwargs["timeout"] == 3.0
+        raise subprocess.TimeoutExpired(command, timeout=3.0)
+
+    monkeypatch.setattr(keychain_credentials.subprocess, "run", fake_run)
+    backend = MacOSKeychainBackend.__new__(MacOSKeychainBackend)
+
+    with pytest.raises(KeychainCredentialError, match="unable to read"):
+        backend.load(service="com.foresight.workbench.llm", account="alice")
 
 
 @pytest.mark.parametrize("user_id", ("", "a" * 129))
