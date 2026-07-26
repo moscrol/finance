@@ -163,12 +163,100 @@ def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(
         "sdk_gpt",
         case,
         object(),
-        sdk_gpt_providers=(provider,),
+        runtime_providers=(provider,),
     )
 
     assert type(runtime).__name__ == "OpenAIAgentsRuntime"
     assert model == "gpt-5.6-sol"
     assert "saved-secret-value" not in repr(runtime)
+
+
+def test_continuous_runtime_accepts_session_provider_without_environment(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(benchmark.llm_refine, "detect_providers", lambda: ())
+    case = benchmark._load_cases(FIXTURE)[0]
+    provider = LLMProvider(
+        name="openai",
+        api_key="saved-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+
+    runtime, model = benchmark._build_runtime(
+        "continuous_glm",
+        case,
+        object(),
+        runtime_providers=(provider,),
+    )
+
+    assert type(runtime).__name__ == "GLMAgentRuntime"
+    assert model == "gpt-5.6-sol"
+    assert "saved-secret-value" not in repr(runtime)
+
+
+def test_keychain_provider_is_injected_into_continuous_benchmark(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    output = tmp_path / "live.json"
+    provider = LLMProvider(
+        name="openai",
+        api_key="saved-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+    captured: list[LLMProvider] = []
+
+    class FakeSettings:
+        @staticmethod
+        def byok_provider(user_id: str) -> LLMProvider | None:
+            assert user_id == "alice"
+            return provider
+
+    def run_runtime_arm(
+        *_args,
+        runtime_providers: tuple[LLMProvider, ...] = (),
+        **_kwargs,
+    ):
+        captured.extend(runtime_providers)
+        return ({"execution_status": "completed"}, ())
+
+    monkeypatch.setattr(benchmark, "SessionLLMSettings", FakeSettings)
+    monkeypatch.setattr(benchmark, "_run_runtime_arm", run_runtime_arm)
+    monkeypatch.setattr(
+        benchmark,
+        "summarize_runtime_benchmark",
+        lambda **_kwargs: {"passed": True},
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
+
+    assert benchmark.main(
+        [
+            "--backend",
+            "continuous_glm",
+            "--questions-file",
+            str(FIXTURE),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--keychain-user",
+            "alice",
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    assert captured == [provider] * 9
+    assert json.loads(output.read_text(encoding="utf-8"))["credential_source"] == (
+        "keychain"
+    )
+    assert "saved-secret-value" not in output.read_text(encoding="utf-8")
 
 
 def test_standard_headless_benchmark_uses_bounded_reasoning_effort() -> None:

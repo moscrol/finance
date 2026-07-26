@@ -303,10 +303,10 @@ def _build_runtime(
     case: RuntimeBenchmarkCase,
     context: object,
     *,
-    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
+    runtime_providers: tuple[LLMProvider, ...] = (),
 ) -> tuple[object, str]:
     del context
-    providers = llm_refine.detect_providers()
+    providers = runtime_providers or llm_refine.detect_providers()
     if backend == "continuous_glm":
         client = GLMModelClient(providers=providers)
         finalizer = EpisodeFinalizer(client)
@@ -344,7 +344,7 @@ def _build_runtime(
         )
 
         provider = next(
-            (item for item in sdk_gpt_providers if item.name == "openai"),
+            (item for item in providers if item.name == "openai"),
             None,
         )
         if provider is not None:
@@ -579,7 +579,7 @@ def _run_research_arm(
     finance_root: Path,
     knowledge_wiki: Path,
     latest_data_date: str,
-    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
+    runtime_providers: tuple[LLMProvider, ...] = (),
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
@@ -597,7 +597,7 @@ def _run_research_arm(
             backend,
             case,
             context,
-            sdk_gpt_providers=sdk_gpt_providers,
+            runtime_providers=runtime_providers,
         )
         registry = _build_registry(
             control.task_frame,
@@ -618,9 +618,7 @@ def _run_research_arm(
                     reason=outcome.stop_reason,
                 )
             verified = verify_episode_outcome(context.contract, outcome)
-            semantic_providers = (
-                sdk_gpt_providers if backend == "sdk_gpt" else ()
-            )
+            semantic_providers = runtime_providers
             runtime_semantic_providers = getattr(
                 runtime,
                 "semantic_providers",
@@ -827,7 +825,7 @@ def _run_runtime_arm(
     finance_root: Path,
     knowledge_wiki: Path,
     latest_data_date: str,
-    sdk_gpt_providers: tuple[LLMProvider, ...] = (),
+    runtime_providers: tuple[LLMProvider, ...] = (),
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
@@ -840,7 +838,7 @@ def _run_runtime_arm(
                 finance_root=finance_root,
                 knowledge_wiki=knowledge_wiki,
                 latest_data_date=latest_data_date,
-                sdk_gpt_providers=sdk_gpt_providers,
+                runtime_providers=runtime_providers,
             )
             for backend in backends
         )
@@ -863,7 +861,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--knowledge-wiki", type=Path)
     parser.add_argument(
         "--keychain-user",
-        help="Load the sdk_gpt provider from macOS Keychain without exporting a key",
+        help="Load the runtime provider from macOS Keychain without exporting a key",
     )
     parser.add_argument("--output", type=Path, required=True)
     return parser
@@ -890,7 +888,7 @@ def main(argv: list[str] | None = None) -> int:
             else None
         )
         market_data_date = None
-        sdk_gpt_providers: tuple[LLMProvider, ...] = ()
+        runtime_providers: tuple[LLMProvider, ...] = ()
         if not args.dry_run:
             if finance_root is None or knowledge_wiki is None:
                 raise ValueError(
@@ -915,7 +913,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if saved_provider is None:
                     raise ValueError("saved Keychain provider unavailable")
-                sdk_gpt_providers = (saved_provider,)
+                runtime_providers = (saved_provider,)
         frozen = [
             (case, *_freeze_case(case, dry_run=args.dry_run)) for case in cases
         ]
@@ -941,7 +939,7 @@ def main(argv: list[str] | None = None) -> int:
                         finance_root=finance_root,
                         knowledge_wiki=knowledge_wiki,
                         latest_data_date=market_data_date,
-                        sdk_gpt_providers=sdk_gpt_providers,
+                        runtime_providers=runtime_providers,
                     )
                 )
             records = [record for record, _arms in executed]
@@ -998,7 +996,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "market_data_date": market_data_date,
         "credential_source": (
-            "keychain" if sdk_gpt_providers else "environment"
+            "keychain" if runtime_providers else "environment"
         ),
         "cases": records,
     }
