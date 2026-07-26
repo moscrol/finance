@@ -7,6 +7,7 @@ import pytest
 from intelligence.services.research_plan import (
     parse_research_plan,
     plan_to_public_dict,
+    validate_plan_answer_elements,
     validate_plan_revision,
 )
 
@@ -104,4 +105,50 @@ def test_plan_revision_must_increase_and_preserve_task_identity() -> None:
             second,
             original_task_id="task-1",
             current_task_id="task-2",
+        )
+
+
+def test_plan_answer_elements_must_cover_immutable_task_floor() -> None:
+    complete = parse_research_plan(_plan_json())
+    missing = parse_research_plan(
+        _plan_json(answer_elements=["direct_assessment"])
+    )
+
+    validate_plan_answer_elements(
+        complete,
+        required_answer_elements=("direct_assessment", "counterpoint"),
+    )
+    with pytest.raises(ValueError, match="missing required answer elements"):
+        validate_plan_answer_elements(
+            missing,
+            required_answer_elements=("direct_assessment", "counterpoint"),
+        )
+
+
+def test_plan_revision_can_add_but_cannot_remove_answer_elements() -> None:
+    first = parse_research_plan(
+        _plan_json(answer_elements=["direct_assessment"], revision=1)
+    )
+    expanded = parse_research_plan(
+        _plan_json(
+            answer_elements=["direct_assessment", "counterpoint"],
+            revision=2,
+        )
+    )
+    shrunk = parse_research_plan(
+        _plan_json(answer_elements=["counterpoint"], revision=3)
+    )
+
+    validate_plan_revision(
+        first,
+        expanded,
+        original_task_id="task-1",
+        current_task_id="task-1",
+    )
+    with pytest.raises(ValueError, match="remove answer elements"):
+        validate_plan_revision(
+            expanded,
+            shrunk,
+            original_task_id="task-1",
+            current_task_id="task-1",
         )

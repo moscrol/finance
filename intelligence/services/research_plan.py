@@ -187,6 +187,38 @@ def validate_plan_revision(
         raise ValueError("plan revision must preserve task identity")
     if current.revision <= previous.revision:
         raise ValueError("plan revision must strictly increase")
+    removed = tuple(
+        item
+        for item in previous.answer_elements
+        if item not in set(current.answer_elements)
+    )
+    if removed:
+        raise ValueError(
+            "plan revision cannot remove answer elements: " + ",".join(removed)
+        )
+
+
+def validate_plan_answer_elements(
+    plan: ResearchPlan,
+    *,
+    required_answer_elements: tuple[str, ...],
+) -> None:
+    """Require the model plan to remain above the immutable task floor."""
+
+    required = tuple(
+        dict.fromkeys(
+            str(item).strip()
+            for item in required_answer_elements
+            if str(item).strip()
+        )
+    )
+    missing = tuple(
+        item for item in required if item not in set(plan.answer_elements)
+    )
+    if missing:
+        raise ValueError(
+            "plan missing required answer elements: " + ",".join(missing)
+        )
 
 
 def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
@@ -209,5 +241,6 @@ __all__ = [
     "parse_plan_candidate",
     "parse_research_plan",
     "plan_to_public_dict",
+    "validate_plan_answer_elements",
     "validate_plan_revision",
 ]

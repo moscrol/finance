@@ -46,6 +46,7 @@ from intelligence.services.research_plan import (
     ResearchPlan,
     parse_plan_candidate,
     plan_to_public_dict,
+    validate_plan_answer_elements,
     validate_plan_revision,
 )
 from intelligence.services.research_tool_registry import (
@@ -532,6 +533,14 @@ class ContinuousAgentEpisode:
             )
             if plan_result.plan is not None:
                 try:
+                    validate_plan_answer_elements(
+                        plan_result.plan,
+                        required_answer_elements=tuple(
+                            item.output_id
+                            for item in context.contract.required_outputs
+                            if item.required
+                        ),
+                    )
                     if ledger.plan is not None:
                         validate_plan_revision(
                             ledger.plan,
