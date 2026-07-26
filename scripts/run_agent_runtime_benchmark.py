@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 from typing import Any
@@ -74,6 +75,34 @@ _INFRASTRUCTURE_STOP_REASONS = frozenset(
         "sdk_transport_unavailable",
     }
 )
+
+
+def _source_provenance() -> tuple[str, bool]:
+    repo_root = Path(__file__).resolve().parents[1]
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_root,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            ).stdout.strip()
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError("benchmark source provenance unavailable") from exc
+    if not revision:
+        raise ValueError("benchmark source revision unavailable")
+    return revision, dirty
 
 
 def _load_cases(path: Path) -> tuple[RuntimeBenchmarkCase, ...]:
@@ -817,6 +846,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        source_revision, source_dirty = _source_provenance()
         cases = _load_cases(args.questions_file)
         backends = tuple(
             resolve_runtime_backend(value).name for value in args.backend
@@ -929,6 +959,8 @@ def main(argv: list[str] | None = None) -> int:
         "schema_version": 1,
         "mode": "dry_run" if args.dry_run else "live",
         "generated_at": date.today().isoformat(),
+        "source_revision": source_revision,
+        "source_dirty": source_dirty,
         "expected_backends": list(backends),
         "case_count": len(cases),
         "runtime_switched": False,

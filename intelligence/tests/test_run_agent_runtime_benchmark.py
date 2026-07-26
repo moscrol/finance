@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -70,6 +71,43 @@ def test_dry_run_freezes_one_task_frame_per_case_and_all_backends(
         "invalidation_conditions",
         "supporting_evidence",
     ]
+
+
+def test_dry_run_records_exact_source_provenance(tmp_path) -> None:
+    output = tmp_path / "plan.json"
+    repo_root = Path(benchmark.__file__).resolve().parents[1]
+    expected_revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    expected_dirty = bool(
+        subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+
+    assert benchmark.main(
+        [
+            "--dry-run",
+            "--backend",
+            "sdk_gpt",
+            "--questions-file",
+            str(FIXTURE),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["source_revision"] == expected_revision
+    assert payload["source_dirty"] is expected_dirty
 
 
 def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
