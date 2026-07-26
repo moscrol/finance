@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
+from contextvars import ContextVar
 from threading import Lock
+import json
 
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.services.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.services.evidence_ledger import EvidenceLedger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -16,7 +21,10 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolSpec,
+)
 from intelligence.services.sub_research import (
     BranchResult,
     BranchRequest,
@@ -114,6 +122,7 @@ class ScriptedWorker:
                 ),
             ),
             gaps=(),
+            llm_calls=1,
             tool_calls=1,
         )
 
@@ -215,3 +224,172 @@ def test_branch_budget_view_cannot_grant_or_promote_caps() -> None:
         is False
     )
     assert result.tool_calls == 1
+
+
+def test_continuous_branch_worker_returns_evidence_but_no_publishable_answer() -> None:
+    class BranchModel:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(
+                {"messages": messages, "tools": tools, "timeout": timeout}
+            )
+            if len(self.calls) == 1:
+                return ModelTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "branch-call-1",
+                            "news_search",
+                            {"query": "反方驱动 同一窗口"},
+                        ),
+                    ),
+                    "scripted",
+                    "",
+                )
+            return ModelTurn(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "draft": "这段分支草稿不得成为公开答案。",
+                        "gaps": [],
+                        "bindings": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            )
+
+    def runner(query, _tool_context):
+        evidence = AgentEvidence(
+            tool="news_search",
+            title="同窗反方证据",
+            detail=f"{query} 返回反方事实",
+            source="公开来源",
+            source_date="2026-07-20",
+            independent_key="branch-worker-family",
+            content_hash="branch-worker-evidence",
+        )
+        return (
+            [evidence],
+            "branch observation",
+            ProviderTrace(
+                provider="test:branch-worker",
+                capability="news_search",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    model = BranchModel()
+    worker = ContinuousSubResearchWorker(model)
+    context = _context()
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="财经新闻检索",
+                cost="remote",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+
+    result = SubResearchCoordinator(worker).run(
+        goals=("查找反方驱动",),
+        task_frame=_frame(),
+        context=context,
+        registry=registry,
+        evidence_sink_factory=ledger.branch_sink,
+    )
+
+    assert result.branches[0].status == "completed"
+    assert result.branches[0].llm_calls == 2
+    assert result.branches[0].tool_calls == 1
+    assert result.branches[0].evidence[0].content_hash == "branch-worker-evidence"
+    assert not hasattr(result.branches[0], "answer")
+    assert "这段分支草稿" not in str(result)
+    assert "查找反方驱动" in str(model.calls[0]["messages"])
+    assert context.root_budget is not None
+    assert context.root_budget.remaining_calls == 23
+
+
+def test_branch_workers_inherit_parent_contextvars() -> None:
+    marker: ContextVar[str] = ContextVar("branch_test_marker", default="missing")
+    token = marker.set("parent-ledger")
+    observed: list[str] = []
+
+    class ContextWorker:
+        def run(self, request: BranchRequest) -> BranchResult:
+            observed.append(marker.get())
+            return BranchResult(
+                branch_id=request.branch_id,
+                goal=request.goal,
+                status="partial",
+                evidence=(),
+                traces=(),
+                gaps=("测试分支",),
+                llm_calls=0,
+                tool_calls=0,
+            )
+
+    try:
+        SubResearchCoordinator(ContextWorker()).run(
+            goals=("分支一", "分支二"),
+            task_frame=_frame(),
+            context=_context(),
+            registry=ResearchToolRegistry(()),
+            evidence_sink_factory=EvidenceLedger().branch_sink,
+        )
+    finally:
+        marker.reset(token)
+
+    assert observed == ["parent-ledger", "parent-ledger"]
+
+
+def test_expired_parent_deadline_never_launches_a_branch() -> None:
+    context = replace(_context(), deadline=ResearchDeadline.from_timeout(0.0))
+    worker = ScriptedWorker()
+
+    result = SubResearchCoordinator(worker).run(
+        goals=("不应执行",),
+        task_frame=_frame(),
+        context=context,
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    assert result.branches == ()
+    assert result.refused_reason == "deadline_exhausted"
+    assert worker.calls == []
+
+
+def test_branch_usage_comes_from_child_budget_not_worker_claims() -> None:
+    class LyingWorker:
+        def run(self, request: BranchRequest) -> BranchResult:
+            return BranchResult(
+                branch_id=request.branch_id,
+                goal=request.goal,
+                status="partial",
+                evidence=(),
+                traces=(),
+                gaps=("未执行工具",),
+                llm_calls=0,
+                tool_calls=99,
+            )
+
+    result = SubResearchCoordinator(LyingWorker()).run(
+        goals=("核验工具计量",),
+        task_frame=_frame(),
+        context=_context(),
+        registry=ResearchToolRegistry(()),
+        evidence_sink_factory=EvidenceLedger().branch_sink,
+    )
+
+    assert result.tool_calls == 0

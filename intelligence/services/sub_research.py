@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from contextvars import copy_context
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from threading import RLock
@@ -142,6 +143,7 @@ class BranchResult:
     evidence: tuple[AgentEvidence, ...]
     traces: tuple[ProviderTrace, ...]
     gaps: tuple[str, ...]
+    llm_calls: int
     tool_calls: int
     error: str = ""
 
@@ -154,8 +156,10 @@ class BranchResult:
             raise TypeError("branch evidence must contain AgentEvidence values")
         if any(not isinstance(item, ProviderTrace) for item in self.traces):
             raise TypeError("branch traces must contain ProviderTrace values")
-        if isinstance(self.tool_calls, bool) or self.tool_calls < 0:
-            raise ValueError("branch tool_calls must be non-negative")
+        for field_name in ("llm_calls", "tool_calls"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"branch {field_name} must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -166,6 +170,10 @@ class SubResearchResult:
     @property
     def tool_calls(self) -> int:
         return sum(item.tool_calls for item in self.branches)
+
+    @property
+    def llm_calls(self) -> int:
+        return sum(item.llm_calls for item in self.branches)
 
     @property
     def evidence(self) -> tuple[AgentEvidence, ...]:
@@ -213,6 +221,8 @@ class SubResearchCoordinator:
             return SubResearchResult((), "cancelled")
         if root.remaining_calls <= 0 or root.remaining_seconds <= 0:
             return SubResearchResult((), "root_budget_exhausted")
+        if context.deadline.remaining() <= 0.0:
+            return SubResearchResult((), "deadline_exhausted")
 
         branch_count = len(normalized)
         calls_per_branch = max(
@@ -247,7 +257,11 @@ class SubResearchCoordinator:
             thread_name_prefix="sub-research",
         ) as executor:
             futures: dict[Future[BranchResult], BranchRequest] = {
-                executor.submit(self._run_one, request): request
+                executor.submit(
+                    copy_context().run,
+                    self._run_one,
+                    request,
+                ): request
                 for request in requests
             }
             for future in as_completed(futures):
@@ -262,7 +276,8 @@ class SubResearchCoordinator:
                         evidence=(),
                         traces=(),
                         gaps=("分支研究未完成",),
-                        tool_calls=0,
+                        llm_calls=0,
+                        tool_calls=self._consumed_tool_calls(request),
                         error=f"branch_worker_exception:{type(exc).__name__}",
                     )
                 results[request.branch_id] = result
@@ -316,12 +331,17 @@ class SubResearchCoordinator:
                 evidence=(),
                 traces=(),
                 gaps=("分支研究已取消",),
+                llm_calls=0,
                 tool_calls=0,
                 error="cancelled",
             )
         result = self._worker.run(request)
         if result.branch_id != request.branch_id or result.goal != request.goal:
             raise ValueError("branch worker changed branch identity")
+        result = replace(
+            result,
+            tool_calls=self._consumed_tool_calls(request),
+        )
         request.evidence_sink.append(result.evidence)
         owners = dict(request.evidence_sink.snapshot().evidence_branch_owners)
         accepted_evidence = tuple(
@@ -330,6 +350,13 @@ class SubResearchCoordinator:
             if owners.get(item.content_hash) == request.branch_id
         )
         return replace(result, evidence=accepted_evidence)
+
+    @staticmethod
+    def _consumed_tool_calls(request: BranchRequest) -> int:
+        budget = request.context.root_budget
+        if budget is None:
+            return 0
+        return max(0, int(budget.initial_calls) - int(budget.remaining_calls))
 
 
 __all__ = [

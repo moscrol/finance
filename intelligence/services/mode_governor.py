@@ -52,6 +52,7 @@ def _clean_domains(values: object) -> tuple[str, ...]:
 class ModeSignals:
     user_mode: UserMode = "auto"
     independent_entities: int = 0
+    separable_branches: int = 0
     evidence_domains: tuple[str, ...] = ()
     complexity_flags: tuple[ComplexityFlag, ...] = ()
     uncovered_answer_elements: int = 0
@@ -65,6 +66,11 @@ class ModeSignals:
             self,
             "independent_entities",
             _non_negative_int(self.independent_entities, "independent_entities"),
+        )
+        object.__setattr__(
+            self,
+            "separable_branches",
+            _non_negative_int(self.separable_branches, "separable_branches"),
         )
         object.__setattr__(
             self,
@@ -164,6 +170,8 @@ class ModeGovernor:
         conditions: list[str] = []
         if signals.independent_entities >= 2:
             conditions.append("multiple_independent_entities")
+        if signals.separable_branches >= 1:
+            conditions.append("separable_sub_research_branch")
         if len(signals.evidence_domains) >= 2:
             conditions.append("multiple_evidence_domains")
         conditions.extend(

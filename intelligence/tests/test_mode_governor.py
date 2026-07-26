@@ -167,6 +167,10 @@ def test_deep_request_fails_closed_when_runtime_cannot_honor_it(
             ModeSignals(uncovered_answer_elements=1),
             "material_uncovered_answer_element",
         ),
+        (
+            ModeSignals(separable_branches=1),
+            "separable_sub_research_branch",
+        ),
     ],
 )
 def test_each_approved_complexity_signal_is_auditable(
@@ -187,6 +191,7 @@ def test_each_approved_complexity_signal_is_auditable(
     [
         {"user_mode": "turbo"},
         {"independent_entities": -1},
+        {"separable_branches": -1},
         {"uncovered_answer_elements": -1},
         {"complexity_flags": ("route_named_complexity",)},
     ],

@@ -56,6 +56,10 @@ from intelligence.services.research_plan import (
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
+from intelligence.services.sub_research import (
+    SubResearchCoordinator,
+    SubResearchResult,
+)
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -79,6 +83,7 @@ def _default_mode_signals(
     user_task = task_frame.to_user_task()
     return ModeSignals(
         independent_entities=len(user_task.subjects),
+        separable_branches=len(plan.branch_goals),
         evidence_domains=plan.evidence_needs,
         uncovered_answer_elements=len(plan.open_gaps),
     )
@@ -232,6 +237,18 @@ class _EpisodeToolAccumulator:
             if cleaned and cleaned not in self.gaps:
                 self.gaps.append(cleaned)
 
+    def consume_sub_research(self, result: SubResearchResult) -> None:
+        self.traces.extend(result.traces)
+        for branch in result.branches:
+            self._extend_unique_gaps(
+                tuple(f"{branch.goal}: {gap}" for gap in branch.gaps)
+            )
+            for item in branch.evidence:
+                if item.content_hash in self.evidence_hashes:
+                    continue
+                self.evidence_hashes.add(item.content_hash)
+                self.evidence.append(item)
+
 
 @dataclass
 class _EpisodeContinuationState:
@@ -259,6 +276,7 @@ class ContinuousAgentEpisode:
         is_cancelled: Callable[[], bool] | None = None,
         mode_governor: ModeGovernor | None = None,
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
+        sub_research_coordinator: SubResearchCoordinator | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
@@ -273,6 +291,7 @@ class ContinuousAgentEpisode:
         self._is_cancelled = is_cancelled or (lambda: False)
         self._mode_governor = mode_governor or ModeGovernor()
         self._mode_signals = mode_signals or _default_mode_signals
+        self._sub_research_coordinator = sub_research_coordinator
 
     def run(
         self,
@@ -557,6 +576,7 @@ class ContinuousAgentEpisode:
                 else PlanParseResult(None, "")
             )
             pending_mode_message: ModeDecision | None = None
+            pending_branch_result: SubResearchResult | None = None
             if plan_result.plan is not None:
                 try:
                     if ledger.plan is not None:
@@ -587,10 +607,30 @@ class ContinuousAgentEpisode:
                                     continuation_state=continuation_state,
                                 )
                                 mode_decided = True
+                            pending_branch_result = self._run_sub_research(
+                                task_frame=task_frame,
+                                plan=plan_result.plan,
+                                decision=pending_mode_message,
+                                context=context,
+                                registry=registry,
+                                ledger=ledger,
+                                evidence_ledger=evidence_ledger,
+                            )
+                            if pending_branch_result is not None:
+                                accumulator.consume_sub_research(
+                                    pending_branch_result
+                                )
+                                llm_calls += pending_branch_result.llm_calls
+                                tool_calls += pending_branch_result.tool_calls
                             if pending_mode_message is not None:
                                 self._append_mode_decision_message(
                                     messages=messages,
                                     decision=pending_mode_message,
+                                )
+                            if pending_branch_result is not None:
+                                self._append_sub_research_message(
+                                    messages=messages,
+                                    result=pending_branch_result,
                                 )
                             continue
                     else:
@@ -604,6 +644,19 @@ class ContinuousAgentEpisode:
                                 continuation_state=continuation_state,
                             )
                             mode_decided = True
+                        pending_branch_result = self._run_sub_research(
+                            task_frame=task_frame,
+                            plan=plan_result.plan,
+                            decision=pending_mode_message,
+                            context=context,
+                            registry=registry,
+                            ledger=ledger,
+                            evidence_ledger=evidence_ledger,
+                        )
+                        if pending_branch_result is not None:
+                            accumulator.consume_sub_research(pending_branch_result)
+                            llm_calls += pending_branch_result.llm_calls
+                            tool_calls += pending_branch_result.tool_calls
             if plan_result.error:
                 plan_failures += 1
                 invalid_actions += 1
@@ -692,6 +745,11 @@ class ContinuousAgentEpisode:
                     self._append_mode_decision_message(
                         messages=messages,
                         decision=pending_mode_message,
+                    )
+                if pending_branch_result is not None:
+                    self._append_sub_research_message(
+                        messages=messages,
+                        result=pending_branch_result,
                     )
                 if self._snapshot_surface_satisfied(
                     registry=registry,
@@ -1096,12 +1154,82 @@ class ContinuousAgentEpisode:
             raise TypeError("mode_signals must return ModeSignals")
         if context.root_budget is None and signals.dependencies_available:
             signals = replace(signals, dependencies_available=False)
+        if (
+            plan.branch_goals
+            and self._sub_research_coordinator is None
+            and signals.dependencies_available
+        ):
+            signals = replace(signals, dependencies_available=False)
         decision = self._mode_governor.decide(plan, signals)
         promoted = self._mode_governor.apply(context, decision)
         ledger.add("mode_decision", decision.to_dict())
         if continuation_state is not None:
             continuation_state.context = promoted
         return promoted, decision
+
+    def _run_sub_research(
+        self,
+        *,
+        task_frame: TaskFrame,
+        plan: ResearchPlan,
+        decision: ModeDecision | None,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        ledger: _EpisodeLedger,
+        evidence_ledger: EvidenceLedger,
+    ) -> SubResearchResult | None:
+        coordinator = self._sub_research_coordinator
+        if (
+            coordinator is None
+            or decision is None
+            or decision.effective_mode != "deep"
+            or not plan.branch_goals
+        ):
+            return None
+        for index, goal in enumerate(plan.branch_goals, start=1):
+            ledger.add(
+                "branch_started",
+                {"branch_id": f"branch-{index}", "goal": goal},
+            )
+        result = coordinator.run(
+            goals=plan.branch_goals,
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            evidence_sink_factory=evidence_ledger.branch_sink,
+        )
+        completed_ids: set[str] = set()
+        for branch in result.branches:
+            completed_ids.add(branch.branch_id)
+            ledger.add(
+                (
+                    "branch_completed"
+                    if branch.status in {"completed", "partial"}
+                    else "branch_failed"
+                ),
+                {
+                    "branch_id": branch.branch_id,
+                    "goal": branch.goal,
+                    "status": branch.status,
+                    "evidence_count": len(branch.evidence),
+                    "gap_count": len(branch.gaps),
+                    "llm_calls": branch.llm_calls,
+                    "tool_calls": branch.tool_calls,
+                },
+            )
+        for index, goal in enumerate(plan.branch_goals, start=1):
+            branch_id = f"branch-{index}"
+            if branch_id not in completed_ids:
+                ledger.add(
+                    "branch_failed",
+                    {
+                        "branch_id": branch_id,
+                        "goal": goal,
+                        "status": "failed",
+                        "reason": result.refused_reason or "branch_not_executed",
+                    },
+                )
+        return result
 
     @staticmethod
     def _append_mode_decision_message(
@@ -1120,6 +1248,43 @@ class ContinuousAgentEpisode:
                             "研究深度与总预算已由运行时裁决。保留原计划，"
                             "继续自主选择查询、工具顺序和停止时点；"
                             "不得把预算或内部裁决文本写入最终答案。"
+                        ),
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+
+    @staticmethod
+    def _append_sub_research_message(
+        *,
+        messages: list[dict[str, object]],
+        result: SubResearchResult,
+    ) -> None:
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "kind": "SUB_RESEARCH_RESULTS",
+                        "branches": [
+                            {
+                                "branch_id": branch.branch_id,
+                                "goal": branch.goal,
+                                "status": branch.status,
+                                "evidence": [
+                                    public_agent_evidence(item)
+                                    for item in branch.evidence
+                                ],
+                                "gaps": list(branch.gaps),
+                            }
+                            for branch in result.branches
+                        ],
+                        "refused_reason": result.refused_reason,
+                        "instruction": (
+                            "这些是只读分支返回的公开证据观察，不是最终答案。"
+                            "主 episode 仍需自行比较证据、处理冲突并决定停止；"
+                            "不得把分支状态或内部标识写入公开答案。"
                         ),
                     },
                     ensure_ascii=False,

@@ -14,12 +14,14 @@ from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
 )
+from intelligence.services.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import ResearchPlan
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.sub_research import SubResearchCoordinator
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -375,6 +377,7 @@ class GLMAgentRuntime:
         is_cancelled: Callable[[], bool] | None = None,
         mode_governor: ModeGovernor | None = None,
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
+        sub_research_coordinator: SubResearchCoordinator | None = None,
     ) -> None:
         if client is not None and (
             model is not None or providers is not None or complete_fn is not None
@@ -388,6 +391,13 @@ class GLMAgentRuntime:
             complete_fn=complete_fn,
             is_cancelled=is_cancelled,
         )
+        selected_coordinator = sub_research_coordinator or SubResearchCoordinator(
+            ContinuousSubResearchWorker(
+                selected_client,
+                llm_timeout=llm_timeout,
+            ),
+            is_cancelled=is_cancelled,
+        )
         self._episode = ContinuousAgentEpisode(
             selected_client,
             llm_timeout=llm_timeout,
@@ -395,6 +405,7 @@ class GLMAgentRuntime:
             is_cancelled=is_cancelled,
             mode_governor=mode_governor,
             mode_signals=mode_signals,
+            sub_research_coordinator=selected_coordinator,
         )
 
     @staticmethod

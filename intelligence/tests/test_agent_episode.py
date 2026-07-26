@@ -33,6 +33,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
 )
+from intelligence.services.sub_research import BranchResult, SubResearchResult
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -2409,6 +2410,93 @@ def test_deep_plan_without_observable_complexity_keeps_standard_budget() -> None
     decision = next(event for event in outcome.events if event.kind == "mode_decision")
     assert decision.payload["effective_mode"] == "quick"
     assert decision.payload["reason"] == "no_observable_deep_condition"
+
+
+def test_approved_branch_results_return_to_the_same_primary_history() -> None:
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=6,
+        hard_calls_cap=8,
+        initial_seconds=70.0,
+        hard_seconds_cap=90.0,
+    )
+    context = replace(
+        base,
+        contract=replace(base.contract, research_tier="standard"),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(90.0, synthesis_reserve=20.0),
+        root_budget=root_budget,
+    )
+    branch_evidence = AgentEvidence(
+        tool="news_search",
+        title="反方驱动证据",
+        detail="同一窗口存在反向资金流证据",
+        source="公开来源",
+        source_date="2026-07-21",
+        evidence_tier="L3",
+        content_hash="branch-evidence-1",
+    )
+
+    class StubCoordinator:
+        def run(self, **kwargs):
+            sink = kwargs["evidence_sink_factory"]("branch-1")
+            sink.append(branch_evidence)
+            return SubResearchResult(
+                (
+                    BranchResult(
+                        branch_id="branch-1",
+                        goal="查找反方驱动",
+                        status="completed",
+                        evidence=(branch_evidence,),
+                        traces=(
+                            ProviderTrace(
+                                provider="branch:test",
+                                capability="news_search",
+                                status="success",
+                                result_count=1,
+                            ),
+                        ),
+                        gaps=(),
+                        llm_calls=2,
+                        tool_calls=1,
+                    ),
+                )
+            )
+
+    model = ScriptedModel(
+        [
+            _plan_turn(
+                requested_mode="deep",
+                evidence_needs=["盘面结构"],
+                open_gaps=[],
+                branch_goals=["查找反方驱动"],
+            ),
+            _finish_turn(hashes=("branch-evidence-1",)),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(
+        model,
+        sub_research_coordinator=StubCoordinator(),
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.usage.llm_calls == 4
+    assert outcome.usage.tool_calls == 1
+    kinds = [event.kind for event in outcome.events]
+    assert kinds.index("plan") < kinds.index("mode_decision")
+    assert kinds.index("mode_decision") < kinds.index("branch_started")
+    assert kinds.index("branch_started") < kinds.index("branch_completed")
+    assert model.calls[1]["messages"][:2] == model.calls[0]["messages"][:2]
+    assert "SUB_RESEARCH_RESULTS" in str(model.calls[1]["messages"][-1])
+    assert "反方驱动证据" in str(model.calls[1]["messages"][-1])
+    assert "branch draft" not in str(model.calls[1]["messages"])
 
 
 def test_model_can_finalize_inside_the_reserved_synthesis_window() -> None:

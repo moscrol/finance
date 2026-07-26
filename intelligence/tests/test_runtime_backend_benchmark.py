@@ -101,6 +101,19 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
                     "prompt": "hidden mode prompt",
                 },
             },
+            {
+                "sequence": 6,
+                "kind": "branch_completed",
+                "payload": {
+                    "branch_id": "branch-1",
+                    "goal": "查找反方驱动",
+                    "status": "completed",
+                    "evidence_count": 1,
+                    "gap_count": 0,
+                    "llm_calls": 2,
+                    "tool_calls": 1,
+                },
+            },
         ),
         provider_traces=(
             {
@@ -141,6 +154,7 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
         "tool_request",
         "invalid_action",
         "mode_decision",
+        "branch_completed",
     ]
     assert diagnostics.events[0]["payload"]["arguments"] == {
         "query": "A股下跌原因"
@@ -160,6 +174,7 @@ def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
         "max_repair_cycles": 3,
         "max_branches": 3,
     }
+    assert diagnostics.events[3]["payload"]["evidence_count"] == 1
     assert diagnostics.future_of_cutoff[0]["provider"] == "eastmoney"
     assert diagnostics.root_budget["remaining_calls"] == 2
     assert "sk-live-secret" not in encoded
