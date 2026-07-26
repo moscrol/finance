@@ -298,10 +298,11 @@ command = "must-not-enter-headless"
     )
     fake = ValidFakeCodex()
 
-    CodexHeadlessRuntime(
+    runtime = CodexHeadlessRuntime(
         command_runner=fake,
         provider_config_path=config_path,
-    ).run(
+    )
+    runtime.run(
         task_frame=_frame(),
         context=_context(_frame()),
         registry=_registry([]),
@@ -320,6 +321,12 @@ command = "must-not-enter-headless"
     )
     assert "HEADLESS_PROVIDER_SECRET_SENTINEL" not in repr(command)
     assert command.args[command.args.index("-m") + 1] == "gpt-5.6-sol"
+    providers = runtime.semantic_providers()
+    assert len(providers) == 1
+    assert providers[0].base_url == "http://localhost:57244/v1"
+    assert providers[0].model == "gpt-5.6-sol"
+    assert providers[0].api_key == "HEADLESS_PROVIDER_SECRET_SENTINEL"
+    assert "HEADLESS_PROVIDER_SECRET_SENTINEL" not in repr(providers[0])
 
 
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:

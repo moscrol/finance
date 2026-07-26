@@ -37,6 +37,7 @@ from intelligence.services.headless_tool_gateway import (
     HeadlessToolGateway,
 )
 from intelligence.services.keychain_credentials import normalize_provider_base_url
+from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -350,6 +351,23 @@ class CodexHeadlessRuntime:
             "max",
         }:
             raise ValueError("unsupported Codex reasoning effort")
+
+    @property
+    def model_name(self) -> str:
+        return self._model or "codex-account-default"
+
+    def semantic_providers(self) -> tuple[LLMProvider, ...]:
+        projection = self._provider_projection
+        if projection is None or not self._model:
+            return ()
+        return (
+            LLMProvider(
+                name="openai",
+                api_key=projection.bearer_token,
+                base_url=projection.base_url,
+                model=self._model,
+            ),
+        )
 
     def run(
         self,

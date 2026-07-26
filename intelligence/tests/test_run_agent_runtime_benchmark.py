@@ -616,6 +616,141 @@ def test_live_runner_aborts_batch_on_shared_provider_infrastructure_failure(
     assert artifact["summary"]["passed"] is False
 
 
+def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "headless-case.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "current-mainline",
+                        "question": "目前市场的主线是什么",
+                        "as_of": "2026-07-24",
+                        "tier": "standard",
+                        "timeout": 30.0,
+                        "required_outputs": ["direct_assessment"],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "headless-output.json"
+    judge_provider = LLMProvider(
+        name="openai",
+        api_key="headless-judge-secret",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+    captured_providers: list[LLMProvider] = []
+
+    class FakeHeadlessRuntime:
+        model_name = "gpt-5.6-sol"
+
+        @staticmethod
+        def semantic_providers() -> tuple[LLMProvider, ...]:
+            return (judge_provider,)
+
+        @staticmethod
+        def run(*, task_frame, context, registry):
+            del registry
+            evidence = AgentEvidence(
+                tool="mainline_context",
+                title="同日主线结构",
+                detail="截至2026-07-24，半导体是当前主线。",
+                source="test",
+                source_date="2026-07-24",
+                content_hash="headless-mainline-hash",
+            )
+            return AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status="completed",
+                draft="截至2026-07-24，半导体是当前主线。",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(
+                    EpisodeEvent(
+                        1,
+                        "task",
+                        {"task_frame_hash": task_frame.task_frame_hash},
+                    ),
+                ),
+                bindings=tuple(
+                    OutputEvidenceBinding(
+                        required.output_id,
+                        ("headless-mainline-hash",),
+                    )
+                    for required in context.contract.required_outputs
+                ),
+                usage=AgentUsage(llm_calls=1, tool_calls=1),
+            )
+
+    class PassingSemanticVerifier:
+        provider_attempts = 1
+
+        @staticmethod
+        def verify(*, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    def build_semantic_verifier(_case, _context, *, providers=()):
+        captured_providers.extend(providers)
+        return PassingSemanticVerifier()
+
+    runtime = FakeHeadlessRuntime()
+    monkeypatch.setattr(
+        benchmark,
+        "_build_runtime",
+        lambda *_args, **_kwargs: (runtime, runtime.model_name),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_registry",
+        lambda *_args, **_kwargs: ResearchToolRegistry(()),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_semantic_verifier",
+        build_semantic_verifier,
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
+
+    assert benchmark.main(
+        [
+            "--backend",
+            "codex_headless",
+            "--questions-file",
+            str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    assert captured_providers == [judge_provider]
+    arm = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["arms"][0]
+    assert arm["semantic_status"] == "passed"
+    assert "headless-judge-secret" not in output.read_text(encoding="utf-8")
+
+
 def test_live_runner_rejects_stale_finance_root_before_runtime(
     tmp_path,
     monkeypatch,

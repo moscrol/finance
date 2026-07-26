@@ -362,13 +362,10 @@ def _build_runtime(
             CodexHeadlessRuntime,
         )
 
-        model = str(
-            os.environ.get("CODEX_HEADLESS_MODEL") or "codex-account-default"
+        runtime = CodexHeadlessRuntime(
+            model=os.environ.get("CODEX_HEADLESS_MODEL")
         )
-        return (
-            CodexHeadlessRuntime(model=os.environ.get("CODEX_HEADLESS_MODEL")),
-            model,
-        )
+        return runtime, runtime.model_name
     raise RuntimeError(f"unsupported benchmark backend: {backend}")
 
 
@@ -602,10 +599,20 @@ def _run_research_arm(
                     reason=outcome.stop_reason,
                 )
             verified = verify_episode_outcome(context.contract, outcome)
+            semantic_providers = (
+                sdk_gpt_providers if backend == "sdk_gpt" else ()
+            )
+            runtime_semantic_providers = getattr(
+                runtime,
+                "semantic_providers",
+                None,
+            )
+            if not semantic_providers and callable(runtime_semantic_providers):
+                semantic_providers = tuple(runtime_semantic_providers())
             semantic_verifier = _build_semantic_verifier(
                 case,
                 context,
-                providers=(sdk_gpt_providers if backend == "sdk_gpt" else ()),
+                providers=semantic_providers,
             )
             semantic = semantic_verifier.verify(
                 frame=control.task_frame,
