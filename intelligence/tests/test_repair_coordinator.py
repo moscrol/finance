@@ -63,7 +63,15 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         initial_seconds=30,
         hard_seconds_cap=38,
     )
-    assert grant_for_progress(goal, progress, root_budget=root) is None
+    assert (
+        grant_for_progress(
+            goal,
+            progress,
+            root_budget=root,
+            research_tier="quick",
+        )
+        is None
+    )
     # The deterministic grant is 2 calls/16 seconds, which exceeds this cap.
     assert root.remaining_calls == 3
 
@@ -73,8 +81,80 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         initial_seconds=30,
         hard_seconds_cap=60,
     )
-    grant = grant_for_progress(goal, progress, root_budget=accepted_root)
+    grant = grant_for_progress(
+        goal,
+        progress,
+        root_budget=accepted_root,
+        research_tier="quick",
+    )
     assert grant is not None
     assert accepted_root.remaining_calls == 5
     accepted_root.consume_call(seconds=8)
     assert accepted_root.remaining_calls == 4
+
+
+def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("counterpoint",), family="market")
+    after = _snap(
+        evidence=("e1",),
+        covered=("direct",),
+        gaps=("counterpoint",),
+        family="news",
+    )
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-1",
+        missing_outputs=("counterpoint",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=42,
+        cycle=2,
+    )
+    root = InMemoryRootBudgetLedger(
+        initial_calls=3,
+        hard_calls_cap=5,
+        initial_seconds=30,
+        hard_seconds_cap=60,
+    )
+
+    assert (
+        grant_for_progress(
+            goal,
+            progress,
+            root_budget=root,
+            research_tier="quick",
+        )
+        is None
+    )
+    assert root.remaining_calls == 3
+
+
+def test_root_budget_rejects_a_grant_from_another_episode() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("counterpoint",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=("direct",), gaps=("counterpoint",), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-2",
+        missing_outputs=("counterpoint",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=42,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
+        initial_calls=3,
+        hard_calls_cap=5,
+        initial_seconds=30,
+        hard_seconds_cap=60,
+    )
+    assert (
+        grant_for_progress(
+            goal,
+            progress,
+            root_budget=root,
+            research_tier="quick",
+        )
+        is None
+    )

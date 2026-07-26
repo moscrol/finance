@@ -37,6 +37,8 @@ class ProgressSnapshot:
     independent_source_families: tuple[str, ...]
     before_evidence_source_families: tuple[tuple[str, str], ...] = ()
     after_evidence_source_families: tuple[tuple[str, str], ...] = ()
+    before_evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    after_evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
     def effective_new_evidence(self) -> int:
@@ -45,13 +47,22 @@ class ProgressSnapshot:
             family for _, family in self.before_evidence_source_families
         }
         after_pairs = tuple(self.after_evidence_source_families)
+        after_targets = dict(self.after_evidence_targets)
         if not after_pairs:
             return len(set(self.after_evidence_ids) - before_ids)
+        before_outputs = set(self.before_covered_outputs)
         families = {
             family
             for evidence_id, family in after_pairs
             if evidence_id not in before_ids
             and family not in before_families
+            and (
+                not self.after_evidence_targets
+                or any(
+                    target not in before_outputs
+                    for target in after_targets.get(evidence_id, ())
+                )
+            )
         }
         return len(families)
 
@@ -146,6 +157,8 @@ def progress_from_ledger(
         independent_source_families=after.independent_source_families,
         before_evidence_source_families=before.evidence_source_families,
         after_evidence_source_families=after.evidence_source_families,
+        before_evidence_targets=before.evidence_targets,
+        after_evidence_targets=after.evidence_targets,
     )
 
 
@@ -199,16 +212,26 @@ def should_reenter(
     return True
 
 
+def max_repair_cycles_for_tier(research_tier: str) -> int:
+    tier = str(research_tier or "").strip().lower()
+    if tier == "deep":
+        return 3
+    if tier in {"quick", "standard"}:
+        return 1
+    raise ValueError(f"unsupported repair research tier: {research_tier}")
+
+
 def grant_for_progress(
     goal: RepairGoal,
     progress: ProgressSnapshot,
     *,
     root_budget: RootBudgetLedger,
+    research_tier: str,
 ) -> BudgetGrant | None:
     if not should_reenter(
         progress,
         cycle=goal.cycle,
-        max_cycles=goal.cycle,
+        max_cycles=max_repair_cycles_for_tier(research_tier),
         remaining_calls=goal.remaining_calls,
         remaining_seconds=goal.remaining_seconds,
     ):
@@ -235,6 +258,7 @@ __all__ = [
     "RepairGoal",
     "build_repair_goal",
     "grant_for_progress",
+    "max_repair_cycles_for_tier",
     "progress_from_ledger",
     "should_reenter",
 ]

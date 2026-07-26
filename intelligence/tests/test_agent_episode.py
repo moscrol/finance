@@ -15,6 +15,7 @@ from intelligence.services.agent_runtime import (
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
+    InMemoryRootBudgetLedger,
     RequiredOutput,
     ResearchDeadline,
     ResearchPolicy,
@@ -1185,6 +1186,42 @@ def test_tool_step_exhaustion_preserves_an_extra_finalization_turn() -> None:
     assert outcome.usage.llm_calls == 4
     assert outcome.usage.tool_calls == 3
     assert model.calls[-1]["tools"] == []
+
+
+def test_tool_observation_exposes_root_budget_after_consumption() -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=base_context.deadline,
+        policy=base_context.policy,
+        trace_parent_id=base_context.trace_parent_id,
+        today=base_context.today,
+        latest_data_date=base_context.latest_data_date,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=base_context.contract.task_id,
+            initial_calls=1,
+            hard_calls_cap=1,
+            initial_seconds=30,
+            hard_seconds_cap=30,
+        ),
+    )
+    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.usage.tool_calls == 1
+    tool_message = next(
+        message
+        for message in model.calls[1]["messages"]
+        if message.get("role") == "tool"
+    )
+    payload = json.loads(tool_message["content"])
+    assert payload["runtime_budget"]["remaining_tool_calls"] == 0
 
 
 def test_complete_episode_snapshot_surface_forces_immediate_finalization() -> None:

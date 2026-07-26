@@ -2,6 +2,7 @@ from datetime import date
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.evidence_ledger import EvidenceLedger
+from intelligence.services.repair_coordinator import progress_from_ledger
 
 
 def _evidence(content_hash: str, source: str = "source-a") -> AgentEvidence:
@@ -41,3 +42,16 @@ def test_future_evidence_is_filtered_before_it_enters_the_ledger() -> None:
     )
     assert ledger.append(future) == ()
     assert "future-2" not in ledger.snapshot().evidence_ids
+
+
+def test_unbound_new_evidence_cannot_count_as_gap_progress() -> None:
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    ledger.open_gap("counterpoint")
+    before = ledger.snapshot()
+
+    ledger.append(_evidence("unrelated", source="unrelated-source"))
+    ledger.close_gap("counterpoint")
+    progress = progress_from_ledger(before, ledger.snapshot())
+
+    assert progress.effective_new_evidence == 0
+    assert not progress.coverage_delta.progressed

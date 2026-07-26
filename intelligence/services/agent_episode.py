@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
+from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -514,6 +515,7 @@ class ContinuousAgentEpisode:
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
                     )
+                batch_started = monotonic()
                 batch = tool_session.execute(
                     turn.tool_calls,
                     registry=registry,
@@ -524,8 +526,13 @@ class ContinuousAgentEpisode:
                     ),
                     is_cancelled=self._is_cancelled,
                 )
+                batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
+                if context.root_budget is not None and batch.executed_count:
+                    seconds_per_call = batch_elapsed / batch.executed_count
+                    for _ in range(batch.executed_count):
+                        context.root_budget.consume_call(seconds=seconds_per_call)
                 self._append_tool_budget_state(
                     messages=messages,
                     remaining_slots=max(
@@ -536,9 +543,6 @@ class ContinuousAgentEpisode:
                         ),
                     ),
                 )
-                if context.root_budget is not None:
-                    for _ in range(batch.executed_count):
-                        context.root_budget.consume_call(seconds=0.0)
                 if self._snapshot_surface_satisfied(
                     registry=registry,
                     context=context,

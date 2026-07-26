@@ -1,9 +1,8 @@
-from intelligence.services.agent_runtime import (
-    AgentEvidence,
-    AgentOutcome,
-    AgentUsage,
-    EpisodeEvent,
-)
+from dataclasses import replace
+
+import pytest
+
+from intelligence.services.agent_runtime import AgentOutcome, AgentUsage, EpisodeEvent
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSessionError
 from intelligence.services.repair_coordinator import RepairGoal, CoverageDelta
 
@@ -43,7 +42,12 @@ def test_resume_preserves_episode_identity_and_uses_one_callback() -> None:
 
     def resume(previous, goal):
         calls.append((previous, goal))
-        return previous
+        return replace(
+            previous,
+            events=previous.events
+            + (EpisodeEvent(2, "model_turn", {"phase": "repair"}),),
+            draft="已执行同一 episode 的修复动作",
+        )
 
     session = CallbackEpisodeSession(
         episode_id="episode-1",
@@ -53,6 +57,16 @@ def test_resume_preserves_episode_identity_and_uses_one_callback() -> None:
     assert session.resume(_goal()).task_frame_hash == "frame-1"
     assert session.resume_count == 1
     assert calls[0][1].repair_goal_id == "repair-1"
+
+
+def test_resume_rejects_callback_without_a_new_model_action() -> None:
+    session = CallbackEpisodeSession(
+        episode_id="episode-1",
+        outcome=_outcome(),
+        resume_callback=lambda previous, _goal: previous,
+    )
+    with pytest.raises(EpisodeSessionError, match="model action"):
+        session.resume(_goal())
 
 
 def test_resume_rejects_wrong_episode_and_closed_session() -> None:

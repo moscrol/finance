@@ -291,7 +291,7 @@ def build_episode_context(
         latest_data_date=latest_data_date,
         conversation_context=str(conversation_context or "").strip(),
         information_cutoff=cutoff,
-        root_budget=root_budget_for_policy(policy),
+        root_budget=root_budget_for_policy(policy, episode_id=task_id),
     )
 
 

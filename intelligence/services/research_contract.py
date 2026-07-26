@@ -388,6 +388,7 @@ class RootBudgetLedger(Protocol):
     """The single mutable budget authority shared by one research episode."""
 
     initial_calls: int
+    episode_id: str
     hard_calls_cap: int
     initial_seconds: float
     hard_seconds_cap: float
@@ -410,6 +411,7 @@ class InMemoryRootBudgetLedger:
     def __init__(
         self,
         *,
+        episode_id: str = "",
         initial_calls: int,
         hard_calls_cap: int,
         initial_seconds: float,
@@ -425,6 +427,7 @@ class InMemoryRootBudgetLedger:
             raise ValueError("hard_calls_cap must cover initial_calls")
         if initial_seconds < 0 or hard_seconds_cap < initial_seconds:
             raise ValueError("invalid root seconds budget")
+        self.episode_id = str(episode_id or "").strip()
         self.initial_calls = initial_calls
         self.hard_calls_cap = hard_calls_cap
         self.initial_seconds = float(initial_seconds)
@@ -444,6 +447,8 @@ class InMemoryRootBudgetLedger:
         if calls <= 0 or seconds <= 0 or not grant_id or not episode_id:
             return False
         with self._lock:
+            if self.episode_id and episode_id != self.episode_id:
+                return False
             if grant_id in self._grants:
                 return False
             if self._allocated_calls + calls > self.hard_calls_cap:
@@ -472,6 +477,7 @@ class InMemoryRootBudgetLedger:
         with self._lock:
             return {
                 "initial_calls": self.initial_calls,
+                "episode_id": self.episode_id,
                 "hard_calls_cap": self.hard_calls_cap,
                 "initial_seconds": self.initial_seconds,
                 "hard_seconds_cap": self.hard_seconds_cap,
@@ -480,7 +486,11 @@ class InMemoryRootBudgetLedger:
             }
 
 
-def root_budget_for_policy(policy: ResearchPolicy) -> InMemoryRootBudgetLedger:
+def root_budget_for_policy(
+    policy: ResearchPolicy,
+    *,
+    episode_id: str = "",
+) -> InMemoryRootBudgetLedger:
     """Allocate one root ledger from the immutable tier policy."""
 
     hard_calls = {
@@ -489,6 +499,7 @@ def root_budget_for_policy(policy: ResearchPolicy) -> InMemoryRootBudgetLedger:
         "deep": 24,
     }.get(str(policy.tier).strip().lower(), policy.max_steps)
     return InMemoryRootBudgetLedger(
+        episode_id=episode_id,
         initial_calls=policy.max_steps,
         hard_calls_cap=max(policy.max_steps, hard_calls),
         initial_seconds=max(0.0, policy.total_seconds - policy.synthesis_reserve),

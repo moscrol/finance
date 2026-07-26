@@ -66,6 +66,11 @@ class CallbackEpisodeSession:
             raise EpisodeSessionError("resume changed task frame identity")
         if len(updated.events) < len(previous.events):
             raise EpisodeSessionError("resume discarded episode events")
+        if tuple(updated.events[: len(previous.events)]) != previous.events:
+            raise EpisodeSessionError("resume rewrote episode history")
+        new_events = updated.events[len(previous.events) :]
+        if not any(event.kind == "model_turn" for event in new_events):
+            raise EpisodeSessionError("resume did not produce a new model action")
         self.outcome = updated
         self.resume_count += 1
         return updated

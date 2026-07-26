@@ -10,6 +10,7 @@ from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
     AgentRuntime,
+    ResumableAgentRuntime,
     AgentUsage,
     EpisodeEvent,
     ModelToolCall,
@@ -188,6 +189,19 @@ def test_runtime_contracts_accept_scripted_adapters() -> None:
 
     assert isinstance(ScriptedModel(), AgentModelClient)
     assert isinstance(ScriptedRuntime(), AgentRuntime)
+
+
+def test_resumable_runtime_contract_requires_start_and_run() -> None:
+    class ScriptedRuntime:
+        def start(self, task_frame, *, context, registry):
+            del task_frame, context, registry
+            return None
+
+        def run(self, *, task_frame, context, registry):
+            del task_frame, context, registry
+            return _outcome()
+
+    assert isinstance(ScriptedRuntime(), ResumableAgentRuntime)
 
 
 def test_runtime_values_are_frozen_and_copy_input_mappings() -> None:

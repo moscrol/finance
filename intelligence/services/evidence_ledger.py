@@ -44,6 +44,7 @@ class EvidenceLedgerSnapshot:
     open_gaps: tuple[str, ...]
     independent_source_families: tuple[str, ...]
     evidence_source_families: tuple[tuple[str, str], ...] = ()
+    evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -54,6 +55,10 @@ class EvidenceLedgerSnapshot:
             "evidence_source_families": [
                 list(item) for item in self.evidence_source_families
             ],
+            "evidence_targets": [
+                [evidence_id, list(targets)]
+                for evidence_id, targets in self.evidence_targets
+            ],
         }
 
 
@@ -63,6 +68,7 @@ class EvidenceLedger:
     def __init__(self, *, information_cutoff: date | None = None) -> None:
         self._cutoff = information_cutoff
         self._items: dict[str, AgentEvidence] = {}
+        self._targets: dict[str, tuple[str, ...]] = {}
         self._covered_outputs: set[str] = set()
         self._open_gaps: set[str] = set()
         self._lock = RLock()
@@ -87,6 +93,7 @@ class EvidenceLedger:
 
         values = (evidence,) if isinstance(evidence, AgentEvidence) else tuple(evidence)
         added: list[str] = []
+        requested_outputs = _clean(covered_outputs)
         with self._lock:
             for item in values:
                 if not isinstance(item, AgentEvidence):
@@ -97,16 +104,34 @@ class EvidenceLedger:
                 if content_hash in self._items:
                     continue
                 self._items[content_hash] = item
+                self._targets[content_hash] = _clean(
+                    (*requested_outputs, *item.supports, *item.contradicts)
+                )
                 added.append(content_hash)
-            self._covered_outputs.update(_clean(covered_outputs))
+            if added:
+                self._covered_outputs.update(requested_outputs)
             self._open_gaps.update(_clean(open_gaps))
         return tuple(added)
 
-    def mark_output_covered(self, output_id: str) -> None:
+    def mark_output_covered(
+        self,
+        output_id: str,
+        *,
+        evidence_ids: Iterable[str],
+    ) -> bool:
         value = str(output_id or "").strip()
-        if value:
-            with self._lock:
-                self._covered_outputs.add(value)
+        ids = _clean(evidence_ids)
+        if not value or not ids:
+            return False
+        with self._lock:
+            if any(evidence_id not in self._items for evidence_id in ids):
+                return False
+            for evidence_id in ids:
+                self._targets[evidence_id] = _clean(
+                    (*self._targets.get(evidence_id, ()), value)
+                )
+            self._covered_outputs.add(value)
+            return True
 
     def close_gap(self, gap: str) -> None:
         value = str(gap or "").strip()
@@ -137,6 +162,7 @@ class EvidenceLedger:
                 open_gaps=tuple(sorted(self._open_gaps)),
                 independent_source_families=unique_families,
                 evidence_source_families=families,
+                evidence_targets=tuple(self._targets.items()),
             )
 
 
