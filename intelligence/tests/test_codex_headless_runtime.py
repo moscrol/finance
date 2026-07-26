@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -16,6 +17,7 @@ from intelligence.services.codex_headless_runtime import (
     HeadlessCommand,
     LocalExecCommandRunner,
     HeadlessProcessResult,
+    _headless_prompt,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
@@ -386,6 +388,55 @@ def test_headless_runtime_accepts_codex_shell_wrapped_gateway_command() -> None:
     assert outcome.status == "completed"
     assert outcome.usage.invalid_actions == 0
     assert outcome.bindings[0].evidence_hashes == ("mainline-hash",)
+
+
+def test_headless_prompt_includes_structured_tool_schema() -> None:
+    frame = _frame()
+    base_context = _context(frame)
+    context = replace(
+        base_context,
+        contract=replace(
+            base_context.contract,
+            allowed_capabilities=("finance_query",),
+        ),
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description="语义金融查询",
+                cost="local",
+                freshness="current",
+                runner=lambda _value, _tool_context: ([], "", ProviderTrace(
+                    provider="test",
+                    capability="finance_query",
+                    status="empty",
+                )),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "dataset": {"type": "string"},
+                        "metrics": {"type": "array"},
+                    },
+                    "required": ["dataset", "metrics"],
+                    "additionalProperties": False,
+                },
+            ),
+        )
+    )
+
+    prompt = _headless_prompt(
+        task_frame=frame,
+        context=context,
+        registry=registry,
+        wrapper_path=Path("/tmp/finance-tool"),
+    )
+
+    assert "结构化工具的 QUERY 必须是符合下列 parameters schema" in prompt
+    assert '"dataset"' in prompt
+    assert '"metrics"' in prompt
+    assert "dataset=..." in prompt
 
 
 def test_headless_runtime_preserves_evidence_when_process_times_out() -> None:

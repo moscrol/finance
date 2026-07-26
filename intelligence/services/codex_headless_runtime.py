@@ -711,17 +711,25 @@ def _headless_prompt(
     registry: ResearchToolRegistry,
     wrapper_path: Path,
 ) -> str:
+    definitions = registry.tool_definitions(context.contract.allowed_capabilities)
     tools = ", ".join(
-        spec.name
-        for spec in registry.authorized_specs(
-            context.contract.allowed_capabilities
+        str(
+            (item.get("function") or {}).get("name")
+            if isinstance(item, Mapping)
+            else ""
         )
+        for item in definitions
     )
+    schema_block = json.dumps(definitions, ensure_ascii=False)
     return (
         f"{build_episode_instructions(task_frame, context, registry)}\n\n"
         "你运行在隔离目录。只能通过下列唯一命令调用金融工具：\n"
         f"{wrapper_path} TOOL 'QUERY'\n"
         f"TOOL 只能是：{tools}。每次命令必须恰好包含工具名和一个查询。"
+        "普通 query 工具的 QUERY 是自然语言；snapshot 工具的 QUERY 只作显示；"
+        "结构化工具的 QUERY 必须是符合下列 parameters schema 的单行 JSON object，"
+        "不得发送 dataset=... 这类自由文本：\n"
+        f"工具 schema：{schema_block}\n"
         "禁止运行其他 shell 命令，禁止读取文件，禁止使用内置 Web、MCP、"
         "文件编辑或计算机控制。工具返回的 evidence_hashes 才能进入 bindings。"
         "完成后只输出符合给定 schema 的 JSON 对象，不输出前言或代码围栏。\n\n"
