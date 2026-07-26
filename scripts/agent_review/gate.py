@@ -11,6 +11,7 @@ from scripts.agent_review.contract import (
     ReviewRequest,
     git_output,
     is_ancestor,
+    repair_covers_request,
     validate_request,
 )
 from scripts.agent_review.validate_verdict import (
@@ -247,7 +248,11 @@ def compute_gate(
             sealed_ids.update(
                 candidate.review_id
                 for candidate in requests
-                if is_ancestor(repo, candidate.commit, request.commit)
+                if repair_covers_request(
+                    repo=repo,
+                    repair=request,
+                    candidate=candidate,
+                )
             )
             latest_sealed_commit = request.commit
 

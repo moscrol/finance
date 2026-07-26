@@ -1,7 +1,7 @@
 # Dual-Lane Producer/Reviewer Loop Design
 
-Date: 2026-07-26  
-Status: approved direction; implementation pending  
+Date: 2026-07-26
+Status: approved direction; implementation pending
 Scope: local Finance Agent Runtime development only
 
 ## 1. Objective

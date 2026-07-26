@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from scripts.agent_review.contract import is_ancestor, sha256_file
+from scripts.agent_review.contract import repair_covers_request, sha256_file
 from scripts.agent_review.gate import load_reachable_requests
 from scripts.agent_review.validate_verdict import validate_verdict_file
 
@@ -125,7 +125,7 @@ def _record_failure(
     )
 
 
-def _select_frontier(repo: Path, state_root: Path, tip: str):
+def select_frontier(repo: Path, state_root: Path, tip: str):
     requests, invalid = load_reachable_requests(
         repo=repo,
         state_root=state_root,
@@ -176,7 +176,11 @@ def _select_frontier(repo: Path, state_root: Path, tip: str):
             covered_ids.update(
                 request.review_id
                 for request in requests
-                if is_ancestor(repo, request.commit, repair.commit)
+                if repair_covers_request(
+                    repo=repo,
+                    repair=repair,
+                    candidate=request,
+                )
             )
     superseded_ids = {repair.supersedes for repair in repair_requests}
     for request in requests:
@@ -263,7 +267,7 @@ def _run_locked(
         capture_output=True,
         text=True,
     ).stdout.strip()
-    request, selection_result = _select_frontier(repo, state_root, tip)
+    request, selection_result = select_frontier(repo, state_root, tip)
     if selection_result is not None:
         return selection_result
     assert request is not None

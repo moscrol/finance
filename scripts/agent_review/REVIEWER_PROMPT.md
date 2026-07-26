@@ -104,4 +104,3 @@ Use `PASS` only when every required manifest entry is PASS and there is no
 high-severity finding. Use `BLOCKED` only when the same architecture conflict
 survived two consecutive external repair reviews. Ordinary defects are
 `CHANGES_REQUIRED`.
-

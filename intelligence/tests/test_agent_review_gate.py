@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import subprocess
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,7 @@ import pytest
 from scripts.agent_review.contract import EXTERNAL_REVIEWER, sha256_file
 from scripts.agent_review.gate import compute_gate
 from scripts.agent_review.submit import submit_request
+from scripts.agent_review.worker import run_once, select_frontier
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -31,6 +33,15 @@ def gate_case(tmp_path: Path):
         "def test_value():\n    assert VALUE\n",
         encoding="utf-8",
     )
+    for name in ("alpha", "beta"):
+        (repo / f"intelligence/services/{name}.py").write_text(
+            f"VALUE = '{name}'\n", encoding="utf-8"
+        )
+        (repo / f"intelligence/tests/test_{name}.py").write_text(
+            f"from intelligence.services.{name} import VALUE\n"
+            f"def test_value():\n    assert VALUE == '{name}'\n",
+            encoding="utf-8",
+        )
     (repo / "slice.txt").write_text("0\n", encoding="utf-8")
     _git(repo, "init", "-b", "main")
     _git(repo, "config", "user.email", "gate@example.com")
@@ -55,16 +66,21 @@ def gate_case(tmp_path: Path):
             intensity: str = "light",
             age_minutes: int = 0,
             required_checks: tuple[str, ...] = ("focused",),
+            artifacts: tuple[str, ...] = (
+                "intelligence/services/evidence_ledger.py",
+            ),
+            supersedes: str | None = None,
         ):
             created = datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
             return submit_request(
                 repo=repo,
                 state_root=state_root,
                 scope=f"slice {counter}",
-                artifacts=("intelligence/services/evidence_ledger.py",),
+                artifacts=artifacts,
                 required_checks=required_checks,
                 intensity=intensity,
                 depends_on=depends_on,
+                supersedes=supersedes,
                 created_at=created.isoformat(),
             )
 
@@ -261,3 +277,127 @@ def test_invalid_external_identity_never_unlocks_gate(gate_case):
     assert decision.gate_state == "INVALID"
     assert decision.allowed_next_action == "WAIT"
     assert request.review_id in decision.invalid_records
+
+
+def test_narrow_repair_does_not_seal_older_unreviewed_milestone(gate_case):
+    case, repo, state_root = gate_case
+    case.advance()
+    older = case.submit(
+        intensity="milestone",
+        artifacts=("intelligence/services/alpha.py",),
+    )
+    case.advance()
+    broken = case.submit(
+        depends_on=(older.review_id,),
+        intensity="milestone",
+        artifacts=("intelligence/services/beta.py",),
+    )
+    case.verdict(
+        broken,
+        authority="external",
+        status="CHANGES_REQUIRED",
+        architecture_finding="beta repair required",
+    )
+    case.advance()
+    repair = case.submit(
+        depends_on=(broken.review_id,),
+        intensity="milestone",
+        artifacts=("intelligence/services/beta.py",),
+        required_checks=("focused", f"repair:{broken.review_id}"),
+        supersedes=broken.review_id,
+    )
+    case.verdict(repair, authority="external")
+    case.advance()
+    release = case.submit(
+        depends_on=(repair.review_id,),
+        intensity="release",
+        artifacts=("intelligence/services/beta.py",),
+        required_checks=("deterministic_full_regression", "frozen_live_benchmark"),
+    )
+    case.verdict(release, authority="external")
+
+    decision = compute_gate(repo=repo, state_root=state_root, release=True)
+    frontier, selection = select_frontier(repo, state_root, decision.tip)
+
+    assert not decision.release_allowed
+    assert older.review_id not in {
+        broken.review_id,
+        repair.review_id,
+        release.review_id,
+    }
+    assert selection is None
+    assert frontier is not None and frontier.review_id == older.review_id
+
+
+def test_composed_dual_lane_acceptance_through_repair_and_release(gate_case):
+    case, repo, state_root = gate_case
+    request_hashes: dict[Path, str] = {}
+
+    case.advance()
+    first = case.submit(age_minutes=16)
+    first_path = state_root / "requests" / f"{first.review_id}.json"
+    request_hashes[first_path] = sha256_file(first_path)
+    case.verdict(first, authority="provisional")
+
+    case.advance()
+    second = case.submit(depends_on=(first.review_id,), age_minutes=16)
+    second_path = state_root / "requests" / f"{second.review_id}.json"
+    request_hashes[second_path] = sha256_file(second_path)
+    case.verdict(second, authority="provisional")
+
+    depth_limited = compute_gate(repo=repo, state_root=state_root)
+    assert depth_limited.provisional_depth == 2
+    assert depth_limited.allowed_next_action == "WAIT"
+    assert not depth_limited.fallback_eligible
+
+    case.verdict(
+        first,
+        authority="external",
+        status="CHANGES_REQUIRED",
+        architecture_finding="continuous repair missing",
+    )
+    finding = compute_gate(repo=repo, state_root=state_root)
+    assert finding.allowed_next_action == "FIX"
+    assert finding.tainted_review_ids == (second.review_id,)
+
+    case.advance()
+    repair = case.submit(
+        depends_on=(second.review_id,),
+        intensity="milestone",
+        required_checks=("focused", f"repair:{first.review_id}"),
+        supersedes=first.review_id,
+    )
+    repair_path = state_root / "requests" / f"{repair.review_id}.json"
+    request_hashes[repair_path] = sha256_file(repair_path)
+    case.verdict(repair, authority="external")
+    repaired = compute_gate(repo=repo, state_root=state_root)
+    assert repaired.provisional_depth == 0
+    assert repaired.allowed_next_action == "IMPLEMENT_NEXT"
+
+    case.advance()
+    release = case.submit(
+        depends_on=(repair.review_id,),
+        intensity="release",
+        required_checks=("deterministic_full_regression", "frozen_live_benchmark"),
+    )
+    release_path = state_root / "requests" / f"{release.review_id}.json"
+    request_hashes[release_path] = sha256_file(release_path)
+    case.verdict(release, authority="external")
+    released = compute_gate(repo=repo, state_root=state_root, release=True)
+
+    assert released.release_allowed
+    assert released.allowed_next_action == "RELEASE_CHECK"
+    assert all(sha256_file(path) == digest for path, digest in request_hashes.items())
+    for verdict_path in (state_root / "verdicts").glob("ARL-*.json"):
+        assert json.loads(verdict_path.read_text())["reviewer"] == EXTERNAL_REVIEWER
+
+    lock_path = state_root / "locks/external-review.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        locked = run_once(
+            repo=repo,
+            state_root=state_root,
+            reviewer_command=("false",),
+        )
+    assert locked.status == "LOCKED"

@@ -114,6 +114,37 @@ def is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
     )
 
 
+def review_number(review_id: str) -> int:
+    match = REVIEW_ID_PATTERN.fullmatch(review_id)
+    if match is None:
+        raise ValueError(f"invalid review id: {review_id}")
+    return int(match.group(1))
+
+
+def repair_covers_request(
+    *,
+    repo: Path,
+    repair: ReviewRequest,
+    candidate: ReviewRequest,
+) -> bool:
+    """Return whether an externally reviewed repair proves this exact slice.
+
+    Git ancestry alone is insufficient: a repair can start after an older
+    unreviewed milestone. Coverage is bounded by review IDs and by the artifact
+    union mechanically enforced by ``submit.py``.
+    """
+
+    if repair.supersedes is None:
+        return False
+    lower = review_number(repair.supersedes)
+    candidate_number = review_number(candidate.review_id)
+    if not lower <= candidate_number <= review_number(repair.review_id):
+        return False
+    if not is_ancestor(repo, candidate.commit, repair.commit):
+        return False
+    return set(candidate.artifacts).issubset(set(repair.artifacts))
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
