@@ -23,7 +23,7 @@
 - Modify: `intelligence/services/evidence_ledger.py`
 - Create: `intelligence/tests/test_branch_evidence_sink.py`
 
-- [ ] **Step 1: Write RED interface tests**
+- [x] **Step 1: Write RED interface tests**
 
 ```python
 sink = EvidenceLedger(information_cutoff=date(2026, 7, 24)).branch_sink("branch-1")
@@ -36,7 +36,7 @@ assert not hasattr(sink, "mark_output_covered")
 
 Also prove blank branch IDs fail, future evidence is rejected, duplicates are idempotent, and `supports` metadata does not mark a primary output covered.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/pytest \
@@ -45,7 +45,7 @@ Also prove blank branch IDs fail, future evidence is rejected, duplicates are id
 
 Expected: `EvidenceLedger` has no `branch_sink`.
 
-- [ ] **Step 3: Implement the narrow interface**
+- [x] **Step 3: Implement the narrow interface**
 
 ```python
 @dataclass(frozen=True)
@@ -64,7 +64,7 @@ class BranchEvidenceSink:
 records `(content_hash, branch_id)`, and never accepts `covered_outputs` or gap
 arguments. `EvidenceLedgerSnapshot` gains `evidence_branch_owners`.
 
-- [ ] **Step 4: Run GREEN, permanent invariants, Ruff, and commit**
+- [x] **Step 4: Run GREEN, permanent invariants, Ruff, and commit**
 
 ### Task 2: Make branch goals explicit model-owned plan state
 
@@ -73,7 +73,7 @@ arguments. `EvidenceLedgerSnapshot` gains `evidence_branch_owners`.
 - Modify: `intelligence/services/episode_protocol.py`
 - Modify: `intelligence/tests/test_research_plan.py`
 
-- [ ] **Step 1: Write RED compatibility and cap tests**
+- [x] **Step 1: Write RED compatibility and cap tests**
 
 ```python
 assert parse_research_plan(old_plan_json).branch_goals == ()
@@ -88,14 +88,14 @@ Reject blank/duplicate/overlong goals. `plan_to_public_dict()` must expose the
 bounded goals; plan revision may not replace an already published goal with a
 different goal under the same revision.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Add `branch_goals: tuple[str, ...] = ()` as an optional closed-plan field**
+- [x] **Step 3: Add `branch_goals: tuple[str, ...] = ()` as an optional closed-plan field**
 
 The prompt states that branch goals are proposals only, require approved deep
 mode, cannot select permissions or budgets, and are capped at three.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ### Task 3: Add one root-budgeted SubResearchCoordinator
 
@@ -104,7 +104,7 @@ mode, cannot select permissions or budgets, and are capped at three.
 - Create: `intelligence/tests/test_sub_research.py`
 - Modify: `intelligence/services/research_contract.py`
 
-- [ ] **Step 1: Write RED coordinator tests**
+- [x] **Step 1: Write RED coordinator tests**
 
 ```python
 result = coordinator.run(
@@ -124,9 +124,9 @@ run once, cancellation stops unpublished work, a branch cannot promote caps or
 grant itself calls, and one branch failure does not erase another branch's
 evidence.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Implement the deep module**
+- [x] **Step 3: Implement the deep module**
 
 ```python
 @dataclass(frozen=True)
@@ -153,14 +153,14 @@ loop inside one goal. Child budget views delegate consumption to the same root
 ledger, refuse `grant()`/`promote_caps()`, and expose only their allocated call
 and time slice.
 
-- [ ] **Step 4: Add a Continuous branch worker**
+- [x] **Step 4: Add a Continuous branch worker**
 
 The production adapter reuses the injected `AgentModelClient` and authorized
 read-only registry. It runs a derived no-output episode, discards draft text,
 and returns only evidence, traces, gaps, and usage. It forces child quick mode
 so a branch cannot recursively request deep promotion.
 
-- [ ] **Step 5: Run GREEN, Ruff, and commit**
+- [x] **Step 5: Run GREEN, Ruff, and commit**
 
 ### Task 4: Wire branches into the same primary Episode
 
@@ -172,16 +172,16 @@ so a branch cannot recursively request deep promotion.
 - Modify: `intelligence/tests/test_glm_agent_runtime.py`
 - Modify: `intelligence/tests/test_runtime_backend_benchmark.py`
 
-- [ ] **Step 1: Write RED same-history tests**
+- [x] **Step 1: Write RED same-history tests**
 
 Assert `plan -> mode_decision -> branch_started -> branch_completed` ordering,
 one event per goal, max three, imported evidence visible to the next primary
 model turn, original initial messages remain an exact prefix, and only the
 primary finish enters `AgentOutcome.draft`.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
-- [ ] **Step 3: Inject the coordinator after an approved first plan**
+- [x] **Step 3: Inject the coordinator after an approved first plan**
 
 Run branches only when `ModeDecision.effective_mode == "deep"` and the plan has
 goals. Append one sanitized `SUB_RESEARCH_RESULTS` user observation after all
@@ -189,12 +189,12 @@ branch results; never add branch hidden reasoning or draft prose. Merge evidence
 through `BranchEvidenceSink`, traces through the primary accumulator, and usage
 through the shared root ledger.
 
-- [ ] **Step 4: Export sanitized branch events**
+- [x] **Step 4: Export sanitized branch events**
 
 Allow `branch_started`, `branch_completed`, and `branch_failed` in diagnostics;
 keep prompt/messages/internal exceptions redacted.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 ### Task 5: Verify the branch milestone
 
@@ -202,13 +202,13 @@ keep prompt/messages/internal exceptions redacted.
 - Modify: `docs/superpowers/plans/2026-07-27-deep-sub-research-branches.md`
 - Create: `docs/verification/deep-sub-research-branches-2026-07-27.md`
 
-- [ ] **Step 1: Run focused suites and all 26 permanent invariants**
+- [x] **Step 1: Run focused suites and all 26 permanent invariants**
 
-- [ ] **Step 2: Run one deterministic full suite; record the known local path baseline separately**
+- [x] **Step 2: Run one deterministic full suite; record the known local path baseline separately**
 
-- [ ] **Step 3: Record non-actions**
+- [x] **Step 3: Record non-actions**
 
 No live nine-case run, no MemoryGate, no UI cutover, no 8792 switch, no `main`
 merge, and no review-harness changes.
 
-- [ ] **Step 4: Commit the verification receipt separately**
+- [x] **Step 4: Commit the verification receipt separately**
