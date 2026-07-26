@@ -362,6 +362,10 @@ class CodexHeadlessRuntime:
     def model_name(self) -> str:
         return self._model or "codex-account-default"
 
+    @property
+    def reasoning_effort(self) -> str:
+        return self._reasoning_effort
+
     def semantic_providers(self) -> tuple[LLMProvider, ...]:
         projection = self._provider_projection
         if projection is None or not self._model:

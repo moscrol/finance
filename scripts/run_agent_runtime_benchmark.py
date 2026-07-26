@@ -372,7 +372,10 @@ def _build_runtime(
         )
 
         runtime = CodexHeadlessRuntime(
-            model=os.environ.get("CODEX_HEADLESS_MODEL")
+            model=os.environ.get("CODEX_HEADLESS_MODEL"),
+            reasoning_effort=(
+                "high" if case.tier == "deep" else "medium"
+            ),
         )
         return runtime, runtime.model_name
     raise RuntimeError(f"unsupported benchmark backend: {backend}")

@@ -171,6 +171,22 @@ def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(
     assert "saved-secret-value" not in repr(runtime)
 
 
+def test_standard_headless_benchmark_uses_bounded_reasoning_effort() -> None:
+    case = next(
+        item
+        for item in benchmark._load_cases(FIXTURE)
+        if item.case_id == "current-mainline"
+    )
+
+    runtime, _model = benchmark._build_runtime(
+        "codex_headless",
+        case,
+        object(),
+    )
+
+    assert runtime.reasoning_effort == "medium"
+
+
 def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
     tmp_path,
     monkeypatch,
