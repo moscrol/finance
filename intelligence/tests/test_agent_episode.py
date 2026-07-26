@@ -6,6 +6,8 @@ from threading import Event, Lock
 
 import pytest
 
+import intelligence.services.agent_episode as agent_episode_module
+import intelligence.services.research_contract as research_contract_module
 from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -268,6 +270,98 @@ def test_glm_episode_session_resume_keeps_original_model_history() -> None:
     second_messages = model.calls[1]["messages"]
     assert any("缺少行情证据" in str(message.get("content")) for message in second_messages)
     assert any("repair-episode-test-1" in str(message.get("content")) for message in second_messages)
+
+
+def test_episode_session_resume_bounds_every_action_by_granted_seconds() -> None:
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            _tool_turn("补齐行情证据", call_id="repair-call"),
+            _finish_turn(),
+        ]
+    )
+    observed_tool_seconds: list[float] = []
+
+    def bounded_runner(query: str, tool_context: AgentToolContext):
+        observed_tool_seconds.append(tool_context.deadline.remaining())
+        return _successful_runner(query, tool_context)
+
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(bounded_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-budget",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=2.5,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    assert 0.0 < model.calls[1]["timeout"] <= 2.5
+    assert observed_tool_seconds and 0.0 < observed_tool_seconds[0] <= 2.5
+    assert 0.0 < model.calls[2]["timeout"] <= 2.5
+
+
+def test_episode_session_resume_does_not_dispatch_after_grant_expires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    calls: list[dict[str, object]] = []
+
+    class OverrunningRepairModel:
+        def complete(self, *, messages, tools, timeout):
+            calls.append({"messages": messages, "tools": tools, "timeout": timeout})
+            if len(calls) == 1:
+                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+            now[0] += float(timeout) + 0.1
+            return _tool_turn("不得执行", call_id="late-repair-call")
+
+    def runner(_query: str, _tool_context: AgentToolContext):
+        raise AssertionError("expired repair grant must prevent tool dispatch")
+
+    session = GLMAgentRuntime(client=OverrunningRepairModel()).start(
+        frame,
+        context=context,
+        registry=_market_registry(runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-expired-budget",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=1.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_deadline_exhausted"
+    assert updated.usage.tool_calls == 0
+    assert len(calls) == 2
 
 
 class _ScriptedDeadline:

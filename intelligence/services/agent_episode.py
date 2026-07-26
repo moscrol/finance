@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 from time import monotonic
 
@@ -35,7 +35,10 @@ from intelligence.services.episode_tool_batch import (
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.repair_coordinator import RepairGoal
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchRunContext,
+)
 from intelligence.services.research_plan import (
     PlanParseResult,
     ResearchPlan,
@@ -697,6 +700,12 @@ class ContinuousAgentEpisode:
         tool_session = state.tool_session
         registry = state.registry
         task_frame = state.task_frame
+        repair_seconds = min(
+            max(0.0, float(goal.remaining_seconds)),
+            context.deadline.remaining(),
+        )
+        repair_deadline = ResearchDeadline.from_timeout(repair_seconds)
+        repair_context = replace(context, deadline=repair_deadline)
         ledger.add("repair_goal", goal.to_dict())
         ledger.add(
             "repair_reentry",
@@ -722,7 +731,7 @@ class ContinuousAgentEpisode:
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
         invalid_actions = previous.usage.invalid_actions
-        timeout = context.deadline.stage_timeout(self._llm_timeout)
+        timeout = repair_deadline.stage_timeout(self._llm_timeout)
         if timeout <= 0.001:
             return self._stopped_outcome(
                 task_frame=task_frame,
@@ -740,7 +749,7 @@ class ContinuousAgentEpisode:
         definitions = self._available_tool_definitions(
             tool_session=tool_session,
             registry=registry,
-            context=context,
+            context=repair_context,
         )
         turn = self._model.complete(
             messages=list(messages),
@@ -770,7 +779,7 @@ class ContinuousAgentEpisode:
             batch = tool_session.execute(
                 turn.tool_calls,
                 registry=registry,
-                context=context,
+                context=repair_context,
                 remaining_slots=min(
                     goal.remaining_calls,
                     (
@@ -783,11 +792,11 @@ class ContinuousAgentEpisode:
             )
             batch_elapsed = max(0.0, monotonic() - batch_started)
             tool_calls += batch.executed_count
-            invalid_actions += accumulator.consume(batch, context)
-            if context.root_budget is not None and batch.executed_count:
+            invalid_actions += accumulator.consume(batch, repair_context)
+            if repair_context.root_budget is not None and batch.executed_count:
                 seconds_per_call = batch_elapsed / batch.executed_count
                 for _ in range(batch.executed_count):
-                    context.root_budget.consume_call(seconds=seconds_per_call)
+                    repair_context.root_budget.consume_call(seconds=seconds_per_call)
             messages.append(
                 {
                     "role": "user",
@@ -797,10 +806,25 @@ class ContinuousAgentEpisode:
                     ),
                 }
             )
+            final_timeout = repair_deadline.synthesis_timeout(self._llm_timeout)
+            if final_timeout <= 0.001:
+                return self._stopped_outcome(
+                    task_frame=task_frame,
+                    status="partial" if accumulator.evidence else "failed",
+                    stop_reason="repair_deadline_exhausted",
+                    gap="修复阶段截止时间已到",
+                    ledger=ledger,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             final_turn = self._model.complete(
                 messages=list(messages),
                 tools=[],
-                timeout=context.deadline.synthesis_timeout(self._llm_timeout),
+                timeout=final_timeout,
             )
             llm_calls += final_turn.provider_attempts
             ledger.add("model_turn", {"phase": "repair_finalize", **final_turn.to_dict()})
