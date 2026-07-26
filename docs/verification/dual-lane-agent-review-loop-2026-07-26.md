@@ -11,11 +11,12 @@ machine-validated schema-2 state store. External review is the only sealing and
 release authority. Codex fallback can keep at most two development slices
 moving and writes only to `provisional-verdicts/`.
 
-This report covers the first real external falsification cycle. Request
-`ARL-0016` reviewed commit `3cd4692fc121b7f96eb89a1d707b439ac17cdcf7`
-from dependency commit `46e676dfbe267fa1eee6bc4314f1760742ce27ec`.
-Claude returned `CHANGES_REQUIRED`; the Producer gate changed to `FIX` and did
-not allow fallback or release.
+This report covers the real external falsification chain through `ARL-0020`.
+The chain begins at request `ARL-0016` and keeps the original review base
+`46e676dfbe267fa1eee6bc4314f1760742ce27ec`. `ARL-0020` reviewed commit
+`1aab11a8a160ee9a12609a422ac634c8b9a5aa78`, including the schema-3 deletion
+repair and the same-Episode verifier-reentry slice. Claude returned
+`CHANGES_REQUIRED`; the Producer did not seal the milestone or allow release.
 
 ## What the external review caught
 
@@ -58,10 +59,55 @@ The second repair changes the invariant rather than adding another label:
 - schema-3 requests must declare every changed path, while immutable schema-2
   history remains readable under its original contract.
 
+`ARL-0018` then found two remaining contract gaps: schema-3 could not represent
+a file deleted inside the review range, and a repair inherited artifacts but
+not every superseded non-repair check. `ARL-0020` closes both gaps:
+
+- a declared artifact may exist at either end of the review range, so deletion
+  is reviewable without allowing an unrelated missing path;
+- the repair request carries the transitive union of artifacts and non-repair
+  required checks from the full supersedes chain;
+- undeclared changed paths still invalidate a schema-3 request.
+
+## Same-Episode repair slice
+
+`GLMAgentRuntime.start()` now returns one live `EpisodeSession`. The session
+keeps the original provider messages, event ledger, evidence accumulator,
+query/tool session, registry, root budget, and deadline. A structural or
+semantic verifier gap appends a `RepairGoal` to that same history and calls
+`resume()`; the adapter never invokes a second `runtime.run()`.
+
+The repair budget is enforced at execution rather than only shown in the
+prompt:
+
+- the exact granted calls cap the repair tool batch;
+- the exact granted seconds create a repair-local deadline shared by the model
+  action, tool execution, and finalization;
+- model and tool wall time debit the live root ledger;
+- later cycles read `remaining_calls` and `remaining_seconds` from that live
+  ledger;
+- cancellation, root-deadline expiry, or `repair_deadline_exhausted` stops
+  further repair and semantic-judge cycles;
+- structural and semantic repair paths both re-run their corresponding
+  verifier before public projection.
+
+The `ARL-0020` verdict also found that the external worker exported writable
+authority-state request paths and that process cleanup/backoff was incomplete.
+The superseding repair exposes only detached bundle copies, places the reviewer
+in its own process group, kills descendants even after the group leader exits,
+records launch failures as transport backoff, and starts retry delay when a
+long failed review actually finishes.
+
 ## Deterministic evidence
 
-- Agent-review suites after the second repair: `56 passed`.
-- Clean full `intelligence/tests`: `2682 passed, 2 skipped` in 204.32 seconds.
+- Exact `ARL-0020` detached preflight:
+  - agent-review suites: `58 passed` in 53.66 seconds;
+  - Episode/session/repair/verifier/adapter suites: `278 passed` in 1.14 seconds;
+  - clean full `intelligence/tests`: `2686 passed, 2 skipped` in 184.31 seconds.
+- Current superseding repair candidate:
+  - agent-review suites: `63 passed` in 67.70 seconds;
+  - Episode/session/repair/verifier/adapter suites: `285 passed` in 0.72 seconds;
+  - clean full `intelligence/tests`: `2698 passed, 2 skipped` in 194.34 seconds.
 - The composed scenario proves:
   - one provisional slice permits progress;
   - two provisional slices stop further speculation;
@@ -80,6 +126,15 @@ The second repair changes the invariant rather than adding another label:
   original failed request's parent as their external review base.
 - The schema-3 regression rejects a request that omits any changed path from
   its declared artifacts.
+- The deletion regression accepts a declared deleted artifact while continuing
+  to reject undeclared additions, edits, and deletions.
+- The same-Episode regression proves exact event-prefix preservation,
+  `start=1/resume=1/run=0`, live call/seconds accounting, no action after a
+  granted deadline expires, semantic-gap re-verification, and bounded repair
+  termination.
+- Worker lifecycle regressions prove bundle-only request/claim exposure,
+  descendant process-group cleanup, transport backoff on launch failure, and
+  completion-relative exponential backoff.
 
 No deterministic test invokes Claude, Codex, or the nine-case live benchmark.
 
@@ -98,9 +153,14 @@ No deterministic test invokes Claude, Codex, or the nine-case live benchmark.
   - 1 `LEGACY_ABANDONED_COMMIT`
   - 1 `LEGACY_EXTERNAL_REVIEW`
   - 1 `LEGACY_BOOTSTRAP_PROVISIONAL`
-- `ARL-0016` was automatically consumed in a detached worktree. Its official
-  Claude verdict was validated and atomically published; the worktree was
-  removed afterward.
+- `ARL-0016` through `ARL-0020` were consumed in detached worktrees. Official
+  Claude verdicts were schema-validated and atomically published; worktrees
+  were removed afterward.
+- The oversized `ARL-0020` review exposed a reviewer-cost seam. Operational
+  recovery separated deterministic preflight from a schema-constrained
+  one-shot Claude semantic review. This adapter is held in mutable state for
+  the repair review and must be versioned and independently reviewed before a
+  release request can rely on it.
 
 ## Safety boundary
 
@@ -114,5 +174,6 @@ No deterministic test invokes Claude, Codex, or the nine-case live benchmark.
   type.
 
 The next request must be a milestone repair that depends on and supersedes
-`ARL-0016`, includes `repair:ARL-0016`, and covers every artifact in the
-original milestone plus this repair and verification document.
+`ARL-0020`, includes `repair:ARL-0020`, retains the original `ARL-0016` parent
+as its review base, and declares every changed path through this verification
+document. Release remains blocked.
