@@ -419,6 +419,9 @@ def test_gateway_decodes_structured_json_without_charging_invalid_attempt() -> N
         snapshot = gateway.snapshot()
 
     assert invalid["error"] == "invalid_arguments"
+    assert invalid["retryable"] is True
+    assert invalid["expected_parameters"]["required"] == ["dataset"]
+    assert invalid["expected_parameters"]["properties"]["dataset"]["type"] == "string"
     assert valid["status"] == "success"
     assert runner_inputs == [{"dataset": "market_daily"}]
     assert snapshot.executed_count == 1

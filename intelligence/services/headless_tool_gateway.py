@@ -24,6 +24,7 @@ from intelligence.services.agent_runtime import EpisodeEvent, public_agent_evide
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
+    copy_tool_parameters,
     InvalidResearchToolArguments,
     PreparedToolArguments,
     ResearchToolRegistry,
@@ -435,11 +436,33 @@ class HeadlessToolGateway:
                 else:
                     rejected = self._reservation_error(spec, prepared)
             if rejected is not None:
+                rejection: dict[str, object] = {
+                    "status": "rejected",
+                    "tool": name,
+                    "error": rejected,
+                }
+                if rejected == "invalid_arguments" and spec is not None:
+                    rejection.update(
+                        {
+                            "retryable": True,
+                            "expected_parameters": copy_tool_parameters(
+                                spec.parameters
+                            ),
+                            "retry_hint": (
+                                "retry this tool with one single-line JSON object "
+                                "matching expected_parameters"
+                            ),
+                        }
+                    )
                 self._add_event(
                     "tool_error",
-                    {"tool": name, "error": rejected},
+                    {
+                        "tool": name,
+                        "error": rejected,
+                        "retryable": rejection.get("retryable", False),
+                    },
                 )
-                return {"status": "rejected", "tool": name, "error": rejected}
+                return rejection
             if spec is None or prepared is None:
                 raise RuntimeError("prepared headless tool request missing")
             self._seen_queries.add((name, prepared.normalized_key))
