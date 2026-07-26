@@ -20,6 +20,7 @@ if __package__ in {None, ""}:
 from intelligence.eval.capability_monotonicity import directness_score
 from intelligence.eval.runtime_backend_benchmark import (
     RuntimeArmResult,
+    RuntimeDiagnostics,
     summarize_runtime_benchmark,
 )
 from intelligence.services import llm_refine
@@ -583,7 +584,8 @@ def _run_research_arm(
                 deadline=context.deadline,
             )
             ledger_calls = _ledger_call_count(ledger)
-        final_outcome = semantic.verified.outcome
+        final_verified = semantic.verified
+        final_outcome = final_verified.outcome
         citations, data_cutoff = _bound_public_citations(final_outcome)
         input_tokens, output_tokens = _runtime_tokens(final_outcome.events)
         semantic_attempts = int(
@@ -598,15 +600,35 @@ def _run_research_arm(
             issues.append(
                 f"runtime_invalid_actions:{final_outcome.usage.invalid_actions}"
             )
-        if final_outcome.status == "completed" and verified.verified_status != "completed":
-            issues.extend(verified.issues)
+        if (
+            final_outcome.status == "completed"
+            and final_verified.verified_status != "completed"
+        ):
+            issues.extend(final_verified.issues)
+        root_budget = getattr(context, "root_budget", None)
+        root_budget_snapshot = (
+            root_budget.to_dict()
+            if root_budget is not None and callable(getattr(root_budget, "to_dict", None))
+            else None
+        )
+        diagnostics = RuntimeDiagnostics.from_runtime_state(
+            events=tuple(event.to_dict() for event in final_outcome.events),
+            provider_traces=tuple(trace.to_dict() for trace in final_outcome.traces),
+            missing_outputs=final_verified.missing_outputs,
+            mandatory_missing_capabilities=(
+                final_verified.mandatory_missing_capabilities
+            ),
+            gaps=final_outcome.gaps,
+            bindings=tuple(binding.to_dict() for binding in final_outcome.bindings),
+            root_budget=root_budget_snapshot,
+        )
         return RuntimeArmResult(
             case_id=case.case_id,
             backend=backend,
             model=model,
             answer=semantic.public_answer,
             status=semantic.status,
-            structural_status=verified.verified_status,
+            structural_status=final_verified.verified_status,
             semantic_status=semantic.judge_status,
             task_alignment_score=_task_alignment_score(
                 control.task_frame,
@@ -628,6 +650,7 @@ def _run_research_arm(
             ),
             citations=citations,
             data_cutoff=data_cutoff,
+            diagnostics=diagnostics,
         )
     except RuntimeBenchmarkInfrastructureError:
         raise

@@ -12,6 +12,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.llm_refine import LLMProvider
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from scripts import run_agent_runtime_benchmark as benchmark
 
@@ -254,6 +255,159 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         "model_finish",
     ]
     assert [arm["effective_timeout_seconds"] for arm in arms] == [30.0, 30.0]
+
+
+def test_live_runner_exports_safe_diagnostics_for_partial_research(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "diagnostic-case.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "weekly-market-cause",
+                        "question": "这一周行情下跌的主要原因是什么",
+                        "as_of": "2026-07-24",
+                        "tier": "standard",
+                        "timeout": 30.0,
+                        "required_outputs": ["direct_assessment"],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "diagnostic-output.json"
+
+    class PartialRuntime:
+        def run(self, *, task_frame, context, registry):
+            del registry
+            bindings = tuple(
+                OutputEvidenceBinding(
+                    required.output_id,
+                    (),
+                    gap=f"仍缺少：{required.description}",
+                )
+                for required in context.contract.required_outputs
+            )
+            return AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status="partial",
+                draft="现有证据不足，暂不能判断本周下跌原因。",
+                evidence=(),
+                traces=(
+                    ProviderTrace(
+                        provider="eastmoney",
+                        capability="news_search",
+                        status="future_of_cutoff",
+                        detail="authorization=Bearer sk-provider-secret",
+                        requested_date="2026-07-24",
+                        served_date="2026-07-25",
+                        result_count=2,
+                    ),
+                ),
+                gaps=("仍缺少时间对齐的下跌原因证据",),
+                stop_reason="deadline_exhausted",
+                events=(
+                    EpisodeEvent(
+                        1,
+                        "task",
+                        {"task_frame_hash": task_frame.task_frame_hash},
+                    ),
+                    EpisodeEvent(
+                        2,
+                        "tool_request",
+                        {
+                            "name": "evidence_search",
+                            "arguments": {
+                                "query": "A股下跌原因",
+                                "api_key": "sk-runtime-secret",
+                                "sql": "select * from private_market_table",
+                            },
+                        },
+                    ),
+                    EpisodeEvent(
+                        3,
+                        "invalid_action",
+                        {"reason": "finish payload missing bindings"},
+                    ),
+                ),
+                bindings=bindings,
+                usage=AgentUsage(llm_calls=2, tool_calls=1, invalid_actions=1),
+            )
+
+    class PartialSemanticVerifier:
+        provider_attempts = 0
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="partial",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="unavailable",
+            )
+
+    monkeypatch.setattr(
+        benchmark,
+        "_build_runtime",
+        lambda *_args, **_kwargs: (PartialRuntime(), "fake-model"),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_registry",
+        lambda *_args, **_kwargs: ResearchToolRegistry(()),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_semantic_verifier",
+        lambda *_args, **_kwargs: PartialSemanticVerifier(),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
+
+    assert benchmark.main(
+        [
+            "--backend",
+            "continuous_glm",
+            "--questions-file",
+            str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    arm = payload["cases"][0]["arms"][0]
+    diagnostics = arm["diagnostics"]
+    encoded = json.dumps(payload, ensure_ascii=False)
+
+    assert [event["kind"] for event in diagnostics["events"]] == [
+        "tool_request",
+        "invalid_action",
+    ]
+    assert diagnostics["events"][0]["payload"]["arguments"] == {
+        "query": "A股下跌原因"
+    }
+    assert diagnostics["missing_outputs"]
+    assert diagnostics["mandatory_missing_capabilities"]
+    assert diagnostics["gaps"] == ["仍缺少时间对齐的下跌原因证据"]
+    assert diagnostics["bindings"]
+    assert diagnostics["root_budget"]["remaining_calls"] >= 0
+    assert diagnostics["future_of_cutoff"][0]["provider"] == "eastmoney"
+    assert "sk-provider-secret" not in encoded
+    assert "sk-runtime-secret" not in encoded
+    assert "private_market_table" not in encoded
 
 
 def test_deterministic_fast_path_is_identical_across_runtime_backends(

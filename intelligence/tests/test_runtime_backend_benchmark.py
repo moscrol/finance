@@ -6,6 +6,7 @@ import pytest
 
 from intelligence.eval.runtime_backend_benchmark import (
     RuntimeArmResult,
+    RuntimeDiagnostics,
     summarize_runtime_benchmark,
 )
 
@@ -54,6 +55,89 @@ def test_runtime_arm_round_trip() -> None:
     assert arm.to_dict()["data_cutoff"] == "2026-07-24"
     assert arm.to_dict()["stop_reason"] == "model_finish"
     assert arm.to_dict()["effective_timeout_seconds"] == 90.0
+
+
+def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
+    diagnostics = RuntimeDiagnostics.from_runtime_state(
+        events=(
+            {
+                "sequence": 2,
+                "kind": "tool_request",
+                "payload": {
+                    "name": "evidence_search",
+                    "arguments": {
+                        "query": "A股下跌原因",
+                        "api_key": "sk-live-secret",
+                        "sql": "select * from secret_table",
+                        "table": "secret_table",
+                        "path": "/Users/a77/private/data.duckdb",
+                    },
+                },
+            },
+            {
+                "sequence": 3,
+                "kind": "model_turn",
+                "payload": {"messages": [{"role": "system", "content": "hidden"}]},
+            },
+            {
+                "sequence": 4,
+                "kind": "invalid_action",
+                "payload": {"reason": "tool arguments were invalid"},
+            },
+        ),
+        provider_traces=(
+            {
+                "provider": "eastmoney",
+                "capability": "news_search",
+                "status": "future_of_cutoff",
+                "detail": "query=A股; authorization=Bearer sk-provider-secret",
+                "requested_date": "2026-07-20",
+                "served_date": "2026-07-21",
+                "result_count": 2,
+            },
+        ),
+        missing_outputs=("causal_explanation",),
+        mandatory_missing_capabilities=("market_cause_news",),
+        gaps=("仍缺少时间对齐的原因",),
+        bindings=(
+            {
+                "output_id": "direct_assessment",
+                "evidence_hashes": [],
+                "gap": "仍缺少直接判断",
+                "basis": "evidence",
+            },
+        ),
+        root_budget={
+            "episode_id": "runtime-benchmark:weekly-market-cause",
+            "remaining_calls": 2,
+            "remaining_seconds": 7.5,
+            "password": "do-not-export",
+        },
+    )
+    arm = replace(_arm(), diagnostics=diagnostics)
+
+    restored = RuntimeArmResult.from_dict(arm.to_dict())
+    encoded = str(arm.to_dict())
+
+    assert restored == arm
+    assert [event["kind"] for event in diagnostics.events] == [
+        "tool_request",
+        "invalid_action",
+    ]
+    assert diagnostics.events[0]["payload"]["arguments"] == {
+        "query": "A股下跌原因"
+    }
+    assert diagnostics.events[1]["payload"]["reason"] == (
+        "tool arguments were invalid"
+    )
+    assert diagnostics.future_of_cutoff[0]["provider"] == "eastmoney"
+    assert diagnostics.root_budget["remaining_calls"] == 2
+    assert "sk-live-secret" not in encoded
+    assert "sk-provider-secret" not in encoded
+    assert "select *" not in encoded
+    assert "secret_table" not in encoded
+    assert "/Users/a77" not in encoded
+    assert "hidden" not in encoded
 
 
 def test_runtime_arm_rejects_invalid_metrics_and_hash() -> None:
