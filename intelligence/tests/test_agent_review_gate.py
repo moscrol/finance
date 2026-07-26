@@ -175,6 +175,12 @@ def test_two_provisional_slices_allowed_but_third_denied(gate_case):
     assert second_decision.provisional_depth == 2
     assert second_decision.allowed_next_action == "WAIT"
 
+    case.advance()
+    third = case.submit(depends_on=(second.review_id,), age_minutes=16)
+    third_decision = compute_gate(repo=repo, state_root=state_root)
+    assert third_decision.pending_review_id == third.review_id
+    assert not third_decision.fallback_eligible
+
 
 def test_external_finding_taints_provisional_descendants(gate_case):
     case, repo, state_root = gate_case

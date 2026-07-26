@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from scripts.agent_review.submit import submit_request
+from scripts.agent_review.producer_fallback import run_fallback_once
 from scripts.agent_review.worker import run_once
 
 
@@ -96,6 +97,10 @@ payload = {
     "summary": "fake reviewer passed",
     "next_action": "continue",
 }
+if mode == "provisional":
+    payload["reviewer"] = "codex:producer-fallback"
+    payload["reviewer_class"] = "producer_fallback"
+    payload["authority"] = "provisional"
 if mode == "bad_identity":
     payload["reviewer"] = "codex:producer"
 if mode == "mutate":
@@ -199,3 +204,145 @@ def test_invalid_reviewer_output_is_quarantined_not_published(worker_case):
     assert result.status == "INVALID_VERDICT"
     assert not (state_root / "verdicts" / f"{request.review_id}.json").exists()
     assert (state_root / "runs" / request.review_id / "invalid-verdict.json").exists()
+
+
+def test_external_inactivity_can_create_provisional_only(worker_case):
+    repo, state_root, request, fake_reviewer = worker_case
+    state_path = state_root / "state/external-review.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "status": "REVIEWER_INACTIVE",
+                "review_id": request.review_id,
+                "failure_kind": "budget",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_fallback_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="provisional"),
+    )
+
+    assert result.status == "PROVISIONAL_WRITTEN"
+    assert (state_root / "provisional-verdicts" / f"{request.review_id}.json").exists()
+    assert not (state_root / "verdicts" / f"{request.review_id}.json").exists()
+
+
+def test_release_request_never_uses_producer_fallback(worker_case):
+    repo, state_root, old_request, fake_reviewer = worker_case
+    # Rebuild state with one release request at the same immutable commit.
+    for directory in ("requests", "claims"):
+        for path in (state_root / directory).glob("*.json"):
+            path.unlink()
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="release slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("deterministic_full_regression", "frozen_live_benchmark"),
+        intensity="release",
+    )
+    state_path = state_root / "state/external-review.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "status": "REVIEWER_INACTIVE",
+                "review_id": request.review_id,
+                "failure_kind": "budget",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_fallback_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="provisional"),
+    )
+
+    assert result.status == "WAIT_EXTERNAL"
+    assert not tuple((state_root / "provisional-verdicts").glob("*.json"))
+
+
+def test_failing_mechanical_test_produces_changes_required_provisional(worker_case):
+    repo, state_root, _old_request, fake_reviewer = worker_case
+    for directory in ("requests", "claims"):
+        for path in (state_root / directory).glob("*.json"):
+            path.unlink()
+    (repo / "intelligence/tests/test_evidence_ledger.py").write_text(
+        "def test_value():\n    assert False\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "introduce failing slice")
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="failing slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("focused",),
+        intensity="light",
+    )
+    state_path = state_root / "state/external-review.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "status": "REVIEWER_INACTIVE",
+                "review_id": request.review_id,
+                "failure_kind": "budget",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_fallback_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="provisional"),
+    )
+
+    assert result.status == "PROVISIONAL_WRITTEN"
+    payload = json.loads(
+        (state_root / "provisional-verdicts" / f"{request.review_id}.json").read_text()
+    )
+    assert payload["status"] == "CHANGES_REQUIRED"
+    assert payload["checks"]["intelligence/tests/test_evidence_ledger.py"]["status"] == "FAIL"
+
+
+def test_fallback_provider_failure_enters_its_own_backoff(worker_case):
+    repo, state_root, request, fake_reviewer = worker_case
+    state_path = state_root / "state/external-review.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "status": "REVIEWER_INACTIVE",
+                "review_id": request.review_id,
+                "failure_kind": "budget",
+            }
+        ),
+        encoding="utf-8",
+    )
+    command = fake_reviewer(mode="budget")
+
+    first = run_fallback_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=command,
+        now_timestamp=1000.0,
+    )
+    second = run_fallback_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=command,
+        now_timestamp=1001.0,
+    )
+
+    assert first.status == "FALLBACK_INACTIVE"
+    assert second.status == "FALLBACK_BACKOFF"
+    assert (state_root / "invocations.txt").read_text() == "1"

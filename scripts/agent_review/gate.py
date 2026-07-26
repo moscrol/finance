@@ -301,7 +301,7 @@ def compute_gate(
         fallback_eligible = (
             _inactive_for_request(state_root, latest.review_id)
             or _sla_expired(latest, current_time)
-        ) and latest.intensity != "release"
+        ) and latest.intensity != "release" and len(provisional_debt) < 2
 
     release_allowed = False
     if release:
