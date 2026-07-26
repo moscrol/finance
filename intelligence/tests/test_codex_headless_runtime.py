@@ -261,6 +261,28 @@ def test_headless_runtime_returns_shared_agent_outcome() -> None:
     )
 
 
+def test_headless_research_command_preserves_synthesis_reserve() -> None:
+    """The child process may consume only the research slice of the deadline."""
+
+    frame = _frame()
+    base_context = _context(frame)
+    context = replace(
+        base_context,
+        deadline=ResearchDeadline.from_timeout(30.0, synthesis_reserve=10.0),
+    )
+    fake = ValidFakeCodex()
+
+    CodexHeadlessRuntime(command_runner=fake).run(
+        task_frame=frame,
+        context=context,
+        registry=_registry([]),
+    )
+
+    assert fake.commands
+    # Allow a small scheduling drift, but never give the child the full 30s.
+    assert 18.0 <= fake.commands[0].timeout <= 20.1
+
+
 def test_headless_runtime_builds_isolated_read_only_command(monkeypatch) -> None:
     frame = _frame()
     calls: list[str] = []

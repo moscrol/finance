@@ -435,7 +435,10 @@ class CodexHeadlessRuntime:
                 if (
                     finish_issue in {"headless_invalid_finish", "headless_no_finish"}
                     and snapshot.evidence
-                    and context.deadline.remaining() >= 1.0
+                    and context.deadline.stage_timeout(
+                        context.deadline.remaining()
+                    )
+                    >= 1.0
                 ):
                     repair_command = self._build_repair_command(
                         task_frame=task_frame,
@@ -491,7 +494,10 @@ class CodexHeadlessRuntime:
         schema_path: Path,
         run_dir: Path,
     ) -> HeadlessCommand:
-        timeout = max(0.1, context.deadline.remaining())
+        timeout = max(
+            0.1,
+            context.deadline.stage_timeout(context.deadline.remaining()),
+        )
         prompt = _headless_prompt(
             task_frame=task_frame,
             context=context,
@@ -533,7 +539,10 @@ class CodexHeadlessRuntime:
             schema_path=schema_path,
             run_dir=run_dir,
             environment=gateway.subprocess_environment(),
-            timeout=max(0.1, context.deadline.remaining()),
+            timeout=max(
+                0.1,
+                context.deadline.stage_timeout(context.deadline.remaining()),
+            ),
         )
 
     def _command_from_prompt(
