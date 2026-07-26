@@ -46,22 +46,26 @@ class WorkerShutdown(Exception):
 
 
 def _terminate_process_group(process: subprocess.Popen[str]) -> None:
-    if process.poll() is not None:
-        return
     try:
         os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except OSError:
         return
     try:
         process.wait(timeout=5.0)
-        return
-    except subprocess.TimeoutExpired:
+    except (OSError, subprocess.TimeoutExpired):
         pass
     try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
+        os.killpg(process.pid, 0)
+    except OSError:
         return
-    process.wait(timeout=5.0)
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except OSError:
+        return
+    try:
+        process.wait(timeout=5.0)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _run_reviewer_command(
@@ -414,8 +418,8 @@ def _run_locked(
             "REVIEW_ID": review_id,
             "COMMIT": request.commit,
             "REVIEW_WORKTREE": str(worktree),
-            "REQUEST_FILE": str(request_path),
-            "CLAIM_FILE": str(claim_path),
+            "REQUEST_FILE": str(bundled_request),
+            "CLAIM_FILE": str(bundled_claim),
             "VERDICT_FILE": str(staging),
             "STATE_ROOT": str(state_root),
             "PRODUCER_REPO": str(repo),
@@ -478,6 +482,14 @@ def _run_locked(
             now_timestamp=observed_timestamp(),
         )
         return WorkerResult("REVIEWER_INACTIVE", review_id, "timeout")
+    except OSError:
+        _record_failure(
+            state_root,
+            review_id=review_id,
+            failure_kind="transport",
+            now_timestamp=observed_timestamp(),
+        )
+        return WorkerResult("REVIEWER_INACTIVE", review_id, "transport")
     finally:
         subprocess.run(
             ["git", "worktree", "remove", "--force", str(worktree)],

@@ -77,6 +77,9 @@ counter_path.write_text(str(count + 1))
 if mode == "budget":
     print("Exceeded USD budget", file=sys.stderr)
     raise SystemExit(1)
+if mode == "assert_bundled":
+    assert request_path.parent.name == ".agent-review"
+    assert claim_path.parent.name == ".agent-review"
 request = json.loads(request_path.read_text())
 claim = json.loads(claim_path.read_text())
 checks = {
@@ -120,7 +123,8 @@ if mode == "changes":
         "recommendation": "fix forward",
     }]
 if mode == "mutate":
-    request_path.write_text(request_path.read_text() + "\\n")
+    real_request = pathlib.Path(os.environ["STATE_ROOT"]) / "requests" / f"{request['review_id']}.json"
+    real_request.write_text(real_request.read_text() + "\\n")
 verdict_path.parent.mkdir(parents=True, exist_ok=True)
 verdict_path.write_text(json.dumps(payload))
 """.strip()
@@ -198,6 +202,36 @@ def test_backoff_starts_when_long_reviewer_failure_finishes(
     assert state["next_retry_at"] == pytest.approx(2660.0)
 
 
+def test_reviewer_receives_only_bundled_request_and_claim_paths(worker_case) -> None:
+    repo, state_root, request, fake_reviewer = worker_case
+
+    result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=fake_reviewer(mode="assert_bundled"),
+    )
+
+    assert result.status == "VERDICT_WRITTEN"
+    assert (state_root / "verdicts" / f"{request.review_id}.json").exists()
+
+
+def test_missing_reviewer_command_enters_transport_backoff(worker_case) -> None:
+    repo, state_root, request, _fake_reviewer = worker_case
+
+    result = run_once(
+        repo=repo,
+        state_root=state_root,
+        reviewer_command=(str(state_root / "missing-reviewer"),),
+        now_timestamp=1000.0,
+    )
+
+    assert result.status == "REVIEWER_INACTIVE"
+    assert result.review_id == request.review_id
+    assert result.detail == "transport"
+    state = json.loads((state_root / "state/external-review.json").read_text())
+    assert state["failure_kind"] == "transport"
+
+
 def test_worker_shutdown_terminates_reviewer_process_group(
     worker_case,
     tmp_path: Path,
@@ -259,6 +293,55 @@ def test_worker_shutdown_terminates_reviewer_process_group(
         if reviewer_pid:
             try:
                 os.kill(reviewer_pid, 9)
+            except ProcessLookupError:
+                pass
+
+
+def test_reviewer_timeout_kills_descendant_after_leader_exits(
+    worker_case,
+    tmp_path: Path,
+) -> None:
+    repo, state_root, request, _fake_reviewer = worker_case
+    reviewer = tmp_path / "forking-reviewer.py"
+    reviewer.write_text(
+        "import os, pathlib, time\n"
+        "child = os.fork()\n"
+        "if child == 0:\n"
+        "    pid = pathlib.Path(os.environ['STATE_ROOT'], 'descendant.pid')\n"
+        "    pid.write_text(str(os.getpid()))\n"
+        "    time.sleep(60)\n"
+        "    raise SystemExit(0)\n"
+        "raise SystemExit(0)\n",
+        encoding="utf-8",
+    )
+    descendant_pid = 0
+    try:
+        result = run_once(
+            repo=repo,
+            state_root=state_root,
+            reviewer_command=(sys.executable, str(reviewer)),
+            timeout_seconds=0.2,
+        )
+        pid_path = state_root / "descendant.pid"
+        assert pid_path.exists()
+        descendant_pid = int(pid_path.read_text())
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            try:
+                os.kill(descendant_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError("reviewer descendant survived timeout cleanup")
+
+        assert result.status == "REVIEWER_INACTIVE"
+        assert result.review_id == request.review_id
+        assert result.detail == "timeout"
+    finally:
+        if descendant_pid:
+            try:
+                os.kill(descendant_pid, 9)
             except ProcessLookupError:
                 pass
 
