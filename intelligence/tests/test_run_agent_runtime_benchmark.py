@@ -125,7 +125,7 @@ def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
     ] == "昨天的反弹能持续多久"
 
 
-def test_headless_benchmark_uses_backend_neutral_verifier_reserve() -> None:
+def test_headless_causal_case_promotes_to_deep_with_verifier_reserve() -> None:
     case = next(
         item
         for item in benchmark._load_cases(FIXTURE)
@@ -143,8 +143,9 @@ def test_headless_benchmark_uses_backend_neutral_verifier_reserve() -> None:
         latest_data_date="2026-07-24",
     )
 
-    assert context.deadline.synthesis_reserve == 30.0
-    assert context.deadline.stage_timeout(90.0) > 59.0
+    assert context.policy.tier == "deep"
+    assert context.deadline.synthesis_reserve == 48.0
+    assert context.deadline.stage_timeout(180.0) > 131.0
 
 
 def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(

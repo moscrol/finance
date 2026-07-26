@@ -270,8 +270,15 @@ def _fresh_context(
 ):
     if not control.contract_required:
         return None
+    execution_tier = case.tier
+    if backend == "codex_headless" and case.tier == "standard":
+        if control.task_frame.question_type in {"market_forecast", "market_cause"}:
+            # Prediction and causal attribution are ModeGovernor deep-mode
+            # candidates: a short standard window causes the model to die
+            # while it is still comparing hypotheses.
+            execution_tier = "deep"
     synthesis_reserve = GLMAgentRuntime.synthesis_reserve_for_task(
-        tier=case.tier,
+        tier=execution_tier,
         question_type=control.task_frame.question_type,
     )
     if backend == "codex_headless":
@@ -281,16 +288,16 @@ def _fresh_context(
         # Keep a bounded verifier reserve here.  The shared semantic judge may
         # need one full 30s provider attempt; reserving only the GLM policy's
         # 20s made a structurally valid headless answer become unavailable.
-        policy_reserve = ResearchPolicy.for_tier(case.tier).synthesis_reserve
+        policy_reserve = ResearchPolicy.for_tier(execution_tier).synthesis_reserve
         synthesis_reserve = min(
-            ResearchPolicy.for_tier(case.tier).total_seconds * 0.4,
+            ResearchPolicy.for_tier(execution_tier).total_seconds * 0.4,
             max(policy_reserve, 30.0),
         )
     return build_episode_context(
         control.task_frame,
         task_id=f"runtime-benchmark:{case.case_id}",
         capabilities=control.capabilities,
-        tier=case.tier,
+        tier=execution_tier,
         timeout=case.timeout,
         synthesis_reserve=synthesis_reserve,
         today=case.as_of,
@@ -305,7 +312,6 @@ def _build_runtime(
     *,
     sdk_gpt_providers: tuple[LLMProvider, ...] = (),
 ) -> tuple[object, str]:
-    del context
     providers = llm_refine.detect_providers()
     if backend == "continuous_glm":
         client = GLMModelClient(providers=providers)
@@ -380,7 +386,10 @@ def _build_runtime(
         runtime = CodexHeadlessRuntime(
             model=os.environ.get("CODEX_HEADLESS_MODEL"),
             reasoning_effort=(
-                "high" if case.tier == "deep" else "medium"
+                "high"
+                if getattr(getattr(context, "policy", None), "tier", case.tier)
+                == "deep"
+                else "medium"
             ),
         )
         return runtime, runtime.model_name
