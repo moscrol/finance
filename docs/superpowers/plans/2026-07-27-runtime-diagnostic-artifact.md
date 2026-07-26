@@ -113,7 +113,7 @@ Expected: all tests pass.
 - Modify after diagnosis: only the smallest product module that the artifact proves responsible
 - Modify: the matching public-seam regression test
 
-- [ ] **Step 1: Run Ruff and deterministic regression tests**
+- [x] **Step 1: Run Ruff and deterministic regression tests**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/ruff check \
@@ -128,18 +128,18 @@ Expected: all tests pass.
 
 Expected: Ruff passes and 26 invariant tests pass.
 
-- [ ] **Step 2: Re-run only the same failing live case once**
+- [x] **Step 2: Re-run only the same failing live case once**
 
 Use the existing `weekly-market-cause-smoke-input.json`, `continuous_glm`, the local finance/wiki roots, and the existing in-memory/Keychain provider injection. Do not run the frozen nine-case suite.
 
-- [ ] **Step 3: Rank and test hypotheses from the diagnostic artifact**
+- [x] **Step 3: Rank and test hypotheses from the diagnostic artifact**
 
 Classify every invalid action as plan parsing, unauthorized/invalid tool request, tool/provider result, finalization schema, or repair failure. Identify which tools consumed the root budget, whether Eastmoney fallback succeeded, the exact structural missing outputs, and whether any cutoff rejection occurred. Change one variable only after the artifact distinguishes the hypotheses.
 
-- [ ] **Step 4: Turn the proven cause into a public-seam failing test, then fix it**
+- [x] **Step 4: Turn the proven cause into a public-seam failing test, then fix it**
 
 The regression test must reproduce the real failed chain at its public interface. Apply the minimum fix, rerun the test, then rerun the original one-case smoke once to prove the user-visible symptom improved.
 
-- [ ] **Step 5: Commit product code separately from verification documents**
+- [x] **Step 5: Commit product code separately from verification documents**
 
 First commit the diagnostics implementation and tests. Commit any subsequently proven runtime fix separately. Finally update the two existing verification documents with exact commands, counts, smoke artifact paths, and explicit non-actions.

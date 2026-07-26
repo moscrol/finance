@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close the three remaining pre-Phase-3 seams: a model plan cannot shrink the immutable user task, the legacy agent loop can honor a 24-call deep ceiling, and Eastmoney news search tolerates natural-language and compound model queries.
+**Goal:** Close the three remaining pre-Phase-3 seams: a model plan revision cannot shrink its published answer scope, the legacy agent loop can honor a 24-call deep ceiling, and Eastmoney news search tolerates natural-language and compound model queries.
 
-**Architecture:** `ResearchTaskContract.required_outputs` remains the code-owned minimum answer set; `ResearchPlan.answer_elements` is a model-owned superset that may only grow across revisions. The legacy agent-loop environment cap is raised without changing its default. Eastmoney keeps strict title relevance, but one logical provider call may retry a bounded list of simpler keywords only after an honest empty result; provider errors do not trigger retry storms and all attempted queries remain in one trace.
+**Architecture:** `ResearchTaskContract.required_outputs` remains the independently verified code-owned minimum answer set; `ResearchPlan.answer_elements` remains natural model-owned language and may only grow across revisions. The legacy agent-loop environment cap is raised without changing its default. Eastmoney keeps strict title relevance, but one logical provider call may retry a bounded list of simpler keywords only after an honest empty result; provider errors do not trigger retry storms and all attempted queries remain in one trace.
 
 **Tech Stack:** Python dataclasses, deterministic text normalization, existing QueryLedger and ProviderTrace, pytest, Ruff.
 
@@ -12,11 +12,11 @@
 
 ## Public seams under test
 
-1. `validate_plan_answer_elements()` and `validate_plan_revision()` enforce the immutable task floor and monotonic revisions.
+1. `validate_plan_revision()` enforces monotonic published scope; the structural verifier independently enforces the immutable task contract.
 2. `agent_research.max_steps()` accepts a configured deep ceiling of 24 while retaining the default of 4 and rejecting values outside 1-24.
 3. `market_news.fetch_eastmoney_news_result()` accepts a natural question, performs bounded empty-result fallback, merges by URL/title, and reports attempted keywords in its trace.
 
-### Task 1: Make model-owned answer elements monotonic above the task floor
+### Task 1: Make model-owned answer elements monotonic across revisions
 
 **Files:**
 - Modify: `intelligence/services/research_plan.py`
@@ -26,14 +26,9 @@
 
 - [x] **Step 1: Write failing contract and revision tests**
 
-Add tests proving that an initial plan missing `counterpoint` is rejected when the immutable contract requires it, a revision may add an element, and a revision may not remove an existing element.
+Add tests proving that an initial plan may use natural answer-element wording, a revision may add an element, and a revision may not remove an existing element. The structural verifier continues to reject any final answer that misses immutable contract outputs.
 
 ```python
-validate_plan_answer_elements(
-    plan,
-    required_answer_elements=("direct_assessment", "counterpoint"),
-)
-
 with pytest.raises(ValueError, match="remove answer elements"):
     validate_plan_revision(first, shrunk, original_task_id="t", current_task_id="t")
 ```
@@ -46,11 +41,11 @@ with pytest.raises(ValueError, match="remove answer elements"):
   intelligence/tests/test_agent_episode.py -q
 ```
 
-Expected: the new public validator is absent and revision shrink is accepted.
+Expected: revision shrink is accepted before the new guard.
 
 - [x] **Step 3: Implement the immutable floor and monotonic revision rule**
 
-`validate_plan_answer_elements()` compares normalized exact output IDs from the immutable contract. `validate_plan_revision()` keeps the task-identity and revision checks, then rejects `previous.answer_elements - current.answer_elements`. In `ContinuousAgentEpisode`, validate every parsed plan against `context.contract.required_outputs` before recording it; a bad plan uses the existing same-Episode protocol-repair turn and receives no tool or budget authority.
+`validate_plan_revision()` keeps the task-identity and revision checks, then rejects `previous.answer_elements - current.answer_elements`. The initial plan is not forced to echo internal output IDs; final task completion continues to be decided independently by `verify_episode_outcome()` against the immutable contract.
 
 - [x] **Step 4: Run tests, Ruff, and commit**
 
