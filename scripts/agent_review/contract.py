@@ -147,7 +147,12 @@ def repair_covers_request(
         return False
     if not is_ancestor(repo, candidate.commit, repair.commit):
         return False
-    return set(candidate.artifacts).issubset(set(repair.artifacts))
+    if not set(candidate.artifacts).issubset(set(repair.artifacts)):
+        return False
+    candidate_checks = {
+        check for check in candidate.required_checks if not check.startswith("repair:")
+    }
+    return candidate_checks.issubset(set(repair.required_checks))
 
 
 def repair_chain_floor_review_id(
@@ -459,7 +464,13 @@ def validate_request(raw: Mapping[str, Any], *, repo: Path) -> ValidationResult:
     ):
         errors.append("parent_commit")
     for artifact in request.artifacts:
-        if not _path_exists_at_commit(repo, request.commit, artifact):
+        exists_in_review_range = _path_exists_at_commit(
+            repo, request.commit, artifact
+        ) or (
+            request.schema_version >= 3
+            and _path_exists_at_commit(repo, request.parent_commit, artifact)
+        )
+        if not exists_in_review_range:
             errors.append("artifact_missing")
     expected_tests = discover_artifact_tests(
         repo,

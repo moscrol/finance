@@ -363,6 +363,35 @@ def test_schema3_submit_rejects_undeclared_changed_path(review_repo, tmp_path: P
         )
 
 
+def test_schema3_submit_accepts_declared_deleted_artifact(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    deleted = repo / "intelligence/services/legacy_module.py"
+    deleted.write_text("VALUE = 'legacy'\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "add legacy module")
+    deleted.unlink()
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 4\n", encoding="utf-8"
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "retire legacy module")
+
+    request = submit_request(
+        repo=repo,
+        state_root=tmp_path / "state",
+        scope="delete obsolete module",
+        artifacts=(
+            "intelligence/services/evidence_ledger.py",
+            "intelligence/services/legacy_module.py",
+        ),
+        required_checks=("verify deletion",),
+        intensity="light",
+    )
+
+    assert request.schema_version == 3
+    assert "intelligence/services/legacy_module.py" in request.artifacts
+
+
 def test_submit_rejects_waiver_for_gate_artifact(review_repo, tmp_path: Path):
     repo, _parent, _commit = review_repo
 
@@ -414,6 +443,37 @@ def test_superseding_repair_requires_milestone_and_explicit_check(
             depends_on=(first.review_id,),
             supersedes=first.review_id,
         )
+
+
+def test_superseding_repair_carries_prior_required_checks(review_repo, tmp_path: Path):
+    repo, _parent, _commit = review_repo
+    state_root = tmp_path / "state"
+    first = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="broken slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("verify original invariant",),
+        intensity="milestone",
+    )
+    (repo / "intelligence/services/evidence_ledger.py").write_text(
+        "VALUE = 5\n", encoding="utf-8"
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "repair invariant")
+
+    repair = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="repair",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=(f"repair:{first.review_id}",),
+        intensity="milestone",
+        depends_on=(first.review_id,),
+        supersedes=first.review_id,
+    )
+
+    assert "verify original invariant" in repair.required_checks
 
 
 def _verdict(request, request_sha256: str, **overrides: object) -> dict[str, object]:

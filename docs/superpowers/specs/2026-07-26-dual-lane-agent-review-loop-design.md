@@ -86,6 +86,8 @@ The first machine-generated requests use schema version 2. After the first
 external falsification cycle, new requests use schema version 3 with the same
 public fields plus a stricter invariant: `artifacts` must cover every path in
 `parent_commit..commit`. Existing schema-2 history remains valid and immutable.
+An artifact may exist at either end of that review range, so deleted files are
+declared and reviewable instead of making the contract unsatisfiable.
 
 The request shape is:
 
@@ -121,6 +123,9 @@ every request from the root finding through the latest dependency. Therefore
 the external reviewer sees the complete tainted diff, including intermediate
 requests that were developed provisionally. A later repair of a failed repair
 retains the same review root.
+The helper also carries the union of all non-`repair:*` required checks in that
+range. A combined repair PASS can seal only slices whose artifacts and checks
+were both present in the external review manifest.
 
 ## 6. Mechanical artifact-to-test coverage
 

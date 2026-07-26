@@ -194,6 +194,7 @@ def submit_request(
             superseded_number = _review_number(repair_root_id)
             latest_number = _review_number(latest_review_id or supersedes)
             required_artifacts: set[str] = set()
+            carried_checks: list[str] = []
             for path in request_dir.glob("ARL-*.json"):
                 if not REVIEW_ID_PATTERN.fullmatch(path.stem):
                     continue
@@ -205,12 +206,20 @@ def submit_request(
                         required_artifacts.update(
                             item for item in raw_artifacts if isinstance(item, str)
                         )
+                    raw_checks = raw.get("required_checks")
+                    if isinstance(raw_checks, list):
+                        carried_checks.extend(
+                            item
+                            for item in raw_checks
+                            if isinstance(item, str) and not item.startswith("repair:")
+                        )
             missing_artifacts = required_artifacts.difference(artifact_tuple)
             if missing_artifacts:
                 raise ValueError(
                     "superseding repair must include all tainted artifacts: "
                     + ", ".join(sorted(missing_artifacts))
                 )
+            check_tuple = tuple(dict.fromkeys((*check_tuple, *carried_checks)))
 
         review_id = _next_review_id(request_dir)
         commit = tip
