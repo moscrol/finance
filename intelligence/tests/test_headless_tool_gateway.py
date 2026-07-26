@@ -22,8 +22,11 @@ from intelligence.services.research_contract import (
     ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import (
+    EMPTY_TOOL_PARAMETERS,
+    InvalidResearchToolArguments,
     ResearchToolRegistry,
     ToolSpec,
+    parse_snapshot_arguments,
 )
 
 
@@ -294,3 +297,128 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     assert set(gateway.subprocess_environment()) == {"FINANCE_TOOL_MAILBOX"}
     assert "urllib" not in wrapper
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper
+
+
+def test_gateway_adapts_model_query_to_snapshot_arguments() -> None:
+    runner_inputs: list[str] = []
+
+    def snapshot_runner(value: str, _context: AgentToolContext):
+        runner_inputs.append(value)
+        return (
+            [
+                AgentEvidence(
+                    tool="market_data",
+                    title="A股市场快照",
+                    detail="截至2026-07-24，上证收盘数据可用。",
+                    source="本地行情",
+                    source_date="2026-07-24",
+                    content_hash="snapshot-hash",
+                )
+            ],
+            "A股市场快照可用",
+            ProviderTrace(
+                provider="test:snapshot",
+                capability="market_data",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="完整市场快照",
+                cost="local",
+                freshness="current",
+                runner=snapshot_runner,
+                query_scope="episode",
+                parameters=EMPTY_TOOL_PARAMETERS,
+                parse_arguments=parse_snapshot_arguments,
+            ),
+        )
+    )
+
+    with HeadlessToolGateway(registry=registry, context=_context()) as gateway:
+        result = gateway.call(
+            "market_data",
+            "请返回最近五日指数、成交额和市场宽度",
+        )
+        second = gateway.call("market_data", "换一个措辞再查一次")
+
+    assert result["status"] == "success"
+    assert result["query"] == "snapshot"
+    assert runner_inputs == [""]
+    assert second["error"] == "episode_snapshot_already_collected"
+
+
+def test_gateway_decodes_structured_json_without_charging_invalid_attempt() -> None:
+    runner_inputs: list[dict[str, object]] = []
+
+    def parse_arguments(arguments):
+        if set(arguments) != {"dataset"}:
+            raise InvalidResearchToolArguments("dataset is required")
+        return dict(arguments), str(arguments["dataset"])
+
+    def runner(value: dict[str, object], _context: AgentToolContext):
+        runner_inputs.append(value)
+        return (
+            [
+                AgentEvidence(
+                    tool="finance_query",
+                    title="市场日线查询",
+                    detail="market_daily 返回一行数据。",
+                    source="本地行情",
+                    source_date="2026-07-24",
+                    content_hash="finance-query-hash",
+                )
+            ],
+            "market_daily 返回一行数据",
+            ProviderTrace(
+                provider="test:finance-query",
+                capability="finance_query",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="finance_query",
+                capability="finance_query",
+                description="语义金融查询",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                parameters={
+                    "type": "object",
+                    "properties": {"dataset": {"type": "string"}},
+                    "required": ["dataset"],
+                    "additionalProperties": False,
+                },
+                parse_arguments=parse_arguments,
+            ),
+        )
+    )
+    context = replace(
+        _context(),
+        contract=replace(
+            _context().contract,
+            allowed_capabilities=("finance_query",),
+        ),
+    )
+
+    with HeadlessToolGateway(registry=registry, context=context) as gateway:
+        invalid = gateway.call("finance_query", "dataset=market_daily")
+        valid = gateway.call(
+            "finance_query",
+            '{"dataset":"market_daily"}',
+        )
+        snapshot = gateway.snapshot()
+
+    assert invalid["error"] == "invalid_arguments"
+    assert valid["status"] == "success"
+    assert runner_inputs == [{"dataset": "market_daily"}]
+    assert snapshot.executed_count == 1

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextvars import Context, copy_context
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,19 +15,20 @@ import stat
 import tempfile
 from threading import Event, Lock, Thread
 from types import TracebackType
-from typing import cast
 import urllib.error
 import urllib.parse
 import urllib.request
 
-from intelligence.services import query_ledger
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import EpisodeEvent, public_agent_evidence
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
+    InvalidResearchToolArguments,
+    PreparedToolArguments,
     ResearchToolRegistry,
     ToolObservation,
+    ToolSpec,
 )
 
 
@@ -35,6 +36,30 @@ _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
+
+
+def _is_snapshot_tool(spec: ToolSpec) -> bool:
+    properties = spec.parameters.get("properties")
+    return isinstance(properties, Mapping) and not properties
+
+
+def _transport_arguments(spec: ToolSpec, query: str) -> object:
+    if _is_snapshot_tool(spec):
+        return {}
+    properties = spec.parameters.get("properties")
+    if isinstance(properties, Mapping) and set(properties) == {"query"}:
+        return query
+    try:
+        value = json.loads(query)
+    except json.JSONDecodeError as exc:
+        raise InvalidResearchToolArguments(
+            "structured tool input must be a JSON object"
+        ) from exc
+    if not isinstance(value, dict):
+        raise InvalidResearchToolArguments(
+            "structured tool input must be a JSON object"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -391,24 +416,40 @@ class HeadlessToolGateway:
                 f"{self._context.trace_parent_id}:headless:tool:"
                 f"{request_event.sequence - 1}"
             )
-            rejected = self._reservation_error(name, raw_query)
+            spec = self._authorized.get(name)
+            if spec is None:
+                rejected = "unknown_or_unauthorized_tool"
+                prepared = None
+            elif not isinstance(raw_query, str) or not raw_query.strip():
+                rejected = "invalid_query"
+                prepared = None
+            else:
+                try:
+                    prepared = self._registry.prepare(
+                        name,
+                        _transport_arguments(spec, raw_query.strip()),
+                    )
+                except InvalidResearchToolArguments as exc:
+                    rejected = exc.code
+                    prepared = None
+                else:
+                    rejected = self._reservation_error(spec, prepared)
             if rejected is not None:
                 self._add_event(
                     "tool_error",
                     {"tool": name, "error": rejected},
                 )
                 return {"status": "rejected", "tool": name, "error": rejected}
-            query = cast(str, raw_query).strip()
-            spec = self._authorized[name]
-            normalized = query_ledger.normalize_query(query)
-            self._seen_queries.add((name, normalized))
+            if spec is None or prepared is None:
+                raise RuntimeError("prepared headless tool request missing")
+            self._seen_queries.add((name, prepared.normalized_key))
             self._executed_count += 1
 
         try:
             observation = self._contextvars.copy().run(
                 self._registry.execute,
                 name,
-                query,
+                prepared,
                 context=self._context,
                 step_id=step_id,
                 is_cancelled=self._is_cancelled,
@@ -432,26 +473,24 @@ class HeadlessToolGateway:
 
         return self._publish_observation(spec.query_scope, observation)
 
-    def _reservation_error(self, name: str, raw_query: object) -> str | None:
+    def _reservation_error(
+        self,
+        spec: ToolSpec,
+        prepared: PreparedToolArguments,
+    ) -> str | None:
         if self._closed or self._is_cancelled():
             return "cancelled"
         if self._context.deadline.expired:
             return "deadline_exhausted"
-        spec = self._authorized.get(name)
-        if spec is None:
-            return "unknown_or_unauthorized_tool"
-        if not isinstance(raw_query, str) or not raw_query.strip():
-            return "invalid_query"
-        normalized = query_ledger.normalize_query(raw_query)
-        key = (name, normalized)
+        key = (spec.name, prepared.normalized_key)
+        if (
+            spec.query_scope == "episode"
+            and spec.name in self._successful_episode_tools
+        ):
+            return "episode_snapshot_already_collected"
         if key in self._seen_queries:
             self._duplicate_queries += 1
             return "duplicate_query"
-        if (
-            spec.query_scope == "episode"
-            and name in self._successful_episode_tools
-        ):
-            return "episode_snapshot_already_collected"
         if self._executed_count >= self._context.policy.max_steps:
             return "tool_budget_exhausted"
         return None
