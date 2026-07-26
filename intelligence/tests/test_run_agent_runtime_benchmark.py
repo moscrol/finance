@@ -125,6 +125,28 @@ def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
     ] == "昨天的反弹能持续多久"
 
 
+def test_headless_benchmark_uses_backend_neutral_verifier_reserve() -> None:
+    case = next(
+        item
+        for item in benchmark._load_cases(FIXTURE)
+        if item.case_id == "rebound-duration"
+    )
+    control = benchmark.TurnControlCore().control(
+        case.question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "dry_run"),
+    )
+
+    context = benchmark._fresh_context(
+        case,
+        control,
+        backend="codex_headless",
+        latest_data_date="2026-07-24",
+    )
+
+    assert context.deadline.synthesis_reserve == 20.0
+    assert context.deadline.stage_timeout(90.0) > 69.0
+
+
 def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(
     monkeypatch,
 ) -> None:

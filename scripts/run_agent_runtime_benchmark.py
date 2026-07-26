@@ -44,6 +44,7 @@ from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.glm_agent_runtime import GLMModelClient
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
+from intelligence.services.research_contract import ResearchPolicy
 from intelligence.services.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
@@ -264,20 +265,28 @@ def _fresh_context(
     case: RuntimeBenchmarkCase,
     control: object,
     *,
+    backend: str,
     latest_data_date: str,
 ):
     if not control.contract_required:
         return None
+    synthesis_reserve = GLMAgentRuntime.synthesis_reserve_for_task(
+        tier=case.tier,
+        question_type=control.task_frame.question_type,
+    )
+    if backend == "codex_headless":
+        # Codex headless performs research and draft generation in one process.
+        # GLM's much larger internal-finalizer reserve would leave this backend
+        # only 30s on a standard case and terminate it before it can finish.
+        # Keep only the backend-neutral semantic-verifier reserve here.
+        synthesis_reserve = ResearchPolicy.for_tier(case.tier).synthesis_reserve
     return build_episode_context(
         control.task_frame,
         task_id=f"runtime-benchmark:{case.case_id}",
         capabilities=control.capabilities,
         tier=case.tier,
         timeout=case.timeout,
-        synthesis_reserve=GLMAgentRuntime.synthesis_reserve_for_task(
-            tier=case.tier,
-            question_type=control.task_frame.question_type,
-        ),
+        synthesis_reserve=synthesis_reserve,
         today=case.as_of,
         latest_data_date=latest_data_date,
     )
@@ -570,6 +579,7 @@ def _run_research_arm(
         context = _fresh_context(
             case,
             control,
+            backend=backend,
             latest_data_date=latest_data_date,
         )
         if context is None:
