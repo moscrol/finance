@@ -594,6 +594,15 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
             },
         )
     )
+    adapter._progress_sink(
+        EpisodeProgress(
+            key="adapter:understanding",
+            stage="understanding",
+            message="已对齐本轮任务并进入研究。",
+            status="completed",
+        )
+    )
+    assert len(run_store.load_trace(run.run_id)) == 1
     public_progress = str(
         (
             run_store.load_trace(run.run_id),

@@ -68,6 +68,7 @@ from intelligence.services.conversation_store import (
 )
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_progress import (
+    EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,
 )
@@ -156,6 +157,16 @@ def _build_continuous_turn_adapter(
         progress = project_episode_progress(event)
         if progress is not None:
             progress_publisher.publish(progress)
+
+    def publish_public_progress(progress: EpisodeProgress) -> None:
+        if progress_publisher is None:
+            return
+        # The controller already emits the one public "understanding" stage
+        # before the adapter starts. Do not show a second identical milestone
+        # merely because the adapter also has an internal phase hook.
+        if progress.key == "adapter:understanding":
+            return
+        progress_publisher.publish(progress)
 
     selection = resolve_runtime_backend()
     client = GLMModelClient(
@@ -248,7 +259,7 @@ def _build_continuous_turn_adapter(
         is_cancelled=is_cancelled,
         deadline_expires_at=deadline_expires_at,
         progress_sink=(
-            progress_publisher.publish if progress_publisher is not None else None
+            publish_public_progress if progress_publisher is not None else None
         ),
     )
 
