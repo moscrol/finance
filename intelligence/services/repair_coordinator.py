@@ -48,8 +48,8 @@ class ProgressSnapshot:
         }
         after_pairs = tuple(self.after_evidence_source_families)
         after_targets = dict(self.after_evidence_targets)
-        if not after_pairs:
-            return len(set(self.after_evidence_ids) - before_ids)
+        if not after_pairs or not after_targets:
+            return 0
         before_outputs = set(self.before_covered_outputs)
         families = {
             family
@@ -57,8 +57,7 @@ class ProgressSnapshot:
             if evidence_id not in before_ids
             and family not in before_families
             and (
-                not self.after_evidence_targets
-                or any(
+                any(
                     target not in before_outputs
                     for target in after_targets.get(evidence_id, ())
                 )
@@ -88,6 +87,20 @@ class ProgressSnapshot:
             "before_open_gaps": list(self.before_open_gaps),
             "after_open_gaps": list(self.after_open_gaps),
             "independent_source_families": list(self.independent_source_families),
+            "before_evidence_source_families": [
+                list(item) for item in self.before_evidence_source_families
+            ],
+            "after_evidence_source_families": [
+                list(item) for item in self.after_evidence_source_families
+            ],
+            "before_evidence_targets": [
+                [evidence_id, list(targets)]
+                for evidence_id, targets in self.before_evidence_targets
+            ],
+            "after_evidence_targets": [
+                [evidence_id, list(targets)]
+                for evidence_id, targets in self.after_evidence_targets
+            ],
             "coverage_delta": {
                 "new_evidence": delta.new_evidence,
                 "narrowed_gaps": delta.narrowed_gaps,

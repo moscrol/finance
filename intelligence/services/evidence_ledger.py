@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from threading import RLock
-from typing import Iterable
+from typing import Iterable, Literal
 
 from intelligence.services.agent_research import AgentEvidence
 
@@ -37,6 +37,24 @@ def _valid_for_cutoff(item: AgentEvidence, cutoff: date | None) -> bool:
         return False
 
 
+EvidenceCutoffStatus = Literal["verified", "undated", "unbounded"]
+
+
+def _cutoff_status(
+    item: AgentEvidence,
+    cutoff: date | None,
+) -> EvidenceCutoffStatus | None:
+    if not item.source_date:
+        return "undated"
+    try:
+        source_date = date.fromisoformat(str(item.source_date)[:10])
+    except ValueError:
+        return None
+    if cutoff is None:
+        return "unbounded"
+    return "verified" if source_date <= cutoff else None
+
+
 @dataclass(frozen=True)
 class EvidenceLedgerSnapshot:
     evidence_ids: tuple[str, ...]
@@ -45,6 +63,7 @@ class EvidenceLedgerSnapshot:
     independent_source_families: tuple[str, ...]
     evidence_source_families: tuple[tuple[str, str], ...] = ()
     evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    evidence_cutoff_status: tuple[tuple[str, EvidenceCutoffStatus], ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -58,6 +77,9 @@ class EvidenceLedgerSnapshot:
             "evidence_targets": [
                 [evidence_id, list(targets)]
                 for evidence_id, targets in self.evidence_targets
+            ],
+            "evidence_cutoff_status": [
+                list(item) for item in self.evidence_cutoff_status
             ],
         }
 
@@ -163,7 +185,14 @@ class EvidenceLedger:
                 independent_source_families=unique_families,
                 evidence_source_families=families,
                 evidence_targets=tuple(self._targets.items()),
+                evidence_cutoff_status=tuple(
+                    (
+                        content_hash,
+                        _cutoff_status(item, self._cutoff) or "undated",
+                    )
+                    for content_hash, item in self._items.items()
+                ),
             )
 
 
-__all__ = ["EvidenceLedger", "EvidenceLedgerSnapshot"]
+__all__ = ["EvidenceCutoffStatus", "EvidenceLedger", "EvidenceLedgerSnapshot"]

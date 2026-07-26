@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date
 from threading import RLock
 from typing import Literal, Protocol, TypeAlias, cast
+from weakref import WeakValueDictionary
 
 from intelligence.services.query_resolution import (
     QueryResolution,
@@ -430,6 +431,8 @@ class InMemoryRootBudgetLedger:
         if initial_seconds < 0 or hard_seconds_cap < initial_seconds:
             raise ValueError("invalid root seconds budget")
         self.episode_id = str(episode_id or "").strip()
+        if not self.episode_id:
+            raise ValueError("episode_id must be non-empty")
         self.initial_calls = initial_calls
         self.hard_calls_cap = hard_calls_cap
         self.initial_seconds = float(initial_seconds)
@@ -449,7 +452,7 @@ class InMemoryRootBudgetLedger:
         if calls <= 0 or seconds <= 0 or not grant_id or not episode_id:
             return False
         with self._lock:
-            if self.episode_id and episode_id != self.episode_id:
+            if episode_id != self.episode_id:
                 return False
             if grant_id in self._grants:
                 return False
@@ -465,8 +468,8 @@ class InMemoryRootBudgetLedger:
             return True
 
     def consume_call(self, *, seconds: float) -> None:
-        if seconds < 0:
-            raise ValueError("consumed seconds must be non-negative")
+        if seconds <= 0:
+            raise ValueError("consumed call seconds must be positive")
         with self._lock:
             if self.remaining_calls <= 0:
                 raise ValueError("root call budget exhausted")
@@ -498,25 +501,42 @@ class InMemoryRootBudgetLedger:
             }
 
 
+_LIVE_ROOT_BUDGETS: WeakValueDictionary[str, InMemoryRootBudgetLedger] = (
+    WeakValueDictionary()
+)
+_LIVE_ROOT_BUDGETS_LOCK = RLock()
+
+
 def root_budget_for_policy(
     policy: ResearchPolicy,
     *,
-    episode_id: str = "",
+    episode_id: str,
 ) -> InMemoryRootBudgetLedger:
     """Allocate one root ledger from the immutable tier policy."""
 
+    episode = str(episode_id or "").strip()
+    if not episode:
+        raise ValueError("episode_id must be non-empty")
     hard_calls = {
         "quick": 4,
         "standard": 8,
         "deep": 24,
     }.get(str(policy.tier).strip().lower(), policy.max_steps)
-    return InMemoryRootBudgetLedger(
-        episode_id=episode_id,
-        initial_calls=policy.max_steps,
-        hard_calls_cap=max(policy.max_steps, hard_calls),
-        initial_seconds=max(0.0, policy.total_seconds - policy.synthesis_reserve),
-        hard_seconds_cap=policy.total_seconds,
-    )
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        if episode in _LIVE_ROOT_BUDGETS:
+            raise ValueError(f"root budget already exists for live episode: {episode}")
+        ledger = InMemoryRootBudgetLedger(
+            episode_id=episode,
+            initial_calls=policy.max_steps,
+            hard_calls_cap=max(policy.max_steps, hard_calls),
+            initial_seconds=max(
+                0.0,
+                policy.total_seconds - policy.synthesis_reserve,
+            ),
+            hard_seconds_cap=policy.total_seconds,
+        )
+        _LIVE_ROOT_BUDGETS[episode] = ledger
+        return ledger
 
 
 @dataclass(frozen=True)

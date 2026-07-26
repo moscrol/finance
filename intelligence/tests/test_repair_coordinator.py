@@ -15,6 +15,7 @@ def _snap(*, evidence: tuple[str, ...], covered: tuple[str, ...], gaps: tuple[st
         open_gaps=gaps,
         independent_source_families=(family,),
         evidence_source_families=tuple((item, family) for item in evidence),
+        evidence_targets=tuple((item, covered) for item in evidence),
     )
 
 
@@ -36,6 +37,7 @@ def test_progress_snapshot_is_ledger_derived_and_same_family_does_not_count() ->
         open_gaps=(),
         independent_source_families=("market", "news"),
         evidence_source_families=(("e1", "market"), ("e2", "news")),
+        evidence_targets=(("e1", ()), ("e2", ("counterpoint",))),
     )
     progress = progress_from_ledger(before, after)
     assert progress.effective_new_evidence == 1
@@ -58,6 +60,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
     assert not hasattr(goal, "next_query")
     assert should_reenter(progress, cycle=1, max_cycles=1)
     root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
         initial_calls=3,
         hard_calls_cap=4,
         initial_seconds=30,
@@ -76,6 +79,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
     assert root.remaining_calls == 3
 
     accepted_root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
         initial_calls=3,
         hard_calls_cap=5,
         initial_seconds=30,
@@ -111,6 +115,7 @@ def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
         cycle=2,
     )
     root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
         initial_calls=3,
         hard_calls_cap=5,
         initial_seconds=30,

@@ -621,7 +621,10 @@ class ContinuousAgentEpisode:
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
                 if context.root_budget is not None and batch.executed_count:
-                    seconds_per_call = batch_elapsed / batch.executed_count
+                    seconds_per_call = max(
+                        batch_elapsed / batch.executed_count,
+                        1e-6,
+                    )
                     for _ in range(batch.executed_count):
                         context.root_budget.consume_call(seconds=seconds_per_call)
                 self._append_tool_budget_state(
@@ -874,7 +877,10 @@ class ContinuousAgentEpisode:
             tool_calls += batch.executed_count
             invalid_actions += accumulator.consume(batch, repair_context)
             if repair_context.root_budget is not None and batch.executed_count:
-                seconds_per_call = batch_elapsed / batch.executed_count
+                seconds_per_call = max(
+                    batch_elapsed / batch.executed_count,
+                    1e-6,
+                )
                 for _ in range(batch.executed_count):
                     repair_context.root_budget.consume_call(seconds=seconds_per_call)
             messages.append(
