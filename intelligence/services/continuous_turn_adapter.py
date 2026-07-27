@@ -55,9 +55,10 @@ _TERMINAL_REPAIR_STOP_REASONS = frozenset(
     {
         "repair_deadline_exhausted",
         "repair_model_stop",
-        "sdk_invalid_repair_finish",
-        "sdk_timeout",
     }
+)
+_DELIVERY_REPAIR_STOP_REASONS = frozenset(
+    {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
 )
 # The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
 # transports can return a few seconds after their client timeout while the
@@ -391,6 +392,7 @@ class ContinuousTurnAdapter:
         session: object | None = None
         repair_cycles = 0
         repair_attempts = 0
+        delivery_repair_attempted = False
         semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
         try:
@@ -500,6 +502,7 @@ class ContinuousTurnAdapter:
                 and not self._is_cancelled()
                 and not root_deadline.expired
             ):
+                repair_attempts += 1
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -508,14 +511,18 @@ class ContinuousTurnAdapter:
                     structural=structural,
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
-                    cycle=repair_attempts + 1,
+                    cycle=repair_attempts,
                     rejected_claims=(),
+                    allow_delivery_repair=not delivery_repair_attempted,
                 )
                 if repaired is None:
+                    repair_attempts -= 1
                     break
-                repair_attempts += 1
                 previous_snapshot = current_snapshot
-                outcome, structural = repaired
+                outcome, structural, delivery_only = repaired
+                delivery_repair_attempted = (
+                    delivery_repair_attempted or delivery_only
+                )
                 current_snapshot = _repair_snapshot(
                     outcome,
                     structural,
@@ -551,6 +558,7 @@ class ContinuousTurnAdapter:
                 and not self._is_cancelled()
                 and not root_deadline.expired
             ):
+                repair_attempts += 1
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
@@ -559,18 +567,22 @@ class ContinuousTurnAdapter:
                     structural=semantic.verified,
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
-                    cycle=repair_attempts + 1,
+                    cycle=repair_attempts,
                     rejected_claims=tuple(
                         f"claim_index:{index}"
                         for index in semantic.rejected_claim_indexes
                     ),
                     semantic_gap_outputs=semantic.gap_output_ids,
+                    allow_delivery_repair=not delivery_repair_attempted,
                 )
                 if repaired is None:
+                    repair_attempts -= 1
                     break
-                repair_attempts += 1
                 previous_snapshot = current_snapshot
-                outcome, structural = repaired
+                outcome, structural, delivery_only = repaired
+                delivery_repair_attempted = (
+                    delivery_repair_attempted or delivery_only
+                )
                 current_snapshot = _repair_snapshot(
                     outcome,
                     structural,
@@ -797,7 +809,8 @@ class ContinuousTurnAdapter:
         cycle: int,
         rejected_claims: tuple[str, ...],
         semantic_gap_outputs: tuple[str, ...] = (),
-    ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome] | None:
+        allow_delivery_repair: bool = True,
+    ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome, bool] | None:
         root_budget = context.root_budget
         resume = getattr(session, "resume", None)
         episode_id = str(getattr(session, "episode_id", "") or "").strip()
@@ -835,16 +848,27 @@ class ContinuousTurnAdapter:
             remaining_seconds=remaining_seconds,
             cycle=cycle,
         )
-        grant = grant_for_progress(
-            goal,
-            progress,
-            root_budget=root_budget,
-            research_tier=context.contract.research_tier,
-            tools_open=tools_open,
+        delivery_candidate = (
+            allow_delivery_repair
+            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
+            and outcome.evidence
+            and structural.missing_outputs
+            and (not outcome.draft.strip() or not outcome.bindings)
         )
+        grant = None
+        if not delivery_candidate:
+            grant = grant_for_progress(
+                goal,
+                progress,
+                root_budget=root_budget,
+                research_tier=context.contract.research_tier,
+                tools_open=tools_open,
+            )
+        delivery_only = False
         if (
             grant is None
-            and not tools_open
+            and allow_delivery_repair
+            and (not tools_open or delivery_candidate)
             and outcome.evidence
             and structural.missing_outputs
             and (not outcome.draft.strip() or not outcome.bindings)
@@ -855,6 +879,7 @@ class ContinuousTurnAdapter:
                 research_tier=context.contract.research_tier,
                 evidence_count=len(outcome.evidence),
             )
+            delivery_only = grant is not None
         if grant is None:
             return None
         granted_goal = replace(
@@ -868,7 +893,7 @@ class ContinuousTurnAdapter:
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
-        return candidate, verified
+        return candidate, verified, delivery_only
 
 
 def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:

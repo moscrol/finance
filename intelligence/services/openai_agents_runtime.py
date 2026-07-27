@@ -104,15 +104,6 @@ def _sdk_runtime_timeout(context: ResearchRunContext) -> float:
     return timeout
 
 
-def _allows_evidence_free_completion(context: ResearchRunContext) -> bool:
-    required = tuple(
-        item for item in context.contract.required_outputs if item.required
-    )
-    return bool(required) and all(
-        item.grounding_mode in {"user_premise", "model_reasoning"} for item in required
-    )
-
-
 def build_glm_sdk_model(
     *,
     api_key: str,
@@ -799,7 +790,7 @@ class _AgentsRunState:
                 self._evidence.append(item)
                 new_evidence.append(item)
                 self.evidence_ledger.append(item)
-            if spec.query_scope == "episode" and new_evidence:
+            if spec.query_scope == "episode" and observation.evidence:
                 self._successful_episode_tools.add(observation.tool)
             if new_evidence:
                 status = "success"
@@ -909,7 +900,7 @@ class OpenAIAgentsRuntime:
         self._model_settings = model_settings or build_agents_model_settings(backend)
         self._delivery_model_settings = (
             build_agents_delivery_model_settings(backend)
-            if backend == "sdk_gpt"
+            if backend == "sdk_gpt" and model_settings is None
             else self._model_settings
         )
         self._model_factory = model_factory
@@ -1076,7 +1067,6 @@ class OpenAIAgentsRuntime:
             continuation_state.continuation_input = result._continuation_input
 
         snapshot = state.snapshot()
-        recovered = False
         try:
             finish = validate_episode_finish(
                 result.final_output,
@@ -1084,96 +1074,16 @@ class OpenAIAgentsRuntime:
                 evidence=snapshot.evidence,
             )
         except ValueError:
-            recovery_timeout = min(30.0, _sdk_runtime_timeout(context))
-            if (
-                snapshot.evidence or _allows_evidence_free_completion(context)
-            ) and recovery_timeout >= 1.0:
-                repair_request = AgentsSdkRequest(
-                    instructions=(
-                        build_episode_instructions(
-                            task_frame,
-                            context,
-                            registry,
-                        )
-                        + "\n"
-                        "研究阶段已经关闭，禁止调用任何工具。"
-                        "只修复终止 JSON envelope，不得增加新事实。"
-                        "evidence grounding 只能引用给定证据哈希；"
-                        "user_premise/model_reasoning 必须按 grounding_mode 完成，"
-                        "不得伪造证据哈希。缺失输出必须写 gap。"
-                        "上方工具列表仅用于理解证据来源，本轮没有可调用工具。"
-                    ),
-                    input=json.dumps(
-                        {
-                            "task": json.loads(
-                                build_episode_input(task_frame, context)
-                            ),
-                            "required_outputs": context.contract.to_dict()[
-                                "required_outputs"
-                            ],
-                            "evidence": [
-                                public_agent_evidence(item)
-                                for item in snapshot.evidence
-                            ],
-                            "existing_gaps": list(snapshot.gaps),
-                            "invalid_output": _repair_output_text(result.final_output),
-                        },
-                        ensure_ascii=False,
-                    ),
-                    tools=(),
-                    max_turns=1,
-                    timeout=recovery_timeout,
-                    backend=self._backend,
-                    model_name=self._model_name,
-                    model=self._model,
-                    model_settings=self._delivery_model_settings,
-                    model_factory=self._model_factory,
-                    continuation_input=result._continuation_input,
-                )
-                try:
-                    repair_result = self._call_runner(
-                        repair_request,
-                        context=context,
-                    )
-                except Exception:
-                    return self._failure_from_snapshot(
-                        task_frame=task_frame,
-                        snapshot=snapshot,
-                        stop_reason="sdk_invalid_finish",
-                        gap="sdk_invalid_finish",
-                        llm_calls=max(1, result.llm_calls) + 1,
-                        result=result,
-                    )
-                result = _merge_sdk_results(result, repair_result)
-                if continuation_state is not None:
-                    continuation_state.continuation_input = (
-                        result._continuation_input
-                    )
-                try:
-                    finish = validate_episode_finish(
-                        result.final_output,
-                        context=context,
-                        evidence=snapshot.evidence,
-                    )
-                    recovered = True
-                except ValueError:
-                    return self._failure_from_snapshot(
-                        task_frame=task_frame,
-                        snapshot=snapshot,
-                        stop_reason="sdk_invalid_finish",
-                        gap="sdk_invalid_finish",
-                        llm_calls=max(1, result.llm_calls),
-                        result=result,
-                    )
-            else:
-                return self._failure_from_snapshot(
-                    task_frame=task_frame,
-                    snapshot=snapshot,
-                    stop_reason="sdk_invalid_finish",
-                    gap="sdk_invalid_finish",
-                    llm_calls=max(1, result.llm_calls),
-                    result=result,
-                )
+            # Invalid delivery is a verifier gap, not a private SDK retry.  The
+            # adapter owns the one shared RepairGoal cycle pool for every gap.
+            return self._failure_from_snapshot(
+                task_frame=task_frame,
+                snapshot=snapshot,
+                stop_reason="sdk_invalid_finish",
+                gap="sdk_invalid_finish",
+                llm_calls=max(1, result.llm_calls),
+                result=result,
+            )
 
         bindings = expand_episode_snapshot_bindings(
             bindings=finish.bindings,
@@ -1190,9 +1100,7 @@ class OpenAIAgentsRuntime:
             if finish.status == "completed" and execution_gap is not None
             else finish.status
         )
-        stop_reason = execution_gap or (
-            "sdk_finalization_recovered" if recovered else "model_finish"
-        )
+        stop_reason = execution_gap or "model_finish"
         events = self._events(
             task_frame=task_frame,
             snapshot=snapshot,
@@ -1255,7 +1163,9 @@ class OpenAIAgentsRuntime:
         repair_tool_deadline = context.deadline.bounded_stage(available_seconds)
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tool_timeout = repair_tool_deadline.remaining()
-        original_tools_open = research_tool_timeout > 0.001
+        original_tools_open = (
+            research_tool_timeout > 0.001 and available_calls > 0
+        )
         if state.continuation_input is None and original_tools_open:
             raise EpisodeSessionError(
                 "SDK provider continuation is required to reopen research tools"
@@ -1681,37 +1591,6 @@ def _failed_outcome(
     )
 
 
-def _merge_sdk_results(
-    initial: AgentsSdkResult,
-    recovery: AgentsSdkResult,
-) -> AgentsSdkResult:
-    return AgentsSdkResult(
-        final_output=recovery.final_output,
-        llm_calls=initial.llm_calls + recovery.llm_calls,
-        input_tokens=_sum_optional_counts(
-            initial.input_tokens,
-            recovery.input_tokens,
-        ),
-        output_tokens=_sum_optional_counts(
-            initial.output_tokens,
-            recovery.output_tokens,
-        ),
-        provider_attempts=_sum_optional_counts(
-            initial.provider_attempts,
-            recovery.provider_attempts,
-        ),
-        batched_tool_calls_dropped=(
-            initial.batched_tool_calls_dropped
-            + recovery.batched_tool_calls_dropped
-        ),
-        continuation_input=(
-            recovery._continuation_input
-            if recovery._continuation_input is not None
-            else initial._continuation_input
-        ),
-    )
-
-
 def _bounded_repair_goal(goal: RepairGoal) -> dict[str, object]:
     def strings(values: tuple[str, ...]) -> list[str]:
         return [str(value)[:500] for value in values[:20]]
@@ -1748,14 +1627,6 @@ def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
             root_budget.consume_seconds(seconds=remaining)
         return False
     return True
-
-
-def _repair_output_text(value: object, *, max_chars: int = 16000) -> str:
-    if isinstance(value, str):
-        text = value
-    else:
-        text = json.dumps(value, ensure_ascii=False, default=str)
-    return text[:max_chars]
 
 
 def _sum_optional_counts(left: int | None, right: int | None) -> int | None:

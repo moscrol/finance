@@ -804,6 +804,105 @@ def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(
     assert any(event["kind"] == "repair_reentry" for event in events)
 
 
+def test_sdk_invalid_finish_reenters_only_through_shared_repair_goal() -> None:
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-sdk-invalid-finish-repair",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    evidence_hash = "sdk-invalid-finish-evidence"
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="市场结构",
+                cost="local",
+                freshness="current",
+                runner=lambda _query, _context: (
+                    [
+                        AgentEvidence(
+                            tool="market_data",
+                            title="市场结构",
+                            detail="周内整体上涨，最后一个交易日出现回撤。",
+                            source="测试行情",
+                            source_date="2026-07-24",
+                            content_hash=evidence_hash,
+                            independent_key="market-window",
+                        )
+                    ],
+                    "周内整体上涨，最后一个交易日出现回撤。",
+                    ProviderTrace("test:market", "market_data", "success"),
+                ),
+            ),
+        )
+    )
+    requests: list[AgentsSdkRequest] = []
+
+    def sdk_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        requests.append(request)
+        if len(requests) == 1:
+            request.tools[0].invoke("A股周内结构")
+            return AgentsSdkResult("not-json", 1, continuation_input=object())
+        assert request.tools == ()
+        repair_input = json.loads(request.input)
+        assert repair_input["kind"] == "REPAIR_GOAL"
+        assert repair_input["cycle"] == 1
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "这一周并非单边下跌，更准确地说是周五回撤。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": [evidence_hash],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=OpenAIAgentsRuntime(
+            runner=sdk_runner,
+            backend="sdk_gpt",
+            model_name="gpt-5.6-sol",
+        ),
+        semantic_verifier=Semantic(),
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+        timeout=120.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert len(requests) == 2
+    assert result.private_artifact["repair_attempts"] == 1
+    assert result.private_artifact["repair_cycles"] == 1
+    assert sum(
+        event["kind"] == "repair_goal"
+        for event in result.private_artifact["events"]
+    ) == 1
+
+
 def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:
     frame = _frame(required_outputs=("direct_assessment",))
     control = _control(frame, capabilities=("market_data",))
@@ -1357,6 +1456,147 @@ def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> Non
     assert semantic.calls == 1
     assert result.private_artifact["repair_cycles"] == 0
     assert result.private_artifact["semantic_verifier_stale"] is False
+
+
+def test_deep_repair_timeout_with_new_coverage_may_use_next_cycle() -> None:
+    frame = _frame(
+        required_outputs=(
+            "direct_assessment",
+            "counterpoint",
+            "invalidation_conditions",
+        )
+    )
+    control = _control(frame, capabilities=("market_data", "news_search"))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-deep-timeout-progress",
+        capabilities=control.capabilities,
+        tier="deep",
+        timeout=120.0,
+    )
+    direct = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-24",
+        content_hash="deep-timeout-direct",
+        independent_key="market",
+    )
+    counter = AgentEvidence(
+        tool="news_search",
+        title="反方证据",
+        detail="成交额仍在回落。",
+        source="公开新闻",
+        source_date="2026-07-24",
+        content_hash="deep-timeout-counter",
+        independent_key="news-counter",
+    )
+    invalidation = AgentEvidence(
+        tool="market_data",
+        title="失效条件",
+        detail="若量能继续缩减则修复判断失效。",
+        source="本地行情",
+        source_date="2026-07-24",
+        content_hash="deep-timeout-invalidation",
+        independent_key="market-invalidation",
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复。",
+        evidence=(direct,),
+        traces=(),
+        gaps=("counterpoint", "invalidation_conditions"),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+            OutputEvidenceBinding(
+                "invalidation_conditions", (), "缺少失效条件"
+            ),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    after_timeout = replace(
+        initial,
+        evidence=(direct, counter),
+        gaps=("invalidation_conditions", "sdk_timeout"),
+        stop_reason="sdk_timeout",
+        events=(*initial.events, EpisodeEvent(2, "model_turn", {"cycle": 1})),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
+            OutputEvidenceBinding(
+                "invalidation_conditions", (), "缺少失效条件"
+            ),
+        ),
+        usage=AgentUsage(2, 2, 1),
+    )
+    completed = replace(
+        after_timeout,
+        status="completed",
+        evidence=(direct, counter, invalidation),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            *after_timeout.events,
+            EpisodeEvent(3, "model_turn", {"cycle": 2}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (direct.content_hash,)),
+            OutputEvidenceBinding("counterpoint", (counter.content_hash,)),
+            OutputEvidenceBinding(
+                "invalidation_conditions", (invalidation.content_hash,)
+            ),
+        ),
+        usage=AgentUsage(3, 3, 1),
+    )
+    goals = []
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(_previous, goal):
+                goals.append(goal)
+                return after_timeout if len(goals) == 1 else completed
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status=structurally_verified.verified_status,
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert [goal.cycle for goal in goals] == [1, 2]
+    assert result.private_artifact["repair_attempts"] == 2
+    assert result.private_artifact["repair_cycles"] == 1
 
 
 def test_sdk_timeout_delivery_repair_is_admitted_only_once_per_cycle(

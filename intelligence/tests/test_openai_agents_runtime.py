@@ -603,8 +603,12 @@ def test_sdk_episode_debits_one_shared_root_tool_budget_across_resume() -> None:
     ]
 
 
-def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
+@pytest.mark.parametrize("use_explicit_model_settings", (False, True))
+def test_sdk_resume_keeps_tools_closed_after_original_research_window(
+    use_explicit_model_settings: bool,
+) -> None:
     frame = _frame()
+    explicit_model_settings = object() if use_explicit_model_settings else None
 
     class ToggleDeadline:
         synthesis_reserve = 0.0
@@ -652,8 +656,11 @@ def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
             assert request.tools == ()
             assert request.max_turns == 1
             assert 0.0 < request.timeout <= 2.0
-            assert request.model_settings.reasoning.effort == "low"
-            assert request.model_settings.verbosity == "medium"
+            if explicit_model_settings is not None:
+                assert request.model_settings is explicit_model_settings
+            else:
+                assert request.model_settings.reasoning.effort == "low"
+                assert request.model_settings.verbosity == "medium"
             status = "completed"
             gaps = []
             hashes = ["mainline-hash"]
@@ -681,6 +688,7 @@ def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
         runner=wording_repair_runner,
         backend="sdk_gpt",
         model_name="gpt-5.6-sol",
+        model_settings=explicit_model_settings,
     ).start(frame, context=context, registry=_registry([]))
     deadline.closed = True
     repaired = session.resume(
@@ -1329,7 +1337,7 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
     assert source_schema == original_schema
 
 
-def test_sdk_runtime_allows_one_finish_only_recovery() -> None:
+def test_sdk_runtime_surfaces_invalid_finish_without_hidden_recovery() -> None:
     frame = _frame()
     runner_calls = 0
     research_calls: list[str] = []
@@ -1337,34 +1345,8 @@ def test_sdk_runtime_allows_one_finish_only_recovery() -> None:
     def repairing_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
         nonlocal runner_calls
         runner_calls += 1
-        if runner_calls == 1:
-            request.tools[0].invoke("A股 当前主线")
-            return AgentsSdkResult("not-json", 1, 500, 80, 1)
-
-        assert request.tools == ()
-        assert "只输出一个 JSON 对象" in request.instructions
-        assert "研究阶段已经关闭" in request.instructions
-        assert '"invalid_output": "not-json"' in request.input
-        assert '"required_outputs"' in request.input
-        finish = {
-            "status": "completed",
-            "draft": "截至2026-07-24，医药是韧性核心。",
-            "gaps": [],
-            "bindings": [
-                {
-                    "output_id": "direct_assessment",
-                    "evidence_hashes": ["mainline-hash"],
-                    "gap": "",
-                }
-            ],
-        }
-        return AgentsSdkResult(
-            json.dumps(finish, ensure_ascii=False),
-            1,
-            300,
-            60,
-            1,
-        )
+        request.tools[0].invoke("A股 当前主线")
+        return AgentsSdkResult("not-json", 1, 500, 80, 1)
 
     outcome = OpenAIAgentsRuntime(
         runner=repairing_runner,
@@ -1376,17 +1358,14 @@ def test_sdk_runtime_allows_one_finish_only_recovery() -> None:
         registry=_registry(research_calls),
     )
 
-    assert runner_calls == 2
+    assert runner_calls == 1
     assert research_calls == ["A股 当前主线"]
-    assert outcome.status == "completed"
-    assert outcome.stop_reason == "sdk_finalization_recovered"
-    assert outcome.usage.llm_calls == 2
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "sdk_invalid_finish"
+    assert outcome.usage.llm_calls == 1
     assert outcome.usage.tool_calls == 1
-    runtime_event = next(
-        event for event in outcome.events if event.kind == "runtime_result"
-    )
-    assert runtime_event.payload["input_tokens"] == 800
-    assert runtime_event.payload["output_tokens"] == 140
+    assert outcome.usage.input_tokens == 500
+    assert outcome.usage.output_tokens == 80
 
 
 def test_sdk_runtime_translates_model_turn_limit_without_fallback() -> None:
@@ -1448,36 +1427,7 @@ def test_sdk_runtime_classifies_provider_infrastructure_failures(
     assert outcome.gaps == (expected,)
 
 
-def test_sdk_finish_recovery_failure_stops_after_two_model_calls() -> None:
-    frame = _frame()
-    runner_calls = 0
-
-    def broken_recovery(request: AgentsSdkRequest) -> AgentsSdkResult:
-        nonlocal runner_calls
-        runner_calls += 1
-        if runner_calls == 1:
-            request.tools[0].invoke("A股 当前主线")
-            return AgentsSdkResult("not-json", 1)
-        raise RuntimeError("provider unavailable during finalization")
-
-    outcome = OpenAIAgentsRuntime(
-        runner=broken_recovery,
-        backend="sdk_glm",
-        model_name="glm-5.2",
-    ).run(
-        task_frame=frame,
-        context=_context(frame),
-        registry=_registry([]),
-    )
-
-    assert runner_calls == 2
-    assert outcome.status == "partial"
-    assert outcome.stop_reason == "sdk_invalid_finish"
-    assert outcome.usage.llm_calls == 2
-    assert outcome.usage.tool_calls == 1
-
-
-def test_sdk_recovers_reasoning_finish_without_requiring_fake_evidence() -> None:
+def test_sdk_surfaces_invalid_reasoning_finish_without_hidden_recovery() -> None:
     frame = _frame()
     context = _context(frame, allowed_capabilities=())
     context = replace(
@@ -1502,27 +1452,7 @@ def test_sdk_recovers_reasoning_finish_without_requiring_fake_evidence() -> None
         nonlocal runner_calls
         runner_calls += 1
         assert request.tools == ()
-        if runner_calls == 1:
-            return AgentsSdkResult("not-json", 1)
-        return AgentsSdkResult(
-            json.dumps(
-                {
-                    "status": "completed",
-                    "draft": "先定义可证伪条件，再逐日更新判断。",
-                    "gaps": [],
-                    "bindings": [
-                        {
-                            "output_id": "direct_assessment",
-                            "evidence_hashes": [],
-                            "basis": "model_reasoning",
-                            "gap": "",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            ),
-            1,
-        )
+        return AgentsSdkResult("not-json", 1)
 
     outcome = OpenAIAgentsRuntime(
         runner=repair_reasoning,
@@ -1534,12 +1464,12 @@ def test_sdk_recovers_reasoning_finish_without_requiring_fake_evidence() -> None
         registry=_registry([]),
     )
 
-    assert runner_calls == 2
-    assert outcome.status == "completed"
-    assert outcome.stop_reason == "sdk_finalization_recovered"
-    assert outcome.usage.llm_calls == 2
+    assert runner_calls == 1
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "sdk_invalid_finish"
+    assert outcome.usage.llm_calls == 1
     assert outcome.usage.tool_calls == 0
-    assert outcome.bindings[0].basis == "model_reasoning"
+    assert outcome.bindings == ()
 
 
 @pytest.mark.skipif(
@@ -1583,5 +1513,5 @@ def test_real_sdk_glm_smoke() -> None:
     assert api_key not in serialized
     assert outcome.status in {"completed", "partial"}
     assert outcome.evidence
-    assert outcome.stop_reason in {"model_finish", "sdk_finalization_recovered"}
+    assert outcome.stop_reason == "model_finish"
     assert calls
