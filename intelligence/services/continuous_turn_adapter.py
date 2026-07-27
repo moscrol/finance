@@ -47,7 +47,12 @@ from intelligence.services.turn_control_core import TurnControlResult
 RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
-DEFAULT_VERIFICATION_RESERVE_SECONDS = 30.0
+# The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
+# transports can return a few seconds after their client timeout while the
+# socket/request stack unwinds.  Reserve explicit transport grace so a valid
+# late report is not discarded merely because research consumed the rest of
+# the shared turn deadline.
+DEFAULT_VERIFICATION_RESERVE_SECONDS = 40.0
 LEGACY_DETERMINISTIC_OWNER_TYPES = frozenset(
     {"external_market", "quick_fact", "dated_market_review"}
 )

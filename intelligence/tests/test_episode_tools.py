@@ -344,6 +344,88 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     assert searched.trace.requested_date == "2026-07-24"
 
 
+def test_agent_finance_query_bounds_broad_result_before_model_observation(
+    tmp_path: Path,
+) -> None:
+    """Broad typed queries must not flood every later model turn."""
+
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_sector_daily(
+            trade_date date,
+            sector_ts_code varchar,
+            sector_name varchar,
+            sw_l1 varchar,
+            multi_period_resonance boolean,
+            pct_chg double,
+            amount double,
+            diff_ratio double,
+            strength double
+        )
+        """
+    )
+    connection.executemany(
+        "insert into fact_sector_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (
+                "2026-07-24",
+                f"88{index:04d}.TI",
+                f"板块{index}",
+                "电子",
+                False,
+                float(index),
+                float(index * 10),
+                float(index) / 10,
+                float(index) / 20,
+            )
+            for index in range(60)
+        ],
+    )
+    connection.close()
+
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="finance-query-observation-budget",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "sector_daily",
+            "metrics": ["return_pct", "amount", "marginal_volume_pct"],
+            "dimensions": ["trade_date", "sector_code", "sector_name"],
+            "filters": [],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "group_by": [],
+            "order_by": [{"field": "return_pct", "direction": "desc"}],
+            "limit": 100,
+        },
+        context=context,
+        step_id="finance-query-observation-budget:1",
+    )
+
+    assert len(observation.evidence) == 25
+    assert observation.trace.result_count == 25
+    assert "已按 Agent 上下文预算截断至 25 条" in observation.observation
+
+
 def test_finance_query_invalid_semantic_field_returns_repairable_gap(
     tmp_path: Path,
 ) -> None:

@@ -7,6 +7,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import time
 
@@ -45,6 +46,7 @@ _NON_EVIDENCE_PREFIXES = (
 )
 _OFFICIAL_L3_RUNNER = object()
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
+_AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
 
 def is_deterministic_fast_path(frame: TaskFrame) -> bool:
@@ -334,6 +336,13 @@ def build_episode_registry(
     specs = list(base_registry.authorized_specs())
 
     if "finance_query" in context.contract.allowed_capabilities:
+        # The semantic query engine also serves non-agent callers that may
+        # legitimately export wider tables.  The Episode seam is different:
+        # every returned atom is replayed into later model turns and verifier
+        # input, so a 100-row result can multiply into a six-figure prompt.
+        # Keep the general engine flexible while bounding this model-facing
+        # observation surface.  The model can refine filters/order and query
+        # again when it genuinely needs another slice.
         query_engine = finance_query.FinanceQuery(market_db_path)
 
         def parse_finance_arguments(arguments):
@@ -349,9 +358,13 @@ def build_episode_registry(
                 raise finance_query.FinanceQueryValidationError(
                     "finance query input was not parsed"
                 )
+            bounded_value = replace(
+                value,
+                limit=min(value.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
+            )
             try:
                 result = query_engine.run(
-                    value,
+                    bounded_value,
                     information_cutoff=context.information_cutoff,
                     deadline=tool_context.deadline,
                     is_cancelled=tool_context.is_cancelled,
@@ -363,9 +376,19 @@ def build_episode_registry(
                 if result.evidence
                 else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
             )
+            observation = result.observation
+            if (
+                value.limit > result.audit.applied_limit
+                and result.audit.row_count >= result.audit.applied_limit
+            ):
+                observation = (
+                    f"{observation}；查询结果已按 Agent 上下文预算截断至 "
+                    f"{result.audit.applied_limit} 条；如需更多，请增加筛选、"
+                    "分组或排序后继续查询"
+                )
             return ToolRunResult(
                 evidence=tuple(result.evidence),
-                observation=result.observation,
+                observation=observation,
                 trace=ProviderTrace(
                     provider="duckdb_semantic_query",
                     capability="finance_query",
