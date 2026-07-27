@@ -72,6 +72,7 @@ from intelligence.services.episode_progress import (
     RunEpisodeProgressPublisher,
     project_episode_progress,
 )
+from intelligence.services.episode_tools import latest_market_date
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
@@ -120,6 +121,22 @@ def _positive_float_env(name: str, default: float) -> float:
 def _continuous_runtime_mode() -> str:
     mode = os.environ.get("ASK_CONTINUOUS_RUNTIME", "off").strip().lower()
     return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
+
+
+def _runtime_market_reference_date() -> str | None:
+    paths = default_paths()
+    snapshot = validate_market_snapshot_root(paths.market_snapshot_dir)
+    if snapshot.get("ready") is True:
+        summary = snapshot.get("summary")
+        served = (
+            summary.get("served_trade_date")
+            if isinstance(summary, dict)
+            else None
+        )
+        value = str(served or snapshot.get("date") or "").strip()
+        if value:
+            return value[:10]
+    return latest_market_date(paths.finance_root)
 
 
 def _build_continuous_turn_adapter(
@@ -262,6 +279,8 @@ def _build_continuous_turn_adapter(
         task_id_factory=lambda: task_id,
         timeout=timeout,
         synthesis_reserve_for_task=GLMAgentRuntime.synthesis_reserve_for_task,
+        today=rs._now_iso()[:10],
+        latest_data_date=_runtime_market_reference_date(),
         is_cancelled=is_cancelled,
         deadline_expires_at=deadline_expires_at,
         progress_sink=(
@@ -1631,6 +1650,25 @@ def create_app(
         snapshot_contract = validate_market_snapshot_root(
             runtime_paths.market_snapshot_dir
         )
+        snapshot_date = str(
+            snapshot_contract["summary"].get("served_trade_date")
+            or snapshot_contract.get("date")
+            or ""
+        )[:10]
+        market_database_date = latest_market_date(runtime_paths.finance_root)
+        continuous_requires_market_consistency = continuous_mode in {
+            "on",
+            "canary",
+        }
+        market_data_consistent = (
+            not continuous_requires_market_consistency
+            or (
+                bool(snapshot_contract["ready"])
+                and bool(snapshot_date)
+                and market_database_date is not None
+                and market_database_date >= snapshot_date
+            )
+        )
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -1649,6 +1687,7 @@ def create_app(
             ),
             "run_store_writable": run_root_ready,
             "market_snapshot_contract": bool(snapshot_contract["ready"]),
+            "market_data_consistency": market_data_consistent,
         }
         critical = {
             "repo_root": checks["repo_root"],
@@ -1659,6 +1698,7 @@ def create_app(
             "rag_query_protocol": checks["rag_query_protocol"],
             "rag_worker": checks["rag_worker"],
             "market_snapshot": checks["market_snapshot_contract"],
+            "market_data_consistency": checks["market_data_consistency"],
         }
         ready = all(critical.values())
         payload = {
@@ -1683,6 +1723,14 @@ def create_app(
                 "summary": snapshot_contract["summary"],
                 "errors": snapshot_contract["errors"],
                 "warnings": snapshot_contract["warnings"],
+            },
+            "market_database": {
+                "date": market_database_date,
+                "snapshot_date": snapshot_date or None,
+                "consistent_with_snapshot": market_data_consistent,
+                "required_by_continuous_runtime": (
+                    continuous_requires_market_consistency
+                ),
             },
             "workers": {
                 "active": supervisor.active_count(),

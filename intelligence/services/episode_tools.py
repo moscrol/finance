@@ -55,6 +55,82 @@ _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
 
+def _iso_date(value: object) -> date | None:
+    try:
+        return date.fromisoformat(str(value or "")[:10])
+    except ValueError:
+        return None
+
+
+def _structured_freshness_floor(
+    context: ResearchRunContext,
+) -> date | None:
+    snapshot_date = _iso_date(context.latest_data_date)
+    if snapshot_date is None:
+        return None
+    return min(snapshot_date, context.information_cutoff.as_of_date)
+
+
+def _is_current_query_stale(
+    spec: finance_query.FinanceQuerySpec,
+    *,
+    served_date: str | None,
+    floor: date | None,
+) -> bool:
+    served = _iso_date(served_date)
+    if floor is None or served is None:
+        return False
+    if (
+        spec.time_range is not None
+        and spec.time_range.end is not None
+        and spec.time_range.end < floor
+    ):
+        return False
+    return served < floor
+
+
+def _structured_provider_is_stale(
+    served_date: str | None,
+    *,
+    floor: date | None,
+) -> bool:
+    if floor is None:
+        return False
+    served = _iso_date(served_date)
+    return served is None or served < floor
+
+
+def _stale_structured_result(
+    *,
+    capability: str,
+    provider: str,
+    served_date: str | None,
+    floor: date,
+    detail: str,
+) -> ToolRunResult:
+    served = str(served_date or "未知日期")
+    required = floor.isoformat()
+    gap = (
+        f"结构化市场数据仅更新到 {served}，早于当前所需 {required}；"
+        "旧数据未用于当前判断"
+    )
+    return ToolRunResult(
+        evidence=(),
+        observation=gap,
+        trace=ProviderTrace(
+            provider=provider,
+            capability=capability,
+            status="stale",
+            detail=detail,
+            source_trade_date=served_date,
+            requested_date=required,
+            served_date=served_date,
+            result_count=0,
+        ),
+        gaps=(gap,),
+    )
+
+
 def is_deterministic_fast_path(frame: TaskFrame) -> bool:
     return frame.question_type in _FAST_PATH_TYPES
 
@@ -144,22 +220,25 @@ def build_episode_registry(
     market_db_path = finance / "db" / "market_feature_store.duckdb"
     structured_source_date = None
     if frame.question_type != "valuation_estimate":
-        structured_source_date = (
-            context.latest_data_date
-            or ask_blocks._market_data_asof(  # noqa: SLF001
-                market_db_path
-            )
+        structured_source_date = ask_blocks._market_data_asof(  # noqa: SLF001
+            market_db_path
         )
+    freshness_floor = (
+        None
+        if frame.question_type == "valuation_estimate"
+        else _structured_freshness_floor(context)
+    )
+    market_reference_date = context.latest_data_date or structured_source_date
     market_window_end = None
     if context.contract.evidence_plan.profile == "time_aligned_market_causal":
         market_window_end = market_news.latest_explicit_query_date(
             f"{frame.raw_question} {frame.timeframe or ''}",
             reference_date=context.information_cutoff.as_of_date,
         )
-        if market_window_end is None and structured_source_date:
+        if market_window_end is None and market_reference_date:
             try:
                 market_window_end = date.fromisoformat(
-                    str(structured_source_date)[:10]
+                    str(market_reference_date)[:10]
                 )
             except ValueError:
                 market_window_end = None
@@ -190,6 +269,18 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
+        if _structured_provider_is_stale(
+            structured_source_date,
+            floor=freshness_floor,
+        ):
+            assert freshness_floor is not None
+            return _stale_structured_result(
+                capability="market_data",
+                provider="agent:market_data",
+                served_date=structured_source_date,
+                floor=freshness_floor,
+                detail="market_snapshot_newer_than_structured_market",
+            )
         block, source, detail = _market_block(frame, context, market_db_path)
         tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
@@ -262,6 +353,18 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("mainline-context deadline expired")
+        if _structured_provider_is_stale(
+            structured_source_date,
+            floor=freshness_floor,
+        ):
+            assert freshness_floor is not None
+            return _stale_structured_result(
+                capability="mainline_context",
+                provider="agent:mainline_context",
+                served_date=structured_source_date,
+                floor=freshness_floor,
+                detail="market_snapshot_newer_than_structured_mainline",
+            )
         block = ask_blocks._market_review_mainline_context_block_for_llm(
             frame.raw_question,
             frame.subject,
@@ -414,6 +517,20 @@ def build_episode_registry(
                 )
             except finance_query.FinanceQueryError as exc:
                 return _finance_query_failure_result(value, exc)
+            freshness_floor = _structured_freshness_floor(context)
+            if _is_current_query_stale(
+                value,
+                served_date=result.served_date,
+                floor=freshness_floor,
+            ):
+                assert freshness_floor is not None
+                return _stale_structured_result(
+                    capability="finance_query",
+                    provider="duckdb_semantic_query",
+                    served_date=result.served_date,
+                    floor=freshness_floor,
+                    detail=f"dataset={value.dataset}; stale_current_data",
+                )
             gaps = (
                 ()
                 if result.evidence

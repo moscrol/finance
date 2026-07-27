@@ -421,7 +421,7 @@ def test_historical_market_web_uses_task_window_instead_of_latest_data_date(
     assert "future_of_cutoff=1" in observation.trace.detail
 
 
-def test_market_registry_propagates_context_snapshot_date_to_every_atom(
+def test_market_registry_uses_structured_provider_date_for_every_atom(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -441,6 +441,11 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
             "本地 DuckDB · 预测盘面窗口",
             "market_forecast_window",
         ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args: "2026-07-23",
     )
     monkeypatch.setattr(
         episode_tools.ask_blocks,
@@ -597,6 +602,229 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     assert structured.trace.served_date == "2026-07-24"
     assert searched.evidence[0].tool == "evidence_search"
     assert searched.trace.requested_date == "2026-07-24"
+
+
+def test_current_finance_query_rejects_rows_older_than_snapshot_floor(
+    tmp_path: Path,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_market_daily(
+            trade_date date,
+            market_stage varchar,
+            total_amount double,
+            sh_index_pct_chg double
+        )
+        """
+    )
+    connection.execute(
+        "insert into fact_market_daily values "
+        "('2025-06-30', '主升阶段', 14866, 0.59)"
+    )
+    connection.close()
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="stale-current-market",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct", "total_amount"],
+            "dimensions": ["trade_date", "market_stage"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "desc"}],
+            "limit": 5,
+        },
+        context=context,
+        step_id="stale-current-market:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "stale"
+    assert result.trace.requested_date == "2026-07-27"
+    assert result.trace.served_date == "2025-06-30"
+    assert result.gaps == (
+        "结构化市场数据仅更新到 2025-06-30，早于当前所需 2026-07-27；"
+        "旧数据未用于当前判断",
+    )
+
+
+def test_current_market_tool_rejects_stale_block_before_model_observation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="stale-current-block",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-27",
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args: "2025-06-30",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "交易日=2025-06-30；市场阶段=主升阶段",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="stale-current-block:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "stale"
+    assert result.trace.requested_date == "2026-07-27"
+    assert result.trace.served_date == "2025-06-30"
+
+
+def test_explicit_historical_finance_query_remains_available_below_current_floor(
+    tmp_path: Path,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        "create table fact_market_daily("
+        "trade_date date, market_stage varchar, total_amount double)"
+    )
+    connection.execute(
+        "insert into fact_market_daily values "
+        "('2025-06-30', '主升阶段', 14866)"
+    )
+    connection.close()
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="explicit-historical-market",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["total_amount"],
+            "dimensions": ["trade_date", "market_stage"],
+            "filters": [],
+            "time_range": {"start": "2025-06-30", "end": "2025-06-30"},
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "desc"}],
+            "limit": 5,
+        },
+        context=context,
+        step_id="explicit-historical-market:1",
+    )
+
+    assert len(result.evidence) == 1
+    assert result.trace.status == "success"
+    assert result.trace.served_date == "2025-06-30"
+
+
+def test_frozen_cutoff_caps_newer_snapshot_freshness_floor(
+    tmp_path: Path,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        "create table fact_market_daily("
+        "trade_date date, market_stage varchar, total_amount double)"
+    )
+    connection.execute(
+        "insert into fact_market_daily values "
+        "('2026-07-24', '下跌阶段', 24000)"
+    )
+    connection.close()
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="frozen-market-cutoff",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["total_amount"],
+            "dimensions": ["trade_date", "market_stage"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "desc"}],
+            "limit": 5,
+        },
+        context=context,
+        step_id="frozen-market-cutoff:1",
+    )
+
+    assert len(result.evidence) == 1
+    assert result.trace.status == "success"
+    assert result.trace.served_date == "2026-07-24"
 
 
 def test_agent_finance_query_bounds_broad_result_before_model_observation(

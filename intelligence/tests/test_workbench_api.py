@@ -1432,6 +1432,83 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["workers"]["capacity"] == 2
 
 
+def test_continuous_adapter_receives_runtime_and_snapshot_dates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "continuous_glm")
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "on")
+    monkeypatch.setattr(
+        app_module,
+        "default_paths",
+        lambda: SimpleNamespace(
+            finance_root=tmp_path / "finance",
+            market_snapshot_dir=tmp_path / "market_snapshot",
+        ),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "validate_market_snapshot_root",
+        lambda _root: {
+            "ready": True,
+            "date": "2026-07-16",
+            "summary": {"served_trade_date": "2026-07-16"},
+        },
+    )
+    monkeypatch.setattr(
+        app_module.rs,
+        "_now_iso",
+        lambda: "2026-07-27T12:00:00+08:00",
+    )
+
+    adapter = app_module._build_continuous_turn_adapter(
+        providers=(),
+        run_id="run-freshness",
+        assistant_message_id="message-freshness",
+    )
+
+    assert adapter._today == "2026-07-27"
+    assert adapter._latest_data_date == "2026-07-16"
+
+
+def test_continuous_readiness_rejects_snapshot_newer_than_market_database(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    users_root = tmp_path / "users"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    market_snapshot = tmp_path / "market_snapshot"
+    market_snapshot.mkdir()
+    _write_market_snapshot_fixture(market_snapshot)
+    _write_overview_market_db(
+        repo_root / "db" / "market_feature_store.duckdb",
+        trade_date="2025-06-30",
+    )
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "on")
+
+    with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+        response = probe.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["critical"]["market_data_consistency"] is False
+    assert "market_data_consistency" in payload["missing_critical"]
+    assert payload["market_database"] == {
+        "date": "2025-06-30",
+        "snapshot_date": "2026-07-16",
+        "consistent_with_snapshot": False,
+        "required_by_continuous_runtime": True,
+    }
+
+
 def test_health_reports_continuous_canary_without_credentials(
     tmp_path,
     monkeypatch,
