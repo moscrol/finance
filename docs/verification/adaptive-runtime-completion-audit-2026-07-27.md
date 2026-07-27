@@ -30,9 +30,13 @@ Canonical 8792 and `main`: untouched.
 The implementation and deterministic contract gates are green, but the final
 representative live gate is not green yet.
 
-- Full `intelligence/tests`: `2899 passed, 2 skipped, 11 known baseline failures`.
-- The 11 failures are existing `subconscious/userspace` machine-path
-  contamination and are outside the adaptive runtime modules.
+- Full `intelligence/tests` under a clean test environment:
+  `2915 passed, 2 skipped`.
+- The previously reported 11 `subconscious/userspace` failures were reproduced
+  only when the developer shell injected production `FORESIGHT_USERS_DIR`,
+  `SUBCONSCIOUS_VAULT`, and `AGENT_MEMORY_VAULT` into isolation tests. Unsetting
+  those three production overrides makes the full suite green; no test or
+  product threshold was relaxed.
 - The benchmark summary now fails closed for every `status=failed` arm;
   re-evaluating the prior five-arm unavailable artifact gives
   `passed=false`, `protocol_failure_count=5`.
