@@ -2,159 +2,150 @@
 
 Date: 2026-07-27
 
-Status: `quality_not_green_external_runtime_jitter`
+Status: `needs_product_fix_and_valid_frozen_gate`
 
-## Frozen release candidate
+## Candidate and scope
 
 | Field | Value |
 | --- | --- |
-| Source revision (live artifact) | `e179b15cda...` |
-| Current branch tip | `d686bb9e` |
-| Source dirty | `false` |
+| Runtime source revision | `4550ce5dd52f4fcc2386fefa54e47a3acb11ce6b` |
+| Runtime source dirty | `false` |
+| Product-code tip | `ed2e1d89` |
+| Documentation HEAD after the run | `07cbcef9` |
 | Branch | `feat/agent-runtime-backends-verify` |
-| Canonical 8792 | untouched |
-| `main` | not merged |
-| Market data date | `2026-07-24` |
+| Backend / model | `sdk_gpt` / `gpt-5.6-sol` |
+| Credential scope | 8799 process memory only |
+| Market snapshot date | `2026-07-27` |
+| Canonical 8792 / `main` | untouched / not merged |
 
-The local dry-run artifact is:
-
-```text
-/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-2026-07-27-dry-run.json
-```
-
-It records the exact source revision, five planned cases, the explicit
-`sdk_gpt` backend, and zero acceptance-contract gaps.
-
-## Representative input
-
-The ignored local five-case file projects existing frozen questions without
-changing their cutoff, tier, timeout, or required outputs:
-
-1. `rebound-duration` — current-market prediction;
-2. `ruihuatai-valuation` — company valuation;
-3. `weekly-market-cause` — causal attribution;
-4. `current-mainline` — current-market judgment;
-5. `unfamiliar-methodology` — non-skill methodology long tail.
-
-All five compile to research tasks. The unfamiliar methodology case uses the
-general-finance research path rather than a fabricated skill route.
-
-## Deterministic verification
-
-Provider tolerance and benchmark contracts:
+The private bounded aggregate is:
 
 ```text
-64 passed, 1 skipped (focused current-tip suite)
+/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-8799-2026-07-27-4550ce5d.json
 ```
 
-Credential, runtime-benchmark, and Workbench API regression after the bounded
-Keychain read fix plus fail-closed benchmark/provider wiring:
+The five questions were each executed exactly once and serially through the
+real 8799 Conversation API. They are valid current-date self-use evidence, but
+they are **not** the exact frozen benchmark required by the release plan. The
+tracked cases freeze `as_of=2026-07-24`; the Conversation API derives its
+information cutoff from the runtime date, `2026-07-27`. The standalone runner
+cannot reuse a provider that exists only in another process's memory. Copying
+the secret, inspecting process memory, restarting 8799, or silently substituting
+another backend was not allowed.
 
-```text
-2868 passed, 2 skipped, 11 baseline failures (full intelligence/tests)
-Ruff passed
-git diff --check passed
-```
+Accordingly, the previous strict frozen artifacts remain historical evidence;
+this run must not be represented as a green frozen release gate.
 
-The benchmark summary gate now treats any arm with `status=failed` (including
-`model_unavailable`) as a failed release result. The saved session provider is
-also injected into Continuous/SDK arms and their semantic verifier; it is not
-read from a global environment variable.
+## Exactly-once self-use results
 
-The existing release-candidate evidence remains valid for the same branch
-history:
+| Case | Run | Latency | Structural / semantic | LLM / tools / evidence | Product quality |
+| --- | --- | ---: | --- | --- | --- |
+| rebound duration | `run_20260727_225243_461799` | 70.286s | partial / repaired | 2 / 4 / 20 | unacceptable |
+| Ruihuatai valuation | `run_20260727_225448_468016` | 36.858s | failed / unavailable | 1 / 5 / 0 | honest partial |
+| weekly market cause | `run_20260727_225549_654677` | 120.242s | completed / unavailable | 2 / 3 / 14 | unacceptable |
+| current mainline | `run_20260727_225827_149735` | 96.987s | partial / passed | 2 / 5 / 49 | useful |
+| unfamiliar methodology | `run_20260727_230029_462078` | 31.828s | completed / passed | 1 / 0 / 0 | useful |
 
-- focused Episode/runtime suite: 282 passed;
-- core independent-review invariants: 70 passed;
-- Workbench API: 87 passed;
-- frontend: 65 Vitest tests, ESLint, TypeScript, and Vite build passed;
-- isolated progress/UI smoke: public progress precedes the answer, reconnect
-  replays progress, one terminal Run is emitted, and control-plane leakage is
-  zero.
+Aggregate: 2 useful, 1 honest partial, 2 unacceptable. Strict product pass rate
+is 40%. Median latency is 70.286 seconds and maximum latency is 120.242
+seconds. The five runs used 8 model calls, 17 tool calls, 4 invalid actions and
+3 admitted repairs. They produced 83 evidence atoms with 83 unique hashes,
+zero duplicate queries, zero future-of-cutoff publications, zero secret-scan
+hits and zero public SSE control-plane scan hits.
 
-## Live evaluation result
+## Product findings
 
-The Keychain preflight blocker was fixed by isolating the official `security`
-command behind a hard timeout. The frozen five-case suite then executed through
-the Codex headless provider. The latest live artifact is:
+### P0: current-data capability mismatch
 
-```text
-/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-headless-2026-07-27-e179b15c.json
-```
+The rebound answer is direct and well structured, but calls `2025-06-30` the
+latest available date while the same runtime reports a fresh market snapshot at
+`2026-07-27`. `agent:market_data` returned empty and FinanceQuery then served an
+older time-series table. This violates the freshness objective even though the
+old rows are individually traceable. The fix belongs at the data-capability
+contract: a current-market task must reconcile snapshot and time-series
+freshness before the model sees either, rather than adding another route.
 
-The source was clean and per-tool ProviderTrace, cutoff, token, root-budget and
-repair diagnostics were exported. Standard cases used medium reasoning, a
-60-second research window, a 30-second semantic-verifier reserve, and a dynamic
-finalization floor. Two of five cases still hit the headless process boundary
-(`rebound-duration` and `weekly-market-cause`); the other three reached
-structured/semantic acceptance or an honest partial. Separate targeted smokes
-for current-mainline and weekly-cause passed with direct, evidence-bounded
-answers. The remaining variance is provider/runtime tail latency, not a route or
-evidence-seam failure.
+### P0: verifier availability erases a grounded answer
 
-The current candidate was additionally booted on isolated port 8799 at
-`d686bb9e`: health reported a clean revision and distinct code/data roots, and
-the deterministic 科创50 technical-level request completed with a dated,
-numeric, invalidation-bounded answer. The long-tail provider lane was not
-claimed green because the fresh process could not access the persisted Keychain
-record without macOS authorization; no secret was copied or printed.
+The weekly-cause Episode contains a direct, structurally complete draft with
+14 unique, bound evidence atoms and an explicit competing explanation. The
+semantic judge exhausted its deadline, after which the public answer became a
+generic evidence-gap sentence. Truth must remain fail-closed, but verifier
+availability must have a reserved, observable recovery path; a judge timeout
+cannot silently turn a good research result into a template. This is a shared
+verification/repair seam, not a weekly-cause special case.
 
-### 8799 data-root preflight (2026-07-27 09:37 +08:00)
+### P0: valuation capability returns no usable evidence
 
-The first restart of the current candidate was deliberately rejected by a
-red-capable preflight: `finance_root` resolved to the historical default
-`/Users/a77/Desktop/c c/金融`, and `market_snapshot` was unavailable. This was
-an environment seam, not a retrieval or answer-quality result. The candidate
-was then restarted with explicit, non-secret runtime paths:
+The valuation run correctly refused to invent a number, but `market_data`,
+`financial_data`, two FinanceQuery attempts and KB search produced zero usable
+evidence before `sdk_timeout`. This is honest but not useful. The next fix must
+make company identity, financial anchors and market valuation anchors reachable
+through the semantic query/tool contract; do not add a Ruihuatai route.
 
-```text
-FINANCE_WS=/Users/a77/finance-workspace-private
-FINANCE_ROOT=/Users/a77/finance-workspace-private
-KB_VAULT=/Users/a77/knowledge-base-private/wiki
-MARKET_SNAPSHOT_DIR=/Users/a77/finance-workspace-private/market_snapshot
-```
+### Positive evidence
 
-The corrected preflight is green: source revision `ebe260b2`, `source_dirty=false`,
-`finance_root=/Users/a77/finance-workspace-private`, `market_snapshot=true`.
-`/api/workbench/overview` now returns `as_of_date=2026-07-24`, and the browser
-projection shows the same date plus the current market candidates (电力、有色
-金属、医药、半导体). The earlier `2026-06-04` display is therefore not a
-current-candidate data result.
+The current-mainline answer directly identifies an electronic-hardware line,
+quantifies internal breadth, separates a secondary line, and states continuation
+and downgrade conditions. The unfamiliar methodology case uses zero tools and
+still gives an actionable method, evidence hierarchy, failure modes and
+verification path. This proves that the model can retain useful base-model
+capability when the harness does not force irrelevant retrieval.
 
-After this restart the SDK-GPT process has no in-memory BYOK provider and the
-fresh process still cannot load the saved Keychain item (`ready=false`,
-`openai_api_key_missing`). No key was read, copied, printed, or committed. A
-fresh explicit provider submission in the 8799 configuration dialog is still
-required before the two targeted long-tail smokes can be run.
+## Independent review
 
-## Claude `ALIGNMENT.md` reconciliation
+The review fixed point is `main...07cbcef9`; the approved source is
+`docs/superpowers/specs/2026-07-26-adaptive-finance-agent-runtime-design.md`.
 
-The supplemental review does not change the approved runtime ownership model.
-Its product-relevant additions are already represented in the candidate:
+### Standards
 
-- same-Episode verifier repair consumes explicit `missing_outputs` from a
-  structural partial;
-- per-tool ProviderTrace, cutoff rejection, token usage, and repair provenance
-  are exported to the private benchmark diagnostics;
-- safe progress is projected separately to public SSE, so TaskFrame, queries,
-  providers, prompts, raw model messages, and private evidence payloads do not
-  enter the display plane;
-- deep budget, branch facade, MemoryGate, immutable task floor, and root-ledger
-  identity invariants are covered by permanent tests;
-- review-harness development remains frozen.
+Result: `CHANGES_REQUIRED`.
 
-The one additional release-evidence gap found in this slice was benchmark
-provenance. The runner now records `source_revision` and `source_dirty`, so a
-future live result cannot be detached from the code that produced it.
+- High: `conversation_orchestrator.py:3426` registers the complete
+  `continuous-episode.json` as previewable and downloadable. It contains the
+  internal contract, queries, provider traces, hashes and locators.
+  `run_store.py:154` and `app.py:2092` do not enforce an internal visibility
+  class. This violates the bounded-public-projection rule. Add an
+  `internal` visibility contract enforced by the API; publish a separate
+  redacted projection to the UI.
+- Medium, judgement call (Shotgun Surgery): repair admission is still split
+  between `continuous_turn_adapter.py:799`, `repair_coordinator.py`, and the SDK
+  runtime. `RepairCoordinator` should return one `RepairAdmission(kind, goal,
+  grant)` and the adapter should only execute it.
+
+No new credential/risk-file violation, root-budget escape, Episode-continuity
+break or public SSE leakage was found.
+
+### Spec
+
+Result: `CHANGES_REQUIRED`.
+
+- P0: the five Conversation API summaries do not preserve the exact frozen
+  cutoff/budget contract. They are self-use evidence, not the planned benchmark
+  artifact. A valid release gate still needs one runner-equivalent execution on
+  a clean revision with the frozen `2026-07-24` cutoff.
+- P0: only mainline and methodology are useful; valuation has zero evidence,
+  weekly cause publishes a generic gap despite 14 bound atoms, and rebound uses
+  2025 data. This violates the freshness/directness targets in spec sections
+  14.3 and 14.4.
+- P1: the prior verification note was stale. This document supersedes it with
+  the current five-run evidence and an explicit three-way conclusion.
+
+No higher-priority scope creep was found.
+
+Review summary: Standards has 2 findings (worst: private diagnostic artifact
+exposure); Spec has 3 findings (worst: invalid frozen-release evidence plus 40%
+strict product usefulness).
 
 ## Release conclusion
 
-Result: `not_release_green`.
+Conclusion: `needs_product_fix_and_valid_frozen_gate`.
 
-The architecture and deterministic gates are in place, and the headless
-reference now preserves structured-tool freedom, root-budget accounting,
-cutoff/traces, and grounded semantic verification. However, the representative
-five-case live run is not fully green under the current provider's tail latency.
-Do not switch 8792, merge `main`, or claim Codex/Knevo parity. The next release
-action is a provider-stability/latency decision (or a fresh clean-provider
-five-case run), not another route or prompt layer.
+Core architecture, deterministic tests, Continuous Episode, model-owned tools,
+repair accounting, evidence lineage, SSE and the UI candidate are implemented.
+However, the product is not release-green. Resolve the three shared product
+seams and the internal-artifact visibility issue, then run one valid frozen
+gate through a provider mechanism that preserves the exact cutoff and revision.
+
+Do not merge `main`, switch canonical 8792, claim Codex/Knevo parity, or delete
+the legacy long-tail path from this result.
