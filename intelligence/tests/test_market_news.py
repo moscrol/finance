@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import unittest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from unittest import mock
 
 from intelligence.services import market_news
@@ -23,6 +23,7 @@ from intelligence.services.market_news import (
     news_block_for_keyword,
     news_block_result_for_keyword,
     parse_news_intent,
+    query_date_cutoff,
     resolve_news_keyword,
 )
 from intelligence.services.provider_observability import ProviderTrace
@@ -331,6 +332,35 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
         self.assertEqual(result.trace.status, "fallback_success")
         self.assertEqual(result.trace.requested_date, "2026-07-24")
         self.assertIn("pages=2", result.trace.detail)
+
+
+class QueryDateCutoffTests(unittest.TestCase):
+    def test_uses_latest_explicit_date_in_compressed_market_window(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "A股 2026年7月20日至24日 下跌原因",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 24),
+        )
+
+    def test_keeps_global_cutoff_when_query_has_no_date(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "这一周A股为什么下跌",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 27),
+        )
+
+    def test_explicit_future_date_cannot_expand_global_cutoff(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "2026-07-30 A股下跌原因",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 27),
+        )
 
 
 class ParseNewsIntentTests(unittest.TestCase):

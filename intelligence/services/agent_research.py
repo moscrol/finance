@@ -317,10 +317,14 @@ def build_default_tools(
         query: str,
         context: AgentToolContext,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        query_cutoff = market_news.query_date_cutoff(
+            query,
+            upper_bound=context.information_cutoff.as_of_date,
+        )
         news = market_news.fetch_eastmoney_news_result(
             query,
             timeout=context.timeout(8.0),
-            as_of=context.information_cutoff.as_of_date,
+            as_of=query_cutoff,
         )
         context.check_cancelled()
         evidence = [

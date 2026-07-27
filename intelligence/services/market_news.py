@@ -147,6 +147,13 @@ _CAUSE_TITLE_TERMS = ("原因", "驱动", "为何", "复盘", "收评")
 _DATE_TOKEN_RE = re.compile(
     r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}|20\d{2}年|\d{1,2}月|\d{1,2}日"
 )
+_FULL_QUERY_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(?:[-/.](\d{1,2})[-/.](\d{1,2})|年(\d{1,2})月(\d{1,2})日?)"
+)
+_COMPRESSED_CN_DATE_RANGE_RE = re.compile(
+    r"(?<!\d)(20\d{2})年(\d{1,2})月(\d{1,2})日?\s*"
+    r"(?:至|到|[-~—])\s*(?:(\d{1,2})月)?(\d{1,2})日"
+)
 _MAX_EASTMONEY_FALLBACK_QUERIES = 3
 
 
@@ -263,6 +270,46 @@ def _parse_cutoff(value: date | str | None) -> date | None:
         return date.fromisoformat(str(value).strip()[:10])
     except ValueError as exc:
         raise ValueError("news as_of must be an ISO date") from exc
+
+
+def query_date_cutoff(
+    query: str,
+    *,
+    upper_bound: date | str,
+) -> date:
+    """Tighten a news cutoff to the latest explicit date in the query.
+
+    ``InformationCutoff`` remains the global no-future boundary.  A dated
+    research action has a narrower contract: news published after the target
+    event window cannot explain that event.  This helper only narrows the
+    bound; it never permits a date beyond the episode cutoff.
+    """
+
+    cutoff = _parse_cutoff(upper_bound)
+    if cutoff is None:  # pragma: no cover - the public type excludes None
+        raise ValueError("news upper_bound must be an ISO date")
+    candidates: list[date] = []
+    text = str(query or "")
+    for match in _FULL_QUERY_DATE_RE.finditer(text):
+        year = int(match.group(1))
+        month = int(match.group(2) or match.group(4))
+        day = int(match.group(3) or match.group(5))
+        try:
+            candidates.append(date(year, month, day))
+        except ValueError:
+            continue
+    for match in _COMPRESSED_CN_DATE_RANGE_RE.finditer(text):
+        year = int(match.group(1))
+        start_month = int(match.group(2))
+        end_month = int(match.group(4) or start_month)
+        end_day = int(match.group(5))
+        try:
+            candidates.append(date(year, end_month, end_day))
+        except ValueError:
+            continue
+    if not candidates:
+        return cutoff
+    return min(cutoff, max(candidates))
 
 
 def _news_at_or_before_cutoff(

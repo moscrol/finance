@@ -8,6 +8,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 from pathlib import Path
 import time
 
@@ -25,7 +26,10 @@ from intelligence.services import (
     valuation_estimate,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    InformationCutoff,
+    ResearchRunContext,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -163,6 +167,35 @@ def build_episode_registry(
         **agent_research.build_default_tools(retrieve_kb),
         **agent_research.build_graph_tools(knowledge),
     }
+    if (
+        context.contract.evidence_plan.profile == "time_aligned_market_causal"
+        and structured_source_date
+        and "news_search" in tools
+    ):
+        try:
+            market_window_end = date.fromisoformat(str(structured_source_date)[:10])
+        except ValueError:
+            market_window_end = None
+        if market_window_end is not None:
+            base_news_runner = tools["news_search"]
+
+            def time_aligned_news_runner(
+                query: str,
+                tool_context: agent_research.AgentToolContext,
+            ):
+                global_cutoff = (
+                    tool_context.information_cutoff or context.information_cutoff
+                )
+                scoped_context = replace(
+                    tool_context,
+                    information_cutoff=InformationCutoff(
+                        min(global_cutoff.as_of_date, market_window_end),
+                        "latest_available",
+                    ),
+                )
+                return base_news_runner(query, scoped_context)
+
+            tools["news_search"] = time_aligned_news_runner
 
     def market_data_runner(
         _query: str,

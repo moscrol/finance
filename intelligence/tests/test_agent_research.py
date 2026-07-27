@@ -236,6 +236,46 @@ def test_default_news_tool_passes_the_episode_information_cutoff(monkeypatch) ->
     }
 
 
+def test_default_news_tool_tightens_cutoff_to_explicit_query_window(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_news(query: str, **kwargs):
+        captured["query"] = query
+        captured["as_of"] = kwargs.get("as_of")
+        return agent_research.market_news.NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider="东财",
+                capability="directional_news",
+                status="empty",
+            ),
+        )
+
+    monkeypatch.setattr(
+        agent_research.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    tools = agent_research.build_default_tools(lambda *_args, **_kwargs: object())
+    context = agent_research.AgentToolContext(
+        ResearchDeadline.from_timeout(5.0),
+        lambda: False,
+        InformationCutoff(date(2026, 7, 27), "runtime_default"),
+    )
+
+    tools["news_search"](
+        "2026年7月24日 A股大跌原因 上证指数 7月20日至24日",
+        context,
+    )
+
+    assert captured == {
+        "query": "2026年7月24日 A股大跌原因 上证指数 7月20日至24日",
+        "as_of": date(2026, 7, 24),
+    }
+
+
 def test_tool_action_binds_evidence_to_known_hypothesis() -> None:
     contract = ResearchTaskContract(
         task_id="hypothesis-binding",

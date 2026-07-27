@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import duckdb
@@ -65,6 +66,24 @@ def _market_forecast_frame() -> TaskFrame:
         clarification_question=None,
         evidence_policy="current_market_scenarios",
         confidence=0.95,
+    )
+
+
+def _market_cause_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="这一周行情下跌的主要原因是什么",
+        user_goal="解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链",
+        question_type="market_cause",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="这一周",
+        required_outputs=("direct_assessment", "causal_chain", "counterpoint"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="time_aligned_market_causal",
+        confidence=0.96,
     )
 
 
@@ -164,6 +183,56 @@ def test_valuation_registry_exposes_structured_financial_anchor(
     assert {item.source_date for item in observation.evidence} == {"2026-06-30"}
     assert observation.trace.capability == "financial_data"
     assert observation.trace.status == "success"
+
+
+def test_time_aligned_market_news_uses_market_window_end_without_query_date(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_news(query: str, **kwargs):
+        captured["query"] = query
+        captured["as_of"] = kwargs.get("as_of")
+        return episode_tools.agent_research.market_news.NewsFetchResult(
+            (),
+            ProviderTrace("东财", "directional_news", "empty"),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.agent_research.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    frame = _market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="market-cause-news-window",
+        capabilities=("news_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    registry.execute(
+        "news_search",
+        {"query": "A股下跌原因"},
+        context=context,
+        step_id="market-cause-news-window:1",
+    )
+
+    assert captured == {
+        "query": "A股下跌原因",
+        "as_of": date(2026, 7, 24),
+    }
 
 
 def test_market_registry_propagates_context_snapshot_date_to_every_atom(
