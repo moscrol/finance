@@ -123,7 +123,7 @@ def _valuation_frame() -> TaskFrame:
     )
 
 
-def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
+def test_valuation_registry_uses_valuation_provider_snapshot_date(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -139,7 +139,8 @@ def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
         episode_tools,
         "_market_block",
         lambda *_args: (
-            "东财实时快照：瑞华泰最新价42.00元",
+            "东财实时快照：瑞华泰最新价42.00元\n"
+            "- 估值快照日期：2026-07-22（来源返回时间；不等同本地盘面日期）。",
             "东财快照 + 本地 DuckDB 可比集",
             "company_valuation_snapshot",
         ),
@@ -159,7 +160,8 @@ def test_valuation_registry_does_not_borrow_market_database_snapshot_date(
         step_id="valuation-asof:1",
     )
 
-    assert observation.evidence[0].source_date is None
+    assert observation.evidence[0].source_date == "2026-07-22"
+    assert observation.trace.served_date == "2026-07-22"
 
 
 def test_valuation_registry_exposes_structured_financial_anchor(

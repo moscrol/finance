@@ -224,11 +224,7 @@ def build_episode_registry(
         structured_source_date = ask_blocks._market_data_asof(  # noqa: SLF001
             market_db_path
         )
-    freshness_floor = (
-        None
-        if frame.question_type == "valuation_estimate"
-        else _structured_freshness_floor(context)
-    )
+    freshness_floor = _structured_freshness_floor(context)
     market_reference_date = context.latest_data_date or structured_source_date
     market_window_end = None
     if context.contract.evidence_plan.profile == "time_aligned_market_causal":
@@ -279,7 +275,7 @@ def build_episode_registry(
         tool_context.check_cancelled()
         if tool_context.deadline.expired:
             raise TimeoutError("market-data deadline expired")
-        if _structured_provider_is_stale(
+        if frame.question_type != "valuation_estimate" and _structured_provider_is_stale(
             structured_source_date,
             floor=freshness_floor,
         ):
@@ -297,6 +293,24 @@ def build_episode_registry(
             market_db_path,
             subject_query,
         )
+        served_date = (
+            valuation_estimate.block_source_date(block)
+            if frame.question_type == "valuation_estimate"
+            else structured_source_date
+        )
+        if _structured_provider_is_stale(served_date, floor=freshness_floor):
+            assert freshness_floor is not None
+            return _stale_structured_result(
+                capability="market_data",
+                provider="agent:market_data",
+                served_date=served_date,
+                floor=freshness_floor,
+                detail=(
+                    "valuation_snapshot_missing_or_stale"
+                    if frame.question_type == "valuation_estimate"
+                    else detail
+                ),
+            )
         tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
             "market_data",
@@ -304,7 +318,7 @@ def build_episode_registry(
             source,
             limit=18,
             detail_chars=1000,
-            source_date=structured_source_date,
+            source_date=served_date,
         )
         evidence = [
             item
@@ -319,6 +333,10 @@ def build_episode_registry(
                 capability="market_data",
                 status="success" if evidence else "empty",
                 detail=detail,
+                source_trade_date=served_date,
+                requested_date=(
+                    freshness_floor.isoformat() if freshness_floor else None
+                ),
                 result_count=len(evidence),
             ),
         )

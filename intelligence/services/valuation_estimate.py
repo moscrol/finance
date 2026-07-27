@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.request
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -20,9 +22,9 @@ FETCH_ENV_FLAG = "FINANCE_VALUATION_FETCH"
 # push2 主站偶发 502；delay 域名更稳。多端点兜底。
 _PUSH2_URLS = (
     "https://push2delay.eastmoney.com/api/qt/stock/get"
-    "?secid={secid}&fields=f57,f58,f116,f117,f162,f163,f164,f167",
+    "?secid={secid}&fields=f57,f58,f86,f116,f117,f162,f163,f164,f167",
     "https://push2.eastmoney.com/api/qt/stock/get"
-    "?secid={secid}&fields=f57,f58,f116,f117,f162,f163,f164,f167",
+    "?secid={secid}&fields=f57,f58,f86,f116,f117,f162,f163,f164,f167",
 )
 
 
@@ -33,6 +35,7 @@ class ValuationSnapshot:
     total_mv_yi: float | None = None  # 总市值（亿元）
     pe_ttm: float | None = None
     pb: float | None = None
+    source_date: str | None = None
     source: str = "东财快照"
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,8 +45,21 @@ class ValuationSnapshot:
             "total_mv_yi": self.total_mv_yi,
             "pe_ttm": self.pe_ttm,
             "pb": self.pb,
+            "source_date": self.source_date,
             "source": self.source,
         }
+
+
+def _source_date(value: Any) -> str | None:
+    """Convert Eastmoney's update timestamp to the provider serving date."""
+
+    try:
+        timestamp = float(value)
+        if timestamp > 10_000_000_000:
+            timestamp /= 1000.0
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
 
 
 def fetch_enabled() -> bool:
@@ -99,6 +115,7 @@ def fetch_eastmoney_snapshot(
         total_mv_yi=_scale_num(data.get("f116"), 1e8),
         pe_ttm=pe,
         pb=_scale_num(data.get("f167"), 100.0),
+        source_date=_source_date(data.get("f86")),
         source="东财快照",
     )
     if snap.total_mv_yi is None and snap.pe_ttm is None and snap.pb is None:
@@ -183,6 +200,9 @@ def build_valuation_block(
     lines.append(
         f"- 目标估值现状：{target.name}（{target.ts_code}）总市值 {mv}，PE(TTM) {pe}，PB {pb}（来源：{src}）。"
     )
+    lines.append(
+        f"- 估值快照日期：{target.source_date or '未知'}（来源返回时间；不等同本地盘面日期）。"
+    )
     if peers:
         pe_band = peer_band([p.pe_ttm for p in peers])
         pb_band = peer_band([p.pb for p in peers])
@@ -236,6 +256,13 @@ def build_valuation_block(
         "- 使用要求：估值现状/可比带只引用本块硬数据；隐含预期与情景推演须条件化表述，禁止输出单点目标价。"
     )
     return "\n".join(lines)
+
+
+def block_source_date(block: str) -> str | None:
+    """Read the serving date embedded in a valuation evidence block."""
+
+    match = re.search(r"估值快照日期：\s*(20\d{2}-\d{2}-\d{2})", str(block or ""))
+    return match.group(1) if match else None
 
 
 def snapshots_for(

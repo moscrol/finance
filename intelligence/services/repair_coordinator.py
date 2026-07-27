@@ -265,8 +265,12 @@ def grant_for_progress(
         4,
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
-    calls = work_units if tools_open else 0
-    seconds = min(30.0, work_units * 8.0)
+    calls = min(work_units, goal.remaining_calls) if tools_open else 0
+    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    if tools_open and calls <= 0:
+        return None
+    if seconds < 1.0:
+        return None
     grant = BudgetGrant(
         grant_id=f"grant-{goal.repair_goal_id}",
         episode_id=goal.episode_id,

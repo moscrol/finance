@@ -622,6 +622,11 @@ class ContinuousTurnAdapter:
                 "schema_version": 1,
                 "execution_kind": "continuous_episode",
                 "runtime_backend": self._runtime_name,
+                "research_context": (
+                    _episode_context_provenance(context)
+                    if context is not None
+                    else None
+                ),
                 "repair_attempts": repair_attempts,
                 "repair_cycles": repair_cycles,
                 "failure": {
@@ -756,6 +761,7 @@ class ContinuousTurnAdapter:
             "schema_version": 1,
             "execution_kind": "continuous_episode",
             "runtime_backend": self._runtime_name,
+            "research_context": _episode_context_provenance(context),
             "contract": context.contract.to_dict(),
             "outcome": _private_outcome(outcome),
             "events": [item.to_dict() for item in outcome.events],
@@ -1000,6 +1006,19 @@ def _episode_metrics(
             if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
             else "unavailable"
         ),
+    }
+
+
+def _episode_context_provenance(
+    context: ResearchRunContext,
+) -> dict[str, object]:
+    """Persist the single cutoff/freshness context beside private diagnostics."""
+
+    return {
+        "information_cutoff": context.information_cutoff.to_dict(),
+        "today": context.today,
+        "latest_data_date": context.latest_data_date,
+        "trace_parent_id": context.trace_parent_id,
     }
 
 

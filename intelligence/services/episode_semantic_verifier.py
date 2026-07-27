@@ -355,7 +355,10 @@ class _JudgeCall:
     issue: str = ""
     root_deadline_exhausted: bool = False
     transient_provider_failure: bool = False
-    monotonic_release_safe: bool = True
+    # Fail closed: only explicitly classified deadline/transient failures may
+    # opt into deletion-only candidate release. Malformed provider output must
+    # never inherit release eligibility from a dataclass default.
+    monotonic_release_safe: bool = False
 
 
 class SemanticEpisodeVerifier:
@@ -566,6 +569,7 @@ class SemanticEpisodeVerifier:
                             (*structural.issues, *preflight_issues, issue)
                         )
                     ),
+                    correlated_judge=first.correlated,
                 )
                 if candidate is not None:
                     return candidate
@@ -982,6 +986,7 @@ class SemanticEpisodeVerifier:
         structural: VerifiedEpisodeOutcome,
         *,
         issues: tuple[str, ...],
+        correlated_judge: bool,
     ) -> SemanticEpisodeOutcome | None:
         """Keep a safe candidate visible when a transient judge outage occurs.
 
@@ -1015,7 +1020,7 @@ class SemanticEpisodeVerifier:
             public_answer=f"{notice}\n\n{public}",
             judge_status="unavailable",
             issues=issues,
-            correlated_judge=True,
+            correlated_judge=correlated_judge,
         )
 
     def _judge_request(
@@ -1077,6 +1082,7 @@ class SemanticEpisodeVerifier:
                 False,
                 "semantic judge deadline exhausted",
                 root_deadline_exhausted=True,
+                monotonic_release_safe=True,
             )
 
         provider = None
@@ -1329,7 +1335,12 @@ class SemanticEpisodeVerifier:
         )
         if report is None:
             return _JudgeCall(None, True, correlated, "invalid semantic judge output")
-        return _JudgeCall(report, False, correlated)
+        return _JudgeCall(
+            report,
+            False,
+            correlated,
+            monotonic_release_safe=True,
+        )
 
     @staticmethod
     def _parse_report(

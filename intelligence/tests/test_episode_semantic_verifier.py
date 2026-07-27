@@ -1796,6 +1796,30 @@ def test_judge_outage_is_partial_and_never_exposes_raw_draft() -> None:
     assert "market_data" not in result.public_answer
 
 
+def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "complete",
+        lambda *_args, **_kwargs: (None, provider, "ReadTimeout"),
+    )
+
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.correlated_judge is False
+    assert "候选草稿" in result.public_answer
+
+
 def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
     monkeypatch,
 ) -> None:

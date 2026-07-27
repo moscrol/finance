@@ -1014,6 +1014,14 @@ def test_continuous_failed_turn_uses_same_message_and_run_identity(
     assert assistant.run_id == run_id
     assert assistant.status == "failed"
     assert run_store.load_run(run_id).status == "failed"
+    private_artifact = next(
+        item
+        for item in run_store.load_run(run_id).artifacts
+        if item["path"] == "continuous-episode.json"
+    )
+    assert private_artifact["visibility"] == "internal"
+    assert private_artifact["previewable"] is False
+    assert private_artifact["downloadable"] is False
     assert any(
         event["event_type"] == "message.error"
         and event["message_id"] == assistant_message_id

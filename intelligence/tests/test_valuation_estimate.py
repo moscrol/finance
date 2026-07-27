@@ -81,6 +81,13 @@ class TestBuildValuationBlock(unittest.TestCase):
         target = _snap("600000", "目标公司", mv=100.0, pe=15.0, pb=2.0)
         block = ve.build_valuation_block(target, [])
         self.assertIn("缺可比集", block)
+        self.assertIn("估值快照日期：未知", block)
+
+    def test_block_source_date_is_read_from_provider_line(self):
+        target = _snap("600000", "目标公司", mv=100.0, pe=15.0, pb=2.0)
+        target.source_date = "2026-07-27"
+        block = ve.build_valuation_block(target, [])
+        self.assertEqual(ve.block_source_date(block), "2026-07-27")
 
 
 class TestSnapshotsFor(unittest.TestCase):
