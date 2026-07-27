@@ -5,6 +5,42 @@
   "reference_dir": "intelligence/eval/cases/reference_snapshots",
   "aggregate_gate": 0.0,
   "_gate_note": "aggregate_gate 暂设 0.0（仅记录不拦截）。等基线跑出来、知道真实通过率后再上调。",
+  "reference_plan": {
+    "_comment": "参照答案怎么来的。两位参照考生的获取路径完全不同、可信度也不同，必须分开记账。冻结命令：python3 -m intelligence.eval.acceptance freeze <case_id> <agent> <file|-> --via <manual_paste|codex_exec> --asked-at YYYY-MM-DD",
+    "codex": {
+      "route": "codex_exec",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex exec -m gpt-5.5 --skip-git-repo-check \"<query>\"",
+      "note": "与 scripts/dual_blind_flows.sh 同一条路；每晚双盲预测台账的 answer.codex.json 就是这么产的。可全量 28 道。",
+      "blocked_by": "2026-07-27：local-access sidecar（cockpit-cliproxy，:57244）返回 503，直连 curl 返回 401。模型名与额度均已排除。需用户侧重启/重新登录 ChatGPT app。"
+    },
+    "knevo": {
+      "route": "manual_paste",
+      "cost_per_query": "≈115 积分（见 docs/learning/knevo-distill/ab-ledger.md）",
+      "note": "外部产品，无 API、无 CLI，只能人工提问后转贴。全量 28 道 ≈3200 积分，不经济，故只冻结高价值子集。",
+      "leakage_rule": "knevo 在提问当日带后视镜：题目锚定日之后的信息它已知。所以前瞻类题目（A2 / C7）不能事后补问 —— 要 knevo 参照就得在当天收盘现场问。冻结时必须记 asked_at。",
+      "queue": [
+        {"case_id": "C6-strict-definition", "prompt": "最近哪些板块比较强，双红的那种（以 2026-07-23 收盘为准）", "why": "口径权威题。双红出自 knevo 所在生态，它怎么定义怎么筛，直接检验我们的严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500 站不站得住。保留原题的定义模糊性，只钉日期以便可比。"},
+        {"case_id": "A7-mainline", "prompt": "2026-07-21 当天主线是什么", "why": "主线判定是最核心的日常能力，且有量化锚（芯片概念 66 家涨停 / 行业成交占比 31.1%）可对齐。"},
+        {"case_id": "A1-market-overview", "prompt": "2026-07-23 今天市场怎么样", "why": "最高频一题。既看数字口径差异，也看叙述结构谁更有用。"},
+        {"case_id": "B4-fermentation-trace", "prompt": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下", "why": "最难的推理链题，最能暴露差距。"},
+        {"case_id": "A3-stock-deep-dive", "prompt": "2026-07-23 收盘，立新能源怎么看", "why": "个股深挖是另一条主力路径。原题无日期，为可比而钉日期。"},
+        {"case_id": "B7-volume-sentiment-evolution", "prompt": "2026-07-21 到 07-24 量能和情绪是怎么演化的", "why": "多日序列题，考趋势叙述而非单点取数。"},
+        {"case_id": "A6-limit-advance-ladder", "prompt": "2026-07-23 连板梯队什么情况，有没有断层", "why": "梯队高度与断层判定。"},
+        {"case_id": "B8-valuation-band", "prompt": "2026-07-23 收盘，立新能源现在贵不贵，隐含了什么预期", "why": "估值是与前面完全不同的能力维度。原题无日期，为可比而钉日期。"}
+      ],
+      "excluded": [
+        {"case_ids": ["A2-next-day-call", "C7-temporal-leakage"], "reason": "前瞻题。knevo 今天回答会带后视镜（已知 07-22~07-24 结果），冻下来不公平。需当天收盘现场问。"},
+        {"case_ids": ["C3-empty-table", "C4-unit-anomaly", "C5-data-contradiction", "C8-nonexistent-table"], "reason": "考的是我们 DuckDB 里的真实脏数据与 legacy 残骸，knevo 看不到我们的库，问了无意义。"},
+        {"case_ids": ["C9-citation-integrity"], "reason": "考本会话 citation registry，属我们自己的机制。"},
+        {"case_ids": ["B5-cross-table-intersection"], "reason": "依赖我们的表结构与字段定义。"},
+        {"case_ids": ["B6-sellside-distillation"], "reason": "需把卖方材料原文贴进去，且三档路由（hard_fact/graph_only/observation_only）是我们的入库规范。"},
+        {"case_ids": ["C1-future-date-no-data", "C2-non-trading-day"], "reason": "纯诚实度题，我们自己已过（C1 已验证），花积分买同样答案不值。"},
+        {"case_ids": ["C10-multi-turn-consistency"], "reason": "需 3 次查询 ≈345 积分。先看单轮结果再决定是否值得。"},
+        {"case_ids": ["A5-limit-heat", "A8-market-stage", "A9-sentiment-contradiction", "A10-new-high-structure", "B1-theme-photoresist", "B2-theme-liquid-cooling", "B3-theme-solid-state-battery"], "reason": "有价值但优先级次之；等第一批 8 道跑出差距再决定要不要加买。"},
+        {"case_ids": ["A4-dual-red"], "reason": "与 C6 对 knevo 是同一个问题（都问 07-23 哪些板块双红），差别只在我们自己这边的提问方式（明确口径 vs 模糊口径）。一份 knevo 答案同时作为 A4 与 C6 的参照，不重复花积分。"}
+      ]
+    }
+  },
   "cases": [
     {
       "id": "A1-market-overview",

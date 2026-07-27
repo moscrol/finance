@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pytest
@@ -161,12 +162,59 @@ def test_freeze_refuses_silent_overwrite(tmp_path, monkeypatch):
         case_id="A4-dual-red",
         agent="codex",
         answer_file=str(answer),
+        via="codex_exec",
+        asked_at=None,
         overwrite=False,
     )
     assert acceptance.cmd_freeze(args) == 0
     assert acceptance.cmd_freeze(args) == 2, "second freeze must be refused"
     args.overwrite = True
     assert acceptance.cmd_freeze(args) == 0
+
+
+def test_freeze_records_provenance_and_hash(tmp_path, monkeypatch):
+    """快照必须记来源与内容哈希。
+
+    codex 走 codex exec 自动跑、knevo 只能人工转贴，两者可信度不同；不记 via
+    的话，半年后回看无法分辨基准是机器产的还是人贴的。哈希是防篡改锚。
+    """
+    monkeypatch.setattr(acceptance, "SNAPSHOT_DIR", tmp_path)
+    answer = tmp_path / "ans.md"
+    answer.write_text("电网设备 +6.65%", encoding="utf-8")
+    args = acceptance.argparse.Namespace(
+        case_id="A4-dual-red",
+        agent="knevo",
+        answer_file=str(answer),
+        via="manual_paste",
+        asked_at="2026-07-27",
+        overwrite=False,
+    )
+    assert acceptance.cmd_freeze(args) == 0
+    saved = json.loads(
+        (tmp_path / "A4-dual-red.knevo.json").read_text(encoding="utf-8")
+    )
+    assert saved["via"] == "manual_paste"
+    assert saved["asked_at"] == "2026-07-27"
+    assert (
+        saved["answer_sha256"]
+        == hashlib.sha256("电网设备 +6.65%".encode()).hexdigest()
+    )
+
+
+def test_freeze_rejects_empty_answer(tmp_path, monkeypatch):
+    """空答案冻结进去会变成"knevo 也答不出"的假证据。"""
+    monkeypatch.setattr(acceptance, "SNAPSHOT_DIR", tmp_path)
+    answer = tmp_path / "ans.md"
+    answer.write_text("   \n", encoding="utf-8")
+    args = acceptance.argparse.Namespace(
+        case_id="A4-dual-red",
+        agent="knevo",
+        answer_file=str(answer),
+        via="manual_paste",
+        asked_at=None,
+        overwrite=False,
+    )
+    assert acceptance.cmd_freeze(args) == 2
 
 
 def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
@@ -177,6 +225,8 @@ def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
         case_id="A4-dual-red",
         agent="itself",
         answer_file=str(answer),
+        via="manual_paste",
+        asked_at=None,
         overwrite=False,
     )
     assert acceptance.cmd_freeze(args) == 2

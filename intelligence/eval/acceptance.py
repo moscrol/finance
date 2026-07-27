@@ -16,7 +16,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -355,6 +357,15 @@ def classify_failure(turn: dict[str, Any]) -> str:
 # freeze —— 参照快照必须外部冻结
 # --------------------------------------------------------------------------- #
 def cmd_freeze(args: argparse.Namespace) -> int:
+    """冻结外部参照答案。
+
+    ``via`` 必填：参照答案的价值全在来源可追溯。codex 走
+    ``codex exec -m gpt-5.5``（与 dual_blind_flows.sh 同一条路），knevo 只有人工
+    转贴一条路（外部产品、按积分计费、无 API）。半年后回看快照，必须能分清
+    "这是机器跑的"还是"这是人贴的"、以及问的是哪一天 —— 否则基准不可复核。
+
+    ``answer_sha256`` 是防篡改锚：冻结后任何改动都会让哈希对不上。
+    """
     doc = load_cases()
     ids = {c["id"] for c in doc["cases"]}
     if args.case_id not in ids:
@@ -363,7 +374,13 @@ def cmd_freeze(args: argparse.Namespace) -> int:
     if args.agent not in doc["reference_agents"]:
         print(f"❌ agent 必须是 {doc['reference_agents']} 之一")
         return 2
-    text = Path(args.answer_file).read_text(encoding="utf-8")
+    if args.answer_file == "-":
+        text = sys.stdin.read()
+    else:
+        text = Path(args.answer_file).read_text(encoding="utf-8")
+    if not text.strip():
+        print("❌ 答案为空，拒绝冻结")
+        return 2
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     out = SNAPSHOT_DIR / f"{args.case_id}.{args.agent}.json"
     if out.exists() and not args.overwrite:
@@ -377,6 +394,9 @@ def cmd_freeze(args: argparse.Namespace) -> int:
                 "case_id": args.case_id,
                 "agent": args.agent,
                 "frozen_at": datetime.now(timezone.utc).isoformat(),
+                "via": args.via,
+                "asked_at": args.asked_at,
+                "answer_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 "answer": text,
             },
             ensure_ascii=False,
@@ -384,7 +404,7 @@ def cmd_freeze(args: argparse.Namespace) -> int:
         ),
         encoding="utf-8",
     )
-    print(f"✅ 已冻结 {_rel(out)}（{len(text)} 字）")
+    print(f"✅ 已冻结 {_rel(out)}（{len(text)} 字，via={args.via}）")
     return 0
 
 
@@ -407,7 +427,14 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("freeze", help="冻结 codex/knevo 参照答案")
     f.add_argument("case_id")
     f.add_argument("agent")
-    f.add_argument("answer_file")
+    f.add_argument("answer_file", help="答案文件路径；写 - 表示从 stdin 读")
+    f.add_argument(
+        "--via",
+        required=True,
+        choices=["manual_paste", "codex_exec", "cli"],
+        help="来源：manual_paste=人工转贴（knevo 唯一路径）；codex_exec=codex exec 自动跑",
+    )
+    f.add_argument("--asked-at", help="实际提问日期 YYYY-MM-DD（与题目锚定日可能不同）")
     f.add_argument("--overwrite", action="store_true")
     f.set_defaults(func=cmd_freeze)
 
