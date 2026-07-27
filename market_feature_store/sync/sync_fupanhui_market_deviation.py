@@ -123,6 +123,31 @@ def _fetch_market_deviation() -> dict:
         _cdp_close(target)
 
 
+def _compute_deviation_fallback(con, trade_date: str, ma_window: int = 5) -> dict | None:
+    """tooltip 抓取失败时的兜底：用最近 ma_window 个交易日 sh_index_close 复算 MA/偏离度。
+
+    与 fill_stock_daily_fallback.recompute_deviation 同口径（本地复算，非 tooltip 口径）。
+    需 index-daily 已写入当日 sh_index_close，否则返回 None（调用方决定是否报错）。
+    """
+    closes = con.execute(
+        "SELECT trade_date, sh_index_close FROM fact_market_daily "
+        "WHERE trade_date <= ? AND sh_index_close IS NOT NULL "
+        "ORDER BY trade_date DESC LIMIT ?",
+        [trade_date, ma_window],
+    ).fetchall()
+    if not closes or str(closes[0][0]) != trade_date:
+        return None
+    ma = sum(float(r[1]) for r in closes) / len(closes)
+    close = float(closes[0][1])
+    dev = (close / ma - 1) * 100 if ma else None
+    return {
+        "sh_week_ma": round(ma, 2),
+        "sh_deviation_pct": round(dev, 2) if dev is not None else None,
+        "tooltip": f"[ma{len(closes)} recompute] close={close} ma={round(ma, 2)}",
+        "source": "ma_recompute",
+    }
+
+
 def sync_market_deviation(trade_date: str | None = None) -> dict:
     init_db()
     con = connect()
@@ -132,7 +157,17 @@ def sync_market_deviation(trade_date: str | None = None) -> dict:
             trade_date = str(row[0]) if row and row[0] else None
         if not trade_date:
             raise RuntimeError("无目标交易日, 请先同步 fact_market_daily 或显式传 --trade-date")
-        data = _fetch_market_deviation()
+        try:
+            data = _fetch_market_deviation()
+            data["source"] = "tooltip"
+        except Exception as exc:
+            # tooltip 抓取脆弱（fupanhui 页面/后台标签页合成 hover 常失效）→ MA 复算兜底
+            print(f"[market-deviation] tooltip 抓取失败({exc})，回退 MA5 复算")
+            data = _compute_deviation_fallback(con, trade_date)
+            if data is None:
+                raise RuntimeError(
+                    f"tooltip 失败且 MA 兜底无数据(当日 sh_index_close 缺失)：{exc}"
+                ) from exc
         con.execute(
             """
             UPDATE fact_market_daily
