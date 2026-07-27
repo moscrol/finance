@@ -120,16 +120,77 @@ _QUERY_SCAFFOLD_RE = re.compile(
 )
 _COMPOUND_QUERY_SPLIT_RE = re.compile(r"[\s、/|]+")
 _DIRECTION_SUFFIX_RE = re.compile(
-    r"(?:下跌|上涨|反弹|调整|回落|暴跌|大涨|走势|表现)$"
+    r"(?:下跌|上涨|反弹|调整|回落|暴跌|大跌|大涨|走势|表现)$"
 )
 _DIRECTION_PROVIDER_ALIAS = {
     "下跌": "调整",
     "暴跌": "下跌",
+    "大跌": "下跌",
     "回落": "调整",
     "上涨": "走强",
     "大涨": "上涨",
 }
+_MARKET_ANCHOR_GROUPS: tuple[tuple[tuple[str, ...], tuple[str, ...], str], ...] = (
+    (("A股",), ("A股", "沪深两市", "两市"), "A股"),
+    (("上证指数", "沪指", "上证"), ("上证指数", "沪指", "上证"), "沪指"),
+    (("深证成指", "深指"), ("深证成指", "深指"), "深指"),
+    (("创业板",), ("创业板", "创指"), "创业板"),
+    (("科创50",), ("科创50",), "科创50"),
+    (("股市", "大盘", "市场"), ("股市", "大盘"), "股市"),
+)
+_DOWN_QUERY_TERMS = ("下跌", "大跌", "暴跌", "调整", "回落", "走弱", "收跌", "跌")
+_DOWN_TITLE_TERMS = ("下跌", "大跌", "暴跌", "调整", "回落", "走弱", "收跌", "跌")
+_UP_QUERY_TERMS = ("上涨", "大涨", "反弹", "走强", "收涨", "涨")
+_UP_TITLE_TERMS = ("上涨", "大涨", "反弹", "走强", "收涨", "涨")
+_CAUSE_QUERY_TERMS = ("原因", "驱动", "为何", "为什么")
+_CAUSE_TITLE_TERMS = ("原因", "驱动", "为何", "复盘", "收评")
+_DATE_TOKEN_RE = re.compile(
+    r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}|20\d{2}年|\d{1,2}月|\d{1,2}日"
+)
 _MAX_EASTMONEY_FALLBACK_QUERIES = 3
+
+
+def _market_anchor_signature(text: str) -> tuple[tuple[str, ...], str] | None:
+    cleaned = str(text or "")
+    for query_terms, title_terms, canonical in _MARKET_ANCHOR_GROUPS:
+        if any(term in cleaned for term in query_terms):
+            return title_terms, canonical
+    return None
+
+
+def _market_direction_signature(text: str) -> tuple[tuple[str, ...], str, str] | None:
+    cleaned = str(text or "")
+    if any(term in cleaned for term in _DOWN_QUERY_TERMS):
+        return _DOWN_TITLE_TERMS, "下跌", "调整"
+    if any(term in cleaned for term in _UP_QUERY_TERMS):
+        return _UP_TITLE_TERMS, "上涨", "走强"
+    return None
+
+
+def _is_temporal_fragment(value: str) -> bool:
+    compact = re.sub(r"\s+", "", str(value or ""))
+    if not compact:
+        return False
+    residual = _DATE_TOKEN_RE.sub("", compact)
+    residual = re.sub(r"[至到年月日\-/.]", "", residual)
+    return not residual
+
+
+def _title_matches_query(title: str, query: str) -> bool:
+    anchor = _market_anchor_signature(query)
+    direction = _market_direction_signature(query)
+    if anchor is not None and direction is not None:
+        anchor_terms, _canonical_anchor = anchor
+        direction_terms, _canonical_direction, _alias = direction
+        return any(term in title for term in anchor_terms) and any(
+            term in title for term in direction_terms
+        )
+    if anchor is not None and any(term in query for term in _CAUSE_QUERY_TERMS):
+        anchor_terms, _canonical_anchor = anchor
+        return any(term in title for term in anchor_terms) and any(
+            term in title for term in _CAUSE_TITLE_TERMS
+        )
+    return query in title
 
 
 def _extract_query_keyword(query: str) -> str | None:
@@ -269,9 +330,21 @@ def _eastmoney_fallback_keywords(query: str) -> tuple[str, ...]:
         if (
             2 <= len(cleaned) <= 16
             and cleaned != original
+            and not _is_temporal_fragment(cleaned)
             and cleaned not in candidates
         ):
             candidates.append(cleaned)
+
+    market_anchor = _market_anchor_signature(original)
+    market_direction = _market_direction_signature(original)
+    if market_anchor is not None and market_direction is not None:
+        _title_terms, canonical_anchor = market_anchor
+        _direction_terms, canonical_direction, alias = market_direction
+        add(canonical_anchor + canonical_direction)
+        add(canonical_anchor + alias)
+        if any(term in original for term in _CAUSE_QUERY_TERMS):
+            add(canonical_anchor + canonical_direction + "原因")
+        return tuple(candidates[:_MAX_EASTMONEY_FALLBACK_QUERIES])
 
     explicit_parts = tuple(
         item.strip()
@@ -418,12 +491,14 @@ def _fetch_eastmoney_news_with_fallback(
 
     items: list[NewsItem] = []
     last_trace = first.trace
+    successful_trace: ProviderTrace | None = None
     for candidate in _eastmoney_fallback_keywords(original):
         result = fetch(candidate)
         if result is None:
             break
         last_trace = result.trace
         if result.items:
+            successful_trace = result.trace
             items = merge_news_items(items, list(result.items))[:page_size]
             if len(items) >= page_size:
                 break
@@ -439,6 +514,7 @@ def _fetch_eastmoney_news_with_fallback(
         status = "future_of_cutoff"
     else:
         status = "empty"
+    evidence_trace = successful_trace or last_trace
     return NewsFetchResult(
         tuple(items),
         ProviderTrace(
@@ -447,7 +523,7 @@ def _fetch_eastmoney_news_with_fallback(
             status=status,
             detail=(
                 f"Eastmoney title search; {attempted_detail()}; "
-                f"{last_trace.detail}; "
+                f"{evidence_trace.detail}; "
                 f"fallbacks={max(0, len(attempted) - 1)}"
             ),
             result_count=len(items),
@@ -536,7 +612,7 @@ def _fetch_eastmoney_news_uncached(
             continue
         # 相关性硬过滤：东财搜索是全文模糊匹配，正文命中会捞进大量标题无关的资讯；
         # 只保留标题含完整检索词的条目，宁缺勿滥（缺数走显式缺口，不给噪声）。
-        if kw not in title:
+        if not _title_matches_query(title, kw):
             continue
         out.append(
             NewsItem(

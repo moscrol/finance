@@ -43,6 +43,39 @@ class FetchTitleRelevanceFilterTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertIn("后量子密码", items[0].title)
 
+    def test_market_cause_title_requires_market_anchor_and_direction(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        articles = [
+            {
+                "date": today,
+                "title": "A股市场缩量调整，主要指数集体收跌",
+                "mediaName": "证券时报",
+                "url": "http://x/a-share",
+            },
+            {
+                "date": today,
+                "title": "7月24日港股回购日报",
+                "mediaName": "财联社",
+                "url": "http://x/hk-buyback",
+            },
+        ]
+        payload = "x(" + json.dumps(
+            {"result": {"cmsArticleWebOld": articles}},
+            ensure_ascii=False,
+        ) + ")"
+        resp = mock.MagicMock()
+        resp.__enter__.return_value = io.BytesIO(payload.encode("utf-8"))
+
+        with mock.patch("urllib.request.urlopen", return_value=resp):
+            items = fetch_eastmoney_news(
+                "2026年7月24日 A股 大跌 原因 上证指数 7月20日至24日"
+            )
+
+        self.assertEqual(
+            [item.title for item in items],
+            ["A股市场缩量调整，主要指数集体收跌"],
+        )
+
 
 class EastmoneyQueryToleranceTests(unittest.TestCase):
     @staticmethod
@@ -63,7 +96,7 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
 
         def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
             calls.append(keyword)
-            if keyword == "A股":
+            if keyword == "A股调整":
                 return self._result(
                     keyword,
                     NewsItem(
@@ -86,12 +119,13 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
             )
 
         self.assertEqual(calls[:2], ["上周A股下跌原因", "A股下跌"])
-        self.assertIn("A股", calls)
+        self.assertIn("A股调整", calls)
+        self.assertNotIn("A股", calls)
         self.assertLessEqual(len(calls), 4)
         self.assertEqual([item.title for item in result.items], ["A股市场缩量调整"])
         self.assertEqual(result.trace.status, "fallback_success")
         self.assertIn("上周A股下跌原因", result.trace.detail)
-        self.assertIn("A股", result.trace.detail)
+        self.assertIn("A股调整", result.trace.detail)
 
     def test_spaced_market_query_keeps_anchor_and_direction_together(self) -> None:
         calls: list[str] = []
@@ -125,6 +159,40 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
             ["A股 本周 下跌 原因 2026年7月", "A股下跌", "A股调整"],
         )
         self.assertEqual([item.title for item in result.items], ["A股下跌原因复盘"])
+
+    def test_market_fallback_never_degrades_to_date_or_broad_anchor(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword in {"24日", "24日下跌", "24日调整", "A股"}:
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "财联社",
+                        "7月24日港股回购日报",
+                        "https://example.com/hk-buyback",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "2026年7月24日 A股 大跌 原因 上证指数 7月20日至24日",
+                timeout=2.0,
+            )
+
+        self.assertEqual(result.items, ())
+        self.assertNotIn("24日", calls)
+        self.assertNotIn("24日下跌", calls)
+        self.assertNotIn("24日调整", calls)
+        self.assertNotIn("A股", calls)
+        self.assertTrue({"A股下跌", "A股调整"}.intersection(calls))
 
     def test_explicit_compound_query_merges_single_keyword_results(self) -> None:
         calls: list[str] = []
@@ -215,7 +283,7 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
         def fake_fetch(keyword: str, **kwargs) -> NewsFetchResult:
             page_index = int(kwargs.get("page_index", 1))
             calls.append((keyword, page_index))
-            if keyword != "A股":
+            if keyword != "A股调整":
                 return self._result(keyword)
             if page_index == 1:
                 return self._result(
@@ -254,8 +322,8 @@ class EastmoneyQueryToleranceTests(unittest.TestCase):
                 as_of="2026-07-24",
             )
 
-        self.assertIn(("A股", 1), calls)
-        self.assertIn(("A股", 2), calls)
+        self.assertIn(("A股调整", 1), calls)
+        self.assertIn(("A股调整", 2), calls)
         self.assertEqual(
             [item.date[:10] for item in result.items],
             ["2026-07-24", "2026-07-23"],
