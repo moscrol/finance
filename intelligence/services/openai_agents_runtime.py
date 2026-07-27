@@ -161,6 +161,64 @@ def sdk_model_aclose(model: object) -> Callable[[], Awaitable[None]]:
     return close
 
 
+def _single_function_call_per_response(model: object) -> object:
+    """Project a provider response to one local function call per model turn.
+
+    Some OpenAI-compatible gateways ignore ``parallel_tool_calls=False`` and
+    return a batch of function calls anyway.  The Agents SDK's
+    ``max_function_tool_concurrency=1`` only serializes that batch; it does not
+    stop the second call from executing before the model observes the first
+    result.  Wrap the GPT model at the provider boundary so the SDK sees only
+    the first function call and naturally starts a new model turn afterwards.
+    """
+
+    from agents import Model, ModelResponse
+
+    if not isinstance(model, Model):
+        return model
+
+    class SingleFunctionCallModel(Model):
+        def __init__(self, delegate: Model) -> None:
+            self._delegate = delegate
+            self.batched_tool_calls_dropped = 0
+
+        async def get_response(self, *args, **kwargs) -> ModelResponse:
+            response = await self._delegate.get_response(*args, **kwargs)
+            projected: list[object] = []
+            function_call_seen = False
+            dropped = False
+            for item in response.output:
+                if getattr(item, "type", None) == "function_call":
+                    if function_call_seen:
+                        dropped = True
+                        self.batched_tool_calls_dropped += 1
+                        continue
+                    function_call_seen = True
+                projected.append(item)
+            if not dropped:
+                return response
+            return ModelResponse(
+                output=projected,
+                usage=response.usage,
+                response_id=response.response_id,
+                request_id=response.request_id,
+            )
+
+        def stream_response(self, *args, **kwargs):
+            return self._delegate.stream_response(*args, **kwargs)
+
+        def get_retry_advice(self, *args, **kwargs):
+            return self._delegate.get_retry_advice(*args, **kwargs)
+
+        async def _cleanup_on_run_end(self, owner: object) -> None:
+            await self._delegate._cleanup_on_run_end(owner)
+
+        async def close(self) -> None:
+            await self._delegate.close()
+
+    return SingleFunctionCallModel(model)
+
+
 def build_glm_sdk_model_factory(
     *,
     api_key: str,
@@ -229,9 +287,16 @@ class AgentsSdkResult:
     input_tokens: int | None = None
     output_tokens: int | None = None
     provider_attempts: int | None = None
+    batched_tool_calls_dropped: int = 0
 
     def __post_init__(self) -> None:
-        for name in ("llm_calls", "input_tokens", "output_tokens", "provider_attempts"):
+        for name in (
+            "llm_calls",
+            "input_tokens",
+            "output_tokens",
+            "provider_attempts",
+            "batched_tool_calls_dropped",
+        ):
             value = getattr(self, name)
             if value is None:
                 continue
@@ -332,6 +397,8 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
     model_aclose: Callable[[], Awaitable[None]] | None = None
     if request.model_factory is not None:
         model, model_aclose = request.model_factory()
+    if request.backend == "sdk_gpt":
+        model = _single_function_call_per_response(model)
 
     agent_instructions = request.instructions
     if request.backend == "sdk_gpt":
@@ -380,6 +447,9 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         input_tokens=int(usage.input_tokens),
         output_tokens=int(usage.output_tokens),
         provider_attempts=int(usage.requests),
+        batched_tool_calls_dropped=int(
+            getattr(model, "batched_tool_calls_dropped", 0)
+        ),
     )
 
 
@@ -924,6 +994,9 @@ class OpenAIAgentsRuntime:
                     "output_tokens": result.output_tokens if result else None,
                     "provider_attempts": result.provider_attempts if result else None,
                     "duplicate_queries": snapshot.duplicate_queries,
+                    "batched_tool_calls_dropped": (
+                        result.batched_tool_calls_dropped if result else 0
+                    ),
                 },
             )
         )
@@ -981,6 +1054,10 @@ def _merge_sdk_results(
         provider_attempts=_sum_optional_counts(
             initial.provider_attempts,
             recovery.provider_attempts,
+        ),
+        batched_tool_calls_dropped=(
+            initial.batched_tool_calls_dropped
+            + recovery.batched_tool_calls_dropped
         ),
     )
 

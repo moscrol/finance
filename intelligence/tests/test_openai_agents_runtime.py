@@ -533,6 +533,131 @@ def test_default_sdk_runner_uses_local_tools_and_disables_trace_export(
     assert close_calls == 1
 
 
+@pytest.mark.parametrize(
+    ("backend", "expected_queries", "expected_dropped"),
+    (
+        ("sdk_gpt", ["first"], 1),
+        ("sdk_glm", ["first", "second"], 0),
+    ),
+)
+def test_sdk_provider_boundary_controls_batched_function_calls(
+    backend: str,
+    expected_queries: list[str],
+    expected_dropped: int,
+) -> None:
+    from agents import Model, ModelResponse
+    from agents.usage import Usage
+    from openai.types.responses import (
+        ResponseFunctionToolCall,
+        ResponseOutputMessage,
+        ResponseOutputText,
+    )
+
+    class BatchedToolModel(Model):
+        def __init__(self) -> None:
+            self.calls = 0
+            self.inputs: list[object] = []
+
+        async def get_response(
+            self,
+            system_instructions,
+            input,
+            model_settings,
+            tools,
+            output_schema,
+            handoffs,
+            tracing,
+            **_kwargs,
+        ) -> ModelResponse:
+            del system_instructions, model_settings, tools, output_schema, handoffs, tracing
+            self.calls += 1
+            self.inputs.append(input)
+            if self.calls == 1:
+                output = [
+                    ResponseFunctionToolCall(
+                        arguments=json.dumps({"query": "first"}),
+                        call_id="call-first",
+                        name="market_news",
+                        type="function_call",
+                        status="completed",
+                    ),
+                    ResponseFunctionToolCall(
+                        arguments=json.dumps({"query": "second"}),
+                        call_id="call-second",
+                        name="market_news",
+                        type="function_call",
+                        status="completed",
+                    ),
+                ]
+            else:
+                output = [
+                    ResponseOutputMessage(
+                        id="message-final",
+                        content=[
+                            ResponseOutputText(
+                                annotations=[],
+                                text="done",
+                                type="output_text",
+                            )
+                        ],
+                        role="assistant",
+                        status="completed",
+                        type="message",
+                    )
+                ]
+            return ModelResponse(
+                output=output,
+                usage=Usage(requests=1),
+                response_id=f"response-{self.calls}",
+            )
+
+        def stream_response(self, *_args, **_kwargs):
+            async def empty_stream():
+                if False:
+                    yield None
+
+            return empty_stream()
+
+    model = BatchedToolModel()
+    observed_queries: list[str] = []
+    result = _run_openai_agents_sdk(
+        AgentsSdkRequest(
+            instructions="Use one finance tool at a time.",
+            input="Explain the weekly market decline.",
+            tools=(
+                AgentsSdkTool(
+                    name="market_news",
+                    description="Search dated market news.",
+                    parameters={
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                    invoke=lambda arguments: observed_queries.append(
+                        str(arguments["query"])
+                    )
+                    or {"status": "success"},
+                ),
+            ),
+            max_turns=3,
+            timeout=5.0,
+            backend=backend,
+            model_name="fake-gpt",
+            model=model,
+            model_settings=build_agents_model_settings(backend),
+        )
+    )
+
+    assert result.final_output == "done"
+    assert model.calls == 2
+    assert observed_queries == expected_queries
+    assert result.batched_tool_calls_dropped == expected_dropped
+    assert json.dumps(model.inputs[1]).count("function_call_output") == len(
+        expected_queries
+    )
+
+
 def test_default_sdk_runner_projects_provider_compatible_tool_schema(
     monkeypatch,
 ) -> None:
