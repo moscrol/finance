@@ -546,11 +546,13 @@ class _AgentsRunState:
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
         is_cancelled: Callable[[], bool],
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
     ) -> None:
         self._registry = registry
         self._context = context
         self._active_context = context
         self._is_cancelled = is_cancelled
+        self._event_sink = event_sink
         self._authorized = {
             spec.name: spec
             for spec in registry.authorized_specs(context.contract.allowed_capabilities)
@@ -798,6 +800,8 @@ class _AgentsRunState:
         event = EpisodeEvent(self._next_sequence, kind, payload)
         self._next_sequence += 1
         self._events.append(event)
+        if self._event_sink is not None:
+            self._event_sink(event)
         return event
 
 
@@ -852,6 +856,7 @@ class OpenAIAgentsRuntime:
         model_settings: object | None = None,
         model_factory: SdkModelFactory | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
     ) -> None:
         if backend not in {"sdk_glm", "sdk_gpt"}:
             raise ValueError("unsupported SDK backend")
@@ -873,6 +878,17 @@ class OpenAIAgentsRuntime:
         self._model_settings = model_settings or build_agents_model_settings(backend)
         self._model_factory = model_factory
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._event_sink = event_sink
+
+    def _publish_event(self, event: EpisodeEvent) -> None:
+        if self._event_sink is None or self._is_cancelled():
+            return
+        try:
+            self._event_sink(event)
+        except Exception:
+            # Progress is observability, never an alternate execution owner.
+            # A broken UI/SSE sink must not abort financial research.
+            pass
 
     def run(
         self,
@@ -906,6 +922,7 @@ class OpenAIAgentsRuntime:
                 registry=registry,
                 context=context,
                 is_cancelled=self._is_cancelled,
+                event_sink=self._publish_event,
             )
             continuation.append(
                 _SdkContinuationState(
@@ -951,10 +968,23 @@ class OpenAIAgentsRuntime:
                 gap="本轮执行已取消",
             )
 
+        self._publish_event(
+            EpisodeEvent(
+                1,
+                "task",
+                {
+                    "question": task_frame.raw_question,
+                    "task_frame": task_frame.to_dict(),
+                    "task_frame_hash": task_frame.task_frame_hash,
+                },
+            )
+        )
+
         state = _AgentsRunState(
             registry=registry,
             context=context,
             is_cancelled=self._is_cancelled,
+            event_sink=self._publish_event,
         )
         continuation_state: _SdkContinuationState | None = None
         if continuation_sink is not None:
@@ -1215,6 +1245,8 @@ class OpenAIAgentsRuntime:
                 ),
             },
         )
+        self._publish_event(repair_goal_event)
+        self._publish_event(repair_reentry_event)
         state_event_start, state_gap_start = state.run_state.begin_continuation(
             # Intersect the grant with the original absolute research-stage
             # deadline. Re-wrapping a remaining duration would extend the
@@ -1296,22 +1328,22 @@ class OpenAIAgentsRuntime:
         snapshot = state.run_state.snapshot()
         appended: list[EpisodeEvent] = [repair_goal_event, repair_reentry_event]
         appended.extend(snapshot.events[state_event_start:])
-        appended.append(
-            EpisodeEvent(
-                len(prefix) + len(appended) + 1,
-                "model_turn",
-                {
-                    "phase": "repair",
-                    "runtime": self._backend,
-                    "repair_goal_id": goal.repair_goal_id,
-                    "cycle": goal.cycle,
-                    "provider_attempts": (
-                        result.provider_attempts if result is not None else None
-                    ),
-                    "error": run_error,
-                },
-            )
+        model_turn_event = EpisodeEvent(
+            len(prefix) + len(appended) + 1,
+            "model_turn",
+            {
+                "phase": "repair",
+                "runtime": self._backend,
+                "repair_goal_id": goal.repair_goal_id,
+                "cycle": goal.cycle,
+                "provider_attempts": (
+                    result.provider_attempts if result is not None else None
+                ),
+                "error": run_error,
+            },
         )
+        appended.append(model_turn_event)
+        self._publish_event(model_turn_event)
         if result is None:
             gaps = tuple(dict.fromkeys((*previous.gaps, run_error)))
             appended.extend(
@@ -1449,7 +1481,7 @@ class OpenAIAgentsRuntime:
         gaps: tuple[str, ...],
         snapshot: _SdkSnapshot,
     ) -> tuple[EpisodeEvent, EpisodeEvent]:
-        return (
+        events = (
             EpisodeEvent(
                 sequence,
                 "runtime_result",
@@ -1473,6 +1505,9 @@ class OpenAIAgentsRuntime:
                 {"status": status, "stop_reason": stop_reason, "gaps": list(gaps)},
             ),
         )
+        for event in events:
+            self._publish_event(event)
+        return events
 
     def _failure_from_state(
         self,
@@ -1577,6 +1612,8 @@ class OpenAIAgentsRuntime:
                 {"status": status, "stop_reason": stop_reason, "gaps": list(gaps)},
             )
         )
+        self._publish_event(events[-2])
+        self._publish_event(events[-1])
         return tuple(events)
 
 

@@ -679,6 +679,56 @@ def test_production_adapter_composes_sdk_gpt_from_session_provider(
     assert adapter._semantic_verifier._primary_judge._providers == (provider,)
 
 
+def test_sdk_gpt_adapter_wires_safe_live_episode_progress(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
+    provider = app_module.LLMProvider(
+        "openai",
+        "session-secret",
+        "http://localhost:57244/v1",
+        "gpt-5.6-sol",
+    )
+    run_store = RunStore(user_id="sdk-progress", root=tmp_path / "runs")
+    run = run_store.create_run(
+        "研究当前市场",
+        "ask",
+        session_id="sdk-conversation",
+    )
+
+    adapter = app_module._build_continuous_turn_adapter(
+        providers=(provider,),
+        run_id=run.run_id,
+        assistant_message_id="sdk-message",
+        run_store=run_store,
+        conversation_id="sdk-conversation",
+        timeout=42.0,
+    )
+
+    assert callable(adapter._runtime._event_sink)
+    adapter._runtime._event_sink(
+        EpisodeEvent(
+            2,
+            "tool_request",
+            {
+                "query": "SELECT secret FROM hidden_table",
+                "provider": "private-provider",
+            },
+        )
+    )
+    public_progress = str(
+        (
+            run_store.load_trace(run.run_id),
+            run_store.load_stream_events(run.run_id),
+        )
+    )
+    assert "正在核对计划所需资料" in public_progress
+    assert "SELECT" not in public_progress
+    assert "hidden_table" not in public_progress
+    assert "private-provider" not in public_progress
+
+
 def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
     monkeypatch,
     tmp_path,

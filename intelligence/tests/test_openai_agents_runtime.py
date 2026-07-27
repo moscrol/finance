@@ -192,6 +192,54 @@ class SuccessfulFakeSdkRunner:
         )
 
 
+def test_sdk_progress_sink_observes_tool_events_before_runner_returns() -> None:
+    observed = []
+
+    def progress_aware_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        observation = request.tools[0].invoke("A股 当前主线")
+        assert [event.kind for event in observed] == [
+            "task",
+            "tool_request",
+            "tool_result",
+        ]
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心，电力是轮动支线。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": observation["evidence_hashes"],
+                    "gap": "",
+                }
+            ],
+        }
+        return AgentsSdkResult(
+            json.dumps(finish, ensure_ascii=False),
+            1,
+        )
+
+    outcome = OpenAIAgentsRuntime(
+        runner=progress_aware_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+        event_sink=observed.append,
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "completed"
+    assert [event.kind for event in observed] == [
+        "task",
+        "tool_request",
+        "tool_result",
+        "runtime_result",
+        "finish",
+    ]
+
+
 def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     frame = _frame()
     context = _context(frame)
@@ -204,6 +252,7 @@ def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     initial_continuation = OpaqueContinuation()
     requests: list[AgentsSdkRequest] = []
     resumed_tool_results: list[dict[str, object]] = []
+    observed = []
 
     def resumable_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
         requests.append(request)
@@ -229,6 +278,10 @@ def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
                 continuation_input=initial_continuation,
             )
         assert request._continuation_input is initial_continuation
+        assert [event.kind for event in observed[-2:]] == [
+            "repair_goal",
+            "repair_reentry",
+        ]
         tools = {tool.name: tool for tool in request.tools}
         resumed_tool_results.extend(
             (
@@ -260,6 +313,7 @@ def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
         runner=resumable_runner,
         backend="sdk_glm",
         model_name="glm-5.2",
+        event_sink=observed.append,
     )
     session = runtime.start(
         frame,
@@ -319,6 +373,9 @@ def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     assert private_marker not in json.dumps(vars(requests[1]), default=str)
     assert private_marker not in repr(session)
     assert private_marker not in json.dumps(repaired.to_dict(), ensure_ascii=False)
+    assert [event.kind for event in observed] == [
+        event.kind for event in repaired.events
+    ]
 
 
 def test_sdk_episode_debits_one_shared_root_tool_budget_across_resume() -> None:

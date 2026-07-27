@@ -205,6 +205,9 @@ def _build_continuous_turn_adapter(
                 timeout=timeout,
             ),
             is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
         )
     elif selection.name == "sdk_gpt":
         if not providers:
@@ -228,6 +231,9 @@ def _build_continuous_turn_adapter(
                 timeout=timeout,
             ),
             is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
         )
     else:
         if (
