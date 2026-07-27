@@ -202,6 +202,14 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     return "evidence"
 
 
+def _is_evidence_free_task(frame: TaskFrame) -> bool:
+    return (
+        frame.question_type == "methodology_discussion"
+        or "method" in frame.required_outputs
+        or frame.user_goal.startswith("判断反事实条件")
+    )
+
+
 def build_episode_context(
     frame: TaskFrame,
     *,
@@ -224,10 +232,7 @@ def build_episode_context(
     )
     evidence_plan = _episode_evidence_plan(frame)
     authorized = list(_authorized_capabilities(frame, capabilities))
-    if grounding_modes and all(
-        mode in {"model_reasoning", "user_premise"}
-        for mode in grounding_modes
-    ):
+    if _is_evidence_free_task(frame):
         # These contracts ask the model to reason over a method or an explicit
         # user-supplied premise.  Retrieving current-world evidence adds cost
         # and can contaminate the hypothetical without strengthening it.
