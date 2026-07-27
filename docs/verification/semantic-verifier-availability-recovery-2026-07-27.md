@@ -1,7 +1,7 @@
 # Semantic verifier availability recovery
 
-Date: 2026-07-27  
-Branch: `feat/agent-runtime-backends-verify`  
+Date: 2026-07-27
+Branch: `feat/agent-runtime-backends-verify`
 Scope: one shared semantic-verifier projection seam; no route, skill,
 template, evaluator threshold, or global budget change.
 
