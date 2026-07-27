@@ -213,12 +213,13 @@ def should_reenter(
     max_cycles: int,
     remaining_calls: int | None = None,
     remaining_seconds: float | None = None,
+    tools_open: bool = True,
 ) -> bool:
     if cycle < 1 or cycle > max_cycles:
         return False
     if not progress.coverage_delta.progressed:
         return False
-    if remaining_calls is not None and remaining_calls <= 0:
+    if tools_open and remaining_calls is not None and remaining_calls <= 0:
         return False
     if remaining_seconds is not None and remaining_seconds < 1.0:
         return False
@@ -240,6 +241,7 @@ def grant_for_progress(
     *,
     root_budget: RootBudgetLedger,
     research_tier: str,
+    tools_open: bool = True,
 ) -> BudgetGrant | None:
     if not should_reenter(
         progress,
@@ -247,13 +249,15 @@ def grant_for_progress(
         max_cycles=max_repair_cycles_for_tier(research_tier),
         remaining_calls=goal.remaining_calls,
         remaining_seconds=goal.remaining_seconds,
+        tools_open=tools_open,
     ):
         return None
-    calls = min(
+    work_units = min(
         4,
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
-    seconds = min(30.0, calls * 8.0)
+    calls = work_units if tools_open else 0
+    seconds = min(30.0, work_units * 8.0)
     grant = BudgetGrant(
         grant_id=f"grant-{goal.repair_goal_id}",
         episode_id=goal.episode_id,

@@ -40,7 +40,10 @@ from intelligence.services.episode_verifier import (
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
-from intelligence.services.research_contract import RequiredOutput
+from intelligence.services.research_contract import (
+    InMemoryRootBudgetLedger,
+    RequiredOutput,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -521,6 +524,156 @@ def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
     events = result.private_artifact["events"]
     assert any(event["kind"] == "repair_goal" for event in events)
     assert any(event["kind"] == "repair_reentry" for event in events)
+
+
+def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The verifier reserve may repair wording, but may not reopen research."""
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        "intelligence.services.research_contract.time.monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-sdk-verifier-reserve",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=1,
+            hard_calls_cap=2,
+            initial_seconds=1.0,
+            hard_seconds_cap=9.0,
+        ),
+    )
+    monkeypatch.setattr(
+        "intelligence.services.openai_agents_runtime.monotonic",
+        lambda: 0.0,
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="市场结构",
+                cost="local",
+                freshness="current",
+                runner=lambda _query, _context: (
+                    [
+                        AgentEvidence(
+                            tool="market_data",
+                            title="市场结构",
+                            detail="缩量下跌后上涨家数修复。",
+                            source="测试行情",
+                            source_date="2026-07-26",
+                            content_hash="sdk-verifier-reserve-market",
+                            supports=("direct_assessment",),
+                            independent_key="market",
+                        )
+                    ],
+                    "缩量下跌后上涨家数修复。",
+                    ProviderTrace("test:market", "market_data", "success"),
+                ),
+            ),
+        )
+    )
+    provider_history = object()
+    runner_calls: list[AgentsSdkRequest] = []
+
+    def sdk_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        runner_calls.append(request)
+        if len(runner_calls) == 1:
+            observed = request.tools[0].invoke("A股市场结构")
+            assert context.root_budget is not None
+            context.root_budget.consume_seconds(
+                seconds=context.root_budget.remaining_seconds
+            )
+            assert context.root_budget.remaining_calls == 0
+            assert context.root_budget.remaining_seconds == 0.0
+            clock["now"] = 31.0
+            finish = {
+                "status": "completed",
+                "draft": "本轮反弹可以持续，因为风险偏好已经全面回升。",
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": observed["evidence_hashes"],
+                        "gap": "",
+                    }
+                ],
+            }
+        else:
+            assert request._continuation_input is provider_history
+            assert request.tools == ()
+            finish = {
+                "status": "completed",
+                "draft": "当前更像缩量下跌后的修复，持续性仍取决于量能。",
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["sdk-verifier-reserve-market"],
+                        "gap": "",
+                    }
+                ],
+            }
+        return AgentsSdkResult(
+            json.dumps(finish, ensure_ascii=False),
+            1,
+            continuation_input=provider_history,
+        )
+
+    class Semantic:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def verify(self, *, structurally_verified, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return SemanticEpisodeOutcome(
+                    verified=structurally_verified,
+                    status="partial",
+                    public_answer="结论包含未被证据支持的风险偏好因果。",
+                    judge_status="rejected",
+                    gap_output_ids=("direct_assessment",),
+                    rejected_claim_indexes=(0,),
+                )
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    semantic = Semantic()
+    result = ContinuousTurnAdapter(
+        runtime=OpenAIAgentsRuntime(
+            runner=sdk_runner,
+            backend="sdk_gpt",
+            model_name="gpt-5.6-sol",
+        ),
+        semantic_verifier=semantic,
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+        timeout=120.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert result.answer == "当前更像缩量下跌后的修复，持续性仍取决于量能。"
+    assert len(runner_calls) == 2
+    assert semantic.calls == 2
+    assert result.private_artifact["repair_cycles"] == 1
 
 
 def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:
@@ -1074,6 +1227,7 @@ def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> Non
     assert result.status in {"partial", "degraded"}
     assert resume_calls == 1
     assert semantic.calls == 1
+    assert result.private_artifact["repair_cycles"] == 0
     assert result.private_artifact["semantic_verifier_stale"] is False
 
 

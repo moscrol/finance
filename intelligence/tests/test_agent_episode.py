@@ -314,6 +314,69 @@ def test_glm_episode_session_resume_keeps_original_model_history() -> None:
     assert "repair_reentry" in observed_kinds
 
 
+def test_glm_resume_uses_existing_evidence_after_research_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A closed research window forbids tools, not a bounded wording repair."""
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        research_contract_module.time,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    monkeypatch.setattr(
+        agent_episode_module,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=30.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+    model = ScriptedModel(
+        [
+            _plan_turn(answer_elements=["direct_assessment"]),
+            _tool_turn("当前市场结构"),
+            _finish_turn(draft="本轮反弹可以持续，因为风险偏好已经全面回升。"),
+            _finish_turn(draft="当前更像阶段性修复，持续性仍取决于量能。"),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    clock["now"] = 31.0
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-after-research-deadline",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=("claim_index:0",),
+            missing_evidence_modes=(),
+            attempted_actions=("market_data:test",),
+            evidence_progress=CoverageDelta(1, 1, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.status == "completed"
+    assert updated.stop_reason == "repair_model_finish"
+    assert updated.draft == "当前更像阶段性修复，持续性仍取决于量能。"
+    assert model.calls[-1]["tools"] == []
+    assert updated.usage.tool_calls == 1
+
+
 def test_episode_session_resume_bounds_every_action_by_granted_seconds() -> None:
     frame = _frame()
     context = _context(frame, max_steps=1)

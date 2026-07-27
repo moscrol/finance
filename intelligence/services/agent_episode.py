@@ -950,12 +950,17 @@ class ContinuousAgentEpisode:
         tool_session = state.tool_session
         registry = state.registry
         task_frame = state.task_frame
-        repair_seconds = min(
-            max(0.0, float(goal.remaining_seconds)),
-            context.deadline.remaining(),
-        )
+        repair_seconds = max(0.0, float(goal.remaining_seconds))
+        if context.root_budget is not None:
+            repair_seconds = min(
+                repair_seconds,
+                max(0.0, float(context.root_budget.remaining_seconds)),
+            )
         repair_deadline = ResearchDeadline.from_timeout(repair_seconds)
         repair_context = replace(context, deadline=repair_deadline)
+        repair_tool_deadline = context.deadline.bounded_stage(repair_seconds)
+        repair_tool_context = replace(context, deadline=repair_tool_deadline)
+        research_tools_open = not repair_tool_deadline.expired
         ledger.add("repair_goal", goal.to_dict())
         ledger.add(
             "repair_reentry",
@@ -974,8 +979,12 @@ class ContinuousAgentEpisode:
                         **goal.to_dict(),
                         "instruction": (
                             "保留最初任务、全部原始观察和当前工具账本。"
-                            "自主选择一个新的、未重复的动作补齐缺口；"
-                            "不得重启研究或改写用户问题。"
+                            + (
+                                "自主选择一个新的、未重复的动作补齐缺口；"
+                                if research_tools_open
+                                else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
+                            )
+                            + "不得重启研究或改写用户问题。"
                         ),
                     },
                     ensure_ascii=False,
@@ -1000,10 +1009,14 @@ class ContinuousAgentEpisode:
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
             )
-        definitions = self._available_tool_definitions(
-            tool_session=tool_session,
-            registry=registry,
-            context=repair_context,
+        definitions = (
+            self._available_tool_definitions(
+                tool_session=tool_session,
+                registry=registry,
+                context=repair_tool_context,
+            )
+            if research_tools_open
+            else []
         )
         model_started = monotonic()
         turn = self._model.complete(
@@ -1015,7 +1028,7 @@ class ContinuousAgentEpisode:
         llm_calls += turn.provider_attempts
         ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
         messages.append(self._assistant_message(turn))
-        performed_tool_action = bool(turn.tool_calls)
+        performed_tool_action = False
         if not _consume_root_seconds(repair_context, model_elapsed):
             return self._stopped_outcome(
                 task_frame=task_frame,
@@ -1050,7 +1063,10 @@ class ContinuousAgentEpisode:
             batch = tool_session.execute(
                 turn.tool_calls,
                 registry=registry,
-                context=repair_context,
+                # Tool calls remain bound to the original absolute research
+                # deadline. The repair deadline only governs model wording
+                # and binding work after retrieval closes.
+                context=repair_tool_context,
                 remaining_slots=min(
                     goal.remaining_calls,
                     (
@@ -1063,6 +1079,7 @@ class ContinuousAgentEpisode:
             )
             batch_elapsed = max(0.0, monotonic() - batch_started)
             tool_calls += batch.executed_count
+            performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
             if repair_context.root_budget is not None and batch.executed_count:
                 seconds_per_call = max(
@@ -1162,10 +1179,24 @@ class ContinuousAgentEpisode:
             evidence=tuple(accumulator.evidence),
             registry=registry,
         )
-        effective_status = finish.status if performed_tool_action else "partial"
+        revised_without_tool = (
+            finish.draft.strip() != previous.draft.strip()
+            or bindings != previous.bindings
+        )
+        completed_without_tool = (
+            not performed_tool_action
+            and finish.status == "completed"
+            and revised_without_tool
+        )
+        effective_status = (
+            finish.status
+            if performed_tool_action or completed_without_tool
+            else "partial"
+        )
         current_gaps = self._finish_gaps(finish.gaps, bindings)
-        if not performed_tool_action and not current_gaps:
+        if not performed_tool_action and not completed_without_tool and not current_gaps:
             current_gaps = ("修复轮未执行新的取证动作，缺口仍未补齐",)
+        repair_progressed = performed_tool_action or completed_without_tool
         ledger.record_runtime_result()
         ledger.add(
             "finish",
@@ -1173,7 +1204,7 @@ class ContinuousAgentEpisode:
                 "status": effective_status,
                 "stop_reason": (
                     "repair_model_finish"
-                    if performed_tool_action
+                    if repair_progressed
                     else "repair_model_stop"
                 ),
                 "bindings": [item.to_dict() for item in bindings],
@@ -1188,7 +1219,7 @@ class ContinuousAgentEpisode:
             traces=tuple(accumulator.traces),
             gaps=current_gaps,
             stop_reason=(
-                "repair_model_finish" if performed_tool_action else "repair_model_stop"
+                "repair_model_finish" if repair_progressed else "repair_model_stop"
             ),
             events=tuple(ledger.events),
             bindings=bindings,

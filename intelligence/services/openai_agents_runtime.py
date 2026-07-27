@@ -1187,16 +1187,12 @@ class OpenAIAgentsRuntime:
         # A repair grant can outlive the original research window for wording
         # or evidence-binding fixes. It must never reopen research tools once
         # that original window has closed.
-        research_tool_timeout = context.deadline.stage_timeout(
-            available_seconds
-        )
-        original_tools_open = research_tool_timeout > 0.001
         repair_deadline = ResearchDeadline.from_timeout(available_seconds)
+        repair_tool_deadline = context.deadline.bounded_stage(available_seconds)
+        repair_tool_context = replace(context, deadline=repair_tool_deadline)
+        research_tool_timeout = repair_tool_deadline.remaining()
+        original_tools_open = research_tool_timeout > 0.001
         repair_context = replace(context, deadline=repair_deadline)
-        repair_tool_context = replace(
-            context,
-            deadline=ResearchDeadline.from_timeout(research_tool_timeout),
-        )
         prefix = previous.events
         repair_goal_event = EpisodeEvent(
             len(prefix) + 1,
@@ -1213,6 +1209,9 @@ class OpenAIAgentsRuntime:
             },
         )
         state_event_start, state_gap_start = state.run_state.begin_continuation(
+            # Intersect the grant with the original absolute research-stage
+            # deadline. Re-wrapping a remaining duration would extend the
+            # window while the provider prepares the continuation request.
             context=repair_tool_context,
             next_sequence=len(prefix) + 3,
             tools_open=original_tools_open,

@@ -365,6 +365,17 @@ class ResearchDeadline:
     def expired(self) -> bool:
         return self.remaining() <= 0.0
 
+    def bounded_stage(self, configured_limit: float) -> ResearchDeadline:
+        """Intersect a child grant with this absolute research-stage window."""
+
+        limit = max(0.0, float(configured_limit))
+        return ResearchDeadline(
+            expires_at=min(
+                self.expires_at - self.synthesis_reserve,
+                time.monotonic() + limit,
+            )
+        )
+
 
 @dataclass(frozen=True)
 class ResearchPolicy:
@@ -475,7 +486,7 @@ class InMemoryRootBudgetLedger:
         seconds = float(getattr(grant, "seconds_granted", 0.0) or 0.0)
         grant_id = str(getattr(grant, "grant_id", "") or "").strip()
         episode_id = str(getattr(grant, "episode_id", "") or "").strip()
-        if calls <= 0 or seconds <= 0 or not grant_id or not episode_id:
+        if calls < 0 or seconds <= 0 or not grant_id or not episode_id:
             return False
         with self._lock:
             if episode_id != self.episode_id:

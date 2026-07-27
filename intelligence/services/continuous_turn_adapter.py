@@ -47,6 +47,9 @@ from intelligence.services.turn_control_core import TurnControlResult
 RuntimeMode = Literal["off", "canary", "on"]
 ContinuousTurnStatus = Literal["completed", "partial", "degraded", "failed"]
 CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
+_SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
+    {"model_finish", "repair_model_finish"}
+)
 # The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
 # transports can return a few seconds after their client timeout while the
 # socket/request stack unwinds.  Reserve explicit transport grace so a valid
@@ -485,11 +488,12 @@ class ContinuousTurnAdapter:
                 and repair_cycles < max_repair_cycles
                 and not repair_terminal
                 and not self._is_cancelled()
-                and not context.deadline.expired
+                and not root_deadline.expired
             ):
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
+                    delivery_deadline=root_deadline,
                     outcome=outcome,
                     structural=structural,
                     previous_snapshot=previous_snapshot,
@@ -511,7 +515,7 @@ class ContinuousTurnAdapter:
                     "repair_deadline_exhausted",
                     "repair_model_stop",
                 }
-                if outcome.stop_reason != "repair_model_stop":
+                if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
             if self._is_cancelled():
                 return _cancelled_result()
@@ -535,11 +539,12 @@ class ContinuousTurnAdapter:
                 and repair_cycles < max_repair_cycles
                 and not repair_terminal
                 and not self._is_cancelled()
-                and not context.deadline.expired
+                and not root_deadline.expired
             ):
                 repaired = self._resume_for_gap(
                     session=session,
                     context=context,
+                    delivery_deadline=root_deadline,
                     outcome=outcome,
                     structural=semantic.verified,
                     previous_snapshot=previous_snapshot,
@@ -565,12 +570,12 @@ class ContinuousTurnAdapter:
                     "repair_deadline_exhausted",
                     "repair_model_stop",
                 }
-                if outcome.stop_reason != "repair_model_stop":
+                if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
                 if (
                     repair_terminal
                     or self._is_cancelled()
-                    or context.deadline.expired
+                    or root_deadline.expired
                 ):
                     semantic_verifier_stale = True
                     break
@@ -771,6 +776,7 @@ class ContinuousTurnAdapter:
         *,
         session: object,
         context: ResearchRunContext,
+        delivery_deadline: ResearchDeadline,
         outcome: AgentOutcome,
         structural: VerifiedEpisodeOutcome,
         previous_snapshot: EvidenceLedgerSnapshot,
@@ -785,10 +791,21 @@ class ContinuousTurnAdapter:
         if root_budget is None or not callable(resume) or not episode_id:
             return None
         progress = progress_from_ledger(previous_snapshot, current_snapshot)
-        remaining_calls = max(0, int(root_budget.remaining_calls))
+        tools_open = (
+            not context.deadline.expired
+            and context.deadline.stage_timeout(1.0) > 0.001
+        )
+        remaining_calls = max(
+            0,
+            int(root_budget.hard_calls_cap) - int(root_budget.allocated_calls),
+        )
         remaining_seconds = min(
-            max(0.0, float(root_budget.remaining_seconds)),
-            max(0.0, float(context.deadline.remaining())),
+            max(
+                0.0,
+                float(root_budget.hard_seconds_cap)
+                - float(root_budget.allocated_seconds),
+            ),
+            max(0.0, float(delivery_deadline.remaining())),
         )
         goal = build_repair_goal(
             episode_id=episode_id,
@@ -810,6 +827,7 @@ class ContinuousTurnAdapter:
             progress,
             root_budget=root_budget,
             research_tier=context.contract.research_tier,
+            tools_open=tools_open,
         )
         if grant is None:
             return None

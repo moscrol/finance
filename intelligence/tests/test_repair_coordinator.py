@@ -134,6 +134,48 @@ def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
     assert root.remaining_calls == 3
 
 
+def test_closed_research_window_grants_seconds_without_tool_calls() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",),
+        covered=("direct",),
+        gaps=(),
+        family="market",
+    )
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-1",
+        missing_outputs=("direct",),
+        rejected_claims=("claim_index:0",),
+        previous_progress=progress,
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-1",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=8.0,
+        hard_seconds_cap=16.0,
+    )
+    root.consume_call(seconds=8.0)
+
+    grant = grant_for_progress(
+        goal,
+        progress,
+        root_budget=root,
+        research_tier="quick",
+        tools_open=False,
+    )
+
+    assert grant is not None
+    assert grant.calls_granted == 0
+    assert grant.seconds_granted == 8.0
+    assert root.allocated_calls == 1
+    assert root.remaining_calls == 0
+    assert root.remaining_seconds == 8.0
+
+
 def test_root_budget_rejects_a_grant_from_another_episode() -> None:
     before = _snap(evidence=(), covered=(), gaps=("counterpoint",), family="market")
     after = _snap(

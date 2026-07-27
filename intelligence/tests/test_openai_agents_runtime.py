@@ -338,6 +338,11 @@ def test_sdk_episode_debits_one_shared_root_tool_budget_across_resume() -> None:
         def stage_timeout(self, configured_limit: float) -> float:
             return min(configured_limit, self.stage_limit)
 
+        def bounded_stage(self, configured_limit: float) -> ResearchDeadline:
+            return ResearchDeadline.from_timeout(
+                self.stage_timeout(configured_limit)
+            )
+
     deadline = MutableResearchDeadline()
     context = replace(
         _context(
@@ -438,6 +443,11 @@ def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
 
         def stage_timeout(self, configured_limit: float) -> float:
             return 0.0 if self.closed else configured_limit
+
+        def bounded_stage(self, configured_limit: float) -> ResearchDeadline:
+            return ResearchDeadline.from_timeout(
+                self.stage_timeout(configured_limit)
+            )
 
     deadline = ToggleDeadline()
     root_budget = InMemoryRootBudgetLedger(
