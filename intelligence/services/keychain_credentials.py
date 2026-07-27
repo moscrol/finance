@@ -6,7 +6,6 @@ import ctypes
 import ipaddress
 import json
 import re
-import subprocess
 import sys
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -128,33 +127,53 @@ class MacOSKeychainBackend:
             self._release(refs)
 
     def load(self, *, service: str, account: str) -> bytes | None:
+        refs: list[int] = []
         try:
-            result = subprocess.run(
-                [
-                    "/usr/bin/security",
-                    "find-generic-password",
-                    "-s",
-                    service,
-                    "-a",
-                    account,
-                    "-w",
-                ],
-                check=False,
-                capture_output=True,
-                timeout=3.0,
+            service_ref = self._string(service, refs)
+            account_ref = self._string(account, refs)
+            query = self._dictionary(
+                (
+                    (
+                        self._constants["kSecClass"],
+                        self._constants["kSecClassGenericPassword"],
+                    ),
+                    (self._constants["kSecAttrService"], service_ref),
+                    (self._constants["kSecAttrAccount"], account_ref),
+                    (self._constants["kSecReturnData"], self._true),
+                    (
+                        self._constants["kSecMatchLimit"],
+                        self._constants["kSecMatchLimitOne"],
+                    ),
+                ),
+                refs,
             )
-        except (OSError, subprocess.SubprocessError) as exc:
+            result_ref = ctypes.c_void_p()
+            status = self._security.SecItemCopyMatching(
+                query,
+                ctypes.byref(result_ref),
+            )
+            if status == self._ERR_ITEM_NOT_FOUND:
+                return None
+            if status != self._ERR_SUCCESS or result_ref.value is None:
+                raise KeychainCredentialError(
+                    "unable to read Keychain credential"
+                )
+            refs.append(int(result_ref.value))
+            length = int(self._cf.CFDataGetLength(result_ref.value))
+            pointer = self._cf.CFDataGetBytePtr(result_ref.value)
+            if length <= 0 or not pointer:
+                raise KeychainCredentialError(
+                    "unable to read Keychain credential"
+                )
+            return ctypes.string_at(pointer, length)
+        except KeychainCredentialError:
+            raise
+        except (AttributeError, OSError, TypeError, ValueError) as exc:
             raise KeychainCredentialError(
                 "unable to read Keychain credential"
             ) from exc
-        if result.returncode == 44:
-            return None
-        if result.returncode != 0:
-            raise KeychainCredentialError("unable to read Keychain credential")
-        payload = result.stdout.rstrip(b"\r\n")
-        if not payload:
-            raise KeychainCredentialError("unable to read Keychain credential")
-        return payload
+        finally:
+            self._release(refs)
 
     def delete(self, *, service: str, account: str) -> None:
         refs: list[int] = []

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import ctypes
 import json
-import subprocess
 import pytest
 
 from intelligence.services import keychain_credentials
@@ -114,28 +114,86 @@ def test_keychain_failure_is_sanitized() -> None:
     assert "native failure" not in str(caught.value)
 
 
-def test_native_keychain_load_times_out_without_exposing_secret(
-    monkeypatch,
-) -> None:
-    def fake_run(command, **kwargs):
-        assert command == [
-            "/usr/bin/security",
-            "find-generic-password",
-            "-s",
-            "com.foresight.workbench.llm",
-            "-a",
-            "alice",
-            "-w",
-        ]
-        assert kwargs["capture_output"] is True
-        assert kwargs["timeout"] == 3.0
-        raise subprocess.TimeoutExpired(command, timeout=3.0)
-
-    monkeypatch.setattr(keychain_credentials.subprocess, "run", fake_run)
+def _native_backend(payload: bytes, *, status: int = 0):
     backend = MacOSKeychainBackend.__new__(MacOSKeychainBackend)
+    released: list[int] = []
+    buffer = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload)
 
-    with pytest.raises(KeychainCredentialError, match="unable to read"):
-        backend.load(service="com.foresight.workbench.llm", account="alice")
+    class FakeCoreFoundation:
+        @staticmethod
+        def CFDataGetLength(ref):
+            assert ref == 404
+            return len(payload)
+
+        @staticmethod
+        def CFDataGetBytePtr(ref):
+            assert ref == 404
+            return ctypes.cast(buffer, ctypes.POINTER(ctypes.c_uint8))
+
+    class FakeSecurity:
+        def SecItemCopyMatching(self, query, output):
+            assert query == 303
+            if status == 0:
+                ctypes.cast(
+                    output,
+                    ctypes.POINTER(ctypes.c_void_p),
+                )[0] = ctypes.c_void_p(404)
+            return status
+
+    backend._cf = FakeCoreFoundation()
+    backend._security = FakeSecurity()
+    backend._constants = {
+        "kSecClass": 1,
+        "kSecClassGenericPassword": 2,
+        "kSecAttrService": 3,
+        "kSecAttrAccount": 4,
+        "kSecReturnData": 5,
+        "kSecMatchLimit": 6,
+        "kSecMatchLimitOne": 7,
+    }
+    backend._true = 8
+
+    def fake_string(value, refs):
+        ref = 100 + len(refs)
+        refs.append(ref)
+        return ref
+
+    def fake_dictionary(pairs, refs):
+        assert (5, 8) in pairs
+        assert (6, 7) in pairs
+        refs.append(303)
+        return 303
+
+    backend._string = fake_string
+    backend._dictionary = fake_dictionary
+    backend._release = lambda refs: released.extend(refs)
+    return backend, released
+
+
+def test_native_keychain_load_copies_cfdata_and_releases_refs() -> None:
+    payload = b'{"provider":"openai","api_key":"secret-value"}'
+    backend, released = _native_backend(payload)
+
+    loaded = backend.load(
+        service="com.foresight.workbench.llm",
+        account="alice",
+    )
+
+    assert loaded == payload
+    assert released[-1] == 404
+    assert keychain_credentials.__dict__.get("subprocess") is None
+
+
+def test_native_keychain_load_returns_none_for_missing_item() -> None:
+    backend, released = _native_backend(b"unused", status=-25300)
+
+    loaded = backend.load(
+        service="com.foresight.workbench.llm",
+        account="alice",
+    )
+
+    assert loaded is None
+    assert 404 not in released
 
 
 @pytest.mark.parametrize("user_id", ("", "a" * 129))
