@@ -73,8 +73,7 @@ def _allows_evidence_free_completion(context: ResearchRunContext) -> bool:
         item for item in context.contract.required_outputs if item.required
     )
     return bool(required) and all(
-        item.grounding_mode in {"user_premise", "model_reasoning"}
-        for item in required
+        item.grounding_mode in {"user_premise", "model_reasoning"} for item in required
     )
 
 
@@ -244,6 +243,32 @@ class AgentsSdkRunner(Protocol):
     def __call__(self, request: AgentsSdkRequest) -> AgentsSdkResult: ...
 
 
+def _provider_tool_schema(
+    schema: Mapping[str, object],
+    *,
+    backend: SdkBackend,
+) -> dict[str, object]:
+    projected = copy_tool_parameters(schema)
+    if backend != "sdk_gpt":
+        return projected
+
+    def visit(value: object) -> object:
+        if isinstance(value, Mapping):
+            return {
+                str(key): visit(item)
+                for key, item in value.items()
+                if key != "uniqueItems"
+            }
+        if isinstance(value, list):
+            return [visit(item) for item in value]
+        return value
+
+    result = visit(projected)
+    if not isinstance(result, dict):
+        raise ValueError("tool schema projection must remain an object")
+    return result
+
+
 def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
     from agents import (
         Agent,
@@ -283,7 +308,10 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
             FunctionTool(
                 name=sdk_tool.name,
                 description=sdk_tool.description,
-                params_json_schema=copy_tool_parameters(sdk_tool.parameters),
+                params_json_schema=_provider_tool_schema(
+                    sdk_tool.parameters,
+                    backend=request.backend,
+                ),
                 on_invoke_tool=invoke_tool,
                 strict_json_schema=True,
                 timeout_seconds=request.timeout,
@@ -363,9 +391,7 @@ class _AgentsRunState:
         self._is_cancelled = is_cancelled
         self._authorized = {
             spec.name: spec
-            for spec in registry.authorized_specs(
-                context.contract.allowed_capabilities
-            )
+            for spec in registry.authorized_specs(context.contract.allowed_capabilities)
         }
         self._contextvars: Context = copy_context()
         self._lock = Lock()
@@ -386,9 +412,7 @@ class _AgentsRunState:
                 name=spec.name,
                 description=spec.description,
                 parameters=spec.parameters,
-                invoke=lambda arguments, name=spec.name: self.invoke(
-                    name, arguments
-                ),
+                invoke=lambda arguments, name=spec.name: self.invoke(name, arguments),
             )
             for spec in self._authorized.values()
         )
@@ -414,8 +438,7 @@ class _AgentsRunState:
                 {"tool": name, "query": prepared.display_query},
             )
             step_id = (
-                f"{self._context.trace_parent_id}:sdk:tool:"
-                f"{request_event.sequence - 1}"
+                f"{self._context.trace_parent_id}:sdk:tool:{request_event.sequence - 1}"
             )
             rejected = self._reservation_error(name, prepared)
             if rejected is not None:
@@ -495,10 +518,7 @@ class _AgentsRunState:
         if key in self._seen_queries:
             self._duplicate_queries += 1
             return "duplicate_query"
-        if (
-            spec.query_scope == "episode"
-            and name in self._successful_episode_tools
-        ):
+        if spec.query_scope == "episode" and name in self._successful_episode_tools:
             return "episode_snapshot_already_collected"
         if self._executed_count >= self._context.policy.max_steps:
             return "tool_budget_exhausted"
@@ -578,7 +598,9 @@ class OpenAIAgentsRuntime:
             and model is None
             and model_factory is None
         ):
-            raise ValueError("sdk_glm default runner requires an explicit model adapter")
+            raise ValueError(
+                "sdk_glm default runner requires an explicit model adapter"
+            )
         self._runner = runner or _run_openai_agents_sdk
         self._backend = backend
         self._model_name = model_name.strip()
@@ -706,9 +728,7 @@ class OpenAIAgentsRuntime:
                                 for item in snapshot.evidence
                             ],
                             "existing_gaps": list(snapshot.gaps),
-                            "invalid_output": _repair_output_text(
-                                result.final_output
-                            ),
+                            "invalid_output": _repair_output_text(result.final_output),
                         },
                         ensure_ascii=False,
                     ),
@@ -966,10 +986,13 @@ def _sum_optional_counts(left: int | None, right: int | None) -> int | None:
 
 def _sdk_run_error_kind(exc: Exception) -> str:
     normalized = " ".join(str(exc).lower().split())
-    if any(
-        marker in normalized
-        for marker in ("auth_unavailable", "authentication", "invalid_api_key")
-    ) or "status code: 401" in normalized:
+    if (
+        any(
+            marker in normalized
+            for marker in ("auth_unavailable", "authentication", "invalid_api_key")
+        )
+        or "status code: 401" in normalized
+    ):
         return "sdk_auth_unavailable"
     if any(
         marker in normalized

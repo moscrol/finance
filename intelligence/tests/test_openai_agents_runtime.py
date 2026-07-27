@@ -16,12 +16,14 @@ from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.openai_agents_runtime import (
     AgentsSdkRequest,
     AgentsSdkResult,
+    AgentsSdkTool,
     OpenAIAgentsRuntime,
     build_agents_model_settings,
     build_glm_sdk_model,
     build_glm_sdk_model_factory,
     build_gpt_sdk_model,
     build_gpt_sdk_model_factory,
+    _run_openai_agents_sdk,
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -529,6 +531,83 @@ def test_default_sdk_runner_uses_local_tools_and_disables_trace_export(
     assert seen["run_config"].tool_execution.max_function_tool_concurrency == 1
     assert outcome.usage.llm_calls == 2
     assert close_calls == 1
+
+
+def test_default_sdk_runner_projects_provider_compatible_tool_schema(
+    monkeypatch,
+) -> None:
+    from agents import Runner
+
+    source_schema: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "metrics": {
+                "type": "array",
+                "items": {"type": "string"},
+                "uniqueItems": True,
+            },
+            "nested": {
+                "type": "object",
+                "properties": {
+                    "values": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "uniqueItems": True,
+                    }
+                },
+                "required": ["values"],
+                "additionalProperties": False,
+            },
+        },
+        "required": ["metrics", "nested"],
+        "additionalProperties": False,
+    }
+    original_schema = json.loads(json.dumps(source_schema))
+    captured: dict[str, dict[str, object]] = {}
+
+    async def fake_run(
+        agent,
+        _user_input,
+        *,
+        context,
+        max_turns,
+        run_config,
+        **_kwargs,
+    ):
+        request = context
+        captured[request.backend] = json.loads(
+            json.dumps(agent.tools[0].params_json_schema)
+        )
+        usage = SimpleNamespace(requests=1, input_tokens=10, output_tokens=5)
+        return SimpleNamespace(
+            final_output="{}", context_wrapper=SimpleNamespace(usage=usage)
+        )
+
+    monkeypatch.setattr(Runner, "run", fake_run)
+    sdk_tool = AgentsSdkTool(
+        name="finance_query",
+        description="结构化金融查询",
+        parameters=source_schema,
+        invoke=lambda _arguments: {},
+    )
+    for backend in ("sdk_glm", "sdk_gpt"):
+        _run_openai_agents_sdk(
+            AgentsSdkRequest(
+                instructions="Use the registered finance tool.",
+                input="Inspect the current market.",
+                tools=(sdk_tool,),
+                max_turns=1,
+                timeout=5.0,
+                backend=backend,
+                model_name="fake-model",
+                model="fake-model",
+                model_settings=build_agents_model_settings(backend),
+            )
+        )
+
+    assert "uniqueItems" in json.dumps(captured["sdk_glm"])
+    assert "uniqueItems" not in json.dumps(captured["sdk_gpt"])
+    assert source_schema == original_schema
 
 
 def test_sdk_runtime_allows_one_finish_only_recovery() -> None:
