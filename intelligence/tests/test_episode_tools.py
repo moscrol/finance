@@ -391,6 +391,91 @@ def test_finance_query_invalid_semantic_field_returns_repairable_gap(
     )
 
 
+def test_finance_query_wrong_dataset_points_to_the_field_owner(
+    tmp_path: Path,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="finance-query-cross-dataset-repair",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["net_inflow_1d", "max_limit_height"],
+            "dimensions": ["trade_date"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [],
+            "limit": 5,
+        },
+        context=context,
+        step_id="finance-query-cross-dataset-repair:1",
+    )
+
+    assert observation.trace.status == "parse_error"
+    assert "net_inflow_1d" in observation.observation
+    assert "max_limit_height" in observation.observation
+    assert "mainline_sector_daily" in observation.observation
+    assert "metric" in observation.observation
+    assert "拆成多个查询" in observation.observation
+
+
+def test_finance_query_date_filter_points_to_time_range(tmp_path: Path) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="finance-query-date-filter-repair",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct"],
+            "dimensions": ["trade_date"],
+            "filters": [
+                {"field": "trade_date", "op": "eq", "value": "2026-07-24"}
+            ],
+            "group_by": [],
+            "order_by": [],
+            "limit": 5,
+        },
+        context=context,
+        step_id="finance-query-date-filter-repair:1",
+    )
+
+    assert observation.trace.status == "parse_error"
+    assert "time_range.start/time_range.end" in observation.observation
+    assert "日期不要放入 filters" in observation.observation
+
+
 @pytest.mark.parametrize(
     ("failure", "failure_code", "expected_gap"),
     [

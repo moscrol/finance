@@ -457,8 +457,7 @@ def _finance_query_failure_result(
         status = "parse_error"
         observation = (
             f"结构化查询参数无效：{str(error)[:160]}；重试提示："
-            f"{finance_query.dataset_field_hint(spec.dataset)}；"
-            "不要混用不同 dataset 的字段"
+            f"{finance_query.validation_retry_hint(spec, error)}"
         )
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
     elif isinstance(error, finance_query.FinanceQueryTimedOut):

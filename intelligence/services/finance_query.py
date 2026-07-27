@@ -517,6 +517,68 @@ def dataset_field_hint(dataset: str | None = None) -> str:
     return "；".join(parts)
 
 
+def validation_retry_hint(
+    spec: FinanceQuerySpec,
+    error: FinanceQueryValidationError,
+) -> str:
+    """Point a rejected semantic field to its registered dataset and role."""
+
+    message = str(error)
+    if message.startswith("unknown dataset:"):
+        return "dataset 可选 " + ",".join(sorted(_DATASETS))
+    if message == "date filters must use time_range":
+        return "日期不要放入 filters；请改用 time_range.start/time_range.end"
+
+    requested_fields = tuple(
+        dict.fromkeys(
+            (
+                *spec.dimensions,
+                *spec.metrics,
+                *(item.field for item in spec.filters),
+                *spec.group_by,
+                *(item.field for item in spec.order_by),
+            )
+        )
+    )
+    current = _DATASETS.get(spec.dataset)
+    problem_fields = [
+        field
+        for field in requested_fields
+        if current is None or field not in current.fields
+    ]
+    for prefix in ("not a dimension:", "not a metric:", "metric cannot be grouped:"):
+        if message.startswith(prefix):
+            field = message.removeprefix(prefix).strip()
+            if field and field not in problem_fields:
+                problem_fields.append(field)
+
+    locations: list[str] = []
+    unsupported = False
+    for field in problem_fields:
+        owners: list[str] = []
+        for dataset_name, definition in sorted(_DATASETS.items()):
+            if field in definition.dimensions:
+                owners.append(f"{dataset_name}.dimension")
+            if field in definition.metrics:
+                owners.append(f"{dataset_name}.metric")
+        if owners:
+            locations.append(f"{field}→{'/'.join(owners)}")
+        else:
+            locations.append(f"{field}→未注册")
+            unsupported = True
+
+    parts = [f"当前 dataset={spec.dataset}"]
+    if locations:
+        parts.append("字段归属：" + "，".join(locations))
+        parts.append(
+            "一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，"
+            "逐次观察结果后再汇总"
+        )
+    if not locations or unsupported:
+        parts.append(dataset_field_hint(spec.dataset))
+    return "；".join(parts)
+
+
 # Keep the provider-facing schema orthogonal and shallow.  Dataset-specific
 # field compatibility remains a code-owned invariant in ``FinanceQuerySpec``
 # and ``_compile_query``; duplicating every dataset as a top-level ``oneOf``
@@ -1096,4 +1158,5 @@ __all__ = [
     "QueryFilter",
     "TimeRange",
     "dataset_field_hint",
+    "validation_retry_hint",
 ]
