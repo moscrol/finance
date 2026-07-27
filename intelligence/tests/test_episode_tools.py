@@ -514,12 +514,14 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
     monkeypatch.setattr(
         episode_tools.ask_blocks,
         "_market_data_asof",
-        lambda *_args: "2026-07-23",
+        lambda *_args, **_kwargs: "2026-07-23",
     )
     monkeypatch.setattr(
         episode_tools.ask_blocks,
         "_market_review_mainline_context_block_for_llm",
-        lambda *_args: ("最新主线为电子\n2026-07-20启动的电力仍在观察"),
+        lambda *_args, **_kwargs: (
+            "最新主线为电子\n2026-07-20启动的电力仍在观察"
+        ),
     )
     registry = build_episode_registry(
         frame,
@@ -755,7 +757,7 @@ def test_current_market_tool_rejects_stale_block_before_model_observation(
     monkeypatch.setattr(
         episode_tools.ask_blocks,
         "_market_data_asof",
-        lambda *_args: "2025-06-30",
+        lambda *_args, **_kwargs: "2025-06-30",
     )
     monkeypatch.setattr(
         episode_tools,
@@ -894,6 +896,67 @@ def test_frozen_cutoff_caps_newer_snapshot_freshness_floor(
     assert len(result.evidence) == 1
     assert result.trace.status == "success"
     assert result.trace.served_date == "2026-07-24"
+
+
+def test_frozen_market_tool_selects_provider_rows_at_cutoff(
+    tmp_path: Path,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_market_daily(
+          trade_date date, market_stage varchar, stage_day integer,
+          total_amount double, advancers integer, limit_up integer,
+          limit_down integer, sh_index_close double, sh_index_pct_chg double,
+          industry_1 varchar, industry_1_ratio double,
+          industry_2 varchar, industry_2_ratio double,
+          industry_3 varchar, industry_3_ratio double
+        )
+        """
+    )
+    connection.execute(
+        """
+        insert into fact_market_daily values
+        ('2026-07-24', '反弹阶段', 1, 25000, 3600, 90, 5, 3850, 1.3,
+         '电子', 25, '通信', 10, '计算机', 8),
+        ('2026-07-27', '主升阶段', 2, 29000, 4200, 120, 2, 3920, 1.8,
+         '机器人', 28, '军工', 11, '医药', 9)
+        """
+    )
+    connection.close()
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="frozen-market-provider-selection",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="frozen-market-provider-selection:1",
+    )
+
+    assert result.evidence
+    assert {item.source_date for item in result.evidence} == {"2026-07-24"}
+    assert result.trace.status == "success"
+    assert result.trace.served_date == "2026-07-24"
+    assert not result.trace.detail.startswith("future_of_cutoff")
 
 
 def test_agent_finance_query_bounds_broad_result_before_model_observation(

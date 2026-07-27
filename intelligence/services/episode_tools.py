@@ -159,19 +159,30 @@ def _market_block(
     market_db_path: Path,
     subject_query: str | None = None,
 ) -> tuple[str, str, str]:
+    as_of = _structured_freshness_floor(context)
+    as_of_value = as_of.isoformat() if as_of is not None else None
     if frame.question_type == "market_forecast":
         block = "\n".join(
             part
             for part in (
-                ask_blocks._daily_market_overview_block_for_llm(market_db_path),
-                ask_blocks._market_cause_window_block_for_llm(market_db_path),
+                ask_blocks._daily_market_overview_block_for_llm(
+                    market_db_path,
+                    as_of=as_of_value,
+                ),
+                ask_blocks._market_cause_window_block_for_llm(
+                    market_db_path,
+                    as_of=as_of_value,
+                ),
             )
             if part
         )
         return block, "本地 DuckDB · 预测盘面窗口", "market_forecast_window"
     if frame.question_type == "market_cause":
         return (
-            ask_blocks._market_cause_window_block_for_llm(market_db_path),
+            ask_blocks._market_cause_window_block_for_llm(
+                market_db_path,
+                as_of=as_of_value,
+            ),
             "本地 DuckDB · 周内市场归因窗口",
             "market_cause_window",
         )
@@ -193,12 +204,16 @@ def _market_block(
                 frame.subject,
                 market_db_path,
                 fetcher=fetch_snapshot,
+                as_of=as_of_value,
             ),
             "东财快照 + 本地 DuckDB 可比集",
             "company_valuation_snapshot",
         )
     return (
-        ask_blocks._daily_market_overview_block_for_llm(market_db_path),
+        ask_blocks._daily_market_overview_block_for_llm(
+            market_db_path,
+            as_of=as_of_value,
+        ),
         "本地 DuckDB · MARKET_DAILY 市场总览",
         "market_overview",
     )
@@ -219,12 +234,17 @@ def build_episode_registry(
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = finance / "db" / "market_feature_store.duckdb"
+    freshness_floor = _structured_freshness_floor(context)
     structured_source_date = None
     if frame.question_type != "valuation_estimate":
         structured_source_date = ask_blocks._market_data_asof(  # noqa: SLF001
-            market_db_path
+            market_db_path,
+            as_of=(
+                freshness_floor.isoformat()
+                if freshness_floor is not None
+                else None
+            ),
         )
-    freshness_floor = _structured_freshness_floor(context)
     market_reference_date = context.latest_data_date or structured_source_date
     market_window_end = None
     if context.contract.evidence_plan.profile == "time_aligned_market_causal":
@@ -402,6 +422,11 @@ def build_episode_registry(
             frame.raw_question,
             frame.subject,
             market_db_path,
+            as_of=(
+                freshness_floor.isoformat()
+                if freshness_floor is not None
+                else None
+            ),
         )
         tool_context.check_cancelled()
         if not block or "当前交易日的题材级主线未知" in block:

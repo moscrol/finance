@@ -7,6 +7,7 @@ from unittest import mock
 
 from intelligence.services import llm_refine
 from intelligence.services.answer_model import resolve_theme_research_spec
+from intelligence.services.ask_blocks import _market_data_asof
 from intelligence.services.ask import (
     AskResult,
     AskOptions,
@@ -21,6 +22,7 @@ from intelligence.services.ask import (
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
     _theme_research_framing,
+    _valuation_block_for_llm,
     answer_query,
     render_answer,
     render_conversation_answer,
@@ -34,6 +36,7 @@ from intelligence.services.llm_refine import (
     build_synthesis_messages,
     synthesize,
 )
+from intelligence.services.valuation_estimate import ValuationSnapshot
 
 
 def _provider() -> LLMProvider:
@@ -429,6 +432,107 @@ class RenderComposeTests(unittest.TestCase):
 
 
 class DailyMarketOverviewTests(unittest.TestCase):
+    def test_mainline_context_selects_latest_structure_at_or_before_as_of(
+        self,
+    ) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute(
+                "insert into fact_market_daily values "
+                "('2026-07-24'), ('2026-07-27')"
+            )
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, "
+                "min_sort integer)"
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values "
+                "('2026-07-24', '人工智能', 3, 1), "
+                "('2026-07-27', '机器人', 4, 1)"
+            )
+            con.execute(
+                "create table fact_mainline_sector_daily(trade_date date)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values "
+                "('2026-07-23'), ('2026-07-27')"
+            )
+            con.close()
+
+            block = _market_review_mainline_context_block_for_llm(
+                "目前市场的主线是什么",
+                None,
+                db_path,
+                as_of="2026-07-24",
+            )
+
+        self.assertIn("截至 2026-07-24", block)
+        self.assertIn("人工智能", block)
+        self.assertNotIn("机器人", block)
+        self.assertNotIn("2026-07-27", block)
+
+    def test_market_blocks_select_latest_row_at_or_before_as_of(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  market_stage varchar,
+                  stage_day integer,
+                  total_amount double,
+                  advancers integer,
+                  limit_up integer,
+                  limit_down integer,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  industry_1 varchar,
+                  industry_1_ratio double,
+                  industry_2 varchar,
+                  industry_2_ratio double,
+                  industry_3 varchar,
+                  industry_3_ratio double
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-23', '下跌', 1, 23000, 900, 20, 80, 3800, -1.0,
+                 '银行', 12, '煤炭', 8, '电力', 7),
+                ('2026-07-24', '反弹', 1, 25000, 3600, 90, 5, 3850, 1.3,
+                 '电子', 25, '通信', 10, '计算机', 8),
+                ('2026-07-27', '主升', 2, 29000, 4200, 120, 2, 3920, 1.8,
+                 '机器人', 28, '军工', 11, '医药', 9)
+                """
+            )
+            con.close()
+
+            overview = _daily_market_overview_block_for_llm(
+                db_path,
+                as_of="2026-07-24",
+            )
+            window = _market_cause_window_block_for_llm(
+                db_path,
+                as_of="2026-07-24",
+            )
+            selected_date = _market_data_asof(
+                db_path,
+                as_of="2026-07-24",
+            )
+
+        self.assertEqual(selected_date, "2026-07-24")
+        self.assertIn("市场数据截至：2026-07-24", overview)
+        self.assertNotIn("2026-07-27", overview)
+        self.assertIn("2026-07-23 ~ 2026-07-24", window)
+        self.assertNotIn("2026-07-27", window)
+
     def test_market_cause_block_names_industry_ratio_as_turnover_share(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:
@@ -574,6 +678,60 @@ class DailyMarketOverviewTests(unittest.TestCase):
 
 
 class MarketValueBlockTests(unittest.TestCase):
+    def test_valuation_uses_local_anchor_when_provider_snapshot_exceeds_as_of(
+        self,
+    ) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                "create table fact_stock_daily("
+                "trade_date date, stock_ts_code varchar, stock_name varchar)"
+            )
+            con.execute(
+                "insert into fact_stock_daily values "
+                "('2026-07-24', '688323.SH', '瑞华泰'), "
+                "('2026-07-27', '688323.SH', '瑞华泰'), "
+                "('2026-07-24', '688295.SH', '中复神鹰')"
+            )
+            con.execute(
+                "create table fact_sector_stock_daily("
+                "trade_date date, stock_ts_code varchar, stock_name varchar, "
+                "sector_name varchar, amount double, total_mcap_yi double)"
+            )
+            con.execute(
+                "insert into fact_sector_stock_daily values "
+                "('2026-07-24', '688323.SH', '瑞华泰', '新材料', 3.7, 49.5), "
+                "('2026-07-24', '688295.SH', '中复神鹰', '新材料', 8.0, 160), "
+                "('2026-07-27', '688323.SH', '瑞华泰', '机器人', 4.1, 52.6)"
+            )
+            con.close()
+
+            def future_snapshot(code: str, name: str = "") -> ValuationSnapshot:
+                return ValuationSnapshot(
+                    ts_code=code,
+                    name=name or code,
+                    total_mv_yi=99.0,
+                    pe_ttm=88.0,
+                    pb=9.0,
+                    source_date="2026-07-27",
+                )
+
+            block = _valuation_block_for_llm(
+                "瑞华泰的合理估值",
+                None,
+                db_path,
+                fetcher=future_snapshot,
+                as_of="2026-07-24",
+            )
+
+        self.assertIn("总市值 49.5 亿", block)
+        self.assertIn("估值快照日期：2026-07-24", block)
+        self.assertIn("本地 DuckDB 市值快照", block)
+        self.assertNotIn("2026-07-27", block)
+        self.assertNotIn("PE(TTM) 88", block)
+
     def test_market_value_block_adds_car_drawdown_and_alternative_queue(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:

@@ -156,6 +156,8 @@ def _mainline_context_block_for_llm(
     theme: str | None,
     market_db_path: str | Path | None,
     lookback_days: int = 20,
+    *,
+    as_of: str | None = None,
 ) -> str:
     """Build the D4 mainline-theme structure block from local DuckDB.
 
@@ -179,7 +181,11 @@ def _mainline_context_block_for_llm(
         ).fetchone()[0]
         if not exists:
             return ""
-        latest = con.execute("select max(trade_date) from fact_mainline_sector_daily").fetchone()[0]
+        latest = con.execute(
+            "select max(trade_date) from fact_mainline_sector_daily "
+            "where (? is null or trade_date <= cast(? as date))",
+            [as_of, as_of],
+        ).fetchone()[0]
         if not latest:
             return ""
         target_theme = _resolve_mainline_theme(con, query, theme, latest)
@@ -286,8 +292,10 @@ def _market_review_mainline_context_block_for_llm(
     query: str,
     theme: str | None,
     market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
 ) -> str:
-    market_date = _market_data_asof(market_db_path)
+    market_date = _market_data_asof(market_db_path, as_of=as_of)
     db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
     if not market_date or not db_path.exists():
         return ""
@@ -310,7 +318,9 @@ def _market_review_mainline_context_block_for_llm(
             themes: list[tuple[str, int]] = []
             if "fact_mainline_theme_daily" in table_names:
                 row = con.execute(
-                    "select max(trade_date) from fact_mainline_theme_daily"
+                    "select max(trade_date) from fact_mainline_theme_daily "
+                    "where trade_date <= cast(? as date)",
+                    [market_date],
                 ).fetchone()
                 theme_date = str(row[0]) if row and row[0] else None
                 if theme_date == market_date:
@@ -331,7 +341,9 @@ def _market_review_mainline_context_block_for_llm(
             sector_date = None
             if "fact_mainline_sector_daily" in table_names:
                 row = con.execute(
-                    "select max(trade_date) from fact_mainline_sector_daily"
+                    "select max(trade_date) from fact_mainline_sector_daily "
+                    "where trade_date <= cast(? as date)",
+                    [market_date],
                 ).fetchone()
                 sector_date = str(row[0]) if row and row[0] else None
         finally:
@@ -339,7 +351,12 @@ def _market_review_mainline_context_block_for_llm(
     except Exception:
         return ""
     if sector_date == market_date:
-        return _mainline_context_block_for_llm(query, theme, market_db_path)
+        return _mainline_context_block_for_llm(
+            query,
+            theme,
+            market_db_path,
+            as_of=market_date,
+        )
     lines = ["## 市场复盘主线数据边界"]
     if theme_date == market_date and themes:
         theme_text = "、".join(name for name, _ in themes)
@@ -586,6 +603,8 @@ def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DB
 
 def _daily_market_overview_block_for_llm(
     market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
 ) -> str:
     db_path = (
         Path(market_db_path).expanduser()
@@ -651,9 +670,11 @@ def _daily_market_overview_block_for_llm(
             f"""
             select {", ".join(select_columns)}
             from fact_market_daily
+            where (? is null or trade_date <= cast(? as date))
             order by trade_date desc
             limit 1
-            """
+            """,
+            [as_of, as_of],
         ).fetchone()
         if not row or not row[0]:
             return ""
@@ -707,7 +728,9 @@ def _daily_market_overview_block_for_llm(
         theme_date = None
         if "fact_mainline_theme_daily" in table_names:
             theme_date_row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily"
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [trade_date],
             ).fetchone()
             theme_date = theme_date_row[0] if theme_date_row else None
             if theme_date:
@@ -736,7 +759,9 @@ def _daily_market_overview_block_for_llm(
 
         if "fact_mainline_sector_daily" in table_names:
             sector_date_row = con.execute(
-                "select max(trade_date) from fact_mainline_sector_daily"
+                "select max(trade_date) from fact_mainline_sector_daily "
+                "where trade_date <= cast(? as date)",
+                [trade_date],
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
@@ -761,6 +786,7 @@ def _market_cause_window_block_for_llm(
     market_db_path: str | Path | None,
     *,
     window: int = 5,
+    as_of: str | None = None,
 ) -> str:
     """固定口径输出最近 N 个交易日的市场变化，供原因归因工具使用。
 
@@ -788,10 +814,11 @@ def _market_cause_window_block_for_llm(
                    sh_index_pct_chg, industry_1, industry_1_ratio,
                    industry_2, industry_2_ratio, industry_3, industry_3_ratio
             from fact_market_daily
+            where (? is null or trade_date <= cast(? as date))
             order by trade_date desc
             limit ?
             """,
-            [max(2, min(int(window), 10))],
+            [as_of, as_of, max(2, min(int(window), 10))],
         ).fetchall()
         if not rows:
             return ""
@@ -844,7 +871,11 @@ def _market_cause_window_block_for_llm(
             pass
 
 
-def _market_data_asof(market_db_path: str | Path | None) -> str | None:
+def _market_data_asof(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+) -> str | None:
     """盘面库 fact_market_daily 最新交易日（回检块新鲜度自检用）；库/duckdb 不可用返回 None。"""
     db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
     if not db_path.exists():
@@ -854,7 +885,11 @@ def _market_data_asof(market_db_path: str | Path | None) -> str | None:
 
         con = retrieval_cache.connect_readonly(db_path)
         try:
-            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+            row = con.execute(
+                "SELECT MAX(trade_date) FROM fact_market_daily "
+                "WHERE (? IS NULL OR trade_date <= CAST(? AS DATE))",
+                [as_of, as_of],
+            ).fetchone()
         finally:
             con.close()
         return str(row[0]) if row and row[0] else None
@@ -1254,6 +1289,8 @@ def _valuation_block_for_llm(
     theme: str | None,
     market_db_path: str | Path | None,
     fetcher: Any = None,
+    *,
+    as_of: str | None = None,
 ) -> str:
     """Build the D5 valuation block: target snapshot + same-theme peer band.
 
@@ -1267,6 +1304,7 @@ def _valuation_block_for_llm(
     target_code: str | None = None
     target_name = ""
     peer_codes: list[tuple[str, str]] = []
+    local_snapshots: dict[str, valuation_estimate.ValuationSnapshot] = {}
     if db_path.exists():
         try:
             import duckdb  # type: ignore
@@ -1277,11 +1315,21 @@ def _valuation_block_for_llm(
                 if stock:
                     target_code, target_name = stock
                     latest = con.execute(
-                        "select max(trade_date) from fact_sector_stock_daily where stock_ts_code=?",
-                        [target_code],
+                        "select max(trade_date) from fact_sector_stock_daily "
+                        "where stock_ts_code=? "
+                        "and (? is null or trade_date <= cast(? as date))",
+                        [target_code, as_of, as_of],
                     ).fetchone()
                     latest_date = latest[0] if latest else None
                     if latest_date is not None:
+                        local_target = _local_valuation_snapshot(
+                            con,
+                            target_code,
+                            target_name,
+                            str(latest_date),
+                        )
+                        if local_target is not None:
+                            local_snapshots[target_code] = local_target
                         sector_rows = con.execute(
                             """
                             select sector_name from fact_sector_stock_daily
@@ -1301,6 +1349,15 @@ def _valuation_block_for_llm(
                                 [latest_date, sectors[0], target_code],
                             ).fetchall()
                             peer_codes = [(str(c), str(n or c)) for c, n in rows]
+                            for peer_code, peer_name in peer_codes:
+                                local_peer = _local_valuation_snapshot(
+                                    con,
+                                    peer_code,
+                                    peer_name,
+                                    str(latest_date),
+                                )
+                                if local_peer is not None:
+                                    local_snapshots[peer_code] = local_peer
             finally:
                 con.close()
         except Exception:
@@ -1311,8 +1368,59 @@ def _valuation_block_for_llm(
             return ""
         target_code = code_match.group(1)
     target = fetch(target_code, target_name)
-    peers = valuation_estimate.snapshots_for(peer_codes, fetcher=fetch)
+    if not _valuation_snapshot_within_as_of(target, as_of):
+        target = local_snapshots.get(target_code)
+    peers = []
+    for peer_code, peer_name in peer_codes:
+        candidate = fetch(peer_code, peer_name)
+        if not _valuation_snapshot_within_as_of(candidate, as_of):
+            candidate = local_snapshots.get(peer_code)
+        if candidate is not None:
+            peers.append(candidate)
     return valuation_estimate.build_valuation_block(target, peers)
+
+
+def _valuation_snapshot_within_as_of(
+    snapshot: valuation_estimate.ValuationSnapshot | None,
+    as_of: str | None,
+) -> bool:
+    if snapshot is None:
+        return False
+    if not as_of:
+        return True
+    source_date = str(snapshot.source_date or "")[:10]
+    return bool(source_date) and source_date <= str(as_of)[:10]
+
+
+def _local_valuation_snapshot(
+    con: Any,
+    stock_code: str,
+    stock_name: str,
+    trade_date: str,
+) -> valuation_estimate.ValuationSnapshot | None:
+    try:
+        row = con.execute(
+            """
+            select stock_name, total_mcap_yi
+            from fact_sector_stock_daily
+            where trade_date = cast(? as date) and stock_ts_code = ?
+              and total_mcap_yi is not null and total_mcap_yi > 0
+            order by amount desc nulls last
+            limit 1
+            """,
+            [trade_date, stock_code],
+        ).fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    return valuation_estimate.ValuationSnapshot(
+        ts_code=stock_code,
+        name=str(row[0] or stock_name or stock_code),
+        total_mv_yi=float(row[1]),
+        source_date=str(trade_date)[:10],
+        source="本地 DuckDB 市值快照",
+    )
 
 
 def _financials_block_for_llm(
