@@ -1161,8 +1161,6 @@ class OpenAIAgentsRuntime:
         previous: AgentOutcome,
         goal: RepairGoal,
     ) -> AgentOutcome:
-        if state.continuation_input is None:
-            raise EpisodeSessionError("SDK provider continuation was not captured")
         context = state.context
         root_budget = context.root_budget
         available_calls = max(0, int(goal.remaining_calls))
@@ -1192,6 +1190,10 @@ class OpenAIAgentsRuntime:
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tool_timeout = repair_tool_deadline.remaining()
         original_tools_open = research_tool_timeout > 0.001
+        if state.continuation_input is None and original_tools_open:
+            raise EpisodeSessionError(
+                "SDK provider continuation is required to reopen research tools"
+            )
         repair_context = replace(context, deadline=repair_deadline)
         prefix = previous.events
         repair_goal_event = EpisodeEvent(
@@ -1206,6 +1208,11 @@ class OpenAIAgentsRuntime:
                 "episode_id": goal.episode_id,
                 "repair_goal_id": goal.repair_goal_id,
                 "cycle": goal.cycle,
+                "continuation_mode": (
+                    "provider_history"
+                    if state.continuation_input is not None
+                    else "canonical_snapshot"
+                ),
             },
         )
         state_event_start, state_gap_start = state.run_state.begin_continuation(
@@ -1218,6 +1225,31 @@ class OpenAIAgentsRuntime:
             call_limit=available_calls,
         )
         tools = state.run_state.tools()
+        repair_snapshot = state.run_state.snapshot()
+        repair_input: dict[str, object] = {
+            "kind": "REPAIR_GOAL",
+            **_bounded_repair_goal(effective_goal),
+        }
+        if state.continuation_input is None:
+            repair_input.update(
+                {
+                    "task": json.loads(
+                        build_episode_input(
+                            state.task_frame,
+                            repair_context,
+                        )
+                    ),
+                    "evidence": [
+                        public_agent_evidence(item)
+                        for item in repair_snapshot.evidence
+                    ],
+                    "existing_draft": previous.draft,
+                    "existing_bindings": [
+                        binding.to_dict() for binding in previous.bindings
+                    ],
+                    "existing_gaps": list(previous.gaps),
+                }
+            )
         request = AgentsSdkRequest(
             instructions=(
                 build_episode_instructions(
@@ -1232,14 +1264,14 @@ class OpenAIAgentsRuntime:
                     if tools
                     else "研究工具已关闭；只允许基于已有观察修复措辞或证据绑定。"
                 )
+                + (
+                    ""
+                    if state.continuation_input is not None
+                    else "上轮因有界超时未返回 provider history；本轮给出的 canonical "
+                    "snapshot 是同一 episode 的权威状态，只能据此完成交付，不得重启研究。"
+                )
             ),
-            input=json.dumps(
-                {
-                    "kind": "REPAIR_GOAL",
-                    **_bounded_repair_goal(effective_goal),
-                },
-                ensure_ascii=False,
-            ),
+            input=json.dumps(repair_input, ensure_ascii=False),
             tools=tools,
             max_turns=max(1, available_calls + 1) if tools else 1,
             timeout=available_seconds,

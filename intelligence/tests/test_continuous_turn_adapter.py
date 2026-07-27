@@ -676,6 +676,134 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
     assert result.private_artifact["repair_cycles"] == 1
 
 
+def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A timed-out research turn may still bind evidence in its reserved window."""
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        "intelligence.services.research_contract.time.monotonic",
+        lambda: clock["now"],
+    )
+    monkeypatch.setattr(
+        "intelligence.services.openai_agents_runtime.monotonic",
+        lambda: 0.0,
+    )
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-sdk-timeout-delivery-repair",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=1,
+            hard_calls_cap=2,
+            initial_seconds=1.0,
+            hard_seconds_cap=9.0,
+        ),
+    )
+    evidence_hash = "sdk-timeout-delivery-evidence"
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="市场结构",
+                cost="local",
+                freshness="current",
+                runner=lambda _query, _context: (
+                    [
+                        AgentEvidence(
+                            tool="market_data",
+                            title="市场结构",
+                            detail="周内先涨后跌，最后一个交易日出现放量回撤。",
+                            source="测试行情",
+                            source_date="2026-07-24",
+                            content_hash=evidence_hash,
+                            independent_key="market-window",
+                        )
+                    ],
+                    "周内先涨后跌，最后一个交易日出现放量回撤。",
+                    ProviderTrace("test:market", "market_data", "success"),
+                ),
+            ),
+        )
+    )
+    runner_calls: list[AgentsSdkRequest] = []
+
+    def sdk_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        runner_calls.append(request)
+        if len(runner_calls) == 1:
+            observed = request.tools[0].invoke("A股周内结构")
+            assert observed["evidence_hashes"] == [evidence_hash]
+            assert context.root_budget is not None
+            context.root_budget.consume_seconds(
+                seconds=context.root_budget.remaining_seconds
+            )
+            clock["now"] = 31.0
+            raise TimeoutError("research turn exhausted")
+        assert request.tools == ()
+        assert request._continuation_input is None
+        repair_input = json.loads(request.input)
+        assert repair_input["kind"] == "REPAIR_GOAL"
+        assert repair_input["evidence"][0]["content_hash"] == evidence_hash
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "这一周并非单边下跌，更准确地说是周五回撤。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": [evidence_hash],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=OpenAIAgentsRuntime(
+            runner=sdk_runner,
+            backend="sdk_gpt",
+            model_name="gpt-5.6-sol",
+        ),
+        semantic_verifier=Semantic(),
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+        timeout=120.0,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert result.answer == "这一周并非单边下跌，更准确地说是周五回撤。"
+    assert len(runner_calls) == 2
+    assert result.private_artifact["repair_cycles"] == 1
+    events = result.private_artifact["events"]
+    assert any(event["kind"] == "repair_goal" for event in events)
+    assert any(event["kind"] == "repair_reentry" for event in events)
+
+
 def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:
     frame = _frame(required_outputs=("direct_assessment",))
     control = _control(frame, capabilities=("market_data",))

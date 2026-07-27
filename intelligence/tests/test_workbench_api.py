@@ -1715,6 +1715,37 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
     assert "本轮执行超时" in messages[-1]["degrades"]
 
 
+def test_executor_runner_exception_terminalizes_run_and_pending_message(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def broken_turn(**_kwargs: object) -> None:
+        raise RuntimeError("private provider construction detail")
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", broken_turn)
+    conversation_id = client.post(
+        "/api/conversations",
+        json={"title": "后台异常", "user": "alice"},
+    ).json()["conversation_id"]
+    run_id = client.post(
+        f"/api/conversations/{conversation_id}/messages",
+        json={"content": "触发后台异常", "skill_mode": "auto", "user": "alice"},
+    ).json()["run_id"]
+
+    run = _wait_terminal(client, run_id, user="alice")
+    messages = client.get(
+        f"/api/conversations/{conversation_id}/messages",
+        params={"user": "alice"},
+    ).json()
+
+    assert run["status"] == "failed"
+    assert run["error"] == "executor_failure"
+    assert run["degrades"] == ["executor_failure"]
+    assert "private provider construction detail" not in json.dumps(run)
+    assert messages[-1]["status"] == "failed"
+    assert "本轮执行未完成" in messages[-1]["degrades"]
+
+
 def test_executor_timeout_loser_cannot_fail_message_after_completed_claim(
     tmp_path,
     monkeypatch,

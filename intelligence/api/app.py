@@ -635,7 +635,7 @@ class RunSupervisor:
             self._signals[key] = signal
             if on_terminal is not None:
                 self._terminal_handlers[key] = on_terminal
-        future.add_done_callback(lambda _: self._forget(key))
+        future.add_done_callback(lambda completed: self._forget(key, completed))
         timer.start()
 
     def cancel(self, store: RunStore, run_id: str) -> bool:
@@ -675,15 +675,27 @@ class RunSupervisor:
             timer.cancel()
         self._executor.shutdown(wait=False, cancel_futures=True)
 
-    def _forget(self, key: tuple[str, str]) -> None:
+    def _forget(self, key: tuple[str, str], future: Future[None]) -> None:
         with self._lock:
             self._futures.pop(key, None)
             timer = self._timers.pop(key, None)
-            self._stores.pop(key, None)
+            store = self._stores.pop(key, None)
             self._signals.pop(key, None)
-            self._terminal_handlers.pop(key, None)
+            terminal_handler = self._terminal_handlers.pop(key, None)
         if timer is not None:
             timer.cancel()
+        if future.cancelled() or store is None:
+            return
+        if future.exception() is None:
+            return
+        run_id = key[1]
+        _, claimed = store.claim_failed_run(
+            run_id,
+            error="executor_failure",
+            degrade="executor_failure",
+        )
+        if claimed and terminal_handler is not None:
+            terminal_handler("executor_failure")
 
     def _expire(
         self,
@@ -885,7 +897,15 @@ def _terminalize_pending_message(
     }:
         return
     status = rs.STATUS_CANCELLED if reason == "cancelled_by_user" else rs.STATUS_FAILED
-    warning = "用户已取消本轮执行" if status == rs.STATUS_CANCELLED else "本轮执行超时"
+    warning = (
+        "用户已取消本轮执行"
+        if status == rs.STATUS_CANCELLED
+        else (
+            "本轮执行超时"
+            if reason == "executor_timeout"
+            else "本轮执行未完成"
+        )
+    )
     message = conversation_store.revise_message(
         conversation_id,
         message_id,

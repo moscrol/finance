@@ -268,12 +268,54 @@ def grant_for_progress(
     return grant if root_budget.grant(grant) else None
 
 
+def grant_for_delivery_repair(
+    goal: RepairGoal,
+    *,
+    root_budget: RootBudgetLedger,
+    research_tier: str,
+    evidence_count: int,
+) -> BudgetGrant | None:
+    """Grant one tool-closed delivery turn from already collected evidence.
+
+    Research continuation still requires provenance-backed coverage progress via
+    :func:`grant_for_progress`.  This narrower grant exists for the opposite
+    seam: the research turn timed out *after* collecting evidence but *before*
+    it produced a draft or bindings.  Requiring an already-closed output gap in
+    that state would make repair conditional on the work repair must perform.
+
+    The grant cannot reopen tools, cannot run without evidence, and remains
+    bounded by the code-owned tier cycle cap and root seconds ledger.
+    """
+
+    if evidence_count <= 0:
+        return None
+    if goal.cycle < 1 or goal.cycle > max_repair_cycles_for_tier(research_tier):
+        return None
+    if not goal.missing_answer_elements:
+        return None
+    if goal.remaining_seconds < 1.0:
+        return None
+    work_units = min(4, max(1, len(goal.missing_answer_elements)))
+    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    if seconds < 1.0:
+        return None
+    grant = BudgetGrant(
+        grant_id=f"delivery-grant-{goal.repair_goal_id}",
+        episode_id=goal.episode_id,
+        cycle=goal.cycle,
+        calls_granted=0,
+        seconds_granted=seconds,
+    )
+    return grant if root_budget.grant(grant) else None
+
+
 __all__ = [
     "BudgetGrant",
     "CoverageDelta",
     "ProgressSnapshot",
     "RepairGoal",
     "build_repair_goal",
+    "grant_for_delivery_repair",
     "grant_for_progress",
     "max_repair_cycles_for_tier",
     "progress_from_ledger",

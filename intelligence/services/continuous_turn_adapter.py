@@ -34,6 +34,7 @@ from intelligence.services.episode_verifier import (
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
     build_repair_goal,
+    grant_for_delivery_repair,
     grant_for_progress,
     max_repair_cycles_for_tier,
     progress_from_ledger,
@@ -829,6 +830,19 @@ class ContinuousTurnAdapter:
             research_tier=context.contract.research_tier,
             tools_open=tools_open,
         )
+        if (
+            grant is None
+            and not tools_open
+            and outcome.evidence
+            and structural.missing_outputs
+            and (not outcome.draft.strip() or not outcome.bindings)
+        ):
+            grant = grant_for_delivery_repair(
+                goal,
+                root_budget=root_budget,
+                research_tier=context.contract.research_tier,
+                evidence_count=len(outcome.evidence),
+            )
         if grant is None:
             return None
         granted_goal = replace(

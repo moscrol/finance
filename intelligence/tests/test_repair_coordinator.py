@@ -1,6 +1,7 @@
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.repair_coordinator import (
     build_repair_goal,
+    grant_for_delivery_repair,
     grant_for_progress,
     progress_from_ledger,
     should_reenter,
@@ -174,6 +175,56 @@ def test_closed_research_window_grants_seconds_without_tool_calls() -> None:
     assert root.allocated_calls == 1
     assert root.remaining_calls == 0
     assert root.remaining_seconds == 8.0
+
+
+def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = EvidenceLedgerSnapshot(
+        evidence_ids=("e1",),
+        covered_outputs=(),
+        open_gaps=("direct",),
+        independent_source_families=("news",),
+        evidence_source_families=(("e1", "news"),),
+        evidence_targets=(("e1", ()),),
+    )
+    progress = progress_from_ledger(before, after)
+    assert not progress.coverage_delta.progressed
+    goal = build_repair_goal(
+        episode_id="episode-delivery",
+        missing_outputs=("direct",),
+        previous_progress=progress,
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    research_root = InMemoryRootBudgetLedger(
+        episode_id="episode-delivery",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=1.0,
+        hard_seconds_cap=9.0,
+    )
+    research_root.consume_seconds(seconds=1.0)
+
+    assert (
+        grant_for_progress(
+            goal,
+            progress,
+            root_budget=research_root,
+            research_tier="standard",
+            tools_open=False,
+        )
+        is None
+    )
+    grant = grant_for_delivery_repair(
+        goal,
+        root_budget=research_root,
+        research_tier="standard",
+        evidence_count=1,
+    )
+
+    assert grant is not None
+    assert grant.calls_granted == 0
+    assert grant.seconds_granted == 8.0
 
 
 def test_root_budget_rejects_a_grant_from_another_episode() -> None:
