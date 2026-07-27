@@ -4,9 +4,9 @@ Date: 2026-07-27
 
 Branch: `feat/agent-runtime-backends-verify`
 
-Current branch tip: `efe928bd` (documentation-only follow-up)
+Current branch tip before this documentation update: `bc774893`
 
-Latest product-code tip: `d686bb9e`
+Latest product-code tip: `4caf0bff`
 
 Canonical 8792 and `main`: untouched.
 
@@ -30,7 +30,7 @@ Canonical 8792 and `main`: untouched.
 The implementation and deterministic contract gates are green, but the final
 representative live gate is not green yet.
 
-- Full `intelligence/tests`: `2868 passed, 2 skipped, 11 known baseline failures`.
+- Full `intelligence/tests`: `2899 passed, 2 skipped, 11 known baseline failures`.
 - The 11 failures are existing `subconscious/userspace` machine-path
   contamination and are outside the adaptive runtime modules.
 - The benchmark summary now fails closed for every `status=failed` arm;
@@ -50,6 +50,28 @@ representative live gate is not green yet.
 - Port 8798 is not evidence for this candidate: it is still running revision
   `e0b82890`, although its already-running process reports an in-memory provider.
 
+## Offline hardening after the bounded-timeout canary
+
+The external provider credential is no longer a development-loop blocker. Live
+provider checks are deferred until the final canary; all independent work
+continues offline.
+
+| Commit | Shared seam hardened | Verification |
+|---|---|---|
+| `606a71a6` | Evidence already collected before an SDK timeout can enter one tool-closed delivery repair; background executor failures terminalize the Run and pending message | focused delivery-repair and supervisor tests |
+| `11be2d81` | Explicit dates in a news query can only narrow the episode cutoff | market-news and AgentToolContext tests |
+| `56230b74` | SDK tool and repair events stream before runtime completion through the same safe Episode progress projection | runtime ordering, API wiring, payload-redaction tests |
+| `f9b30850` | Causal web evidence is also constrained to the market window | web future-filter regression |
+| `4caf0bff` | One registry-owned effective cutoff now drives tool execution, future filtering, ProviderTrace, and QueryLedger; historical windows and yearless Chinese dates are preserved | `265 passed, 1 skipped` focused combination |
+| `bc774893` | Historical web proof uses task window `2026-07-05` while the database is at `2026-07-24` | dedicated non-same-day regression |
+
+Independent two-axis review initially found one legacy `None`-cutoff crash,
+duplicated cutoff enforcement, a historical-window mismatch, and missing
+yearless web dates. The product defects were fixed in `4caf0bff`; Standards
+re-review passed. The remaining Spec finding was a missing historical-web proof,
+closed by `bc774893`. No route, skill, output template, or verifier threshold was
+added or loosened.
+
 ## Non-actions
 
 - No secret was printed, copied, exported, or committed.
@@ -62,7 +84,9 @@ representative live gate is not green yet.
 
 Current decision: `implementation_complete_live_release_pending`.
 
-The remaining action is one fresh-provider authorization (or a new explicit
-provider submission), followed by exactly one frozen five-case live run. The
-goal must remain active until that evidence exists; implementation green is not
-the same as release green.
+The remaining external action is one fresh-provider authorization (or a new
+explicit provider submission), followed first by exactly one frozen causal
+canary: `这一周行情下跌的主要原因是什么`. Wider representative evaluation only
+runs after that shared-seam canary is green; it is not used as a repeated
+development loop. The goal remains active until live evidence exists because
+implementation green is not the same as release green.
