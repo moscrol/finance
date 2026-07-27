@@ -1359,6 +1359,98 @@ def test_repair_deadline_stop_prevents_another_repair_or_semantic_cycle() -> Non
     assert result.private_artifact["semantic_verifier_stale"] is False
 
 
+def test_sdk_timeout_delivery_repair_is_admitted_only_once_per_cycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        "intelligence.services.research_contract.time.monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-single-timeout-delivery-repair",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="周内市场结构",
+        detail="本周指数整体上涨，最后一个交易日出现回撤。",
+        source="本地行情",
+        source_date="2026-07-24",
+        content_hash="single-timeout-delivery-evidence",
+        independent_key="market-window",
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="",
+        evidence=(evidence,),
+        traces=(ProviderTrace("test:market", "market_data", "success"),),
+        gaps=("sdk_timeout",),
+        stop_reason="sdk_timeout",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=(),
+        usage=AgentUsage(1, 1, 1),
+    )
+    resume_calls = 0
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+            clock["now"] = 31.0
+
+            def resume(_previous, _goal):
+                nonlocal resume_calls
+                resume_calls += 1
+                if resume_calls > 1:
+                    raise AssertionError("one timed-out repair must not reenter")
+                return replace(
+                    initial,
+                    events=(
+                        *initial.events,
+                        EpisodeEvent(
+                            2,
+                            "model_turn",
+                            {"phase": "repair", "error": "sdk_timeout"},
+                        ),
+                    ),
+                    usage=AgentUsage(2, 1, 2),
+                )
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="partial",
+                public_answer="现有证据未能在交付时限内形成完整回答。",
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        timeout=90.0,
+    ).handle(frame=frame, control=control)
+
+    assert resume_calls == 1
+    assert result.private_artifact["repair_attempts"] == 1
+    assert result.private_artifact["repair_cycles"] == 0
+
+
 def test_episode_deadline_expiry_still_uses_root_semantic_reserve() -> None:
     frame = _frame()
     control = _control(frame)

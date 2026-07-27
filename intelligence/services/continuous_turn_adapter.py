@@ -51,6 +51,14 @@ CONTINUOUS_FAST_PATH_TYPES = frozenset({"market_technical"})
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
+_TERMINAL_REPAIR_STOP_REASONS = frozenset(
+    {
+        "repair_deadline_exhausted",
+        "repair_model_stop",
+        "sdk_invalid_repair_finish",
+        "sdk_timeout",
+    }
+)
 # The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
 # transports can return a few seconds after their client timeout while the
 # socket/request stack unwinds.  Reserve explicit transport grace so a valid
@@ -382,6 +390,7 @@ class ContinuousTurnAdapter:
         semantic: SemanticEpisodeOutcome | None = None
         session: object | None = None
         repair_cycles = 0
+        repair_attempts = 0
         semantic_verifier_stale = False
         attempts_before = _ledger_attempt_count()
         try:
@@ -486,7 +495,7 @@ class ContinuousTurnAdapter:
             while (
                 session is not None
                 and structural.missing_outputs
-                and repair_cycles < max_repair_cycles
+                and repair_attempts < max_repair_cycles
                 and not repair_terminal
                 and not self._is_cancelled()
                 and not root_deadline.expired
@@ -499,11 +508,12 @@ class ContinuousTurnAdapter:
                     structural=structural,
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
-                    cycle=repair_cycles + 1,
+                    cycle=repair_attempts + 1,
                     rejected_claims=(),
                 )
                 if repaired is None:
                     break
+                repair_attempts += 1
                 previous_snapshot = current_snapshot
                 outcome, structural = repaired
                 current_snapshot = _repair_snapshot(
@@ -512,10 +522,9 @@ class ContinuousTurnAdapter:
                     context,
                     ledger=episode_evidence_ledger,
                 )
-                repair_terminal = outcome.stop_reason in {
-                    "repair_deadline_exhausted",
-                    "repair_model_stop",
-                }
+                repair_terminal = (
+                    outcome.stop_reason in _TERMINAL_REPAIR_STOP_REASONS
+                )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
             if self._is_cancelled():
@@ -537,7 +546,7 @@ class ContinuousTurnAdapter:
                     or semantic.rejected_claim_indexes
                     or semantic.verified.missing_outputs
                 )
-                and repair_cycles < max_repair_cycles
+                and repair_attempts < max_repair_cycles
                 and not repair_terminal
                 and not self._is_cancelled()
                 and not root_deadline.expired
@@ -550,7 +559,7 @@ class ContinuousTurnAdapter:
                     structural=semantic.verified,
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
-                    cycle=repair_cycles + 1,
+                    cycle=repair_attempts + 1,
                     rejected_claims=tuple(
                         f"claim_index:{index}"
                         for index in semantic.rejected_claim_indexes
@@ -559,6 +568,7 @@ class ContinuousTurnAdapter:
                 )
                 if repaired is None:
                     break
+                repair_attempts += 1
                 previous_snapshot = current_snapshot
                 outcome, structural = repaired
                 current_snapshot = _repair_snapshot(
@@ -567,10 +577,9 @@ class ContinuousTurnAdapter:
                     context,
                     ledger=episode_evidence_ledger,
                 )
-                repair_terminal = outcome.stop_reason in {
-                    "repair_deadline_exhausted",
-                    "repair_model_stop",
-                }
+                repair_terminal = (
+                    outcome.stop_reason in _TERMINAL_REPAIR_STOP_REASONS
+                )
                 if outcome.stop_reason in _SUCCESSFUL_REPAIR_STOP_REASONS:
                     repair_cycles += 1
                 if (
@@ -603,6 +612,8 @@ class ContinuousTurnAdapter:
                 "schema_version": 1,
                 "execution_kind": "continuous_episode",
                 "runtime_backend": self._runtime_name,
+                "repair_attempts": repair_attempts,
+                "repair_cycles": repair_cycles,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -742,6 +753,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "semantic_verifier": semantic.to_dict(),
             "semantic_verifier_stale": semantic_verifier_stale,
+            "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
             "metrics": _episode_metrics(
                 outcome,
