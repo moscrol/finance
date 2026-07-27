@@ -11,7 +11,7 @@ import pytest
 
 import intelligence.services.continuous_turn_adapter as adapter_module
 from intelligence.services import ask_synthesis, episode_tools, llm_refine
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -24,6 +24,11 @@ from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.openai_agents_runtime import (
+    AgentsSdkRequest,
+    AgentsSdkResult,
+    OpenAIAgentsRuntime,
+)
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
@@ -36,6 +41,10 @@ from intelligence.services.episode_verifier import (
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 from intelligence.services.research_contract import RequiredOutput
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolSpec,
+)
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.turn_control_core import TurnControlResult
 
@@ -349,6 +358,169 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.status == "completed"
     assert calls == {"start": 1, "resume": 1, "run": 0}
     assert result.private_artifact["repair_cycles"] == 1
+
+
+def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(
+        frame,
+        capabilities=("market_data", "news_search"),
+    )
+    context = build_episode_context(
+        frame,
+        task_id="adapter-sdk-runtime-resume",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+
+    def evidence(
+        *,
+        tool: str,
+        title: str,
+        detail: str,
+        content_hash: str,
+        supports: tuple[str, ...],
+    ) -> AgentEvidence:
+        return AgentEvidence(
+            tool=tool,
+            title=title,
+            detail=detail,
+            source="测试数据",
+            source_date="2026-07-26",
+            content_hash=content_hash,
+            supports=supports,
+            independent_key=tool,
+        )
+
+    def market_runner(_query: str, _context: AgentToolContext):
+        item = evidence(
+            tool="market_data",
+            title="市场结构",
+            detail="上涨家数修复。",
+            content_hash="sdk-adapter-market",
+            supports=("direct_assessment",),
+        )
+        return (
+            [item],
+            item.detail,
+            ProviderTrace("test:market", "market_data", "success"),
+        )
+
+    def news_runner(_query: str, _context: AgentToolContext):
+        item = evidence(
+            tool="news_search",
+            title="反方约束",
+            detail="量能回落会削弱修复持续性。",
+            content_hash="sdk-adapter-news",
+            supports=("counterpoint",),
+        )
+        return (
+            [item],
+            item.detail,
+            ProviderTrace("test:news", "news_search", "success"),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="市场结构",
+                cost="local",
+                freshness="current",
+                runner=market_runner,
+            ),
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="市场反证",
+                cost="network",
+                freshness="current",
+                runner=news_runner,
+            ),
+        )
+    )
+    provider_history = object()
+    runner_calls = 0
+
+    def sdk_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        nonlocal runner_calls
+        runner_calls += 1
+        tools = {tool.name: tool for tool in request.tools}
+        if runner_calls == 1:
+            observed = tools["market_data"].invoke("当前市场")
+            finish = {
+                "status": "partial",
+                "draft": "当前偏修复，但反方证据仍缺。",
+                "gaps": ["缺少反方证据"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": observed["evidence_hashes"],
+                        "gap": "",
+                    },
+                    {
+                        "output_id": "counterpoint",
+                        "evidence_hashes": [],
+                        "gap": "缺少反方证据",
+                    },
+                ],
+            }
+        else:
+            assert request._continuation_input is provider_history
+            observed = tools["news_search"].invoke("市场修复反证")
+            finish = {
+                "status": "completed",
+                "draft": "当前偏修复，但量能回落会削弱持续性。",
+                "gaps": [],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["sdk-adapter-market"],
+                        "gap": "",
+                    },
+                    {
+                        "output_id": "counterpoint",
+                        "evidence_hashes": observed["evidence_hashes"],
+                        "gap": "",
+                    },
+                ],
+            }
+        return AgentsSdkResult(
+            json.dumps(finish, ensure_ascii=False),
+            1,
+            continuation_input=provider_history,
+        )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=OpenAIAgentsRuntime(
+            runner=sdk_runner,
+            backend="sdk_gpt",
+            model_name="gpt-5.6-sol",
+        ),
+        semantic_verifier=Semantic(),
+        runtime_name="sdk_gpt",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert result.private_artifact["repair_cycles"] == 1
+    assert runner_calls == 2
+    events = result.private_artifact["events"]
+    assert any(event["kind"] == "repair_goal" for event in events)
+    assert any(event["kind"] == "repair_reentry" for event in events)
 
 
 def test_semantic_gap_reenters_same_session_and_rechecks_semantics() -> None:

@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import Context, copy_context
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass, replace
 import json
 from threading import Lock
+from time import monotonic
 from typing import Literal, Protocol
 
 from intelligence.services.agent_research import AgentEvidence
@@ -17,6 +18,14 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     public_agent_evidence,
 )
+from intelligence.services.evidence_ledger import (
+    EvidenceLedger,
+)
+from intelligence.services.episode_session import (
+    CallbackEpisodeSession,
+    EpisodeSession,
+    EpisodeSessionError,
+)
 from intelligence.services.episode_protocol import (
     build_episode_input,
     build_episode_instructions,
@@ -24,7 +33,11 @@ from intelligence.services.episode_protocol import (
     validate_episode_finish,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchRunContext,
+)
 from intelligence.services.research_tool_registry import (
     InvalidResearchToolArguments,
     PreparedToolArguments,
@@ -48,6 +61,23 @@ _SDK_MAX_VERIFIER_RESERVE_SECONDS = 20.0
 _SDK_MIN_VERIFIER_RESERVE_SECONDS = 2.0
 _SDK_STAGE_CLOSED = "research_stage_closed"
 _SDK_STAGE_CLOSED_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
+_ROOT_BUDGET_CALL_RESERVATION_SECONDS = 1e-9
+
+
+class _OpaqueProviderContinuation:
+    """Keep provider history out of repr/dataclass/JSON projections."""
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: object | None) -> None:
+        self._value = value
+
+    @property
+    def value(self) -> object | None:
+        return self._value
+
+    def __repr__(self) -> str:
+        return "<_OpaqueProviderContinuation>"
 
 
 def _sdk_verifier_reserve(context: ResearchRunContext) -> float:
@@ -62,10 +92,16 @@ def _sdk_verifier_reserve(context: ResearchRunContext) -> float:
 
 
 def _sdk_runtime_timeout(context: ResearchRunContext) -> float:
-    return max(
+    timeout = max(
         0.0,
         context.deadline.remaining() - _sdk_verifier_reserve(context),
     )
+    if context.root_budget is not None:
+        timeout = min(
+            timeout,
+            max(0.0, float(context.root_budget.remaining_seconds)),
+        )
+    return timeout
 
 
 def _allows_evidence_free_completion(context: ResearchRunContext) -> bool:
@@ -264,11 +300,13 @@ class AgentsSdkRequest:
     timeout: float
     backend: SdkBackend
     model_name: str
+    tool_timeout: float | None = None
     model: object | None = None
     model_settings: object | None = None
     model_factory: SdkModelFactory | None = None
+    continuation_input: InitVar[object | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, continuation_input: object | None) -> None:
         if not self.instructions.strip() or not self.input.strip():
             raise ValueError("SDK request prompts must be non-empty")
         if self.max_turns < 1 or self.timeout <= 0:
@@ -277,7 +315,23 @@ class AgentsSdkRequest:
             raise ValueError("unsupported SDK backend")
         if not self.model_name.strip():
             raise ValueError("SDK model name must be non-empty")
+        if self.tool_timeout is not None and (
+            self.tool_timeout <= 0 or self.tool_timeout > self.timeout
+        ):
+            raise ValueError("SDK tool timeout must fit within request timeout")
         object.__setattr__(self, "tools", tuple(self.tools))
+        # Provider-owned history deliberately is not a dataclass field: repr(),
+        # asdict(), public events, and JSON projections cannot accidentally
+        # serialize the SDK continuation.
+        object.__setattr__(
+            self,
+            "_provider_continuation",
+            _OpaqueProviderContinuation(continuation_input),
+        )
+
+    @property
+    def _continuation_input(self) -> object | None:
+        return self._provider_continuation.value
 
 
 @dataclass(frozen=True)
@@ -288,8 +342,9 @@ class AgentsSdkResult:
     output_tokens: int | None = None
     provider_attempts: int | None = None
     batched_tool_calls_dropped: int = 0
+    continuation_input: InitVar[object | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, continuation_input: object | None) -> None:
         for name in (
             "llm_calls",
             "input_tokens",
@@ -302,6 +357,15 @@ class AgentsSdkResult:
                 continue
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
+        object.__setattr__(
+            self,
+            "_provider_continuation",
+            _OpaqueProviderContinuation(continuation_input),
+        )
+
+    @property
+    def _continuation_input(self) -> object | None:
+        return self._provider_continuation.value
 
 
 class AgentsSdkRunner(Protocol):
@@ -388,7 +452,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
                 ),
                 on_invoke_tool=invoke_tool,
                 strict_json_schema=True,
-                timeout_seconds=request.timeout,
+                timeout_seconds=request.tool_timeout or request.timeout,
                 timeout_behavior="error_as_result",
             )
         )
@@ -421,11 +485,20 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
     )
 
     async def execute() -> object:
+        provider_input: object = request.input
+        continuation_input = request._continuation_input
+        if continuation_input is not None:
+            if not isinstance(continuation_input, (list, tuple)):
+                raise TypeError("SDK continuation input must be a provider input list")
+            provider_input = [
+                *continuation_input,
+                {"role": "user", "content": request.input},
+            ]
         try:
             return await asyncio.wait_for(
                 Runner.run(
                     agent,
-                    request.input,
+                    provider_input,
                     context=request,
                     max_turns=request.max_turns,
                     run_config=run_config,
@@ -441,6 +514,8 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
     except asyncio.TimeoutError as exc:
         raise TimeoutError("OpenAI Agents SDK run exceeded deadline") from exc
     usage = result.context_wrapper.usage
+    to_input_list = getattr(result, "to_input_list", None)
+    continuation_input = to_input_list() if callable(to_input_list) else None
     return AgentsSdkResult(
         final_output=result.final_output,
         llm_calls=max(1, int(usage.requests)),
@@ -450,6 +525,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         batched_tool_calls_dropped=int(
             getattr(model, "batched_tool_calls_dropped", 0)
         ),
+        continuation_input=continuation_input,
     )
 
 
@@ -473,6 +549,7 @@ class _AgentsRunState:
     ) -> None:
         self._registry = registry
         self._context = context
+        self._active_context = context
         self._is_cancelled = is_cancelled
         self._authorized = {
             spec.name: spec
@@ -490,8 +567,20 @@ class _AgentsRunState:
         self._executed_count = 0
         self._duplicate_queries = 0
         self._next_sequence = 2
+        self._tools_open = True
+        self._continuation_call_limit: int | None = None
+        self._continuation_executed_start = 0
+        self.evidence_ledger = EvidenceLedger(
+            information_cutoff=context.information_cutoff.as_of_date,
+        )
+        for required in context.contract.required_outputs:
+            if required.required and required.grounding_mode == "evidence":
+                self.evidence_ledger.open_gap(required.output_id)
+        self.initial_evidence_snapshot = self.evidence_ledger.snapshot()
 
     def tools(self) -> tuple[AgentsSdkTool, ...]:
+        if not self._tools_open:
+            return ()
         return tuple(
             AgentsSdkTool(
                 name=spec.name,
@@ -501,6 +590,28 @@ class _AgentsRunState:
             )
             for spec in self._authorized.values()
         )
+
+    def begin_continuation(
+        self,
+        *,
+        context: ResearchRunContext,
+        next_sequence: int,
+        tools_open: bool,
+        call_limit: int,
+    ) -> tuple[int, int]:
+        """Reuse the episode ledgers while bounding one repair segment."""
+
+        with self._lock:
+            self._active_context = context
+            self._next_sequence = next_sequence
+            self._tools_open = bool(tools_open and call_limit > 0)
+            self._continuation_call_limit = max(0, int(call_limit))
+            self._continuation_executed_start = self._executed_count
+            return len(self._events), len(self._gaps)
+
+    def prepare_next_sequence(self, sequence: int) -> None:
+        with self._lock:
+            self._next_sequence = max(self._next_sequence, int(sequence))
 
     def invoke(
         self,
@@ -523,7 +634,8 @@ class _AgentsRunState:
                 {"tool": name, "query": prepared.display_query},
             )
             step_id = (
-                f"{self._context.trace_parent_id}:sdk:tool:{request_event.sequence - 1}"
+                f"{self._active_context.trace_parent_id}:sdk:tool:"
+                f"{request_event.sequence - 1}"
             )
             rejected = self._reservation_error(name, prepared)
             if rejected is not None:
@@ -542,6 +654,25 @@ class _AgentsRunState:
                     self._gaps.append(rejected)
                 self._add_event("tool_error", {"tool": name, "error": rejected})
                 return {"status": "rejected", "tool": name, "error": rejected}
+            root_budget = self._active_context.root_budget
+            if root_budget is not None:
+                try:
+                    root_budget.consume_call(
+                        seconds=_ROOT_BUDGET_CALL_RESERVATION_SECONDS,
+                    )
+                except ValueError:
+                    rejected = "tool_budget_exhausted"
+                    if rejected not in self._gaps:
+                        self._gaps.append(rejected)
+                    self._add_event(
+                        "tool_error",
+                        {"tool": name, "error": rejected},
+                    )
+                    return {
+                        "status": "rejected",
+                        "tool": name,
+                        "error": rejected,
+                    }
             spec = self._authorized[name]
             normalized = prepared.normalized_key
             self._seen_queries.add((name, normalized))
@@ -552,7 +683,7 @@ class _AgentsRunState:
                 self._registry.execute,
                 name,
                 prepared,
-                context=self._context,
+                context=self._active_context,
                 step_id=step_id,
                 is_cancelled=self._is_cancelled,
             )
@@ -592,9 +723,11 @@ class _AgentsRunState:
     ) -> str | None:
         if self._is_cancelled():
             return "cancelled"
-        if self._context.deadline.expired:
+        if not self._tools_open:
+            return _SDK_STAGE_CLOSED
+        if self._active_context.deadline.expired:
             return "deadline_exhausted"
-        if self._context.deadline.stage_timeout(1.0) <= 0.001:
+        if self._active_context.deadline.stage_timeout(1.0) <= 0.001:
             return _SDK_STAGE_CLOSED
         spec = self._authorized.get(name)
         if spec is None:
@@ -605,7 +738,15 @@ class _AgentsRunState:
             return "duplicate_query"
         if spec.query_scope == "episode" and name in self._successful_episode_tools:
             return "episode_snapshot_already_collected"
-        if self._executed_count >= self._context.policy.max_steps:
+        if self._continuation_call_limit is not None and (
+            self._executed_count - self._continuation_executed_start
+            >= self._continuation_call_limit
+        ):
+            return "tool_budget_exhausted"
+        root_budget = self._active_context.root_budget
+        if root_budget is not None and root_budget.remaining_calls <= 0:
+            return "tool_budget_exhausted"
+        if root_budget is None and self._executed_count >= self._context.policy.max_steps:
             return "tool_budget_exhausted"
         return None
 
@@ -635,6 +776,7 @@ class _AgentsRunState:
                     continue
                 self._evidence_hashes.add(item.content_hash)
                 self._evidence.append(item)
+                self.evidence_ledger.append(item)
             if spec.query_scope == "episode" and observation.evidence:
                 self._successful_episode_tools.add(observation.tool)
             status = "success" if observation.evidence else "empty"
@@ -657,6 +799,44 @@ class _AgentsRunState:
         self._next_sequence += 1
         self._events.append(event)
         return event
+
+
+class _SdkContinuationState:
+    __slots__ = (
+        "task_frame",
+        "context",
+        "registry",
+        "run_state",
+        "_provider_continuation",
+    )
+
+    def __init__(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        run_state: _AgentsRunState,
+        continuation_input: object | None,
+    ) -> None:
+        self.task_frame = task_frame
+        self.context = context
+        self.registry = registry
+        self.run_state = run_state
+        self._provider_continuation = _OpaqueProviderContinuation(
+            continuation_input
+        )
+
+    @property
+    def continuation_input(self) -> object | None:
+        return self._provider_continuation.value
+
+    @continuation_input.setter
+    def continuation_input(self, value: object | None) -> None:
+        self._provider_continuation = _OpaqueProviderContinuation(value)
+
+    def __repr__(self) -> str:
+        return "<_SdkContinuationState provider_history=<opaque>>"
 
 
 class OpenAIAgentsRuntime:
@@ -707,12 +887,57 @@ class OpenAIAgentsRuntime:
             registry=registry,
         )
 
+    def start(
+        self,
+        task_frame: TaskFrame,
+        *,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+    ) -> EpisodeSession:
+        continuation: list[_SdkContinuationState] = []
+        outcome = self._run_episode(
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            continuation_sink=continuation,
+        )
+        if not continuation:
+            fallback_state = _AgentsRunState(
+                registry=registry,
+                context=context,
+                is_cancelled=self._is_cancelled,
+            )
+            continuation.append(
+                _SdkContinuationState(
+                    task_frame=task_frame,
+                    context=context,
+                    registry=registry,
+                    run_state=fallback_state,
+                    continuation_input=None,
+                )
+            )
+        if len(continuation) != 1:
+            raise RuntimeError("SDK episode continuation state was not captured")
+        state = continuation[0]
+        return CallbackEpisodeSession(
+            episode_id=context.contract.task_id,
+            outcome=outcome,
+            resume_callback=lambda previous, goal: self._resume_episode(
+                state,
+                previous,
+                goal,
+            ),
+            evidence_ledger=state.run_state.evidence_ledger,
+            initial_evidence_snapshot=state.run_state.initial_evidence_snapshot,
+        )
+
     def _run_episode(
         self,
         *,
         task_frame: TaskFrame,
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
+        continuation_sink: list[_SdkContinuationState] | None = None,
     ) -> AgentOutcome:
         if (
             context.contract.task_frame_hash
@@ -731,6 +956,16 @@ class OpenAIAgentsRuntime:
             context=context,
             is_cancelled=self._is_cancelled,
         )
+        continuation_state: _SdkContinuationState | None = None
+        if continuation_sink is not None:
+            continuation_state = _SdkContinuationState(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                run_state=state,
+                continuation_input=None,
+            )
+            continuation_sink.append(continuation_state)
         runtime_timeout = _sdk_runtime_timeout(context)
         if runtime_timeout <= 0.001:
             return self._failure_from_state(
@@ -753,7 +988,7 @@ class OpenAIAgentsRuntime:
             model_factory=self._model_factory,
         )
         try:
-            result = self._runner(request)
+            result = self._call_runner(request, context=context)
         except TimeoutError:
             return self._failure_from_state(
                 task_frame=task_frame,
@@ -771,6 +1006,8 @@ class OpenAIAgentsRuntime:
                 gap=stop_reason,
                 llm_calls=1,
             )
+        if continuation_state is not None:
+            continuation_state.continuation_input = result._continuation_input
 
         snapshot = state.snapshot()
         recovered = False
@@ -825,9 +1062,13 @@ class OpenAIAgentsRuntime:
                     model=self._model,
                     model_settings=self._model_settings,
                     model_factory=self._model_factory,
+                    continuation_input=result._continuation_input,
                 )
                 try:
-                    repair_result = self._runner(repair_request)
+                    repair_result = self._call_runner(
+                        repair_request,
+                        context=context,
+                    )
                 except Exception:
                     return self._failure_from_snapshot(
                         task_frame=task_frame,
@@ -838,6 +1079,10 @@ class OpenAIAgentsRuntime:
                         result=result,
                     )
                 result = _merge_sdk_results(result, repair_result)
+                if continuation_state is not None:
+                    continuation_state.continuation_input = (
+                        result._continuation_input
+                    )
                 try:
                     finish = validate_episode_finish(
                         result.final_output,
@@ -890,7 +1135,7 @@ class OpenAIAgentsRuntime:
             stop_reason=stop_reason,
             gaps=gaps,
         )
-        return AgentOutcome(
+        outcome = AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
             draft=finish.draft,
@@ -903,6 +1148,298 @@ class OpenAIAgentsRuntime:
             usage=AgentUsage(
                 llm_calls=result.llm_calls,
                 tool_calls=snapshot.executed_count,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+            ),
+        )
+        state.prepare_next_sequence(len(outcome.events) + 1)
+        return outcome
+
+    def _resume_episode(
+        self,
+        state: _SdkContinuationState,
+        previous: AgentOutcome,
+        goal: RepairGoal,
+    ) -> AgentOutcome:
+        if state.continuation_input is None:
+            raise EpisodeSessionError("SDK provider continuation was not captured")
+        context = state.context
+        root_budget = context.root_budget
+        available_calls = max(0, int(goal.remaining_calls))
+        available_seconds = max(0.0, float(goal.remaining_seconds))
+        if root_budget is not None:
+            available_calls = min(
+                available_calls,
+                max(0, int(root_budget.remaining_calls)),
+            )
+            available_seconds = min(
+                available_seconds,
+                max(0.0, float(root_budget.remaining_seconds)),
+            )
+        if available_seconds <= 0.001:
+            raise EpisodeSessionError("repair continuation budget is exhausted")
+        effective_goal = replace(
+            goal,
+            remaining_calls=available_calls,
+            remaining_seconds=available_seconds,
+        )
+
+        # A repair grant can outlive the original research window for wording
+        # or evidence-binding fixes. It must never reopen research tools once
+        # that original window has closed.
+        research_tool_timeout = context.deadline.stage_timeout(
+            available_seconds
+        )
+        original_tools_open = research_tool_timeout > 0.001
+        repair_deadline = ResearchDeadline.from_timeout(available_seconds)
+        repair_context = replace(context, deadline=repair_deadline)
+        repair_tool_context = replace(
+            context,
+            deadline=ResearchDeadline.from_timeout(research_tool_timeout),
+        )
+        prefix = previous.events
+        repair_goal_event = EpisodeEvent(
+            len(prefix) + 1,
+            "repair_goal",
+            _bounded_repair_goal(effective_goal),
+        )
+        repair_reentry_event = EpisodeEvent(
+            len(prefix) + 2,
+            "repair_reentry",
+            {
+                "episode_id": goal.episode_id,
+                "repair_goal_id": goal.repair_goal_id,
+                "cycle": goal.cycle,
+            },
+        )
+        state_event_start, state_gap_start = state.run_state.begin_continuation(
+            context=repair_tool_context,
+            next_sequence=len(prefix) + 3,
+            tools_open=original_tools_open,
+            call_limit=available_calls,
+        )
+        tools = state.run_state.tools()
+        request = AgentsSdkRequest(
+            instructions=(
+                build_episode_instructions(
+                    state.task_frame,
+                    repair_context,
+                    state.registry,
+                )
+                + "\n这是同一 episode 的 verifier 修复轮。保留全部原始观察、"
+                "查询去重账本和任务身份；只补 RepairGoal 指定缺口，不得重启研究。"
+                + (
+                    ""
+                    if tools
+                    else "研究工具已关闭；只允许基于已有观察修复措辞或证据绑定。"
+                )
+            ),
+            input=json.dumps(
+                {
+                    "kind": "REPAIR_GOAL",
+                    **_bounded_repair_goal(effective_goal),
+                },
+                ensure_ascii=False,
+            ),
+            tools=tools,
+            max_turns=max(1, available_calls + 1) if tools else 1,
+            timeout=available_seconds,
+            backend=self._backend,
+            model_name=self._model_name,
+            tool_timeout=research_tool_timeout if tools else None,
+            model=self._model,
+            model_settings=self._model_settings,
+            model_factory=self._model_factory,
+            continuation_input=state.continuation_input,
+        )
+        try:
+            result = self._call_runner(request, context=context)
+        except TimeoutError:
+            result = None
+            run_error = "sdk_timeout"
+        except Exception as exc:
+            result = None
+            run_error = _sdk_run_error_kind(exc)
+        else:
+            run_error = ""
+        snapshot = state.run_state.snapshot()
+        appended: list[EpisodeEvent] = [repair_goal_event, repair_reentry_event]
+        appended.extend(snapshot.events[state_event_start:])
+        appended.append(
+            EpisodeEvent(
+                len(prefix) + len(appended) + 1,
+                "model_turn",
+                {
+                    "phase": "repair",
+                    "runtime": self._backend,
+                    "repair_goal_id": goal.repair_goal_id,
+                    "cycle": goal.cycle,
+                    "provider_attempts": (
+                        result.provider_attempts if result is not None else None
+                    ),
+                    "error": run_error,
+                },
+            )
+        )
+        if result is None:
+            gaps = tuple(dict.fromkeys((*previous.gaps, run_error)))
+            appended.extend(
+                self._continuation_terminal_events(
+                    sequence=len(prefix) + len(appended) + 1,
+                    result=None,
+                    status="partial" if snapshot.evidence else "failed",
+                    stop_reason=run_error,
+                    gaps=gaps,
+                    snapshot=snapshot,
+                )
+            )
+            return AgentOutcome(
+                task_frame_hash=previous.task_frame_hash,
+                status="partial" if snapshot.evidence else "failed",
+                draft=previous.draft,
+                evidence=snapshot.evidence,
+                traces=snapshot.traces,
+                gaps=gaps,
+                stop_reason=run_error,
+                events=(*prefix, *appended),
+                bindings=previous.bindings,
+                usage=AgentUsage(
+                    llm_calls=previous.usage.llm_calls + 1,
+                    tool_calls=snapshot.executed_count,
+                    invalid_actions=previous.usage.invalid_actions + 1,
+                    input_tokens=previous.usage.input_tokens,
+                    output_tokens=previous.usage.output_tokens,
+                ),
+                plan=previous.plan,
+            )
+
+        try:
+            finish = validate_episode_finish(
+                result.final_output,
+                context=repair_context,
+                evidence=snapshot.evidence,
+            )
+        except ValueError:
+            finish = None
+        if finish is None:
+            status = "partial" if snapshot.evidence else "failed"
+            stop_reason = "sdk_invalid_repair_finish"
+            gaps = tuple(dict.fromkeys((*previous.gaps, stop_reason)))
+            draft = previous.draft
+            bindings = previous.bindings
+            invalid_actions = previous.usage.invalid_actions + 1
+        else:
+            execution_gap = next(
+                (
+                    gap
+                    for gap in snapshot.gaps[state_gap_start:]
+                    if gap in _PARTIAL_EXECUTION_GAPS
+                ),
+                None,
+            )
+            status = (
+                "partial"
+                if finish.status == "completed" and execution_gap is not None
+                else finish.status
+            )
+            stop_reason = execution_gap or "repair_model_finish"
+            gaps = tuple(
+                dict.fromkeys((*previous.gaps, *snapshot.gaps, *finish.gaps))
+            )
+            draft = finish.draft
+            bindings = expand_episode_snapshot_bindings(
+                bindings=finish.bindings,
+                evidence=snapshot.evidence,
+                registry=state.registry,
+            )
+            invalid_actions = previous.usage.invalid_actions
+        appended.extend(
+            self._continuation_terminal_events(
+                sequence=len(prefix) + len(appended) + 1,
+                result=result,
+                status=status,
+                stop_reason=stop_reason,
+                gaps=gaps,
+                snapshot=snapshot,
+            )
+        )
+        outcome = AgentOutcome(
+            task_frame_hash=previous.task_frame_hash,
+            status=status,
+            draft=draft,
+            evidence=snapshot.evidence,
+            traces=snapshot.traces,
+            gaps=gaps,
+            stop_reason=stop_reason,
+            events=(*prefix, *appended),
+            bindings=bindings,
+            usage=AgentUsage(
+                llm_calls=previous.usage.llm_calls + result.llm_calls,
+                tool_calls=snapshot.executed_count,
+                invalid_actions=invalid_actions,
+                input_tokens=_sum_optional_counts(
+                    previous.usage.input_tokens,
+                    result.input_tokens,
+                ),
+                output_tokens=_sum_optional_counts(
+                    previous.usage.output_tokens,
+                    result.output_tokens,
+                ),
+            ),
+            plan=previous.plan,
+        )
+        state.continuation_input = result._continuation_input
+        state.run_state.prepare_next_sequence(len(outcome.events) + 1)
+        return outcome
+
+    def _call_runner(
+        self,
+        request: AgentsSdkRequest,
+        *,
+        context: ResearchRunContext,
+    ) -> AgentsSdkResult:
+        started = monotonic()
+        try:
+            result = self._runner(request)
+        except Exception:
+            _consume_root_seconds(context, monotonic() - started)
+            raise
+        if not _consume_root_seconds(context, monotonic() - started):
+            raise TimeoutError("SDK root budget exhausted")
+        return result
+
+    def _continuation_terminal_events(
+        self,
+        *,
+        sequence: int,
+        result: AgentsSdkResult | None,
+        status: str,
+        stop_reason: str,
+        gaps: tuple[str, ...],
+        snapshot: _SdkSnapshot,
+    ) -> tuple[EpisodeEvent, EpisodeEvent]:
+        return (
+            EpisodeEvent(
+                sequence,
+                "runtime_result",
+                {
+                    "runtime": self._backend,
+                    "model": self._model_name,
+                    "input_tokens": result.input_tokens if result else None,
+                    "output_tokens": result.output_tokens if result else None,
+                    "provider_attempts": (
+                        result.provider_attempts if result else None
+                    ),
+                    "duplicate_queries": snapshot.duplicate_queries,
+                    "batched_tool_calls_dropped": (
+                        result.batched_tool_calls_dropped if result else 0
+                    ),
+                },
+            ),
+            EpisodeEvent(
+                sequence + 1,
+                "finish",
+                {"status": status, "stop_reason": stop_reason, "gaps": list(gaps)},
             ),
         )
 
@@ -958,6 +1495,8 @@ class OpenAIAgentsRuntime:
                 llm_calls=llm_calls,
                 tool_calls=snapshot.executed_count,
                 invalid_actions=1,
+                input_tokens=result.input_tokens if result else None,
+                output_tokens=result.output_tokens if result else None,
             ),
         )
 
@@ -1059,7 +1598,50 @@ def _merge_sdk_results(
             initial.batched_tool_calls_dropped
             + recovery.batched_tool_calls_dropped
         ),
+        continuation_input=(
+            recovery._continuation_input
+            if recovery._continuation_input is not None
+            else initial._continuation_input
+        ),
     )
+
+
+def _bounded_repair_goal(goal: RepairGoal) -> dict[str, object]:
+    def strings(values: tuple[str, ...]) -> list[str]:
+        return [str(value)[:500] for value in values[:20]]
+
+    return {
+        "episode_id": goal.episode_id,
+        "repair_goal_id": goal.repair_goal_id,
+        "cycle": goal.cycle,
+        "missing_answer_elements": strings(goal.missing_answer_elements),
+        "unsupported_claims": strings(goal.unsupported_claims),
+        "missing_evidence_modes": strings(goal.missing_evidence_modes),
+        "attempted_actions": strings(goal.attempted_actions),
+        "evidence_progress": {
+            "new_evidence": goal.evidence_progress.new_evidence,
+            "narrowed_gaps": goal.evidence_progress.narrowed_gaps,
+            "newly_supported_outputs": (
+                goal.evidence_progress.newly_supported_outputs
+            ),
+        },
+        "remaining_calls": max(0, int(goal.remaining_calls)),
+        "remaining_seconds": max(0.0, float(goal.remaining_seconds)),
+    }
+
+
+def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
+    root_budget = context.root_budget
+    if root_budget is None:
+        return True
+    try:
+        root_budget.consume_seconds(seconds=max(0.0, float(seconds)))
+    except ValueError:
+        remaining = max(0.0, float(root_budget.remaining_seconds))
+        if remaining > 0.0:
+            root_budget.consume_seconds(seconds=remaining)
+        return False
+    return True
 
 
 def _repair_output_text(value: object, *, max_chars: int = 16000) -> str:

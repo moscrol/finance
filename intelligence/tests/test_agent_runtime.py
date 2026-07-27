@@ -18,6 +18,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
 
 
 TASK_HASH = "frame-hash-1"
@@ -227,6 +228,17 @@ def test_resumable_runtime_contract_requires_start_and_run() -> None:
             return _outcome()
 
     assert isinstance(ScriptedRuntime(), ResumableAgentRuntime)
+
+
+def test_openai_agents_runtime_conforms_to_resumable_runtime_contract() -> None:
+    runtime = OpenAIAgentsRuntime(
+        runner=lambda _request: None,  # type: ignore[arg-type,return-value]
+        backend="sdk_glm",
+        model_name="fake-model",
+        model_settings=object(),
+    )
+
+    assert isinstance(runtime, ResumableAgentRuntime)
 
 
 def test_runtime_values_are_frozen_and_copy_input_mappings() -> None:

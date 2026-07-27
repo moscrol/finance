@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 import asyncio
-from dataclasses import replace
+from dataclasses import asdict, replace
 import json
 import os
 from pathlib import Path
@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.openai_agents_runtime import (
@@ -27,6 +28,7 @@ from intelligence.services.openai_agents_runtime import (
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
+    InMemoryRootBudgetLedger,
     RequiredOutput,
     ResearchDeadline,
     ResearchPolicy,
@@ -188,6 +190,328 @@ class SuccessfulFakeSdkRunner:
             input_tokens=1200,
             output_tokens=240,
         )
+
+
+def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
+    frame = _frame()
+    context = _context(frame)
+    private_marker = "PRIVATE_PROVIDER_HISTORY_MUST_NOT_LEAK"
+
+    class OpaqueContinuation:
+        def __repr__(self) -> str:
+            return private_marker
+
+    initial_continuation = OpaqueContinuation()
+    requests: list[AgentsSdkRequest] = []
+    resumed_tool_results: list[dict[str, object]] = []
+
+    def resumable_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        requests.append(request)
+        if len(requests) == 1:
+            observation = request.tools[0].invoke("A股 当前主线")
+            finish = {
+                "status": "partial",
+                "draft": "截至2026-07-24，医药是韧性核心，措辞仍需收束。",
+                "gaps": ["直接判断措辞仍需收束"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": observation["evidence_hashes"],
+                        "gap": "",
+                    }
+                ],
+            }
+            return AgentsSdkResult(
+                json.dumps(finish, ensure_ascii=False),
+                2,
+                input_tokens=100,
+                output_tokens=20,
+                continuation_input=initial_continuation,
+            )
+        assert request._continuation_input is initial_continuation
+        tools = {tool.name: tool for tool in request.tools}
+        resumed_tool_results.extend(
+            (
+                tools["mainline_context"].invoke("A股 当前主线"),
+                tools["mainline_context"].invoke("A股 当前主线 新措辞"),
+            )
+        )
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心，电力是轮动支线。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["mainline-hash"],
+                    "gap": "",
+                }
+            ],
+        }
+        return AgentsSdkResult(
+            json.dumps(finish, ensure_ascii=False),
+            1,
+            input_tokens=30,
+            output_tokens=10,
+            continuation_input=object(),
+        )
+
+    runtime = OpenAIAgentsRuntime(
+        runner=resumable_runner,
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    )
+    session = runtime.start(
+        frame,
+        context=context,
+        registry=_registry([]),
+    )
+
+    def forbid_one_shot_run(**_kwargs):
+        raise AssertionError("resume must not restart the one-shot runtime")
+
+    runtime.run = forbid_one_shot_run  # type: ignore[method-assign]
+    previous = session.outcome
+    repaired = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-sdk-runtime-1",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=("mainline_context:A股 当前主线",),
+            evidence_progress=CoverageDelta(1, 1, 0),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert session.episode_id == context.contract.task_id
+    assert repaired.task_frame_hash == frame.task_frame_hash
+    assert repaired.events[: len(previous.events)] == previous.events
+    appended = repaired.events[len(previous.events) :]
+    assert [event.sequence for event in repaired.events] == list(
+        range(1, len(repaired.events) + 1)
+    )
+    assert appended[0].kind == "repair_goal"
+    assert appended[0].payload["repair_goal_id"] == "repair-sdk-runtime-1"
+    assert appended[0].payload["cycle"] == 1
+    assert any(event.kind == "model_turn" for event in appended)
+    assert tuple(repaired.evidence[: len(previous.evidence)]) == previous.evidence
+    assert tuple(repaired.traces[: len(previous.traces)]) == previous.traces
+    assert tuple(repaired.gaps[: len(previous.gaps)]) == previous.gaps
+    assert repaired.usage.llm_calls == 3
+    assert repaired.usage.input_tokens == 130
+    assert repaired.usage.output_tokens == 30
+    assert len(requests) == 2
+    repair_input = json.loads(requests[1].input)
+    assert repair_input["repair_goal_id"] == "repair-sdk-runtime-1"
+    assert repair_input["cycle"] == 1
+    assert requests[1].max_turns == 2
+    assert 0.0 < requests[1].timeout <= 10.0
+    assert [item["error"] for item in resumed_tool_results] == [
+        "duplicate_query",
+        "episode_snapshot_already_collected",
+    ]
+    assert private_marker not in repr(requests[1])
+    assert private_marker not in repr(vars(requests[1]))
+    assert private_marker not in json.dumps(vars(requests[1]), default=str)
+    assert private_marker not in repr(session)
+    assert private_marker not in json.dumps(repaired.to_dict(), ensure_ascii=False)
+
+
+def test_sdk_episode_debits_one_shared_root_tool_budget_across_resume() -> None:
+    frame = _frame()
+
+    class MutableResearchDeadline:
+        synthesis_reserve = 0.0
+        stage_limit = 30.0
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+        def remaining(self) -> float:
+            return 30.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(configured_limit, self.stage_limit)
+
+    deadline = MutableResearchDeadline()
+    context = replace(
+        _context(
+            frame,
+            max_steps=2,
+            allowed_capabilities=("mainline_context", "market_news"),
+        ),
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id="sdk-runtime-test",
+            initial_calls=2,
+            hard_calls_cap=2,
+            initial_seconds=30.0,
+            hard_seconds_cap=30.0,
+        ),
+        deadline=deadline,
+    )
+    continuation = object()
+    observations: list[dict[str, object]] = []
+
+    def budgeted_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        tools = {tool.name: tool for tool in request.tools}
+        if not observations:
+            observation = tools["mainline_context"].invoke("A股 当前主线")
+            observations.append(observation)
+            status = "partial"
+        else:
+            assert request.max_turns == 2
+            assert 0.0 < request.timeout <= 10.0
+            assert request.tool_timeout is not None
+            assert 0.0 < request.tool_timeout <= 0.05
+            observation = tools["market_news"].invoke("A股 主线反证")
+            observations.append(observation)
+            status = "completed"
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": status,
+                    "draft": "截至2026-07-24，医药是韧性核心。",
+                    "gaps": [] if status == "completed" else ["缺少反证"],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": ["mainline-hash"],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+            continuation_input=continuation,
+        )
+
+    session = OpenAIAgentsRuntime(
+        runner=budgeted_runner,
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    ).start(frame, context=context, registry=_registry([]))
+
+    assert context.root_budget is not None
+    assert context.root_budget.remaining_calls == 1
+    deadline.stage_limit = 0.05
+    session.resume(
+        RepairGoal(
+            episode_id="sdk-runtime-test",
+            repair_goal_id="repair-shared-budget-1",
+            cycle=1,
+            missing_answer_elements=("counterpoint",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_news",),
+            attempted_actions=("mainline_context:A股 当前主线",),
+            evidence_progress=CoverageDelta(1, 1, 0),
+            remaining_calls=5,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert context.root_budget.remaining_calls == 0
+    assert [item["tool"] for item in observations] == [
+        "mainline_context",
+        "market_news",
+    ]
+
+
+def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
+    frame = _frame()
+
+    class ToggleDeadline:
+        synthesis_reserve = 0.0
+        closed = False
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+        def remaining(self) -> float:
+            return 2.0 if self.closed else 30.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return 0.0 if self.closed else configured_limit
+
+    deadline = ToggleDeadline()
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id="sdk-runtime-test",
+        initial_calls=2,
+        hard_calls_cap=2,
+        initial_seconds=2.0,
+        hard_seconds_cap=2.0,
+    )
+    context = replace(
+        _context(frame, max_steps=2),
+        deadline=deadline,
+        root_budget=root_budget,
+    )
+    requests: list[AgentsSdkRequest] = []
+    continuation = object()
+
+    def wording_repair_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        requests.append(request)
+        if len(requests) == 1:
+            observation = request.tools[0].invoke("A股 当前主线")
+            status = "partial"
+            gaps = ["措辞需要修复"]
+            hashes = observation["evidence_hashes"]
+        else:
+            assert request.tools == ()
+            assert request.max_turns == 1
+            assert 0.0 < request.timeout <= 2.0
+            status = "completed"
+            gaps = []
+            hashes = ["mainline-hash"]
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": status,
+                    "draft": "截至2026-07-24，医药是韧性核心。",
+                    "gaps": gaps,
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": hashes,
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+            continuation_input=continuation,
+        )
+
+    session = OpenAIAgentsRuntime(
+        runner=wording_repair_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).start(frame, context=context, registry=_registry([]))
+    deadline.closed = True
+    repaired = session.resume(
+        RepairGoal(
+            episode_id="sdk-runtime-test",
+            repair_goal_id="repair-closed-research-1",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=("mainline_context:A股 当前主线",),
+            evidence_progress=CoverageDelta(1, 1, 0),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert repaired.status == "completed"
+    assert root_budget.remaining_calls == 1
 
 
 def test_sdk_runtime_exposes_only_authorized_tools_and_returns_outcome() -> None:
@@ -531,6 +855,76 @@ def test_default_sdk_runner_uses_local_tools_and_disables_trace_export(
     assert seen["run_config"].tool_execution.max_function_tool_concurrency == 1
     assert outcome.usage.llm_calls == 2
     assert close_calls == 1
+
+
+def test_default_sdk_runner_captures_and_appends_run_result_input_history(
+    monkeypatch,
+) -> None:
+    from agents import Runner
+
+    provider_history = [
+        {"role": "user", "content": "original task"},
+        {"role": "assistant", "content": "original answer"},
+    ]
+    provider_inputs: list[object] = []
+    to_input_list_calls = 0
+
+    class FakeRunResult:
+        final_output = "done"
+        context_wrapper = SimpleNamespace(
+            usage=SimpleNamespace(requests=1, input_tokens=12, output_tokens=4)
+        )
+
+        def to_input_list(self):
+            nonlocal to_input_list_calls
+            to_input_list_calls += 1
+            return provider_history
+
+    async def fake_run(_agent, user_input, **_kwargs):
+        provider_inputs.append(user_input)
+        return FakeRunResult()
+
+    monkeypatch.setattr(Runner, "run", fake_run)
+    initial = _run_openai_agents_sdk(
+        AgentsSdkRequest(
+            instructions="Keep one finance episode.",
+            input="original task",
+            tools=(),
+            max_turns=1,
+            timeout=5.0,
+            backend="sdk_glm",
+            model_name="fake-model",
+            model="fake-model",
+            model_settings=build_agents_model_settings("sdk_glm"),
+        )
+    )
+    continued = _run_openai_agents_sdk(
+        AgentsSdkRequest(
+            instructions="Keep one finance episode.",
+            input="bounded repair goal",
+            tools=(),
+            max_turns=1,
+            timeout=5.0,
+            backend="sdk_glm",
+            model_name="fake-model",
+            model="fake-model",
+            model_settings=build_agents_model_settings("sdk_glm"),
+            continuation_input=initial._continuation_input,
+        )
+    )
+
+    assert to_input_list_calls == 2
+    assert provider_inputs == [
+        "original task",
+        [
+            *provider_history,
+            {"role": "user", "content": "bounded repair goal"},
+        ],
+    ]
+    assert initial._continuation_input is provider_history
+    assert continued._continuation_input is provider_history
+    assert "original answer" not in repr(initial)
+    assert "original answer" not in json.dumps(asdict(initial))
 
 
 @pytest.mark.parametrize(
