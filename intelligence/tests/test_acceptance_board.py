@@ -217,6 +217,37 @@ def test_freeze_rejects_empty_answer(tmp_path, monkeypatch):
     assert acceptance.cmd_freeze(args) == 2
 
 
+def test_knevo_plan_accounts_for_every_case():
+    """每道题要么排进 knevo 提问队列，要么写明为什么不问。
+
+    手工维护这个划分已经漏过两次（A4 漏在两边之外一次，C6/B5 因错误理由被排除
+    一次）。参照答案的意义在于覆盖可核对，漏一道就等于悄悄缩小了分母。
+    """
+    doc = acceptance.load_cases()
+    plan = doc["reference_plan"]["knevo"]
+    queue = [e["case_id"] for e in plan["queue"]]
+    excluded = [cid for g in plan["excluded"] for cid in g["case_ids"]]
+    ids = {c["id"] for c in doc["cases"]}
+
+    assert len(queue) == len(set(queue)), "队列里有重复题目，会重复花积分"
+    assert not set(queue) & set(excluded), "同一道题既排队又排除"
+    assert ids - set(queue) - set(excluded) == set(), "有题目两边都没提到"
+    assert (set(queue) | set(excluded)) - ids == set(), "计划里出现了不存在的 case_id"
+
+
+def test_knevo_prompts_avoid_local_only_vocabulary():
+    """自造口径不能直接丢给外部参照考生。
+
+    『双红』是用户自定义口径（pct_chg>0 且 diff_ratio>10 且 amount>500），
+    knevo 的两份对照答卷里出现 0 次。带着这个词提问，拿回来的是它临时自造的
+    定义 —— 那是词义偏差，会被误读成能力差距。提问必须展开成数值条件。
+    """
+    plan = acceptance.load_cases()["reference_plan"]["knevo"]
+    for entry in plan["queue"]:
+        text = entry["prompt"] + "".join(entry.get("followups", []))
+        assert "双红" not in text, f"{entry['case_id']} 的提问里残留了本地口径"
+
+
 def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
     monkeypatch.setattr(acceptance, "SNAPSHOT_DIR", tmp_path)
     answer = tmp_path / "ans.md"
