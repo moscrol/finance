@@ -172,12 +172,14 @@ def build_episode_input(
             "research_contract": context.contract.to_dict(),
             "today": context.today,
             "latest_data_date": context.latest_data_date,
+            "information_cutoff": context.information_cutoff.to_dict(),
             "conversation_context": context.conversation_context,
             "conversation_context_rule": (
                 "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
             ),
             "date_rule": (
-                "today 不是行情日期；市场事实服从 latest_data_date 和证据日期"
+                "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
+                "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
             ),
         },
         ensure_ascii=False,
