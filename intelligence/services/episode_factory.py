@@ -73,6 +73,9 @@ _PRESENTATION_PROFILES: dict[str, str] = {
 
 _MODEL_OWNED_READ_CAPABILITIES = ("finance_query", "evidence_search")
 _MAX_SYNTHESIS_BUDGET_FRACTION = 2.0 / 3.0
+_MARKET_CAUSE_REASONING_OUTPUTS = frozenset(
+    {"causal_chain", "cause_attribution"}
+)
 
 
 def _authorized_capabilities(
@@ -184,13 +187,18 @@ def _required_output_evidence_types(
     return capabilities
 
 
-def _grounding_mode(frame: TaskFrame) -> str:
+def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
     if frame.user_goal.startswith("判断反事实条件"):
         return "user_premise"
+    if (
+        frame.question_type == "market_cause"
+        and output_id in _MARKET_CAUSE_REASONING_OUTPUTS
+    ):
+        return "model_reasoning"
     return "evidence"
 
 
@@ -210,15 +218,21 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
-    grounding_mode = _grounding_mode(frame)
+    output_ids = _required_output_ids(frame)
+    grounding_modes = tuple(
+        _grounding_mode(frame, output_id) for output_id in output_ids
+    )
     evidence_plan = _episode_evidence_plan(frame)
     authorized = list(_authorized_capabilities(frame, capabilities))
-    if grounding_mode in {"model_reasoning", "user_premise"}:
+    if grounding_modes and all(
+        mode in {"model_reasoning", "user_premise"}
+        for mode in grounding_modes
+    ):
         # These contracts ask the model to reason over a method or an explicit
         # user-supplied premise.  Retrieving current-world evidence adds cost
         # and can contaminate the hypothetical without strengthening it.
         evidence_plan = EvidencePlan(
-            profile=grounding_mode,
+            profile=grounding_modes[0],
             requirements=(),
             freshness="stable",
         )
@@ -269,9 +283,9 @@ def build_episode_context(
                     capability_tuple,
                 ),
                 required=True,
-                grounding_mode=grounding_mode,
+                grounding_mode=_grounding_mode(frame, output_id),
             )
-            for output_id in _required_output_ids(frame)
+            for output_id in output_ids
         ),
         allowed_capabilities=capability_tuple,
         research_tier=policy.tier,

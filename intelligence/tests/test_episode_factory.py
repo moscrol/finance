@@ -138,6 +138,35 @@ def test_market_cause_requires_time_aligned_news_evidence() -> None:
     }
 
 
+def test_market_cause_uses_output_level_grounding_modes() -> None:
+    control = TurnControlCore().control(
+        "这一周行情下跌的主要原因是什么",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="market-cause-output-grounding",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert modes == {
+        "direct_assessment": "evidence",
+        "causal_chain": "model_reasoning",
+        "counterpoint": "evidence",
+        "evidence_boundary": "evidence",
+        "cause_attribution": "model_reasoning",
+    }
+    assert {"market_data", "news_search"}.issubset(
+        context.contract.allowed_capabilities
+    )
+    assert context.contract.evidence_plan.profile == "time_aligned_market_causal"
+
+
 def test_episode_timeout_override_cannot_inflate_policy_budget() -> None:
     control = TurnControlCore().control("昨天的反弹能持续多久")
     context = build_episode_context(
