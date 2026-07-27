@@ -82,6 +82,7 @@ class SessionLLMSettings:
         self._active_persisted_users: set[str] = set()
         self._saved_users: set[str] = set()
         self._disabled_users: set[str] = set()
+        self._credential_load_attempted_users: set[str] = set()
         self._credential_store = (
             _credential_store_from_environment()
             if credential_store is _AUTO_CREDENTIAL_STORE
@@ -126,11 +127,18 @@ class SessionLLMSettings:
             if user_id in self._disabled_users:
                 return None
             provider = self._byok.get(user_id)
+            load_attempted = user_id in self._credential_load_attempted_users
         if provider is not None:
             return provider
+        if load_attempted:
+            return None
         store = self._credential_store
         if store is None:
             return None
+        with self._lock:
+            if user_id in self._credential_load_attempted_users:
+                return self._byok.get(user_id)
+            self._credential_load_attempted_users.add(user_id)
         try:
             provider = store.load(user_id)
         except KeychainCredentialError:
@@ -187,8 +195,7 @@ class SessionLLMSettings:
                     if managed_glm_key
                     else "https://open.bigmodel.cn/api/paas/v4"
                 ),
-                model=os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
-                or "glm-5.2",
+                model=os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL") or "glm-5.2",
             )
         return detect_provider()
 

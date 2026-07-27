@@ -17,7 +17,9 @@ class MemoryCredentialStore:
     def __init__(self) -> None:
         self.providers: dict[str, LLMProvider] = {}
         self.deleted: list[str] = []
+        self.load_calls: list[str] = []
         self.fail_save = False
+        self.fail_load = False
 
     def save(self, user_id: str, provider: LLMProvider) -> None:
         if self.fail_save:
@@ -25,6 +27,9 @@ class MemoryCredentialStore:
         self.providers[user_id] = provider
 
     def load(self, user_id: str) -> LLMProvider | None:
+        self.load_calls.append(user_id)
+        if self.fail_load:
+            raise KeychainCredentialError("unable to read Keychain credential")
         return self.providers.get(user_id)
 
     def delete(self, user_id: str) -> None:
@@ -151,6 +156,28 @@ def test_persistence_failure_does_not_activate_or_claim_saved_key() -> None:
 
     assert settings.byok_provider("alice") is None
     assert settings.describe("alice")["saved_credential_available"] is False
+
+
+def test_keychain_load_failure_is_not_retried_by_config_reads() -> None:
+    store = MemoryCredentialStore()
+    store.fail_load = True
+    settings = SessionLLMSettings(credential_store=store)
+
+    with patch.dict("os.environ", {}, clear=True):
+        assert settings.describe("alice")["ready"] is False
+        assert settings.describe("alice")["ready"] is False
+        assert settings.provider_for("alice") is None
+
+    assert store.load_calls == ["alice"]
+    configured = settings.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="openai-secret-value",
+        base_url="http://localhost:57244/v1",
+        model="gpt-5.6-sol",
+    )
+    assert settings.provider_for("alice") == configured
+    assert store.load_calls == ["alice"]
 
 
 def test_persist_requires_an_enabled_credential_store() -> None:
