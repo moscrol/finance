@@ -121,6 +121,44 @@ def test_registry_keeps_known_artifact_as_missing_after_deletion(tmp_path: Path)
     assert registry.list(status="missing")
 
 
+def test_registry_drops_cached_run_artifact_after_visibility_downgrade(
+    tmp_path: Path,
+) -> None:
+    registry, store = _registry(tmp_path)
+    run = store.create_run("缓存可见性切换", "ask")
+    store.add_artifact(
+        run.run_id,
+        "answer.md",
+        "# public",
+        renderer="markdown",
+        title="回答",
+        visibility="public",
+    )
+    store.finish_run(run.run_id, "completed")
+
+    public = next(
+        item for item in registry.list(category="run") if item.related_run_id == run.run_id
+    )
+
+    # add_artifact replaces the persisted entry for the same filename.  A
+    # warm registry must not keep the earlier public descriptor around after
+    # the artifact becomes internal.
+    store.add_artifact(
+        run.run_id,
+        "answer.md",
+        "# internal",
+        renderer="markdown",
+        title="内部回答",
+        visibility="internal",
+    )
+
+    assert registry.get(public.artifact_id) is None
+    assert not any(
+        item.related_run_id == run.run_id
+        for item in registry.list(category="run")
+    )
+
+
 def test_registry_registers_missing_cockpit_without_exposing_arbitrary_path(tmp_path: Path) -> None:
     registry, _ = _registry(tmp_path)
     cockpit = next(item for item in registry.list(category="cockpit") if item.title == "驾驶舱总入口")

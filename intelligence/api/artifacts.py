@@ -433,6 +433,14 @@ class ArtifactRegistry:
                 discovered[descriptor.artifact_id] = descriptor
         for artifact_id, descriptor in self._known.items():
             if artifact_id not in discovered:
+                # RunArtifactProvider deliberately omits internal artifacts.  Do
+                # not resurrect a previously public run descriptor as a
+                # ``missing`` item: a visibility transition must remove the
+                # descriptor from every public projection, including a warm
+                # registry cache.  File-backed providers retain their missing
+                # entries so the UI can explain deleted/optional artifacts.
+                if descriptor.category == "run":
+                    continue
                 discovered[artifact_id] = replace(
                     descriptor,
                     status="missing",
