@@ -203,6 +203,73 @@ def test_valuation_registry_exposes_structured_financial_anchor(
     assert observation.trace.status == "success"
 
 
+def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    wiki = tmp_path / "wiki"
+    relations = wiki / "relations"
+    relations.mkdir(parents=True)
+    (relations / "entity_exposures.json").write_text(
+        '{"entities":{"瑞华泰":{"codes":["688323"],"concepts":{"PI薄膜":{}}}}}',
+        encoding="utf-8",
+    )
+    captured: dict[str, str] = {}
+
+    def fake_valuation(query, *_args, **_kwargs):
+        captured["valuation"] = str(query)
+        return "目标估值快照：瑞华泰（688323）市值50亿元，PB 2.0。"
+
+    def fake_financials(query, *_args, **_kwargs):
+        captured["financials"] = str(query)
+        return "逐季财务数据：2026Q1 营收4亿元，归母净利0.5亿元。"
+
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_valuation_block_for_llm",
+        fake_valuation,
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_financials_block_for_llm",
+        fake_financials,
+    )
+    frame = _valuation_frame()
+    context = build_episode_context(
+        frame,
+        task_id="valuation-entity-anchor",
+        capabilities=("market_data", "financial_data"),
+        timeout=30.0,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=wiki,
+        l3_runner=None,
+    )
+
+    market = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="valuation-entity-anchor:market",
+    )
+    financials = registry.execute(
+        "financial_data",
+        {},
+        context=context,
+        step_id="valuation-entity-anchor:financials",
+    )
+
+    assert market.evidence
+    assert financials.evidence
+    assert "瑞华泰" in captured["valuation"]
+    assert "688323" in captured["valuation"]
+    assert "瑞华泰" in captured["financials"]
+    assert "688323" in captured["financials"]
+
+
 def test_time_aligned_market_news_uses_market_window_end_without_query_date(
     tmp_path,
     monkeypatch,

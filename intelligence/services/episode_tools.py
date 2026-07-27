@@ -157,6 +157,7 @@ def _market_block(
     frame: TaskFrame,
     context: ResearchRunContext,
     market_db_path: Path,
+    subject_query: str | None = None,
 ) -> tuple[str, str, str]:
     if frame.question_type == "market_forecast":
         block = "\n".join(
@@ -188,7 +189,7 @@ def _market_block(
 
         return (
             ask_blocks._valuation_block_for_llm(
-                frame.raw_question,
+                subject_query or frame.raw_question,
                 frame.subject,
                 market_db_path,
                 fetcher=fetch_snapshot,
@@ -243,6 +244,15 @@ def build_episode_registry(
             except ValueError:
                 market_window_end = None
     knowledge = KnowledgeAdapter(wiki_root=wiki)
+    subject_anchor = entity_anchor.resolve_entity_anchor(
+        f"{frame.subject or ''} {frame.raw_question}",
+        knowledge,
+    )
+    subject_query = (
+        f"{subject_anchor.entity} {subject_anchor.ticker} {frame.raw_question}"
+        if subject_anchor is not None and subject_anchor.ticker
+        else f"{frame.subject or ''} {frame.raw_question}".strip()
+    )
 
     def retrieve_kb(query: str, timeout: float):
         return kb_rag.retrieve(
@@ -281,7 +291,12 @@ def build_episode_registry(
                 floor=freshness_floor,
                 detail="market_snapshot_newer_than_structured_market",
             )
-        block, source, detail = _market_block(frame, context, market_db_path)
+        block, source, detail = _market_block(
+            frame,
+            context,
+            market_db_path,
+            subject_query,
+        )
         tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
             "market_data",
@@ -317,7 +332,7 @@ def build_episode_registry(
         if timeout <= 0.001:
             raise TimeoutError("financial-data deadline expired")
         block = ask_blocks._financials_block_for_llm(
-            f"{frame.subject} {frame.raw_question}",
+            subject_query,
             market_db_path,
             timeout=timeout,
         )

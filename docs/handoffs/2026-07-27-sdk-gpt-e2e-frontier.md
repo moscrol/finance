@@ -121,10 +121,11 @@ Do not add a question-specific route, template, skill or global budget bump.
    degraded, structurally grounded candidate while non-transient failures stay
    fail-closed. Verification receipt:
    `docs/verification/semantic-verifier-availability-recovery-2026-07-27.md`.
-4. **P0 valuation evidence reachability** — make subject resolution,
-   financial anchors and market valuation anchors reachable through the shared
-   semantic tools; prove with a generic company valuation fixture, not a
-   Ruihuatai-specific route.
+4. **P0 valuation evidence reachability** — completed in the current candidate
+   slice: the shared `entity_anchor` now supplies ticker-aware subject input to
+   valuation and financial tools. The generic fixture and canonical tool-only
+   replay both pass; no Ruihuatai-specific route was added. Receipt:
+   `docs/verification/valuation-evidence-reachability-2026-07-27.md`.
 5. **P1 repair admission deepening** — centralize `RepairAdmission` in
    `RepairCoordinator` after the release blockers are closed.
 6. Run focused tests and one live failing canary per shared seam. Then freeze a
