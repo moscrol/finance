@@ -2483,6 +2483,8 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert result.private_artifact["traces"] == []
     assert "structural_verifier" in result.private_artifact
     assert "semantic_verifier" in result.private_artifact
+    assert result.private_artifact["research_context"]["information_cutoff"]
+    assert result.private_artifact["research_context"]["trace_parent_id"]
     assert "PRIVATE_HASH_SENTINEL" not in str(result.events)
 
 
