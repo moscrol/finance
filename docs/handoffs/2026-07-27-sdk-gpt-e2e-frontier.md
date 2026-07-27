@@ -91,24 +91,24 @@ This is not yet loaded by the running 8799 process.
 
 ## Current 8799 runtime
 
-8799 is intentionally left running without a restart so the current session
-credential is not lost:
+8799 has been restarted on the current candidate after the independent Claude
+long-tail batch completed. Startup Keychain loading is explicitly disabled to
+avoid the previously stuck macOS authorization dialog:
 
 ```text
-live revision: 17e0b21a
+live revision: af2c6b85
 backend: sdk_gpt
-provider: openai / gpt-5.6-sol
-ready: true
-session_only: true
+provider: not configured
+ready: false (openai_api_key_missing)
+session_only: false
 credential_persisted: false
 finance_root: /Users/a77/finance-workspace-private
 market_snapshot: true
 ```
 
-The latest commits (`b18eee60`, `07fc62a7`, `afc0be6e`, `04849c78`) require a restart before they can
-be tested in 8799. Do not restart casually: the fresh process still cannot
-reliably reload the saved Keychain item and the user may need to configure a
-session credential again. Never print or copy the credential.
+The latest commits are loaded. One explicit session credential submission in
+the 8799 configuration dialog is required before live tests. Persistence must
+remain off for this frontier; never print or copy the credential.
 
 ## Live evidence
 
@@ -149,19 +149,18 @@ quality result for the current code.
 
 ## Unfinished work
 
-1. Wait for the independent Claude acceptance run using 8799 to finish, then
-   restart 8799 on `04849c78`; first check health and redacted LLM readiness.
-2. Verify the current session/provider setup without exposing credentials.
-3. Re-run the two directed Conversation cases, one at a time.
-4. Assert `batched_tool_calls_dropped` and actual executed tool count from the
+1. Submit one session-only provider credential in the 8799 configuration
+   dialog, then verify redacted readiness without exposing it.
+2. Re-run the two directed Conversation cases, one at a time.
+3. Assert `batched_tool_calls_dropped` and actual executed tool count from the
    private runtime event. If weekly-cause still executes a batch, the model
    adapter was bypassed and the Responses/Chat-Completions construction seam
    must be fixed; do not silently raise the budget.
-5. Solve Keychain fresh-process reuse separately. The negative cache only stops
+4. Solve Keychain fresh-process reuse separately. The negative cache only stops
    repeated prompts; it does not make a blocked ACL readable.
-6. Only after both directed cases pass or return an honest, evidence-grounded
+5. Only after both directed cases pass or return an honest, evidence-grounded
    partial should the frozen five-case release frontier run.
-7. No merge to `main`, no 8792 cutover, and no release-green claim until the
+6. No merge to `main`, no 8792 cutover, and no release-green claim until the
    frozen frontier and review gate pass.
 
 ## Useful checks
