@@ -34,7 +34,8 @@ The composition root chooses the reserve policy once:
 - `sdk_gpt`, `sdk_glm`, and `codex_headless` reserve 30 seconds for the shared
   semantic verifier and give the remaining standard budget to the continuous
   research episode;
-- the API Adapter does not pass a GLM reserve callback to non-GLM runtimes.
+- the API Adapter passes an explicit zero inner reserve to non-GLM runtimes;
+  its outer verifier reserve remains the only production semantic reserve.
 
 This is not a global timeout increase. The tier hard cap remains unchanged.
 

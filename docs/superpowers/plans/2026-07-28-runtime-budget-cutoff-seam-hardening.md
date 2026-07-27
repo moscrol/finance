@@ -50,7 +50,9 @@ def _backend_synthesis_reserve(*, backend: str, case, control) -> float:
 ```
 
 At the API composition root pass the GLM callback only when
-`selection.name == "continuous_glm"`; pass `None` for SDK/headless runtimes.
+`selection.name == "continuous_glm"`; pass an explicit zero inner-reserve
+callback for SDK/headless runtimes because the Adapter already holds the outer
+semantic-verifier reserve.
 
 - [ ] **Step 4: Run focused tests and commit**
 

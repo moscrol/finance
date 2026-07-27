@@ -139,6 +139,17 @@ def _runtime_market_reference_date() -> str | None:
     return latest_market_date(paths.finance_root)
 
 
+def _zero_inner_synthesis_reserve(
+    *,
+    tier: str,
+    question_type: str,
+) -> float:
+    """SDK/headless already draft inside the episode; reserve only outside it."""
+
+    del tier, question_type
+    return 0.0
+
+
 def _build_continuous_turn_adapter(
     *,
     providers: tuple[LLMProvider, ...],
@@ -281,7 +292,7 @@ def _build_continuous_turn_adapter(
         synthesis_reserve_for_task=(
             GLMAgentRuntime.synthesis_reserve_for_task
             if selection.name == "continuous_glm"
-            else None
+            else _zero_inner_synthesis_reserve
         ),
         today=rs._now_iso()[:10],
         latest_data_date=_runtime_market_reference_date(),
