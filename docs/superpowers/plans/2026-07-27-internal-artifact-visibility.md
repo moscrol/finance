@@ -22,14 +22,14 @@
 
 ## Task 1: Persist one validated visibility contract
 
-- [ ] **Step 1: Write the failing RunStore tests**
+- [x] **Step 1: Write the failing RunStore tests**
 
 Add tests that register `audit.json` with `visibility="internal"`, assert the
 private Run record retains that literal, assert an omitted value persists as
 `public`, and assert `visibility="secret"` raises `ValueError` without writing
 the file.
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
@@ -38,20 +38,22 @@ the file.
 
 Expected: failure because `add_artifact()` does not accept `visibility`.
 
-- [ ] **Step 3: Implement the minimal contract**
+- [x] **Step 3: Implement the minimal contract**
 
 Add `ARTIFACT_VISIBILITIES = {"public", "internal"}`, add
 `visibility: str = "public"` to `Artifact`, accept a keyword-only visibility in
 `add_artifact()`, validate before writing, and persist the field through
-`asdict(artifact)`.
+`asdict(artifact)`. Add one `artifact_visibility()` read policy: explicit valid
+values win, unknown values fail closed, the legacy exact Episode path defaults
+internal, and other missing historical values default public.
 
-- [ ] **Step 4: Run the RunStore tests and verify GREEN**
+- [x] **Step 4: Run the RunStore tests and verify GREEN**
 
 Run the Step 2 command. Expected: all `test_run_store.py` tests pass.
 
 ## Task 2: Enforce visibility at every public interface
 
-- [ ] **Step 1: Write one failing API tracer test**
+- [x] **Step 1: Write one failing API tracer test**
 
 Create a normal Run, add `continuous-episode.json` as internal through
 `RunStore`, then assert:
@@ -64,7 +66,7 @@ assert not any("continuous-episode" in a["source_path"] for a in artifact_list)
 assert direct_answer.status_code == 200
 ```
 
-- [ ] **Step 2: Run the tracer and verify RED**
+- [x] **Step 2: Run the tracer and verify RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
@@ -73,7 +75,7 @@ assert direct_answer.status_code == 200
 
 Expected: internal metadata and content are publicly reachable.
 
-- [ ] **Step 3: Implement minimal enforcement**
+- [x] **Step 3: Implement minimal enforcement**
 
 In `_public_run_payload()`, retain only artifacts whose missing/default
 visibility resolves to `public`. In `get_run_artifact()`, load the Run and serve
@@ -81,7 +83,7 @@ only a registered artifact with the exact normalized path, public visibility
 and `downloadable=True`; otherwise return 404. In `RunArtifactProvider`, skip
 metadata whose visibility is not public.
 
-- [ ] **Step 4: Run the API tracer and adjacent artifact tests**
+- [x] **Step 4: Run the API tracer and adjacent artifact tests**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
@@ -94,7 +96,7 @@ denials.
 
 ## Task 3: Mark Episode diagnostics internal and verify the product path
 
-- [ ] **Step 1: Tighten the Conversation Orchestrator assertion**
+- [x] **Step 1: Tighten the Conversation Orchestrator assertion**
 
 Extend the existing continuous Episode artifact test to assert:
 
@@ -105,7 +107,7 @@ assert private_artifact["previewable"] is False
 assert private_artifact["downloadable"] is False
 ```
 
-- [ ] **Step 2: Run the assertion and verify RED**
+- [x] **Step 2: Run the assertion and verify RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
@@ -116,14 +118,14 @@ assert private_artifact["downloadable"] is False
 Expected: visibility/default flags do not yet identify the artifact as
 internal.
 
-- [ ] **Step 3: Register the artifact as internal**
+- [x] **Step 3: Register the artifact as internal**
 
 Pass `visibility="internal"`, `previewable=False` and `downloadable=False` at
 the single `continuous-episode.json` registration call. Extend
 `RunStore.add_artifact()` with the two existing flag keywords so the persisted
 contract and caller intent stay aligned.
 
-- [ ] **Step 4: Run focused and full verification**
+- [x] **Step 4: Run focused and full verification**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest \
@@ -140,7 +142,12 @@ git diff --check
 Expected: focused suites and the clean full suite pass with no new failures;
 `git diff --check` is silent.
 
-- [ ] **Step 5: Commit the isolated slice**
+Observed: the three affected modules passed `212` tests. The full suite passed
+`2912` tests with `2` skips and the same `11` pre-existing
+`subconscious/userspace` environment-path failures; no failure touches this
+slice. Ruff and `git diff --check` passed.
+
+- [x] **Step 5: Commit the isolated slice**
 
 ```bash
 git add intelligence/services/run_store.py \

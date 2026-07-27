@@ -373,6 +373,11 @@ def _public_degrades(values: list[str]) -> list[str]:
 
 def _public_run_payload(run: rs.Run) -> dict[str, object]:
     payload = asdict(run)
+    payload["artifacts"] = [
+        artifact
+        for artifact in run.artifacts
+        if rs.artifact_visibility(artifact) == "public"
+    ]
     payload["degrades"] = _public_degrades(run.degrades)
     if run.error:
         payload["error"] = sanitize_user_visible_artifact_text(run.error)
@@ -2095,10 +2100,23 @@ def create_app(
     ) -> FileResponse:
         store = store_for(user)
         try:
+            run = store.load_run(run_id)
             run_dir = store.run_dir(run_id).resolve()
-        except ValueError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
-        path = (run_dir / name).resolve()
+        artifact = next(
+            (
+                item
+                for item in run.artifacts
+                if item.get("path") == name
+                and rs.artifact_visibility(item) == "public"
+                and item.get("downloadable", True) is True
+            ),
+            None,
+        )
+        if artifact is None:
+            raise HTTPException(404, f"产物不存在：{name}")
+        path = (run_dir / str(artifact["path"])).resolve()
         try:
             path.relative_to(run_dir)
         except ValueError as exc:

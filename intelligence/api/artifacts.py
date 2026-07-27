@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Protocol
 
-from intelligence.services.run_store import RunStore
+from intelligence.services.run_store import RunStore, artifact_visibility
 
 SCHEMA_VERSION = 1
 DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
@@ -198,6 +198,8 @@ class RunArtifactProvider:
         for run in context.run_store.list_runs():
             run_dir = context.run_store.run_dir(run.run_id).resolve()
             for artifact in run.artifacts:
+                if artifact_visibility(artifact) != "public":
+                    continue
                 relative = str(artifact.get("path") or "")
                 path = (run_dir / relative).resolve()
                 if not relative or not _is_within(path, run_dir):

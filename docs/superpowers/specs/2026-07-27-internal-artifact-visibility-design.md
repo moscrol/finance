@@ -22,8 +22,12 @@ public   — may appear in public Run/Artifact projections and may be downloaded
 internal — retained for local audit but absent from public projections and denied by public content endpoints
 ```
 
-The default is `public` for backward compatibility. `RunStore.add_artifact()`
-validates the value and records it atomically with the artifact metadata.
+The write default is `public` for backward compatibility. On read, explicit
+visibility wins; an unknown/corrupt value fails closed to `internal`, and the
+legacy exact path `continuous-episode.json` is classified as internal even when
+old Run metadata has no visibility field. Other historical artifacts remain
+public. `RunStore.add_artifact()` validates the value and records it atomically
+with the artifact metadata.
 `continuous-episode.json` is written as `internal`; `answer.md` and the already
 redacted `report.json` remain public.
 
@@ -61,7 +65,9 @@ across persistence, listing and content delivery.
 ## Error handling and compatibility
 
 - Unknown visibility values fail at write time with `ValueError`.
-- Missing visibility in historical Run JSON is interpreted as `public`.
+- Missing visibility in historical Run JSON is interpreted as `public` except
+  for the exact legacy private diagnostic path `continuous-episode.json`.
+- Unknown persisted visibility fails closed to `internal`.
 - Requests for internal, unregistered, non-downloadable or path-traversal
   artifacts return the same 404 surface so callers cannot enumerate private
   filenames.

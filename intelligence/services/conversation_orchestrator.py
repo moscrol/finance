@@ -3440,6 +3440,9 @@ class TurnOrchestrator:
             ),
             renderer="json",
             title="连续研究私有审计",
+            visibility="internal",
+            previewable=False,
+            downloadable=False,
         )
         self.run_store.add_artifact(
             run_id,

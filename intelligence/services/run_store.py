@@ -60,6 +60,23 @@ RUN_STATUSES = (
 _TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED)
 
 STEP_STATUSES = ("running", "completed", "failed", "skipped")
+ARTIFACT_VISIBILITIES = ("public", "internal")
+_LEGACY_INTERNAL_ARTIFACT_PATHS = frozenset({"continuous-episode.json"})
+
+
+def artifact_visibility(artifact: dict[str, Any]) -> str:
+    """Resolve persisted visibility, failing closed for corrupt metadata."""
+
+    value = artifact.get("visibility")
+    if value in ARTIFACT_VISIBILITIES:
+        return str(value)
+    if value not in {None, ""}:
+        return "internal"
+    return (
+        "internal"
+        if str(artifact.get("path") or "") in _LEGACY_INTERNAL_ARTIFACT_PATHS
+        else "public"
+    )
 
 # 常见密钥形态：Authorization 头/JWT、OpenAI/GitHub/飞书前缀 token，
 # 以及 key=value 形式的赋值。先匹配完整 Authorization 头，避免只遮掉
@@ -163,6 +180,7 @@ class Artifact:
     bytes: int
     previewable: bool = True
     downloadable: bool = True
+    visibility: str = "public"
 
 
 @dataclass
@@ -354,8 +372,13 @@ class RunStore:
         *,
         renderer: str,
         title: str,
+        visibility: str = "public",
+        previewable: bool = True,
+        downloadable: bool = True,
     ) -> Artifact:
         with self._state_lock:
+            if visibility not in ARTIFACT_VISIBILITIES:
+                raise ValueError(f"invalid artifact visibility: {visibility!r}")
             data = content.encode("utf-8") if isinstance(content, str) else content
             path = self.run_dir(run_id) / filename
             path.write_bytes(data)
@@ -366,6 +389,9 @@ class RunStore:
                 title=title,
                 sha256=hashlib.sha256(data).hexdigest(),
                 bytes=len(data),
+                previewable=previewable,
+                downloadable=downloadable,
+                visibility=visibility,
             )
             run = self.load_run(run_id)
             run.artifacts = [a for a in run.artifacts if a.get("path") != filename]

@@ -339,6 +339,56 @@ def test_artifact_reregister_is_idempotent(store: RunStore) -> None:
     assert (store.run_dir(run.run_id) / "answer.md").read_text() == "v2"
 
 
+def test_internal_artifact_visibility_persists_in_private_run(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+
+    artifact = store.add_artifact(
+        run.run_id,
+        "audit.json",
+        '{"private": true}',
+        renderer="json",
+        title="private audit",
+        visibility="internal",
+    )
+
+    persisted = next(
+        item
+        for item in store.load_run(run.run_id).artifacts
+        if item["path"] == "audit.json"
+    )
+    assert artifact.visibility == "internal"
+    assert persisted["visibility"] == "internal"
+
+
+def test_artifact_registration_rejects_unknown_visibility_without_writing(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+
+    with pytest.raises(ValueError, match="artifact visibility"):
+        store.add_artifact(
+            run.run_id,
+            "audit.json",
+            '{"private": true}',
+            renderer="json",
+            title="private audit",
+            visibility="secret",
+        )
+
+    assert not (store.run_dir(run.run_id) / "audit.json").exists()
+    assert store.load_run(run.run_id).artifacts == []
+
+
+def test_legacy_episode_artifact_defaults_internal_without_hiding_public_files() -> None:
+    assert (
+        run_store.artifact_visibility({"path": "continuous-episode.json"})
+        == "internal"
+    )
+    assert run_store.artifact_visibility({"path": "answer.md"}) == "public"
+
+
 def test_golden_run_fixture_conforms_to_protocol() -> None:
     """golden run 样例（脱敏）作为协议 v1 的回归 fixture：schema 变更必须先过这里。"""
     run_dirs = sorted(FIXTURE_ROOT.glob("run_*"))

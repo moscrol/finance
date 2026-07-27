@@ -592,6 +592,14 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
         "continuous-episode.json",
         "report.json",
     }
+    private_artifact = next(
+        item
+        for item in run.artifacts
+        if item["path"] == "continuous-episode.json"
+    )
+    assert private_artifact["visibility"] == "internal"
+    assert private_artifact["previewable"] is False
+    assert private_artifact["downloadable"] is False
     private_payload = json.loads(
         (run_store.run_dir(run_id) / "continuous-episode.json").read_text(
             encoding="utf-8"

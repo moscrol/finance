@@ -1371,6 +1371,41 @@ def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
     assert listed[0]["run_id"] == run_id
 
 
+def test_internal_artifact_is_hidden_from_every_public_artifact_interface(
+    client: TestClient,
+) -> None:
+    created = client.post("/api/runs", json={"question": "private audit"})
+    run_id = created.json()["run_id"]
+    _wait_terminal(client, run_id)
+    RunStore().add_artifact(
+        run_id,
+        "continuous-episode.json",
+        '{"contract": "private"}',
+        renderer="json",
+        title="连续研究私有审计",
+        visibility="internal",
+    )
+
+    public_run = client.get(f"/api/runs/{run_id}").json()
+    assert all(
+        artifact["path"] != "continuous-episode.json"
+        for artifact in public_run["artifacts"]
+    )
+    assert (
+        client.get(
+            f"/api/runs/{run_id}/artifacts/continuous-episode.json"
+        ).status_code
+        == 404
+    )
+    assert client.get(f"/api/runs/{run_id}/artifacts/run.json").status_code == 404
+    listed = client.get("/api/artifacts").json()
+    assert not any(
+        "continuous-episode" in str(artifact.get("source_path") or "")
+        for artifact in listed
+    )
+    assert client.get(f"/api/runs/{run_id}/artifacts/answer.md").status_code == 200
+
+
 def test_health_endpoints_report_worker_and_storage_state(client: TestClient) -> None:
     health = client.get("/api/health").json()
     assert health["status"] == "healthy"
