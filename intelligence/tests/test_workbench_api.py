@@ -647,6 +647,7 @@ def test_production_adapter_composes_sdk_glm_without_changing_verifier(
     assert adapter._runtime._backend == "sdk_glm"
     assert callable(adapter._runtime._model_factory)
     assert adapter._semantic_verifier._primary_judge._providers == (provider,)
+    assert adapter._synthesis_reserve_for_task is None
 
 
 def test_production_adapter_composes_sdk_gpt_from_session_provider(
@@ -677,6 +678,7 @@ def test_production_adapter_composes_sdk_gpt_from_session_provider(
     assert adapter._runtime._model is None
     assert callable(adapter._runtime._model_factory)
     assert adapter._semantic_verifier._primary_judge._providers == (provider,)
+    assert adapter._synthesis_reserve_for_task is None
 
 
 def test_sdk_gpt_adapter_wires_safe_live_episode_progress(

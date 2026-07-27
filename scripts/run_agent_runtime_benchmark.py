@@ -270,17 +270,16 @@ def _fresh_context(
 ):
     if not control.contract_required:
         return None
-    synthesis_reserve = GLMAgentRuntime.synthesis_reserve_for_task(
-        tier=case.tier,
-        question_type=control.task_frame.question_type,
-    )
-    if backend == "codex_headless":
-        # Codex headless performs research and draft generation in one process.
-        # GLM's much larger internal-finalizer reserve would leave this backend
-        # only 30s on a standard case and terminate it before it can finish.
-        # Keep a bounded verifier reserve here.  The shared semantic judge may
-        # need one full 30s provider attempt; reserving only the GLM policy's
-        # 20s made a structurally valid headless answer become unavailable.
+    if backend == "continuous_glm":
+        synthesis_reserve = GLMAgentRuntime.synthesis_reserve_for_task(
+            tier=case.tier,
+            question_type=control.task_frame.question_type,
+        )
+    else:
+        # SDK and headless runtimes research and draft in one continuous
+        # episode.  They need only the backend-neutral semantic-verifier
+        # reserve; GLM's separate internal-finalizer reserve would be charged
+        # a second time and collapse a standard research ledger to 30 seconds.
         policy_reserve = ResearchPolicy.for_tier(case.tier).synthesis_reserve
         synthesis_reserve = min(
             ResearchPolicy.for_tier(case.tier).total_seconds * 0.4,

@@ -278,7 +278,11 @@ def _build_continuous_turn_adapter(
         mode=_continuous_runtime_mode(),
         task_id_factory=lambda: task_id,
         timeout=timeout,
-        synthesis_reserve_for_task=GLMAgentRuntime.synthesis_reserve_for_task,
+        synthesis_reserve_for_task=(
+            GLMAgentRuntime.synthesis_reserve_for_task
+            if selection.name == "continuous_glm"
+            else None
+        ),
         today=rs._now_iso()[:10],
         latest_data_date=_runtime_market_reference_date(),
         is_cancelled=is_cancelled,

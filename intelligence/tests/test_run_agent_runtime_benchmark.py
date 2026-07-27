@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 import subprocess
@@ -145,6 +146,30 @@ def test_headless_benchmark_uses_backend_neutral_verifier_reserve() -> None:
 
     assert context.deadline.synthesis_reserve == 30.0
     assert context.deadline.stage_timeout(90.0) > 59.0
+
+
+def test_sdk_gpt_benchmark_uses_backend_neutral_verifier_reserve() -> None:
+    case = next(
+        item
+        for item in benchmark._load_cases(FIXTURE)
+        if item.case_id == "rebound-duration"
+    )
+    case = dataclasses.replace(case, case_id="sdk-gpt-reserve-policy")
+    control = benchmark.TurnControlCore().control(
+        case.question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "dry_run"),
+    )
+
+    context = benchmark._fresh_context(
+        case,
+        control,
+        backend="sdk_gpt",
+        latest_data_date="2026-07-24",
+    )
+
+    assert context.deadline.synthesis_reserve == 30.0
+    assert context.deadline.stage_timeout(90.0) > 59.0
+    assert context.root_budget.initial_seconds == 60.0
 
 
 def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(
