@@ -113,11 +113,11 @@ This is not yet loaded by the running 8799 process.
 
 ## Current 8799 runtime
 
-8799 is intentionally still on the pre-fix revision because its provider is
-session-only and a restart clears the credential:
+8799 now serves the repaired candidate with a session-only provider:
 
 ```text
-live revision: 4842292b
+live revision: 4550ce5d
+product-code tip: ed2e1d89
 backend: sdk_gpt
 provider: configured in process memory
 ready: true
@@ -127,11 +127,9 @@ finance_root: /Users/a77/finance-workspace-private
 market_snapshot: true
 ```
 
-The current branch tip `ed2e1d89` is deterministic-green but is not loaded by
-that process. Per the user instruction, do not stop offline work to request
-another credential. When the user is available for the final canary, restart
-8799 once, submit one session credential, and run only the causal canary.
-Persistence remains off; never print or copy the credential.
+The repaired code, correct finance root, market snapshot, and provider are all
+active. Persistence remains off; a restart will clear the credential. Never
+print or copy it.
 
 ## Live evidence
 
@@ -146,7 +144,27 @@ Run: `run_20260727_104513_771561`
   computing as a diverging secondary direction, and supplied dated evidence,
   continuation signals, invalidation conditions, and market risk.
 
-### Failed release frontier: weekly market cause
+### Passed: weekly market cause after shared-seam repair
+
+Run: `run_20260727_223000_947509`
+
+Conversation: `conv_0da5b95bce964e09ab6fe455817dfd21`
+
+- UI and Conversation message status: completed;
+- answer corrected the premise (`+0.47%` for the week; `-1.61%` on 07-24)
+  before explaining the actual down day;
+- fourteen evidence atoms, fourteen unique hashes, all dated `2026-07-24`;
+- five required outputs all bound;
+- two LLM calls, four tool calls, one bounded invalid action;
+- one `duplicate_evidence` observation was not reintroduced as fresh evidence;
+- `repair_attempts=1`, `repair_cycles=1`, semantic status `repaired`;
+- news cutoff filtering rejected future candidates and no future evidence
+  entered the final ledger.
+
+This closes the targeted causal frontier. Full receipt:
+`docs/verification/sdk-gpt-causal-seam-hardening-2026-07-27.md`.
+
+### Historical failed weekly-market-cause run
 
 Run: `run_20260727_104727_609711`
 
@@ -158,10 +176,8 @@ Run: `run_20260727_104727_609711`
 - final answer correctly fail-closed to an evidence-gap response, but did not
   answer the causal question.
 
-This was the key SDK runtime seam: `parallel_tool_calls=False` did not produce
-the desired single-observation loop at the current gateway. `afc0be6e` now
-enforces the invariant at the host/provider boundary, but live 8799 proof is
-still pending.
+This was the key SDK runtime seam. It is superseded by the green 8799 run above
+and must not be used as the current quality verdict.
 
 ### Earlier transport failures
 
@@ -172,17 +188,14 @@ quality result for the current code.
 
 ## Unfinished work
 
-1. At the next provider-ready window, restart 8799 once on `ed2e1d89`, submit
-   one session-only credential, and verify redacted readiness.
-2. Run exactly one Conversation case: `这一周行情下跌的主要原因是什么`.
-3. Inspect evidence novelty, `repair_attempts`, `repair_cycles`, bindings,
-   cutoff filtering, and the terminal answer from the private artifact. Do not
-   silently raise the budget or add a question-specific route.
+1. Keep 8799 running while the current session credential is needed; restart
+   only when loading a newer revision.
+2. If the release process continues, freeze the current revision and run the
+   representative suite once. Do not use it as a debugging loop.
+3. Run the independent review gate against that frozen revision and artifact.
 4. Solve Keychain fresh-process reuse separately. The negative cache only stops
    repeated prompts; it does not make a blocked ACL readable.
-5. Only after the causal canary passes or returns a useful, evidence-grounded
-   partial should any wider representative release frontier run.
-6. No merge to `main`, no 8792 cutover, and no release-green claim until the
+5. No merge to `main`, no 8792 cutover, and no release-green claim until the
    frozen frontier and review gate pass.
 
 ## Useful checks

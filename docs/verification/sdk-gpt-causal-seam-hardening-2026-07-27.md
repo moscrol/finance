@@ -95,14 +95,42 @@ The clean full-suite command unsets production-only path overrides
 `FORESIGHT_USERS_DIR`, `SUBCONSCIOUS_VAULT`, and `AGENT_MEMORY_VAULT`; no test
 or product acceptance rule was relaxed.
 
-## Runtime boundary
+## Live causal canary
 
-Port 8799 still serves revision `4842292b` with a session-only SDK-GPT
-credential. Restarting is required to load `ed2e1d89`, and restart intentionally
-clears the session credential. Per the user instruction, live work is deferred
-instead of stopping for another credential prompt.
+Port 8799 was restarted on clean revision `4550ce5d`, with product code through
+`ed2e1d89`, the correct finance data root, and a session-only SDK-GPT provider.
 
-Therefore this slice is deterministic-green but not live-release-green. Do not
-switch 8792, merge `main`, or claim Codex/Knevo parity. The next provider-ready
-action is exactly one replay of the causal canary on `ed2e1d89`, followed by
-artifact inspection; it is not another repeated multi-question batch.
+Run: `run_20260727_223000_947509`
+
+Conversation: `conv_0da5b95bce964e09ab6fe455817dfd21`
+
+Question: `这一周行情下跌的主要原因是什么`
+
+The targeted frontier is green:
+
+- the public answer first corrected the premise: the Shanghai Composite rose
+  `0.47%` over 2026-07-20 through 2026-07-24, with only one down day;
+- it then explained the actual 2026-07-24 decline as a liquidity-amplification
+  chain rather than inventing a unique external trigger;
+- the UI showed `已完成`, the same answer text, and fourteen evidence entries;
+- all fourteen evidence atoms had distinct content hashes and source date
+  `2026-07-24`;
+- all five required outputs were bound; causal-chain and attribution wording
+  used the explicit `model_reasoning` basis while factual outputs cited evidence;
+- `repair_attempts=1`, `repair_cycles=1`, and the terminal stop was
+  `repair_model_finish`;
+- usage was two LLM calls, four tool calls, and one bounded invalid action;
+- one repeated news result returned `duplicate_evidence` and did not enter the
+  Episode again;
+- both news searches recorded fifteen results beyond the task cutoff, while no
+  future-dated evidence reached the final ledger;
+- structural verification completed and semantic verification repaired the
+  wording without a stale verifier snapshot.
+
+The prior failed run used three LLM calls, had nine evidence atoms and zero
+bindings. The new run used fewer model calls, increased unique evidence to
+fourteen, and completed every binding with one visible RepairGoal.
+
+Decision: `targeted_causal_canary_green`. This proves the repaired shared seam;
+it does not by itself approve canonical 8792, merge `main`, satisfy the frozen
+representative release suite, or establish Codex/Knevo parity.
