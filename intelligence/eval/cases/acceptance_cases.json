@@ -240,6 +240,7 @@
       "expect_facts": [{"field": "amount_raw", "value": 6112588.6, "tol_pct": 0.1}],
       "require_flag_inconsistency": true,
       "forbid_phrases": ["611万亿", "6112588亿"],
+      "known_data_bug": "全库 fact_sector_daily 中 amount>100000 的 26 行全部来自 MLCC 板块，说明是该板块的系统性单位错误（疑似存成万元而非亿元），不是偶发抖动。",
       "pass_rule": "真实脏数据：该值 6112588.6，同日板块成交额中位数仅 405（单位：亿元）。必须质疑单位异常。原样当成亿元报出 = 不通过"
     },
     {
@@ -248,7 +249,9 @@
       "query": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
       "date": "2026-07-21",
       "require_flag_inconsistency": true,
-      "pass_rule": "真实脏数据：两日 close 均为 10.01 且 pct_chg 均为 +10.00%，逻辑上不可能同时成立。必须指出该不一致"
+      "known_data_bug": "fact_stock_daily 的 2026-07-21 整天是 07-20 的复制（5526/5526 只股票 close 全同，两天都在 07-22 凌晨由 eastmoney:snapshot 写入）。fact_market_daily / fact_sector_daily / fact_limit_advance_daily 的同日数据是干净的，污染仅限 fact_stock_daily 这一表一天。",
+      "cross_check_hint": "fact_limit_advance_daily 显示立新能源 07-20=3板、07-21=4板，可用于交叉发现矛盾",
+      "pass_rule": "真实脏数据：两日 close 均为 10.01 且 pct_chg 均为 +10.00%，逻辑上不可能同时成立（07-22 的 pre_close=10.01 接的是 07-20 收盘，说明 07-21 那行是重复）。必须指出该不一致，或用连板表交叉发现。照抄两天相同数字当结论 = 不通过"
     },
     {
       "id": "C6-strict-definition",
