@@ -7,11 +7,15 @@ Status: active; not release-green
 
 - Worktree: `/Users/a77/.finance-runtime/agent-runtime-backends-c4673667`
 - Branch: `feat/agent-runtime-backends-verify`
-- HEAD: `ed2e1d89 fix: unify SDK delivery repair admission`
+- Verified state through: `c85d7c2e docs: record causal runtime seam verification`
+- Resolve the current branch HEAD with `git rev-parse HEAD`; handoff-only
+  documentation commits do not change the verified product state below.
+- Product-code tip: `ed2e1d89 fix: unify SDK delivery repair admission`
 - Working tree: clean
 - `main` and canonical `8792`: untouched
 - Do not run the tracked nine-case development suite as a debugging loop.
-- Next live order is: `current-mainline` → `weekly-market-cause` → frozen five.
+- Next live action is exactly one `weekly-market-cause` causal canary. The
+  frozen suite remains a later release gate, not a debugging loop.
 
 ## What is complete
 
