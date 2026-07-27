@@ -708,7 +708,10 @@ class MarketValueBlockTests(unittest.TestCase):
             )
             con.close()
 
+            fetch_calls: list[str] = []
+
             def future_snapshot(code: str, name: str = "") -> ValuationSnapshot:
+                fetch_calls.append(code)
                 return ValuationSnapshot(
                     ts_code=code,
                     name=name or code,
@@ -724,8 +727,10 @@ class MarketValueBlockTests(unittest.TestCase):
                 db_path,
                 fetcher=future_snapshot,
                 as_of="2026-07-24",
+                snapshot_date_hint="2026-07-27",
             )
 
+        self.assertEqual(fetch_calls, [])
         self.assertIn("总市值 49.5 亿", block)
         self.assertIn("估值快照日期：2026-07-24", block)
         self.assertIn("本地 DuckDB 市值快照", block)

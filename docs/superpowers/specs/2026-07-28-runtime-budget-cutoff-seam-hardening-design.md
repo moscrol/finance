@@ -56,7 +56,9 @@ remains defense in depth, not the primary historical-selection mechanism.
 
 Valuation snapshots newer than the cutoff are not relabeled. The provider
 falls back to the local price and market-cap anchor at or before the cutoff and
-reports PE/PB as missing when historical multiples are unavailable.
+reports PE/PB as missing when historical multiples are unavailable. When the
+known live-snapshot date is newer than the cutoff, the realtime request is
+skipped rather than spending tool budget on evidence that must be discarded.
 
 ### User-owned historical authorization
 

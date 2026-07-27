@@ -1291,6 +1291,7 @@ def _valuation_block_for_llm(
     fetcher: Any = None,
     *,
     as_of: str | None = None,
+    snapshot_date_hint: str | None = None,
 ) -> str:
     """Build the D5 valuation block: target snapshot + same-theme peer band.
 
@@ -1367,12 +1368,17 @@ def _valuation_block_for_llm(
         if not code_match:
             return ""
         target_code = code_match.group(1)
-    target = fetch(target_code, target_name)
+    use_live_snapshot = not (
+        as_of
+        and snapshot_date_hint
+        and str(snapshot_date_hint)[:10] > str(as_of)[:10]
+    )
+    target = fetch(target_code, target_name) if use_live_snapshot else None
     if not _valuation_snapshot_within_as_of(target, as_of):
         target = local_snapshots.get(target_code)
     peers = []
     for peer_code, peer_name in peer_codes:
-        candidate = fetch(peer_code, peer_name)
+        candidate = fetch(peer_code, peer_name) if use_live_snapshot else None
         if not _valuation_snapshot_within_as_of(candidate, as_of):
             candidate = local_snapshots.get(peer_code)
         if candidate is not None:

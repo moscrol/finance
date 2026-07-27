@@ -83,8 +83,7 @@ def _is_current_query_stale(
         return False
     if (
         historical_authorized
-        and
-        spec.time_range is not None
+        and spec.time_range is not None
         and spec.time_range.end is not None
         and spec.time_range.end < floor
     ):
@@ -240,6 +239,7 @@ def _market_block(
                 market_db_path,
                 fetcher=fetch_snapshot,
                 as_of=as_of_value,
+                snapshot_date_hint=context.latest_data_date,
             ),
             "东财快照 + 本地 DuckDB 可比集",
             "company_valuation_snapshot",
