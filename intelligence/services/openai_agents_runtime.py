@@ -254,11 +254,20 @@ def _provider_tool_schema(
 
     def visit(value: object) -> object:
         if isinstance(value, Mapping):
-            return {
+            projected = {
                 str(key): visit(item)
                 for key, item in value.items()
                 if key != "uniqueItems"
             }
+            # The local semantic schema deliberately leaves polymorphic scalar
+            # values open (for example finance_query.filters.value). The
+            # current OpenAI-compatible gateway rejects a schema node that has
+            # descriptive metadata but no ``type``. Keep the domain schema
+            # unchanged and give this provider a conservative string surface;
+            # local argument validation remains authoritative after the call.
+            if set(projected) == {"description"}:
+                projected["type"] = "string"
+            return projected
         if isinstance(value, list):
             return [visit(item) for item in value]
         return value

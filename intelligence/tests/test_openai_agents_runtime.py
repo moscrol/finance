@@ -553,9 +553,10 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
                         "type": "array",
                         "items": {"type": "integer"},
                         "uniqueItems": True,
-                    }
+                    },
+                    "scalar": {"description": "字符串、数字、布尔值或这些标量的数组"},
                 },
-                "required": ["values"],
+                "required": ["values", "scalar"],
                 "additionalProperties": False,
             },
         },
@@ -607,6 +608,13 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
 
     assert "uniqueItems" in json.dumps(captured["sdk_glm"])
     assert "uniqueItems" not in json.dumps(captured["sdk_gpt"])
+    assert captured["sdk_glm"]["properties"]["nested"]["properties"]["scalar"] == {
+        "description": "字符串、数字、布尔值或这些标量的数组"
+    }
+    assert captured["sdk_gpt"]["properties"]["nested"]["properties"]["scalar"] == {
+        "description": "字符串、数字、布尔值或这些标量的数组",
+        "type": "string",
+    }
     assert source_schema == original_schema
 
 
