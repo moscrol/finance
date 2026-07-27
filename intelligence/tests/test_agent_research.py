@@ -276,6 +276,38 @@ def test_default_news_tool_tightens_cutoff_to_explicit_query_window(
     }
 
 
+def test_default_news_tool_keeps_legacy_context_without_cutoff_compatible(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_news(query: str, **kwargs):
+        captured["query"] = query
+        captured["as_of"] = kwargs.get("as_of")
+        return agent_research.market_news.NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider="东财",
+                capability="directional_news",
+                status="empty",
+            ),
+        )
+
+    monkeypatch.setattr(
+        agent_research.market_news,
+        "fetch_eastmoney_news_result",
+        fake_news,
+    )
+    tools = agent_research.build_default_tools(lambda *_args, **_kwargs: object())
+
+    tools["news_search"](
+        "A股下跌原因",
+        agent_research.AgentToolContext(ResearchDeadline.from_timeout(5.0)),
+    )
+
+    assert captured == {"query": "A股下跌原因", "as_of": None}
+
+
 def test_tool_action_binds_evidence_to_known_hypothesis() -> None:
     contract = ResearchTaskContract(
         task_id="hypothesis-binding",

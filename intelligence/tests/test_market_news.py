@@ -362,6 +362,15 @@ class QueryDateCutoffTests(unittest.TestCase):
             date(2026, 7, 27),
         )
 
+    def test_resolves_yearless_chinese_date_against_cutoff_year(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "7月24日 A股收评",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 24),
+        )
+
 
 class ParseNewsIntentTests(unittest.TestCase):
     def test_event_questions_route(self) -> None:

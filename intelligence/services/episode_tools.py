@@ -17,12 +17,12 @@ from intelligence.paths import default_paths
 from intelligence.services import (
     agent_research,
     ask_blocks,
-    closed_loop_retrieval,
     entity_anchor,
     evidence_search,
     finance_query,
     kb_rag,
     l3_evidence,
+    market_news,
     market_technical,
     valuation_estimate,
 )
@@ -32,6 +32,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
 )
 from intelligence.services.research_tool_registry import (
+    PreparedToolArguments,
     ResearchToolRegistry,
     ToolSpec,
     ToolRunResult,
@@ -149,6 +150,19 @@ def build_episode_registry(
                 market_db_path
             )
         )
+    market_window_end = None
+    if context.contract.evidence_plan.profile == "time_aligned_market_causal":
+        market_window_end = market_news.latest_explicit_query_date(
+            f"{frame.raw_question} {frame.timeframe or ''}",
+            reference_date=context.information_cutoff.as_of_date,
+        )
+        if market_window_end is None and structured_source_date:
+            try:
+                market_window_end = date.fromisoformat(
+                    str(structured_source_date)[:10]
+                )
+            except ValueError:
+                market_window_end = None
     knowledge = KnowledgeAdapter(wiki_root=wiki)
 
     def retrieve_kb(query: str, timeout: float):
@@ -168,72 +182,6 @@ def build_episode_registry(
         **agent_research.build_default_tools(retrieve_kb),
         **agent_research.build_graph_tools(knowledge),
     }
-    if (
-        context.contract.evidence_plan.profile == "time_aligned_market_causal"
-        and structured_source_date
-    ):
-        try:
-            market_window_end = date.fromisoformat(str(structured_source_date)[:10])
-        except ValueError:
-            market_window_end = None
-        if market_window_end is not None:
-            for tool_name in ("news_search", "web_search"):
-                base_runner = tools.get(tool_name)
-                if base_runner is None:
-                    continue
-
-                def time_aligned_runner(
-                    query: str,
-                    tool_context: agent_research.AgentToolContext,
-                    *,
-                    runner=base_runner,
-                ):
-                    global_cutoff = (
-                        tool_context.information_cutoff
-                        or context.information_cutoff
-                    )
-                    scoped_cutoff = InformationCutoff(
-                        min(global_cutoff.as_of_date, market_window_end),
-                        "latest_available",
-                    )
-                    scoped_context = replace(
-                        tool_context,
-                        information_cutoff=scoped_cutoff,
-                    )
-                    evidence, observation, trace = runner(query, scoped_context)
-                    filtered, rejected = closed_loop_retrieval.filter_future_dated(
-                        list(evidence),
-                        information_cutoff=scoped_cutoff,
-                        date_getter=lambda item: item.source_date,
-                    )
-                    if rejected:
-                        observation = (
-                            "；".join(
-                                f"{item.title}：{item.detail[:80]}"
-                                for item in filtered
-                            )
-                            or "检索结果均因 future_of_cutoff 被过滤"
-                        )
-                    trace = replace(
-                        trace,
-                        status=(
-                            "future_of_cutoff"
-                            if rejected and not filtered
-                            else trace.status
-                        ),
-                        detail=(
-                            f"{trace.detail}; future_of_cutoff={len(rejected)}".strip(
-                                "; "
-                            )
-                            if rejected
-                            else trace.detail
-                        ),
-                        result_count=len(filtered),
-                        requested_date=scoped_cutoff.as_of_date.isoformat(),
-                    )
-                    return filtered, observation, trace
-
-                tools[tool_name] = time_aligned_runner
 
     def market_data_runner(
         _query: str,
@@ -405,6 +353,30 @@ def build_episode_registry(
         tools["l3_lookup"] = selected_l3_runner
     base_registry = default_registry(tools)
     specs = list(base_registry.authorized_specs())
+    if market_window_end is not None:
+
+        def causal_tool_cutoff(
+            prepared: PreparedToolArguments,
+            run_context: ResearchRunContext,
+        ) -> InformationCutoff:
+            task_cutoff = min(
+                run_context.information_cutoff.as_of_date,
+                market_window_end,
+            )
+            return InformationCutoff(
+                market_news.query_date_cutoff(
+                    prepared.display_query,
+                    upper_bound=task_cutoff,
+                ),
+                "requested",
+            )
+
+        specs = [
+            replace(spec, cutoff_resolver=causal_tool_cutoff)
+            if spec.name in {"news_search", "web_search"}
+            else spec
+            for spec in specs
+        ]
 
     if "finance_query" in context.contract.allowed_capabilities:
         # The semantic query engine also serves non-agent callers that may

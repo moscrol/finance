@@ -240,6 +240,52 @@ def test_sdk_progress_sink_observes_tool_events_before_runner_returns() -> None:
     ]
 
 
+def test_sdk_progress_sink_suppresses_events_after_cancellation() -> None:
+    observed = []
+    cancelled = {"value": False}
+
+    def cancelled_after_research(request: AgentsSdkRequest) -> AgentsSdkResult:
+        observation = request.tools[0].invoke("A股 当前主线")
+        cancelled["value"] = True
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "截至2026-07-24，医药是韧性核心。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": observation["evidence_hashes"],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    outcome = OpenAIAgentsRuntime(
+        runner=cancelled_after_research,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+        is_cancelled=lambda: cancelled["value"],
+        event_sink=observed.append,
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "completed"
+    assert [event.kind for event in observed] == [
+        "task",
+        "tool_request",
+        "tool_result",
+    ]
+
+
 def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     frame = _frame()
     context = _context(frame)

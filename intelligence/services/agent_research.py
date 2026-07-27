@@ -291,17 +291,25 @@ def build_default_tools(
             timeout=context.timeout(20.0),
         )
         context.check_cancelled()
+
+        def source_date(item: web_research.WebSearchItem) -> str | None:
+            parsed = market_news.latest_explicit_query_date(
+                f"{item.title} {item.snippet}",
+                reference_date=(
+                    context.information_cutoff.as_of_date
+                    if context.information_cutoff is not None
+                    else None
+                ),
+            )
+            return parsed.isoformat() if parsed is not None else None
+
         evidence = [
             AgentEvidence(
                 tool="web_search",
                 title=item.title,
                 detail=(item.snippet or "")[:160],
                 source=item.url,
-                source_date=(
-                    match.group(0).replace("/", "-")
-                    if (match := re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", f"{item.title} {item.snippet}"))
-                    else None
-                ),
+                source_date=source_date(item),
                 evidence_tier="public_web",
                 independent_key=item.url,
             )
@@ -317,9 +325,13 @@ def build_default_tools(
         query: str,
         context: AgentToolContext,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        query_cutoff = market_news.query_date_cutoff(
-            query,
-            upper_bound=context.information_cutoff.as_of_date,
+        query_cutoff = (
+            market_news.query_date_cutoff(
+                query,
+                upper_bound=context.information_cutoff.as_of_date,
+            )
+            if context.information_cutoff is not None
+            else None
         )
         news = market_news.fetch_eastmoney_news_result(
             query,

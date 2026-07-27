@@ -14,7 +14,10 @@ from typing import Literal
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    InformationCutoff,
+    ResearchRunContext,
+)
 
 
 _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
@@ -76,8 +79,6 @@ ToolArgumentParser = Callable[
     [Mapping[str, object]],
     tuple[ToolInput, str],
 ]
-
-
 def parse_query_arguments(
     arguments: Mapping[str, object],
 ) -> tuple[str, str]:
@@ -108,6 +109,12 @@ class PreparedToolArguments:
     runner_input: ToolInput
     normalized_key: str
     display_query: str
+
+
+ToolCutoffResolver = Callable[
+    [PreparedToolArguments, ResearchRunContext],
+    InformationCutoff,
+]
 
 
 @dataclass(frozen=True)
@@ -221,6 +228,7 @@ class ToolSpec:
         default_factory=lambda: dict(QUERY_TOOL_PARAMETERS)
     )
     parse_arguments: ToolArgumentParser = parse_query_arguments
+    cutoff_resolver: ToolCutoffResolver | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -354,14 +362,29 @@ class ResearchToolRegistry:
 
         prepared = self.prepare(name, arguments)
         normalized = prepared.normalized_key
+        effective_context = context
+        if spec.cutoff_resolver is not None:
+            requested_cutoff = spec.cutoff_resolver(prepared, context)
+            if not isinstance(requested_cutoff, InformationCutoff):
+                raise TypeError("tool cutoff resolver must return InformationCutoff")
+            effective_context = replace(
+                context,
+                information_cutoff=InformationCutoff(
+                    min(
+                        context.information_cutoff.as_of_date,
+                        requested_cutoff.as_of_date,
+                    ),
+                    requested_cutoff.source,
+                ),
+            )
 
         def fetch() -> ToolObservation:
             run_result = spec.runner(
                 prepared.runner_input,
                 agent_research.AgentToolContext(
-                    context.deadline,
+                    effective_context.deadline,
                     is_cancelled or (lambda: False),
-                    context.information_cutoff,
+                    effective_context.information_cutoff,
                 ),
             )
             evidence = list(run_result.evidence)
@@ -385,7 +408,7 @@ class ResearchToolRegistry:
                 )
             evidence, rejected = closed_loop_retrieval.filter_future_dated(
                 evidence,
-                information_cutoff=context.information_cutoff,
+                information_cutoff=effective_context.information_cutoff,
                 date_getter=lambda item: item.source_date,
             )
             trace_trade_date = closed_loop_retrieval.parse_source_date(
@@ -393,7 +416,8 @@ class ResearchToolRegistry:
             )
             if (
                 trace_trade_date is not None
-                and trace_trade_date > context.information_cutoff.as_of_date
+                and trace_trade_date
+                > effective_context.information_cutoff.as_of_date
                 and evidence
                 and not any(item.source_date for item in evidence)
             ):
@@ -432,7 +456,7 @@ class ResearchToolRegistry:
                 step_id=step_id,
                 requested_date=(
                     trace.requested_date
-                    or context.information_cutoff.as_of_date.isoformat()
+                    or effective_context.information_cutoff.as_of_date.isoformat()
                 ),
                 served_date=served_date,
             )
@@ -455,7 +479,7 @@ class ResearchToolRegistry:
             fetch,
             variant=(
                 f"{spec.freshness};cutoff="
-                f"{context.information_cutoff.as_of_date.isoformat()}"
+                f"{effective_context.information_cutoff.as_of_date.isoformat()}"
             ),
         )
 

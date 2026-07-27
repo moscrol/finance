@@ -154,6 +154,9 @@ _COMPRESSED_CN_DATE_RANGE_RE = re.compile(
     r"(?<!\d)(20\d{2})年(\d{1,2})月(\d{1,2})日?\s*"
     r"(?:至|到|[-~—])\s*(?:(\d{1,2})月)?(\d{1,2})日"
 )
+_YEARLESS_CN_DATE_RE = re.compile(
+    r"(?<![\d年])(\d{1,2})月(\d{1,2})日"
+)
 _MAX_EASTMONEY_FALLBACK_QUERIES = 3
 
 
@@ -288,6 +291,26 @@ def query_date_cutoff(
     cutoff = _parse_cutoff(upper_bound)
     if cutoff is None:  # pragma: no cover - the public type excludes None
         raise ValueError("news upper_bound must be an ISO date")
+    explicit_date = latest_explicit_query_date(
+        query,
+        reference_date=cutoff,
+    )
+    return min(cutoff, explicit_date) if explicit_date is not None else cutoff
+
+
+def latest_explicit_query_date(
+    query: str,
+    *,
+    reference_date: date | str | None = None,
+) -> date | None:
+    """Return the latest explicit calendar date carried by one query/result.
+
+    Yearless Chinese dates are resolved against the supplied task cutoff.  A
+    December date observed during January is treated as the previous year;
+    nearby future dates remain future so the evidence gate can reject them.
+    """
+
+    reference = _parse_cutoff(reference_date)
     candidates: list[date] = []
     text = str(query or "")
     for match in _FULL_QUERY_DATE_RE.finditer(text):
@@ -307,9 +330,18 @@ def query_date_cutoff(
             candidates.append(date(year, end_month, end_day))
         except ValueError:
             continue
-    if not candidates:
-        return cutoff
-    return min(cutoff, max(candidates))
+    if reference is not None:
+        for match in _YEARLESS_CN_DATE_RE.finditer(text):
+            month = int(match.group(1))
+            day = int(match.group(2))
+            year = reference.year
+            if month - reference.month >= 6:
+                year -= 1
+            try:
+                candidates.append(date(year, month, day))
+            except ValueError:
+                continue
+    return max(candidates) if candidates else None
 
 
 def _news_at_or_before_cutoff(
