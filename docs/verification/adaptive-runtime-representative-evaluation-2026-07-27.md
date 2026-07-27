@@ -99,6 +99,34 @@ numeric, invalidation-bounded answer. The long-tail provider lane was not
 claimed green because the fresh process could not access the persisted Keychain
 record without macOS authorization; no secret was copied or printed.
 
+### 8799 data-root preflight (2026-07-27 09:37 +08:00)
+
+The first restart of the current candidate was deliberately rejected by a
+red-capable preflight: `finance_root` resolved to the historical default
+`/Users/a77/Desktop/c c/金融`, and `market_snapshot` was unavailable. This was
+an environment seam, not a retrieval or answer-quality result. The candidate
+was then restarted with explicit, non-secret runtime paths:
+
+```text
+FINANCE_WS=/Users/a77/finance-workspace-private
+FINANCE_ROOT=/Users/a77/finance-workspace-private
+KB_VAULT=/Users/a77/knowledge-base-private/wiki
+MARKET_SNAPSHOT_DIR=/Users/a77/finance-workspace-private/market_snapshot
+```
+
+The corrected preflight is green: source revision `ebe260b2`, `source_dirty=false`,
+`finance_root=/Users/a77/finance-workspace-private`, `market_snapshot=true`.
+`/api/workbench/overview` now returns `as_of_date=2026-07-24`, and the browser
+projection shows the same date plus the current market candidates (电力、有色
+金属、医药、半导体). The earlier `2026-06-04` display is therefore not a
+current-candidate data result.
+
+After this restart the SDK-GPT process has no in-memory BYOK provider and the
+fresh process still cannot load the saved Keychain item (`ready=false`,
+`openai_api_key_missing`). No key was read, copied, printed, or committed. A
+fresh explicit provider submission in the 8799 configuration dialog is still
+required before the two targeted long-tail smokes can be run.
+
 ## Claude `ALIGNMENT.md` reconciliation
 
 The supplemental review does not change the approved runtime ownership model.

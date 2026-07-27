@@ -36,9 +36,17 @@ representative live gate is not green yet.
 - The benchmark summary now fails closed for every `status=failed` arm;
   re-evaluating the prior five-arm unavailable artifact gives
   `passed=false`, `protocol_failure_count=5`.
-- The current candidate cannot yet load the saved provider in a fresh process:
-  macOS Keychain access for account `linxiaoqi5111` remains unauthorized and
-  returns bounded `credential_unavailable`.
+- The current candidate was rechecked after an explicit data-root restart:
+  `FINANCE_WS=/Users/a77/finance-workspace-private` yields
+  `market_snapshot=true`, and `/api/workbench/overview` serves
+  `as_of_date=2026-07-24`. The prior 2026-06-04 display came from the candidate
+  process inheriting the historical default data root, not from the current
+  data set.
+- The SDK-GPT candidate still cannot load the saved provider in a fresh
+  process: macOS Keychain access for account `linxiaoqi5111` remains
+  unauthorized and the new process reports `openai_api_key_missing`. This is a
+  bounded external authorization/configuration blocker; no key was read,
+  copied, printed, or committed.
 - Port 8798 is not evidence for this candidate: it is still running revision
   `e0b82890`, although its already-running process reports an in-memory provider.
 
