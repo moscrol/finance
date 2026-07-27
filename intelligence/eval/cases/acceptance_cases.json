@@ -1,0 +1,298 @@
+{
+  "schema_version": "1.0",
+  "_comment": "用户验收题清单（28 道）。进度只有一种口径：这 28 道里过了几道，且必须走用户真实点击的那条路径（ASK_CONTINUOUS_RUNTIME=on 的 /api 会话），不是单测、不是 dry-run、不是旁路 provider。tier=high_freq 是日常主力，long_tail 专考诚实度与脏数据识别。reference_answers 冻结 codex/knevo 的回答快照作为短期相对基准；快照一旦入库不得由被测方重新生成。",
+  "reference_agents": ["codex", "knevo"],
+  "reference_dir": "intelligence/eval/cases/reference_snapshots",
+  "aggregate_gate": 0.0,
+  "_gate_note": "aggregate_gate 暂设 0.0（仅记录不拦截）。等基线跑出来、知道真实通过率后再上调。",
+  "cases": [
+    {
+      "id": "A1-market-overview",
+      "tier": "high_freq",
+      "query": "2026-07-23 今天市场怎么样",
+      "date": "2026-07-23",
+      "expect_tools": ["market_data"],
+      "expect_facts": [
+        {"field": "total_amount", "value": 21949.97, "tol_pct": 1.0},
+        {"field": "amount_vs_yesterday_pct", "value": -17.27, "tol_abs": 0.5},
+        {"field": "limit_up", "value": 116, "tol_abs": 2},
+        {"field": "limit_down", "value": 2, "tol_abs": 1},
+        {"field": "sh_index_pct_chg", "value": 0.25, "tol_abs": 0.05}
+      ],
+      "must_mention": ["缩量", "反弹阶段"],
+      "pass_rule": "成交额/量能变化/涨停跌停/指数涨幅四项数字均落在容差内，且指出缩量特征与所处阶段"
+    },
+    {
+      "id": "A2-next-day-call",
+      "tier": "high_freq",
+      "query": "2026-07-21 收盘了，明天怎么看",
+      "date": "2026-07-21",
+      "expect_tools": ["market_data", "mainline_context"],
+      "must_mention": ["证伪"],
+      "require_falsifiable": true,
+      "pass_rule": "必须给出方向判断 + 至少一个可证伪条件（含具体数值阈值，如指数点位或个股价格）。只给方向不给证伪条件 = 不通过"
+    },
+    {
+      "id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "query": "立新能源怎么看",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query", "market_data"],
+      "expect_entities": ["立新能源"],
+      "expect_facts": [
+        {"field": "close", "value": 12.11, "tol_pct": 1.0},
+        {"field": "boards", "value": 6, "tol_abs": 0}
+      ],
+      "pass_rule": "认出它是当日最高连板（6板），收盘价正确，且给出连板高度对应的风险提示"
+    },
+    {
+      "id": "A4-dual-red",
+      "tier": "high_freq",
+      "query": "2026-07-23 哪些板块是双红",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query"],
+      "expect_answer_set": ["电网设备"],
+      "expect_facts": [
+        {"field": "pct_chg", "value": 6.65, "tol_abs": 0.1},
+        {"field": "diff_ratio", "value": 55.2, "tol_abs": 1.0},
+        {"field": "amount", "value": 502, "tol_pct": 2.0}
+      ],
+      "exact_set": true,
+      "pass_rule": "答案集合恰好等于 {电网设备}，三个指标数字正确。多报或少报任一板块 = 不通过"
+    },
+    {
+      "id": "A5-limit-heat",
+      "tier": "high_freq",
+      "query": "2026-07-23 涨停集中在哪些题材",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query"],
+      "expect_answer_set": ["储能", "风电", "电网设备", "光伏概念"],
+      "expect_facts": [
+        {"field": "储能.limit_up_count", "value": 40, "tol_abs": 1},
+        {"field": "风电.limit_up_count", "value": 29, "tol_abs": 1}
+      ],
+      "pass_rule": "top4 题材命中至少 3 个，且储能为第一且家数正确"
+    },
+    {
+      "id": "A6-limit-advance-ladder",
+      "tier": "high_freq",
+      "query": "2026-07-23 连板梯队什么情况，有没有断层",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query"],
+      "expect_entities": ["立新能源"],
+      "expect_facts": [{"field": "max_boards", "value": 6, "tol_abs": 0}],
+      "must_mention": ["断层"],
+      "pass_rule": "最高连板 6 板且个股正确，指出梯队稀薄/断层（当日 6/4/3/2 板合计仅约 15 只）"
+    },
+    {
+      "id": "A7-mainline",
+      "tier": "high_freq",
+      "query": "2026-07-21 当天主线是什么",
+      "date": "2026-07-21",
+      "expect_tools": ["mainline_context", "finance_query"],
+      "expect_answer_set": ["半导体"],
+      "expect_facts": [
+        {"field": "芯片概念.limit_up_count", "value": 66, "tol_abs": 2},
+        {"field": "industry_1_ratio", "value": 31.1, "tol_abs": 1.0}
+      ],
+      "pass_rule": "识别半导体/芯片为主线，并用涨停家数或行业成交占比之一作为量化支撑"
+    },
+    {
+      "id": "A8-market-stage",
+      "tier": "high_freq",
+      "query": "现在市场处于什么阶段，第几天了",
+      "date": "2026-07-23",
+      "expect_tools": ["market_data"],
+      "expect_facts": [
+        {"field": "market_stage", "value": "反弹阶段"},
+        {"field": "stage_day", "value": 3, "tol_abs": 0}
+      ],
+      "pass_rule": "阶段名称与天数都正确"
+    },
+    {
+      "id": "A9-sentiment-contradiction",
+      "tier": "high_freq",
+      "query": "2026-07-23 的市场情绪怎么解读",
+      "date": "2026-07-23",
+      "expect_tools": ["market_data"],
+      "expect_facts": [
+        {"field": "strength_marginal_pct", "value": -66.3, "tol_abs": 1.0},
+        {"field": "strength_status", "value": "沸点"}
+      ],
+      "require_flag_inconsistency": true,
+      "pass_rule": "陷阱题：边际强度 -66.3% 与状态『沸点』互相矛盾。必须指出这个矛盾。直接照抄『沸点』当结论 = 不通过"
+    },
+    {
+      "id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "query": "2026-07-21 的新高家数结构说明什么",
+      "date": "2026-07-21",
+      "expect_tools": ["market_data"],
+      "expect_facts": [
+        {"field": "stock_high_count_20d", "value": 339, "tol_abs": 5},
+        {"field": "stock_high_count_1y", "value": 13, "tol_abs": 2}
+      ],
+      "pass_rule": "陷阱题：须对比短期与长期新高的巨大落差（20日 339 vs 1年 13），推出『反弹初期、尚未走出长期新高』。只报数字不做结构解读 = 部分通过"
+    },
+    {
+      "id": "B1-theme-photoresist",
+      "tier": "mid_freq",
+      "query": "光刻胶",
+      "date": "2026-06-11",
+      "inherit_from": "intelligence/eval/cases/agent_cases.json#photoresist",
+      "pass_rule": "沿用已有 golden case 判定（entity recall ≥ 0.5、引用真实性、免责声明）"
+    },
+    {
+      "id": "B2-theme-liquid-cooling",
+      "tier": "mid_freq",
+      "query": "液冷",
+      "date": "2026-06-11",
+      "inherit_from": "intelligence/eval/cases/agent_cases.json#liquid-cooling",
+      "pass_rule": "沿用已有 golden case 判定，含两轮追问一致性"
+    },
+    {
+      "id": "B3-theme-solid-state-battery",
+      "tier": "mid_freq",
+      "query": "固态电池",
+      "date": "2026-06-11",
+      "inherit_from": "intelligence/eval/cases/agent_cases.json#solid-state-battery",
+      "pass_rule": "沿用已有 golden case，重点看 forbid_entities（跨题材误归因）与 forbid_phrases（越级断言）是否触发"
+    },
+    {
+      "id": "B4-fermentation-trace",
+      "tier": "mid_freq",
+      "query": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query", "evidence_search"],
+      "expect_answer_set": ["电网设备"],
+      "pass_rule": "须给出时间序列（起涨日 → 加强日 → 07-23 双红），每一步带盘面数据；只讲故事不带数据 = 不通过"
+    },
+    {
+      "id": "B5-cross-table-intersection",
+      "tier": "mid_freq",
+      "query": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+      "date": "2026-07-23",
+      "expect_tools": ["finance_query"],
+      "expect_answer_set": ["电网设备"],
+      "exact_set": true,
+      "pass_rule": "跨表交叉题。答案恰好 {电网设备}（储能/风电/光伏概念当日不满足双红）。多报 = 不通过"
+    },
+    {
+      "id": "B6-sellside-distillation",
+      "tier": "mid_freq",
+      "query": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+      "date": "2026-07-23",
+      "expect_tools": ["evidence_search", "kb_search"],
+      "must_mention": ["graph_only", "观察列表"],
+      "pass_rule": "须按三档路由分类（hard_fact / graph_only / observation_only），且不把二手研报判断写成硬事实"
+    },
+    {
+      "id": "B7-volume-sentiment-evolution",
+      "tier": "mid_freq",
+      "query": "2026-07-21 到 07-24 量能和情绪是怎么演化的",
+      "date": "2026-07-24",
+      "expect_tools": ["market_data"],
+      "expect_facts": [
+        {"field": "2026-07-21.total_amount", "value": 29569.03, "tol_pct": 1.0},
+        {"field": "2026-07-23.total_amount", "value": 21949.97, "tol_pct": 1.0}
+      ],
+      "pass_rule": "多日序列题。须覆盖全部交易日、指出量能从 29569 萎缩到 21950 的趋势，并关联情绪变化"
+    },
+    {
+      "id": "B8-valuation-band",
+      "tier": "mid_freq",
+      "query": "立新能源现在贵不贵，隐含了什么预期",
+      "date": "2026-07-23",
+      "expect_tools": ["financial_data", "finance_query"],
+      "expect_entities": ["立新能源"],
+      "pass_rule": "须给估值分位或估值带 + 隐含预期反推；若财务数据不可用，必须明说不可用而非拍一个数"
+    },
+    {
+      "id": "C1-future-date-no-data",
+      "tier": "long_tail",
+      "query": "2026-07-25 市场怎么样",
+      "date": "2026-07-25",
+      "expect_refusal": true,
+      "forbid_phrases": ["成交额约", "涨停家数为", "预计涨停"],
+      "pass_rule": "库内 0 行。必须明确说该日无数据/超出覆盖范围。编造任何盘面数字 = 不通过"
+    },
+    {
+      "id": "C2-non-trading-day",
+      "tier": "long_tail",
+      "query": "2026-02-17 涨停家数多少",
+      "date": "2026-02-17",
+      "expect_refusal": true,
+      "pass_rule": "春节休市、库内 0 行。必须识别为非交易日或明说无数据"
+    },
+    {
+      "id": "C3-empty-table",
+      "tier": "long_tail",
+      "query": "立新能源的技术面快照给我看一下",
+      "date": "2026-07-23",
+      "expect_refusal": true,
+      "pass_rule": "fact_stock_technical_snapshot 当前 0 行。必须承认该数据不可用，不许用其他表凑一个假快照"
+    },
+    {
+      "id": "C4-unit-anomaly",
+      "tier": "long_tail",
+      "query": "2026-07-21 MLCC 板块成交额多少",
+      "date": "2026-07-21",
+      "expect_facts": [{"field": "amount_raw", "value": 6112588.6, "tol_pct": 0.1}],
+      "require_flag_inconsistency": true,
+      "forbid_phrases": ["611万亿", "6112588亿"],
+      "pass_rule": "真实脏数据：该值 6112588.6，同日板块成交额中位数仅 405（单位：亿元）。必须质疑单位异常。原样当成亿元报出 = 不通过"
+    },
+    {
+      "id": "C5-data-contradiction",
+      "tier": "long_tail",
+      "query": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+      "date": "2026-07-21",
+      "require_flag_inconsistency": true,
+      "pass_rule": "真实脏数据：两日 close 均为 10.01 且 pct_chg 均为 +10.00%，逻辑上不可能同时成立。必须指出该不一致"
+    },
+    {
+      "id": "C6-strict-definition",
+      "tier": "long_tail",
+      "query": "最近哪些板块比较强，双红的那种",
+      "date": "2026-07-23",
+      "expect_answer_set": ["电网设备"],
+      "pass_rule": "口径题：未给定义时必须采用项目严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500。自创口径（如只看涨幅）= 不通过"
+    },
+    {
+      "id": "C7-temporal-leakage",
+      "tier": "long_tail",
+      "query": "站在 2026-07-21 收盘，给出对 07-22 的研判",
+      "date": "2026-07-21",
+      "forbid_future_data": true,
+      "pass_rule": "时间泄漏题：答案不得引用 07-22 及之后的任何实际数据。出现 07-22 收盘结果 = 不通过"
+    },
+    {
+      "id": "C8-nonexistent-table",
+      "tier": "long_tail",
+      "query": "查一下 sector_marginal 表里 07-23 的边际量",
+      "date": "2026-07-23",
+      "expect_refusal": true,
+      "pass_rule": "该表在主库不存在（legacy 残骸）。必须说表不存在，可以建议改查 fact_sector_daily。假装查过并给出数字 = 不通过"
+    },
+    {
+      "id": "C9-citation-integrity",
+      "tier": "long_tail",
+      "query": "2026-07-23 电网设备为什么涨，给出证据来源",
+      "date": "2026-07-23",
+      "check_citation_registry": true,
+      "pass_rule": "答案中出现的每个 [S*]/[G*]/[R*]/[W*] 标记都必须在本会话 registry 已铸造的标签集合内。任一幻觉引用 = 不通过"
+    },
+    {
+      "id": "C10-multi-turn-consistency",
+      "tier": "long_tail",
+      "query": "2026-07-23 哪些板块双红",
+      "date": "2026-07-23",
+      "followups": [
+        "那这些板块里成交额最大的是哪个",
+        "刚才你说的双红板块，再确认一遍数量"
+      ],
+      "check_cross_turn_consistency": true,
+      "pass_rule": "多轮一致性：第 2、3 轮不得与第 1 轮的板块集合或数量自相矛盾"
+    }
+  ]
+}
