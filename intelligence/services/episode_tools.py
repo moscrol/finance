@@ -388,7 +388,9 @@ def build_episode_registry(
                     "查询本地结构化金融数据。dataset 可选 market_daily、"
                     "stock_daily、sector_daily、sector_stock_daily、"
                     "mainline_theme_daily、mainline_sector_daily；由你选择"
-                    "指标、维度、筛选、分组、排序和时间范围。"
+                    "指标、维度、筛选、分组、排序和时间范围。字段必须按"
+                    "dataset 对应关系选择，不要混用不同 dataset 的字段。"
+                    f"可用字段：{finance_query.dataset_field_hint()}"
                 ),
                 cost="local",
                 freshness="current",
@@ -414,9 +416,7 @@ def build_episode_registry(
 
             search = evidence_search.EvidenceSearch(
                 retrieve_for_search,
-                semantic_judge=(
-                    selected_judge if callable(selected_judge) else None
-                ),
+                semantic_judge=(selected_judge if callable(selected_judge) else None),
             )
             result = search.search(
                 query=query,
@@ -455,7 +455,11 @@ def _finance_query_failure_result(
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"
-        observation = f"结构化查询参数无效：{str(error)[:160]}"
+        observation = (
+            f"结构化查询参数无效：{str(error)[:160]}；重试提示："
+            f"{finance_query.dataset_field_hint(spec.dataset)}；"
+            "不要混用不同 dataset 的字段"
+        )
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
     elif isinstance(error, finance_query.FinanceQueryTimedOut):
         failure_code = "timeout"

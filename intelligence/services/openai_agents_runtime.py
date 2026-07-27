@@ -333,9 +333,15 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
     if request.model_factory is not None:
         model, model_aclose = request.model_factory()
 
+    agent_instructions = request.instructions
+    if request.backend == "sdk_gpt":
+        agent_instructions += (
+            "\nSDK 回合协议：每次模型响应最多调用一个工具。调用后立即停止，"
+            "等待该工具的原始观察返回，再决定下一步；不要在同一响应中预先排队多个工具调用。"
+        )
     agent = Agent(
         name="Foresight Finance Researcher",
-        instructions=request.instructions,
+        instructions=agent_instructions,
         tools=function_tools,
         model=model,
         model_settings=request.model_settings,

@@ -59,9 +59,7 @@ FilterOperator = Literal[
     "contains",
 ]
 OrderDirection = Literal["asc", "desc"]
-_FILTER_OPERATORS = frozenset(
-    {"eq", "ne", "lt", "lte", "gt", "gte", "in", "contains"}
-)
+_FILTER_OPERATORS = frozenset({"eq", "ne", "lt", "lte", "gt", "gte", "in", "contains"})
 _ORDER_DIRECTIONS = frozenset({"asc", "desc"})
 _TOP_LEVEL_KEYS = frozenset(
     {
@@ -235,9 +233,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "market_stage": _dimension("market_stage", "市场阶段"),
             "stage_day": _dimension("stage_day", "阶段天数", "integer"),
             "volume_state": _dimension("volume_state", "量能状态"),
-            "concentration_state": _dimension(
-                "concentration_state", "行业集中状态"
-            ),
+            "concentration_state": _dimension("concentration_state", "行业集中状态"),
             "leading_industry_1": _dimension("industry_1", "成交第一行业"),
             "leading_industry_2": _dimension("industry_2", "成交第二行业"),
             "leading_industry_3": _dimension("industry_3", "成交第三行业"),
@@ -246,25 +242,15 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "index_close": _metric("sh_index_close", "上证收盘"),
             "index_return_pct": _metric("sh_index_pct_chg", "上证涨跌幅"),
             "total_amount": _metric("total_amount", "市场成交额"),
-            "amount_change_pct": _metric(
-                "amount_vs_yesterday_pct", "成交额环比"
-            ),
+            "amount_change_pct": _metric("amount_vs_yesterday_pct", "成交额环比"),
             "amount_ma20": _metric("amount_ma20", "20日平均成交额"),
             "volume_ratio": _metric("volume_ratio", "量比"),
             "advancers": _metric("advancers", "上涨家数", "avg", "integer"),
             "limit_up": _metric("limit_up", "涨停家数", "avg", "integer"),
-            "limit_down": _metric(
-                "limit_down", "跌停家数", "avg", "integer"
-            ),
-            "top3_industry_ratio": _metric(
-                "top3_industry_ratio", "前三行业成交占比"
-            ),
-            "strength_return_pct": _metric(
-                "strength_avg_pct", "强势股加权涨幅"
-            ),
-            "strength_amount_pct": _metric(
-                "strength_amount_pct", "强势股成交占比"
-            ),
+            "limit_down": _metric("limit_down", "跌停家数", "avg", "integer"),
+            "top3_industry_ratio": _metric("top3_industry_ratio", "前三行业成交占比"),
+            "strength_return_pct": _metric("strength_avg_pct", "强势股加权涨幅"),
+            "strength_amount_pct": _metric("strength_amount_pct", "强势股成交占比"),
         },
     ),
     "stock_daily": _DatasetDefinition(
@@ -339,9 +325,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "theme_name": _dimension("theme_name", "题材名称"),
         },
         metrics={
-            "sector_count": _metric(
-                "sector_count", "覆盖板块数", "max", "integer"
-            ),
+            "sector_count": _metric("sector_count", "覆盖板块数", "max", "integer"),
             "rank": _metric("min_sort", "主线排序", "min", "integer"),
         },
     ),
@@ -360,16 +344,12 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
         metrics={
             "return_pct": _metric("today_pct", "当日涨跌幅"),
-            "limit_up_count": _metric(
-                "limit_up_count", "涨停家数", "sum", "integer"
-            ),
+            "limit_up_count": _metric("limit_up_count", "涨停家数", "sum", "integer"),
             "max_limit_height": _metric(
                 "max_limit_height", "最高连板", "max", "integer"
             ),
             "amount": _metric("amount", "成交额", "sum"),
-            "relative_amount": _metric(
-                "amount_relative_ratio", "相对成交额"
-            ),
+            "relative_amount": _metric("amount_relative_ratio", "相对成交额"),
             "net_inflow_1d": _metric("net_inflow_1d", "1日净流入", "sum"),
             "strength": _metric("strength", "强度"),
             "strength_change": _metric("strength_chg", "强度变化"),
@@ -397,9 +377,7 @@ def _normalize_provider_field_aliases(spec: FinanceQuerySpec) -> FinanceQuerySpe
         spec,
         metrics=tuple(field(value) for value in spec.metrics),
         dimensions=tuple(field(value) for value in spec.dimensions),
-        filters=tuple(
-            replace(item, field=field(item.field)) for item in spec.filters
-        ),
+        filters=tuple(replace(item, field=field(item.field)) for item in spec.filters),
         group_by=tuple(field(value) for value in spec.group_by),
         order_by=tuple(
             replace(item, field=field(item.field)) for item in spec.order_by
@@ -525,6 +503,20 @@ _PUBLIC_METRICS = sorted(
 _PUBLIC_FIELDS = sorted({*_PUBLIC_DIMENSIONS, *_PUBLIC_METRICS})
 
 
+def dataset_field_hint(dataset: str | None = None) -> str:
+    """Describe valid semantic fields without exposing physical table names."""
+
+    names = (dataset,) if dataset in _DATASETS else tuple(sorted(_DATASETS))
+    parts: list[str] = []
+    for name in names:
+        definition = _DATASETS[name]
+        parts.append(
+            f"{name}: dimensions={','.join(sorted(definition.dimensions))}; "
+            f"metrics={','.join(sorted(definition.metrics))}"
+        )
+    return "；".join(parts)
+
+
 # Keep the provider-facing schema orthogonal and shallow.  Dataset-specific
 # field compatibility remains a code-owned invariant in ``FinanceQuerySpec``
 # and ``_compile_query``; duplicating every dataset as a top-level ``oneOf``
@@ -554,9 +546,7 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
                         "type": "string",
                         "enum": sorted(_FILTER_OPERATORS),
                     },
-                    "value": {
-                        "description": "字符串、数字、布尔值或这些标量的数组"
-                    },
+                    "value": {"description": "字符串、数字、布尔值或这些标量的数组"},
                 },
                 "required": ["field", "op", "value"],
                 "additionalProperties": False,
@@ -692,9 +682,7 @@ class FinanceQuery:
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
-                        raise FinanceQueryCancelled(
-                            "finance query cancelled"
-                        ) from exc
+                        raise FinanceQueryCancelled("finance query cancelled") from exc
                     raise FinanceQueryTimedOut(
                         "finance query statement timeout"
                     ) from exc
@@ -761,9 +749,7 @@ class FinanceQuery:
         while len(rows) < compiled.applied_limit:
             if cancelled():
                 raise FinanceQueryCancelled("finance query cancelled")
-            batch = cursor.fetchmany(
-                min(64, compiled.applied_limit - len(rows))
-            )
+            batch = cursor.fetchmany(min(64, compiled.applied_limit - len(rows)))
             if not batch:
                 break
             for raw_row in batch:
@@ -781,21 +767,13 @@ class FinanceQuery:
                 ).encode("utf-8")
                 output_bytes += len(encoded)
                 if output_bytes > self._limits.max_bytes:
-                    raise FinanceQueryLimitExceeded(
-                        "finance query byte limit exceeded"
-                    )
+                    raise FinanceQueryLimitExceeded("finance query byte limit exceeded")
                 rows.append(public)
         visible_rows = tuple(
-            {
-                key: value
-                for key, value in row.items()
-                if key != "__source_date"
-            }
+            {key: value for key, value in row.items() if key != "__source_date"}
             for row in rows
         )
-        source_dates = tuple(
-            _date_text(row.get("__source_date")) for row in rows
-        )
+        source_dates = tuple(_date_text(row.get("__source_date")) for row in rows)
         return visible_rows, source_dates, output_bytes
 
 
@@ -870,9 +848,7 @@ def _compile_query(
         expression = _quote(field.column)
         if group_by and field.role == "metric":
             if field.aggregate is None:
-                raise FinanceQueryValidationError(
-                    f"metric cannot be grouped: {name}"
-                )
+                raise FinanceQueryValidationError(f"metric cannot be grouped: {name}")
             expression = f"{field.aggregate.upper()}({expression})"
         select_parts.append(f"{expression} AS {alias}")
     if dataset.time_field is None:
@@ -901,9 +877,7 @@ def _compile_query(
         if field is None:
             raise FinanceQueryValidationError(f"unknown field: {item.field}")
         if item.field == dataset.time_field:
-            raise FinanceQueryValidationError(
-                "date filters must use time_range"
-            )
+            raise FinanceQueryValidationError("date filters must use time_range")
         clause, values = _filter_clause(field, item)
         where_parts.append(clause)
         parameters.extend(values)
@@ -917,8 +891,7 @@ def _compile_query(
         )
     if spec.order_by:
         sql += " ORDER BY " + ", ".join(
-            f"{aliases[item.field]} {item.direction.upper()}"
-            for item in spec.order_by
+            f"{aliases[item.field]} {item.direction.upper()}" for item in spec.order_by
         )
     elif dataset.time_field in aliases:
         sql += f" ORDER BY {aliases[dataset.time_field]} DESC"
@@ -940,9 +913,7 @@ def _filter_clause(
 ) -> tuple[str, tuple[object, ...]]:
     column = _quote(field.column)
     if item.op not in _FILTER_OPERATORS:
-        raise FinanceQueryValidationError(
-            f"unsupported operator: {item.op}"
-        )
+        raise FinanceQueryValidationError(f"unsupported operator: {item.op}")
     operators = {
         "eq": "=",
         "ne": "!=",
@@ -954,9 +925,7 @@ def _filter_clause(
     if item.op in operators:
         return f"{column} {operators[item.op]} ?", (item.value,)
     if item.op == "in":
-        if not isinstance(item.value, Sequence) or isinstance(
-            item.value, (str, bytes)
-        ):
+        if not isinstance(item.value, Sequence) or isinstance(item.value, (str, bytes)):
             raise FinanceQueryValidationError("in filter requires an array")
         values = tuple(item.value)
         if not values:
@@ -967,9 +936,7 @@ def _filter_clause(
         raise FinanceQueryValidationError(
             "contains filter requires a text field and string value"
         )
-    escaped = (
-        item.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    )
+    escaped = item.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return f"{column} LIKE ? ESCAPE '\\\\'", (f"%{escaped}%",)
 
 
@@ -1046,9 +1013,7 @@ def _parse_time_range(value: object) -> TimeRange | None:
     if value is None:
         return None
     if not isinstance(value, Mapping) or set(value) - {"start", "end"}:
-        raise FinanceQueryValidationError(
-            "time_range accepts only start and end"
-        )
+        raise FinanceQueryValidationError("time_range accepts only start and end")
     return TimeRange(
         start=_parse_date(value.get("start"), "time_range.start"),
         end=_parse_date(value.get("end"), "time_range.end"),
@@ -1061,9 +1026,7 @@ def _parse_orders(value: object) -> tuple[Order, ...]:
     parsed: list[Order] = []
     for raw in value:
         if not isinstance(raw, Mapping) or set(raw) != {"field", "direction"}:
-            raise FinanceQueryValidationError(
-                "each order requires field and direction"
-            )
+            raise FinanceQueryValidationError("each order requires field and direction")
         field = _required_text(raw.get("field"), "order field")
         direction = _required_text(raw.get("direction"), "order direction")
         if direction not in _ORDER_DIRECTIONS:
@@ -1132,4 +1095,5 @@ __all__ = [
     "Order",
     "QueryFilter",
     "TimeRange",
+    "dataset_field_hint",
 ]

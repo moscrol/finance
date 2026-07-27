@@ -190,9 +190,7 @@ def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     monkeypatch.setattr(
         episode_tools.ask_blocks,
         "_market_review_mainline_context_block_for_llm",
-        lambda *_args: (
-            "最新主线为电子\n2026-07-20启动的电力仍在观察"
-        ),
+        lambda *_args: ("最新主线为电子\n2026-07-20启动的电力仍在观察"),
     )
     registry = build_episode_registry(
         frame,
@@ -286,9 +284,14 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
         evidence_search_judge=lambda *_args: None,
     )
 
+    tool_definitions = registry.tool_definitions()
     definitions = {
         item["function"]["name"]: item["function"]["parameters"]
-        for item in registry.tool_definitions()
+        for item in tool_definitions
+    }
+    descriptions = {
+        item["function"]["name"]: item["function"]["description"]
+        for item in tool_definitions
     }
     assert set(definitions["finance_query"]["properties"]["dataset"]["enum"]) == {
         "market_daily",
@@ -303,6 +306,9 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
         "metrics",
         "dimensions",
     }
+    assert "sector_daily" in descriptions["finance_query"]
+    assert "return_pct" in descriptions["finance_query"]
+    assert "不要混用不同 dataset 的字段" in descriptions["finance_query"]
     assert definitions["evidence_search"] == {
         "type": "object",
         "properties": {"query": {"type": "string", "minLength": 1}},
@@ -378,6 +384,8 @@ def test_finance_query_invalid_semantic_field_returns_repairable_gap(
     assert observation.trace.status == "parse_error"
     assert "invalid_query" in observation.trace.detail
     assert "not_a_public_metric" in observation.observation
+    assert "重试提示" in observation.observation
+    assert "index_return_pct" in observation.observation
     assert observation.gaps == (
         "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试",
     )
@@ -424,7 +432,9 @@ def test_finance_query_runtime_failure_returns_safe_repairable_gap(
         def run(self, *_args, **_kwargs):
             raise failure
 
-    monkeypatch.setattr(episode_tools.finance_query, "FinanceQuery", FailingFinanceQuery)
+    monkeypatch.setattr(
+        episode_tools.finance_query, "FinanceQuery", FailingFinanceQuery
+    )
     frame = _market_forecast_frame()
     context = build_episode_context(
         frame,

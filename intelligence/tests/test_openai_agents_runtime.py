@@ -565,6 +565,7 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
     }
     original_schema = json.loads(json.dumps(source_schema))
     captured: dict[str, dict[str, object]] = {}
+    captured_instructions: dict[str, str] = {}
 
     async def fake_run(
         agent,
@@ -579,6 +580,7 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
         captured[request.backend] = json.loads(
             json.dumps(agent.tools[0].params_json_schema)
         )
+        captured_instructions[request.backend] = str(agent.instructions)
         usage = SimpleNamespace(requests=1, input_tokens=10, output_tokens=5)
         return SimpleNamespace(
             final_output="{}", context_wrapper=SimpleNamespace(usage=usage)
@@ -615,6 +617,8 @@ def test_default_sdk_runner_projects_provider_compatible_tool_schema(
         "description": "字符串、数字、布尔值或这些标量的数组",
         "type": "string",
     }
+    assert "每次模型响应最多调用一个工具" in captured_instructions["sdk_gpt"]
+    assert "每次模型响应最多调用一个工具" not in captured_instructions["sdk_glm"]
     assert source_schema == original_schema
 
 
