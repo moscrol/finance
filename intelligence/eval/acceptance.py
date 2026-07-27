@@ -360,11 +360,17 @@ def cmd_freeze(args: argparse.Namespace) -> int:
     """冻结外部参照答案。
 
     ``via`` 必填：参照答案的价值全在来源可追溯。codex 走
-    ``codex exec -m gpt-5.5``（与 dual_blind_flows.sh 同一条路），knevo 只有人工
-    转贴一条路（外部产品、按积分计费、无 API）。半年后回看快照，必须能分清
-    "这是机器跑的"还是"这是人贴的"、以及问的是哪一天 —— 否则基准不可复核。
+    ``codex exec -m gpt-5.5``（与 dual_blind_flows.sh 同一条路）；knevo 有两条路 ——
+    ``manual_paste``（人工转贴，有转写损耗、可能丢工具轨迹）与 ``cdp_readback``
+    （CDP 驱动用户自己已登录的 Chrome，读 /api/conversations/{id} 的 transcript）。
+    后者保真度更高且带工具调用轨迹，但**必须记住答案仍是用户账号里人工提问产生的**，
+    不是我们自动跑的。半年后回看快照，必须能分清"这是机器跑的"还是"这是人问的"、
+    以及问的是哪一天 —— 否则基准不可复核。
 
     ``answer_sha256`` 是防篡改锚：冻结后任何改动都会让哈希对不上。
+    ``--meta-file`` 收 JSON，落到 ``source_meta``：cdp_readback 用它存会话 id、
+    原始提问、工具调用轨迹 —— 工具轨迹能和题目的 expect_tools 直接对照，
+    是"它怎么答出来的"而不只是"它答了什么"。
     """
     doc = load_cases()
     ids = {c["id"] for c in doc["cases"]}
@@ -388,6 +394,9 @@ def cmd_freeze(args: argparse.Namespace) -> int:
             f"❌ {out.name} 已存在。参照快照一旦冻结不应重生成；确需覆盖加 --overwrite"
         )
         return 2
+    meta = None
+    if getattr(args, "meta_file", None):
+        meta = json.loads(Path(args.meta_file).read_text(encoding="utf-8"))
     out.write_text(
         json.dumps(
             {
@@ -397,6 +406,7 @@ def cmd_freeze(args: argparse.Namespace) -> int:
                 "via": args.via,
                 "asked_at": args.asked_at,
                 "answer_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "source_meta": meta,
                 "answer": text,
             },
             ensure_ascii=False,
@@ -431,10 +441,14 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument(
         "--via",
         required=True,
-        choices=["manual_paste", "codex_exec", "cli"],
-        help="来源：manual_paste=人工转贴（knevo 唯一路径）；codex_exec=codex exec 自动跑",
+        choices=["manual_paste", "cdp_readback", "codex_exec", "cli"],
+        help=(
+            "来源：manual_paste=人工转贴；cdp_readback=CDP 读用户已登录 Chrome 的"
+            "会话 transcript（保真、带工具轨迹，仍是人工提问）；codex_exec=codex exec 自动跑"
+        ),
     )
     f.add_argument("--asked-at", help="实际提问日期 YYYY-MM-DD（与题目锚定日可能不同）")
+    f.add_argument("--meta-file", help="JSON 文件，落到 source_meta（会话 id / 原始提问 / 工具轨迹）")
     f.add_argument("--overwrite", action="store_true")
     f.set_defaults(func=cmd_freeze)
 

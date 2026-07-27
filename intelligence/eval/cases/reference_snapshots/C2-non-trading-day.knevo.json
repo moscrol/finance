@@ -1,0 +1,80 @@
+{
+  "case_id": "C2-non-trading-day",
+  "agent": "knevo",
+  "frozen_at": "2026-07-27T06:07:16.096787+00:00",
+  "via": "cdp_readback",
+  "asked_at": "2026-07-27",
+  "answer_sha256": "7916f9fcc0db0a7aa5d2b501be51a6e715c66decd6942d1ae4ae028b161e13c2",
+  "source_meta": {
+    "provider": "knevo.ai",
+    "conversation_id": "s-c1c527ac",
+    "conversation_created_at": "2026-07-27T05:03:17.997796Z",
+    "asked_prompt": "2026-02-17 涨停家数多少",
+    "read_via": "CDP /api/conversations/{id} transcript（用户自己已登录的 Chrome）",
+    "tool_calls": [
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "web_search",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_memory_query",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "suggest_options",
+        "status": "success"
+      }
+    ],
+    "tool_names": [
+      "finance_memory_query",
+      "finance_news",
+      "finance_search_data",
+      "suggest_options",
+      "web_search"
+    ]
+  },
+  "answer": "今天是 2026-07-27，你要查的是 **2026-02-17**（约 5 个多月前）的 A 股涨停家数。我同时从几个渠道帮你查。\n\ndatasvc 的 movers 数据集只返回了 5 条（并非完整的涨停家数），新闻也没有直接匹配到 2026-02-17 的报道。我再换个方式精准查询。\n\n这个 movers 数据集似乎没有按历史日期精准筛选。让我再试试通过新闻检索找当天的收评/复盘数据。\n\n让我尝试更精准的时间范围搜索。\n\n让我再尝试搜索当天的涨停分析数据。\n\n经过多轮检索，我如实汇报结论：\n\n## 数据缺口：无法获取 2026-02-17 的精确涨停家数\n\n我尝试了以下途径，均未能获取该日精确数据：\n\n| 渠道 | 结果 |\n|---|---|\n| `finance_search_data` — movers（涨停板数据集） | 返回了 50 只涨停个股清单，但 `as_of` 显示为 2026-07-27，未能按指定历史日期过滤 |\n| `finance_news`（财联社/金十/同花顺等） | 新闻档案最早仅追溯到 **2026年5月中旬**，2 月的收评/涨停复盘/涨停分析类报道均已过期不在索引中 |\n| `finance_memory_query` | 没有匹配该日期的记忆记录 |\n\n### 已知信息（不精确）\n\n从我最后一次 `movers` 查询返回的 50 条涨停记录来看（中利集团、明新旭腾、\\*ST 亚士、北自科技、南京熊猫等），如果该数据集确实对应了当日，则 **涨停家数至少 ≥50**（受限于 `max_results=50` 的截断），但无法确认总家数以及是否对应正确的盘面日期。\n\n### 建议\n\n如果你需要精确数据，可以尝试：\n- 直接查阅东方财富/同花顺的历史行情数据（选择日期 → 涨停板）\n- 如有本地存储的 2 月 17 日复盘笔记或导出的行情文件，我可以帮你读取\n\n---"
+}

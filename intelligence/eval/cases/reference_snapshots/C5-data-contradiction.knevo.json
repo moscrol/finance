@@ -1,0 +1,50 @@
+{
+  "case_id": "C5-data-contradiction",
+  "agent": "knevo",
+  "frozen_at": "2026-07-27T06:07:16.957258+00:00",
+  "via": "cdp_readback",
+  "asked_at": "2026-07-27",
+  "answer_sha256": "aa9f9322fab24f7d19015059779cf90b1e51ba0ab1f84e43cbc9f2d8c89ff54e",
+  "source_meta": {
+    "provider": "knevo.ai",
+    "conversation_id": "s-5ebd107b",
+    "conversation_created_at": "2026-07-27T05:42:45.584828Z",
+    "asked_prompt": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+    "read_via": "CDP /api/conversations/{id} transcript（用户自己已登录的 Chrome）",
+    "tool_calls": [
+      {
+        "turn": 1,
+        "name": "finance_entity_resolve",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_memory_query",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "recall_short_term",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "suggest_options",
+        "status": "success"
+      }
+    ],
+    "tool_names": [
+      "finance_entity_resolve",
+      "finance_instrument",
+      "finance_memory_query",
+      "recall_short_term",
+      "suggest_options"
+    ]
+  },
+  "answer": "数据来自 datasvc EOD 日K（同花顺 iFinD 供源，截至当日收盘）：\n\n| 日期 | 收盘价 | 涨跌幅 | 开盘 | 最高 | 最低 | 成交额 |\n|---|---|---|---|---|---|---|\n| **2026-07-20（周一）** | **9.10 元** | **+10.04%**（涨停） | 8.84 | 9.10 | 8.40 | 约 7.34 亿 |\n| **2026-07-21（周二）** | **10.01 元** | **+10.00%**（涨停） | 10.01 | 10.01 | 9.55 | 约 15.79 亿 |\n\n两个交易日都是涨停板。07-21 一字板开盘（开盘即涨停 10.01），盘中最低下探到 9.55 后封回涨停，换手率明显放大至 17.03%（07-20 为 8.80%），说明筹码松动但封板成功。\n\n顺便一提：这是立新能源连板行情中的第 4 和第 5 个涨停（起于 07-15），到今天（07-27 盘中）已经 14.33 元，累计 8 连板。"
+}
