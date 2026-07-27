@@ -248,6 +248,49 @@ def test_knevo_prompts_avoid_local_only_vocabulary():
         assert "双红" not in text, f"{entry['case_id']} 的提问里残留了本地口径"
 
 
+def test_must_mention_misses_on_reference_are_documented():
+    """参照答案没命中 must_mention 时，必须先判定这是词汇差还是能力差。
+
+    must_mention 用在我们自己的答案上是合理的产品要求；拿去卡外部参照就变成
+    『考它是否共享我们的词汇表』—— 和把『双红』丢给它是同一个失败模式，只不过
+    这次藏在我们自己的判分字段里。已实测两例：A2 全文 0 次『证伪』但三情景都带了
+    数值触发（实质是过的）；A1 缺『反弹阶段』是复盘会的阶段口径。
+
+    所以规则是：新加的 must_mention 词若让某份参照快照落空，要么在
+    our_scoring_caveats 里写明理由，要么把词换成领域事实词。静默落空不允许。
+    """
+    doc = acceptance.load_cases()
+    plan = doc["reference_plan"]["knevo"]
+    documented = " ".join(plan["our_scoring_caveats"].keys())
+    for case in doc["cases"]:
+        terms = case.get("must_mention") or []
+        if not terms:
+            continue
+        snap = acceptance.SNAPSHOT_DIR / f"{case['id']}.knevo.json"
+        if not snap.exists():
+            continue
+        answer = json.loads(snap.read_text(encoding="utf-8"))["answer"]
+        missed = [t for t in terms if t not in answer]
+        if missed:
+            assert case["id"] in documented, (
+                f"{case['id']} 的 must_mention {missed} 在 knevo 快照里落空，"
+                "但 our_scoring_caveats 没写这是词汇差还是能力差"
+            )
+
+
+def test_snapshot_caveats_reference_real_cases():
+    """快照使用限制必须挂在真实题目上，否则半年后没人知道它在限制什么。"""
+    doc = acceptance.load_cases()
+    plan = doc["reference_plan"]["knevo"]
+    ids = {c["id"] for c in doc["cases"]}
+    for key in plan["snapshot_caveats"]:
+        if key.startswith("_"):
+            continue
+        # 一份快照被两道题共用时，键写成 "A / B"
+        named = [p.strip() for p in key.split("/")]
+        assert set(named) <= ids, f"snapshot_caveats 键 {key!r} 指向不存在的 case_id"
+
+
 def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
     monkeypatch.setattr(acceptance, "SNAPSHOT_DIR", tmp_path)
     answer = tmp_path / "ans.md"

@@ -14,7 +14,8 @@
       "blocked_by": "2026-07-27：local-access sidecar（cockpit-cliproxy，:57244）返回 503，直连 curl 返回 401。模型名与额度均已排除。需用户侧重启/重新登录 ChatGPT app。"
     },
     "knevo": {
-      "route": "manual_paste",
+      "route": "cdp_readback",
+      "route_note": "2026-07-27 起改走 CDP 读回：用户在自己已登录的 Chrome 里问完，我用 web-access 的 cdp-proxy 读 /api/conversations/{id} 的 transcript。相比人工转贴多拿两样东西 —— 每轮消耗积分数、每轮工具调用轨迹（落在快照的 source_meta.tool_calls）。答案仍是用户人工提问产生的，via 严格记 cdp_readback，不能与 codex_exec 混标。页内 token 只在页内用，不读出、不落盘。",
       "cost_per_query": "≈115 积分（见 docs/learning/knevo-distill/ab-ledger.md）",
       "note": "外部产品，无 API、无 CLI，只能人工提问后转贴。全量 28 道 ≈3200 积分，不经济，故只冻结高价值子集。它的定位是方法论产品（见 docs/learning/knevo-distill/README.md：判据清单、五维排序、错因归因、信号分层），不是行情报数服务 —— 取数类题目它能答，但它的权威性在框架层。",
       "leakage_rule": "knevo 在提问当日带后视镜：题目锚定日之后的信息它已知。所以前瞻类题目（A2 / C7）不能事后补问 —— 要 knevo 参照就得在当天收盘现场问。冻结时必须记 asked_at。",
@@ -23,6 +24,21 @@
         "双红": "用户自定义口径（CLAUDE.md：pct_chg>0 且 diff_ratio>10 且 amount>500）。真值＝定义本身，无需外部校验。已核对 docs/learning/knevo-distill/ab/AB-001-knevo.md 与 AB-002-knevo.md：knevo 答卷里『双红』出现 0 次。所有提问一律展开成数值条件，禁止把这个词丢给它。",
         "market_stage / stage_day": "来自复盘会（fupanhui）复盘内容，见 market_feature_store/sync/sync_fupanhui_market_daily.py：取 summary.external_cycle / external_cycle_day，缺失时从复盘正文正则 `第(\\d+)天`。真值＝复盘会原文，重取 /api/v1/client/reviews/summary 即可逐字比对，零积分。knevo 的『阶段』是共识期/透支期这类叙事分期（见 AB-001-knevo.md『共识期中后段』、AB-002-knevo.md『第二阶段初期』），与情绪周期日计数不是同一套坐标，同词不同义。",
         "strength_status（沸点/冰点）": "同上，复盘会情绪周期字段。A9 的矛盾（边际强度 -66.3% 与状态『沸点』并存）是复盘会自己那条 feed 内部的不一致，knevo 拿不到这条 feed，复现不了，也就当不了参照。"
+      },
+      "snapshot_caveats": {
+        "_comment": "2026-07-27 冻结 22 份后，把 source_meta.tool_calls 与题目 expect_tools 并排看出来的使用限制。22 份全部有外部取数（无纯生成），但『取到了』不等于『取到了锚定日的』。下列题目的快照只能当结构参照，数字不能当事实基线 —— 不写下来，半年后会被当成 ground truth 用。",
+        "A5-limit-heat": "它自己在答案里承认 movers 数据集返回的 as_of 是 07-27（提问当天），取不到 07-23，于是改用当日盘中快讯 + 次日（07-24）早晨热点回顾交叉还原。且它的题材分类与我们 fact_theme_limit_heat_daily 不同源：它排『电网设备第一、电力/绿电第二』，我们的库是『储能 40 家、风电 29 家』。同词不同类，数字层无从对齐，只能参照它的题材归因叙述。",
+        "A6-limit-advance-ladder": "同上，梯队由逐日 K 线 + 新闻线索重建，它自己标了『可能存在遗漏』。重建结果反而命中了 max_boards=6 与立新能源 —— 说明重建可用，但这是运气与手法的混合，不能当事实基线。另含明确的后视段落『后续验证（已发生）：到 7/27……』，锚定日是 07-23，该段必须排除在判分之外。",
+        "A10-new-high-structure": "锚定 07-21，但它是用 07-22 的行情反推 07-21（原文：『从 7 月 21 日复盘（7/22 清晨发布）和 7 月 22 日行情验证来看』、『7 月 21 日大概率就是这批标的新高的启动日』）。新高家数（20日 339 / 1年 13）真值在我们 fact_stock_high_daily，它给不出这两个数，参照价值只在结构解读。",
+        "A2-next-day-call / C7-temporal-leakage": "后视泄漏已实际发生：答案开头就说『现在已经是 7/27 午盘了』，并给出 07-22~07-27 的指数收盘表，还把前瞻改成了对 07-28 的判断。它诚实披露了时间错位（这本身是可记的诚实度表现），但作为前瞻题的参照答案无效。C7 更要注意：C7 的题面是『站在 2026-07-21 收盘』这条硬约束，而实际问出去的 prompt 是 A2 的『2026-07-21 收盘了，明天怎么看』，没有那句约束 —— 所以不能拿这份快照判定 C7 的 forbid_future_data。要 knevo 参照就得当天收盘现场问（见 leakage_rule）。",
+        "_tool_trace_finding": "工具频次（22 份合计，剔内部工具）：finance_news 57 > finance_search_data 35 > finance_instrument 24 ≈ finance_memory_query 24 > web_search 20 > finance_quote 13。新闻检索是它的主力，结构化行情是辅助 —— 与我们 expect_tools 里 market_data / finance_query 的定位正好相反。这解释了为什么涨停家数、连板梯队、新高家数这三类『需要全市场结构化截面』的题它只能重建：它没有可按历史日期查询的截面数据源，而我们有 fact_* 表。这类题上真值在我们这边，不在它那边。"
+      },
+      "our_scoring_caveats": {
+        "_comment": "对照参照答案时发现的是我们自己判分规则的问题，不是 knevo 的问题。must_mention 检的是字面词，用在我们自己的 agent 上是合理的产品要求（就是要它说人话说到点上），但拿去卡外部参照就变成了『考它是否共享我们的词汇表』—— 和把『双红』丢给它是同一个失败模式，只不过这次藏在我们自己的判分字段里。",
+        "A2-next-day-call.must_mention=['证伪']": "knevo 全文 0 次『证伪』，按字面判＝不通过；但实质条件给足了：三情景带概率 + 数值触发（任一锚跌超 5% 则竞价减 1/3、长鑫开盘 -5%+、量能需回到 2.5 万亿+、科创50 挑战 1904）。require_falsifiable 的实质是过的。结论：跨 agent 比较只比实质（方向 + 带数值阈值的可证伪条件），must_mention 仅用于我们自己的答案。",
+        "A1-market-overview.must_mention=['反弹阶段']": "『反弹阶段』是复盘会的阶段口径（见 not_the_oracle_for.market_stage），knevo 缺这个词属预期之内，不是能力差距。",
+        "B6-sellside-distillation.must_mention=['graph_only','观察列表']": "我们 PDF ingest 的内部路由标签，只对我们自己成立。",
+        "action": "盲比时按实质打分，must_mention 的字面命中单独记一列，不并入通过率。"
       },
       "methodology_asks": "knevo 真正该问的框架类问题已成建制，不在本 queue 里：docs/learning/knevo-distill/question-bank.md §二 A 线（13 题，含信号分层阈值、共识兑现 vs 主线再确认硬条件、仓位框架、资金玩家代理指标、记忆库入库判据）。本 queue 只管验收台账的对照答卷（question-bank §三 B 线双盲对照那条路），两者预算分开。",
       "bundled_methodology_asks": [
@@ -58,7 +74,7 @@
         {"case_ids": ["A4-dual-red"], "reason": "复用 C6 改写后那份『板块强弱排序』答案做交叉检验。A4 与 C6 对我们是两道题（明确口径 vs 模糊口径，考的是不给定义时会不会自创口径），但『双红』是用户自定义口径，knevo 不认这个词，它无法为任一道提供口径参照。B5 那道已经把三个数值条件问过一遍，等价信息不重复花积分。"},
         {"case_ids": ["A8-market-stage"], "reason": "真值不在 knevo 而在复盘会：market_stage / stage_day 由 sync_fupanhui_market_daily.py 从 summary.external_cycle / external_cycle_day 抓取（缺失时正则 `第(\\d+)天`），重取复盘会 summary 接口即可逐字比对，零积分。且 knevo 的『阶段』是共识期/透支期式叙事分期，与情绪周期日计数同词不同义，冻结进来只会制造假不一致。原先按错误前提把这道排在第 2 位。"},
         {"case_ids": ["A9-sentiment-contradiction"], "reason": "同 A8：strength_status（沸点/冰点）是复盘会字段。这道的陷阱是复盘会自己那条 feed 内部矛盾（边际强度 -66.3% 却标『沸点』），knevo 拿不到这条 feed，复现不了矛盾，参照不成立。要外部视角就问 C6 改写后那道（它自己的强度判据），不必为这道单独付费。"},
-        {"case_ids": ["C7-temporal-leakage"], "reason": "共用 A2 那份答案。对 knevo 这两道是同一个问题（都是站在 07-21 收盘看 07-22），差别只在我们这边额外校验答案里不许出现 07-22 及之后的实际数据 —— 那是我们自己的时间泄漏检查，不需要参照答案。"},
+        {"case_ids": ["C7-temporal-leakage"], "reason": "共用 A2 那份答案。对 knevo 这两道是同一个问题（都是站在 07-21 收盘看 07-22），差别只在我们这边额外校验答案里不许出现 07-22 及之后的实际数据 —— 那是我们自己的时间泄漏检查，不需要参照答案。⚠ 2026-07-27 冻结后修正：这份共用快照不能用来判 C7 —— 实际问出去的 prompt 是 A2 的题面，缺了『站在 2026-07-21 收盘』这句硬约束，而答案里确实出现了 07-22~07-27 的实际数据。详见 snapshot_caveats。"},
         {"case_ids": ["C3-empty-table"], "reason": "原题考的是 fact_stock_technical_snapshot 当前 0 行时我们是否承认不可用。knevo 有自己的技术面数据，它会正常作答，参照的是『能力有没有』而不是『诚实度够不够』，与本题判定标准不同向。等我们把这张表填上再拿它当能力参照。"},
         {"case_ids": ["C4-unit-anomaly"], "reason": "MLCC 成交额单位错是我们 fact_sector_daily 独有的脏数据（全库 amount>100000 的 26 行全来自该板块）。knevo 数据是干净的，问不出这个矛盾；且该板块真值量级不大，无需外部 ground truth 就能判定异常。"},
         {"case_ids": ["C8-nonexistent-table"], "reason": "sector_marginal 是我们主库里的 legacy 残骸表名，属实现细节，knevo 无从知晓。"},
