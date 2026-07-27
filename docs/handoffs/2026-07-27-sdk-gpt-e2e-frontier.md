@@ -7,7 +7,7 @@ Status: active; not release-green
 
 - Worktree: `/Users/a77/.finance-runtime/agent-runtime-backends-c4673667`
 - Branch: `feat/agent-runtime-backends-verify`
-- HEAD: `07fc62a7 fix: keep sdk tool turns observable`
+- HEAD: `afc0be6e fix: enforce observable single-tool sdk turns`
 - Working tree: clean
 - `main` and canonical `8792`: untouched
 - Do not run the tracked nine-case development suite as a debugging loop.
@@ -39,6 +39,24 @@ Commits: `875ed509`, `17e0b21a`.
 
 This is not yet loaded by the running 8799 process.
 
+### Provider-enforced single-tool turns
+
+`afc0be6e` closes the gateway behavior gap that prompt instructions and
+`parallel_tool_calls=False` could not enforce:
+
+- only the first function call from each `sdk_gpt` model response reaches the
+  OpenAI Agents SDK tool executor;
+- later calls in the same provider response are dropped before execution, so
+  the next model turn must observe the first raw tool result before deciding;
+- the projection is provider-local and leaves `sdk_glm` batch behavior intact;
+- `batched_tool_calls_dropped` is preserved in the SDK result and runtime event
+  for private diagnosis instead of being silently hidden.
+
+The red-capable SDK integration test reproduced the real failure pattern with
+two calls in one model response: before the fix both executed; after the fix
+only the first executes and exactly one tool observation enters the next model
+turn. This is not yet loaded by the running 8799 process.
+
 ### Keychain prompt protection
 
 `b18eee60` adds a per-process negative cache in
@@ -50,8 +68,8 @@ This is not yet loaded by the running 8799 process.
 
 ### Deterministic verification
 
-- Latest focused slice: `69 passed, 1 skipped`.
-- Earlier full backend suite: `2869 passed, 2 skipped`; 11 failures are the
+- Latest focused runtime slice: `83 passed, 1 skipped`.
+- Current full backend suite: `2872 passed, 2 skipped`; 11 failures are the
   pre-existing `subconscious/userspace` machine-path baseline failures.
 - Ruff and `git diff --check` pass for the latest slice.
 
@@ -71,7 +89,7 @@ finance_root: /Users/a77/finance-workspace-private
 market_snapshot: true
 ```
 
-The latest commits (`b18eee60`, `07fc62a7`) require a restart before they can
+The latest commits (`b18eee60`, `07fc62a7`, `afc0be6e`) require a restart before they can
 be tested in 8799. Do not restart casually: the fresh process still cannot
 reliably reload the saved Keychain item and the user may need to configure a
 session credential again. Never print or copy the credential.
@@ -101,9 +119,10 @@ Run: `run_20260727_104727_609711`
 - final answer correctly fail-closed to an evidence-gap response, but did not
   answer the causal question.
 
-This is the key remaining SDK runtime seam: `parallel_tool_calls=False` did not
-produce the desired single-observation loop at the current gateway. The latest
-instruction guard and field hints are intended to test this, not yet proven.
+This was the key SDK runtime seam: `parallel_tool_calls=False` did not produce
+the desired single-observation loop at the current gateway. `afc0be6e` now
+enforces the invariant at the host/provider boundary, but live 8799 proof is
+still pending.
 
 ### Earlier transport failures
 
@@ -114,12 +133,14 @@ quality result for the current code.
 
 ## Unfinished work
 
-1. Restart 8799 on `07fc62a7`; first check health and redacted LLM readiness.
+1. Wait for the independent Claude acceptance run using 8799 to finish, then
+   restart 8799 on `afc0be6e`; first check health and redacted LLM readiness.
 2. Verify the current session/provider setup without exposing credentials.
 3. Re-run the two directed Conversation cases, one at a time.
-4. If weekly-cause still emits multiple calls in one response, test the
-   Responses-vs-Chat-Completions adapter seam or implement a bounded host-side
-   one-tool turn loop. Do not silently raise the budget.
+4. Assert `batched_tool_calls_dropped` and actual executed tool count from the
+   private runtime event. If weekly-cause still executes a batch, the model
+   adapter was bypassed and the Responses/Chat-Completions construction seam
+   must be fixed; do not silently raise the budget.
 5. Solve Keychain fresh-process reuse separately. The negative cache only stops
    repeated prompts; it does not make a blocked ACL readable.
 6. Only after both directed cases pass or return an honest, evidence-grounded
