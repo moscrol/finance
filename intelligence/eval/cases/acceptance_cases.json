@@ -19,25 +19,38 @@
       "note": "外部产品，无 API、无 CLI，只能人工提问后转贴。全量 28 道 ≈3200 积分，不经济，故只冻结高价值子集。",
       "leakage_rule": "knevo 在提问当日带后视镜：题目锚定日之后的信息它已知。所以前瞻类题目（A2 / C7）不能事后补问 —— 要 knevo 参照就得在当天收盘现场问。冻结时必须记 asked_at。",
       "queue": [
-        {"case_id": "C6-strict-definition", "prompt": "最近哪些板块比较强，双红的那种（以 2026-07-23 收盘为准）", "why": "口径权威题。双红出自 knevo 所在生态，它怎么定义怎么筛，直接检验我们的严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500 站不站得住。保留原题的定义模糊性，只钉日期以便可比。"},
-        {"case_id": "A7-mainline", "prompt": "2026-07-21 当天主线是什么", "why": "主线判定是最核心的日常能力，且有量化锚（芯片概念 66 家涨停 / 行业成交占比 31.1%）可对齐。"},
-        {"case_id": "A1-market-overview", "prompt": "2026-07-23 今天市场怎么样", "why": "最高频一题。既看数字口径差异，也看叙述结构谁更有用。"},
-        {"case_id": "B4-fermentation-trace", "prompt": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下", "why": "最难的推理链题，最能暴露差距。"},
-        {"case_id": "A3-stock-deep-dive", "prompt": "2026-07-23 收盘，立新能源怎么看", "why": "个股深挖是另一条主力路径。原题无日期，为可比而钉日期。"},
-        {"case_id": "B7-volume-sentiment-evolution", "prompt": "2026-07-21 到 07-24 量能和情绪是怎么演化的", "why": "多日序列题，考趋势叙述而非单点取数。"},
-        {"case_id": "A6-limit-advance-ladder", "prompt": "2026-07-23 连板梯队什么情况，有没有断层", "why": "梯队高度与断层判定。"},
-        {"case_id": "B8-valuation-band", "prompt": "2026-07-23 收盘，立新能源现在贵不贵，隐含了什么预期", "why": "估值是与前面完全不同的能力维度。原题无日期，为可比而钉日期。"}
+        {"batch": 1, "case_id": "C6-strict-definition", "prompt": "最近哪些板块比较强，双红的那种（以 2026-07-23 收盘为准）", "why": "口径权威题，全批最高价值。双红出自 knevo 所在生态，它怎么定义怎么筛，直接检验我们的严格定义 pct_chg>0 且 diff_ratio>10 且 amount>500 站不站得住。保留原题的定义模糊性，只钉日期以便可比。一份答案同时作为 A4 的参照。"},
+        {"batch": 1, "case_id": "A8-market-stage", "prompt": "2026-07-23 收盘，现在市场处于什么阶段，第几天了", "why": "第二个口径题。情绪周期阶段与天数计法（我们记『反弹阶段第 3 天』）本就是复盘会体系的概念，knevo 怎么数天、阶段怎么切，决定我们这个字段的定义对不对。原题无日期，为可比而钉日期。"},
+        {"batch": 1, "case_id": "A7-mainline", "prompt": "2026-07-21 当天主线是什么", "why": "主线判定是最核心的日常能力，且有量化锚（芯片概念 66 家涨停 / 行业成交占比 31.1%）可对齐。"},
+        {"batch": 1, "case_id": "A5-limit-heat", "prompt": "2026-07-23 涨停集中在哪些题材", "why": "涨停热度归类。我们的答案是储能 40 / 风电 29 / 电网设备 / 光伏概念，题材命名与归类口径差异会直接反映在这里。"},
+        {"batch": 1, "case_id": "A1-market-overview", "prompt": "2026-07-23 今天市场怎么样", "why": "最高频一题。既看数字口径差异，也看叙述结构谁更有用。"},
+        {"batch": 1, "case_id": "A6-limit-advance-ladder", "prompt": "2026-07-23 连板梯队什么情况，有没有断层", "why": "梯队高度与断层判定。我们的答案是最高 6 板（立新能源）、6/4/3/2 板合计仅约 15 只。"},
+        {"batch": 1, "case_id": "B5-cross-table-intersection", "prompt": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块", "why": "跨条件交叉题。先前误判为『依赖我们的表结构』而排除 —— 其实涨停热度与双红都是复盘会生态的概念，knevo 完全能答，且这种带前置条件的复合提问最能看出它是否会偷懒放宽条件。"},
+        {"batch": 1, "case_id": "A10-new-high-structure", "prompt": "2026-07-21 的新高家数结构说明什么", "why": "结构解读题。我们的锚是 20 日新高 339 家 vs 1 年新高 13 家的巨大落差，看它是否也从这个落差推出『反弹初期』。"},
+
+        {"batch": 2, "case_id": "B4-fermentation-trace", "prompt": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下", "why": "最难的推理链题，最能暴露差距。要看它是否给出起涨日→加强日→双红日的时间序列且每步带盘面数据。"},
+        {"batch": 2, "case_id": "A3-stock-deep-dive", "prompt": "2026-07-23 收盘，立新能源怎么看", "why": "个股深挖是另一条主力路径。我们的锚是收盘 12.11、6 板（当日最高连板）。原题无日期，为可比而钉日期。"},
+        {"batch": 2, "case_id": "C9-citation-integrity", "prompt": "2026-07-23 电网设备为什么涨，给出证据来源", "use_as": "因果解释与引用规范的参照，不作引用标签校验的参照", "why": "先前误判为『考我们自己的 registry 机制』而排除。registry 校验确实是我们内部的，但『为什么涨 + 给出来源』本身是我们必须答好的因果题；knevo 的答案能当因果叙述与举证规范的参照。"},
+        {"batch": 2, "case_id": "A9-sentiment-contradiction", "prompt": "2026-07-23 的市场情绪怎么解读", "why": "我们这道是陷阱题（边际强度 -66.3% 与状态『沸点』互相矛盾）。沸点/冰点本就是复盘会情绪周期的词，看 knevo 用自己的框架读同一天，会不会也读出这个矛盾。"},
+        {"batch": 2, "case_id": "B8-valuation-band", "prompt": "2026-07-23 收盘，立新能源现在贵不贵，隐含了什么预期", "why": "估值是与前面完全不同的能力维度。原题无日期，为可比而钉日期。"},
+        {"batch": 2, "case_id": "B7-volume-sentiment-evolution", "prompt": "2026-07-21 到 07-24 量能和情绪是怎么演化的", "why": "多日序列题，考趋势叙述而非单点取数。我们的锚是成交额从 29569 亿萎缩到 21950 亿。"},
+        {"batch": 2, "case_id": "C5-data-contradiction", "prompt": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少", "use_as": "外部 ground truth，校验我们已知的 fact_stock_daily 克隆 bug", "why": "用途与原题不同，所以先前的排除理由不成立。原题考『能否发现我们库里 07-21 整天是 07-20 的复制』；knevo 数据是干净的，它不会发现矛盾 —— 但它给出的两日真实数值正好是外部 ground truth，能独立确认我们那个克隆 bug 的真值。这是修数据用的，不是判分用的。"},
+
+        {"batch": 3, "case_id": "B1-theme-photoresist", "prompt": "光刻胶", "why": "题材题三连之一（原题就是这两三个字，故意极简，考它会不会主动补齐结构）。已有 golden case 可对齐 entity recall。"},
+        {"batch": 3, "case_id": "B2-theme-liquid-cooling", "prompt": "液冷", "why": "题材题三连之二。"},
+        {"batch": 3, "case_id": "B3-theme-solid-state-battery", "prompt": "固态电池", "why": "题材题三连之三。这道我们重点看跨题材误归因与越级断言，看 knevo 的边界在哪。"},
+        {"batch": 3, "case_id": "A2-next-day-call", "prompt": "2026-07-21 收盘了，明天怎么看", "use_as": "仅作结构参照（是否给出方向 + 带数值阈值的可证伪条件），不作正确性参照", "why": "knevo 今天回答带后视镜（已知 07-22 实际怎么走），所以它的方向judgment不能当正确性基准。但这道题的判定标准本来就是结构性的 —— 必须给方向 + 至少一个含具体数值阈值的可证伪条件 —— 而结构不受后视镜影响。故降级为结构参照收录。C7 对 knevo 是同一个问题，不重复问。"},
+        {"batch": 3, "case_id": "C1-future-date-no-data", "prompt": "2026-07-25 市场怎么样", "why": "诚实度题。07-25 是周六，看它是否直接指出非交易日而不是编数。花 115 积分买一个外部诚实度基准，在题量放宽后值得。"},
+        {"batch": 3, "case_id": "C2-non-trading-day", "prompt": "2026-02-17 涨停家数多少", "why": "诚实度题的另一种触发方式：春节休市。与 C1 的周末不同，考的是节假日日历。"},
+        {"batch": 3, "case_id": "C10-multi-turn-consistency", "prompt": "2026-07-23 哪些板块双红", "followups": ["那这些板块里成交额最大的是哪个", "刚才你说的双红板块，再确认一遍数量"], "cost_note": "3 次查询 ≈345 积分，全批最贵，放最后", "why": "多轮一致性。必须按顺序在同一个会话里连问三次，中间不要新开会话，否则考不到一致性。"}
       ],
       "excluded": [
-        {"case_ids": ["A2-next-day-call", "C7-temporal-leakage"], "reason": "前瞻题。knevo 今天回答会带后视镜（已知 07-22~07-24 结果），冻下来不公平。需当天收盘现场问。"},
-        {"case_ids": ["C3-empty-table", "C4-unit-anomaly", "C5-data-contradiction", "C8-nonexistent-table"], "reason": "考的是我们 DuckDB 里的真实脏数据与 legacy 残骸，knevo 看不到我们的库，问了无意义。"},
-        {"case_ids": ["C9-citation-integrity"], "reason": "考本会话 citation registry，属我们自己的机制。"},
-        {"case_ids": ["B5-cross-table-intersection"], "reason": "依赖我们的表结构与字段定义。"},
-        {"case_ids": ["B6-sellside-distillation"], "reason": "需把卖方材料原文贴进去，且三档路由（hard_fact/graph_only/observation_only）是我们的入库规范。"},
-        {"case_ids": ["C1-future-date-no-data", "C2-non-trading-day"], "reason": "纯诚实度题，我们自己已过（C1 已验证），花积分买同样答案不值。"},
-        {"case_ids": ["C10-multi-turn-consistency"], "reason": "需 3 次查询 ≈345 积分。先看单轮结果再决定是否值得。"},
-        {"case_ids": ["A5-limit-heat", "A8-market-stage", "A9-sentiment-contradiction", "A10-new-high-structure", "B1-theme-photoresist", "B2-theme-liquid-cooling", "B3-theme-solid-state-battery"], "reason": "有价值但优先级次之；等第一批 8 道跑出差距再决定要不要加买。"},
-        {"case_ids": ["A4-dual-red"], "reason": "与 C6 对 knevo 是同一个问题（都问 07-23 哪些板块双红），差别只在我们自己这边的提问方式（明确口径 vs 模糊口径）。一份 knevo 答案同时作为 A4 与 C6 的参照，不重复花积分。"}
+        {"case_ids": ["A4-dual-red"], "reason": "共用 C6 那份答案。对 knevo 这两道是同一个问题（都问 07-23 哪些板块双红），差别只在我们自己这边的提问方式（明确口径 vs 模糊口径），不重复花积分。"},
+        {"case_ids": ["C7-temporal-leakage"], "reason": "共用 A2 那份答案。对 knevo 这两道是同一个问题（都是站在 07-21 收盘看 07-22），差别只在我们这边额外校验答案里不许出现 07-22 及之后的实际数据 —— 那是我们自己的时间泄漏检查，不需要参照答案。"},
+        {"case_ids": ["C3-empty-table"], "reason": "原题考的是 fact_stock_technical_snapshot 当前 0 行时我们是否承认不可用。knevo 有自己的技术面数据，它会正常作答，参照的是『能力有没有』而不是『诚实度够不够』，与本题判定标准不同向。等我们把这张表填上再拿它当能力参照。"},
+        {"case_ids": ["C4-unit-anomaly"], "reason": "MLCC 成交额单位错是我们 fact_sector_daily 独有的脏数据（全库 amount>100000 的 26 行全来自该板块）。knevo 数据是干净的，问不出这个矛盾；且该板块真值量级不大，无需外部 ground truth 就能判定异常。"},
+        {"case_ids": ["C8-nonexistent-table"], "reason": "sector_marginal 是我们主库里的 legacy 残骸表名，属实现细节，knevo 无从知晓。"},
+        {"case_ids": ["B6-sellside-distillation"], "reason": "需把卖方材料原文整段贴进 knevo，且三档路由（hard_fact / graph_only / observation_only）是我们自己的入库规范，不是通用市场判断。"}
       ]
     }
   },
