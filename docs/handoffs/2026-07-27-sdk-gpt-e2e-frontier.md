@@ -7,7 +7,7 @@ Status: active; not release-green
 
 - Worktree: `/Users/a77/.finance-runtime/agent-runtime-backends-c4673667`
 - Branch: `feat/agent-runtime-backends-verify`
-- HEAD: `afc0be6e fix: enforce observable single-tool sdk turns`
+- HEAD: `04849c78 fix: route invalid finance fields to owner datasets`
 - Working tree: clean
 - `main` and canonical `8792`: untouched
 - Do not run the tracked nine-case development suite as a debugging loop.
@@ -36,6 +36,22 @@ Commits: `875ed509`, `17e0b21a`.
   response, so the next decision can observe the previous tool result;
 - `finance_query` exposes dataset-specific semantic field hints and includes a
   retry hint after an invalid field error.
+
+This is not yet loaded by the running 8799 process.
+
+### Cross-dataset query repair
+
+`04849c78` incorporates the independent Claude acceptance finding that several
+real semantic fields were rejected only because the model placed them on the
+wrong dataset:
+
+- invalid-query observations now map every misplaced field to its registered
+  `dataset.role` instead of listing only the already-wrong dataset;
+- a query spanning datasets is explicitly split into sequential queries, which
+  composes with the single-tool-per-turn boundary above;
+- a date incorrectly placed in `filters` is redirected to
+  `time_range.start/time_range.end`;
+- focused FinanceQuery/episode/SDK coverage is `50 passed, 1 skipped`.
 
 This is not yet loaded by the running 8799 process.
 
@@ -89,7 +105,7 @@ finance_root: /Users/a77/finance-workspace-private
 market_snapshot: true
 ```
 
-The latest commits (`b18eee60`, `07fc62a7`, `afc0be6e`) require a restart before they can
+The latest commits (`b18eee60`, `07fc62a7`, `afc0be6e`, `04849c78`) require a restart before they can
 be tested in 8799. Do not restart casually: the fresh process still cannot
 reliably reload the saved Keychain item and the user may need to configure a
 session credential again. Never print or copy the credential.
@@ -134,7 +150,7 @@ quality result for the current code.
 ## Unfinished work
 
 1. Wait for the independent Claude acceptance run using 8799 to finish, then
-   restart 8799 on `afc0be6e`; first check health and redacted LLM readiness.
+   restart 8799 on `04849c78`; first check health and redacted LLM readiness.
 2. Verify the current session/provider setup without exposing credentials.
 3. Re-run the two directed Conversation cases, one at a time.
 4. Assert `batched_tool_calls_dropped` and actual executed tool count from the
