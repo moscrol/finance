@@ -100,7 +100,44 @@ def test_failure_classification_separates_seam_from_quality():
         acceptance.classify_failure({"status": "error", "error": "urlopen refused"})
         == "接缝:服务/路由"
     )
-    assert acceptance.classify_failure({"status": "complete"}) == "业务质量"
+    assert acceptance.classify_failure({"status": "completed"}) == "业务质量"
+
+
+def test_zero_evidence_degrade_is_quality_not_seam():
+    """零证据降级是检索/绑定缺陷（疑似假拒答），不是环境没配好。
+
+    实测 A4「2026-07-23 双红板块有哪些」——库里数据齐全且已核验——runtime
+    绑定 0 条证据直接降级拒答。这类失败若归进接缝账，会被误判成"等凭据好了
+    就自然好了"，从而永远查不到真正的检索缺陷。
+    """
+    turn = {
+        "status": "completed",
+        "degrades": ["证据或语义核验未完全通过，已按证据边界降级。"],
+        "evidence_bound": 0,
+    }
+    assert acceptance.classify_failure(turn) == "业务质量:零证据降级"
+    # 绑到证据后又降级是另一回事，不套用零证据结论
+    assert acceptance.classify_failure({**turn, "evidence_bound": 6}) == "业务质量"
+
+
+def test_turn_trace_reads_runtime_field_names():
+    """探针字段名必须对齐 runtime 真实返回，否则轨迹恒为空却看不出来。
+
+    锁的是一次真实踩坑：消息体只给 invoked_skill_ids / citations / degrades，
+    早先版本读 tools_called，于是看板显示 tools=0 —— 不是真没调工具，是探针
+    探错了地方。一个恒为空的观测位比没有观测位更危险。
+    """
+    fields = acceptance.TurnTrace.__dataclass_fields__
+    assert "tools_called" not in fields, "runtime 不返回该字段，别自创"
+    for name in (
+        "run_id",
+        "invoked_skill_ids",
+        "citations",
+        "degrades",
+        "evidence_bound",
+        "gaps",
+    ):
+        assert name in fields, f"缺 {name}：这是判零证据降级的必要字段"
 
 
 def test_cases_file_is_wellformed():

@@ -47,16 +47,30 @@ def _rel(path: Path) -> str:
 
 @dataclass
 class TurnTrace:
-    """一次真实回答的完整轨迹 —— 用户不用问我，打开这个文件就能看到发生了什么。"""
+    """一次真实回答的完整轨迹 —— 用户不用问我，打开这个文件就能看到发生了什么。
+
+    字段名对齐 runtime 真实返回的形状，别自创：
+    - 消息体给 ``invoked_skill_ids`` / ``citations`` / ``degrades``，**没有**
+      ``tools_called``。早先版本读 ``tools_called``，于是每条轨迹的工具信息
+      恒为空 —— 看板显示 tools=0 却不是真没调工具，是探针探错了地方。
+    - 真正能区分「取到证据后回答」和「取不到证据而降级」的是
+      ``/api/runs/{run_id}/context`` 的 ``evidence[]``：C1 绑定 6 条证据正常
+      作答，A4 绑定 0 条直接降级拒答。这是判空答/假拒答的唯一可靠信号。
+    """
 
     question: str
     answer: str | None = None
-    tools_called: list[str] = field(default_factory=list)
-    registry_tags: list[str] = field(default_factory=list)
+    run_id: str | None = None
+    invoked_skill_ids: list[str] = field(default_factory=list)
+    citations: list[dict[str, Any]] = field(default_factory=list)
+    degrades: list[str] = field(default_factory=list)
+    evidence_bound: int = 0
+    evidence: list[dict[str, Any]] = field(default_factory=list)
+    trace_steps: list[str] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
     elapsed_s: float = 0.0
     status: str = "unknown"
     error: str | None = None
-    raw_events: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -128,6 +142,30 @@ def preflight(base: str) -> tuple[bool, str]:
     return True, f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
 
 
+def _fill_run_detail(base: str, trace: TurnTrace) -> None:
+    """补 run 级证据绑定与步骤。取不到不算失败 —— 答案本身已经拿到了。"""
+    if not trace.run_id:
+        return
+    try:
+        ctx = _get(f"{base}/api/runs/{trace.run_id}/context", timeout=15)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        ctx = {}
+    evidence = ctx.get("evidence") or []
+    trace.evidence = list(evidence)
+    trace.evidence_bound = sum(
+        1 for e in evidence if isinstance(e, dict) and e.get("status") == "hit"
+    )
+    trace.gaps = list(ctx.get("gaps") or [])
+    try:
+        steps = _get(f"{base}/api/runs/{trace.run_id}/trace", timeout=15)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        steps = []
+    if isinstance(steps, list):
+        trace.trace_steps = [
+            str(s.get("name")) for s in steps if isinstance(s, dict) and s.get("name")
+        ]
+
+
 def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
     """真实提问一次并轮询到终态。返回可复核的轨迹。"""
     trace = TurnTrace(question=question)
@@ -156,9 +194,11 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
                 continue
             trace.answer = last.get("content")
             trace.status = last.get("status") or "unknown"
-            trace.tools_called = list(last.get("tools_called") or [])
-            trace.registry_tags = list(last.get("registry_tags") or [])
-            trace.raw_events = list(last.get("events") or [])
+            trace.run_id = last.get("run_id")
+            trace.invoked_skill_ids = list(last.get("invoked_skill_ids") or [])
+            trace.citations = list(last.get("citations") or [])
+            trace.degrades = list(last.get("degrades") or [])
+            _fill_run_detail(base, trace)
             break
         else:
             trace.status = "timeout"
@@ -197,9 +237,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             if t.status in {"error", "timeout"}:
                 break
         head = cr.turns[0] if cr.turns else None
+        degraded = " ⚠降级" if head and head.degrades else ""
         print(
             f"{head.status if head else 'n/a'}  {head.elapsed_s if head else 0}s  "
-            f"tools={len(head.tools_called) if head else 0}"
+            f"证据={head.evidence_bound if head else 0}{degraded}"
         )
         runs.append(cr)
 
@@ -250,9 +291,9 @@ def cmd_board(args: argparse.Namespace) -> int:
         )
 
     print(f"# 验收看板 · {header_note}\n")
-    print("| 题 | 组 | 状态 | 耗时 | 工具数 | 失败分类 |")
+    print("| 题 | 组 | 状态 | 耗时 | 绑定证据 | 失败分类 |")
     print("|---|---|---|---|---|---|")
-    tally: dict[str, int] = {"passed": 0, "failed": 0, "not_run": 0}
+    tally: dict[str, int] = {"answered": 0, "degraded": 0, "failed": 0, "not_run": 0}
     for c in cases:
         r = by_id.get(c["id"])
         if not r or not r.get("turns"):
@@ -260,28 +301,28 @@ def cmd_board(args: argparse.Namespace) -> int:
             print(f"| {c['id']} | {c['tier']} | ⬜ 未跑 | — | — | — |")
             continue
         t0 = r["turns"][0]
-        status = t0.get("status")
         # 注意：这里只报「真实运行是否拿到答案」。是否算通过要过 agent_eval 的
         # 确定性闸 + 人工盲比参照快照，看板不自作判断。
-        if status == "complete":
-            mark, cls = "🟡 有答案待判", ""
-        else:
+        # status 用 runtime 真实字面量 "completed"，别写 "complete"。
+        if t0.get("status") != "completed":
             tally["failed"] += 1
             mark, cls = "🔴 未产出", classify_failure(t0)
-            print(
-                f"| {c['id']} | {c['tier']} | {mark} | {t0.get('elapsed_s')}s | "
-                f"{len(t0.get('tools_called') or [])} | {cls} |"
-            )
-            continue
+        elif t0.get("degrades"):
+            tally["degraded"] += 1
+            mark, cls = "🟠 降级作答", "证据未绑定即降级"
+        else:
+            tally["answered"] += 1
+            mark, cls = "🟡 有答案待判", ""
         print(
             f"| {c['id']} | {c['tier']} | {mark} | {t0.get('elapsed_s')}s | "
-            f"{len(t0.get('tools_called') or [])} | {cls} |"
+            f"{t0.get('evidence_bound') or 0} | {cls} |"
         )
 
     total = len(cases)
     print(
-        f"\n**口径**：{total} 道题里，未跑 {tally['not_run']}、"
-        f"未产出 {tally['failed']}。通过数须经 agent_eval 闸 + 盲比后回填，"
+        f"\n**口径**：{total} 道题里，未跑 {tally['not_run']}、未产出 "
+        f"{tally['failed']}、降级作答 {tally['degraded']}、有答案待判 "
+        f"{tally['answered']}。通过数须经 agent_eval 闸 + 盲比后回填，"
         "看板不自己判通过。"
     )
     snaps = list(SNAPSHOT_DIR.glob("*.json")) if SNAPSHOT_DIR.exists() else []
@@ -303,6 +344,10 @@ def classify_failure(turn: dict[str, Any]) -> str:
         return "接缝:协议/Schema"
     if status == "error":
         return "接缝:未分类"
+    if turn.get("degrades") and not (turn.get("evidence_bound") or 0):
+        # 服务健康、模型答了，但一条证据都没绑上就降级 —— 这是检索/绑定的业务
+        # 缺陷（可能是假拒答），不是部署接缝，别混进接缝账里当"环境没配好"。
+        return "业务质量:零证据降级"
     return "业务质量"
 
 
