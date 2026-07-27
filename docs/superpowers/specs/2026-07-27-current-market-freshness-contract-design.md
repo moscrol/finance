@@ -39,8 +39,8 @@ Before publishing model-visible evidence:
 - `market_data` and `mainline_context` compare the DuckDB maximum market date
   with the floor;
 - `finance_query` compares its actual `served_date` with the floor unless the
-  model explicitly requested a historical `time_range.end` earlier than the
-  floor;
+  user-owned `TaskFrame` explicitly authorizes a historical window earlier
+  than the floor; a model-supplied `time_range` cannot authorize itself;
 - a stale result returns zero evidence, `ProviderTrace.status=stale`, both
   requested and served dates, and a task-specific gap;
 - source dates always come from the serving provider, never from the fresher
@@ -70,7 +70,8 @@ still protects any invocation that receives a freshness floor.
 - `episode_tools` owns the deep freshness decision used by every structured
   model-facing tool.
 - FinanceQuery remains a general historical query engine; only the Episode
-  adapter applies the current-task floor.
+  adapter applies the current-task floor and reads historical authorization
+  from the immutable user task.
 - Readiness exposes the same two dates but does not implement a second policy.
 
 ## Acceptance
@@ -78,9 +79,9 @@ still protects any invocation that receives a freshness floor.
 1. The Adapter receives runtime `today` and snapshot served date.
 2. With snapshot 2026-07-27 and DB 2025-06-30, current market_data and
    FinanceQuery publish zero evidence with a stale trace.
-3. An explicit historical query ending 2025-06-30 still succeeds.
+3. A model-selected 2025-06-30 window is rejected for a current user task,
+   while a user task explicitly dated to that historical window still succeeds.
 4. A frozen 2026-07-24 cutoff uses 2026-07-24 as the floor even when the local
    snapshot is 2026-07-27.
 5. When dates match, existing current-market evidence remains unchanged.
 6. Continuous-runtime readiness is not ready when snapshot is newer than DB.
-

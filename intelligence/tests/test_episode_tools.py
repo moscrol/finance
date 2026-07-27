@@ -789,7 +789,7 @@ def test_current_market_tool_rejects_stale_block_before_model_observation(
     assert result.trace.served_date == "2025-06-30"
 
 
-def test_explicit_historical_finance_query_remains_available_below_current_floor(
+def test_model_selected_historical_window_is_rejected_for_current_task(
     tmp_path: Path,
 ) -> None:
     finance_root = tmp_path / "finance"
@@ -808,7 +808,7 @@ def test_explicit_historical_finance_query_remains_available_below_current_floor
     frame = _market_forecast_frame()
     context = build_episode_context(
         frame,
-        task_id="explicit-historical-market",
+        task_id="model-selected-historical-market",
         capabilities=("market_data",),
         timeout=10.0,
         synthesis_reserve=0.0,
@@ -836,12 +836,68 @@ def test_explicit_historical_finance_query_remains_available_below_current_floor
             "limit": 5,
         },
         context=context,
-        step_id="explicit-historical-market:1",
+        step_id="model-selected-historical-market:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "parse_error"
+    assert "historical_window_not_authorized_by_task" in result.trace.detail
+    assert result.trace.requested_date == "2026-07-27"
+
+
+def test_user_dated_task_authorizes_historical_finance_query(
+    tmp_path: Path,
+) -> None:
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        "create table fact_market_daily("
+        "trade_date date, market_stage varchar, total_amount double)"
+    )
+    connection.execute(
+        "insert into fact_market_daily values "
+        "('2026-07-01', '下跌阶段', 14866)"
+    )
+    connection.close()
+    frame = _historical_market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="user-authorized-historical-market",
+        capabilities=("market_data",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-27",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    result = registry.execute(
+        "finance_query",
+        {
+            "dataset": "market_daily",
+            "metrics": ["total_amount"],
+            "dimensions": ["trade_date", "market_stage"],
+            "filters": [],
+            "time_range": {"start": "2026-07-01", "end": "2026-07-01"},
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "desc"}],
+            "limit": 5,
+        },
+        context=context,
+        step_id="user-authorized-historical-market:1",
     )
 
     assert len(result.evidence) == 1
     assert result.trace.status == "success"
-    assert result.trace.served_date == "2025-06-30"
+    assert result.trace.served_date == "2026-07-01"
 
 
 def test_frozen_cutoff_caps_newer_snapshot_freshness_floor(

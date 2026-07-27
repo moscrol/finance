@@ -76,17 +76,52 @@ def _is_current_query_stale(
     *,
     served_date: str | None,
     floor: date | None,
+    historical_authorized: bool = False,
 ) -> bool:
     served = _iso_date(served_date)
     if floor is None or served is None:
         return False
     if (
+        historical_authorized
+        and
         spec.time_range is not None
         and spec.time_range.end is not None
         and spec.time_range.end < floor
     ):
         return False
     return served < floor
+
+
+def _task_authorizes_historical_window(
+    frame: TaskFrame,
+    *,
+    floor: date | None,
+) -> bool:
+    """Only user-owned task semantics may relax the current-data floor."""
+
+    if frame.question_type == "dated_market_review":
+        return True
+    timeframe_date = _iso_date(frame.timeframe)
+    if timeframe_date is not None and (floor is None or timeframe_date < floor):
+        return True
+    task_text = f"{frame.raw_question} {frame.timeframe or ''}"
+    return any(
+        cue in task_text
+        for cue in ("历史", "去年", "前年", "上个月", "上月", "上季度", "当时")
+    )
+
+
+def _requests_earlier_window(
+    spec: finance_query.FinanceQuerySpec,
+    *,
+    floor: date | None,
+) -> bool:
+    return bool(
+        floor is not None
+        and spec.time_range is not None
+        and spec.time_range.end is not None
+        and spec.time_range.end < floor
+    )
 
 
 def _structured_provider_is_stale(
@@ -566,6 +601,38 @@ def build_episode_registry(
                 value,
                 limit=min(value.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
             )
+            freshness_floor = _structured_freshness_floor(context)
+            historical_authorized = _task_authorizes_historical_window(
+                frame,
+                floor=freshness_floor,
+            )
+            if _requests_earlier_window(
+                bounded_value,
+                floor=freshness_floor,
+            ) and not historical_authorized:
+                assert freshness_floor is not None
+                return ToolRunResult(
+                    evidence=(),
+                    observation=(
+                        "当前用户任务未授权历史窗口；请把 time_range 调整到 "
+                        f"{freshness_floor.isoformat()} 附近，或省略 time_range "
+                        "让系统按当前截止日选择数据"
+                    ),
+                    trace=ProviderTrace(
+                        provider="duckdb_semantic_query",
+                        capability="finance_query",
+                        status="parse_error",
+                        detail=(
+                            f"dataset={value.dataset}; "
+                            "historical_window_not_authorized_by_task"
+                        ),
+                        requested_date=freshness_floor.isoformat(),
+                        result_count=0,
+                    ),
+                    gaps=(
+                        "当前问题需要截止日附近的结构化数据；模型选择的旧历史窗口未执行",
+                    ),
+                )
             try:
                 result = query_engine.run(
                     bounded_value,
@@ -575,11 +642,11 @@ def build_episode_registry(
                 )
             except finance_query.FinanceQueryError as exc:
                 return _finance_query_failure_result(value, exc)
-            freshness_floor = _structured_freshness_floor(context)
             if _is_current_query_stale(
                 value,
                 served_date=result.served_date,
                 floor=freshness_floor,
+                historical_authorized=historical_authorized,
             ):
                 assert freshness_floor is not None
                 return _stale_structured_result(
