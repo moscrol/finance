@@ -362,6 +362,65 @@ def test_time_aligned_market_web_filters_results_after_market_window(
     assert "future_of_cutoff=1" in observation.trace.detail
 
 
+def test_historical_market_web_uses_task_window_instead_of_latest_data_date(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    web_research = episode_tools.agent_research.web_research
+
+    def fake_web(_query: str, **_kwargs):
+        return web_research.WebSearchResult(
+            (
+                web_research.WebSearchItem(
+                    "7月6日 历史窗口后的复盘",
+                    "https://example.test/after-window",
+                    "7月6日新增解释",
+                ),
+                web_research.WebSearchItem(
+                    "7月5日 历史窗口收评",
+                    "https://example.test/window-end",
+                    "7月5日市场表现",
+                ),
+            ),
+            ProviderTrace(
+                "bing_web",
+                "general_web_search",
+                "success",
+                result_count=2,
+            ),
+        )
+
+    monkeypatch.setattr(web_research, "fetch_web_search", fake_web)
+    frame = _historical_market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="historical-market-cause-web-window",
+        capabilities=("web_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-24",
+    )
+    observation = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    ).execute(
+        "web_search",
+        {"query": "A股下跌原因"},
+        context=context,
+        step_id="historical-market-cause-web-window:1",
+    )
+
+    assert [item.source for item in observation.evidence] == [
+        "https://example.test/window-end"
+    ]
+    assert observation.trace.requested_date == "2026-07-05"
+    assert "future_of_cutoff=1" in observation.trace.detail
+
+
 def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     tmp_path,
     monkeypatch,
