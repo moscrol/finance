@@ -286,6 +286,79 @@ def test_sdk_progress_sink_suppresses_events_after_cancellation() -> None:
     ]
 
 
+def test_sdk_tool_result_returns_only_evidence_new_to_the_episode() -> None:
+    evidence = AgentEvidence(
+        tool="news_search",
+        title="同一篇市场收评",
+        detail="2026-07-24 市场缩量回撤",
+        source="https://example.test/market-review",
+        source_date="2026-07-24",
+        content_hash="same-news-hash",
+        independent_key="market-review",
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="市场新闻",
+                cost="network",
+                freshness="current",
+                runner=lambda _query, _context: (
+                    [evidence],
+                    "同一篇市场收评",
+                    ProviderTrace("test:news", "news_search", "success"),
+                ),
+            ),
+        )
+    )
+
+    def repeated_evidence_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        tool = request.tools[0]
+        first = tool.invoke("A股 7月24日 下跌原因")
+        second = tool.invoke("换一种表述搜索 7月24日 A股回撤")
+        assert first["status"] == "success"
+        assert first["evidence_hashes"] == ["same-news-hash"]
+        assert second["status"] == "duplicate_evidence"
+        assert second["evidence"] == []
+        assert second["evidence_hashes"] == []
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "7月24日出现缩量回撤。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": ["same-news-hash"],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    frame = _frame()
+    outcome = OpenAIAgentsRuntime(
+        runner=repeated_evidence_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            allowed_capabilities=("news_search",),
+        ),
+        registry=registry,
+    )
+
+    assert outcome.status == "completed"
+    assert [item.content_hash for item in outcome.evidence] == ["same-news-hash"]
+
+
 def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     frame = _frame()
     context = _context(frame)
@@ -579,6 +652,8 @@ def test_sdk_resume_keeps_tools_closed_after_original_research_window() -> None:
             assert request.tools == ()
             assert request.max_turns == 1
             assert 0.0 < request.timeout <= 2.0
+            assert request.model_settings.reasoning.effort == "low"
+            assert request.model_settings.verbosity == "medium"
             status = "completed"
             gaps = []
             hashes = ["mainline-hash"]

@@ -189,6 +189,24 @@ def build_agents_model_settings(backend: SdkBackend) -> object:
     raise ValueError("unsupported SDK backend")
 
 
+def build_agents_delivery_model_settings(backend: SdkBackend) -> object:
+    """Use a cheaper reasoning profile once tools are closed and facts are frozen."""
+
+    if backend == "sdk_glm":
+        return build_agents_model_settings(backend)
+    if backend == "sdk_gpt":
+        from agents import ModelSettings
+        from openai.types.shared import Reasoning
+
+        return ModelSettings(
+            parallel_tool_calls=False,
+            reasoning=Reasoning(effort="low"),
+            verbosity="medium",
+            store=False,
+        )
+    raise ValueError("unsupported SDK backend")
+
+
 def sdk_model_aclose(model: object) -> Callable[[], Awaitable[None]]:
     client = getattr(model, "_client", None)
     close = getattr(client, "close", None)
@@ -773,24 +791,37 @@ class _AgentsRunState:
                 cleaned = gap.strip()
                 if cleaned and cleaned not in self._gaps:
                     self._gaps.append(cleaned)
+            new_evidence: list[AgentEvidence] = []
             for item in observation.evidence:
                 if item.content_hash in self._evidence_hashes:
                     continue
                 self._evidence_hashes.add(item.content_hash)
                 self._evidence.append(item)
+                new_evidence.append(item)
                 self.evidence_ledger.append(item)
-            if spec.query_scope == "episode" and observation.evidence:
+            if spec.query_scope == "episode" and new_evidence:
                 self._successful_episode_tools.add(observation.tool)
-            status = "success" if observation.evidence else "empty"
+            if new_evidence:
+                status = "success"
+                public_observation = observation.observation
+            elif observation.evidence:
+                status = "duplicate_evidence"
+                public_observation = (
+                    "本次查询未增加新证据；返回内容与本轮已有证据重复，"
+                    "请改变证据类型或基于现有证据完成回答。"
+                )
+            else:
+                status = "empty"
+                public_observation = observation.observation
             payload: dict[str, object] = {
                 "status": status,
                 "tool": observation.tool,
                 "query": observation.query,
-                "observation": observation.observation,
+                "observation": public_observation,
                 "evidence": [
-                    public_agent_evidence(item) for item in observation.evidence
+                    public_agent_evidence(item) for item in new_evidence
                 ],
-                "evidence_hashes": list(observation.evidence_hashes),
+                "evidence_hashes": [item.content_hash for item in new_evidence],
                 "gaps": list(observation.gaps),
             }
             self._add_event("tool_result", payload)
@@ -876,6 +907,11 @@ class OpenAIAgentsRuntime:
         self._model_name = model_name.strip()
         self._model = model
         self._model_settings = model_settings or build_agents_model_settings(backend)
+        self._delivery_model_settings = (
+            build_agents_delivery_model_settings(backend)
+            if backend == "sdk_gpt"
+            else self._model_settings
+        )
         self._model_factory = model_factory
         self._is_cancelled = is_cancelled or (lambda: False)
         self._event_sink = event_sink
@@ -1048,7 +1084,7 @@ class OpenAIAgentsRuntime:
                 evidence=snapshot.evidence,
             )
         except ValueError:
-            recovery_timeout = _sdk_runtime_timeout(context)
+            recovery_timeout = min(30.0, _sdk_runtime_timeout(context))
             if (
                 snapshot.evidence or _allows_evidence_free_completion(context)
             ) and recovery_timeout >= 1.0:
@@ -1090,7 +1126,7 @@ class OpenAIAgentsRuntime:
                     backend=self._backend,
                     model_name=self._model_name,
                     model=self._model,
-                    model_settings=self._model_settings,
+                    model_settings=self._delivery_model_settings,
                     model_factory=self._model_factory,
                     continuation_input=result._continuation_input,
                 )
@@ -1306,12 +1342,14 @@ class OpenAIAgentsRuntime:
             input=json.dumps(repair_input, ensure_ascii=False),
             tools=tools,
             max_turns=max(1, available_calls + 1) if tools else 1,
-            timeout=available_seconds,
+            timeout=min(available_seconds, 30.0) if not tools else available_seconds,
             backend=self._backend,
             model_name=self._model_name,
             tool_timeout=research_tool_timeout if tools else None,
             model=self._model,
-            model_settings=self._model_settings,
+            model_settings=(
+                self._model_settings if tools else self._delivery_model_settings
+            ),
             model_factory=self._model_factory,
             continuation_input=state.continuation_input,
         )
@@ -1768,6 +1806,7 @@ __all__ = [
     "OpenAIAgentsRuntime",
     "SdkBackend",
     "SdkModelFactory",
+    "build_agents_delivery_model_settings",
     "build_agents_model_settings",
     "build_glm_sdk_model",
     "build_glm_sdk_model_factory",
