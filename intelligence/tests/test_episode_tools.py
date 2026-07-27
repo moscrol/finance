@@ -235,6 +235,68 @@ def test_time_aligned_market_news_uses_market_window_end_without_query_date(
     }
 
 
+def test_time_aligned_market_web_filters_results_after_market_window(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    web_research = episode_tools.agent_research.web_research
+
+    def fake_web(_query: str, **_kwargs):
+        return web_research.WebSearchResult(
+            (
+                web_research.WebSearchItem(
+                    "2026-07-27 A股盘后消息",
+                    "https://example.test/future",
+                    "7月27日盘后出现的新催化",
+                ),
+                web_research.WebSearchItem(
+                    "2026-07-24 A股收评",
+                    "https://example.test/aligned",
+                    "7月24日市场回撤",
+                ),
+            ),
+            ProviderTrace(
+                "bing_web",
+                "general_web_search",
+                "success",
+                result_count=2,
+            ),
+        )
+
+    monkeypatch.setattr(web_research, "fetch_web_search", fake_web)
+    frame = _market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="market-cause-web-window",
+        capabilities=("web_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+
+    observation = registry.execute(
+        "web_search",
+        {"query": "A股下跌原因"},
+        context=context,
+        step_id="market-cause-web-window:1",
+    )
+
+    assert [item.source_date for item in observation.evidence] == ["2026-07-24"]
+    assert [item.source for item in observation.evidence] == [
+        "https://example.test/aligned"
+    ]
+    assert observation.trace.requested_date == "2026-07-24"
+    assert "future_of_cutoff=1" in observation.trace.detail
+
+
 def test_market_registry_propagates_context_snapshot_date_to_every_atom(
     tmp_path,
     monkeypatch,

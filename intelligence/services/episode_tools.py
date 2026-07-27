@@ -17,6 +17,7 @@ from intelligence.paths import default_paths
 from intelligence.services import (
     agent_research,
     ask_blocks,
+    closed_loop_retrieval,
     entity_anchor,
     evidence_search,
     finance_query,
@@ -170,32 +171,69 @@ def build_episode_registry(
     if (
         context.contract.evidence_plan.profile == "time_aligned_market_causal"
         and structured_source_date
-        and "news_search" in tools
     ):
         try:
             market_window_end = date.fromisoformat(str(structured_source_date)[:10])
         except ValueError:
             market_window_end = None
         if market_window_end is not None:
-            base_news_runner = tools["news_search"]
+            for tool_name in ("news_search", "web_search"):
+                base_runner = tools.get(tool_name)
+                if base_runner is None:
+                    continue
 
-            def time_aligned_news_runner(
-                query: str,
-                tool_context: agent_research.AgentToolContext,
-            ):
-                global_cutoff = (
-                    tool_context.information_cutoff or context.information_cutoff
-                )
-                scoped_context = replace(
-                    tool_context,
-                    information_cutoff=InformationCutoff(
+                def time_aligned_runner(
+                    query: str,
+                    tool_context: agent_research.AgentToolContext,
+                    *,
+                    runner=base_runner,
+                ):
+                    global_cutoff = (
+                        tool_context.information_cutoff
+                        or context.information_cutoff
+                    )
+                    scoped_cutoff = InformationCutoff(
                         min(global_cutoff.as_of_date, market_window_end),
                         "latest_available",
-                    ),
-                )
-                return base_news_runner(query, scoped_context)
+                    )
+                    scoped_context = replace(
+                        tool_context,
+                        information_cutoff=scoped_cutoff,
+                    )
+                    evidence, observation, trace = runner(query, scoped_context)
+                    filtered, rejected = closed_loop_retrieval.filter_future_dated(
+                        list(evidence),
+                        information_cutoff=scoped_cutoff,
+                        date_getter=lambda item: item.source_date,
+                    )
+                    if rejected:
+                        observation = (
+                            "；".join(
+                                f"{item.title}：{item.detail[:80]}"
+                                for item in filtered
+                            )
+                            or "检索结果均因 future_of_cutoff 被过滤"
+                        )
+                    trace = replace(
+                        trace,
+                        status=(
+                            "future_of_cutoff"
+                            if rejected and not filtered
+                            else trace.status
+                        ),
+                        detail=(
+                            f"{trace.detail}; future_of_cutoff={len(rejected)}".strip(
+                                "; "
+                            )
+                            if rejected
+                            else trace.detail
+                        ),
+                        result_count=len(filtered),
+                        requested_date=scoped_cutoff.as_of_date.isoformat(),
+                    )
+                    return filtered, observation, trace
 
-            tools["news_search"] = time_aligned_news_runner
+                tools[tool_name] = time_aligned_runner
 
     def market_data_runner(
         _query: str,

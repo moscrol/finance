@@ -430,7 +430,10 @@ class ResearchToolRegistry:
                 result_count=len(evidence),
                 parent_id=context.trace_parent_id,
                 step_id=step_id,
-                requested_date=context.information_cutoff.as_of_date.isoformat(),
+                requested_date=(
+                    trace.requested_date
+                    or context.information_cutoff.as_of_date.isoformat()
+                ),
                 served_date=served_date,
             )
             # The content hash is the stable identifier carried into
