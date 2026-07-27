@@ -105,22 +105,22 @@ admission result and keep the adapter execution-only.
 - The current five runs do not satisfy the exact frozen cutoff contract.
 - Current data is inconsistent between market snapshot and time-series tools.
 - Valuation tool coverage is insufficient.
-- Semantic-judge timeout can erase a grounded direct answer.
+- Semantic-judge timeout could erase a grounded direct answer (fixed in the
+  current candidate branch; awaiting the next frozen live canary).
 
 ## Next execution order
 
 Do not add a question-specific route, template, skill or global budget bump.
 
-1. **P0 internal artifact visibility** — introduce `visibility=internal` in the
-   artifact contract, enforce it in artifact download/preview APIs, and create a
-   redacted diagnostic projection for UI/self-use.
-2. **P0 current-data capability contract** — make current-market tasks reject
-   or explicitly reconcile stale time-series relative to the current snapshot;
-   add a cross-source freshness invariant test.
-3. **P0 verifier availability recovery** — reserve/route semantic verification
-   so deadline exhaustion remains observable and cannot replace a structurally
-   complete grounded draft with a generic template. Preserve fail-closed truth;
-   do not bypass the semantic gate.
+1. **P0 internal artifact visibility** — completed in `29ee3847`.
+2. **P0 current-data capability contract** — completed in `f2eecb4e`; current
+   structured tools now reject stale rows against the snapshot/cutoff floor and
+   readiness exposes the same cross-source mismatch.
+3. **P0 verifier availability recovery** — implemented in the current candidate
+   slice; transient judge deadline/provider failures now preserve a visibly
+   degraded, structurally grounded candidate while non-transient failures stay
+   fail-closed. Verification receipt:
+   `docs/verification/semantic-verifier-availability-recovery-2026-07-27.md`.
 4. **P0 valuation evidence reachability** — make subject resolution,
    financial anchors and market valuation anchors reachable through the shared
    semantic tools; prove with a generic company valuation fixture, not a

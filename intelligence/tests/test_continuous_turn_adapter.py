@@ -32,6 +32,7 @@ from intelligence.services.openai_agents_runtime import (
 from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
+    SemanticEpisodeVerifier,
 )
 from intelligence.services.episode_session import CallbackEpisodeSession
 from intelligence.services.episode_verifier import (
@@ -2877,6 +2878,75 @@ def test_semantic_verifier_failure_reuses_structural_contract_and_evidence() -> 
     assert result.private_artifact["structural_verifier"]["verified_status"] == (
         "completed"
     )
+
+
+def test_transient_semantic_judge_failure_preserves_structural_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A judge outage degrades a grounded draft instead of erasing it."""
+
+    frame = _frame()
+    context = build_episode_context(
+        frame,
+        task_id="semantic-candidate-on-timeout",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-07-20",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场量能窗口",
+        detail="成交额较前一交易日下降，承接减弱",
+        source="本地行情",
+        source_date="2026-07-20",
+        content_hash="semantic-candidate-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="成交收缩导致承接减弱，短线反弹持续性仍需观察。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                (evidence.content_hash,),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    structural = verify_episode_outcome(context.contract, outcome)
+
+    class Judge:
+        def complete(self, **_kwargs):
+            return ModelTurn(
+                "",
+                (),
+                provider_name="judge",
+                error="TimeoutError",
+            )
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=Judge()).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=context.deadline,
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert "成交收缩导致承接减弱" in result.public_answer
+    assert "语义核验" in result.public_answer
+    assert result.verified.outcome.evidence == (evidence,)
 
 
 def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() -> None:

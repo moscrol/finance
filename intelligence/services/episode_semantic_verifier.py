@@ -537,16 +537,38 @@ class SemanticEpisodeVerifier:
         request = self._judge_request(frame, structural, sentences)
         first = self._run_judge(request, deadline)
         if deadline.expired:
+            deadline_release_safe = (
+                first.report is None
+                and (
+                    first.monotonic_release_safe
+                    or "deadline" in first.issue.casefold()
+                )
+            )
             first = _JudgeCall(
                 None,
                 True,
                 first.correlated,
                 "semantic judge deadline exhausted",
                 root_deadline_exhausted=True,
-                monotonic_release_safe=first.monotonic_release_safe,
+                monotonic_release_safe=deadline_release_safe,
             )
         if first.report is None:
             issue = first.issue or "semantic judge unavailable"
+            if first.monotonic_release_safe and issue in {
+                "semantic judge deadline exhausted",
+                "semantic judge transient provider error",
+            }:
+                candidate = self._transient_failure_candidate(
+                    frame,
+                    structural,
+                    issues=tuple(
+                        dict.fromkeys(
+                            (*structural.issues, *preflight_issues, issue)
+                        )
+                    ),
+                )
+                if candidate is not None:
+                    return candidate
             return SemanticEpisodeOutcome(
                 verified=structural,
                 status="partial",
@@ -952,6 +974,48 @@ class SemanticEpisodeVerifier:
             judge_status=("unavailable" if second.report is None else "rejected"),
             issues=issues,
             correlated_judge=correlated,
+        )
+
+    def _transient_failure_candidate(
+        self,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+        *,
+        issues: tuple[str, ...],
+    ) -> SemanticEpisodeOutcome | None:
+        """Keep a safe candidate visible when a transient judge outage occurs.
+
+        This is deliberately not a semantic pass: the result remains
+        ``partial``/``unavailable`` and the public text carries the warning.
+        Only a structurally complete (or explicitly evidence-gap partial)
+        episode may reach this projection, and the caller must have classified
+        the provider failure as transient/release-safe. Configuration,
+        malformed-output, and contract failures continue to use the generic
+        fail-closed gap.
+        """
+
+        if structural.verified_status != "completed" and not (
+            _can_semantically_release_partial(structural)
+        ):
+            return None
+        public = _sanitize_public_answer(
+            structural.outcome.draft,
+            structural.outcome.evidence,
+            structural.outcome.traces,
+        )
+        if not public:
+            return None
+        notice = (
+            "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；"
+            "以下仅为候选草稿，不视为最终核验结论："
+        )
+        return SemanticEpisodeOutcome(
+            verified=structural,
+            status="partial",
+            public_answer=f"{notice}\n\n{public}",
+            judge_status="unavailable",
+            issues=issues,
+            correlated_judge=True,
         )
 
     def _judge_request(
