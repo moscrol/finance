@@ -126,8 +126,10 @@ Do not add a question-specific route, template, skill or global budget bump.
    valuation and financial tools. The generic fixture and canonical tool-only
    replay both pass; no Ruihuatai-specific route was added. Receipt:
    `docs/verification/valuation-evidence-reachability-2026-07-27.md`.
-5. **P1 repair admission deepening** — centralize `RepairAdmission` in
-   `RepairCoordinator` after the release blockers are closed.
+5. **P1 repair admission deepening** — implemented in the current candidate
+   slice: `RepairCoordinator.admit_repair()` now returns one immutable
+   `RepairAdmission`; the Adapter only executes it. Receipt:
+   `docs/verification/repair-admission-deepening-2026-07-27.md`.
 6. Run focused tests and one live failing canary per shared seam. Then freeze a
    clean revision and execute the representative suite **once** through an
    in-process or securely reusable provider mechanism that preserves revision,

@@ -1,5 +1,7 @@
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.repair_coordinator import (
+    RepairAdmission,
+    admit_repair,
     build_repair_goal,
     grant_for_delivery_repair,
     grant_for_progress,
@@ -175,6 +177,43 @@ def test_closed_research_window_grants_seconds_without_tool_calls() -> None:
     assert root.allocated_calls == 1
     assert root.remaining_calls == 0
     assert root.remaining_seconds == 8.0
+
+
+def test_admit_repair_returns_one_execution_ready_delivery_admission() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-admission",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=8.0,
+        hard_seconds_cap=16.0,
+    )
+    root.consume_seconds(seconds=1.0)
+
+    admission = admit_repair(
+        episode_id="episode-admission",
+        missing_outputs=("direct",),
+        previous_progress=progress,
+        remaining_calls=0,
+        remaining_seconds=8.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        allow_delivery_repair=True,
+        delivery_candidate=True,
+        evidence_count=1,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.goal.episode_id == "episode-admission"
+    assert admission.goal.remaining_calls == 0
+    assert admission.grant.calls_granted == 0
+    assert admission.delivery_only is True
 
 
 def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress() -> None:

@@ -9,7 +9,7 @@ verification gates.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from datetime import date
 import os
 import re
@@ -33,9 +33,7 @@ from intelligence.services.episode_verifier import (
 )
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
-    build_repair_goal,
-    grant_for_delivery_repair,
-    grant_for_progress,
+    admit_repair,
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
@@ -833,11 +831,19 @@ class ContinuousTurnAdapter:
             ),
             max(0.0, float(delivery_deadline.remaining())),
         )
-        goal = build_repair_goal(
+        missing_outputs = tuple(
+            dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
+        )
+        delivery_candidate = (
+            allow_delivery_repair
+            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
+            and outcome.evidence
+            and structural.missing_outputs
+            and (not outcome.draft.strip() or not outcome.bindings)
+        )
+        admission = admit_repair(
             episode_id=episode_id,
-            missing_outputs=tuple(
-                dict.fromkeys((*structural.missing_outputs, *semantic_gap_outputs))
-            ),
+            missing_outputs=missing_outputs,
             missing_capabilities=structural.mandatory_missing_capabilities,
             rejected_claims=rejected_claims,
             attempted_actions=tuple(
@@ -847,53 +853,22 @@ class ContinuousTurnAdapter:
             remaining_calls=remaining_calls,
             remaining_seconds=remaining_seconds,
             cycle=cycle,
+            root_budget=root_budget,
+            research_tier=context.contract.research_tier,
+            tools_open=tools_open,
+            allow_delivery_repair=allow_delivery_repair,
+            delivery_candidate=bool(delivery_candidate),
+            evidence_count=len(outcome.evidence),
         )
-        delivery_candidate = (
-            allow_delivery_repair
-            and outcome.stop_reason in _DELIVERY_REPAIR_STOP_REASONS
-            and outcome.evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        )
-        grant = None
-        if not delivery_candidate:
-            grant = grant_for_progress(
-                goal,
-                progress,
-                root_budget=root_budget,
-                research_tier=context.contract.research_tier,
-                tools_open=tools_open,
-            )
-        delivery_only = False
-        if (
-            grant is None
-            and allow_delivery_repair
-            and (not tools_open or delivery_candidate)
-            and outcome.evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        ):
-            grant = grant_for_delivery_repair(
-                goal,
-                root_budget=root_budget,
-                research_tier=context.contract.research_tier,
-                evidence_count=len(outcome.evidence),
-            )
-            delivery_only = grant is not None
-        if grant is None:
+        if admission is None:
             return None
-        granted_goal = replace(
-            goal,
-            remaining_calls=grant.calls_granted,
-            remaining_seconds=grant.seconds_granted,
-        )
-        candidate = resume(granted_goal)
+        candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
-        return candidate, verified, delivery_only
+        return candidate, verified, admission.delivery_only
 
 
 def _empty_repair_snapshot(context: ResearchRunContext) -> EvidenceLedgerSnapshot:

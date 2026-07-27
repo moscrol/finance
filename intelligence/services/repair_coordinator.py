@@ -6,7 +6,7 @@ tool. The primary model retains that decision inside the same episode.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import uuid4
 
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
@@ -148,6 +148,15 @@ class RepairGoal:
             "remaining_calls": self.remaining_calls,
             "remaining_seconds": self.remaining_seconds,
         }
+
+
+@dataclass(frozen=True)
+class RepairAdmission:
+    """One code-owned repair decision ready for an Episode to execute."""
+
+    goal: RepairGoal
+    grant: BudgetGrant
+    delivery_only: bool = False
 
 
 def _unique(values: tuple[str, ...] | list[str] | None) -> tuple[str, ...]:
@@ -309,11 +318,86 @@ def grant_for_delivery_repair(
     return grant if root_budget.grant(grant) else None
 
 
+def admit_repair(
+    *,
+    episode_id: str,
+    missing_outputs: tuple[str, ...] = (),
+    missing_capabilities: tuple[str, ...] = (),
+    rejected_claims: tuple[str, ...] = (),
+    attempted_actions: tuple[str, ...] = (),
+    previous_progress: ProgressSnapshot,
+    remaining_calls: int,
+    remaining_seconds: float,
+    cycle: int,
+    root_budget: RootBudgetLedger,
+    research_tier: str,
+    tools_open: bool = True,
+    allow_delivery_repair: bool = True,
+    delivery_candidate: bool = False,
+    evidence_count: int = 0,
+) -> RepairAdmission | None:
+    """Build one goal and admit exactly one budget grant.
+
+    The coordinator owns the policy choice between evidence-progress repair and
+    tool-closed delivery repair. Callers receive one immutable decision and do
+    not need to duplicate cycle, tier, or root-budget rules.
+    """
+
+    goal = build_repair_goal(
+        episode_id=episode_id,
+        missing_outputs=missing_outputs,
+        missing_capabilities=missing_capabilities,
+        rejected_claims=rejected_claims,
+        attempted_actions=attempted_actions,
+        previous_progress=previous_progress,
+        remaining_calls=remaining_calls,
+        remaining_seconds=remaining_seconds,
+        cycle=cycle,
+    )
+    grant: BudgetGrant | None = None
+    delivery_only = False
+    if not delivery_candidate:
+        grant = grant_for_progress(
+            goal,
+            previous_progress,
+            root_budget=root_budget,
+            research_tier=research_tier,
+            tools_open=tools_open,
+        )
+    if (
+        grant is None
+        and allow_delivery_repair
+        and (not tools_open or delivery_candidate)
+        and evidence_count > 0
+        and missing_outputs
+    ):
+        grant = grant_for_delivery_repair(
+            goal,
+            root_budget=root_budget,
+            research_tier=research_tier,
+            evidence_count=evidence_count,
+        )
+        delivery_only = grant is not None
+    if grant is None:
+        return None
+    return RepairAdmission(
+        goal=replace(
+            goal,
+            remaining_calls=grant.calls_granted,
+            remaining_seconds=grant.seconds_granted,
+        ),
+        grant=grant,
+        delivery_only=delivery_only,
+    )
+
+
 __all__ = [
     "BudgetGrant",
     "CoverageDelta",
     "ProgressSnapshot",
+    "RepairAdmission",
     "RepairGoal",
+    "admit_repair",
     "build_repair_goal",
     "grant_for_delivery_repair",
     "grant_for_progress",
