@@ -7,13 +7,32 @@ Status: active; not release-green
 
 - Worktree: `/Users/a77/.finance-runtime/agent-runtime-backends-c4673667`
 - Branch: `feat/agent-runtime-backends-verify`
-- HEAD: `04849c78 fix: route invalid finance fields to owner datasets`
+- HEAD: `ed2e1d89 fix: unify SDK delivery repair admission`
 - Working tree: clean
 - `main` and canonical `8792`: untouched
 - Do not run the tracked nine-case development suite as a debugging loop.
 - Next live order is: `current-mainline` → `weekly-market-cause` → frozen five.
 
 ## What is complete
+
+### Causal canary root-seam repair
+
+Commits `86c9d483`, `1b7d4bdb`, and `ed2e1d89` close the failure observed in
+`run_20260727_213048_327023` without adding a route, skill, or answer template:
+
+- only evidence hashes new to the Episode are returned to the model;
+- duplicate provider content is an explicit `duplicate_evidence` observation;
+- repair admission is counted even when a repair times out;
+- invalid finish, timeout delivery, structural gaps, and semantic gaps now use
+  one Adapter-owned `RepairGoal` pool;
+- tool-closed delivery is zero-call, at most 30 seconds, and admitted once;
+- deep tool-enabled repair may still continue when its ledger shows real new
+  coverage;
+- default GPT delivery uses low reasoning, while explicit caller settings are
+  preserved.
+
+Verification receipt:
+`docs/verification/sdk-gpt-causal-seam-hardening-2026-07-27.md`.
 
 ### Provider Schema seam
 
@@ -85,30 +104,30 @@ This is not yet loaded by the running 8799 process.
 ### Deterministic verification
 
 - Latest focused runtime slice: `83 passed, 1 skipped`.
-- Current full backend suite: `2872 passed, 2 skipped`; 11 failures are the
-  pre-existing `subconscious/userspace` machine-path baseline failures.
+- Clean full backend suite: `2919 passed, 2 skipped`.
 - Ruff and `git diff --check` pass for the latest slice.
 
 ## Current 8799 runtime
 
-8799 has been restarted on the current candidate after the independent Claude
-long-tail batch completed. Startup Keychain loading is explicitly disabled to
-avoid the previously stuck macOS authorization dialog:
+8799 is intentionally still on the pre-fix revision because its provider is
+session-only and a restart clears the credential:
 
 ```text
-live revision: af2c6b85
+live revision: 4842292b
 backend: sdk_gpt
-provider: not configured
-ready: false (openai_api_key_missing)
-session_only: false
+provider: configured in process memory
+ready: true
+session_only: true
 credential_persisted: false
 finance_root: /Users/a77/finance-workspace-private
 market_snapshot: true
 ```
 
-The latest commits are loaded. One explicit session credential submission in
-the 8799 configuration dialog is required before live tests. Persistence must
-remain off for this frontier; never print or copy the credential.
+The current branch tip `ed2e1d89` is deterministic-green but is not loaded by
+that process. Per the user instruction, do not stop offline work to request
+another credential. When the user is available for the final canary, restart
+8799 once, submit one session credential, and run only the causal canary.
+Persistence remains off; never print or copy the credential.
 
 ## Live evidence
 
@@ -149,17 +168,16 @@ quality result for the current code.
 
 ## Unfinished work
 
-1. Submit one session-only provider credential in the 8799 configuration
-   dialog, then verify redacted readiness without exposing it.
-2. Re-run the two directed Conversation cases, one at a time.
-3. Assert `batched_tool_calls_dropped` and actual executed tool count from the
-   private runtime event. If weekly-cause still executes a batch, the model
-   adapter was bypassed and the Responses/Chat-Completions construction seam
-   must be fixed; do not silently raise the budget.
+1. At the next provider-ready window, restart 8799 once on `ed2e1d89`, submit
+   one session-only credential, and verify redacted readiness.
+2. Run exactly one Conversation case: `这一周行情下跌的主要原因是什么`.
+3. Inspect evidence novelty, `repair_attempts`, `repair_cycles`, bindings,
+   cutoff filtering, and the terminal answer from the private artifact. Do not
+   silently raise the budget or add a question-specific route.
 4. Solve Keychain fresh-process reuse separately. The negative cache only stops
    repeated prompts; it does not make a blocked ACL readable.
-5. Only after both directed cases pass or return an honest, evidence-grounded
-   partial should the frozen five-case release frontier run.
+5. Only after the causal canary passes or returns a useful, evidence-grounded
+   partial should any wider representative release frontier run.
 6. No merge to `main`, no 8792 cutover, and no release-green claim until the
    frozen frontier and review gate pass.
 
