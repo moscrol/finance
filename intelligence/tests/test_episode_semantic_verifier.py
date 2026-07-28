@@ -1860,7 +1860,7 @@ def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
     assert all(0.0 < timeout <= 5.0 for timeout in model.calls)
 
 
-def test_primary_judge_default_attempt_is_bounded_to_twenty_five_seconds(
+def test_primary_judge_default_attempt_reserves_retry_window(
     monkeypatch,
 ) -> None:
     frame, structural = _structural("市场当前偏弱。")
@@ -1874,7 +1874,36 @@ def test_primary_judge_default_attempt_is_bounded_to_twenty_five_seconds(
     )
 
     assert result.status == "completed"
-    assert model.calls[0]["timeout"] == pytest.approx(25.0)
+    assert model.calls[0]["timeout"] == pytest.approx(15.0)
+
+
+def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class RepeatedTransientJudge:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            return ModelTurn("", (), "glm", "LLM 调用 HTTP 503")
+
+    model = RepeatedTransientJudge()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert len(model.calls) == 3
+    assert sum(model.calls) <= 30.01
+    assert model.calls[0] >= model.calls[1]
 
 
 def test_primary_judge_accepts_one_schema_valid_report_tool_call(

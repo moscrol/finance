@@ -49,6 +49,8 @@ from intelligence.services.task_frame import TaskFrame
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
+MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 30.0
+MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
@@ -1074,8 +1076,11 @@ class SemanticEpisodeVerifier:
         request: dict[str, object],
         deadline: ResearchDeadline,
     ) -> _JudgeCall:
-        timeout = deadline.synthesis_timeout(self._judge_timeout)
-        if timeout <= 0.001:
+        attempt_timeouts = _semantic_attempt_timeouts(
+            deadline,
+            configured_attempt_timeout=self._judge_timeout,
+        )
+        if not attempt_timeouts:
             return _JudgeCall(
                 None,
                 True,
@@ -1099,8 +1104,8 @@ class SemanticEpisodeVerifier:
                 },
             ]
             prior_failures_release_safe = True
-            for attempt in range(3):
-                attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
+            for attempt, timeout_limit in enumerate(attempt_timeouts):
+                attempt_timeout = deadline.synthesis_timeout(timeout_limit)
                 if attempt_timeout <= 0.001:
                     failure_chain_release_safe = (
                         attempt == 0 or prior_failures_release_safe
@@ -1181,7 +1186,12 @@ class SemanticEpisodeVerifier:
         # no independent LLM_JUDGE provider is configured.  It is correlated
         # because it normally shares the primary composer model.
         if self._judge_fn is not None:
-            return self._invoke_injected(self._judge_fn, request, timeout, True)
+            return self._invoke_injected(
+                self._judge_fn,
+                request,
+                attempt_timeouts[0],
+                True,
+            )
 
         primary = self._primary_judge
         if primary is None and self._finalizer is not None:
@@ -1189,7 +1199,12 @@ class SemanticEpisodeVerifier:
         if primary is None:
             return _JudgeCall(None, True, True, "semantic judge unavailable")
         if callable(primary) and not hasattr(primary, "complete"):
-            return self._invoke_injected(cast(JudgeFn, primary), request, timeout, True)
+            return self._invoke_injected(
+                cast(JudgeFn, primary),
+                request,
+                attempt_timeouts[0],
+                True,
+            )
         messages = [
             {"role": "system", "content": _judge_system_prompt(request)},
             {
@@ -1198,8 +1213,8 @@ class SemanticEpisodeVerifier:
             },
         ]
         prior_failures_release_safe = True
-        for attempt in range(3):
-            attempt_timeout = deadline.synthesis_timeout(self._judge_timeout)
+        for attempt, timeout_limit in enumerate(attempt_timeouts):
+            attempt_timeout = deadline.synthesis_timeout(timeout_limit)
             if attempt_timeout <= 0.001:
                 failure_chain_release_safe = (
                     attempt == 0 or prior_failures_release_safe
@@ -2781,6 +2796,31 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
     ):
         return "semantic judge transient provider error", True, False
     return "semantic judge provider error", False, False
+
+
+def _semantic_attempt_timeouts(
+    deadline: ResearchDeadline,
+    *,
+    configured_attempt_timeout: float,
+) -> tuple[float, ...]:
+    """Reserve one bounded semantic window across all provider attempts."""
+
+    per_attempt_cap = max(0.1, float(configured_attempt_timeout))
+    total_window = deadline.synthesis_timeout(
+        min(
+            MAX_SEMANTIC_JUDGE_WINDOW_SECONDS,
+            per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
+        )
+    )
+    if total_window <= 0.001:
+        return ()
+    first = min(per_attempt_cap, total_window * 0.5)
+    retry = min(
+        per_attempt_cap,
+        max(0.0, total_window - first)
+        / max(1, MAX_SEMANTIC_JUDGE_ATTEMPTS - 1),
+    )
+    return (first, retry, retry)
 
 
 def _should_retry_semantic_judge(
