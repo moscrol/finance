@@ -8,7 +8,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import time
 
@@ -281,6 +281,7 @@ def build_episode_registry(
             ),
         )
     market_reference_date = context.latest_data_date or structured_source_date
+    market_window_start = None
     market_window_end = None
     if context.contract.evidence_plan.profile == "time_aligned_market_causal":
         market_window_end = market_news.latest_explicit_query_date(
@@ -294,6 +295,16 @@ def build_episode_registry(
                 )
             except ValueError:
                 market_window_end = None
+        if market_window_end is None:
+            market_window_end = context.information_cutoff.as_of_date
+        market_window_start = market_news.latest_explicit_query_date(
+            frame.timeframe or "",
+            reference_date=context.information_cutoff.as_of_date,
+        )
+        if market_window_start is None:
+            market_window_start = market_window_end - timedelta(
+                days=market_window_end.weekday()
+            )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
     subject_anchor = entity_anchor.resolve_entity_anchor(
         f"{frame.subject or ''} {frame.raw_question}",
@@ -725,6 +736,17 @@ def build_episode_registry(
             search = evidence_search.EvidenceSearch(
                 retrieve_for_search,
                 semantic_judge=(selected_judge if callable(selected_judge) else None),
+                policy=(
+                    evidence_search.EvidenceSearchPolicy(
+                        expansion_policy="query_only",
+                        required_source_start=market_window_start,
+                        required_source_end=market_window_end,
+                        require_counter_evidence=True,
+                    )
+                    if market_window_start is not None
+                    and market_window_end is not None
+                    else None
+                ),
             )
             result = search.search(
                 query=query,

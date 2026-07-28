@@ -369,6 +369,71 @@ def test_time_aligned_market_news_uses_explicit_historical_window_end(
     assert captured == {"query": "A股下跌原因", "as_of": date(2026, 7, 5)}
 
 
+def test_time_aligned_causal_evidence_rejects_off_window_topic_drift(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    seen_queries: list[str] = []
+
+    def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
+        seen_queries.append(query)
+        hit = WikiHit(
+            page_id="old-topic-drift",
+            file_path="wiki/sources/晚间卖方研报20260709.md",
+            title="半导体与光纤光缆复盘",
+            score=0.9,
+            excerpt="行情下跌后关注半导体、光纤光缆、牧原股份和猪周期",
+            best_chunk_id="old-topic-drift::0",
+            content_hash="old-topic-drift",
+            source_date="2026-07-09",
+            index_freshness="fresh",
+        )
+        return WikiRagResult(
+            ok=True,
+            hits=[hit],
+            telemetry=RetrievalTelemetry(status="ok", hit_count=1),
+            command=query,
+        )
+
+    monkeypatch.setattr(episode_tools.kb_rag, "retrieve", retrieve)
+    frame = _market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="market-cause-evidence-window",
+        capabilities=("evidence_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-27",
+        latest_data_date="2026-07-24",
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        evidence_search_judge=lambda *_args: None,
+    )
+
+    result = registry.execute(
+        "evidence_search",
+        frame.raw_question,
+        context=context,
+        step_id="market-cause-evidence-window:1",
+    )
+
+    assert result.trace.status == "empty"
+    assert result.evidence == ()
+    assert result.observation == ""
+    assert any("2026-07-20" in gap for gap in result.gaps)
+    forbidden = ("牧原股份", "猪周期", "半导体", "光纤光缆")
+    assert all(
+        token not in query
+        for query in seen_queries[1:]
+        for token in forbidden
+    )
+
+
 def test_time_aligned_market_web_filters_results_after_market_window(
     tmp_path,
     monkeypatch,
