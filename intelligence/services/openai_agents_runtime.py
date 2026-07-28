@@ -63,6 +63,9 @@ _SDK_MAX_DELIVERY_RESERVE_SECONDS = 20.0
 _SDK_MIN_DELIVERY_RESERVE_SECONDS = 5.0
 _SDK_STAGE_CLOSED = "research_stage_closed"
 _SDK_STAGE_CLOSED_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
+_SDK_INVALID_ACTION_STOP_REASONS = frozenset(
+    {"sdk_invalid_finish", "sdk_invalid_repair_finish"}
+)
 _ROOT_BUDGET_CALL_RESERVATION_SECONDS = 1e-9
 
 
@@ -1549,7 +1552,9 @@ class OpenAIAgentsRuntime:
             usage=AgentUsage(
                 llm_calls=llm_calls,
                 tool_calls=snapshot.executed_count,
-                invalid_actions=1,
+                invalid_actions=int(
+                    stop_reason in _SDK_INVALID_ACTION_STOP_REASONS
+                ),
                 input_tokens=result.input_tokens if result else None,
                 output_tokens=result.output_tokens if result else None,
             ),

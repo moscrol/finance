@@ -1560,6 +1560,34 @@ def test_sdk_runtime_surfaces_invalid_finish_without_hidden_recovery() -> None:
     assert outcome.usage.tool_calls == 1
     assert outcome.usage.input_tokens == 500
     assert outcome.usage.output_tokens == 80
+    assert outcome.usage.invalid_actions == 1
+
+
+def test_sdk_runtime_timeout_is_not_an_invalid_action() -> None:
+    frame = _frame()
+    research_calls: list[str] = []
+
+    def timed_out_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        request.tools[0].invoke("A股 当前主线")
+        raise TimeoutError("provider deadline exceeded")
+
+    outcome = OpenAIAgentsRuntime(
+        runner=timed_out_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry(research_calls),
+    )
+
+    assert research_calls == ["A股 当前主线"]
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "sdk_timeout"
+    assert outcome.gaps == ("sdk_timeout",)
+    assert outcome.usage.llm_calls == 1
+    assert outcome.usage.tool_calls == 1
+    assert outcome.usage.invalid_actions == 0
 
 
 def test_sdk_runtime_translates_model_turn_limit_without_fallback() -> None:
