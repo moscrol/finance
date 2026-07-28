@@ -27,6 +27,7 @@ from intelligence.eval.runtime_backend_benchmark import (
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentModelClient, ModelTurn
 from intelligence.services.agent_runtime_factory import resolve_runtime_backend
+from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
@@ -39,7 +40,6 @@ from intelligence.services.episode_tools import (
     latest_market_date,
     run_deterministic_fast_path,
 )
-from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.glm_agent_runtime import GLMModelClient
 from intelligence.services.llm_refine import LLMProvider
@@ -426,6 +426,28 @@ class _SemanticVerifierRun:
         return self._verifier.verify(**kwargs)
 
 
+class _SemanticVerifierCapture:
+    """Observe the product verifier result without making gate decisions."""
+
+    def __init__(self, delegate: object) -> None:
+        self._delegate = delegate
+        self.latest: SemanticEpisodeOutcome | None = None
+
+    @property
+    def provider_attempts(self) -> int:
+        return int(getattr(self._delegate, "provider_attempts", 0) or 0)
+
+    def verify(self, **kwargs: object) -> SemanticEpisodeOutcome:
+        verify = getattr(self._delegate, "verify", None)
+        if not callable(verify):
+            raise TypeError("semantic verifier must provide verify(...)")
+        result = verify(**kwargs)
+        if not isinstance(result, SemanticEpisodeOutcome):
+            raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+        self.latest = result
+        return result
+
+
 def _build_semantic_verifier(
     _case: RuntimeBenchmarkCase,
     _context: object,
@@ -489,38 +511,6 @@ def _runtime_tokens(events: object) -> tuple[int | None, int | None]:
     return None, None
 
 
-def _bound_public_citations(
-    outcome: object,
-) -> tuple[tuple[dict[str, str], ...], str | None]:
-    bindings = getattr(outcome, "bindings", ())
-    bound_hashes = {
-        content_hash
-        for binding in bindings
-        for content_hash in getattr(binding, "evidence_hashes", ())
-    }
-    citations: list[dict[str, str]] = []
-    seen: set[tuple[str, str, str]] = set()
-    cutoffs: list[str] = []
-    for item in getattr(outcome, "evidence", ()):
-        if getattr(item, "content_hash", "") not in bound_hashes:
-            continue
-        title = " ".join(str(getattr(item, "title", "") or "").split())
-        source = " ".join(str(getattr(item, "source", "") or "").split())
-        source_date = str(getattr(item, "source_date", "") or "").strip()
-        key = (title, source, source_date)
-        if not title or not source or key in seen:
-            continue
-        seen.add(key)
-        citations.append(
-            {"title": title, "source": source, "date": source_date}
-        )
-        try:
-            cutoffs.append(date.fromisoformat(source_date).isoformat())
-        except ValueError:
-            pass
-    return tuple(citations), (max(cutoffs) if cutoffs else None)
-
-
 def _artifact_hash(value: object) -> str:
     encoded = json.dumps(
         value,
@@ -582,7 +572,6 @@ def _run_research_arm(
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
-    outcome = None
     try:
         context = _fresh_context(
             case,
@@ -604,45 +593,53 @@ def _run_research_arm(
             finance_root=finance_root,
             knowledge_wiki=knowledge_wiki,
         )
+        semantic_providers = runtime_providers
+        runtime_semantic_providers = getattr(
+            runtime,
+            "semantic_providers",
+            None,
+        )
+        if not semantic_providers and callable(runtime_semantic_providers):
+            semantic_providers = tuple(runtime_semantic_providers())
+        semantic_delegate = _build_semantic_verifier(
+            case,
+            context,
+            providers=semantic_providers,
+        )
+        semantic_verifier = _SemanticVerifierCapture(semantic_delegate)
+        adapter = ContinuousTurnAdapter(
+            runtime=runtime,
+            semantic_verifier=semantic_verifier,
+            runtime_name=backend,
+            mode="on",
+            context_factory=lambda *_args, **_kwargs: context,
+            registry_factory=lambda *_args, **_kwargs: registry,
+            task_id_factory=lambda: context.contract.task_id,
+            timeout=case.timeout,
+            verification_reserve=context.deadline.synthesis_reserve,
+            tier=case.tier,
+            today=case.as_of,
+            latest_data_date=latest_data_date,
+        )
         with llm_refine.call_ledger_scope() as ledger:
-            outcome = runtime.run(
-                task_frame=control.task_frame,
-                context=context,
-                registry=registry,
-            )
-            if outcome.stop_reason in _INFRASTRUCTURE_STOP_REASONS:
-                raise RuntimeBenchmarkInfrastructureError(
-                    case_id=case.case_id,
-                    backend=backend,
-                    reason=outcome.stop_reason,
-                )
-            verified = verify_episode_outcome(context.contract, outcome)
-            semantic_providers = runtime_providers
-            runtime_semantic_providers = getattr(
-                runtime,
-                "semantic_providers",
-                None,
-            )
-            if not semantic_providers and callable(runtime_semantic_providers):
-                semantic_providers = tuple(runtime_semantic_providers())
-            semantic_verifier = _build_semantic_verifier(
-                case,
-                context,
-                providers=semantic_providers,
-            )
-            semantic = semantic_verifier.verify(
+            turn_result = adapter.handle(
                 frame=control.task_frame,
-                structurally_verified=verified,
-                deadline=context.deadline,
+                control=control,
             )
             ledger_calls = _ledger_call_count(ledger)
+        semantic = semantic_verifier.latest
+        if semantic is None:
+            raise RuntimeError("production adapter did not reach semantic verification")
         final_verified = semantic.verified
         final_outcome = final_verified.outcome
-        citations, data_cutoff = _bound_public_citations(final_outcome)
+        if final_outcome.stop_reason in _INFRASTRUCTURE_STOP_REASONS:
+            raise RuntimeBenchmarkInfrastructureError(
+                case_id=case.case_id,
+                backend=backend,
+                reason=final_outcome.stop_reason,
+            )
         input_tokens, output_tokens = _runtime_tokens(final_outcome.events)
-        semantic_attempts = int(
-            getattr(semantic_verifier, "provider_attempts", 0) or 0
-        )
+        semantic_attempts = semantic_verifier.provider_attempts
         provider_attempts = max(
             final_outcome.usage.llm_calls + semantic_attempts,
             ledger_calls,
@@ -678,13 +675,13 @@ def _run_research_arm(
             case_id=case.case_id,
             backend=backend,
             model=model,
-            answer=semantic.public_answer,
-            status=semantic.status,
+            answer=turn_result.answer,
+            status=turn_result.status,
             structural_status=final_verified.verified_status,
             semantic_status=semantic.judge_status,
             task_alignment_score=_task_alignment_score(
                 control.task_frame,
-                semantic.public_answer,
+                turn_result.answer,
             ),
             latency_seconds=max(0.0, time.monotonic() - started),
             provider_attempts=provider_attempts,
@@ -700,8 +697,8 @@ def _run_research_arm(
                 case.timeout,
                 context.policy.total_seconds,
             ),
-            citations=citations,
-            data_cutoff=data_cutoff,
+            citations=turn_result.citations,
+            data_cutoff=turn_result.as_of,
             diagnostics=diagnostics,
         )
     except RuntimeBenchmarkInfrastructureError:

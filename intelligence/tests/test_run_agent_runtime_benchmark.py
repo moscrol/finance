@@ -12,6 +12,7 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     OutputEvidenceBinding,
 )
+from intelligence.services.episode_session import CallbackEpisodeSession
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.provider_observability import ProviderTrace
@@ -444,6 +445,224 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         "model_finish",
     ]
     assert [arm["effective_timeout_seconds"] for arm in arms] == [30.0, 30.0]
+
+
+def test_live_runner_uses_production_adapter_delivery_repair(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    questions = tmp_path / "delivery-repair-case.json"
+    questions.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "current-mainline",
+                        "question": "目前市场的主线是什么",
+                        "as_of": "2026-07-24",
+                        "tier": "standard",
+                        "timeout": 30.0,
+                        "required_outputs": ["direct_assessment"],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "live.json"
+    resume_calls = 0
+    private_token = "Bearer sk-benchmark-secret"
+    projection_case = {"private": False}
+
+    class DeliveryRepairRuntime:
+        def start(self, task_frame, *, context, registry):
+            del registry
+            required_outputs = context.contract.required_outputs
+            evidence = (
+                AgentEvidence(
+                    tool="market_data",
+                    title="同日市场总览",
+                    detail="市场量能稳定，风险偏好仍有承接。",
+                    source=(
+                        private_token
+                        if projection_case["private"]
+                        else "local market fixture"
+                    ),
+                    internal_locator=(
+                        private_token if projection_case["private"] else ""
+                    ),
+                    source_date="2026-07-24",
+                    content_hash="benchmark-market-evidence",
+                ),
+                AgentEvidence(
+                    tool="mainline_context",
+                    title="同日主线结构",
+                    detail="半导体保持持续性，医药进入分歧。",
+                    source="local mainline fixture",
+                    source_date="2026-07-24",
+                    content_hash="benchmark-mainline-evidence",
+                ),
+            )
+            initial = AgentOutcome(
+                task_frame_hash=task_frame.task_frame_hash,
+                status="partial",
+                draft="",
+                evidence=evidence,
+                traces=(
+                    ProviderTrace("test:market", "market_data", "success"),
+                    ProviderTrace("test:mainline", "mainline_context", "success"),
+                ),
+                gaps=("sdk_timeout",),
+                stop_reason="sdk_timeout",
+                events=(
+                    EpisodeEvent(
+                        1,
+                        "task",
+                        {"task_frame_hash": task_frame.task_frame_hash},
+                    ),
+                ),
+                bindings=(),
+                usage=AgentUsage(llm_calls=1, tool_calls=1),
+            )
+
+            def resume(previous, goal):
+                nonlocal resume_calls
+                resume_calls += 1
+                assert previous is initial
+                assert goal.remaining_calls == 0
+                return AgentOutcome(
+                    task_frame_hash=task_frame.task_frame_hash,
+                    status="completed",
+                    draft="半导体是当前持续性主线，医药处于分歧。",
+                    evidence=evidence,
+                    traces=initial.traces,
+                    gaps=(),
+                    stop_reason="repair_model_finish",
+                    events=(
+                        *initial.events,
+                        EpisodeEvent(
+                            2,
+                            "repair_goal",
+                            {"repair_goal_id": goal.repair_goal_id},
+                        ),
+                        EpisodeEvent(3, "repair_reentry", {"cycle": goal.cycle}),
+                        EpisodeEvent(
+                            4,
+                            "model_turn",
+                            {"task_frame_hash": task_frame.task_frame_hash},
+                        ),
+                    ),
+                    bindings=tuple(
+                        OutputEvidenceBinding(
+                            required.output_id,
+                            tuple(item.content_hash for item in evidence),
+                        )
+                        for required in required_outputs
+                    ),
+                    usage=AgentUsage(llm_calls=2, tool_calls=2),
+                )
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class PassingSemanticVerifier:
+        provider_attempts = 1
+
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=(
+                    private_token
+                    if projection_case["private"]
+                    else structurally_verified.outcome.draft
+                ),
+                judge_status="passed",
+            )
+
+    monkeypatch.setattr(
+        benchmark,
+        "_build_runtime",
+        lambda *_args, **_kwargs: (DeliveryRepairRuntime(), "fake-model"),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_registry",
+        lambda *_args, **_kwargs: ResearchToolRegistry(()),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "_build_semantic_verifier",
+        lambda *_args, **_kwargs: PassingSemanticVerifier(),
+    )
+    monkeypatch.setattr(
+        benchmark,
+        "latest_market_date",
+        lambda _finance_root: "2026-07-24",
+    )
+
+    assert benchmark.main(
+        [
+            "--backend",
+            "sdk_gpt",
+            "--questions-file",
+            str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    arm = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["arms"][0]
+    assert resume_calls == 1
+    assert arm["status"] == "completed"
+    assert arm["structural_status"] == "completed"
+    assert arm["semantic_status"] == "passed"
+    assert arm["protocol_issues"] == []
+    assert [
+        event["kind"] for event in arm["diagnostics"]["events"]
+    ] == ["repair_goal"]
+
+    projection_case["private"] = True
+    private_output = tmp_path / "private-projection.json"
+    assert benchmark.main(
+        [
+            "--backend",
+            "sdk_gpt",
+            "--questions-file",
+            str(questions),
+            "--finance-root",
+            str(tmp_path),
+            "--knowledge-wiki",
+            str(tmp_path),
+            "--output",
+            str(private_output),
+        ]
+    ) == 0
+
+    private_payload = json.loads(private_output.read_text(encoding="utf-8"))
+    private_arm = private_payload["cases"][0]["arms"][0]
+    assert resume_calls == 2
+    assert private_arm["status"] == "degraded"
+    assert private_arm["semantic_status"] == "passed"
+    assert private_arm["answer"]
+    assert private_arm["citations"] == [
+        {
+            "title": "同日主线结构",
+            "source": "local mainline fixture",
+            "date": "2026-07-24",
+        }
+    ]
+    assert private_arm["data_cutoff"] == "2026-07-24"
+    assert private_token not in private_output.read_text(encoding="utf-8")
 
 
 def test_live_runner_exports_safe_diagnostics_for_partial_research(
