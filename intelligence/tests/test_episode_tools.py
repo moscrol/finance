@@ -434,6 +434,157 @@ def test_time_aligned_causal_evidence_rejects_off_window_topic_drift(
     )
 
 
+def _write_ruihuatai_anchor(wiki: Path) -> None:
+    relations = wiki / "relations"
+    relations.mkdir(parents=True)
+    (relations / "entity_exposures.json").write_text(
+        '{"entities":{"瑞华泰":{"codes":["688323.SH"],'
+        '"concepts":{"PI薄膜":{}}}}}',
+        encoding="utf-8",
+    )
+
+
+def _valuation_admission_retriever():
+    calls = 0
+
+    def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            return WikiRagResult(
+                ok=False,
+                hits=[],
+                telemetry=RetrievalTelemetry(status="empty", hit_count=0),
+                command=query,
+            )
+        hits = [
+            WikiHit(
+                page_id="subject",
+                file_path="wiki/entities/瑞华泰.md",
+                title="瑞华泰（688323）",
+                score=0.9,
+                excerpt="证据条目：公司基础资料",
+                best_chunk_id="subject::0",
+                content_hash="subject",
+                source_date="2026-07-24",
+                index_freshness="fresh",
+            ),
+            WikiHit(
+                page_id="bare",
+                file_path="wiki/entities/天奈科技.md",
+                title="天奈科技（688116）",
+                score=0.8,
+                excerpt="证据条目：[[汉威科技]] · [[福莱新材]] · [[瑞华泰]]",
+                best_chunk_id="bare::0",
+                content_hash="bare",
+                source_date="2026-07-24",
+                index_freshness="fresh",
+            ),
+            WikiHit(
+                page_id="relation",
+                file_path="wiki/entities/方邦股份.md",
+                title="方邦股份（688020）",
+                score=0.7,
+                excerpt="证据条目：[[瑞华泰]] — PI薄膜企业，同属功能薄膜赛道",
+                best_chunk_id="relation::0",
+                content_hash="relation",
+                source_date="2026-07-24",
+                index_freshness="fresh",
+            ),
+        ]
+        return WikiRagResult(
+            ok=True,
+            hits=hits,
+            telemetry=RetrievalTelemetry(status="ok", hit_count=len(hits)),
+            command=query,
+        )
+
+    return retrieve
+
+
+def test_valuation_registry_reuses_frame_anchor_for_generic_evidence_query(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    wiki = tmp_path / "wiki"
+    _write_ruihuatai_anchor(wiki)
+    monkeypatch.setattr(
+        episode_tools.kb_rag,
+        "retrieve",
+        _valuation_admission_retriever(),
+    )
+    frame = _valuation_frame()
+    context = build_episode_context(
+        frame,
+        task_id="valuation-subject-local-admission",
+        capabilities=("evidence_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+
+    result = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=wiki,
+        l3_runner=None,
+        evidence_search_judge=lambda *_args: None,
+    ).execute(
+        "evidence_search",
+        "合理估值证据",
+        context=context,
+        step_id="valuation-subject-local-admission:1",
+    )
+
+    assert [item.title for item in result.evidence] == ["瑞华泰（688323）"]
+    assert result.trace.status == "success"
+
+
+def test_non_valuation_registry_keeps_open_evidence_admission(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    wiki = tmp_path / "wiki"
+    _write_ruihuatai_anchor(wiki)
+    monkeypatch.setattr(
+        episode_tools.kb_rag,
+        "retrieve",
+        _valuation_admission_retriever(),
+    )
+    frame = _l3_frame()
+    context = build_episode_context(
+        frame,
+        task_id="non-valuation-open-admission",
+        capabilities=("evidence_search",),
+        timeout=10.0,
+        synthesis_reserve=0.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+
+    result = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=wiki,
+        l3_runner=None,
+        evidence_search_judge=lambda *_args: None,
+    ).execute(
+        "evidence_search",
+        "合理估值证据",
+        context=context,
+        step_id="non-valuation-open-admission:1",
+    )
+
+    assert {item.title for item in result.evidence} == {
+        "瑞华泰（688323）",
+        "天奈科技（688116）",
+        "方邦股份（688020）",
+    }
+
+
 def test_time_aligned_market_web_filters_results_after_market_window(
     tmp_path,
     monkeypatch,

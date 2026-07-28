@@ -305,6 +305,18 @@ def build_episode_registry(
             market_window_start = market_window_end - timedelta(
                 days=market_window_end.weekday()
             )
+    evidence_search_policy = evidence_search.EvidenceSearchPolicy()
+    if market_window_start is not None and market_window_end is not None:
+        evidence_search_policy = evidence_search.EvidenceSearchPolicy(
+            expansion_policy="query_only",
+            required_source_start=market_window_start,
+            required_source_end=market_window_end,
+            require_counter_evidence=True,
+        )
+    elif context.contract.evidence_plan.profile == "valuation_current_anchor":
+        evidence_search_policy = evidence_search.EvidenceSearchPolicy(
+            anchor_admission="subject_local",
+        )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
     subject_anchor = entity_anchor.resolve_entity_anchor(
         f"{frame.subject or ''} {frame.raw_question}",
@@ -736,21 +748,18 @@ def build_episode_registry(
             search = evidence_search.EvidenceSearch(
                 retrieve_for_search,
                 semantic_judge=(selected_judge if callable(selected_judge) else None),
-                policy=(
-                    evidence_search.EvidenceSearchPolicy(
-                        expansion_policy="query_only",
-                        required_source_start=market_window_start,
-                        required_source_end=market_window_end,
-                        require_counter_evidence=True,
-                    )
-                    if market_window_start is not None
-                    and market_window_end is not None
-                    else None
-                ),
+                policy=evidence_search_policy,
             )
+            query_anchor = entity_anchor.resolve_entity_anchor(query, knowledge)
+            if (
+                query_anchor is None
+                and context.contract.evidence_plan.profile
+                == "valuation_current_anchor"
+            ):
+                query_anchor = subject_anchor
             result = search.search(
                 query=query,
-                anchor=entity_anchor.resolve_entity_anchor(query, knowledge),
+                anchor=query_anchor,
                 information_cutoff=context.information_cutoff,
                 deadline=tool_context.deadline,
             )
