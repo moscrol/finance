@@ -33,8 +33,10 @@ The canonical **structured index candidate** is:
 ```
 
 This is a path decision, not a release claim. The current filesystem/index
-pair is content-consistent, but its provenance is dirty and the runtime
-freshness seam currently classifies it as stale. It is therefore **not yet a
+pair is content-consistent. The index records `source_dirty=true` from the
+time it was built; that is historical provenance, not evidence that the
+currently indexed directories are dirty. The runtime query CLI nevertheless
+classifies the index as stale and exits before retrieval, so it is **not yet a
 clean replay-ready PIT snapshot**.
 
 ## Root identity evidence
@@ -42,7 +44,7 @@ clean replay-ready PIT snapshot**.
 | Root | Filesystem identity | Git identity | Wiki inventory | Working tree |
 |---|---|---|---:|---|
 | `/Users/a77/知识库/wiki` | device `16777232`, inode `864317` | repo `/Users/a77/知识库`; `6e1185dee2daa9afce78273185e1ef2e7a3d2d24`; branch `briefing/0726-v2` | entities 2,942; concepts 2,296; sources 4,171; raw 10,040 | indexed Wiki paths clean; repo has 2 tracked + 1 untracked entry outside/around the snapshot |
-| `/Users/a77/knowledge-base-private/wiki` | device `16777232`, inode `3918171` | repo `/Users/a77/knowledge-base-private`; `883815c9b43658339b6308a6494536d2e71b9ad7`; branch `main` | entities 2,940; concepts 2,296; sources 4,152; raw 10,780 | 2 tracked + 44 untracked entries in the repo; the indexed page set itself matches the structured index |
+| `/Users/a77/knowledge-base-private/wiki` | device `16777232`, inode `3918171` | repo `/Users/a77/knowledge-base-private`; `883815c9b43658339b6308a6494536d2e71b9ad7`; branch `main` | entities 2,940; concepts 2,296; sources 4,152; raw 10,780 | **0 dirty entries across the five indexed page directories**; the repo's other raw/relations areas have 2 tracked + 44 untracked entries; the indexed page set matches the structured index |
 
 The device/inode pairs, parent Git repositories, branches, heads, inventories,
 and relation-file hashes differ. These are two physical, independently versioned
@@ -80,10 +82,14 @@ source_fingerprint  d43595e997f0282915ac32cd14f01b0bd354084f9bd3dab8dbe14d73130b
 source_file_count   9753
 ```
 
-The source Git revision is nine commits ahead of the current private-repo
-`HEAD` (`HEAD...5e4cc9c4` = `0 9`), and the indexed source was marked dirty at
-build time. This is why the index cannot currently be called a clean Git-pinned
-release artifact.
+The private-repo `HEAD` is an ancestor of the recorded source revision: the
+bidirectional count `883815c9..5e4cc9c4` is `9 0`, and the merge-base is
+`883815c9`. The index was built from the later `sellside/0727` history, not from
+an older descendant. `source_dirty=true` is a historical build-time marker;
+the five indexed page directories are currently clean. The current index still
+cannot be called a clean Git-pinned release artifact because its recorded
+source revision is not the current checked-out `HEAD`, but that is a provenance
+fact, not evidence that the content is stale.
 
 ### Content-level check versus formal runtime freshness
 
@@ -93,19 +99,36 @@ The checks expose two different notions of freshness:
 |---|---:|---:|---:|
 | chunk/source comparison (`rag_index.py check`) | 36,298 stale chunks (`indexed=101042`, `current=123816`) | **0 stale** (`indexed=104611`, `current=104611`) | 54,928 stale chunks (`indexed=80956`, `current=123716`) |
 | manifest freshness (`RagStore.index_freshness`) | unavailable in legacy metadata | **fresh** | unavailable in legacy metadata |
-| query CLI freshness (`scripts/rag_freshness.check_index_freshness`) | **stale**: age 14.9d and missing Git revision | **stale**: indexed source changed in Git and index built from dirty source | legacy metadata has no provenance and is older (`2026-06-19`) |
+| query CLI freshness (`scripts/rag_freshness.check_index_freshness`) | **stale**: age 14.9d and missing Git revision | **stale**: Git revision differs from checked-out `HEAD`, plus historical `source_dirty=true` | legacy metadata has no provenance and is older (`2026-06-19`) |
 
-This distinction is the key Phase C finding. The selected private index is
-content-consistent with the current Wiki manifest, but `rag_index.py query`
-uses the older Git-based freshness helper. `kb_rag.retrieve(...,
-require_fresh=True)` then drops every non-`fresh` hit before it can become model
-evidence. Therefore a successful content comparison alone does not make the
-current runtime replay-ready.
+This distinction is the key Phase C finding. `rag_index.py query` calls the
+Git-based freshness helper before loading the retriever. With the default
+`STALE_POLICY=fail`, the command exits with code `3` and emits no hits. The
+`kb_rag.retrieve(..., require_fresh=True)` evidence gate is therefore not
+reached in this failure mode. `RagStore.index_freshness` has the better
+manifest comparison, but it is not wired into this CLI path.
 
-The next slice must make the freshness contract single-source-of-truth (or
-explicitly bridge manifest freshness and Git provenance), add regression tests,
-and only then replay `evidence_search`. It must not silently weaken the
-fail-closed evidence gate.
+The next slice must repair that early-exit/authority seam without weakening the
+fail-closed evidence gate, add regression tests, and only then replay
+`evidence_search`.
+
+### Bounded direct-query sanity probe
+
+This was a direct `rag_index.py` probe, not the production `evidence_search`
+replay. It disabled only the probe's access-log writer and did not mutate either
+knowledge repository:
+
+| Probe | Result |
+|---|---|
+| `query 瑞华泰 --mode bm25 --k 3` with default stale policy | exit code `3`; early return before retriever load |
+| same query with `RAG_STALE_POLICY=ignore` | 3 hits returned; all carry the same manifest `index_source_revision`, built-at `2026-07-28T00:53:02`, and `index_freshness=stale` |
+| on-disk Markdown files containing `瑞华泰` | 54 files under `wiki/**/*.md` |
+| candidate index chunks containing `瑞华泰` | 92 chunks |
+
+The 92 indexed chunks and the three top results prove that this is not an
+empty-index/recall absence. They do not yet prove production admissibility,
+because the current CLI labels them stale and the runtime has not been replayed
+through the repaired path.
 
 ## Canonical choice rationale
 
@@ -120,9 +143,9 @@ fail-closed evidence gate.
 5. `.rag_index_full` is a June legacy index with 54,928 stale chunks and no
    provenance fields.
 
-This does **not** mean the private root's dirty working tree is approved for
-production. It means all later Phase C questions will use this root once the
-freshness seam and a clean snapshot are pinned.
+This does **not** mean the private root/index pair is approved for production.
+It means all later Phase C questions will use this root once the CLI early exit,
+freshness provenance, and a clean snapshot are pinned.
 
 ## Exit and non-goals
 

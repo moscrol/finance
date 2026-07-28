@@ -41,12 +41,14 @@ The private structured index has a modern manifest and its chunk-level check is
 exactly clean against the current Wiki (`stale=0`). However:
 
 - it was built with `source_dirty=true`;
-- its recorded Git source revision is `5e4cc9c4`, nine commits ahead of the
-  private repository's current `HEAD` `883815c9`;
-- the CLI freshness helper reports `stale` because it compares Git provenance
-  rather than the manifest;
-- `kb_rag.retrieve(..., require_fresh=True)` rejects non-fresh hits before they
-  enter the model evidence ledger.
+- its recorded Git source revision is `5e4cc9c4`, and the private repository's
+  current `HEAD` `883815c9` is its ancestor (`883815c9..5e4cc9c4` = `9 0`);
+- the five indexed page directories are currently clean; `source_dirty=true` is
+  a historical build-time marker;
+- the CLI freshness helper reports `stale` because it compares that provenance
+  to the checked-out `HEAD` rather than using the manifest;
+- `rag_index.py query` exits with code `3` before loading the retriever when the
+  default stale policy is `fail`.
 
 So the current pair is content-consistent but not a clean, reproducible PIT
 (point-in-time) release snapshot. “PIT” here means that every later answer can
@@ -54,23 +56,27 @@ be replayed against the same data boundary; it is not just a timestamp label.
 
 ## The seam that must be handled next
 
-There are currently two freshness authorities:
+There is a manifest freshness implementation that is not wired into the query
+CLI, while the query CLI uses a Git-based helper:
 
 1. `RagStore.index_freshness(wiki)` compares the v2 `manifest:v1:*` source
-   fingerprint and returns `fresh` for the private structured index.
+   fingerprint and returns `fresh` for the private structured index, but no
+   production query calls it.
 2. `scripts/rag_freshness.check_index_freshness(...)`, used by
    `scripts/rag_index.py query`, checks Git revision/working-tree state and
    returns `stale` for the same index.
 
-The second result wins the production query path. This is a real integration
-bug/contract mismatch, not a reason to weaken the evidence gate. The next
-slice should make the freshness contract single-source-of-truth (or explicitly
-combine manifest freshness with Git provenance), then add regression tests for:
+The query path therefore fails early; the `kb_rag.retrieve(..., require_fresh=True)`
+evidence gate is not reached. This is a real integration bug/contract mismatch,
+not a reason to weaken the evidence gate. The next slice should wire one explicit
+freshness contract into the CLI, then add regression tests for:
 
-- a content-identical dirty/uncommitted source;
+- a manifest-fresh source whose Git revision is a descendant of checked-out
+  `HEAD`;
 - a changed indexed file;
 - a changed raw file when `include_raw=true`;
 - a missing/legacy provenance field;
+- the stale-policy `fail` early return;
 - `require_fresh=true` rejecting genuinely stale hits.
 
 Do not start `evidence_search` replay until the selected clean snapshot reports
@@ -87,12 +93,16 @@ Do not start `evidence_search` replay until the selected clean snapshot reports
   chunks; the private full index is legacy and has 54,928 stale chunks.
 - Selected the private root/index candidate without changing either knowledge
   repository.
-- Preserved the fail-closed requirement: no stale evidence was admitted merely
-  to make the experiment run.
+- Ran a bounded read-only sanity probe: the default CLI exits `3` before
+  retrieval; with stale policy ignored, 3 hits appear, 54 Markdown files match
+  `瑞华泰` on disk, and the candidate index contains 92 matching chunks.
+- Preserved the fail-closed requirement: the stale probe output was not admitted
+  as production evidence.
 
 ## Explicitly not done
 
-- No `evidence_search` replay for 瑞华泰 or weekly causal queries.
+- No production `evidence_search` replay for 瑞华泰 or weekly causal queries;
+  only the bounded direct `rag_index.py` sanity probe was run.
 - No capability dry-run artifact.
 - No Phase B live budget ablation.
 - No App Server adapter.
@@ -101,9 +111,13 @@ Do not start `evidence_search` replay until the selected clean snapshot reports
 
 ## Next execution order
 
-1. **Repair the freshness seam in the candidate branch.** Keep manifest
-   identity and Git provenance observable; do not turn stale into fresh by
-   relabelling. Add focused tests and run the relevant RAG/runtime tests.
+1. **Obtain authority to repair the freshness seam.** The relevant files live
+   in `knowledge-base-private`, not this candidate worktree. Do not edit that
+   dirty repository in place. Create a separate clean KB worktree (or obtain
+   explicit approval for a scoped cross-repo change), then wire the manifest
+   identity into the query early-exit path while retaining Git provenance as a
+   separate observable field. Add focused tests; do not turn stale into fresh by
+   relabelling.
 2. **Create a clean snapshot receipt.** The receipt must pin the exact Wiki
    root, source revision, `source_dirty=false`, manifest revision, index
    artifact hashes, and the runtime freshness result.
@@ -138,5 +152,5 @@ Phase C Part 1 is closed: the canonical identity is selected, the competing
 roots/indexes are distinguished, and the current replay-readiness state is
 proven. The next Phase C gate is not open yet. Its starting status is:
 
-> **Canonical identity selected; replay blocked by a proven freshness-contract
-> mismatch.**
+> **Canonical identity selected; replay blocked by a proven query early-exit
+> freshness mismatch.**
