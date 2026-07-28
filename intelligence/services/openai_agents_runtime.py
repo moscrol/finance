@@ -570,6 +570,10 @@ class _AgentsRunState:
         self._lock = Lock()
         self._seen_queries: set[tuple[str, str]] = set()
         self._successful_episode_tools: set[str] = set()
+        self._successful_capabilities: set[str] = set()
+        self._mandatory_capabilities = (
+            context.contract.evidence_plan.mandatory_capabilities
+        )
         self._evidence: list[AgentEvidence] = []
         self._evidence_hashes: set[str] = set()
         self._traces: list[ProviderTrace] = []
@@ -793,6 +797,7 @@ class _AgentsRunState:
             if spec.query_scope == "episode" and observation.evidence:
                 self._successful_episode_tools.add(observation.tool)
             if new_evidence:
+                self._successful_capabilities.add(spec.capability)
                 status = "success"
                 public_observation = observation.observation
             elif observation.evidence:
@@ -815,6 +820,19 @@ class _AgentsRunState:
                 "evidence_hashes": [item.content_hash for item in new_evidence],
                 "gaps": list(observation.gaps),
             }
+            if new_evidence and self._mandatory_capabilities:
+                missing_mandatory = [
+                    capability
+                    for capability in self._mandatory_capabilities
+                    if capability not in self._successful_capabilities
+                ]
+                payload["mandatory_missing_capabilities"] = missing_mandatory
+                if not missing_mandatory:
+                    payload["mandatory_evidence_complete"] = True
+                    payload["finish_hint"] = (
+                        "最低必选证据已齐；如无必要的反证或补充，请停止继续检索，"
+                        "将已有证据哈希绑定到对应 required outputs 并完成终止回答。"
+                    )
             self._add_event("tool_result", payload)
             return payload
 

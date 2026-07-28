@@ -12,7 +12,10 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
-from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.evidence_capabilities import (
+    EvidencePlan,
+    EvidenceRequirement,
+)
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.openai_agents_runtime import (
     AgentsSdkRequest,
@@ -357,6 +360,127 @@ def test_sdk_tool_result_returns_only_evidence_new_to_the_episode() -> None:
 
     assert outcome.status == "completed"
     assert [item.content_hash for item in outcome.evidence] == ["same-news-hash"]
+
+
+def test_sdk_tool_results_publish_mandatory_evidence_completion() -> None:
+    frame = _frame()
+    base_context = _context(
+        frame,
+        allowed_capabilities=("market_data", "financial_data"),
+    )
+    context = replace(
+        base_context,
+        contract=replace(
+            base_context.contract,
+            required_outputs=(
+                RequiredOutput(
+                    "direct_assessment",
+                    "直接判断",
+                    ("market_data", "financial_data"),
+                    True,
+                ),
+            ),
+            evidence_plan=EvidencePlan(
+                profile="company_valuation",
+                requirements=(
+                    EvidenceRequirement(
+                        "MARKET_DATA",
+                        "market_data",
+                        True,
+                        reason="估值锚",
+                    ),
+                    EvidenceRequirement(
+                        "FINANCIAL_DATA",
+                        "financial_data",
+                        True,
+                        reason="盈利基础",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    def evidence_runner(name: str, content_hash: str):
+        def run(_query: str, _context: AgentToolContext):
+            evidence = AgentEvidence(
+                tool=name,
+                title=f"{name} evidence",
+                detail=f"{name} direct evidence",
+                source="local fixture",
+                source_date="2026-07-24",
+                content_hash=content_hash,
+            )
+            return (
+                [evidence],
+                evidence.detail,
+                ProviderTrace(f"test:{name}", name, "success"),
+            )
+
+        return run
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="估值锚",
+                cost="local",
+                freshness="current",
+                runner=evidence_runner("market_data", "market-evidence"),
+            ),
+            ToolSpec(
+                name="financial_data",
+                capability="financial_data",
+                description="财务证据",
+                cost="local",
+                freshness="current",
+                runner=evidence_runner("financial_data", "financial-evidence"),
+            ),
+        )
+    )
+
+    def mandatory_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        tools = {tool.name: tool for tool in request.tools}
+        market = tools["market_data"].invoke("瑞华泰 当前估值")
+        assert market["mandatory_missing_capabilities"] == ["financial_data"]
+        assert "mandatory_evidence_complete" not in market
+        financial = tools["financial_data"].invoke("瑞华泰 财务基础")
+        assert financial["mandatory_missing_capabilities"] == []
+        assert financial["mandatory_evidence_complete"] is True
+        assert "绑定" in str(financial["finish_hint"])
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "瑞华泰估值需要同时结合市值锚与盈利基础。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": [
+                                *market["evidence_hashes"],
+                                *financial["evidence_hashes"],
+                            ],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    outcome = OpenAIAgentsRuntime(
+        runner=mandatory_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(task_frame=frame, context=context, registry=registry)
+
+    assert outcome.status == "completed"
+    assert {item.tool for item in outcome.evidence} == {
+        "market_data",
+        "financial_data",
+    }
 
 
 def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
