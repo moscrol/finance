@@ -57,14 +57,18 @@ be replayed against the same data boundary; it is not just a timestamp label.
 ## The seam that must be handled next
 
 There is a manifest freshness implementation that is not wired into the query
-CLI, while the query CLI uses a Git-based helper:
+CLI, while the query CLI uses a Git-based helper. The current stale result has
+two independent causes:
 
 1. `RagStore.index_freshness(wiki)` compares the v2 `manifest:v1:*` source
    fingerprint and returns `fresh` for the private structured index, but no
    production query calls it.
 2. `scripts/rag_freshness.check_index_freshness(...)`, used by
    `scripts/rag_index.py query`, checks Git revision/working-tree state and
-   returns `stale` for the same index.
+   returns `stale` for the same index; separately, its
+   `meta.source_dirty is True` check also returns `stale` without doing any Git
+   comparison. Advancing `HEAD` to `5e4cc9c4` would remove only the first
+   reason, not the dirty-build veto.
 
 The query path therefore fails early; the `kb_rag.retrieve(..., require_fresh=True)`
 evidence gate is not reached. This is a real integration bug/contract mismatch,
@@ -78,6 +82,15 @@ freshness contract into the CLI, then add regression tests for:
 - a missing/legacy provenance field;
 - the stale-policy `fail` early return;
 - `require_fresh=true` rejecting genuinely stale hits.
+
+The wiring is not a one-line function swap: `RagStore.index_freshness(wiki)`
+needs the Wiki `vault_root` to recompute its manifest, while the current
+`cmd_query` freshness helper receives only `store.meta`. The fix must carry the
+vault root (and the index's include-raw/max-files scope) into the freshness
+calculation, while keeping Git provenance and the historical `source_dirty`
+flag separately observable. Also note that the CLI computes one index-level
+freshness value and copies it into every hit; if the index is stale, every hit is
+stale—there is no per-chunk rescue path.
 
 Do not start `evidence_search` replay until the selected clean snapshot reports
 `fresh` through the same path used by the runtime.
