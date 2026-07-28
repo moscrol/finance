@@ -20,10 +20,10 @@ the verdict module consumes a projection, and the existing board adds explicit o
 - Create: `intelligence/eval/acceptance_observations.py`
 - Create: `intelligence/tests/test_acceptance_observations.py`
 
-- [ ] Write a failing test for a valid self-hashed truth artifact.
-- [ ] Implement canonical self-excluding artifact hashing and immutable result types.
-- [ ] Add RED/GREEN tests for source-run, case, overlay, and self-hash mutation.
-- [ ] Reject unknown artifact kind, missing evaluator/rubric provenance, and unknown case IDs.
+- [x] Write a failing test for a valid self-hashed truth artifact.
+- [x] Implement canonical self-excluding artifact hashing and immutable result types.
+- [x] Add RED/GREEN tests for source-run, case, overlay, and self-hash mutation.
+- [x] Reject unknown artifact kind, missing evaluator/rubric provenance, and unknown case IDs.
 
 ### Task 2: Validate axis payloads
 
@@ -31,9 +31,9 @@ the verdict module consumes a projection, and the existing board adds explicit o
 - Modify: `intelligence/eval/acceptance_observations.py`
 - Modify: `intelligence/tests/test_acceptance_observations.py`
 
-- [ ] RED/GREEN truth rule IDs, states, reasons, and evidence references.
-- [ ] RED/GREEN experience eligibility and `workbench/reference/tie` labels.
-- [ ] Prove truth payloads cannot carry experience labels and vice versa.
+- [x] RED/GREEN truth rule IDs, states, reasons, and evidence references.
+- [x] RED/GREEN experience eligibility and `workbench/reference/tie` labels.
+- [x] Prove truth payloads cannot carry experience labels and vice versa.
 
 ### Task 3: Feed validated observations into verdicts
 
@@ -41,10 +41,10 @@ the verdict module consumes a projection, and the existing board adds explicit o
 - Modify: `intelligence/eval/acceptance_verdict.py`
 - Modify: `intelligence/tests/test_acceptance_verdict.py`
 
-- [ ] Add an explicit `observations` argument to `evaluate_case`.
-- [ ] Prove a semantic observation resolves `pass_rule` from unjudgeable to pass.
-- [ ] Prove an external pass cannot erase another deterministic failed rule.
-- [ ] Prove an experience label never changes truth.
+- [x] Add an explicit `observations` argument to `evaluate_case`.
+- [x] Prove a semantic observation resolves `pass_rule` from unjudgeable to pass.
+- [x] Prove an external pass cannot erase another deterministic failed rule.
+- [x] Prove an experience label never changes truth.
 
 ### Task 4: Wire explicit board paths
 
@@ -52,10 +52,10 @@ the verdict module consumes a projection, and the existing board adds explicit o
 - Modify: `intelligence/eval/acceptance.py`
 - Modify: `intelligence/tests/test_acceptance_board.py`
 
-- [ ] Add `--truth-observations` and `--experience-labels` only to `board`.
-- [ ] Validate both against the exact selected run before rendering.
-- [ ] Keep current output byte-semantics unchanged when neither path is supplied.
-- [ ] Fail before the table on any provenance mismatch.
+- [x] Add `--truth-observations` and `--experience-labels` only to `board`.
+- [x] Validate both against the exact selected run before rendering.
+- [x] Keep current output byte-semantics unchanged when neither path is supplied.
+- [x] Fail before the table on any provenance mismatch.
 
 ### Task 5: Verify and hand off
 
@@ -63,6 +63,6 @@ the verdict module consumes a projection, and the existing board adds explicit o
 - Create: `docs/verification/acceptance-observation-sidecars-2026-07-29.md`
 - Create: `docs/handoffs/2026-07-29-acceptance-observation-sidecars-completion.md`
 
-- [ ] Run focused acceptance tests, Ruff, JSON/hash probes, and relevant full regression.
-- [ ] Verify canonical cases, runs, and reference snapshots are unchanged.
-- [ ] Record that no semantic/blind label was invented and continue the active final goal.
+- [x] Run focused acceptance tests, Ruff, JSON/hash probes, and relevant full regression.
+- [x] Verify canonical cases, runs, and reference snapshots are unchanged.
+- [x] Record that no semantic/blind label was invented and continue the active final goal.

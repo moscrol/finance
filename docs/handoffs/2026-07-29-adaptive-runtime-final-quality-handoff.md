@@ -1,7 +1,7 @@
 # Adaptive Runtime Final Quality Handoff
 
 Date: 2026-07-29
-Status: **current engineering quality goal complete; broader product evaluation and canonical rollout remain separate gates**
+Status: **deterministic engineering candidate complete; final product evaluation goal remains active**
 Worktree: `/Users/a77/finance-workspace-private/tmp/agent-runtime-seam-fix-69f9cf17`
 Branch: `feat/agent-runtime-backends-verify`
 
@@ -21,6 +21,31 @@ This is not a claim that the complete product has shipped. The candidate branch
 has not been merged to `main`, canonical 8792 has not been switched, the live
 semantic judge lacks a configured provider, and the wider 28-case/Knevo product
 evaluation has not been run.
+
+## Acceptance measurement update
+
+The final-goal work after this handoff added three measurement controls:
+
+```text
+77f7bb5a / b77e84ec / 6a6d1744  three-axis acceptance verdict seam
+4dc941f7 / 8126bbf7              hash-bound observation sidecars
+2753fe1b                         App Server ceiling experiment v2 spec
+```
+
+The historical 10-case artifact is now reported as 18 not-run, 7 degraded, and
+3 completed operationally; 18 not-run, 1 pass, 6 fail, and 3 unjudgeable on
+truth; and 28 unlabeled on experience. `1/7` is only the judgeable historical
+subset, never a 28-case product pass rate.
+
+All 28 Knevo cases now have typed reference eligibility. Twenty-two snapshots
+exist and six are explicitly missing; aliases and hindsight/reconstruction or
+local-definition caveats do not enlarge the denominator. No semantic or blind
+label has been invented.
+
+Observation sidecars are bound to the exact run, case file, verdict overlay,
+evaluator, rubric, and their own hash. Blind labels additionally bind a sealed
+pair manifest, exact reference snapshot, independent reviewer, and eligible
+dimensions. Deterministic hard failures cannot be overwritten.
 
 ## Delivered code
 
@@ -79,7 +104,10 @@ Detailed evidence:
 | Full local regression | baseline-limited | 2958 pass; 24 known environment failures |
 | Live semantic evidence judge | externally blocked | no environment-configured provider; deterministic capture ordering passes |
 | Budget-neutral representative evaluation | pending | preregistered three-case A/B/C/D ablation has not run |
-| Wider 28-case acceptance / Knevo comparison | not ready | denominator and same-format opponent artifacts remain incomplete |
+| Acceptance measurement seam | complete | operational/truth/experience verdicts and hash-bound external observations are implemented |
+| Knevo reference accounting | complete; labels pending | all 28 cases typed; 22 snapshots present, 6 missing; no uniform denominator |
+| Wider 28-case acceptance / Knevo comparison | not ready | current Workbench run and independent semantic/blind labels remain incomplete |
+| App Server ceiling design | complete; implementation conditional | v2 spec closes protocol/PIT/sandbox/fairness gaps; profile-D control must run first |
 | Canonical rollout | not started | no main merge or 8792 switch authorized |
 
 If one number is required, the isolated engineering candidate is roughly **90%**
