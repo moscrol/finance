@@ -281,3 +281,16 @@ git add docs/verification/phase-c-evidence-telemetry-2026-07-29.md \
   docs/handoffs/2026-07-29-evidence-telemetry-handoff.md
 git commit -m "docs: hand off evidence retrieval telemetry"
 ```
+
+## Execution record
+
+- [x] True-Hybrid two-case baseline pinned with explicit interpreter, local
+  model snapshot, index hashes, and access-log cleanup.
+- [x] `RetrievalAttempt` preserves requested/effective mode, fallback reason,
+  and degraded state for every executed aperture.
+- [x] EvidenceSearch trace exposes ordered, deduplicated mode signatures.
+- [x] First-call and cached dense fallbacks have direct unit coverage.
+- [x] Post-change replay proves all six attempts ran `hybrid -> hybrid` without
+  fallback or degradation.
+- [x] Focused regression, Ruff, isolation audit, verification, and handoff are
+  complete.
