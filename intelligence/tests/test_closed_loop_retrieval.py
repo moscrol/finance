@@ -318,3 +318,49 @@ def test_index_style_query_does_not_anchor_substring_entities() -> None:
     assert any(
         item.hit.title.startswith("中科创达") for item in result.discarded
     )
+
+
+def test_query_only_policy_never_promotes_first_hit_topics() -> None:
+    raw_query = "这一周行情下跌的主要原因是什么"
+    drift_hit = WikiHit(
+        page_id="drift",
+        file_path="wiki/sources/晚间卖方研报20260202.md",
+        title="半导体与光纤光缆复盘",
+        score=0.9,
+        excerpt="行情下跌后关注半导体、光纤光缆、牧原股份和猪周期",
+        best_chunk_id="drift::0",
+    )
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        return _response(query, [drift_hit])
+
+    retrieve_closed_loop(
+        raw_query,
+        anchor=None,
+        retrieve=retrieve,
+        expansion_policy="query_only",
+    )
+
+    assert queries[0] == raw_query
+    assert len(queries) == 3
+    forbidden = ("实体 代码", "公司 题材", "牧原股份", "猪周期", "半导体", "光纤光缆")
+    assert all(
+        token not in query
+        for query in queries[1:]
+        for token in forbidden
+    )
+
+    anchored_queries: list[str] = []
+
+    retrieve_closed_loop(
+        "瑞华泰的合理估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH"),
+        retrieve=lambda query: (
+            anchored_queries.append(query) or _response(query, [drift_hit])
+        ),
+        expansion_policy="query_only",
+    )
+
+    assert anchored_queries[0] == "瑞华泰 688323.SH"

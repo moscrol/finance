@@ -12,6 +12,7 @@ from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagRes
 from intelligence.services.research_contract import InformationCutoff
 
 RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
+RetrievalExpansionPolicy: TypeAlias = Literal["anchor_or_hits", "query_only"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 T = TypeVar("T")
 
@@ -174,9 +175,12 @@ def retrieve_closed_loop(
     retrieve: Retrieve,
     total_seconds: float | None = None,
     information_cutoff: InformationCutoff | None = None,
+    expansion_policy: RetrievalExpansionPolicy = "anchor_or_hits",
 ) -> ClosedLoopRetrievalResult:
     """闭环检索。``total_seconds`` 由调用方传入 turn 级预算切片；
     与本模块自身的 MAX_TOTAL_SECONDS 取 min——闭环不得突破 turn 根截止时间。"""
+    if expansion_policy not in {"anchor_or_hits", "query_only"}:
+        raise ValueError(f"unknown retrieval expansion policy: {expansion_policy}")
     result = ClosedLoopRetrievalResult()
     budget = (
         min(MAX_TOTAL_SECONDS, max(0.0, float(total_seconds)))
@@ -187,9 +191,10 @@ def retrieve_closed_loop(
         return result
     attempt_budget = _AttemptBudget(deadline=time.monotonic() + budget)
     query_terms = _relevance_terms(query, anchor, ())
+    query_only = expansion_policy == "query_only" and anchor is None
     narrow_hits = _run_aperture(
         "narrow",
-        _narrow_queries(query, anchor),
+        (query,) if query_only else _narrow_queries(query, anchor),
         retrieve,
         result,
         attempt_budget,
@@ -198,9 +203,14 @@ def retrieve_closed_loop(
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
     )
+    expansion_hits = () if query_only else relevant_narrow_hits
     broad_hits = _run_aperture(
         "broad",
-        _broad_queries(query, anchor, relevant_narrow_hits),
+        (
+            _query_only_broad_queries(query)
+            if query_only
+            else _broad_queries(query, anchor, relevant_narrow_hits)
+        ),
         retrieve,
         result,
         attempt_budget,
@@ -208,7 +218,11 @@ def retrieve_closed_loop(
     )
     counter_hits = _run_aperture(
         "counter",
-        _counter_queries(query, anchor, relevant_narrow_hits),
+        (
+            _query_only_counter_queries(query)
+            if query_only
+            else _counter_queries(query, anchor, relevant_narrow_hits)
+        ),
         retrieve,
         result,
         attempt_budget,
@@ -225,7 +239,7 @@ def retrieve_closed_loop(
         broad_relevance_terms=_relevance_terms(
             query,
             anchor,
-            relevant_narrow_hits,
+            expansion_hits,
         ),
     )
     for aperture in ("narrow", "broad", "counter"):
@@ -401,6 +415,14 @@ def _broad_queries(
     )
 
 
+def _query_only_broad_queries(query: str) -> tuple[str, ...]:
+    return (
+        f"{query} 市场内部机制 资金 风险偏好",
+        f"{query} 宏观 政策 外部事件",
+        f"{query} 行业结构 权重板块",
+    )
+
+
 def _counter_queries(
     query: str,
     anchor: EntityAnchor | None,
@@ -412,6 +434,14 @@ def _counter_queries(
         f"{subject} {terms} 风险 证伪 不及预期".strip(),
         f"{subject} {terms} 替代 竞争 受损".strip(),
         f"{subject} {terms} 反方 下滑 失败".strip(),
+    )
+
+
+def _query_only_counter_queries(query: str) -> tuple[str, ...]:
+    return (
+        f"{query} 反证 替代解释",
+        f"{query} 市场内部 外部催化 区分",
+        f"{query} 数据不支持 证据不足",
     )
 
 
