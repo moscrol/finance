@@ -12,14 +12,24 @@ from intelligence.services.research_contract import (
 )
 
 
-def _response(query: str, *hits: WikiHit) -> WikiRagResult:
+def _response(
+    query: str,
+    *hits: WikiHit,
+    requested_mode: str = "hybrid",
+    effective_mode: str = "hybrid",
+    fallback_reason: str = "",
+    degraded: bool = False,
+) -> WikiRagResult:
     return WikiRagResult(
         ok=bool(hits),
         hits=list(hits),
         telemetry=RetrievalTelemetry(
             status="ok" if hits else "empty",
             hit_count=len(hits),
-            effective_mode="hybrid",
+            requested_mode=requested_mode,
+            effective_mode=effective_mode,
+            fallback_reason=fallback_reason,
+            degraded=degraded,
         ),
         command=query,
     )
@@ -86,6 +96,71 @@ def test_search_preserves_apertures_buckets_and_counter_evidence() -> None:
     assert "[支持]" in result.observation
     assert "[反方]" in result.observation
     assert result.gaps == ()
+
+
+def test_search_trace_preserves_first_and_cached_dense_fallbacks() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        return _response(
+            query,
+            _hit(
+                f"fallback-{calls}",
+                "瑞华泰估值证据",
+                "瑞华泰估值与风险证据",
+            ),
+            effective_mode="bm25",
+            fallback_reason=(
+                "dense_dependency_missing"
+                if calls == 1
+                else "dense_dependency_cached_unavailable"
+            ),
+            degraded=True,
+        )
+
+    result = EvidenceSearch(retrieve).search(
+        query="瑞华泰估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH", ("PI薄膜",)),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [item.fallback_reason for item in result.attempts] == [
+        "dense_dependency_missing",
+        "dense_dependency_cached_unavailable",
+        "dense_dependency_cached_unavailable",
+    ]
+    assert all(item.requested_mode == "hybrid" for item in result.attempts)
+    assert all(item.effective_mode == "bm25" for item in result.attempts)
+    assert all(item.degraded for item in result.attempts)
+    assert (
+        "retrieval_modes="
+        "hybrid->bm25:dense_dependency_missing:degraded,"
+        "hybrid->bm25:dense_dependency_cached_unavailable:degraded"
+        in result.trace.detail
+    )
+
+
+def test_search_trace_marks_true_hybrid_without_degradation() -> None:
+    result = EvidenceSearch(
+        lambda query: _response(
+            query,
+            _hit("hybrid", "瑞华泰估值证据", "瑞华泰估值与风险证据"),
+        )
+    ).search(
+        query="瑞华泰估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH", ("PI薄膜",)),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert all(item.requested_mode == "hybrid" for item in result.attempts)
+    assert all(item.effective_mode == "hybrid" for item in result.attempts)
+    assert all(item.fallback_reason == "" for item in result.attempts)
+    assert not any(item.degraded for item in result.attempts)
+    assert "retrieval_modes=hybrid->hybrid" in result.trace.detail
 
 
 def test_same_chunk_from_two_apertures_becomes_one_evidence_item() -> None:

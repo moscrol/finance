@@ -334,12 +334,33 @@ def _trace_detail(
         f"{item.aperture}:{item.status}:{item.hit_count}"
         for item in loop.attempts
     )
-    return (
+    detail = (
         f"attempts={attempts or 'none'}; "
         f"conclusion={coverage.conclusion_count}; "
         f"counter={coverage.counter_count}; "
         f"discarded={coverage.discarded_count}"
     )
+    mode_signatures: list[str] = []
+    for attempt in loop.attempts:
+        if not (
+            attempt.requested_mode
+            or attempt.effective_mode
+            or attempt.fallback_reason
+            or attempt.degraded
+        ):
+            continue
+        requested = attempt.requested_mode or "?"
+        effective = attempt.effective_mode or attempt.requested_mode or "?"
+        signature = f"{requested}->{effective}"
+        if attempt.fallback_reason:
+            signature += f":{attempt.fallback_reason}"
+        if attempt.degraded:
+            signature += ":degraded"
+        if signature not in mode_signatures:
+            mode_signatures.append(signature)
+    if mode_signatures:
+        detail += "; retrieval_modes=" + ",".join(mode_signatures)
+    return detail
 
 
 __all__ = [
