@@ -4,7 +4,10 @@ from dataclasses import replace
 from datetime import date
 
 from intelligence.services.entity_anchor import EntityAnchor
-from intelligence.services.evidence_search import EvidenceSearch
+from intelligence.services.evidence_search import (
+    EvidenceSearch,
+    EvidenceSearchPolicy,
+)
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 from intelligence.services.research_contract import (
     InformationCutoff,
@@ -305,3 +308,100 @@ def test_search_evidence_keeps_source_lineage_and_dates() -> None:
     assert item.independent_key == "wiki/sources/lineage.md"
     assert item.evidence_tier == "L1"
     assert item.freshness == "fresh"
+
+
+def _causal_policy() -> EvidenceSearchPolicy:
+    return EvidenceSearchPolicy(
+        expansion_policy="query_only",
+        required_source_start=date(2026, 7, 20),
+        required_source_end=date(2026, 7, 24),
+        require_counter_evidence=True,
+    )
+
+
+def test_causal_policy_rejects_off_window_evidence_before_observation() -> None:
+    old = _hit(
+        "old",
+        "旧行情归因",
+        "行情下跌与风险偏好下降",
+        source_date="2026-07-09",
+    )
+
+    result = EvidenceSearch(
+        lambda query: _response(query, old),
+        policy=_causal_policy(),
+    ).search(
+        query="这一周行情下跌的主要原因是什么",
+        anchor=None,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert result.evidence == ()
+    assert result.observation == ""
+    assert result.trace.status == "empty"
+    assert result.coverage.target_window_count == 0
+    assert result.coverage.target_window_counter_count == 0
+    assert result.coverage.window_rejected_count == 1
+    assert any("2026-07-20" in gap for gap in result.gaps)
+
+
+def test_causal_policy_requires_counter_before_success() -> None:
+    support = _hit(
+        "support",
+        "本周行情下跌归因",
+        "本周行情下跌与资金风险偏好下降有关",
+    )
+
+    def retrieve(query: str) -> WikiRagResult:
+        if "反证" in query or "数据不支持" in query:
+            return _response(query)
+        return _response(query, support)
+
+    result = EvidenceSearch(retrieve, policy=_causal_policy()).search(
+        query="这一周行情下跌的主要原因是什么",
+        anchor=None,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [item.title for item in result.evidence] == ["本周行情下跌归因"]
+    assert result.trace.status == "partial"
+    assert result.coverage.target_window_count == 1
+    assert result.coverage.target_window_counter_count == 0
+    assert any("反证" in gap for gap in result.gaps)
+
+
+def test_causal_policy_succeeds_with_target_window_support_and_counter() -> None:
+    support = _hit(
+        "support",
+        "本周行情下跌归因",
+        "本周行情下跌与资金风险偏好下降有关",
+    )
+    counter = _hit(
+        "counter",
+        "本周行情下跌反证",
+        "本周行情下跌也可能来自外部催化而非内部风险偏好",
+    )
+
+    def retrieve(query: str) -> WikiRagResult:
+        if "反证" in query:
+            return _response(query, counter)
+        return _response(query, support)
+
+    result = EvidenceSearch(retrieve, policy=_causal_policy()).search(
+        query="这一周行情下跌的主要原因是什么",
+        anchor=None,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [item.title for item in result.evidence] == [
+        "本周行情下跌归因",
+        "本周行情下跌反证",
+    ]
+    assert result.trace.status == "success"
+    assert result.coverage.target_window_count == 2
+    assert result.coverage.target_window_counter_count == 1
+    assert result.coverage.window_rejected_count == 0
+    assert result.gaps == ()

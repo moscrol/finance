@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
+
 from intelligence.services import closed_loop_retrieval
-from intelligence.services.closed_loop_retrieval import retrieve_closed_loop
+from intelligence.services.closed_loop_retrieval import (
+    parse_source_date,
+    retrieve_closed_loop,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 
@@ -364,3 +369,10 @@ def test_query_only_policy_never_promotes_first_hit_topics() -> None:
     )
 
     assert anchored_queries[0] == "瑞华泰 688323.SH"
+
+
+def test_parse_source_date_accepts_compact_dates_but_not_yearless_names() -> None:
+    assert parse_source_date("wiki/sources/晚间卖方研报20260724.md") == date(
+        2026, 7, 24
+    )
+    assert parse_source_date("wiki/sources/0511卖方观点合集.md") is None

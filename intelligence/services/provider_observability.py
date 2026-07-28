@@ -6,6 +6,7 @@ from typing import Literal
 ProviderStatus = Literal[
     "not_attempted",
     "success",
+    "partial",
     "empty",
     "disabled",
     "proxy_unavailable",

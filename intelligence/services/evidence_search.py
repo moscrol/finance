@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from datetime import date
 
 from intelligence.services import (
     agent_research,
@@ -31,12 +32,25 @@ SemanticJudge = Callable[
 
 
 @dataclass(frozen=True)
+class EvidenceSearchPolicy:
+    expansion_policy: closed_loop_retrieval.RetrievalExpansionPolicy = (
+        "anchor_or_hits"
+    )
+    required_source_start: date | None = None
+    required_source_end: date | None = None
+    require_counter_evidence: bool = False
+
+
+@dataclass(frozen=True)
 class EvidenceSearchCoverage:
     conclusion_count: int
     clue_count: int
     counter_count: int
     discarded_count: int
     apertures_attempted: tuple[str, ...]
+    target_window_count: int = 0
+    target_window_counter_count: int = 0
+    window_rejected_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -76,12 +90,14 @@ class EvidenceSearch:
         *,
         semantic_judge: SemanticJudge | None = None,
         max_evidence: int = 12,
+        policy: EvidenceSearchPolicy | None = None,
     ) -> None:
         if max_evidence < 1:
             raise ValueError("max_evidence must be positive")
         self._retrieve = retrieve
         self._semantic_judge = semantic_judge
         self._max_evidence = max_evidence
+        self._policy = policy or EvidenceSearchPolicy()
 
     def search(
         self,
@@ -108,6 +124,7 @@ class EvidenceSearch:
             retrieve=self._retrieve,
             total_seconds=total_seconds,
             information_cutoff=information_cutoff,
+            expansion_policy=self._policy.expansion_policy,
         )
         loop = self._apply_semantic_judge(
             cleaned_query,
@@ -115,6 +132,11 @@ class EvidenceSearch:
             deadline=deadline,
         )
         entries = _eligible_entries(loop)
+        entries, window_rejected = _filter_required_source_window(
+            entries,
+            start=self._policy.required_source_start,
+            end=self._policy.required_source_end,
+        )
         evidence, stances = _project_evidence(
             entries,
             query=cleaned_query,
@@ -124,12 +146,21 @@ class EvidenceSearch:
             f"[{stance}]{item.title}：{item.detail}"
             for item, stance in zip(evidence, stances, strict=True)
         )
-        gaps = (
-            ()
-            if evidence
-            else (
-                f"尚未找到与“{cleaned_query}”直接相关的可用证据",
-            )
+        has_required_window = (
+            self._policy.required_source_start is not None
+            or self._policy.required_source_end is not None
+        )
+        target_window_count = len(evidence) if has_required_window else 0
+        target_window_counter_count = (
+            sum(stance == "反方" for stance in stances)
+            if has_required_window
+            else 0
+        )
+        gaps = _policy_gaps(
+            query=cleaned_query,
+            policy=self._policy,
+            evidence_count=len(evidence),
+            target_window_counter_count=target_window_counter_count,
         )
         served_date = _latest_date(loop)
         coverage = EvidenceSearchCoverage(
@@ -140,12 +171,19 @@ class EvidenceSearch:
             apertures_attempted=tuple(
                 dict.fromkeys(item.aperture for item in loop.attempts)
             ),
+            target_window_count=target_window_count,
+            target_window_counter_count=target_window_counter_count,
+            window_rejected_count=len(
+                {_hit_identity(item.hit) for _, item in window_rejected}
+            ),
         )
         trace = ProviderTrace(
             provider="kb_hybrid_closed_loop",
             capability="evidence_search",
             status=(
                 "success"
+                if evidence and not gaps
+                else "partial"
                 if evidence
                 else "future_of_cutoff"
                 if any(item.status == "future_of_cutoff" for item in loop.attempts)
@@ -240,6 +278,63 @@ def _eligible_entries(
             seen.add(key)
             entries.append((stance, item))
     return tuple(entries)
+
+
+def _filter_required_source_window(
+    entries: tuple[tuple[str, closed_loop_retrieval.BucketedHit], ...],
+    *,
+    start: date | None,
+    end: date | None,
+) -> tuple[
+    tuple[tuple[str, closed_loop_retrieval.BucketedHit], ...],
+    tuple[tuple[str, closed_loop_retrieval.BucketedHit], ...],
+]:
+    if start is None and end is None:
+        return entries, ()
+    eligible: list[tuple[str, closed_loop_retrieval.BucketedHit]] = []
+    rejected: list[tuple[str, closed_loop_retrieval.BucketedHit]] = []
+    for entry in entries:
+        source_date = closed_loop_retrieval.wiki_hit_source_date(entry[1].hit)
+        if (
+            source_date is None
+            or (start is not None and source_date < start)
+            or (end is not None and source_date > end)
+        ):
+            rejected.append(entry)
+        else:
+            eligible.append(entry)
+    return tuple(eligible), tuple(rejected)
+
+
+def _policy_gaps(
+    *,
+    query: str,
+    policy: EvidenceSearchPolicy,
+    evidence_count: int,
+    target_window_counter_count: int,
+) -> tuple[str, ...]:
+    gaps: list[str] = []
+    if evidence_count == 0:
+        if (
+            policy.required_source_start is not None
+            or policy.required_source_end is not None
+        ):
+            start = (
+                policy.required_source_start.isoformat()
+                if policy.required_source_start is not None
+                else "最早日期"
+            )
+            end = (
+                policy.required_source_end.isoformat()
+                if policy.required_source_end is not None
+                else "最新日期"
+            )
+            gaps.append(f"尚未找到 {start} 至 {end} 目标窗口内的可用证据")
+        else:
+            gaps.append(f"尚未找到与“{query}”直接相关的可用证据")
+    elif policy.require_counter_evidence and target_window_counter_count == 0:
+        gaps.append("目标窗口内尚缺反证或替代解释证据")
+    return tuple(gaps)
 
 
 def _project_evidence(
@@ -338,7 +433,10 @@ def _trace_detail(
         f"attempts={attempts or 'none'}; "
         f"conclusion={coverage.conclusion_count}; "
         f"counter={coverage.counter_count}; "
-        f"discarded={coverage.discarded_count}"
+        f"discarded={coverage.discarded_count}; "
+        f"target_window={coverage.target_window_count}; "
+        f"target_window_counter={coverage.target_window_counter_count}; "
+        f"window_rejected={coverage.window_rejected_count}"
     )
     mode_signatures: list[str] = []
     for attempt in loop.attempts:
@@ -366,6 +464,7 @@ def _trace_detail(
 __all__ = [
     "EvidenceSearch",
     "EvidenceSearchCoverage",
+    "EvidenceSearchPolicy",
     "EvidenceSearchResult",
     "SemanticJudge",
     "default_semantic_judge",

@@ -31,6 +31,9 @@ _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
 )
 _ISO_DATE_RE = re.compile(r"(?<!\d)(20\d{2}-\d{1,2}-\d{1,2})(?!\d)")
+_COMPACT_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)"
+)
 _GENERIC_TERMS = {
     "公司",
     "行业",
@@ -334,10 +337,18 @@ def parse_source_date(value: object) -> date | None:
     if not isinstance(value, str):
         return None
     match = _ISO_DATE_RE.search(value.strip())
-    if match is None:
-        return None
     try:
-        year, month, day = (int(part) for part in match.group(1).split("-"))
+        if match is not None:
+            year, month, day = (
+                int(part) for part in match.group(1).split("-")
+            )
+        else:
+            compact_match = _COMPACT_DATE_RE.search(value.strip())
+            if compact_match is None:
+                return None
+            year, month, day = (
+                int(compact_match.group(index)) for index in range(1, 4)
+            )
         return date(year, month, day)
     except ValueError:
         return None
