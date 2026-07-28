@@ -44,16 +44,18 @@ Run from the finance candidate with:
 ```bash
 KB_RAG_PYTHON=/Users/a77/knowledge-base-private/.rag_venv/bin/python3 \
 RAG_INDEX_DIR=/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/.rag_index \
-RAG_WORKER_ENABLED=0 HF_HUB_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \
+RAG_BGE_MODEL=/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181 \
+RAG_WORKER_ENABLED=1 HF_HUB_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python - <<'PY'
 from datetime import date
+from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services import entity_anchor, evidence_search, kb_rag
-from intelligence.services.agent_research import KnowledgeAdapter
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 
 wiki = "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/wiki"
 knowledge = KnowledgeAdapter(wiki_root=wiki)
 cutoff = InformationCutoff(date(2026, 7, 24), "requested")
+kb_rag.prewarm(wiki, timeout=240)
 for case_id, query in (
     ("ruihuatai-valuation", "瑞华泰的合理估值"),
     ("weekly-market-cause", "这一周行情下跌的主要原因是什么"),

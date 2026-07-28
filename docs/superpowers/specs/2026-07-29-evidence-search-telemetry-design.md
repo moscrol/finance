@@ -95,8 +95,9 @@ Wiki=/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/w
 Index=/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/.rag_index
 cutoff=2026-07-24
 require_fresh=true
-RAG_WORKER_ENABLED=0
+RAG_WORKER_ENABLED=1
 HF_HUB_OFFLINE=1
+RAG_BGE_MODEL=/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181
 ```
 
 Both `ruihuatai-valuation` and `weekly-market-cause` use the same
