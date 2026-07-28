@@ -59,10 +59,12 @@ mandatory evidence still fails closed.
 One semantic-verifier invocation owns one fixed deadline. The first attempt is
 allocated enough time to be useful; a retry is admitted only for typed,
 release-safe transient failures and only when a minimum retry slice remains.
-The per-attempt timeout is calculated from the remaining shared window rather
-than repeatedly requesting the configured 25-second maximum. A third attempt
-is removed from the normal path because it cannot fit the production verifier
-window without starving release classification.
+The per-attempt timeout is allocated from a maximum 30-second shared window
+instead of repeatedly requesting the configured 25-second maximum. The
+existing third attempt remains available only after two release-safe transient
+failures, but the default schedule is bounded to `15 + 7.5 + 7.5` seconds. This
+preserves recovery from a brief provider outage without allowing three calls
+to claim 75 seconds.
 
 No semantic predicate is relaxed. Authentication, malformed output, contract
 errors, and weak/untyped failures remain fail-closed.

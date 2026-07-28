@@ -16,7 +16,7 @@
 - Modify: `intelligence/services/openai_agents_runtime.py`
 - Test: `intelligence/tests/test_openai_agents_runtime.py`
 
-- [ ] **Step 1: Write the failing public-seam test**
+- [x] **Step 1: Write the failing public-seam test**
 
 Build a contract with mandatory `market_data` and `financial_data` requirements.
 The scripted SDK runner invokes both public tools and independently asserts:
@@ -32,7 +32,7 @@ assert "绑定" in second["finish_hint"]
 Return terminal JSON binding evidence from both observations, then assert the
 public `AgentOutcome` is completed.
 
-- [ ] **Step 2: Run the red test**
+- [x] **Step 2: Run the red test**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runtime.py -k mandatory_evidence_completion
@@ -40,14 +40,14 @@ env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runti
 
 Expected: FAIL because tool results do not publish evidence-plan progress.
 
-- [ ] **Step 3: Implement the minimal progress ledger**
+- [x] **Step 3: Implement the minimal progress ledger**
 
 Track successful `ToolSpec.capability` values only when new evidence was
 published. Add the exact missing mandatory list to every evidence-bearing tool
 result, and add the boolean plus finish hint only when the list becomes empty.
 Do not modify `episode_verifier.py`.
 
-- [ ] **Step 4: Run the focused test green and commit**
+- [x] **Step 4: Run the focused test green and commit**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runtime.py -k mandatory_evidence_completion
@@ -61,7 +61,7 @@ git commit -m "fix: expose mandatory evidence completion to sdk episodes"
 - Modify: `intelligence/services/openai_agents_runtime.py`
 - Test: `intelligence/tests/test_openai_agents_runtime.py`
 
-- [ ] **Step 1: Write a fake-clock red test through `run()`**
+- [x] **Step 1: Write a fake-clock red test through `run()`**
 
 The scripted runner obtains mandatory evidence, advances the boundary clock
 past the tool-stage close time, invokes one optional tool, and then returns
@@ -74,7 +74,7 @@ assert outcome.status == "completed"
 assert "research_stage_closed" not in outcome.gaps
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runtime.py -k delivery_reserve_closes_optional_tools
@@ -82,7 +82,7 @@ env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runti
 
 Expected: FAIL because tools remain open until the full SDK/root deadline.
 
-- [ ] **Step 3: Implement an absolute SDK tool-stage deadline**
+- [x] **Step 3: Implement an absolute SDK tool-stage deadline**
 
 Compute a bounded reserve from the already-bounded SDK timeout:
 
@@ -95,7 +95,7 @@ Pass an absolute close time into `_AgentsRunState`. `_reservation_error()`
 returns `research_stage_closed` at or after that time. Repair continuations keep
 their existing independently bounded delivery behavior.
 
-- [ ] **Step 4: Run all SDK runtime tests and commit**
+- [x] **Step 4: Run all SDK runtime tests and commit**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_openai_agents_runtime.py
@@ -109,33 +109,32 @@ git commit -m "fix: reserve sdk episode tail for answer delivery"
 - Modify: `intelligence/services/episode_semantic_verifier.py`
 - Test: `intelligence/tests/test_episode_semantic_verifier.py`
 
-- [ ] **Step 1: Add a deadline-allocation red test**
+- [x] **Step 1: Add a deadline-allocation red test**
 
-Use a boundary provider that records timeouts, fails first with a typed
-transient, and succeeds second. Under a 30-second fake deadline assert there are
-at most two attempts, the first does not claim the entire window, the second
-has a positive bounded slice, and the final semantic status is passed.
+Use a boundary provider that records timeouts under a 60-second outer deadline.
+Assert that the first attempt does not claim the entire window and that the sum
+of all retry slices is at most 30 seconds.
 
-- [ ] **Step 2: Add a repeated-transient red test**
+- [x] **Step 2: Add a repeated-transient red test**
 
-Return typed transient failures repeatedly and assert the verifier stops after
-two attempts with the current fail-closed/unavailable classification rather
-than requesting a third full timeout.
+Return typed release-safe transient failures repeatedly and assert the verifier
+keeps the existing maximum of three attempts, remains fail-closed/unavailable,
+and allocates `15 + 7.5 + 7.5` seconds rather than three full timeouts.
 
-- [ ] **Step 3: Run red**
+- [x] **Step 3: Run red**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_episode_semantic_verifier.py -k shared_semantic_deadline
 ```
 
-- [ ] **Step 4: Implement one attempt allocator**
+- [x] **Step 4: Implement one attempt allocator**
 
-Calculate each attempt from `deadline.remaining()` with a minimum retry slice.
-Only typed release-safe transient failures admit the second attempt. Keep all
-existing malformed/authentication/contract predicates and optional-rejudge
-release rules unchanged.
+Allocate one at-most-30-second window as a larger first attempt plus two bounded
+retry slices. Only typed release-safe transient failures admit the third
+attempt. Keep all existing malformed/authentication/contract predicates and
+optional-rejudge release rules unchanged.
 
-- [ ] **Step 5: Run semantic tests and commit**
+- [x] **Step 5: Run semantic tests and commit**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_episode_semantic_verifier.py
@@ -149,7 +148,7 @@ git commit -m "fix: bound semantic retries to shared deadline"
 - Create: `docs/verification/sdk-delivery-and-semantic-deadline-2026-07-28.md`
 - Modify: `.agent-memory/20_projects/finance-workspace-private.md`
 
-- [ ] **Step 1: Run focused and composition suites**
+- [x] **Step 1: Run focused and composition suites**
 
 ```bash
 env -u FORESIGHT_USERS_DIR pytest -q \
@@ -159,18 +158,24 @@ env -u FORESIGHT_USERS_DIR pytest -q \
   intelligence/tests/test_ask_compose.py \
   intelligence/tests/test_keychain_credentials.py \
   intelligence/tests/test_workbench_api.py
-env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests/test_continuous_turn_adapter.py intelligence/tests/test_orchestrator.py
+env -u FORESIGHT_USERS_DIR pytest -q \
+  intelligence/tests/test_continuous_turn_adapter.py \
+  intelligence/tests/test_answer_orchestrator.py \
+  intelligence/tests/test_conversation_orchestrator.py
 ```
 
-- [ ] **Step 2: Run the executable full suite**
+- [x] **Step 2: Run the executable full suite**
 
 ```bash
-env -u FORESIGHT_USERS_DIR pytest -q intelligence/tests
+env -u FORESIGHT_USERS_DIR -u SUBCONSCIOUS_VAULT -u AGENT_MEMORY_VAULT \
+  pytest -q intelligence/tests \
+  --ignore=intelligence/tests/test_codex_headless_runtime.py \
+  --ignore=intelligence/tests/test_headless_tool_gateway.py
 ```
 
 Record sandbox-only socket-bind exclusions separately; do not weaken tests.
 
-- [ ] **Step 3: Review the diff and freeze the revision**
+- [x] **Step 3: Review the diff and freeze the revision**
 
 Confirm no secret/database/cache files, no verifier predicate relaxation, and
 no question-specific routing. Commit the verification document.
