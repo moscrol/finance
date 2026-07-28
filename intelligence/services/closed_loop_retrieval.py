@@ -52,6 +52,10 @@ class RetrievalAttempt:
     query: str
     status: str
     hit_count: int
+    requested_mode: str = ""
+    effective_mode: str = ""
+    fallback_reason: str = ""
+    degraded: bool = False
 
 
 @dataclass(frozen=True)
@@ -79,6 +83,10 @@ class ClosedLoopRetrievalResult:
                     "query": attempt.query,
                     "status": attempt.status,
                     "hit_count": attempt.hit_count,
+                    "requested_mode": attempt.requested_mode,
+                    "effective_mode": attempt.effective_mode,
+                    "fallback_reason": attempt.fallback_reason,
+                    "degraded": attempt.degraded,
                 }
                 for attempt in self.attempts
             ],
@@ -287,6 +295,10 @@ def _run_aperture(
                     else response.telemetry.status
                 ),
                 hit_count=len(eligible_hits),
+                requested_mode=response.telemetry.requested_mode,
+                effective_mode=response.telemetry.effective_mode,
+                fallback_reason=response.telemetry.fallback_reason,
+                degraded=response.telemetry.degraded,
             )
         )
         if response.warning:

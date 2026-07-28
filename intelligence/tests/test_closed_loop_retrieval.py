@@ -154,6 +154,62 @@ def test_timeout_stops_rewrites_for_the_same_aperture() -> None:
     ]
 
 
+def test_attempts_preserve_first_and_cached_dense_fallback_telemetry() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        fallback_reason = (
+            "dense_dependency_missing"
+            if calls == 1
+            else "dense_dependency_cached_unavailable"
+        )
+        return WikiRagResult(
+            ok=True,
+            hits=[_hit("液冷证据", 0.72)],
+            telemetry=RetrievalTelemetry(
+                status="ok",
+                hit_count=1,
+                requested_mode="hybrid",
+                effective_mode="bm25",
+                fallback_reason=fallback_reason,
+                degraded=True,
+            ),
+            command=query,
+        )
+
+    result = retrieve_closed_loop(
+        "液冷",
+        anchor=EntityAnchor(entity="液冷"),
+        retrieve=retrieve,
+    )
+
+    expected = [
+        ("hybrid", "bm25", "dense_dependency_missing", True),
+        ("hybrid", "bm25", "dense_dependency_cached_unavailable", True),
+        ("hybrid", "bm25", "dense_dependency_cached_unavailable", True),
+    ]
+    assert [
+        (
+            item.requested_mode,
+            item.effective_mode,
+            item.fallback_reason,
+            item.degraded,
+        )
+        for item in result.attempts
+    ] == expected
+    assert [
+        (
+            item["requested_mode"],
+            item["effective_mode"],
+            item["fallback_reason"],
+            item["degraded"],
+        )
+        for item in result.inspector_dict()["attempts"]
+    ] == expected
+
+
 def test_observed_query_cost_skips_apertures_that_cannot_fit_budget(
     monkeypatch,
 ) -> None:
