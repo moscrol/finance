@@ -1,7 +1,8 @@
 # Codex App Server Ceiling Benchmark Design
 
 Date: 2026-07-28
-Status: approved option A
+Status: superseded after independent CHANGES_REQUIRED review; do not implement
+Superseded by: `2026-07-29-codex-app-server-ceiling-benchmark-design-v2.md`
 Implementation branch: `feat/agent-runtime-backends-verify`
 Canonical runtime: unchanged; 8792 and 8799 are out of scope
 
