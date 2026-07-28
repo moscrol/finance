@@ -429,6 +429,11 @@ def _valuation_admission_hits() -> tuple[WikiHit, ...]:
             "功能薄膜可比估值",
             "瑞华泰与方邦股份属于可比公司，当前PB估值分别为4.3倍与3.1倍",
         ),
+        _hit(
+            "capacity",
+            "行业产能跟踪",
+            "瑞华泰产能增长3倍，仅说明扩产进度",
+        ),
     )
 
 
@@ -459,9 +464,9 @@ def test_subject_local_admission_separates_direct_relation_and_bare_hits() -> No
         "功能薄膜可比估值",
     ]
     assert result.coverage.clue_count == 1
-    assert result.coverage.discarded_count == 1
+    assert result.coverage.discarded_count == 2
     assert (
-        "anchor_admission=direct:2,relation_clue:1,rejected:1"
+        "anchor_admission=direct:2,relation_clue:1,rejected:2"
         in result.diagnostics
     )
 
@@ -505,4 +510,5 @@ def test_default_admission_keeps_existing_open_behavior() -> None:
         "天奈科技（688116）",
         "方邦股份（688020）",
         "功能薄膜可比估值",
+        "行业产能跟踪",
     }

@@ -281,9 +281,10 @@ def build_episode_registry(
             ),
         )
     market_reference_date = context.latest_data_date or structured_source_date
+    evidence_profile = context.contract.evidence_plan.profile
     market_window_start = None
     market_window_end = None
-    if context.contract.evidence_plan.profile == "time_aligned_market_causal":
+    if evidence_profile == "time_aligned_market_causal":
         market_window_end = market_news.latest_explicit_query_date(
             f"{frame.raw_question} {frame.timeframe or ''}",
             reference_date=context.information_cutoff.as_of_date,
@@ -313,7 +314,7 @@ def build_episode_registry(
             required_source_end=market_window_end,
             require_counter_evidence=True,
         )
-    elif context.contract.evidence_plan.profile == "valuation_current_anchor":
+    elif evidence_profile == "valuation_current_anchor":
         evidence_search_policy = evidence_search.EvidenceSearchPolicy(
             anchor_admission="subject_local",
         )
@@ -750,13 +751,11 @@ def build_episode_registry(
                 semantic_judge=(selected_judge if callable(selected_judge) else None),
                 policy=evidence_search_policy,
             )
-            query_anchor = entity_anchor.resolve_entity_anchor(query, knowledge)
-            if (
-                query_anchor is None
-                and context.contract.evidence_plan.profile
-                == "valuation_current_anchor"
-            ):
-                query_anchor = subject_anchor
+            query_anchor = (
+                subject_anchor
+                if evidence_profile == "valuation_current_anchor"
+                else entity_anchor.resolve_entity_anchor(query, knowledge)
+            )
             result = search.search(
                 query=query,
                 anchor=query_anchor,

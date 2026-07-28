@@ -439,7 +439,8 @@ def _write_ruihuatai_anchor(wiki: Path) -> None:
     relations.mkdir(parents=True)
     (relations / "entity_exposures.json").write_text(
         '{"entities":{"瑞华泰":{"codes":["688323.SH"],'
-        '"concepts":{"PI薄膜":{}}}}}',
+        '"concepts":{"PI薄膜":{}}},"方邦股份":{"codes":["688020.SH"],'
+        '"concepts":{"功能薄膜":{}}}}}',
         encoding="utf-8",
     )
 
@@ -502,9 +503,11 @@ def _valuation_admission_retriever():
     return retrieve
 
 
-def test_valuation_registry_reuses_frame_anchor_for_generic_evidence_query(
+@pytest.mark.parametrize("tool_query", ["合理估值证据", "方邦股份 PB"])
+def test_valuation_registry_keeps_frame_anchor_for_every_evidence_query(
     tmp_path,
     monkeypatch,
+    tool_query,
 ) -> None:
     wiki = tmp_path / "wiki"
     _write_ruihuatai_anchor(wiki)
@@ -533,7 +536,7 @@ def test_valuation_registry_reuses_frame_anchor_for_generic_evidence_query(
         evidence_search_judge=lambda *_args: None,
     ).execute(
         "evidence_search",
-        "合理估值证据",
+        tool_query,
         context=context,
         step_id="valuation-subject-local-admission:1",
     )

@@ -32,11 +32,13 @@ SemanticJudge = Callable[
     tuple[set[int], str] | None,
 ]
 AnchorEvidenceAdmission: TypeAlias = Literal["open", "subject_local"]
+AnchorHitAdmission: TypeAlias = Literal[
+    "direct", "relation_clue", "rejected"
+]
 
 _VALUATION_ASSERTION_RE = re.compile(
     r"可比估值|合理价格|目标价|估值|市值|市盈率|市净率|市销率"
-    r"|(?<![A-Za-z])(?:PE|PB|PS|EV)(?![A-Za-z])"
-    r"|\d+(?:\.\d+)?\s*倍",
+    r"|(?<![A-Za-z])(?:PE|PB|PS|EV)(?![A-Za-z])",
     re.IGNORECASE,
 )
 _EXPLICIT_RELATION_CUES = (
@@ -330,9 +332,11 @@ def _apply_anchor_admission(
     discarded = list(loop.discarded)
     clue_ids = {_hit_identity(item.hit) for item in clues}
     discarded_ids = {_hit_identity(item.hit) for item in discarded}
-    decisions: dict[tuple[str, str], str] = {}
+    decisions: dict[tuple[str, str], AnchorHitAdmission] = {}
 
-    def classify(item: closed_loop_retrieval.BucketedHit) -> str:
+    def classify(
+        item: closed_loop_retrieval.BucketedHit,
+    ) -> AnchorHitAdmission:
         identity = _hit_identity(item.hit)
         cached = decisions.get(identity)
         if cached is not None:
@@ -394,7 +398,10 @@ def _apply_anchor_admission(
     )
 
 
-def _anchor_hit_admission(hit: WikiHit, anchor: EntityAnchor) -> str:
+def _anchor_hit_admission(
+    hit: WikiHit,
+    anchor: EntityAnchor,
+) -> AnchorHitAdmission:
     raw_ticker = anchor.ticker.split(".", 1)[0]
     identities = tuple(
         value.casefold()
@@ -599,6 +606,7 @@ def _trace_detail(
 
 __all__ = [
     "AnchorEvidenceAdmission",
+    "AnchorHitAdmission",
     "EvidenceSearch",
     "EvidenceSearchCoverage",
     "EvidenceSearchPolicy",
