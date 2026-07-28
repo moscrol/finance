@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
+import re
+from typing import Literal, TypeAlias
 
 from intelligence.services import (
     agent_research,
@@ -29,6 +31,26 @@ SemanticJudge = Callable[
     [str, Sequence[tuple[str, str]], float],
     tuple[set[int], str] | None,
 ]
+AnchorEvidenceAdmission: TypeAlias = Literal["open", "subject_local"]
+
+_VALUATION_ASSERTION_RE = re.compile(
+    r"可比估值|合理价格|目标价|估值|市值|市盈率|市净率|市销率"
+    r"|(?<![A-Za-z])(?:PE|PB|PS|EV)(?![A-Za-z])"
+    r"|\d+(?:\.\d+)?\s*倍",
+    re.IGNORECASE,
+)
+_EXPLICIT_RELATION_CUES = (
+    "同属",
+    "可比公司",
+    "同行",
+    "竞争",
+    "上游",
+    "下游",
+    "供应商",
+    "客户",
+    "替代",
+    "产业链",
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +61,7 @@ class EvidenceSearchPolicy:
     required_source_start: date | None = None
     required_source_end: date | None = None
     require_counter_evidence: bool = False
+    anchor_admission: AnchorEvidenceAdmission = "open"
 
 
 @dataclass(frozen=True)
@@ -125,6 +148,11 @@ class EvidenceSearch:
             total_seconds=total_seconds,
             information_cutoff=information_cutoff,
             expansion_policy=self._policy.expansion_policy,
+        )
+        loop = _apply_anchor_admission(
+            loop,
+            anchor=anchor,
+            admission=self._policy.anchor_admission,
         )
         loop = self._apply_semantic_judge(
             cleaned_query,
@@ -278,6 +306,114 @@ def _eligible_entries(
             seen.add(key)
             entries.append((stance, item))
     return tuple(entries)
+
+
+def _apply_anchor_admission(
+    loop: closed_loop_retrieval.ClosedLoopRetrievalResult,
+    *,
+    anchor: EntityAnchor | None,
+    admission: AnchorEvidenceAdmission,
+) -> closed_loop_retrieval.ClosedLoopRetrievalResult:
+    if admission == "open" or anchor is None:
+        return loop
+    if admission != "subject_local":
+        raise ValueError(f"unknown anchor evidence admission: {admission}")
+
+    counter_ids = {_hit_identity(item.hit) for item in loop.counter_clues}
+    conclusions: list[closed_loop_retrieval.BucketedHit] = []
+    counters: list[closed_loop_retrieval.BucketedHit] = []
+    clues = [
+        item
+        for item in loop.clues
+        if _hit_identity(item.hit) not in counter_ids
+    ]
+    discarded = list(loop.discarded)
+    clue_ids = {_hit_identity(item.hit) for item in clues}
+    discarded_ids = {_hit_identity(item.hit) for item in discarded}
+    decisions: dict[tuple[str, str], str] = {}
+
+    def classify(item: closed_loop_retrieval.BucketedHit) -> str:
+        identity = _hit_identity(item.hit)
+        cached = decisions.get(identity)
+        if cached is not None:
+            return cached
+        decision = _anchor_hit_admission(item.hit, anchor)
+        decisions[identity] = decision
+        return decision
+
+    def add_clue(item: closed_loop_retrieval.BucketedHit) -> None:
+        identity = _hit_identity(item.hit)
+        if identity not in clue_ids:
+            clues.append(item)
+            clue_ids.add(identity)
+
+    def add_discarded(item: closed_loop_retrieval.BucketedHit) -> None:
+        identity = _hit_identity(item.hit)
+        if identity not in discarded_ids:
+            discarded.append(item)
+            discarded_ids.add(identity)
+
+    for item in loop.conclusion:
+        decision = classify(item)
+        if decision == "direct":
+            conclusions.append(item)
+        elif decision == "relation_clue":
+            add_clue(item)
+        else:
+            add_discarded(item)
+    for item in loop.counter_clues:
+        decision = classify(item)
+        if decision == "direct":
+            counters.append(item)
+            add_clue(item)
+        elif decision == "relation_clue":
+            add_clue(item)
+        else:
+            add_discarded(item)
+
+    counts = {
+        decision: sum(value == decision for value in decisions.values())
+        for decision in ("direct", "relation_clue", "rejected")
+    }
+    diagnostics = [*loop.diagnostics]
+    diagnostics.append(
+        "anchor_admission="
+        f"direct:{counts['direct']},"
+        f"relation_clue:{counts['relation_clue']},"
+        f"rejected:{counts['rejected']}"
+    )
+    return closed_loop_retrieval.ClosedLoopRetrievalResult(
+        conclusion=conclusions,
+        clues=clues,
+        discarded=discarded,
+        counter_clues=counters,
+        attempts=list(loop.attempts),
+        warnings=list(loop.warnings),
+        diagnostics=diagnostics,
+        telemetry=loop.telemetry,
+    )
+
+
+def _anchor_hit_admission(hit: WikiHit, anchor: EntityAnchor) -> str:
+    raw_ticker = anchor.ticker.split(".", 1)[0]
+    identities = tuple(
+        value.casefold()
+        for value in (anchor.entity, anchor.ticker, raw_ticker)
+        if value
+    )
+    source_identity = f"{hit.title} {hit.file_path}".casefold()
+    if any(value in source_identity for value in identities):
+        return "direct"
+    body = str(
+        hit.llm_evidence or hit.display_excerpt or hit.excerpt or ""
+    ).casefold()
+    if not any(value in body for value in identities):
+        return "rejected"
+    if _VALUATION_ASSERTION_RE.search(body):
+        return "direct"
+    if any(cue in body for cue in _EXPLICIT_RELATION_CUES):
+        return "relation_clue"
+    return "rejected"
 
 
 def _filter_required_source_window(
@@ -462,6 +598,7 @@ def _trace_detail(
 
 
 __all__ = [
+    "AnchorEvidenceAdmission",
     "EvidenceSearch",
     "EvidenceSearchCoverage",
     "EvidenceSearchPolicy",

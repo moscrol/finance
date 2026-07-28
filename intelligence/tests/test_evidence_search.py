@@ -405,3 +405,104 @@ def test_causal_policy_succeeds_with_target_window_support_and_counter() -> None
     assert result.coverage.target_window_counter_count == 1
     assert result.coverage.window_rejected_count == 0
     assert result.gaps == ()
+
+
+def _valuation_admission_hits() -> tuple[WikiHit, ...]:
+    return (
+        _hit(
+            "subject",
+            "瑞华泰（688323）",
+            "瑞华泰估值基础资料",
+        ),
+        _hit(
+            "bare",
+            "天奈科技（688116）",
+            "[[汉威科技]] · [[福莱新材]] · [[瑞华泰]]",
+        ),
+        _hit(
+            "relation",
+            "方邦股份（688020）",
+            "[[瑞华泰]] — PI薄膜企业，同属功能薄膜赛道",
+        ),
+        _hit(
+            "comparable",
+            "功能薄膜可比估值",
+            "瑞华泰与方邦股份属于可比公司，当前PB估值分别为4.3倍与3.1倍",
+        ),
+    )
+
+
+def _first_call_hits_retriever(hits: tuple[WikiHit, ...]):
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        return _response(query, *hits) if calls == 1 else _response(query)
+
+    return retrieve
+
+
+def test_subject_local_admission_separates_direct_relation_and_bare_hits() -> None:
+    result = EvidenceSearch(
+        _first_call_hits_retriever(_valuation_admission_hits()),
+        policy=EvidenceSearchPolicy(anchor_admission="subject_local"),
+    ).search(
+        query="瑞华泰合理估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH", ("PI薄膜",)),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [item.title for item in result.evidence] == [
+        "瑞华泰（688323）",
+        "功能薄膜可比估值",
+    ]
+    assert result.coverage.clue_count == 1
+    assert result.coverage.discarded_count == 1
+    assert (
+        "anchor_admission=direct:2,relation_clue:1,rejected:1"
+        in result.diagnostics
+    )
+
+
+def test_subject_local_admission_runs_before_semantic_judge() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def judge(_query: str, candidates, _timeout: float):
+        seen.extend(candidates)
+        return set(range(len(candidates))), "keep deterministic candidates"
+
+    EvidenceSearch(
+        _first_call_hits_retriever(_valuation_admission_hits()),
+        semantic_judge=judge,
+        policy=EvidenceSearchPolicy(anchor_admission="subject_local"),
+    ).search(
+        query="瑞华泰合理估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH", ("PI薄膜",)),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert [title for title, _excerpt in seen] == [
+        "瑞华泰（688323）",
+        "功能薄膜可比估值",
+    ]
+
+
+def test_default_admission_keeps_existing_open_behavior() -> None:
+    result = EvidenceSearch(
+        _first_call_hits_retriever(_valuation_admission_hits())
+    ).search(
+        query="瑞华泰合理估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH", ("PI薄膜",)),
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert {item.title for item in result.evidence} == {
+        "瑞华泰（688323）",
+        "天奈科技（688116）",
+        "方邦股份（688020）",
+        "功能薄膜可比估值",
+    }
