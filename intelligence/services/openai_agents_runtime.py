@@ -59,6 +59,8 @@ _PARTIAL_EXECUTION_GAPS = frozenset(
 )
 _SDK_MAX_VERIFIER_RESERVE_SECONDS = 20.0
 _SDK_MIN_VERIFIER_RESERVE_SECONDS = 2.0
+_SDK_MAX_DELIVERY_RESERVE_SECONDS = 20.0
+_SDK_MIN_DELIVERY_RESERVE_SECONDS = 5.0
 _SDK_STAGE_CLOSED = "research_stage_closed"
 _SDK_STAGE_CLOSED_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
 _ROOT_BUDGET_CALL_RESERVATION_SECONDS = 1e-9
@@ -102,6 +104,15 @@ def _sdk_runtime_timeout(context: ResearchRunContext) -> float:
             max(0.0, float(context.root_budget.remaining_seconds)),
         )
     return timeout
+
+
+def _sdk_delivery_reserve(runtime_timeout: float) -> float:
+    timeout = max(0.0, float(runtime_timeout))
+    return min(
+        _SDK_MAX_DELIVERY_RESERVE_SECONDS,
+        max(_SDK_MIN_DELIVERY_RESERVE_SECONDS, timeout * 0.25),
+        timeout * 0.5,
+    )
 
 
 def build_glm_sdk_model(
@@ -556,12 +567,14 @@ class _AgentsRunState:
         context: ResearchRunContext,
         is_cancelled: Callable[[], bool],
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        tool_stage_expires_at: float | None = None,
     ) -> None:
         self._registry = registry
         self._context = context
         self._active_context = context
         self._is_cancelled = is_cancelled
         self._event_sink = event_sink
+        self._tool_stage_expires_at = tool_stage_expires_at
         self._authorized = {
             spec.name: spec
             for spec in registry.authorized_specs(context.contract.allowed_capabilities)
@@ -739,6 +752,11 @@ class _AgentsRunState:
         if self._is_cancelled():
             return "cancelled"
         if not self._tools_open:
+            return _SDK_STAGE_CLOSED
+        if (
+            self._tool_stage_expires_at is not None
+            and monotonic() >= self._tool_stage_expires_at
+        ):
             return _SDK_STAGE_CLOSED
         if self._active_context.deadline.expired:
             return "deadline_exhausted"
@@ -1025,11 +1043,17 @@ class OpenAIAgentsRuntime:
             )
         )
 
+        runtime_timeout = _sdk_runtime_timeout(context)
+        tool_stage_expires_at = monotonic() + max(
+            0.0,
+            runtime_timeout - _sdk_delivery_reserve(runtime_timeout),
+        )
         state = _AgentsRunState(
             registry=registry,
             context=context,
             is_cancelled=self._is_cancelled,
             event_sink=self._publish_event,
+            tool_stage_expires_at=tool_stage_expires_at,
         )
         continuation_state: _SdkContinuationState | None = None
         if continuation_sink is not None:
@@ -1041,7 +1065,6 @@ class OpenAIAgentsRuntime:
                 continuation_input=None,
             )
             continuation_sink.append(continuation_state)
-        runtime_timeout = _sdk_runtime_timeout(context)
         if runtime_timeout <= 0.001:
             return self._failure_from_state(
                 task_frame=task_frame,

@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+import intelligence.services.openai_agents_runtime as sdk_runtime_module
+
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
 from intelligence.services.evidence_capabilities import (
@@ -1016,6 +1018,74 @@ def test_sdk_stage_close_instructs_finalization_without_public_gap() -> None:
     ]
     assert "research_stage_closed" not in outcome.gaps
     assert outcome.status == "partial"
+
+
+def test_sdk_delivery_reserve_closes_optional_tools_without_public_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+
+    class FakeClock:
+        def __init__(self) -> None:
+            self.value = 100.0
+
+        def __call__(self) -> float:
+            return self.value
+
+        def advance(self, seconds: float) -> None:
+            self.value += seconds
+
+    clock = FakeClock()
+    monkeypatch.setattr(sdk_runtime_module, "monotonic", clock)
+    observations: list[dict[str, object]] = []
+
+    def delivery_runner(request: AgentsSdkRequest) -> AgentsSdkResult:
+        tools = {tool.name: tool for tool in request.tools}
+        evidence = tools["mainline_context"].invoke("A股 当前主线")
+        clock.advance(46.0)
+        optional = tools["market_news"].invoke("A股 主线补充消息")
+        observations.append(optional)
+        assert optional["status"] == "closed"
+        assert optional["error"] == "research_stage_closed"
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "截至2026-07-24，医药是韧性核心。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": evidence["evidence_hashes"],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    outcome = OpenAIAgentsRuntime(
+        runner=delivery_runner,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            max_steps=3,
+            allowed_capabilities=("mainline_context", "market_news"),
+            timeout=60.0,
+        ),
+        registry=_registry([]),
+    )
+
+    assert observations[0]["instruction"] == (
+        "研究取证阶段已结束，请使用已有信息完成终止回答。"
+    )
+    assert outcome.status == "completed"
+    assert "research_stage_closed" not in outcome.gaps
 
 
 def test_sdk_runtime_turns_tool_budget_exhaustion_into_a_partial_gap() -> None:
