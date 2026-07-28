@@ -13,19 +13,19 @@
 ### Task 1: Isolated knowledge-base implementation branch
 
 **Files:**
-- Create working copy: `/private/tmp/knowledge-base-phase-c-freshness`
+- Create working copy: `/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness`
 
 - [ ] **Step 1: Clone only committed source state**
 
 ```bash
-git clone --shared /Users/a77/knowledge-base-private /private/tmp/knowledge-base-phase-c-freshness
-git -C /private/tmp/knowledge-base-phase-c-freshness checkout -b fix/manifest-freshness-cli 883815c9
+git clone --shared /Users/a77/knowledge-base-private /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness
+git -C /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness checkout -b fix/manifest-freshness-cli 883815c9
 ```
 
 - [ ] **Step 2: Verify isolation**
 
 ```bash
-git -C /private/tmp/knowledge-base-phase-c-freshness status --short
+git -C /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness status --short
 git -C /Users/a77/knowledge-base-private status --short
 ```
 
@@ -34,9 +34,9 @@ Expected: isolated clone clean; original status byte-for-byte unchanged.
 ### Task 2: Manifest-first freshness — red to green
 
 **Files:**
-- Modify: `/private/tmp/knowledge-base-phase-c-freshness/scripts/rag_freshness.py`
-- Modify: `/private/tmp/knowledge-base-phase-c-freshness/scripts/rag_index.py`
-- Modify: `/private/tmp/knowledge-base-phase-c-freshness/tests/test_rag_index_freshness.py`
+- Modify: `/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/scripts/rag_freshness.py`
+- Modify: `/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/scripts/rag_index.py`
+- Modify: `/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/tests/test_rag_index_freshness.py`
 
 - [ ] **Step 1: Add failing manifest behavior tests**
 
@@ -108,7 +108,7 @@ git commit -m "fix: use manifest freshness for RAG queries"
 - [ ] **Step 1: Copy the current BGE-m3 index into the isolated snapshot area**
 
 ```bash
-cp -R /Users/a77/knowledge-base-private/.rag_index /private/tmp/phase-c-clean-rag-index
+cp -R /Users/a77/knowledge-base-private/.rag_index /Users/a77/finance-workspace-private/tmp/phase-c-clean-rag-index
 ```
 
 - [ ] **Step 2: Run a clean incremental refresh**
@@ -133,15 +133,27 @@ git commit -m "docs: pin clean Phase C RAG snapshot"
 ### Task 4: Capability dry-run and bounded replay
 
 **Files:**
-- Create: a dry-run JSON artifact under `/Users/a77/.finance-runtime/evals/`
-- Create: two bounded replay JSON artifacts under `/Users/a77/.finance-runtime/evals/`
+- Create: `docs/verification/phase-c-capability-dry-run-2026-07-29.json`
+- Create: `docs/verification/phase-c-evidence-search-replay-2026-07-29.json`
+- Create: `docs/verification/phase-c-evidence-search-replay-hybrid-2026-07-29.json`
 - Create/modify: runtime verification document in the candidate worktree
 
 - [ ] **Step 1: Generate current capability dry-run**
 
-Use the existing benchmark dry-run command at the candidate runtime revision.
-Assert the contract is non-null and record whether `evidence_search` is actually
-allowed for valuation and weekly-cause cases.
+Run the candidate revision's benchmark dry-run command (no provider or tool
+execution):
+
+```bash
+python3 scripts/run_agent_runtime_benchmark.py \
+  --dry-run --backend sdk_gpt \
+  --questions-file /Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-2026-07-27.json \
+  --output docs/verification/phase-c-capability-dry-run-2026-07-29.json
+```
+
+The external evals directory is not a required write target for this slice;
+the candidate-worktree artifact is the committed receipt. Assert the contract
+is non-null and record whether `evidence_search` is actually allowed for
+valuation and weekly-cause cases.
 
 - [ ] **Step 2: Replay 瑞华泰 valuation through evidence_search**
 
@@ -181,3 +193,25 @@ classification, and untouched main/8792/8799/28-case/App Server boundaries.
 git add docs/verification/phase-c-retrieval-contract-2026-07-29.md docs/handoffs/2026-07-29-phase-c-completion-handoff.md
 git commit -m "docs: hand off completed Phase C retrieval diagnosis"
 ```
+
+## Execution record (2026-07-29)
+
+Tasks 1–4 are complete on the isolated runtime branch. The formal KB clone is
+`/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness`
+(`fix/manifest-freshness-cli`, code `9053b0c4`), and the candidate runtime tip
+is `d92b554a`. The clean receipt, capability dry-run, deterministic replay,
+and production-mode replay are committed under `docs/verification/`.
+
+The final verification and handoff in Task 5 are now written in the candidate
+worktree and will be committed as the final evidence slice. The KB clone's
+generated access-log probe entries were removed before its clean-status check;
+no source Wiki or canonical runtime was modified by this work.
+
+### Final execution checklist
+
+- [x] Isolated KB implementation and manifest-first freshness tests.
+- [x] Clean snapshot receipt and exact artifact hashes.
+- [x] Capability dry-run with non-null contracts.
+- [x] Bounded valuation and weekly-cause evidence replays.
+- [x] Gap classification, focused gates, full-suite baseline accounting, and
+  final verification/handoff.

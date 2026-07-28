@@ -13,10 +13,14 @@ KB_VAULT=/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshne
 RAG_INDEX_DIR=/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/.rag_index
 ```
 
-The original `/Users/a77/knowledge-base-private` repository was not modified.
-Its status remains 46 entries overall and 0 entries in the five indexed page
-directories. The clean clone is based on private `main@883815c9` and has 0
-dirty entries in those indexed directories.
+No command in this Phase C slice wrote the original
+`/Users/a77/knowledge-base-private` repository. At the final audit it is still
+on `main@883815c9`; concurrent worktree changes exist in raw/disclosure and
+relations paths, while the five indexed page directories remain at 0 dirty
+entries. The clean clone is based on private `main@883815c9` and has 0 dirty
+entries in those indexed directories. Do not treat the original worktree's
+full status as the clean receipt; the clone and the hashes below are the
+controlled experiment surface.
 
 ## Snapshot metadata
 
@@ -73,18 +77,19 @@ exit code alone.
 
 ## Focused implementation verification
 
-In the isolated KB clone:
+In the isolated KB clone, the final freshness/retrieval/release/evaluation
+focused set:
 
 ```text
-47 passed
+49 passed
 ruff check: passed
 git diff --check: passed
 ```
 
 The implementation commit is `9053b0c4` (`fix: use manifest freshness for RAG
-queries`). The finance candidate branch only contains the design/plan and this
-receipt so far; `main`, 8792/8799, the original KB, the 28-case suite, and App
-Server remain untouched.
+queries`). The finance candidate branch keeps the design/plan and verification
+receipts; `main`, 8792/8799, the 28-case suite, the original KB, and App Server
+remain outside the implementation surface.
 
 ## Boundary
 
