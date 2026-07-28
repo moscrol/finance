@@ -57,8 +57,9 @@ be replayed against the same data boundary; it is not just a timestamp label.
 ## The seam that must be handled next
 
 There is a manifest freshness implementation that is not wired into the query
-CLI, while the query CLI uses a Git-based helper. The current stale result has
-two independent causes:
+CLI, while the query CLI uses a Git-based helper. The current result carries two
+independent non-fresh signals, but only the first makes the top-level state
+`stale`:
 
 1. `RagStore.index_freshness(wiki)` compares the v2 `manifest:v1:*` source
    fingerprint and returns `fresh` for the private structured index, but no
@@ -66,14 +67,17 @@ two independent causes:
 2. `scripts/rag_freshness.check_index_freshness(...)`, used by
    `scripts/rag_index.py query`, checks Git revision/working-tree state and
    returns `stale` for the same index; separately, its
-   `meta.source_dirty is True` check also returns `stale` without doing any Git
-   comparison. Advancing `HEAD` to `5e4cc9c4` would remove only the first
-   reason, not the dirty-build veto.
+   `meta.source_dirty is True` check appends an `unknown` signal without doing
+   any Git comparison. Advancing `HEAD` to `5e4cc9c4` would remove the stale
+   reason but leave the overall result `unknown`, not `fresh`.
 
-The query path therefore fails early; the `kb_rag.retrieve(..., require_fresh=True)`
-evidence gate is not reached. This is a real integration bug/contract mismatch,
-not a reason to weaken the evidence gate. The next slice should wire one explicit
-freshness contract into the CLI, then add regression tests for:
+The current query path therefore fails early; the
+`kb_rag.retrieve(..., require_fresh=True)` evidence gate is not reached. If only
+the Git-diff error is removed, the CLI will proceed because it early-returns only
+for `stale`, but every hit will carry `index_freshness=unknown` and the runtime
+gate will still discard all of them. This is a real integration bug/contract
+mismatch, not a reason to weaken the evidence gate. The next slice should wire
+one explicit freshness contract into the CLI, then add regression tests for:
 
 - a manifest-fresh source whose Git revision is a descendant of checked-out
   `HEAD`;
@@ -81,6 +85,7 @@ freshness contract into the CLI, then add regression tests for:
 - a changed raw file when `include_raw=true`;
 - a missing/legacy provenance field;
 - the stale-policy `fail` early return;
+- the `unknown` transition where CLI returns hits but runtime rejects them;
 - `require_fresh=true` rejecting genuinely stale hits.
 
 The wiring is not a one-line function swap: `RagStore.index_freshness(wiki)`
@@ -89,8 +94,9 @@ needs the Wiki `vault_root` to recompute its manifest, while the current
 vault root (and the index's include-raw/max-files scope) into the freshness
 calculation, while keeping Git provenance and the historical `source_dirty`
 flag separately observable. Also note that the CLI computes one index-level
-freshness value and copies it into every hit; if the index is stale, every hit is
-stale—there is no per-chunk rescue path.
+freshness value and copies it into every hit; if the index is stale or unknown,
+every hit inherits that state—there is no per-chunk rescue path. The acceptance
+condition is therefore runtime `fresh`, not merely “CLI no longer exits early.”
 
 Do not start `evidence_search` replay until the selected clean snapshot reports
 `fresh` through the same path used by the runtime.

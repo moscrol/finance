@@ -99,26 +99,30 @@ The checks expose two different notions of freshness:
 |---|---:|---:|---:|
 | chunk/source comparison (`rag_index.py check`) | 36,298 stale chunks (`indexed=101042`, `current=123816`) | **0 stale** (`indexed=104611`, `current=104611`) | 54,928 stale chunks (`indexed=80956`, `current=123716`) |
 | manifest freshness (`RagStore.index_freshness`) | unavailable in legacy metadata | **fresh** | unavailable in legacy metadata |
-| query CLI freshness (`scripts/rag_freshness.check_index_freshness`) | **stale**: age 14.9d and missing Git revision | **stale** for two independent reasons: `indexed source changed in git` and `source_dirty=true` | legacy metadata has no provenance and is older (`2026-06-19`) |
+| query CLI freshness (`scripts/rag_freshness.check_index_freshness`) | **stale**: age 14.9d and missing Git revision | **stale** because Git diff populates `reasons`; historical `source_dirty=true` independently populates `unknown` | legacy metadata has no provenance and is older (`2026-06-19`) |
 
 This distinction is the key Phase C finding. `rag_index.py query` calls the
 Git-based freshness helper before loading the retriever. With the default
 `STALE_POLICY=fail`, the command exits with code `3` and emits no hits. The
 `kb_rag.retrieve(..., require_fresh=True)` evidence gate is therefore not
-reached in this failure mode. The second stale reason is independent of any
-Git comparison: `check_index_freshness` explicitly rejects
-`meta.source_dirty is True`. Advancing `HEAD` to `5e4cc9c4` would remove only
-the Git-diff reason; it would not remove this historical dirty-build veto.
+reached in this failure mode. `meta.source_dirty is True` is independent of any
+Git comparison, but it is added to the helper's `unknown` list, not its
+`reasons` list. On its own it produces `unknown`, not `stale`. Advancing `HEAD`
+to `5e4cc9c4` would therefore remove the Git-diff reason and let the CLI proceed
+with `index_freshness=unknown`; it would not produce `fresh`.
 `RagStore.index_freshness` has the better manifest comparison, but it is not
 wired into this CLI path and requires the Wiki `vault_root` as an input.
 
 When the CLI does proceed, freshness is calculated once at the index level and
-copied into every returned hit. A stale index therefore makes all hits stale;
-there is no per-chunk freshness repair in the query result.
+copied into every returned hit. A stale or unknown index therefore gives every
+hit that same non-fresh state; there is no per-chunk freshness repair in the
+query result. `kb_rag.retrieve(..., require_fresh=True)` accepts only `fresh`,
+so it rejects both states.
 
 The next slice must repair that early-exit/authority seam without weakening the
-fail-closed evidence gate, add regression tests, and only then replay
-`evidence_search`.
+fail-closed evidence gate. Its acceptance condition is an end-to-end runtime
+`fresh` result, not merely a CLI that no longer exits early. Add regression
+tests and only then replay `evidence_search`.
 
 ### Bounded direct-query sanity probe
 
