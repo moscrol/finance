@@ -1,12 +1,21 @@
 # Adaptive Finance Runtime × Codex App Server Canonical Handoff
 
 Date: 2026-07-28
-Status: active; core implementation mostly complete; live release gate not green
+Status: product objective remains canonical; execution status superseded by the
+Phase A/B completion handoff below
 Branch: `feat/agent-runtime-backends-verify`
-Committed HEAD: `f0742f72`
+Product-code tip: `803367f1`
 Isolated working copy: `/Users/a77/finance-workspace-private/tmp/agent-runtime-seam-fix-69f9cf17`
-Isolated acceptance asset: `eval/acceptance-board@8279b2bd`
+Integrated acceptance source: `eval/acceptance-board@8279b2bd`
 Canonical 8792 / `main`: unchanged
+
+> Execution update: Phase A production parity, typed timeout accounting,
+> Phase A.5 acceptance integration, and Phase B preregistration are complete.
+> Read
+> `docs/handoffs/2026-07-28-adaptive-runtime-phase-a-b-completion.md` for the
+> authoritative current state. The product objective and architecture in this
+> document remain canonical; later sections describing red WIP or unintegrated
+> acceptance assets are historical and must not restart completed work.
 
 This is the canonical entry point for the next agent. It combines the product
 objective, the Adaptive Runtime work, the current production-parity WIP, and the
