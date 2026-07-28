@@ -102,8 +102,8 @@ Detailed evidence:
 | Fresh/causal/valuation deterministic seams | complete for fixed cases | all have tests plus pinned true-Hybrid replay |
 | Changed-surface regression | green | 246/246 |
 | Full local regression | baseline-limited | 2958 pass; 24 known environment failures |
-| Live semantic evidence judge | externally blocked | no environment-configured provider; deterministic capture ordering passes |
-| Budget-neutral representative evaluation | pending | preregistered three-case A/B/C/D ablation has not run |
+| Live semantic evidence judge | externally blocked | direct CLI, local-exec/browser route, and VPS SSH all fail before model response in the managed environment |
+| Budget-neutral representative evaluation | prepared, not run | exact clean detached `803367f1` worktree and input hash are ready; four live artifacts remain absent |
 | Acceptance measurement seam | complete | operational/truth/experience verdicts and hash-bound external observations are implemented |
 | Knevo reference accounting | complete; labels pending | all 28 cases typed; 22 snapshots present, 6 missing; no uniform denominator |
 | Wider 28-case acceptance / Knevo comparison | not ready | current Workbench run and independent semantic/blind labels remain incomplete |

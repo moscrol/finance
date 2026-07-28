@@ -66,6 +66,18 @@ During verification, a process briefly appeared as listening on port 28080, but 
 was present. This is not evidence that the route is ready. Recheck once at execution time; do
 not loop on it or expose credentials.
 
+The exact frozen execution worktree is now prepared and clean:
+
+```text
+/Users/a77/finance-workspace-private/tmp/headless-ablation-803367f1
+HEAD 803367f16c90cf3b0a0526d4224e4acb55a7a79d
+```
+
+A direct non-financial CLI probe, browser route probe, Terminal/Ghostty control, and VPS SSH
+fallback were each rejected before a model response by the current managed environment. These
+are classified in `docs/verification/final-goal-live-execution-gate-2026-07-29.md`; none counts
+as an acceptance failure or authorizes a transport substitution.
+
 ## Boundaries
 
 - Model remains `gpt-5.6-sol`.
