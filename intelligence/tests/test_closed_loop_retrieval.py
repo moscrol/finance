@@ -238,6 +238,10 @@ def test_observed_query_cost_skips_apertures_that_cannot_fit_budget(
         ("broad", "budget_exhausted"),
         ("counter", "budget_exhausted"),
     ]
+    assert [attempt.executed for attempt in result.attempts] == [True, False, False]
+    assert [
+        item["executed"] for item in result.inspector_dict()["attempts"]
+    ] == [True, False, False]
     assert [item.hit.title for item in result.conclusion] == ["液冷服务器"]
     assert result.warnings == [
         "broad retrieval skipped: remaining budget below observed query cost",

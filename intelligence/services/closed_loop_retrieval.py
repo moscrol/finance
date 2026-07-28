@@ -52,6 +52,7 @@ class RetrievalAttempt:
     query: str
     status: str
     hit_count: int
+    executed: bool = True
     requested_mode: str = ""
     effective_mode: str = ""
     fallback_reason: str = ""
@@ -83,6 +84,7 @@ class ClosedLoopRetrievalResult:
                     "query": attempt.query,
                     "status": attempt.status,
                     "hit_count": attempt.hit_count,
+                    "executed": attempt.executed,
                     "requested_mode": attempt.requested_mode,
                     "effective_mode": attempt.effective_mode,
                     "fallback_reason": attempt.fallback_reason,
@@ -257,6 +259,7 @@ def _run_aperture(
                     query=candidate,
                     status="budget_exhausted",
                     hit_count=0,
+                    executed=False,
                 )
             )
             warning = (
