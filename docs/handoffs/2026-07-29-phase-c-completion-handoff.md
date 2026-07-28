@@ -35,7 +35,6 @@ Knevo scoring.
 ```text
 worktree  /Users/a77/finance-workspace-private/tmp/agent-runtime-seam-fix-69f9cf17
 branch    feat/agent-runtime-backends-verify
-tip       d92b554a
 ```
 
 Relevant commits:
@@ -44,7 +43,13 @@ Relevant commits:
 - `b60a759e` — clean RAG snapshot receipt;
 - `f2b7a570` — capability dry-run receipt;
 - `80c045ee` — deterministic BM25 replay;
-- `d92b554a` — production-mode replay requested as Hybrid.
+- `d92b554a` — production-mode replay requested as Hybrid;
+- `f1d1f9ee` — this completion handoff;
+- plus the post-review correction commit that carries the dense-dependency and
+  test-ledger fixes described below.
+
+The branch tip advances with each docs commit; read it from `git log` rather than
+from a pinned value in this file.
 
 The final verification is
 [`phase-c-retrieval-contract-2026-07-29.md`](../verification/phase-c-retrieval-contract-2026-07-29.md).
@@ -141,12 +146,31 @@ same-prefix entities as if they were the target company.
 Do not solve this with an unrestricted Wiki grep tool. The evidence ledger,
 content hashes, and cutoff fields must remain intact.
 
-### P1 — provide dense dependency, then rerun quality replay
+### P1 — point the KB clone at the existing dense venv, then rerun quality replay
 
-The current machine lacks `FlagEmbedding`; the “Hybrid” artifact is therefore
-BM25 fallback. Install/provide the dense dependency in a controlled environment
-and rerun the same two cases with the same snapshot and cutoff. Compare recall,
-contamination, latency, and telemetry—not just `success`.
+**Corrected.** The earlier claim that this machine lacks `FlagEmbedding` is
+falsified. `/Users/a77/knowledge-base-private/.rag_venv` (Python 3.12.13) imports
+`FlagEmbedding`, `rank_bm25`, `yaml`, and `numpy`, and the bge-m3 weights are
+already cached locally (4.3G). The `hybrid` request degraded to BM25 because
+`kb_rag._resolve_rag_python` (`kb_rag.py:371-380`) falls back to `sys.executable`
+when the KB root has no `.rag_venv`/`.venv` — and those are gitignored
+(`.gitignore:31-32`), so a clone never has them.
+
+So this is a one-line environment wiring fix, not an install task: set
+`KB_RAG_PYTHON=/Users/a77/knowledge-base-private/.rag_venv/bin/python3` (or add the
+venv inside the clone). True Hybrid has already been reproduced against the pinned
+snapshot this way: dense weights loaded, 5 hits, all `fresh`, RRF band
+`0.1956 → 0.1779`.
+
+Because this step is now cheap, it should run **before** the semantic-filtering work
+— it supplies the correct baseline that P1 filtering must be measured against.
+One finding already carries over: `wiki/entities/天奈科技.md` still ranks in true
+Hybrid, so the contamination gap is real and not a BM25 artifact.
+
+Caveat: that `.rag_venv` is a symlink into `/Users/a77/知识库`, the legacy repo
+barred as a *data* source. Code and index stay isolated in the clone; only the
+interpreter comes from there. Prefer an explicit `KB_RAG_PYTHON` over the symlink,
+and do not let this reintroduce the Chinese root as a retrieval source.
 
 ### P2 — semantic judge replay
 
@@ -165,6 +189,14 @@ Ruff: passed
 git diff --check: passed
 ```
 
+These counts do not record the interpreter, so they are not reproducible as written.
+Neither obvious candidate on this machine can run the KB suite as-is: `.rag_venv`
+has the dense/BM25 stack but no `pytest`; `/usr/bin/python3` has `pytest` but no
+`rank_bm25`. Under `/usr/bin/python3`, `tests/test_rag_index_freshness.py` gives
+`1 failed, 6 passed`, the failure being `ModuleNotFoundError: rank_bm25` in a
+subprocess — an environment gap, not a defect in `9053b0c4`. Record the exact
+interpreter path with any future pass count.
+
 The full-suite failure is
 `tests/test_file_transaction.py::FileTransactionTest::test_commit_failure_rolls_back_all_targets`, reproduced as a baseline failure and
 unrelated to this freshness slice. Without `FINANCE_WS`, collection fails on
@@ -173,18 +205,23 @@ in future KB test commands.
 
 ## Next execution order
 
-1. **Implement the causal anchor guard** in a fresh KB/runtime worktree with
+0. **Pin the dense interpreter and capture a true Hybrid baseline.** Set
+   `KB_RAG_PYTHON` to the existing dense venv and replay both cases against the
+   same receipt hashes and cutoff. This is now an environment variable, not an
+   install, so it comes first and gives every later step a correct baseline.
+1. **Thread fallback telemetry** through `EvidenceSearchResult`; add tests for
+   first-call and cached-call degradation. Do this early: without it you cannot
+   tell a true Hybrid run from a silent BM25 fallback, which would invalidate
+   the comparisons in steps 2-3.
+2. **Implement the causal anchor guard** in a fresh KB/runtime worktree with
    tests first; replay only `weekly-market-cause` bounded apertures.
-2. **Thread fallback telemetry** through `EvidenceSearchResult`; add tests for
-   first-call and cached-call degradation.
-3. **Fix valuation anchor filtering** and replay the same 瑞华泰 case.
-4. **Run true Hybrid replay** only after `FlagEmbedding` is available; preserve
-   the same receipt hashes and cutoff.
-5. **Enable semantic judge replay**, then decide whether a larger benchmark,
+3. **Fix valuation anchor filtering** and replay the same 瑞华泰 case, measured
+   against the step-0 Hybrid baseline rather than the BM25 artifact.
+4. **Enable semantic judge replay**, then decide whether a larger benchmark,
    App Server ceiling experiment, or Knevo blind comparison is justified.
 
 Do not run the 28-case suite, build App Server, change freshness gates, or
-promote 8792/8799 before steps 1–4 have clean, comparable evidence.
+promote 8792/8799 before steps 0–3 have clean, comparable evidence.
 
 ## Boundaries and release status
 

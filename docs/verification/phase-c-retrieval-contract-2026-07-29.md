@@ -127,11 +127,51 @@ freshness relabelling.
 
 ## 4. Requested Hybrid versus effective retrieval
 
-The replay requested `hybrid`, but this machine lacks the `FlagEmbedding` dense
-dependency. The actual path therefore fell back to BM25. An independent
-telemetry probe recorded: `requested_mode=hybrid`, `effective_mode=bm25`,
+The replay requested `hybrid` and fell back to BM25. An independent telemetry
+probe recorded: `requested_mode=hybrid`, `effective_mode=bm25`,
 `fallback_reason=dense_dependency_missing`, `degraded=true`.
 
+**Corrected root cause.** The earlier reading of this artifact — that the machine
+lacks `FlagEmbedding` — is falsified. `/Users/a77/knowledge-base-private/.rag_venv`
+(Python 3.12.13) imports `FlagEmbedding`, `rank_bm25`, `yaml`, and `numpy`, and the
+BAAI/bge-m3 weights are already cached locally (4.3G at
+`~/.cache/huggingface/hub/models--BAAI--bge-m3`). The real cause is interpreter
+selection: `kb_rag._resolve_rag_python` (`intelligence/services/kb_rag.py:371-380`)
+resolves `KB_RAG_PYTHON`/`RAG_PYTHON` → `<kb_root>/.rag_venv/bin/python` →
+`<kb_root>/.venv/bin/python` → `sys.executable`, and the KB clone
+`tmp/knowledge-base-phase-c-freshness` contains neither venv, because `.rag_venv/`
+and `.venv/` are gitignored (`.gitignore:31-32`) and therefore absent from a clone.
+The run silently fell back to `sys.executable`, which has no dense stack.
+
+This is a clone-environment wiring gap, not a missing machine dependency. It does
+not need a new controlled environment or an install step.
+
+**True Hybrid is reproducible now.** Pointing the clone at the existing venv runs
+real dense retrieval against the pinned snapshot:
+
+```text
+cd /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness
+RAG_INDEX_DIR=$PWD/.rag_index HF_HUB_OFFLINE=1 \
+  /Users/a77/knowledge-base-private/.rag_venv/bin/python3 \
+  scripts/rag_index.py query "瑞华泰 估值" --k 5 --mode hybrid --json
+```
+
+Observed: dense weights loaded (`391/391`), 5 hits, all `index_freshness=fresh`,
+RRF score band `0.1956 → 0.1779` — a fusion profile, not a BM25 ranking. Hits were
+`wiki/entities/瑞华泰.md`, `wiki/sources/688323_瑞华泰_最新逻辑卡.md`,
+`wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md`, `wiki/concepts/PI薄膜.md`,
+and `wiki/entities/天奈科技.md`. Note the last one: **near-word/related-company
+contamination survives true Hybrid**, so the P1 semantic-filtering gap is not an
+artifact of BM25 fallback.
+
+Caveat on the execution environment: `/Users/a77/knowledge-base-private/.rag_venv`
+is a symlink to `/Users/a77/知识库/.rag_venv` — the legacy Chinese-root repository
+that is barred as a *data* source. Code and index are isolated to the clone; the
+interpreter is not. This does not affect the results above (the venv supplies only
+Python and packages), but if that repository is modified the experiment environment
+moves with it. Prefer an explicit `KB_RAG_PYTHON` over relying on the symlink.
+
+The telemetry gap below is independent of the interpreter issue and still stands.
 Later calls used `dense_dependency_cached_unavailable`; the final
 `EvidenceSearchResult` did not carry the cached `effective_mode/degraded`
 telemetry even though a separate probe confirmed it. This is a real P1
@@ -151,6 +191,17 @@ KB freshness/retrieval/release/evaluation focused tests: 49 passed
 KB Ruff: passed
 git diff --check: passed (candidate and KB clone)
 ```
+
+The KB test figure is not reproducible without recording the interpreter, and this
+record did not name it. On this machine neither obvious candidate can run that
+suite as-is: `.rag_venv` has the dense/BM25 stack but **no `pytest`**, while
+`/usr/bin/python3` has `pytest` but **no `rank_bm25`**. Running
+`tests/test_rag_index_freshness.py` under `/usr/bin/python3` with
+`FINANCE_WS=<candidate worktree>` gives `1 failed, 6 passed`, where the single
+failure is `ModuleNotFoundError: No module named 'rank_bm25'` inside a subprocess —
+an environment gap, not a defect in `9053b0c4`. Future KB test commands must record
+the exact interpreter path alongside the pass count, and `FINANCE_WS` must stay set
+or collection fails on multiple-candidate-worktree discovery.
 
 With `FINANCE_WS=/Users/a77/finance-workspace-private` explicitly set to avoid
 multiple-repository auto-discovery, the KB full suite produced:
