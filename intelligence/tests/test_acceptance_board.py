@@ -13,6 +13,11 @@ import json
 import pytest
 
 from intelligence.eval import acceptance
+from intelligence.eval.acceptance_observations import (
+    REFERENCE_ELIGIBILITY_PATH,
+    canonical_artifact_hash,
+)
+from intelligence.eval.acceptance_verdict import VERDICT_OVERLAY_PATH
 
 HEALTHY = {
     "status": "healthy",
@@ -321,6 +326,115 @@ def test_board_keeps_operational_truth_and_experience_axes_separate(
     assert "不可判" in output
     assert "不是 28 题产品通过率" in output
     assert "有答案待判" not in output
+
+
+def test_board_accepts_only_explicit_hash_bound_sidecars(
+    tmp_path, monkeypatch, capsys
+):
+    run_path = acceptance.REPO / "intelligence/eval/runs/20260727T032229Z.json"
+    monkeypatch.setattr(acceptance, "latest_run", lambda: run_path)
+    source = {
+        "run_path": "intelligence/eval/runs/20260727T032229Z.json",
+        "run_sha256": hashlib.sha256(run_path.read_bytes()).hexdigest(),
+        "cases_sha256": hashlib.sha256(acceptance.CASES_PATH.read_bytes()).hexdigest(),
+        "overlay_sha256": hashlib.sha256(VERDICT_OVERLAY_PATH.read_bytes()).hexdigest(),
+    }
+    truth = {
+        "format_version": 1,
+        "artifact_kind": "acceptance_truth_observations",
+        "created_at": "2026-07-29T12:00:00Z",
+        "source": source,
+        "evaluator": {
+            "id": "independent-semantic-reviewer",
+                "kind": "semantic_model",
+                "model": "gpt-5.6-sol",
+                "independent": True,
+        },
+        "rubric_sha256": "a" * 64,
+        "case_observations": {
+            "C9-citation-integrity": {
+                "truth_observations": {
+                    "pass_rule": {
+                        "state": "fail",
+                        "reason": "causal question unanswered",
+                        "evidence_refs": ["turn:0"],
+                    }
+                }
+            }
+        },
+    }
+    truth["artifact_sha256"] = canonical_artifact_hash(truth)
+    truth_path = tmp_path / "truth.json"
+    truth_path.write_text(json.dumps(truth), encoding="utf-8")
+
+    experience = {
+        "format_version": 1,
+        "artifact_kind": "acceptance_experience_labels",
+        "created_at": "2026-07-29T12:00:00Z",
+        "source": source,
+        "evaluator": {
+            "id": "blind-reviewer",
+            "kind": "blind_reviewer",
+            "independent": True,
+        },
+        "rubric_sha256": "b" * 64,
+        "comparison": {
+            "reference_agent": "knevo",
+            "reference_eligibility_sha256": hashlib.sha256(
+                REFERENCE_ELIGIBILITY_PATH.read_bytes()
+            ).hexdigest(),
+            "blind_manifest_sha256": "pending",
+        },
+        "case_observations": {
+            "C9-citation-integrity": {
+                "experience_verdict": {
+                    "eligible": True,
+                    "label": "reference",
+                    "reason": "more direct",
+                    "blinded_pair_id": "pair-c9",
+                    "dimensions": ["directness"],
+                }
+            }
+        },
+    }
+    snapshot = (
+        acceptance.REPO
+        / "intelligence/eval/cases/reference_snapshots/C9-citation-integrity.knevo.json"
+    )
+    blind = {
+        "format_version": 1,
+        "created_at": "2026-07-29T11:55:00Z",
+        "pairs": {
+            "pair-c9": {
+                "case_id": "C9-citation-integrity",
+                "left": "workbench",
+                "right": "reference",
+                "workbench_run_sha256": source["run_sha256"],
+                "reference_snapshot_sha256": hashlib.sha256(
+                    snapshot.read_bytes()
+                ).hexdigest(),
+            }
+        },
+    }
+    blind["artifact_sha256"] = canonical_artifact_hash(blind)
+    blind_path = tmp_path / "blind.json"
+    blind_path.write_text(json.dumps(blind), encoding="utf-8")
+    experience["comparison"]["blind_manifest_sha256"] = blind["artifact_sha256"]
+    experience["artifact_sha256"] = canonical_artifact_hash(experience)
+    experience_path = tmp_path / "experience.json"
+    experience_path.write_text(json.dumps(experience), encoding="utf-8")
+
+    args = acceptance.argparse.Namespace(
+        truth_observations=str(truth_path),
+        experience_labels=str(experience_path),
+        blind_manifest=str(blind_path),
+    )
+    assert acceptance.cmd_board(args) == 0
+    output = capsys.readouterr().out
+
+    c9 = next(line for line in output.splitlines() if line.startswith("| C9-"))
+    assert "❌ 失败" in c9
+    assert "已盲标(reference)" in c9
 
 
 if __name__ == "__main__":

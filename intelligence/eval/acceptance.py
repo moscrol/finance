@@ -27,10 +27,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence.eval.acceptance_observations import (
+    ObservationArtifactError,
+    REFERENCE_ELIGIBILITY_PATH,
+    load_observation_artifact,
+)
 from intelligence.eval.acceptance_verdict import (
     ExperienceState,
     OperationalState,
     VerdictState,
+    VERDICT_OVERLAY_PATH,
     compile_case_contract,
     evaluate_case,
     load_verdict_overlay,
@@ -301,6 +307,12 @@ def cmd_board(args: argparse.Namespace) -> int:
             f"（前置检查{'通过' if rec.get('preflight_ok') else '未过'}）"
         )
 
+    try:
+        observations_by_case = _load_board_observations(args, run_path)
+    except ObservationArtifactError as exc:
+        print(f"❌ observation sidecar 无效：{exc}")
+        return 2
+
     overlay = load_verdict_overlay()
     print(f"# 验收看板 · {header_note}\n")
     print("| 题 | 组 | 运行 | 真值 | 体验 | 耗时 | 绑定证据 | 说明 |")
@@ -329,7 +341,11 @@ def cmd_board(args: argparse.Namespace) -> int:
     for c in cases:
         r = by_id.get(c["id"])
         contract = compile_case_contract(c, overlay[c["id"]])
-        verdict = evaluate_case(contract, r)
+        verdict = evaluate_case(
+            contract,
+            r,
+            observations=observations_by_case.get(c["id"]),
+        )
         operational_tally[verdict.operational.state] += 1
         truth_tally[verdict.truth.state] += 1
         experience_tally[verdict.experience.state] += 1
@@ -358,7 +374,8 @@ def cmd_board(args: argparse.Namespace) -> int:
             f"| {c['id']} | {c['tier']} | "
             f"{operational_labels[verdict.operational.state]} | "
             f"{truth_labels[verdict.truth.state]} | "
-            f"{experience_labels[verdict.experience.state]} | "
+            f"{experience_labels[verdict.experience.state]}"
+            f"{f'({verdict.experience.label})' if verdict.experience.label else ''} | "
             f"{(t0 or {}).get('elapsed_s', '—')}"
             f"{'s' if t0 else ''} | {(t0 or {}).get('evidence_bound') or 0 if t0 else '—'} | "
             f"{detail} |"
@@ -397,6 +414,61 @@ def cmd_board(args: argparse.Namespace) -> int:
     snaps = list(SNAPSHOT_DIR.glob("*.json")) if SNAPSHOT_DIR.exists() else []
     print(f"**参照快照**：已冻结 {len(snaps)} / {total} 道（codex/knevo）")
     return 0
+
+
+def _load_board_observations(
+    args: argparse.Namespace, run_path: Path | None
+) -> dict[str, dict[str, Any]]:
+    requested = (
+        (
+            getattr(args, "truth_observations", None),
+            "acceptance_truth_observations",
+        ),
+        (
+            getattr(args, "experience_labels", None),
+            "acceptance_experience_labels",
+        ),
+    )
+    if not any(path for path, _kind in requested):
+        if getattr(args, "blind_manifest", None):
+            raise ObservationArtifactError(
+                "blind manifest requires --experience-labels"
+            )
+        return {}
+    if run_path is None:
+        raise ObservationArtifactError("没有 run，不能加载 observation sidecar")
+
+    merged: dict[str, dict[str, Any]] = {}
+    for raw_path, expected_kind in requested:
+        if not raw_path:
+            continue
+        artifact = load_observation_artifact(
+            Path(raw_path),
+            run_path=run_path,
+            cases_path=CASES_PATH,
+            overlay_path=VERDICT_OVERLAY_PATH,
+            reference_eligibility_path=REFERENCE_ELIGIBILITY_PATH,
+            blind_manifest_path=(
+                Path(getattr(args, "blind_manifest"))
+                if expected_kind == "acceptance_experience_labels"
+                and getattr(args, "blind_manifest", None)
+                else None
+            ),
+        )
+        if artifact.kind != expected_kind:
+            raise ObservationArtifactError(
+                f"{raw_path} kind={artifact.kind}, expected={expected_kind}"
+            )
+        for case_id in artifact.case_observations:
+            projection = artifact.for_case(case_id)
+            target = merged.setdefault(case_id, {})
+            duplicate = set(target) & set(projection)
+            if duplicate:
+                raise ObservationArtifactError(
+                    f"duplicate observation axes for {case_id}: {sorted(duplicate)}"
+                )
+            target.update(projection)
+    return merged
 
 
 def classify_failure(turn: dict[str, Any]) -> str:
@@ -490,6 +562,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     b = sub.add_parser("board", help="打印看板（进度唯一来源）")
+    b.add_argument("--truth-observations", help="显式绑定的 truth observation sidecar")
+    b.add_argument("--experience-labels", help="显式绑定的 blind experience sidecar")
+    b.add_argument("--blind-manifest", help="experience sidecar 对应的密封盲评身份清单")
     b.set_defaults(func=cmd_board)
 
     r = sub.add_parser("run", help="走真实路径跑题并落 trace")

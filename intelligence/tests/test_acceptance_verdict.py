@@ -299,11 +299,11 @@ def test_semantic_coverage_never_silently_passes() -> None:
     unjudged = evaluate_case(contract, _completed("没有引用标签。"))
     judged = evaluate_case(
         contract,
-        {
-            **_completed("给出完整因果链。"),
+        _completed("给出完整因果链。"),
+        observations={
             "truth_observations": {
                 "pass_rule": {"state": "pass", "reason": "blind semantic review"}
-            },
+            }
         },
     )
 
@@ -311,6 +311,43 @@ def test_semantic_coverage_never_silently_passes() -> None:
     assert unjudged.truth.state is VerdictState.UNJUDGEABLE
     assert _rule(judged, "pass_rule").state is VerdictState.PASS
     assert judged.truth.state is VerdictState.PASS
+
+
+def test_external_observations_cannot_erase_hard_failure_or_mix_experience() -> None:
+    contract = compile_case_contract(
+        {
+            "id": "C9",
+            "tier": "long_tail",
+            "query": "cause",
+            "forbid_phrases": ["编造数字"],
+            "check_citation_registry": True,
+            "pass_rule": "must explain cause",
+        },
+        {
+            "coverage": "semantic_required",
+            "reason": "needs semantic observation",
+        },
+    )
+    verdict = evaluate_case(
+        contract,
+        _completed("编造数字，但没有引用标签。"),
+        observations={
+            "truth_observations": {
+                "pass_rule": {"state": "pass", "reason": "semantic pass"}
+            },
+            "experience_verdict": {
+                "eligible": True,
+                "label": "workbench",
+                "reason": "blind preference",
+            },
+        },
+    )
+
+    assert _rule(verdict, "pass_rule").state is VerdictState.PASS
+    assert _rule(verdict, "forbidden_phrases").state is VerdictState.FAIL
+    assert verdict.truth.state is VerdictState.FAIL
+    assert verdict.experience.state is ExperienceState.LABELED
+    assert verdict.experience.label == "workbench"
 
 
 def test_inconsistency_falsifiability_and_cross_turn_checks_are_conservative() -> None:

@@ -223,7 +223,10 @@ def compile_case_contract(
 
 
 def evaluate_case(
-    contract: CaseContract, case_run: Mapping[str, Any] | None
+    contract: CaseContract,
+    case_run: Mapping[str, Any] | None,
+    *,
+    observations: Mapping[str, Any] | None = None,
 ) -> CaseVerdict:
     """Evaluate one case without conflating absence, operation, and quality."""
 
@@ -237,12 +240,13 @@ def evaluate_case(
             truth=TruthVerdict(state=VerdictState.NOT_RUN),
         )
     operational = _evaluate_operational(case_run)
-    truth = _evaluate_truth(contract, case_run, operational)
+    external = observations or {}
+    truth = _evaluate_truth(contract, case_run, operational, external)
     return CaseVerdict(
         case_id=contract.case_id,
         operational=operational,
         truth=truth,
-        experience=_evaluate_experience(case_run),
+        experience=_evaluate_experience(external),
     )
 
 
@@ -280,6 +284,7 @@ def _evaluate_truth(
     contract: CaseContract,
     case_run: Mapping[str, Any],
     operational: OperationalVerdict,
+    observations: Mapping[str, Any],
 ) -> TruthVerdict:
     if operational.state in {OperationalState.BLOCKED, OperationalState.FAILED}:
         return TruthVerdict(state=VerdictState.UNJUDGEABLE)
@@ -420,7 +425,7 @@ def _evaluate_truth(
         else:
             rules.append(
                 _observation_or_unjudgeable(
-                    case_run,
+                    observations,
                     "cross_turn_consistency",
                     "multi_turn",
                     "text alone cannot prove set/count consistency",
@@ -430,7 +435,7 @@ def _evaluate_truth(
     if case.get("expect_answer_set") and contract.coverage == "structured":
         rules.append(
             _evaluate_answer_set(
-                case_run,
+                observations,
                 tuple(str(item) for item in case.get("expect_answer_set") or []),
                 exact=bool(case.get("exact_set")),
             )
@@ -439,7 +444,7 @@ def _evaluate_truth(
     if case.get("inherit_from"):
         rules.append(
             _observation_or_unjudgeable(
-                case_run,
+                observations,
                 "inherited_golden",
                 "agent_eval",
                 "historical acceptance trace lacks agent_eval TurnInput observations",
@@ -449,7 +454,7 @@ def _evaluate_truth(
     if contract.coverage == "semantic_required":
         rules.append(
             _observation_or_unjudgeable(
-                case_run,
+                observations,
                 "pass_rule",
                 "semantic",
                 contract.coverage_reason or "pass rule needs semantic observation",
@@ -573,9 +578,9 @@ def _evaluate_citation_integrity(
 
 
 def _evaluate_answer_set(
-    case_run: Mapping[str, Any], expected: tuple[str, ...], *, exact: bool
+    observations: Mapping[str, Any], expected: tuple[str, ...], *, exact: bool
 ) -> RuleVerdict:
-    raw = (case_run.get("truth_observations") or {}).get("answer_set")
+    raw = (observations.get("truth_observations") or {}).get("answer_set")
     if not isinstance(raw, Mapping) or not isinstance(raw.get("values"), list):
         return RuleVerdict(
             "answer_set",
@@ -596,9 +601,9 @@ def _evaluate_answer_set(
 
 
 def _observation_or_unjudgeable(
-    case_run: Mapping[str, Any], rule_id: str, kind: str, missing_reason: str
+    observations: Mapping[str, Any], rule_id: str, kind: str, missing_reason: str
 ) -> RuleVerdict:
-    raw = (case_run.get("truth_observations") or {}).get(rule_id)
+    raw = (observations.get("truth_observations") or {}).get(rule_id)
     if not isinstance(raw, Mapping):
         return RuleVerdict(rule_id, kind, VerdictState.UNJUDGEABLE, missing_reason)
     try:
@@ -615,8 +620,8 @@ def _observation_or_unjudgeable(
     )
 
 
-def _evaluate_experience(case_run: Mapping[str, Any]) -> ExperienceVerdict:
-    raw = case_run.get("experience_verdict")
+def _evaluate_experience(observations: Mapping[str, Any]) -> ExperienceVerdict:
+    raw = observations.get("experience_verdict")
     if not isinstance(raw, Mapping):
         return ExperienceVerdict()
     if raw.get("eligible") is False:

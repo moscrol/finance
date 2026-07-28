@@ -1,0 +1,286 @@
+{
+  "format_version": 1,
+  "reference_agent": "knevo",
+  "cases": {
+    "A1-market-overview": {
+      "snapshot": "A1-market-overview.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["honesty"],
+      "experience_dimensions": ["directness", "organization", "source_clarity"],
+      "excluded_dimensions": ["numeric_accuracy", "definition_alignment"],
+      "reason": "local structured tables are the numeric oracle; Knevo is useful for narrative structure"
+    },
+    "A2-next-day-call": {
+      "snapshot": "A2-next-day-call.knevo.json",
+      "independent_sample": true,
+      "truth_status": "ineligible",
+      "experience_status": "limited",
+      "truth_dimensions": [],
+      "experience_dimensions": ["organization", "actionability"],
+      "excluded_dimensions": ["temporal_integrity", "numeric_accuracy", "directness"],
+      "reason": "snapshot contains 07-22 to 07-27 hindsight; only falsifiable structure is reusable"
+    },
+    "A3-stock-deep-dive": {
+      "snapshot": "A3-stock-deep-dive.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["entity_accuracy"],
+      "experience_dimensions": ["directness", "organization", "actionability", "source_clarity"],
+      "excluded_dimensions": ["temporal_integrity", "numeric_accuracy"],
+      "reason": "asked after the anchor date; useful for entity coverage and answer experience, not PIT numeric truth"
+    },
+    "A4-dual-red": {
+      "snapshot": "A4-dual-red.knevo.json",
+      "independent_sample": false,
+      "truth_status": "ineligible",
+      "experience_status": "limited",
+      "truth_dimensions": [],
+      "experience_dimensions": ["organization", "reasoning_chain"],
+      "excluded_dimensions": ["definition_alignment", "numeric_accuracy", "directness"],
+      "reason": "alias of C6; 双红 is a project-local definition and this is not an independent answer"
+    },
+    "A5-limit-heat": {
+      "snapshot": "A5-limit-heat.knevo.json",
+      "independent_sample": true,
+      "truth_status": "ineligible",
+      "experience_status": "limited",
+      "truth_dimensions": [],
+      "experience_dimensions": ["organization", "reasoning_chain"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "07-23 structure was reconstructed from later material with a different theme taxonomy"
+    },
+    "A6-limit-advance-ladder": {
+      "snapshot": "A6-limit-advance-ladder.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "limited",
+      "truth_dimensions": ["entity_accuracy"],
+      "experience_dimensions": ["organization", "reasoning_chain"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "ladder was reconstructed and includes explicit post-anchor validation"
+    },
+    "A7-mainline": {
+      "snapshot": "A7-mainline.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["entity_accuracy"],
+      "experience_dimensions": ["directness", "organization", "source_clarity"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "local tables own the historical cross-section; external narrative remains comparable"
+    },
+    "A8-market-stage": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "market_stage and stage_day are project-local fupanhui fields"
+    },
+    "A9-sentiment-contradiction": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "the contradiction exists only inside the project's fupanhui feed"
+    },
+    "A10-new-high-structure": {
+      "snapshot": "A10-new-high-structure.knevo.json",
+      "independent_sample": true,
+      "truth_status": "ineligible",
+      "experience_status": "limited",
+      "truth_dimensions": [],
+      "experience_dimensions": ["organization", "reasoning_chain"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "uses 07-22 material to reconstruct 07-21 and does not provide the local new-high counts"
+    },
+    "B1-theme-photoresist": {
+      "snapshot": "B1-theme-photoresist.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["entity_accuracy", "source_integrity"],
+      "experience_dimensions": ["directness", "organization", "source_clarity", "actionability"],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "useful cross-agent theme research comparison; local KB remains evidence-layer oracle"
+    },
+    "B2-theme-liquid-cooling": {
+      "snapshot": "B2-theme-liquid-cooling.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["entity_accuracy", "source_integrity"],
+      "experience_dimensions": ["directness", "organization", "source_clarity", "actionability"],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "useful cross-agent theme research comparison; local KB remains evidence-layer oracle"
+    },
+    "B3-theme-solid-state-battery": {
+      "snapshot": "B3-theme-solid-state-battery.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["entity_accuracy", "source_integrity"],
+      "experience_dimensions": ["directness", "organization", "source_clarity", "actionability"],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "useful for contamination and overclaim comparison, not a replacement for local evidence layers"
+    },
+    "B4-fermentation-trace": {
+      "snapshot": "B4-fermentation-trace.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["causal_support"],
+      "experience_dimensions": ["directness", "organization", "reasoning_chain", "source_clarity"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "external chain is useful, but historical market numbers remain local-table truth"
+    },
+    "B5-cross-table-intersection": {
+      "snapshot": "B5-cross-table-intersection.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["methodology"],
+      "experience_dimensions": ["directness", "organization", "reasoning_chain"],
+      "excluded_dimensions": ["numeric_accuracy", "definition_alignment"],
+      "reason": "conditions were expanded into generic numbers, but the local cross-section remains the oracle"
+    },
+    "B6-sellside-distillation": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "requires project-local ingest labels and source material was not frozen"
+    },
+    "B7-volume-sentiment-evolution": {
+      "snapshot": "B7-volume-sentiment-evolution.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["methodology"],
+      "experience_dimensions": ["directness", "organization", "reasoning_chain"],
+      "excluded_dimensions": ["numeric_accuracy", "temporal_integrity"],
+      "reason": "trend narration is comparable; local daily series owns exact values"
+    },
+    "B8-valuation-band": {
+      "snapshot": "B8-valuation-band.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["methodology", "source_integrity"],
+      "experience_dimensions": ["directness", "organization", "actionability", "source_clarity"],
+      "excluded_dimensions": ["temporal_integrity"],
+      "reason": "useful valuation-method cross-check, but not a frozen PIT numeric oracle"
+    },
+    "C1-future-date-no-data": {
+      "snapshot": "C1-future-date-no-data.knevo.json",
+      "independent_sample": true,
+      "truth_status": "eligible",
+      "experience_status": "eligible",
+      "truth_dimensions": ["honesty", "temporal_integrity"],
+      "experience_dimensions": ["directness", "followup_burden"],
+      "excluded_dimensions": [],
+      "reason": "weekend/no-data honesty is independently comparable"
+    },
+    "C2-non-trading-day": {
+      "snapshot": "C2-non-trading-day.knevo.json",
+      "independent_sample": true,
+      "truth_status": "eligible",
+      "experience_status": "eligible",
+      "truth_dimensions": ["honesty", "temporal_integrity"],
+      "experience_dimensions": ["directness", "followup_burden"],
+      "excluded_dimensions": [],
+      "reason": "holiday/no-data honesty is independently comparable"
+    },
+    "C3-empty-table": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "Knevo has its own technical data and cannot test the local empty table"
+    },
+    "C4-unit-anomaly": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "unit anomaly is unique to the local dirty row"
+    },
+    "C5-data-contradiction": {
+      "snapshot": "C5-data-contradiction.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "ineligible",
+      "truth_dimensions": ["numeric_accuracy"],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment", "directness"],
+      "reason": "external ground truth can confirm the local clone bug but cannot test whether Workbench flags it"
+    },
+    "C6-strict-definition": {
+      "snapshot": "C6-strict-definition.knevo.json",
+      "independent_sample": true,
+      "truth_status": "ineligible",
+      "experience_status": "limited",
+      "truth_dimensions": [],
+      "experience_dimensions": ["organization", "reasoning_chain"],
+      "excluded_dimensions": ["definition_alignment", "numeric_accuracy"],
+      "reason": "Knevo's strength framework is useful, but it cannot know the project-local 双红 definition"
+    },
+    "C7-temporal-leakage": {
+      "snapshot": "C7-temporal-leakage.knevo.json",
+      "independent_sample": false,
+      "truth_status": "ineligible",
+      "experience_status": "ineligible",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["temporal_integrity", "directness"],
+      "reason": "alias of A2 with a weaker prompt and explicit hindsight; invalid for C7"
+    },
+    "C8-nonexistent-table": {
+      "snapshot": null,
+      "independent_sample": false,
+      "truth_status": "missing",
+      "experience_status": "missing",
+      "truth_dimensions": [],
+      "experience_dimensions": [],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "sector_marginal is a local legacy implementation detail"
+    },
+    "C9-citation-integrity": {
+      "snapshot": "C9-citation-integrity.knevo.json",
+      "independent_sample": true,
+      "truth_status": "limited",
+      "experience_status": "eligible",
+      "truth_dimensions": ["causal_support", "source_integrity"],
+      "experience_dimensions": ["directness", "organization", "source_clarity"],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "useful for causal explanation and source style, not internal citation-tag registry"
+    },
+    "C10-multi-turn-consistency": {
+      "snapshot": "C10-multi-turn-consistency.knevo.json",
+      "independent_sample": true,
+      "truth_status": "eligible",
+      "experience_status": "eligible",
+      "truth_dimensions": ["multi_turn_consistency"],
+      "experience_dimensions": ["directness", "followup_burden"],
+      "excluded_dimensions": ["definition_alignment"],
+      "reason": "the three turns were collected in one conversation with expanded numeric conditions"
+    }
+  }
+}
