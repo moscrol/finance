@@ -306,5 +306,22 @@ def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
     assert acceptance.cmd_freeze(args) == 2
 
 
+def test_board_keeps_operational_truth_and_experience_axes_separate(
+    monkeypatch, capsys
+):
+    run_path = acceptance.REPO / "intelligence/eval/runs/20260727T032229Z.json"
+    monkeypatch.setattr(acceptance, "latest_run", lambda: run_path)
+
+    assert acceptance.cmd_board(acceptance.argparse.Namespace()) == 0
+    output = capsys.readouterr().out
+
+    assert "| 题 | 组 | 运行 | 真值 | 体验 |" in output
+    assert "**运行口径**" in output
+    assert "**真值口径**" in output
+    assert "不可判" in output
+    assert "不是 28 题产品通过率" in output
+    assert "有答案待判" not in output
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

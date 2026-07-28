@@ -27,6 +27,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence.eval.acceptance_verdict import (
+    ExperienceState,
+    OperationalState,
+    VerdictState,
+    compile_case_contract,
+    evaluate_case,
+    load_verdict_overlay,
+)
+
 REPO = Path(__file__).resolve().parents[2]
 CASES_PATH = REPO / "intelligence/eval/cases/acceptance_cases.json"
 RUNS_DIR = REPO / "intelligence/eval/runs"
@@ -292,40 +301,98 @@ def cmd_board(args: argparse.Namespace) -> int:
             f"（前置检查{'通过' if rec.get('preflight_ok') else '未过'}）"
         )
 
+    overlay = load_verdict_overlay()
     print(f"# 验收看板 · {header_note}\n")
-    print("| 题 | 组 | 状态 | 耗时 | 绑定证据 | 失败分类 |")
-    print("|---|---|---|---|---|---|")
-    tally: dict[str, int] = {"answered": 0, "degraded": 0, "failed": 0, "not_run": 0}
+    print("| 题 | 组 | 运行 | 真值 | 体验 | 耗时 | 绑定证据 | 说明 |")
+    print("|---|---|---|---|---|---:|---:|---|")
+    operational_tally = {state: 0 for state in OperationalState}
+    truth_tally = {state: 0 for state in VerdictState}
+    experience_tally = {state: 0 for state in ExperienceState}
+    operational_labels = {
+        OperationalState.NOT_RUN: "⬜ 未跑",
+        OperationalState.BLOCKED: "⚫ 阻塞",
+        OperationalState.FAILED: "🔴 未产出",
+        OperationalState.DEGRADED: "🟠 降级完成",
+        OperationalState.COMPLETED: "🟢 完成",
+    }
+    truth_labels = {
+        VerdictState.NOT_RUN: "—",
+        VerdictState.PASS: "✅ 通过",
+        VerdictState.FAIL: "❌ 失败",
+        VerdictState.UNJUDGEABLE: "❔ 不可判",
+    }
+    experience_labels = {
+        ExperienceState.UNLABELED: "未标注",
+        ExperienceState.LABELED: "已盲标",
+        ExperienceState.INELIGIBLE: "不适用",
+    }
     for c in cases:
         r = by_id.get(c["id"])
-        if not r or not r.get("turns"):
-            tally["not_run"] += 1
-            print(f"| {c['id']} | {c['tier']} | ⬜ 未跑 | — | — | — |")
-            continue
-        t0 = r["turns"][0]
-        # 注意：这里只报「真实运行是否拿到答案」。是否算通过要过 agent_eval 的
-        # 确定性闸 + 人工盲比参照快照，看板不自作判断。
-        # status 用 runtime 真实字面量 "completed"，别写 "complete"。
-        if t0.get("status") != "completed":
-            tally["failed"] += 1
-            mark, cls = "🔴 未产出", classify_failure(t0)
-        elif t0.get("degrades"):
-            tally["degraded"] += 1
-            mark, cls = "🟠 降级作答", "证据未绑定即降级"
-        else:
-            tally["answered"] += 1
-            mark, cls = "🟡 有答案待判", ""
+        contract = compile_case_contract(c, overlay[c["id"]])
+        verdict = evaluate_case(contract, r)
+        operational_tally[verdict.operational.state] += 1
+        truth_tally[verdict.truth.state] += 1
+        experience_tally[verdict.experience.state] += 1
+        t0 = (r.get("turns") or [None])[0] if r else None
+        detail = ""
+        if verdict.truth.state is VerdictState.FAIL:
+            failures = [
+                rule.reason
+                for rule in verdict.truth.rules
+                if rule.state is VerdictState.FAIL
+            ]
+            detail = failures[0] if failures else "deterministic truth rule failed"
+        elif verdict.truth.state is VerdictState.UNJUDGEABLE:
+            pending = [
+                rule.reason
+                for rule in verdict.truth.rules
+                if rule.state is VerdictState.UNJUDGEABLE
+            ]
+            detail = pending[0] if pending else verdict.operational.reason
+        elif verdict.operational.state in {
+            OperationalState.BLOCKED,
+            OperationalState.FAILED,
+        }:
+            detail = verdict.operational.reason
         print(
-            f"| {c['id']} | {c['tier']} | {mark} | {t0.get('elapsed_s')}s | "
-            f"{t0.get('evidence_bound') or 0} | {cls} |"
+            f"| {c['id']} | {c['tier']} | "
+            f"{operational_labels[verdict.operational.state]} | "
+            f"{truth_labels[verdict.truth.state]} | "
+            f"{experience_labels[verdict.experience.state]} | "
+            f"{(t0 or {}).get('elapsed_s', '—')}"
+            f"{'s' if t0 else ''} | {(t0 or {}).get('evidence_bound') or 0 if t0 else '—'} | "
+            f"{detail} |"
         )
 
     total = len(cases)
+    completed_count = (
+        operational_tally[OperationalState.COMPLETED]
+        + operational_tally[OperationalState.DEGRADED]
+    )
     print(
-        f"\n**口径**：{total} 道题里，未跑 {tally['not_run']}、未产出 "
-        f"{tally['failed']}、降级作答 {tally['degraded']}、有答案待判 "
-        f"{tally['answered']}。通过数须经 agent_eval 闸 + 盲比后回填，"
-        "看板不自己判通过。"
+        f"\n**运行口径**：{total} 道题里，未跑 "
+        f"{operational_tally[OperationalState.NOT_RUN]}、阻塞 "
+        f"{operational_tally[OperationalState.BLOCKED]}、未产出 "
+        f"{operational_tally[OperationalState.FAILED]}、降级完成 "
+        f"{operational_tally[OperationalState.DEGRADED]}、正常完成 "
+        f"{operational_tally[OperationalState.COMPLETED]}（完成合计 {completed_count}）。"
+    )
+    judged = truth_tally[VerdictState.PASS] + truth_tally[VerdictState.FAIL]
+    rate_note = (
+        f"可判子集通过率 {truth_tally[VerdictState.PASS]}/{judged}"
+        if judged
+        else "尚无可判子集通过率"
+    )
+    print(
+        f"**真值口径**：通过 {truth_tally[VerdictState.PASS]}、失败 "
+        f"{truth_tally[VerdictState.FAIL]}、不可判 "
+        f"{truth_tally[VerdictState.UNJUDGEABLE]}、未跑 "
+        f"{truth_tally[VerdictState.NOT_RUN]}；{rate_note}（不是 28 题产品通过率）。"
+    )
+    print(
+        f"**体验口径**：已盲标 {experience_tally[ExperienceState.LABELED]}、"
+        f"未标注 {experience_tally[ExperienceState.UNLABELED]}、"
+        f"不适用 {experience_tally[ExperienceState.INELIGIBLE]}。"
     )
     snaps = list(SNAPSHOT_DIR.glob("*.json")) if SNAPSHOT_DIR.exists() else []
     print(f"**参照快照**：已冻结 {len(snaps)} / {total} 道（codex/knevo）")
