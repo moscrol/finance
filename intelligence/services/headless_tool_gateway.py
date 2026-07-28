@@ -95,10 +95,14 @@ class HeadlessToolGateway:
         is_cancelled: Callable[[], bool] | None = None,
         run_dir: Path | None = None,
         transport: str = "http",
+        finalization_floor_ratio: float = 0.65,
     ) -> None:
         selected_transport = str(transport or "").strip().lower()
         if selected_transport not in {"http", "mailbox"}:
             raise ValueError("unsupported headless tool transport")
+        floor_ratio = float(finalization_floor_ratio)
+        if not 0.0 <= floor_ratio <= 1.0:
+            raise ValueError("headless finalization floor ratio must be between 0 and 1")
         self._registry = registry
         self._context = context
         initial_research_seconds = context.deadline.stage_timeout(
@@ -106,7 +110,7 @@ class HeadlessToolGateway:
         )
         self._finalization_floor_seconds = min(
             45.0,
-            max(5.0, initial_research_seconds * 0.65),
+            max(5.0, initial_research_seconds * floor_ratio),
         )
         self._is_cancelled = is_cancelled or (lambda: False)
         self._authorized = {

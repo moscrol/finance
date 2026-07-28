@@ -350,6 +350,55 @@ def test_gateway_closes_research_stage_before_finalization_budget() -> None:
     assert calls == [("market_data", "市场")]
 
 
+def test_gateway_floor_ratio_can_be_disabled_without_changing_default() -> None:
+    class MutableDeadline:
+        synthesis_reserve = 0.0
+
+        def __init__(self) -> None:
+            self.seconds = 30.0
+
+        def remaining(self) -> float:
+            return self.seconds
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), self.seconds)
+
+        @property
+        def expired(self) -> bool:
+            return self.seconds <= 0.0
+
+    default_calls: list[tuple[str, str]] = []
+    default_deadline = MutableDeadline()
+    default_context = replace(_context(), deadline=default_deadline)
+    with HeadlessToolGateway(
+        registry=_registry(default_calls),
+        context=default_context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        default_deadline.seconds = 10.0
+        default_result = gateway.call("news_search", "再查一次")
+
+    ablated_calls: list[tuple[str, str]] = []
+    ablated_deadline = MutableDeadline()
+    ablated_context = replace(_context(), deadline=ablated_deadline)
+    with HeadlessToolGateway(
+        registry=_registry(ablated_calls),
+        context=ablated_context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        ablated_deadline.seconds = 10.0
+        ablated_result = gateway.call("news_search", "再查一次")
+
+    assert default_result["error"] == "research_stage_closed"
+    assert default_calls == [("market_data", "市场")]
+    assert ablated_result["status"] == "empty"
+    assert ablated_calls == [
+        ("market_data", "市场"),
+        ("news_search", "再查一次"),
+    ]
+
+
 def test_gateway_adapts_model_query_to_snapshot_arguments() -> None:
     runner_inputs: list[str] = []
 

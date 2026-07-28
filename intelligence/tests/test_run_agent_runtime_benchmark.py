@@ -147,6 +147,87 @@ def test_headless_benchmark_uses_backend_neutral_verifier_reserve() -> None:
 
     assert context.deadline.synthesis_reserve == 30.0
     assert context.deadline.stage_timeout(90.0) > 59.0
+    assert context.policy.max_steps == 6
+    assert context.policy.total_seconds == 90.0
+
+
+def test_headless_budget_profile_overrides_only_benchmark_context() -> None:
+    case = next(
+        item
+        for item in benchmark._load_cases(FIXTURE)
+        if item.case_id == "rebound-duration"
+    )
+    case = dataclasses.replace(case, case_id="phase-b-profile-d")
+    control = benchmark.TurnControlCore().control(
+        case.question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "dry_run"),
+    )
+    profile = benchmark.HEADLESS_BUDGET_PROFILES["d_long_expanded"]
+
+    context = benchmark._fresh_context(
+        case,
+        control,
+        backend="codex_headless",
+        latest_data_date="2026-07-24",
+        headless_budget_profile=profile,
+    )
+    runtime, _model = benchmark._build_runtime(
+        "codex_headless",
+        dataclasses.replace(case, timeout=profile.total_seconds),
+        context,
+        headless_budget_profile=profile,
+    )
+
+    assert context.policy.max_steps == 12
+    assert context.policy.total_seconds == 180.0
+    assert context.deadline.synthesis_reserve == 30.0
+    assert context.deadline.stage_timeout(180.0) > 149.0
+    assert context.root_budget.initial_calls == 12
+    assert context.root_budget.initial_seconds == 150.0
+    assert runtime.finalization_floor_ratio == 0.0
+
+
+def test_dry_run_records_preregistered_headless_profile_and_case_subset(
+    tmp_path,
+) -> None:
+    output = tmp_path / "phase-b-plan.json"
+
+    assert benchmark.main(
+        [
+            "--dry-run",
+            "--backend",
+            "codex_headless",
+            "--headless-budget-profile",
+            "d_long_expanded",
+            "--case",
+            "rebound-duration",
+            "--case",
+            "weekly-market-cause",
+            "--case",
+            "ruihuatai-valuation",
+            "--questions-file",
+            str(FIXTURE),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["case_count"] == 3
+    assert [item["id"] for item in payload["cases"]] == [
+        "rebound-duration",
+        "ruihuatai-valuation",
+        "weekly-market-cause",
+    ]
+    assert payload["headless_budget_profile"] == {
+        "profile_id": "d_long_expanded",
+        "total_seconds": 180.0,
+        "max_tool_calls": 12,
+        "synthesis_reserve_seconds": 30.0,
+        "gateway_floor_ratio": 0.0,
+        "minimum_tool_calls_to_exercise": 7,
+    }
+    assert payload["budget_ablation_validity"] == "not_executed"
 
 
 def test_sdk_gpt_benchmark_uses_backend_neutral_verifier_reserve() -> None:

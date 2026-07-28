@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 import hashlib
 import json
@@ -44,7 +44,11 @@ from intelligence.services.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.glm_agent_runtime import GLMModelClient
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
-from intelligence.services.research_contract import ResearchPolicy
+from intelligence.services.research_contract import (
+    InMemoryRootBudgetLedger,
+    ResearchDeadline,
+    ResearchPolicy,
+)
 from intelligence.services.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
@@ -58,6 +62,58 @@ class RuntimeBenchmarkCase:
     timeout: float
     required_outputs: tuple[str, ...]
     conversation_context: tuple[dict[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class HeadlessBenchmarkBudgetProfile:
+    """Benchmark-only budget injection; production tier defaults stay untouched."""
+
+    profile_id: str
+    total_seconds: float
+    max_tool_calls: int
+    synthesis_reserve_seconds: float
+    gateway_floor_ratio: float
+    minimum_tool_calls_to_exercise: int = 0
+
+    def __post_init__(self) -> None:
+        if not self.profile_id.strip():
+            raise ValueError("headless budget profile id must be non-empty")
+        if self.total_seconds <= 0 or self.max_tool_calls <= 0:
+            raise ValueError("headless budget profile requires positive limits")
+        if not 0 <= self.synthesis_reserve_seconds < self.total_seconds:
+            raise ValueError("headless synthesis reserve must fit inside total time")
+        if not 0.0 <= self.gateway_floor_ratio <= 1.0:
+            raise ValueError("headless gateway floor ratio must be between 0 and 1")
+        if not 0 <= self.minimum_tool_calls_to_exercise <= self.max_tool_calls:
+            raise ValueError("headless profile exercise threshold is invalid")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "profile_id": self.profile_id,
+            "total_seconds": self.total_seconds,
+            "max_tool_calls": self.max_tool_calls,
+            "synthesis_reserve_seconds": self.synthesis_reserve_seconds,
+            "gateway_floor_ratio": self.gateway_floor_ratio,
+            "minimum_tool_calls_to_exercise": (
+                self.minimum_tool_calls_to_exercise
+            ),
+        }
+
+
+HEADLESS_BUDGET_PROFILES = {
+    "a_control": HeadlessBenchmarkBudgetProfile(
+        "a_control", 90.0, 6, 30.0, 0.65
+    ),
+    "b_floor_ablation": HeadlessBenchmarkBudgetProfile(
+        "b_floor_ablation", 90.0, 6, 30.0, 0.0
+    ),
+    "c_long_capped": HeadlessBenchmarkBudgetProfile(
+        "c_long_capped", 180.0, 6, 30.0, 0.0
+    ),
+    "d_long_expanded": HeadlessBenchmarkBudgetProfile(
+        "d_long_expanded", 180.0, 12, 30.0, 0.0, 7
+    ),
+}
 
 
 class RuntimeBenchmarkInfrastructureError(RuntimeError):
@@ -267,9 +323,12 @@ def _fresh_context(
     *,
     backend: str,
     latest_data_date: str,
+    headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
 ):
     if not control.contract_required:
         return None
+    if headless_budget_profile is not None and backend != "codex_headless":
+        raise ValueError("headless budget profiles require codex_headless")
     if backend == "continuous_glm":
         synthesis_reserve = GLMAgentRuntime.synthesis_reserve_for_task(
             tier=case.tier,
@@ -285,7 +344,7 @@ def _fresh_context(
             ResearchPolicy.for_tier(case.tier).total_seconds * 0.4,
             max(policy_reserve, 30.0),
         )
-    return build_episode_context(
+    context = build_episode_context(
         control.task_frame,
         task_id=f"runtime-benchmark:{case.case_id}",
         capabilities=control.capabilities,
@@ -295,6 +354,32 @@ def _fresh_context(
         today=case.as_of,
         latest_data_date=latest_data_date,
     )
+    if headless_budget_profile is None:
+        return context
+    profile = headless_budget_profile
+    policy = ResearchPolicy(
+        context.policy.tier,
+        profile.max_tool_calls,
+        profile.total_seconds,
+        profile.synthesis_reserve_seconds,
+    )
+    return replace(
+        context,
+        deadline=ResearchDeadline.from_timeout(
+            profile.total_seconds,
+            synthesis_reserve=profile.synthesis_reserve_seconds,
+        ),
+        policy=policy,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=profile.max_tool_calls,
+            hard_calls_cap=profile.max_tool_calls,
+            initial_seconds=(
+                profile.total_seconds - profile.synthesis_reserve_seconds
+            ),
+            hard_seconds_cap=profile.total_seconds,
+        ),
+    )
 
 
 def _build_runtime(
@@ -303,6 +388,7 @@ def _build_runtime(
     context: object,
     *,
     runtime_providers: tuple[LLMProvider, ...] = (),
+    headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
 ) -> tuple[object, str]:
     del context
     providers = runtime_providers or llm_refine.detect_providers()
@@ -380,6 +466,11 @@ def _build_runtime(
             model=os.environ.get("CODEX_HEADLESS_MODEL"),
             reasoning_effort=(
                 "high" if case.tier == "deep" else "medium"
+            ),
+            finalization_floor_ratio=(
+                headless_budget_profile.gateway_floor_ratio
+                if headless_budget_profile is not None
+                else 0.65
             ),
         )
         return runtime, runtime.model_name
@@ -569,23 +660,31 @@ def _run_research_arm(
     knowledge_wiki: Path,
     latest_data_date: str,
     runtime_providers: tuple[LLMProvider, ...] = (),
+    headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
+    execution_case = (
+        replace(case, timeout=headless_budget_profile.total_seconds)
+        if headless_budget_profile is not None
+        else case
+    )
     try:
         context = _fresh_context(
-            case,
+            execution_case,
             control,
             backend=backend,
             latest_data_date=latest_data_date,
+            headless_budget_profile=headless_budget_profile,
         )
         if context is None:
             raise RuntimeError("research_contract_missing")
         runtime, model = _build_runtime(
             backend,
-            case,
+            execution_case,
             context,
             runtime_providers=runtime_providers,
+            headless_budget_profile=headless_budget_profile,
         )
         registry = _build_registry(
             control.task_frame,
@@ -602,7 +701,7 @@ def _run_research_arm(
         if not semantic_providers and callable(runtime_semantic_providers):
             semantic_providers = tuple(runtime_semantic_providers())
         semantic_delegate = _build_semantic_verifier(
-            case,
+            execution_case,
             context,
             providers=semantic_providers,
         )
@@ -615,10 +714,10 @@ def _run_research_arm(
             context_factory=lambda *_args, **_kwargs: context,
             registry_factory=lambda *_args, **_kwargs: registry,
             task_id_factory=lambda: context.contract.task_id,
-            timeout=case.timeout,
+            timeout=execution_case.timeout,
             verification_reserve=context.deadline.synthesis_reserve,
-            tier=case.tier,
-            today=case.as_of,
+            tier=execution_case.tier,
+            today=execution_case.as_of,
             latest_data_date=latest_data_date,
         )
         with llm_refine.call_ledger_scope() as ledger:
@@ -694,7 +793,7 @@ def _run_research_arm(
             artifact_sha256=_artifact_hash(final_outcome.to_dict()),
             stop_reason=final_outcome.stop_reason,
             effective_timeout_seconds=min(
-                case.timeout,
+                execution_case.timeout,
                 context.policy.total_seconds,
             ),
             citations=turn_result.citations,
@@ -705,7 +804,7 @@ def _run_research_arm(
         raise
     except Exception as exc:
         return _arm_failure(
-            case=case,
+            case=execution_case,
             backend=backend,
             model=model,
             started=started,
@@ -822,6 +921,7 @@ def _run_runtime_arm(
     knowledge_wiki: Path,
     latest_data_date: str,
     runtime_providers: tuple[LLMProvider, ...] = (),
+    headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
@@ -835,12 +935,18 @@ def _run_runtime_arm(
                 knowledge_wiki=knowledge_wiki,
                 latest_data_date=latest_data_date,
                 runtime_providers=runtime_providers,
+                headless_budget_profile=headless_budget_profile,
             )
             for backend in backends
         )
     else:
         arms = _run_non_research_arms(case, control, backends)
-    record = _planned_case(case, control, None)
+    record_case = (
+        replace(case, timeout=headless_budget_profile.total_seconds)
+        if headless_budget_profile is not None
+        else case
+    )
+    record = _planned_case(record_case, control, None)
     record["execution_status"] = "completed"
     record["arms"] = [arm.to_dict() for arm in arms]
     return record, arms
@@ -852,6 +958,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--backend", action="append", required=True)
+    parser.add_argument(
+        "--headless-budget-profile",
+        choices=tuple(HEADLESS_BUDGET_PROFILES),
+        help="Apply one preregistered benchmark-only Codex headless budget",
+    )
+    parser.add_argument(
+        "--case",
+        action="append",
+        help="Run only the named frozen case; repeat to select multiple cases",
+    )
     parser.add_argument("--questions-file", type=Path, required=True)
     parser.add_argument("--finance-root", type=Path)
     parser.add_argument("--knowledge-wiki", type=Path)
@@ -873,6 +989,32 @@ def main(argv: list[str] | None = None) -> int:
         )
         if len(set(backends)) != len(backends):
             raise ValueError("backend names must be unique")
+        headless_budget_profile = (
+            HEADLESS_BUDGET_PROFILES[args.headless_budget_profile]
+            if args.headless_budget_profile
+            else None
+        )
+        if (
+            headless_budget_profile is not None
+            and backends != ("codex_headless",)
+        ):
+            raise ValueError(
+                "headless budget profiles require only the codex_headless backend"
+            )
+        if args.case:
+            selected_ids = tuple(dict.fromkeys(str(item) for item in args.case))
+            known_ids = {case.case_id for case in cases}
+            unknown_ids = tuple(
+                case_id for case_id in selected_ids if case_id not in known_ids
+            )
+            if unknown_ids:
+                raise ValueError(
+                    "unknown benchmark case selection: " + ",".join(unknown_ids)
+                )
+            selected_set = set(selected_ids)
+            cases = tuple(
+                case for case in cases if case.case_id in selected_set
+            )
         finance_root = (
             args.finance_root.expanduser().resolve()
             if args.finance_root is not None
@@ -936,6 +1078,7 @@ def main(argv: list[str] | None = None) -> int:
                         knowledge_wiki=knowledge_wiki,
                         latest_data_date=market_data_date,
                         runtime_providers=runtime_providers,
+                        headless_budget_profile=headless_budget_profile,
                     )
                 )
             records = [record for record, _arms in executed]
@@ -994,8 +1137,33 @@ def main(argv: list[str] | None = None) -> int:
         "credential_source": (
             "keychain" if runtime_providers else "environment"
         ),
+        "headless_budget_profile": (
+            headless_budget_profile.to_dict()
+            if headless_budget_profile is not None
+            else None
+        ),
+        "budget_ablation_validity": (
+            "not_executed"
+            if args.dry_run and headless_budget_profile is not None
+            else None
+        ),
         "cases": records,
     }
+    if not args.dry_run and headless_budget_profile is not None:
+        observed_calls = max(
+            (arm.tool_calls for arm in arm_results),
+            default=0,
+        )
+        required_calls = headless_budget_profile.minimum_tool_calls_to_exercise
+        artifact["budget_ablation_validity"] = (
+            "invalid_not_physically_exercised"
+            if required_calls and observed_calls < required_calls
+            else "exercised"
+        )
+        artifact["budget_ablation_observation"] = {
+            "max_observed_tool_calls": observed_calls,
+            "minimum_tool_calls_to_exercise": required_calls,
+        }
     if summary is not None:
         artifact["summary"] = summary
     if infrastructure_failure is not None:

@@ -291,6 +291,7 @@ class CodexHeadlessRuntime:
         local_exec_token: str | None = None,
         provider_config_path: Path | None = None,
         is_cancelled: Callable[[], bool] | None = None,
+        finalization_floor_ratio: float = 0.65,
     ) -> None:
         selected_transport = str(
             transport or os.environ.get("CODEX_HEADLESS_TRANSPORT") or "subprocess"
@@ -348,6 +349,9 @@ class CodexHeadlessRuntime:
         )
         self._reasoning_effort = str(reasoning_effort or "").strip().lower()
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._finalization_floor_ratio = float(finalization_floor_ratio)
+        if not 0.0 <= self._finalization_floor_ratio <= 1.0:
+            raise ValueError("headless finalization floor ratio must be between 0 and 1")
         if self._reasoning_effort not in {
             "none",
             "low",
@@ -365,6 +369,10 @@ class CodexHeadlessRuntime:
     @property
     def reasoning_effort(self) -> str:
         return self._reasoning_effort
+
+    @property
+    def finalization_floor_ratio(self) -> float:
+        return self._finalization_floor_ratio
 
     def semantic_providers(self) -> tuple[LLMProvider, ...]:
         projection = self._provider_projection
@@ -413,6 +421,7 @@ class CodexHeadlessRuntime:
                 is_cancelled=self._is_cancelled,
                 run_dir=run_dir,
                 transport=self._gateway_transport,
+                finalization_floor_ratio=self._finalization_floor_ratio,
             ) as gateway:
                 command = self._build_command(
                     task_frame=task_frame,
