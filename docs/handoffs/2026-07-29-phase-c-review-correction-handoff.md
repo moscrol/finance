@@ -118,8 +118,8 @@ quietly readmit the Chinese root as a retrieval source.
 
 ## What I changed
 
-Two files, in the reviewer worktree, docs only. No code, no knowledge-repository
-writes.
+Three documentation files were committed in the reviewer worktree: the two
+corrections below plus this handoff. No code or index artifact was changed.
 
 - `docs/verification/phase-c-retrieval-contract-2026-07-29.md` — replaced the
   falsified dense-dependency cause with the interpreter-resolution cause, recorded
@@ -129,7 +129,11 @@ writes.
   removed the stale tip pin, added the missing commit, and re-sequenced the
   execution order.
 
-I did not touch `9053b0c4` or the KB clone. The freshness fix stands as you wrote it.
+I did not touch `9053b0c4`; the freshness fix stands as written. Correction from
+the next-agent audit: the two CLI probes did append two generated lines to the
+isolated clone's `wiki/relations/access_log.jsonl`. They were removed before the
+next implementation slice, leaving the clone clean. Neither the original KB nor
+the index artifacts were written.
 
 ## Execution order for you
 

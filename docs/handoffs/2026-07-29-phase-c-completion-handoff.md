@@ -67,7 +67,9 @@ The code change is deliberately in the KB repository, not copied into the
 finance runtime tree. Any production adoption needs a separate cross-repo
 review/merge decision. The original `/Users/a77/knowledge-base-private` was
 not a write target; current raw/relations changes there are concurrent and
-must not be folded into this experiment.
+must not be folded into this experiment. The review's two CLI probes appended
+two generated access-log lines only in the isolated clone; the next-agent audit
+removed them before implementation and confirmed the clone was clean.
 
 ## What is now proven
 
