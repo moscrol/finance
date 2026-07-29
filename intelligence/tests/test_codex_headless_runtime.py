@@ -508,6 +508,36 @@ def test_sealed_runtime_materializes_only_sealed_instruction_tree(
     assert len(runtime_event.payload["mailbox_exchanges"]) == 1
 
 
+def test_sealed_runtime_rejects_materialized_instruction_mutation(
+    tmp_path: Path,
+) -> None:
+    instruction = tmp_path / "instruction"
+    instruction.mkdir()
+    (instruction / "AGENTS.md").write_text("sealed rules", encoding="utf-8")
+    delegate = ValidFakeCodex()
+
+    def mutating_runner(command: HeadlessCommand) -> HeadlessProcessResult:
+        agents = command.cwd / "AGENTS.md"
+        agents.chmod(0o644)
+        agents.write_text("mutated rules", encoding="utf-8")
+        return delegate(command)
+
+    outcome = CodexHeadlessRuntime(
+        command_runner=mutating_runner,
+        model="gpt-5.6-sol",
+        sealed_fixture=True,
+        instruction_root=instruction,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt.proven_for_test(),
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "instruction_mutated"
+
+
 def test_headless_environment_rejects_secret_child_allowlist() -> None:
     with pytest.raises(ValueError, match="secret-bearing"):
         HeadlessEnvironment(

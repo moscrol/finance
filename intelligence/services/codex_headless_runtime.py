@@ -548,8 +548,12 @@ class CodexHeadlessRuntime:
 
         with tempfile.TemporaryDirectory(prefix="finance-codex-headless-") as raw_dir:
             run_dir = Path(raw_dir)
+            instruction_seal: dict[str, tuple[int, int, str]] | None = None
             if self._instruction_root is not None:
-                _materialize_instruction_tree(self._instruction_root, run_dir)
+                instruction_seal = _materialize_instruction_tree(
+                    self._instruction_root,
+                    run_dir,
+                )
             if self._sealed_fixture:
                 try:
                     self._isolation_receipt = self._isolation_probe(
@@ -592,6 +596,17 @@ class CodexHeadlessRuntime:
                 )
                 process = self._command_runner(command)
                 snapshot = gateway.snapshot()
+                if instruction_seal is not None and not _instruction_tree_matches(
+                    run_dir,
+                    instruction_seal,
+                ):
+                    return _failed_outcome(
+                        task_frame,
+                        snapshot=_empty_snapshot(),
+                        stop_reason="instruction_mutated",
+                        gap="instruction_mutated",
+                        llm_calls=1,
+                    )
                 parsed = _parse_jsonl(
                     process.stdout,
                     authorized_wrapper=gateway.wrapper_path,
@@ -623,12 +638,23 @@ class CodexHeadlessRuntime:
                     )
                     llm_calls += 1
                     repair_process = self._command_runner(repair_command)
+                    repair_snapshot = gateway.snapshot()
+                    if instruction_seal is not None and not _instruction_tree_matches(
+                        run_dir,
+                        instruction_seal,
+                    ):
+                        return _failed_outcome(
+                            task_frame,
+                            snapshot=_empty_snapshot(),
+                            stop_reason="instruction_mutated",
+                            gap="instruction_mutated",
+                            llm_calls=llm_calls,
+                        )
                     repair_parsed = _parse_jsonl(
                         repair_process.stdout,
                         authorized_wrapper=gateway.wrapper_path,
                         allow_gateway_commands=False,
                     )
-                    repair_snapshot = gateway.snapshot()
                     repair_issue = _finish_issue(
                         process=repair_process,
                         parsed=repair_parsed,
@@ -983,7 +1009,11 @@ def sealed_environment_policy_payload() -> dict[str, object]:
     }
 
 
-def _materialize_instruction_tree(source: Path, target: Path) -> None:
+def _materialize_instruction_tree(
+    source: Path,
+    target: Path,
+) -> dict[str, tuple[int, int, str]]:
+    seal: dict[str, tuple[int, int, str]] = {}
     for path in sorted(source.rglob("*")):
         if path.is_symlink():
             raise ValueError("sealed instruction tree cannot contain symlinks")
@@ -999,6 +1029,29 @@ def _materialize_instruction_tree(source: Path, target: Path) -> None:
         destination.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         shutil.copyfile(path, destination)
         destination.chmod(0o444)
+        data = destination.read_bytes()
+        seal[relative.as_posix()] = (
+            0o444,
+            len(data),
+            hashlib.sha256(data).hexdigest(),
+        )
+    return seal
+
+
+def _instruction_tree_matches(
+    root: Path,
+    seal: Mapping[str, tuple[int, int, str]],
+) -> bool:
+    for relative, (mode, size, content_hash) in seal.items():
+        path = root / relative
+        if path.is_symlink() or not path.is_file():
+            return False
+        stat = path.stat()
+        if stat.st_nlink != 1 or stat.st_mode & 0o777 != mode or stat.st_size != size:
+            return False
+        if hashlib.sha256(path.read_bytes()).hexdigest() != content_hash:
+            return False
+    return True
 
 
 def probe_sealed_isolation(
