@@ -112,6 +112,110 @@ def test_runtime_claims_leave_unsupported_numeric_claim_unbound() -> None:
     assert claims[0].source_ids == ()
 
 
+def test_runtime_claims_normalize_stage_days_and_chinese_market_dates() -> None:
+    prior = AgentEvidence(
+        tool="finance_query",
+        title="市场日频总览（2026-07-23）",
+        detail=(
+            "交易日=2026-07-23；阶段天数=3；上涨家数=4260；"
+            "涨停家数=116"
+        ),
+        source="sealed_finance",
+        source_date="2026-07-23",
+        content_hash="prior-market-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "反弹阶段走到第3天后中断。7月23日有4260家上涨、116家涨停。",
+        sources=(_projected_source(prior, source_id="E1"),),
+        evidence=(prior,),
+    )
+
+    assert [claim.source_ids for claim in claims] == [("E1",), ("E1",)]
+
+
+def test_runtime_claims_normalize_directional_percentages() -> None:
+    current = AgentEvidence(
+        tool="market_data",
+        title="市场日频总览（2026-07-24）",
+        detail=(
+            "交易日=2026-07-24；上证涨跌幅=-1.61%；上涨家数=534；"
+            "涨停家数=40；成交额环比=-11.44%"
+        ),
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="current-market-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "7月24日上证跌1.61%，上涨534家、涨停40家，成交额缩减11.44%。",
+        sources=(_projected_source(current, source_id="E1"),),
+        evidence=(current,),
+    )
+
+    assert claims[0].source_ids == ("E1",)
+
+
+def test_runtime_claims_do_not_reverse_percentage_direction() -> None:
+    current = AgentEvidence(
+        tool="market_data",
+        title="市场日频总览（2026-07-24）",
+        detail="上证涨跌幅=-1.61%",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="current-market-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "7月24日上证上涨1.61%。",
+        sources=(_projected_source(current, source_id="E1"),),
+        evidence=(current,),
+    )
+
+    assert claims[0].material_numeric is True
+    assert claims[0].source_ids == ()
+
+
+def test_runtime_claims_treat_explicit_plus_as_positive_direction() -> None:
+    current = AgentEvidence(
+        tool="market_data",
+        title="市场日频总览（2026-07-24）",
+        detail="上证涨跌幅=+1.61%",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="current-market-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "7月24日上证上涨1.61%。",
+        sources=(_projected_source(current, source_id="E1"),),
+        evidence=(current,),
+    )
+
+    assert claims[0].source_ids == ("E1",)
+
+
+def test_numeric_lineage_projection_degrades_instead_of_publishing_gap() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值",
+        detail="瑞华泰市值为49.5亿元。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="valuation-evidence",
+    )
+
+    answer, claims, blocked_claim_ids = benchmark._numeric_lineage_projection(
+        "瑞华泰合理估值为100倍。",
+        sources=(_projected_source(evidence, source_id="E1"),),
+        evidence=(evidence,),
+    )
+
+    assert answer == benchmark._NUMERIC_LINEAGE_GAP_ANSWER
+    assert blocked_claim_ids == ("C1",)
+    assert all(not claim.material_numeric for claim in claims)
+
+
 def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
     output_root = tmp_path / "ceiling"
     root = output_root / "fixture"

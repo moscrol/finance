@@ -934,7 +934,7 @@ def _runtime_claims(
             for field in ("title", "detail", "source", "source_date")
         )
         source_tokens[source.source_id] = frozenset(
-            _material_numeric_tokens(searchable)
+            _numeric_lineage_tokens(searchable)
         )
     claims: list[RuntimeClaim] = []
     for match in re.finditer(r"[^。！？!?；;\n]+(?:[。！？!?；;]+|(?=\n)|$)", published_answer):
@@ -947,7 +947,7 @@ def _runtime_claims(
             continue
         text = published_answer[start:end]
         numeric_tokens = _material_numeric_tokens(text)
-        required_tokens = set(numeric_tokens)
+        required_tokens = set(_numeric_lineage_tokens(text))
         candidates = tuple(
             (
                 source.source_id,
@@ -989,11 +989,78 @@ def _runtime_claims(
     return tuple(claims)
 
 
+_NUMERIC_LINEAGE_GAP_ANSWER = (
+    "回答中的实质数值未能完整绑定到可追溯来源，"
+    "本次不发布未核验数值；请补充证据后重试。"
+)
+
+
+def _numeric_lineage_projection(
+    published_answer: str,
+    *,
+    sources: tuple[RuntimeSource, ...],
+    evidence: object,
+) -> tuple[str, tuple[RuntimeClaim, ...], tuple[str, ...]]:
+    claims = _runtime_claims(
+        published_answer,
+        sources=sources,
+        evidence=evidence,
+    )
+    blocked_claim_ids = tuple(
+        claim.claim_id
+        for claim in claims
+        if claim.material_numeric and not claim.source_ids
+    )
+    if not blocked_claim_ids:
+        return published_answer, claims, ()
+    gap_claims = _runtime_claims(
+        _NUMERIC_LINEAGE_GAP_ANSWER,
+        sources=sources,
+        evidence=evidence,
+    )
+    return _NUMERIC_LINEAGE_GAP_ANSWER, gap_claims, blocked_claim_ids
+
+
 _MATERIAL_NUMERIC_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:"
     r"(?:19|20)\d{2}[-/]\d{1,2}[-/]\d{1,2}"
     r"|[-+]?\d+(?:[.,]\d+)*(?:%|倍|亿|万|点|日|天|年|月)?"
     r")"
+)
+
+_ISO_DATE_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<year>(?:19|20)\d{2})[-/]"
+    r"(?P<month>\d{1,2})[-/](?P<day>\d{1,2})(?!\d)"
+)
+_CHINESE_MONTH_DAY_RE = re.compile(
+    r"(?<!\d)(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日"
+)
+_STAGE_DAY_RE = re.compile(
+    r"(?:第\s*(?P<ordinal>\d+)\s*天"
+    r"|阶段天数\s*[=:：]?\s*(?P<field>\d+))"
+)
+_PERCENT_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<sign>[-+]?)\s*"
+    r"(?P<number>\d+(?:[.,]\d+)*)\s*%"
+)
+_NEGATIVE_PERCENT_DIRECTIONS = (
+    "下跌",
+    "下降",
+    "减少",
+    "缩减",
+    "回落",
+    "收缩",
+    "降低",
+    "下滑",
+    "跌",
+)
+_POSITIVE_PERCENT_DIRECTIONS = (
+    "上涨",
+    "增长",
+    "上升",
+    "增加",
+    "扩大",
+    "涨",
 )
 
 
@@ -1004,6 +1071,66 @@ def _material_numeric_tokens(text: str) -> tuple[str, ...]:
             for match in _MATERIAL_NUMERIC_TOKEN_RE.finditer(str(text or ""))
         )
     )
+
+
+def _numeric_lineage_tokens(text: str) -> tuple[str, ...]:
+    """Canonicalize equivalent numeric expressions before source coverage."""
+
+    value = str(text or "")
+    tokens: list[str] = []
+    semantic_spans: list[tuple[int, int]] = []
+
+    def add(token: str, match: re.Match[str]) -> None:
+        tokens.append(token)
+        semantic_spans.append(match.span())
+
+    for match in _ISO_DATE_RE.finditer(value):
+        year = int(match.group("year"))
+        month = int(match.group("month"))
+        day = int(match.group("day"))
+        try:
+            normalized = date(year, month, day)
+        except ValueError:
+            continue
+        add(f"date:{normalized.isoformat()}", match)
+        tokens.append(f"month-day:{month:02d}-{day:02d}")
+
+    for match in _CHINESE_MONTH_DAY_RE.finditer(value):
+        month = int(match.group("month"))
+        day = int(match.group("day"))
+        if not 1 <= month <= 12 or not 1 <= day <= 31:
+            continue
+        add(f"month-day:{month:02d}-{day:02d}", match)
+
+    for match in _STAGE_DAY_RE.finditer(value):
+        count = match.group("ordinal") or match.group("field")
+        add(f"duration-days:{int(count)}", match)
+
+    for match in _PERCENT_RE.finditer(value):
+        number = match.group("number").replace(",", "")
+        sign = match.group("sign")
+        if sign == "+":
+            sign = ""
+        elif not sign:
+            prefix = value[max(0, match.start() - 8) : match.start()].rstrip()
+            if any(prefix.endswith(word) for word in _NEGATIVE_PERCENT_DIRECTIONS):
+                sign = "-"
+            elif any(
+                prefix.endswith(word) for word in _POSITIVE_PERCENT_DIRECTIONS
+            ):
+                sign = ""
+        add(f"percent:{sign}{number}", match)
+
+    for match in _MATERIAL_NUMERIC_TOKEN_RE.finditer(value):
+        if any(
+            start < match.end() and match.start() < end
+            for start, end in semantic_spans
+        ):
+            continue
+        tokens.append(
+            match.group(0).replace(",", "").replace("/", "-").lstrip("+")
+        )
+    return tuple(dict.fromkeys(tokens))
 
 
 def _arm_failure(
@@ -1163,26 +1290,39 @@ def _run_research_arm(
             bindings=tuple(binding.to_dict() for binding in final_outcome.bindings),
             root_budget=root_budget_snapshot,
         )
+        candidate_answer = final_outcome.draft
         published_answer = turn_result.answer
         sources = _runtime_sources(
             final_outcome,
             excluded_output_ids=semantic.gap_output_ids,
         )
-        claims = _runtime_claims(
+        published_answer, claims, blocked_claim_ids = _numeric_lineage_projection(
             published_answer,
             sources=sources,
             evidence=final_outcome.evidence,
         )
+        runtime_status = turn_result.status
+        stop_reason = final_outcome.stop_reason
+        if blocked_claim_ids:
+            candidate_answer = turn_result.answer
+            runtime_status = (
+                "failed" if turn_result.status == "failed" else "degraded"
+            )
+            if runtime_status != "failed":
+                stop_reason = "numeric_lineage_gap"
+            issues.append(
+                "numeric_lineage_gap:" + ",".join(blocked_claim_ids)
+            )
         return RuntimeArmResult(
             case_id=case.case_id,
             backend=backend,
             model=model,
             answer=published_answer,
-            candidate_answer=final_outcome.draft,
+            candidate_answer=candidate_answer,
             published_answer=published_answer,
             claims=claims,
             sources=sources,
-            status=turn_result.status,
+            status=runtime_status,
             structural_status=final_verified.verified_status,
             semantic_status=semantic.judge_status,
             task_alignment_score=_task_alignment_score(
@@ -1198,7 +1338,7 @@ def _run_research_arm(
             output_tokens=output_tokens,
             protocol_issues=tuple(issues),
             artifact_sha256=_artifact_hash(final_outcome.to_dict()),
-            stop_reason=final_outcome.stop_reason,
+            stop_reason=stop_reason,
             effective_timeout_seconds=min(
                 execution_case.timeout,
                 context.policy.total_seconds,
