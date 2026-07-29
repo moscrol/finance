@@ -63,6 +63,12 @@ That amendment is now `docs/verification/headless-budget-ablation-preregistratio
 It pins source `da614908`, preserves every original treatment and decision rule, and assigns
 new v2 artifact paths so the invalid receipts cannot be overwritten.
 
+The v2 run is now complete. Profile D is valid with seven observed calls. Pairwise interpretation
+rejects floor removal as an improvement, identifies 180-second wall-clock room as the primary
+cross-case factor, and finds the six-call cap secondary. Longer profiles expose repeated
+capability use and persistent news/evidence-search failures. Detailed evidence is in
+`docs/verification/headless-budget-ablation-v2-results-2026-07-29.md`.
+
 ## Delivered code
 
 ### Causal slice
@@ -118,8 +124,8 @@ Detailed evidence:
 | Fresh/causal/valuation deterministic seams | complete for fixed cases | all have tests plus pinned true-Hybrid replay |
 | Changed-surface regression | green | 246/246 |
 | Full local regression | baseline-limited | 2958 pass; 24 known environment failures |
-| Live semantic evidence judge | externally blocked | direct CLI, local-exec/browser route, and VPS SSH all fail before model response in the managed environment |
-| Budget-neutral representative evaluation | prepared, not run | exact clean detached `803367f1` worktree and input hash are ready; four live artifacts remain absent |
+| Live semantic evidence judge | provider ready; benchmark labels pending | direct non-financial `gpt-5.6-sol` probe succeeded; sidecar/benchmark semantic judgments are not yet collected |
+| Budget-neutral representative evaluation | complete | corrected v2 A/B/C/D ran from clean `da614908`; D valid at 7 calls; wall-clock primary, call cap secondary |
 | Acceptance measurement seam | complete | operational/truth/experience verdicts and hash-bound external observations are implemented |
 | Knevo reference accounting | complete; labels pending | all 28 cases typed; 22 snapshots present, 6 missing; no uniform denominator |
 | Wider 28-case acceptance / Knevo comparison | not ready | current Workbench run and independent semantic/blind labels remain incomplete |
