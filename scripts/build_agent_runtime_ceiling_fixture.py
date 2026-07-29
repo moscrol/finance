@@ -201,7 +201,9 @@ def _input_payload(config: CeilingFixtureConfig) -> dict[str, object]:
         )
     for path in (*prior_artifacts, *post_cutoff_documents):
         if not path.is_file() or path.is_symlink():
-            raise ValueError("forbidden corpus sources must be regular files")
+            raise ValueError(
+                f"forbidden corpus source must be a regular file: {path}"
+            )
     return {
         "schema_version": 1,
         "as_of": config.as_of,
