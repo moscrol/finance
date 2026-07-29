@@ -1,0 +1,1727 @@
+{
+  "records": [
+    {
+      "line": 9,
+      "mode": "unknown",
+      "path": "evolution/strategy1.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 42,
+      "mode": "read",
+      "path": "evolution/strategy1.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 49,
+      "mode": "read",
+      "path": "evolution/strategy1.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 49,
+      "mode": "read",
+      "path": "evolution/strategy4.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 63,
+      "mode": "read",
+      "path": "evolution/strategy4.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 75,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 77,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 209,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 211,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 213,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 224,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 246,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 452,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 500,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 509,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 531,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 533,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 641,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 665,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 694,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 703,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 716,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 727,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 743,
+      "mode": "read",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 754,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 763,
+      "mode": "unknown",
+      "path": "intelligence/adapters/market.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 164,
+      "mode": "unknown",
+      "path": "intelligence/api/structured_reports.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 18,
+      "mode": "unknown",
+      "path": "intelligence/eval/bitemporal_history.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1056,
+      "mode": "unknown",
+      "path": "intelligence/eval/claim_fidelity.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 31,
+      "mode": "unknown",
+      "path": "intelligence/eval/fidelity_replay.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 980,
+      "mode": "unknown",
+      "path": "intelligence/eval/fidelity_replay.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1052,
+      "mode": "unknown",
+      "path": "intelligence/eval/fidelity_replay.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 16,
+      "mode": "unknown",
+      "path": "intelligence/eval/phase2_sampling.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 29,
+      "mode": "unknown",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 31,
+      "mode": "unknown",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 45,
+      "mode": "unknown",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 47,
+      "mode": "unknown",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 53,
+      "mode": "unknown",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 326,
+      "mode": "read",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 336,
+      "mode": "read",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 371,
+      "mode": "read",
+      "path": "intelligence/eval/pit_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 532,
+      "mode": "unknown",
+      "path": "intelligence/services/agent.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 552,
+      "mode": "unknown",
+      "path": "intelligence/services/agent.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 207,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 481,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1142,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1254,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1275,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1319,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1336,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1346,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1411,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1483,
+      "mode": "read",
+      "path": "intelligence/services/ask_blocks.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 303,
+      "mode": "read",
+      "path": "intelligence/services/duckdb_market_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 331,
+      "mode": "unknown",
+      "path": "intelligence/services/duckdb_market_snapshot.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 274,
+      "mode": "unknown",
+      "path": "intelligence/services/finance_query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 294,
+      "mode": "unknown",
+      "path": "intelligence/services/finance_query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 15,
+      "mode": "unknown",
+      "path": "intelligence/services/market_analogs.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 230,
+      "mode": "read",
+      "path": "intelligence/services/market_analogs.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 453,
+      "mode": "unknown",
+      "path": "intelligence/services/market_analogs.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 463,
+      "mode": "read",
+      "path": "intelligence/services/market_analogs.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 13,
+      "mode": "unknown",
+      "path": "intelligence/services/market_midterm.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 122,
+      "mode": "read",
+      "path": "intelligence/services/market_midterm.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 174,
+      "mode": "read",
+      "path": "intelligence/services/market_midterm.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 196,
+      "mode": "read",
+      "path": "intelligence/services/market_midterm.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 343,
+      "mode": "unknown",
+      "path": "intelligence/services/market_midterm.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 70,
+      "mode": "unknown",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 188,
+      "mode": "read",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 197,
+      "mode": "read",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 291,
+      "mode": "read",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 298,
+      "mode": "read",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 308,
+      "mode": "unknown",
+      "path": "intelligence/services/market_timeseries.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 20,
+      "mode": "unknown",
+      "path": "intelligence/services/workbench_overview.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 64,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 83,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 105,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 305,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 320,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 330,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 616,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 617,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 619,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 620,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 909,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 914,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 923,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 997,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1015,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1017,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1039,
+      "mode": "unknown",
+      "path": "market_feature_store/cli.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 17,
+      "mode": "unknown",
+      "path": "market_feature_store/quality.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 19,
+      "mode": "unknown",
+      "path": "market_feature_store/quality.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 32,
+      "mode": "unknown",
+      "path": "market_feature_store/quality.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 34,
+      "mode": "unknown",
+      "path": "market_feature_store/quality.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 33,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 38,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 45,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 51,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 79,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 82,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 104,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 110,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 130,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 134,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 186,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 482,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 499,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 779,
+      "mode": "unknown",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 783,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 816,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 855,
+      "mode": "read",
+      "path": "market_feature_store/query.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 299,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 309,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 366,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 383,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 529,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 575,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 587,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 597,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 670,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 709,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 748,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 817,
+      "mode": "unknown",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 817,
+      "mode": "unknown",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 863,
+      "mode": "unknown",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 903,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 912,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 931,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 966,
+      "mode": "read",
+      "path": "market_feature_store/reports/daily_review.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 87,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 103,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 104,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 138,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 170,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 171,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 172,
+      "mode": "ddl",
+      "path": "market_feature_store/schema.sql",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 14,
+      "mode": "unknown",
+      "path": "market_feature_store/scripts/backfill_review_hot_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 53,
+      "mode": "read",
+      "path": "market_feature_store/scripts/backfill_review_hot_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 89,
+      "mode": "unknown",
+      "path": "market_feature_store/scripts/backfill_review_hot_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 93,
+      "mode": "read",
+      "path": "market_feature_store/scripts/backfill_review_hot_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 431,
+      "mode": "unknown",
+      "path": "market_feature_store/sources/fupanhui_source.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 1,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 35,
+      "mode": "read",
+      "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 52,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 61,
+      "mode": "read",
+      "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 70,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 181,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_akshare_sw_l1_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 79,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_daily_full.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 79,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_daily_full.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 57,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_limit_advance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 71,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 134,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 139,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 140,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 141,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 142,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 150,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 9,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 143,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 217,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 224,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 232,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 18,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 24,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 25,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 60,
+      "mode": "ddl",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 61,
+      "mode": "ddl",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 62,
+      "mode": "ddl",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 102,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 158,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 4,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 81,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 100,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 143,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 151,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 193,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 209,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 211,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 214,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 1,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 42,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 70,
+      "mode": "ddl",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 142,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 219,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 236,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 332,
+      "mode": "write",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 344,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 347,
+      "mode": "read",
+      "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 6,
+      "mode": "unknown",
+      "path": "market_feature_store/sync/sync_mootdx_stock_daily.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 128,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/double_red_anchor_stock_study.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 146,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/double_red_anchor_stock_study.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 12,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001_candidates.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 22,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001_candidates.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 14,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001b_add_0408_state.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 19,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001b_add_0408_state.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 15,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001b_engine_any_sw.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 12,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_pool.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 20,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_pool.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 17,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 19,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 23,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 30,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 28,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_cohorts.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 34,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_cohorts.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 21,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_overview.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 16,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_double_red_lifecycle_0603.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 230,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_drawdown_risk.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 242,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_drawdown_risk.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 20,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 26,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 38,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 43,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 30,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 36,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 46,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 23,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_lifecycle_since_0408_0603.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 250,
+      "mode": "unknown",
+      "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 250,
+      "mode": "unknown",
+      "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 269,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 280,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 11,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_scan_events.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 50,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_theme_cycles_0408_0605.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 58,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_theme_cycles_0408_0605.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 33,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 39,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 52,
+      "mode": "read",
+      "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 102,
+      "mode": "read",
+      "path": "scripts/backfill_strategy3_touch_matrix.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 407,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 459,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 508,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 615,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 660,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 683,
+      "mode": "read",
+      "path": "scripts/build_market_triggered_theme_brief.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 24,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 26,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 196,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 204,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 206,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 211,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 221,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 222,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 232,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 234,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 239,
+      "mode": "unknown",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 250,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 265,
+      "mode": "read",
+      "path": "scripts/check_daily_review_data.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 14,
+      "mode": "unknown",
+      "path": "scripts/check_sector_fact_access.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 14,
+      "mode": "unknown",
+      "path": "scripts/check_sector_fact_access.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 152,
+      "mode": "read",
+      "path": "scripts/compute_features.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 200,
+      "mode": "read",
+      "path": "scripts/compute_features.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 278,
+      "mode": "read",
+      "path": "scripts/compute_features.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 300,
+      "mode": "unknown",
+      "path": "scripts/compute_features.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 152,
+      "mode": "read",
+      "path": "scripts/dual_blind_answers_to_md.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 344,
+      "mode": "read",
+      "path": "scripts/dual_blind_answers_to_md.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 8,
+      "mode": "unknown",
+      "path": "scripts/dual_blind_auto_verdict.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 147,
+      "mode": "read",
+      "path": "scripts/dual_blind_auto_verdict.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 54,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 63,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 71,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 76,
+      "mode": "write",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 86,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 91,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 350,
+      "mode": "read",
+      "path": "scripts/fast_daily_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 47,
+      "mode": "read",
+      "path": "scripts/generate_strategy1_mechanical_row.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 55,
+      "mode": "read",
+      "path": "scripts/generate_strategy1_mechanical_row.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 69,
+      "mode": "read",
+      "path": "scripts/generate_strategy1_mechanical_row.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 37,
+      "mode": "read",
+      "path": "scripts/render_strategy4_dual_engine_matrix.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 53,
+      "mode": "read",
+      "path": "scripts/render_strategy4_dual_engine_matrix.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 100,
+      "mode": "read",
+      "path": "scripts/render_sw_l1_theme_matrix_html.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 141,
+      "mode": "read",
+      "path": "scripts/render_sw_l1_theme_matrix_html.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 52,
+      "mode": "read",
+      "path": "skills/daily-full-review/scripts/run_review_sync.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 13,
+      "mode": "unknown",
+      "path": "skills/duckdb-backfill/scripts/audit_coverage.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 14,
+      "mode": "unknown",
+      "path": "skills/duckdb-backfill/scripts/audit_coverage.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 27,
+      "mode": "unknown",
+      "path": "skills/duckdb-backfill/scripts/run_missing_dates.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 41,
+      "mode": "unknown",
+      "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 207,
+      "mode": "read",
+      "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 261,
+      "mode": "read",
+      "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 65,
+      "mode": "write",
+      "path": "skills/theme-fermentation-tracer/scripts/selftest.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 191,
+      "mode": "read",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 201,
+      "mode": "read",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_daily"
+    },
+    {
+      "line": 228,
+      "mode": "unknown",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 245,
+      "mode": "read",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 272,
+      "mode": "unknown",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_stock_daily"
+    },
+    {
+      "line": 302,
+      "mode": "read",
+      "path": "skills/theme-fermentation-tracer/scripts/trace.py",
+      "table": "fact_sector_stock_daily"
+    }
+  ],
+  "schema_version": 1
+}
