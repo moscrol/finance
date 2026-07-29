@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 import hashlib
+import os
 from pathlib import Path
+import subprocess
+import textwrap
 
 import duckdb
 import pytest
@@ -10,8 +13,12 @@ import pytest
 from intelligence.eval.ceiling_pit_fixture import (
     TemporalSchemaError,
     TemporalValueError,
+    audit_wiki_export,
     audit_filtered_duckdb,
+    build_true_hybrid_index,
     build_filtered_duckdb,
+    export_cutoff_wiki,
+    select_revision_at_cutoff,
 )
 
 
@@ -30,6 +37,155 @@ def _source_db(path: Path) -> None:
         )
     finally:
         connection.close()
+
+
+def _commit_file(
+    repo: Path,
+    relative: str,
+    content: str,
+    committed_at: str,
+) -> str:
+    target = repo / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", relative], check=True)
+    environment = {
+        **os.environ,
+        "GIT_AUTHOR_DATE": committed_at,
+        "GIT_COMMITTER_DATE": committed_at,
+    }
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "-m",
+            relative,
+        ],
+        check=True,
+        env=environment,
+    )
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _fake_rag_code(repo: Path, *, reported_path: str | None = None) -> str:
+    script = textwrap.dedent(
+        """
+        from __future__ import annotations
+        import gzip
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        import sys
+        import numpy as np
+
+        vault = Path(os.environ["KB_VAULT"])
+        index = Path(os.environ["RAG_INDEX_DIR"])
+        if sys.argv[1] == "build":
+            source = vault / "entities" / "before.md"
+            raw = source.read_bytes()
+            rel = f"{vault.name}/entities/before.md"
+            chunk_id = rel + "::0"
+            content_hash = hashlib.sha1(raw).hexdigest()
+            selection = "include_raw=0;max_files=0\\n"
+            manifest = hashlib.sha256()
+            manifest.update(selection.encode())
+            manifest.update(rel.encode())
+            manifest.update(b"\\0")
+            manifest.update(hashlib.sha256(raw).hexdigest().encode())
+            manifest.update(b"\\n")
+            fingerprint = hashlib.sha256()
+            fingerprint.update(chunk_id.encode())
+            fingerprint.update(b"\\0")
+            fingerprint.update(content_hash.encode())
+            fingerprint.update(b"\\n")
+            index.mkdir(parents=True)
+            chunk = {
+                "id": chunk_id,
+                "file_path": rel,
+                "text": raw.decode(),
+                "content_hash": content_hash,
+            }
+            (index / "chunks.jsonl").write_text(json.dumps(chunk) + "\\n")
+            np.save(index / "dense.npy", np.ones((1, 2), dtype=np.float16))
+            meta = {
+                "format_version": 2,
+                "model": "bge-m3",
+                "num_chunks": 1,
+                "dim": 2,
+                "built_at": "2026-07-29T12:00:00+08:00",
+                "include_raw": False,
+                "max_files": 0,
+                "source_revision": "manifest:v1:" + manifest.hexdigest(),
+                "source_git_revision": "",
+                "source_dirty": None,
+                "source_fingerprint": fingerprint.hexdigest(),
+                "source_file_count": 1,
+            }
+            (index / "meta.json").write_text(json.dumps(meta))
+            with gzip.open(index / "bm25_tokens.jsonl.gz", "wt") as handle:
+                handle.write(json.dumps({"format": "bm25-tokens-v1", "num_chunks": 1}) + "\\n")
+                handle.write(json.dumps(["before"]) + "\\n")
+            print("built")
+        elif sys.argv[1] == "query":
+            meta = json.loads((index / "meta.json").read_text())
+            print(json.dumps([{
+                "file_path": f"{vault.name}/entities/before.md",
+                "score": 0.2,
+                "index_freshness": "fresh",
+                "index_source_revision": meta["source_revision"],
+                "index_format_version": 2,
+            }]))
+        else:
+            raise SystemExit(2)
+        """
+    ).strip() + "\n"
+    if reported_path is not None:
+        script = script.replace(
+            'rel = f"{vault.name}/entities/before.md"',
+            f"rel = {reported_path!r}",
+        )
+    (repo / "scripts").mkdir(parents=True)
+    (repo / "scripts" / "rag_index.py").write_text(script, encoding="utf-8")
+    (repo / "scripts" / "rag_freshness.py").write_text("# frozen\n", encoding="utf-8")
+    (repo / "skills" / "lib").mkdir(parents=True)
+    (repo / "skills" / "lib" / "marker.py").write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "-m",
+            "rag-code",
+        ],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def test_filtered_duckdb_rejects_unclassified_temporal_column(
@@ -235,3 +391,213 @@ def test_intraday_time_requires_date_anchor_and_valid_clock(tmp_path: Path) -> N
         match="malformed_intraday_time:main.signals:first_limit_time:1",
     ):
         build_filtered_duckdb(source, target, as_of=AS_OF)
+
+
+def test_cutoff_wiki_export_selects_pre_cutoff_revision(tmp_path: Path) -> None:
+    repo = tmp_path / "kb"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    before = _commit_file(
+        repo,
+        "wiki/entities/before.md",
+        "before\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    _commit_file(
+        repo,
+        "wiki/entities/after.md",
+        "after\n",
+        "2026-07-25T12:00:00+08:00",
+    )
+
+    selected = select_revision_at_cutoff(repo, "2026-07-24")
+    receipt = export_cutoff_wiki(
+        repo,
+        tmp_path / "export",
+        as_of="2026-07-24",
+    )
+
+    assert selected == before
+    assert receipt.selected_revision == before
+    assert (receipt.wiki_root / "entities" / "before.md").read_text() == "before\n"
+    assert not (receipt.wiki_root / "entities" / "after.md").exists()
+    assert not (receipt.wiki_root / ".git").exists()
+    assert all(path.stat().st_mode & 0o777 == 0o444 for path in receipt.wiki_root.rglob("*") if path.is_file())
+    assert audit_wiki_export(receipt).status == "valid"
+
+
+def test_cutoff_wiki_export_rejects_links_and_detects_mutation(tmp_path: Path) -> None:
+    repo = tmp_path / "kb"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _commit_file(
+        repo,
+        "wiki/entities/regular.md",
+        "regular\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    link = repo / "wiki" / "entities" / "escape.md"
+    os.symlink("../../../outside.md", link)
+    subprocess.run(["git", "-C", str(repo), "add", "wiki/entities/escape.md"], check=True)
+    environment = {
+        **os.environ,
+        "GIT_AUTHOR_DATE": "2026-07-24T13:00:00+08:00",
+        "GIT_COMMITTER_DATE": "2026-07-24T13:00:00+08:00",
+    }
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "-m",
+            "link",
+        ],
+        check=True,
+        env=environment,
+    )
+
+    with pytest.raises(ValueError, match="regular Git blobs"):
+        export_cutoff_wiki(repo, tmp_path / "rejected", as_of="2026-07-24")
+
+    receipt = export_cutoff_wiki(
+        repo,
+        tmp_path / "accepted",
+        as_of="2026-07-24T12:30:00+08:00",
+    )
+    target = receipt.wiki_root / "entities" / "regular.md"
+    target.chmod(0o644)
+    target.write_text("mutated\n", encoding="utf-8")
+
+    assert audit_wiki_export(receipt).status == "invalid"
+
+
+def test_cutoff_wiki_export_rejects_post_cutoff_publication_metadata(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "kb"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _commit_file(
+        repo,
+        "wiki/sources/future.md",
+        "---\nsource_date: 2026-07-25\n---\nForecast written early.\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+
+    with pytest.raises(ValueError, match="post-cutoff publication date"):
+        export_cutoff_wiki(repo, tmp_path / "export", as_of=AS_OF)
+
+
+def test_true_hybrid_build_seals_fresh_content_bound_index(tmp_path: Path) -> None:
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    subprocess.run(["git", "init", "-q", str(kb)], check=True)
+    _commit_file(
+        kb,
+        "wiki/entities/before.md",
+        "before\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    wiki_receipt = export_cutoff_wiki(
+        kb,
+        tmp_path / "fixture" / "wiki",
+        as_of=AS_OF,
+    )
+    code = tmp_path / "rag-code"
+    code.mkdir()
+    revision = _fake_rag_code(code)
+
+    receipt = build_true_hybrid_index(
+        wiki_receipt=wiki_receipt,
+        index_root=tmp_path / "fixture" / "index",
+        code_root=code,
+        code_revision=revision,
+        rag_python=Path(
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+        ),
+        query="before",
+    )
+
+    assert receipt.model == "bge-m3"
+    assert receipt.num_chunks == 1
+    assert receipt.source_file_count == 1
+    assert receipt.query_mode == "hybrid"
+    assert receipt.hits[0]["index_freshness"] == "fresh"
+    assert not (receipt.code_runtime / ".git").exists()
+    assert all(
+        path.stat().st_mode & 0o777 == 0o444
+        for path in receipt.index_root.rglob("*")
+        if path.is_file()
+    )
+
+
+def test_true_hybrid_build_accepts_explicit_dependency_interpreter(
+    tmp_path: Path,
+) -> None:
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    subprocess.run(["git", "init", "-q", str(kb)], check=True)
+    _commit_file(
+        kb,
+        "wiki/entities/before.md",
+        "before\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    wiki_receipt = export_cutoff_wiki(
+        kb,
+        tmp_path / "fixture" / "wiki",
+        as_of=AS_OF,
+    )
+    code = tmp_path / "rag-code"
+    code.mkdir()
+    revision = _fake_rag_code(code)
+
+    receipt = build_true_hybrid_index(
+        wiki_receipt=wiki_receipt,
+        index_root=tmp_path / "fixture" / "index",
+        code_root=code,
+        code_revision=revision,
+        rag_python=Path("/Users/a77/knowledge-base-private/.rag_venv/bin/python3"),
+        query="before",
+    )
+
+    assert receipt.query_mode == "hybrid"
+    assert receipt.python_executable.endswith("/.rag_venv/bin/python3")
+
+
+def test_true_hybrid_build_rejects_wrong_chunk_source_set(tmp_path: Path) -> None:
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    subprocess.run(["git", "init", "-q", str(kb)], check=True)
+    _commit_file(
+        kb,
+        "wiki/entities/before.md",
+        "before\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    wiki_receipt = export_cutoff_wiki(
+        kb,
+        tmp_path / "fixture" / "wiki",
+        as_of=AS_OF,
+    )
+    code = tmp_path / "rag-code"
+    code.mkdir()
+    revision = _fake_rag_code(code, reported_path="wiki/entities/wrong.md")
+
+    with pytest.raises(ValueError, match=r"source (?:manifest|set) mismatch"):
+        build_true_hybrid_index(
+            wiki_receipt=wiki_receipt,
+            index_root=tmp_path / "fixture" / "index",
+            code_root=code,
+            code_revision=revision,
+            rag_python=Path(
+                "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+            ),
+            query="before",
+        )

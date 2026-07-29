@@ -5,11 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, time
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import tempfile
-from typing import Any, Literal
+from typing import Any, Iterator, Literal
 from zoneinfo import ZoneInfo
 
 
@@ -62,6 +65,23 @@ INTRADAY_TIME_COLUMNS = frozenset({"first_limit_time", "last_limit_time"})
 TEMPORAL_MARKERS = ("date", "time", "year", "period", "when")
 _NUMERIC_TYPES = re.compile(
     r"^(?:U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|HUGEINT|DECIMAL|NUMERIC)"
+)
+_PUBLICATION_DATE_KEYS = frozenset(
+    {
+        "date",
+        "source_date",
+        "report_date",
+        "ann_date",
+        "announcement_date",
+        "publication_date",
+        "published_at",
+    }
+)
+_PUBLICATION_DATE_VALUE = re.compile(
+    r"(?<!\d)(\d{4}(?:-\d{2}-\d{2}|\d{4}))(?!\d)"
+)
+_CHINESE_PUBLICATION_LINE = re.compile(
+    r"^\s*(?:发布日期|发布时间|报告日期)\s*[：:]\s*(.+?)\s*$"
 )
 
 
@@ -124,6 +144,68 @@ class FilteredDuckDBAudit:
 
 
 @dataclass(frozen=True)
+class WikiFileReceipt:
+    path: str
+    mode: int
+    bytes: int
+    sha256: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "path": self.path,
+            "mode": self.mode,
+            "bytes": self.bytes,
+            "sha256": self.sha256,
+        }
+
+
+@dataclass(frozen=True)
+class WikiExportReceipt:
+    source_repo: Path
+    selected_revision: str
+    as_of: str
+    wiki_root: Path
+    files: tuple[WikiFileReceipt, ...]
+    max_publication_date: str | None
+    manifest_sha256: str
+
+    def manifest_payload(self) -> dict[str, object]:
+        return {
+            "source_repo": str(self.source_repo),
+            "selected_revision": self.selected_revision,
+            "as_of": self.as_of,
+            "files": [item.to_dict() for item in self.files],
+            "max_publication_date": self.max_publication_date,
+        }
+
+
+@dataclass(frozen=True)
+class WikiExportAudit:
+    status: Literal["valid", "invalid"]
+    issues: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HybridIndexReceipt:
+    index_root: Path
+    code_runtime: Path
+    code_revision: str
+    code_script_sha256: str
+    python_executable: str
+    python_prefix: str
+    python_version: str
+    model: str
+    num_chunks: int
+    source_file_count: int
+    source_revision: str
+    query: str
+    query_mode: Literal["hybrid"]
+    hits: tuple[dict[str, object], ...]
+    index_files: tuple[WikiFileReceipt, ...]
+    manifest_sha256: str
+
+
+@dataclass(frozen=True)
 class _ObjectPlan:
     schema: str
     name: str
@@ -145,6 +227,104 @@ def _duckdb() -> Any:
     except Exception as exc:  # pragma: no cover - dependency guard
         raise RuntimeError("duckdb is required for PIT fixture construction") from exc
     return duckdb
+
+
+def _canonical_sha(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _run_git(repo: Path, arguments: list[str]) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *arguments],
+        check=True,
+        capture_output=True,
+    )
+
+
+def _read_git_blobs(repo: Path, object_ids: tuple[str, ...]) -> dict[str, bytes]:
+    if not object_ids:
+        return {}
+    process = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "--batch"],
+        input=("\n".join(object_ids) + "\n").encode("ascii"),
+        check=True,
+        capture_output=True,
+    )
+    blobs: dict[str, bytes] = {}
+    offset = 0
+    for expected in object_ids:
+        newline = process.stdout.find(b"\n", offset)
+        if newline < 0:
+            raise ValueError("git cat-file batch header is truncated")
+        header = process.stdout[offset:newline].decode("ascii").split(" ")
+        if len(header) != 3 or header[0] != expected or header[1] != "blob":
+            raise ValueError("git cat-file batch returned an unexpected object")
+        size = int(header[2])
+        start = newline + 1
+        end = start + size
+        if end >= len(process.stdout) or process.stdout[end : end + 1] != b"\n":
+            raise ValueError("git cat-file batch payload is truncated")
+        blobs[expected] = process.stdout[start:end]
+        offset = end + 1
+    return blobs
+
+
+def _stream_git_blobs(
+    repo: Path,
+    object_ids: tuple[str, ...],
+) -> Iterator[tuple[str, bytes]]:
+    process = subprocess.Popen(
+        ["git", "-C", str(repo), "cat-file", "--batch"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if process.stdin is None or process.stdout is None:
+        process.kill()
+        raise RuntimeError("unable to open git cat-file pipes")
+    try:
+        for expected in object_ids:
+            process.stdin.write(expected.encode("ascii") + b"\n")
+            process.stdin.flush()
+            header = process.stdout.readline().decode("ascii").strip().split(" ")
+            if len(header) != 3 or header[0] != expected or header[1] != "blob":
+                raise ValueError("git cat-file batch returned an unexpected object")
+            size = int(header[2])
+            data = process.stdout.read(size)
+            terminator = process.stdout.read(1)
+            if len(data) != size or terminator != b"\n":
+                raise ValueError("git cat-file batch payload is truncated")
+            yield expected, data
+        process.stdin.close()
+        return_code = process.wait(timeout=30)
+        if return_code != 0:
+            stderr = process.stderr.read().decode("utf-8", errors="replace")
+            raise ValueError(f"git cat-file failed: {stderr.strip()}")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def _write_once(path: Path, data: bytes, mode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, mode)
+    try:
+        offset = 0
+        while offset < len(data):
+            offset += os.write(descriptor, data[offset:])
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _quote_ident(value: str) -> str:
@@ -175,6 +355,572 @@ def _cutoff(value: str) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=SHANGHAI)
     return parsed.astimezone(SHANGHAI)
+
+
+def _publication_dates(relative: str, data: bytes) -> tuple[date, ...]:
+    if Path(relative).suffix.casefold() not in {".md", ".txt", ".yaml", ".yml"}:
+        return ()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Wiki text is not UTF-8: {relative}") from exc
+    lines = text.splitlines()
+    metadata_lines = lines[:80]
+    if lines and lines[0].strip() == "---":
+        try:
+            end = next(
+                index
+                for index, line in enumerate(lines[1:], start=1)
+                if line.strip() == "---"
+            )
+        except StopIteration as exc:
+            raise ValueError(f"Wiki frontmatter is unterminated: {relative}") from exc
+        metadata_lines = lines[1:end]
+    values: list[date] = []
+    for line in metadata_lines:
+        key, separator, raw_value = line.partition(":")
+        candidate: str | None = None
+        if separator and key.strip().casefold() in _PUBLICATION_DATE_KEYS:
+            candidate = raw_value.strip().strip("'\"")
+        else:
+            chinese = _CHINESE_PUBLICATION_LINE.fullmatch(line)
+            if chinese is not None:
+                candidate = chinese.group(1).strip().strip("'\"")
+        if candidate is None:
+            continue
+        match = _PUBLICATION_DATE_VALUE.search(candidate)
+        if match is None:
+            raise ValueError(f"malformed Wiki publication date: {relative}")
+        raw_date = match.group(1)
+        try:
+            parsed = (
+                date.fromisoformat(raw_date)
+                if "-" in raw_date
+                else datetime.strptime(raw_date, "%Y%m%d").date()
+            )
+        except ValueError as exc:
+            raise ValueError(f"malformed Wiki publication date: {relative}") from exc
+        values.append(parsed)
+    return tuple(values)
+
+
+def select_revision_at_cutoff(
+    source_repo: str | Path,
+    as_of: str,
+    *,
+    ref: str = "HEAD",
+) -> str:
+    """Select the last commit whose commit time is not after ``as_of``."""
+
+    repo = Path(source_repo).expanduser().resolve()
+    if not (repo / ".git").exists():
+        raise ValueError("knowledge source must be a Git repository")
+    cutoff = _cutoff(as_of).isoformat(timespec="seconds")
+    result = _run_git(repo, ["rev-list", "-1", f"--before={cutoff}", ref])
+    revision = result.stdout.decode("utf-8").strip()
+    if not revision:
+        raise ValueError("no knowledge revision exists at or before cutoff")
+    return revision
+
+
+def audit_wiki_export(receipt: WikiExportReceipt) -> WikiExportAudit:
+    issues: list[str] = []
+    root = receipt.wiki_root
+    if not root.is_dir() or root.is_symlink():
+        return WikiExportAudit("invalid", ("wiki_root_missing_or_non_regular",))
+    if (root / ".git").exists():
+        issues.append("git_directory_present")
+    expected_paths = {item.path for item in receipt.files}
+    actual_paths = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
+    if actual_paths != expected_paths:
+        issues.append("file_set_mismatch")
+    publication_dates: list[date] = []
+    for item in receipt.files:
+        path = root / item.path
+        if path.is_symlink() or not path.is_file():
+            issues.append(f"non_regular:{item.path}")
+            continue
+        if path.stat().st_nlink != 1:
+            issues.append(f"hardlink:{item.path}")
+        if path.stat().st_mode & 0o777 != item.mode:
+            issues.append(f"mode:{item.path}")
+        if path.stat().st_size != item.bytes:
+            issues.append(f"bytes:{item.path}")
+        if _sha256_file(path) != item.sha256:
+            issues.append(f"content_hash:{item.path}")
+        try:
+            publication_dates.extend(_publication_dates(item.path, path.read_bytes()))
+        except ValueError:
+            issues.append(f"publication_date:{item.path}")
+    observed_max = max(publication_dates).isoformat() if publication_dates else None
+    if observed_max != receipt.max_publication_date:
+        issues.append("publication_date_max_mismatch")
+    if publication_dates and max(publication_dates) > _cutoff(receipt.as_of).date():
+        issues.append("post_cutoff_publication_date")
+    if receipt.manifest_sha256 != _canonical_sha(receipt.manifest_payload()):
+        issues.append("manifest_self_hash_mismatch")
+    return WikiExportAudit(
+        "invalid" if issues else "valid",
+        tuple(dict.fromkeys(issues)),
+    )
+
+
+def export_cutoff_wiki(
+    source_repo: str | Path,
+    destination: str | Path,
+    *,
+    as_of: str,
+    ref: str = "HEAD",
+) -> WikiExportReceipt:
+    """Export ``wiki/`` regular blobs from the last revision before ``as_of``."""
+
+    repo = Path(source_repo).expanduser().resolve()
+    selected_revision = select_revision_at_cutoff(repo, as_of, ref=ref)
+    output = Path(destination).expanduser().resolve()
+    if output.exists():
+        raise FileExistsError("Wiki export destination already exists")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    raw_tree = _run_git(
+        repo,
+        ["ls-tree", "-r", "-z", selected_revision, "--", "wiki"],
+    ).stdout
+    selected: list[tuple[str, str, int]] = []
+    for raw_entry in raw_tree.split(b"\0"):
+        if not raw_entry:
+            continue
+        metadata, raw_path = raw_entry.split(b"\t", 1)
+        mode, object_type, object_sha = metadata.decode("ascii").split(" ")
+        source_path = raw_path.decode("utf-8")
+        if not source_path.startswith("wiki/"):
+            raise ValueError("Wiki export path escaped source prefix")
+        relative = source_path.removeprefix("wiki/")
+        if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+            raise ValueError("Wiki export path is unsafe")
+        if object_type != "blob" or mode not in {"100644", "100755"}:
+            raise ValueError("Wiki export accepts regular Git blobs only")
+        selected.append(
+            (relative, object_sha, 0o555 if mode == "100755" else 0o444)
+        )
+    if not selected:
+        raise ValueError("selected knowledge revision has no wiki files")
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent)
+    )
+    file_receipts: list[WikiFileReceipt] = []
+    publication_dates: list[date] = []
+    try:
+        stream = _stream_git_blobs(repo, tuple(item[1] for item in selected))
+        for (relative, object_sha, mode), (returned_sha, data) in zip(
+            selected,
+            stream,
+            strict=True,
+        ):
+            if returned_sha != object_sha:
+                raise ValueError("git blob stream order mismatch")
+            dates = _publication_dates(relative, data)
+            if dates and max(dates) > _cutoff(as_of).date():
+                raise ValueError(f"post-cutoff publication date: {relative}")
+            publication_dates.extend(dates)
+            path = temporary / relative
+            _write_once(path, data, mode)
+            file_receipts.append(
+                WikiFileReceipt(
+                    path=relative,
+                    mode=mode,
+                    bytes=len(data),
+                    sha256=hashlib.sha256(data).hexdigest(),
+                )
+            )
+        for directory in sorted(
+            (path for path in temporary.rglob("*") if path.is_dir()),
+            reverse=True,
+        ):
+            directory.chmod(0o555)
+        temporary.chmod(0o555)
+        os.replace(temporary, output)
+    except Exception:
+        shutil.rmtree(temporary, ignore_errors=True)
+        raise
+    files = tuple(sorted(file_receipts, key=lambda item: item.path))
+    provisional = WikiExportReceipt(
+        source_repo=repo,
+        selected_revision=selected_revision,
+        as_of=str(as_of),
+        wiki_root=output,
+        files=files,
+        max_publication_date=(
+            max(publication_dates).isoformat() if publication_dates else None
+        ),
+        manifest_sha256="",
+    )
+    receipt = WikiExportReceipt(
+        source_repo=repo,
+        selected_revision=selected_revision,
+        as_of=str(as_of),
+        wiki_root=output,
+        files=files,
+        max_publication_date=provisional.max_publication_date,
+        manifest_sha256=_canonical_sha(provisional.manifest_payload()),
+    )
+    audit = audit_wiki_export(receipt)
+    if audit.status != "valid":
+        raise ValueError("new Wiki export failed audit: " + ",".join(audit.issues))
+    return receipt
+
+
+def _export_rag_code(
+    code_root: Path,
+    code_revision: str,
+    destination: Path,
+) -> tuple[str, tuple[WikiFileReceipt, ...]]:
+    resolved = _run_git(
+        code_root,
+        ["rev-parse", f"{code_revision}^{{commit}}"],
+    ).stdout.decode("utf-8").strip()
+    if destination.exists():
+        raise FileExistsError("RAG code runtime already exists")
+    raw_tree = _run_git(code_root, ["ls-tree", "-r", "-z", resolved]).stdout
+    selected: list[tuple[str, str, int]] = []
+    exact = {"scripts/rag_index.py", "scripts/rag_freshness.py"}
+    for raw_entry in raw_tree.split(b"\0"):
+        if not raw_entry:
+            continue
+        metadata, raw_path = raw_entry.split(b"\t", 1)
+        mode, object_type, object_sha = metadata.decode("ascii").split(" ")
+        relative = raw_path.decode("utf-8")
+        if relative not in exact and not relative.startswith("skills/lib/"):
+            continue
+        if object_type != "blob" or mode not in {"100644", "100755"}:
+            raise ValueError("RAG code export accepts regular Git blobs only")
+        selected.append(
+            (relative, object_sha, 0o555 if mode == "100755" else 0o444)
+        )
+    if not exact.issubset({item[0] for item in selected}):
+        raise ValueError("RAG code revision is missing required scripts")
+    blobs = _read_git_blobs(code_root, tuple(item[1] for item in selected))
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent)
+    )
+    receipts: list[WikiFileReceipt] = []
+    try:
+        for relative, object_sha, mode in selected:
+            data = blobs[object_sha]
+            _write_once(temporary / relative, data, mode)
+            receipts.append(
+                WikiFileReceipt(
+                    path=relative,
+                    mode=mode,
+                    bytes=len(data),
+                    sha256=hashlib.sha256(data).hexdigest(),
+                )
+            )
+        for directory in sorted(
+            (path for path in temporary.rglob("*") if path.is_dir()),
+            reverse=True,
+        ):
+            directory.chmod(0o555)
+        temporary.chmod(0o555)
+        os.replace(temporary, destination)
+    except Exception:
+        shutil.rmtree(temporary, ignore_errors=True)
+        raise
+    return resolved, tuple(sorted(receipts, key=lambda item: item.path))
+
+
+def _probe_python(python: Path) -> dict[str, object]:
+    code = (
+        "import json,sys;"
+        "print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,"
+        "'version':sys.version.split()[0],'path':sys.path}))"
+    )
+    result = subprocess.run(
+        [str(python), "-c", code],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    value = json.loads(result.stdout)
+    if not isinstance(value, dict):
+        raise ValueError("RAG Python provenance probe returned invalid JSON")
+    return value
+
+
+def _wiki_manifest_revision(wiki_root: Path) -> tuple[str, int]:
+    entries: list[tuple[str, str]] = []
+    for directory in ("entities", "concepts", "sources", "synthesis", "briefings"):
+        root = wiki_root / directory
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.md")):
+            if path.is_symlink() or not path.is_file():
+                raise ValueError("Wiki manifest accepts regular Markdown files only")
+            relative = path.relative_to(wiki_root.parent).as_posix()
+            entries.append((relative, _sha256_file(path)))
+    entries.sort()
+    digest = hashlib.sha256()
+    digest.update(b"include_raw=0;max_files=0\n")
+    for relative, file_hash in entries:
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(file_hash.encode("ascii"))
+        digest.update(b"\n")
+    return f"manifest:v1:{digest.hexdigest()}", len(entries)
+
+
+def _parse_json_array(stdout: str) -> list[object]:
+    text = str(stdout or "").strip()
+    for index in reversed([i for i, char in enumerate(text) if char == "["]):
+        try:
+            value = json.loads(text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, list):
+            return value
+    raise ValueError("Hybrid query did not return a JSON array")
+
+
+def _seal_regular_tree(root: Path) -> tuple[WikiFileReceipt, ...]:
+    receipts: list[WikiFileReceipt] = []
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            raise ValueError("sealed tree cannot contain symlinks")
+        if not path.is_file():
+            continue
+        mode = 0o444
+        path.chmod(mode)
+        receipts.append(
+            WikiFileReceipt(
+                path=path.relative_to(root).as_posix(),
+                mode=mode,
+                bytes=path.stat().st_size,
+                sha256=_sha256_file(path),
+            )
+        )
+    if not receipts:
+        raise ValueError("sealed tree must contain files")
+    for directory in sorted(
+        (path for path in root.rglob("*") if path.is_dir()),
+        reverse=True,
+    ):
+        directory.chmod(0o555)
+    root.chmod(0o555)
+    return tuple(receipts)
+
+
+def _remove_tree(root: Path) -> None:
+    if not root.exists():
+        return
+    for path in root.rglob("*"):
+        try:
+            path.chmod(0o700 if path.is_dir() else 0o600)
+        except OSError:
+            pass
+    try:
+        root.chmod(0o700)
+    except OSError:
+        pass
+    shutil.rmtree(root, ignore_errors=True)
+
+
+def _rag_environment(*, wiki_root: Path, index_root: Path, python: Path) -> dict[str, str]:
+    environment = {
+        "HOME": str(Path.home()),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "en_US.UTF-8"),
+        "LC_ALL": os.environ.get("LC_ALL", "en_US.UTF-8"),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONHASHSEED": "0",
+        "TOKENIZERS_PARALLELISM": "false",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+        "KB_VAULT": str(wiki_root),
+        "RAG_INDEX_DIR": str(index_root),
+        "KB_RAG_PYTHON": str(python),
+        "RAG_INCLUDE_RAW": "0",
+        "RAG_MAX_FILES": "0",
+        "RAG_MODEL": "bge-m3",
+    }
+    for name in ("HF_HOME", "HUGGINGFACE_HUB_CACHE", "TRANSFORMERS_CACHE"):
+        if os.environ.get(name):
+            environment[name] = os.environ[name]
+    return environment
+
+
+def build_true_hybrid_index(
+    *,
+    wiki_receipt: WikiExportReceipt,
+    index_root: str | Path,
+    code_root: str | Path,
+    code_revision: str,
+    rag_python: str | Path,
+    query: str,
+    timeout_seconds: float = 3600.0,
+) -> HybridIndexReceipt:
+    """Build and seal one content-bound BGE-m3 + BM25 Hybrid index."""
+
+    if audit_wiki_export(wiki_receipt).status != "valid":
+        raise ValueError("Wiki export must pass audit before indexing")
+    index = Path(index_root).expanduser().resolve()
+    if index.exists():
+        raise FileExistsError("Hybrid index destination already exists")
+    index.parent.mkdir(parents=True, exist_ok=True)
+    code_source = Path(code_root).expanduser().resolve()
+    python = Path(rag_python).expanduser().absolute()
+    if not python.is_file():
+        raise ValueError("RAG Python executable is unavailable")
+    python_probe = _probe_python(python)
+    code_runtime = index.parent / "rag-code-runtime"
+    resolved_revision, _code_files = _export_rag_code(
+        code_source,
+        code_revision,
+        code_runtime,
+    )
+    script = code_runtime / "scripts" / "rag_index.py"
+    environment = _rag_environment(
+        wiki_root=wiki_receipt.wiki_root,
+        index_root=index,
+        python=python,
+    )
+    try:
+        subprocess.run(
+            [str(python), str(script), "build", "--model", "bge-m3"],
+            check=True,
+            text=True,
+            env=environment,
+            timeout=timeout_seconds,
+        )
+        required = {
+            "chunks.jsonl",
+            "dense.npy",
+            "meta.json",
+            "bm25_tokens.jsonl.gz",
+        }
+        if not required.issubset(
+            {path.name for path in index.iterdir() if path.is_file()}
+        ):
+            raise ValueError("Hybrid index is missing required files")
+        meta = json.loads((index / "meta.json").read_text(encoding="utf-8"))
+        if meta.get("format_version") != 2:
+            raise ValueError("Hybrid index format_version must be 2")
+        if meta.get("model") != "bge-m3":
+            raise ValueError("Hybrid index model must be bge-m3")
+        expected_revision, expected_file_count = _wiki_manifest_revision(
+            wiki_receipt.wiki_root
+        )
+        if meta.get("source_revision") != expected_revision:
+            raise ValueError("Hybrid index source manifest mismatch")
+        if int(meta.get("source_file_count") or -1) != expected_file_count:
+            raise ValueError("Hybrid index source file count mismatch")
+        if meta.get("source_dirty") is True:
+            raise ValueError("Hybrid index cannot be built from dirty source")
+        import numpy as np
+
+        dense = np.load(index / "dense.npy", mmap_mode="r")
+        num_chunks = int(meta.get("num_chunks") or 0)
+        if dense.ndim != 2 or dense.shape[0] != num_chunks or dense.shape[1] <= 0:
+            raise ValueError("Hybrid dense matrix shape mismatch")
+        fingerprint = hashlib.sha256()
+        chunk_count = 0
+        source_files: set[str] = set()
+        with (index / "chunks.jsonl").open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                chunk = json.loads(line)
+                chunk_count += 1
+                source_files.add(str(chunk.get("file_path") or ""))
+                fingerprint.update(str(chunk.get("id") or "").encode("utf-8"))
+                fingerprint.update(b"\0")
+                fingerprint.update(
+                    str(chunk.get("content_hash") or "").encode("ascii")
+                )
+                fingerprint.update(b"\n")
+        if chunk_count != num_chunks:
+            raise ValueError("Hybrid chunks count mismatch")
+        if len(source_files) != expected_file_count:
+            raise ValueError("Hybrid chunks source set mismatch")
+        if meta.get("source_fingerprint") != fingerprint.hexdigest():
+            raise ValueError("Hybrid chunks fingerprint mismatch")
+        import gzip
+
+        with gzip.open(index / "bm25_tokens.jsonl.gz", "rt", encoding="utf-8") as handle:
+            header = json.loads(handle.readline())
+        if header != {"format": "bm25-tokens-v1", "num_chunks": num_chunks}:
+            raise ValueError("Hybrid BM25 receipt mismatch")
+        query_result = subprocess.run(
+            [
+                str(python),
+                str(script),
+                "query",
+                str(query),
+                "--mode",
+                "hybrid",
+                "--k",
+                "5",
+                "--json",
+                "--stale-policy",
+                "fail",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+            timeout=timeout_seconds,
+        )
+        parsed_hits = _parse_json_array(query_result.stdout)
+        hits = tuple(item for item in parsed_hits if isinstance(item, dict))
+        if not hits or any(item.get("index_freshness") != "fresh" for item in hits):
+            raise ValueError("Hybrid probe must return fresh hits")
+        for hit in hits:
+            relative = str(hit.get("file_path") or "")
+            source_path = wiki_receipt.wiki_root.parent / relative
+            if not source_path.is_file() or source_path.is_symlink():
+                raise ValueError("Hybrid probe returned an unbound source path")
+        index_files = _seal_regular_tree(index)
+    except BaseException:
+        _remove_tree(index)
+        _remove_tree(code_runtime)
+        raise
+    payload = {
+        "index_root": str(index),
+        "code_runtime": str(code_runtime),
+        "code_revision": resolved_revision,
+        "code_script_sha256": _sha256_file(script),
+        "python_executable": str(python_probe.get("executable") or ""),
+        "python_prefix": str(python_probe.get("prefix") or ""),
+        "python_version": str(python_probe.get("version") or ""),
+        "model": "bge-m3",
+        "num_chunks": num_chunks,
+        "source_file_count": expected_file_count,
+        "source_revision": expected_revision,
+        "query": str(query),
+        "query_mode": "hybrid",
+        "hits": list(hits),
+        "index_files": [item.to_dict() for item in index_files],
+    }
+    return HybridIndexReceipt(
+        index_root=index,
+        code_runtime=code_runtime,
+        code_revision=resolved_revision,
+        code_script_sha256=str(payload["code_script_sha256"]),
+        python_executable=str(payload["python_executable"]),
+        python_prefix=str(payload["python_prefix"]),
+        python_version=str(payload["python_version"]),
+        model="bge-m3",
+        num_chunks=num_chunks,
+        source_file_count=expected_file_count,
+        source_revision=expected_revision,
+        query=str(query),
+        query_mode="hybrid",
+        hits=hits,
+        index_files=index_files,
+        manifest_sha256=_canonical_sha(payload),
+    )
 
 
 def _sha256_file(path: Path) -> str:
