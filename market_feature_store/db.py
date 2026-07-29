@@ -30,12 +30,19 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
 
 
 def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
-    """执行 schema.sql 建表。可传入已有连接, 否则自建。"""
+    """执行 schema.sql 建表, 再交由板块宇宙深模块装载代际 schema 并完成迁移。
+
+    两张 sector 事实表的物理定义不在 schema.sql 里, 由
+    SectorUniverseStore.ensure_schema() 独占 (代际表 + 公开只读视图 + 幂等迁移)。
+    """
+    from .sector_universe import SectorUniverseStore
+
     own = con is None
     if own:
         con = connect()
     try:
         con.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        SectorUniverseStore.ensure_schema(con)
     finally:
         if own:
             con.close()

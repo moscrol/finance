@@ -32,7 +32,13 @@ import duckdb
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
 SCHEMA_PATH = REPO_ROOT / "market_feature_store" / "schema.sql"
+SECTOR_SCHEMA_PATH = REPO_ROOT / "market_feature_store" / "sector_schema.sql"
 TRACE_PY = SCRIPT_DIR / "trace.py"
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from market_feature_store.db import init_db  # noqa: E402  (需要先插 sys.path)
 
 THEME = "测试题材"
 SECTOR_CODE = "TEST.TI"
@@ -44,7 +50,7 @@ END = "2026-06-12"
 def build_sample_db(db_path: Path) -> None:
     con = duckdb.connect(str(db_path))
     try:
-        con.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        init_db(con)
 
         con.execute(
             "INSERT INTO config_theme_sector_link (theme, direction, sector_ts_code, sector_name, match_type, confidence) "
@@ -60,10 +66,13 @@ def build_sample_db(db_path: Path) -> None:
             ("2026-06-05", -0.5, -10.0, False),
             ("2026-06-09", 1.0, 12.0, False),
         ]
+        # 公开 fact_sector_daily 已是只读视图: 无 published 表头的日期只暴露 legacy 代际行。
         for d, pct, diff, mpr in sector_rows:
             con.execute(
-                "INSERT INTO fact_sector_daily (trade_date, sector_ts_code, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO fact_sector_daily_generation (trade_date, "
+                "sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+                "diff_ratio, multi_period_resonance) "
+                "VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?)",
                 [d, SECTOR_CODE, SECTOR_NAME, pct, 600.0, diff, mpr],
             )
 
@@ -138,6 +147,9 @@ def build_sample_vault(vault: Path) -> None:
 def main() -> int:
     if not SCHEMA_PATH.is_file():
         print(f"[FAIL] schema.sql 不存在: {SCHEMA_PATH}")
+        return 1
+    if not SECTOR_SCHEMA_PATH.is_file():
+        print(f"[FAIL] sector_schema.sql 不存在: {SECTOR_SCHEMA_PATH}")
         return 1
     if not TRACE_PY.is_file():
         print(f"[FAIL] trace.py 不存在: {TRACE_PY}")

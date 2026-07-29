@@ -328,7 +328,7 @@ starting Task 2.
 - Modify: `tests/test_sync_akshare_sw_l1_daily.py`
 - Modify: `intelligence/tests/test_agent.py`
 
-- [ ] **Step 0: Add the reusable temporary-DuckDB test harness**
+- [x] **Step 0: Add the reusable temporary-DuckDB test harness**
 
 At the top of `tests/test_sector_universe.py`, define:
 
@@ -376,7 +376,7 @@ Task 3 extends this import with `SectorDescriptor`; Task 5 extends it with
 `MemberResult`. The helpers are defined now but are first called only after
 their corresponding interface exists.
 
-- [ ] **Step 1: Write failing migration/interface tests**
+- [x] **Step 1: Write failing migration/interface tests**
 
 Add tests that create the old two fact tables, seed legacy rows, call `ensure_sector_schema`, and assert the old public names become views while rows remain visible with the `legacy` generation:
 
@@ -397,7 +397,7 @@ def test_ensure_sector_schema_migrates_legacy_tables_and_is_idempotent():
     assert con.execute("select table_type from information_schema.tables where table_name='fact_sector_daily'").fetchone()[0] == "VIEW"
 ```
 
-- [ ] **Step 2: Run the migration test and verify RED**
+- [x] **Step 2: Run the migration test and verify RED**
 
 Run:
 
@@ -407,7 +407,7 @@ Run:
 
 Expected: FAIL because `SectorUniverseStore` and the generation schema do not exist.
 
-- [ ] **Step 3: Add the schema tables and canonical views**
+- [x] **Step 3: Add the schema tables and canonical views**
 
 Remove the two old physical fact definitions from `market_feature_store/schema.sql`.
 Create `market_feature_store/sector_schema.sql`, owned and loaded only by
@@ -469,7 +469,7 @@ field non-null; and include it in each primary key. End the file with public vie
 generation for dates with a header and select `legacy` rows only for dates with
 no header.
 
-- [ ] **Step 4: Implement transactional legacy migration**
+- [x] **Step 4: Implement transactional legacy migration**
 
 In `market_feature_store/sector_universe.py`, add `ensure_schema(con)` that:
 
@@ -500,14 +500,14 @@ def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
 
 The two copy helpers must enumerate the current columns explicitly, stamp `legacy`, use `ON CONFLICT DO NOTHING`, drop the temporary legacy tables only after successful copy, and recreate the three existing indexes on each generation table.
 
-- [ ] **Step 5: Wire `init_db` and stop tests from executing raw schema text**
+- [x] **Step 5: Wire `init_db` and stop tests from executing raw schema text**
 
 Change `market_feature_store/db.py::init_db` to execute the non-sector schema
 and then call `SectorUniverseStore.ensure_schema(con)` on the same connection.
 Change the three raw-schema test helpers to call `init_db(con)` so production
 migration behavior is the test behavior.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run:
 
@@ -528,6 +528,30 @@ git add market_feature_store/schema.sql market_feature_store/sector_schema.sql m
   intelligence/tests/test_agent.py
 git commit -m "feat: add versioned sector universe storage"
 ```
+
+Task 2 notes recorded during execution:
+
+- Temporary in-memory tests are not sufficient evidence for this migration. A
+  rehearsal on a disposable copy of the real 3.2 GB production database exposed
+  a defect the memory tests missed: the five explicit indexes that
+  `schema.sql` created on the two fact tables make DuckDB refuse
+  `ALTER TABLE ... RENAME` with `DependencyException`. `ensure_schema` now drops
+  those dependent indexes inside the same transaction before renaming, the
+  generation tables carry equivalent indexes, and a rollback test asserts the
+  dropped index is restored. Two permanent regression tests cover both.
+- Legacy column order differs from `schema.sql` because `multi_period_*`,
+  `pct_chg_3d`, and the market-cap columns were added by historical `ALTER`
+  statements. The copy maps by column name and fills absent columns with NULL,
+  never by ordinal position.
+- Migration rehearsal on the production copy: 95,813 sector rows and 10,599,868
+  member rows migrated with exact row conservation, 61.9s for the first call and
+  0.0s for the idempotent replay, no leftover `_legacy_*` tables, and zero
+  non-`legacy` generation rows. Representative reader queries against the
+  migrated copy returned the expected shapes through the new views. The copy was
+  deleted afterwards; production was never opened for writing.
+- `skills/theme-fermentation-tracer/scripts/selftest.py` also built its sample
+  database from raw schema text and was moved onto `init_db`; its 11 assertions
+  still pass end to end.
 
 ### Task 3: Publish One Validated Universe and Own Active Identities
 

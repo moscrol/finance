@@ -84,24 +84,9 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     updated_at               TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS fact_sector_daily (
-    trade_date      DATE,
-    sector_ts_code  TEXT,
-    sector_name     TEXT,
-    sw_l1           TEXT,
-    pct_chg         DOUBLE,
-    amount          DOUBLE,
-    diff_ratio      DOUBLE,
-    strength        DOUBLE,
-    multi_period_resonance BOOLEAN,
-    multi_period_source TEXT,
-    multi_period_updated_at TIMESTAMP,
-    source          TEXT,
-    updated_at      TIMESTAMP,
-    PRIMARY KEY (trade_date, sector_ts_code)
-);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_date ON fact_sector_daily(trade_date);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_sector ON fact_sector_daily(sector_ts_code);
+-- fact_sector_daily 已迁往 market_feature_store/sector_schema.sql:
+-- 物理存储是 fact_sector_daily_generation (代际绑定), 这里的公开表名是只读视图。
+-- 由 SectorUniverseStore.ensure_schema() 装载, 见 market_feature_store/sector_universe.py。
 
 CREATE TABLE IF NOT EXISTS fact_sector_period_rank_daily (
     trade_date      DATE,
@@ -135,41 +120,9 @@ CREATE TABLE IF NOT EXISTS fact_sw_l1_daily (
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_date);
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
 
-CREATE TABLE IF NOT EXISTS fact_sector_stock_daily (
-    trade_date        DATE,
-    sector_ts_code    TEXT,
-    sector_name       TEXT,
-    sw_l1             TEXT,
-    stock_ts_code     TEXT,
-    stock_name        TEXT,
-    price             DOUBLE,
-    pct_chg           DOUBLE,
-    amount            DOUBLE,
-    pct_chg_3d        DOUBLE,
-    pct_chg_5d        DOUBLE,
-    pct_chg_10d       DOUBLE,
-    pct_chg_20d       DOUBLE,
-    high_status       TEXT,
-    high_status_label TEXT,
-    limit_times       INTEGER,
-    fund_flow_1d      DOUBLE,
-    fund_flow_5d      DOUBLE,
-    sw_industry       TEXT,
-    leader_plate      TEXT,
-    leader_sub_plate  TEXT,
-    role_tags_json    TEXT,
-    circ_mv           DOUBLE,
-    float_mcap_yi     DOUBLE,
-    total_mcap_yi     DOUBLE,
-    free_float_mcap_yi DOUBLE,
-    mcap_source       TEXT,
-    source            TEXT,
-    updated_at        TIMESTAMP,
-    PRIMARY KEY (trade_date, sector_ts_code, stock_ts_code)
-);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_date ON fact_sector_stock_daily(trade_date);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_stock ON fact_sector_stock_daily(stock_ts_code);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_sector ON fact_sector_stock_daily(sector_ts_code);
+-- fact_sector_stock_daily 已迁往 market_feature_store/sector_schema.sql:
+-- 物理存储是 fact_sector_stock_daily_generation (代际绑定), 这里的公开表名是只读视图。
+-- 由 SectorUniverseStore.ensure_schema() 装载, 见 market_feature_store/sector_universe.py。
 
 CREATE TABLE IF NOT EXISTS fact_stock_daily (
     trade_date     DATE,

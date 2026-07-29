@@ -9,7 +9,7 @@ import duckdb
 import pandas as pd
 import pytest
 
-from market_feature_store import cli
+from market_feature_store import cli, db
 from market_feature_store.sync import sync_fupanhui_mainline_daily as mainline
 from market_feature_store.sync import sync_fupanhui_mainline_sector_daily as mainline_sector
 from scripts import check_daily_review_data
@@ -17,7 +17,6 @@ from scripts.compute_features import compute_features
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = (ROOT / "market_feature_store" / "schema.sql").read_text(encoding="utf-8")
 TRADE_DATE = "2026-07-10"
 RUN_REVIEW_PATH = ROOT / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
 RUN_REVIEW_SPEC = importlib.util.spec_from_file_location("run_review_sync", RUN_REVIEW_PATH)
@@ -27,9 +26,27 @@ RUN_REVIEW_SPEC.loader.exec_module(run_review_sync)
 
 
 def _database(path: Path | str = ":memory:") -> duckdb.DuckDBPyConnection:
+    """用生产入口 init_db 建库, 让测试看到与生产一致的迁移后 schema。"""
     con = duckdb.connect(str(path))
-    con.execute(SCHEMA)
+    db.init_db(con)
     return con
+
+
+def _seed_legacy_sector_daily(con: duckdb.DuckDBPyConnection, rows: list[tuple]) -> None:
+    """向尚未发布快照的交易日写入 legacy 代际行。
+
+    公开的 fact_sector_daily 已是只读视图, 没有 published 表头的日期只暴露 legacy 行;
+    测试目录不在 Task 7 访问门禁的扫描范围内。
+    """
+    con.executemany(
+        """
+        INSERT INTO fact_sector_daily_generation (
+            trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+            sw_l1, pct_chg, amount, diff_ratio, source, updated_at
+        ) VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?, 'test', NOW())
+        """,
+        rows,
+    )
 
 
 def _theme(code: str = "T1") -> dict:
@@ -212,14 +229,9 @@ def _seed_feature_inputs(con: duckdb.DuckDBPyConnection, count: int = 70) -> str
             """,
             [current, 10 + offset / 10, 100 + offset],
         )
-        con.execute(
-            """
-            INSERT INTO fact_sector_daily (
-                trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount,
-                diff_ratio, source, updated_at
-            ) VALUES (?, '885001.TI', '测试板块', '一级行业', 1, ?, ?, 'test', NOW())
-            """,
-            [current, 1000 + offset, offset / 10],
+        _seed_legacy_sector_daily(
+            con,
+            [(current, "885001.TI", "测试板块", "一级行业", 1, 1000 + offset, offset / 10)],
         )
     return str(start + timedelta(days=count - 1))
 
@@ -350,7 +362,7 @@ def _load_l2_writer(monkeypatch, db_path):
     writer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(writer)
     monkeypatch.setattr(writer, "connect", lambda: duckdb.connect(str(db_path)))
-    monkeypatch.setattr(writer, "init_db", lambda con: con.execute(SCHEMA))
+    monkeypatch.setattr(writer, "init_db", db.init_db)
     return writer
 
 

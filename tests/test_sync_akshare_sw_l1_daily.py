@@ -22,7 +22,7 @@ def _init_test_db(path):
     def init_db():
         con = duckdb.connect(str(path))
         try:
-            con.execute(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+            db.init_db(con)
         finally:
             con.close()
 
@@ -47,11 +47,13 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
                 ("2026-07-10", "电子", 13.5, "test"),
             ],
         )
+        # 公开 fact_sector_daily 已是只读视图: 无 published 表头的日期只暴露 legacy 代际行。
         con.executemany(
             """
-            INSERT INTO fact_sector_daily
-                (trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fact_sector_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                 sw_l1, pct_chg, amount, diff_ratio, source)
+            VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 ("2026-07-10", "A", "半导体", "电子", 2.0, 100.0, 18.0, "fupanhui"),
