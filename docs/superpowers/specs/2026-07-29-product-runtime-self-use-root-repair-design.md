@@ -40,6 +40,12 @@ verification, giving the SDK 80 seconds; the SDK reserves up to 20 seconds of
 that for delivery, leaving about 60 seconds for new tools. The SDK path does not
 apply the existing 240-second deep ModeGovernor admission.
 
+There is no hidden third reserve on `sdk_gpt`: the API injects an explicit
+`0.0` inner synthesis reserve and `build_episode_context` respects it. The
+existing outer formula `min(40, root_timeout / 3)` already yields a 40-second
+verification reserve for both proposed roots: 130 becomes 90+40 and 280 becomes
+240+40. This formula remains unchanged.
+
 Authoritative evidence:
 
 `docs/verification/product-five-workflow-canary-2026-07-29.md`
@@ -109,6 +115,9 @@ self-use maturity.
 SDK delivery reserve remains inside the research allocation. It is not deducted
 again from the total turn after research has already been bounded.
 
+These values reuse the existing verification-reserve formula; this design does
+not add another synthesis/verifier reserve.
+
 ### 6.2 Admission
 
 A user-selected quick/standard mode locks the standard tier. A user-selected
@@ -132,6 +141,28 @@ supervisor deadline; the product endpoint no longer installs a lower fixed
 120-second cap. The deep total is the code-owned maximum, so neither the model
 nor a caller can extend it.
 
+Admission is a pure function of the already parsed `TaskFrame`, turn control,
+required-output derivation, and evidence plan. It does not need to construct a
+standard-tier episode first. `RunSupervisor.submit` accepts the selected
+per-run total for its timer and cancellation signal; its app-level setting is
+only the 280-second safety ceiling, not a fixed timeout imposed on every run.
+
+The admission result is threaded through every current clamp point:
+
+1. `_build_continuous_turn_adapter` receives the selected tier instead of
+   relying on `ContinuousTurnAdapter(tier="standard")`;
+2. the adapter `timeout` receives the selected total allocation;
+3. `RunSupervisor`/`CancellationSignal.deadline_expires_at` receives the same
+   selected total allocation;
+4. `build_episode_context` receives the selected tier and the derived research
+   allocation.
+
+Both adapter timeout and cancellation deadline must change together because
+`_remaining_timeout()` takes their minimum. Passing 240 seconds while leaving
+the adapter tier at `standard` is also invalid: `build_episode_context` clamps
+to that tier's 90-second policy. Release construction therefore makes tier and
+both limits explicit; no release path may inherit the constructor default.
+
 ### 6.3 One budget authority
 
 `RootBudgetLedger` remains the single call/seconds authority for research and
@@ -144,6 +175,14 @@ separately reserved semantic grant.
 Concretely, the SDK request deadline equals the selected research grant. Its
 delivery reserve partitions that same grant; it neither subtracts a second
 time from the adapter total nor extends past the research deadline.
+
+At the first semantic invocation, the adapter creates one child deadline such
+as `root_deadline.bounded_stage(40)`. The same absolute child is reused for the
+entire episode's semantic work: the initial judge, typed transient transport
+attempts, deletion-only repair, second/third judge rounds, and any later
+re-verification after a semantic-triggered runtime repair. A re-entry never
+receives a fresh 40 seconds. Early research completion may start this phase
+earlier, but cannot enlarge it beyond 40 seconds or the root remainder.
 
 No stage may extend the outer total, and unused semantic time cannot be spent on
 new research tools after research closes.
@@ -159,15 +198,32 @@ For the approved candidate, composer and verifier identities are both
 judge is allowed only when its identity is explicitly present in the release
 profile.
 
-The verifier has one bounded strict-JSON window plus transport grace within the
-40-second allocation. It may retry only errors already classified transient and
-release-safe. Outcomes remain:
+The 40-second allocation covers the whole semantic chain, not only its first
+provider call. Two mechanisms remain distinct:
 
-- valid pass/repair: eligible for completed projection;
-- semantic rejection or malformed output: fail closed;
-- transient/deadline failure after structural completion: candidate draft with
-  `partial`, never completed;
-- structurally partial input: evidence-gap answer, never upgraded by the judge.
+1. one `_run_judge` round may make up to three transport attempts, but only for
+   typed transient and release-safe failures;
+2. a valid judge rejection may trigger deterministic deletion-only repair and
+   then a second or third judge round.
+
+`MAX_SEMANTIC_JUDGE_WINDOW_SECONDS=30` and per-attempt time splitting may remain
+internal limits, but every round consumes the same aggregate child deadline.
+Three nominal 25-second rounds therefore do not fit: later rounds receive only
+the remaining child time or are skipped. They must never silently run beyond
+40 seconds.
+
+Outcomes remain:
+
+- valid pass, or a repaired draft that passes, is eligible for completed
+  projection;
+- if the initial judge is unavailable, transient, expired, malformed, or
+  rejected without a safe repair, the result remains partial/rejected;
+- after a valid report has reviewed the whole draft and identified exact spans,
+  the existing monotonic deletion-release rule may preserve the reviewed
+  remainder when an optional rejudge has a typed release-safe transient or
+  deadline failure; malformed output never receives that exception;
+- structurally partial input is an evidence-gap answer and is never promoted by
+  the judge.
 
 Private telemetry records stable error category, attempts, elapsed time, and
 provider/profile identity without raw prompt, response, endpoint secret, or key.
@@ -226,6 +282,11 @@ Each ingested self-use event must include:
 - outcome/usefulness/manual-rescue/fact-error fields;
 - `release_profile_id`.
 
+This is a versioned event-schema change. Existing version-1 rows remain
+readable and auditable but, because they lack `release_profile_id`, are
+ineligible for the new campaign. New release-counting rows use the new schema
+version; they are not rewritten onto historical events.
+
 Run binding requires:
 
 1. terminal successful RunStore state;
@@ -256,6 +317,15 @@ thresholds together:
 Synthetic tests, benchmark artifacts, temporary canaries, and backfilled rows
 never count as self-use events. User approval cannot override a mechanical
 blocker.
+
+The ledger remains append-only and deterministic. Re-ingesting the same
+`(run_id, trade_date, workflow)` is idempotent and keeps the first event.
+Different real run IDs on the same trading day are all retained and contribute
+to event-level success/usefulness/rescue/error rates; the ten-day counter counts
+that trading date once. Workflow coverage is distinct across all eligible
+events. Weekend/holiday events mapped to the same latest trading day follow the
+same rule. A release-counting event must have a bound run ID, so the historical
+no-run-ID fallback is not eligible.
 
 ## 11. Status and User Experience
 
@@ -291,24 +361,35 @@ Deterministic tests must cover:
 2. five-output/multi-domain theme, valuation, news, and tracking contracts select
    deep without question-specific matching;
 3. explicit quick cannot be silently promoted; explicit deep stays within caps;
-4. RunSupervisor receives 130 or 280 seconds after admission and no fixed
+4. adapter construction receives the admitted tier, so deep is not clamped
+   back to standard's 90 seconds;
+5. both adapter timeout and cancellation deadline receive 130 or 280 seconds,
+   and changing only one cannot pass the test;
+6. RunSupervisor receives 130 or 280 seconds after admission and no fixed
    120-second product cap truncates deep mode;
-5. SDK research sees 90 or 240 seconds, not total minus a duplicate reserve;
-6. tool-stage delivery remains inside research allocation;
-7. semantic verifier cannot exceed its 40-second allocation or switch provider;
-8. transient verifier failure stays partial; malformed/rejected stays
+7. SDK research sees 90 or 240 seconds, not total minus a duplicate reserve;
+8. tool-stage delivery remains inside research allocation;
+9. the same 40-second child deadline is reused across initial judge, transport
+   attempts, deletion rejudges, and semantic re-entry;
+10. early research completion cannot enlarge semantic time, and semantic
+    verifier cannot switch provider;
+11. initial transient failure stays partial; malformed/rejected stays
    fail-closed; valid pass can complete;
-9. scalar `in` becomes one validated array item and does not repeat as the same
+12. monotonic deletion release remains limited to an already reviewed draft and
+    a typed release-safe optional-rejudge failure;
+13. scalar `in` becomes one validated array item and does not repeat as the same
    invalid action;
-10. invalid/nested/empty `in` values remain rejected;
-11. SH/SZ/BJ code canonicalization and already-suffixed preservation;
-12. entity anchor wins over ambiguous six-digit spelling;
-13. fresh local price is published while missing valuation ratios remain gaps;
-14. stale/missing ratio evidence cannot complete a valuation scenario;
-15. self-use accepts a matching GPT release profile and rejects GLM, mismatched
+14. invalid/nested/empty `in` values remain rejected;
+15. SH/SZ/BJ code canonicalization and already-suffixed preservation;
+16. entity anchor wins over ambiguous six-digit spelling;
+17. fresh local price is published while missing valuation ratios remain gaps;
+18. stale/missing ratio evidence cannot complete a valuation scenario;
+19. self-use accepts a matching GPT release profile and rejects GLM, mismatched
    model, backend, profile, partial report, or missing SSE evidence;
-16. profile change invalidates prior approval fingerprint;
-17. public leak and secret scans remain green.
+20. duplicate ingestion of one run is idempotent; different runs on one trade
+    date all affect event rates while the day counter advances once;
+21. profile change invalidates prior approval fingerprint;
+22. public leak and secret scans remain green.
 
 Existing numeric lineage, cutoff, freshness, RootBudgetLedger, repair-cycle,
 EvidenceLedger, semantic verifier, Run/SSE, and self-use suites must remain

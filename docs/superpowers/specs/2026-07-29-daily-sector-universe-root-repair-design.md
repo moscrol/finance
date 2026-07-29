@@ -56,8 +56,10 @@ This slice owns:
 4. member synchronization driven only by the frozen current universe;
 5. an exact declared-versus-actual completion gate;
 6. adjacent-day name continuity as a secondary integrity gate;
-7. phase/table isolation for reduced checks and tests;
-8. orchestration summaries that report progress against the frozen universe.
+7. generation lineage on both sector-daily and sector-member facts;
+8. one published-generation read surface for every production consumer;
+9. phase/table isolation for reduced checks and tests;
+10. orchestration summaries that report progress against the frozen universe.
 
 ## 4. Non-Goals
 
@@ -90,6 +92,13 @@ transition from `candidate` to `published`, `superseded`, or `rejected`:
 
 Primary key: `(trade_date, snapshot_id)`. At most one snapshot per trade date
 and provider may be `published`.
+
+DuckDB has no partial unique index for `status='published'`, so this is a
+transactional application invariant, not a claimed schema constraint. The
+publisher demotes the previous generation, promotes the candidate, then checks
+that the published count for `(trade_date, provider_source)` is exactly one
+before commit; any other count rolls the transaction back. Concurrent
+publication conflicts fail closed and retry from a fresh read.
 
 The implementation builds canonical rows in memory before it writes a header.
 A candidate is publishable only when the response is non-empty; all codes and
@@ -124,7 +133,36 @@ Rows are append-only snapshot generations. Consumers select rows by joining the
 single `published` header, never by taking all rows for a date or by guessing
 the latest capture timestamp.
 
-### 5.3 `ops_sector_member_sync_daily`
+### 5.3 Generation-Bound Sector Facts
+
+Both current sector fact families carry the universe generation that produced
+them:
+
+- `fact_sector_daily` includes `sector_universe_snapshot_id` and has the
+  generation-aware identity
+  `(trade_date, sector_universe_snapshot_id, sector_ts_code)`;
+- `fact_sector_stock_daily` includes `sector_universe_snapshot_id` and has the
+  generation-aware identity
+  `(trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)`.
+
+Superseding a snapshot does not mutate or combine an older generation. Writers
+may idempotently replace rows only inside the same date/snapshot/sector key.
+
+Create canonical published-generation read surfaces for both families, for
+example `v_fact_sector_daily_published` and
+`v_fact_sector_stock_daily_published`. For a date with a published header they
+return only rows bound to that snapshot. For a historical date with no header,
+they may expose the existing unversioned legacy rows; once a header exists for
+a date, unversioned and superseded rows are excluded.
+
+Before implementation, generate and commit a machine-readable inventory of
+all production readers and writers of both base tables. Migrate every
+production reader to the canonical published-generation surface. A static
+contract test rejects a new direct base-table read outside an explicit
+writer/migration/gate allowlist. This prevents a date-only query from pooling
+53,316 relationships across multiple same-day generations.
+
+### 5.4 `ops_sector_member_sync_daily`
 
 One durable operational receipt per
 `(trade_date, snapshot_id, sector_ts_code)`:
@@ -143,14 +181,6 @@ One durable operational receipt per
 `success` requires `actual_stock_count == expected_stock_count`. An empty or
 count-mismatched response is terminal for that attempt but remains eligible for
 a bounded retry. It is never silently promoted to success.
-
-Every newly published `fact_sector_stock_daily` row carries its
-`sector_universe_snapshot_id`, and its generation-aware identity includes
-`(trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)`.
-Retries may replace only rows inside the same snapshot/sector generation;
-superseding a snapshot never deletes an older generation. Legacy rows without
-that lineage may remain for history, but they cannot satisfy the exact
-current-day gate.
 
 ## 6. Snapshot-Owned Active Identities
 
@@ -211,10 +241,12 @@ sector dependencies.
 For a production target date, the sector gate requires:
 
 1. exactly one published universe snapshot and one `snapshot_id`;
-2. current `fact_sector_daily` identities equal the snapshot identity set;
+2. identities from the published-generation `fact_sector_daily` surface equal
+   the snapshot identity set;
 3. terminal `success` receipts for every snapshot identity;
 4. each receipt's actual count equals its declared count;
-5. persisted distinct member count per sector equals the receipt;
+5. persisted distinct member count from the published-generation member
+   surface equals each receipt;
 6. every current-day member fact used by the gate carries the published
    snapshot ID, and none belongs to an identity outside that snapshot;
 7. existing critical field-null checks remain green;
@@ -280,24 +312,39 @@ Deterministic tests must cover:
 12. legacy or superseded-snapshot facts cannot satisfy the current gate;
 13. a different valid same-day generation supersedes atomically without
     deleting old universe/member generations or pooling old receipts;
-14. name continuity below 95% rejects publication and fails independently;
-15. a reduced table scope skips sector-only checks;
-16. existing stock coverage and critical-null gates remain unchanged;
-17. run-log progress uses snapshot totals and receipt status counts.
+14. the publication transaction cannot commit zero or two `published` headers
+    for one date/provider even under a conflicting writer;
+15. published-generation views exclude legacy and superseded rows when a
+    header exists, while preserving legacy-only historical dates;
+16. a static inventory test rejects unapproved production date-only reads of
+    either base fact table;
+17. name continuity below 95% rejects publication and fails independently;
+18. a reduced table scope skips sector-only checks;
+19. existing stock coverage and critical-null gates remain unchanged;
+20. run-log progress uses snapshot totals and receipt status counts.
 
 One temporary DuckDB integration fixture must reproduce the stale-TI/FP
 starvation shape without using the production database.
 
 ## 12. Verification and Release Sequence
 
-1. Implement and test only in a clean isolated worktree.
-2. Run focused unit/integration suites and existing daily-pipeline gates.
-3. Run a read-only migration preview against the production database and record
+1. Before sizing orchestration, measure read-only member-detail latency on a
+   deterministic sample spanning small, median, high, and maximum declared
+   member counts. Record per-call elapsed time and project the complete current
+   universe wall clock. Do not assume 407 requests fit the nightly window.
+2. If the measured projection does not fit, design bounded provider-safe
+   concurrency or an earlier resumable schedule before implementation; the
+   exact gate is not weakened to fit the window.
+3. Implement and test only in a clean isolated worktree.
+4. Run focused unit/integration suites, the reader-inventory contract, and
+   existing daily-pipeline gates.
+5. Run a read-only migration preview against the production database and record
    the predicted active retirements and current snapshot denominator.
-4. Apply schema/data changes through the normal migration/sync entry point; do
+6. Apply schema/data changes through the normal migration/sync entry point; do
    not edit DuckDB manually.
-5. Execute one bounded current-date sector sync and retain its receipt summary.
-6. Require three consecutive real trading-date nightly runs to pass unattended
+7. Execute one complete current-date sector sync within the configured nightly
+   window and retain its latency and receipt summary.
+8. Require three consecutive real trading-date nightly runs to pass unattended
    before the data foundation is eligible for canonical cutover. A failed or
    manually repaired night restarts this three-date readiness streak but
    remains visible in the operational ledger.
