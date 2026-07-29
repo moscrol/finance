@@ -120,11 +120,11 @@ Expected: all leakage tests pass.
 - Create: `intelligence/eval/ceiling_instruction_export.py`
 - Test: `intelligence/tests/test_ceiling_instruction_export.py`
 
-- [ ] **Step 1: Write a failing safety test**
+- [x] **Step 1: Write a failing safety test**
 
 Create a temporary Git repo containing a regular production file, a symlink, `docs/verification/result.md`, and `intelligence/tests/gold.json`. Assert that only the regular allowlisted file can enter the export.
 
-- [ ] **Step 2: Implement explicit scope**
+- [x] **Step 2: Implement explicit scope**
 
 ```python
 INCLUDE_PREFIXES = (
@@ -142,19 +142,19 @@ EXCLUDE_PREFIXES = (
 
 Generate a neutral root `AGENTS.md` containing only read-only finance research rules, PIT cutoff discipline, `finance-tool` discovery, and no benchmark/rubric language.
 
-- [ ] **Step 3: Export directly from Git objects**
+- [x] **Step 3: Export directly from Git objects**
 
 Use `git ls-tree -r -z source_revision` for mode/type/path and `git cat-file blob source_revision:relative_path` for bytes. Reject symlink/submodule modes. Write to a temporary sibling with create-if-absent semantics, chmod files `0444` and directories `0555`, then atomically rename to the content-addressed destination.
 
-- [ ] **Step 4: Seal `instruction-export.manifest.json`**
+- [x] **Step 4: Seal `instruction-export.manifest.json`**
 
 Record source revision, allow/exclude lists, neutral instruction hash, file count, and for every file: relative path, Git mode, byte count, SHA-256. Bind the deterministic leak-scan hash.
 
-- [ ] **Step 5: Test link/mutation/overwrite failures**
+- [x] **Step 5: Test link/mutation/overwrite failures**
 
 Prove no `.git`, all entries are regular files, every file has `st_nlink == 1`, mutation invalidates audit, and a different manifest cannot overwrite an existing destination.
 
-- [ ] **Step 6: Run GREEN and commit**
+- [x] **Step 6: Run GREEN and commit**
 
 Run:
 

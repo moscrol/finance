@@ -100,9 +100,7 @@ def _sentences(text: str) -> tuple[str, ...]:
     )
 
 
-def _jaccard(left: tuple[str, ...], right: tuple[str, ...]) -> float:
-    left_set = set(left)
-    right_set = set(right)
+def _jaccard_sets(left_set: frozenset[str], right_set: frozenset[str]) -> float:
     union = left_set | right_set
     if not union:
         return 0.0
@@ -135,6 +133,29 @@ class ForbiddenCorpus:
         if len(source_ids) != len(set(source_ids)):
             raise ValueError("forbidden corpus source ids must be unique")
         object.__setattr__(self, "entries", entries)
+
+
+@dataclass(frozen=True)
+class _PreparedForbiddenText:
+    source: ForbiddenText
+    char_stream: str
+    char_ngrams: frozenset[object]
+    tokens: tuple[str, ...]
+    token_ngrams: frozenset[object]
+    token_set: frozenset[str]
+
+
+def _prepare_forbidden_text(value: ForbiddenText) -> _PreparedForbiddenText:
+    char_stream = normalize_char_stream(value.text)
+    tokens = tokenize(value.text)
+    return _PreparedForbiddenText(
+        source=value,
+        char_stream=char_stream,
+        char_ngrams=frozenset(_ngrams(char_stream, _CHAR_NGRAM)),
+        tokens=tokens,
+        token_ngrams=frozenset(_ngrams(tokens, _TOKEN_NGRAM)),
+        token_set=frozenset(tokens),
+    )
 
 
 @dataclass(frozen=True)
@@ -189,36 +210,41 @@ class LeakScanResult:
         }
 
 
-def _match_rule(sentence: str, forbidden: ForbiddenText) -> LeakRule | None:
-    candidate_chars = normalize_char_stream(sentence)
-    forbidden_chars = normalize_char_stream(forbidden.text)
-    if forbidden_chars and forbidden_chars in candidate_chars:
-        return "full_normalized_match"
-    if _ngrams(tuple(candidate_chars), _CHAR_NGRAM) & _ngrams(
-        tuple(forbidden_chars), _CHAR_NGRAM
-    ):
-        return "character_ngram_match"
-    candidate_tokens = tokenize(sentence)
-    forbidden_tokens = tokenize(forbidden.text)
-    if _ngrams(candidate_tokens, _TOKEN_NGRAM) & _ngrams(
-        forbidden_tokens, _TOKEN_NGRAM
-    ):
-        return "token_ngram_match"
-    if (
-        len(forbidden_tokens) >= 8
-        and _jaccard(candidate_tokens, forbidden_tokens) >= _JACCARD_THRESHOLD
-    ):
-        return "token_jaccard_match"
-    return None
+def _match_rule(
+    *,
+    candidate_chars: str,
+    candidate_char_ngrams: frozenset[object],
+    candidate_token_ngrams: frozenset[object],
+    candidate_token_set: frozenset[str],
+    forbidden: _PreparedForbiddenText,
+) -> tuple[LeakRule | None, float]:
+    if forbidden.char_stream and forbidden.char_stream in candidate_chars:
+        return "full_normalized_match", 1.0
+    if candidate_char_ngrams & forbidden.char_ngrams:
+        return "character_ngram_match", 1.0
+    if candidate_token_ngrams & forbidden.token_ngrams:
+        return "token_ngram_match", 1.0
+    score = _jaccard_sets(candidate_token_set, forbidden.token_set)
+    if len(forbidden.tokens) >= 8 and score >= _JACCARD_THRESHOLD:
+        return "token_jaccard_match", score
+    return None, score
 
 
 def scan_export(root: str | Path, corpus: ForbiddenCorpus) -> LeakScanResult:
     """Scan regular UTF-8 export files against the frozen forbidden corpus."""
 
-    export_root = Path(root).resolve()
+    requested_root = Path(root)
+    if (
+        requested_root.is_symlink()
+        or not requested_root.exists()
+        or not requested_root.is_dir()
+    ):
+        raise ValueError("export root must be an existing regular directory")
+    export_root = requested_root.resolve()
     findings: list[LeakFinding] = []
     semantic_candidates: list[SemanticLeakCandidate] = []
     files_scanned = 0
+    prepared_corpus = tuple(_prepare_forbidden_text(item) for item in corpus.entries)
     for path in sorted(export_root.rglob("*")):
         relative = path.relative_to(export_root).as_posix()
         if path.is_symlink() or (path.exists() and not path.is_file()):
@@ -249,29 +275,47 @@ def scan_export(root: str | Path, corpus: ForbiddenCorpus) -> LeakScanResult:
             continue
         for sentence in _sentences(text) or (text,):
             sentence_hash = hashlib.sha256(sentence.encode("utf-8")).hexdigest()
-            for forbidden in corpus.entries:
-                rule = _match_rule(sentence, forbidden)
+            candidate_chars = normalize_char_stream(sentence)
+            candidate_tokens = tokenize(sentence)
+            candidate_char_ngrams = frozenset(
+                _ngrams(candidate_chars, _CHAR_NGRAM)
+            )
+            candidate_token_ngrams = frozenset(
+                _ngrams(candidate_tokens, _TOKEN_NGRAM)
+            )
+            candidate_token_set = frozenset(candidate_tokens)
+            for forbidden in prepared_corpus:
+                rule, score = _match_rule(
+                    candidate_chars=candidate_chars,
+                    candidate_char_ngrams=candidate_char_ngrams,
+                    candidate_token_ngrams=candidate_token_ngrams,
+                    candidate_token_set=candidate_token_set,
+                    forbidden=forbidden,
+                )
                 if rule is not None:
                     findings.append(
                         LeakFinding(
                             relative,
-                            forbidden.source_id,
+                            forbidden.source.source_id,
                             rule,
                             sentence_hash,
                         )
                     )
                     continue
-                forbidden_tokens = tokenize(forbidden.text)
-                score = _jaccard(tokenize(sentence), forbidden_tokens)
-                if len(forbidden_tokens) >= 8 and score >= _SEMANTIC_CANDIDATE_THRESHOLD:
+                if (
+                    len(forbidden.tokens) >= 8
+                    and score >= _SEMANTIC_CANDIDATE_THRESHOLD
+                ):
                     semantic_candidates.append(
                         SemanticLeakCandidate(
                             relative,
-                            forbidden.source_id,
+                            forbidden.source.source_id,
                             sentence[:500],
                             score,
                         )
                     )
+    if files_scanned == 0:
+        raise ValueError("export root must contain at least one regular file")
     deduped_findings = tuple(
         sorted(
             set(findings),

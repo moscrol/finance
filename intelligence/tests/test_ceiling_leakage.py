@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+import intelligence.eval.ceiling_leakage as leakage
 from intelligence.eval.ceiling_leakage import (
     ForbiddenCorpus,
     ForbiddenText,
@@ -121,6 +122,70 @@ def test_scan_keeps_semantic_near_match_for_independent_review(tmp_path) -> None
     assert result.status == "passed"
     assert result.semantic_candidates
     assert result.semantic_candidates[0].relative_path == "paraphrase.md"
+
+
+def test_scan_precompiles_forbidden_text_once(tmp_path, monkeypatch) -> None:
+    export = tmp_path / "export"
+    export.mkdir()
+    sentence_count = 30
+    (export / "runtime.md").write_text(
+        "\n".join(
+            f"runtime implementation note {index} alpha beta gamma"
+            for index in range(sentence_count)
+        ),
+        encoding="utf-8",
+    )
+    entries = tuple(
+        ForbiddenText(
+            source_id=f"question:{index}",
+            kind="question",
+            text=f"sealed evaluation prompt {index} delta epsilon zeta eta theta",
+        )
+        for index in range(12)
+    )
+    calls = {"normalize": 0, "tokenize": 0}
+    original_normalize = leakage.normalize_char_stream
+    original_tokenize = leakage.tokenize
+
+    def counted_normalize(text: str) -> str:
+        calls["normalize"] += 1
+        return original_normalize(text)
+
+    def counted_tokenize(text: str) -> tuple[str, ...]:
+        calls["tokenize"] += 1
+        return original_tokenize(text)
+
+    monkeypatch.setattr(leakage, "normalize_char_stream", counted_normalize)
+    monkeypatch.setattr(leakage, "tokenize", counted_tokenize)
+
+    result = scan_export(export, ForbiddenCorpus(entries))
+
+    assert result.status == "passed"
+    preprocessing_bound = 2 * (sentence_count + len(entries))
+    assert calls["normalize"] <= preprocessing_bound
+    assert calls["tokenize"] <= preprocessing_bound
+
+
+@pytest.mark.parametrize("create_empty_root", [False, True])
+def test_scan_rejects_missing_or_empty_export_root(
+    tmp_path,
+    create_empty_root: bool,
+) -> None:
+    export = tmp_path / "export"
+    if create_empty_root:
+        export.mkdir()
+    corpus = ForbiddenCorpus(
+        (
+            ForbiddenText(
+                source_id="question:1",
+                kind="question",
+                text="冻结问题不能进入导出目录",
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match="export root"):
+        scan_export(export, corpus)
 
 
 def test_semantic_receipt_binds_export_scan_model_and_reviewer() -> None:
