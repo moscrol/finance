@@ -24,7 +24,7 @@
 - Modify: `intelligence/services/episode_tools.py`
 - Test: `intelligence/tests/test_episode_tools.py`
 
-- [ ] **Step 1: Write a failing no-network registry test**
+- [x] **Step 1: Write a failing no-network registry test**
 
 ```python
 def test_sealed_fixture_registry_never_builds_network_runners(
@@ -44,7 +44,7 @@ def test_sealed_fixture_registry_never_builds_network_runners(
     assert "news_search" not in registry.names
 ```
 
-- [ ] **Step 2: Implement `SealedFixturePolicy`**
+- [x] **Step 2: Implement `SealedFixturePolicy`**
 
 ```python
 @dataclass(frozen=True)
@@ -57,11 +57,11 @@ class SealedFixturePolicy:
 
 `build_episode_registry()` omits network-backed web/news specs and injects local-only valuation/financial fetchers. Missing external causal evidence remains a typed gap; no hidden fallback is allowed.
 
-- [ ] **Step 3: Prove the allowed tool surface is stable**
+- [x] **Step 3: Prove the allowed tool surface is stable**
 
 For the five frozen frames, snapshot exact authorized names from the sealed fixture. The manifest records the per-case list and hash; a later App Server broker must reuse it byte-for-byte.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_episode_tools.py -q

@@ -7,7 +7,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
 import time
@@ -53,6 +53,16 @@ _NON_EVIDENCE_PREFIXES = (
 _OFFICIAL_L3_RUNNER = object()
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
+
+
+@dataclass(frozen=True)
+class SealedFixturePolicy:
+    """Local-only tool policy shared by fair headless/App Server controls."""
+
+    external_search_enabled: bool = False
+    external_valuation_enabled: bool = False
+    external_financials_enabled: bool = False
+    require_fresh_kb: bool = True
 
 
 def _iso_date(value: object) -> date | None:
@@ -192,6 +202,7 @@ def _market_block(
     context: ResearchRunContext,
     market_db_path: Path,
     subject_query: str | None = None,
+    valuation_fetcher: object | None = None,
 ) -> tuple[str, str, str]:
     as_of = _structured_freshness_floor(context)
     as_of_value = as_of.isoformat() if as_of is not None else None
@@ -225,12 +236,16 @@ def _market_block(
         if timeout <= 0.001:
             raise TimeoutError("valuation market-data deadline expired")
 
-        def fetch_snapshot(code: str, name: str = ""):
-            return valuation_estimate.fetch_eastmoney_snapshot(
-                code,
-                name,
-                timeout=min(timeout, context.deadline.stage_timeout(timeout)),
-            )
+        if callable(valuation_fetcher):
+            fetch_snapshot = valuation_fetcher
+        else:
+
+            def fetch_snapshot(code: str, name: str = ""):
+                return valuation_estimate.fetch_eastmoney_snapshot(
+                    code,
+                    name,
+                    timeout=min(timeout, context.deadline.stage_timeout(timeout)),
+                )
 
         return (
             ask_blocks._valuation_block_for_llm(
@@ -264,6 +279,7 @@ def build_episode_registry(
     evidence_search_judge: evidence_search.SemanticJudge | None | object = (
         _DEFAULT_EVIDENCE_SEARCH_JUDGE
     ),
+    fixture_policy: SealedFixturePolicy | None = None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -338,12 +354,20 @@ def build_episode_registry(
             timeout=min(timeout, 30.0),
             excerpt_chars=240,
             budget_query=frame.raw_question,
-            require_fresh=True,
+            require_fresh=(
+                fixture_policy.require_fresh_kb
+                if fixture_policy is not None
+                else True
+            ),
             cache_scope=context.contract.task_id,
         )
 
+    default_tools = agent_research.build_default_tools(retrieve_kb)
+    if fixture_policy is not None and not fixture_policy.external_search_enabled:
+        default_tools.pop("web_search", None)
+        default_tools.pop("news_search", None)
     tools = {
-        **agent_research.build_default_tools(retrieve_kb),
+        **default_tools,
         **agent_research.build_graph_tools(knowledge),
     }
 
@@ -371,6 +395,12 @@ def build_episode_registry(
             context,
             market_db_path,
             subject_query,
+            (
+                (lambda _code, _name="": None)
+                if fixture_policy is not None
+                and not fixture_policy.external_valuation_enabled
+                else None
+            ),
         )
         served_date = (
             valuation_estimate.block_source_date(block)
@@ -428,11 +458,22 @@ def build_episode_registry(
         timeout = tool_context.deadline.stage_timeout(8.0)
         if timeout <= 0.001:
             raise TimeoutError("financial-data deadline expired")
-        block = ask_blocks._financials_block_for_llm(
-            subject_query,
-            market_db_path,
-            timeout=timeout,
-        )
+        if (
+            fixture_policy is not None
+            and not fixture_policy.external_financials_enabled
+        ):
+            block = ask_blocks.market_financials.build_financials_block(
+                frame.subject or frame.raw_question,
+                "",
+                [],
+                fetch_disabled=True,
+            )
+        else:
+            block = ask_blocks._financials_block_for_llm(
+                subject_query,
+                market_db_path,
+                timeout=timeout,
+            )
         tool_context.check_cancelled()
         evidence, observation = agent_research.block_lines_to_evidence(
             "financial_data",
@@ -567,8 +608,13 @@ def build_episode_registry(
     selected_l3_runner = (
         official_l3_runner if l3_runner is _OFFICIAL_L3_RUNNER else l3_runner
     )
-    if "l3_lookup" in context.contract.allowed_capabilities and callable(
-        selected_l3_runner
+    if (
+        "l3_lookup" in context.contract.allowed_capabilities
+        and callable(selected_l3_runner)
+        and not (
+            fixture_policy is not None
+            and not fixture_policy.external_search_enabled
+        )
     ):
         tools["l3_lookup"] = selected_l3_runner
     base_registry = default_registry(tools)

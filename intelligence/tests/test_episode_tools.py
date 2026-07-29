@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -120,6 +121,84 @@ def _valuation_frame() -> TaskFrame:
         clarification_question=None,
         evidence_policy="valuation_with_current_anchor",
         confidence=0.95,
+    )
+
+
+def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
+    def unexpected_call(*_args, **_kwargs):
+        raise AssertionError("sealed fixture attempted an external provider")
+
+    monkeypatch.setattr(
+        episode_tools.agent_research.web_research,
+        "fetch_web_search",
+        unexpected_call,
+    )
+    monkeypatch.setattr(
+        episode_tools.market_news,
+        "fetch_eastmoney_news_result",
+        unexpected_call,
+    )
+    monkeypatch.setattr(
+        episode_tools.valuation_estimate,
+        "fetch_eastmoney_snapshot",
+        unexpected_call,
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks.market_financials,
+        "fetch_quarterly_financials",
+        unexpected_call,
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks.market_financials,
+        "fetch_quarterly_financials_akshare",
+        unexpected_call,
+    )
+    frame = replace(
+        _valuation_frame(),
+        raw_question="688323 瑞华泰的合理估值",
+    )
+    context = build_episode_context(
+        frame,
+        task_id="sealed-fixture-local-only",
+        capabilities=(
+            "kb_search",
+            "web_search",
+            "news_search",
+            "l3_lookup",
+            "market_data",
+            "financial_data",
+        ),
+        timeout=30.0,
+    )
+
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        fixture_policy=episode_tools.SealedFixturePolicy(),
+    )
+
+    assert registry.names() == (
+        "kb_search",
+        "graph_lookup",
+        "evidence_lookup",
+        "market_data",
+        "financial_data",
+        "finance_query",
+        "evidence_search",
+    )
+    registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="sealed-fixture-local-only:market",
+    )
+    registry.execute(
+        "financial_data",
+        {},
+        context=context,
+        step_id="sealed-fixture-local-only:financials",
     )
 
 
