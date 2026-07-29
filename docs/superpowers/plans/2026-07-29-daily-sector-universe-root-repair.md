@@ -560,7 +560,7 @@ Task 2 notes recorded during execution:
 - Modify: `market_feature_store/sync/sync_fupanhui_sectors.py`
 - Modify: `tests/test_sector_universe.py`
 
-- [ ] **Step 1: Write failing publication tests**
+- [x] **Step 1: Write failing publication tests**
 
 Cover canonical hashing, idempotent replay, invalid/partial list rejection, 95% adjacent-name continuity, active `.FP` upsert, stale `.TI` retirement only after publish, and the transactional single-published invariant.
 
@@ -579,7 +579,7 @@ def test_publish_snapshot_retires_absent_provider_rows_only_after_validation(sto
     assert store_con.execute("select count(*) from ops_sector_universe_snapshot_daily where status='published'").fetchone() == (1,)
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -589,15 +589,15 @@ Run:
 
 Expected: FAIL because publication methods are missing.
 
-- [ ] **Step 3: Implement the publication interface**
+- [x] **Step 3: Implement the publication interface**
 
 Add immutable `SectorDescriptor` and `PublishedSectorSnapshot` dataclasses. Canonicalize sorted `(code,name,count,provider,date)` rows, hash compact sorted JSON, insert candidate rows, assert continuity, demote the prior published header, promote the candidate, assert exactly one published header, update `dim_sector`, and seed one pending receipt per universe row in one transaction. Invalid input raises `SectorUniverseValidationError` before any active flag changes.
 
-- [ ] **Step 4: Adapt the provider synchronizer**
+- [x] **Step 4: Adapt the provider synchronizer**
 
 Change `sync_dim_sector()` to convert every provider row into `SectorDescriptor`, preserving `stock_count`, and return `snapshot_id`, `sector_count`, and `declared_relationship_count`. It must no longer directly upsert active flags.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run:
 
@@ -615,6 +615,15 @@ git add market_feature_store/sector_universe.py \
   tests/test_sector_universe.py
 git commit -m "feat: publish exact daily sector universe"
 ```
+
+Task 3 completed in `3e7dff99`. In addition to the planned publication
+contract, the implementation fails closed when the canonical provider trade
+date is unavailable instead of substituting the local calendar date, and an
+idempotent replay verifies the persisted universe rows before trusting the
+header. A below-95% candidate commits only a `rejected` audit generation: it
+does not create member receipts or change active identities. The known
+`1,204/1,202` member discrepancy remains unresolved and was not bypassed; no
+live provider run or production database write occurred in this task.
 
 ### Task 4: Bind Sector Daily Facts and Enrichments to the Published Generation
 
