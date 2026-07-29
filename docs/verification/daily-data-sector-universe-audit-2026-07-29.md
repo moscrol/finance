@@ -58,7 +58,17 @@ current sectors were attempted.
 
 ## Retrieval availability was independently proved
 
-Read-only calls to the current fupanhui member endpoint for 2026-07-28 returned:
+The current sector-list response is itself an exact coverage contract. A
+read-only `list_sectors(2026-07-28)` call returned 407 identities, and every
+identity included a positive `stock_count`:
+
+- positive counts: 407/407;
+- zero counts: 0;
+- minimum declared members: 5;
+- maximum declared members: 1,204;
+- sum of declared sector-member relationships: 53,316.
+
+Read-only calls to the member endpoint returned:
 
 | Sector | Code | Returned members |
 |---|---|---:|
@@ -68,7 +78,9 @@ Read-only calls to the current fupanhui member endpoint for 2026-07-28 returned:
 
 `6G概念` is one of the 290 sectors currently absent from
 `fact_sector_stock_daily`. Its 97-member response disproves “the provider has
-no membership data” and confirms that the orchestrator failed to reach it.
+no membership data” and confirms that the orchestrator failed to reach it. The
+three endpoint counts exactly matched the `stock_count` values declared by the
+sector-list snapshot.
 
 ## Test evidence
 
@@ -100,9 +112,12 @@ The corrected design must address the producer and the gate together:
 3. **Durable progress.** Persist per-date/per-sector attempt state
    (`success|empty|error`, attempt count, last error) or an equivalent stable
    cursor, so one empty legacy/valid sector cannot starve every later sector.
-4. **Honest membership receipt.** The gate must report current-universe member
-   coverage and fail below a preregistered threshold. “Never had historical
-   members” is diagnostic metadata, not a blanket exclusion.
+4. **Exact membership receipt.** Persist each current identity's declared
+   `stock_count` in the frozen list-snapshot receipt. The gate must require a
+   terminal success receipt for 407/407 current identities and compare each
+   sector's actual distinct stock count with its declared count. A provider
+   mismatch is a visible failure, not a reason to lower a global threshold.
+   “Never had historical members” is diagnostic metadata, not an exclusion.
 5. **Name continuity remains secondary.** Adjacent-day normalized-name
    continuity is useful for detecting mass disappearance, but cannot substitute
    for member-sync completion.
@@ -117,4 +132,3 @@ phase isolation.
 Until these are implemented and an unattended night run is green, the daily
 data foundation remains release-blocking. The 2026-07-28 manual `COMPLETE`
 result must not be reported as data-pipeline completion.
-

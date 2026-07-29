@@ -66,6 +66,12 @@ it does **not** prove the data path complete. A deeper read-only audit found:
 - a direct read-only probe proved those rows are retrievable: `6G概念`
   (`990003.FP`) returned 97 members for 2026-07-28.
 
+The current list endpoint provides an exact denominator: all 407 identities
+declare a positive `stock_count` (minimum 5, maximum 1,204, total relationship
+count 53,316), and the MLCC/3D打印/6G spot checks matched those declarations.
+The completion contract is therefore 407/407 terminal receipts plus per-sector
+declared-versus-actual count equality, not an arbitrary percentage threshold.
+
 Therefore the candidate `COMPLETE` is a false green. The fix must atomically own
 the current sector universe, retire stale identities only after a complete list
 fetch, give member sync a durable per-sector progress receipt, and gate current
@@ -177,8 +183,9 @@ must not be backfilled as real use.
    approval fingerprint rather than silently mixing runs.
 5. Implement the approved sector-universe producer + gate design in an isolated
    branch: snapshot-owned active identities, durable member-sync progress,
-   honest current-universe coverage, secondary name continuity, and phase/table
-   isolation. Verify unattended nightly runs. The manual 2026-07-28
+   exact 407/407 current-universe receipts with declared member-count equality,
+   secondary name continuity, and phase/table isolation. Verify unattended
+   nightly runs. The manual 2026-07-28
    `COMPLETE` is a false green, not evidence of stability.
 6. Freeze one shared repair revision, pre-register one new five-workflow product
    canary, and execute each workflow once. Do not use it as a debugging loop.
