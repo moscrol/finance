@@ -2088,9 +2088,12 @@ class TurnOrchestrator:
                     if launched is None:
                         launched = submit_skill(skill_id)
                     future, skill_started = launched
+                    # 前置 skill 不得消费合成保留段：用 stage_remaining_seconds
+                    # 而非 remaining_seconds，否则慢/失败的 owner skill 会吃光
+                    # 整轮预算，合成只能降级为 llm_unavailable_template_answer。
                     allowed_seconds = min(
                         self.skill_registry.definitions[skill_id].timeout_seconds,
-                        research_budget.remaining_seconds,
+                        research_budget.stage_remaining_seconds,
                     )
                     output = future.result(
                         timeout=max(
