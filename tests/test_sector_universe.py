@@ -11,6 +11,7 @@ import pytest
 
 from market_feature_store import db
 from market_feature_store.sector_universe import (
+    MemberResult,
     SectorDescriptor,
     SectorUniverseStore,
     SectorUniverseValidationError,
@@ -813,3 +814,204 @@ def test_schema_sql_no_longer_defines_the_physical_sector_facts():
     assert "create table if not exists fact_sector_daily(" not in schema
     assert "create table if not exists fact_sector_stock_daily " not in schema
     assert "create table if not exists fact_sector_stock_daily(" not in schema
+
+
+# ---------------------------------------------------------------------------
+# Task 5：成分同步回执。把"静默丢失的工作"换成持久、可审计的 receipt。
+# ---------------------------------------------------------------------------
+
+
+def _member_status(con: duckdb.DuckDBPyConnection, code: str) -> tuple:
+    return con.execute(
+        "select status, attempt_count, actual_stock_count, last_error_code "
+        "from ops_sector_member_sync_daily where sector_ts_code = ?",
+        [code],
+    ).fetchone()
+
+
+def test_publish_creates_one_pending_receipt_per_declared_sector(store_con):
+    published = _publish(store_con)
+    rows = store_con.execute(
+        "select sector_ts_code, status, expected_stock_count, attempt_count "
+        "from ops_sector_member_sync_daily where snapshot_id = ? order by sector_ts_code",
+        [published.snapshot_id],
+    ).fetchall()
+    assert rows == [
+        ("990001A.FP", "pending", 2, 0),
+        ("990002A.FP", "pending", 1, 0),
+    ]
+
+
+def test_error_receipt_does_not_starve_later_sector(store_con):
+    """失败的板块不能反复霸占取工作队列，否则后面的板块永远同步不到。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    first = store.next_member_work(published.snapshot_id, limit=1, max_attempts=3)
+    store.record_member_result(
+        published.snapshot_id,
+        first[0].sector_ts_code,
+        MemberResult.error("provider_timeout"),
+    )
+    second = store.next_member_work(published.snapshot_id, limit=1, max_attempts=3)
+    assert second[0].sector_ts_code != first[0].sector_ts_code
+
+
+def test_count_mismatch_publishes_no_member_rows(store_con):
+    """声明 2 只却只返回 1 只：拒绝，且一行成分事实都不许落库。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    result = store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000001.SZ"),)),
+    )
+    assert result.status == "error"
+    assert result.last_error_code == "member_count_mismatch"
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (0,)
+
+
+def test_exact_member_success_writes_rows_and_receipt_together(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    result = store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    assert result.status == "success"
+    assert _member_status(store_con, "990001A.FP")[:3] == ("success", 1, 2)
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation "
+        "where sector_ts_code = ?",
+        ["990001A.FP"],
+    ).fetchone() == (2,)
+
+
+def test_retry_replaces_only_its_own_sector_generation(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000004.SZ"), _stock("000005.SZ")),
+        ),
+    )
+    codes = store_con.execute(
+        "select stock_ts_code from fact_sector_stock_daily_generation "
+        "order by stock_ts_code"
+    ).fetchall()
+    assert [c[0] for c in codes] == ["000003.SZ", "000004.SZ", "000005.SZ"]
+
+
+def test_foreign_sector_is_rejected_without_creating_a_receipt(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    with pytest.raises(SectorUniverseValidationError):
+        store.record_member_result(
+            published.snapshot_id,
+            "999999Z.FP",
+            MemberResult.success(served_date="2026-07-28", stocks=(_stock("000001.SZ"),)),
+        )
+    assert store_con.execute(
+        "select count(*) from ops_sector_member_sync_daily where sector_ts_code = ?",
+        ["999999Z.FP"],
+    ).fetchone() == (0,)
+
+
+def test_served_date_must_equal_the_snapshot_trade_date(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    result = store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-27", stocks=(_stock("000001.SZ"),)),
+    )
+    assert result.status == "error"
+    assert result.last_error_code == "served_date_mismatch"
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (0,)
+
+
+def test_duplicate_stock_codes_are_rejected(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    result = store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000001.SZ")),
+        ),
+    )
+    assert result.status == "error"
+    assert result.last_error_code == "duplicate_member_identity"
+
+
+def test_work_selection_prefers_pending_then_fewest_attempts(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id, "990001A.FP", MemberResult.error("provider_timeout")
+    )
+    work = store.next_member_work(published.snapshot_id, limit=2, max_attempts=3)
+    assert [item.sector_ts_code for item in work] == ["990002A.FP", "990001A.FP"]
+
+
+def test_work_selection_excludes_success_and_exhausted_attempts(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    for _ in range(3):
+        store.record_member_result(
+            published.snapshot_id, "990001A.FP", MemberResult.error("provider_timeout")
+        )
+    assert store.next_member_work(published.snapshot_id, limit=5, max_attempts=3) == ()
+
+
+def test_empty_result_is_retriable_and_keeps_no_rows(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    result = store.record_member_result(
+        published.snapshot_id, "990002A.FP", MemberResult.empty()
+    )
+    assert result.status == "empty"
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (0,)
+    codes = [
+        item.sector_ts_code
+        for item in store.next_member_work(published.snapshot_id, limit=5, max_attempts=3)
+    ]
+    assert "990002A.FP" in codes
+
+
+def test_member_work_requires_the_published_generation(store_con):
+    _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    with pytest.raises(SectorUniverseValidationError):
+        store.next_member_work("not-a-snapshot", limit=1, max_attempts=3)

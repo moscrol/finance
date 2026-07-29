@@ -69,6 +69,71 @@ class PublishedSectorSnapshot:
     sectors: tuple[SectorDescriptor, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class MemberWorkItem:
+    """一个仍需抓取成分的板块。分母来自快照声明, 不是抓到多少算多少。"""
+
+    sector_ts_code: str
+    sector_name: str
+    expected_stock_count: int
+    attempt_count: int
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class MemberResult:
+    """一次成分抓取的结果。
+
+    三态而非布尔: ``empty`` 与 ``error`` 都可重试但含义不同——前者是 provider
+    确实返回空, 后者是抓取失败。分开记账才能在夜间编排里区分"这个板块今天
+    真没成分"和"我们还没成功问到"。
+    """
+
+    kind: str  # success | empty | error
+    served_date: str | None = None
+    stocks: tuple[Mapping[str, object], ...] = ()
+    error_code: str | None = None
+
+    @classmethod
+    def success(
+        cls,
+        *,
+        served_date: str,
+        stocks: Sequence[Mapping[str, object]],
+    ) -> MemberResult:
+        return cls(kind="success", served_date=served_date, stocks=tuple(stocks))
+
+    @classmethod
+    def empty(cls) -> MemberResult:
+        return cls(kind="empty")
+
+    @classmethod
+    def error(cls, error_code: str) -> MemberResult:
+        return cls(kind="error", error_code=_canonical_text(error_code) or "unknown")
+
+
+@dataclass(frozen=True, slots=True)
+class MemberReceipt:
+    """成分回执的对外投影。调用方据此判断是否成功, 无需再查表。"""
+
+    sector_ts_code: str
+    status: str
+    attempt_count: int
+    expected_stock_count: int
+    actual_stock_count: int | None
+    last_error_code: str | None
+
+
+# provider 数据问题记成 error 回执 (可重试、可审计); 身份/代际问题直接抛错
+# (调用方传错了东西, 留回执只会污染台账)。
+_MEMBER_COUNT_MISMATCH = "member_count_mismatch"
+_MEMBER_SERVED_DATE_MISMATCH = "served_date_mismatch"
+_MEMBER_DUPLICATE_IDENTITY = "duplicate_member_identity"
+_MEMBER_EMPTY_IDENTITY = "empty_member_identity"
+
+_RETRIABLE_MEMBER_STATUSES = ("empty", "error")
+
+
 def _canonical_text(value: object) -> str:
     return " ".join(unicodedata.normalize("NFKC", str(value)).split())
 
@@ -694,6 +759,280 @@ class SectorUniverseStore:
             self._con.execute("ROLLBACK")
             raise
         return len(insert_rows)
+
+    def _published_header(self, snapshot_id: str) -> tuple[date, str]:
+        """解析并校验 snapshot_id 对应唯一 published 表头, 返回 (交易日, provider)。"""
+        rows = self._con.execute(
+            """
+            SELECT trade_date, provider_source
+            FROM ops_sector_universe_snapshot_daily
+            WHERE snapshot_id = ? AND status = 'published'
+            """,
+            [_canonical_text(snapshot_id)],
+        ).fetchall()
+        if len(rows) != 1:
+            raise SectorUniverseValidationError(
+                "member work requires exactly one published snapshot"
+            )
+        return rows[0][0], rows[0][1]
+
+    def next_member_work(
+        self,
+        snapshot_id: str,
+        *,
+        limit: int = 1,
+        max_attempts: int = 3,
+    ) -> tuple[MemberWorkItem, ...]:
+        """取下一批仍需抓取的板块, 公平排序, 不会被失败板块饿死。
+
+        排序: pending 优先于可重试的 empty/error; 然后按尝试次数升序、最久
+        未尝试优先 (NULL 视为最久)、最后按代码稳定排序。因此一个反复失败的
+        板块会自动排到队尾, 后面的板块不会永远拿不到配额。
+        """
+        trade_date, _provider = self._published_header(snapshot_id)
+        if limit <= 0:
+            return ()
+        rows = self._con.execute(
+            f"""
+            SELECT m.sector_ts_code, u.sector_name, m.expected_stock_count,
+                   m.attempt_count, m.status
+            FROM ops_sector_member_sync_daily AS m
+            JOIN fact_sector_universe_daily AS u
+              ON u.trade_date = m.trade_date
+             AND u.snapshot_id = m.snapshot_id
+             AND u.sector_ts_code = m.sector_ts_code
+            WHERE m.trade_date = ? AND m.snapshot_id = ?
+              AND (
+                    m.status = 'pending'
+                 OR (m.status IN {_RETRIABLE_MEMBER_STATUSES} AND m.attempt_count < ?)
+              )
+            ORDER BY (m.status = 'pending') DESC,
+                     m.attempt_count ASC,
+                     m.last_attempted_at ASC NULLS FIRST,
+                     m.sector_ts_code ASC
+            LIMIT ?
+            """,
+            [trade_date, _canonical_text(snapshot_id), max_attempts, limit],
+        ).fetchall()
+        return tuple(
+            MemberWorkItem(
+                sector_ts_code=row[0],
+                sector_name=row[1],
+                expected_stock_count=int(row[2]),
+                attempt_count=int(row[3]),
+                status=row[4],
+            )
+            for row in rows
+        )
+
+    def record_member_result(
+        self,
+        snapshot_id: str,
+        sector_ts_code: str,
+        result: MemberResult,
+    ) -> MemberReceipt:
+        """记录一次成分抓取结果, 成功时在同一事务里替换该板块的代际成分行。
+
+        校验顺序即失败语义: 身份/代际错误抛异常 (调用方传错了东西, 不留回执);
+        provider 数据问题 (日期不符/重复代码/数量不等于声明) 记成 error 回执,
+        既保留可重试性, 又让"缺了多少"在台账上可见——这正是本任务要消灭的
+        "静默丢失的工作"。
+        """
+        trade_date, provider = self._published_header(snapshot_id)
+        canonical_snapshot = _canonical_text(snapshot_id)
+        code = _canonical_text(sector_ts_code).upper()
+        descriptor = self._con.execute(
+            """
+            SELECT u.sector_name, u.expected_stock_count, d.sw_l1
+            FROM fact_sector_universe_daily AS u
+            LEFT JOIN dim_sector AS d ON d.sector_ts_code = u.sector_ts_code
+            WHERE u.trade_date = ? AND u.snapshot_id = ? AND u.sector_ts_code = ?
+            """,
+            [trade_date, canonical_snapshot, code],
+        ).fetchone()
+        if descriptor is None:
+            raise SectorUniverseValidationError(
+                f"sector {code or '<empty>'} is not declared by the published universe"
+            )
+        sector_name, expected_count, sw_l1 = descriptor[0], int(descriptor[1]), descriptor[2]
+
+        error_code: str | None = None
+        stock_rows: list[tuple] = []
+        now = datetime.now()
+
+        if result.kind == "error":
+            error_code = result.error_code or "unknown"
+        elif result.kind == "success":
+            try:
+                served = _normalize_trade_date(result.served_date or "")
+            except Exception:
+                served = None
+            if served != trade_date:
+                error_code = _MEMBER_SERVED_DATE_MISMATCH
+            else:
+                seen: set[str] = set()
+                for row in result.stocks:
+                    stock_code = _canonical_text(row.get("ts_code", "")).upper()
+                    if not stock_code:
+                        error_code = _MEMBER_EMPTY_IDENTITY
+                        break
+                    if stock_code in seen:
+                        error_code = _MEMBER_DUPLICATE_IDENTITY
+                        break
+                    seen.add(stock_code)
+                    stock_rows.append(
+                        self._member_row(
+                            trade_date=trade_date,
+                            snapshot_id=canonical_snapshot,
+                            sector_ts_code=code,
+                            sector_name=sector_name,
+                            sw_l1=sw_l1,
+                            stock_ts_code=stock_code,
+                            row=row,
+                            provider=provider,
+                            now=now,
+                        )
+                    )
+                if error_code is None and len(stock_rows) != expected_count:
+                    error_code = _MEMBER_COUNT_MISMATCH
+
+        status = "success" if (result.kind == "success" and error_code is None) else (
+            "empty" if result.kind == "empty" else "error"
+        )
+        actual_count = len(stock_rows) if status == "success" else None
+
+        self._con.execute("BEGIN TRANSACTION")
+        try:
+            still_published = self._con.execute(
+                """
+                SELECT count(*) FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND snapshot_id = ? AND status = 'published'
+                """,
+                [trade_date, canonical_snapshot],
+            ).fetchone()[0]
+            if still_published != 1:
+                raise SectorUniverseValidationError(
+                    "snapshot stopped being published before member commit"
+                )
+            if status == "success":
+                # 只替换本板块本代际的行: 其他板块已同步的结果不受影响。
+                self._con.execute(
+                    """
+                    DELETE FROM fact_sector_stock_daily_generation
+                    WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+                      AND sector_ts_code = ?
+                    """,
+                    [trade_date, canonical_snapshot, code],
+                )
+                self._con.executemany(
+                    """
+                    INSERT INTO fact_sector_stock_daily_generation
+                        (trade_date, sector_universe_snapshot_id, sector_ts_code,
+                         sector_name, sw_l1, stock_ts_code, stock_name, price,
+                         pct_chg, amount, pct_chg_3d, pct_chg_5d, pct_chg_10d,
+                         pct_chg_20d, high_status, high_status_label, limit_times,
+                         fund_flow_1d, fund_flow_5d, sw_industry, leader_plate,
+                         leader_sub_plate, role_tags_json, circ_mv, float_mcap_yi,
+                         total_mcap_yi, free_float_mcap_yi, mcap_source, source,
+                         updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    stock_rows,
+                )
+            self._con.execute(
+                """
+                UPDATE ops_sector_member_sync_daily
+                SET status = ?,
+                    actual_stock_count = ?,
+                    attempt_count = attempt_count + 1,
+                    last_error_code = ?,
+                    first_attempted_at = coalesce(first_attempted_at, ?),
+                    last_attempted_at = ?,
+                    completed_at = CASE WHEN ? = 'success' THEN ? ELSE NULL END
+                WHERE trade_date = ? AND snapshot_id = ? AND sector_ts_code = ?
+                """,
+                [
+                    status,
+                    actual_count,
+                    error_code,
+                    now,
+                    now,
+                    status,
+                    now,
+                    trade_date,
+                    canonical_snapshot,
+                    code,
+                ],
+            )
+            self._con.execute("COMMIT")
+        except Exception:
+            self._con.execute("ROLLBACK")
+            raise
+
+        row = self._con.execute(
+            """
+            SELECT status, attempt_count, expected_stock_count,
+                   actual_stock_count, last_error_code
+            FROM ops_sector_member_sync_daily
+            WHERE trade_date = ? AND snapshot_id = ? AND sector_ts_code = ?
+            """,
+            [trade_date, canonical_snapshot, code],
+        ).fetchone()
+        return MemberReceipt(
+            sector_ts_code=code,
+            status=row[0],
+            attempt_count=int(row[1]),
+            expected_stock_count=int(row[2]),
+            actual_stock_count=None if row[3] is None else int(row[3]),
+            last_error_code=row[4],
+        )
+
+    @staticmethod
+    def _member_row(
+        *,
+        trade_date: date,
+        snapshot_id: str,
+        sector_ts_code: str,
+        sector_name: str,
+        sw_l1: object,
+        stock_ts_code: str,
+        row: Mapping[str, object],
+        provider: str,
+        now: datetime,
+    ) -> tuple:
+        return (
+            trade_date,
+            snapshot_id,
+            sector_ts_code,
+            sector_name,
+            sw_l1,
+            stock_ts_code,
+            row.get("name") or row.get("stock_name"),
+            row.get("price"),
+            row.get("pct_chg"),
+            row.get("amount"),
+            row.get("pct_chg_3d"),
+            row.get("pct_chg_5d"),
+            row.get("pct_chg_10d"),
+            row.get("pct_chg_20d"),
+            row.get("high_status"),
+            row.get("high_status_label"),
+            row.get("limit_times"),
+            row.get("fund_flow_1d"),
+            row.get("fund_flow_5d"),
+            row.get("sw_industry"),
+            row.get("leader_plate"),
+            row.get("leader_sub_plate"),
+            row.get("role_tags_json"),
+            row.get("circ_mv"),
+            row.get("float_mcap_yi"),
+            row.get("total_mcap_yi"),
+            row.get("free_float_mcap_yi"),
+            row.get("mcap_source"),
+            _canonical_text(row.get("source") or provider),
+            row.get("updated_at") or now,
+        )
 
     @staticmethod
     def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
