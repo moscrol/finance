@@ -1,7 +1,7 @@
 # Codex App Server Spec v3 Verification
 
 Date: 2026-07-29
-Status: v2 `CHANGES_REQUIRED` fully represented; independent v3 review pending
+Status: first v3 review corrections applied; second independent v3 review pending
 
 ## Inputs
 
@@ -39,6 +39,22 @@ Status: v2 `CHANGES_REQUIRED` fully represented; independent v3 review pending
 | Actual model/tier unproven | §7–8 bind ThreadStart response, provider, tier, reroute absence, and `fast_mode=false` |
 | Retry resets budget | §11 gives the case one absolute deadline shared by failure, backoff, retry, interrupt, and grace |
 
+## First v3 review correction
+
+The first v3 review found no remaining P0 and four narrower issues. They are now
+mechanical contracts:
+
+- §7 records exact request/resolved/provider-executed identity pointers and
+  classifies the current binary `execution_identity_unobservable` because its
+  generated protocol lacks provider-response model/tier fields. That blocks
+  runner code/live turns but not reviewed fixture/export tooling.
+- §11 derives a per-case hard token cap from the sealed headless control and
+  requires worst-case quota admission before initial and retry attempts.
+- §9 makes the private EvidenceLedger a write-once hash chain with an atomic
+  final root seal bound into the public artifact.
+- §5.1 fixes Unicode normalization, tokenization, n-gram/similarity thresholds,
+  exception rules, and positive/negative leakage fixtures.
+
 ## Important scope correction
 
 The completed v2 D artifact
@@ -55,11 +71,13 @@ larger compute envelope.
 
 ## Remaining gates
 
-1. Obtain an independent v3 spec `PASS`.
+1. Obtain an independent v3 spec `PASS` after the four corrections above.
 2. Build and seal the curated instruction export and physical PIT fixture.
 3. Prove all isolation positive/negative controls.
 4. Run and seal the five-case same-fixture profile-D headless baseline.
-5. Only then write the bounded App Server runner implementation plan and code.
+5. Obtain a binary/protocol or separately reviewed provider receipt that exposes
+   actual executed model/provider/service tier; only then write App Server runner
+   code. The current binary must fail preflight before the first case.
 6. Preregister five answer projections, quota radius, blind commitment, and
    output paths before the first App Server answer.
 

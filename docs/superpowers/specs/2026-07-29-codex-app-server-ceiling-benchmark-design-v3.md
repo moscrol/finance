@@ -1,7 +1,7 @@
 # Codex App Server Ceiling Benchmark Design v3
 
 Date: 2026-07-29
-Status: revised after a second independent `CHANGES_REQUIRED`; implementation remains blocked
+Status: two independent `CHANGES_REQUIRED` rounds addressed; PASS review pending; implementation blocked
 Model: explicit `gpt-5.6-sol`
 Canonical runtime: unchanged; 8792 and 8799 are out of scope
 
@@ -154,6 +154,29 @@ An independent semantic-leak review then examines the export manifest plus only 
 candidate snippets and must seal `no_answer_or_rubric_leak`. This receipt is committed before the
 first App Server answer. Any later export change requires a new five-case headless control.
 
+The deterministic scanner algorithm is frozen before export tooling begins:
+
+1. forbidden corpus = raw questions, conversation context, `required_outputs`, direct targets,
+   reference answers, expected facts, pass rules, prior candidate/published answers, and post-cutoff
+   handoff/result prose for these cases;
+2. text normalization = UTF-8 decode with error rejection, Unicode NFKC, ASCII case-fold, newline
+   normalization, then removal of Unicode whitespace and punctuation for the character stream;
+3. tokenization = each Han code point is one token; maximal case-folded alphanumeric runs are one
+   token; other symbols delimit tokens;
+4. fail on any full normalized forbidden-string match, any 12-character n-gram match, any
+   6-token n-gram match, or token-set Jaccard similarity `>= 0.80` for a forbidden sentence with at
+   least 8 tokens;
+5. no exception may suppress a full question, reference sentence, required-output identifier, or
+   post-cutoff result fragment. A hashed exception manifest may contain only reviewed generic
+   production terms shorter than the n-gram thresholds.
+
+The semantic-leak review is separately pinned to `gpt-5.6-sol`, a fixed prompt/rubric hash, and an
+independent reviewer identity. Its positive fixture includes paraphrased questions/answers that do
+not share the deterministic n-grams. The scanner test corpus also includes punctuation/whitespace
+changes, NFKC/full-width variants, split `required_outputs`, historical answer fragments, and a
+post-cutoff handoff; clean production instructions are the negative control. Missing one positive
+fixture blocks the export.
+
 ### 5.2 Physical PIT data fixture
 
 The data fixture's maximum accessible information date is 2026-07-24. It contains:
@@ -259,6 +282,25 @@ service tier used by the new headless control. Any model-rerouted notification, 
 unobservable service tier, provider mismatch, or missing execution receipt makes the comparison
 invalid. Do not rely on a model label in a prompt.
 
+The execution-identity receipt is not a prose assertion. The runner seals these observations:
+
+| Property | Requested pointer | Resolved/runtime pointer | Provider-executed pointer |
+|---|---|---|---|
+| model | `thread/start.params.model`; `turn/start.params.model` | `thread/start.result.model` | required provider response field |
+| provider | pinned direct endpoint and isolated config | `thread/start.result.modelProvider` | required provider response field |
+| reasoning | `turn/start.params.effort` | `thread/start.result.reasoningEffort` | required provider response field or provider attestation |
+| service tier | both request fields are `null` | `thread/start.result.serviceTier` | required provider response field |
+| fallback/reroute | `allowProviderModelFallback=false` | zero `model/rerouted` notifications | provider response model equals requested model |
+| fast mode | CLI/config override `features.fast_mode=false` | `experimentalFeature/list.result.data[name=fast_mode].enabled=false` | not applicable once feature is disabled |
+
+Recorded/fake protocol tests must make every mismatch fail closed, including the case where all
+request values are correct but one returned execution field differs. The pinned 0.146.0 schema
+does not expose a provider-response model/provider/service-tier field. Therefore this binary is
+currently `execution_identity_unobservable` for a live App Server comparison. Fixture/export
+tooling may proceed after spec PASS, but App Server runner code or live turns may not begin until a
+new pinned protocol or separately reviewed provider receipt exposes those fields. Config echo and
+absence of reroute alone are insufficient.
+
 ## 8. Session and turn contract
 
 Use one App Server process for the batch and one new ephemeral thread per case. Never reuse a
@@ -345,6 +387,23 @@ stdout/stderr hashes, and whether the command matched the finance-tool allowlist
 outside Git and returns a bounded receipt containing stable evidence IDs, cutoff, source dates,
 locators, and blob hash. The App Server cannot invent or rename these receipt IDs.
 
+Append-only is a persistence protocol:
+
+- each blob and ledger file is created with create-if-absent semantics; an existing path is never
+  overwritten;
+- every ledger event contains `run_id`, `case_id`, monotonic sequence, previous-event hash, payload
+  hash, and event hash;
+- the final seal contains event count, last-event hash, sorted blob-manifest root, and case artifact
+  hash; the public artifact binds this `ledger_root`;
+- file and containing-directory metadata are fsynced after atomic creation; a crash may leave a
+  verifiable unsealed prefix, but an unsealed case can never publish or enter blind review;
+- restart verifies the complete chain and blob set before resuming. It does not repair, truncate,
+  reorder, or reuse another case's receipts.
+
+Tests mutate blob content, attempt overwrite/delete, truncate/reorder the ledger, and substitute a
+receipt across cases. Every mutation must break the seal and invalidate publication and blind
+review.
+
 Only finance-tool receipts can support financial facts or numbers. Reads from the instruction
 export may support procedural claims about available methods, but never market, company, or
 valuation facts. At finalization, every model-provided source is joined to the runner ledger by
@@ -415,6 +474,32 @@ sanitized bucket percentages, reset times, and aggregate usage. Stop before the 
 the preregistered maximum usage delta or minimum remaining quota would be crossed. Missing or
 unparseable quota telemetry is `quota_radius_unknown` and makes the live comparison operationally
 ineligible; it is never interpreted as zero usage.
+
+Admission is worst-case, not reactive. For every case, the preregistration derives a hard
+`case_token_budget` from the sealed five-case headless control:
+
+```text
+ceil_to_1000(1.25 * that case's total headless input+output tokens)
+```
+
+The runner sets that cap before the turn with
+`thread/goal/set.params.tokenBudget=case_token_budget` (no objective change) and records
+consumption from `thread/tokenUsage/updated` notifications. It also preregisters an
+`attempt_quota_upper_bound` in every active rate-limit/spend-control unit using the direct
+provider's pinned limit and price metadata. If a token cap cannot be converted into a conservative
+upper bound for any active quota bucket, stop as `quota_admission_unprovable`.
+
+Before an initial attempt, require:
+
+```text
+current_used + attempt_quota_upper_bound <= preregistered_max_used
+current_remaining - attempt_quota_upper_bound >= preregistered_remaining_floor
+```
+
+Before a retry, recompute the same inequalities with only the unconsumed token/quota budget. A
+retry never receives a new full cap; if consumed usage is missing, it is rejected before the model
+request. Deterministic tests cover both initial and retry states where current telemetry is inside
+the radius but the worst-case next attempt would cross it.
 
 ## 12. Artifact, privacy, and state integrity
 
@@ -497,7 +582,8 @@ The implementation plan must include public-seam tests that prove:
 
 1. `initialize.codexHome` equals the isolated home and schema/binary fingerprints match;
 2. requested and returned model/provider/service tier are identical to the five-case headless
-   control, `fast_mode` is false, effort is medium, and fallback/reroute is absent;
+   control, `fast_mode` is false, effort is medium, fallback/reroute is absent, and a request-correct
+   but provider-execution-mismatched fake receipt fails closed;
 3. every thread is ephemeral, read-only, approval-never, single-agent, and sees only the sealed
    instruction export;
 4. export gold/rubric leakage scans are clean; symlink/hardlink/mount and future-date scans pass;
@@ -510,14 +596,16 @@ The implementation plan must include public-seam tests that prove:
    fail fast;
 9. every `CodexErrorInfo` class maps to a typed retry/no-retry result;
 10. retry, backoff, interrupt, and grace share one absolute 180-second deadline;
-11. quota is read before/after every attempt and missing telemetry fails closed;
+11. quota is read before/after every attempt; admission subtracts the preregistered worst-case
+   initial/retry bound, and missing telemetry or conversion fails closed;
 12. artifact hashing excludes only its own hash field and redaction removes
    secrets/paths/reasoning;
 13. every case, including failures, appears exactly once and never falls back;
 14. pre/post export, PIT, config, state, quota, broker, sandbox, and binary fingerprints are
    enforced;
 15. claim spans and IDs resolve; every material number joins to a cutoff-valid finance-tool receipt
-   and exact result hash;
+   and exact result hash; blob overwrite/delete, ledger truncation/reorder, or cross-case receipt
+   substitution breaks the bound ledger root;
 16. five fixed baseline projections exist and blind labels cannot join backend identity until
    judging is sealed;
 17. same-fixture five-case profile-D baseline validity is a hard precondition to the App Server
