@@ -42,6 +42,9 @@ class ResearchExecutionBudget:
             )
 
     def can_start(self) -> bool:
+        # 用 remaining_seconds 而非 stage_remaining_seconds：预算紧张时仍允许
+        # 启动 skill 去拿部分结果（有总比没有好），真正的保护在调用处对
+        # allowed_seconds 的钳制——skill 最多只能用 stage 预算，吃不到预留段。
         return (
             self.call_count < self.policy.max_skill_calls
             and self.remaining_seconds > 0
@@ -63,6 +66,18 @@ class ResearchExecutionBudget:
         if self.deadline is None:
             return 0.0
         return self.deadline.remaining()
+
+    @property
+    def stage_remaining_seconds(self) -> float:
+        """前置阶段（skill/工具调用）可用的秒数：剩余预算扣除合成保留段。
+
+        与 :attr:`remaining_seconds` 的区别是后者含 ``synthesis_reserve``。
+        前置阶段必须用本属性，否则一个慢/失败的 skill 会吃光整轮预算，
+        让最终合成只剩 0ms 而降级为模板（见 ResearchDeadline.synthesis_reserve）。
+        """
+        if self.deadline is None:
+            return 0.0
+        return self.deadline.stage_timeout(self.deadline.remaining())
 
     def record(
         self,
