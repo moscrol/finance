@@ -425,6 +425,46 @@ def test_sealed_runtime_keeps_provider_secret_parent_only(
     assert all("OPENAI_API_KEY" not in item for item in child_sets)
 
 
+def test_sealed_runtime_ignores_user_provider_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    config_path = codex_home / "config.toml"
+    config_path.write_text(
+        """
+model = "wrong-model"
+model_provider = "local_access"
+
+[model_providers.local_access]
+name = "Local Access"
+base_url = "http://localhost:57244/v1"
+wire_api = "responses"
+experimental_bearer_token = "MUST_NOT_ENTER_SEALED_RUNTIME"
+requires_openai_auth = false
+supports_websockets = false
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    runtime = CodexHeadlessRuntime(
+        model="gpt-5.6-sol",
+        sealed_fixture=True,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt.proven_for_test(),
+    )
+
+    assert runtime.model_name == "gpt-5.6-sol"
+    assert runtime.semantic_providers() == ()
+    with pytest.raises(ValueError, match="sealed fixture.*provider config"):
+        CodexHeadlessRuntime(
+            model="gpt-5.6-sol",
+            sealed_fixture=True,
+            provider_config_path=config_path,
+        )
+
+
 def test_sealed_runtime_materializes_only_sealed_instruction_tree(
     tmp_path: Path,
 ) -> None:

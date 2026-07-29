@@ -434,13 +434,19 @@ class CodexHeadlessRuntime:
             raise ValueError(
                 "Codex provider projection requires subprocess transport"
             )
+        if self._sealed_fixture and provider_config_path is not None:
+            raise ValueError("sealed fixture forbids provider config projection")
         provider_projection = None
         if provider_config_path is not None:
             provider_projection = _load_headless_provider_projection(
                 provider_config_path,
                 required=True,
             )
-        elif command_runner is None and selected_transport == "subprocess":
+        elif (
+            not self._sealed_fixture
+            and command_runner is None
+            and selected_transport == "subprocess"
+        ):
             codex_home = Path(
                 os.environ.get("CODEX_HOME") or (Path.home() / ".codex")
             ).expanduser()
