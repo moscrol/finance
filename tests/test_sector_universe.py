@@ -8,7 +8,11 @@ import duckdb
 import pytest
 
 from market_feature_store import db
-from market_feature_store.sector_universe import SectorUniverseStore
+from market_feature_store.sector_universe import (
+    SectorDescriptor,
+    SectorUniverseStore,
+    SectorUniverseValidationError,
+)
 
 LEGACY_SECTOR_DAILY_DDL = (
     "create table fact_sector_daily("
@@ -72,6 +76,314 @@ def _table_type(con: duckdb.DuckDBPyConnection, name: str) -> str | None:
         [name],
     ).fetchone()
     return row[0] if row else None
+
+
+def test_publish_snapshot_retires_absent_provider_rows_only_after_validation(store_con):
+    store_con.execute(
+        "insert into dim_sector values "
+        "('OLD.TI','旧板块',null,true,'2026-07-24','2026-07-24','fupanhui',now())"
+    )
+
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990001.FP", "MLCC", 27),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    assert published.sector_count == 1
+    assert published.declared_relationship_count == 27
+    assert store_con.execute(
+        "select is_active from dim_sector where sector_ts_code='OLD.TI'"
+    ).fetchone() == (False,)
+    assert store_con.execute(
+        "select count(*) from ops_sector_universe_snapshot_daily where status='published'"
+    ).fetchone() == (1,)
+    assert store_con.execute(
+        "select status, expected_stock_count from ops_sector_member_sync_daily"
+    ).fetchall() == [("pending", 27)]
+
+
+def test_publish_snapshot_rejects_partial_input_without_changing_active_identities(store_con):
+    store_con.execute(
+        "insert into dim_sector values "
+        "('OLD.TI','旧板块',null,true,'2026-07-24','2026-07-24','fupanhui',now())"
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="non-empty"):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=(SectorDescriptor("990001.FP", "", 27),),
+            captured_at="2026-07-29T10:00:00+08:00",
+        )
+
+    assert store_con.execute(
+        "select is_active from dim_sector where sector_ts_code='OLD.TI'"
+    ).fetchone() == (True,)
+    assert store_con.execute(
+        "select count(*) from ops_sector_universe_snapshot_daily"
+    ).fetchone() == (0,)
+
+
+def test_publish_snapshot_hash_is_canonical_and_replay_keeps_original_provenance(store_con):
+    store = SectorUniverseStore(store_con)
+    sectors = (
+        SectorDescriptor(" 990002.fp ", "6G概念", 3),
+        SectorDescriptor("990001.FP", " MLCC ", 27),
+    )
+
+    first = store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="FUPANHUI",
+        sectors=sectors,
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+    replay = store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=tuple(reversed(sectors)),
+        captured_at="2026-07-29T10:05:00+08:00",
+    )
+
+    assert first.snapshot_id == "f6061726ac388b35267d4f3039a41d9596e46374dadf18a02b4615b9ffe666b2"
+    assert replay.snapshot_id == first.snapshot_id
+    assert replay.captured_at == first.captured_at
+    assert store_con.execute(
+        "select count(*) from ops_sector_universe_snapshot_daily"
+    ).fetchone() == (1,)
+    assert store_con.execute(
+        "select count(*) from fact_sector_universe_daily"
+    ).fetchone() == (2,)
+    assert store_con.execute(
+        "select count(*) from ops_sector_member_sync_daily"
+    ).fetchone() == (2,)
+
+
+def test_publish_snapshot_rejects_below_95_percent_name_continuity(store_con):
+    store = SectorUniverseStore(store_con)
+    prior = tuple(
+        SectorDescriptor(f"OLD{index:02d}.TI", f"板块{index:02d}", 1)
+        for index in range(20)
+    )
+    store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=prior,
+        captured_at="2026-07-28T18:00:00+08:00",
+    )
+    partial = tuple(
+        SectorDescriptor(f"NEW{index:02d}.FP", f"板块{index:02d}", 1)
+        for index in range(18)
+    ) + (
+        SectorDescriptor("NEW18.FP", "新板块18", 1),
+        SectorDescriptor("NEW19.FP", "新板块19", 1),
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="continuity"):
+        store.publish_snapshot(
+            trade_date="2026-07-29",
+            provider_source="fupanhui",
+            sectors=partial,
+            captured_at="2026-07-29T18:00:00+08:00",
+        )
+
+    assert store_con.execute(
+        "select status from ops_sector_universe_snapshot_daily where trade_date='2026-07-29'"
+    ).fetchall() == [("rejected",)]
+    assert store_con.execute(
+        "select count(*) from dim_sector where is_active"
+    ).fetchone() == (20,)
+    assert store_con.execute(
+        "select count(*) from ops_sector_member_sync_daily where trade_date='2026-07-29'"
+    ).fetchone() == (0,)
+
+
+def test_publish_snapshot_accepts_exactly_95_percent_normalized_name_continuity(store_con):
+    store = SectorUniverseStore(store_con)
+    prior = tuple(
+        SectorDescriptor(f"OLD{index:02d}.TI", f"板块 {index:02d}", 1)
+        for index in range(20)
+    )
+    store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=prior,
+        captured_at="2026-07-28T18:00:00+08:00",
+    )
+    current = tuple(
+        SectorDescriptor(f"NEW{index:02d}.FP", f"板块　{index:02d}", 1)
+        for index in range(19)
+    ) + (SectorDescriptor("NEW19.FP", "全新板块", 1),)
+
+    published = store.publish_snapshot(
+        trade_date="2026-07-29",
+        provider_source="fupanhui",
+        sectors=current,
+        captured_at="2026-07-29T18:00:00+08:00",
+    )
+
+    assert published.sector_count == 20
+    assert store_con.execute(
+        "select count(*) from dim_sector where is_active and sector_ts_code like 'NEW%.FP'"
+    ).fetchone() == (20,)
+    assert store_con.execute(
+        "select count(*) from dim_sector where is_active and sector_ts_code like 'OLD%.TI'"
+    ).fetchone() == (0,)
+
+
+def test_publish_snapshot_fails_closed_when_existing_headers_violate_single_publish(store_con):
+    store_con.executemany(
+        "insert into ops_sector_universe_snapshot_daily values "
+        "('2026-07-28', ?, 'fupanhui', 1, 1, 'published', ?)",
+        [
+            ("conflict-a", "2026-07-29T09:00:00+08:00"),
+            ("conflict-b", "2026-07-29T09:01:00+08:00"),
+        ],
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="published snapshot"):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=(SectorDescriptor("990001.FP", "MLCC", 27),),
+            captured_at="2026-07-29T10:00:00+08:00",
+        )
+
+    assert store_con.execute(
+        "select snapshot_id, status from ops_sector_universe_snapshot_daily order by snapshot_id"
+    ).fetchall() == [("conflict-a", "published"), ("conflict-b", "published")]
+    assert store_con.execute(
+        "select count(*) from fact_sector_universe_daily"
+    ).fetchone() == (0,)
+
+
+def test_publish_snapshot_supersedes_same_day_generation_without_pooling_rows(store_con):
+    store = SectorUniverseStore(store_con)
+    first = store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(
+            SectorDescriptor("990001.FP", "MLCC", 2),
+            SectorDescriptor("990002.FP", "6G概念", 1),
+        ),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+    second = store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(
+            SectorDescriptor("990001.FP", "MLCC", 3),
+            SectorDescriptor("990002.FP", "6G概念", 1),
+        ),
+        captured_at="2026-07-29T10:05:00+08:00",
+    )
+
+    assert first.snapshot_id != second.snapshot_id
+    assert store_con.execute(
+        "select snapshot_id, status from ops_sector_universe_snapshot_daily order by captured_at"
+    ).fetchall() == [
+        (first.snapshot_id, "superseded"),
+        (second.snapshot_id, "published"),
+    ]
+    assert store_con.execute(
+        "select count(*) from fact_sector_universe_daily"
+    ).fetchone() == (4,)
+    assert store_con.execute(
+        "select count(*) from ops_sector_member_sync_daily"
+    ).fetchone() == (4,)
+
+
+def test_publish_snapshot_replay_rejects_corrupted_persisted_universe(store_con):
+    store = SectorUniverseStore(store_con)
+    sectors = (
+        SectorDescriptor("990001.FP", "MLCC", 2),
+        SectorDescriptor("990002.FP", "6G概念", 1),
+    )
+    published = store.publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=sectors,
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+    store_con.execute(
+        "update fact_sector_universe_daily set sector_name='被篡改' "
+        "where snapshot_id=? and sector_ts_code='990001.FP'",
+        [published.snapshot_id],
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="persisted universe"):
+        store.publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=sectors,
+            captured_at="2026-07-29T10:05:00+08:00",
+        )
+
+
+def test_sync_dim_sector_publishes_provider_counts_through_store(tmp_path, monkeypatch):
+    from market_feature_store.sync import sync_fupanhui_sectors as sync_module
+
+    db_path = tmp_path / "sector-sync.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        db.init_db(con)
+    finally:
+        con.close()
+
+    monkeypatch.setattr(sync_module, "init_db", lambda: None)
+    monkeypatch.setattr(sync_module, "connect", lambda: duckdb.connect(str(db_path)))
+    monkeypatch.setattr(
+        sync_module.fs,
+        "list_sectors",
+        lambda *, trade_date: [
+            {"ts_code": "990001.FP", "name": "MLCC", "stock_count": 27},
+            {"ts_code": "990002.FP", "name": "6G概念", "stock_count": 3},
+        ],
+    )
+    monkeypatch.setattr(
+        sync_module,
+        "lookup_sw_l1",
+        lambda name: "电子" if name == "MLCC" else None,
+    )
+
+    stats = sync_module.sync_dim_sector(trade_date="2026-07-28")
+
+    assert stats["sector_count"] == 2
+    assert stats["declared_relationship_count"] == 30
+    assert len(stats["snapshot_id"]) == 64
+    assert stats["fetched"] == 2
+    assert stats["mapped_sw_l1"] == 1
+    assert stats["unmapped_names"] == ["6G概念"]
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        assert con.execute(
+            "select sector_ts_code, is_active, sw_l1 from dim_sector order by sector_ts_code"
+        ).fetchall() == [
+            ("990001.FP", True, "电子"),
+            ("990002.FP", True, None),
+        ]
+        assert con.execute(
+            "select expected_stock_count, status from ops_sector_member_sync_daily "
+            "order by sector_ts_code"
+        ).fetchall() == [(27, "pending"), (3, "pending")]
+    finally:
+        con.close()
+
+
+def test_sync_dim_sector_refuses_to_guess_trade_date_when_provider_has_no_latest(monkeypatch):
+    from market_feature_store.sync import sync_fupanhui_sectors as sync_module
+
+    monkeypatch.setattr(sync_module, "init_db", lambda: None)
+    monkeypatch.setattr(sync_module.fs, "get_latest_date", lambda: None)
+    monkeypatch.setattr(
+        sync_module.fs,
+        "list_sectors",
+        lambda **_kwargs: pytest.fail("list endpoint must not run before date validation"),
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="trade date"):
+        sync_module.sync_dim_sector()
 
 
 def test_ensure_sector_schema_migrates_legacy_tables_and_is_idempotent():

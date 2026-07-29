@@ -1,13 +1,18 @@
-"""同步 dim_sector: 复盘会板块清单 + 申万一级映射。
+"""发布复盘会每日板块宇宙，并维护 dim_sector 身份历史。
 
 数据源: fupanhui sectors/search。
-写入: dim_sector (upsert, 保留最早 first_seen_date, 更新 last_seen_date)。
+写入: 仅通过 SectorUniverseStore 原子发布快照、回执与 active identities。
 """
 from __future__ import annotations
 
 from datetime import datetime, date
 
 from ..db import connect, init_db
+from ..sector_universe import (
+    SectorDescriptor,
+    SectorUniverseStore,
+    SectorUniverseValidationError,
+)
 from ..sources import fupanhui_source as fs
 from ..sources.sector_mapping import lookup_sw_l1
 
@@ -27,57 +32,52 @@ def _parse_date(val):
 
 
 def sync_dim_sector(trade_date: str | None = None) -> dict:
-    """拉取板块清单写入 dim_sector。返回统计字典。"""
+    """拉取并发布一份带精确成员分母的每日板块宇宙。"""
+    requested_date = trade_date if trade_date is not None else fs.get_latest_date()
+    seen_date = _parse_date(requested_date)
+    if seen_date is None:
+        raise SectorUniverseValidationError("canonical provider trade date is unavailable")
     init_db()
-    sectors = fs.list_sectors(trade_date=trade_date)
-    seen_date = _parse_date(trade_date) or _parse_date(fs.get_latest_date()) or date.today()
-    now = datetime.now()
+    sectors = fs.list_sectors(trade_date=str(seen_date))
+    captured_at = datetime.now().astimezone()
 
-    rows = []
+    descriptors = []
     unmapped = []
-    for s in sectors:
-        ts_code = s.get("ts_code")
-        name = (s.get("name") or "").strip()
-        if not ts_code or not name:
-            continue
-        sw_l1 = lookup_sw_l1(name)
-        if sw_l1 is None:
+    for sector in sectors:
+        ts_code = sector.get("ts_code")
+        name = (sector.get("name") or "").strip()
+        sw_l1 = lookup_sw_l1(name) if name else None
+        if name and sw_l1 is None:
             unmapped.append(name)
-        rows.append((ts_code, name, sw_l1, True, seen_date, seen_date, "fupanhui", now))
+        descriptors.append(
+            SectorDescriptor(
+                sector_ts_code=str(ts_code or ""),
+                sector_name=name,
+                expected_stock_count=sector.get("stock_count"),
+                sw_l1=sw_l1,
+            )
+        )
 
     con = connect()
     try:
-        con.execute("BEGIN TRANSACTION")
-        con.executemany(
-            """
-            INSERT INTO dim_sector
-                (sector_ts_code, sector_name, sw_l1, is_active,
-                 first_seen_date, last_seen_date, source, updated_at)
-            VALUES (?,?,?,?,?,?,?,?)
-            ON CONFLICT (sector_ts_code) DO UPDATE SET
-                sector_name = excluded.sector_name,
-                sw_l1 = excluded.sw_l1,
-                is_active = excluded.is_active,
-                first_seen_date = LEAST(dim_sector.first_seen_date, excluded.first_seen_date),
-                last_seen_date = GREATEST(dim_sector.last_seen_date, excluded.last_seen_date),
-                source = excluded.source,
-                updated_at = excluded.updated_at
-            """,
-            rows,
+        published = SectorUniverseStore(con).publish_snapshot(
+            trade_date=seen_date,
+            provider_source="fupanhui",
+            sectors=descriptors,
+            captured_at=captured_at,
         )
-        con.execute("COMMIT")
         total = con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0]
         mapped = con.execute(
             "SELECT COUNT(*) FROM dim_sector WHERE sw_l1 IS NOT NULL"
         ).fetchone()[0]
-    except Exception:
-        con.execute("ROLLBACK")
-        raise
     finally:
         con.close()
 
     return {
-        "fetched": len(rows),
+        "fetched": len(descriptors),
+        "snapshot_id": published.snapshot_id,
+        "sector_count": published.sector_count,
+        "declared_relationship_count": published.declared_relationship_count,
         "dim_sector_total": total,
         "mapped_sw_l1": mapped,
         "unmapped_names": unmapped,
