@@ -10,11 +10,20 @@ from __future__ import annotations
 import json
 import time
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, date
 
 from ..db import connect, init_db
+from ..sector_universe import (
+    MemberResult,
+    SectorUniverseStore,
+    SectorUniverseValidationError,
+)
 from ..sources import fupanhui_source as fs
+
+# 一个板块最多重试几次后停止占用当日配额 (回执仍保留, 供夜间编排审计)。
+MEMBER_MAX_ATTEMPTS = 3
 
 
 def _parse_date(val):
@@ -51,23 +60,6 @@ def _resolve_sector(dim, sector: str):
         if name == sector:
             return ts_code
     return None
-
-
-def _ensure_columns(con):
-    cols = {
-        "pct_chg_3d": "DOUBLE",
-        "high_status": "TEXT",
-        "high_status_label": "TEXT",
-        "limit_times": "INTEGER",
-        "role_tags_json": "TEXT",
-        "circ_mv": "DOUBLE",
-        "float_mcap_yi": "DOUBLE",
-        "total_mcap_yi": "DOUBLE",
-        "free_float_mcap_yi": "DOUBLE",
-        "mcap_source": "TEXT",
-    }
-    for name, typ in cols.items():
-        con.execute(f"ALTER TABLE fact_sector_stock_daily ADD COLUMN IF NOT EXISTS {name} {typ}")
 
 
 def _plain_code(ts_code: str) -> str:
@@ -138,46 +130,6 @@ def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
     return {c: _CAP_CACHE[c] for c in ts_codes if c in _CAP_CACHE}
 
 
-UPSERT_SQL = """
-    INSERT INTO fact_sector_stock_daily
-        (trade_date, sector_ts_code, sector_name, sw_l1,
-         stock_ts_code, stock_name, price, pct_chg, amount,
-         pct_chg_3d, pct_chg_5d, pct_chg_10d, pct_chg_20d,
-         high_status, high_status_label, limit_times,
-         fund_flow_1d, fund_flow_5d, sw_industry,
-         leader_plate, leader_sub_plate, role_tags_json,
-         circ_mv, float_mcap_yi, total_mcap_yi, free_float_mcap_yi, mcap_source,
-         source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT (trade_date, sector_ts_code, stock_ts_code) DO UPDATE SET
-        sector_name = excluded.sector_name,
-        sw_l1 = excluded.sw_l1,
-        stock_name = excluded.stock_name,
-        price = excluded.price,
-        pct_chg = excluded.pct_chg,
-        amount = excluded.amount,
-        pct_chg_3d = excluded.pct_chg_3d,
-        pct_chg_5d = excluded.pct_chg_5d,
-        pct_chg_10d = excluded.pct_chg_10d,
-        pct_chg_20d = excluded.pct_chg_20d,
-        high_status = excluded.high_status,
-        high_status_label = excluded.high_status_label,
-        limit_times = excluded.limit_times,
-        fund_flow_1d = excluded.fund_flow_1d,
-        fund_flow_5d = excluded.fund_flow_5d,
-        sw_industry = excluded.sw_industry,
-        leader_plate = excluded.leader_plate,
-        leader_sub_plate = excluded.leader_sub_plate,
-        role_tags_json = excluded.role_tags_json,
-        circ_mv = excluded.circ_mv,
-        float_mcap_yi = excluded.float_mcap_yi,
-        total_mcap_yi = excluded.total_mcap_yi,
-        free_float_mcap_yi = excluded.free_float_mcap_yi,
-        mcap_source = excluded.mcap_source,
-        source = excluded.source,
-        updated_at = excluded.updated_at
-"""
-
 
 def _slim_to_full(stock: dict) -> dict:
     """把 get_sector_stocks_batch 的 slim 键还原为单板块 API 的完整键名。"""
@@ -226,17 +178,8 @@ def sync_fact_sector_stock_daily(
     init_db()
     con = connect()
     try:
-        _ensure_columns(con)
         dim = _load_sector_dim(con)
         td = _parse_date(trade_date) if trade_date else _latest_trade_date(con)
-        done = set()
-        if td is not None:
-            done = {
-                r[0] for r in con.execute(
-                    "SELECT DISTINCT sector_ts_code FROM fact_sector_stock_daily WHERE trade_date = ?",
-                    [td],
-                ).fetchall()
-            }
     finally:
         con.close()
 
@@ -245,27 +188,43 @@ def sync_fact_sector_stock_daily(
     if td is None:
         raise RuntimeError("无目标交易日, 请先运行 sync-sector-daily 或显式传 --trade-date")
 
-    # 确定本次要抓的板块
-    if sector:
-        ts_code = _resolve_sector(dim, sector)
-        if not ts_code:
-            raise RuntimeError(f"未找到板块: {sector}")
-        todo = [ts_code]
-    else:
-        todo = list(dim.keys())
-        if only_missing:
-            todo = [c for c in todo if c not in done]
-        if limit:
-            todo = todo[:limit]
-
     td_str = td.isoformat()
     now = datetime.now()
-    processed = 0
     rows_written = 0
     failures = []
+    status_counts: Counter[str] = Counter()
 
     con = connect()
     try:
+        store = SectorUniverseStore(con)
+        # 分母来自已发布宇宙的声明, 不是"抓到多少算多少"。没有已发布表头就
+        # fail-closed: 宁可不抓, 也不能凭 dim_sector 的物理身份写成分。
+        try:
+            snapshot = store.published_snapshot(td)
+        except SectorUniverseValidationError as exc:
+            raise RuntimeError(
+                f"{td_str} 无唯一已发布板块宇宙, 请先运行 sync-sectors 发布快照: {exc}"
+            ) from None
+
+        # 取工作: 由回执驱动, 而非"当日已有行 = 已完成"。后者看不见抓错、
+        # 抓漏和从未尝试的差别; 前者能。
+        if sector:
+            ts_code = _resolve_sector(dim, sector)
+            if not ts_code:
+                raise RuntimeError(f"未找到板块: {sector}")
+            todo = [ts_code]
+        else:
+            work = store.next_member_work(
+                snapshot.snapshot_id,
+                limit=int(limit) if limit else snapshot.sector_count,
+                max_attempts=MEMBER_MAX_ATTEMPTS,
+            )
+            todo = [item.sector_ts_code for item in work]
+            if not only_missing:
+                # 显式全量重抓: 仍按公平顺序, 只是不排除已成功的板块。
+                todo = [row.sector_ts_code for row in snapshot.sectors]
+                if limit:
+                    todo = todo[: int(limit)]
         chunk_size = max(int(chunk), 1)
         for start in range(0, len(todo), chunk_size):
             batch_codes = todo[start:start + chunk_size]
@@ -304,48 +263,76 @@ def sync_fact_sector_stock_daily(
                 flush=True,
             )
             for ts_code, payload in payloads.items():
-                name, sw_l1 = dim.get(ts_code, (ts_code, None))
                 stocks = payload.get("stocks", [])
                 if not stocks:
+                    # 空结果也要留回执: "provider 说没有" 和 "我们没问到"
+                    # 是两回事, 混在一起就又变回静默丢失。
+                    receipt = store.record_member_result(
+                        snapshot.snapshot_id, ts_code, MemberResult.empty()
+                    )
+                    status_counts[receipt.status] += 1
                     failures.append((ts_code, "empty stocks"))
                     continue
-                snap_date = _parse_date(payload.get("trade_date")) or td
-                rows = []
+                members = []
                 for s in stocks:
                     code = s.get("ts_code")
                     if not code:
                         continue
                     cap = cap_map.get(code, {})
-                    rows.append((
-                        snap_date, ts_code, name, sw_l1,
-                        code, s.get("name"), s.get("price"), s.get("pct_chg"), s.get("amount"),
-                        s.get("pct_chg_3d"), s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
-                        s.get("high_status"), s.get("high_status_label"), s.get("limit_times"),
-                        s.get("fund_flow_1d"), s.get("fund_flow_5d"), s.get("sw_industry"),
-                        s.get("leader_plate"), None, json.dumps(s.get("role_tags") or [], ensure_ascii=False),
-                        s.get("circ_mv"),
-                        cap.get("float_mcap_yi"), cap.get("total_mcap_yi"), None, cap.get("mcap_source"),
-                        "fupanhui", now,
-                    ))
-                con.execute("BEGIN TRANSACTION")
-                con.execute(
-                    "DELETE FROM fact_sector_stock_daily WHERE trade_date = ? AND sector_ts_code = ?",
-                    [snap_date, ts_code],
+                    members.append({
+                        "ts_code": code,
+                        "name": s.get("name"),
+                        "price": s.get("price"),
+                        "pct_chg": s.get("pct_chg"),
+                        "amount": s.get("amount"),
+                        "pct_chg_3d": s.get("pct_chg_3d"),
+                        "pct_chg_5d": s.get("pct_chg_5d"),
+                        "pct_chg_10d": s.get("pct_chg_10d"),
+                        "pct_chg_20d": s.get("pct_chg_20d"),
+                        "high_status": s.get("high_status"),
+                        "high_status_label": s.get("high_status_label"),
+                        "limit_times": s.get("limit_times"),
+                        "fund_flow_1d": s.get("fund_flow_1d"),
+                        "fund_flow_5d": s.get("fund_flow_5d"),
+                        "sw_industry": s.get("sw_industry"),
+                        "leader_plate": s.get("leader_plate"),
+                        "leader_sub_plate": None,
+                        "role_tags_json": json.dumps(
+                            s.get("role_tags") or [], ensure_ascii=False
+                        ),
+                        "circ_mv": s.get("circ_mv"),
+                        "float_mcap_yi": cap.get("float_mcap_yi"),
+                        "total_mcap_yi": cap.get("total_mcap_yi"),
+                        "free_float_mcap_yi": None,
+                        "mcap_source": cap.get("mcap_source"),
+                        "source": "fupanhui",
+                        "updated_at": now,
+                    })
+                served = _parse_date(payload.get("trade_date")) or td
+                receipt = store.record_member_result(
+                    snapshot.snapshot_id,
+                    ts_code,
+                    MemberResult.success(
+                        served_date=served.isoformat(), stocks=tuple(members)
+                    ),
                 )
-                if rows:
-                    con.executemany(UPSERT_SQL, rows)
-                con.execute("COMMIT")
-                processed += 1
-                rows_written += len(rows)
+                status_counts[receipt.status] += 1
+                if receipt.status == "success":
+                    rows_written += receipt.actual_stock_count or 0
+                else:
+                    failures.append((ts_code, receipt.last_error_code or receipt.status))
             if sleep:
                 time.sleep(sleep)
 
         grand_total = con.execute(
-            "SELECT COUNT(*) FROM fact_sector_stock_daily"
+            "SELECT COUNT(*) FROM fact_sector_stock_daily_generation"
         ).fetchone()[0]
         done_today = con.execute(
-            "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
-            [td],
+            """
+            SELECT COUNT(*) FROM ops_sector_member_sync_daily
+            WHERE trade_date = ? AND snapshot_id = ? AND status = 'success'
+            """,
+            [td, snapshot.snapshot_id],
         ).fetchone()[0]
     except Exception:
         try:
@@ -356,13 +343,18 @@ def sync_fact_sector_stock_daily(
     finally:
         con.close()
 
+    # 分母是快照声明的板块数, 不是 dim_sector 的物理行数——后者可能包含
+    # 当日已退市/未纳入的身份, 用它当分母会把覆盖率算高。
     return {
         "trade_date": td_str,
-        "processed": processed,
+        "snapshot_id": snapshot.snapshot_id,
+        "processed": sum(status_counts.values()),
+        "status_counts": dict(status_counts),
         "rows_written": rows_written,
         "failures": failures,
         "sectors_done_today": done_today,
-        "sectors_total": len(dim),
-        "sectors_remaining": len(dim) - done_today,
+        "sectors_total": snapshot.sector_count,
+        "sectors_remaining": snapshot.sector_count - done_today,
+        "declared_relationship_count": snapshot.declared_relationship_count,
         "table_total": grand_total,
     }

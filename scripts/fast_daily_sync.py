@@ -44,54 +44,91 @@ HIGH_PERIODS = [
 ]
 
 
+DEGRADED_LEGACY_COPY = "degraded_legacy_copy"
+
+
 def fast_sector_stocks(con, trade_date: str, prev_date: str | None = None):
-    """Copy yesterday's sector-stock membership to today. ~2 seconds vs 30-40 min CDP."""
+    """Copy the previous session's membership forward — legacy historical dates only.
+
+    This never produces an exact universe: it carries yesterday's identities
+    into today with NULL prices. Once a date has a published universe header
+    the copy is refused outright, because a fabricated membership would satisfy
+    the coverage query while silently contradicting the provider's declaration
+    — the exact failure Task 5 exists to remove.
+
+    Returns ``(rows, status)``. ``status`` is ``degraded_legacy_copy`` whenever
+    rows were carried forward; the caller must not treat it as a success
+    receipt, and no member receipt is written.
+    """
     print(f"\n[sector-stocks] Incremental copy for {trade_date}")
     t0 = time.time()
 
+    published = con.execute(
+        """
+        SELECT count(*) FROM ops_sector_universe_snapshot_daily
+        WHERE trade_date = ?::DATE AND status = 'published'
+        """,
+        [trade_date],
+    ).fetchone()[0]
+    if published:
+        print(
+            f"  REFUSED: {trade_date} has a published universe; "
+            "run the receipt-driven member sync instead of copying forward"
+        )
+        return 0, "refused_published_universe"
+
     # Check if today already has data
     existing = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [trade_date]
+        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
+        [trade_date],
     ).fetchone()[0]
     if existing > 0:
         print(f"  Already has {existing:,} rows, skipping")
-        return existing
+        return existing, DEGRADED_LEGACY_COPY
 
     # Find the most recent date with data (as source)
     if prev_date is None:
         row = con.execute(
-            "SELECT MAX(trade_date) FROM fact_sector_stock_daily WHERE trade_date < ?", [trade_date]
+            "SELECT MAX(trade_date) FROM fact_sector_stock_daily_generation WHERE trade_date < ?",
+            [trade_date],
         ).fetchone()
         if not row or not row[0]:
             print("  ERROR: No previous date found to copy from!")
-            return 0
+            return 0, "no_source_date"
         prev_date = str(row[0])
 
     prev_count = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [prev_date]
+        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
+        [prev_date],
     ).fetchone()[0]
-    print(f"  Copying {prev_count:,} rows from {prev_date} → {trade_date}")
+    print(f"  Copying {prev_count:,} rows from {prev_date} → {trade_date} (legacy generation)")
 
     con.execute("""
-        INSERT INTO fact_sector_stock_daily
-            (trade_date, sector_ts_code, sector_name, sw_l1, stock_ts_code, stock_name,
+        INSERT INTO fact_sector_stock_daily_generation
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+             sw_l1, stock_ts_code, stock_name,
              price, pct_chg, amount, pct_chg_5d, pct_chg_10d, pct_chg_20d,
              fund_flow_1d, fund_flow_5d, sw_industry, leader_plate, leader_sub_plate,
              source, updated_at)
         SELECT
-            ?::DATE, sector_ts_code, sector_name, sw_l1, stock_ts_code, stock_name,
+            ?::DATE, 'legacy', sector_ts_code, sector_name,
+            sw_l1, stock_ts_code, stock_name,
             NULL, NULL, NULL, NULL, NULL, NULL,
             NULL, NULL, sw_industry, leader_plate, leader_sub_plate,
             'incremental-copy', CURRENT_TIMESTAMP
-        FROM fact_sector_stock_daily
+        FROM fact_sector_stock_daily_generation
         WHERE trade_date = ?
     """, [trade_date, prev_date])
 
     inserted = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [trade_date]
+        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
+        [trade_date],
     ).fetchone()[0]
-    print(f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s (source={prev_date})")
-    return inserted
+    print(
+        f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s "
+        f"(source={prev_date}, status={DEGRADED_LEGACY_COPY})"
+    )
+    return inserted, DEGRADED_LEGACY_COPY
 
 
 def fast_stock_daily(con, trade_date: str):
@@ -384,7 +421,10 @@ def main():
                 print("\n[sector-stocks] --full-refresh: use standard sync-sector-stocks instead")
                 results["sector-stocks"] = "skipped (full-refresh requested)"
             else:
-                results["sector-stocks"] = fast_sector_stocks(con, args.date)
+                rows, status = fast_sector_stocks(con, args.date)
+                # 状态与行数一起报出: 让"复制了多少行"永远带着"这不是精确宇宙"
+                # 的限定, 调用方无法把降级结果误读成成功同步。
+                results["sector-stocks"] = f"{rows} rows ({status})"
 
         if "stock-daily" in steps:
             results["stock-daily"] = fast_stock_daily(con, args.date)

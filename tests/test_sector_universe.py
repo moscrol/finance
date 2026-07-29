@@ -1015,3 +1015,42 @@ def test_member_work_requires_the_published_generation(store_con):
     store = SectorUniverseStore(store_con)
     with pytest.raises(SectorUniverseValidationError):
         store.next_member_work("not-a-snapshot", limit=1, max_attempts=3)
+
+
+def test_fast_copy_refuses_a_date_that_has_a_published_universe(store_con):
+    """已发布宇宙的交易日不许"复制昨天"——那会造出满足覆盖率但与声明矛盾的成分。"""
+    import scripts.fast_daily_sync as fast
+
+    _publish(store_con)
+    rows, status = fast.fast_sector_stocks(store_con, "2026-07-28")
+
+    assert rows == 0
+    assert status == "refused_published_universe"
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (0,)
+
+
+def test_fast_copy_of_a_legacy_date_is_marked_degraded_and_leaves_no_receipt(store_con):
+    store_con.execute(
+        """
+        INSERT INTO fact_sector_stock_daily_generation
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+             stock_ts_code, stock_name, source)
+        VALUES ('2026-07-21', 'legacy', '990001A.FP', 'MLCC',
+                '000001.SZ', '测试股', 'fupanhui')
+        """
+    )
+    import scripts.fast_daily_sync as fast
+
+    rows, status = fast.fast_sector_stocks(store_con, "2026-07-22")
+
+    assert rows == 1
+    assert status == "degraded_legacy_copy"
+    assert store_con.execute(
+        "select distinct sector_universe_snapshot_id "
+        "from fact_sector_stock_daily_generation where trade_date = '2026-07-22'"
+    ).fetchall() == [("legacy",)]
+    assert store_con.execute(
+        "select count(*) from ops_sector_member_sync_daily where trade_date = '2026-07-22'"
+    ).fetchone() == (0,)
