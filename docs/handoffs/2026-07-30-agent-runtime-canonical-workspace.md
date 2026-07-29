@@ -88,6 +88,53 @@ Relevant completion records:
 - `docs/verification/phase-c-causal-anchor-guard-2026-07-29.md`;
 - `docs/verification/phase-c-valuation-evidence-admission-2026-07-29.md`.
 
+### 4.2b Turn-budget and retrieval-noise P0 fixes (ported 2026-07-30)
+
+Five commits diagnosed against the 29 real `linxiaoqi5111` runs and ported from
+the frozen `fix/retrieval-quality-p0` branch. The five touched files were
+untouched on this branch since `69f9cf17`, so the cherry-pick was conflict-free.
+
+- `c5db0df1` — owner skills consumed `remaining_seconds` (which includes the
+  synthesis reserve) instead of a stage-bounded budget, so a slow/failed skill
+  starved final synthesis. Measured failure: a 34s failed `news-impact` skill
+  plus 57s of retrieval left synthesis `remaining_budget_ms: 0`, emitting
+  `llm_unavailable_template_answer` with zero tokens generated. 6/29 runs
+  (21%) degraded this way. Added `stage_remaining_seconds`; the guard clamps
+  duration only and still allows a starved skill to start for partial results.
+- `cdf22502` — `LLMCallRecord` never stored a failure reason, so the 35% `chat`
+  failure rate (23/66 calls, 332s burned, failure p10 12,046ms ≈ median
+  12,072ms against success p90 11,612ms) could not be diagnosed. Added
+  normalized `reason` capture and a `failure_reasons` tally in the trace, plus
+  an opt-in `min_viable_seconds` guard (default off: `timeout` cannot
+  distinguish a caller-configured policy from a deadline-clamped remainder).
+  The guard is deliberately not wired to a call site yet — the source of the
+  12s clamp is unidentified, and the new reason data is the instrument for
+  locating it.
+- `19ddd99a` — `load_relation` reparsed whole files per call; one query
+  fragment reparsed `entity_exposures` (18.6MB) four times. Added an
+  mtime+size keyed process cache (KB is rebuilt daily, so `lru_cache` would
+  serve stale graphs). Fragment cost 0.66s to 0.21s.
+- `7f1ac960` — concept scoring counted substring hits inside a 2000-char JSON
+  dump of each concept payload. That tier is a truncation artifact, not a
+  semantic relation: it supplied 80–90% of hits on mainline themes (固态电池
+  returned MOF材料/全球锂矿/化工; 半导体设备 returned C4化工/CVD金刚石/GPU) and
+  rode into LLM context. Restricted matching to concept-name tiers; semantic
+  recall stays with the vector layer. Exposure matching was left unchanged —
+  strong hits already saturate its top-40.
+- `e841c8cb` — empty evidence sections emitted placeholder rows duplicating the
+  more specific `gap_lines` guidance. Sections are now omitted when empty, as
+  the web-fallback and agent-loop sections already were. Gap honesty is
+  unaffected. Real-run impact is 2/29; the larger estimate came from a
+  2026-07-09 sample that no longer reflects current behavior.
+
+Verification after the port: focused suites pass; full suite reports 3,499
+passed, 3 skipped, and the same 11 pre-existing subconscious/userspace
+environment failures. The 11-test increase is exactly the regressions added by
+these commits. No production database, credential, 8792, or `main` change.
+
+Not yet done: no real-question acceptance run has exercised these fixes, so the
+21% template-degradation rate is fixed in mechanism but unmeasured in outcome.
+
 ### 4.3 Evaluation assets and sealed control
 
 The branch contains the 28-case acceptance asset set, 22 scoped Knevo reference
