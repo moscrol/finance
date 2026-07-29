@@ -96,6 +96,41 @@ def test_build_instruction_export_is_regular_only_and_excludes_control_data(
     ).status == "valid"
 
 
+def test_explicit_instruction_allowlist_precedes_leak_scan(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    services = repo / "intelligence" / "services"
+    services.mkdir(parents=True)
+    (services / "not_selected.py").write_text(
+        "FROZEN_REFERENCE_ANSWER\n",
+        encoding="utf-8",
+    )
+    skill = repo / "skills" / "market-overview" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("generic market overview instructions\n", encoding="utf-8")
+    revision = _commit_repo(repo)
+    corpus = ForbiddenCorpus(
+        (
+            ForbiddenText(
+                source_id="reference_answer:case:1",
+                kind="reference_answer",
+                text="FROZEN_REFERENCE_ANSWER",
+            ),
+        )
+    )
+
+    receipt = build_instruction_export(
+        source_repo=repo,
+        source_revision=revision,
+        output_root=tmp_path / "exports",
+        corpus=corpus,
+        include_prefixes=("skills/market-overview/",),
+    )
+
+    assert (receipt.instruction_root / "skills/market-overview/SKILL.md").is_file()
+    assert not (receipt.instruction_root / "intelligence/services").exists()
+    assert receipt.leak_scan.status == "passed"
+
+
 def test_build_instruction_export_rejects_allowlisted_symlink(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     services = repo / "intelligence" / "services"

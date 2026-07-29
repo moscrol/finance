@@ -154,7 +154,7 @@ Record source revision, allow/exclude lists, neutral instruction hash, file coun
 
 Prove no `.git`, all entries are regular files, every file has `st_nlink == 1`, mutation invalidates audit, and a different manifest cannot overwrite an existing destination.
 
-Real-corpus hardening keeps a hash-bound manifest of reviewed generic finance terms that are shorter than both frozen n-gram thresholds. Protected question/conversation/reference/required-output/direct-target/prior/post-cutoff material can never enter that manifest. Any remaining deterministic finding rejects the whole export; production files must never be removed merely to make the scan pass. The generated neutral `AGENTS.md` remains non-exceptable and fail-closed.
+Real-corpus hardening keeps hash-bound manifests for reviewed generic finance terms and a static instruction path allowlist selected before export. Protected question/conversation/reference/required-output/direct-target/prior/post-cutoff material can never enter the exception manifest. Any selected file with a deterministic finding rejects the whole export; production files must never be removed after scanning merely to make the scan pass. Changing the allowlist changes the fixture input hash. The generated neutral `AGENTS.md` remains non-exceptable and fail-closed.
 
 - [x] **Step 6: Run GREEN and commit**
 

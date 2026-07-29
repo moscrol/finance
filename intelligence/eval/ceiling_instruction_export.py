@@ -94,12 +94,19 @@ def _read_git_blobs(repo: Path, object_ids: tuple[str, ...]) -> dict[str, bytes]
     return blobs
 
 
-def _included(path: str) -> bool:
+def _included(
+    path: str,
+    *,
+    include_prefixes: Sequence[str],
+    include_files: frozenset[str],
+) -> bool:
     if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in EXCLUDE_PREFIXES):
         return False
+    if path in include_files:
+        return True
     return any(
         path == prefix.rstrip("/") or path.startswith(prefix)
-        for prefix in INCLUDE_PREFIXES
+        for prefix in include_prefixes
     )
 
 
@@ -306,6 +313,8 @@ def build_instruction_export(
     output_root: str | Path,
     corpus: ForbiddenCorpus,
     generic_exception_source_ids: Sequence[str] = (),
+    include_prefixes: Sequence[str] | None = None,
+    include_files: Sequence[str] = (),
 ) -> InstructionExportReceipt:
     """Export an immutable, leak-scanned instruction tree from one Git commit."""
 
@@ -318,9 +327,29 @@ def build_instruction_export(
             for item in corpus.entries
         ]
     )
+    selected_prefixes = tuple(
+        dict.fromkeys(
+            str(item).strip()
+            for item in (INCLUDE_PREFIXES if include_prefixes is None else include_prefixes)
+            if str(item).strip()
+        )
+    )
+    selected_files = tuple(
+        dict.fromkeys(
+            str(item).strip()
+            for item in include_files
+            if str(item).strip()
+        )
+    )
+    if any(
+        Path(item).is_absolute() or ".." in Path(item).parts
+        for item in (*selected_prefixes, *selected_files)
+    ):
+        raise ValueError("instruction allowlist paths must stay repository-relative")
     input_payload = {
         "source_revision": resolved_revision,
-        "include_prefixes": list(INCLUDE_PREFIXES),
+        "include_prefixes": list(selected_prefixes),
+        "include_files": list(selected_files),
         "exclude_prefixes": list(EXCLUDE_PREFIXES),
         "neutral_agents_sha256": hashlib.sha256(
             NEUTRAL_AGENTS.encode("utf-8")
@@ -359,7 +388,11 @@ def build_instruction_export(
             metadata, raw_path = raw_entry.split(b"\t", 1)
             mode, object_type, object_sha = metadata.decode("ascii").split(" ")
             relative = raw_path.decode("utf-8")
-            if not _included(relative):
+            if not _included(
+                relative,
+                include_prefixes=selected_prefixes,
+                include_files=frozenset(selected_files),
+            ):
                 continue
             if object_type != "blob" or mode not in {"100644", "100755"}:
                 raise ValueError("instruction export accepts regular Git blobs only")
