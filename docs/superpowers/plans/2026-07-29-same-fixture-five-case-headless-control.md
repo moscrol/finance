@@ -116,7 +116,7 @@ git commit -m "feat: isolate sealed headless mailbox"
 - Test: `intelligence/tests/test_runtime_backend_benchmark.py`
 - Test: `intelligence/tests/test_run_agent_runtime_benchmark.py`
 
-- [ ] **Step 1: Write failing round-trip tests**
+- [x] **Step 1: Write failing round-trip tests**
 
 ```python
 arm = replace(
@@ -129,19 +129,19 @@ arm = replace(
 assert RuntimeArmResult.from_dict(arm.to_dict()) == arm
 ```
 
-- [ ] **Step 2: Add frozen `RuntimeClaim` and `RuntimeSource` dataclasses**
+- [x] **Step 2: Add frozen `RuntimeClaim` and `RuntimeSource` dataclasses**
 
 Validate Unicode code-point spans against `published_answer`, unique IDs, existing source IDs, 64-hex hashes, cutoff dates, and no absolute paths.
 
-- [ ] **Step 3: Populate both answers from the existing semantic seam**
+- [x] **Step 3: Populate both answers from the existing semantic seam**
 
 Use `final_outcome.draft` as `candidate_answer` and `semantic.public_answer` as `published_answer`. Keep legacy `answer` as an alias of `published_answer` for backward compatibility and reject divergence.
 
-- [ ] **Step 4: Project claims/sources deterministically**
+- [x] **Step 4: Project claims/sources deterministically**
 
 Sources come from `final_outcome.evidence` and exact content hashes. Claims are sentence spans over the published answer; source IDs are the union of evidence hashes from fulfilled output bindings, and a material numeric sentence with no joined source fails the arm.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_runtime_backend_benchmark.py intelligence/tests/test_run_agent_runtime_benchmark.py -q

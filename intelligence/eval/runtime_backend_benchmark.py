@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import date
 import math
 import re
 from statistics import median
@@ -63,6 +64,7 @@ _MAX_DIAGNOSTIC_EVENTS = 200
 _MAX_DIAGNOSTIC_TRACES = 100
 _MAX_DIAGNOSTIC_ITEMS = 50
 _MAX_DIAGNOSTIC_STRING = 1000
+_PROJECTION_ID_RE = re.compile(r"[A-Z][A-Za-z0-9._-]{0,63}")
 
 
 def _non_negative_int(value: object, field_name: str) -> int:
@@ -255,6 +257,109 @@ class RuntimeDiagnostics:
 
 
 @dataclass(frozen=True)
+class RuntimeSource:
+    source_id: str
+    tool: str
+    content_hash: str
+    source_date: str
+
+    def __post_init__(self) -> None:
+        source_id = str(self.source_id or "").strip()
+        tool = str(self.tool or "").strip()
+        source_date = str(self.source_date or "").strip()
+        if not _PROJECTION_ID_RE.fullmatch(source_id):
+            raise ValueError("invalid runtime source id")
+        if not tool:
+            raise ValueError("runtime source tool must be non-empty")
+        if _LOCAL_PATH_RE.search(tool):
+            raise ValueError("runtime source must not contain an absolute path")
+        if not _SHA256_RE.fullmatch(str(self.content_hash or "")):
+            raise ValueError("runtime source content_hash must be lowercase SHA-256")
+        try:
+            date.fromisoformat(source_date)
+        except ValueError:
+            raise ValueError("runtime source_date must be ISO date") from None
+        object.__setattr__(self, "source_id", source_id)
+        object.__setattr__(self, "tool", tool)
+        object.__setattr__(self, "source_date", source_date)
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "source_id": self.source_id,
+            "tool": self.tool,
+            "content_hash": self.content_hash,
+            "source_date": self.source_date,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> RuntimeSource:
+        if not isinstance(value, Mapping):
+            raise ValueError("runtime source must be an object")
+        return cls(
+            source_id=str(value.get("source_id") or ""),
+            tool=str(value.get("tool") or ""),
+            content_hash=str(value.get("content_hash") or ""),
+            source_date=str(value.get("source_date") or ""),
+        )
+
+
+@dataclass(frozen=True)
+class RuntimeClaim:
+    claim_id: str
+    start: int
+    end: int
+    text: str
+    material_numeric: bool
+    source_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        claim_id = str(self.claim_id or "").strip()
+        if not _PROJECTION_ID_RE.fullmatch(claim_id):
+            raise ValueError("invalid runtime claim id")
+        start = _non_negative_int(self.start, "claim start")
+        end = _non_negative_int(self.end, "claim end")
+        if end <= start:
+            raise ValueError("claim end must be greater than start")
+        if not isinstance(self.text, str) or not self.text:
+            raise ValueError("runtime claim text must be non-empty")
+        if not isinstance(self.material_numeric, bool):
+            raise ValueError("material_numeric must be a boolean")
+        source_ids = tuple(dict.fromkeys(str(item or "").strip() for item in self.source_ids))
+        if any(not _PROJECTION_ID_RE.fullmatch(item) for item in source_ids):
+            raise ValueError("invalid runtime claim source id")
+        object.__setattr__(self, "claim_id", claim_id)
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
+        object.__setattr__(self, "source_ids", source_ids)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "claim_id": self.claim_id,
+            "start": self.start,
+            "end": self.end,
+            "text": self.text,
+            "material_numeric": self.material_numeric,
+            "source_ids": list(self.source_ids),
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> RuntimeClaim:
+        if not isinstance(value, Mapping):
+            raise ValueError("runtime claim must be an object")
+        source_ids = value.get("source_ids", ())
+        if not isinstance(source_ids, (list, tuple)):
+            raise ValueError("runtime claim source_ids must be a sequence")
+        return cls(
+            claim_id=str(value.get("claim_id") or ""),
+            start=value.get("start"),
+            end=value.get("end"),
+            text=value.get("text"),
+            material_numeric=value.get("material_numeric"),
+            source_ids=tuple(source_ids),
+        )
+
+
+@dataclass(frozen=True)
 class RuntimeArmResult:
     case_id: str
     backend: str
@@ -278,6 +383,10 @@ class RuntimeArmResult:
     citations: tuple[dict[str, str], ...] = ()
     data_cutoff: str | None = None
     diagnostics: RuntimeDiagnostics = field(default_factory=RuntimeDiagnostics)
+    candidate_answer: str | None = None
+    published_answer: str | None = None
+    claims: tuple[RuntimeClaim, ...] = ()
+    sources: tuple[RuntimeSource, ...] = ()
 
     def __post_init__(self) -> None:
         for field_name in ("case_id", "backend", "model"):
@@ -287,6 +396,29 @@ class RuntimeArmResult:
             object.__setattr__(self, field_name, value.strip())
         if not isinstance(self.answer, str):
             raise ValueError("answer must be a string")
+        candidate_answer = (
+            self.answer if self.candidate_answer is None else self.candidate_answer
+        )
+        published_answer = (
+            self.answer if self.published_answer is None else self.published_answer
+        )
+        if not isinstance(candidate_answer, str):
+            raise ValueError("candidate_answer must be a string")
+        if not isinstance(published_answer, str):
+            raise ValueError("published_answer must be a string")
+        if published_answer != self.answer:
+            raise ValueError("answer must equal published_answer")
+        if any(
+            _SECRET_VALUE_RE.search(value) or _LOCAL_PATH_RE.search(value)
+            for value in (candidate_answer, published_answer)
+        ):
+            raise ValueError("answer projection contains sensitive data")
+        object.__setattr__(
+            self,
+            "candidate_answer",
+            None if candidate_answer == self.answer else candidate_answer,
+        )
+        object.__setattr__(self, "published_answer", None)
         if self.status not in _RUN_STATUSES:
             raise ValueError("unsupported status")
         if self.structural_status not in _STRUCTURAL_STATUSES:
@@ -363,6 +495,41 @@ class RuntimeArmResult:
             object.__setattr__(self, "data_cutoff", cutoff or None)
         if not isinstance(self.diagnostics, RuntimeDiagnostics):
             raise ValueError("diagnostics must be RuntimeDiagnostics")
+        sources = tuple(self.sources)
+        if any(not isinstance(item, RuntimeSource) for item in sources):
+            raise ValueError("sources must contain RuntimeSource values")
+        source_ids = tuple(item.source_id for item in sources)
+        if len(set(source_ids)) != len(source_ids):
+            raise ValueError("runtime source ids must be unique")
+        if len({item.content_hash for item in sources}) != len(sources):
+            raise ValueError("runtime source hashes must be unique")
+        if self.data_cutoff is not None:
+            try:
+                cutoff_date = date.fromisoformat(self.data_cutoff)
+            except ValueError:
+                raise ValueError("data_cutoff must be an ISO date") from None
+            if any(date.fromisoformat(item.source_date) > cutoff_date for item in sources):
+                raise ValueError("runtime source_date is after data_cutoff")
+        claims = tuple(self.claims)
+        if any(not isinstance(item, RuntimeClaim) for item in claims):
+            raise ValueError("claims must contain RuntimeClaim values")
+        claim_ids = tuple(item.claim_id for item in claims)
+        if len(set(claim_ids)) != len(claim_ids):
+            raise ValueError("runtime claim ids must be unique")
+        previous_end = 0
+        available_sources = set(source_ids)
+        for claim in claims:
+            if claim.start < previous_end or claim.end > len(published_answer):
+                raise ValueError("runtime claim span is invalid")
+            if published_answer[claim.start : claim.end] != claim.text:
+                raise ValueError("runtime claim span does not match published_answer")
+            if not set(claim.source_ids).issubset(available_sources):
+                raise ValueError("runtime claim references unknown source")
+            if claim.material_numeric and not claim.source_ids:
+                raise ValueError("material numeric claim requires a source")
+            previous_end = claim.end
+        object.__setattr__(self, "sources", sources)
+        object.__setattr__(self, "claims", claims)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -370,6 +537,12 @@ class RuntimeArmResult:
             "backend": self.backend,
             "model": self.model,
             "answer": self.answer,
+            "candidate_answer": (
+                self.answer if self.candidate_answer is None else self.candidate_answer
+            ),
+            "published_answer": self.answer,
+            "claims": [item.to_dict() for item in self.claims],
+            "sources": [item.to_dict() for item in self.sources],
             "status": self.status,
             "structural_status": self.structural_status,
             "semantic_status": self.semantic_status,
@@ -401,11 +574,29 @@ class RuntimeArmResult:
         answer = value.get("answer")
         if not isinstance(answer, str):
             raise ValueError("answer must be a string")
+        raw_claims = value.get("claims", ())
+        raw_sources = value.get("sources", ())
+        if not isinstance(raw_claims, (list, tuple)):
+            raise ValueError("claims must be a sequence")
+        if not isinstance(raw_sources, (list, tuple)):
+            raise ValueError("sources must be a sequence")
         return cls(
             case_id=str(value.get("case_id") or ""),
             backend=str(value.get("backend") or ""),
             model=str(value.get("model") or ""),
             answer=answer,
+            candidate_answer=(
+                value.get("candidate_answer")
+                if "candidate_answer" in value
+                else answer
+            ),
+            published_answer=(
+                value.get("published_answer")
+                if "published_answer" in value
+                else answer
+            ),
+            claims=tuple(RuntimeClaim.from_dict(item) for item in raw_claims),
+            sources=tuple(RuntimeSource.from_dict(item) for item in raw_sources),
             status=str(value.get("status") or ""),
             structural_status=str(value.get("structural_status") or ""),
             semantic_status=str(value.get("semantic_status") or ""),
@@ -545,6 +736,8 @@ def summarize_runtime_benchmark(
 
 __all__ = [
     "RuntimeArmResult",
+    "RuntimeClaim",
     "RuntimeDiagnostics",
+    "RuntimeSource",
     "summarize_runtime_benchmark",
 ]

@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -21,7 +22,9 @@ if __package__ in {None, ""}:
 from intelligence.eval.capability_monotonicity import directness_score
 from intelligence.eval.runtime_backend_benchmark import (
     RuntimeArmResult,
+    RuntimeClaim,
     RuntimeDiagnostics,
+    RuntimeSource,
     summarize_runtime_benchmark,
 )
 from intelligence.services import llm_refine
@@ -619,6 +622,69 @@ def _ledger_call_count(ledger: object | None) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
+def _runtime_sources(
+    outcome: object,
+    *,
+    excluded_output_ids: tuple[str, ...],
+) -> tuple[RuntimeSource, ...]:
+    excluded = set(excluded_output_ids)
+    bound_hashes = {
+        content_hash
+        for binding in outcome.bindings
+        if not binding.gap and binding.output_id not in excluded
+        for content_hash in binding.evidence_hashes
+    }
+    selected = sorted(
+        (
+            item
+            for item in outcome.evidence
+            if item.content_hash in bound_hashes
+        ),
+        key=lambda item: (
+            item.content_hash,
+            item.tool,
+            item.source_date or "",
+        ),
+    )
+    return tuple(
+        RuntimeSource(
+            source_id=f"E{index}",
+            tool=item.tool,
+            content_hash=item.content_hash,
+            source_date=item.source_date or "",
+        )
+        for index, item in enumerate(selected, start=1)
+    )
+
+
+def _runtime_claims(
+    published_answer: str,
+    *,
+    source_ids: tuple[str, ...],
+) -> tuple[RuntimeClaim, ...]:
+    claims: list[RuntimeClaim] = []
+    for match in re.finditer(r"[^。！？!?；;\n]+(?:[。！？!?；;]+|(?=\n)|$)", published_answer):
+        start, end = match.span()
+        while start < end and published_answer[start].isspace():
+            start += 1
+        while end > start and published_answer[end - 1].isspace():
+            end -= 1
+        if start >= end:
+            continue
+        text = published_answer[start:end]
+        claims.append(
+            RuntimeClaim(
+                claim_id=f"C{len(claims) + 1}",
+                start=start,
+                end=end,
+                text=text,
+                material_numeric=bool(re.search(r"\d", text)),
+                source_ids=source_ids,
+            )
+        )
+    return tuple(claims)
+
+
 def _arm_failure(
     *,
     case: RuntimeBenchmarkCase,
@@ -770,17 +836,30 @@ def _run_research_arm(
             bindings=tuple(binding.to_dict() for binding in final_outcome.bindings),
             root_budget=root_budget_snapshot,
         )
+        published_answer = turn_result.answer
+        sources = _runtime_sources(
+            final_outcome,
+            excluded_output_ids=semantic.gap_output_ids,
+        )
+        claims = _runtime_claims(
+            published_answer,
+            source_ids=tuple(item.source_id for item in sources),
+        )
         return RuntimeArmResult(
             case_id=case.case_id,
             backend=backend,
             model=model,
-            answer=turn_result.answer,
+            answer=published_answer,
+            candidate_answer=final_outcome.draft,
+            published_answer=published_answer,
+            claims=claims,
+            sources=sources,
             status=turn_result.status,
             structural_status=final_verified.verified_status,
             semantic_status=semantic.judge_status,
             task_alignment_score=_task_alignment_score(
                 control.task_frame,
-                turn_result.answer,
+                published_answer,
             ),
             latency_seconds=max(0.0, time.monotonic() - started),
             provider_attempts=provider_attempts,

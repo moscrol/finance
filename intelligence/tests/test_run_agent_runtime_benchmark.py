@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -419,7 +420,9 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
             bindings: list[OutputEvidenceBinding] = []
             for index, required in enumerate(context.contract.required_outputs):
                 tool = required.evidence_types[0]
-                content_hash = f"{self.backend}-{index}"
+                content_hash = hashlib.sha256(
+                    f"{self.backend}-{index}".encode("utf-8")
+                ).hexdigest()
                 evidence.append(
                     AgentEvidence(
                         tool=tool,
@@ -526,6 +529,10 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         "model_finish",
     ]
     assert [arm["effective_timeout_seconds"] for arm in arms] == [30.0, 30.0]
+    assert arms[0]["candidate_answer"] == arms[0]["published_answer"]
+    assert arms[0]["answer"] == arms[0]["published_answer"]
+    assert arms[0]["claims"][0]["text"] == arms[0]["published_answer"]
+    assert len(arms[0]["sources"][0]["content_hash"]) == 64
 
 
 def test_live_runner_uses_production_adapter_delivery_repair(
@@ -574,7 +581,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                         private_token if projection_case["private"] else ""
                     ),
                     source_date="2026-07-24",
-                    content_hash="benchmark-market-evidence",
+                    content_hash="a" * 64,
                 ),
                 AgentEvidence(
                     tool="mainline_context",
@@ -582,7 +589,7 @@ def test_live_runner_uses_production_adapter_delivery_repair(
                     detail="半导体保持持续性，医药进入分歧。",
                     source="local mainline fixture",
                     source_date="2026-07-24",
-                    content_hash="benchmark-mainline-evidence",
+                    content_hash="b" * 64,
                 ),
             )
             initial = AgentOutcome(
@@ -1115,7 +1122,7 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
                 detail="截至2026-07-24，半导体是当前主线。",
                 source="test",
                 source_date="2026-07-24",
-                content_hash="headless-mainline-hash",
+                content_hash="c" * 64,
             )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
@@ -1135,7 +1142,7 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
                 bindings=tuple(
                     OutputEvidenceBinding(
                         required.output_id,
-                        ("headless-mainline-hash",),
+                        ("c" * 64,),
                     )
                     for required in context.contract.required_outputs
                 ),
@@ -1199,6 +1206,9 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
     assert captured_providers == [judge_provider]
     arm = json.loads(output.read_text(encoding="utf-8"))["cases"][0]["arms"][0]
     assert arm["semantic_status"] == "passed"
+    assert arm["candidate_answer"] == arm["published_answer"]
+    assert arm["claims"]
+    assert arm["sources"][0]["content_hash"] == "c" * 64
     assert "headless-judge-secret" not in output.read_text(encoding="utf-8")
 
 

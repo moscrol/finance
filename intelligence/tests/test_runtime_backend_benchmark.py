@@ -6,7 +6,9 @@ import pytest
 
 from intelligence.eval.runtime_backend_benchmark import (
     RuntimeArmResult,
+    RuntimeClaim,
     RuntimeDiagnostics,
+    RuntimeSource,
     summarize_runtime_benchmark,
 )
 
@@ -48,13 +50,67 @@ def _arm(
 
 
 def test_runtime_arm_round_trip() -> None:
-    arm = _arm()
+    published = "截至2026-07-24，医药上涨2.5%。"
+    source = RuntimeSource(
+        "E1",
+        "market_data",
+        "b" * 64,
+        "2026-07-24",
+    )
+    claim = RuntimeClaim(
+        "C1",
+        0,
+        len(published),
+        published,
+        True,
+        ("E1",),
+    )
+    arm = replace(
+        _arm(),
+        answer=published,
+        candidate_answer="原始研究草稿。",
+        published_answer=published,
+        claims=(claim,),
+        sources=(source,),
+    )
 
     assert RuntimeArmResult.from_dict(arm.to_dict()) == arm
     assert arm.to_dict()["citations"][0]["source"] == "本地市场数据"
     assert arm.to_dict()["data_cutoff"] == "2026-07-24"
     assert arm.to_dict()["stop_reason"] == "model_finish"
     assert arm.to_dict()["effective_timeout_seconds"] == 90.0
+    assert arm.to_dict()["candidate_answer"] == "原始研究草稿。"
+    assert arm.to_dict()["published_answer"] == published
+    assert arm.to_dict()["claims"][0]["source_ids"] == ["E1"]
+    assert arm.to_dict()["sources"][0]["content_hash"] == "b" * 64
+
+
+def test_runtime_arm_rejects_projection_divergence_and_unbound_number() -> None:
+    with pytest.raises(ValueError, match="published_answer"):
+        replace(_arm(), published_answer="另一份公开答案")
+    with pytest.raises(ValueError, match="material numeric claim"):
+        answer = "上涨2.5%。"
+        replace(
+            _arm(),
+            answer=answer,
+            published_answer=answer,
+            claims=(RuntimeClaim("C1", 0, len(answer), answer, True, ()),),
+        )
+
+
+def test_runtime_arm_rejects_invalid_claim_span_and_future_source() -> None:
+    with pytest.raises(ValueError, match="claim span"):
+        replace(
+            _arm(),
+            claims=(RuntimeClaim("C1", 0, 2, "错误", False, ()),),
+        )
+    with pytest.raises(ValueError, match="after data_cutoff"):
+        replace(
+            _arm(),
+            sources=(RuntimeSource("E1", "market_data", "c" * 64, "2026-07-25"),),
+        )
+    with pytest.raises(ValueError, match="absolute path"):
+        RuntimeSource("E1", "/Users/a77/private", "c" * 64, "2026-07-24")
 
 
 def test_runtime_diagnostics_round_trip_redacts_control_plane_data() -> None:
