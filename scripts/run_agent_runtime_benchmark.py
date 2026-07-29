@@ -931,7 +931,7 @@ def _runtime_claims(
             continue
         searchable = " ".join(
             str(getattr(item, field, "") or "")
-            for field in ("title", "detail", "source")
+            for field in ("title", "detail", "source", "source_date")
         )
         source_tokens[source.source_id] = frozenset(
             _material_numeric_tokens(searchable)
@@ -947,13 +947,34 @@ def _runtime_claims(
             continue
         text = published_answer[start:end]
         numeric_tokens = _material_numeric_tokens(text)
-        claim_source_ids = tuple(
-            source.source_id
-            for source in sources
-            if numeric_tokens
-            and set(numeric_tokens).issubset(
-                source_tokens.get(source.source_id, frozenset())
+        required_tokens = set(numeric_tokens)
+        candidates = tuple(
+            (
+                source.source_id,
+                required_tokens.intersection(
+                    source_tokens.get(source.source_id, frozenset())
+                ),
             )
+            for source in sources
+        )
+        available_tokens = set().union(*(tokens for _, tokens in candidates))
+        selected_source_ids: list[str] = []
+        remaining_tokens = set(required_tokens)
+        if required_tokens.issubset(available_tokens):
+            while remaining_tokens:
+                source_id, newly_covered = max(
+                    candidates,
+                    key=lambda item: len(item[1].intersection(remaining_tokens)),
+                )
+                newly_covered = newly_covered.intersection(remaining_tokens)
+                if not newly_covered:
+                    break
+                selected_source_ids.append(source_id)
+                remaining_tokens.difference_update(newly_covered)
+        claim_source_ids = (
+            tuple(selected_source_ids)
+            if required_tokens and not remaining_tokens
+            else ()
         )
         claims.append(
             RuntimeClaim(

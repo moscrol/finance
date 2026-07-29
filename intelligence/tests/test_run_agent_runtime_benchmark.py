@@ -29,6 +29,89 @@ FIXTURE = (
 )
 
 
+def _projected_source(
+    evidence: AgentEvidence,
+    *,
+    source_id: str,
+) -> benchmark.RuntimeSource:
+    return benchmark.RuntimeSource(
+        source_id=source_id,
+        tool=evidence.tool,
+        content_hash=benchmark._runtime_source_content_hash(evidence),
+        source_date=evidence.source_date or "",
+    )
+
+
+def test_runtime_claims_bind_numeric_tokens_across_multiple_sources() -> None:
+    valuation = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值",
+        detail="瑞华泰市值为49.5亿元。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="valuation-evidence",
+    )
+    financial = AgentEvidence(
+        tool="financial_data",
+        title="瑞华泰盈利能力",
+        detail="瑞华泰毛利率为17.37%。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="financial-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "截至2026-07-24，瑞华泰市值49.5亿元，毛利率17.37%。",
+        sources=(
+            _projected_source(valuation, source_id="E1"),
+            _projected_source(financial, source_id="E2"),
+        ),
+        evidence=(valuation, financial),
+    )
+
+    assert claims[0].material_numeric is True
+    assert claims[0].source_ids == ("E1", "E2")
+
+
+def test_runtime_claims_use_source_date_as_numeric_lineage() -> None:
+    evidence = AgentEvidence(
+        tool="mainline_context",
+        title="同日主线结构",
+        detail="半导体是当前主线。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="mainline-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "截至2026-07-24，半导体是当前主线。",
+        sources=(_projected_source(evidence, source_id="E1"),),
+        evidence=(evidence,),
+    )
+
+    assert claims[0].source_ids == ("E1",)
+
+
+def test_runtime_claims_leave_unsupported_numeric_claim_unbound() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值",
+        detail="瑞华泰市值为49.5亿元。",
+        source="sealed_finance",
+        source_date="2026-07-24",
+        content_hash="valuation-evidence",
+    )
+
+    claims = benchmark._runtime_claims(
+        "瑞华泰合理估值为100倍。",
+        sources=(_projected_source(evidence, source_id="E1"),),
+        evidence=(evidence,),
+    )
+
+    assert claims[0].material_numeric is True
+    assert claims[0].source_ids == ()
+
+
 def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
     output_root = tmp_path / "ceiling"
     root = output_root / "fixture"
