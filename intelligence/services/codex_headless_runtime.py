@@ -1398,7 +1398,7 @@ def _authorized_command(value: object, wrapper: Path) -> bool:
     if (
         len(tokens) == 3
         and tokens[0] in {"/bin/zsh", "/bin/bash"}
-        and tokens[1] == "-lc"
+        and tokens[1] in {"-c", "-lc"}
     ):
         try:
             tokens = shlex.split(tokens[2])

@@ -178,10 +178,12 @@ class ValidFakeCodex:
         *,
         unauthorized: bool = False,
         shell_wrapped: bool = False,
+        shell_extra: bool = False,
     ) -> None:
         self.commands: list[HeadlessCommand] = []
         self._unauthorized = unauthorized
         self._shell_wrapped = shell_wrapped
+        self._shell_extra = shell_extra
 
     def __call__(self, command: HeadlessCommand) -> HeadlessProcessResult:
         self.commands.append(command)
@@ -225,7 +227,9 @@ class ValidFakeCodex:
             )
         wrapper_command = shlex.join(tool_command)
         if self._shell_wrapped:
-            wrapper_command = shlex.join(("/bin/zsh", "-lc", wrapper_command))
+            if self._shell_extra:
+                wrapper_command += "; ls -la"
+            wrapper_command = shlex.join(("/bin/zsh", "-c", wrapper_command))
         return HeadlessProcessResult(
             stdout=_jsonl(
                 wrapper_command=wrapper_command,
@@ -722,6 +726,20 @@ def test_headless_runtime_accepts_codex_shell_wrapped_gateway_command() -> None:
     assert outcome.status == "completed"
     assert outcome.usage.invalid_actions == 0
     assert outcome.bindings[0].evidence_hashes == ("mainline-hash",)
+
+
+def test_headless_runtime_rejects_shell_wrapped_extra_command() -> None:
+    outcome = CodexHeadlessRuntime(
+        command_runner=ValidFakeCodex(shell_wrapped=True, shell_extra=True),
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "headless_protocol_rejected"
+    assert "unauthorized_headless_action" in outcome.gaps
 
 
 def test_headless_prompt_includes_structured_tool_schema() -> None:
