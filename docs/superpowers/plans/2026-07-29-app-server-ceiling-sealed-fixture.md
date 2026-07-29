@@ -24,7 +24,7 @@
 - Create: `intelligence/eval/ceiling_leakage.py`
 - Test: `intelligence/tests/test_ceiling_leakage.py`
 
-- [ ] **Step 1: Write failing normalization/tokenization tests**
+- [x] **Step 1: Write failing normalization/tokenization tests**
 
 ```python
 from intelligence.eval.ceiling_leakage import normalize_char_stream, tokenize
@@ -38,7 +38,7 @@ def test_tokenization_uses_han_codepoints_and_alnum_runs() -> None:
     assert tokenize("瑞华泰 PB 4.33") == ("瑞", "华", "泰", "pb", "4", "33")
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run:
 
@@ -48,7 +48,7 @@ Run:
 
 Expected: collection fails because the module does not exist.
 
-- [ ] **Step 3: Implement the exact v3 algorithms**
+- [x] **Step 3: Implement the exact v3 algorithms**
 
 ```python
 def normalize_char_stream(text: str) -> str:
@@ -61,11 +61,11 @@ def normalize_char_stream(text: str) -> str:
 
 `tokenize()` treats each Han code point as one token and each maximal case-folded alphanumeric run as one token. `scan_export()` fails on a full normalized string, 12-character n-gram, 6-token n-gram, or token-set Jaccard `>= 0.80` for a forbidden sentence with at least 8 tokens.
 
-- [ ] **Step 4: Build `ForbiddenCorpus` from frozen evaluator sources**
+- [x] **Step 4: Build `ForbiddenCorpus` from frozen evaluator sources**
 
 Include raw questions, conversation context, required outputs, direct targets, reference answers, expected facts, pass rules, prior candidate/published answers, and post-cutoff handoff/result prose. No exception may suppress a full question, reference sentence, required-output ID, or post-cutoff result fragment.
 
-- [ ] **Step 5: Add deterministic and semantic-positive fixtures**
+- [x] **Step 5: Add deterministic and semantic-positive fixtures**
 
 ```python
 @pytest.mark.parametrize(
@@ -86,7 +86,7 @@ def test_scan_rejects_known_leaks(tmp_path: Path, leak: str) -> None:
 
 The semantic review packet also includes a paraphrase that deliberately shares no deterministic n-gram: `这周下跌主要是风险偏好收缩和高位筹码松动共同导致`.
 
-- [ ] **Step 6: Implement hash-bound semantic receipt validation**
+- [x] **Step 6: Implement hash-bound semantic receipt validation**
 
 ```python
 @dataclass(frozen=True)
@@ -102,7 +102,7 @@ class SemanticLeakReceipt:
 
 Reject hash mismatch, self-authored reviewer, model other than `gpt-5.6-sol`, bad self hash, or non-PASS verdict.
 
-- [ ] **Step 7: Run GREEN and commit**
+- [x] **Step 7: Run GREEN and commit**
 
 Run:
 
