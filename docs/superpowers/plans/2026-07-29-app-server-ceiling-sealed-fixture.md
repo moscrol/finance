@@ -154,7 +154,7 @@ Record source revision, allow/exclude lists, neutral instruction hash, file coun
 
 Prove no `.git`, all entries are regular files, every file has `st_nlink == 1`, mutation invalidates audit, and a different manifest cannot overwrite an existing destination.
 
-Real-corpus hardening keeps a hash-bound manifest of reviewed generic finance terms that are shorter than both frozen n-gram thresholds. Protected question/reference/required-output/prior/post-cutoff material can never enter that manifest. Any candidate file with a remaining deterministic finding is removed as a whole and recorded in a separate contamination-filter receipt; the generated neutral `AGENTS.md` remains non-exceptable and fail-closed.
+Real-corpus hardening keeps a hash-bound manifest of reviewed generic finance terms that are shorter than both frozen n-gram thresholds. Protected question/conversation/reference/required-output/direct-target/prior/post-cutoff material can never enter that manifest. Any remaining deterministic finding rejects the whole export; production files must never be removed merely to make the scan pass. The generated neutral `AGENTS.md` remains non-exceptable and fail-closed.
 
 - [x] **Step 6: Run GREEN and commit**
 
@@ -221,15 +221,15 @@ git commit -m "feat: build physical finance pit fixture"
 - Modify: `intelligence/eval/ceiling_pit_fixture.py`
 - Modify: `intelligence/tests/test_ceiling_pit_fixture.py`
 
-- [ ] **Step 1: Test cutoff revision selection**
+- [x] **Step 1: Test cutoff revision selection**
 
 With one pre-cutoff and one post-cutoff commit, `select_revision_at_cutoff()` must choose the pre-cutoff SHA and omit the post-cutoff file.
 
-- [ ] **Step 2: Export `wiki/` regular blobs from the selected revision**
+- [x] **Step 2: Export `wiki/` regular blobs from the selected revision**
 
 Select with `git rev-list -1 --before=2026-07-24T23:59:59+08:00 HEAD`. Strip the leading `wiki/`, reject symlinks/submodules, and hash every file. For the real repo this must resolve to `883815c9b43658339b6308a6494536d2e71b9ad7`.
 
-- [ ] **Step 3: Invoke the isolated 9053b0c4 RAG builder**
+- [x] **Step 3: Invoke the isolated 9053b0c4 RAG builder**
 
 Pass argv/environment arrays equivalent to:
 
@@ -237,11 +237,11 @@ Pass argv/environment arrays equivalent to:
 KB_VAULT=/private/fixture/wiki RAG_INDEX_DIR=/private/fixture/index KB_RAG_PYTHON=/Users/a77/knowledge-base-private/.rag_venv/bin/python3 /Users/a77/knowledge-base-private/.rag_venv/bin/python3 /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/scripts/rag_index.py build --model bge-m3
 ```
 
-- [ ] **Step 4: Validate content identity and one true-Hybrid probe**
+- [x] **Step 4: Validate content identity and one true-Hybrid probe**
 
 Require the 9053b0c4 freshness code, runtime `fresh`, exact index hashes, source-file count, Python version/path, one bounded Hybrid query, and no use of `/Users/a77/知识库` as data or interpreter.
 
-- [ ] **Step 5: Add link/mutation/future-date tests, run GREEN, commit**
+- [x] **Step 5: Add link/mutation/future-date tests, run GREEN, commit**
 
 Run:
 
