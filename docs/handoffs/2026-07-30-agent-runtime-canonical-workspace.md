@@ -170,7 +170,17 @@ Completed on the canonical branch:
   three retired sector-level Feishu producers (`e74ca793`);
 - Task 5 — durable member receipts, fair non-starving work selection, exact
   declared-count admission, receipt-driven member sync, and an explicitly
-  disqualified legacy fast copy (`df6427e1`, `41036494`).
+  disqualified legacy fast copy (`df6427e1`, `41036494`);
+- Task 6 — `SectorUniverseStore.completion_audit` as the single completion
+  formula, receipt-driven nightly polling that returns `partial` instead of a
+  false `ok`, and a third report gate built from the same audit (`ca894e07`).
+
+The nightly loop previously compared
+`count(distinct sector_ts_code)` from the member facts against
+`count(*)` from `dim_sector`. Those denominators are not the same population:
+the numerator credited degraded legacy-copy rows and the denominator counted
+stale `.TI` identities absent from the day's universe, so a coincidental match
+reported `ok` over a real gap.
 
 Task 5 also repaired a break left by Task 4: `fact_sector_stock_daily` became a
 view, but the member writer still issued `DELETE`/`INSERT`/`ALTER TABLE`
@@ -230,7 +240,8 @@ invokes the retired sector-level Feishu producers.
 1. Task 5 implementation is complete (`df6427e1`, `41036494`). Still open: the
    1,204/1,202 discrepancy must be diagnosed from live receipts without
    changing the declaration; that needs an authorized provider run.
-2. Tasks 6-7: adapt orchestration, enforce the exact completion/static access
+2. Task 6 implementation is complete (`ca894e07`). Task 7: enforce the exact
+   completion/static access
    gates, and remove all unauthorized physical/date-only writer paths.
 3. Task 8: copied-DB regression and migration preview, then one authorized
    complete live sync and a three-trading-night unattended streak.

@@ -818,7 +818,7 @@ git commit -m "feat: persist exact sector member receipts"
 - Modify: `tests/test_pipeline_p0.py`
 - Modify: `tests/test_processing_quality_order.py`
 
-- [ ] **Step 1: Write failing orchestration tests**
+- [x] **Step 1: Write failing orchestration tests**
 
 Add tests proving stale `.TI` rows never enter the denominator, an error receipt advances the next loop, progress is reported as `success/pending/empty/error` against one snapshot, and loop exhaustion returns `partial` rather than `ok`.
 
@@ -835,7 +835,7 @@ Run:
 
 Expected: FAIL because `_sectors_done` still reads mixed dimension/fact counts.
 
-- [ ] **Step 3: Replace count polling with completion-audit polling**
+- [x] **Step 3: Replace count polling with completion-audit polling**
 
 Load `SectorUniverseStore.completion_audit(
 trade_date, declared_tables=frozenset({"fact_sector_daily",
@@ -845,11 +845,11 @@ and log `snapshot_id`, `success/total`, pending, retriable errors, and attempts.
 A bounded loop that ends incomplete returns `status='partial'` with the audit
 payload.
 
-- [ ] **Step 4: Require exact audit before report generation**
+- [x] **Step 4: Require exact audit before report generation**
 
 `sync_daily_full.run_daily_full` and `run_review_sync.run_release_steps` must require the same exact audit in addition to existing same-day/cross-day gates. Do not create an independent formula.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
