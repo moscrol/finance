@@ -396,6 +396,14 @@ def test_sealed_runtime_keeps_provider_secret_parent_only(
     assert "sandbox_workspace_write.network_access=false" in command.args
     assert "sandbox_workspace_write.exclude_tmpdir_env_var=true" in command.args
     assert "sandbox_workspace_write.exclude_slash_tmp=true" in command.args
+    assert 'default_permissions="sealed_fixture"' in command.args
+    assert any(
+        item.startswith("permissions.sealed_fixture.filesystem=")
+        and '":minimal"="read"' in item
+        and '":workspace_roots"="write"' in item
+        for item in command.args
+    )
+    assert "--sandbox" not in command.args
     include_only = next(
         item
         for item in command.args
@@ -444,6 +452,7 @@ def test_sealed_runtime_stops_before_model_when_isolation_is_unproven() -> None:
             public_tcp="unexpected_success",
             loopback="denied",
             unix_socket="denied",
+            live_root_read="denied",
             codex_version="test",
             command_sha256="a" * 64,
         ),
@@ -479,6 +488,7 @@ def test_installed_codex_sandbox_denies_network_and_unix_socket(
     assert receipt.public_tcp == "denied"
     assert receipt.loopback == "denied"
     assert receipt.unix_socket == "denied"
+    assert receipt.live_root_read == "denied"
 
 
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:

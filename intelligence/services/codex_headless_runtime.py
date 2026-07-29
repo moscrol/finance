@@ -255,6 +255,7 @@ class HeadlessIsolationReceipt:
     public_tcp: str
     loopback: str
     unix_socket: str
+    live_root_read: str
     codex_version: str
     command_sha256: str
 
@@ -263,7 +264,12 @@ class HeadlessIsolationReceipt:
             raise ValueError("invalid isolation receipt status")
         if any(
             value not in {"denied", "unexpected_success", "unexpected_error"}
-            for value in (self.public_tcp, self.loopback, self.unix_socket)
+            for value in (
+                self.public_tcp,
+                self.loopback,
+                self.unix_socket,
+                self.live_root_read,
+            )
         ):
             raise ValueError("invalid isolation probe result")
         if not isinstance(self.codex_version, str) or not self.codex_version.strip():
@@ -274,6 +280,7 @@ class HeadlessIsolationReceipt:
             self.public_tcp,
             self.loopback,
             self.unix_socket,
+            self.live_root_read,
         } != {"denied"}:
             raise ValueError("proven isolation receipt must deny every probe")
 
@@ -284,6 +291,7 @@ class HeadlessIsolationReceipt:
             public_tcp="denied",
             loopback="denied",
             unix_socket="denied",
+            live_root_read="denied",
             codex_version="test",
             command_sha256="0" * 64,
         )
@@ -294,6 +302,7 @@ class HeadlessIsolationReceipt:
             "public_tcp": self.public_tcp,
             "loopback": self.loopback,
             "unix_socket": self.unix_socket,
+            "live_root_read": self.live_root_read,
             "codex_version": self.codex_version,
             "command_sha256": self.command_sha256,
         }
@@ -704,8 +713,6 @@ class CodexHeadlessRuntime:
             "exec",
             "--json",
             "--ephemeral",
-            "--sandbox",
-            self._sandbox_mode,
             "--ignore-user-config",
             "--skip-git-repo-check",
             "--output-schema",
@@ -717,6 +724,15 @@ class CodexHeadlessRuntime:
             args.extend(
                 (
                     "-c",
+                    'default_permissions="sealed_fixture"',
+                    "-c",
+                    "permissions.sealed_fixture.filesystem="
+                    '{":minimal"="read",":workspace_roots"="write",'
+                    '"/opt/homebrew"="read"}',
+                    "-c",
+                    "permissions.sealed_fixture.workspace_roots="
+                    f"{{{json.dumps(str(run_dir))}=true}}",
+                    "-c",
                     "sandbox_workspace_write.network_access=false",
                     "-c",
                     "sandbox_workspace_write.exclude_tmpdir_env_var=true",
@@ -726,6 +742,8 @@ class CodexHeadlessRuntime:
                     "allow_login_shell=false",
                 )
             )
+        else:
+            args[5:5] = ("--sandbox", self._sandbox_mode)
         if self._enable_gateway_network:
             args.extend(
                 (
@@ -934,7 +952,9 @@ def probe_sealed_isolation(
         raise ValueError("invalid isolation probe inputs")
     probe_home = working_directory / ".codex-isolation-probe"
     probe_home.mkdir(mode=0o700)
+    live_root = Path(__file__).resolve().parents[2] / "AGENTS.md"
     probe_script = """import json
+from pathlib import Path
 import socket
 
 results = {}
@@ -968,17 +988,25 @@ def unix_bind():
         handle.close()
 
 probe("unix_socket", unix_bind)
+probe("live_root_read", lambda: Path(__LIVE_ROOT__).read_bytes())
 print(json.dumps(results, sort_keys=True))
-"""
+""".replace("__LIVE_ROOT__", repr(str(live_root)))
     args = (
         binary,
         "sandbox",
+        "-c",
+        "permissions.sealed_probe.filesystem="
+        '{":minimal"="read",":workspace_roots"="write",'
+        '"/opt/homebrew"="read"}',
+        "-c",
+        "permissions.sealed_probe.workspace_roots="
+        f"{{{json.dumps(str(working_directory))}=true}}",
         "-P",
-        ":workspace",
+        "sealed_probe",
         "-C",
         str(working_directory),
         "--sandbox-state-disable-network",
-        "/usr/bin/python3",
+        str(shutil.which("python3") or "/opt/homebrew/bin/python3"),
         "-c",
         probe_script,
     )
@@ -1021,7 +1049,7 @@ print(json.dumps(results, sort_keys=True))
             }
             else "unexpected_error"
         )
-        for name in ("public_tcp", "loopback", "unix_socket")
+        for name in ("public_tcp", "loopback", "unix_socket", "live_root_read")
     }
     proven = completed.returncode == 0 and set(values.values()) == {"denied"}
     return HeadlessIsolationReceipt(
@@ -1029,6 +1057,7 @@ print(json.dumps(results, sort_keys=True))
         public_tcp=values["public_tcp"],
         loopback=values["loopback"],
         unix_socket=values["unix_socket"],
+        live_root_read=values["live_root_read"],
         codex_version=version or "unknown",
         command_sha256=command_sha256,
     )
