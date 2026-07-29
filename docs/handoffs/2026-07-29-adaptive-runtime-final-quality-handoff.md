@@ -29,7 +29,7 @@ The final-goal work after this handoff added three measurement controls:
 ```text
 77f7bb5a / b77e84ec / 6a6d1744  three-axis acceptance verdict seam
 4dc941f7 / 8126bbf7              hash-bound observation sidecars
-2753fe1b                         App Server ceiling experiment v2 spec
+2753fe1b                         first App Server ceiling experiment v2 spec
 ```
 
 The historical 10-case artifact is now reported as 18 not-run, 7 degraded, and
@@ -129,7 +129,7 @@ Detailed evidence:
 | Acceptance measurement seam | complete | operational/truth/experience verdicts and hash-bound external observations are implemented |
 | Knevo reference accounting | complete; labels pending | all 28 cases typed; 22 snapshots present, 6 missing; no uniform denominator |
 | Wider 28-case acceptance / Knevo comparison | not ready | current Workbench run and independent semantic/blind labels remain incomplete |
-| App Server ceiling design | complete; implementation conditional | v2 spec closes protocol/PIT/sandbox/fairness gaps; profile-D control must run first |
+| App Server ceiling design | v3 under independent review | second review found five P0/five P1; v3 now requires sealed no-gold export, same-fixture five-case D, closed capability radius, fixed projections, and claim ledger |
 | Canonical rollout | not started | no main merge or 8792 switch authorized |
 
 If one number is required, the isolated engineering candidate is roughly **90%**
@@ -139,23 +139,23 @@ these two denominators; this table is the canonical progress model going forward
 
 ## Experiment decision
 
-### Do not build App Server now
+### Do not build App Server until v3 PASS and a same-fixture five-case control
 
-The last two true-Hybrid failures were repaired inside deterministic evidence
-admission and delivery contracts. Changing runtime now would reintroduce the
-confounding-variable problem: App Server could appear better merely because it
-does not inherit the current headless time/call gates.
+The valid three-case D run diagnoses headless budget behavior but is not the App
+Server control: it used live roots, covered only three cases, and did not freeze
+the same published-answer projection. App Server could otherwise win from gold
+leakage, a different information set, extra native tools, or projection choice.
 
-App Server becomes justified only if a budget-neutral headless comparison still
-shows materially worse answer autonomy after the preregistered ablation.
+App Server becomes justified only if a sealed, no-gold, same-PIT five-case
+headless comparison still shows materially worse answer autonomy after all v3
+isolation and lineage gates pass.
 
 ### Do not run 28 cases now
 
-The smallest next experiment is the already preregistered three-case A/B/C/D
-budget ablation (`rebound-duration`, `weekly-market-cause`,
-`ruihuatai-valuation`). It separates finalization floor, wall-clock, and call-cap
-effects and records repeated-tool rate. Running 28 cases before that would spend
-more provider budget without identifying the cause.
+The three-case A/B/C/D diagnostic is complete. The smallest next quality
+experiment is a five-case same-fixture profile-D control plus one App Server
+ceiling run under the sealed v3 contract. Running 28 cases before that would
+spend more provider budget without resolving the runtime decision.
 
 ### Do not claim a Knevo win rate
 
@@ -165,14 +165,14 @@ any percentage.
 
 ## Next executable gate
 
-When a provider is available without interactive Keychain prompts:
+The next executable sequence is:
 
-1. run the preregistered three-case A/B/C/D budget ablation, not 28 cases;
-2. run the live evidence judge on the already admitted valuation candidates;
-3. compare answer quality blind to status fields;
-4. build an App Server ceiling adapter only if the budget-neutral headless result
-   remains materially below interactive Codex;
-5. collect same-format Knevo outputs before any competitive claim.
+1. obtain an independent PASS on the v3 App Server design;
+2. build the sealed instruction export and physical PIT fixture;
+3. run a new five-case profile-D headless baseline on that exact view;
+4. only then implement and run the bounded App Server ceiling adapter;
+5. apply the common live evidence judge and blind published-answer comparison;
+6. collect same-format Knevo outputs before any competitive claim.
 
 This next gate is experimental/provider work, not unfinished deterministic code.
 
@@ -197,6 +197,7 @@ memory summary to append later is:
 ```text
 2026-07-29 · codex · Adaptive Runtime manifest freshness、周因果 query-only+
 目标周/反证门、估值 subject-local admission 已在 true-Hybrid 固定重放闭合；
-下一步先做 3-case 预算消融，再决定 App Server；不合并 main/9053b0c4，
+3-case 预算消融已完成；下一步先让 App Server v3 spec 过独立审查，再做
+同一 sealed export/PIT 的 5-case D control；不合并 main/9053b0c4，
 不切 8792，无同格式 Knevo artifact 前不报胜率。
 ```
