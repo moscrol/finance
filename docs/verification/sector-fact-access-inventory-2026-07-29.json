@@ -4,6 +4,7 @@
       "column": 19,
       "line": 9,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "evolution/strategy1.py",
       "table": "fact_sector_daily"
     },
@@ -11,6 +12,7 @@
       "column": 44,
       "line": 42,
       "mode": "read",
+      "occurrence": 1,
       "path": "evolution/strategy1.py",
       "table": "fact_sector_daily"
     },
@@ -18,6 +20,7 @@
       "column": 50,
       "line": 50,
       "mode": "read",
+      "occurrence": 1,
       "path": "evolution/strategy1.py",
       "table": "fact_sector_stock_daily"
     },
@@ -25,6 +28,7 @@
       "column": 13,
       "line": 49,
       "mode": "read",
+      "occurrence": 1,
       "path": "evolution/strategy4.py",
       "table": "fact_sector_daily"
     },
@@ -32,6 +36,7 @@
       "column": 53,
       "line": 63,
       "mode": "read",
+      "occurrence": 1,
       "path": "evolution/strategy4.py",
       "table": "fact_sector_stock_daily"
     },
@@ -39,6 +44,7 @@
       "column": 6,
       "line": 75,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -46,6 +52,7 @@
       "column": 6,
       "line": 77,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -53,6 +60,7 @@
       "column": 74,
       "line": 209,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -60,6 +68,7 @@
       "column": 89,
       "line": 211,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -67,6 +76,7 @@
       "column": 39,
       "line": 213,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -74,6 +84,7 @@
       "column": 22,
       "line": 224,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -81,6 +92,7 @@
       "column": 28,
       "line": 246,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_daily"
     },
@@ -88,6 +100,7 @@
       "column": 24,
       "line": 452,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -95,6 +108,7 @@
       "column": 50,
       "line": 500,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -102,6 +116,7 @@
       "column": 30,
       "line": 509,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -109,6 +124,7 @@
       "column": 74,
       "line": 531,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -116,6 +132,7 @@
       "column": 90,
       "line": 533,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -123,6 +140,7 @@
       "column": 18,
       "line": 641,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -130,6 +148,7 @@
       "column": 24,
       "line": 665,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -137,6 +156,7 @@
       "column": 49,
       "line": 694,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -144,6 +164,7 @@
       "column": 26,
       "line": 703,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -151,6 +172,7 @@
       "column": 22,
       "line": 716,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -158,6 +180,7 @@
       "column": 24,
       "line": 727,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -165,6 +188,7 @@
       "column": 22,
       "line": 743,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -172,6 +196,7 @@
       "column": 46,
       "line": 754,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -179,6 +204,7 @@
       "column": 26,
       "line": 763,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/adapters/market.py",
       "table": "fact_sector_stock_daily"
     },
@@ -186,6 +212,7 @@
       "column": 26,
       "line": 164,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/api/structured_reports.py",
       "table": "fact_sector_daily"
     },
@@ -193,6 +220,7 @@
       "column": 6,
       "line": 18,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/bitemporal_history.py",
       "table": "fact_sector_daily"
     },
@@ -200,6 +228,7 @@
       "column": 18,
       "line": 1056,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/claim_fidelity.py",
       "table": "fact_sector_daily"
     },
@@ -207,6 +236,7 @@
       "column": 6,
       "line": 31,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/fidelity_replay.py",
       "table": "fact_sector_daily"
     },
@@ -214,6 +244,7 @@
       "column": 15,
       "line": 980,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/fidelity_replay.py",
       "table": "fact_sector_daily"
     },
@@ -221,6 +252,7 @@
       "column": 18,
       "line": 1052,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/fidelity_replay.py",
       "table": "fact_sector_daily"
     },
@@ -228,6 +260,7 @@
       "column": 6,
       "line": 16,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/phase2_sampling.py",
       "table": "fact_sector_daily"
     },
@@ -235,6 +268,7 @@
       "column": 6,
       "line": 29,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -242,6 +276,7 @@
       "column": 6,
       "line": 31,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_stock_daily"
     },
@@ -249,6 +284,7 @@
       "column": 6,
       "line": 45,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -256,6 +292,7 @@
       "column": 6,
       "line": 47,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_stock_daily"
     },
@@ -263,6 +300,7 @@
       "column": 6,
       "line": 53,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -270,6 +308,7 @@
       "column": 18,
       "line": 326,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -277,6 +316,7 @@
       "column": 18,
       "line": 336,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_stock_daily"
     },
@@ -284,6 +324,7 @@
       "column": 20,
       "line": 371,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/eval/pit_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -291,6 +332,7 @@
       "column": 53,
       "line": 532,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/agent.py",
       "table": "fact_sector_stock_daily"
     },
@@ -298,6 +340,7 @@
       "column": 28,
       "line": 552,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/agent.py",
       "table": "fact_sector_daily"
     },
@@ -305,6 +348,7 @@
       "column": 23,
       "line": 207,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_daily"
     },
@@ -312,6 +356,7 @@
       "column": 18,
       "line": 481,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -319,6 +364,7 @@
       "column": 18,
       "line": 1142,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -326,6 +372,7 @@
       "column": 20,
       "line": 1254,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -333,6 +380,7 @@
       "column": 18,
       "line": 1275,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_daily"
     },
@@ -340,6 +388,7 @@
       "column": 54,
       "line": 1319,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -347,6 +396,7 @@
       "column": 53,
       "line": 1336,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -354,6 +404,7 @@
       "column": 71,
       "line": 1346,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -361,6 +412,7 @@
       "column": 18,
       "line": 1411,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -368,6 +420,7 @@
       "column": 18,
       "line": 1483,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/ask_blocks.py",
       "table": "fact_sector_stock_daily"
     },
@@ -375,6 +428,7 @@
       "column": 14,
       "line": 303,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/duckdb_market_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -382,6 +436,7 @@
       "column": 10,
       "line": 331,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/duckdb_market_snapshot.py",
       "table": "fact_sector_daily"
     },
@@ -389,6 +444,7 @@
       "column": 16,
       "line": 274,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/finance_query.py",
       "table": "fact_sector_daily"
     },
@@ -396,6 +452,7 @@
       "column": 16,
       "line": 294,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/finance_query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -403,6 +460,7 @@
       "column": 19,
       "line": 15,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_analogs.py",
       "table": "fact_sector_daily"
     },
@@ -410,6 +468,7 @@
       "column": 22,
       "line": 230,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_analogs.py",
       "table": "fact_sector_daily"
     },
@@ -417,6 +476,7 @@
       "column": 24,
       "line": 455,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_analogs.py",
       "table": "fact_sector_daily"
     },
@@ -424,6 +484,7 @@
       "column": 22,
       "line": 463,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_analogs.py",
       "table": "fact_sector_daily"
     },
@@ -431,6 +492,7 @@
       "column": 32,
       "line": 13,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_midterm.py",
       "table": "fact_sector_daily"
     },
@@ -438,6 +500,7 @@
       "column": 47,
       "line": 122,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_midterm.py",
       "table": "fact_sector_daily"
     },
@@ -445,6 +508,7 @@
       "column": 14,
       "line": 174,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_midterm.py",
       "table": "fact_sector_daily"
     },
@@ -452,6 +516,7 @@
       "column": 28,
       "line": 196,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_midterm.py",
       "table": "fact_sector_daily"
     },
@@ -459,6 +524,7 @@
       "column": 24,
       "line": 344,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_midterm.py",
       "table": "fact_sector_daily"
     },
@@ -466,6 +532,7 @@
       "column": 11,
       "line": 70,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -473,6 +540,7 @@
       "column": 22,
       "line": 188,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -480,6 +548,7 @@
       "column": 51,
       "line": 197,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -487,6 +556,7 @@
       "column": 56,
       "line": 291,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -494,6 +564,7 @@
       "column": 18,
       "line": 298,
       "mode": "read",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -501,6 +572,7 @@
       "column": 41,
       "line": 308,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
@@ -508,6 +580,7 @@
       "column": 25,
       "line": 20,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "intelligence/services/workbench_overview.py",
       "table": "fact_sector_daily"
     },
@@ -515,6 +588,7 @@
       "column": 13,
       "line": 64,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -522,6 +596,7 @@
       "column": 13,
       "line": 83,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -529,6 +604,7 @@
       "column": 13,
       "line": 105,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_stock_daily"
     },
@@ -536,6 +612,7 @@
       "column": 13,
       "line": 305,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -543,6 +620,7 @@
       "column": 13,
       "line": 320,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -550,6 +628,7 @@
       "column": 13,
       "line": 330,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -557,6 +636,7 @@
       "column": 13,
       "line": 616,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -564,6 +644,7 @@
       "column": 14,
       "line": 617,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -571,6 +652,7 @@
       "column": 13,
       "line": 619,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_stock_daily"
     },
@@ -578,6 +660,7 @@
       "column": 14,
       "line": 620,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_stock_daily"
     },
@@ -585,6 +668,7 @@
       "column": 67,
       "line": 909,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -592,6 +676,7 @@
       "column": 76,
       "line": 914,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -599,6 +684,7 @@
       "column": 66,
       "line": 923,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_stock_daily"
     },
@@ -606,6 +692,7 @@
       "column": 63,
       "line": 997,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -613,6 +700,7 @@
       "column": 83,
       "line": 1015,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -620,6 +708,7 @@
       "column": 72,
       "line": 1017,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_daily"
     },
@@ -627,6 +716,7 @@
       "column": 42,
       "line": 1039,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/cli.py",
       "table": "fact_sector_stock_daily"
     },
@@ -634,6 +724,7 @@
       "column": 6,
       "line": 17,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/quality.py",
       "table": "fact_sector_daily"
     },
@@ -641,6 +732,7 @@
       "column": 6,
       "line": 19,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/quality.py",
       "table": "fact_sector_stock_daily"
     },
@@ -648,6 +740,7 @@
       "column": 6,
       "line": 32,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/quality.py",
       "table": "fact_sector_daily"
     },
@@ -655,6 +748,7 @@
       "column": 6,
       "line": 34,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/quality.py",
       "table": "fact_sector_stock_daily"
     },
@@ -662,6 +756,7 @@
       "column": 20,
       "line": 36,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -669,6 +764,7 @@
       "column": 14,
       "line": 38,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -676,6 +772,7 @@
       "column": 20,
       "line": 49,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -683,6 +780,7 @@
       "column": 14,
       "line": 51,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -690,6 +788,7 @@
       "column": 23,
       "line": 79,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -697,6 +796,7 @@
       "column": 61,
       "line": 82,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -704,6 +804,7 @@
       "column": 47,
       "line": 104,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -711,6 +812,7 @@
       "column": 18,
       "line": 110,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -718,6 +820,7 @@
       "column": 47,
       "line": 130,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -725,6 +828,7 @@
       "column": 18,
       "line": 134,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -732,6 +836,7 @@
       "column": 18,
       "line": 186,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -739,6 +844,7 @@
       "column": 22,
       "line": 482,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -746,6 +852,7 @@
       "column": 22,
       "line": 499,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -753,6 +860,7 @@
       "column": 47,
       "line": 779,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -760,6 +868,7 @@
       "column": 18,
       "line": 783,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_daily"
     },
@@ -767,6 +876,7 @@
       "column": 42,
       "line": 816,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -774,6 +884,7 @@
       "column": 22,
       "line": 855,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/query.py",
       "table": "fact_sector_stock_daily"
     },
@@ -781,6 +892,7 @@
       "column": 16,
       "line": 299,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -788,6 +900,7 @@
       "column": 16,
       "line": 309,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -795,6 +908,7 @@
       "column": 18,
       "line": 366,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -802,6 +916,7 @@
       "column": 14,
       "line": 383,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -809,6 +924,7 @@
       "column": 14,
       "line": 529,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -816,6 +932,7 @@
       "column": 18,
       "line": 575,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -823,6 +940,7 @@
       "column": 18,
       "line": 587,
       "mode": "read",
+      "occurrence": 2,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -830,6 +948,7 @@
       "column": 18,
       "line": 597,
       "mode": "read",
+      "occurrence": 3,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -837,6 +956,7 @@
       "column": 14,
       "line": 670,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -844,6 +964,7 @@
       "column": 18,
       "line": 709,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -851,6 +972,7 @@
       "column": 18,
       "line": 748,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -858,6 +980,7 @@
       "column": 31,
       "line": 817,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -865,6 +988,7 @@
       "column": 72,
       "line": 817,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -872,6 +996,7 @@
       "column": 11,
       "line": 864,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -879,6 +1004,7 @@
       "column": 18,
       "line": 903,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -886,6 +1012,7 @@
       "column": 18,
       "line": 912,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -893,6 +1020,7 @@
       "column": 23,
       "line": 931,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_daily"
     },
@@ -900,6 +1028,7 @@
       "column": 20,
       "line": 966,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/reports/daily_review.py",
       "table": "fact_sector_stock_daily"
     },
@@ -907,6 +1036,7 @@
       "column": 28,
       "line": 87,
       "mode": "ddl",
+      "occurrence": 1,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_daily"
     },
@@ -914,6 +1044,7 @@
       "column": 58,
       "line": 103,
       "mode": "ddl",
+      "occurrence": 2,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_daily"
     },
@@ -921,6 +1052,7 @@
       "column": 60,
       "line": 104,
       "mode": "ddl",
+      "occurrence": 3,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_daily"
     },
@@ -928,6 +1060,7 @@
       "column": 28,
       "line": 138,
       "mode": "ddl",
+      "occurrence": 4,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_stock_daily"
     },
@@ -935,6 +1068,7 @@
       "column": 58,
       "line": 170,
       "mode": "ddl",
+      "occurrence": 5,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_stock_daily"
     },
@@ -942,6 +1076,7 @@
       "column": 59,
       "line": 171,
       "mode": "ddl",
+      "occurrence": 6,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_stock_daily"
     },
@@ -949,6 +1084,7 @@
       "column": 60,
       "line": 172,
       "mode": "ddl",
+      "occurrence": 7,
       "path": "market_feature_store/schema.sql",
       "table": "fact_sector_stock_daily"
     },
@@ -956,6 +1092,7 @@
       "column": 6,
       "line": 14,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/scripts/backfill_review_hot_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -963,6 +1100,7 @@
       "column": 63,
       "line": 53,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/scripts/backfill_review_hot_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -970,6 +1108,7 @@
       "column": 21,
       "line": 89,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/scripts/backfill_review_hot_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -977,6 +1116,7 @@
       "column": 65,
       "line": 93,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/scripts/backfill_review_hot_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -984,6 +1124,7 @@
       "column": 14,
       "line": 431,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sources/fupanhui_source.py",
       "table": "fact_sector_stock_daily"
     },
@@ -991,6 +1132,7 @@
       "column": 4,
       "line": 1,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
       "table": "fact_sector_stock_daily"
     },
@@ -998,6 +1140,7 @@
       "column": 6,
       "line": 35,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1005,6 +1148,7 @@
       "column": 10,
       "line": 52,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1012,6 +1156,7 @@
       "column": 66,
       "line": 61,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1019,6 +1164,7 @@
       "column": 26,
       "line": 70,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/fill_stock_daily_fallback.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1026,6 +1172,7 @@
       "column": 14,
       "line": 181,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_akshare_sw_l1_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1033,6 +1180,7 @@
       "column": 35,
       "line": 79,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_daily_full.py",
       "table": "fact_sector_daily"
     },
@@ -1040,6 +1188,7 @@
       "column": 76,
       "line": 79,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_daily_full.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1047,6 +1196,7 @@
       "column": 59,
       "line": 57,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_limit_advance.py",
       "table": "fact_sector_daily"
     },
@@ -1054,6 +1204,7 @@
       "column": 25,
       "line": 1,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1061,6 +1212,7 @@
       "column": 19,
       "line": 71,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1068,6 +1220,7 @@
       "column": 33,
       "line": 134,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1075,6 +1228,7 @@
       "column": 44,
       "line": 139,
       "mode": "write",
+      "occurrence": 2,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1082,6 +1236,7 @@
       "column": 43,
       "line": 140,
       "mode": "write",
+      "occurrence": 3,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1089,6 +1244,7 @@
       "column": 42,
       "line": 141,
       "mode": "write",
+      "occurrence": 4,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1096,6 +1252,7 @@
       "column": 48,
       "line": 142,
       "mode": "write",
+      "occurrence": 5,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1103,6 +1260,7 @@
       "column": 20,
       "line": 152,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1110,6 +1268,7 @@
       "column": 23,
       "line": 1,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1117,6 +1276,7 @@
       "column": 54,
       "line": 9,
       "mode": "unknown",
+      "occurrence": 2,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1124,6 +1284,7 @@
       "column": 18,
       "line": 143,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1131,6 +1292,7 @@
       "column": 33,
       "line": 217,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1138,6 +1300,7 @@
       "column": 42,
       "line": 224,
       "mode": "write",
+      "occurrence": 2,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1145,6 +1308,7 @@
       "column": 20,
       "line": 235,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_marginal.py",
       "table": "fact_sector_daily"
     },
@@ -1152,6 +1316,7 @@
       "column": 17,
       "line": 18,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1159,6 +1324,7 @@
       "column": 32,
       "line": 24,
       "mode": "write",
+      "occurrence": 2,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1166,6 +1332,7 @@
       "column": 26,
       "line": 25,
       "mode": "write",
+      "occurrence": 3,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1173,6 +1340,7 @@
       "column": 30,
       "line": 60,
       "mode": "ddl",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1180,6 +1348,7 @@
       "column": 30,
       "line": 61,
       "mode": "ddl",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1187,6 +1356,7 @@
       "column": 30,
       "line": 62,
       "mode": "ddl",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1194,6 +1364,7 @@
       "column": 77,
       "line": 102,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1201,6 +1372,7 @@
       "column": 18,
       "line": 158,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_feishu_sector_resonance.py",
       "table": "fact_sector_daily"
     },
@@ -1208,6 +1380,7 @@
       "column": 7,
       "line": 1,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1215,6 +1388,7 @@
       "column": 23,
       "line": 4,
       "mode": "unknown",
+      "occurrence": 2,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1222,6 +1396,7 @@
       "column": 14,
       "line": 81,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1229,6 +1404,7 @@
       "column": 14,
       "line": 100,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1236,6 +1412,7 @@
       "column": 18,
       "line": 143,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1243,6 +1420,7 @@
       "column": 23,
       "line": 151,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1250,6 +1428,7 @@
       "column": 25,
       "line": 193,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1257,6 +1436,7 @@
       "column": 51,
       "line": 209,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1264,6 +1444,7 @@
       "column": 59,
       "line": 211,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1271,6 +1452,7 @@
       "column": 53,
       "line": 214,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1278,6 +1460,7 @@
       "column": 7,
       "line": 1,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1285,6 +1468,7 @@
       "column": 52,
       "line": 42,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1292,6 +1476,7 @@
       "column": 35,
       "line": 70,
       "mode": "ddl",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1299,6 +1484,7 @@
       "column": 17,
       "line": 142,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1306,6 +1492,7 @@
       "column": 30,
       "line": 219,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1313,6 +1500,7 @@
       "column": 58,
       "line": 236,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1320,6 +1508,7 @@
       "column": 34,
       "line": 332,
       "mode": "write",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1327,6 +1516,7 @@
       "column": 35,
       "line": 344,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1334,6 +1524,7 @@
       "column": 57,
       "line": 347,
       "mode": "read",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1341,6 +1532,7 @@
       "column": 40,
       "line": 6,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "market_feature_store/sync/sync_mootdx_stock_daily.py",
       "table": "fact_sector_daily"
     },
@@ -1348,6 +1540,7 @@
       "column": 18,
       "line": 128,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/double_red_anchor_stock_study.py",
       "table": "fact_sector_daily"
     },
@@ -1355,6 +1548,7 @@
       "column": 18,
       "line": 146,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/double_red_anchor_stock_study.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1362,6 +1556,7 @@
       "column": 6,
       "line": 12,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001_candidates.py",
       "table": "fact_sector_daily"
     },
@@ -1369,6 +1564,7 @@
       "column": 6,
       "line": 22,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001_candidates.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1376,6 +1572,7 @@
       "column": 6,
       "line": 14,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001b_add_0408_state.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1383,6 +1580,7 @@
       "column": 6,
       "line": 19,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001b_add_0408_state.py",
       "table": "fact_sector_daily"
     },
@@ -1390,6 +1588,7 @@
       "column": 6,
       "line": 15,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001b_engine_any_sw.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1397,6 +1596,7 @@
       "column": 6,
       "line": 12,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001c_pool.py",
       "table": "fact_sector_daily"
     },
@@ -1404,6 +1604,7 @@
       "column": 6,
       "line": 20,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001c_pool.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1411,6 +1612,7 @@
       "column": 6,
       "line": 17,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1418,6 +1620,7 @@
       "column": 51,
       "line": 19,
       "mode": "read",
+      "occurrence": 2,
       "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1425,6 +1628,7 @@
       "column": 6,
       "line": 23,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
       "table": "fact_sector_daily"
     },
@@ -1432,6 +1636,7 @@
       "column": 6,
       "line": 30,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/e001c_reflow_alignment.py",
       "table": "fact_sector_daily"
     },
@@ -1439,6 +1644,7 @@
       "column": 6,
       "line": 28,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_cohorts.py",
       "table": "fact_sector_daily"
     },
@@ -1446,6 +1652,7 @@
       "column": 6,
       "line": 34,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_cohorts.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1453,6 +1660,7 @@
       "column": 6,
       "line": 21,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_0408_0420_overview.py",
       "table": "fact_sector_daily"
     },
@@ -1460,6 +1668,7 @@
       "column": 6,
       "line": 16,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_double_red_lifecycle_0603.py",
       "table": "fact_sector_daily"
     },
@@ -1467,6 +1676,7 @@
       "column": 18,
       "line": 230,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_drawdown_risk.py",
       "table": "fact_sector_daily"
     },
@@ -1474,6 +1684,7 @@
       "column": 18,
       "line": 242,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_drawdown_risk.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1481,6 +1692,7 @@
       "column": 6,
       "line": 20,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
       "table": "fact_sector_daily"
     },
@@ -1488,6 +1700,7 @@
       "column": 6,
       "line": 26,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1495,6 +1708,7 @@
       "column": 6,
       "line": 38,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
       "table": "fact_sector_daily"
     },
@@ -1502,6 +1716,7 @@
       "column": 6,
       "line": 43,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_forward_0604_0605.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1509,6 +1724,7 @@
       "column": 6,
       "line": 30,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
       "table": "fact_sector_daily"
     },
@@ -1516,6 +1732,7 @@
       "column": 6,
       "line": 36,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1523,6 +1740,7 @@
       "column": 6,
       "line": 46,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_full_window_0408_0605.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1530,6 +1748,7 @@
       "column": 6,
       "line": 23,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_lifecycle_since_0408_0603.py",
       "table": "fact_sector_daily"
     },
@@ -1537,6 +1756,7 @@
       "column": 36,
       "line": 250,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
       "table": "fact_sector_daily"
     },
@@ -1544,6 +1764,7 @@
       "column": 56,
       "line": 250,
       "mode": "unknown",
+      "occurrence": 2,
       "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1551,6 +1772,7 @@
       "column": 18,
       "line": 269,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
       "table": "fact_sector_daily"
     },
@@ -1558,6 +1780,7 @@
       "column": 18,
       "line": 280,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_limit_ma5_impact.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1565,6 +1788,7 @@
       "column": 8,
       "line": 11,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_scan_events.py",
       "table": "fact_sector_daily"
     },
@@ -1572,6 +1796,7 @@
       "column": 6,
       "line": 50,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_theme_cycles_0408_0605.py",
       "table": "fact_sector_daily"
     },
@@ -1579,6 +1804,7 @@
       "column": 6,
       "line": 58,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_theme_cycles_0408_0605.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1586,6 +1812,7 @@
       "column": 6,
       "line": 33,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
       "table": "fact_sector_daily"
     },
@@ -1593,6 +1820,7 @@
       "column": 6,
       "line": 39,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1600,6 +1828,7 @@
       "column": 6,
       "line": 52,
       "mode": "read",
+      "occurrence": 1,
       "path": "research/market-hypothesis/_scripts/strategy1_validate_sample.py",
       "table": "fact_sector_daily"
     },
@@ -1607,6 +1836,7 @@
       "column": 50,
       "line": 102,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/backfill_strategy3_touch_matrix.py",
       "table": "fact_sector_daily"
     },
@@ -1614,6 +1844,7 @@
       "column": 14,
       "line": 407,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_daily"
     },
@@ -1621,6 +1852,7 @@
       "column": 14,
       "line": 459,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1628,6 +1860,7 @@
       "column": 20,
       "line": 508,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1635,6 +1868,7 @@
       "column": 16,
       "line": 615,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1642,6 +1876,7 @@
       "column": 18,
       "line": 660,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1649,6 +1884,7 @@
       "column": 18,
       "line": 683,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/build_market_triggered_theme_brief.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1656,6 +1892,7 @@
       "column": 6,
       "line": 24,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1663,6 +1900,7 @@
       "column": 6,
       "line": 26,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1670,6 +1908,7 @@
       "column": 19,
       "line": 196,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1677,6 +1916,7 @@
       "column": 27,
       "line": 204,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1684,6 +1924,7 @@
       "column": 50,
       "line": 206,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1691,6 +1932,7 @@
       "column": 27,
       "line": 211,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1698,6 +1940,7 @@
       "column": 14,
       "line": 221,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_daily"
     },
@@ -1705,6 +1948,7 @@
       "column": 19,
       "line": 222,
       "mode": "read",
+      "occurrence": 2,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1712,6 +1956,7 @@
       "column": 27,
       "line": 232,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1719,6 +1964,7 @@
       "column": 31,
       "line": 234,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1726,6 +1972,7 @@
       "column": 27,
       "line": 239,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1733,6 +1980,7 @@
       "column": 14,
       "line": 250,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1740,6 +1988,7 @@
       "column": 18,
       "line": 265,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/check_daily_review_data.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1747,6 +1996,7 @@
       "column": 19,
       "line": 17,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_daily"
     },
@@ -1754,6 +2004,7 @@
       "column": 40,
       "line": 17,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1761,6 +2012,7 @@
       "column": 22,
       "line": 152,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/compute_features.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1768,6 +2020,7 @@
       "column": 22,
       "line": 200,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/compute_features.py",
       "table": "fact_sector_daily"
     },
@@ -1775,6 +2028,7 @@
       "column": 22,
       "line": 278,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/compute_features.py",
       "table": "fact_sector_daily"
     },
@@ -1782,6 +2036,7 @@
       "column": 29,
       "line": 300,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/compute_features.py",
       "table": "fact_sector_daily"
     },
@@ -1789,6 +2044,7 @@
       "column": 23,
       "line": 153,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/dual_blind_answers_to_md.py",
       "table": "fact_sector_daily"
     },
@@ -1796,6 +2052,7 @@
       "column": 63,
       "line": 344,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/dual_blind_answers_to_md.py",
       "table": "fact_sector_daily"
     },
@@ -1803,6 +2060,7 @@
       "column": 25,
       "line": 8,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "scripts/dual_blind_auto_verdict.py",
       "table": "fact_sector_daily"
     },
@@ -1810,6 +2068,7 @@
       "column": 63,
       "line": 147,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/dual_blind_auto_verdict.py",
       "table": "fact_sector_daily"
     },
@@ -1817,6 +2076,7 @@
       "column": 31,
       "line": 54,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1824,6 +2084,7 @@
       "column": 42,
       "line": 63,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1831,6 +2092,7 @@
       "column": 31,
       "line": 71,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1838,6 +2100,7 @@
       "column": 21,
       "line": 76,
       "mode": "write",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1845,6 +2108,7 @@
       "column": 14,
       "line": 86,
       "mode": "read",
+      "occurrence": 2,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1852,6 +2116,7 @@
       "column": 31,
       "line": 91,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1859,6 +2124,7 @@
       "column": 18,
       "line": 350,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/fast_daily_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1866,6 +2132,7 @@
       "column": 53,
       "line": 47,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/generate_strategy1_mechanical_row.py",
       "table": "fact_sector_daily"
     },
@@ -1873,6 +2140,7 @@
       "column": 56,
       "line": 55,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/generate_strategy1_mechanical_row.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1880,6 +2148,7 @@
       "column": 21,
       "line": 69,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/generate_strategy1_mechanical_row.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1887,6 +2156,7 @@
       "column": 13,
       "line": 37,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/render_strategy4_dual_engine_matrix.py",
       "table": "fact_sector_daily"
     },
@@ -1894,6 +2164,7 @@
       "column": 53,
       "line": 53,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/render_strategy4_dual_engine_matrix.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1901,6 +2172,7 @@
       "column": 14,
       "line": 100,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/render_sw_l1_theme_matrix_html.py",
       "table": "fact_sector_daily"
     },
@@ -1908,6 +2180,7 @@
       "column": 14,
       "line": 141,
       "mode": "read",
+      "occurrence": 1,
       "path": "scripts/render_sw_l1_theme_matrix_html.py",
       "table": "fact_sector_daily"
     },
@@ -1915,6 +2188,7 @@
       "column": 57,
       "line": 52,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/daily-full-review/scripts/run_review_sync.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1922,6 +2196,7 @@
       "column": 6,
       "line": 13,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/audit_coverage.py",
       "table": "fact_sector_daily"
     },
@@ -1929,6 +2204,7 @@
       "column": 6,
       "line": 14,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/audit_coverage.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1936,6 +2212,7 @@
       "column": 23,
       "line": 27,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/run_missing_dates.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1943,6 +2220,7 @@
       "column": 23,
       "line": 41,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1950,6 +2228,7 @@
       "column": 31,
       "line": 207,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1957,6 +2236,7 @@
       "column": 51,
       "line": 261,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/duckdb-backfill/scripts/verify_backfill.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1964,6 +2244,7 @@
       "column": 30,
       "line": 65,
       "mode": "write",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/selftest.py",
       "table": "fact_sector_daily"
     },
@@ -1971,6 +2252,7 @@
       "column": 120,
       "line": 191,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_daily"
     },
@@ -1978,6 +2260,7 @@
       "column": 14,
       "line": 201,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_daily"
     },
@@ -1985,6 +2268,7 @@
       "column": 53,
       "line": 228,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1992,6 +2276,7 @@
       "column": 22,
       "line": 245,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_stock_daily"
     },
@@ -1999,6 +2284,7 @@
       "column": 38,
       "line": 272,
       "mode": "unknown",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_stock_daily"
     },
@@ -2006,6 +2292,7 @@
       "column": 46,
       "line": 302,
       "mode": "read",
+      "occurrence": 1,
       "path": "skills/theme-fermentation-tracer/scripts/trace.py",
       "table": "fact_sector_stock_daily"
     }

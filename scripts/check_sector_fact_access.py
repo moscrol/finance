@@ -16,6 +16,7 @@ from pathlib import Path
 
 TARGET_TABLES = ("fact_sector_daily", "fact_sector_stock_daily")
 TARGET_PREFIX = TARGET_TABLES[0][:-5]
+_IDENTIFIER_BOUNDARY = r"[\w$]"
 _EXCLUDED_DIR_NAMES = {
     ".cache",
     ".git",
@@ -65,6 +66,11 @@ class AccessRecord:
     column: int
     table: str
     mode: str
+    occurrence: int = 1
+
+
+def _identifier_pattern(value: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<!{_IDENTIFIER_BOUNDARY}){re.escape(value)}(?!{_IDENTIFIER_BOUNDARY})", re.IGNORECASE)
 
 
 def _normalise_sql(text: str) -> tuple[str, list[int]]:
@@ -134,13 +140,13 @@ def _lex_sql(sql: str) -> tuple[list[tuple[int, str]], str]:
 
 def _reference_modes(sql: str) -> list[tuple[str, str, int]]:
     lowered_sql = sql.lower()
-    if not any(table in lowered_sql for table in TARGET_TABLES):
+    if not any(_identifier_pattern(table).search(lowered_sql) for table in TARGET_TABLES):
         return []
     lexical_contexts, masked_sql = _lex_sql(sql)
     normalised, normalised_source_indexes = _normalise_sql(masked_sql)
     references: list[tuple[str, str, int]] = []
     for table in TARGET_TABLES:
-        qualified_table = rf"(?:[a-z_][\w$]*\.)?{table}"
+        qualified_table = rf"(?:[a-z_][\w$]*\.)?{re.escape(table)}(?!{_IDENTIFIER_BOUNDARY})"
         classifiers = (
             (
                 "write",
@@ -170,7 +176,7 @@ def _reference_modes(sql: str) -> list[tuple[str, str, int]]:
             for match in pattern.finditer(normalised)
         ]
         table_references: list[tuple[str, str, int, int, str]] = []
-        for match in re.finditer(rf"\b{re.escape(table)}\b", sql, re.IGNORECASE):
+        for match in _identifier_pattern(table).finditer(sql):
             source_index = match.start()
             statement, lexical_context = lexical_contexts[source_index]
             mode = "unknown"
@@ -235,7 +241,7 @@ def _physical_locations(
 ) -> dict[str, list[tuple[int, int]]]:
     locations: dict[str, list[tuple[int, int]]] = {table: [] for table in TARGET_TABLES}
     for table in TARGET_TABLES:
-        for match in re.finditer(rf"\b{re.escape(table)}\b", source_segment, re.IGNORECASE):
+        for match in _identifier_pattern(table).finditer(source_segment):
             prefix = source_segment[: match.start()]
             line_offset = prefix.count("\n")
             if line_offset:
@@ -280,9 +286,7 @@ def _physical_locations_from_tokens(
     locations: dict[str, list[tuple[int, int]]] = {table: [] for table in TARGET_TABLES}
     for item in tokens:
         for table in TARGET_TABLES:
-            for match in re.finditer(
-                rf"\b{re.escape(table)}\b", item.string, re.IGNORECASE
-            ):
+            for match in _identifier_pattern(table).finditer(item.string):
                 prefix = item.string[: match.start()]
                 line_offset = prefix.count("\n")
                 column = (
@@ -298,10 +302,7 @@ def _prefix_locations_from_tokens(
     tokens: tuple[tokenize.TokenInfo, ...],
 ) -> tuple[tuple[int, int], ...]:
     locations: list[tuple[int, int]] = []
-    pattern = re.compile(
-        rf"(?<![A-Za-z0-9_]){re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
-        re.IGNORECASE,
-    )
+    pattern = _identifier_pattern(TARGET_PREFIX)
     for item in tokens:
         for match in pattern.finditer(item.string):
             prefix = item.string[: match.start()]
@@ -322,6 +323,9 @@ _UNRESOLVED = object()
 class _StaticValue:
     value: str | int
     positions: tuple[tuple[int, int] | None, ...] = ()
+
+
+_DYNAMIC_HOLE = "\0"
 
 
 def _constant_source_positions(
@@ -508,7 +512,7 @@ def _safe_static_value(
 def _is_composite_string_expression(node: ast.AST) -> bool:
     return (
         isinstance(node, ast.BinOp)
-        and isinstance(node.op, ast.Add)
+        and isinstance(node.op, (ast.Add, ast.Mod))
         or isinstance(node, ast.JoinedStr)
         or (
             isinstance(node, ast.Call)
@@ -524,26 +528,100 @@ def _target_tables_in_static_sql(
     occurrences = (
         (table, match.start(), match.end())
         for table in TARGET_TABLES
-        for match in re.finditer(
-            rf"(?<![A-Za-z0-9_]){re.escape(table)}(?![A-Za-z0-9_])",
-            sql,
-            flags=re.IGNORECASE,
-        )
+        for match in _identifier_pattern(table).finditer(sql)
     )
     return tuple(sorted(occurrences, key=lambda occurrence: occurrence[1:]))
 
 
-def _has_dynamic_table_prefix(node: ast.AST) -> bool:
-    pattern = re.compile(
-        rf"(?<![A-Za-z0-9_]){re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
-        re.IGNORECASE,
-    )
-    return any(
-        pattern.search(child.value)
-        for child in ast.walk(node)
-        if isinstance(child, ast.Constant)
-        and isinstance(child.value, str)
-    )
+def _dynamic_target_candidates(
+    node: ast.AST,
+    *,
+    source_lines: list[str],
+) -> tuple[tuple[str, tuple[int, int] | None], ...]:
+    def unresolved() -> _StaticValue:
+        return _StaticValue(_DYNAMIC_HOLE, (None,))
+
+    def collect(current: ast.AST) -> _StaticValue:
+        if isinstance(current, ast.Constant) and isinstance(current.value, str):
+            return _StaticValue(
+                current.value,
+                _constant_source_positions(current, source_lines=source_lines),
+            )
+        if isinstance(current, ast.BinOp) and isinstance(current.op, ast.Add):
+            left, right = collect(current.left), collect(current.right)
+            return _StaticValue(str(left.value) + str(right.value), left.positions + right.positions)
+        if isinstance(current, ast.BinOp) and isinstance(current.op, ast.Mod):
+            left = collect(current.left)
+            return _StaticValue(str(left.value) + _DYNAMIC_HOLE, left.positions + (None,))
+        if isinstance(current, ast.JoinedStr):
+            values = (
+                collect(item.value) if isinstance(item, ast.FormattedValue) else collect(item)
+                for item in current.values
+            )
+            parts = tuple(values)
+            return _StaticValue(
+                "".join(str(part.value) for part in parts),
+                tuple(position for part in parts for position in part.positions),
+            )
+        if (
+            isinstance(current, ast.Call)
+            and isinstance(current.func, ast.Attribute)
+            and current.func.attr == "format"
+            and isinstance(current.func.value, ast.Constant)
+            and isinstance(current.func.value.value, str)
+        ):
+            template = collect(current.func.value)
+            from string import Formatter
+
+            parts: list[_StaticValue] = []
+            cursor = 0
+            for literal, field, _, _ in Formatter().parse(str(template.value)):
+                parts.append(_StaticValue(literal, template.positions[cursor : cursor + len(literal)]))
+                cursor += len(literal)
+                if field is not None:
+                    cursor += len("{" + field + "}")
+                    parts.append(unresolved())
+            return _StaticValue(
+                "".join(str(part.value) for part in parts),
+                tuple(position for part in parts for position in part.positions),
+            )
+        return unresolved()
+
+    value = collect(node)
+    candidates: list[tuple[str, tuple[int, int] | None]] = []
+
+    def is_dynamic_boundary(end: int) -> bool:
+        if end == len(str(value.value)) or value.value[end] != _DYNAMIC_HOLE:
+            return True
+        next_literal = next(
+            (character for character in value.value[end + 1 :] if character != _DYNAMIC_HOLE),
+            "",
+        )
+        return not next_literal or not re.fullmatch(_IDENTIFIER_BOUNDARY, next_literal)
+
+    def is_one_literal(start: int, end: int) -> bool:
+        positions = value.positions[start:end]
+        return all(
+            left is not None
+            and right is not None
+            and left[0] == right[0]
+            and left[1] + 1 == right[1]
+            for left, right in zip(positions, positions[1:])
+        )
+
+    for table in TARGET_TABLES:
+        candidates.extend(
+            (table, value.positions[match.start()])
+            for match in _identifier_pattern(table).finditer(value.value)
+            if is_dynamic_boundary(match.end())
+            and not is_one_literal(match.start(), match.end())
+        )
+    for match in _identifier_pattern(TARGET_PREFIX).finditer(value.value):
+        if is_dynamic_boundary(match.end()):
+            candidates.extend(
+                (table, value.positions[match.start()]) for table in TARGET_TABLES
+            )
+    return tuple(candidates)
 
 
 def _dynamic_candidate_nodes(
@@ -555,7 +633,7 @@ def _dynamic_candidate_nodes(
         tuple[ast.AST, _StaticValue, tuple[tuple[str, int, int], ...]],
         ...,
     ],
-    tuple[tuple[ast.AST, tuple[str, ...]], ...],
+    tuple[tuple[tuple[str, tuple[int, int] | None], ...], ...],
     frozenset[int],
 ]:
     composite_nodes = [node for node in ast.walk(tree) if _is_composite_string_expression(node)]
@@ -570,7 +648,7 @@ def _dynamic_candidate_nodes(
     static_candidates: list[
         tuple[ast.AST, _StaticValue, tuple[tuple[str, int, int], ...]]
     ] = []
-    dynamic_candidates: list[tuple[ast.AST, tuple[str, ...]]] = []
+    dynamic_candidates: list[tuple[tuple[str, tuple[int, int] | None], ...]] = []
     covered_constants: set[int] = set()
     for node in roots:
         value = _safe_static_value(
@@ -584,9 +662,17 @@ def _dynamic_candidate_nodes(
         )
         if occurrences and isinstance(value, _StaticValue):
             static_candidates.append((node, value, occurrences))
-        elif value is _UNRESOLVED and _has_dynamic_table_prefix(node):
-            dynamic_candidates.append((node, TARGET_TABLES))
-        if value is not _UNRESOLVED:
+            covered_constants.update(
+                id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
+            )
+        elif value is _UNRESOLVED:
+            candidates = _dynamic_target_candidates(node, source_lines=source_lines)
+            if candidates and all(location is not None for _, location in candidates):
+                dynamic_candidates.append(candidates)
+                covered_constants.update(
+                    id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
+                )
+        else:
             covered_constants.update(
                 id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
             )
@@ -663,7 +749,9 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     if string_tokens is not None
                     else []
                 )
-                for table, mode, source_index in _reference_modes(sql):
+                for occurrence, (table, mode, source_index) in enumerate(
+                    _reference_modes(sql), start=1
+                ):
                     if physical_locations[table]:
                         line, column = physical_locations[table].pop(0)
                     elif prefix_locations:
@@ -681,6 +769,7 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                             column=column,
                             table=table,
                             mode=mode,
+                            occurrence=occurrence,
                         )
                     )
             for _, value, occurrences in static_candidates:
@@ -688,7 +777,7 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     (table, source_index): mode
                     for table, mode, source_index in _reference_modes(str(value.value))
                 }
-                for table, start, _ in occurrences:
+                for occurrence, (table, start, _) in enumerate(occurrences, start=1):
                     location = value.positions[start] if start < len(value.positions) else None
                     if location is None:
                         raise InventoryScanError(
@@ -703,36 +792,38 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                             column=column,
                             table=table,
                             mode=reference_modes.get((table, start), "unknown"),
+                            occurrence=occurrence,
                         )
                     )
-            for node, candidate_tables in dynamic_candidates:
-                string_tokens = _string_tokens_for_node(
-                    node,
-                    source_lines=source_lines,
-                    tokens=python_tokens,
-                )
-                locations = _prefix_locations_from_tokens(string_tokens)
-                if not locations:
-                    raise InventoryScanError(
-                        relative_path.as_posix(),
-                        error_code="unmapped_dynamic_table",
-                    ) from None
-                for line, column in locations:
-                    records.extend(
+            for candidates in dynamic_candidates:
+                for occurrence, (table, location) in enumerate(candidates, start=1):
+                    if location is None:
+                        raise InventoryScanError(
+                            relative_path.as_posix(),
+                            error_code="unmapped_dynamic_table",
+                        ) from None
+                    line, column = location
+                    records.append(
                         AccessRecord(
                             path=relative_path.as_posix(),
                             line=line,
                             column=column,
                             table=table,
                             mode="unknown",
+                            occurrence=occurrence,
                         )
-                        for table in candidate_tables
                     )
-    unique_records = dict.fromkeys(records)
     return tuple(
         sorted(
-            unique_records,
-            key=lambda row: (row.path, row.line, row.column, row.table, row.mode),
+            records,
+            key=lambda row: (
+                row.path,
+                row.line,
+                row.column,
+                row.table,
+                row.mode,
+                row.occurrence,
+            ),
         )
     )
 

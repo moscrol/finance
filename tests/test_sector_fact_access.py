@@ -393,3 +393,70 @@ def test_inventory_static_expression_boundaries_avoid_unrelated_tables(tmp_path)
     )
 
     assert inventory_sector_fact_access(tmp_path) == ()
+
+
+def test_inventory_preserves_nested_dynamic_sector_candidates(tmp_path) -> None:
+    (tmp_path / "suffix.py").write_text(
+        'SQL = ("SELECT * FROM fact_" + "sector_daily") + suffix\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "prefix.py").write_text(
+        'SQL = prefix + ("fact_" + "sector_daily")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "fstring.py").write_text(
+        'SQL = "fact_" + f"sector_{kind}"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "percent.py").write_text(
+        'SQL = "fact_sector_%s" % kind\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.path, record.column, record.table, record.mode) for record in records] == [
+        ("fstring.py", 8, "fact_sector_daily", "unknown"),
+        ("fstring.py", 8, "fact_sector_stock_daily", "unknown"),
+        ("percent.py", 8, "fact_sector_daily", "unknown"),
+        ("percent.py", 8, "fact_sector_stock_daily", "unknown"),
+        ("prefix.py", 18, "fact_sector_daily", "unknown"),
+        ("suffix.py", 23, "fact_sector_daily", "unknown"),
+    ]
+
+
+def test_inventory_preserves_reused_static_format_occurrences(tmp_path) -> None:
+    (tmp_path / "reused.py").write_text(
+        'SQL = "SELECT * FROM {0} a JOIN {0} b".format("fact_sector_daily")\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.table, record.mode, record.occurrence) for record in records] == [
+        ("fact_sector_daily", "read", 1),
+        ("fact_sector_daily", "read", 2),
+    ]
+    assert (records[0].line, records[0].column) == (records[1].line, records[1].column)
+
+
+def test_inventory_static_identifier_boundaries_include_unicode_and_dollar(tmp_path) -> None:
+    (tmp_path / "static.py").write_text(
+        'PREFIX = "中文fact_sector_daily"\n'
+        'SUFFIX = "fact_sector_stock_daily中文"\n'
+        'DOLLAR = "fact_sector_daily$archive"\n',
+        encoding="utf-8",
+    )
+
+    assert inventory_sector_fact_access(tmp_path) == ()
+
+
+def test_inventory_dynamic_identifier_boundaries_include_unicode_and_dollar(tmp_path) -> None:
+    (tmp_path / "dynamic.py").write_text(
+        'PREFIX = f"中文fact_sector_{kind}"\n'
+        'SUFFIX = f"fact_sector_{kind}中文"\n'
+        'DOLLAR = f"fact_sector_{kind}$archive"\n',
+        encoding="utf-8",
+    )
+
+    assert inventory_sector_fact_access(tmp_path) == ()
