@@ -202,14 +202,20 @@ def test_scan_allows_only_short_generic_reviewed_exceptions(tmp_path) -> None:
         kind="question",
         text="数据来源需要保留",
     )
-    corpus = ForbiddenCorpus((generic, question))
+    direct_target = ForbiddenText(
+        source_id="direct_target:source",
+        kind="direct_target",
+        text="当前主线",
+    )
+    corpus = ForbiddenCorpus((generic, question, direct_target))
 
-    with pytest.raises(ValueError, match="protected leak kind"):
-        scan_export(
-            export,
-            corpus,
-            generic_exception_source_ids=(question.source_id,),
-        )
+    for protected in (question, direct_target):
+        with pytest.raises(ValueError, match="protected leak kind"):
+            scan_export(
+                export,
+                corpus,
+                generic_exception_source_ids=(protected.source_id,),
+            )
 
     result = scan_export(
         export,

@@ -228,11 +228,6 @@ def audit_instruction_export(
                 encoding="utf-8"
             )
         )
-        filter_value = json.loads(
-            (root / "control" / "contamination-filter.json").read_text(
-                encoding="utf-8"
-            )
-        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return InstructionExportAudit("invalid", ("control_receipt_unreadable",))
     manifest_sha = str(manifest.get("manifest_sha256") or "")
@@ -267,29 +262,6 @@ def audit_instruction_export(
     ) if isinstance(exception_entries, list) else ()
     if tuple(sorted(exception_ids)) != tuple(sorted(scan.generic_exception_source_ids)):
         issues.append("generic_exception_scan_mismatch")
-    if not isinstance(filter_value, dict):
-        issues.append("contamination_filter_receipt_invalid")
-        filter_value = {}
-    filter_sha = str(filter_value.get("filter_sha256") or "")
-    if filter_sha != _canonical_sha(_receipt_payload(filter_value, "filter_sha256")):
-        issues.append("contamination_filter_self_hash_mismatch")
-    if filter_sha != manifest.get("contamination_filter_sha256"):
-        issues.append("contamination_filter_hash_mismatch")
-    excluded_entries = filter_value.get("excluded_files")
-    if not isinstance(excluded_entries, list):
-        issues.append("contamination_filter_exclusions_invalid")
-        excluded_entries = []
-    if len(excluded_entries) != int(
-        manifest.get("excluded_contaminated_file_count") or 0
-    ):
-        issues.append("contamination_filter_count_mismatch")
-    for entry in excluded_entries:
-        if not isinstance(entry, dict):
-            issues.append("contamination_filter_entry_invalid")
-            continue
-        relative = str(entry.get("path") or "")
-        if relative and (root / "instruction" / relative).exists():
-            issues.append(f"contaminated_file_present:{relative}")
     instruction = root / "instruction"
     if (instruction / ".git").exists():
         issues.append("git_directory_present")
@@ -435,49 +407,7 @@ def build_instruction_export(
             ).encode("utf-8"),
             0o600,
         )
-        findings_by_path: dict[str, list[object]] = {}
-        for finding in initial_scan.findings:
-            findings_by_path.setdefault(finding.relative_path, []).append(finding)
-        if "AGENTS.md" in findings_by_path:
-            raise ValueError("neutral AGENTS instructions contain forbidden evaluation text")
-        excluded_files = []
-        for relative, findings in sorted(findings_by_path.items()):
-            path = instruction / relative
-            if not path.is_file() or path.is_symlink():
-                raise ValueError("contaminated instruction path is not a regular file")
-            excluded_files.append(
-                {
-                    "path": relative,
-                    "bytes": path.stat().st_size,
-                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                    "source_ids": sorted(
-                        {str(item.source_id) for item in findings}
-                    ),
-                    "rules": sorted({str(item.rule) for item in findings}),
-                }
-            )
-            path.chmod(0o600)
-            path.unlink()
-            file_modes.pop(relative, None)
-        filter_receipt: dict[str, object] = {
-            "schema_version": 1,
-            "initial_scan_sha256": initial_scan.scan_sha256,
-            "initial_finding_count": len(initial_scan.findings),
-            "excluded_files": excluded_files,
-        }
-        filter_receipt["filter_sha256"] = _canonical_sha(filter_receipt)
-        _write_once(
-            control / "contamination-filter.json",
-            (json.dumps(filter_receipt, ensure_ascii=False, indent=2) + "\n").encode(
-                "utf-8"
-            ),
-            0o600,
-        )
-        leak_scan = scan_export(
-            instruction,
-            corpus,
-            generic_exception_source_ids=initial_scan.generic_exception_source_ids,
-        )
+        leak_scan = initial_scan
         scan_payload = leak_scan.to_dict()
         _write_once(
             control / "deterministic-leak-scan.json",
@@ -509,8 +439,6 @@ def build_instruction_export(
             "generic_exception_manifest_sha256": exception_receipt[
                 "manifest_sha256"
             ],
-            "contamination_filter_sha256": filter_receipt["filter_sha256"],
-            "excluded_contaminated_file_count": len(excluded_files),
         }
         manifest["manifest_sha256"] = _canonical_sha(manifest)
         _write_once(

@@ -43,6 +43,7 @@ _PROTECTED_EXCEPTION_KINDS = frozenset(
         "question",
         "conversation_context",
         "required_output",
+        "direct_target",
         "reference_answer",
         "prior_answer",
         "post_cutoff_result",

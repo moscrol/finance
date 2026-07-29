@@ -172,7 +172,7 @@ def test_instruction_export_audit_recomputes_leak_scan_self_hash(
     assert "deterministic_scan_self_hash_mismatch" in audit.issues
 
 
-def test_instruction_export_excludes_contaminated_files_and_binds_exceptions(
+def test_instruction_export_rejects_contaminated_files_and_binds_exceptions(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
@@ -200,27 +200,34 @@ def test_instruction_export_excludes_contaminated_files_and_binds_exceptions(
         )
     )
 
+    with pytest.raises(ValueError, match="forbidden evaluation text"):
+        build_instruction_export(
+            source_repo=repo,
+            source_revision=revision,
+            output_root=tmp_path / "rejected",
+            corpus=corpus,
+            generic_exception_source_ids=("expected:source",),
+        )
+
+    clean_repo = tmp_path / "clean-repo"
+    clean_services = clean_repo / "intelligence" / "services"
+    clean_services.mkdir(parents=True)
+    (clean_services / "clean.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (clean_services / "generic.py").write_text(
+        "来源可追溯\n",
+        encoding="utf-8",
+    )
+    clean_revision = _commit_repo(clean_repo)
     receipt = build_instruction_export(
-        source_repo=repo,
-        source_revision=revision,
-        output_root=tmp_path / "exports",
-        corpus=corpus,
+        source_repo=clean_repo,
+        source_revision=clean_revision,
+        output_root=tmp_path / "accepted",
+        corpus=ForbiddenCorpus((corpus.entries[1],)),
         generic_exception_source_ids=("expected:source",),
     )
 
     assert (receipt.instruction_root / "intelligence/services/clean.py").is_file()
     assert (receipt.instruction_root / "intelligence/services/generic.py").is_file()
-    assert not (
-        receipt.instruction_root / "intelligence/services/leaked.py"
-    ).exists()
-    filter_receipt = json.loads(
-        (
-            receipt.component_root / "control" / "contamination-filter.json"
-        ).read_text(encoding="utf-8")
-    )
-    assert [item["path"] for item in filter_receipt["excluded_files"]] == [
-        "intelligence/services/leaked.py"
-    ]
     exception_receipt = json.loads(
         (
             receipt.component_root / "control" / "generic-leak-exceptions.json"
