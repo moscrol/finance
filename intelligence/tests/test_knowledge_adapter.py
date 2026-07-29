@@ -228,3 +228,69 @@ def test_get_evidence_applies_invalidation_overlay(tmp_path) -> None:
     weakened = evidence["items"][0]
     assert weakened["status"] == "superseded"
     assert "回链" in weakened["status_note"]
+
+
+def test_relation_cache_avoids_reparsing_unchanged_file(tmp_path, monkeypatch) -> None:
+    """同一份 relations 在一次问答里会被读十几次，不应每次全量重解析。"""
+    from intelligence.adapters import knowledge
+
+    knowledge.clear_relation_cache()
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "concept_graph.json").write_text(
+        json.dumps({"concepts": {"国产算力": {"note": "x"}}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    parses = {"n": 0}
+    original = knowledge.json.loads
+
+    def counting_loads(*args, **kwargs):
+        parses["n"] += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(knowledge.json, "loads", counting_loads)
+
+    adapter = KnowledgeAdapter(wiki_root=tmp_path)
+    for _ in range(5):
+        assert adapter.load_relation("concept_graph")["found"] is True
+
+    assert parses["n"] == 1
+
+
+def test_relation_cache_invalidates_when_kb_is_rebuilt(tmp_path) -> None:
+    """KB 每天重建；mtime/size 变化必须让缓存失效，不得返回陈旧图谱。"""
+    import os
+
+    from intelligence.adapters import knowledge
+
+    knowledge.clear_relation_cache()
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    path = relations / "concept_graph.json"
+    path.write_text(json.dumps({"concepts": {"旧": {}}}), encoding="utf-8")
+
+    adapter = KnowledgeAdapter(wiki_root=tmp_path)
+    assert "旧" in adapter.load_relation("concept_graph")["data"]["concepts"]
+
+    path.write_text(
+        json.dumps({"concepts": {"新": {}, "新2": {}}}), encoding="utf-8"
+    )
+    stat = path.stat()
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+
+    concepts = adapter.load_relation("concept_graph")["data"]["concepts"]
+    assert "新" in concepts
+    assert "旧" not in concepts
+
+
+def test_missing_relation_still_reports_not_found(tmp_path) -> None:
+    from intelligence.adapters import knowledge
+
+    knowledge.clear_relation_cache()
+    (tmp_path / "relations").mkdir()
+
+    relation = KnowledgeAdapter(wiki_root=tmp_path).load_relation("concept_graph")
+
+    assert relation["found"] is False
+    assert relation["warnings"] == ["relation file not found"]
