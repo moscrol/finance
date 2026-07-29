@@ -1745,14 +1745,14 @@
     },
     {
       "column": 19,
-      "line": 16,
+      "line": 17,
       "mode": "unknown",
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_daily"
     },
     {
       "column": 40,
-      "line": 16,
+      "line": 17,
       "mode": "unknown",
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_stock_daily"

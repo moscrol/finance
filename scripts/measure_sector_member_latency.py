@@ -20,6 +20,21 @@ class _ProviderFailure(Exception):
     """Internal signal that a provider call failed after safe reporting."""
 
 
+def _raise_safe_failure(*, stage: str, error_code: str, exception_type: str) -> None:
+    print(
+        json.dumps(
+            {
+                "error_code": error_code,
+                "exception_type": exception_type,
+                "stage": stage,
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+    )
+    raise _ProviderFailure from None
+
+
 def _provider_call(stage: str, call):
     try:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
@@ -33,18 +48,49 @@ def _provider_call(stage: str, call):
             and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", type(exc).__name__)
             else "Exception"
         )
-        print(
-            json.dumps(
-                {
-                    "error_code": "provider_exception",
-                    "exception_type": exception_type,
-                    "stage": stage,
-                },
-                sort_keys=True,
-            ),
-            file=sys.stderr,
+        _raise_safe_failure(
+            stage=stage,
+            error_code="provider_exception",
+            exception_type=exception_type,
         )
-        raise _ProviderFailure from None
+
+
+def _validate_batch_response(
+    response: Any,
+    *,
+    requested_codes: Sequence[str],
+    declared_counts: Mapping[str, int],
+) -> None:
+    valid = isinstance(response, Mapping)
+    if valid:
+        for code in requested_codes:
+            entry = response.get(code)
+            if not isinstance(entry, Mapping):
+                valid = False
+                break
+            members = entry.get("st")
+            if not isinstance(members, list) or not members:
+                valid = False
+                break
+            identities = set()
+            for member in members:
+                if not isinstance(member, Mapping):
+                    valid = False
+                    break
+                identity = member.get("c") or member.get("ts_code")
+                if not identity:
+                    valid = False
+                    break
+                identities.add(str(identity))
+            if not valid or len(identities) != declared_counts.get(code):
+                valid = False
+                break
+    if not valid:
+        _raise_safe_failure(
+            stage="batch_probe",
+            error_code="provider_contract_error",
+            exception_type="InvalidBatchResponse",
+        )
 
 
 def _count(row: Mapping[str, Any]) -> int:
@@ -184,15 +230,25 @@ def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> i
             )
 
         batch_observations: list[float] = []
+        declared_counts = {
+            str(sector["ts_code"]): _count(sector)
+            for sector in sectors
+            if sector.get("ts_code") and _count(sector) > 0
+        }
         for batch in select_probe_batches(sectors, args.batch_size):
             started = time.perf_counter()
-            _provider_call(
+            response = _provider_call(
                 "batch_probe",
                 lambda: provider.get_sector_stocks_batch(
                     list(batch),
                     trade_date=args.trade_date,
                     batch=args.batch_size,
                 ),
+            )
+            _validate_batch_response(
+                response,
+                requested_codes=batch,
+                declared_counts=declared_counts,
             )
             elapsed = time.perf_counter() - started
             batch_observations.append(elapsed)

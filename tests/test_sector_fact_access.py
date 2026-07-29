@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+
+import pytest
+
+from scripts import check_sector_fact_access as access_inventory
 from scripts.check_sector_fact_access import inventory_sector_fact_access
 
 
@@ -194,4 +199,111 @@ def test_inventory_maps_only_static_fstring_segments_to_unicode_columns(tmp_path
 
     assert [(record.table, record.line, record.column) for record in records] == [
         ("fact_sector_stock_daily", 1, 47),
+    ]
+
+
+def test_inventory_fails_closed_on_production_python_syntax_errors(
+    tmp_path, capsys
+) -> None:
+    canary = "SECRET_SOURCE_CANARY"
+    (tmp_path / "broken.py").write_text(
+        'SQL = "select * from fact_sector_daily"\n'
+        f"{canary} = (\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError) as caught:
+        inventory_sector_fact_access(tmp_path)
+
+    assert type(caught.value).__name__ == "InventoryScanError"
+    assert str(caught.value) == "unable to parse production Python file: broken.py"
+    assert canary not in str(caught.value)
+
+    output = tmp_path / "inventory.json"
+    output.write_text("stale inventory", encoding="utf-8")
+    exit_code = access_inventory.main(
+        ["--root", str(tmp_path), "--inventory-only", "--output", str(output)]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert captured.out == ""
+    assert canary not in captured.err
+    assert json.loads(captured.err) == {
+        "error_code": "python_syntax_error",
+        "path": "broken.py",
+    }
+    assert not output.exists()
+
+
+def test_inventory_records_conservative_dynamic_table_candidates(tmp_path) -> None:
+    (tmp_path / "concat.py").write_text(
+        'SQL = "fact_sector_" + "daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "format.py").write_text(
+        'SQL = "SELECT * FROM fact_sector_{}".format(kind)\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "fstring.py").write_text(
+        'SQL = f"SELECT * FROM fact_sector_{kind}"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [
+        (record.path, record.line, record.column, record.table, record.mode)
+        for record in records
+    ] == [
+        ("concat.py", 1, 8, "fact_sector_daily", "unknown"),
+        ("format.py", 1, 22, "fact_sector_daily", "unknown"),
+        ("format.py", 1, 22, "fact_sector_stock_daily", "unknown"),
+        ("fstring.py", 1, 23, "fact_sector_daily", "unknown"),
+        ("fstring.py", 1, 23, "fact_sector_stock_daily", "unknown"),
+    ]
+
+
+def test_inventory_exact_target_columns_ignore_preceding_escape_width(tmp_path) -> None:
+    (tmp_path / "escaped_prefix.py").write_text(
+        'HEX = "\\x20SELECT * FROM fact_sector_daily"\n'
+        'OCT = "\\040SELECT * FROM fact_sector_stock_daily"\n'
+        'UNI = "\\u0020SELECT * FROM fact_sector_daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.line, record.column, record.table, record.mode) for record in records] == [
+        (1, 26, "fact_sector_daily", "read"),
+        (2, 26, "fact_sector_stock_daily", "read"),
+        (3, 28, "fact_sector_daily", "read"),
+    ]
+
+
+def test_inventory_marks_escaped_or_split_targets_as_unknown_candidates(tmp_path) -> None:
+    (tmp_path / "derived_targets.py").write_text(
+        'ESCAPED = "SELECT * FROM fact_sector_\\x64aily"\n'
+        'SPLIT = "SELECT * FROM fact_sector_" "daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.line, record.column, record.table, record.mode) for record in records] == [
+        (1, 26, "fact_sector_daily", "unknown"),
+        (2, 24, "fact_sector_daily", "unknown"),
+    ]
+
+
+def test_inventory_sql_normalisation_preserves_unicode_source_indexes(tmp_path) -> None:
+    (tmp_path / "unicode.sql").write_text(
+        "İ SELECT * FROM fact_sector_daily",
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.line, record.column, record.table, record.mode) for record in records] == [
+        (1, 17, "fact_sector_daily", "read"),
     ]

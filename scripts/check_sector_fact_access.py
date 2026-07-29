@@ -8,12 +8,14 @@ import io
 import json
 import os
 import re
+import sys
 import tokenize
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 TARGET_TABLES = ("fact_sector_daily", "fact_sector_stock_daily")
+TARGET_PREFIX = TARGET_TABLES[0][:-5]
 _EXCLUDED_DIR_NAMES = {
     ".cache",
     ".git",
@@ -36,9 +38,27 @@ _EXCLUDED_DIR_NAMES = {
 }
 
 
+class InventoryScanError(RuntimeError):
+    """Fail-closed inventory error exposing only a safe relative path."""
+
+    def __init__(self, path: str, *, error_code: str = "python_syntax_error") -> None:
+        self.path = path
+        self.error_code = error_code
+        message = (
+            "unable to parse production Python file"
+            if error_code == "python_syntax_error"
+            else "unable to map dynamic sector table reference"
+        )
+        super().__init__(f"{message}: {path}")
+
+
 @dataclass(frozen=True, slots=True)
 class AccessRecord:
-    """One occurrence with 1-based Unicode source line and column coordinates."""
+    """One occurrence with 1-based Unicode source coordinates.
+
+    For a conservative dynamic-table candidate, ``column`` points to the first
+    character of the suspicious target-table literal prefix.
+    """
 
     path: str
     line: int
@@ -58,7 +78,9 @@ def _normalise_sql(text: str) -> tuple[str, list[int]]:
                 source_indexes.append(index)
             in_whitespace = True
             continue
-        normalised.append(character.lower())
+        normalised.append(
+            chr(ord(character) + 32) if "A" <= character <= "Z" else character
+        )
         source_indexes.append(index)
         in_whitespace = False
     return "".join(normalised), source_indexes
@@ -253,51 +275,83 @@ def _string_tokens_for_node(
 
 
 def _physical_locations_from_tokens(
-    sql: str,
     tokens: tuple[tokenize.TokenInfo, ...],
 ) -> dict[str, list[tuple[int, int]]]:
     locations: dict[str, list[tuple[int, int]]] = {table: [] for table in TARGET_TABLES}
-    source_characters: list[str] = []
-    source_positions: list[tuple[int, int]] = []
     for item in tokens:
-        content = item.string
-        content_offset = 0
-        if item.type == tokenize.STRING:
-            match = re.match(r"(?is)^[rub]*(\"\"\"|'''|\"|')", content)
-            if not match:
-                continue
-            quote = match.group(1)
-            content_offset = match.end()
-            content = content[content_offset : -len(quote)]
-        for offset, character in enumerate(content):
-            token_offset = content_offset + offset
-            prefix = item.string[:token_offset]
+        for table in TARGET_TABLES:
+            for match in re.finditer(
+                rf"\b{re.escape(table)}\b", item.string, re.IGNORECASE
+            ):
+                prefix = item.string[: match.start()]
+                line_offset = prefix.count("\n")
+                column = (
+                    match.start() - prefix.rfind("\n")
+                    if line_offset
+                    else item.start[1] + match.start() + 1
+                )
+                locations[table].append((item.start[0] + line_offset, column))
+    return locations
+
+
+def _prefix_locations_from_tokens(
+    tokens: tuple[tokenize.TokenInfo, ...],
+) -> tuple[tuple[int, int], ...]:
+    locations: list[tuple[int, int]] = []
+    pattern = re.compile(
+        rf"{re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+    for item in tokens:
+        for match in pattern.finditer(item.string):
+            prefix = item.string[: match.start()]
             line_offset = prefix.count("\n")
             column = (
-                token_offset - prefix.rfind("\n")
+                match.start() - prefix.rfind("\n")
                 if line_offset
-                else item.start[1] + token_offset + 1
+                else item.start[1] + match.start() + 1
             )
-            source_characters.append(character)
-            source_positions.append((item.start[0] + line_offset, column))
+            locations.append((item.start[0] + line_offset, column))
+    return tuple(locations)
 
-    if not source_positions:
-        return locations
-    cursor = 0
-    runtime_positions: list[tuple[int, int]] = []
-    for character in sql:
-        try:
-            source_index = source_characters.index(character, cursor)
-        except ValueError:
-            source_index = min(cursor, len(source_positions) - 1)
-        runtime_positions.append(source_positions[source_index])
-        cursor = min(source_index + 1, len(source_positions))
 
-    for table in TARGET_TABLES:
-        for match in re.finditer(rf"\b{re.escape(table)}\b", sql, re.IGNORECASE):
-            if match.start() < len(runtime_positions):
-                locations[table].append(runtime_positions[match.start()])
-    return locations
+def _static_string(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_string(node.left)
+        right = _static_string(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _dynamic_candidate_nodes(
+    tree: ast.AST,
+) -> tuple[tuple[ast.AST, tuple[str, ...]], ...]:
+    candidates: list[tuple[ast.AST, tuple[str, ...]]] = []
+    covered_constants: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.BinOp):
+            continue
+        value = _static_string(node)
+        if value is None or TARGET_PREFIX not in value.lower():
+            continue
+        tables = tuple(table for table in TARGET_TABLES if table in value.lower())
+        candidates.append((node, tables or TARGET_TABLES))
+        covered_constants.update(
+            id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
+        )
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in covered_constants
+            and TARGET_PREFIX in node.value.lower()
+            and not any(table in node.value.lower() for table in TARGET_TABLES)
+        ):
+            candidates.append((node, TARGET_TABLES))
+    return tuple(candidates)
 
 
 def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
@@ -321,9 +375,10 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                 try:
                     tree = ast.parse(source, filename=str(relative_path))
                 except SyntaxError:
-                    continue
+                    raise InventoryScanError(relative_path.as_posix()) from None
                 source_lines = source.splitlines(keepends=True)
                 python_tokens = tuple(tokenize.generate_tokens(io.StringIO(source).readline))
+                dynamic_candidates = _dynamic_candidate_nodes(tree)
                 literals = (
                     (
                         node.value,
@@ -340,10 +395,11 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     and any(table in node.value.lower() for table in TARGET_TABLES)
                 )
             else:
+                dynamic_candidates = ()
                 literals = ((source, 1, 0, None),)
             for sql, starting_line, starting_column, string_tokens in literals:
                 physical_locations = (
-                    _physical_locations_from_tokens(sql, string_tokens)
+                    _physical_locations_from_tokens(string_tokens)
                     if string_tokens is not None
                     else _physical_locations(
                         sql,
@@ -351,13 +407,22 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                         starting_column=starting_column,
                     )
                 )
+                prefix_locations = (
+                    list(_prefix_locations_from_tokens(string_tokens))
+                    if string_tokens is not None
+                    else []
+                )
                 for table, mode, source_index in _reference_modes(sql):
                     if physical_locations[table]:
                         line, column = physical_locations[table].pop(0)
+                    elif prefix_locations:
+                        line, column = prefix_locations.pop(0)
+                        mode = "unknown"
                     else:
-                        prefix = sql[:source_index]
-                        line = starting_line + prefix.count("\n")
-                        column = source_index - prefix.rfind("\n")
+                        raise InventoryScanError(
+                            relative_path.as_posix(),
+                            error_code="unmapped_dynamic_table",
+                        ) from None
                     records.append(
                         AccessRecord(
                             path=relative_path.as_posix(),
@@ -366,6 +431,23 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                             table=table,
                             mode=mode,
                         )
+                    )
+            for node, candidate_tables in dynamic_candidates:
+                string_tokens = _string_tokens_for_node(
+                    node,
+                    source_lines=source_lines,
+                    tokens=python_tokens,
+                )
+                for line, column in _prefix_locations_from_tokens(string_tokens):
+                    records.extend(
+                        AccessRecord(
+                            path=relative_path.as_posix(),
+                            line=line,
+                            column=column,
+                            table=table,
+                            mode="unknown",
+                        )
+                        for table in candidate_tables
                     )
     unique_records = dict.fromkeys(records)
     return tuple(
@@ -389,7 +471,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not args.inventory_only:
         parser.error("only --inventory-only mode is available before the allowlist gate")
-    records = inventory_sector_fact_access(args.root)
+    args.output.unlink(missing_ok=True)
+    try:
+        records = inventory_sector_fact_access(args.root)
+    except InventoryScanError as exc:
+        print(
+            json.dumps(
+                {"error_code": exc.error_code, "path": exc.path},
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 2
     payload = {
         "schema_version": 1,
         "records": [asdict(record) for record in records],
