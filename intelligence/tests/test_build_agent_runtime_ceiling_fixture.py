@@ -174,6 +174,60 @@ def test_fixture_rejects_symlinked_private_output_root(tmp_path: Path) -> None:
         fixture_builder.build_ceiling_fixture(config, dry_run=True)
 
 
+def test_fixture_input_hash_binds_instruction_allowlist(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    allowlist = tmp_path / "instruction-allowlist.json"
+    allowlist.write_text(
+        json.dumps({"schema_version": 1, "prefixes": [], "files": []}),
+        encoding="utf-8",
+    )
+    config = fixture_builder.CeilingFixtureConfig(
+        **{
+            **config.__dict__,
+            "instruction_allowlist_file": allowlist,
+        }
+    )
+    first = fixture_builder.build_ceiling_fixture(config, dry_run=True)
+    allowlist.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "prefixes": ["skills/market-overview/"],
+                "files": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    second = fixture_builder.build_ceiling_fixture(config, dry_run=True)
+
+    assert first.input_sha256 != second.input_sha256
+
+
+def test_fixture_input_hash_binds_prebuilt_hybrid_bytes(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    prebuilt = tmp_path / "prebuilt-index"
+    prebuilt.mkdir()
+    meta = prebuilt / "meta.json"
+    meta.write_text('{"version":1}\n', encoding="utf-8")
+    meta.chmod(0o444)
+    prebuilt.chmod(0o555)
+    config = fixture_builder.CeilingFixtureConfig(
+        **{
+            **config.__dict__,
+            "prebuilt_hybrid_index": prebuilt,
+        }
+    )
+    first = fixture_builder.build_ceiling_fixture(config, dry_run=True)
+    prebuilt.chmod(0o755)
+    meta.chmod(0o644)
+    meta.write_text('{"version":2}\n', encoding="utf-8")
+    meta.chmod(0o444)
+    prebuilt.chmod(0o555)
+    second = fixture_builder.build_ceiling_fixture(config, dry_run=True)
+
+    assert first.input_sha256 != second.input_sha256
+
+
 def test_fixture_cli_direct_entrypoint_imports_repo_modules() -> None:
     result = subprocess.run(
         [

@@ -60,6 +60,8 @@ class CeilingFixtureConfig:
     generic_exception_file: Path | None
     as_of: str
     output_root: Path
+    instruction_allowlist_file: Path | None = None
+    prebuilt_hybrid_index: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +179,16 @@ def _input_payload(config: CeilingFixtureConfig) -> dict[str, object]:
         if config.generic_exception_file is not None
         else None
     )
+    allowlist_file = (
+        config.instruction_allowlist_file.expanduser().resolve()
+        if config.instruction_allowlist_file is not None
+        else None
+    )
+    prebuilt_hybrid = (
+        _sealed_tree_identity(config.prebuilt_hybrid_index)
+        if config.prebuilt_hybrid_index is not None
+        else None
+    )
     prior_artifacts = tuple(
         path.expanduser().resolve() for path in config.prior_artifacts
     )
@@ -218,6 +230,13 @@ def _input_payload(config: CeilingFixtureConfig) -> dict[str, object]:
         "generic_exception_file_sha256": (
             _sha256_file(exception_file) if exception_file else None
         ),
+        "instruction_allowlist_file": (
+            str(allowlist_file) if allowlist_file else None
+        ),
+        "instruction_allowlist_file_sha256": (
+            _sha256_file(allowlist_file) if allowlist_file else None
+        ),
+        "prebuilt_hybrid_index": prebuilt_hybrid,
     }
 
 
@@ -235,6 +254,63 @@ def _generic_exception_ids(path: Path | None) -> tuple[str, ...]:
     if len(source_ids) != len(set(source_ids)):
         raise ValueError("generic exception manifest source_ids must be unique")
     return tuple(source_ids)
+
+
+def _instruction_allowlist(
+    path: Path | None,
+) -> tuple[tuple[str, ...] | None, tuple[str, ...]]:
+    if path is None:
+        return None, ()
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        raise ValueError("instruction allowlist schema is invalid")
+    prefixes = value.get("prefixes")
+    files = value.get("files")
+    if not isinstance(prefixes, list) or not isinstance(files, list):
+        raise ValueError("instruction allowlist paths are invalid")
+    combined = [*prefixes, *files]
+    if any(not isinstance(item, str) or not item.strip() for item in combined):
+        raise ValueError("instruction allowlist paths are invalid")
+    if len(combined) != len(set(combined)):
+        raise ValueError("instruction allowlist paths must be unique")
+    return tuple(prefixes), tuple(files)
+
+
+def _sealed_tree_identity(path: Path) -> dict[str, object]:
+    root = path.expanduser().absolute()
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("prebuilt Hybrid index must be a regular directory")
+    if root.stat().st_mode & 0o777 != 0o555:
+        raise ValueError("prebuilt Hybrid index root must be read-only")
+    files: list[dict[str, object]] = []
+    for item in sorted(root.rglob("*")):
+        if item.is_symlink():
+            raise ValueError("prebuilt Hybrid index cannot contain symlinks")
+        if item.is_dir():
+            if item.stat().st_mode & 0o777 != 0o555:
+                raise ValueError("prebuilt Hybrid index directory must be read-only")
+            continue
+        if (
+            not item.is_file()
+            or item.stat().st_nlink != 1
+            or item.stat().st_mode & 0o777 != 0o444
+        ):
+            raise ValueError("prebuilt Hybrid index files must be private and read-only")
+        files.append(
+            {
+                "path": item.relative_to(root).as_posix(),
+                "mode": 0o444,
+                "bytes": item.stat().st_size,
+                "sha256": _sha256_file(item),
+            }
+        )
+    if not files:
+        raise ValueError("prebuilt Hybrid index cannot be empty")
+    return {
+        "root": str(root.resolve()),
+        "files": files,
+        "manifest_sha256": _canonical_sha(files),
+    }
 
 
 def _write_json_once(path: Path, value: object, *, mode: int = 0o600) -> None:
@@ -564,6 +640,9 @@ def build_ceiling_fixture(
             tempfile.mkdtemp(prefix=f".{input_sha256[:16]}.", dir=output_root)
         )
         try:
+            include_prefixes, include_files = _instruction_allowlist(
+                config.instruction_allowlist_file
+            )
             corpus = build_forbidden_corpus(
                 question_file=config.question_file,
                 reference_file=config.reference_file,
@@ -578,6 +657,8 @@ def build_ceiling_fixture(
                 generic_exception_source_ids=_generic_exception_ids(
                     config.generic_exception_file
                 ),
+                include_prefixes=include_prefixes,
+                include_files=include_files,
             )
             finance = build_filtered_duckdb(
                 config.finance_db,
@@ -597,7 +678,13 @@ def build_ceiling_fixture(
                 rag_python=config.kb_rag_python,
                 query="瑞华泰",
                 timeout_seconds=14400,
+                prebuilt_index_root=config.prebuilt_hybrid_index,
             )
+            prebuilt_identity = input_payload.get("prebuilt_hybrid_index")
+            if isinstance(prebuilt_identity, dict) and prebuilt_identity.get(
+                "manifest_sha256"
+            ) != _canonical_sha([item.to_dict() for item in hybrid.index_files]):
+                raise ValueError("adopted Hybrid index differs from prebuilt input")
             components = _component_payload(
                 staging,
                 instruction,
@@ -665,6 +752,11 @@ def _parser() -> argparse.ArgumentParser:
         "--generic-exception-file",
         default="intelligence/eval/cases/ceiling_generic_leak_exceptions.json",
     )
+    parser.add_argument(
+        "--instruction-allowlist-file",
+        default="intelligence/eval/cases/ceiling_instruction_allowlist.json",
+    )
+    parser.add_argument("--prebuilt-hybrid-index")
     parser.add_argument("--as-of", required=True)
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--semantic-receipt")
@@ -696,6 +788,16 @@ def main() -> int:
         ),
         as_of=args.as_of,
         output_root=Path(args.output_root),
+        instruction_allowlist_file=(
+            Path(args.instruction_allowlist_file)
+            if args.instruction_allowlist_file
+            else None
+        ),
+        prebuilt_hybrid_index=(
+            Path(args.prebuilt_hybrid_index)
+            if args.prebuilt_hybrid_index
+            else None
+        ),
     )
     try:
         result = build_ceiling_fixture(
