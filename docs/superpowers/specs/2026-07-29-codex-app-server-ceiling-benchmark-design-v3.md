@@ -230,10 +230,12 @@ Apple Events, clipboard, Desktop daemon sockets, or arbitrary Unix/TCP sockets.
 Model traffic is the sole outer-network exception and is restricted to the preregistered direct
 provider endpoint. The inner Codex shell sandbox sets `networkAccess=false`, so every
 `commandExecution` descendant is network-denied even though the parent App Server can reach the
-model provider. The `finance-tool` wrapper runs as a separate broker-owned process with no model
-credential and access only to the PIT fixture; App Server reaches it through one dedicated,
-per-case capability socket that accepts only the typed finance protocol. No general local proxy is
-allowed.
+model provider. The command-child environment explicitly excludes `OPENAI_API_KEY` and every
+other credential. The `finance-tool` wrapper runs as a separate broker-owned process with no model
+credential and access only to the PIT fixture; command children exchange create-if-absent typed
+request/response files through the existing per-case mode-0700 mailbox. The mailbox rejects
+symlinks, oversized requests, response overwrite, and paths outside the case directory. No network
+socket or general local proxy is allowed.
 
 Positive controls prove the instruction export and one finance receipt are readable. Negative
 controls must prove denial of: live repo/user-home reads, Keychain, process inspection, Apple
@@ -266,6 +268,10 @@ The isolated config declares:
 - read-only sandbox and no tool-command network access;
 - an empty selected-capability root set and no dynamic tools;
 - only the minimal non-secret environment required for the sealed export and finance broker.
+
+The parent App Server receives the environment-only model credential. Its shell-environment policy
+uses an explicit allowlist that excludes that credential; a negative control proves
+`commandExecution` cannot read it.
 
 Authentication has one permitted mechanism: an ambient `OPENAI_API_KEY` supplied to both arms as
 an environment secret, with the direct provider base URL pinned in the preregistration. It is not

@@ -69,6 +69,11 @@ is native Codex ownership of context, repository instruction discovery, recovery
 and stopping—not future data, direct Wiki grep, external web, extra agents, or a
 larger compute envelope.
 
+Implementation mapping uses the already tested per-case `HeadlessToolGateway`
+mailbox rather than a socket. This is a privilege reduction: shell network stays
+off, the model credential is excluded from command children, and only typed
+create-if-absent request/response files cross the broker boundary.
+
 ## Remaining gates
 
 1. Build and seal the curated instruction export and physical PIT fixture.
