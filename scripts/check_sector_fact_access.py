@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import ast
+import io
 import json
 import os
 import re
+import tokenize
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -36,6 +38,8 @@ _EXCLUDED_DIR_NAMES = {
 
 @dataclass(frozen=True, slots=True)
 class AccessRecord:
+    """One occurrence with 1-based Unicode source line and column coordinates."""
+
     path: str
     line: int
     column: int
@@ -220,6 +224,82 @@ def _physical_locations(
     return locations
 
 
+def _unicode_column(source_line: str, utf8_byte_column: int) -> int:
+    return len(source_line.encode("utf-8")[:utf8_byte_column].decode("utf-8"))
+
+
+def _string_tokens_for_node(
+    node: ast.AST,
+    *,
+    source_lines: list[str],
+    tokens: tuple[tokenize.TokenInfo, ...],
+) -> tuple[tokenize.TokenInfo, ...]:
+    literal_token_types = {tokenize.STRING}
+    if hasattr(tokenize, "FSTRING_MIDDLE"):
+        literal_token_types.add(tokenize.FSTRING_MIDDLE)
+    start = (
+        node.lineno,
+        _unicode_column(source_lines[node.lineno - 1], node.col_offset),
+    )
+    end = (
+        node.end_lineno,
+        _unicode_column(source_lines[node.end_lineno - 1], node.end_col_offset),
+    )
+    return tuple(
+        item
+        for item in tokens
+        if item.type in literal_token_types and start <= item.start and item.end <= end
+    )
+
+
+def _physical_locations_from_tokens(
+    sql: str,
+    tokens: tuple[tokenize.TokenInfo, ...],
+) -> dict[str, list[tuple[int, int]]]:
+    locations: dict[str, list[tuple[int, int]]] = {table: [] for table in TARGET_TABLES}
+    source_characters: list[str] = []
+    source_positions: list[tuple[int, int]] = []
+    for item in tokens:
+        content = item.string
+        content_offset = 0
+        if item.type == tokenize.STRING:
+            match = re.match(r"(?is)^[rub]*(\"\"\"|'''|\"|')", content)
+            if not match:
+                continue
+            quote = match.group(1)
+            content_offset = match.end()
+            content = content[content_offset : -len(quote)]
+        for offset, character in enumerate(content):
+            token_offset = content_offset + offset
+            prefix = item.string[:token_offset]
+            line_offset = prefix.count("\n")
+            column = (
+                token_offset - prefix.rfind("\n")
+                if line_offset
+                else item.start[1] + token_offset + 1
+            )
+            source_characters.append(character)
+            source_positions.append((item.start[0] + line_offset, column))
+
+    if not source_positions:
+        return locations
+    cursor = 0
+    runtime_positions: list[tuple[int, int]] = []
+    for character in sql:
+        try:
+            source_index = source_characters.index(character, cursor)
+        except ValueError:
+            source_index = min(cursor, len(source_positions) - 1)
+        runtime_positions.append(source_positions[source_index])
+        cursor = min(source_index + 1, len(source_positions))
+
+    for table in TARGET_TABLES:
+        for match in re.finditer(rf"\b{re.escape(table)}\b", sql, re.IGNORECASE):
+            if match.start() < len(runtime_positions):
+                locations[table].append(runtime_positions[match.start()])
+    return locations
+
+
 def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
     """Return a deterministic inventory of production sector-fact SQL references."""
     root = Path(root).resolve()
@@ -242,24 +322,34 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     tree = ast.parse(source, filename=str(relative_path))
                 except SyntaxError:
                     continue
+                source_lines = source.splitlines(keepends=True)
+                python_tokens = tuple(tokenize.generate_tokens(io.StringIO(source).readline))
                 literals = (
                     (
                         node.value,
                         node.lineno,
                         node.col_offset,
-                        ast.get_source_segment(source, node) or node.value,
+                        _string_tokens_for_node(
+                            node,
+                            source_lines=source_lines,
+                            tokens=python_tokens,
+                        ),
                     )
                     for node in ast.walk(tree)
                     if isinstance(node, ast.Constant) and isinstance(node.value, str)
                     and any(table in node.value.lower() for table in TARGET_TABLES)
                 )
             else:
-                literals = ((source, 1, 0, source),)
-            for sql, starting_line, starting_column, source_segment in literals:
-                physical_locations = _physical_locations(
-                    source_segment,
-                    starting_line=starting_line,
-                    starting_column=starting_column,
+                literals = ((source, 1, 0, None),)
+            for sql, starting_line, starting_column, string_tokens in literals:
+                physical_locations = (
+                    _physical_locations_from_tokens(sql, string_tokens)
+                    if string_tokens is not None
+                    else _physical_locations(
+                        sql,
+                        starting_line=starting_line,
+                        starting_column=starting_column,
+                    )
                 )
                 for table, mode, source_index in _reference_modes(sql):
                     if physical_locations[table]:

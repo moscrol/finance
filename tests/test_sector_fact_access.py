@@ -152,3 +152,46 @@ def test_inventory_excludes_nested_runtime_directories(tmp_path) -> None:
     assert [(record.path, record.table) for record in records] == [
         ("reader.py", "fact_sector_daily"),
     ]
+
+
+def test_inventory_ignores_python_comments_between_adjacent_strings(tmp_path) -> None:
+    (tmp_path / "commented_adjacent.py").write_text(
+        "SQL = (\n"
+        '    "select * "\n'
+        "    # fact_sector_daily label only\n"
+        '    "from fact_sector_daily"\n'
+        ")\n",
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.table, record.line) for record in records] == [
+        ("fact_sector_daily", 4),
+    ]
+
+
+def test_inventory_column_is_one_based_unicode_for_python_strings(tmp_path) -> None:
+    (tmp_path / "unicode_string.py").write_text(
+        '前缀 = "值"; SQL = "中文 FROM fact_sector_daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.table, record.line, record.column) for record in records] == [
+        ("fact_sector_daily", 1, 26),
+    ]
+
+
+def test_inventory_maps_only_static_fstring_segments_to_unicode_columns(tmp_path) -> None:
+    (tmp_path / "unicode_fstring.py").write_text(
+        '前缀 = "值"; SQL = f"中文 {fact_sector_daily} FROM fact_sector_stock_daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.table, record.line, record.column) for record in records] == [
+        ("fact_sector_stock_daily", 1, 47),
+    ]

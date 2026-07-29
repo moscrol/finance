@@ -498,14 +498,14 @@
       "table": "fact_sector_daily"
     },
     {
-      "column": 55,
+      "column": 41,
       "line": 308,
       "mode": "unknown",
       "path": "intelligence/services/market_timeseries.py",
       "table": "fact_sector_daily"
     },
     {
-      "column": 33,
+      "column": 25,
       "line": 20,
       "mode": "unknown",
       "path": "intelligence/services/workbench_overview.py",
@@ -1745,14 +1745,14 @@
     },
     {
       "column": 19,
-      "line": 14,
+      "line": 16,
       "mode": "unknown",
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_daily"
     },
     {
       "column": 40,
-      "line": 14,
+      "line": 16,
       "mode": "unknown",
       "path": "scripts/check_sector_fact_access.py",
       "table": "fact_sector_stock_daily"
