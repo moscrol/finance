@@ -117,12 +117,16 @@ Completed on the canonical branch:
   and disposable 3.2 GB production-copy rehearsal (`9c4bf2d7`);
 - Task 3 — canonical universe hashing, atomic publication/supersession,
   95% name continuity, active identity ownership, and pending receipt creation
-  (`3e7dff99`).
+  (`3e7dff99`);
+- Task 4 — generation-bound sector daily facts, exact target-date/provider
+  identity validation, published-generation public reads, and removal of the
+  three retired sector-level Feishu producers (`e74ca793`).
 
 Task-specific records:
 
 - `docs/handoffs/2026-07-29-data-task1-inventory-latency-handoff.md`;
 - `docs/handoffs/2026-07-30-data-task3-universe-publication-handoff.md`;
+- `docs/handoffs/2026-07-30-data-task4-generation-daily-handoff.md`;
 - `docs/superpowers/plans/2026-07-29-daily-sector-universe-root-repair.md`.
 
 The frozen Task 1 inventory remains 287 records with SHA-256
@@ -133,13 +137,13 @@ The frozen Task 1 inventory remains 287 records with SHA-256
 - The provider still declares 1,204 members for `990220.FP` while the observed
   detail response contains 1,202 unique identities. The denominator was not
   reduced or bypassed.
-- Data Tasks 4-8 are incomplete; no exact complete live sector sync or
+- Data Tasks 5-8 are incomplete; no exact complete live member sync or
   three-night unattended streak exists.
 - The candidate runtime has not been promoted to canonical 8792.
 - Self-use remains 0/10 counted trading days and 0/5 required workflows.
 - The final release decision and user acceptance have not occurred.
 - `main`, production DuckDB, 8792, credentials, and the knowledge-base source
-  repositories remain untouched by Tasks 1-3.
+  repositories remain untouched by Tasks 1-4.
 
 ## 6. 2026-07-30 Feishu Correction
 
@@ -159,22 +163,21 @@ The amended rule is:
 
 The amendment is recorded in
 `docs/superpowers/specs/2026-07-29-daily-sector-universe-root-repair-design.md`
-and the active implementation plan.
+and the active implementation plan. It was implemented in `e74ca793`; the
+historical nullable columns remain readable, but no current CLI or nightly path
+invokes the retired sector-level Feishu producers.
 
 ## 7. Single Forward Sequence
 
-1. Task 4: implement `published_snapshot` and exact
-   `replace_sector_daily`; adapt the fupanhui K-line writer; retire the three
-   sector Feishu entry points/modules.
-2. Task 5: drive member work from durable receipts and diagnose the
+1. Task 5: drive member work from durable receipts and diagnose the
    1,204/1,202 discrepancy without changing the declaration.
-3. Tasks 6-7: adapt orchestration, enforce the exact completion/static access
+2. Tasks 6-7: adapt orchestration, enforce the exact completion/static access
    gates, and remove all unauthorized physical/date-only writer paths.
-4. Task 8: copied-DB regression and migration preview, then one authorized
+3. Task 8: copied-DB regression and migration preview, then one authorized
    complete live sync and a three-trading-night unattended streak.
-5. Only after the data gate: one candidate runtime product canary on 8799.
-6. Only with separate user approval: switch canonical 8792.
-7. After switching: collect 10 distinct trading days across the five required
+4. Only after the data gate: one candidate runtime product canary on 8799.
+5. Only with separate user approval: switch canonical 8792.
+6. After switching: collect 10 distinct trading days across the five required
    self-use workflows, then request the user's explicit release acceptance.
 
 ## 8. Frozen or Read-Only Tracks

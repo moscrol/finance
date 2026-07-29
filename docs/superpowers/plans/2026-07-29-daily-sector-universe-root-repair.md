@@ -646,7 +646,7 @@ live provider run or production database write occurred in this task.
 - Modify: `tests/test_sector_daily_range_coverage.py`
 - Modify: `tests/test_pipeline_p0.py`
 
-- [ ] **Step 1: Write failing generation and retired-source tests**
+- [x] **Step 1: Write failing generation and retired-source tests**
 
 ```python
 def test_public_sector_daily_view_exposes_only_published_generation(store_con):
@@ -659,7 +659,7 @@ def test_public_sector_daily_view_exposes_only_published_generation(store_con):
     assert store_con.execute("select count(*) from fact_sector_daily_generation").fetchone() == (2,)
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -669,14 +669,14 @@ Run:
 
 Expected: FAIL because generation-bound writes are missing.
 
-- [ ] **Step 3: Implement generation-bound daily replacement**
+- [x] **Step 3: Implement generation-bound daily replacement**
 
 `replace_sector_daily(snapshot_id, rows)` validates that every row code belongs
 to the published snapshot, deletes only the matching date/snapshot generation,
 inserts the complete batch, and rolls back on any foreign identity. Do not add
 an enrichment interface without a current authoritative producer.
 
-- [ ] **Step 4: Route the authoritative writer and retire sector Feishu**
+- [x] **Step 4: Route the authoritative writer and retire sector Feishu**
 
 `sync_fupanhui_sector_daily` loads the published snapshot, requests only its
 codes, validates served dates, and calls `replace_sector_daily`. Remove the
@@ -685,7 +685,7 @@ orphaned modules. Add a regression asserting the nightly plan and CLI no longer
 expose `sync-sector-resonance`, `sync-sector-marginal`, or
 `sync-sector-daily-metrics`.
 
-- [ ] **Step 5: Run focused regressions and commit**
+- [x] **Step 5: Run focused regressions and commit**
 
 Run:
 
@@ -711,6 +711,24 @@ git add -u market_feature_store/sync/sync_feishu_sector_daily.py \
   market_feature_store/sync/sync_feishu_sector_resonance.py
 git commit -m "feat: bind sector daily facts to universe generation"
 ```
+
+Task 4 completed in `e74ca793`. The public daily view now exposes only the
+published universe generation, while physical generations remain available for
+audit. `sync_fupanhui_sector_daily` resolves the canonical target date, requests
+exactly the published identities, rejects missing/foreign/incomplete responses,
+and commits through `replace_sector_daily`. Range sync resolves a separate
+published generation for every date and no longer falls back to legacy identity
+reads. The three retired sector-level Feishu modules, CLI commands, and nightly
+steps were removed; unrelated Feishu owners and historical run logs were not
+rewritten.
+
+Verification at the implementation commit: 51 focused tests and 131 adjacent
+data-root tests passed; changed-file Ruff, compileall, CLI help, static retired-
+source search, and `git diff --check` passed. The full suite reported 3,488
+passed, 3 skipped, and the same 11 pre-existing subconscious/userspace
+environment failures. No live provider call or production database write
+occurred. The `1,204/1,202` member discrepancy remains an explicit Task 5 red
+receipt and was not bypassed.
 
 ### Task 5: Replace Invisible Missing Work with Durable Member Receipts
 
