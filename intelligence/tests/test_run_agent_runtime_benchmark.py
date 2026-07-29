@@ -167,12 +167,8 @@ def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
     monkeypatch.setattr(benchmark, "_source_provenance", lambda: ("c" * 40, False))
     monkeypatch.setattr(
         benchmark,
-        "_sealed_tool_surface_manifest",
-        lambda *_args, **_kwargs: {
-            "schema_version": 1,
-            "cases": [],
-            "tool_surface_sha256": "d" * 64,
-        },
+        "_build_registry",
+        lambda *_args, **_kwargs: ResearchToolRegistry(()),
     )
 
     code = benchmark.main(
@@ -206,6 +202,10 @@ def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
     assert payload["ceiling_fixture"]["no_live_root"] is True
     assert payload["ceiling_fixture"]["model"] == "gpt-5.6-sol"
     assert payload["ceiling_fixture"]["transport"] == "subprocess_mailbox"
+    assert [
+        item["case_id"]
+        for item in payload["ceiling_fixture"]["tool_surface"]["cases"]
+    ] == list(benchmark._SEALED_CEILING_CASE_IDS)
 
 
 def test_sealed_fixture_rejects_live_root_arguments(

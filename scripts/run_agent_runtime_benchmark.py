@@ -1329,14 +1329,16 @@ def _sealed_tool_surface_manifest(
     fixture_policy: SealedFixturePolicy,
 ) -> dict[str, object]:
     cases: list[dict[str, object]] = []
-    for case, control, _dry_context in frozen:
-        context = _fresh_context(
-            case,
-            control,
-            backend="codex_headless",
-            latest_data_date=latest_data_date,
-            headless_budget_profile=profile,
-        )
+    for case, control, dry_context in frozen:
+        context = dry_context
+        if context is None:
+            context = _fresh_context(
+                case,
+                control,
+                backend="codex_headless",
+                latest_data_date=latest_data_date,
+                headless_budget_profile=profile,
+            )
         if context is None:
             names: tuple[str, ...] = ()
         else:
