@@ -2,11 +2,29 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from intelligence.paths import default_paths
+
+
+# relations 是每天重建的大 JSON（entity_exposures 18.6MB / evidence_index
+# 18.7MB / concept_graph 6.8MB）。load_relation 原本每次调用都全量重解析，
+# 单次问答里 entity_exposures 会被解析十几次——纯冗余，且直接吃掉 turn 预算。
+#
+# 缓存键含 mtime_ns 与 size：KB 重建后自动失效，不会读到陈旧图谱。
+# 备选方案：lru_cache（无法感知重建，会读陈旧数据）；进程启动时一次性加载
+# （同样陈旧，且拖慢冷启动）。故选带 stat 校验的显式缓存。
+_RELATION_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
+_RELATION_CACHE_LOCK = threading.Lock()
+
+
+def clear_relation_cache() -> None:
+    """清空 relations 缓存（测试与 KB 重建后的显式失效用）。"""
+    with _RELATION_CACHE_LOCK:
+        _RELATION_CACHE.clear()
 
 
 RELATION_FILES = {
@@ -91,15 +109,31 @@ class KnowledgeAdapter:
 
     def load_relation(self, name: str) -> dict[str, Any]:
         path = self.relation_path(name)
-        if not path.exists():
-            return {"found": False, "name": name, "path": str(path), "data": {}, "warnings": ["relation file not found"], "errors": []}
+        key = str(path)
+        try:
+            stat = path.stat()
+        except OSError:
+            return {"found": False, "name": name, "path": key, "data": {}, "warnings": ["relation file not found"], "errors": []}
+
+        mtime_ns, size = stat.st_mtime_ns, stat.st_size
+        with _RELATION_CACHE_LOCK:
+            cached = _RELATION_CACHE.get(key)
+        if cached is not None and cached[0] == mtime_ns and cached[1] == size:
+            # 返回的是缓存中的同一个 dict。全部调用方都只读（.get / 迭代），
+            # 唯一会改 relations 的 checkpoint_writeback 走独立的 json.loads
+            # 且写完后 mtime 变化会让本缓存自然失效。
+            return {"found": True, "name": name, "path": key, "data": cached[2], "warnings": [], "errors": []}
+
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            return {"found": False, "name": name, "path": str(path), "data": {}, "warnings": [], "errors": [str(exc)]}
+            return {"found": False, "name": name, "path": key, "data": {}, "warnings": [], "errors": [str(exc)]}
         if not isinstance(data, dict):
-            return {"found": False, "name": name, "path": str(path), "data": {}, "warnings": ["relation root is not an object"], "errors": []}
-        return {"found": True, "name": name, "path": str(path), "data": data, "warnings": [], "errors": []}
+            return {"found": False, "name": name, "path": key, "data": {}, "warnings": ["relation root is not an object"], "errors": []}
+
+        with _RELATION_CACHE_LOCK:
+            _RELATION_CACHE[key] = (mtime_ns, size, data)
+        return {"found": True, "name": name, "path": key, "data": data, "warnings": [], "errors": []}
 
     def get_entity_exposures(self, entity: str) -> dict[str, Any]:
         relation = self.load_relation("entity_exposures")
