@@ -555,6 +555,33 @@ def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):
     assert names.index("features") > names.index("theme-flow-daily")
 
 
+def test_sync_plan_omits_retired_sector_feishu_step(monkeypatch):
+    monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
+    names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
+
+    assert "sector-resonance" not in names
+
+
+def test_cli_omits_retired_sector_feishu_commands():
+    parser = cli.build_parser()
+    commands = set(parser._subparsers._group_actions[0].choices)
+
+    assert {
+        "sync-sector-marginal",
+        "sync-sector-daily-metrics",
+        "sync-sector-resonance",
+    }.isdisjoint(commands)
+
+
+def test_daily_update_omits_retired_sector_feishu_module():
+    source = (
+        ROOT / "market_feature_store" / "sync" / "sync_daily_full.py"
+    ).read_text(encoding="utf-8")
+
+    assert "sync_feishu_sector_resonance" not in source
+    assert "sync-sector-resonance" not in source
+
+
 def test_nightly_script_attempts_l2_before_sync_failure_exit():
     script = (
         ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"

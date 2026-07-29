@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 from ..db import PROJECT_DIR, connect
 
@@ -127,7 +126,6 @@ def run_daily_update(
     from .sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
     from .sync_mootdx_stock_daily import sync_fact_stock_daily
     from .sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
-    from .sync_feishu_sector_resonance import sync_sector_multi_period_resonance
     from .sync_fupanhui_mainline_daily import sync as sync_mainline_daily
     from .sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
     from .sync_fupanhui_mainline_sector_daily import sync as sync_mainline_sector_daily
@@ -151,7 +149,6 @@ def run_daily_update(
             steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
     else:
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
-    steps.append(_run_step("sync-sector-resonance", sync_sector_multi_period_resonance))
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))

@@ -291,51 +291,6 @@ def cmd_sync_limit_heat(args) -> int:
     return 0
 
 
-def cmd_sync_sector_marginal(_args) -> int:
-    from .sync.sync_feishu_sector_marginal import sync_sector_marginal
-
-    s = sync_sector_marginal()
-    print(f"电子表格 {s['sheet_token']} (sheet {s['sheet_id']})")
-    print(f"日期列: {s['date_cols']} ({s['sheet_date_min']}~{s['sheet_date_max']})")
-    print(f"板块: {s['sectors']} | 写入(回填diff_ratio): {s['rows_written']} 行")
-    if s["unmatched_sectors"]:
-        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
-    if s["bad_headers"]:
-        print(f"无法解析的日期表头 {len(s['bad_headers'])}: {s['bad_headers'][:10]}")
-    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日, "
-          f"{s['table_sectors']} 板块 ({s['table_date_min']}~{s['table_date_max']}), 空diff {s['table_null_diff']}")
-    return 0
-
-
-def cmd_sync_sector_daily_metrics(_args) -> int:
-    from .sync.sync_feishu_sector_daily import sync_sector_daily_metrics
-
-    s = sync_sector_daily_metrics()
-    print(f"板块每日表 {s['table_id']}: 记录 {s['records']} 行")
-    print(f"回填(pct_chg/amount, 仅补NULL): {s['rows_written']} 行")
-    if s["unmatched_sectors"]:
-        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
-    if s["bad_labels"]:
-        print(f"无法解析的日期列 {len(s['bad_labels'])}: {s['bad_labels'][:10]}")
-    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日 ({s['date_min']}~{s['date_max']})"
-          f" | 非空 pct={s['table_pct']} amount={s['table_amount']} diff={s['table_diff']}")
-    return 0
-
-
-def cmd_sync_sector_resonance(_args) -> int:
-    from .sync.sync_feishu_sector_resonance import sync_sector_multi_period_resonance
-
-    s = sync_sector_multi_period_resonance()
-    print(f"飞书表 {s['table_id']} | 记录: {s['records']} | 写入标签: {s['rows_written']}")
-    print(f"fact_sector_daily: {s['table_total']} 行, 已标注 {s['resonance_labeled']} 行 ({s['date_min']}~{s['date_max']})")
-    print(f"多周期共振 true: {s['resonance_true']} 行, 覆盖 {s['resonance_true_dates']} 个交易日")
-    if s["unmatched_sectors"]:
-        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
-    if s["bad_dates"]:
-        print(f"无效日期 {len(s['bad_dates'])}: " + ", ".join(str(x) for x in s["bad_dates"][:10]))
-    return 0
-
-
 def cmd_sync_mainline_daily(args) -> int:
     from .sync.sync_fupanhui_mainline_daily import sync as sync_mainline_daily
 
@@ -908,14 +863,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sd = sub.add_parser("sync-sector-daily", help="同步板块日行情+边际量到 fact_sector_daily")
     p_sd.add_argument("--trade-date", default=None, help="截止交易日 YYYY-MM-DD, 留空取最新")
-    p_sd.add_argument("--days", type=int, default=25, help="每板块回看天数, 默认25")
+    p_sd.add_argument(
+        "--days",
+        type=int,
+        default=25,
+        help="provider 回看窗口（只持久化目标日）, 默认25",
+    )
     p_sd.set_defaults(func=cmd_sync_sector_daily)
 
     p_sdr = sub.add_parser("sync-sector-daily-range", help="批量同步板块日行情+边际量到 fact_sector_daily")
     p_sdr.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
     p_sdr.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
     p_sdr.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
-    p_sdr.add_argument("--chunk-days", type=int, default=15, help="每次 fupanhui kline 覆盖的目标交易日数, 默认15")
+    p_sdr.add_argument(
+        "--chunk-days",
+        type=int,
+        default=15,
+        help="每组逐日精确同步的日期数, 默认15",
+    )
     p_sdr.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
     p_sdr.add_argument("--sleep", type=float, default=0.2, help="批次间隔秒数, 默认0.2")
     p_sdr.set_defaults(func=cmd_sync_sector_daily_range)
@@ -994,8 +959,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_mls.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
     p_mls.set_defaults(func=cmd_sync_mainline_sector_daily)
 
-    sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
-
     p_la = sub.add_parser("sync-limit-advance", help="同步复盘会连板晋级到本地 DuckDB")
     p_la.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
     p_la.add_argument("--min-boards", type=int, default=2, help="最低连板数, 默认2")
@@ -1011,10 +974,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_lar.set_defaults(func=cmd_sync_limit_advance_range)
 
     sub.add_parser("sync-limit-advance-feishu", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance_feishu)
-
-    sub.add_parser("sync-sector-daily-metrics", help="回填飞书板块每日表的 pct_chg/amount 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_daily_metrics)
-
-    sub.add_parser("sync-sector-resonance", help="同步飞书多周期共振 checkbox 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_resonance)
 
     p_ml = sub.add_parser("sync-mainline-daily", help="同步复盘会主线题材+主线个股到 fact_mainline_theme_daily / fact_mainline_stock_daily")
     p_ml.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")

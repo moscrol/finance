@@ -6,12 +6,13 @@
 `fact_sector_stock_daily` 是只读视图, 只暴露某个交易日「唯一已发布代际」,
 因此读者不会跨代际混池, 也不需要知道底层存储。
 
-本文件当前实现 Task 2-3 的范围: schema 装载、幂等 legacy 迁移、每日宇宙
-验证/发布以及 active identities 所有权。代际事实写入 (Task 4)、成员结果
-(Task 5)、完成审计 (Task 7) 在后续任务中按同一接口边界补齐。
+本文件当前实现 Task 2-4 的范围: schema 装载、幂等 legacy 迁移、每日宇宙
+验证/发布、active identities 所有权以及完整的 published-generation 板块日行情
+替换。成员结果 (Task 5) 和完成审计 (Task 7) 在后续任务中按同一接口边界补齐。
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 import hashlib
@@ -65,6 +66,7 @@ class PublishedSectorSnapshot:
     sector_count: int
     declared_relationship_count: int
     captured_at: datetime
+    sectors: tuple[SectorDescriptor, ...]
 
 
 def _canonical_text(value: object) -> str:
@@ -93,7 +95,7 @@ def _normalize_captured_at(value: str | datetime) -> datetime:
 
 
 def _normalize_sectors(
-    sectors: tuple[SectorDescriptor, ...] | list[SectorDescriptor],
+    sectors: Sequence[SectorDescriptor],
 ) -> tuple[SectorDescriptor, ...]:
     normalized: list[SectorDescriptor] = []
     codes: set[str] = set()
@@ -258,12 +260,73 @@ class SectorUniverseStore:
     def connection(self) -> duckdb.DuckDBPyConnection:
         return self._con
 
+    def published_snapshot(
+        self,
+        trade_date: str | date,
+        provider_source: str = "fupanhui",
+    ) -> PublishedSectorSnapshot:
+        """Return and revalidate the single published generation for one date."""
+        canonical_date = _normalize_trade_date(trade_date)
+        canonical_provider = _canonical_text(provider_source).casefold()
+        headers = self._con.execute(
+            """
+            SELECT snapshot_id, sector_count, declared_relationship_count, captured_at
+            FROM ops_sector_universe_snapshot_daily
+            WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+            """,
+            [canonical_date, canonical_provider],
+        ).fetchall()
+        if len(headers) != 1:
+            raise SectorUniverseValidationError(
+                "expected exactly one published snapshot for trade date and provider"
+            )
+        snapshot_id, sector_count, declared_relationship_count, captured_at = headers[0]
+        sector_rows = self._con.execute(
+            """
+            SELECT u.sector_ts_code, u.sector_name, u.expected_stock_count, d.sw_l1
+            FROM fact_sector_universe_daily AS u
+            LEFT JOIN dim_sector AS d ON d.sector_ts_code = u.sector_ts_code
+            WHERE u.trade_date = ? AND u.snapshot_id = ? AND u.provider_source = ?
+            ORDER BY u.sector_ts_code
+            """,
+            [canonical_date, snapshot_id, canonical_provider],
+        ).fetchall()
+        sectors = _normalize_sectors(
+            tuple(
+                SectorDescriptor(code, name, expected_count, sw_l1)
+                for code, name, expected_count, sw_l1 in sector_rows
+            )
+        )
+        if (
+            len(sectors) != sector_count
+            or sum(row.expected_stock_count for row in sectors)
+            != declared_relationship_count
+            or _snapshot_id(
+                trade_date=canonical_date,
+                provider_source=canonical_provider,
+                sectors=sectors,
+            )
+            != snapshot_id
+        ):
+            raise SectorUniverseValidationError(
+                "published snapshot header and universe rows do not match"
+            )
+        return PublishedSectorSnapshot(
+            trade_date=canonical_date,
+            snapshot_id=snapshot_id,
+            provider_source=canonical_provider,
+            sector_count=int(sector_count),
+            declared_relationship_count=int(declared_relationship_count),
+            captured_at=captured_at,
+            sectors=sectors,
+        )
+
     def publish_snapshot(
         self,
         *,
         trade_date: str | date,
         provider_source: str,
-        sectors: tuple[SectorDescriptor, ...] | list[SectorDescriptor],
+        sectors: Sequence[SectorDescriptor],
         captured_at: str | datetime,
     ) -> PublishedSectorSnapshot:
         """Validate and atomically publish one daily provider universe."""
@@ -289,6 +352,7 @@ class SectorUniverseStore:
             sector_count=sector_count,
             declared_relationship_count=declared_relationship_count,
             captured_at=canonical_captured_at,
+            sectors=canonical_sectors,
         )
 
         self._con.execute("BEGIN TRANSACTION")
@@ -353,6 +417,7 @@ class SectorUniverseStore:
                     sector_count=sector_count,
                     declared_relationship_count=declared_relationship_count,
                     captured_at=existing[3],
+                    sectors=canonical_sectors,
                 )
 
             self._con.execute(
@@ -524,6 +589,111 @@ class SectorUniverseStore:
             self._con.execute("ROLLBACK")
             raise
         return published
+
+    def replace_sector_daily(
+        self,
+        snapshot_id: str,
+        rows: Sequence[Mapping[str, object]],
+    ) -> int:
+        """Atomically replace the complete daily-fact generation for a snapshot."""
+        header_rows = self._con.execute(
+            """
+            SELECT trade_date, provider_source
+            FROM ops_sector_universe_snapshot_daily
+            WHERE snapshot_id = ? AND status = 'published'
+            """,
+            [snapshot_id],
+        ).fetchall()
+        if len(header_rows) != 1:
+            raise SectorUniverseValidationError(
+                "sector daily replacement requires one published snapshot"
+            )
+        snapshot = self.published_snapshot(header_rows[0][0], header_rows[0][1])
+        if snapshot.snapshot_id != snapshot_id:
+            raise SectorUniverseValidationError(
+                "snapshot is not the published generation for its trade date"
+            )
+
+        by_code: dict[str, Mapping[str, object]] = {}
+        for row in rows:
+            if not isinstance(row, Mapping):
+                raise SectorUniverseValidationError("sector daily rows must be mappings")
+            code = _canonical_text(row.get("sector_ts_code", "")).upper()
+            if not code or code in by_code:
+                raise SectorUniverseValidationError(
+                    "sector daily identities must be non-empty and unique"
+                )
+            by_code[code] = row
+
+        expected_by_code = {row.sector_ts_code: row for row in snapshot.sectors}
+        if set(by_code) != set(expected_by_code):
+            missing = len(set(expected_by_code) - set(by_code))
+            foreign = len(set(by_code) - set(expected_by_code))
+            raise SectorUniverseValidationError(
+                f"sector daily batch must exactly match universe (missing={missing}, foreign={foreign})"
+            )
+
+        now = datetime.now()
+        insert_rows = []
+        for code in sorted(expected_by_code):
+            descriptor = expected_by_code[code]
+            row = by_code[code]
+            insert_rows.append(
+                (
+                    snapshot.trade_date,
+                    snapshot.snapshot_id,
+                    code,
+                    descriptor.sector_name,
+                    descriptor.sw_l1,
+                    row.get("pct_chg"),
+                    row.get("amount"),
+                    row.get("diff_ratio"),
+                    row.get("strength"),
+                    row.get("multi_period_resonance"),
+                    row.get("multi_period_source"),
+                    row.get("multi_period_updated_at"),
+                    _canonical_text(row.get("source") or snapshot.provider_source),
+                    row.get("updated_at") or now,
+                )
+            )
+
+        self._con.execute("BEGIN TRANSACTION")
+        try:
+            still_published = self._con.execute(
+                """
+                SELECT count(*) FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND snapshot_id = ?
+                  AND provider_source = ? AND status = 'published'
+                """,
+                [snapshot.trade_date, snapshot.snapshot_id, snapshot.provider_source],
+            ).fetchone()[0]
+            if still_published != 1:
+                raise SectorUniverseValidationError(
+                    "snapshot stopped being published before sector daily replacement"
+                )
+            self._con.execute(
+                """
+                DELETE FROM fact_sector_daily_generation
+                WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+                """,
+                [snapshot.trade_date, snapshot.snapshot_id],
+            )
+            self._con.executemany(
+                """
+                INSERT INTO fact_sector_daily_generation
+                    (trade_date, sector_universe_snapshot_id, sector_ts_code,
+                     sector_name, sw_l1, pct_chg, amount, diff_ratio, strength,
+                     multi_period_resonance, multi_period_source,
+                     multi_period_updated_at, source, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                insert_rows,
+            )
+            self._con.execute("COMMIT")
+        except Exception:
+            self._con.execute("ROLLBACK")
+            raise
+        return len(insert_rows)
 
     @staticmethod
     def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:

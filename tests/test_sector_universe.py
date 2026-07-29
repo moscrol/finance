@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+from datetime import date
+
 import duckdb
 import pytest
 
@@ -69,6 +71,30 @@ def _stock(code: str) -> dict[str, object]:
     return {"ts_code": code, "name": "测试股", "price": 10.0, "pct_chg": 1.0, "amount": 100.0}
 
 
+def _publish(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    captured_at: str = "2026-07-29T10:00:00+08:00",
+    suffix: str = "A",
+):
+    return SectorUniverseStore(con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(
+            SectorDescriptor(f"990001{suffix}.FP", "MLCC", 2),
+            SectorDescriptor(f"990002{suffix}.FP", "6G概念", 1),
+        ),
+        captured_at=captured_at,
+    )
+
+
+def _daily_rows(suffix: str, pct_chg: float) -> tuple[dict[str, object], ...]:
+    return (
+        _daily_row(f"990001{suffix}.FP", pct_chg),
+        _daily_row(f"990002{suffix}.FP", pct_chg + 0.5),
+    )
+
+
 def _table_type(con: duckdb.DuckDBPyConnection, name: str) -> str | None:
     row = con.execute(
         "select table_type from information_schema.tables "
@@ -76,6 +102,68 @@ def _table_type(con: duckdb.DuckDBPyConnection, name: str) -> str | None:
         [name],
     ).fetchone()
     return row[0] if row else None
+
+
+def test_public_sector_daily_view_exposes_only_published_generation(store_con):
+    store = SectorUniverseStore(store_con)
+    published_a = _publish(store_con, suffix="A")
+    store.replace_sector_daily(published_a.snapshot_id, _daily_rows("A", 1.0))
+    published_b = _publish(
+        store_con,
+        captured_at="2026-07-29T10:05:00+08:00",
+        suffix="B",
+    )
+    store.replace_sector_daily(published_b.snapshot_id, _daily_rows("B", 2.0))
+
+    assert store_con.execute(
+        "select sector_ts_code, pct_chg, sector_universe_snapshot_id "
+        "from fact_sector_daily order by sector_ts_code"
+    ).fetchall() == [
+        ("990001B.FP", 2.0, published_b.snapshot_id),
+        ("990002B.FP", 2.5, published_b.snapshot_id),
+    ]
+    assert store_con.execute(
+        "select count(*) from fact_sector_daily_generation"
+    ).fetchone() == (4,)
+
+
+def test_replace_sector_daily_rejects_partial_or_foreign_batch_without_deleting_current(store_con):
+    store = SectorUniverseStore(store_con)
+    published = _publish(store_con)
+    store.replace_sector_daily(published.snapshot_id, _daily_rows("A", 1.0))
+
+    with pytest.raises(SectorUniverseValidationError, match="missing=1, foreign=1"):
+        store.replace_sector_daily(
+            published.snapshot_id,
+            (
+                _daily_row("990001A.FP", 9.0),
+                _daily_row("FOREIGN.FP", 9.5),
+            ),
+        )
+
+    assert store_con.execute(
+        "select sector_ts_code, pct_chg from fact_sector_daily order by sector_ts_code"
+    ).fetchall() == [("990001A.FP", 1.0), ("990002A.FP", 1.5)]
+
+
+def test_replace_sector_daily_rejects_snapshot_after_it_is_superseded(store_con):
+    store = SectorUniverseStore(store_con)
+    published_a = _publish(store_con, suffix="A")
+    store.replace_sector_daily(published_a.snapshot_id, _daily_rows("A", 1.0))
+    _publish(
+        store_con,
+        captured_at="2026-07-29T10:05:00+08:00",
+        suffix="B",
+    )
+
+    with pytest.raises(SectorUniverseValidationError, match="published snapshot"):
+        store.replace_sector_daily(published_a.snapshot_id, _daily_rows("A", 9.0))
+
+    assert store_con.execute(
+        "select pct_chg from fact_sector_daily_generation "
+        "where sector_universe_snapshot_id=? order by sector_ts_code",
+        [published_a.snapshot_id],
+    ).fetchall() == [(1.0,), (1.5,)]
 
 
 def test_publish_snapshot_retires_absent_provider_rows_only_after_validation(store_con):
@@ -384,6 +472,65 @@ def test_sync_dim_sector_refuses_to_guess_trade_date_when_provider_has_no_latest
 
     with pytest.raises(SectorUniverseValidationError, match="trade date"):
         sync_module.sync_dim_sector()
+
+
+def test_sync_sector_daily_writes_only_target_date_for_published_universe(tmp_path, monkeypatch):
+    from market_feature_store.sync import sync_fupanhui_sector_daily as sync_module
+
+    db_path = tmp_path / "sector-daily-sync.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        db.init_db(con)
+        published = SectorUniverseStore(con).publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=(
+                SectorDescriptor("990001.FP", "MLCC", 2, "电子"),
+                SectorDescriptor("990002.FP", "6G概念", 1, "通信"),
+            ),
+            captured_at="2026-07-29T10:00:00+08:00",
+        )
+    finally:
+        con.close()
+
+    requested: list[str] = []
+
+    def fake_batch(ts_codes, *, trade_date, days):
+        requested.extend(ts_codes)
+        assert trade_date == "2026-07-28"
+        assert days == 25
+        return {
+            code: [
+                {"trade_date": "2026-07-27", "pct_chg": -1.0, "amount": 90.0, "diff_ratio": -2.0},
+                {"trade_date": "2026-07-28", "pct_chg": index + 1.0, "amount": 100.0, "diff_ratio": 2.0},
+            ]
+            for index, code in enumerate(ts_codes)
+        }
+
+    monkeypatch.setattr(sync_module, "init_db", lambda: None)
+    monkeypatch.setattr(
+        sync_module,
+        "connect",
+        lambda read_only=False: duckdb.connect(str(db_path), read_only=read_only),
+    )
+    monkeypatch.setattr(sync_module.fs, "get_sector_klines_batch", fake_batch)
+
+    stats = sync_module.sync_fact_sector_daily(trade_date="2026-07-28", days=25)
+
+    assert requested == ["990001.FP", "990002.FP"]
+    assert stats["snapshot_id"] == published.snapshot_id
+    assert stats["rows_written"] == 2
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        assert con.execute(
+            "select trade_date, sector_ts_code, pct_chg, sector_universe_snapshot_id "
+            "from fact_sector_daily order by sector_ts_code"
+        ).fetchall() == [
+            (date(2026, 7, 28), "990001.FP", 1.0, published.snapshot_id),
+            (date(2026, 7, 28), "990002.FP", 2.0, published.snapshot_id),
+        ]
+    finally:
+        con.close()
 
 
 def test_ensure_sector_schema_migrates_legacy_tables_and_is_idempotent():

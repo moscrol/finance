@@ -220,7 +220,7 @@ def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> di
             return {"label": "sector-stocks", "status": "ok", "code": 0,
                     "elapsed": 0.0, "note": f"{done}/{total} sectors"}
         loops += 1
-        res = run_step(
+        run_step(
             f"sector-stocks loop{loops} ({done}/{total})",
             CLI + ["sync-sector-stocks", "--trade-date", trade_date, "--limit", "60", "--sleep", "0.05"],
             timeout,
@@ -293,7 +293,6 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("stock-high", lambda: run_step("stock-high", CLI + ["sync-stock-high", "--trade-date", trade_date, "--page-size", "200"], heavy_timeout)),
         ("limit-advance", lambda: run_step("limit-advance", CLI + ["sync-limit-advance", "--trade-date", trade_date, "--min-boards", "2"], timeout)),
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
-        ("sector-resonance", lambda: run_step("sector-resonance", CLI + ["sync-sector-resonance"], timeout)),
         ("mainline-daily", lambda: run_step("mainline-daily", CLI + ["sync-mainline-daily", "--trade-date", trade_date], timeout)),
         ("mainline-sector-daily", lambda: run_step("mainline-sector-daily", CLI + ["sync-mainline-sector-daily", "--trade-date", trade_date], timeout)),
         ("theme-flow-daily", lambda: run_step("theme-flow-daily", CLI + ["sync-theme-flow-daily", "--trade-date", trade_date], timeout)),
