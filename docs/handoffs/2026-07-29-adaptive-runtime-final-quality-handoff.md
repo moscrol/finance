@@ -59,6 +59,10 @@ excluded. Finance and Wiki roots remain read-only. See
 Those first four artifacts remain invalid failure receipts. The fair experiment requires a
 new preregistration amendment and new artifact paths pinned to the fix commit.
 
+That amendment is now `docs/verification/headless-budget-ablation-preregistration-v2-2026-07-29.md`.
+It pins source `da614908`, preserves every original treatment and decision rule, and assigns
+new v2 artifact paths so the invalid receipts cannot be overwritten.
+
 ## Delivered code
 
 ### Causal slice
