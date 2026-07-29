@@ -1,10 +1,10 @@
-# Adaptive Runtime Sealed Fixture Task 2 WIP Handoff
+# Adaptive Runtime Sealed Fixture Task 2 Handoff
 
 Date: 2026-07-29
-Status: **handoff requested during Task 2; final product goal remains active**
+Status: **Task 2 code complete; real fixture leak gate rejected; final goal active**
 Worktree: `/Users/a77/finance-workspace-private/tmp/agent-runtime-seam-fix-69f9cf17`
 Branch: `feat/agent-runtime-backends-verify`
-Committed tip before this handoff: `e96226b5`
+Task 2 commit: `9f9b2ae5`
 
 ## Final goal
 
@@ -61,19 +61,9 @@ fb58efde docs: seal mailbox amendment pass
   post-cutoff documents;
 - hash-bound independent `gpt-5.6-sol` semantic-review receipts.
 
-## Current uncommitted Task 2 WIP
+## Sealed fixture Task 2
 
-Files:
-
-```text
-M  docs/superpowers/plans/2026-07-29-app-server-ceiling-sealed-fixture.md
-M  intelligence/eval/ceiling_leakage.py
-M  intelligence/tests/test_ceiling_leakage.py
-?? intelligence/eval/ceiling_instruction_export.py
-?? intelligence/tests/test_ceiling_instruction_export.py
-```
-
-The instruction exporter currently implements:
+`9f9b2ae5 feat: build sealed instruction export` implements:
 
 - an explicit production-only allowlist and evaluator/docs/test exclusions;
 - a neutral generated root `AGENTS.md` with PIT and read-only rules;
@@ -82,8 +72,10 @@ The instruction exporter currently implements:
 - regular-file, link-count, permission, content-hash, file-set, and mutation audits;
 - a content-addressed private control manifest bound to the deterministic scan.
 
-Task 2 steps 1-5 are implemented as WIP. Step 6 remains unchecked because the
-suite is not green and there is no Task 2 commit.
+The tamper audit now recomputes the scan payload's canonical hash rather than merely
+comparing two stored hashes. Missing, symlinked, non-directory, and empty export roots
+also fail closed. The committed focused result is `18 passed`; Ruff and diff checks
+pass. Task 2 is complete as a code slice.
 
 ## Performance diagnosis completed during Task 2
 
@@ -96,32 +88,32 @@ precomputes forbidden character streams, token sets, and n-grams, and computes e
 candidate sentence once. The focused performance invariant changed from red
 (`720` normalization calls against an upper bound of `84`) to green.
 
-The first post-fix real probe was invalid because its interrupted staging directory
-had already been cleaned up. That exposed a second fail-open: a missing export root
-returned `passed` with zero files. The WIP now rejects missing, symlinked, non-directory,
-and empty roots; tests cover missing and empty roots. The real 312-file probe still
-must be regenerated and rerun before Task 2 can be called complete.
 
-## Current red gate
+The regenerated real probe finished in about 4.4 seconds and scanned 312 files, so
+the performance regression is closed. It correctly did not produce a sealed receipt:
+the deterministic scan rejected the current allowlisted tree with 1,851 findings and
+recorded 511 semantic candidates.
 
-Latest focused result:
+## Current real-fixture red gate
 
-```text
-17 passed, 1 failed
-Ruff: passed
-git diff --check: passed
-```
+The largest observed class is not an obvious copied benchmark answer. Short and
+generic `required_output` and `expected_fact` entries are treated as unrestricted
+full-string matches, so ordinary runtime and finance vocabulary triggers the gate.
+Even the neutral generated `AGENTS.md` matches several short required-output entries;
+`UBIQUITOUS_LANGUAGE.md`, `intelligence/README.md`, and production service files account
+for many more. The current result therefore mixes possible real leakage with clear
+common-vocabulary false positives.
 
-The failing test is:
+Do not silence these findings with a blanket exclusion or by raising all thresholds.
+First produce a breakdown by source kind, normalized length, rule, and file. Then
+preregister a kind-aware rule that preserves exact long question/reference detection,
+12-character and 6-token overlap detection, and strict identifier matching while
+preventing short generic rubric fragments from acting as substrings everywhere.
 
-```text
-test_instruction_export_audit_recomputes_leak_scan_self_hash
-```
-
-The test mutates `files_scanned` inside `deterministic-leak-scan.json`. The audit
-currently checks that the stored scan hash matches the manifest, but does not
-recompute the hash from the scan payload, so the tampered receipt incorrectly
-remains `valid`. This is an integrity P0, not a cosmetic test failure.
+The worktree also contains an untracked
+`intelligence/tests/test_ceiling_pit_fixture.py` created during concurrent Task 3
+work. It was not created, reviewed, staged, or committed by this handoff and must be
+preserved until its owner/scope is verified.
 
 The last proportional committed gate before this WIP was green. The latest recorded
 full suite was `2993 passed, 14 failed, 2 skipped`; all 14 failures were reproduced
@@ -129,25 +121,26 @@ managed-sandbox loopback-bind failures, not changed-surface regressions.
 
 ## Exact continuation order
 
-1. Add scan-payload canonical hash recomputation to `audit_instruction_export()`;
-   watch the tamper test turn green.
-2. Rerun all leakage/export tests, Ruff, and `git diff --check`.
-3. Regenerate the real instruction export from the current immutable source commit;
-   assert `files_scanned > 0`, finish within the bounded probe, deterministic scan
-   passes, semantic candidates are recorded, and final audit is valid.
-4. Mark Task 2 step 6 complete and commit the bounded slice.
-5. Implement Task 3, the physical cutoff-filtered finance DuckDB, with conservative
+1. Add a diagnostic receipt/test for leak counts by source kind, normalized length,
+   rule, and file; identify which hits are true gold versus generic vocabulary.
+2. Amend the deterministic leak rule with tests and independent spec review. Keep
+   long question/reference, n-gram, identifier, and semantic-review protections;
+   do not loosen the gate merely to obtain green.
+3. Regenerate the real export from an immutable commit. Require `files_scanned > 0`,
+   deterministic pass, preserved semantic candidates, and a valid final audit.
+4. Verify ownership of the untracked PIT test, then implement Task 3, the physical
+   cutoff-filtered finance DuckDB, with conservative
    temporal-column policy and post-build future-row audit.
-6. Implement Task 4, a regular-blob cutoff Wiki export plus fresh true-Hybrid index,
+5. Implement Task 4, a regular-blob cutoff Wiki export plus fresh true-Hybrid index,
    using KB code `9053b0c4` in isolation and explicit `KB_RAG_PYTHON`.
-7. Implement the private fixture CLI, build the real fixture, obtain one independent
+6. Implement the private fixture CLI, build the real fixture, obtain one independent
    semantic-leak review, seal it, and run proportional regression.
-8. Run the same-fixture five-case profile-D headless control via the approved mailbox
+7. Run the same-fixture five-case profile-D headless control via the approved mailbox
    boundary. Do not substitute dry-run output for live evidence.
-9. Only if provider-executed identity becomes observable, implement the bounded App
+8. Only if provider-executed identity becomes observable, implement the bounded App
    Server ceiling runner against the identical fixture; otherwise record it as
    ineligible rather than guessing.
-10. Complete truth/experience observations, matched Knevo artifacts, the 28-case
+9. Complete truth/experience observations, matched Knevo artifacts, the 28-case
     acceptance board, and final release decision.
 
 ## Optimization directions
@@ -155,6 +148,8 @@ managed-sandbox loopback-bind failures, not changed-surface regressions.
 ### P0: Fixture integrity and PIT correctness
 
 - Every control receipt must be self-hashed and independently recomputed on audit.
+- Leak detection must distinguish long gold text, strict identifiers, and short
+  generic vocabulary without allowing any one class to fail open.
 - Empty roots, missing files, symlinks, hardlinks, mutation, stale indexes, future
   rows, and unknown temporal schemas must fail closed.
 - The finance DB and Wiki must be physical cutoff exports, not prompt-only cutoff.
@@ -188,7 +183,7 @@ managed-sandbox loopback-bind failures, not changed-surface regressions.
 | Acceptance/provenance measurement | complete |
 | Corrected budget ablation | complete |
 | App Server v3 design and mailbox amendment | independent PASS |
-| Sealed fixture | Task 1 committed; Task 2 WIP; Tasks 3-7 pending |
+| Sealed fixture | Tasks 1-2 committed; real export rejected by over-broad leak matches; Tasks 3-7 pending |
 | Same-fixture five-case headless control | pending sealed fixture |
 | App Server ceiling execution | blocked by unobservable provider identity and control prerequisite |
 | 28-case/Knevo final board | pending |

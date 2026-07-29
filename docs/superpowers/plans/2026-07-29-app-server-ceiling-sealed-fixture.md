@@ -154,7 +154,7 @@ Record source revision, allow/exclude lists, neutral instruction hash, file coun
 
 Prove no `.git`, all entries are regular files, every file has `st_nlink == 1`, mutation invalidates audit, and a different manifest cannot overwrite an existing destination.
 
-- [ ] **Step 6: Run GREEN and commit**
+- [x] **Step 6: Run GREEN and commit**
 
 Run:
 
