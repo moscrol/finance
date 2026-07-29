@@ -128,6 +128,91 @@ class LLMCallLedgerTests(unittest.TestCase):
         self.assertEqual(ledger.records[0].status, "failed")
         self.assertEqual(ledger.summary()["failure_count"], 1)
 
+    def test_failed_call_records_reason(self) -> None:
+        """失败必须留下可聚合的原因——否则无法回答"为什么 35% 的调用失败"。"""
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                side_effect=TimeoutError("slow"),
+            ):
+                with llm_refine.call_ledger_scope() as ledger:
+                    llm_refine.complete([{"role": "user", "content": "hi"}])
+
+        self.assertEqual(ledger.records[0].reason, "timeout")
+        self.assertEqual(ledger.summary()["failure_reasons"], {"timeout": 1})
+
+    def test_http_failure_reason_carries_status_code(self) -> None:
+        error = llm_refine.urllib.error.HTTPError(
+            "https://example.invalid/v1", 429, "Too Many Requests", {}, None
+        )
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request, "urlopen", side_effect=error
+            ):
+                with llm_refine.call_ledger_scope() as ledger:
+                    llm_refine.complete([{"role": "user", "content": "hi"}])
+
+        self.assertEqual(ledger.records[0].reason, "http_429")
+
+    def test_insufficient_budget_skips_call_without_burning_time(self) -> None:
+        """预算低于最小可行值时一秒都不烧：不发 HTTP、不记调用。
+
+        回归：29 个真实 run 里 chat 失败中位 12.07s，紧贴被钳制的预算值——
+        明知不够仍发起，既烧掉时间又拿不到结果，还挤掉了最终合成的预算。
+        """
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request, "urlopen"
+            ) as urlopen:
+                with llm_refine.call_ledger_scope() as ledger:
+                    content, _prov, reason = llm_refine.complete(
+                        [{"role": "user", "content": "hi"}],
+                        timeout=llm_refine.MIN_VIABLE_LLM_SECONDS - 1,
+                        min_viable_seconds=llm_refine.MIN_VIABLE_LLM_SECONDS,
+                    )
+
+        self.assertIsNone(content)
+        self.assertIn("预算不足", reason)
+        urlopen.assert_not_called()
+        self.assertEqual(ledger.records, [])
+
+    def test_guard_is_opt_in_so_configured_timeouts_still_call(self) -> None:
+        """不传 min_viable_seconds 时不设闸门。
+
+        ``timeout`` 无法区分"调用方主动配置 10s 策略"和"被钳制后只剩 10s"，
+        按前者跳过会误伤，所以默认放行、由知情的调用方显式开启。
+        """
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
+            ):
+                content, _prov, _reason = llm_refine.complete(
+                    [{"role": "user", "content": "hi"}],
+                    timeout=llm_refine.MIN_VIABLE_LLM_SECONDS - 5,
+                )
+
+        self.assertEqual(content, "ok")
+
+    def test_sufficient_budget_still_calls(self) -> None:
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
+            ):
+                with llm_refine.call_ledger_scope() as ledger:
+                    content, _prov, _reason = llm_refine.complete(
+                        [{"role": "user", "content": "hi"}],
+                        timeout=llm_refine.MIN_VIABLE_LLM_SECONDS,
+                        min_viable_seconds=llm_refine.MIN_VIABLE_LLM_SECONDS,
+                    )
+
+        self.assertEqual(content, "ok")
+        self.assertEqual(len(ledger.records), 1)
+
     def test_no_ledger_scope_is_zero_overhead(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(

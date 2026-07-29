@@ -23,6 +23,7 @@ import json
 import os
 import re
 import threading
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -32,6 +33,14 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
+# 发起一次非流式调用所需的最小可行秒数。低于此值不发 HTTP，直接返回降级
+# reason —— 明知不够还发，等于既烧掉这段时间又拿不到结果。
+#
+# 默认 15s 的依据（29 个真实 run 的 llm_call_ledger 实测）：
+#   chat 成功耗时 中位 7.1s / p90 11.6s / max 14.5s
+#   chat 失败耗时 p10 12.0s ≈ 中位 12.1s —— 紧贴被钳制的预算值，即"给的时间
+#   刚好不够"。给不到 15s 时成功率急剧下降，不如把时间留给最终合成。
+MIN_VIABLE_LLM_SECONDS = float(os.environ.get("LLM_MIN_VIABLE_SECONDS", "15"))
 # The provider budget includes structured claim markers that are removed before
 # display.  A visible 1,200-1,800 character answer can therefore exceed 2,200
 # model tokens even though the user-facing response is still concise.
@@ -228,6 +237,9 @@ class LLMCallRecord:
     model: str
     status: str  # success | failed
     elapsed_ms: int
+    # 失败原因（成功为空）。不记原因就无法回答"为什么 35% 的 chat 调用失败"，
+    # 诊断只能靠猜 elapsed_ms 的分布。
+    reason: str = ""
 
 
 @dataclass
@@ -304,6 +316,7 @@ class LLMCallLedger:
             "max_calls": self.max_calls,
             "rejected_count": rejected_count,
             "by_caller": by_caller,
+            "failure_reasons": _tally_failure_reasons(records),
             "records": [
                 {
                     "caller": record.caller,
@@ -311,10 +324,44 @@ class LLMCallLedger:
                     "model": record.model,
                     "status": record.status,
                     "elapsed_ms": record.elapsed_ms,
+                    **({"reason": record.reason} if record.reason else {}),
                 }
                 for record in records
             ],
         }
+
+
+def _insufficient_budget_reason(
+    timeout: float,
+    min_viable_seconds: float | None,
+) -> str | None:
+    """预算不足以支撑一次调用时返回降级 reason，否则 None。
+
+    与"发出去然后超时"的区别：这里一秒都不烧，把时间留给还能成功的阶段
+    （通常是最终合成）。
+
+    ``min_viable_seconds`` 为 None 时不设闸门——这是默认值，因为 ``timeout``
+    参数本身无法区分两种来源：调用方主动配置的策略超时（该照发），和被
+    deadline 钳制后剩下的残余预算（该跳过）。只有知道自己处在预算压力下的
+    调用方才该显式传入（见 MIN_VIABLE_LLM_SECONDS 的实测依据）。
+    """
+    if min_viable_seconds is None or timeout >= min_viable_seconds:
+        return None
+    return (
+        f"LLM 预算不足（剩余 {timeout:.1f}s < 最小可行 "
+        f"{min_viable_seconds:.0f}s），已跳过调用以保留合成预算"
+    )
+
+
+def _tally_failure_reasons(records: list[LLMCallRecord]) -> dict[str, int]:
+    """按原因聚合失败次数，让 trace 一眼看出是超时、限流还是别的。"""
+    tally: dict[str, int] = {}
+    for record in records:
+        if record.status == "success":
+            continue
+        key = record.reason or "unknown"
+        tally[key] = tally.get(key, 0) + 1
+    return tally
 
 
 _CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
@@ -366,11 +413,26 @@ def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
 
 
+def _failure_reason(exc: BaseException) -> str:
+    """把异常压成一行可聚合的原因，供台账统计（不含 URL/密钥等敏感串）。"""
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"http_{exc.code}"
+    if isinstance(exc, TimeoutError) or isinstance(exc, socket.timeout):
+        return "timeout"
+    if isinstance(exc, urllib.error.URLError):
+        inner = getattr(exc, "reason", None)
+        if isinstance(inner, (TimeoutError, socket.timeout)):
+            return "timeout"
+        return f"urlerror_{type(inner).__name__ if inner else 'unknown'}"
+    return type(exc).__name__
+
+
 def _record_llm_call(
     caller: str,
     provider: LLMProvider,
     status: str,
     started: float,
+    reason: str = "",
 ) -> None:
     ledger = _CALL_LEDGER.get()
     if ledger is None:
@@ -382,6 +444,7 @@ def _record_llm_call(
             model=provider.model,
             status=status,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
+            reason=reason,
         )
     )
 
@@ -448,8 +511,8 @@ def _post_chat(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        _record_llm_call("chat", provider, "failed", started)
+    except Exception as exc:
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
     _record_llm_call("chat", provider, "success", started)
     return body["choices"][0]["message"]["content"]
@@ -486,13 +549,13 @@ def _post_chat_synthesis(
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        _record_llm_call("synthesis", provider, "failed", started)
+    except Exception as exc:
+        _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc))
         raise
     choice = body["choices"][0]
     content = choice["message"]["content"]
     if len(content) > max_chars:
-        _record_llm_call("synthesis", provider, "failed", started)
+        _record_llm_call("synthesis", provider, "failed", started, "output_too_long")
         raise LLMOutputTooLong()
     _record_llm_call("synthesis", provider, "success", started)
     return content, _stable_finish_reason(choice.get("finish_reason"))
@@ -503,6 +566,8 @@ def complete(
     model_override: str | None = None,
     timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
+    *,
+    min_viable_seconds: float | None = None,
 ) -> tuple[str | None, "LLMProvider | None", str]:
     """Generic OpenAI-compatible chat call shared across services.
 
@@ -520,6 +585,9 @@ def complete(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
+    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+    if insufficient is not None:
+        return None, None, insufficient
     deadline = Deadline.from_timeout(timeout)
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
@@ -579,8 +647,10 @@ def _post_chat_message(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        _record_llm_call("chat_tools", provider, "failed", started)
+    except Exception as exc:
+        _record_llm_call(
+            "chat_tools", provider, "failed", started, _failure_reason(exc)
+        )
         raise
     _record_llm_call("chat_tools", provider, "success", started)
     message = dict(body["choices"][0]["message"])
@@ -600,6 +670,7 @@ def chat_with_tools(
     temperature: float = 0.2,
     tool_choice: str | dict | None = "auto",
     disable_thinking: bool | None = None,
+    min_viable_seconds: float | None = None,
 ) -> tuple[dict | None, "LLMProvider | None", str]:
     """One OpenAI-compatible chat round-trip *with tools available*.
 
@@ -617,6 +688,9 @@ def chat_with_tools(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
+    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+    if insufficient is not None:
+        return None, None, insufficient
     deadline = Deadline.from_timeout(timeout)
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
@@ -1060,8 +1134,10 @@ def _post_chat_stream(
             max_tokens,
             max_chars,
         )
-    except Exception:
-        _record_llm_call("synthesis_stream", provider, "failed", started)
+    except Exception as exc:
+        _record_llm_call(
+            "synthesis_stream", provider, "failed", started, _failure_reason(exc)
+        )
         raise
     _record_llm_call("synthesis_stream", provider, "success", started)
     return result
