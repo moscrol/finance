@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from contextvars import Context, copy_context
 from dataclasses import dataclass
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -38,6 +39,7 @@ _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
+_MAX_RESPONSE_BYTES = 1_048_576
 
 
 def _is_snapshot_tool(spec: ToolSpec) -> bool:
@@ -65,6 +67,27 @@ def _transport_arguments(spec: ToolSpec, query: str) -> object:
 
 
 @dataclass(frozen=True)
+class HeadlessMailboxExchange:
+    request_id: str
+    request_sha256: str
+    response_sha256: str
+
+    def __post_init__(self) -> None:
+        if not _MAILBOX_REQUEST_RE.fullmatch(self.request_id):
+            raise ValueError("invalid mailbox request id")
+        for value in (self.request_sha256, self.response_sha256):
+            if not re.fullmatch(r"[0-9a-f]{64}", value):
+                raise ValueError("invalid mailbox exchange hash")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "request_id": self.request_id,
+            "request_sha256": self.request_sha256,
+            "response_sha256": self.response_sha256,
+        }
+
+
+@dataclass(frozen=True)
 class HeadlessGatewaySnapshot:
     evidence: tuple[AgentEvidence, ...]
     traces: tuple[ProviderTrace, ...]
@@ -72,6 +95,7 @@ class HeadlessGatewaySnapshot:
     gaps: tuple[str, ...]
     executed_count: int
     duplicate_queries: int
+    mailbox_exchanges: tuple[HeadlessMailboxExchange, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -81,6 +105,9 @@ class HeadlessGatewaySnapshot:
             "gaps": list(self.gaps),
             "executed_count": self.executed_count,
             "duplicate_queries": self.duplicate_queries,
+            "mailbox_exchanges": [
+                item.to_dict() for item in self.mailbox_exchanges
+            ],
         }
 
 
@@ -141,6 +168,7 @@ class HeadlessToolGateway:
         self._gaps: list[str] = []
         self._executed_count = 0
         self._duplicate_queries = 0
+        self._mailbox_exchanges: list[HeadlessMailboxExchange] = []
         self._next_sequence = 2
         self._closed = False
 
@@ -185,8 +213,13 @@ class HeadlessToolGateway:
 
         if self._transport == "mailbox":
             self._mailbox_dir = self._run_dir / _MAILBOX_NAME
-            (self._mailbox_dir / "requests").mkdir(parents=True, mode=0o700)
-            (self._mailbox_dir / "responses").mkdir(mode=0o700)
+            self._ensure_private_mailbox_directory(self._mailbox_dir)
+            self._ensure_private_mailbox_directory(
+                self._mailbox_dir / "requests"
+            )
+            self._ensure_private_mailbox_directory(
+                self._mailbox_dir / "responses"
+            )
             self._thread = Thread(
                 target=self._serve_mailbox,
                 name="headless-finance-mailbox",
@@ -287,8 +320,6 @@ class HeadlessToolGateway:
                 if not _MAILBOX_REQUEST_RE.fullmatch(request_path.name):
                     continue
                 response_path = responses_dir / request_path.name
-                if response_path.exists():
-                    continue
                 self._process_mailbox_request(request_path, response_path)
 
     def _process_mailbox_request(
@@ -296,8 +327,10 @@ class HeadlessToolGateway:
         request_path: Path,
         response_path: Path,
     ) -> None:
+        request_sha256 = hashlib.sha256(b"").hexdigest()
         try:
             raw = self._read_mailbox_request(request_path)
+            request_sha256 = hashlib.sha256(raw).hexdigest()
             payload = json.loads(raw.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("request must be an object")
@@ -312,7 +345,29 @@ class HeadlessToolGateway:
                 request_path.unlink(missing_ok=True)
             except OSError:
                 pass
-        self._write_mailbox_response(response_path, result)
+        try:
+            response_sha256 = self._write_mailbox_response(
+                response_path,
+                result,
+                request_sha256=request_sha256,
+            )
+        except OSError:
+            with self._lock:
+                if "mailbox_response_path_conflict" not in self._gaps:
+                    self._gaps.append("mailbox_response_path_conflict")
+                self._add_event(
+                    "tool_error",
+                    {"tool": "mailbox", "error": "response_path_conflict"},
+                )
+            return
+        with self._lock:
+            self._mailbox_exchanges.append(
+                HeadlessMailboxExchange(
+                    request_id=request_path.name,
+                    request_sha256=request_sha256,
+                    response_sha256=response_sha256,
+                )
+            )
 
     @staticmethod
     def _read_mailbox_request(path: Path) -> bytes:
@@ -345,11 +400,23 @@ class HeadlessToolGateway:
     def _write_mailbox_response(
         path: Path,
         payload: dict[str, object],
-    ) -> None:
-        encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        temporary = path.with_name(
-            f".{path.name}.{secrets.token_hex(4)}.tmp"
-        )
+        *,
+        request_sha256: str,
+    ) -> str:
+        envelope = dict(payload)
+        envelope["mailbox_request_sha256"] = request_sha256
+        encoded = json.dumps(
+            envelope,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        HeadlessToolGateway._publish_exclusive(path, encoded)
+        return hashlib.sha256(encoded).hexdigest()
+
+    @staticmethod
+    def _publish_exclusive(path: Path, encoded: bytes) -> None:
+        temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
@@ -358,9 +425,29 @@ class HeadlessToolGateway:
             offset = 0
             while offset < len(encoded):
                 offset += os.write(descriptor, encoded[offset:])
+            os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        os.replace(temporary, path)
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    @staticmethod
+    def _ensure_private_mailbox_directory(path: Path) -> None:
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            path.mkdir(mode=0o700)
+            metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ValueError("mailbox directory must not be a symlink")
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise ValueError("mailbox path must be a directory")
+        if metadata.st_uid != os.getuid():
+            raise ValueError("mailbox directory owner mismatch")
+        if stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise ValueError("mailbox directory mode must be 0700")
 
     def snapshot(self) -> HeadlessGatewaySnapshot:
         with self._lock:
@@ -371,6 +458,7 @@ class HeadlessToolGateway:
                 gaps=tuple(self._gaps),
                 executed_count=self._executed_count,
                 duplicate_queries=self._duplicate_queries,
+                mailbox_exchanges=tuple(self._mailbox_exchanges),
             )
 
     def _serve_request(self, handler: BaseHTTPRequestHandler) -> None:
@@ -642,9 +730,11 @@ class HeadlessToolGateway:
         if self._transport == "mailbox":
             wrapper.write_text(
                 """#!/usr/bin/env python3
+import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import time
 import uuid
@@ -652,24 +742,75 @@ import uuid
 if len(sys.argv) != 3:
     raise SystemExit("usage: finance-tool TOOL QUERY")
 mailbox = Path(os.environ["FINANCE_TOOL_MAILBOX"])
+for directory in (mailbox, mailbox / "requests", mailbox / "responses"):
+    metadata = directory.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise SystemExit("finance tool mailbox directory is invalid")
+    if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+        raise SystemExit("finance tool mailbox permissions are invalid")
 request_id = f"{uuid.uuid4().hex}.json"
 request_path = mailbox / "requests" / request_id
 response_path = mailbox / "responses" / request_id
+try:
+    response_path.lstat()
+except FileNotFoundError:
+    pass
+else:
+    raise SystemExit("finance tool mailbox response path already exists")
+encoded = json.dumps(
+    {"tool": sys.argv[1], "query": sys.argv[2]},
+    ensure_ascii=False,
+    separators=(",", ":"),
+    sort_keys=True,
+).encode("utf-8")
+request_sha256 = hashlib.sha256(encoded).hexdigest()
 temporary = request_path.with_name(f".{request_id}.{os.getpid()}.tmp")
-temporary.write_text(
-    json.dumps({"tool": sys.argv[1], "query": sys.argv[2]}, ensure_ascii=False),
-    encoding="utf-8",
-)
-os.replace(temporary, request_path)
+flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+if hasattr(os, "O_NOFOLLOW"):
+    flags |= os.O_NOFOLLOW
+descriptor = os.open(temporary, flags, 0o600)
+try:
+    offset = 0
+    while offset < len(encoded):
+        offset += os.write(descriptor, encoded[offset:])
+    os.fsync(descriptor)
+finally:
+    os.close(descriptor)
+try:
+    os.link(temporary, request_path, follow_symlinks=False)
+finally:
+    temporary.unlink(missing_ok=True)
 deadline = time.monotonic() + 60.0
 while time.monotonic() < deadline:
     try:
-        payload = response_path.read_bytes()
+        read_flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            read_flags |= os.O_NOFOLLOW
+        descriptor = os.open(response_path, read_flags)
     except FileNotFoundError:
         time.sleep(0.02)
         continue
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= 1048576:
+            raise SystemExit("finance tool mailbox response is invalid")
+        payload = b""
+        while len(payload) < metadata.st_size:
+            chunk = os.read(descriptor, metadata.st_size - len(payload))
+            if not chunk:
+                break
+            payload += chunk
+    finally:
+        os.close(descriptor)
+    if len(payload) != metadata.st_size:
+        raise SystemExit("finance tool mailbox response is incomplete")
+    value = json.loads(payload.decode("utf-8"))
+    if not isinstance(value, dict):
+        raise SystemExit("finance tool mailbox response is invalid")
+    if value.pop("mailbox_request_sha256", "") != request_sha256:
+        raise SystemExit("finance tool mailbox response hash mismatch")
     response_path.unlink(missing_ok=True)
-    sys.stdout.buffer.write(payload)
+    sys.stdout.write(json.dumps(value, ensure_ascii=False))
     raise SystemExit(0)
 raise SystemExit("finance tool mailbox timed out")
 """,
@@ -708,4 +849,8 @@ with urllib.request.urlopen(request, timeout=60.0) as response:
         return wrapper
 
 
-__all__ = ["HeadlessGatewaySnapshot", "HeadlessToolGateway"]
+__all__ = [
+    "HeadlessGatewaySnapshot",
+    "HeadlessMailboxExchange",
+    "HeadlessToolGateway",
+]

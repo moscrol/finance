@@ -77,11 +77,11 @@ git commit -m "feat: add sealed fixture tool policy"
 - Test: `intelligence/tests/test_codex_headless_runtime.py`
 - Test: `intelligence/tests/test_headless_tool_gateway.py`
 
-- [ ] **Step 1: Write failing transport/environment tests**
+- [x] **Step 1: Write failing transport/environment tests**
 
 Assert sealed mode rejects `local_exec`, uses gateway transport `mailbox`, passes only `FINANCE_TOOL_MAILBOX` plus explicit non-secret variables to the child shell, excludes `OPENAI_API_KEY` from command-execution environment while keeping it available to the parent Codex process, and configures `sandbox_workspace_write.network_access=false` for every command child.
 
-- [ ] **Step 2: Implement a two-scope environment**
+- [x] **Step 2: Implement a two-scope environment**
 
 ```python
 @dataclass(frozen=True)
@@ -92,15 +92,15 @@ class HeadlessEnvironment:
 
 The parent receives `OPENAI_API_KEY`; the generated Codex config sets shell environment inheritance to the explicit allowlist, omits the key, and sets command-child `networkAccess=false`. The finance wrapper uses mailbox files, not TCP/Unix sockets.
 
-- [ ] **Step 3: Add network and IPC negative controls**
+- [x] **Step 3: Add network and IPC negative controls**
 
 Run command children that attempt a public TCP connection, `127.0.0.1`, and a non-allowlisted Unix socket. All must receive a sandbox denial. If the denial cannot be observed, sealed mode returns `isolation_unproven` before the benchmark case.
 
-- [ ] **Step 4: Add mailbox permission and tamper tests**
+- [x] **Step 4: Add mailbox permission and tamper tests**
 
 Require the mailbox root and `requests/`/`responses/` directories to be owned by the current uid, non-symlinks, and mode `0700`. Both wrapper request creation and gateway response creation use atomic `O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW` semantics; a pre-existing request or response path fails closed. Also reject oversized requests and paths outside the per-case mailbox. Record request/result hashes for fixture provenance.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_codex_headless_runtime.py intelligence/tests/test_headless_tool_gateway.py -q

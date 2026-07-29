@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -67,6 +68,22 @@ _SAFE_ENV_KEYS = (
 )
 _HEADLESS_PROVIDER_ENV_KEY = "CODEX_HEADLESS_PROVIDER_KEY"
 _MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
+_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_SECRET_ENV_NAME_RE = re.compile(
+    r"(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)",
+    re.IGNORECASE,
+)
+_SEALED_CHILD_ENV_KEYS = (
+    "HOME",
+    "PATH",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+    "USER",
+    "SHELL",
+    "FINANCE_TOOL_MAILBOX",
+)
 
 
 @dataclass(frozen=True)
@@ -178,6 +195,41 @@ class HeadlessCommand:
 
 
 @dataclass(frozen=True)
+class HeadlessEnvironment:
+    """Separate Codex-provider credentials from command-child variables."""
+
+    parent: Mapping[str, str] = field(repr=False)
+    command_child_allowlist: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        parent = dict(self.parent)
+        if any(
+            not isinstance(key, str)
+            or not _ENV_NAME_RE.fullmatch(key)
+            or not isinstance(value, str)
+            for key, value in parent.items()
+        ):
+            raise ValueError("invalid headless parent environment")
+        allowlist = tuple(self.command_child_allowlist)
+        if len(set(allowlist)) != len(allowlist) or any(
+            not isinstance(key, str) or not _ENV_NAME_RE.fullmatch(key)
+            for key in allowlist
+        ):
+            raise ValueError("invalid command-child environment allowlist")
+        if any(_SECRET_ENV_NAME_RE.search(key) for key in allowlist):
+            raise ValueError("secret-bearing variables are forbidden in command child")
+        object.__setattr__(self, "parent", MappingProxyType(parent))
+        object.__setattr__(self, "command_child_allowlist", allowlist)
+
+    def child_values(self) -> dict[str, str]:
+        return {
+            key: self.parent[key]
+            for key in self.command_child_allowlist
+            if key in self.parent
+        }
+
+
+@dataclass(frozen=True)
 class HeadlessProcessResult:
     stdout: str
     stderr: str
@@ -194,6 +246,57 @@ class HeadlessProcessResult:
 
 
 HeadlessCommandRunner = Callable[[HeadlessCommand], HeadlessProcessResult]
+HeadlessIsolationProbe = Callable[[str, Path], "HeadlessIsolationReceipt"]
+
+
+@dataclass(frozen=True)
+class HeadlessIsolationReceipt:
+    status: str
+    public_tcp: str
+    loopback: str
+    unix_socket: str
+    codex_version: str
+    command_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.status not in {"proven", "unproven"}:
+            raise ValueError("invalid isolation receipt status")
+        if any(
+            value not in {"denied", "unexpected_success", "unexpected_error"}
+            for value in (self.public_tcp, self.loopback, self.unix_socket)
+        ):
+            raise ValueError("invalid isolation probe result")
+        if not isinstance(self.codex_version, str) or not self.codex_version.strip():
+            raise ValueError("invalid isolation Codex version")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.command_sha256):
+            raise ValueError("invalid isolation command hash")
+        if self.status == "proven" and {
+            self.public_tcp,
+            self.loopback,
+            self.unix_socket,
+        } != {"denied"}:
+            raise ValueError("proven isolation receipt must deny every probe")
+
+    @classmethod
+    def proven_for_test(cls) -> "HeadlessIsolationReceipt":
+        return cls(
+            status="proven",
+            public_tcp="denied",
+            loopback="denied",
+            unix_socket="denied",
+            codex_version="test",
+            command_sha256="0" * 64,
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "status": self.status,
+            "public_tcp": self.public_tcp,
+            "loopback": self.loopback,
+            "unix_socket": self.unix_socket,
+            "codex_version": self.codex_version,
+            "command_sha256": self.command_sha256,
+        }
 
 
 @dataclass(frozen=True)
@@ -292,12 +395,17 @@ class CodexHeadlessRuntime:
         provider_config_path: Path | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         finalization_floor_ratio: float = 0.65,
+        sealed_fixture: bool = False,
+        isolation_probe: HeadlessIsolationProbe | None = None,
     ) -> None:
         selected_transport = str(
             transport or os.environ.get("CODEX_HEADLESS_TRANSPORT") or "subprocess"
         ).strip().lower()
         if selected_transport not in {"subprocess", "local_exec"}:
             raise ValueError("unsupported Codex headless transport")
+        self._sealed_fixture = bool(sealed_fixture)
+        if self._sealed_fixture and selected_transport != "subprocess":
+            raise ValueError("sealed fixture requires subprocess transport")
         self._gateway_transport = (
             "mailbox" if selected_transport == "subprocess" else "http"
         )
@@ -349,6 +457,8 @@ class CodexHeadlessRuntime:
         self._reasoning_effort = str(reasoning_effort or "").strip().lower()
         self._is_cancelled = is_cancelled or (lambda: False)
         self._finalization_floor_ratio = float(finalization_floor_ratio)
+        self._isolation_probe = isolation_probe or probe_sealed_isolation
+        self._isolation_receipt: HeadlessIsolationReceipt | None = None
         if not 0.0 <= self._finalization_floor_ratio <= 1.0:
             raise ValueError("headless finalization floor ratio must be between 0 and 1")
         if self._reasoning_effort not in {
@@ -372,6 +482,10 @@ class CodexHeadlessRuntime:
     @property
     def finalization_floor_ratio(self) -> float:
         return self._finalization_floor_ratio
+
+    @property
+    def isolation_receipt(self) -> HeadlessIsolationReceipt | None:
+        return self._isolation_receipt
 
     def semantic_providers(self) -> tuple[LLMProvider, ...]:
         projection = self._provider_projection
@@ -409,6 +523,25 @@ class CodexHeadlessRuntime:
 
         with tempfile.TemporaryDirectory(prefix="finance-codex-headless-") as raw_dir:
             run_dir = Path(raw_dir)
+            if self._sealed_fixture:
+                try:
+                    self._isolation_receipt = self._isolation_probe(
+                        self._codex_bin,
+                        run_dir,
+                    )
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    self._isolation_receipt = None
+                if (
+                    self._isolation_receipt is None
+                    or self._isolation_receipt.status != "proven"
+                ):
+                    return _failed_outcome(
+                        task_frame,
+                        snapshot=_empty_snapshot(),
+                        stop_reason="isolation_unproven",
+                        gap="isolation_unproven",
+                        llm_calls=0,
+                    )
             schema_path = run_dir / "episode-finish.schema.json"
             schema_path.write_text(
                 json.dumps(finish_json_schema(), ensure_ascii=False, indent=2),
@@ -580,6 +713,19 @@ class CodexHeadlessRuntime:
             "-c",
             f'model_reasoning_effort="{self._reasoning_effort}"',
         ]
+        if self._sealed_fixture:
+            args.extend(
+                (
+                    "-c",
+                    "sandbox_workspace_write.network_access=false",
+                    "-c",
+                    "sandbox_workspace_write.exclude_tmpdir_env_var=true",
+                    "-c",
+                    "sandbox_workspace_write.exclude_slash_tmp=true",
+                    "-c",
+                    "allow_login_shell=false",
+                )
+            )
         if self._enable_gateway_network:
             args.extend(
                 (
@@ -603,12 +749,27 @@ class CodexHeadlessRuntime:
             )
         )
         env = _safe_environment()
+        if self._sealed_fixture and os.environ.get("OPENAI_API_KEY"):
+            env["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
         env.update(environment)
         if self._provider_projection is not None:
             env[_HEADLESS_PROVIDER_ENV_KEY] = (
                 self._provider_projection.bearer_token
             )
-        return HeadlessCommand(args=tuple(args), cwd=run_dir, env=env, timeout=timeout)
+        headless_environment = HeadlessEnvironment(
+            parent=env,
+            command_child_allowlist=(
+                _SEALED_CHILD_ENV_KEYS if self._sealed_fixture else ()
+            ),
+        )
+        if self._sealed_fixture:
+            args.extend(_sealed_child_environment_args(headless_environment))
+        return HeadlessCommand(
+            args=tuple(args),
+            cwd=run_dir,
+            env=headless_environment.parent,
+            timeout=timeout,
+        )
 
     def _to_outcome(
         self,
@@ -734,6 +895,143 @@ def _safe_environment() -> dict[str, str]:
             entries.append(loopback)
     env["NO_PROXY"] = ",".join(entries)
     return env
+
+
+def _sealed_child_environment_args(
+    environment: HeadlessEnvironment,
+) -> tuple[str, ...]:
+    allowlist = list(environment.command_child_allowlist)
+    values = environment.child_values()
+    args: list[str] = [
+        "-c",
+        "shell_environment_policy.inherit=none",
+        "-c",
+        "shell_environment_policy.ignore_default_excludes=false",
+        "-c",
+        "shell_environment_policy.include_only="
+        f"{json.dumps(allowlist, ensure_ascii=True, separators=(',', ':'))}",
+    ]
+    for key in sorted(values):
+        args.extend(
+            (
+                "-c",
+                f"shell_environment_policy.set.{key}="
+                f"{json.dumps(values[key], ensure_ascii=True)}",
+            )
+        )
+    return tuple(args)
+
+
+def probe_sealed_isolation(
+    codex_bin: str,
+    cwd: Path,
+) -> HeadlessIsolationReceipt:
+    """Prove OS-level denial without spending a model call."""
+
+    binary = str(codex_bin or "").strip()
+    working_directory = Path(cwd).resolve()
+    if not binary or not working_directory.is_dir():
+        raise ValueError("invalid isolation probe inputs")
+    probe_home = working_directory / ".codex-isolation-probe"
+    probe_home.mkdir(mode=0o700)
+    probe_script = """import json
+import socket
+
+results = {}
+
+def probe(name, action):
+    try:
+        action()
+    except PermissionError as exc:
+        results[name] = "denied" if exc.errno == 1 else "unexpected_error"
+    except Exception:
+        results[name] = "unexpected_error"
+    else:
+        results[name] = "unexpected_success"
+
+probe("public_tcp", lambda: socket.create_connection(("1.1.1.1", 443), 0.5))
+
+def loopback_bind():
+    handle = socket.socket()
+    try:
+        handle.bind(("127.0.0.1", 0))
+    finally:
+        handle.close()
+
+probe("loopback", loopback_bind)
+
+def unix_bind():
+    handle = socket.socket(socket.AF_UNIX)
+    try:
+        handle.bind("/private/tmp/codex-sealed-nonallowlisted.sock")
+    finally:
+        handle.close()
+
+probe("unix_socket", unix_bind)
+print(json.dumps(results, sort_keys=True))
+"""
+    args = (
+        binary,
+        "sandbox",
+        "-P",
+        ":workspace",
+        "-C",
+        str(working_directory),
+        "--sandbox-state-disable-network",
+        "/usr/bin/python3",
+        "-c",
+        probe_script,
+    )
+    command_sha256 = hashlib.sha256(
+        json.dumps(args, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    env = _safe_environment()
+    env["CODEX_HOME"] = str(probe_home)
+    env.pop("OPENAI_API_KEY", None)
+    env.pop(_HEADLESS_PROVIDER_ENV_KEY, None)
+    version = subprocess.run(
+        (binary, "--version"),
+        cwd=working_directory,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10.0,
+    ).stdout.strip()
+    completed = subprocess.run(
+        args,
+        cwd=working_directory,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10.0,
+    )
+    try:
+        payload = json.loads(completed.stdout.strip())
+    except json.JSONDecodeError:
+        payload = {}
+    values = {
+        name: (
+            str(payload.get(name))
+            if payload.get(name) in {
+                "denied",
+                "unexpected_success",
+                "unexpected_error",
+            }
+            else "unexpected_error"
+        )
+        for name in ("public_tcp", "loopback", "unix_socket")
+    }
+    proven = completed.returncode == 0 and set(values.values()) == {"denied"}
+    return HeadlessIsolationReceipt(
+        status="proven" if proven else "unproven",
+        public_tcp=values["public_tcp"],
+        loopback=values["loopback"],
+        unix_socket=values["unix_socket"],
+        codex_version=version or "unknown",
+        command_sha256=command_sha256,
+    )
 
 
 def _headless_prompt(
@@ -1031,6 +1329,10 @@ __all__ = [
     "CodexHeadlessRuntime",
     "HeadlessCommand",
     "HeadlessCommandRunner",
+    "HeadlessEnvironment",
+    "HeadlessIsolationProbe",
+    "HeadlessIsolationReceipt",
     "HeadlessProcessResult",
     "LocalExecCommandRunner",
+    "probe_sealed_isolation",
 ]

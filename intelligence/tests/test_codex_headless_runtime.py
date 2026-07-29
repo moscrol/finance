@@ -15,8 +15,11 @@ from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.codex_headless_runtime import (
     CodexHeadlessRuntime,
     HeadlessCommand,
+    HeadlessEnvironment,
+    HeadlessIsolationReceipt,
     LocalExecCommandRunner,
     HeadlessProcessResult,
+    probe_sealed_isolation,
     _headless_prompt,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
@@ -362,6 +365,120 @@ command = "must-not-enter-headless"
     assert providers[0].model == "gpt-5.6-sol"
     assert providers[0].api_key == "HEADLESS_PROVIDER_SECRET_SENTINEL"
     assert "HEADLESS_PROVIDER_SECRET_SENTINEL" not in repr(providers[0])
+
+
+def test_sealed_runtime_keeps_provider_secret_parent_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "OPENAI_PARENT_SECRET_SENTINEL")
+    monkeypatch.setenv("UNRELATED_SECRET", "UNRELATED_SECRET_SENTINEL")
+    fake = ValidFakeCodex()
+
+    CodexHeadlessRuntime(
+        command_runner=fake,
+        model="gpt-5.6-sol",
+        reasoning_effort="medium",
+        sealed_fixture=True,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt.proven_for_test(),
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    command = fake.commands[0]
+    assert command.env["OPENAI_API_KEY"] == "OPENAI_PARENT_SECRET_SENTINEL"
+    assert "UNRELATED_SECRET" not in command.env
+    assert "OPENAI_PARENT_SECRET_SENTINEL" not in " ".join(command.args)
+    assert "UNRELATED_SECRET_SENTINEL" not in " ".join(command.args)
+    assert "shell_environment_policy.inherit=none" in command.args
+    assert "allow_login_shell=false" in command.args
+    assert "sandbox_workspace_write.network_access=false" in command.args
+    assert "sandbox_workspace_write.exclude_tmpdir_env_var=true" in command.args
+    assert "sandbox_workspace_write.exclude_slash_tmp=true" in command.args
+    include_only = next(
+        item
+        for item in command.args
+        if item.startswith("shell_environment_policy.include_only=")
+    )
+    assert "FINANCE_TOOL_MAILBOX" in include_only
+    assert "OPENAI_API_KEY" not in include_only
+    assert "CODEX_HEADLESS_PROVIDER_KEY" not in include_only
+    child_sets = tuple(
+        item
+        for item in command.args
+        if item.startswith("shell_environment_policy.set.")
+    )
+    assert any(item.startswith("shell_environment_policy.set.PATH=") for item in child_sets)
+    assert any(
+        item.startswith("shell_environment_policy.set.FINANCE_TOOL_MAILBOX=")
+        for item in child_sets
+    )
+    assert all("OPENAI_API_KEY" not in item for item in child_sets)
+
+
+def test_headless_environment_rejects_secret_child_allowlist() -> None:
+    with pytest.raises(ValueError, match="secret-bearing"):
+        HeadlessEnvironment(
+            parent={"OPENAI_API_KEY": "secret"},
+            command_child_allowlist=("PATH", "OPENAI_API_KEY"),
+        )
+
+
+def test_sealed_runtime_rejects_local_exec_transport() -> None:
+    with pytest.raises(ValueError, match="sealed fixture requires subprocess"):
+        CodexHeadlessRuntime(
+            command_runner=ValidFakeCodex(),
+            transport="local_exec",
+            sealed_fixture=True,
+        )
+
+
+def test_sealed_runtime_stops_before_model_when_isolation_is_unproven() -> None:
+    fake = ValidFakeCodex()
+    runtime = CodexHeadlessRuntime(
+        command_runner=fake,
+        sealed_fixture=True,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt(
+            status="unproven",
+            public_tcp="unexpected_success",
+            loopback="denied",
+            unix_socket="denied",
+            codex_version="test",
+            command_sha256="a" * 64,
+        ),
+    )
+
+    outcome = runtime.run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert fake.commands == []
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "isolation_unproven"
+    assert "isolation_unproven" in outcome.gaps
+    assert runtime.isolation_receipt is not None
+    assert runtime.isolation_receipt.status == "unproven"
+
+
+@pytest.mark.skipif(
+    not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+    reason="Codex desktop binary unavailable",
+)
+def test_installed_codex_sandbox_denies_network_and_unix_socket(
+    tmp_path: Path,
+) -> None:
+    receipt = probe_sealed_isolation(
+        "/Applications/ChatGPT.app/Contents/Resources/codex",
+        tmp_path,
+    )
+
+    assert receipt.status == "proven"
+    assert receipt.public_tcp == "denied"
+    assert receipt.loopback == "denied"
+    assert receipt.unix_socket == "denied"
 
 
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:

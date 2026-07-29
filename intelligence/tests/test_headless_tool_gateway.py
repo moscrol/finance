@@ -4,6 +4,7 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import urllib.error
 import urllib.request
@@ -320,9 +321,93 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     assert result["evidence_hashes"] == ["market-hash"]
     assert calls == [("market_data", "A股最近五日")]
     assert snapshot.executed_count == 1
+    assert len(snapshot.mailbox_exchanges) == 1
+    exchange = snapshot.mailbox_exchanges[0]
+    assert len(exchange.request_sha256) == 64
+    assert len(exchange.response_sha256) == 64
     assert set(gateway.subprocess_environment()) == {"FINANCE_TOOL_MAILBOX"}
     assert "urllib" not in wrapper
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper
+    assert "os.O_EXCL" in wrapper
+    assert "os.O_NOFOLLOW" in wrapper
+
+
+def test_mailbox_directories_are_private_and_owned() -> None:
+    calls: list[tuple[str, str]] = []
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=_context(),
+        transport="mailbox",
+    ) as gateway:
+        mailbox = Path(gateway.subprocess_environment()["FINANCE_TOOL_MAILBOX"])
+        for path in (mailbox, mailbox / "requests", mailbox / "responses"):
+            metadata = path.lstat()
+            assert stat.S_ISDIR(metadata.st_mode)
+            assert stat.S_IMODE(metadata.st_mode) == 0o700
+            assert metadata.st_uid == os.getuid()
+
+
+def test_mailbox_gateway_rejects_symlink_root(tmp_path: Path) -> None:
+    target = tmp_path / "outside"
+    target.mkdir()
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / ".finance-tool-mailbox").symlink_to(
+        target,
+        target_is_directory=True,
+    )
+
+    gateway = HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=run_dir,
+        transport="mailbox",
+    )
+    with pytest.raises(ValueError, match="mailbox directory must not be a symlink"):
+        gateway.start()
+
+
+def test_mailbox_gateway_rejects_wrong_owner(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    monkeypatch.setattr(os, "getuid", lambda: 2**31 - 1)
+
+    gateway = HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=run_dir,
+        transport="mailbox",
+    )
+    with pytest.raises(ValueError, match="mailbox directory owner mismatch"):
+        gateway.start()
+
+
+def test_mailbox_response_creation_never_overwrites_existing_path(
+    tmp_path: Path,
+) -> None:
+    response = tmp_path / ("a" * 32 + ".json")
+    response.write_text("attacker", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        HeadlessToolGateway._write_mailbox_response(
+            response,
+            {"status": "success"},
+            request_sha256="b" * 64,
+        )
+
+    assert response.read_text(encoding="utf-8") == "attacker"
+
+
+def test_mailbox_rejects_oversized_request(tmp_path: Path) -> None:
+    request = tmp_path / ("a" * 32 + ".json")
+    request.write_bytes(b"x" * 65_537)
+
+    with pytest.raises(ValueError, match="request size is invalid"):
+        HeadlessToolGateway._read_mailbox_request(request)
 
 
 def test_gateway_closes_research_stage_before_finalization_budget() -> None:
