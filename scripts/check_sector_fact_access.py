@@ -27,6 +27,7 @@ _EXCLUDED_DIR_NAMES = {
     "caches",
     "dist",
     "node_modules",
+    "runtime",
     "tests",
     "tmp",
     "venv",
@@ -37,6 +38,7 @@ _EXCLUDED_DIR_NAMES = {
 class AccessRecord:
     path: str
     line: int
+    column: int
     table: str
     mode: str
 
@@ -58,11 +60,60 @@ def _normalise_sql(text: str) -> tuple[str, list[int]]:
     return "".join(normalised), source_indexes
 
 
+def _lex_sql(sql: str) -> tuple[list[tuple[int, str]], str]:
+    contexts: list[tuple[int, str]] = [(0, "code")] * len(sql)
+    masked = list(sql)
+    statement = 0
+    state = "code"
+    index = 0
+    while index < len(sql):
+        character = sql[index]
+        previous_state = state
+        if state == "code":
+            if sql.startswith("--", index):
+                state = "line_comment"
+            elif sql.startswith("/*", index):
+                state = "block_comment"
+            elif character == "'":
+                state = "single_quote"
+        contexts[index] = (statement, state)
+        if state != "code":
+            masked[index] = "\n" if character == "\n" else " "
+
+        if (
+            state == "single_quote"
+            and previous_state == "single_quote"
+            and character == "'"
+        ):
+            if index + 1 < len(sql) and sql[index + 1] == "'":
+                contexts[index + 1] = (statement, state)
+                masked[index + 1] = " "
+                index += 2
+                continue
+            state = "code"
+        elif state == "line_comment" and character == "\n":
+            state = "code"
+        elif state == "block_comment" and sql.startswith("*/", index):
+            if index + 1 < len(sql):
+                contexts[index + 1] = (statement, state)
+                masked[index + 1] = " "
+            state = "code"
+            index += 2
+            continue
+        elif state == "code" and character == ";":
+            statement += 1
+        index += 1
+    return contexts, "".join(masked)
+
+
 def _reference_modes(sql: str) -> list[tuple[str, str, int]]:
-    normalised, source_indexes = _normalise_sql(sql)
+    lowered_sql = sql.lower()
+    if not any(table in lowered_sql for table in TARGET_TABLES):
+        return []
+    lexical_contexts, masked_sql = _lex_sql(sql)
+    normalised, normalised_source_indexes = _normalise_sql(masked_sql)
     references: list[tuple[str, str, int]] = []
     for table in TARGET_TABLES:
-        table_pattern = re.compile(rf"\b{re.escape(table)}\b")
         qualified_table = rf"(?:[a-z_][\w$]*\.)?{table}"
         classifiers = (
             (
@@ -82,29 +133,62 @@ def _reference_modes(sql: str) -> list[tuple[str, str, int]]:
             ("read", re.compile(rf"\b(?:from|join)\s+{qualified_table}\b")),
         )
         classified_spans = [
-            (mode, match.span())
+            (
+                mode,
+                (
+                    normalised_source_indexes[match.start()],
+                    normalised_source_indexes[match.end() - 1] + 1,
+                ),
+            )
             for mode, pattern in classifiers
             for match in pattern.finditer(normalised)
         ]
-        table_references: list[tuple[str, str, int]] = []
-        for match in table_pattern.finditer(normalised):
-            mode = next(
-                (
-                    candidate
-                    for candidate, (start, end) in classified_spans
-                    if start <= match.start() < end
-                ),
-                "unknown",
+        table_references: list[tuple[str, str, int, int, str]] = []
+        for match in re.finditer(rf"\b{re.escape(table)}\b", sql, re.IGNORECASE):
+            source_index = match.start()
+            statement, lexical_context = lexical_contexts[source_index]
+            mode = "unknown"
+            if lexical_context == "code":
+                mode = next(
+                    (
+                        candidate
+                        for candidate, (start, end) in classified_spans
+                        if start <= source_index < end
+                    ),
+                    "unknown",
+                )
+            table_references.append(
+                (table, mode, source_index, statement, lexical_context)
             )
-            table_references.append((table, mode, source_indexes[match.start()]))
-        known_modes = {mode for _, mode, _ in table_references if mode != "unknown"}
-        if len(known_modes) == 1:
+        for statement in {item[3] for item in table_references}:
+            known_modes = {
+                mode
+                for _, mode, _, item_statement, lexical_context in table_references
+                if item_statement == statement
+                and lexical_context == "code"
+                and mode != "unknown"
+            }
+            if len(known_modes) != 1:
+                continue
             inherited_mode = next(iter(known_modes))
             table_references = [
-                (name, inherited_mode if mode == "unknown" else mode, source_index)
-                for name, mode, source_index in table_references
+                (
+                    name,
+                    inherited_mode
+                    if mode == "unknown"
+                    and item_statement == statement
+                    and lexical_context == "code"
+                    else mode,
+                    source_index,
+                    item_statement,
+                    lexical_context,
+                )
+                for name, mode, source_index, item_statement, lexical_context in table_references
             ]
-        references.extend(table_references)
+        references.extend(
+            (name, mode, source_index)
+            for name, mode, source_index, _, _ in table_references
+        )
     return references
 
 
@@ -117,10 +201,29 @@ def _is_excluded(relative_path: Path) -> bool:
     )
 
 
+def _physical_locations(
+    source_segment: str,
+    *,
+    starting_line: int,
+    starting_column: int,
+) -> dict[str, list[tuple[int, int]]]:
+    locations: dict[str, list[tuple[int, int]]] = {table: [] for table in TARGET_TABLES}
+    for table in TARGET_TABLES:
+        for match in re.finditer(rf"\b{re.escape(table)}\b", source_segment, re.IGNORECASE):
+            prefix = source_segment[: match.start()]
+            line_offset = prefix.count("\n")
+            if line_offset:
+                column = match.start() - prefix.rfind("\n")
+            else:
+                column = starting_column + match.start() + 1
+            locations[table].append((starting_line + line_offset, column))
+    return locations
+
+
 def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
     """Return a deterministic inventory of production sector-fact SQL references."""
     root = Path(root).resolve()
-    records: set[AccessRecord] = set()
+    records: list[AccessRecord] = []
     for directory, dirnames, filenames in os.walk(root):
         relative_directory = Path(directory).relative_to(root)
         dirnames[:] = sorted(
@@ -140,23 +243,47 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                 except SyntaxError:
                     continue
                 literals = (
-                    (node.value, node.lineno)
+                    (
+                        node.value,
+                        node.lineno,
+                        node.col_offset,
+                        ast.get_source_segment(source, node) or node.value,
+                    )
                     for node in ast.walk(tree)
                     if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and any(table in node.value.lower() for table in TARGET_TABLES)
                 )
             else:
-                literals = ((source, 1),)
-            for sql, starting_line in literals:
+                literals = ((source, 1, 0, source),)
+            for sql, starting_line, starting_column, source_segment in literals:
+                physical_locations = _physical_locations(
+                    source_segment,
+                    starting_line=starting_line,
+                    starting_column=starting_column,
+                )
                 for table, mode, source_index in _reference_modes(sql):
-                    records.add(
+                    if physical_locations[table]:
+                        line, column = physical_locations[table].pop(0)
+                    else:
+                        prefix = sql[:source_index]
+                        line = starting_line + prefix.count("\n")
+                        column = source_index - prefix.rfind("\n")
+                    records.append(
                         AccessRecord(
                             path=relative_path.as_posix(),
-                            line=starting_line + sql[:source_index].count("\n"),
+                            line=line,
+                            column=column,
                             table=table,
                             mode=mode,
                         )
                     )
-    return tuple(sorted(records, key=lambda row: (row.path, row.line, row.table, row.mode)))
+    unique_records = dict.fromkeys(records)
+    return tuple(
+        sorted(
+            unique_records,
+            key=lambda row: (row.path, row.line, row.column, row.table, row.mode),
+        )
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:

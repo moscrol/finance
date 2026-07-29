@@ -3,14 +3,48 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import math
+import re
 import statistics
 import sys
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
+
+
+class _ProviderFailure(Exception):
+    """Internal signal that a provider call failed after safe reporting."""
+
+
+def _provider_call(stage: str, call):
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+            io.StringIO()
+        ):
+            return call()
+    except Exception as exc:
+        exception_type = (
+            type(exc).__name__
+            if type(exc).__module__ == "builtins"
+            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", type(exc).__name__)
+            else "Exception"
+        )
+        print(
+            json.dumps(
+                {
+                    "error_code": "provider_exception",
+                    "exception_type": exception_type,
+                    "stage": stage,
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        raise _ProviderFailure from None
 
 
 def _count(row: Mapping[str, Any]) -> int:
@@ -107,47 +141,63 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    repository_root = str(Path(__file__).resolve().parents[1])
-    if repository_root not in sys.path:
-        sys.path.insert(0, repository_root)
-    from market_feature_store.sources import fupanhui_source as fs
+    args.output.unlink(missing_ok=True)
+    if provider is None:
+        repository_root = str(Path(__file__).resolve().parents[1])
+        if repository_root not in sys.path:
+            sys.path.insert(0, repository_root)
+        from market_feature_store.sources import fupanhui_source as provider
 
-    sectors = fs.list_sectors(trade_date=args.trade_date)
-    individual_probes: list[dict[str, Any]] = []
-    for sector in select_probe_sectors(sectors):
-        started = time.perf_counter()
-        payload = fs.get_sector_stocks(str(sector["ts_code"]), trade_date=args.trade_date)
-        elapsed = time.perf_counter() - started
-        actual_codes = {
-            str(stock["ts_code"])
-            for stock in payload.get("stocks", [])
-            if stock.get("ts_code")
-        }
-        declared = _count(sector)
-        actual = len(actual_codes)
-        individual_probes.append(
-            {
-                "code": str(sector["ts_code"]),
-                "name": str(sector.get("name") or ""),
-                "declared": declared,
-                "actual": actual,
-                "elapsed_seconds": round(elapsed, 3),
-                "count_matches": declared == actual,
+    try:
+        sectors = _provider_call(
+            "list_sectors",
+            lambda: provider.list_sectors(trade_date=args.trade_date),
+        )
+        individual_probes: list[dict[str, Any]] = []
+        for sector in select_probe_sectors(sectors):
+            started = time.perf_counter()
+            payload = _provider_call(
+                "individual_probe",
+                lambda: provider.get_sector_stocks(
+                    str(sector["ts_code"]), trade_date=args.trade_date
+                ),
+            )
+            elapsed = time.perf_counter() - started
+            actual_codes = {
+                str(stock["ts_code"])
+                for stock in payload.get("stocks", [])
+                if stock.get("ts_code")
             }
-        )
+            declared = _count(sector)
+            actual = len(actual_codes)
+            individual_probes.append(
+                {
+                    "code": str(sector["ts_code"]),
+                    "name": str(sector.get("name") or ""),
+                    "declared": declared,
+                    "actual": actual,
+                    "elapsed_seconds": round(elapsed, 3),
+                    "count_matches": declared == actual,
+                }
+            )
 
-    batch_observations: list[float] = []
-    for batch in select_probe_batches(sectors, args.batch_size):
-        started = time.perf_counter()
-        fs.get_sector_stocks_batch(
-            list(batch),
-            trade_date=args.trade_date,
-            batch=args.batch_size,
-        )
-        elapsed = time.perf_counter() - started
-        batch_observations.append(elapsed)
+        batch_observations: list[float] = []
+        for batch in select_probe_batches(sectors, args.batch_size):
+            started = time.perf_counter()
+            _provider_call(
+                "batch_probe",
+                lambda: provider.get_sector_stocks_batch(
+                    list(batch),
+                    trade_date=args.trade_date,
+                    batch=args.batch_size,
+                ),
+            )
+            elapsed = time.perf_counter() - started
+            batch_observations.append(elapsed)
+    except _ProviderFailure:
+        return 3
 
     projection = project_wall_clock(
         sector_count=len(sectors),
