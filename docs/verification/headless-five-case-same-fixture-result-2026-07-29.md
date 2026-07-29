@@ -1,7 +1,8 @@
 # Same-Fixture Five-Case Headless Result
 
 Date: 2026-07-29
-Status: attempt 1 invalid; retry 1 invalid; retry 2 preregistered
+Status: attempt 1 invalid; retry 1 invalid; retry 2 operationally valid but not
+quality-passable; measurement line frozen after bounded projection repair
 
 ## Attempt 1
 
@@ -90,3 +91,46 @@ validator rejects it.
 Focused regression: `105 passed, 1 skipped`; Ruff and `git diff --check`
 passed. Questions, fixture, provider, tool surface, budgets, verifier, acceptance
 rules, and numeric fail-closed validation are unchanged.
+
+## Retry 2 Result
+
+- Source revision: `5ed978b494713f8a9ef2fe0b706858dba68c67c9`
+- Artifact: `/Users/a77/.finance-runtime/evals/headless-five-case-same-fixture-d-retry2-2026-07-29.json`
+- Artifact SHA-256: `d5efca58e0277c5b2eaa2b3a33c4625b242702dd178adf6b19cbf9bef07f5995`
+- Fixture manifest: `7f689bb57a36737070431d7f5bd4fa43a59a190070ebb0e3fc194ea1a5cd7b1c`
+- Provider identity: `9eeb1747acbddec586134c4439a3505e3c33d9fe7deace92c21b67002ed2a35f`
+- Budget validity: `exercised`
+- Maximum observed tool calls: 8, above the preregistered minimum of 7
+
+The budget arm was physically exercised. `ruihuatai-valuation` returned a
+truthful degraded evidence-gap answer, and `unfamiliar-methodology` completed.
+`rebound-duration`, `weekly-market-cause`, and `current-mainline` still became
+runner failures at the public numeric-lineage boundary. They are not answer
+quality failures and must not be scored as 0/5.
+
+The private rebound diagnostic showed four equivalent-expression misses:
+
+- `第3天` versus `阶段天数=3`;
+- Chinese month/day text versus an ISO date;
+- `跌1.61%` versus `-1.61%`;
+- `缩减11.44%` versus `-11.44%`.
+
+Commit `c35740e62439e3225f81d2b02d6f9a7dafa65fe8` adds canonical lineage tokens
+for those expressions while preserving direction, and changes the runner
+projection from an exception into a fail-closed degraded answer. The
+`RuntimeArmResult` invariant remains unchanged: no public material numeric claim
+may lack a source. Offline replay binds C4/C6/C7/C9 and leaves no material
+numeric claim unbound. Final focused regression: `87 passed, 1 skipped`; Ruff
+and `git diff --check` passed.
+
+## Retry 3 Freeze And Product-Priority Boundary
+
+Retry 3 was not run. The provider-only config used by Retry 2 was subsequently
+rewritten by the Codex app. The currently stored Keychain credential has a
+different credential-instance hash and a different endpoint; substituting it
+would change an experimental input. No new dry-run or live output was created.
+
+The five-case line is now frozen. A future Retry 3 is allowed only if the exact
+frozen provider identity can be reproduced; it is not a release blocker. The
+product-critical path is data readiness, a clean candidate canary, canonical
+cutover approval, and the real 10-trading-day self-use ledger.
