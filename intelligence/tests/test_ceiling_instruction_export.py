@@ -170,3 +170,66 @@ def test_instruction_export_audit_recomputes_leak_scan_self_hash(
 
     assert audit.status == "invalid"
     assert "deterministic_scan_self_hash_mismatch" in audit.issues
+
+
+def test_instruction_export_excludes_contaminated_files_and_binds_exceptions(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    services = repo / "intelligence" / "services"
+    services.mkdir(parents=True)
+    (services / "clean.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (services / "leaked.py").write_text(
+        "FROZEN_REFERENCE_ANSWER\n",
+        encoding="utf-8",
+    )
+    (services / "generic.py").write_text("来源可追溯\n", encoding="utf-8")
+    revision = _commit_repo(repo)
+    corpus = ForbiddenCorpus(
+        (
+            ForbiddenText(
+                source_id="reference:1",
+                kind="reference_answer",
+                text="FROZEN_REFERENCE_ANSWER",
+            ),
+            ForbiddenText(
+                source_id="expected:source",
+                kind="expected_fact",
+                text="来源",
+            ),
+        )
+    )
+
+    receipt = build_instruction_export(
+        source_repo=repo,
+        source_revision=revision,
+        output_root=tmp_path / "exports",
+        corpus=corpus,
+        generic_exception_source_ids=("expected:source",),
+    )
+
+    assert (receipt.instruction_root / "intelligence/services/clean.py").is_file()
+    assert (receipt.instruction_root / "intelligence/services/generic.py").is_file()
+    assert not (
+        receipt.instruction_root / "intelligence/services/leaked.py"
+    ).exists()
+    filter_receipt = json.loads(
+        (
+            receipt.component_root / "control" / "contamination-filter.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert [item["path"] for item in filter_receipt["excluded_files"]] == [
+        "intelligence/services/leaked.py"
+    ]
+    exception_receipt = json.loads(
+        (
+            receipt.component_root / "control" / "generic-leak-exceptions.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert [item["source_id"] for item in exception_receipt["exceptions"]] == [
+        "expected:source"
+    ]
+    assert audit_instruction_export(
+        receipt.component_root,
+        expected_manifest_sha256=receipt.manifest_sha256,
+    ).status == "valid"

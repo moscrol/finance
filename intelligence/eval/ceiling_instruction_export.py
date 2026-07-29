@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 import hashlib
 import json
@@ -40,8 +41,8 @@ NEUTRAL_AGENTS = """# Sealed Finance Research Instructions
 - Treat the supplied as_of date as an immutable point-in-time cutoff.
 - Use the local finance-tool command for financial and knowledge evidence.
 - Do not access external web, apps, plugins, MCP, browser, or other agents.
-- Give a direct Chinese answer with evidence, uncertainty, continuation conditions,
-  and invalidation conditions when relevant.
+- Give a direct Chinese answer with evidence and uncertainty. Explain what new
+  evidence would justify continuing and what would invalidate the conclusion.
 - If evidence is unavailable, report the precise gap instead of guessing.
 """
 
@@ -123,6 +124,12 @@ def _manifest_payload(value: dict[str, object]) -> dict[str, object]:
     return payload
 
 
+def _receipt_payload(value: dict[str, object], hash_field: str) -> dict[str, object]:
+    payload = dict(value)
+    payload.pop(hash_field, None)
+    return payload
+
+
 @dataclass(frozen=True)
 class InstructionExportAudit:
     status: Literal["valid", "invalid"]
@@ -168,6 +175,11 @@ def _load_scan(value: object) -> LeakScanResult:
             for item in value.get("semantic_candidates", ())
             if isinstance(item, dict)
         ),
+        generic_exception_source_ids=tuple(
+            str(item)
+            for item in value.get("generic_exception_source_ids", ())
+            if str(item).strip()
+        ),
         scan_sha256=str(value.get("scan_sha256") or ""),
     )
 
@@ -211,6 +223,16 @@ def audit_instruction_export(
                 encoding="utf-8"
             )
         )
+        exception_value = json.loads(
+            (root / "control" / "generic-leak-exceptions.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        filter_value = json.loads(
+            (root / "control" / "contamination-filter.json").read_text(
+                encoding="utf-8"
+            )
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return InstructionExportAudit("invalid", ("control_receipt_unreadable",))
     manifest_sha = str(manifest.get("manifest_sha256") or "")
@@ -227,6 +249,47 @@ def audit_instruction_export(
         issues.append("deterministic_scan_self_hash_mismatch")
     if scan.scan_sha256 != manifest.get("deterministic_scan_sha256"):
         issues.append("deterministic_scan_hash_mismatch")
+    if not isinstance(exception_value, dict):
+        issues.append("generic_exception_receipt_invalid")
+        exception_value = {}
+    exception_sha = str(exception_value.get("manifest_sha256") or "")
+    if exception_sha != _canonical_sha(
+        _receipt_payload(exception_value, "manifest_sha256")
+    ):
+        issues.append("generic_exception_self_hash_mismatch")
+    if exception_sha != manifest.get("generic_exception_manifest_sha256"):
+        issues.append("generic_exception_manifest_hash_mismatch")
+    exception_entries = exception_value.get("exceptions")
+    exception_ids = tuple(
+        str(item.get("source_id") or "")
+        for item in exception_entries
+        if isinstance(item, dict)
+    ) if isinstance(exception_entries, list) else ()
+    if tuple(sorted(exception_ids)) != tuple(sorted(scan.generic_exception_source_ids)):
+        issues.append("generic_exception_scan_mismatch")
+    if not isinstance(filter_value, dict):
+        issues.append("contamination_filter_receipt_invalid")
+        filter_value = {}
+    filter_sha = str(filter_value.get("filter_sha256") or "")
+    if filter_sha != _canonical_sha(_receipt_payload(filter_value, "filter_sha256")):
+        issues.append("contamination_filter_self_hash_mismatch")
+    if filter_sha != manifest.get("contamination_filter_sha256"):
+        issues.append("contamination_filter_hash_mismatch")
+    excluded_entries = filter_value.get("excluded_files")
+    if not isinstance(excluded_entries, list):
+        issues.append("contamination_filter_exclusions_invalid")
+        excluded_entries = []
+    if len(excluded_entries) != int(
+        manifest.get("excluded_contaminated_file_count") or 0
+    ):
+        issues.append("contamination_filter_count_mismatch")
+    for entry in excluded_entries:
+        if not isinstance(entry, dict):
+            issues.append("contamination_filter_entry_invalid")
+            continue
+        relative = str(entry.get("path") or "")
+        if relative and (root / "instruction" / relative).exists():
+            issues.append(f"contaminated_file_present:{relative}")
     instruction = root / "instruction"
     if (instruction / ".git").exists():
         issues.append("git_directory_present")
@@ -270,6 +333,7 @@ def build_instruction_export(
     source_revision: str,
     output_root: str | Path,
     corpus: ForbiddenCorpus,
+    generic_exception_source_ids: Sequence[str] = (),
 ) -> InstructionExportReceipt:
     """Export an immutable, leak-scanned instruction tree from one Git commit."""
 
@@ -290,6 +354,9 @@ def build_instruction_export(
             NEUTRAL_AGENTS.encode("utf-8")
         ).hexdigest(),
         "forbidden_corpus_sha256": corpus_sha,
+        "generic_exception_source_ids": sorted(
+            {str(item).strip() for item in generic_exception_source_ids if str(item).strip()}
+        ),
     }
     component_id = _canonical_sha(input_payload)[:16]
     parent = Path(output_root).resolve()
@@ -336,7 +403,81 @@ def build_instruction_export(
             file_modes[relative] = file_mode
         _write_once(instruction / "AGENTS.md", NEUTRAL_AGENTS.encode("utf-8"), 0o444)
         file_modes["AGENTS.md"] = 0o444
-        leak_scan = scan_export(instruction, corpus)
+        initial_scan = scan_export(
+            instruction,
+            corpus,
+            generic_exception_source_ids=generic_exception_source_ids,
+        )
+        corpus_by_id = {item.source_id: item for item in corpus.entries}
+        exception_entries = []
+        for source_id in initial_scan.generic_exception_source_ids:
+            item = corpus_by_id[source_id]
+            exception_entries.append(
+                {
+                    "source_id": item.source_id,
+                    "kind": item.kind,
+                    "text": item.text,
+                    "text_sha256": hashlib.sha256(
+                        item.text.encode("utf-8")
+                    ).hexdigest(),
+                    "reason": "reviewed generic production term below n-gram thresholds",
+                }
+            )
+        exception_receipt: dict[str, object] = {
+            "schema_version": 1,
+            "exceptions": exception_entries,
+        }
+        exception_receipt["manifest_sha256"] = _canonical_sha(exception_receipt)
+        _write_once(
+            control / "generic-leak-exceptions.json",
+            (
+                json.dumps(exception_receipt, ensure_ascii=False, indent=2) + "\n"
+            ).encode("utf-8"),
+            0o600,
+        )
+        findings_by_path: dict[str, list[object]] = {}
+        for finding in initial_scan.findings:
+            findings_by_path.setdefault(finding.relative_path, []).append(finding)
+        if "AGENTS.md" in findings_by_path:
+            raise ValueError("neutral AGENTS instructions contain forbidden evaluation text")
+        excluded_files = []
+        for relative, findings in sorted(findings_by_path.items()):
+            path = instruction / relative
+            if not path.is_file() or path.is_symlink():
+                raise ValueError("contaminated instruction path is not a regular file")
+            excluded_files.append(
+                {
+                    "path": relative,
+                    "bytes": path.stat().st_size,
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "source_ids": sorted(
+                        {str(item.source_id) for item in findings}
+                    ),
+                    "rules": sorted({str(item.rule) for item in findings}),
+                }
+            )
+            path.chmod(0o600)
+            path.unlink()
+            file_modes.pop(relative, None)
+        filter_receipt: dict[str, object] = {
+            "schema_version": 1,
+            "initial_scan_sha256": initial_scan.scan_sha256,
+            "initial_finding_count": len(initial_scan.findings),
+            "excluded_files": excluded_files,
+        }
+        filter_receipt["filter_sha256"] = _canonical_sha(filter_receipt)
+        _write_once(
+            control / "contamination-filter.json",
+            (json.dumps(filter_receipt, ensure_ascii=False, indent=2) + "\n").encode(
+                "utf-8"
+            ),
+            0o600,
+        )
+        leak_scan = scan_export(
+            instruction,
+            corpus,
+            generic_exception_source_ids=initial_scan.generic_exception_source_ids,
+        )
         scan_payload = leak_scan.to_dict()
         _write_once(
             control / "deterministic-leak-scan.json",
@@ -365,6 +506,11 @@ def build_instruction_export(
             "file_count": len(files),
             "files": files,
             "deterministic_scan_sha256": leak_scan.scan_sha256,
+            "generic_exception_manifest_sha256": exception_receipt[
+                "manifest_sha256"
+            ],
+            "contamination_filter_sha256": filter_receipt["filter_sha256"],
+            "excluded_contaminated_file_count": len(excluded_files),
         }
         manifest["manifest_sha256"] = _canonical_sha(manifest)
         _write_once(

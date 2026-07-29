@@ -188,6 +188,39 @@ def test_scan_rejects_missing_or_empty_export_root(
         scan_export(export, corpus)
 
 
+def test_scan_allows_only_short_generic_reviewed_exceptions(tmp_path) -> None:
+    export = tmp_path / "export"
+    export.mkdir()
+    (export / "production.md").write_text("数据来源需要保留。", encoding="utf-8")
+    generic = ForbiddenText(
+        source_id="expected_fact:source",
+        kind="expected_fact",
+        text="来源",
+    )
+    question = ForbiddenText(
+        source_id="question:source",
+        kind="question",
+        text="数据来源需要保留",
+    )
+    corpus = ForbiddenCorpus((generic, question))
+
+    with pytest.raises(ValueError, match="protected leak kind"):
+        scan_export(
+            export,
+            corpus,
+            generic_exception_source_ids=(question.source_id,),
+        )
+
+    result = scan_export(
+        export,
+        ForbiddenCorpus((generic,)),
+        generic_exception_source_ids=(generic.source_id,),
+    )
+
+    assert result.status == "passed"
+    assert result.generic_exception_source_ids == (generic.source_id,)
+
+
 def test_semantic_receipt_binds_export_scan_model_and_reviewer() -> None:
     receipt = SemanticLeakReceipt.create(
         export_manifest_sha256="a" * 64,

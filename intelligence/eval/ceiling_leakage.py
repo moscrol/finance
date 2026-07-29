@@ -38,6 +38,16 @@ _TOKEN_NGRAM = 6
 _JACCARD_THRESHOLD = 0.80
 _SEMANTIC_CANDIDATE_THRESHOLD = 0.15
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
+_PROTECTED_EXCEPTION_KINDS = frozenset(
+    {
+        "question",
+        "conversation_context",
+        "required_output",
+        "reference_answer",
+        "prior_answer",
+        "post_cutoff_result",
+    }
+)
 
 
 def normalize_char_stream(text: str) -> str:
@@ -196,6 +206,7 @@ class LeakScanResult:
     files_scanned: int
     findings: tuple[LeakFinding, ...]
     semantic_candidates: tuple[SemanticLeakCandidate, ...]
+    generic_exception_source_ids: tuple[str, ...]
     scan_sha256: str
 
     def to_dict(self) -> dict[str, object]:
@@ -206,6 +217,9 @@ class LeakScanResult:
             "semantic_candidates": [
                 item.to_dict() for item in self.semantic_candidates
             ],
+            "generic_exception_source_ids": list(
+                self.generic_exception_source_ids
+            ),
             "scan_sha256": self.scan_sha256,
         }
 
@@ -230,7 +244,34 @@ def _match_rule(
     return None, score
 
 
-def scan_export(root: str | Path, corpus: ForbiddenCorpus) -> LeakScanResult:
+def _validated_generic_exception_ids(
+    corpus: ForbiddenCorpus,
+    source_ids: Sequence[str],
+) -> tuple[str, ...]:
+    requested = tuple(dict.fromkeys(str(item).strip() for item in source_ids if str(item).strip()))
+    entries = {item.source_id: item for item in corpus.entries}
+    for source_id in requested:
+        forbidden = entries.get(source_id)
+        if forbidden is None:
+            raise ValueError(f"unknown generic leak exception: {source_id}")
+        if forbidden.kind in _PROTECTED_EXCEPTION_KINDS:
+            raise ValueError(
+                f"protected leak kind cannot be excepted: {forbidden.kind}"
+            )
+        if (
+            len(normalize_char_stream(forbidden.text)) >= _CHAR_NGRAM
+            or len(tokenize(forbidden.text)) >= _TOKEN_NGRAM
+        ):
+            raise ValueError("generic leak exception must be shorter than n-gram thresholds")
+    return tuple(sorted(requested))
+
+
+def scan_export(
+    root: str | Path,
+    corpus: ForbiddenCorpus,
+    *,
+    generic_exception_source_ids: Sequence[str] = (),
+) -> LeakScanResult:
     """Scan regular UTF-8 export files against the frozen forbidden corpus."""
 
     requested_root = Path(root)
@@ -244,7 +285,15 @@ def scan_export(root: str | Path, corpus: ForbiddenCorpus) -> LeakScanResult:
     findings: list[LeakFinding] = []
     semantic_candidates: list[SemanticLeakCandidate] = []
     files_scanned = 0
-    prepared_corpus = tuple(_prepare_forbidden_text(item) for item in corpus.entries)
+    exception_ids = _validated_generic_exception_ids(
+        corpus,
+        generic_exception_source_ids,
+    )
+    prepared_corpus = tuple(
+        _prepare_forbidden_text(item)
+        for item in corpus.entries
+        if item.source_id not in exception_ids
+    )
     for path in sorted(export_root.rglob("*")):
         relative = path.relative_to(export_root).as_posix()
         if path.is_symlink() or (path.exists() and not path.is_file()):
@@ -337,12 +386,14 @@ def scan_export(root: str | Path, corpus: ForbiddenCorpus) -> LeakScanResult:
         "files_scanned": files_scanned,
         "findings": [item.to_dict() for item in deduped_findings],
         "semantic_candidates": [item.to_dict() for item in deduped_candidates],
+        "generic_exception_source_ids": list(exception_ids),
     }
     return LeakScanResult(
         status=payload["status"],
         files_scanned=files_scanned,
         findings=deduped_findings,
         semantic_candidates=deduped_candidates,
+        generic_exception_source_ids=exception_ids,
         scan_sha256=_sha256_json(payload),
     )
 

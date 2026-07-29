@@ -154,6 +154,8 @@ Record source revision, allow/exclude lists, neutral instruction hash, file coun
 
 Prove no `.git`, all entries are regular files, every file has `st_nlink == 1`, mutation invalidates audit, and a different manifest cannot overwrite an existing destination.
 
+Real-corpus hardening keeps a hash-bound manifest of reviewed generic finance terms that are shorter than both frozen n-gram thresholds. Protected question/reference/required-output/prior/post-cutoff material can never enter that manifest. Any candidate file with a remaining deterministic finding is removed as a whole and recorded in a separate contamination-filter receipt; the generated neutral `AGENTS.md` remains non-exceptable and fail-closed.
+
 - [x] **Step 6: Run GREEN and commit**
 
 Run:
