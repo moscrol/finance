@@ -9,11 +9,13 @@ from intelligence.eval.ceiling_leakage import (
     ForbiddenCorpus,
     ForbiddenText,
     SemanticLeakReceipt,
+    build_leak_diagnostic,
     build_forbidden_corpus,
     normalize_char_stream,
     scan_export,
     tokenize,
     validate_semantic_receipt,
+    validate_leak_diagnostic,
 )
 
 
@@ -225,6 +227,66 @@ def test_scan_allows_only_short_generic_reviewed_exceptions(tmp_path) -> None:
 
     assert result.status == "passed"
     assert result.generic_exception_source_ids == (generic.source_id,)
+
+
+def test_leak_diagnostic_groups_kind_length_rule_and_file(tmp_path) -> None:
+    export = tmp_path / "export"
+    export.mkdir()
+    (export / "runtime.md").write_text(
+        "当前主线需要说明来源。\n",
+        encoding="utf-8",
+    )
+    corpus = ForbiddenCorpus(
+        (
+            ForbiddenText(
+                source_id="direct_target:mainline:1",
+                kind="direct_target",
+                text="当前主线",
+            ),
+            ForbiddenText(
+                source_id="expected_fact:source:2",
+                kind="expected_fact",
+                text="来源",
+            ),
+        )
+    )
+    scan = scan_export(export, corpus)
+
+    receipt = build_leak_diagnostic(scan, corpus)
+
+    assert receipt.finding_count == 2
+    assert [bucket.to_dict() for bucket in receipt.buckets] == [
+        {
+            "kind": "direct_target",
+            "forbidden_char_length": 4,
+            "forbidden_token_length": 4,
+            "rule": "full_normalized_match",
+            "relative_path": "runtime.md",
+            "finding_count": 1,
+            "source_ids": ["direct_target:mainline:1"],
+        },
+        {
+            "kind": "expected_fact",
+            "forbidden_char_length": 2,
+            "forbidden_token_length": 2,
+            "rule": "full_normalized_match",
+            "relative_path": "runtime.md",
+            "finding_count": 1,
+            "source_ids": ["expected_fact:source:2"],
+        },
+    ]
+    assert validate_leak_diagnostic(
+        receipt.to_dict(),
+        expected_scan_sha256=scan.scan_sha256,
+    ) == receipt
+
+    tampered = receipt.to_dict()
+    tampered["finding_count"] = 3
+    with pytest.raises(ValueError, match="self hash"):
+        validate_leak_diagnostic(
+            tampered,
+            expected_scan_sha256=scan.scan_sha256,
+        )
 
 
 def test_semantic_receipt_binds_export_scan_model_and_reviewer() -> None:

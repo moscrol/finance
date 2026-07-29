@@ -16,7 +16,9 @@ from typing import Literal
 from intelligence.eval.ceiling_leakage import (
     ForbiddenCorpus,
     LeakScanResult,
+    build_leak_diagnostic,
     scan_export,
+    validate_leak_diagnostic,
 )
 
 
@@ -235,6 +237,11 @@ def audit_instruction_export(
                 encoding="utf-8"
             )
         )
+        diagnostic_value = json.loads(
+            (root / "control" / "leak-diagnostic.json").read_text(
+                encoding="utf-8"
+            )
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return InstructionExportAudit("invalid", ("control_receipt_unreadable",))
     manifest_sha = str(manifest.get("manifest_sha256") or "")
@@ -269,6 +276,18 @@ def audit_instruction_export(
     ) if isinstance(exception_entries, list) else ()
     if tuple(sorted(exception_ids)) != tuple(sorted(scan.generic_exception_source_ids)):
         issues.append("generic_exception_scan_mismatch")
+    try:
+        diagnostic = validate_leak_diagnostic(
+            diagnostic_value,
+            expected_scan_sha256=scan.scan_sha256,
+        )
+    except ValueError:
+        issues.append("leak_diagnostic_invalid")
+    else:
+        if diagnostic.diagnostic_sha256 != manifest.get(
+            "leak_diagnostic_sha256"
+        ):
+            issues.append("leak_diagnostic_hash_mismatch")
     instruction = root / "instruction"
     if (instruction / ".git").exists():
         issues.append("git_directory_present")
@@ -441,12 +460,21 @@ def build_instruction_export(
             0o600,
         )
         leak_scan = initial_scan
+        diagnostic = build_leak_diagnostic(leak_scan, corpus)
         scan_payload = leak_scan.to_dict()
         _write_once(
             control / "deterministic-leak-scan.json",
             (json.dumps(scan_payload, ensure_ascii=False, indent=2) + "\n").encode(
                 "utf-8"
             ),
+            0o600,
+        )
+        _write_once(
+            control / "leak-diagnostic.json",
+            (
+                json.dumps(diagnostic.to_dict(), ensure_ascii=False, indent=2)
+                + "\n"
+            ).encode("utf-8"),
             0o600,
         )
         if leak_scan.status != "passed":
@@ -469,6 +497,7 @@ def build_instruction_export(
             "file_count": len(files),
             "files": files,
             "deterministic_scan_sha256": leak_scan.scan_sha256,
+            "leak_diagnostic_sha256": diagnostic.diagnostic_sha256,
             "generic_exception_manifest_sha256": exception_receipt[
                 "manifest_sha256"
             ],
