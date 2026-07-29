@@ -552,6 +552,12 @@ def _dynamic_target_candidates(
             return _StaticValue(str(left.value) + str(right.value), left.positions + right.positions)
         if isinstance(current, ast.BinOp) and isinstance(current.op, ast.Mod):
             left = collect(current.left)
+            marker = str(left.value).find("%")
+            if marker >= 0:
+                return _StaticValue(
+                    str(left.value)[:marker] + _DYNAMIC_HOLE + str(left.value)[marker + 2 :],
+                    left.positions[:marker] + (None,) + left.positions[marker + 2 :],
+                )
             return _StaticValue(str(left.value) + _DYNAMIC_HOLE, left.positions + (None,))
         if isinstance(current, ast.JoinedStr):
             values = (
@@ -590,15 +596,6 @@ def _dynamic_target_candidates(
     value = collect(node)
     candidates: list[tuple[str, tuple[int, int] | None]] = []
 
-    def is_dynamic_boundary(end: int) -> bool:
-        if end == len(str(value.value)) or value.value[end] != _DYNAMIC_HOLE:
-            return True
-        next_literal = next(
-            (character for character in value.value[end + 1 :] if character != _DYNAMIC_HOLE),
-            "",
-        )
-        return not next_literal or not re.fullmatch(_IDENTIFIER_BOUNDARY, next_literal)
-
     def is_one_literal(start: int, end: int) -> bool:
         positions = value.positions[start:end]
         return all(
@@ -609,19 +606,33 @@ def _dynamic_target_candidates(
             for left, right in zip(positions, positions[1:])
         )
 
+    text = str(value.value)
     for table in TARGET_TABLES:
-        candidates.extend(
-            (table, value.positions[match.start()])
-            for match in _identifier_pattern(table).finditer(value.value)
-            if is_dynamic_boundary(match.end())
-            and not is_one_literal(match.start(), match.end())
-        )
-    for match in _identifier_pattern(TARGET_PREFIX).finditer(value.value):
-        if is_dynamic_boundary(match.end()):
-            candidates.extend(
-                (table, value.positions[match.start()]) for table in TARGET_TABLES
-            )
-    return tuple(candidates)
+        for start, character in enumerate(text):
+            if character != "f":
+                continue
+            if start and re.fullmatch(_IDENTIFIER_BOUNDARY, text[start - 1]):
+                continue
+            literal_width = 0
+            for end in range(start + 1, len(text) + 1):
+                if text[end - 1] != _DYNAMIC_HOLE:
+                    literal_width += 1
+                if literal_width > len(table):
+                    break
+                if end < len(text) and re.fullmatch(_IDENTIFIER_BOUNDARY, text[end]):
+                    continue
+                pattern = re.escape(text[start:end]).replace(
+                    _DYNAMIC_HOLE, rf"{_IDENTIFIER_BOUNDARY}*"
+                )
+                if re.fullmatch(pattern, table) and not is_one_literal(start, end):
+                    candidates.append((table, value.positions[start]))
+    unique = tuple(dict.fromkeys(candidates))
+    return tuple(
+        candidate
+        for candidate in unique
+        if candidate[1] is not None
+        or not any(table == candidate[0] and location is not None for table, location in unique)
+    )
 
 
 def _dynamic_candidate_nodes(

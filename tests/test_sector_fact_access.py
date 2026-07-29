@@ -425,6 +425,29 @@ def test_inventory_preserves_nested_dynamic_sector_candidates(tmp_path) -> None:
     ]
 
 
+def test_inventory_matches_dynamic_holes_inside_sector_identifiers(tmp_path) -> None:
+    (tmp_path / "fstring.py").write_text(
+        'SQL = f"SELECT * FROM fact_sector_{kind}_daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "format.py").write_text(
+        'SQL = "SELECT * FROM fact_sector_{}_daily".format(kind)\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "concat.py").write_text(
+        'SQL = "fact_" + f"sector_{kind}_daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [(record.path, record.table, record.mode) for record in records] == [
+        ("concat.py", "fact_sector_stock_daily", "unknown"),
+        ("format.py", "fact_sector_stock_daily", "unknown"),
+        ("fstring.py", "fact_sector_stock_daily", "unknown"),
+    ]
+
+
 def test_inventory_preserves_reused_static_format_occurrences(tmp_path) -> None:
     (tmp_path / "reused.py").write_text(
         'SQL = "SELECT * FROM {0} a JOIN {0} b".format("fact_sector_daily")\n',
