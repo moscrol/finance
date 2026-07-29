@@ -80,6 +80,9 @@ _PUBLICATION_DATE_KEYS = frozenset(
 _PUBLICATION_DATE_VALUE = re.compile(
     r"(?<!\d)(\d{4}(?:-\d{2}-\d{2}|\d{4}))(?!\d)"
 )
+_CHINESE_PUBLICATION_DATE_VALUE = re.compile(
+    r"(?<!\d)(\d{4})年(\d{1,2})月(\d{1,2})日(?!\d)"
+)
 _CHINESE_PUBLICATION_LINE = re.compile(
     r"^\s*(?:发布日期|发布时间|报告日期)\s*[：:]\s*(.+?)\s*$"
 )
@@ -389,15 +392,23 @@ def _publication_dates(relative: str, data: bytes) -> tuple[date, ...]:
         if candidate is None:
             continue
         match = _PUBLICATION_DATE_VALUE.search(candidate)
-        if match is None:
-            raise ValueError(f"malformed Wiki publication date: {relative}")
-        raw_date = match.group(1)
         try:
-            parsed = (
-                date.fromisoformat(raw_date)
-                if "-" in raw_date
-                else datetime.strptime(raw_date, "%Y%m%d").date()
-            )
+            if match is not None:
+                raw_date = match.group(1)
+                parsed = (
+                    date.fromisoformat(raw_date)
+                    if "-" in raw_date
+                    else datetime.strptime(raw_date, "%Y%m%d").date()
+                )
+            else:
+                chinese_date = _CHINESE_PUBLICATION_DATE_VALUE.search(candidate)
+                if chinese_date is None:
+                    raise ValueError
+                parsed = date(
+                    int(chinese_date.group(1)),
+                    int(chinese_date.group(2)),
+                    int(chinese_date.group(3)),
+                )
         except ValueError as exc:
             raise ValueError(f"malformed Wiki publication date: {relative}") from exc
         values.append(parsed)

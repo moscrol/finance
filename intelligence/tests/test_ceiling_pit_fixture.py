@@ -494,6 +494,24 @@ def test_cutoff_wiki_export_rejects_post_cutoff_publication_metadata(
         export_cutoff_wiki(repo, tmp_path / "export", as_of=AS_OF)
 
 
+def test_cutoff_wiki_export_parses_chinese_publication_dates(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "kb"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _commit_file(
+        repo,
+        "wiki/raw/sellside/historical.md",
+        "发布时间：2026年3月31日\nHistorical report.\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+
+    receipt = export_cutoff_wiki(repo, tmp_path / "export", as_of=AS_OF)
+
+    assert (receipt.wiki_root / "raw/sellside/historical.md").is_file()
+
+
 def test_true_hybrid_build_seals_fresh_content_bound_index(tmp_path: Path) -> None:
     kb = tmp_path / "kb"
     kb.mkdir()
