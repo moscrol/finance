@@ -1005,8 +1005,7 @@ def probe_sealed_isolation(
     working_directory = Path(cwd).resolve()
     if not binary or not working_directory.is_dir():
         raise ValueError("invalid isolation probe inputs")
-    probe_home = working_directory / ".codex-isolation-probe"
-    probe_home.mkdir(mode=0o700)
+    probe_home = Path(tempfile.mkdtemp(prefix="codex-isolation-probe-"))
     live_root = Path(__file__).resolve().parents[2] / "AGENTS.md"
     probe_script = """import json
 from pathlib import Path
@@ -1072,24 +1071,27 @@ print(json.dumps(results, sort_keys=True))
     env["CODEX_HOME"] = str(probe_home)
     env.pop("OPENAI_API_KEY", None)
     env.pop(_HEADLESS_PROVIDER_ENV_KEY, None)
-    version = subprocess.run(
-        (binary, "--version"),
-        cwd=working_directory,
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=10.0,
-    ).stdout.strip()
-    completed = subprocess.run(
-        args,
-        cwd=working_directory,
-        env=env,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10.0,
-    )
+    try:
+        version = subprocess.run(
+            (binary, "--version"),
+            cwd=working_directory,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        ).stdout.strip()
+        completed = subprocess.run(
+            args,
+            cwd=working_directory,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        )
+    finally:
+        shutil.rmtree(probe_home, ignore_errors=True)
     try:
         payload = json.loads(completed.stdout.strip())
     except json.JSONDecodeError:

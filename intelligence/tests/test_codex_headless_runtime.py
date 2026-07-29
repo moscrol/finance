@@ -532,6 +532,7 @@ def test_installed_codex_sandbox_denies_network_and_unix_socket(
     assert receipt.loopback == "denied"
     assert receipt.unix_socket == "denied"
     assert receipt.live_root_read == "denied"
+    assert not (tmp_path / ".codex-isolation-probe").exists()
 
 
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:
