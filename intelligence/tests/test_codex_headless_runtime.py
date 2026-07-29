@@ -425,6 +425,49 @@ def test_sealed_runtime_keeps_provider_secret_parent_only(
     assert all("OPENAI_API_KEY" not in item for item in child_sets)
 
 
+def test_sealed_runtime_materializes_only_sealed_instruction_tree(
+    tmp_path: Path,
+) -> None:
+    instruction = tmp_path / "instruction"
+    skill = instruction / "skills" / "finance"
+    skill.mkdir(parents=True)
+    (instruction / "AGENTS.md").write_text("sealed rules", encoding="utf-8")
+    (skill / "SKILL.md").write_text("sealed skill", encoding="utf-8")
+    observed: dict[str, object] = {}
+    delegate = ValidFakeCodex()
+
+    def runner(command: HeadlessCommand) -> HeadlessProcessResult:
+        observed["agents"] = (command.cwd / "AGENTS.md").read_text(encoding="utf-8")
+        observed["skill"] = (
+            command.cwd / "skills" / "finance" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        observed["agents_mode"] = (command.cwd / "AGENTS.md").stat().st_mode & 0o777
+        return delegate(command)
+
+    outcome = CodexHeadlessRuntime(
+        command_runner=runner,
+        model="gpt-5.6-sol",
+        sealed_fixture=True,
+        instruction_root=instruction,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt.proven_for_test(),
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    assert observed == {
+        "agents": "sealed rules",
+        "skill": "sealed skill",
+        "agents_mode": 0o444,
+    }
+    runtime_event = next(
+        event for event in outcome.events if event.kind == "runtime_result"
+    )
+    assert runtime_event.payload["isolation"]["status"] == "proven"
+    assert len(runtime_event.payload["mailbox_exchanges"]) == 1
+
+
 def test_headless_environment_rejects_secret_child_allowlist() -> None:
     with pytest.raises(ValueError, match="secret-bearing"):
         HeadlessEnvironment(

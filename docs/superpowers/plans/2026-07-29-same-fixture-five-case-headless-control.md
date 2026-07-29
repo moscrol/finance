@@ -155,23 +155,23 @@ git commit -m "feat: seal benchmark answer projections"
 - Modify: `scripts/run_agent_runtime_benchmark.py`
 - Test: `intelligence/tests/test_run_agent_runtime_benchmark.py`
 
-- [ ] **Step 1: Write fail-closed fixture tests**
+- [x] **Step 1: Write fail-closed fixture tests**
 
 Reject missing receipt, self-hash mismatch, unsealed status, changed instruction/PIT hashes, wrong cutoff, non-subprocess transport, a case subset other than all five, a profile other than D, and source-dirty execution.
 
-- [ ] **Step 2: Add `--ceiling-fixture-receipt`**
+- [x] **Step 2: Add `--ceiling-fixture-receipt`**
 
 The runner reads `/Users/a77/.finance-runtime/app-server-ceiling/2026-07-24/sealed-fixture.json`, resolves the relative fixture directory, revalidates the target manifest, and uses only its finance/Wiki/index/instruction paths.
 
-- [ ] **Step 3: Pin five-case execution and projection hashes**
+- [x] **Step 3: Pin five-case execution and projection hashes**
 
 Require exactly `rebound-duration`, `ruihuatai-valuation`, `weekly-market-cause`, `current-mainline`, and `unfamiliar-methodology`; profile `d_long_expanded`; 180 seconds; model `gpt-5.6-sol`; reasoning medium; external tools disabled. Every case stores the JSON pointer and SHA-256 of its blind `published_answer/claims/sources` projection.
 
-- [ ] **Step 4: Add fixture/tool/projection provenance to the top-level artifact**
+- [x] **Step 4: Add fixture/tool/projection provenance to the top-level artifact**
 
 Record fixture manifest hash, instruction export hash, finance DB hash, Wiki/index hash, tool-surface hash, parent/child environment policy hash, and no-live-root assertion. Never record the API key.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_run_agent_runtime_benchmark.py intelligence/tests/test_runtime_backend_benchmark.py -q

@@ -233,6 +233,46 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertEqual(res.hits, [])
             self.assertTrue(res.telemetry.degraded)
 
+    def test_explicit_runtime_root_index_and_python_are_used(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            runtime = root / "runtime"
+            (runtime / "scripts").mkdir(parents=True)
+            (runtime / "scripts" / "rag_index.py").write_text("# sealed runtime")
+            index = root / "sealed-index"
+            index.mkdir()
+            python = root / "sealed-python"
+            python.write_text("")
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(self._freshness_payload("fresh")),
+                stderr="",
+            )
+
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                result = kb_rag.retrieve(
+                    "光刻机",
+                    root / "wiki",
+                    index_dir=index,
+                    code_root=runtime,
+                    python_executable=python,
+                    worker_enabled=False,
+                )
+
+            self.assertTrue(result.ok)
+            command = run.call_args.args[0]
+            self.assertEqual(command[0], str(python))
+            self.assertEqual(
+                command[1],
+                str(runtime.resolve() / "scripts" / "rag_index.py"),
+            )
+            self.assertEqual(run.call_args.kwargs["cwd"], str(runtime.resolve()))
+            self.assertEqual(
+                run.call_args.kwargs["env"]["KB_VAULT"],
+                str((root / "wiki").resolve()),
+            )
+            self.assertEqual(run.call_args.kwargs["env"]["RAG_INDEX_DIR"], str(index))
+
     def test_mixed_freshness_keeps_only_fresh_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = self._setup_repo(td)

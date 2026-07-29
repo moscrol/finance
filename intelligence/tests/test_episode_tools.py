@@ -202,6 +202,71 @@ def test_sealed_fixture_registry_is_local_only(tmp_path, monkeypatch) -> None:
     )
 
 
+def test_sealed_fixture_registry_uses_explicit_physical_paths(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_cause_frame()
+    context = build_episode_context(
+        frame,
+        task_id="sealed-fixture-physical-paths",
+        capabilities=("kb_search", "market_data"),
+        timeout=30.0,
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    finance_root = tmp_path / "unused-finance-root"
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    market_db = tmp_path / "finance.duckdb"
+    market_db.write_bytes(b"fixture")
+    index = tmp_path / "hybrid-index"
+    index.mkdir()
+    code = tmp_path / "kb-code"
+    (code / "scripts").mkdir(parents=True)
+    python = tmp_path / "rag-python"
+    python.write_text("", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda path, **_kwargs: captured.setdefault("market_db", path)
+        and "2026-07-24",
+    )
+
+    def fake_retrieve(_query, _wiki, **kwargs):
+        captured.update(kwargs)
+        return episode_tools.kb_rag.WikiRagResult()
+
+    monkeypatch.setattr(episode_tools.kb_rag, "retrieve", fake_retrieve)
+
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=finance_root,
+        knowledge_wiki=wiki,
+        fixture_policy=episode_tools.SealedFixturePolicy(
+            market_db_path=market_db,
+            knowledge_index_dir=index,
+            knowledge_code_root=code,
+            knowledge_python=python,
+        ),
+    )
+    registry.execute(
+        "kb_search",
+        "A股下跌",
+        context=context,
+        step_id="sealed-fixture-physical-paths:kb",
+    )
+
+    assert captured["market_db"] == market_db
+    assert captured["index_dir"] == index
+    assert captured["code_root"] == code
+    assert captured["python_executable"] == python
+    assert captured["worker_enabled"] is False
+
+
 def test_valuation_registry_uses_valuation_provider_snapshot_date(
     tmp_path,
     monkeypatch,

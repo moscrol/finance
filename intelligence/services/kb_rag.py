@@ -592,6 +592,9 @@ def retrieve(
     fact_hardness: str | None = None,
     source_type: str | None = None,
     index_dir: str | Path | None = None,
+    code_root: str | Path | None = None,
+    python_executable: str | Path | None = None,
+    worker_enabled: bool | None = None,
     require_fresh: bool = True,
     cache_scope: str | None = None,
 ) -> WikiRagResult:
@@ -621,8 +624,14 @@ def retrieve(
         tel.status = "skipped"
         tel.warning = res.warning
         return res
-    root = kb_root(kb_wiki)
-    script = root / RAG_SCRIPT_REL
+    wiki_root = Path(kb_wiki).expanduser().resolve()
+    root = kb_root(wiki_root)
+    runtime_root = (
+        Path(code_root).expanduser().resolve()
+        if code_root is not None
+        else root
+    )
+    script = runtime_root / RAG_SCRIPT_REL
     if not script.exists():
         res.warning = f"wiki-rag 未接入：找不到 {script}"
         tel.status = "skipped"
@@ -673,7 +682,11 @@ def retrieve(
         tel.warning = res.warning
         return res
 
-    rag_python = _resolve_rag_python(root)
+    rag_python = (
+        str(Path(python_executable).expanduser())
+        if python_executable is not None
+        else _resolve_rag_python(runtime_root)
+    )
     generation_evidence_chars = min(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
@@ -759,6 +772,7 @@ def retrieve(
     )
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
+    env["KB_VAULT"] = str(wiki_root)
     fallback_warnings: list[str] = []
     if legacy_options:
         tel.query_protocol = "legacy"
@@ -769,17 +783,18 @@ def retrieve(
             "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
         )
     _t0 = time.monotonic()
-    worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
-        "0",
-        "false",
-        "off",
-        "no",
-    }
+    if worker_enabled is None:
+        worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
+            "0",
+            "false",
+            "off",
+            "no",
+        }
     try:
         if worker_enabled and not filters:
             proc = rag_worker.query(
                 python=rag_python,
-                kb_root=root,
+                kb_root=runtime_root,
                 index_dir=chosen,
                 argv=cmd[2:],
                 timeout=float(timeout),
@@ -791,7 +806,7 @@ def retrieve(
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
@@ -806,7 +821,7 @@ def retrieve(
                 capture_output=True,
                 text=True,
                 timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)),
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
         except subprocess.TimeoutExpired:
@@ -861,7 +876,7 @@ def retrieve(
             if worker_enabled and not filters:
                 proc = rag_worker.query(
                     python=rag_python,
-                    kb_root=root,
+                    kb_root=runtime_root,
                     index_dir=chosen,
                     argv=cmd[2:],
                     timeout=remaining,
@@ -873,7 +888,7 @@ def retrieve(
                     capture_output=True,
                     text=True,
                     timeout=remaining,
-                    cwd=str(root),
+                    cwd=str(runtime_root),
                     env=env,
                 )
         except (subprocess.TimeoutExpired, TimeoutError):
@@ -930,7 +945,7 @@ def retrieve(
                 capture_output=True,
                 text=True,
                 timeout=remaining,
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
         except subprocess.TimeoutExpired:

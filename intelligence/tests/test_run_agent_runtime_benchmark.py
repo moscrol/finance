@@ -5,6 +5,9 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
+
+import pytest
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -24,6 +27,190 @@ from scripts import run_agent_runtime_benchmark as benchmark
 FIXTURE = (
     Path(__file__).parent / "fixtures" / "runtime_backend_cases.json"
 )
+
+
+def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
+    output_root = tmp_path / "ceiling"
+    root = output_root / "fixture"
+    files = {
+        "instruction-export/instruction/AGENTS.md": b"sealed instructions\n",
+        "finance.duckdb": b"sealed duckdb",
+        "wiki/entities/example.md": b"# example\n",
+        "index/meta.json": b'{"mode":"hybrid"}\n',
+        "kb-code/scripts/rag_index.py": b"# sealed rag code\n",
+    }
+    for relative, data in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        path.chmod(0o444)
+    file_manifest = [
+        {
+            "path": relative,
+            "mode": 0o444,
+            "bytes": len(files[relative]),
+            "sha256": hashlib.sha256(files[relative]).hexdigest(),
+        }
+        for relative in sorted(files)
+    ]
+    manifest = {
+        "schema_version": 1,
+        "status": "sealed",
+        "input_sha256": "a" * 64,
+        "input": {
+            "as_of": "2026-07-24",
+            "question_file_sha256": hashlib.sha256(question_file.read_bytes()).hexdigest(),
+        },
+        "components": {
+            "instruction": {
+                "component_root": "instruction-export",
+                "manifest_sha256": hashlib.sha256(
+                    files["instruction-export/instruction/AGENTS.md"]
+                ).hexdigest(),
+            },
+            "finance": {
+                "target": "finance.duckdb",
+                "sha256": hashlib.sha256(files["finance.duckdb"]).hexdigest(),
+            },
+            "wiki": {
+                "root": "wiki",
+                "manifest_sha256": hashlib.sha256(
+                    files["wiki/entities/example.md"]
+                ).hexdigest(),
+            },
+            "hybrid": {
+                "index_root": "index",
+                "code_runtime": "kb-code",
+                "manifest_sha256": hashlib.sha256(files["index/meta.json"]).hexdigest(),
+                "python_executable": sys.executable,
+            },
+        },
+        "semantic_receipt_sha256": "b" * 64,
+        "files": file_manifest,
+    }
+    manifest["manifest_sha256"] = benchmark._artifact_hash(manifest)
+    manifest_path = root / "fixture.manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_path.chmod(0o444)
+    for directory in sorted(
+        (path for path in root.rglob("*") if path.is_dir()),
+        reverse=True,
+    ):
+        directory.chmod(0o555)
+    root.chmod(0o555)
+    pointer = {
+        "schema_version": 1,
+        "relative_component": "fixture",
+        "manifest_sha256": manifest["manifest_sha256"],
+    }
+    pointer["pointer_sha256"] = benchmark._artifact_hash(pointer)
+    pointer_path = output_root / "sealed-fixture.json"
+    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
+    pointer_path.chmod(0o444)
+    return pointer_path
+
+
+def test_load_sealed_fixture_revalidates_all_files(tmp_path: Path) -> None:
+    questions = tmp_path / "questions.json"
+    questions.write_text('{"cases": []}', encoding="utf-8")
+    pointer = _fake_sealed_fixture(tmp_path, questions)
+
+    fixture = benchmark._load_sealed_fixture(pointer, question_file=questions)
+
+    assert fixture.as_of == "2026-07-24"
+    assert fixture.finance_db.read_bytes() == b"sealed duckdb"
+    assert fixture.instruction_root.name == "instruction"
+    assert fixture.hybrid_index_root.name == "index"
+
+    finance = fixture.finance_db
+    finance.chmod(0o644)
+    finance.write_bytes(b"tampered")
+    finance.chmod(0o444)
+    with pytest.raises(ValueError, match="file manifest mismatch"):
+        benchmark._load_sealed_fixture(pointer, question_file=questions)
+
+
+def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pointer = _fake_sealed_fixture(tmp_path, FIXTURE)
+    output = tmp_path / "sealed-dry-run.json"
+    monkeypatch.setattr(benchmark, "_source_provenance", lambda: ("c" * 40, False))
+    monkeypatch.setattr(
+        benchmark,
+        "_sealed_tool_surface_manifest",
+        lambda *_args, **_kwargs: {
+            "schema_version": 1,
+            "cases": [],
+            "tool_surface_sha256": "d" * 64,
+        },
+    )
+
+    code = benchmark.main(
+        [
+            "--dry-run",
+            "--backend",
+            "codex_headless",
+            "--headless-budget-profile",
+            "d_long_expanded",
+            *[
+                value
+                for case_id in benchmark._SEALED_CEILING_CASE_IDS
+                for value in ("--case", case_id)
+            ],
+            "--questions-file",
+            str(FIXTURE),
+            "--ceiling-fixture-receipt",
+            str(pointer),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert [item["id"] for item in payload["cases"]] == list(
+        benchmark._SEALED_CEILING_CASE_IDS
+    )
+    assert payload["finance_root"] == str(pointer.parent / "fixture")
+    assert payload["knowledge_wiki"] == str(pointer.parent / "fixture" / "wiki")
+    assert payload["ceiling_fixture"]["no_live_root"] is True
+    assert payload["ceiling_fixture"]["model"] == "gpt-5.6-sol"
+    assert payload["ceiling_fixture"]["transport"] == "subprocess_mailbox"
+
+
+def test_sealed_fixture_rejects_live_root_arguments(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pointer = _fake_sealed_fixture(tmp_path, FIXTURE)
+    monkeypatch.setattr(benchmark, "_source_provenance", lambda: ("c" * 40, False))
+
+    code = benchmark.main(
+        [
+            "--dry-run",
+            "--backend",
+            "codex_headless",
+            "--headless-budget-profile",
+            "d_long_expanded",
+            *[
+                value
+                for case_id in benchmark._SEALED_CEILING_CASE_IDS
+                for value in ("--case", case_id)
+            ],
+            "--questions-file",
+            str(FIXTURE),
+            "--ceiling-fixture-receipt",
+            str(pointer),
+            "--finance-root",
+            str(tmp_path),
+            "--output",
+            str(tmp_path / "should-not-exist.json"),
+        ]
+    )
+
+    assert code == 2
 
 
 def test_dry_run_freezes_one_task_frame_per_case_and_all_backends(
@@ -533,6 +720,17 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
     assert arms[0]["answer"] == arms[0]["published_answer"]
     assert arms[0]["claims"][0]["text"] == arms[0]["published_answer"]
     assert len(arms[0]["sources"][0]["content_hash"]) == 64
+    assert arms[0]["blind_projection"] == {
+        "published_answer": arms[0]["published_answer"],
+        "claims": arms[0]["claims"],
+        "sources": arms[0]["sources"],
+    }
+    assert arms[0]["blind_projection_sha256"] == benchmark._artifact_hash(
+        arms[0]["blind_projection"]
+    )
+    assert arms[0]["blind_projection_json_pointer"] == (
+        "/cases/0/arms/0/blind_projection"
+    )
 
 
 def test_live_runner_uses_production_adapter_delivery_repair(

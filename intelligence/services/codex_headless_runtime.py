@@ -406,6 +406,7 @@ class CodexHeadlessRuntime:
         finalization_floor_ratio: float = 0.65,
         sealed_fixture: bool = False,
         isolation_probe: HeadlessIsolationProbe | None = None,
+        instruction_root: Path | None = None,
     ) -> None:
         selected_transport = str(
             transport or os.environ.get("CODEX_HEADLESS_TRANSPORT") or "subprocess"
@@ -415,6 +416,15 @@ class CodexHeadlessRuntime:
         self._sealed_fixture = bool(sealed_fixture)
         if self._sealed_fixture and selected_transport != "subprocess":
             raise ValueError("sealed fixture requires subprocess transport")
+        if instruction_root is not None and not self._sealed_fixture:
+            raise ValueError("instruction_root requires sealed fixture mode")
+        self._instruction_root = (
+            Path(instruction_root).expanduser().resolve()
+            if instruction_root is not None
+            else None
+        )
+        if self._instruction_root is not None and not self._instruction_root.is_dir():
+            raise ValueError("sealed instruction root is unavailable")
         self._gateway_transport = (
             "mailbox" if selected_transport == "subprocess" else "http"
         )
@@ -532,6 +542,8 @@ class CodexHeadlessRuntime:
 
         with tempfile.TemporaryDirectory(prefix="finance-codex-headless-") as raw_dir:
             run_dir = Path(raw_dir)
+            if self._instruction_root is not None:
+                _materialize_instruction_tree(self._instruction_root, run_dir)
             if self._sealed_fixture:
                 try:
                     self._isolation_receipt = self._isolation_probe(
@@ -847,6 +859,14 @@ class CodexHeadlessRuntime:
                     "input_tokens": parsed.input_tokens,
                     "output_tokens": parsed.output_tokens,
                     "issues": list(unique_issues),
+                    "isolation": (
+                        self._isolation_receipt.to_dict()
+                        if self._isolation_receipt is not None
+                        else None
+                    ),
+                    "mailbox_exchanges": [
+                        item.to_dict() for item in snapshot.mailbox_exchanges
+                    ],
                 },
             )
         )
@@ -938,6 +958,41 @@ def _sealed_child_environment_args(
             )
         )
     return tuple(args)
+
+
+def sealed_environment_policy_payload() -> dict[str, object]:
+    return {
+        "shell_environment_policy": {
+            "inherit": "none",
+            "ignore_default_excludes": False,
+            "include_only": list(_SEALED_CHILD_ENV_KEYS),
+        },
+        "allow_login_shell": False,
+        "network_access": False,
+        "filesystem": {
+            ":minimal": "read",
+            ":workspace_roots": "write",
+            "/opt/homebrew": "read",
+        },
+    }
+
+
+def _materialize_instruction_tree(source: Path, target: Path) -> None:
+    for path in sorted(source.rglob("*")):
+        if path.is_symlink():
+            raise ValueError("sealed instruction tree cannot contain symlinks")
+        relative = path.relative_to(source)
+        destination = target / relative
+        if path.is_dir():
+            destination.mkdir(mode=0o755, parents=True, exist_ok=True)
+            continue
+        if not path.is_file():
+            raise ValueError("sealed instruction tree contains unsupported entry")
+        if destination.exists():
+            raise ValueError("sealed instruction tree collides with runtime files")
+        destination.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        shutil.copyfile(path, destination)
+        destination.chmod(0o444)
 
 
 def probe_sealed_isolation(
@@ -1364,4 +1419,5 @@ __all__ = [
     "HeadlessProcessResult",
     "LocalExecCommandRunner",
     "probe_sealed_isolation",
+    "sealed_environment_policy_payload",
 ]

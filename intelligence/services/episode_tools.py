@@ -63,6 +63,10 @@ class SealedFixturePolicy:
     external_valuation_enabled: bool = False
     external_financials_enabled: bool = False
     require_fresh_kb: bool = True
+    market_db_path: Path | None = None
+    knowledge_index_dir: Path | None = None
+    knowledge_code_root: Path | None = None
+    knowledge_python: Path | None = None
 
 
 def _iso_date(value: object) -> date | None:
@@ -190,10 +194,18 @@ def _roots(
     )
 
 
-def latest_market_date(finance_root: str | Path | None = None) -> str | None:
+def latest_market_date(
+    finance_root: str | Path | None = None,
+    *,
+    market_db_path: str | Path | None = None,
+) -> str | None:
     finance, _wiki = _roots(finance_root, None)
     return ask_blocks._market_data_asof(  # noqa: SLF001 - public factory seam
-        finance / "db" / "market_feature_store.duckdb"
+        (
+            Path(market_db_path).expanduser()
+            if market_db_path is not None
+            else finance / "db" / "market_feature_store.duckdb"
+        )
     )
 
 
@@ -284,7 +296,11 @@ def build_episode_registry(
     """Build a read-only registry from the repository's current tool runners."""
 
     finance, wiki = _roots(finance_root, knowledge_wiki)
-    market_db_path = finance / "db" / "market_feature_store.duckdb"
+    market_db_path = (
+        Path(fixture_policy.market_db_path).expanduser()
+        if fixture_policy is not None and fixture_policy.market_db_path is not None
+        else finance / "db" / "market_feature_store.duckdb"
+    )
     freshness_floor = _structured_freshness_floor(context)
     structured_source_date = None
     if frame.question_type != "valuation_estimate":
@@ -360,6 +376,22 @@ def build_episode_registry(
                 else True
             ),
             cache_scope=context.contract.task_id,
+            index_dir=(
+                fixture_policy.knowledge_index_dir
+                if fixture_policy is not None
+                else None
+            ),
+            code_root=(
+                fixture_policy.knowledge_code_root
+                if fixture_policy is not None
+                else None
+            ),
+            python_executable=(
+                fixture_policy.knowledge_python
+                if fixture_policy is not None
+                else None
+            ),
+            worker_enabled=(False if fixture_policy is not None else None),
         )
 
     default_tools = agent_research.build_default_tools(retrieve_kb)

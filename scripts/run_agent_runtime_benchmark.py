@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import time
@@ -38,6 +39,7 @@ from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
 from intelligence.services.episode_tools import (
+    SealedFixturePolicy,
     build_episode_registry,
     is_deterministic_fast_path,
     latest_market_date,
@@ -118,6 +120,48 @@ HEADLESS_BUDGET_PROFILES = {
     ),
 }
 
+_SEALED_CEILING_CASE_IDS = (
+    "rebound-duration",
+    "ruihuatai-valuation",
+    "weekly-market-cause",
+    "current-mainline",
+    "unfamiliar-methodology",
+)
+
+
+@dataclass(frozen=True)
+class SealedCeilingFixture:
+    pointer_path: Path
+    component_root: Path
+    manifest_sha256: str
+    input_sha256: str
+    as_of: str
+    question_file_sha256: str
+    instruction_root: Path
+    instruction_manifest_sha256: str
+    finance_db: Path
+    finance_db_sha256: str
+    wiki_root: Path
+    wiki_manifest_sha256: str
+    hybrid_index_root: Path
+    hybrid_manifest_sha256: str
+    hybrid_code_root: Path
+    hybrid_python: Path
+
+    def provenance(self) -> dict[str, object]:
+        return {
+            "pointer_sha256": _sha256_file(self.pointer_path),
+            "manifest_sha256": self.manifest_sha256,
+            "input_sha256": self.input_sha256,
+            "as_of": self.as_of,
+            "question_file_sha256": self.question_file_sha256,
+            "instruction_manifest_sha256": self.instruction_manifest_sha256,
+            "finance_db_sha256": self.finance_db_sha256,
+            "wiki_manifest_sha256": self.wiki_manifest_sha256,
+            "hybrid_manifest_sha256": self.hybrid_manifest_sha256,
+            "no_live_root": True,
+        }
+
 
 class RuntimeBenchmarkInfrastructureError(RuntimeError):
     def __init__(self, *, case_id: str, backend: str, reason: str) -> None:
@@ -135,6 +179,178 @@ _INFRASTRUCTURE_STOP_REASONS = frozenset(
         "sdk_transport_unavailable",
     }
 )
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _read_regular_json(path: Path, *, label: str) -> dict[str, object]:
+    metadata = path.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"{label} must be a regular non-symlink file")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return value
+
+
+def _self_hash(value: dict[str, object], field: str) -> str:
+    payload = dict(value)
+    payload.pop(field, None)
+    return _artifact_hash(payload)
+
+
+def _fixture_path(root: Path, relative: object, *, label: str) -> Path:
+    text = str(relative or "").strip()
+    candidate = Path(text)
+    if not text or candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"invalid sealed fixture {label} path")
+    resolved = (root / candidate).resolve()
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"sealed fixture {label} escapes component root")
+    return resolved
+
+
+def _audit_sealed_fixture_files(
+    root: Path,
+    expected: object,
+) -> None:
+    if not isinstance(expected, list):
+        raise ValueError("sealed fixture file manifest is invalid")
+    actual_entries: list[dict[str, object]] = []
+    for path in sorted(root.rglob("*")):
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ValueError("sealed fixture contains a symlink")
+        if stat.S_ISDIR(metadata.st_mode):
+            if stat.S_IMODE(metadata.st_mode) != 0o555:
+                raise ValueError("sealed fixture directory is writable")
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("sealed fixture contains unsupported filesystem entry")
+        relative = path.relative_to(root).as_posix()
+        if relative == "fixture.manifest.json":
+            continue
+        actual_entries.append(
+            {
+                "path": relative,
+                "mode": stat.S_IMODE(metadata.st_mode),
+                "bytes": metadata.st_size,
+                "sha256": _sha256_file(path),
+            }
+        )
+    if actual_entries != expected:
+        raise ValueError("sealed fixture file manifest mismatch")
+
+
+def _component_mapping(
+    components: object,
+    name: str,
+) -> dict[str, object]:
+    value = components.get(name) if isinstance(components, dict) else None
+    if not isinstance(value, dict):
+        raise ValueError(f"sealed fixture component {name} is invalid")
+    return value
+
+
+def _load_sealed_fixture(
+    pointer_path: Path,
+    *,
+    question_file: Path,
+) -> SealedCeilingFixture:
+    raw_pointer_path = pointer_path.expanduser().absolute()
+    pointer = _read_regular_json(raw_pointer_path, label="fixture pointer")
+    if pointer.get("pointer_sha256") != _self_hash(pointer, "pointer_sha256"):
+        raise ValueError("sealed fixture pointer self hash mismatch")
+    relative_component = str(pointer.get("relative_component") or "").strip()
+    if Path(relative_component).name != relative_component:
+        raise ValueError("sealed fixture pointer component is invalid")
+    component_path = raw_pointer_path.parent / relative_component
+    component_metadata = component_path.lstat()
+    if stat.S_ISLNK(component_metadata.st_mode):
+        raise ValueError("sealed fixture component root must not be a symlink")
+    component_root = component_path.resolve()
+    if not component_root.is_dir() or component_root.parent != raw_pointer_path.parent.resolve():
+        raise ValueError("sealed fixture component root is unavailable")
+    root_metadata = component_root.lstat()
+    if stat.S_ISLNK(root_metadata.st_mode) or stat.S_IMODE(root_metadata.st_mode) != 0o555:
+        raise ValueError("sealed fixture component root must be immutable")
+    manifest_path = component_root / "fixture.manifest.json"
+    manifest = _read_regular_json(manifest_path, label="fixture manifest")
+    if manifest.get("status") != "sealed":
+        raise ValueError("ceiling fixture is not sealed")
+    manifest_sha256 = str(manifest.get("manifest_sha256") or "")
+    if manifest_sha256 != _self_hash(manifest, "manifest_sha256"):
+        raise ValueError("sealed fixture manifest self hash mismatch")
+    if pointer.get("manifest_sha256") != manifest_sha256:
+        raise ValueError("sealed fixture pointer manifest hash mismatch")
+    _audit_sealed_fixture_files(component_root, manifest.get("files"))
+
+    fixture_input = manifest.get("input")
+    if not isinstance(fixture_input, dict):
+        raise ValueError("sealed fixture input is invalid")
+    question_hash = str(fixture_input.get("question_file_sha256") or "")
+    if question_hash != _sha256_file(question_file.expanduser().resolve()):
+        raise ValueError("sealed fixture question file hash mismatch")
+    components = manifest.get("components")
+    instruction = _component_mapping(components, "instruction")
+    finance = _component_mapping(components, "finance")
+    wiki = _component_mapping(components, "wiki")
+    hybrid = _component_mapping(components, "hybrid")
+    instruction_component = _fixture_path(
+        component_root,
+        instruction.get("component_root"),
+        label="instruction",
+    )
+    instruction_root = instruction_component / "instruction"
+    finance_db = _fixture_path(
+        component_root,
+        finance.get("target"),
+        label="finance",
+    )
+    wiki_root = _fixture_path(component_root, wiki.get("root"), label="wiki")
+    hybrid_index = _fixture_path(
+        component_root,
+        hybrid.get("index_root"),
+        label="hybrid index",
+    )
+    hybrid_code = _fixture_path(
+        component_root,
+        hybrid.get("code_runtime"),
+        label="hybrid code",
+    )
+    required_directories = (instruction_root, wiki_root, hybrid_index, hybrid_code)
+    if any(not item.is_dir() for item in required_directories) or not finance_db.is_file():
+        raise ValueError("sealed fixture component path is unavailable")
+    finance_sha256 = str(finance.get("sha256") or "")
+    if finance_sha256 != _sha256_file(finance_db):
+        raise ValueError("sealed fixture finance hash mismatch")
+    hybrid_python = Path(str(hybrid.get("python_executable") or "")).expanduser()
+    if not hybrid_python.exists():
+        raise ValueError("sealed fixture Hybrid Python is unavailable")
+    return SealedCeilingFixture(
+        pointer_path=raw_pointer_path.resolve(),
+        component_root=component_root,
+        manifest_sha256=manifest_sha256,
+        input_sha256=str(manifest.get("input_sha256") or ""),
+        as_of=str(fixture_input.get("as_of") or ""),
+        question_file_sha256=question_hash,
+        instruction_root=instruction_root,
+        instruction_manifest_sha256=str(instruction.get("manifest_sha256") or ""),
+        finance_db=finance_db,
+        finance_db_sha256=finance_sha256,
+        wiki_root=wiki_root,
+        wiki_manifest_sha256=str(wiki.get("manifest_sha256") or ""),
+        hybrid_index_root=hybrid_index,
+        hybrid_manifest_sha256=str(hybrid.get("manifest_sha256") or ""),
+        hybrid_code_root=hybrid_code,
+        hybrid_python=hybrid_python.resolve(),
+    )
 
 
 def _source_provenance() -> tuple[str, bool]:
@@ -392,6 +608,7 @@ def _build_runtime(
     *,
     runtime_providers: tuple[LLMProvider, ...] = (),
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
+    sealed_fixture: SealedCeilingFixture | None = None,
 ) -> tuple[object, str]:
     del context
     providers = runtime_providers or llm_refine.detect_providers()
@@ -466,15 +683,28 @@ def _build_runtime(
         )
 
         runtime = CodexHeadlessRuntime(
-            model=os.environ.get("CODEX_HEADLESS_MODEL"),
+            model=(
+                "gpt-5.6-sol"
+                if sealed_fixture is not None
+                else os.environ.get("CODEX_HEADLESS_MODEL")
+            ),
             reasoning_effort=(
-                "high" if case.tier == "deep" else "medium"
+                "medium"
+                if sealed_fixture is not None
+                else ("high" if case.tier == "deep" else "medium")
             ),
             finalization_floor_ratio=(
                 headless_budget_profile.gateway_floor_ratio
                 if headless_budget_profile is not None
                 else 0.65
             ),
+            sealed_fixture=sealed_fixture is not None,
+            instruction_root=(
+                sealed_fixture.instruction_root
+                if sealed_fixture is not None
+                else None
+            ),
+            transport=("subprocess" if sealed_fixture is not None else None),
         )
         return runtime, runtime.model_name
     raise RuntimeError(f"unsupported benchmark backend: {backend}")
@@ -557,12 +787,14 @@ def _build_registry(
     *,
     finance_root: Path,
     knowledge_wiki: Path,
+    fixture_policy: SealedFixturePolicy | None = None,
 ):
     return build_episode_registry(
         frame,
         context,
         finance_root=finance_root,
         knowledge_wiki=knowledge_wiki,
+        fixture_policy=fixture_policy,
     )
 
 
@@ -727,6 +959,8 @@ def _run_research_arm(
     latest_data_date: str,
     runtime_providers: tuple[LLMProvider, ...] = (),
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
+    sealed_fixture: SealedCeilingFixture | None = None,
+    fixture_policy: SealedFixturePolicy | None = None,
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
@@ -751,12 +985,14 @@ def _run_research_arm(
             context,
             runtime_providers=runtime_providers,
             headless_budget_profile=headless_budget_profile,
+            sealed_fixture=sealed_fixture,
         )
         registry = _build_registry(
             control.task_frame,
             context,
             finance_root=finance_root,
             knowledge_wiki=knowledge_wiki,
+            fixture_policy=fixture_policy,
         )
         semantic_providers = runtime_providers
         runtime_semantic_providers = getattr(
@@ -1001,6 +1237,8 @@ def _run_runtime_arm(
     latest_data_date: str,
     runtime_providers: tuple[LLMProvider, ...] = (),
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
+    sealed_fixture: SealedCeilingFixture | None = None,
+    fixture_policy: SealedFixturePolicy | None = None,
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
@@ -1015,6 +1253,8 @@ def _run_runtime_arm(
                 latest_data_date=latest_data_date,
                 runtime_providers=runtime_providers,
                 headless_budget_profile=headless_budget_profile,
+                sealed_fixture=sealed_fixture,
+                fixture_policy=fixture_policy,
             )
             for backend in backends
         )
@@ -1029,6 +1269,66 @@ def _run_runtime_arm(
     record["execution_status"] = "completed"
     record["arms"] = [arm.to_dict() for arm in arms]
     return record, arms
+
+
+def _sealed_tool_surface_manifest(
+    frozen: list[tuple[RuntimeBenchmarkCase, object, object | None]],
+    *,
+    finance_root: Path,
+    knowledge_wiki: Path,
+    latest_data_date: str,
+    profile: HeadlessBenchmarkBudgetProfile,
+    fixture_policy: SealedFixturePolicy,
+) -> dict[str, object]:
+    cases: list[dict[str, object]] = []
+    for case, control, _dry_context in frozen:
+        context = _fresh_context(
+            case,
+            control,
+            backend="codex_headless",
+            latest_data_date=latest_data_date,
+            headless_budget_profile=profile,
+        )
+        if context is None:
+            names: tuple[str, ...] = ()
+        else:
+            registry = _build_registry(
+                control.task_frame,
+                context,
+                finance_root=finance_root,
+                knowledge_wiki=knowledge_wiki,
+                fixture_policy=fixture_policy,
+            )
+            names = tuple(
+                spec.name
+                for spec in registry.authorized_specs(
+                    context.contract.allowed_capabilities
+                )
+            )
+        cases.append({"case_id": case.case_id, "authorized_tools": list(names)})
+    payload: dict[str, object] = {"schema_version": 1, "cases": cases}
+    payload["tool_surface_sha256"] = _artifact_hash(payload)
+    return payload
+
+
+def _bind_blind_projection_hashes(records: list[dict[str, object]]) -> None:
+    for case_index, record in enumerate(records):
+        arms = record.get("arms")
+        if not isinstance(arms, list):
+            continue
+        for arm_index, arm in enumerate(arms):
+            if not isinstance(arm, dict):
+                raise ValueError("runtime arm projection must be an object")
+            projection = {
+                "published_answer": arm.get("published_answer"),
+                "claims": arm.get("claims"),
+                "sources": arm.get("sources"),
+            }
+            arm["blind_projection"] = projection
+            arm["blind_projection_sha256"] = _artifact_hash(projection)
+            arm["blind_projection_json_pointer"] = (
+                f"/cases/{case_index}/arms/{arm_index}/blind_projection"
+            )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1051,6 +1351,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--finance-root", type=Path)
     parser.add_argument("--knowledge-wiki", type=Path)
     parser.add_argument(
+        "--ceiling-fixture-receipt",
+        type=Path,
+        help="Hash-bound sealed physical fixture pointer for the five-case profile-D control",
+    )
+    parser.add_argument(
         "--keychain-user",
         help="Load the runtime provider from macOS Keychain without exporting a key",
     )
@@ -1063,6 +1368,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         source_revision, source_dirty = _source_provenance()
         cases = _load_cases(args.questions_file)
+        sealed_fixture = (
+            _load_sealed_fixture(
+                args.ceiling_fixture_receipt,
+                question_file=args.questions_file,
+            )
+            if args.ceiling_fixture_receipt is not None
+            else None
+        )
         backends = tuple(
             resolve_runtime_backend(value).name for value in args.backend
         )
@@ -1094,16 +1407,39 @@ def main(argv: list[str] | None = None) -> int:
             cases = tuple(
                 case for case in cases if case.case_id in selected_set
             )
-        finance_root = (
-            args.finance_root.expanduser().resolve()
-            if args.finance_root is not None
-            else None
-        )
-        knowledge_wiki = (
-            args.knowledge_wiki.expanduser().resolve()
-            if args.knowledge_wiki is not None
-            else None
-        )
+        fixture_policy: SealedFixturePolicy | None = None
+        if sealed_fixture is not None:
+            if source_dirty:
+                raise ValueError("sealed fixture benchmark requires a clean source tree")
+            if backends != ("codex_headless",):
+                raise ValueError("sealed fixture benchmark requires codex_headless only")
+            if args.headless_budget_profile != "d_long_expanded":
+                raise ValueError("sealed fixture benchmark requires profile d_long_expanded")
+            if tuple(case.case_id for case in cases) != _SEALED_CEILING_CASE_IDS:
+                raise ValueError("sealed fixture benchmark requires exactly the frozen five cases")
+            if any(case.as_of != sealed_fixture.as_of for case in cases):
+                raise ValueError("sealed fixture case cutoff mismatch")
+            if args.finance_root is not None or args.knowledge_wiki is not None:
+                raise ValueError("sealed fixture benchmark forbids live data root arguments")
+            finance_root = sealed_fixture.component_root
+            knowledge_wiki = sealed_fixture.wiki_root
+            fixture_policy = SealedFixturePolicy(
+                market_db_path=sealed_fixture.finance_db,
+                knowledge_index_dir=sealed_fixture.hybrid_index_root,
+                knowledge_code_root=sealed_fixture.hybrid_code_root,
+                knowledge_python=sealed_fixture.hybrid_python,
+            )
+        else:
+            finance_root = (
+                args.finance_root.expanduser().resolve()
+                if args.finance_root is not None
+                else None
+            )
+            knowledge_wiki = (
+                args.knowledge_wiki.expanduser().resolve()
+                if args.knowledge_wiki is not None
+                else None
+            )
         market_data_date = None
         runtime_providers: tuple[LLMProvider, ...] = ()
         if not args.dry_run:
@@ -1113,7 +1449,14 @@ def main(argv: list[str] | None = None) -> int:
                 )
             if not finance_root.is_dir() or not knowledge_wiki.is_dir():
                 raise ValueError("benchmark data roots must be existing directories")
-            market_data_date = latest_market_date(finance_root)
+            market_data_date = (
+                latest_market_date(
+                    finance_root,
+                    market_db_path=sealed_fixture.finance_db,
+                )
+                if sealed_fixture is not None
+                else latest_market_date(finance_root)
+            )
             if market_data_date is None:
                 raise ValueError("finance root has no readable market data date")
             latest_required_date = max(
@@ -1134,6 +1477,20 @@ def main(argv: list[str] | None = None) -> int:
         frozen = [
             (case, *_freeze_case(case, dry_run=args.dry_run)) for case in cases
         ]
+        sealed_tool_surface = (
+            _sealed_tool_surface_manifest(
+                frozen,
+                finance_root=finance_root,
+                knowledge_wiki=knowledge_wiki,
+                latest_data_date=sealed_fixture.as_of,
+                profile=headless_budget_profile,
+                fixture_policy=fixture_policy,
+            )
+            if sealed_fixture is not None
+            and headless_budget_profile is not None
+            and fixture_policy is not None
+            else None
+        )
     except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
         print(f"runtime benchmark failed: {exc}", file=sys.stderr)
         return 2
@@ -1158,6 +1515,8 @@ def main(argv: list[str] | None = None) -> int:
                         latest_data_date=market_data_date,
                         runtime_providers=runtime_providers,
                         headless_budget_profile=headless_budget_profile,
+                        sealed_fixture=sealed_fixture,
+                        fixture_policy=fixture_policy,
                     )
                 )
             records = [record for record, _arms in executed]
@@ -1197,6 +1556,9 @@ def main(argv: list[str] | None = None) -> int:
         ]
         summary = None
 
+    if not args.dry_run:
+        _bind_blind_projection_hashes(records)
+
     artifact: dict[str, Any] = {
         "schema_version": 1,
         "mode": "dry_run" if args.dry_run else "live",
@@ -1228,6 +1590,21 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "cases": records,
     }
+    if sealed_fixture is not None:
+        from intelligence.services.codex_headless_runtime import (
+            sealed_environment_policy_payload,
+        )
+
+        artifact["ceiling_fixture"] = {
+            **sealed_fixture.provenance(),
+            "tool_surface": sealed_tool_surface,
+            "environment_policy_sha256": _artifact_hash(
+                sealed_environment_policy_payload()
+            ),
+            "transport": "subprocess_mailbox",
+            "model": "gpt-5.6-sol",
+            "reasoning_effort": "medium",
+        }
     if not args.dry_run and headless_budget_profile is not None:
         observed_calls = max(
             (arm.tool_calls for arm in arm_results),
