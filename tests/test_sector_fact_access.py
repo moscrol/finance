@@ -336,10 +336,41 @@ def test_inventory_safely_evaluates_maximal_static_string_expressions(tmp_path) 
         (record.path, record.line, record.column, record.table, record.mode)
         for record in records
     ] == [
-        ("concat.py", 1, 22, "fact_sector_daily", "unknown"),
-        ("format.py", 1, 22, "fact_sector_daily", "unknown"),
-        ("fstring.py", 1, 23, "fact_sector_daily", "unknown"),
-        ("nested.py", 2, 26, "fact_sector_daily", "unknown"),
+        ("concat.py", 1, 22, "fact_sector_daily", "read"),
+        ("format.py", 1, 22, "fact_sector_daily", "read"),
+        ("fstring.py", 1, 23, "fact_sector_daily", "read"),
+        ("nested.py", 2, 26, "fact_sector_daily", "read"),
+    ]
+
+
+def test_inventory_preserves_static_add_occurrences_and_source_locations(tmp_path) -> None:
+    (tmp_path / "repeated.py").write_text(
+        'SQL = "SELECT * FROM fact_" + "sector_daily a JOIN fact_sector_daily b"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [
+        (record.line, record.column, record.table, record.mode) for record in records
+    ] == [
+        (1, 22, "fact_sector_daily", "read"),
+        (1, 52, "fact_sector_daily", "read"),
+    ]
+
+
+def test_inventory_maps_static_add_to_the_contributing_target_fragment(tmp_path) -> None:
+    (tmp_path / "unrelated_prefix.py").write_text(
+        'SQL = "SELECT fact_x, * FROM " + "fact_" + "sector_daily"\n',
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [
+        (record.line, record.column, record.table, record.mode) for record in records
+    ] == [
+        (1, 35, "fact_sector_daily", "read"),
     ]
 
 
