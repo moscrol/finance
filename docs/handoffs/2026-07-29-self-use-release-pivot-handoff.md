@@ -1,5 +1,9 @@
 # Finance Workbench Self-Use Release Pivot Handoff
 
+> Workspace and execution status superseded on 2026-07-30. Start from
+> `docs/handoffs/2026-07-30-agent-runtime-canonical-workspace.md`; the final
+> self-use objective below remains authoritative.
+
 Date: 2026-07-29  
 Branch: `feat/agent-runtime-backends-verify`  
 Candidate revision: `c35740e62439e3225f81d2b02d6f9a7dafa65fe8`

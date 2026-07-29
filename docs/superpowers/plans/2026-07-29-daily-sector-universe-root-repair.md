@@ -30,13 +30,17 @@ benchmark work is outside this plan.
 - Modify `market_feature_store/sync/sync_fupanhui_sectors.py`: publish a validated universe through `SectorUniverseStore`.
 - Modify `market_feature_store/sync/sync_fupanhui_sector_daily.py`: write sector K-lines against the published generation.
 - Modify `market_feature_store/sync/sync_fupanhui_sector_stock_daily.py`: consume fair receipt work and commit exact member results.
-- Modify `market_feature_store/sync/sync_feishu_sector_daily.py`: enrich only the published sector generation through the module interface.
-- Modify `market_feature_store/sync/sync_feishu_sector_marginal.py`: enrich only the published sector generation through the module interface.
-- Modify `market_feature_store/sync/sync_feishu_sector_resonance.py`: enrich only the published sector generation through the module interface.
+- Delete the retired `sync_feishu_sector_daily.py`,
+  `sync_feishu_sector_marginal.py`, and `sync_feishu_sector_resonance.py` after
+  their CLI and orchestration entry points are removed.
+- Modify `market_feature_store/cli.py`: remove the three retired sector Feishu commands.
 - Modify `scripts/fast_daily_sync.py`: mark historical membership copy as legacy/degraded and forbid it from satisfying a published snapshot.
 - Modify `scripts/check_daily_review_data.py`: use the module completion audit and preserve reduced-table scope isolation.
-- Modify `skills/daily-full-review/scripts/run_review_sync.py`: report receipt progress rather than mixed `dim_sector` counts.
-- Modify `market_feature_store/sync/sync_daily_full.py`: require the exact audit before report generation.
+- Modify `skills/daily-full-review/scripts/run_review_sync.py`: remove the retired
+  sector-resonance step and report receipt progress rather than mixed
+  `dim_sector` counts.
+- Modify `market_feature_store/sync/sync_daily_full.py`: remove the retired
+  sector-resonance step and require the exact audit before report generation.
 - Create `tests/test_sector_member_latency.py`: pure latency-selection/projection tests.
 - Create `tests/test_sector_universe.py`: temporary-DuckDB interface tests for migration, publication, writes, receipts, and audits.
 - Create `tests/test_sector_fact_access.py`: static physical-table access test.
@@ -53,7 +57,6 @@ benchmark work is outside this plan.
 store.publish_snapshot(trade_date, provider_source, sectors, captured_at)
 store.published_snapshot(trade_date, provider_source="fupanhui")
 store.replace_sector_daily(snapshot_id, rows)
-store.enrich_sector_daily(snapshot_id, updates)
 store.next_member_work(snapshot_id, limit, max_attempts)
 store.record_member_result(snapshot_id, sector_ts_code, payload)
 store.completion_audit(trade_date, declared_tables)
@@ -625,18 +628,25 @@ does not create member receipts or change active identities. The known
 `1,204/1,202` member discrepancy remains unresolved and was not bypassed; no
 live provider run or production database write occurred in this task.
 
-### Task 4: Bind Sector Daily Facts and Enrichments to the Published Generation
+### Task 4: Bind Sector Daily Facts to the Published Generation and Retire Sector Feishu
 
 **Files:**
 - Modify: `market_feature_store/sector_universe.py`
 - Modify: `market_feature_store/sync/sync_fupanhui_sector_daily.py`
-- Modify: `market_feature_store/sync/sync_feishu_sector_daily.py`
-- Modify: `market_feature_store/sync/sync_feishu_sector_marginal.py`
-- Modify: `market_feature_store/sync/sync_feishu_sector_resonance.py`
+- Modify: `market_feature_store/cli.py`
+- Modify: `market_feature_store/sync/sync_daily_full.py`
+- Modify: `skills/daily-full-review/scripts/run_review_sync.py`
+- Delete: `market_feature_store/sync/sync_feishu_sector_daily.py`
+- Delete: `market_feature_store/sync/sync_feishu_sector_marginal.py`
+- Delete: `market_feature_store/sync/sync_feishu_sector_resonance.py`
+- Modify: `skills/daily-full-review/SKILL.md`
+- Modify: `skills/market-overview/SKILL.md`
+- Modify: `skills/duckdb-backfill/SKILL.md`
 - Modify: `tests/test_sector_universe.py`
 - Modify: `tests/test_sector_daily_range_coverage.py`
+- Modify: `tests/test_pipeline_p0.py`
 
-- [ ] **Step 1: Write failing multi-generation view tests**
+- [ ] **Step 1: Write failing generation and retired-source tests**
 
 ```python
 def test_public_sector_daily_view_exposes_only_published_generation(store_con):
@@ -659,13 +669,21 @@ Run:
 
 Expected: FAIL because generation-bound writes are missing.
 
-- [ ] **Step 3: Implement generation-bound daily writes and enrichments**
+- [ ] **Step 3: Implement generation-bound daily replacement**
 
-`replace_sector_daily(snapshot_id, rows)` validates that every row code belongs to the published snapshot, deletes only the matching date/snapshot generation, inserts the complete batch, and rolls back on any foreign identity. `enrich_sector_daily(snapshot_id, updates)` updates only that generation and reports unmatched codes instead of silently inserting legacy rows.
+`replace_sector_daily(snapshot_id, rows)` validates that every row code belongs
+to the published snapshot, deletes only the matching date/snapshot generation,
+inserts the complete batch, and rolls back on any foreign identity. Do not add
+an enrichment interface without a current authoritative producer.
 
-- [ ] **Step 4: Route all four writers through the module**
+- [ ] **Step 4: Route the authoritative writer and retire sector Feishu**
 
-`sync_fupanhui_sector_daily` loads the published snapshot, requests only its codes, validates served dates, and calls `replace_sector_daily`. The three Feishu modules resolve the active snapshot ID and call `enrich_sector_daily`; remove their `ALTER TABLE` and direct `INSERT/UPDATE` SQL.
+`sync_fupanhui_sector_daily` loads the published snapshot, requests only its
+codes, validates served dates, and calls `replace_sector_daily`. Remove the
+three sector Feishu CLI commands and both nightly invocations, then delete the
+orphaned modules. Add a regression asserting the nightly plan and CLI no longer
+expose `sync-sector-resonance`, `sync-sector-marginal`, or
+`sync-sector-daily-metrics`.
 
 - [ ] **Step 5: Run focused regressions and commit**
 
@@ -683,10 +701,14 @@ Expected: PASS.
 ```bash
 git add market_feature_store/sector_universe.py \
   market_feature_store/sync/sync_fupanhui_sector_daily.py \
-  market_feature_store/sync/sync_feishu_sector_daily.py \
+  market_feature_store/cli.py market_feature_store/sync/sync_daily_full.py \
+  skills/daily-full-review/scripts/run_review_sync.py \
+  skills/daily-full-review/SKILL.md skills/market-overview/SKILL.md \
+  skills/duckdb-backfill/SKILL.md tests/test_sector_universe.py \
+  tests/test_sector_daily_range_coverage.py tests/test_pipeline_p0.py
+git add -u market_feature_store/sync/sync_feishu_sector_daily.py \
   market_feature_store/sync/sync_feishu_sector_marginal.py \
-  market_feature_store/sync/sync_feishu_sector_resonance.py \
-  tests/test_sector_universe.py tests/test_sector_daily_range_coverage.py
+  market_feature_store/sync/sync_feishu_sector_resonance.py
 git commit -m "feat: bind sector daily facts to universe generation"
 ```
 
@@ -907,9 +929,6 @@ git commit -m "feat: gate exact published sector coverage"
   market_feature_store/cli.py market_feature_store/sync/sync_fupanhui_sectors.py \
   market_feature_store/sync/sync_fupanhui_sector_daily.py \
   market_feature_store/sync/sync_fupanhui_sector_stock_daily.py \
-  market_feature_store/sync/sync_feishu_sector_daily.py \
-  market_feature_store/sync/sync_feishu_sector_marginal.py \
-  market_feature_store/sync/sync_feishu_sector_resonance.py \
   market_feature_store/sync/sync_daily_full.py \
   skills/daily-full-review/scripts/run_review_sync.py \
   scripts/fast_daily_sync.py scripts/check_daily_review_data.py \

@@ -2,9 +2,26 @@
 
 Date: 2026-07-29
 
-Status: `approved_direction; written_spec_review_pending`
+Status: `approved; amended_2026-07-30_sector_feishu_retired`
 
-Branch: `feat/agent-runtime-backends-verify`
+Canonical branch: `codex/agent-runtime-root-repair`
+
+## 0. 2026-07-30 Data-Source Amendment
+
+The user confirmed that the three sector-level Feishu sources (daily metrics,
+marginal ratio, and multi-period resonance) are retired and are not part of the
+current production data contract. They must not be migrated into the new
+generation writer merely because legacy modules still exist.
+
+Task 4 therefore has one authoritative producer: the fupanhui sector K-line
+path. It implements generation-bound replacement, removes the retired sector
+Feishu commands from CLI and nightly orchestration, and does not add
+`enrich_sector_daily` until a current authoritative enrichment producer is
+separately approved. Existing historical enrichment columns remain readable
+and nullable; they are not refreshed from Feishu.
+
+This amendment overrides any older plan or handoff that lists those three
+Feishu modules as Task 4 production writers.
 
 ## 1. Objective
 

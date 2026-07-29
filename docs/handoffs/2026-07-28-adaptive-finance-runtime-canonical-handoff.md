@@ -1,5 +1,9 @@
 # Adaptive Finance Runtime × Codex App Server Canonical Handoff
 
+> Execution status superseded on 2026-07-30. Start from
+> `docs/handoffs/2026-07-30-agent-runtime-canonical-workspace.md`. This file
+> remains the historical product-objective and architecture record only.
+
 Date: 2026-07-28
 Status: product objective remains canonical; execution status superseded by the
 Phase A/B completion handoff below
