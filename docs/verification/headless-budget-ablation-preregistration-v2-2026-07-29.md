@@ -12,7 +12,7 @@ wrapper's loopback connection before any tool completed.
 The defect is fixed in source commit:
 
 ```text
-da614908d6a3209398e12d88bb134c84f6608200
+da6149084bbebd57820bf499941ef12f93912ef1
 fix: allow isolated local exec tool loopback
 ```
 
@@ -43,7 +43,7 @@ Each has zero tool calls and protocol rejection. D is
 
 ## Frozen v2 identity
 
-- Source revision: `da614908d6a3209398e12d88bb134c84f6608200`.
+- Source revision: `da6149084bbebd57820bf499941ef12f93912ef1`.
 - Source requirement: clean detached checkout of that exact revision.
 - Question file:
   `/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-2026-07-27.json`.
