@@ -1158,7 +1158,8 @@ def _maxima(connection: Any, plan: _ObjectPlan) -> dict[str, str | None]:
 
 
 _PIT_DERIVED_MARKET_SOURCE = (
-    "derived:pitsafe_fact_stock_daily+feature_market_window"
+    "derived:pitsafe_fact_stock_daily+feature_market_window+"
+    "fact_theme_limit_stock_daily"
 )
 _PIT_DERIVED_MARKET_NOTE = (
     "PIT-safe derived market base; late source fields withheld"
@@ -1200,11 +1201,17 @@ def _derive_cutoff_market_row(
     by_name = {(item.schema, item.name): item for item in plans}
     stock = by_name.get((plan.schema, "fact_stock_daily"))
     window = by_name.get((plan.schema, "feature_market_window"))
-    if stock is None or window is None:
+    limit_stock = by_name.get(
+        (plan.schema, "fact_theme_limit_stock_daily")
+    )
+    if stock is None or window is None or limit_stock is None:
         return 0
     market_columns = {column.casefold() for column, _type in plan.columns}
     stock_columns = {column.casefold() for column, _type in stock.columns}
     window_columns = {column.casefold() for column, _type in window.columns}
+    limit_stock_columns = {
+        column.casefold() for column, _type in limit_stock.columns
+    }
     if not {
         "trade_date",
         "updated_at",
@@ -1229,6 +1236,14 @@ def _derive_cutoff_market_row(
         "calculated_at",
     }.issubset(window_columns):
         return 0
+    if not {
+        "trade_date",
+        "stock_ts_code",
+        "limit_status",
+        "limit_update_time",
+        "updated_at",
+    }.issubset(limit_stock_columns):
+        return 0
 
     cutoff_sql = f"{_quote_literal(cutoff_text)}::TIMESTAMPTZ"
     cutoff_date_sql = f"CAST({cutoff_sql} AS DATE)"
@@ -1242,6 +1257,11 @@ def _derive_cutoff_market_row(
     source_window = _qualified(
         window.schema,
         window.name,
+        database="source_db",
+    )
+    source_limit_stock = _qualified(
+        limit_stock.schema,
+        limit_stock.name,
         database="source_db",
     )
     stock_total = "stock.total_amount"
@@ -1284,9 +1304,9 @@ def _derive_cutoff_market_row(
         elif lowered == "advancers":
             expression = "COALESCE(window_stats.advancers_end, stock.advancers)"
         elif lowered == "limit_up":
-            expression = "stock.limit_up"
+            expression = "limit_stats.limit_up"
         elif lowered == "limit_down":
-            expression = "stock.limit_down"
+            expression = _null_as(data_type)
         elif lowered == "amount_ma20":
             expression = "window_stats.amount_avg"
         elif lowered == "amount_vs_yesterday_pct":
@@ -1305,6 +1325,7 @@ def _derive_cutoff_market_row(
             component_timestamps = [
                 "stock.max_updated_at",
                 "window_stats.max_calculated_at",
+                "limit_stats.max_updated_at",
             ]
             for timestamp_column in (
                 "strength_updated_at",
@@ -1342,8 +1363,6 @@ def _derive_cutoff_market_row(
             SELECT COUNT(*) AS row_count,
                    SUM({_quote_ident('amount')}) AS total_amount,
                    SUM(CASE WHEN {_quote_ident('pct_chg')} > 0 THEN 1 ELSE 0 END) AS advancers,
-                   SUM(CASE WHEN {_quote_ident('pct_chg')} >= 9.8 THEN 1 ELSE 0 END) AS limit_up,
-                   SUM(CASE WHEN {_quote_ident('pct_chg')} <= -9.8 THEN 1 ELSE 0 END) AS limit_down,
                    MAX({_quote_ident('updated_at')}) AS max_updated_at
             FROM {source_stock}
             WHERE CAST({_quote_ident('trade_date')} AS DATE) = {cutoff_date_sql}
@@ -1363,11 +1382,25 @@ def _derive_cutoff_market_row(
               AND CAST({_quote_ident('end_date')} AS DATE) <= {cutoff_date_sql}
               AND ({_quote_ident('calculated_at')} IS NULL OR
                    CAST({_quote_ident('calculated_at')} AS TIMESTAMPTZ) <= {cutoff_sql})
+        ),
+        limit_stats AS (
+            SELECT COUNT(*) AS row_count,
+                   COUNT(DISTINCT {_quote_ident('stock_ts_code')})
+                     FILTER (WHERE UPPER(COALESCE({_quote_ident('limit_status')}, ''))
+                                      IN ('U', 'UP', 'LIMIT_UP', '涨停')) AS limit_up,
+                   MAX({_quote_ident('updated_at')}) AS max_updated_at
+            FROM {source_limit_stock}
+            WHERE CAST({_quote_ident('trade_date')} AS DATE) = {cutoff_date_sql}
+              AND ({_quote_ident('limit_update_time')} IS NULL OR
+                   CAST({_quote_ident('limit_update_time')} AS TIMESTAMPTZ) <= {cutoff_sql})
+              AND ({_quote_ident('updated_at')} IS NULL OR
+                   CAST({_quote_ident('updated_at')} AS TIMESTAMPTZ) <= {cutoff_sql})
         )
         SELECT {", ".join(expressions)}
-        FROM f CROSS JOIN stock CROSS JOIN window_stats
+        FROM f CROSS JOIN stock CROSS JOIN window_stats CROSS JOIN limit_stats
         WHERE stock.row_count > 0
           AND window_stats.row_count > 0
+          AND limit_stats.row_count > 0
           AND NOT EXISTS (
               SELECT 1 FROM {target_name} existing
               WHERE existing.{_quote_ident('trade_date')} = f.{_quote_ident('trade_date')}
@@ -1546,8 +1579,9 @@ def build_filtered_duckdb(
                                 "kind": "pit_safe_market_base",
                                 "derived_rows": derived_rows,
                                 "source_tables": [
-                                    "fact_stock_daily",
-                                    "feature_market_window",
+                                "fact_stock_daily",
+                                "feature_market_window",
+                                "fact_theme_limit_stock_daily",
                                 ],
                             }
                             if derived_rows

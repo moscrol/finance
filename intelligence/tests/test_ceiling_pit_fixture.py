@@ -310,6 +310,29 @@ def test_filtered_duckdb_derives_cutoff_market_row_from_pit_safe_components(
                '2026-07-24 21:00:00')
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE fact_theme_limit_stock_daily (
+                trade_date DATE,
+                sector_ts_code VARCHAR,
+                stock_ts_code VARCHAR,
+                limit_status VARCHAR,
+                limit_update_time TIMESTAMP,
+                updated_at TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO fact_theme_limit_stock_daily VALUES
+              ('2026-07-24', 'sector-a', 'stock-a', 'U',
+               '2026-07-24 15:00:00', '2026-07-24 20:00:00'),
+              ('2026-07-24', 'sector-b', 'stock-a', 'U',
+               '2026-07-24 15:00:00', '2026-07-24 20:00:00'),
+              ('2026-07-24', 'sector-a', 'stock-b', 'U',
+               '2026-07-24 15:00:00', '2026-07-27 12:00:00')
+            """
+        )
     finally:
         connection.close()
 
@@ -325,10 +348,11 @@ def test_filtered_duckdb_derives_cutoff_market_row_from_pit_safe_components(
             WHERE trade_date = DATE '2026-07-24'
             """
         ).fetchone()
-        assert row[:5] == (None, 300.0, 2, 1, 1)
+        assert row[:5] == (None, 300.0, 2, 1, None)
         assert row[5] == "PIT-safe derived market base; late source fields withheld"
         assert row[6] == (
-            "derived:pitsafe_fact_stock_daily+feature_market_window"
+            "derived:pitsafe_fact_stock_daily+feature_market_window+"
+            "fact_theme_limit_stock_daily"
         )
         assert str(row[7]).startswith("2026-07-24")
         assert row[8:] == (3814.2, -1.61)
@@ -343,7 +367,11 @@ def test_filtered_duckdb_derives_cutoff_market_row_from_pit_safe_components(
     assert table.derivation == {
         "kind": "pit_safe_market_base",
         "derived_rows": 1,
-        "source_tables": ["fact_stock_daily", "feature_market_window"],
+        "source_tables": [
+            "fact_stock_daily",
+            "feature_market_window",
+            "fact_theme_limit_stock_daily",
+        ],
     }
 
 
