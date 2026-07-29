@@ -1350,11 +1350,19 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
                 source_date="2026-07-24",
                 content_hash="c" * 64,
             )
+            unrelated = AgentEvidence(
+                tool="financial_data",
+                title="无关财务指标",
+                detail="毛利率为17.37%。",
+                source="other",
+                source_date="2026-07-24",
+                content_hash="d" * 64,
+            )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
                 status="completed",
                 draft="截至2026-07-24，半导体是当前主线。",
-                evidence=(evidence,),
+                evidence=(evidence, unrelated),
                 traces=(),
                 gaps=(),
                 stop_reason="model_finish",
@@ -1368,7 +1376,7 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
                 bindings=tuple(
                     OutputEvidenceBinding(
                         required.output_id,
-                        ("c" * 64,),
+                        ("c" * 64, "d" * 64),
                     )
                     for required in context.contract.required_outputs
                 ),
@@ -1435,6 +1443,7 @@ def test_live_runner_uses_headless_provider_for_shared_semantic_verifier(
     assert arm["candidate_answer"] == arm["published_answer"]
     assert arm["claims"]
     assert arm["sources"][0]["content_hash"] == "c" * 64
+    assert arm["claims"][0]["source_ids"] == ["E1"]
     assert "headless-judge-secret" not in output.read_text(encoding="utf-8")
 
 

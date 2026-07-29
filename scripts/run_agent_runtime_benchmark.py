@@ -895,8 +895,26 @@ def _runtime_sources(
 def _runtime_claims(
     published_answer: str,
     *,
-    source_ids: tuple[str, ...],
+    sources: tuple[RuntimeSource, ...],
+    evidence: object,
 ) -> tuple[RuntimeClaim, ...]:
+    evidence_by_hash = {
+        str(getattr(item, "content_hash", "") or ""): item
+        for item in evidence
+        if str(getattr(item, "content_hash", "") or "")
+    } if isinstance(evidence, (tuple, list)) else {}
+    source_tokens: dict[str, frozenset[str]] = {}
+    for source in sources:
+        item = evidence_by_hash.get(source.content_hash)
+        if item is None:
+            continue
+        searchable = " ".join(
+            str(getattr(item, field, "") or "")
+            for field in ("title", "detail", "source")
+        )
+        source_tokens[source.source_id] = frozenset(
+            _material_numeric_tokens(searchable)
+        )
     claims: list[RuntimeClaim] = []
     for match in re.finditer(r"[^。！？!?；;\n]+(?:[。！？!?；;]+|(?=\n)|$)", published_answer):
         start, end = match.span()
@@ -907,17 +925,43 @@ def _runtime_claims(
         if start >= end:
             continue
         text = published_answer[start:end]
+        numeric_tokens = _material_numeric_tokens(text)
+        claim_source_ids = tuple(
+            source.source_id
+            for source in sources
+            if numeric_tokens
+            and set(numeric_tokens).issubset(
+                source_tokens.get(source.source_id, frozenset())
+            )
+        )
         claims.append(
             RuntimeClaim(
                 claim_id=f"C{len(claims) + 1}",
                 start=start,
                 end=end,
                 text=text,
-                material_numeric=bool(re.search(r"\d", text)),
-                source_ids=source_ids,
+                material_numeric=bool(numeric_tokens),
+                source_ids=claim_source_ids,
             )
         )
     return tuple(claims)
+
+
+_MATERIAL_NUMERIC_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:"
+    r"(?:19|20)\d{2}[-/]\d{1,2}[-/]\d{1,2}"
+    r"|[-+]?\d+(?:[.,]\d+)*(?:%|倍|亿|万|点|日|天|年|月)?"
+    r")"
+)
+
+
+def _material_numeric_tokens(text: str) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            match.group(0).replace(",", "").replace("/", "-").lstrip("+")
+            for match in _MATERIAL_NUMERIC_TOKEN_RE.finditer(str(text or ""))
+        )
+    )
 
 
 def _arm_failure(
@@ -1082,7 +1126,8 @@ def _run_research_arm(
         )
         claims = _runtime_claims(
             published_answer,
-            source_ids=tuple(item.source_id for item in sources),
+            sources=sources,
+            evidence=final_outcome.evidence,
         )
         return RuntimeArmResult(
             case_id=case.case_id,
