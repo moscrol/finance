@@ -158,6 +158,35 @@ def run_daily_update(
     return {"trade_date": str(td), "steps": steps, "validation": validation, "ok": all(s["ok"] for s in steps) and validation["ok"]}
 
 
+DECLARED_SECTOR_TABLES = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
+
+
+def sector_completion_gate(trade_date: str) -> dict:
+    """把板块宇宙完成度审计投影成一道门。
+
+    fail-closed: 没有已发布宇宙、成分未抓全、或任一声明表在本代际下缺行,
+    都判不通过。审计本身来自 SectorUniverseStore, 这里不重新计算完成条件。
+    """
+    from ..db import connect
+    from ..sector_universe import SectorUniverseStore
+
+    con = connect(read_only=True)
+    try:
+        audit = SectorUniverseStore(con).completion_audit(
+            trade_date, declared_tables=DECLARED_SECTOR_TABLES
+        )
+    finally:
+        con.close()
+    return {
+        "trade_date": trade_date,
+        "ok": audit.complete,
+        "brief": audit.brief(),
+        "snapshot_id": audit.snapshot_id,
+        "missing_tables": list(audit.missing_tables),
+        "status_counts": dict(audit.status_counts),
+    }
+
+
 def run_daily_full(
     trade_date: str | None = None,
     chart_table: str | None = None,
@@ -180,12 +209,25 @@ def run_daily_full(
         "brief": "same-day gate failed; cross-day gate skipped",
         "skipped": True,
     }
-    gates_ok = update["ok"] and cross_day_gate["ok"]
+    # 第三道门: 板块宇宙的精确完成度。与夜间循环共用同一个 completion_audit,
+    # 不另造公式——两处公式一旦分叉, 报告就可能在成分有缺口时照常生成。
+    sector_gate = (
+        sector_completion_gate(update["trade_date"])
+        if update["ok"] and cross_day_gate["ok"]
+        else {
+            "trade_date": update["trade_date"],
+            "ok": False,
+            "brief": "earlier gate failed; sector completion gate skipped",
+            "skipped": True,
+        }
+    )
+    gates_ok = update["ok"] and cross_day_gate["ok"] and sector_gate["ok"]
     review = build_daily_review(trade_date=update["trade_date"]) if gates_ok else None
     return {
         "trade_date": update["trade_date"],
         "update": update,
         "cross_day_gate": cross_day_gate,
+        "sector_gate": sector_gate,
         "review": review,
         "ok": gates_ok,
     }

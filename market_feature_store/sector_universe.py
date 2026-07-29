@@ -113,6 +113,51 @@ class MemberResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CompletionAudit:
+    """一个交易日的精确完成度。夜间编排唯一的停止条件。
+
+    存在的理由: 各处自造"完成"公式会各自漂移——旧的编排循环拿
+    ``count(distinct sector_ts_code)`` 当分子、``count(*) from dim_sector``
+    当分母, 两个数不同源, 分子会把降级复制写的行算作完成, 分母会把当日宇宙
+    里没有的陈旧身份算进去。审计只认已发布快照的声明。
+    """
+
+    trade_date: date
+    snapshot_id: str | None
+    declared_sector_count: int
+    declared_relationship_count: int
+    status_counts: Mapping[str, int]
+    missing_tables: tuple[str, ...]
+    complete: bool
+
+    @property
+    def success_count(self) -> int:
+        return int(self.status_counts.get("success", 0))
+
+    @property
+    def pending_count(self) -> int:
+        return int(self.status_counts.get("pending", 0))
+
+    @property
+    def retriable_error_count(self) -> int:
+        return sum(
+            int(self.status_counts.get(status, 0))
+            for status in _RETRIABLE_MEMBER_STATUSES
+        )
+
+    def brief(self) -> str:
+        """一行可进日志的进度摘要, 始终带 snapshot_id 以便跨轮核对。"""
+        if self.snapshot_id is None:
+            return f"{self.trade_date} no published universe"
+        return (
+            f"{self.trade_date} snapshot={self.snapshot_id[:12]} "
+            f"success={self.success_count}/{self.declared_sector_count} "
+            f"pending={self.pending_count} retriable={self.retriable_error_count} "
+            f"missing_tables={','.join(self.missing_tables) or '-'}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class MemberReceipt:
     """成分回执的对外投影。调用方据此判断是否成功, 无需再查表。"""
 
@@ -132,6 +177,13 @@ _MEMBER_DUPLICATE_IDENTITY = "duplicate_member_identity"
 _MEMBER_EMPTY_IDENTITY = "empty_member_identity"
 
 _RETRIABLE_MEMBER_STATUSES = ("empty", "error")
+
+# 对外声明表名 -> 其物理代际表。审计只查代际表, 因为公开视图会把 legacy
+# 迁移行也暴露出来, 用它做分子会把历史行当成今天的完成度。
+_DECLARED_GENERATION_TABLES = {
+    "fact_sector_daily": "fact_sector_daily_generation",
+    "fact_sector_stock_daily": "fact_sector_stock_daily_generation",
+}
 
 
 def _canonical_text(value: object) -> str:
@@ -775,6 +827,81 @@ class SectorUniverseStore:
                 "member work requires exactly one published snapshot"
             )
         return rows[0][0], rows[0][1]
+
+    def completion_audit(
+        self,
+        trade_date: str | date,
+        *,
+        declared_tables: frozenset[str] = frozenset({"fact_sector_stock_daily"}),
+    ) -> CompletionAudit:
+        """审计某交易日相对已发布宇宙的精确完成度。
+
+        fail-closed: 没有唯一已发布表头就 ``complete=False`` 且
+        ``snapshot_id=None``——绝不把"没有宇宙"当成"没有缺口"。
+        """
+        canonical_date = _normalize_trade_date(trade_date)
+        headers = self._con.execute(
+            """
+            SELECT snapshot_id, sector_count, declared_relationship_count
+            FROM ops_sector_universe_snapshot_daily
+            WHERE trade_date = ? AND status = 'published'
+            """,
+            [canonical_date],
+        ).fetchall()
+        if len(headers) != 1:
+            return CompletionAudit(
+                trade_date=canonical_date,
+                snapshot_id=None,
+                declared_sector_count=0,
+                declared_relationship_count=0,
+                status_counts={},
+                missing_tables=tuple(sorted(declared_tables)),
+                complete=False,
+            )
+        snapshot_id, sector_count, relationship_count = headers[0]
+
+        counts = {
+            row[0]: int(row[1])
+            for row in self._con.execute(
+                """
+                SELECT status, count(*)
+                FROM ops_sector_member_sync_daily
+                WHERE trade_date = ? AND snapshot_id = ?
+                GROUP BY status
+                """,
+                [canonical_date, snapshot_id],
+            ).fetchall()
+        }
+
+        # 每张声明表都必须在本代际下有行。成分抓全但板块日线未写, 同样不算完成。
+        missing: list[str] = []
+        for table in sorted(declared_tables):
+            generation_table = _DECLARED_GENERATION_TABLES.get(table)
+            if generation_table is None:
+                missing.append(table)
+                continue
+            present = self._con.execute(
+                f"""
+                SELECT count(DISTINCT sector_ts_code) FROM "{generation_table}"
+                WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+                """,
+                [canonical_date, snapshot_id],
+            ).fetchone()[0]
+            if int(present) != int(sector_count):
+                missing.append(table)
+
+        complete = (
+            int(counts.get("success", 0)) == int(sector_count) and not missing
+        )
+        return CompletionAudit(
+            trade_date=canonical_date,
+            snapshot_id=snapshot_id,
+            declared_sector_count=int(sector_count),
+            declared_relationship_count=int(relationship_count),
+            status_counts=counts,
+            missing_tables=tuple(missing),
+            complete=complete,
+        )
 
     def next_member_work(
         self,

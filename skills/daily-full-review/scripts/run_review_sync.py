@@ -45,15 +45,24 @@ def _count(table: str, trade_date: str) -> int:
         con.close()
 
 
-def _sectors_done(trade_date: str) -> tuple[int, int]:
+DECLARED_SECTOR_TABLES = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
+
+
+def _sector_audit(trade_date: str):
+    """当日相对已发布宇宙的精确完成度。
+
+    取代原先的计数轮询: 那里分子是 ``count(distinct sector_ts_code)``、分母是
+    ``count(*) from dim_sector``, 两个数不同源——分子会把降级复制写的行算成
+    完成, 分母会把当日宇宙里没有的陈旧 .TI 身份算进去。完成判定只有一个来源,
+    就是 SectorUniverseStore.completion_audit。
+    """
+    from market_feature_store.sector_universe import SectorUniverseStore
+
     con = connect(read_only=True)
     try:
-        done = con.execute(
-            "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
-            [trade_date],
-        ).fetchone()[0]
-        total = con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0]
-        return done, total
+        return SectorUniverseStore(con).completion_audit(
+            trade_date, declared_tables=DECLARED_SECTOR_TABLES
+        )
     finally:
         con.close()
 
@@ -212,24 +221,29 @@ def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
 
 
 def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> dict:
-    """逐批续跑直到所有板块抓全；默认跳过已抓板块，超时杀掉续下一批。"""
+    """逐批续跑直到审计判定完成；未完成时返回 partial 而非 ok。
+
+    停止条件只有 ``audit.complete``。回执驱动意味着一个反复失败的板块会被
+    取工作逻辑排到队尾, 不会卡住后面的板块, 而循环耗尽时缺口是可见的——
+    旧实现在这种情况下只要计数凑够就报 ok, 缺口就此静默。
+    """
     loops = 0
+    audit = _sector_audit(trade_date)
     while loops < max_loops:
-        done, total = _sectors_done(trade_date)
-        if total and done >= total:
+        if audit.complete:
             return {"label": "sector-stocks", "status": "ok", "code": 0,
-                    "elapsed": 0.0, "note": f"{done}/{total} sectors"}
+                    "elapsed": 0.0, "note": audit.brief()}
         loops += 1
         run_step(
-            f"sector-stocks loop{loops} ({done}/{total})",
+            f"sector-stocks loop{loops} ({audit.brief()})",
             CLI + ["sync-sector-stocks", "--trade-date", trade_date, "--limit", "60", "--sleep", "0.05"],
             timeout,
         )
         # 超时/失败也续跑：板块级提交可续，下一轮从断点继续
-    done, total = _sectors_done(trade_date)
-    status = "ok" if (total and done >= total) else "partial"
+        audit = _sector_audit(trade_date)
+    status = "ok" if audit.complete else "partial"
     return {"label": "sector-stocks", "status": status, "code": 0, "elapsed": 0.0,
-            "note": f"{done}/{total} sectors after {loops} loops"}
+            "note": f"{audit.brief()} after {loops} loops"}
 
 
 def sync_limit_heat(trade_date: str, timeout: int) -> dict:

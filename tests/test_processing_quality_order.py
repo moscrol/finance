@@ -79,3 +79,111 @@ class ReviewSyncReleaseOrderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SectorStocksReceiptLoopTest(unittest.TestCase):
+    """夜间成分循环由回执审计驱动, 而非计数轮询。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.module = load_run_review_sync()
+
+    @staticmethod
+    def _audit(complete: bool, note: str = "brief"):
+        class _Audit:
+            def __init__(self) -> None:
+                self.complete = complete
+
+            def brief(self) -> str:
+                return note
+
+        return _Audit()
+
+    def test_complete_audit_stops_without_running_a_loop(self):
+        with (
+            patch.object(self.module, "_sector_audit", return_value=self._audit(True)),
+            patch.object(self.module, "run_step") as run_step,
+        ):
+            result = self.module.sync_sector_stocks("2026-07-28", 30)
+
+        run_step.assert_not_called()
+        self.assertEqual(result["status"], "ok")
+
+    def test_incomplete_audit_after_max_loops_reports_partial(self):
+        with (
+            patch.object(self.module, "_sector_audit", return_value=self._audit(False)),
+            patch.object(self.module, "run_step") as run_step,
+        ):
+            result = self.module.sync_sector_stocks("2026-07-28", 30, max_loops=3)
+
+        self.assertEqual(run_step.call_count, 3)
+        self.assertEqual(result["status"], "partial")
+
+    def test_loop_stops_as_soon_as_the_audit_turns_complete(self):
+        audits = [self._audit(False), self._audit(False), self._audit(True)]
+        with (
+            patch.object(self.module, "_sector_audit", side_effect=audits),
+            patch.object(self.module, "run_step") as run_step,
+        ):
+            result = self.module.sync_sector_stocks("2026-07-28", 30, max_loops=10)
+
+        self.assertEqual(run_step.call_count, 2)
+        self.assertEqual(result["status"], "ok")
+
+    def test_audit_is_rechecked_between_loops_not_cached(self):
+        """每轮都要重新审计: 缓存会让一轮内新增的成功回执看不见。"""
+        audits = [self._audit(False), self._audit(True)]
+        with (
+            patch.object(self.module, "_sector_audit", side_effect=audits) as audit,
+            patch.object(self.module, "run_step"),
+        ):
+            self.module.sync_sector_stocks("2026-07-28", 30, max_loops=10)
+
+        self.assertEqual(audit.call_count, 2)
+
+
+class SectorCompletionGateTest(unittest.TestCase):
+    """成分有缺口时不得生成报告——第三道门必须真的挡住。"""
+
+    def test_incomplete_sector_universe_blocks_the_report(self):
+        update = {"trade_date": "2026-07-28", "ok": True, "steps": [], "validation": {"ok": True}}
+        gate = {"trade_date": "2026-07-28", "ok": False, "brief": "success=1/2"}
+        with (
+            patch.object(sync_daily_full, "run_daily_update", return_value=update),
+            patch("market_feature_store.quality.check_daily", return_value={"ok": True}),
+            patch.object(sync_daily_full, "sector_completion_gate", return_value=gate),
+            patch("market_feature_store.reports.daily_review.build_daily_review") as build_report,
+        ):
+            result = sync_daily_full.run_daily_full("2026-07-28")
+
+        build_report.assert_not_called()
+        self.assertIsNone(result["review"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["sector_gate"]["brief"], "success=1/2")
+
+    def test_complete_sector_universe_allows_the_report(self):
+        update = {"trade_date": "2026-07-28", "ok": True, "steps": [], "validation": {"ok": True}}
+        gate = {"trade_date": "2026-07-28", "ok": True, "brief": "success=2/2"}
+        with (
+            patch.object(sync_daily_full, "run_daily_update", return_value=update),
+            patch("market_feature_store.quality.check_daily", return_value={"ok": True}),
+            patch.object(sync_daily_full, "sector_completion_gate", return_value=gate),
+            patch("market_feature_store.reports.daily_review.build_daily_review") as build_report,
+        ):
+            result = sync_daily_full.run_daily_full("2026-07-28")
+
+        build_report.assert_called_once()
+        self.assertTrue(result["ok"])
+
+    def test_earlier_gate_failure_skips_the_sector_gate(self):
+        update = {"trade_date": "2026-07-28", "ok": False, "steps": [], "validation": {"ok": False}}
+        with (
+            patch.object(sync_daily_full, "run_daily_update", return_value=update),
+            patch("market_feature_store.quality.check_daily"),
+            patch.object(sync_daily_full, "sector_completion_gate") as sector_gate,
+            patch("market_feature_store.reports.daily_review.build_daily_review"),
+        ):
+            result = sync_daily_full.run_daily_full("2026-07-28")
+
+        sector_gate.assert_not_called()
+        self.assertTrue(result["sector_gate"]["skipped"])

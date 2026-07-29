@@ -1054,3 +1054,81 @@ def test_fast_copy_of_a_legacy_date_is_marked_degraded_and_leaves_no_receipt(sto
     assert store_con.execute(
         "select count(*) from ops_sector_member_sync_daily where trade_date = '2026-07-22'"
     ).fetchone() == (0,)
+
+
+# ---------------------------------------------------------------------------
+# Task 6：完成度审计。夜间编排唯一的停止条件, 不许各处自造公式。
+# ---------------------------------------------------------------------------
+
+DECLARED_TABLES = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
+
+
+def test_completion_audit_denominator_is_the_snapshot_not_dim_sector(store_con):
+    """分母必须来自已发布快照。dim_sector 里的陈旧 .TI 身份不得进分母。"""
+    published = _publish(store_con)
+    store_con.execute(
+        "insert into dim_sector(sector_ts_code, sector_name, is_active) "
+        "values ('885957.TI', '陈旧身份', true)"
+    )
+    audit = SectorUniverseStore(store_con).completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    )
+    assert audit.snapshot_id == published.snapshot_id
+    assert audit.declared_sector_count == 2
+    assert audit.complete is False
+
+
+def test_completion_audit_counts_each_receipt_state(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    store.record_member_result(
+        published.snapshot_id, "990002A.FP", MemberResult.error("provider_timeout")
+    )
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+    assert audit.status_counts["success"] == 1
+    assert audit.status_counts["error"] == 1
+    assert audit.retriable_error_count == 1
+    assert audit.complete is False
+
+
+def test_completion_audit_requires_every_declared_table(store_con):
+    """成分抓全了但板块日线还没写, 依然不算完成——审计覆盖两张声明表。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    partial = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+    assert partial.complete is False
+    assert "fact_sector_daily" in partial.missing_tables
+
+    store.replace_sector_daily(published.snapshot_id, _daily_rows("A", 1.0))
+    done = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+    assert done.complete is True
+    assert done.missing_tables == ()
+
+
+def test_completion_audit_fails_closed_without_a_published_universe(store_con):
+    audit = SectorUniverseStore(store_con).completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    )
+    assert audit.complete is False
+    assert audit.snapshot_id is None
