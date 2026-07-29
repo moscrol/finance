@@ -130,6 +130,26 @@ class _HeadlessProviderProjection:
             f"{str(self.supports_websockets).lower()}",
         )
 
+    def public_identity(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "base_url": self.base_url,
+            "wire_api": self.wire_api,
+            "model": self.model,
+            "supports_websockets": self.supports_websockets,
+            "credential_instance_sha256": hashlib.sha256(
+                self.bearer_token.encode("utf-8")
+            ).hexdigest(),
+        }
+        payload["provider_identity_sha256"] = hashlib.sha256(
+            json.dumps(
+                payload,
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        return payload
+
 
 def _load_headless_provider_projection(
     path: Path,
@@ -137,6 +157,8 @@ def _load_headless_provider_projection(
     required: bool,
 ) -> _HeadlessProviderProjection | None:
     config_path = Path(path).expanduser()
+    if required and config_path.is_symlink():
+        raise ValueError("Codex provider config must not be a symlink")
     if not config_path.is_file():
         if required:
             raise ValueError("Codex provider config unavailable")
@@ -173,6 +195,15 @@ def _load_headless_provider_projection(
         model=model,
         supports_websockets=supports_websockets,
     )
+
+
+def headless_provider_identity(path: Path) -> dict[str, object]:
+    """Return the non-secret identity of one explicitly projected provider."""
+
+    projection = _load_headless_provider_projection(path, required=True)
+    if projection is None:  # pragma: no cover - required=True is fail-closed.
+        raise ValueError("Codex provider config unavailable")
+    return projection.public_identity()
 
 
 @dataclass(frozen=True)
@@ -434,8 +465,6 @@ class CodexHeadlessRuntime:
             raise ValueError(
                 "Codex provider projection requires subprocess transport"
             )
-        if self._sealed_fixture and provider_config_path is not None:
-            raise ValueError("sealed fixture forbids provider config projection")
         provider_projection = None
         if provider_config_path is not None:
             provider_projection = _load_headless_provider_projection(
@@ -524,6 +553,10 @@ class CodexHeadlessRuntime:
                 model=self._model,
             ),
         )
+
+    def provider_identity(self) -> dict[str, object] | None:
+        projection = self._provider_projection
+        return projection.public_identity() if projection is not None else None
 
     def run(
         self,

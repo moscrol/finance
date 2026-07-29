@@ -457,11 +457,82 @@ supports_websockets = false
 
     assert runtime.model_name == "gpt-5.6-sol"
     assert runtime.semantic_providers() == ()
-    with pytest.raises(ValueError, match="sealed fixture.*provider config"):
+
+
+def test_sealed_runtime_projects_only_explicit_provider_config(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "provider.toml"
+    config_path.write_text(
+        """
+model = "gpt-5.6-sol"
+model_provider = "local_access"
+
+[model_providers.local_access]
+name = "Local Access"
+base_url = "http://localhost:57244/v1"
+wire_api = "responses"
+experimental_bearer_token = "SEALED_PROVIDER_SECRET_SENTINEL"
+requires_openai_auth = false
+supports_websockets = false
+
+[mcp_servers.forbidden]
+command = "must-not-enter-sealed-runtime"
+""".strip(),
+        encoding="utf-8",
+    )
+    fake = ValidFakeCodex()
+    runtime = CodexHeadlessRuntime(
+        command_runner=fake,
+        model="gpt-5.6-sol",
+        reasoning_effort="medium",
+        sealed_fixture=True,
+        provider_config_path=config_path,
+        isolation_probe=lambda _binary, _cwd: HeadlessIsolationReceipt.proven_for_test(),
+    )
+
+    runtime.run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    command = fake.commands[0]
+    serialized_args = " ".join(command.args)
+    assert "--ignore-user-config" in command.args
+    assert 'model_provider="headless_projected"' in command.args
+    assert "http://localhost:57244/v1" in serialized_args
+    assert "must-not-enter-sealed-runtime" not in serialized_args
+    assert "SEALED_PROVIDER_SECRET_SENTINEL" not in serialized_args
+    assert command.env["CODEX_HEADLESS_PROVIDER_KEY"] == (
+        "SEALED_PROVIDER_SECRET_SENTINEL"
+    )
+    include_only = next(
+        item
+        for item in command.args
+        if item.startswith("shell_environment_policy.include_only=")
+    )
+    assert "CODEX_HEADLESS_PROVIDER_KEY" not in include_only
+    providers = runtime.semantic_providers()
+    assert len(providers) == 1
+    assert providers[0].base_url == "http://localhost:57244/v1"
+    assert providers[0].model == "gpt-5.6-sol"
+    assert providers[0].api_key == "SEALED_PROVIDER_SECRET_SENTINEL"
+    identity = runtime.provider_identity()
+    assert identity["base_url"] == "http://localhost:57244/v1"
+    assert identity["wire_api"] == "responses"
+    assert identity["model"] == "gpt-5.6-sol"
+    assert identity["supports_websockets"] is False
+    assert len(identity["credential_instance_sha256"]) == 64
+    assert len(identity["provider_identity_sha256"]) == 64
+    assert "SEALED_PROVIDER_SECRET_SENTINEL" not in json.dumps(identity)
+    config_link = tmp_path / "provider-link.toml"
+    config_link.symlink_to(config_path)
+    with pytest.raises(ValueError, match="must not be a symlink"):
         CodexHeadlessRuntime(
             model="gpt-5.6-sol",
             sealed_fixture=True,
-            provider_config_path=config_path,
+            provider_config_path=config_link,
         )
 
 

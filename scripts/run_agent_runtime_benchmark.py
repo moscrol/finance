@@ -612,6 +612,7 @@ def _build_runtime(
     runtime_providers: tuple[LLMProvider, ...] = (),
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
     sealed_fixture: SealedCeilingFixture | None = None,
+    headless_provider_config: Path | None = None,
 ) -> tuple[object, str]:
     del context
     providers = runtime_providers or llm_refine.detect_providers()
@@ -707,6 +708,7 @@ def _build_runtime(
                 if sealed_fixture is not None
                 else None
             ),
+            provider_config_path=headless_provider_config,
             transport=("subprocess" if sealed_fixture is not None else None),
         )
         return runtime, runtime.model_name
@@ -1008,6 +1010,7 @@ def _run_research_arm(
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
     sealed_fixture: SealedCeilingFixture | None = None,
     fixture_policy: SealedFixturePolicy | None = None,
+    headless_provider_config: Path | None = None,
 ) -> RuntimeArmResult:
     started = time.monotonic()
     model = "unavailable"
@@ -1033,6 +1036,7 @@ def _run_research_arm(
             runtime_providers=runtime_providers,
             headless_budget_profile=headless_budget_profile,
             sealed_fixture=sealed_fixture,
+            headless_provider_config=headless_provider_config,
         )
         registry = _build_registry(
             control.task_frame,
@@ -1287,6 +1291,7 @@ def _run_runtime_arm(
     headless_budget_profile: HeadlessBenchmarkBudgetProfile | None = None,
     sealed_fixture: SealedCeilingFixture | None = None,
     fixture_policy: SealedFixturePolicy | None = None,
+    headless_provider_config: Path | None = None,
 ) -> tuple[dict[str, object], tuple[RuntimeArmResult, ...]]:
     if control.terminal_kind == "research" and not is_deterministic_fast_path(
         control.task_frame
@@ -1303,6 +1308,7 @@ def _run_runtime_arm(
                 headless_budget_profile=headless_budget_profile,
                 sealed_fixture=sealed_fixture,
                 fixture_policy=fixture_policy,
+                headless_provider_config=headless_provider_config,
             )
             for backend in backends
         )
@@ -1406,6 +1412,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Hash-bound sealed physical fixture pointer for the five-case profile-D control",
     )
     parser.add_argument(
+        "--headless-provider-config",
+        type=Path,
+        help="Explicit provider-only config projected into Codex headless without inheriting user config",
+    )
+    parser.add_argument(
         "--keychain-user",
         help="Load the runtime provider from macOS Keychain without exporting a key",
     )
@@ -1431,6 +1442,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         if len(set(backends)) != len(backends):
             raise ValueError("backend names must be unique")
+        headless_provider_config = (
+            args.headless_provider_config.expanduser().absolute()
+            if args.headless_provider_config is not None
+            else None
+        )
+        headless_provider: dict[str, object] | None = None
+        if headless_provider_config is not None:
+            if backends != ("codex_headless",):
+                raise ValueError(
+                    "headless provider config requires only the codex_headless backend"
+                )
+            from intelligence.services.codex_headless_runtime import (
+                headless_provider_identity,
+            )
+
+            headless_provider = headless_provider_identity(
+                headless_provider_config
+            )
         headless_budget_profile = (
             HEADLESS_BUDGET_PROFILES[args.headless_budget_profile]
             if args.headless_budget_profile
@@ -1471,6 +1500,21 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("sealed fixture case cutoff mismatch")
             if args.finance_root is not None or args.knowledge_wiki is not None:
                 raise ValueError("sealed fixture benchmark forbids live data root arguments")
+            if (
+                headless_provider is not None
+                and headless_provider.get("model") != "gpt-5.6-sol"
+            ):
+                raise ValueError(
+                    "sealed fixture provider model must be gpt-5.6-sol"
+                )
+            if (
+                not args.dry_run
+                and headless_provider is None
+                and not os.environ.get("OPENAI_API_KEY")
+            ):
+                raise ValueError(
+                    "sealed fixture live benchmark requires explicit provider credentials"
+                )
             finance_root = sealed_fixture.component_root
             knowledge_wiki = sealed_fixture.wiki_root
             fixture_policy = SealedFixturePolicy(
@@ -1567,6 +1611,7 @@ def main(argv: list[str] | None = None) -> int:
                         headless_budget_profile=headless_budget_profile,
                         sealed_fixture=sealed_fixture,
                         fixture_policy=fixture_policy,
+                        headless_provider_config=headless_provider_config,
                     )
                 )
             records = [record for record, _arms in executed]
@@ -1626,7 +1671,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "market_data_date": market_data_date,
         "credential_source": (
-            "keychain" if runtime_providers else "environment"
+            "headless_provider_config"
+            if headless_provider is not None
+            else ("keychain" if runtime_providers else "environment")
         ),
         "headless_budget_profile": (
             headless_budget_profile.to_dict()
@@ -1640,6 +1687,8 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "cases": records,
     }
+    if headless_provider is not None:
+        artifact["headless_provider"] = headless_provider
     if sealed_fixture is not None:
         from intelligence.services.codex_headless_runtime import (
             sealed_environment_policy_payload,

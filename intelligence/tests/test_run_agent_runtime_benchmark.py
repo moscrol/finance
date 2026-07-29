@@ -163,6 +163,21 @@ def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
     monkeypatch,
 ) -> None:
     pointer = _fake_sealed_fixture(tmp_path, FIXTURE)
+    provider_config = tmp_path / "provider.toml"
+    provider_config.write_text(
+        """
+model = "gpt-5.6-sol"
+model_provider = "local_access"
+
+[model_providers.local_access]
+base_url = "http://localhost:57244/v1"
+wire_api = "responses"
+experimental_bearer_token = "BENCHMARK_PROVIDER_SECRET_SENTINEL"
+requires_openai_auth = false
+supports_websockets = false
+""".strip(),
+        encoding="utf-8",
+    )
     output = tmp_path / "sealed-dry-run.json"
     monkeypatch.setattr(benchmark, "_source_provenance", lambda: ("c" * 40, False))
     monkeypatch.setattr(
@@ -187,6 +202,8 @@ def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
             str(FIXTURE),
             "--ceiling-fixture-receipt",
             str(pointer),
+            "--headless-provider-config",
+            str(provider_config),
             "--output",
             str(output),
         ]
@@ -202,6 +219,10 @@ def test_sealed_fixture_dry_run_uses_only_pinned_five_cases(
     assert payload["ceiling_fixture"]["no_live_root"] is True
     assert payload["ceiling_fixture"]["model"] == "gpt-5.6-sol"
     assert payload["ceiling_fixture"]["transport"] == "subprocess_mailbox"
+    assert payload["headless_provider"]["base_url"] == "http://localhost:57244/v1"
+    assert payload["headless_provider"]["model"] == "gpt-5.6-sol"
+    assert len(payload["headless_provider"]["credential_instance_sha256"]) == 64
+    assert "BENCHMARK_PROVIDER_SECRET_SENTINEL" not in json.dumps(payload)
     assert [
         item["case_id"]
         for item in payload["ceiling_fixture"]["tool_surface"]["cases"]
