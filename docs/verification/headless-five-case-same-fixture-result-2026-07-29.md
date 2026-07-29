@@ -1,7 +1,7 @@
 # Same-Fixture Five-Case Headless Result
 
 Date: 2026-07-29
-Status: attempt 1 invalid; retry 1 preregistered
+Status: attempt 1 invalid; retry 1 invalid; retry 2 preregistered
 
 ## Attempt 1
 
@@ -52,3 +52,41 @@ Attempt 1 is retained as an infrastructure/protocol failure receipt. Its answer
 text is not scored, does not enter the 28-case board, and cannot support a
 headless-versus-App-Server conclusion. Retry 1 is a new preregistered experiment
 with a unique artifact path.
+
+## Retry 1 Result
+
+- Source revision: `f4c0f541ec96ae69703f82d42187e5701d829e03`
+- Artifact: `/Users/a77/.finance-runtime/evals/adaptive-runtime-five-cases-headless-profile-d-sealed-live-2026-07-29-f4c0f541.json`
+- Artifact SHA-256: `e9afc2b25af5031af3574f1032bec5a2abf81b0f7f5cf72521c9f2e38919f014`
+- Fixture manifest: `7f689bb57a36737070431d7f5bd4fa43a59a190070ebb0e3fc194ea1a5cd7b1c`
+- Provider identity: `9eeb1747acbddec586134c4439a3505e3c33d9fe7deace92c21b67002ed2a35f`
+- Benchmark gate: failed
+- Budget validity: `invalid_not_physically_exercised`
+- Maximum published tool calls: 0 because the arm projection failed after the
+  runtime returned; this is not a measurement of the runtime's actual calls.
+
+All four research cases reached the shared public claim/source projection and
+then failed with:
+
+```text
+ValueError:material numeric claim requires a source
+```
+
+The zero-tool methodology case completed. The four financial answers are not
+quality failures: their candidate answers, usage, and traces were discarded by
+the runner-exception fallback before they could enter the immutable public
+artifact.
+
+The root cause is narrower than the fail-closed numeric-lineage rule. The
+projection required one evidence item to contain every numeric token in an
+entire sentence and omitted `source_date` from searchable lineage. A sentence
+combining valuation and financial metrics from two valid receipts therefore
+received no source IDs. Commit
+`c732388053adf6dbd6f7e4dfb3858326527f2a5f` changes the projection to a
+deterministic minimal multi-source cover, includes source dates, and still
+leaves any claim with an uncovered numeric token unbound so the existing hard
+validator rejects it.
+
+Focused regression: `105 passed, 1 skipped`; Ruff and `git diff --check`
+passed. Questions, fixture, provider, tool surface, budgets, verifier, acceptance
+rules, and numeric fail-closed validation are unchanged.
