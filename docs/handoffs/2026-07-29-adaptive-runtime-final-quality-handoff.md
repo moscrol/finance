@@ -47,6 +47,18 @@ evaluator, rubric, and their own hash. Blind labels additionally bind a sealed
 pair manifest, exact reference snapshot, independent reviewer, and eligible
 dimensions. Deterministic hard failures cannot be overwritten.
 
+## Live control transport correction
+
+The first attempted A/B/C/D run on 2026-07-29 did not test budgets: all twelve cells called the
+authorized wrapper, but nested Codex `read-only` sandboxing denied its loopback connection, so
+every arm stopped with zero tool calls. The shared local-exec seam is now fixed with an
+ephemeral-cwd-only `workspace-write` sandbox, explicit network access, and global temp roots
+excluded. Finance and Wiki roots remain read-only. See
+`docs/verification/headless-local-exec-loopback-seam-2026-07-29.md`.
+
+Those first four artifacts remain invalid failure receipts. The fair experiment requires a
+new preregistration amendment and new artifact paths pinned to the fix commit.
+
 ## Delivered code
 
 ### Causal slice

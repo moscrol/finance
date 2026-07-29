@@ -834,3 +834,26 @@ def test_runtime_can_select_local_exec_transport_without_openai_key(
     )
     assert outcome.status == "failed"
     assert outcome.stop_reason == "headless_usage_limit"
+
+
+def test_local_exec_command_enables_loopback_without_widening_tmp_roots() -> None:
+    """HTTP finance tools need network, while only the ephemeral cwd may be writable."""
+
+    fake = ValidFakeCodex()
+
+    CodexHeadlessRuntime(
+        command_runner=fake,
+        transport="local_exec",
+    ).run(
+        task_frame=_frame(),
+        context=_context(_frame()),
+        registry=_registry([]),
+    )
+
+    command = fake.commands[0]
+    assert command.args[command.args.index("--sandbox") + 1] == "workspace-write"
+    assert "sandbox_workspace_write.network_access=true" in command.args
+    assert "sandbox_workspace_write.exclude_tmpdir_env_var=true" in command.args
+    assert "sandbox_workspace_write.exclude_slash_tmp=true" in command.args
+    assert "--dangerously-bypass-approvals-and-sandbox" not in command.args
+    assert "--add-dir" not in command.args

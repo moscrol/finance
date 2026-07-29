@@ -301,9 +301,8 @@ class CodexHeadlessRuntime:
         self._gateway_transport = (
             "mailbox" if selected_transport == "subprocess" else "http"
         )
-        self._sandbox_mode = (
-            "workspace-write" if selected_transport == "subprocess" else "read-only"
-        )
+        self._sandbox_mode = "workspace-write"
+        self._enable_gateway_network = selected_transport == "local_exec"
         if provider_config_path is not None and selected_transport != "subprocess":
             raise ValueError(
                 "Codex provider projection requires subprocess transport"
@@ -581,6 +580,17 @@ class CodexHeadlessRuntime:
             "-c",
             f'model_reasoning_effort="{self._reasoning_effort}"',
         ]
+        if self._enable_gateway_network:
+            args.extend(
+                (
+                    "-c",
+                    "sandbox_workspace_write.network_access=true",
+                    "-c",
+                    "sandbox_workspace_write.exclude_tmpdir_env_var=true",
+                    "-c",
+                    "sandbox_workspace_write.exclude_slash_tmp=true",
+                )
+            )
         if self._provider_projection is not None:
             args.extend(self._provider_projection.cli_args())
         if self._model is not None:
