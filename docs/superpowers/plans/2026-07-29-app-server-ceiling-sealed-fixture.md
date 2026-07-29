@@ -172,15 +172,17 @@ Expected: export safety and audit tests pass.
 - Create: `intelligence/eval/ceiling_pit_fixture.py`
 - Test: `intelligence/tests/test_ceiling_pit_fixture.py`
 
-- [ ] **Step 1: Write a failing future-row/unknown-column test**
+- [x] **Step 1: Write a failing future-row/unknown-column test**
 
 The source DB contains rows on 2026-07-24 and 2026-07-25 plus a table with `mystery_effective_when`. The builder must exclude the future row and reject the unknown temporal schema.
 
-- [ ] **Step 2: Implement the conservative temporal policy**
+- [x] **Step 2: Implement the conservative temporal policy**
 
 Recognize `trade_date`, `date`, `source_date`, `report_date`, `ann_date`, `announcement_date`, `end_date`, `report_period`, `source_update_time`, `updated_at`, `created_at`, and `published_at`. Any other column whose name contains `date`, `time`, `year`, `period`, or `when` blocks that table as `unclassified_temporal_column`.
 
-- [ ] **Step 3: Implement `build_filtered_duckdb()`**
+Real-schema preflight adds explicit cutoff-bearing production columns such as `start_date`, `first_seen_date`, `last_seen_date`, `as_of_date`, `similar_date`, `*_updated_at`, and the four `startup_date_*` fields. Exact non-temporal marker exceptions (`limit_times`, `period_type`, `is_realtime`, and the other committed names) are recorded in each table receipt. `first_limit_time` / `last_limit_time` are accepted only with a date anchor and a validated intraday-clock representation; they are never interpreted as standalone dates. Every other marker-bearing name still blocks.
+
+- [x] **Step 3: Implement `build_filtered_duckdb()`**
 
 Open the source read-only. Copy each base table into a new DB with all recognized non-null temporal values `<= 2026-07-24T23:59:59+08:00`; materialize views after dependencies. Record source/target rows and maxima. Never byte-copy the source DB.
 
@@ -193,15 +195,15 @@ predicates = [
 ]
 ```
 
-- [ ] **Step 4: Implement post-build audit**
+- [x] **Step 4: Implement post-build audit**
 
 Reopen the target read-only, verify every maximum, check path/mode/hash, confirm no external attached DB remains, and seal the target SHA-256. Chmod the DB and final fixture root read-only only after all components pass.
 
-- [ ] **Step 5: Cover SQL DATE, `YYYYMMDD`, timestamps, nulls, malformed values, empty tables, and views**
+- [x] **Step 5: Cover SQL DATE, `YYYYMMDD`, timestamps, nulls, malformed values, empty tables, and views**
 
 Malformed date-bearing values fail closed; they are not copied as opaque strings.
 
-- [ ] **Step 6: Run GREEN and commit**
+- [x] **Step 6: Run GREEN and commit**
 
 Run:
 
