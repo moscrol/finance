@@ -39,6 +39,11 @@ projections; and a runner-owned span-bound Claim/Evidence ledger. No App Server
 runner code or live answer is allowed before v3 receives an independent PASS and
 a same-fixture five-case profile-D control is sealed.
 
+The v3 re-review at `b1318e00` is now `PASS`. This authorizes only the curated
+export/PIT/isolation tooling and same-fixture five-case headless control. App
+Server runner/live work remains blocked because the pinned 0.146.0 protocol does
+not expose provider-executed model/provider/reasoning/service-tier identity.
+
 ## 1. Thirty-second summary
 
 The goal is not to make five benchmark questions pass and it is not to clone

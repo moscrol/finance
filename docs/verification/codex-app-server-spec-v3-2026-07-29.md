@@ -1,7 +1,7 @@
 # Codex App Server Spec v3 Verification
 
 Date: 2026-07-29
-Status: first v3 review corrections applied; second independent v3 review pending
+Status: independent `PASS` at `b1318e00`; bounded prerequisite tooling authorized
 
 ## Inputs
 
@@ -71,15 +71,18 @@ larger compute envelope.
 
 ## Remaining gates
 
-1. Obtain an independent v3 spec `PASS` after the four corrections above.
-2. Build and seal the curated instruction export and physical PIT fixture.
-3. Prove all isolation positive/negative controls.
-4. Run and seal the five-case same-fixture profile-D headless baseline.
-5. Obtain a binary/protocol or separately reviewed provider receipt that exposes
+1. Build and seal the curated instruction export and physical PIT fixture.
+2. Prove all isolation positive/negative controls required for the headless
+   control and later App Server preflight.
+3. Run and seal the five-case same-fixture profile-D headless baseline.
+4. Obtain a binary/protocol or separately reviewed provider receipt that exposes
    actual executed model/provider/service tier; only then write App Server runner
    code. The current binary must fail preflight before the first case.
-6. Preregister five answer projections, quota radius, blind commitment, and
+5. Preregister five answer projections, quota radius, blind commitment, and
    output paths before the first App Server answer.
+
+Independent review receipt:
+`codex-app-server-spec-v3-independent-pass-2026-07-29.md`.
 
 No part of this verification changes `main`, 8792/8799, KB merge boundaries,
 credentials, databases, indexes, model weights, or existing benchmark artifacts.

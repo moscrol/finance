@@ -1,7 +1,7 @@
 # Codex App Server Ceiling Benchmark Design v3
 
 Date: 2026-07-29
-Status: two independent `CHANGES_REQUIRED` rounds addressed; PASS review pending; implementation blocked
+Status: independent `PASS`; fixture/export and five-case headless-control tooling authorized; App Server runner blocked
 Model: explicit `gpt-5.6-sol`
 Canonical runtime: unchanged; 8792 and 8799 are out of scope
 
