@@ -294,6 +294,9 @@ def _load_sealed_fixture(
     fixture_input = manifest.get("input")
     if not isinstance(fixture_input, dict):
         raise ValueError("sealed fixture input is invalid")
+    input_sha256 = str(manifest.get("input_sha256") or "")
+    if input_sha256 != _artifact_hash(fixture_input):
+        raise ValueError("sealed fixture input hash mismatch")
     question_hash = str(fixture_input.get("question_file_sha256") or "")
     if question_hash != _sha256_file(question_file.expanduser().resolve()):
         raise ValueError("sealed fixture question file hash mismatch")
@@ -337,7 +340,7 @@ def _load_sealed_fixture(
         pointer_path=raw_pointer_path.resolve(),
         component_root=component_root,
         manifest_sha256=manifest_sha256,
-        input_sha256=str(manifest.get("input_sha256") or ""),
+        input_sha256=input_sha256,
         as_of=str(fixture_input.get("as_of") or ""),
         question_file_sha256=question_hash,
         instruction_root=instruction_root,

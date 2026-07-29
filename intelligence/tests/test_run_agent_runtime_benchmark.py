@@ -53,14 +53,15 @@ def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
         }
         for relative in sorted(files)
     ]
+    fixture_input = {
+        "as_of": "2026-07-24",
+        "question_file_sha256": hashlib.sha256(question_file.read_bytes()).hexdigest(),
+    }
     manifest = {
         "schema_version": 1,
         "status": "sealed",
-        "input_sha256": "a" * 64,
-        "input": {
-            "as_of": "2026-07-24",
-            "question_file_sha256": hashlib.sha256(question_file.read_bytes()).hexdigest(),
-        },
+        "input_sha256": benchmark._artifact_hash(fixture_input),
+        "input": fixture_input,
         "components": {
             "instruction": {
                 "component_root": "instruction-export",
@@ -108,6 +109,33 @@ def _fake_sealed_fixture(tmp_path: Path, question_file: Path) -> Path:
     pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
     pointer_path.chmod(0o444)
     return pointer_path
+
+
+def test_load_sealed_fixture_recomputes_input_hash(tmp_path: Path) -> None:
+    questions = tmp_path / "questions.json"
+    questions.write_text('{"cases": []}', encoding="utf-8")
+    pointer_path = _fake_sealed_fixture(tmp_path, questions)
+    root = pointer_path.parent / "fixture"
+    manifest_path = root / "fixture.manifest.json"
+    manifest_path.chmod(0o644)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["input_sha256"] = "a" * 64
+    manifest["manifest_sha256"] = benchmark._artifact_hash(
+        {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_path.chmod(0o444)
+    pointer_path.chmod(0o644)
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    pointer["manifest_sha256"] = manifest["manifest_sha256"]
+    pointer["pointer_sha256"] = benchmark._artifact_hash(
+        {key: value for key, value in pointer.items() if key != "pointer_sha256"}
+    )
+    pointer_path.write_text(json.dumps(pointer), encoding="utf-8")
+    pointer_path.chmod(0o444)
+
+    with pytest.raises(ValueError, match="input hash mismatch"):
+        benchmark._load_sealed_fixture(pointer_path, question_file=questions)
 
 
 def test_load_sealed_fixture_revalidates_all_files(tmp_path: Path) -> None:
