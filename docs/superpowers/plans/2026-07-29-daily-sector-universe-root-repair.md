@@ -739,7 +739,7 @@ receipt and was not bypassed.
 - Modify: `scripts/fast_daily_sync.py`
 - Modify: `tests/test_sector_universe.py`
 
-- [ ] **Step 1: Write failing starvation, count, and atomicity tests**
+- [x] **Step 1: Write failing starvation, count, and atomicity tests**
 
 ```python
 def test_error_receipt_does_not_starve_later_sector(store_con):
@@ -768,7 +768,7 @@ def test_count_mismatch_publishes_no_member_rows(store_con):
     assert store_con.execute("select count(*) from fact_sector_stock_daily_generation").fetchone() == (0,)
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -778,19 +778,19 @@ Run:
 
 Expected: FAIL because member receipt methods are missing.
 
-- [ ] **Step 3: Implement fair work selection and result commits**
+- [x] **Step 3: Implement fair work selection and result commits**
 
 `next_member_work` orders `pending` before retriable `empty/error`, then by `attempt_count`, null/old `last_attempted_at`, and code. `record_member_result` validates snapshot, identity, served date, unique non-empty stock codes, and exact declared count; on success it replaces only that sector/snapshot generation and commits the receipt in the same transaction. Empty/error attempts increment and persist stable categories without raw provider text.
 
-- [ ] **Step 4: Adapt the sync and CLI**
+- [x] **Step 4: Adapt the sync and CLI**
 
 Replace `_load_sector_dim`, physical-order slicing, and date-only done detection with `published_snapshot` plus `next_member_work`. Preserve provider batch fetch and market-cap enrichment, but feed each normalized result to `record_member_result`. Return status counts, exact success denominator, relationship totals, and snapshot ID. CLI exit code is 0 only when the requested batch itself executes; completion remains a separate audit.
 
-- [ ] **Step 5: Make historical fast copy explicitly ineligible**
+- [x] **Step 5: Make historical fast copy explicitly ineligible**
 
 `fast_sector_stocks` must refuse to write when a published header exists for the target date. For a legacy-only historical date it may write `sector_universe_snapshot_id='legacy'`, but it returns `degraded_legacy_copy` and never creates a success receipt.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run:
 
@@ -822,7 +822,7 @@ git commit -m "feat: persist exact sector member receipts"
 
 Add tests proving stale `.TI` rows never enter the denominator, an error receipt advances the next loop, progress is reported as `success/pending/empty/error` against one snapshot, and loop exhaustion returns `partial` rather than `ok`.
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -875,7 +875,7 @@ git commit -m "fix: drive nightly sector sync from receipts"
 
 Cover 406/407 failure despite 100% name continuity, per-sector count mismatch, facts outside the snapshot, legacy/superseded rows, null critical fields, and reduced table scope that does not declare sector tables.
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \

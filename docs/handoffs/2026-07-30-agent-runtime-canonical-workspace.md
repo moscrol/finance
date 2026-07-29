@@ -167,7 +167,18 @@ Completed on the canonical branch:
   (`3e7dff99`);
 - Task 4 — generation-bound sector daily facts, exact target-date/provider
   identity validation, published-generation public reads, and removal of the
-  three retired sector-level Feishu producers (`e74ca793`).
+  three retired sector-level Feishu producers (`e74ca793`);
+- Task 5 — durable member receipts, fair non-starving work selection, exact
+  declared-count admission, receipt-driven member sync, and an explicitly
+  disqualified legacy fast copy (`df6427e1`, `41036494`).
+
+Task 5 also repaired a break left by Task 4: `fact_sector_stock_daily` became a
+view, but the member writer still issued `DELETE`/`INSERT`/`ALTER TABLE`
+against it, so that sync path could not run at all. The orphaned `UPSERT_SQL`
+and `_ensure_columns` were removed; all ten columns the latter added already
+exist in `fact_sector_stock_daily_generation`.
+
+The `1,204/1,202` declaration discrepancy is still open and was not bypassed.
 
 Task-specific records:
 
@@ -216,8 +227,9 @@ invokes the retired sector-level Feishu producers.
 
 ## 7. Single Forward Sequence
 
-1. Task 5: drive member work from durable receipts and diagnose the
-   1,204/1,202 discrepancy without changing the declaration.
+1. Task 5 implementation is complete (`df6427e1`, `41036494`). Still open: the
+   1,204/1,202 discrepancy must be diagnosed from live receipts without
+   changing the declaration; that needs an authorized provider run.
 2. Tasks 6-7: adapt orchestration, enforce the exact completion/static access
    gates, and remove all unauthorized physical/date-only writer paths.
 3. Task 8: copied-DB regression and migration preview, then one authorized
