@@ -712,6 +712,42 @@ def _seal_regular_tree(root: Path) -> tuple[WikiFileReceipt, ...]:
     return tuple(receipts)
 
 
+def _copy_regular_tree(source: Path, destination: Path) -> None:
+    if source.is_symlink() or not source.is_dir():
+        raise ValueError("prebuilt Hybrid index must be a regular directory")
+    destination.mkdir(mode=0o700)
+    try:
+        for path in sorted(source.rglob("*")):
+            if path.is_symlink():
+                raise ValueError("prebuilt Hybrid index cannot contain symlinks")
+            relative = path.relative_to(source)
+            target = destination / relative
+            if path.is_dir():
+                target.mkdir(mode=0o700, parents=True, exist_ok=True)
+                continue
+            if not path.is_file() or path.stat().st_nlink != 1:
+                raise ValueError("prebuilt Hybrid index must contain private regular files")
+            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(target, flags, 0o600)
+            try:
+                with path.open("rb") as source_handle, os.fdopen(
+                    descriptor,
+                    "wb",
+                    closefd=False,
+                ) as target_handle:
+                    shutil.copyfileobj(source_handle, target_handle, 1024 * 1024)
+                    target_handle.flush()
+                    os.fsync(target_handle.fileno())
+            finally:
+                os.close(descriptor)
+    except BaseException:
+        _remove_tree(destination)
+        raise
+
+
 def _remove_tree(root: Path) -> None:
     if not root.exists():
         return
@@ -760,6 +796,7 @@ def build_true_hybrid_index(
     rag_python: str | Path,
     query: str,
     timeout_seconds: float = 3600.0,
+    prebuilt_index_root: str | Path | None = None,
 ) -> HybridIndexReceipt:
     """Build and seal one content-bound BGE-m3 + BM25 Hybrid index."""
 
@@ -787,13 +824,19 @@ def build_true_hybrid_index(
         python=python,
     )
     try:
-        subprocess.run(
-            [str(python), str(script), "build", "--model", "bge-m3"],
-            check=True,
-            text=True,
-            env=environment,
-            timeout=timeout_seconds,
-        )
+        if prebuilt_index_root is None:
+            subprocess.run(
+                [str(python), str(script), "build", "--model", "bge-m3"],
+                check=True,
+                text=True,
+                env=environment,
+                timeout=timeout_seconds,
+            )
+        else:
+            _copy_regular_tree(
+                Path(prebuilt_index_root).expanduser().absolute(),
+                index,
+            )
         required = {
             "chunks.jsonl",
             "dense.npy",

@@ -537,6 +537,59 @@ def test_true_hybrid_build_seals_fresh_content_bound_index(tmp_path: Path) -> No
     )
 
 
+def test_true_hybrid_build_adopts_only_a_byte_identical_prebuilt_index(
+    tmp_path: Path,
+) -> None:
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    subprocess.run(["git", "init", "-q", str(kb)], check=True)
+    _commit_file(
+        kb,
+        "wiki/entities/before.md",
+        "before\n",
+        "2026-07-24T12:00:00+08:00",
+    )
+    wiki_receipt = export_cutoff_wiki(
+        kb,
+        tmp_path / "fixture" / "wiki",
+        as_of=AS_OF,
+    )
+    code = tmp_path / "rag-code"
+    code.mkdir()
+    revision = _fake_rag_code(code)
+    python = Path(
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+    )
+    prebuilt = build_true_hybrid_index(
+        wiki_receipt=wiki_receipt,
+        index_root=tmp_path / "prebuilt" / "index",
+        code_root=code,
+        code_revision=revision,
+        rag_python=python,
+        query="before",
+    )
+
+    adopted = build_true_hybrid_index(
+        wiki_receipt=wiki_receipt,
+        index_root=tmp_path / "adopted" / "index",
+        code_root=code,
+        code_revision=revision,
+        rag_python=python,
+        query="before",
+        prebuilt_index_root=prebuilt.index_root,
+    )
+
+    assert [item.to_dict() for item in adopted.index_files] == [
+        item.to_dict() for item in prebuilt.index_files
+    ]
+    assert all(
+        path.stat().st_nlink == 1
+        for path in adopted.index_root.rglob("*")
+        if path.is_file()
+    )
+    assert adopted.hits[0]["index_freshness"] == "fresh"
+
+
 def test_true_hybrid_build_accepts_explicit_dependency_interpreter(
     tmp_path: Path,
 ) -> None:
