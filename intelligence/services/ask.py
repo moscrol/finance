@@ -3119,14 +3119,23 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     wiki_section: list[str] = []
     if result.wiki_rag_telemetry is not None and result.wiki_rag_telemetry.status != "pending":
         wiki_section.append(f"检索可观测：{result.wiki_rag_telemetry.summary_line()}")
-    wiki_section.extend(wiki_lines or ["（wiki 向量检索未启用/未接入/无命中）"])
+    # 无命中时不塞占位行：上面那行检索可观测已经写明命中数与状态，比
+    #「（未启用/未接入/无命中）」更具体。两者都没有时整节由 _section 丢弃。
+    wiki_section.extend(wiki_lines)
+
+    # 空节不出：占位行（「（图谱未命中概念）」等）既进 LLM 上下文又进渲染，
+    # 但缺口信息已由 gap_lines 承担且更具体（会指出"可能是新词/别名未登记，
+    # 建议先 concept-ingest 补证"）。保留占位符只是把同一件事说两遍，还把
+    # 真正有内容的证据挤到下面。与 web 兜底/Agent 补检索两节的写法保持一致。
+    def _section(head: str, lines: list[str]) -> list[str]:
+        return [f"{SUBHEAD}{head}"] + lines if lines else []
 
     evidence_chain = (
-        [f"{SUBHEAD}盘面"] + (market_lines or ["（当日无盘面候选命中）"])
-        + [f"{SUBHEAD}图谱·概念"] + (graph_concept_lines or ["（图谱未命中概念）"])
-        + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
-        + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
-        + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
+        _section("盘面", market_lines)
+        + _section("图谱·概念", graph_concept_lines)
+        + _section("图谱·公司分层", company_lines)
+        + _section("证据", evidence_lines)
+        + _section("图谱·语义召回(wiki 向量)", wiki_section)
         + (
             [f"{SUBHEAD}外部 Web 兜底(低层级背景线索)"] + web_fallback_lines
             if web_fallback_lines
