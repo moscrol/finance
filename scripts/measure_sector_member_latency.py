@@ -41,7 +41,7 @@ def _provider_call(stage: str, call):
             io.StringIO()
         ):
             return call()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - sanitize every provider failure.
         exception_type = (
             type(exc).__name__
             if type(exc).__module__ == "builtins"
@@ -55,41 +55,74 @@ def _provider_call(stage: str, call):
         )
 
 
+def _unique_member_count(members: Any, *identity_keys: str) -> int | None:
+    if not isinstance(members, list) or not members:
+        return None
+    identities: set[str] = set()
+    for member in members:
+        if not isinstance(member, Mapping):
+            return None
+        identity = next((member.get(key) for key in identity_keys if member.get(key)), None)
+        if identity is None:
+            return None
+        identities.add(str(identity))
+    return len(identities)
+
+
+def _self_count_matches(value: Any, *, declared: int | None, actual: int | None) -> bool:
+    return type(value) is int and value > 0 and value == declared == actual
+
+
 def _validate_batch_response(
     response: Any,
     *,
     requested_codes: Sequence[str],
     declared_counts: Mapping[str, int],
+    requested_trade_date: str,
 ) -> None:
-    valid = isinstance(response, Mapping)
-    if valid:
-        for code in requested_codes:
-            entry = response.get(code)
-            if not isinstance(entry, Mapping):
-                valid = False
-                break
-            members = entry.get("st")
-            if not isinstance(members, list) or not members:
-                valid = False
-                break
-            identities = set()
-            for member in members:
-                if not isinstance(member, Mapping):
-                    valid = False
-                    break
-                identity = member.get("c") or member.get("ts_code")
-                if not identity:
-                    valid = False
-                    break
-                identities.add(str(identity))
-            if not valid or len(identities) != declared_counts.get(code):
-                valid = False
-                break
+    if isinstance(response, Mapping):
+        valid = all(
+            isinstance(entry := response.get(code), Mapping)
+            and entry.get("td") == requested_trade_date
+            and _self_count_matches(
+                entry.get("sc"),
+                declared=declared_counts.get(code),
+                actual=_unique_member_count(entry.get("st"), "c", "ts_code"),
+            )
+            for code in requested_codes
+        )
+    else:
+        valid = False
     if not valid:
         _raise_safe_failure(
             stage="batch_probe",
             error_code="provider_contract_error",
             exception_type="InvalidBatchResponse",
+        )
+
+
+def _validate_individual_response(
+    payload: Any,
+    *,
+    declared_count: int,
+    requested_trade_date: str,
+) -> None:
+    if isinstance(payload, Mapping):
+        valid = (
+            payload.get("trade_date") == requested_trade_date
+            and _self_count_matches(
+                payload.get("stock_count"),
+                declared=declared_count,
+                actual=_unique_member_count(payload.get("stocks"), "ts_code"),
+            )
+        )
+    else:
+        valid = False
+    if not valid:
+        _raise_safe_failure(
+            stage="individual_probe",
+            error_code="provider_contract_error",
+            exception_type="InvalidIndividualResponse",
         )
 
 
@@ -106,16 +139,25 @@ def _count(row: Mapping[str, Any]) -> int:
     return int(value)
 
 
+def _valid_sectors_by_count(
+    sectors: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    valid = tuple(
+        sorted(
+            (row for row in sectors if row.get("ts_code") and _count(row) > 0),
+            key=lambda row: (_count(row), str(row["ts_code"])),
+        )
+    )
+    if not valid:
+        raise ValueError("no sectors with ts_code and positive stock_count")
+    return valid
+
+
 def select_probe_sectors(
     sectors: Sequence[Mapping[str, Any]],
 ) -> tuple[Mapping[str, Any], ...]:
     """Select representative valid sectors from smallest through largest."""
-    valid = sorted(
-        (row for row in sectors if row.get("ts_code") and _count(row) > 0),
-        key=lambda row: (_count(row), str(row["ts_code"])),
-    )
-    if not valid:
-        raise ValueError("no sectors with ts_code and positive stock_count")
+    valid = _valid_sectors_by_count(sectors)
 
     last = len(valid) - 1
     high = min(len(valid) - 2, (len(valid) * 4) // 5) if len(valid) > 2 else last
@@ -129,12 +171,7 @@ def select_probe_batches(
     """Select representative centred batches from valid sectors."""
     if batch_size <= 0:
         raise ValueError("batch size must be positive")
-    valid = sorted(
-        (row for row in sectors if row.get("ts_code") and _count(row) > 0),
-        key=lambda row: (_count(row), str(row["ts_code"])),
-    )
-    if not valid:
-        raise ValueError("no sectors with ts_code and positive stock_count")
+    valid = _valid_sectors_by_count(sectors)
 
     last = len(valid) - 1
     centres = (0, len(valid) // 2, (len(valid) * 4) // 5, last)
@@ -203,12 +240,18 @@ def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> i
         )
         individual_probes: list[dict[str, Any]] = []
         for sector in select_probe_sectors(sectors):
+            declared = _count(sector)
             started = time.perf_counter()
             payload = _provider_call(
                 "individual_probe",
-                lambda: provider.get_sector_stocks(
+                lambda sector=sector: provider.get_sector_stocks(
                     str(sector["ts_code"]), trade_date=args.trade_date
                 ),
+            )
+            _validate_individual_response(
+                payload,
+                declared_count=declared,
+                requested_trade_date=args.trade_date,
             )
             elapsed = time.perf_counter() - started
             actual_codes = {
@@ -216,7 +259,6 @@ def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> i
                 for stock in payload.get("stocks", [])
                 if stock.get("ts_code")
             }
-            declared = _count(sector)
             actual = len(actual_codes)
             individual_probes.append(
                 {
@@ -239,7 +281,7 @@ def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> i
             started = time.perf_counter()
             response = _provider_call(
                 "batch_probe",
-                lambda: provider.get_sector_stocks_batch(
+                lambda batch=batch: provider.get_sector_stocks_batch(
                     list(batch),
                     trade_date=args.trade_date,
                     batch=args.batch_size,
@@ -249,6 +291,7 @@ def main(argv: Sequence[str] | None = None, *, provider: Any | None = None) -> i
                 response,
                 requested_codes=batch,
                 declared_counts=declared_counts,
+                requested_trade_date=args.trade_date,
             )
             elapsed = time.perf_counter() - started
             batch_observations.append(elapsed)

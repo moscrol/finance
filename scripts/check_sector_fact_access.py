@@ -299,7 +299,7 @@ def _prefix_locations_from_tokens(
 ) -> tuple[tuple[int, int], ...]:
     locations: list[tuple[int, int]] = []
     pattern = re.compile(
-        rf"{re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
+        rf"(?<![A-Za-z0-9_]){re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
         re.IGNORECASE,
     )
     for item in tokens:
@@ -315,43 +315,153 @@ def _prefix_locations_from_tokens(
     return tuple(locations)
 
 
-def _static_string(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+def _first_contribution_location(
+    tokens: tuple[tokenize.TokenInfo, ...],
+    table: str,
+) -> tuple[int, int] | None:
+    exact = _physical_locations_from_tokens(tokens)[table]
+    if exact:
+        return exact[0]
+    candidate_locations: list[tuple[int, int]] = []
+    for item in tokens:
+        for length in range(len(table) - 1, len("fact_") - 1, -1):
+            fragment = table[:length]
+            pattern = re.compile(
+                rf"(?<![A-Za-z0-9_]){re.escape(fragment)}",
+                re.IGNORECASE,
+            )
+            for match in pattern.finditer(item.string):
+                prefix = item.string[: match.start()]
+                line_offset = prefix.count("\n")
+                column = (
+                    match.start() - prefix.rfind("\n")
+                    if line_offset
+                    else item.start[1] + match.start() + 1
+                )
+                candidate_locations.append((item.start[0] + line_offset, column))
+    return min(candidate_locations) if candidate_locations else None
+
+
+_UNRESOLVED = object()
+
+
+def _safe_static_value(node: ast.AST):
+    if isinstance(node, ast.Constant) and type(node.value) in {str, int}:
         return node.value
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        left = _static_string(node.left)
-        right = _static_string(node.right)
-        if left is not None and right is not None:
+        left = _safe_static_value(node.left)
+        right = _safe_static_value(node.right)
+        if isinstance(left, str) and isinstance(right, str):
             return left + right
-    return None
+        return _UNRESOLVED
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for item in node.values:
+            if isinstance(item, ast.Constant) and isinstance(item.value, str):
+                parts.append(item.value)
+                continue
+            if not isinstance(item, ast.FormattedValue):
+                return _UNRESOLVED
+            value = _safe_static_value(item.value)
+            if type(value) not in {str, int}:
+                return _UNRESOLVED
+            conversions = {ord("s"): str, ord("r"): repr, ord("a"): ascii}
+            converter = conversions.get(item.conversion)
+            if (item.conversion != -1 and converter is None) or item.format_spec is not None:
+                return _UNRESOLVED
+            parts.append(converter(value) if converter else str(value))
+        return "".join(parts)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "format"
+    ):
+        template = _safe_static_value(node.func.value)
+        if not isinstance(template, str):
+            return _UNRESOLVED
+        args = [_safe_static_value(arg) for arg in node.args]
+        if any(type(value) not in {str, int} for value in args):
+            return _UNRESOLVED
+        kwargs: dict[str, str | int] = {}
+        for keyword in node.keywords:
+            value = _safe_static_value(keyword.value)
+            if keyword.arg is None or type(value) not in {str, int}:
+                return _UNRESOLVED
+            kwargs[keyword.arg] = value
+        format_tokens = r"\{\{|\}\}|\{(?:\d*|[A-Za-z_][A-Za-z0-9_]*)(?:![sra])?\}"
+        if any(brace in re.sub(format_tokens, "", template) for brace in "{}"):
+            return _UNRESOLVED
+        try:
+            return template.format(*args, **kwargs)
+        except (IndexError, KeyError, TypeError, ValueError):
+            return _UNRESOLVED
+    return _UNRESOLVED
+
+
+def _is_composite_string_expression(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.Add)
+        or isinstance(node, ast.JoinedStr)
+        or (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "format"
+        )
+    )
+
+
+def _target_tables_in_static_sql(sql: str) -> tuple[str, ...]:
+    return tuple(
+        table
+        for table in TARGET_TABLES
+        if re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(table)}(?![A-Za-z0-9_])",
+            sql,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_dynamic_table_prefix(node: ast.AST) -> bool:
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9_]){re.escape(TARGET_PREFIX)}(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+    return any(
+        pattern.search(child.value)
+        for child in ast.walk(node)
+        if isinstance(child, ast.Constant)
+        and isinstance(child.value, str)
+    )
 
 
 def _dynamic_candidate_nodes(
     tree: ast.AST,
-) -> tuple[tuple[ast.AST, tuple[str, ...]], ...]:
+) -> tuple[tuple[tuple[ast.AST, tuple[str, ...]], ...], frozenset[int]]:
+    composite_nodes = [node for node in ast.walk(tree) if _is_composite_string_expression(node)]
+    nested_ids = {
+        id(child)
+        for node in composite_nodes
+        for child in ast.walk(node)
+        if child is not node and _is_composite_string_expression(child)
+    }
+    roots = (node for node in composite_nodes if id(node) not in nested_ids)
+
     candidates: list[tuple[ast.AST, tuple[str, ...]]] = []
     covered_constants: set[int] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.BinOp):
-            continue
-        value = _static_string(node)
-        if value is None or TARGET_PREFIX not in value.lower():
-            continue
-        tables = tuple(table for table in TARGET_TABLES if table in value.lower())
-        candidates.append((node, tables or TARGET_TABLES))
-        covered_constants.update(
-            id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
-        )
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and id(node) not in covered_constants
-            and TARGET_PREFIX in node.value.lower()
-            and not any(table in node.value.lower() for table in TARGET_TABLES)
-        ):
+    for node in roots:
+        value = _safe_static_value(node)
+        tables = _target_tables_in_static_sql(value) if isinstance(value, str) else ()
+        if tables:
+            candidates.append((node, tables))
+        elif value is _UNRESOLVED and _has_dynamic_table_prefix(node):
             candidates.append((node, TARGET_TABLES))
-    return tuple(candidates)
+        if value is not _UNRESOLVED:
+            covered_constants.update(
+                id(child) for child in ast.walk(node) if isinstance(child, ast.Constant)
+            )
+    return tuple(candidates), frozenset(covered_constants)
 
 
 def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
@@ -378,7 +488,7 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     raise InventoryScanError(relative_path.as_posix()) from None
                 source_lines = source.splitlines(keepends=True)
                 python_tokens = tuple(tokenize.generate_tokens(io.StringIO(source).readline))
-                dynamic_candidates = _dynamic_candidate_nodes(tree)
+                dynamic_candidates, covered_constants = _dynamic_candidate_nodes(tree)
                 literals = (
                     (
                         node.value,
@@ -392,10 +502,12 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     )
                     for node in ast.walk(tree)
                     if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and id(node) not in covered_constants
                     and any(table in node.value.lower() for table in TARGET_TABLES)
                 )
             else:
                 dynamic_candidates = ()
+                covered_constants = frozenset()
                 literals = ((source, 1, 0, None),)
             for sql, starting_line, starting_column, string_tokens in literals:
                 physical_locations = (
@@ -438,8 +550,15 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                     source_lines=source_lines,
                     tokens=python_tokens,
                 )
-                for line, column in _prefix_locations_from_tokens(string_tokens):
-                    records.extend(
+                for table in candidate_tables:
+                    location = _first_contribution_location(string_tokens, table)
+                    if location is None:
+                        raise InventoryScanError(
+                            relative_path.as_posix(),
+                            error_code="unmapped_dynamic_table",
+                        ) from None
+                    line, column = location
+                    records.append(
                         AccessRecord(
                             path=relative_path.as_posix(),
                             line=line,
@@ -447,7 +566,6 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                             table=table,
                             mode="unknown",
                         )
-                        for table in candidate_tables
                     )
     unique_records = dict.fromkeys(records)
     return tuple(

@@ -307,3 +307,58 @@ def test_inventory_sql_normalisation_preserves_unicode_source_indexes(tmp_path) 
     assert [(record.line, record.column, record.table, record.mode) for record in records] == [
         (1, 17, "fact_sector_daily", "read"),
     ]
+
+
+def test_inventory_safely_evaluates_maximal_static_string_expressions(tmp_path) -> None:
+    (tmp_path / "concat.py").write_text(
+        'SQL = "SELECT * FROM fact_" + "sector_daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "format.py").write_text(
+        'SQL = "SELECT * FROM fact_{}_daily".format("sector")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "fstring.py").write_text(
+        'SQL = f"SELECT * FROM fact_{\'sector\'}_daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "nested.py").write_text(
+        "SQL = (\n"
+        '    ("SELECT * FROM " + "fact_")\n'
+        '    + ("sector_" + "daily")\n'
+        ")\n",
+        encoding="utf-8",
+    )
+
+    records = inventory_sector_fact_access(tmp_path)
+
+    assert [
+        (record.path, record.line, record.column, record.table, record.mode)
+        for record in records
+    ] == [
+        ("concat.py", 1, 22, "fact_sector_daily", "unknown"),
+        ("format.py", 1, 22, "fact_sector_daily", "unknown"),
+        ("fstring.py", 1, 23, "fact_sector_daily", "unknown"),
+        ("nested.py", 2, 26, "fact_sector_daily", "unknown"),
+    ]
+
+
+def test_inventory_static_expression_boundaries_avoid_unrelated_tables(tmp_path) -> None:
+    (tmp_path / "concat_other.py").write_text(
+        'SQL = "SELECT * FROM fact_" + "sector_theme_daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "format_other.py").write_text(
+        'SQL = "SELECT * FROM fact_{}_daily".format("sector_theme")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "fstring_other.py").write_text(
+        'SQL = f"SELECT * FROM fact_{\'sector_theme\'}_daily"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "unrelated.py").write_text(
+        'SQL = f"unrelated_fact_sector_{kind}"\n',
+        encoding="utf-8",
+    )
+
+    assert inventory_sector_fact_access(tmp_path) == ()

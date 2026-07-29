@@ -79,7 +79,12 @@ def test_probe_sanitises_provider_failures_without_leaving_a_receipt(
             if failing_stage == "individual":
                 raise RuntimeError(canary)
             count = int(code.removeprefix("BK")) + 1
-            return {"stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)]}
+            return {
+                "trade_date": trade_date,
+                "name": code,
+                "stock_count": count,
+                "stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)],
+            }
 
         def get_sector_stocks_batch(self, codes, *, trade_date: str, batch: int):
             if failing_stage == "batch":
@@ -121,13 +126,21 @@ def test_probe_rejects_incomplete_batch_responses(
 
         def get_sector_stocks(self, code: str, *, trade_date: str):
             count = int(code.removeprefix("BK")) + 1
-            return {"stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)]}
+            return {
+                "trade_date": trade_date,
+                "name": code,
+                "stock_count": count,
+                "stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)],
+            }
 
         def get_sector_stocks_batch(self, codes, *, trade_date: str, batch: int):
             if invalid_response == "empty":
                 return {}
             response = {
                 code: {
+                    "td": trade_date,
+                    "nm": code,
+                    "sc": int(code.removeprefix("BK")) + 1,
                     "st": [
                         {"c": f"S{item:04d}"}
                         for item in range(int(code.removeprefix("BK")) + 1)
@@ -174,11 +187,19 @@ def test_probe_writes_receipt_only_after_complete_batch_validation(tmp_path, cap
 
         def get_sector_stocks(self, code: str, *, trade_date: str):
             count = int(code.removeprefix("BK")) + 1
-            return {"stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)]}
+            return {
+                "trade_date": trade_date,
+                "name": code,
+                "stock_count": count,
+                "stocks": [{"ts_code": f"S{item:04d}"} for item in range(count)],
+            }
 
         def get_sector_stocks_batch(self, codes, *, trade_date: str, batch: int):
             return {
                 code: {
+                    "td": trade_date,
+                    "nm": code,
+                    "sc": int(code.removeprefix("BK")) + 1,
                     "st": [
                         {"c": f"S{item:04d}"}
                         for item in range(int(code.removeprefix("BK")) + 1)
@@ -211,3 +232,89 @@ def test_probe_writes_receipt_only_after_complete_batch_validation(tmp_path, cap
     assert receipt["sector_count"] == 9
     assert all(probe["count_matches"] for probe in receipt["individual_probes"])
     assert receipt["projection"]["fits_nightly_window"] is True
+
+
+@pytest.mark.parametrize(
+    ("invalid_contract", "expected_stage", "expected_type"),
+    (
+        ("individual_date", "individual_probe", "InvalidIndividualResponse"),
+        ("individual_count", "individual_probe", "InvalidIndividualResponse"),
+        ("individual_bool", "individual_probe", "InvalidIndividualResponse"),
+        ("individual_duplicate", "individual_probe", "InvalidIndividualResponse"),
+        ("batch_date", "batch_probe", "InvalidBatchResponse"),
+        ("batch_count", "batch_probe", "InvalidBatchResponse"),
+        ("batch_bool", "batch_probe", "InvalidBatchResponse"),
+        ("batch_duplicate", "batch_probe", "InvalidBatchResponse"),
+    ),
+)
+def test_probe_rejects_stale_dates_and_provider_self_count_mismatches(
+    tmp_path,
+    capsys,
+    invalid_contract: str,
+    expected_stage: str,
+    expected_type: str,
+) -> None:
+    trade_date = "2026-07-28"
+    sectors = [
+        {"ts_code": f"BK{index:04d}", "name": f"板块{index}", "stock_count": count}
+        for index, count in enumerate((1, 2, 3, 4, 5, 6, 7, 8, 9))
+    ]
+
+    class ContractProvider:
+        def list_sectors(self, *, trade_date: str):
+            return sectors
+
+        def get_sector_stocks(self, code: str, *, trade_date: str):
+            count = int(code.removeprefix("BK")) + 1
+            stocks = [{"ts_code": f"S{item:04d}"} for item in range(count)]
+            if invalid_contract == "individual_duplicate" and count > 1:
+                stocks[-1] = stocks[0]
+            return {
+                "trade_date": "2026-07-27"
+                if invalid_contract == "individual_date"
+                else trade_date,
+                "name": code,
+                "stock_count": True
+                if invalid_contract == "individual_bool"
+                else count + 1
+                if invalid_contract == "individual_count"
+                else count,
+                "stocks": stocks,
+            }
+
+        def get_sector_stocks_batch(self, codes, *, trade_date: str, batch: int):
+            response = {}
+            for code in codes:
+                count = int(code.removeprefix("BK")) + 1
+                stocks = [{"c": f"S{item:04d}"} for item in range(count)]
+                if invalid_contract == "batch_duplicate" and count > 1:
+                    stocks[-1] = stocks[0]
+                response[code] = {
+                    "td": "2026-07-27" if invalid_contract == "batch_date" else trade_date,
+                    "nm": code,
+                    "sc": True
+                    if invalid_contract == "batch_bool"
+                    else count + 1
+                    if invalid_contract == "batch_count"
+                    else count,
+                    "st": stocks,
+                }
+            return response
+
+    output = tmp_path / "receipt.json"
+    output.write_text("stale receipt", encoding="utf-8")
+
+    exit_code = main(
+        ["--trade-date", trade_date, "--output", str(output)],
+        provider=ContractProvider(),
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 3
+    assert captured.out == ""
+    assert json.loads(captured.err) == {
+        "error_code": "provider_contract_error",
+        "exception_type": expected_type,
+        "stage": expected_stage,
+    }
+    assert not output.exists()
