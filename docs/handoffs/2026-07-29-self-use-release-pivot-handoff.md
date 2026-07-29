@@ -51,21 +51,31 @@ produced:
 - stock coverage: 4567/4567 = 100%;
 - final result: COMPLETE.
 
-This demonstrates that the old `dim_sector` all-time active-code comparison was
-producing false gaps from renamed/historical aliases. The change is not yet
-committed. It must be implemented in a clean branch with tests for both the 95%
-adjacent-trading-day name continuity and the rule that only sectors which had
-historical members may fail when today's member set disappears.
+That result proves the old exact-code gate has a false-positive component, but
+it does **not** prove the data path complete. A deeper read-only audit found:
 
-The three reasonable designs are:
+- `dim_sector` has 407 current `.FP` identities last seen 2026-07-28 and 223
+  obsolete `.TI` identities last seen 2026-07-24; the old rows were never
+  retired and all remain active;
+- the member synchronizer loads all 630 identities, limits each invocation to
+  60, and does not persist empty/error attempts;
+- the first 60 database rows are all obsolete `.TI` identities, so every one
+  of the 20 loops retries the same rows and never reaches `.FP` identities;
+- the fallback populated only 117/407 current `.FP` sectors. The candidate gate
+  ignores the remaining 290 because they had no historical member rows;
+- a direct read-only probe proved those rows are retrievable: `6G概念`
+  (`990003.FP`) returned 97 members for 2026-07-28.
 
-1. **Recommended:** adjacent-day unique-name continuity plus historical-member
-   continuity. This detects real daily breaks without treating aliases as
-   missing current rows.
-2. Keep exact `dim_sector` coverage. This is strict but already falsified by
-   provider code/name churn.
-3. Use only a minimum row count. This is simple but can pass a systematically
-   wrong subset, so it is too weak.
+Therefore the candidate `COMPLETE` is a false green. The fix must atomically own
+the current sector universe, retire stale identities only after a complete list
+fetch, give member sync a durable per-sector progress receipt, and gate current
+membership coverage. Adjacent-day name continuity remains a useful secondary
+check, not the primary completion proof. Reduced phase/table fixtures must not
+gain undeclared sector dependencies.
+
+Full receipt:
+
+`docs/verification/daily-data-sector-universe-audit-2026-07-29.md`
 
 Implementation is waiting at the design-approval gate; do not scoop the dirty
 primary-workspace file into a mixed commit.
@@ -165,9 +175,11 @@ must not be backfilled as real use.
 4. Replace the hard-coded `zhipu/glm-5.2` self-use binding with an explicit
    sealed release-profile identity. A provider switch must invalidate the old
    approval fingerprint rather than silently mixing runs.
-5. Implement the approved daily-data gate design in an isolated branch and
-   verify unattended nightly runs. The manual 2026-07-28 repair is not evidence
-   of stability.
+5. Implement the approved sector-universe producer + gate design in an isolated
+   branch: snapshot-owned active identities, durable member-sync progress,
+   honest current-universe coverage, secondary name continuity, and phase/table
+   isolation. Verify unattended nightly runs. The manual 2026-07-28
+   `COMPLETE` is a false green, not evidence of stability.
 6. Freeze one shared repair revision, pre-register one new five-workflow product
    canary, and execute each workflow once. Do not use it as a debugging loop.
 7. Prepare a cutover receipt containing old runtime, target revision, exact
