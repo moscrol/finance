@@ -887,10 +887,29 @@ def _runtime_sources(
         RuntimeSource(
             source_id=f"E{index}",
             tool=item.tool,
-            content_hash=item.content_hash,
+            content_hash=_runtime_source_content_hash(item),
             source_date=item.source_date or "",
         )
         for index, item in enumerate(selected, start=1)
+    )
+
+
+def _runtime_source_content_hash(item: object) -> str:
+    evidence_id = str(getattr(item, "content_hash", "") or "").strip()
+    if re.fullmatch(r"[0-9a-f]{64}", evidence_id):
+        return evidence_id
+    return _artifact_hash(
+        {
+            "evidence_id": evidence_id,
+            "tool": str(getattr(item, "tool", "") or ""),
+            "title": str(getattr(item, "title", "") or ""),
+            "detail": str(getattr(item, "detail", "") or ""),
+            "source": str(getattr(item, "source", "") or ""),
+            "source_date": str(getattr(item, "source_date", "") or ""),
+            "evidence_tier": str(
+                getattr(item, "evidence_tier", "") or ""
+            ),
+        }
     )
 
 
@@ -901,7 +920,7 @@ def _runtime_claims(
     evidence: object,
 ) -> tuple[RuntimeClaim, ...]:
     evidence_by_hash = {
-        str(getattr(item, "content_hash", "") or ""): item
+        _runtime_source_content_hash(item): item
         for item in evidence
         if str(getattr(item, "content_hash", "") or "")
     } if isinstance(evidence, (tuple, list)) else {}
