@@ -27,6 +27,21 @@ def clear_relation_cache() -> None:
         _RELATION_CACHE.clear()
 
 
+# 概念打分的三档语义：
+#   10  概念名精确匹配（名字出现在问题里，或与切词完全相等）
+#    5  概念名包含查询词
+#    2  查询词出现在「概念 payload 被截断到 2000 字符的 JSON dump」里
+#
+# 第三档不是语义关联，是截断产生的伪影：查"固态电池"会带出 MOF材料/全球锂矿/
+# 化工，查"半导体设备"会带出 C4化工/CVD金刚石/GPU。实测 4 个主线题材里它占
+# 命中的 80%–90%，这些噪声会随证据块一起进 LLM 上下文，既挤占预算又干扰判断。
+#
+# 语义召回由向量层（BM25 + BGE-m3 + RRF）负责且效果良好；结构化层的职责是
+# 精确锚定，不是模糊召回。故只保留概念名级别的命中。
+_PAYLOAD_DUMP_SCORE = 2
+_MIN_CONCEPT_SCORE = 5
+
+
 RELATION_FILES = {
     "aliases": "aliases.json",
     "benchmark_maps": "benchmark_maps.json",
@@ -312,8 +327,8 @@ class KnowledgeAdapter:
                 elif self._is_precise_weak_search_term(
                     candidate
                 ) and self._contains(candidate, text):
-                    score += 2
-            if score > 0:
+                    score += _PAYLOAD_DUMP_SCORE
+            if score >= _MIN_CONCEPT_SCORE:
                 matched.append({"concept": name, "score": score})
         items = sorted(matched, key=lambda row: (-int(row["score"]), row["concept"]))[:limit]
         return {

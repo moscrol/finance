@@ -294,3 +294,40 @@ def test_missing_relation_still_reports_not_found(tmp_path) -> None:
 
     assert relation["found"] is False
     assert relation["warnings"] == ["relation file not found"]
+
+
+def test_concept_match_ignores_truncated_payload_dump_hits(tmp_path) -> None:
+    """概念召回只认概念名，不认「payload dump 截断后的子串」。
+
+    回归：查"固态电池"曾带出 MOF材料/全球锂矿/化工，查"半导体设备"曾带出
+    C4化工/CVD金刚石/GPU——实测占命中的 80%-90%。这些噪声随证据块进入 LLM
+    上下文，既挤占 turn 预算又干扰判断。语义召回由向量层负责。
+    """
+    from intelligence.adapters import knowledge
+
+    knowledge.clear_relation_cache()
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "concept_graph.json").write_text(
+        json.dumps(
+            {
+                "concepts": {
+                    "固态电池": {"note": "主题本体"},
+                    "全固态电池": {"note": "子概念"},
+                    # 正文里提到固态电池，但概念本身是别的东西——不应被召回
+                    "MOF材料": {"note": "可用于固态电池电解质研究"},
+                    "全球锂矿": {"note": "固态电池上游锂资源"},
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = KnowledgeAdapter(wiki_root=tmp_path).get_concept_matches(
+        "固态电池", limit=20
+    )
+
+    names = {item["concept"] for item in result["items"]}
+    assert names == {"固态电池", "全固态电池"}
+    assert all(item["score"] >= 5 for item in result["items"])
