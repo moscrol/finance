@@ -75,7 +75,7 @@ storage implementation.
 - Create: `docs/verification/sector-fact-access-inventory-2026-07-29.json`
 - Create at execution time, do not commit: `/Users/a77/.finance-runtime/verification/sector-member-latency-2026-07-28.json`
 
-- [ ] **Step 1: Write failing tests for deterministic stratification and projection**
+- [x] **Step 1: Write failing tests for deterministic stratification and projection**
 
 ```python
 from scripts.measure_sector_member_latency import (
@@ -127,7 +127,7 @@ def test_inventory_classifies_every_public_fact_reference(tmp_path):
     ]
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -138,7 +138,7 @@ Run:
 
 Expected: collection fails because both scripts do not exist.
 
-- [ ] **Step 3: Implement the read-only probe and projection**
+- [x] **Step 3: Implement the read-only probe and projection**
 
 Create `scripts/measure_sector_member_latency.py` with these public helpers and a CLI that writes only the explicitly supplied output path:
 
@@ -278,7 +278,7 @@ otherwise unclassified reference remains `unknown`; it is never silently
 dropped. The initial `--inventory-only --output ...` mode writes stable sorted
 JSON and does not enforce the later allowlist.
 
-- [ ] **Step 4: Run unit tests and the live read-only probe**
+- [x] **Step 4: Run unit tests and the live read-only probe**
 
 Run:
 
@@ -300,7 +300,7 @@ result ledger. If `fits_nightly_window=false`, keep the exact gate and configure
 the receipt-driven batch sync to start earlier; do not introduce unmeasured
 extra concurrency or weaken equality.
 
-- [ ] **Step 5: Commit the probe**
+- [x] **Step 5: Commit the probe**
 
 ```bash
 git add scripts/measure_sector_member_latency.py tests/test_sector_member_latency.py \
@@ -308,6 +308,13 @@ git add scripts/measure_sector_member_latency.py tests/test_sector_member_latenc
   docs/verification/sector-fact-access-inventory-2026-07-29.json
 git commit -m "test: inventory and measure sector data access"
 ```
+
+Task 1 implementation is complete with a live provider-contract concern rather
+than a green data receipt: `990220.FP` declared 1,204 members but returned 1,202
+unique stock identities. The count gate correctly returned exit 2 and was not
+weakened. See
+`docs/handoffs/2026-07-29-data-task1-inventory-latency-handoff.md` before
+starting Task 2.
 
 ### Task 2: Build the Generation Storage and Legacy Migration
 
