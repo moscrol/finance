@@ -30,6 +30,7 @@ TEMPORAL_COLUMNS = frozenset(
         "source_update_time",
         "updated_at",
         "created_at",
+        "calculated_at",
         "published_at",
         "first_seen_date",
         "last_seen_date",
@@ -106,9 +107,10 @@ class TableCopyReceipt:
     source_rows: int
     target_rows: int
     maxima: dict[str, str | None]
+    derivation: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "name": self.name,
             "source_kind": self.source_kind,
             "temporal_columns": list(self.temporal_columns),
@@ -118,6 +120,9 @@ class TableCopyReceipt:
             "target_rows": self.target_rows,
             "maxima": dict(self.maxima),
         }
+        if self.derivation is not None:
+            payload["derivation"] = dict(self.derivation)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -1152,6 +1157,229 @@ def _maxima(connection: Any, plan: _ObjectPlan) -> dict[str, str | None]:
     return maxima
 
 
+_PIT_DERIVED_MARKET_SOURCE = (
+    "derived:pitsafe_fact_stock_daily+feature_market_window"
+)
+_PIT_DERIVED_MARKET_NOTE = (
+    "PIT-safe derived market base; late source fields withheld"
+)
+
+
+def _null_as(data_type: str) -> str:
+    return f"CAST(NULL AS {data_type})"
+
+
+def _safe_component_expression(
+    *,
+    column: str,
+    data_type: str,
+    timestamp_column: str,
+    available_columns: set[str],
+    cutoff_sql: str,
+) -> str:
+    if timestamp_column not in available_columns:
+        return _null_as(data_type)
+    timestamp = f'f.{_quote_ident(timestamp_column)}'
+    value = f'f.{_quote_ident(column)}'
+    return (
+        f"CASE WHEN {timestamp} IS NOT NULL "
+        f"AND CAST({timestamp} AS TIMESTAMPTZ) <= {cutoff_sql} "
+        f"THEN {value} ELSE {_null_as(data_type)} END"
+    )
+
+
+def _derive_cutoff_market_row(
+    connection: Any,
+    *,
+    plan: _ObjectPlan,
+    plans: tuple[_ObjectPlan, ...],
+    cutoff_text: str,
+) -> int:
+    if plan.schema != "main" or plan.name != "fact_market_daily":
+        return 0
+    by_name = {(item.schema, item.name): item for item in plans}
+    stock = by_name.get((plan.schema, "fact_stock_daily"))
+    window = by_name.get((plan.schema, "feature_market_window"))
+    if stock is None or window is None:
+        return 0
+    market_columns = {column.casefold() for column, _type in plan.columns}
+    stock_columns = {column.casefold() for column, _type in stock.columns}
+    window_columns = {column.casefold() for column, _type in window.columns}
+    if not {
+        "trade_date",
+        "updated_at",
+        "total_amount",
+        "advancers",
+        "limit_up",
+        "limit_down",
+        "note",
+        "source",
+    }.issubset(market_columns):
+        return 0
+    if not {"trade_date", "pct_chg", "amount", "updated_at"}.issubset(
+        stock_columns
+    ):
+        return 0
+    if not {
+        "as_of_date",
+        "start_date",
+        "end_date",
+        "advancers_end",
+        "amount_avg",
+        "calculated_at",
+    }.issubset(window_columns):
+        return 0
+
+    cutoff_sql = f"{_quote_literal(cutoff_text)}::TIMESTAMPTZ"
+    cutoff_date_sql = f"CAST({cutoff_sql} AS DATE)"
+    target_name = _qualified(plan.schema, plan.name)
+    source_market = _qualified(plan.schema, plan.name, database="source_db")
+    source_stock = _qualified(
+        stock.schema,
+        stock.name,
+        database="source_db",
+    )
+    source_window = _qualified(
+        window.schema,
+        window.name,
+        database="source_db",
+    )
+    stock_total = "stock.total_amount"
+    previous_total = (
+        f"(SELECT t.{_quote_ident('total_amount')} FROM {target_name} t "
+        f"WHERE t.{_quote_ident('trade_date')} < f.{_quote_ident('trade_date')} "
+        f"ORDER BY t.{_quote_ident('trade_date')} DESC LIMIT 1)"
+    )
+    expressions: list[str] = []
+    for column, data_type in plan.columns:
+        lowered = column.casefold()
+        if lowered == "trade_date":
+            expression = f'f.{_quote_ident(column)}'
+        elif lowered.startswith("strength_"):
+            expression = _safe_component_expression(
+                column=column,
+                data_type=data_type,
+                timestamp_column="strength_updated_at",
+                available_columns=market_columns,
+                cutoff_sql=cutoff_sql,
+            )
+        elif lowered.startswith("stock_high_"):
+            expression = _safe_component_expression(
+                column=column,
+                data_type=data_type,
+                timestamp_column="stock_high_updated_at",
+                available_columns=market_columns,
+                cutoff_sql=cutoff_sql,
+            )
+        elif lowered.startswith("sh_index_"):
+            expression = _safe_component_expression(
+                column=column,
+                data_type=data_type,
+                timestamp_column="sh_index_updated_at",
+                available_columns=market_columns,
+                cutoff_sql=cutoff_sql,
+            )
+        elif lowered == "total_amount":
+            expression = stock_total
+        elif lowered == "advancers":
+            expression = "COALESCE(window_stats.advancers_end, stock.advancers)"
+        elif lowered == "limit_up":
+            expression = "stock.limit_up"
+        elif lowered == "limit_down":
+            expression = "stock.limit_down"
+        elif lowered == "amount_ma20":
+            expression = "window_stats.amount_avg"
+        elif lowered == "amount_vs_yesterday_pct":
+            expression = (
+                f"(({stock_total} / NULLIF({previous_total}, 0)) - 1.0) * 100.0"
+            )
+        elif lowered == "volume_ratio":
+            expression = (
+                f"({stock_total} / NULLIF(window_stats.amount_avg, 0)) * 100.0"
+            )
+        elif lowered == "note":
+            expression = _quote_literal(_PIT_DERIVED_MARKET_NOTE)
+        elif lowered == "source":
+            expression = _quote_literal(_PIT_DERIVED_MARKET_SOURCE)
+        elif lowered == "updated_at":
+            component_timestamps = [
+                "stock.max_updated_at",
+                "window_stats.max_calculated_at",
+            ]
+            for timestamp_column in (
+                "strength_updated_at",
+                "stock_high_updated_at",
+                "sh_index_updated_at",
+            ):
+                if timestamp_column in market_columns:
+                    timestamp = f'f.{_quote_ident(timestamp_column)}'
+                    component_timestamps.append(
+                        f"CASE WHEN {timestamp} IS NOT NULL "
+                        f"AND CAST({timestamp} AS TIMESTAMPTZ) <= {cutoff_sql} "
+                        f"THEN {timestamp} END"
+                    )
+            expression = "GREATEST(" + ", ".join(component_timestamps) + ")"
+        else:
+            expression = _null_as(data_type)
+        expressions.append(f"{expression} AS {_quote_ident(column)}")
+
+    before = int(
+        connection.execute(f"SELECT COUNT(*) FROM {target_name}").fetchone()[0]
+    )
+    connection.execute(
+        f"""
+        INSERT INTO {target_name}
+        WITH f AS (
+            SELECT *
+            FROM {source_market}
+            WHERE CAST({_quote_ident('trade_date')} AS DATE) = {cutoff_date_sql}
+              AND {_quote_ident('updated_at')} IS NOT NULL
+              AND CAST({_quote_ident('updated_at')} AS TIMESTAMPTZ) > {cutoff_sql}
+            ORDER BY {_quote_ident('updated_at')} DESC
+            LIMIT 1
+        ),
+        stock AS (
+            SELECT COUNT(*) AS row_count,
+                   SUM({_quote_ident('amount')}) AS total_amount,
+                   SUM(CASE WHEN {_quote_ident('pct_chg')} > 0 THEN 1 ELSE 0 END) AS advancers,
+                   SUM(CASE WHEN {_quote_ident('pct_chg')} >= 9.8 THEN 1 ELSE 0 END) AS limit_up,
+                   SUM(CASE WHEN {_quote_ident('pct_chg')} <= -9.8 THEN 1 ELSE 0 END) AS limit_down,
+                   MAX({_quote_ident('updated_at')}) AS max_updated_at
+            FROM {source_stock}
+            WHERE CAST({_quote_ident('trade_date')} AS DATE) = {cutoff_date_sql}
+              AND ({_quote_ident('updated_at')} IS NULL OR
+                   CAST({_quote_ident('updated_at')} AS TIMESTAMPTZ) <= {cutoff_sql})
+        ),
+        window_stats AS (
+            SELECT COUNT(*) AS row_count,
+                   MAX({_quote_ident('advancers_end')}) AS advancers_end,
+                   ARG_MAX({_quote_ident('amount_avg')}, {_quote_ident('start_date')})
+                     FILTER (WHERE DATE_DIFF('day', {_quote_ident('start_date')},
+                                             {_quote_ident('as_of_date')}) BETWEEN 20 AND 45)
+                     AS amount_avg,
+                   MAX({_quote_ident('calculated_at')}) AS max_calculated_at
+            FROM {source_window}
+            WHERE CAST({_quote_ident('as_of_date')} AS DATE) = {cutoff_date_sql}
+              AND CAST({_quote_ident('end_date')} AS DATE) <= {cutoff_date_sql}
+              AND ({_quote_ident('calculated_at')} IS NULL OR
+                   CAST({_quote_ident('calculated_at')} AS TIMESTAMPTZ) <= {cutoff_sql})
+        )
+        SELECT {", ".join(expressions)}
+        FROM f CROSS JOIN stock CROSS JOIN window_stats
+        WHERE stock.row_count > 0
+          AND window_stats.row_count > 0
+          AND NOT EXISTS (
+              SELECT 1 FROM {target_name} existing
+              WHERE existing.{_quote_ident('trade_date')} = f.{_quote_ident('trade_date')}
+          )
+        """
+    )
+    after = int(
+        connection.execute(f"SELECT COUNT(*) FROM {target_name}").fetchone()[0]
+    )
+    return max(0, after - before)
+
+
 def audit_filtered_duckdb(receipt: FilteredDuckDBReceipt) -> FilteredDuckDBAudit:
     issues: list[str] = []
     target = receipt.target_path
@@ -1204,6 +1432,24 @@ def audit_filtered_duckdb(receipt: FilteredDuckDBReceipt) -> FilteredDuckDBAudit
                 issues.append(f"row_count:{table.name}")
             if _maxima(connection, plan) != table.maxima:
                 issues.append(f"temporal_maximum:{table.name}")
+            if table.derivation is not None:
+                expected_rows = int(table.derivation.get("derived_rows") or 0)
+                if table.derivation.get("kind") != "pit_safe_market_base":
+                    issues.append(f"derivation_kind:{table.name}")
+                elif "source" not in {
+                    column.casefold() for column, _type in plan.columns
+                }:
+                    issues.append(f"derivation_source_column:{table.name}")
+                else:
+                    derived_rows = int(
+                        connection.execute(
+                            f"SELECT COUNT(*) FROM {_qualified(schema, name)} "
+                            f"WHERE {_quote_ident('source')} = ?",
+                            [_PIT_DERIVED_MARKET_SOURCE],
+                        ).fetchone()[0]
+                    )
+                    if derived_rows != expected_rows:
+                        issues.append(f"derivation_row_count:{table.name}")
         connection.close()
     except Exception:
         issues.append("target_reopen_failed")
@@ -1272,6 +1518,12 @@ def build_filtered_duckdb(
                     f"SELECT * FROM {source_name} WHERE {_predicate(plan)}",
                     parameters,
                 )
+                derived_rows = _derive_cutoff_market_row(
+                    connection,
+                    plan=plan,
+                    plans=plans,
+                    cutoff_text=cutoff_text,
+                )
                 target_rows = int(
                     connection.execute(
                         f"SELECT COUNT(*) FROM {target_name}"
@@ -1289,6 +1541,18 @@ def build_filtered_duckdb(
                         source_rows=plan.source_rows,
                         target_rows=target_rows,
                         maxima=_maxima(connection, plan),
+                        derivation=(
+                            {
+                                "kind": "pit_safe_market_base",
+                                "derived_rows": derived_rows,
+                                "source_tables": [
+                                    "fact_stock_daily",
+                                    "feature_market_window",
+                                ],
+                            }
+                            if derived_rows
+                            else None
+                        ),
                     )
                 )
             connection.execute("DETACH source_db")

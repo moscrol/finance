@@ -237,6 +237,116 @@ def test_filtered_duckdb_physically_excludes_future_rows(tmp_path: Path) -> None
     assert receipt.target_sha256 != hashlib.sha256(source.read_bytes()).hexdigest()
 
 
+def test_filtered_duckdb_derives_cutoff_market_row_from_pit_safe_components(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.duckdb"
+    target = tmp_path / "target.duckdb"
+    connection = duckdb.connect(str(source))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE fact_market_daily (
+                trade_date DATE,
+                market_stage VARCHAR,
+                total_amount DOUBLE,
+                advancers INTEGER,
+                limit_up INTEGER,
+                limit_down INTEGER,
+                note VARCHAR,
+                source VARCHAR,
+                updated_at TIMESTAMP,
+                sh_index_close DOUBLE,
+                sh_index_pct_chg DOUBLE,
+                sh_index_updated_at TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO fact_market_daily VALUES
+              ('2026-07-23', '反弹阶段', 100.0, 3, 1, 0, 'safe', 'source',
+               '2026-07-23 18:00:00', 3876.7, 0.25, '2026-07-23 18:00:00'),
+              ('2026-07-24', '后视阶段标签', 999.0, 999, 999, 999, 'future note', 'source',
+               '2026-07-27 12:00:00', 3814.2, -1.61, '2026-07-24 18:00:00'),
+              ('2026-07-25', 'future', 888.0, 888, 888, 888, 'future', 'source',
+               '2026-07-25 18:00:00', 3800.0, -0.3, '2026-07-25 18:00:00')
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE fact_stock_daily (
+                trade_date DATE,
+                pct_chg DOUBLE,
+                amount DOUBLE,
+                updated_at TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO fact_stock_daily VALUES
+              ('2026-07-24', 10.0, 120.0, '2026-07-24 20:00:00'),
+              ('2026-07-24', 1.0, 80.0, '2026-07-24 20:00:00'),
+              ('2026-07-24', -10.0, 100.0, '2026-07-24 20:00:00')
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE feature_market_window (
+                as_of_date DATE,
+                start_date DATE,
+                end_date DATE,
+                advancers_end INTEGER,
+                amount_avg DOUBLE,
+                calculated_at TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO feature_market_window VALUES
+              ('2026-07-24', '2026-06-26', '2026-07-24', 2, 400.0,
+               '2026-07-24 21:00:00')
+            """
+        )
+    finally:
+        connection.close()
+
+    receipt = build_filtered_duckdb(source, target, as_of=AS_OF)
+
+    connection = duckdb.connect(str(target), read_only=True)
+    try:
+        row = connection.execute(
+            """
+            SELECT market_stage, total_amount, advancers, limit_up, limit_down,
+                   note, source, updated_at, sh_index_close, sh_index_pct_chg
+            FROM fact_market_daily
+            WHERE trade_date = DATE '2026-07-24'
+            """
+        ).fetchone()
+        assert row[:5] == (None, 300.0, 2, 1, 1)
+        assert row[5] == "PIT-safe derived market base; late source fields withheld"
+        assert row[6] == (
+            "derived:pitsafe_fact_stock_daily+feature_market_window"
+        )
+        assert str(row[7]).startswith("2026-07-24")
+        assert row[8:] == (3814.2, -1.61)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM fact_market_daily WHERE trade_date > DATE '2026-07-24'"
+        ).fetchone() == (0,)
+    finally:
+        connection.close()
+    table = next(
+        item for item in receipt.tables if item.name == "main.fact_market_daily"
+    )
+    assert table.derivation == {
+        "kind": "pit_safe_market_base",
+        "derived_rows": 1,
+        "source_tables": ["fact_stock_daily", "feature_market_window"],
+    }
+
+
 def test_filtered_duckdb_handles_compact_dates_timestamps_empty_tables_and_views(
     tmp_path: Path,
 ) -> None:
