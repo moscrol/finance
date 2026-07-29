@@ -102,24 +102,39 @@ This repair must not be counted as unattended stability.
 
 ## Current Blocking Evidence
 
-The first and only real workflow canary was “today's market.” Transport,
-readiness, public leak scan, and secret scan passed. The continuous episode then
-received `LLM HTTP 429` on its first provider turn, stopped as
-`model_unavailable`, and returned a transparent partial answer. The semantic
-smoke correctly rejected it.
+The built-in GLM 429 is no longer the active blocker. The saved Keychain
+`openai/gpt-5.6-sol` provider and its local trusted gateway were independently
+probed successfully. A clean 8799 was then started on `ca190b07` (product code
+`c35740e6`) with `sdk_gpt`; after the lazy session load, runtime readiness,
+snapshot, data consistency, RAG worker, skills, provider, secret scan, and
+public leak scan were green.
 
-Artifact:
+Five product workflows were frozen before execution and run exactly once each
+without changing any prompt, gate, budget, tool, provider, or runtime:
 
-`/Users/a77/.finance-runtime/evals/candidate-c35740e6-self-use-today-2026-07-29.json`
+- daily market: structurally complete with 13 bound evidence items, but semantic
+  judge transient failure left report/answer `partial`;
+- theme research: 24 evidence items, then `research_stage_closed` / `sdk_timeout`;
+- stock research: 15 evidence items, missing-date valuation snapshot plus typed
+  stock-query gaps, call exhaustion, and `sdk_timeout`;
+- news impact: 18 evidence items, then `sdk_timeout` before delivery;
+- watchlist: 22 evidence items, repeated `in filter requires an array`, then
+  stage close / `sdk_timeout`.
 
-SHA-256:
+Strict clean useful rate is therefore `0/5`; only the daily-market candidate has
+a substantive answer, and the other four public answers are honest evidence-gap
+fallbacks. The runtime gives the adapter 120 seconds, reserves 40 seconds for
+verification, and the SDK reserves up to another 20 seconds for delivery. The
+effective new-tool window is therefore about 60 seconds for all product cases.
+The SDK path also does not apply the existing deep `ModeGovernor`, so complex
+five/six-output contracts remain standard-tier.
 
-`732532507e906edb825152b3e7a87595570e5aca890410ca980b38d191257cf7`
+Full receipt:
 
-The other four product workflows were not run because they would repeat the
-same provider failure. The temporary 8799 process was stopped. Canonical 8792
-was not touched and still runs the older `a0b8e8c1` runtime from a dirty runtime
-directory.
+`docs/verification/product-five-workflow-canary-2026-07-29.md`
+
+The temporary 8799 process was stopped. Canonical 8792 was not touched and still
+runs the older `a0b8e8c1` runtime from a dirty runtime directory.
 
 ## Self-Use Gate Truth
 
@@ -136,19 +151,29 @@ must not be backfilled as real use.
 
 ## Next Execution Order
 
-1. Obtain one production-usable model path. The built-in GLM path is currently
-   rate-limited; the saved OpenAI Keychain record does not reproduce the frozen
-   GPT provider used by the benchmark. Do not silently switch providers.
-2. After model readiness, restart the same clean 8799 candidate and run each of
-   the five product workflows exactly once. Record failures as blockers rather
-   than entering per-question tuning loops.
-3. Implement the approved daily-data gate design in an isolated branch and
-   verify the next unattended nightly runs. The manual 2026-07-28 repair is not
-   evidence of stability.
-4. Prepare a cutover receipt containing old runtime, target revision, exact
+1. Approve and implement one generic product-latency design: preserve the
+   standard path for simple contracts, but give observably complex multi-domain
+   contracts the existing deep tier and a root deadline that actually contains
+   research, SDK delivery, and semantic verification. Do not globally relax
+   gates or tune individual questions.
+2. Make the semantic verifier use a sealed release provider/latency profile;
+   retain fail-closed behavior for malformed or contract-invalid output.
+3. Repair the two generic typed-data seams exposed by canary: condition or
+   safely normalize scalar `in` filters, canonicalize six-digit A-share codes,
+   and compose a current local-price anchor without accepting stale valuation
+   ratios.
+4. Replace the hard-coded `zhipu/glm-5.2` self-use binding with an explicit
+   sealed release-profile identity. A provider switch must invalidate the old
+   approval fingerprint rather than silently mixing runs.
+5. Implement the approved daily-data gate design in an isolated branch and
+   verify unattended nightly runs. The manual 2026-07-28 repair is not evidence
+   of stability.
+6. Freeze one shared repair revision, pre-register one new five-workflow product
+   canary, and execute each workflow once. Do not use it as a debugging loop.
+7. Prepare a cutover receipt containing old runtime, target revision, exact
    data/snapshot dates, RAG readiness, five-workflow canary results, and rollback
    command. Do not switch 8792 without explicit user approval.
-5. Only after cutover, record real self-use events on each trading day. The
+8. Only after cutover, record real self-use events on each trading day. The
    earliest final maturity decision remains calendar-bound to 10 actual trading
    days.
 
