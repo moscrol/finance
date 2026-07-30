@@ -172,6 +172,25 @@ def _claim_text_present(claim: Claim, answer_text: str) -> bool:
     return len(overlap) >= 2
 
 
+# 研究 owner 的 claim_id 命名空间 → required output。
+#
+# 上面的 exact 判定做的是 `output_id in claim_id`，方向正好反了：owner 发的是
+# `counter:1`，而 `"counterpoint" in "counter:1"` 恒为假。于是 counterpoint、
+# chain_mapping 这些 output 一条候选都取不到，题材类问题在结构上永远无法完成——
+# 实测一份 905 字、带 claim_ids 与 evidence_atom_ids 内联绑定的完整答案
+# （固态电池：盘面转强但公司层面无可回查证据）被整份丢弃，换成 190 字的
+# 「请补充数据源或稍后重试」。
+_OUTPUT_CLAIM_NAMESPACES: dict[str, frozenset[str]] = {
+    "direct_assessment": frozenset({"summary", "generic", "assessment"}),
+    "answer": frozenset({"summary", "generic", "assessment"}),
+    "conclusion": frozenset({"summary", "generic", "assessment"}),
+    "counterpoint": frozenset({"counter", "risk"}),
+    "counter_evidence": frozenset({"counter", "risk"}),
+    "risk": frozenset({"counter", "risk"}),
+    "chain_mapping": frozenset({"chain", "company", "exposure"}),
+}
+
+
 def _claim_candidates(
     output_id: str,
     claims: tuple[Claim, ...],
@@ -192,7 +211,11 @@ def _claim_candidates(
             if claim.claim_id in {"generic:summary", "generic:assessment"}
             or claim.claim_type in {"summary", "cause_attribution"}
         )
-        return preferred
+        # 空就继续往下走命名空间映射，不要提前返回：研究 owner 发的是
+        # summary:market / summary:company-gap，claim_type 是 fact，
+        # 两个条件都不满足，于是结论候选恒为空。
+        if preferred:
+            return preferred
     if normalized == "supporting_evidence":
         return tuple(
             claim
@@ -203,6 +226,13 @@ def _claim_candidates(
                 marker in claim.text
                 for marker in ("使用边界", "不等于题材主线", "证据边界")
             )
+        )
+    namespaces = _OUTPUT_CLAIM_NAMESPACES.get(normalized)
+    if namespaces:
+        return tuple(
+            claim
+            for claim in claims
+            if claim.claim_id.split(":", 1)[0].casefold() in namespaces
         )
     return ()
 
