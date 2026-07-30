@@ -224,6 +224,50 @@ class QuestionPlan:
         return "\n".join(lines)
 
 
+def resolve_question_type(
+    raw_query: str,
+    query_envelope: Any,
+    *,
+    question_type_override: str | None = None,
+) -> tuple[str, float]:
+    """把「问题信封」定成最终问题类型。CLI 与会话两条路径必须共用这一处。
+
+    信封（understand_query）擅长认出有明确主语的问题；主语是"大盘/市场"这类
+    泛指时它给 general_finance_qa + confidence 0.4，需要 _classify_question_type
+    的规则兜底才能升成 market_review。
+
+    会话路径原先直接取 envelope.question_type，绕过了这层兜底，于是
+    "今天大盘处于什么阶段？当前主线是哪几个方向？" 在 CLI 里是 market_review、
+    在工作台里是 general_finance_qa——同一个问题两个答法，而工作台是用户实际
+    用的那条。
+    """
+    q = _normalize(raw_query)
+    if question_type_override is not None:
+        return question_type_override, 1.0
+    if query_envelope.question_type in {
+        QUESTION_EXTERNAL_MARKET,
+        QUESTION_CONCEPT_DEFINITION,
+        QUESTION_MARKET_TECHNICAL,
+    }:
+        return query_envelope.question_type, query_envelope.confidence
+    if query_envelope.question_type == "market_watch":
+        classified_type, classified_confidence = _classify_question_type(raw_query, q)
+        if classified_type == QUESTION_MARKET_REVIEW:
+            return classified_type, classified_confidence
+        return QUESTION_GENERAL, query_envelope.confidence
+    if query_envelope.subject_kind == "market_pattern":
+        return QUESTION_GENERAL, query_envelope.confidence
+    if query_envelope.subject_kind == "company":
+        return query_envelope.question_type, query_envelope.confidence
+    classified_type, classified_confidence = _classify_question_type(raw_query, q)
+    if (
+        query_envelope.subject_kind == "theme"
+        and classified_type != QUESTION_STOCK_DEEP_DIVE
+    ):
+        return query_envelope.question_type, query_envelope.confidence
+    return classified_type, classified_confidence
+
+
 def plan_answer_question(
     query: str,
     matched_theme: str | None = None,
@@ -258,51 +302,11 @@ def plan_answer_question(
         and question_type_override not in QUESTION_TYPES
     ):
         raise ValueError("unknown question type override")
-    if question_type_override is not None:
-        question_type, confidence = question_type_override, 1.0
-    elif query_envelope.question_type in {
-        QUESTION_EXTERNAL_MARKET,
-        QUESTION_CONCEPT_DEFINITION,
-        QUESTION_MARKET_TECHNICAL,
-    }:
-        question_type, confidence = (
-            query_envelope.question_type,
-            query_envelope.confidence,
-        )
-    elif query_envelope.question_type == "market_watch":
-        classified_type, classified_confidence = _classify_question_type(
-            raw_query,
-            q,
-        )
-        if classified_type == QUESTION_MARKET_REVIEW:
-            question_type, confidence = classified_type, classified_confidence
-        else:
-            question_type, confidence = (
-                QUESTION_GENERAL,
-                query_envelope.confidence,
-            )
-    elif query_envelope.subject_kind == "market_pattern":
-        question_type, confidence = QUESTION_GENERAL, query_envelope.confidence
-    elif query_envelope.subject_kind == "company":
-        question_type, confidence = (
-            query_envelope.question_type,
-            query_envelope.confidence,
-        )
-    else:
-        classified_type, classified_confidence = _classify_question_type(
-            raw_query,
-            q,
-        )
-        if (
-            query_envelope.subject_kind == "theme"
-            and classified_type != QUESTION_STOCK_DEEP_DIVE
-        ):
-            question_type, confidence = (
-                query_envelope.question_type,
-                query_envelope.confidence,
-            )
-        else:
-            question_type, confidence = classified_type, classified_confidence
+    question_type, confidence = resolve_question_type(
+        raw_query,
+        query_envelope,
+        question_type_override=question_type_override,
+    )
     depth = _classify_depth(raw_query, q, question_type)
     required_lenses = _required_lenses(question_type, depth)
     retrieval_plan = _retrieval_plan(question_type, depth, q)

@@ -1135,9 +1135,15 @@ def build_turn_intent(
             ),
         )
 
-    question_type = (
-        task_frame.question_type if task_frame is not None else envelope.question_type
-    )
+    # 无 task_frame 时不能直接用 envelope.question_type：主语是"大盘/市场"这类泛指时
+    # 信封只给 general_finance_qa，要靠 answer_orchestrator 的规则兜底才认得出复盘类问题。
+    # 与 plan_answer_question 共用同一个解析器，避免 CLI 与会话两条路径给出不同答法。
+    if task_frame is not None:
+        question_type = task_frame.question_type
+    else:
+        from intelligence.services.answer_orchestrator import resolve_question_type
+
+        question_type, _ = resolve_question_type(cleaned, envelope)
     return TurnIntent(
         primary_subject=(
             task_frame.subject if task_frame is not None else envelope.subject
