@@ -2550,6 +2550,7 @@ def _self_use_approval_path(ledger_path: Path) -> Path:
 
 def _self_use_trading_days(args: argparse.Namespace) -> list[str]:
     """解析 canonical A 股交易日历：显式 --trading-day / --calendar-db / 默认本地 DuckDB。"""
+    from intelligence.paths import default_market_db_path
     from intelligence.services.self_use_maturity import trading_days_from_duckdb
 
     injected = getattr(args, "trading_day", None)
@@ -2557,7 +2558,10 @@ def _self_use_trading_days(args: argparse.Namespace) -> list[str]:
         return sorted(set(injected))
     calendar_db = getattr(args, "calendar_db", None)
     if not calendar_db:
-        calendar_db = Path(__file__).resolve().parents[1] / "db" / "market_feature_store.duckdb"
+        # 与盘面层共用同一个解析器：双根架构下代码根是 runtime 快照，库在数据根。
+        # 原先写死代码根，导致自用门禁恒报 trading_calendar_unavailable——不是
+        # 缺日历，是找错了地方（同一个 bug 在 18 处盘面调用点已修，见 75b6e46e）。
+        calendar_db = default_market_db_path()
     return trading_days_from_duckdb(calendar_db)
 
 
