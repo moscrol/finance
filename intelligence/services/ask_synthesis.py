@@ -1554,6 +1554,14 @@ def synthesize_shadow_grounded_answer(
             return result
         candidate_answer = semantic_repair
         repaired = True
+    # brief 点名了产业链映射而正文没写时，确定性补一节。必需输出不能依赖模型遵从：
+    # 实测 composer 拿到含 12 家公司的 chain_mapping、系统提示词也明确要求逐个写出，
+    # 它仍然一家都不提，于是 chain_mapping 判缺、整份 919 字答案被 fail-closed 丢弃。
+    candidate_answer = answer_model.ensure_chain_mapping_section(
+        candidate_answer,
+        result.answer_spec,
+        decision_brief,
+    )
     result.grounded_composer_shadow = (
         answer_model.GroundedComposerShadow(
             status="repaired" if repaired else "accepted",

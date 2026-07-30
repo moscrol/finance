@@ -2968,6 +2968,65 @@ def validate_grounded_composer_answer(
     return tuple(issues)
 
 
+def ensure_chain_mapping_section(
+    answer: str,
+    answer_spec: AnswerSpec,
+    brief: DecisionBrief | None,
+) -> str:
+    """DecisionBrief 点名了产业链映射，正文却没写时，确定性补上这一节。
+
+    为什么不是继续调提示词：这条链上凡是靠提示词驱动的都失败了——owner 的
+    output_contract 压根不进 composer 的提示词、composer 自己的「必须逐个写出」
+    条款被无视；凡是确定性收口的都成功了——事实行预算轮转、brief 的 claim 家族
+    选定。必需输出不该依赖模型遵从。
+
+    这不是放宽门禁：正文里确实缺产业链段落是事实，这里是把已经在 AnswerSpec 里、
+    已经被 brief 点名的证据补进正文，不是把缺的判成有。层级原样保留，候选仍是候选。
+    """
+    if brief is None or not brief.chain_mapping:
+        return answer
+    registry = {claim.claim_id: claim for claim in _all_answer_claims(answer_spec)}
+    claims = [registry[cid] for cid in brief.chain_mapping if cid in registry]
+    if not claims:
+        return answer
+    stripped = _GROUNDED_CLAIM_MARKER_RE.sub("", answer)
+    if any(humanize(claim.text) and humanize(claim.text) in stripped for claim in claims):
+        return answer
+
+    detail = {
+        company.company: company
+        for company in answer_spec.company_table
+        if company.company
+    }
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines = ["", "## 产业链映射（候选，未获硬证据确认）"]
+    for claim in claims:
+        company = detail.get(str(claim.company or "")) or next(
+            (item for item in answer_spec.company_table if item.company and item.company in claim.text),
+            None,
+        )
+        bits: list[str] = []
+        if company is not None:
+            stage = humanize(company.chain_stage)
+            if stage and stage != "待确认":
+                bits.append(stage)
+            bits.append(_company_tier_label(company.tier))
+            if company.evidence_gaps:
+                bits.append(f"缺{humanize(company.evidence_gaps[0])}")
+        suffix = f"（{'｜'.join(bits)}）" if bits else ""
+        atom_ids = _atom_ids_for_claim(claim, atoms)
+        claim_type = _grounded_claim_type(claim)
+        if claim_type == "fact" and not atom_ids:
+            claim_type = "candidate"
+        lines.append(
+            f"- {humanize(claim.text)}{suffix} "
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={','.join(atom_ids)}; "
+            f"claim_type={claim_type} -->"
+        )
+    return (answer.rstrip() + "\n" + "\n".join(lines)).strip()
+
+
 def present_grounded_composer_answer(
     answer: str,
     answer_spec: AnswerSpec | None = None,
