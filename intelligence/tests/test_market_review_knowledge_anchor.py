@@ -212,3 +212,109 @@ def test_stale_mainline_summary_is_reported_but_missing_db_is_not(monkeypatch) -
     monkeypatch.setattr(ask_blocks, "_mainline_theme_names", lambda *a, **k: ("", []))
     ask_blocks.mainline_knowledge_coverage(None, warnings=notes)
     assert notes == []
+
+
+def _run_skill(monkeypatch, tmp_path, *, date_text: str, with_module: bool):
+    from intelligence.workbench_skills import daily_review as skill_module
+
+    monkeypatch.setattr(
+        skill_module,
+        "mainline_knowledge_module",
+        lambda *a, **k: (
+            {
+                "module_id": "daily_knowledge_anchor",
+                "title": "主线方向的知识库积累",
+                "kind": "list",
+                "status": "complete",
+                "summary": "口径",
+                "content": None,
+                "metrics": [],
+                "items": [{"title": "半导体", "summary": "概念页 1"}],
+            }
+            if with_module
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        skill_module,
+        "daily_projection_modules",
+        lambda *a, **k: (
+            date_text,
+            [
+                {
+                    "module_id": "daily_overview",
+                    "title": "今日核心",
+                    "kind": "summary",
+                    "status": "complete",
+                    "summary": "市场处于底部横盘阶段的第1个交易日",
+                    "content": None,
+                    "metrics": [],
+                    "items": [],
+                }
+            ],
+            [],
+        ),
+    )
+
+    class _Store:
+        def add_artifact(self, *a, **k):
+            class _A:
+                path = "x.json"
+
+            return _A()
+
+    class _Ctx:
+        query = "今天大盘处于什么阶段"
+        repo_root = tmp_path
+        run_store = _Store()
+        run_id = "r"
+
+    return skill_module.DailyReviewSkill().execute(_Ctx())
+
+
+def test_output_contract_requires_writing_the_knowledge_layer(monkeypatch, tmp_path) -> None:
+    """模块进了 contract 但 contract 不要求写它，模型就不写。
+
+    实测：知识库模块和引用都到位，正文里一个概念页都没提——因为 output_contract
+    只说了「市场状态、最强数据、主要风险、验证点」。
+    """
+    output = _run_skill(monkeypatch, tmp_path, date_text="2026-07-29", with_module=True)
+
+    contract = output.answer_contract
+    assert contract is not None
+    joined = "".join(contract.output_contract)
+    assert "知识库" in joined
+    assert "概念页" in joined and "公司暴露" in joined
+    assert "尚无积累" in joined
+    assert "不得互相推导" in joined
+
+
+def test_output_contract_omits_the_knowledge_clause_when_there_is_no_module(
+    monkeypatch, tmp_path
+) -> None:
+    """没有知识库模块时不能要求模型写它，否则只会逼出编造。"""
+    output = _run_skill(monkeypatch, tmp_path, date_text="2026-07-29", with_module=False)
+
+    assert output.answer_contract is not None
+    assert "知识库" not in "".join(output.answer_contract.output_contract)
+
+
+def test_output_contract_demands_the_date_when_data_is_not_from_today(
+    monkeypatch, tmp_path
+) -> None:
+    output = _run_skill(monkeypatch, tmp_path, date_text="2026-07-29", with_module=True)
+
+    first = output.answer_contract.output_contract[0]
+    assert "数据截至 2026-07-29" in first
+    assert "不得把它称作今天" in first
+
+
+def test_output_contract_stays_quiet_when_data_is_from_today(monkeypatch, tmp_path) -> None:
+    from datetime import date
+
+    output = _run_skill(
+        monkeypatch, tmp_path, date_text=date.today().isoformat(), with_module=True
+    )
+
+    joined = "".join(output.answer_contract.output_contract)
+    assert "不得把它称作今天" not in joined

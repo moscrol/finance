@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date as date_cls
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
@@ -94,6 +95,25 @@ class DailyReviewSkill:
             "citations": citations,
             "warnings": warnings,
         }
+        # 答案由这份 output_contract 驱动。模块进了 contract 但 contract 不要求写它，
+        # 模型就不会写——实测知识库模块和引用都到位了，正文里一个概念页都没提。
+        output_contract: list[str] = [
+            "直接给出市场状态、最强数据、主要风险和下一交易日验证点",
+        ]
+        if date_text != date_cls.today().isoformat():
+            output_contract.insert(
+                0,
+                f"正文第一句写明数据截至 {date_text}；"
+                "全文不得把它称作今天/今日/当天（盘后到夜间入库之间，"
+                "最新可用数据就是上一交易日）",
+            )
+        if knowledge_module is not None:
+            output_contract.append(
+                "单独说明主线方向在知识库里的积累：各方向已有哪些概念页与公司暴露"
+                "（带上公司的角色），以及哪些方向盘面已进主线但知识库尚无积累"
+                "（那是当天最该补的研究）；盘面强弱与知识库积累是两件事，"
+                "不得互相推导"
+            )
         safe_payload = cast(JsonObject, redact_json(payload))
         artifact = context.run_store.add_artifact(
             context.run_id,
@@ -123,9 +143,7 @@ class DailyReviewSkill:
                         else "读取最新 canonical 正式日报"
                     ),
                 ),
-                output_contract=(
-                    "直接给出市场状态、最强数据、主要风险和下一交易日验证点",
-                ),
+                output_contract=tuple(output_contract),
             ),
         )
 
