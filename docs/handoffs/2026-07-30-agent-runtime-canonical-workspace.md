@@ -217,7 +217,29 @@ Completed on the canonical branch:
   disqualified legacy fast copy (`df6427e1`, `41036494`);
 - Task 6 — `SectorUniverseStore.completion_audit` as the single completion
   formula, receipt-driven nightly polling that returns `partial` instead of a
-  false `ok`, and a third report gate built from the same audit (`ca894e07`).
+  false `ok`, and a third report gate built from the same audit (`ca894e07`);
+- Task 7 — item-by-item completion reconciliation and the enforced
+  physical-storage access guard (`690bb182`, `7d0fecd4`).
+
+The audit now also requires declared-vs-actual relationship equality, exact
+daily-fact identity, member-fact containment inside the published universe, zero
+critical nulls, and reports adjacent-name continuity as a ratio or `None`
+(it does not fabricate 100% where there is no baseline). An empty or unknown
+`declared_tables` set is rejected, so narrowing scope cannot buy a green receipt.
+
+The access guard enforces two invariants: the physical generation tables are
+reachable only from `sector_universe.py` and `sector_schema.sql`, and the public
+views are read-only. It caught two violations introduced by Task 5 itself
+(`fast_daily_sync.py` and the member sync reading/writing the generation table
+directly); both were routed through new store methods rather than relaxing the
+rule. Current inventory: 283 records, 0 violations.
+
+Enforcement is deliberately narrower than the plan's literal "reject unknown
+access". Of 110 unknown-mode records, most are not access — registry literals,
+parameters, the warning text `fact_sector_daily has no rows`, and the
+conservative candidates one `fact_sector_{kind}` expands into. Violations fire
+only on `read`, `ddl` and the write modes. A new `comment` mode keeps SQL
+comments in the inventory while excluding them from violations.
 
 The nightly loop previously compared
 `count(distinct sector_ts_code)` from the member facts against
@@ -305,9 +327,9 @@ means the vector layer is fail-closed and any quality read is invalid.
 1. Task 5 implementation is complete (`df6427e1`, `41036494`). Still open: the
    1,204/1,202 discrepancy must be diagnosed from live receipts without
    changing the declaration; that needs an authorized provider run.
-2. Task 6 implementation is complete (`ca894e07`). Task 7 scope was measured on
-   2026-07-30 and is larger than the plan text suggests — start from these
-   numbers rather than re-deriving them:
+2. Tasks 6 and 7 are implemented (`ca894e07`, `690bb182`, `7d0fecd4`). The
+   scope notes below are kept as the record of what was measured before doing
+   the work:
 
    - `scripts/check_sector_fact_access.py` currently refuses any mode except
      `--inventory-only` ("only --inventory-only mode is available before the

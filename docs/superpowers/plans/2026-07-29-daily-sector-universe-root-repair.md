@@ -871,7 +871,7 @@ git commit -m "fix: drive nightly sector sync from receipts"
 - Modify: `tests/test_pipeline_p0.py`
 - Modify: `docs/verification/sector-fact-access-inventory-2026-07-29.json`
 
-- [ ] **Step 1: Write failing exact-gate tests**
+- [x] **Step 1: Write failing exact-gate tests**
 
 Cover 406/407 failure despite 100% name continuity, per-sector count mismatch, facts outside the snapshot, legacy/superseded rows, null critical fields, and reduced table scope that does not declare sector tables.
 
@@ -884,11 +884,11 @@ Cover 406/407 failure despite 100% name continuity, per-sector count mismatch, f
 
 Expected: FAIL because the current gate can ignore never-populated sectors.
 
-- [ ] **Step 3: Implement one completion audit**
+- [x] **Step 3: Implement one completion audit**
 
 `SectorUniverseStore.completion_audit` returns an immutable result containing snapshot ID, universe count, successful receipts, status counts, declared/actual relationships, daily-fact identity equality, member-fact identity containment, critical-null counts, adjacent-name continuity, and `complete`. `scripts/check_daily_review_data.py` only formats that result; it must not recompute coverage from `dim_sector`.
 
-- [ ] **Step 4: Upgrade the frozen inventory into a static access guard**
+- [x] **Step 4: Upgrade the frozen inventory into a static access guard**
 
 Extend `scripts/check_sector_fact_access.py` to scan the new physical names as
 well as the two canonical public views. Enforcement rejects unknown access,
@@ -900,7 +900,7 @@ inventory in the JSON under `baseline`; write the current classified inventory
 under `candidate` so every original writer is visibly accounted for. Exclude
 tests, `scripts/archive`, `.git`, and runtime artifacts.
 
-- [ ] **Step 5: Generate and verify the inventory**
+- [x] **Step 5: Generate and verify the inventory**
 
 Run:
 
@@ -914,7 +914,7 @@ Run:
 
 Expected: exit 0; the inventory has no unauthorized physical-table reference; tests pass.
 
-- [ ] **Step 6: Commit the gate and inventory**
+- [x] **Step 6: Commit the gate and inventory**
 
 ```bash
 git add market_feature_store/sector_universe.py scripts/check_daily_review_data.py \
