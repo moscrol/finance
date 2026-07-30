@@ -2658,6 +2658,54 @@ def _merge_orphan_grounded_markers(answer: str) -> str:
     return "\n".join(merged)
 
 
+def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
+    """把 marker 的 claim_ids 里混入的 EvidenceAtom id 换成它所属的 claim id。
+
+    composer 经常把同一个 atom id 同时写进 claim_ids 和 evidence_atom_ids：
+      <!-- claim_ids=summary:definition,atom-4f0c5f5ec8d2;
+           evidence_atom_ids=atom-4f0c5f5ec8d2; claim_type=inference -->
+    atom id 不是合法 claim id，于是整句判无效、确定性修复失败、整份答案被丢弃。
+    实测被丢掉的是一份 2127 字、逐家写清 12 家候选公司环节/层级/缺口的好答案，
+    毙掉它的只是一个字段串位。
+
+    atom id 唯一指向它的所属 claim，所以这是可确定还原的笔误，不是无出处的引用。
+    parse_decision_brief 早就对 brief 做了同样的规范化（canonical_claim_id），
+    这里只是把同一条规则补到 composer 侧。
+    """
+    allowed = {claim.claim_id for claim in _all_answer_claims(answer_spec)}
+    owner = {
+        atom.atom_id: str(atom.provenance.get("claim_id", ""))
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+
+    def rewrite(match: re.Match[str]) -> str:
+        raw_ids = [
+            item.strip()
+            for item in re.split(r"[,，、\s]+", match.group("claim_ids"))
+            if item.strip()
+        ]
+        mapped: list[str] = []
+        for raw_id in raw_ids:
+            if raw_id in allowed:
+                mapped.append(raw_id)
+                continue
+            resolved = owner.get(raw_id, "")
+            if resolved in allowed:
+                mapped.append(resolved)
+            else:
+                mapped.append(raw_id)
+        deduped = list(dict.fromkeys(mapped))
+        if deduped == raw_ids:
+            return match.group(0)
+        return (
+            f"<!-- claim_ids={','.join(deduped)}; "
+            f"evidence_atom_ids={match.group('atom_ids')}; "
+            f"claim_type={match.group('claim_type')} -->"
+        )
+
+    return _GROUNDED_CLAIM_MARKER_RE.sub(rewrite, answer)
+
+
 def parse_grounded_sentences(
     answer: str,
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:

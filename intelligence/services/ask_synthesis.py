@@ -1413,6 +1413,13 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     raw_answer = composed.answer
+    # composer 常把 atom id 串位写进 claim_ids，导致整句判无效、修复失败、好答案被丢。
+    # atom id 唯一指向所属 claim，可确定还原；brief 侧早有同样的规范化。
+    if result.answer_spec is not None:
+        raw_answer = answer_model.canonicalize_grounded_claim_ids(
+            raw_answer,
+            result.answer_spec,
+        )
     deterministic_issues = (
         answer_model.validate_grounded_composer_answer(
             raw_answer,
