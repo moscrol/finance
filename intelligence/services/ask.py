@@ -2013,19 +2013,36 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         owner_result.loop.sufficient = True
         if owner_result.loop.research_state is not None:
             owner_result.loop.research_state.set_assessment(assessment)
-            market_state_ids = tuple(
-                evidence_id
-                for evidence_id, observation in owner_result.loop.research_state.evidence.items()
-                if observation.tool == "market_data"
+
+    if (
+        contract.question_type == QUESTION_MARKET_FORECAST
+        and owner_result.loop.research_state is not None
+        and any(item.tool == "market_data" for item in owner_result.evidence)
+    ):
+        # These are conditional monitoring scenarios, not directional facts:
+        # bind each one to the current breadth/volume observations so the
+        # completion gate sees all required branches as grounded.
+        #
+        # 这段原本嵌在上面的兜底分支里，只有 agent loop **没能**给出判断时才执行。
+        # 于是行为是反的：loop 失败 → 绑定 → coverage fulfilled → business_status
+        # complete → 允许 LLM 合成；loop 成功 → 不绑定 → 三个情景假设一直是
+        # uncovered → coverage partial → business_status gap → prepare_existing_answer
+        # 直接把 synthesize 关掉，用户拿到的是确定性模板。研究做得越好，表达越差。
+        #
+        # 实测 run_20260731_031601_415738：六个必需输出全部 fulfilled，汇总却是
+        # gap，全程没有调用过 LLM。绑定的是同一批 market_data 证据——预测情景本来
+        # 就以当前盘面为依据，最终门禁 _evidence_supports_claim 对这三个 output 用
+        # 的也正是这条规则。没有 market_data 时不绑定，仍然 fail closed。
+        market_state_ids = tuple(
+            evidence_id
+            for evidence_id, observation in owner_result.loop.research_state.evidence.items()
+            if observation.tool == "market_data"
+        )
+        for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
+            owner_result.loop.research_state.bind_hypothesis_evidence(
+                hypothesis_id,
+                market_state_ids,
             )
-            # These are conditional monitoring scenarios, not directional facts:
-            # bind each one to the current breadth/volume observations so the
-            # completion gate sees all required branches as grounded.
-            for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
-                owner_result.loop.research_state.bind_hypothesis_evidence(
-                    hypothesis_id,
-                    market_state_ids,
-                )
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
