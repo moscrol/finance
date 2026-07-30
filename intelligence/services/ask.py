@@ -250,9 +250,25 @@ def _resolve_exports_dir(exports_dir: str | Path | None) -> Path:
     return DEFAULT_EXPORTS_DIR
 
 
+def _snapshot_is_usable(path: Path) -> bool:
+    """快照里有没有候选。文件名最新 ≠ 内容可用。
+
+    盘面数据尚未同步时导出器仍会写出一个 found=False、candidate_count=0 的文件
+    （warnings 全是 market daily row not found）。收盘到夜间管线跑完之间的每一天
+    都会出现这种文件。"""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(doc, dict) or doc.get("found") is False:
+        return False
+    return bool(_all_candidates(doc))
+
+
 def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> dict[str, Any]:
-    """Load a theme-candidates export. Defaults to the latest available date."""
+    """Load a theme-candidates export. Defaults to the latest *usable* date."""
     base = _resolve_exports_dir(exports_dir)
+    skipped: list[str] = []
     if date:
         path = base / f"{date}-theme-candidates.json"
         if not path.exists():
@@ -261,7 +277,21 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
         matches = sorted(glob.glob(str(base / "*-theme-candidates.json")))
         if not matches:
             return {"found": False, "path": str(base), "warnings": ["no theme-candidates export found"], "doc": {}}
+        # 从最新往回找第一个有候选的；空快照会被跳过并记名，让上层能说明"盘面快照是哪天"。
         path = Path(matches[-1])
+        for candidate_path in reversed(matches):
+            if _snapshot_is_usable(Path(candidate_path)):
+                path = Path(candidate_path)
+                break
+            skipped.append(Path(candidate_path).name.replace("-theme-candidates.json", ""))
+        else:
+            # 全都是空的：退回最新，让下游照旧走"无候选"分支，但把原因说清楚。
+            return {
+                "found": True,
+                "path": str(path),
+                "warnings": [f"最近 {len(skipped)} 个盘面快照均无候选（{'、'.join(skipped[:5])}）"],
+                "doc": json.loads(path.read_text(encoding="utf-8")),
+            }
     # 盘面快照缓存：as_of=当日、revision=文件 mtime（导出重写即失效）。
     cache = retrieval_cache.shared_cache()
     try:
@@ -269,16 +299,21 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
     except OSError:
         revision = ""
     as_of = date_cls.today().isoformat()
+    stale = (
+        [f"盘面快照回退到 {path.name.replace('-theme-candidates.json', '')}（{'、'.join(skipped)} 尚无候选）"]
+        if skipped
+        else []
+    )
     cached = cache.get("theme_candidates", str(path), as_of, revision)
     if cached is not None:
         # deepcopy：缓存值只读，防调用方原地改动污染后续 run。
-        return {"found": True, "path": str(path), "warnings": [], "doc": copy.deepcopy(cached)}
+        return {"found": True, "path": str(path), "warnings": stale, "doc": copy.deepcopy(cached)}
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # pragma: no cover - defensive
         return {"found": False, "path": str(path), "warnings": [str(exc)], "doc": {}}
     cache.put("theme_candidates", str(path), doc, as_of, revision)
-    return {"found": True, "path": str(path), "warnings": [], "doc": doc}
+    return {"found": True, "path": str(path), "warnings": stale, "doc": doc}
 
 
 def _resolve_market_data_context(
