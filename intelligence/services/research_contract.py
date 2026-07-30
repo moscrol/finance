@@ -932,6 +932,10 @@ class StageArtifact:
     evidence_atom_ids: tuple[str, ...] = ()
     payload: dict[str, object] = field(default_factory=dict)
     degrade_reason: str | None = None
+    # 阶段异常的可诊断详情（异常消息，截断）。degrade_reason 是给人看的简短
+    # 措辞，只带异常类名；光有类名诊断不了——真实 run 里出现过两次
+    # "company_mapping 执行失败（TypeError）"，消息和位置全被丢弃，事后无从下手。
+    failure_detail: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -975,6 +979,11 @@ class StageArtifact:
                 degrade_reason=(
                     str(value["degrade_reason"])
                     if value.get("degrade_reason") is not None
+                    else None
+                ),
+                failure_detail=(
+                    str(value["failure_detail"])
+                    if value.get("failure_detail") is not None
                     else None
                 ),
             )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from intelligence.services import answer_model
 from intelligence.services.ask import AskResult
@@ -130,6 +131,7 @@ def execute_owner_dag(
                             timeout_seconds=adapter.timeout_seconds,
                             on_failure=adapter.on_failure,
                             degrade_reason=warning,
+                            failure_detail=_failure_detail(exc),
                         )
                     )
                     continue
@@ -276,6 +278,28 @@ def _stage_payload(
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((time.monotonic() - started) * 1000))
+
+
+_FAILURE_DETAIL_MAX_CHARS = 300
+
+
+def _failure_detail(exc: BaseException) -> str:
+    """把阶段异常压成一行可诊断详情：类名 + 消息 + 最内层代码位置。
+
+    只带异常自身的消息与 traceback 的最后一帧，不带完整栈和局部变量，避免把
+    查询原文、证据正文或凭证写进 artifact。
+    """
+    detail = f"{type(exc).__name__}: {exc}".strip()
+    tb = exc.__traceback__
+    last = None
+    while tb is not None:
+        last = tb
+        tb = tb.tb_next
+    if last is not None:
+        frame = last.tb_frame
+        location = f"{Path(frame.f_code.co_filename).name}:{last.tb_lineno}"
+        detail = f"{detail} @{location}"
+    return detail[:_FAILURE_DETAIL_MAX_CHARS]
 
 
 def _timeout_artifact(
