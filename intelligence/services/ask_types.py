@@ -23,6 +23,7 @@ from intelligence.services import (
 from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
+from intelligence.paths import default_market_db_path
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -49,6 +50,9 @@ def _data_repo_root() -> Path:
 
 DATA_REPO_ROOT = _data_repo_root()
 DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
+# 盘面 DuckDB 默认路径的唯一来源在 intelligence.paths（叶子模块，四个 market_*
+# 模块也要用，从这里导入会成环）。此处重导出，保持既有调用方不变。
+DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]

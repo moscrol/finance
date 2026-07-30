@@ -20,7 +20,7 @@ from intelligence.services.trading_calendar import (
     next_trading_day,
 )
 from intelligence.services.ask_types import (
-    REPO_ROOT,
+    DEFAULT_MARKET_DB_PATH,
     SUBHEAD,
     AskResult,
     Citation,
@@ -164,7 +164,7 @@ def _mainline_context_block_for_llm(
     Grain: trade_date × mainline theme × core sector. This is L4 market signal,
     not entity baseline or hard company evidence.
     """
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     try:
@@ -296,7 +296,7 @@ def _market_review_mainline_context_block_for_llm(
     as_of: str | None = None,
 ) -> str:
     market_date = _market_data_asof(market_db_path, as_of=as_of)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not market_date or not db_path.exists():
         return ""
     try:
@@ -444,7 +444,7 @@ def _second_derivative_queue_block_for_llm(
     evidence_text: str,
 ) -> str:
     """Build a structured P0/P1/P2 second-derivative research queue."""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return _second_derivative_queue_from_text_only(theme, evidence_text)
     try:
@@ -609,7 +609,7 @@ def _daily_market_overview_block_for_llm(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     if not db_path.exists():
         return ""
@@ -796,7 +796,7 @@ def _market_cause_window_block_for_llm(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     if not db_path.exists():
         return ""
@@ -877,7 +877,7 @@ def _market_data_asof(
     as_of: str | None = None,
 ) -> str | None:
     """盘面库 fact_market_daily 最新交易日（回检块新鲜度自检用）；库/duckdb 不可用返回 None。"""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return None
     try:
@@ -977,7 +977,7 @@ def _populate_market_index_comparison(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     row: tuple[Any, ...] | None = None
     if trade_date and db_path.exists():
@@ -1093,7 +1093,7 @@ def _market_value_block_for_llm(
     This is intentionally lightweight and best-effort. It enriches compose
     answers with measurable L4 context without turning the LLM into a calculator.
     """
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     try:
@@ -1301,7 +1301,7 @@ def _valuation_block_for_llm(
     fetch = fetcher or valuation_estimate.fetch_eastmoney_snapshot
     if not valuation_estimate.fetch_enabled():
         return valuation_estimate.build_valuation_block(None, [], fetch_disabled=True)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     target_code: str | None = None
     target_name = ""
     peer_codes: list[tuple[str, str]] = []
@@ -1442,7 +1442,7 @@ def _financials_block_for_llm(
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     target_code: str | None = None
     target_name = ""
     if db_path.exists():

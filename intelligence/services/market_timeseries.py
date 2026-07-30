@@ -21,8 +21,12 @@ from typing import Any
 from intelligence.services import retrieval_cache
 
 from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
+from intelligence.paths import default_market_db_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
 DEFAULT_WINDOW = 10
 MIN_WINDOW = 2
@@ -131,7 +135,7 @@ def fetch_timeseries(
     返回 ``{"found", "dates", "values": {metric_key: {date: value}}, "warnings"}``；
     库不可用/无数据时 found=False 并带 warnings（缺口显式声明，不静默）。
     """
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return {"found": False, "dates": [], "values": {}, "warnings": [f"本地 DuckDB 不存在：{db_path}"]}
     try:
@@ -279,7 +283,7 @@ def latest_double_red_snapshot_block_for_llm(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     if not db_path.exists():
         return ""

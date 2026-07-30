@@ -25,8 +25,12 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.services import retrieval_cache
+from intelligence.paths import default_market_db_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
 # 跨题材历史剧本库（人工审核卡）：同题材量化匹配只能覆盖库内历史，
 # 剧本卡把「2019 半导体 / 2022 信创」这类长历史、跨题材案例结构化后供特征匹配；
@@ -190,7 +194,7 @@ def load_historical_analog_artifact(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     if not db_path.exists():
         return HistoricalAnalogArtifact(
@@ -431,7 +435,7 @@ def analog_block_for_llm(
     window: int = DEFAULT_WINDOW,
 ) -> str:
     """把历史类比窗口渲染成带 [D8] 引用编号的确定性数据块（空串=未取到）。"""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     try:

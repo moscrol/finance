@@ -23,8 +23,12 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.services import retrieval_cache
+from intelligence.paths import default_market_db_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
 DEFAULT_WINDOW = 10
 TOP_K = 10
@@ -138,7 +142,7 @@ def load_moneyflow_snapshot(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     missing = MoneyflowSnapshot(
         status="missing",
@@ -277,7 +281,7 @@ def moneyflow_block_for_llm(
     as_of_date: str | None = None,
 ) -> str:
     """把 L2 大单资金流特征渲染成带 [D9] 引用编号的确定性数据块（空串=未取到）。"""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     try:
