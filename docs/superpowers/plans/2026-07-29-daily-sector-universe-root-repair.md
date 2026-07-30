@@ -966,7 +966,7 @@ Add a `--preview` CLI path that opens production DuckDB read-only and reports le
 
 Use a copied disposable database first. After its exact gate passes, run the normal `sync-sectors`, `sync-sector-daily`, and receipt-driven `sync-sector-stocks` commands against the configured production DB. Never edit DuckDB manually. The result must show one published snapshot, exact per-sector counts, no outside identities, and zero pending/error receipts before report generation.
 
-- [ ] **Step 4: Write and commit the implementation receipt**
+- [x] **Step 4: Write and commit the implementation receipt**
 
 The result document records commit IDs, test counts, latency projection, migration preview aggregates, live snapshot ID, universe count, declared/actual relationship totals, receipt status counts, and unchanged safety boundaries. It must distinguish tests from live verification.
 
