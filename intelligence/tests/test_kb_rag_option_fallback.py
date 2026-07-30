@@ -44,3 +44,28 @@ def test_without_option_removes_the_flag_and_its_value() -> None:
     assert "L1" not in stripped
     assert stripped[-1] == "--json"
     assert "固态电池" in stripped
+
+
+def test_known_stale_index_reason_is_surfaced_with_a_remedy() -> None:
+    """新鲜度守卫的原因必须带补救动作，而不是只留一句退出码。"""
+    reason = kb_rag._stderr_reason(
+        "[query] 索引过期，拒绝作为证据: indexed source has working-tree changes"
+    )
+
+    assert "working-tree changes" in reason
+    assert "补救" in reason
+    assert "提交" in reason
+
+
+def test_unknown_stderr_is_not_leaked() -> None:
+    """任意 stderr 不外泄：可能带查询原文/路径/traceback 且无操作价值。"""
+    assert kb_rag._stderr_reason("ValueError: malformed query arguments") == ""
+    assert kb_rag._stderr_reason("") == ""
+    assert kb_rag._stderr_reason(None) == ""
+
+
+def test_every_remedy_marker_resolves() -> None:
+    for marker, _remedy in kb_rag._RAG_REMEDIES:
+        assert kb_rag._stderr_reason(f"[query] 索引过期: {marker}").startswith(
+            "索引不可用作证据"
+        )

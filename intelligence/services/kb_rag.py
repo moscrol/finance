@@ -51,6 +51,41 @@ OPTIONAL_QUERY_OPTIONS = (
 )
 
 CITATION_PREFIX = "W"
+_STDERR_REASON_MAX_CHARS = 400
+# 索引新鲜度守卫的 fail-closed 文案 -> 可执行的补救动作。守卫本身是对的（索引与
+# 源不一致时拒绝把召回当证据），问题在于工作台原先只把它显示成"退出码 3"。
+_RAG_REMEDIES: tuple[tuple[str, str], ...] = (
+    (
+        "working-tree changes",
+        "知识库有未提交改动导致索引与源不一致；提交后 post-commit hook 会自动重建"
+        "（单跑 rag update 不够，守卫要求源已提交）",
+    ),
+    ("indexed source changed in git", "索引落后于已提交内容；在知识库仓跑 rag update"),
+    ("built from dirty source", "索引是在脏工作区上建的；提交后重建"),
+    ("age=", "索引超龄；在知识库仓跑 rag update"),
+)
+
+
+def _stderr_reason(stderr: str | None) -> str:
+    """只在 stderr 命中已知的可操作模式时返回原因 + 补救动作，否则返回空串。
+
+    **不泄露任意 stderr**：那可能带查询原文、路径或 traceback，且对用户没有
+    操作价值（见 test_unrelated_retriever_error_does_not_fall_back——不外泄是
+    有意的设计）。这里只放行索引新鲜度守卫那几条：它们既是最高频的失败原因，
+    又能直接对应一个明确动作。工作台原先把它们统一显示成"退出码 3"，等于把
+    唯一可操作的信息藏了起来。
+    """
+    text = re.sub(r"\s+", " ", str(stderr or "")).strip()
+    if not text:
+        return ""
+    for marker, remedy in _RAG_REMEDIES:
+        if marker in text:
+            return f"索引不可用作证据（{marker}）｜补救：{remedy}"[
+                :_STDERR_REASON_MAX_CHARS
+            ]
+    return ""
+
+
 _LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
 # CLI 拒收时可以安全丢弃并重试的查询选项。丢掉它们只降低精度（过滤失效、
 # 证据文本预算变短），不会让召回结果变错；因此宁可退化也不要返回空集。
@@ -229,6 +264,10 @@ class RetrievalTelemetry:
     cache_hit: bool = False
     cache_age_ms: int | None = None
     index_fingerprint: str = ""
+    # 本次查询是否顺带加载了 BGE-m3 与稠密索引（常驻 worker 的冷启动）。
+    # 实测冷 60.1s / 热 4-6s，差 10 倍以上，所以冷查询的耗时不能当成后续查询的
+    # 成本样本——下游预算据此决定要不要采纳这次观测。
+    model_loaded: bool = False
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -808,6 +847,7 @@ def retrieve(
                 timeout=float(timeout),
             )
             tel.query_protocol = "persistent_worker"
+            tel.model_loaded = int(getattr(proc, "model_load_count", 0) or 0) > 0
         else:
             proc = subprocess.run(
                 cmd,
@@ -817,6 +857,8 @@ def retrieve(
                 cwd=str(runtime_root),
                 env=env,
             )
+            # 每次都是新进程，必然重新加载模型与索引。
+            tel.model_loaded = True
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         fallback_warnings.append(
             f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
@@ -988,19 +1030,30 @@ def retrieve(
 
     tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
+        reason = _stderr_reason(proc.stderr)
         if tel.fallback_reason == "dense_dependency_missing":
             res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
         elif tel.query_protocol == "legacy":
             res.warning = f"wiki-rag legacy query 回退退出码 {proc.returncode}"
         else:
             res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
+        # 退出码本身不可操作。检索器把真正的原因写在 stderr——索引过期时那里
+        # 明确写着是哪一类不新鲜、该跑什么命令。丢掉它等于让每次排查都从零开始。
+        if reason:
+            res.warning = f"{res.warning}：{reason}"
         tel.status = "error"
         tel.warning = res.warning
         return res
     warnings = [warning for warning in (res.warning, *fallback_warnings) if warning]
-    stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
-    if stderr_warning:
-        warnings.append("wiki-rag 检索器返回告警")
+    if re.sub(r"\s+", " ", (proc.stderr or "")).strip():
+        # rc=0 但有 stderr：保留原来的笼统措辞（不外泄任意 stderr），只在命中
+        # 已知可操作模式时补一句补救动作。
+        actionable = _stderr_reason(proc.stderr)
+        warnings.append(
+            f"wiki-rag 检索器返回告警：{actionable}"
+            if actionable
+            else "wiki-rag 检索器返回告警"
+        )
 
     try:
         raw = json.loads(proc.stdout or "[]")

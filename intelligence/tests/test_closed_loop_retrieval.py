@@ -423,3 +423,33 @@ def test_budget_keeps_a_floor_when_an_attempt_looks_free() -> None:
     budget.observe(0.0)
 
     assert budget.can_start() is False
+
+
+def test_warmup_attempt_is_not_taken_as_a_cost_sample() -> None:
+    """顺带加载模型/索引的那次查询不算样本。
+
+    回归：冷启动实测 60.1s、热查询 4-6s。把冷启动当成每查询成本会让
+    can_start 要求 remaining >= 60*1.25，在 turn 预算内不可能满足——broad 与
+    counter 两趟检索因此每轮都被跳过，三趟只跑一趟。
+    """
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(60.1, representative=False)
+
+    assert budget.observed_seconds is None
+    assert budget.can_start() is True
+
+
+def test_representative_attempt_still_updates_the_estimate() -> None:
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(40.0, representative=True)
+
+    assert budget.observed_seconds == 40.0
+    assert budget.can_start() is False

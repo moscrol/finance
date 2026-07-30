@@ -163,19 +163,26 @@ class _AttemptBudget:
             )
         return remaining >= required
 
-    def observe(self, elapsed_seconds: float) -> None:
+    def observe(self, elapsed_seconds: float, *, representative: bool = True) -> None:
         """以最近一次实测作为下一次的成本估计。
 
-        原先取运行最大值。检索成本的主要变量是常驻 RAG worker 是否已加载
-        BGE-m3 与 214MB 稠密索引：冷启动实测 60.1s，热查询 4-6s，且热了不会再
-        冷。取最大值会把一次冷启动永久钉成估计值，``can_start`` 随后要求
-        ``remaining >= 60 × 1.25``，在 turn 预算内永远不可能满足——实测 broad 与
-        counter 两趟检索因此每轮都被跳过，三趟只跑了一趟。
+        两个改动，针对同一个现象：检索成本的主要变量是常驻 RAG worker 是否已
+        加载 BGE-m3 与 214MB 稠密索引。实测冷启动 60.1s、热查询 4-6s，差 10 倍
+        以上，且热了不会再冷。
 
-        取最近一次实测则能跟上预热：窄检索付掉冷启动后，后续两趟按 ~5s 估算。
-        下行风险由 ``MIN_ATTEMPT_RESERVE_SECONDS`` 下限与 deadline 双重兜住——
-        即使某次估低了，超时的查询仍会被 deadline 截断。
+        ``representative=False`` 表示这次查询顺带付了一次性预热成本，它不是热
+        查询的有效样本，直接不采纳——估计值保持原样（首轮为 None，于是
+        ``can_start`` 只要求 ``MIN_ATTEMPT_RESERVE_SECONDS``）。原先无条件采纳
+        且取运行最大值，一次冷启动会把估计永久钉成 60s，``can_start`` 随后要求
+        ``remaining >= 60 × 1.25``，在 turn 预算内不可能满足——实测 broad 与
+        counter 两趟检索因此每轮都被跳过，三趟只跑一趟。
+
+        采纳时取最近一次而非最大值：成本随预热单调下降，取最大值编码的是相反
+        的假设。下行风险由 ``MIN_ATTEMPT_RESERVE_SECONDS`` 下限与 deadline 双重
+        兜住——即使某次估低了，超时的查询仍会被 deadline 截断。
         """
+        if not representative:
+            return
         self.observed_seconds = max(0.0, elapsed_seconds)
 
 
@@ -296,7 +303,14 @@ def _run_aperture(
             break
         started = time.monotonic()
         response = retrieve(candidate)
-        budget.observe(time.monotonic() - started)
+        budget.observe(
+            time.monotonic() - started,
+            # 顺带加载了模型/索引的那次不算样本，否则一次性预热成本会被当成
+            # 每查询成本，把后续 aperture 全部挡掉。
+            representative=not bool(
+                getattr(getattr(response, "telemetry", None), "model_loaded", False)
+            ),
+        )
         eligible_hits, future_hits = filter_future_dated(
             response.hits,
             information_cutoff=information_cutoff,
