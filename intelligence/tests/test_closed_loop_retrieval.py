@@ -376,3 +376,50 @@ def test_parse_source_date_accepts_compact_dates_but_not_yearless_names() -> Non
         2026, 7, 24
     )
     assert parse_source_date("wiki/sources/0511卖方观点合集.md") is None
+
+
+def test_budget_estimate_follows_the_latest_attempt_not_the_worst() -> None:
+    """冷启动的成本不得成为后续查询的估计值。
+
+    回归：observed_seconds 取运行最大值，一次 60s 冷启动（常驻 RAG worker 加载
+    BGE-m3 与 214MB 稠密索引）会永久钉住估计，can_start 随后要求
+    remaining >= 60*1.25，在 turn 预算内不可能满足——broad 与 counter 两趟检索
+    每轮都被跳过，三趟只跑一趟。
+    """
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(60.1)          # 冷启动
+    assert budget.can_start() is False
+
+    budget.observe(4.9)           # worker 已热
+    assert budget.can_start() is True
+    assert budget.observed_seconds == 4.9
+
+
+def test_budget_still_stops_when_the_deadline_is_spent() -> None:
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() - 1.0)
+    budget.observe(0.1)
+
+    assert budget.can_start() is False
+
+
+def test_budget_keeps_a_floor_when_an_attempt_looks_free() -> None:
+    """估计值趋零时仍要留最小储备，不能无限开新查询。"""
+    import time
+
+    from intelligence.services.closed_loop_retrieval import (
+        MIN_ATTEMPT_RESERVE_SECONDS,
+        _AttemptBudget,
+    )
+
+    budget = _AttemptBudget(deadline=time.monotonic() + MIN_ATTEMPT_RESERVE_SECONDS / 2)
+    budget.observe(0.0)
+
+    assert budget.can_start() is False

@@ -52,6 +52,14 @@ OPTIONAL_QUERY_OPTIONS = (
 
 CITATION_PREFIX = "W"
 _LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
+# CLI 拒收时可以安全丢弃并重试的查询选项。丢掉它们只降低精度（过滤失效、
+# 证据文本预算变短），不会让召回结果变错；因此宁可退化也不要返回空集。
+_DROPPABLE_QUERY_OPTIONS: tuple[str, ...] = (
+    "--evidence-chars",
+    "--evidence-layer",
+    "--fact-hardness",
+    "--source-type",
+)
 _DENSE_UNAVAILABLE_UNTIL: dict[str, float] = {}
 _RESULT_CACHE: OrderedDict[tuple[object, ...], tuple[float, WikiRagResult]] = (
     OrderedDict()
@@ -740,22 +748,22 @@ def retrieve(
     if "--evidence-chars" not in legacy_options:
         cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
     cmd.append("--json")
+    # 已知被 CLI 拒收的过滤选项不再下发：否则每轮都要先失败一次才降级，
+    # 白烧一次查询预算。tel.filters 仍记录请求过什么，便于对账"要过滤但没过滤"。
     filters = []
-    if evidence_layer:
-        cmd.extend(["--evidence-layer", evidence_layer])
-        filters.append(f"evidence_layer={evidence_layer}")
-    if fact_hardness:
-        cmd.extend(["--fact-hardness", fact_hardness])
-        filters.append(f"fact_hardness={fact_hardness}")
-    if source_type:
-        cmd.extend(["--source-type", source_type])
-        filters.append(f"source_type={source_type}")
-    if evidence_layer:
-        tel.filters["evidence_layer"] = evidence_layer
-    if fact_hardness:
-        tel.filters["fact_hardness"] = fact_hardness
-    if source_type:
-        tel.filters["source_type"] = source_type
+    for option, value in (
+        ("--evidence-layer", evidence_layer),
+        ("--fact-hardness", fact_hardness),
+        ("--source-type", source_type),
+    ):
+        if not value:
+            continue
+        key = option.lstrip("-").replace("-", "_")
+        tel.filters[key] = value
+        if option in legacy_options:
+            continue
+        cmd.extend([option, value])
+        filters.append(f"{key}={value}")
     filter_note = f" filters={','.join(filters)}" if filters else ""
     evidence_chars_note = (
         f" --evidence-chars {generation_evidence_chars}"
@@ -848,27 +856,43 @@ def retrieve(
         tel.warning = res.warning
         return res
 
-    if (
-        proc.returncode != 0
-        and "--evidence-chars" in cmd
-        and _unsupported_option(proc.stderr, "--evidence-chars")
-    ):
+    # CLI 不支持的选项一律走同一条降级路径：丢掉该选项后重试一次。
+    #
+    # 原先只硬编码了 --evidence-chars。实测知识库的 rag_index.py query 只支持
+    # --model/--include-raw/--k/--mode/--reranker/--json/--evidence-chars/
+    # --stale-policy，并不支持工作台一直在下发的三个过滤参数，于是每一次分层
+    # 证据检索都以 "unrecognized arguments" rc=2 收场、返回空集，表面上只留一句
+    # "检索器返回告警"。改 KB 的 CLI 属跨仓改动（未获授权），所以在工作台侧
+    # 泛化这条既有降级路径：分层过滤退化为未过滤召回并如实记账，而不是什么都拿不到。
+    unsupported = tuple(
+        option
+        for option in _DROPPABLE_QUERY_OPTIONS
+        if option in cmd and _unsupported_option(proc.stderr, option)
+    )
+    if proc.returncode != 0 and unsupported:
         remaining = float(timeout) - (time.monotonic() - _t0)
+        listed = "/".join(unsupported)
         if remaining < 1:
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = (
-                "wiki-rag CLI 不支持 --evidence-chars，剩余预算不足，"
-                "未执行 legacy query 回退"
+                f"wiki-rag CLI 不支持 {listed}，剩余预算不足，未执行 legacy query 回退"
             )
             tel.status = "error"
             tel.warning = res.warning
             return res
-        cmd = _without_option(cmd, "--evidence-chars")
-        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset({"--evidence-chars"})
+        for option in unsupported:
+            cmd = _without_option(cmd, option)
+        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset(unsupported)
         tel.query_protocol = "legacy"
-        tel.unsupported_options = ("--evidence-chars",)
-        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.unsupported_options = unsupported
+        tel.fallback_reason = "legacy_cli_missing_" + "_".join(
+            option.lstrip("-").replace("-", "_") for option in unsupported
+        )
         tel.degraded = True
+        fallback_warnings.append(
+            f"wiki-rag CLI 不支持 {listed}，已丢弃该选项后重试；"
+            "分层过滤未生效，本轮召回为未过滤结果"
+        )
         res.command = (
             f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
         )

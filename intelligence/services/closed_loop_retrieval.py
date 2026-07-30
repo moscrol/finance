@@ -164,11 +164,19 @@ class _AttemptBudget:
         return remaining >= required
 
     def observe(self, elapsed_seconds: float) -> None:
-        elapsed = max(0.0, elapsed_seconds)
-        if self.observed_seconds is None:
-            self.observed_seconds = elapsed
-        else:
-            self.observed_seconds = max(self.observed_seconds, elapsed)
+        """以最近一次实测作为下一次的成本估计。
+
+        原先取运行最大值。检索成本的主要变量是常驻 RAG worker 是否已加载
+        BGE-m3 与 214MB 稠密索引：冷启动实测 60.1s，热查询 4-6s，且热了不会再
+        冷。取最大值会把一次冷启动永久钉成估计值，``can_start`` 随后要求
+        ``remaining >= 60 × 1.25``，在 turn 预算内永远不可能满足——实测 broad 与
+        counter 两趟检索因此每轮都被跳过，三趟只跑了一趟。
+
+        取最近一次实测则能跟上预热：窄检索付掉冷启动后，后续两趟按 ~5s 估算。
+        下行风险由 ``MIN_ATTEMPT_RESERVE_SECONDS`` 下限与 deadline 双重兜住——
+        即使某次估低了，超时的查询仍会被 deadline 截断。
+        """
+        self.observed_seconds = max(0.0, elapsed_seconds)
 
 
 def retrieve_closed_loop(
