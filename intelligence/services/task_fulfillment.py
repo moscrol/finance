@@ -90,6 +90,10 @@ _TOKEN_STOPWORDS = frozenset(
         "以及",
     }
 )
+# 这些必需输出的内容本质上可以没有出处：证伪条件、风险和「尚无反向证据」是推理
+# 结论，不是可回查的事实。对它们只校验「有没有写进正文」，不校验「有没有出处」。
+_UNSOURCEABLE_OUTPUTS = frozenset({"counterpoint", "counter_evidence", "risk"})
+
 _MARKERS: dict[str, tuple[str, ...]] = {
     "direct_assessment": (
         "当前主线",
@@ -377,6 +381,22 @@ def evaluate_task_fulfillment(
                 and claim_in_answer
             ):
                 bound.append((claim, evidence_ids))
+            elif (
+                claim_in_answer
+                and not evidence_ids
+                and output_id in _UNSOURCEABLE_OUTPUTS
+                and claim.claim_type in {"expectation", "gap"}
+            ):
+                # 反证/风险常常本来就没有证据：「若公司在互动易否认，这条逻辑会弱化」
+                # 是证伪条件，不是有出处的事实。要求它绑定证据是范畴错误——实测
+                # counter:1/counter:2 的 evidence_atom_ids 恒为空、claim_type=expectation，
+                # 于是 counterpoint 永远判缺、整份答案被 fail-closed。
+                #
+                # generic_research_owner 早就有同样的例外（「尚无反向证据」是可审计
+                # 结论），只是它精确匹配 counter_evidence，而这里的 id 叫 counterpoint。
+                #
+                # 门禁仍然校验：该证伪条件必须真的写进了正文。只是不再要求它有出处。
+                bound.append((claim, ()))
 
         marker_required = bool(_MARKERS.get(output_id))
         if bound and (
