@@ -284,7 +284,28 @@ invokes the retired sector-level Feishu producers.
 1. Task 5 implementation is complete (`df6427e1`, `41036494`). Still open: the
    1,204/1,202 discrepancy must be diagnosed from live receipts without
    changing the declaration; that needs an authorized provider run.
-2. Task 6 implementation is complete (`ca894e07`). Task 7: enforce the exact
+2. Task 6 implementation is complete (`ca894e07`). Task 7 scope was measured on
+   2026-07-30 and is larger than the plan text suggests — start from these
+   numbers rather than re-deriving them:
+
+   - `scripts/check_sector_fact_access.py` currently refuses any mode except
+     `--inventory-only` ("only --inventory-only mode is available before the
+     allowlist gate"), so the enforcement path in Step 4 does not exist yet;
+   - the scanner covers only the two public views. Neither
+     `fact_sector_daily_generation` nor `fact_sector_stock_daily_generation` is
+     scanned, so Step 4's "scan the new physical names" is net-new;
+   - the current inventory is 251 records: 74 reads and 57 `mode=unknown` on
+     `fact_sector_daily`, 67 reads and 53 `mode=unknown` on
+     `fact_sector_stock_daily`. Enforcement is specified to reject unknown
+     access, so those 110 unknown-mode records must be classified first;
+   - Step 3 asks `completion_audit` for five fields beyond what Task 6
+     implemented: declared/actual relationship counts, daily-fact identity
+     equality, member-fact identity containment, critical-null counts, and
+     adjacent-name continuity. The existing shape (snapshot id, declared sector
+     count, per-state receipt counts, missing declared tables, `complete`) is
+     the base to extend, not to replace.
+
+   Task 7: enforce the exact
    completion/static access
    gates, and remove all unauthorized physical/date-only writer paths.
 3. Task 8: copied-DB regression and migration preview, then one authorized
