@@ -133,6 +133,7 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _mainline_context_block_for_llm,
     _market_data_asof,
     _market_review_evidence_chain,
+    _market_review_knowledge_anchor_block_for_llm,
     _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _populate_market_index_comparison,
@@ -519,12 +520,27 @@ def _answer_market_review(
         None,
         options.market_db_path,
     )
+    # 第二条腿：盘面说哪个方向在走，知识库说我对这个方向研究到什么程度。
+    # 缺了它，日常复盘就只有盘面数字，用户自己积累的概念页与公司暴露一条也进不来。
+    knowledge_anchor = _market_review_knowledge_anchor_block_for_llm(
+        options.market_db_path,
+        as_of=options.date or None,
+    )
+    if knowledge_anchor:
+        result.citations.append(
+            Citation(
+                "D5",
+                "主线方向的知识库积累",
+                "按当日主线方向逐个取概念页/公司暴露/已入库证据；含知识库尚无积累的方向",
+            )
+        )
     evidence_parts = [
         part
         for part in (
             options.supplemental_evidence.strip(),
             result.market_summary or "",
             mainline_context,
+            knowledge_anchor,
         )
         if part
     ]

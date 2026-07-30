@@ -388,6 +388,154 @@ def _market_review_mainline_context_block_for_llm(
     return "\n".join(lines)
 
 
+def _mainline_theme_names(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    limit: int = 6,
+) -> tuple[str, list[str]]:
+    """当日主线方向名。返回 (主线日期, 方向名列表)；同日没有汇总就返回空列表。
+
+    与 _market_review_mainline_context_block_for_llm 用同一张
+    fact_mainline_theme_daily、同一个「必须同日」判据，避免两个块讲不同的主线。
+    """
+    market_date = _market_data_asof(market_db_path, as_of=as_of)
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
+    if not market_date or not db_path.exists():
+        return "", []
+    try:
+        con = retrieval_cache.connect_readonly(db_path)
+        try:
+            exists = con.execute(
+                """
+                select count(*) from information_schema.tables
+                where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
+                """
+            ).fetchone()
+            if not exists or not exists[0]:
+                return "", []
+            row = con.execute(
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
+            ).fetchone()
+            theme_date = str(row[0]) if row and row[0] else None
+            if theme_date != market_date:
+                return str(theme_date or ""), []
+            names = [
+                str(name)
+                for (name,) in con.execute(
+                    """
+                    select theme_name from fact_mainline_theme_daily
+                    where trade_date = ?
+                    order by min_sort nulls last, theme_name
+                    limit ?
+                    """,
+                    [theme_date, limit],
+                ).fetchall()
+                if name
+            ]
+            return market_date, names
+        finally:
+            con.close()
+    except Exception:
+        return "", []
+
+
+def _market_review_knowledge_anchor_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    concepts_per_direction: int = 3,
+    companies_per_direction: int = 4,
+    evidence_per_direction: int = 3,
+) -> str:
+    """当日主线方向在知识库里有多少积累。
+
+    盘面回答"哪个方向在走"，知识库回答"我对这个方向研究到什么程度"。两条腿分开
+    陈述：知识库有积累不代表当日盘面强，盘面强也不代表库里有依据。
+
+    真正有用的是缺口那一行——盘面已经进主线、库里却一条概念页/公司暴露/证据都没有
+    的方向，正是当天最该补研究的地方。
+
+    按方向逐个取锚，而不是把整句问题当题材名去匹配：后者正是 match_candidate 在
+    市场级问题上必然落空的原因（问题里根本没有题材名）。
+    """
+    market_date, directions = _mainline_theme_names(market_db_path, as_of=as_of)
+    if not directions:
+        return ""
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+
+    try:
+        knowledge = KnowledgeAdapter(wiki_root=kb_wiki)
+    except Exception:
+        return ""
+
+    covered: list[str] = []
+    uncovered: list[str] = []
+    for direction in directions:
+        try:
+            concepts = knowledge.get_concept_matches(
+                direction, limit=concepts_per_direction
+            ).get("items", [])
+            exposures = knowledge.get_exposure_matches(
+                direction, limit=companies_per_direction
+            ).get("items", [])
+            evidence = knowledge.get_evidence(
+                direction, limit=evidence_per_direction
+            ).get("items", [])
+        except Exception:
+            continue
+        if not concepts and not exposures and not evidence:
+            uncovered.append(direction)
+            continue
+        parts: list[str] = []
+        if concepts:
+            names = "、".join(
+                str(item.get("concept") or "").strip()
+                for item in concepts
+                if str(item.get("concept") or "").strip()
+            )
+            parts.append(f"概念页 {len(concepts)}（{names}）" if names else f"概念页 {len(concepts)}")
+        if exposures:
+            company_bits: list[str] = []
+            for item in exposures:
+                company = str(item.get("company") or "").strip()
+                if not company:
+                    continue
+                role = str(item.get("role") or "").strip()
+                company_bits.append(f"{company}（{role}）" if role else company)
+            parts.append(
+                f"公司暴露 {len(exposures)}（{'、'.join(company_bits)}）"
+                if company_bits
+                else f"公司暴露 {len(exposures)}"
+            )
+        if evidence:
+            parts.append(f"已入库证据 {len(evidence)} 条")
+        covered.append(f"- {direction}：{'；'.join(parts)}")
+
+    if not covered and not uncovered:
+        return ""
+    lines = [
+        "## 主线方向的知识库积累 [D5]",
+        f"- 口径：盘面主线取自 fact_mainline_theme_daily（{market_date}），"
+        "知识库侧是概念页 / 公司暴露 / 已入库证据。两边分开陈述："
+        "知识库有积累不等于当日盘面强，盘面强也不等于库内有依据。",
+    ]
+    lines.extend(covered)
+    if uncovered:
+        lines.append(
+            f"- 知识库尚无积累的主线方向：{'、'.join(uncovered)}"
+            "（盘面已进主线但库内无概念页/公司暴露/证据，是当天最该补研究的方向）"
+        )
+    lines.append(
+        "- 使用要求：引用公司暴露时要带上它的角色与证据层级，不得把 graph_only "
+        "或研报判断写成公司已兑现的基本面事实。"
+    )
+    return "\n".join(lines)
+
+
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
     rows = con.execute(
         """
