@@ -383,6 +383,11 @@ class DecisionBrief:
     unknowns: tuple[str, ...] = ()
     upgrade_conditions: tuple[str, ...] = ()
     downgrade_conditions: tuple[str, ...] = ()
+    # 产业链/公司映射。原先没有这个槽位：registry 里 12 条 company: claim 无处可放，
+    # brief 只好丢掉，而 Grounded Composer 是「围绕 DecisionBrief 回答」的，
+    # 于是 12 家有名有姓的候选一家都进不了正文，chain_mapping 这个必需输出
+    # 也就永远无法满足——整份答案被 fail-closed 换成「请补充数据源」。
+    chain_mapping: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -393,6 +398,7 @@ class DecisionBrief:
             "unknowns": list(self.unknowns),
             "upgrade_conditions": list(self.upgrade_conditions),
             "downgrade_conditions": list(self.downgrade_conditions),
+            "chain_mapping": list(self.chain_mapping),
         }
 
     def to_prompt_block(self) -> str:
@@ -2512,6 +2518,7 @@ def parse_decision_brief(
         unknowns=id_list("unknowns"),
         upgrade_conditions=id_list("upgrade_conditions"),
         downgrade_conditions=id_list("downgrade_conditions"),
+        chain_mapping=id_list("chain_mapping"),
     )
     issues: list[QualityIssue] = []
     if not brief.direct_answer:
@@ -2546,6 +2553,7 @@ def parse_decision_brief(
                 *brief.unknowns,
                 *brief.upgrade_conditions,
                 *brief.downgrade_conditions,
+                *brief.chain_mapping,
             )
         )
     )
@@ -2583,6 +2591,12 @@ def parse_decision_brief(
                 downgrade_conditions=tuple(
                     claim_id
                     for claim_id in brief.downgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+                # 漏了这个字段的话，只要出现一个无效 id，整份产业链映射会被静默清空。
+                chain_mapping=tuple(
+                    claim_id
+                    for claim_id in brief.chain_mapping
                     if claim_id in allowed_claim_ids
                 ),
             )

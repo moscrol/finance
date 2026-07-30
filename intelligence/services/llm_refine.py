@@ -922,10 +922,13 @@ _DECISION_BRIEF_SYSTEM_PROMPT = (
     "你是投研总编辑，只负责形成论证计划，不写最终正文。"
     "只能使用用户提供的 claim registry，所有数组字段只能填写 registry 中存在的 claim_id。"
     "direct_answer 和 core_tension 可以自然表达，但不得加入 registry 外的公司、数字、日期或事实。"
+    "registry 里若有公司/产业链映射类 claim（claim_id 以 company: 或 chain: 开头），"
+    "必须把它们放进 chain_mapping，不得因为都还是候选、未获硬证据就整批省略——"
+    "候选清单本身就是研究结论，省略它等于把「我库里有这 12 家」答成「什么都没有」。"
     "严格输出单个 JSON 对象，不要 Markdown："
     '{"direct_answer":"", "core_tension":"", "supports":[], '
     '"counterevidence":[], "unknowns":[], "upgrade_conditions":[], '
-    '"downgrade_conditions":[]}。'
+    '"downgrade_conditions":[], "chain_mapping":[]}。'
 )
 
 _GROUNDED_COMPOSER_SYSTEM_PROMPT = (
@@ -942,6 +945,9 @@ _GROUNDED_COMPOSER_SYSTEM_PROMPT = (
     "读者是投资研究用户而不是系统维护者：用市场语言表达，"
     "不要出现内部流水线术语、字段名、评分原始数值（如优先级分数）或工程编号；"
     "证据里的内部指标（优先级、证据状态等）只用其方向和含义，不复述原始分值。"
+    "DecisionBrief 的 chain_mapping 非空时，正文必须逐个写出这些公司："
+    "公司名、产业链环节、层级和还缺什么证据；层级是候选就写候选，"
+    "不得升级为已确认，也不得因为都是候选就整批省略。"
     "先直接回答，再按证据需要解释机制、反证或缺口；不要为了显得完整而填充无关段落。"
 )
 
