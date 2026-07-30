@@ -2520,6 +2520,23 @@ def parse_decision_brief(
         downgrade_conditions=id_list("downgrade_conditions"),
         chain_mapping=id_list("chain_mapping"),
     )
+    # chain_mapping 交给模型「挑对家族」是不可靠的：实测它填了 data:D4:*（主线板块
+    # 数据），而 registry 里明明有 12 条 company: claim。家族是可确定识别的，就用
+    # 确定性方式收口——模型只负责措辞，不负责选证据族。
+    chain_claim_ids = tuple(
+        claim.claim_id
+        for claim in _all_answer_claims(answer_spec)
+        if claim.claim_id.split(":", 1)[0].casefold() in {"company", "chain", "exposure"}
+    )
+    if chain_claim_ids:
+        kept = tuple(
+            claim_id for claim_id in brief.chain_mapping if claim_id in chain_claim_ids
+        )
+        brief = replace(brief, chain_mapping=kept or chain_claim_ids)
+    elif brief.chain_mapping:
+        # registry 里根本没有产业链族，模型填什么都是错的，直接清空而不是放行。
+        brief = replace(brief, chain_mapping=())
+
     issues: list[QualityIssue] = []
     if not brief.direct_answer:
         issues.append(

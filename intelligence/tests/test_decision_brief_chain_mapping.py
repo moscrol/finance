@@ -131,3 +131,102 @@ def test_both_prompts_carry_the_requirement() -> None:
     assert "chain_mapping" in llm_refine._GROUNDED_COMPOSER_SYSTEM_PROMPT
     assert "产业链环节" in llm_refine._GROUNDED_COMPOSER_SYSTEM_PROMPT
     assert "不得升级为已确认" in llm_refine._GROUNDED_COMPOSER_SYSTEM_PROMPT
+
+
+def test_wrong_family_is_replaced_by_the_registry_truth() -> None:
+    """模型挑错家族时用确定性方式收口。
+
+    实测：加了槽位之后 brief 确实填了，但填的是 data:D4:3..7（主线板块数据），
+    而 registry 里明明有 12 条 company: claim。claim 家族是可确定识别的，
+    不该交给模型选——它只负责措辞，不负责选证据族。
+    """
+    payload = json.dumps(
+        {
+            "direct_answer": "a",
+            "core_tension": "b",
+            "supports": ["summary:market"],
+            "chain_mapping": ["data:D4:3", "data:D4:4"],
+        },
+        ensure_ascii=False,
+    )
+
+    brief, _issues = parse_decision_brief(payload, _spec())
+
+    assert brief is not None
+    assert brief.chain_mapping == ("company:东方锆业", "company:中一科技")
+
+
+def test_correct_family_is_left_alone() -> None:
+    payload = json.dumps(
+        {
+            "direct_answer": "a",
+            "core_tension": "b",
+            "supports": ["summary:market"],
+            "chain_mapping": ["company:中一科技"],
+        },
+        ensure_ascii=False,
+    )
+
+    brief, _issues = parse_decision_brief(payload, _spec())
+
+    assert brief is not None
+    assert brief.chain_mapping == ("company:中一科技",)
+
+
+def test_empty_slot_is_filled_from_the_registry() -> None:
+    """模型整批省略时也要补回来——那正是这条链路最初的失败方式。"""
+    payload = json.dumps(
+        {"direct_answer": "a", "core_tension": "b", "supports": ["summary:market"]},
+        ensure_ascii=False,
+    )
+
+    brief, _issues = parse_decision_brief(payload, _spec())
+
+    assert brief is not None
+    assert brief.chain_mapping == ("company:东方锆业", "company:中一科技")
+
+
+def test_no_chain_claims_means_no_chain_mapping() -> None:
+    """registry 里没有产业链族时，模型填什么都是错的，直接清空。"""
+    from intelligence.services.answer_model import (
+        AnswerSpec,
+        ClaimStatus,
+        make_claim,
+        resolve_answer_profile,
+    )
+
+    spec = AnswerSpec(
+        research_spec=resolve_answer_profile("今天大盘怎么样"),
+        summary=(
+            make_claim(
+                claim_id="summary:market",
+                text="盘面转强",
+                claim_type="fact",
+                theme="A股",
+                status=ClaimStatus.VERIFIED,
+                evidence_ids=("S1",),
+            ),
+        ),
+        verified_facts=(),
+        company_table=(),
+        counter_evidence=(),
+        gaps=(),
+        triggers=(),
+        next_actions=(),
+        sources=(),
+        system_notices=(),
+    )
+    payload = json.dumps(
+        {
+            "direct_answer": "a",
+            "core_tension": "b",
+            "supports": ["summary:market"],
+            "chain_mapping": ["data:D4:3"],
+        },
+        ensure_ascii=False,
+    )
+
+    brief, _issues = parse_decision_brief(payload, spec)
+
+    assert brief is not None
+    assert brief.chain_mapping == ()
