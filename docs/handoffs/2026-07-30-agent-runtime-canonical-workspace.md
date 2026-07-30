@@ -279,6 +279,27 @@ and the active implementation plan. It was implemented in `e74ca793`; the
 historical nullable columns remain readable, but no current CLI or nightly path
 invokes the retired sector-level Feishu producers.
 
+## 6b. Acceptance Runs Must Use the Serving Configuration
+
+Three separate misreadings during the 2026-07-30 quality pass all came from
+running acceptance through `intelligence.cli ask` with a partial environment.
+Any future measurement must set all of these or its numbers are not comparable
+to the served path:
+
+- `FINANCE_WS` (or `WORKBENCH_REPO_ROOT`) — otherwise the market DuckDB and the
+  exports directory resolve to different roots;
+- `RAG_WORKER_ENABLED=1` — defaults to `0`, so every query otherwise spawns a
+  fresh retriever and pays the ~60s index load;
+- `KNOWLEDGE_WIKI`, `RAG_INDEX_DIR`, `FORESIGHT_USERS_DIR`.
+
+The 8792 service sets these and additionally prewarms BGE-m3 at startup
+(`api/app.py:1484`), so a one-shot CLI is not representative of its latency by
+construction. Measured on the same question: 60.1s retrieval cold versus 8.0s
+after prewarm.
+
+Before judging answer quality, run `scripts/check_rag_readiness.py`. Exit 1
+means the vector layer is fail-closed and any quality read is invalid.
+
 ## 7. Single Forward Sequence
 
 1. Task 5 implementation is complete (`df6427e1`, `41036494`). Still open: the
