@@ -141,3 +141,73 @@ def test_works_without_a_company_table() -> None:
 
     for name in COMPANIES:
         assert name in out
+
+
+def _graph_source():
+    from intelligence.services.answer_model import EvidenceRef
+
+    return {
+        "G2": EvidenceRef(
+            evidence_id="G2",
+            source="knowledge-base · wiki/relations/entity_exposures.json",
+            detail="",
+            tier="graph",
+            source_date=None,
+        )
+    }
+
+
+def _mapping_claim(claim_type: str = "company_mapping"):
+    return make_claim(
+        claim_id="company:东方锆业:G2",
+        text="东方锆业与固态电池存在公司级映射。",
+        claim_type=claim_type,
+        theme="固态电池",
+        status=ClaimStatus.CANDIDATE,
+        evidence_ids=("G2",),
+        company="东方锆业",
+    )
+
+
+def test_graph_mapping_claims_bind_to_their_graph_source() -> None:
+    """来源是文件路径、claim 是中文句子，词元交集恒为空。
+
+    实测：claim 词元是「东方锆业与固态电池…」的中文 n-gram，来源词元是
+    {knowledge-base, wiki, relations, entity_exposures.json}，交集为空。凡是来自
+    知识图谱的 claim 都永远绑不上，chain_mapping 因此无论正文怎么写都判缺。
+
+    对这类 claim，「图谱里有这条边」本身就是证据——claim 是那条边的复述，
+    图谱文件就是出处；要求字面重合是范畴错误。
+    """
+    from intelligence.services.task_fulfillment import _evidence_supports_claim
+
+    assert _evidence_supports_claim(
+        _mapping_claim(), _graph_source(), output_id="chain_mapping"
+    )
+
+
+def test_ordinary_facts_still_need_lexical_support() -> None:
+    """只对图谱映射类放宽，普通事实句仍要求来源能对上。"""
+    from intelligence.services.task_fulfillment import _evidence_supports_claim
+
+    assert not _evidence_supports_claim(
+        _mapping_claim("fact"), _graph_source(), output_id="chain_mapping"
+    )
+
+
+def test_a_mapping_claim_without_a_live_source_still_fails() -> None:
+    """放宽的是字面重合，不是「必须绑定到未过期来源」这条。"""
+    from intelligence.services.task_fulfillment import _evidence_supports_claim
+
+    unbound = make_claim(
+        claim_id="company:查无此司",
+        text="查无此司与固态电池存在公司级映射。",
+        claim_type="company_mapping",
+        theme="固态电池",
+        status=ClaimStatus.CANDIDATE,
+        evidence_ids=("NOT_IN_SOURCES",),
+    )
+
+    assert not _evidence_supports_claim(
+        unbound, _graph_source(), output_id="chain_mapping"
+    )

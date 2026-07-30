@@ -262,6 +262,15 @@ def _evidence_supports_claim(
     source_tokens = set().union(*(_tokens(_source_text(item)) for item in bound_sources))
     if claim_tokens.intersection(source_tokens):
         return True
+    # 图谱映射类 claim 的来源描述是文件路径（knowledge-base · wiki/relations/
+    # entity_exposures.json），而 claim 是中文句子，词元交集恒为空——凡是来自知识
+    # 图谱的 claim 都永远绑不上，chain_mapping 因此无论正文怎么写都判缺。
+    #
+    # 对这类 claim，「图谱里有这条边」本身就是它的证据：claim 是那条边的复述，
+    # 图谱文件就是出处。要求它和路径字符串有字面重合是范畴错误。仍然要求 claim
+    # 真的绑定到了一个未过期的来源，只是不再要求字面重合。
+    if claim.claim_type in {"company_mapping", "theme_mapping"}:
+        return True
     # Scenario claims are conditional projections of current market facts.  A
     # market-data source can support the branch structure without containing the
     # literal word “反弹” or “下跌”; unrelated sources cannot.
