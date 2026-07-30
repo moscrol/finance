@@ -3105,6 +3105,10 @@ def repair_grounded_composer_answer(
     heading_subjects = _allowed_heading_subjects(answer_spec)
     repaired_lines: list[str] = []
     sentence_index = 0
+    # 上一句正文是否被丢弃。丢句会让下一句的「反之/但/因此」失去前件，正文读起来
+    # 就是从半截开始的。标题行不清除这个标记：删掉的句子和幸存句之间插一个小标题，
+    # 悬空关系照样存在。
+    previous_sentence_dropped = False
     for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
@@ -3119,6 +3123,7 @@ def repair_grounded_composer_answer(
             continue
         marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
+            previous_sentence_dropped = True
             continue
         sentence_index += 1
         claim_ids = tuple(
@@ -3148,15 +3153,22 @@ def repair_grounded_composer_answer(
                 None,
             )
         if source_claim is None:
+            previous_sentence_dropped = True
             continue
         line_issues = validate_grounded_composer_answer(
             raw_line,
             answer_spec,
         )
         if not line_issues and sentence_index not in rejected:
+            if previous_sentence_dropped:
+                raw_line = _strip_backref_connective(raw_line)
+                if not raw_line.strip():
+                    continue
             repaired_lines.append(raw_line)
+            previous_sentence_dropped = False
             continue
         if drop_invalid:
+            previous_sentence_dropped = True
             continue
         atom_ids = _atom_ids_for_claim(source_claim, atoms)
         claim_type = _grounded_claim_type(source_claim)
@@ -3171,6 +3183,8 @@ def repair_grounded_composer_answer(
             f"evidence_atom_ids={','.join(atom_ids)}; "
             f"claim_type={claim_type} -->"
         )
+        # 用 claim 原文顶替，句子没有消失，后一句的前件仍在。
+        previous_sentence_dropped = False
     repaired = "\n".join(repaired_lines).strip()
     if drop_invalid and not _GROUNDED_CLAIM_MARKER_RE.search(repaired):
         return None
@@ -3356,6 +3370,60 @@ def _line_prefix_and_text(line: str) -> tuple[str, str]:
     if numbered is not None:
         return numbered.group(1), numbered.group(2).strip()
     return "", stripped
+
+
+# 回指连接词：以它开头的句子在语义上依赖前一句。judge 判掉前一句、repair 直接删掉
+# 之后，这一句就成了没有前件的「反之，……」「但……」，用户读到的是半截话。
+#
+# 实测两次：一次答案开头就是悬空的「但」；一次（run_20260731_024144_312047）judge
+# 判掉第 5 句「若次日跌停收缩…则技术性修复更可信」，第 6 句「反之，如果仅仅依靠权重
+# 股拉升指数…」被保留，于是小标题下面第一句就是「反之」，前面什么都没有。
+#
+# 长的排在前面，避免「但是」被当成「但」、「与此相反」被当成「相反」。
+_BACKREF_CONNECTIVES: tuple[str, ...] = (
+    "与此相反",
+    "相比之下",
+    "反过来说",
+    "反过来",
+    "另一方面",
+    "同样地",
+    "同理",
+    "反之",
+    "相反",
+    "然而",
+    "但是",
+    "不过",
+    "因此",
+    "所以",
+    "于是",
+    "否则",
+    "但",
+)
+# 开头两个字碰巧相同，但不是转折连接词。
+_BACKREF_FALSE_FRIENDS: tuple[str, ...] = ("但凡", "但愿", "但书")
+_BACKREF_TRAILING_PUNCT = "，,、：:； ;"
+
+
+def _strip_backref_connective(line: str) -> str:
+    """删掉失去前件的回指连接词，句子其余部分原样保留。
+
+    只在前一句确实被删掉时调用。删连接词而不是连带删掉整句：这一句本身是合规的、
+    有绑定的内容，因为前一句被判掉就跟着丢，等于让一次 judge 拒绝吃掉两句话。
+
+    返回空串表示这一行去掉连接词后没有正文了，调用方按整行丢弃处理。
+    """
+
+    prefix, text = _line_prefix_and_text(line)
+    if text.startswith(_BACKREF_FALSE_FRIENDS):
+        return line
+    for connective in _BACKREF_CONNECTIVES:
+        if not text.startswith(connective):
+            continue
+        remainder = text[len(connective) :].lstrip(_BACKREF_TRAILING_PUNCT)
+        if not remainder or remainder.startswith("<!--"):
+            return ""
+        return f"{prefix}{remainder}"
+    return line
 
 
 def _claim_validation_text(
