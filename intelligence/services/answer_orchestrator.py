@@ -346,6 +346,36 @@ def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(_normalize(token) in text for token in tokens)
 
 
+# 「问现状」判定用的三组词。拆成三组而不是一个大列表，是为了让「需要大盘主语」
+# 这条约束可表达——否则题材问句会被抢进 market_review。
+_MARKET_TIME_ANCHORS: tuple[str, ...] = (
+    "今天",
+    "今日",
+    "现在",
+    "当前",
+    "当下",
+    "收盘",
+    "盘后",
+    "本轮",
+)
+_MARKET_SUBJECTS: tuple[str, ...] = ("大盘", "市场", "行情", "指数", "a股")
+_MARKET_STATE_WORDS_NEEDING_SUBJECT: tuple[str, ...] = (
+    "阶段",
+    "结构",
+    "状态",
+    "强弱",
+    "怎么样",
+    "什么情况",
+)
+_MARKET_LEVEL_STATE_WORDS: tuple[str, ...] = (
+    "主线",
+    "赚钱效应",
+    "涨跌家数",
+    "涨停家数",
+    "市场情绪",
+)
+
+
 def _base_finance_mode(
     raw_query: str,
     q: str,
@@ -449,6 +479,29 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         )
     ):
         return QUESTION_MARKET_REVIEW, 0.92
+    # 「问现状」而非「问后市」：时间锚点 + 状态词。
+    #
+    # 原先 market_review 只认「复盘/市场总览/赚钱效应」这类行话，而下面那条兜底
+    # 把含「今天」或「大盘」的问句一律判成 market_forecast，于是走 forecast-preflight
+    # 要求先补齐 daily-agent 研究队列 —— 日常最高频的「今天大盘什么阶段」因此拒答，
+    # 尽管本地盘面库是完整的（8799 canary run_20260730_153013_338430 实证）。
+    #
+    # 状态词分两类，为的是不把题材问题抢过来：
+    #   需要大盘主语的（阶段/结构/状态/强弱）—— 否则「固态电池现在什么阶段」会被误抢；
+    #   本身就是大盘级的（主线/赚钱效应/涨跌家数/涨停家数）—— 无需主语。
+    # 两类都要求时间锚点，所以「固态电池的主线逻辑」（无锚点）仍归 theme_analysis。
+    #
+    # 明确指向未来的问法（展望/研判/预测/后市/明日研判…）在本规则之前已经返回，
+    # 不会走到这里；同时问两头的「今天什么阶段、明天怎么看」按现状作答，因为盘面
+    # 数据是现成的，后市部分可在答案里做条件化情景。
+    if _has_any(q, _MARKET_TIME_ANCHORS) and (
+        (
+            _has_any(q, _MARKET_SUBJECTS)
+            and _has_any(q, _MARKET_STATE_WORDS_NEEDING_SUBJECT)
+        )
+        or _has_any(q, _MARKET_LEVEL_STATE_WORDS)
+    ):
+        return QUESTION_MARKET_REVIEW, 0.88
     if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
         return QUESTION_VALUATION, 0.88
     if _has_any(
@@ -470,7 +523,10 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_FINANCIAL_ANALYSIS, 0.84
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响")):
         return QUESTION_NEWS_IMPACT, 0.82
-    if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
+    # 兜底：到这里说明既不是「问现状」也没有明确的后市措辞，按前瞻处理。
+    # 移除了原有的 "6."——那是个会匹配任意含 "6." 文本的误留模式（例如
+    # 「营收 6.2 亿」），与市场前瞻无关。
+    if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "走势", "市场怎么看")):
         return QUESTION_MARKET_FORECAST, 0.8
     if _has_any(q, ("题材", "板块", "方向", "细分", "产业", "主线", "双红")):
         return QUESTION_THEME_ANALYSIS, 0.76
