@@ -930,7 +930,7 @@ git commit -m "feat: gate exact published sector coverage"
 - Create: `docs/verification/daily-sector-root-repair-result-2026-07-29.md`
 - Do not commit: DuckDB files, provider payloads, run logs, cookies, headers, or latency JSON.
 
-- [ ] **Step 1: Run all focused and adjacent tests**
+- [x] **Step 1: Run all focused and adjacent tests**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -958,7 +958,7 @@ git diff --check
 
 Expected: all tests pass, Ruff passes, and diff check is clean.
 
-- [ ] **Step 2: Run a read-only migration preview against the production DB**
+- [x] **Step 2: Run a read-only migration preview against the production DB**
 
 Add a `--preview` CLI path that opens production DuckDB read-only and reports legacy row counts, predicted `.TI` retirements, current provider denominator, and target snapshot hash without DDL or writes. Run it and record only aggregate counts and hashes in the result ledger.
 
