@@ -179,23 +179,82 @@ Recorded because the reasoning matters more than the outcome.
 5. **First shortfall bound used a ratio only**, which refused seven small
    sectors for a single absent member (14 × 5% = 0.7). Added an absolute floor.
 
+## 5b. The Canary Exposed What CLI Validation Had Masked
+
+A canary was stood up on 8799 from this branch, with the serving configuration
+copied from the real launcher and an isolated user directory. 8792 was not
+touched. Launcher: `/Users/a77/.local/bin/start-finance-workbench-canary`
+(four substitutions only: PYTHONPATH, FORESIGHT_USERS_DIR, cwd, port).
+
+Sending the canonical daily question through the **conversation API** — the path
+the UI actually uses — produced a refusal, while the same question through
+`cli ask --compose` had produced a good answer with concrete numbers. All of this
+session's earlier acceptance ran through the CLI, so this divergence was invisible
+until the canary existed.
+
+Canary run `run_20260730_153013_338430`: `turn_controller` classified
+"今天大盘处于什么阶段？当前主线是哪几个方向？" as `general_finance_qa` with
+`subject: null` and `capabilities: [web_search, web_fetch, market_news]`;
+`route_skills` selected nothing and fell back to generic ask. The answer states
+"缺乏当前市场的量能、板块承接和个股确认等硬性盘面数据" while the database holds
+a complete 2026-07-29 session.
+
+Root cause is one line, `answer_orchestrator.py:473`:
+
+```python
+if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
+    return QUESTION_MARKET_FORECAST, 0.8
+```
+
+Any mention of 今天 or 大盘 is treated as a request to forecast, which routes to
+forecast-preflight and demands research gaps be closed first. Meanwhile
+`market_review` is only reachable through jargon:
+
+| question | classified as |
+| --- | --- |
+| 今天复盘一下市场 | `market_review` 0.92 |
+| 今天大盘处于什么阶段？当前主线是哪几个方向？ | `market_forecast` 0.8 |
+| 大盘现在什么阶段 | `market_forecast` 0.8 |
+| 今天市场主线是什么 | `market_forecast` 0.8 |
+| 当前主线是哪几个方向 | `theme_analysis` 0.76 |
+
+This vindicates the user's point about intent recognition, and corrects an
+earlier conclusion in this session that theme matching "mostly is not a defect".
+That judgement was formed from CLI observations; on the serving path the
+classification is load-bearing.
+
+A related structural gap: of the five workflows the self-use gate requires,
+`daily_market` and `watchlist` have no entry in `OWNER_WORKFLOW_SPECS`, which
+holds only `financial-analysis`, `news-impact`, `stock-deep-dive` and
+`theme-research`. The capability exists in the ask pipeline — the CLI answers
+well — so this is a routing gap, not missing functionality.
+
+Tracked as task #15, with the fix left to the user because deciding which
+phrasings count as "current state" versus "forecast" is a product judgement, and
+keyword-stuffing the review branch would steal genuine forecast questions.
+
 ## 6. What Is Left, In Priority Order
 
-1. **Promote the runtime.** Everything above is on the branch; 8792 serves
-   07-20 code. Until this happens the user experiences none of it. Requires
-   explicit approval and the blue/green procedure in
-   `docs/workbench/canonical-8792-cutover.md`.
-2. **Ten trading days of self-use.** The gate is finally functional. Record
+1. **Fix `daily_market` intent recognition (task #15).** This now outranks the
+   cutover: promoting the runtime today would ship a workbench that still
+   refuses the single most frequent daily question. See §5b.
+2. **Promote the runtime.** Everything above is on the branch; 8792 serves
+   07-20 code. Until this happens the user experiences none of it. The cutover
+   manual requires the target to be merged into `main` first, which this branch
+   is not, so it needs explicit approval on two counts. Blue/green procedure in
+   `docs/workbench/canonical-8792-cutover.md`. A canary is already running on
+   8799 for evaluation without touching 8792.
+3. **Ten trading days of self-use.** The gate is finally functional. Record
    honestly, including `--outcome degraded`; the ledger's value is its honesty.
-3. **Task 9** — three consecutive unattended trading nights. Only time earns it.
+4. **Task 9** — three consecutive unattended trading nights. Only time earns it.
    `data_foundation_cutover_eligible` stays false until then.
-4. **Flaky `test_continuous_episode_citations_survive_run_context_reload`**
+5. **Flaky `test_continuous_episode_citations_survive_run_context_reload`**
    (task #14). Two hypotheses already disproven and recorded; not reproducible
    on demand. Worth attention because if it is a product-side race, real
    sessions can render answers with no citations.
-5. **Surface both theme sources in the header.** The user's point stands: the
-   market-sector match and the knowledge-graph anchor are two different things
-   and the header shows only the first. A product improvement, not a defect.
+6. **Surface both theme sources in the header.** The market-sector match and
+   the knowledge-graph anchor are two different things and the header shows only
+   the first.
 
 ## 7. Safety Boundaries
 
