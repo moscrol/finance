@@ -322,12 +322,46 @@ def _period_top_sectors(con, trade_date, period: int):
     ))
 
 
+# 申万一级映射缺失的占位桶。它是数据缺口，不是一个方向。
+# 2026-07-31：dim_sector 630 个板块里 288 个（46%）没有 sw_l1，占比之高使得
+# 「未映射」几乎总是排在分组第一位。它此前被直接写进结论句（「双红集中在
+# 未映射 等方向」），下游模型据此推出「资金主要集中在未映射方向，说明底层板块
+# 的产业映射尚不清晰」——把一个 NULL 当成市场事实解释了一整段。
+UNMAPPED_SW_L1 = "未映射"
+
+
 def _group_sector_rows(rows):
     grouped = defaultdict(list)
     for row in rows:
-        grouped[row.get("sw_l1") or "未映射"].append(row)
+        grouped[row.get("sw_l1") or UNMAPPED_SW_L1].append(row)
     order = sorted(grouped, key=lambda sw: (-len(grouped[sw]), sw))
     return [(sw, grouped[sw]) for sw in order]
+
+
+def _named_groups(groups):
+    """只保留真正映射到申万一级的分组，用于命名方向。
+
+    表格分组仍然照常展示未映射桶（数据不隐藏），但凡是「集中在 X 等方向」这类
+    命名句必须从这里取，否则占位符会被当成方向名。"""
+    return [(sw, rows) for sw, rows in groups if sw != UNMAPPED_SW_L1]
+
+
+def _double_red_conclusion(double_focus: str) -> str:
+    """没有已映射方向时不要写「集中在 - 等方向」。
+
+    那句话读起来仍像在给方向，只是方向名变成了一个短横，下游模型照样会拿它做归因。
+    """
+    if double_focus and double_focus != "-":
+        return f"> **结论**：双红集中在 {double_focus} 等方向。"
+    return "> **结论**：本日双红题材均未映射到申万一级，无法给出行业级方向归因。"
+
+
+def _unmapped_note(groups) -> str:
+    """未映射桶的显式缺口说明，接在命名句后面，让下游知道那是缺口不是方向。"""
+    count = sum(len(rows) for sw, rows in groups if sw == UNMAPPED_SW_L1)
+    if not count:
+        return ""
+    return f"；另有 {count} 个题材未映射到申万一级（数据缺口，不构成方向）"
 
 
 def _focus_sw_l1(today, double_groups, limit: int = 3):
@@ -336,7 +370,7 @@ def _focus_sw_l1(today, double_groups, limit: int = 3):
         sw = today.get(key)
         if sw and sw not in out:
             out.append(sw)
-    for sw, _rows in double_groups:
+    for sw, _rows in _named_groups(double_groups):
         if sw and sw not in out:
             out.append(sw)
         if len(out) >= limit:
@@ -1021,8 +1055,14 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         high_matrices = [_stock_high_sw_l1_matrix(con, td, sw) for sw in focus_sw_l1]
         limit_matrices = [_limit_up_sw_l1_matrix(con, td, sw) for sw in focus_sw_l1]
         industry_stock_engines = [_sw_l1_stock_engines(con, td, sw) for sw in top_amount_sw_l1]
-        top_double_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in double_groups[:5])
-        top_single_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in single_groups[:5])
+        top_double_sw = (
+            "、".join(f"{sw}({len(rows)})" for sw, rows in _named_groups(double_groups)[:5])
+            or "无已映射方向"
+        ) + _unmapped_note(double_groups)
+        top_single_sw = (
+            "、".join(f"{sw}({len(rows)})" for sw, rows in _named_groups(single_groups)[:5])
+            or "无已映射方向"
+        ) + _unmapped_note(single_groups)
         top_high_sw_text = "、".join(f"{sw}({cnt})" for sw, cnt in high_sw.most_common(5))
         top_limit_text = "、".join(f"{r['sector_name']}({r['limit_up_count']})" for r in limit_heat[:5])
         top_weighted_text = "、".join(r["stock_name"] for r in weighted[:5])
@@ -1044,7 +1084,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         ten_day_leader = period_tops[10][0]["sector_name"] if period_tops[10] else "-"
         multi_period_text = "、".join(f"{name}({count}次)" for name, count in multi_period) or "无"
         full_period_text = "、".join(full_period) or "无"
-        double_focus = "、".join(sw for sw, _ in double_groups[:5]) or "-"
+        double_focus = "、".join(sw for sw, _ in _named_groups(double_groups)[:5]) or "-"
         single_focus = "、".join(sw for sw, _ in single_groups[:5]) or "-"
         high_plate_text = "、".join(f"{plate}({len(items)})" for plate, items in sorted(high_plate.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:5])
         limit_focus = _join_names([r["sector_name"] for r in limit_heat], 7)
@@ -1183,7 +1223,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
                 [[r["sector_name"], _pct(r["pct_chg"]), _fmt(r["diff_ratio"]), _yi(r["amount"])] for r in rows],
             ))
             lines.append("")
-        lines.append(f"> **结论**：双红集中在 {double_focus} 等方向。")
+        lines.append(_double_red_conclusion(double_focus))
         lines.append("")
         lines.append("---")
         lines.append("")
