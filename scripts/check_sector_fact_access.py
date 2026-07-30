@@ -14,8 +14,22 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-TARGET_TABLES = ("fact_sector_daily", "fact_sector_stock_daily")
-TARGET_PREFIX = TARGET_TABLES[0][:-5]
+PUBLIC_VIEWS = ("fact_sector_daily", "fact_sector_stock_daily")
+# 物理代际表：只允许 sector_universe.py（唯一读写/迁移方）与 sector_schema.sql
+# （DDL-only）提及。任何其他文件引用它们都意味着绕过了公开读口的代际隔离。
+PHYSICAL_TABLES = (
+    "fact_sector_daily_generation",
+    "fact_sector_stock_daily_generation",
+)
+AUTHORIZED_PHYSICAL_PATHS = (
+    "market_feature_store/sector_universe.py",
+    "market_feature_store/sector_schema.sql",
+)
+WRITE_MODES = ("insert", "update", "delete", "create", "drop", "alter", "replace")
+
+TARGET_TABLES = (*PHYSICAL_TABLES, *PUBLIC_VIEWS)
+# 前缀用于动态拼表名的保守候选检测。两组表名共享 "fact_sector_" 前缀。
+TARGET_PREFIX = PUBLIC_VIEWS[0][:-5]
 _IDENTIFIER_BOUNDARY = r"[\w$]"
 _EXCLUDED_DIR_NAMES = {
     ".cache",
@@ -71,6 +85,64 @@ class AccessRecord:
 
 def _identifier_pattern(value: str) -> re.Pattern[str]:
     return re.compile(rf"(?<!{_IDENTIFIER_BOUNDARY}){re.escape(value)}(?!{_IDENTIFIER_BOUNDARY})", re.IGNORECASE)
+
+
+def _blank_sql_comments(text: str) -> str:
+    """把 SQL 注释内容替换成空格，保留换行，因此行列坐标不变。
+
+    注释里的表名不是访问。``.sql`` 文件整体走原文定位（``_physical_locations``），
+    而分类走 ``_lex_sql``——后者正确忽略注释，前者不忽略，于是注释里的提及会以
+    mode=unknown 留下记录。schema.sql 里两句"物理存储是 xxx_generation，这里的
+    公开表名是只读视图"就因此被判成越权访问。
+    """
+    out = list(text)
+    i = 0
+    length = len(text)
+    while i < length:
+        if text.startswith("--", i):
+            while i < length and text[i] != "\n":
+                out[i] = " "
+                i += 1
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            stop = length if end == -1 else end + 2
+            while i < stop:
+                if text[i] != "\n":
+                    out[i] = " "
+                i += 1
+        elif text[i] in "'\"":
+            quote = text[i]
+            i += 1
+            while i < length and text[i] != quote:
+                i += 1
+            i += 1
+        else:
+            i += 1
+    return "".join(out)
+
+
+COMMENT_MODE = "comment"
+
+
+def _comment_only_positions(source: str) -> frozenset[tuple[str, int, int]]:
+    """只出现在注释里的表名位置 (table, line, column)。
+
+    清单要完整记录每一处文本提及（见
+    test_inventory_keeps_quoted_and_commented_references_unknown），但注释不是
+    访问：schema.sql 里两句"物理存储是 xxx_generation，这里的公开表名是只读视图"
+    原先被静态守卫判成越权访问。用注释置空前后的定位差集把两者分开。
+    """
+    raw = _physical_locations(source, starting_line=1, starting_column=0)
+    blanked = _physical_locations(
+        _blank_sql_comments(source), starting_line=1, starting_column=0
+    )
+    positions: set[tuple[str, int, int]] = set()
+    for table, found in raw.items():
+        survivors = set(blanked.get(table, ()))
+        for line, column in found:
+            if (line, column) not in survivors:
+                positions.add((table, line, column))
+    return frozenset(positions)
 
 
 def _normalise_sql(text: str) -> tuple[str, list[int]]:
@@ -230,6 +302,11 @@ def _is_excluded(relative_path: Path) -> bool:
         any(part in _EXCLUDED_DIR_NAMES or "venv" in part.lower() for part in parts[:-1])
         or parts[:2] == ("scripts", "archive")
         or relative_path.name.startswith("test_")
+        # selftest 是测试夹具：为自测构造临时库时直接写代际行是合法的（公开表名
+        # 已是只读视图，夹具没有别的写法）。计划要求排除测试。
+        or relative_path.name.endswith("selftest.py")
+        # 守卫自身的常量定义不是访问。不排除会让它永远报告自己违规。
+        or relative_path.as_posix() == "scripts/check_sector_fact_access.py"
     )
 
 
@@ -711,6 +788,7 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
             if path.suffix not in {".py", ".sql"} or _is_excluded(relative_path):
                 continue
             source = path.read_text(encoding="utf-8")
+            sql_comment_positions: frozenset[tuple[str, int, int]] = frozenset()
             if path.suffix == ".py":
                 try:
                     tree = ast.parse(source, filename=str(relative_path))
@@ -745,6 +823,9 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                 dynamic_candidates = ()
                 covered_constants = frozenset()
                 literals = ((source, 1, 0, None),)
+                # 注释里的表名要照旧记进清单（清单是完整的文本提及记录），但
+                # 不能算访问。把注释置空后重新定位，两次结果的差集就是注释提及。
+                sql_comment_positions = _comment_only_positions(source)
             for sql, starting_line, starting_column, string_tokens in literals:
                 physical_locations = (
                     _physical_locations_from_tokens(string_tokens)
@@ -773,6 +854,8 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
                             relative_path.as_posix(),
                             error_code="unmapped_dynamic_table",
                         ) from None
+                    if (table, line, column) in sql_comment_positions:
+                        mode = COMMENT_MODE
                     records.append(
                         AccessRecord(
                             path=relative_path.as_posix(),
@@ -839,10 +922,57 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
     )
 
 
+def classify_violations(records: Sequence[AccessRecord]) -> tuple[dict[str, object], ...]:
+    """两条不变量。任何一条被破，代际隔离就形同虚设。
+
+    1. 物理代际表只能被 sector_universe.py（唯一读写/迁移方）与 sector_schema.sql
+       （DDL-only）提及。别处提及意味着绕过了公开读口的代际过滤，可能把 legacy
+       行或被取代代际当成当日事实。
+    2. 公开视图只读。写入本来就会被 DuckDB 拒绝，静态拦住是为了不把失败留到运行时。
+
+    刻意**不**实现"拒绝一切 mode=unknown"。实测 110 条 unknown 里绝大多数不是访问：
+    表注册表字面量、当参数传递、告警文案里的 "fact_sector_daily has no rows"，以及
+    动态拼接的保守候选（``fact_sector_{kind}`` 会同时产出四个候选，其中两个代际表
+    名可能压根不会被拼出来）。按字面拒绝会把告警文案和保守候选判成违规。
+
+    因此只对确定是访问的模式判违规：``read`` / ``ddl`` / 各写入模式。
+    """
+    violations: list[dict[str, object]] = []
+    definite = frozenset(("read", "ddl", *WRITE_MODES))
+    for record in records:
+        if record.table in PHYSICAL_TABLES:
+            if record.mode in definite and record.path not in AUTHORIZED_PHYSICAL_PATHS:
+                violations.append(
+                    {
+                        "rule": "physical_table_outside_owner",
+                        "path": record.path,
+                        "line": record.line,
+                        "table": record.table,
+                        "mode": record.mode,
+                    }
+                )
+            continue
+        if record.mode in WRITE_MODES:
+            violations.append(
+                {
+                    "rule": "write_to_public_view",
+                    "path": record.path,
+                    "line": record.line,
+                    "table": record.table,
+                    "mode": record.mode,
+                }
+            )
+    return tuple(violations)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--inventory-only", action="store_true")
+    parser.add_argument(
+        "--inventory-only",
+        action="store_true",
+        help="只写清单，不因违规返回非零",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -850,8 +980,6 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    if not args.inventory_only:
-        parser.error("only --inventory-only mode is available before the allowlist gate")
     args.output.unlink(missing_ok=True)
     try:
         records = inventory_sector_fact_access(args.root)
@@ -864,8 +992,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    violations = classify_violations(records)
+    baseline_path = args.output.parent / f"{args.output.stem}-baseline.json"
+    baseline = None
+    if baseline_path.is_file():
+        try:
+            baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            baseline = None
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
+        # candidate 是当前分类清单；baseline 保留改动前的那份，好让每个原始写入方
+        # 都可见地被交代过去，而不是悄悄消失。
+        "candidate": {
+            "records": [asdict(record) for record in records],
+            "violations": list(violations),
+        },
+        "baseline": baseline,
         "records": [asdict(record) for record in records],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -873,7 +1016,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(json.dumps({"records": len(records)}, sort_keys=True))
+    print(
+        json.dumps(
+            {"records": len(records), "violations": len(violations)}, sort_keys=True
+        )
+    )
+    if violations and not args.inventory_only:
+        for violation in violations:
+            print(json.dumps(violation, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+        return 1
     return 0
 
 

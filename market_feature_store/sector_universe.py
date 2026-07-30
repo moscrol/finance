@@ -1023,6 +1023,97 @@ class SectorUniverseStore:
             name_continuity=name_continuity,
         )
 
+    def has_published_universe(self, trade_date: str | date) -> bool:
+        """该交易日是否已有已发布宇宙。历史前推复制的合格性判定用。"""
+        return bool(
+            self._con.execute(
+                """
+                SELECT count(*) FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND status = 'published'
+                """,
+                [_normalize_trade_date(trade_date)],
+            ).fetchone()[0]
+        )
+
+    def member_generation_row_count(self, trade_date: str | date | None = None) -> int:
+        """物理代际表的成分行数。``trade_date`` 为 None 时统计全表。
+
+        对外暴露这个计数，是为了让调用方不必自己碰物理表——物理读写只允许发生
+        在本模块（见 scripts/check_sector_fact_access.py 的静态守卫）。
+        """
+        if trade_date is None:
+            return int(
+                self._con.execute(
+                    "SELECT count(*) FROM fact_sector_stock_daily_generation"
+                ).fetchone()[0]
+            )
+        return int(
+            self._con.execute(
+                """
+                SELECT count(*) FROM fact_sector_stock_daily_generation
+                WHERE trade_date = ?
+                """,
+                [_normalize_trade_date(trade_date)],
+            ).fetchone()[0]
+        )
+
+    def latest_member_generation_date(self, before: str | date) -> date | None:
+        """早于 ``before`` 且已有成分行的最近交易日。历史前推复制的取源用。"""
+        row = self._con.execute(
+            """
+            SELECT max(trade_date) FROM fact_sector_stock_daily_generation
+            WHERE trade_date < ?
+            """,
+            [_normalize_trade_date(before)],
+        ).fetchone()
+        return row[0] if row and row[0] else None
+
+    def copy_legacy_member_generation(
+        self,
+        *,
+        target_date: str | date,
+        source_date: str | date,
+    ) -> int:
+        """把 ``source_date`` 的成分身份前推复制到 ``target_date`` 的 legacy 代际。
+
+        只服务没有已发布宇宙的历史交易日：有表头就拒绝，因为凭空造出的成分会
+        满足覆盖率查询却与 provider 声明矛盾。价格类字段一律置空——复制的是身份，
+        不是当日行情。写入 ``sector_universe_snapshot_id='legacy'``，不产生成功回执。
+        """
+        target = _normalize_trade_date(target_date)
+        source = _normalize_trade_date(source_date)
+        published = self._con.execute(
+            """
+            SELECT count(*) FROM ops_sector_universe_snapshot_daily
+            WHERE trade_date = ? AND status = 'published'
+            """,
+            [target],
+        ).fetchone()[0]
+        if published:
+            raise SectorUniverseValidationError(
+                f"{target} has a published universe; legacy copy is not eligible"
+            )
+        self._con.execute(
+            """
+            INSERT INTO fact_sector_stock_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                 sw_l1, stock_ts_code, stock_name,
+                 price, pct_chg, amount, pct_chg_5d, pct_chg_10d, pct_chg_20d,
+                 fund_flow_1d, fund_flow_5d, sw_industry, leader_plate,
+                 leader_sub_plate, source, updated_at)
+            SELECT
+                ?, 'legacy', sector_ts_code, sector_name,
+                sw_l1, stock_ts_code, stock_name,
+                NULL, NULL, NULL, NULL, NULL, NULL,
+                NULL, NULL, sw_industry, leader_plate,
+                leader_sub_plate, 'incremental-copy', CURRENT_TIMESTAMP
+            FROM fact_sector_stock_daily_generation
+            WHERE trade_date = ?
+            """,
+            [target, source],
+        )
+        return self.member_generation_row_count(target)
+
     def next_member_work(
         self,
         snapshot_id: str,

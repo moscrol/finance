@@ -133,11 +133,14 @@ def test_inventory_keeps_quoted_and_commented_references_unknown(tmp_path) -> No
 
     records = inventory_sector_fact_access(tmp_path)
 
+    # 清单仍记录每一处文本提及；注释与引号内字面量分开标记，因为静态守卫要能
+    # 判定越权访问，而注释不是访问（schema.sql 里解释"物理存储是 xxx_generation"
+    # 的两句曾被判成违规）。
     assert [(record.line, record.table, record.mode) for record in records] == [
         (1, "fact_sector_daily", "unknown"),
         (1, "fact_sector_daily", "read"),
-        (2, "fact_sector_daily", "unknown"),
-        (3, "fact_sector_stock_daily", "unknown"),
+        (2, "fact_sector_daily", "comment"),
+        (3, "fact_sector_stock_daily", "comment"),
     ]
 
 
@@ -258,9 +261,13 @@ def test_inventory_records_conservative_dynamic_table_candidates(tmp_path) -> No
     ] == [
         ("concat.py", 1, 8, "fact_sector_daily", "unknown"),
         ("format.py", 1, 22, "fact_sector_daily", "unknown"),
+        ("format.py", 1, 22, "fact_sector_daily_generation", "unknown"),
         ("format.py", 1, 22, "fact_sector_stock_daily", "unknown"),
+        ("format.py", 1, 22, "fact_sector_stock_daily_generation", "unknown"),
         ("fstring.py", 1, 23, "fact_sector_daily", "unknown"),
+        ("fstring.py", 1, 23, "fact_sector_daily_generation", "unknown"),
         ("fstring.py", 1, 23, "fact_sector_stock_daily", "unknown"),
+        ("fstring.py", 1, 23, "fact_sector_stock_daily_generation", "unknown"),
     ]
 
 
@@ -417,11 +424,16 @@ def test_inventory_preserves_nested_dynamic_sector_candidates(tmp_path) -> None:
 
     assert [(record.path, record.column, record.table, record.mode) for record in records] == [
         ("fstring.py", 8, "fact_sector_daily", "unknown"),
+        ("fstring.py", 8, "fact_sector_daily_generation", "unknown"),
         ("fstring.py", 8, "fact_sector_stock_daily", "unknown"),
+        ("fstring.py", 8, "fact_sector_stock_daily_generation", "unknown"),
         ("percent.py", 8, "fact_sector_daily", "unknown"),
+        ("percent.py", 8, "fact_sector_daily_generation", "unknown"),
         ("percent.py", 8, "fact_sector_stock_daily", "unknown"),
+        ("percent.py", 8, "fact_sector_stock_daily_generation", "unknown"),
         ("prefix.py", 18, "fact_sector_daily", "unknown"),
         ("suffix.py", 23, "fact_sector_daily", "unknown"),
+        ("suffix.py", 23, "fact_sector_daily_generation", "unknown"),
     ]
 
 
@@ -483,3 +495,114 @@ def test_inventory_dynamic_identifier_boundaries_include_unicode_and_dollar(tmp_
     )
 
     assert inventory_sector_fact_access(tmp_path) == ()
+
+
+# ---------------------------------------------------------------------------
+# Task 7 Step 4：把冻结清单升级为 enforcement。
+# ---------------------------------------------------------------------------
+
+
+def _record(**kwargs):
+    base = {
+        "path": "market_feature_store/query.py",
+        "line": 1,
+        "column": 1,
+        "table": "fact_sector_daily",
+        "mode": "read",
+    }
+    base.update(kwargs)
+    return access_inventory.AccessRecord(**base)
+
+
+def test_physical_table_access_outside_the_owner_is_a_violation() -> None:
+    violations = access_inventory.classify_violations(
+        [_record(table="fact_sector_daily_generation", mode="read")]
+    )
+
+    assert [v["rule"] for v in violations] == ["physical_table_outside_owner"]
+
+
+def test_owner_module_and_ddl_file_may_touch_the_physical_tables() -> None:
+    records = [
+        _record(
+            path=path, table="fact_sector_stock_daily_generation", mode=mode
+        )
+        for path in access_inventory.AUTHORIZED_PHYSICAL_PATHS
+        for mode in ("read", "write", "ddl")
+    ]
+
+    assert access_inventory.classify_violations(records) == ()
+
+
+def test_writes_to_the_public_views_are_violations() -> None:
+    records = [_record(mode=mode) for mode in access_inventory.WRITE_MODES]
+
+    violations = access_inventory.classify_violations(records)
+
+    assert len(violations) == len(access_inventory.WRITE_MODES)
+    assert {v["rule"] for v in violations} == {"write_to_public_view"}
+
+
+def test_reading_a_public_view_is_allowed_anywhere() -> None:
+    assert access_inventory.classify_violations([_record(mode="read")]) == ()
+
+
+def test_comments_and_conservative_candidates_are_not_violations() -> None:
+    """按字面"拒绝一切 unknown"会把告警文案与动态候选判成违规。
+
+    实测 110 条 unknown 里绝大多数不是访问：表注册表字面量、当参数传递、
+    "fact_sector_daily has no rows" 这类文案，以及 fact_sector_{kind} 同时产出的
+    四个保守候选。
+    """
+    records = [
+        _record(table="fact_sector_daily_generation", mode="comment"),
+        _record(table="fact_sector_stock_daily_generation", mode="unknown"),
+        _record(mode="unknown"),
+    ]
+
+    assert access_inventory.classify_violations(records) == ()
+
+
+def test_enforcement_mode_exits_nonzero_and_still_writes_the_inventory(tmp_path) -> None:
+    (tmp_path / "rogue.py").write_text(
+        'SQL = "select * from fact_sector_daily_generation"\n', encoding="utf-8"
+    )
+    output = tmp_path / "inventory.json"
+
+    code = access_inventory.main(["--root", str(tmp_path), "--output", str(output)])
+
+    assert code == 1
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 2
+    assert payload["candidate"]["violations"][0]["rule"] == "physical_table_outside_owner"
+
+
+def test_inventory_only_mode_reports_violations_without_failing(tmp_path) -> None:
+    (tmp_path / "rogue.py").write_text(
+        'SQL = "select * from fact_sector_daily_generation"\n', encoding="utf-8"
+    )
+    output = tmp_path / "inventory.json"
+
+    code = access_inventory.main(
+        ["--root", str(tmp_path), "--inventory-only", "--output", str(output)]
+    )
+
+    assert code == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["candidate"]["violations"]
+
+
+def test_baseline_is_carried_alongside_candidate(tmp_path) -> None:
+    """baseline 保留改动前那份，好让每个原始写入方可见地被交代过去。"""
+    (tmp_path / "reader.py").write_text(
+        'SQL = "select * from fact_sector_daily"\n', encoding="utf-8"
+    )
+    output = tmp_path / "inv.json"
+    (tmp_path / "inv-baseline.json").write_text(
+        json.dumps({"records": [{"path": "old_writer.py"}]}), encoding="utf-8"
+    )
+
+    assert access_inventory.main(["--root", str(tmp_path), "--output", str(output)]) == 0
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["baseline"]["records"][0]["path"] == "old_writer.py"

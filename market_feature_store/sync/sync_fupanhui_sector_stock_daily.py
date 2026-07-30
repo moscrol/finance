@@ -324,9 +324,8 @@ def sync_fact_sector_stock_daily(
             if sleep:
                 time.sleep(sleep)
 
-        grand_total = con.execute(
-            "SELECT COUNT(*) FROM fact_sector_stock_daily_generation"
-        ).fetchone()[0]
+        # 经 store 取数：物理代际表只允许 sector_universe 直接访问。
+        grand_total = store.member_generation_row_count()
         done_today = con.execute(
             """
             SELECT COUNT(*) FROM ops_sector_member_sync_daily

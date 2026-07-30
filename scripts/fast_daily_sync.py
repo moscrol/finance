@@ -60,70 +60,51 @@ def fast_sector_stocks(con, trade_date: str, prev_date: str | None = None):
     rows were carried forward; the caller must not treat it as a success
     receipt, and no member receipt is written.
     """
+    from market_feature_store.sector_universe import (
+        SectorUniverseStore,
+        SectorUniverseValidationError,
+    )
+
     print(f"\n[sector-stocks] Incremental copy for {trade_date}")
     t0 = time.time()
+    # 物理代际表只由 sector_universe 读写（见 scripts/check_sector_fact_access.py
+    # 的静态守卫），本脚本一律经 store 走。
+    store = SectorUniverseStore(con)
 
-    published = con.execute(
-        """
-        SELECT count(*) FROM ops_sector_universe_snapshot_daily
-        WHERE trade_date = ?::DATE AND status = 'published'
-        """,
-        [trade_date],
-    ).fetchone()[0]
-    if published:
+    # 合格性先判：有已发布宇宙的日期一律拒绝，与有没有可复制的源无关。
+    if store.has_published_universe(trade_date):
         print(
             f"  REFUSED: {trade_date} has a published universe; "
             "run the receipt-driven member sync instead of copying forward"
         )
         return 0, "refused_published_universe"
 
-    # Check if today already has data
-    existing = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
-        [trade_date],
-    ).fetchone()[0]
+    existing = store.member_generation_row_count(trade_date)
     if existing > 0:
         print(f"  Already has {existing:,} rows, skipping")
         return existing, DEGRADED_LEGACY_COPY
 
-    # Find the most recent date with data (as source)
     if prev_date is None:
-        row = con.execute(
-            "SELECT MAX(trade_date) FROM fact_sector_stock_daily_generation WHERE trade_date < ?",
-            [trade_date],
-        ).fetchone()
-        if not row or not row[0]:
+        source = store.latest_member_generation_date(trade_date)
+        if source is None:
             print("  ERROR: No previous date found to copy from!")
             return 0, "no_source_date"
-        prev_date = str(row[0])
+        prev_date = str(source)
 
-    prev_count = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
-        [prev_date],
-    ).fetchone()[0]
+    prev_count = store.member_generation_row_count(prev_date)
     print(f"  Copying {prev_count:,} rows from {prev_date} → {trade_date} (legacy generation)")
 
-    con.execute("""
-        INSERT INTO fact_sector_stock_daily_generation
-            (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
-             sw_l1, stock_ts_code, stock_name,
-             price, pct_chg, amount, pct_chg_5d, pct_chg_10d, pct_chg_20d,
-             fund_flow_1d, fund_flow_5d, sw_industry, leader_plate, leader_sub_plate,
-             source, updated_at)
-        SELECT
-            ?::DATE, 'legacy', sector_ts_code, sector_name,
-            sw_l1, stock_ts_code, stock_name,
-            NULL, NULL, NULL, NULL, NULL, NULL,
-            NULL, NULL, sw_industry, leader_plate, leader_sub_plate,
-            'incremental-copy', CURRENT_TIMESTAMP
-        FROM fact_sector_stock_daily_generation
-        WHERE trade_date = ?
-    """, [trade_date, prev_date])
+    try:
+        inserted = store.copy_legacy_member_generation(
+            target_date=trade_date, source_date=prev_date
+        )
+    except SectorUniverseValidationError as exc:
+        print(
+            f"  REFUSED: {exc}; "
+            "run the receipt-driven member sync instead of copying forward"
+        )
+        return 0, "refused_published_universe"
 
-    inserted = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
-        [trade_date],
-    ).fetchone()[0]
     print(
         f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s "
         f"(source={prev_date}, status={DEGRADED_LEGACY_COPY})"
