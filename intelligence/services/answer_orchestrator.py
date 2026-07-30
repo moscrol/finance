@@ -242,7 +242,12 @@ def resolve_question_type(
     用的那条。
     """
     q = _normalize(raw_query)
-    if question_type_override is not None:
+    # general_finance_qa 是「上游没认出来」的兜底值，不是「确定是通用问题」的判断，
+    # 因此不作为权威 override。会话路径把 contract.question_type 原样传进来
+    # （ask.py / conversation_orchestrator），信封对泛指主语只给得出这个兜底值，
+    # 于是它会压掉本来认得出复盘类问题的规则——"今天大盘处于什么阶段？当前主线是
+    # 哪几个方向？"因此走不到 _answer_market_review，主线数据块根本没被构建。
+    if question_type_override is not None and question_type_override != QUESTION_GENERAL:
         return question_type_override, 1.0
     if query_envelope.question_type in {
         QUESTION_EXTERNAL_MARKET,
