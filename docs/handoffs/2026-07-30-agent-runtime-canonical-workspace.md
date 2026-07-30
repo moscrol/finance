@@ -132,8 +132,52 @@ passed, 3 skipped, and the same 11 pre-existing subconscious/userspace
 environment failures. The 11-test increase is exactly the regressions added by
 these commits. No production database, credential, 8792, or `main` change.
 
-Not yet done: no real-question acceptance run has exercised these fixes, so the
-21% template-degradation rate is fixed in mechanism but unmeasured in outcome.
+Outcome measured 2026-07-30 by re-running the exact question whose 07-20 run
+produced `llm_unavailable_template_answer` with zero tokens generated
+("天赐材料近期调研披露3.5万吨新增产能…请区分事实、推断和反证"), via
+`intelligence.cli ask --compose --detail` with the stored Keychain provider:
+
+| run | theme | wiki-rag | synthesis |
+| --- | --- | --- | --- |
+| 07-20 original | miss | — | template, 0 tokens |
+| 07-30 before index fix | 固态电池 | `命中0·error` | timeout, degraded |
+| 07-30 after index fix | 固态电池 | `命中6·ok` | LLM organic synthesis |
+
+The third run answered in the requested shape (结论 / 事实 / 推断 /
+反证与降级条件) and the irrelevant exposure candidates (三峡水利, 三旺通信,
+三花智控) disappeared. No `llm_unavailable_template_answer` and no synthesis
+timeout degrade occurred in either 07-30 run.
+
+Dominant blocker found during this run was not in this repo: the
+knowledge-base RAG index freshness guard had been fail-closing every query
+since 2026-07-29 23:34 (`exit 3`, `indexed source has working-tree changes`).
+Four sellside/synthesis documents from the 0729 ingest were never committed, so
+the KB `post-commit` hook never re-indexed. `rag update` alone does not clear
+it — the guard also requires committed source, so the index records
+`source_dirty: true`. Committing the four files (`e775f701` in
+`knowledge-base-private`) let the hook rebuild against clean source and the
+guard passed. The vector layer is the one retrieval layer measured as accurate,
+so while it was fail-closed the workbench ran on the noisy structured layer
+alone.
+
+Residual, now visible rather than hidden:
+
+- theme matching is unstable across market-snapshot dates (matched 固态电池
+  when the snapshot resolved to 07-01, missed it at 07-24);
+- `broad`/`counter` retrieval are still skipped as "remaining budget below
+  observed query cost";
+- the resolved market snapshot is 07-24 while exports reach 07-29;
+- `intelligence.cli ask` writes no run record, so `llm_call_ledger` and the new
+  `failure_reasons` tally are only obtainable through the API/conversation
+  path. The 12s clamp source is therefore still unidentified.
+
+Separately confirmed as a real defect: the stored Keychain credential for
+`linxiaoqi5111` is `openai/gpt-5.6-sol` at `http://localhost:57244/v1`, while
+`self_use_maturity.py` hard-codes `SELF_USE_LLM_PROVIDER='zhipu'` and
+`SELF_USE_LLM_MODEL='glm-5.2'`. Every run made with the user's actual
+configured provider is rejected by `verify_run_binding` on model binding
+mismatch, so the 10-day self-use ledger cannot record a single event as
+currently written.
 
 ### 4.3 Evaluation assets and sealed control
 
