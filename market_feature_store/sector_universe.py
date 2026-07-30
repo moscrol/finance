@@ -129,6 +129,14 @@ class CompletionAudit:
     status_counts: Mapping[str, int]
     missing_tables: tuple[str, ...]
     complete: bool
+    # 逐项对账，而不是"看起来齐了"。名称连续性 100% 也可能只有 406/407 条关系。
+    actual_relationship_count: int = 0
+    relationships_match: bool = False
+    daily_identities_match: bool = False
+    member_identities_contained: bool = False
+    critical_null_count: int = 0
+    # 相邻已发布代际的板块名重合率。首个代际没有基准可比，为 None——不伪造 100%。
+    name_continuity: float | None = None
 
     @property
     def success_count(self) -> int:
@@ -149,11 +157,26 @@ class CompletionAudit:
         """一行可进日志的进度摘要, 始终带 snapshot_id 以便跨轮核对。"""
         if self.snapshot_id is None:
             return f"{self.trade_date} no published universe"
+        mismatches = [
+            name
+            for name, ok in (
+                ("relationships", self.relationships_match),
+                ("daily_identities", self.daily_identities_match),
+                ("member_identities", self.member_identities_contained),
+            )
+            if not ok
+        ]
+        continuity = (
+            "-" if self.name_continuity is None else f"{self.name_continuity:.0%}"
+        )
         return (
             f"{self.trade_date} snapshot={self.snapshot_id[:12]} "
             f"success={self.success_count}/{self.declared_sector_count} "
+            f"rel={self.actual_relationship_count}/{self.declared_relationship_count} "
             f"pending={self.pending_count} retriable={self.retriable_error_count} "
-            f"missing_tables={','.join(self.missing_tables) or '-'}"
+            f"nulls={self.critical_null_count} continuity={continuity} "
+            f"missing_tables={','.join(self.missing_tables) or '-'} "
+            f"mismatch={','.join(mismatches) or '-'}"
         )
 
 
@@ -183,6 +206,18 @@ _RETRIABLE_MEMBER_STATUSES = ("empty", "error")
 _DECLARED_GENERATION_TABLES = {
     "fact_sector_daily": "fact_sector_daily_generation",
     "fact_sector_stock_daily": "fact_sector_stock_daily_generation",
+}
+
+# 关键字段：为空即该行不构成有效事实。板块日线取双红判断依赖的三列
+# （pct_chg/amount/diff_ratio 见 strategy1-matrix 的严格双红定义），成分取身份两列。
+_CRITICAL_COLUMNS = {
+    "fact_sector_daily_generation": (
+        "sector_ts_code",
+        "pct_chg",
+        "amount",
+        "diff_ratio",
+    ),
+    "fact_sector_stock_daily_generation": ("stock_ts_code", "stock_name"),
 }
 
 
@@ -839,10 +874,21 @@ class SectorUniverseStore:
         fail-closed: 没有唯一已发布表头就 ``complete=False`` 且
         ``snapshot_id=None``——绝不把"没有宇宙"当成"没有缺口"。
         """
+        if not declared_tables:
+            # 收窄声明范围不得成为拿绿灯的手段：不声明任何表就等于不检查。
+            raise SectorUniverseValidationError(
+                "completion audit requires at least one declared table"
+            )
+        unknown_tables = sorted(set(declared_tables) - set(_DECLARED_GENERATION_TABLES))
+        if unknown_tables:
+            raise SectorUniverseValidationError(
+                f"unknown declared tables: {', '.join(unknown_tables)}"
+            )
         canonical_date = _normalize_trade_date(trade_date)
         headers = self._con.execute(
             """
-            SELECT snapshot_id, sector_count, declared_relationship_count
+            SELECT snapshot_id, sector_count, declared_relationship_count,
+                   provider_source
             FROM ops_sector_universe_snapshot_daily
             WHERE trade_date = ? AND status = 'published'
             """,
@@ -858,7 +904,7 @@ class SectorUniverseStore:
                 missing_tables=tuple(sorted(declared_tables)),
                 complete=False,
             )
-        snapshot_id, sector_count, relationship_count = headers[0]
+        snapshot_id, sector_count, relationship_count, provider_source = headers[0]
 
         counts = {
             row[0]: int(row[1])
@@ -874,12 +920,12 @@ class SectorUniverseStore:
         }
 
         # 每张声明表都必须在本代际下有行。成分抓全但板块日线未写, 同样不算完成。
+        # 所有计数都限定 sector_universe_snapshot_id = 本代际, 因此 legacy 迁移行
+        # 与被取代代际自然被排除, 不会把历史行算成今天的完成度。
         missing: list[str] = []
+        critical_nulls = 0
         for table in sorted(declared_tables):
-            generation_table = _DECLARED_GENERATION_TABLES.get(table)
-            if generation_table is None:
-                missing.append(table)
-                continue
+            generation_table = _DECLARED_GENERATION_TABLES[table]
             present = self._con.execute(
                 f"""
                 SELECT count(DISTINCT sector_ts_code) FROM "{generation_table}"
@@ -889,9 +935,77 @@ class SectorUniverseStore:
             ).fetchone()[0]
             if int(present) != int(sector_count):
                 missing.append(table)
+            null_clause = " OR ".join(
+                f'"{column}" IS NULL' for column in _CRITICAL_COLUMNS[generation_table]
+            )
+            critical_nulls += int(
+                self._con.execute(
+                    f"""
+                    SELECT count(*) FROM "{generation_table}"
+                    WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+                      AND ({null_clause})
+                    """,
+                    [canonical_date, snapshot_id],
+                ).fetchone()[0]
+            )
+
+        declared_codes = {
+            row[0]
+            for row in self._con.execute(
+                """
+                SELECT sector_ts_code FROM fact_sector_universe_daily
+                WHERE trade_date = ? AND snapshot_id = ?
+                """,
+                [canonical_date, snapshot_id],
+            ).fetchall()
+        }
+        daily_codes = {
+            row[0]
+            for row in self._con.execute(
+                """
+                SELECT DISTINCT sector_ts_code FROM fact_sector_daily_generation
+                WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+                """,
+                [canonical_date, snapshot_id],
+            ).fetchall()
+        }
+        member_rows = self._con.execute(
+            """
+            SELECT sector_ts_code, count(*) FROM fact_sector_stock_daily_generation
+            WHERE trade_date = ? AND sector_universe_snapshot_id = ?
+            GROUP BY sector_ts_code
+            """,
+            [canonical_date, snapshot_id],
+        ).fetchall()
+        member_codes = {row[0] for row in member_rows}
+        actual_relationships = sum(int(row[1]) for row in member_rows)
+
+        # 日线要求身份完全相等；成分允许尚未抓全（包含即可），但绝不允许出现
+        # 快照外的板块——那是跨代际污染, 不是进度不足。
+        daily_identities_match = daily_codes == declared_codes
+        member_identities_contained = member_codes <= declared_codes
+        relationships_match = actual_relationships == int(relationship_count)
+
+        continuity = _adjacent_name_continuity(
+            self._con,
+            trade_date=canonical_date,
+            snapshot_id=snapshot_id,
+            provider_source=provider_source,
+            sectors=self.published_snapshot(canonical_date, provider_source).sectors,
+        )
+        name_continuity = (
+            None
+            if continuity is None or continuity[1] <= 0
+            else continuity[0] / continuity[1]
+        )
 
         complete = (
-            int(counts.get("success", 0)) == int(sector_count) and not missing
+            int(counts.get("success", 0)) == int(sector_count)
+            and not missing
+            and relationships_match
+            and daily_identities_match
+            and member_identities_contained
+            and critical_nulls == 0
         )
         return CompletionAudit(
             trade_date=canonical_date,
@@ -901,6 +1015,12 @@ class SectorUniverseStore:
             status_counts=counts,
             missing_tables=tuple(missing),
             complete=complete,
+            actual_relationship_count=actual_relationships,
+            relationships_match=relationships_match,
+            daily_identities_match=daily_identities_match,
+            member_identities_contained=member_identities_contained,
+            critical_null_count=critical_nulls,
+            name_continuity=name_continuity,
         )
 
     def next_member_work(

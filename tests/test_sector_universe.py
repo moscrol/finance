@@ -1132,3 +1132,157 @@ def test_completion_audit_fails_closed_without_a_published_universe(store_con):
     )
     assert audit.complete is False
     assert audit.snapshot_id is None
+
+
+# ---------------------------------------------------------------------------
+# Task 7：精确门禁。审计必须能区分"看起来齐了"和"逐项对得上"。
+# ---------------------------------------------------------------------------
+
+
+def test_audit_reports_actual_relationship_count_against_declared(store_con):
+    """406/407：名称连续性 100% 也不代表关系数对得上，缺一条就不算完成。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+
+    assert audit.declared_relationship_count == 3
+    assert audit.actual_relationship_count == 2
+    assert audit.relationships_match is False
+    assert audit.complete is False
+
+
+def test_audit_relationships_match_only_when_every_sector_is_exact(store_con):
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    store.replace_sector_daily(published.snapshot_id, _daily_rows("A", 1.0))
+
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+
+    assert audit.actual_relationship_count == 3
+    assert audit.relationships_match is True
+    assert audit.daily_identities_match is True
+    assert audit.member_identities_contained is True
+    assert audit.complete is True
+
+
+def test_audit_rejects_member_facts_outside_the_published_universe(store_con):
+    """快照外的板块事实不得被当成完成度的一部分。"""
+    published = _publish(store_con)
+    store_con.execute(
+        """
+        INSERT INTO fact_sector_stock_daily_generation
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
+        VALUES ('2026-07-28', ?, '999999Z.FP', '000009.SZ')
+        """,
+        [published.snapshot_id],
+    )
+    audit = SectorUniverseStore(store_con).completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    )
+
+    assert audit.member_identities_contained is False
+    assert audit.complete is False
+
+
+def test_audit_ignores_legacy_and_superseded_generations(store_con):
+    """legacy 迁移行与被取代代际不得计入当日完成度。"""
+    published = _publish(store_con)
+    store_con.execute(
+        """
+        INSERT INTO fact_sector_stock_daily_generation
+            (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
+        VALUES ('2026-07-28', 'legacy', '990001A.FP', '000001.SZ')
+        """
+    )
+    audit = SectorUniverseStore(store_con).completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    )
+
+    assert audit.snapshot_id == published.snapshot_id
+    assert audit.actual_relationship_count == 0
+    assert audit.complete is False
+
+
+def test_audit_counts_critical_nulls(store_con):
+    """关键字段为空的行不能算作有效事实。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    store_con.execute(
+        """
+        UPDATE fact_sector_stock_daily_generation
+        SET stock_name = NULL
+        WHERE sector_ts_code = '990002A.FP'
+        """
+    )
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+
+    assert audit.critical_null_count >= 1
+    assert audit.complete is False
+
+
+def test_audit_reports_adjacent_name_continuity(store_con):
+    published = _publish(store_con)
+    audit = SectorUniverseStore(store_con).completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    )
+
+    assert audit.snapshot_id == published.snapshot_id
+    # 首个已发布代际没有相邻基准可比，连续性为 None 而非伪造 100%。
+    assert audit.name_continuity is None
+
+
+def test_audit_refuses_a_reduced_table_scope(store_con):
+    """声明表范围收窄不得成为拿到绿灯的手段。"""
+    _publish(store_con)
+    store = SectorUniverseStore(store_con)
+
+    with pytest.raises(SectorUniverseValidationError):
+        store.completion_audit("2026-07-28", declared_tables=frozenset())
+
+
+def test_audit_brief_names_the_failing_dimension(store_con):
+    """夜间日志要能一眼看出是哪一项对不上，而不只是 not complete。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    brief = store.completion_audit(
+        "2026-07-28", declared_tables=DECLARED_TABLES
+    ).brief()
+
+    assert "rel=2/3" in brief
+    assert "relationships" in brief
+    assert "daily_identities" in brief
+    assert "continuity=-" in brief
