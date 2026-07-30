@@ -46,6 +46,14 @@ was deleted.
 The two prunable metadata entries and the broader old-worktree/branch set are
 cleanup candidates only. Deletion requires a separate, explicit cleanup pass.
 
+## 2b. Latest Session Handoff
+
+`docs/handoffs/2026-07-30-session-handoff-usability-and-data-root.md` covers the
+2026-07-30 session end to end: the product-usability fixes and their measured
+outcome, data Tasks 5-8 including the authorized live sync, the spec amendment
+that the live run forced, and the judgment errors made along the way. Read it
+before picking up work; §6 there is the current priority order.
+
 ## 3. Source-of-Truth Order
 
 When documents disagree, use this order:
