@@ -591,3 +591,41 @@ def test_nightly_script_attempts_l2_before_sync_failure_exit():
     sync_exit = script.index("if [ $rc -ne 0 ]", moneyflow)
 
     assert sync_result < moneyflow < sync_exit
+
+
+def test_market_dependent_tables_are_excluded_from_row_anomaly_checks() -> None:
+    """随行情波动的表不做行数收缩检查，但断档检查保留。
+
+    回归：三张 fact_mainline_* 统计的是「当日有几条主线、主线里有几只股」，本身
+    随行情变化。近 29 个交易日实测 theme 2~7（3.5x）、stock 30~163（5.4x）、
+    sector 5~15（3.0x），对照恒定表 fact_sw_l1_daily 与
+    fact_sector_period_rank_daily 均为 1.0x。
+
+    后果不是少报一个告警：跨日门禁 FAIL 会让夜间管线其后 16 步全部 SKIP，包括
+    theme-candidates / agent-daily / 策略矩阵 / cockpit。2026-07-29 主线只有 3 条
+    题材 53 只股，重跑同步仍是 53 且报 complete——数据完整，行情就是那么窄。
+    行情越窄，题材层被掐得越死，而那正是最需要它的时候。
+    """
+    from market_feature_store.quality import GAP_TABLES, ROW_ANOMALY_TABLES
+
+    for table in (
+        "fact_mainline_theme_daily",
+        "fact_mainline_stock_daily",
+        "fact_mainline_sector_daily",
+    ):
+        assert table not in ROW_ANOMALY_TABLES
+        assert table in GAP_TABLES
+
+
+def test_constant_universe_tables_keep_row_anomaly_checks() -> None:
+    """宇宙规模恒定的表必须保留行数收缩检查，这条门禁不能整体失效。"""
+    from market_feature_store.quality import ROW_ANOMALY_TABLES
+
+    for table in (
+        "fact_sector_daily",
+        "fact_sw_l1_daily",
+        "fact_sector_stock_daily",
+        "fact_stock_daily",
+        "fact_sector_period_rank_daily",
+    ):
+        assert table in ROW_ANOMALY_TABLES
