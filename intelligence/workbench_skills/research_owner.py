@@ -6,6 +6,7 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 
+from intelligence.paths import default_market_db_path
 from intelligence.api.structured_reports import ask_result_modules
 from intelligence.services import answer_model, web_research
 from intelligence.services.ask import AskOptions, AskResult, answer_query
@@ -114,9 +115,10 @@ class ResearchOwnerSkill:
                 f"{context.user_id}:{context.conversation_id or context.run_id}"
             ),
             module_timeout=self.config.module_timeout,
-            market_db_path=(
-                context.repo_root / "db" / "market_feature_store.duckdb"
-            ),
+            # 数据根，不是代码根。context.repo_root 来自 WORKBENCH_REPO_ROOT，
+            # 部署契约里那是候选代码根；盘面库在 FINANCE_WS 数据根下。写成代码根
+            # 会让题材研究的盘面证据在蓝绿运行时静默变空。
+            market_db_path=default_market_db_path(),
             conversation_context=context.conversation_context,
             include_memory_block=True,
             include_recall_block=True,
@@ -2307,6 +2309,16 @@ THEME_RESEARCH = ResearchOwnerConfig(
         "先给题材定义、产业链位置和当前阶段",
         "按上游、中游、下游和二阶受益分层",
         "核心公司必须绑定暴露证据，不因概念关联直接升级",
+        # 上一条只说了「不许升级」，没说「要列出来」，模型于是执行成了「干脆不提」。
+        # 实测固态电池：AnswerSpec 的「公司判断」小节里有 12 家带产业链角色与层级的
+        # 候选（三祥新材/东方锆业/中一科技…core、万顺新材 related），claim registry 里
+        # 也有 12 条 company: claim，而正文一家都没提，只写了一句「公司层面尚未形成
+        # 可回查证据，不能把任何公司列为核心受益者」。那句话本身没错——它们确实都还是
+        # 候选——但把 12 个有名有姓的候选压成「什么都没有」，等于把研究结论丢了。
+        # 后果还不止于此：chain_mapping 要求 claim 文本出现在正文里才算绑定，正文不提
+        # 就判缺，fail-closed 再把整份答案换成「请补充数据源」。
+        "公司判断里的候选必须逐个列出：公司、产业链环节、层级和还缺什么证据；"
+        "候选清单本身就是研究结论，不得因为都还是候选就写成「无公司证据」",
         "历史类比、情景树和证伪区块在缺数时仍显式保留",
         "结尾给信号层缺口、升级、降级和证伪条件",
     ),

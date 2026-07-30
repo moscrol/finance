@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from intelligence import userspace
-from intelligence.paths import default_paths
+from intelligence.paths import default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -1028,7 +1028,7 @@ def _run_ask(
     )
     if wants_moneyflow:
         snapshot = market_moneyflow.load_moneyflow_snapshot(
-            repo_root / "db" / "market_feature_store.duckdb",
+            default_market_db_path(),
             as_of_date=report_date,
         )
         emit_module(moneyflow_module(snapshot))
@@ -1055,7 +1055,7 @@ def _run_ask(
                 user=req.user,
                 compose=req.compose,
                 compose_revise_on_warn=req.task_type != "daily",
-                market_db_path=repo_root / "db" / "market_feature_store.duckdb",
+                market_db_path=default_market_db_path(),
                 force_moneyflow_block=req.task_type == "daily",
             )
         )

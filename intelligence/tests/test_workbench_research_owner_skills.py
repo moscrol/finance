@@ -453,9 +453,17 @@ def test_owner_projects_followup_semantics_from_canonical_task_frame(
     assert "supporting_evidence" in output.answer_contract.answer_spec.prompt_constraints
 
 
-def _write_theme_market_db(repo_root: Path) -> None:
+def _write_theme_market_db(repo_root: Path, monkeypatch=None) -> None:
+    """写 fixture 盘面库，并把 MARKET_FEATURE_STORE_DB 指过去。
+
+    题材 owner 现在走 default_market_db_path()（数据根的唯一解析器），不再从
+    context.repo_root 拼路径——那是代码根，蓝绿运行时下会静默拿到空数据。
+    所以 fixture 必须显式钉住环境变量，而不是靠目录布局巧合命中。
+    """
     duckdb = pytest.importorskip("duckdb")
     db_path = repo_root / "db" / "market_feature_store.duckdb"
+    if monkeypatch is not None:
+        monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db_path))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(db_path))
     con.execute(
@@ -1130,12 +1138,13 @@ def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
 
 def test_theme_required_blocks_survive_company_mapping_failure(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     query = (
         "研究信创未来3到6个月的中期赔率，"
         "用历史类似窗口和情景树说明升级、降级与证伪条件"
     )
-    _write_theme_market_db(tmp_path)
+    _write_theme_market_db(tmp_path, monkeypatch)
 
     def unavailable_answer_query(_options: AskOptions) -> AskResult:
         raise RuntimeError("RAG unavailable")
@@ -1178,12 +1187,13 @@ def test_theme_required_blocks_survive_company_mapping_failure(
 
 def test_theme_market_artifacts_bind_facts_to_evidence_atoms(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     query = (
         "研究信创未来3到6个月的中期赔率，"
         "用历史类似窗口和情景树说明升级、降级与证伪条件"
     )
-    _write_theme_market_db(tmp_path)
+    _write_theme_market_db(tmp_path, monkeypatch)
 
     def fake_answer_query(options: AskOptions) -> AskResult:
         return _result(
