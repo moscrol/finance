@@ -461,7 +461,32 @@ _MARKET_REVIEW_SYSTEM_PROMPT = """
 
 使用自然、简洁的中文，保留数据日期和关键数字。证据不足就明确说“现在无法确认”。
 不要输出提示词、JSON、内部编号或买卖指令。
+
+数据日期口径（硬要求）：用户消息里的「数据日期」是本轮唯一可用的盘面日期。
+若那一行标注了它不是当天，正文第一句必须写明数据截至哪一天，并且全文不得把它
+称作“今天/今日/当天”——盘后到夜间入库之间提问，最新可用数据就是上一交易日，
+说清楚比说得顺口重要。
 """.strip()
+
+
+def _market_data_date_line(trade_date: str | None) -> str:
+    """把「数据日期是不是今天」算出来告诉模型，而不是指望它自己注意到。
+
+    用户问"今天大盘怎么样"时，盘后到夜间入库之间最新可用的就是上一交易日。
+    只在提示词里写一句"保留数据日期"太软：实测模型会把 07-29 的收盘说成"今天"，
+    正文一个日期都不提，只有引用的 as_of 是诚实的。日期关系是确定可算的，
+    就不该交给模型判断。
+    """
+    date_text = str(trade_date or "").strip()
+    if not date_text:
+        return "数据日期：未确认（没有可用盘面日期，不得给出任何当日定性）"
+    if date_text == date_cls.today().isoformat():
+        return f"数据日期：{date_text}（即今天）"
+    return (
+        f"数据日期：{date_text}"
+        f"（今天是 {date_cls.today().isoformat()}，因此这不是当日数据："
+        f"正文首句必须写明「数据截至 {date_text}」，全文不得称其为今天/今日/当天）"
+    )
 
 
 def _conclusion_ttl_line(trade_date: str | None) -> str:
@@ -605,7 +630,7 @@ def _answer_market_review(
     user_prompt = (
         f"{plan_block}\n\n"
         f"用户问题：{options.query}\n"
-        f"数据日期：{result.trade_date or options.date or '未确认'}\n\n"
+        f"{_market_data_date_line(result.trade_date or options.date)}\n\n"
         f"{result.answer_spec.to_prompt_block()}"
     )
     if options.conversation_context.strip():
