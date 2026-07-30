@@ -413,21 +413,26 @@ def evaluate_task_fulfillment(
                 )
             )
             continue
+        # 说清楚为什么没绑上。「仍缺少 X」不说原因，正是这道门禁坏了很久没被发现的
+        # 原因：候选取不到、正文没写、证据对不上、marker 缺失，四种情况长得一模一样。
+        if not candidates:
+            why = "registry 里没有该输出对应的 claim"
+        elif not any(_claim_text_present(c, answer_text) for c in candidates):
+            why = f"候选 {len(candidates)} 条，但正文里没有出现它们的文本"
+        elif not bound:
+            why = f"候选 {len(candidates)} 条且正文已写到，但证据未能绑定"
+        elif marker_required and not marker:
+            why = "已绑定，但正文缺少该输出的措辞标记"
+        else:
+            why = "未满足"
+        detail = f"仍缺少：{required.description}（{why}）"
         if _gap_for_output(output_id, answer_text):
             items.append(
-                FulfillmentItem(
-                    required.output_id,
-                    "partial",
-                    gap=f"仍缺少：{required.description}",
-                )
+                FulfillmentItem(required.output_id, "partial", gap=detail)
             )
             continue
         items.append(
-            FulfillmentItem(
-                required.output_id,
-                "missing",
-                gap=f"仍缺少：{required.description}",
-            )
+            FulfillmentItem(required.output_id, "missing", gap=detail)
         )
 
     required_items = tuple(
