@@ -9,7 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from market_feature_store.db import connect
+# 必须在 sys.path.insert 之后导入，否则脚本方式运行时找不到包；E402 在此是
+# 顺序要求而非疏漏。
+from market_feature_store.db import connect  # noqa: E402
 
 
 def _l2_allow_all_empty() -> bool:

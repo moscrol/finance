@@ -1286,3 +1286,46 @@ def test_audit_brief_names_the_failing_dimension(store_con):
     assert "relationships" in brief
     assert "daily_identities" in brief
     assert "continuity=-" in brief
+
+
+def test_preview_reports_unmigrated_database_without_raising(tmp_path) -> None:
+    """预览的头号任务是回答"这库迁过没有"，未迁移时不能抛异常。
+
+    回归：首版直接查 ops_sector_universe_snapshot_daily，对未迁移的生产库
+    抛 CatalogException——恰好在最需要它给答案的场景下失败。
+    """
+    import argparse
+    import io
+    import json as _json
+    from contextlib import redirect_stdout
+
+    from market_feature_store import cli, db
+
+    path = tmp_path / "unmigrated.duckdb"
+    con = duckdb.connect(str(path))
+    con.execute(LEGACY_SECTOR_DAILY_DDL)
+    con.execute(LEGACY_SECTOR_STOCK_DAILY_DDL)
+    con.execute(DIM_SECTOR_DDL)
+    con.execute(
+        "insert into fact_sector_daily(trade_date, sector_ts_code) "
+        "values ('2026-07-28', '990001A.FP')"
+    )
+    con.close()
+
+    original = db.DB_PATH
+    db.DB_PATH = path
+    try:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cli.cmd_sector_universe_preview(
+                argparse.Namespace(trade_date=None)
+            )
+    finally:
+        db.DB_PATH = original
+
+    assert code == 0
+    report = _json.loads(buf.getvalue())
+    assert report["generation_schema_present"] is False
+    assert report["premigration_sector_daily_rows"] == 1
+    # provider 分母需要授权实盘调用，预览刻意不做。
+    assert report["provider_denominator"] is None

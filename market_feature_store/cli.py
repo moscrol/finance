@@ -39,6 +39,100 @@ def cmd_init(_args) -> int:
     return 0
 
 
+def cmd_sector_universe_preview(args) -> int:
+    """只读迁移预览：不建表、不写入、不调 provider。
+
+    在对生产库执行任何迁移或同步之前，先把"会发生什么"量出来：遗留物理行数、
+    预计退役的身份、当前已发布代际的分母、以及目标快照哈希。全程 read_only
+    连接，因此可以安全地对生产库跑。
+
+    provider 分母需要实盘调用，本命令刻意不做——它属于 Task 8 Step 3 的授权范围。
+    这里报告的是库内已发布代际的分母，以及缺口本身。
+    """
+    from .sector_universe import SectorUniverseStore
+
+    con = connect(read_only=True)
+    try:
+        report: dict[str, object] = {"db_path": str(DB_PATH)}
+
+        def _count(sql: str, params: list | None = None) -> int | None:
+            try:
+                return int(con.execute(sql, params or []).fetchone()[0])
+            except Exception:
+                return None
+
+        report["legacy_sector_daily_rows"] = _count(
+            "SELECT count(*) FROM fact_sector_daily_generation "
+            "WHERE sector_universe_snapshot_id = 'legacy'"
+        )
+        report["legacy_member_rows"] = _count(
+            "SELECT count(*) FROM fact_sector_stock_daily_generation "
+            "WHERE sector_universe_snapshot_id = 'legacy'"
+        )
+        report["published_headers"] = _count(
+            "SELECT count(*) FROM ops_sector_universe_snapshot_daily "
+            "WHERE status = 'published'"
+        )
+        report["dim_sector_active"] = _count(
+            "SELECT count(*) FROM dim_sector WHERE is_active IS TRUE"
+        )
+        # 预计退役：dim_sector 里仍 active、但不在最新已发布宇宙里的身份。
+        report["predicted_retirements"] = _count(
+            """
+            SELECT count(*) FROM dim_sector AS d
+            WHERE d.is_active IS TRUE AND NOT EXISTS (
+                SELECT 1 FROM fact_sector_universe_daily AS u
+                WHERE u.sector_ts_code = d.sector_ts_code
+                  AND u.trade_date = (
+                    SELECT max(trade_date) FROM ops_sector_universe_snapshot_daily
+                    WHERE status = 'published'
+                  )
+            )
+            """
+        )
+        # 代际 schema 尚未应用到目标库时，上面每一项都会是 None。这是预览要回答的
+        # 头号问题（"这库迁过没有"），所以显式报告而不是抛异常。
+        report["generation_schema_present"] = report["published_headers"] is not None
+        target_date: str | None = args.trade_date
+        if target_date is None and report["generation_schema_present"]:
+            latest = con.execute(
+                "SELECT max(trade_date) FROM ops_sector_universe_snapshot_daily "
+                "WHERE status = 'published'"
+            ).fetchone()
+            target_date = str(latest[0]) if latest and latest[0] else None
+        report["target_trade_date"] = target_date
+        if target_date and report["generation_schema_present"]:
+            audit = SectorUniverseStore(con).completion_audit(
+                target_date,
+                declared_tables=frozenset(
+                    {"fact_sector_daily", "fact_sector_stock_daily"}
+                ),
+            )
+            report["target_snapshot_id"] = audit.snapshot_id
+            report["declared_sector_count"] = audit.declared_sector_count
+            report["declared_relationship_count"] = audit.declared_relationship_count
+            report["actual_relationship_count"] = audit.actual_relationship_count
+            report["receipt_status_counts"] = dict(audit.status_counts)
+            report["complete"] = audit.complete
+            report["audit_brief"] = audit.brief()
+        # 未迁移库的遗留量：迁移会把这两张物理表的现有行搬进 legacy 代际。
+        if not report["generation_schema_present"]:
+            report["premigration_sector_daily_rows"] = _count(
+                "SELECT count(*) FROM fact_sector_daily"
+            )
+            report["premigration_member_rows"] = _count(
+                "SELECT count(*) FROM fact_sector_stock_daily"
+            )
+        report["provider_denominator"] = None
+        report["provider_denominator_note"] = (
+            "requires an authorized live provider call (Task 8 Step 3); not performed"
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+    finally:
+        con.close()
+    return 0
+
+
 def cmd_sync_sectors(args) -> int:
     from .sync.sync_fupanhui_sectors import sync_dim_sector
 
@@ -856,6 +950,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="初始化 schema (幂等)").set_defaults(func=cmd_init)
     sub.add_parser("info", help="查看库内表与行数").set_defaults(func=cmd_info)
+
+    p_preview = sub.add_parser(
+        "sector-universe-preview",
+        help="只读迁移预览: 遗留行数/预计退役/代际分母/目标快照, 不写库不调 provider",
+    )
+    p_preview.add_argument(
+        "--trade-date", default=None, help="目标交易日 YYYY-MM-DD, 留空取最新已发布代际"
+    )
+    p_preview.set_defaults(func=cmd_sector_universe_preview)
 
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
