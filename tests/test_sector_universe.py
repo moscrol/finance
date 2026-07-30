@@ -1329,3 +1329,51 @@ def test_preview_reports_unmigrated_database_without_raising(tmp_path) -> None:
     assert report["premigration_sector_daily_rows"] == 1
     # provider 分母需要授权实盘调用，预览刻意不做。
     assert report["provider_denominator"] is None
+
+
+def test_publish_accepts_two_codes_sharing_a_display_name(store_con):
+    """身份是 sector_ts_code，名称只是 display name，不要求唯一。
+
+    回归：实现原先额外要求名称唯一（比设计文档严，后者只要求 names 非空）。
+    fupanhui 真实数据里有 990143.FP「国防军工」530 只 与 990144.FP「国防军工」
+    136 只——同名不同码，于是整份宇宙拒绝发布、夜间管线停摆。
+    """
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(
+            SectorDescriptor("990143.FP", "国防军工", 530),
+            SectorDescriptor("990144.FP", "国防军工", 136),
+        ),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    assert published.sector_count == 2
+    assert published.declared_relationship_count == 666
+    assert {row.sector_ts_code for row in published.sectors} == {
+        "990143.FP",
+        "990144.FP",
+    }
+
+
+def test_publish_still_rejects_duplicate_codes(store_con):
+    with pytest.raises(SectorUniverseValidationError, match="identities must be unique"):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=(
+                SectorDescriptor("990143.FP", "国防军工", 530),
+                SectorDescriptor("990143.fp", "另一个名字", 136),
+            ),
+            captured_at="2026-07-29T10:00:00+08:00",
+        )
+
+
+def test_publish_still_rejects_an_empty_name(store_con):
+    with pytest.raises(SectorUniverseValidationError, match="must be non-empty"):
+        SectorUniverseStore(store_con).publish_snapshot(
+            trade_date="2026-07-28",
+            provider_source="fupanhui",
+            sectors=(SectorDescriptor("990143.FP", "  ", 530),),
+            captured_at="2026-07-29T10:00:00+08:00",
+        )

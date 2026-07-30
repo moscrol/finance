@@ -251,16 +251,19 @@ def _normalize_sectors(
 ) -> tuple[SectorDescriptor, ...]:
     normalized: list[SectorDescriptor] = []
     codes: set[str] = set()
-    names: set[str] = set()
     for raw in sectors:
         if not isinstance(raw, SectorDescriptor):
             raise SectorUniverseValidationError("all sectors must be SectorDescriptor values")
         code = _canonical_text(raw.sector_ts_code).upper()
         name = _canonical_text(raw.sector_name)
-        name_identity = name.casefold()
         if not code or not name:
             raise SectorUniverseValidationError("sector code and name must be non-empty")
-        if code in codes or name_identity in names:
+        # 身份是 sector_ts_code；sector_name 按设计只是 display name，要求非空但
+        # 不要求唯一（见设计文档「all codes and identity rows are unique; names are
+        # non-empty」）。实现原先额外要求名称唯一，比规格严，结果被真实数据卡死：
+        # fupanhui 有两个同名不同码的板块 990143.FP「国防军工」530 只 与
+        # 990144.FP「国防军工」136 只，导致整份宇宙拒绝发布、夜间管线停摆。
+        if code in codes:
             raise SectorUniverseValidationError("sector identities must be unique")
         if type(raw.expected_stock_count) is not int or raw.expected_stock_count <= 0:
             raise SectorUniverseValidationError("expected_stock_count must be a positive integer")
@@ -269,7 +272,6 @@ def _normalize_sectors(
             SectorDescriptor(code, name, raw.expected_stock_count, sw_l1 or None)
         )
         codes.add(code)
-        names.add(name_identity)
     if not normalized:
         raise SectorUniverseValidationError("sector universe must be non-empty")
     return tuple(sorted(normalized, key=lambda row: row.sector_ts_code))
