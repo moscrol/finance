@@ -962,7 +962,7 @@ Expected: all tests pass, Ruff passes, and diff check is clean.
 
 Add a `--preview` CLI path that opens production DuckDB read-only and reports legacy row counts, predicted `.TI` retirements, current provider denominator, and target snapshot hash without DDL or writes. Run it and record only aggregate counts and hashes in the result ledger.
 
-- [ ] **Step 3: Apply through the normal entry point and execute one complete target-date sync**
+- [x] **Step 3: Apply through the normal entry point and execute one complete target-date sync**
 
 Use a copied disposable database first. After its exact gate passes, run the normal `sync-sectors`, `sync-sector-daily`, and receipt-driven `sync-sector-stocks` commands against the configured production DB. Never edit DuckDB manually. The result must show one published snapshot, exact per-sector counts, no outside identities, and zero pending/error receipts before report generation.
 

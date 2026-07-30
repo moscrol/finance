@@ -137,6 +137,9 @@ class CompletionAudit:
     critical_null_count: int = 0
     # 相邻已发布代际的板块名重合率。首个代际没有基准可比，为 None——不伪造 100%。
     name_continuity: float | None = None
+    # provider 声明数减去明细实际给到的数，按成功回执逐板块累加。
+    # 精确性的定义是「实际 + 本字段 == 声明」，即没有**未记录**的缺口。
+    declared_shortfall: int = 0
 
     @property
     def success_count(self) -> int:
@@ -172,7 +175,8 @@ class CompletionAudit:
         return (
             f"{self.trade_date} snapshot={self.snapshot_id[:12]} "
             f"success={self.success_count}/{self.declared_sector_count} "
-            f"rel={self.actual_relationship_count}/{self.declared_relationship_count} "
+            f"rel={self.actual_relationship_count}+{self.declared_shortfall}"
+            f"/{self.declared_relationship_count} "
             f"pending={self.pending_count} retriable={self.retriable_error_count} "
             f"nulls={self.critical_null_count} continuity={continuity} "
             f"missing_tables={','.join(self.missing_tables) or '-'} "
@@ -195,6 +199,39 @@ class MemberReceipt:
 # provider 数据问题记成 error 回执 (可重试、可审计); 身份/代际问题直接抛错
 # (调用方传错了东西, 留回执只会污染台账)。
 _MEMBER_COUNT_MISMATCH = "member_count_mismatch"
+_MEMBER_SURPLUS = "member_count_surplus"
+_MEMBER_SHORTFALL_TOO_LARGE = "member_shortfall_exceeds_bound"
+
+# provider 的明细接口会遗漏极少数已声明成员。2026-07-30 全量实测（403 个板块、
+# 声明 52,734 条关系）：
+#   缺口分布 -1×82、-2×15、-4×2、-5×2，其余 302 个板块精确一致
+#   实际缺失 130 条 = 全局单只缺失率 0.2465%（失败板块内 0.522%）
+#   通过率随板块规模单调下降（<50 只 88% → ≥400 只 33%），与「每只成员有约
+#   0.25% 独立概率不出现在明细里」的模型吻合
+#
+# 原先要求「实际 == 声明」才算成功，后果是 0.25% 的缺失造成 47% 的数据被拒：
+# 101 个板块整块落库 0 行，共 24,772 条好关系连带丢弃，且集中在机器人概念、
+# 人工智能、新能源车、芯片、储能等主线题材上。用零行抗议 0.5% 的缺失，得到的
+# 数据严格劣于 1203/1205。
+#
+# 现在的精确性定义：实际 + 记录在案的缺口 == 声明。缺口逐板块记录（由
+# expected_stock_count - actual_stock_count 推导），审计汇总上报，因此没有任何
+# 东西被隐藏。上界存在的意义是区分「provider 的已知微量遗漏」和「明细被截断」
+# ——后者通常丢远超 5%，仍然 fail-closed。
+MEMBER_SHORTFALL_MAX_RATIO = 0.05
+# 绝对下限：纯比例上界对小板块过严。「1205 只缺 2」和「14 只缺 1」是同一类事件
+# （单只成员未出现在明细里），但 14×5% = 0.7，缺 1 只就超界——实测确实把
+# 日用化工(21)、摩托车(14)、疫苗(14)、化妆品(13) 等 7 个小板块全拒了。
+# 取 5 是因为全量实测的最大绝对缺口就是 5；再大的缺口才可能是截断。
+MEMBER_SHORTFALL_MAX_ABSOLUTE = 5
+
+
+def _member_shortfall_bound(expected_count: int) -> float:
+    """允许的最大缺口：绝对下限与比例上界取大者。"""
+    return max(
+        float(MEMBER_SHORTFALL_MAX_ABSOLUTE),
+        expected_count * MEMBER_SHORTFALL_MAX_RATIO,
+    )
 _MEMBER_SERVED_DATE_MISMATCH = "served_date_mismatch"
 _MEMBER_DUPLICATE_IDENTITY = "duplicate_member_identity"
 _MEMBER_EMPTY_IDENTITY = "empty_member_identity"
@@ -982,11 +1019,29 @@ class SectorUniverseStore:
         member_codes = {row[0] for row in member_rows}
         actual_relationships = sum(int(row[1]) for row in member_rows)
 
+        # 已记录的缺口：成功回执上「声明 − 实际」之和。
+        shortfall = int(
+            self._con.execute(
+                """
+                SELECT coalesce(sum(expected_stock_count - actual_stock_count), 0)
+                FROM ops_sector_member_sync_daily
+                WHERE trade_date = ? AND snapshot_id = ? AND status = 'success'
+                  AND actual_stock_count IS NOT NULL
+                """,
+                [canonical_date, snapshot_id],
+            ).fetchone()[0]
+        )
+
         # 日线要求身份完全相等；成分允许尚未抓全（包含即可），但绝不允许出现
         # 快照外的板块——那是跨代际污染, 不是进度不足。
         daily_identities_match = daily_codes == declared_codes
         member_identities_contained = member_codes <= declared_codes
-        relationships_match = actual_relationships == int(relationship_count)
+        # 精确性：实际 + 已记录缺口 == 声明。即不存在**未记录**的差额。
+        # provider 明细会遗漏约 0.25% 的已声明成员（见 MEMBER_SHORTFALL_MAX_RATIO
+        # 的实测依据），那部分逐板块记在回执上，不算未解释的缺口。
+        relationships_match = (
+            actual_relationships + shortfall == int(relationship_count)
+        )
 
         continuity = _adjacent_name_continuity(
             self._con,
@@ -1023,6 +1078,7 @@ class SectorUniverseStore:
             member_identities_contained=member_identities_contained,
             critical_null_count=critical_nulls,
             name_continuity=name_continuity,
+            declared_shortfall=shortfall,
         )
 
     def has_published_universe(self, trade_date: str | date) -> bool:
@@ -1233,8 +1289,15 @@ class SectorUniverseStore:
                             now=now,
                         )
                     )
-                if error_code is None and len(stock_rows) != expected_count:
-                    error_code = _MEMBER_COUNT_MISMATCH
+                if error_code is None:
+                    delivered = len(stock_rows)
+                    if delivered > expected_count:
+                        # 多出来的成员意味着拿到了别的宇宙，不是遗漏，必须拒绝。
+                        error_code = _MEMBER_SURPLUS
+                    elif expected_count - delivered > _member_shortfall_bound(
+                        expected_count
+                    ):
+                        error_code = _MEMBER_SHORTFALL_TOO_LARGE
 
         status = "success" if (result.kind == "success" and error_code is None) else (
             "empty" if result.kind == "empty" else "error"

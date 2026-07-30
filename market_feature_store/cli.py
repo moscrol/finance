@@ -192,6 +192,7 @@ def cmd_sync_sector_stocks(args) -> int:
         only_missing=not args.refresh,
         sleep=args.sleep,
         chunk=args.chunk,
+        max_attempts=args.max_attempts,
     )
     print(f"交易日: {stats['trade_date']}")
     print(f"本次抓取板块: {stats['processed']} | 写入行: {stats['rows_written']}")
@@ -995,6 +996,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
     p_ss.add_argument("--sleep", type=float, default=0.3, help="chunk 间隔秒数, 默认0.3")
     p_ss.add_argument("--chunk", type=int, default=10, help="单次 eval 并发抓取的板块数, 默认10")
+    p_ss.add_argument(
+        "--max-attempts",
+        type=int,
+        default=3,
+        help=(
+            "单板块最多重试次数, 默认3。准入规则变更后需要重新驱动已耗尽重试的"
+            "板块时调高它——这是正规入口, 不要手改 DuckDB"
+        ),
+    )
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)

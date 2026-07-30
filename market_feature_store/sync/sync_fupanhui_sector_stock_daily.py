@@ -162,6 +162,7 @@ def sync_fact_sector_stock_daily(
     only_missing: bool = True,
     sleep: float = 0.3,
     chunk: int = 10,
+    max_attempts: int = MEMBER_MAX_ATTEMPTS,
 ) -> dict:
     """批量回补某交易日的成分股快照。
 
@@ -217,7 +218,7 @@ def sync_fact_sector_stock_daily(
             work = store.next_member_work(
                 snapshot.snapshot_id,
                 limit=int(limit) if limit else snapshot.sector_count,
-                max_attempts=MEMBER_MAX_ATTEMPTS,
+                max_attempts=int(max_attempts),
             )
             todo = [item.sector_ts_code for item in work]
             if not only_missing:

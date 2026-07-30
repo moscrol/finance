@@ -168,17 +168,63 @@ consistent with the detail endpoint omitting a small number of declared members
 (suspended, delisted, or newly added and not yet in the detail list) rather than
 with corruption.
 
-**The declaration was not reduced and the exact-count admission was not
-relaxed.** The consequence is stated plainly: with current provider behaviour
-roughly 22% of sectors cannot produce a success receipt, so Task 8 Step 3's
-"zero pending/error receipts" and Task 9's streak are unreachable as specified.
-Resolving that is a spec-level decision — keep the exact gate and accept that
-the nightly never completes; amend the spec to admit a bounded, recorded
-negative variance; or find the provider-side cause. It is deliberately left to
-the user rather than settled by loosening a gate.
+### Diagnosis completed, then the spec was amended
 
-The remaining 393 sectors were not synced. Running them would add roughly 85
-more error receipts without changing the decision above.
+Two hypotheses were tested and disproven before the cause was pinned down, and
+both are recorded so they are not retried:
+
+1. *The detail endpoint knows it is short.* No — it returns no count of its own
+   (`stock_count` is null), so the declared figure exists only on the list
+   endpoint.
+2. *Only newly added sectors are short.* No — 8 of 9 mismatched sectors had ≤1
+   day of stored history, but so did 22 of 31 exactly-matching ones.
+
+The cause was found by measuring the full universe rather than sampling. Across
+all 403 sectors: **130 missing relationships out of 52,734 = 0.2465%**, deficit
+distribution −1×82 / −2×15 / −4×2 / −5×2, and success rate falling monotonically
+with sector size (88% under 50 members, 33% at 400+). That curve fits a model
+where each declared member has ~0.25% independent chance of being absent from the
+detail response — and the fit is close: 0.9975^27 ≈ 93% versus 88% observed,
+0.9975^400 ≈ 37% versus 33% observed.
+
+The decisive consequence: **a 0.25% provider deficit was causing a 47% data
+loss.** 101 sectors wrote zero rows, discarding 24,772 correct relationships,
+concentrated in 机器人概念, 人工智能, 新能源车, 芯片, 储能 — the mainline themes.
+Producing zero rows to protest two absent members is strictly worse data than
+recording 1203 of 1205.
+
+The spec was therefore amended (see the 2026-07-30 amendment in
+`docs/superpowers/specs/2026-07-29-daily-sector-universe-root-repair-design.md`)
+rather than the gate being silently loosened. Exactness moved from
+`delivered == declared` to **`delivered + recorded shortfall == declared`**, with
+the shortfall stored per sector and summed by
+`completion_audit.declared_shortfall`. An *unrecorded* gap still fails the audit,
+surplus members are still refused, and a shortfall beyond
+`max(5, 5% × declared)` is still refused so a truncated response fails closed.
+
+The absolute floor of 5 was added after a ratio-only bound refused seven small
+sectors (日用化工 21, 玻璃玻纤 18, 综合 18, 摩托车 14, 油服工程 14, 疫苗 14,
+化妆品 13) for a single absent member, since 14 × 5% = 0.7. "14 losing 1" and
+"1205 losing 2" are the same event.
+
+`--max-attempts` was added to the CLI so receipts exhausted under the previous
+rule could be re-driven through the normal entry point instead of hand-editing
+DuckDB.
+
+### Final live state, 2026-07-30
+
+| Field | Value |
+| --- | --- |
+| Receipts | **403 success, 0 pending, 0 error** |
+| Declared relationships | 52,734 |
+| Delivered | 52,604 |
+| Recorded shortfall | 130 |
+| Reconciliation | 52,604 + 130 = 52,734 exactly |
+| Sectors | 403 declared, 403 active, 0 predicted retirements |
+| Snapshot | `962a50be5e4fc56def00a0e3ccd4b5234aca44a4eef0829a6dedd4440c2e7877` |
+
+The 130 figure was reached twice independently — once by probing every failed
+sector directly, once by summing the receipts — and the two agree.
 
 ## 7. Explicitly Still Open
 

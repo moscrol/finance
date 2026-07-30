@@ -240,10 +240,59 @@ For each sector:
 3. canonicalize and deduplicate non-empty stock identities;
 4. compare the distinct count with `expected_stock_count`;
 5. transactionally replace only that sector/date/snapshot generation's fact
-   rows, stamp the active `snapshot_id`, and mark its bound receipt success only
-   on exact equality;
-6. otherwise leave no newly published partial sector fact and record
-   `empty/error` with a stable category.
+   rows, stamp the active `snapshot_id`, and record the delivered count on the
+   bound receipt so the declared-versus-delivered difference is durable;
+6. refuse and record `empty/error` when the response has surplus members, or
+   when the shortfall exceeds the bound in the 2026-07-30 amendment below.
+
+### 2026-07-30 amendment: exactness moves from equality to reconciliation
+
+Measured on the first authorized live run (403 published sectors, 52,734
+declared relationships, trade date 2026-07-30):
+
+- 302 sectors matched their declared count exactly;
+- 101 fell short — distribution −1×82, −2×15, −4×2, −5×2;
+- total missing relationships: **130 of 52,734 = 0.2465%**;
+- success rate falls monotonically with sector size (88% under 50 declared
+  members, 33% at 400+), which fits a model where each declared member has
+  roughly a 0.25% independent chance of being absent from the detail response;
+- `990220.FP` 机器人概念 read declared 1205 / detail 1203, the same sector and
+  the same −2 as the previously recorded 1,204/1,202 observation, so the
+  shortfall is stable rather than transient. Retrying reproduced every failure
+  identically.
+
+Requiring `delivered == declared` therefore turned a 0.25% provider deficit into
+a 47% data loss: 101 sectors wrote zero rows, discarding 24,772 correct
+relationships, concentrated in 机器人概念, 人工智能, 新能源车, 芯片 and 储能 —
+the mainline themes. Refusing an entire sector to protest one absent member
+yields strictly worse data than recording 1203 of 1205.
+
+The amended rule keeps exactness but moves where it is enforced:
+
+- **delivered + recorded shortfall == declared.** The shortfall is stored per
+  sector (`expected_stock_count − actual_stock_count`) and summed by
+  `completion_audit.declared_shortfall`, so nothing is hidden — an *unrecorded*
+  gap still fails the audit.
+- Surplus members are always refused: extra identities mean a different
+  universe, not an omission.
+- A shortfall is refused when it exceeds
+  `max(MEMBER_SHORTFALL_MAX_ABSOLUTE, MEMBER_SHORTFALL_MAX_RATIO × declared)`,
+  currently `max(5, 5%)`. The absolute floor exists because a ratio-only bound
+  is harshest on small sectors — 14 × 5% = 0.7 refuses a single absent member —
+  while "14 losing 1" and "1205 losing 2" are the same event. The floor is 5
+  because 5 was the largest absolute shortfall observed across the full
+  universe; a truncated response loses far more and still fails closed.
+- For very small sectors the pair (declared, delivered) carries no signal that
+  separates a provider omission from a broken fetch. Those are admitted with the
+  shortfall recorded, on the same principle: one row beats zero rows, and the
+  gap stays auditable.
+
+After the amendment the same live run reached 403/403 success with
+52,604 delivered + 130 recorded shortfall = 52,734 declared, reconciling exactly.
+
+A historical membership copy may remain an explicitly degraded provisional
+artifact, but it cannot write a success receipt and cannot pass the release
+gate.
 
 A historical membership copy may remain an explicitly degraded provisional
 artifact, but it cannot write a success receipt and cannot pass the release

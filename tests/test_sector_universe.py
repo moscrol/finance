@@ -856,8 +856,12 @@ def test_error_receipt_does_not_starve_later_sector(store_con):
     assert second[0].sector_ts_code != first[0].sector_ts_code
 
 
-def test_count_mismatch_publishes_no_member_rows(store_con):
-    """声明 2 只却只返回 1 只：拒绝，且一行成分事实都不许落库。"""
+def test_tiny_sector_shortfall_is_recorded_rather_than_discarded(store_con):
+    """声明 2 只返回 1 只：落那 1 行并记录缺口，而不是整块丢弃。
+
+    N 很小时，只看（声明, 交付）无法区分 provider 遗漏和抓取故障——没有信号
+    可用。既然如此就按同一条原则处理：1 行胜过 0 行，且缺口留痕可查。
+    """
     published = _publish(store_con)
     store = SectorUniverseStore(store_con)
     result = store.record_member_result(
@@ -865,11 +869,15 @@ def test_count_mismatch_publishes_no_member_rows(store_con):
         "990001A.FP",
         MemberResult.success(served_date="2026-07-28", stocks=(_stock("000001.SZ"),)),
     )
-    assert result.status == "error"
-    assert result.last_error_code == "member_count_mismatch"
+
+    assert result.status == "success"
+    assert result.expected_stock_count == 2
+    assert result.actual_stock_count == 1
     assert store_con.execute(
         "select count(*) from fact_sector_stock_daily_generation"
-    ).fetchone() == (0,)
+    ).fetchone() == (1,)
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+    assert audit.declared_shortfall == 1
 
 
 def test_exact_member_success_writes_rows_and_receipt_together(store_con):
@@ -1282,7 +1290,7 @@ def test_audit_brief_names_the_failing_dimension(store_con):
         "2026-07-28", declared_tables=DECLARED_TABLES
     ).brief()
 
-    assert "rel=2/3" in brief
+    assert "rel=2+0/3" in brief
     assert "relationships" in brief
     assert "daily_identities" in brief
     assert "continuity=-" in brief
@@ -1377,3 +1385,167 @@ def test_publish_still_rejects_an_empty_name(store_con):
             sectors=(SectorDescriptor("990143.FP", "  ", 530),),
             captured_at="2026-07-29T10:00:00+08:00",
         )
+
+
+def _many_stocks(count: int, *, prefix: str = "0") -> tuple:
+    return tuple(_stock(f"{prefix}{index:05d}.SZ") for index in range(count))
+
+
+def test_small_recorded_shortfall_is_admitted_and_counted(store_con):
+    """provider 明细少给极少数成员时，落库并把缺口记在回执上，而不是整块拒绝。
+
+    实测依据（2026-07-30 全量 403 个板块，声明 52,734 条关系）：明细共缺 130 条
+    = 单只缺失率 0.2465%，缺口分布 -1×82 / -2×15 / -4×2 / -5×2。原先要求
+    实际==声明，导致 101 个板块整块落 0 行、连带丢弃 24,772 条好关系，且集中在
+    机器人概念/人工智能/新能源车/芯片/储能等主线题材。
+    """
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990220.FP", "机器人概念", 200),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+    store = SectorUniverseStore(store_con)
+
+    receipt = store.record_member_result(
+        published.snapshot_id,
+        "990220.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=_many_stocks(198)),
+    )
+
+    assert receipt.status == "success"
+    assert receipt.expected_stock_count == 200
+    assert receipt.actual_stock_count == 198
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (198,)
+
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+    assert audit.declared_shortfall == 2
+    assert audit.actual_relationship_count == 198
+    # 精确性：实际 + 已记录缺口 == 声明，没有未记录的差额。
+    assert audit.relationships_match is True
+    assert "rel=198+2/200" in audit.brief()
+
+
+def test_shortfall_beyond_the_bound_is_still_refused(store_con):
+    """截断类故障（丢远超 0.25%）仍然 fail-closed，不落一行。"""
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990220.FP", "机器人概念", 200),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    receipt = SectorUniverseStore(store_con).record_member_result(
+        published.snapshot_id,
+        "990220.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=_many_stocks(100)),
+    )
+
+    assert receipt.status == "error"
+    assert receipt.last_error_code == "member_shortfall_exceeds_bound"
+    assert store_con.execute(
+        "select count(*) from fact_sector_stock_daily_generation"
+    ).fetchone() == (0,)
+
+
+def test_surplus_members_are_refused(store_con):
+    """多出成员意味着拿到了别的宇宙，不是遗漏，必须拒绝。"""
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990220.FP", "机器人概念", 10),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    receipt = SectorUniverseStore(store_con).record_member_result(
+        published.snapshot_id,
+        "990220.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=_many_stocks(11)),
+    )
+
+    assert receipt.status == "error"
+    assert receipt.last_error_code == "member_count_surplus"
+
+
+def test_unrecorded_gap_still_fails_the_audit(store_con):
+    """回执之外凭空少掉的关系仍然算未解释缺口，审计不通过。"""
+    published = _publish(store_con)
+    store = SectorUniverseStore(store_con)
+    store.record_member_result(
+        published.snapshot_id,
+        "990001A.FP",
+        MemberResult.success(
+            served_date="2026-07-28",
+            stocks=(_stock("000001.SZ"), _stock("000002.SZ")),
+        ),
+    )
+    store.record_member_result(
+        published.snapshot_id,
+        "990002A.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=(_stock("000003.SZ"),)),
+    )
+    store.replace_sector_daily(published.snapshot_id, _daily_rows("A", 1.0))
+    # 绕过 store 直接删一行，模拟未经回执记录的缺失。
+    store_con.execute(
+        "delete from fact_sector_stock_daily_generation where stock_ts_code='000003.SZ'"
+    )
+
+    audit = store.completion_audit("2026-07-28", declared_tables=DECLARED_TABLES)
+
+    assert audit.declared_shortfall == 0
+    assert audit.relationships_match is False
+    assert audit.complete is False
+
+
+def test_shortfall_bound_has_an_absolute_floor_for_small_sectors(store_con):
+    """纯比例上界对小板块过严：14×5%=0.7，缺 1 只就超界。
+
+    回归：实测把日用化工(21)、玻璃玻纤(18)、摩托车(14)、疫苗(14)、化妆品(13)
+    等 7 个小板块全拒了，而「14 只缺 1」和「1205 只缺 2」是同一类事件。
+    """
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990188.FP", "摩托车", 14),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    receipt = SectorUniverseStore(store_con).record_member_result(
+        published.snapshot_id,
+        "990188.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=_many_stocks(13)),
+    )
+
+    assert receipt.status == "success"
+    assert receipt.actual_stock_count == 13
+
+
+def test_small_sector_losing_most_members_is_still_refused(store_con):
+    """绝对下限不能变成小板块的免检通道。"""
+    published = SectorUniverseStore(store_con).publish_snapshot(
+        trade_date="2026-07-28",
+        provider_source="fupanhui",
+        sectors=(SectorDescriptor("990188.FP", "摩托车", 14),),
+        captured_at="2026-07-29T10:00:00+08:00",
+    )
+
+    receipt = SectorUniverseStore(store_con).record_member_result(
+        published.snapshot_id,
+        "990188.FP",
+        MemberResult.success(served_date="2026-07-28", stocks=_many_stocks(8)),
+    )
+
+    assert receipt.status == "error"
+    assert receipt.last_error_code == "member_shortfall_exceeds_bound"
+
+
+def test_shortfall_bound_values() -> None:
+    """上界 = max(绝对下限, 比例×声明)，覆盖实测的四种规模。"""
+    from market_feature_store.sector_universe import _member_shortfall_bound
+
+    assert _member_shortfall_bound(14) == 5.0        # 缺 1 通过
+    assert _member_shortfall_bound(1205) == 60.25    # 缺 2 通过
+    assert _member_shortfall_bound(200) == 10.0      # 缺 100 拒绝
+    assert _member_shortfall_bound(20) == 5.0        # 缺 10 拒绝
