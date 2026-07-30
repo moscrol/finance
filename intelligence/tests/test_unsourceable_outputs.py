@@ -31,7 +31,7 @@ def _required(output_id: str) -> tuple[RequiredOutput, ...]:
     )
 
 
-def _claim(claim_id: str = "counter:1", claim_type: str = "expectation"):
+def _claim(claim_id: str = "counter:1", claim_type: str = "counter_evidence"):
     return make_claim(
         claim_id=claim_id,
         text=COUNTER_TEXT,
@@ -69,7 +69,12 @@ def test_it_still_has_to_appear_in_the_answer() -> None:
 
 
 def test_only_reasoned_claim_types_qualify() -> None:
-    """事实句不能借这条通道免除出处——只有 expectation/gap 是推理结论。"""
+    """事实句不能借这条通道免除出处。
+
+    注意用生产者真实写入的 claim_type（ask_synthesis 写的是 counter_evidence），
+    不要用 marker 里显示的 expectation——那是 _grounded_claim_type() 按
+    ClaimStatus 推出来的显示类型。第一版豁免照着显示类型写，线上一次都没触发。
+    """
     verdict = evaluate_task_fulfillment(
         question="q",
         required_outputs=_required("counterpoint"),
@@ -129,3 +134,12 @@ def test_a_sourced_counterpoint_still_binds_normally() -> None:
 
     assert [item.status for item in verdict.items] == ["fulfilled"]
     assert verdict.items[0].evidence_ids == ("S1",)
+
+
+
+def test_the_real_producer_claim_type_is_covered() -> None:
+    """钉住生产者实际使用的类型，别再照着显示类型写判据。"""
+    from intelligence.services.task_fulfillment import _UNSOURCEABLE_CLAIM_TYPES
+
+    # ask_synthesis.py 构造反证 claim 时用的就是这个值。
+    assert "counter_evidence" in _UNSOURCEABLE_CLAIM_TYPES

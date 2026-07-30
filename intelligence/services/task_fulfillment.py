@@ -93,6 +93,12 @@ _TOKEN_STOPWORDS = frozenset(
 # 这些必需输出的内容本质上可以没有出处：证伪条件、风险和「尚无反向证据」是推理
 # 结论，不是可回查的事实。对它们只校验「有没有写进正文」，不校验「有没有出处」。
 _UNSOURCEABLE_OUTPUTS = frozenset({"counterpoint", "counter_evidence", "risk"})
+# 生产者实际写进 Claim.claim_type 的值。注意不要用 marker 里看到的
+# expectation/gap——那是 _grounded_claim_type() 按 ClaimStatus 推出来的显示类型，
+# 不是 claim_type 本身。第一版豁免就是照着显示类型写的，所以一次都没触发过。
+_UNSOURCEABLE_CLAIM_TYPES = frozenset(
+    {"counter_evidence", "risk", "expectation", "gap", "skill_gap"}
+)
 
 _MARKERS: dict[str, tuple[str, ...]] = {
     "direct_assessment": (
@@ -385,7 +391,7 @@ def evaluate_task_fulfillment(
                 claim_in_answer
                 and not evidence_ids
                 and output_id in _UNSOURCEABLE_OUTPUTS
-                and claim.claim_type in {"expectation", "gap"}
+                and claim.claim_type in _UNSOURCEABLE_CLAIM_TYPES
             ):
                 # 反证/风险常常本来就没有证据：「若公司在互动易否认，这条逻辑会弱化」
                 # 是证伪条件，不是有出处的事实。要求它绑定证据是范畴错误——实测
