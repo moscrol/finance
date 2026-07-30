@@ -155,6 +155,7 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _grounded_body_line_count,
     _stable_llm_fallback_reason,
     _strip_empty_grounded_sections,
+    ensure_forecast_scenarios_visible as _ensure_forecast_scenarios_visible,
     promote_daily_agent_grounded_answer,
     promote_grounded_answer,
     synthesize_shadow_grounded_answer,
@@ -1274,51 +1275,6 @@ def _market_forecast_fallback_assessment(
         "本轮基准判断失效，必须用下一交易日的新盘面重算。"
     )
     return "".join((base, rebound, decline, invalidation)), rebound, decline, invalidation
-
-
-def _ensure_forecast_scenarios_visible(result: AskResult) -> None:
-    """Keep the user-facing answer complete when LLM prose drops required claims.
-
-    AnswerSpec already contains the three deterministic, evidence-bound scenario
-    claims.  A grounded composer may validly paraphrase them, but it must not
-    silently omit an entire branch of a two-scenario question.  Append only the
-    missing deterministic block; do not regenerate or overwrite the model's
-    useful prose.
-    """
-
-    if (
-        result.question_plan is None
-        or result.question_plan.question_type != QUESTION_MARKET_FORECAST
-        or not result.synthesis
-        or result.answer_spec is None
-    ):
-        return
-    if all(term in result.synthesis for term in ("反弹", "继续下跌", "失效条件")):
-        return
-    claims = {
-        claim.claim_id: claim
-        for claim in result.answer_spec.candidate_facts
-        if claim.claim_id
-        in {"generic:rebound_case", "generic:decline_case", "generic:invalidation"}
-    }
-    ordered_ids = (
-        "generic:rebound_case",
-        "generic:decline_case",
-        "generic:invalidation",
-    )
-    lines: list[str] = []
-    for claim_id in ordered_ids:
-        claim = claims.get(claim_id)
-        if claim is None or not claim.text.strip():
-            continue
-        refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
-        lines.append(f"{claim.text.strip()}{refs}")
-    if lines:
-        result.synthesis = (
-            result.synthesis.rstrip()
-            + "\n\n## 基准判断与条件情景\n"
-            + "\n".join(lines)
-        )
 
 
 def _filter_current_window_evidence(

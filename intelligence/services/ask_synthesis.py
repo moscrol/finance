@@ -43,6 +43,7 @@ from intelligence.services.ask_types import (
     _synthesis_timeout,
     _llm_deadline,
 )
+from intelligence.services.task_fulfillment import answer_has_output_marker
 
 
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
@@ -1249,6 +1250,9 @@ def promote_grounded_answer(
             if result.data_notice
             else fallback
         )
+        # 补分支必须在 stream 之前：先推给前端再改 result.synthesis，会让流式看到的
+        # 正文和最终落库的正文不一致。
+        ensure_forecast_scenarios_visible(result)
         result.synthesis_messages = [
             *(result.prepared_synthesis_messages or []),
             {"role": "assistant", "content": result.synthesis},
@@ -1262,6 +1266,7 @@ def promote_grounded_answer(
         if result.data_notice
         else presented
     )
+    ensure_forecast_scenarios_visible(result)
     result.llm_provider = shadow.provider
     result.synthesis_messages = [
         *(result.prepared_synthesis_messages or []),
@@ -1274,6 +1279,65 @@ def promote_grounded_answer(
 
 # 向后兼容别名：daily-agent 路径早于通用 Grounded Presenter 存在。
 promote_daily_agent_grounded_answer = promote_grounded_answer
+
+
+# 预测题的三个必需分支，以及 AnswerSpec 里承载它们的确定性 claim。
+_FORECAST_SCENARIO_CLAIMS: tuple[tuple[str, str], ...] = (
+    ("rebound_case", "generic:rebound_case"),
+    ("decline_case", "generic:decline_case"),
+    ("invalidation", "generic:invalidation"),
+)
+
+
+def ensure_forecast_scenarios_visible(result: AskResult) -> None:
+    """Keep the user-facing answer complete when LLM prose drops required claims.
+
+    AnswerSpec already contains the three deterministic, evidence-bound scenario
+    claims.  A grounded composer may validly paraphrase them, but it must not
+    silently omit an entire branch of a two-scenario question.  Append only the
+    missing deterministic block; do not regenerate or overwrite the model's
+    useful prose.
+
+    这个收口原先挂在 ``ask.py`` 的尾部，而 GenericResearchOwner 路径（也就是
+    「明天怎么走」实际走的那条）在 ``_answer_query_impl`` 开头就 return 了，永远到
+    不了那一行——于是它对前瞻题一次都没生效过。实测：composer 的 judge 判掉了写着
+    失效条件的那句，repair 把它删掉，最终正文只剩「反之…有走弱的风险」，门禁判
+    invalidation 缺失，整份答案被 fail-closed 成「请补充数据源或稍后重试」。
+
+    因此改挂在合成之后：composer 怎么改写都行，但删掉一整支必需分支时由确定性
+    文本补回。判定直接复用门禁的 ``answer_has_output_marker``，不再维护第二套
+    ("反弹","继续下跌","失效条件") 词表——两套词表迟早会漂移，而漂移的结果就是
+    「补过了但门禁仍判缺」或者反过来。
+    """
+
+    if (
+        result.question_plan is None
+        or result.question_plan.question_type != QUESTION_MARKET_FORECAST
+        or not result.synthesis
+        or result.answer_spec is None
+    ):
+        return
+    claims = {
+        claim.claim_id: claim
+        for claim in result.answer_spec.candidate_facts
+        if claim.claim_id in {claim_id for _, claim_id in _FORECAST_SCENARIO_CLAIMS}
+    }
+    lines: list[str] = []
+    for output_id, claim_id in _FORECAST_SCENARIO_CLAIMS:
+        # 只补真正缺的那一支：整块重贴会把 composer 已经写好的情景又复述一遍。
+        if answer_has_output_marker(output_id, result.synthesis):
+            continue
+        claim = claims.get(claim_id)
+        if claim is None or not claim.text.strip():
+            continue
+        refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
+        lines.append(f"{claim.text.strip()}{refs}")
+    if lines:
+        result.synthesis = (
+            result.synthesis.rstrip()
+            + "\n\n## 基准判断与条件情景\n"
+            + "\n".join(lines)
+        )
 
 
 def _shadow_support_claims(

@@ -703,6 +703,15 @@ def _merge_frame_outputs(
     """Keep legacy execution slots while exposing every canonical frame slot."""
 
     known = {item.output_id for item in existing}
+    # 别名只在被指向的槽位真的已登记时才生效（见下面的 `in known` 判定），所以
+    # 这里给出的是「谁已经承担了这件事」，不是无条件替换。
+    #
+    # scenario_tree 就是这么一个纯重复：预测题的执行槽位里 rebound_case +
+    # decline_case 已经是情景树的两支，再登记一个 scenario_tree 等于要求同一份
+    # 内容在 registry 里出现两次，而没有任何生产者会写第二份——于是它恒判缺，
+    # 把两支情景都已完成的答案整份 fail-closed 掉。专项 owner 路径没有
+    # rebound_case 槽位（它有 build_scenario_tree_artifact 这个真生产者），
+    # 别名不命中，scenario_tree 仍然是硬要求。
     legacy_aliases = {
         "direct_answer": "direct_assessment",
         "current_baseline": "direct_assessment",
@@ -710,6 +719,7 @@ def _merge_frame_outputs(
         "continuation_conditions": "rebound_case",
         "invalidation_conditions": "invalidation",
         "scenario_paths": "rebound_case",
+        "scenario_tree": "rebound_case",
     }
     evidence_types = tuple(capabilities) or ("evidence_boundary",)
     additions = tuple(
