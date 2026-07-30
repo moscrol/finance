@@ -4,6 +4,7 @@ import json
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
+from intelligence.services.ask_blocks import mainline_knowledge_module
 from intelligence.services.query_understanding import (
     market_review_requested_date,
 )
@@ -66,6 +67,26 @@ class DailyReviewSkill:
                 "as_of": date_text,
             }
         ]
+        # 第二条腿：盘面说哪个方向在走，知识库说我对这个方向研究到什么程度。
+        # 这个 skill 拥有日常复盘答案（market_watch 走 workflow 车道），所以知识库
+        # 视角必须接在这里；只挂在 ask 侧的复盘合成器上，用户在工作台里看不到。
+        anchor_warnings: list[str] = []
+        knowledge_module = mainline_knowledge_module(
+            context.repo_root / "db" / "market_feature_store.duckdb",
+            as_of=date_text,
+            warnings=anchor_warnings,
+        )
+        warnings.extend(str(redact_json(note)) for note in anchor_warnings)
+        if knowledge_module is not None:
+            modules.append(cast(JsonObject, redact_json(cast(JsonValue, knowledge_module))))
+            citations.append(
+                {
+                    "source": "knowledge-base/wiki",
+                    "title": "主线方向的知识库积累",
+                    "evidence_layer": "graph",
+                    "as_of": date_text,
+                }
+            )
         payload: JsonObject = {
             "skill_id": self.skill_id,
             "as_of": date_text,

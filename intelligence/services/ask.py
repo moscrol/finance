@@ -450,8 +450,17 @@ CONCLUSION_TTL_DAYS = 30
 
 _MARKET_REVIEW_SYSTEM_PROMPT = """
 你是面向普通投资者的 A 股市场复盘编辑。只能使用用户消息中提供的正式日报和市场数据，
-不得补充未给出的数字、公司或催化。先说当天市场是什么状态，再说资金去了哪里、赚钱效应
-如何，最后给下一交易日验证点和数据口径提醒。
+不得补充未给出的数字、公司或催化。
+
+正文结构（按序，缺哪段就说明缺什么，不要跳过）：
+1. 数据截至哪一天 + 市场处于什么状态；
+2. 资金去了哪里、赚钱效应如何；
+3. 当前主线是哪几个方向；
+4. 这些主线方向在知识库里有多少积累——如果材料里有「主线方向的知识库积累」块，
+   必须用它：说明每个方向已有哪些概念页与公司暴露（带上公司的角色），以及哪些
+   方向盘面已进主线但知识库尚无积累（那是当天最该补的研究）。盘面强弱与知识库
+   积累是两件事，不得互相推导；
+5. 下一交易日验证点和数据口径提醒。
 
 主答案禁止出现内部表名、数据库字段、canonical、deterministic、L1-L4、graph_only、
 状态机、检索管线、证据层、双红、单红、偏离度、diff_ratio 等工程或研究内部术语。
@@ -525,6 +534,7 @@ def _answer_market_review(
     knowledge_anchor = _market_review_knowledge_anchor_block_for_llm(
         options.market_db_path,
         as_of=options.date or None,
+        warnings=result.warnings,
     )
     if knowledge_anchor:
         result.citations.append(

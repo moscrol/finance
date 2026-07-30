@@ -442,7 +442,7 @@ def _mainline_theme_names(
         return "", []
 
 
-def _market_review_knowledge_anchor_block_for_llm(
+def mainline_knowledge_coverage(
     market_db_path: str | Path | None,
     *,
     as_of: str | None = None,
@@ -450,29 +450,38 @@ def _market_review_knowledge_anchor_block_for_llm(
     concepts_per_direction: int = 3,
     companies_per_direction: int = 4,
     evidence_per_direction: int = 3,
-) -> str:
+    warnings: list[str] | None = None,
+) -> tuple[str, list[dict[str, Any]], list[str]]:
     """当日主线方向在知识库里有多少积累。
 
-    盘面回答"哪个方向在走"，知识库回答"我对这个方向研究到什么程度"。两条腿分开
-    陈述：知识库有积累不代表当日盘面强，盘面强也不代表库里有依据。
+    返回 (主线日期, 每个方向的积累, 库内一条都没有的方向名)。
 
-    真正有用的是缺口那一行——盘面已经进主线、库里却一条概念页/公司暴露/证据都没有
-    的方向，正是当天最该补研究的地方。
+    按方向逐个取锚，不是把整句问题当题材名去匹配：市场级问题里根本没有题材名，
+    match_candidate 在这类问题上必然落空（那正是「当日盘面候选未命中」的来历）。
 
-    按方向逐个取锚，而不是把整句问题当题材名去匹配：后者正是 match_candidate 在
-    市场级问题上必然落空的原因（问题里根本没有题材名）。
+    结构化返回而不是直接拼字符串，是因为有两个消费方——给 LLM 的证据块和日报
+    skill 的模块——它们的渲染不同但不该各查一遍知识库。
     """
+    notes = warnings if warnings is not None else []
     market_date, directions = _mainline_theme_names(market_db_path, as_of=as_of)
     if not directions:
-        return ""
+        # 只在「读到了盘面库、但主线汇总不同日」时告警。读不到库本身是另一个层级的
+        # 问题（新装/无数据根），由盘面侧自己报，不该在这里再响一遍。
+        if market_date:
+            notes.append(
+                "知识库锚点未生成：主线方向汇总与盘面不同日"
+                f"（fact_mainline_theme_daily 最新 {market_date}）"
+            )
+        return market_date, [], []
     from intelligence.adapters.knowledge import KnowledgeAdapter
 
     try:
         knowledge = KnowledgeAdapter(wiki_root=kb_wiki)
-    except Exception:
-        return ""
+    except Exception as exc:
+        notes.append(f"知识库锚点未生成：知识库不可用（{type(exc).__name__}: {exc}）")
+        return market_date, [], []
 
-    covered: list[str] = []
+    covered: list[dict[str, Any]] = []
     uncovered: list[str] = []
     for direction in directions:
         try:
@@ -485,36 +494,81 @@ def _market_review_knowledge_anchor_block_for_llm(
             evidence = knowledge.get_evidence(
                 direction, limit=evidence_per_direction
             ).get("items", [])
-        except Exception:
+        except Exception as exc:
+            notes.append(
+                f"知识库锚点跳过方向「{direction}」：{type(exc).__name__}: {exc}"
+            )
             continue
         if not concepts and not exposures and not evidence:
             uncovered.append(direction)
             continue
-        parts: list[str] = []
-        if concepts:
-            names = "、".join(
-                str(item.get("concept") or "").strip()
-                for item in concepts
-                if str(item.get("concept") or "").strip()
-            )
-            parts.append(f"概念页 {len(concepts)}（{names}）" if names else f"概念页 {len(concepts)}")
-        if exposures:
-            company_bits: list[str] = []
-            for item in exposures:
-                company = str(item.get("company") or "").strip()
-                if not company:
-                    continue
-                role = str(item.get("role") or "").strip()
-                company_bits.append(f"{company}（{role}）" if role else company)
-            parts.append(
-                f"公司暴露 {len(exposures)}（{'、'.join(company_bits)}）"
-                if company_bits
-                else f"公司暴露 {len(exposures)}"
-            )
-        if evidence:
-            parts.append(f"已入库证据 {len(evidence)} 条")
-        covered.append(f"- {direction}：{'；'.join(parts)}")
+        covered.append(
+            {
+                "direction": direction,
+                "concepts": [
+                    str(item.get("concept") or "").strip()
+                    for item in concepts
+                    if str(item.get("concept") or "").strip()
+                ],
+                "companies": [
+                    {
+                        "company": str(item.get("company") or "").strip(),
+                        "role": str(item.get("role") or "").strip(),
+                    }
+                    for item in exposures
+                    if str(item.get("company") or "").strip()
+                ],
+                "evidence_count": len(evidence),
+            }
+        )
+    return market_date, covered, uncovered
 
+
+def _format_company(entry: dict[str, Any]) -> str:
+    company = str(entry.get("company") or "").strip()
+    role = str(entry.get("role") or "").strip()
+    return f"{company}（{role}）" if company and role else company
+
+
+def _coverage_summary(entry: dict[str, Any]) -> str:
+    parts: list[str] = []
+    concepts = entry.get("concepts") or []
+    companies = entry.get("companies") or []
+    evidence_count = int(entry.get("evidence_count") or 0)
+    if concepts:
+        parts.append(f"概念页 {len(concepts)}（{'、'.join(concepts)}）")
+    if companies:
+        names = "、".join(_format_company(item) for item in companies if _format_company(item))
+        parts.append(f"公司暴露 {len(companies)}（{names}）" if names else f"公司暴露 {len(companies)}")
+    if evidence_count:
+        parts.append(f"已入库证据 {evidence_count} 条")
+    return "；".join(parts)
+
+
+def _market_review_knowledge_anchor_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    concepts_per_direction: int = 3,
+    companies_per_direction: int = 4,
+    evidence_per_direction: int = 3,
+    warnings: list[str] | None = None,
+) -> str:
+    """盘面回答"哪个方向在走"，知识库回答"我对这个方向研究到什么程度"。
+
+    真正有用的是缺口那一行——盘面已经进主线、库里却一条都没有的方向，正是当天
+    最该补研究的地方。
+    """
+    market_date, covered, uncovered = mainline_knowledge_coverage(
+        market_db_path,
+        as_of=as_of,
+        kb_wiki=kb_wiki,
+        concepts_per_direction=concepts_per_direction,
+        companies_per_direction=companies_per_direction,
+        evidence_per_direction=evidence_per_direction,
+        warnings=warnings,
+    )
     if not covered and not uncovered:
         return ""
     lines = [
@@ -523,7 +577,7 @@ def _market_review_knowledge_anchor_block_for_llm(
         "知识库侧是概念页 / 公司暴露 / 已入库证据。两边分开陈述："
         "知识库有积累不等于当日盘面强，盘面强也不等于库内有依据。",
     ]
-    lines.extend(covered)
+    lines.extend(f"- {entry['direction']}：{_coverage_summary(entry)}" for entry in covered)
     if uncovered:
         lines.append(
             f"- 知识库尚无积累的主线方向：{'、'.join(uncovered)}"
@@ -534,6 +588,51 @@ def _market_review_knowledge_anchor_block_for_llm(
         "或研报判断写成公司已兑现的基本面事实。"
     )
     return "\n".join(lines)
+
+
+def mainline_knowledge_module(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    warnings: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """日报 skill 用的模块形态；没有任何可说的就返回 None，不塞空模块。"""
+    market_date, covered, uncovered = mainline_knowledge_coverage(
+        market_db_path,
+        as_of=as_of,
+        kb_wiki=kb_wiki,
+        warnings=warnings,
+    )
+    if not covered and not uncovered:
+        return None
+    items: list[dict[str, Any]] = [
+        {"title": entry["direction"], "summary": _coverage_summary(entry)}
+        for entry in covered
+    ]
+    if uncovered:
+        items.append(
+            {
+                "title": "知识库尚无积累",
+                "summary": (
+                    f"{'、'.join(uncovered)}——盘面已进主线但库内无概念页/公司暴露/证据，"
+                    "是当天最该补研究的方向"
+                ),
+            }
+        )
+    return {
+        "module_id": "daily_knowledge_anchor",
+        "title": "主线方向的知识库积累",
+        "kind": "list",
+        "status": "complete" if covered else "partial",
+        "summary": (
+            f"主线方向取自 {market_date} 盘面；知识库侧为概念页/公司暴露/已入库证据。"
+            "知识库有积累不等于当日盘面强，两者不得互相推导。"
+        ),
+        "content": None,
+        "metrics": [],
+        "items": items,
+    }
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:

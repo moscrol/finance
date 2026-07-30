@@ -147,3 +147,68 @@ def test_no_knowledge_citation_when_the_block_is_empty(monkeypatch) -> None:
     )
 
     assert "D5" not in {citation.tag for citation in result.citations}
+
+
+def test_daily_review_skill_carries_the_knowledge_module(monkeypatch, tmp_path) -> None:
+    """日报 skill 拥有工作台里的日常复盘答案，知识库这条腿必须接在这里。
+
+    market_watch 走 workflow 车道，daily-review skill 直接拥有答案，ask 侧的
+    _answer_market_review 根本不执行。只把知识库块挂在 ask 侧，用户在工作台里
+    一个字都看不到——实测就是这样：引用只有日报 .md，正文零概念页零公司暴露。
+    """
+    from intelligence.workbench_skills import daily_review as skill_module
+
+    monkeypatch.setattr(
+        skill_module,
+        "mainline_knowledge_module",
+        lambda *a, **k: {
+            "module_id": "daily_knowledge_anchor",
+            "title": "主线方向的知识库积累",
+            "kind": "list",
+            "status": "complete",
+            "summary": "口径说明",
+            "content": None,
+            "metrics": [],
+            "items": [{"title": "半导体", "summary": "概念页 1（半导体）"}],
+        },
+    )
+    monkeypatch.setattr(
+        skill_module,
+        "daily_projection_modules",
+        lambda *a, **k: ("2026-07-29", [{"module_id": "daily_overview", "title": "今日核心"}], []),
+    )
+
+    class _Store:
+        def add_artifact(self, *a, **k):
+            class _A:
+                path = "daily-review-skill-result.json"
+
+            return _A()
+
+    class _Ctx:
+        query = "今天大盘处于什么阶段？当前主线是哪几个方向？"
+        repo_root = tmp_path
+        run_store = _Store()
+        run_id = "run_test"
+
+    output = skill_module.DailyReviewSkill().execute(_Ctx())
+
+    module_ids = [str(module.get("module_id")) for module in output.modules]
+    assert "daily_knowledge_anchor" in module_ids
+    assert any(
+        str(citation.get("title")) == "主线方向的知识库积累"
+        for citation in output.citations
+    )
+
+
+def test_stale_mainline_summary_is_reported_but_missing_db_is_not(monkeypatch) -> None:
+    """主线汇总不同日要说；整个盘面库读不到是另一层的问题，不在这里重复报。"""
+    notes: list[str] = []
+    monkeypatch.setattr(ask_blocks, "_mainline_theme_names", lambda *a, **k: ("2026-07-24", []))
+    ask_blocks.mainline_knowledge_coverage(None, warnings=notes)
+    assert any("主线方向汇总与盘面不同日" in note for note in notes)
+
+    notes.clear()
+    monkeypatch.setattr(ask_blocks, "_mainline_theme_names", lambda *a, **k: ("", []))
+    ask_blocks.mainline_knowledge_coverage(None, warnings=notes)
+    assert notes == []
