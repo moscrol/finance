@@ -94,7 +94,7 @@ def build_module_answer_contract(
     retrieval_plan: tuple[str, ...],
     output_contract: tuple[str, ...],
 ) -> SkillAnswerContract | None:
-    facts = _module_fact_lines(modules)
+    facts = _select_fact_lines(modules)
     if not facts or not citations:
         return None
     sources = tuple(
@@ -118,7 +118,7 @@ def build_module_answer_contract(
             evidence_tier=sources[0].tier if sources else "skill_output",
             evidence_ids=evidence_ids,
         )
-        for index, line in enumerate(facts[:16], start=1)
+        for index, line in enumerate(facts, start=1)
     )
     summary = (
         answer_model.make_claim(
@@ -185,6 +185,38 @@ def build_module_answer_contract(
         output_contract=output_contract,
         answer_spec=answer_model.finalize_answer_spec(spec),
     )
+
+
+_FACT_LINE_BUDGET = 16
+
+
+def _select_fact_lines(
+    modules: list[JsonObject],
+    limit: int = _FACT_LINE_BUDGET,
+) -> list[str]:
+    """按模块轮转取事实行，而不是把拼平的列表截断到前 N 条。
+
+    位置不该决定一个证据层是否可见。日报自己的 4 个模块就能填满 16 条预算，于是
+    后追加的知识库锚点模块整块消失——模块在、引用在、答案正文里一个字都没有，
+    而且没有任何告警。第一轮先让每个模块各出一条，剩余预算再按序轮转补齐。
+    """
+    per_module = [_module_fact_lines([module]) for module in modules]
+    selected: list[str] = []
+    seen: set[str] = set()
+    cursor = 0
+    while len(selected) < limit and any(cursor < len(lines) for lines in per_module):
+        for lines in per_module:
+            if cursor >= len(lines):
+                continue
+            line = lines[cursor]
+            if line in seen:
+                continue
+            seen.add(line)
+            selected.append(line)
+            if len(selected) >= limit:
+                break
+        cursor += 1
+    return selected
 
 
 def _module_fact_lines(modules: list[JsonObject]) -> list[str]:
