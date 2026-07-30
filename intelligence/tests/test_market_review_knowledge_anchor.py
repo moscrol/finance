@@ -104,14 +104,14 @@ def test_block_states_the_two_legs_are_separate(patched) -> None:
 
 
 def test_market_review_answer_carries_the_knowledge_citation(monkeypatch) -> None:
-    """块非空时必须留下 D5 引用，否则用户看不到这条腿的来源。"""
+    """块非空时必须留下 MAINLINE_KB 引用，否则用户看不到这条腿的来源。"""
     from intelligence.services import ask
     from intelligence.services.ask import AskOptions, answer_query
 
     monkeypatch.setattr(
         ask,
         "_market_review_knowledge_anchor_block_for_llm",
-        lambda *a, **k: "## 主线方向的知识库积累 [D5]\n- 半导体：概念页 1",
+        lambda *a, **k: "## 主线方向的知识库积累 [MAINLINE_KB]\n- 半导体：概念页 1",
     )
 
     result = answer_query(
@@ -124,7 +124,7 @@ def test_market_review_answer_carries_the_knowledge_citation(monkeypatch) -> Non
 
     assert result.question_plan is not None
     assert result.question_plan.question_type == "market_review"
-    assert "D5" in {citation.tag for citation in result.citations}
+    assert "MAINLINE_KB" in {citation.tag for citation in result.citations}
 
 
 def test_no_knowledge_citation_when_the_block_is_empty(monkeypatch) -> None:
@@ -146,7 +146,7 @@ def test_no_knowledge_citation_when_the_block_is_empty(monkeypatch) -> None:
         )
     )
 
-    assert "D5" not in {citation.tag for citation in result.citations}
+    assert "MAINLINE_KB" not in {citation.tag for citation in result.citations}
 
 
 def test_daily_review_skill_carries_the_knowledge_module(monkeypatch, tmp_path) -> None:

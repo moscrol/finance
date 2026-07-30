@@ -362,6 +362,7 @@ _MARKET_TIME_ANCHORS: tuple[str, ...] = (
     "今日",
     "现在",
     "当前",
+    "目前",  # 与 _MARKET_WATCH_RE 对齐：现在/当前 都在，漏了同义的 目前
     "当下",
     "收盘",
     "盘后",
@@ -383,6 +384,42 @@ _MARKET_LEVEL_STATE_WORDS: tuple[str, ...] = (
     "涨停家数",
     "市场情绪",
 )
+_CLAUSE_SPLIT_RE = re.compile(r"[，。；？！、,;?!\s]+")
+
+
+def _market_level_clause(q: str) -> bool:
+    """有没有哪个分句是「在问全市场」。
+
+    只做子串命中是不够的：「创新药板块当前主线是哪几个」命中了时间锚 当前 和
+    市场级状态词 主线，于是被抢进 market_review，用户问一个板块的主线却拿到全市场
+    复盘——而复盘的主线块和知识库锚点讲的是市场的题材（消费零售/半导体/AI算力），
+    跟创新药没关系。「半导体设备市场当前强弱如何」同理。
+
+    三条同时成立才算：
+    1. 分句以时间锚或市场主语开头——点了具体题材/板块/公司的问句，主语占着最前面，
+       因此不满足。这和 _MARKET_WATCH_RE 里 主线 那条分支用的分句边界是同一条判据。
+    2. 分句里有时间锚——「大盘处于什么阶段」光有状态词不算问现状（既有约定）。
+    3. 有市场级状态词，或者有需要主语的状态词且全句某处出现了市场主语。
+
+    第 3 条里市场主语允许跨分句，是因为「今天什么阶段，明天大盘怎么看」的主语在
+    后半句。但状态词和时间锚必须同分句，否则又会退回到跨分句拼凑。
+    """
+    has_subject_anywhere = _has_any(q, _MARKET_SUBJECTS)
+    for clause in _CLAUSE_SPLIT_RE.split(q):
+        clause = clause.strip()
+        if not clause:
+            continue
+        if not clause.startswith(_MARKET_TIME_ANCHORS + _MARKET_SUBJECTS):
+            continue
+        if not _has_any(clause, _MARKET_TIME_ANCHORS):
+            continue
+        if _has_any(clause, _MARKET_LEVEL_STATE_WORDS):
+            return True
+        if has_subject_anywhere and _has_any(
+            clause, _MARKET_STATE_WORDS_NEEDING_SUBJECT
+        ):
+            return True
+    return False
 
 
 def _base_finance_mode(
@@ -503,13 +540,7 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
     # 明确指向未来的问法（展望/研判/预测/后市/明日研判…）在本规则之前已经返回，
     # 不会走到这里；同时问两头的「今天什么阶段、明天怎么看」按现状作答，因为盘面
     # 数据是现成的，后市部分可在答案里做条件化情景。
-    if _has_any(q, _MARKET_TIME_ANCHORS) and (
-        (
-            _has_any(q, _MARKET_SUBJECTS)
-            and _has_any(q, _MARKET_STATE_WORDS_NEEDING_SUBJECT)
-        )
-        or _has_any(q, _MARKET_LEVEL_STATE_WORDS)
-    ):
+    if _market_level_clause(q):
         return QUESTION_MARKET_REVIEW, 0.88
     if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
         return QUESTION_VALUATION, 0.88

@@ -126,7 +126,14 @@ def _write_daily_agent(root: Path, date: str = "2026-07-10") -> Path:
     return path
 
 
-def test_daily_review_skill_preserves_canonical_values_and_artifact(tmp_path: Path) -> None:
+def test_daily_review_skill_preserves_canonical_values_and_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # 把盘面库钉在不存在的路径上。这个用例断言的是 fixture 日报的逐字保真，而知识库
+    # 那条腿走 default_market_db_path()，不钉住就会在设了 FINANCE_WS 的服务配置下
+    # 读到真实生产库、多出一条引用——本地跑绿、服务配置跑红。
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "absent.duckdb"))
     source = _write_daily_review(tmp_path)
     store = RunStore(user_id="demo", root=tmp_path / "runs")
     run = store.create_run("今天市场怎么样？", "daily")

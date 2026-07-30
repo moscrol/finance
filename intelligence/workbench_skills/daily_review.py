@@ -5,6 +5,7 @@ from datetime import date as date_cls
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
+from intelligence.paths import default_market_db_path
 from intelligence.services.ask_blocks import mainline_knowledge_module
 from intelligence.services.query_understanding import (
     market_review_requested_date,
@@ -73,7 +74,10 @@ class DailyReviewSkill:
         # 视角必须接在这里；只挂在 ask 侧的复盘合成器上，用户在工作台里看不到。
         anchor_warnings: list[str] = []
         knowledge_module = mainline_knowledge_module(
-            context.repo_root / "db" / "market_feature_store.duckdb",
+            # 数据根，不是代码根。context.repo_root 来自 WORKBENCH_REPO_ROOT，
+            # 部署契约里那是「候选代码根」，盘面库在 FINANCE_WS 数据根下；写成代码根
+            # 会让这条腿在蓝绿运行时静默失效，而且返回 None 时连告警都没有。
+            default_market_db_path(),
             as_of=date_text,
             warnings=anchor_warnings,
         )

@@ -399,8 +399,13 @@ def _mainline_theme_names(
     与 _market_review_mainline_context_block_for_llm 用同一张
     fact_mainline_theme_daily、同一个「必须同日」判据，避免两个块讲不同的主线。
     """
+    if not market_db_path:
+        # 不回退 DEFAULT_MARKET_DB_PATH：调用方没给库就是没要盘面数据。回退会让
+        # 单测和 eval 悄悄读到真实生产库——test_market_review_* 就是这么被打破的，
+        # 而且只在设了 FINANCE_WS 的服务配置下才复现。
+        return "", []
     market_date = _market_data_asof(market_db_path, as_of=as_of)
-    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
+    db_path = Path(market_db_path).expanduser()
     if not market_date or not db_path.exists():
         return "", []
     try:
@@ -499,25 +504,32 @@ def mainline_knowledge_coverage(
                 f"知识库锚点跳过方向「{direction}」：{type(exc).__name__}: {exc}"
             )
             continue
-        if not concepts and not exposures and not evidence:
+        # 用过滤后的值判定，不用原始列表：只匹配到空串的方向会通过原始判定，
+        # 却渲染出「- 半导体：」这样后面什么都没有的空行。
+        concept_names = [
+            str(item.get("concept") or "").strip()
+            for item in concepts
+            if str(item.get("concept") or "").strip()
+        ]
+        companies = [
+            {
+                "company": str(item.get("company") or "").strip(),
+                "role": str(item.get("role") or "").strip(),
+                "tier": str(
+                    item.get("evidence_layer") or item.get("strength") or ""
+                ).strip(),
+            }
+            for item in exposures
+            if str(item.get("company") or "").strip()
+        ]
+        if not concept_names and not companies and not evidence:
             uncovered.append(direction)
             continue
         covered.append(
             {
                 "direction": direction,
-                "concepts": [
-                    str(item.get("concept") or "").strip()
-                    for item in concepts
-                    if str(item.get("concept") or "").strip()
-                ],
-                "companies": [
-                    {
-                        "company": str(item.get("company") or "").strip(),
-                        "role": str(item.get("role") or "").strip(),
-                    }
-                    for item in exposures
-                    if str(item.get("company") or "").strip()
-                ],
+                "concepts": concept_names,
+                "companies": companies,
                 "evidence_count": len(evidence),
             }
         )
@@ -525,9 +537,14 @@ def mainline_knowledge_coverage(
 
 
 def _format_company(entry: dict[str, Any]) -> str:
+    """公司（角色｜证据层级）。层级必须带上：块本身要求模型标注证据层级并且
+    不得把 graph_only 写成已兑现事实，而层级不在载荷里的话，模型只能省略或编造。
+    实测同一个方向里 graph_only/L2_candidate/L1 会被渲染成完全一样的样子。"""
     company = str(entry.get("company") or "").strip()
     role = str(entry.get("role") or "").strip()
-    return f"{company}（{role}）" if company and role else company
+    tier = str(entry.get("tier") or "").strip()
+    inner = "｜".join(part for part in (role, tier) if part)
+    return f"{company}（{inner}）" if company and inner else company
 
 
 def _coverage_summary(entry: dict[str, Any]) -> str:
@@ -572,7 +589,7 @@ def _market_review_knowledge_anchor_block_for_llm(
     if not covered and not uncovered:
         return ""
     lines = [
-        "## 主线方向的知识库积累 [D5]",
+        "## 主线方向的知识库积累 [MAINLINE_KB]",
         f"- 口径：盘面主线取自 fact_mainline_theme_daily（{market_date}），"
         "知识库侧是概念页 / 公司暴露 / 已入库证据。两边分开陈述："
         "知识库有积累不等于当日盘面强，盘面强也不等于库内有依据。",

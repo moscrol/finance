@@ -24,7 +24,8 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import date as date_cls, timedelta
+from datetime import date as date_cls, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -287,11 +288,18 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
             skipped.append(Path(candidate_path).name.replace("-theme-candidates.json", ""))
         else:
             # 全都是空的：退回最新，让下游照旧走"无候选"分支，但把原因说清楚。
+            # json.loads 必须包起来：最新那个文件可能本身就是损坏的（_snapshot_is_usable
+            # 已经吞掉过一次解析错误），裸调用会把 JSONDecodeError 抛出这个函数，
+            # 而下面既有的读取路径一直是 try/except 返回 found=False 的。
+            try:
+                doc = json.loads(path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                return {"found": False, "path": str(path), "warnings": [str(exc)], "doc": {}}
             return {
                 "found": True,
                 "path": str(path),
                 "warnings": [f"最近 {len(skipped)} 个盘面快照均无候选（{'、'.join(skipped[:5])}）"],
-                "doc": json.loads(path.read_text(encoding="utf-8")),
+                "doc": doc,
             }
     # 盘面快照缓存：as_of=当日、revision=文件 mtime（导出重写即失效）。
     cache = retrieval_cache.shared_cache()
@@ -479,6 +487,17 @@ _MARKET_REVIEW_SYSTEM_PROMPT = """
 """.strip()
 
 
+def _market_today() -> str:
+    """交易日口径的"今天"。
+
+    不能用 date.today()：那是宿主时钟。容器默认 UTC，北京时间 00:00~08:00 之间它
+    会返回前一个日历日，于是一份真正属于今天的快照被判成过期，而这条判断是以
+    「正文首句必须写明数据截至 X、全文不得称其为今天」的硬要求下发的——
+    时区判错比不判更糟，因为它是以命令的形式说出来的。
+    """
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+
+
 def _market_data_date_line(trade_date: str | None) -> str:
     """把「数据日期是不是今天」算出来告诉模型，而不是指望它自己注意到。
 
@@ -490,11 +509,11 @@ def _market_data_date_line(trade_date: str | None) -> str:
     date_text = str(trade_date or "").strip()
     if not date_text:
         return "数据日期：未确认（没有可用盘面日期，不得给出任何当日定性）"
-    if date_text == date_cls.today().isoformat():
+    if date_text == _market_today():
         return f"数据日期：{date_text}（即今天）"
     return (
         f"数据日期：{date_text}"
-        f"（今天是 {date_cls.today().isoformat()}，因此这不是当日数据："
+        f"（今天是 {_market_today()}，因此这不是当日数据："
         f"正文首句必须写明「数据截至 {date_text}」，全文不得称其为今天/今日/当天）"
     )
 
@@ -531,15 +550,22 @@ def _answer_market_review(
     )
     # 第二条腿：盘面说哪个方向在走，知识库说我对这个方向研究到什么程度。
     # 缺了它，日常复盘就只有盘面数字，用户自己积累的概念页与公司暴露一条也进不来。
-    knowledge_anchor = _market_review_knowledge_anchor_block_for_llm(
-        options.market_db_path,
-        as_of=options.date or None,
-        warnings=result.warnings,
+    knowledge_anchor = (
+        _market_review_knowledge_anchor_block_for_llm(
+            options.market_db_path,
+            as_of=options.date or None,
+            # kb_wiki 必须跟着走：同一个答案里其他知识库块都用 options.kb_wiki
+            # 解析，这里漏传会让 eval/回测在钉住快照时读到实时 wiki。
+            kb_wiki=options.kb_wiki or None,
+            warnings=result.warnings,
+        )
+        if evidence_registry.provider_enabled(options, "MAINLINE_KB")
+        else ""
     )
     if knowledge_anchor:
         result.citations.append(
             Citation(
-                "D5",
+                "MAINLINE_KB",
                 "主线方向的知识库积累",
                 "按当日主线方向逐个取概念页/公司暴露/已入库证据；含知识库尚无积累的方向",
             )
