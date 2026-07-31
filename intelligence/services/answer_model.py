@@ -28,6 +28,42 @@ _NUMBER_WITH_UNIT_RE = re.compile(
 _COMPANY_RE = re.compile(
     r"[\u4e00-\u9fff]{2,10}(?:股份|集团|银行|证券)"
 )
+# _COMPANY_RE 向左最多吞 10 个汉字，会把公司名前面的虚词一起吞进来：证据里写的是
+# 「三环集团拟最高10亿元回购股份」，正文写「其中三环集团…」，匹配出的却是
+# 「其中三环集团」，`not in allowed_text` 成立，于是报「增加证据外公司」。这些前缀
+# 本身不是名字的一部分，剥掉后再比一次。
+_COMPANY_NAME_PREFIXES: tuple[str, ...] = (
+    "其中",
+    "包括",
+    "例如",
+    "比如",
+    "涉及",
+    "以及",
+    "含",
+    "如",
+    "和",
+    "与",
+    "及",
+)
+
+
+def _company_is_known(company: str, allowed_text: str) -> bool:
+    """公司名是否已在证据里出现（容忍被吞进来的前置虚词）。
+
+    只剥已知虚词，且剥完仍要是个像样的名字（至少 2 个汉字 + 后缀词）。真正新出现的
+    公司剥不出任何在证据里的形式，仍然照报。
+    """
+
+    if company in allowed_text:
+        return True
+    return any(
+        company.startswith(prefix)
+        and len(company) - len(prefix) >= 4
+        and company[len(prefix) :] in allowed_text
+        for prefix in _COMPANY_NAME_PREFIXES
+    )
+
+
 _CERTAINTY_PROMOTION_TERMS = (
     "已证实",
     "已确认",
@@ -1220,6 +1256,14 @@ def _allowed_heading_subjects(answer_spec: AnswerSpec) -> frozenset[str]:
             subjects.add(claim.theme)
     for company in answer_spec.company_table:
         subjects.add(company.company)
+    # 本轮契约点名要求的输出，其描述就是合法的小节标签：prompt 里要求模型覆盖
+    # 「继续下跌情景：触发条件、支持证据与观察窗口」，模型照做之后门禁再判它
+    # 「标题包含未绑定的事实性内容」（因为含「跌」字），等于系统自己跟自己打架。
+    # prompt_constraints 的形式是 "output_id：描述"，取描述并按分段登记。
+    for constraint in answer_spec.prompt_constraints:
+        description = str(constraint).split("：", 1)[-1]
+        subjects.add(description)
+        subjects.update(_HEADING_SEGMENT_SPLIT_RE.split(description))
     return frozenset(
         _normalize_heading_text(subject) for subject in subjects if subject
     )
@@ -1243,18 +1287,69 @@ def _is_disallowed_heading(
     )
 
 
-def _heading_requires_fact_binding(heading_text: str) -> bool:
+def _heading_fact_corpus(
+    answer_spec: AnswerSpec | None,
+) -> tuple[str, frozenset[str]]:
+    """整份 AnswerSpec 可用的事实语料：所有 claim 文本 + 其证据明细。
+
+    标题不带 claim marker，没有「本句绑定了谁」可查，所以用整份 registry 作为
+    可用语料——正文句用的是逐句绑定的那一份，标题只能用全份。
+    """
+
+    if answer_spec is None:
+        return "", frozenset()
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    text = "\n".join(
+        _claim_validation_text(claim, atoms)
+        for claim in _all_answer_claims(answer_spec)
+    )
+    normalized = re.sub(r"\s+", "", _expanded_date_text(text))
+    numbers = frozenset(
+        _normalize_number_token(token)
+        for token in _NUMBER_RE.findall(normalized)
+    )
+    return normalized, numbers
+
+
+def _heading_requires_fact_binding(
+    heading_text: str,
+    *,
+    allowed_text: str = "",
+    allowed_numbers: frozenset[str] = frozenset(),
+) -> bool:
     """Only fact-like headings stay hard-gated; narrative headings are advisory.
 
     Headings are not claim-bound, so a title such as “利润已翻倍” must still be
     rejected.  A structural title such as “为什么检索会跑偏” carries no factual
     assertion and should not force every answer back into a global whitelist.
+
+    走私的定义是「标题用了证据里没有的事实词或数字」，不是「标题里出现了涨/跌
+    这种字」。原先只跑一个字符级正则，于是「核心矛盾：放量下跌与外部利好的博弈」
+    因为含「跌」被判 error —— 而「放量下跌」正是已绑定 claim 的忠实概括
+    （指数 -0.62%、成交放量、跌停 74 家）。给出语料时改判「这些事实词在证据里
+    有没有出处」，正文句用的本来就是同一把尺。不给语料时保持旧行为。
     """
 
     text = _normalize_heading_text(heading_text)
     if re.search(r"(?:为什么|怎么|如何|机制|原因|影响|路径|方法|证据|边界|问题)$", text):
         return False
-    return bool(_FACT_LIKE_HEADING_RE.search(text))
+    if not _FACT_LIKE_HEADING_RE.search(text):
+        return False
+    if not allowed_text and not allowed_numbers:
+        return True
+    unbound_markers = [
+        marker
+        for marker in {
+            match.group(0) for match in _FACT_LIKE_HEADING_RE.finditer(text)
+        }
+        if not marker.isdigit() and marker not in allowed_text
+    ]
+    unbound_numbers = [
+        token
+        for token in _NUMBER_RE.findall(text)
+        if _normalize_number_token(token) not in allowed_numbers
+    ]
+    return bool(unbound_markers or unbound_numbers)
 
 
 def _heading_gate_issues(
@@ -1266,13 +1361,18 @@ def _heading_gate_issues(
     fact_severity: str | None = None,
 ) -> tuple[QualityIssue, ...]:
     subjects = _allowed_heading_subjects(answer_spec)
+    allowed_text, allowed_numbers = _heading_fact_corpus(answer_spec)
     issues: list[QualityIssue] = []
     for line in answer.splitlines():
         heading = _heading_line_text(line)
         if heading is None:
             continue
         if _is_disallowed_heading(heading, subjects):
-            fact_like = _heading_requires_fact_binding(heading)
+            fact_like = _heading_requires_fact_binding(
+                heading,
+                allowed_text=allowed_text,
+                allowed_numbers=allowed_numbers,
+            )
             issues.append(
                 QualityIssue(
                     code,
@@ -1294,13 +1394,18 @@ def _drop_disallowed_headings(answer: str, answer_spec: AnswerSpec | None) -> st
         if answer_spec is not None
         else frozenset()
     )
+    allowed_text, allowed_numbers = _heading_fact_corpus(answer_spec)
     kept: list[str] = []
     for line in answer.splitlines():
         heading = _heading_line_text(line)
         if (
             heading is not None
             and _is_disallowed_heading(heading, subjects)
-            and _heading_requires_fact_binding(heading)
+            and _heading_requires_fact_binding(
+                heading,
+                allowed_text=allowed_text,
+                allowed_numbers=allowed_numbers,
+            )
         ):
             continue
         kept.append(line)
@@ -2967,7 +3072,7 @@ def validate_grounded_composer_answer(
             {
                 company
                 for company in _COMPANY_RE.findall(sentence.text)
-                if company not in allowed_text
+                if not _company_is_known(company, allowed_text)
             }
         )
         if new_companies:
@@ -3103,6 +3208,7 @@ def repair_grounded_composer_answer(
     }
     rejected = set(rejected_sentence_indexes)
     heading_subjects = _allowed_heading_subjects(answer_spec)
+    heading_text_corpus, heading_numbers = _heading_fact_corpus(answer_spec)
     repaired_lines: list[str] = []
     sentence_index = 0
     # 上一句正文是否被丢弃。丢句会让下一句的「反之/但/因此」失去前件，正文读起来
@@ -3116,7 +3222,11 @@ def repair_grounded_composer_answer(
             if (
                 heading is not None
                 and _is_disallowed_heading(heading, heading_subjects)
-                and _heading_requires_fact_binding(heading)
+                and _heading_requires_fact_binding(
+                    heading,
+                    allowed_text=heading_text_corpus,
+                    allowed_numbers=heading_numbers,
+                )
             ):
                 continue
             repaired_lines.append(raw_line)

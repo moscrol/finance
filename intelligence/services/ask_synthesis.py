@@ -1332,12 +1332,18 @@ def ensure_forecast_scenarios_visible(result: AskResult) -> None:
             continue
         refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
         lines.append(f"{claim.text.strip()}{refs}")
-    if lines:
-        result.synthesis = (
-            result.synthesis.rstrip()
-            + "\n\n## 基准判断与条件情景\n"
-            + "\n".join(lines)
-        )
+    if not lines:
+        return
+    block = "## 基准判断与条件情景\n" + "\n".join(lines)
+    body = result.synthesis.rstrip()
+    # 「（非投资建议）」是收尾声明，必须留在最后一行；补的分支插在它前面，
+    # 否则正文读起来是「…（非投资建议）」之后又冒出两段判断。
+    disclaimer = "（非投资建议）"
+    if body.endswith(disclaimer):
+        head = body[: -len(disclaimer)].rstrip()
+        result.synthesis = f"{head}\n\n{block}\n\n{disclaimer}"
+        return
+    result.synthesis = f"{body}\n\n{block}"
 
 
 def _shadow_support_claims(

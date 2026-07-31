@@ -328,3 +328,19 @@ def test_scenario_tree_stays_required_without_a_scenario_branch_slot() -> None:
     merged = _merge_frame_outputs(themed, _task_frame(), ("kb_search",))
 
     assert "scenario_tree" in {item.output_id for item in merged}
+
+
+def test_closure_keeps_the_disclaimer_as_the_last_line() -> None:
+    """补的分支要插在「（非投资建议）」前面，不能落在它后面。"""
+    composed = (
+        "## 反弹情景\n"
+        "若跌停收缩、上涨家数扩大，则技术性修复更可信。\n\n"
+        "（非投资建议）"
+    )
+    result = _forecast_result(composed)
+
+    ask_synthesis.ensure_forecast_scenarios_visible(result)
+
+    assert result.synthesis.rstrip().endswith("（非投资建议）")
+    assert "失效条件" in result.synthesis
+    assert result.synthesis.index("失效条件") < result.synthesis.index("（非投资建议）")
