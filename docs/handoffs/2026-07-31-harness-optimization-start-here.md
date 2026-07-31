@@ -22,7 +22,7 @@ FINANCE_WS=/Users/a77/finance-workspace-private $PY -m pytest -q -p no:randomly
 $PY -m pytest -q -p no:randomly
 ```
 
-基线：**3,808 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
+基线：**3,824 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
 `test_userspace` ×3）。ruff 在 worktree 根跑 `ruff check .` 是 **165 个 error**，
 全部既有（我 `git stash` 对比过 HEAD，数字一模一样）。
 > ⚠️ 上一版 handoff 写的「31 个」对不上，别拿它当基线——看到 165 不是你弄坏的。
@@ -134,12 +134,22 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
    这个项目里早就有一份同样的实现，别再发明第二套。
    顺带把 `LlmCallLedger` 预算耗尽从 `provider_unavailable` 拆成
    `call_budget_exhausted`（原先对外读起来像「供应商挂了」，其实是我们自己的限额）。
-2. **三层错误漏斗**：`classifyAPIError()` 25 种细分（进遥测）→ `categorize...()` 4 类
-   （给 UI）→ `shouldRetry()` 布尔（给循环）。**诊断细、决策粗，两个关注点解耦。**
-   我们的 `failure_reason` 已经是第一层了，缺的是把它收敛成决策。
-3. **双看门狗**：idle 90s（**中断**流）+ stall 30s（**只记日志不中断**）；`lastEventTime`
-   在第一个 chunk 之后才开始算，避免把 TTFB 误判成卡死。两者解决的是不同问题——
-   「一个事件都没有」vs「有事件但间隔大」。
+2. ~~**三层错误漏斗**~~ ✅ **已做，commit `3a2cb19d`。** 诊断细、决策粗。
+   落地时抓到一个真 bug：产生点 `llm_refine` 写的是「LLM 合成 HTTP {code}」，
+   但分类器只判 `"http" in normalized` 就返回 `provider_http_error`，把
+   400/401/429/500/529 全塌成一类——于是 HTTP 400（我们自己请求构造错了）
+   也走了瞬时故障放行。现在拆成 `provider_rate_limited`（429）/
+   `provider_overloaded`（5xx）/ `provider_request_rejected`（4xx 其余，fail-closed）。
+   > ⚠️ **这条分界线跟 ch06b 的 `shouldRetry` 不一样，别照抄。** 它问「该不该
+   > 重试」（401 该重试，可能是别的进程刷新了 token）；我们问「被审对象是不是
+   > 无辜的」（401 之后每次调用都会失败，放行会从例外变成常态）。
+3. **双看门狗**：idle 90s（**中断**流）+ stall 30s（**只记日志不中断**）。
+   ✅ **日志型那半已做，commit `20ba8caf`**：`llm_stream_telemetry.max_delta_gap_ms`，
+   TTFB 不计入。**故意没设阈值**——ch06b 的 30s 来自 Anthropic 的生产数据，
+   我们单 phase 预算才 31-45 秒，照抄等于永不触发。**下一步是先看这个字段的
+   实测分布，再决定阈值和要不要做中断型那半。**
+   > 注意 CC 的 idle 看门狗自己也还在灰度（要 `CLAUDE_ENABLE_STREAM_WATCHDOG`
+   > 显式打开）——连 Anthropic 都没默认开中断型的那半。
 4. ⚠️ **流转非流式有坑，别照抄。** 真实事故 inc-4258：流式已经开始执行工具、回退到
    非流式重试后**同一个工具执行了两次**。CC 为此加了开关可以禁用整条回退路径。
    我们要做这条，必须先确认回退点之前没有产生过副作用。
