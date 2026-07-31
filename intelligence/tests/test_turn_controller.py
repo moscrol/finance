@@ -1139,3 +1139,86 @@ def test_invalid_llm_payload_safely_falls_back_without_research() -> None:
 
     assert decision.lane == "chat"
     assert decision.needs_retrieval is False
+
+
+def _failing_llm(reason: str):
+    def _complete(_messages: list[dict[str, str]]):
+        return None, None, reason
+
+    return _complete
+
+
+def test_controller_failure_records_stable_reason_in_decision() -> None:
+    """controller 挂掉时把「为什么挂」留在决策里——此前它被丢进 ``_reason``。"""
+
+    decision = decide_turn(
+        "随便聊聊未来",
+        llm_complete=_failing_llm("LLM 调用 HTTP 429"),
+    )
+
+    assert decision.llm_failure_reason == "provider_rate_limited"
+    assert "429" in decision.llm_failure_detail
+    # trace 拿的是 to_dict()，字段必须真的流到那一层
+    assert decision.to_dict()["llm_failure_reason"] == "provider_rate_limited"
+
+
+def test_controller_exception_is_no_longer_swallowed_silently() -> None:
+    """裸 except 曾经让异常零输出；枚举可能认不出，但原文必须留下类型。"""
+
+    def _raising(_messages: list[dict[str, str]]):
+        raise TimeoutError("provider gone")
+
+    decision = decide_turn("随便聊聊未来", llm_complete=_raising)
+
+    assert decision.llm_failure_reason  # 至少给出一个可聚合的枚举
+    assert "TimeoutError" in decision.llm_failure_detail
+
+
+def test_unparsable_controller_output_is_not_labelled_provider_outage() -> None:
+    """provider 回话了但我们没读懂，跟 provider 挂了是两回事，不能混成一类。"""
+
+    decision = decide_turn(
+        "随便聊聊未来",
+        llm_complete=lambda _messages: ('{"lane":"research"}', object(), ""),
+    )
+
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.llm_failure_detail == ""
+
+
+def test_successful_controller_turn_records_no_failure() -> None:
+    """成功时两个字段必须留空，否则 trace 里会出现假的故障率。"""
+
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "subject": None,
+            "timeframe": None,
+            "confidence": 0.9,
+            "reason": "闲聊",
+        },
+        ensure_ascii=False,
+    )
+    called: list[int] = []
+
+    def _complete(_messages: list[dict[str, str]]):
+        called.append(1)
+        return content, object(), ""
+
+    decision = decide_turn("随便聊聊未来", llm_complete=_complete)
+
+    assert called, "这条断言只有在真调了 LLM 时才有意义"
+    assert decision.llm_failure_reason == ""
+    assert decision.llm_failure_detail == ""
+
+
+def test_deterministic_route_records_no_failure() -> None:
+    """确定性分支压根没调 LLM，空字段就是「没调过」的信号。"""
+
+    decision = decide_turn(
+        "你好",
+        llm_complete=lambda _messages: pytest.fail("确定性分支不该调 LLM"),
+    )
+
+    assert decision.llm_failure_reason == ""
+    assert decision.llm_failure_detail == ""

@@ -1838,37 +1838,6 @@ def synthesize_shadow_grounded_answer(
     return result
 
 
-def _stable_llm_fallback_reason(reason: str) -> str:
-    normalized = str(reason or "").casefold()
-    if "未配置" in normalized:
-        return "provider_unavailable"
-    # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
-    # provider_unavailable，跟「没配 key」混成一类——但两者的处置完全相反：
-    # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
-    if "预算耗尽" in normalized:
-        return "call_budget_exhausted"
-    if "截止时间" in normalized or "超时" in normalized:
-        return "timeout"
-    if "输出超长" in normalized or "too long" in normalized:
-        return "output_too_long"
-    if "截断" in normalized or "length" in normalized:
-        return "truncated_response"
-    if "未正常停止" in normalized or "stalled" in normalized:
-        return "provider_stalled"
-    # HTTP 按状态码分类，不要塌成一类。产生点（``llm_refine`` 的
-    # ``LLM 合成 HTTP {code}``）本来就知道是 400 还是 529，而这两者的处置相反：
-    # 429/5xx 是「那边出了事」，被审对象无辜；4xx 其余是「我们这次请求本身有问题」，
-    # 重试和放行都不对。塌成一类的后果是 HTTP 400 也会走瞬时故障放行。
-    http_code = re.search(r"http\s*(\d{3})", normalized)
-    if http_code is not None:
-        code = int(http_code.group(1))
-        if code == 429:
-            return "provider_rate_limited"
-        if code >= 500:
-            return "provider_overloaded"
-        return "provider_request_rejected"
-    if "http" in normalized:
-        return "provider_http_error"
-    if "空内容" in normalized:
-        return "empty_response"
-    return "provider_unavailable"
+# 分类器已下沉到 llm_refine——它解析的字符串就是那边产出的，放在一起改产出
+# 的人才看得见解析规则。此处保留旧名，ask.py 和 judge 测试按这个名字引用。
+_stable_llm_fallback_reason = llm_refine.stable_llm_fallback_reason

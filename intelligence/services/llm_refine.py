@@ -214,6 +214,54 @@ def _provider_failure_reason(
     return provider, f"所有已配置 LLM provider 均失败（{summary}）"
 
 
+def stable_llm_fallback_reason(reason: str) -> str:
+    """把本模块产出的降级 reason 压成稳定枚举，供 trace 聚合与策略判定。
+
+    住在这里而不是调用方，是因为它解析的就是本模块自己写出的字符串——两者分开
+    放的代价已经付过一次：``complete()`` 用的是「LLM 调用失败（XxxError）」，
+    ``synthesize_messages()`` 用的是「LLM 合成超过共享截止时间」，改产出串的人
+    看不到解析器，于是前者的超时至今被归进 ``provider_unavailable``。
+
+    已知未覆盖：``LLM 调用失败（TimeoutError）`` / ``LLM 预算不足`` 都会落进
+    ``provider_unavailable``。**不要顺手补规则**——本函数同时是 judge 的
+    fail-closed 闸门（``_TRANSIENT_JUDGE_REASONS``），多认一个瞬时原因就等于
+    放宽一次严格层。要改先补 judge 侧的测试。
+    """
+    normalized = str(reason or "").casefold()
+    if "未配置" in normalized:
+        return "provider_unavailable"
+    # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
+    # provider_unavailable，跟「没配 key」混成一类——但两者的处置完全相反：
+    # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
+    if "预算耗尽" in normalized:
+        return "call_budget_exhausted"
+    if "截止时间" in normalized or "超时" in normalized:
+        return "timeout"
+    if "输出超长" in normalized or "too long" in normalized:
+        return "output_too_long"
+    if "截断" in normalized or "length" in normalized:
+        return "truncated_response"
+    if "未正常停止" in normalized or "stalled" in normalized:
+        return "provider_stalled"
+    # HTTP 按状态码分类，不要塌成一类。产生点（``LLM 合成 HTTP {code}`` /
+    # ``LLM 调用 HTTP {code}``）本来就知道是 400 还是 529，而这两者的处置相反：
+    # 429/5xx 是「那边出了事」，被审对象无辜；4xx 其余是「我们这次请求本身有问题」，
+    # 重试和放行都不对。塌成一类的后果是 HTTP 400 也会走瞬时故障放行。
+    http_code = re.search(r"http\s*(\d{3})", normalized)
+    if http_code is not None:
+        code = int(http_code.group(1))
+        if code == 429:
+            return "provider_rate_limited"
+        if code >= 500:
+            return "provider_overloaded"
+        return "provider_request_rejected"
+    if "http" in normalized:
+        return "provider_http_error"
+    if "空内容" in normalized:
+        return "empty_response"
+    return "provider_unavailable"
+
+
 @contextmanager
 def provider_override(provider: LLMProvider) -> Iterator[None]:
     token = _PROVIDER_OVERRIDE.set(provider)
