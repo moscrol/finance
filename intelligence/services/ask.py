@@ -3052,10 +3052,25 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         and exposure_total > exposure_shown
         and not is_market_forecast
     ):
+        # 取舍口径必须跟这一轮**实际走的路径**一致。选择器跑通了却说「按暴露强度
+        # 取前 N 家、同档按名称排序」，就是留证在说假话——比不留证更糟。
+        selector = exposures.get("selector") or {}
+        if selector.get("mode") == "llm":
+            backfilled = int(selector.get("backfilled") or 0)
+            how = (
+                f"本轮由模型从 {selector.get('candidate_count') or exposure_total} 家候选中"
+                f"按问题意图挑出 {int(selector.get('llm_selected') or 0)} 家"
+                + (f"、另按暴露强度补齐 {backfilled} 家" if backfilled else "")
+            )
+            tail = "要完整名单请指定公司或收窄题材"
+        else:
+            how = f"本轮按暴露强度取前 {exposure_shown} 家"
+            tail = (
+                "同强度同置信的公司之间按名称排序取舍，要完整名单请指定公司或收窄题材"
+            )
         gap_lines.append(
-            f"图谱共匹配 {exposure_total} 家公司，本轮按暴露强度取前 {exposure_shown} 家写入正文；"
-            f"其余 {exposure_total - exposure_shown} 家未展示，不代表不存在——"
-            "同强度同置信的公司之间目前按名称排序取舍，要完整名单请指定公司或收窄题材"
+            f"图谱共匹配 {exposure_total} 家公司，{how}写入正文；"
+            f"其余 {exposure_total - exposure_shown} 家未展示，不代表不存在——{tail}"
         )
     if tiers["peripheral"] and not is_market_forecast:
         gap_lines.append(

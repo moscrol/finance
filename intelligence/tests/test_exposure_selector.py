@@ -204,6 +204,16 @@ def test_selector_is_actually_wired_and_its_verdict_reaches_the_trace(
     assert selector.get("llm_selected") == 2
     assert selector.get("backfilled") == 10
 
+    # 留证文案必须跟实际走的路径一致。选择器跑通了还说「按暴露强度取前 N 家、
+    # 同档按名称排序」，就是留证在说假话——比不留证更糟。
+    gap_lines = result.sections.get("分歧反证") or []
+    disclosure = [line for line in gap_lines if "图谱共匹配" in line]
+    assert disclosure, f"截断留证不见了：{gap_lines}"
+    assert "按问题意图" in disclosure[0], disclosure[0]
+    assert "按名称排序" not in disclosure[0], (
+        f"选择器跑了却还在说按名称排序：{disclosure[0]}"
+    )
+
 
 def test_candidate_catalog_carries_the_signal_the_model_needs(monkeypatch) -> None:
     """prompt 里必须带上强度/置信/线索，否则模型只看得到一串公司名。
