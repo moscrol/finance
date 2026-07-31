@@ -879,6 +879,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     provider_connect_ms: int | None = None
     first_token_ms: int | None = None
     last_token_ms: int | None = None
+    # 相邻 delta 的最大间隔（TTFB 不计入——首 token 慢是模型在想，不是卡住）。
+    max_gap_ms: int = 0
     stream_elapsed_ms: int | None = None
     quality_gate_ms: int | None = None
     provider_finish_reason: str | None = None
@@ -893,10 +895,22 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             )
 
     def capture(delta: str) -> None:
-        nonlocal first_token_ms, last_token_ms
+        nonlocal first_token_ms, last_token_ms, max_gap_ms
         if options.stream_cancel_check is not None and options.stream_cancel_check():
             raise llm_refine.LLMStreamCancelled()
         elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
+        # 相邻内容 delta 之间的最大间隔。ch06b 把这个叫 stall 检测，与 idle
+        # 看门狗解决的是不同问题——idle 是「一个事件都没有，连接可能死了」，
+        # stall 是「有事件但间隔大，连接活着但那边很慢」。判据挂在
+        # last_token_ms 上而不是 first_token_ms：没有前一个 delta 就没有「间隔」
+        # 可言，首 token 慢是模型在想，不是卡住（ch06b 明确点名的坑）。
+        #
+        # 这里**故意不设阈值**：ch06b 的 30s 来自 Anthropic 的生产数据，而我们
+        # 单个 phase 的预算才 31-45 秒（shadow_grounded_timeout 默认 90，
+        # composer 占 0.5、judge 占 0.35），照抄 30s 基本不会触发。先把实测
+        # 分布记下来，有数据了再定阈值和是否要中断。
+        if last_token_ms is not None:
+            max_gap_ms = max(max_gap_ms, elapsed_ms - last_token_ms)
         if first_token_ms is None:
             first_token_ms = elapsed_ms
         last_token_ms = elapsed_ms
@@ -951,6 +965,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             "provider_connect_ms": provider_connect_ms,
             "first_token_ms": first_token_ms,
             "last_token_ms": last_token_ms,
+            "max_delta_gap_ms": max_gap_ms,
             "stream_elapsed_ms": stream_elapsed_ms,
             "quality_gate_ms": quality_gate_ms,
             "total_synthesis_ms": elapsed_ms,
