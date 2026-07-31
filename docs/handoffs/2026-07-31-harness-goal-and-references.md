@@ -8,9 +8,9 @@
 >
 > **分段 handoff（按时间倒序，先看最新的那份「当前状态」）：**
 > - `2026-08-01-exposure-selection-and-sealed-fixture-risk.md` ← **最新**。
->   暴露取舍治理（待办 C 已落地并上线）、GitHub 分支已推、`.finance-runtime`
->   清到 17G；**新增高优先级待办 H：密封夹具因 KB commit `9053b0c4` 不存在而
->   不可精确重建，阻塞在途的 App Server Ceiling 实验。**
+>   暴露取舍治理已落地并上线、GitHub 分支已推、`.finance-runtime`
+>   清到 17G（余下 11G 决定保留）；**待办 H 已查证不成立**；**新增待办 K：夜跑
+>   拆分后 18:30 sync 失败会丢当晚资金流，阻塞 `origin/main` 推送。**
 > - `2026-07-31b-cutover-and-controller-observability.md` —— 首次蓝绿切换、
 >   controller 降级留证（待办 A/D）。
 
@@ -101,6 +101,11 @@ $PY -m pytest -q -p no:randomly
 **基线：3,875 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
 `test_userspace` ×3）。ruff 在 worktree 根跑 `ruff check .` 是 **165 个 error**，
 全部既有（`git stash` 对比过 HEAD，数字一模一样）。
+
+> ⚠️ passed 这个数会随新增测试往上走，**别拿它当固定基线**。2026-08-01 已是
+> **3,896 passed**（`ruff` 仍是 165，11 条失败仍是同一批同名）。
+> 真正的判据是：**失败条目的名字必须还是 `test_subconscious` + `test_userspace`
+> 那两组**，出现别的名字才是真回归。
 
 > ⚠️ 看到 **12 failed** 先重跑一次——看板 #14 的 flaky episode-citations test。
 > 看到 **12 以上**大概率是真回归，先看是哪一条再动手。
@@ -323,15 +328,24 @@ ch06b 记录了真实事故 **inc-4258**：流式已经开始执行工具、回�
   的夹具构建尝试；worktree 注册 132 → 73）。**剩下 11G 是 App Server Ceiling
   的密封夹具，属审计证据，需用户决定**——且见新增待办 H
 
-### H. 密封夹具不可精确重建 —— 🔴 新增，最高优先级
+### ~~H. 密封夹具不可精确重建~~ —— ✅ 已查证不成立（2026-08-01）
 
-`.finance-runtime/app-server-ceiling` 的密封夹具依赖 KB 代码版本 `9053b0c4`，
-该 commit 在 `knowledge-base-private` 和 `finance-workspace-private` **都不存在**。
-finance DuckDB 的 PIT 部分能重建（主库 append-only，7-24 数据完好），
-Wiki 导出 + Hybrid 索引不能。当前密封态 `b0edcbcc07b05ac0` 一旦丢失，
-在途的 App Server Ceiling 实验就无法在原口径上继续。
+一度以为 KB 代码版本 `9053b0c4` 丢了。**实际一直都在**：隔离克隆
+`/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness`
+（分支 `fix/manifest-freshness-cli`），路径就写在夹具自己的
+`fixture.manifest.json` 的 `input.kb_code_root` 里。三个组成部分全部可重建。
+已把该 commit 归档进主 KB 仓 `refs/archive/kb-phase-c-freshness-9053b0c4`。
+`.finance-runtime` 那 11G 决定**全部保留**（磁盘空闲 161G，删除不可逆）。
+**别重做这个排查**，详见 `2026-08-01-…-sealed-fixture-risk.md` §5。
 
-详情与处置建议见 `2026-08-01-exposure-selection-and-sealed-fixture-risk.md` §5。
+### K. 夜跑拆分后 18:30 sync 失败会丢当晚资金流 —— 🔴 新增，阻塞 origin/main 推送
+
+合并数据仓 main 时被 `test_nightly_script_attempts_l2_before_sync_failure_exit`
+抓出来的：夜跑拆成 `sync@18:30` + `finalize@20:40` 后，sync 失败时
+`sync` 段直接退出、`finalize` 段被守卫拦在 `run_l2_branch` 之前，
+**当晚资金流整晚不会被算**——而这条不变量的原意正是「避免复盘故障截断资金流」
+（`all` 手动补跑那条路仍保住了）。属数据管线设计取舍，需用户定。
+详见 `2026-08-01-…-sealed-fixture-risk.md` 待办 K。
 
 ---
 

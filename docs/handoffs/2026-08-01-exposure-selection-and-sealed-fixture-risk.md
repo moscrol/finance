@@ -139,6 +139,26 @@ degrade_count  : 1（与切换前持平）
 
 **主分支并法仍未决**，但没有任何东西依赖它。
 
+### ③ 主分支并法：方案已定并验证，推送卡在待办 K
+
+**并法**：先把数据仓 main 的 6 个 commit 合进本线，再快进 `origin/main`。
+这样 `901dcd7b` 成为 `origin/main` 的祖先，**数据仓下次 pull 是快进而不是 diverged**
+——恰好消解了原来的阻塞本身。不合的话 `origin/main` 只能永远停在 635 个 commit 之前，
+而数据仓还在继续提交、分叉只会变大。
+
+**已执行**：merge 落在 `78949ea6`（本分支），自动合并零冲突。合入面只有 3 个文件
+（market-deviation 的 MA5 兜底、夜跑拆 sync/finalize、对应 SKILL.md），
+与本线的 harness 改动零重叠；唯一交集文件 `skills/daily-full-review/SKILL.md`
+两侧改的是不同段落。
+
+**没执行**：`git push origin <本线>:main`。合并后回归跑出
+**3895 passed / 12 failed**——比基线多一条红：
+`test_nightly_script_attempts_l2_before_sync_failure_exit`（见待办 K）。
+在已知有一条原本绿的测试变红时去做本次会话最不可逆的那一步，是最差的取舍。
+
+**回滚**：merge 只在本地分支上，`git reset --hard 751ef706` 即可撤销；
+`origin/main` 一个字节没动。
+
 ### ② `.finance-runtime`：27G → 17G
 
 - 删了 103 个 `continuous-canary` 快照（7-24 的，8 天前），其中 58 个走
@@ -148,10 +168,14 @@ degrade_count  : 1（与切换前持平）
 
 ---
 
-## 5. ⚠️ 新增风险：密封夹具不可精确重建（本段发现，未解决）
+## 5. 密封夹具：先误判为不可重建，已查证并解决
 
-清理时查明 `.finance-runtime/app-server-ceiling` 的性质，顺带发现一个**阻塞在途实验**
-的问题。这条是本段最重要的遗留。
+> **⚠️ 本节结论已修正一次。** 初稿写「Wiki 导出 + Hybrid 索引不能重建，
+> KB commit `9053b0c4` 不存在」——**那是错的**，错在只在主 KB 仓和 finance 仓里
+> `git cat-file` 找，没读夹具自己的 `fixture.manifest.json`。它的
+> `input.kb_code_root` 直接写着代码在哪。
+> 本会话第三次「信息在系统里但没送到」，这次没送到的是排查的人。
+> 教训：**判断某个东西「丢了」之前，先问它自己的 manifest 记没记来源。**
 
 ### 它是什么
 
@@ -170,26 +194,40 @@ degrade_count  : 1（与切换前持平）
 当前闸门是红的——泄漏检测把「A股」「周度」这类通用词判成泄漏，等一个分类感知的规则。
 **这是暂停的在途工作，不是做完的旧实验。**
 
-### 风险：只能重建一半
+### 三个组成部分的可重建性（已全部查证）
+
+夹具的来源全部记在 `b0edcbcc07b05ac0/fixture.manifest.json` 里，**别靠猜**：
 
 | 组成 | 能否重建 | 依据 |
 |---|---|---|
-| finance DuckDB 的 PIT 部分 | **能** | 主库 append-only，2026-07-24 及之前数据完好（`fact_stock_daily` 194 万行、`fact_sector_daily` 9.5 万行、`fact_market_daily` 385 行）|
-| Wiki cutoff 导出 + Hybrid 索引 | **不能** | WIP handoff 第 5 步钉死用 KB 代码版本 `9053b0c4`，而该 commit 在 `knowledge-base-private` 和 `finance-workspace-private` **都不存在**（`git cat-file -t 9053b0c4` → unknown revision）|
+| finance DuckDB 的 PIT 部分 | ✅ | 主库 append-only，2026-07-24 及之前数据完好（`fact_stock_daily` 194 万行、`fact_sector_daily` 9.5 万行、`fact_market_daily` 385 行）|
+| Wiki cutoff 导出 | ✅ | `input.kb_source_revision = 883815c9…`（briefing/0722 的 merge），**是 `origin/main` 的祖先**，不会被 gc |
+| Hybrid 索引 | ✅ | `input.kb_code_revision = 9053b0c4…`，在隔离克隆 `input.kb_code_root = /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness`（分支 `fix/manifest-freshness-cli`，HEAD 就是它）|
 
-**后果**：当前密封的 `b0edcbcc07b05ac0` 一旦丢失，实验没法在原口径上继续；
-换 KB 版本重新密封的话，**之前跑出来的对照结果全部不可比**。
+**冗余度还更高**：每个 component 里都打包了一份 `rag-code-runtime/`（35 个文件），
+即构建这份索引的 RAG 代码本身。就算克隆没了，代码也还在夹具里。
 
-### 建议的处置（未做，需要你定）
+### 已做的加固（可回滚）
 
-1. **先查 `9053b0c4` 到底是什么。** 可能是：(a) 未推送的本地 commit，被 gc 或
-   分支删除回收了；(b) 别的仓的 revision；(c) 记录时写错。
-   查法：`git -C /Users/a77/knowledge-base-private reflog --all | grep 9053b0c4`、
-   翻 `.git/lost-found`、或在 WIP handoff / spec 里找它第一次出现的上下文。
-2. **查不到就在 WIP handoff 里显式降级这条前置**：改成「以现存密封夹具为准，
-   不再声称可从 KB 版本重建」，并把 `b0edcbcc07b05ac0` 标成**不可再生资产**
-   （现在它只是只读，没有任何文档说它不可重建）。
-3. **考虑给它做一份异地备份。** 1.5G，是整个实验唯一的活密封态。
+那个隔离克隆在 `tmp/` 下，随时可能被当临时目录清掉。已把它的 commit 归档进主 KB 仓：
+
+```bash
+git -C /Users/a77/knowledge-base-private fetch \
+  /Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness \
+  fix/manifest-freshness-cli:refs/archive/kb-phase-c-freshness-9053b0c4
+# 回滚：git update-ref -d refs/archive/kb-phase-c-freshness-9053b0c4
+```
+
+现在 `refs/archive/kb-phase-c-freshness-9053b0c4 → 9053b0c4`，不动任何现有分支。
+
+### 保留决定：11G 全部留着，不再删
+
+- **磁盘不紧**：`/System/Volumes/Data` 461G 用了 63%，**空闲 161G**。
+- **删除不可逆，收益是一个不存在的问题。** 最可回滚的操作是不做。
+- 实验**在途**（WIP handoff 还有 9 步，闸门是红的），superseded 的那几个正是
+  「当初为什么换了密封对象」的实物证据，红闸门没解决时最可能被回看。
+- 上一轮删掉的 4 个是**无任何引用**（无密封指向、无评审回执）的构建尝试，
+  那部分才是真冗余；剩下每一个都有指向或回执。
 
 ### 当前 component 清单（清理后）
 
@@ -222,7 +260,29 @@ inode**（不是硬链接），删的是前者，后者被 a2d22cec 自己的 `s
 
 ### 新增
 
-**H. `9053b0c4` 不可重建** —— 见 §5，最高优先级，它阻塞的是一个已投入很多的在途实验。
+**~~H. `9053b0c4` 不可重建~~ —— ✅ 已查证不成立并加固**，见 §5。夹具三个组成部分
+全部可重建；隔离克隆的 commit 已归档进主 KB 仓的 `refs/archive/`。**别重做这个排查。**
+
+**K. 夜跑拆分后，18:30 sync 失败会连带丢当晚资金流** —— 🔴 合并数据仓 main 时
+测试抓出来的，需要你定，**它当前阻塞着 `origin/main` 的推送**。
+
+`tests/test_pipeline_p0.py::test_nightly_script_attempts_l2_before_sync_failure_exit`
+守的不变量是「L2 是独立 DAG 分支，sync 失败也要先试 L2 再退出」——原意是
+**避免复盘故障截断资金流**。数据仓把夜跑拆成两个 job 后：
+
+| phase | sync 失败时 | 不变量 |
+|---|---|---|
+| `all`（手动补跑） | `run_sync` → `run_l2_branch` → 才判 rc | ✅ 保住（注释明写「保留原行为」）|
+| `sync`（18:30 定时） | 直接 `exit rc`，L2 不跑 | ❌ |
+| `finalize`（20:40） | 守卫查 same-day-gate，没过就 `exit`，**在 `run_l2_branch` 之前** | ❌ |
+
+**后果：一次 18:30 sync 失败 → 当晚资金流数据整晚不会被算。** 旧的单 job 设计不会。
+
+两条路都合理，但**这是数据管线的设计取舍，不该由改 harness 的人替你定**：
+- (a) 认可新设计 → 改测试，只对 `all` 断言该不变量，并在 SKILL.md 写明这个代价；
+- (b) 认为资金流必须独立 → 在 `finalize` 的守卫**之前**跑 `run_l2_branch`。
+
+定完这条，`origin/main` 的推送就可以放行（并法已验证可行，见 §4③）。
 
 **I. 选择器的分辨率验证** —— C 已上线但只跑过一个问题。要看的是：
 换成「谁在扩产」「谁受益于降价」这类**不同意图**的问题，选出的 12 家会不会真的不同。
