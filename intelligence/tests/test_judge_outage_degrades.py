@@ -93,6 +93,45 @@ def test_empty_body_is_not_released() -> None:
     assert ask_synthesis._judge_outage_release("   ", _Spec(), "超时") is None
 
 
+class TestHttpStatusIsNotCollapsed:
+    """HTTP 不能塌成一类——429 和 400 的处置相反。
+
+    产生点 ``llm_refine`` 写的是 ``LLM 合成 HTTP {code}``，它本来就知道是哪个码；
+    分类器原先只判 ``"http" in normalized`` 就返回 provider_http_error，
+    于是 **HTTP 400（我们自己请求构造错了）也会被当瞬时故障放行**。
+
+    注意这条分界线跟 ch06b 的 ``shouldRetry`` 不同，因为问的不是同一个问题：
+    它问「该不该重试」（401 该重试，可能是别的进程刷新了 token）；
+    我们问「被审对象是不是无辜的」（401 之后每次都会失败，放行会变成常态）。
+    """
+
+    @pytest.mark.parametrize("code", [429, 500, 502, 503, 529])
+    def test_their_fault_is_releasable(self, code: int) -> None:
+        cls = ask_synthesis._stable_llm_fallback_reason(
+            f"LLM 合成 HTTP {code}，已降级为模板"
+        )
+
+        assert cls in ask_synthesis._TRANSIENT_JUDGE_REASONS
+
+    @pytest.mark.parametrize("code", [400, 401, 403, 404, 413, 422])
+    def test_our_fault_still_fails_closed(self, code: int) -> None:
+        cls = ask_synthesis._stable_llm_fallback_reason(
+            f"LLM 合成 HTTP {code}，已降级为模板"
+        )
+
+        assert cls == "provider_request_rejected"
+        assert cls not in ask_synthesis._TRANSIENT_JUDGE_REASONS
+
+    def test_rate_limit_and_overload_stay_distinguishable(self) -> None:
+        """诊断要细：429 是我们被限速，5xx 是那边过载，遥测得分得开。"""
+        assert (
+            ask_synthesis._stable_llm_fallback_reason("LLM 合成 HTTP 429，已降级为模板")
+            != ask_synthesis._stable_llm_fallback_reason(
+                "LLM 合成 HTTP 529，已降级为模板"
+            )
+        )
+
+
 def test_budget_exhaustion_is_no_longer_mislabelled_as_provider_down() -> None:
     """预算耗尽是我们自己的限额，不是供应商挂了——两者处置相反。"""
     assert (

@@ -1402,10 +1402,16 @@ def _shadow_phase_timeout(
 # 白名单只收「provider 那边出了事」，不收「judge 自己产出有问题」和配置问题——
 # 这跟 episode 侧 `_transient_failure_candidate` 的取舍一致（那里的注释写得很明白：
 # configuration、malformed-output、contract 三类继续走 fail-closed）。
+# 注意 4xx 的取舍跟 ch06b 的 `shouldRetry` 不一样，这是**两个不同的问题**：
+# 它问「这次调用该不该重试」（401 要重试，因为可能是另一个进程刷新了 token）；
+# 我们问「被审对象是不是无辜的」。401/403 意味着后续每次调用都会失败，
+# 放行会从例外变成常态——所以跟配置问题一样 fail-closed。别照抄。
 _TRANSIENT_JUDGE_REASONS = frozenset(
     {
         "timeout",
         "provider_stalled",
+        "provider_rate_limited",
+        "provider_overloaded",
         "provider_http_error",
         "empty_response",
         "call_budget_exhausted",
@@ -1757,6 +1763,18 @@ def _stable_llm_fallback_reason(reason: str) -> str:
         return "truncated_response"
     if "未正常停止" in normalized or "stalled" in normalized:
         return "provider_stalled"
+    # HTTP 按状态码分类，不要塌成一类。产生点（``llm_refine`` 的
+    # ``LLM 合成 HTTP {code}``）本来就知道是 400 还是 529，而这两者的处置相反：
+    # 429/5xx 是「那边出了事」，被审对象无辜；4xx 其余是「我们这次请求本身有问题」，
+    # 重试和放行都不对。塌成一类的后果是 HTTP 400 也会走瞬时故障放行。
+    http_code = re.search(r"http\s*(\d{3})", normalized)
+    if http_code is not None:
+        code = int(http_code.group(1))
+        if code == 429:
+            return "provider_rate_limited"
+        if code >= 500:
+            return "provider_overloaded"
+        return "provider_request_rejected"
     if "http" in normalized:
         return "provider_http_error"
     if "空内容" in normalized:
