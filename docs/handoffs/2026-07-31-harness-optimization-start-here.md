@@ -22,8 +22,10 @@ FINANCE_WS=/Users/a77/finance-workspace-private $PY -m pytest -q -p no:randomly
 $PY -m pytest -q -p no:randomly
 ```
 
-基线：**3,794 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
-`test_userspace` ×3）。ruff 树内 31 个 error 全是既有的。
+基线：**3,808 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
+`test_userspace` ×3）。ruff 在 worktree 根跑 `ruff check .` 是 **165 个 error**，
+全部既有（我 `git stash` 对比过 HEAD，数字一模一样）。
+> ⚠️ 上一版 handoff 写的「31 个」对不上，别拿它当基线——看到 165 不是你弄坏的。
 
 > ⚠️ 见过一次 12 failed / 3793 passed，代码没动重跑就回到 11 / 3794。那是看板 #14
 > 的 flaky episode-citations test，**不是回归**。看到 12 先重跑一次再查。
@@ -123,11 +125,15 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
 
 抄这四条，按顺序：
 
-1. **前台/后台减载。** CC 的 `FOREGROUND_529_RETRY_SOURCES` 是个白名单，**只有用户正在
-   等结果的请求才重试过载**；摘要、标题、建议、**分类器**一律立即放弃。原文注释：
-   「during a capacity cascade each retry is 3-10× gateway amplification, and the user
-   never sees those fail anyway」。→ **我们的 judge 就是分类器**，它挂了应该降级放行，
-   不该重试、更不该罚被审对象。这一条就是 P2 的主体。
+1. ~~**前台/后台减载**~~ ✅ **已做，commit `ee6e2d80`。** CC 的
+   `FOREGROUND_529_RETRY_SOURCES` 白名单**只有用户正在等结果的请求才重试过载**；
+   摘要、标题、建议、**分类器**一律立即放弃。我们的 judge 就是分类器。
+   落地形状：`ask_synthesis._judge_outage_release()` + 新状态
+   `judge_outage_released`（在 `_PROMOTABLE_SHADOW_STATUSES` 里）。
+   **三条约束照抄 episode 侧已有的 `_transient_failure_candidate`**——
+   这个项目里早就有一份同样的实现，别再发明第二套。
+   顺带把 `LlmCallLedger` 预算耗尽从 `provider_unavailable` 拆成
+   `call_budget_exhausted`（原先对外读起来像「供应商挂了」，其实是我们自己的限额）。
 2. **三层错误漏斗**：`classifyAPIError()` 25 种细分（进遥测）→ `categorize...()` 4 类
    （给 UI）→ `shouldRetry()` 布尔（给循环）。**诊断细、决策粗，两个关注点解耦。**
    我们的 `failure_reason` 已经是第一层了，缺的是把它收敛成决策。
@@ -189,10 +195,31 @@ e5d32e80  fix: gap 在它点名的缺陷解决后停止阻塞
 - **别削弱门禁换绿灯。** 本轮所有放宽都在通用层（标题措辞、公司名误报、judge 解析），
   领域层（数字/公司/日期是否有出处）一条没动——同一轮回答里 7 条「增加证据外数字」
   全是真的。判据见 agent 记忆 `harness-layer-split`。
-- **别迁到 Agent SDK 或 Managed Agents。** 前者绑 Claude 模型 + Node/Python 运行时
-  （我们跑 GLM），后者托管部署（我们数据在本机 DuckDB 和 Obsidian vault）。
-  我们在「手写循环 + 自己部署」象限，这个位置是合理的。理由见
+- **别迁到 Agent SDK 或 Managed Agents。** 后者托管部署（我们数据在本机 DuckDB 和
+  Obsidian vault）。我们在「手写循环 + 自己部署」象限，这个位置是合理的。理由见
   `10_knowledge/claude-code-architecture-manual.md`。
+
+  > **「用 OpenAI Agents SDK 做通用层不是更省事吗」——问过，答案是分层看。**
+  > SDK 的重试体系确实比我们强（`agents/retry.py`：`ModelRetryBackoffSettings`
+  > 有 initial_delay/max_delay/multiplier/jitter，还有 `retry_policies.http_status()`、
+  > `RetryDecision`、hard veto）。**但决定性的事实是：**
+  >
+  > ```
+  > judge/composer/brief 在哪？  ask_synthesis.py → llm_refine.py（裸 urlopen）
+  > openai_agents_runtime.py 引用 llm_refine 几次？  0
+  > ```
+  >
+  > 合成层**整个在 agent loop 之外**，换 `AGENT_RUNTIME_BACKEND` 对它零影响，
+  > 而本轮九个 bug 全在合成层。SDK 只能补 agent loop 那一半的韧性。
+  > 结论：`sdk_glm` 留着（1,732 行适配层已在），将来 loop 层要加韧性再转正；
+  > 合成层的韧性必须自己写。app server 同理——FastAPI 本身就是开源框架，
+  > 没有「再换一个」的收益。
+
+- **线上跑的不是 OpenAI 任何东西。** 8792 进程无 `AGENT_RUNTIME_BACKEND`
+  → 默认 `continuous_glm` → `continuous_turn_adapter.py`（import 里零 `agents`）；
+  模型调用是 `urllib.request.urlopen` 打智谱，**连 `openai` python SDK 都没用**。
+  `openai-agents==0.18.3` 装了但只在 `sdk_glm`/`sdk_gpt` 下走；`codex_headless`
+  被 `benchmark_only=True` + `AGENT_RUNTIME_BENCHMARK_ENABLE=1` 双重关着。
 
 ## 7. 参考资料库（遇到难点先检索它）
 
