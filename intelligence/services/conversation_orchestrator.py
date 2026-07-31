@@ -34,6 +34,7 @@ from intelligence.services.ask import (
     answer_query,
     prepare_existing_answer,
     render_conversation_answer,
+    repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
 )
@@ -2705,6 +2706,39 @@ class TurnOrchestrator:
                     "task_fulfillment",
                     result.fulfillment_report,
                 )
+                if fulfillment.status != "complete":
+                    # 先把具体缺口回灌给模型补一轮，再决定是否 fail-closed。
+                    # 官方做法是把拒绝**作为 tool result** 交回模型让它换方法，
+                    # 而不是整轮作废；ch04「分层错误级联」是它的通用形式。
+                    # 补写只用 registry 已有事实、且必须重新过门禁——两条都在
+                    # repair_unfulfilled_answer 内部强制，这里拿不到「跑过修复轮」
+                    # 当放行理由。额外那次调用由本 turn 的 LlmCallLedger 兜底。
+                    repaired = repair_unfulfilled_answer(
+                        question=task_frame.raw_question,
+                        answer_text=answer_text,
+                        answer_spec=result.answer_spec,
+                        verdict=fulfillment,
+                        required_outputs=fulfillment_outputs,
+                        llm_model=self.llm_model,
+                        timeout=llm_refine.DEFAULT_LLM_TIMEOUT,
+                    )
+                    if repaired is not None:
+                        answer_text, fulfillment = repaired
+                        result.answer_status = fulfillment.status
+                        result.fulfillment_report = fulfillment.to_dict()
+                        result.fulfillment_report["task_frame_hash"] = (
+                            task_frame.task_frame_hash
+                        )
+                        result.fulfillment_report["repaired"] = True
+                        report["task_fulfillment"] = result.fulfillment_report
+                        self._trace(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            "task_fulfillment_repair",
+                            "task_fulfillment",
+                            result.fulfillment_report,
+                        )
                 if fulfillment.status != "complete":
                     # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
                     # 渲染，仍可能把答非所问草稿发给用户。切到现有

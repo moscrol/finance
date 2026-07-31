@@ -1420,6 +1420,48 @@ def claim_binding_revision_user_content(
     )
 
 
+def grounded_composer_system_prompt() -> str:
+    """Grounded Composer 的 system 段，供门禁修复轮复用同一套写作约束。"""
+
+    return _GROUNDED_COMPOSER_SYSTEM_PROMPT
+
+
+def fulfillment_revision_user_content(
+    missing: tuple[tuple[str, str], ...],
+    registry_block: str,
+    answer_text: str,
+) -> str:
+    """把「哪几个必需输出没覆盖、为什么没绑上」回灌给模型做一轮定向补写。
+
+    官方 Claude Code 对被拒的工具调用不是直接终止，而是**把拒绝消息作为
+    tool result 交回模型**，让它换方法或说明无法继续（`PermissionDenied`
+    hook 的官方用例原文就是「告诉模型它可以重试」）。我们这里对应的动作是：
+    门禁判缺时先把具体缺口交回去补一轮，而不是直接把整份答案换成缺口模板。
+
+    ``missing`` 的第二项是 ``FulfillmentItem.gap``，它已经写清了四种「为什么没
+    绑上」（registry 里没有对应 claim / 候选 N 条但正文没出现它们的文本 /
+    候选 N 条且正文写到了但证据没绑上 / 已绑定但正文缺少该输出的措辞标记）——
+    这四句是诊断，不是骂人，模型拿它能定位到具体该改哪里。
+
+    来源约束逐字复用 ``_required_outputs_block()`` 里那句：只说「必须写到」而
+    不说来源约束，等于在鼓励为了过门禁而编。
+    """
+
+    items = "\n".join(f"- {output_id}：{gap}" for output_id, gap in missing)
+    # 长输入在前、指令在最后（与三个 composer builder 一致）。
+    return (
+        f"{_registry_document(registry_block)}"
+        "<previous_answer>\n"
+        f"{answer_text}\n"
+        "</previous_answer>\n\n"
+        "上一版没有覆盖全部必需输出。保留已经写好的部分和原有措辞，"
+        "只针对下面点名的输出补写，不要重写整篇答案。\n"
+        "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"
+        "写成明确的缺口或边界，不要为了凑齐而编。\n"
+        f"未覆盖的输出及原因：\n{items}"
+    )
+
+
 def synthesize(
     query: str,
     theme: str,

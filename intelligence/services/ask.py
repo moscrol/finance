@@ -158,6 +158,7 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     ensure_forecast_scenarios_visible as _ensure_forecast_scenarios_visible,
     promote_daily_agent_grounded_answer,
     promote_grounded_answer,
+    repair_unfulfilled_answer,
     synthesize_shadow_grounded_answer,
     _build_answer_spec_for_result,
     _build_base_answer_spec_from_sections,

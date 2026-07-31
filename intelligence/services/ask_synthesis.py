@@ -1395,6 +1395,83 @@ def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
     return deadline
 
 
+def repair_unfulfilled_answer(
+    *,
+    question: str,
+    answer_text: str,
+    answer_spec: answer_model.AnswerSpec,
+    verdict,  # task_fulfillment.FulfillmentVerdict（避免模块级循环导入）
+    required_outputs,  # tuple[RequiredOutput, ...]
+    llm_model: str | None = None,
+    timeout: int,
+) -> tuple[str, object] | None:
+    """门禁判缺时补写一轮；仍不过则返回 None，由调用方 fail-closed。
+
+    这是官方 Claude Code「拒绝作为反馈回灌」的对应物：工具被拒时模型收到的是
+    一条拒绝消息**作为 tool result**，然后换方法或说明无法继续，而不是整轮作废。
+    ch04「分层错误级联」给了它的通用形式——Bash 出错只取消同级 Bash、不动
+    Read/Grep，为的是避开「完全隔离（错误被忽视）」和「全局中止（一个小错误
+    杀死整个会话）」两个极端。我们原先站在「全局中止」这一极。
+
+    三条约束都在这个函数里，不依赖调用方守规矩：
+
+    1. **只补一轮**——这里没有循环。额外那次调用由 turn 级 ``LlmCallLedger``
+       兜底（``conversation_orchestrator`` 的 ``call_ledger_scope``），预算耗尽
+       时 ``synthesize_messages`` 直接拒发，修复轮自动不发生，退回今天的行为。
+       所以**不需要第二个计数器**。
+    2. **补写只能用 registry 里已有的事实**——见
+       ``fulfillment_revision_user_content`` 的来源约束。
+    3. **补写后必须重新过门禁**——重判在下面，只有新判定为 complete 才返回。
+       这一条做成结构性的：调用方拿不到「跑过修复轮」这个理由来放行。
+    """
+
+    from intelligence.services import task_fulfillment
+
+    missing = tuple(
+        (item.output_id, item.gap or "未覆盖")
+        for item in verdict.missing_required
+    )
+    if not missing:
+        return None
+    registry_block = answer_model.grounded_claim_registry_block(
+        answer_spec,
+        query=question,
+        max_chars=12_000,
+    )
+    if not registry_block.strip():
+        return None
+    revised, _reason = llm_refine.synthesize_messages(
+        [
+            {
+                "role": "system",
+                "content": llm_refine.grounded_composer_system_prompt(),
+            },
+            {
+                "role": "user",
+                "content": llm_refine.fulfillment_revision_user_content(
+                    missing,
+                    registry_block,
+                    answer_text,
+                ),
+            },
+        ],
+        model_override=llm_model,
+        timeout=timeout,
+        temperature=0.0,
+    )
+    if revised is None or not revised.answer.strip():
+        return None
+    recheck = task_fulfillment.evaluate_answer_spec_fulfillment(
+        question=question,
+        required_outputs=required_outputs,
+        answer_text=revised.answer,
+        answer_spec=answer_spec,
+    )
+    if recheck.status != "complete":
+        return None
+    return revised.answer, recheck
+
+
 def _shadow_phase_timeout(
     deadline: llm_refine.Deadline,
     configured: int,
