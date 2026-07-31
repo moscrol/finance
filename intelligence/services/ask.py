@@ -3043,6 +3043,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         "matched": exposure_total,
         "shown": exposure_shown,
         "truncated": bool(exposures.get("truncated")),
+        # 这 12 家是模型按问题意图挑的还是确定性排序切的、以及回退时是为什么。
+        # 没有这一项就只知道「截断了」，不知道「按什么截的」。
+        "selector": exposures.get("selector") or None,
     }
     if (
         exposures.get("truncated")
