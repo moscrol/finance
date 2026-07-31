@@ -1174,6 +1174,13 @@ def _grounded_body_line_count(text: str) -> int:
     )
 
 
+# 可以落到用户面前的影子状态。``judge_outage_released`` 是 judge 因瞬时故障缺席时
+# 的降级放行——正文已过确定性层且自带警示，见 ``_judge_outage_release``。
+_PROMOTABLE_SHADOW_STATUSES = frozenset(
+    {"accepted", "repaired", "judge_outage_released"}
+)
+
+
 def promote_grounded_answer(
     options: AskOptions,
     result: AskResult,
@@ -1216,13 +1223,13 @@ def promote_grounded_answer(
     )
     if (
         shadow is None
-        or shadow.status not in {"accepted", "repaired"}
+        or shadow.status not in _PROMOTABLE_SHADOW_STATUSES
         or _grounded_body_line_count(presented) < 2
     ):
         if shadow is not None:
             reason = shadow.failure_reason or (
                 "insufficient_grounded_body"
-                if shadow.status in {"accepted", "repaired"}
+                if shadow.status in _PROMOTABLE_SHADOW_STATUSES
                 else shadow.status
             )
             label = "研究雷达" if is_daily_agent else "Grounded Presenter"
@@ -1384,6 +1391,54 @@ def _shadow_phase_timeout(
     if remaining <= 0:
         return 1
     return max(1, min(int(configured), int(max(1.0, remaining * share))))
+
+
+# judge 是「后台请求」——用户不在等它的结果，它挂了不代表被审对象有问题。
+# 官方 Claude Code 对这类请求的处理是减载而不是重试（`FOREGROUND_529_RETRY_SOURCES`
+# 只放前台请求，摘要/标题/分类器一律立即放弃），理由是过载时每次重试对网关是 3-10 倍
+# 放大，而「用户根本看不到这些失败」。我们这里的对应动作是：judge 因瞬时故障没能给出
+# 判定时，放行已经通过确定性绑定校验的候选正文，而不是把整份答案换成缺口模板。
+#
+# 白名单只收「provider 那边出了事」，不收「judge 自己产出有问题」和配置问题——
+# 这跟 episode 侧 `_transient_failure_candidate` 的取舍一致（那里的注释写得很明白：
+# configuration、malformed-output、contract 三类继续走 fail-closed）。
+_TRANSIENT_JUDGE_REASONS = frozenset(
+    {
+        "timeout",
+        "provider_stalled",
+        "provider_http_error",
+        "empty_response",
+        "call_budget_exhausted",
+    }
+)
+
+_JUDGE_OUTAGE_NOTICE = (
+    "（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）"
+)
+
+
+def _judge_outage_release(
+    candidate_answer: str,
+    answer_spec: answer_model.AnswerSpec,
+    judge_reason: str,
+) -> str | None:
+    """judge 因瞬时故障缺席时，把候选正文带警示放行；否则返回 None。
+
+    三条约束照抄 episode 侧的 ``_transient_failure_candidate``：
+    只放行瞬时故障、正文必须已经过确定性层、放行后的文本自带警示。
+    这里**不放宽任何领域判据**——数字/公司/日期是否有出处仍由确定性层把关，
+    跳过的只是语义复核这一道通用层的第二意见。
+    """
+
+    if _stable_llm_fallback_reason(judge_reason) not in _TRANSIENT_JUDGE_REASONS:
+        return None
+    presented = answer_model.present_grounded_composer_answer(
+        candidate_answer,
+        answer_spec,
+    )
+    if not _strip_empty_grounded_sections(presented).strip():
+        return None
+    return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
 
 
 def synthesize_shadow_grounded_answer(
@@ -1571,14 +1626,25 @@ def synthesize_shadow_grounded_answer(
             max_chars=8000 * token_budget_scale,
         )
     if judged is None:
+        released = _judge_outage_release(
+            candidate_answer,
+            result.answer_spec,
+            judge_reason,
+        )
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
-                status="judge_unavailable",
+                # 状态不冒充 accepted：这份答案没被语义复核过，遥测要能分得出来。
+                status=(
+                    "judge_outage_released"
+                    if released is not None
+                    else "judge_unavailable"
+                ),
                 decision_brief=decision_brief,
                 raw_answer=raw_answer,
                 repaired_answer=(
                     candidate_answer if repaired else None
                 ),
+                presented_answer=released,
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
                 model=composed.model,
@@ -1678,6 +1744,11 @@ def _stable_llm_fallback_reason(reason: str) -> str:
     normalized = str(reason or "").casefold()
     if "未配置" in normalized:
         return "provider_unavailable"
+    # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
+    # provider_unavailable，跟「没配 key」混成一类——但两者的处置完全相反：
+    # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
+    if "预算耗尽" in normalized:
+        return "call_budget_exhausted"
     if "截止时间" in normalized or "超时" in normalized:
         return "timeout"
     if "输出超长" in normalized or "too long" in normalized:
