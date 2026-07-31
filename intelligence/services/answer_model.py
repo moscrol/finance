@@ -2569,6 +2569,31 @@ def grounded_claim_registry_block(
             continue
         selected.append(line)
         used_chars += cost
+    # 告知而非隐藏。原先超预算的行被静默丢弃，模型无从知道 registry 还有别的
+    # claim——而门禁 task_fulfillment 看的是 answer_spec 全集，两边不对称。
+    # 马书 ch28「不足四」讲的正是这个：CC 大结果截断时会写明「Full output saved
+    # to…」，作者同时指出**告知 ≠ 模型会去读**，但我们连告知都没有。
+    # 实测 10 个 0731 run 里 2 个超窗（最大 71 条入窗 54、丢 17 条），两个 run
+    # 都仍判 complete，所以这是潜在不对称而不是已发生的故障——补一行告知是零
+    # 成本的那一半，上 LLM 选择不划算。
+    dropped = len(rows) - len(selected)
+    if dropped > 0:
+        note = (
+            f'{{"note":"另有 {dropped} 条 claim 因窗口预算未纳入；'
+            f'不要臆测它们的内容，需要时按缺口处理"}}'
+        )
+        # 告知行本身也要进预算，否则一边写预算一边超预算。挤不下就再让出
+        # 一条最低分的 claim——但**绝不动最后一条**：证据才是目的，告知是元数据，
+        # 预算紧到二选一时留证据。放不下就整条不写，退回今天的静默截断。
+        while len(selected) > 1 and used_chars + len(note) + 1 > max_chars:
+            used_chars -= len(selected.pop()) + 1
+            dropped += 1
+            note = (
+                f'{{"note":"另有 {dropped} 条 claim 因窗口预算未纳入；'
+                f'不要臆测它们的内容，需要时按缺口处理"}}'
+            )
+        if used_chars + len(note) + (1 if selected else 0) <= max_chars:
+            selected.append(note)
     return "\n".join(selected)
 
 
