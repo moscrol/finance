@@ -22,7 +22,7 @@ FINANCE_WS=/Users/a77/finance-workspace-private $PY -m pytest -q -p no:randomly
 $PY -m pytest -q -p no:randomly
 ```
 
-基线：**3,824 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
+基线：**3,861 passed / 3 skipped / 11 个既有环境失败**（`test_subconscious` ×8、
 `test_userspace` ×3）。ruff 在 worktree 根跑 `ruff check .` 是 **165 个 error**，
 全部既有（我 `git stash` 对比过 HEAD，数字一模一样）。
 > ⚠️ 上一版 handoff 写的「31 个」对不上，别拿它当基线——看到 165 不是你弄坏的。
@@ -57,7 +57,25 @@ ps eww <pid> | tr ' ' '\n' | grep ^PYTHONPATH=  # 必须是你的 worktree
 `trace.jsonl`，**`run.json` 里 `query` 是 `None`**，问题原文得从 `stream.jsonl` 找。
 另外 `AnswerSpec` **没有 `from_dict`**，`answer_spec.json` 只能当普通 dict 读。
 
-## 3. 接手这个：P1「拒绝可恢复」
+## 3. ~~接手这个：P1「拒绝可恢复」~~ ✅ 已做，commit `e67c5cad`
+
+落地形状：`ask_synthesis.repair_unfulfilled_answer()`，接在
+`conversation_orchestrator.py` 的 fail-closed 之**前**。三条硬约束全做在函数
+内部，调用方拿不到「跑过修复轮」当放行理由。
+
+**不需要第二个计数器**：接缝在 `_run_turn_ledgered` 内，已被 turn 级
+`LlmCallLedger`（`call_ledger_scope`, `max_llm_calls=40`）覆盖——预算耗尽时
+`synthesize_messages` 直接拒发，修复轮自动不发生。
+
+> ⚠️ **离线复现有个坑**：`run_20260731_024144_312047` 存下来的
+> `answer_spec.json` 是 **fail-closed 之后**的投影，registry 里只剩缺口通知
+> 本身。想回放真实输入要挑 `answer_status=complete` 的 run（如
+> `run_20260731_101835_473586`）再人为标一个输出为缺。
+
+下面保留原始分析，因为里面的判据（尤其「必须守住的三条」）仍然是审这块代码
+的依据。
+
+### 原始分析
 
 ### 现状与目标
 
@@ -118,7 +136,7 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
 | # | 改动 | 依据 |
 |---|---|---|
 | P2 | **重试/降级体系** | 马书 ch06b 给了完整蓝图，见下 |
-| P3 | ~~registry 选择而非截断~~ **降级为 P3'：只补一句「已省略 N 条」** | 实测截断当前不咬人，见下 |
+| P3 | ~~registry 选择而非截断~~ ✅ **已做告知那半，commit `f1485ec2`** | 实测截断当前不咬人，见下 |
 | P4 | **告知模型上下文会被压缩**，别提前收尾 | 官方 PE 给了现成模板，见 `_sources/prompt-engineering/` |
 
 ### P2 的蓝图（马书 ch06b «API 通信层» 全章讲这个）
@@ -150,7 +168,11 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
    实测分布，再决定阈值和要不要做中断型那半。**
    > 注意 CC 的 idle 看门狗自己也还在灰度（要 `CLAUDE_ENABLE_STREAM_WATCHDOG`
    > 显式打开）——连 Anthropic 都没默认开中断型的那半。
-4. ⚠️ **流转非流式有坑，别照抄。** 真实事故 inc-4258：流式已经开始执行工具、回退到
+4. ✅ **退避与抖动已做，commit `3d36c268`**：`_retry_delay_seconds()`，
+   500ms×2^n 上限 4s + 0~25% 只往上加的抖动，钳在 `remaining - 0.5` 内。
+   **次数保持 2 次没跟着抄 CC 的 10 次**——我们每次尝试占一次 turn 级台账额度，
+   而 LLM 是 5 小时滚动配额。并发是真的：API 2 个 worker + skill 线程共享台账。
+5. ⚠️ **流转非流式有坑，别照抄。** 真实事故 inc-4258：流式已经开始执行工具、回退到
    非流式重试后**同一个工具执行了两次**。CC 为此加了开关可以禁用整条回退路径。
    我们要做这条，必须先确认回退点之前没有产生过副作用。
 
