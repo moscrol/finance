@@ -101,7 +101,7 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 1 轻 | market-daily | `sync-market-daily` | 飞书表，少卡 |
 | 1 轻 | index-daily | `sync-index-daily --trade-date D` | AkShare，少卡 |
 | 1 轻 | sw-l1-daily | `sync-sw-l1-daily --trade-date D --days 20` | 少卡 |
-| 1 轻 | market-deviation | `sync-market-deviation --trade-date D` | 缺则日报偏离度占位 |
+| 1 轻 | market-deviation | `sync-market-deviation --trade-date D` | tooltip 抓取 2026-07 起稳定失效（见「夜间 launchd 定时运维」）→ **MA5 复算兜底**（`fill_stock_daily_fallback` 同款：最近 5 个 `sh_index_close` 均值，`dev=(close/ma-1)*100`） |
 | 1 轻 | sector-daily | `sync-sector-daily --trade-date D --days 25` | CDP 500 重试 |
 | 2 重 | sector-stocks | 循环 `sync-sector-stocks --trade-date D --limit 60 --sleep 0.05`（内部按 chunk=10 一次 eval 并发抓一批，已非逐板块）直到 `count(distinct sector_ts_code) >= dim_sector` | 默认跳过已抓板块，可续跑；chunk 失败自动降级逐板块单抓 |
 | 2 重 | limit-heat | **直跑** `sync-limit-heat --trade-date D --detail-chunk 12 --sleep 0.05`（看 chunk 进度；失败自动二分降级） | 写完若有题材"有涨停但明细为空"，逐个 `--sector <题材> --detail-chunk 1` 重试 |
@@ -173,6 +173,52 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
   **已修复**： 固定返回 FALLBACK_CSS（cockpit 自带的浅色主题），
   两套界面各自独立。若未来要让 cockpit 也用暗色主题，需重写 FALLBACK_CSS + EXTRA_CSS
   的 var 名映射。
+
+### 夜间 launchd 定时运维（2026-07 踩坑沉淀）
+
+夜间自动复盘走 `nightly_full_review.sh`（launchd），**已拆成两个 job**——因为
+**L2 逐笔资金流数据 ~20:30 才入 ClickHouse，18:30 跑必空**（连续两天因此 fail、需手动补跑）：
+
+| job | 时间 | 命令 | 跑什么 |
+|---|---|---|---|
+| `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly_full_review.sh sync` | 同步段（全 fact 同步 + same/cross-day 门），不依赖 L2 |
+| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | sync 守卫（复查 same-day-gate）→ L2 → 生成段 → 终极门 |
+
+手动补跑用 `nightly_full_review.sh [date]`（phase=all，全量；跨日补跑也用它）。
+脚本带 phase 参数（`sync`/`finalize`/`all`），date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
+
+近期踩坑（调度/脚本层已修，记此防复发）：
+
+- **L2 18:30 必空**：逐笔数据 ~20:30 才到，早跑 `empty_count=全量` → 资金流段 fail。
+  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等 20:30 之后**（之前踩过：18:40 跑全空，过零点再跑才有数据）。
+  注：全空时 scan 会 raise，**空结果不进缓存**，重跑会真扫（无需 force-rescan）。
+- **preflight `wrong-host` = fupanhui 标签页没就绪**：sync 段 preflight 要挂载一个**已登录的 fupanhui.com 标签页**。
+  Mac 睡眠唤醒后 launchd 补跑，常因 debug Chrome 里没有 fupanhui 标签页而 fail（proxy `/health` 显示 `managedTabs:0`）。
+  排查：`curl -s http://127.0.0.1:9222/json | grep -i fupanhui`；修：在 debug Chrome（端口 9222 那个实例）开一个 fupanhui.com 标签页（登录 cookie 持久，开着即可）。
+- **market-deviation tooltip 抓取 2026-07 起稳定失效**：`_fetch_market_deviation` 合成 `pointermove/mousemove`
+  不再触发带「周均线」的 tooltip（活体探测：canvas 有 7 个，但 `div[style*="z-index"]` 覆盖层=0、全文无「周均线」）。
+  怀疑 fupanhui 改了 tooltip DOM 或**后台标签页不响应合成悬停**。`sync-market-deviation` 因此必 fail → same-day-gate INCOMPLETE。
+  **当前兜底 = 手动 MA5 复算**（`fill_stock_daily_fallback.py:recompute_deviation` 同款）：
+  ```python
+  from market_feature_store.db import connect
+  D="YYYY-MM-DD"; MW=5
+  con=connect()
+  closes=con.execute("SELECT trade_date,sh_index_close FROM fact_market_daily "
+      "WHERE trade_date<=? AND sh_index_close IS NOT NULL ORDER BY trade_date DESC LIMIT ?",[D,MW]).fetchall()
+  ma=sum(float(r[1]) for r in closes)/len(closes); close=float(closes[0][1]); dev=(close/ma-1)*100
+  con.execute("UPDATE fact_market_daily SET sh_week_ma=?, sh_deviation_pct=? WHERE trade_date=?",[round(ma,2),round(dev,2),D]); con.commit()
+  ```
+  ⚠ **TODO（未做）**：把 MA5 复算接成 `sync-market-deviation` 抓取失败时的**自动 fallback**，否则每晚 sync 都卡这步、finalize 被守卫拦下、自动复盘跑不完。
+- **单日 sync 失败留断档 → 连锁阻断后续日期**：跨日门 `check-daily`（cross-day-gate）要求 `fact_mainline_*_daily` 连续。
+  某天夜跑失败（如 2026-07-21 主线没写）→ 次日（07-22）跨日门报「主线断档 1 日」、整轮 fail。修：补跑缺数日的
+  `sync-mainline-daily` + `sync-mainline-sector-daily --trade-date <缺数日>`，再重跑当日复盘。
+- **缺单条板块也判 INCOMPLETE**：`fact_sector_daily` 哪怕只缺 1 个板块（如 MLCC/990001.FP 某日 fupanhui 偶发漏返，
+  223/224）→ same-day-gate fail。重跑 `sync-sector-daily --trade-date D --days 25` 通常补回；
+  **重跑后必校验 diff_ratio 没全零**（`SELECT count(*) FILTER (WHERE diff_ratio=0 OR diff_ratio IS NULL)`，fupanhui kline 偶发全零 gotcha）。
+- **周末检查按目标日期**：脚本用**目标 $D 的星期**判周末（`date -j -f "%Y-%m-%d" "$D" +%u`，非今天的 `date +%u`），
+  否则跨日补跑（今天是周末、$D 是工作日）会被误跳过、什么都没跑（exit 0 但无产出）。
+- **finalize 守卫是有意为之**：finalize 开头复查 same-day-gate，若 18:30 sync 没成功就中止生成（rc=2），
+  **避免在残缺数据上生成报告**。看到 finalize rc=2 先去查 sync 为何没成，别绕守卫。
 
 ### Devin 远程执行专用坑（通过 Cloudflare 隧道 rx.py 跑时）
 
