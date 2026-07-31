@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import threading
 import socket
@@ -411,6 +412,28 @@ def _reserve_llm_call() -> None:
 
 def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
+
+
+# 重试退避。ch06b «API 通信层»：CC 用 BASE_DELAY_MS=500 的指数退避，并在每次退避上
+# **叠加 0-25% 随机抖动**，避免多个客户端在同一时刻同步重试造成雷群（thundering
+# herd）。我们这边的并发是真实的：API 有 2 个 worker，skill 线程经 copy_context
+# 共享同一本调用台账，同一次 provider 抖动会让它们在同一毫秒一起失败、一起重试。
+#
+# **次数没有跟着抄。** CC 的预算是 10 次（总等待 2.5-3 分钟），那是 CLI 场景、
+# 用户在前面等；我们每次尝试都要占一次 turn 级台账额度，而 LLM 是 5 小时滚动配额。
+# 保持今天的 2 次，只把间隔从写死的 2 秒换成有依据的退避——用户要的是退避与抖动，
+# 不是多花配额。将来有数据支持再调 _RETRY_MAX_ATTEMPTS。
+_RETRY_BASE_DELAY_S = 0.5
+_RETRY_MAX_DELAY_S = 4.0
+_RETRY_JITTER = 0.25
+_RETRY_MAX_ATTEMPTS = 2
+
+
+def _retry_delay_seconds(attempt: int) -> float:
+    """第 ``attempt`` 次失败后等多久（attempt 从 0 起）。"""
+
+    base = min(_RETRY_MAX_DELAY_S, _RETRY_BASE_DELAY_S * (2**attempt))
+    return base * (1.0 + random.random() * _RETRY_JITTER)
 
 
 def _failure_reason(exc: BaseException) -> str:
@@ -1115,7 +1138,7 @@ def synthesize_messages(
     last_exc: Exception | None = None
     content = None
     finish_reason: str | None = None
-    for attempt in range(2):
+    for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
             remaining = shared_deadline.require_remaining(1)
             content, finish_reason = _post_chat_synthesis(
@@ -1137,14 +1160,18 @@ def synthesize_messages(
             return None, "LLM 合成输出超长，已降级为模板"
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
-            if attempt == 0:
+            if attempt + 1 < _RETRY_MAX_ATTEMPTS:
                 rejection = _budget_rejection()
                 if rejection is not None:
                     return None, rejection
                 remaining = shared_deadline.remaining()
                 if remaining < 1:
                     return None, "LLM 合成超过共享截止时间，已降级为模板"
-                time.sleep(min(2, max(0.0, remaining - 0.5)))
+                # 退避 + 抖动，但绝不睡穿共享 deadline：留 0.5 秒给下一次尝试
+                # 至少能发出去，否则退避本身就成了超时的原因。
+                time.sleep(
+                    min(_retry_delay_seconds(attempt), max(0.0, remaining - 0.5))
+                )
     if content is None and last_exc is not None:
         return None, f"LLM 合成失败（{type(last_exc).__name__}），已降级为模板"
     text = (content or "").strip()
