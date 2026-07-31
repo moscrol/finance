@@ -2811,6 +2811,93 @@ def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str
     return _GROUNDED_CLAIM_MARKER_RE.sub(rewrite, answer)
 
 
+def rebind_entity_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
+    """一句话讲某家公司、却绑在没提这家公司的聚合 claim 上时，改绑到它自己的 claim。
+
+    registry 里常常同时有聚合 claim 和逐家 claim：``gap:1``「12 家公司仅有间接或候选
+    证据，未达到公司级硬证据门槛」，以及 ``gap:6``「华灿光电 证据 2026-06-04 已超
+    45 天…」。composer 把聚合展开成一家一行是合理写法，但它把 8 行全绑回了聚合，
+    于是每一行都判 ``cross_subject``「混入未绑定主体」，repair 再把这 8 行删掉——
+    删掉的正好是 chain_mapping 这个必需输出要的东西。
+
+    实测 run_20260731_103917_565944：8 条 cross_subject 里 6 条属于这种绑错，对应
+    公司的 claim 就在 registry 里；另外 2 条（易天股份、智立方）registry 里根本没有，
+    那是真的凭空添加，不在本函数处理范围内，仍旧照报。
+
+    改绑到确实提到该主体的 claim，比绑在没提它的聚合上更准确，不是放宽。只在
+    「整句只提到一个已知主体」且「该主体唯一对应一条 claim」且「当前绑定的 claim
+    都没提到它」时才动手，任一条不满足就原样保留。
+    """
+
+    claims = _all_answer_claims(answer_spec)
+    registry = {claim.claim_id: claim for claim in claims}
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    known_entities = {
+        value
+        for value in (
+            *(claim.company for claim in claims if claim.company),
+            *(atom.entity_id for atom in atoms if atom.entity_id),
+        )
+        if value
+    }
+    if not known_entities:
+        return answer
+    # 显式带 company 字段的 claim 优先于「正文里顺带提到」的：华灿光电既是
+    # company_table 那条的主体，也出现在「华灿光电 证据已超 45 天」这条时效 gap 的
+    # 文本里。前者是这家公司的画像，后者只是提到它，绑定该落在前者。
+    by_field: dict[str, set[str]] = {}
+    by_text: dict[str, set[str]] = {}
+    for claim in claims:
+        for entity in known_entities:
+            if entity == (claim.company or ""):
+                by_field.setdefault(entity, set()).add(claim.claim_id)
+            elif entity in claim.text:
+                by_text.setdefault(entity, set()).add(claim.claim_id)
+    unique_owner: dict[str, str] = {}
+    for entity in known_entities:
+        for candidates in (by_field.get(entity), by_text.get(entity)):
+            # 同一层级里有多条时无法确定该绑哪条，不猜。
+            if candidates and len(candidates) == 1:
+                unique_owner[entity] = next(iter(candidates))
+                break
+    if not unique_owner:
+        return answer
+
+    def rewrite(line: str) -> str:
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if marker is None:
+            return line
+        body = _GROUNDED_CLAIM_MARKER_RE.sub("", line)
+        named = [entity for entity in unique_owner if entity in body]
+        if len(named) != 1:
+            return line
+        target_id = unique_owner[named[0]]
+        bound = [
+            item.strip()
+            for item in re.split(r"[,，、\s]+", marker.group("claim_ids"))
+            if item.strip()
+        ]
+        if target_id in bound:
+            return line
+        if any(
+            named[0] in registry[claim_id].text
+            or named[0] == (registry[claim_id].company or "")
+            for claim_id in bound
+            if claim_id in registry
+        ):
+            return line
+        target = registry[target_id]
+        atom_ids = _atom_ids_for_claim(target, atoms)
+        return line.replace(
+            marker.group(0),
+            f"<!-- claim_ids={target_id}; "
+            f"evidence_atom_ids={','.join(atom_ids)}; "
+            f"claim_type={_grounded_claim_type(target)} -->",
+        )
+
+    return "\n".join(rewrite(line) for line in answer.splitlines())
+
+
 def parse_grounded_sentences(
     answer: str,
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:

@@ -1494,6 +1494,11 @@ def synthesize_shadow_grounded_answer(
             raw_answer,
             result.answer_spec,
         )
+        # 同一类笔误的第二种形状：把聚合 claim 展开成一家一行，却每行都绑回聚合。
+        raw_answer = answer_model.rebind_entity_claim_ids(
+            raw_answer,
+            result.answer_spec,
+        )
     deterministic_issues = (
         answer_model.validate_grounded_composer_answer(
             raw_answer,
