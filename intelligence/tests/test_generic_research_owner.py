@@ -2133,3 +2133,27 @@ def test_forecast_without_market_truth_still_fails_closed(
 
     assert result.completion_report is not None
     assert result.completion_report["business_status"] != "complete"
+
+
+def test_generic_owner_hands_its_contract_to_the_presentation_layer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """必需输出要传到 AnswerSpec，composer 的 prompt 才拿得到验收标准。
+
+    在此之前 GenericResearchOwner 这条路的 prompt_constraints 恒为空，于是
+    brief/compose 的 prompt 里没有 required_outputs，而 task_fulfillment 又逐条
+    按它判——模型在一张看不见的评分表上被打分。
+    """
+    contract = _forecast_contract("forecast-contract-to-spec")
+
+    result = _run_forecast_owner(contract, monkeypatch, tmp_path, market_evidence=True)
+
+    assert result.answer_spec is not None
+    constraints = result.answer_spec.prompt_constraints
+    assert constraints
+    assert {item.split("：", 1)[0] for item in constraints} == {
+        required.output_id
+        for required in contract.required_outputs
+        if required.required
+    }

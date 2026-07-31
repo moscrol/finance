@@ -962,9 +962,31 @@ _GROUNDING_JUDGE_SYSTEM_PROMPT = (
 )
 
 
+def _required_outputs_block(required_outputs: tuple[str, ...]) -> str:
+    """把本轮验收标准写进 prompt。
+
+    这份清单就是 task_fulfillment 逐条判、判不过就把整份答案换成「请补充数据源」的
+    那份清单。此前它从未进过 brief/compose 的 prompt——模型是在一张看不见的评分表
+    上被打分。措辞刻意强调「只能用 registry 覆盖、没有就写成缺口」：只说「必须写到」
+    而不说来源约束，等于在鼓励为了凑齐而编。
+    """
+
+    if not required_outputs:
+        return ""
+    items = "\n".join(f"- {item}" for item in required_outputs)
+    return (
+        "本轮必须覆盖的输出（每条都要在正文里真的写到，缺一条即判未完成）：\n"
+        f"{items}\n"
+        "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"
+        "写成明确的缺口或边界，不要为了凑齐而编。\n\n"
+    )
+
+
 def build_decision_brief_messages(
     query: str,
     registry_block: str,
+    *,
+    required_outputs: tuple[str, ...] = (),
 ) -> list[dict]:
     return [
         {"role": "system", "content": _DECISION_BRIEF_SYSTEM_PROMPT},
@@ -972,6 +994,7 @@ def build_decision_brief_messages(
             "role": "user",
             "content": (
                 f"用户问题：{query}\n\n"
+                f"{_required_outputs_block(required_outputs)}"
                 "claim registry（每行一个 JSON）：\n"
                 f"{registry_block}"
             ),
@@ -983,6 +1006,8 @@ def build_grounded_composer_messages(
     query: str,
     decision_brief: str,
     registry_block: str,
+    *,
+    required_outputs: tuple[str, ...] = (),
 ) -> list[dict]:
     return [
         {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
@@ -991,6 +1016,7 @@ def build_grounded_composer_messages(
             "content": (
                 f"用户问题：{query}\n\n"
                 f"DecisionBrief：\n{decision_brief}\n\n"
+                f"{_required_outputs_block(required_outputs)}"
                 "claim registry（每行一个 JSON）：\n"
                 f"{registry_block}"
             ),

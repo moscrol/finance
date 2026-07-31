@@ -3210,11 +3210,24 @@ def parse_grounding_judge_report(
     rejected_raw = payload.get("rejected_sentence_indexes")
     if not isinstance(rejected_raw, list):
         return None
+    # 越界句号只丢那一条，不作废整份判定。
+    #
+    # 原本任何一个越界值都 return None，整份判定连同答案一起被丢弃。实测
+    # run_20260731_034344_300179：确定性 repair 先把 8 句删成 5 句，judge 按自己的
+    # 数法报了第 5、7 句，7 越界 —— 于是连有效的第 5 句一起作废，failure_reason
+    # 记成 judge_output_invalid，整份答案换成 fallback。审稿器给出了真实判定，
+    # 系统既没用上它、又拿它当作丢弃答案的理由。
+    #
+    # 只保留可定位的句号是**更严**而不是更松：第 5 句现在会真的被修掉，
+    # 而不是整份答案被替换掉。
     rejected: list[int] = []
     for value in rejected_raw:
-        if not isinstance(value, int) or value < 1 or value > sentence_count:
-            return None
-        rejected.append(value)
+        if not isinstance(value, bool) and isinstance(value, int):
+            if 1 <= value <= sentence_count:
+                rejected.append(value)
+    if payload.get("passed") is False and not rejected:
+        # 判否但没有任何可执行句号：无法定位问题句，不能当作通过，继续 fail closed。
+        return None
     issues_raw = payload.get("issues")
     issues = (
         tuple(

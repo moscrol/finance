@@ -2413,6 +2413,17 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 else contract.subject or "通用研究"
             ),
             presentation_profile=contract.presentation_profile,
+            # 把本轮的必需输出交给表达层，让 composer 能看到自己被按什么标准验收。
+            # 在此之前，brief/compose 的 prompt 里只有「用户问题 + claim registry」，
+            # required_outputs 一个字都没进去，而 task_fulfillment 又逐条按它判、
+            # 判不过就把整份答案换成「请补充数据源」——模型是在一张它看不见的评分表
+            # 上被打分。专项 owner 早就填了这个字段（research_owner 的 output_contract），
+            # 只有 GenericResearchOwner 这条路一直是空的。
+            prompt_constraints=tuple(
+                f"{required.output_id}：{required.description}"
+                for required in contract.required_outputs
+                if required.required
+            ),
         )
     )
     return result

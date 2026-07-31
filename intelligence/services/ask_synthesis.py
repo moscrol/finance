@@ -1412,10 +1412,13 @@ def synthesize_shadow_grounded_answer(
         query=options.query,
         max_chars=12_000,
     )
+    # 本轮的验收标准。空元组保持旧行为（专项 owner 之外的调用方尚未提供契约）。
+    required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_result, brief_reason = llm_refine.synthesize_messages(
         llm_refine.build_decision_brief_messages(
             options.query,
             registry_block,
+            required_outputs=required_outputs_block,
         ),
         model_override=options.llm_model,
         timeout=brief_timeout,
@@ -1454,6 +1457,7 @@ def synthesize_shadow_grounded_answer(
             options.query,
             decision_brief.to_prompt_block(),
             registry_block,
+            required_outputs=required_outputs_block,
         ),
         model_override=options.llm_model,
         timeout=_shadow_phase_timeout(
