@@ -5,6 +5,14 @@
 >
 > 这份取代 `2026-07-31-harness-optimization-start-here.md` 作为总入口；
 > 那一份里 §3（P1）和 §4（P2 蓝图）的原始分析仍有价值，改代码前值得回看。
+>
+> **分段 handoff（按时间倒序，先看最新的那份「当前状态」）：**
+> - `2026-08-01-exposure-selection-and-sealed-fixture-risk.md` ← **最新**。
+>   暴露取舍治理（待办 C 已落地并上线）、GitHub 分支已推、`.finance-runtime`
+>   清到 17G；**新增高优先级待办 H：密封夹具因 KB commit `9053b0c4` 不存在而
+>   不可精确重建，阻塞在途的 App Server Ceiling 实验。**
+> - `2026-07-31b-cutover-and-controller-observability.md` —— 首次蓝绿切换、
+>   controller 降级留证（待办 A/D）。
 
 ---
 
@@ -305,12 +313,25 @@ ch06b 记录了真实事故 **inc-4258**：流式已经开始执行工具、回�
 `isConcurrencySafe` 默认 `false`（fail-closed）。
 **前置**：`ToolSpec` 目前没有任何执行语义字段，要先补才谈得上分区。
 
-### F. 运维
+### F. 运维 —— ✅ 大部分已做（2026-08-01）
 
-- ~~蓝绿切换~~ ✅ 2026-07-31 已切到 610feb21（见 §3「切换」）
-- 推 GitHub：**未做**，三个 main 已分叉 + 数据仓 137 个未提交改动，需先定并法（见 §2）
-- 清理 `.finance-runtime` 约 13G（现 106 个快照）：**未做，属删除操作没动**。
-  清理前先 `git worktree list`，别直接 `rm`；线上在用的和回滚要用的两个快照必须留
+- ~~蓝绿切换~~ ✅ 已切；线上现为 `751ef706`（含暴露选择器）
+- ~~推 GitHub~~ ✅ 已推成分支 `origin/fix/exposure-ranking-truncation`（635 commits）。
+  **`origin/main` 未动，主分支并法仍未决**——但没有任何东西依赖它，运行时从
+  `.finance-runtime` 快照部署、不经 GitHub。理由见 2026-08-01 handoff §4①
+- ~~清理 `.finance-runtime`~~ ✅ 27G → 17G（删 103 个 canary 快照 + 4 个无引用
+  的夹具构建尝试；worktree 注册 132 → 73）。**剩下 11G 是 App Server Ceiling
+  的密封夹具，属审计证据，需用户决定**——且见新增待办 H
+
+### H. 密封夹具不可精确重建 —— 🔴 新增，最高优先级
+
+`.finance-runtime/app-server-ceiling` 的密封夹具依赖 KB 代码版本 `9053b0c4`，
+该 commit 在 `knowledge-base-private` 和 `finance-workspace-private` **都不存在**。
+finance DuckDB 的 PIT 部分能重建（主库 append-only，7-24 数据完好），
+Wiki 导出 + Hybrid 索引不能。当前密封态 `b0edcbcc07b05ac0` 一旦丢失，
+在途的 App Server Ceiling 实验就无法在原口径上继续。
+
+详情与处置建议见 `2026-08-01-exposure-selection-and-sealed-fixture-risk.md` §5。
 
 ---
 
