@@ -157,6 +157,12 @@ class TurnDecision:
     timeframe: str | None = None
     confidence: float = 1.0
     reason: str = ""
+    # 降级到 _safe_fallback 时「为什么降级」。``reason`` 是给人读的路由理由，
+    # 这两个是给 trace 聚合用的：枚举可以 group by，原文用来查那些枚举认不出
+    # 的形态（llm_refine.stable_llm_fallback_reason 的已知盲区）。
+    # 两者都为空 = 这次压根没调 controller LLM（如 clarify 续跑分支）。
+    llm_failure_reason: str = ""
+    llm_failure_detail: str = ""
     capabilities: tuple[str, ...] = ()
     clarification_questions: tuple[str, ...] = ()
     turn_intent: TurnIntent | None = None
@@ -720,7 +726,43 @@ def _apply_policy(
     return replace(decision, needs_retrieval=True, needs_template=True)
 
 
-def _safe_fallback(query: str, envelope: QueryEnvelope) -> TurnDecision:
+_FAILURE_DETAIL_LIMIT = 200
+
+
+def _controller_failure(detail: str) -> tuple[str, str]:
+    """把 controller LLM 的失败压成 ``(枚举, 原文截断)``。
+
+    两个都留是有意的：枚举能 group by，但它有已知盲区（见
+    ``llm_refine.stable_llm_fallback_reason``），盲区里的形态全都塌成
+    ``provider_unavailable``——原文是把它们再分开的唯一依据。
+    """
+    text = str(detail or "").strip()
+    if not text:
+        return "provider_unavailable", ""
+    return (
+        llm_refine.stable_llm_fallback_reason(text),
+        text[:_FAILURE_DETAIL_LIMIT],
+    )
+
+
+def _safe_fallback(
+    query: str,
+    envelope: QueryEnvelope,
+    *,
+    llm_failure_reason: str = "",
+    llm_failure_detail: str = "",
+) -> TurnDecision:
+    decision = _safe_fallback_route(query, envelope)
+    if not llm_failure_reason and not llm_failure_detail:
+        return decision
+    return replace(
+        decision,
+        llm_failure_reason=llm_failure_reason,
+        llm_failure_detail=llm_failure_detail,
+    )
+
+
+def _safe_fallback_route(query: str, envelope: QueryEnvelope) -> TurnDecision:
     if _KNOWLEDGE_QUESTION_PATTERN.search(query):
         return _decision(
             "knowledge",
@@ -1012,15 +1054,22 @@ def decide_turn(
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
-        content, _provider, _reason = complete(
+        content, _provider, failure_detail = complete(
             _controller_messages(effective_query, context, task_frame)
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - controller 不可用必须能降级，但要留证
         content = None
+        failure_detail = f"Controller 调用抛出（{type(exc).__name__}）"
     if content is None:
+        failure_reason, failure_detail = _controller_failure(failure_detail)
         return _attach_turn_intent(
             _enforce_task_frame_route(
-                _safe_fallback(effective_query, envelope),
+                _safe_fallback(
+                    effective_query,
+                    envelope,
+                    llm_failure_reason=failure_reason,
+                    llm_failure_detail=failure_detail,
+                ),
                 task_frame,
             ),
             intent,
@@ -1059,7 +1108,13 @@ def decide_turn(
     decision = (
         parsed
         if parsed is not None
-        else _safe_fallback(effective_query, envelope)
+        # provider 明明回话了，是我们没读懂——跟「provider 挂了」是两回事，
+        # 混在一起会把一次 prompt/schema 回归误判成外部故障。
+        else _safe_fallback(
+            effective_query,
+            envelope,
+            llm_failure_reason="unparsable_response",
+        )
     )
     task_frame = _rebase_frame_for_decision(task_frame, decision)
     decision = _enforce_task_frame_route(decision, task_frame)

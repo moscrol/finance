@@ -34,6 +34,7 @@ from intelligence.services.ask import (
     answer_query,
     prepare_existing_answer,
     render_conversation_answer,
+    repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
 )
@@ -703,6 +704,15 @@ def _merge_frame_outputs(
     """Keep legacy execution slots while exposing every canonical frame slot."""
 
     known = {item.output_id for item in existing}
+    # 别名只在被指向的槽位真的已登记时才生效（见下面的 `in known` 判定），所以
+    # 这里给出的是「谁已经承担了这件事」，不是无条件替换。
+    #
+    # scenario_tree 就是这么一个纯重复：预测题的执行槽位里 rebound_case +
+    # decline_case 已经是情景树的两支，再登记一个 scenario_tree 等于要求同一份
+    # 内容在 registry 里出现两次，而没有任何生产者会写第二份——于是它恒判缺，
+    # 把两支情景都已完成的答案整份 fail-closed 掉。专项 owner 路径没有
+    # rebound_case 槽位（它有 build_scenario_tree_artifact 这个真生产者），
+    # 别名不命中，scenario_tree 仍然是硬要求。
     legacy_aliases = {
         "direct_answer": "direct_assessment",
         "current_baseline": "direct_assessment",
@@ -710,6 +720,7 @@ def _merge_frame_outputs(
         "continuation_conditions": "rebound_case",
         "invalidation_conditions": "invalidation",
         "scenario_paths": "rebound_case",
+        "scenario_tree": "rebound_case",
     }
     evidence_types = tuple(capabilities) or ("evidence_boundary",)
     additions = tuple(
@@ -2695,6 +2706,39 @@ class TurnOrchestrator:
                     "task_fulfillment",
                     result.fulfillment_report,
                 )
+                if fulfillment.status != "complete":
+                    # 先把具体缺口回灌给模型补一轮，再决定是否 fail-closed。
+                    # 官方做法是把拒绝**作为 tool result** 交回模型让它换方法，
+                    # 而不是整轮作废；ch04「分层错误级联」是它的通用形式。
+                    # 补写只用 registry 已有事实、且必须重新过门禁——两条都在
+                    # repair_unfulfilled_answer 内部强制，这里拿不到「跑过修复轮」
+                    # 当放行理由。额外那次调用由本 turn 的 LlmCallLedger 兜底。
+                    repaired = repair_unfulfilled_answer(
+                        question=task_frame.raw_question,
+                        answer_text=answer_text,
+                        answer_spec=result.answer_spec,
+                        verdict=fulfillment,
+                        required_outputs=fulfillment_outputs,
+                        llm_model=self.llm_model,
+                        timeout=llm_refine.DEFAULT_LLM_TIMEOUT,
+                    )
+                    if repaired is not None:
+                        answer_text, fulfillment = repaired
+                        result.answer_status = fulfillment.status
+                        result.fulfillment_report = fulfillment.to_dict()
+                        result.fulfillment_report["task_frame_hash"] = (
+                            task_frame.task_frame_hash
+                        )
+                        result.fulfillment_report["repaired"] = True
+                        report["task_fulfillment"] = result.fulfillment_report
+                        self._trace(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            "task_fulfillment_repair",
+                            "task_fulfillment",
+                            result.fulfillment_report,
+                        )
                 if fulfillment.status != "complete":
                     # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
                     # 渲染，仍可能把答非所问草稿发给用户。切到现有

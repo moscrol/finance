@@ -4586,6 +4586,53 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
     assert result.fallback_reason == "stream_unsupported"
 
 
+def test_stream_fallback_is_refused_after_any_output(monkeypatch) -> None:
+    """已经吐过字就不许回退非流式——回退会把整段答案再发一次，用户看到重复正文。
+
+    这是 ch06b 事故 inc-4258（回退导致工具双执行）在我们这条路径上的形状。当前
+    触发不了（HTTPError 只在首个 delta 之前抛），这条测试钉的是「以后也别能触发」。
+    """
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    unsupported = urllib.error.HTTPError(
+        "https://llm.invalid/v1/chat/completions",
+        422,
+        "stream unsupported",
+        {},
+        None,
+    )
+
+    def partial_then_fail(
+        provider, messages, timeout, temperature, on_delta, *args, **kwargs
+    ):
+        del provider, messages, timeout, temperature, args, kwargs
+        on_delta("已经吐出去的半句")
+        raise unsupported
+
+    monkeypatch.setattr(llm_refine, "_post_chat_stream", partial_then_fail)
+    retried: list[int] = []
+
+    def forbidden_retry(*args, **kwargs):
+        del args, kwargs
+        retried.append(1)
+        return "whole answer", "stop"
+
+    monkeypatch.setattr(llm_refine, "_post_chat_synthesis", forbidden_retry)
+    deltas: list[str] = []
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=deltas.append,
+    )
+
+    assert result is None
+    assert "不回退非流式" in reason
+    assert retried == [], "已经输出过就不该再打一次非流式"
+    assert deltas == ["已经吐出去的半句"], "用户不能看到重复正文"
+
+
 def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"

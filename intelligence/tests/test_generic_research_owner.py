@@ -2000,3 +2000,160 @@ def test_comparison_follow_up_inherits_ownerless_research_lane() -> None:
     assert follow_up.question_type == "comparison"
     assert follow_up.turn_intent is not None
     assert follow_up.turn_intent.inherited_from_turn == "comparison:first"
+
+
+def _forecast_owner_result(
+    contract,
+    *,
+    market_evidence: bool,
+) -> "generic_research_owner.GenericResearchResult":
+    """A forecast run whose agent loop DID produce a usable assessment."""
+    state = ResearchState.from_contract(contract)
+    evidence: list[agent_research.AgentEvidence] = []
+    if market_evidence:
+        state.add_evidence(
+            EvidenceObservation(
+                evidence_id="m1",
+                tool="market_data",
+                title="广度",
+                detail="2026-07-30：涨停/跌停 52/74；成交 23425.75 亿。",
+                source="local",
+            )
+        )
+        evidence.append(
+            agent_research.AgentEvidence(
+                tool="market_data",
+                title="广度",
+                detail="2026-07-30：涨停/跌停 52/74；成交 23425.75 亿。",
+                source="local",
+                source_date="2026-07-30",
+                # agent loop 成功时确实会把盘面证据绑到三个情景上——契约层的
+                # 逐项匹配因此判 fulfilled。缺的只是 ResearchState 那一侧的
+                # 假设绑定，也就是本用例要覆盖的缺陷。
+                supports=("rebound_case", "decline_case", "invalidation"),
+            )
+        )
+    assessment = (
+        "基准判断：震荡磨底。反弹情景：跌停收缩且广度扩大则修复可信。"
+        "继续下跌情景：跌停继续扩散则弱势延续。失效条件：结构与触发条件相反时重算。"
+    )
+    state.set_assessment(assessment)
+    loop = agent_research.AgentLoopResult(
+        evidence=evidence,
+        sufficient=True,
+        assessment=assessment,
+        research_state=state,
+    )
+    return generic_research_owner.GenericResearchResult(
+        run_id=contract.task_id,
+        contract=contract,
+        loop=loop,
+        completion=generic_research_owner.evaluate_completion(contract, loop),
+        evidence=tuple(evidence),
+        task_plan=None,
+    )
+
+
+def _forecast_contract(task_id: str):
+    return conversation_orchestrator._build_generic_research_contract(
+        "你觉得a股明天会怎么走",
+        task_id=task_id,
+        turn_intent=conversation_orchestrator.TurnIntent(
+            primary_subject=None,
+            secondary_topics=(),
+            question_type="market_forecast",
+            answer_owner=None,
+            comparison_entities=(),
+            inherited_from_turn=None,
+        ),
+    )
+
+
+def _run_forecast_owner(contract, monkeypatch, tmp_path, *, market_evidence: bool):
+    class StubRegistry:
+        def names(self):
+            return ("market_data", "web_search", "news_search")
+
+        def execute(self, *_args, **_kwargs):
+            raise RuntimeError("prefetch disabled in this test")
+
+    monkeypatch.setattr(
+        ask.research_tool_registry,
+        "default_registry",
+        lambda _tools: StubRegistry(),
+    )
+    monkeypatch.setattr(
+        ask.generic_research_owner,
+        "run_generic_research",
+        lambda passed_contract, **_kwargs: _forecast_owner_result(
+            passed_contract,
+            market_evidence=market_evidence,
+        ),
+    )
+    return ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+
+
+def test_successful_forecast_loop_still_binds_its_scenario_hypotheses(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """研究做得好不该反而关掉合成。
+
+    情景假设的证据绑定原本只写在「agent loop 没能给出判断」的兜底分支里。loop 成功时
+    三个假设一直是 uncovered，ResearchState 判 coverage=partial，
+    evaluate_completion 汇总成 business_status=gap，prepare_existing_answer 据此把
+    synthesize 关掉——六个必需输出全部 fulfilled，用户却拿到确定性模板。
+    实测 run_20260731_031601_415738 就是这样，全程没有调用过 LLM。
+    """
+    contract = _forecast_contract("forecast-loop-success")
+
+    result = _run_forecast_owner(contract, monkeypatch, tmp_path, market_evidence=True)
+
+    assert result.completion_report is not None
+    assert result.completion_report["task_coverage"] == "fulfilled"
+    assert result.completion_report["business_status"] == "complete"
+
+
+def test_forecast_without_market_truth_still_fails_closed(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """没有盘面真值就没有可绑的证据，仍然不许放行。"""
+    contract = _forecast_contract("forecast-no-market")
+
+    result = _run_forecast_owner(contract, monkeypatch, tmp_path, market_evidence=False)
+
+    assert result.completion_report is not None
+    assert result.completion_report["business_status"] != "complete"
+
+
+def test_generic_owner_hands_its_contract_to_the_presentation_layer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """必需输出要传到 AnswerSpec，composer 的 prompt 才拿得到验收标准。
+
+    在此之前 GenericResearchOwner 这条路的 prompt_constraints 恒为空，于是
+    brief/compose 的 prompt 里没有 required_outputs，而 task_fulfillment 又逐条
+    按它判——模型在一张看不见的评分表上被打分。
+    """
+    contract = _forecast_contract("forecast-contract-to-spec")
+
+    result = _run_forecast_owner(contract, monkeypatch, tmp_path, market_evidence=True)
+
+    assert result.answer_spec is not None
+    constraints = result.answer_spec.prompt_constraints
+    assert constraints
+    assert {item.split("：", 1)[0] for item in constraints} == {
+        required.output_id
+        for required in contract.required_outputs
+        if required.required
+    }

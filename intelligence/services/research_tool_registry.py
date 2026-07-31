@@ -221,6 +221,15 @@ class ToolSpec:
     cost: str
     freshness: str
     runner: agent_research.ToolRunner | ToolRunnerAdapter
+    # 行为契约：什么时候该用它、怎样用才不误读、什么时候该换别的工具。
+    #
+    # ``description`` 只说「是什么」。马书 ch08 的结论是「优秀的工具提示词不是
+    # 功能文档，而是行为契约」；ch27 模式六进一步给了理由——**时序对齐**：模型
+    # 决定调用某工具时，该工具的约束正好在它的注意力焦点内，而写在系统提示词里
+    # 的同一句话需要模型在数万 token 的上下文里「回忆」，长会话中不可靠。
+    #
+    # 空字符串合法：没有经过验证的契约就别写，编一句比不写更糟。
+    contract: str = ""
     # ``episode`` means the tool returns one complete turn-scoped snapshot;
     # rewriting its query cannot produce a different evidence surface.
     query_scope: Literal["query", "episode"] = "query"
@@ -281,7 +290,12 @@ class ResearchToolRegistry:
                 "type": "function",
                 "function": {
                     "name": spec.name,
-                    "description": spec.description,
+                    # 契约跟着工具描述走，而不是塞进系统提示词——见 ToolSpec.contract。
+                    "description": (
+                        f"{spec.description}\n{spec.contract}"
+                        if spec.contract
+                        else spec.description
+                    ),
                     "parameters": copy_tool_parameters(spec.parameters),
                 },
             }
@@ -341,7 +355,9 @@ class ResearchToolRegistry:
 
     def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
         return "\n".join(
-            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）：{spec.description}"
+            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）："
+            f"{spec.description}"
+            + (f"\n  · {spec.contract}" if spec.contract else "")
             for spec in self.authorized_specs(allowed)
         )
 
@@ -484,12 +500,41 @@ class ResearchToolRegistry:
         )
 
 
+# 行为契约（见 ``ToolSpec.contract``）。**只写验证过的**：每条要么来自线上实测的
+# 失败模式，要么是复述 CLAUDE.md 里已有的红线。没有依据的宁可留空——工具提示词是
+# 模型判断「该不该用、结果怎么读」的依据，编一句进去比不写更糟。
+_TOOL_CONTRACTS: dict[str, str] = {
+    "market_data": (
+        "返回的是最近一个已收盘交易日的快照，不是实时也不一定是今天："
+        "当日盘中或次日开盘前查询会回退到上一交易日，此时应明写数据截至日期，"
+        "不要把它当作提问当天的行情。美股按北京时间 21:30→次日 04:00 跨日，"
+        "北京时间凌晨查到的「前一天」通常是正在进行的那一场，不是数据过期。"
+    ),
+    "l3_lookup": (
+        "查询成功不等于查到了证据：实测存在「company 查询成功但没有解析到可用证据」"
+        "的情况。返回为空时只能说明本次没检索到，不能据此断言该公司没有相关公告，"
+        "应写成明确的证据缺口而不是否定结论。"
+    ),
+    "web_search": (
+        "网页与研报是二手材料，默认只能作为线索和上下文，不能直接当作公司级硬事实。"
+        "订单/中标/产能/量产这类结论需要 l3_lookup 的公告或互动证据确认；"
+        "只有网页来源时，写成「待验证线索」并点明缺的是哪一份一手材料。"
+    ),
+    "news_search": (
+        "新闻是二手材料，同一条消息被多家转载不构成交叉验证。"
+        "涉及公司经营事实时需要 l3_lookup 的公告确认；"
+        "只有新闻来源时写成「待验证线索」，不要升级为既定事实。"
+    ),
+}
+
+
 def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToolRegistry:
     specs = tuple(
         ToolSpec(
             name=name,
             capability=name,
             description=description,
+            contract=_TOOL_CONTRACTS.get(name, ""),
             cost="local" if freshness == "stable" else "external",
             freshness=freshness,
             runner=tools[name],

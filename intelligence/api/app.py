@@ -312,6 +312,9 @@ _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
         "provider_unavailable",
         "quality_gate_rejected",
         "budget_exhausted",
+        # 本轮 LLM 调用预算耗尽。原先归进 provider_unavailable，对外读起来像
+        # 「供应商挂了」，实际是我们自己的限额——是固定枚举，不含用户数据。
+        "call_budget_exhausted",
     }
 )
 _PUBLIC_METADATA_STRING_FIELDS = frozenset(

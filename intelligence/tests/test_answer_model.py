@@ -1264,6 +1264,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
     def test_grounding_judge_report_rejects_invalid_sentence_index(
         self,
     ) -> None:
+        """判否但没有任何可定位的句号时仍然 fail closed。"""
         report = parse_grounding_judge_report(
             (
                 '{"passed":false,'
@@ -1271,6 +1272,44 @@ class PresenterAndLLMGateTests(unittest.TestCase):
                 '"issues":["语义越界"]}'
             ),
             sentence_count=2,
+        )
+
+        self.assertIsNone(report)
+
+    def test_grounding_judge_report_keeps_the_indexes_it_can_locate(
+        self,
+    ) -> None:
+        """一个越界句号不该连同有效判定一起作废。
+
+        实测 run_20260731_034344_300179：确定性 repair 先把 8 句删成 5 句，judge 按
+        自己的数法报了第 5、7 句，7 越界 —— 于是连有效的第 5 句一起作废，
+        failure_reason 记成 judge_output_invalid，整份答案被换成 fallback。审稿器给出
+        了真实判定，系统既没用上它、又拿它当作丢弃答案的理由。
+
+        只保留可定位的句号是更严而不是更松：第 5 句会真的被修掉。
+        """
+        report = parse_grounding_judge_report(
+            (
+                "```json\n"
+                '{"passed":false,'
+                '"rejected_sentence_indexes":[5,7],'
+                '"issues":["跨市场主体偷换","把候选新闻升级为既定事实"]}'
+                "\n```"
+            ),
+            sentence_count=5,
+        )
+
+        self.assertIsNotNone(report)
+        assert report is not None
+        self.assertFalse(report.passed)
+        self.assertEqual(report.rejected_sentence_indexes, (5,))
+
+    def test_grounding_judge_report_does_not_read_booleans_as_indexes(
+        self,
+    ) -> None:
+        report = parse_grounding_judge_report(
+            '{"passed":false,"rejected_sentence_indexes":[true],"issues":[]}',
+            sentence_count=5,
         )
 
         self.assertIsNone(report)

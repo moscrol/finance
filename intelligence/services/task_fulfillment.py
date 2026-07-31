@@ -92,12 +92,19 @@ _TOKEN_STOPWORDS = frozenset(
 )
 # 这些必需输出的内容本质上可以没有出处：证伪条件、风险和「尚无反向证据」是推理
 # 结论，不是可回查的事实。对它们只校验「有没有写进正文」，不校验「有没有出处」。
-_UNSOURCEABLE_OUTPUTS = frozenset({"counterpoint", "counter_evidence", "risk"})
+#
+# evidence_boundary 同理，而且更彻底：它陈述的是「本轮证据到哪为止」——覆盖范围、
+# 数据日期、缺口。这是关于证据集合本身的陈述，不是集合里的一条事实，要求它再绑一
+# 条出处是范畴错误。
+_UNSOURCEABLE_OUTPUTS = frozenset(
+    {"counterpoint", "counter_evidence", "risk", "evidence_boundary"}
+)
 # 生产者实际写进 Claim.claim_type 的值。注意不要用 marker 里看到的
 # expectation/gap——那是 _grounded_claim_type() 按 ClaimStatus 推出来的显示类型，
 # 不是 claim_type 本身。第一版豁免就是照着显示类型写的，所以一次都没触发过。
+# evidence_gap 是同一个坑的第二例：marker 里显示成 gap，ask.py 写进去的是 evidence_gap。
 _UNSOURCEABLE_CLAIM_TYPES = frozenset(
-    {"counter_evidence", "risk", "expectation", "gap", "skill_gap"}
+    {"counter_evidence", "risk", "expectation", "gap", "skill_gap", "evidence_gap"}
 )
 
 _MARKERS: dict[str, tuple[str, ...]] = {
@@ -145,7 +152,21 @@ _MARKERS: dict[str, tuple[str, ...]] = {
         "触发条件",
     ),
     "invalidation_conditions": ("失效条件", "失效", "证伪"),
-    "evidence_boundary": ("证据边界", "数据边界", "证据覆盖"),
+    # episode_factory 给这个输出的规范描述是「说明证据覆盖范围、数据日期与缺口」，
+    # 措辞标记就照这三件事收：覆盖 / 日期 / 缺口。刻意不收「不构成」（会命中
+    # 「不构成投资建议」这句免责模板）和裸「缺口」（行情语境里是跳空缺口）。
+    "evidence_boundary": (
+        "证据边界",
+        "数据边界",
+        "证据覆盖",
+        "覆盖范围",
+        "数据截至",
+        "数据日期",
+        "证据缺口",
+        "关键缺口",
+        "独立证据",
+        "不等同于",
+    ),
     "scenario_paths": ("情景路径", "情景", "路径"),
     "chain_mapping": ("产业链", "上游", "中游", "下游", "链条"),
     "financial_assessment": ("财务判断", "收入", "利润", "盈利", "现金流"),
@@ -200,6 +221,19 @@ _OUTPUT_CLAIM_NAMESPACES: dict[str, frozenset[str]] = {
     "chain_mapping": frozenset({"chain", "company", "exposure"}),
 }
 
+# 有些必需输出靠 claim_id 命名空间根本认不出来：预测题里 ask.py 写出的每一条
+# claim 都在 `generic:` 下（generic:verified:6、generic:gap:1、generic:rebound_case
+# …），命名空间不带任何区分度，按它取候选等于全取或全不取。这类输出改按
+# claim_type 认领——那才是生产者留下的语义标签。
+#
+# evidence_boundary 对应的就是 ask.py 写的 evidence_gap claim（「未取得可直接预测
+# 下一交易日方向的独立证据；以上仅为条件化情景，不给出概率」）。它一直存在、一直
+# 写进了正文，只是门禁没有任何一条规则会去认领它，于是恒判「registry 里没有该输
+# 出对应的 claim」，整份答案被 fail-closed。
+_OUTPUT_CLAIM_TYPES: dict[str, frozenset[str]] = {
+    "evidence_boundary": frozenset({"evidence_gap", "gap", "skill_gap"}),
+}
+
 
 def _claim_candidates(
     output_id: str,
@@ -239,10 +273,19 @@ def _claim_candidates(
         )
     namespaces = _OUTPUT_CLAIM_NAMESPACES.get(normalized)
     if namespaces:
-        return tuple(
+        by_namespace = tuple(
             claim
             for claim in claims
             if claim.claim_id.split(":", 1)[0].casefold() in namespaces
+        )
+        if by_namespace:
+            return by_namespace
+    claim_types = _OUTPUT_CLAIM_TYPES.get(normalized)
+    if claim_types:
+        return tuple(
+            claim
+            for claim in claims
+            if str(claim.claim_type or "").casefold() in claim_types
         )
     return ()
 

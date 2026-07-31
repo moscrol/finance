@@ -505,6 +505,11 @@ def _safe_subject(
     return cleaned
 
 
+# 每个 frame 都会有的兜底输出（``general_knowledge`` / ``general_finance_qa``
+# 以及所有未映射类型都取这一对），因此它们**不构成**「需要检索」的信号。
+_GENERIC_REQUIRED_OUTPUTS = frozenset({"direct_answer", "evidence_boundary"})
+
+
 def _is_financial_task(question_type: str, question: str) -> bool:
     return question_type not in {
         "concept_definition",
@@ -513,8 +518,12 @@ def _is_financial_task(question_type: str, question: str) -> bool:
         "general_finance_qa",
     } or bool(
         re.search(
-            r"(?:市场|行情|大盘|股票|个股|题材|板块|公司|指数|反弹|"
-            r"产业|趋势|财务|估值|订单|客户|收入|利润)",
+            # 「A股/a股」原先不在表里——而「大盘」在，于是「明天大盘怎么走」
+            # 能命中、「你觉得a股明天会怎么走」命不中。这是产品最核心的说法
+            # （CLAUDE.md 标题就是「A股量化复盘+研究工具集」）。
+            # 港股/美股一并补上，它们同样是这里天天出现的主体。
+            r"(?:市场|行情|大盘|[Aa]\s*股|港股|美股|股票|个股|题材|板块|"
+            r"公司|指数|反弹|产业|趋势|财务|估值|订单|客户|收入|利润)",
             question,
         )
     )
@@ -526,6 +535,26 @@ def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
     if frame.evidence_policy in {"stable_knowledge", "model_reasoning"}:
         return False
     if frame.evidence_policy == "general_finance_evidence":
+        # 先看 frame 自己点名的产出物，再退回关键词匹配。
+        #
+        # 实测 run_20260731_175959_316535：turn controller 的 LLM 调用失败，
+        # question_type 停在默认的 general_finance_qa，于是这里落到关键词分支；
+        # 而关键词表里**没有「A股」**（有「大盘」），「你觉得a股明天会怎么走」
+        # 判 False → _enforce_task_frame_route 的地板不生效 → 兜底成 chat 车道，
+        # 用户拿到「我没办法预测」，整条研究链一次都没跑。
+        #
+        # 判据其实一直在手边：同一个 frame 的 required_outputs 是
+        # ("scenario_tree",)——一个要求产出情景树的问题不可能不需要证据。
+        # 只补关键词是 ch28 点名的「打地鼠」：关键词表永远追不上用户的说法，
+        # 而 required_outputs 是结构化的，不会因为换个措辞就漏。
+        #
+        # 注意判的是「**超出**通用默认」而不是「非空」：
+        # ``("direct_answer", "evidence_boundary")`` 是 general_knowledge /
+        # general_finance_qa 以及所有未映射类型的兜底值，每个 frame 都有——
+        # 按非空判会把「给我讲个笑话」也拖进研究车道（既有测试
+        # test_retrieval_floor_keeps_plain_chat_without_signals 抓到过）。
+        if set(frame.required_outputs) - _GENERIC_REQUIRED_OUTPUTS:
+            return True
         return _is_financial_task(frame.question_type, frame.raw_question)
     return True
 

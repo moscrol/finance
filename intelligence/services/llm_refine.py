@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import threading
 import socket
@@ -211,6 +212,54 @@ def _provider_failure_reason(
         for failed_provider, reason in failures
     )
     return provider, f"所有已配置 LLM provider 均失败（{summary}）"
+
+
+def stable_llm_fallback_reason(reason: str) -> str:
+    """把本模块产出的降级 reason 压成稳定枚举，供 trace 聚合与策略判定。
+
+    住在这里而不是调用方，是因为它解析的就是本模块自己写出的字符串——两者分开
+    放的代价已经付过一次：``complete()`` 用的是「LLM 调用失败（XxxError）」，
+    ``synthesize_messages()`` 用的是「LLM 合成超过共享截止时间」，改产出串的人
+    看不到解析器，于是前者的超时至今被归进 ``provider_unavailable``。
+
+    已知未覆盖：``LLM 调用失败（TimeoutError）`` / ``LLM 预算不足`` 都会落进
+    ``provider_unavailable``。**不要顺手补规则**——本函数同时是 judge 的
+    fail-closed 闸门（``_TRANSIENT_JUDGE_REASONS``），多认一个瞬时原因就等于
+    放宽一次严格层。要改先补 judge 侧的测试。
+    """
+    normalized = str(reason or "").casefold()
+    if "未配置" in normalized:
+        return "provider_unavailable"
+    # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
+    # provider_unavailable，跟「没配 key」混成一类——但两者的处置完全相反：
+    # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
+    if "预算耗尽" in normalized:
+        return "call_budget_exhausted"
+    if "截止时间" in normalized or "超时" in normalized:
+        return "timeout"
+    if "输出超长" in normalized or "too long" in normalized:
+        return "output_too_long"
+    if "截断" in normalized or "length" in normalized:
+        return "truncated_response"
+    if "未正常停止" in normalized or "stalled" in normalized:
+        return "provider_stalled"
+    # HTTP 按状态码分类，不要塌成一类。产生点（``LLM 合成 HTTP {code}`` /
+    # ``LLM 调用 HTTP {code}``）本来就知道是 400 还是 529，而这两者的处置相反：
+    # 429/5xx 是「那边出了事」，被审对象无辜；4xx 其余是「我们这次请求本身有问题」，
+    # 重试和放行都不对。塌成一类的后果是 HTTP 400 也会走瞬时故障放行。
+    http_code = re.search(r"http\s*(\d{3})", normalized)
+    if http_code is not None:
+        code = int(http_code.group(1))
+        if code == 429:
+            return "provider_rate_limited"
+        if code >= 500:
+            return "provider_overloaded"
+        return "provider_request_rejected"
+    if "http" in normalized:
+        return "provider_http_error"
+    if "空内容" in normalized:
+        return "empty_response"
+    return "provider_unavailable"
 
 
 @contextmanager
@@ -411,6 +460,28 @@ def _reserve_llm_call() -> None:
 
 def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
+
+
+# 重试退避。ch06b «API 通信层»：CC 用 BASE_DELAY_MS=500 的指数退避，并在每次退避上
+# **叠加 0-25% 随机抖动**，避免多个客户端在同一时刻同步重试造成雷群（thundering
+# herd）。我们这边的并发是真实的：API 有 2 个 worker，skill 线程经 copy_context
+# 共享同一本调用台账，同一次 provider 抖动会让它们在同一毫秒一起失败、一起重试。
+#
+# **次数没有跟着抄。** CC 的预算是 10 次（总等待 2.5-3 分钟），那是 CLI 场景、
+# 用户在前面等；我们每次尝试都要占一次 turn 级台账额度，而 LLM 是 5 小时滚动配额。
+# 保持今天的 2 次，只把间隔从写死的 2 秒换成有依据的退避——用户要的是退避与抖动，
+# 不是多花配额。将来有数据支持再调 _RETRY_MAX_ATTEMPTS。
+_RETRY_BASE_DELAY_S = 0.5
+_RETRY_MAX_DELAY_S = 4.0
+_RETRY_JITTER = 0.25
+_RETRY_MAX_ATTEMPTS = 2
+
+
+def _retry_delay_seconds(attempt: int) -> float:
+    """第 ``attempt`` 次失败后等多久（attempt 从 0 起）。"""
+
+    base = min(_RETRY_MAX_DELAY_S, _RETRY_BASE_DELAY_S * (2**attempt))
+    return base * (1.0 + random.random() * _RETRY_JITTER)
 
 
 def _failure_reason(exc: BaseException) -> str:
@@ -962,18 +1033,69 @@ _GROUNDING_JUDGE_SYSTEM_PROMPT = (
 )
 
 
+def _required_outputs_block(required_outputs: tuple[str, ...]) -> str:
+    """把本轮验收标准写进 prompt。
+
+    这份清单就是 task_fulfillment 逐条判、判不过就把整份答案换成「请补充数据源」的
+    那份清单。此前它从未进过 brief/compose 的 prompt——模型是在一张看不见的评分表
+    上被打分。措辞刻意强调「只能用 registry 覆盖、没有就写成缺口」：只说「必须写到」
+    而不说来源约束，等于在鼓励为了凑齐而编。
+    """
+
+    if not required_outputs:
+        return ""
+    items = "\n".join(f"- {item}" for item in required_outputs)
+    return (
+        "本轮必须覆盖的输出（每条都要在正文里真的写到，缺一条即判未完成）：\n"
+        f"{items}\n"
+        "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"
+        "写成明确的缺口或边界，不要为了凑齐而编。\n\n"
+    )
+
+
+def _registry_document(registry_block: str) -> str:
+    """把 claim registry 包成带标签的文档块。
+
+    官方长上下文指引：多份材料时用 XML 标签包裹并标明来源，模型更容易在长输入里
+    定位与切分。这里只有一份材料，标签的作用是给它一个明确的起止边界，避免它和
+    后面的指令、问题在模型眼里糊成一片。
+    """
+
+    return (
+        "<claim_registry>\n"
+        "<source>本轮检索与结构化数据产出的全部 claim，每行一个 JSON</source>\n"
+        "<content>\n"
+        f"{registry_block}\n"
+        "</content>\n"
+        "</claim_registry>\n\n"
+    )
+
+
+# 长输入在前、问题在最后。
+#
+# 官方长上下文指引：「把长文档和长输入放在提示词靠顶部的位置，在问题、指令和示例
+# 之上」，并注明「问题放在最后可以把回答质量提升最多 30%，多文档复杂输入尤其明显」。
+# 这三个 builder 原本是完全相反的顺序——用户问题在最前，最长的 claim registry
+# （12,000 字符预算，通常是整段 prompt 的绝大部分）压在最后。
+#
+# 与缓存不冲突：registry 每轮都变，用户消息本来就没有可复用前缀；可缓存的是它前面
+# 的 system 消息，位置未动。
+
+
 def build_decision_brief_messages(
     query: str,
     registry_block: str,
+    *,
+    required_outputs: tuple[str, ...] = (),
 ) -> list[dict]:
     return [
         {"role": "system", "content": _DECISION_BRIEF_SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"{_registry_document(registry_block)}"
+                f"{_required_outputs_block(required_outputs)}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -983,16 +1105,18 @@ def build_grounded_composer_messages(
     query: str,
     decision_brief: str,
     registry_block: str,
+    *,
+    required_outputs: tuple[str, ...] = (),
 ) -> list[dict]:
     return [
         {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
+                f"{_registry_document(registry_block)}"
                 f"DecisionBrief：\n{decision_brief}\n\n"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"{_required_outputs_block(required_outputs)}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -1008,10 +1132,9 @@ def build_grounding_judge_messages(
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
+                f"{_registry_document(registry_block)}"
                 f"待审答案：\n{grounded_answer}\n\n"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -1063,7 +1186,7 @@ def synthesize_messages(
     last_exc: Exception | None = None
     content = None
     finish_reason: str | None = None
-    for attempt in range(2):
+    for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
             remaining = shared_deadline.require_remaining(1)
             content, finish_reason = _post_chat_synthesis(
@@ -1085,14 +1208,18 @@ def synthesize_messages(
             return None, "LLM 合成输出超长，已降级为模板"
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
-            if attempt == 0:
+            if attempt + 1 < _RETRY_MAX_ATTEMPTS:
                 rejection = _budget_rejection()
                 if rejection is not None:
                     return None, rejection
                 remaining = shared_deadline.remaining()
                 if remaining < 1:
                     return None, "LLM 合成超过共享截止时间，已降级为模板"
-                time.sleep(min(2, max(0.0, remaining - 0.5)))
+                # 退避 + 抖动，但绝不睡穿共享 deadline：留 0.5 秒给下一次尝试
+                # 至少能发出去，否则退避本身就成了超时的原因。
+                time.sleep(
+                    min(_retry_delay_seconds(attempt), max(0.0, remaining - 0.5))
+                )
     if content is None and last_exc is not None:
         return None, f"LLM 合成失败（{type(last_exc).__name__}），已降级为模板"
     text = (content or "").strip()
@@ -1234,6 +1361,22 @@ def _post_chat_stream_raw(
     return "".join(chunks), finish_reason
 
 
+# 流式→非流式回退的准入条件：**一个字都还没吐出去**。
+#
+# 依据是 ch06b 记的真实事故 inc-4258——流式已经开始执行工具，回退到非流式重试后
+# 同一个工具执行了两次；CC 为此加了开关能禁掉整条回退路径。我们这边核实过，那个
+# 形状目前不成立：全仓只有这一处 `"stream": True`，而它是合成调用、不带工具
+# （带工具的 `chat_with_tools` 走非流式的 `_post_chat_message`）；两条回退的触发
+# 条件也都在首个 delta 之前——`LLMStreamingUnsupported` 只在 chunks 为空时抛，
+# `HTTPError` 只由 `urlopen` 在响应头阶段抛，流开起来之后 urllib 抛的是
+# IncompleteRead 那一类，落到通用 except 里直接降级、不回退。
+#
+# 既然当前触发不了，这道闸就是零行为变化——它防的是**以后**有人在流循环里加重试、
+# 或把 HTTPError 的抛出点挪到 delta 之后。真到那天，回退会把整段答案再 on_delta
+# 一次，用户看到的是重复正文（工具双执行的文本版）。宁可降级为模板。
+_STREAM_FALLBACK_BLOCKED = "LLM 流式合成已输出后失败，不回退非流式（避免重复正文），已降级为模板"
+
+
 def synthesize_messages_stream(
     messages: list[dict],
     *,
@@ -1258,6 +1401,15 @@ def synthesize_messages_stream(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
     shared_deadline = deadline or Deadline.from_timeout(timeout)
+    # 流式已经吐给用户多少字。下面两条回退非流式的路径必须先看它——见
+    # ``_stream_fallback_blocked``。
+    streamed_chars = 0
+
+    def _tracked_delta(delta: str) -> None:
+        nonlocal streamed_chars
+        streamed_chars += len(delta)
+        on_delta(delta)
+
     try:
         remaining = shared_deadline.require_remaining(1)
         content, finish_reason = _post_chat_stream(
@@ -1265,7 +1417,7 @@ def synthesize_messages_stream(
             messages,
             remaining,
             temperature,
-            on_delta,
+            _tracked_delta,
             on_connected,
             is_cancelled,
             shared_deadline,
@@ -1285,6 +1437,8 @@ def synthesize_messages_stream(
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+        if streamed_chars:
+            return None, _STREAM_FALLBACK_BLOCKED
         if shared_deadline.remaining() < 1:
             return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
@@ -1301,6 +1455,8 @@ def synthesize_messages_stream(
             fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except LLMStreamingUnsupported:
+        if streamed_chars:  # 定义上不可能（它只在 chunks 为空时抛），留着防定义漂移
+            return None, _STREAM_FALLBACK_BLOCKED
         if shared_deadline.remaining() < 1:
             return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
@@ -1357,14 +1513,56 @@ def claim_binding_revision_user_content(
     registry_block: str,
 ) -> str:
     joined = "\n".join(f"- {note}" for note in error_notes)
+    # 同样是长输入在前、指令在后（见上面 builder 处的说明）。
     return (
+        f"{_registry_document(registry_block)}"
         "上一版未通过结构化事实门禁。不要增加 registry 外事实；"
         "保留原有自然措辞，只修复门禁错误指出的 claim/EvidenceAtom 绑定或越界句。\n"
         "标题可自由组织；事实和推断正文必须保留合法 marker，允许删去无法修复的单句，"
         "但不要为满足格式而重写整篇答案。\n"
-        f"门禁错误：\n{joined}\n"
-        "可复制 registry：\n"
-        f"{registry_block}"
+        f"门禁错误：\n{joined}"
+    )
+
+
+def grounded_composer_system_prompt() -> str:
+    """Grounded Composer 的 system 段，供门禁修复轮复用同一套写作约束。"""
+
+    return _GROUNDED_COMPOSER_SYSTEM_PROMPT
+
+
+def fulfillment_revision_user_content(
+    missing: tuple[tuple[str, str], ...],
+    registry_block: str,
+    answer_text: str,
+) -> str:
+    """把「哪几个必需输出没覆盖、为什么没绑上」回灌给模型做一轮定向补写。
+
+    官方 Claude Code 对被拒的工具调用不是直接终止，而是**把拒绝消息作为
+    tool result 交回模型**，让它换方法或说明无法继续（`PermissionDenied`
+    hook 的官方用例原文就是「告诉模型它可以重试」）。我们这里对应的动作是：
+    门禁判缺时先把具体缺口交回去补一轮，而不是直接把整份答案换成缺口模板。
+
+    ``missing`` 的第二项是 ``FulfillmentItem.gap``，它已经写清了四种「为什么没
+    绑上」（registry 里没有对应 claim / 候选 N 条但正文没出现它们的文本 /
+    候选 N 条且正文写到了但证据没绑上 / 已绑定但正文缺少该输出的措辞标记）——
+    这四句是诊断，不是骂人，模型拿它能定位到具体该改哪里。
+
+    来源约束逐字复用 ``_required_outputs_block()`` 里那句：只说「必须写到」而
+    不说来源约束，等于在鼓励为了过门禁而编。
+    """
+
+    items = "\n".join(f"- {output_id}：{gap}" for output_id, gap in missing)
+    # 长输入在前、指令在最后（与三个 composer builder 一致）。
+    return (
+        f"{_registry_document(registry_block)}"
+        "<previous_answer>\n"
+        f"{answer_text}\n"
+        "</previous_answer>\n\n"
+        "上一版没有覆盖全部必需输出。保留已经写好的部分和原有措辞，"
+        "只针对下面点名的输出补写，不要重写整篇答案。\n"
+        "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"
+        "写成明确的缺口或边界，不要为了凑齐而编。\n"
+        f"未覆盖的输出及原因：\n{items}"
     )
 
 

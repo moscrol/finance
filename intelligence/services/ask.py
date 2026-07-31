@@ -155,8 +155,10 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _grounded_body_line_count,
     _stable_llm_fallback_reason,
     _strip_empty_grounded_sections,
+    ensure_forecast_scenarios_visible as _ensure_forecast_scenarios_visible,
     promote_daily_agent_grounded_answer,
     promote_grounded_answer,
+    repair_unfulfilled_answer,
     synthesize_shadow_grounded_answer,
     _build_answer_spec_for_result,
     _build_base_answer_spec_from_sections,
@@ -1276,51 +1278,6 @@ def _market_forecast_fallback_assessment(
     return "".join((base, rebound, decline, invalidation)), rebound, decline, invalidation
 
 
-def _ensure_forecast_scenarios_visible(result: AskResult) -> None:
-    """Keep the user-facing answer complete when LLM prose drops required claims.
-
-    AnswerSpec already contains the three deterministic, evidence-bound scenario
-    claims.  A grounded composer may validly paraphrase them, but it must not
-    silently omit an entire branch of a two-scenario question.  Append only the
-    missing deterministic block; do not regenerate or overwrite the model's
-    useful prose.
-    """
-
-    if (
-        result.question_plan is None
-        or result.question_plan.question_type != QUESTION_MARKET_FORECAST
-        or not result.synthesis
-        or result.answer_spec is None
-    ):
-        return
-    if all(term in result.synthesis for term in ("反弹", "继续下跌", "失效条件")):
-        return
-    claims = {
-        claim.claim_id: claim
-        for claim in result.answer_spec.candidate_facts
-        if claim.claim_id
-        in {"generic:rebound_case", "generic:decline_case", "generic:invalidation"}
-    }
-    ordered_ids = (
-        "generic:rebound_case",
-        "generic:decline_case",
-        "generic:invalidation",
-    )
-    lines: list[str] = []
-    for claim_id in ordered_ids:
-        claim = claims.get(claim_id)
-        if claim is None or not claim.text.strip():
-            continue
-        refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
-        lines.append(f"{claim.text.strip()}{refs}")
-    if lines:
-        result.synthesis = (
-            result.synthesis.rstrip()
-            + "\n\n## 基准判断与条件情景\n"
-            + "\n".join(lines)
-        )
-
-
 def _filter_current_window_evidence(
     selected: list[agent_research.AgentEvidence],
     *,
@@ -2057,19 +2014,36 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         owner_result.loop.sufficient = True
         if owner_result.loop.research_state is not None:
             owner_result.loop.research_state.set_assessment(assessment)
-            market_state_ids = tuple(
-                evidence_id
-                for evidence_id, observation in owner_result.loop.research_state.evidence.items()
-                if observation.tool == "market_data"
+
+    if (
+        contract.question_type == QUESTION_MARKET_FORECAST
+        and owner_result.loop.research_state is not None
+        and any(item.tool == "market_data" for item in owner_result.evidence)
+    ):
+        # These are conditional monitoring scenarios, not directional facts:
+        # bind each one to the current breadth/volume observations so the
+        # completion gate sees all required branches as grounded.
+        #
+        # 这段原本嵌在上面的兜底分支里，只有 agent loop **没能**给出判断时才执行。
+        # 于是行为是反的：loop 失败 → 绑定 → coverage fulfilled → business_status
+        # complete → 允许 LLM 合成；loop 成功 → 不绑定 → 三个情景假设一直是
+        # uncovered → coverage partial → business_status gap → prepare_existing_answer
+        # 直接把 synthesize 关掉，用户拿到的是确定性模板。研究做得越好，表达越差。
+        #
+        # 实测 run_20260731_031601_415738：六个必需输出全部 fulfilled，汇总却是
+        # gap，全程没有调用过 LLM。绑定的是同一批 market_data 证据——预测情景本来
+        # 就以当前盘面为依据，最终门禁 _evidence_supports_claim 对这三个 output 用
+        # 的也正是这条规则。没有 market_data 时不绑定，仍然 fail closed。
+        market_state_ids = tuple(
+            evidence_id
+            for evidence_id, observation in owner_result.loop.research_state.evidence.items()
+            if observation.tool == "market_data"
+        )
+        for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
+            owner_result.loop.research_state.bind_hypothesis_evidence(
+                hypothesis_id,
+                market_state_ids,
             )
-            # These are conditional monitoring scenarios, not directional facts:
-            # bind each one to the current breadth/volume observations so the
-            # completion gate sees all required branches as grounded.
-            for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
-                owner_result.loop.research_state.bind_hypothesis_evidence(
-                    hypothesis_id,
-                    market_state_ids,
-                )
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
@@ -2440,6 +2414,17 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 else contract.subject or "通用研究"
             ),
             presentation_profile=contract.presentation_profile,
+            # 把本轮的必需输出交给表达层，让 composer 能看到自己被按什么标准验收。
+            # 在此之前，brief/compose 的 prompt 里只有「用户问题 + claim registry」，
+            # required_outputs 一个字都没进去，而 task_fulfillment 又逐条按它判、
+            # 判不过就把整份答案换成「请补充数据源」——模型是在一张它看不见的评分表
+            # 上被打分。专项 owner 早就填了这个字段（research_owner 的 output_contract），
+            # 只有 GenericResearchOwner 这条路一直是空的。
+            prompt_constraints=tuple(
+                f"{required.output_id}：{required.description}"
+                for required in contract.required_outputs
+                if required.required
+            ),
         )
     )
     return result

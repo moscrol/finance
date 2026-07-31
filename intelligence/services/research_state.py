@@ -242,7 +242,24 @@ class ResearchState:
         if reason.strip():
             self.stop_reason = reason.strip()
 
-    def evaluate_completion(self) -> CompletionState:
+    def evaluate_completion(
+        self,
+        *,
+        fulfilled_outputs: frozenset[str] = frozenset(),
+    ) -> CompletionState:
+        """``fulfilled_outputs`` 是契约层已确认交付的 output。
+
+        gap 是只追加的：``add_gap`` 只会新增或原地更新，没有任何解除路径。于是一条
+        早期的临时缺口（首轮检索落空、行情预取失败）会永久留在 blocking_gaps 里，
+        coverage 再也回不到 fulfilled —— 哪怕它声称阻塞的那些 output 后来全部交付。
+        往下传导就是 status=partial → business_status=gap →
+        prepare_existing_answer 关掉 synthesize，整轮拿不到自然语言合成。实测本机
+        79 条 run 里 68 条根本没有 composer 记录。
+
+        「阻塞」的定义就是「有东西因它交付不了」。它列的 output 全都已经交付时，
+        它已经不再阻塞任何东西，只是一条历史记录。只要还有一条没交付，它照旧阻塞。
+        """
+
         evidence_ok = bool(self.evidence)
         has_causal_question = self.question_type in {
             "market_cause",
@@ -252,9 +269,19 @@ class ResearchState:
             output in {"cause_attribution", "causal_explanation"}
             for output in self.required_outputs
         )
+        available_capabilities = {item.tool for item in self.evidence.values()}
         blocking_gaps = {
             output
             for gap in self.gaps
+            if not (
+                gap.blocks
+                and set(gap.blocks) <= fulfilled_outputs
+                # gap 点名了需要哪个能力时，那个能力必须真的到位才算解除。
+                # 「结构化行情预取失败」阻塞 direct_assessment/supporting_evidence，
+                # 光靠网页来源把这两项凑齐不等于缺陷已解决——它说的就是本轮没拿到
+                # 结构化盘面真值。没点名能力的 gap 只能按 output 是否交付判断。
+                and set(gap.suggested_capabilities) <= available_capabilities
+            )
             for output in gap.blocks
         }
         uncovered_hypotheses = {
