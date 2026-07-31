@@ -48,6 +48,13 @@ ps eww <pid> | tr ' ' '\n' | grep ^PYTHONPATH=  # 必须是你的 worktree
 **界面会把内部 id 中文化**——`scenario_tree` 显示成 `情景树`、`registry` 显示成 `工具目录`。
 用户贴回来的报错要先反译。
 
+**run 目录不在数据根里。** 线上跑出来的 run 落在
+`~/.local/share/finance-workbench/users/default/runs/`，
+**不是** `finance-workspace-private/intelligence/users/*/runs/`（那里最新的只到 07-10）。
+离线复现台要读 0731 的数据就去前者。存的是 `answer_spec.json` / `report.json` /
+`trace.jsonl`，**`run.json` 里 `query` 是 `None`**，问题原文得从 `stream.jsonl` 找。
+另外 `AnswerSpec` **没有 `from_dict`**，`answer_spec.json` 只能当普通 dict 读。
+
 ## 3. 接手这个：P1「拒绝可恢复」
 
 ### 现状与目标
@@ -87,6 +94,11 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
 
 1. **只补一轮。** 官方压缩逻辑连续 3 次失败就熔断（`autoCompact.ts:67-70`）；
    我们这里一轮足够，第二轮仍不过就 fail-closed。不要写成不封顶的循环。
+   > 马书 ch27「模式二 渐进式自主」给了更完整的形状：`DENIAL_LIMITS =
+   > { maxConsecutive: 3, maxTotal: 20 }`，分类器连续 3 次或累计 20 次拒绝后
+   > **永久回退到人工确认**，每次成功调用重置计数器。要点是「自主不是全有或全无，
+   > 而是连续光谱，且光谱的每个位置都有安全网」。我们一轮就够，但**计数器要落在
+   > 会话级而不是单次调用级**，否则同一个问题反复问会反复烧 LLM 配额。
 2. **补写只能用 registry 里已有的事实。** 回灌提示词必须带来源约束，否则等于
    鼓励为了过门禁而编——`_required_outputs_block()` 里那句
    「只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，写成明确的
@@ -103,20 +115,53 @@ hook 的官方用例原文就是「告诉模型它可以重试」）。
 
 | # | 改动 | 依据 |
 |---|---|---|
-| P2 | **重试/降级体系**：judge 挂了降级而不是罚被审对象、流卡住转非流式 | 源码解读：Opus 3×529 自动降 Sonnet、90s 空闲看门狗、persistent 模式无限重试 |
-| P3 | **registry 选择而非截断** | 见下，这条被新读到的材料改写了 |
+| P2 | **重试/降级体系** | 马书 ch06b 给了完整蓝图，见下 |
+| P3 | ~~registry 选择而非截断~~ **降级为 P3'：只补一句「已省略 N 条」** | 实测截断当前不咬人，见下 |
 | P4 | **告知模型上下文会被压缩**，别提前收尾 | 官方 PE 给了现成模板，见 `_sources/prompt-engineering/` |
 
-### P3 被改写了，注意
+### P2 的蓝图（马书 ch06b «API 通信层» 全章讲这个）
 
-原方案是「大 registry 落盘 + 8KB 预览」（抄 Claude Code 的大工具结果处理）。
-但 Yuker 那篇揭示了一个**更贴切的做法**：Claude Code 的记忆检索**不是截断，是选择**
-—— 用另一个小模型扫所有记忆文件的标题和描述，选出**最多 5 条**，再把完整内容注入，
-策略明写「**精确度优先于召回率**，宁可漏掉一个可能有用的，也不塞进一个不相关的污染上下文」。
+抄这四条，按顺序：
 
-我们现在是 `_grounded_registry_priority()` 排序 + 12,000 字符预算截断——**排序后截断**，
-不是选择。要不要改成 LLM 选择需要权衡：它会**再加一次串行 LLM 调用**，而 P2 正在
-解决「串行调用过多」。**建议先做 P2，再回头判断 P3。**
+1. **前台/后台减载。** CC 的 `FOREGROUND_529_RETRY_SOURCES` 是个白名单，**只有用户正在
+   等结果的请求才重试过载**；摘要、标题、建议、**分类器**一律立即放弃。原文注释：
+   「during a capacity cascade each retry is 3-10× gateway amplification, and the user
+   never sees those fail anyway」。→ **我们的 judge 就是分类器**，它挂了应该降级放行，
+   不该重试、更不该罚被审对象。这一条就是 P2 的主体。
+2. **三层错误漏斗**：`classifyAPIError()` 25 种细分（进遥测）→ `categorize...()` 4 类
+   （给 UI）→ `shouldRetry()` 布尔（给循环）。**诊断细、决策粗，两个关注点解耦。**
+   我们的 `failure_reason` 已经是第一层了，缺的是把它收敛成决策。
+3. **双看门狗**：idle 90s（**中断**流）+ stall 30s（**只记日志不中断**）；`lastEventTime`
+   在第一个 chunk 之后才开始算，避免把 TTFB 误判成卡死。两者解决的是不同问题——
+   「一个事件都没有」vs「有事件但间隔大」。
+4. ⚠️ **流转非流式有坑，别照抄。** 真实事故 inc-4258：流式已经开始执行工具、回退到
+   非流式重试后**同一个工具执行了两次**。CC 为此加了开关可以禁用整条回退路径。
+   我们要做这条，必须先确认回退点之前没有产生过副作用。
+
+其它可复用常量：10 次重试预算 = 500ms×2^(n-1) + 0~25% 抖动（防雷群），总等待约 2.5–3 分钟。
+
+### P3 降级了：我实测了截断，它当前不咬人
+
+10 个 0731 run 里 **2 个**超出 12,000 字符窗口（最大 15,429 字符 / 71 条 claim →
+入窗 54、丢弃 17，**丢的全是 `company_table` 的 `company_mapping` / `company_evidence`**）。
+但这**两个 run 的 `answer_status` 都是 `complete`**——截断没有造成判缺。
+
+所以这是个**潜在**不对称，不是已发生的故障：
+
+```
+门禁    task_fulfillment 看 answer_spec 全集（71 条）
+composer 只看 grounded_claim_registry_block(max_chars=12_000)（54 条）
+```
+
+→ **建议只做最便宜的那一半**：在 registry 末尾补一行「另有 N 条 claim 未纳入本次窗口」。
+马书 ch28「不足四」正是讲这个——CC 大结果截断时会告诉模型「Full output saved to…」，
+但作者指出**告知 ≠ 模型会去读**。我们现在连告知都没有，补上是零成本；
+上 LLM 选择（Yuker 那条「小模型选≤5 条，精确度优先于召回率」）**不划算**，
+它会再加一次串行调用去解决一个还没发生的问题。
+
+> 复现命令在 §8。注意我是从 `answer_spec.json` 重建 registry 量的（`AnswerSpec` 没有
+> `from_dict`），排序里少了 query 词加分，所以**丢弃的具体是哪 17 条**可能有出入；
+> **总字符数 15,429 > 12,000 是准的**，跟排序无关。
 
 ## 5. 本次 session 做完的（11 个 commit）
 
@@ -153,6 +198,14 @@ e5d32e80  fix: gap 在它点名的缺陷解决后停止阻塞
 
 全部冷存在 `/Users/a77/agent-memory/10_knowledge/`，无需联网。总索引见 agent 记忆
 `harness-reference-library`。四类，按证据等级：
+
+> 📌 马书**全 36 章已抓全**（`_sources/harness-engineering/chapters/`，1.2M，无需联网）。
+> 按需查的对照表：P1 拒绝可恢复 → ch16（权限六模式/三层管线）、ch27 模式二（拒绝追踪）、
+> ch04 模式三（**分层错误级联**：Bash 出错只取消同级 Bash，不动 Read/Grep——
+> 这就是「一个输出判缺不该作废整份答案」的通用形式）；
+> P2 → ch06b 全章；P3 → ch12（预算三态分区）+ ch28 不足四；
+> 提示词措辞 → ch06（六种引导模式）、ch08（工具提示词=行为契约）；
+> **ch28 是唯一记录这套设计在哪失败的一章**，动手前先读它对应的那一节。
 
 1. **官方文档**：`_sources/claude-code-docs/`（loop / permissions / hooks / sdk / overview）、
    `_sources/prompt-engineering/claude-prompting-best-practices.md`（59K，`## Agentic systems`
