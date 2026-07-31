@@ -70,12 +70,18 @@
 
 ```
 代码（在这里干活）  /Users/a77/finance-workspace-private/tmp/agent-runtime-seam-fix-69f9cf17
-分支               fix/foresight-required-outputs  ← 23 个 commit，未合 main、未推 origin
-数据根             /Users/a77/finance-workspace-private
+                   ⚠️ 这是独立 clone，不是数据仓的 worktree，且**没有 origin**
+分支               fix/foresight-required-outputs（26 commit）→ 已合本地 main = 610feb21
+数据根             /Users/a77/finance-workspace-private   ← 有 origin(GitHub)，但在别的分支上
 Python             /Users/a77/finance-workspace-private/.venv-workbench/bin/python
-线上运行时         8792 → /Users/a77/finance-workspace-runtime → 028bab57（**仍是旧代码**）
+线上运行时         8792 → /Users/a77/finance-workspace-runtime → 610feb21（2026-07-31 已切）
 run 落盘           ~/.local/share/finance-workbench/users/default/runs/
 ```
+
+**三个 main 是分叉的，别当成一条线：** 共同祖先是 `origin/main` = `0430d544`；
+本 clone 的 main 在它之上有本轮 26 个 commit（现 610feb21），数据仓的 main 另有
+自己的 `901dcd7b`。切换用的是本地 fetch，**不需要也没有推 GitHub**。要推之前
+先想清楚数据仓那条线怎么并，它还压着 137 个未提交改动。
 
 两种配置都要跑：
 
@@ -91,17 +97,33 @@ $PY -m pytest -q -p no:randomly
 > ⚠️ 看到 **12 failed** 先重跑一次——看板 #14 的 flaky episode-citations test。
 > 看到 **12 以上**大概率是真回归，先看是哪一条再动手。
 
-### 五个具体的坑
+### 六个具体的坑
 
+0. **决定加载哪份代码的是进程 cwd，不是 PYTHONPATH。**（2026-07-31 新增，代价最大的一条）
+   `python -m uvicorn` 让 `sys.path[0]=''`（cwd）排在 PYTHONPATH 前面，而数据根
+   `/Users/a77/finance-workspace-private` 下**就有一个 `intelligence/` 包**。在数据根里
+   `cd` 着起 server，加载的是数据仓工作树（当时压着 137 个未提交改动），你指的快照被完全
+   无视——**而且下面第 2 条的两条检查全绿**。所以第三条检查是必须的：
+   ```bash
+   lsof -a -p <pid> -d cwd -Fn | grep '^n' | sed 's/^n//'   # 必须是你的快照
+   ```
+   同一条机制的推论：cwd 在**启动时**解析符号链接，所以**只切指针不重启完全无效**。
+   线上此前一直跑 `30d6471a` 而不是指针指的 `028bab57`，就是这么来的。
 1. **LLM 是 5 小时滚动配额**，约 15 次 canary 跑光。优先用离线复现台（从 run 目录
    重建 claim + 正文直接喂门禁），一次 LLM 调用都不花。本轮八个 bug 有六个这样定位。
+   判断某个 degraded 是不是自己引入的，别猜——**跑 A/B**：同一问题同一 env，分别打
+   合并前后两个快照的旁路 server，比 `trace.jsonl` 里 `synthesize` 那步的 output_summary。
 2. **旁路 server 端口被占会静默测成别人的代码。** uvicorn 只写一行
-   `address already in use` 就退出，但那个端口原有的进程照常返 200。起完必须验两件事
+   `address already in use` 就退出，但那个端口原有的进程照常返 200。起完必须验三件事
    （**`/api/health` 不能用来判断跑的是哪份代码**，它的 `source_revision` 报的是数据仓）：
    ```bash
    grep -c "address already in use" <log>          # 必须 0
    ps eww <pid> | tr ' ' '\n' | grep ^PYTHONPATH=  # 必须是你的 worktree
+   lsof -a -p <pid> -d cwd -Fn                     # 必须是你的 worktree ← 真正决定的那条
    ```
+   8792 的属主是 **launchd 作业 `com.a77.finance-workbench`（KeepAlive）**，
+   手工 `kill` + `nohup` 会被它抢走端口、你的进程 bind 失败静默退出。重启要用
+   `launchctl kickstart -k "gui/$(id -u)/com.a77.finance-workbench"`。
 3. **run 目录不在数据根里**，在 `~/.local/share/finance-workbench/`。
    `run.json` 的 `query` 是 `None`（问题原文在 `stream.jsonl`）；
    `AnswerSpec` **没有 `from_dict`**，`answer_spec.json` 只能当普通 dict 读；
@@ -114,7 +136,7 @@ $PY -m pytest -q -p no:randomly
 
 ---
 
-## 3. 已经做完的（23 个 commit，别重做）
+## 3. 已经做完的（26 个 commit + 一个 merge，别重做）
 
 ### 第一批：前瞻路径修复（10 个）
 
@@ -126,7 +148,7 @@ $PY -m pytest -q -p no:randomly
 的 prompt，而 `task_fulfillment` 逐条按它打分。这类「信息在系统里但没送到该去的地方」
 的 bug，本轮一共抓到**四个**（见下）。
 
-### 第二批：按 harness 六层补通用层（13 个）
+### 第二批：按 harness 六层补通用层（15 个）
 
 | commit | 改动 | 依据 |
 |---|---|---|
@@ -138,6 +160,8 @@ $PY -m pytest -q -p no:randomly
 | `f11d8903` | 工具提示词补行为契约（4 条） | ch08 + ch27 模式六 |
 | `3d36c268` | 重试退避改指数+抖动，**次数不变** | ch06b |
 | `85a0ec89` | **controller 挂掉时的检索地板漏掉了「A股」** | canary 实测 + ch28 |
+| `2ed27ca9` | controller 降级留证：reason 枚举 + 原文进 trace（待办 A） | ch06b 错误漏斗 |
+| `3cd94bbd` | 流式已输出后不再回退非流式（待办 D，核实后钉闸） | ch06b inc-4258 |
 
 ### 六层现状（ch30 的框架）
 
@@ -163,23 +187,42 @@ $PY -m pytest -q -p no:randomly
 
 **下次遇到「模型怎么这么笨」，先查它到底看没看到那份信息。**
 
-### 切换准备（已就绪，指针未动）
+### 切换（2026-07-31 已完成，用户明确批准）
 
 ```
-promote ref   refs/runtime/promote-2026-07-31  ← 已 fetch 进数据仓
-新快照        /Users/a77/.finance-runtime/finance-workspace-31af5663…（74M）
-canary        8801 验过，两条防坑检查都过
-指针          未动，8792 仍是 028bab57
+合并          fix/foresight-required-outputs → 本地 main = 610feb21（--no-ff）
+promote ref   refs/runtime/promote-2026-07-31b  ← 新 ref，旧的留作回滚参照
+新快照        /Users/a77/.finance-runtime/finance-workspace-610feb21…（74M）
+canary        8816 验过（三条检查都过）；8817 跑合并前 31af5663 做 A/B
+指针          已切 → 610feb21，launchctl kickstart 重启，cwd 已确认是新快照
+线上验收      smoke completed，secret_scan 0 命中，controller 新字段已进 trace
 ```
 
-**合 main 和切换都必须等用户明确确认。** 切换步骤见 agent 记忆
-`workbench-runtime-cutover`，旁路验证见 `workbench-canary-side-server`。
+**回滚**：`ln -sfn /Users/a77/.finance-runtime/finance-workspace-028bab57… \
+/Users/a77/finance-workspace-runtime && launchctl kickstart -k \
+"gui/$(id -u)/com.a77.finance-workbench"`。旧快照不要删。
+（注：切换前**实际在跑**的是 `30d6471a`，不是指针指的 `028bab57`——见坑 0。）
+
+**未做：推 GitHub。** 本 clone 没有 origin；有 origin 的数据仓在
+`fix/degrade-disclosure` 上、压着 137 个未提交改动，且它的 main 和本 clone 的 main
+已从 `origin/main` 分叉。推上去数据仓那条线会变成 diverged，得先决定怎么并。
+切换不依赖它。
+
+步骤细节见 agent 记忆 `workbench-runtime-cutover`，旁路验证见
+`workbench-canary-side-server`（两份都已按本轮实测改写）。
 
 ---
 
 ## 4. 待办（按性价比排序）
 
-### A. controller 失败的 reason 被丢弃 —— 建议先做，纯观测
+### ~~A. controller 失败的 reason 被丢弃~~ —— ✅ 已做（2ed27ca9）
+
+`TurnDecision` 加了 `llm_failure_reason`（枚举）+ `llm_failure_detail`（原文截断 200），
+解析失败单独给 `unparsable_response`；分类器下沉到 `llm_refine.stable_llm_fallback_reason`
+（它解析的字符串就是那边产出的）。**没有**顺手补分类器盲区——它同时是 judge 的
+fail-closed 闸门，多认一个瞬时原因等于为观测放宽严格层。线上 trace 已确认有这两个字段。
+
+<details><summary>原始问题描述</summary>
 
 `turn_controller.py:1015`：
 
@@ -196,6 +239,25 @@ except Exception:
 （`timeout` / `provider_rate_limited` / `provider_overloaded` /
 `provider_request_rejected` / `call_budget_exhausted` / …），落进 trace 即可。
 零行为变化，改动很小。
+
+</details>
+
+### G. synthesize 报降级却说不出原因 —— 新增，和 A 同一个形状
+
+线上实测（2026-07-31，合并前后 A/B 一致，**不是本轮引入的**）：同一次 run 里
+
+```
+llm_budget  : 本轮 LLM 调用 4 次（失败 0 次），其中 caller=synthesis 成功 6435ms
+synthesize  : status=fallback, fallback_reason=None, stream={}
+smoke model : used=False, provider=None
+```
+
+`status` 的定义是 `"validated" if result.synthesis is not None else "fallback"`
+（`conversation_orchestrator.py:2637`）——所以它说的是「synthesis 是 None」，
+但**为什么是 None 没人记**。LLM 明明成功了，答案元数据却丢了 provider/model。
+
+先查 `result.prepared_synthesis_messages` 为空时是不是整段被跳过（跳过和失败是两回事，
+现在混成同一个 `fallback`）。修法同 A：给「跳过」和「失败」各自的枚举，别共用一个 None。
 
 ### B. 剩下 7 个工具的行为契约 —— 等实测依据
 
@@ -218,11 +280,23 @@ except Exception:
 > 已经有 stall 检测了。测试里钉了一条 `test_no_threshold_is_hardcoded` 防这件事。
 > 另注：**CC 自己的 idle 看门狗也还在灰度**（要 `CLAUDE_ENABLE_STREAM_WATCHDOG`）。
 
-### D. 流式转非流式 —— 有坑，先核实
+### ~~D. 流式转非流式~~ —— ✅ 已核实并钉闸（3cd94bbd）
 
 ch06b 记录了真实事故 **inc-4258**：流式已经开始执行工具、回退到非流式重试后
 **同一个工具执行了两次**。CC 为此加了开关可禁用整条回退路径。
-我们的合成层不执行工具，风险应该低——**但这需要先核实，不是拍脑袋。**
+
+**核实结论：那个形状在我们这儿不成立**（三条实据）：
+
+1. 全仓只有一处 `"stream": True`（`llm_refine._post_chat_stream_raw`），它是合成调用、
+   **不带工具**；带工具的 `chat_with_tools` 走非流式的 `_post_chat_message`。
+2. 两条回退非流式的路径触发条件都在首个 delta 之前：`LLMStreamingUnsupported` 只在
+   chunks 为空时抛，`HTTPError` 只由 `urlopen` 在响应头阶段抛。
+3. 流开起来之后 urllib 抛的是 IncompleteRead 那一类，落到通用 except 直接降级，
+   根本不进回退分支。
+
+既然当前触发不了就把不变量钉住而不是留在脑子里：回退前先看 `streamed_chars`，非零
+就降级为模板（`_STREAM_FALLBACK_BLOCKED`）。零行为变化，防的是以后有人在流循环里
+加重试。测试摘掉闸门就红、装上就绿（验证过）。
 
 ### E. 工具并发分区 —— 可延后
 
@@ -233,8 +307,10 @@ ch06b 记录了真实事故 **inc-4258**：流式已经开始执行工具、回�
 
 ### F. 运维
 
-- 蓝绿切换（待确认）
-- 清理 `.finance-runtime` 约 13G
+- ~~蓝绿切换~~ ✅ 2026-07-31 已切到 610feb21（见 §3「切换」）
+- 推 GitHub：**未做**，三个 main 已分叉 + 数据仓 137 个未提交改动，需先定并法（见 §2）
+- 清理 `.finance-runtime` 约 13G（现 106 个快照）：**未做，属删除操作没动**。
+  清理前先 `git worktree list`，别直接 `rm`；线上在用的和回滚要用的两个快照必须留
 
 ---
 
