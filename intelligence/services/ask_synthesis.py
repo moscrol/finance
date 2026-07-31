@@ -1608,8 +1608,12 @@ def synthesize_shadow_grounded_answer(
         semantic_repair = answer_model.repair_grounded_composer_answer(
             candidate_answer,
             result.answer_spec,
+            # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
             rejected_sentence_indexes=(
-                judge_report.rejected_sentence_indexes
+                answer_model.resolve_judge_sentence_indexes(
+                    judge_report,
+                    sentences,
+                )
             ),
             drop_invalid=repair_drop_invalid,
         )

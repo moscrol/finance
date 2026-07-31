@@ -3360,6 +3360,72 @@ def parse_grounding_judge_report(
     )
 
 
+# judge 的 issue 里引用原文时用的引号，几种都见过。必须同种引号才配对：允许
+# 「"开头 '结尾」会让整串错位一格——实测 reason 本身被 " 包着、内部引文用 '，
+# 混配时抽出来的是「将盘后的回购/增持公告直接定性为」这种跨引号的碎片，一条都定位不到。
+# 各种引号分别扫描，避免一次 finditer 把整段 reason 当成一条引文吃掉。
+_JUDGE_QUOTE_PATTERNS = tuple(
+    re.compile(rf"{opening}([^{opening}{closing}]{{6,120}}){closing}")
+    for opening, closing in (("「", "」"), ("『", "』"), ("“", "”"), ("‘", "’"))
+) + (
+    re.compile(r"'([^']{6,120})'"),
+    re.compile(r'"([^"]{6,120})"'),
+)
+_JUDGE_ISSUE_INDEX_RE = re.compile(r"sentence_index['\"]?\s*[:=]\s*(\d+)")
+
+
+def _judge_issue_quotes(text: str) -> list[str]:
+    """按长度降序返回 issue 里的引文——越长越具体，越不容易撞上别的句子。"""
+
+    quotes: list[str] = []
+    for pattern in _JUDGE_QUOTE_PATTERNS:
+        quotes.extend(pattern.findall(text))
+    return sorted(dict.fromkeys(quotes), key=len, reverse=True)
+
+
+def resolve_judge_sentence_indexes(
+    report: GroundingJudgeReport,
+    sentences: tuple[GroundedSentence, ...],
+) -> tuple[int, ...]:
+    """按 issue 里引用的原文定位问题句，而不是信 judge 报的序号。
+
+    harness 按「带 marker 的正文行」编号，judge 按自己的读法编号，两边对不上。实测
+    run_20260731_034344_300179：judge 收到 5 句、报的是第 5 和第 7 句，而它引用的原文
+    「外围强势可能对A股相关板块形成情绪传导」在第 4 句、「能否扭转弱势取决于增量资金…」
+    在第 1 句。偏移量还不固定。照序号修 = 删掉第 5 句，两条真正越界的反而留着——
+    看板里「judge 报 index 2、描述的却是第 3 句」说的就是这件事。
+
+    引文能唯一定位到某一句时以引文为准；定位不了才退回它自己报的序号；两者都没有时
+    退回原来的 rejected_sentence_indexes（judge 只给序号不给理由的旧格式）。
+    """
+
+    valid = {sentence.sentence_index for sentence in sentences}
+    resolved: set[int] = set()
+    for issue in report.issues:
+        text = str(issue)
+        located: int | None = None
+        for quote in _judge_issue_quotes(text):
+            owners = [
+                sentence.sentence_index
+                for sentence in sentences
+                if quote in sentence.text
+            ]
+            if len(owners) == 1:
+                located = owners[0]
+                break
+        if located is not None:
+            resolved.add(located)
+            continue
+        reported = _JUDGE_ISSUE_INDEX_RE.search(text)
+        if reported is not None and int(reported.group(1)) in valid:
+            resolved.add(int(reported.group(1)))
+    if resolved:
+        return tuple(sorted(resolved))
+    return tuple(
+        index for index in report.rejected_sentence_indexes if index in valid
+    )
+
+
 def parse_structured_claims(
     answer: str,
 ) -> tuple[tuple[StructuredClaim, ...], tuple[str, ...]]:
