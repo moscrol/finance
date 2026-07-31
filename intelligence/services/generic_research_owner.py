@@ -260,10 +260,6 @@ def evaluate_completion(
     loop: agent_research.AgentLoopResult,
 ) -> CompletionReport:
     state = loop.research_state
-    if state is not None:
-        completion = state.evaluate_completion()
-    else:
-        completion = None
     evidence = tuple(loop.evidence)
     evidence_pairs = _evidence_pairs(evidence)
     outputs: list[OutputStatus] = []
@@ -293,6 +289,19 @@ def evaluate_completion(
                 gap,
             )
         )
+    # 逐项匹配先算，再评认知状态：ResearchState 需要知道哪些 output 已经交付，
+    # 才能判断某条早期 gap 是否还在阻塞什么。二者无循环依赖——_matches_output
+    # 不读 completion。
+    if state is not None:
+        completion = state.evaluate_completion(
+            fulfilled_outputs=frozenset(
+                status.output_id
+                for status in outputs
+                if status.status == "fulfilled"
+            )
+        )
+    else:
+        completion = None
     required_statuses = [
         status
         for required, status in zip(contract.required_outputs, outputs)
