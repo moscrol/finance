@@ -3851,6 +3851,7 @@ class TurnOrchestrator:
                 "matched_theme": result.matched_theme,
                 "citation_count": len(result.citations),
                 "elapsed_ms": elapsed_ms,
+                "graph_exposure": result.graph_exposure_telemetry or None,
                 "wiki_rag": (
                     {
                         "status": wiki_telemetry.status,

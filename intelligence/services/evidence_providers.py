@@ -397,7 +397,12 @@ def collect_graph(ctx: EvidenceContext) -> GraphEvidence:
                 focus_order.get(str(row.get("company") or ""), len(focus_order)),
             )
         )
+        # 这是**第二次**截断：adapter 已按 exposure_limit 截过一次，这里为了给
+        # focus_entities 让位又收窄到 top_companies。不同步 truncated 的话，
+        # 下游会拿 adapter 那次的结论去描述一个更短的名单，把「少送了多少」说小。
         exposures["items"] = exposure_items[: options.top_companies]
+        if len(exposure_items) > len(exposures["items"]):
+            exposures["truncated"] = True
     tiers = bundle.tiers
     if exposures.get("found"):
         ctx.result.found_graph = True

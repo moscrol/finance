@@ -41,6 +41,37 @@ def clear_relation_cache() -> None:
 _PAYLOAD_DUMP_SCORE = 2
 _MIN_CONCEPT_SCORE = 5
 
+# 暴露排序的次级档位。
+#
+# 为什么需要它：score 只回答「这一行匹不匹配这个题材」，同一题材下的所有公司
+# 拿到的是**同一个分**——实测「固态电池」77 家全是 20 分。分数全并列时，排序
+# 键里排在后面的那一项就成了实际决策者；原本那一项是公司名，于是「谁进正文」
+# 由中文字典序决定：core 的先导智能/当升科技/赣锋锂业、high 的宁德时代全被
+# 挤到 limit 之外，留下的却有 strength 空着的行。
+#
+# strength/confidence 本来就在同一个 dict 里（见 _exposure_ref），只是没被用。
+# 标注缺失（空串或未知取值）统一落到 _EXPOSURE_RANK_UNKNOWN，排在所有已标注
+# 之后——缺标注不该因为「字典里查不到」而白捡一个高位。
+_EXPOSURE_RANK_UNKNOWN = 9
+_EXPOSURE_STRENGTH_RANK = {"core": 0, "related": 1, "peripheral": 2}
+_EXPOSURE_CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def _exposure_rank_key(row: dict[str, Any]) -> tuple[int, int, int, str]:
+    """暴露候选的排序键：分数 → 暴露强度 → 置信度 → 公司名。
+
+    公司名仍然留在最后一位，但只作为**确定性兜底**（保证同档内顺序稳定、
+    可复现），不再是实际的取舍依据。
+    """
+    strength = str(row.get("strength") or "").strip().lower()
+    confidence = str(row.get("confidence") or "").strip().lower()
+    return (
+        -int(row.get("score") or 0),
+        _EXPOSURE_STRENGTH_RANK.get(strength, _EXPOSURE_RANK_UNKNOWN),
+        _EXPOSURE_CONFIDENCE_RANK.get(confidence, _EXPOSURE_RANK_UNKNOWN),
+        str(row.get("company") or ""),
+    )
+
 
 RELATION_FILES = {
     "aliases": "aliases.json",
@@ -346,6 +377,8 @@ class KnowledgeAdapter:
                 "found": False,
                 "term": term,
                 "items": [],
+                "total_matched": 0,
+                "truncated": False,
                 "warnings": relation["warnings"],
                 "errors": relation["errors"],
             }
@@ -388,12 +421,27 @@ class KnowledgeAdapter:
             key = row["company"]
             if key not in merged or int(row["score"]) > int(merged[key]["score"]):
                 merged[key] = row
-        items = sorted(merged.values(), key=lambda row: (-int(row["score"]), row["company"]))[:limit]
+        ranked = sorted(merged.values(), key=_exposure_rank_key)
+        items = ranked[:limit]
+        truncated = len(ranked) > len(items)
+        warnings: list[str] = []
+        if not items:
+            warnings.append("entity exposures not found")
+        elif truncated:
+            # 截断必须留证。原来这里只在「一条都没召回」时报警，召回 77 家只送出
+            # 12 家反而是静默的——下游据此写出「另有 3 家仅有概念关联、9 家仅有
+            # 间接证据」，读者会把 12 当成全集。告知而非隐藏。
+            warnings.append(
+                f"图谱共 {len(ranked)} 家匹配，本轮按暴露强度取前 {len(items)} 家；"
+                "未展示的不代表不存在"
+            )
         return {
             "found": bool(items),
             "term": term,
             "items": items,
-            "warnings": [] if items else ["entity exposures not found"],
+            "total_matched": len(ranked),
+            "truncated": truncated,
+            "warnings": warnings,
             "errors": [],
         }
 

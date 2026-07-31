@@ -274,6 +274,9 @@ class AskResult:
     found_market: bool = False
     found_graph: bool = False
     found_wiki: bool = False
+    # 图谱暴露的召回/送达比。found_graph 只说「命中了」，说不出「命中 86 家、
+    # 只送了 12 家」——而后者才是答案质量的解释项。空 dict = 本轮没查图谱。
+    graph_exposure_telemetry: dict[str, Any] = field(default_factory=dict)
     # W 源检索遥测（用了哪种索引/检索方式/命中质量）；None=未启用 W 源。
     wiki_rag_telemetry: kb_rag.RetrievalTelemetry | None = None
     closed_loop_retrieval: (

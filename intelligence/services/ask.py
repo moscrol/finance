@@ -3035,6 +3035,25 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         gap_lines.append("知识图谱未命中该词：可能是新词/别名未登记，建议先 concept-ingest 或 disclosure-archive 补证")
     if relation_edge_gap and not is_market_forecast:
         gap_lines.append(relation_edge_gap)
+    # 先交代总量再交代分层。否则下面两条「N 家…」会被读成全集：实测「固态电池」
+    # 图谱匹配 86 家、正文只写 12 家，而正文对此一字未提。
+    exposure_shown = len(exposures.get("items") or [])
+    exposure_total = int(exposures.get("total_matched") or exposure_shown)
+    result.graph_exposure_telemetry = {
+        "matched": exposure_total,
+        "shown": exposure_shown,
+        "truncated": bool(exposures.get("truncated")),
+    }
+    if (
+        exposures.get("truncated")
+        and exposure_total > exposure_shown
+        and not is_market_forecast
+    ):
+        gap_lines.append(
+            f"图谱共匹配 {exposure_total} 家公司，本轮按暴露强度取前 {exposure_shown} 家写入正文；"
+            f"其余 {exposure_total - exposure_shown} 家未展示，不代表不存在——"
+            "同强度同置信的公司之间目前按名称排序取舍，要完整名单请指定公司或收窄题材"
+        )
     if tiers["peripheral"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['peripheral'])} 家公司为 graph_only/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据"
