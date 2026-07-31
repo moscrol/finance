@@ -1361,6 +1361,22 @@ def _post_chat_stream_raw(
     return "".join(chunks), finish_reason
 
 
+# 流式→非流式回退的准入条件：**一个字都还没吐出去**。
+#
+# 依据是 ch06b 记的真实事故 inc-4258——流式已经开始执行工具，回退到非流式重试后
+# 同一个工具执行了两次；CC 为此加了开关能禁掉整条回退路径。我们这边核实过，那个
+# 形状目前不成立：全仓只有这一处 `"stream": True`，而它是合成调用、不带工具
+# （带工具的 `chat_with_tools` 走非流式的 `_post_chat_message`）；两条回退的触发
+# 条件也都在首个 delta 之前——`LLMStreamingUnsupported` 只在 chunks 为空时抛，
+# `HTTPError` 只由 `urlopen` 在响应头阶段抛，流开起来之后 urllib 抛的是
+# IncompleteRead 那一类，落到通用 except 里直接降级、不回退。
+#
+# 既然当前触发不了，这道闸就是零行为变化——它防的是**以后**有人在流循环里加重试、
+# 或把 HTTPError 的抛出点挪到 delta 之后。真到那天，回退会把整段答案再 on_delta
+# 一次，用户看到的是重复正文（工具双执行的文本版）。宁可降级为模板。
+_STREAM_FALLBACK_BLOCKED = "LLM 流式合成已输出后失败，不回退非流式（避免重复正文），已降级为模板"
+
+
 def synthesize_messages_stream(
     messages: list[dict],
     *,
@@ -1385,6 +1401,15 @@ def synthesize_messages_stream(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
     shared_deadline = deadline or Deadline.from_timeout(timeout)
+    # 流式已经吐给用户多少字。下面两条回退非流式的路径必须先看它——见
+    # ``_stream_fallback_blocked``。
+    streamed_chars = 0
+
+    def _tracked_delta(delta: str) -> None:
+        nonlocal streamed_chars
+        streamed_chars += len(delta)
+        on_delta(delta)
+
     try:
         remaining = shared_deadline.require_remaining(1)
         content, finish_reason = _post_chat_stream(
@@ -1392,7 +1417,7 @@ def synthesize_messages_stream(
             messages,
             remaining,
             temperature,
-            on_delta,
+            _tracked_delta,
             on_connected,
             is_cancelled,
             shared_deadline,
@@ -1412,6 +1437,8 @@ def synthesize_messages_stream(
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+        if streamed_chars:
+            return None, _STREAM_FALLBACK_BLOCKED
         if shared_deadline.remaining() < 1:
             return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
@@ -1428,6 +1455,8 @@ def synthesize_messages_stream(
             fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except LLMStreamingUnsupported:
+        if streamed_chars:  # 定义上不可能（它只在 chunks 为空时抛），留着防定义漂移
+            return None, _STREAM_FALLBACK_BLOCKED
         if shared_deadline.remaining() < 1:
             return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
