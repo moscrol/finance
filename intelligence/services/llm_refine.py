@@ -982,6 +982,35 @@ def _required_outputs_block(required_outputs: tuple[str, ...]) -> str:
     )
 
 
+def _registry_document(registry_block: str) -> str:
+    """把 claim registry 包成带标签的文档块。
+
+    官方长上下文指引：多份材料时用 XML 标签包裹并标明来源，模型更容易在长输入里
+    定位与切分。这里只有一份材料，标签的作用是给它一个明确的起止边界，避免它和
+    后面的指令、问题在模型眼里糊成一片。
+    """
+
+    return (
+        "<claim_registry>\n"
+        "<source>本轮检索与结构化数据产出的全部 claim，每行一个 JSON</source>\n"
+        "<content>\n"
+        f"{registry_block}\n"
+        "</content>\n"
+        "</claim_registry>\n\n"
+    )
+
+
+# 长输入在前、问题在最后。
+#
+# 官方长上下文指引：「把长文档和长输入放在提示词靠顶部的位置，在问题、指令和示例
+# 之上」，并注明「问题放在最后可以把回答质量提升最多 30%，多文档复杂输入尤其明显」。
+# 这三个 builder 原本是完全相反的顺序——用户问题在最前，最长的 claim registry
+# （12,000 字符预算，通常是整段 prompt 的绝大部分）压在最后。
+#
+# 与缓存不冲突：registry 每轮都变，用户消息本来就没有可复用前缀；可缓存的是它前面
+# 的 system 消息，位置未动。
+
+
 def build_decision_brief_messages(
     query: str,
     registry_block: str,
@@ -993,10 +1022,9 @@ def build_decision_brief_messages(
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
+                f"{_registry_document(registry_block)}"
                 f"{_required_outputs_block(required_outputs)}"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -1014,11 +1042,10 @@ def build_grounded_composer_messages(
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
+                f"{_registry_document(registry_block)}"
                 f"DecisionBrief：\n{decision_brief}\n\n"
                 f"{_required_outputs_block(required_outputs)}"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -1034,10 +1061,9 @@ def build_grounding_judge_messages(
         {
             "role": "user",
             "content": (
-                f"用户问题：{query}\n\n"
+                f"{_registry_document(registry_block)}"
                 f"待审答案：\n{grounded_answer}\n\n"
-                "claim registry（每行一个 JSON）：\n"
-                f"{registry_block}"
+                f"用户问题：{query}"
             ),
         },
     ]
@@ -1383,14 +1409,14 @@ def claim_binding_revision_user_content(
     registry_block: str,
 ) -> str:
     joined = "\n".join(f"- {note}" for note in error_notes)
+    # 同样是长输入在前、指令在后（见上面 builder 处的说明）。
     return (
+        f"{_registry_document(registry_block)}"
         "上一版未通过结构化事实门禁。不要增加 registry 外事实；"
         "保留原有自然措辞，只修复门禁错误指出的 claim/EvidenceAtom 绑定或越界句。\n"
         "标题可自由组织；事实和推断正文必须保留合法 marker，允许删去无法修复的单句，"
         "但不要为满足格式而重写整篇答案。\n"
-        f"门禁错误：\n{joined}\n"
-        "可复制 registry：\n"
-        f"{registry_block}"
+        f"门禁错误：\n{joined}"
     )
 
 
