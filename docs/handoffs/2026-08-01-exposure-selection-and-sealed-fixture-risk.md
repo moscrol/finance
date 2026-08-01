@@ -291,6 +291,21 @@ inode**（不是硬链接），删的是前者，后者被 a2d22cec 自己的 `s
 
 **J. 留证进合成正文** —— 见 §3「刻意没做的」。
 
+**L. 经验卡/暴露召回加「命中」维度** —— ⚠️ **优先级下调，knevo 逆向证明这不是现成的长**。
+原设想是抄 knevo 的 hitCount→召回排序。但 [[knevo-harness-reverse-engineering]] 的 A1 **实测**：
+knevo 的记忆检索**也是纯关键词匹配**，hitCount 不回接排序、core 不影响排名——和我们
+`select_relevant_cards`（关键词重合 + promotion 标记，`intelligence/services/experience_cards.py:224`）
+一个水平，我们甚至多一个 promotion 维度。**要做是原创、两边都没验证过，且我们单用户样本下 `hit_count`
+统计意义弱**（knevo 是多用户 SaaS 样本足）。做之前先想：多少次命中才敢用它排序？别照抄「按 hitCount 排」。
+它值得记，因为是唯一能把待办 I（选择器选得对不对）从「人看 trace」变成「可测」的路径——**先验证 I 再谈 L**。
+
+**M. 自动经验卡提取（A3 的真差距，值得取）** —— knevo 的 `finance_memory_stage_extraction`
+**每 2-3 轮实质对话自动触发**，从对话归纳带失效条件的跨周期框架（A3 实测确认是自动、非人工 accept）。
+我们的 `experience_cards` 是**被动**的——要先有打分动作才沉淀。这正是马书 ch24「双频设计」的活样本，
+连频率量纲（2-3 轮）都拿到了。方向：让经验卡在对话中主动归纳，不是等评分。
+量纲仍自算：knevo 每轮成本由 credits 摊平，我们是 5 小时滚动配额，「每 2-3 轮加一次提取调用」
+先算它吃掉多少 canary 预算。
+
 ### 延续（原文见 Start Here §4）
 
 - **G. synthesize 报降级却说不出原因**——和已完成的 A 同一形状。
