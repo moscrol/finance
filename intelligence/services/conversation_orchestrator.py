@@ -2631,7 +2631,6 @@ class TurnOrchestrator:
             if (
                 decision.lane in {"research", "workflow"}
                 and result.synthesis is None
-                and result.prepared_synthesis_messages
             ):
                 synthesize_prepared_answer(
                     PreparedAnswer(

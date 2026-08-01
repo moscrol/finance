@@ -463,6 +463,48 @@ def test_orchestrator_trace_emits_structured_synthesis_diagnostic(
     assert private_evidence not in serialized
 
 
+def test_orchestrator_records_not_prepared_when_synthesis_messages_are_absent(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结证据",
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结证据",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    synthesis_step = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "answer_synthesis"
+    )
+    diagnostic = json.loads(synthesis_step["output_summary"])["diagnostic"]
+    assert diagnostic["state"] == "not_prepared"
+    assert diagnostic["reason_code"] == "no_prepared_messages"
+
+
 def _continuous_forecast_fixture(tmp_path, query: str):
     conversation_store = ConversationStore(
         "alice",

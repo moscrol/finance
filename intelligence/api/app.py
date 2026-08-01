@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 from collections import Counter
@@ -551,7 +552,19 @@ def _public_synthesis_diagnostic(
     diagnostic = summary.get("diagnostic") if isinstance(summary, dict) else None
     if not isinstance(diagnostic, dict):
         return None
-    state = str(diagnostic.get("state") or "")
+    required_fields = {
+        "state",
+        "reason_code",
+        "detail",
+        "prepared_message_count",
+        "candidate_claim_count",
+        "bound_claim_count",
+    }
+    if not required_fields.issubset(diagnostic):
+        return None
+    state = diagnostic.get("state")
+    if not isinstance(state, str):
+        return None
     if state not in {
         "not_requested",
         "not_prepared",
@@ -561,14 +574,23 @@ def _public_synthesis_diagnostic(
         "failed",
     }:
         return None
-    reason_code = str(diagnostic.get("reason_code") or "")[:80]
-    if not reason_code or not all(
-        char.isalnum() or char in {"_", "-", "."} for char in reason_code
+    reason_code = diagnostic.get("reason_code")
+    if not isinstance(reason_code, str) or re.fullmatch(
+        r"[A-Za-z0-9_.-]{1,80}", reason_code
+    ) is None:
+        return None
+    raw_detail = diagnostic.get("detail")
+    if not isinstance(raw_detail, str):
+        return None
+    if re.search(
+        r"(?:\bprompt\b|evidence[_\s-]*(?:body|text|content|payload)|"
+        r"authorization|bearer\s+|api[_\s-]*key|credential|"
+        r"/(?:Users|home|tmp|private/tmp)/|[A-Za-z]:\\)",
+        raw_detail,
+        flags=re.IGNORECASE,
     ):
         return None
-    detail = sanitize_user_visible_artifact_text(
-        str(diagnostic.get("detail") or "")
-    )[:200]
+    detail = sanitize_user_visible_artifact_text(raw_detail)[:200]
     result: dict[str, object] = {
         "state": state,
         "reason_code": reason_code,
@@ -580,11 +602,13 @@ def _public_synthesis_diagnostic(
         "bound_claim_count",
     ):
         value = diagnostic.get(field_name)
-        result[field_name] = (
-            min(value, 1_000_000)
-            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
-            else 0
-        )
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 0 <= value <= 1_000_000
+        ):
+            return None
+        result[field_name] = value
     return result
 
 

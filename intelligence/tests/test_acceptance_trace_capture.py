@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from intelligence.api.app import _public_trace_step
 from intelligence.eval import acceptance
 
@@ -39,6 +41,69 @@ def test_public_trace_exposes_only_whitelisted_synthesis_diagnostic() -> None:
     assert public["diagnostic"] == _diagnostic()
     assert "private prompt" not in json.dumps(public, ensure_ascii=False)
     assert "private evidence" not in json.dumps(public, ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("state", 1),
+        ("reason_code", ["claim_binding_failed"]),
+        ("detail", {"prompt": "PRIVATE_PROMPT", "evidence_body": "PRIVATE_EVIDENCE"}),
+        ("prepared_message_count", "2"),
+        ("candidate_claim_count", True),
+        ("bound_claim_count", -1),
+    ],
+)
+def test_public_trace_rejects_malformed_diagnostic_shape(
+    field: str,
+    value: object,
+) -> None:
+    diagnostic = _diagnostic()
+    diagnostic[field] = value
+    raw = {
+        "step_id": "synthesize",
+        "name": "answer_synthesis",
+        "status": "completed",
+        "output_summary": json.dumps({"diagnostic": diagnostic}, ensure_ascii=False),
+    }
+
+    public = _public_trace_step(raw)
+
+    assert "diagnostic" not in public
+    serialized = json.dumps(public, ensure_ascii=False)
+    assert "PRIVATE_PROMPT" not in serialized
+    assert "PRIVATE_EVIDENCE" not in serialized
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "prompt=PRIVATE_PROMPT",
+        "evidence_body=PRIVATE_EVIDENCE",
+        "Authorization: Bearer PRIVATE_SECRET",
+        "internal receipt at /tmp/private-trace.json",
+        "internal receipt at /private/tmp/private-trace.json",
+        "internal receipt at /Users/a77/private-trace.json",
+    ],
+)
+def test_public_trace_rejects_unsafe_diagnostic_detail(detail: str) -> None:
+    diagnostic = _diagnostic()
+    diagnostic["detail"] = detail
+    raw = {
+        "step_id": "synthesize",
+        "name": "answer_synthesis",
+        "status": "completed",
+        "output_summary": json.dumps({"diagnostic": diagnostic}, ensure_ascii=False),
+    }
+
+    public = _public_trace_step(raw)
+
+    assert "diagnostic" not in public
+    serialized = json.dumps(public, ensure_ascii=False)
+    assert "PRIVATE_" not in serialized
+    assert "/tmp/" not in serialized
+    assert "/private/tmp/" not in serialized
+    assert "/Users/" not in serialized
 
 
 def test_acceptance_capture_reads_answer_synthesis_diagnostic(monkeypatch) -> None:
