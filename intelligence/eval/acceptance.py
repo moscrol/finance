@@ -32,6 +32,11 @@ from intelligence.eval.acceptance_observations import (
     REFERENCE_ELIGIBILITY_PATH,
     load_observation_artifact,
 )
+from intelligence.eval.acceptance_axes import (
+    AxisState,
+    InformationComparison,
+    project_axes,
+)
 from intelligence.eval.acceptance_runs import (
     RunArtifactError,
     load_validated_run,
@@ -354,11 +359,17 @@ def cmd_board(args: argparse.Namespace) -> int:
 
     overlay = load_verdict_overlay()
     print(f"# 验收看板 · {header_note}\n")
-    print("| 题 | 组 | 来源 | 运行 | 真值 | 体验 | 耗时 | 绑定证据 | 说明 |")
-    print("|---|---|---|---|---|---|---:|---:|---|")
+    print(
+        "| 题 | 组 | 来源 | 运行 | 真值 | 体验 | 送达 | 信息量 | 可信度 | "
+        "耗时 | 绑定证据 | 说明 |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|---:|---:|---|")
     operational_tally = {state: 0 for state in OperationalState}
     truth_tally = {state: 0 for state in VerdictState}
     experience_tally = {state: 0 for state in ExperienceState}
+    delivery_tally = {state: 0 for state in AxisState}
+    information_tally = {state: 0 for state in AxisState}
+    credibility_tally = {state: 0 for state in AxisState}
     # 红的稳定性按 rule.kind 差一个数量级：A 组同输入复跑实测，事实层 0% 翻转、
     # 措辞层 33%。合成一个「失败 N」会把两者压成一个数，看板就读不出
     # 「这一刀有没有用」。分层计数，不改表格结构。
@@ -381,17 +392,38 @@ def cmd_board(args: argparse.Namespace) -> int:
         ExperienceState.LABELED: "已盲标",
         ExperienceState.INELIGIBLE: "不适用",
     }
+    axis_labels = {
+        AxisState.PASS: "✅ 通过",
+        AxisState.PARTIAL: "🟠 部分",
+        AxisState.FAIL: "❌ 失败",
+        AxisState.UNJUDGEABLE: "❔ 不可判",
+        AxisState.NOT_EVALUATED: "— 未评",
+        AxisState.NOT_RUN: "—",
+    }
+    information_comparison_labels = {
+        InformationComparison.WORKBENCH_WINS: "✅ 工作台优",
+        InformationComparison.TIE: "➖ 持平",
+        InformationComparison.KNEVO_WINS: "❌ Knevo优",
+    }
     for c in cases:
         r = by_id.get(c["id"])
         contract = compile_case_contract(c, overlay[c["id"]])
+        case_observations = observations_by_case.get(c["id"]) or {}
         verdict = evaluate_case(
             contract,
             r,
-            observations=observations_by_case.get(c["id"]),
+            observations=case_observations,
+        )
+        axes = project_axes(
+            verdict,
+            information=case_observations.get("information"),
         )
         operational_tally[verdict.operational.state] += 1
         truth_tally[verdict.truth.state] += 1
         experience_tally[verdict.experience.state] += 1
+        delivery_tally[axes.delivery.state] += 1
+        information_tally[axes.information.state] += 1
+        credibility_tally[axes.credibility.state] += 1
         t0 = (r.get("turns") or [None])[0] if r else None
         detail = ""
         if verdict.truth.state is VerdictState.FAIL:
@@ -423,6 +455,9 @@ def cmd_board(args: argparse.Namespace) -> int:
             f"{truth_labels[verdict.truth.state]} | "
             f"{experience_labels[verdict.experience.state]}"
             f"{f'({verdict.experience.label})' if verdict.experience.label else ''} | "
+            f"{axis_labels[axes.delivery.state]} | "
+            f"{information_comparison_labels.get(axes.information.comparison, axis_labels[axes.information.state])} | "
+            f"{axis_labels[axes.credibility.state]} | "
             f"{(t0 or {}).get('elapsed_s', '—')}"
             f"{'s' if t0 else ''} | {(t0 or {}).get('evidence_bound') or 0 if t0 else '—'} | "
             f"{detail} |"
@@ -452,6 +487,15 @@ def cmd_board(args: argparse.Namespace) -> int:
         f"{truth_tally[VerdictState.FAIL]}、不可判 "
         f"{truth_tally[VerdictState.UNJUDGEABLE]}、未跑 "
         f"{truth_tally[VerdictState.NOT_RUN]}；{rate_note}（不是 28 题产品通过率）。"
+    )
+    print(
+        "**三轴口径**：送达通过/部分/失败 "
+        f"{delivery_tally[AxisState.PASS]}/{delivery_tally[AxisState.PARTIAL]}/"
+        f"{delivery_tally[AxisState.FAIL]}；信息量已评/未评 "
+        f"{total - information_tally[AxisState.NOT_EVALUATED] - information_tally[AxisState.NOT_RUN]}/"
+        f"{information_tally[AxisState.NOT_EVALUATED]}；可信通过/失败/不可判 "
+        f"{credibility_tally[AxisState.PASS]}/{credibility_tally[AxisState.FAIL]}/"
+        f"{credibility_tally[AxisState.UNJUDGEABLE]}。"
     )
     if failing_kinds:
         breakdown = "、".join(
