@@ -82,6 +82,10 @@ git branch --show-current
 
 > ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。下列脚本仍写死旧库路径 + 旧表名，**当前跑会报 `Catalog Error: Table does not exist` 或连不上库**：`scripts/detect_turning_points.py`、`scripts/backtest_sector.py`、`scripts/sync_to_local.py`、`scripts/backfill_sector_marginal.py`、`scripts/render_daily_review_*.py`。后续 agent：不要跑这些旧脚本期望出数据，也不要直接删（先确认是否要迁移到星型模型）；新分析一律用 `fact_*` 表。
 
+> ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
+>
+> ⚠️ 顺带记下一个**未完成的迁移**：`market_feature_store/schema.sql` 仍把 `fact_sector_daily` / `fact_sector_stock_daily` 写成 `CREATE TABLE`，且完全没有 `ops_sector_universe_snapshot_daily` / `fact_*_generation` 的定义——**与生产库已脱节**。后果：新机器 `init_db()` 建出的结构与生产不一致，`db.py: get_published_snapshot_id()` 会崩。补齐 schema 会同时引爆两条仍按旧表形状写入的飞书路径（`sync_feishu_sector_daily.py:134`、`sync_feishu_sector_marginal.py:217`，按本文件「飞书写入已废弃」应一并处置）和 8 个测试文件。这是一个独立任务，别顺手做半截。
+
 ### 同步命令
 
 > ⚠️ **Legacy 残骸**：`sync_to_local.py` 写入旧库 `db/market.duckdb`（已移除），**当前 broken**。复盘数据统一走 `daily-full` CLI（见核心工作流 §1）。
