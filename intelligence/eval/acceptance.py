@@ -32,6 +32,11 @@ from intelligence.eval.acceptance_observations import (
     REFERENCE_ELIGIBILITY_PATH,
     load_observation_artifact,
 )
+from intelligence.eval.acceptance_runs import (
+    RunArtifactError,
+    load_validated_run,
+    select_latest_case_runs,
+)
 from intelligence.eval.acceptance_verdict import (
     ExperienceState,
     OperationalState,
@@ -228,6 +233,12 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    requested_output = getattr(args, "output", None)
+    output_path = Path(requested_output) if requested_output else None
+    if output_path is not None and output_path.exists():
+        print(f"❌ 输出已存在，拒绝覆盖：{_rel(output_path)}")
+        return 2
+
     doc = load_cases()
     ok, detail = preflight(args.base)
     if not ok and not args.force:
@@ -261,23 +272,22 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         runs.append(cr)
 
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = RUNS_DIR / f"{stamp}.json"
-    out.write_text(
-        json.dumps(
-            {
-                "generated_at": stamp,
-                "base": args.base,
-                "preflight_ok": ok,
-                "preflight_detail": detail,
-                "cases": [asdict(r) for r in runs],
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    out = output_path or RUNS_DIR / f"{stamp}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "generated_at": stamp,
+        "base": args.base,
+        "preflight_ok": ok,
+        "preflight_detail": detail,
+        "cases": [asdict(r) for r in runs],
+    }
+    try:
+        with out.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+    except FileExistsError:
+        print(f"❌ 输出已存在，拒绝覆盖：{_rel(out)}")
+        return 2
     print(f"\ntrace 已落盘：{_rel(out)}")
     print("看板：python3 -m intelligence.eval.acceptance board")
     return 0
@@ -296,16 +306,45 @@ def latest_run() -> Path | None:
 def cmd_board(args: argparse.Namespace) -> int:
     doc = load_cases()
     cases = doc["cases"]
-    run_path = latest_run()
-    by_id: dict[str, dict[str, Any]] = {}
-    header_note = "尚无真实运行记录"
-    if run_path:
-        rec = json.loads(run_path.read_text(encoding="utf-8"))
-        by_id = {c["case_id"]: c for c in rec.get("cases", [])}
-        header_note = (
-            f"最近一次真实运行 {run_path.stem}"
-            f"（前置检查{'通过' if rec.get('preflight_ok') else '未过'}）"
+    case_tiers = {case["id"]: case["tier"] for case in cases}
+    explicit_run = getattr(args, "run", None)
+    if not explicit_run and (
+        getattr(args, "truth_observations", None)
+        or getattr(args, "experience_labels", None)
+    ):
+        print(
+            "❌ observation sidecar 只绑定单个 run；"
+            "请同时提供 board --run PATH"
         )
+        return 2
+    run_path = Path(explicit_run) if explicit_run else None
+    try:
+        if run_path is not None:
+            record = load_validated_run(run_path, case_tiers)
+            by_id = {case["case_id"]: case for case in record["cases"]}
+            source_by_id = {case_id: run_path for case_id in by_id}
+            header_note = (
+                f"指定真实运行 {run_path.stem}"
+                f"（前置检查{'通过' if record.get('preflight_ok') else '未过'}）"
+            )
+        else:
+            selected = select_latest_case_runs(RUNS_DIR, case_tiers)
+            by_id = {
+                case_id: item.case_run for case_id, item in selected.items()
+            }
+            source_by_id = {
+                case_id: item.source_path for case_id, item in selected.items()
+            }
+            contributing = sorted({path.stem for path in source_by_id.values()})
+            header_note = "尚无真实运行记录"
+            if contributing:
+                header_note = (
+                    f"汇总 {len(contributing)} 份真实运行"
+                    f"（来源：{'、'.join(contributing)}）"
+                )
+    except RunArtifactError as exc:
+        print(f"❌ run artifact 无效：{exc}")
+        return 2
 
     try:
         observations_by_case = _load_board_observations(args, run_path)
@@ -315,8 +354,8 @@ def cmd_board(args: argparse.Namespace) -> int:
 
     overlay = load_verdict_overlay()
     print(f"# 验收看板 · {header_note}\n")
-    print("| 题 | 组 | 运行 | 真值 | 体验 | 耗时 | 绑定证据 | 说明 |")
-    print("|---|---|---|---|---|---:|---:|---|")
+    print("| 题 | 组 | 来源 | 运行 | 真值 | 体验 | 耗时 | 绑定证据 | 说明 |")
+    print("|---|---|---|---|---|---|---:|---:|---|")
     operational_tally = {state: 0 for state in OperationalState}
     truth_tally = {state: 0 for state in VerdictState}
     experience_tally = {state: 0 for state in ExperienceState}
@@ -379,6 +418,7 @@ def cmd_board(args: argparse.Namespace) -> int:
             detail = verdict.operational.reason
         print(
             f"| {c['id']} | {c['tier']} | "
+            f"{source_by_id[c['id']].stem[-7:] if c['id'] in source_by_id else '—'} | "
             f"{operational_labels[verdict.operational.state]} | "
             f"{truth_labels[verdict.truth.state]} | "
             f"{experience_labels[verdict.experience.state]}"
@@ -579,6 +619,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     b = sub.add_parser("board", help="打印看板（进度唯一来源）")
+    b.add_argument("--run", help="只读取指定 run artifact（sidecar 必须显式绑定）")
     b.add_argument("--truth-observations", help="显式绑定的 truth observation sidecar")
     b.add_argument("--experience-labels", help="显式绑定的 blind experience sidecar")
     b.add_argument("--blind-manifest", help="experience sidecar 对应的密封盲评身份清单")
@@ -591,6 +632,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--case", action="append", help="只跑指定题号，可重复")
     r.add_argument("--timeout", type=float, default=300.0)
     r.add_argument("--force", action="store_true", help="前置检查未过也强跑")
+    r.add_argument("--output", help="trace 精确输出路径（拒绝覆盖已有文件）")
     r.set_defaults(func=cmd_run)
 
     f = sub.add_parser("freeze", help="冻结 codex/knevo 参照答案")
