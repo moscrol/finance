@@ -801,6 +801,13 @@ def retrieve(
     # 机器用 HF_HUB_OFFLINE=0 显式打开首次下载。
     env.setdefault("HF_HUB_OFFLINE", "1")
     env.setdefault("TRANSFORMERS_OFFLINE", "1")
+    # 静音进度条：模型加载会往 stderr 打 391 个分片的 tqdm 进度条，而 rc=0 且
+    # stderr 非空会被记成一条「wiki-rag 检索器返回告警」——**每次检索都触发**。
+    # 那条告警没有任何信息量，却会挤进 degrades 列表，把真告警淹掉。
+    # 实测加这三个后 stderr 完全干净，于是 stderr 非空重新变回一个有意义的信号。
+    env.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    env.setdefault("TRANSFORMERS_VERBOSITY", "error")
+    env.setdefault("TQDM_DISABLE", "1")
     fallback_warnings: list[str] = []
     if legacy_options:
         tel.query_protocol = "legacy"
