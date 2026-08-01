@@ -84,7 +84,25 @@ git branch --show-current
 
 > ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
 >
-> ⚠️ 顺带记下一个**未完成的迁移**：`market_feature_store/schema.sql` 仍把 `fact_sector_daily` / `fact_sector_stock_daily` 写成 `CREATE TABLE`，且完全没有 `ops_sector_universe_snapshot_daily` / `fact_*_generation` 的定义——**与生产库已脱节**。后果：新机器 `init_db()` 建出的结构与生产不一致，`db.py: get_published_snapshot_id()` 会崩。补齐 schema 会同时引爆两条仍按旧表形状写入的飞书路径（`sync_feishu_sector_daily.py:134`、`sync_feishu_sector_marginal.py:217`，按本文件「飞书写入已废弃」应一并处置）和 8 个测试文件。这是一个独立任务，别顺手做半截。
+### 板块快照分代（sector universe snapshot）
+
+`fact_sector_daily` / `fact_sector_stock_daily` **是 VIEW，不是表**。分代机制：
+
+| 对象 | 作用 |
+|------|------|
+| `ops_sector_universe_snapshot_daily` | 快照台账，`status ∈ candidate/published/superseded/rejected`，同日可多版 |
+| `fact_sector_universe_daily` | 快照内板块名单 + `expected_stock_count`（完整度校验依据） |
+| `ops_sector_member_sync_daily` | 逐板块抓取进度，断点续抓依据；expected vs actual 的差额=缺口 |
+| `fact_sector_*_daily_generation` | **写入目标**，`sector_universe_snapshot_id` 进主键，同日多版互不覆盖 |
+| `fact_sector_*_daily`（VIEW） | **读取入口**，只暴露 `published` 那版；消费方查询无需改写 |
+
+**写入方必读**：目标是 `*_generation`，主键含 `sector_universe_snapshot_id`，用
+`db.get_published_snapshot_id(con, trade_date)` 解析（无 published 时回退 `'legacy'`）。
+参考实现 `sync/sync_feishu_sector_resonance.py`。`'legacy'` 是机制上线前的历史数据：
+**当日一旦出现 published 快照，legacy 行自动让位**，不会双份并存。
+
+> 供应商会换代码、改名单。没有这层就回答不了「当时用的是哪一版板块清单」——
+> 这也是为什么不能直接往 view 里 upsert。
 
 ### 同步命令
 

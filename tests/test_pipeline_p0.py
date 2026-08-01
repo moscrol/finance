@@ -224,10 +224,12 @@ def _seed_feature_inputs(con: duckdb.DuckDBPyConnection, count: int = 70) -> str
         )
         con.execute(
             """
-            INSERT INTO fact_sector_daily (
-                trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount,
-                diff_ratio, source, updated_at
-            ) VALUES (?, '885001.TI', '测试板块', '一级行业', 1, ?, ?, 'test', NOW())
+            -- fact_sector_daily 是 VIEW，写入落 *_generation；'legacy' 对应
+            -- 快照机制上线前的历史数据（当日无 published 快照时可见）。
+            INSERT INTO fact_sector_daily_generation (
+                trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                sw_l1, pct_chg, amount, diff_ratio, source, updated_at
+            ) VALUES (?, 'legacy', '885001.TI', '测试板块', '一级行业', 1, ?, ?, 'test', NOW())
             """,
             [current, 1000 + offset, offset / 10],
         )
