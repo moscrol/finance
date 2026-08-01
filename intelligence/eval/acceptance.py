@@ -21,6 +21,7 @@ import json
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -177,12 +178,16 @@ def preflight(base: str) -> tuple[bool, str]:
     return True, f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
 
 
-def _fill_run_detail(base: str, trace: TurnTrace) -> None:
+def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) -> None:
     """补 run 级证据绑定与步骤。取不到不算失败 —— 答案本身已经拿到了。"""
     if not trace.run_id:
         return
+    user_query = f"?{urllib.parse.urlencode({'user': user})}" if user else ""
     try:
-        ctx = _get(f"{base}/api/runs/{trace.run_id}/context", timeout=15)
+        ctx = _get(
+            f"{base}/api/runs/{trace.run_id}/context{user_query}",
+            timeout=15,
+        )
     except (urllib.error.URLError, TimeoutError, OSError):
         ctx = {}
     evidence = ctx.get("evidence") or []
@@ -192,7 +197,10 @@ def _fill_run_detail(base: str, trace: TurnTrace) -> None:
     )
     trace.gaps = list(ctx.get("gaps") or [])
     try:
-        steps = _get(f"{base}/api/runs/{trace.run_id}/trace", timeout=15)
+        steps = _get(
+            f"{base}/api/runs/{trace.run_id}/trace{user_query}",
+            timeout=15,
+        )
     except (urllib.error.URLError, TimeoutError, OSError):
         steps = []
     if isinstance(steps, list):
@@ -277,7 +285,7 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
             trace.invoked_skill_ids = list(last.get("invoked_skill_ids") or [])
             trace.citations = list(last.get("citations") or [])
             trace.degrades = list(last.get("degrades") or [])
-            _fill_run_detail(base, trace)
+            _fill_run_detail(base, trace, user=user)
             break
         else:
             trace.status = "timeout"

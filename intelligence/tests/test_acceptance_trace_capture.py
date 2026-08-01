@@ -133,6 +133,37 @@ def test_acceptance_capture_reads_answer_synthesis_diagnostic(monkeypatch) -> No
     assert trace.trace_steps == ["synthesize"]
 
 
+def test_acceptance_capture_forwards_user_to_run_detail_endpoints(monkeypatch) -> None:
+    requested: list[str] = []
+
+    def fake_get(url: str, timeout: float = 30.0):
+        del timeout
+        requested.append(url)
+        if "/context?" in url:
+            return {"evidence": [{"status": "hit"}], "gaps": []}
+        if "/trace?" in url:
+            return [
+                {
+                    "name": "synthesize",
+                    "status": "completed",
+                    "diagnostic": _diagnostic(),
+                }
+            ]
+        raise AssertionError(url)
+
+    monkeypatch.setattr(acceptance, "_get", fake_get)
+    trace = acceptance.TurnTrace(question="q", run_id="run-1")
+
+    acceptance._fill_run_detail("http://base", trace, user="default user")
+
+    assert requested == [
+        "http://base/api/runs/run-1/context?user=default+user",
+        "http://base/api/runs/run-1/trace?user=default+user",
+    ]
+    assert trace.evidence_bound == 1
+    assert trace.synthesis_diagnostic == _diagnostic()
+
+
 def test_acceptance_capture_keeps_old_trace_compatible(monkeypatch) -> None:
     def fake_get(url: str, timeout: float = 30.0):
         del timeout
