@@ -39,7 +39,7 @@ from intelligence.services.ask_types import (
     AskResult,
     Citation,
     PreparedAnswer,
-    _stage_timeout,
+    SynthesisDiagnostic,
     _synthesis_timeout,
     _llm_deadline,
 )
@@ -856,11 +856,81 @@ def _prepare_answer_spec_synthesis(
     return messages
 
 
+def _synthesis_claim_counts(result: AskResult) -> tuple[int, int]:
+    spec = result.answer_spec
+    if spec is None:
+        return 0, 0
+    claims: list[object] = []
+    for field_name in ("summary", "verified_facts", "candidate_facts"):
+        value = getattr(spec, field_name, ())
+        if isinstance(value, (list, tuple)):
+            claims.extend(value)
+    bound = sum(bool(getattr(claim, "evidence_ids", ())) for claim in claims)
+    return len(claims), bound
+
+
+def _set_synthesis_diagnostic(
+    result: AskResult,
+    *,
+    state: str,
+    reason_code: str,
+    detail: str,
+) -> None:
+    candidate_claim_count, bound_claim_count = _synthesis_claim_counts(result)
+    result.synthesis_diagnostic = SynthesisDiagnostic(
+        state=state,
+        reason_code=str(reason_code or "unknown")[:80],
+        detail=detail,
+        prepared_message_count=len(result.prepared_synthesis_messages or ()),
+        candidate_claim_count=candidate_claim_count,
+        bound_claim_count=bound_claim_count,
+    )
+
+
+def _quality_gate_diagnostic_reason(
+    issues: list[answer_model.QualityIssue],
+) -> tuple[str, str]:
+    codes = {
+        issue.code
+        for issue in issues
+        if isinstance(getattr(issue, "code", None), str)
+    }
+    binding_codes = {
+        "llm_missing_claim_binding",
+        "llm_invalid_claim_id",
+        "llm_invalid_evidence_atom_id",
+        "llm_fact_without_evidence_atom",
+    }
+    if codes & binding_codes:
+        return (
+            "claim_binding_failed",
+            "synthesis candidate did not pass claim and evidence binding validation",
+        )
+    return (
+        "quality_gate_rejected",
+        "synthesis candidate did not pass deterministic quality validation",
+    )
+
+
 def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     options = prepared.options
     result = prepared.result
     messages = result.prepared_synthesis_messages
-    if result.answer_spec is None or not messages:
+    if not messages:
+        _set_synthesis_diagnostic(
+            result,
+            state="not_prepared",
+            reason_code="no_prepared_messages",
+            detail="synthesis messages were not prepared for this route",
+        )
+        return result
+    if result.answer_spec is None:
+        _set_synthesis_diagnostic(
+            result,
+            state="not_prepared",
+            reason_code="no_answer_spec",
+            detail="no AnswerSpec was available for synthesis",
+        )
         return result
     if promote_grounded_answer(options, result):
         return result
@@ -872,6 +942,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         # 市场复盘的可信自然语言出口只有 Grounded Composer。它不可用或未过
         # 门禁时保留结构化 AnswerSpec 供上层确定性渲染，不再启动无 claim/
         # EvidenceAtom 绑定的旧散文合成，否则等于在安全链失败后绕回软出口。
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="grounded_required_fallback",
+            detail="grounded presenter did not promote an answer; legacy prose is disabled",
+        )
         return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
@@ -885,6 +961,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     quality_gate_ms: int | None = None
     provider_finish_reason: str | None = None
     provider = llm_refine.detect_provider(options.llm_model)
+    _set_synthesis_diagnostic(
+        result,
+        state="attempted",
+        reason_code="provider_started",
+        detail="synthesis provider call started",
+    )
 
     def capture_connected() -> None:
         nonlocal provider_connect_ms
@@ -1006,6 +1088,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             composed=None,
             fallback_reason=result.llm_fallback_reason,
         )
+        _set_synthesis_diagnostic(
+            result,
+            state="failed",
+            reason_code=result.llm_fallback_reason or "provider_unavailable",
+            detail=(
+                "synthesis provider did not return a usable response "
+                f"({result.llm_fallback_reason or 'provider_unavailable'})"
+            ),
+        )
         return result
     if composed.finish_reason is not None and composed.finish_reason != "stop":
         reason = (
@@ -1018,6 +1109,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         result.llm_stream_telemetry = telemetry(
             composed=composed,
             fallback_reason=result.llm_fallback_reason,
+        )
+        _set_synthesis_diagnostic(
+            result,
+            state="failed",
+            reason_code=result.llm_fallback_reason or "provider_incomplete",
+            detail="synthesis provider response did not finish cleanly",
         )
         return result
     result.llm_fallback_reason = composed.fallback_reason
@@ -1113,6 +1210,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         )
         result.llm_fallback_reason = "quality_gate_rejected"
         result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
+        diagnostic_reason, diagnostic_detail = _quality_gate_diagnostic_reason(
+            blocking_issues
+        )
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code=diagnostic_reason,
+            detail=diagnostic_detail,
+        )
         return result
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
@@ -1153,6 +1259,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         options.stream_text_delta(result.synthesis)
     if reason:
         result.warnings.append(reason)
+    _set_synthesis_diagnostic(
+        result,
+        state="accepted",
+        reason_code="validated",
+        detail="synthesis passed deterministic quality gates",
+    )
     return result
 
 
@@ -1280,6 +1392,12 @@ def promote_grounded_answer(
             {"role": "assistant", "content": result.synthesis},
         ]
         result.grounded_fallback_used = True
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="grounded_required_fallback",
+            detail="grounded presenter did not pass validation; deterministic fallback used",
+        )
         if options.stream_text_delta is not None:
             options.stream_text_delta(result.synthesis)
         return True
@@ -1287,6 +1405,12 @@ def promote_grounded_answer(
         f"{result.data_notice}\n\n{presented}"
         if result.data_notice
         else presented
+    )
+    _set_synthesis_diagnostic(
+        result,
+        state="accepted",
+        reason_code="validated",
+        detail="grounded presenter passed deterministic and semantic gates",
     )
     ensure_forecast_scenarios_visible(result)
     result.llm_provider = shadow.provider

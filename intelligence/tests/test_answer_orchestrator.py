@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 import tempfile
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest import mock
 
@@ -26,6 +27,7 @@ from intelligence.services.ask import (
     AskOptions,
     AskResult,
     PreparedAnswer,
+    SynthesisDiagnostic,
     answer_query,
     render_conversation_answer,
     synthesize_prepared_answer,
@@ -76,7 +78,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
     def test_model_chunks_stay_private_when_quality_gate_rejects(self) -> None:
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
-        issue = mock.Mock(severity="error", message="越界事实")
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="error",
+            message="越界事实",
+        )
 
         def fake_stream(messages, *, on_delta, **kwargs):
             del messages, kwargs
@@ -108,6 +114,12 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertIsNone(result.synthesis)
         self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertEqual(result.synthesis_diagnostic.state, "rejected")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "claim_binding_failed",
+        )
+        self.assertNotIn("越界事实", result.synthesis_diagnostic.detail)
         self.assertEqual(public_deltas, [])
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
@@ -272,6 +284,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["output_chars"], 7)
         self.assertEqual(result.llm_stream_telemetry["finish_reason"], None)
         self.assertEqual(result.llm_stream_telemetry["fallback_reason"], None)
+        self.assertEqual(result.synthesis_diagnostic.state, "accepted")
+        self.assertEqual(result.synthesis_diagnostic.reason_code, "validated")
         for field in (
             "provider_connect_ms",
             "stream_elapsed_ms",
@@ -354,6 +368,59 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_fallback_reason, "timeout")
         self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
         self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
+        self.assertEqual(result.synthesis_diagnostic.state, "failed")
+        self.assertEqual(result.synthesis_diagnostic.reason_code, "timeout")
+
+    def test_missing_prepared_messages_records_not_prepared(self) -> None:
+        result = AskResult(
+            query="测试问题",
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        prepared = PreparedAnswer(
+            options=AskOptions(query=result.query),
+            result=result,
+        )
+
+        result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis_diagnostic.state, "not_prepared")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "no_prepared_messages",
+        )
+
+    def test_provider_unavailable_records_failed_diagnostic(self) -> None:
+        prepared = self._prepared_answer(public_deltas=[])
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages_stream",
+            return_value=(None, "未配置 LLM key，已降级为模板"),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis_diagnostic.state, "failed")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "provider_unavailable",
+        )
+
+    def test_synthesis_diagnostic_is_frozen_and_caps_detail(self) -> None:
+        default = SynthesisDiagnostic()
+        self.assertEqual(default.state, "not_requested")
+        self.assertEqual(default.reason_code, "not_requested")
+        self.assertEqual(default.detail, "synthesis was not requested")
+        self.assertEqual(default.prepared_message_count, 0)
+        self.assertEqual(default.candidate_claim_count, 0)
+        self.assertEqual(default.bound_claim_count, 0)
+
+        diagnostic = SynthesisDiagnostic(detail=("line\n" * 100))
+        self.assertLessEqual(len(diagnostic.detail), 200)
+        self.assertNotIn("\n", diagnostic.detail)
+        with self.assertRaises(FrozenInstanceError):
+            diagnostic.state = "accepted"  # type: ignore[misc]
 
     def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
         self,

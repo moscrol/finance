@@ -181,6 +181,8 @@ class TestGeneralGroundedPresenter:
         assert ask.promote_grounded_answer(options, result)
         assert result.synthesis is not None
         assert "谨慎判断" in result.synthesis
+        assert result.synthesis_diagnostic.state == "accepted"
+        assert result.synthesis_diagnostic.reason_code == "validated"
 
     def test_falls_back_with_warning_when_llm_unavailable(
         self, monkeypatch
@@ -197,6 +199,11 @@ class TestGeneralGroundedPresenter:
         )
         assert ask.promote_grounded_answer(options, result)
         assert result.grounded_fallback_used
+        assert result.synthesis_diagnostic.state == "rejected"
+        assert (
+            result.synthesis_diagnostic.reason_code
+            == "grounded_required_fallback"
+        )
         assert result.synthesis is not None
         assert "核心判断" in result.synthesis
         assert any(

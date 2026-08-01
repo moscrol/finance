@@ -255,6 +255,29 @@ class Citation:
     index_freshness: str = ""
 
 
+@dataclass(frozen=True)
+class SynthesisDiagnostic:
+    """Safe control-plane reason for synthesis success or fallback."""
+
+    state: str = "not_requested"
+    reason_code: str = "not_requested"
+    detail: str = "synthesis was not requested"
+    prepared_message_count: int = 0
+    candidate_claim_count: int = 0
+    bound_claim_count: int = 0
+
+    def __post_init__(self) -> None:
+        # Diagnostic detail is a control-plane summary, never a second channel for
+        # prompts or evidence bodies.  Collapse whitespace before applying the hard
+        # cap so a multiline provider error cannot inflate the public trace.
+        detail = re.sub(r"\s+", " ", str(self.detail or "")).strip()
+        object.__setattr__(
+            self,
+            "detail",
+            (detail or "no additional detail")[:200],
+        )
+
+
 @dataclass
 class AskResult:
     query: str
@@ -300,6 +323,9 @@ class AskResult:
     )
     llm_fallback_reason: str | None = None
     llm_stream_telemetry: dict[str, object] = field(default_factory=dict)
+    synthesis_diagnostic: SynthesisDiagnostic = field(
+        default_factory=SynthesisDiagnostic
+    )
     grounded_composer_shadow: (
         answer_model.GroundedComposerShadow | None
     ) = None

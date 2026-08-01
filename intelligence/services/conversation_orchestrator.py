@@ -31,6 +31,7 @@ from intelligence.services.ask import (
     AskResult,
     Citation,
     PreparedAnswer,
+    SynthesisDiagnostic,
     answer_query,
     prepare_existing_answer,
     render_conversation_answer,
@@ -2552,6 +2553,19 @@ class TurnOrchestrator:
                 result.llm_provider = lane_answer.provider
                 result.llm_fallback_reason = lane_answer.fallback_reason
                 result.prepared_synthesis_messages = []
+                result.synthesis_diagnostic = SynthesisDiagnostic(
+                    state=("rejected" if lane_answer.fallback_reason else "accepted"),
+                    reason_code=(
+                        "knowledge_lane_fallback"
+                        if lane_answer.fallback_reason
+                        else "knowledge_lane_answer"
+                    ),
+                    detail=(
+                        "knowledge lane used its deterministic fallback"
+                        if lane_answer.fallback_reason
+                        else "knowledge lane answer completed"
+                    ),
+                )
                 answer_model_name = lane_answer.model or self.llm_model
                 self._trace(
                     run_id,
@@ -2638,6 +2652,7 @@ class TurnOrchestrator:
                     ),
                     "fallback_reason": result.llm_fallback_reason,
                     "stream": result.llm_stream_telemetry,
+                    "diagnostic": asdict(result.synthesis_diagnostic),
                 },
             )
 

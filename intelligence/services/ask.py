@@ -114,6 +114,7 @@ from intelligence.services.ask_types import (  # noqa: F401  (re-export 兼容�
     AskResult,
     Citation,
     PreparedAnswer,
+    SynthesisDiagnostic,
     _contains,
     _data_repo_root,
     _llm_deadline,

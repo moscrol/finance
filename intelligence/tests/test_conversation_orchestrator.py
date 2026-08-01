@@ -11,7 +11,12 @@ from intelligence import userspace
 from intelligence.services import agent_research, answer_model, llm_refine
 from intelligence.services import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
-from intelligence.services.ask import AskOptions, AskResult, Citation
+from intelligence.services.ask import (
+    AskOptions,
+    AskResult,
+    Citation,
+    SynthesisDiagnostic,
+)
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_FACT_CHECK,
@@ -379,6 +384,83 @@ def _prepare_turn(
         last_run_id=run.run_id,
     )
     return run.run_id, assistant.message_id
+
+
+def test_orchestrator_trace_emits_structured_synthesis_diagnostic(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结证据",
+    )
+    private_prompt = "PRIVATE_SYNTHESIS_PROMPT"
+    private_evidence = "PRIVATE_EVIDENCE_BODY"
+    expected = SynthesisDiagnostic(
+        state="rejected",
+        reason_code="grounded_required_fallback",
+        detail="grounded presenter did not pass validation",
+        prepared_message_count=2,
+        candidate_claim_count=1,
+        bound_claim_count=0,
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        result = _ask_result(options.query)
+        result.prepared_synthesis_messages = [
+            {"role": "system", "content": private_prompt},
+            {"role": "user", "content": private_evidence},
+        ]
+        return result
+
+    def reject_synthesis(prepared) -> AskResult:
+        prepared.result.synthesis_diagnostic = expected
+        prepared.result.llm_fallback_reason = "quality_gate_rejected"
+        return prepared.result
+
+    monkeypatch.setattr(
+        orchestrator_service,
+        "synthesize_prepared_answer",
+        reject_synthesis,
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结证据",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    synthesis_step = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "answer_synthesis"
+    )
+    payload = json.loads(synthesis_step["output_summary"])
+    assert payload["diagnostic"] == asdict(expected)
+    serialized = json.dumps(payload, ensure_ascii=False)
+    assert "prepared_messages" not in serialized
+    assert "prompt" not in serialized.lower()
+    assert "evidence_body" not in serialized.lower()
+    assert private_prompt not in serialized
+    assert private_evidence not in serialized
 
 
 def _continuous_forecast_fixture(tmp_path, query: str):

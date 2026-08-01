@@ -512,7 +512,7 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
     raw_step_id = str(step.get("step_id") or raw_name or "step")
     public_step_id = hashlib.sha256(raw_step_id.encode("utf-8")).hexdigest()[:12]
     warnings = step.get("warnings")
-    return {
+    public_step: dict[str, object] = {
         "step_id": f"step:{public_step_id}",
         "name": stage,
         "status": status,
@@ -530,6 +530,62 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
             else []
         ),
     }
+    diagnostic = _public_synthesis_diagnostic(step)
+    if diagnostic is not None:
+        public_step["diagnostic"] = diagnostic
+    return public_step
+
+
+def _public_synthesis_diagnostic(
+    step: dict[str, object],
+) -> dict[str, object] | None:
+    if str(step.get("name") or "") != "answer_synthesis":
+        return None
+    raw_summary = step.get("output_summary")
+    if not isinstance(raw_summary, str):
+        return None
+    try:
+        summary = json.loads(raw_summary)
+    except json.JSONDecodeError:
+        return None
+    diagnostic = summary.get("diagnostic") if isinstance(summary, dict) else None
+    if not isinstance(diagnostic, dict):
+        return None
+    state = str(diagnostic.get("state") or "")
+    if state not in {
+        "not_requested",
+        "not_prepared",
+        "attempted",
+        "accepted",
+        "rejected",
+        "failed",
+    }:
+        return None
+    reason_code = str(diagnostic.get("reason_code") or "")[:80]
+    if not reason_code or not all(
+        char.isalnum() or char in {"_", "-", "."} for char in reason_code
+    ):
+        return None
+    detail = sanitize_user_visible_artifact_text(
+        str(diagnostic.get("detail") or "")
+    )[:200]
+    result: dict[str, object] = {
+        "state": state,
+        "reason_code": reason_code,
+        "detail": detail,
+    }
+    for field_name in (
+        "prepared_message_count",
+        "candidate_claim_count",
+        "bound_claim_count",
+    ):
+        value = diagnostic.get(field_name)
+        result[field_name] = (
+            min(value, 1_000_000)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+            else 0
+        )
+    return result
 
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:

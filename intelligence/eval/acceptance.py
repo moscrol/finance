@@ -101,6 +101,7 @@ class TurnTrace:
     evidence_bound: int = 0
     evidence: list[dict[str, Any]] = field(default_factory=list)
     trace_steps: list[str] = field(default_factory=list)
+    synthesis_diagnostic: dict[str, Any] = field(default_factory=dict)
     gaps: list[str] = field(default_factory=list)
     elapsed_s: float = 0.0
     status: str = "unknown"
@@ -198,6 +199,50 @@ def _fill_run_detail(base: str, trace: TurnTrace) -> None:
         trace.trace_steps = [
             str(s.get("name")) for s in steps if isinstance(s, dict) and s.get("name")
         ]
+        trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
+
+
+_SYNTHESIS_DIAGNOSTIC_FIELDS = (
+    "state",
+    "reason_code",
+    "detail",
+    "prepared_message_count",
+    "candidate_claim_count",
+    "bound_claim_count",
+)
+_SYNTHESIS_DIAGNOSTIC_STATES = {
+    "not_requested",
+    "not_prepared",
+    "attempted",
+    "accepted",
+    "rejected",
+    "failed",
+}
+
+
+def _capture_synthesis_diagnostic(steps: list[Any]) -> dict[str, Any]:
+    """Retain only the bounded diagnostic already exposed by the public trace."""
+
+    for step in reversed(steps):
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("diagnostic")
+        if not isinstance(raw, dict):
+            continue
+        state = raw.get("state")
+        reason_code = raw.get("reason_code")
+        if state not in _SYNTHESIS_DIAGNOSTIC_STATES or not isinstance(
+            reason_code, str
+        ):
+            continue
+        diagnostic = {
+            key: raw[key]
+            for key in _SYNTHESIS_DIAGNOSTIC_FIELDS
+            if key in raw
+        }
+        diagnostic["detail"] = str(diagnostic.get("detail") or "")[:200]
+        return diagnostic
+    return {}
 
 
 def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
@@ -474,6 +519,27 @@ def cmd_board(args: argparse.Namespace) -> int:
             OperationalState.FAILED,
         }:
             detail = verdict.operational.reason
+        if verdict.operational.state is OperationalState.DEGRADED:
+            diagnostic = (
+                t0.get("synthesis_diagnostic")
+                if isinstance(t0, Mapping)
+                else None
+            )
+            reason_code = (
+                str(diagnostic.get("reason_code") or "")
+                if isinstance(diagnostic, Mapping)
+                else ""
+            )
+            diagnostic_note = (
+                f"synthesis reason_code={reason_code}"
+                if reason_code
+                else "synthesis diagnostic unavailable"
+            )
+            detail = (
+                f"{detail}；{diagnostic_note}"
+                if detail
+                else f"{verdict.operational.reason}；{diagnostic_note}"
+            )
         print(
             f"| {c['id']} | {c['tier']} | "
             f"{source_by_id[c['id']].stem[-7:] if c['id'] in source_by_id else '—'} | "
