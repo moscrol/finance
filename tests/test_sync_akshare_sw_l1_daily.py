@@ -188,6 +188,16 @@ def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
             VALUES ('2026-07-10', '801080', '电子', 100.0, 1.0, 10.0, 'akshare:index_hist_sw:801080')
             """
         )
+        # 板块行情闸门已从「dim_sector 全覆盖」改成「相邻交易日名称连续性」，
+        # 当日零板块行情会直接判 INCOMPLETE。本例只验证 data_only 不需要报告
+        # 文件，补一行最小数据避开这条无关闸门。
+        con.execute(
+            """
+            INSERT INTO fact_sector_daily
+                (trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio, source)
+            VALUES ('2026-07-10', 'A', '半导体', '电子', 2.0, 100.0, 18.0, 'test')
+            """
+        )
     finally:
         con.close()
 
