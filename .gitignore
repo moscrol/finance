@@ -57,6 +57,10 @@ market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png
 market_feature_store/exports/*-triggered-themes.json
 market_feature_store/exports/*-market-triggered-theme-brief.md
+# 单份已涨到 20~25MB，超 pre-commit 5MB 硬上限，物理上无法入库；
+# 历史上有 14/48 份小体积版本已跟踪，那些保持原样，只挡新增。
+market_feature_store/exports/*-daily-agent.json
+market_feature_store/exports/*-theme-candidates.json
 复盘/index.html
 复盘/moneyflow/
 复盘/dualblind/
