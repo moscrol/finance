@@ -20,6 +20,7 @@ import copy
 import glob
 import json
 import re
+import statistics
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -2430,6 +2431,37 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     return result
 
 
+def _exposure_coverage_summary(exposures: dict[str, Any]) -> dict[str, Any] | None:
+    """送出去的那几家 vs 候选池整体的证据覆盖度分布。**只读**。
+
+    为什么加这一项：待办 I（换了问题意图，选择器挑的名单会不会真的不同）原本
+    只能靠人翻 trace 比名单，没有量纲。有了这两组中位数就有判据——shown 明显
+    高于 pool 说明取舍确实在用信息量维度；两者贴近说明模型只是复述了标注顺序，
+    选择器的价值没兑现。
+
+    刻意不参与排序、不进正文：现在还没有「选得对不对」的判据，先把判据造出来，
+    再谈要不要改行为（十原则 9.5：优化目标是可治理，不是更多）。
+    """
+    coverage = exposures.get("evidence_coverage") or {}
+    by_company = coverage.get("by_company") or {}
+    if not by_company:
+        return None
+    shown = [
+        int(by_company.get(str(row.get("company") or ""), 0))
+        for row in (exposures.get("items") or [])
+    ]
+    pool = [int(value) for value in by_company.values()]
+    return {
+        "indexed": bool(coverage.get("indexed")),
+        "shown_median": statistics.median(shown) if shown else 0,
+        "shown_zero": sum(1 for value in shown if value == 0),
+        "shown_max": max(shown, default=0),
+        "pool_size": len(pool),
+        "pool_median": statistics.median(pool) if pool else 0,
+        "pool_max": max(pool, default=0),
+    }
+
+
 def _answer_query_impl(options: AskOptions) -> AskResult:
     if options.deadline is not None and options.deadline.expired:
         return _deadline_partial_result(options.query)
@@ -3046,6 +3078,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         # 这 12 家是模型按问题意图挑的还是确定性排序切的、以及回退时是为什么。
         # 没有这一项就只知道「截断了」，不知道「按什么截的」。
         "selector": exposures.get("selector") or None,
+        "evidence_coverage": _exposure_coverage_summary(exposures),
     }
     if (
         exposures.get("truncated")

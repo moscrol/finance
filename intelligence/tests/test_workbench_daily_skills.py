@@ -350,3 +350,127 @@ def test_daily_skills_are_registered_as_local_read_executors() -> None:
     )
     for skill_id in set(expected) - {"us-ai-drawdown"}:
         assert SKILL_REGISTRY[skill_id].permissions == ("local_read",)
+
+
+# --- 按问题意图选章节（2026-08-01 A 组基线，任务 #12）------------------------
+#
+# A 组实测：路由修好之后 A6「连板梯队什么情况，有没有断层」确实走到了 daily-review、
+# 也取到了 2026-07-23 的数据，但吐的是通用「每日市场复盘」模板——涨停方向、强势股
+# 那几段，一个字没碰连板。
+# 根因不在 output_contract，在更上游：daily_projection_modules 把 43,481 字的正式
+# 日报压成 3,609 字的四个固定模块，「连板」「断层」「立新能源」在模块里出现 0 次。
+# 而正式日报的「## 11. 3板及以上个股」里，立新能源 6 连板、梯队 6→4→3（缺 5 板，
+# 断层肉眼可见）全都在。信息在系统里，又一次没送到。
+#
+# daily_projection_modules 被工作台 UI（api/app.py）共用，不动它；这里加一条
+# 按问题意图选章节的附加腿。
+
+_LADDER_MD = """## 11. 3板及以上个股
+| 股票 | 代码 | 连板数 | 首板日期 | 题材 | 涨幅 |
+|---|---|---|---|---|---|
+| 立新能源 | 001258.SZ | 6 | 2026-07-16 | 电站 | 9.99% |
+| 美利云 | 000815.SZ | 4 | 2026-07-20 | 算力租赁 | 9.98% |
+
+> **结论**：3板及以上个股 6 只，最高连板 6 板。
+"""
+
+_STRENGTH_MD = """## 12. 市场强度
+| 指标 | 值 |
+|---|---|
+| 强度状态 | 沸点 |
+| 边际变化 | -66.3% |
+"""
+
+
+def _write_rich_review(root: Path, date: str = "2026-07-10") -> Path:
+    exports = root / "market_feature_store" / "exports"
+    exports.mkdir(parents=True, exist_ok=True)
+    path = exports / f"{date}-daily-review.md"
+    path.write_text(
+        f"# {date} 每日市场复盘\n\n"
+        "## 核心看板\n| 维度 | 结论 |\n|---|---|\n| 指数表现 | 上证上涨 0.8% |\n\n"
+        f"{_LADDER_MD}\n{_STRENGTH_MD}\n"
+        "## 15. 市场环境总评\n> 修复延续。\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_ladder_question_selects_the_ladder_section() -> None:
+    from intelligence.workbench_skills.daily_review import select_review_sections
+
+    markdown = f"# 日报\n\n{_LADDER_MD}\n{_STRENGTH_MD}\n"
+    sections, warnings = select_review_sections(
+        markdown, "2026-07-23 连板梯队什么情况，有没有断层"
+    )
+
+    joined = "\n".join(s["body"] for s in sections)
+    assert "立新能源" in joined, f"连板题没选到连板章节：{[s['heading'] for s in sections]}"
+    assert "6" in joined
+    assert warnings == []
+
+
+def test_strength_question_selects_the_strength_section() -> None:
+    from intelligence.workbench_skills.daily_review import select_review_sections
+
+    markdown = f"# 日报\n\n{_LADDER_MD}\n{_STRENGTH_MD}\n"
+    sections, _ = select_review_sections(markdown, "2026-07-23 的市场情绪怎么解读")
+
+    joined = "\n".join(s["body"] for s in sections)
+    assert "沸点" in joined and "-66.3" in joined
+
+
+def test_generic_market_question_selects_nothing_extra() -> None:
+    """泛问「今天市场怎么样」不该拖章节进来——通用模板本来就够，多拖是浪费预算。"""
+    from intelligence.workbench_skills.daily_review import select_review_sections
+
+    markdown = f"# 日报\n\n{_LADDER_MD}\n{_STRENGTH_MD}\n"
+    sections, _ = select_review_sections(markdown, "今天市场怎么样")
+
+    assert sections == []
+
+
+def test_oversized_section_is_truncated_with_disclosure() -> None:
+    """章节超预算要截断，且必须留证——截断留证是本项目反复钉的纪律。"""
+    from intelligence.workbench_skills.daily_review import select_review_sections
+
+    big = "## 11. 3板及以上个股\n" + ("| 立新能源 | 6 |\n" * 4000)
+    sections, warnings = select_review_sections(big, "连板梯队怎么样", budget=500)
+
+    assert sections and len(sections[0]["body"]) <= 600
+    assert warnings, "截断了却一句不说"
+    assert any("截断" in w for w in warnings)
+
+
+def test_subtopic_sections_reach_the_skill_output_and_contract(tmp_path: Path) -> None:
+    """只测组件不测送达 = 没测：章节要真进 skill 的 modules，且 contract 要求回答它。"""
+    _write_rich_review(tmp_path, "2026-07-10")
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("连板", "daily")
+
+    output = DailyReviewSkill().execute(
+        _context(
+            tmp_path,
+            store,
+            run.run_id,
+            query="2026-07-10 连板梯队什么情况，有没有断层",
+        )
+    )
+
+    # 断言点必须是**模型真正看到的那份文本**，不是 modules 的原始 JSON。
+    # 第一版这里断言 json.dumps(output.modules)，绿了——但正文塞在 items[].content，
+    # 而序列化器只读 items[].title/summary，模型收到的只有标题。线上实测答案原话：
+    # 「知道日报里有这张表、但看不到表里任何一行数据」。
+    # 又一次「只测组件不测送达」，这次是自己踩的。
+    assert output.answer_contract is not None
+    delivered = "\n".join(
+        claim.text for claim in output.answer_contract.answer_spec.verified_facts
+    )
+    assert "立新能源" in delivered, (
+        f"连板章节正文没送到模型上下文——模型看不到就答不出。实际={delivered[:400]}"
+    )
+    assert output.answer_contract is not None
+    contract_text = " ".join(output.answer_contract.output_contract)
+    assert "连板" in contract_text or "问题" in contract_text, (
+        f"output_contract 没要求回答用户问的那件事：{contract_text}"
+    )

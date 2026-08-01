@@ -20,11 +20,19 @@ from intelligence.paths import default_paths
 _RELATION_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
 _RELATION_CACHE_LOCK = threading.Lock()
 
+# evidence_index 有 23904 条，把它折成 (concept, company) → 证据条数要全量扫一遍。
+# 原始 JSON 已经在 _RELATION_CACHE 里，但派生索引每次问答重算仍是纯冗余，
+# 故跟着同一个 (mtime_ns, size) 口径单独缓存一份。
+_EVIDENCE_COVERAGE_CACHE: dict[str, tuple[int, int, dict[tuple[str, str], int]]] = {}
+_EVIDENCE_COVERAGE_LOCK = threading.Lock()
+
 
 def clear_relation_cache() -> None:
     """清空 relations 缓存（测试与 KB 重建后的显式失效用）。"""
     with _RELATION_CACHE_LOCK:
         _RELATION_CACHE.clear()
+    with _EVIDENCE_COVERAGE_LOCK:
+        _EVIDENCE_COVERAGE_CACHE.clear()
 
 
 # 概念打分的三档语义：
@@ -180,6 +188,49 @@ class KnowledgeAdapter:
         with _RELATION_CACHE_LOCK:
             _RELATION_CACHE[key] = (mtime_ns, size, data)
         return {"found": True, "name": name, "path": key, "data": data, "warnings": [], "errors": []}
+
+    def evidence_coverage_index(self) -> dict[tuple[str, str], int]:
+        """``(concept, company) → 该公司在该概念下的证据条数``。
+
+        为什么只数 ``target_type == "entity"``：evidence_index 里 concept 类条目的
+        ``target`` 放的是概念名而不是公司名（实测 23904 条里 concept 类 2759 条），
+        不筛掉会把概念自身的证据算成同名公司的。
+
+        为什么按 ``(concept, company)`` 而不是只按 company：跨概念总条数测的是
+        「这家公司在库里有多红」不是「它跟这个题材多相关」——实测中材科技跨概念
+        39 条，其中绝大多数是玻纤/风电。用它排序等于按知名度排序，会系统性偏向
+        大市值。留证/取舍要的是后者，所以概念必须进键。
+        """
+        path = self.relation_path("evidence_index")
+        key = str(path)
+        try:
+            stat = path.stat()
+        except OSError:
+            return {}
+        mtime_ns, size = stat.st_mtime_ns, stat.st_size
+        with _EVIDENCE_COVERAGE_LOCK:
+            cached = _EVIDENCE_COVERAGE_CACHE.get(key)
+        if cached is not None and cached[0] == mtime_ns and cached[1] == size:
+            return cached[2]
+
+        relation = self.load_relation("evidence_index")
+        index: dict[tuple[str, str], int] = {}
+        if relation["found"]:
+            items = relation["data"].get("items")
+            if isinstance(items, list):
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("target_type") != "entity":
+                        continue
+                    company = str(item.get("target") or "").strip()
+                    concept = str(item.get("concept") or "").strip()
+                    if not company or not concept:
+                        continue
+                    index[(concept, company)] = index.get((concept, company), 0) + 1
+        with _EVIDENCE_COVERAGE_LOCK:
+            _EVIDENCE_COVERAGE_CACHE[key] = (mtime_ns, size, index)
+        return index
 
     def get_entity_exposures(self, entity: str) -> dict[str, Any]:
         relation = self.load_relation("entity_exposures")
@@ -379,6 +430,7 @@ class KnowledgeAdapter:
                 "items": [],
                 "total_matched": 0,
                 "truncated": False,
+                "evidence_coverage": {"indexed": False, "by_company": {}},
                 "warnings": relation["warnings"],
                 "errors": relation["errors"],
             }
@@ -435,12 +487,32 @@ class KnowledgeAdapter:
                 f"图谱共 {len(ranked)} 家匹配，本轮按暴露强度取前 {len(items)} 家；"
                 "未展示的不代表不存在"
             )
+        # 覆盖度刻意**不塞进 items 的行里**：那个 dict 有 11 个消费者，其中
+        # prime.render_prefix 会把它渲染进模型看到的检索前缀。只读信号一旦进了
+        # 那条路径就不再是只读的。放在独立 key 上，items 一个字节不动。
+        #
+        # 键覆盖全部 ranked（不只是截断后的 items），下游才能比「送出去的这几家」
+        # 和「候选池整体」的覆盖度分布——差不多就说明取舍没在用信息量维度。
+        coverage_index = self.evidence_coverage_index()
         return {
             "found": bool(items),
             "term": term,
             "items": items,
             "total_matched": len(ranked),
             "truncated": truncated,
+            "evidence_coverage": {
+                "indexed": bool(coverage_index),
+                "by_company": {
+                    str(row.get("company") or ""): coverage_index.get(
+                        (
+                            str(row.get("concept") or ""),
+                            str(row.get("company") or ""),
+                        ),
+                        0,
+                    )
+                    for row in ranked
+                },
+            },
             "warnings": warnings,
             "errors": [],
         }

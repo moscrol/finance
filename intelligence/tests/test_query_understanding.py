@@ -609,3 +609,57 @@ def test_current_market_mainline_is_not_a_static_definition() -> None:
 
     assert envelope.question_type == "market_watch"
     assert envelope.subject_kind == "market_pattern"
+
+
+# --- 带日期的盘面细分题必须进 daily-review（2026-08-01 A 组基线根因）-----------
+#
+# A 组 10 道验收题首跑 0/10，7 道没产出可用答案。根因是 _DATED_MARKET_REVIEW_RE
+# 要求「日期 + 市场/盘面 + 总结/复盘/回顾/梳理/分析」——对 10 道真实问题 0 命中。
+# 而 market_review_requested_date 对其中 8 道**已经正确解析出日期**，只是这个
+# 结果被 and 到那条 0 命中的正则上，白解析了。
+# 实测后果：A4 用「特斯拉 Optimus 人形机器人」答双红，A9 用外汇/期货/债券新闻答
+# 市场情绪，A6 谎称「2026-07-23 是未来的时间」——而 2026-07-23-daily-review.md
+# 就在磁盘上，里面有专章「## 5. 双红题材」「## 2. 市场情绪」和 4 次「立新能源」。
+
+
+def test_dated_board_subtopics_route_to_daily_review() -> None:
+    """线上验收题的真实措辞。修复前这 6 条全是 False。"""
+    for query in (
+        "2026-07-23 哪些板块是双红",
+        "2026-07-23 涨停集中在哪些题材",
+        "2026-07-23 连板梯队什么情况，有没有断层",
+        "2026-07-21 当天主线是什么",
+        "2026-07-23 的市场情绪怎么解读",
+        "2026-07-21 的新高家数结构说明什么",
+    ):
+        assert query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), f"带日期的盘面细分题没进 daily-review：{query}"
+
+
+def test_board_subtopic_without_date_is_not_routed() -> None:
+    """没有日期就没有可读的复盘导出——不能因为出现「涨停」就硬路由。"""
+    for query in ("涨停集中在哪些题材", "哪些板块是双红"):
+        assert not query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), query
+
+
+def test_dated_theme_research_is_not_hijacked_by_daily_review() -> None:
+    """题材研究题带日期也不该被盘面复盘抢走——它问的是产业链不是当日盘面。"""
+    query = "2026-07-23 固态电池产业链走到哪一步了"
+    assert not query_understanding.is_dated_market_review(
+        query,
+        understand_query(query),
+    )
+
+
+def test_dated_overseas_board_subtopic_still_excluded() -> None:
+    """external_market 的排除不能被新增的主题词绕过。"""
+    query = "2026-07-23 美股涨停情况怎么样"
+    assert not query_understanding.is_dated_market_review(
+        query,
+        understand_query(query),
+    )

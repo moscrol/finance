@@ -50,6 +50,26 @@ def _row(company: str, strength: str, confidence: str) -> dict:
     }
 
 
+def _write_evidence(tmp_path, rows: list[dict]) -> None:
+    relations = tmp_path / "relations"
+    relations.mkdir(exist_ok=True)
+    (relations / "evidence_index.json").write_text(
+        json.dumps({"items": rows}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def _ev(target: str, concept: str, target_type: str = "entity") -> dict:
+    return {
+        "target": target,
+        "target_type": target_type,
+        "concept": concept,
+        "evidence": "订单/量产/客户导入",
+        "source": "[[某研报]]",
+        "confidence": "medium",
+    }
+
+
 def _assert_name_order(*companies: str) -> None:
     """确认这些名字确实是按字典序递增的，否则这条测试根本没构成陷阱。"""
     assert list(companies) == sorted(companies), (
@@ -199,3 +219,119 @@ def test_no_truncation_means_no_warning(tmp_path) -> None:
     assert matches["total_matched"] == 2
     assert matches["truncated"] is False
     assert matches["warnings"] == []
+
+
+# --- 证据覆盖度（只读 telemetry，2026-08-01 探针的落地项）-------------------
+#
+# 探针结论：evidence_index 能按 (concept, company) join 上 86 家候选（90% 命中），
+# 但**跨概念总条数不能用**——它测的是「这家公司在库里有多红」不是「跟这个题材
+# 多相关」（实测中材科技跨概念 39 条，大半是玻纤/风电）。用它排序＝按知名度排序。
+# 下面第一条测试就是把这个陷阱钉死的。
+
+
+def test_evidence_coverage_is_scoped_to_the_concept(tmp_path) -> None:
+    """覆盖度必须按 (概念, 公司) 数，不是按公司跨概念数。
+
+    构造成「知名度代理」的陷阱形状：一公司在别的概念下有 5 条证据、在固态电池下
+    只有 1 条；阿公司在固态电池下有 3 条。按公司跨概念数会得出 一公司(6) > 阿公司(3)，
+    正好把结论排反——这正是探针里 C 口径的失败模式。
+    """
+    adapter = _write_exposures(
+        tmp_path,
+        [
+            _row(_FIRST_BY_NAME, "core", "high"),
+            _row(_LAST_BY_NAME, "core", "high"),
+        ],
+    )
+    _write_evidence(
+        tmp_path,
+        [
+            _ev(_FIRST_BY_NAME, "固态电池"),
+            *[_ev(_FIRST_BY_NAME, "光伏") for _ in range(5)],
+            *[_ev(_LAST_BY_NAME, "固态电池") for _ in range(3)],
+            # concept 类条目的 target 放的是概念名不是公司名，混进来会多算。
+            *[_ev(_FIRST_BY_NAME, "固态电池", target_type="concept") for _ in range(4)],
+        ],
+    )
+
+    coverage = adapter.get_exposure_matches("固态电池", limit=12)["evidence_coverage"]
+
+    assert coverage["indexed"] is True
+    assert coverage["by_company"] == {_FIRST_BY_NAME: 1, _LAST_BY_NAME: 3}, (
+        "覆盖度串概念了：跨概念数会让「库里最红的那家」白捡高位，"
+        "而不是「跟这个题材证据最多的那家」"
+    )
+
+
+def test_evidence_coverage_is_read_only_and_never_enters_the_items(tmp_path) -> None:
+    """覆盖度不得出现在 items 的行里。
+
+    items 那个 dict 有 11 个消费者，其中 ``prime.render_prefix`` 会把它渲染进
+    模型看到的检索前缀。只读信号一旦进了那条路径就不再是只读的——本轮刻意把它
+    放在独立 key 上，这条测试守住这个决定。
+    """
+    adapter = _write_exposures(tmp_path, [_row(_FIRST_BY_NAME, "core", "high")])
+    _write_evidence(tmp_path, [_ev(_FIRST_BY_NAME, "固态电池")])
+
+    matches = adapter.get_exposure_matches("固态电池", limit=12)
+
+    assert matches["evidence_coverage"]["by_company"][_FIRST_BY_NAME] == 1
+    for item in matches["items"]:
+        assert "evidence_count" not in item and "evidence_coverage" not in item, (
+            f"覆盖度漏进 items 了：{item}——它会经 prime.render_prefix 进模型上下文"
+        )
+
+
+def test_evidence_coverage_reaches_the_trace_telemetry(tmp_path, monkeypatch) -> None:
+    """覆盖度要送到 trace，不能只留在 adapter 里。
+
+    「只测组件不测送达 = 没测」——本项目这一轮已经踩过两次。这里刻意**不**手搓
+    假 payload，而是让真 adapter 在 fixture 上跑出真结构再喂给 ask，
+    否则两边各写各的 key 名、测试全绿而线上拿不到。
+    """
+    rows = [
+        _row(_FIRST_BY_NAME, "core", "high"),
+        _row(_MID_BY_NAME, "core", "high"),
+        _row(_LAST_BY_NAME, "core", "high"),
+    ]
+    fixture_adapter = _write_exposures(tmp_path, rows)
+    _write_evidence(
+        tmp_path,
+        [
+            *[_ev(_FIRST_BY_NAME, "固态电池") for _ in range(4)],
+            *[_ev(_MID_BY_NAME, "固态电池") for _ in range(2)],
+            # _LAST_BY_NAME 一条都没有 → shown_zero 必须数到它
+        ],
+    )
+    real_impl = KnowledgeAdapter.get_exposure_matches
+    monkeypatch.setattr(
+        KnowledgeAdapter,
+        "get_exposure_matches",
+        lambda self, term, limit=12: real_impl(fixture_adapter, term, limit),
+    )
+    # 只验「覆盖度有没有送到 trace」，把 W 源检索短路掉：不短路要跑 80 秒，
+    # 而且把测试绑死在本机 RAG 索引上。
+    monkeypatch.setattr(
+        ask.closed_loop_retrieval,
+        "retrieve_closed_loop",
+        lambda *args, **kwargs: ClosedLoopRetrievalResult(),
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="固态电池产业链现在走到哪一步了，谁最受益",
+            compose=False,
+            synthesize=False,
+        )
+    )
+
+    coverage = result.graph_exposure_telemetry.get("evidence_coverage")
+    assert coverage, (
+        "覆盖度没送到 trace——adapter 算出来了但 graph_exposure 里没有，"
+        f"实际 telemetry={result.graph_exposure_telemetry}"
+    )
+    assert coverage["indexed"] is True
+    assert coverage["pool_size"] == 3
+    assert coverage["pool_max"] == 4
+    assert coverage["shown_zero"] == 1, "有一家零证据，没被数出来"
+    assert coverage["shown_median"] == 2

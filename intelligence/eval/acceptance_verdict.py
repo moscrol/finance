@@ -490,10 +490,30 @@ def _evaluate_fact(
     expected = raw["value"]
     aliases = aliases_by_field.get(field_name, ())
     candidate_text = _alias_windows(text, aliases) if aliases else text
+    if aliases and not candidate_text:
+        # 别名一个都没命中 = 判官没找到该在哪儿看，不等于产品答错了。
+        # 原来这里会一路走到「数字不在空字符串里」然后判 FAIL——于是「别名表
+        # 没跟上答案措辞」这种配置疏漏，长得和「产品答错」一模一样。
+        # A 组基线实测：答案写「较上一交易日缩减 17.27%」，别名表是
+        # ["环比","较昨日"]，窗口长度 0，直接被记成一次失败。
+        return RuleVerdict(
+            rule_id=f"fact:{field_name}",
+            kind="fact",
+            state=VerdictState.UNJUDGEABLE,
+            reason=(
+                f"fact {field_name} aliases {list(aliases)} not found in answer; "
+                "cannot locate the value"
+            ),
+        )
     if isinstance(expected, bool):
         matched = str(expected).lower() in candidate_text.lower()
     elif isinstance(expected, (int, float)):
         numbers = _extract_numbers(candidate_text)
+        if float(expected) < 0:
+            # 中文把符号放在方向词上，不放在数字上：「较上一交易日缩减 17.27%」
+            # 抽出来是 +17.27。只在期望为负时补候选，且必须有减少类方向词紧邻——
+            # 方向写反（「增加 17.27%」）依然判错，符号错误不会被放过。
+            numbers = numbers + _decrease_signed_numbers(candidate_text)
         tolerance = 0.0
         if raw.get("tol_abs") is not None:
             tolerance = abs(float(raw["tol_abs"]))
@@ -672,6 +692,29 @@ def _extract_numbers(text: str) -> list[float]:
             values.append(float(normalized))
         except ValueError:
             continue
+    return values
+
+
+_DECREASE_WORD_RE = re.compile(
+    r"(?:缩减|减少|下降|下滑|回落|下跌|收窄|萎缩|缩量|降低|减小|少了|降|跌)"
+    r"[了至到约]?\s*([-+]?\d[\d,]*(?:\.\d+)?)%?"
+)
+
+
+def _decrease_signed_numbers(text: str) -> list[float]:
+    """把「缩减 17.27%」这类中文减量表达读成 -17.27。
+
+    只认紧跟在减量方向词后面的数字（中间最多一个「了/至/到/约」和空白）。
+    增量方向词一律不碰——期望是负数而答案说「增加」，那就是答错了，
+    不该被这条兜回来。
+    """
+    values: list[float] = []
+    for raw in _DECREASE_WORD_RE.findall(text):
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        values.append(-abs(value))
     return values
 
 

@@ -460,3 +460,79 @@ def test_historical_run_calibration_is_honest_and_reproducible() -> None:
         verdicts["C9-citation-integrity"], "pass_rule"
     ).state is VerdictState.UNJUDGEABLE
     assert verdicts["C10-multi-turn-consistency"].truth.state is VerdictState.FAIL
+
+
+# --- 判官读不出正确答案的两个缺陷（2026-08-01 A 组基线）----------------------
+#
+# A1 实测：答案写「全市场成交额 21949.97 亿元，较上一交易日缩减 17.27%」，
+# 判据要 amount_vs_yesterday_pct=-17.27，判 FAIL。查下来是两个缺陷叠加：
+#   ① 别名表是 ["环比","较昨日"]，答案说的是「较上一交易日」→ _alias_windows
+#      返回空串 → 在空文本里找数字 → 必然判失败。**配置疏漏被当成产品答错。**
+#   ② 就算窗口对了，「缩减 17.27%」抽出来是 +17.27，方向词没被解析成负号。
+# 这不是放宽门禁：两种写法在自然中文里指同一个事实，读不出来是判官表达力不足。
+
+
+def _fact_contract(aliases: dict[str, list[str]]):
+    return compile_case_contract(
+        {
+            "id": "A1",
+            "tier": "high_freq",
+            "query": "market",
+            "expect_facts": [
+                {"field": "amount_vs_yesterday_pct", "value": -17.27, "tol_abs": 0.5},
+            ],
+            "pass_rule": "facts",
+        },
+        {"coverage": "structured", "fact_aliases": aliases},
+    )
+
+
+def test_alias_miss_is_unjudgeable_not_failure() -> None:
+    """别名一个都没命中时，判官不知道答案对不对——不能报假红。
+
+    报 FAIL 会让「别名表没跟上答案措辞」这种配置疏漏，长得跟「产品答错了」
+    一模一样。A 组基线上就是这么少算了分。
+    """
+    contract = _fact_contract({"amount_vs_yesterday_pct": ["环比", "较昨日"]})
+    result = evaluate_case(
+        contract,
+        _completed("全市场成交额 21949.97 亿元，较上一交易日缩减 17.27%。"),
+    )
+    rule = _rule(result, "fact:amount_vs_yesterday_pct")
+    assert rule.state is VerdictState.UNJUDGEABLE, (
+        f"别名未命中却给了确定裁决：{rule.state} / {rule.reason}"
+    )
+
+
+def test_chinese_direction_word_carries_the_sign() -> None:
+    """「缩减 17.27%」就是 -17.27。中文把符号放在方向词上，不放在数字上。"""
+    contract = _fact_contract({"amount_vs_yesterday_pct": ["较上一交易日"]})
+    result = evaluate_case(
+        contract,
+        _completed("全市场成交额 21949.97 亿元，较上一交易日缩减 17.27%。"),
+    )
+    assert _rule(result, "fact:amount_vs_yesterday_pct").state is VerdictState.PASS
+
+
+def test_wrong_direction_word_still_fails() -> None:
+    """方向反了就是答错。加了方向词解析不能把符号错误一起放过去。"""
+    contract = _fact_contract({"amount_vs_yesterday_pct": ["较上一交易日"]})
+    result = evaluate_case(
+        contract,
+        _completed("全市场成交额 21949.97 亿元，较上一交易日增加 17.27%。"),
+    )
+    assert _rule(result, "fact:amount_vs_yesterday_pct").state is VerdictState.FAIL
+
+
+def test_alias_hit_but_number_absent_is_still_a_real_failure() -> None:
+    """别名命中、数字确实不在正文里——这是真缺口，必须继续判 FAIL。
+
+    A1 的 limit_up=116 就是这一类（窗口 101 字符，抽到 40/29/29，确实没有 116）。
+    放过它就是为了绿灯放宽门禁。
+    """
+    contract = _fact_contract({"amount_vs_yesterday_pct": ["较上一交易日"]})
+    result = evaluate_case(
+        contract,
+        _completed("全市场成交额 21949.97 亿元，较上一交易日基本持平。"),
+    )
+    assert _rule(result, "fact:amount_vs_yesterday_pct").state is VerdictState.FAIL

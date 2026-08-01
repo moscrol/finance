@@ -87,6 +87,22 @@ _DATED_MARKET_REVIEW_RE = re.compile(
     + r".{0,12}(?:行情|盘面|市场)",
     re.IGNORECASE,
 )
+# 盘面复盘的**细分**话题词。
+#
+# 为什么需要它：上面那条 _DATED_MARKET_REVIEW_RE 要求「日期 + 行情/盘面/市场 +
+# 总结/复盘/回顾/梳理/分析」三件齐全，对 A 组 10 道真实验收题**一条都不匹配**——
+# 没人会说「2026-07-23 的盘面复盘一下双红」，用户说的是「2026-07-23 哪些板块是双红」。
+# 实测后果（2026-08-01 A 组基线，见 docs/verification/2026-08-01-a-tier-baseline.md）：
+# 7/10 题落到通用检索，用「特斯拉 Optimus 人形机器人」答双红、用外汇/期货/债券
+# 新闻答市场情绪，另有两题谎称「该日期是未来」——而当天的 daily-review 导出就在磁盘上。
+#
+# 只收**盘面复盘专有**的词。刻意不收「题材」「板块」「资金流」：它们同时是题材研究
+# 的常用词，收进来会把 theme-research 的问题抢走（over-routing 比 under-routing 更难
+# 发现——答案看起来是有的，只是答错了层）。
+_DATED_MARKET_TOPIC_RE = re.compile(
+    r"双红|涨停|跌停|连板|梯队|断层|主线|新高|新低"
+    r"|涨家数|跌家数|量能|缩量|放量|成交额|市场阶段|市场情绪|赚钱效应"
+)
 _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
 )
@@ -474,11 +490,23 @@ def envelope_from_task_frame(
 
 
 def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
-    return (
-        envelope.question_type != "external_market"
-        and _DATED_MARKET_REVIEW_RE.search(query) is not None
-        and market_review_requested_date(query) is not None
-    )
+    if envelope.question_type == "external_market":
+        return False
+    # 日期解析放在最前面：它是「有没有一份可读的当日导出」的充要前提。
+    # 原来它被 and 在那条 0 命中的措辞正则后面，等于解析出来了也用不上——
+    # 信息在系统里但没送到，而这次没送到的距离只有一个 and。
+    if market_review_requested_date(query) is None:
+        return False
+    if _DATED_MARKET_REVIEW_RE.search(query) is not None:
+        return True
+    # 主题词这条支路要自己排除境外市场：「美股涨停情况怎么样」不带「行情/盘面」，
+    # 分类器给的是 general_finance_qa 而不是 external_market，上面那道 question_type
+    # 闸放它过去，而 daily-review 导出里只有 A 股。这条是加主题词时引入的真回归，
+    # 被 test_dated_overseas_board_subtopic_still_excluded 当场抓住的。
+    lowered = str(query or "").lower()
+    if any(term in lowered for term in _EXTERNAL_MARKET_TERMS):
+        return False
+    return _DATED_MARKET_TOPIC_RE.search(query) is not None
 
 
 def market_review_requested_date(
