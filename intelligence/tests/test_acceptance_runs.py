@@ -283,7 +283,11 @@ def test_board_run_selects_one_artifact_with_single_run_semantics(
 
 @pytest.mark.parametrize(
     "sidecar_flag",
-    ["--truth-observations", "--experience-labels"],
+    [
+        "--truth-observations",
+        "--experience-labels",
+        "--information-comparisons",
+    ],
 )
 def test_board_sidecar_requires_explicit_run(
     tmp_path: Path,

@@ -25,7 +25,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from intelligence.eval.acceptance_observations import (
     ObservationArtifactError,
@@ -36,6 +36,13 @@ from intelligence.eval.acceptance_axes import (
     AxisState,
     InformationComparison,
     project_axes,
+)
+from intelligence.eval.acceptance_comparison import (
+    ComparisonArtifactError,
+    build_comparison_queue,
+    load_comparison_queue,
+    load_comparison_result,
+    write_comparison_queue,
 )
 from intelligence.eval.acceptance_runs import (
     RunArtifactError,
@@ -316,6 +323,7 @@ def cmd_board(args: argparse.Namespace) -> int:
     if not explicit_run and (
         getattr(args, "truth_observations", None)
         or getattr(args, "experience_labels", None)
+        or getattr(args, "information_comparisons", None)
     ):
         print(
             "❌ observation sidecar 只绑定单个 run；"
@@ -356,6 +364,24 @@ def cmd_board(args: argparse.Namespace) -> int:
     except ObservationArtifactError as exc:
         print(f"❌ observation sidecar 无效：{exc}")
         return 2
+
+    information_by_case: dict[str, Mapping[str, Any]] = {}
+    information_path = getattr(args, "information_comparisons", None)
+    if information_path:
+        assert run_path is not None
+        try:
+            comparison_queue = build_comparison_queue(run_path, agent="knevo")
+            comparison_artifact = load_comparison_result(
+                Path(information_path),
+                queue=comparison_queue,
+            )
+            information_by_case = {
+                case_id: dict(observation)
+                for case_id, observation in comparison_artifact.case_observations.items()
+            }
+        except ComparisonArtifactError as exc:
+            print(f"❌ information comparison 无效：{exc}")
+            return 2
 
     overlay = load_verdict_overlay()
     print(f"# 验收看板 · {header_note}\n")
@@ -416,7 +442,7 @@ def cmd_board(args: argparse.Namespace) -> int:
         )
         axes = project_axes(
             verdict,
-            information=case_observations.get("information"),
+            information=information_by_case.get(c["id"]),
         )
         operational_tally[verdict.operational.state] += 1
         truth_tally[verdict.truth.state] += 1
@@ -593,6 +619,37 @@ def classify_failure(turn: dict[str, Any]) -> str:
     return "业务质量"
 
 
+def cmd_comparison_pack(args: argparse.Namespace) -> int:
+    try:
+        queue = build_comparison_queue(Path(args.run), agent=args.agent)
+        write_comparison_queue(queue, Path(args.output))
+    except ComparisonArtifactError as exc:
+        print(f"❌ comparison pack 失败：{exc}")
+        return 2
+    eligible = sum(entry.status == "eligible" for entry in queue.entries.values())
+    missing = sum(entry.status == "missing" for entry in queue.entries.values())
+    ineligible = len(queue.entries) - eligible - missing
+    print(
+        f"✅ comparison pack 已写入 {_rel(Path(args.output))}："
+        f"eligible={eligible}, missing={missing}, ineligible={ineligible}"
+    )
+    return 0
+
+
+def cmd_validate_comparison(args: argparse.Namespace) -> int:
+    try:
+        queue = load_comparison_queue(Path(args.queue))
+        artifact = load_comparison_result(Path(args.result), queue=queue)
+    except ComparisonArtifactError as exc:
+        print(f"❌ information comparison 无效：{exc}")
+        return 2
+    print(
+        f"✅ information comparison 有效：{len(artifact.case_observations)} cases，"
+        f"evaluator={artifact.evaluator_id}/{artifact.evaluator_model}"
+    )
+    return 0
+
+
 # --------------------------------------------------------------------------- #
 # freeze —— 参照快照必须外部冻结
 # --------------------------------------------------------------------------- #
@@ -666,6 +723,10 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--run", help="只读取指定 run artifact（sidecar 必须显式绑定）")
     b.add_argument("--truth-observations", help="显式绑定的 truth observation sidecar")
     b.add_argument("--experience-labels", help="显式绑定的 blind experience sidecar")
+    b.add_argument(
+        "--information-comparisons",
+        help="显式绑定的 information comparison sidecar",
+    )
     b.add_argument("--blind-manifest", help="experience sidecar 对应的密封盲评身份清单")
     b.set_defaults(func=cmd_board)
 
@@ -696,6 +757,17 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--meta-file", help="JSON 文件，落到 source_meta（会话 id / 原始提问 / 工具轨迹）")
     f.add_argument("--overwrite", action="store_true")
     f.set_defaults(func=cmd_freeze)
+
+    cp = sub.add_parser("comparison-pack", help="生成冻结 Workbench/Knevo 对比包")
+    cp.add_argument("--run", required=True)
+    cp.add_argument("--agent", default="knevo", choices=["knevo"])
+    cp.add_argument("--output", required=True)
+    cp.set_defaults(func=cmd_comparison_pack)
+
+    vc = sub.add_parser("validate-comparison", help="校验 information comparison")
+    vc.add_argument("result")
+    vc.add_argument("--queue", required=True)
+    vc.set_defaults(func=cmd_validate_comparison)
 
     args = p.parse_args(argv)
     return int(args.func(args))
