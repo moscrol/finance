@@ -100,8 +100,9 @@ CREATE TABLE IF NOT EXISTS fact_sector_daily (
     updated_at      TIMESTAMP,
     PRIMARY KEY (trade_date, sector_ts_code)
 );
-CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_date ON fact_sector_daily(trade_date);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_sector ON fact_sector_daily(sector_ts_code);
+-- fact_sector_daily 已重构为 VIEW（底层 fact_sector_daily_generation），索引建在 generation 表上
+-- CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_date ON fact_sector_daily(trade_date);
+-- CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_sector ON fact_sector_daily(sector_ts_code);
 
 CREATE TABLE IF NOT EXISTS fact_sector_period_rank_daily (
     trade_date      DATE,
@@ -167,9 +168,10 @@ CREATE TABLE IF NOT EXISTS fact_sector_stock_daily (
     updated_at        TIMESTAMP,
     PRIMARY KEY (trade_date, sector_ts_code, stock_ts_code)
 );
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_date ON fact_sector_stock_daily(trade_date);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_stock ON fact_sector_stock_daily(stock_ts_code);
-CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_sector ON fact_sector_stock_daily(sector_ts_code);
+-- fact_sector_stock_daily 已重构为 VIEW（底层 fact_sector_stock_daily_generation），索引建在 generation 表上
+-- CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_date ON fact_sector_stock_daily(trade_date);
+-- CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_stock ON fact_sector_stock_daily(stock_ts_code);
+-- CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_sector ON fact_sector_stock_daily(sector_ts_code);
 
 CREATE TABLE IF NOT EXISTS fact_stock_daily (
     trade_date     DATE,

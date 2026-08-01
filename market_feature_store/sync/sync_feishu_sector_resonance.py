@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, date
 
-from ..db import connect, init_db, PROJECT_DIR
+from ..db import connect, init_db, PROJECT_DIR, get_published_snapshot_id
 from .sync_feishu_sector_marginal import _build_code_map, _canonical
 
 sys.path.insert(0, str(PROJECT_DIR / "shared"))
@@ -15,14 +15,14 @@ MANUAL_ALIASES = {
 }
 
 UPSERT_SQL = """
-    INSERT INTO fact_sector_daily
-        (trade_date, sector_ts_code, sector_name, sw_l1,
+    INSERT INTO fact_sector_daily_generation
+        (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1,
          multi_period_resonance, multi_period_source, multi_period_updated_at,
          source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?)
-    ON CONFLICT (trade_date, sector_ts_code) DO UPDATE SET
-        sector_name = COALESCE(fact_sector_daily.sector_name, excluded.sector_name),
-        sw_l1 = COALESCE(fact_sector_daily.sw_l1, excluded.sw_l1),
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code) DO UPDATE SET
+        sector_name = COALESCE(fact_sector_daily_generation.sector_name, excluded.sector_name),
+        sw_l1 = COALESCE(fact_sector_daily_generation.sw_l1, excluded.sw_l1),
         multi_period_resonance = excluded.multi_period_resonance,
         multi_period_source = excluded.multi_period_source,
         multi_period_updated_at = excluded.multi_period_updated_at,
@@ -57,9 +57,9 @@ def _parse_date(val, md_to_date: dict[str, date] | None = None):
 
 
 def _ensure_columns(con):
-    con.execute("ALTER TABLE fact_sector_daily ADD COLUMN IF NOT EXISTS multi_period_resonance BOOLEAN")
-    con.execute("ALTER TABLE fact_sector_daily ADD COLUMN IF NOT EXISTS multi_period_source TEXT")
-    con.execute("ALTER TABLE fact_sector_daily ADD COLUMN IF NOT EXISTS multi_period_updated_at TIMESTAMP")
+    con.execute("ALTER TABLE fact_sector_daily_generation ADD COLUMN IF NOT EXISTS multi_period_resonance BOOLEAN")
+    con.execute("ALTER TABLE fact_sector_daily_generation ADD COLUMN IF NOT EXISTS multi_period_source TEXT")
+    con.execute("ALTER TABLE fact_sector_daily_generation ADD COLUMN IF NOT EXISTS multi_period_updated_at TIMESTAMP")
 
 
 def _augment_concept_aliases(con, name_to_code: dict, sw_by_code: dict, names: list[str]) -> None:
@@ -118,6 +118,7 @@ def sync_sector_multi_period_resonance() -> dict:
         rows = []
         skipped_bad_date = []
         skipped_unmatched = set()
+        snap_cache: dict[str, str] = {}  # trade_date_str -> snapshot_id
         for r in records:
             f = r.get("fields", {})
             raw_name = str(_flat(f.get("板块", ""))).strip()
@@ -131,8 +132,12 @@ def sync_sector_multi_period_resonance() -> dict:
             if not ts_code:
                 skipped_unmatched.add(raw_name)
                 continue
+            td_str = str(trade_date)
+            if td_str not in snap_cache:
+                snap_cache[td_str] = get_published_snapshot_id(con, td_str)
             rows.append((
                 trade_date,
+                snap_cache[td_str],
                 ts_code,
                 _canonical(raw_name),
                 sw_by_code.get(ts_code),
@@ -155,7 +160,7 @@ def sync_sector_multi_period_resonance() -> dict:
                    COUNT(DISTINCT CASE WHEN multi_period_resonance THEN trade_date END),
                    MIN(CASE WHEN multi_period_resonance IS NOT NULL THEN trade_date END),
                    MAX(CASE WHEN multi_period_resonance IS NOT NULL THEN trade_date END)
-            FROM fact_sector_daily
+            FROM fact_sector_daily_generation
             """
         ).fetchone()
     except Exception:
