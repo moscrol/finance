@@ -320,6 +320,10 @@ def cmd_board(args: argparse.Namespace) -> int:
     operational_tally = {state: 0 for state in OperationalState}
     truth_tally = {state: 0 for state in VerdictState}
     experience_tally = {state: 0 for state in ExperienceState}
+    # 红的稳定性按 rule.kind 差一个数量级：A 组同输入复跑实测，事实层 0% 翻转、
+    # 措辞层 33%。合成一个「失败 N」会把两者压成一个数，看板就读不出
+    # 「这一刀有没有用」。分层计数，不改表格结构。
+    failing_kinds: dict[str, int] = {}
     operational_labels = {
         OperationalState.NOT_RUN: "⬜ 未跑",
         OperationalState.BLOCKED: "⚫ 阻塞",
@@ -358,6 +362,9 @@ def cmd_board(args: argparse.Namespace) -> int:
                 if rule.state is VerdictState.FAIL
             ]
             detail = failures[0] if failures else "deterministic truth rule failed"
+            for rule in verdict.truth.rules:
+                if rule.state is VerdictState.FAIL:
+                    failing_kinds[rule.kind] = failing_kinds.get(rule.kind, 0) + 1
         elif verdict.truth.state is VerdictState.UNJUDGEABLE:
             pending = [
                 rule.reason
@@ -406,6 +413,16 @@ def cmd_board(args: argparse.Namespace) -> int:
         f"{truth_tally[VerdictState.UNJUDGEABLE]}、未跑 "
         f"{truth_tally[VerdictState.NOT_RUN]}；{rate_note}（不是 28 题产品通过率）。"
     )
+    if failing_kinds:
+        breakdown = "、".join(
+            f"{kind} {count}"
+            for kind, count in sorted(failing_kinds.items(), key=lambda kv: (-kv[1], kv[0]))
+        )
+        print(
+            f"**失败按判据层**：{breakdown}。"
+            "（同输入复跑实测：fact 层 0% 翻转，product_language 层 33%——"
+            "措辞层的红不要单次比较）"
+        )
     print(
         f"**体验口径**：已盲标 {experience_tally[ExperienceState.LABELED]}、"
         f"未标注 {experience_tally[ExperienceState.UNLABELED]}、"

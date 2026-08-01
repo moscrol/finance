@@ -47,9 +47,29 @@ _KNOWN_CASE_FIELDS = frozenset(
         "inherit_from",
     }
 )
+# 相对时间词：问题问的是「现在」，答案就跟着真实日期走。
+_RELATIVE_TIME_MARKS = ("现在", "今天", "最近", "当前", "目前", "近期", "本周", "昨天", "明天")
+
 _KNOWN_OVERLAY_FIELDS = frozenset(
-    {"coverage", "reason", "required_any_phrases", "required_all_phrases", "fact_aliases"}
+    {
+        "coverage",
+        "reason",
+        "required_any_phrases",
+        "required_all_phrases",
+        "fact_aliases",
+        "phrase_equivalents",
+        "phrase_discharged_by",
+    }
 )
+
+# 别名窗口：把数字绑定到字段名，避免「正文里恰好有这个数」就算命中。
+# 回看原来只有 8 字，而中文的修饰语在名词前面和后面一样常见——
+# 「21949.97 亿元的成交额」数字落在别名前 13 字，被 8 字窗口切掉，
+# 于是「答对了但语序不同」长得跟「答错了」一模一样。改成对称。
+# 实测扫描（3 次运行 57 条数值断言）：回看放宽到 16 字以上直到完全不设窗口，
+# 命中数都停在 25/57 且只多这一条——说明窗口不是红的主因，只有不对称是缺陷。
+_ALIAS_WINDOW_BACK = 40
+_ALIAS_WINDOW_FORWARD = 40
 
 _NUMBER_RE = re.compile(r"(?<![\w])[-+]?\d[\d,]*(?:\.\d+)?%?")
 _TAG_RE = re.compile(r"\[([SGRWE]\d+)\]")
@@ -164,7 +184,22 @@ class CaseContract:
     required_all_phrases: tuple[str, ...]
     fact_aliases: Mapping[str, tuple[str, ...]]
     case: Mapping[str, Any]
+    phrase_equivalents: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    phrase_discharged_by: Mapping[str, str] = field(default_factory=dict)
+    reproducible: bool = True
     diagnostics: tuple[str, ...] = ()
+
+    def phrase_observed(self, phrase: str, text: str) -> bool:
+        """措辞断言：正典短语或它的等价表达任一在场即算命中。
+
+        等价类只用来吸收「同一事实的不同合法中文说法」，不放松事实本身——
+        数值仍由 expect_facts 按容差判定，枚举仍不许跨值。
+        """
+
+        for variant in self.phrase_equivalents.get(phrase, (phrase,)):
+            if variant in text:
+                return True
+        return False
 
 
 def load_verdict_overlay(path: Path | None = None) -> dict[str, dict[str, Any]]:
@@ -175,6 +210,44 @@ def load_verdict_overlay(path: Path | None = None) -> dict[str, dict[str, Any]]:
     if not isinstance(cases, dict):
         raise ValueError("verdict overlay must contain an object-valued cases field")
     return {str(case_id): dict(entry) for case_id, entry in cases.items()}
+
+
+def _reproducibility_diagnostics(case: Mapping[str, Any]) -> list[str]:
+    """题目问「现在」、期望值却冻结在某一天 —— 这种红永远不会变绿。
+
+    runner 只把 `case["query"]` 发给产品（`acceptance.py`），`date` 字段仅供判官
+    做 cutoff。所以问题正文里没有日期锚时，产品答的是真实今天。
+
+    A8 实测：query「现在市场处于什么阶段，第几天了」，产品答「截至 2026-07-30，
+    底部横盘阶段，第 2 个交易日」——完全正确；而 expect_facts 冻结的是
+    `反弹阶段 / 第 3 天`（2026-07-23 的事实）。判官把它记成产品失败，
+    且这条红会随行情漂移，不是稳定信号。
+
+    对照 A1：query 是「2026-07-23 今天市场怎么样」，日期写进了正文，可复现。
+
+    只在**期望值本身随日期变化**时才报（expect_facts / expect_answer_set）。
+    expect_entities 不算——B8 的「立新能源」写在问题里，跟哪天问无关。
+    """
+
+    query = str(case.get("query") or "")
+    marks = [mark for mark in _RELATIVE_TIME_MARKS if mark in query]
+    if not marks:
+        return []
+    cutoff = str(case.get("date") or "")
+    if cutoff and cutoff in query:
+        return []  # 日期锚已写进正文，产品收得到
+    dated_expectations = [
+        name
+        for name in ("expect_facts", "expect_answer_set")
+        if case.get(name)
+    ]
+    if not dated_expectations:
+        return []
+    return [
+        "case is not reproducible: query is relative-time "
+        f"({', '.join(marks)}) but {', '.join(dated_expectations)} is frozen to "
+        f"{cutoff or 'an unstated date'}; the date anchor never reaches the product"
+    ]
 
 
 def compile_case_contract(
@@ -191,6 +264,9 @@ def compile_case_contract(
     if unknown_overlay:
         diagnostics.append("unknown overlay fields: " + ", ".join(unknown_overlay))
 
+    reproducibility = _reproducibility_diagnostics(case)
+    diagnostics.extend(reproducibility)
+
     coverage = str(overlay.get("coverage") or "semantic_required")
     if coverage not in {"structured", "semantic_required"}:
         diagnostics.append(f"invalid coverage: {coverage}")
@@ -200,6 +276,41 @@ def compile_case_contract(
         str(field_name): tuple(str(item) for item in values)
         for field_name, values in aliases_raw.items()
     }
+    equivalents_raw = overlay.get("phrase_equivalents") or {}
+    equivalents: dict[str, tuple[str, ...]] = {}
+    for phrase_raw, variants_raw in equivalents_raw.items():
+        phrase = str(phrase_raw)
+        variants = tuple(str(item) for item in variants_raw)
+        if not variants:
+            diagnostics.append(f"empty phrase_equivalents class: {phrase}")
+            continue
+        if phrase not in variants:
+            # 等价类必须含正典短语本身。否则一个笔误就会把原断言整条换掉，
+            # 而看板上完全看不出来——这正是「悄悄放宽判据」最容易溜进来的缝。
+            diagnostics.append(
+                f"phrase_equivalents class for {phrase} does not contain the phrase itself"
+            )
+            continue
+        equivalents[phrase] = variants
+
+    declared_phrases = {str(item) for item in (case.get("must_mention") or [])}
+    available_rules = {"falsifiable", "refusal", "inconsistency", "expected_entities"} | {
+        f"fact:{item.get('field')}" for item in (case.get("expect_facts") or [])
+    }
+    discharged_by: dict[str, str] = {}
+    for phrase_raw, rule_raw in (overlay.get("phrase_discharged_by") or {}).items():
+        phrase, rule_id = str(phrase_raw), str(rule_raw)
+        if phrase not in declared_phrases:
+            diagnostics.append(f"phrase_discharged_by names undeclared phrase: {phrase}")
+            continue
+        if rule_id not in available_rules:
+            # 打错规则名不能静默失效：那样这条措辞断言会永远解除不掉（假红），
+            # 或者反过来看着像被守住其实没有。fail-closed，报进 diagnostics。
+            diagnostics.append(
+                f"phrase_discharged_by for {phrase} names unknown rule: {rule_id}"
+            )
+            continue
+        discharged_by[phrase] = rule_id
     return CaseContract(
         case_id=str(case["id"]),
         tier=str(case.get("tier") or "unknown"),
@@ -218,6 +329,9 @@ def compile_case_contract(
         ),
         fact_aliases=aliases,
         case=dict(case),
+        phrase_equivalents=equivalents,
+        phrase_discharged_by=discharged_by,
+        reproducible=not reproducibility,
         diagnostics=tuple(diagnostics),
     )
 
@@ -289,6 +403,22 @@ def _evaluate_truth(
     if operational.state in {OperationalState.BLOCKED, OperationalState.FAILED}:
         return TruthVerdict(state=VerdictState.UNJUDGEABLE)
 
+    if not contract.reproducible:
+        # 判据本身坏了就不该产出「产品失败」。A8 的 expect_facts 冻在 2026-07-23，
+        # 而问题问的是「现在」——那些 fact 红一条都不成立，可 FAIL 在聚合里优先于
+        # UNJUDGEABLE，会盖掉缺陷标记，让题目缺陷长得和产品缺陷一模一样。
+        return TruthVerdict(
+            state=VerdictState.UNJUDGEABLE,
+            rules=(
+                RuleVerdict(
+                    rule_id="case_reproducibility",
+                    kind="contract",
+                    state=VerdictState.UNJUDGEABLE,
+                    reason="; ".join(contract.diagnostics),
+                ),
+            ),
+        )
+
     turns = [turn for turn in (case_run.get("turns") or []) if isinstance(turn, Mapping)]
     answers = [str(turn.get("answer") or "") for turn in turns]
     text = "\n".join(answers)
@@ -351,19 +481,6 @@ def _evaluate_truth(
             )
         )
 
-    must_mention = tuple(str(item) for item in (case.get("must_mention") or []))
-    if must_mention:
-        missing = [item for item in must_mention if item not in text]
-        rules.append(
-            _bool_rule(
-                "must_mention",
-                "product_language",
-                not missing,
-                "all product terms observed",
-                "missing product terms: " + ", ".join(missing),
-            )
-        )
-
     expected_entities = tuple(str(item) for item in (case.get("expect_entities") or []))
     if expected_entities:
         missing = [item for item in expected_entities if item not in text]
@@ -377,8 +494,11 @@ def _evaluate_truth(
             )
         )
 
-    for item in case.get("expect_facts") or []:
-        rules.append(_evaluate_fact(item, text, contract.fact_aliases))
+    fact_rules: list[RuleVerdict] = [
+        _evaluate_fact(item, text, contract.fact_aliases, contract)
+        for item in case.get("expect_facts") or []
+    ]
+    rules.extend(fact_rules)
 
     if case.get("forbid_future_data"):
         rules.append(_evaluate_cutoff(contract.cutoff_date, turns, text))
@@ -387,16 +507,7 @@ def _evaluate_truth(
         rules.append(_evaluate_citation_integrity(turns, text))
 
     if case.get("require_flag_inconsistency"):
-        found = any(mark in text for mark in _INCONSISTENCY_MARKS)
-        rules.append(
-            _bool_rule(
-                "inconsistency",
-                "semantic_marker",
-                found,
-                "answer flags an inconsistency",
-                "answer does not flag the required inconsistency",
-            )
-        )
+        rules.append(_evaluate_inconsistency(text, fact_rules))
 
     if case.get("require_falsifiable"):
         has_condition = any(mark in text for mark in _CONDITION_MARKS)
@@ -410,6 +521,11 @@ def _evaluate_truth(
                 "answer lacks a condition or numeric threshold",
             )
         )
+
+    # must_mention 放在最后判：它可以被前面更严的规则「解除」（见 phrase_discharged_by）。
+    must_mention = tuple(str(item) for item in (case.get("must_mention") or []))
+    if must_mention:
+        rules.append(_evaluate_must_mention(contract, must_mention, text, rules))
 
     if case.get("check_cross_turn_consistency"):
         lost = any(mark in answer for answer in answers[1:] for mark in _CONTEXT_LOSS_MARKS)
@@ -478,6 +594,7 @@ def _evaluate_fact(
     raw: Mapping[str, Any],
     text: str,
     aliases_by_field: Mapping[str, tuple[str, ...]],
+    contract: CaseContract | None = None,
 ) -> RuleVerdict:
     field_name = str(raw.get("field") or "unknown")
     if "value" not in raw:
@@ -490,6 +607,20 @@ def _evaluate_fact(
     expected = raw["value"]
     aliases = aliases_by_field.get(field_name, ())
     candidate_text = _alias_windows(text, aliases) if aliases else text
+    is_literal = isinstance(expected, str)
+    if is_literal and contract is not None and not contract.phrase_observed(str(expected), text):
+        # 字符串型 fact 找不到就是真找不到：一个字面量不在全文里，不存在
+        # 「定位不到」的可能。别名未命中→不可判那条规则是为数值设计的
+        # （光有个数字不能证明它绑在这个字段上），套到字面量上会误触发。
+        # A9 实测：别名表 ["状态","沸点"] 里「沸点」既是定位别名又是期望值，
+        # 于是「沸点没出现」被记成「定位不到」，三次运行在 ❔/❌ 之间来回翻，
+        # 而事实是三次都没出现——稳定的 FAIL 才是诚实裁决。
+        return RuleVerdict(
+            rule_id=f"fact:{field_name}",
+            kind="fact",
+            state=VerdictState.FAIL,
+            reason=f"expected fact {field_name}={expected!r} absent from the whole answer",
+        )
     if aliases and not candidate_text:
         # 别名一个都没命中 = 判官没找到该在哪儿看，不等于产品答错了。
         # 原来这里会一路走到「数字不在空字符串里」然后判 FAIL——于是「别名表
@@ -520,6 +651,10 @@ def _evaluate_fact(
         elif raw.get("tol_pct") is not None:
             tolerance = abs(float(expected)) * abs(float(raw["tol_pct"])) / 100.0
         matched = any(abs(value - float(expected)) <= tolerance + 1e-9 for value in numbers)
+    elif contract is not None:
+        # 字符串型 fact（枚举标签，如 market_stage=反弹阶段）本质是措辞断言，
+        # 走和 must_mention 同一套等价类：同一枚举值的合法别称算命中，跨值不算。
+        matched = contract.phrase_observed(str(expected), candidate_text)
     else:
         matched = str(expected) in candidate_text
     return _bool_rule(
@@ -528,6 +663,112 @@ def _evaluate_fact(
         matched,
         f"expected fact {field_name} observed",
         f"expected fact {field_name}={expected!r} not observed within tolerance",
+    )
+
+
+def _evaluate_must_mention(
+    contract: CaseContract,
+    must_mention: tuple[str, ...],
+    text: str,
+    prior_rules: list[RuleVerdict],
+) -> RuleVerdict:
+    """措辞断言：等价表达命中，或更严的结构化规则已经证明了同一件事。
+
+    A 组实测的两类假红：
+      1. 同义改写——答案写「处于反弹阶段」而断言要「反弹阶段」，靠 phrase_equivalents。
+      2. **冗余断言**——A1 要求正文出现「缩量」，可同一题的
+         `fact:amount_vs_yesterday_pct=-17.27`（±0.5）已经断言了同一事实。
+         run2 答案写「较昨日减少 17.27%」：数值规则判 PASS，措辞规则判 FAIL。
+         那条 FAIL 一点信息量都没有，纯粹是在测模型用不用某个词。
+
+    第 2 类不能靠往词表里堆变体解决——中文会把数值插在名词和动词之间
+    （「成交额 21949.97 亿元、较昨日减少 17.27%」），子串永远追不完，
+    而且照着答案补词就是过拟合到某次运行。所以改成声明式的蕴含：
+    指定一条更严的规则，它 PASS 就解除这条措辞要求。
+
+    这不是放宽——被解除时，同一事实仍被一条**带容差的数值规则**守着；
+    数值规则没过，措辞要求原样生效。
+    """
+
+    states = {rule.rule_id: rule.state for rule in prior_rules}
+    missing: list[str] = []
+    discharged: list[str] = []
+    for phrase in must_mention:
+        if contract.phrase_observed(phrase, text):
+            continue
+        by = contract.phrase_discharged_by.get(phrase)
+        if by is not None and states.get(by) is VerdictState.PASS:
+            discharged.append(f"{phrase}←{by}")
+            continue
+        missing.append(phrase)
+    if missing:
+        return RuleVerdict(
+            "must_mention",
+            "product_language",
+            VerdictState.FAIL,
+            "missing product terms: " + ", ".join(missing),
+        )
+    reason = "all product terms observed"
+    if discharged:
+        reason += "; discharged by stricter rules: " + ", ".join(discharged)
+    return RuleVerdict("must_mention", "product_language", VerdictState.PASS, reason)
+
+
+def _evaluate_inconsistency(
+    text: str, fact_rules: list[RuleVerdict]
+) -> RuleVerdict:
+    """陷阱题：光有「矛盾」两个字不算指出了**这个**矛盾。
+
+    原来只在全文里找关键词。A 组实测：A9 三次运行「沸点」和「-66.3%」一个都
+    没出现过，可前两次却因为正文别处写了「矛盾」判 PASS——那是假绿；第三次
+    没写「矛盾」判 FAIL，同样无信息量。两种状态都读不出东西，还在看板上来回翻。
+
+    改成锚定：题目声明了 expect_facts 时，那些值就是矛盾的两端。两端都没在
+    答案里出现，就不可能是在说这个矛盾。这是**收紧**不是放宽——它先杀掉假绿。
+    没声明 expect_facts 的题（C5 靠重复值发现矛盾）没有可锚的结构化端点，
+    维持原关键词行为。
+    """
+
+    found = any(mark in text for mark in _INCONSISTENCY_MARKS)
+    if not found:
+        return RuleVerdict(
+            "inconsistency",
+            "semantic_marker",
+            VerdictState.FAIL,
+            "answer does not flag the required inconsistency",
+        )
+    if not fact_rules:
+        return RuleVerdict(
+            "inconsistency",
+            "semantic_marker",
+            VerdictState.PASS,
+            "answer flags an inconsistency; contract declares no operand to anchor it",
+        )
+    missing = [rule.rule_id for rule in fact_rules if rule.state is VerdictState.FAIL]
+    if missing:
+        return RuleVerdict(
+            "inconsistency",
+            "semantic_marker",
+            VerdictState.FAIL,
+            "answer flags some inconsistency, but the contract's operands are absent "
+            "(" + ", ".join(missing) + "); it cannot be the required contradiction",
+        )
+    unproven = [
+        rule.rule_id for rule in fact_rules if rule.state is VerdictState.UNJUDGEABLE
+    ]
+    if unproven:
+        return RuleVerdict(
+            "inconsistency",
+            "semantic_marker",
+            VerdictState.UNJUDGEABLE,
+            "answer flags an inconsistency, but operands are unlocatable "
+            "(" + ", ".join(unproven) + "); cannot confirm which contradiction",
+        )
+    return RuleVerdict(
+        "inconsistency",
+        "semantic_marker",
+        VerdictState.PASS,
+        "answer flags the inconsistency and both contract operands are observed",
     )
 
 
@@ -726,7 +967,13 @@ def _alias_windows(text: str, aliases: tuple[str, ...]) -> str:
             index = text.find(alias, start)
             if index < 0:
                 break
-            windows.append(text[max(0, index - 8) : index + len(alias) + 40])
+            windows.append(
+                text[
+                    max(0, index - _ALIAS_WINDOW_BACK) : index
+                    + len(alias)
+                    + _ALIAS_WINDOW_FORWARD
+                ]
+            )
             start = index + len(alias)
     return "\n".join(windows)
 

@@ -26,11 +26,40 @@
           "上证",
           "指数"
         ]
+      },
+      "phrase_equivalents": {
+        "缩量": [
+          "缩量",
+          "缩减",
+          "萎缩",
+          "地量"
+        ],
+        "反弹阶段": [
+          "反弹阶段",
+          "反弹期",
+          "处于反弹",
+          "反弹格局"
+        ]
+      },
+      "phrase_discharged_by": {
+        "缩量": "fact:amount_vs_yesterday_pct"
       }
     },
     "A2-next-day-call": {
       "coverage": "semantic_required",
-      "reason": "falsifiable threshold is structured, but directional judgment quality is not"
+      "reason": "falsifiable threshold is structured, but directional judgment quality is not",
+      "phrase_equivalents": {
+        "证伪": [
+          "证伪",
+          "证否",
+          "失效",
+          "不成立",
+          "被推翻"
+        ]
+      },
+      "phrase_discharged_by": {
+        "证伪": "falsifiable"
+      }
     },
     "A3-stock-deep-dive": {
       "coverage": "semantic_required",
@@ -58,7 +87,17 @@
     },
     "A6-limit-advance-ladder": {
       "coverage": "semantic_required",
-      "reason": "the approximate total ladder size is prose-only"
+      "reason": "the approximate total ladder size is prose-only",
+      "phrase_equivalents": {
+        "断层": [
+          "断层",
+          "断档",
+          "稀薄",
+          "青黄不接",
+          "空档",
+          "不连续"
+        ]
+      }
     },
     "A7-mainline": {
       "coverage": "semantic_required",
@@ -73,6 +112,14 @@
         "stage_day": [
           "第",
           "天"
+        ]
+      },
+      "phrase_equivalents": {
+        "反弹阶段": [
+          "反弹阶段",
+          "反弹期",
+          "处于反弹",
+          "反弹格局"
         ]
       }
     },
