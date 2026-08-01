@@ -47,11 +47,14 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
                 ("2026-07-10", "电子", 13.5, "test"),
             ],
         )
+        # fact_sector_daily 是 VIEW，写入落 *_generation。snapshot_id='legacy'
+        # 对应快照机制上线前的历史数据：当日无 published 快照时视图才放行。
         con.executemany(
             """
-            INSERT INTO fact_sector_daily
-                (trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fact_sector_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                 sw_l1, pct_chg, amount, diff_ratio, source)
+            VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 ("2026-07-10", "A", "半导体", "电子", 2.0, 100.0, 18.0, "fupanhui"),
@@ -186,6 +189,17 @@ def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
             INSERT INTO fact_sw_l1_daily
                 (trade_date, sw_l1_code, sw_l1, close, pct_chg, amount, source)
             VALUES ('2026-07-10', '801080', '电子', 100.0, 1.0, 10.0, 'akshare:index_hist_sw:801080')
+            """
+        )
+        # 板块行情闸门已从「dim_sector 全覆盖」改成「相邻交易日名称连续性」，
+        # 当日零板块行情会直接判 INCOMPLETE。本例只验证 data_only 不需要报告
+        # 文件，补一行最小数据避开这条无关闸门。
+        con.execute(
+            """
+            INSERT INTO fact_sector_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                 sw_l1, pct_chg, amount, diff_ratio, source)
+            VALUES ('2026-07-10', 'legacy', 'A', '半导体', '电子', 2.0, 100.0, 18.0, 'test')
             """
         )
     finally:

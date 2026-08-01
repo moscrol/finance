@@ -386,9 +386,12 @@ def _seed_market_db(db_path: str, trade_date: str = "2026-06-11") -> None:
             "VALUES (?, '主升', 18234.5, 6.2, 3120, 64, 8, 32.0, '电子', 18.0, '电力设备', 9.0, '通信', 5.0)",
             [trade_date],
         )
+        # fact_sector_daily / fact_sector_stock_daily 是 VIEW，写入落 *_generation。
+        # snapshot_id='legacy' = 快照机制上线前的历史数据，当日无 published 快照时可见。
         con.execute(
-            "INSERT INTO fact_sector_daily (trade_date, sector_ts_code, sector_name, sw_l1, "
-            "pct_chg, amount, diff_ratio) VALUES (?, 'BK0001', '液冷服务器', '电子', 4.8, 820.0, 22.5)",
+            "INSERT INTO fact_sector_daily_generation (trade_date, sector_universe_snapshot_id, "
+            "sector_ts_code, sector_name, sw_l1, pct_chg, amount, diff_ratio) "
+            "VALUES (?, 'legacy', 'BK0001', '液冷服务器', '电子', 4.8, 820.0, 22.5)",
             [trade_date],
         )
         con.execute(
@@ -398,10 +401,11 @@ def _seed_market_db(db_path: str, trade_date: str = "2026-06-11") -> None:
             [trade_date],
         )
         con.execute(
-            "INSERT INTO fact_sector_stock_daily (trade_date, sector_ts_code, sector_name, sw_l1, "
+            "INSERT INTO fact_sector_stock_daily_generation (trade_date, "
+            "sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1, "
             "stock_ts_code, stock_name, pct_chg, amount, high_status, high_status_label) VALUES "
-            "(?, 'BK0001', '液冷服务器', '电子', '002837.SZ', '英维克', 10.0, 25.6, 'new_high', '创年内新高'),"
-            "(?, 'BK0001', '液冷服务器', '电子', '300017.SZ', '网宿科技', 6.4, 12.1, '', '')",
+            "(?, 'legacy', 'BK0001', '液冷服务器', '电子', '002837.SZ', '英维克', 10.0, 25.6, 'new_high', '创年内新高'),"
+            "(?, 'legacy', 'BK0001', '液冷服务器', '电子', '300017.SZ', '网宿科技', 6.4, 12.1, '', '')",
             [trade_date, trade_date],
         )
         con.execute(

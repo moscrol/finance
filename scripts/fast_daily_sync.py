@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
 """
+⛔ DEPRECATED（2026-08-02）——对当前生产库不可用，不要跑。
+
+两个独立原因，任一都足以停用：
+
+1. **跑必崩**：本脚本 INSERT INTO fact_sector_daily / fact_sector_stock_daily，
+   而生产库里这两个已重构为 VIEW（底层 fact_*_generation 表 + snapshot_id）。
+   DuckDB 会抛 `Catalog Error: ... is not an table`。
+
+2. **就算能跑也危险**：sector-stocks 步骤本质是「拷昨日的行、改个日期」，
+   只保留 sector→stock 归属关系，price/pct_chg/amount 全为 NULL。行数对得上、
+   COUNT(*) 覆盖率审计照过，但值是空壳——2026-06-22 就是这样让 daily-review
+   §7 个股发动机 / §12 加权涨幅全部显示「暂无」。这类问题只有跨日期 diff 能
+   抓到。见 skills/daily-full-review/SKILL.md。
+
+替代方案：夜跑已拆分为 sync@18:30 + finalize@20:40（见
+skills/daily-full-review/scripts/nightly_full_review.sh），原本的提速价值已由
+该拆分承接。单步补数走 `python3 -m market_feature_store.cli` 对应子命令。
+
+保留本文件仅供历史参考；最后一次有记录的实际使用是 2026-06-22。
+
+---
+
 Fast daily sync replacements for the 3 slowest steps in run_review_sync.py.
 Saves ~55 minutes per daily run by eliminating online crawls.
 
@@ -19,6 +41,7 @@ Weekly full refresh: run with --full-refresh to force the slow fupanhui crawl fo
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from datetime import datetime, timedelta
@@ -357,9 +380,30 @@ def _enrich_high_sectors(con, trade_date: str):
     """, [trade_date, trade_date])
 
 
+DEPRECATION_NOTICE = """\
+⛔ scripts/fast_daily_sync.py 已于 2026-08-02 停用，对当前生产库不可用。
+
+原因 1：本脚本写 fact_sector_daily / fact_sector_stock_daily，而生产库里这两个
+        已是 VIEW（底层 fact_*_generation + snapshot_id），INSERT 会直接抛
+        Catalog Error。
+原因 2：sector-stocks 步骤是「拷昨日的行、改个日期」，price/pct_chg/amount 全
+        为 NULL。行数和 COUNT(*) 覆盖率都正常，值却是空壳（2026-06-22 事故）。
+
+替代：夜跑已拆 sync@18:30 + finalize@20:40；单步补数走
+      python3 -m market_feature_store.cli <子命令>
+
+确实要跑历史复现，请显式设 FAST_DAILY_SYNC_ALLOW_DEPRECATED=1（后果自负）。
+"""
+
+
 def main():
+    if os.environ.get("FAST_DAILY_SYNC_ALLOW_DEPRECATED", "").strip() not in {"1", "true", "yes"}:
+        # 不是静默退出：让人看到为什么，而不是几十行后一句莫名其妙的 Catalog Error。
+        print(DEPRECATION_NOTICE, file=sys.stderr)
+        return 2
+
     ap = argparse.ArgumentParser(
-        description="Fast daily sync: replaces 3 slowest steps (saves ~55 min)")
+        description="[DEPRECATED] Fast daily sync: replaces 3 slowest steps (saves ~55 min)")
     ap.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
     ap.add_argument("--step", choices=["sector-stocks", "stock-daily", "stock-high", "all"],
                     default="all", help="Which step to run (default: all)")

@@ -14,7 +14,7 @@ import re
 import sys
 from datetime import datetime
 
-from ..db import connect, init_db, PROJECT_DIR
+from ..db import connect, init_db, PROJECT_DIR, get_published_snapshot_id
 from .sync_feishu_sector_marginal import _build_code_map, _canonical
 
 sys.path.insert(0, str(PROJECT_DIR / "shared"))
@@ -117,29 +117,36 @@ def sync_sector_daily_metrics() -> dict:
 
         now = datetime.now()
         rows = []
+        # 每个交易日解析一次 published 快照即可；无 published 时回退 'legacy'。
+        snap_cache: dict[str, str] = {}
         for (iso, ts_code), v in agg.items():
             if "pct" not in v and "amt" not in v:
                 continue
-            rows.append((iso, ts_code, v.get("name"), sw_by_code.get(ts_code),
+            if iso not in snap_cache:
+                snap_cache[iso] = get_published_snapshot_id(con, iso)
+            rows.append((iso, snap_cache[iso], ts_code, v.get("name"), sw_by_code.get(ts_code),
                          v.get("pct"), v.get("amt"), "feishu:sector_daily", now))
 
+        # fact_sector_daily 是 VIEW，写入必须落 *_generation 表，主键含 snapshot_id。
         written = 0
         if rows:
             _buf_df = pd.DataFrame(rows, columns=[  # noqa: F841
-                "trade_date", "sector_ts_code", "sector_name", "sw_l1",
-                "pct_chg", "amount", "source", "updated_at"])
+                "trade_date", "sector_universe_snapshot_id", "sector_ts_code", "sector_name",
+                "sw_l1", "pct_chg", "amount", "source", "updated_at"])
             con.register("_buf_df", _buf_df)
             try:
                 con.execute("""
-                    INSERT INTO fact_sector_daily
-                        (trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, source, updated_at)
-                    SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount, source, updated_at
+                    INSERT INTO fact_sector_daily_generation
+                        (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                         sw_l1, pct_chg, amount, source, updated_at)
+                    SELECT trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                           sw_l1, pct_chg, amount, source, updated_at
                     FROM _buf_df
-                    ON CONFLICT (trade_date, sector_ts_code) DO UPDATE SET
-                        pct_chg = COALESCE(fact_sector_daily.pct_chg, EXCLUDED.pct_chg),
-                        amount = COALESCE(fact_sector_daily.amount, EXCLUDED.amount),
-                        sw_l1 = COALESCE(fact_sector_daily.sw_l1, EXCLUDED.sw_l1),
-                        sector_name = COALESCE(fact_sector_daily.sector_name, EXCLUDED.sector_name),
+                    ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code) DO UPDATE SET
+                        pct_chg = COALESCE(fact_sector_daily_generation.pct_chg, EXCLUDED.pct_chg),
+                        amount = COALESCE(fact_sector_daily_generation.amount, EXCLUDED.amount),
+                        sw_l1 = COALESCE(fact_sector_daily_generation.sw_l1, EXCLUDED.sw_l1),
+                        sector_name = COALESCE(fact_sector_daily_generation.sector_name, EXCLUDED.sector_name),
                         updated_at = EXCLUDED.updated_at
                 """)
             finally:

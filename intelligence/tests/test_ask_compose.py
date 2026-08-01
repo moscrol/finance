@@ -101,8 +101,9 @@ class SynthesizeTests(unittest.TestCase):
             experience_guidance="- 回答板块空间问题时必须说明阶段、证据层和反方。",
         )
 
-        self.assertIn("历史经验卡片", msgs[1]["content"])
-        self.assertIn("回答板块空间问题", msgs[1]["content"])
+        # experience_guidance is now in system prompt for cache optimisation
+        self.assertIn("历史经验卡片", msgs[0]["content"])
+        self.assertIn("回答板块空间问题", msgs[0]["content"])
 
     def test_synthesis_prompt_requires_bounded_claim_selection(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -124,9 +125,10 @@ class SynthesizeTests(unittest.TestCase):
             exemplar_guidance="### 样板：deep-dive-demo\n先说市场在交易什么……",
         )
 
-        self.assertIn("高分样板", msgs[1]["content"])
-        self.assertIn("严禁照抄", msgs[1]["content"])
-        self.assertIn("deep-dive-demo", msgs[1]["content"])
+        # exemplar_guidance is now in system prompt for cache optimisation
+        self.assertIn("高分样板", msgs[0]["content"])
+        self.assertIn("严禁照抄", msgs[0]["content"])
+        self.assertIn("deep-dive-demo", msgs[0]["content"])
 
     def test_synthesis_prompt_hides_internal_diagnostics_from_users(self) -> None:
         msgs = llm_refine.build_synthesis_messages(

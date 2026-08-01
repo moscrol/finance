@@ -132,14 +132,17 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 - **strategy1 矩阵不要喂 evolution record**：那是另一个流程的坑。策略一走
   `skills/strategy1-matrix`，本 skill 只管同步段。
 
-- **sector-stocks 用 fast_daily_sync 拷贝旧日数据时只有映射无行情**：
-  `fast_daily_sync.py` 从历史日期 copy 行仅保留 sector→stock 归属关系，
-  price/pct_chg/amount 全为 NULL。**必须在 fast_daily_sync 后再跑一轮
-  `sync-sector-stocks --trade-date D --refresh`** 拉真实行情数据。
-  若该命令超时（>5min），用 `--limit 30` 分批跑，每批确认
-  `COUNT(*) WHERE price IS NOT NULL` 增长。
-  2026-06-22 教训：fast_daily_sync 只拷结构致 fact_stock_daily 全空，
-  daily-review §7 个股发动机 / §12 加权涨幅 全部"暂无"。
+- ⛔ **`fast_daily_sync.py` 已于 2026-08-02 停用，不要跑**（脚本自带闸门，默认
+  退出码 2）。两个原因：① 它 INSERT 的 `fact_sector_daily` /
+  `fact_sector_stock_daily` 在生产库里已是 VIEW，写入直接 Catalog Error；
+  ② 它的 sector-stocks 是「拷昨日的行、改个日期」，只保留 sector→stock 归属，
+  price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率都正常，值却是空壳**，
+  这类问题只有跨日期 diff 能抓到。2026-06-22 就是这样致 `fact_stock_daily` 全空、
+  daily-review §7 个股发动机 / §12 加权涨幅全部"暂无"。
+  提速价值现由夜跑拆分（sync@18:30 + finalize@20:40）承接；单步补数走
+  `python3 -m market_feature_store.cli <子命令>`。
+  历史上的补救手法（若在旧库上复现）：`sync-sector-stocks --trade-date D --refresh`
+  拉真实行情；超时就 `--limit 30` 分批，每批确认 `COUNT(*) WHERE price IS NOT NULL` 增长。
 
 - **fill-stock-daily-fallback 依赖 fact_sector_stock_daily 有实际行情**：
   fallback 从 sector_stock_daily 聚合写 fact_stock_daily，但若 sector_stock

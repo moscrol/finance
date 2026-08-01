@@ -13,7 +13,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, date
 
-from ..db import connect, init_db
+from ..db import connect, init_db, get_published_snapshot_id
 from ..sources import fupanhui_source as fs
 
 
@@ -54,6 +54,7 @@ def _resolve_sector(dim, sector: str):
 
 
 def _ensure_columns(con):
+    """fact_sector_stock_daily 已重构为 VIEW；确保底层 generation 表列存在。"""
     cols = {
         "pct_chg_3d": "DOUBLE",
         "high_status": "TEXT",
@@ -67,7 +68,7 @@ def _ensure_columns(con):
         "mcap_source": "TEXT",
     }
     for name, typ in cols.items():
-        con.execute(f"ALTER TABLE fact_sector_stock_daily ADD COLUMN IF NOT EXISTS {name} {typ}")
+        con.execute(f"ALTER TABLE fact_sector_stock_daily_generation ADD COLUMN IF NOT EXISTS {name} {typ}")
 
 
 def _plain_code(ts_code: str) -> str:
@@ -139,8 +140,8 @@ def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
 
 
 UPSERT_SQL = """
-    INSERT INTO fact_sector_stock_daily
-        (trade_date, sector_ts_code, sector_name, sw_l1,
+    INSERT INTO fact_sector_stock_daily_generation
+        (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1,
          stock_ts_code, stock_name, price, pct_chg, amount,
          pct_chg_3d, pct_chg_5d, pct_chg_10d, pct_chg_20d,
          high_status, high_status_label, limit_times,
@@ -148,8 +149,8 @@ UPSERT_SQL = """
          leader_plate, leader_sub_plate, role_tags_json,
          circ_mv, float_mcap_yi, total_mcap_yi, free_float_mcap_yi, mcap_source,
          source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT (trade_date, sector_ts_code, stock_ts_code) DO UPDATE SET
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code) DO UPDATE SET
         sector_name = excluded.sector_name,
         sw_l1 = excluded.sw_l1,
         stock_name = excluded.stock_name,
@@ -266,6 +267,7 @@ def sync_fact_sector_stock_daily(
 
     con = connect()
     try:
+        snap_id = get_published_snapshot_id(con, td_str)
         chunk_size = max(int(chunk), 1)
         for start in range(0, len(todo), chunk_size):
             batch_codes = todo[start:start + chunk_size]
@@ -317,7 +319,7 @@ def sync_fact_sector_stock_daily(
                         continue
                     cap = cap_map.get(code, {})
                     rows.append((
-                        snap_date, ts_code, name, sw_l1,
+                        snap_date, snap_id, ts_code, name, sw_l1,
                         code, s.get("name"), s.get("price"), s.get("pct_chg"), s.get("amount"),
                         s.get("pct_chg_3d"), s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
                         s.get("high_status"), s.get("high_status_label"), s.get("limit_times"),
@@ -329,8 +331,8 @@ def sync_fact_sector_stock_daily(
                     ))
                 con.execute("BEGIN TRANSACTION")
                 con.execute(
-                    "DELETE FROM fact_sector_stock_daily WHERE trade_date = ? AND sector_ts_code = ?",
-                    [snap_date, ts_code],
+                    "DELETE FROM fact_sector_stock_daily_generation WHERE trade_date = ? AND sector_universe_snapshot_id = ? AND sector_ts_code = ?",
+                    [snap_date, snap_id, ts_code],
                 )
                 if rows:
                     con.executemany(UPSERT_SQL, rows)
@@ -341,10 +343,10 @@ def sync_fact_sector_stock_daily(
                 time.sleep(sleep)
 
         grand_total = con.execute(
-            "SELECT COUNT(*) FROM fact_sector_stock_daily"
+            "SELECT COUNT(*) FROM fact_sector_stock_daily_generation"
         ).fetchone()[0]
         done_today = con.execute(
-            "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
+            "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily_generation WHERE trade_date = ?",
             [td],
         ).fetchone()[0]
     except Exception:

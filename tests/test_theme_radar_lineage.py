@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from intelligence.adapters.market import MarketAdapter
 from intelligence.services.fidelity_contract import contract_errors
 from intelligence.services.theme_radar import ThemeRadarService
 from intelligence.workflows.theme_radar import (
@@ -47,6 +48,7 @@ SOURCE_META = {
     "entity": "885864.TI",
     "valid_time": "2026-06-11",
     "source_time": "2026-06-11T18:00:00",
+    "known_at": "2026-06-11T18:05:00",
     "source": "fixture",
     "source_artifact": "db/market_feature_store.duckdb",
 }
@@ -160,6 +162,19 @@ class FakeKnowledgeAdapter:
 
 
 class ThemeRadarLineageTests(unittest.TestCase):
+    def test_market_source_metadata_separates_valid_and_known_time(self):
+        meta = MarketAdapter._source_meta(
+            table="fact_sector_daily",
+            entity="885864.TI",
+            valid_time="2026-07-22",
+            source_time="2026-07-23T01:08:27.139350",
+            source="fixture",
+        )
+
+        self.assertEqual(meta["valid_time"], "2026-07-22")
+        self.assertEqual(meta["source_time"], "2026-07-22T18:00:00")
+        self.assertEqual(meta["known_at"], "2026-07-23T01:08:27.139350")
+
     def test_market_candidate_materializes_claim_level_lineage(self):
         service = ThemeRadarService(
             market_adapter=FakeMarketAdapter(),
@@ -180,6 +195,7 @@ class ThemeRadarLineageTests(unittest.TestCase):
         self.assertEqual(source_ref["entity"], "885864.TI")
         self.assertEqual(source_ref["valid_time"], "2026-06-11")
         self.assertEqual(source_ref["source_time"], "2026-06-11T18:00:00")
+        self.assertEqual(source_ref["known_at"], "2026-06-11T18:05:00")
         self.assertEqual(source_ref["source_unit"], "%")
         derived_ref_id = candidate["evidence_refs"][
             "sector_metrics.in_capacity_top3"

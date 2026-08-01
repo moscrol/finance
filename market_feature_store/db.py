@@ -41,6 +41,24 @@ def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
             con.close()
 
 
+def get_published_snapshot_id(con: duckdb.DuckDBPyConnection, trade_date: str) -> str:
+    """获取某交易日已发布的 sector_universe_snapshot_id。
+
+    fact_sector_daily / fact_sector_stock_daily 已重构为视图，
+    底层 *_generation 表需要 snapshot_id 作为主键的一部分。
+    如果当天没有 published 快照，回退到 'legacy'。
+    """
+    row = con.execute(
+        """
+        SELECT snapshot_id FROM ops_sector_universe_snapshot_daily
+        WHERE trade_date = ? AND status = 'published'
+        ORDER BY captured_at DESC LIMIT 1
+        """,
+        [trade_date],
+    ).fetchone()
+    return row[0] if row else "legacy"
+
+
 def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
     """返回 main schema 下全部表名 (按名称排序)。"""
     rows = con.execute(

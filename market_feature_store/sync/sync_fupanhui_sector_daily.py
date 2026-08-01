@@ -10,7 +10,7 @@ from datetime import datetime, date
 from math import ceil
 import time
 
-from ..db import connect, init_db
+from ..db import connect, init_db, get_published_snapshot_id
 from ..sources import fupanhui_source as fs
 
 
@@ -148,7 +148,7 @@ def _sector_daily_table_stats():
 
 
 def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dict:
-    """抓取全部板块多日 K 线写入 fact_sector_daily。返回统计。"""
+    """抓取全部板块多日 K 线写入 fact_sector_daily_generation。返回统计。"""
     init_db()
     con = connect()
     try:
@@ -163,6 +163,8 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
     klines = fs.get_sector_klines_batch(ts_codes, trade_date=trade_date, days=days)
     now = datetime.now()
 
+    # 按 trade_date 分组，每个日期取对应 snapshot_id
+    date_snapshot: dict[str, str] = {}
     rows = []
     empty_sectors = 0
     for ts_code, points in klines.items():
@@ -174,6 +176,9 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
             d = _parse_date(p.get("trade_date"))
             if not d:
                 continue
+            d_str = str(d)
+            if d_str not in date_snapshot:
+                date_snapshot[d_str] = None  # 延迟到连接后获取
             rows.append((
                 d, ts_code, name, sw_l1,
                 p.get("pct_chg"), p.get("amount"), p.get("diff_ratio"), None,
@@ -187,14 +192,27 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
 
     con = connect()
     try:
+        # 获取每个日期的 snapshot_id
+        snap_map: dict[str, str] = {}
+        for d_str in date_snapshot:
+            snap_map[d_str] = get_published_snapshot_id(con, d_str)
+
+        # 组装带 snapshot_id 的写入行
+        gen_rows = []
+        for row in rows:
+            d_str = str(row[0])
+            snap_id = snap_map.get(d_str, "legacy")
+            gen_rows.append((row[0], snap_id, row[1], row[2], row[3],
+                             row[4], row[5], row[6], row[7], row[8], row[9]))
+
         con.execute("BEGIN TRANSACTION")
         con.executemany(
             """
-            INSERT INTO fact_sector_daily
-                (trade_date, sector_ts_code, sector_name, sw_l1,
+            INSERT INTO fact_sector_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1,
                  pct_chg, amount, diff_ratio, strength, source, updated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-            ON CONFLICT (trade_date, sector_ts_code) DO UPDATE SET
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code) DO UPDATE SET
                 sector_name = excluded.sector_name,
                 sw_l1 = excluded.sw_l1,
                 pct_chg = excluded.pct_chg,
@@ -203,15 +221,15 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
                 source = excluded.source,
                 updated_at = excluded.updated_at
             """,
-            rows,
+            gen_rows,
         )
         con.execute("COMMIT")
-        total = con.execute("SELECT COUNT(*) FROM fact_sector_daily").fetchone()[0]
+        total = con.execute("SELECT COUNT(*) FROM fact_sector_daily_generation").fetchone()[0]
         date_range = con.execute(
-            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_sector_daily"
+            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_sector_daily_generation"
         ).fetchone()
         n_dates = con.execute(
-            "SELECT COUNT(DISTINCT trade_date) FROM fact_sector_daily"
+            "SELECT COUNT(DISTINCT trade_date) FROM fact_sector_daily_generation"
         ).fetchone()[0]
     except Exception:
         con.execute("ROLLBACK")

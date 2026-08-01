@@ -82,6 +82,28 @@ git branch --show-current
 
 > ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。下列脚本仍写死旧库路径 + 旧表名，**当前跑会报 `Catalog Error: Table does not exist` 或连不上库**：`scripts/detect_turning_points.py`、`scripts/backtest_sector.py`、`scripts/sync_to_local.py`、`scripts/backfill_sector_marginal.py`、`scripts/render_daily_review_*.py`。后续 agent：不要跑这些旧脚本期望出数据，也不要直接删（先确认是否要迁移到星型模型）；新分析一律用 `fact_*` 表。
 
+> ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
+>
+### 板块快照分代（sector universe snapshot）
+
+`fact_sector_daily` / `fact_sector_stock_daily` **是 VIEW，不是表**。分代机制：
+
+| 对象 | 作用 |
+|------|------|
+| `ops_sector_universe_snapshot_daily` | 快照台账，`status ∈ candidate/published/superseded/rejected`，同日可多版 |
+| `fact_sector_universe_daily` | 快照内板块名单 + `expected_stock_count`（完整度校验依据） |
+| `ops_sector_member_sync_daily` | 逐板块抓取进度，断点续抓依据；expected vs actual 的差额=缺口 |
+| `fact_sector_*_daily_generation` | **写入目标**，`sector_universe_snapshot_id` 进主键，同日多版互不覆盖 |
+| `fact_sector_*_daily`（VIEW） | **读取入口**，只暴露 `published` 那版；消费方查询无需改写 |
+
+**写入方必读**：目标是 `*_generation`，主键含 `sector_universe_snapshot_id`，用
+`db.get_published_snapshot_id(con, trade_date)` 解析（无 published 时回退 `'legacy'`）。
+参考实现 `sync/sync_feishu_sector_resonance.py`。`'legacy'` 是机制上线前的历史数据：
+**当日一旦出现 published 快照，legacy 行自动让位**，不会双份并存。
+
+> 供应商会换代码、改名单。没有这层就回答不了「当时用的是哪一版板块清单」——
+> 这也是为什么不能直接往 view 里 upsert。
+
 ### 同步命令
 
 > ⚠️ **Legacy 残骸**：`sync_to_local.py` 写入旧库 `db/market.duckdb`（已移除），**当前 broken**。复盘数据统一走 `daily-full` CLI（见核心工作流 §1）。

@@ -16,7 +16,7 @@ import urllib.request
 from datetime import date as date_cls
 from datetime import datetime, timedelta
 
-from ..db import connect, init_db, PROJECT_DIR
+from ..db import connect, init_db, PROJECT_DIR, get_published_snapshot_id
 
 sys.path.insert(0, str(PROJECT_DIR / "shared"))
 from feishu_utils import load_config, get_token  # noqa: E402
@@ -177,6 +177,8 @@ def sync_sector_marginal(batch_cols: int = 20) -> dict:
 
         # 3) 分批读数据列, 组装 (date, ts_code, name, sw_l1, diff_ratio)
         recs: list[tuple] = []
+        # 每个交易日解析一次 published 快照即可；无 published 时回退 'legacy'。
+        snap_cache: dict[str, str] = {}
         now = datetime.now()
         cells_seen = 0
         for start in range(1, total_cols, batch_cols):
@@ -202,26 +204,32 @@ def sync_sector_marginal(batch_cols: int = 20) -> dict:
                     if not ts_code:
                         continue
                     cells_seen += 1
-                    recs.append((d.isoformat(), ts_code, _canonical(sec),
+                    td_str = d.isoformat()
+                    if td_str not in snap_cache:
+                        snap_cache[td_str] = get_published_snapshot_id(con, td_str)
+                    recs.append((td_str, snap_cache[td_str], ts_code, _canonical(sec),
                                  sw_by_code.get(ts_code), diff, "feishu:sector_marginal", now))
 
         # 4) bulk upsert (只写 diff_ratio, 不动 pct_chg/amount)
+        # fact_sector_daily 是 VIEW，写入必须落 *_generation 表，主键含 snapshot_id。
         written = 0
         if recs:
             _buf_df = pd.DataFrame(recs, columns=[  # noqa: F841
-                "trade_date", "sector_ts_code", "sector_name", "sw_l1",
-                "diff_ratio", "source", "updated_at"])
+                "trade_date", "sector_universe_snapshot_id", "sector_ts_code", "sector_name",
+                "sw_l1", "diff_ratio", "source", "updated_at"])
             con.register("_buf_df", _buf_df)
             try:
                 con.execute("""
-                    INSERT INTO fact_sector_daily
-                        (trade_date, sector_ts_code, sector_name, sw_l1, diff_ratio, source, updated_at)
-                    SELECT trade_date, sector_ts_code, sector_name, sw_l1, diff_ratio, source, updated_at
+                    INSERT INTO fact_sector_daily_generation
+                        (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                         sw_l1, diff_ratio, source, updated_at)
+                    SELECT trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                           sw_l1, diff_ratio, source, updated_at
                     FROM _buf_df
-                    ON CONFLICT (trade_date, sector_ts_code) DO UPDATE SET
+                    ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code) DO UPDATE SET
                         diff_ratio = EXCLUDED.diff_ratio,
                         sector_name = EXCLUDED.sector_name,
-                        sw_l1 = COALESCE(fact_sector_daily.sw_l1, EXCLUDED.sw_l1),
+                        sw_l1 = COALESCE(fact_sector_daily_generation.sw_l1, EXCLUDED.sw_l1),
                         updated_at = EXCLUDED.updated_at
                 """)
             finally:
