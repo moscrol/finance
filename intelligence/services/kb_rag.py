@@ -47,6 +47,9 @@ EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
 # 零开始——实测有一批「退出码 1」事后完全无法归因，因为原因没被保留。
 # 这里只放行已知可操作的模式：不外泄任意 stderr（可能带查询原文、路径、traceback）。
 _STDERR_REASON_MAX_CHARS = 220
+# 只匹配「异常类型名: 」开头，且类型名必须是合法标识符——避免把任意 stderr
+# 首行当成异常放行。
+_WORKER_EXC_RE = re.compile(r"^(?P<exc>[A-Za-z_][A-Za-z0-9_]*(?:Error|Exception|Timeout|Interrupt)):\s")
 _RAG_REMEDIES: tuple[tuple[str, str], ...] = (
     # 索引新鲜度守卫
     (
@@ -76,6 +79,23 @@ def _stderr_reason(stderr: str | None) -> str:
         if marker in text:
             return f"检索器失败（{marker}）｜补救：{remedy}"[:_STDERR_REASON_MAX_CHARS]
     return ""
+
+
+def _stderr_diagnostic(stderr: str | None) -> str:
+    """只给遥测用的异常类型名；**不进 res.warning**（那条会渲染给用户看）。
+
+    常驻 worker（``scripts/rag_query_worker.py``）在 ``main()`` 抛异常时上报
+    ``returncode=1`` + ``stderr="ExcType: message"``。类型名不含查询原文、路径或
+    traceback，是「退出码 1」和可定位根因之间的唯一线索——2026-08-01 那 8 次
+    知识库检索失败之所以事后完全无法归因，就是因为连类型都没留下。
+
+    message 仍然不外泄；用户可见文案由 :func:`_stderr_reason` 的白名单决定。
+    """
+    text = re.sub(r"\s+", " ", str(stderr or "")).strip()
+    if not text:
+        return ""
+    exc = _WORKER_EXC_RE.match(text)
+    return f"exc={exc.group('exc')}" if exc else ""
 
 
 REQUIRED_QUERY_OPTIONS = ("--json", "--k", "--mode")
@@ -1008,7 +1028,9 @@ def retrieve(
         if reason:
             res.warning = f"{res.warning}：{reason}"
         tel.status = "error"
-        tel.warning = res.warning
+        # 遥测比用户文案多带一个异常类型：归因要它，用户不需要看。
+        diagnostic = _stderr_diagnostic(proc.stderr)
+        tel.warning = f"{res.warning}｜{diagnostic}" if diagnostic else res.warning
         return res
     warnings = [warning for warning in (res.warning, *fallback_warnings) if warning]
     stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()

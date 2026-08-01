@@ -87,6 +87,19 @@ class PersistentRagWorker:
         if self._process is not None and self._process.poll() is None:
             return self._process
         script = Path(__file__).resolve().parents[2] / "scripts" / "rag_query_worker.py"
+        # 与 kb_rag 直跑 subprocess 的 env 保持一致：模型已缓存时离线加载（省掉
+        # 一次零收益的 HF Hub 往返），并静音 391 分片的 tqdm 进度条——否则进度条
+        # 会被 redirect_stderr 收进 payload，让「stderr 非空」这个信号永远为真。
+        # 这里用 setdefault，外部显式设置仍然优先。
+        env = dict(os.environ)
+        for key, value in (
+            ("HF_HUB_OFFLINE", "1"),
+            ("TRANSFORMERS_OFFLINE", "1"),
+            ("HF_HUB_DISABLE_PROGRESS_BARS", "1"),
+            ("TRANSFORMERS_VERBOSITY", "error"),
+            ("TQDM_DISABLE", "1"),
+        ):
+            env.setdefault(key, value)
         self._process = subprocess.Popen(
             [
                 self.python,
@@ -98,9 +111,12 @@ class PersistentRagWorker:
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
+            # 进程级 stderr 丢弃是有意的：真正的失败原因由 worker 在 JSON payload 的
+            # stderr 字段上报（含异常类型），这里丢的只是框架噪声。
             stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1,
+            env=env,
         )
         return self._process
 
