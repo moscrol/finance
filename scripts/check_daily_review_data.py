@@ -187,21 +187,48 @@ def _check_sw_l1(con, date: str) -> list[str]:
 
 
 def _check_sector_coverage(con, date: str) -> list[str]:
-    """板块行情：覆盖全部 active 板块，且 pct_chg/amount 非空。"""
+    """板块行情：相邻交易日名称覆盖连续，且 pct_chg/amount 非空。
+
+    dim_sector 是跨日期目录，供应商会更换代码、保留历史别名，不能作为单日
+    行情的全覆盖基准。用唯一名称的相邻交易日连续性发现真实的日线断流。
+    """
     problems: list[str] = []
-    missing_sectors = con.execute(
-        """
-        SELECT d.sector_ts_code, d.sector_name
-        FROM dim_sector d
-        LEFT JOIN fact_sector_daily f
-          ON f.trade_date = ? AND f.sector_ts_code = d.sector_ts_code
-        WHERE COALESCE(d.is_active, TRUE) AND f.sector_ts_code IS NULL
-        ORDER BY 1
-        """,
-        [date],
-    ).fetchall()
-    for code, name in missing_sectors:
-        problems.append(f"fact_sector_daily 缺失板块 {code}/{name}")
+    previous_date = con.execute(
+        "SELECT MAX(trade_date) FROM fact_sector_daily WHERE trade_date < ?", [date]
+    ).fetchone()[0]
+    current_count, = con.execute(
+        "SELECT COUNT(DISTINCT sector_name) FROM fact_sector_daily WHERE trade_date = ?", [date]
+    ).fetchone()
+    if not current_count:
+        problems.append(f"fact_sector_daily 无 {date} 板块行情")
+    elif previous_date:
+        previous_count, continued_count = con.execute(
+            """
+            WITH previous_names AS (
+                SELECT DISTINCT sector_name
+                FROM fact_sector_daily
+                WHERE trade_date = ?
+            ), current_names AS (
+                SELECT DISTINCT sector_name
+                FROM fact_sector_daily
+                WHERE trade_date = ?
+            )
+            SELECT COUNT(*), COUNT(current_names.sector_name)
+            FROM previous_names
+            LEFT JOIN current_names USING (sector_name)
+            """,
+            [previous_date, date],
+        ).fetchone()
+        continuity = continued_count / previous_count if previous_count else 1.0
+        print(
+            f"fact_sector_daily 名称连续性: {continued_count}/{previous_count} = {continuity:.2%} "
+            f"(前一交易日 {previous_date})"
+        )
+        if continuity < 0.95:
+            problems.append(
+                f"fact_sector_daily 名称连续性 {continuity:.2%} < 95% "
+                f"({continued_count}/{previous_count}, 前一交易日 {previous_date})"
+            )
     null_rows = con.execute(
         "SELECT sector_ts_code, sector_name FROM fact_sector_daily "
         "WHERE trade_date = ? AND (pct_chg IS NULL OR amount IS NULL) ORDER BY 1",
@@ -222,11 +249,19 @@ def _check_sector_stock_fields(con, date: str) -> list[str]:
         LEFT JOIN fact_sector_stock_daily s
           ON s.trade_date = f.trade_date AND s.sector_ts_code = f.sector_ts_code
         WHERE f.trade_date = ?
-        GROUP BY 1, 2
+        GROUP BY f.trade_date, 1, 2
         HAVING COUNT(s.stock_ts_code) = 0
+          -- 排除从未有过成员的板块（fupanhui 新加、还没分配股票的空板块不应卡门；
+          -- 只校验「历史上有过成员、今天突然没了」的真正同步缺口）
+          AND EXISTS (
+              SELECT 1 FROM fact_sector_stock_daily s2
+              WHERE s2.sector_ts_code = f.sector_ts_code
+                AND s2.trade_date < ?
+              LIMIT 1
+          )
         ORDER BY 1
         """,
-        [date],
+        [date, date],
     ).fetchall()
     for code, name in no_member:
         problems.append(f"fact_sector_stock_daily 板块 {code}/{name} 无当日成员行")

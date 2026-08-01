@@ -11,7 +11,7 @@
 
 用法:
     CH_PASSWORD=... python3 scan_quant.py <日期> [大单阈值万元] [量化单阈值万元]
-    CH_PASSWORD=... python3 scan_quant.py 2026-07-03 50 200
+    CH_PASSWORD=... python3 scan_quant.py 2026-07-03 100 200
 """
 import sys
 
@@ -41,7 +41,7 @@ def main():
         print("用法: python3 scan_quant.py <日期> [大单阈值万]")
         return
     date = sys.argv[1]
-    big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
+    big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 100.0
     quant_thr = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
     client = make_client()
     print(f"L2 code revision: {current_git_revision()}", flush=True)
@@ -58,7 +58,8 @@ def main():
         if not order_rows:
             return client, None
         buys = pd.DataFrame(order_rows, columns=["t", "amount"])
-        buys["t"] = pd.to_datetime(buys["t"])
+        # 缓存/CH 返回的 ISO 时间可能混有有无微秒两种形态，须 format=ISO8601/mixed
+        buys["t"] = pd.to_datetime(buys["t"], format="ISO8601", utc=True)
         infos, _ = detect_quant_orders(
             buys, min_amount=quant_thr * 1e4, top_n=100)
         if not infos:
