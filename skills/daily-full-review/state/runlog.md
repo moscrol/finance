@@ -178,3 +178,382 @@ Notes:
 | quality-gate | INCOMPLETE | - | check_daily_review_data.py |
 
 > 需关注（坑/未全绿）：sectors, market-overview, market-deviation
+
+## 2026-07-20 | run 2026-07-20 20:12
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 1 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 33 |  |
+| market-deviation | ok | 5 |  |
+| sector-daily | ok | 14 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 46 | heat=85 stock=212 retried=0 still_empty=0 |
+| stock-high | ok | 13 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 15 | eastmoney snapshot ok |
+| sector-resonance | ok | 6 |  |
+| mainline-daily | fail | 11 | [retry r1] |
+| mainline-sector-daily | ok | 4 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：mainline-daily, same-day-gate
+
+## 2026-07-20 | run 2026-07-22 00:37
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 2 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 28 |  |
+| market-deviation | ok | 5 |  |
+| sector-daily | ok | 14 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 43 | heat=85 stock=212 retried=0 still_empty=0 |
+| stock-high | ok | 14 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 20 | eastmoney snapshot ok |
+| sector-resonance | ok | 6 |  |
+| mainline-daily | ok | 10 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-07-21 | run 2026-07-22 01:11
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 1 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 33 |  |
+| market-deviation | ok | 4 |  |
+| sector-daily | ok | 14 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 62 | heat=143 stock=825 retried=0 still_empty=0 |
+| stock-high | ok | 15 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 19 | eastmoney snapshot ok |
+| sector-resonance | ok | 6 |  |
+| mainline-daily | fail | 3 | [retry r1] |
+| mainline-sector-daily | fail | 2 | [retry r1] |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：mainline-daily, mainline-sector-daily, same-day-gate
+
+## 2026-07-22 | run 2026-07-22 18:37
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 8 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 195 |  |
+| market-deviation | ok | 6 |  |
+| sector-daily | ok | 16 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 54 | heat=96 stock=226 retried=0 still_empty=0 |
+| stock-high | ok | 12 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 17 | eastmoney snapshot ok |
+| sector-resonance | ok | 6 |  |
+| mainline-daily | ok | 14 |  |
+| mainline-sector-daily | ok | 6 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：cross-day-gate
+
+## 2026-07-22 | run 2026-07-23 01:09
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 2 |  |
+| market-overview | ok | 4 |  |
+| market-daily | ok | 5 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 35 |  |
+| market-deviation | ok | 7 |  |
+| sector-daily | ok | 18 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 48 | heat=96 stock=226 retried=0 still_empty=0 |
+| stock-high | ok | 13 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 25 | eastmoney snapshot ok |
+| sector-resonance | ok | 8 |  |
+| mainline-daily | ok | 13 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 2 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：cross-day-gate
+
+## 2026-07-23 | run 2026-07-23 18:38
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 9 |  |
+| market-overview | ok | 4 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 216 |  |
+| market-deviation | ok | 5 |  |
+| sector-daily | ok | 15 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 84 | heat=138 stock=578 retried=0 still_empty=0 |
+| stock-high | ok | 14 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 26 | eastmoney snapshot ok |
+| sector-resonance | ok | 7 |  |
+| mainline-daily | ok | 7 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-07-24 | run 2026-07-24 23:24
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 8 |  |
+| market-overview | ok | 2 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 36 |  |
+| market-deviation | fail | 11 | [retry r1] |
+| sector-daily | ok | 66 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 125 | heat=90 stock=190 retried=0 still_empty=0 |
+| stock-high | ok | 16 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 20 | eastmoney snapshot ok |
+| sector-resonance | ok | 6 |  |
+| mainline-daily | ok | 6 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：market-deviation, same-day-gate
+
+## 2026-07-27 | run 2026-07-27 23:00
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 2 |  |
+| market-overview | ok | 2 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 39 |  |
+| market-deviation | ok | 9 |  |
+| sector-daily | ok | 34 |  |
+| sector-stocks | partial | 0 | 0/630 sectors after 20 loops |
+| limit-heat | ok | 279 | heat=286 stock=1069 retried=0 still_empty=0 |
+| stock-high | ok | 14 |  |
+| limit-advance | ok | 3 |  |
+| stock-daily | ok | 26 | eastmoney snapshot ok |
+| sector-resonance | ok | 7 |  |
+| mainline-daily | ok | 4 |  |
+| mainline-sector-daily | ok | 3 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 2 |  |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sector-stocks, same-day-gate
+
+## 2026-07-28 | run 2026-07-29 00:12
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 8 |  |
+| market-overview | ok | 10 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | fail | 0 | [retry r1] |
+| market-deviation | ok | 16 |  |
+| sector-daily | ok | 120 |  |
+| sector-stocks | partial | 0 | 0/630 sectors after 20 loops |
+| limit-heat | ok | 320 | heat=223 stock=770 retried=0 still_empty=0 |
+| stock-high | ok | 36 |  |
+| limit-advance | fail | 0 | [retry r1] |
+| stock-daily | fail | 0 | used fill-stock-daily-fallback [retry r1] |
+| sector-resonance | fail | 0 | [retry r1] |
+| mainline-daily | fail | 0 | [retry r1] |
+| mainline-sector-daily | fail | 0 | [retry r1] |
+| theme-flow-daily | fail | 0 | [retry r1] |
+| features | fail | 0 | [retry r1] |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, sector-stocks, limit-advance, stock-daily, sector-resonance, mainline-daily, mainline-sector-daily, theme-flow-daily, features, same-day-gate
+
+## 2026-07-28 | run 2026-07-29 01:30
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| limit-advance | ok | 4 |  |
+| stock-daily | fail | 120 | used fill-stock-daily-fallback |
+| sector-resonance | ok | 7 |  |
+| mainline-daily | ok | 9 |  |
+| mainline-sector-daily | ok | 9 |  |
+| theme-flow-daily | ok | 3 |  |
+| features | fail | 0 |  |
+| same-day-gate | fail | 0 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：stock-daily, features, same-day-gate
+
+## 2026-07-29 | run 2026-07-29 18:59
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 5 |  |
+| market-overview | ok | 8 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 14 |  |
+| sector-daily | ok | 100 |  |
+| sector-stocks | partial | 0 | 0/630 sectors after 20 loops |
+| limit-heat | ok | 314 | heat=211 stock=657 retried=0 still_empty=0 |
+| stock-high | ok | 50 |  |
+| limit-advance | ok | 3 |  |
+| stock-daily | ok | 139 | eastmoney snapshot ok |
+| sector-resonance | ok | 8 |  |
+| mainline-daily | ok | 9 |  |
+| mainline-sector-daily | ok | 9 |  |
+| theme-flow-daily | ok | 3 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily, sector-stocks, same-day-gate
+
+## 2026-07-30 | run 2026-07-30 18:30
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | fail | 0 | [retry r1] |
+| market-overview | fail | 0 | [retry r1] |
+| market-daily | fail | 1 | [retry r1] |
+| index-daily | fail | 0 | [retry r1] |
+| sw-l1-daily | fail | 0 | [retry r1] |
+| market-deviation | fail | 0 | [retry r1] |
+| sector-daily | fail | 0 | [retry r1] |
+| sector-stocks | partial | 0 | 403/630 sectors after 20 loops |
+| limit-heat | fail | 0 | heat=0 stock=0 retried=0 still_empty=0 [retry r1] |
+| stock-high | fail | 0 | [retry r1] |
+| limit-advance | fail | 0 | [retry r1] |
+| stock-daily | fail | 0 | used fill-stock-daily-fallback [retry r1] |
+| sector-resonance | fail | 4 | [retry r1] |
+| mainline-daily | fail | 7 | [retry r1] |
+| mainline-sector-daily | fail | 3 | [retry r1] |
+| theme-flow-daily | fail | 1 | [retry r1] |
+| features | fail | 0 | [retry r1] |
+| same-day-gate | fail | 2 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sectors, market-overview, market-daily, index-daily, sw-l1-daily, market-deviation, sector-daily, sector-stocks, limit-heat, stock-high, limit-advance, stock-daily, sector-resonance, mainline-daily, mainline-sector-daily, theme-flow-daily, features, same-day-gate
+
+## 2026-07-30 | run 2026-07-30 23:55（Devin 补全）
+
+### 阻断性修复（前置）
+
+| 问题 | 根因 | 修复 |
+|---|---|---|
+| CDP proxy 连不上 Chrome | Chrome 只绑 IPv6 [::1]:9222，proxy checkPort 只试 IPv4 127.0.0.1 | patch cdp-proxy.mjs：checkPort 依次试 IPv4→IPv6，URL 构造兼容 [::1] |
+| init_db Binder Error: can only create an index on a base table | fact_sector_daily / fact_sector_stock_daily 已重构为 VIEW，schema.sql 仍保留 CREATE INDEX ON 视图名 | 注释 5 条冗余索引（底层 generation 表已有等价索引）；private + runtime 两仓同步修 |
+| sync-sector-daily/stocks/resonance Catalog Error: not a table | 3 个 sync 脚本仍 INSERT INTO 视图名 | 重定向到 *_generation 表 + 注入 get_published_snapshot_id() |
+
+### 同步段（daily-full CLI，修复后重跑）
+
+| 模块 | 状态 | 备注 |
+|---|---|---|
+| db-lock | ok | 8799 canary 持锁，bootout 后释放 |
+| sectors | ok | |
+| market-overview | ok | |
+| market-daily | ok | |
+| index-daily | ok | |
+| sw-l1-daily | ok | |
+| market-deviation | ok | tooltip 抓取失败，MA5 复算回退 |
+| sector-daily | ok | generation 表写入 |
+| sector-stocks | ok | 403/403 sectors（only_missing 跳已抓） |
+| limit-heat | ok | 188 heat + 409 stock |
+| stock-high | ok | 808 rows |
+| limit-advance | ok | 10 rows |
+| stock-daily | ok | eastmoney snapshot 5527 rows |
+| sector-resonance | ok | generation 表写入 |
+| mainline-daily | ok | |
+| theme-flow-daily | ok | |
+| mainline-sector-daily | ok | |
+| features | ok | compute_features: period_rank 40 rows + window features |
+| same-day-gate | ok | check_daily_review_data.py COMPLETE (99.95% stock coverage) |
+
+### L2 资金流段
+
+| 模块 | 状态 | 备注 |
+|---|---|---|
+| l2-limitup | ok | 82/83 只，1 只空数据 |
+| l2-top100 | ok | 100 只，写入 100 行 |
+| l2-quant | ok | 52 只，识别量化簇 |
+
+### 生成段（intelligence.cli daily --skip-sync --skip-agent）
+
+| 模块 | 状态 | 备注 |
+|---|---|---|
+| quality-gate | PASS | |
+| daily-review | ok | md + png + html |
+| theme-candidates | ok | json + md + html |
+| theme-backfill-queue | ok | |
+| triggered-theme-brief | ok | DEEP: 食品饮料/中特估/跨境支付CIPS |
+| strategy1-matrix | ok | T1=4 T2=5 |
+| strategy3-matrix | ok | appended 07-27~07-30 |
+| strategy4-matrix | ok | 78 days engineA=1092 engineB=3714 |
+| review-workbench | ok | |
+| cockpit | ok | daily=30 |
+| agent-daily | **SKIPPED** | content delta exceeds 10MB（知识库 wiki 未提交改动过多，非复盘数据问题） |
+
+> 坑总结：
+> 1. 视图重构（fact_sector_daily → VIEW + generation 表）后，schema.sql 和 3 个 sync 脚本未同步更新，导致全部 sync 步骤 init_db 阶段就挂。
+> 2. CDP proxy IPv6 兼容是 macOS Chrome 常见问题（只绑 [::1]），launchd 自动重启的 proxy 也无法自愈。
+> 3. agent-daily 的 content_delta 10MB 上限在知识库大量未提交改动时会超限——需要定期 commit 知识库或提高上限。
+> 4. 两个 uvicorn 实例（8792 canonical + 8799 canary）竞争 DuckDB 写锁是隐患。

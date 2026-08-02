@@ -288,6 +288,7 @@ class ThemeRadarService:
             "entity": meta.get("entity"),
             "valid_time": meta.get("valid_time"),
             "source_time": meta.get("source_time"),
+            "known_at": meta.get("known_at"),
             "source_unit": ThemeRadarService._source_unit(actual_field),
             "source_artifact": meta.get("source_artifact"),
             "source_locator": (

@@ -522,7 +522,7 @@ def test_physical_table_access_outside_the_owner_is_a_violation() -> None:
     assert [v["rule"] for v in violations] == ["physical_table_outside_owner"]
 
 
-def test_owner_module_and_ddl_file_may_touch_the_physical_tables() -> None:
+def test_authorized_migration_ddl_and_sync_paths_may_touch_physical_tables() -> None:
     records = [
         _record(
             path=path, table="fact_sector_stock_daily_generation", mode=mode
@@ -532,6 +532,27 @@ def test_owner_module_and_ddl_file_may_touch_the_physical_tables() -> None:
     ]
 
     assert access_inventory.classify_violations(records) == ()
+
+
+def test_migration_preview_may_read_but_not_write_physical_tables() -> None:
+    records = [
+        _record(
+            path="market_feature_store/cli.py",
+            table="fact_sector_daily_generation",
+            mode="read",
+        ),
+        _record(
+            path="market_feature_store/cli.py",
+            table="fact_sector_daily_generation",
+            mode="write",
+        ),
+    ]
+
+    violations = access_inventory.classify_violations(records)
+
+    assert [(row["path"], row["mode"]) for row in violations] == [
+        ("market_feature_store/cli.py", "write")
+    ]
 
 
 def test_writes_to_the_public_views_are_violations() -> None:

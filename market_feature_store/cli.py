@@ -407,7 +407,8 @@ def cmd_sync_mainline_daily(args) -> int:
                 f"{failure.get('theme_name', '')}: {failure['error']}"
             )
     print(f"同步状态: {s['status']}")
-    return 0 if s["status"] == "complete" else 2
+    # degraded: 部分题材上游空 groups，已落库成功题材
+    return 0 if s["status"] in {"complete", "degraded"} else 2
 
 
 def cmd_sync_theme_flow_daily(args) -> int:

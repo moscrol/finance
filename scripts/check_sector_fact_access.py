@@ -15,17 +15,36 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 PUBLIC_VIEWS = ("fact_sector_daily", "fact_sector_stock_daily")
-# 物理代际表：只允许 sector_universe.py（唯一读写/迁移方）与 sector_schema.sql
-# （DDL-only）提及。任何其他文件引用它们都意味着绕过了公开读口的代际隔离。
+# 物理代际表：只有下列文件可以提及。任何其他文件引用它们都意味着绕过了公开读口
+# 的代际隔离。
+#
+# 名单在 2026-08-02 合 main 时扩过一次。原来只有两项（sector_universe.py 与
+# sector_schema.sql），因为当时的设计是「唯一读写方」。main 的 74f169fc/a5321eec
+# 把 DDL 并进 schema.sql，并让各 sync 模块自己写 *_generation——每个写入方调
+# db.get_published_snapshot_id() 解析代际，无快照回退 'legacy'（见 CLAUDE.md
+# 「写入方必读」）。写入方从 1 个变成 5 个是 main 的既定设计，不是绕过；
+# 门禁要守的仍是「不许有名单外的文件碰物理表」，只是名单本身变长了。
 PHYSICAL_TABLES = (
     "fact_sector_daily_generation",
     "fact_sector_stock_daily_generation",
 )
 AUTHORIZED_PHYSICAL_PATHS = (
     "market_feature_store/sector_universe.py",
-    "market_feature_store/sector_schema.sql",
+    # DDL 正典（原 sector_schema.sql 的七个对象已并入这里）
+    "market_feature_store/schema.sql",
+    # main 设计下的合法写入方，各自按 snapshot_id 分代写入
+    "market_feature_store/sync/sync_feishu_sector_daily.py",
+    "market_feature_store/sync/sync_feishu_sector_marginal.py",
+    "market_feature_store/sync/sync_feishu_sector_resonance.py",
+    "market_feature_store/sync/sync_fupanhui_sector_daily.py",
+    "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
 )
-WRITE_MODES = ("insert", "update", "delete", "create", "drop", "alter", "replace")
+# 迁移预览要统计被公开 VIEW 隐藏的 legacy 行，因此必须读物理表；它不是写入方，
+# 不能因为这个需求获得 write/ddl 权限。
+READ_ONLY_PHYSICAL_PATHS = ("market_feature_store/cli.py",)
+# `_reference_modes` 会把 INSERT / UPDATE / DELETE / MERGE 归一成同一个公开枚举
+# `write`；执法层必须消费同一枚举，否则真实写入会因 contract drift 被漏报。
+WRITE_MODES = ("write",)
 
 TARGET_TABLES = (*PHYSICAL_TABLES, *PUBLIC_VIEWS)
 # 前缀用于动态拼表名的保守候选检测。两组表名共享 "fact_sector_" 前缀。
@@ -925,9 +944,9 @@ def inventory_sector_fact_access(root: Path) -> tuple[AccessRecord, ...]:
 def classify_violations(records: Sequence[AccessRecord]) -> tuple[dict[str, object], ...]:
     """两条不变量。任何一条被破，代际隔离就形同虚设。
 
-    1. 物理代际表只能被 sector_universe.py（唯一读写/迁移方）与 sector_schema.sql
-       （DDL-only）提及。别处提及意味着绕过了公开读口的代际过滤，可能把 legacy
-       行或被取代代际当成当日事实。
+    1. 物理代际表只能被 ``AUTHORIZED_PHYSICAL_PATHS`` 中的迁移、DDL 与同步写入方
+       提及。别处提及意味着绕过了代际绑定或公开读口的过滤，可能把 legacy 行或被
+       取代代际当成当日事实。
     2. 公开视图只读。写入本来就会被 DuckDB 拒绝，静态拦住是为了不把失败留到运行时。
 
     刻意**不**实现"拒绝一切 mode=unknown"。实测 110 条 unknown 里绝大多数不是访问：
@@ -941,7 +960,11 @@ def classify_violations(records: Sequence[AccessRecord]) -> tuple[dict[str, obje
     definite = frozenset(("read", "ddl", *WRITE_MODES))
     for record in records:
         if record.table in PHYSICAL_TABLES:
-            if record.mode in definite and record.path not in AUTHORIZED_PHYSICAL_PATHS:
+            has_full_access = record.path in AUTHORIZED_PHYSICAL_PATHS
+            has_read_access = (
+                record.path in READ_ONLY_PHYSICAL_PATHS and record.mode == "read"
+            )
+            if record.mode in definite and not (has_full_access or has_read_access):
                 violations.append(
                     {
                         "rule": "physical_table_outside_owner",

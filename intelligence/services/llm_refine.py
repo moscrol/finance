@@ -920,6 +920,13 @@ def _build_synthesis_prompt(
     experience_guidance: str = "",
     exemplar_guidance: str = "",
 ) -> str:
+    """Build the *user* turn content for synthesis.
+
+    experience_guidance and exemplar_guidance are accepted for backward
+    compatibility but are intentionally NOT inlined here — they are static
+    blocks that belong in the system prompt (see build_synthesis_messages)
+    to maximise prompt-cache hit rate.
+    """
     legend = (
         "\n\n## 内部引用图例（只用于事实核验；最终回答不得显示编号）\n"
         f"{citation_legend}"
@@ -929,18 +936,10 @@ def _build_synthesis_prompt(
     quality_block = ""
     if quality_context is not None and hasattr(quality_context, "to_prompt_block"):
         quality_block = f"\n\n{quality_context.to_prompt_block()}"
-    experience_block = (
-        f"\n\n## 历史经验卡片（用于避免重复犯错）\n{experience_guidance}"
-        if experience_guidance
-        else ""
-    )
-    exemplar_block = (
-        "\n\n## 高分样板（few-shot 锚：只学结构、叙事组织和论证方式；"
-        "严禁照抄样板里的结论、数据或个股判断，回答只能基于上方证据）\n"
-        f"{exemplar_guidance}"
-        if exemplar_guidance
-        else ""
-    )
+    # experience/exemplar 两个静态块按 main 的做法移进 system prompt（见本函数
+    # docstring 与 build_synthesis_messages），此处不再内联，以保 prompt-cache 命中。
+    # cause_nudge 不同：它由 query 正则触发，是动态内容，放进 system prompt 会破坏
+    # 缓存前缀，必须留在 user turn。
     cause_nudge = ""
     if re.search(r"(?:本周|这一周|这周|近一周|过去一周).{0,20}(?:行情|大盘|市场).{0,20}(?:下跌|走弱).{0,20}(?:原因|为什么|驱动|归因)", query):
         cause_nudge = (
@@ -952,7 +951,7 @@ def _build_synthesis_prompt(
         f"用户问题：{query}\n"
         f"命中主题：{theme}\n\n"
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
-        f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}{cause_nudge}\n\n"
+        f"{evidence_text}{legend}{quality_block}{cause_nudge}\n\n"
         "请据此有机融合成一段分析师口吻的回答。优先给出直接判断，"
         "只使用真正回答问题所需的 claim；不要为了完整而逐条罗列 registry。"
     )
@@ -969,11 +968,28 @@ def build_synthesis_messages(
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
+    Static guidance blocks (experience_guidance, exemplar_guidance) are appended
+    to the **system** prompt rather than the user prompt.  This keeps the large
+    static prefix cacheable across different queries / evidence sets.
+
     Exposed so the multi-turn driver can keep the exact same evidence-laden first
     turn and then append follow-ups on top of it (grounding stays anchored to the
     evidence given here — follow-ups must not introduce new sources)."""
+    # Build the static system prompt: base instructions + optional static blocks
+    system_content = _SYNTHESIS_SYSTEM_PROMPT
+    if experience_guidance:
+        system_content += (
+            "\n\n## 历史经验卡片（用于避免重复犯错）\n"
+            f"{experience_guidance}"
+        )
+    if exemplar_guidance:
+        system_content += (
+            "\n\n## 高分样板（few-shot 锚：只学结构、叙事组织和论证方式；"
+            "严禁照抄样板里的结论、数据或个股判断，回答只能基于上方证据）\n"
+            f"{exemplar_guidance}"
+        )
     return [
-        {"role": "system", "content": _SYNTHESIS_SYSTEM_PROMPT},
+        {"role": "system", "content": system_content},
         {
             "role": "user",
             "content": _build_synthesis_prompt(
@@ -982,8 +998,8 @@ def build_synthesis_messages(
                 evidence_text,
                 citation_legend,
                 quality_context,
-                experience_guidance,
-                exemplar_guidance,
+                # experience/exemplar now in system prompt; pass empty to
+                # _build_synthesis_prompt for backward-compat (they are ignored).
             ),
         },
     ]

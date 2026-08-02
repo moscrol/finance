@@ -291,10 +291,15 @@ def record_verdict(
     observed: dict[str, Any] | None = None,
     data_source: str = "manual",
     reason: str = "",
+    degradation: dict[str, Any] | None = None,
     auto: bool = False,
     checked_at: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
-    """把一条回检打分 append 到 ``verdicts.jsonl``，返回 ``(path, record)``。"""
+    """把一条回检打分 append 到 ``verdicts.jsonl``，返回 ``(path, record)``。
+
+    ``degradation`` 只在 ``unverifiable`` 时有值（见 checkpoint_resolvers）：
+    落盘保留它，是为了半年后还能回答"当时为什么判不了、补什么才能判"。
+    """
     cid = str(id or "").strip()
     if not cid:
         raise ValueError("verdict 必须带 checkpoint id")
@@ -314,6 +319,8 @@ def record_verdict(
         record["observed"] = observed
     if reason and str(reason).strip():
         record["reason"] = str(reason).strip()
+    if degradation:
+        record["degradation"] = degradation
     p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
@@ -542,6 +549,24 @@ def build_recheck_digest_section(
         detail = f"{src}：{reason}" if (src and reason) else (reason or src)
         if detail:
             lines.append(f"  - {detail}")
+        # 降级条目多写三行：试过什么、影响、下一步。只写"数据不可用"等于没写。
+        deg = r.get("degradation") if isinstance(r.get("degradation"), dict) else None
+        if deg:
+            tried = deg.get("attempted") or []
+            if tried:
+                shown = "；".join(
+                    f"{t.get('source')}→{t.get('status')}" for t in tried if isinstance(t, dict)
+                )
+                lines.append(f"  - 试过：{shown}")
+            else:
+                lines.append("  - 试过：未发起查询（规格不全/无机检规格）")
+            owed = str(deg.get("owed_source") or "").strip()
+            impact = str(deg.get("impact") or "").strip()
+            if impact:
+                lines.append(f"  - 影响：{impact}" + (f"（本该由 {owed} 判）" if owed else ""))
+            todo = [str(t).strip() for t in (deg.get("todo") or []) if str(t).strip()]
+            for t in todo:
+                lines.append(f"  - 待补：{t}")
         rid = str(r.get("id") or "").strip()
         if rid:
             lines.append(f"  - `{rid}`")
