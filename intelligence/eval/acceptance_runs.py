@@ -95,6 +95,14 @@ def select_latest_case_runs(
     selected: dict[str, SelectedCaseRun] = {}
     for path in sorted(run_dir.glob("*.json")):
         record = load_validated_run(path, case_tiers)
+        # Legacy records predate the field and remain usable as historical
+        # evidence.  A new formal record explicitly marked ineligible must not
+        # silently replace a valid case in the board.
+        if (
+            "acceptance_eligible" in record
+            and record.get("acceptance_eligible") is not True
+        ):
+            continue
         source_sha256 = sha256_file(path)
         for case_run in record["cases"]:
             case_id = case_run["case_id"]

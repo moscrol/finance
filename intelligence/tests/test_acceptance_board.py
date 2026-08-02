@@ -34,6 +34,37 @@ HEALTHY = {
     },
 }
 
+STRICT_EXPECTED = acceptance.ExpectedRuntime(
+    mode="on",
+    backend="sdk_gpt",
+    model="gpt-5.6-sol",
+    revision=HEALTHY["runtime"]["source_revision"],
+    code_root="/candidate",
+    provider_label="cockpit_local",
+    provider_protocol="openai_responses",
+)
+
+STRICT_HEALTHY = json.loads(json.dumps(HEALTHY))
+STRICT_HEALTHY["runtime"].update(
+    {
+        "runtime_instance_id": "runtime-acceptance",
+        "source_dirty": False,
+        "code_root": "/candidate",
+        "import_root": "/candidate",
+        "python_executable": "/python",
+        "continuous_agent": {"mode": "on"},
+    }
+)
+STRICT_HEALTHY["runtime"]["agent_runtime"].update(
+    {
+        "model": "gpt-5.6-sol",
+        "provider_label": "cockpit_local",
+        "provider_protocol": "openai_responses",
+        "endpoint_fingerprint": "a" * 64,
+        "provider_chain_size": 1,
+    }
+)
+
 
 def _stub_get(monkeypatch, health: dict, llm: dict) -> None:
     def fake_get(url: str, timeout: float = 30.0):
@@ -91,6 +122,48 @@ def test_preflight_survives_slow_llm_config(monkeypatch):
     monkeypatch.setattr(acceptance, "_get", fake_get)
     ok, _ = acceptance.preflight("http://stub")
     assert ok
+
+
+def test_strict_preflight_accepts_exact_runtime_identity(monkeypatch) -> None:
+    _stub_get(monkeypatch, STRICT_HEALTHY, {"ready": True})
+
+    report = acceptance.preflight("http://stub", STRICT_EXPECTED)
+
+    assert report.acceptance_eligible is True
+    assert report.failures == ()
+    assert len(report.receipt_hash) == 64
+    assert report.observed["runtime"]["runtime_instance_id"] == "runtime-acceptance"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("source_dirty", True),
+        ("import_root", "/wrong-import"),
+        ("continuous_agent", {"mode": "off"}),
+    ],
+)
+def test_strict_preflight_rejects_identity_drift(
+    monkeypatch,
+    field: str,
+    value: object,
+) -> None:
+    health = json.loads(json.dumps(STRICT_HEALTHY))
+    health["runtime"][field] = value
+    _stub_get(monkeypatch, health, {"ready": True})
+
+    report = acceptance.preflight("http://stub", STRICT_EXPECTED)
+
+    assert report.acceptance_eligible is False
+    assert report.failures
+
+
+def test_execution_contract_overlay_covers_exact_frozen_cases() -> None:
+    contracts = acceptance.load_execution_contracts()
+    assert len(contracts) == 28
+    assert contracts["B6-sellside-distillation"] == "continuous_clarification"
+    assert contracts["C8-nonexistent-table"] == "legacy_direct"
+    assert contracts["C10-multi-turn-consistency"] == "continuous_episode"
 
 
 def test_failure_classification_separates_seam_from_quality():

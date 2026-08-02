@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 import time
 import urllib.error
@@ -62,14 +63,50 @@ from intelligence.eval.acceptance_verdict import (
 
 REPO = Path(__file__).resolve().parents[2]
 CASES_PATH = REPO / "intelligence/eval/cases/acceptance_cases.json"
+EXECUTION_CONTRACTS_PATH = (
+    REPO / "intelligence/eval/cases/acceptance_execution_contracts.json"
+)
 RUNS_DIR = REPO / "intelligence/eval/runs"
 SNAPSHOT_DIR = REPO / "intelligence/eval/cases/reference_snapshots"
 DEFAULT_BASE = "http://127.0.0.1:8799"
 DEFAULT_USER = "linxiaoqi5111"
+EXECUTION_PATHS = frozenset(
+    {
+        "continuous_episode",
+        "continuous_fast_path",
+        "continuous_clarification",
+        "legacy_direct",
+    }
+)
 
 
 def load_cases() -> dict[str, Any]:
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
+
+
+def load_execution_contracts() -> dict[str, str]:
+    """Load an explicit path for every frozen case and fail closed on drift."""
+
+    payload = json.loads(EXECUTION_CONTRACTS_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise ValueError("invalid execution contract schema")
+    raw_cases = payload.get("cases")
+    if not isinstance(raw_cases, dict):
+        raise ValueError("execution contract cases must be an object")
+    case_ids = {str(case.get("id")) for case in load_cases().get("cases", [])}
+    if set(raw_cases) != case_ids:
+        missing = sorted(case_ids - set(raw_cases))
+        extra = sorted(set(raw_cases) - case_ids)
+        raise ValueError(
+            f"execution contract case ids drifted (missing={missing}, extra={extra})"
+        )
+    result: dict[str, str] = {}
+    for case_id, raw_path in raw_cases.items():
+        path = str(raw_path or "").strip()
+        if path not in EXECUTION_PATHS:
+            raise ValueError(f"invalid execution path for {case_id}: {path}")
+        result[str(case_id)] = path
+    return result
 
 
 def _rel(path: Path) -> str:
@@ -95,7 +132,21 @@ class TurnTrace:
 
     question: str
     answer: str | None = None
+    conversation_id: str | None = None
+    user_message_id: str | None = None
+    assistant_message_id: str | None = None
     run_id: str | None = None
+    parent_run_id: str | None = None
+    expected_execution_path: str | None = None
+    execution_path: str | None = None
+    terminal_owner: str | None = None
+    attempt_id: str | None = None
+    attempt_index: int | None = None
+    runtime_instance_id: str | None = None
+    task_frame_hash: str | None = None
+    cutoff: str | None = None
+    artifact_receipt_valid: bool | None = None
+    preflight_receipt_hash: str | None = None
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, Any]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
@@ -117,6 +168,44 @@ class CaseRun:
     blocked_reason: str | None = None
 
 
+@dataclass(frozen=True)
+class ExpectedRuntime:
+    mode: str
+    backend: str
+    model: str
+    revision: str
+    code_root: str
+    provider_label: str
+    provider_protocol: str = "openai_responses"
+
+
+@dataclass(frozen=True)
+class PreflightReport:
+    acceptance_eligible: bool
+    failures: tuple[str, ...]
+    expected: dict[str, object]
+    observed: dict[str, object]
+    receipt_hash: str
+
+    @property
+    def detail(self) -> str:
+        if self.failures:
+            return "; ".join(self.failures)
+        runtime = self.observed.get("runtime")
+        if isinstance(runtime, dict):
+            return (
+                f"revision={str(runtime.get('source_revision') or '')[:8]} "
+                f"backend={runtime.get('agent_runtime', {}).get('backend')}"
+            )
+        return "preflight=ok"
+
+    def __iter__(self):
+        """Keep old diagnostic callers able to unpack ``(ok, detail)``."""
+
+        yield not self.failures
+        yield self.detail
+
+
 # --------------------------------------------------------------------------- #
 # run —— 走用户真实点击的那条路径
 # --------------------------------------------------------------------------- #
@@ -134,7 +223,10 @@ def _get(url: str, timeout: float = 30.0) -> Any:
         return json.loads(resp.read().decode("utf-8") or "{}")
 
 
-def preflight(base: str) -> tuple[bool, str]:
+def preflight(
+    base: str,
+    expected: ExpectedRuntime | None = None,
+) -> PreflightReport:
     """部署接缝前置检查。跑不过就不许报进度 —— 这四道缝各自坑过一次。
 
     注意 /api/llm/config 当前恒定阻塞约 6s（疑似 Keychain 查询），所以 timeout
@@ -143,7 +235,16 @@ def preflight(base: str) -> tuple[bool, str]:
     try:
         health = _get(f"{base}/api/health", timeout=10)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        return False, f"服务不可达: {exc}"
+        failure = f"服务不可达: {type(exc).__name__}"
+        return PreflightReport(
+            acceptance_eligible=False,
+            failures=(failure,),
+            expected=(expected.__dict__ if expected is not None else {}),
+            observed={},
+            receipt_hash=_canonical_receipt_hash(
+                {"expected": expected.__dict__ if expected else {}, "failure": failure}
+            ),
+        )
 
     runtime = health.get("runtime") or {}
     agent_runtime = runtime.get("agent_runtime") or {}
@@ -165,17 +266,106 @@ def preflight(base: str) -> tuple[bool, str]:
             f"agent_runtime 未就绪（backend={agent_runtime.get('backend')}, "
             f"reason={agent_runtime.get('reason')}）"
         )
+    if expected is not None and agent_runtime.get("ready") is not True:
+        failed.append("agent_runtime.ready 必须为 true")
+
+    if expected is not None:
+        continuous = runtime.get("continuous_agent") or {}
+        if continuous.get("mode") != expected.mode:
+            failed.append(
+                f"continuous_agent.mode={continuous.get('mode')!r}, expected={expected.mode!r}"
+            )
+        if runtime.get("source_dirty") is not False:
+            failed.append("source_dirty 必须为 false")
+        if revision != expected.revision:
+            failed.append("source_revision 与 expected revision 不一致")
+        observed_code_root = str(runtime.get("code_root") or "")
+        if observed_code_root != str(Path(expected.code_root).expanduser().resolve()):
+            failed.append("code_root 与 expected code root 不一致")
+        import_root = str(runtime.get("import_root") or "")
+        if import_root != observed_code_root:
+            failed.append("import_root 与 code_root 不一致")
+        if not str(runtime.get("runtime_instance_id") or "").strip():
+            failed.append("runtime_instance_id 缺失")
+        for key, value, label in (
+            ("backend", agent_runtime.get("backend"), "backend"),
+            ("model", agent_runtime.get("model"), "model"),
+            ("provider_label", agent_runtime.get("provider_label"), "provider_label"),
+            ("provider_protocol", agent_runtime.get("provider_protocol"), "provider_protocol"),
+        ):
+            expected_value = getattr(expected, key)
+            if value != expected_value:
+                failed.append(f"{label}={value!r}, expected={expected_value!r}")
+        chain_size = agent_runtime.get("provider_chain_size")
+        if chain_size != 1:
+            failed.append(f"provider_chain_size={chain_size!r}, expected=1")
 
     try:
         cfg = _get(f"{base}/api/llm/config", timeout=15)
-        if cfg.get("ready") is False:
+        if cfg.get("ready") is False or (
+            expected is not None and cfg.get("ready") is not True
+        ):
             failed.append("llm_config.ready=false（BYOK 凭据未就绪）")
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         failed.append(f"llm/config 不可达: {type(exc).__name__}")
 
     if failed:
-        return False, "; ".join(failed)
-    return True, f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
+        pass
+    observed = {
+        "status": health.get("status"),
+        "dependencies": {
+            str(key): bool(value) for key, value in deps.items()
+            if str(key) in {"repo_root", "knowledge_wiki", "relations", "market_snapshot"}
+        },
+        "runtime": {
+            key: runtime.get(key)
+            for key in (
+                "runtime_instance_id",
+                "source_revision",
+                "source_dirty",
+                "code_root",
+                "import_root",
+                "python_executable",
+                "continuous_agent",
+            )
+            if key in runtime
+        },
+    }
+    observed["runtime"]["agent_runtime"] = {
+        key: agent_runtime.get(key)
+        for key in (
+            "backend",
+            "ready",
+            "reason",
+            "model",
+            "provider_label",
+            "provider_protocol",
+            "endpoint_fingerprint",
+            "provider_chain_size",
+        )
+        if key in agent_runtime
+    }
+    expected_payload = expected.__dict__ if expected is not None else {}
+    receipt_hash = _canonical_receipt_hash(
+        {"expected": expected_payload, "observed": observed, "failures": failed}
+    )
+    return PreflightReport(
+        acceptance_eligible=bool(expected is not None and not failed),
+        failures=tuple(failed),
+        expected=expected_payload,
+        observed=observed,
+        receipt_hash=receipt_hash,
+    )
+
+
+def _canonical_receipt_hash(value: object) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) -> None:
@@ -305,13 +495,40 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
 
     doc = load_cases()
-    ok, detail = preflight(args.base)
+    try:
+        expected = _expected_runtime_from_args(args)
+    except ValueError as exc:
+        print(f"❌ expected runtime 参数无效：{exc}")
+        return 2
+    raw_report = preflight(args.base, expected) if expected is not None else preflight(args.base)
+    if isinstance(raw_report, PreflightReport):
+        preflight_report = raw_report
+        ok, detail = tuple(raw_report)
+    else:
+        # Compatibility for older tests/tools that monkeypatch the old tuple API.
+        ok, detail = raw_report
+        preflight_report = PreflightReport(
+            acceptance_eligible=False,
+            failures=(() if ok else (str(detail),)),
+            expected={},
+            observed={},
+            receipt_hash=_canonical_receipt_hash({"detail": detail}),
+        )
     if not ok and not args.force:
         print(f"❌ 前置检查未通过：{detail}")
         print("   这是部署接缝问题，不是题目失败。修好再跑，或 --force 强跑留证据。")
         return 2
     print(f"✅ 前置检查：{detail}" if ok else f"⚠️  强跑（前置未过）：{detail}")
 
+    try:
+        execution_contracts = load_execution_contracts()
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        if expected is not None:
+            print(f"❌ execution contract 无效：{exc}")
+            return 2
+        execution_contracts = {
+            str(case["id"]): "legacy_direct" for case in doc["cases"]
+        }
     selected = [
         c
         for c in doc["cases"]
@@ -345,6 +562,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         "base": args.base,
         "preflight_ok": ok,
         "preflight_detail": detail,
+        "acceptance_eligible": preflight_report.acceptance_eligible,
+        "preflight": asdict(preflight_report),
+        "execution_contracts": {
+            case_id: execution_contracts[case_id]
+            for case_id in (case["id"] for case in selected)
+        },
         "cases": [asdict(r) for r in runs],
     }
     try:
@@ -356,6 +579,37 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"\ntrace 已落盘：{_rel(out)}")
     print("看板：python3 -m intelligence.eval.acceptance board")
     return 0
+
+
+def _expected_runtime_from_args(
+    args: argparse.Namespace,
+) -> ExpectedRuntime | None:
+    values = {
+        "revision": getattr(args, "expected_revision", None),
+        "code_root": getattr(args, "expected_code_root", None),
+        "mode": getattr(args, "expected_mode", None),
+        "backend": getattr(args, "expected_backend", None),
+        "model": getattr(args, "expected_model", None),
+        "provider_label": getattr(args, "expected_provider_label", None),
+        "provider_protocol": getattr(args, "expected_provider_protocol", None),
+    }
+    if not any(values.values()):
+        return None
+    if not all(values.values()):
+        raise ValueError("formal preflight requires all expected runtime fields")
+    revision = str(values["revision"]).strip()
+    if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise ValueError("expected_revision must be a 40-character git sha")
+    code_root = str(Path(str(values["code_root"])).expanduser().resolve())
+    return ExpectedRuntime(
+        mode=str(values["mode"]),
+        backend=str(values["backend"]),
+        model=str(values["model"]),
+        revision=revision,
+        code_root=code_root,
+        provider_label=str(values["provider_label"]),
+        provider_protocol=str(values["provider_protocol"]),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -387,6 +641,15 @@ def cmd_board(args: argparse.Namespace) -> int:
     try:
         if run_path is not None:
             record = load_validated_run(run_path, case_tiers)
+            if (
+                "acceptance_eligible" in record
+                and record.get("acceptance_eligible") is not True
+            ):
+                print(
+                    f"❌ 指定运行 {run_path.stem} acceptance_eligible=false，"
+                    "不能进入正式看板计数"
+                )
+                return 2
             by_id = {case["case_id"]: case for case in record["cases"]}
             source_by_id = {case_id: run_path for case_id in by_id}
             header_note = (
@@ -812,6 +1075,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--timeout", type=float, default=300.0)
     r.add_argument("--force", action="store_true", help="前置检查未过也强跑")
     r.add_argument("--output", help="trace 精确输出路径（拒绝覆盖已有文件）")
+    r.add_argument("--expected-revision")
+    r.add_argument("--expected-code-root")
+    r.add_argument("--expected-mode")
+    r.add_argument("--expected-backend")
+    r.add_argument("--expected-model")
+    r.add_argument("--expected-provider-label")
+    r.add_argument(
+        "--expected-provider-protocol",
+    )
     r.set_defaults(func=cmd_run)
 
     f = sub.add_parser("freeze", help="冻结 codex/knevo 参照答案")

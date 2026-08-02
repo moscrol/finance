@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "cases": {
+    "A1-market-overview": "continuous_episode",
+    "A2-next-day-call": "continuous_episode",
+    "A3-stock-deep-dive": "continuous_episode",
+    "A4-dual-red": "continuous_episode",
+    "A5-limit-heat": "continuous_episode",
+    "A6-limit-advance-ladder": "continuous_episode",
+    "A7-mainline": "continuous_episode",
+    "A8-market-stage": "continuous_episode",
+    "A9-sentiment-contradiction": "continuous_episode",
+    "A10-new-high-structure": "continuous_episode",
+    "B1-theme-photoresist": "continuous_episode",
+    "B2-theme-liquid-cooling": "continuous_episode",
+    "B3-theme-solid-state-battery": "continuous_episode",
+    "B4-fermentation-trace": "continuous_episode",
+    "B5-cross-table-intersection": "continuous_episode",
+    "B6-sellside-distillation": "continuous_clarification",
+    "B7-volume-sentiment-evolution": "continuous_episode",
+    "B8-valuation-band": "continuous_episode",
+    "C1-future-date-no-data": "continuous_episode",
+    "C2-non-trading-day": "continuous_episode",
+    "C3-empty-table": "continuous_episode",
+    "C4-unit-anomaly": "continuous_episode",
+    "C5-data-contradiction": "continuous_episode",
+    "C6-strict-definition": "continuous_episode",
+    "C7-temporal-leakage": "continuous_episode",
+    "C8-nonexistent-table": "legacy_direct",
+    "C9-citation-integrity": "continuous_episode",
+    "C10-multi-turn-consistency": "continuous_episode"
+  }
+}
