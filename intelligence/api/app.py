@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -669,6 +670,38 @@ class CancellationSignal:
         return max(0.0, self.deadline_expires_at - time.monotonic())
 
 
+def _invoke_run_ask(
+    store: RunStore,
+    run_id: str,
+    req: CreateRunRequest,
+    runtime_identity: RuntimeExecutionIdentity | None,
+) -> None:
+    """Call the legacy worker without masking old extension/test call shapes.
+
+    The runtime identity keyword was added after the legacy ``_run_ask``
+    callable became a useful test seam.  Inspect the callable before invoking
+    it instead of catching ``TypeError``: a TypeError raised *inside* the real
+    worker must not trigger a second execution or replace the original error
+    with ``executor_failure``.
+    """
+
+    if runtime_identity is None:
+        _run_ask(store, run_id, req)
+        return
+    try:
+        parameters = inspect.signature(_run_ask).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    accepts_keyword = "runtime_identity" in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    if accepts_keyword:
+        _run_ask(store, run_id, req, runtime_identity=runtime_identity)
+    else:
+        _run_ask(store, run_id, req)
+
+
 class RunSupervisor:
     def __init__(
         self,
@@ -695,18 +728,9 @@ class RunSupervisor:
         req: CreateRunRequest,
         runtime_identity: RuntimeExecutionIdentity | None = None,
     ) -> None:
-        runner = (
-            (lambda _: _run_ask(store, run_id, req))
-            if runtime_identity is None
-            else (
-                lambda _: _run_ask(
-                    store,
-                    run_id,
-                    req,
-                    runtime_identity=runtime_identity,
-                )
-            )
-        )
+        def runner(_: CancellationSignal) -> None:
+            _invoke_run_ask(store, run_id, req, runtime_identity)
+
         self._submit(
             store,
             run_id,
