@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.services import run_store
+from intelligence.services.execution_provenance import RuntimeExecutionIdentity
 from intelligence.services.run_store import RunStore
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden_run"
@@ -78,6 +79,90 @@ def test_full_run_lifecycle(store: RunStore) -> None:
     trace = store.load_trace(run.run_id)
     assert [s["step_id"] for s in trace] == ["s01", "s02"]
     assert STEP_REQUIRED_KEYS <= set(trace[0].keys())
+
+
+def test_execution_attempt_ledger_is_append_only_and_replayable(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+    runtime = RuntimeExecutionIdentity(
+        runtime_instance_id="runtime-a",
+        source_revision="a" * 40,
+        source_dirty=False,
+        code_root="/candidate",
+        import_root="/candidate",
+        python_executable="/python",
+        backend="sdk_gpt",
+        model="gpt-5.6-sol",
+        provider_label="cockpit_local",
+        provider_protocol="openai_responses",
+        endpoint_fingerprint="b" * 64,
+    )
+
+    first = store.start_execution_attempt(run.run_id, runtime)
+    store.bind_execution_attempt(
+        run.run_id,
+        attempt_id=first.attempt_id,
+        execution_path="continuous_episode",
+        terminal_owner="continuous_turn_adapter",
+        contributors=("turn_controller", "sdk_gpt"),
+        task_frame_hash="c" * 64,
+        cutoff="2026-07-23",
+        effective_backend="sdk_gpt",
+        effective_model="gpt-5.6-sol",
+    )
+    store.finish_execution_attempt(
+        run.run_id,
+        attempt_id=first.attempt_id,
+        status="completed",
+        artifact_receipts=(
+            {"path": "continuous-episode.json", "sha256": "d" * 64},
+        ),
+    )
+    second = store.start_execution_attempt(run.run_id, runtime)
+
+    assert first.attempt_index == 1
+    assert second.attempt_index == 2
+    assert [event["event_type"] for event in store.load_execution_attempts(run.run_id)] == [
+        "attempt.started",
+        "execution.bound",
+        "attempt.finished",
+        "attempt.started",
+    ]
+
+
+def test_execution_attempt_ledger_rejects_duplicate_terminal_events(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+    runtime = RuntimeExecutionIdentity(
+        runtime_instance_id="runtime-a",
+        source_revision="a" * 40,
+        source_dirty=False,
+        code_root="/candidate",
+        import_root="/candidate",
+        python_executable="/python",
+        backend="sdk_gpt",
+        model="gpt-5.6-sol",
+        provider_label="cockpit_local",
+        provider_protocol="openai_responses",
+        endpoint_fingerprint="b" * 64,
+    )
+    attempt = store.start_execution_attempt(run.run_id, runtime)
+    store.finish_execution_attempt(
+        run.run_id,
+        attempt_id=attempt.attempt_id,
+        status="failed",
+        artifact_receipts=(),
+    )
+
+    with pytest.raises(ValueError, match="finished"):
+        store.finish_execution_attempt(
+            run.run_id,
+            attempt_id=attempt.attempt_id,
+            status="completed",
+            artifact_receipts=(),
+        )
 
 
 def test_failed_run_records_error(store: RunStore) -> None:

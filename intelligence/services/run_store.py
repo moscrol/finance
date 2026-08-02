@@ -29,11 +29,13 @@ import json
 import os
 import re
 import threading
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from uuid import uuid4
 
 from intelligence import userspace
 from intelligence.services.workbench_db import DB_FILENAME, WorkbenchDB
@@ -41,6 +43,15 @@ from intelligence.api.stream_events import (
     STREAM_SCHEMA_VERSION,
     StreamEnvelope,
     canonical_event_type,
+)
+from intelligence.services.execution_provenance import (
+    ATTEMPT_EVENT_TYPES,
+    ExecutionAttempt,
+    RuntimeExecutionIdentity,
+    normalize_contributors,
+    validate_attempt_status,
+    validate_execution_path,
+    validate_hash,
 )
 
 SCHEMA_VERSION = 1
@@ -398,6 +409,269 @@ class RunStore:
             run.artifacts.append(asdict(artifact))
             self._write_run(run)
             return artifact
+
+    # ---------- execution attempt provenance ----------
+
+    def attempts_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "attempts.jsonl"
+
+    def _read_execution_attempts_unlocked(self, run_id: str) -> list[dict[str, Any]]:
+        path = self.attempts_path(run_id)
+        if not path.exists():
+            return []
+        raw = path.read_text(encoding="utf-8")
+        if raw and not raw.endswith("\n"):
+            raise ValueError("execution attempt ledger lacks final newline")
+        events: list[dict[str, Any]] = []
+        for index, line in enumerate(raw.splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"invalid execution attempt row {index}") from exc
+            if not isinstance(event, dict):
+                raise ValueError(f"invalid execution attempt row {index}")
+            if event.get("event_type") not in ATTEMPT_EVENT_TYPES:
+                raise ValueError(f"invalid execution attempt event row {index}")
+            if event.get("run_id") != run_id:
+                raise ValueError(f"execution attempt run mismatch row {index}")
+            if not isinstance(event.get("attempt_id"), str) or not event[
+                "attempt_id"
+            ].strip():
+                raise ValueError(f"execution attempt id missing row {index}")
+            attempt_index = event.get("attempt_index")
+            if (
+                isinstance(attempt_index, bool)
+                or not isinstance(attempt_index, int)
+                or attempt_index < 1
+            ):
+                raise ValueError(f"execution attempt index invalid row {index}")
+            events.append(event)
+        return events
+
+    def load_execution_attempts(self, run_id: str) -> list[dict[str, Any]]:
+        self.load_run(run_id)
+        path = self.attempts_path(run_id)
+        with _stream_lock(path):
+            return self._read_execution_attempts_unlocked(run_id)
+
+    def _append_execution_attempt_event(
+        self,
+        run_id: str,
+        event: dict[str, Any],
+    ) -> dict[str, Any]:
+        path = self.attempts_path(run_id)
+        safe_event = redact_value(event)
+        if not isinstance(safe_event, dict):
+            raise ValueError("execution attempt event must be an object")
+        with _stream_lock(path):
+            self._read_execution_attempts_unlocked(run_id)
+            self._write_execution_attempt_event_unlocked(path, safe_event)
+        return safe_event
+
+    @staticmethod
+    def _write_execution_attempt_event_unlocked(
+        path: Path,
+        event: dict[str, Any],
+    ) -> None:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+    @staticmethod
+    def _attempt_events_for(
+        events: Sequence[Mapping[str, Any]],
+        attempt_id: str,
+    ) -> list[dict[str, Any]]:
+        return [
+            dict(event)
+            for event in events
+            if event.get("attempt_id") == attempt_id
+        ]
+
+    def start_execution_attempt(
+        self,
+        run_id: str,
+        runtime: RuntimeExecutionIdentity,
+    ) -> ExecutionAttempt:
+        self.load_run(run_id)
+        path = self.attempts_path(run_id)
+        with _stream_lock(path):
+            events = self._read_execution_attempts_unlocked(run_id)
+            indexes = [
+                int(event["attempt_index"])
+                for event in events
+                if event.get("event_type") == "attempt.started"
+            ]
+            attempt = ExecutionAttempt(
+                attempt_id=f"attempt_{uuid4().hex}",
+                attempt_index=(max(indexes) + 1 if indexes else 1),
+            )
+            event = {
+                "schema_version": 1,
+                "event_type": "attempt.started",
+                "run_id": run_id,
+                "attempt_id": attempt.attempt_id,
+                "attempt_index": attempt.attempt_index,
+                "created_at": _now_iso(),
+                **runtime.to_dict(),
+            }
+            return_value = redact_value(event)
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(return_value, ensure_ascii=False) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            return attempt
+
+    def bind_execution_attempt(
+        self,
+        run_id: str,
+        *,
+        attempt_id: str,
+        execution_path: str,
+        terminal_owner: str,
+        contributors: Sequence[str],
+        task_frame_hash: str,
+        cutoff: str | None,
+        effective_backend: str,
+        effective_model: str,
+    ) -> dict[str, Any]:
+        self.load_run(run_id)
+        path = self.attempts_path(run_id)
+        attempt_id = str(attempt_id).strip()
+        execution_path = validate_execution_path(execution_path)
+        task_frame_hash = validate_hash(task_frame_hash, "task_frame_hash")
+        contributors = normalize_contributors(contributors)
+        terminal_owner = str(terminal_owner or "").strip()
+        if not terminal_owner:
+            raise ValueError("terminal_owner must be non-empty")
+        effective_backend = str(effective_backend or "").strip()
+        effective_model = str(effective_model or "").strip()
+        if not effective_backend or not effective_model:
+            raise ValueError("effective backend/model must be non-empty")
+        with _stream_lock(path):
+            events = self._read_execution_attempts_unlocked(run_id)
+            attempt_events = self._attempt_events_for(events, attempt_id)
+            started = next(
+                (
+                    event
+                    for event in attempt_events
+                    if event.get("event_type") == "attempt.started"
+                ),
+                None,
+            )
+            if started is None:
+                raise ValueError("execution attempt was not started")
+            if any(
+                event.get("event_type") == "execution.bound"
+                for event in attempt_events
+            ):
+                raise ValueError("execution attempt already bound")
+            if any(
+                event.get("event_type") == "attempt.finished"
+                for event in attempt_events
+            ):
+                raise ValueError("execution attempt already finished")
+            event = {
+                "schema_version": 1,
+                "event_type": "execution.bound",
+                "run_id": run_id,
+                "attempt_id": attempt_id,
+                "attempt_index": started["attempt_index"],
+                "created_at": _now_iso(),
+                "execution_path": execution_path,
+                "terminal_owner": terminal_owner,
+                "contributors": list(contributors),
+                "task_frame_hash": task_frame_hash,
+                "cutoff": str(cutoff or "").strip() or None,
+                "effective_backend": effective_backend,
+                "effective_model": effective_model,
+            }
+            safe_event = redact_value(event)
+            if not isinstance(safe_event, dict):
+                raise ValueError("execution attempt event must be an object")
+            self._write_execution_attempt_event_unlocked(path, safe_event)
+            return safe_event
+
+    def finish_execution_attempt(
+        self,
+        run_id: str,
+        *,
+        attempt_id: str,
+        status: str,
+        artifact_receipts: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        self.load_run(run_id)
+        status = validate_attempt_status(status)
+        path = self.attempts_path(run_id)
+        with _stream_lock(path):
+            events = self._read_execution_attempts_unlocked(run_id)
+            attempt_events = self._attempt_events_for(events, attempt_id)
+            started = next(
+                (
+                    event
+                    for event in attempt_events
+                    if event.get("event_type") == "attempt.started"
+                ),
+                None,
+            )
+            bound = next(
+                (
+                    event
+                    for event in attempt_events
+                    if event.get("event_type") == "execution.bound"
+                ),
+                None,
+            )
+            if started is None:
+                raise ValueError("execution attempt was not started")
+            if any(
+                event.get("event_type") == "attempt.finished"
+                for event in attempt_events
+            ):
+                raise ValueError("execution attempt already finished")
+            if bound is None and artifact_receipts:
+                raise ValueError(
+                    "artifact receipts require a bound execution attempt"
+                )
+            receipts: list[dict[str, Any]] = []
+            for raw in artifact_receipts:
+                if not isinstance(raw, Mapping):
+                    raise ValueError("artifact receipt must be an object")
+                artifact_path = str(raw.get("path") or "").strip()
+                if not artifact_path or artifact_path.startswith("/") or ".." in artifact_path:
+                    raise ValueError("artifact receipt path is unsafe")
+                receipt = {
+                    "path": artifact_path,
+                    "sha256": validate_hash(raw.get("sha256"), "artifact sha256"),
+                    "bytes": int(raw.get("bytes") or 0),
+                    "run_id": run_id,
+                    "attempt_id": attempt_id,
+                    "task_frame_hash": (
+                        bound["task_frame_hash"] if bound is not None else None
+                    ),
+                    "cutoff": bound.get("cutoff") if bound is not None else None,
+                }
+                if receipt["bytes"] < 0:
+                    raise ValueError("artifact receipt bytes must be non-negative")
+                receipts.append(receipt)
+            event = {
+                "schema_version": 1,
+                "event_type": "attempt.finished",
+                "run_id": run_id,
+                "attempt_id": attempt_id,
+                "attempt_index": started["attempt_index"],
+                "created_at": _now_iso(),
+                "status": status,
+                "artifact_receipts": receipts,
+            }
+            safe_event = redact_value(event)
+            if not isinstance(safe_event, dict):
+                raise ValueError("execution attempt event must be an object")
+            self._write_execution_attempt_event_unlocked(path, safe_event)
+            return safe_event
 
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""
