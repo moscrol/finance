@@ -868,6 +868,7 @@ Create `ruff.toml`:
 
 ```toml
 target-version = "py39"
+force-exclude = true
 extend-exclude = [
   # CLAUDE.md marks these old market.duckdb/table consumers as broken pending migration.
   "scripts/backtest_sector.py",
@@ -959,6 +960,7 @@ Add this repository before the existing `local` repository:
 ```
 
 The hook receives only staged filenames in normal commits; `ruff.toml` still excludes the four exact legacy paths.
+`force-exclude = true` is required because pre-commit passes those filenames explicitly; without it, Ruff would lint an excluded legacy file whenever it was staged.
 
 - [ ] **Step 2: Install the same Ruff version in CI and run it before pytest**
 

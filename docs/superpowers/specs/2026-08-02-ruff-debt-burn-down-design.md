@@ -143,7 +143,8 @@ exclude，再以 Ruff + 测试作为迁移验收。
 ### Batch E：增量门禁
 
 1. 在 pre-commit 中加入固定版本 Ruff hook；pre-commit 天然只检查 staged Python 文件，
-   形成“触碰即清理”的本地棘轮。
+   形成本地增量棘轮；`force-exclude=true` 保证显式传入的四个 legacy 路径仍与全仓门禁使用
+   同一排除口径，迁移 legacy 时必须先删除对应 exclude。
 2. 活跃范围清零后，在 `workbench-check.yml` 安装同版本 Ruff 并执行 `ruff check .`。
 3. Ruff 版本与规则选择固定在 `ruff.toml`，避免本地/CI 因版本漂移给出不同结论。
 

@@ -9,6 +9,11 @@ repos:
       - id: check-added-large-files       # 新增大文件 -> 拦截
         args: ["--maxkb=5120"]
       - id: check-merge-conflict          # 残留冲突标记 -> 拦截
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff-check
+        args: ["--config=ruff.toml"]
   - repo: local
     hooks:
       - id: block-forbidden-files

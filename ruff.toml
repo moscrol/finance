@@ -1,4 +1,6 @@
 target-version = "py39"
+# pre-commit passes staged files explicitly; keep the same exclusions in every entrypoint.
+force-exclude = true
 extend-exclude = [
   # CLAUDE.md marks these old market.duckdb/table consumers as broken pending migration.
   "scripts/backtest_sector.py",
