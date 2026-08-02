@@ -20,7 +20,7 @@
 
 | 项 | 值 |
 |---|---|
-| 工作 worktree | `/Users/a77/.merge-tmp-exposure` |
+| 工作 worktree | `/Users/a77/.finance-worktrees/legacy-script-migration`（原 `.merge-tmp-exposure`，本段改名） |
 | 分支 | `fix/legacy-script-migration` |
 | HEAD | `431ebcdb`（= 原 `f8feb997` 仅改提交正文，**树完全一致**，`git diff` 为空） |
 | 合并父 | `7d9c7364`（legacy） + `1e128053`（exposure），amend 后未变 |
@@ -140,7 +140,14 @@ test_mainline_theme_names_bounds_theme_date_by_as_of`，与 `test_ask_compose.py
 | # | 项 | 状态 |
 |---|---|---|
 | 1 | `_mainline_theme_names` 缺 `as_of` 边界测试（§4） | **已补并反验，见 §4** |
-| 2 | `_mainline_theme_names` / `_market_cause_window_block_for_llm` 仍用内联 `connect_readonly` | 未做，风格不统一，不阻塞 |
-| 3 | `.merge-tmp-exposure` 目录名名不副实——它已是本分支主开发 worktree，不是临时合并区 | 未做，不阻塞 |
+| 2 | `_mainline_theme_names` / `_market_cause_window_block_for_llm` 仍用内联 `connect_readonly` | **已收敛**（`bbcd1380`），11 个用连接的函数风格一致，内联归零 |
+| 3 | `.merge-tmp-exposure` 目录名名不副实——它已是本分支主开发 worktree，不是临时合并区 | **已改名** → `/Users/a77/.finance-worktrees/legacy-script-migration`（`git worktree move`） |
 
-下一步：质检发现的问题已全部处理完，可考虑 push / 合 main。**合并 main 需用户确认。**
+三条遗留全部结清。
+
+**一处如实说**：`git worktree move` 不改 git 自己的管理目录名，
+`.git/worktrees/-merge-tmp-exposure` 这个内部标识仍是旧名。它只是 git 的内部
+bookkeeping，人看得见的路径已经对了；手工改它要同时动 `gitdir` 与工作树 `.git`
+两个文件，风险大于收益，故未动。
+
+下一步：合并 main（用户已确认）。**push 未做，需另行确认。**
