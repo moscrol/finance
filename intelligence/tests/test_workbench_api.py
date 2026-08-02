@@ -1557,14 +1557,16 @@ def test_health_reports_selected_sdk_glm_runtime_without_secret(
         response = probe.get("/api/health")
 
     runtime = response.json()["runtime"]["agent_runtime"]
-    assert runtime == {
-        "backend": "sdk_glm",
-        "ready": True,
-        "reason": "ready",
-        "model": "glm-5.2",
-        "credential_available": True,
-        "benchmark_only": False,
-    }
+    assert runtime["backend"] == "sdk_glm"
+    assert runtime["ready"] is True
+    assert runtime["reason"] == "ready"
+    assert runtime["model"] == "glm-5.2"
+    assert runtime["credential_available"] is True
+    assert runtime["benchmark_only"] is False
+    assert runtime["provider_label"] == "zhipu"
+    assert runtime["provider_protocol"] == "openai_chat_completions"
+    assert runtime["provider_chain_size"] == 1
+    assert len(runtime["endpoint_fingerprint"]) == 64
     assert "test-glm-key" not in response.text
 
 

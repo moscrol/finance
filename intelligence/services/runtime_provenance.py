@@ -13,6 +13,9 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+from uuid import uuid4
+
+import intelligence
 
 _FINGERPRINT_PACKAGES = (
     "fastapi",
@@ -47,10 +50,15 @@ def _dependency_versions() -> dict[str, str]:
     return versions
 
 
-def build_runtime_provenance(code_root: str | Path) -> dict[str, object]:
+def build_runtime_provenance(
+    code_root: str | Path,
+    *,
+    runtime_instance_id: str | None = None,
+) -> dict[str, object]:
     """Return stable process identity without exposing secrets or env values."""
 
     root = Path(code_root).expanduser().resolve()
+    import_root = Path(intelligence.__file__).resolve().parents[1]
     revision = _git_output(root, "rev-parse", "HEAD")
     dirty = bool(_git_output(root, "status", "--porcelain"))
     dependencies = _dependency_versions()
@@ -58,9 +66,11 @@ def build_runtime_provenance(code_root: str | Path) -> dict[str, object]:
         f"{name}={version}" for name, version in sorted(dependencies.items())
     ).encode("utf-8")
     return {
+        "runtime_instance_id": runtime_instance_id or f"runtime_{uuid4().hex}",
         "source_revision": revision or "unknown",
         "source_dirty": dirty,
         "code_root": str(root),
+        "import_root": str(import_root),
         "python_executable": str(Path(sys.executable).resolve()),
         "python_version": platform.python_version(),
         "python_prefix": str(Path(sys.prefix).resolve()),

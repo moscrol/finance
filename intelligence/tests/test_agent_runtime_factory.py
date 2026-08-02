@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 
 import pytest
@@ -53,6 +54,26 @@ def test_sdk_gpt_readiness_accepts_session_openai_provider(monkeypatch) -> None:
     assert readiness.reason == "ready"
     assert readiness.credential_available is True
     assert readiness.model == "gpt-5.6-sol"
+
+
+def test_sdk_gpt_readiness_exposes_non_secret_cockpit_identity(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "never-print")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:57244/v1")
+    monkeypatch.setenv("OPENAI_AGENT_MODEL", "gpt-5.6-sol")
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER_LABEL", "cockpit_local")
+
+    readiness = runtime_backend_readiness(
+        resolve_runtime_backend("sdk_gpt"),
+        provider_chain_size=1,
+    )
+
+    payload = readiness.to_dict()
+    assert readiness.provider_label == "cockpit_local"
+    assert readiness.provider_protocol == "openai_responses"
+    assert readiness.provider_chain_size == 1
+    assert len(readiness.endpoint_fingerprint) == 64
+    assert "never-print" not in json.dumps(payload)
+    assert "57244" not in json.dumps(payload)
 
 
 def test_unknown_runtime_backend_fails_without_fallback(monkeypatch) -> None:
