@@ -196,6 +196,8 @@ market_feature_store/exports/YYYY-MM-DD-advancers-ma5.png
 python3 scripts/render_daily_review_template.py --trade-date YYYY-MM-DD
 ```
 
+该模板脚本是现役只读渲染入口，读取 `db/market_feature_store.duckdb`；不要再使用已退役的 `scripts/sync_to_local.py` 写入旧库。
+
 适用场景：
 
 - 需要按固化版式快速生成完整每日市场复盘。

@@ -45,7 +45,7 @@ git branch --show-current
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
-4. **策略回测（待迁移）** → ⚠️ `detect_turning_points.py`/`backfill_sector_marginal.py` 连旧库、**当前 broken**（详见「本地数据库 → Legacy 残骸」）；新分析直接查询 `fact_*` 表
+4. **策略分析与回测** → `detect_turning_points.py`、`backtest_sector.py` 只读 canonical `fact_*` 表；板块数据回填旧入口 `backfill_sector_marginal.py` 仍单独停用，不能混用旧库
 5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
 6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
 
@@ -80,7 +80,7 @@ git branch --show-current
 
 严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
 
-> ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。下列脚本仍写死旧库路径 + 旧表名，**当前跑会报 `Catalog Error: Table does not exist` 或连不上库**：`scripts/detect_turning_points.py`、`scripts/backtest_sector.py`、`scripts/sync_to_local.py`、`scripts/backfill_sector_marginal.py`、`scripts/render_daily_review_*.py`。后续 agent：不要跑这些旧脚本期望出数据，也不要直接删（先确认是否要迁移到星型模型）；新分析一律用 `fact_*` 表。
+> ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（早期飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。当前仍停用、待另行迁移的旧入口是 `scripts/backfill_sector_marginal.py`；新分析一律用 `fact_*` 表。`detect_turning_points.py` 与 `backtest_sector.py` 已迁移为 canonical 只读 CLI，`render_daily_review_template.py` 是现役日报渲染入口，`sync_to_local.py` 已改为无副作用退役 shim。
 
 > ⛔ **`scripts/fast_daily_sync.py` 已停用（2026-08-02）**，失败模式与上面那批不同：它连的是**当前**主库，但写 `fact_sector_daily` / `fact_sector_stock_daily`——这两个**在生产库里已经是 VIEW**（底层 `fact_*_generation` 表 + `sector_universe_snapshot_id`，读取只暴露 `published` 快照），INSERT 会抛 `Catalog Error: ... is not an table`。脚本已自带闸门，默认退出码 2。更要紧的是它的 sector-stocks 步骤是「拷昨日的行、改个日期」，只保留 sector→stock 归属，price/pct_chg/amount 全为 NULL——**行数和 `COUNT(*)` 覆盖率审计都正常，值却是空壳**（2026-06-22 致 daily-review §7/§12 全「暂无」）。这类静默降级只有**跨日期 diff** 能抓到，覆盖率检查永远发现不了。
 >
@@ -106,23 +106,24 @@ git branch --show-current
 
 ### 同步命令
 
-> ⚠️ **Legacy 残骸**：`sync_to_local.py` 写入旧库 `db/market.duckdb`（已移除），**当前 broken**。复盘数据统一走 `daily-full` CLI（见核心工作流 §1）。
+复盘事实统一由 canonical 入口写入：
 
 ```bash
-python3 scripts/sync_to_local.py              # 全量同步飞书→DuckDB
-python3 scripts/sync_to_local.py --incremental # 增量同步
+python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 ```
+
+`scripts/sync_to_local.py` 已正式退役，仅保留 `--help` 和明确退出码 2 的提示入口；它不读取凭证、不访问网络、不创建数据库。旧实现可从 Git 历史查阅，不要将其恢复成第二条写入链。
 
 ### 信号检测
 
-> ⚠️ **Legacy 残骸**：`detect_turning_points.py` 连旧库 `db/market.duckdb`、查 `advancers/daily_market`，**当前 broken**。新流程直接查询 `market_feature_store` 的 `fact_*` 表；`scripts/archive/compute_features.py` 仅保留历史复现，不是日常入口。
+`detect_turning_points.py` 现在只读 `market_feature_store` 的 `fact_market_daily` / `fact_sector_daily`，并与回测共用无前视的确认日算法；`scripts/archive/compute_features.py` 仅保留历史复现，不是日常入口。
 
 ```bash
 python3 scripts/detect_turning_points.py           # 全部历史
 python3 scripts/detect_turning_points.py --from 2026-04-01  # 指定起始
 ```
 
-三种触发条件：大盘放量>10%、大盘涨幅>0.8%（待补数据）、MA5峰/谷次日。
+三种触发条件：大盘放量>10%、MA5 峰确认、MA5 谷确认。峰谷信号只在确认日输出，不使用未来数据。
 
 ### 板块边际量回填
 
@@ -139,7 +140,7 @@ python3 scripts/backfill_sector_marginal.py <逗号分隔日期> <CDP_target_id>
 
 ### 板块回测
 
-> ⚠️ **Legacy 残骸**：`backtest_sector.py` 连旧库 `db/market.duckdb`、查 `sector_marginal/daily_market/advancers`，**当前 broken**。回测待迁移到星型模型（`fact_sector_daily` 等）。
+`backtest_sector.py` 只读 canonical `fact_sector_daily` / `fact_market_daily`，默认数据库路径可由 `MARKET_FEATURE_STORE_DB` 覆盖；不存在的数据库会 fail closed，不会自动创建旧库。
 
 ```bash
 python3 scripts/backtest_sector.py              # 默认参数

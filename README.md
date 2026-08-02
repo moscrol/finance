@@ -6,10 +6,12 @@ A股量化复盘+研究工具集。数据来源：fupanhui.com API（浏览器�
 
 ```
 ├── db/
-│   ├── schema.sql          # DuckDB 表定义
-│   └── market.duckdb       # 本地分析数据库（列存单文件）
+│   └── market_feature_store.duckdb  # canonical 本地事实库（运行时生成，不入库）
+├── market_feature_store/
+│   ├── schema.sql           # canonical DuckDB 表/视图定义
+│   └── cli.py               # daily-full 等现役入口
 ├── scripts/
-│   ├── sync_to_local.py    # 飞书 → DuckDB 同步
+│   ├── sync_to_local.py    # 已退役兼容入口（不再写库）
 │   ├── detect_turning_points.py  # MA5峰谷+放量信号检测
 │   ├── backfill_sector_marginal.py  # 板块边际量历史回填（CDP代理抓取）
 │   └── backtest_sector.py   # 板块边际量策略回测
@@ -22,17 +24,14 @@ A股量化复盘+研究工具集。数据来源：fupanhui.com API（浏览器�
 ## 快速开始
 
 ```bash
-# 初始化数据库
-mkdir -p db && duckdb db/market.duckdb < db/schema.sql
-
-# 飞书同步（需要 feishu_config.json 凭证）
-python3 scripts/sync_to_local.py
+# 每日复盘与 canonical 数据同步（按指定交易日运行）
+python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 # 信号检测
 python3 scripts/detect_turning_points.py
 
-# 板块边际量回填（需要 CDP proxy + fupanhui 登录态）
-python3 scripts/backfill_sector_marginal.py 2026-05-19,2026-05-20 <CDP_TARGET_ID>
+# 板块数据回填旧入口已停用；按指定交易日统一使用 daily-full
+# python3 scripts/backfill_sector_marginal.py ...  # 不要执行
 ```
 
 ## Chat-first Skill Workbench（本地/私有）
@@ -66,15 +65,13 @@ python -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8788
 ## 数据流
 
 ```
-fupanhui.com API ──(CDP proxy)──→ backfill_sector_marginal.py ──→ DuckDB
-                                  └──→ 飞书 Bitable (sector_daily)
-                                  └──→ 飞书电子表格 (sector_marginal_sheet)
-飞书 Bitable ──(API)──→ sync_to_local.py ──→ DuckDB
-                                    │
-                    detect_turning_points.py ←── DuckDB
-                    backtest_sector.py ←── DuckDB
-                                    │
-                            信号日期 + 板块边际量 → 策略分析
+fupanhui.com API ──(CDP proxy)──→ daily-full ──→ db/market_feature_store.duckdb
+                                                      │
+                              detect_turning_points.py / backtest_sector.py
+                                                      │
+                                      信号日期 + 板块边际量 → 策略分析
+
+旧的 sync_to_local.py 只保留退役提示，不再建立第二条飞书写入路径。
 ```
 
 ## 环境要求
