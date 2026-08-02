@@ -17,7 +17,8 @@ PROJECT_SCRIPTS = PROJECT_ROOT / "scripts"
 if str(PROJECT_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(PROJECT_SCRIPTS))
 
-import theme_radar_quality_rules as quality_rules
+# Direct execution needs the sibling scripts directory before this local import.
+import theme_radar_quality_rules as quality_rules  # noqa: E402
 
 try:
     import build_theme_evidence_readiness as readiness_builder

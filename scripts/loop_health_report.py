@@ -28,7 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from intelligence import userspace
+# Direct execution needs the repository root on sys.path before project imports.
+from intelligence import userspace  # noqa: E402
 
 # wiki/log.md 条目头：### #2177 | 2026-07-01 | sellside-coverage-cross + concept-ingest | 标题
 LOG_HEADER_RE = re.compile(

@@ -10,8 +10,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[3]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from market_feature_store.db import connect
-from market_feature_store.query import _zigzag
+# Direct execution needs the repository root on sys.path before project imports.
+from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.query import _zigzag  # noqa: E402
 
 DEFAULT_START = "2026-04-08"
 DEFAULT_END = "2026-06-05"

@@ -12,7 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 
-import theme_radar_quality_rules as quality_rules
+# Direct execution needs the sibling scripts directory before this local import.
+import theme_radar_quality_rules as quality_rules  # noqa: E402
 
 WIKI = Path('/Users/lbq/Desktop/c c/知识库/wiki')
 REL = WIKI / 'relations'

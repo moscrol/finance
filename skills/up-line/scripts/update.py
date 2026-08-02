@@ -8,7 +8,8 @@ from datetime import datetime
 PROJECT_DIR = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(PROJECT_DIR / "shared"))
-from feishu_utils import (
+# Direct execution needs the shared helper directory before this local import.
+from feishu_utils import (  # noqa: E402
     load_config, get_token as _get_token, fetch_all_records,
     batch_update, list_fields, create_field,
     ifind_query, parse_md_table, pad, fmt,

@@ -1,0 +1,11 @@
+target-version = "py39"
+extend-exclude = [
+  # CLAUDE.md marks these old market.duckdb/table consumers as broken pending migration.
+  "scripts/backtest_sector.py",
+  "scripts/detect_turning_points.py",
+  "scripts/sync_to_local.py",
+  "scripts/render_daily_review_template.py",
+]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]

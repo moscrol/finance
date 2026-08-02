@@ -49,7 +49,8 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from market_feature_store.db import connect, DB_PATH
+# Direct execution needs the repository root on sys.path before project imports.
+from market_feature_store.db import connect, DB_PATH  # noqa: E402
 
 DAILY_ADJ_DB = DB_PATH.parent / "daily_adj_19901219_20260618.duckdb"
 
