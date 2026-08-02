@@ -166,6 +166,8 @@ class CaseRun:
     tier: str
     turns: list[TurnTrace] = field(default_factory=list)
     blocked_reason: str | None = None
+    conversation_id: str | None = None
+    execution_diagnostics: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -234,7 +236,7 @@ def preflight(
     """
     try:
         health = _get(f"{base}/api/health", timeout=10)
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         failure = f"服务不可达: {type(exc).__name__}"
         return PreflightReport(
             acceptance_eligible=False,
@@ -400,6 +402,460 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
 
 
+def create_conversation(base: str, user: str, title: str = "acceptance") -> str:
+    payload = _post(
+        f"{base}/api/conversations",
+        {"title": title, "user": user},
+    )
+    conversation_id = str(
+        payload.get("conversation_id") or payload.get("id") or ""
+    ).strip()
+    if not conversation_id:
+        raise ValueError("create conversation response missing conversation_id")
+    return conversation_id
+
+
+def ask_turn(
+    base: str,
+    user: str,
+    conversation_id: str,
+    question: str,
+    timeout: float,
+    *,
+    expected_path: str | None = None,
+    preflight_receipt_hash: str | None = None,
+) -> TurnTrace:
+    """Submit one turn and wait for the exact assistant message returned by POST."""
+
+    trace = TurnTrace(
+        question=question,
+        conversation_id=conversation_id,
+        expected_execution_path=expected_path,
+        preflight_receipt_hash=preflight_receipt_hash,
+    )
+    started = time.monotonic()
+    try:
+        submission = _post(
+            f"{base}/api/conversations/{conversation_id}/messages",
+            {"content": question, "skill_mode": "auto", "user": user},
+        )
+        trace.user_message_id = str(submission.get("user_message_id") or "")
+        trace.assistant_message_id = str(
+            submission.get("assistant_message_id") or ""
+        )
+        trace.run_id = str(submission.get("run_id") or "")
+        if not all(
+            (
+                trace.user_message_id,
+                trace.assistant_message_id,
+                trace.run_id,
+            )
+        ):
+            raise ValueError("turn submission response missing stable identifiers")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            time.sleep(2.0)
+            messages_payload = _get(
+                f"{base}/api/conversations/{conversation_id}/messages?user={user}"
+            )
+            items = (
+                messages_payload
+                if isinstance(messages_payload, list)
+                else messages_payload.get("messages", [])
+            )
+            assistant = next(
+                (
+                    item
+                    for item in items
+                    if isinstance(item, dict)
+                    and item.get("message_id") == trace.assistant_message_id
+                ),
+                None,
+            )
+            if assistant is None or assistant.get("status") in {
+                None,
+                "pending",
+                "running",
+            }:
+                continue
+            if assistant.get("run_id") != trace.run_id:
+                raise ValueError("assistant message run_id differs from submission")
+            _fill_terminal_trace(base, user, trace, assistant)
+            break
+        else:
+            trace.status = "timeout"
+            trace.error = f"超过 {timeout}s 未返回终态"
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        trace.status = "error"
+        trace.error = str(exc)
+    trace.elapsed_s = round(time.monotonic() - started, 1)
+    return trace
+
+
+def _fill_terminal_trace(
+    base: str,
+    user: str,
+    trace: TurnTrace,
+    assistant: dict[str, Any],
+) -> None:
+    trace.answer = assistant.get("content")
+    trace.status = str(assistant.get("status") or "unknown")
+    trace.invoked_skill_ids = list(assistant.get("invoked_skill_ids") or [])
+    trace.citations = list(assistant.get("citations") or [])
+    trace.degrades = list(assistant.get("degrades") or [])
+    if not trace.run_id:
+        trace.error = "run_id_missing"
+        return
+    run = _get(f"{base}/api/runs/{trace.run_id}?user={user}")
+    if not isinstance(run, dict):
+        trace.error = "run_payload_invalid"
+        return
+    trace.parent_run_id = run.get("parent_run_id")
+    provenance = _get(
+        f"{base}/api/runs/{trace.run_id}/provenance?user={user}"
+    )
+    events = provenance.get("attempts") if isinstance(provenance, dict) else None
+    if not isinstance(events, list):
+        trace.error = "execution_provenance_missing"
+        return
+    finished = next(
+        (
+            item
+            for item in reversed(events)
+            if isinstance(item, dict)
+            and item.get("event_type") == "attempt.finished"
+            and item.get("run_id") == trace.run_id
+        ),
+        None,
+    )
+    if not isinstance(finished, dict):
+        trace.error = "attempt_finished_missing"
+        return
+    attempt_id = str(finished.get("attempt_id") or "")
+    bound = next(
+        (
+            item
+            for item in reversed(events)
+            if isinstance(item, dict)
+            and item.get("event_type") == "execution.bound"
+            and item.get("attempt_id") == attempt_id
+        ),
+        None,
+    )
+    started = next(
+        (
+            item
+            for item in reversed(events)
+            if isinstance(item, dict)
+            and item.get("event_type") == "attempt.started"
+            and item.get("attempt_id") == attempt_id
+        ),
+        None,
+    )
+    if not isinstance(bound, dict) or not isinstance(started, dict):
+        trace.error = "attempt_binding_missing"
+        return
+    trace.attempt_id = attempt_id
+    try:
+        trace.attempt_index = int(started["attempt_index"])
+    except (TypeError, ValueError):
+        trace.error = "attempt_index_invalid"
+        return
+    trace.runtime_instance_id = str(started.get("runtime_instance_id") or "")
+    trace.execution_path = str(bound.get("execution_path") or "")
+    trace.terminal_owner = str(bound.get("terminal_owner") or "")
+    trace.task_frame_hash = str(bound.get("task_frame_hash") or "")
+    trace.cutoff = str(bound.get("cutoff") or "") or None
+    if (
+        trace.expected_execution_path is not None
+        and trace.execution_path != trace.expected_execution_path
+    ):
+        trace.error = "execution_path_mismatch"
+        return
+    receipts = finished.get("artifact_receipts")
+    if not isinstance(receipts, list):
+        trace.error = "artifact_receipts_missing"
+        return
+    episode = next(
+        (
+            item
+            for item in receipts
+            if isinstance(item, dict)
+            and item.get("path") == "continuous-episode.json"
+        ),
+        None,
+    )
+    if trace.execution_path == "continuous_episode":
+        trace.artifact_receipt_valid = bool(
+            isinstance(episode, dict)
+            and episode.get("run_id") == trace.run_id
+            and episode.get("attempt_id") == trace.attempt_id
+            and episode.get("task_frame_hash") == trace.task_frame_hash
+            and episode.get("cutoff") == trace.cutoff
+            and re.fullmatch(
+                r"[0-9a-f]{64}", str(episode.get("sha256") or "")
+            )
+        )
+        if not trace.artifact_receipt_valid:
+            trace.error = "continuous_episode_receipt_mismatch"
+            return
+    else:
+        trace.artifact_receipt_valid = episode is None
+        if not trace.artifact_receipt_valid:
+            trace.error = "unexpected_continuous_episode_receipt"
+            return
+    _fill_run_detail(base, trace, user=user)
+
+
+def run_case(
+    base: str,
+    user: str,
+    case: Mapping[str, Any],
+    *,
+    timeout: float,
+    preflight_receipt_hash: str,
+    execution_contract: str,
+) -> CaseRun:
+    case_id = str(case["id"])
+    case_run = CaseRun(case_id=case_id, tier=str(case["tier"]))
+    try:
+        conversation_id = create_conversation(base, user, "acceptance")
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        case_run.blocked_reason = str(exc)
+        return case_run
+    case_run.conversation_id = conversation_id
+    questions = [str(case["query"]), *[str(item) for item in case.get("followups", [])]]
+    for question in questions:
+        trace = ask_turn(
+            base,
+            user,
+            conversation_id,
+            question,
+            timeout,
+            expected_path=execution_contract,
+            preflight_receipt_hash=preflight_receipt_hash,
+        )
+        case_run.turns.append(trace)
+        if trace.status in {"error", "timeout"}:
+            break
+    case_run.execution_diagnostics.extend(_case_execution_diagnostics(case, case_run))
+    return case_run
+
+
+def _case_execution_diagnostics(
+    case: Mapping[str, Any],
+    case_run: CaseRun,
+) -> list[str]:
+    """Check structural guarantees that cannot be inferred by the answer judge.
+
+    C10 is deliberately checked here instead of in the truth evaluator.  A
+    truth rule may say whether an answer is consistent, but it cannot prove
+    that the runner used one conversation, three distinct messages, and a
+    stable PIT cutoff.
+    """
+
+    diagnostics: list[str] = []
+    turns = case_run.turns
+    if case_run.blocked_reason:
+        diagnostics.append("conversation_creation_failed")
+        return diagnostics
+    if not turns:
+        diagnostics.append("no_turns_recorded")
+        return diagnostics
+
+    # Every turn in a formal run must carry the path and receipt that the
+    # execution contract asked for.  The detailed error remains on TurnTrace;
+    # this list is the bounded Layer 1 explanation.
+    for index, turn in enumerate(turns, 1):
+        if turn.error:
+            diagnostics.append(f"turn_{index}:{turn.error}")
+        if not turn.conversation_id:
+            diagnostics.append(f"turn_{index}:conversation_id_missing")
+        if not turn.run_id or not turn.assistant_message_id:
+            diagnostics.append(f"turn_{index}:stable_id_missing")
+        if turn.execution_path != turn.expected_execution_path:
+            diagnostics.append(f"turn_{index}:execution_path_mismatch")
+        if turn.artifact_receipt_valid is not True:
+            diagnostics.append(f"turn_{index}:artifact_receipt_invalid")
+        if not turn.attempt_id or not turn.task_frame_hash:
+            diagnostics.append(f"turn_{index}:attempt_binding_missing")
+
+    if len(turns) <= 1 and not case.get("check_cross_turn_consistency"):
+        return list(dict.fromkeys(diagnostics))
+
+    conversation_ids = {turn.conversation_id for turn in turns}
+    if len(conversation_ids) != 1 or None in conversation_ids:
+        diagnostics.append("multi_turn_conversation_not_reused")
+
+    run_ids = [turn.run_id for turn in turns]
+    if len(run_ids) != len(set(run_ids)) or any(not value for value in run_ids):
+        diagnostics.append("multi_turn_run_ids_not_distinct")
+    message_ids = [turn.assistant_message_id for turn in turns]
+    if len(message_ids) != len(set(message_ids)) or any(
+        not value for value in message_ids
+    ):
+        diagnostics.append("multi_turn_message_ids_not_distinct")
+
+    # The API creates each follow-up with conversation.last_run_id as its
+    # parent.  Checking the exact chain catches a runner that accidentally
+    # starts independent conversations even when the text happens to agree.
+    if turns[0].parent_run_id is not None:
+        diagnostics.append("multi_turn_first_parent_must_be_null")
+    for previous, current in zip(turns, turns[1:]):
+        if current.parent_run_id != previous.run_id:
+            diagnostics.append("multi_turn_parent_chain_mismatch")
+            break
+
+    cutoffs = [turn.cutoff for turn in turns]
+    if any(not cutoff for cutoff in cutoffs) or len(set(cutoffs)) != 1:
+        diagnostics.append("multi_turn_cutoff_not_stable")
+    expected_date = str(case.get("date") or "").strip()
+    if expected_date and any(
+        cutoff and not str(cutoff).startswith(expected_date) for cutoff in cutoffs
+    ):
+        diagnostics.append("multi_turn_cutoff_mismatch")
+    return list(dict.fromkeys(diagnostics))
+
+
+def _execution_summary(
+    runs: list[CaseRun],
+    execution_contracts: Mapping[str, str],
+    *,
+    expected: ExpectedRuntime | None,
+    preflight_report: PreflightReport,
+) -> dict[str, Any]:
+    """Produce the non-negotiable Layer 1 receipt independently of Layer 2."""
+
+    turns = [turn for case_run in runs for turn in case_run.turns]
+    path_matches = sum(
+        1
+        for turn in turns
+        if turn.execution_path
+        and turn.execution_path == turn.expected_execution_path
+    )
+    episode_turns = [
+        turn for turn in turns if turn.execution_path == "continuous_episode"
+    ]
+    runtime_ids = sorted(
+        {str(turn.runtime_instance_id) for turn in turns if turn.runtime_instance_id}
+    )
+    expected_runtime_id = ""
+    observed_runtime = preflight_report.observed.get("runtime")
+    if isinstance(observed_runtime, Mapping):
+        expected_runtime_id = str(observed_runtime.get("runtime_instance_id") or "")
+    runtime_instance_matches = sum(
+        1
+        for turn in turns
+        if expected_runtime_id
+        and turn.runtime_instance_id == expected_runtime_id
+    )
+    c10 = next(
+        (case_run for case_run in runs if case_run.case_id == "C10-multi-turn-consistency"),
+        None,
+    )
+    c10_turns = c10.turns if c10 is not None else []
+    c10_conversations = sorted(
+        {turn.conversation_id for turn in c10_turns if turn.conversation_id}
+    )
+    c10_run_ids = [turn.run_id for turn in c10_turns]
+    c10_message_ids = [turn.assistant_message_id for turn in c10_turns]
+    c10_cutoffs = [turn.cutoff for turn in c10_turns]
+    c10_summary = {
+        "turns": len(c10_turns),
+        "conversation_ids": c10_conversations,
+        "single_conversation": len(c10_conversations) == 1 and len(c10_turns) == 3,
+        "distinct_run_ids": len(c10_run_ids) == len(set(c10_run_ids))
+        and all(c10_run_ids),
+        "distinct_assistant_message_ids": len(c10_message_ids)
+        == len(set(c10_message_ids))
+        and all(c10_message_ids),
+        "parent_chain_valid": bool(c10_turns)
+        and c10_turns[0].parent_run_id is None
+        and all(
+            current.parent_run_id == previous.run_id
+            for previous, current in zip(c10_turns, c10_turns[1:])
+        ),
+        "cutoff_consistent": bool(c10_turns)
+        and all(c10_cutoffs)
+        and len(set(c10_cutoffs)) == 1,
+    }
+    c10_summary["structural_valid"] = all(
+        bool(c10_summary[key])
+        for key in (
+            "single_conversation",
+            "distinct_run_ids",
+            "distinct_assistant_message_ids",
+            "parent_chain_valid",
+            "cutoff_consistent",
+        )
+    ) if c10 is not None else True
+
+    expected_path_by_case = {
+        case_run.case_id: execution_contracts.get(case_run.case_id)
+        for case_run in runs
+    }
+    turn_contract_valid = all(
+        turn.status == "completed"
+        and not turn.error
+        and turn.expected_execution_path == expected_path_by_case.get(case_run.case_id)
+        and turn.execution_path == turn.expected_execution_path
+        and turn.artifact_receipt_valid is True
+        and bool(turn.attempt_id)
+        and bool(turn.task_frame_hash)
+        and bool(turn.runtime_instance_id)
+        and (
+            not expected_runtime_id
+            or turn.runtime_instance_id == expected_runtime_id
+        )
+        for case_run in runs
+        for turn in case_run.turns
+    )
+    layer1_eligible = bool(
+        expected is not None
+        and preflight_report.acceptance_eligible
+        and bool(turns)
+        and path_matches == len(turns)
+        and len(episode_turns)
+        == sum(
+            1
+            for case_run in runs
+            for _ in case_run.turns
+            if execution_contracts.get(case_run.case_id) == "continuous_episode"
+        )
+        and sum(
+            1 for turn in episode_turns if turn.artifact_receipt_valid is True
+        )
+        == len(episode_turns)
+        and runtime_instance_matches == len(turns)
+        and len(runtime_ids) <= 1
+        and turn_contract_valid
+        and bool(c10_summary["structural_valid"])
+    )
+    diagnostics = list(
+        dict.fromkeys(
+            diagnostic
+            for case_run in runs
+            for diagnostic in case_run.execution_diagnostics
+        )
+    )
+    if expected is not None and not preflight_report.acceptance_eligible:
+        diagnostics.insert(0, "preflight_ineligible")
+    return {
+        "total_turns": len(turns),
+        "path_matches": path_matches,
+        "continuous_episode_turns": len(episode_turns),
+        "valid_episode_receipts": sum(
+            1 for turn in episode_turns if turn.artifact_receipt_valid is True
+        ),
+        "runtime_instance_ids": runtime_ids,
+        "runtime_instance_drift": len(runtime_ids) > 1,
+        "runtime_instance_matches": runtime_instance_matches,
+        "c10": c10_summary,
+        "layer1_eligible": layer1_eligible,
+        "diagnostics": diagnostics,
+    }
+
+
 _SYNTHESIS_DIAGNOSTIC_FIELDS = (
     "state",
     "reason_code",
@@ -444,47 +900,21 @@ def _capture_synthesis_diagnostic(steps: list[Any]) -> dict[str, Any]:
 
 
 def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
-    """真实提问一次并轮询到终态。返回可复核的轨迹。"""
-    trace = TurnTrace(question=question)
-    started = time.monotonic()
+    """Compatibility wrapper: one new conversation and one exact turn."""
     try:
-        conv = _post(f"{base}/api/conversations", {"title": "acceptance", "user": user})
-        conv_id = conv.get("conversation_id") or conv.get("id")
-        if not conv_id:
-            trace.status = "error"
-            trace.error = f"未拿到 conversation_id: {conv}"
-            return trace
-        _post(
-            f"{base}/api/conversations/{conv_id}/messages",
-            {"content": question, "skill_mode": "auto", "user": user},
+        conversation_id = create_conversation(base, user, "acceptance")
+        return ask_turn(
+            base,
+            user,
+            conversation_id,
+            question,
+            timeout,
         )
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            time.sleep(2.0)
-            msgs = _get(f"{base}/api/conversations/{conv_id}/messages?user={user}")
-            items = msgs if isinstance(msgs, list) else msgs.get("messages", [])
-            assistant = [m for m in items if m.get("role") == "assistant"]
-            if not assistant:
-                continue
-            last = assistant[-1]
-            if last.get("status") in {"pending", "running", None}:
-                continue
-            trace.answer = last.get("content")
-            trace.status = last.get("status") or "unknown"
-            trace.run_id = last.get("run_id")
-            trace.invoked_skill_ids = list(last.get("invoked_skill_ids") or [])
-            trace.citations = list(last.get("citations") or [])
-            trace.degrades = list(last.get("degrades") or [])
-            _fill_run_detail(base, trace, user=user)
-            break
-        else:
-            trace.status = "timeout"
-            trace.error = f"超过 {timeout}s 未返回终态"
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        trace = TurnTrace(question=question)
         trace.status = "error"
         trace.error = str(exc)
-    trace.elapsed_s = round(time.monotonic() - started, 1)
-    return trace
+        return trace
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -538,14 +968,32 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"选中 {len(selected)} / {len(doc['cases'])} 道题\n")
     runs: list[CaseRun] = []
     for i, case in enumerate(selected, 1):
-        cr = CaseRun(case_id=case["id"], tier=case["tier"])
         print(f"[{i}/{len(selected)}] {case['id']} … ", end="", flush=True)
-        questions = [case["query"], *case.get("followups", [])]
-        for q in questions:
-            t = ask_once(args.base, args.user, q, args.timeout)
-            cr.turns.append(t)
-            if t.status in {"error", "timeout"}:
-                break
+        execution_contract = execution_contracts[case["id"]]
+        if expected is not None:
+            # Formal acceptance always goes through the exact-ID, one-
+            # conversation-per-case runner.  This is the path whose
+            # provenance is eligible for the Continuous Harness board.
+            cr = run_case(
+                args.base,
+                args.user,
+                case,
+                timeout=args.timeout,
+                preflight_receipt_hash=preflight_report.receipt_hash,
+                execution_contract=execution_contract,
+            )
+        else:
+            # Keep the historical diagnostic CLI compatible.  It is
+            # intentionally non-formal because no strict runtime identity was
+            # supplied, and therefore can never unlock the Continuous board.
+            cr = CaseRun(case_id=case["id"], tier=case["tier"])
+            questions = [case["query"], *case.get("followups", [])]
+            for q in questions:
+                t = ask_once(args.base, args.user, q, args.timeout)
+                cr.turns.append(t)
+                if t.status in {"error", "timeout"}:
+                    break
+            cr.execution_diagnostics.extend(_case_execution_diagnostics(case, cr))
         head = cr.turns[0] if cr.turns else None
         degraded = " ⚠降级" if head and head.degrades else ""
         print(
@@ -553,6 +1001,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             f"证据={head.evidence_bound if head else 0}{degraded}"
         )
         runs.append(cr)
+
+    execution_summary = _execution_summary(
+        runs,
+        execution_contracts,
+        expected=expected,
+        preflight_report=preflight_report,
+    )
+    formal_acceptance_eligible = bool(
+        preflight_report.acceptance_eligible
+        and execution_summary["layer1_eligible"]
+    )
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = output_path or RUNS_DIR / f"{stamp}.json"
@@ -562,8 +1021,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         "base": args.base,
         "preflight_ok": ok,
         "preflight_detail": detail,
-        "acceptance_eligible": preflight_report.acceptance_eligible,
+        "acceptance_eligible": formal_acceptance_eligible,
+        "preflight_acceptance_eligible": preflight_report.acceptance_eligible,
         "preflight": asdict(preflight_report),
+        "execution_summary": execution_summary,
         "execution_contracts": {
             case_id: execution_contracts[case_id]
             for case_id in (case["id"] for case in selected)
@@ -648,6 +1109,17 @@ def cmd_board(args: argparse.Namespace) -> int:
                 print(
                     f"❌ 指定运行 {run_path.stem} acceptance_eligible=false，"
                     "不能进入正式看板计数"
+                )
+                return 2
+            execution_summary = record.get("execution_summary")
+            if (
+                isinstance(execution_summary, Mapping)
+                and "layer1_eligible" in execution_summary
+                and execution_summary.get("layer1_eligible") is not True
+            ):
+                print(
+                    f"❌ 指定运行 {run_path.stem} Layer 1 execution_summary 不合格，"
+                    "不能进入正式 Continuous 看板计数"
                 )
                 return 2
             by_id = {case["case_id"]: case for case in record["cases"]}

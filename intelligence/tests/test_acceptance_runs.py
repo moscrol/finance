@@ -85,6 +85,39 @@ def test_newer_run_replaces_only_cases_it_contains(tmp_path: Path) -> None:
     assert selected["A2-next-day-call"].generated_at == "20260801T010000Z"
 
 
+def test_layer1_ineligible_formal_run_never_enters_board_catalog(
+    tmp_path: Path,
+) -> None:
+    eligible = {
+        "generated_at": "20260801T010000Z",
+        "acceptance_eligible": True,
+        "execution_summary": {"layer1_eligible": True},
+        "cases": [_case("A1-market-overview", "high_freq")],
+    }
+    ineligible = {
+        "generated_at": "20260801T020000Z",
+        "acceptance_eligible": True,
+        "execution_summary": {
+            "layer1_eligible": False,
+            "diagnostics": ["turn_1:execution_path_mismatch"],
+        },
+        "cases": [_case("A1-market-overview", "high_freq")],
+    }
+    (tmp_path / "20260801T010000Z.json").write_text(
+        json.dumps(eligible), encoding="utf-8"
+    )
+    (tmp_path / "20260801T020000Z.json").write_text(
+        json.dumps(ineligible), encoding="utf-8"
+    )
+
+    selected = select_latest_case_runs(
+        tmp_path,
+        {"A1-market-overview": "high_freq"},
+    )
+
+    assert selected["A1-market-overview"].generated_at == "20260801T010000Z"
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -180,6 +213,81 @@ def test_run_output_writes_exact_requested_path(
     assert output.is_file()
     saved = json.loads(output.read_text(encoding="utf-8"))
     assert saved["cases"][0]["case_id"] == "A1-market-overview"
+
+
+def test_formal_run_uses_one_conversation_case_runner_and_persists_layer1(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = {
+        "id": "A1-market-overview",
+        "tier": "high_freq",
+        "query": "market?",
+    }
+    monkeypatch.setattr(acceptance, "load_cases", lambda: {"cases": [case]})
+    monkeypatch.setattr(
+        acceptance,
+        "load_execution_contracts",
+        lambda: {"A1-market-overview": "continuous_episode"},
+    )
+    expected = acceptance.ExpectedRuntime(
+        mode="on",
+        backend="sdk_gpt",
+        model="gpt-5.6-sol",
+        revision="a" * 40,
+        code_root=str(tmp_path),
+        provider_label="cockpit_local",
+    )
+    report = acceptance.PreflightReport(
+        acceptance_eligible=True,
+        failures=(),
+        expected=expected.__dict__,
+        observed={"runtime": {"runtime_instance_id": "runtime-1"}},
+        receipt_hash="b" * 64,
+    )
+    monkeypatch.setattr(acceptance, "_expected_runtime_from_args", lambda _args: expected)
+    monkeypatch.setattr(acceptance, "preflight", lambda _base, _expected: report)
+    calls: list[str] = []
+
+    def fake_run_case(*_args, **kwargs):
+        calls.append(kwargs["execution_contract"])
+        return acceptance.CaseRun(
+            case_id="A1-market-overview",
+            tier="high_freq",
+            turns=[
+                acceptance.TurnTrace(
+                    question="market?",
+                    conversation_id="conv-1",
+                    run_id="run-1",
+                    assistant_message_id="message-1",
+                    expected_execution_path="continuous_episode",
+                    execution_path="continuous_episode",
+                    runtime_instance_id="runtime-1",
+                    task_frame_hash="c" * 64,
+                    cutoff="2026-07-23",
+                    attempt_id="attempt-1",
+                    artifact_receipt_valid=True,
+                    status="completed",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(acceptance, "run_case", fake_run_case)
+    monkeypatch.setattr(
+        acceptance,
+        "ask_once",
+        lambda *_args: pytest.fail("formal run must not use ask_once"),
+    )
+    output = tmp_path / "formal.json"
+
+    assert acceptance.main(["run", "--output", str(output)]) == 0
+
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    assert calls == ["continuous_episode"]
+    assert saved["acceptance_eligible"] is True
+    assert saved["execution_summary"]["total_turns"] == 1
+    assert saved["execution_summary"]["path_matches"] == 1
+    assert saved["execution_summary"]["valid_episode_receipts"] == 1
 
 
 def test_run_output_refuses_to_overwrite_existing_path(

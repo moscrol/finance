@@ -166,6 +166,253 @@ def test_execution_contract_overlay_covers_exact_frozen_cases() -> None:
     assert contracts["C10-multi-turn-consistency"] == "continuous_episode"
 
 
+def test_ask_turn_polls_exact_assistant_message_and_run(
+    monkeypatch,
+) -> None:
+    posts: list[tuple[str, dict[str, object]]] = []
+
+    def fake_post(url: str, payload: dict[str, object], timeout: float = 30.0):
+        del timeout
+        posts.append((url, payload))
+        return {
+            "user_message_id": "user-new",
+            "assistant_message_id": "assistant-new",
+            "run_id": "run-new",
+        }
+
+    monkeypatch.setattr(acceptance, "_post", fake_post)
+    monkeypatch.setattr(acceptance.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        acceptance,
+        "_get",
+        lambda url, timeout=30.0: [
+            {
+                "role": "assistant",
+                "message_id": "assistant-old",
+                "run_id": "run-old",
+                "status": "completed",
+                "content": "旧答案",
+            },
+            {
+                "role": "assistant",
+                "message_id": "assistant-new",
+                "run_id": "run-new",
+                "status": "completed",
+                "content": "新答案",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        acceptance,
+        "_fill_terminal_trace",
+        lambda _base, _user, trace, assistant: (
+            setattr(trace, "answer", assistant["content"]),
+            setattr(trace, "status", assistant["status"]),
+        ),
+    )
+
+    trace = acceptance.ask_turn(
+        "http://stub",
+        "alice",
+        "conv-1",
+        "第二轮",
+        1.0,
+        expected_path="continuous_episode",
+        preflight_receipt_hash="a" * 64,
+    )
+
+    assert trace.answer == "新答案"
+    assert trace.run_id == "run-new"
+    assert trace.assistant_message_id == "assistant-new"
+    assert len(posts) == 1
+
+
+def test_run_case_creates_one_conversation_for_all_followups(monkeypatch) -> None:
+    created: list[str] = []
+    submitted: list[str] = []
+
+    monkeypatch.setattr(
+        acceptance,
+        "create_conversation",
+        lambda _base, _user, _title: (created.append("conv-1") or "conv-1"),
+    )
+
+    def fake_ask_turn(
+        _base,
+        _user,
+        conversation_id,
+        question,
+        _timeout,
+        *,
+        expected_path,
+        preflight_receipt_hash,
+    ):
+        submitted.append(conversation_id)
+        index = len(submitted)
+        return acceptance.TurnTrace(
+            question=question,
+            conversation_id=conversation_id,
+            run_id=f"run-{index}",
+            assistant_message_id=f"message-{index}",
+            parent_run_id=f"run-{index - 1}" if index > 1 else None,
+            status="completed",
+            expected_execution_path=expected_path,
+            execution_path=expected_path,
+            runtime_instance_id="runtime-1",
+            task_frame_hash="c" * 64,
+            cutoff="2026-07-23",
+            attempt_id=f"attempt-{index}",
+            artifact_receipt_valid=True,
+            preflight_receipt_hash=preflight_receipt_hash,
+        )
+
+    monkeypatch.setattr(acceptance, "ask_turn", fake_ask_turn)
+    case = {
+        "id": "C10-multi-turn-consistency",
+        "tier": "long_tail",
+        "query": "首问",
+        "followups": ["追问一", "追问二"],
+    }
+
+    result = acceptance.run_case(
+        "http://stub",
+        "alice",
+        case,
+        timeout=1.0,
+        preflight_receipt_hash="b" * 64,
+        execution_contract="continuous_episode",
+    )
+
+    assert created == ["conv-1"]
+    assert submitted == ["conv-1", "conv-1", "conv-1"]
+    assert [turn.conversation_id for turn in result.turns] == ["conv-1"] * 3
+    assert len({turn.run_id for turn in result.turns}) == 3
+    assert len({turn.assistant_message_id for turn in result.turns}) == 3
+    assert result.execution_diagnostics == []
+
+
+def test_execution_summary_counts_layer_one_and_c10_invariants() -> None:
+    turns = [
+        acceptance.TurnTrace(
+            question="q1",
+            conversation_id="conv-1",
+            run_id="run-1",
+            assistant_message_id="message-1",
+            parent_run_id=None,
+            expected_execution_path="continuous_episode",
+            execution_path="continuous_episode",
+            runtime_instance_id="runtime-1",
+            task_frame_hash="a" * 64,
+            cutoff="2026-07-23",
+            attempt_id="attempt-1",
+            artifact_receipt_valid=True,
+            status="completed",
+        ),
+        acceptance.TurnTrace(
+            question="q2",
+            conversation_id="conv-1",
+            run_id="run-2",
+            assistant_message_id="message-2",
+            parent_run_id="run-1",
+            expected_execution_path="continuous_episode",
+            execution_path="continuous_episode",
+            runtime_instance_id="runtime-1",
+            task_frame_hash="b" * 64,
+            cutoff="2026-07-23",
+            attempt_id="attempt-2",
+            artifact_receipt_valid=True,
+            status="completed",
+        ),
+        acceptance.TurnTrace(
+            question="q3",
+            conversation_id="conv-1",
+            run_id="run-3",
+            assistant_message_id="message-3",
+            parent_run_id="run-2",
+            expected_execution_path="continuous_episode",
+            execution_path="continuous_episode",
+            runtime_instance_id="runtime-1",
+            task_frame_hash="d" * 64,
+            cutoff="2026-07-23",
+            attempt_id="attempt-3",
+            artifact_receipt_valid=True,
+            status="completed",
+        ),
+    ]
+    case_run = acceptance.CaseRun(
+        case_id="C10-multi-turn-consistency",
+        tier="long_tail",
+        turns=turns,
+        conversation_id="conv-1",
+    )
+    report = acceptance.PreflightReport(
+        acceptance_eligible=True,
+        failures=(),
+        expected={},
+        observed={"runtime": {"runtime_instance_id": "runtime-1"}},
+        receipt_hash="e" * 64,
+    )
+
+    summary = acceptance._execution_summary(
+        [case_run],
+        {"C10-multi-turn-consistency": "continuous_episode"},
+        expected=STRICT_EXPECTED,
+        preflight_report=report,
+    )
+
+    assert summary["total_turns"] == 3
+    assert summary["path_matches"] == 3
+    assert summary["continuous_episode_turns"] == 3
+    assert summary["valid_episode_receipts"] == 3
+    assert summary["runtime_instance_drift"] is False
+    assert summary["c10"]["single_conversation"] is True
+    assert summary["c10"]["parent_chain_valid"] is True
+    assert summary["layer1_eligible"] is True
+
+
+def test_execution_summary_rejects_c10_cutoff_drift() -> None:
+    turns = [
+        acceptance.TurnTrace(
+            question="q",
+            conversation_id="conv-1",
+            run_id=f"run-{index}",
+            assistant_message_id=f"message-{index}",
+            parent_run_id=f"run-{index - 1}" if index > 1 else None,
+            expected_execution_path="continuous_episode",
+            execution_path="continuous_episode",
+            runtime_instance_id="runtime-1",
+            task_frame_hash="a" * 64,
+            cutoff=cutoff,
+            attempt_id=f"attempt-{index}",
+            artifact_receipt_valid=True,
+            status="completed",
+        )
+        for index, cutoff in enumerate(
+            ("2026-07-23", "2026-07-23", "2026-07-24"), 1
+        )
+    ]
+    case_run = acceptance.CaseRun(
+        case_id="C10-multi-turn-consistency", tier="long_tail", turns=turns
+    )
+    report = acceptance.PreflightReport(
+        acceptance_eligible=True,
+        failures=(),
+        expected={},
+        observed={"runtime": {"runtime_instance_id": "runtime-1"}},
+        receipt_hash="e" * 64,
+    )
+
+    summary = acceptance._execution_summary(
+        [case_run],
+        {"C10-multi-turn-consistency": "continuous_episode"},
+        expected=STRICT_EXPECTED,
+        preflight_report=report,
+    )
+
+    assert summary["c10"]["cutoff_consistent"] is False
+    assert summary["layer1_eligible"] is False
+
+
 def test_failure_classification_separates_seam_from_quality():
     """接缝失败不该算进题目分数 —— 否则修凭据会被误读成『题目变好了』。"""
     assert acceptance.classify_failure({"status": "timeout"}) == "接缝:超时"

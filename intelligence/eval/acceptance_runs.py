@@ -103,6 +103,18 @@ def select_latest_case_runs(
             and record.get("acceptance_eligible") is not True
         ):
             continue
+        # New formal receipts carry a measured Layer 1 execution summary.
+        # A run with a path/attempt/receipt mismatch is useful diagnostic
+        # evidence, but must not silently replace an eligible Continuous run
+        # in the product board.  Legacy artifacts have no summary and remain
+        # readable for historical comparison.
+        execution_summary = record.get("execution_summary")
+        if (
+            isinstance(execution_summary, Mapping)
+            and "layer1_eligible" in execution_summary
+            and execution_summary.get("layer1_eligible") is not True
+        ):
+            continue
         source_sha256 = sha256_file(path)
         for case_run in record["cases"]:
             case_id = case_run["case_id"]
