@@ -264,24 +264,22 @@ def load_midterm_trend_artifact(
             (),
             degrade_reason="D6 中期趋势库不存在",
         )
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if db_result.status == "dependency_unavailable":
         return MidtermTrendArtifact(
             window,
             (),
             (),
             degrade_reason="D6 中期趋势依赖不可用",
         )
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
+    if db_result.status == "open_failed":
         return MidtermTrendArtifact(
             window,
             (),
             (),
             degrade_reason="D6 中期趋势库不可读",
         )
+    con = db_result.connection
     try:
         themes = resolve_query_themes(con, query, anchored_theme)
         trends: list[dict[str, Any]] = []

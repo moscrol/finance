@@ -134,14 +134,17 @@ def fetch_timeseries(
     db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
     if not db_path.exists():
         return {"found": False, "dates": [], "values": {}, "warnings": [f"本地 DuckDB 不存在：{db_path}"]}
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if db_result.status == "dependency_unavailable":
         return {"found": False, "dates": [], "values": {}, "warnings": ["duckdb 库不可用"]}
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception as exc:
-        return {"found": False, "dates": [], "values": {}, "warnings": [f"DuckDB 连接失败：{exc}"]}
+    if db_result.status == "open_failed":
+        return {
+            "found": False,
+            "dates": [],
+            "values": {},
+            "warnings": [f"DuckDB 连接失败（{db_result.error_type or 'unknown'}）"],
+        }
+    con = db_result.connection
     try:
         date_rows = con.execute(
             "SELECT DISTINCT trade_date FROM fact_market_daily ORDER BY trade_date DESC LIMIT ?",

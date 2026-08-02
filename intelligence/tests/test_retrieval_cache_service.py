@@ -3,6 +3,8 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from intelligence.services import ask_planner, retrieval_cache
 
@@ -85,6 +87,55 @@ class DuckDBRunPoolTests(unittest.TestCase):
                 self.assertEqual([o.block for o in outcomes], ["42", "42"])
                 # 并行线程借用同一个底层连接（contextvars 已随 copy_context 传播）
                 self.assertEqual(len(pool._connections), 1)
+
+
+class DuckDBConnectionResultTests(unittest.TestCase):
+    def test_dependency_unavailable_is_structured(self) -> None:
+        with mock.patch.object(
+            retrieval_cache,
+            "_load_duckdb",
+            side_effect=ModuleNotFoundError("No module named 'duckdb'"),
+        ):
+            result = retrieval_cache.try_connect_readonly("missing.duckdb")
+
+        self.assertEqual(result.status, "dependency_unavailable")
+        self.assertIsNone(result.connection)
+        self.assertEqual(result.error_type, "ModuleNotFoundError")
+
+    def test_open_failure_is_distinct_from_missing_dependency(self) -> None:
+        fake_duckdb = SimpleNamespace(
+            connect=mock.Mock(side_effect=RuntimeError("cannot open database"))
+        )
+        with mock.patch.object(
+            retrieval_cache, "_load_duckdb", return_value=fake_duckdb
+        ):
+            result = retrieval_cache.try_connect_readonly("broken.duckdb")
+
+        self.assertEqual(result.status, "open_failed")
+        self.assertIsNone(result.connection)
+        self.assertEqual(result.error_type, "RuntimeError")
+
+    def test_missing_readonly_database_is_an_open_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = retrieval_cache.try_connect_readonly(
+                Path(tmp) / "missing.duckdb"
+            )
+
+        self.assertEqual(result.status, "open_failed")
+        self.assertIsNone(result.connection)
+        self.assertEqual(result.error_type, "IOException")
+
+    def test_success_returns_the_connection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "ok.duckdb"
+            import duckdb
+
+            duckdb.connect(str(db_path)).close()
+            result = retrieval_cache.try_connect_readonly(db_path)
+
+            self.assertEqual(result.status, "available")
+            self.assertIsNotNone(result.connection)
+            result.connection.close()
 
 
 if __name__ == "__main__":

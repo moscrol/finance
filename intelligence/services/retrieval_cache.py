@@ -17,12 +17,34 @@ import threading
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 
 
 def _normalize_query(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "").lower())
+
+
+DuckDBConnectionStatus = Literal[
+    "available", "dependency_unavailable", "open_failed"
+]
+
+
+@dataclass(frozen=True)
+class DuckDBConnectionResult:
+    status: DuckDBConnectionStatus
+    connection: Any | None = None
+    error_type: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return self.status == "available" and self.connection is not None
+
+
+def _load_duckdb() -> Any:
+    return import_module("duckdb")
 
 
 class RetrievalCache:
@@ -97,7 +119,7 @@ class _DuckDBPool:
         with self._lock:
             con = self._connections.get(db_path)
             if con is None:
-                import duckdb  # type: ignore
+                duckdb = _load_duckdb()
 
                 try:
                     con = duckdb.connect(db_path, read_only=True)
@@ -144,6 +166,19 @@ def connect_readonly(db_path: str | Path) -> Any:
         cursor = pool.borrow(str(db_path))
         if cursor is not None:
             return cursor
-    import duckdb  # type: ignore
+    duckdb = _load_duckdb()
 
     return duckdb.connect(str(db_path), read_only=True)
+
+
+def try_connect_readonly(db_path: str | Path) -> DuckDBConnectionResult:
+    """Return a structured optional-dependency/open result without raising."""
+    try:
+        connection = connect_readonly(db_path)
+    except (ImportError, ModuleNotFoundError) as exc:
+        return DuckDBConnectionResult(
+            "dependency_unavailable", error_type=type(exc).__name__
+        )
+    except Exception as exc:
+        return DuckDBConnectionResult("open_failed", error_type=type(exc).__name__)
+    return DuckDBConnectionResult("available", connection=connection)
