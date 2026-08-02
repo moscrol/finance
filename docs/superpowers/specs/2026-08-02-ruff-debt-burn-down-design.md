@@ -1,7 +1,7 @@
 # Ruff 技术债分批清理与增量门禁设计
 
-日期：2026-08-02  
-分支：`fix/ruff-debt-burn-down`  
+日期：2026-08-02
+分支：`fix/ruff-debt-burn-down`
 基线：`origin/main@78187ec7`
 
 ## 1. 背景与实测基线
