@@ -141,5 +141,13 @@ class SectorDataProvider:
         ).fetchall()
         return [str(row[0]) for row in rows]
 
+    def get_date_range(self) -> tuple[str | None, str | None]:
+        row = self._conn.execute(
+            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_sector_daily"
+        ).fetchone()
+        if not row or row[0] is None or row[1] is None:
+            return None, None
+        return str(row[0]), str(row[1])
+
     def close(self) -> None:
         self._conn.close()

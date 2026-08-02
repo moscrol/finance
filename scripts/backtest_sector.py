@@ -14,22 +14,28 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
+from datetime import date as date_cls
 from pathlib import Path
 from dataclasses import dataclass
-from collections import defaultdict
 
-import duckdb
 import numpy as np
 
-from market_feature_store.analysis import turning_points as _turning_points
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from market_feature_store.analysis import turning_points as _turning_points  # noqa: E402
+from market_feature_store.analysis.sector_data import SectorDataProvider  # noqa: E402
+from market_feature_store.db import DB_PATH as CANONICAL_DB_PATH  # noqa: E402
 
 MA5_MIN_SWING = _turning_points.MA5_MIN_SWING
 VOLUME_SURGE_PCT = _turning_points.VOLUME_SURGE_PCT
 Signal = _turning_points.Signal
 SignalDetector = _turning_points.SignalDetector
 
-DB_PATH = Path(__file__).parent.parent / "db" / "market.duckdb"
+DB_PATH = CANONICAL_DB_PATH
 
 # ---------------------------------------------------------------------------
 # 默认参数
@@ -38,103 +44,6 @@ DEFAULT_TOP_N = 5            # 每次信号买入板块数
 DEFAULT_HOLD_DAYS = 3        # 持有交易日数
 DEFAULT_MIN_MARGINAL = 10.0  # 边际量最低阈值（%）
 DEFAULT_MIN_PCT_CHG = 0.0    # 当日涨幅最低阈值（%）
-
-# ===================================================================
-# SectorDataProvider — 从 DuckDB 加载数据
-# ===================================================================
-
-class SectorDataProvider:
-    """板块数据提供者，封装 DuckDB 查询。
-
-    对应 vibe-trading 的 DataLoader Protocol：
-    - 输入：日期范围
-    - 输出：板块日收益率 + 市场指标 + 涨家数
-    """
-
-    def __init__(self, db_path: str | Path = DB_PATH):
-        self._conn = duckdb.connect(str(db_path), read_only=True)
-
-    # ----- 板块数据 -----
-
-    def get_sector_price_matrix(self, start: str, end: str) -> dict[str, dict[str, float]]:
-        """返回 {date: {ts_code: pct_chg}} 矩阵。
-
-        只包含 pct_chg 非空的记录。
-        """
-        rows = self._conn.execute("""
-            SELECT date, ts_code, pct_chg
-            FROM sector_marginal
-            WHERE date >= ? AND date <= ?
-              AND pct_chg IS NOT NULL
-            ORDER BY date, ts_code
-        """, [start, end]).fetchall()
-
-        matrix: dict[str, dict[str, float]] = defaultdict(dict)
-        for date, ts_code, pct_chg in rows:
-            matrix[str(date)][ts_code] = float(pct_chg)
-        return dict(matrix)
-
-    def get_sector_marginal(self, date: str) -> dict[str, dict]:
-        """返回某日所有板块的边际量和涨幅。"""
-        rows = self._conn.execute("""
-            SELECT ts_code, sector, diff_ratio, pct_chg, amount
-            FROM sector_marginal
-            WHERE date = ?
-        """, [date]).fetchall()
-
-        return {
-            ts_code: {"sector": sector,
-                      "diff_ratio": float(dr) if dr is not None else None,
-                      "pct_chg": float(pc) if pc is not None else None,
-                      "amount": float(am) if am is not None else None}
-            for ts_code, sector, dr, pc, am in rows
-        }
-
-    # ----- 市场数据 -----
-
-    def get_market_data(self, start: str, end: str) -> list[dict]:
-        """返回每日市场指标列表。"""
-        rows = self._conn.execute("""
-            SELECT date, volume, volume_change, limit_up, limit_down,
-                   week_ma, deviation
-            FROM daily_market
-            WHERE date >= ? AND date <= ?
-            ORDER BY date
-        """, [start, end]).fetchall()
-
-        return [
-            {"date": str(r[0]), "volume": r[1], "volume_change": r[2],
-             "limit_up": r[3], "limit_down": r[4],
-             "week_ma": r[5], "deviation": r[6]}
-            for r in rows
-        ]
-
-    def get_advancers(self, start: str, end: str) -> list[dict]:
-        """返回涨家数+MA5序列。"""
-        rows = self._conn.execute("""
-            SELECT date, count, ma5
-            FROM advancers
-            WHERE date >= ? AND date <= ?
-            ORDER BY date
-        """, [start, end]).fetchall()
-
-        return [
-            {"date": str(r[0]), "count": r[1], "ma5": float(r[2]) if r[2] else None}
-            for r in rows
-        ]
-
-    def get_trading_dates(self, start: str, end: str) -> list[str]:
-        """返回 sector_marginal 表中所有交易日（去重排序）。"""
-        rows = self._conn.execute("""
-            SELECT DISTINCT date FROM sector_marginal
-            WHERE date >= ? AND date <= ?
-            ORDER BY date
-        """, [start, end]).fetchall()
-        return [str(r[0]) for r in rows]
-
-    def close(self):
-        self._conn.close()
-
 
 # SignalDetector is imported from market_feature_store.analysis.turning_points.
 # ===================================================================
@@ -524,7 +433,7 @@ def print_result(r: BacktestResult):
 # 参数扫描
 # ===================================================================
 
-def scan_params(start: str, end: str):
+def scan_params(start: str, end: str, db_path: str | Path = DB_PATH):
     """扫描不同参数组合的回测结果。"""
     print(f"\n{'='*70}")
     print(f"  参数扫描  {start} → {end}")
@@ -539,6 +448,7 @@ def scan_params(start: str, end: str):
             for min_marg in [5, 10, 15]:
                 engine = SectorBacktestEngine(
                     top_n=top_n, hold_days=hold, min_marginal=min_marg,
+                    provider=SectorDataProvider(db_path),
                 )
                 try:
                     r = engine.run(start, end)
@@ -557,77 +467,97 @@ def scan_params(start: str, end: str):
         print(f"\n  ★ 最优（按夏普）: top_n={best[1]} hold={best[2]} "
               f"min_marginal={best[3]} → 夏普={best[0].sharpe_ratio} "
               f"总收益={best[0].total_return_pct:+.2f}%")
-
-
 # ===================================================================
 # CLI
 # ===================================================================
 
-def parse_date(s: str) -> str:
-    """统一日期格式 YYYY-MM-DD。"""
-    return s
+def _date_arg(value: str) -> str:
+    try:
+        return date_cls.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("日期必须是 YYYY-MM-DD") from exc
 
 
-def main():
-    args = sys.argv[1:]
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="板块边际量策略回测")
+    parser.add_argument("--from", dest="start", type=_date_arg, help="起始交易日 YYYY-MM-DD")
+    parser.add_argument("--to", dest="end", type=_date_arg, help="结束交易日 YYYY-MM-DD")
+    parser.add_argument("--top", type=int, default=DEFAULT_TOP_N, help="每个信号日最多买入板块数")
+    parser.add_argument("--hold", type=int, default=DEFAULT_HOLD_DAYS, help="持有交易日数")
+    parser.add_argument(
+        "--min-marginal",
+        type=float,
+        default=DEFAULT_MIN_MARGINAL,
+        help="边际量最低阈值（%%）",
+    )
+    parser.add_argument(
+        "--min-pct",
+        type=float,
+        default=DEFAULT_MIN_PCT_CHG,
+        help="板块当日涨幅最低阈值（%%）",
+    )
+    parser.add_argument("--overlap", action="store_true", help="允许持仓重叠")
+    parser.add_argument("--scan", action="store_true", help="扫描预设参数组合")
+    parser.add_argument(
+        "--db-path",
+        default=str(DB_PATH),
+        help="canonical DuckDB 路径，默认读取 MARKET_FEATURE_STORE_DB 或主库",
+    )
+    return parser
 
-    # 默认参数
-    start = None
-    end = None
-    top_n = DEFAULT_TOP_N
-    hold_days = DEFAULT_HOLD_DAYS
-    min_marginal = DEFAULT_MIN_MARGINAL
-    min_pct_chg = DEFAULT_MIN_PCT_CHG
-    allow_overlap = False
-    scan = False
 
-    i = 0
-    while i < len(args):
-        if args[i] == "--from" and i + 1 < len(args):
-            start = args[i + 1]; i += 2
-        elif args[i] == "--to" and i + 1 < len(args):
-            end = args[i + 1]; i += 2
-        elif args[i] == "--top" and i + 1 < len(args):
-            top_n = int(args[i + 1]); i += 2
-        elif args[i] == "--hold" and i + 1 < len(args):
-            hold_days = int(args[i + 1]); i += 2
-        elif args[i] == "--min-marginal" and i + 1 < len(args):
-            min_marginal = float(args[i + 1]); i += 2
-        elif args[i] == "--min-pct" and i + 1 < len(args):
-            min_pct_chg = float(args[i + 1]); i += 2
-        elif args[i] == "--overlap":
-            allow_overlap = True; i += 1
-        elif args[i] == "--scan":
-            scan = True; i += 1
-        else:
-            i += 1
-
-    # 自动确定日期范围
+def _resolve_dates(
+    provider: SectorDataProvider,
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> tuple[str, str]:
+    auto_start, auto_end = provider.get_date_range()
+    start = args.start or auto_start
+    end = args.end or auto_end
     if start is None or end is None:
-        conn = duckdb.connect(str(DB_PATH), read_only=True)
-        auto = conn.execute("""
-            SELECT MIN(date), MAX(date) FROM sector_marginal
-            WHERE pct_chg IS NOT NULL
-        """).fetchone()
-        conn.close()
-        if start is None:
-            start = str(auto[0])
-        if end is None:
-            end = str(auto[1])
+        parser.error("fact_sector_daily 没有可用交易日")
+    if start > end:
+        parser.error("--from 不能晚于 --to")
+    return start, end
 
-    print(f"回测区间: {start} → {end}")
 
-    if scan:
-        scan_params(start, end)
-    else:
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.top <= 0 or args.hold <= 0:
+        parser.error("--top 和 --hold 必须是正整数")
+
+    provider = None
+    try:
+        provider = SectorDataProvider(args.db_path)
+        start, end = _resolve_dates(provider, args, parser)
+        print(f"回测区间: {start} → {end}")
+
+        if args.scan:
+            provider.close()
+            provider = None
+            scan_params(start, end, args.db_path)
+            return 0
+
         engine = SectorBacktestEngine(
-            top_n=top_n, hold_days=hold_days,
-            min_marginal=min_marginal, min_pct_chg=min_pct_chg,
-            allow_overlap=allow_overlap,
+            top_n=args.top,
+            hold_days=args.hold,
+            min_marginal=args.min_marginal,
+            min_pct_chg=args.min_pct,
+            allow_overlap=args.overlap,
+            provider=provider,
         )
         result = engine.run(start, end)
+        provider = None
         print_result(result)
+        return 0
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        parser.error(str(exc))
+    finally:
+        if provider is not None:
+            provider.close()
+    return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

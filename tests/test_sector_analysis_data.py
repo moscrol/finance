@@ -114,6 +114,7 @@ def test_provider_maps_canonical_sector_and_market_fields(tmp_path):
             "2026-01-02",
             "2026-01-03",
         ]
+        assert provider.get_date_range() == ("2026-01-01", "2026-01-03")
     finally:
         provider.close()
 
