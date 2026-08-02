@@ -635,7 +635,7 @@ Run:
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check intelligence/services/retrieval_cache.py intelligence/services/ask_blocks.py intelligence/services/market_analogs.py intelligence/services/market_midterm.py intelligence/services/market_moneyflow.py intelligence/services/market_timeseries.py --select F401,F821,F841
 ```
 
-Expected: selected tests pass; the 16 local DuckDB F401 findings are gone; optional dependency, open failure, and available states remain distinct.
+Expected: selected tests pass; the 15 active-service DuckDB F401 findings are gone; optional dependency, open failure, and available states remain distinct. The separate module-level finding in deprecated `scripts/fast_daily_sync.py` remains for Task 8.
 
 - [ ] **Step 6: Compare the full suite and commit Batch B**
 

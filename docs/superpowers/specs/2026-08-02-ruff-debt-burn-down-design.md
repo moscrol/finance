@@ -75,9 +75,10 @@ Actions workflow 都没有 Ruff 门禁，这是债务持续累积的工程根因
 
 ### 方案 A：一次执行 `ruff --fix .`
 
-优点是快。缺点是 Ruff 所谓 safe fix 只保证语法层面；实测 16 个局部
-`import duckdb` 是可选依赖探针，自动修复会把它们替换成 `pass`，改变缺依赖时的
-降级归因。70 个文件同时变化也无法建立可信回归边界。拒绝采用。
+优点是快。缺点是 Ruff 所谓 safe fix 只保证语法层面；实测五个活跃 service 中有 15 个
+局部 `import duckdb` 是可选依赖探针，自动修复会把它们替换成 `pass`，改变缺依赖时的
+降级归因。第 16 条 DuckDB F401 位于已停用的 `scripts/fast_daily_sync.py`，是单独处理的
+模块级死 import。70 个文件同时变化也无法建立可信回归边界。拒绝采用。
 
 ### 方案 B：把当前 171 条全部加入 ignore
 
@@ -106,7 +107,7 @@ Batch A 单独提交，不能夹带格式化。
 
 ### Batch B：收敛可选 DuckDB 依赖 seam
 
-16 个局部 `import duckdb` 不逐个删除。把“依赖是否可用、连接是否成功、失败原因”收敛
+15 个活跃调用点的局部 `import duckdb` 不逐个删除。把“依赖是否可用、连接是否成功、失败原因”收敛
 进 `intelligence.services.retrieval_cache` 的小接口，调用方消费结构化结果：
 
 - dependency unavailable；
