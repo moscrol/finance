@@ -16,12 +16,18 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import defaultdict
 
 import duckdb
 import numpy as np
+
+from market_feature_store.analysis import turning_points as _turning_points
+
+MA5_MIN_SWING = _turning_points.MA5_MIN_SWING
+VOLUME_SURGE_PCT = _turning_points.VOLUME_SURGE_PCT
+Signal = _turning_points.Signal
+SignalDetector = _turning_points.SignalDetector
 
 DB_PATH = Path(__file__).parent.parent / "db" / "market.duckdb"
 
@@ -32,11 +38,6 @@ DEFAULT_TOP_N = 5            # 每次信号买入板块数
 DEFAULT_HOLD_DAYS = 3        # 持有交易日数
 DEFAULT_MIN_MARGINAL = 10.0  # 边际量最低阈值（%）
 DEFAULT_MIN_PCT_CHG = 0.0    # 当日涨幅最低阈值（%）
-
-# 信号检测阈值（与 detect_turning_points.py 一致）
-VOLUME_SURGE_PCT = 10.0      # 较昨日成交额增长 > 10%
-MA5_MIN_SWING = 500          # MA5 最小波动幅度
-
 
 # ===================================================================
 # SectorDataProvider — 从 DuckDB 加载数据
@@ -135,162 +136,7 @@ class SectorDataProvider:
         self._conn.close()
 
 
-# ===================================================================
-# SignalDetector — 转折信号检测
-# ===================================================================
-
-@dataclass
-class Signal:
-    date: str
-    type: str          # "volume_surge" | "peak_next" | "valley_next"
-    detail: str        # 人类可读描述
-    ma5: float | None  # 当日 MA5 值
-
-    def __repr__(self):
-        return f"Signal({self.date}, {self.type}, {self.detail})"
-
-
-class SignalDetector:
-    """转折信号检测器。
-
-    三种信号：
-    1. 大盘放量 — 成交额较前日增长 > 10%
-    2. MA5 峰确认 — MA5 自波段高点回落 ≥ 阈值的当日（确认日）
-    3. MA5 谷确认 — MA5 自波段低点回升 ≥ 阈值的当日（确认日）
-
-    峰/谷信号只在确认日发出，且只用截至确认日的数据（无前视）；
-    追加未来数据不会改变已发出的历史信号。
-    """
-
-    def __init__(self,
-                 volume_surge_pct: float = VOLUME_SURGE_PCT,
-                 ma5_min_swing: float = MA5_MIN_SWING):
-        self.volume_surge_pct = volume_surge_pct
-        self.ma5_min_swing = ma5_min_swing
-
-    def detect(self,
-               market_data: list[dict],
-               advancers: list[dict]) -> list[Signal]:
-        """检测所有信号，返回信号列表。"""
-
-        adv_dict = {a["date"]: a for a in advancers}
-        mkt_dict = {m["date"]: m for m in market_data}
-
-        # 取所有有 advancers 数据的日期作为全集
-        dates = sorted(adv_dict.keys())
-        if not dates:
-            return []
-
-        signals: list[Signal] = []
-
-        # --- 信号1: 大盘放量 ---
-        prev_vol = None
-        for d in dates:
-            m = mkt_dict.get(d)
-            if m is None or m["volume"] is None:
-                prev_vol = m["volume"] if m else prev_vol
-                continue
-            vol = m["volume"]
-            if prev_vol and prev_vol > 0:
-                chg = (vol - prev_vol) / prev_vol * 100
-                if chg > self.volume_surge_pct:
-                    signals.append(Signal(
-                        date=d,
-                        type="volume_surge",
-                        detail=f"成交额 {prev_vol:.0f}→{vol:.0f} (+{chg:.1f}%)",
-                        ma5=adv_dict[d]["ma5"] if d in adv_dict else None,
-                    ))
-            prev_vol = vol
-
-        # --- 信号2 & 3: MA5 峰/谷确认日 ---
-        pivots = self._find_pivots(adv_dict, dates)
-        for d in dates:
-            if d in pivots:
-                pt, pivot_date, pivot_ma5 = pivots[d]
-                signals.append(Signal(
-                    date=d,
-                    type=f"{'peak' if pt == 'peak' else 'valley'}_confirmed",
-                    detail=f"{'顶' if pt == 'peak' else '谷'}点日 {pivot_date} MA5={pivot_ma5:.0f} 于 {d} 确认",
-                    ma5=adv_dict[d]["ma5"] if d in adv_dict else None,
-                ))
-
-        # 去重 + 按日期排序（同一天可能有多个信号，合并）
-        return self._dedup_signals(signals)
-
-    def _find_pivots(self, adv_dict: dict, dates: list[str]) -> dict[str, tuple[str, str, float]]:
-        """Zigzag 算法找 MA5 大波段峰谷（流式、无前视）。
-
-        峰/谷只在「确认日」产出：即 MA5 相对此前波段极值反向波动 ≥ 阈值的当日。
-        每个确认只依赖截至确认日的数据，因此追加未来数据不会改变已产出的结果。
-
-        返回 {确认日: (pivot_type 'peak'|'valley', 极值日, 极值MA5)}
-        """
-        # 构建 MA5 序列
-        ma5_seq = []
-        for d in dates:
-            a = adv_dict.get(d)
-            if a and a["ma5"] is not None:
-                ma5_seq.append((d, a["ma5"]))
-
-        if len(ma5_seq) < 2:
-            return {}
-
-        confirms: dict[str, tuple[str, str, float]] = {}
-        hi_date, hi = ma5_seq[0]
-        lo_date, lo = ma5_seq[0]
-        direction = None  # 1=up, -1=down
-
-        for cur_date, cur_ma5 in ma5_seq[1:]:
-            if direction is None:
-                if cur_ma5 > hi:
-                    hi_date, hi = cur_date, cur_ma5
-                if cur_ma5 < lo:
-                    lo_date, lo = cur_date, cur_ma5
-                if hi - cur_ma5 >= self.ma5_min_swing:
-                    confirms[cur_date] = ("peak", hi_date, hi)
-                    direction = -1
-                    lo_date, lo = cur_date, cur_ma5
-                elif cur_ma5 - lo >= self.ma5_min_swing:
-                    confirms[cur_date] = ("valley", lo_date, lo)
-                    direction = 1
-                    hi_date, hi = cur_date, cur_ma5
-            elif direction == 1:
-                if cur_ma5 > hi:
-                    hi_date, hi = cur_date, cur_ma5
-                elif hi - cur_ma5 >= self.ma5_min_swing:
-                    confirms[cur_date] = ("peak", hi_date, hi)
-                    direction = -1
-                    lo_date, lo = cur_date, cur_ma5
-            else:
-                if cur_ma5 < lo:
-                    lo_date, lo = cur_date, cur_ma5
-                elif cur_ma5 - lo >= self.ma5_min_swing:
-                    confirms[cur_date] = ("valley", lo_date, lo)
-                    direction = 1
-                    hi_date, hi = cur_date, cur_ma5
-
-        return confirms
-
-    def _dedup_signals(self, signals: list[Signal]) -> list[Signal]:
-        """合并同一天的多个信号。"""
-        by_date: dict[str, list[Signal]] = defaultdict(list)
-        for s in signals:
-            by_date[s.date].append(s)
-
-        merged = []
-        for date in sorted(by_date):
-            items = by_date[date]
-            types = [s.type for s in items]
-            details = "; ".join(s.detail for s in items)
-            merged.append(Signal(
-                date=date,
-                type="+".join(types),
-                detail=details,
-                ma5=items[0].ma5,
-            ))
-        return merged
-
-
+# SignalDetector is imported from market_feature_store.analysis.turning_points.
 # ===================================================================
 # TradeRecord + BacktestResult
 # ===================================================================
