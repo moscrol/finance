@@ -404,43 +404,45 @@ def _mainline_theme_names(
     db_path = Path(market_db_path).expanduser()
     if not market_date or not db_path.exists():
         return "", []
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
+        return "", []
+    con = db_result.connection
     try:
-        con = retrieval_cache.connect_readonly(db_path)
-        try:
-            exists = con.execute(
+        exists = con.execute(
+            """
+            select count(*) from information_schema.tables
+            where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
+            """
+        ).fetchone()
+        if not exists or not exists[0]:
+            return "", []
+        row = con.execute(
+            "select max(trade_date) from fact_mainline_theme_daily "
+            "where trade_date <= cast(? as date)",
+            [market_date],
+        ).fetchone()
+        theme_date = str(row[0]) if row and row[0] else None
+        if theme_date != market_date:
+            return str(theme_date or ""), []
+        names = [
+            str(name)
+            for (name,) in con.execute(
                 """
-                select count(*) from information_schema.tables
-                where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
-                """
-            ).fetchone()
-            if not exists or not exists[0]:
-                return "", []
-            row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily "
-                "where trade_date <= cast(? as date)",
-                [market_date],
-            ).fetchone()
-            theme_date = str(row[0]) if row and row[0] else None
-            if theme_date != market_date:
-                return str(theme_date or ""), []
-            names = [
-                str(name)
-                for (name,) in con.execute(
-                    """
-                    select theme_name from fact_mainline_theme_daily
-                    where trade_date = ?
-                    order by min_sort nulls last, theme_name
-                    limit ?
-                    """,
-                    [theme_date, limit],
-                ).fetchall()
-                if name
-            ]
-            return market_date, names
-        finally:
-            con.close()
+                select theme_name from fact_mainline_theme_daily
+                where trade_date = ?
+                order by min_sort nulls last, theme_name
+                limit ?
+                """,
+                [theme_date, limit],
+            ).fetchall()
+            if name
+        ]
+        return market_date, names
     except Exception:
         return "", []
+    finally:
+        con.close()
 
 
 def mainline_knowledge_coverage(
@@ -1053,13 +1055,13 @@ def _market_cause_window_block_for_llm(
     )
     if not db_path.exists():
         return ""
-    try:
-        # 原来这里有一句 `import duckdb` 当可用性探针。connect_readonly 内部就调
-        # _load_duckdb()，duckdb 缺失时抛的 ImportError 由同一个 except 接住，
-        # 探针是冗余的（删它不改行为，且能让 ruff 保持 0）。
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
+    # 连接由 try_connect_readonly 统一取，与本文件其余块一致：它内部兜住
+    # duckdb 缺失（dependency_unavailable）和打开失败（open_failed），不抛异常，
+    # 所以这里不需要再包一层 try，也不需要单独的 `import duckdb` 可用性探针。
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
+    con = db_result.connection
     try:
         rows = con.execute(
             """
