@@ -220,7 +220,7 @@ def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> di
             return {"label": "sector-stocks", "status": "ok", "code": 0,
                     "elapsed": 0.0, "note": f"{done}/{total} sectors"}
         loops += 1
-        res = run_step(
+        run_step(
             f"sector-stocks loop{loops} ({done}/{total})",
             CLI + ["sync-sector-stocks", "--trade-date", trade_date, "--limit", "60", "--sleep", "0.05"],
             timeout,

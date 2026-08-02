@@ -15,7 +15,6 @@ import argparse
 import json
 import os
 import statistics as st
-import sys
 from pathlib import Path
 
 
@@ -48,7 +47,11 @@ def resolve_store(vault: Path) -> Path:
 
 
 def load_outcomes(outcomes_path: Path) -> list[dict]:
-    return [json.loads(l) for l in outcomes_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return [
+        json.loads(line)
+        for line in outcomes_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def aggregate_winrate(rows: list[dict], names: dict[str, str], window: int, min_calls: int) -> list[dict]:
@@ -128,7 +131,7 @@ def main() -> int:
                  "- 超额 = 个股收益 − 沪深300 同窗收益（剥大盘 beta）。",
                  "- 均最高 = 区间最高收益均值（最好情形）；均回撤 = 峰值后回撤均值（风险）。",
                  "- 仅统计 T+{0} 窗口完整的看多事件；剔除 [晨汇转述] AI 总结通道。".format(w), "",
-                 f"| # | 机构 | 样本n | 超额胜率 | 绝对胜率 | 均超额 | 中位超额 | 均最高 | 均回撤 |",
+                 "| # | 机构 | 样本n | 超额胜率 | 绝对胜率 | 均超额 | 中位超额 | 均最高 | 均回撤 |",
                  "|---|------|------|---------|---------|--------|---------|--------|--------|"]
         for i, a in enumerate(agg, 1):
             lines.append(f"| {i} | {a['name']} | {a['n']} | {a['win_exc']*100:.0f}% | "

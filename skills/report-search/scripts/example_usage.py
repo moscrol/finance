@@ -7,7 +7,6 @@
 
 import os
 import sys
-import json
 from pathlib import Path
 
 # 添加当前目录到Python路径
@@ -89,7 +88,7 @@ def example_with_data_processing():
         # 3. 分析结果
         analysis = processor.analyze_articles(articles)
         
-        print(f"\n分析结果:")
+        print("\n分析结果:")
         print(f"  总数量: {analysis.get('total_count')}")
         print(f"  日期范围: {analysis.get('date_range', {}).get('start')} 到 {analysis.get('date_range', {}).get('end')}")
         print(f"  行业分布: {analysis.get('industry_distribution')}")
@@ -98,7 +97,7 @@ def example_with_data_processing():
         print(f"  分析覆盖率: {analysis.get('analysis_coverage'):.1%}")
         
         # 显示前3篇
-        print(f"\n前3篇研究报告:")
+        print("\n前3篇研究报告:")
         for i, article in enumerate(articles[:3], 1):
             print(f"\n{i}. {article.get('title', '无标题')}")
             print(f"   发布时间: {article.get('publish_date', '未知')}")
@@ -167,7 +166,7 @@ def example_save_to_files():
         print(f"  保存到Markdown: {md_path}")
         
         # 显示文件大小
-        print(f"\n生成的文件:")
+        print("\n生成的文件:")
         for filepath in [csv_path, json_path, md_path]:
             if filepath.exists():
                 size_kb = filepath.stat().st_size / 1024

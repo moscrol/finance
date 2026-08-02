@@ -380,7 +380,10 @@ def main():
     for tid, recs in table_updates.items():
         record_ids = {r["record_id"] for r in recs}
         written = fetch_all_records(token, tid, app_token=APP_TOKEN)
-        label = next((l for l, t in TABLES.items() if t == tid), tid)
+        label = next(
+            (table_label for table_label, table_id in TABLES.items() if table_id == tid),
+            tid,
+        )
         empty_count = 0
         for r in written:
             if r["record_id"] not in record_ids:

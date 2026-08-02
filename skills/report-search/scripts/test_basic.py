@@ -16,7 +16,7 @@ from unittest.mock import patch, MagicMock
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import Config, get_config
+from config import Config
 from data_processor import DataProcessor
 from api_client import APIClient
 

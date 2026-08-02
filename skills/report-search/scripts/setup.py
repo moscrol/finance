@@ -88,7 +88,6 @@ def install_config():
 
 def check_dependencies():
     """检查依赖"""
-    import subprocess
     import importlib
     
     print("检查依赖...")

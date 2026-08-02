@@ -1,7 +1,6 @@
 """抓取 fupanhui.com 连板梯队数据（通过内部 API）。"""
 import json
 import os
-import re
 import subprocess
 import sys
 import time

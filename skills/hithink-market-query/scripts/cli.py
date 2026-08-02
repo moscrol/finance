@@ -176,7 +176,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="问财行情数据 - 行情数据查询工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
+        epilog="""
 使用示例:
   python3 scripts/cli.py --query "同花顺最新价格"
   python3 scripts/cli.py --query "主力资金流向"

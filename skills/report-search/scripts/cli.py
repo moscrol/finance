@@ -6,7 +6,6 @@
 
 import argparse
 import sys
-import os
 import json
 import logging
 from typing import List, Optional, Dict, Any
@@ -226,7 +225,6 @@ class ResearchReportCLI:
             # 检查是否为错误响应
             if isinstance(response, dict) and "error" in response:
                 # 应用层可以选择性展示关键错误信息
-                error_type = response.get("error", "unknown")
                 status_code = response.get("status_code", 0)
                 raw_response = response.get("raw_response", "")
                 
@@ -240,7 +238,7 @@ class ResearchReportCLI:
                 else:
                     # 其他错误显示完整信息
                     print(f"\n{'=' * 60}")
-                    print(f"API错误响应:")
+                    print("API错误响应:")
                     print(f"{'=' * 60}")
                     print(json.dumps(response, indent=2, ensure_ascii=False))
                     print(f"{'=' * 60}")
@@ -450,8 +448,8 @@ class ResearchReportCLI:
     def _save_to_text(self, articles: List[Dict[str, Any]], filepath: str) -> None:
         """保存到文本文件"""
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(f"研究报告搜索结果\n")
-            f.write(f"数据来源: 同花顺问财财经资讯搜索接口\n")
+            f.write("研究报告搜索结果\n")
+            f.write("数据来源: 同花顺问财财经资讯搜索接口\n")
             f.write(f"搜索时间: {self._get_current_time()}\n")
             f.write(f"报告数量: {len(articles)} 篇\n")
             f.write("=" * 80 + "\n\n")
@@ -487,8 +485,8 @@ class ResearchReportCLI:
     def _print_to_console(self, articles: List[Dict[str, Any]], output_format: str) -> None:
         """输出到控制台"""
         if output_format == "text":
-            print(f"\n研究报告搜索结果")
-            print(f"数据来源: 同花顺问财财经资讯搜索接口")
+            print("\n研究报告搜索结果")
+            print("数据来源: 同花顺问财财经资讯搜索接口")
             print(f"搜索时间: {self._get_current_time()}")
             print(f"报告数量: {len(articles)} 篇")
             print("=" * 80)
@@ -532,8 +530,8 @@ class ResearchReportCLI:
     
     def _print_batch_summary(self, result: Dict[str, Any]) -> None:
         """输出批量处理摘要"""
-        print(f"\n批量处理结果摘要")
-        print(f"数据来源: 同花顺问财财经资讯搜索接口")
+        print("\n批量处理结果摘要")
+        print("数据来源: 同花顺问财财经资讯搜索接口")
         print(f"处理时间: {self._get_current_time()}")
         print(f"查询数量: {len(result.get('queries', {}))}")
         print(f"总报告数量: {result.get('total_articles', 0)}")

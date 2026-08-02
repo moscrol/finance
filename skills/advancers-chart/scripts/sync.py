@@ -1,8 +1,6 @@
 """从飞书每日指标表读取涨家数，增量同步到涨家数走势表"""
-import json
 import os
 import sys
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))

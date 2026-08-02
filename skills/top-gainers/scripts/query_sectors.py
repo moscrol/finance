@@ -92,9 +92,12 @@ def main():
                 print(f"进度: {done_count}/{total_tasks}", file=sys.stderr)
             r = f.result()
             if r and r[1] is not None:
-                if tag == 'l1': results_l1.append(r)
-                elif tag == 'l2': results_l2.append(r)
-                else: results_concept.append(r)
+                if tag == 'l1':
+                    results_l1.append(r)
+                elif tag == 'l2':
+                    results_l2.append(r)
+                else:
+                    results_concept.append(r)
 
     results_l1.sort(key=lambda x: x[1], reverse=True)
     results_l2.sort(key=lambda x: x[1], reverse=True)
