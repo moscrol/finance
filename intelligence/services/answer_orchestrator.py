@@ -8,6 +8,7 @@ from typing import Any
 from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_research_spec
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.route_table import is_quick_fact_query
 
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
@@ -27,6 +28,10 @@ QUESTION_MARKET_TECHNICAL = "market_technical"
 QUESTION_MARKET_CAUSE = "market_cause"
 QUESTION_EVENT_FORECAST = "event_forecast"
 QUESTION_COMPARISON = "comparison"
+# 与 route_table 的 quick_fact 路由、task_frame 的
+# ("fact_value","as_of_date","evidence_boundary") 同名对齐。此前本分类器没有这一档，
+# 于是「收盘价多少」这类取值查询落到下面的 market_forecast 兜底（"收盘" 是它的触发词）。
+QUESTION_QUICK_FACT = "quick_fact"
 
 QUESTION_TYPES = frozenset(
     {
@@ -47,6 +52,7 @@ QUESTION_TYPES = frozenset(
         QUESTION_MARKET_CAUSE,
         QUESTION_EVENT_FORECAST,
         QUESTION_COMPARISON,
+        QUESTION_QUICK_FACT,
     }
 )
 
@@ -249,6 +255,14 @@ def resolve_question_type(
     # 哪几个方向？"因此走不到 _answer_market_review，主线数据块根本没被构建。
     if question_type_override is not None and question_type_override != QUESTION_GENERAL:
         return question_type_override, 1.0
+    # 取值意图先于主语类型。下面几条分支都是按 subject_kind 派题型的——
+    # 主语是公司就 stock_deep_dive、是题材就 theme_analysis——但主语说的是
+    # 「问的是什么」，跟「想要什么」是两件事：「300750是哪家公司」主语是公司、
+    # 「光刻胶板块今天成交额多少」主语是题材，两者要的都是一个确定的值。
+    # 让主语压掉意图，这类问题就会被派去做深挖/题材分析，然后在任务契约里
+    # 被要求写反证、在 rubric 里被追加前瞻维度——一个成交额数字满足不了。
+    if is_quick_fact_query(raw_query):
+        return QUESTION_QUICK_FACT, 0.85
     if query_envelope.question_type in {
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
@@ -563,6 +577,14 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_FINANCIAL_ANALYSIS, 0.84
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响")):
         return QUESTION_NEWS_IMPACT, 0.82
+    # 取值查询必须挡在前瞻兜底之前：下面那行把「收盘」当前瞻触发词，于是
+    # 「宁德时代今天收盘多少」这种纯粹问过去数字的问题被判成 market_forecast，
+    # 进而在 rubric 里追加四源合议/策略状态映射等 5 个前瞻维度、在 task_frame 里
+    # 被要求给出情景路径与失效条件——查一个收盘价满足不了其中任何一条。
+    # 词面判定与 turn_controller 共用 route_table.is_quick_fact_query，避免两条
+    # 并行判定链再次漂移。
+    if is_quick_fact_query(raw_query):
+        return QUESTION_QUICK_FACT, 0.85
     # 兜底：到这里说明既不是「问现状」也没有明确的后市措辞，按前瞻处理。
     # 移除了原有的 "6."——那是个会匹配任意含 "6." 文本的误留模式（例如
     # 「营收 6.2 亿」），与市场前瞻无关。

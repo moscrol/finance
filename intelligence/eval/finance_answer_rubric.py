@@ -52,6 +52,24 @@ EVIDENCE_GATED_KEYS: frozenset[str] = frozenset(
 DIMENSION_NOT_APPLICABLE: dict[str, frozenset[str]] = {
     "concept_definition": frozenset({"market_stage", "actionability"}),
     "methodology_discussion": frozenset({"local_data_priority", "market_stage"}),
+    # 取值查询的必需输出是 (fact_value, as_of_date, evidence_boundary)——见
+    # task_frame。一个收盘价写不出盘面阶段、产业传导、反方审稿或交易方法论；
+    # evidence_layering 测的是 L1-L4 多源分层，对单值查询同样是范畴错误。
+    #
+    # 于是只剩 local_data_priority（满分 15）。这是个诚实但很弱的信号：本 rubric
+    # 目前没有任何一维对应 quick_fact 的真实契约（值 / 口径日期 / 证据边界）。
+    # 补一个专用维度需要先定「好的取值回答长什么样」，是独立的产品判断，
+    # 不在本次路由修复范围内——宁可少测，也不要拿不适用的维度扣分。
+    "quick_fact": frozenset(
+        {
+            "evidence_layering",
+            "market_stage",
+            "industry_reasoning",
+            "critic_review",
+            "actionability",
+            "personal_methodology",
+        }
+    ),
 }
 
 
