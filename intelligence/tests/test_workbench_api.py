@@ -23,6 +23,9 @@ from intelligence.services.episode_progress import (  # noqa: E402
     RunEpisodeProgressPublisher,
 )
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
+from intelligence.services.execution_provenance import (  # noqa: E402
+    RuntimeExecutionIdentity,
+)
 from intelligence.services import perspective_lab  # noqa: E402
 from intelligence.services.llm_refine import LLMProvider  # noqa: E402
 from intelligence.services.llm_settings import SessionLLMSettings  # noqa: E402
@@ -1418,6 +1421,54 @@ def test_internal_artifact_is_hidden_from_every_public_artifact_interface(
         for artifact in listed
     )
     assert client.get(f"/api/runs/{run_id}/artifacts/answer.md").status_code == 200
+
+
+def test_run_provenance_endpoint_is_redacted_and_attempt_bound(client: TestClient) -> None:
+    store = RunStore()
+    run = store.create_run("provenance endpoint", "ask")
+    identity = RuntimeExecutionIdentity(
+        runtime_instance_id="runtime-api",
+        source_revision="a" * 40,
+        source_dirty=False,
+        code_root="/candidate",
+        import_root="/candidate",
+        python_executable="/python",
+        backend="sdk_gpt",
+        model="gpt-5.6-sol",
+        provider_label="cockpit_local",
+        provider_protocol="openai_responses",
+        endpoint_fingerprint="b" * 64,
+    )
+    attempt = store.start_execution_attempt(run.run_id, identity)
+    store.bind_execution_attempt(
+        run.run_id,
+        attempt_id=attempt.attempt_id,
+        execution_path="legacy_direct",
+        terminal_owner="legacy_turn_orchestrator",
+        contributors=("turn_controller", "legacy_turn_orchestrator"),
+        task_frame_hash="c" * 64,
+        cutoff="2026-07-23",
+        effective_backend="sdk_gpt",
+        effective_model="gpt-5.6-sol",
+    )
+    store.finish_execution_attempt(
+        run.run_id,
+        attempt_id=attempt.attempt_id,
+        status="completed",
+        artifact_receipts=(),
+    )
+
+    response = client.get(f"/api/runs/{run.run_id}/provenance")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == run.run_id
+    assert payload["attempts"][-1]["event_type"] == "attempt.finished"
+    assert payload["attempts"][0]["provider_label"] == "cockpit_local"
+    assert "endpoint_fingerprint" in payload["attempts"][0]
+    assert "api_key" not in response.text.lower()
+    assert "/candidate" in response.text
+    assert client.get("/api/runs/run_missing/provenance").status_code == 404
 
 
 def test_health_endpoints_report_worker_and_storage_state(client: TestClient) -> None:

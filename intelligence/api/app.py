@@ -2275,6 +2275,22 @@ def create_app(
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
+    @app.get("/api/runs/{run_id}/provenance")
+    def get_run_provenance(
+        run_id: str,
+        user: str | None = None,
+    ) -> dict[str, object]:
+        store = store_for(user)
+        try:
+            store.load_run(run_id)
+            attempts = store.load_execution_attempts(run_id)
+        except (FileNotFoundError, ValueError) as exc:
+            raise HTTPException(404, f"run 不存在：{run_id}") from exc
+        return {
+            "run_id": run_id,
+            "attempts": rs.redact_value(attempts),
+        }
+
     @app.get("/api/runs/{run_id}/trace")
     def get_trace(run_id: str, user: str | None = None) -> list[dict[str, object]]:
         store = store_for(user)
