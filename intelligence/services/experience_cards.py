@@ -197,7 +197,12 @@ def record_card(path: str | Path, card: dict[str, Any]) -> tuple[Path, dict[str,
 
 
 def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dict[str, Any]], str | None]:
-    """读取最近 ``window`` 张经验卡片。文件不存在时返回空列表。"""
+    """读取最近 ``window`` 张经验卡片。文件不存在时返回空列表。
+
+    带 ``invalidated`` 标记的卡片会被跳过，不参与召回和规则生成：教训一旦被证明
+    来自坏指标（而非真实缺陷），继续喂进 prompt 就是在教系统去迎合那个坏指标。
+    记录本身保留在 jsonl 里，便于回查「这条教训当时为什么被判为假」。
+    """
     p = Path(path).expanduser()
     if not p.exists():
         return [], None
@@ -214,8 +219,11 @@ def load_cards(path: str | Path, window: int = DEFAULT_WINDOW) -> tuple[list[dic
             obj = json.loads(line)
         except Exception:
             continue
-        if isinstance(obj, dict) and str(obj.get("question") or "").strip():
-            out.append(obj)
+        if not isinstance(obj, dict) or not str(obj.get("question") or "").strip():
+            continue
+        if obj.get("invalidated"):
+            continue
+        out.append(obj)
     if window and window > 0:
         out = out[-window:]
     return out, None

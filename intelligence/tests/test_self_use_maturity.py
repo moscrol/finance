@@ -1044,3 +1044,90 @@ def test_verify_run_binding_can_still_pin_a_backend_on_request(tmp_path) -> None
         verify_run_binding(store, "run-gpt2", require_provider="zhipu")
     with pytest.raises(RunBindingError, match="model mismatch"):
         verify_run_binding(store, "run-gpt2", require_model="glm-5.2")
+
+
+# ---------------------------------------------------------------------------
+# 真实性 vs 成功性：两者绑在一起时，台账只剩好消息
+# ---------------------------------------------------------------------------
+
+
+def _make_failed_run(store: RunStore, run_id: str, *, error: str = "stage timeout") -> str:
+    """失败的 run：没有 report.json / SSE report.complete，这是失败的常态形状。"""
+    from intelligence.services import run_store as run_store_module
+
+    run_dir = store.run_dir(run_id)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    payload = run_store_module.Run(
+        run_id=run_id,
+        user="tester",
+        question="q",
+        task_type="conversation",
+        status="failed",
+        degrades=["stage_timeout"],
+        error=error,
+    )
+    (run_dir / "run.json").write_text(
+        json.dumps(asdict(payload), ensure_ascii=False), encoding="utf-8"
+    )
+    return run_id
+
+
+def test_template_fallback_is_recordable_as_degraded(tmp_path) -> None:
+    """模板回退必须能按 degraded 入账。
+
+    它此前被 success 档的规则整条拒收——而「回答都是降级模板」正是用户停用
+    产品的原因。记不下停用原因的台账，读数只能是 0。
+    """
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-tpl", llm_used=False, degrade=LLM_FALLBACK_DEGRADE)
+
+    with pytest.raises(RunBindingError, match="template answer"):
+        verify_run_binding(store, "run-tpl", outcome="success")
+
+    evidence = verify_run_binding(store, "run-tpl", outcome="degraded")
+    assert evidence.status == "completed"
+    assert evidence.llm_used is False
+
+
+def test_failed_run_is_recordable_without_report_evidence(tmp_path) -> None:
+    """失败的 run 没有 report.json，要求它就等于让「失败」这一档不可记录。"""
+    store = RunStore("tester", root=tmp_path / "runs")
+    _make_failed_run(store, "run-fail")
+
+    with pytest.raises(RunBindingError, match="terminal-successful"):
+        verify_run_binding(store, "run-fail", outcome="success")
+
+    evidence = verify_run_binding(store, "run-fail", outcome="failed")
+    assert evidence.status == "failed"
+    assert evidence.report_as_of == ""
+
+
+def test_failed_outcome_still_requires_the_run_to_corroborate_failure(tmp_path) -> None:
+    """反伪造不能被削弱：不能拿一个成功的 run 去登记一次失败。"""
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-ok-2")
+
+    with pytest.raises(RunBindingError, match="completed successfully"):
+        verify_run_binding(store, "run-ok-2", outcome="failed")
+
+
+def test_failed_outcome_requires_error_or_degrades(tmp_path) -> None:
+    """非成功终态但既无 error 也无 degrades 的 run，不足以佐证一次失败。"""
+    from intelligence.services import run_store as run_store_module
+
+    store = RunStore("tester", root=tmp_path / "runs")
+    run_dir = store.run_dir("run-blank")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    payload = run_store_module.Run(
+        run_id="run-blank",
+        user="tester",
+        question="q",
+        task_type="conversation",
+        status="failed",
+    )
+    (run_dir / "run.json").write_text(
+        json.dumps(asdict(payload), ensure_ascii=False), encoding="utf-8"
+    )
+
+    with pytest.raises(RunBindingError, match="neither error nor degrades"):
+        verify_run_binding(store, "run-blank", outcome="failed")

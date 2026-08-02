@@ -79,6 +79,12 @@ class MoneyflowSnapshot:
     leaders: tuple[MoneyflowRow, ...]
     quant_orders: tuple[QuantOrderRow, ...]
     warnings: tuple[str, ...]
+    # 口径说明：恒定成立的方法论边界（覆盖范围、口径定义），与本轮跑得好不好无关。
+    # 它们必须和 warnings 分开——app.py 在 status != "ok" 时把 warnings 逐条写进
+    # run.degrades，而 acceptance.py 是「degrades 非空即判降级」。混在一起时，
+    # 一次 L2 日期偏移会产生 3 条降级记录，其中只有 1 条是真降级，另 2 条是
+    # 每次都会出现的口径说明——降级归因就是这样被稀释的。
+    disclosures: tuple[str, ...] = ()
     source: str = "feature_l2_capital_flow_daily + feature_l2_quant_orders_daily"
 
     def to_dict(self) -> dict[str, Any]:
@@ -245,14 +251,16 @@ def load_moneyflow_snapshot(
             )
             for row in quant_rows
         )
-        warnings = [
+        # 恒定口径，不随本轮成败变化 → disclosures，不进降级通道。
+        disclosures = [
             "仅覆盖昨日涨停股和成交额前 100；缺行不等于无资金流入。",
             "大单方向由委托编号口径推断，不等同于问财或全市场资金流口径。",
         ]
+        warnings: list[str] = []
         status = "ok"
         if as_of_date and trade_date < as_of_date:
             status = "stale"
-            warnings.insert(0, f"L2 最新扫描日为 {trade_date}，早于报告日 {as_of_date}。")
+            warnings.append(f"L2 最新扫描日为 {trade_date}，早于报告日 {as_of_date}。")
         return MoneyflowSnapshot(
             status=status,
             target_date=as_of_date,
@@ -261,6 +269,7 @@ def load_moneyflow_snapshot(
             leaders=tuple(leaders),
             quant_orders=quant_orders,
             warnings=tuple(warnings),
+            disclosures=tuple(disclosures),
         )
     except Exception:
         return missing

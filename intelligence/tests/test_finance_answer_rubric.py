@@ -7,25 +7,34 @@ import tempfile
 import json
 from pathlib import Path
 
-from intelligence.eval.finance_answer_rubric import score_answer
+from intelligence.eval.finance_answer_rubric import (
+    EVIDENCE_FULL_CREDIT,
+    evidence_marker_count,
+    score_answer,
+)
 
 
+# 合成测试数据：数字与引用编号为夹具，不是真实财务事实。
+# 保留原有全部论证内容，另补上数据锚点——rubric 的证据密度闸门要求「有据可依」
+# 的维度必须看得到股票代码/日期/百分比/金额/引用编号，光有行话拿不到分。
 STRONG_ANSWER = """
-我会先按本地知识库和金融 repo 看，不把 web 当主来源。瑞华泰当前不是纯业绩兑现股，
-而是 PI 膜国产替代的能力验证/事实验证之间，盘面已经经历 6 月 9 日、10 日连续放量上涨，
-所以更像预期交易后的兑现分歧。
+我会先按本地知识库和金融 repo 看，不把 web 当主来源。瑞华泰（688323）当前不是纯业绩
+兑现股，而是 PI 膜国产替代的能力验证/事实验证之间，盘面已经经历 6 月 9 日、6 月 10 日
+连续放量上涨，两日涨幅 12.4%、成交额放大到 8.6 亿，所以更像预期交易后的兑现分歧 [S1]。
 
 证据分层看：L1 是 PI 膜、AI 散热、电子 PI、折叠屏这些产业叙事；L2 是公司主营高性能
-聚酰亚胺薄膜、2025 和 2026Q1 仍亏损；L3 是嘉兴产能、热控 PI 量产供货，但中芯/台积电/
-CoWoS/TGV 已被公司互动易否认；L4 是金融 repo 里的强势异动和成交放大。
+聚酰亚胺薄膜、2026Q1 营收 3.2 亿但毛利率仅 18.7%、仍处亏损 [R1]；L3 是嘉兴产能、
+热控 PI 量产供货，但中芯/台积电/CoWoS/TGV 已被公司 2026-05-21 互动易问答否认 [G1]；
+L4 是金融 repo 里 2026-06-10 的强势异动和成交放大 [S2]。
 
 反方审稿：第一，这是不是老预期？先进封装和商业航天已经被交易过且部分证伪。第二，
 上涨空间有没有？有，但主要来自情绪二波或新的 L3 订单/客户/收入占比，不来自当前报表。
 第三，一阶受益是热控 PI 和电子 PI，二阶要看 FPC/AI 散热产业链扩散；如果没有客户验证，
 就容易利好兑现。
 
-结论：可以观察，但高置信看涨不足。后续看 AI 散热订单、嘉兴产能利用率、毛利率改善、
-电子 PI 头部客户确认，以及双红题材是否继续扩散而不是缩量冲高。（非投资建议）
+结论：可以观察，但高置信看涨不足。后续看 AI 散热订单、嘉兴产能利用率（当前 62%）、
+毛利率能否回到 25% 以上、电子 PI 头部客户确认，以及双红题材是否继续扩散而不是缩量
+冲高。（非投资建议）
 """
 
 
@@ -70,6 +79,42 @@ class FinanceAnswerRubricTests(unittest.TestCase):
         self.assertIn("证据分层", joined)
         self.assertIn("盘面阶段", joined)
         self.assertIn("反方审稿", joined)
+
+    def test_jargon_shell_cannot_outscore_a_grounded_answer(self) -> None:
+        """回归护栏：把 rubric 词表念一遍、但零事实的空壳，不得高过有据可依的真答案。
+
+        修复前实测：191 字的空壳拿 91/100(A)，8720 字、13 个股票代码、28 条引用编号的
+        真实题材答案只有 60/100(D)——指标与它声称要测的东西反相关，而低分还会经
+        experience_cards 变成「避免同类扣分」规则，等于教系统去刷这套话术。
+        """
+        shell = (
+            "本地知识库与金融 repo 优先。证据分层按 L1-L4 区分产业叙事、基本面、"
+            "公司硬事实与盘面情绪。盘面阶段处于预期交易向兑现分歧过渡，需警惕退潮与"
+            "利好兑现；量价上看双红、放量、缩量、扩散、承接与流动性。产业推导：上游、"
+            "中游、下游传导，量价利润弹性。反方审稿：反证、风险、除非、证伪条件如下。"
+            "结论可用性：建议关注，目标区间与止损位。个人方法论贴合：符合边际变化与"
+            "预期差框架。"
+        )
+
+        shell_score = score_answer("液冷服务器", shell, question_type="theme_analysis")
+        real_score = score_answer("瑞华泰还有上涨空间吗", STRONG_ANSWER)
+
+        self.assertEqual(evidence_marker_count(shell), 0)
+        self.assertGreaterEqual(evidence_marker_count(STRONG_ANSWER), EVIDENCE_FULL_CREDIT)
+        self.assertLess(shell_score.percent, real_score.percent)
+        self.assertIn(shell_score.grade, {"D", "F"})
+        # 闸门必须在「有据可依」的维度上生效，而不是靠别处凑分数
+        for key in ("evidence_layering", "market_stage", "industry_reasoning"):
+            self.assertEqual(shell_score.dimension(key).score, 0, key)
+
+    def test_dimensions_not_applicable_to_question_type_are_dropped(self) -> None:
+        """题型结构上不产出的维度整维剔除，不计入满分——对不存在的东西要证据是范畴错误。"""
+        scored = score_answer("什么是液冷服务器", STRONG_ANSWER, question_type="concept_definition")
+
+        keys = [d.key for d in scored.dimensions]
+        self.assertNotIn("market_stage", keys)
+        self.assertNotIn("actionability", keys)
+        self.assertEqual(scored.max_score, 100 - 20 - 10)
 
     def test_local_source_bonus_requires_actual_local_reference_in_answer(self) -> None:
         scored = score_answer(

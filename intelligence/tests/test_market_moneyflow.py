@@ -127,6 +127,31 @@ class MoneyflowBlockTests(unittest.TestCase):
             self.assertEqual(snapshot.trade_date, "2026-07-08")
             self.assertIn("早于报告日", snapshot.warnings[0])
 
+    def test_disclosures_never_enter_the_degrade_channel(self) -> None:
+        """恒定口径说明不得混进 warnings —— app.py 在 status != "ok" 时把 warnings
+        逐条写进 run.degrades，而 acceptance.py 是「degrades 非空即判降级」。
+
+        混在一起时，一次 L2 日期偏移会产生 3 条降级记录，其中只有 1 条是真降级，
+        另 2 条是每次都出现的口径说明——降级归因就是这样被稀释的。
+        """
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            fresh = load_moneyflow_snapshot(db, as_of_date="2026-07-08")
+            stale = load_moneyflow_snapshot(db, as_of_date="2026-07-10")
+
+            # 口径说明恒定存在，与本轮成败无关
+            self.assertEqual(fresh.disclosures, stale.disclosures)
+            self.assertTrue(any("缺行不等于无资金流入" in d for d in fresh.disclosures))
+            self.assertTrue(any("不等同于问财" in d for d in fresh.disclosures))
+
+            # 成功时不该有任何 warning；失败时只有那一条真降级
+            self.assertEqual(fresh.warnings, ())
+            self.assertEqual(len(stale.warnings), 1)
+            for text in stale.disclosures:
+                self.assertNotIn(text, stale.warnings)
+
     def test_llm_block_respects_as_of_date(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"

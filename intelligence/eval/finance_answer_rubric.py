@@ -15,6 +15,63 @@ from typing import Any
 
 QUESTION_MARKET_FORECAST = "market_forecast"
 
+# 真实证据标记：股票代码 / 日期 / 引用编号 / 带单位数字。
+# 词表命中可以靠堆砌行话刷出来，这些不行——只有答案真的引了数据才会出现。
+_EVIDENCE_MARKER_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("stock_code", r"\b\d{6}\b"),
+    ("iso_date", r"\b\d{4}-\d{2}-\d{2}\b"),
+    ("cn_date", r"\d{1,2}\s*月\s*\d{1,2}\s*日"),
+    ("citation", r"\[[SGRW]\d+\]"),
+    ("percent", r"\d+(?:\.\d+)?\s*%"),
+    ("amount", r"\d+(?:\.\d+)?\s*(?:亿元|万元|亿|万)"),
+)
+
+# 拿满证据分所需的去重标记数。实测基准：一份真实题材答案 46 个标记，
+# 一段只念词表、零事实的空壳 0 个。
+EVIDENCE_FULL_CREDIT = 8
+
+# 这几维都断言「答案有据可依」，所以它们的得分上限由真实证据标记密度决定。
+# 不加这道闸门时，191 字的纯行话空壳能拿 91/100(A)，而 8720 字、13 个股票代码、
+# 28 条引用编号的真实答案只有 60/100(D)——指标与它要测的东西反相关。
+# 注：``local_data_priority`` 也在闸门内——自动评分路径（cli.py 调
+# ``auto_eval.evaluate_answer``）从不传 ``local_sources``，该维度实际只在测
+# 答案有没有说「本地/知识库/repo」这几个词，等于奖励「声称」而非「做到」。
+EVIDENCE_GATED_KEYS: frozenset[str] = frozenset(
+    {
+        "local_data_priority",
+        "evidence_layering",
+        "market_stage",
+        "industry_reasoning",
+        "actionability",
+    }
+)
+
+# 题型 → 该题型结构上就不产出、因而不该参与评分的维度。
+# 默认 7 维全部适用；只登记确有把握的，避免拿范畴外的维度扣分——
+# 对一个结构上不可能存在的东西要证据，是范畴错误，不是质量缺陷。
+DIMENSION_NOT_APPLICABLE: dict[str, frozenset[str]] = {
+    "concept_definition": frozenset({"market_stage", "actionability"}),
+    "methodology_discussion": frozenset({"local_data_priority", "market_stage"}),
+    # 取值查询的必需输出是 (fact_value, as_of_date, evidence_boundary)——见
+    # task_frame。一个收盘价写不出盘面阶段、产业传导、反方审稿或交易方法论；
+    # evidence_layering 测的是 L1-L4 多源分层，对单值查询同样是范畴错误。
+    #
+    # 于是只剩 local_data_priority（满分 15）。这是个诚实但很弱的信号：本 rubric
+    # 目前没有任何一维对应 quick_fact 的真实契约（值 / 口径日期 / 证据边界）。
+    # 补一个专用维度需要先定「好的取值回答长什么样」，是独立的产品判断，
+    # 不在本次路由修复范围内——宁可少测，也不要拿不适用的维度扣分。
+    "quick_fact": frozenset(
+        {
+            "evidence_layering",
+            "market_stage",
+            "industry_reasoning",
+            "critic_review",
+            "actionability",
+            "personal_methodology",
+        }
+    ),
+}
+
 
 @dataclass(frozen=True)
 class RubricDimension:
@@ -96,7 +153,11 @@ def score_answer(
 
     ``question_type`` 与 answer_orchestrator 的题型对齐；传入
     ``market_forecast`` 时，在通用 7 维之上追加复盘/前瞻研判专用维度组，
-    逐项核对编排器视角清单里「必须写到」的硬要求。
+    逐项核对编排器视角清单里「必须写到」的硬要求；登记在
+    ``DIMENSION_NOT_APPLICABLE`` 里的维度则整维剔除，不计入满分。
+
+    断言「有据可依」的维度还会过一道证据密度闸门（``EVIDENCE_GATED_KEYS``），
+    上限随真实证据标记数收紧，避免只堆行话就拿高分。
     """
     text = _norm(answer)
     dims = [
@@ -110,6 +171,10 @@ def score_answer(
     ]
     if question_type == QUESTION_MARKET_FORECAST:
         dims.extend(_score_market_forecast_group(answer, text))
+    skipped = DIMENSION_NOT_APPLICABLE.get(question_type or "", frozenset())
+    dims = [d for d in dims if d.key not in skipped]
+    marker_count = evidence_marker_count(answer)
+    dims = [_apply_evidence_gate(d, marker_count) for d in dims]
     total = sum(d.score for d in dims)
     max_score = sum(d.max_score for d in dims)
     failures = [
@@ -182,7 +247,23 @@ def _web_as_primary(text: str) -> bool:
 
 def _score_evidence_layering(text: str) -> RubricDimension:
     layer_hits = _hits(text, ("l1", "l2", "l3", "l4"))
-    concept_hits = _hits(text, ("证据分层", "产业叙事", "基本面", "硬事实", "盘面情绪", "公司硬事实"))
+    # 后三个是本仓自己的规范分层词汇（见答案表格的「直接性 / 分层 / 证据状态」列
+    # 与「证据边界」段）。原词表只认 L1-L4 那一套，识别不了系统实际输出的措辞，
+    # 导致真实分层答案被判「缺少分层」。证据密度闸门保证补词不会变成新的刷分口。
+    concept_hits = _hits(
+        text,
+        (
+            "证据分层",
+            "产业叙事",
+            "基本面",
+            "硬事实",
+            "盘面情绪",
+            "公司硬事实",
+            "证据边界",
+            "证据状态",
+            "直接性",
+        ),
+    )
     score = min(15, len(set(layer_hits)) * 3 + len(concept_hits) * 2)
     if "l1-l4" in text or "l1～l4" in text or "l1/l2/l3/l4" in text:
         score = 15
@@ -521,6 +602,38 @@ def _score_forecast_hypothesis_attribution(answer: str, text: str) -> RubricDime
     hits = [f"已标注 {attributed}/{len(blocks)} 条"]
     return RubricDimension(
         "forecast_hypothesis_attribution", "假设来源标注", score, 8, reason, hits, misses
+    )
+
+
+def evidence_marker_count(answer: str) -> int:
+    """答案里去重后的真实证据标记数（股票代码/日期/引用编号/带单位数字）。"""
+    raw = str(answer or "")
+    total = 0
+    for _name, pattern in _EVIDENCE_MARKER_PATTERNS:
+        total += len(set(re.findall(pattern, raw)))
+    return total
+
+
+def _evidence_ceiling_ratio(marker_count: int) -> float:
+    if EVIDENCE_FULL_CREDIT <= 0:
+        return 1.0
+    return min(1.0, marker_count / EVIDENCE_FULL_CREDIT)
+
+
+def _apply_evidence_gate(dim: RubricDimension, marker_count: int) -> RubricDimension:
+    """把断言「有据可依」的维度压到证据密度允许的上限内。"""
+    if dim.key not in EVIDENCE_GATED_KEYS:
+        return dim
+    ceiling = int(dim.max_score * _evidence_ceiling_ratio(marker_count))
+    if dim.score <= ceiling:
+        return dim
+    misses = list(dim.misses)
+    misses.append(
+        f"证据标记不足（{marker_count}/{EVIDENCE_FULL_CREDIT}）：只有关键词、"
+        "缺股票代码/日期/引用编号/带单位数字，得分已按证据密度封顶"
+    )
+    return RubricDimension(
+        dim.key, dim.label, ceiling, dim.max_score, dim.reason, list(dim.hits), misses
     )
 
 

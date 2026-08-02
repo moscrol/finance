@@ -7,8 +7,41 @@ LLM Turn Controller 只能在这张表里选一行（受约束选择），
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
+
+# 快速事实（取值）查询的词面识别。放在本表而不是各分类器里，是因为本仓有两条
+# 并行的题型判定链——turn_controller 决定任务契约的 required_outputs，
+# answer_orchestrator.plan_answer_question 决定 rubric 用哪几个维度——两边各写一份
+# 词表就会漂移：实测「宁德时代今天收盘多少」曾同时被判成 market_forecast，
+# 于是被要求给出情景路径与失效条件，两头都判失败。
+QUICK_FACT_PATTERN = re.compile(
+    r"(?:(?<!\d)\d{6}(?!\d).{0,8}(?:是哪家公司|什么公司|代码对应)"
+    r"|(?:股价|市盈率|市净率|股票代码).{0,10}"
+    r"(?:多少|多少倍|是什么|是多少)"
+    r"|(?:收盘|开盘|最高价|最低价|涨幅|跌幅|振幅|成交额|成交量|换手率|市值)"
+    r"价?.{0,10}(?:多少|是多少|报多少|几个点)"
+    r"|(?:涨|跌)了多少)"
+)
+# 要的是判断而不是数值：命中时不判快速事实。既包括前瞻（「明天收盘多少」问的是
+# 预测），也包括分析请求（「市盈率多少倍，基本面怎么样」要的是研究，不是取值）。
+JUDGMENT_REQUEST_PATTERN = re.compile(
+    r"(?:明天|明日|次日|后市|未来|接下来|预测|展望|研判"
+    r"|怎么看|如何看|怎么样|怎样|如何评价|值不值|贵不贵|会不会|能不能涨"
+    r"|分析一下|深挖|逻辑|机会|风险)"
+)
+
+
+def is_quick_fact_query(query: str) -> bool:
+    """这句话是不是在要一个确定的数值/代码，而不是要一个判断。
+
+    这是**意图**判断，与主语无关：「光刻胶板块今天成交额多少」主语是题材、
+    「300750是哪家公司」主语是公司，两者要的都是一个确定的值。上游 envelope
+    按主语给题型（theme_analysis / stock_deep_dive），会把这层意图压掉。
+    """
+    text = str(query or "")
+    return bool(QUICK_FACT_PATTERN.search(text)) and not JUDGMENT_REQUEST_PATTERN.search(text)
 
 RouteLane: TypeAlias = Literal[
     "chat",

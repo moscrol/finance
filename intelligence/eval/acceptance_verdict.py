@@ -364,6 +364,28 @@ def evaluate_case(
     )
 
 
+# 良性降级：不是「本轮没做好」，而是「这一类信息本来就不适用、或尚未到达」。
+# 把它们和真降级混在一个列表里，是 95 条降级事件里三分之一不是降级的原因——
+# 信号被噪声稀释后，「这一刀有没有用」就读不出来了。
+#
+# **未登记的一律按真降级处理**：这个名单只能把已证实无害的排除掉，不能反过来
+# 让新出现的故障静默消失。宁可多报一条，不可漏报一条。
+_BENIGN_DEGRADE_MARKERS: tuple[str, ...] = (
+    "盘面快照回退",          # 当日数据未到，用前一交易日；数据管线问题不是回答问题
+    "尚无候选",
+    "题材候选快照截至",
+    "无匹配主题",            # 该题材尚未建发酵信号，replay 无从回溯
+    "replay 跳过",
+    "历史信号回检跳过",
+)
+
+
+def classify_degrade(reason: str) -> str:
+    """把一条降级记录判成 benign 或 real。未登记的一律 real（失败安全）。"""
+    text = str(reason or "")
+    return "benign" if any(m in text for m in _BENIGN_DEGRADE_MARKERS) else "real"
+
+
 def _evaluate_operational(case_run: Mapping[str, Any]) -> OperationalVerdict:
     blocked_reason = case_run.get("blocked_reason")
     turns = case_run.get("turns") or []
@@ -383,14 +405,27 @@ def _evaluate_operational(case_run: Mapping[str, Any]) -> OperationalVerdict:
         errors = [str(turn.get("error")) for turn in turns if turn.get("error")]
         reason = ", ".join(errors) if errors else "terminal states: " + ", ".join(statuses)
         return OperationalVerdict(state=OperationalState.FAILED, reason=reason)
-    if any(turn.get("degrades") for turn in turns):
+    all_degrades = [
+        str(item)
+        for turn in turns
+        for item in (turn.get("degrades") or [])
+        if str(item).strip()
+    ]
+    real = [item for item in all_degrades if classify_degrade(item) == "real"]
+    benign = len(all_degrades) - len(real)
+    if real:
+        note = f"（另有 {benign} 条良性）" if benign else ""
         return OperationalVerdict(
             state=OperationalState.DEGRADED,
-            reason="one or more completed turns reported degradation",
+            reason=f"{len(real)} 条真降级{note}：{real[0][:60]}",
         )
     return OperationalVerdict(
         state=OperationalState.COMPLETED,
-        reason="all recorded turns completed",
+        reason=(
+            f"all recorded turns completed（{benign} 条良性降级不计）"
+            if benign
+            else "all recorded turns completed"
+        ),
     )
 
 

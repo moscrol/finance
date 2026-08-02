@@ -576,7 +576,9 @@ def moneyflow_module(snapshot: MoneyflowSnapshot) -> dict[str, Any]:
             ],
             "rows": leader_rows,
         },
-        "warnings": list(snapshot.warnings),
+        # 口径说明与告警在展示上合流（用户该看到全部边界），但只有 warnings 会
+        # 进 run.degrades——两者的消费者要求不同，见 MoneyflowSnapshot.disclosures。
+        "warnings": [*snapshot.warnings, *snapshot.disclosures],
         "provenance": {
             "source": snapshot.source,
             "as_of": snapshot.trade_date,

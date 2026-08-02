@@ -261,3 +261,65 @@ def test_fail_closed_projection_removes_candidate_answer() -> None:
     assert projected.presentation_kind == "evidence_gap"
     assert projected.candidate_facts == ()
     assert projected.summary[0].status == answer_model.ClaimStatus.MISSING
+
+
+def test_fail_closed_projection_keeps_evidence_bound_facts() -> None:
+    """契约未完成 ≠ 查到的东西都是假的。
+
+    原先一律清空 verified_facts / company_table / sources，于是一个缺失的措辞
+    标记（counterpoint 只要求正文出现 反证/风险/相反/但/除非 之一）就把整张
+    公司表和全部已核验事实一起丢掉——C5 那道纯查价题就是这么变成一句失败桩的。
+    缺口仍要排在最前、仍切 evidence_gap 渲染，但已绑定证据的事实必须留下。
+    """
+    fact = Claim(
+        claim_id="fact:1",
+        text="立新能源 2026-07-21 收盘 8.15 元。",
+        claim_type="supporting_fact",
+        theme="market",
+        evidence_ids=("S1",),
+        status=ClaimStatus.VERIFIED,
+    )
+    unbound = Claim(
+        claim_id="fact:2",
+        text="没有出处的推断。",
+        claim_type="supporting_fact",
+        theme="market",
+        evidence_ids=(),
+        status=ClaimStatus.VERIFIED,
+    )
+    spec = answer_model.finalize_answer_spec(
+        answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                "立新能源收盘价多少", profile="general"
+            ),
+            summary=(_claim("s:1", "收盘价如下。", evidence_ids=("S1",)),),
+            verified_facts=(fact, unbound),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(
+                answer_model.EvidenceRef(evidence_id="S1", source="fact_stock_daily", detail=""),
+                answer_model.EvidenceRef(evidence_id="ZZ", source="用不到的来源", detail=""),
+            ),
+            system_notices=(),
+            presentation_kind="generic_research",
+        )
+    )
+    verdict = evaluate_task_fulfillment(
+        question="立新能源收盘价多少",
+        required_outputs=(RequiredOutput("counterpoint", "反证", ("market_data",)),),
+        answer_text="立新能源 2026-07-21 收盘 8.15 元。",
+        claims=spec.summary,
+        sources=(),
+    )
+
+    projected = fail_closed_answer_spec(spec, verdict)
+
+    assert projected.presentation_kind == "evidence_gap"
+    assert projected.summary[0].status == answer_model.ClaimStatus.MISSING
+    # 有出处的留下，没出处的丢掉
+    assert [c.claim_id for c in projected.verified_facts] == ["fact:1"]
+    # 来源只保留被留存事实真正引用到的那些
+    assert [s.evidence_id for s in projected.sources] == ["S1"]

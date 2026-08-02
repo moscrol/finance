@@ -427,13 +427,25 @@ def verify_run_binding(
     run_store: RunStore,
     run_id: str | None,
     *,
+    outcome: str = "success",
     require_provider: str | None = None,
     require_model: str | None = None,
 ) -> RunEvidence:
-    """校验 ``run_id`` 绑定到一个真实、终态成功、llm.used=true 且留证据的 Workbench run。
+    """校验 ``run_id`` 绑定到一个真实的 Workbench run，并按 ``outcome`` 校验其成色。
 
-    拒绝：缺失/伪造 run_id、非终态或非成功 run、模型未参与/回退（llm.used!=true 或
-    命中回退降级标记）、以及缺 SSE/报告证据的 run。任一不满足抛 ``RunBindingError``。
+    **真实性与成功性是两件事。** 反伪造要证明的是「这条记录对应一次真实发生的
+    使用」，不是「那次使用做得好」。此前两者绑在一起（一律要求终态成功 +
+    llm.used=true），后果是 ``outcome=failed`` 和模板回退**根本无法入账**——
+    而那恰好是用户停用产品的原因。于是 success_rate / useful_rate 都算在一个
+    已经剔除了最差两种结局的样本上，成了幸存者偏差。
+
+    分三档：
+    - ``success``：全套（终态成功 + 非模板回退 + llm.used=true + 报告/SSE 证据）；
+    - ``degraded``：仍要求跑完并留下报告与 SSE 证据，但允许模板回退与 llm 未参与；
+    - ``failed``：只要求 run 真实存在、且它自己的记录佐证了失败（非成功终态，
+      且有 error 或 degrades）。失败的 run 通常没有 report.json，因此
+      ``report_as_of`` 为空，``trade_date`` 无法交叉核对——这是这一档刻意接受的
+      弱化：宁可少一道交叉校验，也不要让台账系统性地只剩好消息。
 
     ``require_provider`` / ``require_model`` 默认为 None，即**不限定 backend**。
     门禁要证明的是"模型确有参与、答案有证据可回查"，而不是"用了哪一家模型"；
@@ -452,11 +464,38 @@ def verify_run_binding(
     except (ValueError, OSError, json.JSONDecodeError, TypeError) as exc:
         raise RunBindingError(f"run not loadable: {run_id}") from exc
 
+    if outcome not in OUTCOMES:
+        raise RunBindingError(f"unknown outcome: {outcome}")
+
+    if outcome == "failed":
+        # 失败档只做真实性 + 自洽性：run 真实存在，且它自己的记录佐证了失败。
+        # 不要求 report.json / SSE——失败的 run 本来就不会留下它们，要求了就等于
+        # 把「失败」这一档变回不可记录。
+        if run.status == STATUS_COMPLETED:
+            raise RunBindingError(
+                f"run {run_id} claims outcome=failed but the run completed successfully"
+            )
+        if not run.error and not run.degrades:
+            raise RunBindingError(
+                f"run {run_id} claims outcome=failed but records neither error nor degrades"
+            )
+        return RunEvidence(
+            run_id=run_id,
+            status=run.status,
+            llm_used=False,
+            llm_provider="",
+            llm_model="",
+            report_as_of="",
+            stream_event_count=0,
+        )
+
     if run.status != STATUS_COMPLETED:
         raise RunBindingError(
             f"run {run_id} is not terminal-successful (status={run.status})"
         )
-    if LLM_FALLBACK_DEGRADE in run.degrades:
+    if outcome == "success" and LLM_FALLBACK_DEGRADE in run.degrades:
+        # 模板回退在 success 档仍然拒收——那不叫成功。但它可以按 degraded 入账，
+        # 而不是像此前那样整条记录都进不来。
         raise RunBindingError(f"run {run_id} degraded to a template answer (model unused)")
 
     report_path = run_store.run_dir(run_id) / "report.json"
@@ -484,11 +523,13 @@ def verify_run_binding(
 
     llm_meta = report.get("llm")
     llm_used = bool(isinstance(llm_meta, dict) and llm_meta.get("used") is True)
-    if not llm_used:
+    if outcome == "success" and not llm_used:
+        # degraded 档不查这条：模板回退的定义就是模型没参与，要求 llm.used=true
+        # 等于把这一档也变回不可记录。
         raise RunBindingError(f"run {run_id} report metadata does not assert llm.used=true")
-    provider = str(llm_meta.get("provider") or "")
-    model = str(llm_meta.get("model") or "")
-    if not provider or not model:
+    provider = str(llm_meta.get("provider") or "") if isinstance(llm_meta, dict) else ""
+    model = str(llm_meta.get("model") or "") if isinstance(llm_meta, dict) else ""
+    if outcome == "success" and (not provider or not model):
         # 仍然要求 backend 可识别: 记不出用了什么模型的 run 无法复核。
         raise RunBindingError(
             f"run {run_id} report metadata does not name the llm provider/model"
@@ -560,8 +601,10 @@ def ingest_self_use_event(
     if date.fromisoformat(validated.trade_date) > resolved_today:
         raise ValueError(f"trade_date is in the future: {validated.trade_date}")
 
-    evidence = verify_run_binding(run_store, validated.run_id)
-    if evidence.report_as_of != validated.trade_date:
+    evidence = verify_run_binding(run_store, validated.run_id, outcome=validated.outcome)
+    # 失败档没有 report.json，report_as_of 为空，无从交叉核对（见 verify_run_binding
+    # 的档位说明）。其余两档仍强制日期一致。
+    if evidence.report_as_of and evidence.report_as_of != validated.trade_date:
         raise RunBindingError(
             f"run {evidence.run_id} report as_of {evidence.report_as_of} "
             f"does not match trade_date {validated.trade_date}"

@@ -820,3 +820,41 @@ def test_unreproducible_case_lands_on_unjudgeable_not_fail() -> None:
     verdict = evaluate_case(contract, _completed("截至 2026-07-30，底部横盘阶段，第 2 个交易日。"))
     assert verdict.truth.state is VerdictState.UNJUDGEABLE
     assert _rule(verdict, "case_reproducibility").state is VerdictState.UNJUDGEABLE
+
+
+def test_benign_degrades_do_not_mark_a_turn_degraded() -> None:
+    """良性降级（数据未到 / 该题材无发酵信号）不该判成降级完成。
+
+    95 条降级事件里三分之一不是降级——信号被噪声稀释后，「这一刀有没有用」
+    就读不出来了。但名单只做减法：未登记的一律按真降级，宁可多报不可漏报。
+    """
+    from intelligence.eval.acceptance_verdict import (
+        OperationalState,
+        _evaluate_operational,
+        classify_degrade,
+    )
+
+    assert classify_degrade("盘面快照回退到 2026-07-30（2026-07-31 尚无候选）") == "benign"
+    assert classify_degrade("模块 replay：theme_signals.json 无匹配主题，replay 跳过") == "benign"
+    # 未登记的新故障必须按真降级处理，不能静默消失
+    assert classify_degrade("某个还没见过的新故障") == "real"
+    assert classify_degrade("llm_unavailable_template_answer") == "real"
+
+    benign_only = {
+        "turns": [{"status": "completed", "degrades": ["盘面快照回退到 2026-07-30"]}]
+    }
+    assert _evaluate_operational(benign_only).state is OperationalState.COMPLETED
+
+    mixed = {
+        "turns": [
+            {
+                "status": "completed",
+                "degrades": ["盘面快照回退到 2026-07-30", "知识库检索失败（退出码 1）"],
+            }
+        ]
+    }
+    verdict = _evaluate_operational(mixed)
+    assert verdict.state is OperationalState.DEGRADED
+    # 原因必须点名真降级，而不是「one or more turns reported degradation」
+    assert "知识库检索失败" in verdict.reason
+    assert "1 条良性" in verdict.reason

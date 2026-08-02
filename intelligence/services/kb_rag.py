@@ -130,7 +130,15 @@ _DROPPABLE_QUERY_OPTIONS: tuple[str, ...] = (
     "--evidence-layer",
     "--fact-hardness",
     "--source-type",
+    "--stale-policy",
 )
+# 索引过期时的策略。CLI 默认是 fail（退出码 3、零结果），那是**代码仓**的假设：
+# 提交之间工作区是干净的。知识库是**内容仓**，用户每天 ingest 概念和实体，
+# 工作区常态就是脏的——实测 wiki/sources 与 wiki/synthesis 有 26 个未提交文件时，
+# 每一次检索都硬失败，且同一根因在 degrades 里重复计 4 次，占全部降级事件的 46%。
+# 代价不对称：索引晚两天 vs 完全没有检索，显然前者好得多。降级本身仍会经
+# stderr 的 WARNING 进 degrades，可观测性不丢。
+_STALE_POLICY = os.environ.get("KB_RAG_STALE_POLICY", "warn").strip().lower()
 _DENSE_UNAVAILABLE_UNTIL: dict[str, float] = {}
 _RESULT_CACHE: OrderedDict[tuple[object, ...], tuple[float, WikiRagResult]] = (
     OrderedDict()
@@ -822,6 +830,8 @@ def retrieve(
     ]
     if "--evidence-chars" not in legacy_options:
         cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
+    if _STALE_POLICY and "--stale-policy" not in legacy_options:
+        cmd.extend(["--stale-policy", _STALE_POLICY])
     cmd.append("--json")
     # 已知被 CLI 拒收的过滤选项不再下发：否则每轮都要先失败一次才降级，
     # 白烧一次查询预算。tel.filters 仍记录请求过什么，便于对账"要过滤但没过滤"。
@@ -1179,9 +1189,17 @@ def retrieve(
         if non_fresh_hits:
             tel.degraded = True
             states = ",".join(sorted({hit.index_freshness for hit in non_fresh_hits}))
+            # 光说「丢了几条、契约要求 fresh」只解释了机制，没告诉人怎么办。
+            # 内容仓每天 ingest，工作区脏是常态，这条会高频出现——它必须自带动作，
+            # 否则用户看到的就是「又没有证据」，而实际上证据就在那里、差一次提交。
+            remedy = (
+                "在知识库仓提交改动后 post-commit 会自动重建索引，届时这些证据即可进入"
+                if states == "stale"
+                else "先在知识库仓跑 rag update 重建索引"
+            )
             warnings.append(
                 f"wiki-rag 丢弃 {len(non_fresh_hits)} 条非 fresh 命中（新鲜度={states}）；"
-                "formal 证据要求 fresh，过期/未知命中不进入证据"
+                f"formal 证据要求 fresh，过期/未知命中不进入证据｜可恢复：{remedy}"
             )
         hits = [hit for hit in hits if hit.index_freshness == "fresh"]
     else:

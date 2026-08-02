@@ -20,6 +20,7 @@ from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
+    is_quick_fact_query,
     render_route_table_prompt,
     route_by_id,
 )
@@ -121,11 +122,8 @@ _KNOWLEDGE_QUESTION_PATTERN = re.compile(
     r"(是什么|什么是|为什么|原理|如何工作|怎么理解|什么意思|区别|"
     r"介绍一下|解释一下)"
 )
-_QUICK_FACT_ROUTE_PATTERN = re.compile(
-    r"(?:(?<!\d)\d{6}(?!\d).{0,8}(?:是哪家公司|什么公司|代码对应)"
-    r"|(?:股价|市盈率|市净率|股票代码).{0,10}"
-    r"(?:多少|多少倍|是什么|是多少))"
-)
+# 快速事实的词面识别收敛到 route_table.is_quick_fact_query（单一事实源）：
+# 本仓有两条并行题型判定链，各写一份词表必然漂移。
 _THEME_TRACK_ROUTE_PATTERN = re.compile(
     r"(?:跟踪|近况)"
     r"|(?:最近|近)(?:一|1|两|2|三|3)?(?:个)?(?:周|月|季度)"
@@ -525,7 +523,7 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
         route_id = "comparison_analog"
     elif _THEME_TRACK_ROUTE_PATTERN.search(query):
         route_id = "theme_track"
-    elif _QUICK_FACT_ROUTE_PATTERN.search(query):
+    elif is_quick_fact_query(query):
         route_id = "quick_fact"
     return route_by_id(route_id) if route_id is not None else None
 
