@@ -556,17 +556,44 @@ def fail_closed_answer_spec(
         theme=answer_spec.research_spec.theme,
         status=ClaimStatus.MISSING,
     )
+    # 已经绑定到真实证据的事实予以保留：契约未完成说的是「这份回答没覆盖用户
+    # 问题的全部必需部分」，不是「查到的东西都是假的」。原先一律清空，导致
+    # 一个缺失的措辞标记（counterpoint 只要求正文出现 反证/风险/相反/但/除非
+    # 之一）就把整张公司表和全部已核验事实一起丢掉——C5 那道纯查价题就是这么
+    # 变成一句失败桩的。渲染仍切到 evidence_gap，缺口仍排在最前，不会把没完成
+    # 的草稿当成完整回答呈现。
+    kept_facts = tuple(
+        claim for claim in answer_spec.verified_facts if claim.evidence_ids
+    )
+    kept_companies = tuple(
+        company
+        for company in answer_spec.company_table
+        if any(claim.evidence_ids for claim in company.claims)
+    )
+    kept_sources = ()
+    if kept_facts or kept_companies:
+        bound_ids = {
+            evidence_id
+            for claim in (
+                *kept_facts,
+                *(claim for company in kept_companies for claim in company.claims),
+            )
+            for evidence_id in claim.evidence_ids
+        }
+        kept_sources = tuple(
+            source for source in answer_spec.sources if source.evidence_id in bound_ids
+        )
     return replace(
         answer_spec,
         summary=(gap,),
-        verified_facts=(),
-        company_table=(),
+        verified_facts=kept_facts,
+        company_table=kept_companies,
         counter_evidence=(),
         triggers=(),
         candidate_facts=(),
         gaps=(gap,),
         next_actions=("补齐上述问题相关的数据或证据后重新核验。",),
-        sources=(),
+        sources=kept_sources,
         presentation_kind="evidence_gap",
         presentation_title=answer_spec.presentation_title or "证据缺口",
     )
