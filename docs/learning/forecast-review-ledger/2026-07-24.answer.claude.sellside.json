@@ -1,0 +1,399 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-24",
+  "agent": "claude",
+  "source": "sellside",
+  "manifest_sha": "f8acb6d3ba3c9288",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "反弹阶段",
+      "direction": "neutral"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 3,
+      "direction": "neutral"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 74.62,
+      "direction": "counter"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "advancers",
+      "value": 4260,
+      "direction": "support"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 21949.97,
+      "direction": "counter"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "sh_index_pct_chg",
+      "value": 0.25,
+      "direction": "neutral"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 116,
+      "direction": "support"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 3,
+      "direction": "counter"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector:半导体设备",
+      "field": "pct_chg/diff_ratio",
+      "value": "pct=-4.61,diff=-34.85",
+      "direction": "counter"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector:半导体",
+      "field": "pct_chg/diff_ratio",
+      "value": "pct=-3.24,diff=-31.06",
+      "direction": "counter"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector:电网设备",
+      "field": "pct_chg/diff_ratio",
+      "value": "pct=6.65,diff=55.20",
+      "direction": "support"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector:电池化学品",
+      "field": "pct_chg/diff_ratio",
+      "value": "pct=5.70,diff=33.60",
+      "direction": "support"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector:锂",
+      "field": "pct_chg/diff_ratio",
+      "value": "pct=8.03,diff=44.32",
+      "direction": "support"
+    },
+    "H1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-23",
+      "entity": "theme:储能",
+      "field": "limit_up_count/market_share/rank",
+      "value": "limit_up=40,share=34.48%,rank=1",
+      "direction": "support"
+    },
+    "H2": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-23",
+      "entity": "theme:人工智能/芯片概念",
+      "field": "limit_up_count",
+      "value": "人工智能=18,芯片概念=10",
+      "direction": "neutral"
+    },
+    "N1": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-23",
+      "entity": "新高集群",
+      "field": "new_high_cluster",
+      "value": "有色(金诚信/藏格矿业/江西铜业/赤峰黄金)+风电特高压(明阳电气/山大电力)",
+      "direction": "support"
+    },
+    "R1": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:AI算力",
+      "field": "Google_capex",
+      "value": "谷歌26全年capex上调至1950-2050亿美元(原1800-1900亿)，27年仍大幅增长",
+      "direction": "support"
+    },
+    "R2": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:MLCC/被动元件",
+      "field": "coverage_density",
+      "value": "本篇3家覆盖(兴证姚康/天风汽车/中信航空航天)，三星电机8-9月再涨两轮",
+      "direction": "support"
+    },
+    "R3": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:MLCC/被动元件",
+      "field": "priced_in",
+      "value": "天风自承按30XPE测算当前原厂侧仅隐含30-40%涨价预期(已部分定价)",
+      "direction": "counter"
+    },
+    "R4": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:电新/锂电",
+      "field": "排产",
+      "value": "8月锂电全市场排产约304GWh，环比+7.4%，核心拉动在储能",
+      "direction": "support"
+    },
+    "R5": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:铜",
+      "field": "供需",
+      "value": "国内社库10.73万吨历史低位、现货升水435元/吨高位，看好Q3铜价主升",
+      "direction": "support"
+    },
+    "R6": {
+      "level": "L1",
+      "source": "sellside/2026-07-23-调研纪要miracle.md",
+      "source_time": "2026-07-23",
+      "entity": "direction:AI算力/半导体",
+      "field": "短期情绪",
+      "value": "原文承认科技资金担心下周一(07-27)长鑫科技上市虹吸，国产链+海外链今天继续emo",
+      "direction": "counter"
+    }
+  },
+  "stage": "反弹阶段第3天·缩量",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-23",
+    "metrics": {
+      "market_stage": {
+        "value": "反弹阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 3,
+        "evidence_ref": "M2"
+      },
+      "volume_ratio": {
+        "value": 74.62,
+        "evidence_ref": "M3"
+      },
+      "advancers": {
+        "value": 4260,
+        "evidence_ref": "M4"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4"
+    ]
+  },
+  "main_judgment": "卖方一致看多AI算力（Google capex/MLCC/磷化铟/PCB），但07-23盘面显示半导体/算力链资金巨量流出（半导体设备-4.61%且diff-34.85、半导体/先进封装/CPO全线diff<-24），与卖方一致看多形成背离→短期跟风透支；资金实际切向电新+有色（储能涨停40家占份额34%、锂/电网/电池全面双红）。反弹第3天缩量（量比74.62、成交环比-17.27%、历史新高仅3家），属缩量结构轮动而非趋势反弹。",
+  "direction_ranking": [
+    "电新（储能/锂电/电网）—盘面全面双红+涨停热度第一+排产催化",
+    "有色（锂/铜/黄金）—低库存高升水+新高集群",
+    "AI算力/半导体—卖方覆盖最密但盘面退潮，短期透支回避"
+  ],
+  "picks": [
+    {
+      "code": "300750",
+      "name": "宁德时代",
+      "strategy": "策略二·容量核心（电新）",
+      "reason": "电池龙头，8月排产环比+7.4%且核心拉动在储能(R4)，电池/电池化学品板块07-23双红diff+8.74/+33.60(S4)，T+1(07-24)盘后半年报为板块关键催化；07-23收385.99(+3.69%)放量136亿",
+      "evidence_refs": [
+        "R4",
+        "S4",
+        "M7"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "300274",
+      "name": "阳光电源",
+      "strategy": "策略二·容量核心（储能集成）",
+      "reason": "储能集成龙头，储能板块07-23涨停40家、市场份额34.48%排名第一(H1)，电网设备双红diff+55.20(S3)，海外签单超16GWh；07-23收117.79(+7.13%)放量107亿",
+      "evidence_refs": [
+        "H1",
+        "S3",
+        "R4"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "002460",
+      "name": "赣锋锂业",
+      "strategy": "策略二·强趋势延续（有色/锂）",
+      "reason": "锂板块07-23涨8.03%、边际量diff+44.32为全市场双红涨幅第一(S5)，新高集群落在有色(N1)；07-23收51.19(+7.93%)放量42.6亿，趋势最强",
+      "evidence_refs": [
+        "S5",
+        "N1"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "601899",
+      "name": "紫金矿业",
+      "strategy": "策略二·容量核心（铜）",
+      "reason": "铜基本面驱动：国内社库10.73万吨历史低位、现货升水435元/吨高位，看好Q3铜价主升(R5)，有色新高集群确认(N1)；07-23收33.06(+2.67%)放量145亿为有色容量核心",
+      "evidence_refs": [
+        "R5",
+        "N1",
+        "S5"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "605117",
+      "name": "德业股份",
+      "strategy": "策略三·触底反弹弹性（储能）",
+      "reason": "海外储能高景气，储能板块涨停热度第一(H1)、电网设备双红(S3)；07-23涨停收88.51(+10.00%)放量21亿，电新链弹性品种",
+      "evidence_refs": [
+        "H1",
+        "S3",
+        "R4"
+      ],
+      "evidence_as_of": "2026-07-23"
+    }
+  ],
+  "thresholds": {
+    "market": "T+3(07-28)上证成交额：放量站上27000亿(量比>90)且涨家数持续>4000=反弹演化为趋势；若成交<22000亿(量比<80)且涨家数回落<3000=缩量退潮回分歧。当前07-23成交21949.97亿、量比74.62、涨家4260、涨停116/跌停2",
+    "direction": "AI算力透支确认：T+3半导体设备板块diff持续<−10(07-23为−34.85)、半导体diff<−10(07-23为−31.06)；电新增量确认：T+3电网设备diff维持>0(07-23为+55.20)、储能板块维持涨停热度第一(diff>0)",
+    "targets": "宁德300750守住385.99且不破5日线；阳光300274守住117.79；赣锋002460续强不回吐07-23涨幅(收51.19)；紫金601899守住33.06；德业605117不回吐涨停(收88.51)",
+    "falsify": "AI透支判断推翻：T+3(07-28)半导体设备或先进封装板块转双红(pct>0且diff>0)，或算力基础层龙头(鹏鼎002938/三环300408/云南锗业002428)放量创20日新高；电新增量判断推翻：T+3电网设备与储能diff双双转负(资金一日游)"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "mechanical",
+      "evidence_ref": "M3",
+      "as_of": "2026-07-23"
+    },
+    "direction": {
+      "origin": "mechanical",
+      "evidence_ref": "S1",
+      "as_of": "2026-07-23"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "S3",
+      "as_of": "2026-07-23"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "R6",
+      "as_of": "2026-07-23"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "direction:ai_overdraw",
+      "category": "direction",
+      "claim": "AI算力/半导体链短期跟风透支：卖方本篇对Google capex/MLCC/磷化铟/PCB覆盖最密且一致看多，但07-23盘面半导体设备(-4.61%,diff-34.85)、半导体/先进封装/CPO全线资金巨量流出；T+3(07-28)半导体设备diff持续<−10、算力龙头不创20日新高(长鑫科技07-27上市虹吸兑现)",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "R1",
+        "R2",
+        "R3",
+        "R6"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+3(07-28)半导体设备或先进封装板块转双红(pct>0且diff>0)，或算力基础层龙头(鹏鼎/三环/云南锗业)放量创20日新高——说明覆盖密度阈值定早，不是透支而是洗盘后再起"
+    },
+    {
+      "id": "direction:dianxin_increment",
+      "category": "direction",
+      "claim": "电新(储能/锂电)为信息增量方向：卖方覆盖密度低(仅国泰海通1篇排产)但盘面已强确认，T+3(07-28)储能/电网设备板块维持双红(diff>0)、宁德时代/阳光电源站上07-23收盘价",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "S3",
+        "S4",
+        "S5",
+        "H1",
+        "R4"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+3(07-28)电网设备与储能diff双双转负(资金一日游)，或宁德时代跌破07-23收盘385.99——说明缩量环境下双红不可延续"
+    },
+    {
+      "id": "market:volume_fade",
+      "category": "market",
+      "claim": "反弹第3天缩量难演化为趋势反弹：T+3(07-28)上证成交额未持续站上27000亿(量比<90)，反弹阶段转入分歧/缩量震荡",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "M3",
+        "M5",
+        "M6",
+        "M8"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+3(07-28)上证成交额放大站上27000亿且量比>90、涨家数持续>4000(宁德半年报催化带动电新放量)"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-24",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      -0.77,
+      -3.71,
+      -4.22,
+      -4.69,
+      -0.07
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00"
+  }
+}

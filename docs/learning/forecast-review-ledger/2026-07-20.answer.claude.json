@@ -1,0 +1,654 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-20",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "eed501f0cad4c1b3",
+  "perspective_date": "2026-07-17",
+  "input_notes": "仅用 manifest 冻结输入：DuckDB 截至 2026-07-17。materials 为空（无卖方/晨汇冻结材料=数据缺口）；知识库 commit fbb2b428 已冻结但本卷未引用其内容，全部证据出自 DuckDB fact_* 表。fact_sector_daily.strength 字段当日为 NULL（缺口）；'人工智能'涨停热度含概念标签泛化噪声（成分为杂毛小票，已在方向排序中剔除处理）。",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "advancers",
+      "value": 482,
+      "direction": "support",
+      "note": "涨家仅482/涨占比8.66%，近半年极值（比07-07的693、07-13的801更极端）"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 193,
+      "direction": "support",
+      "note": "跌停193家，超07-13的172，恐慌宣泄极值"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 33,
+      "direction": "support",
+      "note": "涨停33家，情绪冰点"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 26547.43,
+      "direction": "support",
+      "note": "成交26547亿"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": 10.46,
+      "direction": "support",
+      "note": "环比+10.46%=放量下杀（宣泄特征，区别于此前缩量阴跌）"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 85.12,
+      "direction": "neutral",
+      "note": "vol_ratio 85.12 偏冷（60d分位16.67%）"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "support",
+      "note": "fupanhui 阶段标签：下跌阶段（左底向下早期）"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 5,
+      "direction": "support",
+      "note": "下跌阶段第5天"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "sh000001",
+      "field": "sh_index_close",
+      "value": 3764.155,
+      "direction": "support",
+      "note": "上证-3.05%收3764.155，跌破06-08低点3928与07-14低点3869"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily.ice_point",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "vol_ratio_ma20",
+      "value": 76.22,
+      "direction": "support",
+      "note": "07-16极冰（A区<78%），库内规则注：'左底向下阶段早期即出现极冰量能，通常预示市场快速见底'"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2025-09-04",
+      "entity": "sh000001",
+      "field": "sh_index_close",
+      "value": 3765.876,
+      "direction": "support",
+      "note": "上一次收于3800下方是2025-08-20~09-04平台带（3766.2/3771.1/3765.9），当前3764.155正回踩该平台带=强支撑区"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-08",
+      "entity": "market",
+      "field": "advancers",
+      "value": 1593,
+      "direction": "support",
+      "note": "恐慌样本1：07-07涨家693→次日07-08回升至1593（弱反抽）"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-14",
+      "entity": "market",
+      "field": "advancers",
+      "value": 4211,
+      "direction": "support",
+      "note": "恐慌样本2：07-13涨家801/跌停172→次日07-14涨家4211（强反抽）"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "sh000001",
+      "field": "sh_index_low",
+      "value": 3745.174,
+      "direction": "support",
+      "note": "07-17日内低点3745.174，即2025-08平台带下沿附近，作证伪基准价"
+    },
+    "M15": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 4,
+      "direction": "support",
+      "note": "历史新高仅4只；≥1年新高合计14只且全为防御/小票（美的3y/中远海特3y/皖通高速1y），无科技容量新高"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "pct_chg",
+      "value": 1.25,
+      "direction": "support",
+      "note": "电力+1.25%，恐慌日逆势红盘"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "diff_ratio",
+      "value": 59.86,
+      "direction": "support",
+      "note": "电力边际量+59.86%（成交380亿→607亿），避险资金加速涌入"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "amount",
+      "value": 607.09,
+      "direction": "support",
+      "note": "电力成交607亿>500亿，满足严格双红（pct>0且diff>10且amount>500），全市场唯一"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "银行",
+      "field": "diff_ratio",
+      "value": 52.02,
+      "direction": "support",
+      "note": "银行+0.4%/diff+52.02/400亿（成交不足500亿未达严格线），防御第二席"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily(聚合: pct_chg>0 AND diff_ratio>0)",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "double_red_count",
+      "value": 2,
+      "direction": "support",
+      "note": "全市场真双红板块仅2个（电力/银行），07-15为20+、07-16为20+，防御收敛极端化"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯片",
+      "field": "pct_chg",
+      "value": -7.18,
+      "direction": "support",
+      "note": "芯片-7.18%/11990亿成交第一：主线退潮第5日放量崩塌（07-13 -6.1→07-15 -2.8→07-16 -3.1→07-17 -7.2）"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯片",
+      "field": "diff_ratio",
+      "value": 9.11,
+      "direction": "support",
+      "note": "芯片暴跌但diff+9.11为正=放量换手有承接（CPO diff+11.79/半导体设备+13.25同构），非无量阴跌"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体",
+      "field": "pct_chg",
+      "value": -9.83,
+      "direction": "support",
+      "note": "跌幅榜全是主线硬科技：半导体-9.83/CPO-9.19/存储-8.84/半导体设备-8.67/先进封装-8.08"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "创新药",
+      "field": "pct_chg",
+      "value": -6.89,
+      "direction": "support",
+      "note": "创新药07-15双红爆发(+3.65/diff+47.05)仅两日即崩-6.89%/diff-11.79，医药反弹夭折=退潮确认"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "limit_up_count",
+      "value": 10,
+      "direction": "support",
+      "note": "电力涨停10家rank1（桂冠/乐山/深南电A/赣能/华银/宁波能源/杭州热电/湖南发展/立新能源2板/广西能源），风电7/光伏5/储能7高度重叠=电力系防御抱团"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "market_limit_up_count",
+      "value": 35,
+      "direction": "support",
+      "note": "全市场涨停连降：07-15 72→07-16 42→07-17 35"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "promotion_rate",
+      "value": "4/32=12%",
+      "direction": "support",
+      "note": "1→2晋级率12%，最高实际板艾艾精工4板（云创退为退市整理股不计），接力极弱"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "600584长电科技",
+      "field": "pct_chg",
+      "value": 2.74,
+      "direction": "support",
+      "note": "两连跌停后逆势+2.74%，全市场成交前5中唯一红盘容量股"
+    },
+    "T2": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "600584长电科技",
+      "field": "amount",
+      "value": 207.816,
+      "direction": "support",
+      "note": "成交207.8亿放量承接（07-16为158.9亿）"
+    },
+    "T3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "600584长电科技",
+      "field": "close",
+      "value": 83.21,
+      "direction": "neutral",
+      "note": "07-16收盘83.21=第二个跌停收盘价，作T+1站稳/止损基准"
+    },
+    "T4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "300308中际旭创",
+      "field": "pct_chg",
+      "value": -12.0,
+      "direction": "support",
+      "note": "发动机单日-12%收979.46跌破千元，超跌极值"
+    },
+    "T5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "300308中际旭创",
+      "field": "amount",
+      "value": 564.8563,
+      "direction": "support",
+      "note": "成交564.9亿全市场第一=天量换手，多空充分交换"
+    },
+    "T6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "300308中际旭创",
+      "field": "close",
+      "value": 979.46,
+      "direction": "neutral",
+      "note": "收盘979.46作反抽观察基准"
+    },
+    "T7": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "600900长江电力",
+      "field": "pct_chg",
+      "value": 1.97,
+      "direction": "support",
+      "note": "+1.97%收27.99，电力板块内成交第一（68亿），5日+2.73%"
+    },
+    "T8": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "600021上海电力",
+      "field": "pct_chg",
+      "value": 7.19,
+      "direction": "support",
+      "note": "+7.19%收14.91，电力板块内最大弹性，5日+6.5%"
+    },
+    "T9": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-17",
+      "entity": "001258立新能源",
+      "field": "boards",
+      "value": 2,
+      "direction": "support",
+      "note": "电力/风电/储能2连板(+9.97%)，晋级率12%环境下的存活晋级股=防御方向情绪高度标"
+    },
+    "R1": {
+      "level": "L2",
+      "source": "复盘经验规律（非库内回测，样本为本库07-07/07-13两次恐慌日）",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "panic_day_rebound_pattern",
+      "value": "恐慌极值日次日出现技术性修复",
+      "direction": "support",
+      "note": "库内两次样本：涨家693→1593、801→4211；跌停潮>150家次日修复为经验值，不冒充硬门槛"
+    }
+  },
+  "stage": "下跌阶段第5天·恐慌宣泄日（涨家482/涨停33/跌停193极值；成交26547亿环比+10.46%放量下杀；vol_ratio 85.12偏冷、前日07-16极冰76.22；上证-3.05%收3764.155回踩2025-08平台带3766-3771；真双红仅电力/银行2个；历史新高仅4只）",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-17",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M7"
+      },
+      "stage_day": {
+        "value": 5,
+        "evidence_ref": "M8"
+      },
+      "advancers": {
+        "value": 482,
+        "evidence_ref": "M1"
+      },
+      "limit_up": {
+        "value": 33,
+        "evidence_ref": "M3"
+      },
+      "limit_down": {
+        "value": 193,
+        "evidence_ref": "M2"
+      },
+      "total_amount": {
+        "value": 26547.43,
+        "evidence_ref": "M4"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": 10.46,
+        "evidence_ref": "M5"
+      },
+      "volume_ratio": {
+        "value": 85.12,
+        "evidence_ref": "M6"
+      },
+      "sh_index_close": {
+        "value": 3764.155,
+        "evidence_ref": "M9"
+      },
+      "double_red_count": {
+        "value": 2,
+        "evidence_ref": "S5"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9",
+      "M10",
+      "M15",
+      "S5",
+      "S11",
+      "S12"
+    ]
+  },
+  "main_judgment": "下跌阶段第5天放量恐慌宣泄：主线AI算力/芯片全面崩塌（半导体-9.83%/芯片-7.18%且diff为正=放量出逃而非无量阴跌），跌停193家/涨家482双极值，资金极端收敛到电力（+1.25%/diff+59.86/607亿唯一严格双红）与银行避险；上证3764正回踩2025-08末平台带（3766-3771）叠加前日极冰量能——恐慌极值区+强支撑带共振，T+1博技术性反抽（防御延续+超跌修复双路径），定性为下跌趋势内的宣泄后修复，非反转。",
+  "direction_ranking": [
+    "[场景A(恐慌反弹) 五维3.45·居首] 电力(水电/核电/绿电防御)：唯一严格双红(+1.25%/diff+59.86/607亿)+涨停热度top1(10家：桂冠/乐山/深南电A/华银/立新能源2板等)+板块内长江电力+1.97%、上海电力+7.19%全面红盘，风电/光伏/储能涨停高度重叠同属电力系。确定性4/弹性2.5/兑现时间4/拥挤度3.5/已定价3——异动性质为资金切换型避险抱团(非情绪脉冲)，抱团刚加速2日，T+1惯性延续概率高",
+    "[3.15·与第1名分差0.30] 超跌算力硬件反抽(光模块/存储/封测/CPO)：单日-8~-13%极端跌幅(中际旭创-12%/565亿全市场成交第一、天孚-13.4%、佰维存储-15.8%)但板块diff全为正(CPO+11.79/芯片+9.11/半导体设备+13.25)=天量换手有承接；长电科技两连跌停后率先+2.74%转红=修复先锋信号。确定性2.5/弹性4.5/兑现时间3/拥挤度2/已定价4——主线退潮内的超跌技术反抽(情绪脉冲性质)，只做反抽定性、不做趋势买点",
+    "[2.75] 银行：双红第二(+0.4%/diff+52.02)但成交400亿未达严格线、弹性最低，防御压舱属性，作对照观察不进攻",
+    "[2.2·回避] 医药(创新药/CRO/医疗服务)：07-15双红爆发(创新药+3.65/diff+47.05/1825亿)仅两日即崩(07-17创新药-6.89/diff-11.79、CRO-8.83/医疗服务-8.38)，反弹夭折=退潮确认，回避接反抽",
+    "[置底·回避] AI应用小票情绪(智度股份3板等)：涨停热度'人工智能'10家rank2实为概念标签泛化的杂毛小票(米奥会展/索菱/甘咨询)，与主线核心同日-7~-12%严重背离=假热度/假突破；1→2晋级率12%接力极弱，情绪脉冲不可接力"
+  ],
+  "picks": [
+    {
+      "code": "600900",
+      "name": "长江电力",
+      "strategy": "策略一（主线流动性池·防御压舱）",
+      "reason": "电力唯一严格双红(S1/S2/S3：+1.25%/diff+59.86/607亿)的容量压舱石，+1.97%收27.99、板块内成交第一68亿(T7)；恐慌宣泄期确定性最高的避险抱团核心，涨停热度top1(S10)提供板块热度背书",
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S10",
+        "T7"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "600021",
+      "name": "上海电力",
+      "strategy": "策略二（强趋势延续·防御弹性前锋）",
+      "reason": "电力板块内最大弹性+7.19%收14.91、5日+6.5%(T8)，绑定电力严格双红(S1)+涨停10家热度top1(S10)；防御方向中的进攻标的，绿电+核电双属性",
+      "evidence_refs": [
+        "T8",
+        "S1",
+        "S10"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "001258",
+      "name": "立新能源",
+      "strategy": "策略三（分歧回流·情绪高度标）",
+      "reason": "电力/风电/储能2连板+9.97%(T9)，在1→2晋级率仅12%(S12)的极弱接力环境中存活晋级=防御方向情绪总龙头候选；T+1晋级3板则确认防御情绪加强",
+      "evidence_refs": [
+        "T9",
+        "S12",
+        "S10"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "600584",
+      "name": "长电科技",
+      "strategy": "策略三（分歧回流·超跌率先企稳）",
+      "reason": "07-15/16两连跌停后07-17逆势+2.74%(T1)、成交207.8亿放量承接(T2)，全市场成交前5中唯一红盘容量股；超跌反抽路径的先锋验证标，83.21(T3)=清晰止损位",
+      "evidence_refs": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "300308",
+      "name": "中际旭创",
+      "strategy": "策略四（流动性切换·超跌弹性）",
+      "reason": "发动机-12%收979.46(T4/T6)、564.9亿全市场成交第一=天量换手多空充分交换(T5)，芯片板块diff+9.11证明放量有承接(S7)；T+1若市场反抽则弹性最大，红盘即承接确认",
+      "evidence_refs": [
+        "T4",
+        "T5",
+        "T6",
+        "S7"
+      ],
+      "evidence_as_of": "2026-07-17"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1(07-20)涨家数>2500且跌停<100=恐慌宣泄后技术反抽确认（参照库内两样本：07-07涨家693→次日1593、07-13涨家801→次日4211）；1500-2500=弱修复观望；<1500或跌停>150=宣泄未尽继续杀跌。量能分档：成交>28000亿且涨家>3500=强反抽；成交<24000亿的红盘=缩量弱反抽不追",
+    "direction": "电力T+1收盘pct_chg>0=避险抱团延续；pct_chg<-1%=防御兑现离场。芯片板块T+1 pct_chg>0=超跌反抽启动（今-7.18/diff+9.11有承接）；继续<-3%=退潮第6日加速、反抽路径失败。创新药diff_ratio维持<0=医药退潮确认继续回避",
+    "targets": "长江电力站稳27.5/跌破26.9止损；上海电力高开>5%不追、回踩14.2有承接为有效/跌破13.9离场；立新能源T+1晋级3板=防御情绪加强、断板且跌>5%=避险情绪退坡预警；长电科技收盘站稳83.21(07-16收盘)=修复延续/跌破83.21止损；中际旭创T+1红盘>0%=天量承接确认、再跌>3%=放弃反抽",
+    "falsify": "上证T+1收盘跌破3745.17(07-17日内低点=2025-08平台带3766-3771下沿)且跌停仍>150=『恐慌极值+支撑带』主判断证伪，转趋势性破位下移、全面降仓观望；反向证伪：涨家>4000+成交>30000亿+芯片diff转正且板块涨>2%=V型反转主升（主判断偏保守方向出错，防御持仓应切换进攻）"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M13",
+      "as_of": "2026-07-17",
+      "note": "档位由库内07-07/07-13两次恐慌样本(693→1593/801→4211)推导，样本仅2个按经验值登记、不冒充回测"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "S1",
+      "as_of": "2026-07-17",
+      "note": "双红固定定义pct_chg>0且diff_ratio>0；严格双红加amount>500（strategy1-matrix固定规则）"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "T3",
+      "as_of": "2026-07-17",
+      "note": "触发价由07-16/07-17收盘价与日内低点机械推导（前收盘=止损基准）"
+    },
+    "falsify": {
+      "origin": "mechanical",
+      "evidence_ref": "M14",
+      "as_of": "2026-07-17",
+      "note": "3745.17=07-17日内低点；3766-3771=2025-08-20~09-04平台收盘带，均为库内数值机械推导"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1(2026-07-20)涨家数>2500且跌停<100：恐慌宣泄（跌停193/涨家482极值+放量-3.05%+前日极冰）次日出现技术性反抽",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "M1",
+        "M2",
+        "M5",
+        "M10",
+        "M12",
+        "M13",
+        "R1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1涨家数<1500或跌停>150（宣泄未尽、继续杀跌，反抽判断miss）"
+    },
+    {
+      "id": "direction",
+      "category": "direction",
+      "claim": "电力板块T+1收盘pct_chg>0：避险抱团（唯一严格双红+diff+59.86加速+涨停10家top1）惯性延续",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S10"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "电力T+1收盘pct_chg<-1%（防御兑现离场，抱团一日游）"
+    },
+    {
+      "id": "target:600584",
+      "category": "target",
+      "claim": "长电科技T+1收盘站稳83.21(07-16收盘价)上方：两连跌停后+2.74%放量率先企稳的修复延续",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1收盘跌破83.21（企稳失败、修复先锋熄火）"
+    },
+    {
+      "id": "target:300308",
+      "category": "target",
+      "claim": "中际旭创T+1收红(pct_chg>0)：565亿天量换手+板块diff为正=承接成立，超跌技术反抽",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.5,
+      "evidence_refs": [
+        "T4",
+        "T5",
+        "T6",
+        "S7"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1继续收跌且跌幅>3%（天量为出逃而非承接，反抽路径放弃）"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "上证T+1收盘守住3745.17(07-17日内低点=2025-08平台带3766-3771下沿)上方：恐慌极值区+强支撑带共振有效",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.65,
+      "evidence_refs": [
+        "M9",
+        "M11",
+        "M14"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1收盘<3745.17（支撑带失守，主判断'宣泄后修复'证伪，转趋势性破位）"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-20",
+    "recheck_t3_date": "2026-07-22",
+    "pick_returns_t1": [
+      -0.86,
+      -4.65,
+      10.0,
+      10.0,
+      13.2
+    ],
+    "pick_returns_t3": [
+      0.3796,
+      -4.2813,
+      20.989,
+      11.4171,
+      5.6574
+    ],
+    "benchmark_return_t3": 2.7331,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": true
+  }
+}

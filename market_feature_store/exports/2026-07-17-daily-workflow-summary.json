@@ -1,0 +1,461 @@
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-07-20T23:16:47+08:00",
+  "finished_at": "2026-07-20T23:18:55+08:00",
+  "inputs": {
+    "date": "2026-07-17",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": true,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-17 --phase data",
+      "returncode": 0,
+      "duration_sec": 0.256,
+      "stdout_tail": [
+        "fact_market_daily: rows=1 max=2026-07-20",
+        "fact_sector_daily: rows=224 max=2026-07-20",
+        "fact_sw_l1_daily: rows=31 max=2026-07-20",
+        "fact_sector_stock_daily: rows=28403 max=2026-07-20",
+        "fact_stock_high_daily: rows=506 max=2026-07-20",
+        "fact_theme_limit_heat_daily: rows=81 max=2026-07-20",
+        "fact_theme_limit_stock_daily: rows=153 max=2026-07-20",
+        "fact_limit_advance_daily: rows=8 max=2026-07-20",
+        "fact_stock_daily: rows=5523 max=2026-07-20",
+        "fact_mainline_theme_daily: rows=4 max=2026-07-20",
+        "fact_mainline_stock_daily: rows=126 max=2026-07-20",
+        "fact_mainline_sector_daily: rows=9 max=2026-07-20",
+        "fact_theme_flow_daily: rows=65 max=2026-07-20",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-20",
+        "feature_market_window: rows=4 max=2026-07-20",
+        "feature_sector_window: rows=895 max=2026-07-20",
+        "feature_stock_window: rows=21722 max=2026-07-20",
+        "feature_stock_technical_daily: rows=5192 max=2026-07-20",
+        "fact_stock_daily 覆盖率: 5514/5515 = 99.98%",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli check-daily --trade-date 2026-07-17 --json /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-17.json",
+      "returncode": 0,
+      "duration_sec": 0.227,
+      "stdout_tail": [
+        "跨日质检 @2026-07-17 (日历窗口=20)",
+        "RESULT: PASS | 通过",
+        "json -> /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-17.json"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "PASS",
+      "command": "python3 skills/daily-full-review/scripts/export_increment.py --date 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.148,
+      "stdout_tail": [
+        "[export-increment] 2026-07-17: 19 表 / 40580 行 -> /Users/a77/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-2026-07-17.tar.gz (1.1 MB)"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 1.057,
+      "stdout_tail": [
+        "交易日: 2026-07-17",
+        "报告: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-review.md",
+        "图表: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-advancers-ma5.png"
+      ],
+      "stderr_tail": [
+        "findfont: Failed to find font weight bold, now using 400."
+      ],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-review.md",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-advancers-ma5.png"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.38,
+      "stdout_tail": [
+        "fact_limit_advance_daily: rows=8 max=2026-07-20",
+        "fact_stock_daily: rows=5523 max=2026-07-20",
+        "fact_mainline_theme_daily: rows=4 max=2026-07-20",
+        "fact_mainline_stock_daily: rows=126 max=2026-07-20",
+        "fact_mainline_sector_daily: rows=9 max=2026-07-20",
+        "fact_theme_flow_daily: rows=65 max=2026-07-20",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-20",
+        "feature_market_window: rows=4 max=2026-07-20",
+        "feature_sector_window: rows=895 max=2026-07-20",
+        "feature_stock_window: rows=21722 max=2026-07-20",
+        "feature_stock_technical_daily: rows=5192 max=2026-07-20",
+        "fact_stock_daily 覆盖率: 5514/5515 = 99.98%",
+        "CHECK L2 2026-07-17",
+        "l2-moneyflow/limitup: ('complete', 41, 41, 41, 0, datetime.datetime(2026, 7, 17, 19, 53, 57, 737136))",
+        "l2-moneyflow/top100: ('complete', 100, 100, 100, 0, datetime.datetime(2026, 7, 17, 20, 39, 30, 269869))",
+        "l2-moneyflow/quant: ('complete', 62, 100, 100, 0, datetime.datetime(2026, 7, 18, 11, 47, 59, 414460))",
+        "feature_l2_capital_flow_daily: rows=141 max=2026-07-20",
+        "feature_l2_quant_orders_daily: rows=62 max=2026-07-20",
+        "RESULT: COMPLETE",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-daily-review.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-daily-review.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli perspective framework-daily --date 2026-07-17 --daily-review-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-review.md --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-framework-interpretation.md",
+      "returncode": 0,
+      "duration_sec": 0.193,
+      "stdout_tail": [
+        "[框架解读] 跳过：user_framework profile 不存在（perspective init 后手工编辑或用问卷 candidate 编译）"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli checkpoint recheck --date 2026-07-17 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": 0,
+      "duration_sec": 0.154,
+      "stdout_tail": [
+        "回检并落盘 3 条",
+        "- ck-2026-07-06-4be68b｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "- ck-2026-07-06-aef0e5｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "- ck-2026-07-06-f211eb｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "人类可读回检日志：/Users/a77/agent-memory/可证伪点回检/2026-07-17.md"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli theme --date 2026-07-17 --market-triggered --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.md",
+      "returncode": 0,
+      "duration_sec": 49.347,
+      "stdout_tail": [
+        "  \"outputs\": [",
+        "    \"trade_date=2026-07-17\",",
+        "    \"candidate_count=50\",",
+        "    \"deep_count=10\",",
+        "    \"watch_count=20\",",
+        "    \"long_tail_count=20\",",
+        "    \"candidate=电力 score=198.41 triggers=double_red,limit_heat,multi_period_rank,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=0\",",
+        "    \"candidate=银行 score=178.27 triggers=multi_period_rank,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=0\",",
+        "    \"candidate=连板未映射 score=149.0 triggers=limit_advance_cluster concept_count=0 exposure_count=0 evidence_count=0\",",
+        "    \"candidate=公路铁路运输 score=124.4 triggers=multi_period_rank,new_high_cluster concept_count=1 exposure_count=6 evidence_count=0\",",
+        "    \"candidate=白酒 score=120.45 triggers=multi_period_rank,new_high_direction,new_high_cluster concept_count=2 exposure_count=12 evidence_count=2\",",
+        "    \"out_json=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.json\",",
+        "    \"out_md=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.md\"",
+        "  ],",
+        "  \"warnings\": [],",
+        "  \"errors\": [],",
+        "  \"next_actions\": [",
+        "    \"Review market-triggered candidates before enabling deep radar report generation.\"",
+        "  ]",
+        "}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.md"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.053,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-queue.json",
+        "queue_count=23",
+        "priority_counts={'high': 8, 'medium': 7, 'low': 8}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-queue.json"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.03,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.md",
+        "review_count=8",
+        "status_counts={'pending_review': 8}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.md"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.043,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-theme-candidates.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-theme-candidates.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-07-17",
+      "returncode": 0,
+      "duration_sec": 0.657,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-market-triggered-theme-brief.md",
+        "COMPLETE",
+        "DEEP 198.41: 电力 / 电力 / double_red,limit_heat,multi_period_rank,new_high_direction,new_high_cluster",
+        "DEEP 178.27: 银行 / 银行 / multi_period_rank,new_high_direction,new_high_cluster",
+        "DEEP 149.0: 连板未映射 / 连板未映射 / limit_advance_cluster",
+        "WATCH 124.4: 公路铁路运输 / 公路铁路运输 / multi_period_rank,new_high_cluster",
+        "WATCH 120.45: 白酒 / 白酒 / multi_period_rank,new_high_direction,new_high_cluster",
+        "WATCH 112.13: 中药 / 中药 / multi_period_rank,new_high_direction,capacity_industry,new_high_cluster",
+        "WATCH 100.0: 保险 / 保险 / multi_period_rank",
+        "WATCH 92.41: 维生素 / 维生素 / multi_period_rank,new_high_direction,new_high_cluster",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-market-triggered-theme-brief.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-market-triggered-theme-brief.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-market-triggered-theme-brief.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "agent-daily",
+      "status": "FAIL",
+      "command": "python3 -m intelligence.cli agent-daily --date 2026-07-17 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-agent.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-agent.md --out-html /Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-daily-agent.html",
+      "returncode": 1,
+      "duration_sec": 75.448,
+      "stdout_tail": [],
+      "stderr_tail": [
+        "Traceback (most recent call last):",
+        "  File \"<frozen runpy>\", line 203, in _run_module_as_main",
+        "  File \"<frozen runpy>\", line 88, in _run_code",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 2820, in <module>",
+        "    raise SystemExit(main(sys.argv[1:]))",
+        "                     ~~~~^^^^^^^^^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 2816, in main",
+        "    return args.func(args)",
+        "           ~~~~~~~~~^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 723, in cmd_daily_agent",
+        "    write_daily_agent_outputs(report, answer, out_json, out_md, out_html)",
+        "    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/workflows/daily_agent.py\", line 1473, in write_daily_agent_outputs",
+        "    raise ValueError(",
+        "        \"invalid fidelity contract 1.2: \" + \"; \".join(errors)",
+        "    )",
+        "ValueError: invalid fidelity contract 1.2: evidence ev-c86f8e8dee00a776 is after evidence_cutoff; evidence ev-90d165713359508d is after evidence_cutoff; evidence ev-dc411c84cd6e3539 is after evidence_cutoff; evidence ev-58812a7f9ef4ff5b is after evidence_cutoff; evidence ev-09b1b99295f9170b is after evidence_cutoff; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_000426_1225429681_关于收购西藏阳光矿业投资有限公司100_股权进展暨完成工商变更登记的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_000514_1225430904_收购重庆黄葛晚渡置业发展有限公司股权暨关联交易公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_000590_1225430367_关于控股股东之一致行动人增持公司股份的进展情况暨权益变动触及1_整数倍的提示性公.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_000695_1225429557_控股股东及其一致行动人关于增持公司股份触及1_整数倍的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_002062_1225429601_建设工程中标暨签署施工合同的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_002356_1225429265_关于资产收购的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_002606_1225429264_关于国家电网预中标的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_300073_1225431393_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_300394_1225431394_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_300428_1225431397_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_300496_1225431395_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_301100_1225430987_营口风光新材料股份有限公司关于现金收购安徽瑞华新材料有限公司控股权的议案.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_301536_1225431396_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600131_1225430626_国网信息通信股份有限公司2026年半年度业绩快报公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600248_1225429334_陕西建工集团股份有限公司重大项目中标公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600272_1225429838_关于授权全资子公司上海雷允上药业西区有限公司收购其控股子公司上海雷西精益供应链管.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600539_1225430152_关于上海证券交易所并购重组审核委员会审核公司发行股份及支付现金购买资产并募集配套.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600545_1225430839_关于控股股东被动减持股份结果的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600587_1225429261_新华医疗关于公司产品获得三类和二类医疗器械注册证的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600703_1225429871_三安光电股份有限公司关于公司董事长_总经理增持股份进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_600810_1225431238_神马股份关于控股股东增持股份进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_601096_1225430639_宏盛华源关于国家电网项目预中标的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_603050_1225429274_关于高级管理人员增持股份的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_603306_1225430795_2026_058_华懋科技关于董事增持公司股份的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_603466_1225429640_上海风语筑文化科技股份有限公司董事_高级管理人员减持股份结束公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_603477_1225430245_乐山巨星农牧股份有限公司5_以上股东减持股份结果公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_603969_1225430324_天津银龙集团股份有限公司关于签署日常经营重大合同的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_688205_1225430537_无锡市德科立光电子技术股份有限公司关于2026年半年度业绩预告的自愿性披露公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-18/cninfo_688613_1225430627_奥精医疗_自愿披露关于公司产品在泰国获得注册证的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_000333_1225431508_关于以集中竞价交易方式回购A股股份进展情况的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_001203_1225431561_关于股份回购进展情况的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_002600_1225431530_关于回购公司股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300001_1225431479_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300031_1225432772_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300033_1225431486_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300124_1225431955_关于回购公司股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300179_1225431457_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300184_1225431482_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300294_1225431605_公司关于获得_药物临床试验批准通知书_的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300363_1225431949_关于回购公司股份实施完毕的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300373_1225431440_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300395_1225431454_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300502_1225431444_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300515_1225431439_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300556_1225431438_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300700_1225431458_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300836_1225431749_关于回购股份实施完成暨股份变动的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300857_1225431442_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300893_1225431822_项目定点公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_300953_1225431604_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301012_1225432525_关于全资子公司签署日常经营重大合同的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301173_1225431679_关于股份回购比例达到1_暨回购进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301183_1225431443_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301186_1225431847_关于回购公司股份达到1_的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301190_1225431445_2026年半年度业绩预告的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301217_1225431480_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301236_1225431487_关于回购公司股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301281_1225431621_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301282_1225431998_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301283_1225431455_关于首次回购公司股份的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301283_1225431456_回购报告书.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301305_1225431997_关于收到实际控制人_董事长兼总经理提议回购公司股份的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_301526_1225431484_2026年半年度业绩预告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600028_1225431537_关于以集中竞价交易方式回购A股股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600276_1225431473_恒瑞医药关于回购公司A股股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600346_1225431586_恒力石化关于第五期以集中竞价交易方式回购股份的回购报告书.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600406_1225431549_国电南瑞关于董事长提议回购公司部分股份的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600418_1225431478_江淮汽车关于以集中竞价交易方式回购公司股份进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600690_1225431572_海尔智家股份有限公司关于以集中竞价交易方式回购A股股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600761_1225431467_安徽合力股份有限公司关于控股股东增持公司股份进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_600909_1225431428_华安证券股份有限公司关于董事长提议公司股份回购的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601127_1225431472_关于公司董事_高级管理人员及骨干团队增持A股及H股股份结果公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601236_1225431576_红塔证券股份有限公司关于董事长提议回购公司部分股份的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601456_1225431507_国联民生证券股份有限公司关于筹划回购公司A股股份的提示性公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601619_1225431483_嘉泽新能源股份有限公司关于回购股份进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601678_1225431466_滨化股份第一大股东增持进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601717_1225431420_中创智领_郑州_工业技术集团股份有限公司关于董事_高级管理人员增持A股股份进展公.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601799_1225431427_星宇股份关于股份回购进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_601966_1225431468_山东玲珑轮胎股份有限公司关于控股股东增持公司股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_603659_1225431568_上海璞泰来新能源科技集团股份有限公司2026年半年度业绩预告暨自愿性披露公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_603683_1225431434_晶华新材关于以集中竞价交易方式回购股份的回购报告书.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_603920_1225431469_世运电路关于以集中竞价交易方式回购股份方案的公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688036_1225431511_传音控股2026年半年度业绩预增的自愿性披露公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688202_1225431510_美迪西_2026年半年度业绩预增公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688331_1225431477_荣昌生物关于2026年第一次以集中竞价交易方式回购公司股份的回购报告书.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688409_1225431512_2026年半年度业绩预告的自愿性披露公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688517_1225431430_产品中标的自愿性披露公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/2026-07-20/cninfo_688789_1225431509_杭州宏华数码科技股份有限公司关于以集中竞价交易方式回购公司股份的进展公告.md; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/manifest.jsonl; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/raw/disclosures/review-queue/cninfo-rss-20260720-180002.json; knowledge snapshot: content delta entry is after evidence_cutoff: wiki/relations/access_log.jsonl; knowledge snapshot: content delta base commit is after evidence_cutoff; input_artifacts[0] contract invalid"
+      ],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-agent.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-agent.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-daily-agent.html"
+      ],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 1"
+      ],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "SKIP",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-17",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-17",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "SKIP",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/index.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-daily-review.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-advancers-ma5.png",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-daily-review.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-candidates.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-review-queue.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-theme-candidates.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-triggered-themes.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-market-triggered-theme-brief.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-17/2026-07-17-market-triggered-theme-brief.html"
+  ],
+  "warnings": [
+    "starting from step: daily-review",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "operational alert delivery failed"
+  ],
+  "errors": [
+    "command failed with returncode 1"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}

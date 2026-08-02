@@ -1,0 +1,676 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-20",
+  "agent": "claude",
+  "source": "sellside",
+  "manifest_sha": "eed501f0cad4c1b3",
+  "perspective_date": "2026-07-17",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "direction": "support",
+      "field": "stage_day",
+      "value": 5,
+      "note": "下跌阶段第5天(market_stage=下跌阶段)"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "direction": "support",
+      "field": "advancers",
+      "value": 482,
+      "note": "涨家数仅482,普跌极端值"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "direction": "support",
+      "field": "total_amount",
+      "value": 26547.43,
+      "note": "成交26547亿,环比+10.46%,放量下跌=恐慌宣泄"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "direction": "support",
+      "field": "limit_down",
+      "value": 193,
+      "note": "跌停193家 vs 涨停33家"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-14",
+      "entity": "market",
+      "direction": "support",
+      "field": "advancers",
+      "value": 4112,
+      "note": "样本:07-13恐慌(涨家801/跌停172)次日07-14修复至4112,支撑T+3修复窗口假设"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "证券",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -1.15,
+      "note": "大盘-3.05%日证券仅-1.15,相对强度突出"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "证券",
+      "direction": "support",
+      "field": "diff_ratio",
+      "value": 26.32,
+      "note": "下跌日边际量+26.32%,放量承接"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "证券",
+      "direction": "support",
+      "field": "diff_ratio",
+      "value": 33.87,
+      "note": "07-15证券双红(pct+2.38/diff+33.87),7月内第3次双红尝试(07-01/07-09/07-15)"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "存储芯片",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -8.84,
+      "note": "三连阴-5.2/-5.2/-8.84,07-17放量长阴(diff转正=恐慌兑现)"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "共封装光学(CPO)",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -9.19,
+      "note": "CPO放量长阴,支持AI链透支判断"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "direction": "support",
+      "field": "diff_ratio",
+      "value": 59.86,
+      "note": "电力+1.25/diff+59.86/607亿,当日全场唯一严格双红(pct>0&diff>10&amount>500)"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "证券",
+      "direction": "support",
+      "field": "amount",
+      "value": 438.65,
+      "note": "板块成交438.65亿"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "证券",
+      "direction": "support",
+      "field": "amount",
+      "value": 479.06,
+      "note": "07-07以来板块单日成交峰值,500亿确认阈值的推导基准"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "direction": "support",
+      "field": "limit_up_count",
+      "value": 10,
+      "note": "电力涨停10家居全场第1(全市场仅35家涨停)"
+    },
+    "X1": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "direction": "support",
+      "field": "promotion_rate_2b",
+      "value": "4/32=12%",
+      "note": "二板晋级率12%,情绪冰点,连板策略不可用"
+    },
+    "K1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "湘财股份",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 10.0,
+      "note": "涨停,4连阳(07-14至07-17),成交1.6亿放大至9.8亿"
+    },
+    "K2": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-17",
+      "entity": "湘财股份",
+      "direction": "support",
+      "field": "primary_high_label",
+      "value": "20日新高",
+      "note": "涨停日创20日新高,收8.69"
+    },
+    "K3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "仕佳光子",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -16.93,
+      "note": "单日-16.93收117.99,两周-25.6%;当晚国金首覆目标价211.13"
+    },
+    "K4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "兆易创新",
+      "direction": "support",
+      "field": "close",
+      "value": 463.15,
+      "note": "07-16/07-17连续两日跌停(514.61/463.15),当晚交银首覆目标价798"
+    },
+    "K5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "东方财富",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -0.61,
+      "note": "恐慌日仅-0.61,交投放大直接受益方抗跌"
+    },
+    "K6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "国泰海通",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -1.29,
+      "note": "恐慌日-1.29抗跌,07-15收盘18.58为确认价位基准"
+    },
+    "K7": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "东兴证券",
+      "direction": "support",
+      "field": "close",
+      "value": 13.46,
+      "note": "对换股锚16.05折价16.1%"
+    },
+    "K8": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "国电电力",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 1.71,
+      "note": "逆势+1.71,成交5.0亿翻倍至10.3亿,电力双红方向低价央企"
+    },
+    "R1": {
+      "level": "L1",
+      "source": "东吴证券-证券行业2026中报前瞻(sellside材料)",
+      "source_time": "2026-07-17",
+      "entity": "券商板块",
+      "direction": "support",
+      "field": "h1_net_profit_yoy_forecast_pct",
+      "value": 56,
+      "note": "预计上市券商26H1净利+56%/Q2+93%;日均股基成交32649亿+99%为交易所口径硬数据"
+    },
+    "R2": {
+      "level": "L3",
+      "source": "中金公司公告(经中邮点评转述)",
+      "source_time": "2026-07-17",
+      "entity": "东兴证券",
+      "direction": "support",
+      "field": "swap_price_anchor",
+      "value": 16.05,
+      "note": "换股价锚16.05元/股,证监会07-14受理,公告级硬事实"
+    },
+    "R3": {
+      "level": "L1",
+      "source": "中邮证券-中金三券商合并点评",
+      "source_time": "2026-07-17",
+      "entity": "券商板块",
+      "direction": "neutral",
+      "note": "行业评级中性;提示审批周期或拉长至1年以上(vs市场预期3-6个月)——折价收敛节奏的风险变量"
+    },
+    "R4": {
+      "level": "L1",
+      "source": "交银国际-兆易创新首次覆盖(sellside材料)",
+      "source_time": "2026-07-17",
+      "entity": "兆易创新",
+      "direction": "support",
+      "field": "target_price",
+      "value": 798,
+      "note": "两连跌停当晚给出+72%空间首覆;作为覆盖密度顶格信号支持透支判断"
+    },
+    "R5": {
+      "level": "L1",
+      "source": "国金证券-仕佳光子首次覆盖(sellside材料)",
+      "source_time": "2026-07-17",
+      "entity": "仕佳光子",
+      "direction": "support",
+      "field": "target_price",
+      "value": 211.13,
+      "note": "暴跌16.93%当晚给出较现价+79%空间首覆;同上,透支信号"
+    },
+    "R6": {
+      "level": "L3",
+      "source": "湘财股份中报预告(经东吴前瞻/东财RSSHub转述)",
+      "source_time": "2026-07-17",
+      "entity": "湘财股份",
+      "direction": "support",
+      "field": "h1_net_profit_yoy_low_pct",
+      "value": 218,
+      "note": "H1净利预增218%~345%,公告级"
+    },
+    "R7": {
+      "level": "L3",
+      "source": "国泰海通业绩预告(经东吴前瞻转述)",
+      "source_time": "2026-07-17",
+      "entity": "国泰海通",
+      "direction": "support",
+      "field": "q2_net_profit_yoy_low_pct",
+      "value": 289,
+      "note": "Q2净利同比+289%~304%,公告级;22家已预告券商中除1家外全部+50%以上"
+    },
+    "R8": {
+      "level": "L3",
+      "source": "芯原股份新签订单自愿披露公告(经国金点评转述)",
+      "source_time": "2026-07-16",
+      "entity": "芯原股份",
+      "direction": "counter",
+      "field": "new_orders_ytd_yi",
+      "value": 146.53,
+      "note": "AI链基本面反证:年内新签订单146.53亿、AI算力占比90%+——产业趋势为真,透支的是短期覆盖密度与目标价空间,非产业方向"
+    },
+    "R9": {
+      "level": "L3",
+      "source": "迪哲医药BD公告(经浦银国际转述)",
+      "source_time": "2026-07-17",
+      "entity": "创新药出海",
+      "direction": "support",
+      "field": "upfront_payment_usd_yi",
+      "value": 6.0,
+      "note": "阿斯利康6亿美元首付款(对价上限15亿美元),医药出海景气延续;但浦银首选标的多为港股,A股映射弹性有限"
+    },
+    "R10": {
+      "level": "L2",
+      "source": "知识库wiki/concepts目录检索",
+      "source_time": "2026-07-17",
+      "entity": "金刚石散热",
+      "direction": "support",
+      "note": "金刚石散热/CVD金刚石/钻石散热/超级钻石产业等概念页及全部产业链公司entity页早已存在——东吴金刚石深度为追认式覆盖而非新认知;标的两周已跌25%~34%"
+    },
+    "R11": {
+      "level": "L2",
+      "source": "当日sellside材料集统计",
+      "source_time": "2026-07-17",
+      "entity": "AI算力链",
+      "direction": "support",
+      "field": "coverage_density",
+      "value": "9/15篇AI链,其中3篇个股首次覆盖",
+      "note": "单日覆盖密度顶格:ASML/金刚石/Token计费/仕佳/芯原/日联/奥尼/兆易/功率月报;首覆3篇均给高目标价"
+    },
+    "R12": {
+      "level": "L2",
+      "source": "中邮点评页脚近期研究报告栏",
+      "source_time": "2026-07-17",
+      "entity": "券商板块",
+      "direction": "support",
+      "field": "coverage_position",
+      "value": "本轮业绩线第2篇系统覆盖",
+      "note": "前作为07-13中邮《业绩预告验证行业高景气》,券商线覆盖处于早中期,未扎堆"
+    },
+    "R13": {
+      "level": "L1",
+      "source": "东财RSSHub-数据中心电力条目",
+      "source_time": "2026-07-17",
+      "entity": "国电电力",
+      "direction": "support",
+      "note": "卖方材料点名数据中心电力方向(思源电气/国电电力):2026全球数据中心用电最高1050TWh"
+    }
+  },
+  "stage": "下跌阶段第5天(放量恐慌宣泄,偏冷量能)",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-17",
+    "metrics": {
+      "stage_day": {
+        "value": 5,
+        "evidence_ref": "M1"
+      },
+      "advancers": {
+        "value": 482,
+        "evidence_ref": "M2"
+      },
+      "total_amount": {
+        "value": 26547.43,
+        "evidence_ref": "M3"
+      },
+      "limit_down": {
+        "value": 193,
+        "evidence_ref": "M4"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4"
+    ]
+  },
+  "main_judgment": "下跌第5天放量恐慌宣泄(涨家482/跌停193/成交26547亿环比+10.5%)后,T+3进入技术性修复窗口但下跌阶段未改;结构上唯一具备'公告级业绩硬度×盘面抗跌确认'交叉的承接线是券商中报线(判信息增量,覆盖第2篇+22家预告全高增+板块逆势diff+26%),而当晚扎堆的AI算力链高目标价首次覆盖(9/15篇,兆易两连跌停晚获798目标价、仕佳-16.9%晚获211目标价)属跟风透支,T+3反抽难收复07-17长阴。",
+  "sellside_assessment": {
+    "scenario": "A-恐慌反弹窗口(非主升浪,下跌阶段内的技术性修复)",
+    "increment_call": {
+      "direction": "券商中报业绩线",
+      "verdict": "信息增量",
+      "coverage_position": "本轮业绩线第2篇系统覆盖(07-13中邮→07-17东吴前瞻+中邮合并点评),未扎堆 [R12]",
+      "evidence_hardness": "L3公告级:22家券商中报预告除1家外全部+50%+,湘财+218%~345%[R6]、国泰海通Q2+289%~304%[R7];日均股基成交+99%为交易所口径 [R1]",
+      "market_position": "低位反复吸筹:7月内第3次双红尝试[S3],恐慌日板块仅-1.15且diff+26.32放量承接[S1,S2],湘财涨停创20日新高[K1,K2]"
+    },
+    "exhaust_call": {
+      "direction": "AI算力链(存储/光器件/ASIC个股覆盖)",
+      "verdict": "跟风透支",
+      "coverage_position": "单日9/15篇集中AI链、3篇首次覆盖均给+55%~+79%目标空间,覆盖密度顶格 [R11,R4,R5]",
+      "evidence_hardness": "产业订单/涨价证据为L3真实(芯原146.53亿订单[R8],已纳入反证),但目标价与26-28盈利预测为L1;库内存储/CPO/金刚石散热概念页早已存在,金刚石深度属追认式覆盖 [R10]",
+      "market_position": "电子成交占比30.7%仍居首=拥挤,板块两周跌20%~34%后07-17全线放量长阴(存储-8.84[S4]/CPO-9.19[S5]),覆盖在暴跌当晚追认,非领先信息"
+    },
+    "five_dim_scoring": {
+      "note": "确定性/弹性/兑现时间/拥挤度/已定价,各1-5分",
+      "券商": {
+        "确定性": 4,
+        "弹性": 3,
+        "兑现时间": 4,
+        "拥挤度": 3,
+        "已定价": 3,
+        "总分": 17
+      },
+      "电力防御": {
+        "确定性": 3,
+        "弹性": 2,
+        "兑现时间": 4,
+        "拥挤度": 4,
+        "已定价": 3,
+        "总分": 16
+      },
+      "医药出海BD": {
+        "确定性": 3,
+        "弹性": 3,
+        "兑现时间": 3,
+        "拥挤度": 3,
+        "已定价": 3,
+        "总分": 15
+      },
+      "AI链超跌反抽": {
+        "确定性": 2,
+        "弹性": 4,
+        "兑现时间": 2,
+        "拥挤度": 2,
+        "已定价": 2,
+        "总分": 12
+      },
+      "top2_gap": "第1/2名分差仅1分——防御与券商均为弱主线,本质仍是下跌阶段,仓位纪律优先"
+    },
+    "move_nature": "券商07-17抗跌放量属资金切换(避险+业绩定价)而非情绪脉冲;AI链07-17放量长阴属主线拥挤后的恐慌兑现,若T+3出现反抽默认按假突破/脉冲对待"
+  },
+  "direction_ranking": [
+    "券商(中报业绩线,判信息增量:业绩硬度L3×覆盖早中期×盘面抗跌三重交叉)",
+    "电力(防御:07-17全场唯一严格双红+涨停热度第1,数据中心用电为卖方侧辅助逻辑)",
+    "医药出海BD(退居观察:BD对价硬但A股映射弱,医疗服务07-17已衰竭-8.38/diff-20.4)",
+    "AI算力链(判跟风透支:仅超跌脉冲对待,不作为T+3持仓方向)"
+  ],
+  "picks": [
+    {
+      "code": "600095",
+      "name": "湘财股份",
+      "strategy": "策略一(主线流动性池-情绪辨识度龙头)",
+      "reason": "券商线唯一涨停+20日新高标的[K1,K2],中报预增218%~345%公告级[R6],板块diff+26.32放量承接[S2];冰点情绪下(二板晋级率12%[X1])只做首板辨识度不接高位板",
+      "evidence_refs": [
+        "K1",
+        "K2",
+        "R6",
+        "S2",
+        "X1"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "601211",
+      "name": "国泰海通",
+      "strategy": "策略二(业绩强趋势)",
+      "reason": "Q2净利+289%~304%为已预告券商中弹性头部[R7],恐慌日-1.29抗跌[K6],东吴前瞻重点推荐,承接中报季正式披露催化[R1]",
+      "evidence_refs": [
+        "R7",
+        "K6",
+        "R1"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "300059",
+      "name": "东方财富",
+      "strategy": "策略一(主线流动性池-核心权重)",
+      "reason": "日均股基成交+99%的最直接受益方[R1],恐慌日仅-0.61[K5],互联网券商beta,若板块双红确认则为机构容量首选",
+      "evidence_refs": [
+        "R1",
+        "K5"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "601198",
+      "name": "东兴证券",
+      "strategy": "策略四(流动性切换-换股价锚防御套利)",
+      "reason": "换股锚16.05公告级[R2],现价13.46折价16.1%[K7],下跌市中带对价锚的防御属性;审批或拉长至1年以上是折价存在的原因,控制仓位[R3]",
+      "evidence_refs": [
+        "R2",
+        "K7",
+        "R3"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "600795",
+      "name": "国电电力",
+      "strategy": "策略四(流动性切换-防御双红)",
+      "reason": "电力为07-17全场唯一严格双红[S6]且涨停热度第1(10家)[T1],个股逆势+1.71放量翻倍[K8],卖方材料数据中心电力条目点名[R13]",
+      "evidence_refs": [
+        "S6",
+        "T1",
+        "K8",
+        "R13"
+      ],
+      "evidence_as_of": "2026-07-17"
+    }
+  ],
+  "thresholds": {
+    "market": "T+3(至2026-07-22收盘)内至少1个交易日全市场涨家数>3000(恐慌宣泄后的技术性修复,参照07-13涨家801→07-14修复4112样本);修复日若成交仍>24000亿则修复有效性加分",
+    "direction": "确认(券商信息增量):T+3内证券板块至少1日双红(pct_chg>0且diff_ratio>0)且当日板块成交额≥500亿元(高于07-07以来任一单日,基准07-15峰值479.06亿)。衰竭(AI链透支):存储芯片板块07-20~07-22三日累计涨幅<+9.70%(即不收复07-17单日-8.84%长阴)且CPO板块三日累计涨幅<+10.12%(不收复-9.19%),同时区间内证券板块累计涨幅跑赢存储芯片板块",
+    "targets": "湘财股份:确认=收盘>8.69再创20日新高,止损=收盘<7.90(回吐涨停);国泰海通:确认=收盘>18.58(收复07-15高点),止损=收盘<17.60;东方财富:确认=收盘>20.00,止损=收盘<19.00;东兴证券:确认=收盘>14.13(折价收敛至<12%),证伪=收盘<12.84(折价扩大至>20%);国电电力:确认=收盘>4.80且电力板块T+3内再现双红,止损=收盘<4.60",
+    "falsify": "以下三条在T+3内同时成立则主判断整体推翻:①证券板块无任何一日双红;②湘财股份收盘跌回7.90下方;③全市场涨家数无一日>3000——即恐慌未止、业绩线无承接,市场为无差别持续踩踏而非修复窗口"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M5",
+      "as_of": "2026-07-17"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "S3",
+      "as_of": "2026-07-17"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "K1",
+      "as_of": "2026-07-17"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "M2",
+      "as_of": "2026-07-17"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+3内(2026-07-20至07-22)至少1个交易日全市场涨家数>3000(恐慌宣泄后技术性修复)",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.65,
+      "evidence_refs": [
+        "M2",
+        "M3",
+        "M4",
+        "M5"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "至2026-07-22收盘,三个交易日涨家数均≤3000——修复窗口假设miss,恐慌延续"
+    },
+    {
+      "id": "direction-broker-increment",
+      "category": "direction",
+      "claim": "券商中报线为信息增量:T+3内证券板块至少1日双红(pct_chg>0且diff_ratio>0)且当日板块成交额≥500亿元",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S7",
+        "S8",
+        "R1",
+        "R6",
+        "R7",
+        "R12"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3内证券板块无任何一日双红,或出现双红但当日成交均<500亿(量能不配合)——信息增量判断miss"
+    },
+    {
+      "id": "direction-ai-exhaust",
+      "category": "direction",
+      "claim": "AI算力链当晚覆盖为跟风透支:存储芯片板块07-20~07-22三日累计涨幅<+9.70%(不收复07-17长阴),且区间证券板块累计涨幅>存储芯片板块累计涨幅",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S4",
+        "S5",
+        "K3",
+        "K4",
+        "R4",
+        "R5",
+        "R8",
+        "R10",
+        "R11"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "存储芯片板块三日累计涨幅≥+9.70%收复长阴,或存储累计涨幅反超证券——覆盖密度阈值定早,透支判断证伪(需沉淀教训)"
+    },
+    {
+      "id": "target-xiangcai",
+      "category": "target",
+      "claim": "湘财股份T+3内至少1日收盘价>8.69(涨停次日起再创20日新高),确认券商线情绪辨识度",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.45,
+      "evidence_refs": [
+        "K1",
+        "K2",
+        "R6",
+        "X1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3内收盘价始终≤8.69且任一日收盘<7.90——涨停回吐,券商线情绪辨识度证伪"
+    },
+    {
+      "id": "direction-broker-t5",
+      "category": "direction",
+      "claim": "至T+5(2026-07-24收盘),证券板块自07-17起区间累计涨幅>上证指数同区间累计涨幅(相对强度为正)",
+      "horizon": "T+5",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "R1",
+        "R7"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+5证券板块区间累计涨幅≤上证指数——业绩线跑不赢beta,增量判断在T+5窗口miss"
+    },
+    {
+      "id": "falsify-main",
+      "category": "falsify",
+      "claim": "主判断存活:至2026-07-22,证券板块至少1日双红、湘财股份收盘≥7.90、全市场至少1日涨家数>3000,三者至少其一成立",
+      "horizon": "T+3",
+      "confidence": "high",
+      "confidence_probability": 0.85,
+      "evidence_refs": [
+        "M2",
+        "M5",
+        "S2",
+        "K1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "三者同时不成立(证券零双红+湘财收盘<7.90+涨家数无一日>3000)——主判断整体推翻,记miss并归因"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-20",
+    "recheck_t3_date": "2026-07-22",
+    "pick_returns_t1": [
+      -1.54,
+      -1.1,
+      0.55,
+      0.73,
+      -0.61
+    ],
+    "pick_returns_t3": [
+      0.4386,
+      -0.4729,
+      -0.4955,
+      0.7305,
+      0.4098
+    ],
+    "benchmark_return_t3": 2.7331,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": false
+  }
+}

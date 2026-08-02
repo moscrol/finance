@@ -1,0 +1,680 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-22",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "c621f0f3bdd6e02f",
+  "perspective_date": "2026-07-21",
+  "input_notes": "仅用 manifest(sha c621f0f3bdd6e02f)冻结输入：DuckDB 截至 2026-07-21。materials 为空（无晨汇/卖方冻结材料=数据缺口）；知识库 commit 0ef486a9 已冻结但本卷未引用其内容，全部证据出自 DuckDB fact_* 表。数据质量核查：(1)⚠fact_stock_daily 的 07-20 行被 07-21 数据整体覆盖（5526 只逐行 close 完全相同），但 07-21 行本身正确——4 只标的 07-21 pre_close（长电28.98/华能7.43/神华46.14/茅台1327.5）精确等于上期答卷记录的真实 07-20 收盘，故 07-21 收盘价可用、07-20 参照统一用 07-21 行的 pre_close，本卷不引用 fact_stock_daily 的 07-20 行。(2)fact_sector_daily / fact_market_daily 的 07-20≠07-21，未受污染。(3)strength_status『沸点』按上期核实为高频标签（库内约半数交易日），不作稀有高潮信号，仅记录不入核心证据链。(4)『反弹阶段第1天』库内仅 2 先例（n=2 小样本），base rate 仅作参考不冒充硬门槛。",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "反弹阶段",
+      "direction": "support",
+      "note": "阶段由『下跌阶段第6天』切换为『反弹阶段第1天』（fupanhui 算法自动切换，非主观）——库内 382 交易日仅 13 天为反弹阶段，是明确的阶段级信号，区别于 07-14 未切换的假反抽"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 1,
+      "direction": "support",
+      "note": "反弹阶段第1天"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "advancers",
+      "value": 3107,
+      "direction": "support",
+      "note": "涨家 1740→3107 突破半数，广度全面修复（07-20 仅 1740 弱修复）"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 121,
+      "direction": "support",
+      "note": "涨停 53→121 翻倍，且从防御独占翻转为科技独占"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 21,
+      "direction": "support",
+      "note": "跌停 212→21 崩塌式收敛，出清结束确认（上期从 07-20 视角预测『T+1 跌停<150』命中）"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 29569.03,
+      "direction": "support",
+      "note": "成交 27019→29569 亿放量，承接资金到位"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": 9.44,
+      "direction": "support",
+      "note": "环比 +9.44% 放量——与 07-14 假反抽（缩量 -4.04%）的关键区别，放量反弹更可信"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 97.17,
+      "direction": "neutral",
+      "note": "量比 88→97 回升但未到过热（volume_state=正常量能）"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "sh000001",
+      "field": "sh_index_close",
+      "value": 3864.367,
+      "direction": "support",
+      "note": "上证 +1.79% 收 3864.37：低开 3812 下探 3743（近三针探底）后拉至日内高点收盘=强反包，收复周线 3860.57"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "sh000001",
+      "field": "sh_index_open",
+      "value": 3812.162,
+      "direction": "neutral",
+      "note": "07-21 开盘 3812.16=反弹 candle 下沿/跳空缺口下沿，本卷证伪基准价"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "sh000001",
+      "field": "sh_index_low",
+      "value": 3743.36,
+      "direction": "support",
+      "note": "日内低 3743.36 再次贴近双针探底 3741.11(07-20)/3745.17(07-17)后收复=三针探底成立，下沿支撑有效"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "sh000001",
+      "field": "sh_index_high",
+      "value": 3864.6,
+      "direction": "neutral",
+      "note": "收在日内高点 3864.6=尾盘强势；上方压力 3882.41（07-16 收盘=07-17 跳空缺口顶，反弹回补目标）"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 46.7,
+      "direction": "support",
+      "note": "top3 行业占 46.7%（集中），电子独占 31.1%（通信 8.9/机械 6.9）——半导体主线清晰但盘面高度绑定单一板块，集中度风险"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "stock_high_count_1y",
+      "value": 13,
+      "direction": "neutral",
+      "note": "≥1 年新高 13 只（1y5/3y5/history3）；主体是 20 日新高 296 只=超跌反弹修复而非趋势突破，优质新高仍少"
+    },
+    "M15": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-21",
+      "entity": "sh000001",
+      "field": "sh_week_ma",
+      "value": 3860.57,
+      "direction": "neutral",
+      "note": "周均线 3860.57，收盘 3864.37 贴线收复，站上=反弹结构确认的一个条件"
+    },
+    "M16": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-14",
+      "entity": "market",
+      "field": "advancers",
+      "value": 4211,
+      "direction": "counter",
+      "note": "07-14 曾涨家 4211 大反弹但缩量（amt -4.04%）、阶段仍标『下跌阶段D2』未切换→次日续弱、3 日后 07-17 创新低=假反抽先例；本次放量+阶段切换更可信，但此对照提示『反弹第1天广度爆发≠反转确认』"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "芯片",
+      "field": "diff_ratio",
+      "value": 15.29,
+      "direction": "support",
+      "note": "芯片 +5.80%/diff+15.29/13604.53 亿=全场最大成交池，较 07-20（-5.29%/diff-1.58 缩量续跌）V 型反转，反弹主线"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "半导体",
+      "field": "pct_chg",
+      "value": 9.83,
+      "direction": "support",
+      "note": "半导体 +9.83%/diff+17.27/5180 亿，较 07-20（-6.39%）暴力反转；半导体设备 +14.97% 为全场涨幅第1板块（华虹/中科飞测/长川/拓荆/华海清科全 +20%）=最暴力超跌反抽，弹性最高但兑现/拥挤风险最高"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "半导体设备",
+      "field": "pct_chg",
+      "value": 14.97,
+      "direction": "support",
+      "note": "半导体设备 +14.97%/861.69 亿，20cm 涨停股扎堆=超跌反抽最锋利端，也是已定价度骤升端，追高即接盘"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "存储芯片",
+      "field": "diff_ratio",
+      "value": 18.97,
+      "direction": "support",
+      "note": "存储芯片 +8.98%/diff+18.97/5521 亿，涨停 30 家；但个股 5 日仍深度超跌（兆易-18.6%/北京君正-19.1%/澜起-18.7%）=情绪脉冲型超跌反抽"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "共封装光学(CPO)",
+      "field": "diff_ratio",
+      "value": 18.49,
+      "direction": "support",
+      "note": "CPO +7.66%/diff+18.49/6187 亿，AI 算力链光模块反抽龙头方向（中际旭创 513 亿天量承接）"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "数据中心",
+      "field": "diff_ratio",
+      "value": 15.08,
+      "direction": "support",
+      "note": "数据中心 +3.69%/diff+15.08/8626 亿=科技第2大池，紫光股份创 3 年新高领衔（genuine 趋势腿）"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "贵金属",
+      "field": "diff_ratio",
+      "value": 34.88,
+      "direction": "support",
+      "note": "贵金属 +6.94%/diff+34.88/287 亿=全场最强边际流入，且个股 5 日正收益=全场最干净趋势（非超跌反抽），低拥挤"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "黄金",
+      "field": "diff_ratio",
+      "value": 23.6,
+      "direction": "support",
+      "note": "黄金 +2.72%/diff+23.60/651 亿，避险再通胀线，与科技脱敏的独立趋势腿"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily(聚合: pct_chg>0 AND diff_ratio>0)",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "double_red_count",
+      "value": 155,
+      "direction": "support",
+      "note": "真双红 14→155 全面爆发；严格双红（pct>0且diff>10且amount>500）1→64——从 07-20 电力独苗扩至全面普红"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "limit_heat_top3",
+      "value": "芯片66/机器人34/存储30",
+      "direction": "support",
+      "note": "涨停梯队从 07-20 防御（风电18/电力16/储能13）彻底翻转到科技：芯片概念 66 家涨停占全市场 54.55%、先进封装29/半导体28/数据中心28——科技是绝对情绪核心，风格切换"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "电力",
+      "field": "pct_chg",
+      "value": -1.28,
+      "direction": "support",
+      "note": "电力 +4.80→-1.28：昨日唯一严格双红龙头今日收跌（diff 由 +28.1 收窄至 +3.9），防御抱团滚落"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "白酒",
+      "field": "diff_ratio",
+      "value": -12.6,
+      "direction": "support",
+      "note": "白酒 +3.79→-1.85/diff 由 +66.5 转 -12.6，资金撤离防御，二次点火一日游"
+    },
+    "S13": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "油气开采及服务",
+      "field": "pct_chg",
+      "value": -3.84,
+      "direction": "support",
+      "note": "油气 +7.14→-3.84 领跌防御（保险-0.75/煤炭-1.94/银行-1.88 同步），红利二次启动组集体退潮=风格切换确立"
+    },
+    "S14": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-21",
+      "entity": "创新药",
+      "field": "diff_ratio",
+      "value": -3.8,
+      "direction": "support",
+      "note": "创新药 -0.95%/diff 连续第4日为负、1273 亿续缩量，退潮未止，反弹日也不接"
+    },
+    "S15": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "promotion_rate",
+      "value": "3/46=7%",
+      "direction": "counter",
+      "note": "晋级率仅 3/46=7%、梯队最高仅 4 板（立新能源，属电力/昨日防御龙头）——反弹虽广但连板生态薄弱、情绪高度低，科技暴涨却尚未形成连板梯队（多为首板），是本次反弹的结构性隐忧"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-21",
+      "entity": "688981中芯国际",
+      "field": "pct_chg",
+      "value": 11.11,
+      "direction": "support",
+      "note": "+11.11% 收 160.0/172.7 亿，半导体代工中军/容量核心；5 日仅 -0.6% 回到平台=未过度拉伸，追高风险显著低于 +20% 设备端；pre_close 144.0（=07-20 真实收盘）为启动基/止损参照"
+    },
+    "T2": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-21",
+      "entity": "000938紫光股份",
+      "field": "pct_chg",
+      "value": 10.0,
+      "direction": "support",
+      "note": "+10% 收 41.46/193.1 亿创 3 年新高，5 日 +12.1% 正收益=真突破/强趋势（非超跌反抽）；数据中心/云/信创，全场最优质新高标杆；pre_close 37.69（07-20 收=突破前平台）"
+    },
+    "T3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-21",
+      "entity": "300308中际旭创",
+      "field": "pct_chg",
+      "value": 13.2,
+      "direction": "support",
+      "note": "+13.20% 收 1136.55/513.0 亿=全市场个股成交第一（天量承接），CPO/光模块龙头；较 07-17 低点 +16% 修复、5 日 -4.0% 基本收复；pre_close 1004.0（=07-20 真实收盘=反抽起点）"
+    },
+    "T4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-21",
+      "entity": "601899紫金矿业",
+      "field": "pct_chg",
+      "value": 2.93,
+      "direction": "support",
+      "note": "+2.93% 收 30.21/101.9 亿，铜金龙头；贵金属 diff+34.88 最强流入下的稳健趋势（5 日 +4.0%），低波动低拥挤=科技分歧时的另一条腿；pre_close 29.35"
+    },
+    "T5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-21",
+      "entity": "603986兆易创新",
+      "field": "pct_chg",
+      "value": 10.0,
+      "direction": "support",
+      "note": "+10% 收 475.53/330.9 亿，存储/MCU 龙头；但 5 日仍 -18.6% 深度超跌=最典型情绪脉冲型超跌反抽，高弹性高风险；pre_close 432.3（=07-20 真实收盘）"
+    },
+    "T6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-21",
+      "entity": "600900长江电力",
+      "field": "pct_chg",
+      "value": -0.86,
+      "direction": "support",
+      "note": "昨日容量核心新高领袖 +3.54→-0.86 收跌（登 1 年新高却收绿）；华能-2.69/神华-2.25/茅台-1.47 同步收跌=防御主线滚落的个股级确认，风格切换实锤"
+    },
+    "R1": {
+      "level": "L2",
+      "source": "复盘经验规律（反弹阶段D1库内2先例）",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "rebound_d1_base_rate",
+      "value": "2/2次日延续",
+      "direction": "support",
+      "note": "库内『反弹阶段第1天』仅 2 先例：2025-01-14（D1+2.54→D2-0.43 温和回踩但广度保持）、2026-06-12（D1+1.12→D2+1.61 放大延续）——次日均未反转；样本小(n=2)，按经验值登记不冒充硬门槛"
+    },
+    "R2": {
+      "level": "L2",
+      "source": "strategy1-matrix固定规则",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "strict_double_red_rule",
+      "value": "pct_chg>0且diff_ratio>10且amount>500",
+      "direction": "neutral",
+      "note": "严格双红固定定义；方向阈值（板块 diff 符号/双红转换）判断的规则依据"
+    },
+    "R3": {
+      "level": "L2",
+      "source": "复盘经验规律（07-14假反抽对照）",
+      "source_time": "2026-07-21",
+      "entity": "market",
+      "field": "fake_rebound_discriminator",
+      "value": "放量+阶段切换 vs 缩量未切换",
+      "direction": "support",
+      "note": "07-14 缩量假反抽（下跌D2，amt-4.04%）3 日后创新低；本次放量(+9.44%)+阶段切换(反弹D1)信号更强，但仍属反弹早期，连板梯队薄+集中度高，非确认反转"
+    }
+  },
+  "stage": "反弹阶段第1天·出清结束后放量风格反转（防御→成长）修复反弹（上证 +1.79% 收 3864.37、低开 3812 下探 3743 近三针探底后拉至日内高点收盘、收复周线 3860.57；跌停 212→21 崩塌确认出清结束、涨家 1740→3107、涨停 53→121 广度全面修复；成交 29569 亿环比 +9.44% 放量=区别于 07-14 缩量假反抽；真双红 14→155 爆发、严格双红 1→64；涨停梯队从防御（风电/电力）翻转到科技（芯片概念 66 涨停占 54.55%）；电子独占 31.1% 集中度高、优质新高仅 13 只、晋级率仅 7%=反弹早期非确认反转）",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-21",
+    "metrics": {
+      "market_stage": {
+        "value": "反弹阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 1,
+        "evidence_ref": "M2"
+      },
+      "advancers": {
+        "value": 3107,
+        "evidence_ref": "M3"
+      },
+      "limit_up": {
+        "value": 121,
+        "evidence_ref": "M4"
+      },
+      "limit_down": {
+        "value": 21,
+        "evidence_ref": "M5"
+      },
+      "total_amount": {
+        "value": 29569.03,
+        "evidence_ref": "M6"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": 9.44,
+        "evidence_ref": "M7"
+      },
+      "volume_ratio": {
+        "value": 97.17,
+        "evidence_ref": "M8"
+      },
+      "sh_index_close": {
+        "value": 3864.367,
+        "evidence_ref": "M9"
+      },
+      "double_red_count": {
+        "value": 155,
+        "evidence_ref": "S9"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M9",
+      "M11",
+      "M13",
+      "M14",
+      "M16",
+      "S9",
+      "S10",
+      "S15",
+      "R1",
+      "R3"
+    ]
+  },
+  "main_judgment": "反弹阶段第1天的风格反转市：07-17 恐慌→07-20 出清（跌停 212）→07-21 放量（+9.44%）反弹，跌停 212→21 崩塌确认出清结束，涨家 1740→3107、涨停 53→121 广度全面修复，上证低开下探 3743（三针探底）后拉至日高收 3864（+1.79%）收复周线；风格从防御（电力/白酒/油煤保险全线滚落、diff 集体转负）彻底切回成长——半导体/芯片主线巨量反扑（芯片 13604 亿/涨停 66 家占 54.55%）、AI 算力链紫光创 3 年新高、资源金属最强边际流入；T+1（07-22）基准情形是『反弹第2天高开分歧但结构不破』：库内反弹 D1 两先例次日均延续，主线中军（中芯/紫光）承接、超跌设备/存储端（+20%/5 日 -18%）兑现分歧、资源金属提供另一条腿，上证 3812（反弹开盘）-3882（缺口顶）区间上移；但这是反弹早期非确认反转——连板梯队薄（晋级率 7%、最高板仍是昨日防御龙头立新能源）、优质新高仅 13 只、电子独占 31.1% 集中度高，广度若第 2 天不能延续则仍有 07-14 式假反抽回落风险。",
+  "direction_ranking": [
+    "[场景判定：全市场 A（恐慌出清后修复反弹，反弹阶段D1）× 半导体弹性端局部 C（超跌拥挤，设备端 +20%） | 五维 3.60·居首] 半导体/芯片主线（中芯国际中军，明确排除 +20% 设备端追高）：芯片 13604 亿全场最大池 +diff+15.29、涨停 66 家占全市场 54.55%、板块 +5.80% 较 07-20（-5.29 缩量续跌）V 型反转。确定性 4.5/弹性 3.5/兑现时间 4/拥挤度 3/已定价 3。异动性质：资金切换型主线回归（资金从防御撤回前期成长主线，非纯情绪脉冲）；中芯 5 日仅 -0.6% 回平台=中军追高风险显著低于华虹/中微 +20% 设备端——分歧日买中军不买超跌顶",
+    "[五维 3.50·与第1名分差 0.10] AI 算力链新高扩散（数据中心/CPO/光模块：紫光股份 3 年新高/中际旭创 513 亿天量）：紫光 +10% 创 3 年新高且 5 日 +12.1%=真突破（非超跌反抽），旭创 +13.2% 收 1136 天量承接全场第一。确定性 4/弹性 4/兑现时间 4/拥挤度 3/已定价 2.5。异动性质：主线扩散（紫光新高是 genuine 趋势腿，旭创是弹性端反抽）；紫光=优质趋势腿，旭创=高弹性但 +13.2% 已拉伸需守起点",
+    "[五维 3.40] 资源金属避险再通胀（贵金属/黄金/铜：紫金矿业/山东黄金）：贵金属 +6.94%/diff+34.88 全场最强边际流入，个股 5 日正收益=全场最干净趋势（非超跌反抽），低拥挤低已定价。确定性 3.5/弹性 3/兑现时间 3.5/拥挤度 4/已定价 3.5。异动性质：资金切换型独立趋势（与科技脱敏的避险/再通胀线）；科技第 2 天分歧时的另一条腿，紫金 5 日 +4.0% 稳健",
+    "[五维 3.10·高弹性高风险] 存储超跌反抽（存储芯片 diff+18.97/5521 亿：兆易创新/北京君正/澜起科技）：存储 sub-theme 资金最强之一但个股 5 日仍 -18.6%~-19.1% 深度超跌。确定性 3.5/弹性 4.5/兑现时间 3/拥挤度 2/已定价 2.5。异动性质：情绪脉冲型超跌反抽（day-1 暴力反弹，day-2 是关键 test）；只做龙头且必须严格止损、不重仓",
+    "[回避] 昨日防御主线（电力-1.28/白酒-1.85/油气-3.84/煤炭-1.94/保险-0.75 全线滚落、diff 集体转负=风格切换出局，追反弹买防御即接最后一棒）；创新药（diff 连续第 4 日负、-0.95 退潮未止，红盘也不接）；半导体设备 +20% 涨停端（华虹/中微/拓荆全 20cm 涨停=已定价度骤升，弹性最大但追高即接盘）"
+  ],
+  "picks": [
+    {
+      "code": "688981",
+      "name": "中芯国际",
+      "strategy": "策略一（主线流动性池·半导体代工中军）",
+      "reason": "反弹主线=芯片 13604 亿最大池 + 涨停 66 家占 54.55%（S1/S10）背景下的半导体容量核心中军：+11.11% 收 160.0/172.7 亿（T1），5 日仅 -0.6% 回到平台=未过度拉伸，追高风险显著低于 +20% 设备端（S3）；电子独占 31.1% 集中度（M13）意味着主线中军是盘面承接核心，pre_close 144.0（=07-20 真实收盘）为分歧日守位/止损基准",
+      "evidence_refs": [
+        "T1",
+        "S1",
+        "S2",
+        "M13"
+      ],
+      "evidence_as_of": "2026-07-21"
+    },
+    {
+      "code": "000938",
+      "name": "紫光股份",
+      "strategy": "策略二（强趋势延续·数据中心3年新高）",
+      "reason": "数据中心/云 diff+15.08/8626 亿（S6）方向的优质新高标杆：+10% 收 41.46/193.1 亿创 3 年新高、5 日 +12.1% 正收益（T2）=真突破/强趋势（非超跌反抽），是本轮反弹中少数 genuine 趋势腿；对照优质新高仅 13 只（M14）稀缺性更高，跌破 37.69（07-20 收=突破前平台）证伪",
+      "evidence_refs": [
+        "T2",
+        "S6",
+        "M14"
+      ],
+      "evidence_as_of": "2026-07-21"
+    },
+    {
+      "code": "300308",
+      "name": "中际旭创",
+      "strategy": "策略三（分歧回流·CPO龙头天量承接）",
+      "reason": "AI 算力链 CPO/光模块方向（S5：CPO diff+18.49/6187 亿）弹性龙头：+13.2% 收 1136.55/513.0 亿=全市场个股成交第一（T3），07-17 天量 565 亿换手后连续反抽、5 日 -4.0% 基本收复；真双红 155 全面爆发（S9）背景下的弹性端，但 +13.2% 已拉伸=定性为弹性仓，跌破 1004（07-20 收=反抽起点）即天量承接失败清仓",
+      "evidence_refs": [
+        "T3",
+        "S5",
+        "S9"
+      ],
+      "evidence_as_of": "2026-07-21"
+    },
+    {
+      "code": "601899",
+      "name": "紫金矿业",
+      "strategy": "策略四（流动性切换·资源金属避险线）",
+      "reason": "贵金属 diff+34.88 全场最强边际流入（S7）+ 黄金 diff+23.60（S8）的铜金龙头：+2.93% 收 30.21/101.9 亿（T4），个股 5 日 +4.0% 正收益=全场最干净趋势（非超跌反抽）、低拥挤；与科技脱敏的避险/再通胀独立腿，科技第 2 天若分歧可对冲，pre_close 29.35 为启动基",
+      "evidence_refs": [
+        "T4",
+        "S7",
+        "S8"
+      ],
+      "evidence_as_of": "2026-07-21"
+    },
+    {
+      "code": "603986",
+      "name": "兆易创新",
+      "strategy": "策略三（分歧回流·存储超跌反抽·高弹性高风险）",
+      "reason": "存储芯片 diff+18.97/5521 亿、涨停 30 家（S4）方向的存储/MCU 龙头：+10% 收 475.53/330.9 亿（T5），但 5 日仍 -18.6% 深度超跌=最典型情绪脉冲型超跌反抽，弹性最高；明确定性为高风险弹性仓、轻仓且严格止损，跌破 432.3（07-20 收）即离场——是『反弹第2天分歧最先兑现端』的观察仓",
+      "evidence_refs": [
+        "T5",
+        "S4"
+      ],
+      "evidence_as_of": "2026-07-21"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1(07-22)涨家数>2000 且跌停<60=反弹第2天广度延续（反弹阶段D1 库内 2 先例次日均延续）；涨家<1500 或跌停>100=反弹转分歧退潮/一日反抽。量能：成交维持>27000 亿=承接在，缩量至<25000 亿=反弹乏力。集中度警示：电子独占 31.1%，半导体若分歧则指数同步承压。升级档：涨家>3800 且成交>32000 亿=反弹升级",
+    "direction": "半导体主线 T+1 不瓦解：芯片板块 amount 维持>8000 亿 且 pct_chg>-4%（高位分歧可接受）；芯片 diff 转负 且 pct_chg≤-5%=主线一日游/超跌反抽兑现瓦解。资源金属确认：贵金属/黄金 T+1 至少 1 个维持 diff>0=避险再通胀线延续。反向确认：昨日防御（电力/白酒/油煤保险）继续 diff 转负=风格切换确立、不回补防御",
+    "targets": "中芯国际收盘≥152（07-21 涨幅一半守住=分歧不破）持仓/跌破 144.0（pre_close=07-20 真实收盘启动基）减仓；紫光股份≥39.5（守 3 年新高突破）/跌破 37.69（07-20 收=突破前平台）证伪；中际旭创≥1080（天量承接延续）/跌破 1004（07-20 收=反抽起点）=反抽失败清仓；紫金矿业≥29.35（启动基上方）持仓；兆易创新≥450（超跌反抽延续）/跌破 432.3（07-20 收）止损",
+    "falsify": "上证 T+1 收盘<3812.162（07-21 开盘=反弹 candle 下沿/跳空缺口下沿）=反弹动能证伪、防御持仓也降仓；更强证伪：收盘<3796.281（07-20 收盘，完全吞没反弹日）=反抽失败重回下跌。反向证伪：涨家>3800 且成交>32000 亿 且科技出现 5 板+连板梯队=反弹升级为反转，『反弹早期非确认』定性偏保守应加仓"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "R1",
+      "as_of": "2026-07-21",
+      "note": "反弹第2天广度延续档由库内反弹阶段D1 2 先例（R1）+07-14 假反抽对照（M16/R3）推导，样本小按经验值登记不冒充回测；涨家 2000/跌停 60 为 07-21 实际值（3107/21）向下的机械缓冲区"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "R2",
+      "as_of": "2026-07-21",
+      "note": "板块 diff 符号/双红转换判断依据 strategy1-matrix 固定规则（R2）；芯片 8000 亿/-4% 分歧带为经验微调（07-21 芯片 13604 亿的机械回撤容忍）"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "T1",
+      "as_of": "2026-07-21",
+      "note": "全部触发价由库内 07-21 收盘/pre_close 机械推导：144.0/1004/432.3/29.35/37.69=各标的 07-20 真实收盘（取自 07-21 行 pre_close）、152=中芯涨幅一半、39.5/1080/450=分歧不破的机械中值"
+    },
+    "falsify": {
+      "origin": "mechanical",
+      "evidence_ref": "M10",
+      "as_of": "2026-07-21",
+      "note": "3812.162=07-21 开盘（反弹 candle 下沿/跳空缺口下沿）、3796.281=07-20 收盘，均为库内数值机械推导"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1(2026-07-22)涨家数>2000 且跌停<60：反弹阶段第1天（放量 +9.44%、跌停 212→21、阶段切换）后第2天广度延续，库内反弹 D1 两先例次日均未反转",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M3",
+        "M5",
+        "M7",
+        "R1",
+        "M16"
+      ],
+      "evidence_as_of": "2026-07-21",
+      "falsify_when": "T+1 涨家<1500 或跌停>100（反弹转一日反抽退潮，07-14 式假反抽重演）"
+    },
+    {
+      "id": "direction",
+      "category": "direction",
+      "claim": "半导体/芯片主线 T+1 不瓦解：芯片板块 amount 维持>8000 亿 且 pct_chg>-4%——13604 亿最大池 + 涨停 66 家占 54.55% 的主线在第2天高位分歧但资金不撤离",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S10",
+        "M13"
+      ],
+      "evidence_as_of": "2026-07-21",
+      "falsify_when": "芯片 diff 转负 且 pct_chg≤-5%（主线一日游，半导体设备 +20% 超跌反抽兑现瓦解）"
+    },
+    {
+      "id": "target:000938",
+      "category": "target",
+      "claim": "紫光股份 T+1 收盘≥39.5 守住 3 年新高突破位：数据中心真趋势（5 日 +12.1%、非超跌反抽）在反弹第2天延续",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "T2",
+        "S6",
+        "M14"
+      ],
+      "evidence_as_of": "2026-07-21",
+      "falsify_when": "T+1 收盘<37.69（跌回 07-20 突破前平台=3 年新高突破失败）"
+    },
+    {
+      "id": "target:300308",
+      "category": "target",
+      "claim": "中际旭创 T+1 收盘≥1004 守住反抽起点：513 亿天量承接（全场个股成交第一）的 CPO 龙头在第2天不破 07-20 启动位",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.5,
+      "evidence_refs": [
+        "T3",
+        "S5"
+      ],
+      "evidence_as_of": "2026-07-21",
+      "falsify_when": "T+1 收盘<1004（跌回 07-20 启动位=天量承接失败、弹性端超跌反抽结束）"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "上证 T+1 收盘守住 3812.162（07-21 开盘/反弹 candle 下沿/跳空缺口下沿）上方：放量反弹 + 阶段切换的反弹结构在第2天有效",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.62,
+      "evidence_refs": [
+        "M9",
+        "M10",
+        "M11"
+      ],
+      "evidence_as_of": "2026-07-21",
+      "falsify_when": "T+1 收盘<3812.162（跌破反弹日开盘、反弹动能证伪）；更强<3796.281（完全吞没反弹日=反抽失败重回下跌）"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-22",
+    "recheck_t3_date": "2026-07-24",
+    "pick_returns_t1": [
+      -2.76,
+      8.3,
+      -6.66,
+      6.59,
+      -1.16
+    ],
+    "pick_returns_t3": [
+      -10.1688,
+      -0.0241,
+      -7.9222,
+      4.3032,
+      -3.8967
+    ],
+    "benchmark_return_t3": -1.2982,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": false
+  }
+}

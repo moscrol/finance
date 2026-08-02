@@ -1,0 +1,1048 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-20",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "eed501f0cad4c1b3",
+  "perspective_date": "2026-07-17",
+  "input_freeze": {
+    "duckdb_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+    "duckdb_cutoff": "2026-07-17",
+    "kb_commit": "fbb2b428b2abadbdfc21a42cd6e92d3277abb281",
+    "materials": [],
+    "data_gaps": [
+      "manifest materials 为空；本答卷仅使用 DuckDB 截至 2026-07-17 收盘的盘面流数据，未引入晨汇或卖方材料。"
+    ]
+  },
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "support"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 5,
+      "direction": "support"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 26547.43,
+      "direction": "neutral"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": 10.46,
+      "direction": "neutral"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "amount_ma20",
+      "value": 31189.18,
+      "direction": "counter"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 85.12,
+      "direction": "counter"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "advancers",
+      "value": 482,
+      "direction": "support"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "advancers_ma5",
+      "value": 2268.8,
+      "direction": "support"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "advancers_change",
+      "value": -3292,
+      "direction": "support"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 33,
+      "direction": "counter"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 193,
+      "direction": "support"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "sh_index_pct_chg",
+      "value": -3.0459922734,
+      "direction": "support"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 46.3,
+      "direction": "support"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "breadth_trend",
+      "value": "down",
+      "direction": "support"
+    },
+    "H1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 4,
+      "direction": "support"
+    },
+    "H2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 506,
+      "direction": "neutral"
+    },
+    "H3": {
+      "level": "L4",
+      "source": "fact_stock_high_daily_derived",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stock_high_primary_period_counts",
+      "value": {
+        "history": 4,
+        "3y": 6,
+        "2y": 1,
+        "1y": 3,
+        "120d": 2,
+        "60d": 18,
+        "20d": 472
+      },
+      "direction": "neutral"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily_derived",
+      "source_time": "2026-07-17",
+      "entity": "sector",
+      "field": "double_red_sector_count",
+      "value": 2,
+      "direction": "support"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": 1.25,
+        "amount": 607.09,
+        "diff_ratio": 59.86
+      },
+      "direction": "support"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "银行",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": 0.4,
+        "amount": 400.41,
+        "diff_ratio": 52.02
+      },
+      "direction": "support"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "limit_heat_snapshot",
+      "value": {
+        "rank": 1,
+        "market_limit_up_count": 35,
+        "limit_up_count": 10,
+        "market_share": 28.5714,
+        "top_stocks": [
+          "湖南发展",
+          "广西能源",
+          "华银电力",
+          "宁波能源",
+          "立新能源"
+        ]
+      },
+      "direction": "support"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "储能",
+      "field": "limit_heat_snapshot",
+      "value": {
+        "rank": 3,
+        "market_limit_up_count": 35,
+        "limit_up_count": 7,
+        "market_share": 20.0,
+        "top_stocks": [
+          "广西能源",
+          "宁波能源",
+          "立新能源",
+          "赣能股份",
+          "乐山电力"
+        ]
+      },
+      "direction": "neutral"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "储能",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": -4.42,
+        "amount": 4975.75,
+        "diff_ratio": 15.43
+      },
+      "direction": "counter"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "风电",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": -3.12,
+        "amount": 2136.38,
+        "diff_ratio": 12.34
+      },
+      "direction": "counter"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-17",
+      "entity": "人工智能",
+      "field": "limit_heat_snapshot",
+      "value": {
+        "rank": 2,
+        "market_limit_up_count": 35,
+        "limit_up_count": 10,
+        "market_share": 28.5714
+      },
+      "direction": "neutral"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "人工智能",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": -4.86,
+        "amount": 5860.23,
+        "diff_ratio": 7.8
+      },
+      "direction": "counter"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": -9.83,
+        "amount": 4605.14,
+        "diff_ratio": 7.24
+      },
+      "direction": "counter"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "创新药",
+      "field": "sector_daily_snapshot",
+      "value": {
+        "pct_chg": -6.89,
+        "amount": 1509.67,
+        "diff_ratio": -11.79
+      },
+      "direction": "counter"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "feature_sector_window",
+      "source_time": "2026-07-17",
+      "entity": "电力",
+      "field": "sector_window_5d",
+      "value": {
+        "start_date": "2026-07-10",
+        "end_date": "2026-07-17",
+        "interval_pct_chg": 0.29,
+        "amount_change_pct": 33.17,
+        "diff_start": 12.26,
+        "diff_end": 59.86,
+        "diff_change": 47.6,
+        "diff_trend": "up"
+      },
+      "direction": "support"
+    },
+    "S13": {
+      "level": "L4",
+      "source": "feature_sector_window",
+      "source_time": "2026-07-17",
+      "entity": "银行",
+      "field": "sector_window_5d",
+      "value": {
+        "start_date": "2026-07-10",
+        "end_date": "2026-07-17",
+        "interval_pct_chg": 5.85,
+        "amount_change_pct": 63.97,
+        "diff_start": -15.96,
+        "diff_end": 52.02,
+        "diff_change": 67.98,
+        "diff_trend": "up"
+      },
+      "direction": "support"
+    },
+    "P1": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily + fact_stock_high_daily + feature_stock_technical_daily",
+      "source_time": "2026-07-17",
+      "entity": "600900 长江电力",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 27.99,
+        "pct_chg": 1.97,
+        "amount": 68.02,
+        "fund_flow_1d": 6.99,
+        "high_status_label": "120日新高",
+        "pct_chg_5d": 2.73,
+        "pct_chg_10d": 6.45,
+        "float_mcap_yi": 6848.65,
+        "up_value": 27.9988,
+        "deviation_pct": -0.03
+      },
+      "direction": "support"
+    },
+    "P2": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily + fact_stock_high_daily + feature_stock_technical_daily",
+      "source_time": "2026-07-17",
+      "entity": "600886 国投电力",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 14.76,
+        "pct_chg": 1.86,
+        "amount": 12.33,
+        "fund_flow_1d": 1.3,
+        "high_status_label": "60日新高",
+        "pct_chg_5d": 7.5,
+        "pct_chg_10d": 9.99,
+        "float_mcap_yi": 1100.24,
+        "up_value": 14.021,
+        "deviation_pct": 5.27
+      },
+      "direction": "support"
+    },
+    "P3": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily + fact_stock_high_daily + feature_stock_technical_daily",
+      "source_time": "2026-07-17",
+      "entity": "600236 桂冠电力",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 10.62,
+        "pre_close": 9.65,
+        "pct_chg": 10.05,
+        "amount": 3.88,
+        "fund_flow_1d": 1.45,
+        "high_status_label": "20日新高",
+        "limit_status": "U",
+        "limit_times": 1,
+        "pct_chg_10d": 11.32,
+        "float_mcap_yi": 837.11,
+        "up_value": 9.853,
+        "deviation_pct": 7.78
+      },
+      "direction": "support"
+    },
+    "P4": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily + fact_stock_high_daily + feature_stock_technical_daily",
+      "source_time": "2026-07-17",
+      "entity": "601398 工商银行",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 7.57,
+        "pre_close": 7.39,
+        "pct_chg": 2.44,
+        "amount": 53.7,
+        "fund_flow_1d": 4.71,
+        "high_status_label": "20日新高",
+        "pct_chg_5d": 3.27,
+        "pct_chg_10d": 7.53,
+        "float_mcap_yi": 20409.64,
+        "up_value": 7.5093,
+        "deviation_pct": 0.81
+      },
+      "direction": "support"
+    },
+    "P5": {
+      "level": "L4",
+      "source": "fact_stock_high_daily + feature_stock_technical_daily",
+      "source_time": "2026-07-17",
+      "entity": "000333 美的集团",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 82.71,
+        "pre_close": 81.8,
+        "pct_chg": 1.11,
+        "amount": 38.18,
+        "fund_today": 6.61,
+        "primary_high_label": "3年新高",
+        "pct_chg_10d": 6.09,
+        "market_cap": 5678.23,
+        "up_value": 81.1634,
+        "deviation_pct": 1.91
+      },
+      "direction": "support"
+    },
+    "TP1": {
+      "level": "L4",
+      "source": "fact_stock_daily + feature_stock_technical_daily mechanical_thresholds",
+      "source_time": "2026-07-17",
+      "entity": "picks",
+      "field": "target_price_basis",
+      "value": {
+        "basis": "T+1/T+3 触发价由 2026-07-17 收盘价、前收盘价和上轨 up_value 机械推导；强确认用收盘新高或涨停，防守线用前收盘/上轨附近。"
+      },
+      "direction": "neutral"
+    }
+  },
+  "stage": "下跌阶段第5天：高位拥挤退潮，只有电力/银行防御双红，科技主线处于杀跌后的局部反抽观察段。",
+  "stage_features": {
+    "rule_id": "market-stage-v1.duckdb-only",
+    "as_of": "2026-07-17",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 5,
+        "evidence_ref": "M2"
+      },
+      "total_amount": {
+        "value": 26547.43,
+        "evidence_ref": "M3"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": 10.46,
+        "evidence_ref": "M4"
+      },
+      "amount_ma20": {
+        "value": 31189.18,
+        "evidence_ref": "M5"
+      },
+      "volume_ratio": {
+        "value": 85.12,
+        "evidence_ref": "M6"
+      },
+      "advancers": {
+        "value": 482,
+        "evidence_ref": "M7"
+      },
+      "advancers_ma5": {
+        "value": 2268.8,
+        "evidence_ref": "M8"
+      },
+      "advancers_change": {
+        "value": -3292,
+        "evidence_ref": "M9"
+      },
+      "limit_up": {
+        "value": 33,
+        "evidence_ref": "M10"
+      },
+      "limit_down": {
+        "value": 193,
+        "evidence_ref": "M11"
+      },
+      "sh_index_pct_chg": {
+        "value": -3.0459922734,
+        "evidence_ref": "M12"
+      },
+      "top3_industry_ratio": {
+        "value": 46.3,
+        "evidence_ref": "M13"
+      },
+      "breadth_trend": {
+        "value": "down",
+        "evidence_ref": "M14"
+      },
+      "stock_high_count_history": {
+        "value": 4,
+        "evidence_ref": "H1"
+      },
+      "stock_high_count_20d": {
+        "value": 506,
+        "evidence_ref": "H2"
+      },
+      "double_red_sector_count": {
+        "value": 2,
+        "evidence_ref": "S1"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9",
+      "M10",
+      "M11",
+      "M12",
+      "M13",
+      "M14",
+      "H1",
+      "H2",
+      "S1"
+    ]
+  },
+  "main_judgment": "截至 2026-07-17 收盘，市场不是主升浪而是高位拥挤退潮后的防御切换：T+1 更可能出现弱修复或避险抱团，真正转强必须先看到广度和跌停数修复，而不是只看局部涨停。",
+  "market_path": {
+    "expected_t1_path": "恐慌低位后的弱修复：早盘可能先修复跌停和科技杀跌，但午后资金更可能回到电力/银行等防御容量；若放量普涨才从退潮切到修复。",
+    "path_failure_signal": "T+1 收盘涨家数仍低于1000且跌停仍高于120，或半导体/CPO继续跌幅居前且电力、银行同时失去双红。",
+    "evidence_refs": [
+      "M7",
+      "M10",
+      "M11",
+      "S2",
+      "S3",
+      "S9",
+      "S10"
+    ]
+  },
+  "direction_ranking": [
+    "电力",
+    "银行",
+    "家电白马/容量新高",
+    "储能/风电涨停扩散",
+    "AI应用局部情绪"
+  ],
+  "direction_analysis": {
+    "scenario": "C 高位拥挤退潮；兼具恐慌反抽条件，但未满足 B 主升浪。",
+    "ranking_detail": [
+      {
+        "rank": 1,
+        "direction": "电力",
+        "strategy_language": "策略一：防御主线流动性池 + 策略二：强趋势延续",
+        "abnormal_type": "资金切换",
+        "score": {
+          "certainty": 4.5,
+          "elasticity": 2.5,
+          "realization_timing": 4.5,
+          "crowding_risk": 2.5,
+          "priced_in_risk": 2.0,
+          "adjusted_total": 17.0
+        },
+        "reason": "唯一同时满足板块红盘、diff>0、涨停热度第一、5日diff上行的方向。",
+        "evidence_refs": [
+          "S2",
+          "S4",
+          "S12"
+        ]
+      },
+      {
+        "rank": 2,
+        "direction": "银行",
+        "strategy_language": "策略四：流动性切换",
+        "abnormal_type": "资金切换",
+        "score": {
+          "certainty": 4.0,
+          "elasticity": 1.5,
+          "realization_timing": 4.0,
+          "crowding_risk": 2.0,
+          "priced_in_risk": 2.0,
+          "adjusted_total": 15.5
+        },
+        "reason": "防御双红且5日diff从-15.96升至52.02，但弹性弱于电力。",
+        "evidence_refs": [
+          "S3",
+          "S13"
+        ]
+      },
+      {
+        "rank": 3,
+        "direction": "家电白马/容量新高",
+        "strategy_language": "策略二：强趋势延续",
+        "abnormal_type": "主线扩散之外的容量避险",
+        "score": {
+          "certainty": 3.5,
+          "elasticity": 1.5,
+          "realization_timing": 3.5,
+          "crowding_risk": 2.0,
+          "priced_in_risk": 2.5,
+          "adjusted_total": 13.0
+        },
+        "reason": "美的集团3年新高说明容量资金仍在找低波动出口，但板块自身不是双红主线。",
+        "evidence_refs": [
+          "P5"
+        ]
+      },
+      {
+        "rank": 4,
+        "direction": "储能/风电涨停扩散",
+        "strategy_language": "策略三：分歧回流观察",
+        "abnormal_type": "主线扩散未确认",
+        "score": {
+          "certainty": 2.5,
+          "elasticity": 3.5,
+          "realization_timing": 3.0,
+          "crowding_risk": 3.5,
+          "priced_in_risk": 3.0,
+          "adjusted_total": 11.5
+        },
+        "reason": "涨停热度靠前，但储能/风电板块仍下跌，暂不能按主线延续处理。",
+        "evidence_refs": [
+          "S5",
+          "S6",
+          "S7"
+        ]
+      },
+      {
+        "rank": 5,
+        "direction": "AI应用局部情绪",
+        "strategy_language": "策略三：局部反抽，不作主线延续",
+        "abnormal_type": "情绪脉冲",
+        "score": {
+          "certainty": 2.0,
+          "elasticity": 4.0,
+          "realization_timing": 2.5,
+          "crowding_risk": 4.5,
+          "priced_in_risk": 4.0,
+          "adjusted_total": 8.0
+        },
+        "reason": "涨停热度第二，但人工智能板块整体-4.86%，半导体-9.83%，容量核心杀跌，不具备主线延续确认。",
+        "evidence_refs": [
+          "S8",
+          "S9",
+          "S10"
+        ]
+      }
+    ],
+    "top1_top2_score_gap": 1.5
+  },
+  "picks": [
+    {
+      "code": "600900",
+      "name": "长江电力",
+      "strategy": "策略一：防御主线流动性池",
+      "reason": "电力为双红第一方向且涨停热度第一；个股为电力容量核心，2026-07-17 收盘27.99，120日新高，成交68.02亿元，资金流入6.99亿元。",
+      "evidence_refs": [
+        "S2",
+        "S4",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "600886",
+      "name": "国投电力",
+      "strategy": "策略二：强趋势延续",
+      "reason": "电力双红背景下的60日新高股，2026-07-17 收盘14.76，5日涨7.50%、10日涨9.99%，偏容量而非纯情绪连板。",
+      "evidence_refs": [
+        "S2",
+        "S12",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "600236",
+      "name": "桂冠电力",
+      "strategy": "策略三：分歧回流/电力情绪扩散",
+      "reason": "电力涨停热度第一中的大市值涨停观察标的，2026-07-17 收盘10.62涨停、20日新高，用来验证电力是否从容量防御扩散到涨停情绪。",
+      "evidence_refs": [
+        "S2",
+        "S4",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "601398",
+      "name": "工商银行",
+      "strategy": "策略四：流动性切换",
+      "reason": "银行为第二个真双红方向；工商银行2026-07-17 收盘7.57，20日新高，成交53.70亿元，5日涨3.27%、10日涨7.53%，适合验证避险资金是否继续留在高股息容量。",
+      "evidence_refs": [
+        "S3",
+        "S13",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-17"
+    },
+    {
+      "code": "000333",
+      "name": "美的集团",
+      "strategy": "策略二：容量新高/抗跌确认",
+      "reason": "指数-3.05%、涨家数482的环境下仍创3年新高，收82.71、成交38.18亿元，作为非电力防御容量是否延续的对照。",
+      "evidence_refs": [
+        "M12",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-17"
+    }
+  ],
+  "thresholds": {
+    "market": {
+      "horizon": "T+1",
+      "repair_valid_if": {
+        "advancers_min": 1500,
+        "advancers_max": 2800,
+        "limit_down_max": 100,
+        "limit_up_min": 35,
+        "total_amount_min": 24000
+      },
+      "stage_switch_to_repair_if": {
+        "advancers_min": 3000,
+        "limit_down_max": 30,
+        "sh_index_pct_chg_min": 0.5
+      },
+      "remain_downtrend_if": {
+        "advancers_max": 1000,
+        "limit_down_min": 120
+      }
+    },
+    "direction": {
+      "power_extend_if": {
+        "pct_chg_min": 0,
+        "diff_ratio_min": 30,
+        "limit_heat_rank_max": 3,
+        "limit_up_count_min": 6
+      },
+      "bank_extend_if": {
+        "pct_chg_min": 0,
+        "diff_ratio_min": 25
+      },
+      "storage_or_wind_upgrade_if": {
+        "pct_chg_min": 0,
+        "diff_ratio_min": 15,
+        "limit_up_count_min": 7
+      },
+      "ai_not_mainline_unless": {
+        "artificial_intelligence_pct_chg_min": 0,
+        "semiconductor_pct_chg_min": 0,
+        "limit_heat_rank_max": 3
+      }
+    },
+    "targets": {
+      "600900": {
+        "t1_hold_min_close": 27.45,
+        "t1_strong_close_min": 28.0,
+        "t3_fail_if_close_below": 27.45
+      },
+      "600886": {
+        "t1_hold_min_close": 14.49,
+        "t1_strong_close_min": 14.76,
+        "t3_fail_if_close_below": 14.02
+      },
+      "600236": {
+        "t1_hold_min_close": 9.65,
+        "t1_strong_close_min": 10.62,
+        "t1_limit_up_reference": 11.68,
+        "t3_fail_if_close_below": 9.65
+      },
+      "601398": {
+        "t1_hold_min_close": 7.39,
+        "t1_strong_close_min": 7.57,
+        "t3_fail_if_close_below": 7.39
+      },
+      "000333": {
+        "t1_hold_min_close": 81.16,
+        "t1_strong_close_min": 82.71,
+        "t3_fail_if_close_below": 81.16
+      }
+    },
+    "falsify": {
+      "main_judgment_wrong_if": {
+        "advancers_min": 3000,
+        "limit_down_max": 30,
+        "semiconductor_pct_chg_min": 0,
+        "cpo_pct_chg_min": 0,
+        "power_pct_chg_max": 0,
+        "bank_pct_chg_max": 0
+      },
+      "panic_worse_if": {
+        "advancers_max": 1000,
+        "limit_down_min": 120,
+        "total_amount_min": 26000
+      }
+    }
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M7",
+      "as_of": "2026-07-17",
+      "note": "涨家数与跌停数阈值为退潮日后的经验分层；未冒充回测。"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "S1",
+      "as_of": "2026-07-17",
+      "note": "双红固定规则：pct_chg>0 且 diff_ratio>0；延续阈值在此基础上要求diff维持正且热度不掉队。"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "TP1",
+      "as_of": "2026-07-17",
+      "note": "个股触发/防守线由7月17日收盘价、前收盘价、上轨和涨停价机械推导。"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "M11",
+      "as_of": "2026-07-17",
+      "note": "用涨家数、跌停数和科技方向重新双红来证伪防御切换判断。"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1 市场更可能是弱修复而非主升浪：收盘涨家数落在1500-2800、跌停数降至100以下、成交额不低于24000亿元即为合格修复；若涨家数仍低于1000且跌停高于120则退潮延续。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.56,
+      "evidence_refs": [
+        "M1",
+        "M7",
+        "M10",
+        "M11",
+        "M14"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 涨家数>3000且跌停<30，同时上证指数涨幅>0.5%，说明不是弱修复而是阶段切换。"
+    },
+    {
+      "id": "direction:power",
+      "category": "direction",
+      "claim": "电力 T+1 最可能在防御方向里延续：板块pct_chg>=0、diff_ratio>30且涨停热度rank<=3。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.62,
+      "evidence_refs": [
+        "S2",
+        "S4",
+        "S12"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 电力pct_chg<0或diff_ratio<=0，或涨停热度跌出前5。"
+    },
+    {
+      "id": "direction:bank",
+      "category": "direction",
+      "claim": "银行 T+1 继续承担避险容量：板块pct_chg>=0且diff_ratio>25。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "S3",
+        "S13"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 银行pct_chg<0且diff_ratio<=0。"
+    },
+    {
+      "id": "direction:storage_wind",
+      "category": "direction",
+      "claim": "储能/风电 T+1 只有涨停扩散观察价值，除非板块pct_chg>0且diff_ratio>15，否则不升级为主线。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S5",
+        "S6",
+        "S7"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 储能或风电板块pct_chg>0、diff_ratio>15且涨停数>=7，说明从局部涨停升级为方向。"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "若半导体/CPO T+1 同时转为红盘且diff_ratio>0，并且涨家数>3000、跌停<30，则本答卷的防御切换主判断被推翻。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.52,
+      "evidence_refs": [
+        "S9",
+        "S10",
+        "M7",
+        "M11"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 半导体/CPO未转双红或涨家数未超过3000，则证伪条件未触发。"
+    },
+    {
+      "id": "target:600900",
+      "category": "target",
+      "claim": "长江电力 T+3 维持防御容量有效：至少一日收盘>=28.00，且T+3不跌破27.45。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S2",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3 收盘跌破27.45或电力板块失去双红。"
+    },
+    {
+      "id": "target:600886",
+      "category": "target",
+      "claim": "国投电力 T+3 强趋势延续：收盘维持14.49上方，若收盘重新高于14.76则确认。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.57,
+      "evidence_refs": [
+        "S2",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3 收盘跌破14.02或电力板块diff_ratio<=0。"
+    },
+    {
+      "id": "target:600236",
+      "category": "target",
+      "claim": "桂冠电力 T+1/T+3 代表电力情绪扩散：T+1不低于9.65且若触及约11.68涨停价则强确认。",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.46,
+      "evidence_refs": [
+        "S4",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+1 跌破9.65或T+3收盘仍低于9.65。"
+    },
+    {
+      "id": "target:601398",
+      "category": "target",
+      "claim": "工商银行 T+3 继续强于市场：收盘不破7.39，至少一日收盘>=7.57。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "S3",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3 收盘跌破7.39或银行板块diff_ratio<=0。"
+    },
+    {
+      "id": "target:000333",
+      "category": "target",
+      "claim": "美的集团 T+3 作为非金融/电力容量新高对照：收盘不破81.16，至少一日收盘>=82.71。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.54,
+      "evidence_refs": [
+        "H3",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "T+3 收盘跌破81.16且未再收复82.71。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-20",
+    "recheck_t3_date": "2026-07-22",
+    "pick_returns_t1": [
+      -0.86,
+      0.54,
+      -3.68,
+      -2.33,
+      -0.04
+    ],
+    "pick_returns_t3": [
+      0.3796,
+      2.3411,
+      4.7945,
+      -1.8088,
+      0.5931
+    ],
+    "benchmark_return_t3": 2.7331,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": false
+  }
+}

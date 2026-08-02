@@ -1,0 +1,219 @@
+{
+  "trade_date": "2026-07-17",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-17-theme-backfill-queue.json",
+  "generated_at": "2026-07-20T15:17:39.706683+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 8,
+  "status_counts": {
+    "pending_review": 8
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 6,
+    "review_create_or_link_concept": 2
+  },
+  "items": [
+    {
+      "id": "2026-07-17-01-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "电力",
+      "canonical_concept": "电力",
+      "sw_l1": "公用事业",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 198.41,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "limit_heat",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-02-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "银行",
+      "canonical_concept": "银行",
+      "sw_l1": "银行",
+      "candidate_tier": "deep",
+      "rank": 2,
+      "priority_score": 178.27,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-04-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "公路铁路运输",
+      "canonical_concept": "铁路运输",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 4,
+      "priority_score": 124.4,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 6,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-06-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "中药",
+      "canonical_concept": "中药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 112.13,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-07-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "保险",
+      "canonical_concept": "低空经济",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 7,
+      "priority_score": 100.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 5,
+      "exposure_count": 7,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-08-missing_evidence",
+      "trade_date": "2026-07-17",
+      "theme": "维生素",
+      "canonical_concept": "维生素",
+      "sw_l1": "基础化工",
+      "candidate_tier": "deep",
+      "rank": 8,
+      "priority_score": 92.41,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 10,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-18-missing_concept",
+      "trade_date": "2026-07-17",
+      "theme": "三胎",
+      "canonical_concept": "三胎",
+      "sw_l1": "社会服务",
+      "candidate_tier": "watch",
+      "rank": 18,
+      "priority_score": 67.84,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-17-26-missing_concept",
+      "trade_date": "2026-07-17",
+      "theme": "供销社",
+      "canonical_concept": "供销社",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 54.4,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}
