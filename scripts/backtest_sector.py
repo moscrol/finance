@@ -196,8 +196,6 @@ class SectorBacktestEngine:
                         entry_date = trading_dates[entry_idx]
                         exit_date = trading_dates[exit_idx]
 
-                        # 等权分配资金
-                        position_capital = capital / max(1, len(active_positions) + 1)
                         # 简化：新仓位占用全部可用资金的一部分
                         # 如果没有重叠，新仓位 = 全部资金
                         alloc = capital if not self.allow_overlap else capital * 0.5
@@ -374,7 +372,7 @@ def print_result(r: BacktestResult):
     # 参数
     p = r.params
     print(f"\n{'='*70}")
-    print(f"  板块回测结果")
+    print("  板块回测结果")
     print(f"{'='*70}")
     print(f"  参数: top_n={p['top_n']}  hold={p['hold_days']}天  "
           f"边际量≥{p['min_marginal']}%  涨幅≥{p['min_pct_chg']}%  "
@@ -383,19 +381,19 @@ def print_result(r: BacktestResult):
           f"({r.n_trading_days}个交易日)")
 
     # 收益指标
-    print(f"\n  ┌─ 收益 ─────────────────────────────")
+    print("\n  ┌─ 收益 ─────────────────────────────")
     print(f"  │ 初始资金:    {r.initial_capital:>12,.0f}")
     print(f"  │ 最终资金:    {r.final_capital:>12,.0f}")
     print(f"  │ 总收益率:    {r.total_return_pct:>+11.2f}%")
     print(f"  │ 年化收益:    {r.annualized_return_pct:>+11.2f}%")
 
     # 风险指标
-    print(f"  ├─ 风险 ─────────────────────────────")
+    print("  ├─ 风险 ─────────────────────────────")
     print(f"  │ 最大回撤:    {r.max_drawdown_pct:>11.2f}%")
     print(f"  │ 夏普比率:    {r.sharpe_ratio:>11.2f}")
 
     # 交易统计
-    print(f"  ├─ 交易 ─────────────────────────────")
+    print("  ├─ 交易 ─────────────────────────────")
     print(f"  │ 信号日数:    {r.n_signal_days:>11}")
     print(f"  │ 实际交易:    {r.n_trades:>11} 笔")
     print(f"  │ 胜率:        {r.win_rate_pct:>10.1f}%")
@@ -404,7 +402,7 @@ def print_result(r: BacktestResult):
 
     # 逐笔交易
     if r.trades:
-        print(f"\n  ┌─ 逐笔交易 ─────────────────────────")
+        print("\n  ┌─ 逐笔交易 ─────────────────────────")
         print(f"  │ {'入场':<12} {'出场':<12} {'持仓':>4} {'板块数':>4} {'收益':>8} {'胜':>3} {'信号'}")
         print(f"  │ {'-'*58}")
         total_ret = 0
@@ -418,7 +416,7 @@ def print_result(r: BacktestResult):
         print(f"  │ {'累计':>42} {total_ret:>+7.2f}%")
 
     # 净值曲线摘要
-    print(f"\n  ┌─ 净值摘要 ─────────────────────────")
+    print("\n  ┌─ 净值摘要 ─────────────────────────")
     eq = r.equity_curve
     print(f"  │ 起始: {eq[0]['date']}  {eq[0]['equity']:>12,.0f}")
     print(f"  │ 结束: {eq[-1]['date']}  {eq[-1]['equity']:>12,.0f}")

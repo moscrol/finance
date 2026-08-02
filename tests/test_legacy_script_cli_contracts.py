@@ -171,3 +171,57 @@ def test_sync_invocation_is_retired_without_database_or_network(tmp_path):
     assert result.returncode == 2
     assert "daily-full" in result.stderr
     assert OLD_DB.exists() is before
+
+
+def test_renderer_help_is_side_effect_free(tmp_path):
+    before = OLD_DB.exists()
+    result = _run(
+        "scripts/render_daily_review_template.py",
+        "--help",
+        env={"HOME": str(tmp_path)},
+    )
+    assert result.returncode == 0
+    assert "--trade-date" in result.stdout
+    assert "--output-dir" in result.stdout
+    assert OLD_DB.exists() is before
+
+
+def test_renderer_passes_requested_paths_to_report_builder(tmp_path, monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "render_daily_review_template",
+        ROOT / "scripts" / "render_daily_review_template.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    calls = {}
+
+    def fake_build_daily_review(**kwargs):
+        calls.update(kwargs)
+        return {
+            "trade_date": kwargs["trade_date"],
+            "output_path": kwargs["output_path"],
+            "chart_path": kwargs["chart_path"],
+        }
+
+    monkeypatch.setattr(module, "build_daily_review", fake_build_daily_review)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "render_daily_review_template.py",
+            "--trade-date",
+            "2026-01-05",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert module.main() == 0
+    assert calls == {
+        "trade_date": "2026-01-05",
+        "output_path": str(tmp_path / "2026-01-05-daily-review.md"),
+        "chart_path": str(tmp_path / "2026-01-05-advancers-ma5.png"),
+    }

@@ -9,8 +9,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from market_feature_store.db import connect
-from market_feature_store.reports.daily_review import build_daily_review
+# Direct-file CLI adds the repository root before importing the package.
+from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.reports.daily_review import build_daily_review  # noqa: E402
 
 DEFAULT_OUTPUT_DIR = Path("/Users/lbq/Desktop/复盘")
 
