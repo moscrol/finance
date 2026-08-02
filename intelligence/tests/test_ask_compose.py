@@ -7,7 +7,10 @@ from unittest import mock
 
 from intelligence.services import llm_refine
 from intelligence.services.answer_model import resolve_theme_research_spec
-from intelligence.services.ask_blocks import _market_data_asof
+from intelligence.services.ask_blocks import (
+    _mainline_theme_names,
+    _market_data_asof,
+)
 from intelligence.services.ask import (
     AskResult,
     AskOptions,
@@ -475,6 +478,46 @@ class DailyMarketOverviewTests(unittest.TestCase):
         self.assertIn("人工智能", block)
         self.assertNotIn("机器人", block)
         self.assertNotIn("2026-07-27", block)
+
+    def test_mainline_theme_names_bounds_theme_date_by_as_of(self) -> None:
+        """_mainline_theme_names 的 as_of 是间接传播的，单独守一条。
+
+        链路是 as_of -> _market_data_asof -> market_date -> theme_date 上界。
+        任一环断掉都不报错：max(trade_date) 取到晚于 market_date 的日期后
+        theme_date == market_date 判否，方向名列表直接返回空，主线上下文被清空。
+        上面那条 mainline_context 用例只覆盖
+        _market_review_mainline_context_block_for_llm 自己那份查询，覆不到这里。
+        """
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute(
+                "insert into fact_market_daily values "
+                "('2026-07-24'), ('2026-07-27')"
+            )
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, "
+                "min_sort integer)"
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values "
+                "('2026-07-24', '人工智能', 3, 1), "
+                "('2026-07-24', '半导体', 2, 2), "
+                "('2026-07-27', '机器人', 4, 1)"
+            )
+            con.close()
+
+            theme_date, names = _mainline_theme_names(
+                db_path,
+                as_of="2026-07-24",
+            )
+
+        self.assertEqual(theme_date, "2026-07-24")
+        self.assertEqual(names, ["人工智能", "半导体"])
+        self.assertNotIn("机器人", names)
 
     def test_market_blocks_select_latest_row_at_or_before_as_of(self) -> None:
         duckdb = __import__("duckdb")

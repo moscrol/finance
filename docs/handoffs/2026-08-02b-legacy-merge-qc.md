@@ -1,7 +1,8 @@
 # Handoff — legacy/exposure 合并质检（2026-08-02b）
 
 **承接**：`fix/legacy-script-migration` 上的合并提交（原 `f8feb997`）。
-**本段没有改任何代码**，只做独立复核 + 修正提交正文里的三处口径 + 本文件。
+本段做独立复核 + 修正提交正文里的三处口径 + 补一条守门测试 + 本文件。
+**生产代码零改动**，唯一的代码变更是新增测试用例。
 未 push、未合并 main、未重启 8792/8799、未部署。
 
 ---
@@ -10,8 +11,8 @@
 
 合并本身**可以合**：解法正确、零静默回退、门禁真绿、全量测试逐位复现。
 质检推翻了原正文的三处口径（as_of 风险等级、同批文件计数、smoke 窗口结论），
-均已改在提交正文源头。**发现一个真缺口**：`_mainline_theme_names` 没有真实 DB 的
-`as_of` 边界断言。
+均已改在提交正文源头。发现的唯一真缺口——`_mainline_theme_names` 没有真实 DB 的
+`as_of` 边界断言——**已补测试并用变异反验**，全量 4034 / 13 / 3。
 
 ---
 
@@ -98,19 +99,25 @@
 
 ---
 
-## 4. 唯一真缺口：`_mainline_theme_names` 无守门测试
+## 4. 唯一真缺口：`_mainline_theme_names` 无守门测试 —— **已补**
 
-`_mainline_theme_names` 在 4 个测试文件里**全部是 monkeypatch 的**
+`_mainline_theme_names` 在 4 个测试文件里**曾全部是 monkeypatch 的**
 （`test_market_review_knowledge_anchor.py:39/207/212`、`test_review_followups.py:164`），
-从没有过真实 DB 的 `as_of` 边界断言。§3① 那条「测试会红」**不覆盖它**。
+从没有过真实 DB 的 `as_of` 边界断言。§3① 那条「测试会红」**覆盖不到它**。
 
 它的 `as_of` 是间接传播的：`as_of` → `_market_data_asof()` → `market_date` →
-`where trade_date <= cast(? as date)`。链上任一环断掉，行为是主线上下文被清空，
-且**这一环真的没人守**。
+`where trade_date <= cast(? as date)`。链上任一环断掉，行为是主线上下文被清空。
 
-建议补一条与 `test_ask_compose.py:467`（`_market_review_mainline_context_block_for_llm`
-的边界断言）同形状的用例：造一个数据到 07-27 的临时库，传 `as_of=2026-07-24`，
-断言返回的主线日期不晚于 07-24。**本段没做，留给下一步。**
+已补 `test_ask_compose.py::DailyMarketOverviewTests::
+test_mainline_theme_names_bounds_theme_date_by_as_of`，与 `test_ask_compose.py:467`
+同形状：临时库数据到 07-27，传 `as_of=2026-07-24`，断言
+`(theme_date, names) == ("2026-07-24", ["人工智能", "半导体"])`。
+
+**按 §5① 反验过才算数**：只抽掉 `_mainline_theme_names` 那一处上界（不动同文件另外
+两处相同查询）跑 5 个相关测试文件，**唯一红的就是这条新用例**，报
+`AssertionError: '2026-07-27' != '2026-07-24'`——既证明缺口是真的（此前这处变异
+无人发现），也证明新用例确实堵住了它。还原后全量 **4034 / 13 / 3**（+1 即本用例，
+宿主基线 13 条不变）。
 
 ---
 
@@ -130,10 +137,10 @@
 
 ## 6. 遗留与下一步
 
-| # | 项 | 阻塞 |
+| # | 项 | 状态 |
 |---|---|---|
-| 1 | `_mainline_theme_names` 缺 `as_of` 边界测试（§4） | 否，但是唯一真缺口 |
-| 2 | `_mainline_theme_names` / `_market_cause_window_block_for_llm` 仍用内联 `connect_readonly` | 否，风格不统一 |
-| 3 | `.merge-tmp-exposure` 目录名名不副实——它已是本分支主开发 worktree，不是临时合并区 | 否 |
+| 1 | `_mainline_theme_names` 缺 `as_of` 边界测试（§4） | **已补并反验，见 §4** |
+| 2 | `_mainline_theme_names` / `_market_cause_window_block_for_llm` 仍用内联 `connect_readonly` | 未做，风格不统一，不阻塞 |
+| 3 | `.merge-tmp-exposure` 目录名名不副实——它已是本分支主开发 worktree，不是临时合并区 | 未做，不阻塞 |
 
-下一步建议：先补 §4 那条测试，再考虑 push / 合 main。**合并 main 需用户确认。**
+下一步：质检发现的问题已全部处理完，可考虑 push / 合 main。**合并 main 需用户确认。**
