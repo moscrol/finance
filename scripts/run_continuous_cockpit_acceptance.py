@@ -20,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -175,6 +176,28 @@ def ensure_port_available(port: int, *, host: str = "127.0.0.1") -> None:
         raise RunnerError(f"端口 {port} 已被占用或不可用") from exc
     finally:
         sock.close()
+
+
+def python_executable_path(value: str) -> str:
+    """Return an absolute executable path without resolving venv symlinks.
+
+    ``Path.resolve()`` follows ``.venv/bin/python`` to the base interpreter.
+    Executing that target directly drops the virtualenv's prefix and installed
+    dependencies, so the Workbench child can fail before health is available.
+    """
+
+    expanded = Path(value).expanduser()
+    if expanded.is_absolute():
+        candidate = expanded
+    else:
+        discovered = shutil.which(str(expanded))
+        if not discovered:
+            raise RunnerError("Python executable 不存在")
+        candidate = Path(discovered)
+    absolute = Path(os.path.abspath(candidate))
+    if not absolute.is_file() or not os.access(absolute, os.X_OK):
+        raise RunnerError("Python executable 不可执行")
+    return str(absolute)
 
 
 def build_child_env(
@@ -569,7 +592,7 @@ def run_suite(args: argparse.Namespace) -> Path:
     code_root = Path(args.code_root).expanduser().resolve()
     data_root = Path(args.data_root).expanduser().resolve()
     users_root = Path(args.users_root).expanduser().resolve()
-    python_executable = str(Path(args.python).expanduser().resolve())
+    python_executable = python_executable_path(str(args.python))
     revision = clean_revision(code_root)
     identity = RunnerIdentity(
         revision=revision,

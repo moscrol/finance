@@ -134,6 +134,19 @@ def test_occupied_port_is_rejected() -> None:
         sock.close()
 
 
+def test_python_executable_keeps_virtualenv_symlink(tmp_path: Path) -> None:
+    base_python = tmp_path / "python-base"
+    base_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    base_python.chmod(0o755)
+    venv_python = tmp_path / "venv-python"
+    venv_python.symlink_to(base_python)
+
+    observed = runner.python_executable_path(str(venv_python))
+
+    assert observed == str(venv_python)
+    assert observed != str(base_python.resolve())
+
+
 def test_invoke_acceptance_command_does_not_put_key_in_command_or_receipt(
     monkeypatch,
     tmp_path: Path,
