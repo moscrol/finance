@@ -41,6 +41,24 @@ def test_explicit_historical_date_becomes_requested_information_cutoff() -> None
     assert context.information_cutoff.source == "requested"
 
 
+def test_explicit_historical_window_uses_window_end_as_information_cutoff() -> None:
+    control = TurnControlCore().control(
+        "2026年7月1日至5日A股下跌的主要原因是什么",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="pit-window-cutoff",
+        capabilities=control.capabilities,
+        today="2026-08-02",
+    )
+
+    assert context.contract.timeframe == "2026-07-01"
+    assert context.information_cutoff.as_of_date == date(2026, 7, 5)
+    assert context.information_cutoff.source == "requested"
+
+
 def test_future_requested_date_cannot_move_information_cutoff_past_today() -> None:
     control = TurnControlCore().control(
         "2030-01-01 市场怎么样",

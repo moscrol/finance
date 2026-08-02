@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from intelligence.services import market_news
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,
@@ -304,6 +305,7 @@ def build_episode_context(
         task_frame_hash=frame.task_frame_hash,
     )
     cutoff = information_cutoff or _default_information_cutoff(
+        question=frame.raw_question,
         timeframe=frame.timeframe,
         today=today,
         latest_data_date=latest_data_date,
@@ -326,6 +328,7 @@ def build_episode_context(
 
 def _default_information_cutoff(
     *,
+    question: str,
     timeframe: str | None,
     today: str | None,
     latest_data_date: str | None,
@@ -338,9 +341,11 @@ def _default_information_cutoff(
         runtime_date = date.fromisoformat(str(today or "")[:10])
     except ValueError:
         runtime_date = date.today()
-    try:
-        requested_date = date.fromisoformat(str(timeframe or "")[:10])
-    except ValueError:
+    requested_date = market_news.latest_explicit_query_date(
+        f"{question} {timeframe or ''}",
+        reference_date=runtime_date,
+    )
+    if requested_date is None:
         return InformationCutoff(runtime_date, "runtime_default")
     if requested_date <= runtime_date:
         return InformationCutoff(requested_date, "requested")
