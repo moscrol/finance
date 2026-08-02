@@ -109,3 +109,41 @@ def test_backtest_missing_database_fails_without_creating_path(tmp_path):
     assert result.returncode == 2
     assert "canonical DuckDB" in result.stderr
     assert not missing.exists()
+
+
+def test_turning_point_help_is_side_effect_free(tmp_path):
+    before = OLD_DB.exists()
+    result = _run(
+        "scripts/detect_turning_points.py",
+        "--help",
+        env={"MARKET_FEATURE_STORE_DB": str(tmp_path / "unused.duckdb")},
+    )
+    assert result.returncode == 0
+    assert "--db-path" in result.stdout
+    assert OLD_DB.exists() is before
+
+
+def test_turning_point_cli_runs_against_canonical_fixture(tmp_path):
+    db_path = tmp_path / "market_feature_store.duckdb"
+    dates = _make_canonical_fixture(db_path)
+    result = _run(
+        "scripts/detect_turning_points.py",
+        "--from",
+        dates[0],
+        "--to",
+        dates[-1],
+        "--db-path",
+        str(db_path),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "信号" in result.stdout
+    assert "放量" in result.stdout
+    assert not OLD_DB.exists()
+
+
+def test_turning_point_missing_database_fails_without_creating_path(tmp_path):
+    missing = tmp_path / "missing.duckdb"
+    result = _run("scripts/detect_turning_points.py", "--db-path", str(missing))
+    assert result.returncode == 2
+    assert "canonical DuckDB" in result.stderr
+    assert not missing.exists()
