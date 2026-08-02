@@ -689,19 +689,27 @@ def _zigzag(values: list[float], delta: float) -> list[tuple[int, str]]:
             if v < values[mn]:
                 mn = i
             if v <= values[mx] - delta:
-                pivots.append((mx, "峰")); trend = -1; mn = i
+                pivots.append((mx, "峰"))
+                trend = -1
+                mn = i
             elif v >= values[mn] + delta:
-                pivots.append((mn, "谷")); trend = 1; mx = i
+                pivots.append((mn, "谷"))
+                trend = 1
+                mx = i
         elif trend == 1:
             if v >= values[mx]:
                 mx = i
             elif v <= values[mx] - delta:
-                pivots.append((mx, "峰")); trend = -1; mn = i
+                pivots.append((mx, "峰"))
+                trend = -1
+                mn = i
         else:
             if v <= values[mn]:
                 mn = i
             elif v >= values[mn] + delta:
-                pivots.append((mn, "谷")); trend = 1; mx = i
+                pivots.append((mn, "谷"))
+                trend = 1
+                mx = i
     pivots.append((mx, "峰") if trend == 1 else (mn, "谷"))
     return pivots
 

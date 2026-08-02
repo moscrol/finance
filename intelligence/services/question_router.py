@@ -249,7 +249,7 @@ def route_question(query: str, registry: list[PathSpec] | None = None) -> RouteD
 
 def render_decision(decision: RouteDecision) -> str:
     lines = [
-        f"# Route Decision",
+        "# Route Decision",
         "",
         f"- Query: {decision.query}",
         f"- Route type: {decision.route_type}",

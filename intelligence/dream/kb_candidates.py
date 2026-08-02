@@ -356,7 +356,7 @@ def render_summary(summary: Dict[str, object]) -> str:
     ]
     errors = summary.get("errors") or []
     if isinstance(errors, list) and errors:
-        lines.append(f"  errors（已拒绝，未写）：")
+        lines.append("  errors（已拒绝，未写）：")
         for e in errors:
             lines.append(f"    - {e}")
     return "\n".join(lines)

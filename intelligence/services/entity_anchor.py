@@ -25,7 +25,6 @@ import re
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 

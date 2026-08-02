@@ -669,7 +669,7 @@ def build_report(args, data, detail, factor_summary, theme_summary):
             "无回流率": pct(sum(1 for r in rows if r["reflow_result"] == "no_reflow_in_window"), len(rows)),
         }
     lines = []
-    lines.append(f"# 策略1：涨停映射与 MA5 区间影响验证")
+    lines.append("# 策略1：涨停映射与 MA5 区间影响验证")
     lines.append("")
     lines.append(f"窗口：{args.start_date} ~ {args.end_date}")
     lines.append("")

@@ -1026,9 +1026,6 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         top_high_sw_text = "、".join(f"{sw}({cnt})" for sw, cnt in high_sw.most_common(5))
         top_limit_text = "、".join(f"{r['sector_name']}({r['limit_up_count']})" for r in limit_heat[:5])
         top_weighted_text = "、".join(r["stock_name"] for r in weighted[:5])
-        amount_delta = None
-        if today.get("total_amount") is not None and yesterday.get("total_amount") is not None:
-            amount_delta = today["total_amount"] - yesterday["total_amount"]
         concentration_delta = None
         if today.get("top3_industry_ratio") is not None and yesterday.get("top3_industry_ratio") is not None:
             concentration_delta = today["top3_industry_ratio"] - yesterday["top3_industry_ratio"]

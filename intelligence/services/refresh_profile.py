@@ -233,7 +233,6 @@ def derive(options: RefreshOptions) -> dict[str, Any]:
 
     kb_themes = kb["themes"]
     duck_dirs = duck["directions"]
-    kb_index = {_norm(t["theme"]): t for t in kb_themes}
     duck_index = {_norm(d["theme"]): d for d in duck_dirs}
 
     focus: list[dict[str, Any]] = []

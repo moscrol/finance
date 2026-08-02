@@ -30,7 +30,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services import kb_rag, llm_refine
@@ -43,9 +43,6 @@ from intelligence.services.ask import (
 )
 from intelligence.services.skill_tools import ALL_SKILLS, run_skill, skill_descriptions
 from intelligence.services.theme_modules import ALL_MODULES, run_module
-
-if TYPE_CHECKING:  # 仅类型标注用；运行时不导入，避免无库环境拉起 duckdb 依赖
-    from intelligence.adapters.market import MarketAdapter
 
 DEFAULT_MAX_STEPS = 6
 

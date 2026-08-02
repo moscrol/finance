@@ -10,7 +10,6 @@ from intelligence.services import skill_tools
 from intelligence.services.skill_tools import (
     ALL_SKILLS,
     SKILL_REGISTRY,
-    SkillResult,
     _parse_serenity,
     run_skill,
     skill_descriptions,
