@@ -147,3 +147,27 @@ def test_turning_point_missing_database_fails_without_creating_path(tmp_path):
     assert result.returncode == 2
     assert "canonical DuckDB" in result.stderr
     assert not missing.exists()
+
+
+def test_sync_help_is_side_effect_free(tmp_path):
+    before = OLD_DB.exists()
+    result = _run(
+        "scripts/sync_to_local.py",
+        "--help",
+        env={"HOME": str(tmp_path)},
+    )
+    assert result.returncode == 0
+    assert "已退役" in result.stdout
+    assert OLD_DB.exists() is before
+
+
+def test_sync_invocation_is_retired_without_database_or_network(tmp_path):
+    before = OLD_DB.exists()
+    result = _run(
+        "scripts/sync_to_local.py",
+        "--incremental",
+        env={"HOME": str(tmp_path)},
+    )
+    assert result.returncode == 2
+    assert "daily-full" in result.stderr
+    assert OLD_DB.exists() is before
