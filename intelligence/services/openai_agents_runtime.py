@@ -46,6 +46,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
     copy_tool_parameters,
 )
+from intelligence.services.run_store import redact
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -67,6 +68,48 @@ _SDK_INVALID_ACTION_STOP_REASONS = frozenset(
     {"sdk_invalid_finish", "sdk_invalid_repair_finish"}
 )
 _ROOT_BUDGET_CALL_RESERVATION_SECONDS = 1e-9
+_PRIVATE_ERROR_DETAIL_MAX_CHARS = 2000
+
+
+def _normalize_private_error_detail(value: str) -> str:
+    normalized_newlines = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    normalized_lines = (
+        " ".join(line.split()) for line in normalized_newlines.split("\n")
+    )
+    return "\n".join(line for line in normalized_lines if line).strip()
+
+
+def _finish_event_payload(
+    *,
+    status: str,
+    stop_reason: str,
+    gaps: tuple[str, ...],
+    error_detail: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "status": status,
+        "stop_reason": stop_reason,
+        "gaps": list(gaps),
+    }
+    normalized = _normalize_private_error_detail(error_detail or "")
+    if normalized:
+        # Order is security-sensitive: normalize, redact every credential, then
+        # cap the private diagnostic. Truncating first could split a secret and
+        # make it unrecognizable to the redactor.
+        payload["error_detail"] = redact(normalized)[
+            :_PRIVATE_ERROR_DETAIL_MAX_CHARS
+        ]
+    return payload
+
+
+def _public_progress_event(event: EpisodeEvent) -> EpisodeEvent:
+    """Strip private diagnostics before an Episode event reaches UI/SSE sinks."""
+
+    if "error_detail" not in event.payload:
+        return event
+    payload = dict(event.payload)
+    payload.pop("error_detail", None)
+    return EpisodeEvent(event.sequence, event.kind, payload)
 
 
 class _OpaqueProviderContinuation:
@@ -950,7 +993,7 @@ class OpenAIAgentsRuntime:
         if self._event_sink is None or self._is_cancelled():
             return
         try:
-            self._event_sink(event)
+            self._event_sink(_public_progress_event(event))
         except Exception:
             # Progress is observability, never an alternate execution owner.
             # A broken UI/SSE sink must not abort financial research.
@@ -1090,13 +1133,14 @@ class OpenAIAgentsRuntime:
         )
         try:
             result = self._call_runner(request, context=context)
-        except TimeoutError:
+        except TimeoutError as exc:
             return self._failure_from_state(
                 task_frame=task_frame,
                 state=state,
                 stop_reason="sdk_timeout",
                 gap="sdk_timeout",
                 llm_calls=1,
+                error_detail=str(exc),
             )
         except Exception as exc:
             stop_reason = _sdk_run_error_kind(exc)
@@ -1106,6 +1150,7 @@ class OpenAIAgentsRuntime:
                 stop_reason=stop_reason,
                 gap=stop_reason,
                 llm_calls=1,
+                error_detail=str(exc),
             )
         if continuation_state is not None:
             continuation_state.continuation_input = result._continuation_input
@@ -1307,14 +1352,17 @@ class OpenAIAgentsRuntime:
             model_factory=self._model_factory,
             continuation_input=state.continuation_input,
         )
+        error_detail: str | None = None
         try:
             result = self._call_runner(request, context=context)
-        except TimeoutError:
+        except TimeoutError as exc:
             result = None
             run_error = "sdk_timeout"
+            error_detail = str(exc)
         except Exception as exc:
             result = None
             run_error = _sdk_run_error_kind(exc)
+            error_detail = str(exc)
         else:
             run_error = ""
         snapshot = state.run_state.snapshot()
@@ -1346,6 +1394,7 @@ class OpenAIAgentsRuntime:
                     stop_reason=run_error,
                     gaps=gaps,
                     snapshot=snapshot,
+                    error_detail=error_detail,
                 )
             )
             return AgentOutcome(
@@ -1472,6 +1521,7 @@ class OpenAIAgentsRuntime:
         stop_reason: str,
         gaps: tuple[str, ...],
         snapshot: _SdkSnapshot,
+        error_detail: str | None = None,
     ) -> tuple[EpisodeEvent, EpisodeEvent]:
         events = (
             EpisodeEvent(
@@ -1494,7 +1544,12 @@ class OpenAIAgentsRuntime:
             EpisodeEvent(
                 sequence + 1,
                 "finish",
-                {"status": status, "stop_reason": stop_reason, "gaps": list(gaps)},
+                _finish_event_payload(
+                    status=status,
+                    stop_reason=stop_reason,
+                    gaps=gaps,
+                    error_detail=error_detail,
+                ),
             ),
         )
         for event in events:
@@ -1509,6 +1564,7 @@ class OpenAIAgentsRuntime:
         stop_reason: str,
         gap: str,
         llm_calls: int,
+        error_detail: str | None = None,
     ) -> AgentOutcome:
         return self._failure_from_snapshot(
             task_frame=task_frame,
@@ -1517,6 +1573,7 @@ class OpenAIAgentsRuntime:
             gap=gap,
             llm_calls=llm_calls,
             result=None,
+            error_detail=error_detail,
         )
 
     def _failure_from_snapshot(
@@ -1528,6 +1585,7 @@ class OpenAIAgentsRuntime:
         gap: str,
         llm_calls: int,
         result: AgentsSdkResult | None,
+        error_detail: str | None = None,
     ) -> AgentOutcome:
         gaps = tuple(dict.fromkeys((*snapshot.gaps, gap)))
         status = "partial" if snapshot.evidence else "failed"
@@ -1538,6 +1596,7 @@ class OpenAIAgentsRuntime:
             status=status,
             stop_reason=stop_reason,
             gaps=gaps,
+            error_detail=error_detail,
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
@@ -1569,6 +1628,7 @@ class OpenAIAgentsRuntime:
         status: str,
         stop_reason: str,
         gaps: tuple[str, ...],
+        error_detail: str | None = None,
     ) -> tuple[EpisodeEvent, ...]:
         events = [
             EpisodeEvent(
@@ -1603,7 +1663,12 @@ class OpenAIAgentsRuntime:
             EpisodeEvent(
                 len(events) + 1,
                 "finish",
-                {"status": status, "stop_reason": stop_reason, "gaps": list(gaps)},
+                _finish_event_payload(
+                    status=status,
+                    stop_reason=stop_reason,
+                    gaps=gaps,
+                    error_detail=error_detail,
+                ),
             )
         )
         self._publish_event(events[-2])

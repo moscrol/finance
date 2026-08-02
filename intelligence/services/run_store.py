@@ -107,19 +107,16 @@ _SECRET_PATTERNS = [
         """
     ),
     re.compile(r"(?i)\bauthorization\s*[=:]\s*[^\r\n]+"),
-    re.compile(
-        r"(?i)\bbearer\s+"
-        r"[A-Za-z0-9_-]{4,}={0,2}\."
-        r"[A-Za-z0-9_-]{4,}={0,2}\."
-        r"[A-Za-z0-9_-]{4,}={0,2}"
-    ),
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{4,}"),
     re.compile(
         rf"""(?ix)
         \b{_SECRET_FIELD_NAME}\s*[=:]\s*
         (?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;}}\]\r\n]+)
         """
     ),
-    re.compile(r"\b(sk|ghp|gho|ghu|ghs|xoxb|xoxp)[-_][A-Za-z0-9_\-]{8,}"),
+    re.compile(
+        r"\b(sk|ghp|gho|ghu|ghs|xoxb|xoxp|key)[-_][A-Za-z0-9_\-]{8,}"
+    ),
 ]
 _SECRET_KEY_RE = re.compile(rf"(?i)^{_SECRET_FIELD_NAME}$")
 

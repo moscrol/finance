@@ -1649,6 +1649,160 @@ def test_sdk_runtime_classifies_provider_infrastructure_failures(
     assert outcome.gaps == (expected,)
 
 
+def test_sdk_runtime_preserves_provider_error_only_in_private_finish_event() -> None:
+    frame = _frame()
+    observed = []
+    error_text = "Provider rejected request: INSUFFICIENT_BALANCE"
+
+    def rejected(_request: AgentsSdkRequest) -> AgentsSdkResult:
+        raise RuntimeError(error_text)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=rejected,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+        event_sink=observed.append,
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    finish = outcome.events[-1]
+    assert finish.kind == "finish"
+    assert finish.payload["error_detail"] == error_text
+    assert finish.payload["stop_reason"] == "sdk_run_failed"
+    assert outcome.stop_reason == "sdk_run_failed"
+    assert outcome.draft == ""
+    assert outcome.gaps == ("sdk_run_failed",)
+    assert all("error_detail" not in event.payload for event in observed)
+
+
+def test_sdk_runtime_redacts_all_provider_credentials_before_episode_storage() -> None:
+    frame = _frame()
+    secrets = (
+        "sk-abc123456789secret",
+        "bearer-secret-123456789",
+        "key_provider-secret-123456789",
+        "api-secret-123456789",
+    )
+    error_text = "\n".join(
+        (
+            "provider failed",
+            secrets[0],
+            f"Bearer {secrets[1]}",
+            secrets[2],
+            f"apiKey={secrets[3]}",
+        )
+    )
+
+    def rejected(_request: AgentsSdkRequest) -> AgentsSdkResult:
+        raise RuntimeError(error_text)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=rejected,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    rendered = json.dumps(outcome.to_dict(), ensure_ascii=False)
+    detail = str(outcome.events[-1].payload["error_detail"])
+    assert detail.count("[REDACTED]") == 4
+    for secret in secrets:
+        assert secret not in rendered
+
+
+def test_sdk_runtime_redacts_provider_error_before_truncating_to_limit() -> None:
+    frame = _frame()
+    secret = "sk-abc123456789secret"
+    error_text = f"  {secret}  \r\n" + ("x" * 2100)
+
+    def rejected(_request: AgentsSdkRequest) -> AgentsSdkResult:
+        raise RuntimeError(error_text)
+
+    outcome = OpenAIAgentsRuntime(
+        runner=rejected,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    detail = str(outcome.events[-1].payload["error_detail"])
+    assert detail.startswith("[REDACTED]\n")
+    assert len(detail) == 2000
+    assert secret not in detail
+
+
+def test_sdk_resume_preserves_provider_error_only_in_private_finish_event() -> None:
+    frame = _frame()
+    context = _context(frame)
+    observed = []
+    continuation = object()
+    calls = 0
+
+    def failing_repair(request: AgentsSdkRequest) -> AgentsSdkResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            observation = request.tools[0].invoke("A股 当前主线")
+            return AgentsSdkResult(
+                json.dumps(
+                    {
+                        "status": "partial",
+                        "draft": "截至2026-07-24，医药是韧性核心。",
+                        "gaps": ["措辞仍需修复"],
+                        "bindings": [
+                            {
+                                "output_id": "direct_assessment",
+                                "evidence_hashes": observation["evidence_hashes"],
+                                "gap": "",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                1,
+                continuation_input=continuation,
+            )
+        raise RuntimeError("repair failed: INSUFFICIENT_BALANCE")
+
+    session = OpenAIAgentsRuntime(
+        runner=failing_repair,
+        backend="sdk_gpt",
+        model_name="gpt-5.6-sol",
+        event_sink=observed.append,
+    ).start(frame, context=context, registry=_registry([]))
+    repaired = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-provider-error-1",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=("mainline_context:A股 当前主线",),
+            evidence_progress=CoverageDelta(1, 1, 0),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    finish = repaired.events[-1]
+    assert finish.kind == "finish"
+    assert finish.payload["error_detail"] == (
+        "repair failed: INSUFFICIENT_BALANCE"
+    )
+    assert finish.payload["stop_reason"] == "sdk_run_failed"
+    assert all("error_detail" not in event.payload for event in observed)
+
+
 def test_sdk_surfaces_invalid_reasoning_finish_without_hidden_recovery() -> None:
     frame = _frame()
     context = _context(frame, allowed_capabilities=())
