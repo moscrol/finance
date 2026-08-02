@@ -44,13 +44,11 @@ import argparse
 import os
 import sys
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-import duckdb
 from market_feature_store.db import connect, DB_PATH
 
 DAILY_ADJ_DB = DB_PATH.parent / "daily_adj_19901219_20260618.duckdb"
@@ -442,7 +440,7 @@ def main():
     print(f"\n=== Complete in {total:.1f}s ===")
     for k, v in results.items():
         print(f"  {k}: {v}")
-    print(f"\n  (Compare: original takes 50-70 min for these 3 steps)")
+    print("\n  (Compare: original takes 50-70 min for these 3 steps)")
 
 
 if __name__ == "__main__":

@@ -321,7 +321,6 @@ def _line_chart(curve_a, curve_b):
         return '<p style="color:#746b5d">无完整窗口样本，暂无曲线。</p>'
     lo, hi = min(allpts + [0]), max(allpts + [0])
     span = (hi - lo) or 1
-    n = max(len(curve_a), len(curve_b), 1)
 
     def xy(i, val, total):
         x = pad + (w - pad * 2) * (i / max(total - 1, 1))
@@ -373,8 +372,11 @@ def build_html(label_a, agg_a, label_b, agg_b, stamp, main_w) -> str:
         (f"{d_win:+.1f}pp" if d_win is not None else "—", "胜率差 (你−机)", "pos" if (d_win or 0) >= 0 else "neg"),
         (f"{d_exc:+.1f}" if d_exc is not None else "—", "均超额差 (你−机)", "pos" if (d_exc or 0) >= 0 else "neg"),
     ]
-    kpi_html = "".join(f'<div class="kpi {c}"><div class="v">{v}</div><div class="l">{l}</div></div>'
-                       for v, l, c in kpis)
+    kpi_html = "".join(
+        f'<div class="kpi {css_class}"><div class="v">{value}</div>'
+        f'<div class="l">{label}</div></div>'
+        for value, label, css_class in kpis
+    )
 
     # 分窗口对照表
     trows = []

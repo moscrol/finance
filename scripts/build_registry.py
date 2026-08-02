@@ -235,13 +235,16 @@ def _cross_repo_duplicates(by_repo: dict[str, dict[str, dict]]) -> list[dict]:
                                             "agentOnly": entry["agentOnly"]})
     dups: list[dict] = []
     for name in sorted(locations):
-        repos_involved = {l["short"] for l in locations[name]}
+        repos_involved = {location["short"] for location in locations[name]}
         if len(repos_involved) <= 1:
             continue
         dups.append({
             "name": name,
             "declaredSplit": name in DECLARED_SPLITS,
-            "locations": sorted(locations[name], key=lambda l: (l["short"], l["skillPath"])),
+            "locations": sorted(
+                locations[name],
+                key=lambda location: (location["short"], location["skillPath"]),
+            ),
         })
     return dups
 
@@ -499,7 +502,7 @@ def _locate_region(lines: list[str], section: str) -> tuple[int, int, int]:
     - 首次回填：区间为紧随标题的那张连续 markdown 表。
     """
     heading_idx = next(
-        (i for i, l in enumerate(lines) if l.strip() == section), None
+        (i for i, line in enumerate(lines) if line.strip() == section), None
     )
     if heading_idx is None:
         raise ValueError(f"未找到章节标题：{section}")
@@ -532,10 +535,10 @@ def _render_doc(orig: str, short: str, section: str, payload: dict) -> str:
     row_lines = lines[start + 1:end] if marker_mode else lines[start:end + 1]
 
     existing_rows: list[tuple[str, str]] = []
-    for l in row_lines:
-        if not l.strip().startswith("|"):
+    for line in row_lines:
+        if not line.strip().startswith("|"):
             continue
-        cells = _split_cells(l)
+        cells = _split_cells(line)
         if len(cells) < 2 or cells[0] in ("Skill", "skill") or _is_sep_row(cells):
             continue
         existing_rows.append((cells[0], cells[1]))

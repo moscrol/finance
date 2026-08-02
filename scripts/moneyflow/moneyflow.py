@@ -458,7 +458,6 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
             print(f"== 第{rnd}轮兜底重试: {len(pending)} 只 ==")
             time.sleep(min(120.0, 20.0 * rnd))
         failed = []
-        empty_retry = []
         for i, code in enumerate(pending, 1):
             try:
                 client, row = compute(client, code)
