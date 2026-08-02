@@ -304,6 +304,7 @@ def build_episode_context(
         task_frame_hash=frame.task_frame_hash,
     )
     cutoff = information_cutoff or _default_information_cutoff(
+        timeframe=frame.timeframe,
         today=today,
         latest_data_date=latest_data_date,
     )
@@ -325,16 +326,26 @@ def build_episode_context(
 
 def _default_information_cutoff(
     *,
+    timeframe: str | None,
     today: str | None,
     latest_data_date: str | None,
 ) -> InformationCutoff:
     # Market snapshot freshness is provider metadata, not the upper bound on
     # news or other information available to the user.
     del latest_data_date
+    runtime_date: date
     try:
         runtime_date = date.fromisoformat(str(today or "")[:10])
     except ValueError:
-        return InformationCutoff.runtime_default()
+        runtime_date = date.today()
+    try:
+        requested_date = date.fromisoformat(str(timeframe or "")[:10])
+    except ValueError:
+        return InformationCutoff(runtime_date, "runtime_default")
+    if requested_date <= runtime_date:
+        return InformationCutoff(requested_date, "requested")
+    # A future question cannot grant the agent future knowledge.  Clamp it to
+    # the runtime's as-of date and let the evidence layer report no coverage.
     return InformationCutoff(runtime_date, "runtime_default")
 
 

@@ -950,6 +950,11 @@ def decide_turn(
             if inherit_subject and previous_intent is not None
             else None
         ),
+        inherited_timeframe=(
+            previous_intent.timeframe
+            if inherit_subject and previous_intent is not None
+            else None
+        ),
     )
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)

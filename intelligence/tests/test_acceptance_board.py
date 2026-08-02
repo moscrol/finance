@@ -413,6 +413,46 @@ def test_execution_summary_rejects_c10_cutoff_drift() -> None:
     assert summary["layer1_eligible"] is False
 
 
+def test_execution_summary_rejects_recorded_cutoff_mismatch() -> None:
+    turn = acceptance.TurnTrace(
+        question="q",
+        conversation_id="conv-1",
+        run_id="run-1",
+        assistant_message_id="message-1",
+        expected_execution_path="continuous_episode",
+        execution_path="continuous_episode",
+        runtime_instance_id="runtime-1",
+        task_frame_hash="a" * 64,
+        cutoff="2026-08-02",
+        attempt_id="attempt-1",
+        artifact_receipt_valid=True,
+        status="completed",
+    )
+    case_run = acceptance.CaseRun(
+        case_id="A4-dual-red",
+        tier="high_freq",
+        turns=[turn],
+        execution_diagnostics=["turn_1:cutoff_mismatch"],
+    )
+    report = acceptance.PreflightReport(
+        acceptance_eligible=True,
+        failures=(),
+        expected={},
+        observed={"runtime": {"runtime_instance_id": "runtime-1"}},
+        receipt_hash="e" * 64,
+    )
+
+    summary = acceptance._execution_summary(
+        [case_run],
+        {"A4-dual-red": "continuous_episode"},
+        expected=STRICT_EXPECTED,
+        preflight_report=report,
+    )
+
+    assert summary["diagnostics"] == ["turn_1:cutoff_mismatch"]
+    assert summary["layer1_eligible"] is False
+
+
 def test_failure_classification_separates_seam_from_quality():
     """接缝失败不该算进题目分数 —— 否则修凭据会被误读成『题目变好了』。"""
     assert acceptance.classify_failure({"status": "timeout"}) == "接缝:超时"

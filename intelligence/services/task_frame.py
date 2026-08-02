@@ -179,6 +179,7 @@ def build_task_frame(
     envelope: QueryEnvelope,
     *,
     inherited_subject: str | None = None,
+    inherited_timeframe: str | None = None,
     llm_complete: LLMComplete | None = None,
 ) -> TaskFrame:
     """Compile rules first, then optionally merge one constrained LLM draft."""
@@ -187,6 +188,9 @@ def build_task_frame(
     question_type = str(envelope.question_type or "general_finance_qa")
     market_scope, market_is_default = _market_scope(question)
     timeframe, timeframe_assumption = _timeframe(envelope.timeframe)
+    if timeframe is None and inherited_timeframe:
+        inherited, _ = _timeframe(inherited_timeframe)
+        timeframe = inherited
     subject = _safe_subject(
         envelope.subject,
         question,

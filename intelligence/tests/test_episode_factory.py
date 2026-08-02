@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
@@ -19,6 +21,41 @@ RUNTIME_CAPABILITIES = {
     "web_search",
     "l3_lookup",
 }
+
+
+def test_explicit_historical_date_becomes_requested_information_cutoff() -> None:
+    control = TurnControlCore().control(
+        "2026-07-23 哪些板块双红",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="pit-cutoff",
+        capabilities=control.capabilities,
+        today="2026-08-02",
+    )
+
+    assert context.contract.timeframe == "2026-07-23"
+    assert context.information_cutoff.as_of_date == date(2026, 7, 23)
+    assert context.information_cutoff.source == "requested"
+
+
+def test_future_requested_date_cannot_move_information_cutoff_past_today() -> None:
+    control = TurnControlCore().control(
+        "2030-01-01 市场怎么样",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="future-cutoff",
+        capabilities=control.capabilities,
+        today="2026-08-02",
+    )
+
+    assert context.information_cutoff.as_of_date == date(2026, 8, 2)
+    assert context.information_cutoff.source == "runtime_default"
 
 
 def test_evidence_grounded_tasks_receive_broad_model_owned_read_tools() -> None:

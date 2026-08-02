@@ -724,6 +724,32 @@ def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
     assert decision.turn_intent.evidence_atom_ids == ("atom-1", "atom-2")
 
 
+def test_confirmation_follow_up_inherits_explicit_pit_timeframe() -> None:
+    previous = TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe="2026-07-23",
+        required_outputs=("direct_answer", "evidence_boundary"),
+    )
+
+    decision = decide_turn(
+        "刚才你说的双红板块，再确认一遍数量",
+        previous_intent=previous,
+        previous_turn_id="msg-c10-turn-2",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.timeframe == "2026-07-23"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.inherited_from_turn == "msg-c10-turn-2"
+    assert decision.turn_intent.timeframe == "2026-07-23"
+
+
 @pytest.mark.parametrize(
     "query",
     (

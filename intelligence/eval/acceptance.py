@@ -779,6 +779,13 @@ def _execution_summary(
         and all(c10_cutoffs)
         and len(set(c10_cutoffs)) == 1,
     }
+    c10_summary["cutoff_matches_case"] = not (
+        c10 is not None
+        and any(
+            "cutoff_mismatch" in diagnostic
+            for diagnostic in c10.execution_diagnostics
+        )
+    )
     c10_summary["structural_valid"] = all(
         bool(c10_summary[key])
         for key in (
@@ -787,6 +794,7 @@ def _execution_summary(
             "distinct_assistant_message_ids",
             "parent_chain_valid",
             "cutoff_consistent",
+            "cutoff_matches_case",
         )
     ) if c10 is not None else True
 
@@ -810,6 +818,13 @@ def _execution_summary(
         for case_run in runs
         for turn in case_run.turns
     )
+    diagnostics = list(
+        dict.fromkeys(
+            diagnostic
+            for case_run in runs
+            for diagnostic in case_run.execution_diagnostics
+        )
+    )
     layer1_eligible = bool(
         expected is not None
         and preflight_report.acceptance_eligible
@@ -830,13 +845,7 @@ def _execution_summary(
         and len(runtime_ids) <= 1
         and turn_contract_valid
         and bool(c10_summary["structural_valid"])
-    )
-    diagnostics = list(
-        dict.fromkeys(
-            diagnostic
-            for case_run in runs
-            for diagnostic in case_run.execution_diagnostics
-        )
+        and not diagnostics
     )
     if expected is not None and not preflight_report.acceptance_eligible:
         diagnostics.insert(0, "preflight_ineligible")

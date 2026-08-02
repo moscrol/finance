@@ -71,6 +71,7 @@ def test_resolver_matches_registered_theme_alias(resolver: QueryResolver) -> Non
         ("边际变化呢", "market_change"),
         ("那它的客户呢", "entity_pronoun"),
         ("继续看反证", "continuation"),
+        ("刚才你说的双红板块，再确认一遍数量", "continuation"),
     ),
 )
 def test_resolver_classifies_contextual_reference(
