@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import typing
 import unittest
 from unittest import mock
 
@@ -25,6 +26,22 @@ def _sample_result() -> AskResult:
     r.sections["交易含义"] = ["关注温控龙头 [G2]"]
     r.sections["引用来源"] = ["[S1] market exports", "[G2] wiki/relations", "[R1] theme-radar module"]
     return r
+
+
+class RuntimeTypeHintTests(unittest.TestCase):
+    def test_ask_result_annotations_resolve_for_all_bot_entrypoints(self) -> None:
+        result_parameters = (
+            feishu_bot.render_ask_reply,
+            feishu_bot.render_ask_card,
+            feishu_bot.render_evidence_card,
+        )
+        for function in result_parameters:
+            with self.subTest(function=function.__name__):
+                hints = typing.get_type_hints(function)
+                self.assertIs(hints["result"], AskResult)
+
+        hints = typing.get_type_hints(feishu_bot._run_ask_workflow)
+        self.assertIs(hints["return"], AskResult)
 
 
 class ExtractTextTests(unittest.TestCase):

@@ -7,6 +7,7 @@
 import os
 import sys
 import json
+import subprocess
 import unittest
 import tempfile
 from pathlib import Path
@@ -226,6 +227,24 @@ class TestAPIClient(unittest.TestCase):
         """测试初始化"""
         self.assertEqual(self.client.api_key, "test_key")
         self.assertEqual(self.client.api_url, "https://openapi.iwencai.com/v1/comprehensive/search")
+
+    def test_cli_without_api_key_reports_configuration_error(self):
+        env = os.environ.copy()
+        env.pop("IWENCAI_API_KEY", None)
+        script = Path(__file__).with_name("api_client.py")
+
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(script.parent),
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("请设置环境变量 IWENCAI_API_KEY", proc.stdout)
+        self.assertNotIn("NameError", proc.stderr)
     
     @patch('requests.post')
     def test_search_reports_success(self, mock_post):

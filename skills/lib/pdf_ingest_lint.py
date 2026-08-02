@@ -451,6 +451,8 @@ def check_entity_annotation(source_name, source_exposures):
         sq = exp.get("source_quality", "")
 
         # Only check curated_research + review_candidate from broker sources
+        if sq not in BROKER_SOURCES:
+            continue
         if update_type != "curated_research":
             continue
         if hardness != "review_candidate":

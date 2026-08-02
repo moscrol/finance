@@ -27,6 +27,16 @@ def get_token():
     return _get_token(cfg)
 
 
+def _require_complete(operation: str, requested: int, completed: int) -> None:
+    if completed == requested:
+        return
+    print(
+        f"{operation}部分失败：请求 {requested} 条，实际成功 {completed} 条",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -108,6 +118,7 @@ def main():
 
     # Batch update existing records
     updated = batch_update(token, tid, to_update, app_token=APP_TOKEN, chunk_size=500)
+    _require_complete("更新", len(to_update), updated)
 
     # Batch create new records
     created = 0
@@ -117,7 +128,8 @@ def main():
                      table_id=tid, app_token=APP_TOKEN)
         created += len(result.get("data", {}).get("records", []))
 
-    print(f"更新 {len(to_update)} 条，新增 {len(to_create)} 条")
+    _require_complete("新增", len(to_create), created)
+    print(f"更新 {updated} 条，新增 {created} 条")
 
     # Reassign 序号 by first appearance date (正序), then by name
     all_records = fetch_all_records(token, tid, app_token=APP_TOKEN)
@@ -132,8 +144,9 @@ def main():
     updates = []
     for i, (_, _, rid) in enumerate(scored, 1):
         updates.append({"record_id": rid, "fields": {"序号": i}})
-    batch_update(token, tid, updates, app_token=APP_TOKEN, chunk_size=500)
-    print(f"序号已按首板日期重排（{len(scored)} 条）")
+    reordered = batch_update(token, tid, updates, app_token=APP_TOKEN, chunk_size=500)
+    _require_complete("序号重排", len(updates), reordered)
+    print(f"序号已按首板日期重排（{reordered} 条）")
 
     # Verify write
     verify_records = fetch_all_records(token, tid, app_token=APP_TOKEN)
