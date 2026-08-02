@@ -126,14 +126,66 @@ def parse_timeseries_intent(query: str) -> TimeseriesIntent | None:
     return TimeseriesIntent(window=window, metric_keys=tuple(ordered))
 
 
+# 「某日 X 是多少」的取值问法。和 _INTENT_TERMS（逐日/时序）分开：那是要一条曲线，
+# 这是要一个数。
+_POINT_VALUE_TERMS = ("多少", "几家", "几个", "几板", "是多少", "有多少")
+# 要的是一份复盘而不是一个数：命中这些时不走单指标直查，仍交给 daily-review。
+_REVIEW_INTENT_TERMS = (
+    "复盘", "总览", "全景", "结构", "主线", "怎么样", "如何", "什么情况", "表现",
+)
+
+
+def parse_single_metric_intent(query: str) -> MetricSpec | None:
+    """识别「指定日期 + 单一白名单指标 + 要一个数」的精确取值问题。
+
+    这类问题此前被 is_dated_market_review 抢走送进 daily-review 工作流；当日
+    日报导出不存在时，它不会退到 DuckDB 单指标查询，而是落进通用题材研究，
+    甚至把问题文本当成题材名——而 fact_market_daily.limit_up 这个标准口径
+    一直就在 METRICS 里。是路由层错，不是数据不存在。
+
+    别名只从 METRICS 取，不另立词表：本仓已经因为「两条判定链各写一份词表」
+    栽过一次（quick_fact 认不出「收盘价多少」）。
+
+    命中多个指标时返回 None——那是一份小复盘，交给 daily-review 更合适。
+    """
+    text = re.sub(r"\s+", "", str(query or ""))
+    if not text:
+        return None
+    if not any(term in text for term in _POINT_VALUE_TERMS):
+        return None
+    if any(term in text for term in _REVIEW_INTENT_TERMS):
+        return None
+    alias_index = sorted(
+        ((alias, spec.key) for spec in METRICS.values() for alias in spec.aliases),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    hit_keys: list[str] = []
+    remaining = text
+    for alias, key in alias_index:
+        if alias in remaining and key not in hit_keys:
+            hit_keys.append(key)
+            remaining = remaining.replace(alias, "□")
+    if len(hit_keys) != 1:
+        return None
+    return METRICS[hit_keys[0]]
+
+
 def fetch_timeseries(
     intent: TimeseriesIntent,
     market_db_path: str | Path | None,
+    *,
+    on_date: str | None = None,
 ) -> dict[str, Any]:
     """执行白名单时序直查。
 
     返回 ``{"found", "dates", "values": {metric_key: {date: value}}, "warnings"}``；
     库不可用/无数据时 found=False 并带 warnings（缺口显式声明，不静默）。
+
+    ``on_date`` 把结果锚定到某一个交易日（「2026-02-17 涨停家数多少」这类精确
+    取值），而不是默认的「最近 window 个交易日」。下游全部以返回的 ``dates``
+    为准，所以只需改 dates/start，SQL 无需分叉；该日无记录时照常走下面的缺口
+    告警，明确说「无记录」，不静默也不改走题材检索。
     """
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
@@ -150,13 +202,21 @@ def fetch_timeseries(
         }
     con = db_result.connection
     try:
-        date_rows = con.execute(
-            "SELECT DISTINCT trade_date FROM fact_market_daily ORDER BY trade_date DESC LIMIT ?",
-            [intent.window],
-        ).fetchall()
-        dates = sorted(str(r[0]) for r in date_rows if r and r[0] is not None)
-        if not dates:
-            return {"found": False, "dates": [], "values": {}, "warnings": ["fact_market_daily 无交易日数据"]}
+        if on_date:
+            dates = [str(on_date)]
+        else:
+            date_rows = con.execute(
+                "SELECT DISTINCT trade_date FROM fact_market_daily ORDER BY trade_date DESC LIMIT ?",
+                [intent.window],
+            ).fetchall()
+            dates = sorted(str(r[0]) for r in date_rows if r and r[0] is not None)
+            if not dates:
+                return {
+                    "found": False,
+                    "dates": [],
+                    "values": {},
+                    "warnings": ["fact_market_daily 无交易日数据"],
+                }
         start = dates[0]
         values: dict[str, dict[str, Any]] = {}
         warnings: list[str] = []
@@ -237,9 +297,11 @@ def _fmt_cell(key: str, value: Any) -> str:
 def timeseries_block_for_llm(
     intent: TimeseriesIntent,
     market_db_path: str | Path | None,
+    *,
+    on_date: str | None = None,
 ) -> str:
     """把时序直查结果渲染成带 [D0] 引用编号的确定性数据块（空串=未取到）。"""
-    fetched = fetch_timeseries(intent, market_db_path)
+    fetched = fetch_timeseries(intent, market_db_path, on_date=on_date)
     if not fetched["found"]:
         return ""
     dates: list[str] = fetched["dates"]

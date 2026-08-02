@@ -85,6 +85,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.query_understanding import market_review_requested_date
 from intelligence.services.research_state import ResearchGap
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
 from intelligence.services.trading_calendar import (
@@ -3572,24 +3573,39 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         providers: list[ask_planner.DataBlockProvider] = []
 
         d0_intents: list[market_timeseries.TimeseriesIntent] = []
+        d0_on_date: list[str] = []
 
         def _d0_applies() -> bool:
             if not evidence_registry.provider_enabled(options, "D0"):
                 return False
             intent = market_timeseries.parse_timeseries_intent(options.query)
             if intent is None:
-                return False
+                # 「2026-02-17 涨停家数多少」这类单日精确取值不带时序措辞，
+                # parse_timeseries_intent 取不到，此前就没有任何 provider 供数，
+                # 于是路由再对也拿不到那个数。锚定到该日走同一条白名单直查。
+                spec = market_timeseries.parse_single_metric_intent(options.query)
+                requested = market_review_requested_date(options.query)
+                if spec is None or requested is None:
+                    return False
+                intent = market_timeseries.TimeseriesIntent(
+                    window=market_timeseries.MIN_WINDOW, metric_keys=(spec.key,)
+                )
+                d0_on_date.append(str(requested))
             d0_intents.append(intent)
             return True
 
         def _build_d0():
             intent = d0_intents[0]
-            block = market_timeseries.timeseries_block_for_llm(intent, options.market_db_path)
+            on_date = d0_on_date[0] if d0_on_date else None
+            block = market_timeseries.timeseries_block_for_llm(
+                intent, options.market_db_path, on_date=on_date
+            )
             metric_labels = "/".join(spec.label for spec in intent.metrics)
+            scope = f"{on_date} 单日" if on_date else f"过去 {intent.window} 个交易日"
             return block, Citation(
                 "D0",
                 "本地 DuckDB 盘面时序直查数据块",
-                f"白名单指标逐日直查（{metric_labels}，过去 {intent.window} 个交易日）",
+                f"白名单指标逐日直查（{metric_labels}，{scope}）",
             )
 
         providers.append(ask_planner.DataBlockProvider("D0", "盘面时序直查", _d0_applies, _build_d0))

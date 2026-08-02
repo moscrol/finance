@@ -272,10 +272,22 @@ _MARKET_FORECAST_RE = re.compile(
     r"(?:怎么|如何|演绎|走势|走)"
     r"|(?:市场|行情|大盘)[^。？！]{0,12}(?:后面|接下来|未来)"
     r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
+    # 动词表原先只有「走势」类，认不出日常最常说的「明天怎么看」。后果不是措辞
+    # 问题：envelope 给不出 market_forecast，turn_controller 就按 general_finance_qa
+    # 建 TaskFrame，required_outputs 只有 (direct_answer, evidence_boundary)——
+    # 这道题从一开始就没被要求产出 direct_assessment / scenario_paths /
+    # continuation_conditions / invalidation_conditions，后面的 partial 判定与
+    # fail-closed 都只是在正确执行一个错误的契约。
     r"|(?:明天|明日|次日|下个交易日)[^。？！]{0,20}"
-    r"(?:反弹|上涨|下跌|走弱|走势|怎么走|如何走)"
+    r"(?:反弹|上涨|下跌|走弱|走势|怎么走|如何走|怎么看|如何看|怎么样|什么情况)"
     r"|(?:反弹|修复)[^。？！]{0,12}"
     r"(?:持续多久|能持续|持续性|延续多久|还能延续)"
+    # 「站在 X 收盘/盘后……」是本项目里 point-in-time 前瞻提问的固定句式：
+    # 无论后面接不接「市场/大盘」，问的都是下一个交易日的走向。
+    r"|站在[^。？！]{0,24}(?:收盘|盘后|收市)"
+    # 「给出对 07-22 的研判」——研判/展望在句尾、后面没有「市场/大盘」时，
+    # 第一个分支匹配不到。
+    r"|(?:给出|做|说说|谈谈)[^。？！]{0,14}(?:研判|展望|预判)"
 )
 _EVENT_FORECAST_RE = re.compile(
     r"(?:如果|若|假设)[^。？！]{0,48}"

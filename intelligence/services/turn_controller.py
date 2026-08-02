@@ -13,10 +13,12 @@ from intelligence.services.query_understanding import (
     envelope_from_task_frame,
     is_dated_market_review,
     is_market_watch_query,
+    market_review_requested_date,
     project_task_frame,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
 from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_timeseries import parse_single_metric_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
@@ -345,6 +347,19 @@ def _deterministic_decision(
                 "你想看 A 股、美股，还是全球市场？",
                 "要看收盘表现、盘中行情，还是市场结构与主线？",
             ),
+        )
+    # 单指标取值先于日报：「2026-02-17 涨停家数多少」要的是一个数，不是一份复盘。
+    # 此前它被 is_dated_market_review 抢走（日期 + 题材词即命中），当日日报导出
+    # 不存在时不会退到 DuckDB 单指标查询，而是落进通用题材研究、甚至把问题文本
+    # 当成题材名——而 fact_market_daily.limit_up 这个标准口径一直在 METRICS 里。
+    if market_review_requested_date(cleaned) and parse_single_metric_intent(cleaned):
+        return _decision_from_route_row(
+            route_by_id("quick_fact"),
+            query=cleaned,
+            subject=envelope.subject,
+            timeframe=envelope.timeframe,
+            confidence=0.95,
+            reason="指定日期的单一白名单指标取值，走精确查询而非日报工作流",
         )
     if is_dated_market_review(cleaned, envelope):
         return _decision(
