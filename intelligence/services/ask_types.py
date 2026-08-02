@@ -23,8 +23,12 @@ from intelligence.services import (
 from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
+from intelligence.paths import default_market_db_path
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchTaskContract,
+)
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, valuation_gap
 
 
@@ -46,6 +50,9 @@ def _data_repo_root() -> Path:
 
 DATA_REPO_ROOT = _data_repo_root()
 DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
+# 盘面 DuckDB 默认路径的唯一来源在 intelligence.paths（叶子模块，四个 market_*
+# 模块也要用，从这里导入会成环）。此处重导出，保持既有调用方不变。
+DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
@@ -184,6 +191,12 @@ class AskOptions:
     clarify: bool = True
     # Workbench 专项 Skill answer-owner 可固定问题类型，避免再次依赖脆弱词面分类。
     question_type_override: str | None = None
+    # GenericResearchOwner 长尾契约；非 None 时跳过通用固定 provider 前置链。
+    research_task_contract: ResearchTaskContract | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
     # Turn Controller 判定的能力需求（web_search/market_news 等）：W7 web 事件检索块
     # 据此在词面意图未命中时仍然生成，承接未被任何 skill 路由命中的长尾问题；
     # 空元组时 W7 门控行为不变。
@@ -194,7 +207,9 @@ class AskOptions:
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
-    # L3 runtime evidence tools: official announcements / exchange interaction.
+    # L3 runtime official evidence. True is an explicit override; False still
+    # permits gap-driven lookup for deep valuation/company work and explicit
+    # customer/order/production questions.
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
     l3_lookup_limit: int = 5
@@ -204,6 +219,10 @@ class AskOptions:
     compose_revise_on_warn: bool = True
     conversation_context: str = ""
     supplemental_evidence: str = ""
+    # 非 owner skill 的结构化事实不能只以 prompt 文本穿过合成层；由编排器
+    # 铸成候选 claim + Citation 后，沿 AnswerSpec 同一证据通道传播。
+    supplemental_claims: tuple[answer_model.Claim, ...] = ()
+    supplemental_citations: tuple[Any, ...] = ()
     perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
     perspective_ids: tuple[str, ...] = ()
     stream_text_delta: Callable[[str], None] | None = field(
@@ -236,6 +255,29 @@ class Citation:
     index_freshness: str = ""
 
 
+@dataclass(frozen=True)
+class SynthesisDiagnostic:
+    """Safe control-plane reason for synthesis success or fallback."""
+
+    state: str = "not_requested"
+    reason_code: str = "not_requested"
+    detail: str = "synthesis was not requested"
+    prepared_message_count: int = 0
+    candidate_claim_count: int = 0
+    bound_claim_count: int = 0
+
+    def __post_init__(self) -> None:
+        # Diagnostic detail is a control-plane summary, never a second channel for
+        # prompts or evidence bodies.  Collapse whitespace before applying the hard
+        # cap so a multiline provider error cannot inflate the public trace.
+        detail = re.sub(r"\s+", " ", str(self.detail or "")).strip()
+        object.__setattr__(
+            self,
+            "detail",
+            (detail or "no additional detail")[:200],
+        )
+
+
 @dataclass
 class AskResult:
     query: str
@@ -255,6 +297,9 @@ class AskResult:
     found_market: bool = False
     found_graph: bool = False
     found_wiki: bool = False
+    # 图谱暴露的召回/送达比。found_graph 只说「命中了」，说不出「命中 86 家、
+    # 只送了 12 家」——而后者才是答案质量的解释项。空 dict = 本轮没查图谱。
+    graph_exposure_telemetry: dict[str, Any] = field(default_factory=dict)
     # W 源检索遥测（用了哪种索引/检索方式/命中质量）；None=未启用 W 源。
     wiki_rag_telemetry: kb_rag.RetrievalTelemetry | None = None
     closed_loop_retrieval: (
@@ -278,9 +323,13 @@ class AskResult:
     )
     llm_fallback_reason: str | None = None
     llm_stream_telemetry: dict[str, object] = field(default_factory=dict)
+    synthesis_diagnostic: SynthesisDiagnostic = field(
+        default_factory=SynthesisDiagnostic
+    )
     grounded_composer_shadow: (
         answer_model.GroundedComposerShadow | None
     ) = None
+    grounded_fallback_used: bool = False
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
     # 澄清追问：问题明确模糊时的结构化追问；非 None 表示本次未检索、等用户补充。
@@ -309,6 +358,20 @@ class AskResult:
     review_gate: output_review.OutputReviewGate | None = None
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
+    # GenericResearchOwner 的确定性任务完成报告；仅控制面使用，不进入正文。
+    completion_report: dict[str, object] | None = field(
+        default=None,
+        repr=False,
+    )
+    # Generic Owner 的业务完成度投影；与 run/HTTP transport status 分离。
+    business_status: str = "unknown"
+    # 最终用户可见正文的任务完成度；只在 Grounded Composer/repair 结束后
+    # 计算，不复用检索阶段的 business_status。
+    answer_status: str = "unknown"
+    fulfillment_report: dict[str, object] | None = field(
+        default=None,
+        repr=False,
+    )
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set
@@ -341,6 +404,13 @@ def _stage_timeout(options: AskOptions, configured_limit: float) -> float:
     if options.deadline is None:
         return max(0.001, float(configured_limit))
     return max(0.001, options.deadline.stage_timeout(configured_limit))
+
+
+def _synthesis_timeout(options: AskOptions, configured_limit: float) -> float:
+    """合成阶段专用：可动用合成保留预算（见 ResearchDeadline.synthesis_reserve）。"""
+    if options.deadline is None:
+        return max(0.001, float(configured_limit))
+    return max(0.001, options.deadline.synthesis_timeout(configured_limit))
 
 
 def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:

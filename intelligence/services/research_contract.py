@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Literal, TypeAlias, cast
+from datetime import date
+from threading import RLock
+from typing import Literal, Protocol, TypeAlias, cast
+from weakref import WeakValueDictionary
 
 from intelligence.services.query_resolution import (
     QueryResolution,
@@ -11,6 +14,8 @@ from intelligence.services.query_resolution import (
 )
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
+from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
+from intelligence.services.task_frame import TaskFrame
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -20,6 +25,12 @@ AnswerOwner: TypeAlias = Literal[
 ]
 OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
+GroundingMode: TypeAlias = Literal["evidence", "user_premise", "model_reasoning"]
+InformationCutoffSource: TypeAlias = Literal[
+    "requested",
+    "latest_available",
+    "runtime_default",
+]
 StageStatus: TypeAlias = Literal[
     "pending",
     "completed",
@@ -149,7 +160,8 @@ _CONTEXT_DEPENDENT_RESEARCH_PATTERN = re.compile(
     r"(?:原因|为什么|证伪|反证|弹性|赔率|空间|受益|一阶|二阶|"
     r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|下周|"
     r"催化|风险|毛利率|净利率|收入|利润|现金流|兑现|替代标的|"
-    r"哪个更|分别是谁|怎么看|如何验证)"
+    r"哪个更|分别是谁|怎么看|如何验证|"
+    r"(?:这个|那个|这次|那次)(?:反弹|修复))"
 )
 _CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
     r"^(?:毛利率|净利率|收入|营收|利润|现金流|原因|为什么|"
@@ -185,6 +197,10 @@ class TurnIntent:
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    timeframe: str | None = None
+    task_frame_hash: str = ""
+    pending_task_frame: dict[str, object] | None = None
+    clarification_rounds: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -206,6 +222,10 @@ class TurnIntent:
             time_horizon = value.get("time_horizon", "unspecified")
             operators = value.get("operators", ())
             required_outputs = value.get("required_outputs", ())
+            timeframe = value.get("timeframe")
+            task_frame_hash = value.get("task_frame_hash", "")
+            pending_task_frame = value.get("pending_task_frame")
+            clarification_rounds = value.get("clarification_rounds", 0)
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -217,6 +237,21 @@ class TurnIntent:
         if inherited_from_turn is not None and not isinstance(inherited_from_turn, str):
             return None
         if not isinstance(time_horizon, str):
+            return None
+        if timeframe is not None and not isinstance(timeframe, str):
+            return None
+        if not isinstance(task_frame_hash, str):
+            return None
+        if pending_task_frame is not None and not isinstance(
+            pending_task_frame,
+            dict,
+        ):
+            return None
+        if (
+            isinstance(clarification_rounds, bool)
+            or not isinstance(clarification_rounds, int)
+            or clarification_rounds < 0
+        ):
             return None
         for items in (
             secondary_topics,
@@ -244,6 +279,10 @@ class TurnIntent:
             time_horizon=time_horizon,
             operators=tuple(operators),
             required_outputs=tuple(required_outputs),
+            timeframe=timeframe,
+            task_frame_hash=task_frame_hash,
+            pending_task_frame=pending_task_frame,
+            clarification_rounds=clarification_rounds,
         )
 
 
@@ -261,6 +300,8 @@ class ResearchPlan:
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    timeframe: str | None = None
+    task_frame_hash: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -285,26 +326,522 @@ class ResearchPlan:
             time_horizon=intent.time_horizon,
             operators=intent.operators,
             required_outputs=intent.required_outputs,
+            timeframe=intent.timeframe,
+            task_frame_hash=intent.task_frame_hash,
         )
 
 
 @dataclass(frozen=True)
 class ResearchDeadline:
     expires_at: float
+    # P0：为最终合成保留的硬预算（秒）。前置检索阶段的 stage_timeout 不得
+    # 消费这段时间，避免检索耗尽预算后合成剩 0ms 只能降级为模板。
+    synthesis_reserve: float = 0.0
 
     @classmethod
-    def from_timeout(cls, timeout: float) -> ResearchDeadline:
-        return cls(time.monotonic() + max(0.0, float(timeout)))
+    def from_timeout(
+        cls,
+        timeout: float,
+        *,
+        synthesis_reserve: float = 0.0,
+    ) -> ResearchDeadline:
+        return cls(
+            time.monotonic() + max(0.0, float(timeout)),
+            synthesis_reserve=max(0.0, float(synthesis_reserve)),
+        )
 
     def remaining(self) -> float:
         return max(0.0, self.expires_at - time.monotonic())
 
     def stage_timeout(self, configured_limit: float) -> float:
+        available = max(0.0, self.remaining() - self.synthesis_reserve)
+        return max(0.0, min(float(configured_limit), available))
+
+    def synthesis_timeout(self, configured_limit: float) -> float:
+        """合成阶段可用全部剩余时间（含保留段）。"""
         return max(0.0, min(float(configured_limit), self.remaining()))
 
     @property
     def expired(self) -> bool:
         return self.remaining() <= 0.0
+
+    def bounded_stage(self, configured_limit: float) -> ResearchDeadline:
+        """Intersect a child grant with this absolute research-stage window."""
+
+        limit = max(0.0, float(configured_limit))
+        return ResearchDeadline(
+            expires_at=min(
+                self.expires_at - self.synthesis_reserve,
+                time.monotonic() + limit,
+            )
+        )
+
+
+@dataclass(frozen=True)
+class ResearchPolicy:
+    """Generic owner 的确定性档位，不允许由 LLM 提高上限。"""
+
+    tier: str
+    max_steps: int
+    total_seconds: float
+    synthesis_reserve: float
+
+    @classmethod
+    def for_tier(cls, tier: str) -> "ResearchPolicy":
+        policies = {
+            "quick": cls("quick", 3, 30.0, 20.0),
+            "standard": cls("standard", 6, 90.0, 20.0),
+            "deep": cls("deep", 12, 240.0, 48.0),
+        }
+        return policies.get(tier, policies["standard"])
+
+
+class RootBudgetLedger(Protocol):
+    """The single mutable budget authority shared by one research episode."""
+
+    initial_calls: int
+    episode_id: str
+    hard_calls_cap: int
+    initial_seconds: float
+    hard_seconds_cap: float
+    remaining_calls: int
+    remaining_seconds: float
+
+    @property
+    def allocated_calls(self) -> int: ...
+
+    @property
+    def allocated_seconds(self) -> float: ...
+
+    def grant(self, grant: object) -> bool: ...
+
+    def promote_caps(
+        self,
+        *,
+        episode_id: str,
+        promotion_id: str,
+        hard_calls_cap: int,
+        hard_seconds_cap: float,
+    ) -> bool: ...
+
+    def consume_call(self, *, seconds: float) -> None: ...
+
+    def consume_seconds(self, *, seconds: float) -> None: ...
+
+
+class InMemoryRootBudgetLedger:
+    """Thread-safe root budget implementation used by runtime adapters.
+
+    Initial allocation is the budget before repair. The hard cap is the
+    episode-wide ceiling; grants reserve unused headroom and never reset
+    already consumed calls or seconds.
+    """
+
+    def __init__(
+        self,
+        *,
+        episode_id: str = "",
+        initial_calls: int,
+        hard_calls_cap: int,
+        initial_seconds: float,
+        hard_seconds_cap: float,
+    ) -> None:
+        for name, value in (
+            ("initial_calls", initial_calls),
+            ("hard_calls_cap", hard_calls_cap),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        if hard_calls_cap < initial_calls:
+            raise ValueError("hard_calls_cap must cover initial_calls")
+        if initial_seconds < 0 or hard_seconds_cap < initial_seconds:
+            raise ValueError("invalid root seconds budget")
+        self.episode_id = str(episode_id or "").strip()
+        if not self.episode_id:
+            raise ValueError("episode_id must be non-empty")
+        self.initial_calls = initial_calls
+        self.hard_calls_cap = hard_calls_cap
+        self.initial_seconds = float(initial_seconds)
+        self.hard_seconds_cap = float(hard_seconds_cap)
+        self.remaining_calls = initial_calls
+        self.remaining_seconds = float(initial_seconds)
+        self._allocated_calls = initial_calls
+        self._allocated_seconds = float(initial_seconds)
+        self._grants: set[str] = set()
+        self._promotions: dict[str, tuple[int, float]] = {}
+        self._lock = RLock()
+
+    @property
+    def allocated_calls(self) -> int:
+        with self._lock:
+            return self._allocated_calls
+
+    @property
+    def allocated_seconds(self) -> float:
+        with self._lock:
+            return self._allocated_seconds
+
+    def grant(self, grant: object) -> bool:
+        calls = int(getattr(grant, "calls_granted", 0) or 0)
+        seconds = float(getattr(grant, "seconds_granted", 0.0) or 0.0)
+        grant_id = str(getattr(grant, "grant_id", "") or "").strip()
+        episode_id = str(getattr(grant, "episode_id", "") or "").strip()
+        if calls < 0 or seconds <= 0 or not grant_id or not episode_id:
+            return False
+        with self._lock:
+            if episode_id != self.episode_id:
+                return False
+            if grant_id in self._grants:
+                return False
+            if self._allocated_calls + calls > self.hard_calls_cap:
+                return False
+            if self._allocated_seconds + seconds > self.hard_seconds_cap:
+                return False
+            self._grants.add(grant_id)
+            self._allocated_calls += calls
+            self._allocated_seconds += seconds
+            self.remaining_calls += calls
+            self.remaining_seconds += seconds
+            return True
+
+    def promote_caps(
+        self,
+        *,
+        episode_id: str,
+        promotion_id: str,
+        hard_calls_cap: int,
+        hard_seconds_cap: float,
+    ) -> bool:
+        """Raise this episode's hard ceiling once without minting a new ledger."""
+
+        episode = str(episode_id or "").strip()
+        promotion = str(promotion_id or "").strip()
+        if (
+            not episode
+            or not promotion
+            or isinstance(hard_calls_cap, bool)
+            or not isinstance(hard_calls_cap, int)
+            or hard_calls_cap < 0
+        ):
+            return False
+        try:
+            seconds_cap = float(hard_seconds_cap)
+        except (TypeError, ValueError):
+            return False
+        if seconds_cap < 0 or hard_calls_cap > 24 or seconds_cap > 240.0:
+            return False
+        with self._lock:
+            if episode != self.episode_id:
+                return False
+            previous = self._promotions.get(promotion)
+            requested = (hard_calls_cap, seconds_cap)
+            if previous is not None:
+                return previous == requested
+            if (
+                hard_calls_cap < self.hard_calls_cap
+                or seconds_cap < self.hard_seconds_cap
+                or hard_calls_cap < self._allocated_calls
+                or seconds_cap < self._allocated_seconds
+            ):
+                return False
+            self.hard_calls_cap = hard_calls_cap
+            self.hard_seconds_cap = seconds_cap
+            self._promotions[promotion] = requested
+            return True
+
+    def consume_call(self, *, seconds: float) -> None:
+        if seconds <= 0:
+            raise ValueError("consumed call seconds must be positive")
+        with self._lock:
+            if self.remaining_calls <= 0:
+                raise ValueError("root call budget exhausted")
+            if seconds > self.remaining_seconds + 1e-9:
+                raise ValueError("root seconds budget exhausted")
+            self.remaining_calls -= 1
+            self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def consume_seconds(self, *, seconds: float) -> None:
+        """Debit wall time without spending a finance-tool call slot."""
+
+        if seconds < 0:
+            raise ValueError("consumed seconds must be non-negative")
+        with self._lock:
+            if seconds > self.remaining_seconds + 1e-9:
+                raise ValueError("root seconds budget exhausted")
+            self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def to_dict(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "initial_calls": self.initial_calls,
+                "episode_id": self.episode_id,
+                "hard_calls_cap": self.hard_calls_cap,
+                "initial_seconds": self.initial_seconds,
+                "hard_seconds_cap": self.hard_seconds_cap,
+                "remaining_calls": self.remaining_calls,
+                "remaining_seconds": self.remaining_seconds,
+                "allocated_calls": self._allocated_calls,
+                "allocated_seconds": self._allocated_seconds,
+            }
+
+
+_LIVE_ROOT_BUDGETS: WeakValueDictionary[str, InMemoryRootBudgetLedger] = (
+    WeakValueDictionary()
+)
+_LIVE_ROOT_BUDGETS_LOCK = RLock()
+
+
+def root_budget_for_policy(
+    policy: ResearchPolicy,
+    *,
+    episode_id: str,
+) -> InMemoryRootBudgetLedger:
+    """Allocate one root ledger from the immutable tier policy."""
+
+    episode = str(episode_id or "").strip()
+    if not episode:
+        raise ValueError("episode_id must be non-empty")
+    hard_calls = {
+        "quick": 4,
+        "standard": 8,
+        "deep": 24,
+    }.get(str(policy.tier).strip().lower(), policy.max_steps)
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        if episode in _LIVE_ROOT_BUDGETS:
+            raise ValueError(f"root budget already exists for live episode: {episode}")
+        ledger = InMemoryRootBudgetLedger(
+            episode_id=episode,
+            initial_calls=policy.max_steps,
+            hard_calls_cap=max(policy.max_steps, hard_calls),
+            initial_seconds=max(
+                0.0,
+                policy.total_seconds - policy.synthesis_reserve,
+            ),
+            hard_seconds_cap=policy.total_seconds,
+        )
+        _LIVE_ROOT_BUDGETS[episode] = ledger
+        return ledger
+
+
+@dataclass(frozen=True)
+class RequiredOutput:
+    output_id: str
+    description: str
+    evidence_types: tuple[str, ...] = ()
+    required: bool = True
+    grounding_mode: GroundingMode = "evidence"
+
+
+@dataclass(frozen=True)
+class OutputStatus:
+    output_id: str
+    status: Literal["fulfilled", "gap", "missing"]
+    evidence_ids: tuple[str, ...] = ()
+    gap: str = ""
+
+
+class ResearchContractError(ValueError):
+    """任务契约不满足 schema 或能力白名单。"""
+
+
+@dataclass(frozen=True)
+class ResearchTaskContract:
+    task_id: str
+    question: str
+    subject: str | None
+    subject_kind: str | None
+    question_type: str
+    required_outputs: tuple[RequiredOutput, ...]
+    allowed_capabilities: tuple[str, ...]
+    research_tier: str = "standard"
+    presentation_profile: str = "general"
+    freshness: str = "current"
+    timeframe: str | None = None
+    evidence_plan: EvidencePlan = field(default_factory=EvidencePlan)
+    contract_version: str = "1"
+    task_frame_hash: str = ""
+
+    def __post_init__(self) -> None:
+        # Backwards compatibility for callers that expand ``to_dict()`` into
+        # the constructor (older tests/integrations predate EvidencePlan).
+        if isinstance(self.evidence_plan, dict):
+            raw_requirements = self.evidence_plan.get("requirements", ())
+            requirements = tuple(
+                EvidenceRequirement(
+                    provider_name=str(item.get("provider_name") or ""),
+                    capability=str(item.get("capability") or ""),
+                    mandatory=bool(item.get("mandatory", False)),
+                    freshness=str(item.get("freshness") or "current"),
+                    reason=str(item.get("reason") or ""),
+                )
+                for item in raw_requirements
+                if isinstance(item, dict)
+            )
+            object.__setattr__(
+                self,
+                "evidence_plan",
+                EvidencePlan(
+                    profile=str(self.evidence_plan.get("profile") or "general"),
+                    requirements=requirements,
+                    freshness=str(self.evidence_plan.get("freshness") or "current"),
+                ),
+            )
+        if not self.task_id.strip() or not self.question.strip():
+            raise ResearchContractError("task_id/question 不能为空")
+        if self.research_tier not in {"quick", "standard", "deep"}:
+            raise ResearchContractError(f"未知研究档位：{self.research_tier}")
+        if any(not item.output_id.strip() for item in self.required_outputs):
+            raise ResearchContractError("required output id 不能为空")
+        if any(
+            item.grounding_mode not in {"evidence", "user_premise", "model_reasoning"}
+            for item in self.required_outputs
+        ):
+            raise ResearchContractError("required output grounding_mode 无效")
+        for requirement in self.evidence_plan.requirements:
+            if not requirement.provider_name.strip() or not requirement.capability.strip():
+                raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
+        mandatory = set(self.evidence_plan.mandatory_capabilities)
+        if not mandatory.issubset(set(self.allowed_capabilities)):
+            raise ResearchContractError(
+                "evidence plan 的 mandatory capability 未被 allowed_capabilities 授权"
+            )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "task_id": self.task_id,
+            "question": self.question,
+            "subject": self.subject,
+            "subject_kind": self.subject_kind,
+            "question_type": self.question_type,
+            "required_outputs": [asdict(item) for item in self.required_outputs],
+            "allowed_capabilities": list(self.allowed_capabilities),
+            "research_tier": self.research_tier,
+            "presentation_profile": self.presentation_profile,
+            "freshness": self.freshness,
+            "timeframe": self.timeframe,
+            "evidence_plan": self.evidence_plan.to_dict(),
+            "contract_version": self.contract_version,
+            "task_frame_hash": self.task_frame_hash,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> "ResearchTaskContract":
+        if not isinstance(value, dict):
+            raise ResearchContractError("任务契约必须是 object")
+        raw_outputs = value.get("required_outputs")
+        if not isinstance(raw_outputs, (list, tuple)):
+            raise ResearchContractError("required_outputs 必须是 list")
+        outputs: list[RequiredOutput] = []
+        for raw in raw_outputs:
+            if not isinstance(raw, dict):
+                raise ResearchContractError("required output 必须是 object")
+            evidence_types = raw.get("evidence_types", ())
+            if not isinstance(evidence_types, (list, tuple)):
+                raise ResearchContractError("evidence_types 必须是 list")
+            outputs.append(
+                RequiredOutput(
+                    output_id=str(raw.get("output_id") or ""),
+                    description=str(raw.get("description") or ""),
+                    evidence_types=tuple(str(item) for item in evidence_types),
+                    required=bool(raw.get("required", True)),
+                    grounding_mode=str(raw.get("grounding_mode") or "evidence"),
+                )
+            )
+        capabilities = value.get("allowed_capabilities", ())
+        if not isinstance(capabilities, (list, tuple)):
+            raise ResearchContractError("allowed_capabilities 必须是 list")
+        raw_plan = value.get("evidence_plan")
+        if raw_plan is None:
+            evidence_plan = EvidencePlan()
+        elif isinstance(raw_plan, dict):
+            raw_requirements = raw_plan.get("requirements", ())
+            if not isinstance(raw_requirements, (list, tuple)):
+                raise ResearchContractError("evidence_plan.requirements 必须是 list")
+            requirements = tuple(
+                EvidenceRequirement(
+                    provider_name=str(item.get("provider_name") or ""),
+                    capability=str(item.get("capability") or ""),
+                    mandatory=bool(item.get("mandatory", False)),
+                    freshness=str(item.get("freshness") or "current"),
+                    reason=str(item.get("reason") or ""),
+                )
+                for item in raw_requirements
+                if isinstance(item, dict)
+            )
+            evidence_plan = EvidencePlan(
+                profile=str(raw_plan.get("profile") or "general"),
+                requirements=requirements,
+                freshness=str(raw_plan.get("freshness") or "current"),
+            )
+        else:
+            raise ResearchContractError("evidence_plan 必须是 object")
+        return cls(
+            task_id=str(value.get("task_id") or ""),
+            question=str(value.get("question") or ""),
+            subject=(
+                str(value["subject"]) if value.get("subject") is not None else None
+            ),
+            subject_kind=(
+                str(value["subject_kind"])
+                if value.get("subject_kind") is not None
+                else None
+            ),
+            question_type=str(value.get("question_type") or "general_finance_qa"),
+            required_outputs=tuple(outputs),
+            allowed_capabilities=tuple(str(item) for item in capabilities),
+            research_tier=str(value.get("research_tier") or "standard"),
+            presentation_profile=str(value.get("presentation_profile") or "general"),
+            freshness=str(value.get("freshness") or "current"),
+            timeframe=(
+                str(value["timeframe"]) if value.get("timeframe") is not None else None
+            ),
+            evidence_plan=evidence_plan,
+            contract_version=str(value.get("contract_version") or "1"),
+            task_frame_hash=str(value.get("task_frame_hash") or ""),
+        )
+
+
+@dataclass(frozen=True)
+class InformationCutoff:
+    as_of_date: date
+    source: InformationCutoffSource
+
+    def __post_init__(self) -> None:
+        if type(self.as_of_date) is not date:
+            raise ValueError("information cutoff must use a date")
+        if self.source not in {
+            "requested",
+            "latest_available",
+            "runtime_default",
+        }:
+            raise ValueError("unsupported information cutoff source")
+
+    @classmethod
+    def runtime_default(cls) -> InformationCutoff:
+        return cls(date.today(), "runtime_default")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "as_of_date": self.as_of_date.isoformat(),
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True)
+class ResearchRunContext:
+    contract: ResearchTaskContract
+    deadline: ResearchDeadline
+    policy: ResearchPolicy
+    trace_parent_id: str
+    # Prompt context only: never treated as evidence. Appending defaults keeps
+    # positional construction in older integrations backwards compatible.
+    today: str | None = None
+    latest_data_date: str | None = None
+    conversation_context: str = ""
+    information_cutoff: InformationCutoff = field(
+        default_factory=InformationCutoff.runtime_default
+    )
+    root_budget: RootBudgetLedger | None = None
 
 
 @dataclass(frozen=True)
@@ -395,6 +932,10 @@ class StageArtifact:
     evidence_atom_ids: tuple[str, ...] = ()
     payload: dict[str, object] = field(default_factory=dict)
     degrade_reason: str | None = None
+    # 阶段异常的可诊断详情（异常消息，截断）。degrade_reason 是给人看的简短
+    # 措辞，只带异常类名；光有类名诊断不了——真实 run 里出现过两次
+    # "company_mapping 执行失败（TypeError）"，消息和位置全被丢弃，事后无从下手。
+    failure_detail: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -438,6 +979,11 @@ class StageArtifact:
                 degrade_reason=(
                     str(value["degrade_reason"])
                     if value.get("degrade_reason") is not None
+                    else None
+                ),
+                failure_detail=(
+                    str(value["failure_detail"])
+                    if value.get("failure_detail") is not None
                     else None
                 ),
             )
@@ -492,6 +1038,7 @@ def build_turn_intent(
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
     resolution: QueryResolution | None = None,
+    task_frame: TaskFrame | None = None,
 ) -> TurnIntent:
     cleaned = query.strip()
     follow_up = is_contextual_follow_up(
@@ -539,8 +1086,12 @@ def build_turn_intent(
             skill_ids=previous_intent.skill_ids,
             stage_artifact_ids=previous_intent.stage_artifact_ids,
             time_horizon=envelope.time_horizon,
+            timeframe=envelope.timeframe,
             operators=envelope.operators,
             required_outputs=envelope.required_outputs,
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
         )
 
     inherit = follow_up and not explicit_task_switch and not explicit_subject_switch
@@ -566,6 +1117,11 @@ def build_turn_intent(
                 if envelope.time_horizon != "unspecified"
                 else previous_intent.time_horizon
             ),
+            timeframe=(
+                envelope.timeframe
+                if envelope.timeframe is not None
+                else previous_intent.timeframe
+            ),
             operators=_merge_topics(
                 previous_intent.operators,
                 envelope.operators,
@@ -574,19 +1130,45 @@ def build_turn_intent(
                 previous_intent.required_outputs,
                 envelope.required_outputs,
             ),
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
         )
 
-    question_type = envelope.question_type
+    # 无 task_frame 时不能直接用 envelope.question_type：主语是"大盘/市场"这类泛指时
+    # 信封只给 general_finance_qa，要靠 answer_orchestrator 的规则兜底才认得出复盘类问题。
+    # 与 plan_answer_question 共用同一个解析器，避免 CLI 与会话两条路径给出不同答法。
+    if task_frame is not None:
+        question_type = task_frame.question_type
+    else:
+        from intelligence.services.answer_orchestrator import resolve_question_type
+
+        question_type, _ = resolve_question_type(cleaned, envelope)
     return TurnIntent(
-        primary_subject=envelope.subject,
-        secondary_topics=_secondary_topics(envelope, envelope.subject),
+        primary_subject=(
+            task_frame.subject if task_frame is not None else envelope.subject
+        ),
+        secondary_topics=_secondary_topics(
+            envelope,
+            task_frame.subject if task_frame is not None else envelope.subject,
+        ),
         question_type=question_type,
         answer_owner=answer_owner_for_question_type(question_type),
         comparison_entities=comparison_entities,
         inherited_from_turn=None,
         time_horizon=envelope.time_horizon,
+        timeframe=(
+            task_frame.timeframe if task_frame is not None else envelope.timeframe
+        ),
         operators=envelope.operators,
-        required_outputs=envelope.required_outputs,
+        required_outputs=(
+            task_frame.required_outputs
+            if task_frame is not None
+            else envelope.required_outputs
+        ),
+        task_frame_hash=(
+            task_frame.task_frame_hash if task_frame is not None else ""
+        ),
     )
 
 

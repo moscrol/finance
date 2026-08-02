@@ -39,9 +39,11 @@ from intelligence.services.ask_types import (
     AskResult,
     Citation,
     PreparedAnswer,
-    _stage_timeout,
+    SynthesisDiagnostic,
+    _synthesis_timeout,
     _llm_deadline,
 )
+from intelligence.services.task_fulfillment import answer_has_output_marker
 
 
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
@@ -525,7 +527,7 @@ def _build_answer_spec_for_result(
         prompt_constraints=tuple(
             item
             for item in (
-                result.question_plan.to_prompt_block()
+                result.question_plan.to_prompt_block(compact=True)
                 if result.question_plan is not None
                 else "",
                 (
@@ -603,6 +605,7 @@ def _build_base_answer_spec_from_sections(
     direct_lines: tuple[str, ...] = (),
     risk_lines: tuple[str, ...] = (),
     action_lines: tuple[str, ...] = (),
+    presentation_kind: str = "base_finance",
 ) -> answer_model.AnswerSpec:
     citations = [
         citation for citation in result.citations if citation.tag not in {"M", "V"}
@@ -746,7 +749,7 @@ def _build_base_answer_spec_from_sections(
             item
             for item in (
                 (
-                    result.question_plan.to_prompt_block()
+                    result.question_plan.to_prompt_block(compact=True)
                     if result.question_plan is not None
                     else ""
                 ),
@@ -754,7 +757,7 @@ def _build_base_answer_spec_from_sections(
             )
             if item
         ),
-        presentation_kind="base_finance",
+        presentation_kind=presentation_kind,
         presentation_title=theme,
     )
     return answer_model.finalize_answer_spec(spec)
@@ -853,11 +856,81 @@ def _prepare_answer_spec_synthesis(
     return messages
 
 
+def _synthesis_claim_counts(result: AskResult) -> tuple[int, int]:
+    spec = result.answer_spec
+    if spec is None:
+        return 0, 0
+    claims: list[object] = []
+    for field_name in ("summary", "verified_facts", "candidate_facts"):
+        value = getattr(spec, field_name, ())
+        if isinstance(value, (list, tuple)):
+            claims.extend(value)
+    bound = sum(bool(getattr(claim, "evidence_ids", ())) for claim in claims)
+    return len(claims), bound
+
+
+def _set_synthesis_diagnostic(
+    result: AskResult,
+    *,
+    state: str,
+    reason_code: str,
+    detail: str,
+) -> None:
+    candidate_claim_count, bound_claim_count = _synthesis_claim_counts(result)
+    result.synthesis_diagnostic = SynthesisDiagnostic(
+        state=state,
+        reason_code=str(reason_code or "unknown")[:80],
+        detail=detail,
+        prepared_message_count=len(result.prepared_synthesis_messages or ()),
+        candidate_claim_count=candidate_claim_count,
+        bound_claim_count=bound_claim_count,
+    )
+
+
+def _quality_gate_diagnostic_reason(
+    issues: list[answer_model.QualityIssue],
+) -> tuple[str, str]:
+    codes = {
+        issue.code
+        for issue in issues
+        if isinstance(getattr(issue, "code", None), str)
+    }
+    binding_codes = {
+        "llm_missing_claim_binding",
+        "llm_invalid_claim_id",
+        "llm_invalid_evidence_atom_id",
+        "llm_fact_without_evidence_atom",
+    }
+    if codes & binding_codes:
+        return (
+            "claim_binding_failed",
+            "synthesis candidate did not pass claim and evidence binding validation",
+        )
+    return (
+        "quality_gate_rejected",
+        "synthesis candidate did not pass deterministic quality validation",
+    )
+
+
 def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     options = prepared.options
     result = prepared.result
     messages = result.prepared_synthesis_messages
-    if result.answer_spec is None or not messages:
+    if not messages:
+        _set_synthesis_diagnostic(
+            result,
+            state="not_prepared",
+            reason_code="no_prepared_messages",
+            detail="synthesis messages were not prepared for this route",
+        )
+        return result
+    if result.answer_spec is None:
+        _set_synthesis_diagnostic(
+            result,
+            state="not_prepared",
+            reason_code="no_answer_spec",
+            detail="no AnswerSpec was available for synthesis",
+        )
         return result
     if promote_grounded_answer(options, result):
         return result
@@ -869,6 +942,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         # 市场复盘的可信自然语言出口只有 Grounded Composer。它不可用或未过
         # 门禁时保留结构化 AnswerSpec 供上层确定性渲染，不再启动无 claim/
         # EvidenceAtom 绑定的旧散文合成，否则等于在安全链失败后绕回软出口。
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="grounded_required_fallback",
+            detail="grounded presenter did not promote an answer; legacy prose is disabled",
+        )
         return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
@@ -876,10 +955,18 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     provider_connect_ms: int | None = None
     first_token_ms: int | None = None
     last_token_ms: int | None = None
+    # 相邻 delta 的最大间隔（TTFB 不计入——首 token 慢是模型在想，不是卡住）。
+    max_gap_ms: int = 0
     stream_elapsed_ms: int | None = None
     quality_gate_ms: int | None = None
     provider_finish_reason: str | None = None
     provider = llm_refine.detect_provider(options.llm_model)
+    _set_synthesis_diagnostic(
+        result,
+        state="attempted",
+        reason_code="provider_started",
+        detail="synthesis provider call started",
+    )
 
     def capture_connected() -> None:
         nonlocal provider_connect_ms
@@ -890,10 +977,22 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             )
 
     def capture(delta: str) -> None:
-        nonlocal first_token_ms, last_token_ms
+        nonlocal first_token_ms, last_token_ms, max_gap_ms
         if options.stream_cancel_check is not None and options.stream_cancel_check():
             raise llm_refine.LLMStreamCancelled()
         elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
+        # 相邻内容 delta 之间的最大间隔。ch06b 把这个叫 stall 检测，与 idle
+        # 看门狗解决的是不同问题——idle 是「一个事件都没有，连接可能死了」，
+        # stall 是「有事件但间隔大，连接活着但那边很慢」。判据挂在
+        # last_token_ms 上而不是 first_token_ms：没有前一个 delta 就没有「间隔」
+        # 可言，首 token 慢是模型在想，不是卡住（ch06b 明确点名的坑）。
+        #
+        # 这里**故意不设阈值**：ch06b 的 30s 来自 Anthropic 的生产数据，而我们
+        # 单个 phase 的预算才 31-45 秒（shadow_grounded_timeout 默认 90，
+        # composer 占 0.5、judge 占 0.35），照抄 30s 基本不会触发。先把实测
+        # 分布记下来，有数据了再定阈值和是否要中断。
+        if last_token_ms is not None:
+            max_gap_ms = max(max_gap_ms, elapsed_ms - last_token_ms)
         if first_token_ms is None:
             first_token_ms = elapsed_ms
         last_token_ms = elapsed_ms
@@ -948,6 +1047,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             "provider_connect_ms": provider_connect_ms,
             "first_token_ms": first_token_ms,
             "last_token_ms": last_token_ms,
+            "max_delta_gap_ms": max_gap_ms,
             "stream_elapsed_ms": stream_elapsed_ms,
             "quality_gate_ms": quality_gate_ms,
             "total_synthesis_ms": elapsed_ms,
@@ -964,7 +1064,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             temperature=synthesis_temperature,
             deadline=deadline,
         )
@@ -976,7 +1076,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             on_finish_reason=capture_finish_reason,
             is_cancelled=options.stream_cancel_check,
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             temperature=synthesis_temperature,
             deadline=deadline,
         )
@@ -987,6 +1087,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         result.llm_stream_telemetry = telemetry(
             composed=None,
             fallback_reason=result.llm_fallback_reason,
+        )
+        _set_synthesis_diagnostic(
+            result,
+            state="failed",
+            reason_code=result.llm_fallback_reason or "provider_unavailable",
+            detail=(
+                "synthesis provider did not return a usable response "
+                f"({result.llm_fallback_reason or 'provider_unavailable'})"
+            ),
         )
         return result
     if composed.finish_reason is not None and composed.finish_reason != "stop":
@@ -1000,6 +1109,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         result.llm_stream_telemetry = telemetry(
             composed=composed,
             fallback_reason=result.llm_fallback_reason,
+        )
+        _set_synthesis_diagnostic(
+            result,
+            state="failed",
+            reason_code=result.llm_fallback_reason or "provider_incomplete",
+            detail="synthesis provider response did not finish cleanly",
         )
         return result
     result.llm_fallback_reason = composed.fallback_reason
@@ -1040,7 +1155,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 },
             ],
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             deadline=deadline,
             temperature=0.0,
         )
@@ -1095,6 +1210,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         )
         result.llm_fallback_reason = "quality_gate_rejected"
         result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
+        diagnostic_reason, diagnostic_detail = _quality_gate_diagnostic_reason(
+            blocking_issues
+        )
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code=diagnostic_reason,
+            detail=diagnostic_detail,
+        )
         return result
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
@@ -1135,6 +1259,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         options.stream_text_delta(result.synthesis)
     if reason:
         result.warnings.append(reason)
+    _set_synthesis_diagnostic(
+        result,
+        state="accepted",
+        reason_code="validated",
+        detail="synthesis passed deterministic quality gates",
+    )
     return result
 
 
@@ -1171,6 +1301,13 @@ def _grounded_body_line_count(text: str) -> int:
     )
 
 
+# 可以落到用户面前的影子状态。``judge_outage_released`` 是 judge 因瞬时故障缺席时
+# 的降级放行——正文已过确定性层且自带警示，见 ``_judge_outage_release``。
+_PROMOTABLE_SHADOW_STATUSES = frozenset(
+    {"accepted", "repaired", "judge_outage_released"}
+)
+
+
 def promote_grounded_answer(
     options: AskOptions,
     result: AskResult,
@@ -1179,10 +1316,11 @@ def promote_grounded_answer(
 
     daily-agent 契约受 ``daily_agent_grounded_presenter`` 控制（行为不变）；
     其余 compose 回答（包括 market_review）受 ``grounded_presenter`` 控制。
-    失败时返回 False，由调用方降回结构化 claim 合成路径。
+    开关启用后，门禁失败时使用确定性 verified brief 短答，
+    不再绕回旧 LLM marker/Daily 模板出口。
     """
     spec = result.answer_spec
-    if spec is None:
+    if spec is None or not isinstance(spec, answer_model.AnswerSpec):
         return False
     is_daily_agent = (
         spec.presentation_kind
@@ -1212,26 +1350,69 @@ def promote_grounded_answer(
     )
     if (
         shadow is None
-        or shadow.status not in {"accepted", "repaired"}
+        or shadow.status not in _PROMOTABLE_SHADOW_STATUSES
         or _grounded_body_line_count(presented) < 2
     ):
         if shadow is not None:
             reason = shadow.failure_reason or (
                 "insufficient_grounded_body"
-                if shadow.status in {"accepted", "repaired"}
+                if shadow.status in _PROMOTABLE_SHADOW_STATUSES
                 else shadow.status
             )
             label = "研究雷达" if is_daily_agent else "Grounded Presenter"
             result.warnings.append(
                 f"{label}自然语言合成未通过门禁或不可用"
-                f"（{reason}），已降级回结构化合成。"
+                f"（{reason}），已降级为可核验短答。"
             )
-        return False
+        # 这里返回 True 是关键：阻止 synthesize_prepared_answer
+        # 继续落入旧 marker 合成路径。长尾/daily 使用只展示
+        # verified facts 的短答；专项 owner 保留自己的确定性
+        # AnswerSpec renderer，避免在合成故障时丢掉其业务契约。
+        if result.answer_spec.presentation_kind in {
+            "generic_research",
+            answer_model.DAILY_AGENT_PRESENTATION_KIND,
+        }:
+            fallback = answer_model.render_decision_brief_fallback(
+                shadow.decision_brief if shadow is not None else None,
+                result.answer_spec,
+                verified_only=True,
+            )
+        else:
+            fallback = answer_model.render_answer_spec(result.answer_spec)
+        result.synthesis = (
+            f"{result.data_notice}\n\n{fallback}"
+            if result.data_notice
+            else fallback
+        )
+        # 补分支必须在 stream 之前：先推给前端再改 result.synthesis，会让流式看到的
+        # 正文和最终落库的正文不一致。
+        ensure_forecast_scenarios_visible(result)
+        result.synthesis_messages = [
+            *(result.prepared_synthesis_messages or []),
+            {"role": "assistant", "content": result.synthesis},
+        ]
+        result.grounded_fallback_used = True
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="grounded_required_fallback",
+            detail="grounded presenter did not pass validation; deterministic fallback used",
+        )
+        if options.stream_text_delta is not None:
+            options.stream_text_delta(result.synthesis)
+        return True
     result.synthesis = (
         f"{result.data_notice}\n\n{presented}"
         if result.data_notice
         else presented
     )
+    _set_synthesis_diagnostic(
+        result,
+        state="accepted",
+        reason_code="validated",
+        detail="grounded presenter passed deterministic and semantic gates",
+    )
+    ensure_forecast_scenarios_visible(result)
     result.llm_provider = shadow.provider
     result.synthesis_messages = [
         *(result.prepared_synthesis_messages or []),
@@ -1244,6 +1425,71 @@ def promote_grounded_answer(
 
 # 向后兼容别名：daily-agent 路径早于通用 Grounded Presenter 存在。
 promote_daily_agent_grounded_answer = promote_grounded_answer
+
+
+# 预测题的三个必需分支，以及 AnswerSpec 里承载它们的确定性 claim。
+_FORECAST_SCENARIO_CLAIMS: tuple[tuple[str, str], ...] = (
+    ("rebound_case", "generic:rebound_case"),
+    ("decline_case", "generic:decline_case"),
+    ("invalidation", "generic:invalidation"),
+)
+
+
+def ensure_forecast_scenarios_visible(result: AskResult) -> None:
+    """Keep the user-facing answer complete when LLM prose drops required claims.
+
+    AnswerSpec already contains the three deterministic, evidence-bound scenario
+    claims.  A grounded composer may validly paraphrase them, but it must not
+    silently omit an entire branch of a two-scenario question.  Append only the
+    missing deterministic block; do not regenerate or overwrite the model's
+    useful prose.
+
+    这个收口原先挂在 ``ask.py`` 的尾部，而 GenericResearchOwner 路径（也就是
+    「明天怎么走」实际走的那条）在 ``_answer_query_impl`` 开头就 return 了，永远到
+    不了那一行——于是它对前瞻题一次都没生效过。实测：composer 的 judge 判掉了写着
+    失效条件的那句，repair 把它删掉，最终正文只剩「反之…有走弱的风险」，门禁判
+    invalidation 缺失，整份答案被 fail-closed 成「请补充数据源或稍后重试」。
+
+    因此改挂在合成之后：composer 怎么改写都行，但删掉一整支必需分支时由确定性
+    文本补回。判定直接复用门禁的 ``answer_has_output_marker``，不再维护第二套
+    ("反弹","继续下跌","失效条件") 词表——两套词表迟早会漂移，而漂移的结果就是
+    「补过了但门禁仍判缺」或者反过来。
+    """
+
+    if (
+        result.question_plan is None
+        or result.question_plan.question_type != QUESTION_MARKET_FORECAST
+        or not result.synthesis
+        or result.answer_spec is None
+    ):
+        return
+    claims = {
+        claim.claim_id: claim
+        for claim in result.answer_spec.candidate_facts
+        if claim.claim_id in {claim_id for _, claim_id in _FORECAST_SCENARIO_CLAIMS}
+    }
+    lines: list[str] = []
+    for output_id, claim_id in _FORECAST_SCENARIO_CLAIMS:
+        # 只补真正缺的那一支：整块重贴会把 composer 已经写好的情景又复述一遍。
+        if answer_has_output_marker(output_id, result.synthesis):
+            continue
+        claim = claims.get(claim_id)
+        if claim is None or not claim.text.strip():
+            continue
+        refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
+        lines.append(f"{claim.text.strip()}{refs}")
+    if not lines:
+        return
+    block = "## 基准判断与条件情景\n" + "\n".join(lines)
+    body = result.synthesis.rstrip()
+    # 「（非投资建议）」是收尾声明，必须留在最后一行；补的分支插在它前面，
+    # 否则正文读起来是「…（非投资建议）」之后又冒出两段判断。
+    disclaimer = "（非投资建议）"
+    if body.endswith(disclaimer):
+        head = body[: -len(disclaimer)].rstrip()
+        result.synthesis = f"{head}\n\n{block}\n\n{disclaimer}"
+        return
+    result.synthesis = f"{body}\n\n{block}"
 
 
 def _shadow_support_claims(
@@ -1273,6 +1519,150 @@ def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
     return deadline
 
 
+def repair_unfulfilled_answer(
+    *,
+    question: str,
+    answer_text: str,
+    answer_spec: answer_model.AnswerSpec,
+    verdict,  # task_fulfillment.FulfillmentVerdict（避免模块级循环导入）
+    required_outputs,  # tuple[RequiredOutput, ...]
+    llm_model: str | None = None,
+    timeout: int,
+) -> tuple[str, object] | None:
+    """门禁判缺时补写一轮；仍不过则返回 None，由调用方 fail-closed。
+
+    这是官方 Claude Code「拒绝作为反馈回灌」的对应物：工具被拒时模型收到的是
+    一条拒绝消息**作为 tool result**，然后换方法或说明无法继续，而不是整轮作废。
+    ch04「分层错误级联」给了它的通用形式——Bash 出错只取消同级 Bash、不动
+    Read/Grep，为的是避开「完全隔离（错误被忽视）」和「全局中止（一个小错误
+    杀死整个会话）」两个极端。我们原先站在「全局中止」这一极。
+
+    三条约束都在这个函数里，不依赖调用方守规矩：
+
+    1. **只补一轮**——这里没有循环。额外那次调用由 turn 级 ``LlmCallLedger``
+       兜底（``conversation_orchestrator`` 的 ``call_ledger_scope``），预算耗尽
+       时 ``synthesize_messages`` 直接拒发，修复轮自动不发生，退回今天的行为。
+       所以**不需要第二个计数器**。
+    2. **补写只能用 registry 里已有的事实**——见
+       ``fulfillment_revision_user_content`` 的来源约束。
+    3. **补写后必须重新过门禁**——重判在下面，只有新判定为 complete 才返回。
+       这一条做成结构性的：调用方拿不到「跑过修复轮」这个理由来放行。
+    """
+
+    from intelligence.services import task_fulfillment
+
+    missing = tuple(
+        (item.output_id, item.gap or "未覆盖")
+        for item in verdict.missing_required
+    )
+    if not missing:
+        return None
+    registry_block = answer_model.grounded_claim_registry_block(
+        answer_spec,
+        query=question,
+        max_chars=12_000,
+    )
+    if not registry_block.strip():
+        return None
+    revised, _reason = llm_refine.synthesize_messages(
+        [
+            {
+                "role": "system",
+                "content": llm_refine.grounded_composer_system_prompt(),
+            },
+            {
+                "role": "user",
+                "content": llm_refine.fulfillment_revision_user_content(
+                    missing,
+                    registry_block,
+                    answer_text,
+                ),
+            },
+        ],
+        model_override=llm_model,
+        timeout=timeout,
+        temperature=0.0,
+    )
+    if revised is None or not revised.answer.strip():
+        return None
+    recheck = task_fulfillment.evaluate_answer_spec_fulfillment(
+        question=question,
+        required_outputs=required_outputs,
+        answer_text=revised.answer,
+        answer_spec=answer_spec,
+    )
+    if recheck.status != "complete":
+        return None
+    return revised.answer, recheck
+
+
+def _shadow_phase_timeout(
+    deadline: llm_refine.Deadline,
+    configured: int,
+    share: float,
+) -> int:
+    """给 brief/composer/judge 分配同一根 deadline 的有限时间片。"""
+
+    remaining = max(0.0, deadline.remaining())
+    if remaining <= 0:
+        return 1
+    return max(1, min(int(configured), int(max(1.0, remaining * share))))
+
+
+# judge 是「后台请求」——用户不在等它的结果，它挂了不代表被审对象有问题。
+# 官方 Claude Code 对这类请求的处理是减载而不是重试（`FOREGROUND_529_RETRY_SOURCES`
+# 只放前台请求，摘要/标题/分类器一律立即放弃），理由是过载时每次重试对网关是 3-10 倍
+# 放大，而「用户根本看不到这些失败」。我们这里的对应动作是：judge 因瞬时故障没能给出
+# 判定时，放行已经通过确定性绑定校验的候选正文，而不是把整份答案换成缺口模板。
+#
+# 白名单只收「provider 那边出了事」，不收「judge 自己产出有问题」和配置问题——
+# 这跟 episode 侧 `_transient_failure_candidate` 的取舍一致（那里的注释写得很明白：
+# configuration、malformed-output、contract 三类继续走 fail-closed）。
+# 注意 4xx 的取舍跟 ch06b 的 `shouldRetry` 不一样，这是**两个不同的问题**：
+# 它问「这次调用该不该重试」（401 要重试，因为可能是另一个进程刷新了 token）；
+# 我们问「被审对象是不是无辜的」。401/403 意味着后续每次调用都会失败，
+# 放行会从例外变成常态——所以跟配置问题一样 fail-closed。别照抄。
+_TRANSIENT_JUDGE_REASONS = frozenset(
+    {
+        "timeout",
+        "provider_stalled",
+        "provider_rate_limited",
+        "provider_overloaded",
+        "provider_http_error",
+        "empty_response",
+        "call_budget_exhausted",
+    }
+)
+
+_JUDGE_OUTAGE_NOTICE = (
+    "（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）"
+)
+
+
+def _judge_outage_release(
+    candidate_answer: str,
+    answer_spec: answer_model.AnswerSpec,
+    judge_reason: str,
+) -> str | None:
+    """judge 因瞬时故障缺席时，把候选正文带警示放行；否则返回 None。
+
+    三条约束照抄 episode 侧的 ``_transient_failure_candidate``：
+    只放行瞬时故障、正文必须已经过确定性层、放行后的文本自带警示。
+    这里**不放宽任何领域判据**——数字/公司/日期是否有出处仍由确定性层把关，
+    跳过的只是语义复核这一道通用层的第二意见。
+    """
+
+    if _stable_llm_fallback_reason(judge_reason) not in _TRANSIENT_JUDGE_REASONS:
+        return None
+    presented = answer_model.present_grounded_composer_answer(
+        candidate_answer,
+        answer_spec,
+    )
+    if not _strip_empty_grounded_sections(presented).strip():
+        return None
+    return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1297,16 +1687,24 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     deadline = _shadow_deadline(options)
-    registry_block = answer_model.grounded_claim_registry_block(
-        result.answer_spec
+    brief_timeout = _shadow_phase_timeout(
+        deadline, options.shadow_grounded_timeout, 0.25
     )
+    registry_block = answer_model.grounded_claim_registry_block(
+        result.answer_spec,
+        query=options.query,
+        max_chars=12_000,
+    )
+    # 本轮的验收标准。空元组保持旧行为（专项 owner 之外的调用方尚未提供契约）。
+    required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_result, brief_reason = llm_refine.synthesize_messages(
         llm_refine.build_decision_brief_messages(
             options.query,
             registry_block,
+            required_outputs=required_outputs_block,
         ),
         model_override=options.llm_model,
-        timeout=options.shadow_grounded_timeout,
+        timeout=brief_timeout,
         deadline=deadline,
         temperature=0.0,
         max_tokens=1200 * token_budget_scale,
@@ -1342,9 +1740,12 @@ def synthesize_shadow_grounded_answer(
             options.query,
             decision_brief.to_prompt_block(),
             registry_block,
+            required_outputs=required_outputs_block,
         ),
         model_override=options.llm_model,
-        timeout=max(1, int(deadline.remaining())),
+        timeout=_shadow_phase_timeout(
+            deadline, options.shadow_grounded_timeout, 0.5
+        ),
         deadline=deadline,
         temperature=0.2,
         max_tokens=2400 * token_budget_scale,
@@ -1363,6 +1764,18 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     raw_answer = composed.answer
+    # composer 常把 atom id 串位写进 claim_ids，导致整句判无效、修复失败、好答案被丢。
+    # atom id 唯一指向所属 claim，可确定还原；brief 侧早有同样的规范化。
+    if result.answer_spec is not None:
+        raw_answer = answer_model.canonicalize_grounded_claim_ids(
+            raw_answer,
+            result.answer_spec,
+        )
+        # 同一类笔误的第二种形状：把聚合 claim 展开成一家一行，却每行都绑回聚合。
+        raw_answer = answer_model.rebind_entity_claim_ids(
+            raw_answer,
+            result.answer_spec,
+        )
     deterministic_issues = (
         answer_model.validate_grounded_composer_answer(
             raw_answer,
@@ -1414,7 +1827,9 @@ def synthesize_shadow_grounded_answer(
         with llm_refine.provider_override(judge_override):
             judged, judge_reason = llm_refine.synthesize_messages(
                 judge_messages,
-                timeout=max(1, int(deadline.remaining())),
+                timeout=_shadow_phase_timeout(
+                    deadline, options.shadow_grounded_timeout, 0.35
+                ),
                 deadline=deadline,
                 temperature=0.0,
                 max_tokens=1200 * token_budget_scale,
@@ -1424,21 +1839,34 @@ def synthesize_shadow_grounded_answer(
         judged, judge_reason = llm_refine.synthesize_messages(
             judge_messages,
             model_override=options.llm_model,
-            timeout=max(1, int(deadline.remaining())),
+            timeout=_shadow_phase_timeout(
+                deadline, options.shadow_grounded_timeout, 0.35
+            ),
             deadline=deadline,
             temperature=0.0,
             max_tokens=1200 * token_budget_scale,
             max_chars=8000 * token_budget_scale,
         )
     if judged is None:
+        released = _judge_outage_release(
+            candidate_answer,
+            result.answer_spec,
+            judge_reason,
+        )
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
-                status="judge_unavailable",
+                # 状态不冒充 accepted：这份答案没被语义复核过，遥测要能分得出来。
+                status=(
+                    "judge_outage_released"
+                    if released is not None
+                    else "judge_unavailable"
+                ),
                 decision_brief=decision_brief,
                 raw_answer=raw_answer,
                 repaired_answer=(
                     candidate_answer if repaired else None
                 ),
+                presented_answer=released,
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
                 model=composed.model,
@@ -1473,8 +1901,12 @@ def synthesize_shadow_grounded_answer(
         semantic_repair = answer_model.repair_grounded_composer_answer(
             candidate_answer,
             result.answer_spec,
+            # judge 的序号跟 harness 的编号对不上，按它 issue 里引用的原文重新定位。
             rejected_sentence_indexes=(
-                judge_report.rejected_sentence_indexes
+                answer_model.resolve_judge_sentence_indexes(
+                    judge_report,
+                    sentences,
+                )
             ),
             drop_invalid=repair_drop_invalid,
         )
@@ -1500,6 +1932,14 @@ def synthesize_shadow_grounded_answer(
             return result
         candidate_answer = semantic_repair
         repaired = True
+    # brief 点名了产业链映射而正文没写时，确定性补一节。必需输出不能依赖模型遵从：
+    # 实测 composer 拿到含 12 家公司的 chain_mapping、系统提示词也明确要求逐个写出，
+    # 它仍然一家都不提，于是 chain_mapping 判缺、整份 919 字答案被 fail-closed 丢弃。
+    candidate_answer = answer_model.ensure_chain_mapping_section(
+        candidate_answer,
+        result.answer_spec,
+        decision_brief,
+    )
     result.grounded_composer_shadow = (
         answer_model.GroundedComposerShadow(
             status="repaired" if repaired else "accepted",
@@ -1522,20 +1962,6 @@ def synthesize_shadow_grounded_answer(
     return result
 
 
-def _stable_llm_fallback_reason(reason: str) -> str:
-    normalized = str(reason or "").casefold()
-    if "未配置" in normalized:
-        return "provider_unavailable"
-    if "截止时间" in normalized or "超时" in normalized:
-        return "timeout"
-    if "输出超长" in normalized or "too long" in normalized:
-        return "output_too_long"
-    if "截断" in normalized or "length" in normalized:
-        return "truncated_response"
-    if "未正常停止" in normalized or "stalled" in normalized:
-        return "provider_stalled"
-    if "http" in normalized:
-        return "provider_http_error"
-    if "空内容" in normalized:
-        return "empty_response"
-    return "provider_unavailable"
+# 分类器已下沉到 llm_refine——它解析的字符串就是那边产出的，放在一起改产出
+# 的人才看得见解析规则。此处保留旧名，ask.py 和 judge 测试按这个名字引用。
+_stable_llm_fallback_reason = llm_refine.stable_llm_fallback_reason

@@ -30,12 +30,24 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
 
 
 def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
-    """执行 schema.sql 建表。可传入已有连接, 否则自建。"""
+    """由 SectorUniverseStore.ensure_schema() 统一装载 schema 并完成代际迁移。
+
+    2026-08-02 合 main 后，两张 sector 事实表的 VIEW 定义也进了 schema.sql
+    （main a5321eec，与生产库 37 个对象逐一校验）。于是**顺序变成硬约束**：
+    必须先把遗留的 BASE TABLE 改名，才能建同名 VIEW，否则 DuckDB 报
+    「Existing object fact_sector_daily is of type Table, trying to replace
+    with type View」。
+
+    ensure_schema() 内部就是这个顺序（改名 → 重放 schema.sql 全文 → 拷贝遗留行），
+    且无条件重放，所以这里不能再先跑一遍 schema.sql——那正好会踩在改名之前。
+    """
+    from .sector_universe import SectorUniverseStore
+
     own = con is None
     if own:
         con = connect()
     try:
-        con.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        SectorUniverseStore.ensure_schema(con)
     finally:
         if own:
             con.close()

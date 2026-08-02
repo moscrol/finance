@@ -45,12 +45,33 @@ class TestBuildValuationBlock(unittest.TestCase):
         self.assertIn("[D5]", block)
         self.assertIn("目标公司", block)
         self.assertIn("20.0 ~ 40.0", block)  # PE band
+        self.assertIn("PB 情景计算锚", block)
+        self.assertIn("保守 2.5 ~ 3.0 倍", block)
+        self.assertIn("中性 3.0 ~ 4.0 倍", block)
+        self.assertIn("乐观 4.0 ~ 5.0 倍", block)
+        self.assertIn("假设净资产不变", block)
         self.assertIn("缺历史分位", block)  # explicit gap
         self.assertIn("禁止输出单点目标价", block)
 
     def test_block_without_target_is_gap(self):
         block = ve.build_valuation_block(None, [])
         self.assertIn("缺目标估值快照", block)
+
+    def test_loss_making_target_uses_current_pb_sensitivity_not_peer_extremes(self):
+        target = _snap("688323", "亏损公司", mv=49.5, pe=-51.26, pb=4.33)
+        peers = [
+            _snap("600001", "盈利可比甲", pe=40.0, pb=7.73),
+            _snap("600002", "盈利可比乙", pe=60.0, pb=24.91),
+            _snap("600003", "盈利可比丙", pe=80.0, pb=34.19),
+        ]
+
+        block = ve.build_valuation_block(target, peers)
+
+        self.assertIn("亏损公司启发式", block)
+        self.assertIn("保守 3.25 ~ 4.33 倍", block)
+        self.assertIn("中性 4.33 ~ 6.5 倍", block)
+        self.assertIn("乐观 6.5 ~ 8.66 倍", block)
+        self.assertNotIn("保守 7.73 ~", block)
 
     def test_block_fetch_disabled(self):
         block = ve.build_valuation_block(None, [], fetch_disabled=True)
@@ -60,6 +81,13 @@ class TestBuildValuationBlock(unittest.TestCase):
         target = _snap("600000", "目标公司", mv=100.0, pe=15.0, pb=2.0)
         block = ve.build_valuation_block(target, [])
         self.assertIn("缺可比集", block)
+        self.assertIn("估值快照日期：未知", block)
+
+    def test_block_source_date_is_read_from_provider_line(self):
+        target = _snap("600000", "目标公司", mv=100.0, pe=15.0, pb=2.0)
+        target.source_date = "2026-07-27"
+        block = ve.build_valuation_block(target, [])
+        self.assertEqual(ve.block_source_date(block), "2026-07-27")
 
 
 class TestSnapshotsFor(unittest.TestCase):

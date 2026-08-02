@@ -87,7 +87,50 @@ OPTIONAL_QUERY_OPTIONS = (
 )
 
 CITATION_PREFIX = "W"
+_STDERR_REASON_MAX_CHARS = 400
+# 索引新鲜度守卫的 fail-closed 文案 -> 可执行的补救动作。守卫本身是对的（索引与
+# 源不一致时拒绝把召回当证据），问题在于工作台原先只把它显示成"退出码 3"。
+_RAG_REMEDIES: tuple[tuple[str, str], ...] = (
+    (
+        "working-tree changes",
+        "知识库有未提交改动导致索引与源不一致；提交后 post-commit hook 会自动重建"
+        "（单跑 rag update 不够，守卫要求源已提交）",
+    ),
+    ("indexed source changed in git", "索引落后于已提交内容；在知识库仓跑 rag update"),
+    ("built from dirty source", "索引是在脏工作区上建的；提交后重建"),
+    ("age=", "索引超龄；在知识库仓跑 rag update"),
+)
+
+
+def _stderr_reason(stderr: str | None) -> str:
+    """只在 stderr 命中已知的可操作模式时返回原因 + 补救动作，否则返回空串。
+
+    **不泄露任意 stderr**：那可能带查询原文、路径或 traceback，且对用户没有
+    操作价值（见 test_unrelated_retriever_error_does_not_fall_back——不外泄是
+    有意的设计）。这里只放行索引新鲜度守卫那几条：它们既是最高频的失败原因，
+    又能直接对应一个明确动作。工作台原先把它们统一显示成"退出码 3"，等于把
+    唯一可操作的信息藏了起来。
+    """
+    text = re.sub(r"\s+", " ", str(stderr or "")).strip()
+    if not text:
+        return ""
+    for marker, remedy in _RAG_REMEDIES:
+        if marker in text:
+            return f"索引不可用作证据（{marker}）｜补救：{remedy}"[
+                :_STDERR_REASON_MAX_CHARS
+            ]
+    return ""
+
+
 _LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
+# CLI 拒收时可以安全丢弃并重试的查询选项。丢掉它们只降低精度（过滤失效、
+# 证据文本预算变短），不会让召回结果变错；因此宁可退化也不要返回空集。
+_DROPPABLE_QUERY_OPTIONS: tuple[str, ...] = (
+    "--evidence-chars",
+    "--evidence-layer",
+    "--fact-hardness",
+    "--source-type",
+)
 _DENSE_UNAVAILABLE_UNTIL: dict[str, float] = {}
 _RESULT_CACHE: OrderedDict[tuple[object, ...], tuple[float, WikiRagResult]] = (
     OrderedDict()
@@ -179,6 +222,7 @@ class WikiHit:
     fact_hardness: str = ""
     source_type: str = ""
     via_neighbor: bool = False
+    source_date: str = ""
 
 
 # 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
@@ -256,6 +300,10 @@ class RetrievalTelemetry:
     cache_hit: bool = False
     cache_age_ms: int | None = None
     index_fingerprint: str = ""
+    # 本次查询是否顺带加载了 BGE-m3 与稠密索引（常驻 worker 的冷启动）。
+    # 实测冷 60.1s / 热 4-6s，差 10 倍以上，所以冷查询的耗时不能当成后续查询的
+    # 成本样本——下游预算据此决定要不要采纳这次观测。
+    model_loaded: bool = False
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -627,6 +675,9 @@ def retrieve(
     fact_hardness: str | None = None,
     source_type: str | None = None,
     index_dir: str | Path | None = None,
+    code_root: str | Path | None = None,
+    python_executable: str | Path | None = None,
+    worker_enabled: bool | None = None,
     require_fresh: bool = True,
     cache_scope: str | None = None,
 ) -> WikiRagResult:
@@ -656,8 +707,14 @@ def retrieve(
         tel.status = "skipped"
         tel.warning = res.warning
         return res
-    root = kb_root(kb_wiki)
-    script = root / RAG_SCRIPT_REL
+    wiki_root = Path(kb_wiki).expanduser().resolve()
+    root = kb_root(wiki_root)
+    runtime_root = (
+        Path(code_root).expanduser().resolve()
+        if code_root is not None
+        else root
+    )
+    script = runtime_root / RAG_SCRIPT_REL
     if not script.exists():
         res.warning = f"wiki-rag 未接入：找不到 {script}"
         tel.status = "skipped"
@@ -708,7 +765,11 @@ def retrieve(
         tel.warning = res.warning
         return res
 
-    rag_python = _resolve_rag_python(root)
+    rag_python = (
+        str(Path(python_executable).expanduser())
+        if python_executable is not None
+        else _resolve_rag_python(runtime_root)
+    )
     generation_evidence_chars = min(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
@@ -762,22 +823,22 @@ def retrieve(
     if "--evidence-chars" not in legacy_options:
         cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
     cmd.append("--json")
+    # 已知被 CLI 拒收的过滤选项不再下发：否则每轮都要先失败一次才降级，
+    # 白烧一次查询预算。tel.filters 仍记录请求过什么，便于对账"要过滤但没过滤"。
     filters = []
-    if evidence_layer:
-        cmd.extend(["--evidence-layer", evidence_layer])
-        filters.append(f"evidence_layer={evidence_layer}")
-    if fact_hardness:
-        cmd.extend(["--fact-hardness", fact_hardness])
-        filters.append(f"fact_hardness={fact_hardness}")
-    if source_type:
-        cmd.extend(["--source-type", source_type])
-        filters.append(f"source_type={source_type}")
-    if evidence_layer:
-        tel.filters["evidence_layer"] = evidence_layer
-    if fact_hardness:
-        tel.filters["fact_hardness"] = fact_hardness
-    if source_type:
-        tel.filters["source_type"] = source_type
+    for option, value in (
+        ("--evidence-layer", evidence_layer),
+        ("--fact-hardness", fact_hardness),
+        ("--source-type", source_type),
+    ):
+        if not value:
+            continue
+        key = option.lstrip("-").replace("-", "_")
+        tel.filters[key] = value
+        if option in legacy_options:
+            continue
+        cmd.extend([option, value])
+        filters.append(f"{key}={value}")
     filter_note = f" filters={','.join(filters)}" if filters else ""
     evidence_chars_note = (
         f" --evidence-chars {generation_evidence_chars}"
@@ -794,6 +855,7 @@ def retrieve(
     )
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
+    env["KB_VAULT"] = str(wiki_root)
     # 检索器每次查询都会向 HuggingFace Hub 发**未认证**请求校验 bge-m3 的 30 个
     # 文件，即便本地已缓存。未认证请求有速率限制，连跑一批查询就会被限流、
     # 整条检索以退出码 1 挂掉（实测：离线 19s / 联网 21s，联网校验零收益）。
@@ -818,31 +880,35 @@ def retrieve(
             "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
         )
     _t0 = time.monotonic()
-    worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
-        "0",
-        "false",
-        "off",
-        "no",
-    }
+    if worker_enabled is None:
+        worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
+            "0",
+            "false",
+            "off",
+            "no",
+        }
     try:
         if worker_enabled and not filters:
             proc = rag_worker.query(
                 python=rag_python,
-                kb_root=root,
+                kb_root=runtime_root,
                 index_dir=chosen,
                 argv=cmd[2:],
                 timeout=float(timeout),
             )
             tel.query_protocol = "persistent_worker"
+            tel.model_loaded = int(getattr(proc, "model_load_count", 0) or 0) > 0
         else:
             proc = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
+            # 每次都是新进程，必然重新加载模型与索引。
+            tel.model_loaded = True
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         fallback_warnings.append(
             f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
@@ -855,7 +921,7 @@ def retrieve(
                 capture_output=True,
                 text=True,
                 timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)),
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
         except subprocess.TimeoutExpired:
@@ -882,27 +948,43 @@ def retrieve(
         tel.warning = res.warning
         return res
 
-    if (
-        proc.returncode != 0
-        and "--evidence-chars" in cmd
-        and _unsupported_option(proc.stderr, "--evidence-chars")
-    ):
+    # CLI 不支持的选项一律走同一条降级路径：丢掉该选项后重试一次。
+    #
+    # 原先只硬编码了 --evidence-chars。实测知识库的 rag_index.py query 只支持
+    # --model/--include-raw/--k/--mode/--reranker/--json/--evidence-chars/
+    # --stale-policy，并不支持工作台一直在下发的三个过滤参数，于是每一次分层
+    # 证据检索都以 "unrecognized arguments" rc=2 收场、返回空集，表面上只留一句
+    # "检索器返回告警"。改 KB 的 CLI 属跨仓改动（未获授权），所以在工作台侧
+    # 泛化这条既有降级路径：分层过滤退化为未过滤召回并如实记账，而不是什么都拿不到。
+    unsupported = tuple(
+        option
+        for option in _DROPPABLE_QUERY_OPTIONS
+        if option in cmd and _unsupported_option(proc.stderr, option)
+    )
+    if proc.returncode != 0 and unsupported:
         remaining = float(timeout) - (time.monotonic() - _t0)
+        listed = "/".join(unsupported)
         if remaining < 1:
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = (
-                "wiki-rag CLI 不支持 --evidence-chars，剩余预算不足，"
-                "未执行 legacy query 回退"
+                f"wiki-rag CLI 不支持 {listed}，剩余预算不足，未执行 legacy query 回退"
             )
             tel.status = "error"
             tel.warning = res.warning
             return res
-        cmd = _without_option(cmd, "--evidence-chars")
-        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset({"--evidence-chars"})
+        for option in unsupported:
+            cmd = _without_option(cmd, option)
+        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset(unsupported)
         tel.query_protocol = "legacy"
-        tel.unsupported_options = ("--evidence-chars",)
-        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.unsupported_options = unsupported
+        tel.fallback_reason = "legacy_cli_missing_" + "_".join(
+            option.lstrip("-").replace("-", "_") for option in unsupported
+        )
         tel.degraded = True
+        fallback_warnings.append(
+            f"wiki-rag CLI 不支持 {listed}，已丢弃该选项后重试；"
+            "分层过滤未生效，本轮召回为未过滤结果"
+        )
         res.command = (
             f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
         )
@@ -910,7 +992,7 @@ def retrieve(
             if worker_enabled and not filters:
                 proc = rag_worker.query(
                     python=rag_python,
-                    kb_root=root,
+                    kb_root=runtime_root,
                     index_dir=chosen,
                     argv=cmd[2:],
                     timeout=remaining,
@@ -922,7 +1004,7 @@ def retrieve(
                     capture_output=True,
                     text=True,
                     timeout=remaining,
-                    cwd=str(root),
+                    cwd=str(runtime_root),
                     env=env,
                 )
         except (subprocess.TimeoutExpired, TimeoutError):
@@ -979,7 +1061,7 @@ def retrieve(
                 capture_output=True,
                 text=True,
                 timeout=remaining,
-                cwd=str(root),
+                cwd=str(runtime_root),
                 env=env,
             )
         except subprocess.TimeoutExpired:
@@ -998,22 +1080,31 @@ def retrieve(
 
     tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
+        reason = _stderr_reason(proc.stderr)
         if tel.fallback_reason == "dense_dependency_missing":
             res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
         elif tel.query_protocol == "legacy":
             res.warning = f"wiki-rag legacy query 回退退出码 {proc.returncode}"
         else:
             res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
-        reason = _stderr_reason(proc.stderr)
+        # 退出码本身不可操作。检索器把真正的原因写在 stderr——索引过期时那里
+        # 明确写着是哪一类不新鲜、该跑什么命令。丢掉它等于让每次排查都从零开始。
+        # （reason 已在上面的 if 链之前算过，main 侧那次重复调用去掉。）
         if reason:
             res.warning = f"{res.warning}：{reason}"
         tel.status = "error"
         tel.warning = res.warning
         return res
     warnings = [warning for warning in (res.warning, *fallback_warnings) if warning]
-    stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
-    if stderr_warning:
-        warnings.append("wiki-rag 检索器返回告警")
+    if re.sub(r"\s+", " ", (proc.stderr or "")).strip():
+        # rc=0 但有 stderr：保留原来的笼统措辞（不外泄任意 stderr），只在命中
+        # 已知可操作模式时补一句补救动作。
+        actionable = _stderr_reason(proc.stderr)
+        warnings.append(
+            f"wiki-rag 检索器返回告警：{actionable}"
+            if actionable
+            else "wiki-rag 检索器返回告警"
+        )
 
     try:
         raw = json.loads(proc.stdout or "[]")
@@ -1077,6 +1168,7 @@ def retrieve(
                 fact_hardness=str(item.get("fact_hardness") or ""),
                 source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
+                source_date=str(item.get("source_date") or item.get("date") or ""),
             )
         )
     if rejected_hits:

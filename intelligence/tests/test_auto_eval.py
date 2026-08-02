@@ -7,6 +7,7 @@ from unittest import mock
 
 from intelligence import userspace
 from intelligence.services import auto_eval
+from intelligence.eval.capability_monotonicity import evaluate_capability_case
 
 
 class AutoEvalTests(unittest.TestCase):
@@ -49,6 +50,22 @@ class AutoEvalTests(unittest.TestCase):
             self.assertIsNone(outcome.card_path)
             self.assertFalse(outcome.flagged_for_review)
             self.assertTrue(outcome.ledger_path.exists())
+
+    def test_capability_metrics_stay_advisory_and_do_not_change_auto_eval(self) -> None:
+        case = {
+            "id": "control-leak",
+            "question": "为什么没有回答",
+            "answer": "fallback_reason=timeout，详见 /Users/test/run.json",
+            "direct_targets": ["回答"],
+        }
+        metric = evaluate_capability_case(case)
+        self.assertGreater(metric.control_plane_leak_score, 0.0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome = self._run(tmp, case["question"], case["answer"])
+            record = json.loads(outcome.ledger_path.read_text(encoding="utf-8").splitlines()[0])
+            self.assertNotIn("capability_monotonicity", record)
+            self.assertEqual(record["role"], "advisory_review")
 
 
 if __name__ == "__main__":

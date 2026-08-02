@@ -11,7 +11,11 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from intelligence.api import app as app_module  # noqa: E402
 from intelligence.api.app import create_app  # noqa: E402
+from intelligence.services.continuous_turn_adapter import (  # noqa: E402
+    ContinuousTurnResult,
+)
 from intelligence.services.conversation_orchestrator import (  # noqa: E402
     TurnOrchestrator,
 )
@@ -250,6 +254,73 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         assert len(restored_messages) == 6
         assert restored_messages[3]["invoked_skill_ids"] == ["daily-agent"]
         assert restored_messages[-1]["run_id"] == third["run_id"]
+
+
+def test_continuous_episode_citations_survive_run_context_reload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class CitationAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="当前主线是半导体，失效条件是量能与核心股承接同步转弱。",
+                as_of="2026-07-24",
+                citations=(
+                    {
+                        "title": "半导体板块成交集中度居前",
+                        "source": "本地市场数据",
+                        "date": "2026-07-24",
+                    },
+                ),
+                warnings=(),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+                llm_provider="test",
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: CitationAdapter(),
+    )
+
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "证据恢复", "user": "alice"},
+        ).json()["conversation_id"]
+        created, run = _send(
+            client,
+            conversation_id,
+            "目前市场的主线是什么，给出判断依据和失效条件",
+        )
+
+        assert run["status"] == "completed"
+        messages = client.get(
+            f"/api/conversations/{conversation_id}/messages",
+            params={"user": "alice"},
+        ).json()
+        assert len(messages[-1]["citations"]) == 1
+
+        context = client.get(
+            f"/api/runs/{created['run_id']}/context",
+            params={"user": "alice"},
+        ).json()
+        bound_evidence = [
+            item
+            for item in context["evidence"]
+            if item["classification"] == "bound_evidence"
+        ]
+        assert [item["label"] for item in bound_evidence] == [
+            "[E1] 本地市场数据"
+        ]
 
 
 @dataclass

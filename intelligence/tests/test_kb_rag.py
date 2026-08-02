@@ -233,6 +233,46 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertEqual(res.hits, [])
             self.assertTrue(res.telemetry.degraded)
 
+    def test_explicit_runtime_root_index_and_python_are_used(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            runtime = root / "runtime"
+            (runtime / "scripts").mkdir(parents=True)
+            (runtime / "scripts" / "rag_index.py").write_text("# sealed runtime")
+            index = root / "sealed-index"
+            index.mkdir()
+            python = root / "sealed-python"
+            python.write_text("")
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(self._freshness_payload("fresh")),
+                stderr="",
+            )
+
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                result = kb_rag.retrieve(
+                    "光刻机",
+                    root / "wiki",
+                    index_dir=index,
+                    code_root=runtime,
+                    python_executable=python,
+                    worker_enabled=False,
+                )
+
+            self.assertTrue(result.ok)
+            command = run.call_args.args[0]
+            self.assertEqual(command[0], str(python))
+            self.assertEqual(
+                command[1],
+                str(runtime.resolve() / "scripts" / "rag_index.py"),
+            )
+            self.assertEqual(run.call_args.kwargs["cwd"], str(runtime.resolve()))
+            self.assertEqual(
+                run.call_args.kwargs["env"]["KB_VAULT"],
+                str((root / "wiki").resolve()),
+            )
+            self.assertEqual(run.call_args.kwargs["env"]["RAG_INDEX_DIR"], str(index))
+
     def test_mixed_freshness_keeps_only_fresh_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = self._setup_repo(td)
@@ -377,6 +417,62 @@ class KbRagTelemetryTests(unittest.TestCase):
             )
             self.assertTrue(res.telemetry.degraded)
             self.assertIn("已回退 BM25", res.warning)
+
+    def test_dense_dependency_failure_marks_next_call_cached_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            failed = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="ModuleNotFoundError: No module named 'FlagEmbedding'",
+            )
+            success = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(
+                    self._freshness_payload("fresh"),
+                    ensure_ascii=False,
+                ),
+                stderr="",
+            )
+
+            kb_rag.clear_result_cache()
+            try:
+                with mock.patch.dict(
+                    "os.environ",
+                    {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                    clear=True,
+                ):
+                    with mock.patch(
+                        "subprocess.run",
+                        side_effect=[failed, success, success],
+                    ) as run:
+                        first = kb_rag.retrieve(
+                            "光刻机",
+                            root / "wiki",
+                            mode="hybrid",
+                            timeout=5,
+                        )
+                        second = kb_rag.retrieve(
+                            "半导体设备",
+                            root / "wiki",
+                            mode="hybrid",
+                            timeout=5,
+                        )
+            finally:
+                kb_rag.clear_result_cache()
+
+            self.assertTrue(first.ok)
+            self.assertTrue(second.ok)
+            self.assertEqual(run.call_count, 3)
+            self.assertIn("bm25", run.call_args_list[2].args[0])
+            self.assertEqual(second.telemetry.requested_mode, "hybrid")
+            self.assertEqual(second.telemetry.effective_mode, "bm25")
+            self.assertEqual(
+                second.telemetry.fallback_reason,
+                "dense_dependency_cached_unavailable",
+            )
+            self.assertTrue(second.telemetry.degraded)
 
     def test_legacy_cli_retries_without_evidence_chars(self) -> None:
         with tempfile.TemporaryDirectory() as td:

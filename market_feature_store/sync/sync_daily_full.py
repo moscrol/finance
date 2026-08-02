@@ -126,7 +126,6 @@ def run_daily_update(
     from .sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
     from .sync_mootdx_stock_daily import sync_fact_stock_daily
     from .sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
-    from .sync_feishu_sector_resonance import sync_sector_multi_period_resonance
     from .sync_fupanhui_mainline_daily import sync as sync_mainline_daily
     from .sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
     from .sync_fupanhui_mainline_sector_daily import sync as sync_mainline_sector_daily
@@ -150,7 +149,6 @@ def run_daily_update(
             steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
     else:
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
-    steps.append(_run_step("sync-sector-resonance", sync_sector_multi_period_resonance))
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))
@@ -158,6 +156,35 @@ def run_daily_update(
         steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
     validation = validate_daily_data(td)
     return {"trade_date": str(td), "steps": steps, "validation": validation, "ok": all(s["ok"] for s in steps) and validation["ok"]}
+
+
+DECLARED_SECTOR_TABLES = frozenset({"fact_sector_daily", "fact_sector_stock_daily"})
+
+
+def sector_completion_gate(trade_date: str) -> dict:
+    """把板块宇宙完成度审计投影成一道门。
+
+    fail-closed: 没有已发布宇宙、成分未抓全、或任一声明表在本代际下缺行,
+    都判不通过。审计本身来自 SectorUniverseStore, 这里不重新计算完成条件。
+    """
+    from ..db import connect
+    from ..sector_universe import SectorUniverseStore
+
+    con = connect(read_only=True)
+    try:
+        audit = SectorUniverseStore(con).completion_audit(
+            trade_date, declared_tables=DECLARED_SECTOR_TABLES
+        )
+    finally:
+        con.close()
+    return {
+        "trade_date": trade_date,
+        "ok": audit.complete,
+        "brief": audit.brief(),
+        "snapshot_id": audit.snapshot_id,
+        "missing_tables": list(audit.missing_tables),
+        "status_counts": dict(audit.status_counts),
+    }
 
 
 def run_daily_full(
@@ -182,12 +209,25 @@ def run_daily_full(
         "brief": "same-day gate failed; cross-day gate skipped",
         "skipped": True,
     }
-    gates_ok = update["ok"] and cross_day_gate["ok"]
+    # 第三道门: 板块宇宙的精确完成度。与夜间循环共用同一个 completion_audit,
+    # 不另造公式——两处公式一旦分叉, 报告就可能在成分有缺口时照常生成。
+    sector_gate = (
+        sector_completion_gate(update["trade_date"])
+        if update["ok"] and cross_day_gate["ok"]
+        else {
+            "trade_date": update["trade_date"],
+            "ok": False,
+            "brief": "earlier gate failed; sector completion gate skipped",
+            "skipped": True,
+        }
+    )
+    gates_ok = update["ok"] and cross_day_gate["ok"] and sector_gate["ok"]
     review = build_daily_review(trade_date=update["trade_date"]) if gates_ok else None
     return {
         "trade_date": update["trade_date"],
         "update": update,
         "cross_day_gate": cross_day_gate,
+        "sector_gate": sector_gate,
         "review": review,
         "ok": gates_ok,
     }

@@ -163,7 +163,13 @@ def route_skills(
         "external_market",
         "concept_definition",
     }:
-        automatic_registry: Mapping[str, SkillDefinition] = {}
+        # “今天研究什么”是 controller 已登记的 daily workflow。查询理解器可能
+        # 将这个短句同时归为概念解释，不能因此把唯一的工作流入口清空。
+        automatic_registry = (
+            {"daily-agent": active_registry["daily-agent"]}
+            if "今天研究什么" in query and "daily-agent" in active_registry
+            else {}
+        )
     elif (
         query_envelope is not None
         and query_envelope.subject_kind == "market_pattern"
@@ -195,9 +201,13 @@ def route_skills(
     ):
         rules.insert(0, ("daily-review", "规则识别当日盘面关注提问"))
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
-    deterministic_head_route = is_market_watch_query(query) or (
-        query_envelope is not None
-        and is_dated_market_review(query, query_envelope)
+    deterministic_head_route = (
+        "今天研究什么" in query
+        or is_market_watch_query(query)
+        or (
+            query_envelope is not None
+            and is_dated_market_review(query, query_envelope)
+        )
     )
     reserved_ids = {
         selection.skill_id

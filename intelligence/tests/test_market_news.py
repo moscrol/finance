@@ -3,25 +3,30 @@ from __future__ import annotations
 import io
 import json
 import unittest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from unittest import mock
 
+from intelligence.services import market_news
 from intelligence.services.market_news import (
     PROVIDER_EASTMONEY,
     PROVIDER_WEB,
     NewsItem,
+    NewsFetchResult,
     _normalize_time_text,
     _within_days,
     build_news_block,
     english_alias,
     fetch_eastmoney_news,
+    fetch_eastmoney_news_result,
     fetch_web_access_news,
     merge_news_items,
     news_block_for_keyword,
     news_block_result_for_keyword,
     parse_news_intent,
+    query_date_cutoff,
     resolve_news_keyword,
 )
+from intelligence.services.provider_observability import ProviderTrace
 
 
 class FetchTitleRelevanceFilterTests(unittest.TestCase):
@@ -38,6 +43,333 @@ class FetchTitleRelevanceFilterTests(unittest.TestCase):
             items = fetch_eastmoney_news("后量子密码")
         self.assertEqual(len(items), 1)
         self.assertIn("后量子密码", items[0].title)
+
+    def test_market_cause_title_requires_market_anchor_and_direction(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        articles = [
+            {
+                "date": today,
+                "title": "A股市场缩量调整，主要指数集体收跌",
+                "mediaName": "证券时报",
+                "url": "http://x/a-share",
+            },
+            {
+                "date": today,
+                "title": "7月24日港股回购日报",
+                "mediaName": "财联社",
+                "url": "http://x/hk-buyback",
+            },
+        ]
+        payload = "x(" + json.dumps(
+            {"result": {"cmsArticleWebOld": articles}},
+            ensure_ascii=False,
+        ) + ")"
+        resp = mock.MagicMock()
+        resp.__enter__.return_value = io.BytesIO(payload.encode("utf-8"))
+
+        with mock.patch("urllib.request.urlopen", return_value=resp):
+            items = fetch_eastmoney_news(
+                "2026年7月24日 A股 大跌 原因 上证指数 7月20日至24日"
+            )
+
+        self.assertEqual(
+            [item.title for item in items],
+            ["A股市场缩量调整，主要指数集体收跌"],
+        )
+
+
+class EastmoneyQueryToleranceTests(unittest.TestCase):
+    @staticmethod
+    def _result(keyword: str, *items: NewsItem, status: str = "empty"):
+        return NewsFetchResult(
+            tuple(items),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="success" if items else status,
+                detail=f"scripted:{keyword}",
+                result_count=len(items),
+            ),
+        )
+
+    def test_natural_market_question_retries_simpler_keywords(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword == "A股调整":
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "证券时报",
+                        "A股市场缩量调整",
+                        "https://example.com/a",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls[:2], ["上周A股下跌原因", "A股下跌"])
+        self.assertIn("A股调整", calls)
+        self.assertNotIn("A股", calls)
+        self.assertLessEqual(len(calls), 4)
+        self.assertEqual([item.title for item in result.items], ["A股市场缩量调整"])
+        self.assertEqual(result.trace.status, "fallback_success")
+        self.assertIn("上周A股下跌原因", result.trace.detail)
+        self.assertIn("A股调整", result.trace.detail)
+
+    def test_spaced_market_query_keeps_anchor_and_direction_together(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword == "A股调整":
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "证券时报",
+                        "A股下跌原因复盘",
+                        "https://example.com/market-cause",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "A股 本周 下跌 原因 2026年7月",
+                timeout=2.0,
+            )
+
+        self.assertEqual(
+            calls[:3],
+            ["A股 本周 下跌 原因 2026年7月", "A股下跌", "A股调整"],
+        )
+        self.assertEqual([item.title for item in result.items], ["A股下跌原因复盘"])
+
+    def test_market_fallback_never_degrades_to_date_or_broad_anchor(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            if keyword in {"24日", "24日下跌", "24日调整", "A股"}:
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-24",
+                        "财联社",
+                        "7月24日港股回购日报",
+                        "https://example.com/hk-buyback",
+                    ),
+                )
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "2026年7月24日 A股 大跌 原因 上证指数 7月20日至24日",
+                timeout=2.0,
+            )
+
+        self.assertEqual(result.items, ())
+        self.assertNotIn("24日", calls)
+        self.assertNotIn("24日下跌", calls)
+        self.assertNotIn("24日调整", calls)
+        self.assertNotIn("A股", calls)
+        self.assertTrue({"A股下跌", "A股调整"}.intersection(calls))
+
+    def test_explicit_compound_query_merges_single_keyword_results(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            items = {
+                "低空经济": NewsItem(
+                    "2026-07-24",
+                    "财联社",
+                    "低空经济政策推进",
+                    "https://example.com/low-altitude",
+                ),
+                "商业航天": NewsItem(
+                    "2026-07-23",
+                    "证券时报",
+                    "商业航天发射计划更新",
+                    "https://example.com/space",
+                ),
+            }
+            return self._result(keyword, *([items[keyword]] if keyword in items else []))
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "低空经济 商业航天",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls[:3], ["低空经济 商业航天", "低空经济", "商业航天"])
+        self.assertEqual(
+            [item.title for item in result.items],
+            ["低空经济政策推进", "商业航天发射计划更新"],
+        )
+        self.assertEqual(result.trace.status, "fallback_success")
+
+    def test_provider_error_does_not_trigger_query_fallback_storm(self) -> None:
+        calls: list[str] = []
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            calls.append(keyword)
+            return self._result(keyword, status="request_error")
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+            )
+
+        self.assertEqual(calls, ["上周A股下跌原因"])
+        self.assertEqual(result.trace.status, "request_error")
+
+    def test_fallback_merge_deduplicates_same_url_or_title(self) -> None:
+        duplicate = NewsItem(
+            "2026-07-24",
+            "财联社",
+            "共同标题",
+            "https://example.com/same",
+        )
+
+        def fake_fetch(keyword: str, **_kwargs) -> NewsFetchResult:
+            if keyword in {"低空经济", "商业航天"}:
+                return self._result(keyword, duplicate)
+            return self._result(keyword)
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "低空经济 商业航天",
+                timeout=2.0,
+            )
+
+        self.assertEqual(len(result.items), 1)
+
+    def test_historical_cutoff_pages_until_it_finds_eligible_news(self) -> None:
+        calls: list[tuple[str, int]] = []
+
+        def fake_fetch(keyword: str, **kwargs) -> NewsFetchResult:
+            page_index = int(kwargs.get("page_index", 1))
+            calls.append((keyword, page_index))
+            if keyword != "A股调整":
+                return self._result(keyword)
+            if page_index == 1:
+                return self._result(
+                    keyword,
+                    NewsItem(
+                        "2026-07-27 09:00:00",
+                        "证券时报",
+                        "A股最新动态",
+                        "https://example.com/future",
+                    ),
+                )
+            return self._result(
+                keyword,
+                NewsItem(
+                    "2026-07-24 15:00:00",
+                    "证券时报",
+                    "A股7月24日缩量调整",
+                    "https://example.com/cutoff",
+                ),
+                NewsItem(
+                    "2026-07-23 15:00:00",
+                    "财联社",
+                    "A股7月23日盘面复盘",
+                    "https://example.com/prior",
+                ),
+            )
+
+        with mock.patch.object(
+            market_news,
+            "_fetch_eastmoney_news_uncached",
+            side_effect=fake_fetch,
+        ):
+            result = fetch_eastmoney_news_result(
+                "上周A股下跌原因",
+                timeout=2.0,
+                as_of="2026-07-24",
+            )
+
+        self.assertIn(("A股调整", 1), calls)
+        self.assertIn(("A股调整", 2), calls)
+        self.assertEqual(
+            [item.date[:10] for item in result.items],
+            ["2026-07-24", "2026-07-23"],
+        )
+        self.assertEqual(result.trace.status, "fallback_success")
+        self.assertEqual(result.trace.requested_date, "2026-07-24")
+        self.assertIn("pages=2", result.trace.detail)
+
+
+class QueryDateCutoffTests(unittest.TestCase):
+    def test_uses_latest_explicit_date_in_compressed_market_window(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "A股 2026年7月20日至24日 下跌原因",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 24),
+        )
+
+    def test_keeps_global_cutoff_when_query_has_no_date(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "这一周A股为什么下跌",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 27),
+        )
+
+    def test_explicit_future_date_cannot_expand_global_cutoff(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "2026-07-30 A股下跌原因",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 27),
+        )
+
+    def test_resolves_yearless_chinese_date_against_cutoff_year(self) -> None:
+        self.assertEqual(
+            query_date_cutoff(
+                "7月24日 A股收评",
+                upper_bound=date(2026, 7, 27),
+            ),
+            date(2026, 7, 24),
+        )
 
 
 class ParseNewsIntentTests(unittest.TestCase):

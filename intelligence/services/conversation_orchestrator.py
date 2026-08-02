@@ -14,6 +14,7 @@ from concurrent.futures import (
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from threading import Event, Lock, Thread
+from typing import Protocol
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -23,15 +24,18 @@ from intelligence.api.structured_reports import (
     upsert_report_module,
 )
 from intelligence.services import answer_model, followups as followups_svc
+from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
     Citation,
     PreparedAnswer,
+    SynthesisDiagnostic,
     answer_query,
     prepare_existing_answer,
     render_conversation_answer,
+    repair_unfulfilled_answer,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
 )
@@ -40,7 +44,12 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
+    QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
+    QUESTION_MARKET_CAUSE,
+    QUESTION_MARKET_FORECAST,
+    QUESTION_EXTERNAL_MARKET,
+    QUESTION_MARKET_TECHNICAL,
     plan_answer_question,
 )
 from intelligence.services.conversation_store import (
@@ -48,6 +57,7 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
+from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services import llm_refine
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
@@ -58,7 +68,12 @@ from intelligence.services.lane_generation import (
     render_knowledge_fallback,
 )
 from intelligence.services import perspective_lab
-from intelligence.services.query_understanding import understand_query
+from intelligence.services.query_understanding import (
+    envelope_from_task_frame,
+    project_task_frame,
+    understand_query,
+)
+from intelligence.services.evidence_capabilities import resolve_evidence_plan
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
@@ -66,13 +81,23 @@ from intelligence.services.research_policy import (
 from intelligence.services.research_contract import (
     OWNER_WORKFLOW_SPECS,
     ResearchDeadline,
+    ResearchPolicy,
     ResearchPlan,
+    RequiredOutput,
+    ResearchTaskContract,
     TurnIntent,
     build_turn_intent,
     contextualize_intent_query,
+    is_contextual_follow_up,
 )
-from intelligence.services.run_store import RunStore, redact
+from intelligence.services.run_store import RunStore, redact, redact_value
+from intelligence.paths import default_paths
+from intelligence.services.turn_control_core import (
+    TurnControlResult,
+    project_turn_decision,
+)
 from intelligence.services.turn_controller import TurnDecision, decide_turn
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -94,6 +119,668 @@ SUMMARY_CHAR_LIMIT = 2400
 _SKILL_POOL_WORKERS = 3
 
 
+class ContinuousTurnHandler(Protocol):
+    def handle(
+        self,
+        *,
+        frame: TaskFrame,
+        control: TurnControlResult,
+    ) -> ContinuousTurnResult: ...
+
+
+class RunTerminalClaimLost(RuntimeError):
+    def __init__(self, status: str) -> None:
+        super().__init__(f"run terminal state already claimed: {status}")
+        self.status = status
+
+
+def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
+    """原因归因题不夹带用户未询问的交易策略段。"""
+    if not re.search(
+        r"(?:本周|这一周|这周|近一周|过去一周).{0,20}(?:行情|大盘|市场).{0,20}"
+        r"(?:下跌|走弱).{0,20}(?:原因|为什么|驱动|归因)",
+        query,
+    ):
+        return text
+    forbidden = (
+        "操作层面",
+        "仓位",
+        "买入",
+        "卖出",
+        "防御和观察",
+        "宜以防御",
+        "博弈单边反转",
+        "非投资建议",
+    )
+    lines = [
+        line
+        for line in text.splitlines()
+        if not any(term in line for term in forbidden)
+    ]
+    return "\n".join(lines).strip()
+
+
+def _build_generic_research_contract(
+    query: str,
+    *,
+    task_id: str,
+    turn_intent: TurnIntent,
+    task_frame: TaskFrame | None = None,
+) -> ResearchTaskContract:
+    """为未命中专项 Owner 的问题生成保守、可审计的任务契约。"""
+
+    semantic_query = task_frame.raw_question if task_frame is not None else query
+    normalized = semantic_query.replace(" ", "")
+    tier = (
+        "deep"
+        if any(term in normalized for term in ("深挖", "深入", "系统研究"))
+        else "quick"
+        if any(term in normalized for term in ("简单说", "快答", "一句话"))
+        else "standard"
+    )
+    is_market_cause = turn_intent.question_type == QUESTION_MARKET_CAUSE
+    is_market_forecast = turn_intent.question_type == QUESTION_MARKET_FORECAST
+    is_event_forecast = turn_intent.question_type == "event_forecast"
+    is_comparison = turn_intent.question_type == "comparison"
+    is_fact_check = turn_intent.question_type == "fact_check"
+    is_relation_query = bool(
+        {"relation", "company_mapping"}.intersection(turn_intent.operators)
+    )
+    # “甲和乙是否合作/供货”仍走 L3 hard-fact 核验；“甲的客户有哪些/客户的
+    # 竞争对手是谁”是关系地图任务，不能被普通个股事实契约吞掉。
+    is_relation_fact_check = is_relation_query and bool(
+        re.search(
+            r"(?:是否|有无|有没有|能否|是不是|是否已经).{0,16}"
+            r"(?:合作|供货|供应(?:商)?|订单|合同|认证|定点|客户关系)"
+            r"|(?:合作|供货|供应(?:商)?|订单|合同|认证|定点|客户关系).{0,8}"
+            r"(?:是否|有无|有没有|能否|吗|么|是不是)",
+            normalized,
+        )
+    )
+    is_relation_map = (
+        is_relation_query
+        and not is_relation_fact_check
+        and bool(
+            re.search(
+                r"(?:哪些|有谁|是谁|名单|竞争对手|合作方|供应商|客户)",
+                normalized,
+            )
+        )
+    )
+    is_general_fact_check = (
+        is_fact_check and not is_relation_fact_check and not is_relation_map
+    )
+    is_methodology = bool(
+        re.search(
+            r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
+            semantic_query,
+            re.IGNORECASE,
+        )
+    )
+    evidence_plan = resolve_evidence_plan(
+        semantic_query,
+        question_type=(
+            task_frame.question_type
+            if task_frame is not None
+            else turn_intent.question_type
+        ),
+        freshness="current",
+    )
+    is_current_mainline = (
+        evidence_plan.profile == "mainline_current" and not is_methodology
+    )
+    is_current_market_fact = evidence_plan.profile == "current_market_fact"
+    needs_l3 = bool(
+        re.search(
+            r"(?:客户|合作|订单|合同|中标|认证|定点|送样|导入|量产|供货|出货|收入占比|供应商)",
+            semantic_query,
+        )
+    )
+    if is_current_mainline:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接回答当前市场主线，并区分增量启动、持续主线和分歧修复",
+                ("market_data", "mainline_context"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "列出同日市场总览与主线结构依据",
+                ("market_data", "mainline_context"),
+                True,
+            ),
+        )
+    elif is_current_market_fact:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "先解释问题中的指标定义，再直接回答当前市场事实",
+                ("mainline_context",),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "给出定义来源和同日结构化事实依据",
+                ("mainline_context",),
+                True,
+            ),
+        )
+    elif is_general_fact_check:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "先核对用户问题中的前提，再给出对后续影响的直接判断",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "premise_check",
+                "用当前可回查来源确认、修正或否定问题前提",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条能直接核对前提的时效来源",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+        )
+    elif is_relation_map:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接回答关系问题，并区分已核验关系、候选关系和未找到关系边",
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "relation_map",
+                "给出与问题方向一致的关系边、关系角色或明确的缺边结论",
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查的关系来源或明确的缺口证据",
+                (
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                ),
+                True,
+            ),
+        )
+    elif is_market_forecast:
+        # 预测不是一句“涨/跌”。显式登记两种情景和失效条件，避免只拿到
+        # 一个方向的证据就被 soft planner 误判为完成。
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对预测窗口的直接判断，并明确当前基准情景",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "rebound_case",
+                "反弹情景：触发条件、支持证据与观察窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "decline_case",
+                "继续下跌情景：触发条件、支持证据与观察窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "invalidation",
+                "使当前判断失效的反证或关键监测指标",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查的当前盘面或外部来源",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+        )
+    elif is_event_forecast:
+        # 事件题不是盘面涨跌题：必须先核对事件本身，再说明传导方向、谁会
+        # 受益/受损，以及在哪个窗口用什么新事实验证或证伪，不能套用反弹/下跌
+        # 的市场情景模板。
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对事件可能性或影响窗口的直接判断，并明确条件边界",
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "event_facts",
+                "事件已知事实、尚未发生的条件与对应时间窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "event_transmission",
+                "事件到行业、公司或资产的传导链，并说明受益/受损方向与边界",
+                (
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                    "web_search",
+                    "news_search",
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "verification_window",
+                "验证当前推演所需的新事实、指标或披露，以及观察窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "falsification_window",
+                "会证伪当前传导或方向判断的反向事实，以及观察窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条支持事件事实或传导链的可回查来源",
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "counter_evidence",
+                "至少一条反证、相反传导方向或明确的证据边界",
+                (
+                    "web_search",
+                    "news_search",
+                    "kb_search",
+                    "graph_lookup",
+                    "evidence_lookup",
+                ),
+                True,
+            ),
+        )
+    elif is_comparison:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接给出比较结论和比较维度",
+                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "comparison_basis",
+                "至少两个可回查的比较事实或指标",
+                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "key_difference",
+                "指出决定差异的关键变量及其边界",
+                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+        )
+    elif is_market_cause:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对用户问题的直接判断，必须明确回答指定周窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "cause_attribution",
+                "至少一个由周内市场数据支撑、明确标注为机制判断或已核验原因的主要下跌机制",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "external_cause_evidence",
+                "与该周时间窗口对齐的宏观、政策、外盘或资金事件证据",
+                ("web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                ("market_data", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+        )
+    else:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对用户问题的直接判断",
+                (
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                    "graph_lookup",
+                    *(("l3_lookup",) if needs_l3 else ()),
+                ),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                (
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                    "evidence_lookup",
+                    *(("l3_lookup",) if needs_l3 else ()),
+                ),
+                True,
+            ),
+            *(
+                (
+                    RequiredOutput(
+                        "customer_validation",
+                        "核验是否存在公告、合同、订单、客户认证或官方互动等 L3 证据；缺失时必须明确说尚不能确认",
+                        ("l3_lookup",),
+                        True,
+                    ),
+                )
+                if needs_l3
+                else ()
+            ),
+        )
+    if is_current_mainline:
+        capabilities = (
+            "market_data",
+            "mainline_context",
+            "web_search",
+            "news_search",
+        )
+    elif is_current_market_fact:
+        capabilities = ("mainline_context", "market_data", "kb_search")
+    elif is_general_fact_check:
+        capabilities = (
+            "web_search",
+            "news_search",
+            "kb_search",
+            "evidence_lookup",
+        )
+    elif is_relation_map:
+        capabilities = (
+            "graph_lookup",
+            "evidence_lookup",
+            "kb_search",
+            "web_search",
+            "news_search",
+        )
+    elif is_market_forecast:
+        capabilities = ("market_data", "web_search", "news_search")
+    elif is_event_forecast:
+        capabilities = (
+            "web_search",
+            "news_search",
+            "kb_search",
+            "graph_lookup",
+            "evidence_lookup",
+        )
+    elif is_comparison:
+        capabilities = (
+            "kb_search",
+            "web_search",
+            "news_search",
+            "graph_lookup",
+            "evidence_lookup",
+        )
+    elif is_market_cause:
+        capabilities = (
+            "market_data",
+            "web_search",
+            "news_search",
+            "kb_search",
+            "evidence_lookup",
+            *(("l3_lookup",) if needs_l3 else ()),
+        )
+    else:
+        capabilities = (
+            "kb_search",
+            "web_search",
+            "news_search",
+            "graph_lookup",
+            "evidence_lookup",
+            *(("l3_lookup",) if needs_l3 else ()),
+        )
+    contract_outputs = (
+        *required_outputs,
+        *(
+            ()
+            if (
+                is_market_forecast
+                or is_event_forecast
+                or is_comparison
+                or is_relation_map
+            )
+            else (
+                RequiredOutput(
+                    "counterpoint",
+                    "反方或证据边界",
+                    ("kb_search", "web_search", "news_search", "market_data"),
+                    False,
+                ),
+            )
+        ),
+    )
+    if task_frame is not None:
+        contract_outputs = _merge_frame_outputs(
+            contract_outputs,
+            task_frame,
+            capabilities,
+        )
+    subject = (
+        task_frame.subject if task_frame is not None else turn_intent.primary_subject
+    )
+    if (is_market_forecast or is_event_forecast) and not subject:
+        subject = "A股市场"
+    return ResearchTaskContract(
+        task_id=task_id,
+        question=semantic_query,
+        subject=subject,
+        subject_kind=(
+            task_frame.subject_kind
+            if task_frame is not None
+            else "market_pattern"
+            if is_current_mainline
+            or is_current_market_fact
+            or is_market_cause
+            or is_market_forecast
+            else "event"
+            if is_event_forecast
+            else "company_relation"
+            if is_relation_map
+            else None
+        ),
+        question_type=(
+            task_frame.question_type
+            if task_frame is not None
+            else turn_intent.question_type
+        ),
+        required_outputs=contract_outputs,
+        allowed_capabilities=capabilities,
+        research_tier=tier,
+        presentation_profile=(
+            "mainline_current"
+            if is_current_mainline
+            else "market_fact_current"
+            if is_current_market_fact
+            else "forecast"
+            if is_market_forecast or is_event_forecast
+            else "comparison"
+            if is_comparison
+            else "relation"
+            if is_relation_map
+            else "causal"
+            if is_market_cause
+            else "methodology"
+            if is_methodology
+            else "general"
+        ),
+        freshness="current",
+        timeframe=(
+            task_frame.timeframe if task_frame is not None else turn_intent.timeframe
+        ),
+        evidence_plan=evidence_plan,
+        task_frame_hash=(task_frame.task_frame_hash if task_frame is not None else ""),
+    )
+
+
+_TASK_FRAME_OUTPUT_DESCRIPTIONS: dict[str, str] = {
+    "current_baseline": "当前基准状态与起点",
+    "duration_assessment": "持续时间或观察窗口判断",
+    "continuation_conditions": "继续成立或延续的条件",
+    "invalidation_conditions": "使当前判断失效的条件",
+    "scenario_paths": "条件化情景与演绎路径",
+    "chain_mapping": "产业链层级、角色与关键环节",
+    "financial_assessment": "公司财务表现的直接判断",
+    "metric_evidence": "支撑财务判断的指标证据",
+}
+
+
+def _task_frame_required_output(
+    output_id: str,
+    *,
+    evidence_types: tuple[str, ...] = (),
+) -> RequiredOutput:
+    return RequiredOutput(
+        output_id=output_id,
+        description=_TASK_FRAME_OUTPUT_DESCRIPTIONS.get(
+            output_id,
+            f"TaskFrame 要求的输出：{output_id}",
+        ),
+        evidence_types=evidence_types,
+        required=True,
+    )
+
+
+def _merge_frame_outputs(
+    existing: tuple[RequiredOutput, ...],
+    frame: TaskFrame,
+    capabilities: tuple[str, ...],
+) -> tuple[RequiredOutput, ...]:
+    """Keep legacy execution slots while exposing every canonical frame slot."""
+
+    known = {item.output_id for item in existing}
+    # 别名只在被指向的槽位真的已登记时才生效（见下面的 `in known` 判定），所以
+    # 这里给出的是「谁已经承担了这件事」，不是无条件替换。
+    #
+    # scenario_tree 就是这么一个纯重复：预测题的执行槽位里 rebound_case +
+    # decline_case 已经是情景树的两支，再登记一个 scenario_tree 等于要求同一份
+    # 内容在 registry 里出现两次，而没有任何生产者会写第二份——于是它恒判缺，
+    # 把两支情景都已完成的答案整份 fail-closed 掉。专项 owner 路径没有
+    # rebound_case 槽位（它有 build_scenario_tree_artifact 这个真生产者），
+    # 别名不命中，scenario_tree 仍然是硬要求。
+    legacy_aliases = {
+        "direct_answer": "direct_assessment",
+        "current_baseline": "direct_assessment",
+        "evidence_boundary": "counterpoint",
+        "continuation_conditions": "rebound_case",
+        "invalidation_conditions": "invalidation",
+        "scenario_paths": "rebound_case",
+        "scenario_tree": "rebound_case",
+    }
+    evidence_types = tuple(capabilities) or ("evidence_boundary",)
+    additions = tuple(
+        _task_frame_required_output(
+            output_id,
+            evidence_types=evidence_types,
+        )
+        for output_id in frame.required_outputs
+        if output_id not in known
+        and legacy_aliases.get(output_id, output_id) not in known
+    )
+    return (*existing, *additions)
+
+
+def _specialized_owner_required_outputs(
+    output: SkillOutput | None,
+    frame: TaskFrame,
+) -> tuple[RequiredOutput, ...]:
+    """Project a canonical owner contract into the shared verifier schema.
+
+    Empty fields mean a legacy/third-party contract and retain the old behavior.
+    A hash mismatch fails closed to the orchestrator's immutable TaskFrame rather
+    than allowing a stale owner contract to narrow the user's requested outputs.
+    """
+
+    if output is None or output.answer_contract is None:
+        return ()
+    contract = output.answer_contract
+    if not contract.required_outputs:
+        return ()
+    # A matching hash proves which frame the owner saw; it does not grant the
+    # owner permission to enlarge or narrow that frame's completion gate.
+    # Legacy contracts without a canonical frame can still use their own IDs.
+    output_ids = frame.required_outputs or contract.required_outputs
+    return tuple(
+        _task_frame_required_output(output_id)
+        for output_id in dict.fromkeys(output_ids)
+    )
+
+
+def _generic_research_deadline(
+    root_deadline: ResearchDeadline,
+    contract: ResearchTaskContract,
+) -> ResearchDeadline:
+    """把 Owner 档位预算钳制到 turn 根 deadline，避免预算重复计算。"""
+    policy = ResearchPolicy.for_tier(contract.research_tier)
+    policy_deadline = ResearchDeadline.from_timeout(
+        policy.total_seconds,
+        synthesis_reserve=policy.synthesis_reserve,
+    )
+    return ResearchDeadline(
+        min(root_deadline.expires_at, policy_deadline.expires_at),
+        synthesis_reserve=max(
+            root_deadline.synthesis_reserve,
+            policy.synthesis_reserve,
+        ),
+    )
+
+
 def _parallel_skills_enabled() -> bool:
     return os.environ.get("WORKBENCH_PARALLEL_SKILLS", "1").strip().lower() not in {
         "0",
@@ -102,12 +789,8 @@ def _parallel_skills_enabled() -> bool:
     }
 
 
-_INTERNAL_CITATION_PATTERN = re.compile(
-    r"\[(?:D|P|L|G|R|S|W)\d+\]"
-)
-_INTERNAL_CODE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])"
-)
+_INTERNAL_CITATION_PATTERN = re.compile(r"\[(?:D|P|L|G|R|S|W)\d+\]")
+_INTERNAL_CODE_PATTERN = re.compile(r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])")
 _EVIDENCE_LAYER_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])L([1-4])(?:\s*级(?:别)?)?(?![A-Za-z0-9_])"
 )
@@ -322,6 +1005,8 @@ _PROVIDER_TRACE_FIELDS = frozenset(
         "detail",
         "source_trade_date",
         "result_count",
+        "parent_id",
+        "step_id",
     )
 )
 
@@ -370,9 +1055,7 @@ def _resolve_owner_result(
     contract = output.answer_contract
     if contract is None:
         raise ValueError("skill owner output requires an answer contract")
-    raw = retrieval_cache.get(
-        f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}"
-    )
+    raw = retrieval_cache.get(f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}")
     if not isinstance(raw, AskResult):
         return _skill_owner_result(query, output)
     if raw.answer_spec is not contract.answer_spec:
@@ -389,9 +1072,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         Citation(
             tag=f"K{index}",
             source=str(
-                citation.get("title")
-                or citation.get("source")
-                or output.skill_id
+                citation.get("title") or citation.get("source") or output.skill_id
             ),
             detail=str(citation.get("source") or ""),
         )
@@ -411,10 +1092,51 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         citations=citations,
         answer_spec=contract.answer_spec,
     )
-    result.provider_traces.extend(
-        _rehydrate_provider_traces(output.provider_traces)
-    )
+    result.provider_traces.extend(_rehydrate_provider_traces(output.provider_traces))
     return result
+
+
+def _skill_output_compatible_with_turn(
+    output: SkillOutput,
+    *,
+    definition: object | None,
+    lane: str,
+    question_type: str | None,
+    explicit_manual: bool = False,
+) -> bool:
+    """Prevent an unrelated skill contract from replacing the turn contract.
+
+    A skill may contribute evidence/modules, but only a declared workflow or a
+    terminal owner whose question type matches the controller may terminate a
+    research turn.  A missing question type is accepted only for an explicitly
+    declared terminal owner on a legacy untyped turn; default metadata remains
+    fail-closed.  ``explicit_manual`` is retained for call-site compatibility,
+    but manual selection never weakens this owner contract gate.
+    """
+    contract = output.answer_contract
+    if contract is None:
+        return False
+    # A manual selection may request execution, but must never turn an
+    # untyped/unknown contributor into the answer owner.  Keep this argument in
+    # the signature for callers that pass it while intentionally ignoring it.
+    del explicit_manual
+    can_own_answer = bool(getattr(definition, "can_own_answer", False))
+    if not can_own_answer:
+        return False
+    role = str(getattr(definition, "role", "workflow"))
+    if lane == "workflow":
+        return role in {"workflow", "terminal_owner"}
+    if lane != "research":
+        return False
+    if question_type is None:
+        return role == "terminal_owner"
+    contract_type = contract.question_type
+    accepted_question_types = tuple(
+        str(item) for item in (getattr(definition, "accepted_question_types", ()) or ())
+    )
+    if accepted_question_types and question_type not in accepted_question_types:
+        return False
+    return role == "terminal_owner" and contract_type == question_type
 
 
 def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:
@@ -450,10 +1172,7 @@ def _redact_object(value: object) -> object:
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
-        return {
-            redact(str(key)): _redact_object(item)
-            for key, item in value.items()
-        }
+        return {redact(str(key)): _redact_object(item) for key, item in value.items()}
     return value
 
 
@@ -542,7 +1261,35 @@ def sanitize_conversation_answer(text: str) -> str:
     )
     cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
     cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
+    cleaned = re.sub(
+        r"(?<![A-Za-z0-9_])L([1-4])_(structured|market_signal|market_context|candidate)\b",
+        lambda match: (
+            "结构化数据"
+            if match.group(2).lower() == "structured"
+            else "候选资料"
+            if match.group(2).lower() == "candidate"
+            else _EVIDENCE_LAYER_REPLACEMENTS[match.group(1)]
+        ),
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\[\s*(?:[DPLGRSW]\d+\s*(?:[,，、]\s*)?)+\]",
+        "",
+        cleaned,
+    )
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
+    # Removing each internal marker separately used to leave punctuation shells
+    # such as ``[, ,]`` in the public report.  Strip only bracket groups that no
+    # longer contain semantic text; ordinary financial brackets are preserved.
+    cleaned = re.sub(r"\[\s*(?:[,，]\s*)*\]", "", cleaned)
+    # Section ordinals belong to the presentation layer, not to the grounded
+    # content.  A rejected sentence can otherwise turn 一/二/三 into 一/三/五.
+    cleaned = re.sub(
+        r"(?m)^(#{1,3}\s+)[一二三四五六七八九十]+、\s*",
+        r"\1",
+        cleaned,
+    )
     cleaned = re.sub(
         r"\bMarketAdapter\.get_[A-Za-z0-9_]+\b",
         "本地盘面数据",
@@ -566,9 +1313,7 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
     )
     cleaned = re.sub(r"行业资料(?:\s*行业资料)+", "行业资料", cleaned)
-    cleaned = re.sub(
-        r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned
-    )
+    cleaned = re.sub(r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned)
     cleaned = re.sub(r"盘面信号(?:\s*盘面信号)+", "盘面信号", cleaned)
     cleaned = re.sub(r"盘面\s*盘面信号", "盘面信号", cleaned)
     cleaned = re.sub(
@@ -577,7 +1322,9 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
         flags=re.IGNORECASE,
     )
-    cleaned = re.sub(r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned)
+    cleaned = re.sub(
+        r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned
+    )
     cleaned = re.sub(
         r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
     )
@@ -687,6 +1434,7 @@ class TurnOrchestrator:
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
         event_id_prefix: str = "",
+        continuous_turn_adapter: ContinuousTurnHandler | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.conversation_store = conversation_store
@@ -701,6 +1449,25 @@ class TurnOrchestrator:
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
+        self.continuous_turn_adapter = continuous_turn_adapter
+
+    def _market_db_path(self) -> Path:
+        """Resolve the data root separately from the runtime code checkout.
+
+        Workbench deployments intentionally run code from a clean detached
+        runtime while sharing the private DuckDB through ``FINANCE_WS``.  Use a
+        fixture-local DB when one exists (tests), otherwise use the configured
+        data root.  Never silently turn a missing DB into a successful
+        boundary-only evidence block.
+        """
+
+        local_path = self.repo_root / "db" / "market_feature_store.duckdb"
+        if local_path.is_file():
+            return local_path
+        configured_path = (
+            default_paths().finance_root / "db" / "market_feature_store.duckdb"
+        )
+        return configured_path if configured_path.is_file() else local_path
 
     def run_turn(
         self,
@@ -719,9 +1486,7 @@ class TurnOrchestrator:
         # copy_context 传播）；同 provider+query 的检索每 turn 只真实执行一次。
         # 两本账结束前以 trace 落盘——预算不再只统计 skill 次数。
         with (
-            llm_refine.call_ledger_scope(
-                max_calls=self.research_policy.max_llm_calls
-            ),
+            llm_refine.call_ledger_scope(max_calls=self.research_policy.max_llm_calls),
             query_ledger.query_ledger_scope(),
         ):
             return self._run_turn_ledgered(
@@ -761,7 +1526,9 @@ class TurnOrchestrator:
         skill_outputs: list[SkillOutput] = []
         answer_model_name = self.llm_model
         research_deadline = ResearchDeadline.from_timeout(
-            self.research_policy.max_elapsed_seconds
+            self.research_policy.max_elapsed_seconds,
+            # P0：为最终合成硬保留 20 秒，前置检索不得消费（见 ResearchDeadline）。
+            synthesis_reserve=20.0,
         )
         self._emit(
             run_id,
@@ -789,7 +1556,6 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
-            raw_envelope = understand_query(query)
             inherited_message = previous_turn_message(context)
             inherited_intent = (
                 TurnIntent.from_dict(inherited_message.turn_intent)
@@ -797,9 +1563,7 @@ class TurnOrchestrator:
                 else None
             )
             inherited_turn_id = (
-                inherited_message.message_id
-                if inherited_message is not None
-                else None
+                inherited_message.message_id if inherited_message is not None else None
             )
             if (
                 inherited_intent is not None
@@ -820,19 +1584,64 @@ class TurnOrchestrator:
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
             )
+            controller_question_type_supplied = decision.question_type is not None
+            task_frame = decision.task_frame
+            if task_frame is None:
+                # Compatibility boundary for injected/legacy controllers: turn
+                # their one decision into a TaskFrame once, then freeze it.
+                legacy_envelope = understand_query(query)
+                if decision.question_type is not None:
+                    legacy_envelope = replace(
+                        legacy_envelope,
+                        question_type=decision.question_type,
+                        subject=decision.subject,
+                        timeframe=decision.timeframe or legacy_envelope.timeframe,
+                    )
+                task_frame = build_task_frame(
+                    query,
+                    legacy_envelope,
+                    inherited_subject=(
+                        inherited_intent.primary_subject
+                        if inherited_intent is not None
+                        and is_contextual_follow_up(
+                            query,
+                            legacy_envelope,
+                            inherited_intent,
+                        )
+                        else None
+                    ),
+                )
+                raw_envelope = project_task_frame(task_frame, legacy_envelope)
+            else:
+                raw_envelope = envelope_from_task_frame(task_frame)
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
+                task_frame=task_frame,
+            )
+            turn_intent = replace(
+                turn_intent,
+                primary_subject=task_frame.subject,
+                question_type=task_frame.question_type,
+                timeframe=task_frame.timeframe,
+                required_outputs=task_frame.required_outputs,
+                task_frame_hash=task_frame.task_frame_hash,
             )
             research_plan = ResearchPlan.from_intent(turn_intent)
-            decision = replace(
-                decision,
-                question_type=turn_intent.question_type,
-                subject=turn_intent.primary_subject,
-                turn_intent=turn_intent,
-            )
+            # 单一事实源：controller 返回的 decision 已与 turn_intent 对齐
+            # （见 turn_controller._attach_turn_intent）。仅当 controller 未
+            # 附带 intent（异常降级路径）时才用本地重建的 intent 回填，
+            # 不再无条件用 intent 覆盖 controller 的路由裁决。
+            if decision.turn_intent is None:
+                decision = replace(
+                    decision,
+                    question_type=turn_intent.question_type,
+                    subject=turn_intent.primary_subject,
+                    turn_intent=turn_intent,
+                    task_frame=task_frame,
+                )
             contextual_query = contextualize_intent_query(query, turn_intent)
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
@@ -850,11 +1659,23 @@ class TurnOrchestrator:
                 inherited_answer_spec,
                 "research_evidence_atoms",
             )
-            routing_envelope = understand_query(contextual_query)
+            # Route is an execution projection of the same frame.  In
+            # particular, never re-run semantic understanding on the contextual
+            # retrieval query: that query is allowed to add context, not to
+            # replace the user's original task.
+            routing_envelope = replace(
+                project_task_frame(task_frame, raw_envelope),
+                operators=turn_intent.operators,
+                required_outputs=task_frame.required_outputs,
+                time_horizon=turn_intent.time_horizon,
+            )
             report["task_type"] = decision.lane
+            report["task_frame"] = task_frame.to_dict()
+            report["task_frame_hash"] = task_frame.task_frame_hash
             legacy_lane = (
                 "knowledge"
-                if routing_envelope.question_type == "concept_definition"
+                if routing_envelope.question_type
+                in {QUESTION_CONCEPT_DEFINITION, QUESTION_METHODOLOGY}
                 else "research"
             )
             self._trace(
@@ -865,6 +1686,8 @@ class TurnOrchestrator:
                 "turn_controller",
                 {
                     "decision": decision.to_dict(),
+                    "task_frame": task_frame.to_dict(),
+                    "task_frame_hash": task_frame.task_frame_hash,
                     "turn_intent": turn_intent.to_dict(),
                     "research_plan": research_plan.to_dict(),
                     "legacy_query_envelope": routing_envelope.to_dict(),
@@ -875,6 +1698,31 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            if self.continuous_turn_adapter is not None:
+                continuous_control = project_turn_decision(
+                    decision,
+                    task_frame=task_frame,
+                    turn_intent=turn_intent,
+                    conversation_context=context.to_prompt_block(),
+                )
+                continuous_result = self.continuous_turn_adapter.handle(
+                    frame=task_frame,
+                    control=continuous_control,
+                )
+                self._check_cancelled()
+                if continuous_result.handled:
+                    return self._complete_continuous_turn(
+                        conversation_id=conversation_id,
+                        run_id=run_id,
+                        assistant_message_id=assistant_message_id,
+                        query=query,
+                        report=report,
+                        result=continuous_result,
+                        task_frame=task_frame,
+                        selected_skill_ids=manual_selected,
+                        turn_intent=turn_intent,
+                        research_plan=research_plan,
+                    )
             if decision.lane in {"chat", "meta", "clarify"} or (
                 decision.lane == "knowledge" and not decision.needs_retrieval
             ):
@@ -888,7 +1736,11 @@ class TurnOrchestrator:
                 lane_warnings: list[str] = []
                 lane_as_of: str | None = None
                 retrieval_attempted = False
-                if decision.lane == "knowledge" and lane_answer.fallback_reason:
+                if (
+                    decision.lane == "knowledge"
+                    and lane_answer.fallback_reason
+                    and decision.question_type != QUESTION_METHODOLOGY
+                ):
                     retrieval_attempted = True
                     fallback_started = time.monotonic()
                     try:
@@ -898,15 +1750,11 @@ class TurnOrchestrator:
                                 user=self.run_store.user_id,
                                 compose=False,
                                 synthesize=False,
-                                market_db_path=(
-                                    self.repo_root
-                                    / "db"
-                                    / "market_feature_store.duckdb"
-                                ),
+                                market_db_path=(self._market_db_path()),
                                 conversation_context=context.to_prompt_block(),
                                 include_memory_block=decision.needs_memory,
                                 include_recall_block=decision.needs_memory,
-                                question_type_override=QUESTION_CONCEPT_DEFINITION,
+                                question_type_override=turn_intent.question_type,
                                 deadline=research_deadline,
                             )
                         )
@@ -984,14 +1832,19 @@ class TurnOrchestrator:
                             "knowledge_fallback_retrieval",
                             {
                                 "status": (
-                                    "completed"
-                                    if result.citations
-                                    else "degraded"
+                                    "completed" if result.citations else "degraded"
                                 ),
                                 "citation_count": len(result.citations),
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
+                if (
+                    decision.question_type == QUESTION_METHODOLOGY
+                    and lane_answer.fallback_reason
+                ):
+                    warning = "方法论回答生成暂时不可用"
+                    lane_warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -1013,12 +1866,48 @@ class TurnOrchestrator:
                     report=report,
                     answer=lane_answer,
                     selected_skill_ids=manual_selected,
+                    turn_intent=turn_intent,
+                    research_plan=research_plan,
                     citations=lane_citations,
                     warnings=lane_warnings,
                     as_of=lane_as_of,
                 )
             route_started = time.monotonic()
-            if decision.lane == "knowledge":
+            relation_guard_requested = bool(
+                "relation" in turn_intent.operators
+                and turn_intent.inherited_from_turn is None
+                and re.search(
+                    r"(?:上游|下游|产业链位置|处于.{0,8}环节|"
+                    r"客户.{0,8}(?:竞争对手|替代)|竞争对手|供应商|合作方)",
+                    contextual_query,
+                )
+            )
+            generic_owner_requested = (
+                decision.lane == "research"
+                and turn_intent.question_type
+                not in {QUESTION_MARKET_TECHNICAL, QUESTION_EXTERNAL_MARKET}
+                # 真实 controller 总会附带 TurnIntent；若某个旧的测试/第三方
+                # controller 只返回无 question_type 的裸 TurnDecision，保留
+                # 旧 route 行为，避免把兼容层误判为“ownerless research”。
+                and (
+                    controller_question_type_supplied
+                    or turn_intent.question_type != QUESTION_GENERAL
+                )
+                and (turn_intent.answer_owner is None or relation_guard_requested)
+                and skill_mode in {"auto", "hybrid"}
+                and not selected_skill_ids
+            )
+            router_skipped = bool(
+                decision.lane == "knowledge"
+                or turn_intent.question_type == "market_technical"
+                or relation_guard_requested
+                or generic_owner_requested
+            )
+            if router_skipped:
+                # market_technical：controller 已确定性定型，走 ask 内的
+                # 结构化行情技术位管线，跳过语义 skill router 的额外 LLM。
+                # ownerless general：由 GenericResearchOwner 先接管，固定
+                # provider 只作为它的工具，不再预跑整条 Ask 管线。
                 route = SkillRouteResult(
                     (),
                     fallback_to_ask=True,
@@ -1046,9 +1935,7 @@ class TurnOrchestrator:
                 skill_ids=(
                     tuple(selected)
                     if skill_mode == "manual"
-                    else tuple(
-                        dict.fromkeys((*turn_intent.skill_ids, *selected))
-                    )
+                    else tuple(dict.fromkeys((*turn_intent.skill_ids, *selected)))
                 ),
             )
             research_plan = ResearchPlan.from_intent(turn_intent)
@@ -1069,9 +1956,12 @@ class TurnOrchestrator:
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
                     "base_finance_fallback": route.base_finance_fallback,
-                    "router_skipped": decision.lane == "knowledge",
+                    "router_skipped": router_skipped,
+                    "generic_owner_requested": generic_owner_requested,
+                    "relation_guard_requested": relation_guard_requested,
                     "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
+                    "task_frame_hash": task_frame.task_frame_hash,
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
@@ -1112,6 +2002,7 @@ class TurnOrchestrator:
                         repo_root=self.repo_root,
                         run_store=self.run_store,
                         conversation_context=context.to_prompt_block(),
+                        task_frame=task_frame,
                         turn_intent=turn_intent.to_dict(),
                         research_plan=research_plan.to_dict(),
                         inherited_answer_spec=inherited_answer_spec,
@@ -1209,17 +2100,17 @@ class TurnOrchestrator:
                     if launched is None:
                         launched = submit_skill(skill_id)
                     future, skill_started = launched
+                    # 前置 skill 不得消费合成保留段：用 stage_remaining_seconds
+                    # 而非 remaining_seconds，否则慢/失败的 owner skill 会吃光
+                    # 整轮预算，合成只能降级为 llm_unavailable_template_answer。
                     allowed_seconds = min(
-                        self.skill_registry.definitions[
-                            skill_id
-                        ].timeout_seconds,
-                        research_budget.remaining_seconds,
+                        self.skill_registry.definitions[skill_id].timeout_seconds,
+                        research_budget.stage_remaining_seconds,
                     )
                     output = future.result(
                         timeout=max(
                             0.001,
-                            allowed_seconds
-                            - (time.monotonic() - skill_started),
+                            allowed_seconds - (time.monotonic() - skill_started),
                         )
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -1301,9 +2192,30 @@ class TurnOrchestrator:
                     skill_outputs.append(output)
                     warnings.extend(output.warnings)
                     citations.extend(output.citations)
-                    if output.answer_contract is not None:
+                    output_can_own_turn = _skill_output_compatible_with_turn(
+                        output,
+                        definition=self.skill_registry.definitions.get(skill_id),
+                        lane=decision.lane,
+                        question_type=turn_intent.question_type,
+                        explicit_manual=skill_mode == "manual",
+                    )
+                    if output.answer_contract is not None and output_can_own_turn:
                         pending_selections.clear()
                         execution_feedback.clear()
+                    elif output.answer_contract is not None:
+                        # An answer contract is not automatically a turn owner.
+                        # Keep the route continuation alive so a mismatched
+                        # workflow/profile cannot suppress the generic owner or
+                        # a later compatible skill.
+                        execution_feedback.append(
+                            {
+                                "skill_id": skill_id,
+                                "status": "rejected",
+                                "failure_reason": (
+                                    "skill contract 与当前 turn question_type 不兼容"
+                                ),
+                            }
+                        )
                     for warning in output.warnings:
                         self.run_store.add_degrade(run_id, warning)
                     for index, module in enumerate(output.modules, start=1):
@@ -1354,9 +2266,7 @@ class TurnOrchestrator:
                         "execution_feedback": tuple(execution_feedback),
                     }
                     if turn_intent.answer_owner is not None:
-                        fallback_route_kwargs["answer_owner"] = (
-                            turn_intent.answer_owner
-                        )
+                        fallback_route_kwargs["answer_owner"] = turn_intent.answer_owner
                     fallback_route = self.route_skills(
                         contextual_query,
                         "ask",
@@ -1385,9 +2295,7 @@ class TurnOrchestrator:
                                 }
                                 for item in replacements
                             ],
-                            "elapsed_ms": self._elapsed_ms(
-                                fallback_route_started
-                            ),
+                            "elapsed_ms": self._elapsed_ms(fallback_route_started),
                         },
                     )
                     execution_feedback.clear()
@@ -1397,22 +2305,6 @@ class TurnOrchestrator:
                                 selected.append(item.skill_id)
                         pending_selections.extend(replacements)
             skill_pool.shutdown(wait=False, cancel_futures=True)
-            budget_trace = research_budget.to_trace()
-            self._trace(
-                run_id,
-                assistant_message_id,
-                conversation_id,
-                "budget",
-                "research_execution_budget",
-                {
-                    "summary": (
-                        f"研究工具调用 {budget_trace['call_count']} 次，"
-                        f"记录 {budget_trace['attempt_count']} 次尝试"
-                    ),
-                    "elapsed_ms": budget_trace["elapsed_ms"],
-                },
-                retrieval={"research_budget": budget_trace},
-            )
 
             def capture_safe_text(text: str) -> None:
                 self._check_cancelled()
@@ -1432,14 +2324,60 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            rejected_owner_outputs: list[dict[str, object]] = []
             owner_output = next(
                 (
                     output
                     for output in skill_outputs
                     if output.answer_contract is not None
+                    and _skill_output_compatible_with_turn(
+                        output,
+                        definition=self.skill_registry.definitions.get(output.skill_id),
+                        lane=decision.lane,
+                        question_type=turn_intent.question_type,
+                        explicit_manual=skill_mode == "manual",
+                    )
                 ),
                 None,
             )
+            for output in skill_outputs:
+                if output.answer_contract is None:
+                    continue
+                if owner_output is output:
+                    continue
+                if _skill_output_compatible_with_turn(
+                    output,
+                    definition=self.skill_registry.definitions.get(output.skill_id),
+                    lane=decision.lane,
+                    question_type=turn_intent.question_type,
+                    explicit_manual=skill_mode == "manual",
+                ):
+                    continue
+                rejected_owner_outputs.append(
+                    {
+                        "skill_id": output.skill_id,
+                        "expected_question_type": turn_intent.question_type,
+                        "actual_question_type": output.answer_contract.question_type,
+                        "reason": "skill contract 与 controller turn contract 不兼容",
+                    }
+                )
+            if rejected_owner_outputs:
+                for rejection in rejected_owner_outputs:
+                    warning = (
+                        f"Skill {rejection['skill_id']} 已降级为证据贡献者；"
+                        "需显式声明 owner 元数据后才能接管答案"
+                    )
+                    if warning not in warnings:
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "compose_owner_contract_guard",
+                    "owner_contract_rejected",
+                    {"rejected": rejected_owner_outputs},
+                )
             daily_review_output = next(
                 (
                     output
@@ -1448,41 +2386,56 @@ class TurnOrchestrator:
                 ),
                 None,
             )
-            market_review_requested = (
-                plan_answer_question(contextual_query).question_type
-                == QUESTION_MARKET_REVIEW
+            market_review_requested = turn_intent.question_type in {
+                "market_watch",
+                "dated_market_review",
+            }
+            generic_contract = (
+                _build_generic_research_contract(
+                    contextual_query,
+                    task_id=run_id,
+                    turn_intent=turn_intent,
+                    task_frame=task_frame,
+                )
+                if generic_owner_requested
+                else None
             )
+            generic_deadline = (
+                _generic_research_deadline(research_deadline, generic_contract)
+                if generic_contract is not None
+                else research_deadline
+            )
+            skill_claims, skill_citations = self._skill_claim_bundle(skill_outputs)
             ask_options = AskOptions(
                 query=contextual_query,
                 date=(
                     daily_review_output.as_of
-                    if daily_review_output is not None
-                    and market_review_requested
+                    if daily_review_output is not None and market_review_requested
                     else None
                 ),
                 user=self.run_store.user_id,
                 compose=True,
                 synthesize=False,
                 compose_revise_on_warn=False,
-                market_db_path=self.repo_root
-                / "db"
-                / "market_feature_store.duckdb",
+                market_db_path=self._market_db_path(),
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
                     f"{self.run_store.user_id}:{conversation_id or run_id}"
                 ),
                 supplemental_evidence=self._skill_evidence(skill_outputs),
+                supplemental_claims=skill_claims,
+                supplemental_citations=skill_citations,
                 include_memory_block=decision.needs_memory,
                 include_recall_block=decision.needs_memory,
                 question_type_override=(
-                    QUESTION_CONCEPT_DEFINITION
-                    if decision.lane == "knowledge"
+                    QUESTION_MARKET_REVIEW
+                    if turn_intent.question_type
+                    in {"market_watch", "dated_market_review"}
                     else turn_intent.question_type
                 ),
+                research_task_contract=generic_contract,
                 controller_capabilities=(
-                    tuple(
-                        dict.fromkeys((*decision.capabilities, "web_search"))
-                    )
+                    tuple(dict.fromkeys((*decision.capabilities, "web_search")))
                     if (
                         route.base_finance_fallback
                         and turn_intent.question_type == QUESTION_GENERAL
@@ -1493,12 +2446,10 @@ class TurnOrchestrator:
                 perspective_ids=tuple(selected_perspective_ids),
                 stream_text_delta=capture_safe_text,
                 stream_cancel_check=self.is_cancelled,
-                deadline=research_deadline,
+                deadline=generic_deadline,
             )
             if owner_output is not None:
-                result = _resolve_owner_result(
-                    query, owner_output, retrieval_cache
-                )
+                result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
                     run_id,
@@ -1513,6 +2464,12 @@ class TurnOrchestrator:
                         ),
                         "output_contract": list(
                             owner_output.answer_contract.output_contract
+                        ),
+                        "required_outputs": list(
+                            owner_output.answer_contract.required_outputs
+                        ),
+                        "task_frame_hash": (
+                            owner_output.answer_contract.task_frame_hash
                         ),
                     },
                 )
@@ -1596,6 +2553,19 @@ class TurnOrchestrator:
                 result.llm_provider = lane_answer.provider
                 result.llm_fallback_reason = lane_answer.fallback_reason
                 result.prepared_synthesis_messages = []
+                result.synthesis_diagnostic = SynthesisDiagnostic(
+                    state=("rejected" if lane_answer.fallback_reason else "accepted"),
+                    reason_code=(
+                        "knowledge_lane_fallback"
+                        if lane_answer.fallback_reason
+                        else "knowledge_lane_answer"
+                    ),
+                    detail=(
+                        "knowledge lane used its deterministic fallback"
+                        if lane_answer.fallback_reason
+                        else "knowledge lane answer completed"
+                    ),
+                )
                 answer_model_name = lane_answer.model or self.llm_model
                 self._trace(
                     run_id,
@@ -1632,15 +2602,14 @@ class TurnOrchestrator:
             )
             draft_text = sanitize_conversation_answer(
                 "\n\n".join(
-                    block
-                    for block in (perspective_header, draft_text)
-                    if block
+                    block for block in (perspective_header, draft_text) if block
                 )
             )
-            has_answer_snapshot = (
-                result.answer_spec is not None
-                and decision.lane in {"research", "workflow"}
-            )
+            draft_text = _sanitize_market_cause_answer_text(draft_text, query)
+            has_answer_snapshot = result.answer_spec is not None and decision.lane in {
+                "research",
+                "workflow",
+            }
             if has_answer_snapshot:
                 emit_text_delta(draft_text)
                 self._emit(
@@ -1662,7 +2631,6 @@ class TurnOrchestrator:
             if (
                 decision.lane in {"research", "workflow"}
                 and result.synthesis is None
-                and result.prepared_synthesis_messages
             ):
                 synthesize_prepared_answer(
                     PreparedAnswer(
@@ -1679,21 +2647,18 @@ class TurnOrchestrator:
                 "answer_synthesis",
                 {
                     "status": (
-                        "validated"
-                        if result.synthesis is not None
-                        else "fallback"
+                        "validated" if result.synthesis is not None else "fallback"
                     ),
                     "fallback_reason": result.llm_fallback_reason,
                     "stream": result.llm_stream_telemetry,
+                    "diagnostic": asdict(result.synthesis_diagnostic),
                 },
             )
 
             # owner raw 结果的 warnings 在 skill 阶段已并入过（output.warnings），
             # 只追加新增项，避免 degrades 重复落账。
             fresh_result_warnings = [
-                warning
-                for warning in result.warnings
-                if warning not in warnings
+                warning for warning in result.warnings if warning not in warnings
             ]
             warnings.extend(fresh_result_warnings)
             for warning in fresh_result_warnings:
@@ -1715,6 +2680,7 @@ class TurnOrchestrator:
                     decision.lane in {"research", "workflow"}
                     and result.synthesis is None
                     and owner_output is None
+                    and not generic_owner_requested
                 )
                 else ""
             )
@@ -1722,19 +2688,101 @@ class TurnOrchestrator:
                 block for block in (perspective_header, fallback_notice) if block
             )
             answer_text = sanitize_conversation_answer(
-                "\n\n".join(
-                    block for block in (answer_prefix, answer_text) if block
+                "\n\n".join(block for block in (answer_prefix, answer_text) if block)
+            )
+            answer_text = _sanitize_market_cause_answer_text(answer_text, query)
+            fulfillment_outputs = (
+                generic_contract.required_outputs
+                if generic_contract is not None
+                else _specialized_owner_required_outputs(
+                    owner_output,
+                    task_frame,
                 )
             )
+            if fulfillment_outputs and result.answer_spec is not None:
+                fulfillment = task_fulfillment.evaluate_answer_spec_fulfillment(
+                    question=task_frame.raw_question,
+                    required_outputs=fulfillment_outputs,
+                    answer_text=answer_text,
+                    answer_spec=result.answer_spec,
+                )
+                result.answer_status = fulfillment.status
+                result.fulfillment_report = fulfillment.to_dict()
+                result.fulfillment_report["task_frame_hash"] = (
+                    task_frame.task_frame_hash
+                )
+                report["task_fulfillment"] = result.fulfillment_report
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "task_fulfillment",
+                    "task_fulfillment",
+                    result.fulfillment_report,
+                )
+                if fulfillment.status != "complete":
+                    # 先把具体缺口回灌给模型补一轮，再决定是否 fail-closed。
+                    # 官方做法是把拒绝**作为 tool result** 交回模型让它换方法，
+                    # 而不是整轮作废；ch04「分层错误级联」是它的通用形式。
+                    # 补写只用 registry 已有事实、且必须重新过门禁——两条都在
+                    # repair_unfulfilled_answer 内部强制，这里拿不到「跑过修复轮」
+                    # 当放行理由。额外那次调用由本 turn 的 LlmCallLedger 兜底。
+                    repaired = repair_unfulfilled_answer(
+                        question=task_frame.raw_question,
+                        answer_text=answer_text,
+                        answer_spec=result.answer_spec,
+                        verdict=fulfillment,
+                        required_outputs=fulfillment_outputs,
+                        llm_model=self.llm_model,
+                        timeout=llm_refine.DEFAULT_LLM_TIMEOUT,
+                    )
+                    if repaired is not None:
+                        answer_text, fulfillment = repaired
+                        result.answer_status = fulfillment.status
+                        result.fulfillment_report = fulfillment.to_dict()
+                        result.fulfillment_report["task_frame_hash"] = (
+                            task_frame.task_frame_hash
+                        )
+                        result.fulfillment_report["repaired"] = True
+                        report["task_fulfillment"] = result.fulfillment_report
+                        self._trace(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            "task_fulfillment_repair",
+                            "task_fulfillment",
+                            result.fulfillment_report,
+                        )
+                if fulfillment.status != "complete":
+                    # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
+                    # 渲染，仍可能把答非所问草稿发给用户。切到现有
+                    # evidence-gap renderer，保留缺口而不是重写成另一份模板。
+                    result.synthesis = None
+                    result.answer_spec = task_fulfillment.fail_closed_answer_spec(
+                        result.answer_spec,
+                        fulfillment,
+                    )
+                    answer_text = render_conversation_answer(result)
+                    warning = "最终回答未完成任务契约，已按部分完成标记。"
+                    if warning not in warnings:
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+            elif result.answer_status == "unknown":
+                # Deterministic heads and explicit skill owners keep their
+                # existing verifier outcome until they expose a TurnContract.
+                result.answer_status = (
+                    result.business_status
+                    if result.business_status
+                    in {"complete", "partial", "gap", "missing"}
+                    else "complete"
+                )
             turn_intent = replace(
                 turn_intent,
                 skill_ids=(
                     tuple(dict.fromkeys((*invoked, *selected)))
                     if skill_mode == "manual"
                     else tuple(
-                        dict.fromkeys(
-                            (*turn_intent.skill_ids, *invoked, *selected)
-                        )
+                        dict.fromkeys((*turn_intent.skill_ids, *invoked, *selected))
                     )
                 ),
             )
@@ -1770,8 +2818,7 @@ class TurnOrchestrator:
                     subject=turn_intent.primary_subject,
                 )
                 followup_payload = [
-                    asdict(followup)
-                    for followup in followup_result.followups
+                    asdict(followup) for followup in followup_result.followups
                 ]
                 self._trace(
                     run_id,
@@ -1792,8 +2839,14 @@ class TurnOrchestrator:
                 )
             if (
                 decision.lane in {"research", "workflow"}
+                and decision.needs_template is True
+                and not generic_owner_requested
                 and result.synthesis is None
                 and owner_output is None
+                and (
+                    result.answer_spec is None
+                    or result.answer_spec.presentation_kind != "evidence_gap"
+                )
             ):
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
@@ -1808,9 +2861,34 @@ class TurnOrchestrator:
                     AnswerSnapshot(
                         revision=2,
                         phase=(
-                            "validated_synthesis"
+                            "evidence_gap_fallback"
+                            if result.answer_status != "complete"
+                            else (
+                                "decision_brief_fallback"
+                                if result.answer_spec is not None
+                                and result.answer_spec.presentation_kind
+                                == "generic_research"
+                                else "verified_fallback"
+                            )
+                            if result.grounded_fallback_used
+                            else "validated_synthesis"
                             if result.synthesis is not None
-                            else "verified_fallback"
+                            # 质检未过的模板降级不得伪装成 verified：
+                            # 此时 render 层已 fail-closed 为证据缺口短答。
+                            else (
+                                "evidence_gap_fallback"
+                                if (
+                                    result.answer_spec is not None
+                                    and (
+                                        result.answer_spec.presentation_kind
+                                        == "evidence_gap"
+                                        or answer_model.quality_requires_fail_closed(
+                                            result.answer_spec
+                                        )
+                                    )
+                                )
+                                else "verified_fallback"
+                            )
                         ),
                         text=answer_text,
                         final=True,
@@ -1823,6 +2901,8 @@ class TurnOrchestrator:
             if (
                 prepared.options.shadow_grounded_composer
                 and result.answer_spec is not None
+                and result.answer_spec.presentation_kind
+                not in {"market_technical", "evidence_gap"}
             ):
                 try:
                     synthesize_shadow_grounded_answer(
@@ -1845,11 +2925,7 @@ class TurnOrchestrator:
                     conversation_id,
                     "shadow_synthesize",
                     "grounded_composer_shadow",
-                    (
-                        shadow.to_dict()
-                        if shadow is not None
-                        else {"status": "not_run"}
-                    ),
+                    (shadow.to_dict() if shadow is not None else {"status": "not_run"}),
                 )
 
             llm_ledger = llm_refine.current_call_ledger()
@@ -1889,12 +2965,50 @@ class TurnOrchestrator:
                         "records": query_summary["records"],
                     },
                 )
+            # 研究预算必须在 owner/agent loop 完成后发布。旧位置位于
+            # GenericResearchOwner 之前，长尾问题会看到“研究工具 0 次”，
+            # 而 query/LLM 台账已经真实消耗，造成预算重复计算和 trace 断裂。
+            # 保留旧的 research_budget 字段，同时把同一 turn 的 LLM/查询计数
+            # 放入同一控制面事件，展示层不读取这些内部明细。
+            budget_trace = research_budget.to_trace()
+            shared_ledger: dict[str, object] = {}
+            if llm_ledger is not None and llm_ledger.records:
+                shared_ledger["llm"] = {
+                    "call_count": ledger_summary["call_count"],
+                    "failure_count": ledger_summary["failure_count"],
+                }
+            if turn_query_ledger is not None and turn_query_ledger.entries:
+                shared_ledger["queries"] = {
+                    "executed_count": query_summary["executed_count"],
+                    "deduped_count": query_summary["deduped_count"],
+                }
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "budget",
+                "research_execution_budget",
+                {
+                    "summary": (
+                        f"研究工具调用 {budget_trace['call_count']} 次，"
+                        f"记录 {budget_trace['attempt_count']} 次尝试"
+                    ),
+                    "elapsed_ms": budget_trace["elapsed_ms"],
+                    "shared_ledger": shared_ledger,
+                },
+                retrieval={
+                    "research_budget": budget_trace,
+                    "shared_ledger": shared_ledger,
+                },
+            )
             complete_report(
                 report,
                 as_of=result.trade_date,
                 warnings=warnings,
                 llm_provider=result.llm_provider,
                 llm_model=answer_model_name if result.llm_provider else None,
+                business_status=result.business_status,
+                answer_status=result.answer_status,
             )
             public_report = _redact_object(report)
             if isinstance(public_report, dict):
@@ -1935,16 +3049,9 @@ class TurnOrchestrator:
                     title="猜你想问",
                 )
             if result.grounded_composer_shadow is not None:
-                shadow_payload = (
-                    result.grounded_composer_shadow.to_dict()
-                )
-                if (
-                    result.grounded_composer_shadow.decision_brief
-                    is not None
-                ):
-                    shadow_brief = (
-                        result.grounded_composer_shadow.decision_brief
-                    )
+                shadow_payload = result.grounded_composer_shadow.to_dict()
+                if result.grounded_composer_shadow.decision_brief is not None:
+                    shadow_brief = result.grounded_composer_shadow.decision_brief
                     decision_brief_payload = shadow_brief.to_dict()
                     self.run_store.add_artifact(
                         run_id,
@@ -1973,17 +3080,13 @@ class TurnOrchestrator:
                     title="Grounded Composer 影子实验",
                 )
                 if (
-                    result.grounded_composer_shadow.status
-                    in {"accepted", "repaired"}
-                    and result.grounded_composer_shadow.presented_answer
-                    is not None
+                    result.grounded_composer_shadow.status in {"accepted", "repaired"}
+                    and result.grounded_composer_shadow.presented_answer is not None
                 ):
                     self.run_store.add_artifact(
                         run_id,
                         "grounded_composer_shadow.md",
-                        redact(
-                            result.grounded_composer_shadow.presented_answer
-                        ),
+                        redact(result.grounded_composer_shadow.presented_answer),
                         renderer="markdown",
                         title="Grounded Composer 影子答案",
                     )
@@ -2028,6 +3131,23 @@ class TurnOrchestrator:
             return TurnResult(
                 status=rs.STATUS_COMPLETED,
                 content=assistant.content,
+                selected_skill_ids=tuple(selected),
+                invoked_skill_ids=tuple(invoked),
+            )
+        except RunTerminalClaimLost as claim:
+            current = next(
+                (
+                    message
+                    for message in self.conversation_store.load_messages(
+                        conversation_id
+                    )
+                    if message.message_id == assistant_message_id
+                ),
+                None,
+            )
+            return TurnResult(
+                status=claim.status,
+                content=current.content if current is not None else "",
                 selected_skill_ids=tuple(selected),
                 invoked_skill_ids=tuple(invoked),
             )
@@ -2083,6 +3203,8 @@ class TurnOrchestrator:
         report: dict,
         answer: LaneAnswer,
         selected_skill_ids: Sequence[str],
+        turn_intent: TurnIntent,
+        research_plan: ResearchPlan,
         citations: Sequence[dict[str, object]] = (),
         warnings: Sequence[str] = (),
         as_of: str | None = None,
@@ -2091,9 +3213,39 @@ class TurnOrchestrator:
         self._emit(
             run_id,
             assistant_message_id,
+            "answer:snapshot:1",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase="verified_draft",
+                text=answer_text,
+                final=False,
+            ).payload(),
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
             "text:000001",
             "text.delta",
             {"delta": answer_text},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "answer:snapshot:2",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=2,
+                phase=(
+                    "validated_synthesis"
+                    if answer.provider is not None
+                    else "verified_fallback"
+                ),
+                text=answer_text,
+                final=True,
+            ).payload(),
             conversation_id,
         )
         complete_report(
@@ -2129,6 +3281,8 @@ class TurnOrchestrator:
             invoked_skill_ids=(),
             citations=_sanitize_citation_list(list(citations)),
             degrades=tuple(warnings),
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
         )
         self._emit(
             run_id,
@@ -2153,6 +3307,304 @@ class TurnOrchestrator:
             selected_skill_ids=(),
             invoked_skill_ids=(),
         )
+
+    def _complete_continuous_turn(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        query: str,
+        report: dict[str, object],
+        result: ContinuousTurnResult,
+        task_frame: TaskFrame,
+        selected_skill_ids: Sequence[str],
+        turn_intent: TurnIntent,
+        research_plan: ResearchPlan,
+    ) -> TurnResult:
+        """Persist one Episode-owned terminal result without legacy synthesis."""
+
+        private_artifact = dict(result.private_artifact or {})
+        private_artifact["task_frame"] = task_frame.to_dict()
+        private_artifact["turn_intent"] = turn_intent.to_dict()
+        safe_private_artifact = redact_value(private_artifact)
+        warnings = list(dict.fromkeys(result.warnings))
+        for warning in warnings:
+            self.run_store.add_degrade(run_id, warning)
+        if result.status == "degraded" and not warnings:
+            warning = "连续研究已按证据边界降级。"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+
+        for index, event in enumerate(result.events, start=1):
+            self._emit(
+                run_id,
+                assistant_message_id,
+                f"continuous:step:{index}",
+                "trace.step",
+                {
+                    "step": {
+                        "step_id": f"continuous:{index}",
+                        "name": str(event.get("stage") or "research"),
+                        "status": str(event.get("status") or "completed"),
+                        "output_summary": str(event.get("message") or ""),
+                    }
+                },
+                conversation_id,
+            )
+        citations = _sanitize_citation_list(list(result.citations))
+        if citations:
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "continuous:evidence",
+                "continuous_evidence_binding",
+                {"citation_count": len(citations)},
+                retrieval={
+                    "citation_counts": {"E": len(citations)},
+                    "citations": [
+                        {
+                            "tag": f"E{index}",
+                            "source": str(citation.get("source") or "研究证据"),
+                            "detail": str(citation.get("title") or "已记录引用"),
+                            "source_date": str(citation.get("date") or ""),
+                        }
+                        for index, citation in enumerate(citations, start=1)
+                    ],
+                },
+            )
+        for index, citation in enumerate(citations, start=1):
+            self._emit(
+                run_id,
+                assistant_message_id,
+                f"continuous:citation:{index}",
+                "citation.ready",
+                {"citation": citation},
+                conversation_id,
+            )
+
+        answer_text = redact(result.answer).strip()
+        if result.status == "failed" or not answer_text:
+            failure_text = answer_text or "本轮连续研究未取得可公开答案。"
+            report["execution_kind"] = "continuous_episode"
+            report["task_frame_hash"] = turn_intent.task_frame_hash
+            report["turn_intent"] = turn_intent.to_dict()
+            report["status"] = "blocked"
+            report["transport_status"] = "failed"
+            report["research_status"] = "blocked"
+            report["answer_status"] = "missing"
+            report["business_status"] = "blocked"
+            report["as_of"] = result.as_of
+            report["warnings"] = warnings
+            self._check_cancelled()
+            self._claim_terminal_run(
+                run_id,
+                rs.STATUS_FAILED,
+                error="continuous_runtime_failed",
+            )
+            self.run_store.add_artifact(
+                run_id,
+                "continuous-episode.json",
+                json.dumps(
+                    safe_private_artifact,
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="json",
+                title="连续研究私有审计",
+                visibility="internal",
+                previewable=False,
+                downloadable=False,
+            )
+            self.run_store.add_artifact(
+                run_id,
+                "answer.md",
+                failure_text,
+                renderer="markdown",
+                title=redact(f"对话回答：{query[:24]}"),
+            )
+            self.run_store.add_artifact(
+                run_id,
+                "report.json",
+                json.dumps(
+                    _redact_object(report),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="structured_report",
+                title="结构化对话报告",
+            )
+            assistant = self.conversation_store.revise_message(
+                conversation_id,
+                assistant_message_id,
+                content=failure_text,
+                status="failed",
+                selected_skill_ids=list(selected_skill_ids),
+                invoked_skill_ids=[],
+                citations=citations,
+                degrades=warnings,
+                turn_intent=turn_intent.to_dict(),
+                research_plan=research_plan.to_dict(),
+            )
+            self._emit(
+                run_id,
+                assistant_message_id,
+                "report:error",
+                "report.error",
+                {"report": _redact_object(report)},
+                conversation_id,
+            )
+            self._emit(
+                run_id,
+                assistant_message_id,
+                "message:error",
+                "message.error",
+                {"message": asdict(assistant)},
+                conversation_id,
+            )
+            return TurnResult(
+                status=rs.STATUS_FAILED,
+                content=assistant.content,
+                selected_skill_ids=(),
+                invoked_skill_ids=(),
+            )
+
+        report["execution_kind"] = "continuous_episode"
+        report["turn_intent"] = turn_intent.to_dict()
+        complete_report(
+            report,
+            as_of=result.as_of,
+            warnings=warnings,
+            llm_provider=result.llm_provider,
+            llm_model=self.llm_model,
+            business_status=("complete" if result.status == "completed" else "partial"),
+            answer_status=("complete" if result.status == "completed" else "partial"),
+        )
+        public_report = _redact_object(report)
+        if isinstance(public_report, dict):
+            report = public_report
+        self._check_cancelled()
+        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        self.run_store.update_provenance(run_id, source_date=result.as_of)
+        self.run_store.add_artifact(
+            run_id,
+            "answer.md",
+            answer_text,
+            renderer="markdown",
+            title=redact(f"对话回答：{query[:24]}"),
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "continuous-episode.json",
+            json.dumps(
+                safe_private_artifact,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            renderer="json",
+            title="连续研究私有审计",
+            visibility="internal",
+            previewable=False,
+            downloadable=False,
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "report.json",
+            json.dumps(report, ensure_ascii=False, indent=2),
+            renderer="structured_report",
+            title="结构化对话报告",
+        )
+        assistant = self.conversation_store.revise_message(
+            conversation_id,
+            assistant_message_id,
+            content=answer_text,
+            status="completed",
+            selected_skill_ids=list(selected_skill_ids),
+            invoked_skill_ids=[],
+            citations=citations,
+            degrades=warnings,
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:answer:draft",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase="verified_draft",
+                text=answer_text,
+                final=False,
+            ).payload(),
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:text",
+            "text.delta",
+            {"delta": answer_text},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "continuous:answer",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=2,
+                phase=(
+                    "validated_synthesis"
+                    if result.status in {"completed", "partial"}
+                    else "evidence_gap_fallback"
+                ),
+                text=answer_text,
+                final=True,
+            ).payload(),
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "report:complete",
+            "report.complete",
+            {"report": report},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "message:complete",
+            "message.complete",
+            {"message": asdict(assistant)},
+            conversation_id,
+        )
+        return TurnResult(
+            status=rs.STATUS_COMPLETED,
+            content=assistant.content,
+            selected_skill_ids=(),
+            invoked_skill_ids=(),
+        )
+
+    def _claim_terminal_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        error: str | None = None,
+    ) -> None:
+        """Linearize one terminal owner before publishing its terminal events."""
+
+        terminal, claimed = self.run_store.claim_terminal_run(
+            run_id,
+            status,
+            error=error,
+        )
+        if claimed:
+            return
+        raise RunTerminalClaimLost(terminal.status)
 
     def _emit(
         self,
@@ -2260,12 +3712,8 @@ class TurnOrchestrator:
                 original_text_delta(delta)
 
         def guarded_cancel_check() -> bool:
-            return (
-                not progress_open.is_set()
-                or (
-                    original_cancel_check is not None
-                    and original_cancel_check()
-                )
+            return not progress_open.is_set() or (
+                original_cancel_check is not None and original_cancel_check()
             )
 
         guarded_options = replace(
@@ -2284,9 +3732,7 @@ class TurnOrchestrator:
         future: Future[AskResult] | None = None
         try:
             if deadline.expired:
-                timeout_warning = (
-                    "通用研究主链达到统一截止时间，已返回结构化缺口。"
-                )
+                timeout_warning = "通用研究主链达到统一截止时间，已返回结构化缺口。"
                 if timeout_warning not in warnings:
                     warnings.append(timeout_warning)
                     self.run_store.add_degrade(run_id, timeout_warning)
@@ -2328,9 +3774,7 @@ class TurnOrchestrator:
                 self._check_cancelled()
                 remaining = deadline.remaining()
                 if remaining <= 0:
-                    timeout_warning = (
-                        "通用研究主链达到统一截止时间，已返回结构化缺口。"
-                    )
+                    timeout_warning = "通用研究主链达到统一截止时间，已返回结构化缺口。"
                     if timeout_warning not in warnings:
                         warnings.append(timeout_warning)
                         self.run_store.add_degrade(run_id, timeout_warning)
@@ -2421,6 +3865,7 @@ class TurnOrchestrator:
                 "matched_theme": result.matched_theme,
                 "citation_count": len(result.citations),
                 "elapsed_ms": elapsed_ms,
+                "graph_exposure": result.graph_exposure_telemetry or None,
                 "wiki_rag": (
                     {
                         "status": wiki_telemetry.status,
@@ -2438,6 +3883,9 @@ class TurnOrchestrator:
                     if result.closed_loop_retrieval is not None
                     else None
                 ),
+                # GenericResearchOwner 的完成度是控制面审计字段；展示层只
+                # 消费 AnswerSpec，不把内部 missing/gap 诊断拼进正文。
+                "completion_report": result.completion_report,
                 "provider_traces": [
                     trace.to_dict() for trace in result.provider_traces
                 ],
@@ -2699,10 +4147,61 @@ class TurnOrchestrator:
                         )
                         lines.append(f"  - {prefix}{summary.strip()}")
             if output.warnings:
-                lines.append(
-                    "- 数据质量提示：" + "；".join(output.warnings[:3])
-                )
+                lines.append("- 数据质量提示：" + "；".join(output.warnings[:3]))
         return "\n".join(lines)
+
+    @staticmethod
+    def _skill_claim_bundle(
+        outputs: Sequence[SkillOutput],
+    ) -> tuple[tuple[answer_model.Claim, ...], tuple[Citation, ...]]:
+        """把非 owner skill 的结构化模块接入统一 claim/citation 通道。
+
+        ``supplemental_evidence`` 仍保留给模型做上下文阅读；这里额外铸造
+        候选 claim，确保 Grounded Presenter 的 registry 能合法引用这些事实，
+        而不是出现“skill 查到了、合成层却看不见”的半死证据。
+        """
+
+        claims: list[answer_model.Claim] = []
+        citations: list[Citation] = []
+        for output in outputs:
+            if not output.modules or not output.citations:
+                continue
+            tags: list[str] = []
+            for citation in output.citations[:8]:
+                if not isinstance(citation, dict):
+                    continue
+                tag = f"SK{len(citations) + 1}"
+                source = str(
+                    citation.get("title") or citation.get("source") or output.skill_id
+                )
+                detail = str(citation.get("source") or "")
+                citations.append(Citation(tag, source, detail))
+                tags.append(tag)
+            if not tags:
+                continue
+            for module_index, module in enumerate(output.modules, start=1):
+                if not isinstance(module, dict):
+                    continue
+                bits: list[str] = []
+                for key in ("title", "summary", "content"):
+                    value = module.get(key)
+                    if isinstance(value, str) and value.strip():
+                        bits.append(value.strip())
+                if not bits:
+                    continue
+                text = "：".join(bits[:2])[:600]
+                claims.append(
+                    answer_model.make_claim(
+                        claim_id=f"skill:{output.skill_id}:{module_index}",
+                        text=text,
+                        claim_type="theme_evidence",
+                        theme=output.skill_id,
+                        status=answer_model.ClaimStatus.CANDIDATE,
+                        evidence_tier="skill_candidate",
+                        evidence_ids=tuple(tags),
+                    )
+                )
+        return tuple(claims), tuple(citations)
 
     @staticmethod
     def _skill_warning_module(skill_id: str, warning: str) -> dict[str, object]:

@@ -6,18 +6,24 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 
+from intelligence.paths import default_market_db_path
 from intelligence.api.structured_reports import ask_result_modules
 from intelligence.services import answer_model, web_research
 from intelligence.services.ask import AskOptions, AskResult, answer_query
 from intelligence.services.market_analogs import load_historical_analog_artifact
 from intelligence.services.market_midterm import load_midterm_trend_artifact
-from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    envelope_from_task_frame,
+    understand_query,
+)
 from intelligence.services.research_contract import (
     EvidenceAtom,
     OWNER_WORKFLOW_SPECS,
     StageArtifact,
 )
 from intelligence.services.scenario_tree import build_scenario_tree_artifact
+from intelligence.services.task_frame import TaskFrame
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     SkillAnswerContract,
@@ -92,6 +98,11 @@ class ResearchOwnerSkill:
         self._web_search = web_search_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        envelope = (
+            envelope_from_task_frame(context.task_frame)
+            if context.task_frame is not None
+            else understand_query(context.query)
+        )
         options = AskOptions(
             query=context.query,
             user=context.user_id,
@@ -104,18 +115,22 @@ class ResearchOwnerSkill:
                 f"{context.user_id}:{context.conversation_id or context.run_id}"
             ),
             module_timeout=self.config.module_timeout,
-            market_db_path=(
-                context.repo_root / "db" / "market_feature_store.duckdb"
-            ),
+            # 数据根，不是代码根。context.repo_root 来自 WORKBENCH_REPO_ROOT，
+            # 部署契约里那是候选代码根；盘面库在 FINANCE_WS 数据根下。写成代码根
+            # 会让题材研究的盘面证据在蓝绿运行时静默变空。
+            market_db_path=default_market_db_path(),
             conversation_context=context.conversation_context,
             include_memory_block=True,
             include_recall_block=True,
-            question_type_override=self.config.question_type,
+            question_type_override=(
+                envelope.question_type
+                if context.task_frame is not None
+                else self.config.question_type
+            ),
             use_l3_lookup=self.config.use_l3_lookup,
             deadline=context.deadline,
         )
         stages = OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
-        envelope = understand_query(context.query)
         dag = execute_owner_dag(
             cache_key=f"{self.skill_id}:{context.query}",
             stages=stages,
@@ -132,6 +147,7 @@ class ResearchOwnerSkill:
             query=context.query,
             matched_theme=envelope.subject,
             inherited_answer_spec=context.inherited_answer_spec,
+            task_frame=context.task_frame,
         )
         if result is None:
             warnings = list(dag.warnings)
@@ -302,7 +318,14 @@ class ResearchOwnerSkill:
         query: str = "",
         matched_theme: str | None = None,
         inherited_answer_spec: JsonObject | None = None,
+        task_frame: TaskFrame | None = None,
     ) -> SkillAnswerContract | None:
+        required_outputs = (
+            task_frame.required_outputs if task_frame is not None else ()
+        )
+        output_contract = tuple(
+            dict.fromkeys((*self.config.output_contract, *required_outputs))
+        )
         spec = result.answer_spec if result is not None else None
         used_fallback = False
         if (
@@ -313,6 +336,7 @@ class ResearchOwnerSkill:
                 query=query,
                 matched_theme=matched_theme,
                 stage_artifacts=stage_artifacts,
+                output_contract=output_contract,
             )
             used_fallback = True
         if spec is None:
@@ -342,7 +366,7 @@ class ResearchOwnerSkill:
                 dict.fromkeys(
                     (
                         *spec.prompt_constraints,
-                        *self.config.output_contract,
+                        *output_contract,
                     )
                 )
             ),
@@ -366,9 +390,13 @@ class ResearchOwnerSkill:
         owned_spec = answer_model.finalize_answer_spec(owned_spec)
         return SkillAnswerContract(
             retrieval_plan=self.config.retrieval_plan,
-            output_contract=self.config.output_contract,
+            output_contract=output_contract,
             answer_spec=owned_spec,
             question_type=self.config.question_type,
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
+            required_outputs=required_outputs,
         )
 
     @classmethod
@@ -580,6 +608,7 @@ class ResearchOwnerSkill:
         query: str,
         matched_theme: str | None,
         stage_artifacts: tuple[StageArtifact, ...],
+        output_contract: tuple[str, ...] | None = None,
     ) -> answer_model.AnswerSpec:
         research_spec = answer_model.resolve_theme_research_spec(
             query,
@@ -657,7 +686,7 @@ class ResearchOwnerSkill:
             system_notices=(
                 "能力守恒降级：阶段失败不删除其他已完成区块或必需标题。",
             ),
-            prompt_constraints=self.config.output_contract,
+            prompt_constraints=output_contract or self.config.output_contract,
             presentation_kind=self.config.presentation_kind,
             presentation_title=self.config.title,
             research_artifacts=stage_artifacts,
@@ -2280,6 +2309,16 @@ THEME_RESEARCH = ResearchOwnerConfig(
         "先给题材定义、产业链位置和当前阶段",
         "按上游、中游、下游和二阶受益分层",
         "核心公司必须绑定暴露证据，不因概念关联直接升级",
+        # 上一条只说了「不许升级」，没说「要列出来」，模型于是执行成了「干脆不提」。
+        # 实测固态电池：AnswerSpec 的「公司判断」小节里有 12 家带产业链角色与层级的
+        # 候选（三祥新材/东方锆业/中一科技…core、万顺新材 related），claim registry 里
+        # 也有 12 条 company: claim，而正文一家都没提，只写了一句「公司层面尚未形成
+        # 可回查证据，不能把任何公司列为核心受益者」。那句话本身没错——它们确实都还是
+        # 候选——但把 12 个有名有姓的候选压成「什么都没有」，等于把研究结论丢了。
+        # 后果还不止于此：chain_mapping 要求 claim 文本出现在正文里才算绑定，正文不提
+        # 就判缺，fail-closed 再把整份答案换成「请补充数据源」。
+        "公司判断里的候选必须逐个列出：公司、产业链环节、层级和还缺什么证据；"
+        "候选清单本身就是研究结论，不得因为都还是候选就写成「无公司证据」",
         "历史类比、情景树和证伪区块在缺数时仍显式保留",
         "结尾给信号层缺口、升级、降级和证伪条件",
     ),

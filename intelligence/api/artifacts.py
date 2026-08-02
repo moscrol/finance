@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Protocol
 
-from intelligence.services.run_store import RunStore
+from intelligence.services.run_store import RunStore, artifact_visibility
 
 SCHEMA_VERSION = 1
 DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
@@ -198,6 +198,8 @@ class RunArtifactProvider:
         for run in context.run_store.list_runs():
             run_dir = context.run_store.run_dir(run.run_id).resolve()
             for artifact in run.artifacts:
+                if artifact_visibility(artifact) != "public":
+                    continue
                 relative = str(artifact.get("path") or "")
                 path = (run_dir / relative).resolve()
                 if not relative or not _is_within(path, run_dir):
@@ -431,6 +433,14 @@ class ArtifactRegistry:
                 discovered[descriptor.artifact_id] = descriptor
         for artifact_id, descriptor in self._known.items():
             if artifact_id not in discovered:
+                # RunArtifactProvider deliberately omits internal artifacts.  Do
+                # not resurrect a previously public run descriptor as a
+                # ``missing`` item: a visibility transition must remove the
+                # descriptor from every public projection, including a warm
+                # registry cache.  File-backed providers retain their missing
+                # entries so the UI can explain deleted/optional artifacts.
+                if descriptor.category == "run":
+                    continue
                 discovered[artifact_id] = replace(
                     descriptor,
                     status="missing",

@@ -1,0 +1,101 @@
+{
+  "case_id": "A5-limit-heat",
+  "agent": "knevo",
+  "frozen_at": "2026-07-27T06:07:17.253476+00:00",
+  "via": "cdp_readback",
+  "asked_at": "2026-07-27",
+  "answer_sha256": "548b776e929accd3925e9f3643bc9b0f3dbea1c9c6398c5f552e897d58c2782a",
+  "source_meta": {
+    "provider": "knevo.ai",
+    "conversation_id": "s-439e7469",
+    "conversation_created_at": "2026-07-27T05:50:55.293497Z",
+    "asked_prompt": "2026-07-23 涨停集中在哪些题材",
+    "read_via": "CDP /api/conversations/{id} transcript（用户自己已登录的 Chrome）",
+    "tool_calls": [
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "recall_short_term",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "web_search",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "web_search",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_news",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_search_data",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "finance_instrument",
+        "status": "success"
+      },
+      {
+        "turn": 1,
+        "name": "suggest_options",
+        "status": "success"
+      }
+    ],
+    "tool_names": [
+      "finance_instrument",
+      "finance_news",
+      "finance_search_data",
+      "recall_short_term",
+      "suggest_options",
+      "web_search"
+    ]
+  },
+  "answer": "数据返回了不少涨停股，但 `as_of` 标注为 2026-07-27（今天），我需要确认这批榜单是否确实来自 7 月 23 日。先并行搜索当日复盘文章和几只典型股票的题材归属来交叉验证。\n\n验证发现 movers 数据集返回的 `as_of` 是今天（7/27），我需要更精确地找到 7 月 23 日的涨停数据。让我通过当日复盘文章和多只涨停股验证来交叉还原。\n\n## 2026-07-23 涨停题材复盘\n\n根据当日盘中快讯（财联社 13:10）和次日早晨热点回顾（调研信息 7/24 08:32）交叉验证，7月23日涨停主要集中在以下题材，按强度排列：\n\n---\n\n### 🥇 电网设备 / 特高压 —— 当日最强主线，十余股涨停\n\n**催化**：国家电网公示 2026 年第三批特高压、输变电设备招标候选名单，**前三批采购总金额已超越 2025 全年总量**。国内主网架加速建设持续拉动高压设备需求，行业景气度维持高位。\n\n涨停代表：双杰电气、摩恩电气、益坤电气、中能电气、中国西电、保变电气、望变电气、顺钠股份等。\n\n---\n\n### 🥈 电力 / 绿电\n\n涨停代表：立新能源、新中港、银星能源（+10.04%，EOD 验证涨停）。消息面上，国家能源局召开 2026 年第二次能源监管工作例会，要求强化迎峰度夏能源保供监管、完善全国统一电力市场体系。\n\n---\n\n### 🥉 中东地缘 / 石油化工\n\n**催化**：特朗普接受采访时透露正认真考虑重启对伊朗大规模作战行动。WTI 原油 9 月合约收涨 6.17% 报 92.19 美元/桶，布伦特收涨 7.04% 报 100.69 美元/桶。\n\n涨停代表：中曼石油、金牛化工。\n\n---\n\n### 4️⃣ 锂电 / 电解液\n\n**催化**：电解液剂 VC 7 月 23 日单日上涨 11.11% 至 20 万元/吨，6 月中旬以来累计上涨 42.8%。山东多家 VC 厂检修 + 苏州某非上市企业排污改造检修，合计影响产能约 13,000 吨。\n\n涨停代表：孚日股份、永杉锂业。\n\n---\n\n### 5️⃣ 并购重组（事件驱动）\n\n涨停代表：爱丽家居、五洲医疗。\n\n---\n\n### 6️⃣ 其他零星题材\n\n| 题材 | 代表标的 | 催化 |\n|---|---|---|\n| 算力 | 美利云 | 数据中心机柜租赁 |\n| 黄金 | 盛达资源 | 地缘避险 + 金价 |\n| 创新药 | 汉森制药 | 个股逻辑 |\n| 军工/军演 | 长城军工 | 地缘情绪传导 |\n\n---\n\n### 一句话总结\n\n7 月 23 日涨停最集中的题材是**电网设备/特高压**——国网第三批招标超预期的催化下，板块出现十余股涨停的共振行情；其次是**电力/绿电**（迎峰度夏保供）和**中东地缘→石油化工**（油价暴涨）；锂电 VC 涨价线也有联动。整体来看，当日是**「电网特高压领衔 + 地缘油价助攻」**的题材格局。\n\n> 来源说明：涨停名单和主题分类主要依据当日财联社盘中快讯（7/23 13:10）和次日调研信息早间热点回顾（7/24 08:32）；银星能源等部分标的通过日 K 线数据（iFinD EOD）交叉验证了实际涨停。"
+}

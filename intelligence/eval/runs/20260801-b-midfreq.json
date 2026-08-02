@@ -1,0 +1,1990 @@
+{
+  "generated_at": "20260801T172616Z",
+  "base": "http://127.0.0.1:8793",
+  "preflight_ok": true,
+  "preflight_detail": "revision=0430d544 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "B1-theme-photoresist",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "光刻胶",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n## 题材定义与产业链位置\n\n光刻胶的研究范围是围绕晶圆制造和面板制造所需光刻材料，从树脂、单体与光引发剂到配方、验证和量产导入的研究方向。\n\n按上中下游及二阶受益分层，公司级结论须满足产品代际与研发平台、客户送样、验证、导入或订单、量产规模与收入贡献的证据门槛，仅凭概念关联不得升级为核心受益者。\n\n## 市场阶段：升温验证中的第一次分歧\n\n最新全市场主线日期为2026-07-30，主线结构归因显示半导体近20日出现15天主线、AI算力近20日同样出现15天主线，属于高持续性方向。\n\n光刻胶题材当前处于升温验证期，这一阶段的特征是奖励有公告等硬证据跟进的标的，纯标签股开始被抛弃。\n\n## 题材结构：防御方向承接，风险方向量价待确认\n\n在风险板块集体走弱的同时，当日有两条防御类方向出现弱放量修复：银行涨2.53%、边际量29.15%，并创历史新高；白酒涨3.52%、边际量40.63%。\n\n上述主线结构为盘面信号归因，只能说明市场主线方向，不等同于光刻胶公司基本面的兑现。\n\n## 强势股队列与光刻胶的定位缺口\n\n当前盘面数据未直接给出光刻胶板块的涨停热度、双红、新高集群或边际量数据行，尚无法判断资金是否已对该题材形成持续共识。\n\n市场尚未用真金白银选择这条逻辑，光刻胶可能仍是被市场看过并放弃的旧共识，需要接入盘面数据或触发信号后才能判定其题材生命周期位置。\n\n## 公司级证据：候选映射与硬证据缺口\n\n- 南大光电：与光刻胶存在公司级映射，产业链定位于高端ArF光刻胶平台；候选层级的公开资料显示其主要产品系列包含ArF光刻胶，是国内首家通过先进制程晶圆厂流片认证并实现大宗复购供货的标志性破局平台。仍缺：可在公告、年报或客户订单层面回查的硬证据，该证据质量目前为间接来源，不得升级为核心受益。\n- 上海新阳：与光刻胶存在公司级映射，但本轮仅有候选映射，尚无产品代际、客户送样、验证、导入或订单的公司级证据。仍缺：公告或客户验证类硬证据跟进，若公司在互动易口径保守/否认或长期无公告跟进，逻辑直接性将明显下降。\n- 公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，因此不能把任何公司列为核心受益者。\n\n## 证据时效与待复核项\n\n光刻胶题材层面的证据已超45天，需复核是否被新数据证伪。\n\n## 升级条件\n\n以下情形若兑现可推动逻辑升级：客户验证通过；产线投产并形成批量订单；高端产品收入占比提升。\n\n## 降级与证伪条件\n\n若公司在互动易口径保守/否认或长期无公告跟进，逻辑直接性将明显下降；若市场持续未用真金白银选择该逻辑，则可能属于已被市场看过并放弃的旧共识。\n\n（非投资建议）\n\n## 产业链映射（候选，未获硬证据确认）\n- 南大光电与光刻胶存在公司级映射。（光刻胶相关产品/材料供应商｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 上海新阳与光刻胶存在公司级映射。（集成电路制造用高端光刻胶(KrF/ArF)研发生产｜候选｜缺候选资料需公告、年报、订单或客户证据确认）",
+          "run_id": "run_20260802_011720_756986",
+          "invoked_skill_ids": [
+            "theme-research"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=光刻胶；来源=光刻胶产业新变化与新格局深度研究报告",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=光刻胶；来源=光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=光刻胶；来源=晚间卖方研报20260315",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=彤程新材；来源=光刻胶产业新变化与新格局深度研究报告",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=彤程新材；来源=a-stock baseline 2026-06-02 apply-batch048",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=彤程新材；来源=彤程新材_逻辑卡",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=南大光电；来源=光刻胶产业新变化与新格局深度研究报告",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=南大光电；来源=iFinD baseline 2026-05-25",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G3",
+              "title": "（内部检索诊断信息已隐藏。）",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-30"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "历史信号回检：theme_signals.json 无匹配主题，历史信号回检跳过（该题材尚未建发酵信号）",
+            "公司映射超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "evidence_bound": 17,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=光刻胶 source=[[光刻胶产业新变化与新格局深度研究报告]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=光刻胶 source=[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=光刻胶 source=[[晚间卖方研报20260315]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=彤程新材 source=[[光刻胶产业新变化与新格局深度研究报告]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=彤程新材 source=[[a-stock baseline 2026-06-02 apply-batch048]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=彤程新材 source=[[彤程新材_逻辑卡]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=南大光电 source=[[光刻胶产业新变化与新格局深度研究报告]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=南大光电 source=[[iFinD baseline 2026-05-25]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] theme-radar · radar.py --mode brief（产业维·速览）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "radar.py --mode brief --term 光刻胶 --vault <kb-wiki> | --term 光刻胶",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 23,
+            "bound_claim_count": 21
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "模块 replay：theme_signals.json 无匹配主题，replay 跳过（该题材尚未建发酵信号）",
+            "company_mapping 超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "elapsed_s": 78.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "液冷",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n## 本轮任务边界\n\n本轮为标准深度的题材分析，重点围绕市场阶段（扩散、主升、第一次分歧、反弹还是兑现）、题材结构（双红、涨停扩散、新高集群、容量行业和边际量）以及强势股队列（领先核心、同步确认、后排补涨和被抛弃方向）展开。优先证据来自本地盘面主线结构数据和题材候选信号，并结合产业链研究口径和概念研报。完成条件是自然回答用户问题，但必须显式区分事实、推导、反证和后续验证，不得用常识或印象补齐缺口。\n\n## 题材定义与产业链位置\n\n从产业链环节看，冷板、快接、CDU 和泵阀属于中游核心零部件与温控执行层，冷源与机房环境属上游或配套环节，系统集成与交付属下游整机柜或数据中心侧。后文按\"上中下游与二阶受益\"分层列出当前候选公司及其证据状态。\n\n## 市场阶段：升温验证期，核心板块进入第一次分歧\n\n盘面主线日期为 2026-07-30，匹配口径为最新全市场主线；该信号是盘面归因，不等同公司基本面兑现。\n\n从主线持续性看，半导体和 AI 算力近 20 日各出现 15 天（2026-07-10 至 2026-07-30），医药出现 13 天（截至 2026-07-28），AI 应用 6 天（截至 2026-07-17），电力 5 天（2026-07-20 至 2026-07-24）。\n\n这意味着液冷所依赖的算力—半导体母题材正处于第一次分歧而非主升或兑现：前期主线板块出现放量杀跌，部分呈缩量状态，资金尚未对散热细分方向形成持续共识。\n\n升温验证期的特征是：奖励有公告等硬证据跟进的标的，纯标签股开始被抛弃。\n\n## 资金分流与强势方向扫描\n\n在算力与半导体分歧的同时，当日资金流向防御与消费：银行涨 2.53%，边际量 29.15%，成交 459.97 亿元，呈弱放量修复且创历史新高；白酒涨 3.52%，边际量 40.63%，成交 272.84 亿元，涨停 2 家，弱放量修复；一般零售涨 0.25%，边际量 27.41%，涨停 1 家，弱放量修复。\n\n此外，当前没有液冷题材自身的盘面数据行（如双红、涨停热度、新高集群、容量行业、边际量等），无盘面信号时无法直接判定其强势股队列和生命周期状态。\n\n## 产业链候选公司清单（chain_mapping 逐个说明）\n\n图谱共匹配 179 家公司，本轮由模型从 60 家候选中按问题意图挑出 12 家写入正文；其余 167 家未展示，不代表不存在，完整名单需指定公司或收窄题材。\n\n公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，因此不能把任何公司列为核心受益者。\n\n- 英维克：产业链环节为液冷系统集成与精密温控（下游/系统交付），层级为候选（），还缺液冷收入、毛利、订单或交付公告。\n- 高澜股份：产业链环节为 CDU 与泵阀液冷温控（中游/核心零部件），层级为候选（），还缺客户验证转订单和收入兑现证据。\n- 申菱环境：产业链环节为数据中心专用空调与液冷冷源（上游/配套及系统），层级为候选（），还缺公告或官网产品资料及收入贡献。\n- 川润股份：产业链环节为液冷温控与换热（中游/核心零部件），层级为候选（），还缺客户验证和量产交付证据。\n- 强瑞技术：产业链环节为液冷快接/精密结构件（中游/核心零部件），层级为候选（），还缺订单、量产和液冷收入占比数据。\n- 冰轮环境：产业链环节为冷源/冷水机组与温控设备（上游/冷源），层级为候选（），还缺数据中心液冷相关公告和收入兑现。\n- 同飞股份：产业链环节为工业温控/液冷冷却设备（中游/核心零部件），层级为候选（），还缺客户验证和订单证据。\n- 曙光数创：产业链环节为液冷服务器/数据中心系统（下游/系统交付），层级为候选（），还缺公告、交付量和收入贡献。\n- 拓普集团：产业链环节为汽车热管理延伸/液冷零部件（二阶/横向扩展），层级为候选（），仅间接关联，还缺数据中心液冷业务硬证据。\n- 科创新源：产业链环节为密封/散热件（中游/配套），层级为候选（），仅有概念关联，未发现公司级证据。\n- 中鼎股份：产业链环节为橡胶/管路件延伸液冷（二阶/横向扩展），层级为候选（），仅有概念关联，未发现公司级证据。\n- 银轮股份：产业链环节为热管理/换热器延伸液冷（二阶/横向扩展），层级为候选（），仅有概念关联，未发现公司级证据。\n\n## 反证与价格抢跑风险\n\n价格可能已抢跑：市场交易的是预期而非已验证事实，公告或兑现日反而可能是分歧点。\n\n缺少公告等公司级硬证据：若公司在互动易口径保守或否认，或长期无公告跟进，这条逻辑的直接性将明显下降。\n\n当日 CPO、PCB、半导体等 AI 算力核心板块的大幅回调，正是上述抢跑风险在盘面上的直接体现：母题材分歧时，缺乏硬证据的纯标签股最易被抛售。\n\n## 证据老化与复核缺口\n\n液冷题材的多条卖方观点和研报证据已超 45 天，需复核是否被新数据证伪，具体包括：来源 （2026-05-27）、（2026-05-02）、（2026-05-07）、（2026-05-10）、（2026-05-11）、（2026-04-17）。\n\n当前事实边界是：题材定义和产业链属于研究口径；公司结论必须满足公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。\n\n盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。\n\n## 升级、降级和证伪条件\n\n升级条件（需同时有公司级硬证据跟进）：一是客户验证转订单；二是机柜或 CDU 交付放量；三是液冷收入和利润开始兑现。\n\n降级条件：若价格已抢跑且公司长期无公告或互动易否认，题材逻辑的直接性下降，候选标的应降级处理。\n\n证伪条件：若上述 45 天以上老证据被新数据推翻（如年报未披露液冷收入、客户验证未转订单、交付不及预期），则相关候选不得作为核心受益依据。\n\n信号层缺口：液冷自身无盘面数据行，接入盘面主线数据或题材候选触发信号后才能判定其独立强势股队列和生命周期状态。\n\n（非投资建议）\n\n## 产业链映射（候选，未获硬证据确认）\n- 英维克与液冷存在公司级映射。（待补充｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 高澜股份与液冷存在公司级映射。（液冷集成商相关标的｜外围｜缺候选资料需公告、年报、订单或客户证据确认）\n- 申菱环境与液冷存在公司级映射。（数据中心液冷CDU/Manifold/冷板等，海外业务和液冷取得较好进展｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 川润股份与液冷存在公司级映射。（液冷相关产品/材料供应商｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 强瑞技术与液冷存在公司级映射。（CDU/Manifold/冷板/UQD等液冷零部件相关标的｜外围｜缺候选资料需公告、年报、订单或客户证据确认）\n- 冰轮环境与液冷存在公司级映射。（上游一次侧冷源中央空调｜外围｜缺候选资料需公告、年报、订单或客户证据确认）\n- 同飞股份与液冷存在公司级映射。（中游CDU代工｜外围｜缺候选资料需公告、年报、订单或客户证据确认）\n- 曙光数创与液冷存在公司级映射。（液冷数据中心基础设施龙头（中科曙光旗下，北交所）：浸没液冷+冷板液冷+模块化数据中心｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 拓普集团与数据中心液冷存在公司级映射。（数据中心液冷｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 科创新源与液冷存在公司级映射。（热管理系统业务（瑞泰克/创源智热）：新能源汽车动力电池液冷板、数据中心服务器散热液冷板、数据中心板换式液冷散热模组，客户含宁德时代、蜂巢能源、正力新能、LG｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 中鼎股份与浸没式液冷存在公司级映射。（算力液冷（数据中心CDU/冷板/浸没式液冷）｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 银轮股份与液冷存在公司级映射。（中游液冷CDU板换/AI发电水箱｜候选｜缺候选资料需公告、年报、订单或客户证据确认）",
+          "run_id": "run_20260802_011839_216787",
+          "invoked_skill_ids": [
+            "theme-research"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=题材盘面快照-db-quality-audit",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=0502卖方观点合集",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=0507卖方观点合集",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=0510卖方观点合集",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=0511卖方观点合集",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=晚卖研汇_20260618",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=晚研_20260417",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=液冷；来源=晚间卖方研报20260706",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G3",
+              "title": "（内部检索诊断信息已隐藏。）",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G4",
+              "title": "（内部检索诊断信息已隐藏。）",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-30"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "公司映射超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "evidence_bound": 18,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[theme-radar-db-quality-audit]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[0502卖方观点合集]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[0507卖方观点合集]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[0510卖方观点合集]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[0511卖方观点合集]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[晚卖研汇_20260618]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[晚研_20260417]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=液冷 source=[[晚间卖方研报20260706]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] theme-radar · radar.py --mode brief（产业维·速览）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "radar.py --mode brief --term 液冷 --vault <kb-wiki> | --term 液冷",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G4",
+              "label": "[G4] knowledge-base · generate_fermentation_report.py（模块7 发酵复盘）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "generate_fermentation_report.py 液冷 | theme=液冷",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 33,
+            "bound_claim_count": 31
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "company_mapping 超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "elapsed_s": 101.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B3-theme-solid-state-battery",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "固态电池",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n## 题材定义与产业链位置\n\n固态电池的研究范围是围绕固态电解质、正负极材料、界面工艺和制造设备，从研发验证走向量产的研究方向。\n\n按上游、中游、下游和二阶受益分层，当前事实边界要求公司结论必须满足：技术路线和样品指标、客户送样、验证与中试进度、量产线、订单和收入贡献；题材定义和产业链属于研究口径，不得直接等同于公司基本面兑现。\n\n## 市场阶段与盘面信号\n\n最新主线日期为2026年7月30日，匹配口径为最新全市场主线；该数据属于盘面信号，只能说明市场主线归因，不等同公司基本面兑现。\n\n从近20日主线持续性看，半导体出现15天（2026年7月10日至7月30日），AI算力出现15天（同期），医药出现13天（7月10日至7月28日），AI应用出现6天（7月10日至7月17日），电力出现5天（7月20日至7月24日）。\n\n固态电池目前处于升温验证期：这一阶段奖励有公告等硬证据跟进的标的，纯标签股开始被抛弃；但在接入新的盘面数据块或触发信号之前，无法判定资金是否已经形成持续共识，也不能确认扩散、主升、第一次分歧、反弹或兑现的具体阶段。\n\n## 候选公司与产业链暴露\n\n公司层面已找到可回查的公开材料，覆盖天赐材料；但是否属于核心受益者，仍需结合业务直接性和收入贡献判断。\n\n图谱层面共匹配86家公司，本轮由模型从60家候选中按问题意图挑出12家写入正文，其余74家未展示，不代表不存在；要完整名单需指定公司或收窄题材。当前可见的11家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。\n\n## 反证与证伪条件\n\n缺少公告等公司级硬证据是主要反证：若公司在互动易口径保守或否认，或长期无公告跟进，映射逻辑的直接性将明显下降。\n\n盘面未验证是另一反证：市场尚未用真金白银选择这条逻辑，可能是早已看过并放弃的旧共识。\n\n## 信号层缺口与后续验证\n\n当前缺口集中在三处：盘面侧无固态电池数据行，无法判定题材生命周期阶段；公司侧仅有间接或候选证据，未达硬证据门槛；既有证据普遍超期，需复核是否被证伪。\n\n升级方向：需补入固态电池技术路线和样品指标、客户送样、验证与中试进度、量产线、订单和收入贡献等公司级硬证据，并在盘面侧观察到双红、涨停扩散、新高集群或容量行业中的边际量信号后，才能形成升级判断。\n\n降级与证伪条件：若公司口径保守或否认、长期无公告跟进，或既有证据被新数据证伪，映射逻辑的直接性和核心受益判断应下调。\n\n（非投资建议）\n\n## 产业链映射（候选，未获硬证据确认）\n- 天赐材料与固态电池存在公司级映射。（锂电电解液与电解质材料供应商，布局LiFSI、硫化锂/固态电解质和海外产能｜核心）",
+          "run_id": "run_20260802_012020_744273",
+          "invoked_skill_ids": [
+            "theme-research"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=固态电池2026研究报告",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=0427调研日报",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=IMA 原始来源: 固态电池",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=晚间卖方研报汇总_20260612",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=20260424市逻精",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=晚研_20260417",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=晚间卖方研报20260209",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=固态电池；来源=晚间卖方研报20260408",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G3",
+              "title": "（内部检索诊断信息已隐藏。）",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-30"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "历史信号回检：theme_signals.json 无匹配主题，历史信号回检跳过（该题材尚未建发酵信号）",
+            "公司映射超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "evidence_bound": 17,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[固态电池2026研究报告]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[0427调研日报]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[IMA canonical: 固态电池]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[晚间卖方研报汇总_20260612]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[20260424市逻精]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[晚研_20260417]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[晚间卖方研报20260209]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=固态电池 source=[[晚间卖方研报20260408]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] theme-radar · radar.py --mode brief（产业维·速览）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "radar.py --mode brief --term 固态电池 --vault <kb-wiki> | --term 固态电池",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 29,
+            "bound_claim_count": 28
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "模块 replay：theme_signals.json 无匹配主题，replay 跳过（该题材尚未建发酵信号）",
+            "company_mapping 超过阶段时限 40 秒；结果已完整收束并保留"
+          ],
+          "elapsed_s": 74.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n## 本轮任务边界\n\n研究范围上，先界定题材解决的问题、技术或商业边界，不把概念关联直接等同于公司受益；当前的事实边界是：题材定义和产业链属于研究口径，公司结论必须满足公告或定期报告、官网产品与客户资料、订单、认证、量产或收入贡献。\n\n## 题材定义与发酵链路回溯（缺口声明）\n\n题材生命周期无法判定——证据与盘面都不足，先补题材双红、涨停、新高与产业证据，再谈阶段。\n\n## 市场阶段与题材结构（仅基于 07-30 快照）\n\n基于 2026-07-30 主线快照，当前市场主线结构呈现高切低的特征：科技主线（半导体、AI算力）延续近 20 日的高频出现但当日遭遇深度回调，电力等前期主线已退潮，资金转向大金融与消费零售做防御或修复。\n\n半导体与AI算力近 20 日均出现 15 天且延续至 07-30，但当日核心板块如CPO概念、PCB、半导体设备均录得大幅下跌且量价状态待确认，科技主线正处于放量分歧或承接检验阶段。\n\n## 核心公司暴露证据与证伪条件（逐个列示）\n\n中辰股份：产业链环节为电网设备（电力电缆），当前层级为候选映射；年报显示产品应用于智能电网等领域且与两大电网存在战略合作，但证据基准日为 2026-04-29 已超 45 天需复核证伪，尚缺最新公告或订单量产的硬证据支持。\n\n扬电科技：产业链环节为电网设备，当前层级为候选映射；知识库中尚未纳入可回查的公司级暴露证据，其证据基准日为 2026-04-28 已超 45 天需复核是否被新数据证伪，距离核心受益标准仍有距离。\n\n整体看，2 家公司仅有概念关联、未发现公司级证据或低置信暴露，属预期差待证伪区，不宜直接作为基本面依据；另有间接或候选证据的公司未达到公司级硬证据门槛，不得升级为核心受益。\n\n## 反证与后续验证\n\n缺少公告等公司级硬证据：若公司在互动易口径保守或否认，或长期无公告跟进，这条逻辑的直接性将明显下降。\n\n盘面未验证：市场尚未用真金白银选择这条逻辑，可能是市场早已看过并放弃的旧共识。\n\n后续需关注的升级条件包括：公司级硬证据升级（公告或定期报告、订单、量产或收入贡献）、产业需求或政策边界变化、以及盘面量价与扩散同步验证。\n\n（非投资建议）\n\n## 产业链映射（候选，未获硬证据确认）\n- 中辰股份与电网设备存在公司级映射。（国家线缆骨干企业（两网体系内电缆供应商）｜候选｜缺候选资料需公告、年报、订单或客户证据确认）\n- 扬电科技与电网设备存在公司级映射。（节能电力变压器供应国家电网/南方电网，产品含新能源变压器（风光储配套）｜候选｜缺候选资料需公告、年报、订单或客户证据确认）",
+          "run_id": "run_20260802_012135_132908",
+          "invoked_skill_ids": [
+            "theme-research"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=中辰股份；来源=中辰股份 2025年度报告 baseline 2026-04-29",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=扬电科技；来源=扬电科技 2025年年度报告 baseline 2026-04-28",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=思源电气；来源=20260521 市场逻辑精选",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=思源电气；来源=思源电气_个股最新逻辑卡",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=金盘科技；来源=20260514 市场逻辑精选",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=万控智造；来源=a-stock baseline 2026-07-09 batch223",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=平高电气；来源=a-stock baseline 2026-07-09 batch231",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=东方电缆；来源=iFinD baseline 2026-05-25",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-30"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "历史信号回检：theme_signals.json 无匹配主题，历史信号回检跳过（该题材尚未建发酵信号）"
+          ],
+          "evidence_bound": 16,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=中辰股份 source=[[中辰股份 2025年度报告 baseline 2026-04-29]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=扬电科技 source=[[扬电科技 2025年年度报告 baseline 2026-04-28]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=思源电气 source=[[20260521 市场逻辑精选]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=思源电气 source=[[思源电气_个股最新逻辑卡]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=金盘科技 source=[[20260514 市场逻辑精选]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=万控智造 source=[[a-stock baseline 2026-07-09 batch223]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=平高电气 source=[[a-stock baseline 2026-07-09 batch231]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=东方电缆 source=[[iFinD baseline 2026-05-25]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "8 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 10,
+            "bound_claim_count": 8
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "模块 replay：theme_signals.json 无匹配主题，replay 跳过（该题材尚未建发酵信号）"
+          ],
+          "elapsed_s": 58.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B5-cross-table-intersection",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n# 2026-07-23 涨停前四题材与双红关系\n\n数据截至 2026-07-23，市场处于反弹阶段的第 3 个交易日，短线情绪偏热，强势股平均上涨 9.86%、相关成交占全市场 6.12%；涨停集中度前四依次为储能(40)、电网设备(29)、风电(29)、机器人概念(25)。\n\n涨停热度前四中，唯一同时是双红板块的只有电网设备；该方向涨幅 6.65%、边际量 55.20、成交额 501.52 亿元，是当日唯一同时满足涨幅与边际量双项达标的题材（双红题材共 1 个，主线申万一级即电力设备）。\n\n其余三个方向——储能、风电、机器人概念——虽涨停数量靠前，但未进入双红名单；当日同时满足上涨且放量的方向仅电力设备(1)，另有 11 个方向只满足上涨或放量其中一项，说明这三大热门题材存在\"涨停集中但量价未同频\"的现象。\n\n# 量价同频度与梯队结构\n\n资金主要集中在电力设备，成交最集中的三个行业占 45.10%，全市场成交额 21949.97 亿元、较前一日减少 17.27%；在缩量背景下，电网设备能同时完成价格拉升与成交量边际扩张，属于当日资金共识最集中的方向。\n\n从梯队看，涨停数第一的储能(40)与第四的机器人概念(25)之间数量差距适中，并不构成明显断层；真正的断层出现在\"涨停热度\"与\"量价同频\"之间——涨停数最高的储能不在双红名单，而涨停数排名第二的电网设备反而成为唯一双红，说明资金在电网设备方向的价格拉升与成交量边际扩张最同步，其余热门方向量价配合仍待验证。\n\n# 市场状态、最强数据与风险点\n\n- 市场状态：反弹第 3 日，上证收于 3876.78 点、涨 0.25%，距离短期均线 1.25%，短线情绪偏热。\n- 最强数据：电网设备为当日唯一双红题材（涨幅 6.65%、边际量 55.20、成交额 501.52 亿），同时电网设备以 29 家涨停位居热度第二。\n- 主要风险：全市场成交较前一日缩量 17.27%，且 11 个方向只满足上涨或放量其中一项，放量上涨覆盖面偏窄，短线情绪偏热下的缩量反弹持续性有待观察。\n\n# 下一交易日验证点\n\n- 观察储能、风电、机器人概念这三个\"有涨停、无双红\"的方向是否补量，若放量上涨方向由当前的 1 个扩展，则热度扩散的持续性更强。\n- 观察成交额能否止住 17.27% 的缩量态势，以及电力设备资金集中度是否延续。\n\n# 知识库积累与盘面主线的边界说明\n\n- 主线方向取自 2026-07-23 盘面，知识库侧为概念页/公司暴露/已入库证据；知识库有积累不等于当日盘面强，两者不得互相推导。\n- 数据状态表中标注了当日各字段的状态，具体状态含义以原始日报为准。\n\n（非投资建议）",
+          "run_id": "run_20260802_012233_506584",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [
+            "正式日报章节「10. 涨停题材」共 5308 字，按上下文预算截断到 5052 字；未展示不代表不存在"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [
+            "正式日报章节「10. 涨停题材」共 5308 字，按上下文预算截断到 5052 字；未展示不代表不存在"
+          ],
+          "elapsed_s": 30.2,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+          "answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+          "run_id": "run_20260802_012303_681030",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [],
+          "elapsed_s": 2.0,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B7-volume-sentiment-evolution",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 到 07-24 量能和情绪是怎么演化的",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n## 量能与情绪演化的直接判断\n\n防御方向上，银行涨 2.53%、边际量 29.15%，并标注为\"历史新高\"，白酒涨 3.52%、边际量 40.63%，两者均呈\"弱放量修复\"；一般零售亦出现弱放量修复，乳制品则呈放量分歧。这组信号指向资金从成长主线向防御性板块轮动的迹象，情绪处于主线共识与防御切换的过渡态。\n\n## 产业链候选暴露与证据硬度\n\n派克新材在图谱中与可控核聚变题材存在公司级映射，属候选层级、未确认；其公司级证据仅 1 条，且为仅有概念关联、未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据。具体看，相关资料将其定位为 BEST 项目核心供应商，供应可控核聚变装置锻件（真空室、屏蔽包层、偏滤器等），并称 BEST 项目已获近 5000 万订单，来源为 2026-06-14 公司调研纪要。这类材料属于互动/调研口径的软证据，而非公告或年报硬证据；更关键的是，该证据已超过 45 天有效窗口，需复核是否已被新数据证伪。\n\n## 反证：如果判断错，最可能错在哪里\n\n派克新材方面，市场尚未用真金白银选择这条逻辑，可能是早已被看过并放弃的旧共识；其业务关联度不清晰，收入占比/毛利弹性未验证，题材标签可能是市场强行贴上的弱关系。如果后续公告显示 BEST 订单确有交付并进入收入确认，或出现更新的互动易/公告强化关联，则候选暴露可升级；若纪要内容被新数据修正或公司澄清关联弱，则应直接降级。\n\n## 升级、降级与证伪条件\n\n对主线量价结构判断的升级条件：补齐 2026-07-21 至 07-24 逐日量能快照后，若能确认缩量分歧→重新放量承接的连续路径，则\"主线惯性仍在\"可由推断升级为事实；若逐日量能显示主线细分持续放量下跌且无承接，则应降级为\"主线退潮\"。\n\n（非投资建议）\n\n## 产业链映射（候选，未获硬证据确认）\n- 派克新材与可控核聚变存在公司级映射。（可控核聚变｜外围｜缺候选资料需公告、年报、订单或客户证据确认）",
+          "run_id": "run_20260802_012305_715217",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "source": "本地知识库 · 公司题材关联",
+              "detail": ""
+            },
+            {
+              "tag": "R1",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=派克新材；来源=派克新材_605123_个股逻辑卡_20260614"
+            },
+            {
+              "tag": "D4",
+              "source": "本地市场数据主线题材结构数据块",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界"
+            },
+            {
+              "tag": "D2",
+              "source": "本地证据链客户硬度数据块",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层"
+            },
+            {
+              "tag": "D3",
+              "source": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲"
+            }
+          ],
+          "degrades": [
+            "未找到 2026-07-21 的本地复盘报告；日报基础模块缺失。",
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "问题理解：未高置信识别问题类型，建议先按通用金融问答处理并显式说明假设",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "AnswerSpec 质检：结论未绑定证据：主题「2026-07-21 到 07-24 量能和情绪是怎么演化的」（当日盘面候选未命中，以下仅",
+            "AnswerSpec 质检：结论未绑定证据：知识图谱关联 0 概念 / 1 公司暴露，证据 1 条；盘面触发：无盘面触发。",
+            "AnswerSpec 质检：结论未绑定证据：分析路径：未启用",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。"
+          ],
+          "evidence_bound": 8,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=派克新材 source=[[派克新材_605123_个股逻辑卡_20260614]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 3,
+            "candidate_claim_count": 9,
+            "bound_claim_count": 6
+          },
+          "gaps": [
+            "未找到 2026-07-21 的本地复盘报告；日报基础模块缺失。",
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "answer-orchestrator：未高置信识别问题类型，建议先按通用金融问答处理并显式说明假设",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "AnswerSpec 质检：结论未绑定证据：主题「2026-07-21 到 07-24 量能和情绪是怎么演化的」（当日盘面候选未命中，以下仅",
+            "AnswerSpec 质检：结论未绑定证据：图谱命中 0 概念 / 1 公司暴露，证据 1 条；盘面触发：无盘面触发。",
+            "AnswerSpec 质检：结论未绑定证据：模块路由：未启用",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。"
+          ],
+          "elapsed_s": 70.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "立新能源现在贵不贵，隐含了什么预期",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-30。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）\n\n## 立新能源：贵不贵与隐含预期\n\n从已有证据看，立新能源（001258.SZ）最新交易日 2026-07-30 收盘 12.35 元，当日涨幅 6.37%，成交 22.45 亿；从 2026-05-06 至 2026-07-30 区间涨幅 30.83%，7 月 27 日触峰值涨幅 51.8% 后回撤 -13.82%，峰值收益保留率 59.51%，尚未跌破峰值收益一半，价格动能确实很强。\n\n能确认的是盈利结构：2025 年报营收 10.6 亿（同比 +9.19%）、归母净利 0.85 亿（同比 +69.54%）、毛利率 48.84%、净利率 8.88%；2026 一季报营收 2.65 亿（同比 +22.2%）、归母净利仅 0.06 亿（同比 +167.71%）、毛利率 23.52%、净利率仅 4.58%。2025 中报净利率 1.75%、一季报净利率 -4.4%，2024 年报净利率 5.08%（净利同比 -62.89%）。利润弹性主要由毛利率波动驱动而非规模——市场隐含的是全年净利率能从一季报的 4.58% 大幅回升至年报 8.88% 附近、且营收维持双位数增长，与一季报实际兑现之间存在显著缺口。\n\n## 隐含增长预期反推\n\n以 2025 年报 0.85 亿归母净利为锚，区间涨幅 30.83% 叠加题材热度推升的价格水平，市场已经 price in 的不只是盈利恢复，而是 2026 全年净利和净利率需要显著超过 2025 年报水平——具体而言，一季报仅贡献 0.06 亿净利，后续三个季度需要在毛利率回升的假设下快速放量，才能让全年利润匹配当前股价隐含的增长预期。\n\n## 可比估值带（候选）\n\n此外，关联题材当日全面走弱：光热发电 -1.13%、公用事业 -0.04%、新型电力 +0.1%、特高压 -3.0%、电力 +0.02%，均为\"非双红代理\"（即价格与边际量未同步走强），说明个股的强势并非来自板块系统性 beta。\n\n## 情景估值表\n\n以下是三种情景（基于已有财务数据和价格动能推断，非确定事实）：\n\n悲观情景：净利率维持在一季报 4.58% 附近或再次滑向 2025 中报的 1.75%，营收增速放缓，则当前价格隐含的增长预期被证伪，存在进一步回撤风险——可验证条件为中报净利率低于 4.58% 或营收同比转负。\n\n## 证据审计与缺口\n\n硬数据（盘面信号 / market_data）：行情、区间涨幅、题材涨停数据、逐季财务报表均来自结构化数据源，可直接支撑价格动能和盈利结构的描述。\n\n证伪条件：若 2026 中报净利率低于一季报的 4.58% 或营收同比转负，当前价格隐含的乐观增长预期即被证伪。\n\n（非投资建议）",
+          "run_id": "run_20260802_012416_114464",
+          "invoked_skill_ids": [
+            "stock-deep-dive"
+          ],
+          "citations": [
+            {
+              "tag": "S1",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.新高方向确认",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "S2",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.新高个股聚集",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "S3",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.涨停热度",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "S4",
+              "title": "2026-07-30-theme-candidates.json · 市场环境",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=新能源车；来源=题材盘面快照-db-quality-audit",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=大唐发电；来源=大唐发电_601991_最新逻辑卡_20260603",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=华电国际；来源=华电国际_600027_最新逻辑卡",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=三一重能；来源=三一重能 2025年年度报告 baseline 2026-04-22",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=珠海港；来源=珠海港 2025年年度报告 baseline 2026-04-29",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=特变电工；来源=高压直流输电（HVDC）产业链深度研究报告：产业发展与投资机遇分析",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=特变电工；来源=a-stock baseline 2026-06-02 apply-batch027",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=特变电工；来源=特变电工_最新逻辑卡",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "R9",
+              "title": "2026-07-30-theme-candidates.json · 知识库候选资料",
+              "source": "",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D7",
+              "title": "东财 F10 逐季财报数据块",
+              "source": "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D1",
+              "title": "本地市场数据市场价值数据块",
+              "source": "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "D5",
+              "title": "东财快照估值数据块",
+              "source": "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
+              "as_of": "2026-07-30"
+            },
+            {
+              "tag": "SK1",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.新高方向确认",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "SK2",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.新高个股聚集",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "SK3",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.涨停热度",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "SK4",
+              "source": "2026-07-30-theme-candidates.json · 市场环境",
+              "detail": ""
+            },
+            {
+              "tag": "SK5",
+              "source": "本地知识库 · concept_graph.json",
+              "detail": ""
+            },
+            {
+              "tag": "SK6",
+              "source": "本地知识库 · 公司题材关联",
+              "detail": ""
+            },
+            {
+              "tag": "SK7",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=新能源车；来源=题材盘面快照-db-quality-audit"
+            },
+            {
+              "tag": "SK8",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=大唐发电；来源=大唐发电_601991_最新逻辑卡_20260603"
+            },
+            {
+              "tag": "S9",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.新高方向确认",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "S10",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.新高个股聚集",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "S11",
+              "source": "2026-07-30-theme-candidates.json · 盘面信号.涨停热度",
+              "detail": "本地盘面数据"
+            },
+            {
+              "tag": "S12",
+              "source": "2026-07-30-theme-candidates.json · 市场环境",
+              "detail": ""
+            },
+            {
+              "tag": "R2",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=上海建工；来源=600170_逻辑卡_20260620"
+            },
+            {
+              "tag": "R3",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=北京双杰电气；来源=300444_逻辑卡_20260617"
+            },
+            {
+              "tag": "R4",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=珠海港；来源=珠海港 2025年年度报告 baseline 2026-04-29"
+            },
+            {
+              "tag": "R5",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=万润新能；来源=iFinD baseline 2026-05-25"
+            },
+            {
+              "tag": "R6",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=中天科技；来源=iFinD baseline 2026-05-25"
+            },
+            {
+              "tag": "R7",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=中材科技；来源=iFinD baseline 2026-05-25"
+            },
+            {
+              "tag": "R8",
+              "source": "本地知识库 · 公司证据索引",
+              "detail": "对象=金房能源；来源=金房能源_最新逻辑卡_20260603"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "知识库检索：知识库检索检索失败（退出码 1）",
+            "知识库检索：未检索到可核验的公司专项资料；已按证据缺口处理。",
+            "知识库检索：broad retrieval empty after 3 attempts",
+            "知识库检索：counter retrieval empty after 3 attempts",
+            "公司本体超过阶段时限 40 秒；结果已完整收束并保留",
+            "Skill stock-产业链研究已降级为证据贡献者；需显式声明 owner 元数据后才能接管答案",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。"
+          ],
+          "evidence_bound": 33,
+          "evidence": [
+            {
+              "id": "citation-record:SK1",
+              "label": "[SK1] 2026-07-30-theme-candidates.json · score_detail.new_high_direction",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_new_high_directions",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK2",
+              "label": "[SK2] 2026-07-30-theme-candidates.json · score_detail.new_high_cluster",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_theme_stock_signals",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK3",
+              "label": "[SK3] 2026-07-30-theme-candidates.json · score_detail.limit_heat",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_limit_heat_themes",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK4",
+              "label": "[SK4] 2026-07-30-theme-candidates.json · market_context",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK5",
+              "label": "[SK5] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK6",
+              "label": "[SK6] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK7",
+              "label": "[SK7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=新能源车 source=[[theme-radar-db-quality-audit]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:SK8",
+              "label": "[SK8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=大唐发电 source=[[大唐发电_601991_最新逻辑卡_20260603]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S9",
+              "label": "[S9] 2026-07-30-theme-candidates.json · score_detail.new_high_direction",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_new_high_directions",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S10",
+              "label": "[S10] 2026-07-30-theme-candidates.json · score_detail.new_high_cluster",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_theme_stock_signals",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S11",
+              "label": "[S11] 2026-07-30-theme-candidates.json · score_detail.limit_heat",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_limit_heat_themes",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S12",
+              "label": "[S12] 2026-07-30-theme-candidates.json · market_context",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=新能源车 source=[[theme-radar-db-quality-audit]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=上海建工 source=[[600170_逻辑卡_20260620]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=北京双杰电气 source=[[300444_逻辑卡_20260617]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=珠海港 source=[[珠海港 2025年年度报告 baseline 2026-04-29]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=万润新能 source=[[iFinD baseline 2026-05-25]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=中天科技 source=[[iFinD baseline 2026-05-25]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=中材科技 source=[[iFinD baseline 2026-05-25]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=金房能源 source=[[金房能源_最新逻辑卡_20260603]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R9",
+              "label": "[R9] 2026-07-30-theme-candidates.json · knowledge_evidence",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D7",
+              "label": "[D7] 东财 F10 逐季财报数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D1",
+              "label": "[D1] 本地 DuckDB 市场价值数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D5",
+              "label": "[D5] 东财快照估值数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "6 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "9 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:S",
+              "label": "盘面证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "12 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 3,
+            "candidate_claim_count": 42,
+            "bound_claim_count": 41
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "wiki-rag：wiki-rag 检索失败（退出码 1）",
+            "wiki-rag：narrow retrieval empty after 3 attempts",
+            "wiki-rag：broad retrieval empty after 3 attempts",
+            "wiki-rag：counter retrieval empty after 3 attempts",
+            "company_master 超过阶段时限 40 秒；结果已完整收束并保留",
+            "Skill stock-deep-dive 已降级为证据贡献者；需显式声明 owner 元数据后才能接管答案",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。"
+          ],
+          "elapsed_s": 120.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

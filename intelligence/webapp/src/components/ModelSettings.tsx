@@ -15,12 +15,13 @@ const providerOptions: Array<{
   id: LLMProviderId;
   label: string;
   model: string;
+  baseUrl: string;
 }> = [
-  { id: "zhipu", label: "智谱 GLM", model: "glm-5.2" },
-  { id: "openai", label: "OpenAI", model: "gpt-4o-mini" },
-  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat" },
-  { id: "moonshot", label: "Kimi", model: "moonshot-v1-8k" },
-  { id: "dashscope", label: "通义千问", model: "qwen-plus" },
+  { id: "zhipu", label: "智谱 GLM", model: "glm-5.2", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+  { id: "openai", label: "OpenAI", model: "gpt-5.6-sol", baseUrl: "https://api.openai.com/v1" },
+  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat", baseUrl: "https://api.deepseek.com/v1" },
+  { id: "moonshot", label: "Kimi", model: "moonshot-v1-8k", baseUrl: "https://api.moonshot.cn/v1" },
+  { id: "dashscope", label: "通义千问", model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
 ];
 
 interface ModelSettingsProps {
@@ -32,9 +33,12 @@ interface ModelSettingsProps {
   onSave: (
     provider: LLMProviderId,
     apiKey: string,
+    baseUrl: string,
     model: string,
+    remember: boolean,
   ) => void;
   onUseBuiltIn: () => void;
+  onForgetSaved: () => void;
 }
 
 export function ModelSettings({
@@ -45,10 +49,13 @@ export function ModelSettings({
   onClose,
   onSave,
   onUseBuiltIn,
+  onForgetSaved,
 }: ModelSettingsProps) {
   const [provider, setProvider] = useState<LLMProviderId>("zhipu");
   const [model, setModel] = useState("glm-5.2");
+  const [baseUrl, setBaseUrl] = useState(providerOptions[0].baseUrl);
   const [apiKey, setApiKey] = useState("");
+  const [remember, setRemember] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -60,14 +67,16 @@ export function ModelSettings({
     setModel(config?.mode === "byok" && config.model
       ? config.model
       : preset?.model ?? "");
+    setBaseUrl(preset?.baseUrl ?? "");
     setApiKey("");
+    setRemember(false);
   }, [config, open]);
 
   if (!open) return null;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSave(provider, apiKey.trim(), model.trim());
+    onSave(provider, apiKey.trim(), baseUrl.trim(), model.trim(), remember);
   };
 
   return (
@@ -137,7 +146,9 @@ export function ModelSettings({
               <strong>配置自带密钥</strong>
               <small>支持 OpenAI-compatible Chat Completions</small>
             </div>
-            <span className="session-only-badge">仅本次服务会话</span>
+            <span className="session-only-badge">
+              {config?.credential_persisted ? "已安全保存" : "仅本次服务会话"}
+            </span>
           </div>
           <div className="byok-fields">
             <label>
@@ -150,6 +161,7 @@ export function ModelSettings({
                   const preset = providerOptions.find((item) => item.id === next);
                   setProvider(next);
                   setModel(preset?.model ?? "");
+                  setBaseUrl(preset?.baseUrl ?? "");
                 }}
               >
                 {providerOptions.map((option) => (
@@ -170,6 +182,18 @@ export function ModelSettings({
                 required
               />
             </label>
+            <label className="byok-url-field">
+              <span>Base URL</span>
+              <input
+                aria-label="模型 Base URL"
+                type="url"
+                value={baseUrl}
+                maxLength={2048}
+                onChange={(event) => setBaseUrl(event.target.value)}
+                placeholder="https://api.openai.com/v1"
+                required
+              />
+            </label>
             <label className="byok-key-field">
               <span>API Key</span>
               <input
@@ -185,10 +209,37 @@ export function ModelSettings({
               />
             </label>
           </div>
+          <label className="byok-remember-control">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+            />
+            <span>
+              <strong>在此 Mac 安全记住</strong>
+              <small>保存到 macOS Keychain，服务重启后自动复用</small>
+            </span>
+          </label>
           <div className="byok-security-note">
             <ShieldCheck aria-hidden="true" size={16} />
-            <span>密钥不写入磁盘、对话、日志或产物；服务重启后自动清除。</span>
+            <span>
+              {remember
+                ? "密钥仅写入 macOS Keychain，不进入对话、日志或研究产物。"
+                : "密钥只在当前服务内存中使用，重启后自动清除。"}
+            </span>
           </div>
+          {config?.saved_credential_available && (
+            <div className="saved-credential-row">
+              <span>此 Mac 已保存一个模型连接。</span>
+              <button
+                type="button"
+                onClick={onForgetSaved}
+                disabled={saving}
+              >
+                删除已保存密钥
+              </button>
+            </div>
+          )}
           {error && <p className="model-settings-error" role="alert">{error}</p>}
           <footer className="model-settings-actions">
             <button className="secondary-button" type="button" onClick={onClose}>

@@ -32,7 +32,14 @@ import duckdb
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
 SCHEMA_PATH = REPO_ROOT / "market_feature_store" / "schema.sql"
+# 板块分代那七个对象原来在单独的 sector_schema.sql；2026-08-02 合 main 后已并入
+# schema.sql（main a5321eec，与生产库 37 个对象逐一校验过），该文件不再存在。
 TRACE_PY = SCRIPT_DIR / "trace.py"
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from market_feature_store.db import init_db  # noqa: E402  (需要先插 sys.path)
 
 THEME = "测试题材"
 SECTOR_CODE = "TEST.TI"
@@ -44,7 +51,7 @@ END = "2026-06-12"
 def build_sample_db(db_path: Path) -> None:
     con = duckdb.connect(str(db_path))
     try:
-        con.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        init_db(con)
 
         con.execute(
             "INSERT INTO config_theme_sector_link (theme, direction, sector_ts_code, sector_name, match_type, confidence) "
@@ -60,10 +67,13 @@ def build_sample_db(db_path: Path) -> None:
             ("2026-06-05", -0.5, -10.0, False),
             ("2026-06-09", 1.0, 12.0, False),
         ]
+        # 公开 fact_sector_daily 已是只读视图: 无 published 表头的日期只暴露 legacy 代际行。
         for d, pct, diff, mpr in sector_rows:
             con.execute(
-                "INSERT INTO fact_sector_daily (trade_date, sector_ts_code, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO fact_sector_daily_generation (trade_date, "
+                "sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+                "diff_ratio, multi_period_resonance) "
+                "VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?)",
                 [d, SECTOR_CODE, SECTOR_NAME, pct, 600.0, diff, mpr],
             )
 

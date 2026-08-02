@@ -20,24 +20,41 @@ from intelligence.services.trading_calendar import (
     next_trading_day,
 )
 from intelligence.services.ask_types import (
-    REPO_ROOT,
+    DEFAULT_MARKET_DB_PATH,
     SUBHEAD,
     AskResult,
     Citation,
     _normalize,
 )
+from intelligence.services.evidence_window import select_text_window
 
 
-def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
-    """Flatten the retrieved 证据链 + 分歧反证 into plain text for the LLM prompt."""
+def _evidence_text_for_llm(
+    evidence_chain: list[str],
+    gap_lines: list[str],
+    *,
+    query: str = "",
+    max_chars: int = 9000,
+) -> str:
+    """Flatten a ranked, globally bounded evidence window for the LLM prompt.
+
+    Provider traces keep the full chain; only the model-facing window is
+    bounded so a long weak source cannot push hard evidence out of context.
+    """
     out: list[str] = ["## 证据链"]
-    for item in evidence_chain:
-        if item.startswith(SUBHEAD):
-            out.append(f"### {item[len(SUBHEAD):]}")
-        else:
-            out.append(f"- {item}")
+    selected = select_text_window(query, evidence_chain, max_chars=max_chars)
+    for item in selected:
+        out.append(f"- {item}")
     out.append("## 分歧反证")
-    out.extend(f"- {g}" for g in gap_lines)
+    remaining = max(0, max_chars - len("\n".join(out)))
+    for gap in gap_lines:
+        if remaining <= 0:
+            break
+        text = str(gap or "").strip()
+        if not text:
+            continue
+        out.append(f"- {text[: min(360, remaining)]}")
+        remaining -= len(text) + 3
     return "\n".join(out)
 
 
@@ -139,13 +156,15 @@ def _mainline_context_block_for_llm(
     theme: str | None,
     market_db_path: str | Path | None,
     lookback_days: int = 20,
+    *,
+    as_of: str | None = None,
 ) -> str:
     """Build the D4 mainline-theme structure block from local DuckDB.
 
     Grain: trade_date × mainline theme × core sector. This is L4 market signal,
     not entity baseline or hard company evidence.
     """
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     db_result = retrieval_cache.try_connect_readonly(db_path)
@@ -158,7 +177,11 @@ def _mainline_context_block_for_llm(
         ).fetchone()[0]
         if not exists:
             return ""
-        latest = con.execute("select max(trade_date) from fact_mainline_sector_daily").fetchone()[0]
+        latest = con.execute(
+            "select max(trade_date) from fact_mainline_sector_daily "
+            "where (? is null or trade_date <= cast(? as date))",
+            [as_of, as_of],
+        ).fetchone()[0]
         if not latest:
             return ""
         target_theme = _resolve_mainline_theme(con, query, theme, latest)
@@ -265,9 +288,11 @@ def _market_review_mainline_context_block_for_llm(
     query: str,
     theme: str | None,
     market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
 ) -> str:
-    market_date = _market_data_asof(market_db_path)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    market_date = _market_data_asof(market_db_path, as_of=as_of)
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not market_date or not db_path.exists():
         return ""
     db_result = retrieval_cache.try_connect_readonly(db_path)
@@ -289,7 +314,9 @@ def _market_review_mainline_context_block_for_llm(
         themes: list[tuple[str, int]] = []
         if "fact_mainline_theme_daily" in table_names:
             row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily"
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
             ).fetchone()
             theme_date = str(row[0]) if row and row[0] else None
             if theme_date == market_date:
@@ -310,7 +337,9 @@ def _market_review_mainline_context_block_for_llm(
         sector_date = None
         if "fact_mainline_sector_daily" in table_names:
             row = con.execute(
-                "select max(trade_date) from fact_mainline_sector_daily"
+                "select max(trade_date) from fact_mainline_sector_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
             ).fetchone()
             sector_date = str(row[0]) if row and row[0] else None
     except Exception:
@@ -318,7 +347,12 @@ def _market_review_mainline_context_block_for_llm(
     finally:
         con.close()
     if sector_date == market_date:
-        return _mainline_context_block_for_llm(query, theme, market_db_path)
+        return _mainline_context_block_for_llm(
+            query,
+            theme,
+            market_db_path,
+            as_of=market_date,
+        )
     lines = ["## 市场复盘主线数据边界"]
     if theme_date == market_date and themes:
         theme_text = "、".join(name for name, _ in themes)
@@ -348,6 +382,270 @@ def _market_review_mainline_context_block_for_llm(
         "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
     )
     return "\n".join(lines)
+
+
+def _mainline_theme_names(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    limit: int = 6,
+) -> tuple[str, list[str]]:
+    """当日主线方向名。返回 (主线日期, 方向名列表)；同日没有汇总就返回空列表。
+
+    与 _market_review_mainline_context_block_for_llm 用同一张
+    fact_mainline_theme_daily、同一个「必须同日」判据，避免两个块讲不同的主线。
+    """
+    if not market_db_path:
+        # 不回退 DEFAULT_MARKET_DB_PATH：调用方没给库就是没要盘面数据。回退会让
+        # 单测和 eval 悄悄读到真实生产库——test_market_review_* 就是这么被打破的，
+        # 而且只在设了 FINANCE_WS 的服务配置下才复现。
+        return "", []
+    market_date = _market_data_asof(market_db_path, as_of=as_of)
+    db_path = Path(market_db_path).expanduser()
+    if not market_date or not db_path.exists():
+        return "", []
+    try:
+        con = retrieval_cache.connect_readonly(db_path)
+        try:
+            exists = con.execute(
+                """
+                select count(*) from information_schema.tables
+                where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
+                """
+            ).fetchone()
+            if not exists or not exists[0]:
+                return "", []
+            row = con.execute(
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
+            ).fetchone()
+            theme_date = str(row[0]) if row and row[0] else None
+            if theme_date != market_date:
+                return str(theme_date or ""), []
+            names = [
+                str(name)
+                for (name,) in con.execute(
+                    """
+                    select theme_name from fact_mainline_theme_daily
+                    where trade_date = ?
+                    order by min_sort nulls last, theme_name
+                    limit ?
+                    """,
+                    [theme_date, limit],
+                ).fetchall()
+                if name
+            ]
+            return market_date, names
+        finally:
+            con.close()
+    except Exception:
+        return "", []
+
+
+def mainline_knowledge_coverage(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    concepts_per_direction: int = 3,
+    companies_per_direction: int = 4,
+    evidence_per_direction: int = 3,
+    warnings: list[str] | None = None,
+) -> tuple[str, list[dict[str, Any]], list[str]]:
+    """当日主线方向在知识库里有多少积累。
+
+    返回 (主线日期, 每个方向的积累, 库内一条都没有的方向名)。
+
+    按方向逐个取锚，不是把整句问题当题材名去匹配：市场级问题里根本没有题材名，
+    match_candidate 在这类问题上必然落空（那正是「当日盘面候选未命中」的来历）。
+
+    结构化返回而不是直接拼字符串，是因为有两个消费方——给 LLM 的证据块和日报
+    skill 的模块——它们的渲染不同但不该各查一遍知识库。
+    """
+    notes = warnings if warnings is not None else []
+    market_date, directions = _mainline_theme_names(market_db_path, as_of=as_of)
+    if not directions:
+        # 只在「读到了盘面库、但主线汇总不同日」时告警。读不到库本身是另一个层级的
+        # 问题（新装/无数据根），由盘面侧自己报，不该在这里再响一遍。
+        if market_date:
+            notes.append(
+                "知识库锚点未生成：主线方向汇总与盘面不同日"
+                f"（fact_mainline_theme_daily 最新 {market_date}）"
+            )
+        return market_date, [], []
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+
+    try:
+        knowledge = KnowledgeAdapter(wiki_root=kb_wiki)
+    except Exception as exc:
+        notes.append(f"知识库锚点未生成：知识库不可用（{type(exc).__name__}: {exc}）")
+        return market_date, [], []
+
+    covered: list[dict[str, Any]] = []
+    uncovered: list[str] = []
+    for direction in directions:
+        try:
+            concepts = knowledge.get_concept_matches(
+                direction, limit=concepts_per_direction
+            ).get("items", [])
+            exposures = knowledge.get_exposure_matches(
+                direction, limit=companies_per_direction
+            ).get("items", [])
+            evidence = knowledge.get_evidence(
+                direction, limit=evidence_per_direction
+            ).get("items", [])
+        except Exception as exc:
+            notes.append(
+                f"知识库锚点跳过方向「{direction}」：{type(exc).__name__}: {exc}"
+            )
+            continue
+        # 用过滤后的值判定，不用原始列表：只匹配到空串的方向会通过原始判定，
+        # 却渲染出「- 半导体：」这样后面什么都没有的空行。
+        concept_names = [
+            str(item.get("concept") or "").strip()
+            for item in concepts
+            if str(item.get("concept") or "").strip()
+        ]
+        companies = [
+            {
+                "company": str(item.get("company") or "").strip(),
+                "role": str(item.get("role") or "").strip(),
+                "tier": str(
+                    item.get("evidence_layer") or item.get("strength") or ""
+                ).strip(),
+            }
+            for item in exposures
+            if str(item.get("company") or "").strip()
+        ]
+        if not concept_names and not companies and not evidence:
+            uncovered.append(direction)
+            continue
+        covered.append(
+            {
+                "direction": direction,
+                "concepts": concept_names,
+                "companies": companies,
+                "evidence_count": len(evidence),
+            }
+        )
+    return market_date, covered, uncovered
+
+
+def _format_company(entry: dict[str, Any]) -> str:
+    """公司（角色｜证据层级）。层级必须带上：块本身要求模型标注证据层级并且
+    不得把 graph_only 写成已兑现事实，而层级不在载荷里的话，模型只能省略或编造。
+    实测同一个方向里 graph_only/L2_candidate/L1 会被渲染成完全一样的样子。"""
+    company = str(entry.get("company") or "").strip()
+    role = str(entry.get("role") or "").strip()
+    tier = str(entry.get("tier") or "").strip()
+    inner = "｜".join(part for part in (role, tier) if part)
+    return f"{company}（{inner}）" if company and inner else company
+
+
+def _coverage_summary(entry: dict[str, Any]) -> str:
+    parts: list[str] = []
+    concepts = entry.get("concepts") or []
+    companies = entry.get("companies") or []
+    evidence_count = int(entry.get("evidence_count") or 0)
+    if concepts:
+        parts.append(f"概念页 {len(concepts)}（{'、'.join(concepts)}）")
+    if companies:
+        names = "、".join(_format_company(item) for item in companies if _format_company(item))
+        parts.append(f"公司暴露 {len(companies)}（{names}）" if names else f"公司暴露 {len(companies)}")
+    if evidence_count:
+        parts.append(f"已入库证据 {evidence_count} 条")
+    return "；".join(parts)
+
+
+def _market_review_knowledge_anchor_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    concepts_per_direction: int = 3,
+    companies_per_direction: int = 4,
+    evidence_per_direction: int = 3,
+    warnings: list[str] | None = None,
+) -> str:
+    """盘面回答"哪个方向在走"，知识库回答"我对这个方向研究到什么程度"。
+
+    真正有用的是缺口那一行——盘面已经进主线、库里却一条都没有的方向，正是当天
+    最该补研究的地方。
+    """
+    market_date, covered, uncovered = mainline_knowledge_coverage(
+        market_db_path,
+        as_of=as_of,
+        kb_wiki=kb_wiki,
+        concepts_per_direction=concepts_per_direction,
+        companies_per_direction=companies_per_direction,
+        evidence_per_direction=evidence_per_direction,
+        warnings=warnings,
+    )
+    if not covered and not uncovered:
+        return ""
+    lines = [
+        "## 主线方向的知识库积累 [MAINLINE_KB]",
+        f"- 口径：盘面主线取自 fact_mainline_theme_daily（{market_date}），"
+        "知识库侧是概念页 / 公司暴露 / 已入库证据。两边分开陈述："
+        "知识库有积累不等于当日盘面强，盘面强也不等于库内有依据。",
+    ]
+    lines.extend(f"- {entry['direction']}：{_coverage_summary(entry)}" for entry in covered)
+    if uncovered:
+        lines.append(
+            f"- 知识库尚无积累的主线方向：{'、'.join(uncovered)}"
+            "（盘面已进主线但库内无概念页/公司暴露/证据，是当天最该补研究的方向）"
+        )
+    lines.append(
+        "- 使用要求：引用公司暴露时要带上它的角色与证据层级，不得把 graph_only "
+        "或研报判断写成公司已兑现的基本面事实。"
+    )
+    return "\n".join(lines)
+
+
+def mainline_knowledge_module(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+    kb_wiki: str | Path | None = None,
+    warnings: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """日报 skill 用的模块形态；没有任何可说的就返回 None，不塞空模块。"""
+    market_date, covered, uncovered = mainline_knowledge_coverage(
+        market_db_path,
+        as_of=as_of,
+        kb_wiki=kb_wiki,
+        warnings=warnings,
+    )
+    if not covered and not uncovered:
+        return None
+    items: list[dict[str, Any]] = [
+        {"title": entry["direction"], "summary": _coverage_summary(entry)}
+        for entry in covered
+    ]
+    if uncovered:
+        items.append(
+            {
+                "title": "知识库尚无积累",
+                "summary": (
+                    f"{'、'.join(uncovered)}——盘面已进主线但库内无概念页/公司暴露/证据，"
+                    "是当天最该补研究的方向"
+                ),
+            }
+        )
+    return {
+        "module_id": "daily_knowledge_anchor",
+        "title": "主线方向的知识库积累",
+        "kind": "list",
+        "status": "complete" if covered else "partial",
+        "summary": (
+            f"主线方向取自 {market_date} 盘面；知识库侧为概念页/公司暴露/已入库证据。"
+            "知识库有积累不等于当日盘面强，两者不得互相推导。"
+        ),
+        "content": None,
+        "metrics": [],
+        "items": items,
+    }
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
@@ -406,7 +704,7 @@ def _second_derivative_queue_block_for_llm(
     evidence_text: str,
 ) -> str:
     """Build a structured P0/P1/P2 second-derivative research queue."""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return _second_derivative_queue_from_text_only(theme, evidence_text)
     db_result = retrieval_cache.try_connect_readonly(db_path)
@@ -560,11 +858,13 @@ def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DB
 
 def _daily_market_overview_block_for_llm(
     market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
 ) -> str:
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     if not db_path.exists():
         return ""
@@ -623,9 +923,11 @@ def _daily_market_overview_block_for_llm(
             f"""
             select {", ".join(select_columns)}
             from fact_market_daily
+            where (? is null or trade_date <= cast(? as date))
             order by trade_date desc
             limit 1
-            """
+            """,
+            [as_of, as_of],
         ).fetchone()
         if not row or not row[0]:
             return ""
@@ -679,7 +981,9 @@ def _daily_market_overview_block_for_llm(
         theme_date = None
         if "fact_mainline_theme_daily" in table_names:
             theme_date_row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily"
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [trade_date],
             ).fetchone()
             theme_date = theme_date_row[0] if theme_date_row else None
             if theme_date:
@@ -708,7 +1012,9 @@ def _daily_market_overview_block_for_llm(
 
         if "fact_mainline_sector_daily" in table_names:
             sector_date_row = con.execute(
-                "select max(trade_date) from fact_mainline_sector_daily"
+                "select max(trade_date) from fact_mainline_sector_daily "
+                "where trade_date <= cast(? as date)",
+                [trade_date],
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
@@ -729,9 +1035,103 @@ def _daily_market_overview_block_for_llm(
         con.close()
 
 
-def _market_data_asof(market_db_path: str | Path | None) -> str | None:
+def _market_cause_window_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    window: int = 5,
+    as_of: str | None = None,
+) -> str:
+    """固定口径输出最近 N 个交易日的市场变化，供原因归因工具使用。
+
+    这里只描述可核验的周内变化，不把盘面现象自动解释成外部因果；因果证据
+    由 market_data 与 news/web 工具共同提供，避免单日复盘块冒充周度归因。
+    """
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else DEFAULT_MARKET_DB_PATH
+    )
+    if not db_path.exists():
+        return ""
+    try:
+        # 原来这里有一句 `import duckdb` 当可用性探针。connect_readonly 内部就调
+        # _load_duckdb()，duckdb 缺失时抛的 ImportError 由同一个 except 接住，
+        # 探针是冗余的（删它不改行为，且能让 ruff 保持 0）。
+        con = retrieval_cache.connect_readonly(db_path)
+    except Exception:
+        return ""
+    try:
+        rows = con.execute(
+            """
+            select trade_date, market_stage, stage_day, total_amount,
+                   advancers, limit_up, limit_down, sh_index_close,
+                   sh_index_pct_chg, industry_1, industry_1_ratio,
+                   industry_2, industry_2_ratio, industry_3, industry_3_ratio
+            from fact_market_daily
+            where (? is null or trade_date <= cast(? as date))
+            order by trade_date desc
+            limit ?
+            """,
+            [as_of, as_of, max(2, min(int(window), 10))],
+        ).fetchall()
+        if not rows:
+            return ""
+        rows = list(reversed(rows))
+        dates = [str(row[0]) for row in rows]
+        first_close = rows[0][7]
+        last_close = rows[-1][7]
+        cumulative_pct = None
+        try:
+            cumulative_pct = (float(last_close) / float(first_close) - 1) * 100
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+        down_days = sum(
+            1 for row in rows if row[8] is not None and float(row[8]) < 0
+        )
+        first_amount, last_amount = rows[0][3], rows[-1][3]
+        amount_change = None
+        try:
+            amount_change = (float(last_amount) / float(first_amount) - 1) * 100
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+        lines = [
+            "## 最近交易日市场原因归因窗口 [MCAUSE]",
+            f"- 窗口：{dates[0]} ~ {dates[-1]}，共 {len(rows)} 个交易日；该块只描述周内变化，不等同于外部因果。",
+            f"- 上证指数：{first_close if first_close is not None else '—'} → {last_close if last_close is not None else '—'} 点；区间变化 {cumulative_pct:.2f}% 。" if cumulative_pct is not None else "- 上证指数区间变化：缺数据。",
+            f"- 下跌交易日：{down_days}/{len(rows)}；成交额 {first_amount if first_amount is not None else '—'} → {last_amount if last_amount is not None else '—'} 亿元；区间变化 {amount_change:.2f}% 。" if amount_change is not None else "- 成交额区间变化：缺数据。",
+        ]
+        for row in rows:
+            industries = "、".join(
+                f"{row[i] or '—'}({row[i + 1] if row[i + 1] is not None else '—'}%)"
+                for i in (9, 11, 13)
+                if row[i]
+            )
+            lines.append(
+                f"- {row[0]}：指数 {row[8] if row[8] is not None else '—'}%；"
+                f"成交 {row[3] if row[3] is not None else '—'} 亿；"
+                f"上涨 {row[4] if row[4] is not None else '—'} 家；"
+                f"涨停/跌停 {row[5] if row[5] is not None else '—'}/{row[6] if row[6] is not None else '—'}；"
+                "行业成交额占全市场比例前三"
+                f"（括号为成交额占比，绝非行业涨跌幅）{industries or '—'}。"
+            )
+        lines.append("- 因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _market_data_asof(
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+) -> str | None:
     """盘面库 fact_market_daily 最新交易日（回检块新鲜度自检用）；库/duckdb 不可用返回 None。"""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return None
     db_result = retrieval_cache.try_connect_readonly(db_path)
@@ -739,7 +1139,14 @@ def _market_data_asof(market_db_path: str | Path | None) -> str | None:
         return None
     con = db_result.connection
     try:
-        row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        # 连接由函数顶部的 try_connect_readonly 统一管理（legacy 分支的重构），
+        # 查询保留 as_of 上界（exposure 分支）——签名收了 as_of 就必须用，
+        # 否则回检块的时间边界会静默失效。
+        row = con.execute(
+            "SELECT MAX(trade_date) FROM fact_market_daily "
+            "WHERE (? IS NULL OR trade_date <= CAST(? AS DATE))",
+            [as_of, as_of],
+        ).fetchone()
         return str(row[0]) if row and row[0] else None
     except Exception:
         return None
@@ -827,7 +1234,7 @@ def _populate_market_index_comparison(
     db_path = (
         Path(market_db_path).expanduser()
         if market_db_path
-        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+        else DEFAULT_MARKET_DB_PATH
     )
     row: tuple[Any, ...] | None = None
     if trade_date and db_path.exists():
@@ -942,7 +1349,7 @@ def _market_value_block_for_llm(
     This is intentionally lightweight and best-effort. It enriches compose
     answers with measurable L4 context without turning the LLM into a calculator.
     """
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
     db_result = retrieval_cache.try_connect_readonly(db_path)
@@ -1133,6 +1540,9 @@ def _valuation_block_for_llm(
     theme: str | None,
     market_db_path: str | Path | None,
     fetcher: Any = None,
+    *,
+    as_of: str | None = None,
+    snapshot_date_hint: str | None = None,
 ) -> str:
     """Build the D5 valuation block: target snapshot + same-theme peer band.
 
@@ -1142,10 +1552,11 @@ def _valuation_block_for_llm(
     fetch = fetcher or valuation_estimate.fetch_eastmoney_snapshot
     if not valuation_estimate.fetch_enabled():
         return valuation_estimate.build_valuation_block(None, [], fetch_disabled=True)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     target_code: str | None = None
     target_name = ""
     peer_codes: list[tuple[str, str]] = []
+    local_snapshots: dict[str, valuation_estimate.ValuationSnapshot] = {}
     if db_path.exists():
         db_result = retrieval_cache.try_connect_readonly(db_path)
         if db_result.available:
@@ -1155,11 +1566,21 @@ def _valuation_block_for_llm(
                 if stock:
                     target_code, target_name = stock
                     latest = con.execute(
-                        "select max(trade_date) from fact_sector_stock_daily where stock_ts_code=?",
-                        [target_code],
+                        "select max(trade_date) from fact_sector_stock_daily "
+                        "where stock_ts_code=? "
+                        "and (? is null or trade_date <= cast(? as date))",
+                        [target_code, as_of, as_of],
                     ).fetchone()
                     latest_date = latest[0] if latest else None
                     if latest_date is not None:
+                        local_target = _local_valuation_snapshot(
+                            con,
+                            target_code,
+                            target_name,
+                            str(latest_date),
+                        )
+                        if local_target is not None:
+                            local_snapshots[target_code] = local_target
                         sector_rows = con.execute(
                             """
                             select sector_name from fact_sector_stock_daily
@@ -1179,6 +1600,15 @@ def _valuation_block_for_llm(
                                 [latest_date, sectors[0], target_code],
                             ).fetchall()
                             peer_codes = [(str(c), str(n or c)) for c, n in rows]
+                            for peer_code, peer_name in peer_codes:
+                                local_peer = _local_valuation_snapshot(
+                                    con,
+                                    peer_code,
+                                    peer_name,
+                                    str(latest_date),
+                                )
+                                if local_peer is not None:
+                                    local_snapshots[peer_code] = local_peer
             except Exception:
                 pass
             finally:
@@ -1188,9 +1618,65 @@ def _valuation_block_for_llm(
         if not code_match:
             return ""
         target_code = code_match.group(1)
-    target = fetch(target_code, target_name)
-    peers = valuation_estimate.snapshots_for(peer_codes, fetcher=fetch)
+    use_live_snapshot = not (
+        as_of
+        and snapshot_date_hint
+        and str(snapshot_date_hint)[:10] > str(as_of)[:10]
+    )
+    target = fetch(target_code, target_name) if use_live_snapshot else None
+    if not _valuation_snapshot_within_as_of(target, as_of):
+        target = local_snapshots.get(target_code)
+    peers = []
+    for peer_code, peer_name in peer_codes:
+        candidate = fetch(peer_code, peer_name) if use_live_snapshot else None
+        if not _valuation_snapshot_within_as_of(candidate, as_of):
+            candidate = local_snapshots.get(peer_code)
+        if candidate is not None:
+            peers.append(candidate)
     return valuation_estimate.build_valuation_block(target, peers)
+
+
+def _valuation_snapshot_within_as_of(
+    snapshot: valuation_estimate.ValuationSnapshot | None,
+    as_of: str | None,
+) -> bool:
+    if snapshot is None:
+        return False
+    if not as_of:
+        return True
+    source_date = str(snapshot.source_date or "")[:10]
+    return bool(source_date) and source_date <= str(as_of)[:10]
+
+
+def _local_valuation_snapshot(
+    con: Any,
+    stock_code: str,
+    stock_name: str,
+    trade_date: str,
+) -> valuation_estimate.ValuationSnapshot | None:
+    try:
+        row = con.execute(
+            """
+            select stock_name, total_mcap_yi
+            from fact_sector_stock_daily
+            where trade_date = cast(? as date) and stock_ts_code = ?
+              and total_mcap_yi is not null and total_mcap_yi > 0
+            order by amount desc nulls last
+            limit 1
+            """,
+            [trade_date, stock_code],
+        ).fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    return valuation_estimate.ValuationSnapshot(
+        ts_code=stock_code,
+        name=str(row[0] or stock_name or stock_code),
+        total_mv_yi=float(row[1]),
+        source_date=str(trade_date)[:10],
+        source="本地 DuckDB 市值快照",
+    )
 
 
 def _financials_block_for_llm(
@@ -1206,7 +1692,7 @@ def _financials_block_for_llm(
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     target_code: str | None = None
     target_name = ""
     if db_path.exists():

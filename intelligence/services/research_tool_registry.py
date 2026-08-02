@@ -1,0 +1,560 @@
+"""GenericResearchOwner 的类型化工具白名单。
+
+工具仍复用已有 agent runner；本模块只负责能力声明、参数边界、去重和
+公开 observation，避免第二套数据源实现。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field, replace
+import json
+from types import MappingProxyType
+from typing import Literal
+
+from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import (
+    InformationCutoff,
+    ResearchRunContext,
+)
+
+
+_DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
+    "finance_query": (
+        "finance_query",
+        "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
+        "current",
+    ),
+    "evidence_search": (
+        "evidence_search",
+        "对本地知识证据执行窄口径、宽口径和反方闭环检索",
+        "current",
+    ),
+    "kb_search": ("kb_search", "本地知识库检索", "stable"),
+    "web_search": ("web_search", "全网网页检索", "current"),
+    "news_search": ("news_search", "财经新闻检索", "current"),
+    "graph_lookup": ("graph_lookup", "知识图谱实体与关系", "stable"),
+    "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
+    "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
+    "market_data": ("market_data", "结构化行情与市场时序", "current"),
+    "financial_data": ("financial_data", "结构化逐季财务指标", "current"),
+    "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
+}
+DEFAULT_RESEARCH_CAPABILITIES = tuple(
+    dict.fromkeys(
+        capability
+        for capability, _description, _freshness in _DEFAULT_TOOL_METADATA.values()
+    )
+)
+
+
+class UnknownResearchTool(ValueError):
+    """LLM 选择了未注册工具。"""
+
+
+class InvalidResearchToolArguments(ValueError):
+    """模型给出的工具参数不满足该工具自己的接口。"""
+
+    def __init__(self, message: str, *, code: str = "invalid_arguments") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+QUERY_TOOL_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {"query": {"type": "string", "minLength": 1}},
+    "required": ["query"],
+    "additionalProperties": False,
+}
+EMPTY_TOOL_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+
+ToolInput = object
+ToolArgumentParser = Callable[
+    [Mapping[str, object]],
+    tuple[ToolInput, str],
+]
+def parse_query_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    if set(arguments) != {"query"}:
+        raise InvalidResearchToolArguments("expected one query argument")
+    query = arguments.get("query")
+    if not isinstance(query, str) or not query.strip():
+        raise InvalidResearchToolArguments(
+            "query must be a non-empty string",
+            code="invalid_query",
+        )
+    cleaned = query.strip()
+    return cleaned, cleaned
+
+
+def parse_snapshot_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    if arguments:
+        raise InvalidResearchToolArguments("snapshot tool accepts no arguments")
+    return "", "snapshot"
+
+
+@dataclass(frozen=True)
+class PreparedToolArguments:
+    tool: str
+    raw: Mapping[str, object]
+    runner_input: ToolInput
+    normalized_key: str
+    display_query: str
+
+
+ToolCutoffResolver = Callable[
+    [PreparedToolArguments, ResearchRunContext],
+    InformationCutoff,
+]
+
+
+@dataclass(frozen=True)
+class ToolRunResult:
+    evidence: tuple[agent_research.AgentEvidence, ...]
+    observation: str
+    trace: ProviderTrace
+    gaps: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        evidence = tuple(self.evidence)
+        if any(not isinstance(item, agent_research.AgentEvidence) for item in evidence):
+            raise TypeError("tool evidence must contain AgentEvidence values")
+        if not isinstance(self.trace, ProviderTrace):
+            raise TypeError("tool trace must be a ProviderTrace")
+        object.__setattr__(self, "evidence", evidence)
+        object.__setattr__(self, "observation", str(self.observation or ""))
+        object.__setattr__(
+            self,
+            "gaps",
+            tuple(
+                dict.fromkeys(
+                    str(item).strip() for item in self.gaps if str(item).strip()
+                )
+            ),
+        )
+
+
+class ToolRunnerAdapter:
+    """Normalize legacy tuple runners into the registry's one true result type."""
+
+    def __init__(self, runner: agent_research.ToolRunner) -> None:
+        self._runner = runner
+
+    def __call__(
+        self,
+        value: ToolInput,
+        context: agent_research.AgentToolContext,
+    ) -> ToolRunResult:
+        raw = agent_research._run_tool(self._runner, value, context)
+        if isinstance(raw, ToolRunResult):
+            return raw
+        if not isinstance(raw, tuple):
+            raise TypeError("research tool runner must return ToolRunResult")
+        if len(raw) == 3:
+            evidence, observation, trace = raw
+            gaps: tuple[str, ...] = ()
+        elif len(raw) == 4:
+            evidence, observation, trace, raw_gaps = raw
+            gaps = tuple(raw_gaps)
+        else:
+            raise TypeError("legacy research tool runner returned invalid result")
+        return ToolRunResult(
+            evidence=tuple(evidence),
+            observation=str(observation or ""),
+            trace=trace,
+            gaps=gaps,
+        )
+
+
+def _freeze_json(value: object) -> object:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): _freeze_json(item) for key, item in value.items()}
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    raise TypeError("tool schema must be JSON-compatible")
+
+
+def _copy_json(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {str(key): _copy_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_copy_json(item) for item in value]
+    return value
+
+
+def copy_tool_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
+    copied = _copy_json(parameters)
+    if not isinstance(copied, dict):
+        raise TypeError("tool parameters must be an object schema")
+    return copied
+
+
+@dataclass(frozen=True)
+class ToolObservation:
+    tool: str
+    query: str
+    evidence: tuple[agent_research.AgentEvidence, ...]
+    observation: str
+    trace: ProviderTrace
+    gaps: tuple[str, ...] = ()
+    evidence_hashes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    name: str
+    capability: str
+    description: str
+    cost: str
+    freshness: str
+    runner: agent_research.ToolRunner | ToolRunnerAdapter
+    # 行为契约：什么时候该用它、怎样用才不误读、什么时候该换别的工具。
+    #
+    # ``description`` 只说「是什么」。马书 ch08 的结论是「优秀的工具提示词不是
+    # 功能文档，而是行为契约」；ch27 模式六进一步给了理由——**时序对齐**：模型
+    # 决定调用某工具时，该工具的约束正好在它的注意力焦点内，而写在系统提示词里
+    # 的同一句话需要模型在数万 token 的上下文里「回忆」，长会话中不可靠。
+    #
+    # 空字符串合法：没有经过验证的契约就别写，编一句比不写更糟。
+    contract: str = ""
+    # ``episode`` means the tool returns one complete turn-scoped snapshot;
+    # rewriting its query cannot produce a different evidence surface.
+    query_scope: Literal["query", "episode"] = "query"
+    parameters: Mapping[str, object] = field(
+        default_factory=lambda: dict(QUERY_TOOL_PARAMETERS)
+    )
+    parse_arguments: ToolArgumentParser = parse_query_arguments
+    cutoff_resolver: ToolCutoffResolver | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.runner, ToolRunnerAdapter):
+            object.__setattr__(self, "runner", ToolRunnerAdapter(self.runner))
+        frozen_parameters = _freeze_json(self.parameters)
+        if not isinstance(frozen_parameters, Mapping):
+            raise TypeError("tool parameters must be an object schema")
+        object.__setattr__(self, "parameters", frozen_parameters)
+
+
+class ResearchToolRegistry:
+    def __init__(self, specs: tuple[ToolSpec, ...]) -> None:
+        self._specs = {spec.name: spec for spec in specs}
+
+    def resolve(self, name: str) -> ToolSpec:
+        spec = self._specs.get(str(name).strip())
+        if spec is None:
+            raise UnknownResearchTool(str(name))
+        return spec
+
+    def names(self) -> tuple[str, ...]:
+        return tuple(self._specs)
+
+    def capabilities(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(spec.capability for spec in self._specs.values()))
+
+    def authorized_specs(
+        self,
+        allowed: tuple[str, ...] | None = None,
+    ) -> tuple[ToolSpec, ...]:
+        """Return registered tools whose declared capability is authorized."""
+
+        if allowed is None:
+            return tuple(self._specs.values())
+        allowed_set = set(allowed)
+        return tuple(
+            spec
+            for spec in self._specs.values()
+            if spec.capability in allowed_set
+        )
+
+    def tool_definitions(
+        self,
+        allowed: tuple[str, ...] | None = None,
+    ) -> list[dict[str, object]]:
+        """Expose the authorized read-only tools as function-call schemas."""
+
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": spec.name,
+                    # 契约跟着工具描述走，而不是塞进系统提示词——见 ToolSpec.contract。
+                    "description": (
+                        f"{spec.description}\n{spec.contract}"
+                        if spec.contract
+                        else spec.description
+                    ),
+                    "parameters": copy_tool_parameters(spec.parameters),
+                },
+            }
+            for spec in self.authorized_specs(allowed)
+        ]
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -> PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        try:
+            runner_input, display_query = spec.parse_arguments(raw)
+        except InvalidResearchToolArguments:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidResearchToolArguments(str(exc)) from exc
+        try:
+            canonical = json.dumps(
+                raw,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError) as exc:
+            raise InvalidResearchToolArguments(
+                "tool arguments must be JSON serializable"
+            ) from exc
+        normalized_key = (
+            query_ledger.normalize_query(display_query)
+            if set(raw) == {"query"} and isinstance(raw.get("query"), str)
+            else canonical
+        )
+        return PreparedToolArguments(
+            tool=spec.name,
+            raw=raw,
+            runner_input=runner_input,
+            normalized_key=normalized_key,
+            display_query=str(display_query or "").strip() or canonical,
+        )
+
+    def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
+        return "\n".join(
+            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）："
+            f"{spec.description}"
+            + (f"\n  · {spec.contract}" if spec.contract else "")
+            for spec in self.authorized_specs(allowed)
+        )
+
+    def execute(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+        *,
+        context: ResearchRunContext,
+        step_id: str,
+        is_cancelled: Callable[[], bool] | None = None,
+    ) -> ToolObservation:
+        spec = self.resolve(name)
+        if spec.capability not in context.contract.allowed_capabilities:
+            raise UnknownResearchTool(
+                f"能力未授权：{spec.capability}（工具 {spec.name}）"
+            )
+
+        prepared = self.prepare(name, arguments)
+        normalized = prepared.normalized_key
+        effective_context = context
+        if spec.cutoff_resolver is not None:
+            requested_cutoff = spec.cutoff_resolver(prepared, context)
+            if not isinstance(requested_cutoff, InformationCutoff):
+                raise TypeError("tool cutoff resolver must return InformationCutoff")
+            effective_context = replace(
+                context,
+                information_cutoff=InformationCutoff(
+                    min(
+                        context.information_cutoff.as_of_date,
+                        requested_cutoff.as_of_date,
+                    ),
+                    requested_cutoff.source,
+                ),
+            )
+
+        def fetch() -> ToolObservation:
+            run_result = spec.runner(
+                prepared.runner_input,
+                agent_research.AgentToolContext(
+                    effective_context.deadline,
+                    is_cancelled or (lambda: False),
+                    effective_context.information_cutoff,
+                ),
+            )
+            evidence = list(run_result.evidence)
+            observation = run_result.observation
+            trace = run_result.trace
+            gaps = run_result.gaps
+            if is_cancelled is not None and is_cancelled():
+                raise RuntimeError("agent tool cancelled")
+            served_date = closed_loop_retrieval.latest_served_date(
+                evidence,
+                date_getter=lambda item: item.source_date,
+            )
+            if served_date is None:
+                parsed_trade_date = closed_loop_retrieval.parse_source_date(
+                    trace.source_trade_date
+                )
+                served_date = (
+                    parsed_trade_date.isoformat()
+                    if parsed_trade_date is not None
+                    else None
+                )
+            evidence, rejected = closed_loop_retrieval.filter_future_dated(
+                evidence,
+                information_cutoff=effective_context.information_cutoff,
+                date_getter=lambda item: item.source_date,
+            )
+            trace_trade_date = closed_loop_retrieval.parse_source_date(
+                trace.source_trade_date
+            )
+            if (
+                trace_trade_date is not None
+                and trace_trade_date
+                > effective_context.information_cutoff.as_of_date
+                and evidence
+                and not any(item.source_date for item in evidence)
+            ):
+                rejected.extend(evidence)
+                evidence = []
+            if rejected:
+                observation = (
+                    "；".join(
+                        f"{item.title}：{item.detail[:80]}" for item in evidence
+                    )
+                    or "检索结果均因 future_of_cutoff 被过滤"
+                )
+            evidence = [
+                item
+                if item.content_hash
+                else replace(
+                    item,
+                    content_hash=agent_research.evidence_content_hash(item),
+                )
+                for item in evidence
+            ]
+            trace = replace(
+                trace,
+                status=(
+                    "future_of_cutoff"
+                    if rejected and not evidence
+                    else trace.status
+                ),
+                detail=(
+                    f"{trace.detail}; future_of_cutoff={len(rejected)}".strip("; ")
+                    if rejected
+                    else trace.detail
+                ),
+                result_count=len(evidence),
+                parent_id=context.trace_parent_id,
+                step_id=step_id,
+                requested_date=(
+                    trace.requested_date
+                    or effective_context.information_cutoff.as_of_date.isoformat()
+                ),
+                served_date=served_date,
+            )
+            # The content hash is the stable identifier carried into
+            # AgentOutcome/verifier. Do not mint a second observation-only ID.
+            hashes = tuple(item.content_hash for item in evidence)
+            return ToolObservation(
+                tool=spec.name,
+                query=prepared.display_query,
+                evidence=tuple(evidence),
+                observation=observation,
+                trace=trace,
+                gaps=gaps,
+                evidence_hashes=hashes,
+            )
+
+        return query_ledger.executed(
+            f"generic:{spec.name}",
+            normalized,
+            fetch,
+            variant=(
+                f"{spec.freshness};cutoff="
+                f"{effective_context.information_cutoff.as_of_date.isoformat()}"
+            ),
+        )
+
+
+# 行为契约（见 ``ToolSpec.contract``）。**只写验证过的**：每条要么来自线上实测的
+# 失败模式，要么是复述 CLAUDE.md 里已有的红线。没有依据的宁可留空——工具提示词是
+# 模型判断「该不该用、结果怎么读」的依据，编一句进去比不写更糟。
+_TOOL_CONTRACTS: dict[str, str] = {
+    "market_data": (
+        "返回的是最近一个已收盘交易日的快照，不是实时也不一定是今天："
+        "当日盘中或次日开盘前查询会回退到上一交易日，此时应明写数据截至日期，"
+        "不要把它当作提问当天的行情。美股按北京时间 21:30→次日 04:00 跨日，"
+        "北京时间凌晨查到的「前一天」通常是正在进行的那一场，不是数据过期。"
+    ),
+    "l3_lookup": (
+        "查询成功不等于查到了证据：实测存在「company 查询成功但没有解析到可用证据」"
+        "的情况。返回为空时只能说明本次没检索到，不能据此断言该公司没有相关公告，"
+        "应写成明确的证据缺口而不是否定结论。"
+    ),
+    "web_search": (
+        "网页与研报是二手材料，默认只能作为线索和上下文，不能直接当作公司级硬事实。"
+        "订单/中标/产能/量产这类结论需要 l3_lookup 的公告或互动证据确认；"
+        "只有网页来源时，写成「待验证线索」并点明缺的是哪一份一手材料。"
+    ),
+    "news_search": (
+        "新闻是二手材料，同一条消息被多家转载不构成交叉验证。"
+        "涉及公司经营事实时需要 l3_lookup 的公告确认；"
+        "只有新闻来源时写成「待验证线索」，不要升级为既定事实。"
+    ),
+}
+
+
+def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToolRegistry:
+    specs = tuple(
+        ToolSpec(
+            name=name,
+            capability=name,
+            description=description,
+            contract=_TOOL_CONTRACTS.get(name, ""),
+            cost="local" if freshness == "stable" else "external",
+            freshness=freshness,
+            runner=tools[name],
+            query_scope=(
+                "episode"
+                if name in {"market_data", "financial_data", "mainline_context"}
+                else "query"
+            ),
+            parameters=(
+                EMPTY_TOOL_PARAMETERS
+                if name in {"market_data", "financial_data", "mainline_context"}
+                else QUERY_TOOL_PARAMETERS
+            ),
+            parse_arguments=(
+                parse_snapshot_arguments
+                if name in {"market_data", "financial_data", "mainline_context"}
+                else parse_query_arguments
+            ),
+        )
+        for name, (capability, description, freshness) in _DEFAULT_TOOL_METADATA.items()
+        if name in tools
+    )
+    return ResearchToolRegistry(specs)

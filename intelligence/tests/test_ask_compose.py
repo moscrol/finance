@@ -7,6 +7,7 @@ from unittest import mock
 
 from intelligence.services import llm_refine
 from intelligence.services.answer_model import resolve_theme_research_spec
+from intelligence.services.ask_blocks import _market_data_asof
 from intelligence.services.ask import (
     AskResult,
     AskOptions,
@@ -15,11 +16,13 @@ from intelligence.services.ask import (
     _daily_market_overview_block_for_llm,
     _evidence_chain_with_llm_wiki,
     _mainline_context_block_for_llm,
+    _market_cause_window_block_for_llm,
     _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
     _theme_research_framing,
+    _valuation_block_for_llm,
     answer_query,
     render_answer,
     render_conversation_answer,
@@ -32,6 +35,7 @@ from intelligence.services.llm_refine import (
     build_grounding_judge_messages,
     synthesize,
 )
+from intelligence.services.valuation_estimate import ValuationSnapshot
 
 
 def _provider() -> LLMProvider:
@@ -111,10 +115,10 @@ class SynthesizeTests(unittest.TestCase):
             "## AnswerSpec registry\n- 53 条候选 claim",
         )
 
-        self.assertIn("只选择 6-10 条", msgs[0]["content"])
-        self.assertIn("正文绝对不得超过 12 行", msgs[0]["content"])
-        self.assertIn("禁止遍历 registry", msgs[0]["content"])
-        self.assertIn("正文硬上限 12 个带 marker 的行", msgs[1]["content"])
+        self.assertIn("只消费给定 AnswerSpec 和证据", msgs[0]["content"])
+        self.assertIn("不强制六段、固定标题或正文行数", msgs[0]["content"])
+        self.assertIn("不要为了完整而逐条罗列 registry", msgs[1]["content"])
+        self.assertNotIn("正文硬上限 12", msgs[1]["content"])
 
     def test_synthesis_prompt_includes_exemplar_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -141,9 +145,9 @@ class SynthesizeTests(unittest.TestCase):
         user = msgs[1]["content"]
 
         self.assertIn("不得在正文显示任何内部引用编号", system)
-        self.assertIn("严禁输出原始 JSON", system)
-        self.assertIn("L1/L2/L3/L4 必须分别转译", system)
-        self.assertIn("graph_only、replay、Daily Review", system)
+        self.assertIn("原始 JSON", system)
+        self.assertIn("L1/L2/L3/L4", system)
+        self.assertIn("转译成用户能理解的证据硬度", system)
         self.assertIn("最终回答不得显示编号", user)
 
     def test_exemplar_guidance_loader_routes_by_question_type(self) -> None:
@@ -174,29 +178,11 @@ class SynthesizeTests(unittest.TestCase):
 
         system = msgs[0]["content"]
 
-        self.assertIn("daily-agent", system)
-        self.assertIn("生命周期", system)
-        self.assertIn("市场/板块/个股三层资金传导", system)
-        self.assertIn("全量盘面数据的正反推导", system)
-        self.assertIn("强板块弱个股", system)
-        self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", system)
-        self.assertIn("二阶导", system)
-        self.assertIn("领先核心、同步确认、后排补涨", system)
-        self.assertIn("输出前必须在内部做一次质检和反驳", system)
-        self.assertIn("是否模板化", system)
-        self.assertIn("是否孤立看个股", system)
-        self.assertIn("证据是否够硬", system)
-        self.assertIn("更优表达", system)
-        self.assertIn("主线题材结构数据", system)
-        self.assertIn("主线连续性", system)
-        self.assertIn("缩量强修复/存量抱团", system)
-        self.assertIn("先在内部写出核心矛盾句", system)
-        self.assertIn("所有视角都必须服务这个核心矛盾", system)
-        self.assertIn("禁止按公司本体、盘面、二阶导、反证逐项填空", system)
-        self.assertIn("每一段都要回答这个事实改变了什么判断", system)
-        self.assertIn("不要附加质检过程或审稿过程", system)
-        self.assertIn("只能使用证据中“交易日历约束”给出的日期", system)
-        self.assertIn("严禁自然日加一天或猜日期", system)
+        self.assertIn("claim marker 只用于机器核验", system)
+        self.assertIn("当前证据优先", system)
+        self.assertIn("不得在正文显示任何内部引用编号", system)
+        self.assertNotIn("正文硬上限 12", system)
+        self.assertNotIn("只选择 6-10 条", system)
 
     def test_synthesis_system_prompt_obeys_question_specific_contract(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -208,8 +194,8 @@ class SynthesizeTests(unittest.TestCase):
         system = msgs[0]["content"]
 
         self.assertIn("先服从证据中的「问答编排计划」", system)
-        self.assertIn("结构和篇幅由问题复杂度决定", system)
-        self.assertIn("不得为了显得完整而套用深度研究模板", system)
+        self.assertIn("结构、篇幅和小节由问题复杂度与证据形态决定", system)
+        self.assertIn("不强制六段、固定标题或正文行数", system)
 
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
@@ -447,6 +433,150 @@ class RenderComposeTests(unittest.TestCase):
 
 
 class DailyMarketOverviewTests(unittest.TestCase):
+    def test_mainline_context_selects_latest_structure_at_or_before_as_of(
+        self,
+    ) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute(
+                "insert into fact_market_daily values "
+                "('2026-07-24'), ('2026-07-27')"
+            )
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, "
+                "min_sort integer)"
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values "
+                "('2026-07-24', '人工智能', 3, 1), "
+                "('2026-07-27', '机器人', 4, 1)"
+            )
+            con.execute(
+                "create table fact_mainline_sector_daily(trade_date date)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values "
+                "('2026-07-23'), ('2026-07-27')"
+            )
+            con.close()
+
+            block = _market_review_mainline_context_block_for_llm(
+                "目前市场的主线是什么",
+                None,
+                db_path,
+                as_of="2026-07-24",
+            )
+
+        self.assertIn("截至 2026-07-24", block)
+        self.assertIn("人工智能", block)
+        self.assertNotIn("机器人", block)
+        self.assertNotIn("2026-07-27", block)
+
+    def test_market_blocks_select_latest_row_at_or_before_as_of(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  market_stage varchar,
+                  stage_day integer,
+                  total_amount double,
+                  advancers integer,
+                  limit_up integer,
+                  limit_down integer,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  industry_1 varchar,
+                  industry_1_ratio double,
+                  industry_2 varchar,
+                  industry_2_ratio double,
+                  industry_3 varchar,
+                  industry_3_ratio double
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-23', '下跌', 1, 23000, 900, 20, 80, 3800, -1.0,
+                 '银行', 12, '煤炭', 8, '电力', 7),
+                ('2026-07-24', '反弹', 1, 25000, 3600, 90, 5, 3850, 1.3,
+                 '电子', 25, '通信', 10, '计算机', 8),
+                ('2026-07-27', '主升', 2, 29000, 4200, 120, 2, 3920, 1.8,
+                 '机器人', 28, '军工', 11, '医药', 9)
+                """
+            )
+            con.close()
+
+            overview = _daily_market_overview_block_for_llm(
+                db_path,
+                as_of="2026-07-24",
+            )
+            window = _market_cause_window_block_for_llm(
+                db_path,
+                as_of="2026-07-24",
+            )
+            selected_date = _market_data_asof(
+                db_path,
+                as_of="2026-07-24",
+            )
+
+        self.assertEqual(selected_date, "2026-07-24")
+        self.assertIn("市场数据截至：2026-07-24", overview)
+        self.assertNotIn("2026-07-27", overview)
+        self.assertIn("2026-07-23 ~ 2026-07-24", window)
+        self.assertNotIn("2026-07-27", window)
+
+    def test_market_cause_block_names_industry_ratio_as_turnover_share(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  market_stage varchar,
+                  stage_day integer,
+                  total_amount double,
+                  advancers integer,
+                  limit_up integer,
+                  limit_down integer,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  industry_1 varchar,
+                  industry_1_ratio double,
+                  industry_2 varchar,
+                  industry_2_ratio double,
+                  industry_3 varchar,
+                  industry_3_ratio double
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-22', '反弹', 2, 26000, 1500, 47, 8, 3867, 0.07,
+                 '电子', 33.0, '通信', 9.0, '计算机', 6.7),
+                ('2026-07-23', '反弹', 3, 21950, 4260, 116, 2, 3877, 0.25,
+                 '电子', 29.1, '电力设备', 8.5, '通信', 7.8)
+                """
+            )
+            con.close()
+
+            block = _market_cause_window_block_for_llm(db_path)
+
+        self.assertIn("行业成交额占全市场比例前三", block)
+        self.assertIn("绝非行业涨跌幅", block)
+        self.assertNotIn("领先行业 电子(29.1%)", block)
+
     def test_prefers_duckdb_date_over_older_snapshot(self) -> None:
         with mock.patch(
             "intelligence.services.ask._market_data_asof",
@@ -549,6 +679,65 @@ class DailyMarketOverviewTests(unittest.TestCase):
 
 
 class MarketValueBlockTests(unittest.TestCase):
+    def test_valuation_uses_local_anchor_when_provider_snapshot_exceeds_as_of(
+        self,
+    ) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                "create table fact_stock_daily("
+                "trade_date date, stock_ts_code varchar, stock_name varchar)"
+            )
+            con.execute(
+                "insert into fact_stock_daily values "
+                "('2026-07-24', '688323.SH', '瑞华泰'), "
+                "('2026-07-27', '688323.SH', '瑞华泰'), "
+                "('2026-07-24', '688295.SH', '中复神鹰')"
+            )
+            con.execute(
+                "create table fact_sector_stock_daily("
+                "trade_date date, stock_ts_code varchar, stock_name varchar, "
+                "sector_name varchar, amount double, total_mcap_yi double)"
+            )
+            con.execute(
+                "insert into fact_sector_stock_daily values "
+                "('2026-07-24', '688323.SH', '瑞华泰', '新材料', 3.7, 49.5), "
+                "('2026-07-24', '688295.SH', '中复神鹰', '新材料', 8.0, 160), "
+                "('2026-07-27', '688323.SH', '瑞华泰', '机器人', 4.1, 52.6)"
+            )
+            con.close()
+
+            fetch_calls: list[str] = []
+
+            def future_snapshot(code: str, name: str = "") -> ValuationSnapshot:
+                fetch_calls.append(code)
+                return ValuationSnapshot(
+                    ts_code=code,
+                    name=name or code,
+                    total_mv_yi=99.0,
+                    pe_ttm=88.0,
+                    pb=9.0,
+                    source_date="2026-07-27",
+                )
+
+            block = _valuation_block_for_llm(
+                "瑞华泰的合理估值",
+                None,
+                db_path,
+                fetcher=future_snapshot,
+                as_of="2026-07-24",
+                snapshot_date_hint="2026-07-27",
+            )
+
+        self.assertEqual(fetch_calls, [])
+        self.assertIn("总市值 49.5 亿", block)
+        self.assertIn("估值快照日期：2026-07-24", block)
+        self.assertIn("本地 DuckDB 市值快照", block)
+        self.assertNotIn("2026-07-27", block)
+        self.assertNotIn("PE(TTM) 88", block)
+
     def test_market_value_block_adds_car_drawdown_and_alternative_queue(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:

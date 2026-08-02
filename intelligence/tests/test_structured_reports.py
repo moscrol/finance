@@ -11,7 +11,7 @@ from intelligence.api.structured_reports import (
     render_daily_review_answer,
     upsert_report_module,
 )
-from intelligence.services.ask import AskResult
+from intelligence.services.ask import AskResult, Citation
 from intelligence.services.market_moneyflow import MoneyflowRow, MoneyflowSnapshot
 
 
@@ -233,6 +233,71 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
     assert report["modules"][0]["module_id"] == "llm_synthesis"
     assert report["modules"][1]["kind"] == "summary"
     assert "html" not in json.dumps(report, ensure_ascii=False).lower()
+
+
+def test_public_source_module_deduplicates_source_without_internal_tags() -> None:
+    result = AskResult(
+        query="目前市场主线是什么",
+        trade_date="2026-07-20",
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        sections={"引用来源": ["[G1] 本地盘面", "[G2] 本地盘面"]},
+        citations=[
+            Citation("G1", "本地盘面", "结构判断"),
+            Citation("G2", "本地盘面", "增量判断"),
+        ],
+    )
+
+    modules = ask_result_modules(result)
+    source_module = next(module for module in modules if module["title"] == "引用来源")
+
+    assert source_module["items"] == [
+        {"summary": "本地盘面", "badges": [], "meta": []}
+    ]
+
+
+def test_partial_business_report_separates_transport_status() -> None:
+    report = new_structured_report(
+        run_id="run_partial",
+        question="目前市场主线是什么",
+        task_type="ask",
+    )
+    complete_report(
+        report,
+        as_of="2026-07-20",
+        warnings=["direct assessment missing"],
+        llm_provider=None,
+        llm_model=None,
+        business_status="partial",
+    )
+    assert report["status"] == "partial"
+    assert report["business_status"] == "partial"
+    assert report["transport_status"] == "completed"
+
+
+def test_incomplete_final_answer_cannot_hide_behind_complete_research() -> None:
+    report = new_structured_report(
+        run_id="run_answer_missing",
+        question="目前市场的主线是什么",
+        task_type="research",
+    )
+
+    complete_report(
+        report,
+        as_of="2026-07-21",
+        warnings=[],
+        llm_provider="test",
+        llm_model="test",
+        business_status="complete",
+        answer_status="missing",
+    )
+
+    assert report["transport_status"] == "completed"
+    assert report["research_status"] == "complete"
+    assert report["answer_status"] == "missing"
+    assert report["business_status"] == "missing"
+    assert report["status"] == "missing"
 
 
 def test_ask_warnings_mark_user_facing_modules_degraded() -> None:

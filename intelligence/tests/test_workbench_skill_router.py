@@ -8,6 +8,7 @@ import pytest
 
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore
+from intelligence.services.turn_controller import decide_turn
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
@@ -67,6 +68,9 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "input_schema",
         "permissions",
         "timeout_seconds",
+        "role",
+        "accepted_question_types",
+        "can_own_answer",
     ]
     assert [field.name for field in fields(SkillOutput)] == [
         "skill_id",
@@ -102,6 +106,74 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         repo_root=tmp_path,
         run_store=store,
     ).conversation_id is None
+
+
+def test_skill_definition_defaults_are_non_owner_workflow() -> None:
+    skill = definition("untyped")
+
+    assert skill.role == "workflow"
+    assert skill.accepted_question_types == ()
+    assert skill.can_own_answer is False
+
+
+def test_builtin_daily_and_research_owner_metadata_are_explicit() -> None:
+    daily_agent = SKILL_REGISTRY["daily-agent"]
+    assert daily_agent.role == "workflow"
+    assert daily_agent.can_own_answer is True
+    assert daily_agent.accepted_question_types == ()
+
+    for skill_id in (
+        "stock-deep-dive",
+        "theme-research",
+        "news-impact",
+        "financial-analysis",
+    ):
+        owner = SKILL_REGISTRY[skill_id]
+        assert owner.role == "terminal_owner"
+        assert owner.can_own_answer is True
+        assert len(owner.accepted_question_types) == 1
+
+
+def test_today_research_keeps_daily_agent_workflow_available() -> None:
+    decision = decide_turn(
+        "今天研究什么",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
+
+    routed = route_skills(
+        "今天研究什么",
+        "ask",
+        "auto",
+        [],
+        registry={"daily-agent": SKILL_REGISTRY["daily-agent"]},
+        llm_complete=llm_response('{"skill_ids":[],"reasons":{}}'),
+        query_envelope=understand_query("今天研究什么"),
+    )
+    assert [item.skill_id for item in routed.selections] == ["daily-agent"]
+
+
+def test_daily_agent_skill_id_is_a_deterministic_workflow_alias() -> None:
+    decision = decide_turn(
+        "daily-agent",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
+
+
+def test_daily_workflow_phrase_inside_comparison_is_not_forced_to_workflow() -> None:
+    decision = decide_turn(
+        "今天研究什么和普通题材研究有什么区别？",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert decision.lane != "workflow"
+    assert decision.question_type != "market_watch"
 
 
 def test_global_registries_are_independent_dicts() -> None:

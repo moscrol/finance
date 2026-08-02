@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 import tempfile
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest import mock
 
@@ -26,6 +27,7 @@ from intelligence.services.ask import (
     AskOptions,
     AskResult,
     PreparedAnswer,
+    SynthesisDiagnostic,
     answer_query,
     render_conversation_answer,
     synthesize_prepared_answer,
@@ -76,7 +78,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
     def test_model_chunks_stay_private_when_quality_gate_rejects(self) -> None:
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
-        issue = mock.Mock(severity="error", message="越界事实")
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="error",
+            message="越界事实",
+        )
 
         def fake_stream(messages, *, on_delta, **kwargs):
             del messages, kwargs
@@ -108,6 +114,12 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertIsNone(result.synthesis)
         self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertEqual(result.synthesis_diagnostic.state, "rejected")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "claim_binding_failed",
+        )
+        self.assertNotIn("越界事实", result.synthesis_diagnostic.detail)
         self.assertEqual(public_deltas, [])
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
@@ -272,6 +284,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["output_chars"], 7)
         self.assertEqual(result.llm_stream_telemetry["finish_reason"], None)
         self.assertEqual(result.llm_stream_telemetry["fallback_reason"], None)
+        self.assertEqual(result.synthesis_diagnostic.state, "accepted")
+        self.assertEqual(result.synthesis_diagnostic.reason_code, "validated")
         for field in (
             "provider_connect_ms",
             "stream_elapsed_ms",
@@ -354,6 +368,59 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_fallback_reason, "timeout")
         self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
         self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
+        self.assertEqual(result.synthesis_diagnostic.state, "failed")
+        self.assertEqual(result.synthesis_diagnostic.reason_code, "timeout")
+
+    def test_missing_prepared_messages_records_not_prepared(self) -> None:
+        result = AskResult(
+            query="测试问题",
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        prepared = PreparedAnswer(
+            options=AskOptions(query=result.query),
+            result=result,
+        )
+
+        result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis_diagnostic.state, "not_prepared")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "no_prepared_messages",
+        )
+
+    def test_provider_unavailable_records_failed_diagnostic(self) -> None:
+        prepared = self._prepared_answer(public_deltas=[])
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages_stream",
+            return_value=(None, "未配置 LLM key，已降级为模板"),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis_diagnostic.state, "failed")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code,
+            "provider_unavailable",
+        )
+
+    def test_synthesis_diagnostic_is_frozen_and_caps_detail(self) -> None:
+        default = SynthesisDiagnostic()
+        self.assertEqual(default.state, "not_requested")
+        self.assertEqual(default.reason_code, "not_requested")
+        self.assertEqual(default.detail, "synthesis was not requested")
+        self.assertEqual(default.prepared_message_count, 0)
+        self.assertEqual(default.candidate_claim_count, 0)
+        self.assertEqual(default.bound_claim_count, 0)
+
+        diagnostic = SynthesisDiagnostic(detail=("line\n" * 100))
+        self.assertLessEqual(len(diagnostic.detail), 200)
+        self.assertNotIn("\n", diagnostic.detail)
+        with self.assertRaises(FrozenInstanceError):
+            diagnostic.state = "accepted"  # type: ignore[misc]
 
     def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
         self,
@@ -424,6 +491,20 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "unknown question type"):
             plan_answer_question("贵州茅台", question_type_override="unknown")
+
+    def test_generic_event_and_comparison_overrides_are_valid_plans(self) -> None:
+        for question_type, query in (
+            ("event_forecast", "如果政策落地，哪些方向受益？"),
+            ("comparison", "液冷和风冷的差异是什么？"),
+        ):
+            plan = plan_answer_question(
+                query,
+                question_type_override=question_type,
+            )
+            self.assertEqual(plan.question_type, question_type)
+            self.assertEqual(plan.depth, DEPTH_STANDARD)
+            self.assertTrue(plan.required_lenses)
+            self.assertTrue(plan.output_contract)
 
     def test_entity_anchor_turns_on_market_and_memory_floor(self) -> None:
         with (
@@ -797,14 +878,15 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
         self.assertIsNotNone(result.question_plan)
         assert result.question_plan is not None
         self.assertEqual(result.question_plan.question_type, QUESTION_STOCK_DEEP_DIVE)
-        self.assertIn("问答编排计划", captured["prompt"])
-        self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
+        self.assertIn("本轮任务边界", captured["prompt"])
+        self.assertIn("类型：stock_deep_dive", captured["prompt"])
         self.assertIn("公司本体", captured["prompt"])
 
     def test_market_review_compose_uses_daily_evidence_without_topic_graph(
@@ -988,7 +1070,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIsNotNone(result.question_plan)
         assert result.question_plan is not None
         self.assertEqual(result.question_plan.question_type, QUESTION_MARKET_REVIEW)
-        self.assertIn("问题类型：market_review", captured["prompt"])
+        self.assertIn("类型：market_review", captured["prompt"])
         self.assertNotIn("图谱·公司分层", captured["prompt"])
         self.assertNotIn("客户证据硬度数据块", captured["prompt"])
         self.assertNotIn("二阶导研究队列数据块", captured["prompt"])
@@ -1039,6 +1121,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -1095,6 +1178,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -1169,6 +1253,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -1180,3 +1265,88 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DailyMarketIntentTests(unittest.TestCase):
+    """「问现状」必须归 market_review，不能被当成「问后市」。
+
+    回归：answer_orchestrator 的兜底规则把任何含「今天」或「大盘」的问句判成
+    market_forecast，那条路要求先补齐 daily-agent 研究队列，于是日常最高频的
+    daily_market 提问在会话路径上直接拒答，尽管本地盘面库完整
+    （8799 canary run_20260730_153013_338430 实证）。market_review 当时只认
+    「复盘/市场总览/赚钱效应」这类行话。
+    """
+
+    def classify(self, query: str) -> str:
+        from intelligence.services.answer_orchestrator import (
+            _classify_question_type,
+            _normalize,
+        )
+
+        return _classify_question_type(query, _normalize(query))[0]
+
+    def test_present_state_questions_are_market_review(self) -> None:
+        for query in (
+            "今天大盘处于什么阶段？当前主线是哪几个方向？",
+            "大盘现在什么阶段",
+            "今天市场主线是什么",
+            "当前主线是哪几个方向",
+            "今天市场怎么样",
+            "今天赚钱效应如何",
+            "现在市场结构是什么",
+            "收盘后大盘什么状态",
+        ):
+            with self.subTest(query=query):
+                self.assertEqual(self.classify(query), QUESTION_MARKET_REVIEW)
+
+    def test_jargon_phrasings_still_work(self) -> None:
+        for query in ("今天复盘一下市场", "市场复盘", "今日复盘"):
+            with self.subTest(query=query):
+                self.assertEqual(self.classify(query), QUESTION_MARKET_REVIEW)
+
+    def test_forward_looking_questions_are_not_stolen(self) -> None:
+        """扩大 review 的判定不得把真正的后市问题抢过来。"""
+        for query in (
+            "明天大盘怎么看",
+            "后市如何演绎",
+            "对后市的展望是什么",
+            "明日研判",
+            "行情前瞻",
+            "大盘走势预测",
+        ):
+            with self.subTest(query=query):
+                self.assertEqual(self.classify(query), QUESTION_MARKET_FORECAST)
+
+    def test_theme_questions_are_not_stolen(self) -> None:
+        """状态词需要大盘主语，否则「固态电池现在处于什么阶段」会被误抢。"""
+        for query in (
+            "半导体设备板块的产业链",
+            "固态电池的主线逻辑是什么",
+        ):
+            with self.subTest(query=query):
+                self.assertEqual(self.classify(query), QUESTION_THEME_ANALYSIS)
+
+    def test_a_time_anchor_alone_is_not_enough(self) -> None:
+        """光有时间锚点、没有状态词，不构成「问现状」。"""
+        self.assertNotEqual(self.classify("今天"), QUESTION_MARKET_REVIEW)
+
+    def test_a_state_word_alone_is_not_enough(self) -> None:
+        """光有状态词、没有时间锚点，不构成「问现状」。"""
+        self.assertNotEqual(
+            self.classify("大盘处于什么阶段"), QUESTION_MARKET_REVIEW
+        )
+
+    def test_mixed_question_answers_the_present_first(self) -> None:
+        """同时问两头时按现状作答：盘面数据现成，后市可在答案里做条件化情景。"""
+        self.assertEqual(
+            self.classify("今天什么阶段，明天大盘怎么看"), QUESTION_MARKET_REVIEW
+        )
+
+    def test_numeric_text_no_longer_matches_the_forecast_catch_all(self) -> None:
+        """兜底里原有的 "6." 会匹配任意含该串的文本，与市场前瞻无关。
+
+        断言行为而非源码文本：本文件的注释里也会出现这个串。
+        """
+        self.assertNotEqual(
+            self.classify("这个指标读数是 6.2，怎么理解"), QUESTION_MARKET_FORECAST
+        )

@@ -22,6 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence.services.memory_gate import (
+    PromotionDecision,
+    promotion_metadata,
+)
+
 DEFAULT_WINDOW = 20
 
 
@@ -74,6 +79,40 @@ def record_correction(
         record["original"] = str(original).strip()
     if principle and str(principle).strip():
         record["principle"] = str(principle).strip()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return p, record
+
+
+def record_validated_preference(
+    path: str | Path,
+    *,
+    preference: str,
+    decision: PromotionDecision,
+    themes: list[str] | None = None,
+    ts: str | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Append one explicit, gate-approved user preference or correction."""
+
+    text = str(preference or "").strip()
+    provenance = dict(decision.provenance)
+    if (
+        decision.reason != "explicit_user_correction"
+        or provenance.get("record_type")
+        not in {"user_correction", "user_preference"}
+        or not provenance.get("correction_ts")
+    ):
+        raise ValueError("preference promotion requires correction authority")
+    promotion = promotion_metadata(decision, text)
+    record: dict[str, Any] = {
+        "ts": ts or _now().isoformat(timespec="seconds"),
+        "correction": text,
+        "principle": text,
+        "themes": _clean_terms(themes),
+        "promotion": promotion,
+    }
+    p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")

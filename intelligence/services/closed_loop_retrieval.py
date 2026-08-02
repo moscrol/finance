@@ -4,13 +4,17 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Literal, TypeAlias
+from datetime import date
+from typing import Literal, TypeAlias, TypeVar
 
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
+from intelligence.services.research_contract import InformationCutoff
 
 RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
+RetrievalExpansionPolicy: TypeAlias = Literal["anchor_or_hits", "query_only"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
+T = TypeVar("T")
 
 MAX_EMPTY_ATTEMPTS = 3
 MAX_TOTAL_SECONDS = 90.0
@@ -25,6 +29,10 @@ _TERM_RE = re.compile(
 )
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
+)
+_ISO_DATE_RE = re.compile(r"(?<!\d)(20\d{2}-\d{1,2}-\d{1,2})(?!\d)")
+_COMPACT_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)"
 )
 _GENERIC_TERMS = {
     "公司",
@@ -48,6 +56,11 @@ class RetrievalAttempt:
     query: str
     status: str
     hit_count: int
+    executed: bool = True
+    requested_mode: str = ""
+    effective_mode: str = ""
+    fallback_reason: str = ""
+    degraded: bool = False
 
 
 @dataclass(frozen=True)
@@ -75,6 +88,11 @@ class ClosedLoopRetrievalResult:
                     "query": attempt.query,
                     "status": attempt.status,
                     "hit_count": attempt.hit_count,
+                    "executed": attempt.executed,
+                    "requested_mode": attempt.requested_mode,
+                    "effective_mode": attempt.effective_mode,
+                    "fallback_reason": attempt.fallback_reason,
+                    "degraded": attempt.degraded,
                 }
                 for attempt in self.attempts
             ],
@@ -87,6 +105,47 @@ class ClosedLoopRetrievalResult:
             "warnings": list(self.warnings),
             "diagnostics": list(self.diagnostics),
         }
+
+
+def apply_semantic_filter(
+    result: ClosedLoopRetrievalResult,
+    *,
+    keep_indexes: set[int],
+    reason: str = "",
+) -> ClosedLoopRetrievalResult:
+    """Return a new bucket projection after semantic relevance adjudication."""
+
+    candidates = [*result.conclusion, *result.counter_clues]
+    dropped = [
+        item for index, item in enumerate(candidates) if index not in keep_indexes
+    ]
+    if not dropped:
+        return result
+    dropped_keys = {_bucket_identity(item) for item in dropped}
+
+    def kept(items: Sequence[BucketedHit]) -> list[BucketedHit]:
+        return [item for item in items if _bucket_identity(item) not in dropped_keys]
+
+    discarded = list(result.discarded)
+    existing = {_bucket_identity(item) for item in discarded}
+    discarded.extend(
+        item for item in dropped if _bucket_identity(item) not in existing
+    )
+    diagnostics = [*result.diagnostics]
+    diagnostics.append(
+        f"semantic_judge_discarded={len(dropped)}"
+        + (f"; reason={reason}" if reason else "")
+    )
+    return ClosedLoopRetrievalResult(
+        conclusion=kept(result.conclusion),
+        clues=kept(result.clues),
+        discarded=discarded,
+        counter_clues=kept(result.counter_clues),
+        attempts=list(result.attempts),
+        warnings=list(result.warnings),
+        diagnostics=diagnostics,
+        telemetry=result.telemetry,
+    )
 
 
 @dataclass
@@ -104,12 +163,27 @@ class _AttemptBudget:
             )
         return remaining >= required
 
-    def observe(self, elapsed_seconds: float) -> None:
-        elapsed = max(0.0, elapsed_seconds)
-        if self.observed_seconds is None:
-            self.observed_seconds = elapsed
-        else:
-            self.observed_seconds = max(self.observed_seconds, elapsed)
+    def observe(self, elapsed_seconds: float, *, representative: bool = True) -> None:
+        """以最近一次实测作为下一次的成本估计。
+
+        两个改动，针对同一个现象：检索成本的主要变量是常驻 RAG worker 是否已
+        加载 BGE-m3 与 214MB 稠密索引。实测冷启动 60.1s、热查询 4-6s，差 10 倍
+        以上，且热了不会再冷。
+
+        ``representative=False`` 表示这次查询顺带付了一次性预热成本，它不是热
+        查询的有效样本，直接不采纳——估计值保持原样（首轮为 None，于是
+        ``can_start`` 只要求 ``MIN_ATTEMPT_RESERVE_SECONDS``）。原先无条件采纳
+        且取运行最大值，一次冷启动会把估计永久钉成 60s，``can_start`` 随后要求
+        ``remaining >= 60 × 1.25``，在 turn 预算内不可能满足——实测 broad 与
+        counter 两趟检索因此每轮都被跳过，三趟只跑一趟。
+
+        采纳时取最近一次而非最大值：成本随预热单调下降，取最大值编码的是相反
+        的假设。下行风险由 ``MIN_ATTEMPT_RESERVE_SECONDS`` 下限与 deadline 双重
+        兜住——即使某次估低了，超时的查询仍会被 deadline 截断。
+        """
+        if not representative:
+            return
+        self.observed_seconds = max(0.0, elapsed_seconds)
 
 
 def retrieve_closed_loop(
@@ -118,9 +192,13 @@ def retrieve_closed_loop(
     anchor: EntityAnchor | None,
     retrieve: Retrieve,
     total_seconds: float | None = None,
+    information_cutoff: InformationCutoff | None = None,
+    expansion_policy: RetrievalExpansionPolicy = "anchor_or_hits",
 ) -> ClosedLoopRetrievalResult:
     """闭环检索。``total_seconds`` 由调用方传入 turn 级预算切片；
     与本模块自身的 MAX_TOTAL_SECONDS 取 min——闭环不得突破 turn 根截止时间。"""
+    if expansion_policy not in {"anchor_or_hits", "query_only"}:
+        raise ValueError(f"unknown retrieval expansion policy: {expansion_policy}")
     result = ClosedLoopRetrievalResult()
     budget = (
         min(MAX_TOTAL_SECONDS, max(0.0, float(total_seconds)))
@@ -131,29 +209,42 @@ def retrieve_closed_loop(
         return result
     attempt_budget = _AttemptBudget(deadline=time.monotonic() + budget)
     query_terms = _relevance_terms(query, anchor, ())
+    query_only = expansion_policy == "query_only" and anchor is None
     narrow_hits = _run_aperture(
         "narrow",
-        _narrow_queries(query, anchor),
+        (query,) if query_only else _narrow_queries(query, anchor),
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
     )
+    expansion_hits = () if query_only else relevant_narrow_hits
     broad_hits = _run_aperture(
         "broad",
-        _broad_queries(query, anchor, relevant_narrow_hits),
+        (
+            _query_only_broad_queries(query)
+            if query_only
+            else _broad_queries(query, anchor, relevant_narrow_hits)
+        ),
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     counter_hits = _run_aperture(
         "counter",
-        _counter_queries(query, anchor, relevant_narrow_hits),
+        (
+            _query_only_counter_queries(query)
+            if query_only
+            else _counter_queries(query, anchor, relevant_narrow_hits)
+        ),
         retrieve,
         result,
         attempt_budget,
+        information_cutoff,
     )
     _bucket_hits(
         (
@@ -166,7 +257,7 @@ def retrieve_closed_loop(
         broad_relevance_terms=_relevance_terms(
             query,
             anchor,
-            relevant_narrow_hits,
+            expansion_hits,
         ),
     )
     for aperture in ("narrow", "broad", "counter"):
@@ -188,6 +279,7 @@ def _run_aperture(
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
     budget: _AttemptBudget,
+    information_cutoff: InformationCutoff | None,
 ) -> list[WikiHit]:
     for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
         :MAX_EMPTY_ATTEMPTS
@@ -199,6 +291,7 @@ def _run_aperture(
                     query=candidate,
                     status="budget_exhausted",
                     hit_count=0,
+                    executed=False,
                 )
             )
             warning = (
@@ -210,25 +303,118 @@ def _run_aperture(
             break
         started = time.monotonic()
         response = retrieve(candidate)
-        budget.observe(time.monotonic() - started)
+        budget.observe(
+            time.monotonic() - started,
+            # 顺带加载了模型/索引的那次不算样本，否则一次性预热成本会被当成
+            # 每查询成本，把后续 aperture 全部挡掉。
+            representative=not bool(
+                getattr(getattr(response, "telemetry", None), "model_loaded", False)
+            ),
+        )
+        eligible_hits, future_hits = filter_future_dated(
+            response.hits,
+            information_cutoff=information_cutoff,
+            date_getter=wiki_hit_source_date,
+        )
+        for hit in future_hits:
+            result.discarded.append(BucketedHit(aperture, hit))
+        if future_hits:
+            warning = (
+                f"{aperture} retrieval rejected {len(future_hits)} "
+                "future_of_cutoff hit(s)"
+            )
+            if warning not in result.warnings:
+                result.warnings.append(warning)
         if result.telemetry is None or response.hits:
             result.telemetry = response.telemetry
         result.attempts.append(
             RetrievalAttempt(
                 aperture=aperture,
                 query=candidate,
-                status=response.telemetry.status,
-                hit_count=len(response.hits),
+                status=(
+                    "future_of_cutoff"
+                    if future_hits and not eligible_hits
+                    else response.telemetry.status
+                ),
+                hit_count=len(eligible_hits),
+                requested_mode=response.telemetry.requested_mode,
+                effective_mode=response.telemetry.effective_mode,
+                fallback_reason=response.telemetry.fallback_reason,
+                degraded=response.telemetry.degraded,
             )
         )
         if response.warning:
             if response.warning not in result.warnings:
                 result.warnings.append(response.warning)
-        if response.ok and response.hits:
-            return response.hits
+        if response.ok and eligible_hits:
+            return eligible_hits
         if response.telemetry.status == "timeout":
             break
     return []
+
+
+def parse_source_date(value: object) -> date | None:
+    if type(value) is date:
+        return value
+    if not isinstance(value, str):
+        return None
+    match = _ISO_DATE_RE.search(value.strip())
+    try:
+        if match is not None:
+            year, month, day = (
+                int(part) for part in match.group(1).split("-")
+            )
+        else:
+            compact_match = _COMPACT_DATE_RE.search(value.strip())
+            if compact_match is None:
+                return None
+            year, month, day = (
+                int(compact_match.group(index)) for index in range(1, 4)
+            )
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def wiki_hit_source_date(hit: WikiHit) -> date | None:
+    explicit = parse_source_date(hit.source_date)
+    if explicit is not None:
+        return explicit
+    # Content may discuss future forecast dates. Only source metadata or a
+    # date-stamped path is safe to treat as the document's publication date.
+    return parse_source_date(hit.file_path)
+
+
+def filter_future_dated(
+    items: Sequence[T],
+    *,
+    information_cutoff: InformationCutoff | None,
+    date_getter: Callable[[T], object],
+) -> tuple[list[T], list[T]]:
+    if information_cutoff is None:
+        return list(items), []
+    eligible: list[T] = []
+    future: list[T] = []
+    for item in items:
+        item_date = parse_source_date(date_getter(item))
+        if item_date is not None and item_date > information_cutoff.as_of_date:
+            future.append(item)
+        else:
+            eligible.append(item)
+    return eligible, future
+
+
+def latest_served_date(
+    items: Sequence[T],
+    *,
+    date_getter: Callable[[T], object],
+) -> str | None:
+    dates = tuple(
+        parsed
+        for item in items
+        if (parsed := parse_source_date(date_getter(item))) is not None
+    )
+    return max(dates).isoformat() if dates else None
 
 
 def _narrow_queries(query: str, anchor: EntityAnchor | None) -> tuple[str, ...]:
@@ -262,6 +448,14 @@ def _broad_queries(
     )
 
 
+def _query_only_broad_queries(query: str) -> tuple[str, ...]:
+    return (
+        f"{query} 市场内部机制 资金 风险偏好",
+        f"{query} 宏观 政策 外部事件",
+        f"{query} 行业结构 权重板块",
+    )
+
+
 def _counter_queries(
     query: str,
     anchor: EntityAnchor | None,
@@ -273,6 +467,14 @@ def _counter_queries(
         f"{subject} {terms} 风险 证伪 不及预期".strip(),
         f"{subject} {terms} 替代 竞争 受损".strip(),
         f"{subject} {terms} 反方 下滑 失败".strip(),
+    )
+
+
+def _query_only_counter_queries(query: str) -> tuple[str, ...]:
+    return (
+        f"{query} 反证 替代解释",
+        f"{query} 市场内部 外部催化 区分",
+        f"{query} 数据不支持 证据不足",
     )
 
 
@@ -351,3 +553,7 @@ def _bucket_hits(
             result.clues.append(item)
         elif direct_overlap:
             result.conclusion.append(item)
+
+
+def _bucket_identity(item: BucketedHit) -> tuple[str, str, str]:
+    return item.aperture, item.hit.file_path, item.hit.best_chunk_id

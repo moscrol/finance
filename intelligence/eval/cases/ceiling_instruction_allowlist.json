@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "policy": "Static no-gold instruction surface for the sealed ceiling experiment. Paths are selected before export; any deterministic leak in a selected file rejects the whole export.",
+  "prefixes": [],
+  "files": [
+    "intelligence/workbench_skills/__init__.py",
+    "skills/advancers-chart/SKILL.md",
+    "skills/disclosure-archive/SKILL.md",
+    "skills/duckdb-backfill/references/backfill-runbook.md",
+    "skills/hithink-market-query/SKILL.md",
+    "skills/hithink-market-query/references/request-response-params.md",
+    "skills/ifind/SKILL.md",
+    "skills/limit-advance/SKILL.md",
+    "skills/limit-advance/references/batch-scraping.md",
+    "skills/opinion-cross/references/fact-hardness-dictionary.md",
+    "skills/opinion-cross/references/resonance-tier-rubric.md",
+    "skills/report-search/references/implementation.md",
+    "skills/report-search/references/interface-spec.md",
+    "skills/sector-data/SKILL.md",
+    "skills/theme-radar/references/company-tiering-rubric.md",
+    "skills/top-gainers-feishu/SKILL.md",
+    "skills/top-gainers-feishu/references/ingestion-flow.md",
+    "skills/top-gainers/SKILL.md",
+    "skills/top-gainers/references/execution-flow.md",
+    "skills/top-gainers/scripts/query_sectors.py",
+    "skills/up-line/README.md",
+    "skills/up-line/SKILL.md"
+  ]
+}

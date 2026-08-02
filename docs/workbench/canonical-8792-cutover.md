@@ -166,3 +166,25 @@ launchctl bootstrap gui/$(id -u) \
 
 确认旧版本恢复健康后，再分析新 runtime；未经确认不要删除任何隐藏 runtime
 worktree。
+
+## 8. P13 候选验收记录（不代表已切换）
+
+2026-07-21，独立候选分支 `fix/agent-architecture-p13` 的 tip
+`b793b2df` 已完成统一 Research Agent 长尾验收，证据矩阵见
+[`docs/verification/agent-capability-monotonicity-2026-07-20.md`](../verification/agent-capability-monotonicity-2026-07-20.md)。
+
+新的长尾三题 Conversation API E2E 记录见
+[`docs/verification/unified-research-agent-long-tail-2026-07-21.md`](../verification/unified-research-agent-long-tail-2026-07-21.md)。隔离候选端口为 `8794`，不是 canonical `8792`。
+
+- 全量 `intelligence/tests`：1899 passed。
+- 历史基线 X3（methodology）运行 `run_20260720_232827_324781`：
+  `validated_synthesis`、GLM used、0 degrade。
+- 历史基线 X4（relation guard）运行 `run_20260720_232905_320841`：
+  `evidence_gap_fallback`、LLM 未调用，trace 明确 `relation_graph_guard=empty`。
+- 历史市场归因运行 `run_20260720_231930_351135`：真实执行 news/web 检索；时点不匹配的外部结果不被冒充为因果证据。
+- 历史头部技术位运行 `run_20260720_233547_476972`：0.559s、LLM 未调用，trace 仅有 `tencent_kline`，输出数值依据和失效条件。
+- 历史客户事实核验运行 `run_20260720_233548_100202`：0.546s、L3 空结果后 `evidence_gap_fallback`，没有继续弱 KB/Web 检索。
+
+该分支仍未合并 `main`，`/Users/a77/finance-workspace-runtime` 和 canonical `8792`
+保持不变。只有用户明确批准合并，并重新完成本手册第 1–6 节的 production readiness
+门禁后，才可以做蓝绿切换。

@@ -598,8 +598,6 @@ def test_verify_run_binding_rejects_missing_stream_evidence(tmp_path) -> None:
     [
         ({"report_id": "another-run"}, "report_id"),
         ({"report_status": "streaming"}, "report is not completed"),
-        ({"llm_provider": "glm"}, "model binding mismatch"),
-        ({"llm_model": "glm-4-air"}, "model binding mismatch"),
     ],
 )
 def test_verify_run_binding_rejects_report_or_model_mismatch(
@@ -1003,3 +1001,46 @@ def test_concurrent_record_once_deduplicates_atomically(tmp_path) -> None:
 
     assert [process.exitcode for process in processes] == [0] * len(processes)
     assert len(SelfUseLedger(path).load()) == 1
+
+
+def test_verify_run_binding_accepts_any_named_backend(tmp_path) -> None:
+    """门禁证明的是"模型确有参与"，不是"用了哪一家"。
+
+    回归：provider/model 曾硬绑定 zhipu/glm-5.2。用户 Keychain 实际存的是
+    openai/gpt-5.6-sol，旧逻辑会以 model binding mismatch 拒收每一条真实
+    run，十天台账一条都记不进去；顺带也封死了三路 backend 对比。
+    """
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(
+        store, "run-gpt", llm_provider="openai", llm_model="gpt-5.6-sol"
+    )
+
+    evidence = verify_run_binding(store, "run-gpt")
+
+    assert evidence.llm_provider == "openai"
+    assert evidence.llm_model == "gpt-5.6-sol"
+    assert evidence.llm_used is True
+
+
+def test_verify_run_binding_still_requires_a_named_backend(tmp_path) -> None:
+    """记不出用了什么模型的 run 无法复核，仍然拒收。"""
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-anon", llm_provider="", llm_model="")
+
+    with pytest.raises(RunBindingError, match="provider/model"):
+        verify_run_binding(store, "run-anon")
+
+
+def test_verify_run_binding_can_still_pin_a_backend_on_request(tmp_path) -> None:
+    """按 backend 分层验收时可显式限定；默认不限定。"""
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(
+        store, "run-gpt2", llm_provider="openai", llm_model="gpt-5.6-sol"
+    )
+
+    verify_run_binding(store, "run-gpt2", require_provider="openai")
+
+    with pytest.raises(RunBindingError, match="provider mismatch"):
+        verify_run_binding(store, "run-gpt2", require_provider="zhipu")
+    with pytest.raises(RunBindingError, match="model mismatch"):
+        verify_run_binding(store, "run-gpt2", require_model="glm-5.2")

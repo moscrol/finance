@@ -4,7 +4,7 @@
 
 两个独立原因，任一都足以停用：
 
-1. **跑必崩**：本脚本 INSERT INTO fact_sector_daily / fact_sector_stock_daily，
+1. **旧实现跑必崩**：它曾直接写入 fact_sector_daily / fact_sector_stock_daily，
    而生产库里这两个已重构为 VIEW（底层 fact_*_generation 表 + snapshot_id）。
    DuckDB 会抛 `Catalog Error: ... is not an table`。
 
@@ -50,6 +50,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
 # Direct execution needs the repository root on sys.path before project imports.
+# The E402 below is therefore an ordering requirement, not an oversight.
 from market_feature_store.db import connect, DB_PATH  # noqa: E402
 
 DAILY_ADJ_DB = DB_PATH.parent / "daily_adj_19901219_20260618.duckdb"
@@ -66,54 +67,72 @@ HIGH_PERIODS = [
 ]
 
 
+DEGRADED_LEGACY_COPY = "degraded_legacy_copy"
+
+
 def fast_sector_stocks(con, trade_date: str, prev_date: str | None = None):
-    """Copy yesterday's sector-stock membership to today. ~2 seconds vs 30-40 min CDP."""
+    """Copy the previous session's membership forward — legacy historical dates only.
+
+    This never produces an exact universe: it carries yesterday's identities
+    into today with NULL prices. Once a date has a published universe header
+    the copy is refused outright, because a fabricated membership would satisfy
+    the coverage query while silently contradicting the provider's declaration
+    — the exact failure Task 5 exists to remove.
+
+    Returns ``(rows, status)``. ``status`` is ``degraded_legacy_copy`` whenever
+    rows were carried forward; the caller must not treat it as a success
+    receipt, and no member receipt is written.
+    """
+    from market_feature_store.sector_universe import (
+        SectorUniverseStore,
+        SectorUniverseValidationError,
+    )
+
     print(f"\n[sector-stocks] Incremental copy for {trade_date}")
     t0 = time.time()
+    # 本脚本不得直接触碰物理代际表（见 scripts/check_sector_fact_access.py 的静态
+    # 守卫），这里只经 store 走。
+    store = SectorUniverseStore(con)
 
-    # Check if today already has data
-    existing = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [trade_date]
-    ).fetchone()[0]
+    # 合格性先判：有已发布宇宙的日期一律拒绝，与有没有可复制的源无关。
+    if store.has_published_universe(trade_date):
+        print(
+            f"  REFUSED: {trade_date} has a published universe; "
+            "run the receipt-driven member sync instead of copying forward"
+        )
+        return 0, "refused_published_universe"
+
+    existing = store.member_generation_row_count(trade_date)
     if existing > 0:
         print(f"  Already has {existing:,} rows, skipping")
-        return existing
+        return existing, DEGRADED_LEGACY_COPY
 
-    # Find the most recent date with data (as source)
     if prev_date is None:
-        row = con.execute(
-            "SELECT MAX(trade_date) FROM fact_sector_stock_daily WHERE trade_date < ?", [trade_date]
-        ).fetchone()
-        if not row or not row[0]:
+        source = store.latest_member_generation_date(trade_date)
+        if source is None:
             print("  ERROR: No previous date found to copy from!")
-            return 0
-        prev_date = str(row[0])
+            return 0, "no_source_date"
+        prev_date = str(source)
 
-    prev_count = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [prev_date]
-    ).fetchone()[0]
-    print(f"  Copying {prev_count:,} rows from {prev_date} → {trade_date}")
+    prev_count = store.member_generation_row_count(prev_date)
+    print(f"  Copying {prev_count:,} rows from {prev_date} → {trade_date} (legacy generation)")
 
-    con.execute("""
-        INSERT INTO fact_sector_stock_daily
-            (trade_date, sector_ts_code, sector_name, sw_l1, stock_ts_code, stock_name,
-             price, pct_chg, amount, pct_chg_5d, pct_chg_10d, pct_chg_20d,
-             fund_flow_1d, fund_flow_5d, sw_industry, leader_plate, leader_sub_plate,
-             source, updated_at)
-        SELECT
-            ?::DATE, sector_ts_code, sector_name, sw_l1, stock_ts_code, stock_name,
-            NULL, NULL, NULL, NULL, NULL, NULL,
-            NULL, NULL, sw_industry, leader_plate, leader_sub_plate,
-            'incremental-copy', CURRENT_TIMESTAMP
-        FROM fact_sector_stock_daily
-        WHERE trade_date = ?
-    """, [trade_date, prev_date])
+    try:
+        inserted = store.copy_legacy_member_generation(
+            target_date=trade_date, source_date=prev_date
+        )
+    except SectorUniverseValidationError as exc:
+        print(
+            f"  REFUSED: {exc}; "
+            "run the receipt-driven member sync instead of copying forward"
+        )
+        return 0, "refused_published_universe"
 
-    inserted = con.execute(
-        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ?", [trade_date]
-    ).fetchone()[0]
-    print(f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s (source={prev_date})")
-    return inserted
+    print(
+        f"  Done: {inserted:,} rows in {time.time()-t0:.1f}s "
+        f"(source={prev_date}, status={DEGRADED_LEGACY_COPY})"
+    )
+    return inserted, DEGRADED_LEGACY_COPY
 
 
 def fast_stock_daily(con, trade_date: str):
@@ -427,7 +446,10 @@ def main():
                 print("\n[sector-stocks] --full-refresh: use standard sync-sector-stocks instead")
                 results["sector-stocks"] = "skipped (full-refresh requested)"
             else:
-                results["sector-stocks"] = fast_sector_stocks(con, args.date)
+                rows, status = fast_sector_stocks(con, args.date)
+                # 状态与行数一起报出: 让"复制了多少行"永远带着"这不是精确宇宙"
+                # 的限定, 调用方无法把降级结果误读成成功同步。
+                results["sector-stocks"] = f"{rows} rows ({status})"
 
         if "stock-daily" in steps:
             results["stock-daily"] = fast_stock_daily(con, args.date)

@@ -24,6 +24,18 @@ def test_generic_market_pattern_has_no_invented_subject() -> None:
     assert envelope.decision_goal == "区分健康分歧与行情高潮"
 
 
+def test_weekly_market_cause_has_window_and_causal_output() -> None:
+    envelope = understand_query("这一周行情下跌的主要原因你认为是什么")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject_kind == "market_pattern"
+    assert envelope.subject is None
+    assert envelope.timeframe == "这一周"
+    assert envelope.time_horizon == "short"
+    assert envelope.operators == ("cause_attribution",)
+    assert envelope.required_outputs == ("cause_attribution",)
+
+
 def test_known_alias_and_entity_are_explicit_subjects() -> None:
     theme = understand_query("液冷题材连续上涨但成交占比下降，怎么看？")
     new_theme = understand_query("请研究空芯光纤题材的产业链")
@@ -194,6 +206,41 @@ def test_definition_query_is_not_confused_with_model_meta_question() -> None:
     assert meta.subject is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "编排层为什么会导致模板化？",
+        "RAG 怎么做才能兼顾召回率和准确率？",
+        "Agent 工具调用与 verifier 应该如何分层？",
+    ),
+)
+def test_methodology_question_is_not_mapped_to_financial_retrieval(query: str) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == "methodology_discussion"
+    assert envelope.subject_kind == "unknown"
+    assert envelope.subject is None
+    assert envelope.research_mode == "methodology"
+
+
+def test_financial_cause_is_not_overmatched_as_methodology() -> None:
+    envelope = understand_query("这一周市场下跌为什么")
+
+    assert envelope.question_type == "market_cause"
+
+
+def test_company_customer_confirmation_is_fact_check() -> None:
+    envelope = understand_query(
+        "中际旭创和英伟达是否已确认合作？",
+        anchor=EntityAnchor(entity="中际旭创", matched_by="name"),
+    )
+
+    assert envelope.question_type == "fact_check"
+    assert envelope.subject == "中际旭创"
+    assert envelope.operators == ("relation",)
+    assert "官方证据" in envelope.decision_goal
+
+
 def test_ticker_timeframe_and_serialization_contract() -> None:
     for ticker in ("002837", "600000.SH", "002837.SZ", "430047.BJ"):
         envelope = understand_query(f"分析 2026-07-13 的 {ticker}")
@@ -232,6 +279,13 @@ def test_market_outlook_is_not_generic_unknown() -> None:
     assert envelope.question_type == "market_forecast"
     assert envelope.matched_by == "market_anchor"
     assert envelope.confidence >= 0.9
+
+
+def test_next_day_rebound_or_decline_is_market_forecast() -> None:
+    envelope = understand_query("明天你觉得是反弹还是继续下跌，分别给出理由")
+
+    assert envelope.question_type == "market_forecast"
+    assert envelope.matched_by == "market_anchor"
 
 
 def test_ticker_and_date_match_next_to_chinese_text() -> None:
@@ -525,3 +579,87 @@ def test_function_words_are_not_company_subjects() -> None:
 
     assert envelope.subject != "一下"
     assert envelope.question_type != "stock_deep_dive"
+
+
+def test_index_rebound_space_is_a_structured_technical_question() -> None:
+    envelope = understand_query("科创50你认为反弹空间有多少")
+
+    assert envelope.question_type == "market_technical"
+    assert envelope.subject_kind == "index"
+    assert envelope.subject == "科创50"
+
+
+def test_anchored_company_reasonable_valuation_keeps_valuation_semantics() -> None:
+    envelope = understand_query(
+        "瑞华泰的合理估值",
+        anchor=EntityAnchor(
+            entity="瑞华泰",
+            ticker="688323.SH",
+            matched_by="name",
+        ),
+    )
+
+    assert envelope.question_type == "valuation_estimate"
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == "瑞华泰"
+
+
+def test_current_market_mainline_is_not_a_static_definition() -> None:
+    envelope = understand_query("目前市场的主线是什么")
+
+    assert envelope.question_type == "market_watch"
+    assert envelope.subject_kind == "market_pattern"
+
+
+# --- 带日期的盘面细分题必须进 daily-review（2026-08-01 A 组基线根因）-----------
+#
+# A 组 10 道验收题首跑 0/10，7 道没产出可用答案。根因是 _DATED_MARKET_REVIEW_RE
+# 要求「日期 + 市场/盘面 + 总结/复盘/回顾/梳理/分析」——对 10 道真实问题 0 命中。
+# 而 market_review_requested_date 对其中 8 道**已经正确解析出日期**，只是这个
+# 结果被 and 到那条 0 命中的正则上，白解析了。
+# 实测后果：A4 用「特斯拉 Optimus 人形机器人」答双红，A9 用外汇/期货/债券新闻答
+# 市场情绪，A6 谎称「2026-07-23 是未来的时间」——而 2026-07-23-daily-review.md
+# 就在磁盘上，里面有专章「## 5. 双红题材」「## 2. 市场情绪」和 4 次「立新能源」。
+
+
+def test_dated_board_subtopics_route_to_daily_review() -> None:
+    """线上验收题的真实措辞。修复前这 6 条全是 False。"""
+    for query in (
+        "2026-07-23 哪些板块是双红",
+        "2026-07-23 涨停集中在哪些题材",
+        "2026-07-23 连板梯队什么情况，有没有断层",
+        "2026-07-21 当天主线是什么",
+        "2026-07-23 的市场情绪怎么解读",
+        "2026-07-21 的新高家数结构说明什么",
+    ):
+        assert query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), f"带日期的盘面细分题没进 daily-review：{query}"
+
+
+def test_board_subtopic_without_date_is_not_routed() -> None:
+    """没有日期就没有可读的复盘导出——不能因为出现「涨停」就硬路由。"""
+    for query in ("涨停集中在哪些题材", "哪些板块是双红"):
+        assert not query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), query
+
+
+def test_dated_theme_research_is_not_hijacked_by_daily_review() -> None:
+    """题材研究题带日期也不该被盘面复盘抢走——它问的是产业链不是当日盘面。"""
+    query = "2026-07-23 固态电池产业链走到哪一步了"
+    assert not query_understanding.is_dated_market_review(
+        query,
+        understand_query(query),
+    )
+
+
+def test_dated_overseas_board_subtopic_still_excluded() -> None:
+    """external_market 的排除不能被新增的主题词绕过。"""
+    query = "2026-07-23 美股涨停情况怎么样"
+    assert not query_understanding.is_dated_market_review(
+        query,
+        understand_query(query),
+    )

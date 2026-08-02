@@ -1,0 +1,8 @@
+weekly-market-cause 在八次历史 Codex headless 运行中零次通过，其中多次由研究阶段关闭、调用上限或墙钟耗尽终止。
+unfamiliar-methodology 在八次历史 Codex headless 运行中全部完成，但 task alignment 评分并不稳定。
+rebound-duration 在历史运行中曾分别结束为 completed、partial 和 failed，结果存在明显方差。
+ruihuatai-valuation 的有效历史运行稳定选择 market data 与 financial data，但 completed 与 partial 状态并不稳定。
+修正后的预算消融显示，增加墙钟时间是跨案例的主要改善因素，六次工具调用上限是次要因素。
+weekly-market-cause 的长预算运行曾把新增调用重复用于 news search，新增调用没有等比例增加有效证据。
+因果检索修复前，一次成功轨迹没有目标周来源且 counter evidence 为零，不能据此宣称因果结论完整。
+估值证据修复前，跨实体 Wiki 共现可能进入瑞华泰答案；修复后只允许 TaskFrame 主体本地证据进入模型证据面。

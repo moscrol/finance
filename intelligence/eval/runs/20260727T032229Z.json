@@ -1,0 +1,470 @@
+{
+  "generated_at": "20260727T032229Z",
+  "base": "http://127.0.0.1:8799",
+  "preflight_ok": true,
+  "preflight_detail": "revision=17e0b21a backend=sdk_gpt",
+  "cases": [
+    {
+      "case_id": "C1-future-date-no-data",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-25 市场怎么样",
+          "answer": "按A股理解，2026-07-25没有可用的当日交易记录，应以最近交易日7月24日收盘观察。基准判断：市场短线已从周初上攻转入明显退潮和高位分歧，风险偏好降温，但仅凭一个交易日尚不能确认中期趋势反转。7月24日上证指数收跌1.61%，上涨仅534家，涨停40家、跌停24家；成交额环比下降11.83%。结合7月21日指数上涨1.79%，以及7月22日至24日成交额连续收缩，走势呈现“冲高后缩量回落”。条件上，下一交易日若放量、上涨家数显著恢复且指数收复部分跌幅，可视为分歧修复；若继续缩量弱反弹或放量下跌，则调整延续的可能性更高。证据覆盖7月20日至24日的市场总览数据；未覆盖板块强弱、具体资金方向及消息面，因此不能据此核验下跌原因或判断主线去留。",
+          "run_id": "run_20260727_111142_235014",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-20）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-20"
+            },
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "市场日频总览（2026-07-22）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-24）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-24"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 6,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-20）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "5 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing",
+            "verification"
+          ],
+          "gaps": [],
+          "elapsed_s": 86.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C2-non-trading-day",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-02-17 涨停家数多少",
+          "answer": "关于“2026-02-17 涨停家数多少”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260727_111308_883937",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 46.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C3-empty-table",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "立新能源的技术面快照给我看一下",
+          "answer": "关于“立新能源的技术面快照给我看一下”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释",
+          "run_id": "run_20260727_111355_232546",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 58.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C4-unit-anomaly",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-21 MLCC 板块成交额多少",
+          "answer": "关于“2026-07-21 MLCC 板块成交额多少”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释",
+          "run_id": "run_20260727_111453_977693",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 46.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C5-data-contradiction",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+          "answer": "关于“立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释",
+          "run_id": "run_20260727_111540_301731",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 70.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C6-strict-definition",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "最近哪些板块比较强，双红的那种",
+          "answer": "关于“最近哪些板块比较强，双红的那种”，现有证据不足，暂不能可靠回答。仍需核验：comparison_dimensions、key_differences、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260727_111650_796327",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 50.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C7-temporal-leakage",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "站在 2026-07-21 收盘，给出对 07-22 的研判",
+          "answer": "基准判断：7月22日大概率延续修复，但更可能是偏强震荡、冲高分化，而非已确认趋势反转。7月21日上证涨1.79%，上涨3107家、涨停121家、跌停降至21家，成交额环比增加9.44%，表明恐慌明显缓解；但成交额29569亿元仍低于20日均额30430亿元，反弹尚缺充分量能确认。此前7月17日上证跌3.05%、跌停193家，7月20日反弹时仍有212家跌停，说明短线结构刚从剧烈退潮转向修复，隔日分化风险不低。\n证据边界：判断仅依据截至2026年7月21日收盘的A股市场日频指数、成交、涨跌家数及涨跌停结构；未覆盖7月21日夜间消息、海外市场、期指表现及板块和个股主线明细，因此只能作为盘前条件框架，不能视为确定性预测。",
+          "run_id": "run_20260727_111741_177430",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-01）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-01"
+            },
+            {
+              "title": "市场日频总览（2026-07-17）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-17"
+            },
+            {
+              "title": "市场日频总览（2026-07-20）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-20"
+            },
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 5,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-01）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-17）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-20）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing",
+            "verification"
+          ],
+          "gaps": [],
+          "elapsed_s": 94.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C8-nonexistent-table",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "查一下 sector_marginal 表里 07-23 的边际量",
+          "answer": "我目前无法直接访问 `sector_marginal` 表。请补充年份，以及日期字段名；也可以把表结构或查询结果贴过来，我帮你定位 07-23 的边际量。",
+          "run_id": "run_20260727_111915_850164",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research"
+          ],
+          "gaps": [],
+          "elapsed_s": 14.1,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C9-citation-integrity",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-23 电网设备为什么涨，给出证据来源",
+          "answer": "关于“2026-07-23 电网设备为什么涨，给出证据来源”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释",
+          "run_id": "run_20260727_111929_984879",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 58.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "C10-multi-turn-consistency",
+      "tier": "long_tail",
+      "turns": [
+        {
+          "question": "2026-07-23 哪些板块双红",
+          "answer": "但不能据此认定双红。\n证据缺口：说明证据覆盖范围、数据日期与缺口中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260727_112028_403808",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [],
+          "elapsed_s": 70.5,
+          "status": "completed",
+          "error": null
+        },
+        {
+          "question": "那这些板块里成交额最大的是哪个",
+          "answer": "你指的是哪家公司、题材或上一条研究逻辑？",
+          "run_id": "run_20260727_112138_934565",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding"
+          ],
+          "gaps": [],
+          "elapsed_s": 2.1,
+          "status": "completed",
+          "error": null
+        },
+        {
+          "question": "刚才你说的双红板块，再确认一遍数量",
+          "answer": "关于“刚才你说的双红板块，再确认一遍数量”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260727_112140_985973",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "verification",
+            "finalizing"
+          ],
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 48.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

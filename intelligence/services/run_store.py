@@ -50,16 +50,65 @@ STATUS_RUNNING = "running"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
 STATUS_CANCELLED = "cancelled"
-RUN_STATUSES = (STATUS_QUEUED, STATUS_RUNNING, STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED)
+RUN_STATUSES = (
+    STATUS_QUEUED,
+    STATUS_RUNNING,
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_CANCELLED,
+)
 _TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED)
 
 STEP_STATUSES = ("running", "completed", "failed", "skipped")
+ARTIFACT_VISIBILITIES = ("public", "internal")
+_LEGACY_INTERNAL_ARTIFACT_PATHS = frozenset({"continuous-episode.json"})
 
-# 常见密钥形态：OpenAI/GitHub/飞书等前缀 token、以及 key=value 形式的赋值。
+
+def artifact_visibility(artifact: dict[str, Any]) -> str:
+    """Resolve persisted visibility, failing closed for corrupt metadata."""
+
+    value = artifact.get("visibility")
+    if value in ARTIFACT_VISIBILITIES:
+        return str(value)
+    if value not in {None, ""}:
+        return "internal"
+    return (
+        "internal"
+        if str(artifact.get("path") or "") in _LEGACY_INTERNAL_ARTIFACT_PATHS
+        else "public"
+    )
+
+# 常见密钥形态：Authorization 头/JWT、OpenAI/GitHub/飞书前缀 token，
+# 以及 key=value 形式的赋值。先匹配完整 Authorization 头，避免只遮掉
+# scheme 而把真正凭据留在后面。
+_SECRET_FIELD_NAME = (
+    r"(?:[A-Za-z0-9]+[_-])*"
+    r"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|"
+    r"client[_-]?secret|token|secret|password|authorization)"
+)
 _SECRET_PATTERNS = [
+    re.compile(
+        r"""(?ix)
+        ["']authorization["']\s*:\s*
+        (?:"[^"\r\n]*"|'[^'\r\n]*')
+        """
+    ),
+    re.compile(r"(?i)\bauthorization\s*[=:]\s*[^\r\n]+"),
+    re.compile(
+        r"(?i)\bbearer\s+"
+        r"[A-Za-z0-9_-]{4,}={0,2}\."
+        r"[A-Za-z0-9_-]{4,}={0,2}\."
+        r"[A-Za-z0-9_-]{4,}={0,2}"
+    ),
+    re.compile(
+        rf"""(?ix)
+        \b{_SECRET_FIELD_NAME}\s*[=:]\s*
+        (?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;}}\]\r\n]+)
+        """
+    ),
     re.compile(r"\b(sk|ghp|gho|ghu|ghs|xoxb|xoxp)[-_][A-Za-z0-9_\-]{8,}"),
-    re.compile(r"(?i)\b(api[_-]?key|token|secret|password|authorization)\s*[=:]\s*\S+"),
 ]
+_SECRET_KEY_RE = re.compile(rf"(?i)^{_SECRET_FIELD_NAME}$")
 
 # This makes append linearizable across RunStore instances in one process. A
 # multi-process deployment still needs an OS/file lock or a transactional store.
@@ -81,15 +130,31 @@ def redact(text: str) -> str:
     return out
 
 
-def _redact_value(value: Any) -> Any:
+def redact_value(value: Any) -> Any:
+    """Recursively sanitize strings and exact secret-valued mapping keys."""
+
     if isinstance(value, str):
         return redact(value)
     if isinstance(value, list):
-        return [_redact_value(item) for item in value]
+        return [redact_value(item) for item in value]
     if isinstance(value, tuple):
-        return [_redact_value(item) for item in value]
+        return [redact_value(item) for item in value]
     if isinstance(value, dict):
-        return {str(key): _redact_value(item) for key, item in value.items()}
+        redacted: dict[str, Any] = {}
+        for key, item in value.items():
+            raw_key = str(key)
+            safe_key = redact(raw_key)
+            base_key = safe_key or "[REDACTED]"
+            suffix = 2
+            while safe_key in redacted:
+                safe_key = f"{base_key}#{suffix}"
+                suffix += 1
+            redacted[safe_key] = (
+                "[REDACTED]"
+                if _SECRET_KEY_RE.fullmatch(raw_key.strip())
+                else redact_value(item)
+            )
+        return redacted
     return value
 
 
@@ -115,6 +180,7 @@ class Artifact:
     bytes: int
     previewable: bool = True
     downloadable: bool = True
+    visibility: str = "public"
 
 
 @dataclass
@@ -244,15 +310,23 @@ class RunStore:
             raise ValueError("event_type must not be blank")
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
-        source_conversation = conversation_id if conversation_id is not None else run.session_id
+        source_conversation = (
+            conversation_id if conversation_id is not None else run.session_id
+        )
         safe_conversation = (
             redact(source_conversation) if source_conversation is not None else None
         )
         safe_message = redact(message_id) if message_id is not None else None
-        safe_payload = _redact_value(payload)
+        safe_payload = redact_value(payload)
         with _stream_lock(path):
-            if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
-                raise ValueError("refuse append: nonempty stream file lacks final newline")
+            if (
+                path.exists()
+                and path.stat().st_size
+                and not path.read_bytes().endswith(b"\n")
+            ):
+                raise ValueError(
+                    "refuse append: nonempty stream file lacks final newline"
+                )
             if self.db.count_run_events(run_id) == 0:
                 legacy = self._load_stream_events_from_file(run_id)
                 if legacy:
@@ -262,7 +336,12 @@ class RunStore:
                 if event["event_id"] != safe_id:
                     continue
                 identity = (safe_type, safe_conversation, safe_message, safe_payload)
-                stored = (event["event_type"], event["conversation_id"], event["message_id"], event["payload"])
+                stored = (
+                    event["event_type"],
+                    event["conversation_id"],
+                    event["message_id"],
+                    event["payload"],
+                )
                 if identity == stored:
                     return event
                 raise ValueError(f"conflicting duplicate event_id: {safe_id}")
@@ -293,8 +372,13 @@ class RunStore:
         *,
         renderer: str,
         title: str,
+        visibility: str = "public",
+        previewable: bool = True,
+        downloadable: bool = True,
     ) -> Artifact:
         with self._state_lock:
+            if visibility not in ARTIFACT_VISIBILITIES:
+                raise ValueError(f"invalid artifact visibility: {visibility!r}")
             data = content.encode("utf-8") if isinstance(content, str) else content
             path = self.run_dir(run_id) / filename
             path.write_bytes(data)
@@ -305,6 +389,9 @@ class RunStore:
                 title=title,
                 sha256=hashlib.sha256(data).hexdigest(),
                 bytes=len(data),
+                previewable=previewable,
+                downloadable=downloadable,
+                visibility=visibility,
             )
             run = self.load_run(run_id)
             run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
@@ -347,17 +434,31 @@ class RunStore:
             return run
 
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
+        run, _claimed = self.claim_terminal_run(run_id, status, error=error)
+        return run
+
+    def claim_terminal_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        error: str | None = None,
+    ) -> tuple[Run, bool]:
+        """Atomically claim an active run's terminal transition."""
+
         if status not in _TERMINAL_STATUSES:
-            raise ValueError(f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}")
+            raise ValueError(
+                f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}"
+            )
         with self._state_lock:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
-                return run
+                return run, False
             run.status = status
             run.finished_at = _now_iso()
             run.error = redact(error) if error else None
             self._write_run(run)
-            return run
+            return run, True
 
     def mark_running(self, run_id: str) -> Run:
         with self._state_lock:
@@ -370,11 +471,19 @@ class RunStore:
             self._write_run(run)
             return run
 
-    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+    def claim_failed_run(
+        self,
+        run_id: str,
+        *,
+        error: str,
+        degrade: str,
+    ) -> tuple[Run, bool]:
+        """Atomically claim failure together with its public degradation reason."""
+
         with self._state_lock:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
-                return run
+                return run, False
             degrade = redact(degrade)
             if degrade not in run.degrades:
                 run.degrades.append(degrade)
@@ -382,7 +491,15 @@ class RunStore:
             run.finished_at = _now_iso()
             run.error = redact(error)
             self._write_run(run)
-            return run
+            return run, True
+
+    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+        run, _claimed = self.claim_failed_run(
+            run_id,
+            error=error,
+            degrade=degrade,
+        )
+        return run
 
     def requeue_incomplete_runs(self, *, reason: str) -> list[Run]:
         recovered: list[Run] = []
@@ -445,7 +562,9 @@ class RunStore:
             return self.db.get_run_events(run_id, after)
         return self._load_stream_events_from_file(run_id, after)
 
-    def _load_stream_events_from_file(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+    def _load_stream_events_from_file(
+        self, run_id: str, after: int = 0
+    ) -> list[dict[str, Any]]:
         """旧 JSONL 读路径（SQLite 无该 run 事件时的回退 + 懒回填数据源）。"""
         path = self.stream_path(run_id)
         if not path.exists():
@@ -478,8 +597,7 @@ class RunStore:
             is_native = bool(native_fields.intersection(row))
             if is_native:
                 valid_optional_ids = all(
-                    value is None
-                    or (isinstance(value, str) and bool(value.strip()))
+                    value is None or (isinstance(value, str) and bool(value.strip()))
                     for value in (row.get("conversation_id"), row.get("message_id"))
                 )
                 seq = row.get("seq")
@@ -550,6 +668,9 @@ class RunStore:
     def _write_run(self, run: Run) -> None:
         path = self.run_path(run.run_id)
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(asdict(run), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.write_text(
+            json.dumps(asdict(run), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
         tmp.replace(path)  # 原子替换，避免读到写了一半的 run.json
         self.db.upsert_run(asdict(run))

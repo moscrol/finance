@@ -18,8 +18,8 @@ import re
 import time
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from dataclasses import dataclass, replace
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
@@ -42,6 +42,8 @@ _ALIAS_PATH = Path(__file__).resolve().parents[1] / "data" / "news_keyword_alias
 
 DEFAULT_PAGE_SIZE = 8
 DEFAULT_WITHIN_DAYS = 90
+_HISTORICAL_EASTMONEY_PAGE_SIZE = 50
+_MAX_HISTORICAL_EASTMONEY_PAGES = 4
 
 # 命中即触发（确定性词面）：事件/消息面/催化/横向联想类问题。
 _NEWS_TERMS = (
@@ -110,12 +112,95 @@ def parse_news_intent(query: str) -> bool:
 # 从问句兼射关键词时要剥离的脚手架：时间窗口词 + 提问/意图词（确定性词面，非 NLP）。
 _QUERY_SCAFFOLD_RE = re.compile(
     r"(最近|近|过去)?\s*\d+\s*(天|个月|月|周|年)内?"
-    r"|最近|近期|目前|现在|今年|今天"
+    r"|最近|近期|目前|现在|今年|今天|本周|上周|这周|昨日|昨天|前日|上个交易日"
     r"|有什么|什么|哪些|有没有|是否|怎么样|如何|为什么"
     r"|实质|重大|重要|相关"
-    r"|催化|进展|消息|事件|新闻|资讯|发生了|变化|动态"
+    r"|催化|进展|消息|事件|新闻|资讯|发生了|变化|动态|原因|驱动|影响|逻辑"
     r"|[？?吗呢吧。，,、\s]"
 )
+_COMPOUND_QUERY_SPLIT_RE = re.compile(r"[\s、/|]+")
+_DIRECTION_SUFFIX_RE = re.compile(
+    r"(?:下跌|上涨|反弹|调整|回落|暴跌|大跌|大涨|走势|表现)$"
+)
+_DIRECTION_PROVIDER_ALIAS = {
+    "下跌": "调整",
+    "暴跌": "下跌",
+    "大跌": "下跌",
+    "回落": "调整",
+    "上涨": "走强",
+    "大涨": "上涨",
+}
+_MARKET_ANCHOR_GROUPS: tuple[tuple[tuple[str, ...], tuple[str, ...], str], ...] = (
+    (("A股",), ("A股", "沪深两市", "两市"), "A股"),
+    (("上证指数", "沪指", "上证"), ("上证指数", "沪指", "上证"), "沪指"),
+    (("深证成指", "深指"), ("深证成指", "深指"), "深指"),
+    (("创业板",), ("创业板", "创指"), "创业板"),
+    (("科创50",), ("科创50",), "科创50"),
+    (("股市", "大盘", "市场"), ("股市", "大盘"), "股市"),
+)
+_DOWN_QUERY_TERMS = ("下跌", "大跌", "暴跌", "调整", "回落", "走弱", "收跌", "跌")
+_DOWN_TITLE_TERMS = ("下跌", "大跌", "暴跌", "调整", "回落", "走弱", "收跌", "跌")
+_UP_QUERY_TERMS = ("上涨", "大涨", "反弹", "走强", "收涨", "涨")
+_UP_TITLE_TERMS = ("上涨", "大涨", "反弹", "走强", "收涨", "涨")
+_CAUSE_QUERY_TERMS = ("原因", "驱动", "为何", "为什么")
+_CAUSE_TITLE_TERMS = ("原因", "驱动", "为何", "复盘", "收评")
+_DATE_TOKEN_RE = re.compile(
+    r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}|20\d{2}年|\d{1,2}月|\d{1,2}日"
+)
+_FULL_QUERY_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(?:[-/.](\d{1,2})[-/.](\d{1,2})|年(\d{1,2})月(\d{1,2})日?)"
+)
+_COMPRESSED_CN_DATE_RANGE_RE = re.compile(
+    r"(?<!\d)(20\d{2})年(\d{1,2})月(\d{1,2})日?\s*"
+    r"(?:至|到|[-~—])\s*(?:(\d{1,2})月)?(\d{1,2})日"
+)
+_YEARLESS_CN_DATE_RE = re.compile(
+    r"(?<![\d年])(\d{1,2})月(\d{1,2})日"
+)
+_MAX_EASTMONEY_FALLBACK_QUERIES = 3
+
+
+def _market_anchor_signature(text: str) -> tuple[tuple[str, ...], str] | None:
+    cleaned = str(text or "")
+    for query_terms, title_terms, canonical in _MARKET_ANCHOR_GROUPS:
+        if any(term in cleaned for term in query_terms):
+            return title_terms, canonical
+    return None
+
+
+def _market_direction_signature(text: str) -> tuple[tuple[str, ...], str, str] | None:
+    cleaned = str(text or "")
+    if any(term in cleaned for term in _DOWN_QUERY_TERMS):
+        return _DOWN_TITLE_TERMS, "下跌", "调整"
+    if any(term in cleaned for term in _UP_QUERY_TERMS):
+        return _UP_TITLE_TERMS, "上涨", "走强"
+    return None
+
+
+def _is_temporal_fragment(value: str) -> bool:
+    compact = re.sub(r"\s+", "", str(value or ""))
+    if not compact:
+        return False
+    residual = _DATE_TOKEN_RE.sub("", compact)
+    residual = re.sub(r"[至到年月日\-/.]", "", residual)
+    return not residual
+
+
+def _title_matches_query(title: str, query: str) -> bool:
+    anchor = _market_anchor_signature(query)
+    direction = _market_direction_signature(query)
+    if anchor is not None and direction is not None:
+        anchor_terms, _canonical_anchor = anchor
+        direction_terms, _canonical_direction, _alias = direction
+        return any(term in title for term in anchor_terms) and any(
+            term in title for term in direction_terms
+        )
+    if anchor is not None and any(term in query for term in _CAUSE_QUERY_TERMS):
+        anchor_terms, _canonical_anchor = anchor
+        return any(term in title for term in anchor_terms) and any(
+            term in title for term in _CAUSE_TITLE_TERMS
+        )
+    return query in title
 
 
 def _extract_query_keyword(query: str) -> str | None:
@@ -163,14 +248,123 @@ def resolve_news_keyword(
     return _extract_query_keyword(query_text)
 
 
-def _within_days(date_str: str, within_days: int) -> bool:
+def _within_days(
+    date_str: str,
+    within_days: int,
+    *,
+    reference_date: date | None = None,
+) -> bool:
     if within_days <= 0:
         return True
     try:
         dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
     except ValueError:
         return True  # 日期不可解析时保留，交由上层展示原始日期
-    return dt >= datetime.now() - timedelta(days=within_days)
+    reference = datetime.combine(reference_date, datetime.min.time()) if reference_date else datetime.now()
+    return dt >= reference - timedelta(days=within_days)
+
+
+def _parse_cutoff(value: date | str | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError as exc:
+        raise ValueError("news as_of must be an ISO date") from exc
+
+
+def query_date_cutoff(
+    query: str,
+    *,
+    upper_bound: date | str,
+) -> date:
+    """Tighten a news cutoff to the latest explicit date in the query.
+
+    ``InformationCutoff`` remains the global no-future boundary.  A dated
+    research action has a narrower contract: news published after the target
+    event window cannot explain that event.  This helper only narrows the
+    bound; it never permits a date beyond the episode cutoff.
+    """
+
+    cutoff = _parse_cutoff(upper_bound)
+    if cutoff is None:  # pragma: no cover - the public type excludes None
+        raise ValueError("news upper_bound must be an ISO date")
+    explicit_date = latest_explicit_query_date(
+        query,
+        reference_date=cutoff,
+    )
+    return min(cutoff, explicit_date) if explicit_date is not None else cutoff
+
+
+def latest_explicit_query_date(
+    query: str,
+    *,
+    reference_date: date | str | None = None,
+) -> date | None:
+    """Return the latest explicit calendar date carried by one query/result.
+
+    Yearless Chinese dates are resolved against the supplied task cutoff.  A
+    December date observed during January is treated as the previous year;
+    nearby future dates remain future so the evidence gate can reject them.
+    """
+
+    reference = _parse_cutoff(reference_date)
+    candidates: list[date] = []
+    text = str(query or "")
+    for match in _FULL_QUERY_DATE_RE.finditer(text):
+        year = int(match.group(1))
+        month = int(match.group(2) or match.group(4))
+        day = int(match.group(3) or match.group(5))
+        try:
+            candidates.append(date(year, month, day))
+        except ValueError:
+            continue
+    for match in _COMPRESSED_CN_DATE_RANGE_RE.finditer(text):
+        year = int(match.group(1))
+        start_month = int(match.group(2))
+        end_month = int(match.group(4) or start_month)
+        end_day = int(match.group(5))
+        try:
+            candidates.append(date(year, end_month, end_day))
+        except ValueError:
+            continue
+    if reference is not None:
+        for match in _YEARLESS_CN_DATE_RE.finditer(text):
+            month = int(match.group(1))
+            day = int(match.group(2))
+            year = reference.year
+            if month - reference.month >= 6:
+                year -= 1
+            try:
+                candidates.append(date(year, month, day))
+            except ValueError:
+                continue
+    return max(candidates) if candidates else None
+
+
+def _news_at_or_before_cutoff(
+    items: tuple[NewsItem, ...],
+    *,
+    cutoff: date,
+    within_days: int,
+) -> tuple[tuple[NewsItem, ...], int]:
+    eligible: list[NewsItem] = []
+    future_count = 0
+    earliest = cutoff - timedelta(days=max(0, within_days))
+    for item in items:
+        try:
+            item_date = date.fromisoformat(str(item.date)[:10])
+        except ValueError:
+            continue
+        if item_date > cutoff:
+            future_count += 1
+            continue
+        if within_days > 0 and item_date < earliest:
+            continue
+        eligible.append(item)
+    return tuple(eligible), future_count
 
 
 def fetch_eastmoney_news_result(
@@ -178,22 +372,242 @@ def fetch_eastmoney_news_result(
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
+    *,
+    as_of: date | str | None = None,
 ) -> NewsFetchResult:
     """东财全文资讯搜索（经 turn 级 QueryLedger 去重），保留 provider 失败原因。
 
     同 turn 内 agent news_search 与 W7 事件块对同一关键词的重复抓取只真实
     执行一次；无活动账本时行为不变。within_days/page_size 入 key 的 as_of
     维度，避免不同窗口参数误共享结果。"""
+    cutoff = _parse_cutoff(as_of)
     return query_ledger.executed(
         "news_search",
         keyword,
-        lambda: _fetch_eastmoney_news_uncached(
+        lambda: _fetch_eastmoney_news_with_fallback(
             keyword,
             page_size=page_size,
             within_days=within_days,
             timeout=timeout,
+            as_of=cutoff,
         ),
-        as_of=f"days={within_days};size={page_size}",
+        as_of=(
+            f"cutoff={cutoff.isoformat() if cutoff else 'current'};"
+            f"days={within_days};size={page_size}"
+        ),
+    )
+
+
+def _eastmoney_fallback_keywords(query: str) -> tuple[str, ...]:
+    original = str(query or "").strip()
+    if not original:
+        return ()
+    candidates: list[str] = []
+
+    def add(value: str) -> None:
+        cleaned = str(value or "").strip()
+        if (
+            2 <= len(cleaned) <= 16
+            and cleaned != original
+            and not _is_temporal_fragment(cleaned)
+            and cleaned not in candidates
+        ):
+            candidates.append(cleaned)
+
+    market_anchor = _market_anchor_signature(original)
+    market_direction = _market_direction_signature(original)
+    if market_anchor is not None and market_direction is not None:
+        _title_terms, canonical_anchor = market_anchor
+        _direction_terms, canonical_direction, alias = market_direction
+        add(canonical_anchor + canonical_direction)
+        add(canonical_anchor + alias)
+        if any(term in original for term in _CAUSE_QUERY_TERMS):
+            add(canonical_anchor + canonical_direction + "原因")
+        return tuple(candidates[:_MAX_EASTMONEY_FALLBACK_QUERIES])
+
+    explicit_parts = tuple(
+        item.strip()
+        for item in _COMPOUND_QUERY_SPLIT_RE.split(original)
+        if item.strip()
+    )
+    if len(explicit_parts) > 1:
+        cleaned_parts = tuple(
+            _QUERY_SCAFFOLD_RE.sub("", part).strip()
+            for part in explicit_parts
+        )
+        anchors = tuple(
+            part
+            for part in cleaned_parts
+            if 2 <= len(part) <= 12
+            and not _DIRECTION_SUFFIX_RE.fullmatch(part)
+            and not re.fullmatch(r"\d{4}年\d{1,2}月", part)
+        )
+        directions = tuple(
+            part
+            for part in cleaned_parts
+            if _DIRECTION_SUFFIX_RE.fullmatch(part)
+        )
+        if anchors and directions:
+            add(anchors[0] + directions[0])
+            alias = _DIRECTION_PROVIDER_ALIAS.get(directions[0])
+            if alias:
+                add(anchors[0] + alias)
+        for part in explicit_parts:
+            add(_QUERY_SCAFFOLD_RE.sub("", part))
+    else:
+        simplified = _QUERY_SCAFFOLD_RE.sub("", original).strip()
+        add(simplified)
+        anchor = _DIRECTION_SUFFIX_RE.sub("", simplified)
+        direction = simplified[len(anchor) :]
+        alias = _DIRECTION_PROVIDER_ALIAS.get(direction)
+        if anchor and alias:
+            add(anchor + alias)
+        add(anchor)
+    return tuple(candidates[:_MAX_EASTMONEY_FALLBACK_QUERIES])
+
+
+def _fetch_eastmoney_news_with_fallback(
+    keyword: str,
+    *,
+    page_size: int,
+    within_days: int,
+    timeout: float,
+    as_of: date | None = None,
+) -> NewsFetchResult:
+    configured_timeout = max(0.001, float(timeout))
+    started = time.monotonic()
+    attempted: list[str] = []
+
+    def fetch(candidate: str) -> NewsFetchResult | None:
+        attempted.append(candidate)
+        max_pages = _MAX_HISTORICAL_EASTMONEY_PAGES if as_of is not None else 1
+        fetch_size = (
+            max(page_size, _HISTORICAL_EASTMONEY_PAGE_SIZE)
+            if as_of is not None
+            else page_size
+        )
+        future_count = 0
+        last_trace: ProviderTrace | None = None
+        for page_index in range(1, max_pages + 1):
+            remaining = configured_timeout - (time.monotonic() - started)
+            if remaining <= 0.001:
+                return None
+            result = _fetch_eastmoney_news_uncached(
+                candidate,
+                page_size=fetch_size,
+                within_days=within_days,
+                timeout=remaining,
+                page_index=page_index,
+                as_of=as_of,
+            )
+            last_trace = result.trace
+            if as_of is None or not result.items:
+                return result
+            eligible, rejected_future = _news_at_or_before_cutoff(
+                result.items,
+                cutoff=as_of,
+                within_days=within_days,
+            )
+            future_count += rejected_future
+            if eligible:
+                return NewsFetchResult(
+                    eligible[:page_size],
+                    replace(
+                        result.trace,
+                        status="success",
+                        detail=(
+                            f"{result.trace.detail}; pages={page_index}; "
+                            f"future_of_cutoff={future_count}"
+                        ),
+                        source_trade_date=eligible[0].date[:10],
+                        requested_date=as_of.isoformat(),
+                        result_count=min(len(eligible), page_size),
+                    ),
+                )
+            if rejected_future == 0:
+                break
+        trace = last_trace or ProviderTrace(
+            provider=PROVIDER_EASTMONEY,
+            capability="directional_news",
+            status="empty",
+        )
+        return NewsFetchResult(
+            (),
+            replace(
+                trace,
+                status="future_of_cutoff" if future_count else "empty",
+                detail=(
+                    f"{trace.detail}; pages={max_pages}; "
+                    f"future_of_cutoff={future_count}"
+                ),
+                requested_date=as_of.isoformat() if as_of else None,
+                result_count=0,
+            ),
+        )
+
+    original = str(keyword or "").strip()
+    first = fetch(original)
+    if first is None:
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="request_error",
+                detail="deadline exhausted before Eastmoney request",
+            ),
+        )
+    def attempted_detail() -> str:
+        return "queries=" + "|".join(attempted)
+    if first.items or first.trace.status not in {"empty", "future_of_cutoff"}:
+        return NewsFetchResult(
+            first.items,
+            replace(
+                first.trace,
+                detail=f"{first.trace.detail}; {attempted_detail()}".strip("; "),
+            ),
+        )
+
+    items: list[NewsItem] = []
+    last_trace = first.trace
+    successful_trace: ProviderTrace | None = None
+    for candidate in _eastmoney_fallback_keywords(original):
+        result = fetch(candidate)
+        if result is None:
+            break
+        last_trace = result.trace
+        if result.items:
+            successful_trace = result.trace
+            items = merge_news_items(items, list(result.items))[:page_size]
+            if len(items) >= page_size:
+                break
+            continue
+        if result.trace.status not in {"empty", "future_of_cutoff"}:
+            break
+
+    if items:
+        status = "fallback_success"
+    elif last_trace.status not in {"empty", "future_of_cutoff"}:
+        status = last_trace.status
+    elif last_trace.status == "future_of_cutoff":
+        status = "future_of_cutoff"
+    else:
+        status = "empty"
+    evidence_trace = successful_trace or last_trace
+    return NewsFetchResult(
+        tuple(items),
+        ProviderTrace(
+            provider=PROVIDER_EASTMONEY,
+            capability="directional_news",
+            status=status,
+            detail=(
+                f"Eastmoney title search; {attempted_detail()}; "
+                f"{evidence_trace.detail}; "
+                f"fallbacks={max(0, len(attempted) - 1)}"
+            ),
+            result_count=len(items),
+            requested_date=as_of.isoformat() if as_of else None,
+        ),
     )
 
 
@@ -202,6 +616,9 @@ def _fetch_eastmoney_news_uncached(
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
+    *,
+    page_index: int = 1,
+    as_of: date | None = None,
 ) -> NewsFetchResult:
     kw = str(keyword or "").strip()
     if not kw:
@@ -226,7 +643,7 @@ def _fetch_eastmoney_news_uncached(
                 # 只搜标题：全文模糊匹配会捞进大量标题无关资讯（正文命中），标题命中才是事件存在性证据
                 "searchScope": "title",
                 "sort": "time",
-                "pageIndex": 1,
+                "pageIndex": max(1, int(page_index)),
                 "pageSize": max(1, int(page_size) * 2),
                 "preTag": "<em>",
                 "postTag": "</em>",
@@ -267,14 +684,14 @@ def _fetch_eastmoney_news_uncached(
     out: list[NewsItem] = []
     for a in articles:
         date_str = str(a.get("date") or "").strip()
-        if not _within_days(date_str, within_days):
+        if not _within_days(date_str, within_days, reference_date=as_of):
             continue
         title = _EM_TAG_RE.sub("", str(a.get("title") or "")).strip()
         if not title:
             continue
         # 相关性硬过滤：东财搜索是全文模糊匹配，正文命中会捞进大量标题无关的资讯；
         # 只保留标题含完整检索词的条目，宁缺勿滥（缺数走显式缺口，不给噪声）。
-        if kw not in title:
+        if not _title_matches_query(title, kw):
             continue
         out.append(
             NewsItem(

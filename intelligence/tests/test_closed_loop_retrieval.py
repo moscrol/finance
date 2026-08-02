@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
+
 from intelligence.services import closed_loop_retrieval
-from intelligence.services.closed_loop_retrieval import retrieve_closed_loop
+from intelligence.services.closed_loop_retrieval import (
+    parse_source_date,
+    retrieve_closed_loop,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 
@@ -154,6 +159,62 @@ def test_timeout_stops_rewrites_for_the_same_aperture() -> None:
     ]
 
 
+def test_attempts_preserve_first_and_cached_dense_fallback_telemetry() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        fallback_reason = (
+            "dense_dependency_missing"
+            if calls == 1
+            else "dense_dependency_cached_unavailable"
+        )
+        return WikiRagResult(
+            ok=True,
+            hits=[_hit("液冷证据", 0.72)],
+            telemetry=RetrievalTelemetry(
+                status="ok",
+                hit_count=1,
+                requested_mode="hybrid",
+                effective_mode="bm25",
+                fallback_reason=fallback_reason,
+                degraded=True,
+            ),
+            command=query,
+        )
+
+    result = retrieve_closed_loop(
+        "液冷",
+        anchor=EntityAnchor(entity="液冷"),
+        retrieve=retrieve,
+    )
+
+    expected = [
+        ("hybrid", "bm25", "dense_dependency_missing", True),
+        ("hybrid", "bm25", "dense_dependency_cached_unavailable", True),
+        ("hybrid", "bm25", "dense_dependency_cached_unavailable", True),
+    ]
+    assert [
+        (
+            item.requested_mode,
+            item.effective_mode,
+            item.fallback_reason,
+            item.degraded,
+        )
+        for item in result.attempts
+    ] == expected
+    assert [
+        (
+            item["requested_mode"],
+            item["effective_mode"],
+            item["fallback_reason"],
+            item["degraded"],
+        )
+        for item in result.inspector_dict()["attempts"]
+    ] == expected
+
+
 def test_observed_query_cost_skips_apertures_that_cannot_fit_budget(
     monkeypatch,
 ) -> None:
@@ -182,6 +243,10 @@ def test_observed_query_cost_skips_apertures_that_cannot_fit_budget(
         ("broad", "budget_exhausted"),
         ("counter", "budget_exhausted"),
     ]
+    assert [attempt.executed for attempt in result.attempts] == [True, False, False]
+    assert [
+        item["executed"] for item in result.inspector_dict()["attempts"]
+    ] == [True, False, False]
     assert [item.hit.title for item in result.conclusion] == ["液冷服务器"]
     assert result.warnings == [
         "broad retrieval skipped: remaining budget below observed query cost",
@@ -258,3 +323,133 @@ def test_index_style_query_does_not_anchor_substring_entities() -> None:
     assert any(
         item.hit.title.startswith("中科创达") for item in result.discarded
     )
+
+
+def test_query_only_policy_never_promotes_first_hit_topics() -> None:
+    raw_query = "这一周行情下跌的主要原因是什么"
+    drift_hit = WikiHit(
+        page_id="drift",
+        file_path="wiki/sources/晚间卖方研报20260202.md",
+        title="半导体与光纤光缆复盘",
+        score=0.9,
+        excerpt="行情下跌后关注半导体、光纤光缆、牧原股份和猪周期",
+        best_chunk_id="drift::0",
+    )
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        return _response(query, [drift_hit])
+
+    retrieve_closed_loop(
+        raw_query,
+        anchor=None,
+        retrieve=retrieve,
+        expansion_policy="query_only",
+    )
+
+    assert queries[0] == raw_query
+    assert len(queries) == 3
+    forbidden = ("实体 代码", "公司 题材", "牧原股份", "猪周期", "半导体", "光纤光缆")
+    assert all(
+        token not in query
+        for query in queries[1:]
+        for token in forbidden
+    )
+
+    anchored_queries: list[str] = []
+
+    retrieve_closed_loop(
+        "瑞华泰的合理估值",
+        anchor=EntityAnchor("瑞华泰", "688323.SH"),
+        retrieve=lambda query: (
+            anchored_queries.append(query) or _response(query, [drift_hit])
+        ),
+        expansion_policy="query_only",
+    )
+
+    assert anchored_queries[0] == "瑞华泰 688323.SH"
+
+
+def test_parse_source_date_accepts_compact_dates_but_not_yearless_names() -> None:
+    assert parse_source_date("wiki/sources/晚间卖方研报20260724.md") == date(
+        2026, 7, 24
+    )
+    assert parse_source_date("wiki/sources/0511卖方观点合集.md") is None
+
+
+def test_budget_estimate_follows_the_latest_attempt_not_the_worst() -> None:
+    """冷启动的成本不得成为后续查询的估计值。
+
+    回归：observed_seconds 取运行最大值，一次 60s 冷启动（常驻 RAG worker 加载
+    BGE-m3 与 214MB 稠密索引）会永久钉住估计，can_start 随后要求
+    remaining >= 60*1.25，在 turn 预算内不可能满足——broad 与 counter 两趟检索
+    每轮都被跳过，三趟只跑一趟。
+    """
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(60.1)          # 冷启动
+    assert budget.can_start() is False
+
+    budget.observe(4.9)           # worker 已热
+    assert budget.can_start() is True
+    assert budget.observed_seconds == 4.9
+
+
+def test_budget_still_stops_when_the_deadline_is_spent() -> None:
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() - 1.0)
+    budget.observe(0.1)
+
+    assert budget.can_start() is False
+
+
+def test_budget_keeps_a_floor_when_an_attempt_looks_free() -> None:
+    """估计值趋零时仍要留最小储备，不能无限开新查询。"""
+    import time
+
+    from intelligence.services.closed_loop_retrieval import (
+        MIN_ATTEMPT_RESERVE_SECONDS,
+        _AttemptBudget,
+    )
+
+    budget = _AttemptBudget(deadline=time.monotonic() + MIN_ATTEMPT_RESERVE_SECONDS / 2)
+    budget.observe(0.0)
+
+    assert budget.can_start() is False
+
+
+def test_warmup_attempt_is_not_taken_as_a_cost_sample() -> None:
+    """顺带加载模型/索引的那次查询不算样本。
+
+    回归：冷启动实测 60.1s、热查询 4-6s。把冷启动当成每查询成本会让
+    can_start 要求 remaining >= 60*1.25，在 turn 预算内不可能满足——broad 与
+    counter 两趟检索因此每轮都被跳过，三趟只跑一趟。
+    """
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(60.1, representative=False)
+
+    assert budget.observed_seconds is None
+    assert budget.can_start() is True
+
+
+def test_representative_attempt_still_updates_the_estimate() -> None:
+    import time
+
+    from intelligence.services.closed_loop_retrieval import _AttemptBudget
+
+    budget = _AttemptBudget(deadline=time.monotonic() + 30.0)
+    budget.observe(40.0, representative=True)
+
+    assert budget.observed_seconds == 40.0
+    assert budget.can_start() is False

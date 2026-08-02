@@ -18,6 +18,7 @@ from intelligence.services.research_contract import (
     StageArtifact,
 )
 from intelligence.services.run_store import RunStore
+from intelligence.services.task_frame import TaskFrame
 from intelligence.workbench_skills.contracts import (
     SkillAnswerContract,
     SkillExecutionContext,
@@ -383,9 +384,86 @@ def _context(
     )
 
 
-def _write_theme_market_db(repo_root: Path) -> None:
+def test_owner_projects_followup_semantics_from_canonical_task_frame(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = TaskFrame(
+        raw_question="那它的客户和订单呢",
+        user_goal="继续核验英维克的客户与订单证据",
+        question_type="stock_deep_dive",
+        subject="英维克",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("customer_validation", "supporting_evidence"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.95,
+    )
+    contextual_query = "主体：英维克\n追问：那它的客户和订单呢"
+    captured: list[AskOptions] = []
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _result(
+            options.query,
+            "stock_deep_dive",
+            evidence_id="L3",
+            matched_theme="英维克",
+            fact_text="英维克公告披露客户与订单进展",
+        )
+
+    monkeypatch.setattr(
+        "intelligence.workbench_skills.research_owner.understand_query",
+        lambda _query: pytest.fail(
+            "canonical owner path must not reinterpret contextual_query"
+        ),
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(contextual_query, "ask")
+    context = replace(
+        _context(tmp_path, store, run.run_id, contextual_query),
+        task_frame=frame,
+        turn_intent={
+            "primary_subject": "英维克",
+            "question_type": "stock_deep_dive",
+        },
+    )
+
+    output = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    ).execute(context)
+
+    assert captured
+    assert all(item.question_type_override == "stock_deep_dive" for item in captured)
+    company_master = next(
+        item for item in output.stage_artifacts if item["stage"] == "company_master"
+    )
+    assert company_master["payload"]["company"] == "英维克"
+    assert output.answer_contract is not None
+    assert output.answer_contract.question_type == "stock_deep_dive"
+    assert output.answer_contract.task_frame_hash == frame.task_frame_hash
+    assert output.answer_contract.required_outputs == frame.required_outputs
+    assert "customer_validation" in output.answer_contract.output_contract
+    assert "supporting_evidence" in output.answer_contract.answer_spec.prompt_constraints
+
+
+def _write_theme_market_db(repo_root: Path, monkeypatch=None) -> None:
+    """写 fixture 盘面库，并把 MARKET_FEATURE_STORE_DB 指过去。
+
+    题材 owner 现在走 default_market_db_path()（数据根的唯一解析器），不再从
+    context.repo_root 拼路径——那是代码根，蓝绿运行时下会静默拿到空数据。
+    所以 fixture 必须显式钉住环境变量，而不是靠目录布局巧合命中。
+    """
     duckdb = pytest.importorskip("duckdb")
     db_path = repo_root / "db" / "market_feature_store.duckdb"
+    if monkeypatch is not None:
+        monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(db_path))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(db_path))
     con.execute(
@@ -1060,12 +1138,13 @@ def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
 
 def test_theme_required_blocks_survive_company_mapping_failure(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     query = (
         "研究信创未来3到6个月的中期赔率，"
         "用历史类似窗口和情景树说明升级、降级与证伪条件"
     )
-    _write_theme_market_db(tmp_path)
+    _write_theme_market_db(tmp_path, monkeypatch)
 
     def unavailable_answer_query(_options: AskOptions) -> AskResult:
         raise RuntimeError("RAG unavailable")
@@ -1108,12 +1187,13 @@ def test_theme_required_blocks_survive_company_mapping_failure(
 
 def test_theme_market_artifacts_bind_facts_to_evidence_atoms(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     query = (
         "研究信创未来3到6个月的中期赔率，"
         "用历史类似窗口和情景树说明升级、降级与证伪条件"
     )
-    _write_theme_market_db(tmp_path)
+    _write_theme_market_db(tmp_path, monkeypatch)
 
     def fake_answer_query(options: AskOptions) -> AskResult:
         return _result(

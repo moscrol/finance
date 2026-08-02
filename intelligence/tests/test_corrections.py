@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from intelligence.services import corrections
+from intelligence.services.memory_gate import MemoryCandidate, MemoryGate
 
 
 class RecordCorrectionTests(unittest.TestCase):
@@ -42,6 +43,81 @@ class RecordCorrectionTests(unittest.TestCase):
             self.assertNotIn("original", rec)
             self.assertNotIn("principle", rec)
             self.assertEqual(rec["themes"], [])
+
+    def test_validated_preference_requires_exact_explicit_correction(self) -> None:
+        source = {
+            "ts": "2026-07-27T10:00:00+00:00",
+            "correction": "只追问会改变答案的歧义",
+        }
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "preference-1",
+                "user_preference",
+                source["correction"],
+                correction_ts=source["ts"],
+            ),
+            checkpoints=(),
+            verdicts=(),
+            corrections=(source,),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "corrections.jsonl"
+            _, record = corrections.record_validated_preference(
+                path,
+                preference=source["correction"],
+                decision=decision,
+            )
+
+            self.assertEqual(record["promotion"]["candidate_id"], "preference-1")
+            self.assertEqual(
+                record["promotion"]["provenance"]["correction_ts"],
+                source["ts"],
+            )
+
+    def test_validated_preference_rejects_ineligible_decision(self) -> None:
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "volatile-1",
+                "volatile_fact",
+                "今日价格 123 元",
+                is_volatile=True,
+            ),
+            checkpoints=(),
+            verdicts=(),
+            corrections=(),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "corrections.jsonl"
+            with self.assertRaises(ValueError):
+                corrections.record_validated_preference(
+                    path,
+                    preference="今日价格 123 元",
+                    decision=decision,
+                )
+            self.assertFalse(path.exists())
+
+    def test_validated_preference_rejects_checkpoint_lesson_authority(self) -> None:
+        text = "估值判断应检查反证"
+        decision = MemoryGate().decide(
+            MemoryCandidate(
+                "lesson-1",
+                "decision_lesson",
+                text,
+                checkpoint_id="c1",
+            ),
+            checkpoints=({"id": "c1", "claim": "已回检"},),
+            verdicts=({"id": "c1", "verdict": "hit"},),
+            corrections=(),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "corrections.jsonl"
+            with self.assertRaises(ValueError):
+                corrections.record_validated_preference(
+                    path,
+                    preference=text,
+                    decision=decision,
+                )
+            self.assertFalse(path.exists())
 
 
 class LoadCorrectionsTests(unittest.TestCase):

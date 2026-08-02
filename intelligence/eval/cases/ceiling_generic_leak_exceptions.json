@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "policy": "Only generic production finance vocabulary shorter than both frozen n-gram thresholds may be excepted. Questions, conversation context, required-output IDs, reference answers, prior answers, and post-cutoff results are never eligible.",
+  "source_ids": [
+    "expected_fact:rebound-duration:33",
+    "expected_fact:rebound-duration:34",
+    "expected_fact:rebound-duration:37",
+    "expected_fact:index-rebound-space:42",
+    "expected_fact:index-rebound-space:43",
+    "expected_fact:index-rebound-space:46",
+    "expected_fact:ruihuatai-valuation:51",
+    "expected_fact:ruihuatai-valuation:52",
+    "expected_fact:ruihuatai-valuation:54",
+    "expected_fact:ruihuatai-valuation:55",
+    "expected_fact:ruihuatai-valuation:56",
+    "expected_fact:ruihuatai-valuation:58",
+    "expected_fact:weekly-market-cause:71",
+    "expected_fact:current-mainline:76",
+    "expected_fact:current-mainline:79",
+    "expected_fact:current-mainline:80",
+    "expected_fact:current-mainline:81"
+  ]
+}

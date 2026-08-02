@@ -12,6 +12,7 @@ from intelligence.services.answer_model import (
     ClaimStatus,
     CompanyCandidate,
     CompanyTier,
+    DecisionBrief,
     EvidenceRef,
     build_company_assessments,
     evaluate_answer_spec,
@@ -28,6 +29,8 @@ from intelligence.services.answer_model import (
     repair_grounded_composer_answer,
     repair_llm_answer,
     render_answer_spec,
+    render_decision_brief_fallback,
+    resolve_answer_profile,
     resolve_theme_research_spec,
     validate_grounded_composer_answer,
     validate_llm_answer,
@@ -44,6 +47,201 @@ from intelligence.services.ask import (
 
 
 class ThemeResearchSpecTests(unittest.TestCase):
+    def test_causal_profile_does_not_use_theme_chain_schema(self) -> None:
+        spec = resolve_answer_profile(
+            "这一周行情下跌的主要原因是什么",
+            profile="causal",
+        )
+        self.assertEqual(spec.pack_id, "generic_causal")
+        self.assertNotIn("industry_chain", spec.requested_sections)
+        self.assertNotIn("company_mapping", spec.requested_sections)
+
+    def test_methodology_profile_allows_technical_subject_matter(self) -> None:
+        spec = resolve_answer_profile("RAG 怎么做", profile="methodology")
+        self.assertEqual(spec.pack_id, "generic_methodology")
+        self.assertIn("tradeoffs", spec.requested_sections)
+
+    def test_causal_headings_are_advisory_not_whole_answer_rejection(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("本周为什么下跌", profile="causal"),
+            summary=(
+                make_claim(
+                    claim_id="cause-1",
+                    text="风险偏好收缩是主要盘面机制。",
+                    claim_type="summary",
+                    theme="A股市场",
+                    status=ClaimStatus.INFERRED,
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            presentation_profile="causal",
+        )
+        answer = (
+            "## 本周下跌的盘面机制\n"
+            "风险偏好收缩是主要盘面机制。"
+            "<!-- claim_ids=cause-1; evidence_atom_ids=; claim_type=inference -->"
+        )
+        issues = validate_grounded_composer_answer(answer, spec)
+        heading = next(
+            issue
+            for issue in issues
+            if issue.code == "grounded_composer_unverified_heading"
+        )
+        self.assertEqual(heading.severity, "warning")
+        self.assertFalse(any(issue.severity == "error" for issue in issues))
+        self.assertIn(
+            "## 本周下跌的盘面机制",
+            present_grounded_composer_answer(answer, spec),
+        )
+
+    def test_number_formatting_does_not_reject_grounded_percentage(self) -> None:
+        claim = make_claim(
+            claim_id="metric-1",
+            text="区间变化 -3.82 %。",
+            claim_type="supporting_fact",
+            theme="A股市场",
+            status=ClaimStatus.VERIFIED,
+            evidence_ids=("G1",),
+        )
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile(
+                "本周为什么下跌", profile="causal"
+            ),
+            summary=(),
+            verified_facts=(claim,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(EvidenceRef("G1", "本地行情"),),
+            system_notices=(),
+            presentation_profile="causal",
+        )
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.source_id == "G1"
+        )
+        answer = (
+            "区间下跌 3.82%。"
+            f"<!-- claim_ids=metric-1; evidence_atom_ids={atom.atom_id}; "
+            "claim_type=fact -->"
+        )
+        self.assertNotIn(
+            "grounded_composer_added_number",
+            {
+                issue.code
+                for issue in validate_grounded_composer_answer(answer, spec)
+            },
+        )
+
+    def test_decision_brief_fallback_is_not_generic_template(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("行情原因", profile="causal"),
+            summary=(
+                make_claim(
+                    claim_id="c1",
+                    text="风险偏好收缩是当前主要机制。[G1]",
+                    claim_type="summary",
+                    theme="行情原因",
+                    status=ClaimStatus.INFERRED,
+                    evidence_ids=("G1",),
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            presentation_kind="generic_research",
+            presentation_profile="causal",
+        )
+        brief = DecisionBrief(
+            direct_answer="风险偏好收缩是当前主要机制。",
+            core_tension="外部触发仍缺证据。",
+            supports=("c1",),
+            unknowns=(),
+        )
+        rendered = render_decision_brief_fallback(brief, spec)
+        self.assertIn("风险偏好收缩", rendered)
+        self.assertNotIn("通用研究", rendered)
+        self.assertNotIn("候选来源", rendered)
+        self.assertNotIn("[G1]", rendered)
+
+    def test_decision_brief_fallback_keeps_business_next_action(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("某题材怎么看", "某题材", "general"),
+            summary=(),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=("下一验证窗口核对公司公告。",),
+            sources=(),
+            system_notices=(),
+            presentation_kind="generic_research",
+        )
+        rendered = render_decision_brief_fallback(None, spec)
+        self.assertIn("下一验证", rendered)
+        self.assertIn("核对公司公告", rendered)
+
+    def test_decision_brief_fallback_never_promotes_candidate_to_support(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("某题材怎么看", "某题材", "general"),
+            summary=(
+                make_claim(
+                    claim_id="summary",
+                    text="当前只能保留观察。",
+                    claim_type="summary",
+                    theme="某题材",
+                    status=ClaimStatus.INFERRED,
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            candidate_facts=(
+                make_claim(
+                    claim_id="candidate",
+                    text="未核验的客户传闻。",
+                    claim_type="candidate",
+                    theme="某题材",
+                    status=ClaimStatus.CANDIDATE,
+                    evidence_ids=("C1",),
+                ),
+            ),
+            presentation_kind="generic_research",
+        )
+        rendered = render_decision_brief_fallback(
+            DecisionBrief(
+                direct_answer="当前只能保留观察。",
+                core_tension="",
+                supports=("candidate",),
+                unknowns=(),
+            ),
+            spec,
+            verified_only=True,
+        )
+        self.assertNotIn("未核验的客户传闻", rendered)
+        self.assertNotIn("主要依据", rendered)
+
     def test_domain_packs_share_one_protocol(self) -> None:
         cases = {
             "稳定币支付": "stablecoin_payment",
@@ -386,6 +584,23 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             system_notices=(),
         )
         return finalize_answer_spec(answer)
+
+    def test_grounded_registry_window_is_hard_bounded_and_hardness_ranked(self) -> None:
+        answer = self._answer()
+        full = grounded_claim_registry_block(answer)
+        market_line = next(
+            line for line in full.splitlines() if '"claim_id": "market-1"' in line
+        )
+
+        window = grounded_claim_registry_block(
+            answer,
+            query="稳定币支付盘面证据",
+            max_chars=len(market_line),
+        )
+
+        self.assertLessEqual(len(window), len(market_line))
+        self.assertIn('"claim_id": "market-1"', window)
+        self.assertNotIn('"claim_id": "company-1"', window)
 
     def test_presenter_uses_information_pyramid_and_hides_internal_terms(self) -> None:
         rendered = render_answer_spec(self._answer())
@@ -1049,6 +1264,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
     def test_grounding_judge_report_rejects_invalid_sentence_index(
         self,
     ) -> None:
+        """判否但没有任何可定位的句号时仍然 fail closed。"""
         report = parse_grounding_judge_report(
             (
                 '{"passed":false,'
@@ -1056,6 +1272,44 @@ class PresenterAndLLMGateTests(unittest.TestCase):
                 '"issues":["语义越界"]}'
             ),
             sentence_count=2,
+        )
+
+        self.assertIsNone(report)
+
+    def test_grounding_judge_report_keeps_the_indexes_it_can_locate(
+        self,
+    ) -> None:
+        """一个越界句号不该连同有效判定一起作废。
+
+        实测 run_20260731_034344_300179：确定性 repair 先把 8 句删成 5 句，judge 按
+        自己的数法报了第 5、7 句，7 越界 —— 于是连有效的第 5 句一起作废，
+        failure_reason 记成 judge_output_invalid，整份答案被换成 fallback。审稿器给出
+        了真实判定，系统既没用上它、又拿它当作丢弃答案的理由。
+
+        只保留可定位的句号是更严而不是更松：第 5 句会真的被修掉。
+        """
+        report = parse_grounding_judge_report(
+            (
+                "```json\n"
+                '{"passed":false,'
+                '"rejected_sentence_indexes":[5,7],'
+                '"issues":["跨市场主体偷换","把候选新闻升级为既定事实"]}'
+                "\n```"
+            ),
+            sentence_count=5,
+        )
+
+        self.assertIsNotNone(report)
+        assert report is not None
+        self.assertFalse(report.passed)
+        self.assertEqual(report.rejected_sentence_indexes, (5,))
+
+    def test_grounding_judge_report_does_not_read_booleans_as_indexes(
+        self,
+    ) -> None:
+        report = parse_grounding_judge_report(
+            '{"passed":false,"rejected_sentence_indexes":[true],"issues":[]}',
+            sentence_count=5,
         )
 
         self.assertIsNone(report)

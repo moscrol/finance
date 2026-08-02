@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -12,11 +12,13 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_midterm import parse_midterm_intent
 from intelligence.services.scenario_tree import parse_scenario_intent
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 
 
 SubjectKind = Literal[
     "company",
     "theme",
+    "index",
     "market_pattern",
     "external_market",
     "unknown",
@@ -39,6 +41,8 @@ ResearchMode = Literal[
     "theme_research",
     "forecast",
     "definition",
+    "market_cause",
+    "methodology",
     "general",
 ]
 TimeHorizon = Literal[
@@ -58,6 +62,7 @@ ResearchOperator = Literal[
     "relation",
     "company_mapping",
     "market_change",
+    "cause_attribution",
 ]
 
 THEME_CONFIG_PATH = (
@@ -81,6 +86,22 @@ _DATED_MARKET_REVIEW_RE = re.compile(
     + _REVIEW_DATE_RE
     + r".{0,12}(?:行情|盘面|市场)",
     re.IGNORECASE,
+)
+# 盘面复盘的**细分**话题词。
+#
+# 为什么需要它：上面那条 _DATED_MARKET_REVIEW_RE 要求「日期 + 行情/盘面/市场 +
+# 总结/复盘/回顾/梳理/分析」三件齐全，对 A 组 10 道真实验收题**一条都不匹配**——
+# 没人会说「2026-07-23 的盘面复盘一下双红」，用户说的是「2026-07-23 哪些板块是双红」。
+# 实测后果（2026-08-01 A 组基线，见 docs/verification/2026-08-01-a-tier-baseline.md）：
+# 7/10 题落到通用检索，用「特斯拉 Optimus 人形机器人」答双红、用外汇/期货/债券
+# 新闻答市场情绪，另有两题谎称「该日期是未来」——而当天的 daily-review 导出就在磁盘上。
+#
+# 只收**盘面复盘专有**的词。刻意不收「题材」「板块」「资金流」：它们同时是题材研究
+# 的常用词，收进来会把 theme-research 的问题抢走（over-routing 比 under-routing 更难
+# 发现——答案看起来是有的，只是答错了层）。
+_DATED_MARKET_TOPIC_RE = re.compile(
+    r"双红|涨停|跌停|连板|梯队|断层|主线|新高|新低"
+    r"|涨家数|跌家数|量能|缩量|放量|成交额|市场阶段|市场情绪|赚钱效应"
 )
 _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
@@ -160,7 +181,7 @@ _EXTERNAL_QUOTE_TERMS = (
     "走势",
     "表现",
 )
-_RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新")
+_RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新", "本周", "这一周", "这周", "近一周", "过去一周", "一周内")
 _DEFINITION_PREFIX_RE = re.compile(
     r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*什么是"
     r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24})"
@@ -228,6 +249,22 @@ _MARKET_WATCH_RE = re.compile(
     r"(?:有什么|有哪些|哪些)?(?:值得关注|看点|主线|机会)"
     r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
     r"|(?:今天|今日)(?:的)?(?:A股|市场|行情|盘面|大盘)?复盘"
+    r"|(?:目前|当前|现在)(?:的)?(?:A股|市场|行情|盘面|大盘)(?:的)?"
+    r"(?:主线|结构|看点|机会)(?:是什么|有哪些|怎么样|如何)?"
+    # 「今天大盘处于什么阶段」：market_stage 本身就是 fact_market_daily 的字段，
+    # 这是最典型的当日盘面提问。市场名词必须在，否则会吞掉
+    # 「固态电池现在处于什么阶段」这类题材问题。
+    # 分句边界锚：不加的话「固态电池市场处于什么阶段」会命中中间的
+    # 「市场处于什么阶段」，一个题材问句被送去跑全市场日报。
+    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:今天|今日|目前|当前|现在)(?:的)?(?:A股|市场|行情|盘面|大盘)"
+    r"[^。？！]{0,6}?(?:处于|在)?(?:什么|哪个|哪一)?阶段"
+    # 语序反过来的说法：「大盘目前在哪个阶段」。
+    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:A股|市场|行情|盘面|大盘)(?:目前|当前|现在|今天|今日)?(?:的)?"
+    r"(?:处于|在)(?:什么|哪个|哪一)?阶段"
+    # 「当前主线是哪几个方向」：主线在本项目里专指全市场主线，前面不需要再有主语。
+    # 限定必须位于句首或分句首，避免「固态电池当前主线逻辑」被当成大盘提问。
+    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日)(?:的)?"
+    r"主线(?:是|有)?(?:什么|哪些|哪几个|哪个)"
 )
 _MARKET_FORECAST_RE = re.compile(
     r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
@@ -235,9 +272,30 @@ _MARKET_FORECAST_RE = re.compile(
     r"(?:怎么|如何|演绎|走势|走)"
     r"|(?:市场|行情|大盘)[^。？！]{0,12}(?:后面|接下来|未来)"
     r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
+    r"|(?:明天|明日|次日|下个交易日)[^。？！]{0,20}"
+    r"(?:反弹|上涨|下跌|走弱|走势|怎么走|如何走)"
+    r"|(?:反弹|修复)[^。？！]{0,12}"
+    r"(?:持续多久|能持续|持续性|延续多久|还能延续)"
+)
+_EVENT_FORECAST_RE = re.compile(
+    r"(?:如果|若|假设)[^。？！]{0,48}"
+    r"(?:会不会|能否|是否|可能|受益|影响|推动|证伪|落地)"
+    r"|(?:下次|未来|后续)[^。？！]{0,12}"
+    r"(?:降息|加息|政策|发布|推出|落地)[^。？！]{0,20}"
+    r"(?:影响|受益|推动|证伪|可能)"
+)
+_MARKET_CAUSE_RE = re.compile(
+    r"(?:(?:本周|这一周|这周|近一周|过去一周|一周内).{0,20}"
+    r"(?:行情|大盘|市场|指数).{0,16}(?:下跌|上涨|回撤|走弱|走强).{0,16}"
+    r"(?:主要原因|原因|为什么|驱动|归因))"
+    r"|(?:(?:行情|大盘|市场|指数).{0,12}(?:下跌|上涨|回撤|走弱|走强).{0,12}"
+    r"(?:主要原因|原因|为什么|驱动|归因))"
 )
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
+)
+_CHINESE_MONTH_HORIZON_RE = re.compile(
+    r"(?:未来|接下来)?\s*(一|二|两)\s*个?月"
 )
 _COMPOSITIONAL_SUBJECT_CUE_RE = re.compile(r"(?:研究|分析|深挖|评估)")
 _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
@@ -255,10 +313,108 @@ _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
 )
 _COUNTEREVIDENCE_RE = re.compile(r"(反证|证伪|降级条件|证伪条件|升级、降级)")
 _MONEY_FLOW_RE = re.compile(r"(资金流|主买|净流入|大单)")
-_COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
-_RELATION_RE = re.compile(r"(上游|下游|供应|客户|产业链位置|处于.{0,8}环节|关系)")
+_COMPARISON_RE = re.compile(
+    r"(比较|对比|相比|赔率排序)"
+    r"|[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}(?:和|与)"
+    r"[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}.{0,16}"
+    r"(?:分别|差异|区别|竞争优势|优劣)"
+    r"|(?:和|与).{0,32}(?:哪个|哪一个|谁).{0,20}"
+    r"(?:更|优先|胜出|主线)"
+)
+_RELATION_RE = re.compile(
+    r"(上游|下游|供应|客户|合作|产业链位置|处于.{0,8}环节|关系)"
+)
+_COMPANY_CONFIRMATION_RE = re.compile(
+    r"(?:是否|有无|有没有|已经|已)?(?:确认|官宣|披露)?"
+    r"(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
+    r"|(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
+    r".{0,10}(?:是否|真假|属实|确认|官宣|披露)",
+)
 _COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
+
+# 认识论分流：这些问题要回答的是系统/方法本身，而不是某个金融标的的
+# 当前事实。若把它们送进金融 RAG，检索器会因为词面命中“模板化/编排”等词
+# 返回无关研报，最终用有证据但不相关的材料替代模型原生推理。
+_METHODOLOGY_SUBJECT_RE = re.compile(
+    r"(?:"
+    r"(?:agent|rag|bm25|rerank|prompt|verifier|workflow)"
+    r"|编排层|路由层|检索层|合成层|验证器|系统架构|工作台架构|"
+    r"模型能力|工具调用|向量检索|混合检索|模板化回答|模板化|"
+    r"深度研究(?:agent|代理)|研究代理"
+    r")",
+    re.IGNORECASE,
+)
+_METHODOLOGY_GOAL_RE = re.compile(
+    r"(?:为什么|怎么(?:做|实现)?|如何(?:做|实现)?|原理|架构|设计|实现|"
+    r"优化|权衡|取舍|导致|机制|区别|比较|路径)",
+    re.IGNORECASE,
+)
+
+# 确定性技术位头部意图：指数别名 → 标准指数代码。
+# 名称按长度降序匹配，避免「科创50」被「科创」类题材别名截胡。
+INDEX_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("科创50", "000688.SH", "科创50"),
+    ("科创五十", "000688.SH", "科创50"),
+    ("科创板50", "000688.SH", "科创50"),
+    ("科创100", "000698.SH", "科创100"),
+    ("上证50", "000016.SH", "上证50"),
+    ("上证指数", "000001.SH", "上证指数"),
+    ("上证综指", "000001.SH", "上证指数"),
+    ("沪深300", "000300.SH", "沪深300"),
+    ("中证500", "000905.SH", "中证500"),
+    ("中证1000", "000852.SH", "中证1000"),
+    ("中证2000", "932000.CSI", "中证2000"),
+    ("深证成指", "399001.SZ", "深证成指"),
+    ("创业板指", "399006.SZ", "创业板指"),
+    ("创业板指数", "399006.SZ", "创业板指"),
+    ("北证50", "899050.BJ", "北证50"),
+    ("万得微盘", "8841431.WI", "万得微盘股"),
+    ("微盘股指数", "8841431.WI", "万得微盘股"),
+)
+_TECHNICAL_LEVEL_RE = re.compile(
+    r"支撑(?:位|点位|区|区域|在哪|位置)"
+    r"|(?:压力|阻力)(?:位|点位|区|区域|在哪|位置)"
+    r"|(?:突破|跌破)(?:位|点位|价位)"
+    r"|均线(?:支撑|压力|位置|在哪)"
+    r"|(?:回踩|回调)(?:到哪|支撑)"
+    r"|技术(?:位|点位|支撑|压力)"
+    r"|颈线|缺口(?:回补|支撑)"
+    r"|(?:反弹|上涨)(?:空间|高度)(?:有多(?:少|大))?"
+)
+
+
+def match_index_subject(query: str) -> tuple[str, str] | None:
+    """在问题中匹配指数别名，返回 (标准名, 指数代码)；未命中返回 None。"""
+    text = re.sub(r"\s+", "", str(query or ""))
+    for alias, ts_code, canonical in sorted(
+        INDEX_ALIASES, key=lambda item: len(item[0]), reverse=True
+    ):
+        if alias in text:
+            return canonical, ts_code
+    return None
+
+
+def is_market_technical_query(query: str) -> bool:
+    """确定性识别「指数/股票 + 支撑位/压力位/均线/突破位」类技术位问题。"""
+    text = re.sub(r"\s+", "", str(query or ""))
+    if _TECHNICAL_LEVEL_RE.search(text) is None:
+        return False
+    return (
+        match_index_subject(text) is not None
+        or _TICKER_RE.search(text) is not None
+    )
+
+
+def is_methodology_query(query: str) -> bool:
+    """识别系统/Agent 方法论问题，避免被金融知识检索的词面命中劫持。"""
+
+    text = re.sub(r"\s+", "", str(query or ""))
+    return bool(
+        text
+        and _METHODOLOGY_SUBJECT_RE.search(text)
+        and _METHODOLOGY_GOAL_RE.search(text)
+    )
 
 
 @dataclass(frozen=True)
@@ -274,20 +430,83 @@ class QueryEnvelope:
     time_horizon: TimeHorizon = "unspecified"
     operators: tuple[ResearchOperator, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    task_frame: TaskFrame | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["operators"] = list(self.operators)
         payload["required_outputs"] = list(self.required_outputs)
+        payload["task_frame"] = (
+            self.task_frame.to_dict() if self.task_frame is not None else None
+        )
         return payload
 
 
-def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
-    return (
-        envelope.question_type != "external_market"
-        and _DATED_MARKET_REVIEW_RE.search(query) is not None
-        and market_review_requested_date(query) is not None
+def project_task_frame(
+    frame: TaskFrame,
+    template: QueryEnvelope,
+) -> QueryEnvelope:
+    """Project canonical semantics into the legacy routing adapter."""
+
+    return replace(
+        template,
+        question_type=frame.question_type,
+        subject_kind=frame.subject_kind,
+        subject=frame.subject,
+        decision_goal=frame.user_goal,
+        timeframe=frame.timeframe,
+        confidence=frame.confidence,
+        required_outputs=frame.required_outputs,
+        task_frame=frame,
     )
+
+
+def envelope_from_task_frame(
+    frame: TaskFrame,
+    *,
+    operators: tuple[ResearchOperator, ...] = (),
+    time_horizon: TimeHorizon = "unspecified",
+) -> QueryEnvelope:
+    """Create a legacy adapter without re-interpreting the raw question."""
+
+    return QueryEnvelope(
+        question_type=frame.question_type,
+        subject_kind=frame.subject_kind,  # type: ignore[arg-type]
+        subject=frame.subject,
+        decision_goal=frame.user_goal,
+        timeframe=frame.timeframe,
+        matched_by="explicit" if frame.subject is not None else "market_anchor",
+        confidence=frame.confidence,
+        research_mode=_research_mode(
+            frame.question_type,
+            frame.subject_kind,  # type: ignore[arg-type]
+            operators=operators,
+        ),
+        time_horizon=time_horizon,
+        operators=operators,
+        required_outputs=frame.required_outputs,
+        task_frame=frame,
+    )
+
+
+def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
+    if envelope.question_type == "external_market":
+        return False
+    # 日期解析放在最前面：它是「有没有一份可读的当日导出」的充要前提。
+    # 原来它被 and 在那条 0 命中的措辞正则后面，等于解析出来了也用不上——
+    # 信息在系统里但没送到，而这次没送到的距离只有一个 and。
+    if market_review_requested_date(query) is None:
+        return False
+    if _DATED_MARKET_REVIEW_RE.search(query) is not None:
+        return True
+    # 主题词这条支路要自己排除境外市场：「美股涨停情况怎么样」不带「行情/盘面」，
+    # 分类器给的是 general_finance_qa 而不是 external_market，上面那道 question_type
+    # 闸放它过去，而 daily-review 导出里只有 A 股。这条是加主题词时引入的真回归，
+    # 被 test_dated_overseas_board_subtopic_still_excluded 当场抓住的。
+    lowered = str(query or "").lower()
+    if any(term in lowered for term in _EXTERNAL_MARKET_TERMS):
+        return False
+    return _DATED_MARKET_TOPIC_RE.search(query) is not None
 
 
 def market_review_requested_date(
@@ -353,10 +572,14 @@ def _theme_aliases() -> tuple[str, ...]:
 
 
 def _decision_goal(query: str) -> str:
+    if is_market_cause_query(query):
+        return "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链"
     if _is_external_market_query(query):
         return "核对海外指数收盘点位与涨跌幅"
     if _definition_subject(query):
         return "解释定义、技术背景与产业链位置"
+    if _COMPANY_CONFIRMATION_RE.search(query):
+        return "核验公司与客户/合作方关系是否有公告、合同、认证等官方证据"
     if "健康分歧" in query or "行情高潮" in query:
         return "区分健康分歧与行情高潮"
     if "背离" in query:
@@ -409,6 +632,18 @@ def is_market_forecast_query(query: str) -> bool:
 
     text = re.sub(r"\s+", "", str(query or "").strip())
     return _MARKET_FORECAST_RE.search(text) is not None
+
+
+def is_event_forecast_query(query: str) -> bool:
+    """识别尚未发生事件的条件化推演，交给通用研究 owner。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return _EVENT_FORECAST_RE.search(text) is not None
+
+
+def is_market_cause_query(query: str) -> bool:
+    """确定性识别「市场涨跌 + 时间窗口 + 原因/驱动」归因问题。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return bool(text and _MARKET_CAUSE_RE.search(text))
 
 
 def _valuation_subject(query: str) -> str | None:
@@ -464,6 +699,10 @@ def _explicit_company_subject(query: str) -> str | None:
 
 
 def _company_question_type(query: str) -> str:
+    if _COMPANY_CONFIRMATION_RE.search(query):
+        return "fact_check"
+    if re.search(r"(?:估值|值多少钱|贵不贵|合理价值|目标价)", query):
+        return "valuation_estimate"
     if re.search(r"(个股深挖|个股研究|深挖|深度分析个股)", query):
         return "stock_deep_dive"
     if _FINANCIAL_ANALYSIS_RE.search(query):
@@ -486,9 +725,14 @@ def _time_horizon(query: str) -> TimeHorizon:
         if end <= 6:
             return "medium"
         return "long"
+    chinese_month_window = _CHINESE_MONTH_HORIZON_RE.search(text)
+    if chinese_month_window is not None:
+        return "short" if chinese_month_window.group(1) == "一" else "medium"
     if any(term in text for term in ("盘中", "日内", "今天", "今日")):
         return "intraday"
     if any(term in text for term in ("短期", "短线", "未来几周")):
+        return "short"
+    if any(term in text for term in ("本周", "这一周", "这周", "近一周", "过去一周", "一周内")):
         return "short"
     if any(term in text for term in ("中期", "中线", "季度维度")):
         return "medium"
@@ -515,6 +759,8 @@ def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
         operators.append("company_mapping")
     if _MARKET_CHANGE_RE.search(query):
         operators.append("market_change")
+    if is_market_cause_query(query):
+        operators.append("cause_attribution")
     return tuple(operators)
 
 
@@ -530,6 +776,7 @@ def _required_outputs(
         "relation": "relation_map",
         "company_mapping": "company_mapping",
         "market_change": "market_change",
+        "cause_attribution": "cause_attribution",
     }
     return tuple(output_by_operator[operator] for operator in operators)
 
@@ -546,6 +793,10 @@ def _research_mode(
         return "financial"
     if question_type == "news_impact":
         return "news_impact"
+    if question_type == "market_cause":
+        return "market_cause"
+    if question_type == "methodology_discussion":
+        return "methodology"
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
     if subject_kind == "theme":
@@ -652,7 +903,7 @@ def understand_query(
         matched_by: MatchedBy,
         confidence: float,
     ) -> QueryEnvelope:
-        return QueryEnvelope(
+        legacy = QueryEnvelope(
             question_type,
             subject_kind,
             subject,
@@ -669,13 +920,72 @@ def understand_query(
             operators=operators,
             required_outputs=required_outputs,
         )
+        frame = build_task_frame(text, legacy)
+        # ``QueryEnvelope`` remains a backwards-compatible adapter.  Its
+        # historical raw/date/operator fields stay byte-for-byte stable while
+        # all new consumers use the attached canonical frame.
+        return replace(legacy, task_frame=frame)
 
     timeframe_match = _DATE_RE.search(text)
+    month_horizon_match = (
+        _MONTH_HORIZON_RE.search(text)
+        or _CHINESE_MONTH_HORIZON_RE.search(text)
+    )
     timeframe = (
         timeframe_match.group(0)
         if timeframe_match
-        else next((term for term in _RELATIVE_TIMEFRAMES if term in text), None)
+        else next(
+            (term for term in _RELATIVE_TIMEFRAMES if term in text),
+            month_horizon_match.group(0) if month_horizon_match else None,
+        )
     )
+
+    if is_market_cause_query(text):
+        return envelope(
+            "market_cause",
+            "market_pattern",
+            None,
+            "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链",
+            timeframe,
+            "market_anchor",
+            0.96,
+        )
+
+    if is_methodology_query(text):
+        return envelope(
+            "methodology_discussion",
+            "unknown",
+            None,
+            "解释系统/Agent 方法、机制与工程取舍，不把无关金融资料当作答案",
+            timeframe,
+            "explicit",
+            0.96,
+        )
+
+    if is_market_technical_query(text):
+        index_hit = match_index_subject(text)
+        ticker_hit = _TICKER_RE.search(text)
+        if index_hit is not None:
+            subject_name, _index_code = index_hit
+            return envelope(
+                "market_technical",
+                "index",
+                subject_name,
+                "基于结构化行情确定性计算支撑/压力技术位",
+                timeframe,
+                "market_anchor",
+                0.97,
+            )
+        if ticker_hit is not None:
+            return envelope(
+                "market_technical",
+                "company",
+                ticker_hit.group(0),
+                "基于结构化行情确定性计算支撑/压力技术位",
+                timeframe,
+                "ticker",
+                0.95,
+            )
 
     if _is_external_market_query(text):
         return envelope(
@@ -683,6 +993,17 @@ def understand_query(
             "external_market",
             "美国股市",
             _decision_goal(text),
+            timeframe,
+            "market_anchor",
+            0.98,
+        )
+
+    if is_market_watch_query(text):
+        return envelope(
+            "market_watch",
+            "market_pattern",
+            None,
+            "总结当前盘面主线、观察清单与验证信号",
             timeframe,
             "market_anchor",
             0.98,
@@ -700,6 +1021,19 @@ def understand_query(
                 "explicit",
                 0.9,
             )
+
+    if "comparison" in operators and not any(
+        term in text for term in ("什么是", "定义")
+    ):
+        return envelope(
+            "comparison",
+            "unknown",
+            None,
+            "比较对象、关键差异与证据边界",
+            timeframe,
+            "explicit",
+            0.82,
+        )
 
     definition_subject = _definition_subject(text)
     if definition_subject is not None:
@@ -785,6 +1119,18 @@ def understand_query(
             "market_anchor",
             0.92,
         )
+
+    if is_event_forecast_query(text):
+        return envelope(
+            "event_forecast",
+            "unknown",
+            None,
+            "围绕未发生事件形成条件化影响推演与证伪路径",
+            timeframe,
+            "explicit",
+            0.88,
+        )
+
 
     normalized_theme = str(matched_theme or "").strip()
     if normalized_theme:

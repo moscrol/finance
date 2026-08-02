@@ -205,6 +205,11 @@ export interface StructuredReport {
   };
   modules: StructuredReportModule[];
   warnings: string[];
+  task_frame?: {
+    question_type: string;
+    subject_kind: string;
+    evidence_policy: string;
+  };
   completed_at?: string;
 }
 
@@ -571,12 +576,16 @@ export interface LLMConfig {
   built_in_ready: boolean;
   provider: LLMProviderId | null;
   model: string | null;
+  credential_persisted: boolean;
+  saved_credential_available: boolean;
 }
 
 export interface ConfigureLLMRequest {
   provider: LLMProviderId;
   api_key: string;
+  base_url?: string;
   model?: string;
+  remember?: boolean;
   user?: string;
 }
 
@@ -611,7 +620,9 @@ export interface LiveWorkflow {
 export type AnswerPhase =
   | "verified_draft"
   | "validated_synthesis"
-  | "verified_fallback";
+  | "verified_fallback"
+  | "decision_brief_fallback"
+  | "evidence_gap_fallback";
 
 export interface LiveMessageState {
   conversationId: string;
@@ -624,6 +635,7 @@ export interface LiveMessageState {
   report: StructuredReport | null;
   workflow: LiveWorkflow | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
+  progress: TraceStep[];
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";
   cancelRequested: boolean;

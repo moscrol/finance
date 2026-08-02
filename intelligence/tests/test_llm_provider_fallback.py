@@ -119,7 +119,7 @@ def test_complete_falls_back_to_next_configured_provider(monkeypatch) -> None:
 
 
 def test_tool_chat_falls_back_without_losing_tool_contract(monkeypatch) -> None:
-    calls: list[tuple[str, list[dict]]] = []
+    calls: list[tuple[str, list[dict], bool | None]] = []
     tools = [
         {
             "type": "function",
@@ -139,9 +139,10 @@ def test_tool_chat_falls_back_without_losing_tool_contract(monkeypatch) -> None:
         *,
         tools,
         tool_choice,
+        disable_thinking,
     ):
         del messages, timeout, temperature, tool_choice
-        calls.append((provider.name, tools))
+        calls.append((provider.name, tools, disable_thinking))
         if provider.name == "primary":
             raise OSError("primary unavailable")
         return {"content": "done"}
@@ -153,13 +154,17 @@ def test_tool_chat_falls_back_without_losing_tool_contract(monkeypatch) -> None:
         [{"role": "user", "content": "hello"}],
         tools,
         timeout=10,
+        disable_thinking=True,
     )
 
     assert message == {"content": "done"}
     assert provider is not None
     assert provider.name == "fallback"
     assert reason == ""
-    assert calls == [("primary", tools), ("fallback", tools)]
+    assert calls == [
+        ("primary", tools, True),
+        ("fallback", tools, True),
+    ]
 
 
 def test_all_provider_failures_are_normalized_without_credentials(

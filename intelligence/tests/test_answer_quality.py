@@ -61,6 +61,30 @@ class ExpectationStageTests(unittest.TestCase):
 
 
 class SynthesisPromptTests(unittest.TestCase):
+    def test_methodology_projection_is_small_and_omits_stock_template(self) -> None:
+        ctx = build_quality_context(
+            evidence_lines=["RAG 检索架构说明"],
+            market_lines=[],
+            gap_lines=[],
+        ).compact_for("methodology", "quick")
+
+        block = ctx.to_prompt_block()
+        self.assertLess(len(block), 1800)
+        self.assertNotIn("个股/题材完整切入路径", block)
+        self.assertNotIn("daily-agent 底层推理", block)
+
+    def test_deep_stock_projection_keeps_hardness_and_lifecycle(self) -> None:
+        ctx = build_quality_context(
+            evidence_lines=["公司公告披露订单"],
+            market_lines=["盘面未扩散"],
+            gap_lines=["缺收入占比"],
+        ).compact_for("stock_deep_dive", "deep")
+
+        block = ctx.to_prompt_block()
+        self.assertIn("个股/题材完整切入路径", block)
+        self.assertIn("逻辑生命周期四问", block)
+        self.assertLess(len(block), 3600)
+
     def test_quality_context_is_injected_into_synthesis_prompt(self) -> None:
         ctx = build_quality_context(
             evidence_lines=["英维克：公告披露液冷订单落地（公告, 2026-06-01, 质量 high） [R1]"],

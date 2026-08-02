@@ -36,6 +36,15 @@ WORKFLOWS: frozenset[str] = frozenset(
 )
 OUTCOMES: frozenset[str] = frozenset({"success", "degraded", "failed"})
 MINIMUM_TRADE_DATES = 10
+# 历史默认 backend。**不再是准入条件**：绑定校验只要求"模型确有参与"
+# （llm.used=true 且未命中回退降级标记），provider/model 作为证据字段记录下来。
+#
+# 为什么改：门禁原先要求 provider/model 精确等于 zhipu/glm-5.2。而用户 Keychain
+# 里实际存的是 openai/gpt-5.6-sol，于是 verify_run_binding 会以 model binding
+# mismatch 拒收每一条真实 run——十天台账在当前配置下一条都记不进去。硬绑定还
+# 顺带封死了三路 backend 的对比：走 GPT 或 headless 的 run 一律被拒。
+#
+# 保留常量供分析侧按 backend 分组, 不参与准入。
 SELF_USE_LLM_PROVIDER = "zhipu"
 SELF_USE_LLM_MODEL = "glm-5.2"
 
@@ -418,13 +427,19 @@ def verify_run_binding(
     run_store: RunStore,
     run_id: str | None,
     *,
-    expected_provider: str = SELF_USE_LLM_PROVIDER,
-    expected_model: str = SELF_USE_LLM_MODEL,
+    require_provider: str | None = None,
+    require_model: str | None = None,
 ) -> RunEvidence:
     """校验 ``run_id`` 绑定到一个真实、终态成功、llm.used=true 且留证据的 Workbench run。
 
     拒绝：缺失/伪造 run_id、非终态或非成功 run、模型未参与/回退（llm.used!=true 或
     命中回退降级标记）、以及缺 SSE/报告证据的 run。任一不满足抛 ``RunBindingError``。
+
+    ``require_provider`` / ``require_model`` 默认为 None，即**不限定 backend**。
+    门禁要证明的是"模型确有参与、答案有证据可回查"，而不是"用了哪一家模型"；
+    后者是路线选择，锁死它会让台账在换 backend 后集体拒收（实测：用户实际配置
+    为 openai/gpt-5.6-sol，旧的 zhipu/glm-5.2 硬绑定会拒收每一条真实 run）。
+    需要按 backend 分层验收时再显式传入。
     """
     if not isinstance(run_id, str) or not run_id.strip():
         raise RunBindingError("self-use event must bind to a Workbench run_id")
@@ -473,10 +488,19 @@ def verify_run_binding(
         raise RunBindingError(f"run {run_id} report metadata does not assert llm.used=true")
     provider = str(llm_meta.get("provider") or "")
     model = str(llm_meta.get("model") or "")
-    if provider != expected_provider or model != expected_model:
+    if not provider or not model:
+        # 仍然要求 backend 可识别: 记不出用了什么模型的 run 无法复核。
         raise RunBindingError(
-            f"run {run_id} model binding mismatch "
-            f"(expected {expected_provider}/{expected_model}, got {provider or '-'}/{model or '-'})"
+            f"run {run_id} report metadata does not name the llm provider/model"
+        )
+    if require_provider is not None and provider != require_provider:
+        raise RunBindingError(
+            f"run {run_id} provider mismatch "
+            f"(required {require_provider}, got {provider})"
+        )
+    if require_model is not None and model != require_model:
+        raise RunBindingError(
+            f"run {run_id} model mismatch (required {require_model}, got {model})"
         )
 
     try:

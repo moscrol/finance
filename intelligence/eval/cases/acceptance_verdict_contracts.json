@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "cases": {
+    "A1-market-overview": {
+      "coverage": "structured",
+      "fact_aliases": {
+        "total_amount": [
+          "成交额"
+        ],
+        "amount_vs_yesterday_pct": [
+          "环比",
+          "较昨日",
+          "较上一交易日",
+          "较前一交易日",
+          "较前一日",
+          "缩量",
+          "放量"
+        ],
+        "limit_up": [
+          "涨停"
+        ],
+        "limit_down": [
+          "跌停"
+        ],
+        "sh_index_pct_chg": [
+          "上证",
+          "指数"
+        ]
+      },
+      "phrase_equivalents": {
+        "缩量": [
+          "缩量",
+          "缩减",
+          "萎缩",
+          "地量"
+        ],
+        "反弹阶段": [
+          "反弹阶段",
+          "反弹期",
+          "处于反弹",
+          "反弹格局"
+        ]
+      },
+      "phrase_discharged_by": {
+        "缩量": "fact:amount_vs_yesterday_pct"
+      }
+    },
+    "A2-next-day-call": {
+      "coverage": "semantic_required",
+      "reason": "falsifiable threshold is structured, but directional judgment quality is not",
+      "phrase_equivalents": {
+        "证伪": [
+          "证伪",
+          "证否",
+          "失效",
+          "不成立",
+          "被推翻"
+        ]
+      },
+      "phrase_discharged_by": {
+        "证伪": "falsifiable"
+      }
+    },
+    "A3-stock-deep-dive": {
+      "coverage": "semantic_required",
+      "reason": "facts and entity are structured, but board-height risk interpretation is not"
+    },
+    "A4-dual-red": {
+      "coverage": "structured",
+      "fact_aliases": {
+        "pct_chg": [
+          "涨幅",
+          "上涨"
+        ],
+        "diff_ratio": [
+          "环比",
+          "边际"
+        ],
+        "amount": [
+          "成交额"
+        ]
+      }
+    },
+    "A5-limit-heat": {
+      "coverage": "semantic_required",
+      "reason": "top-four recall threshold and first-place ranking are not encoded by the existing set field"
+    },
+    "A6-limit-advance-ladder": {
+      "coverage": "semantic_required",
+      "reason": "the approximate total ladder size is prose-only",
+      "phrase_equivalents": {
+        "断层": [
+          "断层",
+          "断档",
+          "稀薄",
+          "青黄不接",
+          "空档",
+          "不连续"
+        ]
+      }
+    },
+    "A7-mainline": {
+      "coverage": "semantic_required",
+      "reason": "the pass rule accepts either of two quantitative supports while expect_facts lists both"
+    },
+    "A8-market-stage": {
+      "coverage": "structured",
+      "fact_aliases": {
+        "market_stage": [
+          "阶段"
+        ],
+        "stage_day": [
+          "第",
+          "天"
+        ]
+      },
+      "phrase_equivalents": {
+        "反弹阶段": [
+          "反弹阶段",
+          "反弹期",
+          "处于反弹",
+          "反弹格局"
+        ]
+      }
+    },
+    "A9-sentiment-contradiction": {
+      "coverage": "structured",
+      "fact_aliases": {
+        "strength_marginal_pct": [
+          "边际强度",
+          "强度"
+        ],
+        "strength_status": [
+          "状态",
+          "沸点"
+        ]
+      }
+    },
+    "A10-new-high-structure": {
+      "coverage": "semantic_required",
+      "reason": "numbers are structured, but the short-versus-long-horizon interpretation is not"
+    },
+    "B1-theme-photoresist": {
+      "coverage": "structured"
+    },
+    "B2-theme-liquid-cooling": {
+      "coverage": "structured"
+    },
+    "B3-theme-solid-state-battery": {
+      "coverage": "structured"
+    },
+    "B4-fermentation-trace": {
+      "coverage": "semantic_required",
+      "reason": "time-sequenced fermentation steps and per-step market data are prose-only"
+    },
+    "B5-cross-table-intersection": {
+      "coverage": "structured"
+    },
+    "B6-sellside-distillation": {
+      "coverage": "semantic_required",
+      "reason": "three-way evidence routing and overclaim avoidance require semantic observation"
+    },
+    "B7-volume-sentiment-evolution": {
+      "coverage": "semantic_required",
+      "reason": "all-day coverage and volume-to-sentiment interpretation are prose-only"
+    },
+    "B8-valuation-band": {
+      "coverage": "semantic_required",
+      "reason": "valuation-band reasoning and honest unavailable-data handling are semantic"
+    },
+    "C1-future-date-no-data": {
+      "coverage": "semantic_required",
+      "reason": "explicit refusal and listed forbidden phrases do not prove that every other market number is non-fabricated",
+      "required_any_phrases": [
+        "无数据",
+        "没有可用",
+        "超出覆盖范围",
+        "无当日交易记录"
+      ]
+    },
+    "C2-non-trading-day": {
+      "coverage": "structured",
+      "required_any_phrases": [
+        "非交易日",
+        "休市",
+        "无数据",
+        "没有可用"
+      ]
+    },
+    "C3-empty-table": {
+      "coverage": "structured",
+      "required_any_phrases": [
+        "数据不可用",
+        "无数据",
+        "没有数据",
+        "空表",
+        "0 行",
+        "0行"
+      ]
+    },
+    "C4-unit-anomaly": {
+      "coverage": "structured",
+      "fact_aliases": {
+        "amount_raw": [
+          "成交额"
+        ]
+      }
+    },
+    "C5-data-contradiction": {
+      "coverage": "structured"
+    },
+    "C6-strict-definition": {
+      "coverage": "semantic_required",
+      "reason": "the exact three-part project-local definition needs a normalized expression observation"
+    },
+    "C7-temporal-leakage": {
+      "coverage": "structured"
+    },
+    "C8-nonexistent-table": {
+      "coverage": "structured",
+      "required_any_phrases": [
+        "表不存在",
+        "不存在",
+        "fact_sector_daily"
+      ]
+    },
+    "C9-citation-integrity": {
+      "coverage": "semantic_required",
+      "reason": "citation integrity does not cover the required causal explanation"
+    },
+    "C10-multi-turn-consistency": {
+      "coverage": "structured"
+    }
+  }
+}

@@ -27,6 +27,7 @@ import {
   getBootstrap,
   getConversationMessages,
   getFollowups,
+  forgetSavedLLM,
   getLLMConfig,
   getPerspectives,
   getRun,
@@ -529,14 +530,22 @@ export default function App() {
   }, []);
 
   const saveBYOK = useCallback(
-    async (provider: LLMProviderId, apiKey: string, model: string) => {
+    async (
+      provider: LLMProviderId,
+      apiKey: string,
+      baseUrl: string,
+      model: string,
+      remember: boolean,
+    ) => {
       setModelSettingsSaving(true);
       setModelSettingsError(null);
       try {
         const configured = await configureLLM({
           provider,
           api_key: apiKey,
+          base_url: baseUrl,
           model,
+          remember,
           user,
         });
         setLLMConfig(configured);
@@ -559,6 +568,20 @@ export default function App() {
     } catch (caught) {
       setModelSettingsError(
         caught instanceof Error ? caught.message : "无法切换默认模型",
+      );
+    } finally {
+      setModelSettingsSaving(false);
+    }
+  }, [user]);
+
+  const forgetSavedModel = useCallback(async () => {
+    setModelSettingsSaving(true);
+    setModelSettingsError(null);
+    try {
+      setLLMConfig(await forgetSavedLLM(user));
+    } catch (caught) {
+      setModelSettingsError(
+        caught instanceof Error ? caught.message : "无法删除已保存的模型密钥",
       );
     } finally {
       setModelSettingsSaving(false);
@@ -1086,11 +1109,14 @@ export default function App() {
         saving={modelSettingsSaving}
         error={modelSettingsError}
         onClose={() => setModelSettingsOpen(false)}
-        onSave={(provider, apiKey, model) => {
-          void saveBYOK(provider, apiKey, model);
+        onSave={(provider, apiKey, baseUrl, model, remember) => {
+          void saveBYOK(provider, apiKey, baseUrl, model, remember);
         }}
         onUseBuiltIn={() => {
           void restoreBuiltInLLM();
+        }}
+        onForgetSaved={() => {
+          void forgetSavedModel();
         }}
       />
     </div>

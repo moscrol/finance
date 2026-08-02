@@ -32,16 +32,80 @@ class AnswerQualityContext:
     pre_output_quality_gate: list[str] = field(default_factory=list)
     shadow_user_critic: list[str] = field(default_factory=list)
     narrative_composer: list[str] = field(default_factory=list)
+    prompt_profile: str = "full"
+
+    def compact_for(self, question_type: str, research_tier: str = "standard") -> "AnswerQualityContext":
+        """Project the full audit checklist into a small task-specific overlay.
+
+        The complete checklist remains useful for offline review, but injecting
+        it into every request spends attention on dimensions unrelated to the
+        question.  This projection keeps the hard evidence/gap reminders and
+        selects only the relevant reasoning blocks.
+        """
+        normalized = str(question_type or "general_finance_qa").lower()
+        deep = research_tier == "deep"
+        common = {
+            "stage": self.stage,
+            "layers": self.layers,
+            "guidance": self.guidance[:2],
+            "critic_questions": self.critic_questions[:3],
+            "methodology_checks": self.methodology_checks[:2],
+            "prompt_profile": normalized,
+        }
+        if "market_review" in normalized or normalized == "daily_review":
+            return self
+        if "method" in normalized or normalized in {
+            "answer_review",
+            "general",
+            "general_finance_qa",
+        }:
+            return AnswerQualityContext(**common)
+        if "stock" in normalized or "financial" in normalized:
+            common.update(
+                stock_analysis_entrypoints=self.stock_analysis_entrypoints[:6 if deep else 3],
+                logic_lifecycle_questions=self.logic_lifecycle_questions[:4 if deep else 2],
+                pre_output_quality_gate=self.pre_output_quality_gate[:4],
+                narrative_composer=self.narrative_composer[:2],
+            )
+        elif "forecast" in normalized or "theme" in normalized:
+            common.update(
+                high_position_mainline_reasoning=self.high_position_mainline_reasoning[:4 if deep else 2],
+                market_reverse_reasoning=self.market_reverse_reasoning[:4 if deep else 2],
+                pre_output_quality_gate=self.pre_output_quality_gate[:4],
+                narrative_composer=self.narrative_composer[:2],
+            )
+        else:
+            common.update(
+                market_reverse_reasoning=self.market_reverse_reasoning[:2],
+                pre_output_quality_gate=self.pre_output_quality_gate[:3],
+            )
+        return AnswerQualityContext(**common)
 
     def to_prompt_block(self) -> str:
         lines = [
             "## 回答质量约束（内部研究审稿，不要机械复述为模板）",
             f"- 阶段判断：{self.stage}",
             f"- 证据层：{', '.join(self.layers) if self.layers else '未识别'}",
-            "- 写作要求：自然回答，不要按固定标题填空；但必须把 daily-agent 的生命周期/盘面验证推理融进主线，主动覆盖硬性盘面视角、阶段、反方审稿和证据边界。",
-            "- 全量盘面推演底层逻辑：资金推动价格，量能决定周期；回答个股/题材空间时，市场结构推演路径不是可选项，缺数据也要显式说明缺口，不能跳过。",
-            "- 禁用措辞：不要出现“复盘会路径”这个说法，统一说“市场结构推演路径 / 全量盘面推演”。",
         ]
+        if self.prompt_profile == "full":
+            lines.extend(
+                [
+                    "- 写作要求：自然回答，不要按固定标题填空；把与本题相关的生命周期、盘面验证、反证和证据边界融进主线。",
+                    "- 市场题底层逻辑：资金推动价格，量能影响周期；缺数据就明确缺口，不补造结论。",
+                    "- 术语提示：不要出现“复盘会路径”，改称“市场结构推演路径”。",
+                ]
+            )
+        elif "method" in self.prompt_profile or self.prompt_profile in {
+            "answer_review",
+            "general_finance_qa",
+        }:
+            lines.append(
+                "- 只检查是否直接回答、事实是否有来源、未知项是否如实说明；不套用个股/题材/市场复盘骨架。"
+            )
+        else:
+            lines.append(
+                "- 只使用下列与本题相关的审稿提醒；结构与标题由问题本身决定。"
+            )
         if self.daily_agent_reasoning:
             lines.append("- daily-agent 底层推理（必须内化为回答骨架，不要逐条硬列）：")
             lines.extend(f"  - {item}" for item in self.daily_agent_reasoning)

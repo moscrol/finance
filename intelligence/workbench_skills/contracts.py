@@ -8,6 +8,7 @@ from intelligence.services import answer_model
 from intelligence.services import retrieval_cache as retrieval_cache_service
 from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.run_store import RunStore, redact
+from intelligence.services.task_frame import TaskFrame
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -17,6 +18,11 @@ SkillResultStatus: TypeAlias = Literal[
     "partial",
     "degraded",
     "failed",
+]
+SkillRole: TypeAlias = Literal[
+    "workflow",
+    "research_profile",
+    "terminal_owner",
 ]
 
 
@@ -40,6 +46,11 @@ class SkillDefinition:
     input_schema: JsonObject
     permissions: tuple[str, ...]
     timeout_seconds: int
+    # New and third-party skills are evidence contributors by default.  They
+    # must opt in explicitly before their output can terminate a turn.
+    role: SkillRole = "workflow"
+    accepted_question_types: tuple[str, ...] = ()
+    can_own_answer: bool = False
 
 
 @dataclass
@@ -66,6 +77,10 @@ class SkillAnswerContract:
     output_contract: tuple[str, ...]
     answer_spec: answer_model.AnswerSpec
     question_type: str | None = None
+    # Canonical turn semantics are optional for legacy/third-party skills.
+    # Built-in research owners populate both fields from SkillExecutionContext.
+    task_frame_hash: str = ""
+    required_outputs: tuple[str, ...] = ()
 
 
 def build_module_answer_contract(
@@ -79,7 +94,7 @@ def build_module_answer_contract(
     retrieval_plan: tuple[str, ...],
     output_contract: tuple[str, ...],
 ) -> SkillAnswerContract | None:
-    facts = _module_fact_lines(modules)
+    facts = _select_fact_lines(modules)
     if not facts or not citations:
         return None
     sources = tuple(
@@ -103,7 +118,7 @@ def build_module_answer_contract(
             evidence_tier=sources[0].tier if sources else "skill_output",
             evidence_ids=evidence_ids,
         )
-        for index, line in enumerate(facts[:16], start=1)
+        for index, line in enumerate(facts, start=1)
     )
     summary = (
         answer_model.make_claim(
@@ -172,6 +187,38 @@ def build_module_answer_contract(
     )
 
 
+_FACT_LINE_BUDGET = 16
+
+
+def _select_fact_lines(
+    modules: list[JsonObject],
+    limit: int = _FACT_LINE_BUDGET,
+) -> list[str]:
+    """按模块轮转取事实行，而不是把拼平的列表截断到前 N 条。
+
+    位置不该决定一个证据层是否可见。日报自己的 4 个模块就能填满 16 条预算，于是
+    后追加的知识库锚点模块整块消失——模块在、引用在、答案正文里一个字都没有，
+    而且没有任何告警。第一轮先让每个模块各出一条，剩余预算再按序轮转补齐。
+    """
+    per_module = [_module_fact_lines([module]) for module in modules]
+    selected: list[str] = []
+    seen: set[str] = set()
+    cursor = 0
+    while len(selected) < limit and any(cursor < len(lines) for lines in per_module):
+        for lines in per_module:
+            if cursor >= len(lines):
+                continue
+            line = lines[cursor]
+            if line in seen:
+                continue
+            seen.add(line)
+            selected.append(line)
+            if len(selected) >= limit:
+                break
+        cursor += 1
+    return selected
+
+
 def _module_fact_lines(modules: list[JsonObject]) -> list[str]:
     lines: list[str] = []
     for module in modules:
@@ -230,6 +277,7 @@ class SkillExecutionContext:
     repo_root: Path
     run_store: RunStore
     conversation_context: str = ""
+    task_frame: TaskFrame | None = None
     turn_intent: JsonObject | None = None
     research_plan: JsonObject | None = None
     inherited_answer_spec: JsonObject | None = None

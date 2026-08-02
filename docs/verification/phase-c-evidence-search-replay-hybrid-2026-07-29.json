@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-28T17:29:25+00:00",
+  "runtime_revision": "80c045ee1413a4d52b6ae98a75c4f4af4b22dcaf",
+  "kb_revision": "9053b0c4137428e9ad9d8b4be3ba475b7377b435",
+  "knowledge_wiki": "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/wiki",
+  "index_dir": "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/.rag_index",
+  "index_meta_sha256": "3ab0d301c7480a8ee12ebb2540a0d03421b722ea193ca0ac1a754289129ac79b",
+  "index_source_revision": "manifest:v1:51ddfe839f262d718b3da6635be711b884f8f0d310f3aa16f5807fa07d294a08",
+  "index_source_git_revision": "883815c9b43658339b6308a6494536d2e71b9ad7",
+  "index_source_dirty": false,
+  "information_cutoff": {
+    "as_of_date": "2026-07-24",
+    "source": "requested"
+  },
+  "requested_retrieval_mode": "hybrid",
+  "require_fresh": true,
+  "cases": [
+    {
+      "case_id": "ruihuatai-valuation",
+      "query": "瑞华泰的合理估值",
+      "anchor": {
+        "entity": "瑞华泰",
+        "ticker": "688323.SH",
+        "concepts": [
+          "PI薄膜"
+        ],
+        "matched_by": "name",
+        "warnings": []
+      },
+      "elapsed_seconds": 46.827,
+      "semantic_judge": "disabled_deterministic_replay",
+      "trace": {
+        "provider": "kb_hybrid_closed_loop",
+        "capability": "evidence_search",
+        "status": "success",
+        "detail": "attempts=narrow:ok:6,broad:ok:6,counter:ok:6; conclusion=9; counter=5; discarded=1",
+        "source_trade_date": "2026-04-28",
+        "result_count": 12,
+        "parent_id": null,
+        "step_id": null,
+        "requested_date": "2026-07-24",
+        "served_date": "2026-04-28"
+      },
+      "coverage": {
+        "conclusion_count": 9,
+        "clue_count": 5,
+        "counter_count": 5,
+        "discarded_count": 1,
+        "apertures_attempted": [
+          "narrow",
+          "broad",
+          "counter"
+        ]
+      },
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "瑞华泰 688323.SH",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "broad",
+          "query": "瑞华泰 PI薄膜 瑞华泰 年年度报告 baseline raw cninfo-baseline 上下游 同业",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "counter",
+          "query": "瑞华泰 瑞华泰 年年度报告 baseline raw 风险 证伪 不及预期",
+          "status": "ok",
+          "hit_count": 6
+        }
+      ],
+      "evidence": [
+        {
+          "tool": "evidence_search",
+          "title": "瑞华泰 2025年年度报告 baseline 2026-04-28",
+          "detail": "命中块 wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md::2: - `raw/cninfo-baseline/瑞华泰.json` 相邻块 wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md::1: - **分类**：`annual_report_baseline` - **source_quality**：`official_disclosure` - **fact_hardness**：`baseline` - **evidence_layer**：`L2` - **update_type**：`baseline`",
+          "source": "wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md",
+          "internal_locator": "wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md#wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md::2",
+          "source_date": "2026-04-28",
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md",
+          "freshness": "fresh",
+          "content_hash": "f332a214d2b234eedf5e910cb38da9573ad76f7e"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "瑞华泰（688323）",
+          "detail": "命中块 wiki/entities/瑞华泰.md::5: - 待补充。 相邻块 wiki/entities/瑞华泰.md::4: | 指标 | 数据 | 时间/口径 | 来源 | |---|---:|---|---|",
+          "source": "wiki/entities/瑞华泰.md",
+          "internal_locator": "wiki/entities/瑞华泰.md#wiki/entities/瑞华泰.md::5",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/瑞华泰.md",
+          "freshness": "fresh",
+          "content_hash": "35f7971f2f2396a85ca40ca39f2c5d80d3e8126f"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "688323_瑞华泰_最新逻辑卡",
+          "detail": "命中块 wiki/sources/688323_瑞华泰_最新逻辑卡.md::1: | 项目 | 内容 | |---|---| | 公司名称 | 深圳瑞华泰薄膜科技股份有限公司 | | 股票代码 | 688323.SH | | 上市地 | 上交所科创板（2021-04-28上市，发行价5.97元） | | 所属行业 | 基础化工-塑料（CSRC分类：橡胶和塑料制品业） | | 主营业务 | 高性能聚酰亚胺(PI)薄膜的研发、生产和销售 | | 与本次逻辑相关业务 | 热控PI薄膜（AI散热）/ 电子PI薄膜（FPC、PCB）/ 电工PI薄膜（轨交）/ CPI薄膜（折叠屏、航天柔性太阳翼）/ PSPI（研发中） | | 收入结构 | 2025年：橡胶和塑料制品业3.80亿(98.27%)，其他669万(1.73%)；境内3.67亿(94.84%)，境外1326万(3.43%) | | 利润来源 | 当前**亏损**，无正向利润贡献板块；2025年归母净利-9234万，2026Q1 -2263万 | | 产业链位置 | 上游高端高分子薄膜材料，下游覆盖FPC/柔性显示/AI散热/轨交绝缘/航天 | | 主要客户 | 公司披露：全球知名石墨导热材料制造商、西门子、ABB、中国中车（电工）；头部FPC厂（生益/联茂等链路，互动易未明确确认）；**明确否认**：中芯国际、台积电、苹果、中石科技 | | 最新财报期 | 2025年报+2026Q1（均2026-04-30披露） | | 市值区间及日期 | 约25-30亿元（2026-05月，30元附近）；52周高43.42元（2026-05-20附近），52周低约16元 | --- 相邻块 wiki/sources/688323_瑞华泰_最新逻辑卡.md::0: 市场最近以\"PI薄膜国产替代+AI服务器散热+商业航天+玻璃基板先进封装\"四重题材把瑞华泰从20元区间炒到30+元，但公司已在5-6月连续发布**异常波动公告+互动易澄清**：商业航天/PCB对业绩影响有限、航天收入占比不足1%、PSPI仅初期研发、**与中芯国际/台积电无合作、产品未应用于CoWoS/TGV**；嘉兴二期产能释放是真，但2025年亏损扩大、2026Q1仍亏——当前交易明显领先于基本面事实。 ---",
+          "source": "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+          "internal_locator": "wiki/sources/688323_瑞华泰_最新逻辑卡.md#wiki/sources/688323_瑞华泰_最新逻辑卡.md::1",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+          "freshness": "fresh",
+          "content_hash": "561afc0e19d03b2c5391c16188a6189055d9d7d3"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "PI薄膜",
+          "detail": "命中块 wiki/concepts/PI薄膜.md::1: [[瑞华泰]] 相邻块 wiki/concepts/PI薄膜.md::0: 这是合并远端入库后由 missing concept 审计生成的轻量概念卡。当前用途是让 entity exposure、evidence 和图谱召回有稳定落点；内容尚未经过 DeepDive 展开。",
+          "source": "wiki/concepts/PI薄膜.md",
+          "internal_locator": "wiki/concepts/PI薄膜.md#wiki/concepts/PI薄膜.md::1",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/concepts/PI薄膜.md",
+          "freshness": "fresh",
+          "content_hash": "8fad8aaf44b160a34c5e9dfca08e0936946a5eb4"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "天奈科技（688116）",
+          "detail": "命中块 wiki/entities/天奈科技.md::3: [[汉威科技]] · [[福莱新材]] · [[瑞华泰]] 相邻块 wiki/entities/天奈科技.md::2: [[电子皮肤]] · [[碳纳米管]]",
+          "source": "wiki/entities/天奈科技.md",
+          "internal_locator": "wiki/entities/天奈科技.md#wiki/entities/天奈科技.md::3",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/天奈科技.md",
+          "freshness": "fresh",
+          "content_hash": "29a8c2cac290f69aa43f44e07045aad2f06003d1"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "20260521 市场逻辑精选",
+          "detail": "命中块 wiki/sources/20260521 市场逻辑精选.md::9: - [[川润股份]] - [[英维克]] - [[海光信息]] - [[中科曙光]] - [[北方华创]] - [[中微公司]] - [[锐翔智能]] - [[联芸科技]] - [[思源电气]] - [[瑞华泰]] - [[飞荣达]] - [[上海合晶]] - [[利仁科技]] - [[金利华电]] 相邻块 wiki/sources/20260521 市场逻辑精选.md::8: - [[AI推理CPU]] - [[液冷服务器]] - [[半导体设备]] - [[存储芯片]] - [[电子布]] - [[固态变压器]] - [[先进封装]] - [[半导体硅片]]",
+          "source": "wiki/sources/20260521 市场逻辑精选.md",
+          "internal_locator": "wiki/sources/20260521 市场逻辑精选.md#wiki/sources/20260521 市场逻辑精选.md::9",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/20260521 市场逻辑精选.md",
+          "freshness": "fresh",
+          "content_hash": "6541d1d102ed05beaa14e31d9c6a359077772da0"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "瑞华泰（688323）",
+          "detail": "# 瑞华泰（688323） tags: 功能薄膜 PI薄膜 PCB 商业航天 折叠屏 A股 上市公司 化工 国产替代 柔性显示 section: 瑞华泰（688323） > Baseline 证据 - Raw：`raw/a-stock-baseline/瑞华泰.json` - PI薄膜：mootdx F10主营业务显示：从事高性能PI薄膜的研发、生产和销售 - 化工：mootdx F10主营业务显示：从事高性能PI薄膜的研发、生产和销售 - Raw：`raw/cninfo-baseline/瑞华泰.json` - PI薄膜：已成为产品种类最丰富的高性能PI薄膜供应商之一 - 国产替代：其中多项产品打破国外垄断，实现进口替代 - 柔性显示：成为柔性线路板（FPC）的核心绝缘基材",
+          "source": "wiki/entities/瑞华泰.md",
+          "internal_locator": "wiki/entities/瑞华泰.md#wiki/entities/瑞华泰.md::15",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/瑞华泰.md",
+          "freshness": "fresh",
+          "content_hash": "2d80f19b7bb596ea25aba9ce84cbdc27be11c2da"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "瑞华技术 2025年年度报告 baseline 2026-04-27",
+          "detail": "# 瑞华技术 2025年年度报告 baseline 2026-04-27 tags: machine-source evidence-trace annual-report baseline section: 瑞华技术 2025年年度报告 baseline 2026-04-27 > Raw / Manifest Trace - `raw/cninfo-baseline/瑞华技术.json`",
+          "source": "wiki/sources/瑞华技术 2025年年度报告 baseline 2026-04-27.md",
+          "internal_locator": "wiki/sources/瑞华技术 2025年年度报告 baseline 2026-04-27.md#wiki/sources/瑞华技术 2025年年度报告 baseline 2026-04-27.md::2",
+          "source_date": "2026-04-27",
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/瑞华技术 2025年年度报告 baseline 2026-04-27.md",
+          "freshness": "fresh",
+          "content_hash": "95774deac638b7d6d132a72692e31f04e06a4429"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "方邦股份（688020）",
+          "detail": "# 方邦股份（688020） tags: 方邦股份 688020 功能薄膜 电磁屏蔽膜 导电胶膜 A股 上市公司 section: 方邦股份（688020） > 相关实体 - [[乐凯胶片]] — 功能薄膜企业，同属电子材料赛道 - [[瑞华泰]] — PI薄膜企业，同属功能薄膜赛道",
+          "source": "wiki/entities/方邦股份.md",
+          "internal_locator": "wiki/entities/方邦股份.md#wiki/entities/方邦股份.md::6",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/方邦股份.md",
+          "freshness": "fresh",
+          "content_hash": "ab9cc5cb8ddaf8e1ad547c76db660cee1c888e25"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "瑞华泰（688323）",
+          "detail": "# 瑞华泰（688323） tags: 功能薄膜 PI薄膜 PCB 商业航天 折叠屏 A股 上市公司 化工 国产替代 柔性显示 section: 瑞华泰（688323） > Baseline 风险与反证 - F10/公开资料为L2 baseline，核心程度需后续公告、年报或订单验证。",
+          "source": "wiki/entities/瑞华泰.md",
+          "internal_locator": "wiki/entities/瑞华泰.md#wiki/entities/瑞华泰.md::13",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/瑞华泰.md",
+          "freshness": "fresh",
+          "content_hash": "de02fab672cd3f3c87a2df3488884041b05b3b9f"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "瑞华技术（920099）",
+          "detail": "# 瑞华技术（920099） tags: 石化工艺技术 催化剂 新材料 A股 上市公司 section: 瑞华技术（920099） > Baseline 证据 - Raw：`raw/cninfo-baseline/瑞华技术.json` - 石化工艺技术：2025年营业收入58,102.31万元，同比+4.66%；净利润10,679.35万元，同比-7.90%（2025年年度报告） - 催化剂：截至2025年底公司及全资子公司拥有授权专利78项（发明专利57项），报告期新增授权发明专利10项（含美国专利2项、俄罗斯专利4项）（2025年年度报告） - 新材料：2025年末固定资产382,629,116.75元，较上年末+533.35%（在建工程转固），研发人员59人、占员工总量24.89%（2025年年度报告）",
+          "source": "wiki/entities/瑞华技术.md",
+          "internal_locator": "wiki/entities/瑞华技术.md#wiki/entities/瑞华技术.md::6",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/瑞华技术.md",
+          "freshness": "fresh",
+          "content_hash": "63713d424f45f1d12414663f21ff1349b8577f7e"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "688323_瑞华泰_最新逻辑卡",
+          "detail": "# 688323_瑞华泰_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 PI薄膜 国产替代 科创板 IMA section: 瑞华泰（688323）｜最新逻辑跟踪 > 最新市场逻辑 > 逻辑5：玻璃基板先进封装（PSPI/低介电PI）——**已被公司否认** - **逻辑类型**：半导体 / 先进封装 / 玻璃基板 - **对应业务**：PSPI（光敏PI，处于初期研发） - **主要来源类型**：媒体报道+雪球+东方财富号（**单一/少数来源，公司已否认**） - **IMA可信度**：**高风险待复核**（**公司2026-06-02/06-03/06-04连续澄清**） - **兑现阶段**：**证伪降级** - **是否已进入财务**：未进入 - **简要说明**：市场热炒瑞华泰\"国内唯一可配套玻璃基封装PI厂商、进入中芯国际/台积电/长电科技供应链\"。**公司明确否认**：① PSPI处于初期研发阶段；② 与中芯国际、台积电无合作；③ 产品未应用于CoWoS、TGV。这是本次最严重的预期差\"反向修正\"。 ---",
+          "source": "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+          "internal_locator": "wiki/sources/688323_瑞华泰_最新逻辑卡.md#wiki/sources/688323_瑞华泰_最新逻辑卡.md::6",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+          "freshness": "fresh",
+          "content_hash": "11a672c8d34560b8ba44d8ecfec5b1b2ab8d1325"
+        }
+      ],
+      "gaps": [],
+      "warnings": [
+        "wiki-rag dense 依赖不可用，已回退 BM25"
+      ],
+      "diagnostics": [],
+      "observation": "[支持]瑞华泰 2025年年度报告 baseline 2026-04-28：命中块 wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md::2: - `raw/cninfo-baseline/瑞华泰.json` 相邻块 wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md::1: - **分类**：`annual_report_baseline` - **source_quality**：`official_disclosure` - **fact_hardness**：`baseline` - **evidence_layer**：`L2` - **update_type**：`baseline`；[支持]瑞华泰（688323）：命中块 wiki/entities/瑞华泰.md::5: - 待补充。 相邻块 wiki/entities/瑞华泰.md::4: | 指标 | 数据 | 时间/口径 | 来源 | |---|---:|---|---|；[支持]688323_瑞华泰_最新逻辑卡：命中块 wiki/sources/688323_瑞华泰_最新逻辑卡.md::1: | 项目 | 内容 | |---|---| | 公司名称 | 深圳瑞华泰薄膜科技股份有限公司 | | 股票代码 | 688323.SH | | 上市地 | 上交所科创板（2021-04-28上市，发行价5.97元） | | 所属行业 | 基础化工-塑料（CSRC分类：橡胶和塑料制品业） | | 主营业务 | 高性能聚酰亚胺(PI)薄膜的研发、生产和销售 | | 与本次逻辑相关业务 | 热控PI薄膜（AI散热）/ 电子PI薄膜（FPC、PCB）/ 电工PI薄膜（轨交）/ CPI薄膜（折叠屏、航天柔性太阳翼）/ PSPI（研发中） | | 收入结构 | 2025年：橡胶和塑料制品业3.80亿(98.27%)，其他669万(1.73%)；境内3.67亿(94.84%)，境外1326万(3.43%) | | 利润来源 | 当前**亏损**，无正向利润贡献板块；2025年归母净利-9234万，2026Q1 -2263万 | | 产业链位置 | 上游高端高分子薄膜材料，下游覆盖FPC/柔性显示/AI散热/轨交绝缘/航天 | | 主要客户 | 公司披露：全球知名石墨导热材料制造商、西门子、ABB、中国中车（电工）；头部FPC厂（生益/联茂等链路，互动易未明确确认）；**明确否认**：中芯国际、台积电、苹果、中石科技 | | 最新财报期 | 2025年报+2026Q1（均2026-04-30披露） | | 市值区间及日期 | 约25-30亿元（2026-05月，30元附近）；52周高43.42元（2026-05-20附近），52周低约16元 | --- 相邻块 wiki/sources/688323_瑞华泰_最新逻辑卡.md::0: 市场最近以\"PI薄膜国产替代+AI服务器散热+商业航天+玻璃基板先进封装\"四重题材把瑞华泰从20元区间炒到30+元，但公司已在5-6月连续发布**异常波动公告+互动易澄清**：商业航天/PCB对业绩影响有限、航天收入占比不足1%、PSPI仅初期研发、**与中芯国际/台积电无合作、产品未应用于CoWoS/TGV**；嘉兴二期产能释放是真，但2025年亏损扩大、2026Q1仍亏——当前交易明显领先于基本面事实。 ---；[支持]PI薄膜：命中块 wiki/concepts/PI薄膜.md::1: [[瑞华泰]] 相邻块 wiki/concepts/PI薄膜.md::0: 这是合并远端入库后由 missing concept 审计生成的轻量概念卡。当前用途是让 entity exposure、evidence 和图谱召回有稳定落点；内容尚未经过 DeepDive 展开。；[支持]天奈科技（688116）：命中块 wiki/entities/天奈科技.md::3: [[汉威科技]] · [[福莱新材]] · [[瑞华泰]] 相邻块 wiki/entities/天奈科技.md::2: [[电子皮肤]] · [[碳纳米管]]；[支持]20260521 市场逻辑精选：命中块 wiki/sources/20260521 市场逻辑精选.md::9: - [[川润股份]] - [[英维克]] - [[海光信息]] - [[中科曙光]] - [[北方华创]] - [[中微公司]] - [[锐翔智能]] - [[联芸科技]] - [[思源电气]] - [[瑞华泰]] - [[飞荣达]] - [[上海合晶]] - [[利仁科技]] - [[金利华电]] 相邻块 wiki/sources/20260521 市场逻辑精选.md::8: - [[AI推理CPU]] - [[液冷服务器]] - [[半导体设备]] - [[存储芯片]] - [[电子布]] - [[固态变压器]] - [[先进封装]] - [[半导体硅片]]；[支持]瑞华泰（688323）：# 瑞华泰（688323） tags: 功能薄膜 PI薄膜 PCB 商业航天 折叠屏 A股 上市公司 化工 国产替代 柔性显示 section: 瑞华泰（688323） > Baseline 证据 - Raw：`raw/a-stock-baseline/瑞华泰.json` - PI薄膜：mootdx F10主营业务显示：从事高性能PI薄膜的研发、生产和销售 - 化工：mootdx F10主营业务显示：从事高性能PI薄膜的研发、生产和销售 - Raw：`raw/cninfo-baseline/瑞华泰.json` - PI薄膜：已成为产品种类最丰富的高性能PI薄膜供应商之一 - 国产替代：其中多项产品打破国外垄断，实现进口替代 - 柔性显示：成为柔性线路板（FPC）的核心绝缘基材；[支持]瑞华技术 2025年年度报告 baseline 2026-04-27：# 瑞华技术 2025年年度报告 baseline 2026-04-27 tags: machine-source evidence-trace annual-report baseline section: 瑞华技术 2025年年度报告 baseline 2026-04-27 > Raw / Manifest Trace - `raw/cninfo-baseline/瑞华技术.json`；[支持]方邦股份（688020）：# 方邦股份（688020） tags: 方邦股份 688020 功能薄膜 电磁屏蔽膜 导电胶膜 A股 上市公司 section: 方邦股份（688020） > 相关实体 - [[乐凯胶片]] — 功能薄膜企业，同属电子材料赛道 - [[瑞华泰]] — PI薄膜企业，同属功能薄膜赛道；[反方]瑞华泰（688323）：# 瑞华泰（688323） tags: 功能薄膜 PI薄膜 PCB 商业航天 折叠屏 A股 上市公司 化工 国产替代 柔性显示 section: 瑞华泰（688323） > Baseline 风险与反证 - F10/公开资料为L2 baseline，核心程度需后续公告、年报或订单验证。；[反方]瑞华技术（920099）：# 瑞华技术（920099） tags: 石化工艺技术 催化剂 新材料 A股 上市公司 section: 瑞华技术（920099） > Baseline 证据 - Raw：`raw/cninfo-baseline/瑞华技术.json` - 石化工艺技术：2025年营业收入58,102.31万元，同比+4.66%；净利润10,679.35万元，同比-7.90%（2025年年度报告） - 催化剂：截至2025年底公司及全资子公司拥有授权专利78项（发明专利57项），报告期新增授权发明专利10项（含美国专利2项、俄罗斯专利4项）（2025年年度报告） - 新材料：2025年末固定资产382,629,116.75元，较上年末+533.35%（在建工程转固），研发人员59人、占员工总量24.89%（2025年年度报告）；[反方]688323_瑞华泰_最新逻辑卡：# 688323_瑞华泰_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 PI薄膜 国产替代 科创板 IMA section: 瑞华泰（688323）｜最新逻辑跟踪 > 最新市场逻辑 > 逻辑5：玻璃基板先进封装（PSPI/低介电PI）——**已被公司否认** - **逻辑类型**：半导体 / 先进封装 / 玻璃基板 - **对应业务**：PSPI（光敏PI，处于初期研发） - **主要来源类型**：媒体报道+雪球+东方财富号（**单一/少数来源，公司已否认**） - **IMA可信度**：**高风险待复核**（**公司2026-06-02/06-03/06-04连续澄清**） - **兑现阶段**：**证伪降级** - **是否已进入财务**：未进入 - **简要说明**：市场热炒瑞华泰\"国内唯一可配套玻璃基封装PI厂商、进入中芯国际/台积电/长电科技供应链\"。**公司明确否认**：① PSPI处于初期研发阶段；② 与中芯国际、台积电无合作；③ 产品未应用于CoWoS、TGV。这是本次最严重的预期差\"反向修正\"。 ---"
+    },
+    {
+      "case_id": "weekly-market-cause",
+      "query": "这一周行情下跌的主要原因是什么",
+      "anchor": null,
+      "elapsed_seconds": 19.363,
+      "semantic_judge": "disabled_deterministic_replay",
+      "trace": {
+        "provider": "kb_hybrid_closed_loop",
+        "capability": "evidence_search",
+        "status": "success",
+        "detail": "attempts=narrow:ok:6,broad:ok:6,counter:ok:6; conclusion=10; counter=4; discarded=3",
+        "source_trade_date": "2026-07-01",
+        "result_count": 12,
+        "parent_id": null,
+        "step_id": null,
+        "requested_date": "2026-07-24",
+        "served_date": "2026-07-01"
+      },
+      "coverage": {
+        "conclusion_count": 10,
+        "clue_count": 4,
+        "counter_count": 4,
+        "discarded_count": 3,
+        "apertures_attempted": [
+          "narrow",
+          "broad",
+          "counter"
+        ]
+      },
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "这一周行情下跌的主要原因是什么",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "broad",
+          "query": "这一周行情下跌的主要原因是什么 牧原股份 最新逻辑卡 猪周期去产能 龙头穿越 弹性最大 市场普遍认为当前 上下游 同业",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "counter",
+          "query": "这一周行情下跌的主要原因是什么 牧原股份 最新逻辑卡 猪周期去产能 龙头穿越 风险 证伪 不及预期",
+          "status": "ok",
+          "hit_count": 6
+        }
+      ],
+      "evidence": [
+        {
+          "tool": "evidence_search",
+          "title": "牧原股份_最新逻辑卡_20260614",
+          "detail": "# 牧原股份_最新逻辑卡_20260614 tags: 个股研究 个股逻辑 猪周期 成本领先 产业链 IMA section: 牧原股份（002714）｜最新逻辑跟踪 > 7. 预期差判断 > 市场当前交易的叙事是什么？ > **\"猪周期去产能→龙头穿越→弹性最大\"**：市场普遍认为当前猪价处于底部区域，产能去化不可逆，牧原作为成本最低的龙头，将在猪价回升时获得最大利润弹性。这一叙事在公募持仓极低的背景下，被机构视为\"左侧布局良机\"。股价2026年累计跌约30%，估值处于历史底部。",
+          "source": "wiki/sources/牧原股份_最新逻辑卡_20260614.md",
+          "internal_locator": "wiki/sources/牧原股份_最新逻辑卡_20260614.md#wiki/sources/牧原股份_最新逻辑卡_20260614.md::13",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/牧原股份_最新逻辑卡_20260614.md",
+          "freshness": "fresh",
+          "content_hash": "99853aa7b955d1fa59224fa43fd6e8668b20d3e9"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "晚间卖方研报20260202",
+          "detail": "# 晚间卖方研报20260202 section: 晚间卖方研报20260202 > 主题速览（目录点名，无正文细节） - **AI/半导体**：光纤光缆；存储下跌（D4 16GB 周内首现下跌）点评与解释；AI 能源的变压器/电磁线；半导体下跌点评；SiC；本周重要公司财报 - **其他**：化工下跌原因（「杠杆正常化」交易而非「Warsh 交易」）；影视；白酒暂称避风港；黄金大幅波动但摩根大通依然看好；特斯拉干法工艺；[[晶盛机电]]",
+          "source": "wiki/sources/晚间卖方研报20260202.md",
+          "internal_locator": "wiki/sources/晚间卖方研报20260202.md#wiki/sources/晚间卖方研报20260202.md::2",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/晚间卖方研报20260202.md",
+          "freshness": "fresh",
+          "content_hash": "8d85cdef70cc5ad3133cb1835689732c92c5e348"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "中顺洁柔_002511_最新逻辑跟踪_20260613",
+          "detail": "# 中顺洁柔_002511_最新逻辑跟踪_20260613 tags: 个股研究 个股逻辑 产业链 生活用纸 成本周期 利润率修复 IMA section: 中顺洁柔（002511.SZ）｜最新逻辑跟踪 > 预期差判断 > 市场当前交易的叙事是什么？ 市场当前交易的是**\"浆价下行周期驱动利润率底部修复\"**的叙事——一个典型的成本周期反转逻辑。辅以\"产品高端化+渠道改革+高分红\"的价值属性加成。2026年2月底至6月初，尽管业绩大幅改善，股价仍累计下跌约15.7%（从约8.2元跌至约6.9元），反映市场对修复持续性的怀疑。",
+          "source": "wiki/sources/中顺洁柔_002511_最新逻辑跟踪_20260613.md",
+          "internal_locator": "wiki/sources/中顺洁柔_002511_最新逻辑跟踪_20260613.md#wiki/sources/中顺洁柔_002511_最新逻辑跟踪_20260613.md::12",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/中顺洁柔_002511_最新逻辑跟踪_20260613.md",
+          "freshness": "fresh",
+          "content_hash": "82811f6944a8d6e21b245e06a51d031b6da75564"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "600583_逻辑卡_20260621",
+          "detail": "# 600583_逻辑卡_20260621 tags: 个股研究 个股逻辑 产业链 IMA section: 海油工程｜最新逻辑跟踪 > 最新市场逻辑 > 5. 短期工作量下滑导致业绩承压，但属阶段性波动 - **逻辑类型**：业绩反转 - **对应业务**：整体工程业务 - **主要来源类型**：研报机构 - **IMA可信度**：IMA综合可信 - **兑现阶段**：财务兑现 - **是否已进入财务**：已进入 - **简要说明**：2026Q1公司实现营业收入49.94亿元，同比下降2.00%；归母净利润4.38亿元，同比下降18.94%。主要原因是部分项目处于施工中期，集中交付尚未兑现，且毛利率较高的海上安装工作量占比下降。研报认为这是两期计划衔接导致的阶段性波动。",
+          "source": "wiki/sources/600583_逻辑卡_20260621.md",
+          "internal_locator": "wiki/sources/600583_逻辑卡_20260621.md#wiki/sources/600583_逻辑卡_20260621.md::6",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/600583_逻辑卡_20260621.md",
+          "freshness": "fresh",
+          "content_hash": "4fe6495932d425fdc7752d4ad963f5c52427e46d"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "海油工程（600583）",
+          "detail": "# 海油工程（600583） tags: 海上油气 深海 石油 A股 上市公司 EPCI section: 海油工程（600583） > IMA 最新逻辑跟踪 > 2026-06-21｜[[600583_逻辑卡_20260621]] > 核心逻辑 > 5. 短期工作量下滑导致业绩承压，但属阶段性波动 - **逻辑类型**：业绩反转 - **对应业务**：整体工程业务 - **主要来源类型**：研报机构 - **IMA可信度**：IMA综合可信 - **兑现阶段**：财务兑现 - **是否已进入财务**：已进入 - **简要说明**：2026Q1公司实现营业收入49.94亿元，同比下降2.00%；归母净利润4.38亿元，同比下降18.94%。主要原因是部分项目处于施工中期，集中交付尚未兑现，且毛利率较高的海上安装工作量占比下降。研报认为这是两期计划衔接导致的阶段性波动。",
+          "source": "wiki/entities/海油工程.md",
+          "internal_locator": "wiki/entities/海油工程.md#wiki/entities/海油工程.md::20",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/海油工程.md",
+          "freshness": "fresh",
+          "content_hash": "db389eb2b663a67c58217315768d74d1e54abcd8"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "牧原股份",
+          "detail": "# 牧原股份 tags: 预制菜 生猪养殖 全产业链 冷鲜肉 A股 上市公司 section: 牧原股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[牧原股份_最新逻辑卡_20260614]] > 核心逻辑 > 逻辑一：猪周期深度亏损 → 产能加速去化 → 龙头穿越后弹性最大 | 字段 | 内容 | |---|---| | 逻辑类型 | 价格/产能/周期反转 | | 对应业务 | 生猪养殖（核心主业） | | 主要来源类型 | 研报机构 + 产业链资料（多来源交叉印证） | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | 事实验证（猪价已至近十年低点，产能开始去化，但猪价尚未回升） | | 是否已进入财务 | 未进入（猪价低迷已导致Q1亏损，去产能→猪价回升→盈利恢复的传导尚未完成） | | 简要说明 | 2026年6月猪价跌至约9.5元/kg（近十年低点），全行业头均亏损300-400元，自繁自养连续亏损超8个月。能繁母猪存栏连续9个月环比下降但绝对量仍高（2026Q1末3,904万头）。国泰海通、申万、财通、国金等多机构一致判断2026年为\"近年最佳去产能周期\"，5-6月仔猪价跌后去产能将加速。牧原出栏量全球第一（2025年7,798万头），成本行业最低，一旦猪价回升将最先且最大受益。 |",
+          "source": "wiki/entities/牧原股份.md",
+          "internal_locator": "wiki/entities/牧原股份.md#wiki/entities/牧原股份.md::13",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/牧原股份.md",
+          "freshness": "fresh",
+          "content_hash": "e983595c634c55a6bac6026dabe72eb90f3f2c6f"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "温氏股份_最新逻辑卡",
+          "detail": "# 温氏股份_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 IMA section: 温氏股份（300498.SZ）｜最新逻辑跟踪 > 一句话结论 市场当前交易的核心逻辑是**\"猪周期底部 + 政策供给侧改革驱动产能加速去化 → 2026H2猪价反转预期\"**，温氏凭借**成本优势（11.8元/kg）、双主业对冲（鸡业稳定现金流）和充裕资金储备**被视为最可能穿越底部的龙头之一；逻辑在亏损端已充分进入财务数据，但反转弹性仍需等待猪价拐点确认。 ---",
+          "source": "wiki/sources/温氏股份_最新逻辑卡.md",
+          "internal_locator": "wiki/sources/温氏股份_最新逻辑卡.md#wiki/sources/温氏股份_最新逻辑卡.md::0",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/温氏股份_最新逻辑卡.md",
+          "freshness": "fresh",
+          "content_hash": "d0344b20c7ff3a1105267f30b7a0743431ec8e14"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "天康生物_002100_最新逻辑卡_20260613",
+          "detail": "# 天康生物_002100_最新逻辑卡_20260613 tags: 个股研究 个股逻辑 猪周期 产业链 生猪养殖 IMA section: 天康生物（002100.SZ）｜最新逻辑跟踪 > 7. 预期差判断 > 市场当前交易的叙事是什么？ 市场围绕**\"猪周期底部+逆势并购扩产+成本优势\"**三重叙事交易天康生物： 1. 行业深度亏损 → 产能加速去化 → 猪价反转 → 出栏量500万头的天康将享受巨大利润弹性 2. 羌都畜牧连续6年盈利验证了\"优质产能\"标签，并购完成后天康从\"普通养殖企业\"升级为\"低成本头部玩家\" 3. 兵团农牧平台整合预期提供长期天花板想象空间",
+          "source": "wiki/sources/天康生物_002100_最新逻辑卡_20260613.md",
+          "internal_locator": "wiki/sources/天康生物_002100_最新逻辑卡_20260613.md#wiki/sources/天康生物_002100_最新逻辑卡_20260613.md::12",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/天康生物_002100_最新逻辑卡_20260613.md",
+          "freshness": "fresh",
+          "content_hash": "be528300a70c8f942b58c07744e1e7690acfe96e"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "温氏股份",
+          "detail": "# 温氏股份 tags: 温氏股份 300498 畜禽养殖 预制菜 食品加工 生猪养殖 禽类养殖 A股 上市公司 section: 温氏股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[温氏股份_最新逻辑卡]] - **一句话**：市场当前交易的核心逻辑是**\"猪周期底部 + 政策供给侧改革驱动产能加速去化 → 2026H2猪价反转预期\"**，温氏凭借**成本优势（11.8元/kg）、双主业对冲（鸡业稳定现金流）和充裕资金储备**被视为最可能穿越底部的龙头之一；逻辑在亏损端已充分进入财务数据，但反转弹性仍需等待猪价拐点确认。 - **IMA可信度**：IMA综合可信 - **逻辑阶段**：财务兑现（亏损端）/ 能力验证（周期反转端） - **财务验证**：部分进入（亏损与成本改善已体现，反转尚未兑现） - **相关业务**：生猪养殖、肉鸡（黄羽鸡）养殖、配套业务（动保、农牧设备、投资、环保）",
+          "source": "wiki/entities/温氏股份.md",
+          "internal_locator": "wiki/entities/温氏股份.md#wiki/entities/温氏股份.md::6",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/温氏股份.md",
+          "freshness": "fresh",
+          "content_hash": "cc59ccc8e7507b4526a1b469583f51964c3748ea"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "猪周期",
+          "detail": "# 猪周期 tags: 农业 养殖 生猪养殖 猪周期 周期 section: 猪周期 > 概念增量 > 2026-06-01｜IMA 猪周期 Deep Dive 数据抽取 - 周期位置：处于深度亏损与政策去产能共振阶段，尚未进入猪价全面右侧确认。 - 关键变量：能繁母猪存栏、新生仔猪数量、出栏体重、PSY、自繁自养头均利润和现金流压力。 - 公司映射：补充牧原股份、温氏股份、神农集团、德康农牧、海大集团、巨星农牧、天康生物、立华股份、新希望等养殖链暴露。 - 风险：生产效率提升抵消去化、需求稳定但不强、政策执行不及预期、公司数据口径需核验。 - 来源：IMA parsed pool `猪周期_DeepDive_数据抽取_20260601`。",
+          "source": "wiki/concepts/猪周期.md",
+          "internal_locator": "wiki/concepts/猪周期.md#wiki/concepts/猪周期.md::9",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/concepts/猪周期.md",
+          "freshness": "fresh",
+          "content_hash": "36c49a22636407374ff732f94830cbc30fec3cae"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "温氏股份_最新逻辑卡",
+          "detail": "# 温氏股份_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 IMA section: 温氏股份（300498.SZ）｜最新逻辑跟踪 > 最新市场逻辑 > 逻辑2：成本领先优势持续扩大——低成本龙头穿越周期 | 维度 | 内容 | |---|---| | 逻辑类型 | 成本 / 业绩反转 | | 对应业务 | 生猪养殖 | | 主要来源类型 | 公司官方（投资者关系活动记录表）+ 研报机构 | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | **财务兑现** | | 是否已进入财务 | **已进入** | | 简要说明 | 2026年5月综合成本5.9元/斤（11.8元/kg），与牧原（11.6元/kg）差距仅0.2元/kg，远优于行业高成本企业（14-16元/kg）。PSY从2025全年26.3头提升至2026年5月28头，规划每年提升1头以上，PSY每提升1头预计降低成本约10元/头。2026全年成本目标11.8元/kg（vs 2025年12.2元/kg）。 |",
+          "source": "wiki/sources/温氏股份_最新逻辑卡.md",
+          "internal_locator": "wiki/sources/温氏股份_最新逻辑卡.md#wiki/sources/温氏股份_最新逻辑卡.md::3",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/sources/温氏股份_最新逻辑卡.md",
+          "freshness": "fresh",
+          "content_hash": "0eeddd658f7ad5bf1e20ea1dbc42afc87b0d549d"
+        },
+        {
+          "tool": "evidence_search",
+          "title": "温氏股份",
+          "detail": "# 温氏股份 tags: 温氏股份 300498 畜禽养殖 预制菜 食品加工 生猪养殖 禽类养殖 A股 上市公司 section: 温氏股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[温氏股份_最新逻辑卡]] > 核心逻辑 > 逻辑2：成本领先优势持续扩大——低成本龙头穿越周期 | 维度 | 内容 | |---|---| | 逻辑类型 | 成本 / 业绩反转 | | 对应业务 | 生猪养殖 | | 主要来源类型 | 公司官方（投资者关系活动记录表）+ 研报机构 | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | **财务兑现** | | 是否已进入财务 | **已进入** | | 简要说明 | 2026年5月综合成本5.9元/斤（11.8元/kg），与牧原（11.6元/kg）差距仅0.2元/kg，远优于行业高成本企业（14-16元/kg）。PSY从2025全年26.3头提升至2026年5月28头，规划每年提升1头以上，PSY每提升1头预计降低成本约10元/头。2026全年成本目标11.8元/kg（vs 2025年12.2元/kg）。 |",
+          "source": "wiki/entities/温氏股份.md",
+          "internal_locator": "wiki/entities/温氏股份.md#wiki/entities/温氏股份.md::8",
+          "source_date": null,
+          "evidence_tier": "",
+          "supports": [],
+          "contradicts": [],
+          "independent_key": "wiki/entities/温氏股份.md",
+          "freshness": "fresh",
+          "content_hash": "c8f9525ec48802fcf0cf9667e7807aac6c01fbb9"
+        }
+      ],
+      "gaps": [],
+      "warnings": [],
+      "diagnostics": [],
+      "observation": "[支持]牧原股份_最新逻辑卡_20260614：# 牧原股份_最新逻辑卡_20260614 tags: 个股研究 个股逻辑 猪周期 成本领先 产业链 IMA section: 牧原股份（002714）｜最新逻辑跟踪 > 7. 预期差判断 > 市场当前交易的叙事是什么？ > **\"猪周期去产能→龙头穿越→弹性最大\"**：市场普遍认为当前猪价处于底部区域，产能去化不可逆，牧原作为成本最低的龙头，将在猪价回升时获得最大利润弹性。这一叙事在公募持仓极低的背景下，被机构视为\"左侧布局良机\"。股价2026年累计跌约30%，估值处于历史底部。；[支持]晚间卖方研报20260202：# 晚间卖方研报20260202 section: 晚间卖方研报20260202 > 主题速览（目录点名，无正文细节） - **AI/半导体**：光纤光缆；存储下跌（D4 16GB 周内首现下跌）点评与解释；AI 能源的变压器/电磁线；半导体下跌点评；SiC；本周重要公司财报 - **其他**：化工下跌原因（「杠杆正常化」交易而非「Warsh 交易」）；影视；白酒暂称避风港；黄金大幅波动但摩根大通依然看好；特斯拉干法工艺；[[晶盛机电]]；[支持]中顺洁柔_002511_最新逻辑跟踪_20260613：# 中顺洁柔_002511_最新逻辑跟踪_20260613 tags: 个股研究 个股逻辑 产业链 生活用纸 成本周期 利润率修复 IMA section: 中顺洁柔（002511.SZ）｜最新逻辑跟踪 > 预期差判断 > 市场当前交易的叙事是什么？ 市场当前交易的是**\"浆价下行周期驱动利润率底部修复\"**的叙事——一个典型的成本周期反转逻辑。辅以\"产品高端化+渠道改革+高分红\"的价值属性加成。2026年2月底至6月初，尽管业绩大幅改善，股价仍累计下跌约15.7%（从约8.2元跌至约6.9元），反映市场对修复持续性的怀疑。；[支持]600583_逻辑卡_20260621：# 600583_逻辑卡_20260621 tags: 个股研究 个股逻辑 产业链 IMA section: 海油工程｜最新逻辑跟踪 > 最新市场逻辑 > 5. 短期工作量下滑导致业绩承压，但属阶段性波动 - **逻辑类型**：业绩反转 - **对应业务**：整体工程业务 - **主要来源类型**：研报机构 - **IMA可信度**：IMA综合可信 - **兑现阶段**：财务兑现 - **是否已进入财务**：已进入 - **简要说明**：2026Q1公司实现营业收入49.94亿元，同比下降2.00%；归母净利润4.38亿元，同比下降18.94%。主要原因是部分项目处于施工中期，集中交付尚未兑现，且毛利率较高的海上安装工作量占比下降。研报认为这是两期计划衔接导致的阶段性波动。；[支持]海油工程（600583）：# 海油工程（600583） tags: 海上油气 深海 石油 A股 上市公司 EPCI section: 海油工程（600583） > IMA 最新逻辑跟踪 > 2026-06-21｜[[600583_逻辑卡_20260621]] > 核心逻辑 > 5. 短期工作量下滑导致业绩承压，但属阶段性波动 - **逻辑类型**：业绩反转 - **对应业务**：整体工程业务 - **主要来源类型**：研报机构 - **IMA可信度**：IMA综合可信 - **兑现阶段**：财务兑现 - **是否已进入财务**：已进入 - **简要说明**：2026Q1公司实现营业收入49.94亿元，同比下降2.00%；归母净利润4.38亿元，同比下降18.94%。主要原因是部分项目处于施工中期，集中交付尚未兑现，且毛利率较高的海上安装工作量占比下降。研报认为这是两期计划衔接导致的阶段性波动。；[支持]牧原股份：# 牧原股份 tags: 预制菜 生猪养殖 全产业链 冷鲜肉 A股 上市公司 section: 牧原股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[牧原股份_最新逻辑卡_20260614]] > 核心逻辑 > 逻辑一：猪周期深度亏损 → 产能加速去化 → 龙头穿越后弹性最大 | 字段 | 内容 | |---|---| | 逻辑类型 | 价格/产能/周期反转 | | 对应业务 | 生猪养殖（核心主业） | | 主要来源类型 | 研报机构 + 产业链资料（多来源交叉印证） | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | 事实验证（猪价已至近十年低点，产能开始去化，但猪价尚未回升） | | 是否已进入财务 | 未进入（猪价低迷已导致Q1亏损，去产能→猪价回升→盈利恢复的传导尚未完成） | | 简要说明 | 2026年6月猪价跌至约9.5元/kg（近十年低点），全行业头均亏损300-400元，自繁自养连续亏损超8个月。能繁母猪存栏连续9个月环比下降但绝对量仍高（2026Q1末3,904万头）。国泰海通、申万、财通、国金等多机构一致判断2026年为\"近年最佳去产能周期\"，5-6月仔猪价跌后去产能将加速。牧原出栏量全球第一（2025年7,798万头），成本行业最低，一旦猪价回升将最先且最大受益。 |；[支持]温氏股份_最新逻辑卡：# 温氏股份_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 IMA section: 温氏股份（300498.SZ）｜最新逻辑跟踪 > 一句话结论 市场当前交易的核心逻辑是**\"猪周期底部 + 政策供给侧改革驱动产能加速去化 → 2026H2猪价反转预期\"**，温氏凭借**成本优势（11.8元/kg）、双主业对冲（鸡业稳定现金流）和充裕资金储备**被视为最可能穿越底部的龙头之一；逻辑在亏损端已充分进入财务数据，但反转弹性仍需等待猪价拐点确认。 ---；[支持]天康生物_002100_最新逻辑卡_20260613：# 天康生物_002100_最新逻辑卡_20260613 tags: 个股研究 个股逻辑 猪周期 产业链 生猪养殖 IMA section: 天康生物（002100.SZ）｜最新逻辑跟踪 > 7. 预期差判断 > 市场当前交易的叙事是什么？ 市场围绕**\"猪周期底部+逆势并购扩产+成本优势\"**三重叙事交易天康生物： 1. 行业深度亏损 → 产能加速去化 → 猪价反转 → 出栏量500万头的天康将享受巨大利润弹性 2. 羌都畜牧连续6年盈利验证了\"优质产能\"标签，并购完成后天康从\"普通养殖企业\"升级为\"低成本头部玩家\" 3. 兵团农牧平台整合预期提供长期天花板想象空间；[支持]温氏股份：# 温氏股份 tags: 温氏股份 300498 畜禽养殖 预制菜 食品加工 生猪养殖 禽类养殖 A股 上市公司 section: 温氏股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[温氏股份_最新逻辑卡]] - **一句话**：市场当前交易的核心逻辑是**\"猪周期底部 + 政策供给侧改革驱动产能加速去化 → 2026H2猪价反转预期\"**，温氏凭借**成本优势（11.8元/kg）、双主业对冲（鸡业稳定现金流）和充裕资金储备**被视为最可能穿越底部的龙头之一；逻辑在亏损端已充分进入财务数据，但反转弹性仍需等待猪价拐点确认。 - **IMA可信度**：IMA综合可信 - **逻辑阶段**：财务兑现（亏损端）/ 能力验证（周期反转端） - **财务验证**：部分进入（亏损与成本改善已体现，反转尚未兑现） - **相关业务**：生猪养殖、肉鸡（黄羽鸡）养殖、配套业务（动保、农牧设备、投资、环保）；[支持]猪周期：# 猪周期 tags: 农业 养殖 生猪养殖 猪周期 周期 section: 猪周期 > 概念增量 > 2026-06-01｜IMA 猪周期 Deep Dive 数据抽取 - 周期位置：处于深度亏损与政策去产能共振阶段，尚未进入猪价全面右侧确认。 - 关键变量：能繁母猪存栏、新生仔猪数量、出栏体重、PSY、自繁自养头均利润和现金流压力。 - 公司映射：补充牧原股份、温氏股份、神农集团、德康农牧、海大集团、巨星农牧、天康生物、立华股份、新希望等养殖链暴露。 - 风险：生产效率提升抵消去化、需求稳定但不强、政策执行不及预期、公司数据口径需核验。 - 来源：IMA parsed pool `猪周期_DeepDive_数据抽取_20260601`。；[反方]温氏股份_最新逻辑卡：# 温氏股份_最新逻辑卡 tags: 个股研究 个股逻辑 产业链 IMA section: 温氏股份（300498.SZ）｜最新逻辑跟踪 > 最新市场逻辑 > 逻辑2：成本领先优势持续扩大——低成本龙头穿越周期 | 维度 | 内容 | |---|---| | 逻辑类型 | 成本 / 业绩反转 | | 对应业务 | 生猪养殖 | | 主要来源类型 | 公司官方（投资者关系活动记录表）+ 研报机构 | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | **财务兑现** | | 是否已进入财务 | **已进入** | | 简要说明 | 2026年5月综合成本5.9元/斤（11.8元/kg），与牧原（11.6元/kg）差距仅0.2元/kg，远优于行业高成本企业（14-16元/kg）。PSY从2025全年26.3头提升至2026年5月28头，规划每年提升1头以上，PSY每提升1头预计降低成本约10元/头。2026全年成本目标11.8元/kg（vs 2025年12.2元/kg）。 |；[反方]温氏股份：# 温氏股份 tags: 温氏股份 300498 畜禽养殖 预制菜 食品加工 生猪养殖 禽类养殖 A股 上市公司 section: 温氏股份 > IMA 最新逻辑跟踪 > 2026-06-14｜[[温氏股份_最新逻辑卡]] > 核心逻辑 > 逻辑2：成本领先优势持续扩大——低成本龙头穿越周期 | 维度 | 内容 | |---|---| | 逻辑类型 | 成本 / 业绩反转 | | 对应业务 | 生猪养殖 | | 主要来源类型 | 公司官方（投资者关系活动记录表）+ 研报机构 | | IMA可信度 | **IMA综合可信** | | 兑现阶段 | **财务兑现** | | 是否已进入财务 | **已进入** | | 简要说明 | 2026年5月综合成本5.9元/斤（11.8元/kg），与牧原（11.6元/kg）差距仅0.2元/kg，远优于行业高成本企业（14-16元/kg）。PSY从2025全年26.3头提升至2026年5月28头，规划每年提升1头以上，PSY每提升1头预计降低成本约10元/头。2026全年成本目标11.8元/kg（vs 2025年12.2元/kg）。 |"
+    }
+  ],
+  "worker": {
+    "enabled": true,
+    "state": "ready",
+    "active": 1,
+    "configured_workers": 1,
+    "model_load_count": 2,
+    "prewarm_latency_ms": null,
+    "last_error_type": null,
+    "lifecycle": "startup_prewarm"
+  }
+}

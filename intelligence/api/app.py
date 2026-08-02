@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import threading
 import time
 from collections import Counter
@@ -22,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from intelligence import userspace
-from intelligence.paths import default_paths
+from intelligence.paths import default_market_db_path, default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -44,6 +46,10 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
+from intelligence.services.agent_runtime_factory import (
+    resolve_runtime_backend,
+    runtime_backend_readiness,
+)
 from intelligence.services.forecast_learning import (
     approve_reflection,
     learning_feedback_projection,
@@ -54,16 +60,36 @@ from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     sanitize_user_visible_artifact_text,
 )
+from intelligence.services.continuous_turn_adapter import (
+    ContinuousTurnAdapter,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
 )
+from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.services.episode_progress import (
+    EpisodeProgress,
+    RunEpisodeProgressPublisher,
+    project_episode_progress,
+)
+from intelligence.services.episode_tools import latest_market_date
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+)
+from intelligence.services.glm_agent_runtime import (
+    DEFAULT_GLM_LLM_TIMEOUT,
+    GLMAgentRuntime,
+    GLMModelClient,
+)
 from intelligence.services.llm_refine import LLMProvider
+from intelligence.services.keychain_credentials import KeychainCredentialError
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
 from intelligence.services.run_store import RunStore
+from intelligence.services.runtime_provenance import build_runtime_provenance
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
     SelfUseLedger,
@@ -81,6 +107,8 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+_CONTINUOUS_TURN_TIMEOUT_SECONDS = 120.0
+_CONTINUOUS_RUNTIME_MODES = frozenset({"off", "canary", "on"})
 
 
 def _positive_float_env(name: str, default: float) -> float:
@@ -89,6 +117,194 @@ def _positive_float_env(name: str, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
+
+
+def _continuous_runtime_mode() -> str:
+    mode = os.environ.get("ASK_CONTINUOUS_RUNTIME", "off").strip().lower()
+    return mode if mode in _CONTINUOUS_RUNTIME_MODES else "off"
+
+
+def _runtime_market_reference_date() -> str | None:
+    paths = default_paths()
+    snapshot = validate_market_snapshot_root(paths.market_snapshot_dir)
+    if snapshot.get("ready") is True:
+        summary = snapshot.get("summary")
+        served = (
+            summary.get("served_trade_date")
+            if isinstance(summary, dict)
+            else None
+        )
+        value = str(served or snapshot.get("date") or "").strip()
+        if value:
+            return value[:10]
+    return latest_market_date(paths.finance_root)
+
+
+def _zero_inner_synthesis_reserve(
+    *,
+    tier: str,
+    question_type: str,
+) -> float:
+    """SDK/headless already draft inside the episode; reserve only outside it."""
+
+    del tier, question_type
+    return 0.0
+
+
+def _build_continuous_turn_adapter(
+    *,
+    providers: tuple[LLMProvider, ...],
+    run_id: str,
+    assistant_message_id: str,
+    run_store: RunStore | None = None,
+    conversation_id: str = "",
+    event_id_prefix: str = "",
+    is_cancelled: Callable[[], bool] | None = None,
+    timeout: float = 90.0,
+    deadline_expires_at: float | None = None,
+) -> ContinuousTurnAdapter:
+    """Compose one provider chain into a shared continuous research kernel."""
+
+    progress_publisher = None
+    if run_store is not None:
+        if not conversation_id.strip():
+            raise ValueError("conversation_id is required with a progress RunStore")
+        progress_publisher = RunEpisodeProgressPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            is_cancelled=is_cancelled,
+            event_id_prefix=event_id_prefix,
+        )
+    elif conversation_id.strip():
+        raise ValueError("progress RunStore is required with conversation_id")
+
+    def publish_episode_event(event) -> None:
+        if progress_publisher is None:
+            return
+        progress = project_episode_progress(event)
+        if progress is not None:
+            progress_publisher.publish(progress)
+
+    def publish_public_progress(progress: EpisodeProgress) -> None:
+        if progress_publisher is None:
+            return
+        # The controller already emits the one public "understanding" stage
+        # before the adapter starts. Do not show a second identical milestone
+        # merely because the adapter also has an internal phase hook.
+        if progress.key == "adapter:understanding":
+            return
+        progress_publisher.publish(progress)
+
+    selection = resolve_runtime_backend()
+    client = GLMModelClient(
+        providers=providers,
+        is_cancelled=is_cancelled,
+    )
+    finalizer = EpisodeFinalizer(
+        client,
+        llm_timeout=DEFAULT_GLM_LLM_TIMEOUT,
+    )
+    if selection.name == "continuous_glm":
+        runtime = GLMAgentRuntime(
+            client=client,
+            finalizer=finalizer,
+            is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
+        )
+    elif selection.name == "sdk_glm":
+        if not providers:
+            raise RuntimeError("sdk_glm provider unavailable")
+        from intelligence.services.openai_agents_runtime import (
+            OpenAIAgentsRuntime,
+            build_glm_sdk_model_factory,
+        )
+
+        provider = providers[0]
+        runtime = OpenAIAgentsRuntime(
+            backend="sdk_glm",
+            model_name=provider.model,
+            model_factory=build_glm_sdk_model_factory(
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                model=provider.model,
+                timeout=timeout,
+            ),
+            is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
+        )
+    elif selection.name == "sdk_gpt":
+        if not providers:
+            raise RuntimeError("sdk_gpt provider unavailable")
+        from intelligence.services.openai_agents_runtime import (
+            OpenAIAgentsRuntime,
+            build_gpt_sdk_model_factory,
+        )
+
+        provider = providers[0]
+        if provider.name != "openai":
+            raise RuntimeError("sdk_gpt requires an OpenAI provider")
+        model_name = provider.model
+        runtime = OpenAIAgentsRuntime(
+            backend="sdk_gpt",
+            model_name=model_name,
+            model_factory=build_gpt_sdk_model_factory(
+                api_key=provider.api_key,
+                base_url=provider.base_url,
+                model=model_name,
+                timeout=timeout,
+            ),
+            is_cancelled=is_cancelled,
+            event_sink=(
+                publish_episode_event if progress_publisher is not None else None
+            ),
+        )
+    else:
+        if (
+            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
+            != "1"
+        ):
+            raise RuntimeError("Codex headless runtime is benchmark-only")
+        from intelligence.services.codex_headless_runtime import (
+            CodexHeadlessRuntime,
+        )
+
+        runtime = CodexHeadlessRuntime(
+            model=os.environ.get("CODEX_HEADLESS_MODEL"),
+            is_cancelled=is_cancelled,
+        )
+    semantic_verifier = SemanticEpisodeVerifier(
+        primary_judge=client,
+        finalizer=finalizer,
+    )
+    task_id = f"{run_id}:{assistant_message_id}"
+    return ContinuousTurnAdapter(
+        runtime=runtime,
+        semantic_verifier=semantic_verifier,
+        runtime_name=selection.name,
+        mode=_continuous_runtime_mode(),
+        task_id_factory=lambda: task_id,
+        timeout=timeout,
+        synthesis_reserve_for_task=(
+            GLMAgentRuntime.synthesis_reserve_for_task
+            if selection.name == "continuous_glm"
+            else _zero_inner_synthesis_reserve
+        ),
+        today=rs._now_iso()[:10],
+        latest_data_date=_runtime_market_reference_date(),
+        is_cancelled=is_cancelled,
+        deadline_expires_at=deadline_expires_at,
+        progress_sink=(
+            publish_public_progress if progress_publisher is not None else None
+        ),
+    )
+
+
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
 _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
@@ -97,6 +313,9 @@ _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
         "provider_unavailable",
         "quality_gate_rejected",
         "budget_exhausted",
+        # 本轮 LLM 调用预算耗尽。原先归进 provider_unavailable，对外读起来像
+        # 「供应商挂了」，实际是我们自己的限额——是固定枚举，不含用户数据。
+        "call_budget_exhausted",
     }
 )
 _PUBLIC_METADATA_STRING_FIELDS = frozenset(
@@ -132,6 +351,52 @@ _PUBLIC_METADATA_STRING_LIST_FIELDS = frozenset(
         "selected_perspective_ids",
     }
 )
+_PUBLIC_PROGRESS_STAGES = frozenset(
+    {"understanding", "planning", "research", "repair", "verification", "finalizing"}
+)
+_PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
+    "turn_controller": "understanding",
+    "route_skills": "planning",
+    "ask_current_turn": "research",
+    "ask_retrieve_compose": "research",
+    "continuous_evidence_binding": "verification",
+    "llm_call_ledger": "verification",
+    "query_ledger": "research",
+    "research_execution_budget": "research",
+    "budget": "research",
+    "render_artifacts": "finalizing",
+    "foresight_followups": "finalizing",
+}
+_PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
+    "turn_controller": "已完成问题理解与任务对齐。",
+    "route_skills": "已确认本轮所需研究能力。",
+    "ask_current_turn": "正在检索本轮证据。",
+    "ask_retrieve_compose": "已完成本轮证据检索与整理。",
+    "continuous_evidence_binding": "已完成回答与证据的绑定核对。",
+    "llm_call_ledger": "已完成模型调用状态核对。",
+    "query_ledger": "已完成检索执行状态核对。",
+    "research_execution_budget": "已完成本轮研究预算核对。",
+    "budget": "已完成本轮研究预算核对。",
+    "render_artifacts": "已生成本轮研究产物。",
+    "foresight_followups": "已整理后续核验问题。",
+}
+_PUBLIC_PROGRESS_MESSAGES = {
+    "understanding": "已对齐本轮任务并进入研究。",
+    "planning": "已形成研究计划并确认研究深度。",
+    "research": "已完成一项证据核对。",
+    "repair": "正在针对关键证据缺口定向补证。",
+    "verification": "正在核验证据绑定与回答完整性。",
+    "finalizing": "正在基于核验结果形成公开回答。",
+}
+_PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
+    {
+        "task_frame_hash",
+        "turn_intent",
+        "research_plan",
+        "pending_task_frame",
+        "legacy_query_envelope",
+    }
+)
 
 
 def _public_degrades(values: list[str]) -> list[str]:
@@ -146,6 +411,11 @@ def _public_degrades(values: list[str]) -> list[str]:
 
 def _public_run_payload(run: rs.Run) -> dict[str, object]:
     payload = asdict(run)
+    payload["artifacts"] = [
+        artifact
+        for artifact in run.artifacts
+        if rs.artifact_visibility(artifact) == "public"
+    ]
     payload["degrades"] = _public_degrades(run.degrades)
     if run.error:
         payload["error"] = sanitize_user_visible_artifact_text(run.error)
@@ -163,10 +433,7 @@ def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
 def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
     return bool(path) and (
         path[-1] in _PUBLIC_METADATA_STRING_FIELDS
-        or (
-            len(path) >= 2
-            and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS
-        )
+        or (len(path) >= 2 and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS)
     )
 
 
@@ -220,20 +487,143 @@ def _public_value(
                 preserve_text_paths=preserve_text_paths,
             )
             for key, item in value.items()
+            if str(key) not in _PUBLIC_HIDDEN_CONTROL_KEYS
         }
     return value
 
 
 def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
-    projected = _public_value(step)
-    return projected if isinstance(projected, dict) else {}
+    raw_name = str(step.get("name") or "").strip()
+    stage = (
+        raw_name
+        if raw_name in _PUBLIC_PROGRESS_STAGES
+        else _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME.get(raw_name, "research")
+    )
+    status = str(step.get("status") or "completed").strip().lower()
+    if status not in {"running", "completed", "failed", "skipped"}:
+        status = "completed"
+    message = _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME.get(raw_name)
+    if message is None:
+        if status == "failed":
+            message = "一项研究步骤未完成，相关结果未纳入结论。"
+        elif status == "running":
+            message = _PUBLIC_PROGRESS_MESSAGES[stage].replace("已完成", "正在完成")
+        else:
+            message = _PUBLIC_PROGRESS_MESSAGES[stage]
+    raw_step_id = str(step.get("step_id") or raw_name or "step")
+    public_step_id = hashlib.sha256(raw_step_id.encode("utf-8")).hexdigest()[:12]
+    warnings = step.get("warnings")
+    public_step: dict[str, object] = {
+        "step_id": f"step:{public_step_id}",
+        "name": stage,
+        "status": status,
+        "started_at": str(step.get("started_at") or ""),
+        "finished_at": (
+            str(step["finished_at"])
+            if step.get("finished_at") is not None
+            else None
+        ),
+        "input_summary": "",
+        "output_summary": message,
+        "warnings": _public_degrades(
+            [str(item) for item in warnings]
+            if isinstance(warnings, list)
+            else []
+        ),
+    }
+    diagnostic = _public_synthesis_diagnostic(step)
+    if diagnostic is not None:
+        public_step["diagnostic"] = diagnostic
+    return public_step
+
+
+def _public_synthesis_diagnostic(
+    step: dict[str, object],
+) -> dict[str, object] | None:
+    if str(step.get("name") or "") != "answer_synthesis":
+        return None
+    raw_summary = step.get("output_summary")
+    if not isinstance(raw_summary, str):
+        return None
+    try:
+        summary = json.loads(raw_summary)
+    except json.JSONDecodeError:
+        return None
+    diagnostic = summary.get("diagnostic") if isinstance(summary, dict) else None
+    if not isinstance(diagnostic, dict):
+        return None
+    required_fields = {
+        "state",
+        "reason_code",
+        "detail",
+        "prepared_message_count",
+        "candidate_claim_count",
+        "bound_claim_count",
+    }
+    if not required_fields.issubset(diagnostic):
+        return None
+    state = diagnostic.get("state")
+    if not isinstance(state, str):
+        return None
+    if state not in {
+        "not_requested",
+        "not_prepared",
+        "attempted",
+        "accepted",
+        "rejected",
+        "failed",
+    }:
+        return None
+    reason_code = diagnostic.get("reason_code")
+    if not isinstance(reason_code, str) or re.fullmatch(
+        r"[A-Za-z0-9_.-]{1,80}", reason_code
+    ) is None:
+        return None
+    raw_detail = diagnostic.get("detail")
+    if not isinstance(raw_detail, str):
+        return None
+    if re.search(
+        r"(?:\bprompt\b|evidence[_\s-]*(?:body|text|content|payload)|"
+        r"authorization|bearer\s+|api[_\s-]*key|credential|"
+        r"/(?:Users|home|tmp|private/tmp)/|[A-Za-z]:\\)",
+        raw_detail,
+        flags=re.IGNORECASE,
+    ):
+        return None
+    detail = sanitize_user_visible_artifact_text(raw_detail)[:200]
+    result: dict[str, object] = {
+        "state": state,
+        "reason_code": reason_code,
+        "detail": detail,
+    }
+    for field_name in (
+        "prepared_message_count",
+        "candidate_claim_count",
+        "bound_claim_count",
+    ):
+        value = diagnostic.get(field_name)
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 0 <= value <= 1_000_000
+        ):
+            return None
+        result[field_name] = value
+    return result
 
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
     event_type = event.get("event_type")
-    preserve_paths: set[tuple[str, ...]] = {
-        ("payload", "message", "content")
-    }
+    if event_type == "trace.step":
+        raw_payload = event.get("payload")
+        raw_step = raw_payload.get("step") if isinstance(raw_payload, dict) else None
+        event = {
+            **event,
+            "payload": {
+                "step": _public_trace_step(raw_step if isinstance(raw_step, dict) else {})
+            },
+        }
+    preserve_paths: set[tuple[str, ...]] = {("payload", "message", "content")}
     if event_type == "answer.snapshot":
         preserve_paths.add(("payload", "text"))
     elif event_type == "text.delta":
@@ -254,9 +644,10 @@ def _public_message_payload(message: object) -> dict[str, object]:
 
 
 class CancellationSignal:
-    def __init__(self) -> None:
+    def __init__(self, *, deadline_expires_at: float | None = None) -> None:
         self._event = Event()
         self.reason: str | None = None
+        self.deadline_expires_at = deadline_expires_at
 
     def set(self, reason: str) -> None:
         self.reason = reason
@@ -267,6 +658,11 @@ class CancellationSignal:
 
     def wait(self, timeout: float) -> bool:
         return self._event.wait(timeout)
+
+    def remaining(self, default: float) -> float:
+        if self.deadline_expires_at is None:
+            return max(0.0, float(default))
+        return max(0.0, self.deadline_expires_at - time.monotonic())
 
 
 class RunSupervisor:
@@ -310,7 +706,7 @@ class RunSupervisor:
         perspective_mode: Literal["neutral", "single", "compare"],
         selected_perspective_ids: list[str],
         event_id_prefix: str = "",
-        llm_provider: LLMProvider | None = None,
+        llm_providers: tuple[LLMProvider, ...] = (),
     ) -> None:
         self._submit(
             store,
@@ -329,7 +725,7 @@ class RunSupervisor:
                 selected_perspective_ids=selected_perspective_ids,
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
-                llm_provider=llm_provider,
+                llm_providers=llm_providers,
             ),
             on_terminal=lambda reason: _terminalize_pending_message(
                 conversation_store,
@@ -350,7 +746,9 @@ class RunSupervisor:
     ) -> None:
         key = (store.user_id, run_id)
         store.mark_running(run_id)
-        signal = CancellationSignal()
+        signal = CancellationSignal(
+            deadline_expires_at=time.monotonic() + self.timeout_sec
+        )
         timer = threading.Timer(
             self.timeout_sec,
             self._expire,
@@ -365,7 +763,7 @@ class RunSupervisor:
             self._signals[key] = signal
             if on_terminal is not None:
                 self._terminal_handlers[key] = on_terminal
-        future.add_done_callback(lambda _: self._forget(key))
+        future.add_done_callback(lambda completed: self._forget(key, completed))
         timer.start()
 
     def cancel(self, store: RunStore, run_id: str) -> bool:
@@ -405,15 +803,27 @@ class RunSupervisor:
             timer.cancel()
         self._executor.shutdown(wait=False, cancel_futures=True)
 
-    def _forget(self, key: tuple[str, str]) -> None:
+    def _forget(self, key: tuple[str, str], future: Future[None]) -> None:
         with self._lock:
             self._futures.pop(key, None)
             timer = self._timers.pop(key, None)
-            self._stores.pop(key, None)
+            store = self._stores.pop(key, None)
             self._signals.pop(key, None)
-            self._terminal_handlers.pop(key, None)
+            terminal_handler = self._terminal_handlers.pop(key, None)
         if timer is not None:
             timer.cancel()
+        if future.cancelled() or store is None:
+            return
+        if future.exception() is None:
+            return
+        run_id = key[1]
+        _, claimed = store.claim_failed_run(
+            run_id,
+            error="executor_failure",
+            degrade="executor_failure",
+        )
+        if claimed and terminal_handler is not None:
+            terminal_handler("executor_failure")
 
     def _expire(
         self,
@@ -427,16 +837,18 @@ class RunSupervisor:
             terminal_handler = self._terminal_handlers.get(key)
         if future is None or future.done():
             return
+        _, claimed = store.claim_failed_run(
+            run_id,
+            error="executor_timeout",
+            degrade="executor_timeout",
+        )
+        if not claimed:
+            return
         if signal is not None:
             signal.set("executor_timeout")
         future.cancel()
         if terminal_handler is not None:
             terminal_handler("executor_timeout")
-        store.fail_active_run(
-            run_id,
-            error="executor_timeout",
-            degrade="executor_timeout",
-        )
 
 
 class CreateRunRequest(BaseModel):
@@ -506,12 +918,14 @@ class CreateMessageRequest(BaseModel):
 class ConfigureLLMRequest(BaseModel):
     provider: Literal["zhipu", "openai", "deepseek", "moonshot", "dashscope"]
     api_key: SecretStr
+    base_url: str | None = Field(default=None, min_length=8, max_length=2048)
     model: str | None = Field(
         default=None,
         min_length=1,
         max_length=128,
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
+    remember: bool = False
     user: str | None = None
 
 
@@ -538,20 +952,19 @@ def _run_conversation_turn(
     perspective_mode: Literal["neutral", "single", "compare"] = "neutral",
     selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
-    llm_provider: LLMProvider | None = None,
+    llm_providers: tuple[LLMProvider, ...] = (),
 ) -> None:
     try:
-        test_delay_ms = int(
-            os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0")
-        )
+        test_delay_ms = int(os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0"))
     except ValueError:
         test_delay_ms = 0
     test_delay_ms = min(5000, max(0, test_delay_ms))
     if test_delay_ms and cancellation_signal.wait(test_delay_ms / 1000):
         return
+    primary_provider = llm_providers[0] if llm_providers else None
     provider_context = (
-        llm_refine.provider_override(llm_provider)
-        if llm_provider is not None
+        llm_refine.provider_override(primary_provider)
+        if primary_provider is not None
         else nullcontext()
     )
     with provider_context:
@@ -559,10 +972,24 @@ def _run_conversation_turn(
             repo_root=repo_root,
             conversation_store=conversation_store,
             run_store=run_store,
-            llm_model=llm_provider.model if llm_provider is not None else None,
+            llm_model=primary_provider.model if primary_provider is not None else None,
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
             event_id_prefix=event_id_prefix,
+            continuous_turn_adapter=_build_continuous_turn_adapter(
+                providers=llm_providers,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                run_store=run_store,
+                conversation_id=conversation_id,
+                event_id_prefix=event_id_prefix,
+                is_cancelled=cancellation_signal.is_set,
+                timeout=min(
+                    _CONTINUOUS_TURN_TIMEOUT_SECONDS,
+                    cancellation_signal.remaining(_CONTINUOUS_TURN_TIMEOUT_SECONDS),
+                ),
+                deadline_expires_at=cancellation_signal.deadline_expires_at,
+            ),
         ).run_turn(
             conversation_id=conversation_id,
             run_id=run_id,
@@ -597,15 +1024,15 @@ def _terminalize_pending_message(
         rs.STATUS_CANCELLED,
     }:
         return
-    status = (
-        rs.STATUS_CANCELLED
-        if reason == "cancelled_by_user"
-        else rs.STATUS_FAILED
-    )
+    status = rs.STATUS_CANCELLED if reason == "cancelled_by_user" else rs.STATUS_FAILED
     warning = (
         "用户已取消本轮执行"
         if status == rs.STATUS_CANCELLED
-        else "本轮执行超时"
+        else (
+            "本轮执行超时"
+            if reason == "executor_timeout"
+            else "本轮执行未完成"
+        )
     )
     message = conversation_store.revise_message(
         conversation_id,
@@ -664,7 +1091,9 @@ def _run_ask(
 
     if req.task_type == "daily":
         try:
-            report_date, daily_modules, daily_warnings = daily_projection_modules(repo_root)
+            report_date, daily_modules, daily_warnings = daily_projection_modules(
+                repo_root
+            )
             report["as_of"] = report_date
             report_warnings.extend(daily_warnings)
             for module in daily_modules:
@@ -676,12 +1105,13 @@ def _run_ask(
             report_warnings.append(warning)
             store.add_degrade(run_id, warning)
 
-    wants_moneyflow = req.task_type == "daily" or market_moneyflow.parse_moneyflow_intent(
-        req.question
+    wants_moneyflow = (
+        req.task_type == "daily"
+        or market_moneyflow.parse_moneyflow_intent(req.question)
     )
     if wants_moneyflow:
         snapshot = market_moneyflow.load_moneyflow_snapshot(
-            repo_root / "db" / "market_feature_store.duckdb",
+            default_market_db_path(),
             as_of_date=report_date,
         )
         emit_module(moneyflow_module(snapshot))
@@ -708,7 +1138,7 @@ def _run_ask(
                 user=req.user,
                 compose=req.compose,
                 compose_revise_on_warn=req.task_type != "daily",
-                market_db_path=repo_root / "db" / "market_feature_store.duckdb",
+                market_db_path=default_market_db_path(),
                 force_moneyflow_block=req.task_type == "daily",
             )
         )
@@ -760,7 +1190,9 @@ def _run_ask(
         )
         if found
     ]
-    citation_counts = dict(Counter(citation.tag[:1] for citation in result.citations if citation.tag))
+    citation_counts = dict(
+        Counter(citation.tag[:1] for citation in result.citations if citation.tag)
+    )
     store.append_step(
         run_id,
         step_id="s01",
@@ -802,7 +1234,9 @@ def _run_ask(
     summary = {
         "trade_date": result.trade_date,
         "matched_theme": result.matched_theme,
-        "question_type": result.question_plan.question_type if result.question_plan else None,
+        "question_type": result.question_plan.question_type
+        if result.question_plan
+        else None,
         "citations": len(result.citations),
         "citation_counts": citation_counts,
         "citation_records": [asdict(citation) for citation in result.citations],
@@ -908,7 +1342,9 @@ def _pending_review_count(repo_root: Path) -> int:
     return sum(
         1
         for manifest in ledger.glob("20??-??-??.manifest.json")
-        if not manifest.with_name(manifest.name.replace(".manifest.json", ".verdict.json")).is_file()
+        if not manifest.with_name(
+            manifest.name.replace(".manifest.json", ".verdict.json")
+        ).is_file()
     )
 
 
@@ -963,7 +1399,9 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                 if not tag or not source:
                     continue
                 binding = [
-                    f"chunk={citation.get('chunk_id')}" if citation.get("chunk_id") else "",
+                    f"chunk={citation.get('chunk_id')}"
+                    if citation.get("chunk_id")
+                    else "",
                     f"hash={str(citation.get('content_hash'))[:12]}"
                     if citation.get("content_hash")
                     else "",
@@ -1049,6 +1487,8 @@ def _resume_conversation_run(
     store: RunStore,
     run: rs.Run,
     repo_root: Path,
+    *,
+    llm_providers: tuple[LLMProvider, ...] = (),
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1086,6 +1526,7 @@ def _resume_conversation_run(
         perspective_mode=user_message.perspective_mode,
         selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
+        llm_providers=llm_providers,
     )
     return True
 
@@ -1095,11 +1536,29 @@ def create_app(
     repo_root: Path | None = None,
     run_timeout_sec: float = _SSE_MAX_SECONDS,
     self_use_require_consecutive_trading_days: bool = False,
+    llm_settings: SessionLLMSettings | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
+    effective_default_user_id = userspace.resolve_user_id(None)
+    runtime_provenance = build_runtime_provenance(root)
     runtime_paths = default_paths()
+    runtime_provenance["finance_root"] = str(runtime_paths.finance_root.resolve())
+    continuous_mode = _continuous_runtime_mode()
+    runtime_provenance["continuous_agent"] = {
+        "mode": continuous_mode,
+        "canary_id": (
+            os.environ.get("CONTINUOUS_RUNTIME_CANARY_ID", "").strip()
+            if continuous_mode == "canary"
+            else ""
+        ),
+        "source_revision": runtime_provenance.get("source_revision"),
+    }
+    llm_settings = llm_settings or SessionLLMSettings()
+    runtime_selection = resolve_runtime_backend()
+    runtime_provenance["agent_runtime"] = runtime_backend_readiness(
+        runtime_selection
+    ).to_dict()
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
-    llm_settings = SessionLLMSettings()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -1123,12 +1582,13 @@ def create_app(
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
     app.state.repo_root = root
+    app.state.finance_root = runtime_paths.finance_root.resolve()
     registries: dict[str, ArtifactRegistry] = {}
     recovered_runs: list[str] = []
     conversation_locks: dict[tuple[str, str], Lock] = {}
     conversation_locks_guard = Lock()
 
-    user_ids = {userspace.DEFAULT_USER}
+    user_ids = {effective_default_user_id}
     users_root = userspace.users_dir()
     if users_root.is_dir():
         user_ids.update(
@@ -1142,7 +1602,13 @@ def create_app(
             for run in store.requeue_incomplete_runs(reason=_RESTART_REASON):
                 recovered_runs.append(run.run_id)
                 try:
-                    if _resume_conversation_run(supervisor, store, run, root):
+                    if _resume_conversation_run(
+                        supervisor,
+                        store,
+                        run,
+                        root,
+                        llm_providers=llm_settings.runtime_providers_for(user_id),
+                    ):
                         continue
                 except (
                     FileNotFoundError,
@@ -1178,6 +1644,23 @@ def create_app(
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
 
+    def refresh_session_runtime_readiness(user_id: str) -> None:
+        """Refresh global health metadata after the default user's config request.
+
+        Keychain loading remains lazy: this helper is called only after a route
+        has already resolved the user's provider. The projection contains only
+        provider id/model and never the provider secret or endpoint.
+        """
+
+        if user_id != effective_default_user_id:
+            return
+        provider = llm_settings.byok_provider(user_id)
+        runtime_provenance["agent_runtime"] = runtime_backend_readiness(
+            runtime_selection,
+            session_provider=provider.name if provider is not None else None,
+            session_model=provider.model if provider is not None else None,
+        ).to_dict()
+
     def self_use_projection(user: str | None) -> dict[str, object]:
         conversation_store = conversation_store_for(user)
         self_use_dir = conversation_store.root.parent / "self-use"
@@ -1197,7 +1680,9 @@ def create_app(
             raise HTTPException(500, "自用成熟度台账不可读") from exc
         # passed 由持久化审批驱动：审批指纹须与当前裁决快照一致，否则失效。
         approvals = SelfUseApprovalStore(self_use_dir / "approval.json")
-        passed = bool(result.eligible_for_user_decision and approvals.is_approved_for(result))
+        passed = bool(
+            result.eligible_for_user_decision and approvals.is_approved_for(result)
+        )
         return {
             "distinct_trade_dates": result.metrics["distinct_trade_dates"],
             "success_rate": result.metrics["core_success_rate"],
@@ -1251,6 +1736,7 @@ def create_app(
             "status": "healthy",
             "timestamp": rs._now_iso(),
             "dependencies": checks,
+            "runtime": runtime_provenance,
         }
 
     @app.get("/api/readiness")
@@ -1261,6 +1747,25 @@ def create_app(
         worker_status = kb_rag.rag_worker.status()
         snapshot_contract = validate_market_snapshot_root(
             runtime_paths.market_snapshot_dir
+        )
+        snapshot_date = str(
+            snapshot_contract["summary"].get("served_trade_date")
+            or snapshot_contract.get("date")
+            or ""
+        )[:10]
+        market_database_date = latest_market_date(runtime_paths.finance_root)
+        continuous_requires_market_consistency = continuous_mode in {
+            "on",
+            "canary",
+        }
+        market_data_consistent = (
+            not continuous_requires_market_consistency
+            or (
+                bool(snapshot_contract["ready"])
+                and bool(snapshot_date)
+                and market_database_date is not None
+                and market_database_date >= snapshot_date
+            )
         )
         run_root_ready = False
         try:
@@ -1280,6 +1785,7 @@ def create_app(
             ),
             "run_store_writable": run_root_ready,
             "market_snapshot_contract": bool(snapshot_contract["ready"]),
+            "market_data_consistency": market_data_consistent,
         }
         critical = {
             "repo_root": checks["repo_root"],
@@ -1290,6 +1796,7 @@ def create_app(
             "rag_query_protocol": checks["rag_query_protocol"],
             "rag_worker": checks["rag_worker"],
             "market_snapshot": checks["market_snapshot_contract"],
+            "market_data_consistency": checks["market_data_consistency"],
         }
         ready = all(critical.values())
         payload = {
@@ -1304,9 +1811,7 @@ def create_app(
             "market_snapshot": {
                 "status": snapshot_contract["status"],
                 "ready": snapshot_contract["ready"],
-                "date": snapshot_contract["summary"].get(
-                    "served_trade_date"
-                )
+                "date": snapshot_contract["summary"].get("served_trade_date")
                 or snapshot_contract["date"],
                 "requested_date": snapshot_contract["summary"].get(
                     "requested_trade_date"
@@ -1316,6 +1821,14 @@ def create_app(
                 "summary": snapshot_contract["summary"],
                 "errors": snapshot_contract["errors"],
                 "warnings": snapshot_contract["warnings"],
+            },
+            "market_database": {
+                "date": market_database_date,
+                "snapshot_date": snapshot_date or None,
+                "consistent_with_snapshot": market_data_consistent,
+                "required_by_continuous_runtime": (
+                    continuous_requires_market_consistency
+                ),
             },
             "workers": {
                 "active": supervisor.active_count(),
@@ -1347,7 +1860,11 @@ def create_app(
             run = store.load_run(run_id)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
-        if run.status not in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+        if run.status not in (
+            rs.STATUS_COMPLETED,
+            rs.STATUS_FAILED,
+            rs.STATUS_CANCELLED,
+        ):
             supervisor.cancel(store, run_id)
             run = store.load_run(run_id)
         return {
@@ -1359,19 +1876,26 @@ def create_app(
     @app.post("/api/conversations")
     def create_conversation(req: CreateConversationRequest) -> dict[str, object]:
         try:
-            return asdict(conversation_store_for(req.user).create_conversation(req.title))
+            return asdict(
+                conversation_store_for(req.user).create_conversation(req.title)
+            )
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations")
     def list_conversations(user: str | None = None) -> list[dict[str, object]]:
         try:
-            return [asdict(item) for item in conversation_store_for(user).list_conversations()]
+            return [
+                asdict(item)
+                for item in conversation_store_for(user).list_conversations()
+            ]
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations/{conversation_id}")
-    def get_conversation(conversation_id: str, user: str | None = None) -> dict[str, object]:
+    def get_conversation(
+        conversation_id: str, user: str | None = None
+    ) -> dict[str, object]:
         return asdict(conversation_or_404(user, conversation_id))
 
     @app.patch("/api/conversations/{conversation_id}")
@@ -1387,7 +1911,9 @@ def create_app(
             )
 
     @app.post("/api/conversations/{conversation_id}/archive")
-    def archive_conversation(conversation_id: str, req: UserRequest) -> dict[str, object]:
+    def archive_conversation(
+        conversation_id: str, req: UserRequest
+    ) -> dict[str, object]:
         with conversation_lock_for(req.user, conversation_id):
             conversation_or_404(req.user, conversation_id)
             return asdict(
@@ -1395,7 +1921,9 @@ def create_app(
             )
 
     @app.get("/api/conversations/{conversation_id}/messages")
-    def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
+    def list_messages(
+        conversation_id: str, user: str | None = None
+    ) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
             _public_message_payload(item)
@@ -1405,7 +1933,9 @@ def create_app(
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
-        return llm_settings.describe(user_id)
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.put("/api/llm/config")
     def configure_llm(req: ConfigureLLMRequest) -> dict[str, object]:
@@ -1413,19 +1943,41 @@ def create_app(
         api_key = req.api_key.get_secret_value().strip()
         if not 8 <= len(api_key) <= 4096:
             raise HTTPException(422, "invalid api key")
-        llm_settings.configure_byok(
-            user_id,
-            provider_id=req.provider,
-            api_key=api_key,
-            model=req.model,
-        )
-        return llm_settings.describe(user_id)
+        try:
+            llm_settings.configure_byok(
+                user_id,
+                provider_id=req.provider,
+                api_key=api_key,
+                base_url=req.base_url,
+                model=req.model,
+                persist=req.remember,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, "invalid provider base URL") from exc
+        except KeychainCredentialError as exc:
+            raise HTTPException(503, "无法安全保存模型密钥，请关闭记住选项后重试") from exc
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.delete("/api/llm/config")
     def use_built_in_llm(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
         llm_settings.clear_byok(user_id)
-        return llm_settings.describe(user_id)
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
+
+    @app.delete("/api/llm/config/saved")
+    def forget_saved_llm(user: str | None = None) -> dict[str, object]:
+        user_id = store_for(user).user_id
+        try:
+            llm_settings.forget_saved_byok(user_id)
+        except KeychainCredentialError as exc:
+            raise HTTPException(503, "无法删除已保存的模型密钥") from exc
+        description = llm_settings.describe(user_id)
+        refresh_session_runtime_readiness(user_id)
+        return description
 
     @app.post("/api/conversations/{conversation_id}/messages", status_code=202)
     def create_message(
@@ -1495,7 +2047,7 @@ def create_app(
                     selected_skill_ids=list(req.selected_skill_ids),
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
-                    llm_provider=llm_settings.provider_for(run_store.user_id),
+                    llm_providers=llm_settings.runtime_providers_for(run_store.user_id),
                 )
             except Exception:
                 try:
@@ -1537,8 +2089,7 @@ def create_app(
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
         return [
-            _public_run_payload(run)
-            for run in reversed(store_for(user).list_runs())
+            _public_run_payload(run) for run in reversed(store_for(user).list_runs())
         ]
 
     @app.get("/api/runs/{run_id}")
@@ -1599,7 +2150,11 @@ def create_app(
                 cursor = int(last_event_id)
             else:
                 cursor = next(
-                    (event["seq"] for event in store.load_stream_events(run_id) if event["event_id"] == last_event_id),
+                    (
+                        event["seq"]
+                        for event in store.load_stream_events(run_id)
+                        if event["event_id"] == last_event_id
+                    ),
                     0,
                 )
 
@@ -1621,7 +2176,11 @@ def create_app(
                         f"data: {data}\n\n"
                     )
                 run = store.load_run(run_id)
-                if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+                if run.status in (
+                    rs.STATUS_COMPLETED,
+                    rs.STATUS_FAILED,
+                    rs.STATUS_CANCELLED,
+                ):
                     terminal_message_missing = run.session_id and not any(
                         event["event_type"] in {"message.complete", "message.error"}
                         for event in store.load_stream_events(run_id)
@@ -1650,7 +2209,9 @@ def create_app(
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     @app.get("/api/runs/{run_id}/report")
-    def get_run_report(run_id: str, user: str | None = None) -> dict[str, object] | None:
+    def get_run_report(
+        run_id: str, user: str | None = None
+    ) -> dict[str, object] | None:
         store = store_for(user)
         try:
             run_dir = store.run_dir(run_id)
@@ -1665,7 +2226,11 @@ def create_app(
         report: dict[str, object] | None = None
         for event in store.load_stream_events(run_id):
             payload = event.get("payload", {})
-            if event.get("event_type") in {"report.start", "report.complete", "report.error"}:
+            if event.get("event_type") in {
+                "report.start",
+                "report.complete",
+                "report.error",
+            }:
                 candidate = payload.get("report") if isinstance(payload, dict) else None
                 if isinstance(candidate, dict):
                     report = candidate
@@ -1676,13 +2241,28 @@ def create_app(
         return report
 
     @app.get("/api/runs/{run_id}/artifacts/{name:path}")
-    def get_run_artifact(run_id: str, name: str, user: str | None = None) -> FileResponse:
+    def get_run_artifact(
+        run_id: str, name: str, user: str | None = None
+    ) -> FileResponse:
         store = store_for(user)
         try:
+            run = store.load_run(run_id)
             run_dir = store.run_dir(run_id).resolve()
-        except ValueError as exc:
+        except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
-        path = (run_dir / name).resolve()
+        artifact = next(
+            (
+                item
+                for item in run.artifacts
+                if item.get("path") == name
+                and rs.artifact_visibility(item) == "public"
+                and item.get("downloadable", True) is True
+            ),
+            None,
+        )
+        if artifact is None:
+            raise HTTPException(404, f"产物不存在：{name}")
+        path = (run_dir / str(artifact["path"])).resolve()
         try:
             path.relative_to(run_dir)
         except ValueError as exc:
@@ -1738,12 +2318,9 @@ def create_app(
             raise HTTPException(404, f"产物未注册：{artifact_id}")
         if descriptor.category not in {"daily_agent", "daily_review"}:
             raise HTTPException(404, "该产物不支持原生投影")
-        if (
-            descriptor.category == "daily_review"
-            and not Path(descriptor.source_path).name.endswith(
-                ("-daily-review.html", "-daily-review.md")
-            )
-        ):
+        if descriptor.category == "daily_review" and not Path(
+            descriptor.source_path
+        ).name.endswith(("-daily-review.html", "-daily-review.md")):
             raise HTTPException(404, "该产物不支持原生投影")
 
         original = next(
@@ -1804,7 +2381,9 @@ def create_app(
         return projection
 
     @app.get("/api/artifacts/{artifact_id}")
-    def get_artifact_descriptor(artifact_id: str, user: str | None = None) -> dict[str, object]:
+    def get_artifact_descriptor(
+        artifact_id: str, user: str | None = None
+    ) -> dict[str, object]:
         descriptor = registry_for(user).get(artifact_id)
         if descriptor is None:
             raise HTTPException(404, f"产物未注册：{artifact_id}")
@@ -1833,14 +2412,19 @@ def create_app(
             (
                 artifact
                 for artifact in artifacts
-                if artifact.category in {"daily_review", "daily_agent", "theme_candidates"}
+                if artifact.category
+                in {"daily_review", "daily_agent", "theme_candidates"}
                 and artifact.status != "missing"
             ),
             None,
         )
-        data_cutoff = latest_daily.date if latest_daily else next(
-            (run.source_date for run in runs if run.source_date),
-            None,
+        data_cutoff = (
+            latest_daily.date
+            if latest_daily
+            else next(
+                (run.source_date for run in runs if run.source_date),
+                None,
+            )
         )
         workflows = [
             {
@@ -1873,7 +2457,9 @@ def create_app(
             "workflows": workflows,
             "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
-            "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
+            "latest_daily_artifact": latest_daily.public_dict()
+            if latest_daily
+            else None,
             "pending_review_count": _pending_review_count(root),
             "needs_human_action": sum(
                 1 for artifact in artifacts if artifact.status in {"warn", "missing"}
@@ -1884,7 +2470,10 @@ def create_app(
 
     @app.get("/api/workbench/overview")
     def workbench_overview() -> dict[str, object]:
-        return build_workbench_overview(root, runtime_paths.knowledge_wiki)
+        return build_workbench_overview(
+            runtime_paths.finance_root,
+            runtime_paths.knowledge_wiki,
+        )
 
     learning_root = root / "docs" / "learning" / "forecast-lessons"
 

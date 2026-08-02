@@ -38,6 +38,103 @@ QueryKey = tuple[str, str, str, str, str]
 
 
 @dataclass
+class _QuerySubscription:
+    active: bool
+    publish_cutoff: float | None = None
+    monotonic: Callable[[], float] | None = None
+    is_cancelled: Callable[[], bool] | None = None
+
+    def is_active(self) -> bool:
+        if not self.active:
+            return False
+        if self.is_cancelled is not None and self.is_cancelled():
+            return False
+        if self.publish_cutoff is None:
+            return True
+        if self.monotonic is None:
+            raise RuntimeError("guarded subscription requires a monotonic clock")
+        return self.monotonic() <= self.publish_cutoff
+
+
+class QueryPublishGuard:
+    """Atomically suppress this scope's late publication without killing threads.
+
+    The guard does not own or cancel an unrelated scope that already owns the
+    same ledger key; it only governs work that entered ``query_publish_guard_scope``.
+    An optional monotonic cutoff makes publication eligibility independent of
+    when the scheduling thread eventually gets to call :meth:`close`.
+    """
+
+    def __init__(
+        self,
+        *,
+        publish_cutoff: float | None = None,
+        monotonic: Callable[[], float] | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
+    ) -> None:
+        self._lock = threading.Lock()
+        self._open = True
+        self._deactivators: list[Callable[[bool], None]] = []
+        self._publish_cutoff = publish_cutoff
+        self._monotonic = monotonic if monotonic is not None else time.monotonic
+        self._is_cancelled = is_cancelled
+
+    def close(self, *, rollback: bool = False) -> None:
+        with self._lock:
+            if not self._open:
+                return
+            self._open = False
+            deactivators = tuple(self._deactivators)
+            self._deactivators.clear()
+            for deactivate in deactivators:
+                deactivate(rollback)
+
+    @contextmanager
+    def publication_scope(self) -> Iterator[bool]:
+        """Hold the guard registration boundary while the ledger mutates."""
+
+        with self._lock:
+            yield self._open and not (
+                self._is_cancelled is not None and self._is_cancelled()
+            )
+
+    def _add_deactivator_locked(
+        self,
+        deactivate: Callable[[bool], None],
+    ) -> None:
+        """Register while ``publication_scope`` holds the guard lock."""
+
+        self._deactivators.append(deactivate)
+
+    def _new_subscription_locked(self) -> _QuerySubscription:
+        """Capture this guard's close state and immutable deadline metadata."""
+
+        return _QuerySubscription(
+            active=self._open,
+            publish_cutoff=self._publish_cutoff,
+            monotonic=self._monotonic,
+            is_cancelled=self._is_cancelled,
+        )
+
+
+_PUBLISH_GUARD: ContextVar[QueryPublishGuard | None] = ContextVar(
+    "query_publish_guard",
+    default=None,
+)
+
+
+@contextmanager
+def _publication_scope(
+    guard: QueryPublishGuard | None,
+) -> Iterator[bool]:
+    if guard is None:
+        yield True
+        return
+    with guard.publication_scope() as is_open:
+        yield is_open
+
+
+@dataclass
 class QueryRecord:
     provider: str
     normalized_query: str
@@ -61,10 +158,17 @@ class QueryRecord:
 
 
 @dataclass
+class _InflightQuery:
+    future: Future[Any]
+    subscriptions: list[_QuerySubscription] = field(default_factory=list)
+    published_record: QueryRecord | None = None
+
+
+@dataclass
 class QueryLedger:
     entries: dict[QueryKey, QueryRecord] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
-    _inflight: dict[QueryKey, Future[Any]] = field(default_factory=dict)
+    _inflight: dict[QueryKey, _InflightQuery] = field(default_factory=dict)
 
     def executed(
         self,
@@ -89,23 +193,42 @@ class QueryLedger:
             corpus_revision,
             variant,
         )
-        with self._lock:
-            record = self.entries.get(key)
-            if record is not None:
-                record.reuse_count += 1
-                return record.result
-            future = self._inflight.get(key)
-            is_owner = future is None
-            if future is None:
-                future = Future()
-                self._inflight[key] = future
-
-        if not is_owner:
-            result = future.result()
+        guard = _PUBLISH_GUARD.get()
+        with _publication_scope(guard):
             with self._lock:
+                subscription = (
+                    guard._new_subscription_locked()
+                    if guard is not None
+                    else _QuerySubscription(active=True)
+                )
                 record = self.entries.get(key)
                 if record is not None:
-                    record.reuse_count += 1
+                    if subscription.is_active():
+                        record.reuse_count += 1
+                    return record.result
+                inflight = self._inflight.get(key)
+                is_owner = inflight is None
+                if inflight is None:
+                    inflight = _InflightQuery(Future())
+                    self._inflight[key] = inflight
+                inflight.subscriptions.append(subscription)
+                if guard is not None and subscription.active:
+                    guard._add_deactivator_locked(
+                        lambda rollback, subscription=subscription, key=key, inflight=inflight: self._deactivate_subscription(
+                            subscription,
+                            key=key,
+                            inflight=inflight,
+                            rollback=rollback,
+                        )
+                    )
+
+        if not is_owner:
+            result = inflight.future.result()
+            with self._lock:
+                if subscription.is_active():
+                    record = self.entries.get(key)
+                    if record is not None:
+                        record.reuse_count += 1
             return result
 
         started = time.monotonic()
@@ -113,8 +236,12 @@ class QueryLedger:
             result = fetch()
         except BaseException as exc:
             with self._lock:
-                self._inflight.pop(key, None)
-                future.set_exception(exc)
+                try:
+                    if self._inflight.get(key) is inflight:
+                        self._inflight.pop(key)
+                finally:
+                    if not inflight.future.done():
+                        inflight.future.set_exception(exc)
             raise
 
         record = QueryRecord(
@@ -127,10 +254,36 @@ class QueryLedger:
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
         )
         with self._lock:
-            self.entries[key] = record
-            self._inflight.pop(key, None)
-            future.set_result(result)
+            try:
+                owns_inflight = self._inflight.get(key) is inflight
+                if owns_inflight:
+                    self._inflight.pop(key)
+                    if any(item.is_active() for item in inflight.subscriptions):
+                        self.entries[key] = record
+                        inflight.published_record = record
+            finally:
+                if not inflight.future.done():
+                    inflight.future.set_result(result)
         return result
+
+    def _deactivate_subscription(
+        self,
+        subscription: _QuerySubscription,
+        *,
+        key: QueryKey,
+        inflight: _InflightQuery,
+        rollback: bool,
+    ) -> None:
+        with self._lock:
+            subscription.active = False
+            published = inflight.published_record
+            if (
+                rollback
+                and published is not None
+                and self.entries.get(key) is published
+                and not any(item.is_active() for item in inflight.subscriptions)
+            ):
+                self.entries.pop(key, None)
 
     def summary(self) -> dict[str, object]:
         with self._lock:
@@ -155,6 +308,17 @@ _LEDGER: ContextVar[QueryLedger | None] = ContextVar(
     "turn_query_ledger",
     default=None,
 )
+
+
+@contextmanager
+def query_publish_guard_scope(guard: QueryPublishGuard) -> Iterator[None]:
+    """Prevent guarded work that finishes after close from publishing cache."""
+
+    token = _PUBLISH_GUARD.set(guard)
+    try:
+        yield
+    finally:
+        _PUBLISH_GUARD.reset(token)
 
 
 @contextmanager

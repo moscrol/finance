@@ -14,6 +14,11 @@ from intelligence.eval.agent_eval import (
     score_case,
     score_turn,
 )
+from intelligence.eval.capability_monotonicity import (
+    CapabilityScore,
+    compare_capability,
+    evaluate_capability_case,
+)
 
 GOOD_ANSWER = (
     "液冷题材盘面 double_red [S1]，图谱核心层英维克、高澜股份 [G1][G2]，"
@@ -78,6 +83,96 @@ class TestPureHelpers(unittest.TestCase):
     def test_parse_wiki_step_miss(self):
         self.assertEqual(parse_wiki_step("wiki 语义召回无命中，建议放宽关键词"), (False, None))
         self.assertEqual(parse_wiki_step("wiki 检索不可用：索引不存在"), (False, None))
+
+
+class TestCapabilityMonotonicity(unittest.TestCase):
+    def test_public_capability_score_constructor_remains_compatible(self):
+        score = CapabilityScore(
+            case_id="legacy-api",
+            directness=1.0,
+            task_coverage=0.9,
+            grounding=0.8,
+            control_plane_leak_score=0.0,
+            template_signature="legacy",
+            fallback_fidelity=1.0,
+        )
+
+        self.assertEqual(score.case_id, "legacy-api")
+        self.assertEqual(score.to_dict()["task_coverage"], 0.9)
+
+    def test_public_capability_score_rejects_non_finite_values(self):
+        with self.assertRaisesRegex(ValueError, "finite"):
+            CapabilityScore(
+                case_id="invalid-score",
+                directness=float("nan"),
+                task_coverage=1.0,
+                grounding=1.0,
+                control_plane_leak_score=0.0,
+                template_signature="legacy",
+                fallback_fidelity=1.0,
+            )
+
+    def test_fixture_cases_expose_all_advisory_dimensions(self):
+        fixture = Path(__file__).parent / "fixtures" / "capability_monotonicity_cases.json"
+        cases = json.loads(fixture.read_text(encoding="utf-8"))["cases"]
+
+        self.assertGreaterEqual(len(cases), 5)
+        for case in cases:
+            score = evaluate_capability_case(case).to_dict()
+            self.assertTrue(
+                {
+                    "directness",
+                    "task_coverage",
+                    "grounding",
+                    "fallback_fidelity",
+                    "template_signature",
+                }.issubset(score),
+                case["id"],
+            )
+
+    def test_pair_reports_constraint_induced_regression(self):
+        minimal = {
+            "id": "weekly-cause",
+            "question": "本周为什么下跌",
+            "answer": "风险偏好收缩是主因，成交和跌停扩散支持这一判断。",
+            "direct_targets": ["风险偏好收缩"],
+            "requirements": [{"id": "cause", "satisfy_any": ["风险偏好收缩"]}],
+        }
+        workbench = {
+            **minimal,
+            "answer": "# 每日市场复盘\n涨停集中在人工智能和电力。",
+        }
+
+        comparison = compare_capability(minimal, workbench)
+        self.assertFalse(comparison.monotonic)
+        self.assertIn("directness", comparison.regressions)
+        self.assertIn("task_coverage", comparison.regressions)
+
+    def test_methodology_terms_are_not_misclassified_as_control_plane_leaks(self):
+        score = evaluate_capability_case(
+            {
+                "id": "methodology",
+                "question": "RAG、BM25 和 DuckDB 怎么配合",
+                "answer": "RAG 用 BM25 补词面召回，DuckDB 保存结构化事实。",
+                "direct_targets": ["RAG"],
+            }
+        )
+        self.assertEqual(score.control_plane_leak_score, 0.0)
+
+    def test_composer_timeout_fallback_keeps_decision_brief(self):
+        score = evaluate_capability_case(
+            {
+                "id": "timeout",
+                "question": "为什么下跌",
+                "answer": "风险偏好收缩是主因；内部量价支持，但外部证据不足。",
+                "decision_brief": {
+                    "direct_answer": "风险偏好收缩是主因",
+                    "core_tension": "内部量价支持，但外部证据不足",
+                },
+                "direct_targets": ["风险偏好收缩"],
+            }
+        )
+        self.assertEqual(score.fallback_fidelity, 1.0)
 
 
 class TestTurnScoring(unittest.TestCase):

@@ -6,6 +6,7 @@ import type {
   RunBundle,
   SkillInvocationStatus,
 } from "../types";
+import { userFacingStage, userFacingText } from "../displayText";
 import { MarkdownView } from "./MarkdownView";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
@@ -32,6 +33,15 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
+  const latestProgress =
+    live && live.progress.length > 0
+      ? live.progress[live.progress.length - 1]
+      : null;
+  const progressText = latestProgress
+    ? userFacingText(
+        latestProgress.output_summary || userFacingStage(latestProgress.name),
+      )
+    : "正在检索本轮证据";
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -58,6 +68,10 @@ export function MessageBubble({
         ? "自然语言精修完成"
         : live?.answerPhase === "verified_fallback"
           ? "已保留可核验版本"
+          : live?.answerPhase === "decision_brief_fallback"
+            ? "已保留决策摘要"
+            : live?.answerPhase === "evidence_gap_fallback"
+              ? "证据不足，已如实说明"
           : null;
   const assistantStatus =
     answerStatus ??
@@ -72,11 +86,15 @@ export function MessageBubble({
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
     ) ?? true;
-  const taskType = (live?.report ?? bundle?.structuredReport)?.task_type;
-  const requiresCompanyEvidence =
-    taskType === "ask" ||
-    taskType === "research" ||
-    taskType === "workflow";
+  const report = live?.report ?? bundle?.structuredReport;
+  const taskType = report?.task_type;
+  const taskFrame = report?.task_frame;
+  const requiresCompanyEvidence = taskFrame
+    ? taskFrame.subject_kind === "company" ||
+      taskFrame.evidence_policy.startsWith("company_")
+    : taskType === "ask" ||
+      taskType === "research" ||
+      taskType === "workflow";
   const noEvidenceNotice =
     "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
 
@@ -132,7 +150,7 @@ export function MessageBubble({
             <span className="typing-dot" />
             <span className="typing-dot" />
             <span className="typing-dot" />
-            正在检索本轮证据
+            {progressText}
           </div>
         )}
         {terminalNotice && (

@@ -28,14 +28,26 @@ GAP_TABLES = [
 
 # 行数异常收缩只查"宇宙规模近似恒定"的结构表；新高/涨停/晋级类表行数随行情天然大幅波动，
 # 用中位数收缩比会天天误报（Mac 真实库验证：新高家数 139 vs 中位 367 属正常市况）。
+#
+# 2026-07-30：按同一判据把三张 fact_mainline_* 移出本列表。它们统计的是"当日有几条
+# 主线、主线里有几只股"，本身就是随行情变化的量，不是恒定宇宙。近 29 个交易日实测：
+#   fact_mainline_theme_daily    2 ~ 7    最大/最小 3.5x
+#   fact_mainline_stock_daily   30 ~ 163  最大/最小 5.4x
+#   fact_mainline_sector_daily   5 ~ 15   最大/最小 3.0x
+# 对照恒定表：fact_sw_l1_daily 与 fact_sector_period_rank_daily 均为 1.0x。
+#
+# 后果不是"少报一个告警"：跨日门禁 FAIL 会让夜间管线其后 16 步全部 SKIP，
+# 包括 theme-candidates / agent-daily / 策略矩阵 / cockpit。2026-07-29 那天主线
+# 只有 3 条题材 53 只股，重跑同步仍是 53 且报 complete——数据是完整的，行情就是那么窄。
+# 也就是说行情越窄，工作台的题材层被掐得越死，而那正是最需要它的时候。
+#
+# 断档检查（GAP_TABLES）对这三张表保留：某日整天没有行仍然 FAIL，
+# 那才是对"随行情波动的表"有效的失败信号。
 ROW_ANOMALY_TABLES = [
     "fact_sector_daily",
     "fact_sw_l1_daily",
     "fact_sector_stock_daily",
     "fact_stock_daily",
-    "fact_mainline_theme_daily",
-    "fact_mainline_stock_daily",
-    "fact_mainline_sector_daily",
     "fact_sector_period_rank_daily",
 ]
 

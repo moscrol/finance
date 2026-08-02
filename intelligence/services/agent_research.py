@@ -18,16 +18,23 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import json
 import os
 import re
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from intelligence.services import llm_refine, market_news, web_research
+from intelligence.services import (
+    closed_loop_retrieval,
+    llm_refine,
+    market_news,
+    web_research,
+)
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
+from intelligence.services.research_state import EvidenceObservation, ResearchState
 
 ENV_MODE = "ASK_AGENT_LOOP"
 ENV_MAX_STEPS = "ASK_AGENT_MAX_STEPS"
@@ -37,7 +44,9 @@ MODE_ON = "on"
 _VALID_MODES = (MODE_OFF, MODE_AUTO, MODE_ON)
 
 DEFAULT_MAX_STEPS = 4
+MAX_CONFIGURED_STEPS = 24
 DEFAULT_LLM_TIMEOUT = 15
+NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
@@ -73,6 +82,10 @@ _TOOL_DESCRIPTIONS = {
         "市场总览（DuckDB 确定性取数），args: {\"query\": 自然语言数据问题，"
         "如'XX题材近20日成交额趋势'}"
     ),
+    "mainline_context": (
+        "- mainline_context：本地同日主线结构（题材/板块及数据时效边界），"
+        "args: {\"query\": 当前主线或盘面问题}"
+    ),
 }
 _TOOL_NAMES = (*_TOOL_DESCRIPTIONS, "finish")
 
@@ -91,7 +104,7 @@ def max_steps() -> int:
         value = int(os.environ.get(ENV_MAX_STEPS) or DEFAULT_MAX_STEPS)
     except ValueError:
         return DEFAULT_MAX_STEPS
-    return max(1, min(value, 8))
+    return max(1, min(value, MAX_CONFIGURED_STEPS))
 
 
 def should_run(controller_capabilities: tuple[str, ...]) -> bool:
@@ -114,6 +127,31 @@ class AgentEvidence:
     detail: str  # excerpt / snippet / 日期+媒体
     source: str  # 用户可见来源标签或公开 URL
     internal_locator: str = ""  # 仅控制面追踪，不得进入 Citation/AnswerSpec
+    source_date: str | None = None
+    evidence_tier: str = ""
+    supports: tuple[str, ...] = ()
+    contradicts: tuple[str, ...] = ()
+    independent_key: str = ""
+    freshness: str = "unknown"
+    # 内容主键贯通 ToolObservation → Citation → EvidenceAtom；空值仅表示
+    # 旧 runner 未提供可稳定哈希的正文。
+    content_hash: str = ""
+
+    def to_observation(self, evidence_id: str) -> EvidenceObservation:
+        return EvidenceObservation(
+            evidence_id=evidence_id,
+            tool=self.tool,
+            title=self.title,
+            detail=self.detail,
+            source=self.source,
+            source_date=self.source_date,
+            evidence_tier=self.evidence_tier,
+            supports=self.supports,
+            contradicts=self.contradicts,
+            independent_key=self.independent_key,
+            freshness=self.freshness,
+            content_hash=self.content_hash,
+        )
 
 
 @dataclass(frozen=True)
@@ -124,6 +162,8 @@ class AgentStep:
     observation: str
     hit_count: int
     elapsed_ms: int
+    hypothesis_ids: tuple[str, ...] = ()
+    stance: str = "context"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -133,6 +173,8 @@ class AgentStep:
             "observation": self.observation[:200],
             "hit_count": self.hit_count,
             "elapsed_ms": self.elapsed_ms,
+            "hypothesis_ids": list(self.hypothesis_ids),
+            "stance": self.stance,
         }
 
 
@@ -142,29 +184,55 @@ class AgentLoopResult:
     evidence: list[AgentEvidence] = field(default_factory=list)
     traces: list[ProviderTrace] = field(default_factory=list)
     sufficient: bool | None = None
+    assessment: str = ""
     gaps: tuple[str, ...] = ()
     stop_reason: str = ""
+    research_state: ResearchState | None = None
+    state_revision: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
             "steps": [step.to_dict() for step in self.steps],
             "evidence_count": len(self.evidence),
             "sufficient": self.sufficient,
+            "assessment": self.assessment,
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,
+            "research_state": (
+                self.research_state.to_dict()
+                if self.research_state is not None
+                else None
+            ),
+            "state_revision": self.state_revision,
         }
 
 
 @dataclass(frozen=True)
 class AgentToolContext:
-    """Cooperative absolute deadline passed to agent tools."""
+    """Cooperative deadline and cancellation token passed to agent tools."""
 
     deadline: ResearchDeadline
+    is_cancelled: Callable[[], bool] = field(
+        default=lambda: False,
+        repr=False,
+        compare=False,
+    )
+    information_cutoff: InformationCutoff | None = None
+
+    @property
+    def cancelled(self) -> bool:
+        return bool(self.is_cancelled())
+
+    def check_cancelled(self) -> None:
+        if self.cancelled:
+            raise RuntimeError("agent tool cancelled")
 
     def remaining(self) -> float:
+        self.check_cancelled()
         return self.deadline.remaining()
 
     def timeout(self, configured_limit: float) -> float:
+        self.check_cancelled()
         timeout = self.deadline.stage_timeout(configured_limit)
         if timeout <= 0.001:
             raise TimeoutError("agent tool deadline expired")
@@ -186,17 +254,21 @@ def build_default_tools(
         context: AgentToolContext,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
         rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
+        context.check_cancelled()
         hits = list(getattr(rag, "hits", ()) or ())[:5]
-        evidence = [
-            AgentEvidence(
-                tool="kb_search",
-                title=hit.title,
-                detail=(hit.excerpt or "")[:160],
-                source="本地知识库",
-                internal_locator=hit.file_path,
+        evidence = []
+        for hit in hits:
+            hit_date = closed_loop_retrieval.wiki_hit_source_date(hit)
+            evidence.append(
+                AgentEvidence(
+                    tool="kb_search",
+                    title=hit.title,
+                    detail=(hit.excerpt or "")[:160],
+                    source="本地知识库",
+                    internal_locator=hit.file_path,
+                    source_date=hit_date.isoformat() if hit_date is not None else None,
+                )
             )
-            for hit in hits
-        ]
         observation = (
             "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
             or f"无命中（{getattr(getattr(rag, 'telemetry', None), 'status', 'unknown')}）"
@@ -218,12 +290,28 @@ def build_default_tools(
             query,
             timeout=context.timeout(20.0),
         )
+        context.check_cancelled()
+
+        def source_date(item: web_research.WebSearchItem) -> str | None:
+            parsed = market_news.latest_explicit_query_date(
+                f"{item.title} {item.snippet}",
+                reference_date=(
+                    context.information_cutoff.as_of_date
+                    if context.information_cutoff is not None
+                    else None
+                ),
+            )
+            return parsed.isoformat() if parsed is not None else None
+
         evidence = [
             AgentEvidence(
                 tool="web_search",
                 title=item.title,
                 detail=(item.snippet or "")[:160],
                 source=item.url,
+                source_date=source_date(item),
+                evidence_tier="public_web",
+                independent_key=item.url,
             )
             for item in web.items[:5]
         ]
@@ -237,16 +325,29 @@ def build_default_tools(
         query: str,
         context: AgentToolContext,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        query_cutoff = (
+            market_news.query_date_cutoff(
+                query,
+                upper_bound=context.information_cutoff.as_of_date,
+            )
+            if context.information_cutoff is not None
+            else None
+        )
         news = market_news.fetch_eastmoney_news_result(
             query,
             timeout=context.timeout(8.0),
+            as_of=query_cutoff,
         )
+        context.check_cancelled()
         evidence = [
             AgentEvidence(
                 tool="news_search",
                 title=item.title,
                 detail=f"{item.date} {item.source}",
                 source=item.url,
+                source_date=item.date[:10] or None,
+                evidence_tier="news",
+                independent_key=item.url,
             )
             for item in news.items[:6]
         ]
@@ -276,9 +377,12 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         query: str,
         context: AgentToolContext | None = None,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        del context
+        if context is not None:
+            context.check_cancelled()
         concepts = knowledge.get_concept_matches(query, limit=5)
         exposures = knowledge.get_exposure_matches(query, limit=8)
+        if context is not None:
+            context.check_cancelled()
         evidence: list[AgentEvidence] = []
         for item in (concepts.get("items") or [])[:5]:
             evidence.append(
@@ -323,8 +427,11 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         query: str,
         context: AgentToolContext | None = None,
     ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        del context
+        if context is not None:
+            context.check_cancelled()
         bundle = knowledge.get_evidence(query, limit=6)
+        if context is not None:
+            context.check_cancelled()
         evidence = [
             AgentEvidence(
                 tool="evidence_lookup",
@@ -336,6 +443,7 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                 ),
                 source="本地证据索引",
                 internal_locator="wiki/relations/evidence_index.json",
+                source_date=str(item.get("source_date") or "") or None,
             )
             for item in (bundle.get("items") or [])[:6]
             if isinstance(item, dict)
@@ -365,6 +473,8 @@ def block_lines_to_evidence(
     source: str,
     *,
     limit: int = 6,
+    detail_chars: int = 200,
+    source_date: str | None = None,
 ) -> tuple[list[AgentEvidence], str]:
     """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
 
@@ -376,17 +486,64 @@ def block_lines_to_evidence(
         if (stripped := raw.strip().lstrip("-").strip())
         and not stripped.startswith("#")
     ]
-    evidence = [
-        AgentEvidence(
+    evidence: list[AgentEvidence] = []
+    snapshot_date = str(source_date or "").strip() or None
+    for line in lines[:limit]:
+        # 一行可能同时包含窗口起止日。旧实现只取第一个日期，导致
+        # ``2026-07-14 ~ 2026-07-20`` 被投影成 as_of=07-14，进而让
+        # freshness、报告页和外部证据对齐都用错基准日。
+        date_matches = re.findall(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
+        normalized_dates = tuple(value.replace("/", "-") for value in date_matches)
+        item = AgentEvidence(
             tool=tool,
             title=line[:48],
-            detail=line[:200],
+            # 结构化数据块已经由白名单 SQL/确定性 renderer 约束，不是
+            # 任意网页正文。调用方可提高保真窗口，避免主线列表在证据层
+            # 先被 200 字截断后，再要求模型从残片做排序。
+            detail=line[: max(80, min(int(detail_chars), 1200))],
             source=source,
+            source_date=(
+                snapshot_date
+                if snapshot_date is not None
+                else max(normalized_dates)
+                if normalized_dates
+                else None
+            ),
+            evidence_tier=(
+                "L4_structured"
+                if tool in {"market_data", "mainline_context"}
+                else "L2_structured"
+                if tool == "financial_data"
+                else ""
+            ),
         )
-        for line in lines[:limit]
-    ]
+        evidence.append(replace(item, content_hash=evidence_content_hash(item)))
     observation = "；".join(lines[:limit])
     return evidence, observation
+
+
+def evidence_content_hash(item: AgentEvidence) -> str:
+    """Return the stable evidence identity shared by all presentation layers."""
+
+    payload = "|".join(
+        (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def evidence_display_text(item: AgentEvidence) -> str:
+    """Render one evidence item without repeating a title copied from its detail."""
+    title = item.title.strip()
+    detail = item.detail.strip()
+    if not title:
+        return detail
+    if not detail:
+        return title
+    normalized_title = re.sub(r"\s+", "", title).rstrip("：:；;。. ")
+    normalized_detail = re.sub(r"\s+", "", detail)
+    if normalized_detail.startswith(normalized_title):
+        return detail
+    return f"{title}：{detail}"
 
 
 CompleteFn = Callable[..., tuple[str | None, object, str]]
@@ -403,11 +560,13 @@ def _system_prompt(tools: dict[str, ToolRunner]) -> str:
         "可用工具：\n"
         + "\n".join(tool_lines)
         + "\n- finish：证据足够或确认无法补齐时结束，"
-        "args: {\"sufficient\": true/false, \"gaps\": [\"仍缺什么\"]}\n"
+        "args: {\"sufficient\": true/false, \"assessment\": \"覆盖任务要求的简洁分析草稿（只基于已有证据）\", \"gaps\": [\"仍缺什么\"]}\n"
         "原则：\n"
         "1. 检索结果与问题无关时要改写检索式或换工具，不要把无关结果当证据；\n"
         "2. 同一检索式不要重复；证据足够就尽早 finish；\n"
-        "3. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
+        "3. 工具 args 可选 hypothesis_ids（当前任务中的假设 id）和 stance（support/contradict/context），"
+        "将本次结果绑定到对应情景；未知 id 会被忽略。\n"
+        "4. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
         "只输出 JSON（无 markdown 代码栏）："
         '{"tool": "工具名", "args": {...}, "reason": "一句话理由"}'
     )
@@ -464,7 +623,21 @@ def _run_tool(
     return runner(query)
 
 
-def _transcript_block(steps: list[AgentStep]) -> str:
+def _research_state_block(
+    state: ResearchState | None,
+    steps: list[AgentStep],
+) -> str:
+    if state is not None:
+        recent_steps = "\n".join(
+            f"步骤{index} {step.tool}(\"{step.query}\")：{step.observation[:240]}"
+            for index, step in enumerate(
+                steps[-2:], start=max(1, len(steps) - 1)
+            )
+        )
+        return (
+            f"{state.summary_for_agent()}\n"
+            f"最近工具步骤：{recent_steps or '（无）'}"
+        )
     if not steps:
         return "（尚未执行任何检索）"
     lines: list[str] = []
@@ -486,6 +659,9 @@ def run_agent_loop(
     deadline: ResearchDeadline | None = None,
     complete_fn: CompleteFn | None = None,
     attempted_queries: Sequence[tuple[str, str]] = (),
+    task_instructions: str = "",
+    research_state: ResearchState | None = None,
+    context_block: str = "",
 ) -> AgentLoopResult:
     """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
 
@@ -493,13 +669,17 @@ def run_agent_loop(
     closed-loop 的各光圈查询、Web 兜底），用于跨管线去重——agent 重发这些
     查询会被当场拦截并提示改写，避免同一 turn 内重复检索同一语料。
     """
-    result = AgentLoopResult()
+    result = AgentLoopResult(research_state=research_state)
     complete = complete_fn or llm_refine.complete
     budget = steps_budget if steps_budget is not None else max_steps()
     stage_deadline = ResearchDeadline.from_timeout(total_seconds)
     if deadline is not None:
         stage_deadline = ResearchDeadline(
-            min(stage_deadline.expires_at, deadline.expires_at)
+            min(stage_deadline.expires_at, deadline.expires_at),
+            # 保留主链为 grounded synthesis 预留的尾部预算；此前这里
+            # 重建 deadline 时丢掉 synthesis_reserve，agent loop 可能把
+            # 合成保留段提前耗尽，造成“检索成功但出口超时”。
+            synthesis_reserve=deadline.synthesis_reserve,
         )
     tool_context = AgentToolContext(stage_deadline)
     seen_queries: set[tuple[str, str]] = {
@@ -508,27 +688,101 @@ def run_agent_loop(
         if attempted.strip()
     }
     system_prompt = _system_prompt(tools)
+    no_information_steps = 0
+    finish_rejections = 0
+    premature_gap_rejections = 0
+
+    def untried_required_tools(assessment: str) -> tuple[str, ...]:
+        """Return useful tools that have not been attempted for a required output.
+
+        ``finish(sufficient=false)`` is a legitimate terminal action only after
+        the relevant capability has actually been tried.  Without this gate an
+        agent can observe one preloaded market block, immediately report an
+        external-evidence gap, and leave web/news tools unused.  The gate is
+        deliberately bounded to one re-plan turn; empty/error attempts still
+        count, so it cannot create an unbounded retry loop.
+        """
+
+        state = result.research_state
+        if state is None:
+            return ()
+        attempted = {
+            item.tool for item in state.evidence.values()
+        } | {
+            step.tool for step in result.steps if step.tool in tools
+        }
+        candidates: list[str] = []
+        hypotheses = {
+            item.hypothesis_id: item for item in state.hypotheses
+        }
+        blocking = {
+            output_id
+            for gap in state.gaps
+            for output_id in gap.blocks
+        }
+        for output_id in state.required_outputs:
+            if not state.required_output_required.get(output_id, True):
+                continue
+            if output_id in {"direct_assessment", "answer", "conclusion"}:
+                if assessment.strip():
+                    continue
+            else:
+                hypothesis = hypotheses.get(output_id)
+                if hypothesis is not None and (
+                    hypothesis.supporting_evidence
+                    or hypothesis.contradicting_evidence
+                    or output_id in blocking
+                ):
+                    continue
+                allowed = set(
+                    state.required_output_evidence_types.get(output_id, ())
+                )
+                if hypothesis is None and any(
+                    not allowed or item.tool in allowed
+                    for item in state.evidence.values()
+                ):
+                    continue
+            for name in state.required_output_evidence_types.get(output_id, ()):
+                if name in tools and name not in attempted and name not in candidates:
+                    candidates.append(name)
+        return tuple(candidates)
+
+    def available_stage_seconds() -> float:
+        """检索阶段可消费的预算，不侵占 synthesis reserve。"""
+        remaining = stage_deadline.remaining()
+        return stage_deadline.stage_timeout(remaining)
 
     for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
-        remaining = stage_deadline.remaining()
+        remaining = available_stage_seconds()
         if remaining <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
         executed_steps = sum(1 for step in result.steps if step.tool != "finish")
         user_prompt = (
             f"用户问题：{query}\n\n"
+            f"当前时间与数据上下文：\n{context_block or '（未提供）'}\n\n"
+            f"任务契约与完成要求：\n{task_instructions or '（未提供）'}\n\n"
             f"主链已有证据摘要：\n{existing_evidence_summary or '（无）'}\n\n"
-            f"已执行步骤与观察：\n{_transcript_block(result.steps)}\n\n"
+            f"研究状态与最近观察：\n"
+            f"{_research_state_block(result.research_state, result.steps)}\n\n"
             f"剩余检索步数预算：{budget - executed_steps}"
         )
-        content, _provider, reason = complete(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            timeout=min(float(llm_timeout), remaining),
-            temperature=0.0,
-        )
+        try:
+            content, _provider, reason = complete(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                timeout=min(float(llm_timeout), remaining),
+                temperature=0.0,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failure is a gap
+            # A rejected finish may require one replanning turn. If the
+            # provider then fails/exhausts its scripted response, preserve the
+            # collected evidence as partial instead of leaking an exception out
+            # of the research owner.
+            result.stop_reason = f"LLM 调用失败：{type(exc).__name__}"
+            break
         if content is None:
             result.stop_reason = f"LLM 不可用：{reason}"
             break
@@ -541,24 +795,140 @@ def run_agent_loop(
         action_reason = str(action.get("reason") or "").strip()
 
         if tool == "finish":
-            result.sufficient = bool(args.get("sufficient"))
+            requested_sufficient = bool(args.get("sufficient"))
+            result.assessment = str(args.get("assessment") or "").strip()[:1600]
             raw_gaps = args.get("gaps")
             result.gaps = tuple(
                 str(gap).strip()
                 for gap in (raw_gaps if isinstance(raw_gaps, list) else [])
                 if str(gap).strip()
             )
+            # “证据不足”不能替代一次本可执行的检索。允许代码把第一次
+            # 过早 gap 退回给模型重新规划；第二次仍选择结束则尊重模型，
+            # 保留 partial，避免把 soft planner 变成隐藏固定管线。
+            untried = untried_required_tools(result.assessment)
+            if (
+                not requested_sufficient
+                and untried
+                and premature_gap_rejections == 0
+            ):
+                premature_gap_rejections += 1
+                result.steps.append(
+                    AgentStep(
+                        tool="finish",
+                        query="",
+                        reason=action_reason,
+                        observation=(
+                            "结束请求被延迟：相关白名单能力尚未尝试。"
+                            f" 请优先尝试 {', '.join(untried)}；"
+                            "若工具为空或报错，再如实报告不可补缺口。"
+                        ),
+                        hit_count=0,
+                        elapsed_ms=0,
+                    )
+                )
+                continue
+            uncovered = ()
+            missing_outputs: tuple[str, ...] = ()
+            if requested_sufficient and result.research_state is not None:
+                uncovered = tuple(
+                    hypothesis.hypothesis_id
+                    for hypothesis in result.research_state.hypotheses
+                    if not (
+                        hypothesis.supporting_evidence
+                        or hypothesis.contradicting_evidence
+                        or any(
+                            hypothesis.hypothesis_id in gap.blocks
+                            for gap in result.research_state.gaps
+                        )
+                    )
+                )
+                missing: list[str] = []
+                for output_id in result.research_state.required_outputs:
+                    if not result.research_state.required_output_required.get(
+                        output_id, True
+                    ):
+                        continue
+                    if output_id in uncovered:
+                        continue
+                    if output_id in {"direct_assessment", "answer", "conclusion"}:
+                        if not result.assessment:
+                            missing.append(output_id)
+                        continue
+                    allowed_tools = set(
+                        result.research_state.required_output_evidence_types.get(
+                            output_id, ()
+                        )
+                    )
+                    if not any(
+                        not allowed_tools or item.tool in allowed_tools
+                        for item in result.research_state.evidence.values()
+                    ):
+                        missing.append(output_id)
+                missing_outputs = tuple(missing)
+            missing_requirements = tuple(dict.fromkeys((*uncovered, *missing_outputs)))
+            # 只允许一次“完成请求被延迟”重新规划；若模型仍重复 finish，
+            # 以 partial 结束并把未覆盖情景或 output 作为 gap，避免循环耗尽预算。
+            if requested_sufficient and missing_requirements and finish_rejections == 0:
+                finish_rejections += 1
+                result.sufficient = False
+                missing_text = "、".join(missing_requirements)
+                result.gaps = tuple(
+                    dict.fromkeys(
+                        (*result.gaps, f"尚未覆盖必需项：{missing_text}")
+                    )
+                )
+                result.steps.append(
+                    AgentStep(
+                        tool="finish",
+                        query="",
+                        reason=action_reason,
+                        observation=(
+                            "完成请求被延迟：仍缺少假设覆盖；请继续检索或明确 gap。"
+                            f" 未覆盖={missing_text}"
+                        ),
+                        hit_count=0,
+                        elapsed_ms=0,
+                    )
+                )
+                continue
+            # 第二次 finish 也不能因“没有 hypothesis”而绕过普通 required
+            # output（例如必须的结构化行情、比较依据）。明确保留 gap，供
+            # ResearchState 和 completion report 一致判为 partial。
+            if requested_sufficient and missing_requirements:
+                result.gaps = tuple(
+                    dict.fromkeys(
+                        (
+                            *result.gaps,
+                            f"尚未满足必需输出：{'、'.join(missing_requirements)}",
+                        )
+                    )
+                )
+            result.sufficient = requested_sufficient and not missing_requirements
             result.steps.append(
                 AgentStep(
                     tool="finish",
                     query="",
                     reason=action_reason,
-                    observation=f"sufficient={result.sufficient} gaps={list(result.gaps)}",
+                    observation=(
+                        f"sufficient={result.sufficient} assessment={result.assessment} "
+                        f"gaps={list(result.gaps)}"
+                    ),
                     hit_count=0,
                     elapsed_ms=0,
                 )
             )
             result.stop_reason = "agent finish"
+            if result.research_state is not None:
+                result.research_state.set_assessment(result.assessment)
+                for gap_index, gap in enumerate(result.gaps, start=1):
+                    result.research_state.add_gap(
+                        f"agent_gap_{gap_index}",
+                        gap,
+                        blocks=tuple(result.research_state.required_outputs),
+                    )
+                result.research_state.set_stop_reason(result.stop_reason)
+                result.state_revision = result.research_state.revision
             break
 
         if tool not in tools or tool not in _TOOL_NAMES:
@@ -586,9 +956,28 @@ def run_agent_loop(
             continue
         seen_queries.add(dedupe_key)
 
-        if stage_deadline.remaining() <= 0.001:
+        if available_stage_seconds() <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
+        state_revision_before = result.research_state.revision if result.research_state is not None else 0
+        raw_hypothesis_ids = args.get("hypothesis_ids", ())
+        if isinstance(raw_hypothesis_ids, str):
+            raw_hypothesis_ids = (raw_hypothesis_ids,)
+        hypothesis_ids = tuple(
+            dict.fromkeys(
+                str(item).strip()
+                for item in (raw_hypothesis_ids if isinstance(raw_hypothesis_ids, (list, tuple)) else ())
+                if str(item).strip()
+                and result.research_state is not None
+                and any(
+                    hypothesis.hypothesis_id == str(item).strip()
+                    for hypothesis in result.research_state.hypotheses
+                )
+            )
+        )
+        stance = str(args.get("stance") or "context").strip().lower()
+        if stance not in {"support", "contradict", "context"}:
+            stance = "context"
         started = time.monotonic()
         try:
             evidence, observation, trace = _run_tool(
@@ -596,6 +985,12 @@ def run_agent_loop(
                 tool_query,
                 tool_context,
             )
+            evidence = [
+                item
+                if item.content_hash
+                else replace(item, content_hash=evidence_content_hash(item))
+                for item in evidence
+            ]
         except Exception as exc:  # noqa: BLE001 —— 单工具失败不炸整轮循环
             evidence, observation = [], f"工具执行失败：{exc}"
             trace = ProviderTrace(
@@ -606,7 +1001,25 @@ def run_agent_loop(
             )
         elapsed_ms = int((time.monotonic() - started) * 1000)
         result.traces.append(trace)
+        if hypothesis_ids and stance in {"support", "contradict"}:
+            evidence = [
+                replace(
+                    item,
+                    supports=hypothesis_ids if stance == "support" else (),
+                    contradicts=hypothesis_ids if stance == "contradict" else (),
+                )
+                for item in evidence
+            ]
         result.evidence.extend(evidence)
+        if result.research_state is not None:
+            evidence_start = len(result.evidence) - len(evidence) + 1
+            for offset, item in enumerate(evidence):
+                result.research_state.add_evidence(
+                    item.to_observation(
+                        f"agent:{evidence_start + offset}:{item.tool}"
+                    )
+                )
+            result.state_revision = result.research_state.revision
         result.steps.append(
             AgentStep(
                 tool=tool,
@@ -615,8 +1028,27 @@ def run_agent_loop(
                 observation=observation[:_MAX_OBSERVATION_CHARS],
                 hit_count=len(evidence),
                 elapsed_ms=elapsed_ms,
+                hypothesis_ids=hypothesis_ids,
+                stance=stance,
             )
         )
+        state_changed = result.research_state is not None and result.state_revision > state_revision_before
+        if evidence and (result.research_state is None or state_changed):
+            no_information_steps = 0
+        else:
+            no_information_steps += 1
+        if no_information_steps >= 2:
+            result.stop_reason = "no_information_gain"
+            result.gaps = tuple(dict.fromkeys((*result.gaps, NO_INFORMATION_GAIN_GAP)))
+            if result.research_state is not None:
+                result.research_state.add_gap(
+                    "no_information_gain",
+                    NO_INFORMATION_GAIN_GAP,
+                    blocks=tuple(result.research_state.required_outputs),
+                )
+                result.research_state.set_stop_reason(result.stop_reason)
+                result.state_revision = result.research_state.revision
+            break
     else:
         result.stop_reason = "预算耗尽：步数"
     return result

@@ -19,6 +19,7 @@ from intelligence.services import (
     answer_model,
     closed_loop_retrieval,
     evidence_judge,
+    exposure_selector,
     kb_rag,
     l3_evidence,
     llm_refine,
@@ -41,6 +42,35 @@ if TYPE_CHECKING:
 # 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
 # W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
 _PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
+_L3_GAP_TERMS = (
+    "客户",
+    "合作",
+    "订单",
+    "合同",
+    "中标",
+    "认证",
+    "定点",
+    "送样",
+    "导入",
+    "量产",
+    "供货",
+    "出货",
+    "收入占比",
+    "供应商",
+)
+_L3_OWNER_TYPES = {
+    "stock_deep_dive",
+    "valuation_estimate",
+    "financial_analysis",
+    "news_impact",
+}
+_L3_HARD_SOURCE_TERMS = (
+    "L3 官方证据",
+    "公司公告",
+    "交易所公告",
+    "互动易",
+    "定期报告",
+)
 
 
 def _is_prior_conclusion_page(file_path: str) -> bool:
@@ -130,6 +160,44 @@ def _company_name_from_official_title(title: str) -> str | None:
     return None
 
 
+def should_request_l3_lookup(
+    *,
+    options: "AskOptions",
+    question_plan: "QuestionPlan",
+    local_evidence_text: str = "",
+) -> bool:
+    """Enable official-evidence lookup only when the answer has an L3-shaped gap.
+
+    The explicit option remains an override.  Otherwise deep company/event
+    questions and queries asking about customers/orders/production trigger the
+    lookup when the local window does not already contain an official source.
+    This closes the previous mismatch where the plan promised L3 retrieval but
+    runtime silently kept the tool disabled.
+    """
+    if options.use_l3_lookup:
+        return True
+    query = str(options.query or "")
+    question_type = str(question_plan.question_type or "")
+    asks_hard_fact = any(term in query for term in _L3_GAP_TERMS)
+    specific_target = bool(
+        re.search(r"(?:股份|集团|科技|电子|能源|公司|个股|股票|\d{6})", query)
+    )
+    deep_owner = (
+        question_type in _L3_OWNER_TYPES
+        and (
+            question_type == "valuation_estimate"
+            or (
+                getattr(question_plan, "depth", "standard") == "deep"
+                and specific_target
+            )
+        )
+    )
+    if not (asks_hard_fact or deep_owner):
+        return False
+    local = str(local_evidence_text or "")
+    return not any(term in local for term in _L3_HARD_SOURCE_TERMS)
+
+
 def collect_l3_official(
     ctx: EvidenceContext,
     *,
@@ -141,7 +209,11 @@ def collect_l3_official(
     anchor = ctx.anchor
     question_plan = ctx.question_plan
     chain_lines: list[str] = []
-    if not options.use_l3_lookup:
+    if not should_request_l3_lookup(
+        options=options,
+        question_plan=question_plan,
+        local_evidence_text=local_evidence_text,
+    ):
         return chain_lines
     l3_bundle = l3_evidence.lookup_l3_evidence(
         options.query,
@@ -277,6 +349,52 @@ def collect_market_snapshot(ctx: EvidenceContext) -> list[str]:
     return market_lines
 
 
+# 交给模型挑之前先摆多少家候选。太窄等于把取舍又还给确定性排序，太宽会把
+# prompt 撑大且拖慢关键路径。实测「固态电池」全量 86 家，60 家已覆盖到
+# peripheral 档尾部；更长尾的题材本来也不该指望模型从几百家里挑。
+_SELECTOR_POOL = 60
+
+
+def _select_exposures_by_intent(
+    ctx: EvidenceContext,
+    options: Any,
+    knowledge: Any,
+    ordered: list[dict[str, Any]],
+    exposures: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """按问题意图重排候选：模型挑中的提到最前，其余保持确定性顺序跟在后面。
+
+    返回的是**重排过的宽表**而不是截好的 12 家——截断留给调用方统一做，
+    这样 focus_entities 的置顶逻辑仍能在完整候选里找到它要的公司。
+
+    结果和降级原因都写进 ``exposures['selector']``，一路进 trace——降级了但没人
+    知道为什么，就是这轮一直在治的那个病。
+    """
+    if exposure_selector.selector_mode() == "off":
+        exposures["selector"] = {
+            "mode": "deterministic",
+            "reason": "selector_off",
+            "candidate_count": 0,
+        }
+        return ordered
+    # 重新宽召回一次。relations 走带 stat 校验的进程内缓存，这一次不读盘。
+    pool = knowledge.get_exposure_matches(ctx.graph_query, limit=_SELECTOR_POOL)
+    candidates = list(pool.get("items") or []) or ordered
+    selection = exposure_selector.select_exposures(
+        str(options.query or ""),
+        candidates,
+        options.top_companies,
+    )
+    exposures["selector"] = selection.telemetry
+    if not selection.items:
+        return ordered
+    picked = {str(row.get("company") or "") for row in selection.items}
+    rest = [
+        row for row in candidates if str(row.get("company") or "") not in picked
+    ]
+    return list(selection.items) + rest
+
+
 def collect_graph(ctx: EvidenceContext) -> GraphEvidence:
     """G：知识图谱概念命中 + 公司暴露分层。"""
     options = ctx.options
@@ -315,18 +433,34 @@ def collect_graph(ctx: EvidenceContext) -> GraphEvidence:
     exposure_limit = max(options.top_companies, len(focus_entities) * 4)
     exposures = knowledge.get_exposure_matches(ctx.graph_query, limit=exposure_limit)
     bundle.exposures_result = exposures
-    if exposures.get("found") and focus_entities:
-        focus_order = {
-            company: index for index, company in enumerate(focus_entities)
-        }
-        exposure_items = list(exposures["items"])
-        exposure_items.sort(
-            key=lambda row: (
-                0 if str(row.get("company") or "") in focus_order else 1,
-                focus_order.get(str(row.get("company") or ""), len(focus_order)),
+    if exposures.get("found"):
+        ordered = list(exposures["items"])
+        if exposures.get("truncated"):
+            # 候选池装不下配额时，静态标注排不出「对这个问题谁最相关」——让模型挑。
+            ordered = _select_exposures_by_intent(ctx, options, knowledge, ordered, exposures)
+        if focus_entities:
+            # focus_entities 是 research_spec 推导出的重点公司，永远钉在最前面。
+            # 它一般只有三四家，填不满 top_companies——剩下的槽位才是选择器的战场，
+            # 所以这两件事是叠加关系，不是二选一（本轮实测踩过：以为 focus 非空就
+            # 该跳过选择器，结果 12 个槽位里有 8 个仍由公司名字典序决定）。
+            focus_order = {
+                company: index for index, company in enumerate(focus_entities)
+            }
+            # sort 是稳定的：非 focus 行的键完全相同，选择器排好的相对顺序不会被打乱。
+            ordered.sort(
+                key=lambda row: (
+                    0 if str(row.get("company") or "") in focus_order else 1,
+                    focus_order.get(str(row.get("company") or ""), len(focus_order)),
+                )
             )
-        )
-        exposures["items"] = exposure_items[: options.top_companies]
+        # 这是**第二次**截断：adapter 已按 exposure_limit 截过一次，这里收窄到
+        # top_companies。不同步 truncated 的话，下游会拿 adapter 那次的结论去描述
+        # 一个更短的名单，把「少送了多少」说小。
+        if len(ordered) > options.top_companies:
+            exposures["items"] = ordered[: options.top_companies]
+            exposures["truncated"] = True
+        else:
+            exposures["items"] = ordered
     tiers = bundle.tiers
     if exposures.get("found"):
         ctx.result.found_graph = True

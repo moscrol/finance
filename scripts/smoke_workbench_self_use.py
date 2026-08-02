@@ -21,6 +21,8 @@ ANSWER_PHASES = {
     "verified_draft",
     "validated_synthesis",
     "verified_fallback",
+    "decision_brief_fallback",
+    "evidence_gap_fallback",
 }
 EVENT_REGISTRY_PATH = (
     Path(__file__).resolve().parents[1]
@@ -136,12 +138,313 @@ PUBLIC_LEAK_PATTERNS = (
 )
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+QUANTIFIED_MARKET_OBSERVATION = re.compile(
+    r"(?:成交(?:额)?|涨停|跌停|上涨家数|下跌家数|涨跌幅|量比|"
+    r"近\s*\d+\s*日)[^。；;\n]{0,48}\d"
+)
+DIRECT_ASSESSMENT = re.compile(
+    r"(?:直接|核心|基准)[^。；;\n]{0,4}(?:回答|判断|结论)"
+)
+VALUATION_FIELD = (
+    r"(?:财报|财务|报表|营收|收入|净利|利润|盈利|毛利|负债|现金流|"
+    r"PE|PB|PS|市盈|市净|市销|分位|机构预测|历史估值|行情时效|"
+    r"估值|估值证据|估值输入|可比公司|可比样本)"
+)
+VALUATION_FIELD_RE = re.compile(VALUATION_FIELD)
+UNRESOLVED_GAP_ASSERTION = re.compile(
+    r"(?:仍|尚|还|目前|当前|依然)?\s*"
+    r"(?:缺少|缺乏|缺失|不足|不充分|不完整)|"
+    r"(?:尚未|未能|未|无法|不能)\s*"
+    r"(?:获取|取得|获得|核验|确认|完成|形成|建立|检索到|返回|覆盖|对齐|归因|回答)|"
+    r"(?:仍需|尚待|有待|需|需要)\s*(?:补充|核验|确认|获取)|"
+    r"(?:存在|仍有|尚有|留有)[^。；;，,\n]{0,12}(?:缺口|不足)|"
+    r"(?:样本|数据|证据)(?:数量)?\s*(?:太少|过少)|"
+    r"(?:不含|没有)[^。；;，,\n]{0,36}(?:证据|新闻|政策|信息)|"
+    r"无法\s*(?:给出|形成|计算|估算|确定)[^。；;，,\n]{0,10}估值|"
+    r"返回空结果"
+)
+GAP_ASSERTION_NEGATION = re.compile(
+    r"(?:并非|并未|并不|没有|不存在|不再)[^。；;，,\n]{0,6}$|"
+    r"(?:已|已经|现已|目前已)?\s*"
+    r"(?:补齐|补全|填补|弥补|消除|解决|关闭)"
+    r"[^。；;，,\n]{0,10}$"
+)
+GAP_ASSERTION_RESOLUTION = re.compile(
+    r"^(?:的)?(?:问题|缺口)?\s*(?:已|已经|现已|目前已)?\s*"
+    r"(?:得到)?\s*"
+    r"(?:补齐|补全|填补|弥补|消除|解决|关闭|归零|为零)"
+)
+GAP_CONTRAST_SPLIT = re.compile(r"(?:但|不过|然而|可是|却)")
+CAUSE_TIME = re.compile(
+    r"同一时间窗口|同窗|同期|同日|时间对齐|与[^。；;\n]{0,20}对齐|"
+    r"20\d{2}[-年/.]\d{1,2}(?:[-月/.]\d{1,2})?|\d{1,2}月\d{1,2}日"
+)
+CAUSE_DEICTIC_TIME = re.compile(r"该(?:时间)?窗口")
+CAUSE_SOURCE = re.compile(r"新闻|政策|事件|消息|资讯|外部信息")
+CAUSE_OBJECT = re.compile(r"原因|归因|因果|诱因|催化|外部驱动")
+CAUSE_UNCERTAINTY = re.compile(
+    r"无法|不能|不足以|未能|缺口|缺少|缺失|尚缺|未检索到|未返回|不含|没有"
+)
+FORECAST_DURATION = re.compile(
+    r"(?:\d+(?:\.\d+)?(?:\s*(?:[-~～至到—]|到)\s*\d+(?:\.\d+)?)?|"
+    r"[一二两三四五六七八九十百]+(?:到|至)?"
+    r"[一二两三四五六七八九十百]*)\s*(?:个)?(?:交易日|天|周|月)"
+)
+FORECAST_LANGUAGE = re.compile(
+    r"预计|预期|还能|将(?:维持|持续)|可持续|大概率(?:持续|维持)|"
+    r"(?:可能)?(?:再)?延续|基准判断|"
+    r"基准情景|反弹(?:的)?(?:持续)?(?:时间)?窗口|"
+    r"倾向于?(?:还能|持续|维持)|"
+    r"(?:主观基准|本轮反弹)[^。；;\n]{0,80}"
+    r"(?:未来|后续|接下来|短期|仍有|仍可|还能|预计|预期|将|可持续|惯性)"
+)
+MARKET_TRIGGER = (
+    r"(?:成交|量能|指数|涨停|跌停|主线|板块|市场宽度|上涨家数|"
+    r"下跌家数|均线|支撑|压力|资金|北向|融资)"
+)
+MARKET_CHANGE = (
+    r"(?:萎缩|缩量|放量|回落|扩散|跌破|失守|站上|走弱|下降|"
+    r"减少|增加|收窄|转弱|转强|恶化|修复|低于|高于|不足|超过)"
+)
+INVALIDATION_TRIGGER = re.compile(
+    rf"(?:若|如果|一旦|当)[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
+    rf"[^。；;\n]{{0,40}}{MARKET_CHANGE}"
+    r"[^。；;\n]{0,60}(?:失效|结束|下调|转弱|转强|改变)"
+    rf"|失效条件\s*[:：]\s*(?:若|如果|一旦|当)"
+    rf"[^。；;\n]{{0,40}}{MARKET_TRIGGER}"
+    rf"[^。；;\n]{{0,40}}{MARKET_CHANGE}[^。；;\n]{{0,60}}"
+    rf"|【?(?:失效|降级|失效或降级)条件】?\s*[:：]?\s*[①②③④⑤⑥⑦⑧⑨⑩-]*"
+    rf"[^。；;\n]{{0,16}}{MARKET_TRIGGER}[^。；;\n]{{0,40}}{MARKET_CHANGE}"
+)
+
+
+def _is_cause_question(question: str) -> bool:
+    has_cause_request = any(
+        marker in question
+        for marker in ("原因", "为什么", "归因", "诱因", "怎么回事")
+    )
+    has_market_context = any(
+        marker in question for marker in ("下跌", "行情", "市场", "大盘", "指数")
+    )
+    return has_cause_request and has_market_context
+
+
+def _task_gap_anchors(question: str) -> tuple[str, ...]:
+    if "主线" in question:
+        return ("主线",)
+    if "估值" in question:
+        return (
+            "估值",
+            "市值",
+            "市盈",
+            "市净",
+            "盈利",
+            "收入",
+            "PE",
+            "PB",
+            "PS",
+            "失效",
+            "降级",
+        )
+    if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
+        return (
+            "反弹",
+            "持续",
+            "时长",
+            "交易日",
+            "失效",
+            "继续成立",
+            "量能",
+            "成交",
+        )
+    if _is_cause_question(question):
+        return ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
+    return ("问题所需", "直接回答")
+
+
+def _has_task_specific_gap(question: str, answer: str) -> bool:
+    anchors = _task_gap_anchors(question)
+    clauses = re.split(r"[。；;\n]+", answer)
+    if "估值" in question:
+        return any(
+            _segment_asserts_valuation_gap(segment)
+            or (
+                _segment_asserts_gap(segment)
+                and (
+                    "条件" in segment
+                    and any(marker in segment for marker in ("失效", "降级"))
+                )
+            )
+            for clause in clauses
+            for segment in _gap_segments(clause)
+        )
+    return any(
+        _segment_asserts_gap(segment)
+        and any(anchor in segment for anchor in anchors)
+        for clause in clauses
+        for segment in _gap_segments(clause)
+    )
+
+
+def _gap_segments(clause: str) -> tuple[str, ...]:
+    return tuple(
+        segment.strip()
+        for segment in GAP_CONTRAST_SPLIT.split(clause)
+        if segment.strip()
+    )
+
+
+def _segment_asserts_gap(segment: str) -> bool:
+    for match in UNRESOLVED_GAP_ASSERTION.finditer(segment):
+        prefix = segment[max(0, match.start() - 10) : match.start()]
+        suffix = segment[match.end() : match.end() + 24]
+        if GAP_ASSERTION_NEGATION.search(prefix):
+            continue
+        if GAP_ASSERTION_RESOLUTION.search(suffix):
+            continue
+        return True
+    return False
+
+
+def _segment_asserts_valuation_gap(segment: str) -> bool:
+    return any(
+        VALUATION_FIELD_RE.search(phrase) and _segment_asserts_gap(phrase)
+        for phrase in re.split(r"[，,]+", segment)
+    )
+
+
+def _has_specific_cause_gap(answer: str) -> bool:
+    explicit_time_context = bool(CAUSE_TIME.search(answer))
+    return any(
+        _segment_asserts_gap(segment)
+        and
+        (
+            CAUSE_TIME.search(segment)
+            or (explicit_time_context and CAUSE_DEICTIC_TIME.search(segment))
+        )
+        and CAUSE_SOURCE.search(segment)
+        and CAUSE_OBJECT.search(segment)
+        and CAUSE_UNCERTAINTY.search(segment)
+        for clause in re.split(r"[。；;\n]+", answer)
+        for segment in _gap_segments(clause)
+    )
+
+
+def _has_forward_duration(answer: str) -> bool:
+    return any(
+        FORECAST_DURATION.search(clause) and FORECAST_LANGUAGE.search(clause)
+        for clause in re.split(r"[。；;\n]+", answer)
+    )
+
+
+def _has_invalidation_trigger(answer: str) -> bool:
+    markdown_neutral = re.sub(r"[*_`#]", "", answer)
+    return bool(INVALIDATION_TRIGGER.search(markdown_neutral))
+
+
+def _has_specific_invalidation_gap(answer: str) -> bool:
+    markdown_neutral = re.sub(r"[*_`#]", "", answer)
+    for clause in re.split(r"[。；;\n]+", markdown_neutral):
+        for segment in _gap_segments(clause):
+            has_gap = bool(
+                _segment_asserts_gap(segment)
+                or (
+                    any(
+                        marker in segment
+                        for marker in ("未核验", "已删除", "需补充")
+                    )
+                    and any(
+                        marker in segment for marker in ("证据", "数据", "阈值")
+                    )
+                )
+            )
+            has_invalidation_slot = "失效条件" in segment or (
+                "失效" in segment
+                and any(marker in segment for marker in ("条件", "阈值", "触发"))
+            ) or ("继续成立" in segment and "条件" in segment)
+            if has_gap and has_invalidation_slot:
+                return True
+    return False
 
 
 class SmokeProtocolError(RuntimeError):
     def __init__(self, stage: str) -> None:
         super().__init__(stage)
         self.stage = stage
+
+
+def semantic_answer_issues(
+    question: str,
+    report: dict[str, object],
+    messages: list[object],
+) -> list[str]:
+    """Return user-facing semantic failures for the small release red bar."""
+
+    issues: list[str] = []
+    answer_status = report.get("answer_status")
+    assistant_text = ""
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            assistant_text = str(message.get("content") or "")
+            break
+    if not assistant_text.strip():
+        issues.append("assistant_answer_missing")
+        return issues
+    explicit_gap = (
+        _has_specific_cause_gap(assistant_text)
+        if _is_cause_question(question)
+        else _has_task_specific_gap(question, assistant_text)
+    )
+    if answer_status == "partial" and not explicit_gap:
+        issues.append(f"answer_status={answer_status!r}")
+    elif answer_status not in {"complete", "partial"}:
+        issues.append(f"answer_status={answer_status!r}")
+    if "主线" in question:
+        if not (
+            any(
+                marker in assistant_text
+                for marker in (
+                    "主线是",
+                    "主线偏向",
+                    "当前主线",
+                    "主线判断",
+                )
+            )
+            or DIRECT_ASSESSMENT.search(assistant_text)
+        ):
+            issues.append("mainline_direct_assessment_missing")
+        if not (
+            any(
+                marker in assistant_text
+                for marker in ("依据", "证据", "数据", "盘面", "缺少")
+            )
+            or QUANTIFIED_MARKET_OBSERVATION.search(assistant_text)
+        ):
+            issues.append("mainline_evidence_missing")
+    if "明天" in question and any(marker in question for marker in ("反弹", "下跌")):
+        for marker, name in (
+            ("基准", "forecast_baseline_missing"),
+            ("反弹", "forecast_rebound_missing"),
+            ("下跌", "forecast_decline_missing"),
+            ("失效", "forecast_invalidation_missing"),
+        ):
+            if marker not in assistant_text:
+                issues.append(name)
+    if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
+        if not _has_forward_duration(assistant_text):
+            issues.append("forecast_duration_missing")
+        has_specific_invalidation_gap = (
+            answer_status == "partial"
+            and _has_specific_invalidation_gap(assistant_text)
+        )
+        if not _has_invalidation_trigger(assistant_text) and not has_specific_invalidation_gap:
+            issues.append("forecast_invalidation_missing")
+    if "科创50" in question or "支撑点位" in question:
+        if "支撑" not in assistant_text:
+            issues.append("technical_support_missing")
+        if "失效" not in assistant_text:
+            issues.append("technical_invalidation_missing")
+    return issues
 
 
 class SecretScanner:
@@ -766,6 +1069,17 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         if llm_payload and not isinstance(llm_used, bool):
             raise SmokeProtocolError("model_metadata")
 
+        semantic_issues = (
+            semantic_answer_issues(args.question, report_payload, messages)
+            if getattr(args, "semantic", False)
+            else []
+        )
+        if semantic_issues:
+            summary["semantic"] = {"passed": False, "issues": semantic_issues}
+            raise SmokeProtocolError("semantic_answer")
+        if getattr(args, "semantic", False):
+            summary["semantic"] = {"passed": True, "issues": []}
+
         outcome = (
             "degraded" if run_status == "completed" and degrades else str(run_status)
         )
@@ -833,6 +1147,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--user", required=True)
     parser.add_argument("--question", required=True)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument(
+        "--semantic",
+        action="store_true",
+        help="将最终正文 required outputs 纳入退出码（默认仅协议 smoke）",
+    )
     parser.add_argument("--output", required=True)
     return parser
 

@@ -9,7 +9,7 @@ import duckdb
 import pandas as pd
 import pytest
 
-from market_feature_store import cli
+from market_feature_store import cli, db
 from market_feature_store.sync import sync_fupanhui_mainline_daily as mainline
 from market_feature_store.sync import sync_fupanhui_mainline_sector_daily as mainline_sector
 from scripts import check_daily_review_data
@@ -17,7 +17,6 @@ from scripts.compute_features import compute_features
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = (ROOT / "market_feature_store" / "schema.sql").read_text(encoding="utf-8")
 TRADE_DATE = "2026-07-10"
 RUN_REVIEW_PATH = ROOT / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
 RUN_REVIEW_SPEC = importlib.util.spec_from_file_location("run_review_sync", RUN_REVIEW_PATH)
@@ -27,9 +26,27 @@ RUN_REVIEW_SPEC.loader.exec_module(run_review_sync)
 
 
 def _database(path: Path | str = ":memory:") -> duckdb.DuckDBPyConnection:
+    """用生产入口 init_db 建库, 让测试看到与生产一致的迁移后 schema。"""
     con = duckdb.connect(str(path))
-    con.execute(SCHEMA)
+    db.init_db(con)
     return con
+
+
+def _seed_legacy_sector_daily(con: duckdb.DuckDBPyConnection, rows: list[tuple]) -> None:
+    """向尚未发布快照的交易日写入 legacy 代际行。
+
+    公开的 fact_sector_daily 已是只读视图, 没有 published 表头的日期只暴露 legacy 行;
+    测试目录不在 Task 7 访问门禁的扫描范围内。
+    """
+    con.executemany(
+        """
+        INSERT INTO fact_sector_daily_generation (
+            trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+            sw_l1, pct_chg, amount, diff_ratio, source, updated_at
+        ) VALUES (?, 'legacy', ?, ?, ?, ?, ?, ?, 'test', NOW())
+        """,
+        rows,
+    )
 
 
 def _theme(code: str = "T1") -> dict:
@@ -362,7 +379,7 @@ def _load_l2_writer(monkeypatch, db_path):
     writer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(writer)
     monkeypatch.setattr(writer, "connect", lambda: duckdb.connect(str(db_path)))
-    monkeypatch.setattr(writer, "init_db", lambda con: con.execute(SCHEMA))
+    monkeypatch.setattr(writer, "init_db", db.init_db)
     return writer
 
 
@@ -555,6 +572,33 @@ def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):
     assert names.index("features") > names.index("theme-flow-daily")
 
 
+def test_sync_plan_omits_retired_sector_feishu_step(monkeypatch):
+    monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
+    names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
+
+    assert "sector-resonance" not in names
+
+
+def test_cli_omits_retired_sector_feishu_commands():
+    parser = cli.build_parser()
+    commands = set(parser._subparsers._group_actions[0].choices)
+
+    assert {
+        "sync-sector-marginal",
+        "sync-sector-daily-metrics",
+        "sync-sector-resonance",
+    }.isdisjoint(commands)
+
+
+def test_daily_update_omits_retired_sector_feishu_module():
+    source = (
+        ROOT / "market_feature_store" / "sync" / "sync_daily_full.py"
+    ).read_text(encoding="utf-8")
+
+    assert "sync_feishu_sector_resonance" not in source
+    assert "sync-sector-resonance" not in source
+
+
 def test_nightly_script_attempts_l2_before_sync_failure_exit():
     """`all` 阶段里 L2 必须在「同步段失败就退出」之前跑。
 
@@ -572,3 +616,41 @@ def test_nightly_script_attempts_l2_before_sync_failure_exit():
     sync_exit = script.index('if [ "$rc" -ne 0 ]', l2)
 
     assert sync_result < l2 < sync_exit
+
+
+def test_market_dependent_tables_are_excluded_from_row_anomaly_checks() -> None:
+    """随行情波动的表不做行数收缩检查，但断档检查保留。
+
+    回归：三张 fact_mainline_* 统计的是「当日有几条主线、主线里有几只股」，本身
+    随行情变化。近 29 个交易日实测 theme 2~7（3.5x）、stock 30~163（5.4x）、
+    sector 5~15（3.0x），对照恒定表 fact_sw_l1_daily 与
+    fact_sector_period_rank_daily 均为 1.0x。
+
+    后果不是少报一个告警：跨日门禁 FAIL 会让夜间管线其后 16 步全部 SKIP，包括
+    theme-candidates / agent-daily / 策略矩阵 / cockpit。2026-07-29 主线只有 3 条
+    题材 53 只股，重跑同步仍是 53 且报 complete——数据完整，行情就是那么窄。
+    行情越窄，题材层被掐得越死，而那正是最需要它的时候。
+    """
+    from market_feature_store.quality import GAP_TABLES, ROW_ANOMALY_TABLES
+
+    for table in (
+        "fact_mainline_theme_daily",
+        "fact_mainline_stock_daily",
+        "fact_mainline_sector_daily",
+    ):
+        assert table not in ROW_ANOMALY_TABLES
+        assert table in GAP_TABLES
+
+
+def test_constant_universe_tables_keep_row_anomaly_checks() -> None:
+    """宇宙规模恒定的表必须保留行数收缩检查，这条门禁不能整体失效。"""
+    from market_feature_store.quality import ROW_ANOMALY_TABLES
+
+    for table in (
+        "fact_sector_daily",
+        "fact_sw_l1_daily",
+        "fact_sector_stock_daily",
+        "fact_stock_daily",
+        "fact_sector_period_rank_daily",
+    ):
+        assert table in ROW_ANOMALY_TABLES

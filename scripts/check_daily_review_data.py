@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Direct execution needs the repository root on sys.path before project imports.
+# The E402 below is therefore an ordering requirement, not an oversight.
 from market_feature_store.db import connect  # noqa: E402
 
 

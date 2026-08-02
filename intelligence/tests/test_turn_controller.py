@@ -1,17 +1,45 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
+from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.research_contract import TurnIntent
-from intelligence.services.query_resolution import QueryResolution
+from intelligence.services.query_resolution import QueryResolution, QueryResolver
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
-from intelligence.services.turn_controller import decide_turn
+from intelligence.services.turn_controller import TurnDecision, _attach_turn_intent, decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
     return None, None, "fixture unavailable"
+
+
+def _semantic_resolver(tmp_path) -> QueryResolver:
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "英维克": {"codes": ["002837.SZ"], "concepts": {}},
+                    "中际旭创": {"codes": ["300308.SZ"], "concepts": {}},
+                    "宁德时代": {
+                        "codes": ["300750.SZ"],
+                        "concepts": {"固态电池": {}},
+                    },
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
 
 
 class _CountingResolver:
@@ -34,6 +62,81 @@ def test_controller_resolves_each_turn_once() -> None:
     assert resolver.calls == 1
 
 
+@pytest.mark.parametrize(
+    ("query", "subject_kind"),
+    (
+        ("英维克", "company"),
+        ("固态电池", "theme"),
+        ("中际旭创", "company"),
+    ),
+)
+def test_controller_preserves_resolver_confirmed_bare_subject(
+    tmp_path,
+    query: str,
+    subject_kind: str,
+) -> None:
+    decision = decide_turn(
+        query,
+        resolver=_semantic_resolver(tmp_path),
+        llm_complete=_no_llm,
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == query
+    assert decision.task_frame.subject == query
+    assert decision.task_frame.subject_kind == subject_kind
+    assert decision.subject == query
+
+
+def test_controller_rejects_unverified_whole_question_as_subject() -> None:
+    query = "帮我判断产业趋势是否成立"
+
+    class WholeQuestionResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=replace(
+                    understand_query(query),
+                    subject=query,
+                    subject_kind="theme",
+                    matched_by="explicit",
+                ),
+                anchor=None,
+            )
+
+    decision = decide_turn(
+        query,
+        resolver=WholeQuestionResolver(),  # type: ignore[arg-type]
+        llm_complete=_no_llm,
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject is None
+    assert decision.subject is None
+
+
+def test_controller_subject_wins_when_question_type_is_unchanged() -> None:
+    decision = TurnDecision(
+        lane="research",
+        needs_retrieval=True,
+        needs_memory=False,
+        needs_template=True,
+        question_type="general_finance_qa",
+        subject="科创50",
+    )
+    old_intent = TurnIntent(
+        primary_subject="半导体",
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    merged = _attach_turn_intent(decision, old_intent)
+    assert merged.subject == "科创50"
+    assert merged.turn_intent is not None
+    assert merged.turn_intent.primary_subject == "科创50"
+
+
 def test_greeting_is_chat_without_tools_or_memory() -> None:
     decision = decide_turn("你好", llm_complete=_no_llm)
 
@@ -42,6 +145,29 @@ def test_greeting_is_chat_without_tools_or_memory() -> None:
     assert decision.needs_memory is False
     assert decision.needs_template is False
     assert decision.capabilities == ()
+
+
+def test_unrelated_new_turn_does_not_inherit_previous_subject() -> None:
+    previous = TurnIntent(
+        primary_subject="宁德时代",
+        secondary_topics=(),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+
+    decision = decide_turn(
+        "你好",
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "chat"
+    assert decision.subject is None
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject is None
 
 
 def test_model_question_is_meta_without_financial_routing() -> None:
@@ -80,6 +206,37 @@ def test_static_concept_uses_knowledge_lane_without_retrieval() -> None:
     assert decision.needs_template is False
 
 
+def test_definition_plus_current_market_fact_uses_research_without_controller_llm() -> None:
+    decision = decide_turn(
+        "什么是双红，现在哪些板块双红",
+        llm_complete=lambda _messages: pytest.fail(
+            "mixed definition/current fact must use deterministic policy"
+        ),
+    )
+    assert decision.lane == "research"
+    assert decision.question_type == "concept_definition"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
+def test_methodology_uses_model_native_lane_without_controller_llm_or_rag() -> None:
+    def forbidden_llm(_messages: list[dict[str, str]]):
+        raise AssertionError("deterministic methodology route must not call controller LLM")
+
+    decision = decide_turn(
+        "编排层为什么会导致模板化？",
+        llm_complete=forbidden_llm,
+    )
+
+    assert decision.lane == "knowledge"
+    assert decision.question_type == "methodology_discussion"
+    assert decision.needs_retrieval is False
+    assert decision.needs_memory is False
+    assert decision.needs_template is False
+    assert decision.capabilities == ()
+
+
 def test_fresh_general_knowledge_requests_retrieval_without_finance_template() -> None:
     decision = decide_turn("PQC最新消息", llm_complete=_no_llm)
 
@@ -97,6 +254,24 @@ def test_external_market_uses_research_lane_and_quote_capability() -> None:
     assert decision.needs_retrieval is True
     assert decision.needs_template is True
     assert "market_quote" in decision.capabilities
+
+
+def test_weekly_market_cause_is_deterministic_and_skips_controller_llm() -> None:
+    decision = decide_turn(
+        "这一周行情下跌的主要原因你认为是什么",
+        skill_mode="hybrid",
+        llm_complete=lambda _messages: pytest.fail(
+            "weekly market cause must use deterministic head routing"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.timeframe == "这一周"
+    assert decision.needs_template is False
+    assert {"market_quote", "market_news", "web_search"}.issubset(
+        decision.capabilities
+    )
 
 
 @pytest.mark.parametrize(
@@ -306,12 +481,12 @@ def test_month_only_market_summary_does_not_claim_daily_report() -> None:
     assert decision.lane != "workflow"
 
 
-def test_broad_market_question_clarifies_scope() -> None:
+def test_broad_daily_market_question_defaults_to_a_share_workflow() -> None:
     decision = decide_turn("今天市场怎么样", llm_complete=_no_llm)
 
-    assert decision.lane == "clarify"
-    assert "A 股" in decision.clarification_questions[0]
-    assert decision.needs_retrieval is False
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.needs_retrieval is True
 
 
 def test_explicit_market_outlook_routes_to_forecast_without_clarifying() -> None:
@@ -324,6 +499,165 @@ def test_explicit_market_outlook_routes_to_forecast_without_clarifying() -> None
     assert decision.question_type == "market_forecast"
     assert "market_quote" in decision.capabilities
     assert decision.clarification_questions == ()
+
+
+def test_rebound_horizon_keeps_task_frame_semantics_without_llm() -> None:
+    question = "昨天的反弹能持续多久"
+
+    decision = decide_turn(
+        question,
+        llm_complete=lambda _messages: pytest.fail(
+            "rebound-horizon head must not depend on the controller LLM"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_forecast"
+    assert decision.subject == "A股市场"
+    assert decision.timeframe == "最近交易日"
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == question
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.task_frame_hash == decision.task_frame.task_frame_hash
+
+
+def test_unbound_rebound_reference_clarifies_once_without_llm() -> None:
+    decision = decide_turn(
+        "这个反弹还能持续多久",
+        llm_complete=lambda _messages: pytest.fail(
+            "blocking rule ambiguity must be resolved before the controller LLM"
+        ),
+    )
+
+    assert decision.lane == "clarify"
+    assert decision.subject is None
+    assert len(decision.clarification_questions) == 1
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == "这个反弹还能持续多久"
+    assert decision.task_frame.clarification_question == (
+        "你希望我围绕哪个明确主体继续判断？"
+    )
+    assert decision.clarification_questions == (
+        decision.task_frame.clarification_question,
+    )
+
+
+def test_clarification_answer_resumes_pending_rebound_task_frame() -> None:
+    question = "这个反弹还能持续多久"
+    first = decide_turn(
+        question,
+        llm_complete=lambda _messages: pytest.fail(
+            "blocking rule ambiguity must not call the controller LLM"
+        ),
+    )
+
+    assert first.turn_intent is not None
+    assert first.turn_intent.pending_task_frame is not None
+    assert first.turn_intent.pending_task_frame["raw_question"] == question
+    assert first.turn_intent.clarification_rounds == 1
+
+    resumed = decide_turn(
+        "这个反弹指A股",
+        previous_intent=first.turn_intent,
+        previous_turn_id="msg-clarification",
+        llm_complete=lambda _messages: pytest.fail(
+            "clarification answer must resume the deterministic forecast"
+        ),
+    )
+
+    assert resumed.lane == "research"
+    assert resumed.question_type == "market_forecast"
+    assert resumed.subject == "A股市场"
+    assert resumed.clarification_questions == ()
+    assert resumed.task_frame is not None
+    assert resumed.task_frame.raw_question == question
+    assert resumed.task_frame.user_goal == first.task_frame.user_goal
+    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
+    assert resumed.turn_intent is not None
+    assert resumed.turn_intent.pending_task_frame is None
+    assert resumed.turn_intent.clarification_rounds == 1
+
+
+def test_legacy_context_dependent_clarification_resumes_same_forecast_frame() -> None:
+    question = "这个反弹还能持续多久"
+    historical = replace(
+        understand_query("昨天的反弹能持续多久"),
+        subject="A股市场",
+        subject_kind="market_pattern",
+    )
+
+    class HistoricalContextResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=historical,
+                anchor=None,
+                reference_kind="continuation",
+                context_dependent=True,
+            )
+
+    first = decide_turn(
+        question,
+        resolver=HistoricalContextResolver(),  # type: ignore[arg-type]
+        llm_complete=lambda _messages: pytest.fail(
+            "legacy context-dependent clarification must not call the LLM"
+        ),
+    )
+
+    assert first.lane == "clarify"
+    assert first.task_frame is not None
+    assert first.task_frame.raw_question == question
+    assert first.task_frame.question_type == "market_forecast"
+    assert first.turn_intent is not None
+    assert first.turn_intent.pending_task_frame == first.task_frame.to_dict()
+    assert first.turn_intent.clarification_rounds == 1
+
+    resumed = decide_turn(
+        "科创50",
+        previous_intent=first.turn_intent,
+        previous_turn_id="msg-legacy-clarification",
+        llm_complete=lambda _messages: pytest.fail(
+            "clarification answer must resume the stored forecast"
+        ),
+    )
+
+    assert resumed.lane == "research"
+    assert resumed.question_type == "market_forecast"
+    assert resumed.subject == "科创50"
+    assert resumed.task_frame is not None
+    assert resumed.task_frame.raw_question == question
+    assert resumed.task_frame.user_goal == first.task_frame.user_goal
+    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
+    assert resumed.turn_intent is not None
+    assert resumed.turn_intent.pending_task_frame is None
+
+
+def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> None:
+    previous = TurnIntent(
+        primary_subject="科创50",
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    question = "这个反弹还能持续多久"
+
+    decision = decide_turn(
+        question,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=lambda _messages: pytest.fail(
+            "inherited rebound head must remain deterministic"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "科创50"
+    assert decision.clarification_questions == ()
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == question
+    assert decision.task_frame.subject == "科创50"
+    assert decision.task_frame.subject_kind == "market_pattern"
 
 
 def test_company_valuation_uses_research_lane() -> None:
@@ -654,6 +988,69 @@ def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     assert decision.capabilities == ()
 
 
+def test_controller_llm_supplements_task_frame_without_replacing_semantics() -> None:
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "confidence": 0.91,
+            "reason": "普通交流",
+            "user_goal": "判断产业趋势是否会改变市场持续性",
+            "required_outputs": ["trend_signal"],
+            "assumptions": ["先按未来五个交易日观察"],
+            "ambiguities": ["观察窗口未明确，先声明假设"],
+        },
+        ensure_ascii=False,
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return content, object(), ""
+
+    decision = decide_turn(
+        "帮我判断产业趋势",
+        llm_complete=complete,
+    )
+
+    assert len(calls) == 1
+    assert '"task_frame"' in calls[0][1]["content"]
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.task_frame is not None
+    assert decision.task_frame.market_scope == "A股"
+    assert decision.task_frame.subject != "帮我判断产业趋势"
+    assert decision.task_frame.user_goal == "判断产业趋势是否会改变市场持续性"
+    assert "trend_signal" not in decision.task_frame.required_outputs
+    assert "先按未来五个交易日观察" in decision.task_frame.assumptions
+
+
+def test_llm_chat_route_cannot_disable_task_frame_retrieval() -> None:
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "confidence": 0.91,
+            "reason": "错误地按普通交流处理",
+            "user_goal": "判断产业趋势",
+            "required_outputs": ["supporting_evidence"],
+            "assumptions": [],
+            "ambiguities": [],
+        },
+        ensure_ascii=False,
+    )
+
+    decision = decide_turn(
+        "帮我判断这个产业趋势是否成立",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.evidence_policy == "general_finance_evidence"
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "web_search" in decision.capabilities
+
+
 def test_llm_decision_rejects_route_id_outside_table() -> None:
     content = json.dumps(
         {
@@ -742,3 +1139,86 @@ def test_invalid_llm_payload_safely_falls_back_without_research() -> None:
 
     assert decision.lane == "chat"
     assert decision.needs_retrieval is False
+
+
+def _failing_llm(reason: str):
+    def _complete(_messages: list[dict[str, str]]):
+        return None, None, reason
+
+    return _complete
+
+
+def test_controller_failure_records_stable_reason_in_decision() -> None:
+    """controller 挂掉时把「为什么挂」留在决策里——此前它被丢进 ``_reason``。"""
+
+    decision = decide_turn(
+        "随便聊聊未来",
+        llm_complete=_failing_llm("LLM 调用 HTTP 429"),
+    )
+
+    assert decision.llm_failure_reason == "provider_rate_limited"
+    assert "429" in decision.llm_failure_detail
+    # trace 拿的是 to_dict()，字段必须真的流到那一层
+    assert decision.to_dict()["llm_failure_reason"] == "provider_rate_limited"
+
+
+def test_controller_exception_is_no_longer_swallowed_silently() -> None:
+    """裸 except 曾经让异常零输出；枚举可能认不出，但原文必须留下类型。"""
+
+    def _raising(_messages: list[dict[str, str]]):
+        raise TimeoutError("provider gone")
+
+    decision = decide_turn("随便聊聊未来", llm_complete=_raising)
+
+    assert decision.llm_failure_reason  # 至少给出一个可聚合的枚举
+    assert "TimeoutError" in decision.llm_failure_detail
+
+
+def test_unparsable_controller_output_is_not_labelled_provider_outage() -> None:
+    """provider 回话了但我们没读懂，跟 provider 挂了是两回事，不能混成一类。"""
+
+    decision = decide_turn(
+        "随便聊聊未来",
+        llm_complete=lambda _messages: ('{"lane":"research"}', object(), ""),
+    )
+
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.llm_failure_detail == ""
+
+
+def test_successful_controller_turn_records_no_failure() -> None:
+    """成功时两个字段必须留空，否则 trace 里会出现假的故障率。"""
+
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "subject": None,
+            "timeframe": None,
+            "confidence": 0.9,
+            "reason": "闲聊",
+        },
+        ensure_ascii=False,
+    )
+    called: list[int] = []
+
+    def _complete(_messages: list[dict[str, str]]):
+        called.append(1)
+        return content, object(), ""
+
+    decision = decide_turn("随便聊聊未来", llm_complete=_complete)
+
+    assert called, "这条断言只有在真调了 LLM 时才有意义"
+    assert decision.llm_failure_reason == ""
+    assert decision.llm_failure_detail == ""
+
+
+def test_deterministic_route_records_no_failure() -> None:
+    """确定性分支压根没调 LLM，空字段就是「没调过」的信号。"""
+
+    decision = decide_turn(
+        "你好",
+        llm_complete=lambda _messages: pytest.fail("确定性分支不该调 LLM"),
+    )
+
+    assert decision.llm_failure_reason == ""
+    assert decision.llm_failure_detail == ""

@@ -11,6 +11,7 @@ from math import ceil
 import time
 
 from ..db import connect, init_db, get_published_snapshot_id
+from ..sector_universe import SectorUniverseStore, SectorUniverseValidationError
 from ..sources import fupanhui_source as fs
 
 
@@ -33,6 +34,23 @@ def _load_sector_dim(con):
         "SELECT sector_ts_code, sector_name, sw_l1 FROM dim_sector"
     ).fetchall()
     return {r[0]: (r[1], r[2]) for r in rows}
+
+
+def _published_sector_counts(con, dates):
+    """逐日取该交易日 published 快照里的板块数，作为回填的期望覆盖基准。
+
+    返回 (counts, errors)。errors 里的日期表示当天没有 published 快照——回填时这是
+    失败，不是可以按 'legacy' 蒙混过去的情况（见 sync_fact_sector_daily_range）。
+    """
+    store = SectorUniverseStore(con)
+    counts = {}
+    errors = {}
+    for trade_date in dates:
+        try:
+            counts[trade_date] = store.published_snapshot(trade_date).sector_count
+        except SectorUniverseValidationError as exc:
+            errors[trade_date] = str(exc)
+    return counts, errors
 
 
 def _resolve_range_dates(con, start_date: str | None, end_date: str | None, days: int | None):
@@ -237,6 +255,11 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
     finally:
         con.close()
 
+    # 回报这轮实际写进了哪一版板块清单。分代机制存在的理由就是能回答「当时用的是
+    # 哪一版清单」，写入方自己不报的话，调用方只能事后去 ops 表反查。
+    # snapshot_ids 是逐日期的全量映射；snapshot_id 只在全程唯一时给出，避免多日期
+    # 批量回填时用一个值掩盖掉实际的分代差异。
+    distinct_snaps = sorted(set(snap_map.values()))
     return {
         "sectors": len(ts_codes),
         "empty_sectors": empty_sectors,
@@ -245,6 +268,8 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
         "distinct_dates": n_dates,
         "date_min": str(date_range[0]) if date_range[0] else None,
         "date_max": str(date_range[1]) if date_range[1] else None,
+        "snapshot_ids": dict(sorted(snap_map.items())),
+        "snapshot_id": distinct_snaps[0] if len(distinct_snaps) == 1 else None,
     }
 
 
@@ -259,19 +284,30 @@ def sync_fact_sector_daily_range(
     init_db()
     con = connect()
     try:
-        dim = _load_sector_dim(con)
         dates, date_source = _resolve_range_dates(con, start_date, end_date, days)
         existing = _existing_sector_daily_counts(con, dates)
+        sector_counts, snapshot_errors = _published_sector_counts(con, dates)
     finally:
         con.close()
 
-    if not dim:
-        raise RuntimeError("dim_sector 为空, 请先运行 sync-sectors")
-
-    sector_count = len(dim)
+    # 期望覆盖基准取自当日 published 快照，而不是 dim_sector 的全局板块数：
+    # 供应商会换代码、改名单，用全局数当基准会在换版当天误判覆盖率。
+    #
+    # 没有 published 快照的日期 **fail-closed**，既不回填也不调 API。写入侧
+    # (sync_fact_sector_daily) 遇到无快照会回退 'legacy'，那是给「机制上线前的历史
+    # 数据」准备的；但回填时某天本该有快照却没有，默默按 legacy 写会把一次「清单没
+    # 发布」的运维故障伪装成正常数据——而且行数与 COUNT(*) 覆盖率审计全都正常。
+    # 这正是 CLAUDE.md 里 fast_daily_sync.py 那类静默降级的形状。
     skipped = []
     targets = []
+    failures = [
+        {"trade_date": trade_date, "error": f"published snapshot unavailable: {error}"}
+        for trade_date, error in snapshot_errors.items()
+    ]
     for d in dates:
+        if d in snapshot_errors:
+            continue
+        sector_count = sector_counts[d]
         existing_info = existing.get(d, {"rows": 0, "null_diff": 0})
         existing_rows = existing_info["rows"]
         null_diff = existing_info["null_diff"]
@@ -281,9 +317,8 @@ def sync_fact_sector_daily_range(
             targets.append(d)
 
     synced = []
-    failures = []
     total_rows_written = 0
-    failed_chunks = 0
+    failed_chunks = len(snapshot_errors)
     chunk_days = max(1, int(chunk_days))
     for i in range(0, len(targets), chunk_days):
         chunk = targets[i:i + chunk_days]
@@ -297,7 +332,15 @@ def sync_fact_sector_daily_range(
                 days=max(20, len(chunk) + 5),
             )
             total_rows_written += int(stats["rows_written"])
-            coverage = _validate_synced_dates(chunk, sector_count, chunk_started)
+            # 逐日校验：每天用自己那版快照的板块数当基准，chunk 内跨快照版本时
+            # 用同一个数会误判。API 仍按 chunk 只调一次（fupanhui 有周/月调用上限）。
+            coverage = {}
+            for trade_date in chunk:
+                coverage.update(
+                    _validate_synced_dates(
+                        [trade_date], sector_counts[trade_date], chunk_started
+                    )
+                )
             chunk_failed = False
             for trade_date in chunk:
                 result = coverage[trade_date]

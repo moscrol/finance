@@ -142,9 +142,15 @@ def _add_theme_coverage(
         covered = int(
             con.execute(
                 f"""
-                SELECT COUNT(DISTINCT theme_code)
-                FROM {table}
-                WHERE trade_date = ?
+                SELECT COUNT(DISTINCT child.theme_code)
+                FROM {table} AS child
+                WHERE child.trade_date = ?
+                  AND EXISTS (
+                      SELECT 1
+                      FROM fact_mainline_theme_daily AS parent
+                      WHERE parent.trade_date = child.trade_date
+                        AND parent.theme_code = child.theme_code
+                  )
                 """,
                 [target_date],
             ).fetchone()[0]
@@ -832,10 +838,10 @@ def _load_moneyflow_trends(
 
 
 def build_workbench_overview(
-    repo_root: str | Path,
+    finance_root: str | Path,
     knowledge_wiki: str | Path,
 ) -> dict[str, object]:
-    root = Path(repo_root)
+    root = Path(finance_root)
     wiki = Path(knowledge_wiki)
     db_path = root / "db" / "market_feature_store.duckdb"
     agent_path, agent_payload = _latest_daily_agent(root, None)

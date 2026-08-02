@@ -46,6 +46,7 @@ const apiMocks = vi.hoisted(() => ({
   archiveConversation: vi.fn(),
   cancelRun: vi.fn(),
   configureLLM: vi.fn(),
+  forgetSavedLLM: vi.fn(),
   createConversation: vi.fn(),
   createConversationMessage: vi.fn(),
   createRun: vi.fn(),
@@ -260,6 +261,8 @@ const llmConfig: LLMConfig = {
   built_in_ready: true,
   provider: "zhipu",
   model: "glm-5.2",
+  credential_persisted: false,
+  saved_credential_available: false,
 };
 
 const bundle: RunBundle = {
@@ -533,6 +536,8 @@ describe("Workbench components", () => {
       "本地盘面数据",
     );
     expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
+    expect(userFacingStage("understanding")).toBe("理解问题");
+    expect(userFacingStage("verification")).toBe("核验回答");
   });
 
   it("counts only evidence records bound to verifiable citations", () => {
@@ -1159,6 +1164,53 @@ describe("Chat-first conversation components", () => {
     },
   );
 
+  it("does not show the company evidence warning for an index technical answer", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "科创50支撑区为1662.65–1669.99。",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [],
+          },
+          structuredReport: {
+            schema_version: 1,
+            report_id: "run_market_technical",
+            title: "科创50技术位",
+            task_type: "research",
+            status: "completed",
+            as_of: "2026-07-24",
+            llm: { used: false, provider: null, model: null },
+            modules: [],
+            warnings: [],
+            task_frame: {
+              question_type: "market_technical",
+              subject_kind: "index",
+              evidence_policy: "structured_market_technical",
+            },
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(
+        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+      ),
+    ).toBeNull();
+  });
+
   it.each([
     ["chat", "chat"],
     ["meta", "meta"],
@@ -1233,6 +1285,97 @@ describe("Chat-first conversation components", () => {
       screen.getByText("已停止生成，已保留已生成内容。"),
     ).toBeVisible();
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("shows the latest real Episode progress while the answer is pending", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "pending",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          progress: [
+            {
+              step_id: "continuous:episode:3:tool_request",
+              name: "research",
+              status: "running",
+              started_at: "2026-07-27T10:00:00+08:00",
+              finished_at: null,
+              input_summary: "",
+              output_summary: "正在核对计划所需资料。",
+              warnings: [],
+            },
+          ],
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("正在核对计划所需资料。")).toBeVisible();
+    expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("replays and upserts public trace steps in live message state", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const step = {
+      step_id: "continuous:episode:3:tool_request",
+      name: "research",
+      status: "running" as const,
+      started_at: "2026-07-27T10:00:00+08:00",
+      finished_at: null,
+      input_summary: "",
+      output_summary: "正在核对计划所需资料。",
+      warnings: [],
+    };
+    const envelope = (
+      eventId: string,
+      outputSummary: string,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: "trace.step",
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: eventId === "evt-1" ? 1 : 2,
+      created_at: "2026-07-27T10:00:00+08:00",
+      payload: {
+        step: { ...step, output_summary: outputSummary },
+      },
+    });
+
+    const running = applyChatStreamEvent(
+      initial,
+      envelope("evt-1", "正在核对计划所需资料。"),
+    );
+    const replayed = applyChatStreamEvent(
+      running,
+      envelope("evt-2", "已取得一批可核验资料。"),
+    );
+
+    expect(running.progress).toHaveLength(1);
+    expect(replayed.progress).toHaveLength(1);
+    expect(replayed.progress[0].output_summary).toBe(
+      "已取得一批可核验资料。",
+    );
+    expect(replayed.status).toBe("streaming");
   });
 
   it("applies identity-checked deltas, module upserts and replay deduplication", () => {
@@ -1409,6 +1552,8 @@ describe("Chat-first conversation components", () => {
     ["verified_draft", false, "可核验草稿 · 模型精修中"],
     ["validated_synthesis", true, "自然语言精修完成"],
     ["verified_fallback", true, "已保留可核验版本"],
+    ["decision_brief_fallback", true, "已保留决策摘要"],
+    ["evidence_gap_fallback", true, "证据不足，已如实说明"],
   ] as const)("shows the %s answer phase", (phase, final, label) => {
     render(
       <MessageBubble
@@ -1652,6 +1797,7 @@ describe("Workbench navigation reliability", () => {
       model: "deepseek-chat",
     });
     apiMocks.selectBuiltInLLM.mockResolvedValue(llmConfig);
+    apiMocks.forgetSavedLLM.mockResolvedValue(llmConfig);
   });
 
   it("opens on today and navigates across the five product surfaces", async () => {
@@ -1953,6 +2099,9 @@ describe("Workbench navigation reliability", () => {
     await user.click(await screen.findByRole("button", { name: "配置模型" }));
     expect(screen.getByRole("dialog", { name: "模型连接" })).toBeVisible();
     await user.selectOptions(screen.getByLabelText("选择模型服务商"), "deepseek");
+    expect(screen.getByLabelText("模型 Base URL")).toHaveValue(
+      "https://api.deepseek.com/v1",
+    );
     await user.type(screen.getByLabelText("模型 API Key"), "sk-private-test");
     await user.click(screen.getByRole("button", { name: "使用自带密钥" }));
 
@@ -1960,13 +2109,61 @@ describe("Workbench navigation reliability", () => {
       expect(apiMocks.configureLLM).toHaveBeenCalledWith({
         provider: "deepseek",
         api_key: "sk-private-test",
+        base_url: "https://api.deepseek.com/v1",
         model: "deepseek-chat",
+        remember: false,
         user: "default",
       });
     });
     expect(screen.getByRole("button", { name: "配置模型" })).toHaveTextContent(
       "自带密钥",
     );
+    expect(screen.queryByText("sk-private-test")).not.toBeInTheDocument();
+  });
+
+  it("persists BYOK only after opt-in and can explicitly forget it", async () => {
+    apiMocks.getLLMConfig.mockResolvedValueOnce({
+      ...llmConfig,
+      mode: "byok",
+      display_name: "已保存模型",
+      session_only: false,
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      credential_persisted: true,
+      saved_credential_available: true,
+    });
+    apiMocks.configureLLM.mockResolvedValueOnce({
+      ...llmConfig,
+      mode: "byok",
+      display_name: "已保存模型",
+      session_only: false,
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      credential_persisted: true,
+      saved_credential_available: true,
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "配置模型" }));
+    expect(screen.getByText("此 Mac 已保存一个模型连接。")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: /在此 Mac 安全记住/ }));
+    await user.type(screen.getByLabelText("模型 API Key"), "sk-private-test");
+    await user.click(screen.getByRole("button", { name: "使用自带密钥" }));
+
+    await waitFor(() => {
+      expect(apiMocks.configureLLM).toHaveBeenCalledWith(
+        expect.objectContaining({
+          api_key: "sk-private-test",
+          remember: true,
+          user: "default",
+        }),
+      );
+    });
+    await user.click(screen.getByRole("button", { name: "删除已保存密钥" }));
+    await waitFor(() => {
+      expect(apiMocks.forgetSavedLLM).toHaveBeenCalledWith("default");
+    });
     expect(screen.queryByText("sk-private-test")).not.toBeInTheDocument();
   });
 
