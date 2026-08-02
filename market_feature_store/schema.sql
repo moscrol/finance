@@ -84,9 +84,93 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     updated_at               TIMESTAMP
 );
 
--- fact_sector_daily 已迁往 market_feature_store/sector_schema.sql:
--- 物理存储是 fact_sector_daily_generation (代际绑定), 这里的公开表名是只读视图。
--- 由 SectorUniverseStore.ensure_schema() 装载, 见 market_feature_store/sector_universe.py。
+-- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
+-- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。
+CREATE TABLE IF NOT EXISTS ops_sector_universe_snapshot_daily (
+    trade_date      DATE,
+    snapshot_id     TEXT,
+    provider_source TEXT NOT NULL,
+    sector_count    INTEGER NOT NULL,
+    declared_relationship_count BIGINT NOT NULL,
+    status          TEXT NOT NULL,
+    captured_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+    CHECK (status IN ('candidate', 'published', 'superseded', 'rejected')),
+    PRIMARY KEY (trade_date, snapshot_id)
+);
+
+-- 快照内的板块名单及其「应有个股数」：用于校验抓取完整度
+-- （expected_stock_count vs 实际落库行数），是快照能否 published 的依据。
+CREATE TABLE IF NOT EXISTS fact_sector_universe_daily (
+    trade_date           DATE,
+    snapshot_id          TEXT,
+    sector_ts_code       TEXT,
+    sector_name          TEXT NOT NULL,
+    expected_stock_count INTEGER NOT NULL,
+    provider_source      TEXT NOT NULL,
+    captured_at          TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
+);
+
+-- 逐板块抓取进度台账：断点续抓的依据，也让「哪些板块抓空了/报错了」可查。
+-- expected vs actual 的差额就是这一版快照的缺口。
+CREATE TABLE IF NOT EXISTS ops_sector_member_sync_daily (
+    trade_date           DATE,
+    snapshot_id          TEXT,
+    sector_ts_code       TEXT,
+    status               TEXT NOT NULL,
+    expected_stock_count INTEGER NOT NULL,
+    actual_stock_count   INTEGER,
+    attempt_count        INTEGER NOT NULL DEFAULT 0,
+    last_error_code      TEXT,
+    first_attempted_at   TIMESTAMP WITH TIME ZONE,
+    last_attempted_at    TIMESTAMP WITH TIME ZONE,
+    completed_at         TIMESTAMP WITH TIME ZONE,
+    CHECK (status IN ('pending', 'success', 'empty', 'error')),
+    PRIMARY KEY (trade_date, snapshot_id, sector_ts_code)
+);
+
+-- 写入落 *_generation 表（snapshot_id 进主键，同日多版互不覆盖），
+-- 读走同名 VIEW（只暴露 published 那版）。消费方查询无需改写。
+CREATE TABLE IF NOT EXISTS fact_sector_daily_generation (
+    trade_date      DATE,
+    sector_universe_snapshot_id TEXT,
+    sector_ts_code  TEXT,
+    sector_name     TEXT,
+    sw_l1           TEXT,
+    pct_chg         DOUBLE,
+    amount          DOUBLE,
+    diff_ratio      DOUBLE,
+    strength        DOUBLE,
+    multi_period_resonance BOOLEAN,
+    multi_period_source TEXT,
+    multi_period_updated_at TIMESTAMP,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_gen_date
+    ON fact_sector_daily_generation(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_gen_sector
+    ON fact_sector_daily_generation(sector_ts_code);
+
+-- 'legacy' 是快照机制上线前的历史数据：当日没有任何 published 快照时才可见，
+-- 保证回填出 published 版本后旧行自动让位、不会双份并存。
+CREATE OR REPLACE VIEW fact_sector_daily AS
+SELECT g.trade_date, g.sector_ts_code, g.sector_name, g.sw_l1, g.pct_chg, g.amount,
+       g.diff_ratio, g.strength, g.multi_period_resonance, g.multi_period_source,
+       g.multi_period_updated_at, g.source, g.updated_at, g.sector_universe_snapshot_id
+FROM fact_sector_daily_generation AS g
+WHERE EXISTS (
+        SELECT 1 FROM ops_sector_universe_snapshot_daily AS h
+        WHERE h.trade_date = g.trade_date
+          AND h.snapshot_id = g.sector_universe_snapshot_id
+          AND h.status = 'published'
+      )
+   OR (g.sector_universe_snapshot_id = 'legacy'
+       AND NOT EXISTS (
+             SELECT 1 FROM ops_sector_universe_snapshot_daily AS h
+             WHERE h.trade_date = g.trade_date AND h.status = 'published'
+           ));
 
 CREATE TABLE IF NOT EXISTS fact_sector_period_rank_daily (
     trade_date      DATE,
@@ -120,9 +204,66 @@ CREATE TABLE IF NOT EXISTS fact_sw_l1_daily (
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_date);
 CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
 
--- fact_sector_stock_daily 已迁往 market_feature_store/sector_schema.sql:
--- 物理存储是 fact_sector_stock_daily_generation (代际绑定), 这里的公开表名是只读视图。
--- 由 SectorUniverseStore.ensure_schema() 装载, 见 market_feature_store/sector_universe.py。
+-- 同 fact_sector_daily：写 *_generation，读同名 VIEW（只暴露 published 快照）。
+CREATE TABLE IF NOT EXISTS fact_sector_stock_daily_generation (
+    trade_date        DATE,
+    sector_universe_snapshot_id TEXT,
+    sector_ts_code    TEXT,
+    sector_name       TEXT,
+    sw_l1             TEXT,
+    stock_ts_code     TEXT,
+    stock_name        TEXT,
+    price             DOUBLE,
+    pct_chg           DOUBLE,
+    amount            DOUBLE,
+    pct_chg_3d        DOUBLE,
+    pct_chg_5d        DOUBLE,
+    pct_chg_10d       DOUBLE,
+    pct_chg_20d       DOUBLE,
+    high_status       TEXT,
+    high_status_label TEXT,
+    limit_times       INTEGER,
+    fund_flow_1d      DOUBLE,
+    fund_flow_5d      DOUBLE,
+    sw_industry       TEXT,
+    leader_plate      TEXT,
+    leader_sub_plate  TEXT,
+    role_tags_json    TEXT,
+    circ_mv           DOUBLE,
+    float_mcap_yi     DOUBLE,
+    total_mcap_yi     DOUBLE,
+    free_float_mcap_yi DOUBLE,
+    mcap_source       TEXT,
+    source            TEXT,
+    updated_at        TIMESTAMP,
+    PRIMARY KEY (trade_date, sector_universe_snapshot_id, sector_ts_code, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_gen_date
+    ON fact_sector_stock_daily_generation(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_gen_stock
+    ON fact_sector_stock_daily_generation(stock_ts_code);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_stock_gen_sector
+    ON fact_sector_stock_daily_generation(sector_ts_code);
+
+CREATE OR REPLACE VIEW fact_sector_stock_daily AS
+SELECT g.trade_date, g.sector_ts_code, g.sector_name, g.sw_l1, g.stock_ts_code,
+       g.stock_name, g.price, g.pct_chg, g.amount, g.pct_chg_3d, g.pct_chg_5d,
+       g.pct_chg_10d, g.pct_chg_20d, g.high_status, g.high_status_label, g.limit_times,
+       g.fund_flow_1d, g.fund_flow_5d, g.sw_industry, g.leader_plate, g.leader_sub_plate,
+       g.role_tags_json, g.circ_mv, g.float_mcap_yi, g.total_mcap_yi, g.free_float_mcap_yi,
+       g.mcap_source, g.source, g.updated_at, g.sector_universe_snapshot_id
+FROM fact_sector_stock_daily_generation AS g
+WHERE EXISTS (
+        SELECT 1 FROM ops_sector_universe_snapshot_daily AS h
+        WHERE h.trade_date = g.trade_date
+          AND h.snapshot_id = g.sector_universe_snapshot_id
+          AND h.status = 'published'
+      )
+   OR (g.sector_universe_snapshot_id = 'legacy'
+       AND NOT EXISTS (
+             SELECT 1 FROM ops_sector_universe_snapshot_daily AS h
+             WHERE h.trade_date = g.trade_date AND h.status = 'published'
+           ));
 
 CREATE TABLE IF NOT EXISTS fact_stock_daily (
     trade_date     DATE,

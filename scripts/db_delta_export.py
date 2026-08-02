@@ -21,7 +21,16 @@
 在任何按日期/分区追加的数据仓（数据库同步、离线特征表、日志归档）都通用。
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, re, sys, zipfile, datetime
+
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import re
+import sys
+import zipfile
+
 import duckdb
 
 _ISO_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
@@ -91,9 +100,11 @@ def main() -> int:
 
     date = a.trade_date
     if not is_iso_date(date):
-        print(f"[err] --trade-date 需严格 ISO YYYY-MM-DD: {date!r}", file=sys.stderr); return 2
+        print(f"[err] --trade-date 需严格 ISO YYYY-MM-DD: {date!r}", file=sys.stderr)
+        return 2
     if not os.path.exists(a.db):
-        print(f"[err] DB 不存在: {a.db}", file=sys.stderr); return 2
+        print(f"[err] DB 不存在: {a.db}", file=sys.stderr)
+        return 2
     out_zip = a.out or os.path.join(
         os.path.expanduser("~/Desktop"), f"mfs-delta-{date}.zip")
     work = out_zip + ".d"

@@ -1,6 +1,5 @@
 import csv
 from collections import Counter, defaultdict
-from datetime import date
 
 from market_feature_store.db import connect
 

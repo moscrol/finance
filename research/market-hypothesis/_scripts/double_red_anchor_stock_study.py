@@ -10,7 +10,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[3]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from market_feature_store.db import connect
+# Direct execution needs the repository root on sys.path before project imports.
+from market_feature_store.db import connect  # noqa: E402
 
 
 DEFAULT_SW_L1 = ["电子", "通信", "电力设备", "机械设备"]

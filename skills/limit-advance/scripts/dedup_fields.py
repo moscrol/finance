@@ -14,8 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
 from feishu_utils import (
     load_config, get_token as _get_token, list_fields, delete_field,
-    fetch_all_records, batch_update, batch_create, get_table_id,
-    api,
+    fetch_all_records, batch_update, get_table_id,
 )
 
 cfg = load_config()

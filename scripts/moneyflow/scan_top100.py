@@ -10,7 +10,7 @@
 
 用法:
     CH_PASSWORD=... python3 scan_top100.py <日期> [大单阈值万元]
-    CH_PASSWORD=... python3 scan_top100.py 2026-07-03 50
+    CH_PASSWORD=... python3 scan_top100.py 2026-07-03 100
 
 注意：请仅在盘后运行，脚本对每只股票逐一查询并有间隔，避免占用数据库资源。
 """
@@ -101,7 +101,7 @@ def main():
         print("用法: python3 scan_top100.py <日期> [大单阈值万]")
         return
     date = sys.argv[1]
-    big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
+    big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 100.0
     client = make_client()
     print(f"L2 code revision: {current_git_revision()}", flush=True)
 

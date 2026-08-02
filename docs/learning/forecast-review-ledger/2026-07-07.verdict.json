@@ -22,6 +22,33 @@
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
     },
     {
+      "id": "h_cpo_overshoot",
+      "agent": "claude",
+      "verdict": "unverifiable",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09"
+    },
+    {
+      "id": "h_liangleng_increment",
+      "agent": "claude",
+      "verdict": "unverifiable",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09"
+    },
+    {
+      "id": "h_market_bottom_hold",
+      "agent": "claude",
+      "verdict": "unverifiable",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09"
+    },
+    {
       "id": "market",
       "agent": "claude",
       "verdict": "partial",
@@ -102,6 +129,46 @@
       "failure_mode": "机判待人工归因"
     },
     {
+      "id": "market_context_bottom_sideways",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "sellside_cpo_pcb_overdraw_t3",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "sellside_liquid_cooling_increment_t3",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "sellside_supernode_extension_t3",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "涨家数2486、涨停75、跌停12、成交额29135亿、量比90.9、上证+1.65%（底部横盘阶段）",
+      "stream": "卖方",
+      "horizon": "T+3",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-09",
+      "failure_mode": "机判待人工归因"
+    },
+    {
       "id": "sentiment:limit-heat-advance",
       "agent": "codex",
       "verdict": "miss",
@@ -160,5 +227,5 @@
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
     }
   ],
-  "generated_at": "2026-07-08T22:19:11+08:00"
+  "generated_at": "2026-07-25T12:40:14+08:00"
 }

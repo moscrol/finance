@@ -6,7 +6,6 @@
   python3 check_coverage.py [MM]          # 检查指定月份，默认当前月
   python3 check_coverage.py --all         # 检查所有已有日期的连续性
 """
-import json
 import re
 import sys
 from datetime import datetime, timedelta

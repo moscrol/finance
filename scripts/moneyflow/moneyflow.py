@@ -118,12 +118,22 @@ def _dig_resolve(host: str, dns: str) -> list[str]:
     return ips
 
 
+# 进程内缓存已连通的真实 IP，避免批次重建连接时 dig 瞬时失败拖死整轮
+_WORKING_CH_HOSTS: list[str] = []
+
+
+def _remember_working_host(host: str) -> None:
+    if host and host not in _WORKING_CH_HOSTS and not _is_fake_ip(host):
+        _WORKING_CH_HOSTS.insert(0, host)
+
+
 def resolve_clickhouse_host(host: str | None = None) -> tuple[str, str, list[str]]:
     """解析 ClickHouse 可达 endpoint。
 
     返回 (connect_host, note, all_candidates)。
     - 若系统解析落在 Fake-IP 段，自动用公共 DNS 回退；
     - 可用 CH_HOST_FALLBACK 强制指定 IP（逗号分隔）。
+    - 优先复用本进程已连通成功的 IP（防 dig 间歇失败）。
     """
     host = host or HOST
     # 已是字面 IP
@@ -140,6 +150,13 @@ def resolve_clickhouse_host(host: str | None = None) -> tuple[str, str, list[str
 
     candidates: list[str] = []
     note_parts: list[str] = []
+
+    # 优先已验证可达的 IP
+    for ip in list(_WORKING_CH_HOSTS):
+        if ip not in candidates:
+            candidates.append(ip)
+    if _WORKING_CH_HOSTS:
+        note_parts.append(f"cached={','.join(_WORKING_CH_HOSTS)}")
 
     sys_ips = _system_resolve(host)
     if sys_ips:
@@ -233,6 +250,7 @@ def preflight_clickhouse(probe_code: str = "300308") -> dict:
                 f"probe {probe_code} 5d_rows={n} [{note}]",
                 flush=True,
             )
+            _remember_working_host(host)
             try:
                 client.disconnect()
             except Exception:
@@ -277,6 +295,7 @@ def make_client(*, skip_probe: bool = False):
                 settings={"max_execution_time": 120},
             )
             client.execute("SELECT 1")
+            _remember_working_host(host)
             if do_probe:
                 n = client.execute(
                     """
@@ -439,7 +458,6 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
             print(f"== 第{rnd}轮兜底重试: {len(pending)} 只 ==")
             time.sleep(min(120.0, 20.0 * rnd))
         failed = []
-        empty_retry = []
         for i, code in enumerate(pending, 1):
             try:
                 client, row = compute(client, code)
@@ -522,7 +540,8 @@ def fetch_trades(client, code, date):
     rows = client.execute(sql, {"code": code, "date": date})
     df = pd.DataFrame(rows, columns=["t", "price", "volume", "buy_no", "sell_no"])
     if not df.empty:
-        t = pd.to_datetime(df["t"], utc=True)
+        # CH 可能返回 datetime 或混有微秒/无微秒的 ISO 字符串
+        t = pd.to_datetime(df["t"], format="ISO8601", utc=True)
         df["t"] = t.dt.tz_convert("Asia/Shanghai").dt.tz_localize(None)
     return df
 

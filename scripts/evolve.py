@@ -422,7 +422,8 @@ def cmd_audit(args):
     mx = ROOT / "复盘/matrices/strategy1-priority-stock-matrix.html"
     if mx.exists():
         htxt = mx.read_text(encoding="utf-8", errors="ignore")
-        nspan = htxt.count('<span class="stock'); ndiv = htxt.count('<div class="stock')
+        nspan = htxt.count('<span class="stock')
+        ndiv = htxt.count('<div class="stock')
         if nspan and ndiv:
             notes.append(f"[格式] 人工矩阵同时含 span({nspan}) 与 div({ndiv}) 个个股块；"
                          f"原验证脚本需已打补丁兼容两者（备份 .bak-20260615）。")
@@ -490,9 +491,9 @@ def main():
     v.add_argument("--user", default=None, help="按用户加载策略 overlay + 用户记录")
     v.set_defaults(func=cmd_validate)
 
-    l = sub.add_parser("log", help="把各策略已算结果写回 进化.md（AUTO 区块）")
-    l.add_argument("--user", default=None, help="写回 evolution/users/<id>/进化.md")
-    l.set_defaults(func=cmd_log)
+    log_parser = sub.add_parser("log", help="把各策略已算结果写回 进化.md（AUTO 区块）")
+    log_parser.add_argument("--user", default=None, help="写回 evolution/users/<id>/进化.md")
+    log_parser.set_defaults(func=cmd_log)
 
     s = sub.add_parser("suggest", help="策略一参数网格回测，产出调参建议（仅建议）")
     s.add_argument("--user", default=None, help="按用户加载策略 overlay + 用户记录")

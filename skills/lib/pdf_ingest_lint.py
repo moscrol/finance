@@ -347,7 +347,6 @@ def check_consistency_gates(entity_name, concept, exp, source_name):
 def check_role_quality(entity_name, concept, exp, source_name):
     """Rule 4: role must be specific, not generic or equal to chain_layer."""
     role = exp.get("role", "")
-    chain_layer = exp.get("chain_layer", "")
     loc = f"{entity_name}/{concept}"
 
     if role in GENERIC_ROLES:
@@ -451,6 +450,8 @@ def check_entity_annotation(source_name, source_exposures):
         sq = exp.get("source_quality", "")
 
         # Only check curated_research + review_candidate from broker sources
+        if sq not in BROKER_SOURCES:
+            continue
         if update_type != "curated_research":
             continue
         if hardness != "review_candidate":
@@ -540,7 +541,6 @@ def check_source_note_residual_contradictions(source_name):
 
     # Check: 已更新概念 vs 跳过概念增量 contradiction
     updated_concepts = set()
-    skipped_concepts = set()
     updated_match = re.search(r"## 已更新概念\s*\n+(.+?)(?=\n## |\Z)", text, re.S)
     if updated_match:
         updated_concepts = set(re.findall(r"\[\[([^\]]+)\]\]", updated_match.group(1)))
@@ -713,7 +713,7 @@ def main():
         print(f"    source_quality={sq} fact_hardness={hardness}")
         print(f"    update_type={ut} evidence_layer={el}")
         if is_graph_only and not has_evidence:
-            print(f"    evidence_index=N/A (graph_only exempt)")
+            print("    evidence_index=N/A (graph_only exempt)")
         else:
             print(f"    evidence_index={'YES' if has_evidence else 'MISSING'}")
 

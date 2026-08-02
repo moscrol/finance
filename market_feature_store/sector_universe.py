@@ -1,10 +1,11 @@
 """板块宇宙 (sector universe) 深模块。
 
-这是生产代码里唯一允许触碰物理代际表
-(`fact_sector_daily_generation` / `fact_sector_stock_daily_generation`) 以及
-快照/回执表的地方。对外公开的 `fact_sector_daily` /
-`fact_sector_stock_daily` 是只读视图, 只暴露某个交易日「唯一已发布代际」,
-因此读者不会跨代际混池, 也不需要知道底层存储。
+这里集中管理快照生命周期、迁移、发布和完整度审计。物理代际表
+(`fact_sector_daily_generation` / `fact_sector_stock_daily_generation`) 还允许少数
+同步模块直接写入；这些写入方必须先用 `db.get_published_snapshot_id()` 解析当日
+代际，并由 `scripts/check_sector_fact_access.py` 的显式白名单约束。对外公开的
+`fact_sector_daily` / `fact_sector_stock_daily` 是只读视图，只暴露某个交易日
+「唯一已发布代际」，因此读者不会跨代际混池，也不需要知道底层存储。
 
 本文件当前实现 Task 2-4 的范围: schema 装载、幂等 legacy 迁移、每日宇宙
 验证/发布、active identities 所有权以及完整的 published-generation 板块日行情
@@ -23,7 +24,14 @@ import unicodedata
 import duckdb
 
 PACKAGE_DIR = Path(__file__).resolve().parent
-SECTOR_SCHEMA_PATH = PACKAGE_DIR / "sector_schema.sql"
+# 分代对象（ops_sector_universe_snapshot_daily / fact_sector_universe_daily /
+# ops_sector_member_sync_daily / 两张 *_generation 表 / 两个 fact_sector_* VIEW）
+# 原本单独放在 sector_schema.sql。main 的 a5321eec 把这七个对象补进了 schema.sql
+# 并与生产库逐对象校验过（37 个对象全对齐），于是两份 DDL 完全重复。
+# 保留两份的后果是 init_db() 建出的结构取决于谁最后执行——这里统一指向正典
+# schema.sql，sector_schema.sql 已删除。schema.sql 全文是幂等的
+# （CREATE TABLE IF NOT EXISTS / CREATE OR REPLACE VIEW），重放安全。
+SECTOR_SCHEMA_PATH = PACKAGE_DIR / "schema.sql"
 
 #: 迁移前历史行统一挂在这个哨兵代际下, 它永远不会有 published 表头。
 LEGACY_SNAPSHOT_ID = "legacy"
@@ -397,7 +405,7 @@ def _drop_dependent_indexes(con: duckdb.DuckDBPyConnection, table_name: str) -> 
 
     生产库上 schema.sql 为两张事实表建了 5 个显式索引; DuckDB 会因为这些依赖拒绝
     `ALTER TABLE ... RENAME`。索引本身是可重建的加速结构, 不含数据: 代际表在
-    sector_schema.sql 里重新建了等价索引, 遗留表随迁移结束一起被删除。
+    schema.sql 会在代际表上重建正典索引, 遗留表随迁移结束一起被删除。
     """
     rows = con.execute(
         "SELECT index_name FROM duckdb_indexes() WHERE schema_name = 'main' AND table_name = ?",
@@ -438,10 +446,10 @@ def _copy_legacy_rows(
 
 
 class SectorUniverseStore:
-    """板块宇宙的唯一生产入口。
+    """板块宇宙快照生命周期、迁移、发布与审计的正典入口。
 
-    调用方只使用本类的公开方法; 物理表名不在本模块和
-    `market_feature_store/sector_schema.sql` 之外出现。
+    普通调用方只使用本类的公开方法。少数同步器可按显式白名单直接写物理代际表，
+    但必须通过 ``get_published_snapshot_id`` 绑定日期与代际；读取方始终使用公开视图。
     """
 
     def __init__(self, con: duckdb.DuckDBPyConnection) -> None:

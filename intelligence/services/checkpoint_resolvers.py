@@ -15,6 +15,13 @@
 **红线**：缺数、报错、连不上一律降级为 ``unverifiable``，永不臆造 hit/miss。
 本模块顶层不 import duckdb / market 适配器（保持 CLI 在无 duckdb 环境可用），
 真正用到时才惰性导入。
+
+**降级不等于沉默**：每个 ``unverifiable`` 出口都要交出 :class:`ResolveOutcome.degradation`
+——试过哪些源及其返回状态 / 缺口是什么 / 对判断有什么影响 / 走了什么 fallback /
+待补证清单。可信度降低的时候透明度必须提高，否则夜间 recheck 只留一句"数据不可用"，
+半年后没人知道当时卡在哪、要补什么才能判。这几项是**必填关键字参数**，
+新增降级出口漏写会直接 TypeError，不会静默产出半个披露。
+口径来源见 ``docs/learning/knevo-distill/q13-拒答与降级纪律.md``。
 """
 
 from __future__ import annotations
@@ -37,15 +44,78 @@ class ResolveOutcome:
     data_source: str
     reason: str
     observed: dict[str, Any] = field(default_factory=dict)
+    # 仅 unverifiable 时有值；hit/miss 拿到了真数，不需要降级披露。
+    degradation: dict[str, Any] | None = None
 
 
-def _unverifiable(data_source: str, reason: str, observed: dict[str, Any] | None = None) -> ResolveOutcome:
+# 降级披露的必填项（缺一项即视为降级不合格）。
+DEGRADE_FIELDS = ("attempted", "gap", "impact", "fallback", "todo")
+
+# 影响口径是统一的：unverifiable 不是"判错"，是"这条还不能判"。
+DEFAULT_IMPACT = "不计入命中率分母，仍留在到期队列；数据到位后重跑 recheck 即可判定"
+
+# q13 的 7 项里有 2 项落在答案生成层、不在机检 resolver 层，这里显式记下来，
+# 免得后来的人以为是漏了：resolver 只做「查得到就判、查不到就降级」，
+# 它不产出推断也不断言历史基线，硬塞这两个字段只会得到两个空壳。
+NOT_APPLICABLE_HERE = {
+    "fact_inference_assumption_split": "resolver 不产出推断，只回报查到/查不到，三分法归答案生成层",
+    "baseline_vs_current_split": "resolver 不断言历史基线，基线分离归答案生成层",
+}
+
+
+def _unverifiable(
+    data_source: str,
+    reason: str,
+    observed: dict[str, Any] | None = None,
+    *,
+    attempted: list[dict[str, str]],
+    gap: str,
+    fallback: str,
+    todo: list[str],
+    owed_source: str | None = None,
+    impact: str = DEFAULT_IMPACT,
+) -> ResolveOutcome:
+    """降级出口：除"标注缺口"外，还要交出试过什么 / 影响 / fallback / 待补证。
+
+    ``attempted`` 每项形如 ``{"source": "duckdb:fact_market_daily", "status": "..."}``；
+    规格不全时一次查询都没发出，此处为空列表 —— 空本身就是信息，别拿假条目填。
+    ``owed_source`` 是"本该由谁判"，降级不改写它：这条是 q13「来源标注不降级」，
+    这样看板上能区分"市场数据该判但没数"和"本来就只能人工判"。
+    """
     return ResolveOutcome(
         verdict="unverifiable",
         score=None,
         data_source=data_source,
         reason=reason,
         observed=observed or {},
+        degradation={
+            "attempted": list(attempted),
+            "gap": gap,
+            "impact": impact,
+            "fallback": fallback,
+            "todo": list(todo),
+            "owed_source": owed_source or data_source,
+            "not_applicable": dict(NOT_APPLICABLE_HERE),
+        },
+    )
+
+
+def _spec_gap(
+    data_source: str,
+    reason: str,
+    *,
+    missing: str,
+    observed: dict[str, Any] | None = None,
+) -> ResolveOutcome:
+    """规格不全：checkpoint 自己没写清，一次外部查询都没发出，补规格才有救。"""
+    return _unverifiable(
+        data_source,
+        reason,
+        observed,
+        attempted=[],
+        gap=f"checkpoint 规格缺 {missing}",
+        fallback="无 fallback：规格补全前任何数据源都判不了",
+        todo=[f"补 {missing}，再 `checkpoint recheck --id <id>`"],
     )
 
 
@@ -82,12 +152,12 @@ class MarketResolver:
         if metric.get("target_name"):
             stocks = [str(metric["target_name"]).strip()] + [s for s in stocks if s != metric["target_name"]]
         if not stocks:
-            return _unverifiable("market", "无关联个股，无法机检区间涨幅")
+            return _spec_gap("market", "无关联个股，无法机检区间涨幅", missing="stocks/metric.target_name")
         try:
             target = float(metric["target"])
             op = str(metric.get("op") or ">=")
         except (KeyError, TypeError, ValueError):
-            return _unverifiable("market", "metric 缺少有效 op/target")
+            return _spec_gap("market", "metric 缺少有效 op/target", missing="metric.op/metric.target")
         window = int(metric.get("window_days") or checkpoints.DEFAULT_WINDOW_DAYS)
         end = checkpoints._parse_date(checkpoint.get("due"))
         start = (date_cls.fromisoformat(end) - timedelta(days=window)).isoformat()
@@ -99,6 +169,10 @@ class MarketResolver:
                 "market",
                 f"盘面数据不可用（{type(exc).__name__}）：本机有 DuckDB 时重跑 recheck 即可判定",
                 {"window": [start, end], "stocks": stocks},
+                attempted=[{"source": "duckdb:interval_returns", "status": f"{type(exc).__name__}: {exc}"[:200]}],
+                gap=f"取不到 {start}~{end} 区间涨幅（{type(exc).__name__}）",
+                fallback="无替代源：本模块只认 DuckDB 真数，不用估算值顶替",
+                todo=[f"在有 db/market_feature_store.duckdb 的机器上重跑 `checkpoint recheck --id <id>`（窗口 {start}~{end}）"],
             )
         # 取命中的个股（任一关联个股达标即算 hit；都不达标算 miss；查无数据算 unverifiable）。
         observed: dict[str, Any] = {"window": [start, end], "op": op, "target": target, "returns": {}}
@@ -114,7 +188,18 @@ class MarketResolver:
             if _compare(gain, op, target):
                 passed = True
         if not found:
-            return _unverifiable("market", "区间内查无个股行情（停牌/未上市/名称不匹配）", observed)
+            return _unverifiable(
+                "market",
+                "区间内查无个股行情（停牌/未上市/名称不匹配）",
+                observed,
+                attempted=[{"source": "duckdb:interval_returns", "status": f"查询成功但 {len(stocks)} 只均无行情行"}],
+                gap=f"{stocks} 在 {start}~{end} 无行情：停牌、未上市，或名称/代码对不上库里的写法",
+                fallback="无 fallback：名称没对上时猜代码只会判错对象",
+                todo=[
+                    f"确认 {stocks} 在库中的实际写法（`dim_sector`/`fact_stock_daily` 名称与代码两路查）",
+                    "确认区间内是否整段停牌；若是则该 checkpoint 本身要改窗口",
+                ],
+            )
         verdict = "hit" if passed else "miss"
         reason = (
             f"区间 {start}~{end} 涨幅 {observed['returns']} {op} {target}"
@@ -144,7 +229,7 @@ class MarketDailyResolver:
         metric = checkpoint.get("metric") or {}
         conditions = metric.get("conditions") or []
         if not conditions:
-            return _unverifiable("market", "market_daily 缺 conditions，无法机检")
+            return _spec_gap("market", "market_daily 缺 conditions，无法机检", missing="metric.conditions")
         trade_date = str(metric.get("trade_date") or "") or checkpoints._parse_date(checkpoint.get("due"))
         fn = self.row_fn or self._default_row
         try:
@@ -154,12 +239,22 @@ class MarketDailyResolver:
                 "market",
                 f"盘面数据不可用（{type(exc).__name__}）：本机有 DuckDB 时重跑 recheck 即可判定",
                 {"trade_date": trade_date},
+                attempted=[{"source": "duckdb:fact_market_daily", "status": f"{type(exc).__name__}: {exc}"[:200]}],
+                gap=f"取不到 {trade_date} 的 fact_market_daily 整行（{type(exc).__name__}）",
+                fallback="无替代源：条件全是阈值比较，缺一个字段就不能判",
+                todo=[f"在有 DuckDB 的机器上重跑 `checkpoint recheck --id <id>`（{trade_date}）"],
             )
         if not row:
             return _unverifiable(
                 "market",
                 f"fact_market_daily 查无 {trade_date} 行（未同步/非交易日）",
                 {"trade_date": trade_date},
+                attempted=[{"source": "duckdb:fact_market_daily", "status": "查询成功，无该日行"}],
+                gap=f"{trade_date} 在 fact_market_daily 无行：当日未同步，或本就不是交易日",
+                fallback="无 fallback：不拿相邻交易日顶替当日（那是换了个题目在答）",
+                todo=[
+                    f"先分清是未同步还是非交易日；未同步则 `daily-full --trade-date {trade_date}` 补，非交易日则改 checkpoint 的 due",
+                ],
             )
         observed: dict[str, Any] = {"trade_date": trade_date, "conditions": []}
         passed_all = True
@@ -169,14 +264,29 @@ class MarketDailyResolver:
             try:
                 target = float(cond.get("target"))
             except (TypeError, ValueError):
-                return _unverifiable("market", f"条件 {field_name} 缺有效 target，无法机检", observed)
+                return _spec_gap(
+                    "market", f"条件 {field_name} 缺有效 target，无法机检",
+                    missing=f"conditions[{field_name}].target", observed=observed,
+                )
             value = row.get(field_name)
             if value is None:
-                return _unverifiable("market", f"字段 {field_name} 当日无值/不存在，无法机检", observed)
+                return _unverifiable(
+                    "market", f"字段 {field_name} 当日无值/不存在，无法机检", observed,
+                    attempted=[{"source": "duckdb:fact_market_daily", "status": f"取到 {trade_date} 行，但 {field_name} 为空/无此列"}],
+                    gap=f"{field_name} 在 {trade_date} 无值：该列未回填，或字段名和 schema 对不上",
+                    fallback="无 fallback：拿 0 当缺失值会把没达标和没数据混成一件事",
+                    todo=[f"核对 {field_name} 是否在 schema.sql 里；在则回填 {trade_date}，不在则修 checkpoint 的字段名"],
+                )
             try:
                 value_f = float(value)
             except (TypeError, ValueError):
-                return _unverifiable("market", f"字段 {field_name} 非数值（{value!r}），无法机检", observed)
+                return _unverifiable(
+                    "market", f"字段 {field_name} 非数值（{value!r}），无法机检", observed,
+                    attempted=[{"source": "duckdb:fact_market_daily", "status": f"取到值但非数值：{value!r}"[:200]}],
+                    gap=f"{field_name}={value!r} 不能转成数，阈值比较无从下手",
+                    fallback="无 fallback：不猜解析规则",
+                    todo=[f"查 {field_name} 的写入端为什么落了非数值（单位串/占位符？），修数据或改 checkpoint 口径"],
+                )
             ok = _compare(value_f, op, target)
             observed["conditions"].append({"field": field_name, "op": op, "target": target, "value": value_f, "pass": ok})
             if not ok:
@@ -212,7 +322,10 @@ class KnowledgeResolver:
             cand = checkpoints._clean_terms(checkpoint.get("themes")) + checkpoints._clean_terms(checkpoint.get("stocks"))
             target = cand[0] if cand else ""
         if not target:
-            return _unverifiable("knowledge", "无 target_name/themes/stocks，无法定位证据")
+            return _spec_gap(
+                "knowledge", "无 target_name/themes/stocks，无法定位证据",
+                missing="metric.target_name 或 themes/stocks",
+            )
         try:
             threshold = int(float(metric.get("target", 1)))
         except (TypeError, ValueError):
@@ -222,9 +335,21 @@ class KnowledgeResolver:
             adapter = self._get_adapter()
             result = adapter.get_evidence(target, limit=500)
         except Exception as exc:  # 知识库缺失/读失败 → 降级
-            return _unverifiable("knowledge", f"知识库不可用（{type(exc).__name__}）", {"target": target})
+            return _unverifiable(
+                "knowledge", f"知识库不可用（{type(exc).__name__}）", {"target": target},
+                attempted=[{"source": "wiki:get_evidence", "status": f"{type(exc).__name__}: {exc}"[:200]}],
+                gap=f"打不开知识库，取不到 {target} 的证据列表",
+                fallback="无替代源：证据数是判据本身，没有近似值可用",
+                todo=[f"确认 wiki_root 指向存在的知识库，再 `checkpoint recheck --id <id>`（target={target}）"],
+            )
         if not result.get("found") and result.get("errors"):
-            return _unverifiable("knowledge", "证据库读取失败", {"target": target, "errors": result.get("errors")})
+            return _unverifiable(
+                "knowledge", "证据库读取失败", {"target": target, "errors": result.get("errors")},
+                attempted=[{"source": "wiki:get_evidence", "status": f"返回 found=false + errors={result.get('errors')}"[:200]}],
+                gap=f"{target} 的证据索引读失败（不是「没有新证据」，是「没读到」）",
+                fallback="无 fallback：读失败当成 0 条新证据就会把它误判成 miss",
+                todo=["按 errors 修 relations/evidence_index.json 后重跑"],
+            )
         items = result.get("items") or []
         new_items = [
             it for it in items
@@ -259,4 +384,13 @@ def resolve_checkpoint(
     return _unverifiable(
         "manual",
         "无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        attempted=[],
+        gap=f"metric.type={mtype or '(空)'} 没有对应 resolver，机器判不了",
+        impact="不计入命中率分母；等人工打分，不会因为没人打分而变成 miss",
+        fallback="人工打分：`checkpoint score --id <id> --verdict hit|miss|partial`",
+        todo=[
+            "人工判定后 `checkpoint score`",
+            "若这类 claim 反复出现，考虑给它写 metric 规格（stock_return / market_daily / kb_evidence）转成机检",
+        ],
+        owed_source="manual",
     )

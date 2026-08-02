@@ -24,7 +24,6 @@ from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from intelligence.services.query_understanding import (
-    INDEX_ALIASES,
     match_index_subject,
 )
 

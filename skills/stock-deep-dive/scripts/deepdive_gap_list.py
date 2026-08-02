@@ -212,7 +212,11 @@ def _overlap_hints(name: str, covered: set[str], min_len: int = 2, top: int = 3)
         ((c, _lcs_len(name, c)) for c in covered),
         key=lambda x: -x[1],
     )
-    hits = [c for c, l in hits if l >= min_len][:top]
+    hits = [
+        candidate
+        for candidate, common_length in hits
+        if common_length >= min_len
+    ][:top]
     return " / ".join(hits) if hits else "-"
 
 

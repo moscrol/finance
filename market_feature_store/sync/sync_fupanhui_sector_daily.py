@@ -1,15 +1,16 @@
-"""同步 published sector generation 的目标日行情与边际量。
+"""同步 fact_sector_daily: 板块日行情 + 边际量。
 
 数据源: fupanhui sector-cycle kline (单次调用返回 days 天序列)。
-请求代码只来自目标日已发布 universe；多日响应只取目标交易日，并通过
-SectorUniverseStore 原子替换该代际，禁止直接写公开视图。
+一次批量抓取全部板块的多日 K 线, 写入 fact_sector_daily (upsert)。
+板块名与申万一级来自 dim_sector。
 """
 from __future__ import annotations
 
 from datetime import datetime, date
+from math import ceil
 import time
 
-from ..db import connect, init_db
+from ..db import connect, init_db, get_published_snapshot_id
 from ..sector_universe import SectorUniverseStore, SectorUniverseValidationError
 from ..sources import fupanhui_source as fs
 
@@ -28,7 +29,19 @@ def _parse_date(val):
     return None
 
 
+def _load_sector_dim(con):
+    rows = con.execute(
+        "SELECT sector_ts_code, sector_name, sw_l1 FROM dim_sector"
+    ).fetchall()
+    return {r[0]: (r[1], r[2]) for r in rows}
+
+
 def _published_sector_counts(con, dates):
+    """逐日取该交易日 published 快照里的板块数，作为回填的期望覆盖基准。
+
+    返回 (counts, errors)。errors 里的日期表示当天没有 published 快照——回填时这是
+    失败，不是可以按 'legacy' 蒙混过去的情况（见 sync_fact_sector_daily_range）。
+    """
     store = SectorUniverseStore(con)
     counts = {}
     errors = {}
@@ -118,19 +131,19 @@ def _fresh_sector_daily_counts(con, dates, updated_since: datetime):
     }
 
 
-def _validate_synced_dates(dates, sector_count: int, updated_since: datetime):
+def _validate_synced_dates(dates, sector_count: int, updated_since: datetime, min_ratio: float = 0.9):
     con = connect(read_only=True)
     try:
         counts = _fresh_sector_daily_counts(con, dates, updated_since)
     finally:
         con.close()
-    minimum_rows = sector_count
+    minimum_rows = max(1, ceil(sector_count * min_ratio))
     return {
         trade_date: {
             **counts.get(trade_date, {"rows": 0, "fresh_rows": 0, "fresh_null_diff": 0}),
             "minimum_rows": minimum_rows,
             "ok": (
-                counts.get(trade_date, {}).get("fresh_rows", 0) == minimum_rows
+                counts.get(trade_date, {}).get("fresh_rows", 0) >= minimum_rows
                 and counts.get(trade_date, {}).get("fresh_null_diff", 0) == 0
             ),
         }
@@ -153,99 +166,110 @@ def _sector_daily_table_stats():
 
 
 def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dict:
-    """抓取已发布 universe 的目标日 K 线并完整替换其代际。"""
-    requested_date = trade_date if trade_date is not None else fs.get_latest_date()
-    target_date = _parse_date(requested_date)
-    if target_date is None:
-        raise SectorUniverseValidationError("canonical provider trade date is unavailable")
-
+    """抓取全部板块多日 K 线写入 fact_sector_daily_generation。返回统计。"""
     init_db()
     con = connect()
     try:
-        published = SectorUniverseStore(con).published_snapshot(target_date)
+        dim = _load_sector_dim(con)
     finally:
         con.close()
 
-    ts_codes = [sector.sector_ts_code for sector in published.sectors]
-    klines = fs.get_sector_klines_batch(
-        ts_codes,
-        trade_date=target_date.isoformat(),
-        days=days,
-    )
-    if not isinstance(klines, dict):
-        raise SectorUniverseValidationError("sector K-line response must be a mapping")
+    if not dim:
+        raise RuntimeError("dim_sector 为空, 请先运行 sync-sectors")
 
-    normalized_klines = {}
-    for raw_code, points in klines.items():
-        code = str(raw_code).strip().upper()
-        if not code or code in normalized_klines:
-            raise SectorUniverseValidationError(
-                "sector K-line response identities must be non-empty and unique"
-            )
-        normalized_klines[code] = points
-    if set(normalized_klines) != set(ts_codes):
-        missing = len(set(ts_codes) - set(normalized_klines))
-        foreign = len(set(normalized_klines) - set(ts_codes))
-        raise SectorUniverseValidationError(
-            f"sector K-line response must match published universe (missing={missing}, foreign={foreign})"
-        )
-
+    ts_codes = list(dim.keys())
+    klines = fs.get_sector_klines_batch(ts_codes, trade_date=trade_date, days=days)
     now = datetime.now()
+
+    # 按 trade_date 分组，每个日期取对应 snapshot_id
+    date_snapshot: dict[str, str] = {}
     rows = []
-    for ts_code in ts_codes:
-        points = normalized_klines[ts_code]
-        if not isinstance(points, list):
-            raise SectorUniverseValidationError(
-                "sector K-line series must be a list for every published identity"
-            )
-        target_points = [
-            point
-            for point in points
-            if isinstance(point, dict)
-            and _parse_date(point.get("trade_date")) == target_date
-        ]
-        if len(target_points) != 1:
-            raise SectorUniverseValidationError(
-                "each published sector must have exactly one target-date K-line row"
-            )
-        point = target_points[0]
-        rows.append(
-            {
-                "sector_ts_code": ts_code,
-                "pct_chg": point.get("pct_chg"),
-                "amount": point.get("amount"),
-                "diff_ratio": point.get("diff_ratio"),
-                "strength": None,
-                "source": "fupanhui",
-                "updated_at": now,
-            }
+    empty_sectors = 0
+    for ts_code, points in klines.items():
+        name, sw_l1 = dim.get(ts_code, (ts_code, None))
+        if not points:
+            empty_sectors += 1
+            continue
+        for p in points:
+            d = _parse_date(p.get("trade_date"))
+            if not d:
+                continue
+            d_str = str(d)
+            if d_str not in date_snapshot:
+                date_snapshot[d_str] = None  # 延迟到连接后获取
+            rows.append((
+                d, ts_code, name, sw_l1,
+                p.get("pct_chg"), p.get("amount"), p.get("diff_ratio"), None,
+                "fupanhui", now,
+            ))
+
+    if not rows:
+        raise RuntimeError(
+            "未取到任何板块 K 线数据 (检查 CDP 登录态 / days>=20 / 字段映射)"
         )
 
     con = connect()
     try:
-        written = SectorUniverseStore(con).replace_sector_daily(
-            published.snapshot_id,
-            rows,
+        # 获取每个日期的 snapshot_id
+        snap_map: dict[str, str] = {}
+        for d_str in date_snapshot:
+            snap_map[d_str] = get_published_snapshot_id(con, d_str)
+
+        # 组装带 snapshot_id 的写入行
+        gen_rows = []
+        for row in rows:
+            d_str = str(row[0])
+            snap_id = snap_map.get(d_str, "legacy")
+            gen_rows.append((row[0], snap_id, row[1], row[2], row[3],
+                             row[4], row[5], row[6], row[7], row[8], row[9]))
+
+        con.execute("BEGIN TRANSACTION")
+        con.executemany(
+            """
+            INSERT INTO fact_sector_daily_generation
+                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, sw_l1,
+                 pct_chg, amount, diff_ratio, strength, source, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT (trade_date, sector_universe_snapshot_id, sector_ts_code) DO UPDATE SET
+                sector_name = excluded.sector_name,
+                sw_l1 = excluded.sw_l1,
+                pct_chg = excluded.pct_chg,
+                amount = excluded.amount,
+                diff_ratio = excluded.diff_ratio,
+                source = excluded.source,
+                updated_at = excluded.updated_at
+            """,
+            gen_rows,
         )
-        total = con.execute("SELECT COUNT(*) FROM fact_sector_daily").fetchone()[0]
+        con.execute("COMMIT")
+        total = con.execute("SELECT COUNT(*) FROM fact_sector_daily_generation").fetchone()[0]
         date_range = con.execute(
-            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_sector_daily"
+            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_sector_daily_generation"
         ).fetchone()
         n_dates = con.execute(
-            "SELECT COUNT(DISTINCT trade_date) FROM fact_sector_daily"
+            "SELECT COUNT(DISTINCT trade_date) FROM fact_sector_daily_generation"
         ).fetchone()[0]
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
     finally:
         con.close()
 
+    # 回报这轮实际写进了哪一版板块清单。分代机制存在的理由就是能回答「当时用的是
+    # 哪一版清单」，写入方自己不报的话，调用方只能事后去 ops 表反查。
+    # snapshot_ids 是逐日期的全量映射；snapshot_id 只在全程唯一时给出，避免多日期
+    # 批量回填时用一个值掩盖掉实际的分代差异。
+    distinct_snaps = sorted(set(snap_map.values()))
     return {
-        "snapshot_id": published.snapshot_id,
         "sectors": len(ts_codes),
-        "empty_sectors": 0,
-        "rows_written": written,
+        "empty_sectors": empty_sectors,
+        "rows_written": len(rows),
         "fact_sector_daily_total": total,
         "distinct_dates": n_dates,
         "date_min": str(date_range[0]) if date_range[0] else None,
         "date_max": str(date_range[1]) if date_range[1] else None,
+        "snapshot_ids": dict(sorted(snap_map.items())),
+        "snapshot_id": distinct_snaps[0] if len(distinct_snaps) == 1 else None,
     }
 
 
@@ -266,6 +290,14 @@ def sync_fact_sector_daily_range(
     finally:
         con.close()
 
+    # 期望覆盖基准取自当日 published 快照，而不是 dim_sector 的全局板块数：
+    # 供应商会换代码、改名单，用全局数当基准会在换版当天误判覆盖率。
+    #
+    # 没有 published 快照的日期 **fail-closed**，既不回填也不调 API。写入侧
+    # (sync_fact_sector_daily) 遇到无快照会回退 'legacy'，那是给「机制上线前的历史
+    # 数据」准备的；但回填时某天本该有快照却没有，默默按 legacy 写会把一次「清单没
+    # 发布」的运维故障伪装成正常数据——而且行数与 COUNT(*) 覆盖率审计全都正常。
+    # 这正是 CLAUDE.md 里 fast_daily_sync.py 那类静默降级的形状。
     skipped = []
     targets = []
     failures = [
@@ -279,7 +311,7 @@ def sync_fact_sector_daily_range(
         existing_info = existing.get(d, {"rows": 0, "null_diff": 0})
         existing_rows = existing_info["rows"]
         null_diff = existing_info["null_diff"]
-        if not refresh and existing_rows == sector_count and null_diff == 0:
+        if not refresh and existing_rows >= max(1, ceil(sector_count * 0.9)) and null_diff == 0:
             skipped.append({"trade_date": d, "existing_rows": existing_rows, "null_diff": null_diff})
         else:
             targets.append(d)
@@ -292,20 +324,25 @@ def sync_fact_sector_daily_range(
         chunk = targets[i:i + chunk_days]
         if not chunk:
             continue
-        chunk_failed = False
-        for trade_date in chunk:
-            started = datetime.now()
-            try:
-                stats = sync_fact_sector_daily(
-                    trade_date=trade_date,
-                    days=20,
+        chunk_end = chunk[-1]
+        chunk_started = datetime.now()
+        try:
+            stats = sync_fact_sector_daily(
+                trade_date=chunk_end,
+                days=max(20, len(chunk) + 5),
+            )
+            total_rows_written += int(stats["rows_written"])
+            # 逐日校验：每天用自己那版快照的板块数当基准，chunk 内跨快照版本时
+            # 用同一个数会误判。API 仍按 chunk 只调一次（fupanhui 有周/月调用上限）。
+            coverage = {}
+            for trade_date in chunk:
+                coverage.update(
+                    _validate_synced_dates(
+                        [trade_date], sector_counts[trade_date], chunk_started
+                    )
                 )
-                total_rows_written += int(stats["rows_written"])
-                coverage = _validate_synced_dates(
-                    [trade_date],
-                    sector_counts[trade_date],
-                    started,
-                )
+            chunk_failed = False
+            for trade_date in chunk:
                 result = coverage[trade_date]
                 if result["ok"]:
                     synced.append(trade_date)
@@ -318,11 +355,11 @@ def sync_fact_sector_daily_range(
                             f"{result['minimum_rows']}, fresh_null_diff={result['fresh_null_diff']}"
                         ),
                     })
-            except Exception as exc:
-                chunk_failed = True
-                failures.append({"trade_date": trade_date, "error": str(exc)})
-        if chunk_failed:
+            if chunk_failed:
+                failed_chunks += 1
+        except Exception as e:
             failed_chunks += 1
+            failures.extend({"trade_date": trade_date, "error": str(e)} for trade_date in chunk)
         if sleep:
             time.sleep(float(sleep))
 

@@ -32,7 +32,8 @@ import duckdb
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
 SCHEMA_PATH = REPO_ROOT / "market_feature_store" / "schema.sql"
-SECTOR_SCHEMA_PATH = REPO_ROOT / "market_feature_store" / "sector_schema.sql"
+# 板块分代那七个对象原来在单独的 sector_schema.sql；2026-08-02 合 main 后已并入
+# schema.sql（main a5321eec，与生产库 37 个对象逐一校验过），该文件不再存在。
 TRACE_PY = SCRIPT_DIR / "trace.py"
 
 if str(REPO_ROOT) not in sys.path:
@@ -147,9 +148,6 @@ def build_sample_vault(vault: Path) -> None:
 def main() -> int:
     if not SCHEMA_PATH.is_file():
         print(f"[FAIL] schema.sql 不存在: {SCHEMA_PATH}")
-        return 1
-    if not SECTOR_SCHEMA_PATH.is_file():
-        print(f"[FAIL] sector_schema.sql 不存在: {SECTOR_SCHEMA_PATH}")
         return 1
     if not TRACE_PY.is_file():
         print(f"[FAIL] trace.py 不存在: {TRACE_PY}")

@@ -8,7 +8,6 @@
 """
 import json
 import re
-import subprocess
 import sys
 import time
 import urllib.request
@@ -305,7 +304,7 @@ def main():
     if missing:
         print(f"\n  ⚠ 以下字段仍为空: {', '.join(missing)}")
     else:
-        print(f"\n  全部补全 ✓")
+        print("\n  全部补全 ✓")
 
 
 if __name__ == "__main__":

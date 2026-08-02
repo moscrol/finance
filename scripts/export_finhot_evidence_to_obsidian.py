@@ -13,7 +13,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from intelligence.paths import default_paths
+# Direct execution needs the repository root on sys.path before project imports.
+from intelligence.paths import default_paths  # noqa: E402
 
 DEFAULT_OUTPUT_DIR = Path("raw") / "finhot-evidence-staging"
 PRIMARY_LAYERS = {

@@ -17,7 +17,8 @@ PROJECT_SCRIPTS = PROJECT_ROOT / "scripts"
 if str(PROJECT_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(PROJECT_SCRIPTS))
 
-import theme_radar_quality_rules as quality_rules
+# Direct execution needs the sibling scripts directory before this local import.
+import theme_radar_quality_rules as quality_rules  # noqa: E402
 
 try:
     import build_theme_evidence_readiness as readiness_builder
@@ -934,7 +935,6 @@ def acceptance_score_section(companies: list[dict], context: dict, local_report_
     total = len(companies)
     has_external_def = bool((context or {}).get("definition")) or bool((context or {}).get("external_definition"))
     has_local_def = term_matched or bool(local_report_contexts)
-    has_def = has_external_def or has_local_def
     has_chain = bool((context or {}).get("industry_chain_map")) or bool(local_report_contexts)
     top10 = direction_ranked_sample(companies, profile)
     top10_baseline = sum(1 for c in top10 if (c.get("evidence_buckets", {}) or {}).get("baseline"))
@@ -5252,7 +5252,6 @@ def company_logic_summary(company: dict, term: str = "") -> str:
     name = company.get("name", "")
     role = themed_company_roles(company, term)
     subdirs = "、".join(company_subdirections(company))
-    strength = company_logic_strength(company)
     basis_items = [x for x in source_basis(company) if x != "baseline基础画像"]
     basis = "、".join(basis_items) if basis_items else "当前主信源不足"
     baseline_note = "；baseline仅作基础画像校验" if "baseline基础画像" in source_basis(company) else ""
@@ -5453,7 +5452,7 @@ def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str
     watch = [c for c in companies if company_deep_dive_tier(c) == "watch"][:4]
 
     lines = [
-        f"### 1）题材为什么发酵",
+        "### 1）题材为什么发酵",
         conclusion_theme_driver(term, directions, demand),
         "",
         "### 2）当前主线落在哪些环节",
@@ -5658,7 +5657,6 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     if not companies:
         return "- 暂无公司数据，无法评估深拆质量。"
     validation_text = subdirection_validation_section(companies)
-    total = len(companies)
     core_related = [c for c in companies if company_deep_dive_tier(c) in {"relative_core", "related"}]
     active_companies = [c for c in companies if company_deep_dive_tier(c) != "weak"]
     mapped_core_related = [c for c in core_related if not any(x.startswith("待判定") or "待细分" in x for x in company_subdirections(c))]
@@ -8764,7 +8762,6 @@ def map_cross_validation_section(state: dict) -> str:
 
 
 def map_gap_section(state: dict) -> str:
-    context = state.get("context", {}) or {}
     companies = state.get("companies", []) or []
     rows = []
     rows.append(("定义边界", "主题边界是否只覆盖核心环节，是否混入相邻主题。", "定义、上位概念、相邻概念"))
@@ -8804,7 +8801,6 @@ def map_source_index_section(state: dict) -> str:
 
 def map_appendix_section(state: dict) -> str:
     context = state.get("context", {}) or {}
-    graph = state.get("graph", {}) or {}
     concepts = state.get("concepts", {}) or {}
     primary = state.get("primary", "")
     term = state.get("term") or primary

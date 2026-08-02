@@ -5,12 +5,10 @@
 """
 
 import json
-import csv
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import pandas as pd
-import numpy as np
 
 from config import get_config
 
@@ -388,7 +386,7 @@ class DataProcessor:
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write("# 研究报告汇总\n\n")
-                f.write(f"**数据来源**: 同花顺问财财经资讯搜索接口\n\n")
+                f.write("**数据来源**: 同花顺问财财经资讯搜索接口\n\n")
                 f.write(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(f"**报告数量**: {len(articles)} 篇\n\n")
                 
@@ -416,7 +414,7 @@ class DataProcessor:
                         if extracted.get("industry"):
                             info_lines.append(f"- **所属行业**: {extracted['industry']}")
                         if extracted.get("has_analysis"):
-                            info_lines.append(f"- **包含分析**: 是")
+                            info_lines.append("- **包含分析**: 是")
                         
                         if info_lines:
                             f.write("**提取信息**:\n")

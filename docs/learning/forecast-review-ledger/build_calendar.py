@@ -13,7 +13,6 @@ from __future__ import annotations
 import calendar as cal
 import datetime as dt
 import html
-import json
 import re
 from collections import defaultdict
 from pathlib import Path

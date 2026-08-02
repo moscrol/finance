@@ -103,7 +103,13 @@ def test_mainline_complete_snapshot_is_atomic_and_idempotent(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("failure_mode", ["exception", "empty_groups", "empty_stocks"])
-def test_mainline_partial_keeps_previous_snapshot(tmp_path, monkeypatch, failure_mode):
+def test_mainline_partial_writes_succeeded_themes_as_degraded(tmp_path, monkeypatch, failure_mode):
+    """单题材上游失败时写入已成功的题材，status=degraded（不再全有全无）。
+
+    旧契约是「任一题材失败就整批不写、保留前一日快照」，会让上游偶发单题材空
+    groups 拖死全日主线落库。现在只要有题材成功就原子写入那些，失败题材进
+    ``failures``；全部失败才 ``failed`` 且不写。
+    """
     db_path = tmp_path / "mainline-partial.duckdb"
     con = _database(db_path)
     con.execute(
@@ -136,16 +142,20 @@ def test_mainline_partial_keeps_previous_snapshot(tmp_path, monkeypatch, failure
 
     stats = mainline.sync(TRADE_DATE, attempts=2, retry_delay=0)
 
-    assert stats["status"] == "partial"
-    assert stats["themes"] == stats["stocks"] == 0
+    assert stats["status"] == "degraded"
+    assert stats["themes"] == stats["stocks"] == 1
+    assert stats["expected_themes"] == 2
+    assert stats["completed_themes"] == 1
+    assert [f["theme_code"] for f in stats["failures"]] == ["T2"]
     assert calls == {"T1": 1, "T2": 2}
     with duckdb.connect(str(db_path), read_only=True) as con:
+        # 成功题材落库，前一日快照被当日结果替换（degraded 不等于"什么都没做"）
         assert con.execute(
             "SELECT theme_code FROM fact_mainline_theme_daily WHERE trade_date = ?", [TRADE_DATE]
-        ).fetchall() == [("OLD",)]
+        ).fetchall() == [("T1",)]
         assert con.execute(
             "SELECT stock_ts_code FROM fact_mainline_stock_daily WHERE trade_date = ?", [TRADE_DATE]
-        ).fetchall() == [("OLD.SZ",)]
+        ).fetchall() == [("000001.SZ",)]
 
 
 def test_mainline_empty_theme_list_is_failed_without_writing(tmp_path, monkeypatch):
@@ -229,9 +239,16 @@ def _seed_feature_inputs(con: duckdb.DuckDBPyConnection, count: int = 70) -> str
             """,
             [current, 10 + offset / 10, 100 + offset],
         )
-        _seed_legacy_sector_daily(
-            con,
-            [(current, "885001.TI", "测试板块", "一级行业", 1, 1000 + offset, offset / 10)],
+        con.execute(
+            """
+            -- fact_sector_daily 是 VIEW，写入落 *_generation；'legacy' 对应
+            -- 快照机制上线前的历史数据（当日无 published 快照时可见）。
+            INSERT INTO fact_sector_daily_generation (
+                trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
+                sw_l1, pct_chg, amount, diff_ratio, source, updated_at
+            ) VALUES (?, 'legacy', '885001.TI', '测试板块', '一级行业', 1, ?, ?, 'test', NOW())
+            """,
+            [current, 1000 + offset, offset / 10],
         )
     return str(start + timedelta(days=count - 1))
 
@@ -583,14 +600,22 @@ def test_daily_update_omits_retired_sector_feishu_module():
 
 
 def test_nightly_script_attempts_l2_before_sync_failure_exit():
+    """`all` 阶段里 L2 必须在「同步段失败就退出」之前跑。
+
+    L2（资金流）不依赖同步段产物，所以同步失败也该照跑，否则一次 CDP 掉线就
+    连带丢掉当天的 L2 数据。脚本后来拆成 sync/finalize/all 三阶段，调用点从
+    ``run_moneyflow`` 改名为 ``run_l2_branch``（后者内部才调前者），这里按新
+    名字锚定，并把断言限定在 `all)` 分支内——sync 阶段本就不跑 L2。
+    """
     script = (
         ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
     ).read_text(encoding="utf-8")
-    sync_result = script.index("rc=$?")
-    moneyflow = script.index("run_moneyflow", sync_result)
-    sync_exit = script.index("if [ $rc -ne 0 ]", moneyflow)
+    all_phase = script.index("\n  all)")
+    sync_result = script.index("rc=$?", all_phase)
+    l2 = script.index("run_l2_branch", sync_result)
+    sync_exit = script.index('if [ "$rc" -ne 0 ]', l2)
 
-    assert sync_result < moneyflow < sync_exit
+    assert sync_result < l2 < sync_exit
 
 
 def test_market_dependent_tables_are_excluded_from_row_anomaly_checks() -> None:

@@ -46,7 +46,10 @@ STOCK_UPSERT = """
 def _status(expected: int, completed: int, failures: list[dict]) -> str:
     if not failures and expected > 0 and completed == expected:
         return "complete"
-    return "partial" if completed else "failed"
+    # 有成功题材时降级写入（上游偶发单题材空 groups，不阻断全日主线落库）
+    if completed > 0:
+        return "degraded"
+    return "failed"
 
 
 def sync(
@@ -57,8 +60,8 @@ def sync(
 ) -> dict:
     """同步某日的主线题材和个股。
 
-    API 数据全部抓取并校验通过后才原子替换当日快照。任何题材失败时不写入，
-    避免把 partial response 伪装成完整数据。
+    优先完整抓取；若部分题材 stocks 为空/失败，仍原子写入已成功的题材+个股
+    （status=degraded），避免单题材空响应拖死全日质量门。全部失败则不写入。
     """
     now = datetime.utcnow().isoformat()
     source = "fupanhui:public-api/topics"
@@ -98,15 +101,6 @@ def sync(
                 {"scope": "theme", "theme_code": "", "theme_name": tn, "error": "missing theme_code"}
             )
             continue
-        theme_rows.append((
-            trade_date,
-            tc,
-            tn,
-            t.get("sector_count"),
-            t.get("min_sort"),
-            source,
-            now,
-        ))
         data = None
         last_error = None
         for attempt in range(max(1, attempts)):
@@ -168,12 +162,22 @@ def sync(
                 }
             )
             continue
+        # 仅登记有个股的题材，避免质量门报“有题材无个股”
+        theme_rows.append((
+            trade_date,
+            tc,
+            tn,
+            t.get("sector_count"),
+            t.get("min_sort"),
+            source,
+            now,
+        ))
         stock_rows.extend(rows)
         completed += 1
         time.sleep(0.3)
 
     status = _status(len(themes), completed, failures)
-    if status != "complete":
+    if status == "failed":
         return {
             "themes": 0,
             "stocks": 0,
@@ -202,6 +206,6 @@ def sync(
         "stocks": len(stock_rows),
         "expected_themes": len(themes),
         "completed_themes": completed,
-        "failures": [],
-        "status": "complete",
+        "failures": failures,
+        "status": status,
     }

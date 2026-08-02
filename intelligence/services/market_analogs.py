@@ -203,24 +203,22 @@ def load_historical_analog_artifact(
             (),
             degrade_reason="D8 历史类比库不存在",
         )
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if db_result.status == "dependency_unavailable":
         return HistoricalAnalogArtifact(
             window,
             (),
             (),
             degrade_reason="D8 历史类比依赖不可用",
         )
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
+    if db_result.status == "open_failed":
         return HistoricalAnalogArtifact(
             window,
             (),
             (),
             degrade_reason="D8 历史类比库不可读",
         )
+    con = db_result.connection
     try:
         from intelligence.services.market_midterm import resolve_query_themes
 
@@ -438,14 +436,10 @@ def analog_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return ""
+    con = db_result.connection
     try:
         from intelligence.services.market_midterm import resolve_query_themes
 

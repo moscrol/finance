@@ -55,6 +55,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from intelligence.services.ask_types import AskResult
+
 SHARED_DIR = Path.home() / ".claude" / "shared"
 FEISHU_CONFIG = SHARED_DIR / "feishu_config.json"
 

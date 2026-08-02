@@ -155,14 +155,10 @@ def load_moneyflow_snapshot(
     )
     if not db_path.exists():
         return missing
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return missing
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return missing
+    con = db_result.connection
     try:
         if as_of_date:
             latest = con.execute(
@@ -284,14 +280,10 @@ def moneyflow_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return ""
+    con = db_result.connection
     try:
         try:
             if as_of_date:

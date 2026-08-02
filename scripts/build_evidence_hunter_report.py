@@ -12,7 +12,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from intelligence.services.research_queue import QUEUE_FIND_OFFICIAL, build_research_queue
+# Direct execution needs the repository root on sys.path before project imports.
+from intelligence.services.research_queue import (  # noqa: E402
+    QUEUE_FIND_OFFICIAL,
+    build_research_queue,
+)
 
 EXPORT_DIR = ROOT / "market_feature_store" / "exports"
 DEFAULT_FINHOT_DB = ROOT / "khazix-skills" / "finhot" / "data" / "finhot.db"

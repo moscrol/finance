@@ -2359,6 +2359,7 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
             "data_source": outcome.data_source,
             "reason": outcome.reason,
             "observed": outcome.observed,
+            "degradation": outcome.degradation,
             "applied": False,
         }
         if args.apply:
@@ -2370,6 +2371,7 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
                 observed=outcome.observed,
                 data_source=outcome.data_source,
                 reason=outcome.reason,
+                degradation=outcome.degradation,
                 auto=True,
             )
             entry["applied"] = True

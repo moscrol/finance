@@ -780,11 +780,14 @@ class MarketAdapter:
         source: object,
         derivation: dict[str, object] | None = None,
     ) -> dict[str, object]:
+        valid_date = str(valid_time or "")[:10]
+        known_at = str(source_time or "")
         meta: dict[str, object] = {
             "table": table,
             "entity": str(entity or ""),
             "valid_time": str(valid_time or ""),
-            "source_time": str(source_time or ""),
+            "source_time": f"{valid_date}T18:00:00" if valid_date else known_at,
+            "known_at": known_at,
             "source": str(source or table),
             "source_artifact": "db/market_feature_store.duckdb",
         }

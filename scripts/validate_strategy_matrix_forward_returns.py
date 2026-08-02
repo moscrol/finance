@@ -14,7 +14,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from market_feature_store.db import connect
+# Direct execution needs the repository root on sys.path before project imports.
+from market_feature_store.db import connect  # noqa: E402
 
 EXPORTS = ROOT / "market_feature_store/exports"
 MATRICES = {

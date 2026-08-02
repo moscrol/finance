@@ -16,7 +16,6 @@ append 到 ``users/<id>/interactions.jsonl``（每行一条 JSON，已 gitignore
 from __future__ import annotations
 
 import json
-import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone

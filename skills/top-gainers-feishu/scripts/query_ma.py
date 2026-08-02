@@ -1,12 +1,11 @@
 """从飞书「强势股」表读取最新一批股票，查询均线并输出对齐表格。"""
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
 from feishu_utils import (
     load_config, get_token as _get_token, fetch_all_records,
-    ifind_query, parse_md_table, dw, pad, fmt,
+    ifind_query, parse_md_table, pad, fmt,
 )
 
 cfg = load_config()

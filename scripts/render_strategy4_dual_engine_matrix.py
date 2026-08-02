@@ -52,7 +52,7 @@ def build(start: str, end: str | None):
     CREATE TEMP TABLE swmap AS
     SELECT stock_ts_code, mode(sw_l1) sw_l1 FROM db.fact_sector_stock_daily GROUP BY 1""")
 
-    con.execute(f"""
+    con.execute("""
     CREATE TEMP TABLE w20 AS
     SELECT trade_date, stock_ts_code, stock_name, pct_chg, amount, w_rank FROM (
       SELECT trade_date, stock_ts_code, stock_name, pct_chg, amount,

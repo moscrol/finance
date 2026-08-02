@@ -1,7 +1,5 @@
 """从飞书 Bitable 提取涨家数，写入独立表格供飞书图表视图使用，本地生成 PNG"""
 import sys
-import json
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))

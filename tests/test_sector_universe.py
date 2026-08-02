@@ -475,7 +475,15 @@ def test_sync_dim_sector_refuses_to_guess_trade_date_when_provider_has_no_latest
         sync_module.sync_dim_sector()
 
 
-def test_sync_sector_daily_writes_only_target_date_for_published_universe(tmp_path, monkeypatch):
+def test_sync_sector_daily_attributes_each_date_to_its_own_snapshot(tmp_path, monkeypatch):
+    """每个交易日各归其代际，不因为目标日有 published 快照就丢掉其余日期。
+
+    语义在 2026-08-02 合 main 时改过。原来这条叫
+    ``..._writes_only_target_date_for_published_universe``：当时 sync 只能解析
+    「一个」快照，于是有 published 快照时干脆只写目标日，否则会把 07-27 的行错挂到
+    07-28 的代际上。main（74f169fc）改成逐日期调 get_published_snapshot_id，07-27
+    归 07-27 自己的快照、无快照回退 'legacy'，错挂的前提没了，也就不必再丢数据。
+    """
     from market_feature_store.sync import sync_fupanhui_sector_daily as sync_module
 
     db_path = tmp_path / "sector-daily-sync.duckdb"
@@ -519,14 +527,24 @@ def test_sync_sector_daily_writes_only_target_date_for_published_universe(tmp_pa
     stats = sync_module.sync_fact_sector_daily(trade_date="2026-07-28", days=25)
 
     assert requested == ["990001.FP", "990002.FP"]
-    assert stats["snapshot_id"] == published.snapshot_id
-    assert stats["rows_written"] == 2
+    # 逐日期归代际：07-28 有 published 快照，07-27 没有 → 回退 'legacy'。
+    assert stats["snapshot_ids"] == {
+        "2026-07-27": "legacy",
+        "2026-07-28": published.snapshot_id,
+    }
+    # 跨越两个代际，单值 snapshot_id 不再唯一，按约定给 None——宁可不报，
+    # 也不要用一个值掩盖掉实际写进了两版清单。
+    assert stats["snapshot_id"] is None
+    assert stats["rows_written"] == 4
     con = duckdb.connect(str(db_path), read_only=True)
     try:
+        # 读的是 VIEW：07-28 只暴露 published 那版；07-27 无 published，legacy 行可见。
         assert con.execute(
             "select trade_date, sector_ts_code, pct_chg, sector_universe_snapshot_id "
-            "from fact_sector_daily order by sector_ts_code"
+            "from fact_sector_daily order by trade_date, sector_ts_code"
         ).fetchall() == [
+            (date(2026, 7, 27), "990001.FP", -1.0, "legacy"),
+            (date(2026, 7, 27), "990002.FP", -1.0, "legacy"),
             (date(2026, 7, 28), "990001.FP", 1.0, published.snapshot_id),
             (date(2026, 7, 28), "990002.FP", 2.0, published.snapshot_id),
         ]
@@ -605,9 +623,18 @@ def test_ensure_schema_recreates_indexes_on_the_generation_tables():
             "('fact_sector_daily_generation','fact_sector_stock_daily_generation')"
         ).fetchall()
     }
-    assert "idx_fact_sector_daily_generation_date" in indexes
-    assert "idx_fact_sector_daily_generation_snapshot" in indexes
-    assert "idx_fact_sector_stock_generation_snapshot" in indexes
+    # 索引名以 schema.sql 为准。2026-08-02 合 main 后 DDL 正典从 sector_schema.sql
+    # 换成 schema.sql（main a5321eec，与生产库 37 个对象逐一校验），命名从
+    # ..._generation_xxx 缩短为 ..._gen_xxx。
+    #
+    # ⚠ 一处实质差异，不只是改名：原来还有按 sector_universe_snapshot_id 建的
+    # *_snapshot 索引，main / 生产库都没有。这里不补——补了就与生产库不一致，
+    # 而分代读取正是靠 VIEW 关联 ops_sector_universe_snapshot_daily 完成的。
+    # 若日后代际过滤出现慢查询，应连同生产库一起加，不能只在 schema.sql 里加。
+    assert "idx_fact_sector_daily_gen_date" in indexes
+    assert "idx_fact_sector_daily_gen_sector" in indexes
+    assert "idx_fact_sector_stock_gen_date" in indexes
+    assert "idx_fact_sector_stock_gen_stock" in indexes
     con.close()
 
 
@@ -785,6 +812,11 @@ def test_init_db_installs_the_sector_migration(tmp_path, monkeypatch):
     con = duckdb.connect(str(db_path))
     try:
         con.execute(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+        # 造「迁移前」的库：schema.sql 现在自带两个 fact_sector_* VIEW（合 main 后
+        # DDL 正典从 sector_schema.sql 换成了 schema.sql），而迁移前它们是 BASE
+        # TABLE。先把 VIEW 拆掉才能放回遗留表——场景没变，只是构造方式变了。
+        con.execute("drop view if exists fact_sector_daily")
+        con.execute("drop view if exists fact_sector_stock_daily")
         con.execute(LEGACY_SECTOR_DAILY_DDL)
         con.execute(LEGACY_SECTOR_STOCK_DAILY_DDL)
         con.execute(

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -210,7 +209,7 @@ def format_output(results: list[dict], query: str, as_json: bool = False) -> str
     
     if needs_planner:
         lines.append("⚠️  检测到批量/高风险关键词 → 建议先走 task-planner 采访前置")
-        lines.append(f"   路径: skills/task-planner/SKILL.md")
+        lines.append("   路径: skills/task-planner/SKILL.md")
         lines.append("")
     
     if not results:

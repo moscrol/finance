@@ -5,11 +5,11 @@
 符合iwencai-skill-creator规范
 """
 
-import json
 import time
 import logging
+import os
 import secrets
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 import requests
 from requests.exceptions import RequestException, Timeout, ConnectionError
 
@@ -162,7 +162,7 @@ class APIClient:
             
             response_data = self._make_request_raw(payload, call_type)
             
-            self.logger.info(f"API响应接收完成")
+            self.logger.info("API响应接收完成")
             return response_data
             
         except Exception as e:

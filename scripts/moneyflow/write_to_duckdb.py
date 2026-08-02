@@ -223,7 +223,8 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
         con.execute("BEGIN TRANSACTION")
         con.execute(
             "DELETE FROM feature_l2_capital_flow_daily "
-            "WHERE trade_date = ? AND scan_type = ?", [date, scan_type])
+            "WHERE trade_date = ? AND scan_type = ? AND big_order_threshold_wan = ?",
+            [date, scan_type, big_thr])
         if rows:
             con.executemany(
                 "INSERT INTO feature_l2_capital_flow_daily VALUES "
@@ -261,8 +262,9 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
         init_db(con)
         con.execute("BEGIN TRANSACTION")
         con.execute(
-            "DELETE FROM feature_l2_quant_orders_daily WHERE trade_date = ?",
-            [date])
+            "DELETE FROM feature_l2_quant_orders_daily "
+            "WHERE trade_date = ? AND big_order_threshold_wan = ?",
+            [date, big_thr])
         if rows:
             con.executemany(
                 "INSERT INTO feature_l2_quant_orders_daily VALUES "
@@ -300,9 +302,9 @@ def main():
     res = pd.read_csv(csv_path, dtype={"code": str})
     stats = {"input_count": len(res), "processed_count": len(res), "failed_count": 0}
     if scan_type == "quant":
-        write_quant_orders(date, res, big_thr=50.0, quant_thr=200.0, stats=stats)
+        write_quant_orders(date, res, big_thr=100.0, quant_thr=200.0, stats=stats)
     else:
-        write_capital_flow(date, scan_type, res, big_thr=50.0, stats=stats)
+        write_capital_flow(date, scan_type, res, big_thr=100.0, stats=stats)
 
 
 if __name__ == "__main__":

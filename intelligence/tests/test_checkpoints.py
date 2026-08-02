@@ -366,6 +366,177 @@ class KnowledgeResolverTests(unittest.TestCase):
         self.assertIn("知识库不可用", out.reason)
 
 
+class DegradeDisclosureTests(unittest.TestCase):
+    """降级披露完整性（q13：可信度降了，透明度必须升）。
+
+    盯的是一类具体退化：新加一个 ``unverifiable`` 出口，只写一句"数据不可用"就交差。
+    半年后回看夜间 recheck，没人知道当时卡在哪、补什么才能判。
+    """
+
+    #: (标签, 触发该降级出口的 thunk)。覆盖每个 resolver 的每个降级分支。
+    def _cases(self) -> list[tuple[str, object]]:
+        def boom(*a, **k):
+            raise ModuleNotFoundError("No module named 'duckdb'")
+
+        mr = {"id": "ck-m", "ts": "2026-06-18T00:00:00", "due": "2026-09-30",
+              "stocks": ["铜冠铜箔"],
+              "metric": {"type": "stock_return", "op": ">=", "target": 15, "window_days": 60}}
+        md_cond = [{"field": "advancers", "op": ">=", "target": 3000}]
+        md = {"id": "ck-d", "ts": "2026-07-06T00:00:00", "due": "2026-07-07",
+              "metric": {"type": "market_daily", "conditions": md_cond}}
+        kb = {"id": "ck-k", "ts": "2026-06-18T00:00:00", "due": "2026-07-01",
+              "themes": ["铜箔"],
+              "metric": {"type": "kb_evidence", "op": ">=", "target": 1, "target_name": "铜箔"}}
+
+        def _mr(ck: dict, fn) -> object:
+            return resolvers.MarketResolver(returns_fn=fn).resolve(ck)
+
+        def _md(ck: dict, fn) -> object:
+            return resolvers.MarketDailyResolver(row_fn=fn).resolve(ck)
+
+        class _Boom:
+            def get_evidence(self, *a, **k):
+                raise FileNotFoundError("no wiki")
+
+        class _Errors:
+            def get_evidence(self, *a, **k):
+                return {"found": False, "items": [], "errors": ["evidence_index.json 解析失败"]}
+
+        return [
+            ("market/无个股", lambda: _mr({**mr, "stocks": []}, lambda *a: {})),
+            ("market/缺 op-target", lambda: _mr({**mr, "metric": {"type": "stock_return"}}, lambda *a: {})),
+            ("market/查询抛错", lambda: _mr(mr, boom)),
+            ("market/区间无行情", lambda: _mr(mr, lambda *a: {})),
+            ("market_daily/缺 conditions", lambda: _md({**md, "metric": {"type": "market_daily"}}, lambda d: None)),
+            ("market_daily/查询抛错", lambda: _md(md, boom)),
+            ("market_daily/查无当日行", lambda: _md(md, lambda d: None)),
+            ("market_daily/条件缺 target",
+             lambda: _md({**md, "metric": {"type": "market_daily",
+                                           "conditions": [{"field": "advancers", "op": ">="}]}},
+                         lambda d: {"advancers": 3400})),
+            ("market_daily/字段无值", lambda: _md(md, lambda d: {"limit_down": 3})),
+            ("market_daily/字段非数值", lambda: _md(md, lambda d: {"advancers": "3400家"})),
+            ("knowledge/无 target", lambda: resolvers.KnowledgeResolver(adapter=_Errors()).resolve(
+                {"id": "ck-k0", "ts": "2026-06-18T00:00:00", "due": "2026-07-01",
+                 "metric": {"type": "kb_evidence"}})),
+            ("knowledge/适配器抛错", lambda: resolvers.KnowledgeResolver(adapter=_Boom()).resolve(kb)),
+            ("knowledge/证据库读失败", lambda: resolvers.KnowledgeResolver(adapter=_Errors()).resolve(kb)),
+            ("dispatch/manual", lambda: resolvers.resolve_checkpoint({"id": "x", "metric": {"type": "manual"}})),
+            ("dispatch/无 metric", lambda: resolvers.resolve_checkpoint({"id": "x"})),
+        ]
+
+    def test_every_degrade_exit_discloses_all_required_fields(self) -> None:
+        for label, thunk in self._cases():
+            with self.subTest(exit=label):
+                out = thunk()
+                self.assertEqual(out.verdict, "unverifiable")
+                self.assertIsNone(out.score)
+                deg = out.degradation
+                self.assertIsInstance(deg, dict, "降级出口必须带 degradation")
+                for key in resolvers.DEGRADE_FIELDS:
+                    self.assertIn(key, deg, f"{label} 缺披露项 {key}")
+                # attempted 可以为空（规格不全时一次查询都没发），但不能缺键；
+                # 非空时每项都要说清"问了谁、返回什么"。
+                self.assertIsInstance(deg["attempted"], list)
+                for item in deg["attempted"]:
+                    self.assertTrue(str(item.get("source") or "").strip(), f"{label} attempted 缺 source")
+                    self.assertTrue(str(item.get("status") or "").strip(), f"{label} attempted 缺 status")
+                for key in ("gap", "impact", "fallback"):
+                    self.assertTrue(str(deg[key] or "").strip(), f"{label} 的 {key} 是空的")
+                self.assertTrue(deg["todo"], f"{label} 没给待补证清单")
+                self.assertTrue(all(str(t).strip() for t in deg["todo"]))
+                # 来源标注不降级：本该由谁判要留着，看板才能分清"该判没数"和"只能人工判"。
+                self.assertTrue(str(deg.get("owed_source") or "").strip(), f"{label} 丢了 owed_source")
+                # q13 的 7 项里落在答案生成层的 2 项：显式记 NOT_APPLICABLE，不留空壳。
+                self.assertEqual(deg.get("not_applicable"), resolvers.NOT_APPLICABLE_HERE)
+
+    def test_spec_gap_exits_send_no_query(self) -> None:
+        """规格不全 → attempted 必须为空：连查都没查，别拿假条目冒充试过。"""
+        out = resolvers.MarketResolver(returns_fn=lambda *a: {}).resolve(
+            {"id": "x", "ts": "2026-06-18T00:00:00", "due": "2026-09-30", "stocks": [],
+             "metric": {"type": "stock_return", "op": ">=", "target": 15}})
+        self.assertEqual(out.degradation["attempted"], [])
+        self.assertIn("规格缺", out.degradation["gap"])
+        self.assertIn("stocks/metric.target_name", out.degradation["todo"][0])
+
+    def test_manual_exit_keeps_owed_source_and_own_impact(self) -> None:
+        out = resolvers.resolve_checkpoint({"id": "x", "metric": {"type": "manual"}})
+        self.assertEqual(out.degradation["owed_source"], "manual")
+        self.assertIn("人工打分", out.degradation["fallback"])
+        # manual 的影响口径不同于缺数：不会因为没人打分就变 miss。
+        self.assertNotEqual(out.degradation["impact"], resolvers.DEFAULT_IMPACT)
+
+    def test_terminal_verdicts_carry_no_degradation(self) -> None:
+        """hit/miss 拿到了真数 → degradation 必须是 None，别伪造披露。"""
+        hit = resolvers.MarketResolver(returns_fn=lambda *a: {"铜冠铜箔": {"interval_gain": 22.5}}).resolve(
+            {"id": "x", "ts": "2026-06-18T00:00:00", "due": "2026-09-30", "stocks": ["铜冠铜箔"],
+             "metric": {"type": "stock_return", "op": ">=", "target": 15, "window_days": 60}})
+        self.assertEqual(hit.verdict, "hit")
+        self.assertIsNone(hit.degradation)
+        miss = resolvers.MarketDailyResolver(row_fn=lambda d: {"advancers": 2400}).resolve(
+            {"id": "y", "ts": "2026-07-06T00:00:00", "due": "2026-07-07",
+             "metric": {"type": "market_daily", "conditions": [{"field": "advancers", "op": ">=", "target": 3000}]}})
+        self.assertEqual(miss.verdict, "miss")
+        self.assertIsNone(miss.degradation)
+
+    def test_verdict_record_persists_disclosure(self) -> None:
+        """落盘要留住披露：半年后回看才答得出"当时为什么判不了、补什么才能判"。"""
+        out = resolvers.MarketResolver(returns_fn=lambda *a: {}).resolve(
+            {"id": "ck-p", "ts": "2026-06-18T00:00:00", "due": "2026-09-30",
+             "stocks": ["铜冠铜箔"],
+             "metric": {"type": "stock_return", "op": ">=", "target": 15, "window_days": 60}})
+        with tempfile.TemporaryDirectory() as tmp:
+            vpath = Path(tmp) / "verdicts.jsonl"
+            _, rec = checkpoints.record_verdict(
+                vpath, id="ck-p", verdict=out.verdict, score=out.score,
+                observed=out.observed, data_source=out.data_source, reason=out.reason,
+                degradation=out.degradation, auto=True,
+            )
+            on_disk = json.loads(vpath.read_text(encoding="utf-8").strip().splitlines()[-1])
+        self.assertEqual(rec["degradation"], out.degradation)
+        for key in resolvers.DEGRADE_FIELDS:
+            self.assertIn(key, on_disk["degradation"])
+        self.assertIn("停牌", on_disk["degradation"]["gap"])
+
+    def test_terminal_record_has_no_degradation_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vpath = Path(tmp) / "verdicts.jsonl"
+            _, rec = checkpoints.record_verdict(vpath, id="ck-t", verdict="hit")
+        self.assertNotIn("degradation", rec)
+
+    def test_no_unverifiable_exit_bypasses_the_helper(self) -> None:
+        """静态兜底：新出口直接 ``ResolveOutcome("unverifiable", ...)`` 会绕过必填校验。
+
+        ``_unverifiable`` 的必填关键字参数只能挡住"走 helper 但漏字段"；
+        绕开 helper 自己造 outcome 是另一条路，这里用 AST 堵上。
+        """
+        import ast
+
+        src = Path(resolvers.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        # _unverifiable 自己当然要造这个 outcome，它是唯一豁免。
+        helper = next(n for n in ast.walk(tree)
+                      if isinstance(n, ast.FunctionDef) and n.name == "_unverifiable")
+        exempt = set(range(helper.lineno, (helper.end_lineno or helper.lineno) + 1))
+        offenders: list[int] = []
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "ResolveOutcome"):
+                continue
+            if node.lineno in exempt:
+                continue
+            literals = [a.value for a in node.args if isinstance(a, ast.Constant)]
+            literals += [k.value.value for k in node.keywords
+                         if k.arg and isinstance(k.value, ast.Constant)]
+            if "unverifiable" in literals:
+                offenders.append(node.lineno)
+        self.assertEqual(
+            offenders, [],
+            f"这些行直接构造了 unverifiable outcome，绕过 _unverifiable 的必填披露："
+            f"{offenders}（改成走 _unverifiable/_spec_gap）",
+        )
+
+
 class RecheckDigestTests(unittest.TestCase):
     """人类层回检日志（让夜间 recheck 不黑盒）。"""
 
@@ -427,6 +598,37 @@ class RecheckDigestTests(unittest.TestCase):
         self.assertIn("**落空**｜产能时点｜", sec)
         self.assertIn("**暂无法判定**｜消息面｜", sec)
         self.assertIn("`ck-1`", sec)
+
+    def test_digest_renders_degradation_disclosure(self) -> None:
+        """降级条目在人读日志里要看得见"试过什么/影响/待补"，不能只剩一句缺数据。"""
+        out = resolvers.MarketDailyResolver(row_fn=lambda d: None).resolve(
+            {"id": "ck-deg", "ts": "2026-07-06T00:00:00", "due": "2026-07-07",
+             "metric": {"type": "market_daily",
+                        "conditions": [{"field": "advancers", "op": ">=", "target": 3000}]}})
+        sec = checkpoints.build_recheck_digest_section([{
+            "id": "ck-deg", "claim": "07-07 涨家数站上3000", "category": "市场路径",
+            "verdict": out.verdict, "data_source": out.data_source, "reason": out.reason,
+            "degradation": out.degradation,
+        }], applied=True)
+        self.assertIn("试过：duckdb:fact_market_daily→查询成功，无该日行", sec)
+        self.assertIn("影响：", sec)
+        self.assertIn("（本该由 market 判）", sec)
+        self.assertIn("待补：", sec)
+        self.assertIn("daily-full --trade-date 2026-07-07", sec)
+
+    def test_digest_marks_spec_gap_as_no_query_sent(self) -> None:
+        out = resolvers.resolve_checkpoint({"id": "ck-man", "metric": {"type": "manual"}})
+        sec = checkpoints.build_recheck_digest_section([{
+            "id": "ck-man", "claim": "产能Q3兑现", "verdict": out.verdict,
+            "data_source": out.data_source, "reason": out.reason, "degradation": out.degradation,
+        }], applied=True)
+        self.assertIn("试过：未发起查询", sec)
+        self.assertIn("本该由 manual 判", sec)
+
+    def test_digest_omits_degradation_lines_for_terminal(self) -> None:
+        sec = checkpoints.build_recheck_digest_section(self._results()[:2], applied=True)
+        self.assertNotIn("试过：", sec)
+        self.assertNotIn("待补：", sec)
 
     def test_digest_section_no_terminal(self) -> None:
         only_unv = [{"id": "ck-9", "claim": "x", "verdict": "unverifiable",

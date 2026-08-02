@@ -42,6 +42,42 @@ DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
 EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
+
+# 退出码本身不可操作。检索器把真正的原因写在 stderr，丢掉它等于让每次排查都从
+# 零开始——实测有一批「退出码 1」事后完全无法归因，因为原因没被保留。
+# 这里只放行已知可操作的模式：不外泄任意 stderr（可能带查询原文、路径、traceback）。
+_STDERR_REASON_MAX_CHARS = 220
+_RAG_REMEDIES: tuple[tuple[str, str], ...] = (
+    # 索引新鲜度守卫
+    (
+        "working-tree changes",
+        "知识库有未提交改动导致索引与源不一致；提交后 post-commit hook 会自动重建"
+        "（单跑 rag update 不够，守卫要求源已提交）",
+    ),
+    ("indexed source changed in git", "索引落后于已提交内容；在知识库仓跑 rag update"),
+    ("built from dirty source", "索引是在脏工作区上建的；提交后重建"),
+    ("age=", "索引超龄；在知识库仓跑 rag update"),
+    # 网络/HF Hub：模型已缓存时这类失败纯属无谓，靠 HF_HUB_OFFLINE=1 消除
+    ("429", "HuggingFace Hub 限流；本进程已默认 HF_HUB_OFFLINE=1，若被显式关掉请改回"),
+    ("Too Many Requests", "HuggingFace Hub 限流；确认 HF_HUB_OFFLINE 未被设成 0"),
+    ("RateLimit", "上游限流；确认 HF_HUB_OFFLINE 未被设成 0"),
+    ("huggingface.co", "访问 HuggingFace Hub 失败；模型已缓存时设 HF_HUB_OFFLINE=1 可完全绕开"),
+    ("ConnectionError", "网络不可达；模型已缓存时设 HF_HUB_OFFLINE=1 可完全绕开"),
+    ("Max retries exceeded", "网络重试耗尽；模型已缓存时设 HF_HUB_OFFLINE=1 可完全绕开"),
+)
+
+
+def _stderr_reason(stderr: str | None) -> str:
+    """命中已知可操作模式时返回「原因 + 补救动作」，否则空串（不外泄任意 stderr）。"""
+    text = re.sub(r"\s+", " ", str(stderr or "")).strip()
+    if not text:
+        return ""
+    for marker, remedy in _RAG_REMEDIES:
+        if marker in text:
+            return f"检索器失败（{marker}）｜补救：{remedy}"[:_STDERR_REASON_MAX_CHARS]
+    return ""
+
+
 REQUIRED_QUERY_OPTIONS = ("--json", "--k", "--mode")
 OPTIONAL_QUERY_OPTIONS = (
     "--evidence-chars",
@@ -820,6 +856,20 @@ def retrieve(
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
     env["KB_VAULT"] = str(wiki_root)
+    # 检索器每次查询都会向 HuggingFace Hub 发**未认证**请求校验 bge-m3 的 30 个
+    # 文件，即便本地已缓存。未认证请求有速率限制，连跑一批查询就会被限流、
+    # 整条检索以退出码 1 挂掉（实测：离线 19s / 联网 21s，联网校验零收益）。
+    # 索引能建起来就意味着模型已缓存，所以默认离线；留 setdefault 以便冷启动的
+    # 机器用 HF_HUB_OFFLINE=0 显式打开首次下载。
+    env.setdefault("HF_HUB_OFFLINE", "1")
+    env.setdefault("TRANSFORMERS_OFFLINE", "1")
+    # 静音进度条：模型加载会往 stderr 打 391 个分片的 tqdm 进度条，而 rc=0 且
+    # stderr 非空会被记成一条「wiki-rag 检索器返回告警」——**每次检索都触发**。
+    # 那条告警没有任何信息量，却会挤进 degrades 列表，把真告警淹掉。
+    # 实测加这三个后 stderr 完全干净，于是 stderr 非空重新变回一个有意义的信号。
+    env.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    env.setdefault("TRANSFORMERS_VERBOSITY", "error")
+    env.setdefault("TQDM_DISABLE", "1")
     fallback_warnings: list[str] = []
     if legacy_options:
         tel.query_protocol = "legacy"
@@ -1039,6 +1089,7 @@ def retrieve(
             res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
         # 退出码本身不可操作。检索器把真正的原因写在 stderr——索引过期时那里
         # 明确写着是哪一类不新鲜、该跑什么命令。丢掉它等于让每次排查都从零开始。
+        # （reason 已在上面的 if 链之前算过，main 侧那次重复调用去掉。）
         if reason:
             res.warning = f"{res.warning}：{reason}"
         tel.status = "error"

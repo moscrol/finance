@@ -26,9 +26,14 @@
 
 | 研判日 | manifest | 答卷 | 答卷校验 | 验证 | 命中率（hit/已裁定） |
 |---|---|---|---|---|---|
+| 2026-07-24 | ✅ | claude, claude.briefing, claude.sellside | claude:✅ claude.briefing:✅ claude.sellside:✅ | — | — |
+| 2026-07-23 | ✅ | — | — | — | — |
+| 2026-07-22 | ✅ | claude | claude:✅ | — | — |
+| 2026-07-21 | ✅ | claude, claude.sellside | claude:✅ claude.sellside:✅ | — | — |
+| 2026-07-20 | ✅ | claude, claude.sellside, codex, codex.sellside | claude:✅ claude.sellside:✅ codex:✅ codex.sellside:✅ | — | — |
 | 2026-07-08 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:3/8 codex:3/8 |
 | 2026-07-07 | ✅ | claude, claude.sellside, codex, codex.sellside | claude:✅ claude.sellside:✅ codex:✅ codex.sellside:✅ | ✅ | claude:1/8 codex:2/8 |
-| 2026-07-06 | ✅ | claude, claude.briefing, codex, codex.briefing | claude:✅ claude.briefing:✅ codex:✅ codex.briefing:✅ | ✅ | claude:1/15 codex:3/13 |
+| 2026-07-06 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:1/15 codex:3/13 |
 | 2026-07-03 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:4/8 codex:0/2 |
 | 2026-07-02 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:3/8 codex:1/12 |
 

@@ -6,14 +6,13 @@
   python3 check_coverage.py [MM]          # 检查指定月份，默认当前月
   python3 check_coverage.py --all         # 检查所有已有日期的连续性
 """
-import json
 import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
-from feishu_utils import load_config, get_token as _get_token, api, fetch_all_records
+from feishu_utils import load_config, get_token as _get_token, fetch_all_records
 
 cfg = load_config()
 APP_TOKEN = cfg["app_token"]

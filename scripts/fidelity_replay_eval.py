@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from intelligence.eval.fidelity_replay import (
+# Direct execution needs the repository root on sys.path before project imports.
+from intelligence.eval.fidelity_replay import (  # noqa: E402
     aggregate_audits,
     audit_answer,
     build_gold_template,

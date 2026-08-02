@@ -113,7 +113,6 @@ def generate_range(db_path, dates, params):
     for r in eng_b:
         b_by_day.setdefault(r[0].isoformat(), []).append(r)
 
-    wanted = set(dates)
     day_meta = {td.isoformat(): row for row in days for td in [row[0]]}
 
     out = {}

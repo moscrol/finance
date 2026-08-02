@@ -16,6 +16,16 @@ from typing import Any
 CONTENT_DELTA_SCHEMA_VERSION = "content-delta-1.0"
 MAX_DELTA_BYTES = 10 * 1024 * 1024
 REPLAY_RECIPE = "checkout base_commit, then apply entries by path"
+# 检索访问日志是 append-only 遥测，不是知识内容：生成 delta 的过程本身会
+# 通过 RAG 检索追加它，纳入快照会让 before/after 一致性校验自我失效。
+EXCLUDED_PATH_SUFFIXES = ("relations/access_log.jsonl",)
+
+
+def _is_excluded(relative: str) -> bool:
+    return any(
+        relative == suffix or relative.endswith(f"/{suffix}")
+        for suffix in EXCLUDED_PATH_SUFFIXES
+    )
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -142,6 +152,8 @@ def build_content_delta(
     entries: list[dict[str, Any]] = []
     total_bytes = 0
     for relative in sorted(changed):
+        if _is_excluded(relative):
+            continue
         path = repo_root / relative
         if not os.path.lexists(path):
             entries.append({"path": relative, "state": "deleted"})

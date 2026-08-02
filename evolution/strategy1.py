@@ -12,7 +12,6 @@
 分层：ALL（满足 3 且 4）⊃ NEWHIGH（ALL 中新高）⊃ T1CORE6（NEWHIGH 中 weighted 前 t1core_size）。
 """
 import math
-from collections import defaultdict
 
 
 def _norm(s):

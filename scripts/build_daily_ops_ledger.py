@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
+# Direct execution needs the repository root on sys.path before project imports.
+from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for  # noqa: E402
 
 
 STATUS_PASS = "PASS"

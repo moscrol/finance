@@ -10,6 +10,8 @@
 
 `db/market.duckdb` 是早期飞书同步阶段的旧路径，不作为当前问答数据源。除非用户明确要求检查旧飞书-era 数据，否则不要读取它。
 
+`scripts/sync_to_local.py` 已正式退役：它只返回迁移提示，不读取凭证、不访问网络，也不会创建旧库。复盘事实统一通过 `python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD` 写入 canonical 库；板块回测和转折信号脚本均以只读方式消费 `fact_*` 表。
+
 ## 深挖前验鲜
 
 使用 DuckDB 前先确认库的新鲜度：

@@ -167,14 +167,10 @@ def _mainline_context_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return ""
+    con = db_result.connection
     try:
         exists = con.execute(
             "select count(*) from information_schema.tables where table_name='fact_mainline_sector_daily'"
@@ -299,57 +295,57 @@ def _market_review_mainline_context_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not market_date or not db_path.exists():
         return ""
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
+        return ""
+    con = db_result.connection
     try:
-        import duckdb  # type: ignore
-
-        con = retrieval_cache.connect_readonly(db_path)
-        try:
-            table_names = {
-                str(row[0])
-                for row in con.execute(
-                    """
-                    select table_name
-                    from information_schema.tables
-                    where table_schema = 'main'
-                    """
-                ).fetchall()
-            }
-            theme_date = None
-            themes: list[tuple[str, int]] = []
-            if "fact_mainline_theme_daily" in table_names:
-                row = con.execute(
-                    "select max(trade_date) from fact_mainline_theme_daily "
-                    "where trade_date <= cast(? as date)",
-                    [market_date],
-                ).fetchone()
-                theme_date = str(row[0]) if row and row[0] else None
-                if theme_date == market_date:
-                    themes = [
-                        (str(name), int(sector_count or 0))
-                        for name, sector_count in con.execute(
-                            """
-                            select theme_name, sector_count
-                            from fact_mainline_theme_daily
-                            where trade_date = ?
-                            order by min_sort nulls last, theme_name
-                            limit 10
-                            """,
-                            [theme_date],
-                        ).fetchall()
-                        if name
-                    ]
-            sector_date = None
-            if "fact_mainline_sector_daily" in table_names:
-                row = con.execute(
-                    "select max(trade_date) from fact_mainline_sector_daily "
-                    "where trade_date <= cast(? as date)",
-                    [market_date],
-                ).fetchone()
-                sector_date = str(row[0]) if row and row[0] else None
-        finally:
-            con.close()
+        table_names = {
+            str(row[0])
+            for row in con.execute(
+                """
+                select table_name
+                from information_schema.tables
+                where table_schema = 'main'
+                """
+            ).fetchall()
+        }
+        theme_date = None
+        themes: list[tuple[str, int]] = []
+        if "fact_mainline_theme_daily" in table_names:
+            row = con.execute(
+                "select max(trade_date) from fact_mainline_theme_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
+            ).fetchone()
+            theme_date = str(row[0]) if row and row[0] else None
+            if theme_date == market_date:
+                themes = [
+                    (str(name), int(sector_count or 0))
+                    for name, sector_count in con.execute(
+                        """
+                        select theme_name, sector_count
+                        from fact_mainline_theme_daily
+                        where trade_date = ?
+                        order by min_sort nulls last, theme_name
+                        limit 10
+                        """,
+                        [theme_date],
+                    ).fetchall()
+                    if name
+                ]
+        sector_date = None
+        if "fact_mainline_sector_daily" in table_names:
+            row = con.execute(
+                "select max(trade_date) from fact_mainline_sector_daily "
+                "where trade_date <= cast(? as date)",
+                [market_date],
+            ).fetchone()
+            sector_date = str(row[0]) if row and row[0] else None
     except Exception:
         return ""
+    finally:
+        con.close()
     if sector_date == market_date:
         return _mainline_context_block_for_llm(
             query,
@@ -408,43 +404,45 @@ def _mainline_theme_names(
     db_path = Path(market_db_path).expanduser()
     if not market_date or not db_path.exists():
         return "", []
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
+        return "", []
+    con = db_result.connection
     try:
-        con = retrieval_cache.connect_readonly(db_path)
-        try:
-            exists = con.execute(
+        exists = con.execute(
+            """
+            select count(*) from information_schema.tables
+            where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
+            """
+        ).fetchone()
+        if not exists or not exists[0]:
+            return "", []
+        row = con.execute(
+            "select max(trade_date) from fact_mainline_theme_daily "
+            "where trade_date <= cast(? as date)",
+            [market_date],
+        ).fetchone()
+        theme_date = str(row[0]) if row and row[0] else None
+        if theme_date != market_date:
+            return str(theme_date or ""), []
+        names = [
+            str(name)
+            for (name,) in con.execute(
                 """
-                select count(*) from information_schema.tables
-                where table_schema = 'main' and table_name = 'fact_mainline_theme_daily'
-                """
-            ).fetchone()
-            if not exists or not exists[0]:
-                return "", []
-            row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily "
-                "where trade_date <= cast(? as date)",
-                [market_date],
-            ).fetchone()
-            theme_date = str(row[0]) if row and row[0] else None
-            if theme_date != market_date:
-                return str(theme_date or ""), []
-            names = [
-                str(name)
-                for (name,) in con.execute(
-                    """
-                    select theme_name from fact_mainline_theme_daily
-                    where trade_date = ?
-                    order by min_sort nulls last, theme_name
-                    limit ?
-                    """,
-                    [theme_date, limit],
-                ).fetchall()
-                if name
-            ]
-            return market_date, names
-        finally:
-            con.close()
+                select theme_name from fact_mainline_theme_daily
+                where trade_date = ?
+                order by min_sort nulls last, theme_name
+                limit ?
+                """,
+                [theme_date, limit],
+            ).fetchall()
+            if name
+        ]
+        return market_date, names
     except Exception:
         return "", []
+    finally:
+        con.close()
 
 
 def mainline_knowledge_coverage(
@@ -711,15 +709,10 @@ def _second_derivative_queue_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return _second_derivative_queue_from_text_only(theme, evidence_text)
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return _second_derivative_queue_from_text_only(theme, evidence_text)
-
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return _second_derivative_queue_from_text_only(theme, evidence_text)
+    con = db_result.connection
 
     try:
         stock = _resolve_stock_for_market_block(con, query)
@@ -877,12 +870,10 @@ def _daily_market_overview_block_for_llm(
     )
     if not db_path.exists():
         return ""
-    try:
-        import duckdb
-
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
+    con = db_result.connection
 
     try:
         table_names = {
@@ -1064,12 +1055,13 @@ def _market_cause_window_block_for_llm(
     )
     if not db_path.exists():
         return ""
-    try:
-        import duckdb
-
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
+    # 连接由 try_connect_readonly 统一取，与本文件其余块一致：它内部兜住
+    # duckdb 缺失（dependency_unavailable）和打开失败（open_failed），不抛异常，
+    # 所以这里不需要再包一层 try，也不需要单独的 `import duckdb` 可用性探针。
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
+    con = db_result.connection
     try:
         rows = con.execute(
             """
@@ -1144,21 +1136,24 @@ def _market_data_asof(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return None
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
+        return None
+    con = db_result.connection
     try:
-        import duckdb  # type: ignore
-
-        con = retrieval_cache.connect_readonly(db_path)
-        try:
-            row = con.execute(
-                "SELECT MAX(trade_date) FROM fact_market_daily "
-                "WHERE (? IS NULL OR trade_date <= CAST(? AS DATE))",
-                [as_of, as_of],
-            ).fetchone()
-        finally:
-            con.close()
+        # 连接由函数顶部的 try_connect_readonly 统一管理（legacy 分支的重构），
+        # 查询保留 as_of 上界（exposure 分支）——签名收了 as_of 就必须用，
+        # 否则回检块的时间边界会静默失效。
+        row = con.execute(
+            "SELECT MAX(trade_date) FROM fact_market_daily "
+            "WHERE (? IS NULL OR trade_date <= CAST(? AS DATE))",
+            [as_of, as_of],
+        ).fetchone()
         return str(row[0]) if row and row[0] else None
     except Exception:
         return None
+    finally:
+        con.close()
 
 
 def _is_market_index_comparison_query(query: str) -> bool:
@@ -1245,10 +1240,9 @@ def _populate_market_index_comparison(
     )
     row: tuple[Any, ...] | None = None
     if trade_date and db_path.exists():
-        try:
-            import duckdb  # type: ignore
-
-            con = retrieval_cache.connect_readonly(db_path)
+        db_result = retrieval_cache.try_connect_readonly(db_path)
+        if db_result.available:
+            con = db_result.connection
             try:
                 row = con.execute(
                     """
@@ -1259,10 +1253,10 @@ def _populate_market_index_comparison(
                     """,
                     [trade_date],
                 ).fetchone()
+            except Exception:
+                row = None
             finally:
                 con.close()
-        except Exception:
-            row = None
 
     evidence: list[str] = []
     gaps: list[str] = []
@@ -1360,15 +1354,10 @@ def _market_value_block_for_llm(
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     if not db_path.exists():
         return ""
-    try:
-        import duckdb  # type: ignore
-    except Exception:
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
         return ""
-
-    try:
-        con = retrieval_cache.connect_readonly(db_path)
-    except Exception:
-        return ""
+    con = db_result.connection
     try:
         stock = _resolve_stock_for_market_block(con, query)
         if not stock:
@@ -1571,10 +1560,9 @@ def _valuation_block_for_llm(
     peer_codes: list[tuple[str, str]] = []
     local_snapshots: dict[str, valuation_estimate.ValuationSnapshot] = {}
     if db_path.exists():
-        try:
-            import duckdb  # type: ignore
-
-            con = retrieval_cache.connect_readonly(db_path)
+        db_result = retrieval_cache.try_connect_readonly(db_path)
+        if db_result.available:
+            con = db_result.connection
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:
@@ -1623,10 +1611,10 @@ def _valuation_block_for_llm(
                                 )
                                 if local_peer is not None:
                                     local_snapshots[peer_code] = local_peer
+            except Exception:
+                pass
             finally:
                 con.close()
-        except Exception:
-            pass
     if target_code is None:
         code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
         if not code_match:
@@ -1710,18 +1698,17 @@ def _financials_block_for_llm(
     target_code: str | None = None
     target_name = ""
     if db_path.exists():
-        try:
-            import duckdb  # type: ignore
-
-            con = retrieval_cache.connect_readonly(db_path)
+        db_result = retrieval_cache.try_connect_readonly(db_path)
+        if db_result.available:
+            con = db_result.connection
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:
                     target_code, target_name = stock
+            except Exception:
+                pass
             finally:
                 con.close()
-        except Exception:
-            pass
     if target_code is None:
         code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
         if not code_match:
