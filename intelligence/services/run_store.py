@@ -72,7 +72,9 @@ _TERMINAL_STATUSES = (STATUS_COMPLETED, STATUS_FAILED, STATUS_CANCELLED)
 
 STEP_STATUSES = ("running", "completed", "failed", "skipped")
 ARTIFACT_VISIBILITIES = ("public", "internal")
-_LEGACY_INTERNAL_ARTIFACT_PATHS = frozenset({"continuous-episode.json"})
+_LEGACY_INTERNAL_ARTIFACT_PATHS = frozenset(
+    {"continuous-episode.json", "continuous-fast-path.json"}
+)
 
 
 def artifact_visibility(artifact: dict[str, Any]) -> str:

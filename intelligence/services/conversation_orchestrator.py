@@ -58,6 +58,10 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
+from intelligence.services.execution_provenance import (
+    ExecutionAttempt,
+    RuntimeExecutionIdentity,
+)
 from intelligence.services import llm_refine
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
@@ -1435,6 +1439,8 @@ class TurnOrchestrator:
         cancellation_reason: Callable[[], str | None] | None = None,
         event_id_prefix: str = "",
         continuous_turn_adapter: ContinuousTurnHandler | None = None,
+        execution_attempt: ExecutionAttempt | None = None,
+        runtime_identity: RuntimeExecutionIdentity | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.conversation_store = conversation_store
@@ -1450,6 +1456,8 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
+        self.execution_attempt = execution_attempt
+        self.runtime_identity = runtime_identity
 
     def _market_db_path(self) -> Path:
         """Resolve the data root separately from the runtime code checkout.
@@ -1468,6 +1476,46 @@ class TurnOrchestrator:
             default_paths().finance_root / "db" / "market_feature_store.duckdb"
         )
         return configured_path if configured_path.is_file() else local_path
+
+    def _bind_execution(
+        self,
+        *,
+        run_id: str,
+        execution_path: str,
+        terminal_owner: str,
+        contributors: Sequence[str],
+        task_frame: TaskFrame,
+        cutoff: str | None,
+    ) -> None:
+        if self.execution_attempt is None or self.runtime_identity is None:
+            return
+        self.run_store.bind_execution_attempt(
+            run_id,
+            attempt_id=self.execution_attempt.attempt_id,
+            execution_path=execution_path,
+            terminal_owner=terminal_owner,
+            contributors=tuple(dict.fromkeys(contributors)),
+            task_frame_hash=task_frame.task_frame_hash,
+            cutoff=cutoff or task_frame.timeframe,
+            effective_backend=self.runtime_identity.backend,
+            effective_model=self.llm_model or self.runtime_identity.model,
+        )
+
+    @staticmethod
+    def _continuous_cutoff(
+        result: ContinuousTurnResult,
+        task_frame: TaskFrame,
+    ) -> str | None:
+        private = result.private_artifact
+        if isinstance(private, dict):
+            context = private.get("research_context")
+            if isinstance(context, dict):
+                info = context.get("information_cutoff")
+                if isinstance(info, dict):
+                    value = str(info.get("as_of_date") or "").strip()
+                    if value:
+                        return value
+        return task_frame.timeframe
 
     def run_turn(
         self,
@@ -1698,6 +1746,7 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
+            execution_bound = False
             if self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
                     decision,
@@ -1709,8 +1758,35 @@ class TurnOrchestrator:
                     frame=task_frame,
                     control=continuous_control,
                 )
-                self._check_cancelled()
                 if continuous_result.handled:
+                    if continuous_control.terminal_kind == "clarification":
+                        execution_path = "continuous_clarification"
+                        terminal_owner = "continuous_turn_adapter"
+                    elif task_frame.question_type == QUESTION_MARKET_TECHNICAL:
+                        execution_path = "continuous_fast_path"
+                        terminal_owner = "continuous_fast_path"
+                    else:
+                        execution_path = "continuous_episode"
+                        terminal_owner = "continuous_turn_adapter"
+                    self._bind_execution(
+                        run_id=run_id,
+                        execution_path=execution_path,
+                        terminal_owner=terminal_owner,
+                        contributors=(
+                            "turn_controller",
+                            "continuous_turn_adapter",
+                            self.runtime_identity.backend
+                            if self.runtime_identity is not None
+                            else "continuous_runtime",
+                        ),
+                        task_frame=task_frame,
+                        cutoff=self._continuous_cutoff(
+                            continuous_result,
+                            task_frame,
+                        ),
+                    )
+                    execution_bound = True
+                    self._check_cancelled()
                     return self._complete_continuous_turn(
                         conversation_id=conversation_id,
                         run_id=run_id,
@@ -1722,7 +1798,17 @@ class TurnOrchestrator:
                         selected_skill_ids=manual_selected,
                         turn_intent=turn_intent,
                         research_plan=research_plan,
+                        execution_path=execution_path,
                     )
+            if not execution_bound:
+                self._bind_execution(
+                    run_id=run_id,
+                    execution_path="legacy_direct",
+                    terminal_owner="legacy_turn_orchestrator",
+                    contributors=("turn_controller", "legacy_turn_orchestrator"),
+                    task_frame=task_frame,
+                    cutoff=task_frame.timeframe,
+                )
             if decision.lane in {"chat", "meta", "clarify"} or (
                 decision.lane == "knowledge" and not decision.needs_retrieval
             ):
@@ -3321,6 +3407,7 @@ class TurnOrchestrator:
         selected_skill_ids: Sequence[str],
         turn_intent: TurnIntent,
         research_plan: ResearchPlan,
+        execution_path: str = "continuous_episode",
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -3328,6 +3415,10 @@ class TurnOrchestrator:
         private_artifact["task_frame"] = task_frame.to_dict()
         private_artifact["turn_intent"] = turn_intent.to_dict()
         safe_private_artifact = redact_value(private_artifact)
+        private_artifact_filename = {
+            "continuous_episode": "continuous-episode.json",
+            "continuous_fast_path": "continuous-fast-path.json",
+        }.get(execution_path)
         warnings = list(dict.fromkeys(result.warnings))
         for warning in warnings:
             self.run_store.add_degrade(run_id, warning)
@@ -3387,7 +3478,7 @@ class TurnOrchestrator:
         answer_text = redact(result.answer).strip()
         if result.status == "failed" or not answer_text:
             failure_text = answer_text or "本轮连续研究未取得可公开答案。"
-            report["execution_kind"] = "continuous_episode"
+            report["execution_kind"] = execution_path
             report["task_frame_hash"] = turn_intent.task_frame_hash
             report["turn_intent"] = turn_intent.to_dict()
             report["status"] = "blocked"
@@ -3403,20 +3494,21 @@ class TurnOrchestrator:
                 rs.STATUS_FAILED,
                 error="continuous_runtime_failed",
             )
-            self.run_store.add_artifact(
-                run_id,
-                "continuous-episode.json",
-                json.dumps(
-                    safe_private_artifact,
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                renderer="json",
-                title="连续研究私有审计",
-                visibility="internal",
-                previewable=False,
-                downloadable=False,
-            )
+            if private_artifact_filename is not None:
+                self.run_store.add_artifact(
+                    run_id,
+                    private_artifact_filename,
+                    json.dumps(
+                        safe_private_artifact,
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    renderer="json",
+                    title="连续研究私有审计",
+                    visibility="internal",
+                    previewable=False,
+                    downloadable=False,
+                )
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -3470,7 +3562,7 @@ class TurnOrchestrator:
                 invoked_skill_ids=(),
             )
 
-        report["execution_kind"] = "continuous_episode"
+        report["execution_kind"] = execution_path
         report["turn_intent"] = turn_intent.to_dict()
         complete_report(
             report,
@@ -3494,20 +3586,21 @@ class TurnOrchestrator:
             renderer="markdown",
             title=redact(f"对话回答：{query[:24]}"),
         )
-        self.run_store.add_artifact(
-            run_id,
-            "continuous-episode.json",
-            json.dumps(
-                safe_private_artifact,
-                ensure_ascii=False,
-                indent=2,
-            ),
-            renderer="json",
-            title="连续研究私有审计",
-            visibility="internal",
-            previewable=False,
-            downloadable=False,
-        )
+        if private_artifact_filename is not None:
+            self.run_store.add_artifact(
+                run_id,
+                private_artifact_filename,
+                json.dumps(
+                    safe_private_artifact,
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="json",
+                title="连续研究私有审计",
+                visibility="internal",
+                previewable=False,
+                downloadable=False,
+            )
         self.run_store.add_artifact(
             run_id,
             "report.json",

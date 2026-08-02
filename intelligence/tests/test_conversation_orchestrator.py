@@ -40,6 +40,7 @@ from intelligence.services.conversation_orchestrator import (
 )
 from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services.conversation_store import ConversationStore
+from intelligence.services.execution_provenance import RuntimeExecutionIdentity
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
@@ -5144,3 +5145,212 @@ def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:
     assert verifier["task_frame_hash"] == frame_hash
     assert report["task_frame_hash"] == frame_hash
     assert report["task_frame"]["raw_question"] == query
+
+
+def _runtime_identity_for_execution_test() -> RuntimeExecutionIdentity:
+    return RuntimeExecutionIdentity(
+        runtime_instance_id="runtime-test",
+        source_revision="a" * 40,
+        source_dirty=False,
+        code_root="/candidate",
+        import_root="/candidate",
+        python_executable="/python",
+        backend="sdk_gpt",
+        model="gpt-5.6-sol",
+        provider_label="cockpit_local",
+        provider_protocol="openai_responses",
+        endpoint_fingerprint="b" * 64,
+    )
+
+
+def _finish_direct_execution_attempt(
+    run_store: RunStore,
+    run_id: str,
+    attempt_id: str,
+) -> list[dict[str, object]]:
+    run = run_store.load_run(run_id)
+    run_store.finish_execution_attempt(
+        run_id,
+        attempt_id=attempt_id,
+        status=run.status,
+        artifact_receipts=tuple(run.artifacts),
+    )
+    return run_store.load_execution_attempts(run_id)
+
+
+def test_execution_attempt_binds_continuous_episode_and_receipt(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "研究 2026-07-23 双红板块",
+    )
+    identity = _runtime_identity_for_execution_test()
+    attempt = run_store.start_execution_attempt(run_id, identity)
+
+    class Adapter:
+        def handle(self, *, frame, control):
+            del control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="已有连续研究答案",
+                as_of="2026-07-23",
+                citations=(),
+                warnings=(),
+                private_artifact={
+                    "execution_kind": "continuous_episode",
+                    "research_context": {
+                        "information_cutoff": {"as_of_date": "2026-07-23"}
+                    },
+                    "task_frame_hash": frame.task_frame_hash,
+                },
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        turn_controller_fn=_research_controller,
+        continuous_turn_adapter=Adapter(),
+        execution_attempt=attempt,
+        runtime_identity=identity,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="研究 2026-07-23 双红板块",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    events = _finish_direct_execution_attempt(run_store, run_id, attempt.attempt_id)
+    bound = next(item for item in events if item["event_type"] == "execution.bound")
+    finished = next(item for item in events if item["event_type"] == "attempt.finished")
+    assert bound["execution_path"] == "continuous_episode"
+    assert bound["terminal_owner"] == "continuous_turn_adapter"
+    assert bound["task_frame_hash"]
+    receipt = next(
+        item
+        for item in finished["artifact_receipts"]
+        if item["path"] == "continuous-episode.json"
+    )
+    assert receipt["run_id"] == run_id
+    assert receipt["attempt_id"] == attempt.attempt_id
+    assert receipt["task_frame_hash"] == bound["task_frame_hash"]
+    assert receipt["sha256"]
+
+
+def test_execution_attempt_binds_continuous_clarification_without_episode_artifact(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "帮我看看"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    identity = _runtime_identity_for_execution_test()
+    attempt = run_store.start_execution_attempt(run_id, identity)
+
+    class Adapter:
+        def handle(self, *, frame, control):
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer=control.clarification_questions[0]
+                if control.clarification_questions
+                else "请补充主体",
+                as_of=None,
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        continuous_turn_adapter=Adapter(),
+        execution_attempt=attempt,
+        runtime_identity=identity,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    paths = {item["path"] for item in run_store.load_run(run_id).artifacts}
+    assert "continuous-episode.json" not in paths
+    events = _finish_direct_execution_attempt(run_store, run_id, attempt.attempt_id)
+    bound = next(item for item in events if item["event_type"] == "execution.bound")
+    assert bound["execution_path"] == "continuous_clarification"
+
+
+def test_execution_attempt_binds_legacy_direct_when_adapter_declines(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "查一下不存在的表"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    identity = _runtime_identity_for_execution_test()
+    attempt = run_store.start_execution_attempt(run_id, identity)
+
+    class DeclinedAdapter:
+        def handle(self, **_kwargs):
+            return ContinuousTurnResult(
+                handled=False,
+                status="failed",
+                answer="",
+                as_of=None,
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        lane_answer_fn=lambda *_args, **_kwargs: LaneAnswer(
+            answer="该表不存在，建议查询 fact_sector_daily。",
+            provider=None,
+            fallback_reason="",
+        ),
+        continuous_turn_adapter=DeclinedAdapter(),
+        execution_attempt=attempt,
+        runtime_identity=identity,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    events = _finish_direct_execution_attempt(run_store, run_id, attempt.attempt_id)
+    bound = next(item for item in events if item["event_type"] == "execution.bound")
+    assert bound["execution_path"] == "legacy_direct"
+    assert bound["terminal_owner"] == "legacy_turn_orchestrator"

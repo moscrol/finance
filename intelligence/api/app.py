@@ -63,6 +63,10 @@ from intelligence.services.conversation_orchestrator import (
 from intelligence.services.continuous_turn_adapter import (
     ContinuousTurnAdapter,
 )
+from intelligence.services.execution_provenance import (
+    ExecutionAttempt,
+    RuntimeExecutionIdentity,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -684,11 +688,29 @@ class RunSupervisor:
         self._terminal_handlers: dict[tuple[str, str], Callable[[str], None]] = {}
         self._lock = threading.Lock()
 
-    def submit(self, store: RunStore, run_id: str, req: CreateRunRequest) -> None:
+    def submit(
+        self,
+        store: RunStore,
+        run_id: str,
+        req: CreateRunRequest,
+        runtime_identity: RuntimeExecutionIdentity | None = None,
+    ) -> None:
+        runner = (
+            (lambda _: _run_ask(store, run_id, req))
+            if runtime_identity is None
+            else (
+                lambda _: _run_ask(
+                    store,
+                    run_id,
+                    req,
+                    runtime_identity=runtime_identity,
+                )
+            )
+        )
         self._submit(
             store,
             run_id,
-            lambda _: _run_ask(store, run_id, req),
+            runner,
         )
 
     def submit_conversation(
@@ -707,6 +729,7 @@ class RunSupervisor:
         selected_perspective_ids: list[str],
         event_id_prefix: str = "",
         llm_providers: tuple[LLMProvider, ...] = (),
+        runtime_identity: RuntimeExecutionIdentity | None = None,
     ) -> None:
         self._submit(
             store,
@@ -726,6 +749,7 @@ class RunSupervisor:
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
                 llm_providers=llm_providers,
+                runtime_identity=runtime_identity,
             ),
             on_terminal=lambda reason: _terminalize_pending_message(
                 conversation_store,
@@ -953,6 +977,85 @@ def _run_conversation_turn(
     selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
     llm_providers: tuple[LLMProvider, ...] = (),
+    runtime_identity: RuntimeExecutionIdentity | None = None,
+) -> None:
+    """Run one conversation turn and close its attempt receipt if enabled."""
+
+    attempt = (
+        run_store.start_execution_attempt(run_id, runtime_identity)
+        if runtime_identity is not None
+        else None
+    )
+    worker_error = False
+    try:
+        _run_conversation_turn_body(
+            repo_root=repo_root,
+            conversation_store=conversation_store,
+            run_store=run_store,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query=query,
+            skill_mode=skill_mode,
+            selected_skill_ids=selected_skill_ids,
+            cancellation_signal=cancellation_signal,
+            perspective_mode=perspective_mode,
+            selected_perspective_ids=selected_perspective_ids,
+            event_id_prefix=event_id_prefix,
+            llm_providers=llm_providers,
+            execution_attempt=attempt,
+            runtime_identity=runtime_identity,
+        )
+    except BaseException:
+        worker_error = True
+        raise
+    finally:
+        if attempt is not None:
+            run = run_store.load_run(run_id)
+            if run.status in rs._TERMINAL_STATUSES:
+                attempt_status = run.status
+            elif worker_error:
+                attempt_status = rs.STATUS_FAILED
+            elif cancellation_signal.reason:
+                attempt_status = rs.STATUS_CANCELLED
+            else:
+                attempt_status = "abandoned"
+            receipts = tuple(
+                artifact
+                for artifact in run.artifacts
+                if isinstance(artifact, dict)
+            )
+            has_binding = any(
+                event.get("attempt_id") == attempt.attempt_id
+                and event.get("event_type") == "execution.bound"
+                for event in run_store.load_execution_attempts(run_id)
+            )
+            run_store.finish_execution_attempt(
+                run_id,
+                attempt_id=attempt.attempt_id,
+                status=attempt_status,
+                artifact_receipts=receipts if has_binding else (),
+            )
+
+
+def _run_conversation_turn_body(
+    *,
+    repo_root: Path,
+    conversation_store: ConversationStore,
+    run_store: RunStore,
+    conversation_id: str,
+    run_id: str,
+    assistant_message_id: str,
+    query: str,
+    skill_mode: Literal["manual", "auto", "hybrid"],
+    selected_skill_ids: list[str],
+    cancellation_signal: CancellationSignal,
+    perspective_mode: Literal["neutral", "single", "compare"] = "neutral",
+    selected_perspective_ids: list[str] | None = None,
+    event_id_prefix: str = "",
+    llm_providers: tuple[LLMProvider, ...] = (),
+    execution_attempt: ExecutionAttempt | None = None,
+    runtime_identity: RuntimeExecutionIdentity | None = None,
 ) -> None:
     try:
         test_delay_ms = int(os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0"))
@@ -976,6 +1079,8 @@ def _run_conversation_turn(
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
             event_id_prefix=event_id_prefix,
+            execution_attempt=execution_attempt,
+            runtime_identity=runtime_identity,
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,
@@ -1055,6 +1160,50 @@ def _terminalize_pending_message(
 
 
 def _run_ask(
+    store: RunStore,
+    run_id: str,
+    req: CreateRunRequest,
+    *,
+    runtime_identity: RuntimeExecutionIdentity | None = None,
+) -> None:
+    """Run the legacy endpoint while recording process-level attempt identity."""
+
+    attempt = (
+        store.start_execution_attempt(run_id, runtime_identity)
+        if runtime_identity is not None
+        else None
+    )
+    worker_error = False
+    try:
+        _run_ask_body(store, run_id, req)
+    except BaseException:
+        worker_error = True
+        raise
+    finally:
+        if attempt is not None:
+            run = store.load_run(run_id)
+            if run.status in rs._TERMINAL_STATUSES:
+                attempt_status = run.status
+            elif worker_error:
+                attempt_status = rs.STATUS_FAILED
+            else:
+                attempt_status = "abandoned"
+            events = store.load_execution_attempts(run_id)
+            has_binding = any(
+                event.get("attempt_id") == attempt.attempt_id
+                and event.get("event_type") == "execution.bound"
+                for event in events
+            )
+            receipts = tuple(run.artifacts) if has_binding else ()
+            store.finish_execution_attempt(
+                run_id,
+                attempt_id=attempt.attempt_id,
+                status=attempt_status,
+                artifact_receipts=receipts,
+            )
+
+
+def _run_ask_body(
     store: RunStore,
     run_id: str,
     req: CreateRunRequest,
@@ -1489,6 +1638,7 @@ def _resume_conversation_run(
     repo_root: Path,
     *,
     llm_providers: tuple[LLMProvider, ...] = (),
+    runtime_identity: RuntimeExecutionIdentity | None = None,
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1527,6 +1677,7 @@ def _resume_conversation_run(
         selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
         llm_providers=llm_providers,
+        runtime_identity=runtime_identity,
     )
     return True
 
@@ -1558,6 +1709,21 @@ def create_app(
     runtime_provenance["agent_runtime"] = runtime_backend_readiness(
         runtime_selection
     ).to_dict()
+    try:
+        runtime_identity = RuntimeExecutionIdentity.from_runtime_payload(
+            runtime_provenance
+        )
+    except ValueError:
+        # Test fixtures and non-git temporary roots remain usable, but their
+        # runs are intentionally ineligible for formal provenance acceptance.
+        runtime_identity = None
+
+    def current_runtime_identity() -> RuntimeExecutionIdentity | None:
+        try:
+            return RuntimeExecutionIdentity.from_runtime_payload(runtime_provenance)
+        except ValueError:
+            return None
+
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
 
     @asynccontextmanager
@@ -1608,6 +1774,7 @@ def create_app(
                         run,
                         root,
                         llm_providers=llm_settings.runtime_providers_for(user_id),
+                        runtime_identity=runtime_identity,
                     ):
                         continue
                 except (
@@ -1628,6 +1795,7 @@ def create_app(
                         parent_run_id=run.parent_run_id,
                         repo_root=root,
                     ),
+                    runtime_identity=runtime_identity,
                 )
         except (OSError, ValueError, json.JSONDecodeError):
             continue
@@ -1659,6 +1827,8 @@ def create_app(
             runtime_selection,
             session_provider=provider.name if provider is not None else None,
             session_model=provider.model if provider is not None else None,
+            session_base_url=provider.base_url if provider is not None else None,
+            provider_chain_size=1 if provider is not None else None,
         ).to_dict()
 
     def self_use_projection(user: str | None) -> dict[str, object]:
@@ -1850,7 +2020,12 @@ def create_app(
             session_id=req.session_id,
             parent_run_id=req.parent_run_id,
         )
-        supervisor.submit(store, run.run_id, req)
+        supervisor.submit(
+            store,
+            run.run_id,
+            req,
+            runtime_identity=current_runtime_identity(),
+        )
         return {"run_id": run.run_id, "status": run.status}
 
     @app.post("/api/runs/{run_id}/cancel")
@@ -2048,6 +2223,7 @@ def create_app(
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
                     llm_providers=llm_settings.runtime_providers_for(run_store.user_id),
+                    runtime_identity=current_runtime_identity(),
                 )
             except Exception:
                 try:
