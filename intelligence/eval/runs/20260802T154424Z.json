@@ -1,0 +1,1579 @@
+{
+  "generated_at": "20260802T154424Z",
+  "base": "http://127.0.0.1:8801",
+  "preflight_ok": true,
+  "preflight_detail": "revision=6a2b3010 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A1-market-overview",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 今天市场怎么样",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n# 每日市场复盘\n\n## 结论\n**直接定性：** 截至 2026-07-23，市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**最强证据：** 市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**主要风险：** 还缺：当前结论只覆盖本轮专项资料，未覆盖的信息保持未知。\n**条件边界：** 若核心指标、风险项或资料日期出现反向变化，当前判断应降级。\n**下一步验证：** 下一验证窗口复核核心指标、风险项和资料日期是否发生变化。\n\n## 支撑依据\n- 哪些方向在放量上涨：1 个方向同时上涨且放量，11 个方向只满足上涨或放量其中一项；主要放量上涨方向：电力设备(1)\n- 市场判断：2026-07-23 为普通交易日，市场处于反弹阶段。成交额 21949.97 亿元，较昨日减少17.27%；成交最集中的三个行业占 45.10%。资金主要集中在电力设备，短线情绪偏热\n- 市场性质：市场处于反弹阶段的第3个交易日\n- 主线方向取自 2026-07-23 盘面；知识库侧为概念页/公司暴露/已入库证据。知识库有积累不等于当日盘面强，两者不得互相推导。\n- 指数表现：上证收于 3876.78 点，涨跌幅 0.25%，距离短期均线 1.25%\n\n<details><summary>展开来源和数据边界</summary>\n\n### 来源\n- [K1] 本地正式日报 — market_feature_store/exports/2026-07-23-daily-review.md\n- [K2] 主线方向的知识库积累 — knowledge-base/知识库\n\n</details>",
+          "run_id": "run_20260802_232747_519738",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 收盘了，明天怎么看",
+          "answer": "# 通用研究\n\n本轮尚未完成问题所需的直接回答：仍缺少：针对用户问题的直接判断（候选 1 条且正文已写到，但证据未能绑定）；仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）\n\n**缺少的数据/证据：**\n- 本轮尚未完成问题所需的直接回答：仍缺少：针对用户问题的直接判断（候选 1 条且正文已写到，但证据未能绑定）；仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）\n\n请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
+          "run_id": "run_20260802_232919_984016",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "tag": "G1",
+              "source": "https://www.oolool.com/a-share/2026-07-21-market-review.html",
+              "detail": "2026年7月21日 · 大盘概况今日A股三大指数集体大涨，创业板指表现最为强势，涨幅超过7%，创近期单日最大涨幅。科技成长板块全 …"
+            },
+            {
+              "tag": "G2",
+              "source": "https://k.sina.cn/article_7857201856_1d45362c001908c7sq.html",
+              "detail": "1、多措并举鼓信心 A股上演反攻行情一场亮眼的V型反弹，在A股上演。7月21日，A股市场超3000只个股上涨，总成交额逾2.9万亿元 …"
+            },
+            {
+              "tag": "G3",
+              "source": "https://news.qq.com/rain/a/20260721A06GY800",
+              "detail": "2026年7月21日 · 根据全球半导体行业协会（SEMI）发布的报告，2026年全球半导体设备销售额预计将增长23.2%，达到1659亿美 …"
+            },
+            {
+              "tag": "G4",
+              "source": "https://www.aigupiao.com/dynamic/detail/5681636",
+              "detail": "【2026年7月21日 A股完整收盘行情复盘】一、核心指数收盘数据（今日已收盘） 1. 上证指数：3864.37点，+1.79%，日内最低3743 …"
+            },
+            {
+              "tag": "G5",
+              "source": "https://www.secer.club/t/a-2026-7-21/3073",
+              "detail": "2026年7月21日 · 科创50昨日在大盘上涨背景下仍被压制的科技股，今日直接以10.73%的涨幅碾压所有指数。石油石化从昨日的领涨 …"
+            },
+            {
+              "tag": "G6",
+              "source": "https://xueqiu.com/1672864898/401481626",
+              "detail": "2026年7月21日,中国股市收盘情况:一、主要指数收盘与涨跌上证指数：3864.37 点，+68.08 点，+1.79% 深证成指：14264.29 …"
+            },
+            {
+              "tag": "G7",
+              "source": "https://xueqiu.com/1795557678/401507432",
+              "detail": "2026年7月22日早盘分析一、外围市场隔夜美股三大指数集体反弹，芯片股大幅走强，半导体板块领涨。芯片股全面爆发：英特尔 …"
+            },
+            {
+              "tag": "G8",
+              "source": "https://xueqiu.com/4556011289/401450477",
+              "detail": "2026年7月21日，A股市场迎来全面反弹，主要指数呈现显著分化，科技成长板块成为绝对领涨主线。沪深京三市总成交额达2.97万亿 …"
+            },
+            {
+              "tag": "G9",
+              "source": "https://finance.cnr.cn/ycbd/20260721/t20260721_527721807.shtml",
+              "detail": "7月21日，A股整体走出探底回升行情，创业板指涨幅超7%，科创50指数大涨10.73%。截至收盘，沪指涨1.79%，深成指涨4.81%，创 …"
+            },
+            {
+              "tag": "G10",
+              "source": "https://news.bjd.com.cn/2026/07/21/11877811.shtml",
+              "detail": "7月21日，A股三大指数高开高走，集体大涨。截至收盘，上证指数涨1.79%，深证成指涨4.81%，创业板指大涨7.05%。科创50飙 …"
+            },
+            {
+              "tag": "G11",
+              "source": "https://news.qq.com/rain/a/20260721A07A1L00",
+              "detail": "7月21日，A股整体走出探底回升行情，创业板指涨幅超7%，科创50指数大涨10.73%。截至收盘，沪指涨1.79%，深成指涨4.81%，创 …"
+            },
+            {
+              "tag": "G12",
+              "source": "https://www.chinanews.com/cj/2026/07-21/10663620.shtml",
+              "detail": "中新网北京7月21日电 (记者谢艺观)21日，A股主要指数集体收涨，截至收盘，上证指数涨1.79%，深证成指涨4.81%，创业板指 …"
+            }
+          ],
+          "degrades": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "evidence_bound": 13,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] https://www.oolool.com/a-share/2026-07-21-market-review.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月21日 · 大盘概况 今日A股三大指数集体大涨，创业板指表现最为强势，涨幅超过7%，创近期单日最大涨幅。科技成长板块全 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] https://k.sina.cn/article_7857201856_1d45362c001908c7sq.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "1、多措并举鼓信心 A股上演反攻行情一场亮眼的V型反弹，在A股上演。7月21日，A股市场超3000只个股上涨，总成交额逾2.9万亿元 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] https://news.qq.com/rain/a/20260721A06GY800",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月21日 · 根据全球半导体行业协会（SEMI）发布的报告，2026年全球半导体设备销售额预计将增长23.2%，达到1659亿美 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G4",
+              "label": "[G4] https://www.aigupiao.com/dynamic/detail/5681636",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "【2026年7月21日 A股完整收盘行情复盘】一、核心指数收盘数据（今日已收盘） 1. 上证指数：3864.37点，+1.79%，日内最低3743 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G5",
+              "label": "[G5] https://www.secer.club/t/a-2026-7-21/3073",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月21日 · 科创50昨日在大盘上涨背景下仍被压制的科技股，今日直接以10.73%的涨幅碾压所有指数。 石油石化从昨日的领涨 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G6",
+              "label": "[G6] https://xueqiu.com/1672864898/401481626",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月21日,中国股市收盘情况:一、主要指数收盘与涨跌 上证指数 ：3864.37 点，+68.08 点，+1.79% 深证成指 ：14264.29  …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G7",
+              "label": "[G7] https://xueqiu.com/1795557678/401507432",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月22日 早盘分析一、外围市场隔夜美股三大指数集体反弹，芯片股大幅走强，半导体板块领涨。 芯片股全面爆发： 英特尔  …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G8",
+              "label": "[G8] https://xueqiu.com/4556011289/401450477",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026年7月21日，A股市场迎来全面反弹，主要指数呈现显著分化，科技成长板块成为绝对领涨主线。沪深京三市总成交额达2.97万亿 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G9",
+              "label": "[G9] https://finance.cnr.cn/ycbd/20260721/t20260721_527721807.shtml",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "7月21日，A股整体走出探底回升行情，创业板指涨幅超7%，科创50指数大涨10.73%。 截至收盘，沪指涨1.79%，深成指涨4.81%，创 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G10",
+              "label": "[G10] https://news.bjd.com.cn/2026/07/21/11877811.shtml",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "7月21日，A股三大指数高开高走，集体大涨。截至收盘，上证指数涨1.79%，深证成指涨4.81%，创业板指大涨7.05%。科创50飙 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G11",
+              "label": "[G11] https://news.qq.com/rain/a/20260721A07A1L00",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "7月21日，A股整体走出探底回升行情，创业板指涨幅超7%，科创50指数大涨10.73%。截至收盘，沪指涨1.79%，深成指涨4.81%，创 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G12",
+              "label": "[G12] https://www.chinanews.com/cj/2026/07-21/10663620.shtml",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "中新网 北京7月21日电 (记者 谢艺观)21日，A股主要指数集体收涨，截至收盘，上证指数涨1.79%，深证成指涨4.81%，创业板指 …",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "12 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "not_prepared",
+            "reason_code": "no_prepared_messages",
+            "detail": "synthesis messages were not prepared for this route",
+            "prepared_message_count": 0,
+            "candidate_claim_count": 13,
+            "bound_claim_count": 12
+          },
+          "gaps": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "elapsed_s": 80.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-31。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n**数据截至 2026-07-31。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n# 题材研究\n\n## 核心判断\n**题材是什么：** 新能源车的研究范围是：先界定题材解决的问题、技术或商业边界，不把概念关联直接等同于公司受益。\n\n**盘面判断：** 盘面上已经出现新高方向确认、新高个股集中、涨停热度集中，说明市场关注度有所升温；但这些信号只能反映资金行为，不能替代公司公告、客户、订单或收入证据。\n\n**证据边界：** 公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，因此不能把任何公司列为核心受益者。\n\n## 题材怎么理解\n这条产业链可以按“上游供给与基础设施 → 中游产品与系统集成 → 下游客户与应用场景”来拆。逐家公司说明产业链位置、直接性、证据状态和证据缺口。\n\n## 为什么这样判断\n本轮可回查的数据主要给出以下信号：\n- **新高方向确认：** 新高股87只，新高成交458.46亿，但未进入成交容量前三。这说明一批个股正在突破近期高点，板块强度已经开始扩散。\n- **新高个股集中：** 题材内新高股10只。这说明强势不只集中在单一龙头，板块内部出现了一定共振。\n- **涨停热度集中：** 涨停12只，市场占比23.08%，排名1。这说明短线资金参与度较高，同时也要警惕拥挤后的分歧。\n- **市场环境：** 底部横盘阶段，成交 23425.75 亿，涨停 52 / 跌停 74，容量前三电子（占比 28.7%）、通信（占比 8.6%）、电力设备（占比 7.2%）。它只是本轮判断所处的整体市场背景，不代表题材已经获得公司级验证。\n- **市场价值与替代队列：** 标的识别：立新能源（001258.SZ），最新有效交易日 2026-07-31，收盘 12.34，当日涨跌幅 -0.08%，成交额 19.88 亿。\n\n## 公司证据\n以下公司只是一份待核验清单，不等于核心受益者。只有公告、年报、官网产品资料或客户订单，才能把公司与题材直接绑定。\n\n### 候选与外围公司\n以下条目只用于后续核验，不与核心公司混排。\n\n| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |\n| --- | --- | --- | --- | --- |\n| 华电国际（600027） | 新能源 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 大唐发电（601991） | 火力发电（煤电+燃机）、水力发电、风力发电、光伏发电 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 珠海港（000507） | 新能源板块收入24.7亿元占比56.34%（风电珠海港昇+管道燃气） | 直接 | 候选 | 候选资料，需公告或年报确认 |\n| 三一重能（688349） | 新能源项目投资开发与风电场智慧运维 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 中鼎股份（000887） | 热管理系统（新能源车/储能/数据中心） | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 京泉华（002885） | 新能源车载磁件 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 国瓷材料（300285） | MLCC介质粉体（钛酸钡）、球形硅微粉（球硅）、商业航天陶瓷管壳、固态电池硫化物电解质 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 天齐锂业（002466） | 锂矿采选、锂化工产品（碳酸锂、氢氧化锂 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 比亚迪（002594） | 乘用车、商用车、动力电池 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 孚能科技（688567） | 新能源车相关产品/材料供应商 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 键邦股份（603285） | 赛克（THEIC）高分子环保助剂 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n| 云铝股份（000807） | 电解铝冶炼、铝加工、氧化铝 | 相关 | 候选 | 候选资料，需公告或年报确认 |\n\n## 反证与缺口\n目前最需要警惕的是以下反证和证据缺口：\n- 风险：价格可能已抢跑：市场交易的是预期而非已验证事实，公告/兑现日反而可能是分歧点\n- 风险：缺少公告等公司级硬证据：若公司在互动易口径保守/否认，或长期无公告跟进，这条逻辑的直接性将明显下降\n- 还缺：图谱共匹配 111 家公司，本轮由模型从 60 家候选中按问题意图挑出 4 家、另按暴露强度补齐 8 家写入正文；其余 99 家未展示，不代表不存在——要完整名单请指定公司或收窄题材\n- 还缺：12 家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。\n\n## 下一步如何验证\n**判断升级需要：** 公司级硬证据升级；产业需求或政策边界变化；盘面量价与扩散同步验证。\n**复核时间：建议 30 天内复查（至 2026-08-30）；过期引用本结论须先经当下盘面复核。**\n建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：\n1. 核对公告、年报和官网\n2. 确认产品、客户、订单和收入贡献\n3. 跟踪反证与触发条件\n4. 观察高位股能否带动补涨扩散，还是仅龙头孤军\n\n<details><summary>展开来源和数据说明</summary>\n\n### 来源与证据边界\n- 2026-07-30 题材候选快照 · 新高方向信号 — 新高方向盘面数据\n- 2026-07-30 题材候选快照 · 新高个股集中信号 — 题材个股盘面数据\n- 2026-07-30 题材候选快照 · 涨停热度信号 — 涨停热度盘面数据\n- 2026-07-30 题材候选快照 · 市场环境\n- 本地知识库 · 题材关系资料\n- 本地知识库 · 公司题材关联资料\n- 本地知识库 · 公司证据资料 — 对象=新能源车；来源=题材盘面快照-db-quality-audit\n- 本地知识库 · 公司证据资料 — 对象=华电国际；来源=华电国际_600027_最新逻辑卡\n- 本地知识库 · 公司证据资料 — 对象=大唐发电；来源=大唐发电_601991_最新逻辑卡_20260603\n- 本地知识库 · 公司证据资料 — 对象=珠海港；来源=珠海港 2025年年度报告基础资料 2026-04-29\n- 本地知识库 · 公司证据资料 — 对象=三一重能；来源=三一重能 2025年年度报告基础资料 2026-04-22\n- 本地知识库 · 公司证据资料 — 对象=中鼎股份；来源=中鼎股份_最新逻辑跟踪_20260613\n- 本地知识库 · 公司证据资料 — 对象=京泉华；来源=京泉华_002885_最新逻辑跟踪_20260613\n- 本地知识库 · 公司证据资料 — 对象=国瓷材料；来源=国瓷材料_300285_最新逻辑卡_20260603\n- 2026-07-30 题材候选快照 · 知识库候选资料\n（内部检索诊断信息已隐藏。）\n- 本地市场数据库市场价值数据块 — CAR/峰后回撤/半衰期代理/同题材强势替代队列\n- 本地市场数据库主线题材结构数据块 — 同日主线结构；若快照滞后则仅提供数据边界\n- 本地证据链客户硬度数据块 — 客户/订单/量产/送样/验证证据按硬度分层\n- 本地市场数据库 + 证据链二阶导研究队列数据块 — 强势替代表达/目标股再升级/产业瓶颈补盲\n- [研究框架] 题材研究配置 · 新能源车 — 仅用于定义、产业链和核验协议，不作为公司级事实。\n\n### 数据说明\n- 本轮未形成可验证的公司级来源；公司判断均按待验证展示。\n\n</details>",
+          "run_id": "run_20260802_233040_420251",
+          "invoked_skill_ids": [
+            "theme-research"
+          ],
+          "citations": [
+            {
+              "tag": "S1",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.新高方向确认",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "S2",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.新高个股聚集",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "S3",
+              "title": "2026-07-30-theme-candidates.json · 盘面信号.涨停热度",
+              "source": "本地盘面数据",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "S4",
+              "title": "2026-07-30-theme-candidates.json · 市场环境",
+              "source": "",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "G1",
+              "title": "本地知识库 · concept_graph.json",
+              "source": "",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "G2",
+              "title": "本地知识库 · 公司题材关联",
+              "source": "",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R1",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=新能源车；来源=题材盘面快照-db-quality-audit",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R2",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=华电国际；来源=华电国际_600027_最新逻辑卡",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R3",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=大唐发电；来源=大唐发电_601991_最新逻辑卡_20260603",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R4",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=珠海港；来源=珠海港 2025年年度报告 baseline 2026-04-29",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R5",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=三一重能；来源=三一重能 2025年年度报告 baseline 2026-04-22",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R6",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=中鼎股份；来源=中鼎股份_最新逻辑跟踪_20260613",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R7",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=京泉华；来源=京泉华_002885_最新逻辑跟踪_20260613",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R8",
+              "title": "本地知识库 · 公司证据索引",
+              "source": "对象=国瓷材料；来源=国瓷材料_300285_最新逻辑卡_20260603",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "R9",
+              "title": "2026-07-30-theme-candidates.json · 知识库候选资料",
+              "source": "",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W1",
+              "title": "knowledge-base · 知识库/concepts/新能源车.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W2",
+              "title": "knowledge-base · 知识库/concepts/新能源车出海.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W3",
+              "title": "knowledge-base · 知识库/entities/孚能科技.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W4",
+              "title": "knowledge-base · 知识库/concepts/新能源车热管理.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W5",
+              "title": "knowledge-base · 知识库/concepts/新能源车齿轮.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W6",
+              "title": "knowledge-base · 知识库/entities/和顺科技.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W7",
+              "title": "knowledge-base · 知识库/concepts/新能源车出海.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W8",
+              "title": "knowledge-base · 知识库/entities/孚能科技.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W9",
+              "title": "knowledge-base · 知识库/sources/比亚迪_个股逻辑卡_20260613.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W10",
+              "title": "knowledge-base · 知识库/entities/国轩高科.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W11",
+              "title": "knowledge-base · 知识库/concepts/新能源车.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "W12",
+              "title": "knowledge-base · 知识库/entities/比亚迪.md",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "G3",
+              "title": "（内部检索诊断信息已隐藏。）",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "D1",
+              "title": "本地市场数据市场价值数据块",
+              "source": "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "D4",
+              "title": "本地市场数据主线题材结构数据块",
+              "source": "同日主线结构；若快照滞后则仅提供数据边界",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "D2",
+              "title": "本地证据链客户硬度数据块",
+              "source": "客户/订单/量产/送样/验证证据按硬度分层",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "D3",
+              "title": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "source": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "as_of": "2026-07-31"
+            }
+          ],
+          "degrades": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "题材候选快照截至 2026-07-30，早于本地市场数据的 2026-07-31；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "知识库检索：知识库检索超时(>1.679443667002488s)，已跳过",
+            "知识库检索：counter retrieval empty after 1 attempts",
+            "历史信号回检：theme_signals.json 无匹配主题，历史信号回检跳过（该题材尚未建发酵信号）",
+            "公司映射超过阶段时限 40 秒；结果已完整收束并保留",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 37,
+          "evidence": [
+            {
+              "id": "citation-record:S1",
+              "label": "[S1] 2026-07-30-theme-candidates.json · score_detail.new_high_direction",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_new_high_directions",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S2",
+              "label": "[S2] 2026-07-30-theme-candidates.json · score_detail.new_high_cluster",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_theme_stock_signals",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S3",
+              "label": "[S3] 2026-07-30-theme-candidates.json · score_detail.limit_heat",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "MarketAdapter.get_limit_heat_themes",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:S4",
+              "label": "[S4] 2026-07-30-theme-candidates.json · market_context",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] knowledge-base · wiki/relations/concept_graph.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] knowledge-base · wiki/relations/entity_exposures.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R1",
+              "label": "[R1] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=新能源车 source=[[theme-radar-db-quality-audit]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R2",
+              "label": "[R2] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=华电国际 source=[[华电国际_600027_最新逻辑卡]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R3",
+              "label": "[R3] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=大唐发电 source=[[大唐发电_601991_最新逻辑卡_20260603]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R4",
+              "label": "[R4] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=珠海港 source=[[珠海港 2025年年度报告 baseline 2026-04-29]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R5",
+              "label": "[R5] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=三一重能 source=[[三一重能 2025年年度报告 baseline 2026-04-22]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R6",
+              "label": "[R6] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=中鼎股份 source=[[中鼎股份_最新逻辑跟踪_20260613]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R7",
+              "label": "[R7] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=京泉华 source=[[京泉华_002885_最新逻辑跟踪_20260613]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R8",
+              "label": "[R8] knowledge-base · wiki/relations/evidence_index.json",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "target=国瓷材料 source=[[国瓷材料_300285_最新逻辑卡_20260603]]",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:R9",
+              "label": "[R9] 2026-07-30-theme-candidates.json · knowledge_evidence",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "已记录引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W1",
+              "label": "[W1] knowledge-base · wiki/concepts/新能源车.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜新能源车｜chunk=wiki/concepts/新能源车.md::4｜section=新能源车 > 相关概念｜evidence_chunks=wiki/concepts/新能源车.md::4,wiki/concepts/新能源车.md::3｜hash=bc0b5bf1fa21｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W2",
+              "label": "[W2] knowledge-base · wiki/concepts/新能源车出海.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜新能源车出海｜chunk=wiki/concepts/新能源车出海.md::1｜section=新能源车出海 > 相关实体｜evidence_chunks=wiki/concepts/新能源车出海.md::1,wiki/concepts/新能源车出海.md::0｜hash=2743c9b08d4d｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W3",
+              "label": "[W3] knowledge-base · wiki/entities/孚能科技.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜孚能科技（688567）｜chunk=wiki/entities/孚能科技.md::9｜section=孚能科技（688567） > Baseline 证据｜evidence_chunks=wiki/entities/孚能科技.md::9,wiki/entities/孚能科技.md::8｜hash=08c6282968bd｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W4",
+              "label": "[W4] knowledge-base · wiki/concepts/新能源车热管理.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜新能源车热管理｜chunk=wiki/concepts/新能源车热管理.md::1｜section=新能源车热管理 > 相关实体｜evidence_chunks=wiki/concepts/新能源车热管理.md::1,wiki/concepts/新能源车热管理.md::0｜hash=204fc80b583f｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W5",
+              "label": "[W5] knowledge-base · wiki/concepts/新能源车齿轮.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜新能源车齿轮｜chunk=wiki/concepts/新能源车齿轮.md::2｜section=新能源车齿轮 > 当前证据状态｜evidence_chunks=wiki/concepts/新能源车齿轮.md::2,wiki/concepts/新能源车齿轮.md::1｜hash=badc55cfefd4｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W6",
+              "label": "[W6] knowledge-base · wiki/entities/和顺科技.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜和顺科技（301237）｜chunk=wiki/entities/和顺科技.md::1｜section=和顺科技（301237） > 在赛道中的角色｜evidence_chunks=wiki/entities/和顺科技.md::1,wiki/entities/和顺科技.md::0｜hash=818fb61fa44a｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W7",
+              "label": "[W7] knowledge-base · wiki/concepts/新能源车出海.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜新能源车出海｜chunk=wiki/concepts/新能源车出海.md::1｜section=新能源车出海 > 相关实体｜evidence_chunks=wiki/concepts/新能源车出海.md::1,wiki/concepts/新能源车出海.md::0｜hash=2743c9b08d4d｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W8",
+              "label": "[W8] knowledge-base · wiki/entities/孚能科技.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜孚能科技（688567）｜chunk=wiki/entities/孚能科技.md::9｜section=孚能科技（688567） > Baseline 证据｜evidence_chunks=wiki/entities/孚能科技.md::9,wiki/entities/孚能科技.md::8｜hash=08c6282968bd｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W9",
+              "label": "[W9] knowledge-base · wiki/sources/比亚迪_个股逻辑卡_20260613.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜比亚迪_个股逻辑卡_20260613｜chunk=wiki/sources/比亚迪_个股逻辑卡_20260613.md::7｜section=比亚迪｜最新逻辑跟踪 > 题材地图结构化字段｜evidence_chunks=wiki/sources/比亚迪_个股逻辑卡_20260613.md::7,wiki/sources/比亚迪_个股逻辑卡_20260613.md::6｜hash=24224bdb6d77｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W10",
+              "label": "[W10] knowledge-base · wiki/entities/国轩高科.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜国轩高科（002074）｜chunk=wiki/entities/国轩高科.md::4｜section=国轩高科（002074） > 相关实体｜evidence_chunks=wiki/entities/国轩高科.md::4,wiki/entities/国轩高科.md::3｜hash=c82d13059407｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W11",
+              "label": "[W11] knowledge-base · wiki/concepts/新能源车.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜新能源车｜chunk=wiki/concepts/新能源车.md::2｜section=新能源车 > 待补证定义｜evidence_chunks=wiki/concepts/新能源车.md::2,wiki/concepts/新能源车.md::1｜hash=5d020465db94｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W12",
+              "label": "[W12] knowledge-base · wiki/entities/比亚迪.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:broad｜比亚迪（002594）｜chunk=wiki/entities/比亚迪.md::22｜section=比亚迪（002594） > Baseline 产业链暴露｜evidence_chunks=wiki/entities/比亚迪.md::22,wiki/entities/比亚迪.md::21｜hash=ae8d6d86aecb｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] theme-radar · radar.py --mode brief（产业维·速览）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "radar.py --mode brief --term 新能源车 --vault <kb-wiki> | --term 新能源车",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D1",
+              "label": "[D1] 本地 DuckDB 市场价值数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:R",
+              "label": "事实证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "9 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:S",
+              "label": "盘面证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:W",
+              "label": "语义检索",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "12 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 34,
+            "bound_claim_count": 33
+          },
+          "gaps": [
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "题材候选快照截至 2026-07-30，早于本地市场数据的 2026-07-31；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "wiki-rag：wiki-rag 超时(>1.679443667002488s)，已跳过",
+            "wiki-rag：counter retrieval empty after 1 attempts",
+            "模块 replay：theme_signals.json 无匹配主题，replay 跳过（该题材尚未建发酵信号）",
+            "company_mapping 超过阶段时限 40 秒；结果已完整收束并保留",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 120.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A4-dual-red",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 哪些板块是双红",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n# 每日市场复盘\n\n## 结论\n**直接定性：** 截至 2026-07-23，市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**最强证据：** 市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**主要风险：** 还缺：当前结论只覆盖本轮专项资料，未覆盖的信息保持未知。\n**条件边界：** 若核心指标、风险项或资料日期出现反向变化，当前判断应降级。\n**下一步验证：** 下一验证窗口复核核心指标、风险项和资料日期是否发生变化。\n\n## 支撑依据\n- 哪些方向在放量上涨：1 个方向同时上涨且放量，11 个方向只满足上涨或放量其中一项；主要放量上涨方向：电力设备(1)\n- 市场判断：2026-07-23 为普通交易日，市场处于反弹阶段。成交额 21949.97 亿元，较昨日减少17.27%；成交最集中的三个行业占 45.10%。资金主要集中在电力设备，短线情绪偏热\n- 市场性质：市场处于反弹阶段的第3个交易日\n- 5. 双红题材：按申万一级分组：> 双红题材数量：**1**；主线申万一级：电力设备(1)。 ### 电力设备\n| 题材 | 涨幅 | 边际量 | 成交额 |\n|---|---|---|---|\n| 电网设备 | 6.65% | 55.20 | 501.52亿 | > **结论**：双红集中在电力设备等方向。\n- 主线方向取自 2026-07-23 盘面；知识库侧为概念页/公司暴露/已入库证据。知识库有积累不等于当日盘面强，两者不得互相推导。\n\n<details><summary>展开来源和数据边界</summary>\n\n### 来源\n- [K1] 本地正式日报 — market_feature_store/exports/2026-07-23-daily-review.md\n- [K2] 主线方向的知识库积累 — knowledge-base/知识库\n\n</details>",
+          "run_id": "run_20260802_233241_030203",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停集中在哪些题材",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）\n\n数据截至 2026-07-23：涨停最集中于储能（40家），其次是电网设备（29家）与风电（29家）并列，机器人概念（25家）与光伏概念（25家）再次并列。\n\n明确排序是：储能居首；电网设备、风电并列第二；机器人概念、光伏概念并列其后。\n\n市场状态：市场处于反弹阶段第3个交易日，短线情绪偏热；上证收于3876.78点，上涨0.25%，距离短期均线1.25%。\n\n最强数据是储能的40家涨停；从资金与量价看，资金主要集中于电力设备，并且只有电力设备同时满足上涨和放量。\n\n主要风险是成交额为21949.97亿元、较前一交易日减少17.27%，而11个方向只满足上涨或放量中的一项，说明涨停家数集中并未对应全面的量价共振。\n\n下一交易日重点验证两点：电力设备能否延续上涨并继续放量；储能、电网设备、风电、机器人概念和光伏概念的涨停集中度能否维持，否则主线持续性需要下调判断。\n\n### 涨停个股与梯队边界\n\n关于“梯队是否断层”，现有资料无法判断：缺少各题材的首板、连板及高度板明细，不能据此确认梯队完整或已经断层。\n\n### 知识库积累与研究缺口\n\n盘面主线与知识库积累必须分开看：主线方向来自2026-07-23的盘面，而概念页、公司暴露和既有研究资料只代表知识积累，不能由知识积累反推盘面强弱，也不能由盘面走强反推已有研究覆盖。\n\n现有资料只能确认医药方向已有“医药”“AI+医药”“AI+生物医药”三个概念页，并覆盖四家公司：小方制药是外用药专业制药企业，涉及消化类、皮肤类和五官类；泰恩康覆盖两性健康、肠胃和眼科板块，核心品种包括爱廷玖、和胃整肠丸和沃丽汀；神奇制药布局医药制造与医药商业；丽珠集团属于医药相关产品或材料供应商。\n\n对于储能、电网设备、风电、机器人概念和光伏概念，现有资料没有给出各自已有的概念页、公司暴露及角色清单，也无法确认其中哪些方向已经进入盘面主线但知识库尚无积累；这部分是后续需要补充核验的研究缺口。\n\n（非投资建议）",
+          "run_id": "run_20260802_233413_536951",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 连板梯队什么情况，有没有断层",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n# 每日市场复盘\n\n## 结论\n**直接定性：** 截至 2026-07-23，市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**最强证据：** 市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**主要风险：** 还缺：当前结论只覆盖本轮专项资料，未覆盖的信息保持未知。\n**条件边界：** 若核心指标、风险项或资料日期出现反向变化，当前判断应降级。\n**下一步验证：** 下一验证窗口复核核心指标、风险项和资料日期是否发生变化。\n\n## 支撑依据\n- 哪些方向在放量上涨：1 个方向同时上涨且放量，11 个方向只满足上涨或放量其中一项；主要放量上涨方向：电力设备(1)\n- 市场判断：2026-07-23 为普通交易日，市场处于反弹阶段。成交额 21949.97 亿元，较昨日减少17.27%；成交最集中的三个行业占 45.10%。资金主要集中在电力设备，短线情绪偏热\n- 市场性质：市场处于反弹阶段的第3个交易日\n- 11. 3板及以上个股：| 股票 | 代码 | 连板数 | 首板日期 | 题材 | 涨幅 | 晋级率 |\n|---|---|---|---|---|---|---|\n| 立新能源 | 001258.SZ | 6 | 2026-07-16 | 电站 | 9.99% | 1/1=100% |\n| 美利云 | 000815.SZ | 4 | 2026-07-20 | 算力租赁 | 9.98% | 1/1=100% |\n| 爱丽家居 | 603221.SH | 3 | 2026-07-21 | 股权 | 10.03% | 4/9=44% |\n| 盛达资源 | 000603.SZ | 3 | 2026-07-21 | 贵金属 | 10.01% | 4/9=44% |\n| 证通电子 | 002197.SZ | 3 | 2026-07-21 | 算力租赁 | 10.04% | 4/9=44% |\n| 长缆科技 | 002879.SZ | 3 | 2026-07-21 | 电网设备 | 9.99% | 4/9=44% | > **结论**：3板及以上个股 6 只，最高连板 6 板。\n- 主线方向取自 2026-07-23 盘面；知识库侧为概念页/公司暴露/已入库证据。知识库有积累不等于当日盘面强，两者不得互相推导。\n\n<details><summary>展开来源和数据边界</summary>\n\n### 来源\n- [K1] 本地正式日报 — market_feature_store/exports/2026-07-23-daily-review.md\n- [K2] 主线方向的知识库积累 — knowledge-base/知识库\n\n</details>",
+          "run_id": "run_20260802_233545_998350",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A7-mainline",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 当天主线是什么",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n本轮为概念定义与技术背景查询，不使用 A 股盘面材料补答。\n\n本轮为概念定义与技术背景查询，不使用 A 股盘面材料补答。\n\n# 2026-07-21当天主线\n\n## 结论\n**直接定性：** 已为“2026-07-21当天主线”取得可核验的定义/背景来源。\n**最强证据：** 2026-07-09 晨汇：7 月 9 日不是\"新叙事日\"，而是**既有国产算力主线的工程化推进日**：交换网络拿到了量化框架（1:1 配比、capex 占比对标 GPU 服务器）、玻璃基板拿到了产业化时间线（26H2 小批量→2030 规模化）、长鑫拿到了发行日历（7/13 询价）——三条主线全部从\"认知\"进入\"可验证节奏\"，且均与同日晚间 #…\n**主要风险：** 还缺：当前仅完成定义与背景核验，尚未验证产业链或投资映射。\n**条件边界：** 概念定义与市场交易判断分开处理，本轮不自动扩展公司名单。\n**下一步验证：** 如需投资映射，可在定义确认后另行查询产业链和 A 股暴露。\n\n## 支撑依据\n- 歌尔股份_最新逻辑跟踪_20260613：**1. 当前市场交易的核心逻辑是什么？** 双线并行：主线是**AI智能眼镜代工龙头的业绩兑现**（2025年AI眼镜营收+320%，精密零组件毛利率持续提升，2026Q1营收+14.44%重回增长），辅线是**CPO光通信的远期想象**（MTJ-PD专利+新设子公司+北航合作，但公司已明确否认开展CPO业务）。 *…\n- 2026-06-29 晨汇：当日主线延续\"AI硬件涨价传导链\"并向下游确认——CCL/PCB上游涨价链（FR4从70涨至260元/张、7月破300、金安国纪Q2毛利率超50%）+存储紧张至2028（HBM缺口40%-50%）+液冷从主题转产业价值重估（Q2 CDU订单落地、Rubin单柜100-125万）+玻璃基板TGV量产元年（京东方中试线通线…\n- 天通股份_最新逻辑卡_20260612：两条主线并行：① **薄膜铌酸锂是3.2T光模块/CPO时代的核心材料，天通是国内唯一供应商，远期市值看千亿**（中信通信语）；② **磷化铟出口管制受益，天通是InP衬底龙头**（海通国际语）。\n\n<details><summary>展开来源和数据边界</summary>\n\n### 来源\n（内部检索诊断信息已隐藏。）\n- [BASE] 本轮可核验资料 — 用于统一答案裁决与展示。\n\n</details>",
+          "run_id": "run_20260802_233718_487518",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "tag": "W1",
+              "source": "knowledge-base · 知识库/briefings/2026-07-09.md",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            },
+            {
+              "tag": "W2",
+              "source": "knowledge-base · 知识库/sources/歌尔股份_最新逻辑跟踪_20260613.md",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            },
+            {
+              "tag": "W3",
+              "source": "knowledge-base · 知识库/briefings/2026-06-29.md",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            },
+            {
+              "tag": "W4",
+              "source": "knowledge-base · 知识库/sources/天通股份_最新逻辑卡_20260612.md",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            }
+          ],
+          "degrades": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 5,
+          "evidence": [
+            {
+              "id": "citation-record:W1",
+              "label": "[W1] knowledge-base · wiki/briefings/2026-07-09.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-09 晨汇｜chunk=wiki/briefings/2026-07-09.md::12",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W2",
+              "label": "[W2] knowledge-base · wiki/sources/歌尔股份_最新逻辑跟踪_20260613.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "歌尔股份_最新逻辑跟踪_20260613｜chunk=wiki/sources/歌尔股份_最新逻辑跟踪_20260613.md::15",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W3",
+              "label": "[W3] knowledge-base · wiki/briefings/2026-06-29.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-06-29 晨汇｜chunk=wiki/briefings/2026-06-29.md::1",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:W4",
+              "label": "[W4] knowledge-base · wiki/sources/天通股份_最新逻辑卡_20260612.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "天通股份_最新逻辑卡_20260612｜chunk=wiki/sources/天通股份_最新逻辑卡_20260612.md::11",
+              "status": "hit"
+            },
+            {
+              "id": "citation:W",
+              "label": "语义检索",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 5,
+            "bound_claim_count": 5
+          },
+          "gaps": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 120.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A8-market-stage",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "现在市场处于什么阶段，第几天了",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）\n\n数据截至 2026-07-31。本次判断以读取最新权威正式日报为基准：市场处于**底部横盘阶段，为该阶段第3个交易日**。\n\n最强数据方面，市场成交额为25417.56亿元，较上一交易日增加8.50%；共有93个方向同时上涨且放量。涨停较集中的方向为人工智能（36）、AI智能体（26）、DeepSeek概念（25）、机器人概念（25）和AIGC概念（23）。\n\n主要风险是短线情绪已经偏热，成交最集中的三个行业占44.20%；同时，近120日创新高的股票只有16只，说明放量活跃尚不能直接等同于市场阶段已经升级。\n\n下一交易日应重点验证成交活跃度、上涨放量方向数量以及资金集中度能否维持，但现有资料没有给出明确的升级或降级阈值，因此暂时不能预设市场将突破横盘或转弱。\n\n知识库积累方面，目前能够确认的是AI应用已有1个概念页、4家公司暴露和3条已入库证据：万兴科技是将AI与Agent技术融入视频创意产品的数字创意软件厂商；三六零以大模型驱动智慧商业升级并布局智能体蜂群；三维天地提供AI智能体开发平台；能科科技提供AI产品与服务及云产品与服务。\n\n对于盘面已进入主线的人工智能、AI智能体、DeepSeek概念、机器人概念和AIGC概念，现有资料没有逐一说明其概念页、公司暴露及证据积累情况，因此不能断言这些方向“没有积累”；逐项补齐这些映射是下一步最优先的研究缺口。盘面强弱与知识库积累必须分别判断，不能由一方反推另一方。\n\n（非投资建议）",
+          "run_id": "run_20260802_233919_100775",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-31-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-31"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-31"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-31-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-31-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 的市场情绪怎么解读",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）\n\n数据截至 2026-07-23：市场处于反弹阶段第3个交易日，短线情绪偏热，上涨广度和涨停表现显著增强，但成交量没有同步强化，属于“情绪强、量能确认偏弱”的反弹格局。\n\n最强数据是上涨4260家、涨停116家、跌停2家，前一交易日分别为上涨1530家、涨停47家、跌停8家；强势股平均上涨9.86%，相关成交占全市场6.12%，说明赚钱效应和短线活跃度均明显提升。\n\n热点集中在储能40家涨停、电网设备29家、风电29家、机器人概念25家、光伏概念25家，资金主要集中于电力设备；上证指数收于3876.78点，上涨0.25%，距离短期均线1.25%。\n\n主要风险在于，两市成交额为21949.97亿元，较前一交易日减少17.27%；观察方向中只有电力设备同时满足上涨和放量，另有11个方向只满足上涨或放量其中一项。情绪扩张尚未获得广泛量能配合，追涨风险因此高于单看涨停数量所得出的判断。\n\n情绪趋势也尚未完全转为单边上行：上涨家数MA5由前一交易日的1871.6升至2223.8，但仍被界定为震荡状态；上一确认波峰为2927.2，说明单日广度大幅修复，还需要持续性验证。\n\n下一交易日重点看三点：上涨家数与涨停数量能否继续扩张、跌停数量能否维持低位，以及上涨且放量的方向能否由电力设备扩散至更多板块；若不能扩散，当前热度更可能体现为短线情绪脉冲，而非量价共振的全面强化。\n\n主线盘面与知识库积累必须分开看：盘面已经显示储能、电网设备、风电、机器人概念和光伏概念涨停较集中，但现有资料没有提供各方向已有的概念页、公司暴露及公司角色，也不能确认哪些盘面主线尚无知识库积累；这些公司与产业链映射是后续最需要补齐的研究缺口，不能依据盘面强弱反推知识库覆盖。\n\n（非投资建议）",
+          "run_id": "run_20260802_234051_647909",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 的新高家数结构说明什么",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-07-31。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n# 金融问题裁决\n\n本轮检索与核验未能形成可靠、可回查的研究结论，为避免输出未经证据绑定的判断，本次不给出定性结论。\n\n请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
+          "run_id": "run_20260802_234224_153649",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "tag": "W1",
+              "source": "knowledge-base · 知识库/sources/0407早知道.md",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            },
+            {
+              "tag": "D4",
+              "source": "本地市场数据主线题材结构数据块",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界"
+            },
+            {
+              "tag": "D2",
+              "source": "本地证据链客户硬度数据块",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层"
+            },
+            {
+              "tag": "D3",
+              "source": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲"
+            }
+          ],
+          "degrades": [
+            "未找到 2026-07-21 的本地复盘报告；日报基础模块缺失。",
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "题材候选快照截至 2026-07-30，早于本地市场数据的 2026-07-31；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "问题理解：未高置信识别问题类型，建议先按通用金融问答处理并显式说明假设",
+            "AnswerSpec 质检：结论未绑定证据：主题「2026-07-21 的新高家数结构说明什么」（当日盘面候选未命中，以下仅基于知识图谱）：",
+            "AnswerSpec 质检：结论未绑定证据：知识图谱关联 0 概念 / 0 公司暴露，证据 0 条；盘面触发：无盘面触发。",
+            "AnswerSpec 质检：结论未绑定证据：分析路径：未启用",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 6,
+          "evidence": [
+            {
+              "id": "citation-record:W1",
+              "label": "[W1] knowledge-base · wiki/sources/0407早知道.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "closed-loop:narrow｜0407早知道｜chunk=wiki/sources/0407早知道.md::4｜section=0407早知道 > Page 5｜evidence_chunks=wiki/sources/0407早知道.md::4,wiki/sources/0407早知道.md::3｜hash=cf8344152b5b｜index=manifest:v1:｜freshness=fresh",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:W",
+              "label": "语义检索",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 3,
+            "candidate_claim_count": 11,
+            "bound_claim_count": 8
+          },
+          "gaps": [
+            "未找到 2026-07-21 的本地复盘报告；日报基础模块缺失。",
+            "盘面快照回退到 2026-07-30（2026-07-31 尚无候选）",
+            "题材候选快照截至 2026-07-30，早于本地市场数据的 2026-07-31；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "answer-orchestrator：未高置信识别问题类型，建议先按通用金融问答处理并显式说明假设",
+            "AnswerSpec 质检：结论未绑定证据：主题「2026-07-21 的新高家数结构说明什么」（当日盘面候选未命中，以下仅基于知识图谱）：",
+            "AnswerSpec 质检：结论未绑定证据：图谱命中 0 概念 / 0 公司暴露，证据 0 条；盘面触发：无盘面触发。",
+            "AnswerSpec 质检：结论未绑定证据：模块路由：未启用",
+            "AnswerSpec 质检：存在绑定到其他题材的主张。",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 120.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}
