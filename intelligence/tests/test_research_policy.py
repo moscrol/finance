@@ -1,11 +1,54 @@
 from __future__ import annotations
 
+from intelligence.services.conversation_orchestrator import _generic_research_deadline
 from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
     grounded_deep,
 )
+
+
+def _generic_contract(tier: str) -> ResearchTaskContract:
+    return ResearchTaskContract(
+        task_id=f"test-{tier}",
+        question="测试研究",
+        subject=None,
+        subject_kind=None,
+        question_type="general",
+        required_outputs=(
+            RequiredOutput(
+                output_id="direct_answer",
+                description="直接回答",
+                evidence_types=("kb_search",),
+                required=False,
+            ),
+        ),
+        allowed_capabilities=("kb_search",),
+        research_tier=tier,
+    )
+
+
+def test_generic_short_tiers_keep_retrieval_window_with_grounded_root_reserve() -> None:
+    root = ResearchDeadline.from_timeout(180, synthesis_reserve=100)
+
+    quick = _generic_research_deadline(root, _generic_contract("quick"))
+    standard = _generic_research_deadline(root, _generic_contract("standard"))
+    deep = _generic_research_deadline(root, _generic_contract("deep"))
+
+    assert quick.remaining() > 0
+    assert quick.stage_timeout(30) >= 9
+    assert standard.stage_timeout(90) >= 69
+    assert deep.stage_timeout(240) >= 79
+    assert deep.synthesis_reserve == 100
+
+    default_root = ResearchDeadline.from_timeout(120, synthesis_reserve=20)
+    default_deep = _generic_research_deadline(
+        default_root,
+        _generic_contract("deep"),
+    )
+    assert default_deep.synthesis_reserve == 48
 
 
 def test_grounded_deep_profile_freezes_single_replay_budget_math() -> None:

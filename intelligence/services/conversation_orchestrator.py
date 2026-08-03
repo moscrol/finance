@@ -772,12 +772,20 @@ def _generic_research_deadline(
         policy.total_seconds,
         synthesis_reserve=policy.synthesis_reserve,
     )
+    # ``grounded_deep`` reserves 100s on the parent turn so its two provider
+    # phases can run after retrieval.  That reserve must not leak into the
+    # generic quick/standard owner windows (30s/90s): doing so leaves those
+    # routes with no retrieval time at all.  A generic deep task keeps the
+    # parent reserve because it is the only generic tier sized for grounded
+    # synthesis.
+    synthesis_reserve = (
+        max(root_deadline.synthesis_reserve, policy.synthesis_reserve)
+        if policy.tier == "deep"
+        else policy.synthesis_reserve
+    )
     return ResearchDeadline(
         min(root_deadline.expires_at, policy_deadline.expires_at),
-        synthesis_reserve=max(
-            root_deadline.synthesis_reserve,
-            policy.synthesis_reserve,
-        ),
+        synthesis_reserve=synthesis_reserve,
     )
 
 
