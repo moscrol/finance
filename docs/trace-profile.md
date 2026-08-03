@@ -73,27 +73,46 @@
 > triage finding 在本仓根本无法表达。产物 `schema_version` 随之升到
 > `normalized-harness-trace-2` 并新增 `vocabulary` 字段；v1 产物不可与 v2 直接比较。
 
-| source kind | native event / field | normalized step | provenance |
-|---|---|---|---|
-| `workbench-trace` | `step_id=controller` 或 `name=turn_controller` | `intent` | `native` |
-| `workbench-trace` | `step_id/name` 含 `route` | `route` | `native` |
-| `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
-| `workbench-trace` | `validate`、`budget`、`ledger`、`observe` | `observe` | `native` |
-| `workbench-trace` | `compose`、`synth`、`grounded`、`shadow` | `synthesize` | `native` |
-| `workbench-trace` | `stop`、`complete`、`terminal`、`error` | `stop` | `native` |
-| `codex-rollout` / `codex-exec` | `thread.started` / `session.started` | `configure` | `normalized` |
-| `codex-rollout` / `codex-exec` | `turn.started` | `intent` | `normalized` |
-| `codex-rollout` / `codex-exec` | function/command/MCP/tool item | `tool` | `normalized` |
-| `codex-rollout` / `codex-exec` | `*_call_output` / `tool_result` 等工具返回 | `observe` | `normalized` |
-| `codex-rollout` / `codex-exec` | message/reasoning/output item | `synthesize` | `normalized` |
-| `codex-rollout` / `codex-exec` | `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
-| `runtime-benchmark` | `task` | `intent` | `normalized` |
-| `runtime-benchmark` | `plan` / `mode_decision` / `repair_goal` | `plan` | `normalized` |
-| `runtime-benchmark` | `branch_started` | `retrieve` | `normalized` |
-| `runtime-benchmark` | `tool_request` / `tool_call` | `tool` | `normalized` |
-| `runtime-benchmark` | `tool_result` / `tool_error` / `runtime_result` / `observation` / `branch_completed` / `branch_failed` / `repair_outcome` / `invalid_action` | `observe` | `normalized` |
-| `runtime-benchmark` | `finalization` / `finalization_recovery_started` | `synthesize` | `normalized` |
-| `runtime-benchmark` | `finish` / `error` | `stop` | `normalized` |
+下表**按代码的分支求值顺序排列，先命中者胜**。顺序不是排版细节：`workbench`
+的 `configure`/`plan` 若排在通用分支之后，`turn_assembly` 会落 `unmapped`、
+`research_plan` 会被 `retrieve` 抢走；`codex` 的工具返回若排在工具请求之后，
+`function_call_output` 会因含 `function_call` 而被误判成 `tool`。
+
+| # | source kind | native event / field（匹配子串，大小写不敏感） | normalized step | provenance |
+|---|---|---|---|---|
+| 1 | `workbench-trace` | `configure`、`assembly` | `configure` | `native` |
+| 2 | `workbench-trace` | `plan` | `plan` | `native` |
+| 3 | `workbench-trace` | `controller`、`intent` | `intent` | `native` |
+| 4 | `workbench-trace` | `route` | `route` | `native` |
+| 5 | `workbench-trace` | `observe`、`validate`、`budget`、`ledger` | `observe` | `native` |
+| 6 | `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
+| 7 | `workbench-trace` | `synth`、`compose`、`grounded`、`shadow` | `synthesize` | `generation` |
+| 8 | `workbench-trace` | `stop`、`complete`、`finish`、`terminal`、`error` | `stop` | `native` |
+| 1 | `codex-rollout` / `codex-exec` | `thread.started`、`session.started`、`config` | `configure` | `normalized` |
+| 2 | `codex-rollout` / `codex-exec` | `turn.started`、`input` | `intent` | `normalized` |
+| 3 | `codex-rollout` / `codex-exec` | `_call_output`、`command_execution_output`、`tool_output`、`tool_result` | `observe` | `normalized` |
+| 4 | `codex-rollout` / `codex-exec` | `function_call`、`command`、`mcp`、`tool` | `tool` | `normalized` |
+| 5 | `codex-rollout` / `codex-exec` | `message`、`reasoning`、`output_text`、`generation` | `synthesize` | `normalized` |
+| 6 | `codex-rollout` / `codex-exec` | `turn.completed`、`turn.failed`、`error`、`failed` | `stop` | `normalized` |
+| – | `runtime-benchmark` | `configure` | `configure` | `normalized` |
+| – | `runtime-benchmark` | `task` | `intent` | `normalized` |
+| – | `runtime-benchmark` | `plan` / `mode_decision` / `repair_goal` | `plan` | `normalized` |
+| – | `runtime-benchmark` | `branch_started` | `retrieve` | `normalized` |
+| – | `runtime-benchmark` | `tool_request` / `tool_call` | `tool` | `normalized` |
+| – | `runtime-benchmark` | `tool_result` / `tool_error` / `runtime_result` / `observation` / `branch_completed` / `branch_failed` / `repair_outcome` / `invalid_action` | `observe` | `normalized` |
+| – | `runtime-benchmark` | `finalization` / `finalization_recovery_started` | `synthesize` | `normalized` |
+| – | `runtime-benchmark` | `finish` / `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
+
+`runtime-benchmark` 按 kind 精确查表（`_BENCHMARK_STEPS`），无顺序依赖；前两类按
+子串匹配，故有顺序。
+
+**本表的地位**：语义权威是 runtime 自己的投影表
+（`episode_progress._EVENT_PROJECTIONS`），代码 `_workbench_mapping` /
+`_codex_mapping` / `_BENCHMARK_STEPS` 是**当前可执行行为**，本表只是它们的
+人读转述。三者出现分歧时，**该分歧本身就是一个缺陷**，须当场定位是哪一层写错，
+不要默认某一层为准后继续用。本表曾漏 `workbench` 的 `configure`/`plan`、
+`runtime-benchmark` 的 `configure` 与 `turn.completed`/`turn.failed`、`codex` 的
+`config`/`input`，就是这种漂移。
 
 `runtime-benchmark` 的每个 step 取自运行时自己的公开语义
 （`episode_progress._EVENT_PROJECTIONS`：planning→`plan`、research 请求→
@@ -111,9 +130,33 @@ prompt、答案正文、工具参数、命令 stdout、绝对路径、凭据或�
 
 ## 7. Comparison contract and evidence boundary
 
-`compare_sequences()` 只对已映射的步骤做序列比较，并输出
-`pre_divergence_equivalence`、`first_divergence_step` 和证据短句。若一侧没有
-任何 mapped event，结果必须是 `not_established`，而不是把缺失事件判成行为分叉。
+`compare_sequences()` 只对已映射的步骤做序列比较。若一侧没有任何 mapped event，
+结果必须是 `not_established`，而不是把缺失事件判成行为分叉。
+
+**分叉的输出形状（2026-08-04 定死）**：一次不匹配在同一 ordinal 上有**两个** step
+值，单个标量无法表达，只返回左侧会让答案随入参顺序变化（同一对序列，workbench
+在左得 `route`、benchmark 在左得 `tool`）。因此：
+
+| 情形 | `relation` | `first_divergence_step`（标量） | `first_divergence`（结构化） |
+|---|---|---|---|
+| 同 ordinal 两侧 step 不同 | `step_mismatch` | `null`（契约规定） | `{ordinal, relation, left_step, right_step}`，并**必带 caveat** |
+| 一侧是另一侧的严格前缀 | `left_continues` / `right_continues` | 较长侧新增的那个 step（唯一，无歧义） | 缺失侧写 `null` |
+| 完全一致 / 证据不足 | – | `null` | `null` |
+
+交换左右输入后，`ordinal` 与 `relation=step_mismatch` **不变**，只交换
+`left_step` / `right_step`；该对称性由
+`test_step_mismatch_is_symmetric_under_input_order` 守住。消费者遇到
+`step_mismatch` 必须读结构化对象，**不得把两侧压成一个 L1 值**。
+
+**产物可再入（idempotent reuse）**：`--compare` 的任一侧都可以是本模块自己的
+单输入产物，按 `schema_version` 识别后直接复用其 `events`，并保留原始
+`input_sha256` 以维持到原始 trace 的溯源；复用侧带 `reused_normalized_artifact:
+true`。v1 产物、词表不符、事件畸形、或误传 `--compare` 的输出，一律抛
+`NormalizedArtifactError` **显式失败**——旧行为是把 normalized 事件再喂给 raw
+mapper（mapper 读 `type`/`kind`，不读 `step`），两侧 `mapped=0`、判定为 `null`，
+与「没有分叉」不可区分。这条由
+`test_compare_accepts_our_own_single_input_artifacts_round_trip` 与
+`test_incomparable_artifacts_fail_loudly_instead_of_mapping_to_nothing` 守住。
 
 截至 2026-08-03，仓库中冻结的 Codex headless benchmark artifact 只保留
 `final_text/thread_id/token usage/issues` 和有限 diagnostics；原始 rollout

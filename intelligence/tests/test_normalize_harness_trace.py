@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from intelligence.eval.normalize_harness_trace import (
     STEPS,
+    NormalizedArtifactError,
     compare_sequences,
     main,
     normalize_records,
@@ -90,12 +94,49 @@ def test_compare_sequences_reports_first_divergence_and_missing_side() -> None:
 
     result = compare_sequences(left, right)
     assert result.pre_divergence_equivalence == "not_established"
-    assert result.first_divergence_step == "intent"
     assert result.evidence == ("left=intent", "right=configure", "ordinal=0")
+
+    # A mismatch has a step on each side, so the scalar is null by contract and
+    # the structured object carries both.
+    assert result.first_divergence_step is None
+    assert result.first_divergence is not None
+    assert result.first_divergence.relation == "step_mismatch"
+    assert result.first_divergence.ordinal == 0
+    assert result.first_divergence.left_step == "intent"
+    assert result.first_divergence.right_step == "configure"
 
     empty = compare_sequences(left, [])
     assert empty.pre_divergence_equivalence == "not_established"
     assert empty.first_divergence_step is None
+    assert empty.first_divergence is None
+
+
+def test_step_mismatch_is_symmetric_under_input_order() -> None:
+    workbench = normalize_records(
+        [{"step_id": "controller"}, {"step_id": "route"}],
+        kind="workbench-trace",
+    )
+    benchmark = normalize_records(
+        [{"kind": "task"}, {"kind": "tool_request"}],
+        kind="runtime-benchmark",
+    )
+
+    forward = compare_sequences(workbench, benchmark)
+    backward = compare_sequences(benchmark, workbench)
+
+    # Returning only the left step made the verdict depend on argument order:
+    # `route` one way, `tool` the other.  Ordinal and relation must be invariant;
+    # only the two named sides swap.
+    for result in (forward, backward):
+        assert result.first_divergence_step is None
+        assert result.first_divergence is not None
+        assert result.first_divergence.relation == "step_mismatch"
+        assert result.first_divergence.ordinal == 1
+
+    assert forward.first_divergence.left_step == "route"
+    assert forward.first_divergence.right_step == "tool"
+    assert backward.first_divergence.left_step == "tool"
+    assert backward.first_divergence.right_step == "route"
 
 
 def test_compare_sequences_survives_prefix_on_either_side() -> None:
@@ -117,8 +158,19 @@ def test_compare_sequences_survives_prefix_on_either_side() -> None:
     for left, right, side in ((short, long, "right"), (long, short, "left")):
         result = compare_sequences(left, right)
         assert result.pre_divergence_equivalence == "equivalent_before_divergence"
+        # The extra step exists on one side only, so here the scalar is
+        # unambiguous and is kept; the missing side is explicitly null.
         assert result.first_divergence_step == "synthesize"
         assert f"continues_on={side}" in result.evidence
+        assert result.first_divergence is not None
+        assert result.first_divergence.relation == f"{side}_continues"
+        assert result.first_divergence.ordinal == 3
+        if side == "left":
+            assert result.first_divergence.left_step == "synthesize"
+            assert result.first_divergence.right_step is None
+        else:
+            assert result.first_divergence.left_step is None
+            assert result.first_divergence.right_step == "synthesize"
 
 
 def test_tool_results_map_to_observe_across_both_harness_mappers() -> None:
@@ -311,17 +363,139 @@ def test_compare_cli_exposes_the_divergence_verdict_with_caveats(tmp_path) -> No
     artifact = json.loads(target.read_text(encoding="utf-8"))
     comparison = artifact["comparison"]
 
-    # `compare_sequences` is reachable from the CLI, so the two fields the triage
-    # adapter promises are actually in the artifact.
+    # Lock the *whole* key set, not a subset: asserting only the keys we happen
+    # to read lets a field be dropped while the test stays green, which is the
+    # same class of gap as documenting a field the artifact never carried.
+    assert set(comparison) == {
+        "pre_divergence_equivalence",
+        "first_divergence_step",
+        "first_divergence",
+        "evidence",
+        "mapped_event_counts",
+        "unmapped_counts",
+        "interpretation_caveats",
+    }
+    assert isinstance(comparison["pre_divergence_equivalence"], str)
+    assert isinstance(comparison["evidence"], list)
+    assert all(isinstance(item, str) for item in comparison["evidence"])
+    assert isinstance(comparison["interpretation_caveats"], list)
+    assert all(isinstance(item, str) for item in comparison["interpretation_caveats"])
+
     assert comparison["pre_divergence_equivalence"] == "not_established"
-    assert comparison["first_divergence_step"] == "intent"
+    assert comparison["evidence"] == ["left=intent", "right=configure", "ordinal=0"]
     assert comparison["mapped_event_counts"] == {"left": 2, "right": 2}
     assert comparison["unmapped_counts"] == {"left": 0, "right": 1}
     assert artifact["left"]["source_kind"] == "workbench-trace"
     assert artifact["right"]["source_kind"] == "codex-rollout"
 
-    # Both misreadings the caveats exist to block: a vocabulary gap read as a
-    # behavioural difference, and `not_established` read as "no divergence".
+    # A mismatch is two steps at one ordinal: scalar null, structured object read.
+    assert comparison["first_divergence_step"] is None
+    assert comparison["first_divergence"] == {
+        "ordinal": 0,
+        "relation": "step_mismatch",
+        "left_step": "intent",
+        "right_step": "configure",
+    }
+
+    # Three misreadings the caveats exist to block: a vocabulary gap read as a
+    # behavioural difference, `not_established` read as "no divergence", and a
+    # two-sided mismatch collapsed into one L1 value.
     caveats = " ".join(comparison["interpretation_caveats"])
     assert "vocabulary gap" in caveats
     assert "insufficient trace" in caveats
+    assert "step_mismatch" in caveats
+
+
+def _write_pair(tmp_path) -> tuple[Path, Path]:
+    left = tmp_path / "left.jsonl"
+    left.write_text(
+        '{"step_id":"controller"}\n{"step_id":"route"}\n',
+        encoding="utf-8",
+    )
+    right = tmp_path / "right.jsonl"
+    right.write_text(
+        '{"type":"thread.started"}\n{"type":"turn.started"}\n',
+        encoding="utf-8",
+    )
+    return left, right
+
+
+def test_compare_accepts_our_own_single_input_artifacts_round_trip(tmp_path) -> None:
+    left, right = _write_pair(tmp_path)
+
+    direct = tmp_path / "direct.json"
+    assert (
+        main(
+            [
+                str(left),
+                "--kind",
+                "workbench-trace",
+                "--compare",
+                str(right),
+                "--compare-kind",
+                "codex-rollout",
+                "--output",
+                str(direct),
+            ]
+        )
+        == 0
+    )
+
+    left_artifact = tmp_path / "left-normalized.json"
+    right_artifact = tmp_path / "right-normalized.json"
+    assert main([str(left), "--kind", "workbench-trace", "--output", str(left_artifact)]) == 0
+    assert main([str(right), "--kind", "codex-rollout", "--output", str(right_artifact)]) == 0
+
+    round_tripped = tmp_path / "round-tripped.json"
+    assert (
+        main([str(left_artifact), "--compare", str(right_artifact), "--output", str(round_tripped)])
+        == 0
+    )
+
+    # The adapter tells triage to "consume the existing normalized artifacts".
+    # Feeding them back used to re-run the raw mapper over normalized events,
+    # which reads `type`/`kind`, not `step`, so both sides mapped to 0 events and
+    # the verdict came back null -- indistinguishable from "no divergence".
+    direct_comparison = json.loads(direct.read_text(encoding="utf-8"))["comparison"]
+    reused = json.loads(round_tripped.read_text(encoding="utf-8"))
+    assert reused["comparison"] == direct_comparison
+    assert reused["comparison"]["mapped_event_counts"] == {"left": 2, "right": 2}
+
+    # Provenance survives reuse: the hash still names the original trace.
+    assert reused["left"]["reused_normalized_artifact"] is True
+    assert (
+        reused["left"]["input_sha256"]
+        == json.loads(left_artifact.read_text(encoding="utf-8"))["input_sha256"]
+    )
+    assert reused["left"]["source_kind"] == "workbench-trace"
+    assert reused["right"]["source_kind"] == "codex-rollout"
+
+
+def test_incomparable_artifacts_fail_loudly_instead_of_mapping_to_nothing(tmp_path) -> None:
+    left, _right = _write_pair(tmp_path)
+    left_artifact = tmp_path / "left-normalized.json"
+    assert main([str(left), "--kind", "workbench-trace", "--output", str(left_artifact)]) == 0
+    good = json.loads(left_artifact.read_text(encoding="utf-8"))
+
+    # v1 artifacts predate `plan`/`tool`; comparing them against v2 silently
+    # compares two different vocabularies.
+    v1 = dict(good, schema_version="normalized-harness-trace-1")
+    v1.pop("vocabulary", None)
+    foreign = dict(good, vocabulary="some-other-vocab")
+    malformed = dict(good, events=[{"step": "route"}])
+    outside = dict(
+        good, events=[dict(good["events"][0], step="not-an-l1-step")]
+    )
+    verdict = dict(good, comparison={"first_divergence_step": None})
+
+    for name, payload in (
+        ("v1.json", v1),
+        ("foreign.json", foreign),
+        ("malformed.json", malformed),
+        ("outside.json", outside),
+        ("verdict.json", verdict),
+    ):
+        path = tmp_path / name
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(NormalizedArtifactError):
+            main([str(path), "--compare", str(left_artifact)])

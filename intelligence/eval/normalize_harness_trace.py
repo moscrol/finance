@@ -11,10 +11,20 @@ Two CLI shapes, both from the repository root (the package is imported as
 
 * one input  -> a single normalized artifact (``events`` + counts);
 * ``--compare`` -> both sides plus a ``comparison`` block carrying
-  ``pre_divergence_equivalence`` / ``first_divergence_step``.  Those two values
-  exist only in :func:`compare_sequences`; without this entry point a caller
-  reading the single-input artifact finds no such fields and is tempted to
-  invent them.
+  ``pre_divergence_equivalence`` / ``first_divergence_step`` /
+  ``first_divergence``.  Those values exist only in :func:`compare_sequences`;
+  without this entry point a caller reading the single-input artifact finds no
+  such fields and is tempted to invent them.
+
+Either side may itself be a single-input artifact of this module: it is detected
+by ``schema_version`` and reused as-is.  A v1 artifact or a foreign vocabulary
+raises :class:`NormalizedArtifactError` instead of being re-fed through the raw
+mapper, which would silently map every event to ``unmapped``.
+
+Divergence contract (see :class:`FirstDivergence`): a mismatch carries a step on
+*each* side, so the scalar ``first_divergence_step`` is ``null`` there and the
+structured object must be read.  Only a strict-prefix divergence, where the extra
+step exists on one side alone, keeps a scalar value.
 """
 
 from __future__ import annotations
@@ -36,6 +46,7 @@ from typing import Any, Iterable, Mapping, Sequence
 #: form the right steps" and "did it call the right tool correctly" -- into
 #: ``route``/``retrieve``, and makes an L1=``tool`` finding inexpressible here.
 VOCABULARY = "triage-l1-9"
+_ARTIFACT_SCHEMA = "normalized-harness-trace-2"
 STEPS = (
     "configure",
     "intent",
@@ -91,10 +102,26 @@ class NormalizedEvent:
 
 
 @dataclass(frozen=True)
+class FirstDivergence:
+    """One divergence, carrying *both* sides.
+
+    A single scalar cannot describe a mismatch: ``route`` vs ``tool`` at the same
+    ordinal is one event with two step values.  Returning only the left one made
+    the answer depend on which file was passed first.
+    """
+
+    ordinal: int
+    relation: str
+    left_step: str | None
+    right_step: str | None
+
+
+@dataclass(frozen=True)
 class ComparisonResult:
     pre_divergence_equivalence: str
     first_divergence_step: str | None
     evidence: tuple[str, ...]
+    first_divergence: FirstDivergence | None = None
 
 
 def _string_token(value: object, *, fallback: str = "unknown") -> str:
@@ -338,31 +365,44 @@ def compare_sequences(
             "not_established",
             None,
             ("one side has no mapped semantic events",),
+            None,
         )
     for index, (left_step, right_step) in enumerate(zip(left_steps, right_steps)):
         if left_step != right_step:
+            # Both step values matter and neither is "the" divergence step, so
+            # the scalar stays null; swapping the inputs only swaps the two
+            # named fields.
             return ComparisonResult(
                 "equivalent_before_divergence" if index else "not_established",
-                left_step,
+                None,
                 (f"left={left_step}", f"right={right_step}", f"ordinal={index}"),
+                FirstDivergence(index, "step_mismatch", left_step, right_step),
             )
     if len(left_steps) != len(right_steps):
-        # One side is a strict prefix of the other.  The first divergence is the
-        # extra step on the longer side; indexing the shorter side here would
-        # walk off the end.
+        # One side is a strict prefix of the other.  Here the extra step exists
+        # on exactly one side, so the scalar is unambiguous and is kept.
         common = min(len(left_steps), len(right_steps))
-        longer_side = "left" if len(left_steps) > len(right_steps) else "right"
-        longer = left_steps if longer_side == "left" else right_steps
+        left_longer = len(left_steps) > len(right_steps)
+        longer = left_steps if left_longer else right_steps
+        extra = longer[common]
         return ComparisonResult(
             "equivalent_before_divergence",
-            longer[common],
+            extra,
             (
                 f"mapped event counts differ: left={len(left_steps)} right={len(right_steps)}",
-                f"continues_on={longer_side}",
+                f"continues_on={'left' if left_longer else 'right'}",
                 f"ordinal={common}",
             ),
+            FirstDivergence(
+                common,
+                "left_continues" if left_longer else "right_continues",
+                extra if left_longer else None,
+                None if left_longer else extra,
+            ),
         )
-    return ComparisonResult("fully_equivalent", None, ("mapped step sequence matches",))
+    return ComparisonResult(
+        "fully_equivalent", None, ("mapped step sequence matches",), None
+    )
 
 
 def _load_records(path: Path) -> tuple[list[Mapping[str, Any]], str]:
@@ -421,12 +461,96 @@ def _infer_kind(path: Path, records: Sequence[Mapping[str, Any]]) -> str:
     return "codex-exec"
 
 
+class NormalizedArtifactError(ValueError):
+    """Raised when an input looks like our own artifact but cannot be reused.
+
+    Failing loudly is the point.  A v1 artifact silently re-fed through the raw
+    mapper yields ``mapped=0`` on both sides and a ``null`` verdict that reads
+    like "no divergence found" instead of "this input was never compared".
+    """
+
+
+def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
+    if not isinstance(raw, Mapping):
+        raise NormalizedArtifactError(f"events[{index}] is not an object")
+    expected = set(NormalizedEvent.__dataclass_fields__)
+    missing = sorted(expected - set(raw))
+    if missing:
+        raise NormalizedArtifactError(f"events[{index}] is missing {missing}")
+    step = raw["step"]
+    if step != "unmapped" and step not in STEPS:
+        raise NormalizedArtifactError(
+            f"events[{index}] has step={step!r} outside {VOCABULARY}"
+        )
+    return NormalizedEvent(**{key: raw[key] for key in expected})
+
+
+def _load_normalized_artifact(
+    path: Path,
+) -> tuple[dict[str, Any], list[NormalizedEvent]] | None:
+    """Reuse our own single-input artifact, or return ``None`` for raw input.
+
+    Detection is by ``schema_version``, so anything claiming to be this artifact
+    is either accepted after validation or rejected with a reason -- never
+    quietly re-mapped as if it were a raw harness trace.  The raw loader keeps
+    returning plain records; the typed branch lives here.
+    """
+
+    if path.suffix.lower() == ".jsonl":
+        return None
+    try:
+        value = json.loads(path.read_bytes().decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, Mapping) or "schema_version" not in value:
+        return None
+
+    schema = value.get("schema_version")
+    if schema != _ARTIFACT_SCHEMA:
+        raise NormalizedArtifactError(
+            f"schema_version={schema!r} cannot be compared against "
+            f"{_ARTIFACT_SCHEMA!r}; re-normalize the original trace"
+        )
+    vocabulary = value.get("vocabulary")
+    if vocabulary != VOCABULARY:
+        raise NormalizedArtifactError(
+            f"vocabulary={vocabulary!r} is not {VOCABULARY!r}; "
+            "step values are not comparable"
+        )
+    if "comparison" in value:
+        raise NormalizedArtifactError(
+            "this is a --compare output, not one side; pass the single-input artifacts"
+        )
+    events_raw = value.get("events")
+    if not isinstance(events_raw, list):
+        raise NormalizedArtifactError("events is missing or not a list")
+
+    events = [_event_from_artifact(item, index) for index, item in enumerate(events_raw)]
+    payload = {
+        "schema_version": _ARTIFACT_SCHEMA,
+        "vocabulary": VOCABULARY,
+        "source_kind": _string_token(value.get("source_kind")),
+        "source_file": _string_token(value.get("source_file"), fallback="source-redacted"),
+        # The artifact's own hash names the *original* trace.  Re-hashing the
+        # artifact file would break provenance back to the raw input.
+        "input_sha256": _string_token(value.get("input_sha256"), fallback="unknown"),
+        "event_count": len(events),
+        "unmapped_count": sum(event.step == "unmapped" for event in events),
+        "events": [asdict(event) for event in events],
+        "reused_normalized_artifact": True,
+    }
+    return payload, events
+
+
 def _build_side(path: Path, kind: str) -> tuple[dict[str, Any], list[NormalizedEvent]]:
+    reused = _load_normalized_artifact(path)
+    if reused is not None:
+        return reused
     records, digest = _load_records(path)
     resolved_kind = _infer_kind(path, records) if kind == "auto" else kind
     events = normalize_records(records, kind=resolved_kind)
     payload = {
-        "schema_version": "normalized-harness-trace-2",
+        "schema_version": _ARTIFACT_SCHEMA,
         "vocabulary": VOCABULARY,
         "source_kind": resolved_kind,
         "source_file": _string_token(path.name, fallback="source-redacted"),
@@ -479,6 +603,16 @@ def _build_comparison_output(
         )
     if mapped["left"] == 0 or mapped["right"] == 0:
         caveats.append("one side has no mapped semantic events: no comparison is possible")
+    if (
+        result.first_divergence is not None
+        and result.first_divergence.relation == "step_mismatch"
+    ):
+        caveats.append(
+            "first_divergence.relation=step_mismatch: the divergence has a step on "
+            "each side, so first_divergence_step is null by contract; read "
+            "first_divergence.left_step / right_step and do not collapse them into "
+            "a single L1 value"
+        )
 
     return {
         "schema_version": "normalized-harness-trace-2",
@@ -486,6 +620,11 @@ def _build_comparison_output(
         "comparison": {
             "pre_divergence_equivalence": result.pre_divergence_equivalence,
             "first_divergence_step": result.first_divergence_step,
+            "first_divergence": (
+                asdict(result.first_divergence)
+                if result.first_divergence is not None
+                else None
+            ),
             "evidence": list(result.evidence),
             "mapped_event_counts": mapped,
             "unmapped_counts": unmapped,
