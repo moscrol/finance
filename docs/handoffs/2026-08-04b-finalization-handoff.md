@@ -10,6 +10,34 @@
 
 ---
 
+## 执行结果（2026-08-04，Codex 回填）
+
+本轮已在 `eval/budget-calibration` 上执行 T0→T3，没有合并 main、没有重跑 a/b/d、
+没有修改 `total_seconds/floor_ratio/max_tool_calls`。
+
+| 项 | 结果 |
+|---|---|
+| T1 仪器 | 已完成；`84c1eb73`，payload timestamp 可归一化；T1 live 为 60 events / 0 unmapped / 1 finalization |
+| T2 显式交接 | 已完成；`3dd867e9`，deadline-pressure / tool-cap result 带 instruction，transition 后 fail-closed；真实 wrapper seam 单测通过 |
+| T3 主判 | **失败**；瑞华泰事件级 `headless_protocol_rejected` / 135.555s，不是 `model_finish` |
+| R-09 | **refuted**，不得恢复为 pending |
+
+决定性序列：瑞华泰第 5 个 `tool_request(evidence_search)` 没有 result/error；5 个请求
+只有 4 个 mailbox exchange，随后 runtime 记 `headless_command_failed`。代码中的
+wrapper 固定 60 秒等待是与该序列吻合的退出路径；artifact 未保留 command stderr，
+所以精确退出字符串仍是推断。T3 全批 `finalization=0`，不是因为收尾瞬间完成，
+而是 result/rejection activation point 没有被执行到。
+
+因此下一层不是再改 finalization 文案，也不是移预算墙，而是 **in-flight tool 的
+deadline-aligned handoff/cancellation contract**。已在 prediction ledger 新开
+`R-20260804-10`：先用 deterministic slow tool 证明 handoff 阈值处一定有配对响应、
+只发一次 finalization、迟到结果不污染 episode，再决定是否跑下一次 live canary。
+
+完整证据见
+[`docs/verification/2026-08-04b-finalization.md`](../verification/2026-08-04b-finalization.md)。
+
+---
+
 ## 0. 起点：已验收的定案，不要重开
 
 基线：`eval/budget-calibration` 分支（`9fd55ba9`），含四臂标定产物。

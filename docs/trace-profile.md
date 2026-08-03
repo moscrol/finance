@@ -1,7 +1,7 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-04
-- updated_by_run: `2026-08-04-budget-calibration/a-b-c-d`
+- updated_by_run: `2026-08-04b-finalization/c-long-capped-t1,t2`
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -30,7 +30,9 @@
 | `runtime_invalid_actions:N` | 模型有 N 次动作违规 | **`< 2026-08-04` 的 artifact 里等于 `len(unique_issues)`**，超时/取消/进程失败都被计入。`e179b15c` 两题的 `runtime_invalid_actions:1` 实为 `headless_timeout`，真实违规 0 次。修正后只计 `unauthorized_headless_action` / `tool_call_during_finalization_recovery` / `headless_invalid_finish` | `codex_headless_runtime.count_invalid_actions`；口径对齐 `agent_episode` |
 | benchmark 事件 `sequence` 从 2 起跳 | 前两个事件不存在 | `sequence=1` 的 `task` 事件（intent 地标）**被落盘白名单丢弃**，不是没埋点。`< 2026-08-04` 的 artifact 无法补出 intent；此后 `task` 保留但 payload 只留 `task_frame_hash` | `runtime_backend_benchmark._TASK_EVENT_KEEP` |
 | benchmark arm `status=degraded` | runtime 没完成 | arm 级 `status` 是语义/后处理质量裁决；同一 arm 的事件级 `finish.payload.status` 可能是 `completed` 或 `partial`。预算终态分布必须两列并列，不能用 arm status 覆盖 runtime finish | `2026-08-04-budget-calibration` 四臂：20 个 arm 中 19 个为 degraded，但 finish 分布不同 |
-| `finalization → finish` 间隔 | 可由事件顺序直接相减 | 本轮 202 个 event 中 `finalization=0`、带 timestamp 的 event=0；只能用 `latency - (initial_root - last_remaining_research)` 算 **post-last-tool-result 上界**，它还包含模型思考、被拒调用和命令执行，不能叫 finalization duration | `docs/verification/2026-08-04-budget-calibration.md` §0.65 与收尾时间 |
+| `finalization → finish` 间隔 | 有 timestamp 后就是自然收尾耗时 | 只有 finish 正常完成时才是自然耗时；若 finish 是 timeout，该间隔仍是 right-censored lower bound。T1 瑞华泰为 16.190s，但终态是 `headless_timeout`，只能解释为“至少 16.190s” | `2026-08-04b-finalization/c-long-capped-t1.json` |
+| `finalization=0` | 模型不需要/没有尝试收尾 | 只说明已埋的 activation point 没发事件。T3 瑞华泰停在无 response 的 in-flight `evidence_search`，result/rejection 交接根本不可达；不能把 0 当作收尾耗时 0 或仪器故障 | `docs/verification/2026-08-04b-finalization.md` |
+| JSON 顶层 `schema_version` | 看到该字段即可当 normalized artifact 复用 | raw runtime benchmark 也有数值 `schema_version=1`；normalized 单输入产物须同时满足字符串版本、`vocabulary/source_kind/events/input_sha256` 等 marker。只看字段存在会把 raw artifact 误拒为旧 normalized schema | `normalize_harness_trace._load_normalized_artifact`；commit `f4b8c589` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -44,7 +46,7 @@
 | 旧 run 无 phase telemetry | 埋点上线前 artifact 只有合成终态 | 无法可靠重建旧 brief/composer/judge 分布 | 不回填；只用新 run 或受控 replay |
 | phase 没有显式 semantic epoch/censoring type | 同名 `elapsed_ms` 跨 revision 变义 | 历史分类器会把自然完成、retry 倍增和 grant 截断混为一类 | artifact 增加 `phase_semantic_epoch` 与 `elapsed_kind`；现阶段按 revision 映射 |
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
-| Codex headless finalization 起点不可见 | runtime-benchmark 无 `finalization` event 与 timestamp | 无法判断 0.65 是“留太多”还是“留够仍收不了尾”，也无法给精确 finalization p50/p95 | 只记录 `remaining_root_seconds_at_finalization_start`；`<30s` 表示进入过晚，`>=30s` 仍 timeout 则 reserve 不是主因 |
+| Codex headless finalization 起点仅在 transition 后可见 | T1 已有 timestamped finalization，但 T3 的 in-flight tool 在 transition 前阻塞，tool request/result 本身无 timestamp | 能量到 recovery 的 censored interval，却无法量出最后一个未返回工具占了多久、何时越过 handoff window | tool request 记录 `remaining_seconds_at_entry` + timestamp；deadline-aligned timeout 必须回写一个可配对 result/error，迟到结果不得进入 episode |
 
 ## 4. Grounded phase telemetry semantic epochs
 

@@ -82,3 +82,11 @@ tool result / rejection payload 都携带 `instruction`，事件顺序保持 `to
 - 若仍 timeout，但 finish 早于可用 remaining：R-09 refuted，回查 instruction 是否真实进入 tool payload / 模型上下文。
 
 无论结果如何，不重跑其余三臂，不调三个预算字段，不追加第二次 live 调试 run。
+
+## T3 outcome (2026-08-04)
+
+Refuted。瑞华泰事件级终态为 `headless_protocol_rejected` / 135.555s，且没有
+finalization：最后一个 `evidence_search` 只有 request，没有 result/error；5 个请求
+仅 4 个 mailbox exchange。说明本设计依赖的 result/rejection activation point 在
+in-flight tool 路径不可达。下一层是 `R-20260804-10` 的 deadline-aligned per-tool
+handoff；本设计不追加第二次 live run。

@@ -10,13 +10,21 @@
 
 ---
 
+## Execution status (2026-08-04)
+
+- T2 code: `3dd867e9`；预算 profile 零 diff。
+- Focused: 97 passed / 1 skipped；全量：2 known baseline failed / 3704 passed / 2 skipped。
+- 唯一 T3 live 已执行并归一化：54 events / 0 unmapped / 0 finalization。
+- 瑞华泰：事件级 `headless_protocol_rejected` / 135.555s；5 requests / 4 mailbox exchanges。
+- R-09 已 refuted；下一层登记为 R-10（in-flight tool deadline handoff），没有追加 live run。
+
 ### Task 1: Deadline-pressure result 主动交接
 
 **Files:**
 - Modify: `intelligence/tests/test_headless_tool_gateway.py`
 - Modify: `intelligence/services/headless_tool_gateway.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 使用 mutable deadline + `floor_ratio=0.0`：初始 150s，成功执行首个工具后把 remaining 调到 25s，再执行第二个工具。断言第二个成功 result 含固定 `instruction`，snapshot 只有一个 `finalization(reason=deadline_pressure)`，第三个工具请求被 `research_stage_closed` 拒绝且仍含 instruction。
 
@@ -59,7 +67,7 @@ def test_gateway_hands_off_after_result_enters_deadline_pressure() -> None:
     assert finalization[0].payload["reason"] == "deadline_pressure"
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -68,7 +76,7 @@ def test_gateway_hands_off_after_result_enters_deadline_pressure() -> None:
 
 Expected: 当前 result 无 instruction、无 deadline-pressure finalization。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 冻结 handoff window；让 `_budget_payload.must_finalize` 纳入 deadline pressure 与已开始的 transition；`_publish_observation` 先写 result，再发 finalization；`_reservation_error` 在 transition 后 fail-closed。
 
@@ -96,7 +104,7 @@ def _pending_finalization_reason(self) -> str | None:
     return None
 ```
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 重跑同一测试，Expected: 1 passed。
 
@@ -106,7 +114,7 @@ def _pending_finalization_reason(self) -> str | None:
 - Modify: `intelligence/tests/test_headless_tool_gateway.py`
 - Modify: `intelligence/services/headless_tool_gateway.py`
 
-- [ ] **Step 1: 写 max_steps=1 的失败测试**
+- [x] **Step 1: 写 max_steps=1 的失败测试**
 
 首个成功 result 应含 instruction，finalization reason=`tool_budget_exhausted`；随后任意工具请求返回 `research_stage_closed` + instruction，同 episode 不新增第二个 finalization。
 
@@ -129,7 +137,7 @@ def test_gateway_hands_off_when_last_tool_slot_is_consumed() -> None:
     assert finalization[0].payload["reason"] == "tool_budget_exhausted"
 ```
 
-- [ ] **Step 2: RED → 最小实现 → GREEN**
+- [x] **Step 2: RED → 最小实现 → GREEN**
 
 只在三个冻结 activation path 加固定 instruction，不改变 invalid-arguments 的 `retry_hint`。运行完整 gateway 测试文件，Expected: 全绿。
 
@@ -147,7 +155,7 @@ if reason is not None:
 **Files:**
 - Modify: `intelligence/tests/test_codex_headless_runtime.py`
 
-- [ ] **Step 1: 写 fake Codex 集成失败测试**
+- [x] **Step 1: 写 fake Codex 集成失败测试**
 
 context 的 `max_steps=1`。fake runner 调用真实 `finance-tool` wrapper，只有当 JSON result 含固定 instruction 才返回合法 finish；断言 runtime 事件顺序含 `tool_result → finalization → finish`，终态 `model_finish`。
 
@@ -197,7 +205,7 @@ def test_headless_runtime_delivers_tool_cap_finalization_instruction() -> None:
     assert kinds.index("tool_result") < kinds.index("finalization") < kinds.index("finish")
 ```
 
-- [ ] **Step 2: 运行 RED/GREEN 与 focused suite**
+- [x] **Step 2: 运行 RED/GREEN 与 focused suite**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -215,7 +223,7 @@ Expected: 全绿；normalizer 外部未提交改动若独立失败，必须与�
 - Create: `intelligence/eval/measurements/2026-08-04b-finalization/c-long-capped-t2.json`
 - Create: `intelligence/eval/measurements/2026-08-04b-finalization/c-long-capped-t2.normalized.json`
 
-- [ ] **Step 1: 确认预算零 diff并提交**
+- [x] **Step 1: 确认预算零 diff并提交**
 
 ```bash
 git diff -- intelligence/services/research_contract.py intelligence/eval/runtime_backend_benchmark.py
@@ -226,7 +234,7 @@ git branch --show-current
 
 Expected: 两个预算文件无 diff；分支为 `eval/budget-calibration`。并发外部改动按 hunk 排除。
 
-- [ ] **Step 2: 从提交后的 detached clean worktree 跑同一 c profile 五题**
+- [x] **Step 2: 从提交后的 detached clean worktree 跑同一 c profile 五题**
 
 命令与 T1 完全相同，只把输出改为 `c-long-capped-t2.json`。不跑 a/b/d，不碰生产 runtime。
 
@@ -241,7 +249,7 @@ Expected: 两个预算文件无 diff；分支为 `eval/budget-calibration`。并
   --output /Users/a77/finance-workspace-private-synthesis-release/intelligence/eval/measurements/2026-08-04b-finalization/c-long-capped-t2.json
 ```
 
-- [ ] **Step 3: 归一化并按三结局记账**
+- [x] **Step 3: 归一化并按三结局记账**
 
 断言 `source_dirty=false`、profile 四字段与 T1 相同、`unmapped_count=0`；提取逐题 event stop_reason、latency、finalization reason/remaining/duration。只按 design 的三种结局更新 R-09。
 
@@ -261,15 +269,15 @@ Expected: 两个预算文件无 diff；分支为 `eval/budget-calibration`。并
 - Modify: `docs/trace-profile.md`
 - Modify: `docs/handoffs/2026-08-04b-finalization-handoff.md`
 
-- [ ] **Step 1: 写 T1/T2 单变量对照与字段语义**
+- [x] **Step 1: 写 T1/T2 单变量对照与字段语义**
 
 明确 T1 finalization duration 是截断下界；T2 只比较同 profile、不同 finalization behavior，不把模型采样差异冒充全部因果。
 
-- [ ] **Step 2: 更新 ledger/profile/handoff**
+- [x] **Step 2: 更新 ledger/profile/handoff**
 
 R-09 只能 confirmed 或 refuted，不保留 pending；profile 记录 payload timestamp、raw benchmark schema 与 normalized schema 的区分。
 
-- [ ] **Step 3: 运行 focused + 全量基线**
+- [x] **Step 3: 运行 focused + 全量基线**
 
 focused 使用 Task 3 命令。全量用项目 canonical 路径，预期仍为 13 个同名宿主环境红；若数量或名称变化，先归因再提交。
 
