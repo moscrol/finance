@@ -495,10 +495,11 @@ def _load_normalized_artifact(
 ) -> tuple[dict[str, Any], list[NormalizedEvent]] | None:
     """Reuse our own single-input artifact, or return ``None`` for raw input.
 
-    Detection is by ``schema_version``, so anything claiming to be this artifact
-    is either accepted after validation or rejected with a reason -- never
-    quietly re-mapped as if it were a raw harness trace.  The raw loader keeps
-    returning plain records; the typed branch lives here.
+    Detection uses this artifact's own marker fields, not a bare
+    ``schema_version``: raw benchmark artifacts also carry their independent
+    integer schema version.  Once the marker set matches, accept after full
+    validation or reject with a reason -- never quietly re-map a malformed
+    normalized artifact as raw harness trace.
     """
 
     if path.suffix.lower() == ".jsonl":
@@ -507,7 +508,12 @@ def _load_normalized_artifact(
         value = json.loads(path.read_bytes().decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
-    if not isinstance(value, Mapping) or "schema_version" not in value:
+    if not isinstance(value, Mapping):
+        return None
+    claims_normalized_schema = "vocabulary" in value or all(
+        key in value for key in ("source_kind", "input_sha256", "events")
+    )
+    if not claims_normalized_schema:
         return None
 
     schema = value.get("schema_version")

@@ -237,6 +237,50 @@ def test_runtime_benchmark_reads_safe_timestamp_from_event_payload() -> None:
     assert events[0].timestamp == "2026-08-04T12:00:00.000Z"
 
 
+def test_raw_benchmark_schema_version_is_not_mistaken_for_normalized_artifact(
+    tmp_path,
+) -> None:
+    source = tmp_path / "runtime-benchmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "cases": [
+                    {
+                        "id": "case-1",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {
+                                            "sequence": 1,
+                                            "kind": "finish",
+                                            "payload": {
+                                                "status": "completed",
+                                                "stop_reason": "model_finish",
+                                            },
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    target = tmp_path / "normalized.json"
+
+    assert main(
+        [str(source), "--kind", "runtime-benchmark", "--output", str(target)]
+    ) == 0
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    assert artifact["source_kind"] == "runtime-benchmark"
+    assert artifact["unmapped_count"] == 0
+    assert artifact["events"][0]["step"] == "stop"
+
+
 def test_every_persisted_benchmark_kind_has_a_normalized_step() -> None:
     from intelligence.eval.normalize_harness_trace import _BENCHMARK_STEPS
     from intelligence.eval.runtime_backend_benchmark import _DIAGNOSTIC_EVENT_KINDS
