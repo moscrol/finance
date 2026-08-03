@@ -1207,3 +1207,49 @@ def test_invalid_actions_counts_only_model_protocol_violations() -> None:
         )
         == 1
     )
+
+
+def test_runtime_emits_configure_and_plan_landmarks_in_l1_order() -> None:
+    from intelligence.eval.normalize_harness_trace import normalize_records
+
+    frame = _frame()
+    outcome = CodexHeadlessRuntime(
+        command_runner=ValidFakeCodex(),
+        model="gpt-5.6",
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_registry([]),
+    )
+
+    kinds = [event.kind for event in outcome.events]
+    # `configure` records the pre-run assembly and `plan` records the tier/step/
+    # second budget -- both are decisions this runtime already made but never
+    # wrote down, which left them empty on this side of every comparison.
+    assert kinds[:3] == ["configure", "task", "plan"]
+    assert tuple(event.sequence for event in outcome.events) == tuple(
+        range(1, len(outcome.events) + 1)
+    )
+
+    configure = outcome.events[0].payload
+    assert configure["runtime"] == "codex_headless"
+    assert configure["model"] == "gpt-5.6"
+    assert isinstance(configure["registry_tool_count"], int)
+    plan = outcome.events[2].payload
+    assert plan["tier"] == _context(frame).policy.tier
+    assert plan["max_steps"] == _context(frame).policy.max_steps
+
+    # The emitted order must project onto L1 in the same order the workbench
+    # does; `intent -> configure` would be a divergence made of ordering alone.
+    steps = [
+        event.step
+        for event in normalize_records(
+            [
+                {"kind": event.kind, "payload": dict(event.payload)}
+                for event in outcome.events
+            ],
+            kind="runtime-benchmark",
+        )
+    ]
+    assert steps[:3] == ["configure", "intent", "plan"]
+    assert "unmapped" not in steps

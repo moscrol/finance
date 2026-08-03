@@ -261,3 +261,43 @@ def test_non_json_provider_objects_cannot_cross_model_turn() -> None:
 def test_event_payload_rejects_non_json_values() -> None:
     with pytest.raises(ValueError, match="JSON-safe"):
         EpisodeEvent(1, "task", {"provider": object()})
+
+
+def test_only_configure_may_precede_the_task_anchor() -> None:
+    import pytest as _pytest
+
+    from intelligence.services.agent_runtime import (
+        AgentOutcome,
+        AgentUsage,
+        EpisodeEvent,
+    )
+
+    def _outcome(*kinds: str) -> AgentOutcome:
+        return AgentOutcome(
+            task_frame_hash="h" * 64,
+            status="completed",
+            draft="d",
+            evidence=(),
+            traces=(),
+            gaps=(),
+            stop_reason="model_finish",
+            events=tuple(
+                EpisodeEvent(index, kind, {"task_frame_hash": "h" * 64})
+                for index, kind in enumerate(kinds, start=1)
+            ),
+            bindings=(),
+            usage=AgentUsage(),
+        )
+
+    # The anchor guarantee is "an outcome is bound to a task frame", not "task is
+    # literally index 0".  `configure` is the pre-run assembly landmark.
+    assert [e.kind for e in _outcome("configure", "task").events] == [
+        "configure",
+        "task",
+    ]
+    assert _outcome("task").events[0].kind == "task"
+
+    with _pytest.raises(ValueError, match="only configure may precede it"):
+        _outcome("tool_request", "task")
+    with _pytest.raises(ValueError, match="only configure may precede it"):
+        _outcome("configure", "plan")

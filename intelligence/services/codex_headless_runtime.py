@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import os
@@ -919,7 +919,27 @@ class CodexHeadlessRuntime:
             issues.append("headless_no_finish")
 
         unique_issues = tuple(dict.fromkeys(issues))
-        events = [
+        # L1 order: `configure` (pre-run assembly) -> `task`/intent -> `plan`
+        # (research depth) -> the gateway's tool/observe events.  Both landmarks
+        # describe decisions this runtime already makes but never recorded, so
+        # `configure` and `plan` were empty on this side of every cross-harness
+        # comparison.  Sequences are assigned by position: the gateway's own
+        # numbering started at 2 and left a hole wherever `task` was dropped.
+        ordered: list[EpisodeEvent] = [
+            EpisodeEvent(
+                1,
+                "configure",
+                {
+                    "runtime": "codex_headless",
+                    "model": self._model or "codex-account-default",
+                    "reasoning_effort": self._reasoning_effort,
+                    "thread_id": parsed.thread_id,
+                    "registry_tool_count": len(registry.names()),
+                    "isolated": self._isolation_receipt is not None,
+                    "information_cutoff": context.information_cutoff.as_of_date.isoformat(),
+                    "task_frame_hash": task_frame.task_frame_hash,
+                },
+            ),
             EpisodeEvent(
                 1,
                 "task",
@@ -929,7 +949,25 @@ class CodexHeadlessRuntime:
                     "task_frame_hash": task_frame.task_frame_hash,
                 },
             ),
+            EpisodeEvent(
+                1,
+                "plan",
+                {
+                    # The tier/step/second budget *is* this runtime's research
+                    # depth decision -- the same thing `agent_episode` records as
+                    # `mode_decision`.  Recording it is not inventing an event.
+                    "tier": context.policy.tier,
+                    "max_steps": context.policy.max_steps,
+                    "total_seconds": context.policy.total_seconds,
+                    "required_output_count": len(context.contract.required_outputs),
+                    "task_frame_hash": task_frame.task_frame_hash,
+                },
+            ),
             *snapshot.events,
+        ]
+        events = [
+            replace(event, sequence=index)
+            for index, event in enumerate(ordered, start=1)
         ]
         events.append(
             EpisodeEvent(

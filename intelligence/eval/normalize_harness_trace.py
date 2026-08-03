@@ -1,10 +1,20 @@
-"""Normalize heterogeneous harness events into the shared seven-step profile.
+"""Normalize heterogeneous harness events into the shared nine-step L1 profile.
 
 The normalizer is intentionally deterministic and lossy.  It keeps enough
 control-plane information to compare ordering and first divergence, while
 discarding prompts, answers, command arguments, paths, and provider secrets.
 Unknown events remain ``unmapped`` instead of being guessed into a semantic
 step.
+
+Two CLI shapes, both from the repository root (the package is imported as
+``intelligence.eval.…``, so a different cwd needs ``PYTHONPATH`` set):
+
+* one input  -> a single normalized artifact (``events`` + counts);
+* ``--compare`` -> both sides plus a ``comparison`` block carrying
+  ``pre_divergence_equivalence`` / ``first_divergence_step``.  Those two values
+  exist only in :func:`compare_sequences`; without this entry point a caller
+  reading the single-input artifact finds no such fields and is tempted to
+  invent them.
 """
 
 from __future__ import annotations
@@ -206,10 +216,14 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
 #: (``runtime_backend_benchmark._DIAGNOSTIC_EVENT_KINDS``) must have an entry
 #: here, otherwise it silently drops out of the comparison.  The step for each
 #: kind is taken from the runtime's own public semantics in
-#: ``episode_progress._EVENT_PROJECTIONS`` (planning→route, research request→
-#: retrieve, research outcome→observe, repair→route, finalizing→synthesize),
-#: not guessed from the kind's name.
+#: ``episode_progress._EVENT_PROJECTIONS`` (planning→plan, repair→plan,
+#: research request→tool, branch start→retrieve, research outcome→observe,
+#: finalizing→synthesize), not guessed from the kind's name.  The projection
+#: table is the *source*; this mapping restates it in L1 terms, so when the two
+#: disagree the runtime wins.
 _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
+    # pre-run assembly
+    "configure": ("configure", "control"),
     # intent
     "task": ("intent", "control"),
     # planning: what steps, how deep, what to repair -- L1 `plan`
@@ -407,11 +421,11 @@ def _infer_kind(path: Path, records: Sequence[Mapping[str, Any]]) -> str:
     return "codex-exec"
 
 
-def _build_output(path: Path, kind: str) -> dict[str, Any]:
+def _build_side(path: Path, kind: str) -> tuple[dict[str, Any], list[NormalizedEvent]]:
     records, digest = _load_records(path)
     resolved_kind = _infer_kind(path, records) if kind == "auto" else kind
     events = normalize_records(records, kind=resolved_kind)
-    return {
+    payload = {
         "schema_version": "normalized-harness-trace-2",
         "vocabulary": VOCABULARY,
         "source_kind": resolved_kind,
@@ -421,6 +435,65 @@ def _build_output(path: Path, kind: str) -> dict[str, Any]:
         "unmapped_count": sum(event.step == "unmapped" for event in events),
         "events": [asdict(event) for event in events],
     }
+    return payload, events
+
+
+def _build_output(path: Path, kind: str) -> dict[str, Any]:
+    payload, _events = _build_side(path, kind)
+    return payload
+
+
+def _build_comparison_output(
+    left_path: Path, left_kind: str, right_path: Path, right_kind: str
+) -> dict[str, Any]:
+    """Emit both normalized sides plus the divergence verdict.
+
+    The caveats are part of the artifact on purpose: a bare
+    ``first_divergence_step`` reads like a behavioural difference even when it is
+    only a vocabulary gap or a one-sided instrumentation hole.
+    """
+
+    left_payload, left_events = _build_side(left_path, left_kind)
+    right_payload, right_events = _build_side(right_path, right_kind)
+    result = compare_sequences(left_events, right_events)
+
+    unmapped = {
+        "left": left_payload["unmapped_count"],
+        "right": right_payload["unmapped_count"],
+    }
+    mapped = {
+        "left": sum(event.step != "unmapped" for event in left_events),
+        "right": sum(event.step != "unmapped" for event in right_events),
+    }
+    caveats: list[str] = []
+    if unmapped["left"] or unmapped["right"]:
+        caveats.append(
+            "unmapped events present: first_divergence_step may be a vocabulary gap "
+            "rather than a behavioural difference"
+        )
+    if result.pre_divergence_equivalence == "not_established":
+        caveats.append(
+            "pre_divergence_equivalence=not_established: the compared prefix is not "
+            "evidence that the two sides agree; treat as insufficient trace, not as "
+            "'no divergence'"
+        )
+    if mapped["left"] == 0 or mapped["right"] == 0:
+        caveats.append("one side has no mapped semantic events: no comparison is possible")
+
+    return {
+        "schema_version": "normalized-harness-trace-2",
+        "vocabulary": VOCABULARY,
+        "comparison": {
+            "pre_divergence_equivalence": result.pre_divergence_equivalence,
+            "first_divergence_step": result.first_divergence_step,
+            "evidence": list(result.evidence),
+            "mapped_event_counts": mapped,
+            "unmapped_counts": unmapped,
+            "interpretation_caveats": caveats,
+        },
+        "left": left_payload,
+        "right": right_payload,
+    }
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -428,12 +501,23 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("input", type=Path)
     parser.add_argument("--kind", choices=KINDS, default="auto")
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--compare",
+        type=Path,
+        help="second trace to compare against; adds the comparison block",
+    )
+    parser.add_argument("--compare-kind", choices=KINDS, default="auto")
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv or sys.argv[1:])
-    output = _build_output(args.input, args.kind)
+    if args.compare is None:
+        output = _build_output(args.input, args.kind)
+    else:
+        output = _build_comparison_output(
+            args.input, args.kind, args.compare, args.compare_kind
+        )
     rendered = json.dumps(output, ensure_ascii=False, indent=2) + "\n"
     if args.output is None:
         sys.stdout.write(rendered)

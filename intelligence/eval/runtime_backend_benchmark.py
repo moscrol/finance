@@ -52,6 +52,10 @@ _TASK_EVENT_KEEP = ("task_frame_hash",)
 _DIAGNOSTIC_EVENT_KINDS = frozenset(
     {
         _TASK_EVENT_KIND,
+        # Pre-run assembly and research-depth landmarks.  Payloads are
+        # identities/counts only and go through the same sanitizer as the rest.
+        "configure",
+        "plan",
         "tool_request",
         "tool_result",
         "tool_error",

@@ -129,24 +129,38 @@ cutoff、可观察的两侧原生事件和冻结的 task contract；本轮旧 re
 共享词表对齐到 `agent-run-triage` 的 L1 九步（`vocabulary: triage-l1-9`，
 产物 `schema_version: normalized-harness-trace-2`）之后，把两侧现有收据投影上去：
 
-| L1 step | workbench 埋点前 | workbench 埋点后 | codex benchmark | 两侧都有 |
-|---|---|---|---|---|
-| `configure` | – | **1** | – | |
-| `intent` | 1 | 1 | **1**（`task`，仅新 run） | ✓ |
-| `plan` | – | **1** | – | |
-| `route` | 1 | 1 | – | |
-| `retrieve` | 2 | 1 | – | |
-| `tool` | – | – | 11 | |
-| `observe` | 3 | 1 | 16 | ✓ |
-| `synthesize` | 1 | 1 | – | |
-| `stop` | – | – | 5 | |
+读数取自两侧**真实执行路径**：workbench 跑一次真 turn 读 `trace.jsonl`；codex 跑
+`CodexHeadlessRuntime.run()`（仅 subprocess 用 fake stdout，事件由真实 `_to_outcome`
+构造）。均归一化后计数。
 
-- 埋点前（`run_20260803_171452_043073`）：两侧都有仪器的**只有 1 步**（`observe`）。
-- 2026-08-04 补埋点后：workbench 侧序列为
-  `configure → intent → plan → route → retrieve → synthesize → observe`（7/9），
-  两侧共有升到 **2 步**。
-- 门槛 `configure → intent → plan → route` 四步两侧非空：**workbench 侧 4/4 达标，
-  codex 侧 1/4**（只有 `intent`）。整体仍未达标。
+| L1 step | workbench 埋点前 | workbench 埋点后 | codex 埋点前 | codex 埋点后 | 两侧都有 |
+|---|---|---|---|---|---|
+| `configure` | – | **1** | – | **1** | ✓ |
+| `intent` | 1 | 1 | –（`task` 被丢） | **1** | ✓ |
+| `plan` | – | **1** | – | **1** | ✓ |
+| `route` | 1 | 1 | – | – | |
+| `retrieve` | 2 | 1 | – | – | |
+| `tool` | – | – | 11 | 1 | |
+| `observe` | 3 | 1 | 16 | 2 | ✓ |
+| `synthesize` | 1 | 1 | – | – | |
+| `stop` | – | – | 5 | 1 | |
+
+- 埋点前：两侧都有仪器的**只有 1 步**（`observe`）。
+- 2026-08-04 补埋点后：**4/9**。workbench 序列
+  `configure → intent → plan → route → retrieve → synthesize → observe`；
+  codex 序列 `configure → intent → plan → tool → observe → observe → stop`。
+- 门槛 `configure → intent → plan` 三步两侧非空：**3/3 达标**。
+  `first_divergence_step` 在这三步的前缀内已具备行为含义。
+
+> codex 侧的 `configure` / `plan` 不是新造的事件：`configure` 记的是本来就存在的
+> 装配（model / reasoning_effort / thread_id / registry 规模 / isolation / cutoff），
+> `plan` 记的是 `context.policy` 的 tier + max_steps + total_seconds ——
+> 即该 runtime 的研究深度决策，与 `agent_episode` 的 `mode_decision` 同义。
+>
+> 为此放宽了 `AgentOutcome` 的锚点不变量：`configure` 是**唯一**允许排在 `task`
+> 之前的 kind。若强行让 `configure` 排在 `task` 之后，codex 会发出
+> `intent → configure` 而 workbench 发出 `configure → intent`，**纯靠事件顺序在
+> ordinal 0 制造一个假分叉**。
 
 这改写了跨 harness 审计「无法配对」的成因判断。此前记的是「五题的 workbench
 trace 没保留」——那只是数据保留问题。真实成因更靠前：**两侧仪器覆盖的是流水线的

@@ -339,8 +339,21 @@ class AgentOutcome:
             raise ValueError("plan must be ResearchPlan or None")
         gaps = _clean_string_tuple(self.gaps, field_name="gaps")
 
-        if not events or events[0].kind != "task":
-            raise ValueError("first episode event must be the task")
+        # Every outcome must stay anchored to a task frame.  `configure` is the
+        # pre-run assembly landmark and is the only kind allowed to precede it:
+        # forcing `configure` after `task` would make this runtime emit
+        # `intent -> configure` while the workbench emits `configure -> intent`,
+        # manufacturing a divergence at ordinal 0 out of event ordering alone.
+        anchor = next(
+            (index for index, event in enumerate(events) if event.kind == "task"),
+            None,
+        )
+        if anchor is None or any(
+            event.kind != "configure" for event in events[:anchor]
+        ):
+            raise ValueError(
+                "first episode event must be the task (only configure may precede it)"
+            )
         event_hash = events[0].payload.get("task_frame_hash")
         if event_hash != self.task_frame_hash.strip():
             raise ValueError("task frame hash changed during the episode")

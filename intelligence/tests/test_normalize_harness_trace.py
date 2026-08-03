@@ -267,3 +267,61 @@ def test_cli_writes_hashed_normalized_artifact(tmp_path) -> None:
     assert artifact["source_file"] == "source-redacted"
     assert len(artifact["input_sha256"]) == 64
     assert artifact["events"][0]["step"] == "route"
+
+    # The single-input artifact must NOT be documented as carrying the
+    # divergence verdict: those two values only exist in `compare_sequences`,
+    # and a caller told to read them here finds nothing and invents a value.
+    assert "first_divergence_step" not in artifact
+    assert "pre_divergence_equivalence" not in artifact
+    assert "comparison" not in artifact
+
+
+def test_compare_cli_exposes_the_divergence_verdict_with_caveats(tmp_path) -> None:
+    left = tmp_path / "left.jsonl"
+    left.write_text(
+        '{"step_id":"controller","name":"turn_controller"}\n'
+        '{"step_id":"route","name":"route_skills"}\n',
+        encoding="utf-8",
+    )
+    right = tmp_path / "right.jsonl"
+    right.write_text(
+        '{"type":"thread.started"}\n'
+        '{"type":"turn.started"}\n'
+        '{"type":"future.vendor.event"}\n',
+        encoding="utf-8",
+    )
+    target = tmp_path / "compared.json"
+
+    assert (
+        main(
+            [
+                str(left),
+                "--kind",
+                "workbench-trace",
+                "--compare",
+                str(right),
+                "--compare-kind",
+                "codex-rollout",
+                "--output",
+                str(target),
+            ]
+        )
+        == 0
+    )
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    comparison = artifact["comparison"]
+
+    # `compare_sequences` is reachable from the CLI, so the two fields the triage
+    # adapter promises are actually in the artifact.
+    assert comparison["pre_divergence_equivalence"] == "not_established"
+    assert comparison["first_divergence_step"] == "intent"
+    assert comparison["mapped_event_counts"] == {"left": 2, "right": 2}
+    assert comparison["unmapped_counts"] == {"left": 0, "right": 1}
+    assert artifact["left"]["source_kind"] == "workbench-trace"
+    assert artifact["right"]["source_kind"] == "codex-rollout"
+
+    # Both misreadings the caveats exist to block: a vocabulary gap read as a
+    # behavioural difference, and `not_established` read as "no divergence".
+    caveats = " ".join(comparison["interpretation_caveats"])
+    assert "vocabulary gap" in caveats
+    assert "insufficient trace" in caveats
