@@ -343,6 +343,20 @@
 | R-004 | F-001 | EVAL_ONLY | 为历史 artifact 增加 revision-aware semantic epoch 解析；禁止把 E0/E1/E2 的 `elapsed_ms` 同质聚合。 | E0 的 `69740/22` 被标为 uncensored completion，E1 的 `44560/22` 标为 retry-multiplied，E2 的 `28010/28` 标为 grant-censored。 | 用现有6份 artifact 做冻结分类测试。 |
 | R-005 | F-003 | HARNESS_FIX | 主 Presenter 已产生 `grounded_composer_shadow` 时，orchestrator 的观测 shadow 路径不得再次发起 provider 调用；复用同一结果落 trace/artifact。 | 开启 grounded presenter 与 shadow 开关时，一轮仍只有一条 grounded composer 调用链。 | 集成测试以调用计数锁住“生产 + shadow 同开=1次”。 |
 
+### R-002 implementation receipt
+
+唯一 A4 红灯后的离线修复冻结为 `grounded_deep`：root=180s、synthesis
+reserve=100s、child=115s、composer grant=40s、judge reserve=57s、两段 admission
+floor=97s。剩余不足97秒时 composer 以 `skipped/insufficient_budget` 退出且不发
+provider 请求；token/char cap 与 replay 对齐为 composer `2400/16000`、judge
+`1200/8000`。主 Presenter 已留下 grounded 结果时 observational shadow 复用它，
+不再二次调用。
+
+该 profile 只代表单冻结样本的20%工程余量，不是 p95。continuous runtime 的
+120秒契约不变；generic quick/standard 使用自身30/90秒总窗口和20秒 reserve，
+generic deep 才继承100秒 reserve，避免短档位的研究窗口被压成0秒。A4 按 stop
+rule 保持红灯且禁止重跑，修复以冻结时钟和回归测试验证。
+
 ## Observability prescription
 
 | blind_spot | 挡住了哪个判定 | 最小埋点（一个变量+阈值） | 埋在哪 | 埋完能判定什么 | 成本 |

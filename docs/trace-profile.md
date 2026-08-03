@@ -52,3 +52,51 @@
 ## 5. Runtime revision 核验
 
 `/api/health` 当前会在 `runtime.source_revision` 暴露 revision，并同时给出 `source_dirty`；因此服务重启后可先用 health 做快速核验。Acceptance preflight 仍必须把 revision 冻结进 artifact，不能只依赖事后 health 查询。
+
+## 6. Cross-harness normalized profile
+
+跨 harness 审计只比较控制面事件的顺序，不把两个运行时的内部 span
+粒度假设成相同。共享词表固定为：
+
+`configure → intent → route → retrieve → observe → synthesize → stop`
+
+| source kind | native event / field | normalized step | provenance |
+|---|---|---|---|
+| `workbench-trace` | `step_id=controller` 或 `name=turn_controller` | `intent` | `native` |
+| `workbench-trace` | `step_id/name` 含 `route` | `route` | `native` |
+| `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
+| `workbench-trace` | `validate`、`budget`、`ledger`、`observe` | `observe` | `native` |
+| `workbench-trace` | `compose`、`synth`、`grounded`、`shadow` | `synthesize` | `native` |
+| `workbench-trace` | `stop`、`complete`、`terminal`、`error` | `stop` | `native` |
+| `codex-rollout` / `codex-exec` | `thread.started` / `session.started` | `configure` | `normalized` |
+| `codex-rollout` / `codex-exec` | `turn.started` | `intent` | `normalized` |
+| `codex-rollout` / `codex-exec` | function/command/MCP/tool item | `retrieve` | `normalized` |
+| `codex-rollout` / `codex-exec` | message/reasoning/output item | `synthesize` | `normalized` |
+| `codex-rollout` / `codex-exec` | `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
+| `runtime-benchmark` | `tool_request` | `retrieve` | `normalized` |
+| `runtime-benchmark` | `tool_result` / `runtime_result` | `observe` | `normalized` |
+| `runtime-benchmark` | `finish` / `error` | `stop` | `normalized` |
+
+没有明确映射的事件必须输出 `step=unmapped` 和
+`native_or_normalized=unmapped`，不能根据摘要、答案或事件相邻位置猜测。
+实现入口为 `intelligence/eval/normalize_harness_trace.py`。每个 normalized
+事件只保存 source event identity、受控状态/计数摘要和输入 SHA-256；不保存
+prompt、答案正文、工具参数、命令 stdout、绝对路径、凭据或个人信息。
+
+## 7. Comparison contract and evidence boundary
+
+`compare_sequences()` 只对已映射的步骤做序列比较，并输出
+`pre_divergence_equivalence`、`first_divergence_step` 和证据短句。若一侧没有
+任何 mapped event，结果必须是 `not_established`，而不是把缺失事件判成行为分叉。
+
+截至 2026-08-03，仓库中冻结的 Codex headless benchmark artifact 只保留
+`final_text/thread_id/token usage/issues` 和有限 diagnostics；原始 rollout
+JSONL 没有进入 artifact。因此旧 Codex receipt 只能支持
+`runtime-benchmark` 层的归一化审计，不能事后补出 `configure`、`intent` 或
+原始 tool/message span。最近五题 receipt 也不是五题成功样本：其中
+`weekly-market-cause` 仍是失败/降级，不能在报告里改写成 pass。
+
+公平的跨 harness A/B 需要同一 PIT（point-in-time，时间截面）fixture、同一
+cutoff、可观察的两侧原生事件和冻结的 task contract；本轮旧 receipt 不满足
+这些前提，所以 T4 报告只作 trace-shape/数据缺口审计，不给 SDK 迁移或质量胜负
+结论。

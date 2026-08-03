@@ -97,25 +97,41 @@ The two local A4 artifacts are acceptance receipts, not CI dependencies, because
 they are currently untracked in the source worktree. CI uses minimal constructed
 fixtures.
 
-### 3.3 Architecture decision after T1
+### 3.3 Architecture decision after T1 and the single A4 canary
 
-T1 selects the smallest architecture that can meet both correctness and latency:
+T1 measured composer at 33.338 seconds and judge at 46.982 seconds.  This
+invalidated the preregistered 110–180 second composer estimate and selected the
+deterministic `DecisionBrief`.  The single A4 canary then invalidated the local
+assumption that both provider phases would enter with a fresh 115 seconds: prior
+retrieval had already consumed 66.118 seconds of the same root deadline.
 
-| Observation | Selected path |
-|---|---|
-| composer `<40s` and measured composer+judge fits 120s with at least 20% slack | remove the brief LLM via deterministic `DecisionBrief`; keep the 120s root |
-| composer completes in `40–115s`, but two phases need more than 120s | deterministic `DecisionBrief` plus an explicit deep-mode budget sized from measured wall time with 20% slack |
-| composer times out at 115s | deterministic `DecisionBrief`; do not retry the measurement; use a bounded deep-mode budget derived from the preregistered 110–180s prediction and validate with one A4 canary |
+The final bounded profile is therefore:
+
+| field | value | basis |
+|---|---:|---|
+| grounded legacy root | 180s | observed end-to-end need 146.55s × 1.2, rounded up |
+| synthesis reserve | 100s | 97s two-phase admission plus 3s hand-off room |
+| child ceiling | 115s | remains bounded below root |
+| composer grant | 40s | ceil(33.338s × 1.2) |
+| judge reserve | 57s | ceil(46.982s × 1.2) |
+| admission floor | 97s | composer grant plus judge reserve |
+
+This is engineering headroom from a single frozen sample, not p95.  When fewer
+than 97 seconds remain, composer is skipped with `insufficient_budget` before a
+provider call.  Continuous runtime retains its independent 120-second contract.
+Generic quick/standard owners retain their 30/90-second tier windows and their
+own 20-second synthesis reserve; only generic deep inherits the 100-second
+grounded reserve, so the new profile cannot collapse ordinary retrieval to zero.
 
 The deterministic brief projects claim IDs from `AnswerSpec`. `core_tension` is
 not mislabeled as a pure projection: it uses a deterministic template combining
 the leading support with the leading counterevidence or gap. `chain_mapping`
 always contains all in-window `company:`, `chain:`, and `exposure:` claims.
 
-Standard mode remains bounded; deep mode is explicit. The A4 canary contract is
-updated from a raw 120-second wall-clock assertion to phase completion plus the
-selected mode's declared wall-clock budget. Only one post-fix A4 canary is run;
-the full live A group remains prohibited.
+The preregistered A4 canary remains a red receipt and is not rerun.  Its failure
+selected the end-to-end deep profile and the fail-fast admission guard; offline
+tests, rather than a second A4 attempt, verify the repair.  The full live A group
+remains prohibited.
 
 ### 3.4 Cross-harness audit
 
@@ -124,9 +140,11 @@ T4 first extends `docs/trace-profile.md` with the shared seven-step vocabulary:
 `native_or_normalized` marker. Codex rollout JSONL and self-built spans are mapped
 to that profile before comparison.
 
-Five or six preregistered tasks are each run once per harness after synthesis is
-unblocked. The report records `first_divergence_step` and
-`pre_divergence_equivalence`; SDK migration is discussed only after the data.
+The old five-case Codex receipt is normalized first.  Because its raw rollout
+events and the paired Workbench traces were not retained, the audit records
+`not_evaluable` rather than manufacturing a first divergence.  A future live
+pair is eligible only with the same PIT fixture/cutoff and native events on both
+sides; SDK migration is discussed only after such data exists.
 
 ## 4. Error handling and safety
 
