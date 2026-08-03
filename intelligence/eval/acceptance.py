@@ -223,6 +223,10 @@ _SYNTHESIS_DIAGNOSTIC_FIELDS = (
     "phases",
 )
 _SYNTHESIS_DIAGNOSTIC_STATES = {
+    # 四态口径：full pass(accepted) / 放行未核验(released_unverified) /
+    # 模板降级(rejected) / 没进合成(not_prepared)。二分成 accepted-rejected
+    # 会把「没人审但放行了」算进健康数。
+    "released_unverified",
     "not_requested",
     "not_prepared",
     "attempted",

@@ -1441,12 +1441,27 @@ def promote_grounded_answer(
         if result.data_notice
         else presented
     )
-    _set_synthesis_diagnostic(
-        result,
-        state="accepted",
-        reason_code="validated",
-        detail="grounded presenter passed deterministic and semantic gates",
-    )
+    # 「过了语义审」和「没人审但放行了」不是同一件事，遥测不能都写成 accepted。
+    # 原先这里无条件写 accepted/validated，于是 2026-08-02 那批 7 个 accepted 里
+    # 有 6 个的语义审根本没跑——正文自带「语义复核未完成」的告示，诊断却说 passed。
+    # 台账按 state 聚合，读出来的健康度就是假的。
+    if shadow.status == "judge_outage_released":
+        _set_synthesis_diagnostic(
+            result,
+            state="released_unverified",
+            reason_code="judge_outage_released",
+            detail=(
+                "deterministic binding passed; semantic judge absent, "
+                "released with an explicit notice"
+            ),
+        )
+    else:
+        _set_synthesis_diagnostic(
+            result,
+            state="accepted",
+            reason_code="validated",
+            detail="grounded presenter passed deterministic and semantic gates",
+        )
     ensure_forecast_scenarios_visible(result)
     result.llm_provider = shadow.provider
     result.synthesis_messages = [
@@ -1668,6 +1683,10 @@ _TRANSIENT_JUDGE_REASONS = frozenset(
         "call_budget_exhausted",
     }
 )
+# 刻意不在上面：``deadline_exhausted_local``。那是我们自己的共享 deadline 用完了，
+# 按本文件上方的判据（放行会不会从例外变成常态）属于必须 fail-closed 的一类——
+# 2026-08-02 那批 23 轮里 15 轮撞的就是它，放行等于把「多数答案没过语义审」写成常态。
+# 代价是可见降级率上升；这是把静默的未核验答案换成显式降级，不是新增故障。
 
 _JUDGE_OUTAGE_NOTICE = (
     "（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）"

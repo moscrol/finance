@@ -316,6 +316,8 @@ _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
         # 本轮 LLM 调用预算耗尽。原先归进 provider_unavailable，对外读起来像
         # 「供应商挂了」，实际是我们自己的限额——是固定枚举，不含用户数据。
         "call_budget_exhausted",
+        # 我们自己的共享 deadline 走完了（不是对方超时）。同上，是限额不是故障。
+        "deadline_exhausted_local",
     }
 )
 _PUBLIC_METADATA_STRING_FIELDS = frozenset(
@@ -570,6 +572,9 @@ def _public_synthesis_diagnostic(
         "not_prepared",
         "attempted",
         "accepted",
+        # 确定性绑定过了、语义审缺席但带告示放行。既不是 accepted 也不是 rejected，
+        # 混进任一边都会让台账读错健康度。
+        "released_unverified",
         "rejected",
         "failed",
     }:

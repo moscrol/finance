@@ -235,7 +235,16 @@ def stable_llm_fallback_reason(reason: str) -> str:
     # 没配 key 是配置问题该 fail-closed，预算耗尽时被审对象是无辜的。
     if "预算耗尽" in normalized:
         return "call_budget_exhausted"
-    if "截止时间" in normalized or "超时" in normalized:
+    # 「共享截止时间」是**我们自己**的 deadline 走完了，不是对方慢。原先跟 provider
+    # 侧超时塌成一个 ``timeout``，而 ``timeout`` 在 judge 的瞬时故障白名单里——于是
+    # 自家预算饥饿被当成「供应商瞬时故障」放行，答案带一句「服务瞬时问题」发出去。
+    #
+    # 分界线跟本函数里 HTTP 那条一样，问的是「被审对象是不是无辜的」：供应商抖一下
+    # 是例外，放行合理；自家 deadline 不够是常态（2026-08-02 那批 23 轮里 15 轮命中），
+    # 放行就从例外变成常态——按注释里既有的判据，这类必须 fail-closed。
+    if "截止时间" in normalized:
+        return "deadline_exhausted_local"
+    if "超时" in normalized:
         return "timeout"
     if "输出超长" in normalized or "too long" in normalized:
         return "output_too_long"

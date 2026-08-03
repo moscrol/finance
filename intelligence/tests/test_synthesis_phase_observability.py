@@ -273,6 +273,81 @@ class TestDiagnosticCarriesPhases:
         ]
 
 
+class TestReleasedIsNotReportedAsValidated:
+    """诊断不能把「没人审但放行了」写成「过了语义门禁」。
+
+    2026-08-02 那批 7 个 ``state=accepted`` 里有 6 个的语义审根本没跑：正文自带
+    「语义复核因服务瞬时问题未完成」的告示，而 detail 写着 passed semantic gates。
+    台账按 state 聚合，于是读出来的健康度比真实值高一倍有余。
+    """
+
+    def test_judge_outage_release_gets_its_own_state(self, monkeypatch) -> None:
+        result = _result()
+        monkeypatch.setattr(
+            ask_synthesis,
+            "synthesize_shadow_grounded_answer",
+            lambda prepared, **kwargs: _stub_released(prepared),
+        )
+        options = ask.AskOptions(
+            query=result.query,
+            grounded_presenter=True,
+        )
+
+        assert ask.promote_grounded_answer(options, result)
+
+        diagnostic = result.synthesis_diagnostic
+        assert diagnostic.state == "released_unverified"
+        assert diagnostic.reason_code == "judge_outage_released"
+        assert "passed deterministic and semantic gates" not in diagnostic.detail
+
+    def test_released_state_survives_the_public_whitelist(self) -> None:
+        """新状态要能出去，否则 API 侧会把整条 diagnostic 丢掉、退回旧的盲区。"""
+        from intelligence.api import app
+
+        public = app._public_synthesis_diagnostic(
+            {
+                "name": "answer_synthesis",
+                "output_summary": json.dumps(
+                    {
+                        "diagnostic": {
+                            "state": "released_unverified",
+                            "reason_code": "judge_outage_released",
+                            "detail": "semantic judge absent",
+                            "prepared_message_count": 2,
+                            "candidate_claim_count": 17,
+                            "bound_claim_count": 17,
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+
+        assert public is not None
+        assert public["state"] == "released_unverified"
+
+    def test_acceptance_capture_keeps_the_released_state(self) -> None:
+        from intelligence.eval import acceptance
+
+        assert (
+            "released_unverified" in acceptance._SYNTHESIS_DIAGNOSTIC_STATES
+        )
+
+
+def _stub_released(prepared) -> ask.AskResult:
+    prepared.result.grounded_composer_shadow = (
+        answer_model.GroundedComposerShadow(
+            status="judge_outage_released",
+            presented_answer=(
+                "## 结论\n市场证据只支持谨慎判断。\n下一交易日继续核验量价结构。"
+            ),
+            provider="fake",
+            model="fake-model",
+        )
+    )
+    return prepared.result
+
+
 class TestPublicTraceWhitelist:
     """遥测要能出去，但这条通道以前只走过三个计数，别让它变成新的泄漏面。"""
 

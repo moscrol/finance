@@ -34,7 +34,7 @@ def presented(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 TRANSIENT = [
-    pytest.param("语义核验超过截止时间", id="timeout"),
+    pytest.param("provider 读取超时", id="provider_timeout"),
     pytest.param("provider 流未正常停止", id="stalled"),
     pytest.param("HTTP 529", id="http_error"),
     pytest.param("返回空内容", id="empty"),
@@ -144,6 +144,65 @@ def test_budget_exhaustion_is_no_longer_mislabelled_as_provider_down() -> None:
         ask_synthesis._stable_llm_fallback_reason("未配置 LLM key")
         == "provider_unavailable"
     )
+
+
+class TestOurOwnDeadlineIsNotTheirOutage:
+    """自家共享 deadline 走完 ≠ 供应商抖了一下。前者必须 fail-closed。
+
+    这条分界线跟上面 HTTP 那组问的是同一个问题——「被审对象是不是无辜的」，
+    但答案由**频率**决定：供应商抖动是例外，放行合理；自家预算不够是常态
+    （2026-08-02 那批 23 轮里 15 轮撞的就是它），放行会从例外变成常态。
+
+    真实代价：可见降级率会上升。那不是新增故障，是把原先静默放行的未核验答案
+    换成显式降级——信息量没少，少的是假的确信。
+    """
+
+    def test_shared_deadline_exhaustion_fails_closed(self) -> None:
+        reason = "LLM 合成超过共享截止时间，已降级为模板"
+
+        assert (
+            ask_synthesis._stable_llm_fallback_reason(reason)
+            == "deadline_exhausted_local"
+        )
+        assert (
+            "deadline_exhausted_local"
+            not in ask_synthesis._TRANSIENT_JUDGE_REASONS
+        )
+        assert ask_synthesis._judge_outage_release("正文", _Spec(), reason) is None
+
+    def test_streaming_variant_classifies_the_same(self) -> None:
+        """流式和非流式产出两句不同的串，别只堵一句。"""
+        assert (
+            ask_synthesis._stable_llm_fallback_reason(
+                "LLM 流式合成超过共享截止时间，已降级为模板"
+            )
+            == "deadline_exhausted_local"
+        )
+
+    def test_provider_timeout_is_still_releasable(self) -> None:
+        """收紧的只是自家 deadline 这一类，供应商侧超时仍按瞬时故障处理。"""
+        assert (
+            ask_synthesis._stable_llm_fallback_reason("provider 读取超时")
+            == "timeout"
+        )
+        assert "timeout" in ask_synthesis._TRANSIENT_JUDGE_REASONS
+
+    def test_local_deadline_is_a_public_enum(self) -> None:
+        from intelligence.api import app
+
+        assert (
+            "deadline_exhausted_local" in app._STABLE_MACHINE_FALLBACK_REASONS
+        )
+
+    def test_call_budget_exhaustion_is_deliberately_unchanged(self) -> None:
+        """次数预算（LlmCallLedger）没跟着改——本轮没有证据说它也变成了常态。
+
+        写成断言而不是注释：改动范围要能被读出来，下一个人想扩到这里得先删掉
+        这条测试，那一刻他会看到上面这句话。
+        """
+        assert (
+            "call_budget_exhausted" in ask_synthesis._TRANSIENT_JUDGE_REASONS
+        )
 
 
 def test_released_status_can_reach_the_user() -> None:

@@ -344,7 +344,12 @@ class AnswerOrchestratorTests(unittest.TestCase):
             "output_too_long",
         )
 
-    def test_provider_is_recorded_when_detected_stream_times_out(self) -> None:
+    def test_provider_is_recorded_when_shared_deadline_runs_out(self) -> None:
+        """共享 deadline 用完归 ``deadline_exhausted_local``，不是 ``timeout``。
+
+        原先两者塌成一类，读起来像「供应商慢」，实际是我们自己的预算走完了——
+        处置相反（一个等它恢复，一个改预算），所以遥测必须分得开。
+        """
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
         provider = llm_refine.LLMProvider(
@@ -365,11 +370,13 @@ class AnswerOrchestratorTests(unittest.TestCase):
             result = synthesize_prepared_answer(prepared)
 
         self.assertIsNone(result.synthesis)
-        self.assertEqual(result.llm_fallback_reason, "timeout")
+        self.assertEqual(result.llm_fallback_reason, "deadline_exhausted_local")
         self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
         self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
         self.assertEqual(result.synthesis_diagnostic.state, "failed")
-        self.assertEqual(result.synthesis_diagnostic.reason_code, "timeout")
+        self.assertEqual(
+            result.synthesis_diagnostic.reason_code, "deadline_exhausted_local"
+        )
 
     def test_missing_prepared_messages_records_not_prepared(self) -> None:
         result = AskResult(
