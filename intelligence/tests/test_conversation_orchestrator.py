@@ -5258,3 +5258,57 @@ def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:
     assert verifier["task_frame_hash"] == frame_hash
     assert report["task_frame_hash"] == frame_hash
     assert report["task_frame"]["raw_question"] == query
+
+
+def test_turn_trace_exposes_configure_and_plan_as_their_own_l1_steps(
+    tmp_path,
+) -> None:
+    from intelligence.eval.normalize_harness_trace import normalize_records
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结证据",
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结证据",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    trace = run_store.load_trace(run_id)
+    by_step = {step["step_id"]: step for step in trace}
+
+    # `configure` (pre-run assembly) was invisible entirely; `plan` existed only
+    # fused inside the `controller` payload.  Both must now be their own span so
+    # a triage report can point at one without the other.
+    assert "configure" in by_step
+    assert "plan" in by_step
+    assembly = json.loads(by_step["configure"]["output_summary"])
+    assert assembly["skill_mode"] == "auto"
+    assert assembly["registry_skill_count"] >= 0
+    assert "research_plan" in json.loads(by_step["plan"]["output_summary"])
+
+    # No prompt text or question prose may ride along in the assembly snapshot.
+    assert "总结证据" not in by_step["configure"]["output_summary"]
+
+    normalized = normalize_records(trace, kind="workbench-trace")
+    steps = [event.step for event in normalized]
+    assert steps[0] == "configure"
+    assert "plan" in steps
+    assert "unmapped" not in steps

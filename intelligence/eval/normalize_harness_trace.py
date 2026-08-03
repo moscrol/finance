@@ -18,11 +18,21 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+#: The shared step vocabulary is the ``agent-run-triage`` skill's fixed L1
+#: pipeline, so a triage report's ``first_bad_step`` and this module's
+#: ``first_divergence_step`` live in the same space and can be joined by
+#: ``finding_id``.  Do not shorten it locally: dropping ``plan``/``tool`` (as
+#: vocabulary v1 did) silently collapses two distinct L1 boundaries -- "did it
+#: form the right steps" and "did it call the right tool correctly" -- into
+#: ``route``/``retrieve``, and makes an L1=``tool`` finding inexpressible here.
+VOCABULARY = "triage-l1-9"
 STEPS = (
     "configure",
     "intent",
+    "plan",
     "route",
     "retrieve",
+    "tool",
     "observe",
     "synthesize",
     "stop",
@@ -44,6 +54,16 @@ _ABSOLUTE_PATH = re.compile(r"(?:^|[\s=(])(?:/Users/|/home/|/tmp/|/var/|[A-Za-z]
 _SECRET = re.compile(
     r"(?i)(?:api[_-]?key|token|cookie|authorization|bearer|jwt|secret|password)"
     r"\s*[:=]\s*[^\s,;]+"
+)
+# Tool *results* in the rollout schema.  These must be tested before the tool
+# *request* terms, because ``function_call_output`` also contains
+# ``function_call``.  ``output_text`` is message content, not an observation,
+# so match ``_call_output`` rather than a bare ``output``.
+_CODEX_OBSERVE_TERMS = (
+    "_call_output",
+    "command_execution_output",
+    "tool_output",
+    "tool_result",
 )
 
 
@@ -109,12 +129,28 @@ def _record_type(record: Mapping[str, Any]) -> str:
     return "unknown"
 
 
+def _status_sources(record: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    # Benchmark events keep the terminal state one level down in ``payload``;
+    # the synthetic finish built by ``_load_records`` keeps it at the top.  Read
+    # both so the normalized artifact can reproduce the terminal column instead
+    # of degrading every event to ``status=unknown``.
+    payload = record.get("payload")
+    if isinstance(payload, Mapping):
+        return (record, payload)
+    return (record,)
+
+
+def _lookup_token(record: Mapping[str, Any], keys: Sequence[str]) -> str | None:
+    for source in _status_sources(record):
+        for key in keys:
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                return _string_token(value)
+    return None
+
+
 def _status(record: Mapping[str, Any]) -> str:
-    for key in ("status", "stop_reason", "state"):
-        value = record.get(key)
-        if isinstance(value, str) and value.strip():
-            return _string_token(value)
-    return "unknown"
+    return _lookup_token(record, ("status", "stop_reason", "state")) or "unknown"
 
 
 def _workbench_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
@@ -122,6 +158,13 @@ def _workbench_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None
     step_id = str(record.get("step_id") or "").lower()
     name = str(record.get("name") or "").lower()
     joined = f"{step_id} {name} {event_type}"
+    # `configure` and `plan` must be tested before the generic branches below:
+    # `turn_assembly` would otherwise fall through to unmapped, and
+    # `research_plan` contains "research" and would be captured by `retrieve`.
+    if "configure" in joined or "assembly" in joined:
+        return "configure", "native", "control"
+    if "plan" in joined:
+        return "plan", "native", "control"
     if "controller" in joined or "intent" in joined:
         return "intent", "native", "control"
     if "route" in joined:
@@ -148,8 +191,10 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
         return "configure", "normalized", "control"
     if "turn.started" in joined or "input" in joined:
         return "intent", "normalized", "control"
+    if any(term in joined for term in _CODEX_OBSERVE_TERMS):
+        return "observe", "normalized", "control"
     if any(term in joined for term in ("function_call", "command", "mcp", "tool")):
-        return "retrieve", "normalized", "tool"
+        return "tool", "normalized", "tool"
     if any(term in joined for term in ("message", "reasoning", "output_text", "generation")):
         return "synthesize", "normalized", "generation"
     if any(term in joined for term in ("turn.completed", "turn.failed", "error", "failed")):
@@ -157,15 +202,52 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
     return None
 
 
+#: Every kind the benchmark artifact is allowed to persist
+#: (``runtime_backend_benchmark._DIAGNOSTIC_EVENT_KINDS``) must have an entry
+#: here, otherwise it silently drops out of the comparison.  The step for each
+#: kind is taken from the runtime's own public semantics in
+#: ``episode_progress._EVENT_PROJECTIONS`` (planning→route, research request→
+#: retrieve, research outcome→observe, repair→route, finalizing→synthesize),
+#: not guessed from the kind's name.
+_BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
+    # intent
+    "task": ("intent", "control"),
+    # planning: what steps, how deep, what to repair -- L1 `plan`
+    "plan": ("plan", "control"),
+    "mode_decision": ("plan", "control"),
+    "repair_goal": ("plan", "control"),
+    # deciding to widen the search is retrieval intent -- L1 `retrieve`
+    "branch_started": ("retrieve", "control"),
+    # actually invoking a tool with arguments -- L1 `tool`
+    "tool_request": ("tool", "tool"),
+    "tool_call": ("tool", "tool"),
+    # observations, including rejected and failed attempts
+    "tool_result": ("observe", "control"),
+    "tool_error": ("observe", "control"),
+    "observation": ("observe", "control"),
+    "runtime_result": ("observe", "control"),
+    "branch_completed": ("observe", "control"),
+    "branch_failed": ("observe", "control"),
+    "repair_outcome": ("observe", "control"),
+    "invalid_action": ("observe", "control"),
+    # answer construction
+    "finalization": ("synthesize", "generation"),
+    "finalization_recovery_started": ("synthesize", "generation"),
+    # terminal
+    "finish": ("stop", "control"),
+    "turn.completed": ("stop", "control"),
+    "turn.failed": ("stop", "control"),
+    "error": ("stop", "control"),
+}
+
+
 def _benchmark_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
     kind = str(record.get("kind") or record.get("event_type") or "").lower()
-    if kind in {"tool_request", "tool_call"}:
-        return "retrieve", "normalized", "tool"
-    if kind in {"tool_result", "observation", "runtime_result"}:
-        return "observe", "normalized", "control"
-    if kind in {"finish", "turn.completed", "turn.failed", "error"}:
-        return "stop", "normalized", "control"
-    return None
+    mapped = _BENCHMARK_STEPS.get(kind)
+    if mapped is None:
+        return None
+    step, role = mapped
+    return step, "normalized", role
 
 
 def _mapping(record: Mapping[str, Any], kind: str) -> tuple[str, str, str] | None:
@@ -182,6 +264,9 @@ def _summary(record: Mapping[str, Any], kind: str, mapping: tuple[str, str, str]
     source_type = _string_token(_record_type(record))
     status = _status(record)
     parts = [f"source={source_type}", f"status={status}"]
+    stop_reason = _lookup_token(record, ("stop_reason",))
+    if stop_reason is not None and stop_reason != status:
+        parts.append(f"stop_reason={stop_reason}")
     if mapping is not None:
         parts.append(f"role={mapping[2]}")
     if kind == "runtime-benchmark":
@@ -248,11 +333,20 @@ def compare_sequences(
                 (f"left={left_step}", f"right={right_step}", f"ordinal={index}"),
             )
     if len(left_steps) != len(right_steps):
-        step = left_steps[min(len(left_steps), len(right_steps))]
+        # One side is a strict prefix of the other.  The first divergence is the
+        # extra step on the longer side; indexing the shorter side here would
+        # walk off the end.
+        common = min(len(left_steps), len(right_steps))
+        longer_side = "left" if len(left_steps) > len(right_steps) else "right"
+        longer = left_steps if longer_side == "left" else right_steps
         return ComparisonResult(
             "equivalent_before_divergence",
-            step,
-            (f"mapped event counts differ: left={len(left_steps)} right={len(right_steps)}",),
+            longer[common],
+            (
+                f"mapped event counts differ: left={len(left_steps)} right={len(right_steps)}",
+                f"continues_on={longer_side}",
+                f"ordinal={common}",
+            ),
         )
     return ComparisonResult("fully_equivalent", None, ("mapped step sequence matches",))
 
@@ -318,7 +412,8 @@ def _build_output(path: Path, kind: str) -> dict[str, Any]:
     resolved_kind = _infer_kind(path, records) if kind == "auto" else kind
     events = normalize_records(records, kind=resolved_kind)
     return {
-        "schema_version": "normalized-harness-trace-1",
+        "schema_version": "normalized-harness-trace-2",
+        "vocabulary": VOCABULARY,
         "source_kind": resolved_kind,
         "source_file": _string_token(path.name, fallback="source-redacted"),
         "input_sha256": digest,

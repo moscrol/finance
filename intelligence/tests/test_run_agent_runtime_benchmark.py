@@ -1151,7 +1151,8 @@ def test_live_runner_uses_production_adapter_delivery_repair(
     assert arm["protocol_issues"] == []
     assert [
         event["kind"] for event in arm["diagnostics"]["events"]
-    ] == ["repair_goal"]
+    ] == ["task", "repair_goal"]
+    assert set(arm["diagnostics"]["events"][0]["payload"]) <= {"task_frame_hash"}
 
     projection_case["private"] = True
     private_output = tmp_path / "private-projection.json"
@@ -1323,10 +1324,18 @@ def test_live_runner_exports_safe_diagnostics_for_partial_research(
     encoded = json.dumps(payload, ensure_ascii=False)
 
     assert [event["kind"] for event in diagnostics["events"]] == [
+        "task",
         "tool_request",
         "invalid_action",
     ]
-    assert diagnostics["events"][0]["payload"]["arguments"] == {
+    # The intent landmark survives serialization, but its payload must stay a
+    # hash.  The case-level `question` / `task_frame` are the frozen task set and
+    # are kept on purpose; the trace events must not carry the prose again.
+    assert set(diagnostics["events"][0]["payload"]) <= {"task_frame_hash"}
+    assert "这一周行情下跌的主要原因是什么" not in json.dumps(
+        diagnostics["events"], ensure_ascii=False
+    )
+    assert diagnostics["events"][1]["payload"]["arguments"] == {
         "query": "A股下跌原因"
     }
     assert diagnostics["missing_outputs"]

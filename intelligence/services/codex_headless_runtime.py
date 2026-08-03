@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 import hashlib
 import json
@@ -53,6 +53,25 @@ _EXTERNAL_ACTION_ITEM_TYPES = frozenset(
         "computer_use",
     }
 )
+#: Issues that are genuine *model protocol violations*, matching what
+#: ``agent_episode`` counts as ``invalid_actions``: an unauthorized tool, a tool
+#: call after finalization started, and an unparseable finish.  Every other
+#: issue (timeout, cancellation, process failure, malformed transport) is a
+#: harness or infrastructure observation and must not be re-encoded as model
+#: misbehaviour -- doing so pushes attribution onto the wrong layer.
+_INVALID_ACTION_ISSUES = frozenset(
+    {
+        "unauthorized_headless_action",
+        "tool_call_during_finalization_recovery",
+        "headless_invalid_finish",
+    }
+)
+def count_invalid_actions(issues: Iterable[str]) -> int:
+    """Count only model protocol violations, never harness or infra issues."""
+
+    return sum(1 for issue in issues if issue in _INVALID_ACTION_ISSUES)
+
+
 _SAFE_ENV_KEYS = (
     "HOME",
     "PATH",
@@ -984,7 +1003,7 @@ class CodexHeadlessRuntime:
             usage=AgentUsage(
                 llm_calls=llm_calls,
                 tool_calls=snapshot.executed_count,
-                invalid_actions=len(unique_issues),
+                invalid_actions=count_invalid_actions(unique_issues),
             ),
         )
 

@@ -1588,6 +1588,27 @@ class TurnOrchestrator:
                     inherited_intent,
                     skill_ids=tuple(inherited_message.invoked_skill_ids),
                 )
+            # L1 `configure`: the pre-run assembly layer (memory/context, skill
+            # registry, permission scope).  It runs on every turn but used to be
+            # invisible, which left `configure` empty on both harnesses and made
+            # "was the agent assembled with the right authority" unanswerable
+            # from the trace.  Identities and counts only -- no prompt text.
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "configure",
+                "turn_assembly",
+                {
+                    "skill_mode": skill_mode,
+                    "registry_skill_count": len(self.skill_registry.definitions),
+                    "selected_skill_ids": sorted(selected_skill_ids or ()),
+                    "context_message_count": len(context.recent_messages),
+                    "context_has_summary": bool(context.summary),
+                    "inherited_intent": inherited_intent is not None,
+                    "inherited_turn_id": inherited_turn_id,
+                },
+            )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
@@ -1708,6 +1729,23 @@ class TurnOrchestrator:
                     "decision_diverged_from_legacy": decision.lane != legacy_lane,
                     "router_allowed": decision.lane in {"research", "workflow"},
                     "elapsed_ms": self._elapsed_ms(controller_started),
+                },
+            )
+            # L1 `plan`: the research plan was already computed above but was
+            # only ever emitted inside the `controller` payload, fusing two
+            # distinct L1 boundaries ("did it understand the task" vs "did it
+            # form the right steps") into one span.  Split it so a triage report
+            # can point at `plan` on its own.
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "plan",
+                "research_plan",
+                {
+                    "research_plan": research_plan.to_dict(),
+                    "required_outputs": sorted(turn_intent.required_outputs or ()),
+                    "lane": decision.lane,
                 },
             )
             self._check_cancelled()

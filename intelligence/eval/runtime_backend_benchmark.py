@@ -43,8 +43,15 @@ _SENSITIVE_KEY_PARTS = frozenset(
         "token",
     }
 )
+#: The ``task`` event is the episode's ``intent`` landmark.  Its payload carries
+#: the raw question, so it used to be dropped wholesale -- which also dropped the
+#: only marker of where a turn begins and made every artifact start at
+#: ``sequence=2``.  Keep the landmark, drop the prose: see ``_TASK_EVENT_KEEP``.
+_TASK_EVENT_KIND = "task"
+_TASK_EVENT_KEEP = ("task_frame_hash",)
 _DIAGNOSTIC_EVENT_KINDS = frozenset(
     {
+        _TASK_EVENT_KIND,
         "tool_request",
         "tool_result",
         "tool_error",
@@ -151,9 +158,12 @@ class RuntimeDiagnostics:
             payload = raw.get("payload")
             if kind not in _DIAGNOSTIC_EVENT_KINDS or not isinstance(sequence, int):
                 continue
-            sanitized_payload = _sanitize_diagnostic_value(
-                payload if isinstance(payload, Mapping) else {}
-            )
+            payload = payload if isinstance(payload, Mapping) else {}
+            if kind == _TASK_EVENT_KIND:
+                payload = {
+                    key: payload[key] for key in _TASK_EVENT_KEEP if key in payload
+                }
+            sanitized_payload = _sanitize_diagnostic_value(payload)
             events.append(
                 {
                     "sequence": sequence,

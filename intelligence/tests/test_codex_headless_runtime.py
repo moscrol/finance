@@ -1187,3 +1187,23 @@ def test_local_exec_command_enables_loopback_without_widening_tmp_roots() -> Non
     assert "sandbox_workspace_write.exclude_slash_tmp=true" in command.args
     assert "--dangerously-bypass-approvals-and-sandbox" not in command.args
     assert "--add-dir" not in command.args
+
+
+def test_invalid_actions_counts_only_model_protocol_violations() -> None:
+    from intelligence.services.codex_headless_runtime import count_invalid_actions
+
+    # A timeout is a harness/budget observation.  Counting it as an invalid
+    # action re-encodes "we ran out of time" into "the model misbehaved", which
+    # sends attribution to the wrong layer.
+    assert count_invalid_actions(("headless_timeout",)) == 0
+    assert count_invalid_actions(("cancelled", "headless_no_finish")) == 0
+    assert count_invalid_actions(("headless_process_failed",)) == 0
+
+    assert count_invalid_actions(("unauthorized_headless_action",)) == 1
+    assert count_invalid_actions(("headless_invalid_finish",)) == 1
+    assert (
+        count_invalid_actions(
+            ("headless_timeout", "unauthorized_headless_action", "headless_no_finish")
+        )
+        == 1
+    )

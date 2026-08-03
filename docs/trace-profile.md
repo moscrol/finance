@@ -1,7 +1,8 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-03
+- last_updated: 2026-08-04
 - updated_by_run: `run_20260803_171452_043073`
+- 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
 
@@ -25,6 +26,9 @@
 | LLM ledger `caller=synthesis` | 可直接区分 brief/composer/judge | 旧 ledger 只给共同 caller，不能按顺序安全反推 phase；必须用新增 phase telemetry | 2026-08-03 用户纠偏与 M1 报告 |
 | case `A4-*` | Finance adapter L3=A4 | 验收题编号，与概率校准分类无关 | acceptance cases 与 finance adapter taxonomy |
 | `acceptance run` 默认 base | 当前 8801 | 默认曾指向 8799；本项目真实 canary 必须显式 `--base http://127.0.0.1:8801` | handoff §6 |
+| benchmark arm `stop_reason` | 运行时的终止原因 | arm 级是**事后裁决**，会被后处理覆盖；事件级 `finish.payload.stop_reason` 才是运行时观测。五题中 `ruihuatai-valuation` 两者不一致：arm=`semantic_repair`，finish 事件=`model_finish` | `e179b15c` receipt；跨 harness 控制面比较必须用事件级 |
+| `runtime_invalid_actions:N` | 模型有 N 次动作违规 | **`< 2026-08-04` 的 artifact 里等于 `len(unique_issues)`**，超时/取消/进程失败都被计入。`e179b15c` 两题的 `runtime_invalid_actions:1` 实为 `headless_timeout`，真实违规 0 次。修正后只计 `unauthorized_headless_action` / `tool_call_during_finalization_recovery` / `headless_invalid_finish` | `codex_headless_runtime.count_invalid_actions`；口径对齐 `agent_episode` |
+| benchmark 事件 `sequence` 从 2 起跳 | 前两个事件不存在 | `sequence=1` 的 `task` 事件（intent 地标）**被落盘白名单丢弃**，不是没埋点。`< 2026-08-04` 的 artifact 无法补出 intent；此后 `task` 保留但 payload 只留 `task_frame_hash` | `runtime_backend_benchmark._TASK_EVENT_KEEP` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -56,9 +60,15 @@
 ## 6. Cross-harness normalized profile
 
 跨 harness 审计只比较控制面事件的顺序，不把两个运行时的内部 span
-粒度假设成相同。共享词表固定为：
+粒度假设成相同。共享词表**就是 `agent-run-triage` skill 的固定 L1 九步**
+（`vocabulary: triage-l1-9`），不在本仓另立一套：
 
-`configure → intent → route → retrieve → observe → synthesize → stop`
+`configure → intent → plan → route → retrieve → tool → observe → synthesize → stop`
+
+> 2026-08-04 前本仓用的是七步（缺 `plan` / `tool`），会把「是否形成了对的步骤」
+> 与「是否正确调用了工具」压进 `route` / `retrieve`，导致一条 L1=`tool` 的
+> triage finding 在本仓根本无法表达。产物 `schema_version` 随之升到
+> `normalized-harness-trace-2` 并新增 `vocabulary` 字段；v1 产物不可与 v2 直接比较。
 
 | source kind | native event / field | normalized step | provenance |
 |---|---|---|---|
@@ -70,12 +80,25 @@
 | `workbench-trace` | `stop`、`complete`、`terminal`、`error` | `stop` | `native` |
 | `codex-rollout` / `codex-exec` | `thread.started` / `session.started` | `configure` | `normalized` |
 | `codex-rollout` / `codex-exec` | `turn.started` | `intent` | `normalized` |
-| `codex-rollout` / `codex-exec` | function/command/MCP/tool item | `retrieve` | `normalized` |
+| `codex-rollout` / `codex-exec` | function/command/MCP/tool item | `tool` | `normalized` |
+| `codex-rollout` / `codex-exec` | `*_call_output` / `tool_result` 等工具返回 | `observe` | `normalized` |
 | `codex-rollout` / `codex-exec` | message/reasoning/output item | `synthesize` | `normalized` |
 | `codex-rollout` / `codex-exec` | `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
-| `runtime-benchmark` | `tool_request` | `retrieve` | `normalized` |
-| `runtime-benchmark` | `tool_result` / `runtime_result` | `observe` | `normalized` |
+| `runtime-benchmark` | `task` | `intent` | `normalized` |
+| `runtime-benchmark` | `plan` / `mode_decision` / `repair_goal` | `plan` | `normalized` |
+| `runtime-benchmark` | `branch_started` | `retrieve` | `normalized` |
+| `runtime-benchmark` | `tool_request` / `tool_call` | `tool` | `normalized` |
+| `runtime-benchmark` | `tool_result` / `tool_error` / `runtime_result` / `observation` / `branch_completed` / `branch_failed` / `repair_outcome` / `invalid_action` | `observe` | `normalized` |
+| `runtime-benchmark` | `finalization` / `finalization_recovery_started` | `synthesize` | `normalized` |
 | `runtime-benchmark` | `finish` / `error` | `stop` | `normalized` |
+
+`runtime-benchmark` 的每个 step 取自运行时自己的公开语义
+（`episode_progress._EVENT_PROJECTIONS`：planning→`plan`、research 请求→
+`tool`、research 结果→`observe`、repair→`plan`、finalizing→`synthesize`），
+不按 kind 名字猜。**投影契约**：凡是
+`runtime_backend_benchmark._DIAGNOSTIC_EVENT_KINDS` 允许落盘的 kind，必须在
+`normalize_harness_trace._BENCHMARK_STEPS` 里有条目，否则它会静默掉出比较；这
+条由 `test_every_persisted_benchmark_kind_has_a_normalized_step` 守住。
 
 没有明确映射的事件必须输出 `step=unmapped` 和
 `native_or_normalized=unmapped`，不能根据摘要、答案或事件相邻位置猜测。
@@ -100,3 +123,54 @@ JSONL 没有进入 artifact。因此旧 Codex receipt 只能支持
 cutoff、可观察的两侧原生事件和冻结的 task contract；本轮旧 receipt 不满足
 这些前提，所以 T4 报告只作 trace-shape/数据缺口审计，不给 SDK 迁移或质量胜负
 结论。
+
+## 8. Instrumentation coverage matrix（2026-08-04）
+
+共享词表对齐到 `agent-run-triage` 的 L1 九步（`vocabulary: triage-l1-9`，
+产物 `schema_version: normalized-harness-trace-2`）之后，把两侧现有收据投影上去：
+
+| L1 step | workbench 埋点前 | workbench 埋点后 | codex benchmark | 两侧都有 |
+|---|---|---|---|---|
+| `configure` | – | **1** | – | |
+| `intent` | 1 | 1 | **1**（`task`，仅新 run） | ✓ |
+| `plan` | – | **1** | – | |
+| `route` | 1 | 1 | – | |
+| `retrieve` | 2 | 1 | – | |
+| `tool` | – | – | 11 | |
+| `observe` | 3 | 1 | 16 | ✓ |
+| `synthesize` | 1 | 1 | – | |
+| `stop` | – | – | 5 | |
+
+- 埋点前（`run_20260803_171452_043073`）：两侧都有仪器的**只有 1 步**（`observe`）。
+- 2026-08-04 补埋点后：workbench 侧序列为
+  `configure → intent → plan → route → retrieve → synthesize → observe`（7/9），
+  两侧共有升到 **2 步**。
+- 门槛 `configure → intent → plan → route` 四步两侧非空：**workbench 侧 4/4 达标，
+  codex 侧 1/4**（只有 `intent`）。整体仍未达标。
+
+这改写了跨 harness 审计「无法配对」的成因判断。此前记的是「五题的 workbench
+trace 没保留」——那只是数据保留问题。真实成因更靠前：**两侧仪器覆盖的是流水线的
+不同半段**。workbench 记 `intent/route/retrieve/synthesize`，codex 记
+`tool/stop`；即使把五题的 workbench trace 全部补齐，可对齐的 step 仍然只有
+`observe` 一个，`first_divergence_step` 依然没有行为含义。
+
+因此下一次公平审计的门槛是**可计数**的，不再是「让两侧都保留原生事件」这种无法验收的表述：
+
+| 缺口 | 属哪侧 | 状态 | 最小埋点 |
+|---|---|---|---|
+| `configure` | workbench | **已补** | `step_id=configure` / `name=turn_assembly`，记 skill_mode、registry 规模、selected_skill_ids、上下文条数、继承 intent；只记身份与计数 |
+| `plan` | workbench | **已补** | `step_id=plan` / `name=research_plan`。数据本来就在 `controller` 的 payload 里，属**拆融合 span**，不是造事件 |
+| `intent` | codex | **已补** | `task` 事件回到落盘白名单，**仅对 2026-08-04 之后的 run 生效**，历史 artifact 无法追认 |
+| `configure` | codex | 未补 | `thread.started` 已被 runtime 解析（`thread_id` 进了 `runtime_result` payload），但没有独立的 configure 事件；需新增 kind 并加白名单 |
+| `plan` | codex | 未补 | `mode_decision` 由 `agent_episode` 发射，`codex_headless_runtime` 自建事件列表，不走该路径 |
+| `route` | codex | **结构性差异，非缺口** | codex episode 不做 skill 分派（backend 由 benchmark 选定、tool registry 固定）。强行造一个 `route` 事件只是为了凑指标 |
+| `tool` | workbench | 未补 | `trace.jsonl` 只到 `ask_retrieve_compose` 粒度，单次工具调用在 `stream.jsonl`/retrieval 里 |
+| `stop` | workbench | 未补 | trace 以 budget 事件收尾，无显式终态 step |
+| `synthesize` | codex | 未补 | headless artifact 不保留 message span |
+
+验收标准：`configure → intent → plan` 三步在两侧都非空，`first_divergence_step`
+才第一次具备行为含义。**当前 1/3**（只有 `intent`）；workbench 侧已就位，缺口全在 codex 侧。
+
+> 门槛从「四步」收窄为「三步」：`route` 在 codex 侧是**结构性不存在**而非仪器缺失。
+> 把结构差异写成埋点缺口，会诱导为满足指标而制造事件——那正是本 profile 反复
+> 在防的重编码。

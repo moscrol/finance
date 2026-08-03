@@ -16,8 +16,16 @@ A4，也不把旧失败样本重写成成功样本。
 | Workbench grounded daily-review trace (mapping smoke only) | `run_20260803_171452_043073` | `6ab2f09a196c64a566783d742022d9b428352640ff1c66893014dc0b58cebf56` | `intelligence/eval/measurements/2026-08-03-cross-harness/workbench-a4-daily-review-171452.json` |
 
 归一化器是 `intelligence/eval/normalize_harness_trace.py`。Codex receipt
-实际包含 5 个 case、32 个可读控制事件，其中 2 个 `tool_error` 保持
-`unmapped`；Workbench smoke 有 8 个 native 事件、0 个 unmapped。输出只保存
+实际包含 5 个 case、32 个可读控制事件；Workbench smoke 有 8 个 native
+事件。两侧 unmapped 均为 0。
+
+> **2026-08-04 投影层收口后的修订。** 本文初版记「2 个 `tool_error` 保持
+> `unmapped`」。那不是审慎，是映射缺口：benchmark artifact 允许落盘 13 种
+> kind，而 `_benchmark_mapping` 只认 5 种。现已按运行时自己的公开语义
+> （`episode_progress._EVENT_PROJECTIONS`）补齐，`tool_error` 归入
+> `observe`（工具返回了一个错误，仍然是一次观察），unmapped 归零。
+
+输出只保存
 事件身份、状态/计数摘要、时间戳和输入哈希，不保存 prompt、答案正文、工具
 参数、stdout、绝对路径或凭据。
 
@@ -28,14 +36,29 @@ A4，也不把旧失败样本重写成成功样本。
 
 | case | question | Codex terminal observation |
 |---|---|---|
-| `rebound-duration` | 昨天的反弹能持续多久 | `partial / headless_timeout`，有 invalid action |
+| `rebound-duration` | 昨天的反弹能持续多久 | `partial / headless_timeout` |
 | `ruihuatai-valuation` | 瑞华泰的合理估值 | `completed / semantic_repair` |
-| `weekly-market-cause` | 这一周行情下跌的主要原因是什么 | `partial / headless_timeout`，有 invalid action |
+| `weekly-market-cause` | 这一周行情下跌的主要原因是什么 | `partial / headless_timeout` |
 | `current-mainline` | 目前市场的主线是什么 | `completed / model_finish` |
 | `unfamiliar-methodology` | 一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音 | `completed / model_finish` |
 
 这里的“可读”不等于“成功”：5/5 有 artifact，终态是 3 个 completed、2 个
 partial；特别是 `weekly-market-cause` 不是成功样本，不能用它支持能力胜负。
+
+> **2026-08-04 更正。** 初版在 `rebound-duration` 与 `weekly-market-cause`
+> 两行写了「有 invalid action」，依据是 `protocol_issues:
+> runtime_invalid_actions:1`。该依据不成立：`codex_headless_runtime` 当时把
+> `invalid_actions` 算作 `len(unique_issues)`，即把**所有** issue 数量当成违规
+> 动作数。两题的 runtime issues 都只有 `['headless_timeout']`，**实际 invalid
+> action 为 0 次**。这两题唯一的 `tool_error` 是 `research_stage_closed`，由
+> `headless_tool_gateway` 主动关闭研究窗口所致，属 harness 预算行为，不是模型
+> 动作违规。计数已按 `agent_episode` 的口径修正。
+
+上表第三列取的是 **arm 级** `stop_reason`。归一化产物记录的是**事件级**
+`finish.payload.stop_reason`，两者在 `ruihuatai-valuation` 上不一致
+（arm=`semantic_repair`，事件=`model_finish`）：`semantic_repair` 是模型正常
+finish 之后的事后裁决，不是运行时终止原因。跨 harness 控制面比较必须用事件级
+那个值，详见 `docs/trace-profile.md` §2。
 
 ## Paired comparison result
 

@@ -1,5 +1,6 @@
 {
-  "schema_version": "normalized-harness-trace-1",
+  "schema_version": "normalized-harness-trace-2",
+  "vocabulary": "triage-l1-9",
   "source_kind": "workbench-trace",
   "source_file": "trace.jsonl",
   "input_sha256": "6ab2f09a196c64a566783d742022d9b428352640ff1c66893014dc0b58cebf56",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 import pytest
@@ -329,3 +330,31 @@ def test_summary_fails_closed_when_runtime_arm_failed() -> None:
     assert summary["passed"] is False
     assert summary["protocol_failure_count"] == 1
     assert summary["backends"]["continuous_glm"]["protocol_issue_count"] == 1
+
+
+def test_task_event_keeps_the_intent_landmark_without_the_question() -> None:
+    from intelligence.eval.runtime_backend_benchmark import RuntimeDiagnostics
+
+    diagnostics = RuntimeDiagnostics(
+        events=(
+            {
+                "sequence": 1,
+                "kind": "task",
+                "payload": {
+                    "question": "昨天的反弹能持续多久",
+                    "task_frame": {"as_of": "2026-07-24"},
+                    "task_frame_hash": "1cde0df7cf",
+                },
+            },
+            {"sequence": 2, "kind": "tool_request", "payload": {"tool": "market_data"}},
+        ),
+    )
+
+    # The landmark survives so the artifact no longer starts at sequence=2, but
+    # the raw question and full task frame must not reach the receipt.
+    assert [event["kind"] for event in diagnostics.events] == ["task", "tool_request"]
+    assert diagnostics.events[0]["sequence"] == 1
+    assert diagnostics.events[0]["payload"] == {"task_frame_hash": "1cde0df7cf"}
+    assert "昨天的反弹能持续多久" not in json.dumps(
+        list(diagnostics.events), ensure_ascii=False
+    )
