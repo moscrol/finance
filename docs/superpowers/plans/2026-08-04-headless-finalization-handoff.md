@@ -286,6 +286,6 @@ env -u FORESIGHT_USERS_DIR \
   /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests
 ```
 
-- [ ] **Step 4: 风险扫描、提交、push 分支**
+- [x] **Step 4: 风险扫描、提交、push 分支**
 
 不提交任何 `.env*`、密钥、数据库、PDF、压缩包、缓存或外部并发改动；push `eval/budget-calibration`，不合并 main。
