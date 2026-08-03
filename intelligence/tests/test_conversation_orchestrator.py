@@ -4780,19 +4780,10 @@ def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
         return "whole answer", "stop"
 
     monkeypatch.setattr(llm_refine, "_post_chat_synthesis", fake_post_chat)
-    deadline = type(
-        "FixtureDeadline",
-        (),
-        {
-            "require_remaining": lambda self, minimum=0: 2.0,
-            "remaining": lambda self: 2.2,
-            # 调用点现在按 min(时间片, 剩余) 夹逼（见 Deadline.call_timeout）。
-            # 这个手搓替身得跟上，否则测的是 AttributeError 不是本意的回退路径。
-            "call_timeout": lambda self, timeout, minimum=1.0: min(
-                self.require_remaining(minimum), float(timeout)
-            ),
-        },
-    )()
+    # 用真 Deadline 而不是手搓替身：调用点会读 expires_at / call_timeout /
+    # require_remaining，替身每次跟不上就变成测 AttributeError（已经发生两次）。
+    # 本例要守的是「回退用的是剩余预算，不是调用方给的 30 秒」。
+    deadline = llm_refine.Deadline.from_timeout(2.2)
 
     result, reason = llm_refine.synthesize_messages_stream(
         [{"role": "user", "content": "question"}],
@@ -4803,7 +4794,9 @@ def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
 
     assert reason == ""
     assert result is not None
-    assert observed == [2.0]
+    # 关键是「远小于调用方传的 30」，不是某个精确小数。
+    assert len(observed) == 1
+    assert observed[0] == pytest.approx(2.0, abs=0.3)
 
 
 def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(

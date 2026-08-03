@@ -1229,6 +1229,17 @@ def synthesize_messages(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
     shared_deadline = deadline or Deadline.from_timeout(timeout)
+    # 时间片是**这一段**的预算，不是「每次尝试」的预算。先把片折成一个子 deadline，
+    # 重试在它内部消耗——否则 N 次重试就是 N × 片，实测 22s 的片跑出 44.5s（2 次尝试
+    # 各超时一次），跟修好前的「片形同虚设」只差一个倍数。
+    phase_deadline = Deadline(
+        min(
+            shared_deadline.expires_at,
+            time.monotonic() + max(0.0, float(timeout or 0.0)),
+        )
+        if timeout
+        else shared_deadline.expires_at
+    )
     # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
     # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
     last_exc: Exception | None = None
@@ -1236,7 +1247,7 @@ def synthesize_messages(
     finish_reason: str | None = None
     for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
-            remaining = shared_deadline.call_timeout(timeout)
+            remaining = phase_deadline.require_remaining(1)
             content, finish_reason = _post_chat_synthesis(
                 provider,
                 messages,
@@ -1260,7 +1271,9 @@ def synthesize_messages(
                 rejection = _budget_rejection()
                 if rejection is not None:
                     return None, rejection
-                remaining = shared_deadline.remaining()
+                # 按**本段**剩余判，不是整条共享 deadline：片用完了就该降级，
+                # 而不是借下游几段的时间再试一次。
+                remaining = phase_deadline.remaining()
                 if remaining < 1:
                     return None, "LLM 合成超过共享截止时间，已降级为模板"
                 # 退避 + 抖动，但绝不睡穿共享 deadline：留 0.5 秒给下一次尝试

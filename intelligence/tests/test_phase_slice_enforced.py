@@ -18,6 +18,8 @@ brief 分到 22 秒，跑了 69.7 秒。原因是 ``synthesize_messages`` 里
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from intelligence.services import llm_refine
@@ -79,6 +81,44 @@ class TestEnforcedAtTheCallSite:
         assert seen, "没有发起调用"
         # 修复前这里会拿到 ~90：整条 deadline 被当成单段超时。
         assert seen[0] <= 23, f"时间片未被强制执行：实际传入 {seen[0]}s"
+
+    def test_retries_share_the_slice_not_multiply_it(self, monkeypatch) -> None:
+        """片是**这一段**的预算，不是每次尝试的预算。
+
+        修完「片被忽略」之后实测仍然超：22s 的片跑出 44.5s —— 两次尝试各拿 22s。
+        N 次重试 × 片，跟片形同虚设只差一个倍数。
+        """
+        seen: list[float] = []
+        # 约束是墙钟不是请求参数：让尝试真的把自己那片用光，才复现得出实测里
+        # 22s 片跑出 44.5s 的形状。这里用真 sleep 而不是假时钟——打全局
+        # ``time.monotonic`` 会波及同进程内其它测试，为省 2 秒不值得。
+        started = time.monotonic()
+
+        def flaky_post(provider, messages, timeout, *args, **kwargs):
+            seen.append(timeout)
+            time.sleep(timeout)
+            raise OSError("transient")
+
+        monkeypatch.setattr(
+            llm_refine,
+            "detect_provider",
+            lambda override=None: llm_refine.LLMProvider(
+                "fake", "k", "https://example.invalid/v1", "m"
+            ),
+        )
+        monkeypatch.setattr(llm_refine, "_post_chat_synthesis", flaky_post)
+        monkeypatch.setattr(llm_refine, "_retry_delay_seconds", lambda _a: 0.0)
+
+        llm_refine.synthesize_messages(
+            [{"role": "user", "content": "x"}],
+            timeout=2,
+            deadline=llm_refine.Deadline.from_timeout(90),
+        )
+
+        consumed = time.monotonic() - started
+        assert consumed <= 3.0, (
+            f"重试把时间片翻倍了：各次超时 {seen}，墙钟共消耗 {consumed:.1f}s"
+        )
 
     def test_streaming_call_receives_the_slice(self, monkeypatch) -> None:
         """流式路径是同一处错误的第二份拷贝，别只修一半。"""
