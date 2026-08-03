@@ -179,3 +179,125 @@ def test_render_reports_phase_instrumentation_gap() -> None:
         {"name": "composer", "status": "failed"}
     ]
     assert sh._phase_note(payload) == "有 phase 埋点"
+
+
+def _write_cli_run(
+    tmp_path: Path,
+    *,
+    name: str = "sample.json",
+    state: str = "accepted",
+    completed: bool = True,
+    include_diagnostic: bool = True,
+) -> Path:
+    turn = {
+        "status": "completed" if completed else "timeout",
+        "answer": "正文",
+        "elapsed_s": 10.0,
+    }
+    if include_diagnostic:
+        turn["synthesis_diagnostic"] = {
+            "state": state,
+            "reason_code": "validated",
+            "phases": [{"name": "judge", "status": "ok"}],
+        }
+    payload = {
+        "preflight_detail": "revision=abc",
+        "cases": [{"case_id": "A4", "turns": [turn]}],
+    }
+    path = tmp_path / name
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_cli_default_output_stays_byte_for_byte(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = _write_cli_run(tmp_path)
+
+    assert sh.main([str(path)]) == 0
+
+    assert capsys.readouterr().out == (
+        "\n=== sample  revision=abc  [有 phase 埋点] ===\n"
+        "  完整通过                 1/1\n"
+        "\n=== 合计 1 个 completed turn ===\n"
+        "  完整通过                 1/1  (100%)\n"
+        "\n真实完整通过率：1/1 = 100%\n"
+        "  注：放行未核验不计入通过——绑定过了但没有第二意见，"
+        "把它算进健康数就是这次要修的那个错。\n"
+    )
+
+
+def test_gate_full_pass_returns_zero(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path)
+
+    assert sh.main(["--gate", "--min-full-pass", "1.0", str(path)]) == 0
+
+
+def test_gate_template_fallback_returns_one(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path, state="rejected")
+
+    assert sh.main(["--gate", "--min-full-pass", "1.0", str(path)]) == 1
+
+
+def test_gate_unknown_can_be_blocked_at_a_lower_ratio(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path, include_diagnostic=False)
+
+    assert (
+        sh.main(
+            [
+                "--gate",
+                "--min-full-pass",
+                "0.0",
+                "--fail-on-unknown",
+                str(path),
+            ]
+        )
+        == 1
+    )
+
+
+def test_gate_fails_when_any_input_is_missing(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path)
+    missing = tmp_path / "missing.json"
+
+    assert (
+        sh.main(
+            [
+                "--gate",
+                "--min-full-pass",
+                "1.0",
+                str(path),
+                str(missing),
+            ]
+        )
+        == 1
+    )
+
+
+def test_gate_fails_when_an_input_has_no_completed_turn(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path, completed=False)
+
+    assert sh.main(["--gate", "--min-full-pass", "0.0", str(path)]) == 1
+
+
+@pytest.mark.parametrize("ratio", ["nan", "inf", "-0.1", "1.1"])
+def test_gate_rejects_non_finite_or_out_of_range_ratio(
+    tmp_path: Path,
+    ratio: str,
+) -> None:
+    path = _write_cli_run(tmp_path)
+
+    with pytest.raises(SystemExit) as caught:
+        sh.main(["--gate", "--min-full-pass", ratio, str(path)])
+
+    assert caught.value.code == 2
+
+
+def test_gate_only_flags_require_gate(tmp_path: Path) -> None:
+    path = _write_cli_run(tmp_path)
+
+    with pytest.raises(SystemExit) as caught:
+        sh.main(["--min-full-pass", "1.0", str(path)])
+
+    assert caught.value.code == 2

@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import Any
 
 FULL_PASS = "full_pass"
@@ -62,6 +64,36 @@ class TurnHealth:
     elapsed_s: float
     # 判定依据：diagnostic 直接给的，还是从正文告示反推的（旧产物）。
     inferred_from_answer: bool
+
+
+@dataclass(frozen=True)
+class RunAnalysis:
+    path: Path
+    payload: dict[str, Any] | None
+    turns: tuple[TurnHealth, ...]
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class HealthAnalysis:
+    runs: tuple[RunAnalysis, ...]
+
+    @property
+    def counts(self) -> Counter[str]:
+        grand: Counter[str] = Counter()
+        for run in self.runs:
+            grand.update(summarize(list(run.turns)))
+        return grand
+
+    @property
+    def total(self) -> int:
+        return sum(self.counts.values())
+
+
+@dataclass(frozen=True)
+class GateDecision:
+    passed: bool
+    reasons: tuple[str, ...]
 
 
 def classify_turn(case_id: str, turn: dict[str, Any]) -> TurnHealth:
@@ -131,21 +163,57 @@ def _phase_note(payload: dict[str, Any]) -> str:
     return "无 phase 埋点（查不出是哪一段）"
 
 
-def render(paths: list[Path]) -> str:
-    lines: list[str] = []
-    grand = Counter()
+def analyze(paths: list[Path]) -> HealthAnalysis:
+    runs: list[RunAnalysis] = []
     for path in paths:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            lines.append(f"跳过 {path.name}：{exc}")
+            runs.append(
+                RunAnalysis(
+                    path=path,
+                    payload=None,
+                    turns=(),
+                    error=str(exc),
+                )
+            )
             continue
-        turns = classify_run(payload)
+        if not isinstance(payload, dict):
+            runs.append(
+                RunAnalysis(
+                    path=path,
+                    payload=None,
+                    turns=(),
+                    error="顶层 JSON 不是对象",
+                )
+            )
+            continue
+        runs.append(
+            RunAnalysis(
+                path=path,
+                payload=payload,
+                turns=tuple(classify_run(payload)),
+            )
+        )
+    return HealthAnalysis(runs=tuple(runs))
+
+
+def render_analysis(analysis: HealthAnalysis) -> str:
+    lines: list[str] = []
+    grand: Counter[str] = Counter()
+    for run in analysis.runs:
+        if run.error is not None or run.payload is None:
+            lines.append(f"跳过 {run.path.name}：{run.error}")
+            continue
+        payload = run.payload
+        turns = list(run.turns)
         counts = summarize(turns)
         grand.update(counts)
         total = sum(counts.values())
         detail = str(payload.get("preflight_detail") or "")
-        lines.append(f"\n=== {path.stem}  {detail}  [{_phase_note(payload)}] ===")
+        lines.append(
+            f"\n=== {run.path.stem}  {detail}  [{_phase_note(payload)}] ==="
+        )
         if not total:
             lines.append("  （无 completed turn）")
             continue
@@ -183,14 +251,94 @@ def render(paths: list[Path]) -> str:
     return "\n".join(lines)
 
 
+def render(paths: list[Path]) -> str:
+    return render_analysis(analyze(paths))
+
+
+def evaluate_gate(
+    analysis: HealthAnalysis,
+    *,
+    min_full_pass: float,
+    fail_on_unknown: bool,
+) -> GateDecision:
+    reasons: list[str] = []
+    for run in analysis.runs:
+        if run.error is not None:
+            reasons.append(f"{run.path.name}: 输入不可读")
+        elif not run.turns:
+            reasons.append(f"{run.path.name}: 没有 completed turn")
+
+    counts = analysis.counts
+    total = sum(counts.values())
+    if total:
+        full_pass_rate = counts.get(FULL_PASS, 0) / total
+        if full_pass_rate < min_full_pass:
+            reasons.append(
+                "真实完整通过率"
+                f" {full_pass_rate:.0%} 低于门槛 {min_full_pass:.0%}"
+            )
+    elif not reasons:
+        reasons.append("没有可评估的 completed turn")
+
+    unknown = counts.get(UNKNOWN, 0)
+    if fail_on_unknown and unknown:
+        reasons.append(f"存在 {unknown} 个口径未知 turn")
+    return GateDecision(passed=not reasons, reasons=tuple(reasons))
+
+
+def _full_pass_ratio(raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("必须是 0 到 1 之间的数字") from exc
+    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+        raise argparse.ArgumentTypeError("必须是有限的 0 到 1 之间的数字")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="synthesis-health",
         description="合成健康度四态口径（可直接跑在历史 run 产物上）",
     )
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="启用阻塞门禁；默认要求 100% full_pass",
+    )
+    parser.add_argument(
+        "--min-full-pass",
+        type=_full_pass_ratio,
+        default=None,
+        metavar="RATIO",
+        help="门禁要求的最低真实完整通过率（0..1）",
+    )
+    parser.add_argument(
+        "--fail-on-unknown",
+        action="store_true",
+        help="门禁遇到旧口径 unknown turn 时失败",
+    )
     parser.add_argument("runs", nargs="+", help="run artifact 路径，可多个")
     args = parser.parse_args(argv)
-    print(render([Path(item) for item in args.runs]))
+    if not args.gate and (
+        args.min_full_pass is not None or args.fail_on_unknown
+    ):
+        parser.error("--min-full-pass/--fail-on-unknown 必须与 --gate 同用")
+
+    analysis = analyze([Path(item) for item in args.runs])
+    print(render_analysis(analysis))
+    if args.gate:
+        decision = evaluate_gate(
+            analysis,
+            min_full_pass=(
+                args.min_full_pass if args.min_full_pass is not None else 1.0
+            ),
+            fail_on_unknown=args.fail_on_unknown,
+        )
+        if not decision.passed:
+            for reason in decision.reasons:
+                print(f"门禁失败：{reason}", file=sys.stderr)
+            return 1
     return 0
 
 
