@@ -900,6 +900,7 @@ def _record_synthesis_phase(
     timeout_s: int,
     started: float,
     reason: str = "",
+    execution_mode: str = "provider",
 ) -> None:
     """记一段 grounded 链的耗时与入口剩余预算。
 
@@ -918,6 +919,7 @@ def _record_synthesis_phase(
             reason_code=(
                 _stable_llm_fallback_reason(reason) if reason else ""
             ),
+            execution_mode=execution_mode,
         ),
     )
 
@@ -1761,9 +1763,6 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     deadline = _shadow_deadline(options)
-    brief_timeout = _shadow_phase_timeout(
-        deadline, options.shadow_grounded_timeout, 0.25
-    )
     registry_block = answer_model.grounded_claim_registry_block(
         result.answer_spec,
         query=options.query,
@@ -1773,65 +1772,23 @@ def synthesize_shadow_grounded_answer(
     required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_started = time.monotonic()
     brief_remaining_ms = deadline.remaining() * 1000
-    if _phase_slice_collapsed(deadline, 0.25):
-        _record_synthesis_phase(
-            result,
-            name="brief",
-            status="skipped",
-            remaining_ms_at_entry=brief_remaining_ms,
-            timeout_s=brief_timeout,
-            started=brief_started,
-            reason=_INSUFFICIENT_BUDGET_REASON,
-        )
-        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
-            status="brief_unavailable",
-            failure_reason=_INSUFFICIENT_BUDGET_REASON,
-            elapsed_ms=round((time.monotonic() - started) * 1000),
-        )
-        return result
-    brief_result, brief_reason = llm_refine.synthesize_messages(
-        llm_refine.build_decision_brief_messages(
-            options.query,
-            registry_block,
-            required_outputs=required_outputs_block,
-        ),
-        model_override=options.llm_model,
-        timeout=brief_timeout,
-        deadline=deadline,
-        temperature=0.0,
-        max_tokens=1200 * token_budget_scale,
-        max_chars=8000 * token_budget_scale,
+    decision_brief = answer_model.build_deterministic_decision_brief(
+        result.answer_spec
     )
     _record_synthesis_phase(
         result,
         name="brief",
-        status="failed" if brief_result is None else "ok",
+        status="failed" if decision_brief is None else "ok",
         remaining_ms_at_entry=brief_remaining_ms,
-        timeout_s=brief_timeout,
+        timeout_s=0,
         started=brief_started,
-        reason=brief_reason if brief_result is None else "",
-    )
-    if brief_result is None:
-        result.grounded_composer_shadow = (
-            answer_model.GroundedComposerShadow(
-                status="brief_unavailable",
-                failure_reason=brief_reason,
-                elapsed_ms=round((time.monotonic() - started) * 1000),
-            )
-        )
-        return result
-    decision_brief, brief_issues = answer_model.parse_decision_brief(
-        brief_result.answer,
-        result.answer_spec,
+        execution_mode="deterministic",
     )
     if decision_brief is None:
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
                 status="brief_rejected",
-                deterministic_issues=brief_issues,
-                provider=brief_result.provider,
-                model=brief_result.model,
-                failure_reason="decision_brief_quality_gate_rejected",
+                failure_reason="deterministic_brief_unavailable",
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
         )
@@ -1839,9 +1796,9 @@ def synthesize_shadow_grounded_answer(
     compose_started = time.monotonic()
     compose_remaining_ms = deadline.remaining() * 1000
     compose_timeout = _shadow_phase_timeout(
-        deadline, options.shadow_grounded_timeout, 0.5
+        deadline, options.shadow_grounded_timeout, 0.45
     )
-    if _phase_slice_collapsed(deadline, 0.5):
+    if _phase_slice_collapsed(deadline, 0.45):
         _record_synthesis_phase(
             result,
             name="composer",
@@ -1854,8 +1811,6 @@ def synthesize_shadow_grounded_answer(
         result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
             status="composer_unavailable",
             decision_brief=decision_brief,
-            provider=brief_result.provider,
-            model=brief_result.model,
             failure_reason=_INSUFFICIENT_BUDGET_REASON,
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
@@ -1888,8 +1843,6 @@ def synthesize_shadow_grounded_answer(
             answer_model.GroundedComposerShadow(
                 status="composer_unavailable",
                 decision_brief=decision_brief,
-                provider=brief_result.provider,
-                model=brief_result.model,
                 failure_reason=compose_reason,
                 elapsed_ms=round((time.monotonic() - started) * 1000),
             )
@@ -1958,9 +1911,9 @@ def synthesize_shadow_grounded_answer(
     judge_started = time.monotonic()
     judge_remaining_ms = deadline.remaining() * 1000
     judge_timeout = _shadow_phase_timeout(
-        deadline, options.shadow_grounded_timeout, 0.35
+        deadline, options.shadow_grounded_timeout, 1.0
     )
-    judge_skipped = _phase_slice_collapsed(deadline, 0.35)
+    judge_skipped = _phase_slice_collapsed(deadline, 1.0)
     if judge_skipped:
         # 不发这次调用，但**不放行**：跳过的原因是我们自己的预算，
         # ``insufficient_budget`` 不在瞬时故障白名单里，下面照常 fail-closed。

@@ -631,6 +631,7 @@ def _public_synthesis_diagnostic(
 # 三个计数，加字段的人容易顺手把 provider 原始错误串塞进来。
 _PUBLIC_SYNTHESIS_PHASE_NAMES = frozenset({"brief", "composer", "judge"})
 _PUBLIC_SYNTHESIS_PHASE_STATUSES = frozenset({"ok", "failed", "skipped"})
+_PUBLIC_SYNTHESIS_PHASE_MODES = frozenset({"provider", "deterministic"})
 
 
 def _public_synthesis_phases(raw: object) -> list[dict[str, object]]:
@@ -666,6 +667,11 @@ def _public_synthesis_phases(raw: object) -> list[dict[str, object]]:
             r"[A-Za-z0-9_.-]{0,80}", reason_code
         ):
             public_phase["reason_code"] = reason_code
+        execution_mode = item.get("execution_mode")
+        if execution_mode is not None:
+            if execution_mode not in _PUBLIC_SYNTHESIS_PHASE_MODES:
+                continue
+            public_phase["execution_mode"] = execution_mode
         phases.append(public_phase)
     return phases
 

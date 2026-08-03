@@ -70,14 +70,6 @@ def _fake_llm(spec: AnswerSpec):
         for atom in atoms
         if atom.provenance.get("claim_id") == "market-1"
     ]
-    brief = json.dumps(
-        {
-            "direct_answer": "盘面已给出量价共振，但公司级证据未落地。",
-            "core_tension": "盘面热度与证据硬度不匹配。",
-            "supports": ["market-1", "summary:market"],
-        },
-        ensure_ascii=False,
-    )
     composed = (
         "## 液冷服务器\n"
         "资金正在用真金白银投票，量价同步转强说明这不是零星脉冲。"
@@ -94,7 +86,7 @@ def _fake_llm(spec: AnswerSpec):
         {"passed": True, "rejected_sentence_indexes": [], "issues": []},
         ensure_ascii=False,
     )
-    answers = iter((brief, composed, judge))
+    answers = iter((composed, judge))
 
     def fake_synthesize_messages(messages, **kwargs):
         return (

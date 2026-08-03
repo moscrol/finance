@@ -276,6 +276,8 @@ class SynthesisPhase:
     elapsed_ms: int = 0
     # 失败时的归一码（stable_llm_fallback_reason 的输出），成功时为空。
     reason_code: str = ""
+    # provider=真实模型调用；deterministic=结构化投影/纯函数，不消耗模型预算。
+    execution_mode: str = "provider"
 
 
 @dataclass(frozen=True)

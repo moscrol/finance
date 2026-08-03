@@ -1322,13 +1322,6 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             for atom in evidence_atoms_from_answer_spec(spec)
             if atom.provenance["claim_id"] == claim.claim_id
         )
-        brief_json = (
-            '{"direct_answer":"短期强度改善",'
-            '"core_tension":"盘面增强但硬证据仍不足",'
-            f'"supports":["{claim.claim_id}"],'
-            '"counterevidence":[],"unknowns":[],'
-            '"upgrade_conditions":[],"downgrade_conditions":[]}'
-        )
         composer_answer = (
             "- 量价同步改善，说明关注度不只是缩量推动。"
             f"<!-- claim_ids={claim.claim_id}; "
@@ -1354,11 +1347,6 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             result=result,
         )
         responses = (
-            llm_refine.SynthesisResult(
-                brief_json,
-                "fixture",
-                "fixture-model",
-            ),
             llm_refine.SynthesisResult(
                 composer_answer,
                 "fixture",

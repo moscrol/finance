@@ -280,14 +280,6 @@ class TestGroundedPresenterPromotion:
             for atom in atoms
             if atom.provenance.get("claim_id") == theme_claim_id
         ]
-        brief = json.dumps(
-            {
-                "direct_answer": "旧逻辑重新活跃，但官方证据未跟上。",
-                "core_tension": "盘面热度与证据层级不匹配。",
-                "supports": [theme_claim_id, "daily-agent:summary"],
-            },
-            ensure_ascii=False,
-        )
         composed = (
             "## 研究雷达\n"
             "氢能源更像旧逻辑重新被资金唤醒，盘面热度先行，"
@@ -305,7 +297,7 @@ class TestGroundedPresenterPromotion:
             {"passed": True, "rejected_sentence_indexes": [], "issues": []},
             ensure_ascii=False,
         )
-        answers = iter((brief, composed, judge))
+        answers = iter((composed, judge))
 
         def fake_synthesize_messages(messages, **kwargs):
             return (

@@ -644,6 +644,104 @@ class AnswerSpec:
         return "\n".join(lines)
 
 
+def build_deterministic_decision_brief(
+    answer_spec: AnswerSpec,
+) -> DecisionBrief | None:
+    """Project an eight-field DecisionBrief without a provider call.
+
+    Seven fields are direct projections from the structured answer contract.
+    ``core_tension`` is deliberately a deterministic template over the leading
+    support and counter/gap claim; it is not mislabeled as a lossless projection.
+    """
+
+    def unique_claims(*groups: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        seen: set[str] = set()
+        selected: list[Claim] = []
+        for claim in (claim for group in groups for claim in group):
+            if not claim.claim_id or claim.claim_id in seen:
+                continue
+            seen.add(claim.claim_id)
+            selected.append(claim)
+        return tuple(selected)
+
+    support_claims = tuple(
+        claim
+        for claim in unique_claims(
+            answer_spec.summary,
+            answer_spec.verified_facts,
+        )
+        if claim.evidence_ids and claim.status is not ClaimStatus.MISSING
+    )
+    if not support_claims:
+        return None
+
+    counter_claims = unique_claims(answer_spec.counter_evidence)
+    gap_claims = unique_claims(answer_spec.gaps)
+    trigger_claims = unique_claims(answer_spec.triggers)
+    all_claims = unique_claims(
+        answer_spec.summary,
+        answer_spec.verified_facts,
+        tuple(
+            claim
+            for company in answer_spec.company_table
+            for claim in company.claims
+        ),
+        answer_spec.counter_evidence,
+        answer_spec.gaps,
+        answer_spec.triggers,
+        answer_spec.candidate_facts,
+    )
+    chain_claims = tuple(
+        claim
+        for claim in all_claims
+        if claim.claim_id.split(":", 1)[0].casefold()
+        in {"company", "chain", "exposure"}
+    )
+
+    leading_support = support_claims[0]
+    if counter_claims:
+        core_tension = (
+            f"当前判断的主要支撑是「{leading_support.text}」；"
+            f"主要反证是「{counter_claims[0].text}」。"
+        )
+    elif gap_claims:
+        core_tension = (
+            f"当前判断的主要支撑是「{leading_support.text}」；"
+            f"关键证据缺口是「{gap_claims[0].text}」。"
+        )
+    elif trigger_claims:
+        core_tension = (
+            f"当前判断的主要支撑是「{leading_support.text}」；"
+            f"后续需由「{trigger_claims[0].text}」继续验证。"
+        )
+    else:
+        core_tension = (
+            f"当前判断的主要支撑是「{leading_support.text}」；"
+            "仍需在后续验证窗口复核其持续性。"
+        )
+
+    brief = DecisionBrief(
+        direct_answer=leading_support.text,
+        core_tension=core_tension,
+        supports=tuple(claim.claim_id for claim in support_claims),
+        counterevidence=tuple(claim.claim_id for claim in counter_claims),
+        unknowns=tuple(claim.claim_id for claim in gap_claims),
+        upgrade_conditions=tuple(claim.claim_id for claim in trigger_claims),
+        downgrade_conditions=tuple(
+            claim.claim_id
+            for claim in unique_claims(counter_claims, gap_claims)
+        ),
+        chain_mapping=tuple(claim.claim_id for claim in chain_claims),
+    )
+    validated, issues = parse_decision_brief(
+        json.dumps(brief.to_dict(), ensure_ascii=False),
+        answer_spec,
+    )
+    if validated is None or any(issue.severity == "error" for issue in issues):
+        return None
+    return validated
+
+
 def resolve_theme_research_spec(
     query: str,
     matched_theme: str | None = None,

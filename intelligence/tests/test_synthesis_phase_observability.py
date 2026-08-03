@@ -83,14 +83,6 @@ def _chain_answers(spec: AnswerSpec) -> list[str]:
         for atom in atoms
         if atom.provenance.get("claim_id") == "market-1"
     ]
-    brief = json.dumps(
-        {
-            "direct_answer": "盘面已给出量价共振，但公司级证据未落地。",
-            "core_tension": "盘面热度与证据硬度不匹配。",
-            "supports": ["market-1", "summary:market"],
-        },
-        ensure_ascii=False,
-    )
     composed = (
         "## 液冷服务器\n"
         "资金正在用真金白银投票，量价同步转强说明这不是零星脉冲。"
@@ -107,11 +99,11 @@ def _chain_answers(spec: AnswerSpec) -> list[str]:
         {"passed": True, "rejected_sentence_indexes": [], "issues": []},
         ensure_ascii=False,
     )
-    return [brief, composed, judge]
+    return [composed, judge]
 
 
 def _fake_chain(spec: AnswerSpec, *, fail_at: int | None = None):
-    """按顺序返回 brief/composer/judge；``fail_at`` 指定第几次调用超时（0 基）。"""
+    """按顺序返回 composer/judge；``fail_at`` 指定第几次 provider 调用超时。"""
 
     answers = _chain_answers(spec)
     calls = {"n": 0}
@@ -165,12 +157,21 @@ class TestPhasesAreRecorded:
         assert all(
             phase.status == "ok" for phase in result.synthesis_phases
         )
+        assert [phase.execution_mode for phase in result.synthesis_phases] == [
+            "deterministic",
+            "provider",
+            "provider",
+        ]
 
     def test_entry_budget_is_recorded_for_every_phase(self, monkeypatch) -> None:
         """入口剩余预算是区分「写得差」和「没时间写」的唯一依据。"""
         result = _run_shadow(monkeypatch)
 
-        for phase in result.synthesis_phases:
+        brief, composer, judge = result.synthesis_phases
+        assert brief.remaining_ms_at_entry > 0
+        assert brief.timeout_s == 0
+        assert brief.elapsed_ms >= 0
+        for phase in (composer, judge):
             assert phase.remaining_ms_at_entry > 0
             assert phase.timeout_s > 0
             assert phase.elapsed_ms >= 0
@@ -191,6 +192,63 @@ class TestPhasesAreRecorded:
         ]
         assert budgets == sorted(budgets, reverse=True)
 
+    def test_deterministic_brief_removes_one_provider_call(
+        self, monkeypatch
+    ) -> None:
+        result = _result()
+        spec = result.answer_spec
+        assert spec is not None
+        fake = _fake_chain(spec)
+        calls = {"count": 0}
+
+        def counted(messages, **kwargs):
+            calls["count"] += 1
+            return fake(messages, **kwargs)
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", counted)
+        options = ask.AskOptions(
+            query=result.query,
+            shadow_grounded_composer=True,
+        )
+
+        ask_synthesis.synthesize_shadow_grounded_answer(
+            ask.PreparedAnswer(options=options, result=result),
+            repair_drop_invalid=True,
+        )
+
+        assert calls["count"] == 2
+
+    def test_two_phase_budget_reserves_measured_room_for_judge(
+        self, monkeypatch
+    ) -> None:
+        result = _result()
+        spec = result.answer_spec
+        assert spec is not None
+        fake = _fake_chain(spec)
+        timeouts: list[float] = []
+        deadlines: list[llm_refine.Deadline] = []
+
+        def captured(messages, **kwargs):
+            timeouts.append(kwargs["timeout"])
+            deadlines.append(kwargs["deadline"])
+            return fake(messages, **kwargs)
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", captured)
+        options = ask.AskOptions(
+            query=result.query,
+            shadow_grounded_composer=True,
+            shadow_grounded_timeout=90,
+        )
+
+        ask_synthesis.synthesize_shadow_grounded_answer(
+            ask.PreparedAnswer(options=options, result=result),
+            repair_drop_invalid=True,
+        )
+
+        assert 39 <= timeouts[0] <= 40
+        assert 88 <= timeouts[1] <= 90
+        assert deadlines[0] is deadlines[1]
+
 
 class TestFailingPhaseIsIdentifiable:
     """这一组就是 2026-08-02 分诊卡住的地方——当时只能标 residual uncertainty。"""
@@ -198,9 +256,8 @@ class TestFailingPhaseIsIdentifiable:
     @pytest.mark.parametrize(
         ("fail_at", "expected_failed", "expected_names"),
         [
-            (0, "brief", ["brief"]),
-            (1, "composer", ["brief", "composer"]),
-            (2, "judge", ["brief", "composer", "judge"]),
+            (0, "composer", ["brief", "composer"]),
+            (1, "judge", ["brief", "composer", "judge"]),
         ],
     )
     def test_deadline_failure_names_the_phase(
@@ -220,7 +277,7 @@ class TestFailingPhaseIsIdentifiable:
 
     def test_failure_reason_is_normalized_not_raw(self, monkeypatch) -> None:
         """存归一码而不是原始串：原始串带 provider 措辞，不该进公开 trace。"""
-        result = _run_shadow(monkeypatch, fail_at=1)
+        result = _run_shadow(monkeypatch, fail_at=0)
 
         failed = [
             phase for phase in result.synthesis_phases if phase.status == "failed"
@@ -235,7 +292,7 @@ class TestFailingPhaseIsIdentifiable:
         self, monkeypatch
     ) -> None:
         """同样是 composer 没产出，超时和门禁拒稿必须在遥测上分得开。"""
-        starved = _run_shadow(monkeypatch, fail_at=1)
+        starved = _run_shadow(monkeypatch, fail_at=0)
         composer = [
             phase
             for phase in starved.synthesis_phases
@@ -280,7 +337,7 @@ class TestAdmissionControl:
     def _deadline(seconds: float) -> llm_refine.Deadline:
         return llm_refine.Deadline.from_timeout(seconds)
 
-    @pytest.mark.parametrize("share", [0.25, 0.35, 0.5])
+    @pytest.mark.parametrize("share", [0.45, 1.0])
     def test_collapsed_slice_is_detected(self, share: float) -> None:
         # remaining * share < 1 秒：_shadow_phase_timeout 只会返回兜底的 1 秒，
         # 拿它去换上千 token 必然超时。
@@ -288,7 +345,7 @@ class TestAdmissionControl:
             self._deadline(0.9 / share), share
         )
 
-    @pytest.mark.parametrize("share", [0.25, 0.35, 0.5])
+    @pytest.mark.parametrize("share", [0.45, 1.0])
     def test_healthy_slice_is_not_blocked(self, share: float) -> None:
         """只堵必然失败那一档；来不来得及需要实测吞吐，这轮不拍脑袋。"""
         assert not ask_synthesis._phase_slice_collapsed(
@@ -319,11 +376,15 @@ class TestAdmissionControl:
         )
 
         phases = result.synthesis_phases
-        assert [(p.name, p.status) for p in phases] == [("brief", "skipped")]
-        assert phases[0].reason_code == "insufficient_budget"
+        assert [(p.name, p.status) for p in phases] == [
+            ("brief", "ok"),
+            ("composer", "skipped"),
+        ]
+        assert phases[0].execution_mode == "deterministic"
+        assert phases[1].reason_code == "insufficient_budget"
         shadow = result.grounded_composer_shadow
         assert shadow is not None
-        assert shadow.status == "brief_unavailable"
+        assert shadow.status == "composer_unavailable"
 
     def test_skip_is_not_laundered_as_provider_failure(self) -> None:
         """跳过是我们自己的限额，不能塌进 provider_unavailable。"""

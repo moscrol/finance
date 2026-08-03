@@ -14,6 +14,7 @@ trigger:1..3]、counterevidence=[summary:company-gap, counter:1]，一个 compan
 """
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 
 from intelligence.services import llm_refine
@@ -21,6 +22,7 @@ from intelligence.services.answer_model import (
     AnswerSpec,
     ClaimStatus,
     DecisionBrief,
+    build_deterministic_decision_brief,
     make_claim,
     parse_decision_brief,
     resolve_answer_profile,
@@ -230,3 +232,54 @@ def test_no_chain_claims_means_no_chain_mapping() -> None:
 
     assert brief is not None
     assert brief.chain_mapping == ()
+
+
+def test_deterministic_brief_projects_all_chain_claims_and_valid_ids() -> None:
+    spec = _spec()
+
+    brief = build_deterministic_decision_brief(spec)
+
+    assert brief is not None
+    assert brief.direct_answer == "盘面信号全面转强"
+    assert brief.supports == ("summary:market",)
+    assert brief.chain_mapping == ("company:东方锆业", "company:中一科技")
+    assert "盘面信号全面转强" in brief.core_tension
+    parsed, issues = parse_decision_brief(
+        json.dumps(brief.to_dict(), ensure_ascii=False),
+        spec,
+    )
+    assert parsed == brief
+    assert issues == ()
+
+
+def test_deterministic_brief_templates_core_tension_from_gap() -> None:
+    base = _spec()
+    gap = make_claim(
+        claim_id="gap:official",
+        text="缺少公告或年报确认",
+        claim_type="gap",
+        theme="固态电池",
+        status=ClaimStatus.MISSING,
+    )
+    spec = replace(base, gaps=(gap,))
+
+    brief = build_deterministic_decision_brief(spec)
+
+    assert brief is not None
+    assert brief.unknowns == ("gap:official",)
+    assert brief.downgrade_conditions == ("gap:official",)
+    assert "缺少公告或年报确认" in brief.core_tension
+
+
+def test_deterministic_brief_fails_closed_without_evidence_bound_support() -> None:
+    base = _spec()
+    unsupported = make_claim(
+        claim_id="summary:unsupported",
+        text="只有无来源判断",
+        claim_type="summary",
+        theme="固态电池",
+        status=ClaimStatus.INFERRED,
+    )
+    spec = replace(base, summary=(unsupported,), verified_facts=())
+
+    assert build_deterministic_decision_brief(spec) is None
