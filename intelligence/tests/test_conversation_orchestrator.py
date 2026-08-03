@@ -4786,6 +4786,11 @@ def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
         {
             "require_remaining": lambda self, minimum=0: 2.0,
             "remaining": lambda self: 2.2,
+            # 调用点现在按 min(时间片, 剩余) 夹逼（见 Deadline.call_timeout）。
+            # 这个手搓替身得跟上，否则测的是 AttributeError 不是本意的回退路径。
+            "call_timeout": lambda self, timeout, minimum=1.0: min(
+                self.require_remaining(minimum), float(timeout)
+            ),
         },
     )()
 

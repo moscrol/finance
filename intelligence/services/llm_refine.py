@@ -114,6 +114,23 @@ class Deadline:
             raise LLMDeadlineExceeded()
         return remaining
 
+    def call_timeout(self, timeout: float, *, minimum: float = 1.0) -> float:
+        """本次调用真正的超时 = min(调用方给的时间片, 共享 deadline 剩余)。
+
+        修一个静默失效：``timeout`` 参数此前只在 ``deadline is None`` 时被用来
+        构造 Deadline（``deadline or Deadline.from_timeout(timeout)``）。一旦调用
+        方显式传 deadline —— grounded 三段链一直这么传 —— 时间片就只是个装饰，
+        每一段都能吃掉整条 deadline。
+
+        实测代价（2026-08-03 单题）：brief 分到 22s 片、实际跑了 69.7s，composer
+        进场只剩 20.2s，必然超时降级。分片算得很认真，消费端根本没读——预算字段
+        必须在**强制点**被读取，只是「传下去了」不等于「被执行了」。
+        """
+
+        remaining = self.require_remaining(minimum)
+        limit = max(0.0, float(timeout or 0.0))
+        return min(remaining, limit) if limit > 0 else remaining
+
 
 def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
     """Resolve configured providers in deterministic fallback order."""
@@ -1219,7 +1236,7 @@ def synthesize_messages(
     finish_reason: str | None = None
     for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
-            remaining = shared_deadline.require_remaining(1)
+            remaining = shared_deadline.call_timeout(timeout)
             content, finish_reason = _post_chat_synthesis(
                 provider,
                 messages,
@@ -1442,7 +1459,7 @@ def synthesize_messages_stream(
         on_delta(delta)
 
     try:
-        remaining = shared_deadline.require_remaining(1)
+        remaining = shared_deadline.call_timeout(timeout)
         content, finish_reason = _post_chat_stream(
             provider,
             messages,
