@@ -1,0 +1,38 @@
+{
+  "schema_version": "grounded-replay-1.0",
+  "phase": "composer",
+  "status": "completed",
+  "run_id": "run_20260803_142959_204791",
+  "revision": "ae0a23ea25381087708d44ae26bf8306d9843051",
+  "grant_seconds": 115.0,
+  "elapsed_ms": 33338,
+  "elapsed_is_lower_bound": false,
+  "input_sha256": {
+    "run.json": "1cc6c0e481b7b17294a9f90777ed0568d46eba87914a9f6698ce591c9c4624fc",
+    "answer_spec.json": "ac19e4e24bc629e3a9509c96154846ab3e7d8f1f453ac3712e4d1330a9bbeda8",
+    "decision_brief.json": "3a3c7958ca48d5874219813e80b889cd0b917370dcd1a05dc6905e8540a83462"
+  },
+  "prompt_sha256": "2aaa1d33d0f33b70bc7af3d1aa9678e9cc4db1452f23114f6b3dc31c1b3319f9",
+  "completion_tokens": null,
+  "finish_reason": "stop",
+  "provider": "openai",
+  "model": "gpt-5.6-sol",
+  "failure_reason": null,
+  "output_text": "# 2026-07-23 市场复盘\n\n数据截至 2026-07-23。<!-- claim_ids=daily-review:summary; evidence_atom_ids=atom-6c46c6c3329f; claim_type=fact -->\n\n检索计划：读取 2026-07-23 的 canonical 正式日报。<!-- claim_ids=daily-review:fact:5; evidence_atom_ids=atom-3faca3d282e3; claim_type=fact -->\n\n**直接结论：**市场处于反弹阶段的第3个交易日，短线情绪偏热；上证收于3876.78点，上涨0.25%，距离短期均线1.25%。<!-- claim_ids=daily-review:fact:4,daily-review:fact:6,daily-review:fact:3; evidence_atom_ids=atom-453cb471f252,atom-abc3b38ce79c,atom-dbde035aaf71; claim_type=fact -->\n\n**最强数据：**涨停主要集中在储能40只、电网设备29只、风电29只、机器人概念25只、光伏概念25只，资金主要集中在电力设备；强势股平均上涨9.86%，相关成交占全市场6.12%。<!-- claim_ids=daily-review:summary,daily-review:fact:3; evidence_atom_ids=atom-6c46c6c3329f,atom-dbde035aaf71; claim_type=fact -->\n\n**主要风险：**市场成交额为21949.97亿元，较前一交易日减少17.27%；只有1个方向同时满足上涨和放量，另有11个方向只满足其中一项；成交最集中的三个行业占45.10%。这些数据表明热点虽然较热，但量能扩散和行情持续性仍需验证。<!-- claim_ids=daily-review:fact:2,daily-review:fact:3; evidence_atom_ids=atom-1325180d706a,atom-dbde035aaf71; claim_type=inference -->\n\n**下一交易日验证点：**重点观察同时上涨且放量的方向能否由1个扩展、成交收缩能否缓解，以及资金集中度和偏热的短线情绪是否发生变化；若放量上涨方向扩展且成交收缩缓解，反弹的持续性才可能增强，反之则需防范热点进一步集中。<!-- claim_ids=daily-review:fact:2,daily-review:fact:3; evidence_atom_ids=atom-1325180d706a,atom-dbde035aaf71; claim_type=expectation -->\n\n## 知识库积累与研究缺口\n\n现有资料明确披露的知识库方向是医药，已有“医药”“AI+医药”“AI+生物医药”3个概念页，并有4家公司暴露。<!-- claim_ids=daily-review:fact:9; evidence_atom_ids=atom-854c4c14b5b3; claim_type=fact -->\n\n- 小方制药：外用药专业制药企业，覆盖消化类、皮肤类和五官类产品。<!-- claim_ids=daily-review:fact:9; evidence_atom_ids=atom-854c4c14b5b3; claim_type=fact -->\n\n- 泰恩康：业务角色覆盖两性健康、肠胃和眼科三大板块，核心品种包括爱廷玖、和胃整肠丸、沃丽汀。<!-- claim_ids=daily-review:fact:9; evidence_atom_ids=atom-854c4c14b5b3; claim_type=fact -->\n\n- 神奇制药：覆盖医药制造与医药商业两大板块；资料披露医药制造收入11.23亿元、毛利率71.72%，医药商业收入8.29亿元。<!-- claim_ids=daily-review:fact:9; evidence_atom_ids=atom-854c4c14b5b3; claim_type=fact -->\n\n- 丽珠集团：定位为医药相关产品或材料供应商。<!-- claim_ids=daily-review:fact:9; evidence_atom_ids=atom-854c4c14b5b3; claim_type=fact -->\n\n盘面主线强弱与知识库积累是两件事：知识库有积累不代表盘面表现强，盘面进入主线也不能反推知识库已经覆盖。<!-- claim_ids=daily-review:fact:5; evidence_atom_ids=atom-3faca3d282e3; claim_type=fact -->\n\n现有资料无法判断储能、电网设备、风电、机器人概念和光伏概念中，哪些方向已有知识库积累、哪些仍为空白，因此不能据此列出“尚无积累”的确定名单；补齐这些盘面主线的概念页、公司暴露及业务角色，是下一步应优先推进的研究缺口。<!-- claim_ids=daily-review:gap:scope,daily-review:fact:5,daily-review:summary; evidence_atom_ids=atom-3faca3d282e3,atom-6c46c6c3329f; claim_type=gap -->\n\n（非投资建议）",
+  "parsed_output": null,
+  "deterministic_issues": [],
+  "prediction": {
+    "basis": {
+      "brief_output_chars": 1098,
+      "brief_elapsed_ms": 69740,
+      "brief_max_tokens": 1200,
+      "composer_max_tokens": 2400
+    },
+    "range_seconds": [
+      110,
+      180
+    ],
+    "verdict": "below_40_seconds"
+  },
+  "validation_status": "not_run"
+}

@@ -190,6 +190,32 @@
 - observation: completed 只表示 fallback 可交付。
 - confidence: high
 
+#### E-007
+
+- title: 冻结 DecisionBrief 的 composer 自然完成值
+- run_id: `run_20260803_142959_204791`（冻结输入 replay，不是 live A4）
+- step_or_span_id: `grounded-replay/composer`
+- native_or_normalized: normalized
+- source_type: trace
+- source_ref: `intelligence/eval/measurements/2026-08-03-grounded-composer-replay.json`
+- observed_at: 2026-08-03
+- raw_excerpt: `revision=ae0a23ea; grant=115s; status=completed; elapsed=33338ms; finish_reason=stop; output_chars=2346`
+- observation: composer 在33.338秒自然完成，显著低于预注册的110–180秒预测和 `<40s` 反转阈值；`max_tokens` 上限不能按比例外推实际耗时。
+- confidence: high
+
+#### E-008
+
+- title: 同一冻结输入的 judge 首个自然完成值
+- run_id: `run_20260803_142959_204791`（消费 E-007 composer artifact）
+- step_or_span_id: `grounded-replay/judge`
+- native_or_normalized: normalized
+- source_type: trace
+- source_ref: `intelligence/eval/measurements/2026-08-03-grounding-judge-replay.json`
+- observed_at: 2026-08-03
+- raw_excerpt: `revision=ae0a23ea; grant=115s; status=completed; elapsed=46982ms; finish_reason=stop; parsed=true; passed=false; rejected_sentence_indexes=[2,4,6,13]`
+- observation: judge 在46.982秒自然完成且输出可解析。与 E-007 合计80.320秒；删除 brief LLM 后，在115秒 child 内剩34.680秒正余量。
+- confidence: high
+
 ### Findings
 
 #### F-001
@@ -207,9 +233,9 @@
 - propagation_impact: [QUALITY_DEGRADATION]
 - failure_detection_timing: SEVERAL_STEPS_LATER
 - completion_status: PARTIAL_SUCCESS
-- evidence_ids: [E-002, E-003, E-005]
-- confidence: medium
-- explanation: 完成一次 brief 已用约70秒，composer 至少还需超过20秒，且必须保留 judge；当前 allocator 只能决定哪一段先被截断，不能增加总预算或删除一次往返。
+- evidence_ids: [E-002, E-003, E-005, E-007, E-008]
+- confidence: high
+- explanation: 三段自然完成样本合计 `69.740+33.338+46.982=150.060` 秒，直接超过115秒 child；当前 allocator 只能决定哪一段先被截断，不能把三次串行调用装进该预算。删除 brief LLM 后剩余两段合计80.320秒并有34.680秒正余量，因此确定性 DecisionBrief 是保持120秒产品目标的最小架构修复。
 
 ### Path
 
@@ -225,17 +251,17 @@
   4. 历史 E0 run 已显示 brief 完成约69.7秒且 composer 20.3秒仍未完成；单抬 brief 会把失败后移到 composer — evidence: E-002, E-005 — finding: F-001
   5. synthesis rejected，顶层以 fallback completed — evidence: E-006 — finding: none
 - residual_uncertainty:
-  - 69.740秒是 A1 单样本，不是 A4 的精确自然耗时或 p95。
-  - composer 只有 `>20.261s` 下界，judge 没有同质 phase 完成值；约250秒是容量规划估计，不是直接测量。
-  - 确定性 brief 的两个非投影字段仍需离线契约验证。
+  - 三个值均来自同一 A1 冻结输入的单样本，不是 A4 的精确自然耗时或 p50/p95。
+  - composer/judge 已有自然完成值，但 provider 瞬时延迟仍未冻结；80.320秒只能证明本样本有余量，不能替代一次新架构 A4 canary。
+  - `core_tension` 不是纯投影；其确定性模板仍需离线契约与 mutation 验证。
 
 ## Fix recommendations
 
 | ID | finding | fix_type | recommendation | verification prediction | regression guard |
 |---|---|---|---|---|---|
-| R-001 | F-001 | DATA_CONTRACT_FIX | 工程默认路线改为确定性 DecisionBrief（E）：从 AnswerSpec 投影6个字段，把 `core_tension` 与 upgrade/downgrade 条件定义为显式生成/派生字段，并用 validator fail-closed；删除一次主链 LLM 往返。 | 冻结 artifact 上 brief 零 provider 调用、8字段契约通过；随后 A4 首个 LLM phase 应变为 composer，并为 judge 留出正余量。 | 先离线 golden + mutation，再做一次 A4；保留旧 LLM brief 为可回滚对照。 |
-| R-002 | F-001 | HARNESS_FIX | 产品备选路线是把 root/child 扩到能容纳三段的 deep-mode 预算；约250秒只能作为初始 sizing，不冒充实测，并同步重定义 A4 SLA/canary。 | 新 profile 下三段均有 uncensored 完成值与正 slack；若用户仍要求120秒体验门，则该路线自动不合格。 | profile 必须显式命名并与120秒生产模式隔离，不静默改全局 root。 |
-| R-003 | F-001 | EVAL_ONLY | 停止 brief-only replay、逐级 cap 调参和 A组运行，直到用户在 root 扩容与 E 之间做出架构选择并形成新 revision。 | 不再产生只把 timeout 从 brief 后移到 composer 的无信息 live artifact。 | 下一次 live 预注册唯一架构变量；A4 通过后才跑 A组。 |
+| R-001 | F-001 | DATA_CONTRACT_FIX | **已选路线**：工程默认改为确定性 DecisionBrief（E）。`direct_answer` 与 claim-id 数组从 AnswerSpec 投影；`core_tension` 用显式确定性模板派生，不冒充纯投影；删除一次主链 LLM 往返。 | 冻结 artifact 上 brief 零 provider 调用、8字段契约通过；A4 首个 provider phase 变为 composer，随后 judge 在115秒 child 内保留正余量。 | 先离线 golden + mutation，再做一次 A4；旧 LLM brief 代码不作为默认路径。 |
+| R-002 | F-001 | HARNESS_FIX | deep-mode 扩容不作为本轮默认：实测两段仅80.320秒，保持120秒交互目标已有34.680秒样本余量。只有后续多样本 p95 证伪该余量时，才新增显式 deep profile。 | 新架构 A4 若在120秒内两段完成则不扩容；若超时，单独评估 deep profile，不能静默改全局 root。 | 标准/深度 profile 必须显式分离。 |
+| R-003 | F-001 | EVAL_ONLY | 架构选择已由 E-007/E-008 解锁；仍禁止再跑 brief-only、逐级 cap 与整组 A组。新 revision 完成后只跑一次预注册 A4。 | 不再产生只把 timeout 从 brief 后移到 composer 的无信息 artifact。 | A4 通过后才允许后续批量验收。 |
 | R-004 | F-001 | EVAL_ONLY | 为历史 artifact 增加 revision-aware semantic epoch 解析；禁止把 E0/E1/E2 的 `elapsed_ms` 同质聚合。 | E0 的 `69740/22` 被标为 uncensored completion，E1 的 `44560/22` 标为 retry-multiplied，E2 的 `28010/28` 标为 grant-censored。 | 用现有6份 artifact 做冻结分类测试。 |
 
 ## Observability prescription
@@ -245,20 +271,20 @@
 | 同名 elapsed 跨 revision 变义 | 历史分类器会把自然完成值误当超支 | `phase_semantic_epoch=E0/E1/E2`，由 revision 映射 | acceptance artifact parser | 正确区分 uncensored / retry-multiplied / grant-censored | 低 |
 | phase 没有 censoring 类型 | `elapsed≈grant` 是否自然完成不直观 | `elapsed_kind=completed|child_censored|phase_censored|retry_multiplied` | phase telemetry | 不再从数值形状猜语义 | 低 |
 | token 与 phase 未关联 | 无法做 root 扩容 sizing | phase `completion_tokens/reasoning_tokens`，缺失保持 unknown | LLM ledger ↔ phase | 估计吞吐与 p50/p95 | 中 |
-| judge 无同质完成样本 | root 扩容的精确值未知 | 仅在选择 deep-mode 后记录 judge uncensored elapsed | 新 profile canary | 校准而非猜约250秒 | 一次受控 run |
-| E 的两个非投影字段未冻结 | 无法确认确定性 brief 能完整替代旧契约 | 离线样本记录8字段 coverage；阈值8/8且 validator 对缺失/冲突 fail-closed | E frozen-artifact golden | `core_tension` 与升降级条件是否可安全派生 | 低 |
+| judge 历史无同质完成样本 | 已由冻结 replay 首样本关闭 | `elapsed_ms=46982`、`validation_status=valid` | `grounded-replay/judge` | 两段合计80.320秒，可判断 E 在120秒目标下有样本余量 | 已完成 |
+| E 的 `core_tension` 模板未冻结 | 无法确认确定性 brief 能完整替代旧契约 | 离线样本记录8字段 coverage；阈值8/8且 validator 对缺失/冲突 fail-closed | E frozen-artifact golden | `core_tension` 是否可安全模板化，升降级 claim-id 投影是否完整 | 低 |
 
 ## Limits and counterevidence
 
 - A1 与 A4 不是同一题；69.740秒不能写成“A4 brief 精确耗时”。它是同日期、同17/17 claim、同2条 prepared message 的直接可比完成样本。
-- `max_tokens=2400` 是 composer 上限，不证明实际一定是 brief 的两倍；它只加强“没有理由假设 composer 很便宜”，不能单独用于精确加总。
-- 直接证据严格给出 `brief=69.740s`、`composer>20.261s`；三段自然总耗时与约250秒 sizing 仍非直接测量。
-- 但在当前 115秒 + 28.75秒 judge reserve 契约下，给足 brief 后 composer grant 已低于观测下界，足以拒绝继续调 cap；无需再烧一次同类 live A4 才能作这个工程决策。
-- E 不是“纯投影8字段”：其中6字段可投影，2字段必须被当作真实设计风险。
+- `max_tokens=2400` 是输出上限，不是期望输出长度。E-007 的33.338秒直接证伪“按 brief token cap 两倍外推110–180秒”的吞吐模型。
+- 直接证据现在给出 `brief=69.740s`、`composer=33.338s`、`judge=46.982s`，三段合计150.060秒；它们仍是单样本而非 p95。
+- 在当前115秒 child 下，三段结构已被直接测量证伪；删除 brief 后两段80.320秒则有34.680秒样本余量。下一步验证对象应是确定性 brief 契约与一次 A4，而不是继续调 cap。
+- E 不是“纯投影8字段”：7个字段可从 AnswerSpec/claim registry 投影，`core_tension` 必须被明确当作模板化派生字段，而不是伪装成无损投影。
 
 ## Next-step menu
 
-1. 用户做产品选择：保留120秒交互目标则采用 E；接受约250秒 deep mode 才考虑 root 扩容。
-2. 默认工程建议采用 E，先做冻结 AnswerSpec 的离线 8字段契约与 mutation 验证，不调用 live provider。
-3. 只有新架构 revision 完成后才跑一次 A4；三段/两段门禁按新拓扑重新定义。
-4. A4 通过后再跑 A组10题；历史 artifact 先经 E0/E1/E2 解释器归一，不能直接混算。
+1. 实施确定性 DecisionBrief（E），保持120秒 root/115秒 child，不默认扩容。
+2. 先做冻结 AnswerSpec 的离线8字段契约与 mutation 验证，不调用 live provider。
+3. 新架构 revision 完成后只跑一次 A4；成功门改为 deterministic brief + composer + judge，而不是旧三次 provider phase。
+4. A4 通过后才进入跨 harness 审计；整组 A组仍不在本轮运行。历史 artifact 先经 E0/E1/E2 解释器归一，不能直接混算。

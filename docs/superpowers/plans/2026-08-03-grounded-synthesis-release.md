@@ -8,6 +8,12 @@
 
 **Tech Stack:** Python 3.12, argparse, dataclasses, pytest, existing Workbench LLM provider adapters, JSON/JSONL trace artifacts.
 
+**Interpreter:** The virtual environment is an untracked directory in the source
+worktree, so isolated worktrees reuse
+`/Users/a77/finance-workspace-private/.venv-workbench/bin/python` while keeping
+their own directory as cwd. This loads release-branch code with the verified
+dependency environment.
+
 ---
 
 ### Task 1: Frozen artifact deserialization and replay contract
@@ -28,7 +34,7 @@ Cover `ClaimStatus`, `CompanyTier`, `EvidenceRef`, `QualityIssue`,
 Run:
 
 ```bash
-.venv-workbench/bin/python -m pytest intelligence/tests/test_grounded_replay.py -q
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_grounded_replay.py -q
 ```
 
 Expected: collection fails because `intelligence.eval.grounded_replay` does not
@@ -86,7 +92,7 @@ build messages with `build_grounding_judge_messages`, and parse with
 Run:
 
 ```bash
-.venv-workbench/bin/python -m pytest intelligence/tests/test_grounded_replay.py -q
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_grounded_replay.py -q
 ```
 
 Expected: all replay tests pass.
@@ -160,7 +166,7 @@ ratios (`nan`, infinity, below zero, above one).
 - [ ] **Step 3: Run tests and confirm the new cases fail**
 
 ```bash
-.venv-workbench/bin/python -m pytest intelligence/tests/test_synthesis_health.py -q
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest intelligence/tests/test_synthesis_health.py -q
 ```
 
 - [ ] **Step 4: Implement structured analysis and gate evaluation**

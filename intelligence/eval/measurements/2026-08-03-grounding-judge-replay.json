@@ -1,0 +1,52 @@
+{
+  "schema_version": "grounded-replay-1.0",
+  "phase": "judge",
+  "status": "completed",
+  "run_id": "run_20260803_142959_204791",
+  "revision": "ae0a23ea25381087708d44ae26bf8306d9843051",
+  "grant_seconds": 115.0,
+  "elapsed_ms": 46982,
+  "elapsed_is_lower_bound": false,
+  "input_sha256": {
+    "run.json": "1cc6c0e481b7b17294a9f90777ed0568d46eba87914a9f6698ce591c9c4624fc",
+    "answer_spec.json": "ac19e4e24bc629e3a9509c96154846ab3e7d8f1f453ac3712e4d1330a9bbeda8",
+    "decision_brief.json": "3a3c7958ca48d5874219813e80b889cd0b917370dcd1a05dc6905e8540a83462",
+    "composer_artifact": "a9ac1fca24609e74a404b3713faa9a103a18f06024e825722f9c0d7398e5640c"
+  },
+  "prompt_sha256": "c0d0f91a9f846c00f2b58fc81949d26eb080eb92a18e2796b0f2825c2ac34f21",
+  "completion_tokens": null,
+  "finish_reason": "stop",
+  "provider": "openai",
+  "model": "gpt-5.6-sol",
+  "failure_reason": null,
+  "output_text": "{\"passed\":false,\"rejected_sentence_indexes\":[2,4,6,13],\"issues\":[{\"sentence_index\":2,\"reason\":\"绑定证据仅说明资料来源及盘面与知识库的边界，不能推出实际的“检索计划”是读取该日报。\"},{\"sentence_index\":4,\"reason\":\"数据本身有证据支持，但“最强数据”属于未经绑定 claim 支持的比较性定级。\"},{\"sentence_index\":6,\"reason\":\"现有快照数据不能推出放量方向扩展、成交收缩缓解与反弹持续性增强之间的条件或因果关系，也不能推出反之热点会进一步集中。\"},{\"sentence_index\":13,\"reason\":\"前文已承认无法判断这些方向是否已有积累，随后却提出“补齐”其概念页、公司暴露及业务角色并列为优先事项，隐含其覆盖不足且进行了无证据的优先级判断。\"}]}",
+  "parsed_output": {
+    "passed": false,
+    "rejected_sentence_indexes": [
+      2,
+      4,
+      6,
+      13
+    ],
+    "issues": [
+      "{'sentence_index': 2, 'reason': '绑定证据仅说明资料来源及盘面与知识库的边界，不能推出实际的“检索计划”是读取该日报。'}",
+      "{'sentence_index': 4, 'reason': '数据本身有证据支持，但“最强数据”属于未经绑定 claim 支持的比较性定级。'}",
+      "{'sentence_index': 6, 'reason': '现有快照数据不能推出放量方向扩展、成交收缩缓解与反弹持续性增强之间的条件或因果关系，也不能推出反之热点会进一步集中。'}",
+      "{'sentence_index': 13, 'reason': '前文已承认无法判断这些方向是否已有积累，随后却提出“补齐”其概念页、公司暴露及业务角色并列为优先事项，隐含其覆盖不足且进行了无证据的优先级判断。'}"
+    ]
+  },
+  "deterministic_issues": [
+    {
+      "code": "grounded_composer_unverified_heading",
+      "severity": "warning",
+      "message": "标题不在建议标题集合中：2026-07-23 市场复盘"
+    },
+    {
+      "code": "grounded_composer_unverified_heading",
+      "severity": "warning",
+      "message": "标题不在建议标题集合中：知识库积累与研究缺口"
+    }
+  ],
+  "prediction": {},
+  "validation_status": "valid"
+}
