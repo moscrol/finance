@@ -1,0 +1,60 @@
+{
+  "schema_version": "acceptance-canary-preregistration-1.0",
+  "registered_at": "2026-08-03T19:17:59+08:00",
+  "revision": "85564983ae07fc542a932c6c5f7ee6c96e848133",
+  "case_id": "A4-dual-red",
+  "query": "2026-07-23 哪些板块是双红",
+  "runtime": {
+    "base_url": "http://127.0.0.1:8818",
+    "isolated": true,
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "root_timeout_seconds": 120,
+    "grounded_child_timeout_seconds": 115,
+    "mode": "standard",
+    "continuous_runtime": "off"
+  },
+  "fixture_sha256": {
+    "acceptance_cases.json": "a25c68253a92be536b94d2403ffa010b6cd15a20b7eea581450159cb6444a1c6",
+    "acceptance_verdict_contracts.json": "a705b809463d438f4ec21cdc2eaab50d8314e2ba8f0f8d35c3f0080115910a8c"
+  },
+  "single_run_only": true,
+  "success_contract": {
+    "turn_status": "completed",
+    "maximum_elapsed_seconds": 120,
+    "synthesis_state": "accepted",
+    "allowed_shadow_status": [
+      "accepted",
+      "repaired"
+    ],
+    "phases": [
+      {
+        "name": "brief",
+        "status": "ok",
+        "execution_mode": "deterministic",
+        "timeout_seconds": 0
+      },
+      {
+        "name": "composer",
+        "status": "ok",
+        "execution_mode": "provider"
+      },
+      {
+        "name": "judge",
+        "status": "ok",
+        "execution_mode": "provider"
+      }
+    ],
+    "forbidden_states": [
+      "released_unverified",
+      "template_fallback",
+      "unknown"
+    ],
+    "synthesis_health_gate_exit_code": 0
+  },
+  "stop_rules": [
+    "Do not rerun A4 after any outcome.",
+    "Do not run the remaining A-group cases.",
+    "Do not change prompts, budgets, or gates between execution and verdict."
+  ]
+}
