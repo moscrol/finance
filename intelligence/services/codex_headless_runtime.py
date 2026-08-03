@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -53,6 +54,12 @@ _EXTERNAL_ACTION_ITEM_TYPES = frozenset(
         "computer_use",
     }
 )
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
+        "+00:00", "Z"
+    )
 #: Issues that are genuine *model protocol violations*, matching what
 #: ``agent_episode`` counts as ``invalid_actions``: an unauthorized tool, a tool
 #: call after finalization started, and an unparseable finish.  Every other
@@ -679,6 +686,7 @@ class CodexHeadlessRuntime:
                     )
                     >= 1.0
                 ):
+                    gateway.begin_finalization(finish_issue)
                     repair_command = self._build_repair_command(
                         task_frame=task_frame,
                         context=context,
@@ -1025,6 +1033,7 @@ class CodexHeadlessRuntime:
                     "status": status,
                     "stop_reason": stop_reason,
                     "gaps": gaps,
+                    "timestamp": _utc_timestamp(),
                 },
             )
         )

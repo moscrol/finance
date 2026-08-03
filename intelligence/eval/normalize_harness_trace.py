@@ -155,6 +155,11 @@ def _event_timestamp(record: Mapping[str, Any]) -> str | int | float | None:
     for key in ("timestamp", "created_at", "started_at", "finished_at", "time"):
         if key in record:
             return _safe_timestamp(record[key])
+    payload = record.get("payload")
+    if isinstance(payload, Mapping):
+        for key in ("timestamp", "created_at", "started_at", "finished_at", "time"):
+            if key in payload:
+                return _safe_timestamp(payload[key])
     return None
 
 

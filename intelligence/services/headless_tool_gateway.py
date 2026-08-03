@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from contextvars import Context, copy_context
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -40,6 +41,21 @@ _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
 _MAX_RESPONSE_BYTES = 1_048_576
+_FINALIZATION_REASONS = frozenset(
+    {
+        "research_stage_closed",
+        "tool_budget_exhausted",
+        "deadline_pressure",
+        "headless_invalid_finish",
+        "headless_no_finish",
+    }
+)
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
+        "+00:00", "Z"
+    )
 
 
 def _is_snapshot_tool(spec: ToolSpec) -> bool:
@@ -169,6 +185,7 @@ class HeadlessToolGateway:
         self._executed_count = 0
         self._duplicate_queries = 0
         self._mailbox_exchanges: list[HeadlessMailboxExchange] = []
+        self._finalization_event: EpisodeEvent | None = None
         self._next_sequence = 2
         self._closed = False
 
@@ -461,6 +478,31 @@ class HeadlessToolGateway:
                 mailbox_exchanges=tuple(self._mailbox_exchanges),
             )
 
+    def begin_finalization(self, reason: str) -> EpisodeEvent:
+        """Record one real control-plane transition into answer finalization."""
+
+        with self._lock:
+            return self._begin_finalization_locked(reason)
+
+    def _begin_finalization_locked(self, reason: str) -> EpisodeEvent:
+        if reason not in _FINALIZATION_REASONS:
+            raise ValueError("unsupported headless finalization reason")
+        if self._finalization_event is not None:
+            return self._finalization_event
+        remaining_seconds = self._context.deadline.stage_timeout(
+            self._context.deadline.remaining()
+        )
+        event = self._add_event(
+            "finalization",
+            {
+                "reason": reason,
+                "remaining_seconds": round(remaining_seconds, 3),
+                "timestamp": _utc_timestamp(),
+            },
+        )
+        self._finalization_event = event
+        return event
+
     def _serve_request(self, handler: BaseHTTPRequestHandler) -> None:
         if handler.headers.get("Authorization") != f"Bearer {self._bearer}":
             self._send(handler, 401, {"status": "rejected", "error": "unauthorized"})
@@ -563,6 +605,11 @@ class HeadlessToolGateway:
                         "retryable": rejection.get("retryable", False),
                     },
                 )
+                if rejected in {
+                    "research_stage_closed",
+                    "tool_budget_exhausted",
+                }:
+                    self._begin_finalization_locked(rejected)
                 return rejection
             if spec is None or prepared is None:
                 raise RuntimeError("prepared headless tool request missing")

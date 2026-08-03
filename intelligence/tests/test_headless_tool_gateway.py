@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -433,6 +434,35 @@ def test_gateway_closes_research_stage_before_finalization_budget() -> None:
     assert rejected["budget"]["must_finalize"] is True
     assert snapshot.executed_count == 1
     assert calls == [("market_data", "市场")]
+
+
+def test_gateway_records_one_timestamped_finalization_transition() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context(max_steps=3)
+    context = replace(
+        base,
+        deadline=ResearchDeadline.from_timeout(5.0),
+        policy=ResearchPolicy("quick", 3, 5.0, 0.0),
+    )
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        first_rejection = gateway.call("news_search", "第一次补查")
+        second_rejection = gateway.call("news_search", "第二次补查")
+        snapshot = gateway.snapshot()
+
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert first_rejection["error"] == "research_stage_closed"
+    assert second_rejection["error"] == "research_stage_closed"
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "research_stage_closed"
+    assert float(transitions[0].payload["remaining_seconds"]) >= 0.0
+    datetime.fromisoformat(str(transitions[0].payload["timestamp"]).replace("Z", "+00:00"))
 
 
 def test_gateway_floor_ratio_can_be_disabled_without_changing_default() -> None:

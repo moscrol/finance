@@ -219,6 +219,24 @@ def test_terminal_state_survives_payload_nesting() -> None:
     assert "stop_reason=model_finish" in events[1].summary
 
 
+def test_runtime_benchmark_reads_safe_timestamp_from_event_payload() -> None:
+    events = normalize_records(
+        [
+            {
+                "sequence": 9,
+                "kind": "finalization",
+                "payload": {
+                    "reason": "research_stage_closed",
+                    "timestamp": "2026-08-04T12:00:00.000Z",
+                },
+            }
+        ],
+        kind="runtime-benchmark",
+    )
+
+    assert events[0].timestamp == "2026-08-04T12:00:00.000Z"
+
+
 def test_every_persisted_benchmark_kind_has_a_normalized_step() -> None:
     from intelligence.eval.normalize_harness_trace import _BENCHMARK_STEPS
     from intelligence.eval.runtime_backend_benchmark import _DIAGNOSTIC_EVENT_KINDS

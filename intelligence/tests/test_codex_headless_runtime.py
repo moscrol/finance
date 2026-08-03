@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -944,6 +945,19 @@ def test_headless_runtime_allows_one_finish_only_recovery() -> None:
     assert outcome.usage.llm_calls == 2
     assert outcome.usage.tool_calls == 1
     assert process_calls == 2
+    finalization_events = [
+        event for event in outcome.events if event.kind == "finalization"
+    ]
+    assert len(finalization_events) == 1
+    assert finalization_events[0].payload["reason"] == "headless_invalid_finish"
+    finalization_at = datetime.fromisoformat(
+        str(finalization_events[0].payload["timestamp"]).replace("Z", "+00:00")
+    )
+    finish_event = next(event for event in outcome.events if event.kind == "finish")
+    finish_at = datetime.fromisoformat(
+        str(finish_event.payload["timestamp"]).replace("Z", "+00:00")
+    )
+    assert finish_at >= finalization_at
     runtime_event = next(
         event for event in outcome.events if event.kind == "runtime_result"
     )
