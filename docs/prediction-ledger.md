@@ -33,6 +33,16 @@
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
+### 2026-08-04 预算标定：开工前回填
+
+此表冻结在本轮新 live run 与新归因之前，防止后续结论倒灌成“开工前已知”。
+
+| ID | 开工前新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260804-02` | 本轮暂无新的真 rollout JSONL | `pending` | 保持 Open；只有真 `function_call_output` 被归一化为 `observe` 才结案 |
+| `R-20260804-04` | 本轮暂无新的真 Codex headless run；仍只有既有单元实测、合成端到端实测与中间跳的 code reading | `pending` | 先跑 `a_control` 五题，再按 runtime issues 与 protocol issues 的实际值结案 |
+| `R-20260804-07` | 本轮尚未产出新的标准四阶段 triage 报告 | `pending` | 完成预算 M2 分诊后再检查 `first_bad_step` 是否与本仓 L1 空间直接对齐 |
+
 > **`R-20260804-04` 哪部分已验、为什么不结案。** 两段分别实测通过，组合结论未端到端验证：
 >
 > | 段 | 断言 | 证据 |
