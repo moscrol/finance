@@ -216,6 +216,19 @@
 - observation: judge 在46.982秒自然完成且输出可解析。与 E-007 合计80.320秒；删除 brief LLM 后，在115秒 child 内剩34.680秒正余量。
 - confidence: high
 
+#### E-009
+
+- title: 确定性 DecisionBrief 冻结契约与 A4 chain_mapping 核验
+- run_id: `run_20260803_142959_204791`, `run_20260803_162718_999605`, `run_20260803_171452_043073`
+- step_or_span_id: `build_deterministic_decision_brief`
+- native_or_normalized: native
+- source_type: test
+- source_ref: `intelligence/eval/measurements/2026-08-03-deterministic-brief-validation.json`; `intelligence/tests/test_decision_brief_chain_mapping.py`
+- observed_at: 2026-08-03
+- raw_excerpt: `revision=6ffd731f; provider_calls=0; cases=3; field_coverage=8/8; validator_passed=3/3; A4 company_family_claim_count=0; chain_mapping_count=0`
+- observation: A1 与 A4 pre/post 的确定性 brief 均8字段齐全、validator通过且零 provider 调用。A4 两份 registry 本身都没有 `company:/chain:/exposure:` claim，因此空 `chain_mapping` 是输入真相而非丢字段；合成 mutation fixture 另验证2条 company claim 必须2/2进入 mapping。
+- confidence: high
+
 ### Findings
 
 #### F-001
@@ -253,7 +266,7 @@
 - residual_uncertainty:
   - 三个值均来自同一 A1 冻结输入的单样本，不是 A4 的精确自然耗时或 p50/p95。
   - composer/judge 已有自然完成值，但 provider 瞬时延迟仍未冻结；80.320秒只能证明本样本有余量，不能替代一次新架构 A4 canary。
-  - `core_tension` 不是纯投影；其确定性模板仍需离线契约与 mutation 验证。
+  - `core_tension` 确定性模板与 chain mapping mutation 已离线通过；剩余不确定性收敛为新架构 A4 的真实两段时延与最终语义修复结果。
 
 ## Fix recommendations
 
@@ -272,7 +285,7 @@
 | phase 没有 censoring 类型 | `elapsed≈grant` 是否自然完成不直观 | `elapsed_kind=completed|child_censored|phase_censored|retry_multiplied` | phase telemetry | 不再从数值形状猜语义 | 低 |
 | token 与 phase 未关联 | 无法做 root 扩容 sizing | phase `completion_tokens/reasoning_tokens`，缺失保持 unknown | LLM ledger ↔ phase | 估计吞吐与 p50/p95 | 中 |
 | judge 历史无同质完成样本 | 已由冻结 replay 首样本关闭 | `elapsed_ms=46982`、`validation_status=valid` | `grounded-replay/judge` | 两段合计80.320秒，可判断 E 在120秒目标下有样本余量 | 已完成 |
-| E 的 `core_tension` 模板未冻结 | 无法确认确定性 brief 能完整替代旧契约 | 离线样本记录8字段 coverage；阈值8/8且 validator 对缺失/冲突 fail-closed | E frozen-artifact golden | `core_tension` 是否可安全模板化，升降级 claim-id 投影是否完整 | 低 |
+| E 的 `core_tension` 模板与 chain mapping | 已由 E-009 关闭离线不确定性 | `provider_calls=0`、3/3 样本8字段、validator 3/3；company mutation 2/2 | frozen-artifact golden + mutation | 确定性 brief 可进入一次 A4 canary | 已完成 |
 
 ## Limits and counterevidence
 

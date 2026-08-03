@@ -1,0 +1,98 @@
+{
+  "schema_version": "deterministic-decision-brief-validation-1.0",
+  "revision": "6ffd731f06ed58684cf4e8b4be100daa517691b6",
+  "provider_calls": 0,
+  "required_field_count": 8,
+  "cases": [
+    {
+      "case": "A1-frozen",
+      "run_id": "run_20260803_142959_204791",
+      "answer_spec_sha256": "ac19e4e24bc629e3a9509c96154846ab3e7d8f1f453ac3712e4d1330a9bbeda8",
+      "claim_count": 19,
+      "company_family_claim_count": 0,
+      "brief_field_coverage": 8,
+      "brief_fields": [
+        "direct_answer",
+        "core_tension",
+        "supports",
+        "counterevidence",
+        "unknowns",
+        "upgrade_conditions",
+        "downgrade_conditions",
+        "chain_mapping"
+      ],
+      "supports_count": 17,
+      "counterevidence_count": 0,
+      "unknowns_count": 1,
+      "upgrade_conditions_count": 1,
+      "downgrade_conditions_count": 1,
+      "chain_mapping_count": 0,
+      "chain_mapping_matches_registry": true,
+      "core_tension_mode": "deterministic_template",
+      "validator_passed": true,
+      "validator_issue_codes": []
+    },
+    {
+      "case": "A4-pre",
+      "run_id": "run_20260803_162718_999605",
+      "answer_spec_sha256": "d106e6cadc505b16133441261eecce580e3e4a7618d7c5cfe311b10ecdc93cba",
+      "claim_count": 19,
+      "company_family_claim_count": 0,
+      "brief_field_coverage": 8,
+      "brief_fields": [
+        "direct_answer",
+        "core_tension",
+        "supports",
+        "counterevidence",
+        "unknowns",
+        "upgrade_conditions",
+        "downgrade_conditions",
+        "chain_mapping"
+      ],
+      "supports_count": 17,
+      "counterevidence_count": 0,
+      "unknowns_count": 1,
+      "upgrade_conditions_count": 1,
+      "downgrade_conditions_count": 1,
+      "chain_mapping_count": 0,
+      "chain_mapping_matches_registry": true,
+      "core_tension_mode": "deterministic_template",
+      "validator_passed": true,
+      "validator_issue_codes": []
+    },
+    {
+      "case": "A4-post",
+      "run_id": "run_20260803_171452_043073",
+      "answer_spec_sha256": "d106e6cadc505b16133441261eecce580e3e4a7618d7c5cfe311b10ecdc93cba",
+      "claim_count": 19,
+      "company_family_claim_count": 0,
+      "brief_field_coverage": 8,
+      "brief_fields": [
+        "direct_answer",
+        "core_tension",
+        "supports",
+        "counterevidence",
+        "unknowns",
+        "upgrade_conditions",
+        "downgrade_conditions",
+        "chain_mapping"
+      ],
+      "supports_count": 17,
+      "counterevidence_count": 0,
+      "unknowns_count": 1,
+      "upgrade_conditions_count": 1,
+      "downgrade_conditions_count": 1,
+      "chain_mapping_count": 0,
+      "chain_mapping_matches_registry": true,
+      "core_tension_mode": "deterministic_template",
+      "validator_passed": true,
+      "validator_issue_codes": []
+    }
+  ],
+  "summary": {
+    "cases": 3,
+    "all_fields_complete": true,
+    "all_valid": true,
+    "all_chain_mappings_exact": true
+  }
+}
