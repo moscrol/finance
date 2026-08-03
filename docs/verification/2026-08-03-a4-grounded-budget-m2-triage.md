@@ -229,6 +229,32 @@
 - observation: A1 与 A4 pre/post 的确定性 brief 均8字段齐全、validator通过且零 provider 调用。A4 两份 registry 本身都没有 `company:/chain:/exposure:` claim，因此空 `chain_mapping` 是输入真相而非丢字段；合成 mutation fixture 另验证2条 company claim 必须2/2进入 mapping。
 - confidence: high
 
+#### E-010
+
+- title: 唯一一次 post-release A4 canary 未通过预注册门禁
+- run_id: `run_20260803_192033_482756`
+- step_or_span_id: `synthesize/composer`
+- native_or_normalized: native
+- source_type: trace
+- source_ref: `intelligence/eval/measurements/2026-08-03-a4-post-release-fix.json`; `intelligence/eval/measurements/2026-08-03-a4-post-release-fix-verdict.json`
+- observed_at: 2026-08-03T19:22:18+08:00
+- raw_excerpt: `turn=completed@104.7s; brief=ok/deterministic/0ms; composer=failed/deadline_exhausted_local/24003ms/grant24s; remaining_at_composer=53770ms; judge=absent; health_gate_exit=1`
+- observation: 确定性 brief 已按预期移除 provider 调用，但两段自然完成值“能装进115秒 child”不等于“进入合成时仍有115秒”。本轮上游检索先消耗66.118秒，composer 入场只剩53.770秒，又按45%切成24秒，低于 E-007 的33.338秒完成值，因此失败被从 brief 后移到 composer。按预注册 stop rule，本 A4 不重跑。
+- confidence: high
+
+#### E-011
+
+- title: canary 同时暴露错路由延迟与重复 shadow 副作用
+- run_id: `run_20260803_192033_482756`
+- step_or_span_id: `route/retrieve/shadow_synthesize`
+- native_or_normalized: native
+- source_type: trace
+- source_ref: run trace sha256 `4a7e1f2be7215a1cd7932b160c0ada15074416decf2835aad713bc6fba6d3875`; verdict receipt `secondary_observations`
+- observed_at: 2026-08-03T19:22:16+08:00
+- raw_excerpt: `expected finance_query absent; wiki_rag=64947ms/kept=0; synthesis calls=24003ms+13002ms; by_caller={chat:1,synthesis:2}`
+- observation: A4 是可由结构化 `finance_query` 回答的历史取值题，但 daily-review 找不到导出后落入 theme-analysis/Wiki RAG，64.947秒检索的18个候选全部被语义闸门丢弃；主 Presenter 已尝试 grounded 链后，环境 shadow 开关又发起第二次 composer，额外消耗13.002秒。两者都不是 provider 随机慢。
+- confidence: high
+
 ### Findings
 
 #### F-001
@@ -250,6 +276,44 @@
 - confidence: high
 - explanation: 三段自然完成样本合计 `69.740+33.338+46.982=150.060` 秒，直接超过115秒 child；当前 allocator 只能决定哪一段先被截断，不能把三次串行调用装进该预算。删除 brief LLM 后剩余两段合计80.320秒并有34.680秒正余量，因此确定性 DecisionBrief 是保持120秒产品目标的最小架构修复。
 
+#### F-002
+
+- title: 两段预算 sizing 漏算合成前对同一 root deadline 的消费
+- status: validated
+- failure_span_id: `run_20260803_192033_482756/synthesize.composer`
+- root_location: turn-to-synthesis budget handoff
+- l0: HARNESS
+- l1: configure
+- l2: `execution-error-category-timeout`
+- l3: n/a
+- violated_authority: preregistered 120-second root contract
+- causality: PRIMARY_FAILURE
+- propagation_impact: [QUALITY_DEGRADATION]
+- failure_detection_timing: IMMEDIATE
+- completion_status: PARTIAL_SUCCESS
+- evidence_ids: [E-007, E-008, E-010]
+- confidence: high
+- explanation: T3 把 `115-80.320=34.680s` 当作产品余量，但该余量只属于“从合成入口重新拿满115秒”的局部模型。真实 turn 的检索、composer、judge 共用同一 root；A4 合成入口仅剩53.770秒，局部余量并不存在。45%比例切片进一步把 composer grant 压到24秒，低于已测完成值。
+
+#### F-003
+
+- title: 主 Presenter 与 shadow 观测路径在同一轮重复发起 grounded composer
+- status: validated
+- failure_span_id: `run_20260803_192033_482756/shadow_synthesize`
+- root_location: conversation orchestrator shadow admission
+- l0: HARNESS
+- l1: synthesize
+- l2: `execution-error-category-duplicate-side-effect`
+- l3: n/a
+- violated_authority: one grounded chain per turn
+- causality: SECONDARY_FAILURE
+- propagation_impact: [LATENCY_INCREASE]
+- failure_detection_timing: SEVERAL_STEPS_LATER
+- completion_status: PARTIAL_SUCCESS
+- evidence_ids: [E-011]
+- confidence: high
+- explanation: `promote_grounded_answer()` 已通过 `synthesize_shadow_grounded_answer()` 执行生产 Presenter；orchestrator 末尾只检查 shadow 开关，未检查该轮是否已有 shadow 结果，于是第二次调用覆盖影子 artifact 并白烧13.002秒。
+
 ### Path
 
 #### P-001
@@ -266,16 +330,18 @@
 - residual_uncertainty:
   - 三个值均来自同一 A1 冻结输入的单样本，不是 A4 的精确自然耗时或 p50/p95。
   - composer/judge 已有自然完成值，但 provider 瞬时延迟仍未冻结；80.320秒只能证明本样本有余量，不能替代一次新架构 A4 canary。
-  - `core_tension` 确定性模板与 chain mapping mutation 已离线通过；剩余不确定性收敛为新架构 A4 的真实两段时延与最终语义修复结果。
+  - `core_tension` 确定性模板与 chain mapping mutation 已离线通过；唯一 A4 canary 已关闭“是否能从 deterministic brief 进入 composer”的不确定性，但以红灯证明现有 turn→phase 预算交接仍不可行。
+  - A4 的 composer/judge 自然完成值仍未知；stop rule 禁止用重跑消除该不确定性。
 
 ## Fix recommendations
 
 | ID | finding | fix_type | recommendation | verification prediction | regression guard |
 |---|---|---|---|---|---|
 | R-001 | F-001 | DATA_CONTRACT_FIX | **已选路线**：工程默认改为确定性 DecisionBrief（E）。`direct_answer` 与 claim-id 数组从 AnswerSpec 投影；`core_tension` 用显式确定性模板派生，不冒充纯投影；删除一次主链 LLM 往返。 | 冻结 artifact 上 brief 零 provider 调用、8字段契约通过；A4 首个 provider phase 变为 composer，随后 judge 在115秒 child 内保留正余量。 | 先离线 golden + mutation，再做一次 A4；旧 LLM brief 代码不作为默认路径。 |
-| R-002 | F-001 | HARNESS_FIX | deep-mode 扩容不作为本轮默认：实测两段仅80.320秒，保持120秒交互目标已有34.680秒样本余量。只有后续多样本 p95 证伪该余量时，才新增显式 deep profile。 | 新架构 A4 若在120秒内两段完成则不扩容；若超时，单独评估 deep profile，不能静默改全局 root。 | 标准/深度 profile 必须显式分离。 |
-| R-003 | F-001 | EVAL_ONLY | 架构选择已由 E-007/E-008 解锁；仍禁止再跑 brief-only、逐级 cap 与整组 A组。新 revision 完成后只跑一次预注册 A4。 | 不再产生只把 timeout 从 brief 后移到 composer 的无信息 artifact。 | A4 通过后才允许后续批量验收。 |
+| R-002 | F-002 | HARNESS_FIX | 取消按剩余时间固定比例盲切：composer 只有在“实测 composer grant + 实测 judge reserve + 安全余量”同时可用时才准入；否则零 provider 调用 fail-fast。需要长检索的任务使用显式 deep profile，不能让 child 越过 root。 | 53.770秒 fixture 在调用前被拦；具备完整两段预算的 fixture 才发 composer，judge 始终保有测量下界以上的余额。 | 用冻结 clock 的预算单测覆盖 canary 的 `53.770s → 24s` 失败形状。 |
+| R-003 | F-001, F-002 | EVAL_ONLY | 唯一 A4 已按预注册执行并判红；继续禁止重跑 A4、brief-only、逐级 cap 与整组 A组。后续只用冻结输入、单元测试和不同的预注册任务验证修复。 | 不以“偶尔第二次成功”覆盖首次红灯收据。 | verdict 固化 `rerun_permitted=false`，评测脚本拒绝覆盖原 artifact。 |
 | R-004 | F-001 | EVAL_ONLY | 为历史 artifact 增加 revision-aware semantic epoch 解析；禁止把 E0/E1/E2 的 `elapsed_ms` 同质聚合。 | E0 的 `69740/22` 被标为 uncensored completion，E1 的 `44560/22` 标为 retry-multiplied，E2 的 `28010/28` 标为 grant-censored。 | 用现有6份 artifact 做冻结分类测试。 |
+| R-005 | F-003 | HARNESS_FIX | 主 Presenter 已产生 `grounded_composer_shadow` 时，orchestrator 的观测 shadow 路径不得再次发起 provider 调用；复用同一结果落 trace/artifact。 | 开启 grounded presenter 与 shadow 开关时，一轮仍只有一条 grounded composer 调用链。 | 集成测试以调用计数锁住“生产 + shadow 同开=1次”。 |
 
 ## Observability prescription
 
@@ -293,11 +359,12 @@
 - `max_tokens=2400` 是输出上限，不是期望输出长度。E-007 的33.338秒直接证伪“按 brief token cap 两倍外推110–180秒”的吞吐模型。
 - 直接证据现在给出 `brief=69.740s`、`composer=33.338s`、`judge=46.982s`，三段合计150.060秒；它们仍是单样本而非 p95。
 - 在当前115秒 child 下，三段结构已被直接测量证伪；删除 brief 后两段80.320秒则有34.680秒样本余量。下一步验证对象应是确定性 brief 契约与一次 A4，而不是继续调 cap。
+- E-010 证伪了“34.680秒是完整产品余量”：它只是合成局部余量，真实 turn 还要先支付检索成本。任何 end-to-end sizing 都必须从 root 起点累计，而不是在合成入口重新起表。
 - E 不是“纯投影8字段”：7个字段可从 AnswerSpec/claim registry 投影，`core_tension` 必须被明确当作模板化派生字段，而不是伪装成无损投影。
 
 ## Next-step menu
 
-1. 实施确定性 DecisionBrief（E），保持120秒 root/115秒 child，不默认扩容。
-2. 先做冻结 AnswerSpec 的离线8字段契约与 mutation 验证，不调用 live provider。
-3. 新架构 revision 完成后只跑一次 A4；成功门改为 deterministic brief + composer + judge，而不是旧三次 provider phase。
-4. A4 通过后才进入跨 harness 审计；整组 A组仍不在本轮运行。历史 artifact 先经 E0/E1/E2 解释器归一，不能直接混算。
+1. 保留已完成的确定性 DecisionBrief（E），不恢复 brief provider 调用。
+2. 用冻结 canary 时钟补“完整两段预算准入”回归测试，并消除同轮第二次 shadow 调用；不调用 live provider。
+3. 修复 daily-review 失败后的确定性金融数据 fallback，避免结构化取值题落入 64.947秒且零有效结果的 Wiki RAG。
+4. A4 收据保持红且禁止重跑；合成链经离线修复后，使用不同的预注册任务确认不再必然卡在 synthesize，再进入跨 harness 审计。历史 artifact 先经 E0/E1/E2 解释器归一，不能直接混算。

@@ -1,0 +1,179 @@
+{
+  "generated_at": "20260803T112218Z",
+  "base": "http://127.0.0.1:8818",
+  "preflight_ok": true,
+  "preflight_detail": "revision=e0c0339b backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A4-dual-red",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 哪些板块是双红",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n**数据截至 2026-08-03。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n**数据截至 2026-08-03。** 市场总览优先读取本地市场数据；日报导出和题材候选快照仅作补充，并按各自日期标注。\n\n# 金融问题裁决\n\n## 核心判断\n**题材是什么：** 未命名题材的研究范围是：先界定题材解决的问题、技术或商业边界，不把概念关联直接等同于公司受益。\n\n**盘面判断：** 盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。\n\n**证据边界：** 公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，因此不能把任何公司列为核心受益者。\n\n## 题材怎么理解\n这条产业链可以按“上游供给与基础设施 → 中游产品与系统集成 → 下游客户与应用场景”来拆。逐家公司说明产业链位置、直接性、证据状态和证据缺口。\n\n## 为什么这样判断\n本轮可回查的数据主要给出以下信号：\n- **主线题材结构：** 最新主线日期：2026-08-03；匹配口径：最新全市场主线；该块是盘面信号，只能说明市场主线归因，不等同公司基本面兑现。\n- **主线题材结构：** 主线持续性：半导体近20日出现15天（2026-07-14~2026-08-03，板块行45）；AI算力近20日出现15天（2026-07-14~2026-08-03，板块行24）；医药近20日出现11天（2026-07-14~2026-07-28，板块行33）；大金融近20日出现6天（2026-07-20~2026-08-03，板块行9）；AI应用近20日出现6天（2026-07-14~2026-08-03，板块行8）。\n- **主线题材结构：** AI应用核心板块：AI营销(-，未标注/-，涨1.37%，边际量6.82%，成交481.09亿，涨停3，弱放量修复)；AIGC概念(-，未标注/-，涨0.74%，边际量-15.83%，成交1672.98亿，涨停4，缩量强修复/存量抱团)。\n- **主线题材结构：** AI算力核心板块：CPO概念(-，未标注/-，涨-0.45%，边际量-32.40%，成交3331.69亿，涨停3，量价状态待确认)。\n- **主线题材结构：** 半导体核心板块：PCB(电子，未标注/-，涨-2.21%，边际量-35.44%，成交586.02亿，涨停0，量价状态待确认)；半导体(电子，未标注/-，涨-5.77%，边际量-29.36%，成交3395.78亿，涨停1，量价状态待确认)；半导体设备(电子，未标注/-，涨-9.38%，边际量-12.23%，成交614.29亿，涨停0，量价状态待确认)。\n\n## 公司证据\n目前没有公司达到可展示的证据门槛。题材框架可以继续研究，但还不能据此确认任何一家公司的直接受益关系。\n\n## 反证与缺口\n目前最需要警惕的是以下反证和证据缺口：\n- 风险：价格可能已抢跑：市场交易的是预期而非已验证事实，公告/兑现日反而可能是分歧点\n- 风险：缺少公告等公司级硬证据：若公司在互动易口径保守/否认，或长期无公告跟进，这条逻辑的直接性将明显下降\n- 还缺：当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告或定期报告、官网产品与客户资料、订单、认证、量产或收入贡献。\n- 还缺：题材生命周期：无法判定——证据与盘面都不足：先补题材双红/涨停/新高与产业证据，再谈阶段\n\n## 下一步如何验证\n**判断升级需要：** 公司级硬证据升级；产业需求或政策边界变化；盘面量价与扩散同步验证。\n**复核时间：建议 30 天内复查（至 2026-09-02）；过期引用本结论须先经当下盘面复核。**\n建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：\n1. 核对公告、年报和官网\n2. 确认产品、客户、订单和收入贡献\n3. 跟踪反证与触发条件\n\n<details><summary>展开来源和数据说明</summary>\n\n### 来源与证据边界\n（内部检索诊断信息已隐藏。）\n- 本地市场数据库主线题材结构数据块 — 同日主线结构；若快照滞后则仅提供数据边界\n- 本地证据链客户硬度数据块 — 客户/订单/量产/送样/验证证据按硬度分层\n- 本地市场数据库 + 证据链二阶导研究队列数据块 — 强势替代表达/目标股再升级/产业瓶颈补盲\n- [研究框架] 题材研究配置 · 未命名题材 — 仅用于定义、产业链和核验协议，不作为公司级事实。\n\n### 数据说明\n- 本轮未形成可验证的公司级来源；公司判断均按待验证展示。\n- 部分资料源本轮不可用，未用于结论。\n\n</details>",
+          "run_id": "run_20260803_192033_482756",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "tag": "G1",
+              "source": "（内部检索诊断信息已隐藏。）",
+              "detail": "（内部检索诊断信息已隐藏。）"
+            },
+            {
+              "tag": "D4",
+              "source": "本地市场数据主线题材结构数据块",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界"
+            },
+            {
+              "tag": "D2",
+              "source": "本地证据链客户硬度数据块",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层"
+            },
+            {
+              "tag": "D3",
+              "source": "本地市场数据 + 证据链二阶导研究队列数据块",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲"
+            }
+          ],
+          "degrades": [
+            "未找到 2026-07-23 的本地复盘报告；日报基础模块缺失。",
+            "题材候选快照截至 2026-07-01，早于本地市场数据的 2026-08-03；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "（内部检索诊断信息已隐藏。）",
+            "历史信号回检：theme_signals.json 无匹配主题，历史信号回检跳过（该题材尚未建发酵信号）",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 6,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] theme-radar · radar.py --mode brief（产业维·速览）",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "radar.py --mode brief --term 2026-07-23 哪些板块是双红 --vault <kb-wiki> | --term 2026-07-23 哪些板块是双红",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D4",
+              "label": "[D4] 本地 DuckDB 主线题材结构数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "同日主线结构；若快照滞后则仅提供数据边界",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D2",
+              "label": "[D2] 本地证据链客户硬度数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "客户/订单/量产/送样/验证证据按硬度分层",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:D3",
+              "label": "[D3] 本地 DuckDB + 证据链二阶导研究队列数据块",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势替代表达/目标股再升级/产业瓶颈补盲",
+              "status": "hit"
+            },
+            {
+              "id": "citation:D",
+              "label": "D 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "3 条引用",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 3,
+            "candidate_claim_count": 11,
+            "bound_claim_count": 9,
+            "shadow_status": "composer_unavailable",
+            "phases": [
+              {
+                "name": "brief",
+                "status": "ok",
+                "remaining_ms_at_entry": 53770,
+                "timeout_s": 0,
+                "elapsed_ms": 0,
+                "reason_code": "",
+                "execution_mode": "deterministic"
+              },
+              {
+                "name": "composer",
+                "status": "failed",
+                "remaining_ms_at_entry": 53770,
+                "timeout_s": 24,
+                "elapsed_ms": 24003,
+                "reason_code": "deadline_exhausted_local",
+                "execution_mode": "provider"
+              }
+            ]
+          },
+          "gaps": [
+            "未找到 2026-07-23 的本地复盘报告；日报基础模块缺失。",
+            "题材候选快照截至 2026-07-01，早于本地市场数据的 2026-08-03；快照仅作辅助参考，不作为本轮整体数据日期。",
+            "wiki-rag：wiki-rag dense 依赖不可用，已回退 BM25",
+            "模块 replay：theme_signals.json 无匹配主题，replay 跳过（该题材尚未建发酵信号）",
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 104.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

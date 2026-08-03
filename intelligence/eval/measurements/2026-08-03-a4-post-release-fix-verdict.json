@@ -1,0 +1,78 @@
+{
+  "schema_version": "acceptance-canary-verdict-1.0",
+  "evaluated_at": "2026-08-03T19:22:18+08:00",
+  "case_id": "A4-dual-red",
+  "run_id": "run_20260803_192033_482756",
+  "runtime_revision": "e0c0339b",
+  "code_revision_under_test": "85564983ae07fc542a932c6c5f7ee6c96e848133",
+  "single_run_only": true,
+  "rerun_permitted": false,
+  "receipt_sha256": {
+    "preregistration": "22fcc1aad118872c6a5eb9da75694be7dc9a5ec8119bf5179082cf03016f717d",
+    "acceptance_result": "339e8a27b0dfa2722ba8b3da25ee420ac2e6753c367634a9fab3eb7c7d6ad1c5",
+    "run_trace": "4a7e1f2be7215a1cd7932b160c0ada15074416decf2835aad713bc6fba6d3875",
+    "answer_spec": "a0801fcf79bdbae8756b6cf64de239db2f80aba3ed0a39199a2ecb512530f484"
+  },
+  "verdict": "failed",
+  "turn": {
+    "status": "completed",
+    "elapsed_seconds": 104.7,
+    "within_root_timeout": true
+  },
+  "synthesis": {
+    "health_class": "template_fallback",
+    "state": "rejected",
+    "shadow_status": "composer_unavailable",
+    "first_failed_phase": "composer",
+    "phases": [
+      {
+        "name": "brief",
+        "status": "ok",
+        "execution_mode": "deterministic",
+        "remaining_ms_at_entry": 53770,
+        "timeout_seconds": 0,
+        "elapsed_ms": 0
+      },
+      {
+        "name": "composer",
+        "status": "failed",
+        "execution_mode": "provider",
+        "remaining_ms_at_entry": 53770,
+        "timeout_seconds": 24,
+        "elapsed_ms": 24003,
+        "reason_code": "deadline_exhausted_local"
+      }
+    ],
+    "judge_observed": false
+  },
+  "health_gate": {
+    "min_full_pass": 1.0,
+    "fail_on_unknown": true,
+    "exit_code": 1,
+    "full_pass_ratio": 0.0
+  },
+  "contract_failures": [
+    "synthesis_state was rejected instead of accepted",
+    "shadow status was composer_unavailable instead of accepted or repaired",
+    "composer failed its local deadline",
+    "judge did not run",
+    "health gate exited 1 instead of 0"
+  ],
+  "secondary_observations": {
+    "retrieval_elapsed_ms": 66118,
+    "wiki_rag_elapsed_ms": 64947,
+    "wiki_rag_kept_result_count": 0,
+    "expected_tool_observed": false,
+    "expected_tool": "finance_query",
+    "duplicate_shadow_provider_call_elapsed_ms": 13002,
+    "llm_call_ledger": {
+      "call_count": 3,
+      "failure_count": 2,
+      "by_caller": {
+        "chat": 1,
+        "synthesis": 2
+      }
+    }
+  },
+  "stop_rule_applied": "A4 was not rerun after this verdict"
+}
