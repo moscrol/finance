@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-04（预算四臂分诊：root time PRIMARY + R-09）
+- last_updated: 2026-08-04（L7 finalization 开工前闭环）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -31,6 +31,19 @@
 | `R-20260804-09` | 标准 M2 分诊 F-001 | `HARNESS_FIX` | 显式 finalization handoff 后，同一五题的瑞华泰 case 在 `remaining_root_seconds>=30` 时进入 `finalization`，随后 `finish=model_finish` 且 `latency<root`；若仍把 150 秒用满，则本建议 refuted | 保持生产默认值不动，在下一轮同题同 runtime 实现中只加入 finalization handoff/deadline，重跑四臂并断言生效 root、calls、floor 与事件级 finish | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
+
+### 2026-08-04b L7 finalization：开工前回填
+
+此表在新增 finalization 仪器、修改 headless 运行路径或启动新 live run **之前**冻结。
+
+| ID | 开工前新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260804-02` | 本轮仍无真 Codex rollout JSONL；预算 artifact 是 `runtime-benchmark`，不能替代 `function_call_output` 的原生投影证据 | `pending` | 保持 Open，不用近似事件结案 |
+| `R-20260804-09` | 尚无带 `finalization` 与事件时间戳的新 rollout；冻结的 `c_long_capped` 瑞华泰事件序列停在 `tool_request(evidence_search)`，没有 `research_stage_closed` / `tool_budget_exhausted` rejection | `pending` | 先做 T1 仪器并复跑同一 profile；T2 必须以真实 activation path 为准，不能把 rejection-only 误写成已验证修复 |
+
+> 开工前额外约束：`c_long_capped` 的 `gateway_floor_ratio=0.0`，瑞华泰只消耗
+> 5/6 次工具额度且最后一次调用没有返回。仅给 rejection 增加 instruction 在该 case
+> 上不会激活；这是 T2 的设计门，不是 R-09 的提前结案。
 
 ### 2026-08-04 预算标定：开工前回填
 
