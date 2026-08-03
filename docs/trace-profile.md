@@ -86,7 +86,7 @@
 | 4 | `workbench-trace` | `route` | `route` | `native` |
 | 5 | `workbench-trace` | `observe`、`validate`、`budget`、`ledger` | `observe` | `native` |
 | 6 | `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
-| 7 | `workbench-trace` | `synth`、`compose`、`grounded`、`shadow` | `synthesize` | `generation` |
+| 7 | `workbench-trace` | `synth`、`compose`、`grounded`、`shadow` | `synthesize` | `native` |
 | 8 | `workbench-trace` | `stop`、`complete`、`finish`、`terminal`、`error` | `stop` | `native` |
 | 1 | `codex-rollout` / `codex-exec` | `thread.started`、`session.started`、`config` | `configure` | `normalized` |
 | 2 | `codex-rollout` / `codex-exec` | `turn.started`、`input` | `intent` | `normalized` |
