@@ -454,7 +454,9 @@ def test_orchestrator_trace_emits_structured_synthesis_diagnostic(
         if step["name"] == "answer_synthesis"
     )
     payload = json.loads(synthesis_step["output_summary"])
-    assert payload["diagnostic"] == asdict(expected)
+    # 走一次 JSON 往返再比：diagnostic 里有元组字段（phases），而 JSON 只有数组，
+    # 直接跟 asdict() 比会因为 () != [] 假红。往返后仍是全字段严格相等。
+    assert payload["diagnostic"] == json.loads(json.dumps(asdict(expected)))
     serialized = json.dumps(payload, ensure_ascii=False)
     assert "prepared_messages" not in serialized
     assert "prompt" not in serialized.lower()

@@ -256,6 +256,29 @@ class Citation:
 
 
 @dataclass(frozen=True)
+class SynthesisPhase:
+    """Grounded 链单段（brief/composer/judge）的可观测记录。
+
+    只有纯数值和固定枚举，没有正文、没有 prompt——它要能安全地穿过公开 trace。
+
+    存在的理由：这三段是串行 LLM 调用、共用一个 deadline，**降级几乎总是发生在
+    其中一段**，但此前 trace 里连它们的名字都没有，只留下一句「未通过门禁或不可用」。
+    结果是「哪一段吃掉了预算」只能靠读代码推，推错了就会去优化没坏的那一段。
+
+    ``remaining_ms_at_entry`` 是这里最关键的一个数：它把「合成失败」和「合成压根
+    没时间跑」区分开——前者要改 prompt/门禁，后者要改预算，处置完全相反。
+    """
+
+    name: str  # brief | composer | judge
+    status: str  # ok | failed | skipped
+    remaining_ms_at_entry: int = 0
+    timeout_s: int = 0
+    elapsed_ms: int = 0
+    # 失败时的归一码（stable_llm_fallback_reason 的输出），成功时为空。
+    reason_code: str = ""
+
+
+@dataclass(frozen=True)
 class SynthesisDiagnostic:
     """Safe control-plane reason for synthesis success or fallback."""
 
@@ -265,6 +288,11 @@ class SynthesisDiagnostic:
     prepared_message_count: int = 0
     candidate_claim_count: int = 0
     bound_claim_count: int = 0
+    # 影子链的原始状态（accepted/repaired/judge_outage_released/*_unavailable…）。
+    # ``state`` 是「用户拿到的是哪种答案」，``shadow_status`` 是「链条走到哪一步」，
+    # 两者不可互相推导：同一个 rejected 可能来自 brief 失败也可能来自 judge 失败。
+    shadow_status: str = ""
+    phases: tuple[SynthesisPhase, ...] = ()
 
     def __post_init__(self) -> None:
         # Diagnostic detail is a control-plane summary, never a second channel for
@@ -326,6 +354,9 @@ class AskResult:
     synthesis_diagnostic: SynthesisDiagnostic = field(
         default_factory=SynthesisDiagnostic
     )
+    # Grounded 链逐段耗时/剩余预算。由 synthesize_shadow_grounded_answer 累积，
+    # 再由 _set_synthesis_diagnostic 抄进 diagnostic 送上 trace。
+    synthesis_phases: tuple[SynthesisPhase, ...] = ()
     grounded_composer_shadow: (
         answer_model.GroundedComposerShadow | None
     ) = None

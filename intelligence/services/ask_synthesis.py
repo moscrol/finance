@@ -40,6 +40,7 @@ from intelligence.services.ask_types import (
     Citation,
     PreparedAnswer,
     SynthesisDiagnostic,
+    SynthesisPhase,
     _synthesis_timeout,
     _llm_deadline,
 )
@@ -877,6 +878,7 @@ def _set_synthesis_diagnostic(
     detail: str,
 ) -> None:
     candidate_claim_count, bound_claim_count = _synthesis_claim_counts(result)
+    shadow = result.grounded_composer_shadow
     result.synthesis_diagnostic = SynthesisDiagnostic(
         state=state,
         reason_code=str(reason_code or "unknown")[:80],
@@ -884,6 +886,39 @@ def _set_synthesis_diagnostic(
         prepared_message_count=len(result.prepared_synthesis_messages or ()),
         candidate_claim_count=candidate_claim_count,
         bound_claim_count=bound_claim_count,
+        shadow_status=str(getattr(shadow, "status", "") or "")[:40],
+        phases=tuple(result.synthesis_phases),
+    )
+
+
+def _record_synthesis_phase(
+    result: AskResult,
+    *,
+    name: str,
+    status: str,
+    remaining_ms_at_entry: float,
+    timeout_s: int,
+    started: float,
+    reason: str = "",
+) -> None:
+    """记一段 grounded 链的耗时与入口剩余预算。
+
+    只在这里做取整和归一，调用点保持一行；失败原因存归一码而不是原始串，
+    原始串可能带 provider 措辞，不该进公开 trace。
+    """
+
+    result.synthesis_phases = (
+        *result.synthesis_phases,
+        SynthesisPhase(
+            name=name,
+            status=status,
+            remaining_ms_at_entry=max(0, round(remaining_ms_at_entry)),
+            timeout_s=max(0, int(timeout_s)),
+            elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
+            reason_code=(
+                _stable_llm_fallback_reason(reason) if reason else ""
+            ),
+        ),
     )
 
 
@@ -1697,6 +1732,8 @@ def synthesize_shadow_grounded_answer(
     )
     # 本轮的验收标准。空元组保持旧行为（专项 owner 之外的调用方尚未提供契约）。
     required_outputs_block = tuple(result.answer_spec.prompt_constraints)
+    brief_started = time.monotonic()
+    brief_remaining_ms = deadline.remaining() * 1000
     brief_result, brief_reason = llm_refine.synthesize_messages(
         llm_refine.build_decision_brief_messages(
             options.query,
@@ -1709,6 +1746,15 @@ def synthesize_shadow_grounded_answer(
         temperature=0.0,
         max_tokens=1200 * token_budget_scale,
         max_chars=8000 * token_budget_scale,
+    )
+    _record_synthesis_phase(
+        result,
+        name="brief",
+        status="failed" if brief_result is None else "ok",
+        remaining_ms_at_entry=brief_remaining_ms,
+        timeout_s=brief_timeout,
+        started=brief_started,
+        reason=brief_reason if brief_result is None else "",
     )
     if brief_result is None:
         result.grounded_composer_shadow = (
@@ -1735,6 +1781,11 @@ def synthesize_shadow_grounded_answer(
             )
         )
         return result
+    compose_started = time.monotonic()
+    compose_remaining_ms = deadline.remaining() * 1000
+    compose_timeout = _shadow_phase_timeout(
+        deadline, options.shadow_grounded_timeout, 0.5
+    )
     composed, compose_reason = llm_refine.synthesize_messages(
         llm_refine.build_grounded_composer_messages(
             options.query,
@@ -1743,13 +1794,20 @@ def synthesize_shadow_grounded_answer(
             required_outputs=required_outputs_block,
         ),
         model_override=options.llm_model,
-        timeout=_shadow_phase_timeout(
-            deadline, options.shadow_grounded_timeout, 0.5
-        ),
+        timeout=compose_timeout,
         deadline=deadline,
         temperature=0.2,
         max_tokens=2400 * token_budget_scale,
         max_chars=16000 * token_budget_scale,
+    )
+    _record_synthesis_phase(
+        result,
+        name="composer",
+        status="failed" if composed is None else "ok",
+        remaining_ms_at_entry=compose_remaining_ms,
+        timeout_s=compose_timeout,
+        started=compose_started,
+        reason=compose_reason if composed is None else "",
     )
     if composed is None:
         result.grounded_composer_shadow = (
@@ -1823,13 +1881,16 @@ def synthesize_shadow_grounded_answer(
         candidate_answer,
         registry_block,
     )
+    judge_started = time.monotonic()
+    judge_remaining_ms = deadline.remaining() * 1000
+    judge_timeout = _shadow_phase_timeout(
+        deadline, options.shadow_grounded_timeout, 0.35
+    )
     if judge_override is not None:
         with llm_refine.provider_override(judge_override):
             judged, judge_reason = llm_refine.synthesize_messages(
                 judge_messages,
-                timeout=_shadow_phase_timeout(
-                    deadline, options.shadow_grounded_timeout, 0.35
-                ),
+                timeout=judge_timeout,
                 deadline=deadline,
                 temperature=0.0,
                 max_tokens=1200 * token_budget_scale,
@@ -1839,14 +1900,21 @@ def synthesize_shadow_grounded_answer(
         judged, judge_reason = llm_refine.synthesize_messages(
             judge_messages,
             model_override=options.llm_model,
-            timeout=_shadow_phase_timeout(
-                deadline, options.shadow_grounded_timeout, 0.35
-            ),
+            timeout=judge_timeout,
             deadline=deadline,
             temperature=0.0,
             max_tokens=1200 * token_budget_scale,
             max_chars=8000 * token_budget_scale,
         )
+    _record_synthesis_phase(
+        result,
+        name="judge",
+        status="failed" if judged is None else "ok",
+        remaining_ms_at_entry=judge_remaining_ms,
+        timeout_s=judge_timeout,
+        started=judge_started,
+        reason=judge_reason if judged is None else "",
+    )
     if judged is None:
         released = _judge_outage_release(
             candidate_answer,

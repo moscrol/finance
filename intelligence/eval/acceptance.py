@@ -217,6 +217,10 @@ _SYNTHESIS_DIAGNOSTIC_FIELDS = (
     "prepared_message_count",
     "candidate_claim_count",
     "bound_claim_count",
+    # 少了这两个，「合成失败」和「合成没时间跑」在验收产物里长得一模一样，
+    # 只能靠读代码猜是哪一段吃掉了预算——2026-08-02 那批就是这么卡住的。
+    "shadow_status",
+    "phases",
 )
 _SYNTHESIS_DIAGNOSTIC_STATES = {
     "not_requested",

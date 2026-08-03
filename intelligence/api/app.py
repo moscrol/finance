@@ -609,7 +609,58 @@ def _public_synthesis_diagnostic(
         ):
             return None
         result[field_name] = value
+    shadow_status = diagnostic.get("shadow_status")
+    if isinstance(shadow_status, str) and re.fullmatch(
+        r"[a-z0-9_]{0,40}", shadow_status
+    ):
+        result["shadow_status"] = shadow_status
+    phases = _public_synthesis_phases(diagnostic.get("phases"))
+    if phases:
+        result["phases"] = phases
     return result
+
+
+# 单段耗时是纯数值遥测，但仍然只放行固定枚举 + 有界整数：这条通道以前只走过
+# 三个计数，加字段的人容易顺手把 provider 原始错误串塞进来。
+_PUBLIC_SYNTHESIS_PHASE_NAMES = frozenset({"brief", "composer", "judge"})
+_PUBLIC_SYNTHESIS_PHASE_STATUSES = frozenset({"ok", "failed", "skipped"})
+
+
+def _public_synthesis_phases(raw: object) -> list[dict[str, object]]:
+    if not isinstance(raw, (list, tuple)):
+        return []
+    phases: list[dict[str, object]] = []
+    for item in list(raw)[:8]:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        status = item.get("status")
+        if (
+            name not in _PUBLIC_SYNTHESIS_PHASE_NAMES
+            or status not in _PUBLIC_SYNTHESIS_PHASE_STATUSES
+        ):
+            continue
+        public_phase: dict[str, object] = {"name": name, "status": status}
+        bounded = True
+        for field_name in ("remaining_ms_at_entry", "timeout_s", "elapsed_ms"):
+            value = item.get(field_name)
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 0 <= value <= 86_400_000
+            ):
+                bounded = False
+                break
+            public_phase[field_name] = value
+        if not bounded:
+            continue
+        reason_code = item.get("reason_code")
+        if isinstance(reason_code, str) and re.fullmatch(
+            r"[A-Za-z0-9_.-]{0,80}", reason_code
+        ):
+            public_phase["reason_code"] = reason_code
+        phases.append(public_phase)
+    return phases
 
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
