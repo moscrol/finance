@@ -7,9 +7,8 @@ ch06b «API 通信层» 的双看门狗里，这是**日志型**的那一半：
 关键细节来自源码：``lastEventTime`` 在第一个 chunk 到达之后才开始设置，
 避免把 TTFB（模型在思考，可以合法地很慢）误判成 stall。
 
-**这里故意不设阈值。** ch06b 的 30s 来自 Anthropic 的生产数据；我们单个 phase
-的预算才 31-45 秒（``shadow_grounded_timeout`` 默认 90，composer 占 0.5、
-judge 占 0.35），照抄 30s 基本不会触发。先记实测分布，有数据再定阈值——
+**这里故意不设阈值。** ch06b 的 30s 来自 Anthropic 的生产数据；我们的
+composer 固定 grant 也只有 40 秒，照抄 30s 基本不会触发。先记实测分布，有数据再定阈值——
 这条也是我们自己踩出来的教训：先加观测再迭代。
 
 测试走**真实的 capture 闭包**：monkeypatch 流式函数 → 它按可控时钟回调 on_delta
@@ -112,7 +111,7 @@ def test_single_delta_reports_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_no_threshold_is_hardcoded() -> None:
     """防未来的自己：别看到 ch06b 的 30_000 就顺手抄进来。
 
-    我们单 phase 预算才 31-45 秒，抄了等于永不触发——比不做还糟，
+    我们 composer 固定 grant 只有 40 秒，抄了等于几乎永不触发——比不做还糟，
     因为它会让人以为已经有 stall 检测了。
     """
     import inspect

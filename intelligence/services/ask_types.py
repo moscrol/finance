@@ -29,6 +29,7 @@ from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchTaskContract,
 )
+from intelligence.services.research_policy import grounded_deep
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, valuation_gap
 
 
@@ -110,7 +111,10 @@ class AskOptions:
     )
     shadow_grounded_timeout: int = field(
         default_factory=lambda: int(
-            os.environ.get("WORKBENCH_SHADOW_GROUNDED_TIMEOUT", "90")
+            os.environ.get(
+                "WORKBENCH_SHADOW_GROUNDED_TIMEOUT",
+                str(grounded_deep.child_seconds),
+            )
         )
     )
     # Daily Agent 正式 Presenter：daily_agent_grounded 契约走 Grounded Composer，

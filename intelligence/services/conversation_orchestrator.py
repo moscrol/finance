@@ -1525,10 +1525,15 @@ class TurnOrchestrator:
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
         answer_model_name = self.llm_model
+        root_seconds = max(0.0, self.research_policy.max_elapsed_seconds)
         research_deadline = ResearchDeadline.from_timeout(
-            self.research_policy.max_elapsed_seconds,
-            # P0：为最终合成硬保留 20 秒，前置检索不得消费（见 ResearchDeadline）。
-            synthesis_reserve=20.0,
+            root_seconds,
+            # Reserve is clamped to the injected root so narrow timeout tests
+            # and callers never acquire a child window larger than the turn.
+            synthesis_reserve=min(
+                root_seconds,
+                max(0.0, self.research_policy.synthesis_reserve_seconds),
+            ),
         )
         self._emit(
             run_id,
@@ -2448,6 +2453,15 @@ class TurnOrchestrator:
                 stream_cancel_check=self.is_cancelled,
                 deadline=generic_deadline,
             )
+            grounded_profile = self.research_policy.grounded_budget_profile
+            if grounded_profile is not None:
+                ask_options = replace(
+                    ask_options,
+                    shadow_grounded_timeout=min(
+                        grounded_profile.child_seconds,
+                        root_seconds,
+                    ),
+                )
             if owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
                 prepared = prepare_existing_answer(ask_options, result)
@@ -2904,28 +2918,39 @@ class TurnOrchestrator:
                 and result.answer_spec.presentation_kind
                 not in {"market_technical", "evidence_gap"}
             ):
-                try:
-                    synthesize_shadow_grounded_answer(
-                        PreparedAnswer(
-                            options=prepared.options,
-                            result=result,
+                reused_existing = result.grounded_composer_shadow is not None
+                if not reused_existing:
+                    try:
+                        synthesize_shadow_grounded_answer(
+                            PreparedAnswer(
+                                options=prepared.options,
+                                result=result,
+                            )
                         )
-                    )
-                except Exception as exc:
-                    result.grounded_composer_shadow = (
-                        answer_model.GroundedComposerShadow(
-                            status="internal_error",
-                            failure_reason=type(exc).__name__,
+                    except Exception as exc:
+                        result.grounded_composer_shadow = (
+                            answer_model.GroundedComposerShadow(
+                                status="internal_error",
+                                failure_reason=type(exc).__name__,
+                            )
                         )
-                    )
                 shadow = result.grounded_composer_shadow
+                shadow_trace = (
+                    shadow.to_dict() if shadow is not None else {"status": "not_run"}
+                )
+                shadow_trace["reused_existing"] = reused_existing
+                shadow_trace["source"] = (
+                    "primary_grounded_presenter"
+                    if reused_existing
+                    else "observational_shadow"
+                )
                 self._trace(
                     run_id,
                     assistant_message_id,
                     conversation_id,
                     "shadow_synthesize",
                     "grounded_composer_shadow",
-                    (shadow.to_dict() if shadow is not None else {"status": "not_run"}),
+                    shadow_trace,
                 )
 
             llm_ledger = llm_refine.current_call_ledger()

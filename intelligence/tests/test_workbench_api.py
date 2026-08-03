@@ -26,6 +26,10 @@ from intelligence.services.conversation_store import ConversationStore  # noqa: 
 from intelligence.services import perspective_lab  # noqa: E402
 from intelligence.services.llm_refine import LLMProvider  # noqa: E402
 from intelligence.services.llm_settings import SessionLLMSettings  # noqa: E402
+from intelligence.services.research_policy import (  # noqa: E402
+    ResearchExecutionPolicy,
+    grounded_deep,
+)
 from intelligence.services.run_store import RunStore  # noqa: E402
 from intelligence.services.self_use_maturity import (  # noqa: E402
     SelfUseEvent,
@@ -532,6 +536,13 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
     assert captured["llm_model"] == "glm-4-flash"
     assert captured["continuous_turn_adapter"] is continuous_adapter
     assert captured_providers == [(provider,)]
+    policy = captured["research_policy"]
+    assert isinstance(policy, ResearchExecutionPolicy)
+    assert policy.max_elapsed_seconds == grounded_deep.root_seconds
+    assert policy.synthesis_reserve_seconds == (
+        grounded_deep.synthesis_reserve_seconds
+    )
+    assert policy.grounded_budget_profile is grounded_deep
 
 
 def test_production_continuous_adapter_shares_provider_client_across_gates(

@@ -2948,6 +2948,7 @@ def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
         )
         return prepared.result
 
+    monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "0")
     monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
     monkeypatch.setattr(
         "intelligence.services.conversation_orchestrator."
@@ -2979,6 +2980,118 @@ def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
     assert (run_dir / "grounded_composer_shadow.md").read_text(
         encoding="utf-8"
     ) == "影子答案"
+
+
+def test_grounded_presenter_and_shadow_env_run_one_provider_chain(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "液冷服务器现在怎么看？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    research_spec = answer_model.resolve_theme_research_spec(
+        "分析液冷服务器产业链"
+    )
+    claim = answer_model.make_claim(
+        claim_id="market-1",
+        text="涨幅与边际成交同步转强：涨幅2.61%，边际量18.28%。",
+        claim_type="market_signal",
+        theme=research_spec.theme,
+        status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier="L4",
+        evidence_ids=("S1",),
+    )
+    spec = answer_model.AnswerSpec(
+        research_spec=research_spec,
+        summary=(),
+        verified_facts=(claim,),
+        company_table=(),
+        counter_evidence=(),
+        gaps=(),
+        triggers=(),
+        next_actions=("核对公告。",),
+        sources=(answer_model.EvidenceRef("S1", "盘面快照"),),
+        system_notices=(),
+    )
+    atom = next(
+        item
+        for item in answer_model.evidence_atoms_from_answer_spec(spec)
+        if item.provenance.get("claim_id") == claim.claim_id
+    )
+    composed = (
+        "## 液冷服务器\n"
+        "量价同步转强说明关注度正在升温。"
+        f"<!-- claim_ids={claim.claim_id}; evidence_atom_ids={atom.atom_id}; "
+        "claim_type=fact -->\n"
+        "公司证据落地前仍应把它视作待验证信号。"
+        f"<!-- claim_ids={claim.claim_id}; evidence_atom_ids={atom.atom_id}; "
+        "claim_type=fact -->\n"
+        "（非投资建议）"
+    )
+    judge = json.dumps(
+        {"passed": True, "rejected_sentence_indexes": [], "issues": []},
+        ensure_ascii=False,
+    )
+    provider_calls: list[dict[str, object]] = []
+
+    def provider_boundary(_messages, **kwargs):
+        answer = (composed, judge)[len(provider_calls) % 2]
+        provider_calls.append(kwargs)
+        return (
+            llm_refine.SynthesisResult(answer, "fixture", "fixture-model"),
+            "",
+        )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        return AskResult(
+            query=options.query,
+            trade_date="2026-07-11",
+            matched_theme="液冷服务器",
+            candidate_tier="A",
+            priority_score=1.0,
+            answer_spec=spec,
+            prepared_synthesis_messages=[{"role": "user", "content": "fixture"}],
+        )
+
+    monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "1")
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setattr(llm_refine, "synthesize_messages", provider_boundary)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(provider_calls) == 2
+    shadow_trace = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "grounded_composer_shadow"
+    )
+    payload = json.loads(shadow_trace["output_summary"])
+    assert payload["status"] == "accepted"
+    assert payload["reused_existing"] is True
 
 
 def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
@@ -3040,6 +3153,7 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
         )
         return prepared.result
 
+    monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "0")
     monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
     monkeypatch.setattr(
         "intelligence.services.conversation_orchestrator."

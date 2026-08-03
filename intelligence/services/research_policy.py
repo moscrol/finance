@@ -7,6 +7,48 @@ from intelligence.services.research_contract import ResearchDeadline
 
 
 @dataclass(frozen=True)
+class GroundedBudgetProfile:
+    """Immutable wall-clock contract for one grounded two-phase chain.
+
+    ``measurement_basis`` is deliberately data, not only a comment, so tests
+    and traces can keep the provenance honest: this profile comes from one
+    frozen preregistered canary/replay, not from a latency distribution.
+    """
+
+    name: str
+    root_seconds: int
+    synthesis_reserve_seconds: int
+    child_seconds: int
+    composer_grant_seconds: int
+    judge_reserve_seconds: int
+    minimum_two_phase_entry_seconds: int
+    measurement_basis: str
+
+
+grounded_deep = GroundedBudgetProfile(
+    name="grounded_deep",
+    # 146.55s observed end-to-end need * 1.2 = 175.86s; round the bounded
+    # deployment profile up to 180s rather than claiming percentile coverage.
+    root_seconds=180,
+    # 97s two-phase minimum plus 3s of local hand-off room; retrieval keeps 80s.
+    synthesis_reserve_seconds=100,
+    # Preserve the preregistered bounded synthesis-child ceiling below root.
+    child_seconds=115,
+    # ceil(33.338s * 1.2), from the frozen composer replay.
+    composer_grant_seconds=40,
+    # ceil(46.982s * 1.2), from the frozen semantic-judge replay.
+    judge_reserve_seconds=57,
+    # Exact admission floor: 40s composer grant + 57s judge reserve.
+    minimum_two_phase_entry_seconds=97,
+    measurement_basis=(
+        "single preregistered A4 canary plus frozen replay: 146.55s observed "
+        "end-to-end need, 20% slack = 175.86s; engineering headroom only, "
+        "not p95 or another latency percentile"
+    ),
+)
+
+
+@dataclass(frozen=True)
 class ResearchExecutionPolicy:
     max_skill_calls: int = 3
     max_elapsed_seconds: float = 120.0
@@ -15,6 +57,10 @@ class ResearchExecutionPolicy:
     # 合成/修订/影子链共用一本账，超额后新调用被拒发并降级。默认宽松，
     # 定位是失控保险丝而不是常态限流。
     max_llm_calls: int = 40
+    # Legacy presenter 在根 turn 内的合成保留段。默认保留旧 20s；产品
+    # conversation entry 会显式注入 grounded_deep 的 100s。
+    synthesis_reserve_seconds: float = 20.0
+    grounded_budget_profile: GroundedBudgetProfile | None = None
 
 
 @dataclass(frozen=True)
@@ -101,9 +147,16 @@ class ResearchExecutionBudget:
         )
 
     def to_trace(self) -> dict[str, object]:
-        return {
+        trace: dict[str, object] = {
             "max_skill_calls": self.policy.max_skill_calls,
             "max_elapsed_ms": round(self.policy.max_elapsed_seconds * 1000),
+            "synthesis_reserve_ms": round(
+                min(
+                    max(0.0, self.policy.synthesis_reserve_seconds),
+                    max(0.0, self.policy.max_elapsed_seconds),
+                )
+                * 1000
+            ),
             "max_retries_per_skill": self.policy.max_retries_per_skill,
             "call_count": self.call_count,
             "attempt_count": len(self.attempts),
@@ -111,3 +164,8 @@ class ResearchExecutionBudget:
             "remaining_ms": round(self.remaining_seconds * 1000),
             "attempts": [asdict(attempt) for attempt in self.attempts],
         }
+        if self.policy.grounded_budget_profile is not None:
+            trace["grounded_budget_profile"] = asdict(
+                self.policy.grounded_budget_profile
+            )
+        return trace

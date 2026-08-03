@@ -45,6 +45,7 @@ from intelligence.services.ask_types import (
     _llm_deadline,
 )
 from intelligence.services.task_fulfillment import answer_has_output_marker
+from intelligence.services.research_policy import grounded_deep
 
 
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
@@ -1024,9 +1025,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         # last_token_ms 上而不是 first_token_ms：没有前一个 delta 就没有「间隔」
         # 可言，首 token 慢是模型在想，不是卡住（ch06b 明确点名的坑）。
         #
-        # 这里**故意不设阈值**：ch06b 的 30s 来自 Anthropic 的生产数据，而我们
-        # 单个 phase 的预算才 31-45 秒（shadow_grounded_timeout 默认 90，
-        # composer 占 0.5、judge 占 0.35），照抄 30s 基本不会触发。先把实测
+        # 这里**故意不设阈值**：ch06b 的 30s 来自 Anthropic 的生产数据，而
+        # grounded composer 的固定 grant 也只有 40 秒，照抄 30s 基本不会触发。先把实测
         # 分布记下来，有数据了再定阈值和是否要中断。
         if last_token_ms is not None:
             max_gap_ms = max(max_gap_ms, elapsed_ms - last_token_ms)
@@ -1377,7 +1377,8 @@ def promote_grounded_answer(
             result=result,
         ),
         repair_drop_invalid=True,
-        token_budget_scale=3,
+        # Frozen production replay used the base 2400/1200-token contract.
+        token_budget_scale=1,
     )
     shadow = result.grounded_composer_shadow
     presented = (
@@ -1653,7 +1654,7 @@ def _shadow_phase_timeout(
     configured: int,
     share: float,
 ) -> int:
-    """给 brief/composer/judge 分配同一根 deadline 的有限时间片。"""
+    """给 judge 分配同一根 deadline 的全部实际剩余时间。"""
 
     remaining = max(0.0, deadline.remaining())
     if remaining <= 0:
@@ -1794,17 +1795,18 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     compose_started = time.monotonic()
-    compose_remaining_ms = deadline.remaining() * 1000
-    compose_timeout = _shadow_phase_timeout(
-        deadline, options.shadow_grounded_timeout, 0.45
-    )
-    if _phase_slice_collapsed(deadline, 0.45):
+    compose_remaining = deadline.remaining()
+    compose_remaining_ms = compose_remaining * 1000
+    if (
+        compose_remaining
+        < grounded_deep.minimum_two_phase_entry_seconds
+    ):
         _record_synthesis_phase(
             result,
             name="composer",
             status="skipped",
             remaining_ms_at_entry=compose_remaining_ms,
-            timeout_s=compose_timeout,
+            timeout_s=0,
             started=compose_started,
             reason=_INSUFFICIENT_BUDGET_REASON,
         )
@@ -1815,6 +1817,13 @@ def synthesize_shadow_grounded_answer(
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
         return result
+    # Fixed grant derived from the frozen replay. Subtract the judge reserve
+    # again at the provider boundary so prompt-building overhead cannot steal
+    # the 57s admitted for phase two.
+    compose_timeout = min(
+        grounded_deep.composer_grant_seconds,
+        max(0.0, deadline.remaining() - grounded_deep.judge_reserve_seconds),
+    )
     composed, compose_reason = llm_refine.synthesize_messages(
         llm_refine.build_grounded_composer_messages(
             options.query,

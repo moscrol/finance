@@ -27,6 +27,8 @@ from intelligence.services.answer_model import (
     make_claim,
     resolve_theme_research_spec,
 )
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_policy import grounded_deep
 
 _DEADLINE_REASON = "LLM 合成超过共享截止时间，已降级为模板"
 
@@ -237,7 +239,11 @@ class TestPhasesAreRecorded:
         options = ask.AskOptions(
             query=result.query,
             shadow_grounded_composer=True,
-            shadow_grounded_timeout=90,
+            shadow_grounded_timeout=grounded_deep.child_seconds,
+            deadline=ResearchDeadline.from_timeout(
+                grounded_deep.root_seconds,
+                synthesis_reserve=grounded_deep.synthesis_reserve_seconds,
+            ),
         )
 
         ask_synthesis.synthesize_shadow_grounded_answer(
@@ -245,9 +251,54 @@ class TestPhasesAreRecorded:
             repair_drop_invalid=True,
         )
 
-        assert 39 <= timeouts[0] <= 40
-        assert 88 <= timeouts[1] <= 90
+        assert timeouts[0] == grounded_deep.composer_grant_seconds
+        assert grounded_deep.judge_reserve_seconds <= timeouts[1] <= 115
         assert deadlines[0] is deadlines[1]
+        assert deadlines[0].expires_at <= options.deadline.expires_at
+
+    def test_minimum_healthy_entry_gives_judge_all_actual_remainder(
+        self, monkeypatch
+    ) -> None:
+        result = _result()
+        spec = result.answer_spec
+        assert spec is not None
+        fake = _fake_chain(spec)
+
+        class ScriptedDeadline:
+            expires_at = 999_999.0
+            remaining_seconds = 97.0
+
+            def remaining(self) -> float:
+                return self.remaining_seconds
+
+        deadline = ScriptedDeadline()
+        timeouts: list[float] = []
+
+        def captured(messages, **kwargs):
+            timeouts.append(kwargs["timeout"])
+            if len(timeouts) == 1:
+                deadline.remaining_seconds = 57.0
+            return fake(messages, **kwargs)
+
+        monkeypatch.setattr(
+            ask_synthesis,
+            "_shadow_deadline",
+            lambda _options: deadline,
+        )
+        monkeypatch.setattr(llm_refine, "synthesize_messages", captured)
+
+        ask_synthesis.synthesize_shadow_grounded_answer(
+            ask.PreparedAnswer(
+                options=ask.AskOptions(
+                    query=result.query,
+                    shadow_grounded_composer=True,
+                ),
+                result=result,
+            ),
+            repair_drop_invalid=True,
+        )
+
+        assert timeouts == [40, 57]
 
 
 class TestFailingPhaseIsIdentifiable:
@@ -329,30 +380,48 @@ class TestDiagnosticCarriesPhases:
             "judge",
         ]
 
+    def test_production_promotion_uses_replay_token_caps(
+        self, monkeypatch
+    ) -> None:
+        result = _result()
+        spec = result.answer_spec
+        assert spec is not None
+        fake = _fake_chain(spec)
+        caps: list[tuple[int, int]] = []
+
+        def captured(messages, **kwargs):
+            caps.append((kwargs["max_tokens"], kwargs["max_chars"]))
+            return fake(messages, **kwargs)
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", captured)
+
+        assert ask.promote_grounded_answer(
+            ask.AskOptions(query=result.query, grounded_presenter=True),
+            result,
+        )
+        assert caps == [(2400, 16000), (1200, 8000)]
+
 
 class TestAdmissionControl:
-    """时间片塌到下限时别发这个请求——先降级和后降级输出一样，区别是用户白等。"""
+    """两段实测预算装不下时，必须在任何 provider 副作用之前 fail closed。"""
 
     @staticmethod
     def _deadline(seconds: float) -> llm_refine.Deadline:
         return llm_refine.Deadline.from_timeout(seconds)
 
-    @pytest.mark.parametrize("share", [0.45, 1.0])
-    def test_collapsed_slice_is_detected(self, share: float) -> None:
-        # remaining * share < 1 秒：_shadow_phase_timeout 只会返回兜底的 1 秒，
-        # 拿它去换上千 token 必然超时。
+    def test_judge_slice_collapse_is_detected(self) -> None:
         assert ask_synthesis._phase_slice_collapsed(
-            self._deadline(0.9 / share), share
+            self._deadline(0.9), 1.0
         )
 
-    @pytest.mark.parametrize("share", [0.45, 1.0])
-    def test_healthy_slice_is_not_blocked(self, share: float) -> None:
-        """只堵必然失败那一档；来不来得及需要实测吞吐，这轮不拍脑袋。"""
+    def test_healthy_judge_slice_is_not_blocked(self) -> None:
         assert not ask_synthesis._phase_slice_collapsed(
-            self._deadline(30.0), share
+            self._deadline(30.0), 1.0
         )
 
-    def test_skipped_phase_is_recorded_and_named(self, monkeypatch) -> None:
+    def test_depleted_53_770_seconds_skips_before_provider_call(
+        self, monkeypatch
+    ) -> None:
         result = _result()
         spec = result.answer_spec
         assert spec is not None
@@ -360,11 +429,18 @@ class TestAdmissionControl:
         def must_not_call(messages, **kwargs):
             raise AssertionError("预算不足时不应发起调用")
 
+        class FrozenDeadline:
+            expires_at = 999_999.0
+
+            @staticmethod
+            def remaining() -> float:
+                return 53.770
+
         monkeypatch.setattr(llm_refine, "synthesize_messages", must_not_call)
         monkeypatch.setattr(
             ask_synthesis,
             "_shadow_deadline",
-            lambda options: llm_refine.Deadline.from_timeout(0.5),
+            lambda _options: FrozenDeadline(),
         )
         options = ask.AskOptions(
             query=result.query,
@@ -382,6 +458,7 @@ class TestAdmissionControl:
         ]
         assert phases[0].execution_mode == "deterministic"
         assert phases[1].reason_code == "insufficient_budget"
+        assert phases[1].remaining_ms_at_entry == 53_770
         shadow = result.grounded_composer_shadow
         assert shadow is not None
         assert shadow.status == "composer_unavailable"
