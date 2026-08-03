@@ -318,6 +318,8 @@ _STABLE_MACHINE_FALLBACK_REASONS = frozenset(
         "call_budget_exhausted",
         # 我们自己的共享 deadline 走完了（不是对方超时）。同上，是限额不是故障。
         "deadline_exhausted_local",
+        # 预算不够所以没发这次调用（准入检查拦下），一秒没浪费。
+        "insufficient_budget",
     }
 )
 _PUBLIC_METADATA_STRING_FIELDS = frozenset(

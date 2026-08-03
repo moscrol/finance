@@ -273,6 +273,86 @@ class TestDiagnosticCarriesPhases:
         ]
 
 
+class TestAdmissionControl:
+    """时间片塌到下限时别发这个请求——先降级和后降级输出一样，区别是用户白等。"""
+
+    @staticmethod
+    def _deadline(seconds: float) -> llm_refine.Deadline:
+        return llm_refine.Deadline.from_timeout(seconds)
+
+    @pytest.mark.parametrize("share", [0.25, 0.35, 0.5])
+    def test_collapsed_slice_is_detected(self, share: float) -> None:
+        # remaining * share < 1 秒：_shadow_phase_timeout 只会返回兜底的 1 秒，
+        # 拿它去换上千 token 必然超时。
+        assert ask_synthesis._phase_slice_collapsed(
+            self._deadline(0.9 / share), share
+        )
+
+    @pytest.mark.parametrize("share", [0.25, 0.35, 0.5])
+    def test_healthy_slice_is_not_blocked(self, share: float) -> None:
+        """只堵必然失败那一档；来不来得及需要实测吞吐，这轮不拍脑袋。"""
+        assert not ask_synthesis._phase_slice_collapsed(
+            self._deadline(30.0), share
+        )
+
+    def test_skipped_phase_is_recorded_and_named(self, monkeypatch) -> None:
+        result = _result()
+        spec = result.answer_spec
+        assert spec is not None
+
+        def must_not_call(messages, **kwargs):
+            raise AssertionError("预算不足时不应发起调用")
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", must_not_call)
+        monkeypatch.setattr(
+            ask_synthesis,
+            "_shadow_deadline",
+            lambda options: llm_refine.Deadline.from_timeout(0.5),
+        )
+        options = ask.AskOptions(
+            query=result.query,
+            shadow_grounded_composer=True,
+        )
+
+        ask_synthesis.synthesize_shadow_grounded_answer(
+            ask.PreparedAnswer(options=options, result=result),
+        )
+
+        phases = result.synthesis_phases
+        assert [(p.name, p.status) for p in phases] == [("brief", "skipped")]
+        assert phases[0].reason_code == "insufficient_budget"
+        shadow = result.grounded_composer_shadow
+        assert shadow is not None
+        assert shadow.status == "brief_unavailable"
+
+    def test_skip_is_not_laundered_as_provider_failure(self) -> None:
+        """跳过是我们自己的限额，不能塌进 provider_unavailable。"""
+        assert (
+            llm_refine.stable_llm_fallback_reason(
+                ask_synthesis._INSUFFICIENT_BUDGET_REASON
+            )
+            == "insufficient_budget"
+        )
+
+    def test_skipped_judge_still_fails_closed(self) -> None:
+        """judge 因自家预算被跳过时不得放行——跟 deadline 那条同一个判据。"""
+        assert (
+            "insufficient_budget"
+            not in ask_synthesis._TRANSIENT_JUDGE_REASONS
+        )
+        assert (
+            ask_synthesis._judge_outage_release(
+                "正文", object(), ask_synthesis._INSUFFICIENT_BUDGET_REASON
+            )
+            is None
+        )
+
+    def test_insufficient_budget_is_a_public_enum(self) -> None:
+        from intelligence.api import app
+
+        assert "insufficient_budget" in app._STABLE_MACHINE_FALLBACK_REASONS
+
+
 class TestReleasedIsNotReportedAsValidated:
     """诊断不能把「没人审但放行了」写成「过了语义门禁」。
 

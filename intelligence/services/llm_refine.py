@@ -244,6 +244,12 @@ def stable_llm_fallback_reason(reason: str) -> str:
     # 放行就从例外变成常态——按注释里既有的判据，这类必须 fail-closed。
     if "截止时间" in normalized:
         return "deadline_exhausted_local"
+    # 预算不够所以**没发**这次调用（准入检查拦下），跟「发了但超时」不是一回事：
+    # 前者一秒没浪费，后者把剩余预算烧完才降级。加这条不放宽 judge 闸门——它不在
+    # 瞬时故障白名单里，仍然 fail-closed；加它只是为了不让这类事件塌进
+    # ``provider_unavailable``，那才是又一次「把自家限额记成供应商挂了」。
+    if "剩余预算不足" in normalized:
+        return "insufficient_budget"
     if "超时" in normalized:
         return "timeout"
     if "输出超长" in normalized or "too long" in normalized:

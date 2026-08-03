@@ -1659,6 +1659,25 @@ def _shadow_phase_timeout(
     return max(1, min(int(configured), int(max(1.0, remaining * share))))
 
 
+def _phase_slice_collapsed(
+    deadline: llm_refine.Deadline,
+    share: float,
+) -> bool:
+    """这一段分到的时间片是否已经塌到下限——塌了就别发这个请求了。
+
+    判据不是新拍的数：``_shadow_phase_timeout`` 里那个 ``max(1, ...)`` 就是下限。
+    当 ``remaining * share < 1`` 时它返回的 1 秒不是「预算」，是兜底值——拿 1 秒去
+    换一次上千 token 的生成，结果必然是超时，而代价是把最后这点时间也烧掉，然后
+    才降级。先降级和后降级输出完全一样，区别只是用户多等了这一段。
+
+    刻意只堵**必然失败**这一档，不做「估计来不及就放弃」——那需要实测吞吐
+    （token/秒 × 剩余秒数 vs max_tokens），而吞吐正是 phase 埋点这一轮才开始收的。
+    等有了分布再收紧，现在不拍脑袋。
+    """
+
+    return deadline.remaining() * share < 1.0
+
+
 # judge 是「后台请求」——用户不在等它的结果，它挂了不代表被审对象有问题。
 # 官方 Claude Code 对这类请求的处理是减载而不是重试（`FOREGROUND_529_RETRY_SOURCES`
 # 只放前台请求，摘要/标题/分类器一律立即放弃），理由是过载时每次重试对网关是 3-10 倍
@@ -1683,7 +1702,8 @@ _TRANSIENT_JUDGE_REASONS = frozenset(
         "call_budget_exhausted",
     }
 )
-# 刻意不在上面：``deadline_exhausted_local``。那是我们自己的共享 deadline 用完了，
+_INSUFFICIENT_BUDGET_REASON = "本轮剩余预算不足，未发起该段合成"
+# 刻意不在上面：``deadline_exhausted_local`` 与 ``insufficient_budget``。那是我们自己的共享 deadline 用完了，
 # 按本文件上方的判据（放行会不会从例外变成常态）属于必须 fail-closed 的一类——
 # 2026-08-02 那批 23 轮里 15 轮撞的就是它，放行等于把「多数答案没过语义审」写成常态。
 # 代价是可见降级率上升；这是把静默的未核验答案换成显式降级，不是新增故障。
@@ -1753,6 +1773,22 @@ def synthesize_shadow_grounded_answer(
     required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_started = time.monotonic()
     brief_remaining_ms = deadline.remaining() * 1000
+    if _phase_slice_collapsed(deadline, 0.25):
+        _record_synthesis_phase(
+            result,
+            name="brief",
+            status="skipped",
+            remaining_ms_at_entry=brief_remaining_ms,
+            timeout_s=brief_timeout,
+            started=brief_started,
+            reason=_INSUFFICIENT_BUDGET_REASON,
+        )
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="brief_unavailable",
+            failure_reason=_INSUFFICIENT_BUDGET_REASON,
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+        return result
     brief_result, brief_reason = llm_refine.synthesize_messages(
         llm_refine.build_decision_brief_messages(
             options.query,
@@ -1805,6 +1841,25 @@ def synthesize_shadow_grounded_answer(
     compose_timeout = _shadow_phase_timeout(
         deadline, options.shadow_grounded_timeout, 0.5
     )
+    if _phase_slice_collapsed(deadline, 0.5):
+        _record_synthesis_phase(
+            result,
+            name="composer",
+            status="skipped",
+            remaining_ms_at_entry=compose_remaining_ms,
+            timeout_s=compose_timeout,
+            started=compose_started,
+            reason=_INSUFFICIENT_BUDGET_REASON,
+        )
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="composer_unavailable",
+            decision_brief=decision_brief,
+            provider=brief_result.provider,
+            model=brief_result.model,
+            failure_reason=_INSUFFICIENT_BUDGET_REASON,
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+        return result
     composed, compose_reason = llm_refine.synthesize_messages(
         llm_refine.build_grounded_composer_messages(
             options.query,
@@ -1905,7 +1960,12 @@ def synthesize_shadow_grounded_answer(
     judge_timeout = _shadow_phase_timeout(
         deadline, options.shadow_grounded_timeout, 0.35
     )
-    if judge_override is not None:
+    judge_skipped = _phase_slice_collapsed(deadline, 0.35)
+    if judge_skipped:
+        # 不发这次调用，但**不放行**：跳过的原因是我们自己的预算，
+        # ``insufficient_budget`` 不在瞬时故障白名单里，下面照常 fail-closed。
+        judged, judge_reason = None, _INSUFFICIENT_BUDGET_REASON
+    elif judge_override is not None:
         with llm_refine.provider_override(judge_override):
             judged, judge_reason = llm_refine.synthesize_messages(
                 judge_messages,
@@ -1928,7 +1988,9 @@ def synthesize_shadow_grounded_answer(
     _record_synthesis_phase(
         result,
         name="judge",
-        status="failed" if judged is None else "ok",
+        status=(
+            "skipped" if judge_skipped else ("failed" if judged is None else "ok")
+        ),
         remaining_ms_at_entry=judge_remaining_ms,
         timeout_s=judge_timeout,
         started=judge_started,
