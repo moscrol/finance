@@ -10,6 +10,15 @@
 
 ---
 
+## Execution status (2026-08-04)
+
+- T0/T1 code commits: `84c1eb73`, `f4b8c589`。
+- Focused tests: 63 passed / 1 skipped；benchmark serialization: 30 passed。
+- T1 live artifact: `c-long-capped-t1.json`，`source_dirty=false`，revision `84c1eb73`。
+- T1 normalized: 60 events / 0 unmapped / 6 timestamped。
+- 瑞华泰：finalization 在 remaining=16.165s 开始，16.190s 后仍 timeout；这是截断下界，不是自然收尾耗时。
+- Task 5 已拆到 `2026-08-04-headless-finalization-handoff.md`，按新证据执行，不在本计划续写猜测性 T2。
+
 ### Task 1: 冻结 payload timestamp 的归一化契约
 
 **Files:**
