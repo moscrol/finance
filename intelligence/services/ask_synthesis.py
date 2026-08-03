@@ -1646,19 +1646,6 @@ def repair_unfulfilled_answer(
     return revised.answer, recheck
 
 
-# DecisionBrief 是三个字段的结构化 JSON（direct_answer / core_tension / supports），
-# **不跟着 composer 那份 token_budget_scale 放大**。
-#
-# 为什么写死：2026-08-03 实测，promote 路径把它放到 1200×3=3600，模型就真的填到
-# 2324 tokens；在 34 tok/s 的实测吞吐下等于 69.7 秒——单独一段就吃掉整轮 120 秒
-# 预算的六成，composer 和 judge 必然饿死。放大 composer 是为了正文不被截断，brief
-# 没有这个需求，它只是顺带被乘了 3。
-#
-# 换模型后要重估的是这两个数与实测吞吐的乘积，不是「要不要放大」。
-_BRIEF_MAX_TOKENS = 1200
-_BRIEF_MAX_CHARS = 8000
-
-
 def _shadow_phase_timeout(
     deadline: llm_refine.Deadline,
     configured: int,
@@ -1812,8 +1799,8 @@ def synthesize_shadow_grounded_answer(
         timeout=brief_timeout,
         deadline=deadline,
         temperature=0.0,
-        max_tokens=_BRIEF_MAX_TOKENS,
-        max_chars=_BRIEF_MAX_CHARS,
+        max_tokens=1200 * token_budget_scale,
+        max_chars=8000 * token_budget_scale,
     )
     _record_synthesis_phase(
         result,

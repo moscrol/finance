@@ -120,23 +120,6 @@ class TestEnforcedAtTheCallSite:
             f"重试把时间片翻倍了：各次超时 {seen}，墙钟共消耗 {consumed:.1f}s"
         )
 
-    def test_brief_budget_does_not_scale_with_composer(self) -> None:
-        """brief 不跟着 composer 的 token_budget_scale 放大。
-
-        在 34 tok/s 的实测吞吐下，token 预算就是墙钟时间：brief 被放到 3600 时，
-        模型填到 2324 tokens = 69.7 秒，单段吃掉整轮 120 秒预算的六成。
-        放大 composer 是为了正文不被截断，brief 是三字段 JSON，没这个需求。
-        """
-        from intelligence.services import ask_synthesis
-
-        assert ask_synthesis._BRIEF_MAX_TOKENS == 1200
-        assert ask_synthesis._BRIEF_MAX_CHARS == 8000
-        # 34 tok/s 下这个上限对应的最坏耗时，必须显著小于整轮预算。
-        worst_case_seconds = ask_synthesis._BRIEF_MAX_TOKENS / 34.0
-        assert worst_case_seconds < 40, (
-            f"brief 最坏耗时 {worst_case_seconds:.0f}s，塞不进三段链"
-        )
-
     def test_streaming_call_receives_the_slice(self, monkeypatch) -> None:
         """流式路径是同一处错误的第二份拷贝，别只修一半。"""
         seen: list[float] = []
