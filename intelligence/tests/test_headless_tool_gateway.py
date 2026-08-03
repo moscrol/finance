@@ -14,7 +14,10 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.evidence_capabilities import EvidencePlan
-from intelligence.services.headless_tool_gateway import HeadlessToolGateway
+from intelligence.services.headless_tool_gateway import (
+    FINALIZATION_INSTRUCTION,
+    HeadlessToolGateway,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
@@ -210,11 +213,13 @@ def test_gateway_rejects_after_finance_tool_budget() -> None:
         registry=_registry(calls),
         context=_context(max_steps=1),
     ) as gateway:
-        gateway.call("market_data", "市场")
+        result = gateway.call("market_data", "市场")
         rejected = gateway.call("news_search", "市场新闻")
 
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
     assert rejected["status"] == "rejected"
-    assert rejected["error"] == "tool_budget_exhausted"
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
     assert calls == [("market_data", "市场")]
 
 
@@ -460,9 +465,69 @@ def test_gateway_records_one_timestamped_finalization_transition() -> None:
     assert first_rejection["error"] == "research_stage_closed"
     assert second_rejection["error"] == "research_stage_closed"
     assert len(transitions) == 1
-    assert transitions[0].payload["reason"] == "research_stage_closed"
+    assert transitions[0].payload["reason"] == "deadline_pressure"
     assert float(transitions[0].payload["remaining_seconds"]) >= 0.0
     datetime.fromisoformat(str(transitions[0].payload["timestamp"]).replace("Z", "+00:00"))
+
+
+def test_gateway_hands_off_after_result_enters_deadline_pressure() -> None:
+    class MutableDeadline:
+        synthesis_reserve = 0.0
+
+        def __init__(self) -> None:
+            self.seconds = 150.0
+
+        def remaining(self) -> float:
+            return self.seconds
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), self.seconds)
+
+        @property
+        def expired(self) -> bool:
+            return self.seconds <= 0.0
+
+    deadline = MutableDeadline()
+    context = replace(_context(max_steps=3), deadline=deadline)
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        deadline.seconds = 25.0
+        result = gateway.call("news_search", "补充消息")
+        rejected = gateway.call("news_search", "继续补查")
+        snapshot = gateway.snapshot()
+
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "deadline_pressure"
+
+
+def test_gateway_hands_off_when_last_tool_slot_is_consumed() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(max_steps=1),
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+        rejected = gateway.call("news_search", "继续补查")
+        snapshot = gateway.snapshot()
+
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "tool_budget_exhausted"
 
 
 def test_gateway_floor_ratio_can_be_disabled_without_changing_default() -> None:

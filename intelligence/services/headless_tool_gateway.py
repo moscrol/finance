@@ -41,6 +41,7 @@ _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
 _MAX_RESPONSE_BYTES = 1_048_576
+FINALIZATION_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
 _FINALIZATION_REASONS = frozenset(
     {
         "research_stage_closed",
@@ -154,6 +155,10 @@ class HeadlessToolGateway:
         self._finalization_floor_seconds = min(
             45.0,
             max(5.0, initial_research_seconds * floor_ratio),
+        )
+        self._finalization_handoff_seconds = min(
+            30.0,
+            max(5.0, initial_research_seconds * 0.20),
         )
         self._is_cancelled = is_cancelled or (lambda: False)
         self._authorized = {
@@ -503,6 +508,27 @@ class HeadlessToolGateway:
         self._finalization_event = event
         return event
 
+    def _pending_finalization_reason(self) -> str | None:
+        if self._finalization_event is not None:
+            return str(self._finalization_event.payload["reason"])
+        remaining_calls = max(
+            0,
+            int(self._context.policy.max_steps) - self._executed_count,
+        )
+        remaining_seconds = self._context.deadline.stage_timeout(
+            self._context.deadline.remaining()
+        )
+        if remaining_calls <= 0:
+            return "tool_budget_exhausted"
+        if remaining_seconds <= self._finalization_handoff_seconds:
+            return "deadline_pressure"
+        if (
+            self._executed_count > 0
+            and remaining_seconds <= self._finalization_floor_seconds
+        ):
+            return "research_stage_closed"
+        return None
+
     def _serve_request(self, handler: BaseHTTPRequestHandler) -> None:
         if handler.headers.get("Authorization") != f"Bearer {self._bearer}":
             self._send(handler, 401, {"status": "rejected", "error": "unauthorized"})
@@ -597,6 +623,11 @@ class HeadlessToolGateway:
                             ),
                         }
                     )
+                if rejected in {
+                    "research_stage_closed",
+                    "tool_budget_exhausted",
+                }:
+                    rejection["instruction"] = FINALIZATION_INSTRUCTION
                 self._add_event(
                     "tool_error",
                     {
@@ -676,6 +707,8 @@ class HeadlessToolGateway:
     ) -> str | None:
         if self._closed or self._is_cancelled():
             return "cancelled"
+        if self._finalization_event is not None:
+            return "research_stage_closed"
         if self._context.deadline.expired:
             return "deadline_exhausted"
         remaining_research_seconds = self._context.deadline.stage_timeout(
@@ -740,7 +773,12 @@ class HeadlessToolGateway:
                 "gaps": list(observation.gaps),
                 "budget": self._budget_payload(),
             }
+            finalization_reason = self._pending_finalization_reason()
+            if finalization_reason is not None:
+                payload["instruction"] = FINALIZATION_INSTRUCTION
             self._add_event("tool_result", payload)
+            if finalization_reason is not None:
+                self._begin_finalization_locked(finalization_reason)
             return payload
 
     def _budget_payload(self) -> dict[str, object]:
@@ -760,10 +798,7 @@ class HeadlessToolGateway:
             "executed_tool_calls": self._executed_count,
             "remaining_tool_calls": remaining_calls,
             "remaining_research_seconds": round(remaining_seconds, 3),
-            "must_finalize": (
-                remaining_calls <= 0
-                or remaining_seconds <= self._finalization_floor_seconds
-            ),
+            "must_finalize": self._pending_finalization_reason() is not None,
         }
 
     def _add_event(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
