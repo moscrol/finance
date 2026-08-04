@@ -23,6 +23,11 @@ _SUPPORTED_BACKENDS = frozenset(
         "codex_headless",
     }
 )
+# 会话级 BYOK 允许的 provider，与 `keychain_credentials._ALLOWED_PROVIDERS` 保持一致。
+# 这里不 import 那个常量，避免 factory 反向依赖凭证层。
+_SESSION_PROVIDERS = frozenset(
+    {"zhipu", "openai", "deepseek", "moonshot", "dashscope"}
+)
 
 
 @dataclass(frozen=True)
@@ -72,11 +77,20 @@ def runtime_backend_readiness(
 ) -> RuntimeBackendReadiness:
     selected = selection or resolve_runtime_backend()
     if selected.name in {"continuous_glm", "sdk_glm"}:
+        # 名字里的 `glm` 是历史兼容名，不是 provider 绑定。`GLMModelClient` 的 docstring
+        # 明写 "The adapter itself is provider-neutral"——它跑的是调用方注入的 providers
+        # 链，而 `api/app.py` 早已把已解析 provider 的 name/model 透传进本函数。
+        #
+        # 这道凭证门过去只认 zhipu，于是一个 provider-neutral 的执行壳被 GLM-only 的判定
+        # 挡在门外：「想用自建 Continuous 壳就只能用 GLM」这个约束是**这道门造出来的**，
+        # 不是架构造成的。2026-07-25 同模型九题盲评 Continuous 195 / SDK 175，说明壳的选择
+        # 和模型的选择是两个正交的轴，不该被一个凭证判定绑死。
         credential = bool(
             os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
             or os.environ.get("ZHIPU_API_KEY")
             or os.environ.get("GLM_API_KEY")
-            or session_provider == "zhipu"
+            or os.environ.get("OPENAI_API_KEY")
+            or session_provider in _SESSION_PROVIDERS
         )
         dependency_ready = (
             selected.name != "sdk_glm"
@@ -85,7 +99,7 @@ def runtime_backend_readiness(
         if not dependency_ready:
             reason = "openai_agents_dependency_missing"
         elif not credential:
-            reason = "glm_api_key_missing"
+            reason = "llm_credential_missing"
         else:
             reason = "ready"
         return RuntimeBackendReadiness(
