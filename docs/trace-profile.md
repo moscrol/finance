@@ -33,7 +33,7 @@
 | `finalization → finish` 间隔 | 有 timestamp 后就是自然收尾耗时 | 只有 finish 正常完成时才是自然耗时；若 finish 是 timeout，该间隔仍是 right-censored lower bound。T1 瑞华泰为 16.190s，但终态是 `headless_timeout`，只能解释为“至少 16.190s” | `2026-08-04b-finalization/c-long-capped-t1.json` |
 | `finalization=0` | 模型不需要/没有尝试收尾 | 只说明已埋的 activation point 没发事件。T3 瑞华泰停在无 response 的 in-flight `evidence_search`，result/rejection 交接根本不可达；不能把 0 当作收尾耗时 0 或仪器故障 | `docs/verification/2026-08-04b-finalization.md` |
 | JSON 顶层 `schema_version` | 看到该字段即可当 normalized artifact 复用 | raw runtime benchmark 也有数值 `schema_version=1`；normalized 单输入产物须同时满足字符串版本、`vocabulary/source_kind/events/input_sha256` 等 marker。只看字段存在会把 raw artifact 误拒为旧 normalized schema | `normalize_harness_trace._load_normalized_artifact`；commit `f4b8c589` |
-| `unpaired_tool_requests` | `0` 表示所有 kind 都已验证配平；正数已经解释了 mailbox 超时 | 这是 `int | null` 三态指标：`runtime-benchmark` 与 Codex rollout/exec 有各自 request/response 词表，`workbench-trace` 没有逐工具词表所以必须为 `null`，不能伪装成健康零。有 `correlation_id` 时 response 只消费同 id pending；旧事件双方都无 id 才按 case FIFO 弱配对。它仍只是结构读数，不等同于 mailbox exchange 数，也不单独给出因果或迟到结果隔离证明 | `normalize_harness_trace._count_unpaired_tool_requests`；synthetic Codex 悬空调用=`1`、Workbench=`null`；T1/T2 legacy raw artifact FIFO 复算=`0/1` |
+| `unpaired_tool_requests` | `0` 表示所有 kind 都已验证配平；正数已经解释了 mailbox 超时 | 这是 `int` 或 `null` 三态指标：`runtime-benchmark` 与 Codex rollout/exec 有各自 request/response 词表，`workbench-trace` 没有逐工具词表所以必须为 `null`，不能伪装成健康零。有 `correlation_id` 时 response 只消费同 id pending；旧事件双方都无 id 才按 case FIFO 弱配对。它仍只是结构读数，不等同于 mailbox exchange 数，也不单独给出因果或迟到结果隔离证明 | `normalize_harness_trace._count_unpaired_tool_requests`；synthetic Codex 悬空调用=`1`、Workbench=`null`；T1/T2 legacy raw artifact FIFO 复算=`0/1` |
 | `request_id` / normalized `correlation_id` | event 自身的唯一 id，或 response body 的业务字段 | `request_id` 是一次 headless tool 调用的 32-hex 身份：mailbox 复用 request filename stem，direct/HTTP 在执行入口生成；同一 request/result/error 共享。normalizer 将它投影为独立的 `correlation_id`，不复用每条事件自己的 `source_event_id`。Codex 侧只读共享的 `call_id/tool_call_id`，普通 event `id` 不冒充调用关联 | `headless_tool_gateway._execute_tool`；`normalize_harness_trace._event_correlation_id` |
 | `remaining_*_seconds_at_entry` | 一个通用的“剩余预算” | `remaining_root_seconds_at_entry` 是 root 时钟，`remaining_research_seconds_at_entry` 是扣除 synthesis reserve 后的研究时钟；二者与同一条 `tool_request.timestamp/request_id` 一起读，禁止再压成含义不明的 `remaining_seconds_at_entry` | `headless_tool_gateway._execute_tool` |
 | 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
@@ -50,7 +50,7 @@
 | 旧 run 无 phase telemetry | 埋点上线前 artifact 只有合成终态 | 无法可靠重建旧 brief/composer/judge 分布 | 不回填；只用新 run 或受控 replay |
 | phase 没有显式 semantic epoch/censoring type | 同名 `elapsed_ms` 跨 revision 变义 | 历史分类器会把自然完成、retry 倍增和 grant 截断混为一类 | artifact 增加 `phase_semantic_epoch` 与 `elapsed_kind`；现阶段按 revision 映射 |
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
-| Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离，因为同 id 的第二个终态是另一条不变量 | R-10 用 deterministic slow tool 强制得到配对 error；断言同一 request id 恰好一个预期终态、`unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
+| Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离。`response_path_conflict` 是 mailbox transport 诊断，允许在同 id 的执行终态后另发 `tool_error`，不能混进执行终态基数 | R-10 用 deterministic slow tool 强制得到配对 error；正常成功路径断言恰好一个 `tool_result`，handoff 路径断言恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；另断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
 
 ## 4. Grounded phase telemetry semantic epochs
 
@@ -118,7 +118,8 @@
 `tool_request/tool_call` 与 `tool_result/tool_error` 配对。Workbench 没有逐工具原生
 词表，故指标为 `null`。新事件优先用 `correlation_id` 强关联，只有历史双方都缺 id
 才退回 case 内 FIFO；因此 `0` 只能读作“本词表下没有悬空 request”，不能替代
-R-10 对同 id 唯一终态和迟到结果隔离的独立断言。
+R-10 对同 id 执行终态和迟到结果隔离的独立断言。断言时须排除
+`tool=mailbox,error=response_path_conflict` 这一 transport 诊断事件。
 
 **本表的地位**：语义源是**runtime 的公开投影与事件生产者契约共同构成**的——
 `episode_progress._EVENT_PROJECTIONS` 只覆盖它自己投影的那些 kind（planning /

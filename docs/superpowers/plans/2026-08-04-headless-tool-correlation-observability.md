@@ -314,7 +314,9 @@ git commit -m "fix(eval): report declared derived counts"
 
 - `unpaired_tool_requests: int | null`；
 - benchmark/Codex 的各自词表与 ID/FIFO 强弱语义；
-- `0` 不是迟到结果隔离的充分条件；R-10 必须按 request id 检查唯一预期终态；
+- `0` 不是迟到结果隔离的充分条件；R-10 必须按 request id 分开检查正常
+  `tool_result`、handoff 执行层 `tool_error` 与迟到结果；mailbox
+  `response_path_conflict` transport 诊断不计入执行终态基数；
 - Workbench 无逐工具词表，必须读 `null`；
 - R-02 的真 rollout 仍需真实产物结案，本轮 synthetic 只锁行为。
 

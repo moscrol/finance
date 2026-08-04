@@ -41,8 +41,10 @@ R-10 的主门是离线结构契约，单次 live 只作确认；还须让 final
 timestamp、32-hex request id、root 入口余量和扣除 synthesis reserve 后的 research
 入口余量；同一 result/error 共享该 id，normalizer 独立保存为 `correlation_id`。
 T1/T2 legacy raw artifact 仍按无 id FIFO 复算为 **0 / 1**；Codex synthetic 悬空调用为
-1，Workbench 没有逐工具词表所以为 `null`。R-10 不能只断言计数为 0，还要按同一 id
-断言恰好一个预期终态且无迟到 result。本步没有改预算、实现 R-10 或跑 live。
+1，Workbench 没有逐工具词表所以为 `null`。R-10 不能只断言计数为 0：正常成功路径
+要按同一 id 断言恰好一个 `tool_result`；handoff 路径要断言恰好一个预期执行层
+`tool_error` 且无迟到 result。`tool=mailbox,error=response_path_conflict` 是可追加在同 id
+上的 transport 诊断，不计入执行终态基数。本步没有改预算、实现 R-10 或跑 live。
 
 完整证据见
 [`docs/verification/2026-08-04b-finalization.md`](../verification/2026-08-04b-finalization.md)。

@@ -91,7 +91,7 @@ finish，所以不满足“`model_finish` 且 `<150s`”的合取门禁。
 - 当前 PRIMARY：headless 的 in-flight 工具没有 deadline-aligned preemption/return contract，finalization transition 依赖工具先返回；精确的 wrapper 退出字符串仍缺原始 stderr。
 - fix type 仍为冻结枚举 `HARNESS_FIX`；本项目连续 refuted streak 从 0 变为 1。
 
-下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。主门是 deterministic slow-tool 离线测试：同一 request id 恰好一个预期 error 终态、`unpaired_tool_requests=0`、finalization remaining 约等于冻结 handoff window，且 late result 不写入 episode。单次瑞华泰 live 只能在离线主门通过后作确认，不能单独把 R-10 记为 confirmed。
+下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。主门是 deterministic slow-tool 离线测试：正常成功路径恰好一个 `tool_result`；handoff 路径在排除 `tool=mailbox,error=response_path_conflict` transport 诊断后，恰好一个预期执行层 `tool_error` 且没有迟到 `tool_result`；同时要求 `unpaired_tool_requests=0`、finalization remaining 约等于冻结 handoff window，且 late result 不写入 episode。单次瑞华泰 live 只能在离线主门通过后作确认，不能单独把 R-10 记为 confirmed。
 
 R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` 的剩余 calls 要和
 `_budget_payload` 一样读取 root ledger 的生效余量；handoff window 要从 profile / 生效
@@ -132,6 +132,8 @@ R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` �
 - clean-host（同时 unset 用户目录与 vault override）：
   `2 failed, 4211 passed, 3 skipped`；两条均为父 revision 已存在且同名同数的
   `test_acceptance_board` 确定性 CLI contract/test drift，不是本轮回归，也不是宿主噪声。
+- scope：上述 clean-host“全量”是仓库根 `pytest`，共 `4216 collected`；按上一轮
+  `intelligence/tests` 子集口径则是 `3722 collected`（`3718 passed, 2 skipped, 2 failed`）。
 
 本步没有修改 budget/profile、没有运行 live、没有实现 slow-tool handoff。R-02 因仍缺
 真 rollout JSONL 保持 pending；R-10 因生产控制流尚未实现保持 pending。

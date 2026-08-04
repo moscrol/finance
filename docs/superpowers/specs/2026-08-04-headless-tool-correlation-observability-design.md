@@ -62,7 +62,7 @@ Codex 的 `source_event_type` 使用 `item.type`（若存在），而不是把�
 4. 末尾所有 id pending 与 legacy pending 之和是 `unpaired_tool_requests`。
 5. 不适用的 kind 返回 `null`，不返回健康零。
 
-该计数只回答“可见 request 是否有可归属的后续终态”。R-10 的迟到结果隔离必须另断言：同一 `request_id` 恰好一个终态，且终态是阈值处的预期 error；`unpaired_tool_requests == 0` 单独不是充分条件。
+该计数只回答“可见 request 是否有可归属的后续终态”。R-10 的迟到结果隔离必须另断言：正常成功路径同一 `request_id` 恰好一个 `tool_result`；handoff 路径恰好一个阈值处的预期执行层 `tool_error`，且没有迟到 `tool_result`。mailbox 的 `response_path_conflict` 是独立 transport 诊断，允许复用同一 id，不计入执行终态基数；`unpaired_tool_requests == 0` 单独不是充分条件。
 
 ### Derived-count validation
 
