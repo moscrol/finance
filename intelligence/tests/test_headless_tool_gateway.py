@@ -165,6 +165,34 @@ def test_gateway_executes_authorized_registry_tool() -> None:
     ]
 
 
+def test_gateway_records_timestamp_and_two_budget_clocks_at_request_entry() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 30.0
+
+        def remaining(self) -> float:
+            return 70.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 40.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.kind == "tool_request"
+    assert request.payload["remaining_root_seconds_at_entry"] == 70.0
+    assert request.payload["remaining_research_seconds_at_entry"] == 40.0
+    datetime.fromisoformat(str(request.payload["timestamp"]).replace("Z", "+00:00"))
+
+
 def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
     calls: list[tuple[str, str]] = []
     base = _context()

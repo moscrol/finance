@@ -577,9 +577,28 @@ class HeadlessToolGateway:
 
     def _execute_tool(self, name: str, raw_query: object) -> dict[str, object]:
         with self._lock:
+            remaining_root_seconds = max(
+                0.0,
+                float(self._context.deadline.remaining()),
+            )
+            remaining_research_seconds = self._context.deadline.stage_timeout(
+                remaining_root_seconds
+            )
             request_event = self._add_event(
                 "tool_request",
-                {"tool": name, "query": str(raw_query or "")},
+                {
+                    "tool": name,
+                    "query": str(raw_query or ""),
+                    "timestamp": _utc_timestamp(),
+                    "remaining_root_seconds_at_entry": round(
+                        remaining_root_seconds,
+                        3,
+                    ),
+                    "remaining_research_seconds_at_entry": round(
+                        remaining_research_seconds,
+                        3,
+                    ),
+                },
             )
             step_id = (
                 f"{self._context.trace_parent_id}:headless:tool:"

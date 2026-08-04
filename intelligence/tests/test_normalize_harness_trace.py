@@ -400,6 +400,31 @@ def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) ->
         main([str(tampered_path), "--compare", str(artifact_path)])
 
 
+def test_frozen_finalization_artifacts_expose_the_pairing_gap(tmp_path) -> None:
+    measurements = (
+        Path(__file__).resolve().parents[1]
+        / "eval"
+        / "measurements"
+        / "2026-08-04b-finalization"
+    )
+    counts: list[int] = []
+    for filename in ("c-long-capped-t1.json", "c-long-capped-t2.json"):
+        output_path = tmp_path / f"{filename}.normalized.json"
+        assert main(
+            [
+                str(measurements / filename),
+                "--kind",
+                "runtime-benchmark",
+                "--output",
+                str(output_path),
+            ]
+        ) == 0
+        artifact = json.loads(output_path.read_text(encoding="utf-8"))
+        counts.append(artifact["unpaired_tool_requests"])
+
+    assert counts == [0, 1]
+
+
 def test_every_persisted_benchmark_kind_has_a_normalized_step() -> None:
     from intelligence.eval.normalize_harness_trace import _BENCHMARK_STEPS
     from intelligence.eval.runtime_backend_benchmark import _DIAGNOSTIC_EVENT_KINDS
