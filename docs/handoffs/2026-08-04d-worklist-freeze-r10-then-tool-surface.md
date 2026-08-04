@@ -147,6 +147,41 @@ git diff HEAD~1 --check
 
 ---
 
+### A4：补上 Protocol 的最后一个实现（验收时新发现）
+
+**问题**：A1 给 `RootBudgetLedger` Protocol 加了必需方法 `settle_seconds`
+（`research_contract.py:431`），但同仓的另一个实现 **`_BranchBudgetView`
+（`sub_research.py:45`）没有它**。而 `sub_research.py:339` 正是把它赋给
+`root_budget=`，那个字段类型是 `RootBudgetLedger | None`
+（`research_contract.py:867`）。
+
+两个后果：
+
+1. **Protocol 声明与代码事实不符。** 本仓只跑 ruff，不做类型检查，所以没人报错——
+   下一个引入 mypy/pyright 的人会撞上。
+2. **运行时静默降级。** gateway 用 `getattr` 探测，`_BranchBudgetView` 会落到
+   **legacy 那条仍然 racy 的路径**——正是 A1 要消灭的形状。
+   （gateway 目前是 benchmark-only，sub-research 是否真能走到它未经证实；
+   因此定 P1 不是 P0。但"静默退回有 bug 的旧路"正是这条线一直在修的东西。）
+
+**要求**：给 `_BranchBudgetView` 实现 `settle_seconds`，在它自己的 `_lock` 内
+`min(requested, remaining_seconds)`，**先向 parent 结算再扣自己**，返回实际扣减值。
+注意与该类现有 `consume_seconds` 的委托顺序保持一致，父账本可能扣得比请求少——
+以父账本的返回值为准，不要假设两边同额。
+
+**验收命令**：
+```bash
+.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_research_contract.py \
+  intelligence/tests/test_sub_research.py \
+  intelligence/tests/test_headless_tool_gateway.py
+```
+
+**通过标准**：三个文件零红；新增一条测试证明 branch 视图并发结算不丢账，且
+**变异测试**（把 `min()` 换成直接用 requested）能让它转红。
+
+---
+
 ## Batch B：按四平面模型做差距诊断（新主线第一步）
 
 **这一批只做诊断，不改任何生产代码。** 产出是一份让用户能做决策的清单。
