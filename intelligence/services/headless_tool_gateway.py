@@ -588,7 +588,9 @@ class HeadlessToolGateway:
         *,
         request_id: str | None = None,
     ) -> dict[str, object]:
-        resolved_request_id = request_id or secrets.token_hex(16)
+        resolved_request_id = (
+            secrets.token_hex(16) if request_id is None else request_id
+        )
         if not _REQUEST_ID_RE.fullmatch(resolved_request_id):
             raise ValueError("invalid headless tool request id")
         with self._lock:
@@ -840,7 +842,7 @@ class HeadlessToolGateway:
                 payload["instruction"] = FINALIZATION_INSTRUCTION
             self._add_event(
                 "tool_result",
-                {"request_id": request_id, **payload},
+                {**payload, "request_id": request_id},
             )
             if finalization_reason is not None:
                 self._begin_finalization_locked(finalization_reason)

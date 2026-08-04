@@ -1045,3 +1045,21 @@ def test_rejection_message_describes_the_bad_value_without_echoing_it(tmp_path) 
     assert "/Users/alice" not in message
     assert "summary" in message
     assert "len=" in message
+
+
+def test_derived_count_rejection_does_not_echo_invalid_text(tmp_path) -> None:
+    good, reference = _good_artifact(tmp_path)
+    path = tmp_path / "leaky-count.json"
+    path.write_text(
+        json.dumps(dict(good, event_count=_SECRET_SUMMARY)),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(NormalizedArtifactError) as raised:
+        main([str(path), "--compare", str(reference)])
+
+    message = str(raised.value)
+    assert "super-secret" not in message
+    assert "/Users/alice" not in message
+    assert "event_count=<str>" in message
+    assert "recomputed" in message

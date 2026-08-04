@@ -631,6 +631,12 @@ class NormalizedArtifactError(ValueError):
     """
 
 
+def _declared_count_repr(value: object) -> str:
+    if value is None or isinstance(value, (bool, int)):
+        return repr(value)
+    return f"<{type(value).__name__}>"
+
+
 def _reject(index: int, field: str, value: object, reason: str) -> NormalizedArtifactError:
     # The offending value is summarized by type and length, never echoed: a
     # rejected `summary` is exactly the case where it may carry a credential.
@@ -868,7 +874,8 @@ def _load_normalized_artifact(
             )
         if mismatch:
             raise NormalizedArtifactError(
-                f"{field}={declared!r} disagrees with recomputed {actual!r}; "
+                f"{field}={_declared_count_repr(declared)} disagrees with "
+                f"recomputed {actual!r}; "
                 "the artifact was modified after it was written"
             )
     payload = {
