@@ -147,65 +147,104 @@ git diff HEAD~1 --check
 
 ---
 
-## Batch B：工具面盘点（新主线第一步）
+## Batch B：按四平面模型做差距诊断（新主线第一步）
 
-**这一批只做盘点，不改任何生产代码。** 产出是一份让用户能做决策的清单。
+**这一批只做诊断，不改任何生产代码。** 产出是一份让用户能做决策的清单。
 
-### B1：盘出 agent 当前能力边界
+### ⚠️ 开工前必读（不读会重复已有工作）
 
-**要求**：读 `intelligence/services/research_tool_registry.py`（catalog 在 `:35-42`）
-与 `intelligence/services/episode_tools.py`，把**全部 8 个**工具逐个写清楚：
+本清单前两版都因为没读这些资料而写错前提。**先读，再动手**：
 
-`web_search` / `news_search` / `l3_lookup` / `market_data` / `financial_data` /
-`mainline_context` / `finance_query` / `evidence_search`
-
-每个记录：接什么数据源、参数能表达什么、返回什么结构、**明确的能力边界**。
-
-重点查清三件事：
-
-1. `finance_query` 能查哪几个 dataset、字段有哪些、能不能跨 dataset join、
-   能不能算衍生指标
-2. **哪些工具受 `allowed_capabilities` 门控、默认开哪几个**——
-   `episode_tools.py:634-651` 是按 contract 逐个 gate 的，
-   要查清日常问答的 contract 实际授权了几个，**别把"定义了"当成"开着"**
-3. 这 8 个合起来**答不了**的问题类型，举 3 个具体例子，并说明卡在哪
-   （是没有数据源？还是有数据但工具表达不了？两者的修法完全不同）
-
-**产出**：`docs/verification/2026-08-04d-agent-tool-surface-inventory.md` 的第 1 节。
-
-### B2：盘出仓内现有能力
-
-**要求**：把 `.claude/skills/` 下所有 skill 过一遍（含知识库仓的跨仓 skill），
-每条记录：
-
-| 列 | 说明 |
+| 资料 | 为什么必读 |
 |---|---|
-| skill 名 | |
-| 干什么 | 一句话 |
-| 数据源 | mootdx / 东财 / iwencai / 巨潮 / DuckDB / 知识库 / … |
-| 入口形式 | Python 脚本？CLI？需要 CDP proxy？需要凭证？ |
-| 是否只读 | **写库/写飞书的必须标出来** |
-| 包成 agent 工具的难度 | 低（纯函数调用）/ 中（要封装参数）/ 高（要浏览器或人工登录态） |
+| `/Users/a77/agent-memory/10_knowledge/finance-agent-capability-graph.md` | **能力图谱已存在**（30 节点 / 32 路径 / mermaid 总览）。诊断的基线是它，不是从零盘点。跑 `python3 /Users/a77/agent-memory/scripts/graph_audit.py` 确认它没漂移（应 exit 0） |
+| `/Users/a77/agent-memory/10_knowledge/finance-agent-knevo-derived-knowledge-runtime-contract.md` | **本批的判据来源**：四类数据平面 + §9 吸收优先级 P0/P1/P2 |
+| `/Users/a77/agent-memory/20_projects/finance-workspace-private.md` | 任务看板 + 交接记录。**很多"缺口"其实已完成或已有结论** |
+| `/Users/a77/agent-memory/10_knowledge/knevo-reverse-engineering.md` | 竞品对照基线（1 入口 + 8 专项 skill + 7 底层工具） |
 
-**禁止**：不要真的去跑这些 skill，不要抓数据，不要碰 DuckDB 和飞书。只读 SKILL.md
-和脚本签名。
+**已知事实，不要再"发现"一遍**：
+- agent 工具约 **10 个**：`research_tool_registry.py:35-42` 的 6 个 catalog +
+  `agent_research.build_graph_tools` 的 `graph_lookup`/`evidence_lookup` +
+  `episode_tools.py` 的 `finance_query`/`evidence_search`
+- **技能桥已存在**：`skill_tools.py`（已注册 `serenity-alpha`）、
+  `theme_modules.run_module`。其余 skill 未接入是**刻意设计**——大多要拉实时数据
+  或写库，接入会破坏 agent 的只读/无外呼红线。**不要把这个约束当缺口去"补"**
+- **编排层已存在**：`answer_orchestrator` / `conversation_orchestrator` /
+  `question_router` / `route_table` / `research_task_planner` / `ask_planner` /
+  `retrieval_planner` / `research_plan` / `generic_research_owner`
+- MOC 交接记录 2026-07-19 已确立的可迁移原则：**配额在副作用前预占**、
+  **全链 deadline 传绝对时刻**、**per-key single-flight 去重**
 
-**产出**：同一份文档的第 2 节。
+---
 
-### B3：出候选清单与取舍建议
+### B1：四平面覆盖体检
 
-**要求**：基于 B1 + B2，给出：
+用运行时契约 §1 的四类数据平面当坐标系，逐个平面回答「有没有 / 谁提供 / agent 能不能
+直接调 / 缺什么」：
 
-1. **收益最大的前 5 个候选工具**，每个写明：补上它能答哪类现在答不了的问题
-2. 每个候选的**证据可追溯性**评估——这是硬约束：产品架构建立在
-   "每个数字必须绑定出处"（`bound_evidence` / `citation`）上。
-   说清楚这个工具的返回值怎么绑定证据；绑不了的要明说
-3. 三条技术路线的取舍对比（**必须给替代方案对比，这是用户的明确偏好**）：
-   - 逐个包装现成 skill 成工具
+| 平面 | 承载 | 已知候选实现 | 要查清的 |
+|---|---|---|---|
+| `provider` | 行情/财务/公告/新闻等当前事实 | `market_data` `financial_data` `news_search` `web_search` `l3_lookup` `finance_query` `mainline_context` | 覆盖是否够；哪些受 `allowed_capabilities` 门控、日常问答实际开几个 |
+| `graph` | 实体/关系/结构化事实/证据切片 | `graph_lookup` `evidence_lookup` | 返回值是否满足契约 §5 的六字段（entities/edges/edge_claims/facts/evidence/gaps）；**空结果有没有结构化降级门** |
+| `shared_memory` | 沉淀的观察/洞察/推理模式 | `evidence_search`、W Wiki RAG | 检索是否走契约 §4 的窄/宽/反三口径；有没有跨 query 去重 |
+| `user_memory` | 用户判断/偏好/交互史 | `experience_cards` `corrections` `foresight`（能力图谱显示 `Cards → Planner`、`Verdicts → Foresight`） | **重点**：这些只喂给 planner，还是 agent 能作为工具主动查？Knevo 每次研究第一步就是 `finance_memory_query` |
+
+**必答的判断题**：`user_memory` 平面 agent 能不能**主动检索**？
+不能的话，Knevo 那条「按记忆条数定检索深度」（记忆 ≥10 条→2-3 工具 / 0-2 条→5+ 工具）
+在我们这就实现不了——这是本批最值得确认的单点。
+
+**产出**：`docs/verification/2026-08-04d-four-plane-coverage.md` 第 1 节。
+
+### B2：对照 §9 吸收优先级，逐条判落地状态
+
+运行时契约 §9 给了五条优先级。逐条给 **已落地 / 部分 / 未落地 / 不适用**，
+每条附**代码位置或反证**（不许只写结论）：
+
+| # | 条目 | 判据 |
+|---|---|---|
+| P0 | 类型纯度：每条召回带 `source_plane`/`kind`/`evidence`/`status`，回答前来源隔离 | 看 `AgentEvidence` / `EvidenceAtom` 有没有这几个字段 |
+| P0 | 图谱空结果门控：无边/事实/证据时结构化降级，禁止 LLM 自由补关系 | 看 `graph_lookup` 空结果路径 |
+| P1 | 检索 provenance 与 `cross_query_support` | 看检索结果有没有留 query_id / rank / 跨 query 支持度 |
+| P1 | 推荐与长期 memory 分库分状态，用户确认是显式写入 seam | 看 `experience_cards` / `corrections` 的写入权限 |
+| P2 | 运行一致性验收（payload/事件/持久化/索引四层） | 看 SSE / run 的验收检查 |
+
+**这一步的价值**：把"我们缺什么"从猜测变成对着已有清单打勾。
+
+**产出**：同一文档第 2 节。
+
+### B3：出差距清单与取舍建议
+
+基于 B1 + B2：
+
+1. **确认的差距**（有代码证据的），按「补上能答哪类现在答不了的问题」排序
+2. 每条差距的**证据可追溯性**评估——硬约束：架构建立在"每个数字绑定出处"
+   （`bound_evidence` / `citation`）上。绑不了的要明说
+3. **取舍对比**（用户明确偏好：必须给替代方案对比）。至少覆盖：
+   - 接 `user_memory` 检索工具
+   - 扩 `skill_tools` 注册表（**必须论证不破坏只读/无外呼红线**）
    - 放开只读 SQL
    - 受控代码执行（sandbox 内只能调数据 API）
 
-   每条写：能力增益 / 安全风险 / 证据可追溯性 / 实现工作量 / 适合什么场景
+   每条写：能力增益 / 安全风险 / 证据可追溯性 / 实现工作量 / 适合场景
+
+4. **反向结论也算有效产出**：如果诊断下来四个平面覆盖都够、§9 的 P0 都已落地，
+   那就明确写「工具面不是瓶颈」，并指出证据指向哪里。
+   **不要为了凑结论夸大缺口。**
+
+**产出**：同一文档第 3 节。
+
+### B4：把本批发现回写能力图谱
+
+能力图谱是**已有的机器可读事实源**，有维护纪律（见其文件头）。
+
+**要求**：若 B1-B3 发现图谱缺节点或路径漂移，按其维护口径追加/修正，然后跑：
+
+```bash
+python3 /Users/a77/agent-memory/scripts/graph_audit.py    # 必须 exit 0
+```
+
+**禁止**：不要新建一份平行的"能力清单"文档。已经有一份且是绿的，再建一份就是
+第二事实源，下一个 agent 会读到过期的那份。
 
 **禁止**：不要在这一批实现任何工具，不要改 `episode_tools.py`。
 
