@@ -428,6 +428,8 @@ class RootBudgetLedger(Protocol):
 
     def consume_seconds(self, *, seconds: float) -> None: ...
 
+    def settle_seconds(self, *, seconds: float) -> float: ...
+
 
 class InMemoryRootBudgetLedger:
     """Thread-safe root budget implementation used by runtime adapters.
@@ -569,6 +571,27 @@ class InMemoryRootBudgetLedger:
             if seconds > self.remaining_seconds + 1e-9:
                 raise ValueError("root seconds budget exhausted")
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
+
+    def settle_seconds(self, *, seconds: float) -> float:
+        """Clamp and debit wall time atomically, returning the amount actually spent.
+
+        Callers settling finished work cannot undo it, so this never raises on
+        overdraft: it debits at most the remaining balance and reports what was
+        taken. Doing the clamp inside the lock is what makes concurrent settling
+        safe -- reading ``remaining_seconds`` first and then debiting is a
+        check-then-act race that silently loses debits.
+        """
+
+        try:
+            requested = float(seconds)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("settled seconds must be numeric") from exc
+        if requested < 0:
+            raise ValueError("settled seconds must be non-negative")
+        with self._lock:
+            settled = min(requested, max(0.0, self.remaining_seconds))
+            self.remaining_seconds = max(0.0, self.remaining_seconds - settled)
+            return settled
 
     def to_dict(self) -> dict[str, object]:
         with self._lock:

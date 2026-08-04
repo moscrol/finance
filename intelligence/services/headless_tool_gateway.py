@@ -834,22 +834,33 @@ class HeadlessToolGateway:
         """Debit real tool wall time, clamping rather than rejecting finished work."""
 
         ledger = getattr(self._context, "root_budget", None)
-        consume_seconds = getattr(ledger, "consume_seconds", None)
-        if not callable(consume_seconds):
-            return
         try:
             requested = max(0.001, float(elapsed_seconds))
         except (TypeError, ValueError):
             return
-        remaining = getattr(ledger, "remaining_seconds", None)
-        if isinstance(remaining, (int, float)) and not isinstance(remaining, bool):
-            settled = min(requested, max(0.0, float(remaining)))
+
+        settle_seconds = getattr(ledger, "settle_seconds", None)
+        if callable(settle_seconds):
+            # Preferred path: the ledger clamps and debits under its own lock, so
+            # concurrent settling cannot lose a debit to a check-then-act race.
+            try:
+                settled = float(settle_seconds(seconds=requested))
+            except (TypeError, ValueError) as exc:
+                self._record_settlement_failure(
+                    request_id=request_id,
+                    requested=requested,
+                    error=type(exc).__name__,
+                )
+                return
         else:
-            settled = requested
-        try:
-            consume_seconds(seconds=settled)
-        except (TypeError, ValueError):
-            return
+            settled = self._settle_root_seconds_legacy(
+                ledger,
+                requested=requested,
+                request_id=request_id,
+            )
+            if settled is None:
+                return
+
         overdraft = requested - settled
         if overdraft <= 0.0:
             return
@@ -861,6 +872,61 @@ class HeadlessToolGateway:
                     "requested_seconds": round(requested, 3),
                     "settled_seconds": round(settled, 3),
                     "overdraft_seconds": round(overdraft, 3),
+                },
+            )
+
+    def _settle_root_seconds_legacy(
+        self,
+        ledger: object,
+        *,
+        requested: float,
+        request_id: str,
+    ) -> float | None:
+        """Settle against ledgers predating ``settle_seconds`` (third-party/test stubs).
+
+        This path keeps the old read-then-debit shape and is therefore racy; it
+        exists only for backward compatibility. Unlike the original code it never
+        fails silently -- a rejected debit is surfaced as telemetry.
+        """
+
+        consume_seconds = getattr(ledger, "consume_seconds", None)
+        if not callable(consume_seconds):
+            return None
+        remaining = getattr(ledger, "remaining_seconds", None)
+        if isinstance(remaining, (int, float)) and not isinstance(remaining, bool):
+            settled = min(requested, max(0.0, float(remaining)))
+        else:
+            settled = requested
+        try:
+            consume_seconds(seconds=settled)
+        except (TypeError, ValueError) as exc:
+            self._record_settlement_failure(
+                request_id=request_id,
+                requested=requested,
+                error=type(exc).__name__,
+            )
+            return None
+        return settled
+
+    def _record_settlement_failure(
+        self,
+        *,
+        request_id: str,
+        requested: float,
+        error: str,
+    ) -> None:
+        """Surface a dropped seconds debit instead of swallowing it."""
+
+        with self._lock:
+            self._add_event(
+                "root_budget_overdraft",
+                {
+                    "request_id": request_id,
+                    "requested_seconds": round(requested, 3),
+                    "settled_seconds": 0.0,
+                    "overdraft_seconds": round(requested, 3),
+                    "settlement_failed": True,
+                    "error": error,
                 },
             )
 

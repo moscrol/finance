@@ -330,6 +330,8 @@ _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     "branch_failed": ("observe", "control"),
     "repair_outcome": ("observe", "control"),
     "invalid_action": ("observe", "control"),
+    # settlement of a finished call that spent more than the ledger could pay
+    "root_budget_overdraft": ("observe", "control"),
     # answer construction
     "finalization": ("synthesize", "generation"),
     "finalization_recovery_started": ("synthesize", "generation"),

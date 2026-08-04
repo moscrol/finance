@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
-from threading import Event, Lock, Thread
+from threading import Barrier, Event, Lock, Thread
 import urllib.error
 import urllib.request
 
@@ -409,6 +409,70 @@ def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
     assert result["status"] == "success"
     assert ledger.remaining_calls == 1
     assert 0.0 < ledger.remaining_seconds < 10.0
+
+
+def test_gateway_settles_concurrent_seconds_without_losing_a_debit() -> None:
+    """Two settlements racing for the last of the budget must both be accounted for.
+
+    The pre-fix code read ``remaining_seconds`` and then called
+    ``consume_seconds`` in two steps, so the loser of the race raised
+    ``ValueError`` and was swallowed by a bare ``except`` -- the seconds were
+    never debited and the overdraft never surfaced.
+    """
+
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=2,
+        initial_seconds=1.0,
+        hard_seconds_cap=1.0,
+    )
+    context = replace(base, root_budget=ledger)
+    # Each runner claims nearly the whole budget, so exactly one can be paid in
+    # full and the other must be clamped.
+    requested_each = 0.9
+    start = Barrier(2, timeout=10.0)
+    errors: list[BaseException] = []
+
+    with HeadlessToolGateway(registry=_registry([]), context=context) as gateway:
+        def settle(request_id: str) -> None:
+            try:
+                start.wait()
+                gateway._settle_root_seconds(requested_each, request_id=request_id)
+            except BaseException as exc:  # pragma: no cover - surfaced via assert
+                errors.append(exc)
+
+        threads = [Thread(target=settle, args=(f"req-{i}",)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15.0)
+            assert not thread.is_alive()
+        snapshot = gateway.snapshot()
+
+    assert errors == []
+    # Invariant: the ledger can never pay out more than it started with.
+    total_settled = ledger.initial_seconds - ledger.remaining_seconds
+    assert total_settled <= ledger.initial_seconds + 1e-9
+    assert ledger.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+
+    overdrafts = [
+        event for event in snapshot.events if event.kind == "root_budget_overdraft"
+    ]
+    # The clamped settlement must be visible, not silently dropped.
+    assert len(overdrafts) == 1
+    payload = overdrafts[0].payload
+    assert payload["requested_seconds"] == pytest.approx(requested_each)
+    assert float(payload["overdraft_seconds"]) > 0.0
+    # Nothing may fail silently: no settlement-failure telemetry either.
+    assert not any(
+        event.payload.get("settlement_failed") for event in overdrafts
+    )
+    # Both settlements together account for the full initial budget.
+    assert float(payload["settled_seconds"]) + requested_each == pytest.approx(
+        ledger.initial_seconds
+    )
 
 
 @pytest.mark.parametrize("transport", ("http", "mailbox"))

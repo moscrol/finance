@@ -730,6 +730,46 @@ def test_control_plane_kinds_map_to_their_runtime_semantics() -> None:
     assert all(event.step != "unmapped" for event in events)
 
 
+def test_root_budget_overdraft_is_mapped_not_left_unmapped() -> None:
+    """A new event kind must reach the normalizer, or R-20260804-06 silently regresses.
+
+    `root_budget_overdraft` is emitted when a finished tool call is settled for
+    less than it actually spent. Unknown kinds fall back to
+    ("unmapped", "unmapped", "unknown"), which would break the already-confirmed
+    prediction that normalization leaves `unmapped_count == 0`.
+    """
+
+    events = normalize_records(
+        [
+            {"kind": "tool_request"},
+            {"kind": "tool_result"},
+            {
+                "kind": "root_budget_overdraft",
+                "payload": {
+                    "requested_seconds": 0.9,
+                    "settled_seconds": 0.1,
+                    "overdraft_seconds": 0.8,
+                },
+            },
+            {"kind": "finalization"},
+        ],
+        kind="runtime-benchmark",
+    )
+
+    assert [event.step for event in events] == [
+        "tool",
+        "observe",
+        "observe",
+        "synthesize",
+    ]
+    overdraft = events[2]
+    assert overdraft.step == "observe"
+    assert overdraft.event_role == "control"
+    assert overdraft.native_or_normalized == "normalized"
+    # The point of the test: zero unmapped events.
+    assert sum(1 for event in events if event.step == "unmapped") == 0
+
+
 def test_cli_writes_hashed_normalized_artifact(tmp_path) -> None:
     source = tmp_path / "sk-secret.jsonl"
     source.write_text(

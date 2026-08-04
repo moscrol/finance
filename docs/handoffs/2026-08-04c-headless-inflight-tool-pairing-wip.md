@@ -1,7 +1,9 @@
 # Headless in-flight tool pairing WIP handoff (2026-08-04)
 
-> 一句话现状：`R-20260804-10` 的 Task 1 已提交并通过规格复审；Task 2 停在可复现的 4 条
-> RED；生产计费代码尚未修改，未跑 live，未 push，未合并 main。
+> 一句话现状：`R-20260804-10` 的 Task 1、Task 2 已完成（含 A1 秒数结算 race、A2 归一化器
+> 接线两个收尾洞）；**Task 3-6 已冻结，不要继续做**，方向已切到工具面盘点（见
+> `docs/handoffs/2026-08-04d-worklist-freeze-r10-then-tool-surface.md`）。未跑 live，
+> 未 push，未合并 main。`R-20260804-10` 仍是 `pending`。
 
 ## 0. 先读结论
 
@@ -52,16 +54,31 @@ synthetic 产物不能替代结案。
 | normalizer 词表 | `mode_decision → plan`、`unmapped_count=0` 已由 synthetic rollout 锁定（`R-06` confirmed） |
 | 单一预算视图与 transport-safe grant | 本轮 Task 1，见 §4 |
 
-### 在修（本轮剩余）
+### 已完成（Task 2 + 收尾）
 
-| 层 | 状态 | 卡在哪 |
+| 层 | 状态 | 依据 |
 |---|---|---|
-| 计费原子性 | **RED（4 条）** | Task 2，规格已在 §6 补全 |
-| grant 从 telemetry 升格为执行权 | 未开始 | Task 3；**本层真正的核心缺口**，见 §5 P1-A |
-| watchdog + 迟到隔离 | 未开始 | Task 3 |
-| 离线全量 gate | 未开始 | Task 4 |
-| 唯一 live canary | 未开始 | Task 5，前置是 Task 4 全绿 |
-| 账本闭环 | 未开始 | Task 6 |
+| 计费原子性（calls） | **完成** | `b24bd818`；预占下沉到 runner 前，见 §6 |
+| 计费原子性（seconds） | **完成** | A1：`settle_seconds()` 把钳零与扣减放进 ledger 同一把锁；并发测试 + 变异测试见 §8 |
+| 新事件 kind 接进消费方 | **完成** | A2：`root_budget_overdraft → ("observe","control")`，`unmapped_count` 保持 0 |
+
+### 已冻结（不要继续做）
+
+| 层 | 原状态 | 冻结说明 |
+|---|---|---|
+| grant 从 telemetry 升格为执行权 | 未开始（原 Task 3） | **冻结**；原本是本层核心缺口，见 §5 P1-A |
+| watchdog + 迟到隔离 | 未开始（原 Task 3） | **冻结** |
+| 离线全量 gate | 未开始（原 Task 4） | **冻结** |
+| 唯一 live canary | 未开始（原 Task 5） | **冻结** |
+| 账本闭环 | 未开始（原 Task 6） | **冻结**；R-10 因此停在 `pending` |
+
+**冻结原因**：本层修的 `codex_headless` 标着 `benchmark_only=True`
+（`agent_runtime_factory.py:63`、`api/app.py:276` 会直接 `raise`），产品 web UI 走不到，
+它的价值只是"量引擎"这把尺子。主线已切到工具面诊断。
+
+**恢复条件**：要把 headless 用于产品路径（去掉 `benchmark_only`），或工具面诊断结论
+指回 in-flight tool contract。届时从原 Task 3 接着做，Task 1/2 的成果可直接复用。
+完整取舍见 `docs/handoffs/2026-08-04d-worklist-freeze-r10-then-tool-surface.md` §0。
 
 ### 真正的瓶颈（按严重度）
 
@@ -265,7 +282,9 @@ timeout**——它正是 §5 P1-B 里"持锁方案不可用"的可执行版本�
 （测试里的 `finalization_floor_ratio=0.0` 与 §0"不要调 floor_ratio"不冲突：前者是测试内
 中和该 floor，后者禁的是改生产 profile 取值。）
 
-## 8. 验证基线（改动前的真实值，逐字抄录）
+## 8. 验证基线
+
+改动前（逐字抄录）：
 
 ```text
 intelligence/tests/test_headless_tool_gateway.py   →  4 failed, 28 passed（共 32）
@@ -273,17 +292,62 @@ intelligence/tests/test_codex_headless_runtime.py  →  28 passed, 1 skipped in 
 ruff check（含未提交测试）                          →  All checks passed
 ```
 
-Task 2 完成后的期望值：gateway 文件 **32 passed**，codex runtime 文件保持
-**28 passed, 1 skipped**。
+A1/A2 完成后的真实值（`.venv-workbench/bin/python -m pytest -q`，逐字抄录）：
+
+```text
+intelligence/tests/test_headless_tool_gateway.py   →  34 passed in 13.57s
+intelligence/tests/test_research_contract.py       →  2 passed in 0.04s
+intelligence/tests/test_normalize_harness_trace.py →  30 passed in 0.06s
+intelligence/tests/test_codex_headless_runtime.py  →  28 passed, 1 skipped in 6.16s
+ruff check intelligence/                            →  All checks passed
+```
+
+gateway 从 32 涨到 34：Task 2 把 4 条 RED 转绿（32 passed），A1 再加 1 条并发结算测试
+（33 → 34；`a4d546f9` 另加了 1 条 call 预占契约测试）。
+
+**变异测试（两条新测试都验过咬合）**：
+
+| 改坏什么 | 结果 |
+|---|---|
+| `settle_seconds()` 的 `min()` 换成直接用 `seconds` | 新并发测试转红：`assert 0 == 1`，overdraft 事件消失 |
+| 删掉 `"root_budget_overdraft"` 映射行 | 新归一化测试转红：`At index 2 diff: 'unmapped' != 'observe'` |
+
+两次变异均已还原，还原后复跑回到上表数字。
+
+> ⚠️ 工具坑：`edit` 工具在 `research_contract.py` 上连续三次报 success 但内容未落盘
+> （mtime 不变、grep 仍见变异串）。还原变异最终靠 Python 直接改写文件。改完**必须
+> grep 复核**，不要只看工具返回的 success。
 
 `test_codex_headless_runtime.py` 是 gateway 的下游消费方，Task 2 改的正是 rejection
 payload 形状——它只要 7 秒，**不要推到 Task 4 才跑**。
 
 解释器必须是 `.venv-workbench/bin/python`；宿主的 `python3` 是 3.14 且缺依赖。
 
-## 9. Task 3-6 剩余
+## 9. Task 3-6：已冻结（2026-08-04d）
 
-### Task 3：watchdog + 真 grant + 迟到隔离
+> ⛔ **Task 3-6 全部冻结，不要开工。** 下面内容保留为恢复时的规格，不是当前待办。
+
+**冻结原因**（完整论证见 `docs/handoffs/2026-08-04d-worklist-freeze-r10-then-tool-surface.md` §0）：
+
+1. R-10 修的是 `codex_headless`，而它标着 `benchmark_only=True`
+   （`agent_runtime_factory.py:63`、`api/app.py:276` 会直接 `raise`），**产品 web UI 永远
+   走不到这条路**。它的价值只是"量引擎"这把尺子。
+2. Task 4/5 的验证成本极高（两个 clean-host 全量 scope + live canary），而收益锁在一条
+   产品够不着的路径上。
+3. 主线已切到**工具面诊断**（08-04d 清单 Batch B）：先查清 8 个工具里 contract 实际
+   授权了几个，再决定投哪里。
+
+**恢���条件**（满足任一即可解冻）：
+
+- `codex_headless` 不再是 `benchmark_only`，要进产品路径；或
+- Batch B 诊断结论是「工具面没问题，差距确实在 agent 循环/交接」；或
+- 需要用 headless 量引擎做一次对照测量，且 in-flight 交接是该测量的阻塞项。
+
+**冻结时的真实状态**：Task 1、Task 2 已完成并通过（含 A1/A2 两个补洞），§8 的数字是
+冻结点基线。Task 3 的核心缺口（grant 仍是 telemetry，见 §5 P1-A）**未修**——解冻时
+这仍是 R-10 能否结案的决定项。
+
+### Task 3（冻结）：watchdog + 真 grant + 迟到隔离
 
 除原计划测试外，必须新增/加强：
 
