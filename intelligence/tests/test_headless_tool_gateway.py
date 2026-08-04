@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import urllib.error
@@ -193,6 +194,34 @@ def test_gateway_records_timestamp_and_two_budget_clocks_at_request_entry() -> N
     datetime.fromisoformat(str(request.payload["timestamp"]).replace("Z", "+00:00"))
 
 
+def test_gateway_success_events_share_one_stable_request_id() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        events = gateway.snapshot().events
+
+    assert [event.kind for event in events] == ["tool_request", "tool_result"]
+    request_id = events[0].payload["request_id"]
+    assert re.fullmatch(r"[0-9a-f]{32}", str(request_id))
+    assert events[1].payload["request_id"] == request_id
+
+
+def test_gateway_rejection_events_share_one_stable_request_id() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+    ) as gateway:
+        gateway.call("not_authorized", "市场")
+        events = gateway.snapshot().events
+
+    assert [event.kind for event in events] == ["tool_request", "tool_error"]
+    request_id = events[0].payload["request_id"]
+    assert re.fullmatch(r"[0-9a-f]{32}", str(request_id))
+    assert events[1].payload["request_id"] == request_id
+
+
 def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
     calls: list[tuple[str, str]] = []
     base = _context()
@@ -359,6 +388,14 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     exchange = snapshot.mailbox_exchanges[0]
     assert len(exchange.request_sha256) == 64
     assert len(exchange.response_sha256) == 64
+    request_id = exchange.request_id.removesuffix(".json")
+    tool_events = [
+        event for event in snapshot.events if event.kind.startswith("tool_")
+    ]
+    assert [event.payload["request_id"] for event in tool_events] == [
+        request_id,
+        request_id,
+    ]
     assert set(gateway.subprocess_environment()) == {"FINANCE_TOOL_MAILBOX"}
     assert "urllib" not in wrapper
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper

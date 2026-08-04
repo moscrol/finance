@@ -39,6 +39,7 @@ from intelligence.services.research_tool_registry import (
 _MAX_REQUEST_BYTES = 65_536
 _WRAPPER_NAME = "finance-tool"
 _MAILBOX_NAME = ".finance-tool-mailbox"
+_REQUEST_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
 _MAX_RESPONSE_BYTES = 1_048_576
 FINALIZATION_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
@@ -359,6 +360,7 @@ class HeadlessToolGateway:
             result = self._execute_tool(
                 str(payload.get("tool") or ""),
                 payload.get("query"),
+                request_id=request_path.stem,
             )
         except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
             result = {"status": "rejected", "error": "invalid_request"}
@@ -379,7 +381,11 @@ class HeadlessToolGateway:
                     self._gaps.append("mailbox_response_path_conflict")
                 self._add_event(
                     "tool_error",
-                    {"tool": "mailbox", "error": "response_path_conflict"},
+                    {
+                        "request_id": request_path.stem,
+                        "tool": "mailbox",
+                        "error": "response_path_conflict",
+                    },
                 )
             return
         with self._lock:
@@ -575,7 +581,16 @@ class HeadlessToolGateway:
         handler.end_headers()
         handler.wfile.write(data)
 
-    def _execute_tool(self, name: str, raw_query: object) -> dict[str, object]:
+    def _execute_tool(
+        self,
+        name: str,
+        raw_query: object,
+        *,
+        request_id: str | None = None,
+    ) -> dict[str, object]:
+        resolved_request_id = request_id or secrets.token_hex(16)
+        if not _REQUEST_ID_RE.fullmatch(resolved_request_id):
+            raise ValueError("invalid headless tool request id")
         with self._lock:
             remaining_root_seconds = max(
                 0.0,
@@ -587,6 +602,7 @@ class HeadlessToolGateway:
             request_event = self._add_event(
                 "tool_request",
                 {
+                    "request_id": resolved_request_id,
                     "tool": name,
                     "query": str(raw_query or ""),
                     "timestamp": _utc_timestamp(),
@@ -650,6 +666,7 @@ class HeadlessToolGateway:
                 self._add_event(
                     "tool_error",
                     {
+                        "request_id": resolved_request_id,
                         "tool": name,
                         "error": rejected,
                         "retryable": rejection.get("retryable", False),
@@ -689,11 +706,18 @@ class HeadlessToolGateway:
                 self._traces.append(trace)
                 self._add_event(
                     "tool_error",
-                    {"tool": name, "error": "tool_exception"},
+                    {
+                        "request_id": resolved_request_id,
+                        "tool": name,
+                        "error": "tool_exception",
+                    },
                 )
             return {"status": "error", "tool": name, "error": "tool_exception"}
 
-        if not self._charge_root_budget(time.monotonic() - started_at):
+        if not self._charge_root_budget(
+            time.monotonic() - started_at,
+            request_id=resolved_request_id,
+        ):
             return {
                 "status": "rejected",
                 "tool": name,
@@ -701,9 +725,18 @@ class HeadlessToolGateway:
                 "budget": self._budget_payload(),
             }
 
-        return self._publish_observation(spec.query_scope, observation)
+        return self._publish_observation(
+            spec.query_scope,
+            observation,
+            request_id=resolved_request_id,
+        )
 
-    def _charge_root_budget(self, elapsed_seconds: float) -> bool:
+    def _charge_root_budget(
+        self,
+        elapsed_seconds: float,
+        *,
+        request_id: str,
+    ) -> bool:
         ledger = getattr(self._context, "root_budget", None)
         consume_call = getattr(ledger, "consume_call", None)
         if not callable(consume_call):
@@ -714,7 +747,11 @@ class HeadlessToolGateway:
             with self._lock:
                 self._add_event(
                     "tool_error",
-                    {"tool": "headless", "error": "root_budget_exhausted"},
+                    {
+                        "request_id": request_id,
+                        "tool": "headless",
+                        "error": "root_budget_exhausted",
+                    },
                 )
             return False
         return True
@@ -755,12 +792,18 @@ class HeadlessToolGateway:
         self,
         query_scope: str,
         observation: ToolObservation,
+        *,
+        request_id: str,
     ) -> dict[str, object]:
         with self._lock:
             if self._closed or self._is_cancelled():
                 self._add_event(
                     "tool_error",
-                    {"tool": observation.tool, "error": "cancelled"},
+                    {
+                        "request_id": request_id,
+                        "tool": observation.tool,
+                        "error": "cancelled",
+                    },
                 )
                 return {
                     "status": "rejected",
@@ -795,7 +838,10 @@ class HeadlessToolGateway:
             finalization_reason = self._pending_finalization_reason()
             if finalization_reason is not None:
                 payload["instruction"] = FINALIZATION_INSTRUCTION
-            self._add_event("tool_result", payload)
+            self._add_event(
+                "tool_result",
+                {"request_id": request_id, **payload},
+            )
             if finalization_reason is not None:
                 self._begin_finalization_locked(finalization_reason)
             return payload
