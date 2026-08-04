@@ -12,17 +12,28 @@
 （`agent_runtime_factory.py:63`、`api/app.py:276` 会直接 `raise`），产品 web UI 永远走不到。
 它的价值是"量引擎"这把尺子。
 
-而经过审计，产品的真实差距很可能在**工具面**不在循环：
+而产品侧有一个**尚未证实**的假设值得先查清：差距可能在**工具面**而不在循环。
 
-| | Codex 桌面端 | 我们的 web UI agent |
-|---|---|---|
-| 工具数 | shell + 文件 + grep + 跑任意脚本 | **2 个**（`finance_query`、`evidence_search`） |
-| 能否调用仓内三十来个 skill | ✅ | ❌ 一个都调不到 |
+⚠️ **更正记录（重要，别继承错误前提）**：本文件初版写「我们只有 2 个工具」，**那是错的**。
+真实工具面是 **8 个**（`research_tool_registry.py:35-42` 的 catalog + `episode_tools.py`
+另加的两个）：
 
-旁证：Knevo 逆向文档自己的结论是「核心壁垒不在模型或 agent 框架，而在自建数据聚合
-服务 + 研报纪要库」。B/C 对比 `knevo_wins 9 : workbench_wins 2`。
+```
+web_search / news_search / l3_lookup / market_data
+financial_data / mainline_context / finance_query / evidence_search
+```
 
-**所以：R-10 补完两个洞就冻结，主线切到 Batch B。**
+覆盖网页、新闻、公告、行情、财务、主线、本地 DuckDB、知识库。**所以"工具面差距很大"
+这个结论目前没有证据，Batch B 的任务是去证实或推翻它，不是去确认它。**
+
+已知的旁证只有两条，都不直接指向工具面：
+- Knevo 逆向文档的结论是「核心壁垒不在模型或 agent 框架，而在自建数据聚合服务 +
+  研报纪要库的数据授权」——指向**数据源覆盖**，未必是工具数量
+- B/C 对比 `knevo_wins 9 : workbench_wins 2`——只知道输了，不知道输在哪
+
+**所以：R-10 补完两个洞就冻结，主线切到 Batch B 做诊断。**
+Batch B 的结论可能是「工具面没问题，差距在别处」——那也是有效产出，不要为了
+凑结论而夸大缺口。
 
 不要主动开 Task 3（watchdog / 派生 context）。那是冻结后的待办，不是现在的活。
 
@@ -142,14 +153,23 @@ git diff HEAD~1 --check
 
 ### B1：盘出 agent 当前能力边界
 
-**要求**：读 `intelligence/services/episode_tools.py`，写清楚：
+**要求**：读 `intelligence/services/research_tool_registry.py`（catalog 在 `:35-42`）
+与 `intelligence/services/episode_tools.py`，把**全部 8 个**工具逐个写清楚：
 
-- `finance_query` 实际能查什么：哪几个 dataset、每个 dataset 有哪些字段、
-  支持哪些筛选/分组/排序、**不能**做什么（比如能不能跨 dataset join、
-  能不能算衍生指标）
-- `evidence_search` 实际检索什么：索引里有什么、narrow→broad→counter 是什么策略、
-  返回什么结构
-- 这两个工具**合起来答不了**的问题类型，举 3 个具体例子
+`web_search` / `news_search` / `l3_lookup` / `market_data` / `financial_data` /
+`mainline_context` / `finance_query` / `evidence_search`
+
+每个记录：接什么数据源、参数能表达什么、返回什么结构、**明确的能力边界**。
+
+重点查清三件事：
+
+1. `finance_query` 能查哪几个 dataset、字段有哪些、能不能跨 dataset join、
+   能不能算衍生指标
+2. **哪些工具受 `allowed_capabilities` 门控、默认开哪几个**——
+   `episode_tools.py:634-651` 是按 contract 逐个 gate 的，
+   要查清日常问答的 contract 实际授权了几个，**别把"定义了"当成"开着"**
+3. 这 8 个合起来**答不了**的问题类型，举 3 个具体例子，并说明卡在哪
+   （是没有数据源？还是有数据但工具表达不了？两者的修法完全不同）
 
 **产出**：`docs/verification/2026-08-04d-agent-tool-surface-inventory.md` 的第 1 节。
 
