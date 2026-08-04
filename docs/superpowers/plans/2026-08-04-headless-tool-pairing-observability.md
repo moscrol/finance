@@ -351,7 +351,10 @@ git commit -m "docs(eval): correct finalization observability contracts"
 **Files:**
 - Verify only; no additional production files.
 
-- [ ] **Step 1: 运行 focused suite 与 Ruff**
+执行前发现 `eval/budget-calibration` 并发前进到 `9dd30c2e`；本分支已重放到该基线，
+保留其 normalized artifact 逐字段/脱敏硬化，并把新配对计数纳入同一派生字段校验。
+
+- [x] **Step 1: 运行 focused suite 与 Ruff**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -369,7 +372,9 @@ git commit -m "docs(eval): correct finalization observability contracts"
 
 Expected: 新增四测试后约 `101 passed / 1 skipped`，以实际收集数为准；Ruff 0。
 
-- [ ] **Step 2: 运行全量并分账**
+Observed（重放 `9dd30c2e` 后）：`104 passed, 1 skipped`；Ruff 0。
+
+- [x] **Step 2: 运行全量并分账**
 
 ```bash
 env -u FORESIGHT_USERS_DIR \
@@ -379,7 +384,10 @@ env -u FORESIGHT_USERS_DIR \
 
 Expected: 两个已知 `test_acceptance_board` deterministic failures 仍可能存在；它们不是宿主环境红，也不是本轮回归。任何新增失败先归因。
 
-- [ ] **Step 3: 风险扫描**
+Observed：`2 failed, 3711 passed, 2 skipped`；失败名称与父 revision 基线完全一致，
+没有本轮新增红。
+
+- [x] **Step 3: 风险扫描**
 
 ```bash
 git diff --check
@@ -392,7 +400,7 @@ git branch --show-current
 
 Expected: 预算/profile 文件零 diff；分支 `fix/headless-tool-pairing-observability`；无 `.env*`、密钥、数据库、PDF、压缩包或缓存。
 
-- [ ] **Step 4: push 独立分支**
+- [x] **Step 4: push 独立分支**
 
 ```bash
 git push -u origin fix/headless-tool-pairing-observability
