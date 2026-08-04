@@ -19,6 +19,60 @@
 
 **完成后沉淀：** 先判断层级：项目级代码/配置/流程/架构/数据管线决策才追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」；稳定且可跨任务复用的方法论提炼进 `.agent-memory/10_knowledge/`；单次问答评分、用户纠偏、经验样本优先写项目内学习层（如 `experience_cards.jsonl` / `corrections.jsonl`），不要把聊天流水塞进项目交接。
 
+## 🗺️ Agent 能力现状（断言"我们没有 X"之前必读）
+
+> 2026-08-04 加入。起因：一次会话里连续三次把「已存在的能力」和「刻意的设计约束」
+> 误判成缺口，差点组织人去"补"一个已经做过的决定。**下面这些是事实，不要再发现一遍。**
+
+**权威事实源**：`.agent-memory/10_knowledge/finance-agent-capability-graph.md`
+（30 节点 / 32 路径，有 `graph_audit.py` 硬门禁）。改能力时回写它，**不要另建第二份清单**。
+
+### Agent 可调工具：10 个
+
+| 来源 | 工具 |
+|---|---|
+| `intelligence/services/research_tool_registry.py` catalog | `web_search` `news_search` `graph_lookup` `evidence_lookup` `l3_lookup` `market_data` `financial_data` `mainline_context` |
+| `intelligence/services/episode_tools.py` | `finance_query`（DuckDB 语义查询）`evidence_search`（知识库窄/宽/反检索） |
+
+⚠️ 逐个受 `contract.allowed_capabilities` 门控（`episode_tools.py` 内按 capability 分支）。
+**"定义了" ≠ "这次开着"**，判断覆盖面要看当次 contract 实际授权。
+
+### 技能桥：存在，且**刻意只开一个**
+
+`intelligence/services/skill_tools.py`（已注册 `serenity-alpha`）、
+`intelligence/services/theme_modules.run_module`（theme-radar 六模式）。
+
+**其余 skill 未接入是设计决定，不是缺口**：绝大多数会拉实时数据（fupanhui / iFinD /
+AKShare）或写回（飞书 / DuckDB），接入会破坏 agent 的**只读 + 无外呼**红线。
+要扩注册表，必须先论证不破这条红线。
+
+### 编排层：存在
+
+`answer_orchestrator` / `conversation_orchestrator` / `question_router` / `route_table` /
+`ask_planner` / `retrieval_planner` / `research_task_planner` / `research_plan` /
+`generic_research_owner`（均在 `intelligence/services/`）。
+
+### 已确立的可迁移原则（别重新发现）
+
+来自 MOC 交接记录，已在真实事故中验证：
+
+1. **配额要在副作用前"预占"，不是事后计数**——事后扣费挡不住并发 check-then-act：
+   两个请求同时看到"还剩 1"会双双执行，最后才有一个扣账失败。
+2. **全链 deadline 传绝对时刻**，不传相对秒数——后者每跳重新计时，总时长会膨胀。
+3. **请求去重用 per-key single-flight**，不要用全局锁包住慢 IO。
+4. **授予的额度必须真的传到最下游执行者**——只写进 telemetry 不生效，比不做更危险
+   （仪表全绿、实际没人管）。
+
+### 负面断言规矩（强制）
+
+说 **"我们没有 X" / "X 没做"** 之前必须三样都做，并在结论里写明查过哪些：
+
+1. 全树 `grep` 同义词（**不是只搜一个你猜的文件**）
+2. 读上面的能力图谱
+3. 读 MOC 任务看板与交接记录
+
+同理，**提议"建一份 X"之前先搜 X 存不存在**。区分[实测]/[推断]，别把推断说成事实。
+
 
 A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入本地 DuckDB（`market_feature_store.duckdb`），结合 iFinD 数据做深度分析。
 
