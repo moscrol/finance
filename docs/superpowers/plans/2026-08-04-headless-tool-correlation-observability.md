@@ -363,10 +363,12 @@ git commit -m "docs(eval): define correlation-aware pairing contract"
 
 Result: 审计时已变为 `173 ahead / 2 behind`，本地侧 401 个路径、66,378 行新增，并含两个被红线禁止的 `workbench.sqlite3` 与大量完整 run 产物；因此不 push、不设 upstream，也不与本代码分支混合。
 
-- [ ] **Step 6: push 当前独立分支**
+- [x] **Step 6: push 当前独立分支**
 
 ```bash
 git push -u origin fix/headless-tool-correlation-observability
 ```
 
 不合 main，不跑 live，不开始 R-10。
+
+Result: `fix/headless-tool-correlation-observability` 已设置 upstream 并 push；main、运行服务与 live artifact 均未改动。
