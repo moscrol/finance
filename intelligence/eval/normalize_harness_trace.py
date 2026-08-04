@@ -739,16 +739,28 @@ def _load_normalized_artifact(
 
     events = [_event_from_artifact(item, index) for index, item in enumerate(events_raw)]
     unmapped_count = sum(event.step == "unmapped" for event in events)
-    # The counts are derived, so a disagreement means the events were edited
-    # after the fact.  Recomputing silently would erase that evidence.
-    for field, actual in (("event_count", len(events)), ("unmapped_count", unmapped_count)):
-        declared = value.get(field)
-        if declared is not None and declared != actual:
+    unpaired_tool_requests = _count_unpaired_tool_requests(events)
+    # These counts are derived, so a disagreement means the events were edited
+    # after the fact.  A missing pairing count is allowed for older v2 output
+    # and is recomputed; an explicitly declared value must be a matching int.
+    derived_counts = (
+        ("event_count", len(events)),
+        ("unmapped_count", unmapped_count),
+        ("unpaired_tool_requests", unpaired_tool_requests),
+    )
+    for field, actual in derived_counts:
+        if field not in value:
+            continue
+        declared = value[field]
+        if (
+            isinstance(declared, bool)
+            or not isinstance(declared, int)
+            or declared != actual
+        ):
             raise NormalizedArtifactError(
-                f"{field}={declared!r} disagrees with the {actual} events present; "
+                f"{field} disagrees with the {actual} events present; "
                 "the artifact was modified after it was written"
             )
-
     payload = {
         "schema_version": _ARTIFACT_SCHEMA,
         "vocabulary": VOCABULARY,
@@ -759,6 +771,7 @@ def _load_normalized_artifact(
         "input_sha256": digest,
         "event_count": len(events),
         "unmapped_count": unmapped_count,
+        "unpaired_tool_requests": unpaired_tool_requests,
         "events": [asdict(event) for event in events],
         "reused_normalized_artifact": True,
     }

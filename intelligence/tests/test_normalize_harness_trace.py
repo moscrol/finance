@@ -340,6 +340,66 @@ def test_runtime_benchmark_artifact_counts_unpaired_tool_requests(tmp_path) -> N
     assert artifact["unpaired_tool_requests"] == 1
 
 
+def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) -> None:
+    source = tmp_path / "benchmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "cases": [
+                    {
+                        "id": "case-1",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {"sequence": 1, "kind": "tool_request"}
+                                    ]
+                                }
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_path = tmp_path / "normalized.json"
+    assert main(
+        [
+            str(source),
+            "--kind",
+            "runtime-benchmark",
+            "--output",
+            str(artifact_path),
+        ]
+    ) == 0
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+    legacy = dict(artifact)
+    legacy.pop("unpaired_tool_requests")
+    legacy_path = tmp_path / "legacy.json"
+    legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+    compared = tmp_path / "compared.json"
+    assert main(
+        [
+            str(legacy_path),
+            "--compare",
+            str(legacy_path),
+            "--output",
+            str(compared),
+        ]
+    ) == 0
+    output = json.loads(compared.read_text(encoding="utf-8"))
+    assert output["left"]["unpaired_tool_requests"] == 1
+
+    tampered = dict(artifact, unpaired_tool_requests=0)
+    tampered_path = tmp_path / "tampered.json"
+    tampered_path.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(NormalizedArtifactError, match="unpaired_tool_requests"):
+        main([str(tampered_path), "--compare", str(artifact_path)])
+
+
 def test_every_persisted_benchmark_kind_has_a_normalized_step() -> None:
     from intelligence.eval.normalize_harness_trace import _BENCHMARK_STEPS
     from intelligence.eval.runtime_backend_benchmark import _DIAGNOSTIC_EVENT_KINDS
