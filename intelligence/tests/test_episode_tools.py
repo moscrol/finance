@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import date
+import json
 from pathlib import Path
 
 import duckdb
@@ -1859,3 +1860,182 @@ def test_l3_is_not_exposed_without_runner_or_authorization(tmp_path) -> None:
         l3_runner=lambda *_args: None,
     )
     assert "l3_lookup" not in injected_but_unauthorized.names()
+
+
+def _memory_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="光刻胶，现在怎么看",
+        user_goal="确认用户此前的判断与增量变化",
+        question_type="stock_deep_dive",
+        subject="光刻胶",
+        subject_kind="concept",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_official_evidence",
+        confidence=0.9,
+    )
+
+
+def _memory_fixture(tmp_path) -> Path:
+    """Write a throwaway memory ledger.
+
+    The real ledgers hold the user's private judgements, so every test points
+    ``memory_users_root`` at a temp dir instead: nothing here reads or asserts
+    on real content.
+    """
+
+    root = tmp_path / "users" / "fixture"
+    root.mkdir(parents=True)
+    (root / "judgments.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-01T10:00:00",
+                "memo": "光刻胶国产替代要看客户验证进度，不看产能公告",
+                "themes": ["光刻胶"],
+                "stocks": [],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "corrections.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-02T10:00:00",
+                "correction": "先看客户验证再谈弹性",
+                "principle": "验证进度优先于产能规划",
+                "themes": ["光刻胶"],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def _memory_registry(tmp_path, *, users_root: Path | None, task_id: str):
+    # task_id must be unique per test: root budgets are registered in a
+    # process-wide live-episode table that rejects duplicate episode ids.
+    frame = _memory_frame()
+    context = build_episode_context(
+        frame,
+        task_id=task_id,
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+    return build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        memory_users_root=users_root,
+    ), context
+
+
+def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> None:
+    """The agent can pull the user's own prior judgements as a tool call."""
+
+    users_root = _memory_fixture(tmp_path)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-recall",
+    )
+
+    assert "memory_lookup" in registry.names()
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-recall:1",
+    )
+
+    assert result.trace.status == "success"
+    assert result.trace.result_count == 2
+    assert result.gaps == ()
+    details = [item.detail for item in result.evidence]
+    assert any("客户验证进度" in detail for detail in details)
+    assert any("验证进度优先于产能规划" in detail for detail in details)
+    # Every atom must carry the dedicated tier, so downstream can tell this
+    # apart from objective retrieval.
+    assert {item.evidence_tier for item in result.evidence} == {"user_memory"}
+    # The source label has to self-declare: it is the only semantics the model sees.
+    assert all("非市场事实" in item.source for item in result.evidence)
+    # Locators point at the fixture, never the real ledger.
+    assert all(str(users_root) in item.internal_locator for item in result.evidence)
+
+
+def test_memory_lookup_reports_empty_recall_instead_of_staying_silent(tmp_path) -> None:
+    """No memory must be an explicit signal, not an empty success."""
+
+    empty_root = tmp_path / "users" / "empty"
+    empty_root.mkdir(parents=True)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=empty_root,
+        task_id="memory-lookup-empty",
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-empty:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "empty"
+    assert result.trace.result_count == 0
+    assert "无相关命中" in result.observation
+    assert result.gaps == ("用户记忆中没有与本题相关的历史判断",)
+
+
+def test_memory_lookup_is_gated_by_allowed_capabilities(tmp_path) -> None:
+    frame = _memory_frame()
+    unauthorized = build_episode_context(
+        frame,
+        task_id="memory-unauthorized",
+        capabilities=("market_data",),
+        timeout=30.0,
+    )
+    registry = build_episode_registry(
+        frame,
+        unauthorized,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        memory_users_root=_memory_fixture(tmp_path),
+    )
+
+    assert "memory_lookup" not in registry.names()
+
+
+def test_memory_lookup_locator_never_reaches_the_outward_payload(tmp_path) -> None:
+    """Ledger paths are control-plane only (mirrors test_agent_runtime.py:196)."""
+
+    users_root = _memory_fixture(tmp_path)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-locator",
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-locator:1",
+    )
+
+    assert result.evidence
+    for index, item in enumerate(result.evidence):
+        payload = asdict(item.to_observation(f"M{index}"))
+        assert "internal_locator" not in payload
+        assert str(users_root) not in json.dumps(payload, ensure_ascii=False)

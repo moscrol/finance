@@ -36,6 +36,11 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
     "news_search": ("news_search", "财经新闻检索", "current"),
     "graph_lookup": ("graph_lookup", "知识图谱实体与关系", "stable"),
     "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
+    "memory_lookup": (
+        "memory_lookup",
+        "用户自己过去的判断与纠偏原则（历史先验，不是市场事实）",
+        "stable",
+    ),
     "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
     "market_data": ("market_data", "结构化行情与市场时序", "current"),
     "financial_data": ("financial_data", "结构化逐季财务指标", "current"),

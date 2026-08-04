@@ -24,6 +24,7 @@ from intelligence.services import (
     l3_evidence,
     market_news,
     market_technical,
+    user_memory,
     valuation_estimate,
 )
 from intelligence.services.provider_observability import ProviderTrace
@@ -53,6 +54,12 @@ _NON_EVIDENCE_PREFIXES = (
 _OFFICIAL_L3_RUNNER = object()
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
+# A dedicated tier, deliberately absent from ``answer_model._HARD_EVIDENCE_TIERS``:
+# user memory is the user's own prior judgement, never an objective market fact.
+# Reusing an existing tier (e.g. ``agent_retrieval``) would make it
+# indistinguishable downstream from objective retrieval.
+_USER_MEMORY_EVIDENCE_TIER = "user_memory"
+_AGENT_MEMORY_LOOKUP_MAX_RECORDS = 5
 
 
 @dataclass(frozen=True)
@@ -292,6 +299,8 @@ def build_episode_registry(
         _DEFAULT_EVIDENCE_SEARCH_JUDGE
     ),
     fixture_policy: SealedFixturePolicy | None = None,
+    memory_user: str | None = None,
+    memory_users_root: str | Path | None = None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -858,6 +867,96 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=evidence_search_runner,
+            )
+        )
+
+    if "memory_lookup" in context.contract.allowed_capabilities:
+
+        def memory_lookup_runner(
+            query: str,
+            tool_context: agent_research.AgentToolContext,
+        ):
+            tool_context.check_cancelled()
+            recall = user_memory.relevant_memory_records(
+                query,
+                user=memory_user,
+                users_root=memory_users_root,
+            )
+            tool_context.check_cancelled()
+            evidence: list[agent_research.AgentEvidence] = []
+            for record in recall.judgments:
+                memo = str(record.get("memo") or "").strip()
+                if not memo:
+                    continue
+                tags = [
+                    str(tag).strip()
+                    for key in ("themes", "stocks")
+                    for tag in (record.get(key) or [])
+                    if str(tag).strip()
+                ]
+                evidence.append(
+                    agent_research.AgentEvidence(
+                        tool="memory_lookup",
+                        title="用户历史判断",
+                        detail=memo,
+                        # Self-labelling source: the model only ever sees this
+                        # string, so it has to say what the record is on its own.
+                        source="用户自己的历史判断（先验，非市场事实）",
+                        internal_locator=str(recall.judgments_path),
+                        source_date=str(record.get("ts") or "")[:10] or None,
+                        evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
+                        freshness="historical",
+                        independent_key="｜".join(tags) if tags else "",
+                    )
+                )
+            for record in recall.corrections:
+                correction = str(record.get("correction") or "").strip()
+                principle = str(record.get("principle") or "").strip()
+                body = principle or correction
+                if not body:
+                    continue
+                evidence.append(
+                    agent_research.AgentEvidence(
+                        tool="memory_lookup",
+                        title="用户纠偏原则",
+                        detail=body,
+                        source="用户自己纠正过的方法论（先验，非市场事实）",
+                        internal_locator=str(recall.corrections_path),
+                        source_date=str(record.get("ts") or "")[:10] or None,
+                        evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
+                        freshness="historical",
+                    )
+                )
+            observation = (
+                "；".join(f"{item.title}：{item.detail}" for item in evidence)
+                or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"
+            )
+            trace = ProviderTrace(
+                provider="episode:memory_lookup",
+                capability="memory_lookup",
+                status="success" if evidence else "empty",
+                detail=query[:120],
+                result_count=len(evidence),
+            )
+            return ToolRunResult(
+                evidence=tuple(evidence),
+                observation=observation,
+                trace=trace,
+                gaps=() if evidence else ("用户记忆中没有与本题相关的历史判断",),
+            )
+
+        specs.append(
+            ToolSpec(
+                name="memory_lookup",
+                capability="memory_lookup",
+                description=(
+                    "检索用户自己过去的判断与纠偏原则（本地私有台账）。"
+                    "返回的是这位用户的历史先验，不是市场事实、不能当作证据引用；"
+                    "用于确认用户此前怎么看、遵守其纠偏原则、聚焦增量变化。"
+                ),
+                cost="local",
+                freshness="stable",
+                runner=memory_lookup_runner,
             )
         )
 
