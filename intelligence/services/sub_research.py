@@ -111,6 +111,42 @@ class _BranchBudgetView:
             self._parent.consume_seconds(seconds=seconds)
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
 
+    def settle_seconds(self, *, seconds: float) -> float:
+        """Clamp against this branch's share, then debit the parent, and report
+        what the parent actually took.
+
+        Settling finished work cannot be undone, so this never raises on
+        overdraft. Clamping inside ``self._lock`` is what keeps concurrent
+        settling from losing a debit; the parent is debited first so a child
+        balance never claims seconds the root has not released. The parent may
+        take *less* than asked (it clamps too), so its return value -- not the
+        locally clamped request -- is what gets deducted here and returned.
+        """
+
+        try:
+            requested = float(seconds)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("settled seconds must be numeric") from exc
+        if requested < 0:
+            raise ValueError("settled seconds must be non-negative")
+        with self._lock:
+            claimed = min(requested, max(0.0, self.remaining_seconds))
+            parent_settle = getattr(self._parent, "settle_seconds", None)
+            if callable(parent_settle):
+                settled = float(parent_settle(seconds=claimed))
+            else:
+                # Parent predates the Protocol method (third-party/test stub).
+                # Fall back to the strict debit, treating a rejection as "the
+                # parent released nothing" rather than silently crediting this
+                # branch for seconds the root never gave up.
+                try:
+                    self._parent.consume_seconds(seconds=claimed)
+                except (TypeError, ValueError):
+                    return 0.0
+                settled = claimed
+            self.remaining_seconds = max(0.0, self.remaining_seconds - settled)
+            return settled
+
     def to_dict(self) -> dict[str, object]:
         with self._lock:
             return {
