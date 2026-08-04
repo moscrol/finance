@@ -90,6 +90,7 @@ _CODEX_OBSERVE_TERMS = (
     "tool_output",
     "tool_result",
 )
+_CODEX_REQUEST_TERMS = ("function_call", "command", "mcp", "tool")
 
 # Value domains for *our own* artifact, used when an artifact is fed back in via
 # ``--compare``.  Reuse skips the mapper, so it also skips the mapper's
@@ -287,7 +288,7 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
         return "intent", "normalized", "control"
     if any(term in joined for term in _CODEX_OBSERVE_TERMS):
         return "observe", "normalized", "control"
-    if any(term in joined for term in ("function_call", "command", "mcp", "tool")):
+    if any(term in joined for term in _CODEX_REQUEST_TERMS):
         return "tool", "normalized", "tool"
     if any(term in joined for term in ("message", "reasoning", "output_text", "generation")):
         return "synthesize", "normalized", "generation"
@@ -358,6 +359,16 @@ def _mapping(record: Mapping[str, Any], kind: str) -> tuple[str, str, str] | Non
     return _workbench_mapping(record) or _codex_mapping(record) or _benchmark_mapping(record)
 
 
+def _source_event_type(record: Mapping[str, Any], kind: str) -> str:
+    if kind in {"codex-rollout", "codex-exec"}:
+        item = record.get("item")
+        if isinstance(item, Mapping):
+            item_type = item.get("type")
+            if isinstance(item_type, str) and item_type.strip():
+                return _string_token(item_type)
+    return _string_token(_record_type(record))
+
+
 def _summary(record: Mapping[str, Any], kind: str, mapping: tuple[str, str, str] | None) -> str:
     source_type = _string_token(_record_type(record))
     status = _status(record)
@@ -382,7 +393,7 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
     for index, record in enumerate(records):
         mapping = _mapping(record, kind)
         step, provenance, role = mapping if mapping else ("unmapped", "unmapped", "unknown")
-        source_type = _string_token(_record_type(record))
+        source_type = _source_event_type(record, kind)
         # Structural check, not just a character whitelist: the id is
         # concatenated into `source_event_id` below, so a traversal shape would
         # travel with it.  Raw input degrades to None like every other field.
@@ -412,15 +423,39 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
     return normalized
 
 
-def _count_unpaired_tool_requests(events: Sequence[NormalizedEvent]) -> int:
-    """Count visible requests without a later result/error in the same case."""
+def _tool_pairing_role(event: NormalizedEvent, *, kind: str) -> str | None:
+    source_type = event.source_event_type.lower()
+    if kind == "runtime-benchmark":
+        if source_type in {"tool_request", "tool_call"}:
+            return "request"
+        if source_type in {"tool_result", "tool_error"}:
+            return "response"
+        return None
+    if kind in {"codex-rollout", "codex-exec"}:
+        if any(term in source_type for term in _CODEX_OBSERVE_TERMS):
+            return "response"
+        if any(term in source_type for term in _CODEX_REQUEST_TERMS):
+            return "request"
+    return None
+
+
+def _count_unpaired_tool_requests(
+    events: Sequence[NormalizedEvent],
+    *,
+    kind: str,
+) -> int | None:
+    """Count visible requests when the source kind exposes pairing semantics."""
+
+    if kind == "workbench-trace":
+        return None
 
     pending_by_case: dict[str | None, int] = {}
     for event in events:
         case_id = event.case_id
-        if event.source_event_type == "tool_request":
+        role = _tool_pairing_role(event, kind=kind)
+        if role == "request":
             pending_by_case[case_id] = pending_by_case.get(case_id, 0) + 1
-        elif event.source_event_type in {"tool_result", "tool_error"}:
+        elif role == "response":
             pending = pending_by_case.get(case_id, 0)
             if pending > 0:
                 pending_by_case[case_id] = pending - 1
@@ -739,10 +774,14 @@ def _load_normalized_artifact(
 
     events = [_event_from_artifact(item, index) for index, item in enumerate(events_raw)]
     unmapped_count = sum(event.step == "unmapped" for event in events)
-    unpaired_tool_requests = _count_unpaired_tool_requests(events)
+    unpaired_tool_requests = _count_unpaired_tool_requests(
+        events,
+        kind=source_kind,
+    )
     # These counts are derived, so a disagreement means the events were edited
     # after the fact.  A missing pairing count is allowed for older v2 output
-    # and is recomputed; an explicitly declared value must be a matching int.
+    # and is recomputed; an explicitly declared value must match its derived
+    # int-or-null value.
     derived_counts = (
         ("event_count", len(events)),
         ("unmapped_count", unmapped_count),
@@ -752,11 +791,15 @@ def _load_normalized_artifact(
         if field not in value:
             continue
         declared = value[field]
-        if (
-            isinstance(declared, bool)
-            or not isinstance(declared, int)
-            or declared != actual
-        ):
+        if actual is None:
+            mismatch = declared is not None
+        else:
+            mismatch = (
+                isinstance(declared, bool)
+                or not isinstance(declared, int)
+                or declared != actual
+            )
+        if mismatch:
             raise NormalizedArtifactError(
                 f"{field} disagrees with the {actual} events present; "
                 "the artifact was modified after it was written"
@@ -793,7 +836,10 @@ def _build_side(path: Path, kind: str) -> tuple[dict[str, Any], list[NormalizedE
         "input_sha256": digest,
         "event_count": len(events),
         "unmapped_count": sum(event.step == "unmapped" for event in events),
-        "unpaired_tool_requests": _count_unpaired_tool_requests(events),
+        "unpaired_tool_requests": _count_unpaired_tool_requests(
+            events,
+            kind=resolved_kind,
+        ),
         "events": [asdict(event) for event in events],
     }
     return payload, events

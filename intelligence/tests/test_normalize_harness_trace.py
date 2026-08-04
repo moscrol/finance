@@ -340,6 +340,55 @@ def test_runtime_benchmark_artifact_counts_unpaired_tool_requests(tmp_path) -> N
     assert artifact["unpaired_tool_requests"] == 1
 
 
+def test_pairing_metric_is_kind_aware(tmp_path) -> None:
+    rollout = tmp_path / "rollout.jsonl"
+    rollout.write_text(
+        "\n".join(
+            json.dumps(event)
+            for event in (
+                {"type": "function_call", "id": "c1"},
+                {"type": "function_call_output", "id": "c1o"},
+                {"type": "function_call", "id": "c2"},
+                {"type": "turn.failed"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    codex_target = tmp_path / "codex-normalized.json"
+    assert main(
+        [
+            str(rollout),
+            "--kind",
+            "codex-rollout",
+            "--output",
+            str(codex_target),
+        ]
+    ) == 0
+
+    workbench = tmp_path / "workbench.jsonl"
+    workbench.write_text(
+        '{"step_id":"route","name":"route_skills"}\n',
+        encoding="utf-8",
+    )
+    workbench_target = tmp_path / "workbench-normalized.json"
+    assert main(
+        [
+            str(workbench),
+            "--kind",
+            "workbench-trace",
+            "--output",
+            str(workbench_target),
+        ]
+    ) == 0
+
+    codex_artifact = json.loads(codex_target.read_text(encoding="utf-8"))
+    workbench_artifact = json.loads(
+        workbench_target.read_text(encoding="utf-8")
+    )
+    assert codex_artifact["unpaired_tool_requests"] == 1
+    assert workbench_artifact["unpaired_tool_requests"] is None
+
+
 def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) -> None:
     source = tmp_path / "benchmark.json"
     source.write_text(
