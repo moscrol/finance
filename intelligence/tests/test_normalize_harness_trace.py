@@ -389,6 +389,173 @@ def test_pairing_metric_is_kind_aware(tmp_path) -> None:
     assert workbench_artifact["unpaired_tool_requests"] is None
 
 
+def test_runtime_benchmark_pairs_only_matching_request_ids(tmp_path) -> None:
+    matched_id = "a" * 32
+    pending_id = "b" * 32
+    unrelated_id = "c" * 32
+    source = tmp_path / "benchmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "cases": [
+                    {
+                        "id": "matched",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {
+                                            "kind": "tool_request",
+                                            "payload": {"request_id": matched_id},
+                                        },
+                                        {
+                                            "kind": "tool_result",
+                                            "payload": {"request_id": matched_id},
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                    {
+                        "id": "mismatched",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {
+                                            "kind": "tool_request",
+                                            "payload": {"request_id": pending_id},
+                                        },
+                                        {
+                                            "kind": "tool_result",
+                                            "payload": {"request_id": unrelated_id},
+                                        },
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    target = tmp_path / "normalized.json"
+
+    assert main(
+        [str(source), "--kind", "runtime-benchmark", "--output", str(target)]
+    ) == 0
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    assert artifact["unpaired_tool_requests"] == 1
+    assert [event["correlation_id"] for event in artifact["events"]] == [
+        matched_id,
+        matched_id,
+        pending_id,
+        unrelated_id,
+    ]
+
+
+def test_codex_nested_call_ids_survive_normalization(tmp_path) -> None:
+    source = tmp_path / "rollout.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps(event)
+            for event in (
+                {
+                    "type": "item.completed",
+                    "item": {"type": "function_call", "call_id": "call-1"},
+                },
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "type": "function_call_output",
+                        "call_id": "call-1",
+                    },
+                },
+                {
+                    "type": "item.completed",
+                    "item": {"type": "function_call", "call_id": "call-2"},
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+    target = tmp_path / "normalized.json"
+
+    assert main(
+        [str(source), "--kind", "codex-rollout", "--output", str(target)]
+    ) == 0
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    assert artifact["unpaired_tool_requests"] == 1
+    assert [event["correlation_id"] for event in artifact["events"]] == [
+        "call-1",
+        "call-1",
+        "call-2",
+    ]
+
+
+def test_reused_v2_artifact_accepts_missing_optional_correlation_id(
+    tmp_path,
+) -> None:
+    source = tmp_path / "benchmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "cases": [
+                    {
+                        "id": "case-1",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {
+                                            "kind": "tool_request",
+                                            "payload": {"request_id": "d" * 32},
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_path = tmp_path / "normalized.json"
+    assert main(
+        [
+            str(source),
+            "--kind",
+            "runtime-benchmark",
+            "--output",
+            str(artifact_path),
+        ]
+    ) == 0
+    legacy = json.loads(artifact_path.read_text(encoding="utf-8"))
+    for event in legacy["events"]:
+        event.pop("correlation_id", None)
+    legacy_path = tmp_path / "legacy-v2.json"
+    legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+    compared = tmp_path / "compared.json"
+
+    assert main(
+        [
+            str(legacy_path),
+            "--compare",
+            str(legacy_path),
+            "--output",
+            str(compared),
+        ]
+    ) == 0
+    reused = json.loads(compared.read_text(encoding="utf-8"))["left"]
+    assert reused["unpaired_tool_requests"] == 1
+    assert reused["events"][0]["correlation_id"] is None
+
+
 def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) -> None:
     source = tmp_path / "benchmark.json"
     source.write_text(

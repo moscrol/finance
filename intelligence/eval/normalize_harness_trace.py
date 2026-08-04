@@ -115,6 +115,7 @@ class NormalizedEvent:
     native_or_normalized: str
     source_event_id: str
     source_event_type: str
+    correlation_id: str | None
     event_role: str
     timestamp: str | int | float | None
     summary: str
@@ -369,6 +370,41 @@ def _source_event_type(record: Mapping[str, Any], kind: str) -> str:
     return _string_token(_record_type(record))
 
 
+def _safe_correlation_id(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or not _SAFE_TOKEN.fullmatch(text) or not _clean_text(text):
+        return None
+    return text
+
+
+def _event_correlation_id(
+    record: Mapping[str, Any],
+    kind: str,
+) -> str | None:
+    sources: list[Mapping[str, Any]] = [record]
+    item = record.get("item")
+    if isinstance(item, Mapping):
+        sources.append(item)
+    payload = record.get("payload")
+    if isinstance(payload, Mapping):
+        sources.append(payload)
+
+    if kind == "runtime-benchmark":
+        keys = ("request_id",)
+    elif kind in {"codex-rollout", "codex-exec"}:
+        keys = ("call_id", "tool_call_id")
+    else:
+        return None
+    for source in sources:
+        for key in keys:
+            correlation_id = _safe_correlation_id(source.get(key))
+            if correlation_id is not None:
+                return correlation_id
+    return None
+
+
 def _summary(record: Mapping[str, Any], kind: str, mapping: tuple[str, str, str] | None) -> str:
     source_type = _string_token(_record_type(record))
     status = _status(record)
@@ -415,6 +451,7 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
                 native_or_normalized=provenance,
                 source_event_id=source_id,
                 source_event_type=source_type,
+                correlation_id=_event_correlation_id(record, kind),
                 event_role=role,
                 timestamp=_event_timestamp(record),
                 summary=_summary(record, kind, mapping),
@@ -449,17 +486,32 @@ def _count_unpaired_tool_requests(
     if kind == "workbench-trace":
         return None
 
-    pending_by_case: dict[str | None, int] = {}
+    pending_by_identity: dict[tuple[str | None, str], int] = {}
+    legacy_pending_by_case: dict[str | None, int] = {}
     for event in events:
         case_id = event.case_id
         role = _tool_pairing_role(event, kind=kind)
         if role == "request":
-            pending_by_case[case_id] = pending_by_case.get(case_id, 0) + 1
+            if event.correlation_id is None:
+                legacy_pending_by_case[case_id] = (
+                    legacy_pending_by_case.get(case_id, 0) + 1
+                )
+            else:
+                key = (case_id, event.correlation_id)
+                pending_by_identity[key] = pending_by_identity.get(key, 0) + 1
         elif role == "response":
-            pending = pending_by_case.get(case_id, 0)
-            if pending > 0:
-                pending_by_case[case_id] = pending - 1
-    return sum(pending_by_case.values())
+            if event.correlation_id is None:
+                pending = legacy_pending_by_case.get(case_id, 0)
+                if pending > 0:
+                    legacy_pending_by_case[case_id] = pending - 1
+            else:
+                key = (case_id, event.correlation_id)
+                pending = pending_by_identity.get(key, 0)
+                if pending > 0:
+                    pending_by_identity[key] = pending - 1
+    return sum(pending_by_identity.values()) + sum(
+        legacy_pending_by_case.values()
+    )
 
 
 def compare_sequences(
@@ -614,7 +666,8 @@ def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
     if not isinstance(raw, Mapping):
         raise NormalizedArtifactError(f"events[{index}] is not an object")
     expected = set(NormalizedEvent.__dataclass_fields__)
-    missing = sorted(expected - set(raw))
+    optional = {"correlation_id"}
+    missing = sorted(expected - optional - set(raw))
     if missing:
         raise NormalizedArtifactError(f"events[{index}] is missing {missing}")
     unexpected = sorted(set(raw) - expected)
@@ -673,6 +726,18 @@ def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
     ):
         raise _reject(index, "source_event_type", source_type, "must be a safe token")
 
+    correlation_id = raw.get("correlation_id")
+    if (
+        correlation_id is not None
+        and _safe_correlation_id(correlation_id) != correlation_id
+    ):
+        raise _reject(
+            index,
+            "correlation_id",
+            correlation_id,
+            "must be null or a safe token",
+        )
+
     role = raw["event_role"]
     if role not in _EVENT_ROLES:
         raise _reject(index, "event_role", role, f"must be one of {_EVENT_ROLES}")
@@ -698,7 +763,9 @@ def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
             index, "summary", summary, "carries a credential, absolute path, or token"
         )
 
-    return NormalizedEvent(**{key: raw[key] for key in expected})
+    fields = {key: raw[key] for key in expected if key in raw}
+    fields.setdefault("correlation_id", None)
+    return NormalizedEvent(**fields)
 
 
 def _load_normalized_artifact(
