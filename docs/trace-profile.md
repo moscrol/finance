@@ -108,13 +108,21 @@
 `runtime-benchmark` 按 kind 精确查表（`_BENCHMARK_STEPS`），无顺序依赖；前两类按
 子串匹配，故有顺序。
 
-**本表的地位**：语义权威是 runtime 自己的投影表
-（`episode_progress._EVENT_PROJECTIONS`），代码 `_workbench_mapping` /
-`_codex_mapping` / `_BENCHMARK_STEPS` 是**当前可执行行为**，本表只是它们的
-人读转述。三者出现分歧时，**该分歧本身就是一个缺陷**，须当场定位是哪一层写错，
-不要默认某一层为准后继续用。本表曾漏 `workbench` 的 `configure`/`plan`、
-`runtime-benchmark` 的 `configure` 与 `turn.completed`/`turn.failed`、`codex` 的
-`config`/`input`，就是这种漂移。
+**本表的地位**：语义源是**runtime 的公开投影与事件生产者契约共同构成**的——
+`episode_progress._EVENT_PROJECTIONS` 只覆盖它自己投影的那些 kind（planning /
+research 请求 / research 结果 / repair / finalizing），并**不包含** `configure`、
+`task`、`tool_call`、`runtime_result`、`invalid_action`、`turn.completed` /
+`turn.failed` 等；这些 kind 的语义由其**发射方**定义（落盘白名单
+`runtime_backend_benchmark._DIAGNOSTIC_EVENT_KINDS`、`codex_headless_runtime`
+自建事件列表、workbench 的 `step_id`/`name` 约定）。因此单独把投影表称作全部映射的
+权威，是一句字面就不成立的声明。查某一行的语义时，先问该 kind 由谁发射：
+投影表覆盖的以投影表为准，其余以生产者契约为准。
+
+代码 `_workbench_mapping` / `_codex_mapping` / `_BENCHMARK_STEPS` 是**当前可执行
+行为**，本表只是它们的人读转述。三者出现分歧时，**该分歧本身就是一个缺陷**，须当场
+定位是哪一层写错，不要默认某一层为准后继续用。本表曾漏 `workbench` 的
+`configure`/`plan`、`runtime-benchmark` 的 `configure` 与
+`turn.completed`/`turn.failed`、`codex` 的 `config`/`input`，就是这种漂移。
 
 `runtime-benchmark` 的每个 step 取自运行时自己的公开语义
 （`episode_progress._EVENT_PROJECTIONS`：planning→`plan`、research 请求→

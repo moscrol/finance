@@ -72,6 +72,10 @@ _SAFE_TIMESTAMP_TEXT = re.compile(
 )
 _TOKEN_LIKE = re.compile(r"(?i)(?:^sk-|^gh[pousr]_|^xox[a-z]-|^eyJ|^[^.\s]+\.[^.\s]+\.[^.\s]+$)")
 _ABSOLUTE_PATH = re.compile(r"(?:^|[\s=(])(?:/Users/|/home/|/tmp/|/var/|[A-Za-z]:[\\/])")
+#: ``C:/...`` / ``C:\...`` -- drive-qualified, i.e. a path, not an identity.
+#: Used only by :func:`_safe_case_id`; ``_ABSOLUTE_PATH`` needs a leading
+#: boundary and so misses a drive letter at position 0.
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
 _SECRET = re.compile(
     r"(?i)(?:api[_-]?key|token|cookie|authorization|bearer|jwt|secret|password)"
     r"\s*[:=]\s*[^\s,;]+"
@@ -86,6 +90,20 @@ _CODEX_OBSERVE_TERMS = (
     "tool_output",
     "tool_result",
 )
+
+# Value domains for *our own* artifact, used when an artifact is fed back in via
+# ``--compare``.  Reuse skips the mapper, so it also skips the mapper's
+# sanitizers; without these the artifact path is a hole in the redaction
+# guarantee documented in ``docs/trace-profile.md`` §6.  These are producer
+# contracts, not guesses: each value below is one the mapper can actually emit.
+_PROVENANCES = ("native", "normalized", "unmapped")
+_EVENT_ROLES = ("control", "tool", "generation", "unknown")
+_SOURCE_KINDS = tuple(kind for kind in KINDS if kind != "auto")
+#: ``source_event_id`` may be a ``case_id:id`` composite truncated to 100 chars,
+#: so it is wider than :data:`_SAFE_TOKEN` -- but not less strict per character.
+_ARTIFACT_EVENT_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,100}$")
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+_MAX_SUMMARY = 240
 
 
 @dataclass(frozen=True)
@@ -127,6 +145,40 @@ class ComparisonResult:
 def _string_token(value: object, *, fallback: str = "unknown") -> str:
     text = str(value or "").strip()
     return text if _SAFE_TOKEN.fullmatch(text) and not _TOKEN_LIKE.search(text) else fallback
+
+
+def _safe_case_id(value: object) -> str | None:
+    """Accept a hierarchical id (``suite/case-01``); reject path *shape*.
+
+    ``_SAFE_TOKEN`` answers "which characters were used" and cannot answer
+    "is this combination safe": ``../../etc/passwd`` satisfies it in full.  The
+    case id is concatenated into ``source_event_id``, so a traversal shape would
+    propagate into logs, path-like storage, and downstream parsers.
+
+    Deliberately *not* fixed by tightening ``_SAFE_TOKEN``: ``source_event_id``
+    and other fields use ``/`` and ``:`` legitimately, so a global character ban
+    would break them while still not answering the structural question.
+
+    Returns the canonical id, or ``None`` when it is unusable.  Callers differ on
+    what to do with ``None``: the raw mapper degrades to ``None`` (tolerant, as
+    with every other raw field), while the artifact validator raises, because an
+    artifact *claims* to already satisfy this contract.
+    """
+
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or not _SAFE_TOKEN.fullmatch(text) or not _clean_text(text):
+        return None
+    # Absolute, drive-qualified, or backslash-separated: all path shape, never a
+    # case identity.  (Backslash also fails `_SAFE_TOKEN`; checked here anyway so
+    # the structural contract does not silently depend on that character list.)
+    if text.startswith("/") or "\\" in text or _WINDOWS_DRIVE.match(text):
+        return None
+    # `.`/`..` segments traverse; an empty segment means `//`.
+    if any(segment in ("", ".", "..") for segment in text.split("/")):
+        return None
+    return text
 
 
 def _safe_timestamp(value: object) -> str | int | float | None:
@@ -331,8 +383,10 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
         mapping = _mapping(record, kind)
         step, provenance, role = mapping if mapping else ("unmapped", "unmapped", "unknown")
         source_type = _string_token(_record_type(record))
-        raw_case_id = str(record.get("case_id") or "").strip()
-        case_id = raw_case_id if _SAFE_TOKEN.fullmatch(raw_case_id) else None
+        # Structural check, not just a character whitelist: the id is
+        # concatenated into `source_event_id` below, so a traversal shape would
+        # travel with it.  Raw input degrades to None like every other field.
+        case_id = _safe_case_id(record.get("case_id"))
         source_id = _string_token(
             record.get("step_id")
             or record.get("id")
@@ -475,18 +529,125 @@ class NormalizedArtifactError(ValueError):
     """
 
 
+def _reject(index: int, field: str, value: object, reason: str) -> NormalizedArtifactError:
+    # The offending value is summarized by type and length, never echoed: a
+    # rejected `summary` is exactly the case where it may carry a credential.
+    shape = f"{type(value).__name__}"
+    if isinstance(value, str):
+        shape += f"[len={len(value)}]"
+    return NormalizedArtifactError(f"events[{index}].{field} {reason} (got {shape})")
+
+
+def _clean_text(value: str) -> bool:
+    """No credential, absolute path, or token-shaped text.
+
+    The mapper runs every string through :func:`_safe_summary` /
+    :func:`_string_token`, so a value failing this check cannot have been
+    produced by this module.  Rejecting is therefore both a redaction guarantee
+    and evidence that the artifact is not ours -- silently re-redacting here
+    would instead launder a tampered artifact into a clean-looking one.
+    """
+
+    return not (_SECRET.search(value) or _ABSOLUTE_PATH.search(value) or _TOKEN_LIKE.search(value))
+
+
 def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
+    """Validate one event of our own artifact, field by field.
+
+    Reuse bypasses the mapper, hence also its type coercion and sanitizers.
+    Checking only presence and the ``step`` enum (as this did before) accepted
+    ``sequence="not-an-int"``, a dict ``timestamp``, and a ``summary`` carrying
+    ``authorization: ...`` plus an absolute path -- violating both the dataclass
+    types and the redaction guarantee in ``docs/trace-profile.md`` §6.
+    """
+
     if not isinstance(raw, Mapping):
         raise NormalizedArtifactError(f"events[{index}] is not an object")
     expected = set(NormalizedEvent.__dataclass_fields__)
     missing = sorted(expected - set(raw))
     if missing:
         raise NormalizedArtifactError(f"events[{index}] is missing {missing}")
+    unexpected = sorted(set(raw) - expected)
+    if unexpected:
+        # `schema_version` gates evolution; unknown keys mean a foreign schema
+        # rather than a newer one, and dropping them silently hides that.
+        raise NormalizedArtifactError(f"events[{index}] has unexpected keys {unexpected}")
+
+    sequence = raw["sequence"]
+    if isinstance(sequence, bool) or not isinstance(sequence, int):
+        raise _reject(index, "sequence", sequence, "must be an int")
+    if sequence != index:
+        # The mapper numbers events by position, so a mismatch means events were
+        # reordered or dropped -- which would silently shift every ordinal in the
+        # divergence verdict.
+        raise _reject(index, "sequence", sequence, f"must equal its position {index}")
+
+    case_id = raw["case_id"]
+    # Same structural contract as the raw mapper, opposite failure mode: the raw
+    # mapper degrades an unusable id to None, but an artifact *claims* to already
+    # satisfy this contract, so a violation means it is not ours.
+    if case_id is not None and _safe_case_id(case_id) != case_id:
+        raise _reject(index, "case_id", case_id, "must be null or a non-traversing id")
+
     step = raw["step"]
     if step != "unmapped" and step not in STEPS:
         raise NormalizedArtifactError(
             f"events[{index}] has step={step!r} outside {VOCABULARY}"
         )
+
+    provenance = raw["native_or_normalized"]
+    if provenance not in _PROVENANCES:
+        raise _reject(index, "native_or_normalized", provenance, f"must be one of {_PROVENANCES}")
+    if (step == "unmapped") != (provenance == "unmapped"):
+        # `unmapped` is a pair, not two independent flags: a mapped step with
+        # `unmapped` provenance (or the reverse) would let an unmapped event be
+        # counted as semantic evidence.
+        raise NormalizedArtifactError(
+            f"events[{index}] pairs step={step!r} with "
+            f"native_or_normalized={provenance!r}; both must be 'unmapped' or neither"
+        )
+
+    source_id = raw["source_event_id"]
+    if not (
+        isinstance(source_id, str)
+        and _ARTIFACT_EVENT_ID.fullmatch(source_id)
+        and _clean_text(source_id)
+    ):
+        raise _reject(index, "source_event_id", source_id, "must be a safe id")
+
+    source_type = raw["source_event_type"]
+    if not (
+        isinstance(source_type, str)
+        and _SAFE_TOKEN.fullmatch(source_type)
+        and _clean_text(source_type)
+    ):
+        raise _reject(index, "source_event_type", source_type, "must be a safe token")
+
+    role = raw["event_role"]
+    if role not in _EVENT_ROLES:
+        raise _reject(index, "event_role", role, f"must be one of {_EVENT_ROLES}")
+
+    timestamp = raw["timestamp"]
+    if timestamp is not None:
+        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float, str)):
+            raise _reject(index, "timestamp", timestamp, "must be null, a number, or a string")
+        if isinstance(timestamp, str) and not (
+            len(timestamp) <= 64
+            and _SAFE_TIMESTAMP_TEXT.fullmatch(timestamp)
+            and _clean_text(timestamp)
+        ):
+            raise _reject(index, "timestamp", timestamp, "must be an ISO-8601 instant")
+
+    summary = raw["summary"]
+    if not isinstance(summary, str):
+        raise _reject(index, "summary", summary, "must be a string")
+    if len(summary) > _MAX_SUMMARY:
+        raise _reject(index, "summary", summary, f"must be at most {_MAX_SUMMARY} chars")
+    if not _clean_text(summary):
+        raise _reject(
+            index, "summary", summary, "carries a credential, absolute path, or token"
+        )
+
     return NormalizedEvent(**{key: raw[key] for key in expected})
 
 
@@ -536,17 +697,53 @@ def _load_normalized_artifact(
     if not isinstance(events_raw, list):
         raise NormalizedArtifactError("events is missing or not a list")
 
+    # `source_kind` and `input_sha256` are the provenance of the comparison
+    # verdict.  Coercing them through `_string_token` (as this did) turned a
+    # tampered or foreign value into `unknown` and kept going -- the artifact
+    # then looked well-formed while naming no original trace at all.
+    source_kind = value.get("source_kind")
+    if source_kind not in _SOURCE_KINDS:
+        raise NormalizedArtifactError(
+            f"source_kind={source_kind!r} is not one of {_SOURCE_KINDS}"
+        )
+    digest = value.get("input_sha256")
+    if not (isinstance(digest, str) and _SHA256_HEX.fullmatch(digest)):
+        raise NormalizedArtifactError(
+            "input_sha256 must be 64 lowercase hex chars naming the original "
+            f"trace (got {type(digest).__name__})"
+        )
+    source_file = value.get("source_file")
+    if not (
+        isinstance(source_file, str)
+        and _SAFE_TOKEN.fullmatch(source_file)
+        and _clean_text(source_file)
+    ):
+        raise NormalizedArtifactError(
+            f"source_file must be a safe token (got {type(source_file).__name__})"
+        )
+
     events = [_event_from_artifact(item, index) for index, item in enumerate(events_raw)]
+    unmapped_count = sum(event.step == "unmapped" for event in events)
+    # The counts are derived, so a disagreement means the events were edited
+    # after the fact.  Recomputing silently would erase that evidence.
+    for field, actual in (("event_count", len(events)), ("unmapped_count", unmapped_count)):
+        declared = value.get(field)
+        if declared is not None and declared != actual:
+            raise NormalizedArtifactError(
+                f"{field}={declared!r} disagrees with the {actual} events present; "
+                "the artifact was modified after it was written"
+            )
+
     payload = {
         "schema_version": _ARTIFACT_SCHEMA,
         "vocabulary": VOCABULARY,
-        "source_kind": _string_token(value.get("source_kind")),
-        "source_file": _string_token(value.get("source_file"), fallback="source-redacted"),
+        "source_kind": source_kind,
+        "source_file": source_file,
         # The artifact's own hash names the *original* trace.  Re-hashing the
         # artifact file would break provenance back to the raw input.
-        "input_sha256": _string_token(value.get("input_sha256"), fallback="unknown"),
+        "input_sha256": digest,
         "event_count": len(events),
-        "unmapped_count": sum(event.step == "unmapped" for event in events),
+        "unmapped_count": unmapped_count,
         "events": [asdict(event) for event in events],
         "reused_normalized_artifact": True,
     }

@@ -561,3 +561,124 @@ def test_incomparable_artifacts_fail_loudly_instead_of_mapping_to_nothing(tmp_pa
         path.write_text(json.dumps(payload), encoding="utf-8")
         with pytest.raises(NormalizedArtifactError):
             main([str(path), "--compare", str(left_artifact)])
+
+
+_SECRET_SUMMARY = "authorization: super-secret /Users/alice/private.txt"
+
+
+def _good_artifact(tmp_path) -> tuple[dict, Path]:
+    left, _right = _write_pair(tmp_path)
+    artifact = tmp_path / "good-normalized.json"
+    assert main([str(left), "--kind", "workbench-trace", "--output", str(artifact)]) == 0
+    return json.loads(artifact.read_text(encoding="utf-8")), artifact
+
+
+def _with_event(good: dict, **overrides) -> dict:
+    events = [dict(event) for event in good["events"]]
+    events[0].update(overrides)
+    return dict(good, events=events)
+
+
+def test_reused_artifact_is_validated_field_by_field_not_just_step_enum(tmp_path) -> None:
+    good, reference = _good_artifact(tmp_path)
+
+    # Reuse skips the mapper, so it also skips the mapper's type coercion and
+    # sanitizers.  Checking only presence + the `step` enum accepted every one of
+    # these, including a summary carrying a credential and an absolute path --
+    # a hole in the redaction guarantee that `trace-profile.md` §6 states.
+    cases = {
+        # types
+        "sequence_type": _with_event(good, sequence="not-an-int"),
+        "sequence_bool": _with_event(good, sequence=True),
+        "sequence_position": _with_event(good, sequence=7),
+        "timestamp_nested": _with_event(good, timestamp={"nested": "not-a-timestamp"}),
+        "timestamp_text": _with_event(good, timestamp="last tuesday"),
+        "summary_type": _with_event(good, summary=["not", "a", "string"]),
+        # redaction
+        "summary_secret": _with_event(good, summary=_SECRET_SUMMARY),
+        "summary_path": _with_event(good, summary="source=x /Users/alice/notes.md"),
+        "summary_长度": _with_event(good, summary="x" * 241),
+        # Path *shape*, not character set: every one of these satisfies
+        # `_SAFE_TOKEN` in full, which is why a character whitelist cannot answer
+        # the question.  The id is concatenated into `source_event_id`, so a
+        # traversal shape would travel with it into logs and path-like storage.
+        "case_id_traversal": _with_event(good, case_id="../../etc/passwd"),
+        "case_id_absolute": _with_event(good, case_id="/etc/passwd"),
+        "case_id_dot": _with_event(good, case_id="suite/./case-01"),
+        "case_id_dotdot": _with_event(good, case_id="suite/../case-01"),
+        "case_id_empty_segment": _with_event(good, case_id="suite//case-01"),
+        "case_id_windows_drive": _with_event(good, case_id="C:/cases/case-01"),
+        "case_id_type": _with_event(good, case_id=7),
+        "source_id_secret": _with_event(good, source_event_id="sk-live-deadbeef"),
+        "source_type_unsafe": _with_event(good, source_event_type="has spaces"),
+        # enums, and the unmapped pairing
+        "provenance_enum": _with_event(good, native_or_normalized="made-up"),
+        "provenance_pairing": _with_event(good, native_or_normalized="unmapped"),
+        "role_enum": _with_event(good, event_role="wat"),
+        # foreign schema masquerading as a newer one
+        "extra_key": _with_event(good, note="added by hand"),
+        # provenance of the verdict
+        "hash_shape": dict(good, input_sha256="nope"),
+        "hash_type": dict(good, input_sha256=None),
+        "source_kind_enum": dict(good, source_kind="some-other-harness"),
+        "source_kind_auto": dict(good, source_kind="auto"),
+        "source_file_unsafe": dict(good, source_file="/Users/alice/trace.jsonl"),
+        # derived counts disagreeing means the events were edited afterwards
+        "event_count": dict(good, event_count=99),
+        "unmapped_count": dict(good, unmapped_count=5),
+    }
+
+    for name, payload in cases.items():
+        path = tmp_path / f"bad-{name}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(NormalizedArtifactError):
+            main([str(path), "--compare", str(reference)])
+
+    # The unmodified artifact still round-trips: these checks reject tampering,
+    # they do not reject our own output.
+    assert main([str(reference), "--compare", str(reference)]) == 0
+
+
+def test_case_id_contract_rejects_path_shape_but_keeps_hierarchical_ids(tmp_path) -> None:
+    good, reference = _good_artifact(tmp_path)
+
+    # The check is structural, so it must not become "no slashes allowed":
+    # `suite/case-01` is an ordinary hierarchical id and stays valid.
+    legal = tmp_path / "hierarchical.json"
+    legal.write_text(
+        json.dumps(_with_event(good, case_id="suite/case-01")), encoding="utf-8"
+    )
+    assert main([str(legal), "--compare", str(reference)]) == 0
+
+    # Raw input takes the tolerant path: the same shape degrades to None and,
+    # crucially, is not concatenated into `source_event_id`.
+    events = normalize_records(
+        [
+            {"case_id": "../../etc/passwd", "kind": "task"},
+            {"case_id": "suite/case-01", "kind": "task"},
+        ],
+        kind="runtime-benchmark",
+    )
+    assert events[0].case_id is None
+    assert "etc/passwd" not in events[0].source_event_id
+    # The legal id still travels into the composite id, as benchmark events rely on.
+    assert events[1].case_id == "suite/case-01"
+    assert events[1].source_event_id.startswith("suite/case-01:")
+
+
+def test_rejection_message_describes_the_bad_value_without_echoing_it(tmp_path) -> None:
+    good, reference = _good_artifact(tmp_path)
+    path = tmp_path / "leaky.json"
+    path.write_text(json.dumps(_with_event(good, summary=_SECRET_SUMMARY)), encoding="utf-8")
+
+    with pytest.raises(NormalizedArtifactError) as raised:
+        main([str(path), "--compare", str(reference)])
+
+    message = str(raised.value)
+    # A validator that echoes the offending value to explain itself copies the
+    # credential into logs and CI output -- the exact thing the check exists to
+    # prevent.  Name the field and the shape instead.
+    assert "super-secret" not in message
+    assert "/Users/alice" not in message
+    assert "summary" in message
+    assert "len=" in message
