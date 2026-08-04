@@ -25,17 +25,39 @@
 > 误判成缺口，差点组织人去"补"一个已经做过的决定。**下面这些是事实，不要再发现一遍。**
 
 **权威事实源**：`.agent-memory/10_knowledge/finance-agent-capability-graph.md`
-（30 节点 / 32 路径，有 `graph_audit.py` 硬门禁）。改能力时回写它，**不要另建第二份清单**。
+（有 `graph_audit.py` 硬门禁，跑它拿当前节点数，别抄这里写死的数）。改能力时回写它，
+**不要另建第二份清单**。
 
-### Agent 可调工具：10 个
+### Agent 可调工具：11 个
 
-| 来源 | 工具 |
-|---|---|
-| `intelligence/services/research_tool_registry.py` catalog | `web_search` `news_search` `graph_lookup` `evidence_lookup` `l3_lookup` `market_data` `financial_data` `mainline_context` |
-| `intelligence/services/episode_tools.py` | `finance_query`（DuckDB 语义查询）`evidence_search`（知识库窄/宽/反检索） |
+全部在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`：
+
+```
+finance_query  evidence_search  kb_search   web_search       news_search
+graph_lookup   evidence_lookup  l3_lookup   market_data      financial_data
+mainline_context
+```
 
 ⚠️ 逐个受 `contract.allowed_capabilities` 门控（`episode_tools.py` 内按 capability 分支）。
 **"定义了" ≠ "这次开着"**，判断覆盖面要看当次 contract 实际授权。
+
+> **数数别用固定行号。** 本节初版写「10 个」并把 `finance_query`/`evidence_search` 记成
+> 来自 `episode_tools.py`，两处都错——因为沿用了一段固定行号去读那张表，而表的起点在更上面。
+> 要数就用解析器：
+> `python -c "import ast,pathlib;t=ast.parse(pathlib.Path('intelligence/services/research_tool_registry.py').read_text());..."`
+> 或至少 `sed -n '/_DEFAULT_TOOL_METADATA/,/^}/p'`。
+
+### 技能：三个位置，数字不一样
+
+| 位置 | 数量 | 是什么 |
+|---|---|---|
+| `skills/` | 31（含 `lib/` 非技能 → 实为 30） | **仓内真实技能清单** |
+| `.claude/skills/` | 19 | 软链到 `../../skills/`，= Claude Code 能看到的子集 |
+| `<知识库仓>/skills/` | 20 | ingest 类，已迁出本仓 |
+
+问「有多少能力 agent 够不着」时，分母是 `skills/` 不是 `.claude/skills/`。
+只在 `skills/` 里、没暴露给 Claude Code 的有 12 个，含 `stock-deep-dive`、
+`researcher-valuation`、`duckdb-backfill`、`opinion-cross`、`serenity-alpha`、`strategy1-matrix` 等。
 
 ### 技能桥：存在，且**刻意只开一个**
 
