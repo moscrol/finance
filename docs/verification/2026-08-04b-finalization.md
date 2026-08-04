@@ -120,16 +120,17 @@ R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` �
 离线可证伪结果：mismatched benchmark id 保持 1 个 pending；Codex synthetic 的一组
 完成调用加一个悬空调用得到 1；Workbench 得到 `null`；T1/T3 legacy raw artifact 仍为
 `0/1`。旧 v2 event 缺 `correlation_id` 时窄兼容补 `null`，其他未知字段仍显式拒绝；
-派生计数不一致的异常恢复同时报告 declared 与 recomputed 安全值。
+派生计数不一致的异常恢复同时报告 declared 与 recomputed 安全值；合法整数显示值，
+非法字符串/容器只显示类型，不能把篡改内容复制进 CI 日志。
 
 测试账：
 
-- Focused（gateway / normalizer / Codex runtime / benchmark）：`110 passed, 1 skipped`；
+- Focused（gateway / normalizer / Codex runtime / benchmark）：`111 passed, 1 skipped`；
 - Ruff：通过；
 - 首轮继承本机 `FORESIGHT_USERS_DIR/SUBCONSCIOUS_VAULT`：
   `13 failed, 4199 passed, 3 skipped`，其中 11 条为已知 userspace/subconscious 环境耦合；
 - clean-host（同时 unset 用户目录与 vault override）：
-  `2 failed, 4210 passed, 3 skipped`；两条均为父 revision 已存在且同名同数的
+  `2 failed, 4211 passed, 3 skipped`；两条均为父 revision 已存在且同名同数的
   `test_acceptance_board` 确定性 CLI contract/test drift，不是本轮回归，也不是宿主噪声。
 
 本步没有修改 budget/profile、没有运行 live、没有实现 slow-tool handoff。R-02 因仍缺

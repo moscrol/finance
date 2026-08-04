@@ -342,7 +342,7 @@ env -u FORESIGHT_USERS_DIR -u SUBCONSCIOUS_VAULT -u AGENT_MEMORY_VAULT \
 
 若仍有父 revision 已知的两个 `acceptance_board` 确定性失败，记录同名同数；任何新增失败先修复，不把它归为环境噪声。
 
-Result: clean-host `4210 passed, 3 skipped, 2 failed`；两条失败与父 revision 同名同数。带本机用户目录变量的首轮为 `4199 passed, 3 skipped, 13 failed`，多出的 11 条是既有 userspace/subconscious 环境耦合，不记作产品修复。
+Result: 最终 clean-host `4211 passed, 3 skipped, 2 failed`；两条失败与父 revision 同名同数。带本机用户目录变量的首轮为 `4199 passed, 3 skipped, 13 failed`，多出的 11 条是既有 userspace/subconscious 环境耦合，不记作产品修复。
 
 - [x] **Step 4: 审计并提交文档**
 
