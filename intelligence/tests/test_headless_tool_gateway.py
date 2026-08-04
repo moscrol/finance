@@ -166,7 +166,46 @@ def test_gateway_executes_authorized_registry_tool() -> None:
     ]
 
 
-def test_gateway_records_timestamp_and_two_budget_clocks_at_request_entry() -> None:
+def test_gateway_freezes_post_tool_budget_for_success_handoff() -> None:
+    class ScriptedDeadline:
+        synthesis_reserve = 30.0
+
+        def __init__(self) -> None:
+            self._remaining = iter((100.0, 100.0, 31.0, 29.0))
+            self._last = 29.0
+
+        def remaining(self) -> float:
+            self._last = next(self._remaining, self._last)
+            return self._last
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return float(configured_limit)
+
+        @property
+        def expired(self) -> bool:
+            return self._last <= 0.0
+
+    context = replace(_context(), deadline=ScriptedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+        finalization_floor_ratio=0.0,
+        transport="mailbox",
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
+    assert result["status"] == "success"
+    assert result["budget"]["remaining_research_seconds"] == 31.0
+    assert result["budget"]["must_finalize"] is False
+    assert "instruction" not in result
+    assert [event.kind for event in snapshot.events] == [
+        "tool_request",
+        "tool_result",
+    ]
+
+
+def test_gateway_records_one_effective_grant_at_request_entry() -> None:
     class FixedDeadline:
         synthesis_reserve = 30.0
 
@@ -189,9 +228,95 @@ def test_gateway_records_timestamp_and_two_budget_clocks_at_request_entry() -> N
         request = gateway.snapshot().events[0]
 
     assert request.kind == "tool_request"
+    assert request.payload["timestamp"]
     assert request.payload["remaining_root_seconds_at_entry"] == 70.0
     assert request.payload["remaining_research_seconds_at_entry"] == 40.0
+    assert request.payload["finalization_handoff_seconds"] == 30.0
+    assert request.payload["transport_timeout_seconds"] == 60.0
+    assert request.payload["tool_grant_seconds"] == 10.0
+    assert request.payload["tool_grant_limiter"] == "handoff_window"
     datetime.fromisoformat(str(request.payload["timestamp"]).replace("Z", "+00:00"))
+
+
+def test_gateway_caps_long_tool_grant_before_wrapper_timeout() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 30.0
+
+        def remaining(self) -> float:
+            return 180.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 150.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.payload["tool_grant_seconds"] == 59.0
+    assert request.payload["tool_grant_limiter"] == "transport_timeout"
+
+
+def test_gateway_zero_reserve_has_no_hidden_handoff_floor() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 0.0
+
+        def remaining(self) -> float:
+            return 40.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 40.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.payload["finalization_handoff_seconds"] == 0.0
+    assert request.payload["tool_grant_seconds"] == 40.0
+    assert request.payload["tool_grant_limiter"] == "handoff_window"
+
+
+def test_gateway_rejects_zero_root_calls_before_dispatch() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=0,
+        hard_calls_cap=0,
+        initial_seconds=30.0,
+        hard_seconds_cap=30.0,
+    )
+    context = replace(base, root_budget=ledger)
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        rejected = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
+    assert rejected["error"] == "tool_budget_exhausted"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["budget"]["remaining_tool_calls"] == 0
+    assert rejected["budget"]["must_finalize"] is True
+    assert snapshot.executed_count == 0
+    assert calls == []
 
 
 def test_gateway_success_events_share_one_stable_request_id() -> None:
@@ -303,8 +428,12 @@ def test_gateway_rejects_before_tool_when_deadline_is_closed() -> None:
         context=context,
     ) as gateway:
         rejected = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
 
-    assert rejected["error"] == "deadline_exhausted"
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["budget"]["must_finalize"] is True
+    assert snapshot.executed_count == 0
     assert calls == []
 
 
@@ -401,6 +530,26 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper
     assert "os.O_EXCL" in wrapper
     assert "os.O_NOFOLLOW" in wrapper
+
+
+def test_generated_wrappers_share_one_transport_timeout(tmp_path: Path) -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=tmp_path / "mailbox",
+        transport="mailbox",
+    ) as gateway:
+        mailbox_source = gateway.wrapper_path.read_text(encoding="utf-8")
+
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=tmp_path / "http",
+    ) as gateway:
+        http_source = gateway.wrapper_path.read_text(encoding="utf-8")
+
+    assert "deadline = time.monotonic() + 60.0" in mailbox_source
+    assert "urlopen(request, timeout=60.0)" in http_source
 
 
 def test_mailbox_directories_are_private_and_owned() -> None:
@@ -530,23 +679,26 @@ def test_gateway_records_one_timestamped_finalization_transition() -> None:
     assert first_rejection["error"] == "research_stage_closed"
     assert second_rejection["error"] == "research_stage_closed"
     assert len(transitions) == 1
-    assert transitions[0].payload["reason"] == "deadline_pressure"
+    assert transitions[0].payload["reason"] == "research_stage_closed"
     assert float(transitions[0].payload["remaining_seconds"]) >= 0.0
     datetime.fromisoformat(str(transitions[0].payload["timestamp"]).replace("Z", "+00:00"))
 
 
-def test_gateway_hands_off_after_result_enters_deadline_pressure() -> None:
+def test_gateway_rejects_at_visible_handoff_window() -> None:
     class MutableDeadline:
-        synthesis_reserve = 0.0
+        synthesis_reserve = 30.0
 
         def __init__(self) -> None:
-            self.seconds = 150.0
+            self.seconds = 180.0
 
         def remaining(self) -> float:
             return self.seconds
 
         def stage_timeout(self, configured_limit: float) -> float:
-            return min(float(configured_limit), self.seconds)
+            return min(
+                float(configured_limit),
+                max(0.0, self.seconds - self.synthesis_reserve),
+            )
 
         @property
         def expired(self) -> bool:
@@ -555,24 +707,24 @@ def test_gateway_hands_off_after_result_enters_deadline_pressure() -> None:
     deadline = MutableDeadline()
     context = replace(_context(max_steps=3), deadline=deadline)
     with HeadlessToolGateway(
-        registry=_registry([]),
+        registry=_registry(calls := []),
         context=context,
         finalization_floor_ratio=0.0,
     ) as gateway:
-        gateway.call("market_data", "市场")
-        deadline.seconds = 25.0
-        result = gateway.call("news_search", "补充消息")
-        rejected = gateway.call("news_search", "继续补查")
+        first = gateway.call("market_data", "市场")
+        deadline.seconds = 60.0
+        rejected = gateway.call("news_search", "补充消息")
         snapshot = gateway.snapshot()
 
-    assert result["instruction"] == FINALIZATION_INSTRUCTION
+    assert first["status"] == "success"
     assert rejected["error"] == "research_stage_closed"
     assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert calls == [("market_data", "市场")]
     transitions = [
         event for event in snapshot.events if event.kind == "finalization"
     ]
     assert len(transitions) == 1
-    assert transitions[0].payload["reason"] == "deadline_pressure"
+    assert transitions[0].payload["reason"] == "research_stage_closed"
 
 
 def test_gateway_hands_off_when_last_tool_slot_is_consumed() -> None:

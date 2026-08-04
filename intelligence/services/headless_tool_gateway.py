@@ -42,6 +42,8 @@ _MAILBOX_NAME = ".finance-tool-mailbox"
 _REQUEST_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _MAILBOX_REQUEST_RE = re.compile(r"^[0-9a-f]{32}\.json$")
 _MAX_RESPONSE_BYTES = 1_048_576
+TOOL_TRANSPORT_TIMEOUT_SECONDS = 60.0
+TOOL_RESPONSE_PUBLISH_MARGIN_SECONDS = 1.0
 FINALIZATION_INSTRUCTION = "研究取证阶段已结束，请使用已有信息完成终止回答。"
 _FINALIZATION_REASONS = frozenset(
     {
@@ -52,11 +54,21 @@ _FINALIZATION_REASONS = frozenset(
         "headless_no_finish",
     }
 )
+_TRANSPORT_TIMEOUT_TOKEN = "__TOOL_TIMEOUT__"
 
 
 def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace(
         "+00:00", "Z"
+    )
+
+
+def _render_wrapper_timeout(source: str) -> str:
+    if source.count(_TRANSPORT_TIMEOUT_TOKEN) != 1:
+        raise RuntimeError("headless wrapper must contain one timeout token")
+    return source.replace(
+        _TRANSPORT_TIMEOUT_TOKEN,
+        repr(TOOL_TRANSPORT_TIMEOUT_SECONDS),
     )
 
 
@@ -82,6 +94,19 @@ def _transport_arguments(spec: ToolSpec, query: str) -> object:
             "structured tool input must be a JSON object"
         )
     return value
+
+
+@dataclass(frozen=True)
+class _EffectiveBudget:
+    remaining_calls: int
+    remaining_root_seconds: float
+    remaining_research_seconds: float
+
+
+@dataclass(frozen=True)
+class _ToolGrant:
+    seconds: float
+    limiter: str
 
 
 @dataclass(frozen=True)
@@ -158,8 +183,8 @@ class HeadlessToolGateway:
             max(5.0, initial_research_seconds * floor_ratio),
         )
         self._finalization_handoff_seconds = min(
-            30.0,
-            max(5.0, initial_research_seconds * 0.20),
+            initial_research_seconds,
+            max(0.0, float(context.deadline.synthesis_reserve)),
         )
         self._is_cancelled = is_cancelled or (lambda: False)
         self._authorized = {
@@ -514,23 +539,67 @@ class HeadlessToolGateway:
         self._finalization_event = event
         return event
 
-    def _pending_finalization_reason(self) -> str | None:
-        if self._finalization_event is not None:
-            return str(self._finalization_event.payload["reason"])
+    def _effective_budget(self) -> _EffectiveBudget:
+        remaining_root_seconds = max(
+            0.0,
+            float(self._context.deadline.remaining()),
+        )
+        remaining_research_seconds = self._context.deadline.stage_timeout(
+            remaining_root_seconds
+        )
         remaining_calls = max(
             0,
             int(self._context.policy.max_steps) - self._executed_count,
         )
-        remaining_seconds = self._context.deadline.stage_timeout(
-            self._context.deadline.remaining()
+        ledger = getattr(self._context, "root_budget", None)
+        ledger_calls = getattr(ledger, "remaining_calls", None)
+        if isinstance(ledger_calls, int) and not isinstance(ledger_calls, bool):
+            remaining_calls = min(remaining_calls, max(0, ledger_calls))
+        ledger_seconds = getattr(ledger, "remaining_seconds", None)
+        if isinstance(ledger_seconds, (int, float)) and not isinstance(
+            ledger_seconds, bool
+        ):
+            remaining_research_seconds = min(
+                remaining_research_seconds,
+                max(0.0, float(ledger_seconds)),
+            )
+        return _EffectiveBudget(
+            remaining_calls=remaining_calls,
+            remaining_root_seconds=remaining_root_seconds,
+            remaining_research_seconds=remaining_research_seconds,
         )
-        if remaining_calls <= 0:
+
+    def _tool_grant(self, budget: _EffectiveBudget) -> _ToolGrant:
+        deadline_safe_seconds = max(
+            0.0,
+            budget.remaining_research_seconds - self._finalization_handoff_seconds,
+        )
+        transport_safe_seconds = max(
+            0.0,
+            TOOL_TRANSPORT_TIMEOUT_SECONDS - TOOL_RESPONSE_PUBLISH_MARGIN_SECONDS,
+        )
+        if deadline_safe_seconds <= transport_safe_seconds:
+            return _ToolGrant(deadline_safe_seconds, "handoff_window")
+        return _ToolGrant(transport_safe_seconds, "transport_timeout")
+
+    def _pending_finalization_reason(
+        self,
+        budget: _EffectiveBudget | None = None,
+    ) -> str | None:
+        if self._finalization_event is not None:
+            return str(self._finalization_event.payload["reason"])
+        effective = budget if budget is not None else self._effective_budget()
+        if effective.remaining_calls <= 0:
             return "tool_budget_exhausted"
-        if remaining_seconds <= self._finalization_handoff_seconds:
+        if (
+            effective.remaining_research_seconds
+            <= self._finalization_handoff_seconds
+        ):
             return "deadline_pressure"
         if (
             self._executed_count > 0
-            and remaining_seconds <= self._finalization_floor_seconds
+            and effective.remaining_research_seconds
+            <= self._finalization_floor_seconds
         ):
             return "research_stage_closed"
         return None
@@ -594,13 +663,8 @@ class HeadlessToolGateway:
         if not _REQUEST_ID_RE.fullmatch(resolved_request_id):
             raise ValueError("invalid headless tool request id")
         with self._lock:
-            remaining_root_seconds = max(
-                0.0,
-                float(self._context.deadline.remaining()),
-            )
-            remaining_research_seconds = self._context.deadline.stage_timeout(
-                remaining_root_seconds
-            )
+            budget = self._effective_budget()
+            grant = self._tool_grant(budget)
             request_event = self._add_event(
                 "tool_request",
                 {
@@ -609,13 +673,20 @@ class HeadlessToolGateway:
                     "query": str(raw_query or ""),
                     "timestamp": _utc_timestamp(),
                     "remaining_root_seconds_at_entry": round(
-                        remaining_root_seconds,
+                        budget.remaining_root_seconds,
                         3,
                     ),
                     "remaining_research_seconds_at_entry": round(
-                        remaining_research_seconds,
+                        budget.remaining_research_seconds,
                         3,
                     ),
+                    "finalization_handoff_seconds": round(
+                        self._finalization_handoff_seconds,
+                        3,
+                    ),
+                    "transport_timeout_seconds": TOOL_TRANSPORT_TIMEOUT_SECONDS,
+                    "tool_grant_seconds": round(grant.seconds, 3),
+                    "tool_grant_limiter": grant.limiter,
                 },
             )
             step_id = (
@@ -639,13 +710,34 @@ class HeadlessToolGateway:
                     rejected = exc.code
                     prepared = None
                 else:
-                    rejected = self._reservation_error(spec, prepared)
+                    rejected = self._reservation_error(
+                        spec,
+                        prepared,
+                        budget=budget,
+                        grant=grant,
+                    )
             if rejected is not None:
+                self._add_event(
+                    "tool_error",
+                    {
+                        "request_id": resolved_request_id,
+                        "tool": name,
+                        "error": rejected,
+                        "retryable": (
+                            rejected == "invalid_arguments" and spec is not None
+                        ),
+                    },
+                )
+                if rejected in {
+                    "research_stage_closed",
+                    "tool_budget_exhausted",
+                }:
+                    self._begin_finalization_locked(rejected)
                 rejection: dict[str, object] = {
                     "status": "rejected",
                     "tool": name,
                     "error": rejected,
-                    "budget": self._budget_payload(),
+                    "budget": self._budget_payload(budget),
                 }
                 if rejected == "invalid_arguments" and spec is not None:
                     rejection.update(
@@ -665,20 +757,6 @@ class HeadlessToolGateway:
                     "tool_budget_exhausted",
                 }:
                     rejection["instruction"] = FINALIZATION_INSTRUCTION
-                self._add_event(
-                    "tool_error",
-                    {
-                        "request_id": resolved_request_id,
-                        "tool": name,
-                        "error": rejected,
-                        "retryable": rejection.get("retryable", False),
-                    },
-                )
-                if rejected in {
-                    "research_stage_closed",
-                    "tool_budget_exhausted",
-                }:
-                    self._begin_finalization_locked(rejected)
                 return rejection
             if spec is None or prepared is None:
                 raise RuntimeError("prepared headless tool request missing")
@@ -762,19 +840,22 @@ class HeadlessToolGateway:
         self,
         spec: ToolSpec,
         prepared: PreparedToolArguments,
+        *,
+        budget: _EffectiveBudget,
+        grant: _ToolGrant,
     ) -> str | None:
         if self._closed or self._is_cancelled():
             return "cancelled"
         if self._finalization_event is not None:
             return "research_stage_closed"
-        if self._context.deadline.expired:
-            return "deadline_exhausted"
-        remaining_research_seconds = self._context.deadline.stage_timeout(
-            self._context.deadline.remaining()
-        )
+        if budget.remaining_calls <= 0:
+            return "tool_budget_exhausted"
+        if budget.remaining_root_seconds <= 0.0 or grant.seconds <= 0.0:
+            return "research_stage_closed"
         if (
             self._executed_count > 0
-            and remaining_research_seconds <= self._finalization_floor_seconds
+            and budget.remaining_research_seconds
+            <= self._finalization_floor_seconds
         ):
             return "research_stage_closed"
         key = (spec.name, prepared.normalized_key)
@@ -786,8 +867,6 @@ class HeadlessToolGateway:
         if key in self._seen_queries:
             self._duplicate_queries += 1
             return "duplicate_query"
-        if self._executed_count >= self._context.policy.max_steps:
-            return "tool_budget_exhausted"
         return None
 
     def _publish_observation(
@@ -825,6 +904,7 @@ class HeadlessToolGateway:
             if query_scope == "episode" and observation.evidence:
                 self._successful_episode_tools.add(observation.tool)
             status = "success" if observation.evidence else "empty"
+            budget = self._effective_budget()
             payload: dict[str, object] = {
                 "status": status,
                 "tool": observation.tool,
@@ -835,9 +915,9 @@ class HeadlessToolGateway:
                 ],
                 "evidence_hashes": list(observation.evidence_hashes),
                 "gaps": list(observation.gaps),
-                "budget": self._budget_payload(),
+                "budget": self._budget_payload(budget),
             }
-            finalization_reason = self._pending_finalization_reason()
+            finalization_reason = self._pending_finalization_reason(budget)
             if finalization_reason is not None:
                 payload["instruction"] = FINALIZATION_INSTRUCTION
             self._add_event(
@@ -848,24 +928,20 @@ class HeadlessToolGateway:
                 self._begin_finalization_locked(finalization_reason)
             return payload
 
-    def _budget_payload(self) -> dict[str, object]:
-        remaining_calls = max(
-            0,
-            int(self._context.policy.max_steps) - self._executed_count,
-        )
-        ledger = getattr(self._context, "root_budget", None)
-        ledger_remaining_calls = getattr(ledger, "remaining_calls", None)
-        if isinstance(ledger_remaining_calls, int):
-            remaining_calls = min(remaining_calls, max(0, ledger_remaining_calls))
-        remaining_seconds = self._context.deadline.stage_timeout(
-            self._context.deadline.remaining()
-        )
+    def _budget_payload(
+        self,
+        budget: _EffectiveBudget | None = None,
+    ) -> dict[str, object]:
+        effective = budget if budget is not None else self._effective_budget()
         return {
             "max_tool_calls": int(self._context.policy.max_steps),
             "executed_tool_calls": self._executed_count,
-            "remaining_tool_calls": remaining_calls,
-            "remaining_research_seconds": round(remaining_seconds, 3),
-            "must_finalize": self._pending_finalization_reason() is not None,
+            "remaining_tool_calls": effective.remaining_calls,
+            "remaining_research_seconds": round(
+                effective.remaining_research_seconds,
+                3,
+            ),
+            "must_finalize": self._pending_finalization_reason(effective) is not None,
         }
 
     def _add_event(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
@@ -878,7 +954,7 @@ class HeadlessToolGateway:
         wrapper = run_dir / _WRAPPER_NAME
         if self._transport == "mailbox":
             wrapper.write_text(
-                """#!/usr/bin/env python3
+                _render_wrapper_timeout("""#!/usr/bin/env python3
 import hashlib
 import json
 import os
@@ -929,7 +1005,7 @@ try:
     os.link(temporary, request_path, follow_symlinks=False)
 finally:
     temporary.unlink(missing_ok=True)
-deadline = time.monotonic() + 60.0
+deadline = time.monotonic() + __TOOL_TIMEOUT__
 while time.monotonic() < deadline:
     try:
         read_flags = os.O_RDONLY
@@ -962,13 +1038,13 @@ while time.monotonic() < deadline:
     sys.stdout.write(json.dumps(value, ensure_ascii=False))
     raise SystemExit(0)
 raise SystemExit("finance tool mailbox timed out")
-""",
+"""),
                 encoding="utf-8",
             )
             wrapper.chmod(0o700)
             return wrapper
         wrapper.write_text(
-            """#!/usr/bin/env python3
+            _render_wrapper_timeout("""#!/usr/bin/env python3
 import json
 import os
 import sys
@@ -989,9 +1065,9 @@ request = urllib.request.Request(
     },
     method="POST",
 )
-with urllib.request.urlopen(request, timeout=60.0) as response:
+with urllib.request.urlopen(request, timeout=__TOOL_TIMEOUT__) as response:
     sys.stdout.write(response.read().decode("utf-8"))
-""",
+"""),
             encoding="utf-8",
         )
         wrapper.chmod(0o700)
