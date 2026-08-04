@@ -16,7 +16,7 @@
 - Modify: `intelligence/tests/test_normalize_harness_trace.py`
 - Modify: `intelligence/eval/normalize_harness_trace.py`
 
-- [ ] **Step 1: 写 public CLI RED 测试**
+- [x] **Step 1: 写 public CLI RED 测试**
 
 在一个 synthetic benchmark 中放三条 case：第一条只有 request，第二条 request→result，第三条 request→error。只断言最终用户可见字段为 1。
 
@@ -62,7 +62,7 @@ def test_runtime_benchmark_artifact_counts_unpaired_tool_requests(tmp_path) -> N
     assert artifact["unpaired_tool_requests"] == 1
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -71,7 +71,7 @@ def test_runtime_benchmark_artifact_counts_unpaired_tool_requests(tmp_path) -> N
 
 Expected: `KeyError: 'unpaired_tool_requests'`。
 
-- [ ] **Step 3: 写最小配对器并接入 raw build**
+- [x] **Step 3: 写最小配对器并接入 raw build**
 
 在 `normalize_harness_trace.py` 增加纯函数；同 case 的额外 response 不得让 pending 变负。
 
@@ -95,11 +95,11 @@ def _count_unpaired_tool_requests(events: Sequence[NormalizedEvent]) -> int:
 "unpaired_tool_requests": _count_unpaired_tool_requests(events),
 ```
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 重跑 Step 2，Expected: `1 passed`。
 
-- [ ] **Step 5: 提交第一片**
+- [x] **Step 5: 提交第一片**
 
 ```bash
 git add intelligence/eval/normalize_harness_trace.py \
@@ -113,7 +113,7 @@ git commit -m "feat(eval): count unpaired tool requests"
 - Modify: `intelligence/tests/test_normalize_harness_trace.py`
 - Modify: `intelligence/eval/normalize_harness_trace.py`
 
-- [ ] **Step 1: 写 reuse RED 测试**
+- [x] **Step 1: 写 reuse RED 测试**
 
 旧 v2 artifact 缺字段时必须从 events 重算；已声明但与 events 不同必须 fail loudly。
 
@@ -158,11 +158,11 @@ def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) ->
         main([str(tampered_path), "--compare", str(artifact_path)])
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Expected: reused side 缺新字段，或 tampered artifact 未被拒绝。
 
-- [ ] **Step 3: 在 loader 复算并验证派生计数**
+- [x] **Step 3: 在 loader 复算并验证派生计数**
 
 在 `_load_normalized_artifact()` 完成 event validation 后：
 
@@ -186,7 +186,7 @@ reused payload 同样写：
 "unpaired_tool_requests": unpaired_tool_requests,
 ```
 
-- [ ] **Step 4: 运行 GREEN 与 normalizer 全文件**
+- [x] **Step 4: 运行 GREEN 与 normalizer 全文件**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -195,7 +195,7 @@ reused payload 同样写：
 
 Expected: 全绿。
 
-- [ ] **Step 5: 提交第二片**
+- [x] **Step 5: 提交第二片**
 
 ```bash
 git add intelligence/eval/normalize_harness_trace.py \
@@ -210,7 +210,7 @@ git commit -m "test(eval): validate tool pairing count on reuse"
 - Modify: `intelligence/tests/test_headless_tool_gateway.py`
 - Modify: `intelligence/services/headless_tool_gateway.py`
 
-- [ ] **Step 1: 写 T1/T3 frozen artifact RED 测试**
+- [x] **Step 1: 写 T1/T3 frozen artifact RED 测试**
 
 ```python
 def test_frozen_finalization_artifacts_expose_the_pairing_gap(tmp_path) -> None:
@@ -231,7 +231,7 @@ def test_frozen_finalization_artifacts_expose_the_pairing_gap(tmp_path) -> None:
 
 Expected RED: Task 1/2 未覆盖真实 nested benchmark 形状时失败；若已自然转绿，保留为真实回归锁。
 
-- [ ] **Step 2: 写 gateway snapshot RED 测试**
+- [x] **Step 2: 写 gateway snapshot RED 测试**
 
 ```python
 def test_gateway_request_records_root_and_research_entry_budget() -> None:
@@ -261,7 +261,7 @@ def test_gateway_request_records_root_and_research_entry_budget() -> None:
     )
 ```
 
-- [ ] **Step 3: 运行 gateway RED**
+- [x] **Step 3: 运行 gateway RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -270,7 +270,7 @@ def test_gateway_request_records_root_and_research_entry_budget() -> None:
 
 Expected: request payload 缺三个新字段。
 
-- [ ] **Step 4: 在真实 request event 构造点冻结遥测**
+- [x] **Step 4: 在真实 request event 构造点冻结遥测**
 
 ```python
 remaining_root_seconds = max(0.0, self._context.deadline.remaining())
@@ -291,7 +291,7 @@ request_event = self._add_event(
 )
 ```
 
-- [ ] **Step 5: 运行 GREEN 与两文件回归**
+- [x] **Step 5: 运行 GREEN 与两文件回归**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -301,7 +301,7 @@ request_event = self._add_event(
 
 Expected: 全绿；不跑 live。
 
-- [ ] **Step 6: 提交第三片**
+- [x] **Step 6: 提交第三片**
 
 ```bash
 git add intelligence/services/headless_tool_gateway.py \
@@ -319,23 +319,23 @@ git commit -m "feat(runtime): timestamp headless tool request entry"
 - Modify: `docs/prediction-ledger.md`
 - Modify: `docs/superpowers/plans/2026-08-04-headless-tool-pairing-observability.md`
 
-- [ ] **Step 1: 删除 §8 陈旧的 1/3 结论**
+- [x] **Step 1: 删除 §8 陈旧的 1/3 结论**
 
 保留 `configure → intent → plan = 3/3`；从缺口表删除 codex configure/plan 两行，并把底部验收状态改成 3/3 已达标。不得保留新旧两套数字。
 
-- [ ] **Step 2: 加入单次 live 方差字段陷阱**
+- [x] **Step 2: 加入单次 live 方差字段陷阱**
 
 记录同 profile 的 `59da8acf → 84c1eb73`：weekly 从 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。明确 `finalization=0`、request/response 配对属于结构读数；单次 stop/latency 不能叫无回归。
 
-- [ ] **Step 3: 修正 acceptance 两红分类**
+- [x] **Step 3: 修正 acceptance 两红分类**
 
 把“宿主环境基线”改为“父 revision 已存在的确定性 CLI contract/test drift”；保留“不是本轮回归”，但不再归为环境噪声。handoff 的 13 红拆成 11 个 userspace/subconscious 环境耦合 + 2 个 acceptance contract drift。
 
-- [ ] **Step 4: 更新 R-10**
+- [x] **Step 4: 更新 R-10**
 
 主判据改为离线 deterministic slow-tool：配对 count=0、阈值处 finalization、late result 不入 episode。单次 live 只作最后确认，不能单独 confirmed。
 
-- [ ] **Step 5: 提交文档纠错**
+- [x] **Step 5: 提交文档纠错**
 
 ```bash
 git add docs/trace-profile.md \

@@ -32,6 +32,13 @@ wrapper 固定 60 秒等待是与该序列吻合的退出路径；artifact 未�
 deadline-aligned handoff/cancellation contract**。已在 prediction ledger 新开
 `R-20260804-10`：先用 deterministic slow tool 证明 handoff 阈值处一定有配对响应、
 只发一次 finalization、迟到结果不污染 episode，再决定是否跑下一次 live canary。
+R-10 的主门是离线结构契约，单次 live 只作确认；还须让 finalization reason 与
+`_budget_payload` 读取同一份 root-ledger 剩余 calls，并把 handoff window 从 profile /
+生效预算派生、明确落盘，不能保留隐藏的 `initial_research_seconds * 0.20` 第二 reserve。
+
+后续观测补丁已经把 normalized artifact 的 `unpaired_tool_requests` 变成可重算字段，
+并在每条 `tool_request` 上记录 timestamp、root 入口余量和扣除 synthesis reserve 后的
+research 入口余量。T1/T2 raw artifact 复算为 **0 / 1**；本步没有改预算或跑 live。
 
 完整证据见
 [`docs/verification/2026-08-04b-finalization.md`](../verification/2026-08-04b-finalization.md)。
@@ -93,6 +100,10 @@ T3 的对照就是这一列，不要重新生成：
 | `current-mainline` | `model_finish` | 44.4 | 2 |
 | `unfamiliar-methodology` | `model_finish` | 37.6 | 0 |
 
+同一 profile 在 T1 中，`weekly-market-cause` 又翻成
+`model_finish / 74.1s / 6 calls`。因此上表与 T1 的单次 stop/latency 都不能充当稳定
+回归门；真正可复验的是 `finalization`、请求/响应配对和生效预算等结构字段。
+
 ---
 
 ## 1. 工作区现状（开工前核对）
@@ -107,7 +118,7 @@ git branch --show-current      # 应为 eval/budget-calibration
 | 基线分支 | `eval/budget-calibration` @ `9fd55ba9`（**尚未合并 main，等用户确认**） |
 | `main` | `fd0f77e3` |
 | 解释器 | **必须** `/Users/a77/finance-workspace-private/.venv-workbench/bin/python` |
-| 全量基线 | `13 failed, 3687 passed` —— 13 红是宿主环境泄漏（`test_subconscious` 8 / `test_userspace` 3 / `test_acceptance_board` 2），**不是回归** |
+| 全量基线 | `13 failed, 3687 passed`：其中 11 红是 userspace/subconscious 环境耦合（8+3）；另外 2 个 `test_acceptance_board` 是父 revision 已存在的确定性 CLI contract/test drift。都不是本轮回归，但后两项不是宿主环境噪声 |
 | 已知 flake | `test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state`，不要归到本轮 |
 | CLI | 须在仓库根执行；`--compare` 现可直接吃 `*.normalized.json` |
 
@@ -171,7 +182,8 @@ git branch --show-current      # 应为 eval/budget-calibration
 
 - **不修改** `total_seconds` / `floor_ratio` / `max_tool_calls` 的任何默认值或 profile；
 - `git diff` 里生产改动只落在收口交接这条路径上；
-- 全量测试仍为 13 红基线。
+- 全量测试仍维持同一分账：11 个环境耦合 + 2 个 acceptance CLI contract/test drift；
+  不能只对齐总数后统称“宿主环境红”。
 
 ---
 
@@ -190,7 +202,7 @@ git branch --show-current      # 应为 eval/budget-calibration
 |---|---|
 | 交接时刻的 `remaining_seconds` | 是否 ≥30 秒（R-09 的原始预测） |
 | 实测收尾耗时 | 与 24.0 秒上界中位数对比；若远大于它，说明收尾本身太慢 |
-| 已能完成的 3 个 case 是否仍 `model_finish` | 回归 |
+| 已能完成的 case 本次是否仍 `model_finish` | 单次确认；同 profile 有随机翻转，不能单独作为无回归门 |
 | `weekly-market-cause` 的 `headless_protocol_rejected` 有无变化 | 它不是 timeout，属另一条线 |
 
 ### 三种结局，分别怎么记

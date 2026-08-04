@@ -28,7 +28,7 @@
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
 | `R-20260804-02` | 收口审计 §修复2 | `EVAL_ONLY` | 真 Codex rollout 中 `function_call_output` 归入 `observe`，与 workbench 的 `validate→observe` 对齐；第一个工具结果处不再出现**词表性**分叉 | 取一份真 rollout JSONL 跑 `normalize_harness_trace --kind codex-rollout`，检查首个工具结果的 step | `pending` |
-| `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在 handoff 阈值返回 `research_stage_closed + instruction`，只发一次 finalization，且迟到结果不进入 episode；随后单题 live 的 tool request 与 mailbox response 数相等 | 先跑 slow-tool fake clock/隔离测试，断言 finalization remaining 接近冻结 handoff window、late result 被丢弃；离线全绿后才跑一次瑞华泰 canary | `pending` |
+| `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`，只发一次 finalization，迟到结果不进入 episode，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；断言配对计数、finalization 次数/余量、late-result 隔离和落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 

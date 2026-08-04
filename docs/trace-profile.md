@@ -33,6 +33,9 @@
 | `finalization → finish` 间隔 | 有 timestamp 后就是自然收尾耗时 | 只有 finish 正常完成时才是自然耗时；若 finish 是 timeout，该间隔仍是 right-censored lower bound。T1 瑞华泰为 16.190s，但终态是 `headless_timeout`，只能解释为“至少 16.190s” | `2026-08-04b-finalization/c-long-capped-t1.json` |
 | `finalization=0` | 模型不需要/没有尝试收尾 | 只说明已埋的 activation point 没发事件。T3 瑞华泰停在无 response 的 in-flight `evidence_search`，result/rejection 交接根本不可达；不能把 0 当作收尾耗时 0 或仪器故障 | `docs/verification/2026-08-04b-finalization.md` |
 | JSON 顶层 `schema_version` | 看到该字段即可当 normalized artifact 复用 | raw runtime benchmark 也有数值 `schema_version=1`；normalized 单输入产物须同时满足字符串版本、`vocabulary/source_kind/events/input_sha256` 等 marker。只看字段存在会把 raw artifact 误拒为旧 normalized schema | `normalize_harness_trace._load_normalized_artifact`；commit `f4b8c589` |
+| `unpaired_tool_requests` | mailbox 丢了 N 个 response，且已经解释了超时原因 | 只按 case 内已归一化的 `tool_request → tool_result/tool_error` 顺序派生“尚未配对的请求数”；它是结构读数，不等同于 mailbox exchange 数，也不单独给出因果。旧 v2 产物缺字段时从 events 重算，已声明却不一致则显式失败 | `normalize_harness_trace._count_unpaired_tool_requests`；T1/T2 raw artifact 复算为 `0/1` |
+| `remaining_*_seconds_at_entry` | 一个通用的“剩余预算” | `remaining_root_seconds_at_entry` 是 root 时钟，`remaining_research_seconds_at_entry` 是扣除 synthesis reserve 后的研究时钟；二者与同一条 `tool_request.timestamp` 一起读，禁止再压成含义不明的 `remaining_seconds_at_entry` | `headless_tool_gateway._execute_tool` |
+| 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -46,7 +49,7 @@
 | 旧 run 无 phase telemetry | 埋点上线前 artifact 只有合成终态 | 无法可靠重建旧 brief/composer/judge 分布 | 不回填；只用新 run 或受控 replay |
 | phase 没有显式 semantic epoch/censoring type | 同名 `elapsed_ms` 跨 revision 变义 | 历史分类器会把自然完成、retry 倍增和 grant 截断混为一类 | artifact 增加 `phase_semantic_epoch` 与 `elapsed_kind`；现阶段按 revision 映射 |
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
-| Codex headless finalization 起点仅在 transition 后可见 | T1 已有 timestamped finalization，但 T3 的 in-flight tool 在 transition 前阻塞，tool request/result 本身无 timestamp | 能量到 recovery 的 censored interval，却无法量出最后一个未返回工具占了多久、何时越过 handoff window | tool request 记录 `remaining_seconds_at_entry` + timestamp；deadline-aligned timeout 必须回写一个可配对 result/error，迟到结果不得进入 episode |
+| Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp 与 root/research 两只入口时钟，normalized artifact 也能计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量，仍不能证明 deadline-aligned cancellation 或迟到结果隔离 | R-10 用 deterministic slow tool 强制得到配对 result/error；断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization、迟到结果不入 episode |
 
 ## 4. Grounded phase telemetry semantic epochs
 
@@ -218,11 +221,10 @@ cutoff、可观察的两侧原生事件和冻结的 task contract；本轮旧 re
 > `intent → configure` 而 workbench 发出 `configure → intent`，**纯靠事件顺序在
 > ordinal 0 制造一个假分叉**。
 
-这改写了跨 harness 审计「无法配对」的成因判断。此前记的是「五题的 workbench
-trace 没保留」——那只是数据保留问题。真实成因更靠前：**两侧仪器覆盖的是流水线的
-不同半段**。workbench 记 `intent/route/retrieve/synthesize`，codex 记
-`tool/stop`；即使把五题的 workbench trace 全部补齐，可对齐的 step 仍然只有
-`observe` 一个，`first_divergence_step` 依然没有行为含义。
+这改写了跨 harness 审计「无法配对」的成因判断。补埋点前，问题不只在五题的
+workbench trace 没保留：两侧仪器覆盖的是流水线的不同半段，当时真正共有的只有
+`observe`。补齐真实的 `configure/intent/plan` 地标后，两侧共有已升到 **4/9**，
+前三步前缀现在可比；`route/tool/synthesize/stop` 的结构差异仍须按矩阵解释。
 
 因此下一次公平审计的门槛是**可计数**的，不再是「让两侧都保留原生事件」这种无法验收的表述：
 
@@ -231,15 +233,13 @@ trace 没保留」——那只是数据保留问题。真实成因更靠前：**
 | `configure` | workbench | **已补** | `step_id=configure` / `name=turn_assembly`，记 skill_mode、registry 规模、selected_skill_ids、上下文条数、继承 intent；只记身份与计数 |
 | `plan` | workbench | **已补** | `step_id=plan` / `name=research_plan`。数据本来就在 `controller` 的 payload 里，属**拆融合 span**，不是造事件 |
 | `intent` | codex | **已补** | `task` 事件回到落盘白名单，**仅对 2026-08-04 之后的 run 生效**，历史 artifact 无法追认 |
-| `configure` | codex | 未补 | `thread.started` 已被 runtime 解析（`thread_id` 进了 `runtime_result` payload），但没有独立的 configure 事件；需新增 kind 并加白名单 |
-| `plan` | codex | 未补 | `mode_decision` 由 `agent_episode` 发射，`codex_headless_runtime` 自建事件列表，不走该路径 |
 | `route` | codex | **结构性差异，非缺口** | codex episode 不做 skill 分派（backend 由 benchmark 选定、tool registry 固定）。强行造一个 `route` 事件只是为了凑指标 |
 | `tool` | workbench | 未补 | `trace.jsonl` 只到 `ask_retrieve_compose` 粒度，单次工具调用在 `stream.jsonl`/retrieval 里 |
 | `stop` | workbench | 未补 | trace 以 budget 事件收尾，无显式终态 step |
 | `synthesize` | codex | 未补 | headless artifact 不保留 message span |
 
-验收标准：`configure → intent → plan` 三步在两侧都非空，`first_divergence_step`
-才第一次具备行为含义。**当前 1/3**（只有 `intent`）；workbench 侧已就位，缺口全在 codex 侧。
+验收状态：`configure → intent → plan` 三步在两侧都非空，**3/3 已达标**；
+`first_divergence_step` 在此前缀内已具备行为含义。
 
 > 门槛从「四步」收窄为「三步」：`route` 在 codex 侧是**结构性不存在**而非仪器缺失。
 > 把结构差异写成埋点缺口，会诱导为满足指标而制造事件——那正是本 profile 反复

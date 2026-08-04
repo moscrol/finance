@@ -18,6 +18,8 @@ T1 仪器有效，T2 的显式指令也能穿过真实 `finance-tool` wrapper；
 两次都只跑 `c_long_capped`；profile 逐字段相同：`total_seconds=180`、`max_tool_calls=6`、`synthesis_reserve_seconds=30`、`gateway_floor_ratio=0.0`。没有跑 a/b/d，也没有改生产 runtime。
 
 归一化契约：T1 为 60 events / 0 unmapped / 6 timestamped / 1 finalization；T3 为 54 events / 0 unmapped / 5 timestamped / 0 finalization。
+用新增派生字段从两份 raw artifact 复算，`unpaired_tool_requests` 为 **0 / 1**；
+这是比手工对 mailbox exchange 更直接的结构读数，但它本身不宣称超时因果。
 
 ## T1：仪器读数
 
@@ -53,13 +55,17 @@ focused 回归：97 passed / 1 skipped；Ruff 通过。
 
 | case | T1 stop / latency | T3 stop / latency | finalization | 判读 |
 |---|---:|---:|---:|---|
-| `rebound-duration` | `model_finish` / 61.574s | `model_finish` / 62.513s | 0 | 运行时终态无回归；T3 arm 被后处理为 `semantic_repair`，不能覆盖事件级读数 |
+| `rebound-duration` | `model_finish` / 61.574s | `model_finish` / 62.513s | 0 | 本次仍为 `model_finish`；T3 arm 被后处理为 `semantic_repair`，不能覆盖事件级读数 |
 | **`ruihuatai-valuation`** | **`headless_timeout` / 150.043s** | **`headless_protocol_rejected` / 135.555s** | **0** | **主判失败；没有进入交接** |
 | `weekly-market-cause` | `model_finish(partial)` / 74.122s | `model_finish(completed)` / 83.871s | 0 | 事件级仍完成；arm 的 mandatory-capability 缺口是另一层 |
-| `current-mainline` | `model_finish` / 50.059s | `model_finish` / 49.465s | 0 | 无回归 |
-| `unfamiliar-methodology` | `model_finish` / 33.900s | `model_finish` / 35.793s | 0 | 无回归 |
+| `current-mainline` | `model_finish` / 50.059s | `model_finish` / 49.465s | 0 | 本次仍为 `model_finish` |
+| `unfamiliar-methodology` | `model_finish` / 33.900s | `model_finish` / 35.793s | 0 | 本次仍为 `model_finish` |
 
-已能完成的四题在 T3 仍为事件级 `model_finish`。瑞华泰虽未把 150 秒用满，但没有合法 finish，所以不满足“`model_finish` 且 `<150s`”的合取门禁。
+已能完成的四题在 T3 这一次仍为事件级 `model_finish`；这只是单样本观察，不能叫
+稳定“无回归”。同 profile 的更早运行中，`weekly-market-cause` 曾在
+`headless_protocol_rejected / 144.7s / 4 calls` 与
+`model_finish / 74.1s / 6 calls` 之间翻转。瑞华泰虽未把 150 秒用满，但没有合法
+finish，所以不满足“`model_finish` 且 `<150s`”的合取门禁。
 
 ## 瑞华泰的第一次失败边界
 
@@ -82,7 +88,11 @@ focused 回归：97 passed / 1 skipped；Ruff 通过。
 - 当前 PRIMARY：headless 的 in-flight 工具没有 deadline-aligned preemption/return contract，finalization transition 依赖工具先返回；精确的 wrapper 退出字符串仍缺原始 stderr。
 - fix type 仍为冻结枚举 `HARNESS_FIX`；本项目连续 refuted streak 从 0 变为 1。
 
-下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。先用 deterministic slow-tool 测试证明“请求数=响应数、finalization remaining 约等于冻结 handoff window、late result 不写入 episode”，再决定是否烧第二次 live canary。
+下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。主门是 deterministic slow-tool 离线测试：`unpaired_tool_requests=0`、finalization remaining 约等于冻结 handoff window、late result 不写入 episode。单次瑞华泰 live 只能在离线主门通过后作确认，不能单独把 R-10 记为 confirmed。
+
+R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` 的剩余 calls 要和
+`_budget_payload` 一样读取 root ledger 的生效余量；handoff window 要从 profile / 生效
+预算派生并落盘，不能继续把 `initial_research_seconds * 0.20` 当成不可见的第二份 reserve。
 
 替代方案是提前终止研究进程并开 no-tools finalizer；它更确定，但会丢同一进程上下文并新增一次 provider 调用。只延长 mailbox 的 60 秒或 root 总时长不会创建交接点，已排除。
 
@@ -90,5 +100,5 @@ focused 回归：97 passed / 1 skipped；Ruff 通过。
 
 - Focused（gateway/runtime/normalizer/benchmark）：`97 passed, 1 skipped`。
 - 全量 `intelligence/tests`：`2 failed, 3704 passed, 2 skipped`。
-- 两个失败均为 handoff 已列的 `test_acceptance_board` 宿主基线项；在 T2 父 revision `f4b8c589` 单独复跑同名测试仍为 `2 failed`，因此不是本轮回归。
+- 两个失败均为 handoff 已列的 `test_acceptance_board` **确定性 CLI contract/test drift**；在 T2 父 revision `f4b8c589` 单独复跑同名测试仍为 `2 failed`，因此不是本轮回归，但也不是宿主环境噪声。
 - handoff 记录的另外 11 个 userspace/subconscious 环境红在本次显式 `env -u FORESIGHT_USERS_DIR` 下未复现；不把“13 变 2”写成产品修复。
