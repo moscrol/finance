@@ -1,4 +1,36 @@
-# Handoff：修 user_memory 召回的中文连写失效（决定 memory_lookup 有没有用）
+# ⛔ 本 handoff 已作废（2026-08-05，修错了层）
+
+> **不要按本文档施工。** 它把问题当成「怎么从原始字符串猜出实体」，
+> 而**实体在上游已经被 LLM 抽好了，只是没往下传**。
+>
+> 事实：
+> - `user_memory.memory_block_for_query` / `relevant_memory_records` **本来就有
+>   `theme` / `entity` 参数**，`_query_terms` 会把它们直接当 term 追加——传了就绕开分词。
+> - `ask.py:3733` **已经正确传了**：`memory_block_for_query(options.query, theme, anchored_name, ...)`
+> - `ask.py:621` 与 `episode_tools.memory_lookup_runner` **没传**，只给了原始 query。
+> - `ResearchTaskContract`（`research_contract.py:668` 起）有 `subject` / `subject_kind`，
+>   而 `episode_tools` 已在用 `context.contract.*`——**抽好的实体就在手边**。
+>
+> **正确的修法**是把上游已有的结构化意图接下去（约三行），不是造分词器：
+>
+> ```python
+> recall = user_memory.relevant_memory_records(
+>     query,
+>     entity=context.contract.subject,   # 已在手里，不必从字符串猜
+>     user=memory_user,
+>     users_root=memory_users_root,
+> )
+> ```
+>
+> 下文的三条路线（双向包含 / N-gram / jieba）**全部是在错误的层上做取舍**，
+> 保留仅供追溯——若接完结构化意图后仍有残留漏召回（例如题材没进 `subject` 的情形），
+> 再回来评估，届时它是个小得多的问题，不是"工具不工作"。
+>
+> 接替文档：`docs/handoffs/2026-08-05b-user-memory-pass-structured-intent.md`
+
+---
+
+# （已作废）修 user_memory 召回的中文连写失效
 
 > 承接 `3cde899a`（memory_lookup 工具已交付）。工具装好了，但**多数自然中文提问召回为空**。
 > 这不是新引入的缺陷，planner 侧注入（`ask.py:621`/`:3733`）一直有；memory_lookup 与它
