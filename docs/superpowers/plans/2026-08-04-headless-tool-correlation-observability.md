@@ -16,7 +16,7 @@
 - Modify: `intelligence/tests/test_headless_tool_gateway.py`
 - Modify: `intelligence/services/headless_tool_gateway.py`
 
-- [ ] **Step 1: 写 direct success/rejection 的公共 snapshot RED 测试**
+- [x] **Step 1: 写 direct success/rejection 的公共 snapshot RED 测试**
 
 通过 `HeadlessToolGateway.call()` 后只观察 `snapshot().events`：
 
@@ -34,7 +34,7 @@ def test_gateway_pairs_terminal_events_with_one_stable_request_id() -> None:
 
 另用 unknown tool 或 closed stage 断言 `tool_request/tool_error` 共享 id。不要 mock `_execute_tool`、`_add_event` 或随机数。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -44,7 +44,7 @@ def test_gateway_pairs_terminal_events_with_one_stable_request_id() -> None:
 
 Expected: request event 缺 `request_id`。
 
-- [ ] **Step 3: 在执行入口生成/验证 id，并传播到所有终态**
+- [x] **Step 3: 在执行入口生成/验证 id，并传播到所有终态**
 
 核心签名：
 
@@ -65,7 +65,7 @@ def _execute_tool(
 
 `tool_request`、reservation rejection、tool exception、root-budget rejection、post-execution cancellation 与 success result 全部写同一 id。`_charge_root_budget()`、`_publish_observation()` 显式接收 id，避免从可变全局状态猜当前请求。
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 重跑 Step 2，并跑整个 gateway 文件：
 
@@ -74,7 +74,7 @@ def _execute_tool(
   intelligence/tests/test_headless_tool_gateway.py
 ```
 
-- [ ] **Step 5: 提交 runtime slice**
+- [x] **Step 5: 提交 runtime slice**
 
 ```bash
 git add intelligence/services/headless_tool_gateway.py \
@@ -88,7 +88,7 @@ git commit -m "feat(runtime): correlate headless tool terminal events"
 - Modify: `intelligence/tests/test_headless_tool_gateway.py`
 - Modify: `intelligence/services/headless_tool_gateway.py`
 
-- [ ] **Step 1: 扩展 mailbox wrapper 公共 RED 测试**
+- [x] **Step 1: 扩展 mailbox wrapper 公共 RED 测试**
 
 在现有 `test_mailbox_gateway_executes_without_network_or_bearer` 只增加调用方可见断言：
 
@@ -101,7 +101,7 @@ assert [event.payload["request_id"] for event in tool_events] == [
 ]
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -110,7 +110,7 @@ assert [event.payload["request_id"] for event in tool_events] == [
 
 Expected: gateway 生成了另一个 id 或事件没有 id。
 
-- [ ] **Step 3: mailbox 处理器把 filename stem 传入执行入口**
+- [x] **Step 3: mailbox 处理器把 filename stem 传入执行入口**
 
 ```python
 result = self._execute_tool(
@@ -122,7 +122,7 @@ result = self._execute_tool(
 
 保留 `HeadlessMailboxExchange.request_id` 的现有 `.json` 外部契约，不做无关 schema 改名。
 
-- [ ] **Step 4: 运行 GREEN 并 amend runtime slice**
+- [x] **Step 4: 运行 GREEN 并 amend runtime slice**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -138,7 +138,7 @@ git commit --amend --no-edit
 - Modify: `intelligence/tests/test_normalize_harness_trace.py`
 - Modify: `intelligence/eval/normalize_harness_trace.py`
 
-- [ ] **Step 1: 写 CLI RED：Codex 悬空为 1，Workbench 为 null**
+- [x] **Step 1: 写 CLI RED：Codex 悬空为 1，Workbench 为 null**
 
 ```python
 def test_pairing_metric_is_kind_aware(tmp_path) -> None:
@@ -166,11 +166,11 @@ def test_pairing_metric_is_kind_aware(tmp_path) -> None:
     assert json.loads(workbench_target.read_text())["unpaired_tool_requests"] is None
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Expected: Codex 得 `0`，Workbench 也得 `0`。
 
-- [ ] **Step 3: 保留 Codex `item.type` 并加入 kind-aware role**
+- [x] **Step 3: 保留 Codex `item.type` 并加入 kind-aware role**
 
 新增受控 source type 选择器；Codex 有 `item.type` 时使用它。配对函数签名改为：
 
@@ -184,14 +184,14 @@ def _count_unpaired_tool_requests(
 
 `runtime-benchmark` 与 Codex 返回整数，`workbench-trace` 返回 `None`。Codex response terms 必须先匹配，避免 `function_call_output` 被算 request。
 
-- [ ] **Step 4: 运行 GREEN 与 normalizer 全文件**
+- [x] **Step 4: 运行 GREEN 与 normalizer 全文件**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
   intelligence/tests/test_normalize_harness_trace.py
 ```
 
-- [ ] **Step 5: 提交 kind-aware slice**
+- [x] **Step 5: 提交 kind-aware slice**
 
 ```bash
 git add intelligence/eval/normalize_harness_trace.py \
@@ -205,7 +205,7 @@ git commit -m "fix(eval): make tool pairing kind aware"
 - Modify: `intelligence/tests/test_normalize_harness_trace.py`
 - Modify: `intelligence/eval/normalize_harness_trace.py`
 
-- [ ] **Step 1: 写 strict-id 与 legacy RED 测试**
+- [x] **Step 1: 写 strict-id 与 legacy RED 测试**
 
 通过 normalizer CLI 构造两个 benchmark case：
 
@@ -222,11 +222,11 @@ mismatched = [
 
 断言 matched 为 0、mismatched 为 1，且 normalized events 显式保留对应 `correlation_id`。另从新 artifact 删除每个 event 的 `correlation_id`，保留 v2 marker，断言 reuse 仍可重算 legacy FIFO。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Expected: mismatched 仍被数量/FIFO 配成 0，event 没有 correlation field。
 
-- [ ] **Step 3: 新增 optional correlation field 与窄兼容 loader**
+- [x] **Step 3: 新增 optional correlation field 与窄兼容 loader**
 
 ```python
 @dataclass(frozen=True)
@@ -240,7 +240,7 @@ raw normalization 对 benchmark 读取 `request_id`，Codex 读取 `call_id/tool
 
 配对内部按 `(case_id, correlation_id)` 计数；有 id 的 response 只消费同 id，双方均无 id 才进入 legacy FIFO。
 
-- [ ] **Step 4: 锁住 frozen artifact 回归**
+- [x] **Step 4: 锁住 frozen artifact 回归**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -250,7 +250,7 @@ raw normalization 对 benchmark 读取 `request_id`，Codex 读取 `call_id/tool
 
 Expected: frozen T1/T2 仍是 `0/1`。
 
-- [ ] **Step 5: 提交 correlation slice**
+- [x] **Step 5: 提交 correlation slice**
 
 ```bash
 git add intelligence/eval/normalize_harness_trace.py \
@@ -264,7 +264,7 @@ git commit -m "feat(eval): preserve tool request correlation ids"
 - Modify: `intelligence/tests/test_normalize_harness_trace.py`
 - Modify: `intelligence/eval/normalize_harness_trace.py`
 
-- [ ] **Step 1: 写错误文本 RED 测试**
+- [x] **Step 1: 写错误文本 RED 测试**
 
 复用现有 tampered artifact，断言：
 
@@ -276,11 +276,11 @@ assert "unpaired_tool_requests=0" in message
 assert "recomputed 1" in message
 ```
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Expected: 当前错误缺 declared `=0`。
 
-- [ ] **Step 3: 最小修改错误格式**
+- [x] **Step 3: 最小修改错误格式**
 
 ```python
 raise NormalizedArtifactError(
@@ -289,7 +289,7 @@ raise NormalizedArtifactError(
 )
 ```
 
-- [ ] **Step 4: 运行 GREEN 并提交**
+- [x] **Step 4: 运行 GREEN 并提交**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -308,7 +308,7 @@ git commit -m "fix(eval): report declared derived counts"
 - Modify: `docs/verification/2026-08-04b-finalization.md`
 - Modify: `docs/superpowers/plans/2026-08-04-headless-tool-correlation-observability.md`
 
-- [ ] **Step 1: 更新观测边界**
+- [x] **Step 1: 更新观测边界**
 
 明确：
 
@@ -318,7 +318,7 @@ git commit -m "fix(eval): report declared derived counts"
 - Workbench 无逐工具词表，必须读 `null`；
 - R-02 的真 rollout 仍需真实产物结案，本轮 synthetic 只锁行为。
 
-- [ ] **Step 2: focused 验证**
+- [x] **Step 2: focused 验证**
 
 ```bash
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
@@ -333,15 +333,18 @@ git commit -m "fix(eval): report declared derived counts"
   intelligence/tests/test_normalize_harness_trace.py
 ```
 
-- [ ] **Step 3: 相关/全量对账**
+- [x] **Step 3: 相关/全量对账**
 
 ```bash
-/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q
+env -u FORESIGHT_USERS_DIR -u SUBCONSCIOUS_VAULT -u AGENT_MEMORY_VAULT \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q
 ```
 
 若仍有父 revision 已知的两个 `acceptance_board` 确定性失败，记录同名同数；任何新增失败先修复，不把它归为环境噪声。
 
-- [ ] **Step 4: 审计并提交文档**
+Result: clean-host `4210 passed, 3 skipped, 2 failed`；两条失败与父 revision 同名同数。带本机用户目录变量的首轮为 `4199 passed, 3 skipped, 13 failed`，多出的 11 条是既有 userspace/subconscious 环境耦合，不记作产品修复。
+
+- [x] **Step 4: 审计并提交文档**
 
 ```bash
 git diff --check
@@ -354,9 +357,11 @@ git add docs/trace-profile.md docs/prediction-ledger.md \
 git commit -m "docs(eval): define correlation-aware pairing contract"
 ```
 
-- [ ] **Step 5: 单独审计 agent-memory 分支**
+- [x] **Step 5: 单独审计 agent-memory 分支**
 
 只读检查 `/Users/a77/agent-memory` 的 branch/upstream、171 个提交的 name/status/stat、危险路径和大文件。代码分支交付不依赖它；没有明确证明安全前不 push 该 memory 分支。
+
+Result: 审计时已变为 `173 ahead / 2 behind`，本地侧 401 个路径、66,378 行新增，并含两个被红线禁止的 `workbench.sqlite3` 与大量完整 run 产物；因此不 push、不设 upstream，也不与本代码分支混合。
 
 - [ ] **Step 6: push 当前独立分支**
 

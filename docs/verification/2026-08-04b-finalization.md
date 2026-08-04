@@ -18,8 +18,11 @@ T1 仪器有效，T2 的显式指令也能穿过真实 `finance-tool` wrapper；
 两次都只跑 `c_long_capped`；profile 逐字段相同：`total_seconds=180`、`max_tool_calls=6`、`synthesis_reserve_seconds=30`、`gateway_floor_ratio=0.0`。没有跑 a/b/d，也没有改生产 runtime。
 
 归一化契约：T1 为 60 events / 0 unmapped / 6 timestamped / 1 finalization；T3 为 54 events / 0 unmapped / 5 timestamped / 0 finalization。
-用新增派生字段从两份 raw artifact 复算，`unpaired_tool_requests` 为 **0 / 1**；
-这是比手工对 mailbox exchange 更直接的结构读数，但它本身不宣称超时因果。
+用新增派生字段从两份 raw artifact 复算，`unpaired_tool_requests` 为 **0 / 1**。两份
+冻结产物早于 request id 埋点，因此这是 case 内 FIFO 的 legacy 弱配对；新产物会把
+headless `request_id` 独立投影为 normalized `correlation_id`，mismatched id 不会互相
+消费。该计数比手工对 mailbox exchange 更直接，但本身不宣称超时因果，也不能单独
+证明迟到结果隔离。
 
 ## T1：仪器读数
 
@@ -88,7 +91,7 @@ finish，所以不满足“`model_finish` 且 `<150s`”的合取门禁。
 - 当前 PRIMARY：headless 的 in-flight 工具没有 deadline-aligned preemption/return contract，finalization transition 依赖工具先返回；精确的 wrapper 退出字符串仍缺原始 stderr。
 - fix type 仍为冻结枚举 `HARNESS_FIX`；本项目连续 refuted streak 从 0 变为 1。
 
-下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。主门是 deterministic slow-tool 离线测试：`unpaired_tool_requests=0`、finalization remaining 约等于冻结 handoff window、late result 不写入 episode。单次瑞华泰 live 只能在离线主门通过后作确认，不能单独把 R-10 记为 confirmed。
+下一轮优先验证 **per-tool deadline handoff**，不是再加总预算：当工具的剩余安全执行窗口小于 handoff reserve 时，gateway 必须在阈值处返回 `research_stage_closed + instruction`、发一次 finalization，并隔离迟到结果。主门是 deterministic slow-tool 离线测试：同一 request id 恰好一个预期 error 终态、`unpaired_tool_requests=0`、finalization remaining 约等于冻结 handoff window，且 late result 不写入 episode。单次瑞华泰 live 只能在离线主门通过后作确认，不能单独把 R-10 记为 confirmed。
 
 R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` 的剩余 calls 要和
 `_budget_payload` 一样读取 root ledger 的生效余量；handoff window 要从 profile / 生效
@@ -102,3 +105,37 @@ R-10 还必须同时关掉两个潜伏契约：`_pending_finalization_reason` �
 - 全量 `intelligence/tests`：`2 failed, 3704 passed, 2 skipped`。
 - 两个失败均为 handoff 已列的 `test_acceptance_board` **确定性 CLI contract/test drift**；在 T2 父 revision `f4b8c589` 单独复跑同名测试仍为 `2 failed`，因此不是本轮回归，但也不是宿主环境噪声。
 - handoff 记录的另外 11 个 userspace/subconscious 环境红在本次显式 `env -u FORESIGHT_USERS_DIR` 下未复现；不把“13 变 2”写成产品修复。
+
+## 2026-08-04c：R-10 观测前置补充验证
+
+本补充不修改上面的 T1/T3 历史读数，也不提前执行 R-10。新增契约只有三项：
+
+1. headless gateway 的同一次 `tool_request` 与其 `tool_result/tool_error` 共享 32-hex
+   request id；mailbox 路径直接复用 request filename stem，不生成第二个身份；
+2. normalized event 用独立 `correlation_id` 保留 benchmark `request_id` 或 Codex
+   `call_id/tool_call_id`。有 id 时严格同 id 配对，只有历史双方均无 id 时才按 case FIFO；
+3. `unpaired_tool_requests` 为 `int | null`：benchmark/Codex 有配对词表，Workbench
+   不具备逐工具词表所以明确为 `null`，不再用假健康的 0 表示“没埋点”。
+
+离线可证伪结果：mismatched benchmark id 保持 1 个 pending；Codex synthetic 的一组
+完成调用加一个悬空调用得到 1；Workbench 得到 `null`；T1/T3 legacy raw artifact 仍为
+`0/1`。旧 v2 event 缺 `correlation_id` 时窄兼容补 `null`，其他未知字段仍显式拒绝；
+派生计数不一致的异常恢复同时报告 declared 与 recomputed 安全值。
+
+测试账：
+
+- Focused（gateway / normalizer / Codex runtime / benchmark）：`110 passed, 1 skipped`；
+- Ruff：通过；
+- 首轮继承本机 `FORESIGHT_USERS_DIR/SUBCONSCIOUS_VAULT`：
+  `13 failed, 4199 passed, 3 skipped`，其中 11 条为已知 userspace/subconscious 环境耦合；
+- clean-host（同时 unset 用户目录与 vault override）：
+  `2 failed, 4210 passed, 3 skipped`；两条均为父 revision 已存在且同名同数的
+  `test_acceptance_board` 确定性 CLI contract/test drift，不是本轮回归，也不是宿主噪声。
+
+本步没有修改 budget/profile、没有运行 live、没有实现 slow-tool handoff。R-02 因仍缺
+真 rollout JSONL 保持 pending；R-10 因生产控制流尚未实现保持 pending。
+
+另对 `/Users/a77/agent-memory` 的未推分支做了只读审计：它已相对远端
+`173 ahead / 2 behind`，本地侧涉及 401 个路径、66,378 行新增，包含两个红线禁止的
+`workbench.sqlite3` 和大量完整 run 产物。因此本轮没有 push 该 memory 分支；这与本代码
+分支的独立交付不互相阻塞。

@@ -36,9 +36,13 @@ R-10 的主门是离线结构契约，单次 live 只作确认；还须让 final
 `_budget_payload` 读取同一份 root-ledger 剩余 calls，并把 handoff window 从 profile /
 生效预算派生、明确落盘，不能保留隐藏的 `initial_research_seconds * 0.20` 第二 reserve。
 
-后续观测补丁已经把 normalized artifact 的 `unpaired_tool_requests` 变成可重算字段，
-并在每条 `tool_request` 上记录 timestamp、root 入口余量和扣除 synthesis reserve 后的
-research 入口余量。T1/T2 raw artifact 复算为 **0 / 1**；本步没有改预算或跑 live。
+后续两轮观测补丁已经把 normalized artifact 的 `unpaired_tool_requests` 变成
+`int | null` 的 kind-aware 可重算字段，并在每条 headless `tool_request` 上记录
+timestamp、32-hex request id、root 入口余量和扣除 synthesis reserve 后的 research
+入口余量；同一 result/error 共享该 id，normalizer 独立保存为 `correlation_id`。
+T1/T2 legacy raw artifact 仍按无 id FIFO 复算为 **0 / 1**；Codex synthetic 悬空调用为
+1，Workbench 没有逐工具词表所以为 `null`。R-10 不能只断言计数为 0，还要按同一 id
+断言恰好一个预期终态且无迟到 result。本步没有改预算、实现 R-10 或跑 live。
 
 完整证据见
 [`docs/verification/2026-08-04b-finalization.md`](../verification/2026-08-04b-finalization.md)。
