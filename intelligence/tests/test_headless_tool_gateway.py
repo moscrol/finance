@@ -581,11 +581,11 @@ def test_gateway_rejects_before_tool_when_deadline_is_closed() -> None:
     assert calls == []
 
 
-def test_gateway_charges_root_budget_for_tool_exception() -> None:
+def _failing_tool_registry() -> ResearchToolRegistry:
     def failing_runner(_query: str, _context: AgentToolContext):
         raise RuntimeError("PRIVATE_TOOL_EXCEPTION_SENTINEL")
 
-    registry = ResearchToolRegistry(
+    return ResearchToolRegistry(
         (
             ToolSpec(
                 name="market_data",
@@ -598,6 +598,8 @@ def test_gateway_charges_root_budget_for_tool_exception() -> None:
         )
     )
 
+
+def test_gateway_charges_root_budget_for_tool_exception() -> None:
     base = _context()
     ledger = InMemoryRootBudgetLedger(
         episode_id=base.contract.task_id,
@@ -608,9 +610,11 @@ def test_gateway_charges_root_budget_for_tool_exception() -> None:
     )
     context = replace(base, root_budget=ledger)
 
-    with HeadlessToolGateway(registry=registry, context=context) as gateway:
+    with HeadlessToolGateway(
+        registry=_failing_tool_registry(),
+        context=context,
+    ) as gateway:
         result = gateway.call("market_data", "市场")
-        snapshot = gateway.snapshot()
 
     assert result == {
         "status": "error",
@@ -618,6 +622,16 @@ def test_gateway_charges_root_budget_for_tool_exception() -> None:
         "error": "tool_exception",
     }
     assert ledger.remaining_calls == 0
+
+
+def test_gateway_redacts_tool_exception_detail() -> None:
+    with HeadlessToolGateway(
+        registry=_failing_tool_registry(),
+        context=_context(),
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
     assert "PRIVATE_TOOL_EXCEPTION_SENTINEL" not in str(snapshot.to_dict())
 
 

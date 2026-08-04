@@ -54,6 +54,12 @@ _FINALIZATION_REASONS = frozenset(
         "headless_no_finish",
     }
 )
+_FINALIZATION_REASON_BY_REJECTION = {
+    "research_stage_closed": "research_stage_closed",
+    "tool_budget_exhausted": "tool_budget_exhausted",
+    "root_budget_exhausted": "tool_budget_exhausted",
+}
+_ROOT_BUDGET_CALL_RESERVATION_SECONDS = 1e-9
 _TRANSPORT_TIMEOUT_TOKEN = "__TOOL_TIMEOUT__"
 
 
@@ -716,7 +722,10 @@ class HeadlessToolGateway:
                         budget=budget,
                         grant=grant,
                     )
+                    if rejected is None and not self._reserve_root_call_locked():
+                        rejected = "root_budget_exhausted"
             if rejected is not None:
+                finalization_reason = _FINALIZATION_REASON_BY_REJECTION.get(rejected)
                 self._add_event(
                     "tool_error",
                     {
@@ -728,11 +737,8 @@ class HeadlessToolGateway:
                         ),
                     },
                 )
-                if rejected in {
-                    "research_stage_closed",
-                    "tool_budget_exhausted",
-                }:
-                    self._begin_finalization_locked(rejected)
+                if finalization_reason is not None:
+                    self._begin_finalization_locked(finalization_reason)
                 rejection: dict[str, object] = {
                     "status": "rejected",
                     "tool": name,
@@ -752,10 +758,7 @@ class HeadlessToolGateway:
                             ),
                         }
                     )
-                if rejected in {
-                    "research_stage_closed",
-                    "tool_budget_exhausted",
-                }:
+                if finalization_reason is not None:
                     rejection["instruction"] = FINALIZATION_INSTRUCTION
                 return rejection
             if spec is None or prepared is None:
@@ -763,8 +766,8 @@ class HeadlessToolGateway:
             self._seen_queries.add((name, prepared.normalized_key))
             self._executed_count += 1
 
+        started_at = time.monotonic()
         try:
-            started_at = time.monotonic()
             observation = self._contextvars.copy().run(
                 self._registry.execute,
                 name,
@@ -792,18 +795,16 @@ class HeadlessToolGateway:
                         "error": "tool_exception",
                     },
                 )
+            self._settle_root_seconds(
+                time.monotonic() - started_at,
+                request_id=resolved_request_id,
+            )
             return {"status": "error", "tool": name, "error": "tool_exception"}
 
-        if not self._charge_root_budget(
+        self._settle_root_seconds(
             time.monotonic() - started_at,
             request_id=resolved_request_id,
-        ):
-            return {
-                "status": "rejected",
-                "tool": name,
-                "error": "root_budget_exhausted",
-                "budget": self._budget_payload(),
-            }
+        )
 
         return self._publish_observation(
             spec.query_scope,
@@ -811,30 +812,57 @@ class HeadlessToolGateway:
             request_id=resolved_request_id,
         )
 
-    def _charge_root_budget(
-        self,
-        elapsed_seconds: float,
-        *,
-        request_id: str,
-    ) -> bool:
+    def _reserve_root_call_locked(self) -> bool:
+        """Claim one root call slot atomically before the tool runs at all."""
+
         ledger = getattr(self._context, "root_budget", None)
         consume_call = getattr(ledger, "consume_call", None)
         if not callable(consume_call):
             return True
         try:
-            consume_call(seconds=max(0.001, float(elapsed_seconds)))
+            consume_call(seconds=_ROOT_BUDGET_CALL_RESERVATION_SECONDS)
         except (TypeError, ValueError):
-            with self._lock:
-                self._add_event(
-                    "tool_error",
-                    {
-                        "request_id": request_id,
-                        "tool": "headless",
-                        "error": "root_budget_exhausted",
-                    },
-                )
             return False
         return True
+
+    def _settle_root_seconds(
+        self,
+        elapsed_seconds: float,
+        *,
+        request_id: str,
+    ) -> None:
+        """Debit real tool wall time, clamping rather than rejecting finished work."""
+
+        ledger = getattr(self._context, "root_budget", None)
+        consume_seconds = getattr(ledger, "consume_seconds", None)
+        if not callable(consume_seconds):
+            return
+        try:
+            requested = max(0.001, float(elapsed_seconds))
+        except (TypeError, ValueError):
+            return
+        remaining = getattr(ledger, "remaining_seconds", None)
+        if isinstance(remaining, (int, float)) and not isinstance(remaining, bool):
+            settled = min(requested, max(0.0, float(remaining)))
+        else:
+            settled = requested
+        try:
+            consume_seconds(seconds=settled)
+        except (TypeError, ValueError):
+            return
+        overdraft = requested - settled
+        if overdraft <= 0.0:
+            return
+        with self._lock:
+            self._add_event(
+                "root_budget_overdraft",
+                {
+                    "request_id": request_id,
+                    "requested_seconds": round(requested, 3),
+                    "settled_seconds": round(settled, 3),
+                    "overdraft_seconds": round(overdraft, 3),
+                },
+            )
 
     def _reservation_error(
         self,
