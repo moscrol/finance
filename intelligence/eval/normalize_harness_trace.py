@@ -412,6 +412,21 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
     return normalized
 
 
+def _count_unpaired_tool_requests(events: Sequence[NormalizedEvent]) -> int:
+    """Count visible requests without a later result/error in the same case."""
+
+    pending_by_case: dict[str | None, int] = {}
+    for event in events:
+        case_id = event.case_id
+        if event.source_event_type == "tool_request":
+            pending_by_case[case_id] = pending_by_case.get(case_id, 0) + 1
+        elif event.source_event_type in {"tool_result", "tool_error"}:
+            pending = pending_by_case.get(case_id, 0)
+            if pending > 0:
+                pending_by_case[case_id] = pending - 1
+    return sum(pending_by_case.values())
+
+
 def compare_sequences(
     left: Sequence[NormalizedEvent], right: Sequence[NormalizedEvent]
 ) -> ComparisonResult:
@@ -765,6 +780,7 @@ def _build_side(path: Path, kind: str) -> tuple[dict[str, Any], list[NormalizedE
         "input_sha256": digest,
         "event_count": len(events),
         "unmapped_count": sum(event.step == "unmapped" for event in events),
+        "unpaired_tool_requests": _count_unpaired_tool_requests(events),
         "events": [asdict(event) for event in events],
     }
     return payload, events

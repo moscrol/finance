@@ -281,6 +281,65 @@ def test_raw_benchmark_schema_version_is_not_mistaken_for_normalized_artifact(
     assert artifact["events"][0]["step"] == "stop"
 
 
+def test_runtime_benchmark_artifact_counts_unpaired_tool_requests(tmp_path) -> None:
+    source = tmp_path / "runtime-benchmark.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "cases": [
+                    {
+                        "id": "missing-response",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {"sequence": 1, "kind": "tool_request"}
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                    {
+                        "id": "completed-response",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {"sequence": 1, "kind": "tool_request"},
+                                        {"sequence": 2, "kind": "tool_result"},
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                    {
+                        "id": "rejected-response",
+                        "arms": [
+                            {
+                                "diagnostics": {
+                                    "events": [
+                                        {"sequence": 1, "kind": "tool_request"},
+                                        {"sequence": 2, "kind": "tool_error"},
+                                    ]
+                                }
+                            }
+                        ],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    target = tmp_path / "normalized.json"
+
+    assert main(
+        [str(source), "--kind", "runtime-benchmark", "--output", str(target)]
+    ) == 0
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    assert artifact["unpaired_tool_requests"] == 1
+
+
 def test_every_persisted_benchmark_kind_has_a_normalized_step() -> None:
     from intelligence.eval.normalize_harness_trace import _BENCHMARK_STEPS
     from intelligence.eval.runtime_backend_benchmark import _DIAGNOSTIC_EVENT_KINDS
