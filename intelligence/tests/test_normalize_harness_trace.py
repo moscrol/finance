@@ -612,8 +612,11 @@ def test_reused_artifact_recomputes_or_validates_tool_pairing_count(tmp_path) ->
     tampered = dict(artifact, unpaired_tool_requests=0)
     tampered_path = tmp_path / "tampered.json"
     tampered_path.write_text(json.dumps(tampered), encoding="utf-8")
-    with pytest.raises(NormalizedArtifactError, match="unpaired_tool_requests"):
+    with pytest.raises(NormalizedArtifactError) as raised:
         main([str(tampered_path), "--compare", str(artifact_path)])
+    message = str(raised.value)
+    assert "unpaired_tool_requests=0" in message
+    assert "recomputed 1" in message
 
 
 def test_frozen_finalization_artifacts_expose_the_pairing_gap(tmp_path) -> None:

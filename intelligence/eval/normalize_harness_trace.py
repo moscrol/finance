@@ -868,7 +868,7 @@ def _load_normalized_artifact(
             )
         if mismatch:
             raise NormalizedArtifactError(
-                f"{field} disagrees with the {actual} events present; "
+                f"{field}={declared!r} disagrees with recomputed {actual!r}; "
                 "the artifact was modified after it was written"
             )
     payload = {
