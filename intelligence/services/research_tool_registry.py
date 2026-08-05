@@ -32,7 +32,11 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "finance_query",
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
         "current",
-        frozenset({"supporting_evidence", "data_date", "market_change"}),
+        # risk_signals：实测 market_watch 回合里由 duckdb_semantic_query 绑定并判
+        # fulfilled（3 例），不是推测。见 test_declared_produces_covers_history。
+        frozenset(
+            {"supporting_evidence", "data_date", "market_change", "risk_signals"}
+        ),
     ),
     "evidence_search": (
         "evidence_search",

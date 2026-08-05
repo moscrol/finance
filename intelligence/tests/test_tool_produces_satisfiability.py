@@ -234,3 +234,128 @@ class TestDeclarationCompleteness:
                 assert output_id != name, (
                     f"{name}.produces contains its own name as output_id"
                 )
+
+
+# ---------------------------------------------------------------------------
+# 与历史 fulfilled 记录的一致性
+# ---------------------------------------------------------------------------
+#
+# 这一节回答的是手写 produces 的**唯一可证伪方向**：
+#
+#   如果某个 output_id 在真实 run 里被判过 fulfilled，那就证明这套工具确实能
+#   产出它。此时没有任何工具声明它 —— 那是声明表的一个**可证明的洞**。
+#
+# 反方向（声明了但历史里没见过）**不是错误**：样本只有 45 个 episode，覆盖不到
+# 的题型本来就不会出现。把它断言成错误等于要求声明表不能超前于样本，那会逼着
+# 未来的人为了让测试变绿而删掉正确的声明。这就是 fail-open 在测试层的体现。
+#
+# 归一必须走 ``_LEGACY_OUTPUT_ALIASES``（从 conversation_orchestrator 导入，
+# **不抄第二份**）：历史记录里的 direct_answer / evidence_boundary /
+# continuation_conditions 等是别名槽位，归一后才能和声明表对齐。抄一份表进来就
+# 等于把那边的修改和这里的断言解耦，正是本轮要消除的第二事实源问题。
+#
+# 数据来源（2026-08-06 采集，45 个 continuous-episode.json，取
+# ``structural_verifier.completion.outputs[].status``）：
+#
+#     direct_answer          fulfilled=4  missing=24
+#     direct_assessment      fulfilled=3  missing=11
+#     evidence_boundary      fulfilled=5  missing=27
+#     risk_signals           fulfilled=3  missing=1
+#     supporting_evidence    fulfilled=3  missing=1
+#
+# 冻结成字面量而不是运行时扫描，因为那些 episode 文件在 tmp/ 和
+# ~/agent-memory/.foresight/ 下，既不在仓库里也会被清理——读它们的测试会
+# flaky-by-construction。要更新这张表就重跑一次采集并连同计数一起改。
+_HISTORICAL_FULFILLED_OUTPUT_IDS = frozenset(
+    {
+        "direct_answer",
+        "direct_assessment",
+        "evidence_boundary",
+        "risk_signals",
+        "supporting_evidence",
+    }
+)
+
+
+def _normalize_output_id(output_id: str) -> str:
+    from intelligence.services.conversation_orchestrator import (
+        _LEGACY_OUTPUT_ALIASES,
+    )
+
+    return _LEGACY_OUTPUT_ALIASES.get(output_id, output_id)
+
+
+def _declared_output_ids() -> frozenset[str]:
+    return frozenset(
+        _normalize_output_id(output_id)
+        for _cap, _desc, _fresh, produces in reg._DEFAULT_TOOL_METADATA.values()
+        for output_id in produces
+    )
+
+
+class TestProducesMatchesHistory:
+    def test_every_historically_fulfilled_output_is_declared(self) -> None:
+        """真实 run 里 fulfilled 过的 output，必须有工具声明能产出它。
+
+        这是手写 produces 唯一能被历史证伪的方向。实测抓到过一个真洞：
+        risk_signals 在三个 market_watch episode 里 fulfilled，绑定它的
+        provider 是 duckdb_semantic_query（finance_query）、agent:market_data、
+        agent:mainline_context，而这三个工具当时都没声明它。
+        """
+        declared = _declared_output_ids()
+        undeclared = sorted(
+            _normalize_output_id(output_id)
+            for output_id in _HISTORICAL_FULFILLED_OUTPUT_IDS
+            if _normalize_output_id(output_id) not in declared
+        )
+
+        assert not undeclared, (
+            "这些 output 在真实 run 里 fulfilled 过，但没有任何工具声明能产出："
+            f"{undeclared}。要么补上对应工具的 produces，要么说明是哪个工具真的"
+            "产出了它。"
+        )
+
+    def test_declaring_more_than_history_is_allowed(self) -> None:
+        """声明超前于样本不是错误——这是 fail-open 在测试层的体现。
+
+        45 个 episode 覆盖不到的题型（估值、财务、产业链映射）本来就不会出现在
+        历史里。把「声明了但没见过」断言成错误，会逼着后来的人为了让测试变绿而
+        删掉正确的声明。
+        """
+        declared = _declared_output_ids()
+        normalized_history = {
+            _normalize_output_id(item) for item in _HISTORICAL_FULFILLED_OUTPUT_IDS
+        }
+
+        # 确实存在「声明了但历史样本里没有」的 id，且这不导致失败。
+        assert declared - normalized_history
+
+    def test_alias_table_is_imported_not_copied(self) -> None:
+        """归一必须用 orchestrator 那张表，不能在测试里抄第二份。
+
+        抄一份就等于把 legacy_aliases 的修改和这里的断言解耦——那正是本轮
+        要消除的第二事实源问题。
+        """
+        from intelligence.services.conversation_orchestrator import (
+            _LEGACY_OUTPUT_ALIASES,
+        )
+
+        # 别名真的在起作用：历史里的 direct_answer 归一到 direct_assessment。
+        assert _LEGACY_OUTPUT_ALIASES["direct_answer"] == "direct_assessment"
+        assert _normalize_output_id("direct_answer") == "direct_assessment"
+
+    def test_normalization_is_what_makes_evidence_boundary_align(self) -> None:
+        """evidence_boundary fulfilled 过 5 次，但没有工具直接声明这个 id。
+
+        它归一到 counterpoint，而 evidence_search 声明了 counterpoint。这条钉住
+        「归一是对齐的必要条件」——去掉归一，这个 output 会变成假阳性的洞。
+        """
+        assert _normalize_output_id("evidence_boundary") == "counterpoint"
+
+        raw_declared = frozenset(
+            output_id
+            for _cap, _desc, _fresh, produces in reg._DEFAULT_TOOL_METADATA.values()
+            for output_id in produces
+        )
+        assert "evidence_boundary" not in raw_declared
+        assert "counterpoint" in raw_declared
