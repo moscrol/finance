@@ -663,3 +663,52 @@ def test_dated_overseas_board_subtopic_still_excluded() -> None:
         query,
         understand_query(query),
     )
+
+
+# --- 「比较」是程度副词时不能算 comparison（run_20260805_194911_490256 根因）------
+#
+# _COMPARISON_RE 原来裸匹配「比较|对比|相比」。但「比较」在中文里同时是程度副词
+# （「比较有机会」＝「相当有机会」），「相比」还常只带时间参照（「相比之前」）。
+# 裸词命中把程度副词读成了动词，question_type 被置成 comparison，契约随即要求
+# 四个没有工具能满足的输出（拿不到 B 就填不了对比矩阵），门只能如实拒答——
+# 表面症状是「证据不足」，真因在这一行正则。
+# 实测：普通选股题修复前 7 条 degrades + 拒答模板，修复后 0 条 degrades。
+
+
+def test_degree_adverb_bijiao_is_not_a_comparison() -> None:
+    """程度副词用法：问的是「哪个更好」而不是「A 和 B 差在哪」，没有可比对象。"""
+    for query in (
+        "哪只个股比较有机会",
+        "哪个方向比较强",
+        "现在比较看好什么",
+        "这个位置比较危险吗",
+        "最近相比之前怎么样",
+        "我比较关注半导体",
+        "分析当前行情",
+    ):
+        envelope = understand_query(query)
+        assert "comparison" not in envelope.operators, query
+        assert envelope.question_type != "comparison", query
+
+
+def test_real_comparison_questions_still_match() -> None:
+    """真给出了两个可比对象或显式比较落点的，仍然要走 comparison。"""
+    for query in (
+        "比较一下瑞华泰和中际旭创",
+        "光模块和PCB哪个更强",
+        "CPO与液冷的差异在哪",
+    ):
+        envelope = understand_query(query)
+        assert "comparison" in envelope.operators, query
+
+
+def test_dated_stock_picking_question_is_not_comparison() -> None:
+    """线上原题（run_20260805_194911_490256）：修复前 question_type=comparison。"""
+    query = (
+        "以 2026-08-04 收盘数据为准，分析当前行情，"
+        "你认为哪个方向、哪只个股比较有机会？"
+    )
+    envelope = understand_query(query)
+
+    assert "comparison" not in envelope.operators
+    assert envelope.question_type != "comparison"
