@@ -25,6 +25,28 @@ from intelligence.services.research_contract import RequiredOutput
 FulfillmentStatus = Literal["complete", "partial", "missing"]
 ItemStatus = Literal["fulfilled", "partial", "missing"]
 
+# 未绑定的机器可读原因。``gap`` 那句中文是给人看的，但它把四种成因写进了同一个
+# 句子里——想统计「到底哪一种最常见」就得反过来解析中文，而那句话的措辞随时会改。
+#
+# 这四个码对应 ``evaluate_task_fulfillment`` 里那组 if/elif 分支，一一对应，
+# 不多不少：
+#   no_candidate_claim  registry 里没有该输出对应的 claim（候选取不到）
+#   text_absent         有候选，但正文里没有出现它们的文本
+#   evidence_unbound    正文写到了，但证据没能绑上
+#   marker_absent       已绑定，但正文缺少该输出的措辞标记
+#   unspecified         以上都不是（兜底，正常情况下不该出现）
+#
+# ``task_fulfillment`` 那段注释自己写了原因：「四种情况长得一模一样，正是这道
+# 门禁坏了很久没被发现的原因」。把成因升成字段，是让那句话在数据层也成立。
+FulfillmentReasonCode = Literal[
+    "",
+    "no_candidate_claim",
+    "text_absent",
+    "evidence_unbound",
+    "marker_absent",
+    "unspecified",
+]
+
 
 @dataclass(frozen=True)
 class FulfillmentItem:
@@ -33,6 +55,11 @@ class FulfillmentItem:
     evidence_ids: tuple[str, ...] = ()
     answer_spans: tuple[str, ...] = ()
     gap: str = ""
+    # 只在 status != "fulfilled" 时有值；fulfilled 项留空字符串。
+    reason_code: FulfillmentReasonCode = ""
+    # 该输出实际取到了几条候选 claim。配合 reason_code 才能区分
+    # 「一条都没取到」和「取到了但对不上」——这两种要修的地方完全不同。
+    candidate_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -49,6 +76,16 @@ class FulfillmentVerdict:
         return {
             "status": self.status,
             "reason": self.reason,
+            # 本轮**实际被评估**的 output_id 全集（post-alias）。
+            #
+            # 这不等于 TaskFrame 的 required_outputs：契约在到达这里之前经过
+            # ``_merge_frame_outputs`` 的别名归一（direct_answer→direct_assessment
+            # 等），所以「门禁到底按哪张词表打分」只有在这一层才是确定的。
+            # 落盘之前，下游想复算就只能拿 frame 词表去猜，猜的和实际评的不是
+            # 同一张表。
+            "evaluated_output_ids": [item.output_id for item in self.items],
+            # 未绑定成因的分布，省掉下游解析中文 gap 的步骤。
+            "reason_code_counts": _reason_code_counts(self.items),
             "items": [
                 {
                     "output_id": item.output_id,
@@ -56,10 +93,21 @@ class FulfillmentVerdict:
                     "evidence_ids": list(item.evidence_ids),
                     "answer_spans": list(item.answer_spans),
                     "gap": item.gap,
+                    "reason_code": item.reason_code,
+                    "candidate_count": item.candidate_count,
                 }
                 for item in self.items
             ],
         }
+
+
+def _reason_code_counts(items: tuple[FulfillmentItem, ...]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        if not item.reason_code:
+            continue
+        counts[item.reason_code] = counts.get(item.reason_code, 0) + 1
+    return counts
 
 
 _GAP_PATTERN = re.compile(
@@ -464,24 +512,44 @@ def evaluate_task_fulfillment(
             continue
         # 说清楚为什么没绑上。「仍缺少 X」不说原因，正是这道门禁坏了很久没被发现的
         # 原因：候选取不到、正文没写、证据对不上、marker 缺失，四种情况长得一模一样。
+        #
+        # ``reason_code`` 是同一组判断的机器可读版本，和下面的中文一一对应。加它
+        # 而不是让下游解析中文，因为那句措辞随时会改，而统计要跨版本可比。
         if not candidates:
             why = "registry 里没有该输出对应的 claim"
+            reason_code: FulfillmentReasonCode = "no_candidate_claim"
         elif not any(_claim_text_present(c, answer_text) for c in candidates):
             why = f"候选 {len(candidates)} 条，但正文里没有出现它们的文本"
+            reason_code = "text_absent"
         elif not bound:
             why = f"候选 {len(candidates)} 条且正文已写到，但证据未能绑定"
+            reason_code = "evidence_unbound"
         elif marker_required and not marker:
             why = "已绑定，但正文缺少该输出的措辞标记"
+            reason_code = "marker_absent"
         else:
             why = "未满足"
+            reason_code = "unspecified"
         detail = f"仍缺少：{required.description}（{why}）"
         if _gap_for_output(output_id, answer_text):
             items.append(
-                FulfillmentItem(required.output_id, "partial", gap=detail)
+                FulfillmentItem(
+                    required.output_id,
+                    "partial",
+                    gap=detail,
+                    reason_code=reason_code,
+                    candidate_count=len(candidates),
+                )
             )
             continue
         items.append(
-            FulfillmentItem(required.output_id, "missing", gap=detail)
+            FulfillmentItem(
+                required.output_id,
+                "missing",
+                gap=detail,
+                reason_code=reason_code,
+                candidate_count=len(candidates),
+            )
         )
 
     required_items = tuple(
