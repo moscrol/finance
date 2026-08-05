@@ -60,6 +60,52 @@ _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 # indistinguishable downstream from objective retrieval.
 _USER_MEMORY_EVIDENCE_TIER = "user_memory"
 _AGENT_MEMORY_LOOKUP_MAX_RECORDS = 5
+# ``select_relevant`` scores a tag hit (4) above a body-text overlap (2), but it
+# can only do that when the caller names the subject.  Passing the raw tool query
+# alone leaves the ledger's ``themes``/``stocks`` tags dependent on the model
+# happening to repeat the subject verbatim, so a follow-up like "那还能追吗"
+# recalls nothing.  The upstream contract already resolved subject and
+# subject_kind; route them in rather than re-deriving intent here.
+#
+# One parameter, not two.  ``user_memory._query_terms`` flattens ``theme`` and
+# ``entity`` into a single scored term list, and which tags get scanned is fixed
+# per record type by ``relevant_memory_records`` (judgments: themes+stocks,
+# corrections: themes) regardless of which parameter the caller used.  The two
+# are therefore byte-for-byte equivalent today; ``theme`` is the one we pass
+# because production ledgers tag company names under ``themes`` (there is no
+# ``stocks`` field in corrections at all).  Do not reintroduce a split here
+# unless ``select_relevant`` first learns to weight the two differently.
+#
+# Kinds with no ledger tag counterpart (market_pattern / index /
+# external_market / unknown) route nothing: "A股市场" would only add a noise
+# term.  That bounds *which* subjects get routed, NOT how general the routed
+# term is — a short subject such as "AI" still substring-matches many tags,
+# because ``_norm`` compares against one joined tag string.  That is a
+# select_relevant scoring property this hop cannot fix, so any recall eval has
+# to record the routed subject to attribute its own false positives.
+#
+# ``SubjectKind`` (query_understanding.py) is a ``typing.Literal``, so it is not
+# enforced at runtime and ``TaskFrame.subject_kind`` is a plain ``str``; match
+# defensively rather than exhaustively.  "concept" is kept for that reason, not
+# because a production caller was observed emitting it.
+_MEMORY_SUBJECT_KINDS_WITH_LEDGER_TAGS = frozenset({"company", "concept", "theme"})
+# ``_query_terms`` drops query tokens shorter than 2 chars but applies no floor
+# to a routed subject.  Hold routed subjects to the same bar: a single-char
+# subject is never a real A-share company or theme, and substring matching makes
+# it sweep the whole ledger.
+_MIN_ROUTED_SUBJECT_CHARS = 2
+
+
+def _memory_recall_intent(contract_subject: str | None, subject_kind: str | None) -> dict[str, str]:
+    """Route the contract's resolved subject into the ledger recall parameter."""
+
+    subject = str(contract_subject or "").strip()
+    if len(subject) < _MIN_ROUTED_SUBJECT_CHARS:
+        return {}
+    kind = str(subject_kind or "").strip().lower()
+    if kind in _MEMORY_SUBJECT_KINDS_WITH_LEDGER_TAGS:
+        return {"theme": subject}
+    return {}
 
 
 @dataclass(frozen=True)
@@ -881,6 +927,10 @@ def build_episode_registry(
                 query,
                 user=memory_user,
                 users_root=memory_users_root,
+                **_memory_recall_intent(
+                    context.contract.subject,
+                    context.contract.subject_kind,
+                ),
             )
             tool_context.check_cancelled()
             evidence: list[agent_research.AgentEvidence] = []
