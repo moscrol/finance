@@ -68,6 +68,13 @@ minimum_two_phase_entry_seconds）之前，先用真实台账回答「这个门�
     run 级仍可落多桶（一轮里 brief/composer/judge 各自的失败原因可能不同），
     这是有意保留的：它反映的是「这一轮踩了几种坑」。
 
+限制 5：--since 是字符串前缀比较，不解析时区。
+    created_at 形如 ``2026-08-05T23:15:54+08:00``，本地台账至今只有 +08:00 一种
+    偏移，所以字典序等价于时间序，比较起来既便宜又不引入 dateutil 依赖。**但
+    一旦台账里混入别的时区偏移，这个比较就是错的**：``...T23:00+09:00`` 会被排
+    在 ``...T22:00+08:00`` 之后，而真实时刻更早。届时必须换成真正的 datetime
+    解析，不要在这个前缀比较上继续打补丁。
+
 用法::
 
     # 全量归因
@@ -76,6 +83,14 @@ minimum_two_phase_entry_seconds）之前，先用真实台账回答「这个门�
     # 只看某个桶命中的具体 run，并落 JSON 供下次对照
     python3 scripts/attribute_synthesis_degrades.py --bucket admission_denied \
         --out /tmp/synth-degrades.json
+
+    # 后测：只看生产切到 8ccca8ca 之后的样本。不加 --since 的话，19 轮新样本会
+    # 被 300 轮历史稀释——admission_denied 从 2 变 3 在全量口径里是 0.3 个百分点，
+    # 在 20 轮窗口里是 5 个，而那正是要验的构成迁移。
+    python3 scripts/attribute_synthesis_degrades.py --since 2026-08-05T23:15
+
+    # 先问「够不够跑后测」，再决定要不要跑
+    python3 scripts/attribute_synthesis_degrades.py --since 2026-08-05T23:15 --readiness
 
 只读：不改代码、不写库、不碰任何服务端口。
 """
@@ -167,6 +182,11 @@ PHASE_NAMES = frozenset({"brief", "composer", "judge"})
 TELEMETRY_MARKER = "remaining_ms_at_entry"
 TELEMETRY_FILES = ("trace.jsonl", "stream.jsonl")
 
+# 后测的样本量下限。20 不是统计功效算出来的，是「构成迁移看不看得出来」的经验
+# 门槛：admission_denied 从 2 变 3，在 300 轮全量里是 0.3 个百分点（噪声），在
+# 20 轮窗口里是 5 个百分点（可见）。改这个数就是改「多少算够」的判据。
+READINESS_THRESHOLD = 20
+
 
 def iter_run_dirs(ledgers: Iterable[Path]) -> list[Path]:
     """<ledger>/<user>/runs/<run_id>/ 的并集，按真实路径去重后保序。"""
@@ -211,6 +231,55 @@ def load_runs(run_dirs: Iterable[Path]) -> tuple[list[dict[str, Any]], int]:
             }
         )
     return records, unreadable
+
+
+def filter_since(
+    records: list[dict[str, Any]], since: str | None
+) -> list[dict[str, Any]]:
+    """按 created_at 截出 [since, ∞) 的窗口。见限制 5：字典序比较，不解析时区。
+
+    created_at 缺失的 run 一律**排除**而不是保留：后测问的是「切换之后」，一条
+    时间不明的记录既不能证明在窗口内、也不该混进分母。
+    """
+    if not since:
+        return records
+    return [r for r in records if r["created_at"] and r["created_at"] >= since]
+
+
+def render_readiness(
+    records: list[dict[str, Any]],
+    *,
+    since: str | None,
+    threshold: int,
+) -> str:
+    """只回答一个问题：窗口内攒够样本了没有，还差几轮。"""
+    lines: list[str] = []
+    lines.append("=" * 82)
+    lines.append("后测就绪度")
+    lines.append("=" * 82)
+    lines.append(f"  窗口: {since or '(全量，未指定 --since)'}")
+    lines.append(f"  窗口内 run: {len(records)}")
+    lines.append(f"  门槛: {threshold}")
+
+    short = threshold - len(records)
+    if short > 0:
+        lines.append(f"  距门槛还差: {short} 轮  -> 还不够，别跑后测")
+    else:
+        lines.append(f"  距门槛还差: 0 轮（超出 {-short}）  -> 够了，可以跑归因看构成迁移")
+
+    degraded = [
+        r for r in records if any(DEGRADE_PATTERN.search(m) for m in r["degrades"])
+    ]
+    lines.append(f"  其中降级: {len(degraded)}/{len(records)}")
+    if records:
+        stamps = sorted(r["created_at"] for r in records if r["created_at"])
+        if stamps:
+            lines.append(f"  时间跨度: {stamps[0][:19]} .. {stamps[-1][:19]}")
+    if 0 < len(records) < 5:
+        lines.append("")
+        lines.append("  !! n 太小，任何构成占比都不是信号。别拿它推断迁移。")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def classify(message: str) -> str | None:
@@ -314,6 +383,8 @@ def render(
     coverage_warn_below: float,
     bucket_filter: str | None,
     show_runs: bool,
+    since: str | None = None,
+    total_before_filter: int | None = None,
 ) -> str:
     lines: list[str] = []
     total = len(records)
@@ -328,7 +399,19 @@ def render(
         mark = "" if ledger.exists() else "  [目录不存在]"
         lines.append(f"  台账 {ledger}{mark}")
     tail = f"（{unreadable} 个无法解析）" if unreadable else ""
-    lines.append(f"run 总数: {total}{tail}")
+    if since:
+        scope = f"{total}"
+        if total_before_filter is not None:
+            scope += f" / 台账全量 {total_before_filter}"
+        lines.append(f"时间窗: created_at >= {since}")
+        lines.append(f"窗口内 run 数: {scope}{tail}")
+        if total < READINESS_THRESHOLD:
+            lines.append(
+                f"  !! 窗口内只有 {total} 轮，低于 {READINESS_THRESHOLD} 轮门槛："
+                "构成占比还不是信号（--readiness 可单独看）。"
+            )
+    else:
+        lines.append(f"run 总数: {total}{tail}")
     lines.append(f"降级判定正则: {DEGRADE_PATTERN.pattern}")
     pct = (100.0 * len(degraded) / total) if total else 0.0
     lines.append(f"出现合成降级字样的 run: {len(degraded)}  ({pct:.1f}%)")
@@ -504,6 +587,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-runs", action="store_true", help="只看汇总，不打 run 明细"
     )
+    parser.add_argument(
+        "--since",
+        default=None,
+        help=(
+            "只统计 created_at >= 此值的 run，ISO 前缀即可"
+            "（如 2026-08-05T23:15）。字典序比较，见限制 5。"
+        ),
+    )
+    parser.add_argument(
+        "--readiness",
+        action="store_true",
+        help=f"只报「窗口内攒够没有、还差几轮」，门槛 {READINESS_THRESHOLD}",
+    )
+    parser.add_argument(
+        "--readiness-threshold",
+        type=int,
+        default=READINESS_THRESHOLD,
+        help=f"覆盖就绪度门槛（默认 {READINESS_THRESHOLD}）",
+    )
     args = parser.parse_args(argv)
 
     if args.ledger:
@@ -521,6 +623,27 @@ def main(argv: list[str] | None = None) -> int:
         print("run 目录存在但 run.json 全部无法解析。", file=sys.stderr)
         return 2
 
+    total_before_filter = len(records)
+    records = filter_since(records, args.since)
+
+    if args.readiness:
+        print(
+            render_readiness(
+                records,
+                since=args.since,
+                threshold=args.readiness_threshold,
+            )
+        )
+        return 0
+
+    if not records:
+        print(
+            f"--since {args.since} 之后没有任何 run"
+            f"（台账全量 {total_before_filter}）。",
+            file=sys.stderr,
+        )
+        return 1
+
     telemetry: dict[str, list[dict[str, Any]]] = {}
     for rec in records:
         phases = collect_phase_telemetry(rec["dir"])
@@ -535,6 +658,8 @@ def main(argv: list[str] | None = None) -> int:
         coverage_warn_below=args.coverage_warn_below,
         bucket_filter=args.bucket,
         show_runs=not args.no_runs,
+        since=args.since,
+        total_before_filter=total_before_filter,
     )
     print(report)
 
@@ -544,7 +669,9 @@ def main(argv: list[str] | None = None) -> int:
         ]
         payload = {
             "ledgers": [str(p) for p in ledgers],
+            "since": args.since,
             "run_total": len(records),
+            "run_total_before_since_filter": total_before_filter,
             "unreadable": unreadable,
             "degrade_pattern": DEGRADE_PATTERN.pattern,
             "telemetry_coverage": {
