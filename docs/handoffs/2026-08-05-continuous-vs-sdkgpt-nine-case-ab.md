@@ -78,21 +78,54 @@ config `~/.antigravity_cockpit/codex_local_access_sidecar/config.json`，
 
 **开跑前自查（必须三次全 200，别只打一次）**：
 
-```bash
-cd <本 worktree>
-FORESIGHT_LLM_KEYCHAIN=1 .venv-workbench/bin/python - <<'PY'
-import json,urllib.request,urllib.error
+⚠️ **不要用 heredoc**（`python - <<'PY'`），本机实测会卡住终端。**存成文件再跑。**
+⚠️ 本 worktree **没有** `.venv-workbench`（实测 2026-08-05），解释器只有主仓那一个，
+必须用绝对路径 —— 与 §4 用的是同一个 python。
+
+第一步，存为 `/tmp/pool-health-check.py`：
+
+```python
+import json, sys, urllib.request, urllib.error
+
+# 脚本在 /tmp，cwd 不会自动进 sys.path，必须显式加 repo 根
+sys.path.insert(0, "/Users/a77/finance-workspace-private/.worktrees/continuous-provider-neutral")
 from intelligence.services.llm_settings import SessionLLMSettings
-p=SessionLLMSettings().byok_provider("linxiaoqi5111")
+
+p = SessionLLMSettings().byok_provider("linxiaoqi5111")
+if p is None:
+    print("FATAL: byok_provider 返回 None —— 检查 FORESIGHT_LLM_KEYCHAIN=1（见 §3.3）")
+    raise SystemExit(1)
+print("provider =", p.name, "| model =", p.model, "| base_url =", p.base_url)
+
 for i in range(3):
-    req=urllib.request.Request(p.base_url.rstrip("/")+"/chat/completions",
-        data=json.dumps({"model":p.model,"messages":[{"role":"user","content":"ok"}],"max_tokens":5}).encode(),method="POST")
-    req.add_header("Authorization",f"Bearer {p.api_key}");req.add_header("Content-Type","application/json")
+    req = urllib.request.Request(
+        p.base_url.rstrip("/") + "/chat/completions",
+        data=json.dumps({
+            "model": p.model,
+            "messages": [{"role": "user", "content": "ok"}],
+            "max_tokens": 5,
+        }).encode(),
+        method="POST",
+    )
+    req.add_header("Authorization", f"Bearer {p.api_key}")
+    req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req,timeout=40) as r: print(i+1,r.status,"OK")
-    except urllib.error.HTTPError as e: print(i+1,e.code,e.read()[:120])
-PY
+        with urllib.request.urlopen(req, timeout=40) as r:
+            print(i + 1, r.status, "OK")
+    except urllib.error.HTTPError as e:
+        print(i + 1, e.code, e.read()[:120])
 ```
+
+第二步跑它：
+
+```bash
+FORESIGHT_LLM_KEYCHAIN=1 \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python /tmp/pool-health-check.py
+echo "REAL_EXIT=$?"
+```
+
+**判据：三行必须全是 `200 OK`。** 出现任何 429 / 502 就停下——池里还有坏账号，往下跑
+只会产出被污染的读数（见上一段）。
 
 > **判额度不能只看网关返回。** 曾经「经网关 429 WEEKLY_LIMIT」而「直连同一个 key 同一个
 > 模型 200」——网关那层会把真因盖住。要判账号，直连 `config.json` 里各 `base-url` 的
@@ -176,7 +209,8 @@ echo "REAL_EXIT=$?"
    本次能得出的只有**协议稳定性 / 延迟 / 完成度 / 引用数**这类确定性指标。
    **07-25 的 195/175 是盲评 6 维打分，不是这套 harness 产出的；不要用完成度替代质量结论。**
    要质量结论必须另行组织盲评（那是单独一件事）。
-5. 方法论对表：`.agent-memory/10_knowledge/eval-harness-variance-governance.md`
+5. 方法论对表：`/Users/a77/agent-memory/10_knowledge/eval-harness-variance-governance.md`
+   （`.agent-memory` 那个 symlink **只在主工作树有，本 worktree 里不存在**，用绝对路径）
    ——尤其「方差要用干净对照测，不能跨修复比」「确定性手段优先，LLM 判官只吃残差」。
 
 ---
