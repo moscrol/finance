@@ -1,0 +1,41 @@
+{
+  "source": "continuous-episode.json (5 files, gitignored)",
+  "frozen_at": "2026-08-06",
+  "per_file": {
+    "run_20260803_141853_814673": [
+      "continuation_conditions",
+      "direct_assessment",
+      "evidence_boundary",
+      "invalidation_conditions",
+      "scenario_paths"
+    ],
+    "run_20260803_142514_404372": [
+      "direct_assessment",
+      "risk_signals",
+      "supporting_evidence"
+    ],
+    "run_20260803_142707_003426": [
+      "direct_answer",
+      "evidence_boundary"
+    ],
+    "run_20260803_141709_251926": [
+      "direct_assessment",
+      "risk_signals",
+      "supporting_evidence"
+    ],
+    "run_20260803_142606_679876": [
+      "direct_answer",
+      "evidence_boundary"
+    ]
+  },
+  "union": [
+    "continuation_conditions",
+    "direct_answer",
+    "direct_assessment",
+    "evidence_boundary",
+    "invalidation_conditions",
+    "risk_signals",
+    "scenario_paths",
+    "supporting_evidence"
+  ]
+}
