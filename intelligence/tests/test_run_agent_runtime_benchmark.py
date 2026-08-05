@@ -20,6 +20,7 @@ from intelligence.services.episode_session import CallbackEpisodeSession
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import release_root_budget
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from scripts import run_agent_runtime_benchmark as benchmark
 
@@ -676,6 +677,92 @@ def test_sdk_gpt_benchmark_uses_backend_neutral_verifier_reserve() -> None:
     assert context.deadline.synthesis_reserve == 30.0
     assert context.deadline.stage_timeout(90.0) > 59.0
     assert context.root_budget.initial_seconds == 60.0
+
+
+def _dry_run_control(case: benchmark.RuntimeBenchmarkCase):
+    return benchmark.TurnControlCore().control(
+        case.question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "dry_run"),
+    )
+
+
+def _reserve_policy_case(case_id: str) -> benchmark.RuntimeBenchmarkCase:
+    case = next(
+        item
+        for item in benchmark._load_cases(FIXTURE)
+        if item.case_id == "rebound-duration"
+    )
+    return dataclasses.replace(case, case_id=case_id)
+
+
+def test_episode_registration_key_comes_from_the_shared_helper() -> None:
+    """The registered episode id must be the helper's output, not a copy of it."""
+
+    case = _reserve_policy_case("episode-id-registration")
+    expected = benchmark._benchmark_episode_id(case.case_id)
+
+    context = benchmark._fresh_context(
+        case,
+        _dry_run_control(case),
+        backend="sdk_gpt",
+        latest_data_date="2026-07-24",
+    )
+    try:
+        assert context is not None
+        assert context.contract.task_id == expected
+        assert context.root_budget.episode_id == expected
+    finally:
+        release_root_budget(expected)
+
+
+def test_arm_releases_exactly_the_episode_id_it_registered(monkeypatch) -> None:
+    """Registration and release must agree character for character.
+
+    Three call sites used to spell the id format out independently, so a rename
+    could leave the release pointing at a key nobody registered. That failure is
+    silent: the release degrades to a no-op, the cross-arm cascade returns, and
+    the next backend dies in 0.0004s looking like a broken shell. Asserting the
+    two keys are equal is the only guard that survives a reformat, because every
+    other test would stay green.
+    """
+
+    case = _reserve_policy_case("episode-id-release-pairing")
+    registered: list[str] = []
+    released: list[str] = []
+    real_fresh_context = benchmark._fresh_context
+
+    def recording_fresh_context(*args, **kwargs):
+        context = real_fresh_context(*args, **kwargs)
+        if context is not None:
+            registered.append(context.contract.task_id)
+        return context
+
+    monkeypatch.setattr(benchmark, "_fresh_context", recording_fresh_context)
+    monkeypatch.setattr(benchmark, "release_root_budget", released.append)
+    monkeypatch.setattr(
+        benchmark,
+        "_build_runtime",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("arm died before semantic verification")
+        ),
+    )
+
+    result = benchmark._run_research_arm(
+        case,
+        _dry_run_control(case),
+        "continuous_glm",
+        finance_root=Path("/nonexistent"),
+        knowledge_wiki=Path("/nonexistent"),
+        latest_data_date="2026-07-24",
+    )
+
+    assert result.stop_reason == "runner_exception"
+    assert registered == [benchmark._benchmark_episode_id(case.case_id)]
+    assert released == registered, (
+        "the finally block must release the very id that was registered; a "
+        "format drift between the two would silently restore the cascade"
+    )
+    release_root_budget(registered[0])
 
 
 def test_sdk_gpt_runtime_accepts_keychain_provider_without_environment(

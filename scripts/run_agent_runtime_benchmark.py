@@ -493,7 +493,7 @@ def _freeze_case(
     if dry_run and control.contract_required:
         context = build_episode_context(
             control.task_frame,
-            task_id=f"runtime-benchmark:{case.case_id}",
+            task_id=_benchmark_episode_id(case.case_id),
             capabilities=control.capabilities,
             tier=case.tier,
             timeout=case.timeout,
@@ -569,7 +569,7 @@ def _fresh_context(
         )
     context = build_episode_context(
         control.task_frame,
-        task_id=f"runtime-benchmark:{case.case_id}",
+        task_id=_benchmark_episode_id(case.case_id),
         capabilities=control.capabilities,
         tier=case.tier,
         timeout=case.timeout,
@@ -1166,6 +1166,25 @@ def _arm_failure(
     )
 
 
+def _benchmark_episode_id(case_id: str) -> str:
+    """Single source of truth for the episode id of one benchmark case.
+
+    Registration (``_fresh_context``) and release (``_run_research_arm``'s
+    ``finally``) have to agree character for character. When they drift, the
+    release degrades to a silent no-op and the cross-arm cascade comes back
+    wearing a disguise: the next backend dies in 0.0004s and reads like a
+    defect in that shell. Three call sites used to spell this format out
+    independently, so a rename could break the pairing while every existing
+    test stayed green.
+
+    The id deliberately carries no backend dimension -- it also feeds
+    ``artifact_sha256``, so adding one would break comparability with the
+    existing ledger. That is exactly why the release is mandatory.
+    """
+
+    return f"runtime-benchmark:{case_id}"
+
+
 def _run_research_arm(
     case: RuntimeBenchmarkCase,
     control: object,
@@ -1367,7 +1386,7 @@ def _run_research_arm(
         # shell defect and silently costs the case its comparability.
         # Computed from case_id rather than from `context`, so it also runs
         # when the failure happened before the context existed.
-        release_root_budget(f"runtime-benchmark:{execution_case.case_id}")
+        release_root_budget(_benchmark_episode_id(execution_case.case_id))
 
 
 def _run_non_research_arms(
