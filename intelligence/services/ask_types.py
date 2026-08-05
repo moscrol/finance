@@ -29,7 +29,10 @@ from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchTaskContract,
 )
-from intelligence.services.research_policy import grounded_deep
+from intelligence.services.research_policy import (
+    GroundedBudgetProfile,
+    grounded_deep,
+)
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, valuation_gap
 
 
@@ -242,6 +245,28 @@ class AskOptions:
         None,
     ] | None = field(default=None, repr=False, compare=False)
     deadline: ResearchDeadline | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+    # 合成尾段（composer+judge）的供给信封，刻意与 ``deadline`` 分开。
+    #
+    # ``deadline`` 是**检索窗口**：generic owner 按 tier 拿 30s/90s，用完就该收敛。
+    # 但 composer/judge 是 turn 的合成尾段，由根 turn 的 synthesis_reserve 供给；
+    # 此前两者共用 ``deadline``，导致 owner 的检索窗口反过来卡死合成——
+    # standard tier 整个窗口 90s < 两段式准入地板 97s，于是 composer 恒被跳过，
+    # 且不论研究跑得多快（run_20260805_204224_708450：入场剩 59.9s，判定 skip）。
+    #
+    # 为 None 时回退到 ``deadline``，保持既有调用方行为不变。
+    synthesis_deadline: ResearchDeadline | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+    # 本轮生效的 grounded 预算档位。为 None 时 ask_synthesis 回退到模块级
+    # ``grounded_deep``——那是历史行为，但会让「门槛」和「发钱的那套」脱钩：
+    # 门槛读全局常量，而窗口由 policy 决定，两边一错位就静默恒降级。
+    grounded_budget_profile: GroundedBudgetProfile | None = field(
         default=None,
         repr=False,
         compare=False,

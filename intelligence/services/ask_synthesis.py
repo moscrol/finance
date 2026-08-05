@@ -1557,17 +1557,38 @@ def _shadow_support_claims(
     )
 
 
+def _grounded_profile(options: AskOptions):
+    """本轮生效的 grounded 预算档位；缺省回退到模块级 ``grounded_deep``。
+
+    存在的理由是让**准入地板和发钱的信封出自同一套数**。此前地板直接读
+    模块级常量（按 root=180 标定的 97s），而窗口由 policy/owner tier 决定，
+    两边一错位就静默恒降级，且 trace 只留一句「预算不足」，读起来像偶发。
+    """
+
+    return options.grounded_budget_profile or grounded_deep
+
+
 def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
-    """影子链截止时间 = min(自身超时, turn 根 Deadline)。
+    """影子链截止时间 = min(自身超时, 合成尾段父 Deadline)。
 
     P0 修复：此前 promote 路径把 shadow timeout 抬到 ≥240s 并新建 Deadline，
     完全无视 turn 级 ResearchDeadline——子流程可以突破根截止时间。规则收敛为
     child = min(parent, now + stage_slice)，任何子阶段不得晚于根。
+
+    父 Deadline 取 ``synthesis_deadline``（turn 根）而非 ``deadline``（owner 检索
+    窗口）。两者曾是同一个：结果是 generic owner 那 30s/90s 的**检索**窗口反过来
+    给**合成**尾段定了上限，而准入地板 97s 是按根 180s 标定的——standard tier
+    整窗 90 < 97，composer 恒进不去，研究耗时为 0 也一样。owner 阶段此时已经
+    completed，它的窗口本就不该再约束后面的合成。
+
+    仍然 clamp：合成尾段不得晚于根 turn，``shadow_grounded_timeout``
+    （= ``child_seconds``）继续封顶单段用量。
     """
     deadline = llm_refine.Deadline.from_timeout(options.shadow_grounded_timeout)
-    if options.deadline is not None:
+    parent = options.synthesis_deadline or options.deadline
+    if parent is not None:
         deadline = llm_refine.Deadline(
-            min(deadline.expires_at, options.deadline.expires_at)
+            min(deadline.expires_at, parent.expires_at)
         )
     return deadline
 
@@ -1797,9 +1818,10 @@ def synthesize_shadow_grounded_answer(
     compose_started = time.monotonic()
     compose_remaining = deadline.remaining()
     compose_remaining_ms = compose_remaining * 1000
+    profile = _grounded_profile(options)
     if (
         compose_remaining
-        < grounded_deep.minimum_two_phase_entry_seconds
+        < profile.minimum_two_phase_entry_seconds
     ):
         _record_synthesis_phase(
             result,
@@ -1821,8 +1843,8 @@ def synthesize_shadow_grounded_answer(
     # again at the provider boundary so prompt-building overhead cannot steal
     # the 57s admitted for phase two.
     compose_timeout = min(
-        grounded_deep.composer_grant_seconds,
-        max(0.0, deadline.remaining() - grounded_deep.judge_reserve_seconds),
+        profile.composer_grant_seconds,
+        max(0.0, deadline.remaining() - profile.judge_reserve_seconds),
     )
     composed, compose_reason = llm_refine.synthesize_messages(
         llm_refine.build_grounded_composer_messages(

@@ -2507,6 +2507,17 @@ class TurnOrchestrator:
                         grounded_profile.child_seconds,
                         root_seconds,
                     ),
+                    # 合成尾段（composer+judge）由**根** turn 供给，而不是 owner 那
+                    # 30s/90s 的检索窗口。两者共用一个 deadline 时，standard tier
+                    # 整窗 90s 就成了合成的上限，而准入地板 97s 是按根 180s 标定的，
+                    # 于是 composer 恒被跳过（研究耗时为 0 也一样）。owner 阶段到这里
+                    # 已经 completed，它的检索窗口不该再约束后续合成。
+                    #
+                    # 反向的那条约束仍然成立且未被放松：根的 100s 合成保留段依旧不
+                    # 漏进 owner 的检索窗口（见 ``_generic_research_deadline``）。
+                    synthesis_deadline=research_deadline,
+                    # 准入地板与授时读同一套生效 profile，不再读模块级常量。
+                    grounded_budget_profile=grounded_profile,
                 )
             if owner_output is not None:
                 result = _resolve_owner_result(query, owner_output, retrieval_cache)
