@@ -37,10 +37,23 @@ users_root=.../.foresight/linxiaoqi5111            → 正确
 台账文件缺失时 loader 不报错、返回空列表，于是错路径的读数是 **0 命中**，
 和「语义检索没效果」**长得一模一样**。本轮第一次探测就踩了这个。
 第二档量 embedding 效果前，先跑一次已知非空的对照
-（`theme="瑞华泰"` 应得 3 条 corrections）确认路径是通的，再解读任何 0 命中。
+（`theme="瑞华泰"` **应得非 0**）确认路径是通的，再解读任何 0 命中。
 
-**推论一：不要建索引。** 141 条的量级，全量 embedding + 暴力余弦就够，
+> **判据是「非 0」，不是某个具体条数。** 2026-08-05 实测为 3 条 corrections，但
+> `corrections.jsonl` 是活台账（当天就有三次 `auto-sync: local edits`，mtime 从 12:04
+> 变到 13:45）。再记一条 tag 了瑞华泰的纠偏就会读出 4，按字面比对会误判「对照失败 →
+> 路径不通」，转头去查一个不存在的 bug——正是这条对照要防的坑的镜像。
+> 路径通不通只取决于是不是 0。
+
+**推论一：不要建索引。** 这个量级全量 embedding + 暴力余弦就够，
 建/维护一个 ANN 索引是过度工程，还要处理增量更新和 per-user 隔离。
+（ANN 的分界线通常在万级以上，53 和 141 都在暴力计算连热身都算不上的区间，
+所以这个推论对上面两个数都稳。）
+
+> **要 embed 的语料是 53 条，不是 141。** 141 是四个台账之和，但
+> `relevant_memory_records` 只读 `judgments` + `corrections`；`checkpoints`/`verdicts`
+> 走 `load_calibration` 那条渲染路径，**不参与相关性打分**。而 `judgments.jsonl`
+> 不存在，所以实际语料 = 53 条 corrections。按 141 估算延迟和成本会**高估约 2.7 倍**。
 
 **推论二：`judgments` 缺失是独立问题。** `memory_block_for_query` 第一个加载的就是它
 （`user_memory.py` 内 `load_judgments`），而文件不存在。这意味着**"我过去的判断"这一源
