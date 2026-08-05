@@ -1,6 +1,6 @@
 # Handoff：九题 A/B（Continuous 壳 vs SDK 壳，同模型 gpt-5.6-sol）
 
-日期：2026-08-05 · 交接自：claude · 分支：`fix/continuous-runtime-provider-neutral@a6cdc862`（已推 origin，未合并 main）
+日期：2026-08-05 · 交接自：claude · 分支：`fix/continuous-runtime-provider-neutral@20c25445`（已推 origin，未合并 main）
 
 ---
 
@@ -9,9 +9,12 @@
 **三次实跑全部作废。环境类问题已修完（RAG 生效、账号池健康、级联缺陷已修），
 但剩下两个阻塞不是环境问题，都要先解决才可能拿到可用数字：**
 
-1. **预算不对称**：continuous 研究 30s / sdk 60s（§5.3）。不解决，延迟/完成度/引用数
-   全部不可比。**且这可能是有意设计，不是 bug**——怎样算公平需要拍口径。
-2. **瞬时 502 会终止整轮**：第 8 题命中即整轮中断（§3.1 更正 1），需要重试机制。
+1. ✅ **预算不对称——口径已拍（2026-08-05，用户）：复现生产 30 / 90。**
+   原状 continuous 30s / sdk 60s 这一对**只存在于 benchmark**，生产是 30 / 90；
+   benchmark 给 sdk 的研究预算比生产少 30 秒，而 continuous 两边一致，所以那把尺子
+   既不是「对齐」也不是「复现生产」。**待做的代码改动**：`_fresh_context` 的 else 分支
+   改成 `reserve=0`，干跑验到 `initial_seconds` 实际是 30 / 90。详见 §5.3。
+2. **瞬时 502 会终止整轮**：第 8 题命中即整轮中断（§3.1 更正 1），需要重试机制。**未做。**
 
 目前关于「GPT 下自建壳 vs SDK 壳谁更好」仍是**零数据**，不要引用任何倾向性说法。
 
@@ -66,7 +69,17 @@ arm 会留下条目（traceback 抓住栈帧 → 栈帧抓住 context → contex
 `root budget already exists`，**看起来像那个壳坏了**。新增 `release_root_budget()`，在
 `_run_research_arm` 的 `finally` 里按 `case_id` 释放（不依赖 `context`，故建 context 之前
 就崩也照样释放）。验证：`test_repair_invariant_regression.py` 16 passed（含新增 3 条）、
-相邻 3 个测试文件 29 passed、ruff 干净、pre-commit 全过。
+相邻 3 个测试文件 29 passed、ruff 干净、pre-commit 全过（2026-08-06 复核逐条重跑，读数一致）。
+
+> ⚠️ **这个修复有一处没被测试保护，动名字之前必看。** 注册键在 `_fresh_context`
+> （`benchmark:572`，`task_id=f"runtime-benchmark:{case.case_id}"` → `episode_factory:322`
+> 用 `task_id` 当 `episode_id`），释放键在 `_run_research_arm` 的 `finally`
+> （`benchmark:1370`）**重新拼了一遍同样的字面量**。两处目前确实相等（`execution_case`
+> 只 `replace` 了 `timeout`，`case_id` 不变），但**没有任何测试断言它们相等**——
+> 三条新测试都只测 `release_root_budget` 本身，没覆盖调用点。
+> 一旦这个格式改了而只改了一处，释放会**静默变成 no-op**，级联缺陷原样回来，
+> 而且症状还是「那个壳 0.0004s 就崩了」。§6 第 3 步的改名正是会碰它的那次改动。
+> 便宜的加固：把键收进一个 `_episode_id_for(case)` 之类的单一来源，或补一条断言两者相等的测试。
 
 ---
 
@@ -241,11 +254,65 @@ echo "REAL_EXIT=$?"
    而不是网关问题。
 
    ⚠️ **别当 bug 直接抹平——这个不对称可能是有意的。** `_fresh_context`
-   （benchmark:559-568）的注释说明：GLM adapter 有独立的 internal finalizer，需要自己的
-   合成预算，若按 sdk 的口径给就会被重复扣、把 standard 台账压到 30 秒。所以
-   **「怎样才算公平」本身是个待拍的口径问题**：是对齐研究秒数（`initial_seconds`），
-   还是承认「合成开销属于壳的固有成本」而只对齐总墙钟？**两种口径会给出不同的胜负，
-   必须先定口径再跑，不能跑完再挑。**
+   （benchmark:555-568）的注释说明：GLM adapter 有独立的 internal finalizer，需要自己的
+   合成预算，若按 sdk 的口径给就会被重复扣、把 standard 台账压到 30 秒。
+   补一句它没写的：那个 finalizer 是 **adapter 层结构，不是模型层**——
+   `EpisodeFinalizer` 吃的是 provider-neutral 的 `GLMModelClient`，所以 continuous 壳
+   即使跑 gpt-5.6-sol，这个 finalizer 照样执行。**continuous 那 60s 是站得住的。**
+
+   #### ⚠️ 2026-08-06 复核：口径有三个，benchmark 用的是谁也不是的那个
+
+   `api/app.py:297-300` 的**生产**接线是：
+
+   ```python
+   synthesis_reserve_for_task=(
+       GLMAgentRuntime.synthesis_reserve_for_task     # 只有 continuous_glm 走这条
+       if selection.name == "continuous_glm"
+       else _zero_inner_synthesis_reserve             # 其余全部 → 0.0
+   ),
+   ```
+
+   `_zero_inner_synthesis_reserve`（`app.py:147-155`）恒返回 **0.0**，docstring：
+   「SDK/headless already draft inside the episode; reserve only outside it」。
+   即生产给 sdk_gpt 的 **inner reserve 是 0**，研究台账吃满 tier total。
+   而 `sdk_gpt` 在生产里同样走 `_build_continuous_turn_adapter`（`app.py:245` 分支），
+   所以这条对比是同一条代码路径上的，不是两套东西。
+
+   standard tier（total=90）三个数**实测**：
+
+   | | continuous_glm | sdk_gpt |
+   |---|---|---|
+   | **生产**（`api/app.py`） | reserve 60 → 研究 **30s** | reserve 0 → 研究 **90s** |
+   | **benchmark**（`_fresh_context`） | reserve 60 → 研究 **30s** | reserve 30 → 研究 **60s** |
+
+   **continuous 两边一致，sdk 被 benchmark 比生产少给了 30 秒。**
+   生产的真实不对称是 **3×**，benchmark 造出来的是 2×。所以现有这把尺子既不复现生产、
+   也不对齐两臂，是第三种在任何地方都不存在的配置。
+
+   还有一条不对劲的地方要一起看：`GLMAgentRuntime.synthesis_reserve_for_task` 的 docstring
+   写的是「Allocate one fixed total budget by task shape, **never by model choice**」——
+   函数自己的契约说预算只由 tier + question_type 决定。**按 backend 分叉这件事发生在两个
+   调用点上，不在函数里。** 这到底是有意设计还是漂移，是拍口径时要先答的。
+
+   #### ✅ 口径已拍（2026-08-05，用户）：**复现生产 30 / 90**
+
+   benchmark 的 sdk 臂改成与 `api/app.py:147-155` 一致的 `reserve=0`，continuous 维持
+   `synthesis_reserve_for_task`（60）不动。**改完干跑必须看到 `initial_seconds` 实际是
+   30 / 90，不是 30 / 60**——断言生效值，不是断言改没改配置。
+
+   理由：这份数据要回答的是「上生产该选哪个壳」，那就该量生产会发生的事；
+   不对称本身是各壳的真实成本结构，不是要抹平的噪声。
+
+   另两个口径记录在此，说明为什么没选，避免下一个人重新讨论一遍：
+
+   - **对齐研究秒数**（都给 60 或都给 90）——把两臂拉平，比的是研究能力本身。
+     没选：这个配置生产里不存在，赢家不一定迁移得到线上。
+   - **对齐总墙钟**（改动前的 benchmark 现状）——认为合成开销属于壳的固有成本。
+     没选：现状连这条都没做到——它给 sdk 的 30 是 `min(90*0.4, max(20,30))` 算出来的
+     第三个数，既非生产值也非 continuous 值，是个哪儿都不存在的配置。
+
+   ⚠️ **口径是跑之前定的，不能跑完再挑。** 三种口径会给出不同胜负，事后选口径
+   等于事后选赢家。
 4. **`semantic_status` 本 harness 基本给 `unavailable`——质量维度没有信号。**
    本次能得出的只有**协议稳定性 / 延迟 / 完成度 / 引用数**这类确定性指标。
    **07-25 的 195/175 是盲评 6 维打分，不是这套 harness 产出的；不要用完成度替代质量结论。**
@@ -263,6 +330,11 @@ echo "REAL_EXIT=$?"
    ——07-25 收据把「针对 Continuous 的 4 个协议问题补回归」列为未竟事项，
    2026-07-28 的 parity handoff 显示当时还剩 2 个，**未清干净**。
 3. 改名：`continuous_glm` → provider-agnostic（**A/B 之后**，否则破坏可比性）
+   ⚠️ 改名会同时踩到两处**按 backend 名分叉的预算逻辑**——`api/app.py:299` 与
+   `benchmark:555`，两处都写死 `== "continuous_glm"`，改名后会静默落到 else 分支
+   （生产那条 else 是 reserve=0）。另外 §2 那条注记里的注册/释放键也是 `case_id` 拼串，
+   同一次改动要一起过一遍。**改名前先把 §5.3 的口径拍死**，否则口径和名字一起动，
+   出了偏差分不清是哪一个造成的。
 4. 翻默认值 `factory:58`（消灭「忘设 env 就静默回 GLM」；需改那条 preserve 测试，**要用户点头**）
 5. 切生产 8792：改启动器（属主是 launchd，**必须重启才生效**），**需用户确认**
 
@@ -297,6 +369,12 @@ echo "REAL_EXIT=$?"
    预算解释」。**那次排除是假的**：该字段是外层墙钟，两臂都 90，看不见 continuous 的研究
    秒数只有 sdk 一半（30 vs 60，见 §5.3）。**部分核验不只会漏掉问题，还会发出假的「已排除」**
    ——比没查更危险，因为它会关掉这条追问线。真对照是 `root_budget.initial_seconds`。
+
+4. **（2026-08-06 追加）查到了两臂的差，就以为查到了全部。** 上一条把
+   `initial_seconds` 30/60 挖出来之后，追问停在「两臂之间不对称」，没再往外走一步问
+   **「这两个数在生产里各是多少」**。实际生产是 30/90——benchmark 的 sdk 那个 60
+   是它自己算出来的第三个数。**两臂互比只能证明「不相等」，证明不了「哪个是对的」；
+   要判对错必须跟臂外的基准（这里是生产接线）对一次。**
 
 **共同点：部分核验带来的踏实感会让人停止追问。**
 每次救回来的都是同一个动作：**找一个不经过可疑中间层的对照**
