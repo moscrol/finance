@@ -1,13 +1,19 @@
 # Handoff：九题 A/B（Continuous 壳 vs SDK 壳，同模型 gpt-5.6-sol）
 
-日期：2026-08-05 · 交接自：claude · 分支：`fix/continuous-runtime-provider-neutral@93ac264d`（未合并 main）
+日期：2026-08-05 · 交接自：claude · 分支：`fix/continuous-runtime-provider-neutral@a6cdc862`（已推 origin，未合并 main）
 
 ---
 
 ## 0. 一句话
 
-**代码已就绪，两次实跑都因环境问题作废，第三次跑之前必须先确认账号池只剩健康账号。**
-目前关于「GPT 下自建壳 vs SDK 壳谁更好」是**零数据**，不要引用任何倾向性说法。
+**三次实跑全部作废。环境类问题已修完（RAG 生效、账号池健康、级联缺陷已修），
+但剩下两个阻塞不是环境问题，都要先解决才可能拿到可用数字：**
+
+1. **预算不对称**：continuous 研究 30s / sdk 60s（§5.3）。不解决，延迟/完成度/引用数
+   全部不可比。**且这可能是有意设计，不是 bug**——怎样算公平需要拍口径。
+2. **瞬时 502 会终止整轮**：第 8 题命中即整轮中断（§3.1 更正 1），需要重试机制。
+
+目前关于「GPT 下自建壳 vs SDK 壳谁更好」仍是**零数据**，不要引用任何倾向性说法。
 
 ---
 
@@ -52,11 +58,21 @@ providers 链，而 `api/app.py` 早已把已解析 provider 的 name/model 透�
 pre-commit 全过。三条新测试；把凭证门还原成 GLM-only 会打红其中 2 条（第 3 条守的是
 `reason` 字符串，那处未变异，如实记录）。
 
+**追加 `a6cdc862`：修 harness 的 root budget 级联缺陷。** `_LIVE_ROOT_BUDGETS`
+（`research_contract.py:588`）有写入、有检查，**没有释放**。它一直没被发现，是因为注册表是
+`WeakValueDictionary`——正常返回的 arm，ledger 被 GC 后条目自动消失；只有**抛异常退出**的
+arm 会留下条目（traceback 抓住栈帧 → 栈帧抓住 context → context 抓住 ledger）。同一题两臂
+共用一个 `episode_id`（`task_id` 不含 backend 维度），于是下一臂 0.0004s 撞死在
+`root budget already exists`，**看起来像那个壳坏了**。新增 `release_root_budget()`，在
+`_run_research_arm` 的 `finally` 里按 `case_id` 释放（不依赖 `context`，故建 context 之前
+就崩也照样释放）。验证：`test_repair_invariant_regression.py` 16 passed（含新增 3 条）、
+相邻 3 个测试文件 29 passed、ruff 干净、pre-commit 全过。
+
 ---
 
 ## 3. 🚧 跑之前必须先确认（**上一轮就是死在这**）
 
-### 3.1 账号池必须只剩健康账号 ← **当前唯一阻塞**
+### 3.1 账号池必须只剩健康账号（**必要但不充分**，见下方更正）
 
 网关 = `http://localhost:57244/v1`，进程 `cockpit-cliproxy`（Cockpit Tools），
 config `~/.antigravity_cockpit/codex_local_access_sidecar/config.json`，
@@ -70,11 +86,20 @@ config `~/.antigravity_cockpit/codex_local_access_sidecar/config.json`，
 | #1 | `x.ailzd.com` | 200 ✅（25 模型） |
 | #2 | `api.fenno.ai` | **429 `WEEKLY_LIMIT`，仍在池内** ← 必须停用 |
 
-**危害不是「跑不完」，是「随机污染」**：round-robin 轮到 #2 就 502 `no auth available`，
-50 分钟的长跑必然反复命中，抖动会随机砸到某一臂，被误读成「那个壳不稳定」。
-上一轮 continuous 有两题恰好 30.0s `model_unavailable`，而两臂
-`effective_timeout` 实为对等的 90/90、15/15、180/180 —— **预算不公这个解释已被排除**，
-剩下的指向网关抖动。
+**危害不是「跑不完」，是「随机污染」**：round-robin 轮到坏账号就 502 `no auth available`，
+50 分钟的长跑可能反复命中，抖动会随机砸到某一臂，被误读成「那个壳不稳定」。
+
+> ⚠️ **2026-08-05 更正两处，都是我上一版写错的：**
+>
+> 1. **「#2 未停用」不是唯一阻塞。** 用户移出 fenno 后，开跑前自查 3/3 全 200，第 8 题
+>    `unfamiliar-methodology` 的 sdk 臂**照样** 502 `sdk_upstream_unavailable`；跑完再查
+>    又是 3/3 全 200。**那个 502 是瞬时抖动**，不是池里有坏账号。它一命中就终止整轮
+>    （`RuntimeBenchmarkInfrastructureError` 在 benchmark:1351 是 re-raise，不像普通异常
+>    那样降级成单臂失败），所以**这仍是硬阻塞，但根因是抖动，需要重试而不是清池**。
+> 2. **「预算不公已被排除」是错的，恰恰相反。** 我当时只看了 `effective_timeout`（外层
+>    墙钟，两臂都是 90），没看 `root_budget.initial_seconds`（研究阶段真实秒数）。实测
+>    **continuous 30.0s / sdk 60.0s，逐题如此**。详见 §5.3。continuous 那两题恰好
+>    30.0s，就是卡死在自己的 30s 研究预算上，**不是网关抖动**。
 
 **开跑前自查（必须三次全 200，别只打一次）**：
 
@@ -204,7 +229,23 @@ echo "REAL_EXIT=$?"
 1. **剔除 `deterministic_fast_path`**：`index-rebound-space` 两臂都 0.4s 走确定性快路径，
    **根本没过 LLM**，不参与壳的比较。真正可比样本 ≤ 8 题。
 2. **确认两臂 `model` 都是 `gpt-5.6-sol`**。上一轮 sdk_gpt 的 model 集合里混进过 `unavailable`。
-3. **确认两臂 `effective_timeout_seconds` 对等**，否则先排除预算不公再谈差异。
+3. **预算对等看 `diagnostics.root_budget.initial_seconds`，不是 `effective_timeout_seconds`。**
+   2026-08-05 实测：五道可比题**逐题**都是 continuous `initial_seconds=30.0` /
+   sdk `60.0`，而 `effective_timeout` 两边都是 90.0 —— 只看外层墙钟会得出「对等」的
+   假结论（我上一版就是这么误判的）。算式：standard tier `total=90 / reserve=20`；
+   continuous 走 `GLMAgentRuntime.synthesis_reserve_for_task` 拿 `min(75, 60)=60`
+   → 研究 30s；sdk 走 `min(90*0.4, max(20,30))=30` → 研究 60s。
+   **continuous 的研究秒数只有 sdk 的一半，延迟/完成度/引用数全部被这个不对称污染，
+   不能当壳的差异读。** `ruihuatai-valuation` 的 continuous 臂 30.006s 即是此因：
+   卡在 initial 30s 上抛 `production adapter did not reach semantic verification`，
+   而不是网关问题。
+
+   ⚠️ **别当 bug 直接抹平——这个不对称可能是有意的。** `_fresh_context`
+   （benchmark:559-568）的注释说明：GLM adapter 有独立的 internal finalizer，需要自己的
+   合成预算，若按 sdk 的口径给就会被重复扣、把 standard 台账压到 30 秒。所以
+   **「怎样才算公平」本身是个待拍的口径问题**：是对齐研究秒数（`initial_seconds`），
+   还是承认「合成开销属于壳的固有成本」而只对齐总墙钟？**两种口径会给出不同的胜负，
+   必须先定口径再跑，不能跑完再挑。**
 4. **`semantic_status` 本 harness 基本给 `unavailable`——质量维度没有信号。**
    本次能得出的只有**协议稳定性 / 延迟 / 完成度 / 引用数**这类确定性指标。
    **07-25 的 195/175 是盲评 6 维打分，不是这套 harness 产出的；不要用完成度替代质量结论。**
@@ -252,11 +293,18 @@ echo "REAL_EXIT=$?"
 
 1. 只试一个 model → 断言「账号没额度」。**实际是网关路由错账号**，直连上游 200。
 2. 只对齐部分环境 → 差点把「RAG env 缺失」当成壳的差异。
-3. 差点把网关抖动当成 continuous 不稳定 —— 靠查 `effective_timeout` 排除预算解释才拦住。
+3. 差点把网关抖动当成 continuous 不稳定 —— 我当时**以为**「查 `effective_timeout` 已排除
+   预算解释」。**那次排除是假的**：该字段是外层墙钟，两臂都 90，看不见 continuous 的研究
+   秒数只有 sdk 一半（30 vs 60，见 §5.3）。**部分核验不只会漏掉问题，还会发出假的「已排除」**
+   ——比没查更危险，因为它会关掉这条追问线。真对照是 `root_budget.initial_seconds`。
 
 **共同点：部分核验带来的踏实感会让人停止追问。**
 每次救回来的都是同一个动作：**找一个不经过可疑中间层的对照**
-（直连 vs 经网关、有 RAG env vs 没有、查 effective_timeout 排除预算）。
+（直连 vs 经网关、有 RAG env vs 没有、`root_budget.initial_seconds` vs `effective_timeout`）。
+
+**选对照时先问一句：这个字段是我要量的东西，还是它外面那层？**
+`effective_timeout` 是墙钟、`initial_seconds` 才是研究预算；前者看起来能回答预算问题，
+其实量的是外层，于是给出「对等」的假结论。第 3 条就是这么错的。
 
 ---
 
@@ -265,4 +313,11 @@ echo "REAL_EXIT=$?"
 - 题集：`/Users/a77/.finance-runtime/evals/frozen-nine-2026-07-25.questions.json`
 - 作废跑 1（缺 RAG env）：`…/continuous-vs-sdkgpt-2026-08-05.json`
 - 作废跑 2（第 4 题账号池 502）：`…/continuous-vs-sdkgpt-2026-08-05-full-env.json`
-- **两份都不可作为结论依据**，仅留作环境问题的证据。
+- 作废跑 3（`…-run3.json`，`REAL_EXIT=3`、`summary.passed=false`、9 题只完成 7 题）：
+  **环境已全部对齐**（引用 continuous 33 / sdk 40，上一轮 continuous 只有 1；
+  `source_revision=7dc94f5c`、`source_dirty=false`；跑前跑后 `max(trade_date)` 均为
+  `2026-08-04`）。死于三件事：`ruihuatai` 两臂级联（已由 `a6cdc862` 修）、第 8 题瞬时 502
+  终止整轮、以及**预算不对称**。
+  ⚠️ **它是目前唯一携带预算不对称证据的产物**（`diagnostics.root_budget.initial_seconds`
+  逐题 30/60），别删。
+- **三份都不可作为壳的结论依据**，仅留作环境与 harness 问题的证据。
