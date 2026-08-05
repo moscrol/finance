@@ -237,8 +237,15 @@ class TestDeclarationCompleteness:
 
 
 # ---------------------------------------------------------------------------
-# 与历史 fulfilled 记录的一致性
+# 与 structural_verifier 历史 fulfilled 记录的一致性
 # ---------------------------------------------------------------------------
+#
+# ⚠️ 作用域限定：这一节只约束 **structural_verifier（continuous 壳）** 路径。
+# 冻结计数取自 ``structural_verifier.completion.outputs[].status``，不是
+# ``task_fulfillment``（ask 路径）。两套门禁用不同的 output_id 词表——SV 里的
+# direct_answer / risk_signals 在 TF_hooks 里没有对应条目（见 c13cb788 的三方
+# 对比结论）。将来如果 ask 路径也有了可采集的 fulfilled 历史，需要另起一张表，
+# 不能把这里的常量扩展成「全局覆盖」。
 #
 # 这一节回答的是手写 produces 的**唯一可证伪方向**：
 #
@@ -266,7 +273,7 @@ class TestDeclarationCompleteness:
 # 冻结成字面量而不是运行时扫描，因为那些 episode 文件在 tmp/ 和
 # ~/agent-memory/.foresight/ 下，既不在仓库里也会被清理——读它们的测试会
 # flaky-by-construction。要更新这张表就重跑一次采集并连同计数一起改。
-_HISTORICAL_FULFILLED_OUTPUT_IDS = frozenset(
+_SV_FULFILLED_OUTPUT_IDS = frozenset(
     {
         "direct_answer",
         "direct_assessment",
@@ -305,7 +312,7 @@ class TestProducesMatchesHistory:
         declared = _declared_output_ids()
         undeclared = sorted(
             _normalize_output_id(output_id)
-            for output_id in _HISTORICAL_FULFILLED_OUTPUT_IDS
+            for output_id in _SV_FULFILLED_OUTPUT_IDS
             if _normalize_output_id(output_id) not in declared
         )
 
@@ -324,7 +331,7 @@ class TestProducesMatchesHistory:
         """
         declared = _declared_output_ids()
         normalized_history = {
-            _normalize_output_id(item) for item in _HISTORICAL_FULFILLED_OUTPUT_IDS
+            _normalize_output_id(item) for item in _SV_FULFILLED_OUTPUT_IDS
         }
 
         # 确实存在「声明了但历史样本里没有」的 id，且这不导致失败。

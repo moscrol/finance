@@ -33,7 +33,12 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
         "current",
         # risk_signals：实测 market_watch 回合里由 duckdb_semantic_query 绑定并判
-        # fulfilled（3 例），不是推测。见 test_declared_produces_covers_history。
+        # fulfilled（3 例），不是推测。见 TestProducesMatchesHistory。
+        #
+        # ⚠️ 可复现性：证据来自 ~/tmp 和 ~/agent-memory/.foresight 下的
+        # continuous-episode.json（gitignored、随清理消失）。观测时（2026-08-06）
+        # 全部 45 份存在且可读，但这不可在 CI 里复验。将来对账发现这条可疑时，
+        # 重跑 /tmp/check_produces_vs_history.py 的逻辑确认 episode 文件是否仍在。
         frozenset(
             {"supporting_evidence", "data_date", "market_change", "risk_signals"}
         ),
