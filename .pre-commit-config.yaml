@@ -16,6 +16,17 @@ repos:
         args: ["--config=ruff.toml"]
   - repo: local
     hooks:
+      # 事实投递，不是风格检查：本仓 8 个 worktree 各在不同分支、宿主 python3 与
+      # .venv-workbench 依赖完全不同。2026-08-05 两个 agent 在这两件事上合计出错 7 次，
+      # 且没有一次被 AGENTS.md/CLAUDE.md 拦住——提醒的到达率不可靠，门禁是 100%。
+      # always_run + verbose：无论改了什么文件都跑，且输出必须可见（否则等于没装）。
+      - id: agent-workspace-facts
+        name: "工作区事实：你在哪棵树、用哪个解释器"
+        language: system
+        entry: python3 scripts/check_agent_workspace_facts.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail
