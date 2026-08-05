@@ -13,6 +13,9 @@ Provenance:
   ARL-0014 finding 7  -> test_consume_call_rejects_zero_seconds
   ARL-0015 finding 2  -> test_root_budget_requires_explicit_episode_binding
   ARL-0015 finding 3  -> test_second_ledger_for_live_episode_is_refused
+  A/B run 2026-08-05  -> test_released_episode_can_be_registered_again
+  A/B run 2026-08-05  -> test_release_is_a_noop_when_nothing_is_registered
+  A/B run 2026-08-05  -> test_raising_arm_without_release_blocks_the_next_arm
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from intelligence.services.repair_coordinator import (
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
     ResearchPolicy,
+    release_root_budget,
     root_budget_for_policy,
 )
 
@@ -273,3 +277,76 @@ def test_consume_call_rejects_zero_seconds() -> None:
     ledger = _ledger()
     with pytest.raises(ValueError):
         ledger.consume_call(seconds=0.0)
+
+
+# --- A/B run 2026-08-05: one episode, several sequential arms ---
+
+
+def test_released_episode_can_be_registered_again() -> None:
+    """Releasing ends the registration, so the next arm can claim the episode.
+
+    A benchmark case runs one arm per backend under a single episode id, so
+    the registration has to end with the arm rather than with the case.
+    """
+
+    first = root_budget_for_policy(_deep_policy(), episode_id="ep-release")
+    assert first.episode_id == "ep-release"
+
+    release_root_budget("ep-release")
+
+    second = root_budget_for_policy(_deep_policy(), episode_id="ep-release")
+    assert second is not first, "the next arm must get its own ledger"
+    release_root_budget("ep-release")
+
+
+def test_release_is_a_noop_when_nothing_is_registered() -> None:
+    """Release is called from ``finally``, so it must tolerate every path.
+
+    The arm may fail before it ever built a context, and the same episode may
+    be released twice. Neither may raise, or the cleanup would mask the real
+    error that sent control into ``finally``.
+    """
+
+    release_root_budget("ep-never-registered")
+    release_root_budget("")
+
+    ledger = root_budget_for_policy(_deep_policy(), episode_id="ep-twice")
+    assert ledger.episode_id == "ep-twice"
+    release_root_budget("ep-twice")
+    release_root_budget("ep-twice")
+
+
+def test_raising_arm_without_release_blocks_the_next_arm() -> None:
+    """Control test for the defect ``release_root_budget`` exists to prevent.
+
+    The registry is a ``WeakValueDictionary``, so an arm that returns normally
+    drops out once its ledger is collected -- which is why this defect stayed
+    invisible. An arm that ends by *raising* is different: the exception
+    traceback keeps the owning frame alive, the frame holds the context, and
+    the context holds the ledger. The next backend for the same case then dies
+    instantly on ``root budget already exists``, which reads like a defect in
+    that backend and silently costs the case its comparability.
+
+    The local assignment below is load-bearing: it mirrors ``context =
+    _fresh_context(...)`` in the benchmark. A discarded return value would not
+    be reachable from the frame and the defect would not reproduce.
+    """
+
+    episode = "ep-raising-arm"
+
+    def _arm_that_raises() -> None:
+        context = root_budget_for_policy(_deep_policy(), episode_id=episode)
+        assert context is not None
+        raise RuntimeError("production adapter did not reach semantic verification")
+
+    try:
+        _arm_that_raises()
+    except RuntimeError as exc:
+        assert exc.__traceback__ is not None
+        with pytest.raises(ValueError):
+            root_budget_for_policy(_deep_policy(), episode_id=episode)
+        release_root_budget(episode)
+        recovered = root_budget_for_policy(_deep_policy(), episode_id=episode)
+        assert recovered.episode_id == episode
+
+    release_root_budget(episode)

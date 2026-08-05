@@ -53,6 +53,7 @@ from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
     ResearchDeadline,
     ResearchPolicy,
+    release_root_budget,
 )
 from intelligence.services.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
@@ -1357,6 +1358,16 @@ def _run_research_arm(
             started=started,
             issue=f"{type(exc).__name__}:{str(exc)[:160]}",
         )
+    finally:
+        # Every arm of one case shares this episode id, because task_id carries
+        # no backend dimension.  The registration therefore has to be dropped
+        # between arms: if the first arm ends by raising, its traceback keeps
+        # the ledger reachable, and the next backend dies instantly on
+        # "root budget already exists" -- a harness artifact that reads like a
+        # shell defect and silently costs the case its comparability.
+        # Computed from case_id rather than from `context`, so it also runs
+        # when the failure happened before the context existed.
+        release_root_budget(f"runtime-benchmark:{execution_case.case_id}")
 
 
 def _run_non_research_arms(

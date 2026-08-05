@@ -623,6 +623,25 @@ def root_budget_for_policy(
         return ledger
 
 
+def release_root_budget(episode_id: str) -> None:
+    """Drop the live registration for one episode once that episode is over.
+
+    The registry exists to catch *two concurrent* root budgets for the same
+    episode, so the entry must not outlive the episode. Garbage collection
+    alone is not enough to guarantee that: when an episode ends by raising,
+    the exception traceback keeps the owning frame — and therefore the
+    ledger — reachable, so the next caller for the same episode id fails
+    against a registration that is already dead in every sense but memory.
+    Callers own the release; this is a no-op if nothing is registered.
+    """
+
+    episode = str(episode_id or "").strip()
+    if not episode:
+        return
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        _LIVE_ROOT_BUDGETS.pop(episode, None)
+
+
 @dataclass(frozen=True)
 class RequiredOutput:
     output_id: str
