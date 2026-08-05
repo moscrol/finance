@@ -20,31 +20,85 @@ from intelligence.services.research_contract import (
 )
 
 
-_DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
+# 第四个字段 ``produces`` 声明该工具能贡献哪些 output_id（词表来自 task_frame.py
+# 题型映射 + query_understanding.py operator 映射）。**保守声明，宁缺勿滥**——只
+# 填能从 runner 代码路径确认的；拿不准就留空 frozenset()。
+#
+# ``produces`` 不改变路由，不改变工具可用性。它只服务于事前可满足性预检：
+# 「这套授权工具在理论上能不能产出某个 required_output」。预检 fail-open——
+# 声明不全只会漏抓，不会误拦（详见 ``check_satisfiability``）。
+_DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     "finance_query": (
         "finance_query",
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
         "current",
+        frozenset({"supporting_evidence", "data_date", "market_change"}),
     ),
     "evidence_search": (
         "evidence_search",
         "对本地知识证据执行窄口径、宽口径和反方闭环检索",
         "current",
+        frozenset({"supporting_evidence", "counterpoint"}),
     ),
-    "kb_search": ("kb_search", "本地知识库检索", "stable"),
-    "web_search": ("web_search", "全网网页检索", "current"),
-    "news_search": ("news_search", "财经新闻检索", "current"),
-    "graph_lookup": ("graph_lookup", "知识图谱实体与关系", "stable"),
-    "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
-    "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
-    "market_data": ("market_data", "结构化行情与市场时序", "current"),
-    "financial_data": ("financial_data", "结构化逐季财务指标", "current"),
-    "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
+    "kb_search": (
+        "kb_search",
+        "本地知识库检索",
+        "stable",
+        frozenset({"supporting_evidence", "direct_definition", "direct_explanation", "direct_answer"}),
+    ),
+    "web_search": (
+        "web_search",
+        "全网网页检索",
+        "current",
+        frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
+    ),
+    "news_search": (
+        "news_search",
+        "财经新闻检索",
+        "current",
+        frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
+    ),
+    "graph_lookup": (
+        "graph_lookup",
+        "知识图谱实体与关系",
+        "stable",
+        frozenset({"chain_mapping", "company_mapping", "relation_map"}),
+    ),
+    "evidence_lookup": (
+        "evidence_lookup",
+        "本地证据索引",
+        "stable",
+        frozenset({"supporting_evidence"}),
+    ),
+    "l3_lookup": (
+        "l3_lookup",
+        "官方公告与互动证据",
+        "current",
+        frozenset({"supporting_evidence", "fact_value"}),
+    ),
+    "market_data": (
+        "market_data",
+        "结构化行情与市场时序",
+        "current",
+        frozenset({"current_baseline", "market_summary", "supporting_evidence", "data_date"}),
+    ),
+    "financial_data": (
+        "financial_data",
+        "结构化逐季财务指标",
+        "current",
+        frozenset({"financial_assessment", "metric_evidence", "supporting_evidence"}),
+    ),
+    "mainline_context": (
+        "mainline_context",
+        "同日主线与板块结构",
+        "current",
+        frozenset({"mainline_structure", "supporting_evidence"}),
+    ),
 }
 DEFAULT_RESEARCH_CAPABILITIES = tuple(
     dict.fromkeys(
         capability
-        for capability, _description, _freshness in _DEFAULT_TOOL_METADATA.values()
+        for capability, _description, _freshness, _produces in _DEFAULT_TOOL_METADATA.values()
     )
 )
 
@@ -238,6 +292,11 @@ class ToolSpec:
     )
     parse_arguments: ToolArgumentParser = parse_query_arguments
     cutoff_resolver: ToolCutoffResolver | None = None
+    # 该工具能贡献哪些 output_id。声明式契约，服务于事前可满足性预检——
+    # ``check_satisfiability`` 用它在工具真正运行前判断「这套工具理论上能否
+    # 产出某 required_output」。空 frozenset 合法（保守声明：拿不准就留空，
+    # 预检会 fail-open 放行，不会误拦）。
+    produces: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -246,6 +305,8 @@ class ToolSpec:
         if not isinstance(frozen_parameters, Mapping):
             raise TypeError("tool parameters must be an object schema")
         object.__setattr__(self, "parameters", frozen_parameters)
+        if not isinstance(self.produces, frozenset):
+            object.__setattr__(self, "produces", frozenset(self.produces))
 
 
 class ResearchToolRegistry:
@@ -553,8 +614,98 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name in {"market_data", "financial_data", "mainline_context"}
                 else parse_query_arguments
             ),
+            produces=produces,
         )
-        for name, (capability, description, freshness) in _DEFAULT_TOOL_METADATA.items()
+        for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools
     )
     return ResearchToolRegistry(specs)
+
+
+# ---------------------------------------------------------------------------
+# 事前可满足性预检（fail-open）
+# ---------------------------------------------------------------------------
+
+SatisfiabilityStatus = Literal["covered", "unknown", "suspicious"]
+
+
+@dataclass(frozen=True)
+class SatisfiabilityCheck:
+    """单个 required_output 的事前可满足性判定结果。"""
+
+    output_id: str
+    status: SatisfiabilityStatus
+    contributing_tools: tuple[str, ...] = ()
+    reason: str = ""
+
+
+def check_satisfiability(
+    required_output_ids: tuple[str, ...] | list[str] | frozenset[str],
+    authorized_specs: tuple[ToolSpec, ...] | list[ToolSpec],
+) -> tuple[SatisfiabilityCheck, ...]:
+    """事前预检：这套授权工具的 produces 并集能否覆盖每项 required_output。
+
+    fail-open 判据：
+
+    - ``covered``：至少一个工具声明了该 output_id → 放行
+    - ``unknown``：没有工具声明过它 → 放行（未知≠不可能；声明不全只会漏抓）
+    - ``suspicious``：所有相关工具（有非空 produces 的工具）都声明了、
+      且都不含它 → 送裁定，不自动拦
+
+    关键不变量：**声明不全只会漏抓，不会误拦**。一个不完整的 produces 表
+    如果能造成误拦，它就成了新的静默失败源，比不做更糟。
+    """
+
+    specs = tuple(authorized_specs)
+    # 只看声明了非空 produces 的工具——空 produces 的工具（保守留空）不参与
+    # 「全部声明了但都不含」的推理，因为它们没表态。
+    declared_specs = tuple(spec for spec in specs if spec.produces)
+    all_declared: frozenset[str] = frozenset().union(
+        *(spec.produces for spec in declared_specs)
+    ) if declared_specs else frozenset()
+
+    results: list[SatisfiabilityCheck] = []
+    for output_id in required_output_ids:
+        contributing = tuple(
+            dict.fromkeys(
+                spec.name for spec in specs if output_id in spec.produces
+            )
+        )
+        if contributing:
+            results.append(
+                SatisfiabilityCheck(
+                    output_id=output_id,
+                    status="covered",
+                    contributing_tools=contributing,
+                    reason=f"声明可产出该 output 的工具：{', '.join(contributing)}",
+                )
+            )
+            continue
+        # 没有任何工具声明它。区分两种情况：
+        if not declared_specs:
+            # 所有工具的 produces 都留空——完全未知，放行
+            results.append(
+                SatisfiabilityCheck(
+                    output_id=output_id,
+                    status="unknown",
+                    reason="无工具声明了 produces，无法预判",
+                )
+            )
+        else:
+            # 有工具声明了 produces，但没人声明这个 output_id。
+            # 如果它看起来像是一个已知词表里的 id（即在 all_declared 的「近邻」里），
+            # 标为 suspicious；否则仍然 unknown（可能是声明表还没覆盖的新 id）。
+            #
+            # 判据保持保守：只要所有有声明的工具都没覆盖它，就标 suspicious 送裁定。
+            # fail-open 的意思是「可疑项送裁定，不自动拦」——这里只是标记，不拦。
+            results.append(
+                SatisfiabilityCheck(
+                    output_id=output_id,
+                    status="suspicious",
+                    reason=(
+                        f"已声明的工具 produces 并集（{len(all_declared)} 项）"
+                        f"不含此 output_id；可能需要额外工具或声明补充"
+                    ),
+                )
+            )
+    return tuple(results)
