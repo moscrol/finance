@@ -24,6 +24,21 @@
 （`users/linxiaoqi5111/`），**比真台账少一个量级**。同一套代码在两处会得出完全不同的
 假阳性率，所以评测报告必须写明本次 `FORESIGHT_USERS_DIR` 指向哪里。
 
+**[实测] `users_root` 的语义是叶目录，不是父目录——传错会静默返回空召回。**
+`_ledger_paths`（`user_memory.py:140-164`）在 `users_root is not None` 时直接拼
+`root / "judgments.jsonl"` 等四个文件名，**`user` 参数被完全忽略**（根本不走
+`userspace.user_space(user)` 那条分支）。所以：
+
+```
+users_root=.../.foresight  + user='linxiaoqi5111'  → 找 .foresight/judgments.jsonl → 全 0
+users_root=.../.foresight/linxiaoqi5111            → 正确
+```
+
+台账文件缺失时 loader 不报错、返回空列表，于是错路径的读数是 **0 命中**，
+和「语义检索没效果」**长得一模一样**。本轮第一次探测就踩了这个。
+第二档量 embedding 效果前，先跑一次已知非空的对照
+（`theme="瑞华泰"` 应得 3 条 corrections）确认路径是通的，再解读任何 0 命中。
+
 **推论一：不要建索引。** 141 条的量级，全量 embedding + 暴力余弦就够，
 建/维护一个 ANN 索引是过度工程，还要处理增量更新和 per-user 隔离。
 
