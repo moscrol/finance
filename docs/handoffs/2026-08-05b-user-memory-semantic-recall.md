@@ -6,17 +6,25 @@
 
 ## 0. 先看这些实测数字，它们决定方案（别跳过）
 
-**[实测]** 用户真实台账规模（`/Users/a77/agent-memory/.foresight/linxiaoqi5111/`）：
+**[实测 2026-08-05 复核]** 用户真实台账规模（`/Users/a77/agent-memory/.foresight/linxiaoqi5111/`）：
 
 | 台账 | 条数 |
 |---|---|
 | `judgments.jsonl` | **文件不存在** |
-| `corrections.jsonl` | 50 |
+| `corrections.jsonl` | 53 |
 | `checkpoints.jsonl` | 28 |
-| `verdicts.jsonl` | 54 |
-| 合计 | **~132 条** |
+| `verdicts.jsonl` | 60 |
+| 合计 | **141 条** |
 
-**推论一：不要建索引。** 132 条的量级，全量 embedding + 暴力余弦就够，
+> 上一版写的 50/28/54（~132）是几天前的数，已按 `wc -l` 复核更正。
+
+**台账在哪不是固定的，评测前必须先钉住。** `userspace.users_dir()`
+（`userspace.py:63-71`）由环境变量 `FORESIGHT_USERS_DIR` 重定向，不设时才落在仓库内
+`intelligence/users/`。仓库内那份只有 `corrections` 8 条（`users/default/`）或 27 条
+（`users/linxiaoqi5111/`），**比真台账少一个量级**。同一套代码在两处会得出完全不同的
+假阳性率，所以评测报告必须写明本次 `FORESIGHT_USERS_DIR` 指向哪里。
+
+**推论一：不要建索引。** 141 条的量级，全量 embedding + 暴力余弦就够，
 建/维护一个 ANN 索引是过度工程，还要处理增量更新和 per-user 隔离。
 
 **推论二：`judgments` 缺失是独立问题。** `memory_block_for_query` 第一个加载的就是它
@@ -35,27 +43,59 @@
 **推论三：没有现成的"给我一段文本的向量"接口。** 你需要自己决定怎么拿向量，
 见 §2。
 
-## 1. 第一步：先接上游已有的结构化意图（便宜、必做）
+## 1. 第一步：接上游已有的结构化意图 — ✅ 已完成（未提交）
 
 **这一步和语义检索无关，但要先做**——它是零成本的基线提升，也是语义方案的对照组。
 
-**[实测]** 事实：
+改动落在 worktree `/Users/a77/finance-workspace-private/.worktrees/headless-tool-pairing`
+（分支 `fix/headless-tool-correlation-observability`）。**主检出树不是这棵**——主树在
+`fix/grounded-chain-critical-path` 且工作树不干净，在主树 grep `memory_lookup` 会一无所获。
 
-- `memory_block_for_query` / `relevant_memory_records` **本来就有 `theme` / `entity` 参数**，
-  `_query_terms` 会把它们直接当 term 追加
-- `ask.py:3733` **已经正确传了**：`memory_block_for_query(options.query, theme, anchored_name, ...)`
-- `ask.py:621` 与 `episode_tools.memory_lookup_runner` **只传了原始 query**
-- `ResearchTaskContract`（`research_contract.py:668` 起）有 `subject` / `subject_kind`，
-  而 `episode_tools` 已在用 `context.contract.*`——**抽好的实体就在手边**
+### 实际实现
 
-**要做**：
+`episode_tools.py` 新增纯函数 `_memory_recall_intent(subject, subject_kind)`，
+把 contract 已解析的 subject 按 kind 路由进 `relevant_memory_records()`：
 
-1. `memory_lookup_runner` 传 `entity=context.contract.subject`
-   （**先查清 `subject_kind` 的取值域**，决定该填 `entity` 还是 `theme`，或两者按 kind 分流）
-2. `ask.py:621` 同理——但**先查清那个阶段有没有解析好的 subject/theme**。
-   3733 那处能拿到不代表 621 能；拿不到就如实写进报告，不要硬造。
+- `company` / `concept` / `theme` → `theme=subject`
+- `market_pattern` / `index` / `external_market` / `unknown` → 不传
+- routed subject 短于 `_MIN_ROUTED_SUBJECT_CHARS = 2` → 不传
 
-**这一步做完先跑一次基线测量**（见 §3），它是语义方案的对照组。
+### 上一版这条指令是错的，别再照做
+
+上一版让「按 kind 决定填 `entity` 还是 `theme`，或两者分流」。**分流不存在。**
+`_query_terms`（`user_memory.py:33-46`）把 `theme` 和 `entity` 平铺进同一个 terms 列表；
+扫哪些标签由 `relevant_memory_records` 按记录类型写死（judgments 用
+`("themes","stocks")`、corrections 用 `("themes",)`，`user_memory.py:220,229`），
+**跟调用方传哪个参数无关**。真台账实测两者逐字节相同：
+
+```
+theme ='瑞华泰' → 0 judgments 3 corrections
+entity='瑞华泰' → 0 judgments 3 corrections
+```
+
+统一传 `theme` 的理由：生产台账把公司名记在 `themes` 里（`瑞华泰` 就是 themes 标签，3 条），
+而 corrections **根本没有 `stocks` 字段**。按 kind 分流反而会让 `company→entity` 漏掉这 3 条。
+**除非 `select_relevant` 先学会区别对待两个参数，不要重新引入分叉。**
+
+### `sector` / `industry` 是死值
+
+全树 grep 过所有 `subject_kind` 生产写入点（`turn_control_core._subject_kind_for`、
+`task_frame.py:196`）：没有 `sector`/`industry` 的生产者，已删。`concept` 保留——
+但理由是 `SubjectKind` 是 `typing.Literal`、运行期零校验，**不是**因为观察到生产调用方
+在产它（只有 `test_episode_tools.py` 的 fixture 在产，而那个 fixture 自身
+`question_type="stock_deep_dive"` 在生产里会被映射成 `company`）。
+
+### 效果（真台账对照，非 fixture 现象）
+
+```
+relevant_memory_records("那还能追吗")                 → 0 j 0 c
+relevant_memory_records("那还能追吗", theme="瑞华泰")  → 0 j 3 c
+```
+
+### `ask.py:621` 未改，如实记录
+
+`ask.py:3733` 已正确传 `theme` 与 `anchored_name`；`621` 那处只有 `options.query`，
+**该阶段没有已解析好的 subject/theme 可复用**，硬造会引入猜测，故未改。
 
 ## 2. 第二步：语义检索（用户拍定的方向）
 
@@ -102,25 +142,74 @@ query（自然中文，贴近真实提问） | 期望召回 | 不该召回
 
 | 档 | 说明 |
 |---|---|
-| 基线 | 当前实现（原始 query，无 entity） |
-| +结构化意图 | §1 做完 |
+| 基线 | 原始 query，无 routed subject（把 `_memory_recall_intent` 短路成返回 `{}` 即得） |
+| +结构化意图 | §1，**已完成**，零新依赖、零模型加载 |
 | +语义 | §2 做完 |
 
 每档报**命中数 / 假阳性数 / 延迟**。
+
+### 三个会骗人的地方（都已实测，别踩）
+
+**① fixture 的形状不代表生产，这比 `FORESIGHT_USERS_DIR` 指哪儿更容易骗人。**
+真台账**没有 `judgments.jsonl`**，53 条 corrections 的字段是
+`ts/correction/themes/original/principle`——没有 `stocks`。所以第一档评测实际只压
+corrections 那一条路，`stocks` 标签在今天的生产台账里**完全不可达**。而
+`test_episode_tools.py` 的 fixture 是 judgments 重的，照它的形状设计评测集会量错东西。
+
+**② 假阳性率会被 routed subject 的长度主导，不是被路由表主导。**
+`_norm` 做子串匹配，且标签被拼成一个串，短 subject 会横扫。真台账实测：
+
+```
+theme='AI'   → 5 corrections（打满 DEFAULT_LIMIT）
+theme='市场'  → 5 corrections
+theme='光刻胶' → 0
+```
+
+`AI` 是标准 theme 型 subject，照样路由。`_MIN_ROUTED_SUBJECT_CHARS = 2` 只挡掉单字，
+挡不住这个。**评测输出里必须记一列 routed subject（及其长度），否则数字无法归因。**
+
+**③ 长度门槛只被单测钉住，没有行为测试兜底。**
+变异测试确认：把 `_MIN_ROUTED_SUBJECT_CHARS` 从 2 改成 1，只有那条单测转红。
+单字 subject 罕见，不值得为它再造 fixture，但**如果评测跑出假阳性异常，这块没有测试兜底**。
 
 **允许的结论包括**：「接完结构化意图后残留漏召回很少，语义检索的边际收益不足以
 承担模型加载成本」——**反向结论算有效产出**，不要为了交付语义方案而夸大基线的差。
 
 ## 4. 验收
 
+**解释器只有一条路。** 全仓 `ls -d .venv*` 只有 `.venv-workbench`；`which ruff` 找不到，
+也没有 brew/pipx 版本。**测试和 lint 是同一个解释器**，不要试 `uv run ruff` 或别的入口。
+用宿主 `python3`（homebrew 3.14，无任何依赖）会报 `No module named ruff`——
+这跟「跑 pytest 必须用 `.venv-workbench/bin/python`」是同一个坑换了个马甲。
+
 ```bash
 .venv-workbench/bin/python -m pytest -q \
   intelligence/tests/test_user_memory.py \
   intelligence/tests/test_episode_tools.py \
-  intelligence/tests/test_ask.py \
   intelligence/tests/test_kb_rag.py
-.venv-workbench/bin/python -m ruff check intelligence/
+.venv-workbench/bin/ruff check intelligence/     # ruff 0.11.13
 ```
+
+> 上一版列的 `intelligence/tests/test_ask.py` **不存在**，实际是 5 个 `test_ask_*.py`。
+
+**§1 完成时的实测读数**（ruff `All checks passed!`，exit 0）：
+
+| 项 | 数 |
+|---|---|
+| `test_episode_tools.py` 改动前 | 38 passed |
+| `test_episode_tools.py` 改动后 | **43 passed** |
+| 其中 memory 子集 | 8 passed |
+| 相邻四文件（test_user_memory / test_memory_gate / test_agent_episode / test_episode_factory） | 106 passed，无回归 |
+
+**变异测试（已跑，不是只看绿灯）**：
+
+- 抽掉整个路由 hop（`_memory_recall_intent` 恒返回 `{}`）→ **4 条红**
+- `_MIN_ROUTED_SUBJECT_CHARS` 2→1 → **1 条红**
+
+> 教训留档：`test_memory_lookup_company_subject_reaches_stock_tagged_records`
+> 最初断言「够到 `stocks` 标签」，但在「company 改走 theme」的变异下**依然是绿的**——
+> 因为两参数等价，它换任何分支都过。已重定向为
+> `..._recalls_only_its_own_records`，只钉 subject 级分区，不再声称哪个 tag 字段命中。
 
 **先跑一次记基线**，改完逐项对比，新红要能逐条解释。
 
