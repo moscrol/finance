@@ -455,6 +455,61 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
     return (date_cls.today() - ev_date).days > stale_days
 
 
+# 生命周期回溯窗口：与 daily_agent 的 `lifecycle_dates` 取同一口径（最近 6 个有
+# 候选快照的交易日），避免两条路径对同一题材算出不同阶段。
+_LIFECYCLE_HISTORY_DAYS = 6
+
+
+def _theme_lifecycle_stage(
+    options: "AskOptions", candidate: dict[str, Any] | None
+) -> str | None:
+    """当前题材的逻辑生命周期阶段；拿不到就返回 None。
+
+    **旧证据不等于失效。** 在 ``logic_lifecycle`` 的七阶段里，"旧"既可以通向
+    「旧逻辑唤醒」（旧材料命中 + 盘面重新触发，是最高价值信号），也可以通向
+    「衰退观察」/「证伪退出」——区分它们的是盘面时序（连续天数、优先级变化、
+    强势股增减），不是日历天数。证据渲染此前只有 ``stale_days`` 一个天数阈值，
+    把这三种相反的情况压成同一个「⚠️过期」，等于把机会标成风险。
+
+    这里只取阶段名，判定逻辑仍归 ``logic_lifecycle`` 单点所有——daily_agent 与
+    ask 必须共用同一套判据，否则又是两个各自自洽的词表。
+
+    延迟导入：``logic_lifecycle`` 反向依赖 ``ask.load_theme_candidates``，
+    模块级导入会成环。
+    """
+    if not candidate:
+        return None
+    try:
+        from intelligence.services import logic_lifecycle
+        from intelligence.services.logic_market_match import available_candidate_dates
+
+        current_date = str(options.date or "")
+        dates = [
+            item
+            for item in available_candidate_dates(options.exports_dir)
+            if not current_date or item <= current_date
+        ][-_LIFECYCLE_HISTORY_DAYS:]
+        if not dates:
+            return None
+        history = logic_lifecycle.load_theme_history(
+            options.exports_dir, dates, current_date or dates[-1]
+        )
+        theme = str(candidate.get("query") or candidate.get("theme") or "").strip()
+        snapshot = logic_lifecycle.build_lifecycle_snapshot(
+            candidate, history.get(theme) or []
+        )
+    except Exception:
+        # 生命周期是增强信息，取不到时退回中性文案，不能让证据渲染整段失败。
+        return None
+    stage = str(snapshot.get("生命周期阶段") or "").strip()
+    if not stage:
+        return None
+    # 阶段变化是"为什么进入这个阶段"（沉睡后唤醒 / 热度衰退 / 加速定价…），
+    # 光有阶段名看不出周期是在往哪个方向走，两个一起给。
+    change = str(snapshot.get("阶段变化") or "").strip()
+    return f"{stage}·{change}" if change and change != stage else stage
+
+
 _company_exposure_tier = evidence_providers._company_exposure_tier
 
 
@@ -2664,6 +2719,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         is_stale=lambda item: _evidence_is_stale(item, options.stale_days),
         confidence_score=_confidence_score,
         stage_timeout=lambda limit: _stage_timeout(options, limit),
+        # 整轮只算一次：生命周期是题材级的，不随单条证据变化
+        lifecycle_stage=_theme_lifecycle_stage(options, candidate),
     )
 
     # --- S / G / R: 盘面快照 / 图谱分层 / 证据索引（evidence_providers 插件层）---
