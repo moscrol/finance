@@ -1,0 +1,6174 @@
+{
+  "date": "2026-07-14",
+  "generated_at": "2026-07-14T22:18:46+08:00",
+  "paths": {
+    "finance_root": "/Users/a77/finance-workspace-private",
+    "knowledge_wiki": "/Users/a77/knowledge-base-private/wiki",
+    "market_exports": "/Users/a77/finance-workspace-private/market_feature_store/exports"
+  },
+  "ledger": {
+    "date": "2026-07-14",
+    "generated_at": "2026-07-14T22:18:38",
+    "paths": {
+      "finance_root": "/Users/a77/finance-workspace-private",
+      "knowledge_wiki": "/Users/a77/knowledge-base-private/wiki",
+      "market_exports": "/Users/a77/finance-workspace-private/market_feature_store/exports"
+    },
+    "sections": {
+      "market_review": {
+        "status": "PASS",
+        "checks": [
+          {
+            "name": "daily_review_md",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-review.md",
+            "exists": true
+          },
+          {
+            "name": "advancers_ma5_png",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-advancers-ma5.png",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_json",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-candidates.json",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_md",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-candidates.md",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_queue_json",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-backfill-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_json",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-backfill-review-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_md",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-backfill-review-queue.md",
+            "exists": true
+          },
+          {
+            "name": "daily_review_html",
+            "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-07-14/2026-07-14-daily-review.html",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_html",
+            "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-07-14/2026-07-14-theme-candidates.html",
+            "exists": true
+          },
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-workflow-summary.json",
+            "exists": true
+          }
+        ],
+        "missing_count": 0,
+        "missing": []
+      },
+      "morning_briefing": {
+        "status": "WARN",
+        "root": "/Users/a77/knowledge-base-private/wiki/briefings",
+        "count": 0,
+        "files": []
+      },
+      "ima_stock": {
+        "status": "PASS",
+        "raw_root": "/Users/a77/knowledge-base-private/wiki/raw/ima-stock/ingested/2026-07-14",
+        "raw_md_count": 0,
+        "incoming_uningested_md_count": 0,
+        "done_folder_md_count": 0,
+        "manual_review_md_count": 0,
+        "folders": {
+          "inbox": "/Users/a77/knowledge-base-private/未入库",
+          "done": "/Users/a77/knowledge-base-private/已入库",
+          "manual_review": "/Users/a77/knowledge-base-private/待人工确认"
+        }
+      },
+      "relations": {
+        "status": "PASS",
+        "root": "/Users/a77/knowledge-base-private/wiki/relations",
+        "checks": [
+          {
+            "name": "evidence_index.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/evidence_index.json",
+            "exists": true
+          },
+          {
+            "name": "entity_exposures.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/entity_exposures.json",
+            "exists": true
+          },
+          {
+            "name": "concept_graph.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/concept_graph.json",
+            "exists": true
+          },
+          {
+            "name": "theme_signals.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/theme_signals.json",
+            "exists": true
+          },
+          {
+            "name": "catalyst_calendar.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/catalyst_calendar.json",
+            "exists": true
+          },
+          {
+            "name": "mention_frequency.json",
+            "path": "/Users/a77/knowledge-base-private/wiki/relations/mention_frequency.json",
+            "exists": true
+          }
+        ],
+        "missing": []
+      }
+    },
+    "debts": {
+      "status": "WARN",
+      "missing_concepts": {
+        "count": 0,
+        "path": "/Users/a77/knowledge-base-private/wiki/raw/theme-radar/missing-concept-audit.json",
+        "error": null
+      },
+      "missing_sources": {
+        "count": 0,
+        "path": "/Users/a77/knowledge-base-private/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+        "error": null
+      },
+      "ima_stock_coverage": {
+        "missing_count": 468,
+        "path": "/Users/a77/knowledge-base-private/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+        "error": null
+      }
+    },
+    "status": "WARN",
+    "next_actions": [
+      "Ingest or render the morning briefing into wiki/briefings for this date.",
+      "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+    ]
+  },
+  "logic_batch": {
+    "dates": [
+      "2026-07-14"
+    ],
+    "scanned_count": 10,
+    "summary": {
+      "classification_counts": {
+        "old_logic_wakeup": 5,
+        "noise_or_unconfirmed": 1,
+        "data_gap": 4
+      },
+      "gap_counts": {
+        "placeholder_market_theme": 1,
+        "missing_concept": 2,
+        "missing_evidence": 4
+      },
+      "gap_queue_count": 5,
+      "old_logic_wakeup_count": 5
+    },
+    "gap_queue": [
+      {
+        "date": "2026-07-14",
+        "query": "金属铜",
+        "classification": "data_gap",
+        "priority": 176.0,
+        "market_priority_score": 106.0,
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "matched_theme": "金属铜",
+        "trigger_types": [
+          "double_red",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "中钨高新",
+          "赤峰黄金"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "query": "工业金属",
+        "classification": "data_gap",
+        "priority": 165.4,
+        "market_priority_score": 95.4,
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "matched_theme": "工业金属",
+        "trigger_types": [
+          "double_red",
+          "limit_heat"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业",
+          "云铝股份"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "priority": 122.0,
+        "market_priority_score": 117.0,
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster"
+        ],
+        "strong_stocks": [],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "query": "中药",
+        "classification": "data_gap",
+        "priority": 117.92,
+        "market_priority_score": 67.92,
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "matched_theme": "中药",
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "陇神戎发",
+          "九芝堂",
+          "中恒集团",
+          "以岭药业",
+          "佐力药业"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "query": "化学制药",
+        "classification": "data_gap",
+        "priority": 117.77,
+        "market_priority_score": 67.77,
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "matched_theme": "化学制药",
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "科伦药业",
+          "美诺华",
+          "迪哲医药",
+          "哈药股份",
+          "贝达药业"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      }
+    ],
+    "results": [
+      {
+        "query": "通信设备",
+        "date": "2026-07-14",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "通信设备",
+        "market_theme": "通信设备",
+        "priority_score": 118.0,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "新易盛",
+            "stock_ts_code": "300502.SZ",
+            "pct_chg": 10.99,
+            "amount": 354.3,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中际旭创",
+            "stock_ts_code": "300308.SZ",
+            "pct_chg": 6.86,
+            "amount": 462.5,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "光迅科技",
+            "stock_ts_code": "002281.SZ",
+            "pct_chg": 7.85,
+            "amount": 113.32,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "亨通光电",
+            "stock_ts_code": "600487.SH",
+            "pct_chg": 6.24,
+            "amount": 159.12,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "永鼎股份",
+            "stock_ts_code": "600105.SH",
+            "pct_chg": 8.14,
+            "amount": 59.14,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "天孚通信",
+            "stock_ts_code": "300394.SZ",
+            "pct_chg": 5.48,
+            "amount": 127.6,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "联特科技",
+            "stock_ts_code": "301205.SZ",
+            "pct_chg": 12.85,
+            "amount": 20.49,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "剑桥科技",
+            "stock_ts_code": "603083.SH",
+            "pct_chg": 8.05,
+            "amount": 51.34,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "通信设备",
+            "score": 10
+          },
+          {
+            "concept": "5G",
+            "score": 2
+          },
+          {
+            "concept": "5G-A",
+            "score": 2
+          },
+          {
+            "concept": "5G_6G通信",
+            "score": 2
+          },
+          {
+            "concept": "5G基站",
+            "score": 2
+          },
+          {
+            "concept": "5G通信",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "东山精密",
+            "ticker": "002384",
+            "concept": "通信设备",
+            "role": "通信设备组件和光模块供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佳讯飞鸿",
+            "ticker": "300213",
+            "concept": "通信设备",
+            "role": "AI+铁路大模型、民航空管国产化、低空经济空管设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "信科移动",
+            "ticker": "688387",
+            "concept": "通信设备",
+            "role": "移动通信技术相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "天邑股份",
+            "ticker": "300504",
+            "concept": "通信设备",
+            "role": "宽带网络终端设备、通信网络物理连接与保护设备、移动通信网络优化系统设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "宁通信B",
+            "ticker": "200468",
+            "concept": "通信设备",
+            "role": "信息通信产品及解决方案提供商",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "意华股份",
+            "ticker": "002897",
+            "concept": "通信设备",
+            "role": "连接器相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "烽火通信",
+            "ticker": "600498",
+            "concept": "通信设备",
+            "role": "光纤通信相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "盛洋科技",
+            "ticker": "603703",
+            "concept": "通信设备",
+            "role": "显示器件营收2.93亿元/毛利率30.13%/同比-11.34%",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[MLCC产业新变化与新格局研究分析报告]]",
+            "source_date": "",
+            "target": "通信设备",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[MLCC产业新变化与新格局研究分析报告]]",
+            "source_name": "MLCC产业新变化与新格局研究分析报告",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/MLCC产业新变化与新格局研究分析报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "连板未映射",
+        "date": "2026-07-14",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "market_found": true,
+        "matched_theme": "连板未映射",
+        "market_theme": "连板未映射",
+        "priority_score": 117.0,
+        "trigger_types": [
+          "limit_advance_cluster"
+        ],
+        "strong_stocks": [],
+        "concept_matches": [],
+        "entity_exposures": [],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "金属铜",
+        "date": "2026-07-14",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "market_found": true,
+        "matched_theme": "金属铜",
+        "market_theme": "金属铜",
+        "priority_score": 106.0,
+        "trigger_types": [
+          "double_red",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "紫金矿业",
+            "stock_ts_code": "601899.SH",
+            "pct_chg": 6.21,
+            "amount": 107.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 8.01,
+            "amount": 54.97,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "江西铜业",
+            "stock_ts_code": "600362.SH",
+            "pct_chg": 9.62,
+            "amount": 35.46,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中钨高新",
+            "stock_ts_code": "000657.SZ",
+            "pct_chg": 7.83,
+            "amount": 53.33,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "赤峰黄金",
+            "stock_ts_code": "600988.SH",
+            "pct_chg": 8.1,
+            "amount": 28.49,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "西部矿业",
+            "stock_ts_code": "601168.SH",
+            "pct_chg": 8.08,
+            "amount": 26.16,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中稀有色",
+            "stock_ts_code": "600259.SH",
+            "pct_chg": 9.05,
+            "amount": 13.63,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "锡业股份",
+            "stock_ts_code": "000960.SZ",
+            "pct_chg": 6.58,
+            "amount": 21.33,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [],
+        "entity_exposures": [
+          {
+            "company": "江南新材",
+            "ticker": "603124",
+            "concept": "有色金属",
+            "role": "铜基新材料相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "铜陵有色金属",
+            "ticker": "000630",
+            "concept": "AIDC发电设备",
+            "role": "铜矿开采、冶炼及铜加工业务",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "concept not found",
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "黄金",
+        "date": "2026-07-14",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "黄金",
+        "market_theme": "黄金",
+        "priority_score": 106.0,
+        "trigger_types": [
+          "double_red",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "紫金矿业",
+            "stock_ts_code": "601899.SH",
+            "pct_chg": 6.21,
+            "amount": 107.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 8.01,
+            "amount": 54.97,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "江西铜业",
+            "stock_ts_code": "600362.SH",
+            "pct_chg": 9.62,
+            "amount": 35.46,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "驰宏锌锗",
+            "stock_ts_code": "600497.SH",
+            "pct_chg": 10.0,
+            "amount": 22.73,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "赤峰黄金",
+            "stock_ts_code": "600988.SH",
+            "pct_chg": 8.1,
+            "amount": 28.49,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "西部矿业",
+            "stock_ts_code": "601168.SH",
+            "pct_chg": 8.08,
+            "amount": 26.16,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "宝鼎科技",
+            "stock_ts_code": "002552.SZ",
+            "pct_chg": 7.16,
+            "amount": 16.37,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "和邦生物",
+            "stock_ts_code": "603077.SH",
+            "pct_chg": 10.1,
+            "amount": 6.95,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "黄金",
+            "score": 10
+          },
+          {
+            "concept": "黄金珠宝",
+            "score": 5
+          },
+          {
+            "concept": "EML激光器",
+            "score": 2
+          },
+          {
+            "concept": "周期资源",
+            "score": 2
+          },
+          {
+            "concept": "小金属",
+            "score": 2
+          },
+          {
+            "concept": "白银",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "中金黄金",
+            "ticker": "600489",
+            "concept": "黄金",
+            "role": "黄金相关产品/材料供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华钰矿业",
+            "ticker": "601020",
+            "concept": "黄金",
+            "role": "黄金业务（泥堡金矿",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "宝鼎科技",
+            "ticker": "002552",
+            "concept": "黄金",
+            "role": "AI铜箔（HVLP、HTE铜箔）、金矿业务",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "山东黄金",
+            "ticker": "600947",
+            "concept": "黄金",
+            "role": "国内纯金矿龙头",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "山金国际",
+            "ticker": "000975",
+            "concept": "黄金",
+            "role": "贵金属相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "洛阳钼业",
+            "ticker": "603993",
+            "concept": "黄金",
+            "role": "黄金等矿山采掘及加工",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "深中华A",
+            "ticker": "000017",
+            "concept": "黄金",
+            "role": "黄金相关产品/材料供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "湖南黄金",
+            "ticker": "002155",
+            "concept": "黄金",
+            "role": "黄金相关产品/材料供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[0512脱水研报]]",
+            "source_date": "",
+            "target": "黄金",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "黄金 Deep Dive 将美元信用弱化、央行持续购金、地缘冲突常态化、黄金ETF资金流入和矿企估值低位作为核心主线；当前金价高位回调后进入中期调整，矿产金产量、克金成本、央行购金、ETF持仓和PE统一口径是后续验证重点。",
+            "source": "[[黄金_DeepDive_数据抽取_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "黄金",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[0512脱水研报]]",
+            "source_name": "0512脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/0512脱水研报.md"
+          },
+          {
+            "source": "[[黄金_DeepDive_数据抽取_20260602]]",
+            "source_name": "黄金_DeepDive_数据抽取_20260602",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/黄金_DeepDive_数据抽取_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "工业金属",
+        "date": "2026-07-14",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "market_found": true,
+        "matched_theme": "工业金属",
+        "market_theme": "工业金属",
+        "priority_score": 95.4,
+        "trigger_types": [
+          "double_red",
+          "limit_heat"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "紫金矿业",
+            "stock_ts_code": "601899.SH",
+            "pct_chg": 6.21,
+            "amount": 107.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中国铝业",
+            "stock_ts_code": "601600.SH",
+            "pct_chg": 9.25,
+            "amount": 47.74,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 8.01,
+            "amount": 54.97,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "江西铜业",
+            "stock_ts_code": "600362.SH",
+            "pct_chg": 9.62,
+            "amount": 35.46,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "云铝股份",
+            "stock_ts_code": "000807.SZ",
+            "pct_chg": 8.33,
+            "amount": 47.2,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "天山铝业",
+            "stock_ts_code": "002532.SZ",
+            "pct_chg": 9.96,
+            "amount": 26.54,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "驰宏锌锗",
+            "stock_ts_code": "600497.SH",
+            "pct_chg": 10.0,
+            "amount": 22.73,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "宏桥控股",
+            "stock_ts_code": "002379.SZ",
+            "pct_chg": 10.0,
+            "amount": 18.28,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [],
+        "entity_exposures": [
+          {
+            "company": "中金岭南",
+            "ticker": "000060",
+            "concept": "有色金属",
+            "role": "有色金属矿产品及冶炼深加工商",
+            "strength": "core",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "云铝股份",
+            "ticker": "000807",
+            "concept": "AI算力",
+            "role": "电解铝冶炼、铝加工、氧化铝",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "华钰矿业",
+            "ticker": "601020",
+            "concept": "AI算力",
+            "role": "锑业务（全球龙头）、黄金业务（泥堡金矿、塔铝金业）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "南山铝业",
+            "ticker": "600219",
+            "concept": "汽车板",
+            "role": "高端铝加工（汽车板",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "株冶集团",
+            "ticker": "600961",
+            "concept": "800G_1.6T光模块",
+            "role": "铟（高纯铟、磷化铟衬底原料）、贵金属（金",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "海亮股份",
+            "ticker": "002203",
+            "concept": "AI PCB",
+            "role": "AI热管理",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "铜陵有色金属",
+            "ticker": "000630",
+            "concept": "HVLP铜箔",
+            "role": "铜矿开采、冶炼及铜加工业务",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "鼎胜新材",
+            "ticker": "603876",
+            "concept": "储能系统",
+            "role": "电池铝箔业务（核心）、空调箔业务、包装铝箔业务",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "concept not found",
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "小金属",
+        "date": "2026-07-14",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "小金属",
+        "market_theme": "小金属",
+        "priority_score": 90.0,
+        "trigger_types": [
+          "double_red"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 10.0,
+            "amount": 73.31,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "紫金矿业",
+            "stock_ts_code": "601899.SH",
+            "pct_chg": 6.21,
+            "amount": 107.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中国铝业",
+            "stock_ts_code": "601600.SH",
+            "pct_chg": 9.25,
+            "amount": 47.74,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 8.01,
+            "amount": 54.97,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "江西铜业",
+            "stock_ts_code": "600362.SH",
+            "pct_chg": 9.62,
+            "amount": 35.46,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中钨高新",
+            "stock_ts_code": "000657.SZ",
+            "pct_chg": 7.83,
+            "amount": 53.33,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "驰宏锌锗",
+            "stock_ts_code": "600497.SH",
+            "pct_chg": 10.0,
+            "amount": 22.73,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "西部矿业",
+            "stock_ts_code": "601168.SH",
+            "pct_chg": 8.08,
+            "amount": 26.16,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "小金属",
+            "score": 10
+          },
+          {
+            "concept": "钨钼小金属",
+            "score": 5
+          },
+          {
+            "concept": "二氧化锆",
+            "score": 2
+          },
+          {
+            "concept": "半导体设备材料",
+            "score": 2
+          },
+          {
+            "concept": "周期资源",
+            "score": 2
+          },
+          {
+            "concept": "战略金属",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "东方钽业",
+            "ticker": "000962",
+            "concept": "小金属",
+            "role": "钽铌材料/钽电容材料",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东方锆业",
+            "ticker": "002167",
+            "concept": "小金属",
+            "role": "锆系列制品的研究相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国稀土",
+            "ticker": "000831",
+            "concept": "小金属",
+            "role": "中重稀土整合平台",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中金岭南",
+            "ticker": "000060",
+            "concept": "小金属",
+            "role": "电镓金属提取和销售企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中钨高新",
+            "ticker": "000657",
+            "concept": "小金属",
+            "role": "钨产业链/硬质合金刀具",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "凤形股份",
+            "ticker": "002760",
+            "concept": "小金属",
+            "role": "铟/锌/银回收深加工线索",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "北方稀土",
+            "ticker": "600111",
+            "concept": "小金属",
+            "role": "稀土/战略资源交叉",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华钰矿业",
+            "ticker": "601020",
+            "concept": "小金属",
+            "role": "锑资源",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "小金属",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。",
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_date": "2026-06-01",
+            "target": "小金属",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_name": "小金属_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/小金属_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "创新药",
+        "date": "2026-07-14",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "创新药",
+        "market_theme": "创新药",
+        "priority_score": 76.28,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "药明康德",
+            "stock_ts_code": "603259.SH",
+            "pct_chg": 6.05,
+            "amount": 93.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "康龙化成",
+            "stock_ts_code": "300759.SZ",
+            "pct_chg": 8.36,
+            "amount": 44.03,
+            "high_status_label": "120日新高"
+          },
+          {
+            "stock_name": "陇神戎发",
+            "stock_ts_code": "300534.SZ",
+            "pct_chg": 16.33,
+            "amount": 8.89,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "科伦药业",
+            "stock_ts_code": "002422.SZ",
+            "pct_chg": 8.26,
+            "amount": 29.51,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "凯莱英",
+            "stock_ts_code": "002821.SZ",
+            "pct_chg": 7.63,
+            "amount": 30.66,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "迪哲医药",
+            "stock_ts_code": "688192.SH",
+            "pct_chg": 20.0,
+            "amount": 4.37,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "哈药股份",
+            "stock_ts_code": "600664.SH",
+            "pct_chg": 9.97,
+            "amount": 17.42,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "昭衍新药",
+            "stock_ts_code": "603127.SH",
+            "pct_chg": 7.0,
+            "amount": 29.98,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "创新药",
+            "score": 10
+          },
+          {
+            "concept": "创新药RWA",
+            "score": 5
+          },
+          {
+            "concept": "AI辅助生殖",
+            "score": 2
+          },
+          {
+            "concept": "CDMO",
+            "score": 2
+          },
+          {
+            "concept": "ICL",
+            "score": 2
+          },
+          {
+            "concept": "RWA代币化",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "一品红",
+            "ticker": "300723",
+            "concept": "创新药",
+            "role": "AR882（URAT1抑制剂）中国区权益方，Ⅲ期临床推进",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "一心堂",
+            "ticker": "002727",
+            "concept": "创新药",
+            "role": "院外零售渠道潜在相关",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三生制药",
+            "ticker": "01530.HK",
+            "concept": "创新药",
+            "role": "双抗BD出海标杆",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海医药",
+            "ticker": "601607",
+            "concept": "创新药",
+            "role": "医药流通渠道潜在相关",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东富龙",
+            "ticker": "300171",
+            "concept": "创新药",
+            "role": "创新药生产装备潜在供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "丽珠集团",
+            "ticker": "000513",
+            "concept": "创新药",
+            "role": "",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "乐普医疗",
+            "ticker": "300003",
+            "concept": "创新药",
+            "role": "创新药（GLP-1",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "九洲药业",
+            "ticker": "603456",
+            "concept": "创新药",
+            "role": "创新药定制研发生产/CDMO服务商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_date": "",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。",
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_date": "2026-06-01",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集",
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_date": "2026-06-14",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "国金/兴证/国泰海通医药：全球景气共振，关注创新药板块底部反转。",
+            "evidence_layer": "L1",
+            "fact_hardness": "research_claim",
+            "source": "[[晚卖研汇20260629]]",
+            "source_date": "2026-06-29",
+            "source_quality": "unknown",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "截至2026/6/25日港股创新药PS已从2025年10月初峰值的8.5×回调至当前的4.9×左右；RASolute 302 III期试验宣布成功",
+            "evidence_layer": "L1",
+            "fact_hardness": "research_claim",
+            "source": "[[晚间卖方研报20260706]]",
+            "source_date": "2026-07-06",
+            "source_quality": "unknown",
+            "target": "创新药",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_name": "20260518 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/20260518 市场逻辑精选.md"
+          },
+          {
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_name": "创新药_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/创新药_DeepDive_数据抽取_20260601.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_name": "晚间卖方研报汇总_20260614",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚间卖方研报汇总_20260614.md"
+          },
+          {
+            "source": "[[晚卖研汇20260629]]",
+            "source_name": "晚卖研汇20260629",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚卖研汇20260629.md"
+          },
+          {
+            "source": "[[晚间卖方研报20260706]]",
+            "source_name": "晚间卖方研报20260706",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚间卖方研报20260706.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "数据中心",
+        "date": "2026-07-14",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "数据中心",
+        "market_theme": "数据中心",
+        "priority_score": 69.72,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "新易盛",
+            "stock_ts_code": "300502.SZ",
+            "pct_chg": 10.99,
+            "amount": 354.3,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 10.0,
+            "amount": 238.56,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中际旭创",
+            "stock_ts_code": "300308.SZ",
+            "pct_chg": 6.86,
+            "amount": 462.5,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "源杰科技",
+            "stock_ts_code": "688498.SH",
+            "pct_chg": 13.12,
+            "amount": 101.47,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "长光华芯",
+            "stock_ts_code": "688048.SH",
+            "pct_chg": 13.7,
+            "amount": 69.88,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "沪电股份",
+            "stock_ts_code": "002463.SZ",
+            "pct_chg": 10.0,
+            "amount": 125.54,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "澜起科技",
+            "stock_ts_code": "688008.SH",
+            "pct_chg": 6.81,
+            "amount": 165.39,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 10.0,
+            "amount": 73.31,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "数据中心",
+            "score": 10
+          },
+          {
+            "concept": "AI数据中心",
+            "score": 5
+          },
+          {
+            "concept": "AI数据中心储能",
+            "score": 5
+          },
+          {
+            "concept": "IDC数据中心",
+            "score": 5
+          },
+          {
+            "concept": "云计算数据中心",
+            "score": 5
+          },
+          {
+            "concept": "数据中心交换机",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "东山精密",
+            "ticker": "002384",
+            "concept": "数据中心",
+            "role": "数据中心光模块产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东阳光",
+            "ticker": "600673",
+            "concept": "数据中心",
+            "role": "OpenClaw算力链与国产算力/华为系/字节系受益名单",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中天科技",
+            "ticker": "600522",
+            "concept": "数据中心",
+            "role": "数据中心光纤光缆和空芯光纤受益名单公司",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中恒电气",
+            "ticker": "002364",
+            "concept": "数据中心",
+            "role": "产业链供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中电鑫龙",
+            "ticker": "002298",
+            "concept": "数据中心",
+            "role": "智能配电和智慧用能潜在硬件配套供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中科曙光",
+            "ticker": "603019",
+            "concept": "数据中心",
+            "role": "产业链供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中航光电",
+            "ticker": "002179",
+            "concept": "数据中心",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中际旭创",
+            "ticker": "300308",
+            "concept": "数据中心",
+            "role": "4.4 光模块领域核心上市公司",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[0402强势股脱水]]",
+            "source_date": "",
+            "target": "数据中心",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[0402强势股脱水]]",
+            "source_name": "0402强势股脱水",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/0402强势股脱水.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "中药",
+        "date": "2026-07-14",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "market_found": true,
+        "matched_theme": "中药",
+        "market_theme": "中药",
+        "priority_score": 67.92,
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "陇神戎发",
+            "stock_ts_code": "300534.SZ",
+            "pct_chg": 16.33,
+            "amount": 8.89,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "九芝堂",
+            "stock_ts_code": "000989.SZ",
+            "pct_chg": 5.46,
+            "amount": 10.49,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "中恒集团",
+            "stock_ts_code": "600252.SH",
+            "pct_chg": 7.88,
+            "amount": 3.44,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "以岭药业",
+            "stock_ts_code": "002603.SZ",
+            "pct_chg": 4.13,
+            "amount": 11.55,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "佐力药业",
+            "stock_ts_code": "300181.SZ",
+            "pct_chg": 5.24,
+            "amount": 6.27,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "太龙药业",
+            "stock_ts_code": "600222.SH",
+            "pct_chg": 8.61,
+            "amount": 1.92,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "上海凯宝",
+            "stock_ts_code": "300039.SZ",
+            "pct_chg": 3.46,
+            "amount": 5.1,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "康惠股份",
+            "stock_ts_code": "603139.SH",
+            "pct_chg": 4.81,
+            "amount": 1.76,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "中药",
+            "score": 10
+          },
+          {
+            "concept": "中药材",
+            "score": 5
+          },
+          {
+            "concept": "中成药",
+            "score": 2
+          },
+          {
+            "concept": "兽药",
+            "score": 2
+          },
+          {
+            "concept": "医药",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "万邦德",
+            "ticker": "002082",
+            "concept": "中药",
+            "role": "医药相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三力制药",
+            "ticker": "603439",
+            "concept": "中药",
+            "role": "药品相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "太极集团",
+            "ticker": "600129",
+            "concept": "中药",
+            "role": "西成药相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "康芝药业",
+            "ticker": "300086",
+            "concept": "中药",
+            "role": "儿童药研发生产销售、中成药、母婴健康用品",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "特一药业",
+            "ticker": "002728",
+            "concept": "中药",
+            "role": "中成药品相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海医药",
+            "ticker": "601607",
+            "concept": "IT分销",
+            "role": "医药制造、医药分销、医药零售",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "华润江中",
+            "ticker": "600750",
+            "concept": "健康消费",
+            "role": "OTC药品、健康消费品、处方药",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "回盛生物",
+            "ticker": "300871",
+            "concept": "兽药",
+            "role": "国内领先、掌握核心复配纯化工艺的猪用抗菌兽药及中药制剂保供大厂",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "化学制药",
+        "date": "2026-07-14",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "market_found": true,
+        "matched_theme": "化学制药",
+        "market_theme": "化学制药",
+        "priority_score": 67.77,
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "科伦药业",
+            "stock_ts_code": "002422.SZ",
+            "pct_chg": 8.26,
+            "amount": 29.51,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "美诺华",
+            "stock_ts_code": "603538.SH",
+            "pct_chg": 7.42,
+            "amount": 35.15,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "迪哲医药",
+            "stock_ts_code": "688192.SH",
+            "pct_chg": 20.0,
+            "amount": 4.37,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "哈药股份",
+            "stock_ts_code": "600664.SH",
+            "pct_chg": 9.97,
+            "amount": 17.42,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "贝达药业",
+            "stock_ts_code": "300558.SZ",
+            "pct_chg": 8.22,
+            "amount": 16.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "津药药业",
+            "stock_ts_code": "600488.SH",
+            "pct_chg": 7.48,
+            "amount": 11.4,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "灵康药业",
+            "stock_ts_code": "603669.SH",
+            "pct_chg": 8.82,
+            "amount": 7.28,
+            "high_status_label": "1年新高"
+          },
+          {
+            "stock_name": "辰欣药业",
+            "stock_ts_code": "603367.SH",
+            "pct_chg": 9.98,
+            "amount": 3.58,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "化学制药",
+            "score": 10
+          },
+          {
+            "concept": "原料药",
+            "score": 2
+          },
+          {
+            "concept": "多肽药物",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "北大医药",
+            "ticker": "000788",
+            "concept": "化学制药",
+            "role": "化学药品制剂相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "奥赛康",
+            "ticker": "002755",
+            "concept": "化学制药",
+            "role": "一家创新相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "昂利康",
+            "ticker": "002940",
+            "concept": "化学制药",
+            "role": "化学制剂相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "丽珠集团",
+            "ticker": "000513",
+            "concept": "制药",
+            "role": "",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "九洲药业",
+            "ticker": "603456",
+            "concept": "制药",
+            "role": "小分子CDMO、TIDES（多肽、小核酸",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "亚虹医药",
+            "ticker": "688176",
+            "concept": "仿制药",
+            "role": "抗肿瘤仿制药（欧优比",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "共同药业",
+            "ticker": "300966",
+            "concept": "制药",
+            "role": "甾体药物起始物料、中间体、原料药全产业链",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "圣诺生物",
+            "ticker": "688117",
+            "concept": "制药",
+            "role": "多肽原料药、CDMO、制剂",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "evidence not found"
+        ]
+      }
+    ],
+    "warnings": []
+  },
+  "decision": {
+    "old_logic_wakeup": [
+      {
+        "date": "2026-07-14",
+        "query": "通信设备",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 118.0,
+        "matched_theme": "通信设备",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "新易盛",
+          "中际旭创",
+          "光迅科技",
+          "亨通光电",
+          "永鼎股份"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[MLCC产业新变化与新格局研究分析报告]]",
+            "source_name": "MLCC产业新变化与新格局研究分析报告",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/MLCC产业新变化与新格局研究分析报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "通信设备",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[MLCC产业新变化与新格局研究分析报告]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "通信设备",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 118.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "通信设备",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 118.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 118.0,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 1.68,
+            "边际量": 14.79,
+            "成交额": 2197.97,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "新易盛｜涨幅10.99%｜成交354.3亿",
+            "中际旭创｜涨幅6.86%｜成交462.5亿",
+            "光迅科技｜涨幅7.85%｜成交113.32亿",
+            "亨通光电｜涨幅6.24%｜成交159.12亿",
+            "永鼎股份｜涨幅8.14%｜成交59.14亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 118.0,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 1.68,
+            "边际量": 14.79,
+            "成交额": 2197.97,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "新易盛｜涨幅10.99%｜成交354.3亿",
+            "中际旭创｜涨幅6.86%｜成交462.5亿",
+            "光迅科技｜涨幅7.85%｜成交113.32亿",
+            "亨通光电｜涨幅6.24%｜成交159.12亿",
+            "永鼎股份｜涨幅8.14%｜成交59.14亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "通信设备",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "通信设备",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_rag_query": "通信设备 通信设备 新易盛 中际旭创 光迅科技",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：通信设备",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "通信设备 通信设备 新易盛 中际旭创 光迅科技",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "通信设备",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[MLCC产业新变化与新格局研究分析报告]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "通信设备",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 118.0,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 118.0,
+              "触发信号数": 3,
+              "涨停数": 0,
+              "新高数": 0,
+              "强势股数": 10,
+              "板块涨幅": 1.68,
+              "边际量": 14.79,
+              "成交额": 2197.97,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "新易盛｜涨幅10.99%｜成交354.3亿",
+              "中际旭创｜涨幅6.86%｜成交462.5亿",
+              "光迅科技｜涨幅7.85%｜成交113.32亿",
+              "亨通光电｜涨幅6.24%｜成交159.12亿",
+              "永鼎股份｜涨幅8.14%｜成交59.14亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "通信设备",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "黄金",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 106.0,
+        "matched_theme": "黄金",
+        "trigger_types": [
+          "double_red",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "驰宏锌锗",
+          "赤峰黄金"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[0512脱水研报]]",
+            "source_name": "0512脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/0512脱水研报.md"
+          },
+          {
+            "source": "[[黄金_DeepDive_数据抽取_20260602]]",
+            "source_name": "黄金_DeepDive_数据抽取_20260602",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/黄金_DeepDive_数据抽取_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "黄金",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[0512脱水研报]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[黄金_DeepDive_数据抽取_20260602]]",
+              "来源质量": "-",
+              "摘要": "黄金 Deep Dive 将美元信用弱化、央行持续购金、地缘冲突常态化、黄金ETF资金流入和矿企估值低位作为核心主线；当前金价高位回调后进入中期调整，矿产金产量、克金成本、央行购金、ETF持仓和PE统一口径是后续验证重点。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "黄金",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 106.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "黄金",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 106.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 106.0,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 3.17,
+            "边际量": 28.15,
+            "成交额": 632.79,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "驰宏锌锗｜涨幅10%｜成交22.73亿",
+            "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 106.0,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 3.17,
+            "边际量": 28.15,
+            "成交额": 632.79,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "驰宏锌锗｜涨幅10%｜成交22.73亿",
+            "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "黄金",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "黄金",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_rag_query": "黄金 黄金 紫金矿业 洛阳钼业 江西铜业",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：黄金",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "黄金 黄金 紫金矿业 洛阳钼业 江西铜业",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "黄金",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[0512脱水研报]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[黄金_DeepDive_数据抽取_20260602]]",
+                "来源质量": "-",
+                "摘要": "黄金 Deep Dive 将美元信用弱化、央行持续购金、地缘冲突常态化、黄金ETF资金流入和矿企估值低位作为核心主线；当前金价高位回调后进入中期调整，矿产金产量、克金成本、央行购金、ETF持仓和PE统一口径是后续验证重点。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "黄金",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 106.0,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 106.0,
+              "触发信号数": 2,
+              "涨停数": 0,
+              "新高数": 0,
+              "强势股数": 10,
+              "板块涨幅": 3.17,
+              "边际量": 28.15,
+              "成交额": 632.79,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "紫金矿业｜涨幅6.21%｜成交107.26亿",
+              "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+              "江西铜业｜涨幅9.62%｜成交35.46亿",
+              "驰宏锌锗｜涨幅10%｜成交22.73亿",
+              "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "黄金",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "小金属",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 90.0,
+        "matched_theme": "小金属",
+        "trigger_types": [
+          "double_red"
+        ],
+        "strong_stocks": [
+          "风华高科",
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_name": "小金属_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/小金属_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "小金属",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "小金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 90.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "小金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 90.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 1 类，强势股 9 只。",
+          "当前盘面": {
+            "priority": 90.0,
+            "触发信号数": 1,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 9,
+            "板块涨幅": 3.16,
+            "边际量": 14.97,
+            "成交额": 1529.15,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red"
+          ],
+          "强势股": [
+            "风华高科｜涨幅10%｜成交73.31亿",
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "中国铝业｜涨幅9.25%｜成交47.74亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 1 类，强势股 9 只。",
+          "当前盘面": {
+            "priority": 90.0,
+            "触发信号数": 1,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 9,
+            "板块涨幅": 3.16,
+            "边际量": 14.97,
+            "成交额": 1529.15,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red"
+          ],
+          "强势股": [
+            "风华高科｜涨幅10%｜成交73.31亿",
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "中国铝业｜涨幅9.25%｜成交47.74亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "小金属",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "小金属",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_rag_query": "小金属 小金属 风华高科 紫金矿业 中国铝业",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：小金属",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "小金属 小金属 风华高科 紫金矿业 中国铝业",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "小金属",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "小金属",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 90.0,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 1 类，强势股 9 只。",
+            "当前盘面": {
+              "priority": 90.0,
+              "触发信号数": 1,
+              "涨停数": 0,
+              "新高数": 0,
+              "强势股数": 9,
+              "板块涨幅": 3.16,
+              "边际量": 14.97,
+              "成交额": 1529.15,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red"
+            ],
+            "强势股": [
+              "风华高科｜涨幅10%｜成交73.31亿",
+              "紫金矿业｜涨幅6.21%｜成交107.26亿",
+              "中国铝业｜涨幅9.25%｜成交47.74亿",
+              "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+              "江西铜业｜涨幅9.62%｜成交35.46亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "小金属",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "创新药",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 76.28,
+        "matched_theme": "创新药",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "药明康德",
+          "康龙化成",
+          "陇神戎发",
+          "科伦药业",
+          "凯莱英"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_name": "20260518 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/20260518 市场逻辑精选.md"
+          },
+          {
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_name": "创新药_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/创新药_DeepDive_数据抽取_20260601.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_name": "晚间卖方研报汇总_20260614",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚间卖方研报汇总_20260614.md"
+          },
+          {
+            "source": "[[晚卖研汇20260629]]",
+            "source_name": "晚卖研汇20260629",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚卖研汇20260629.md"
+          },
+          {
+            "source": "[[晚间卖方研报20260706]]",
+            "source_name": "晚间卖方研报20260706",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/晚间卖方研报20260706.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "创新药",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260518 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[创新药_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚间卖方研报汇总_20260614]]",
+              "来源质量": "-",
+              "摘要": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚卖研汇20260629]]",
+              "来源质量": "unknown",
+              "摘要": "国金/兴证/国泰海通医药：全球景气共振，关注创新药板块底部反转。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚间卖方研报20260706]]",
+              "来源质量": "unknown",
+              "摘要": "截至2026/6/25日港股创新药PS已从2025年10月初峰值的8.5×回调至当前的4.9×左右；RASolute 302 III期试验宣布成功"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "创新药",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 2 日出现。priority 上升 0.32。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": 0.32,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 76.28,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "生命周期": {
+          "逻辑": "创新药",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 2 日出现。priority 上升 0.32。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": 0.32,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 76.28,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 63 只，priority 变化 0.32。",
+          "当前盘面": {
+            "priority": 76.28,
+            "触发信号数": 3,
+            "涨停数": 5,
+            "新高数": 63,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.32,
+            "触发信号变化": 0,
+            "涨停变化": -2,
+            "新高变化": 15,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "药明康德｜涨幅6.05%｜成交93.26亿",
+            "康龙化成｜涨幅8.36%｜成交44.03亿｜120日新高",
+            "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+            "科伦药业｜涨幅8.26%｜成交29.51亿",
+            "凯莱英｜涨幅7.63%｜成交30.66亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 63 只，priority 变化 0.32。",
+          "当前盘面": {
+            "priority": 76.28,
+            "触发信号数": 3,
+            "涨停数": 5,
+            "新高数": 63,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.32,
+            "触发信号变化": 0,
+            "涨停变化": -2,
+            "新高变化": 15,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "药明康德｜涨幅6.05%｜成交93.26亿",
+            "康龙化成｜涨幅8.36%｜成交44.03亿｜120日新高",
+            "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+            "科伦药业｜涨幅8.26%｜成交29.51亿",
+            "凯莱英｜涨幅7.63%｜成交30.66亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "创新药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "创新药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：创新药",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "创新药",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260518 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[创新药_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚间卖方研报汇总_20260614]]",
+                "来源质量": "-",
+                "摘要": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚卖研汇20260629]]",
+                "来源质量": "unknown",
+                "摘要": "国金/兴证/国泰海通医药：全球景气共振，关注创新药板块底部反转。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚间卖方研报20260706]]",
+                "来源质量": "unknown",
+                "摘要": "截至2026/6/25日港股创新药PS已从2025年10月初峰值的8.5×回调至当前的4.9×左右；RASolute 302 III期试验宣布成功"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "创新药",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "持续观察",
+            "变化原因": "连续 2 日出现。priority 上升 0.32。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-13",
+              "2026-07-14"
+            ],
+            "连续出现天数": 2,
+            "priority变化": 0.32,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 76.28,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 63 只，priority 变化 0.32。",
+            "当前盘面": {
+              "priority": 76.28,
+              "触发信号数": 3,
+              "涨停数": 5,
+              "新高数": 63,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.32,
+              "触发信号变化": 0,
+              "涨停变化": -2,
+              "新高变化": 15,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "药明康德｜涨幅6.05%｜成交93.26亿",
+              "康龙化成｜涨幅8.36%｜成交44.03亿｜120日新高",
+              "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+              "科伦药业｜涨幅8.26%｜成交29.51亿",
+              "凯莱英｜涨幅7.63%｜成交30.66亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "创新药",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "数据中心",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 69.72,
+        "matched_theme": "数据中心",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "新易盛",
+          "东山精密",
+          "中际旭创",
+          "源杰科技",
+          "长光华芯"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[0402强势股脱水]]",
+            "source_name": "0402强势股脱水",
+            "source_exists": true,
+            "source_path": "/Users/a77/knowledge-base-private/wiki/sources/0402强势股脱水.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "数据中心",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[0402强势股脱水]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "数据中心",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 2 日出现。priority 下降 9.35。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-07",
+            "2026-07-09",
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": -9.35,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 69.72,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "生命周期": {
+          "逻辑": "数据中心",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 2 日出现。priority 下降 9.35。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-07",
+            "2026-07-09",
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": -9.35,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 69.72,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 11 只，priority 变化 -9.35。",
+          "当前盘面": {
+            "priority": 69.72,
+            "触发信号数": 3,
+            "涨停数": 12,
+            "新高数": 11,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -9.35,
+            "触发信号变化": 0,
+            "涨停变化": 9,
+            "新高变化": -9,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "新易盛｜涨幅10.99%｜成交354.3亿",
+            "东山精密｜涨幅10%｜成交238.56亿",
+            "中际旭创｜涨幅6.86%｜成交462.5亿",
+            "源杰科技｜涨幅13.12%｜成交101.47亿",
+            "长光华芯｜涨幅13.7%｜成交69.88亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 11 只，priority 变化 -9.35。",
+          "当前盘面": {
+            "priority": 69.72,
+            "触发信号数": 3,
+            "涨停数": 12,
+            "新高数": 11,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -9.35,
+            "触发信号变化": 0,
+            "涨停变化": 9,
+            "新高变化": -9,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "新易盛｜涨幅10.99%｜成交354.3亿",
+            "东山精密｜涨幅10%｜成交238.56亿",
+            "中际旭创｜涨幅6.86%｜成交462.5亿",
+            "源杰科技｜涨幅13.12%｜成交101.47亿",
+            "长光华芯｜涨幅13.7%｜成交69.88亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "数据中心",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "数据中心",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：数据中心",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "数据中心",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[0402强势股脱水]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "数据中心",
+            "生命周期阶段": "高位分歧",
+            "阶段变化": "高位分歧",
+            "变化原因": "连续 2 日出现。priority 下降 9.35。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-07-07",
+              "2026-07-09",
+              "2026-07-13",
+              "2026-07-14"
+            ],
+            "连续出现天数": 2,
+            "priority变化": -9.35,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 69.72,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 11 只，priority 变化 -9.35。",
+            "当前盘面": {
+              "priority": 69.72,
+              "触发信号数": 3,
+              "涨停数": 12,
+              "新高数": 11,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": -9.35,
+              "触发信号变化": 0,
+              "涨停变化": 9,
+              "新高变化": -9,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "新易盛｜涨幅10.99%｜成交354.3亿",
+              "东山精密｜涨幅10%｜成交238.56亿",
+              "中际旭创｜涨幅6.86%｜成交462.5亿",
+              "源杰科技｜涨幅13.12%｜成交101.47亿",
+              "长光华芯｜涨幅13.7%｜成交69.88亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "数据中心",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        }
+      }
+    ],
+    "new_logic_candidate": [],
+    "data_gap": [
+      {
+        "date": "2026-07-14",
+        "query": "金属铜",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "priority_score": 106.0,
+        "matched_theme": "金属铜",
+        "trigger_types": [
+          "double_red",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "中钨高新",
+          "赤峰黄金"
+        ],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 2,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "research_judgment": {
+          "目标": "金属铜",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "金属铜",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 106.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "金属铜",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 106.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 106.0,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 3.55,
+            "边际量": 22.92,
+            "成交额": 750.81,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "中钨高新｜涨幅7.83%｜成交53.33亿",
+            "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 106.0,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 3.55,
+            "边际量": 22.92,
+            "成交额": 750.81,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "中钨高新｜涨幅7.83%｜成交53.33亿",
+            "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "金属铜",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "金属铜",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：金属铜",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "缺概念/待归一",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "金属铜",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "金属铜",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 106.0,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 106.0,
+              "触发信号数": 2,
+              "涨停数": 0,
+              "新高数": 0,
+              "强势股数": 10,
+              "板块涨幅": 3.55,
+              "边际量": 22.92,
+              "成交额": 750.81,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "紫金矿业｜涨幅6.21%｜成交107.26亿",
+              "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+              "江西铜业｜涨幅9.62%｜成交35.46亿",
+              "中钨高新｜涨幅7.83%｜成交53.33亿",
+              "赤峰黄金｜涨幅8.1%｜成交28.49亿｜20日新高"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "金属铜",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_concept",
+            "missing_evidence"
+          ],
+          "下一步": "先判断是不是别名/污染词，再做概念归一。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "工业金属",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "priority_score": 95.4,
+        "matched_theme": "工业金属",
+        "trigger_types": [
+          "double_red",
+          "limit_heat"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业",
+          "云铝股份"
+        ],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 8,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "research_judgment": {
+          "目标": "工业金属",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "能力栈候选",
+          "已有证据层": [
+            "L2 基线",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L2 基线",
+              "概念": "有色金属",
+              "来源": "[[iFinD baseline 2026-05-25]]",
+              "来源质量": "-",
+              "摘要": "iFinD行业分类为有色金属--工业金属--铅锌，产品包括铅、锌、阴极铜、黄金、白银、镓、锗、铟等。"
+            },
+            {
+              "层级": "L2 基线",
+              "概念": "电解铝",
+              "来源": "[[iFinD baseline 2026-05-25]]",
+              "来源质量": "-",
+              "摘要": "iFinD主要产品第一位为重熔用铝锭，行业分类为工业金属--铝，拥有百万吨级清洁水电铝产能。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+          "不可升级原因": [
+            "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "工业金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为能力栈候选。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "能力栈候选",
+          "当前priority": 95.4,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "工业金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为能力栈候选。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "能力栈候选",
+          "当前priority": 95.4,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 95.4,
+            "触发信号数": 2,
+            "涨停数": 4,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 4.62,
+            "边际量": 48.94,
+            "成交额": 503.88,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "中国铝业｜涨幅9.25%｜成交47.74亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "云铝股份｜涨幅8.33%｜成交47.2亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 95.4,
+            "触发信号数": 2,
+            "涨停数": 4,
+            "新高数": 0,
+            "强势股数": 10,
+            "板块涨幅": 4.62,
+            "边际量": 48.94,
+            "成交额": 503.88,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat"
+          ],
+          "强势股": [
+            "紫金矿业｜涨幅6.21%｜成交107.26亿",
+            "中国铝业｜涨幅9.25%｜成交47.74亿",
+            "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+            "江西铜业｜涨幅9.62%｜成交35.46亿",
+            "云铝股份｜涨幅8.33%｜成交47.2亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "工业金属",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "工业金属",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：工业金属",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "缺概念/待归一",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "工业金属",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "能力栈候选",
+            "已有证据层": [
+              "L2 基线",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L2 基线",
+                "概念": "有色金属",
+                "来源": "[[iFinD baseline 2026-05-25]]",
+                "来源质量": "-",
+                "摘要": "iFinD行业分类为有色金属--工业金属--铅锌，产品包括铅、锌、阴极铜、黄金、白银、镓、锗、铟等。"
+              },
+              {
+                "层级": "L2 基线",
+                "概念": "电解铝",
+                "来源": "[[iFinD baseline 2026-05-25]]",
+                "来源质量": "-",
+                "摘要": "iFinD主要产品第一位为重熔用铝锭，行业分类为工业金属--铝，拥有百万吨级清洁水电铝产能。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+            "不可升级原因": [
+              "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "工业金属",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为能力栈候选。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "能力栈候选",
+            "当前priority": 95.4,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 95.4,
+              "触发信号数": 2,
+              "涨停数": 4,
+              "新高数": 0,
+              "强势股数": 10,
+              "板块涨幅": 4.62,
+              "边际量": 48.94,
+              "成交额": 503.88,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat"
+            ],
+            "强势股": [
+              "紫金矿业｜涨幅6.21%｜成交107.26亿",
+              "中国铝业｜涨幅9.25%｜成交47.74亿",
+              "洛阳钼业｜涨幅8.01%｜成交54.97亿",
+              "江西铜业｜涨幅9.62%｜成交35.46亿",
+              "云铝股份｜涨幅8.33%｜成交47.2亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "工业金属",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_concept",
+            "missing_evidence"
+          ],
+          "下一步": "先判断是不是别名/污染词，再做概念归一。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "中药",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "priority_score": 67.92,
+        "matched_theme": "中药",
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "陇神戎发",
+          "九芝堂",
+          "中恒集团",
+          "以岭药业",
+          "佐力药业"
+        ],
+        "structured_counts": {
+          "concept": 5,
+          "company_exposure": 8,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "research_judgment": {
+          "目标": "中药",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "重点验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L2 基线",
+            "L2 官方基线",
+            "L3 候选硬事实",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L2 基线",
+              "概念": "医药",
+              "来源": "[[iFinD baseline 2026-05-25]]",
+              "来源质量": "-",
+              "摘要": "iFinD行业分类为医药生物--化学制剂，主营西药制剂、中药制剂和原料药技术开发。"
+            },
+            {
+              "层级": "L2 基线",
+              "概念": "医药生物",
+              "来源": "[[a-stock baseline 2026-06-02 apply-batch020]]",
+              "来源质量": "-",
+              "摘要": "mootdx F10主营业务显示：现代中药及西药的研发、生产和销售。"
+            },
+            {
+              "层级": "L2 基线",
+              "概念": "医药生物",
+              "来源": "[[a-stock baseline 2026-06-02 apply-batch024]]",
+              "来源质量": "-",
+              "摘要": "mootdx F10主营业务显示：主要从事中西成药、中药饮片、医疗器械、保健食品、保健用品、个人护理用品以及与健康相关联的日化便利、家 居清洁等商品的全渠道零售业务。"
+            },
+            {
+              "层级": "L3 候选硬事实",
+              "概念": "健康消费",
+              "来源": "[[华润江中逻辑卡]]",
+              "来源质量": "ima_composite",
+              "摘要": "华润江中作为中药OTC龙头，当前市场交易的核心逻辑是\"院外OTC困境反转+高股息安全边际+基药目录政策催化\"，公司2025年盈利质量改善但收入承压，健康消费品业务高增长成为新亮点，后续需关注十五五规划落地及外延并购进展。"
+            },
+            {
+              "层级": "L3 候选硬事实",
+              "概念": "高股息红利",
+              "来源": "[[华润江中逻辑卡]]",
+              "来源质量": "ima_composite",
+              "摘要": "华润江中作为中药OTC龙头，当前市场交易的核心逻辑是\"院外OTC困境反转+高股息安全边际+基药目录政策催化\"，公司2025年盈利质量改善但收入承压，健康消费品业务高增长成为新亮点，后续需关注十五五规划落地及外延并购进展。"
+            }
+          ],
+          "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+          "不可升级原因": [
+            "已有 IMA/研报里的候选硬事实，但还缺公告、互动、调研纪要等官方 L3 验证。",
+            "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "中药",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 2 日出现。priority 下降 4.8。触发信号减少 1 类。证据裁判为重点验证。",
+          "观察窗口": [
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": -4.8,
+          "强势股变化": 0,
+          "触发信号变化": -1,
+          "旧材料命中": false,
+          "证据状态": "重点验证",
+          "当前priority": 67.92,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "生命周期": {
+          "逻辑": "中药",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 2 日出现。priority 下降 4.8。触发信号减少 1 类。证据裁判为重点验证。",
+          "观察窗口": [
+            "2026-07-13",
+            "2026-07-14"
+          ],
+          "连续出现天数": 2,
+          "priority变化": -4.8,
+          "强势股变化": 0,
+          "触发信号变化": -1,
+          "旧材料命中": false,
+          "证据状态": "重点验证",
+          "当前priority": 67.92,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 67.92,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 33,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -4.8,
+            "触发信号变化": -1,
+            "涨停变化": -3,
+            "新高变化": 6,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+            "九芝堂｜涨幅5.46%｜成交10.49亿｜20日新高",
+            "中恒集团｜涨幅7.88%｜成交3.44亿｜20日新高",
+            "以岭药业｜涨幅4.13%｜成交11.55亿｜60日新高",
+            "佐力药业｜涨幅5.24%｜成交6.27亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 67.92,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 33,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -4.8,
+            "触发信号变化": -1,
+            "涨停变化": -3,
+            "新高变化": 6,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+            "九芝堂｜涨幅5.46%｜成交10.49亿｜20日新高",
+            "中恒集团｜涨幅7.88%｜成交3.44亿｜20日新高",
+            "以岭药业｜涨幅4.13%｜成交11.55亿｜60日新高",
+            "佐力药业｜涨幅5.24%｜成交6.27亿｜20日新高"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "中药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "中药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：中药",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "中药",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "重点验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L2 基线",
+              "L2 官方基线",
+              "L3 候选硬事实",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L2 基线",
+                "概念": "医药",
+                "来源": "[[iFinD baseline 2026-05-25]]",
+                "来源质量": "-",
+                "摘要": "iFinD行业分类为医药生物--化学制剂，主营西药制剂、中药制剂和原料药技术开发。"
+              },
+              {
+                "层级": "L2 基线",
+                "概念": "医药生物",
+                "来源": "[[a-stock baseline 2026-06-02 apply-batch020]]",
+                "来源质量": "-",
+                "摘要": "mootdx F10主营业务显示：现代中药及西药的研发、生产和销售。"
+              },
+              {
+                "层级": "L2 基线",
+                "概念": "医药生物",
+                "来源": "[[a-stock baseline 2026-06-02 apply-batch024]]",
+                "来源质量": "-",
+                "摘要": "mootdx F10主营业务显示：主要从事中西成药、中药饮片、医疗器械、保健食品、保健用品、个人护理用品以及与健康相关联的日化便利、家 居清洁等商品的全渠道零售业务。"
+              },
+              {
+                "层级": "L3 候选硬事实",
+                "概念": "健康消费",
+                "来源": "[[华润江中逻辑卡]]",
+                "来源质量": "ima_composite",
+                "摘要": "华润江中作为中药OTC龙头，当前市场交易的核心逻辑是\"院外OTC困境反转+高股息安全边际+基药目录政策催化\"，公司2025年盈利质量改善但收入承压，健康消费品业务高增长成为新亮点，后续需关注十五五规划落地及外延并购进展。"
+              },
+              {
+                "层级": "L3 候选硬事实",
+                "概念": "高股息红利",
+                "来源": "[[华润江中逻辑卡]]",
+                "来源质量": "ima_composite",
+                "摘要": "华润江中作为中药OTC龙头，当前市场交易的核心逻辑是\"院外OTC困境反转+高股息安全边际+基药目录政策催化\"，公司2025年盈利质量改善但收入承压，健康消费品业务高增长成为新亮点，后续需关注十五五规划落地及外延并购进展。"
+              }
+            ],
+            "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+            "不可升级原因": [
+              "已有 IMA/研报里的候选硬事实，但还缺公告、互动、调研纪要等官方 L3 验证。",
+              "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "中药",
+            "生命周期阶段": "高位分歧",
+            "阶段变化": "高位分歧",
+            "变化原因": "连续 2 日出现。priority 下降 4.8。触发信号减少 1 类。证据裁判为重点验证。",
+            "观察窗口": [
+              "2026-07-13",
+              "2026-07-14"
+            ],
+            "连续出现天数": 2,
+            "priority变化": -4.8,
+            "强势股变化": 0,
+            "触发信号变化": -1,
+            "旧材料命中": false,
+            "证据状态": "重点验证",
+            "当前priority": 67.92,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 67.92,
+              "触发信号数": 2,
+              "涨停数": 0,
+              "新高数": 33,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": -4.8,
+              "触发信号变化": -1,
+              "涨停变化": -3,
+              "新高变化": 6,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "陇神戎发｜涨幅16.33%｜成交8.89亿｜60日新高",
+              "九芝堂｜涨幅5.46%｜成交10.49亿｜20日新高",
+              "中恒集团｜涨幅7.88%｜成交3.44亿｜20日新高",
+              "以岭药业｜涨幅4.13%｜成交11.55亿｜60日新高",
+              "佐力药业｜涨幅5.24%｜成交6.27亿｜20日新高"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "中药",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_evidence"
+          ],
+          "下一步": "先补公告/研报/订单等证据，不要只看盘面。"
+        }
+      },
+      {
+        "date": "2026-07-14",
+        "query": "化学制药",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "priority_score": 67.77,
+        "matched_theme": "化学制药",
+        "trigger_types": [
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "科伦药业",
+          "美诺华",
+          "迪哲医药",
+          "哈药股份",
+          "贝达药业"
+        ],
+        "structured_counts": {
+          "concept": 3,
+          "company_exposure": 8,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "research_judgment": {
+          "目标": "化学制药",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "重点验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L2 基线",
+            "L2 官方基线",
+            "L3 候选硬事实",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L2 基线",
+              "概念": "原料药",
+              "来源": "[[iFinD baseline 2026-05-25]]",
+              "来源质量": "-",
+              "摘要": "iFinD行业分类为化学制药--化学原料药，产品包含抗感染、中枢神经、降血糖原料药。"
+            },
+            {
+              "层级": "L2 基线",
+              "概念": "多肽药物",
+              "来源": "[[iFinD baseline 2026-05-25]]",
+              "来源质量": "-",
+              "摘要": "iFinD主要核心业务聚焦于化学制药。公司在固液相一步法多肽合成上拥有领先的技术储备，大宗出货利拉鲁肽、司美格鲁肽等高热度减肥药仿制原料，并深度提供一站式CDMO服务。"
+            },
+            {
+              "层级": "L3 候选硬事实",
+              "概念": "制药",
+              "来源": "[[圣诺生物_688117_最新逻辑卡_20260613]]",
+              "来源质量": "ima_composite",
+              "摘要": "子公司存款被司法冻结；公司官方（年报）；2026-04-24；子公司圣诺制药1097.96万元银行存款被司法冻结，确认为预计负债，具体原因未充分披露；低；已发生，影响有限；所属行业；医药生物-化学制药-多肽药物；下游关联；诺和诺德、礼来等原研药企；仿制药企；非法规市场经销商"
+            },
+            {
+              "层级": "L3 候选硬事实",
+              "概念": "制药",
+              "来源": "[[300199_逻辑卡_20260617]]",
+              "来源质量": "ima_composite",
+              "摘要": "所属行业；化学制药"
+            },
+            {
+              "层级": "L3 候选硬事实",
+              "概念": "制药",
+              "来源": "[[300966_逻辑卡_20260620]]",
+              "来源质量": "ima_composite",
+              "摘要": "客户；主要客户包括华海药业、津药药业、浙江仙琚制药、CHEMO（西班牙）、SUNPHARM等。客户关系基于公司披露和研报推断。；公司官方、研报机构；客户集中度、新客户拓展情况；客户基础稳固，华海药业是核心战略客户，国际化客户拓展依赖华海渠道。；所属行业；化学制药（申万）/ 甾体药物原料；主要客户 / 下游行业；津药药业、浙江仙琚制药、CHEMO（西班牙）、SUNPHARM等国内外制药企业；下游覆盖抗炎、免疫调节、避孕、内分泌调节、抗癌、"
+            }
+          ],
+          "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+          "不可升级原因": [
+            "已有 IMA/研报里的候选硬事实，但还缺公告、互动、调研纪要等官方 L3 验证。",
+            "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "化学制药",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为重点验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "重点验证",
+          "当前priority": 67.77,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "化学制药",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为重点验证。",
+          "观察窗口": [
+            "2026-07-14"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "重点验证",
+          "当前priority": 67.77,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 67.77,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 24,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "科伦药业｜涨幅8.26%｜成交29.51亿",
+            "美诺华｜涨幅7.42%｜成交35.15亿｜20日新高",
+            "迪哲医药｜涨幅20%｜成交4.37亿｜20日新高",
+            "哈药股份｜涨幅9.97%｜成交17.42亿｜20日新高",
+            "贝达药业｜涨幅8.22%｜成交16.26亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 67.77,
+            "触发信号数": 2,
+            "涨停数": 0,
+            "新高数": 24,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "科伦药业｜涨幅8.26%｜成交29.51亿",
+            "美诺华｜涨幅7.42%｜成交35.15亿｜20日新高",
+            "迪哲医药｜涨幅20%｜成交4.37亿｜20日新高",
+            "哈药股份｜涨幅9.97%｜成交17.42亿｜20日新高",
+            "贝达药业｜涨幅8.22%｜成交16.26亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "化学制药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "化学制药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：化学制药",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "化学制药",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "重点验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L2 基线",
+              "L2 官方基线",
+              "L3 候选硬事实",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L2 基线",
+                "概念": "原料药",
+                "来源": "[[iFinD baseline 2026-05-25]]",
+                "来源质量": "-",
+                "摘要": "iFinD行业分类为化学制药--化学原料药，产品包含抗感染、中枢神经、降血糖原料药。"
+              },
+              {
+                "层级": "L2 基线",
+                "概念": "多肽药物",
+                "来源": "[[iFinD baseline 2026-05-25]]",
+                "来源质量": "-",
+                "摘要": "iFinD主要核心业务聚焦于化学制药。公司在固液相一步法多肽合成上拥有领先的技术储备，大宗出货利拉鲁肽、司美格鲁肽等高热度减肥药仿制原料，并深度提供一站式CDMO服务。"
+              },
+              {
+                "层级": "L3 候选硬事实",
+                "概念": "制药",
+                "来源": "[[圣诺生物_688117_最新逻辑卡_20260613]]",
+                "来源质量": "ima_composite",
+                "摘要": "子公司存款被司法冻结；公司官方（年报）；2026-04-24；子公司圣诺制药1097.96万元银行存款被司法冻结，确认为预计负债，具体原因未充分披露；低；已发生，影响有限；所属行业；医药生物-化学制药-多肽药物；下游关联；诺和诺德、礼来等原研药企；仿制药企；非法规市场经销商"
+              },
+              {
+                "层级": "L3 候选硬事实",
+                "概念": "制药",
+                "来源": "[[300199_逻辑卡_20260617]]",
+                "来源质量": "ima_composite",
+                "摘要": "所属行业；化学制药"
+              },
+              {
+                "层级": "L3 候选硬事实",
+                "概念": "制药",
+                "来源": "[[300966_逻辑卡_20260620]]",
+                "来源质量": "ima_composite",
+                "摘要": "客户；主要客户包括华海药业、津药药业、浙江仙琚制药、CHEMO（西班牙）、SUNPHARM等。客户关系基于公司披露和研报推断。；公司官方、研报机构；客户集中度、新客户拓展情况；客户基础稳固，华海药业是核心战略客户，国际化客户拓展依赖华海渠道。；所属行业；化学制药（申万）/ 甾体药物原料；主要客户 / 下游行业；津药药业、浙江仙琚制药、CHEMO（西班牙）、SUNPHARM等国内外制药企业；下游覆盖抗炎、免疫调节、避孕、内分泌调节、抗癌、"
+              }
+            ],
+            "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+            "不可升级原因": [
+              "已有 IMA/研报里的候选硬事实，但还缺公告、互动、调研纪要等官方 L3 验证。",
+              "年报/F10 只能证明公司能力栈存在，不能证明这条逻辑正在发生边际变化。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "化学制药",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为重点验证。",
+            "观察窗口": [
+              "2026-07-14"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "重点验证",
+            "当前priority": 67.77,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 2 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 67.77,
+              "触发信号数": 2,
+              "涨停数": 0,
+              "新高数": 24,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "科伦药业｜涨幅8.26%｜成交29.51亿",
+              "美诺华｜涨幅7.42%｜成交35.15亿｜20日新高",
+              "迪哲医药｜涨幅20%｜成交4.37亿｜20日新高",
+              "哈药股份｜涨幅9.97%｜成交17.42亿｜20日新高",
+              "贝达药业｜涨幅8.22%｜成交16.26亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
+          "历史有效性": {
+            "逻辑": "化学制药",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_evidence"
+          ],
+          "下一步": "先补公告/研报/订单等证据，不要只看盘面。"
+        }
+      }
+    ],
+    "noise_or_unconfirmed": [
+      {
+        "date": "2026-07-14",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "priority_score": 117.0,
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster"
+        ],
+        "strong_stocks": [],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 0,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "route": "先看连板股名单和主导行业，等题材名明确后再映射",
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      }
+    ]
+  },
+  "lifecycle_checkpoints": {
+    "enabled": true,
+    "path": "/Users/a77/finance-workspace-private/intelligence/users/default/checkpoints.jsonl",
+    "added": 7,
+    "ids": [
+      "ck-2026-07-14-595a1b",
+      "ck-2026-07-14-275d29",
+      "ck-2026-07-14-97ab71",
+      "ck-2026-07-14-f0c018",
+      "ck-2026-07-14-fb904b",
+      "ck-2026-07-14-14c58b",
+      "ck-2026-07-14-105bff"
+    ]
+  },
+  "semantic_rag": {
+    "enabled": true,
+    "top_n": 3,
+    "k": 3,
+    "mode": "hybrid",
+    "warnings": [
+      "通信设备 通信设备 新易盛 中际旭创 光迅科技: wiki-rag 退出码 1: Traceback (most recent call last):\n  File \"/Users/a77/knowledge-base-private/scripts/rag_index.py\", line 31, in <module>\n    from rag import config, evaluate as",
+      "黄金 黄金 紫金矿业 洛阳钼业 江西铜业: wiki-rag 退出码 1: Traceback (most recent call last):\n  File \"/Users/a77/knowledge-base-private/scripts/rag_index.py\", line 31, in <module>\n    from rag import config, evaluate as",
+      "小金属 小金属 风华高科 紫金矿业 中国铝业: wiki-rag 退出码 1: Traceback (most recent call last):\n  File \"/Users/a77/knowledge-base-private/scripts/rag_index.py\", line 31, in <module>\n    from rag import config, evaluate as"
+    ]
+  },
+  "research_judge": {
+    "enabled": true,
+    "warnings": []
+  },
+  "research_queue": {
+    "today_do_ima": [
+      {
+        "目标": "通信设备",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 118.0,
+        "生命周期阶段": "新出现",
+        "阶段变化": "首次进入观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "数据缺口": [],
+        "强势股": [
+          "新易盛",
+          "中际旭创",
+          "光迅科技",
+          "亨通光电",
+          "永鼎股份"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+        "催化归因": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      }
+    ],
+    "today_find_official_evidence": [
+      {
+        "目标": "黄金",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 106.0,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "数据缺口": [],
+        "强势股": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "驰宏锌锗",
+          "赤峰黄金"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "催化归因": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "目标": "小金属",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 90.0,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "数据缺口": [],
+        "强势股": [
+          "风华高科",
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "催化归因": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "目标": "创新药",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 76.28,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "持续观察",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "数据缺口": [],
+        "强势股": [
+          "药明康德",
+          "康龙化成",
+          "陇神戎发",
+          "科伦药业",
+          "凯莱英"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "催化归因": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      }
+    ],
+    "today_wait_market_validation": [],
+    "today_downgrade_or_watch": [
+      {
+        "目标": "数据中心",
+        "动作": "今日降级/观察",
+        "理由": "生命周期转弱为高位分歧，先降级观察，等待新事实或盘面重新扩散。",
+        "优先级": 69.72,
+        "生命周期阶段": "高位分歧",
+        "阶段变化": "高位分歧",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "数据缺口": [],
+        "强势股": [
+          "新易盛",
+          "东山精密",
+          "中际旭创",
+          "源杰科技",
+          "长光华芯"
+        ],
+        "建议动作": "降级观察；除非新增 L3 事实或盘面重新扩散，否则减少研究投入。",
+        "催化归因": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      }
+    ],
+    "skipped": {
+      "data_gap_or_unconfirmed": [
+        {
+          "目标": "金属铜",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 106.0,
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "数据缺口": [
+            "missing_concept",
+            "missing_evidence"
+          ],
+          "强势股": [
+            "紫金矿业",
+            "洛阳钼业",
+            "江西铜业",
+            "中钨高新",
+            "赤峰黄金"
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        },
+        {
+          "目标": "工业金属",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 95.4,
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "证据状态": "能力栈候选",
+          "已有证据层": [
+            "L2 基线",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "数据缺口": [
+            "missing_concept",
+            "missing_evidence"
+          ],
+          "强势股": [
+            "紫金矿业",
+            "中国铝业",
+            "洛阳钼业",
+            "江西铜业",
+            "云铝股份"
+          ],
+          "建议动作": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。"
+        },
+        {
+          "目标": "中药",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 67.92,
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "证据状态": "重点验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L2 基线",
+            "L2 官方基线",
+            "L3 候选硬事实",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "数据缺口": [
+            "missing_evidence"
+          ],
+          "强势股": [
+            "陇神戎发",
+            "九芝堂",
+            "中恒集团",
+            "以岭药业",
+            "佐力药业"
+          ],
+          "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。"
+        },
+        {
+          "目标": "化学制药",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 67.77,
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "证据状态": "重点验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L2 基线",
+            "L2 官方基线",
+            "L3 候选硬事实",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "数据缺口": [
+            "missing_evidence"
+          ],
+          "强势股": [
+            "科伦药业",
+            "美诺华",
+            "迪哲医药",
+            "哈药股份",
+            "贝达药业"
+          ],
+          "建议动作": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。"
+        },
+        {
+          "目标": "连板未映射",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 117.0,
+          "生命周期阶段": "-",
+          "阶段变化": "-",
+          "证据状态": "-",
+          "已有证据层": [],
+          "缺失证据层": [],
+          "数据缺口": [
+            "placeholder_market_theme"
+          ],
+          "强势股": [],
+          "建议动作": "人工复核。"
+        }
+      ],
+      "no_clear_action": []
+    },
+    "summary": {
+      "today_do_ima": 1,
+      "today_find_official_evidence": 3,
+      "today_wait_market_validation": 0,
+      "today_downgrade_or_watch": 1,
+      "total": 5,
+      "skipped": 5
+    }
+  },
+  "kb_ingest_queue": {
+    "schema_version": "1.0",
+    "source_repo": "finance-workspace-private",
+    "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+    "market_date": "2026-07-14",
+    "created_at": "2026-07-14T22:18:46+08:00",
+    "tasks": [
+      {
+        "task_id": "2026-07-14-concept_ingest-50b301bad403-001",
+        "task_type": "concept_ingest",
+        "task_type_label": "概念入库",
+        "theme": "通信设备",
+        "priority": 118.0,
+        "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [],
+        "strong_stocks": [
+          "新易盛",
+          "中际旭创",
+          "光迅科技",
+          "亨通光电",
+          "永鼎股份"
+        ],
+        "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+        "origin": "research_queue.today_do_ima",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-jin-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "黄金",
+        "priority": 106.0,
+        "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "驰宏锌锗",
+          "赤峰黄金"
+        ],
+        "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "origin": "research_queue.today_find_official_evidence",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-jin-shu-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "小金属",
+        "priority": 90.0,
+        "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [],
+        "strong_stocks": [
+          "风华高科",
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业"
+        ],
+        "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "origin": "research_queue.today_find_official_evidence",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-b84604b8bb9d-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "创新药",
+        "priority": 76.28,
+        "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [],
+        "strong_stocks": [
+          "药明康德",
+          "康龙化成",
+          "陇神戎发",
+          "科伦药业",
+          "凯莱英"
+        ],
+        "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+        "origin": "research_queue.today_find_official_evidence",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-concept_ingest-jin-shu-tong-001",
+        "task_type": "concept_ingest",
+        "task_type_label": "概念入库",
+        "theme": "金属铜",
+        "priority": 106.0,
+        "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "中钨高新",
+          "赤峰黄金"
+        ],
+        "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-jin-shu-tong-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "金属铜",
+        "priority": 106.0,
+        "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "洛阳钼业",
+          "江西铜业",
+          "中钨高新",
+          "赤峰黄金"
+        ],
+        "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-concept_ingest-jin-shu-001",
+        "task_type": "concept_ingest",
+        "task_type_label": "概念入库",
+        "theme": "工业金属",
+        "priority": 95.4,
+        "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业",
+          "云铝股份"
+        ],
+        "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-jin-shu-002",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "工业金属",
+        "priority": 95.4,
+        "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "紫金矿业",
+          "中国铝业",
+          "洛阳钼业",
+          "江西铜业",
+          "云铝股份"
+        ],
+        "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-a129e052e52c-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "中药",
+        "priority": 67.92,
+        "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "陇神戎发",
+          "九芝堂",
+          "中恒集团",
+          "以岭药业",
+          "佐力药业"
+        ],
+        "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      },
+      {
+        "task_id": "2026-07-14-disclosure-hua-xue-001",
+        "task_type": "disclosure",
+        "task_type_label": "官方证据归档",
+        "theme": "化学制药",
+        "priority": 67.77,
+        "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+        "evidence_gap": [
+          "L3 官方验证"
+        ],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "strong_stocks": [
+          "科伦药业",
+          "美诺华",
+          "迪哲医药",
+          "哈药股份",
+          "贝达药业"
+        ],
+        "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+        "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+        "requires_human_review": true,
+        "auto_apply": false,
+        "status": "pending",
+        "market_date": "2026-07-14",
+        "source_repo": "finance-workspace-private",
+        "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+        "created_at": "2026-07-14T22:18:46+08:00",
+        "catalyst": {
+          "status": "market_only",
+          "label": "纯盘面异动",
+          "window_days": 5,
+          "events": [],
+          "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+        }
+      }
+    ],
+    "summary": {
+      "total_tasks": 10,
+      "by_task_type": {
+        "concept_ingest": 3,
+        "disclosure": 7
+      },
+      "resolved_themes_skipped": []
+    },
+    "glossary": {
+      "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+      "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+      "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+      "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+      "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+    },
+    "notes": [
+      "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+      "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+    ]
+  },
+  "catalyst_attribution": {
+    "enabled": true,
+    "window_days": 5,
+    "sources": {
+      "sellside_opinion": true,
+      "morning_briefing_dates": []
+    },
+    "warnings": [
+      "窗口 2026-07-10~2026-07-14 内无晨汇：/Users/a77/knowledge-base-private/wiki/briefings"
+    ]
+  },
+  "logic_effectiveness": {
+    "enabled": true,
+    "window": 20,
+    "car_panel_dates": 0,
+    "summary": {
+      "已评估逻辑数": 0,
+      "样本不足逻辑数": 9,
+      "CAR可用逻辑数": 0,
+      "平均胜率": null
+    }
+  },
+  "notes": [
+    "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
+    "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
+    "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。"
+  ],
+  "next_actions": [
+    "今日研究任务队列：做 IMA 1 条；找公告/调研/订单 3 条；降级观察 1 条。",
+    "已生成知识库回补任务包：10 条，等待 KB repo 校验归档和人工复核。",
+    "催化归因未命中：通信设备, 黄金, 小金属, 创新药；先确认是否有场外产业事件（新闻/发布会），否则按纯盘面异动处理。",
+    "催化归因数据源有缺口（研报观点/晨汇缺档），归因结果只作参考，先补数据源。",
+    "证据裁判提示重点验证：中药, 化学制药；优先找公告/调研/订单/客户验证。",
+    "年报/F10 只证明能力栈：工业金属；下一步补 L3 官方验证或等盘面验证。",
+    "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+    "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+    "待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。"
+  ]
+}

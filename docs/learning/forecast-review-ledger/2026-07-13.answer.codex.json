@@ -1,0 +1,464 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-13",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "504b254d5bcf0a43",
+  "stage": "底部横盘阶段第9天；07-08接近冰点后连续两日修复，07-10量能回到20日均量上方但涨家MA5仍未上拐，属于底部横盘中的强修复/主升尝试未确认",
+  "main_judgment": "7月10日是冰点后的放量广度修复日，情绪发动机切到商业航天/军工，容量锚仍在AI算力与半导体新高群，T+1更像高位分歧后的核心承接检验，而不是已经确认全面主升。",
+  "direction_ranking": [
+    "商业航天/军工信息化",
+    "创新药/CRO/减肥药",
+    "AI算力/国产算力/半导体",
+    "传媒/短剧游戏",
+    "风电/储能"
+  ],
+  "picks": [
+    {
+      "code": "600118.SH",
+      "name": "中国卫星",
+      "strategy": "策略一：主线流动性池/情绪发动机",
+      "reason": "绑定§1涨停与双红：商业航天涨停31家、市场占比33.70%，军工涨停24家；个股7月10日涨停10.00%、收90.02、成交53.10亿、20日新高，是商业航天涨停封单头部样本。"
+    },
+    {
+      "code": "600879.SH",
+      "name": "航天电子",
+      "strategy": "策略三：军工信息化分歧回流",
+      "reason": "绑定§1双红：军工信息化pct=3.34、diff=74.83、红盘98/111、成交640.62亿；个股涨停10.01%、成交58.17亿，为军工信息化容量回流标的。"
+    },
+    {
+      "code": "000977.SZ",
+      "name": "浪潮信息",
+      "strategy": "策略二：强趋势延续/国产算力容量核心",
+      "reason": "绑定§1新高与核心股：人工智能涨停23家、pct=1.46、diff=20.28；个股收89.52、涨4.11%、成交260.83亿、历史新高，10日涨幅40.12%，是AI算力容量承接核心。"
+    },
+    {
+      "code": "002185.SZ",
+      "name": "华天科技",
+      "strategy": "策略二：半导体强趋势延续",
+      "reason": "绑定§1新高：电子历史新高23只、历史新高金额1633.09亿；个股收25.31、涨6.66%、成交127.64亿、历史新高，且属于半导体主线股，验证容量新高群是否继续承接。"
+    },
+    {
+      "code": "300759.SZ",
+      "name": "康龙化成",
+      "strategy": "策略三：医药/CRO分歧回流",
+      "reason": "绑定§1双红：CRO pct=4.43、diff=33.39、红盘66/74，创新药pct=3.03、diff=29.20、红盘250/277；个股收33.94、涨9.55%、成交33.95亿、120日新高。"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1：涨家数2500-4200、成交额>=32000亿、volume_ratio>=98、涨停数>=75且跌停数<=15，则强修复后的承接成立；T+3：三日内至少2日成交额>=32000亿且至少1日涨家数>=3000，视为底部横盘向主升尝试延续。",
+    "direction": "T+1：商业航天涨停数>=18且diff_ratio>=20，军工信息化diff_ratio>=40；AI算力/人工智能涨停数>=15且diff_ratio>=10；CRO或创新药至少一个保持pct_chg>0且diff_ratio>=15。T+3：商业航天、军工信息化、人工智能、CRO/创新药中至少2个方向仍为pct_chg>0且diff_ratio>0。",
+    "targets": "T+1收盘确认：600118.SH>=88.00、600879.SH>=22.50、000977.SZ>=88.00、002185.SZ>=24.80、300759.SZ>=33.00；T+3确认：600118.SH>=92.00、600879.SH>=23.80、000977.SZ>=92.00、002185.SZ>=26.00、300759.SZ>=35.00。",
+    "falsify": "T+1若涨家数<2000且成交额<30000亿且跌停数>25，或商业航天涨停数<12且diff_ratio<0，同时人工智能diff_ratio<0，则推翻强修复承接判断；T+3若5只标的平均收益<=-4%且历史新高数<30，说明7月10日只是反抽高点。"
+  },
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-13",
+    "recheck_t3_date": "2026-07-15",
+    "pick_returns_t1": [
+      1.38,
+      -8.29,
+      -4.5,
+      -4.66,
+      0.41
+    ],
+    "pick_returns_t3": [
+      -17.8849,
+      -25.3757,
+      -5.3843,
+      -8.6922,
+      18.739
+    ],
+    "benchmark_return_t3": -1.0156,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00",
+    "beat_benchmark_t3": false
+  },
+  "section_0_input_freeze": {
+    "duckdb_cutoff": "2026-07-10",
+    "perspective_date": "2026-07-10",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "0025c34b8332a64a1c74809ba29f707c4f150599",
+    "materials": [],
+    "data_gaps": [
+      "manifest materials为空，本答卷只使用DuckDB盘面流",
+      "feature_market_window仅更新到2026-06-17，7月10日涨家MA5由fact_market_daily近5个交易日现算"
+    ]
+  },
+  "section_1_fields": {
+    "stage": {
+      "market_stage": "底部横盘阶段",
+      "stage_day": 9,
+      "switch_judgment": "从07-08接近冰点、07-09偏冷修复，切到07-10正常量能的强修复；但涨家MA5仍从2090.4降至2084.4，未确认主升。"
+    },
+    "volume": {
+      "total_amount_yi": 33883.62,
+      "amount_vs_yesterday_pct": 16.3,
+      "amount_ma20_yi": 32469.72,
+      "volume_ratio_pct": 104.35,
+      "volume_state": "主线抱团",
+      "ma20_recovery_pct": 104.35
+    },
+    "breadth": {
+      "advancers": 3774,
+      "advancers_ma5": 2084.4,
+      "advancers_ma5_delta": -6.0,
+      "limit_up": 92,
+      "limit_down": 4,
+      "sh_index_close": 3996.162,
+      "sh_index_pct_chg": -1.001489
+    },
+    "double_red": {
+      "definition": "pct_chg>0且diff_ratio>0",
+      "count": 155,
+      "diff_ge20_count": 73,
+      "amount_ge500_count": 62,
+      "top_by_diff": [
+        {
+          "sector": "白酒",
+          "pct_chg": 3.77,
+          "diff_ratio": 88.02,
+          "amount_yi": 173.82,
+          "red_count": 19,
+          "total_count": 19
+        },
+        {
+          "sector": "军工信息化",
+          "pct_chg": 3.34,
+          "diff_ratio": 74.83,
+          "amount_yi": 640.62,
+          "red_count": 98,
+          "total_count": 111
+        },
+        {
+          "sector": "军工装备",
+          "pct_chg": 3.77,
+          "diff_ratio": 70.49,
+          "amount_yi": 676.73,
+          "red_count": 72,
+          "total_count": 82
+        },
+        {
+          "sector": "时空大数据",
+          "pct_chg": 2.91,
+          "diff_ratio": 68.96,
+          "amount_yi": 266.74,
+          "red_count": 58,
+          "total_count": 67
+        },
+        {
+          "sector": "文化传媒",
+          "pct_chg": 2.91,
+          "diff_ratio": 62.23,
+          "amount_yi": 342.52,
+          "red_count": 77,
+          "total_count": 85
+        }
+      ]
+    },
+    "limit_heat": {
+      "market_limit_up_count": 92,
+      "top_themes": [
+        {
+          "sector": "商业航天",
+          "limit_up_count": 31,
+          "market_share_pct": 33.7,
+          "limit_up_ratio_pct": 6.08,
+          "fd_amount": 315903.83
+        },
+        {
+          "sector": "军工",
+          "limit_up_count": 24,
+          "market_share_pct": 26.09,
+          "limit_up_ratio_pct": 3.94,
+          "fd_amount": 363255.55
+        },
+        {
+          "sector": "人工智能",
+          "limit_up_count": 23,
+          "market_share_pct": 25.0,
+          "limit_up_ratio_pct": 2.13,
+          "fd_amount": 236076.36
+        },
+        {
+          "sector": "芯片概念",
+          "limit_up_count": 22,
+          "market_share_pct": 23.91,
+          "limit_up_ratio_pct": 2.41,
+          "fd_amount": 219460.87
+        },
+        {
+          "sector": "机器人概念",
+          "limit_up_count": 19,
+          "market_share_pct": 20.65,
+          "limit_up_ratio_pct": 1.56,
+          "fd_amount": 107183.43
+        }
+      ]
+    },
+    "new_high": {
+      "history_count": 46,
+      "three_year_count": 58,
+      "two_year_count": 64,
+      "one_year_count": 67,
+      "one_twenty_day_count": 78,
+      "sixty_day_count": 104,
+      "twenty_day_count": 224,
+      "clusters": [
+        {
+          "sw_l1": "电子",
+          "primary_high_period": "history",
+          "count": 23,
+          "amount_sum_yi": 1633.09
+        },
+        {
+          "sw_l1": "医药生物",
+          "primary_high_period": "20d",
+          "count": 21,
+          "amount_sum_yi": 86.86
+        },
+        {
+          "sw_l1": "计算机",
+          "primary_high_period": "20d",
+          "count": 20,
+          "amount_sum_yi": 287.04
+        },
+        {
+          "sw_l1": "国防军工",
+          "primary_high_period": "20d",
+          "count": 17,
+          "amount_sum_yi": 292.19
+        }
+      ],
+      "capacity_highs": [
+        {
+          "code": "600584.SH",
+          "name": "长电科技",
+          "label": "历史新高",
+          "price": 101.11,
+          "pct_chg": -2.33,
+          "amount_yi": 332.13
+        },
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息",
+          "label": "历史新高",
+          "price": 89.52,
+          "pct_chg": 4.11,
+          "amount_yi": 260.83
+        },
+        {
+          "code": "688041.SH",
+          "name": "海光信息",
+          "label": "历史新高",
+          "price": 353.0,
+          "pct_chg": -2.88,
+          "amount_yi": 192.82
+        },
+        {
+          "code": "000938.SZ",
+          "name": "紫光股份",
+          "label": "3年新高",
+          "price": 38.41,
+          "pct_chg": 7.65,
+          "amount_yi": 185.73
+        },
+        {
+          "code": "603019.SH",
+          "name": "中科曙光",
+          "label": "120日新高",
+          "price": 107.5,
+          "pct_chg": 3.38,
+          "amount_yi": 174.09
+        }
+      ]
+    },
+    "core_stocks": {
+      "engines": [
+        "中国卫星：商业航天涨停发动机，涨停10.00%，20日新高，成交53.10亿",
+        "航天电子：军工信息化涨停容量，涨停10.01%，成交58.17亿",
+        "浪潮信息：AI算力容量承接，涨4.11%，成交260.83亿，历史新高",
+        "华天科技：半导体容量新高，涨6.66%，成交127.64亿，历史新高"
+      ],
+      "capacity_cores": [
+        "长电科技：电子历史新高群最大成交，成交332.13亿",
+        "中际旭创：数据中心成交490.28亿但跌8.45%，提示AI硬件内部高位分歧",
+        "药明康德：CRO成交84.73亿，医药回流容量锚",
+        "恒瑞医药：减肥药/创新药成交74.92亿，医药容量锚"
+      ]
+    }
+  },
+  "section_3_direction_scores": {
+    "scenario": "B主升浪早期尝试但未确认；若T+1不能维持量能和双红，降级为A恐慌反弹后的轮动修复。",
+    "score_scale": "五维各1-5分，总分25分；拥挤度/已定价分数越高代表越不拥挤、越未充分定价。",
+    "directions": [
+      {
+        "rank": 1,
+        "direction": "商业航天/军工信息化",
+        "strategy_language": "策略一主线流动性池 + 策略三分歧回流",
+        "nature": "主线扩散",
+        "certainty": 4.2,
+        "elasticity": 4.4,
+        "timing": 4.2,
+        "crowding": 2.8,
+        "priced_in": 2.8,
+        "total": 18.4,
+        "reason": "商业航天31只涨停、军工24只涨停；军工信息化diff=74.83、军工装备diff=70.49，兼具涨停热度和双红扩散。"
+      },
+      {
+        "rank": 2,
+        "direction": "创新药/CRO/减肥药",
+        "strategy_language": "策略三分歧回流",
+        "nature": "资金切换",
+        "certainty": 3.5,
+        "elasticity": 3.6,
+        "timing": 3.7,
+        "crowding": 3.1,
+        "priced_in": 3.0,
+        "total": 16.9,
+        "reason": "CRO pct=4.43/diff=33.39，减肥药pct=4.35/diff=33.57，创新药pct=3.03/diff=29.20，前主线退潮后出现强回流。"
+      },
+      {
+        "rank": 3,
+        "direction": "AI算力/国产算力/半导体",
+        "strategy_language": "策略二强趋势延续",
+        "nature": "主线分化",
+        "certainty": 3.8,
+        "elasticity": 3.7,
+        "timing": 3.5,
+        "crowding": 2.5,
+        "priced_in": 2.7,
+        "total": 16.2,
+        "reason": "人工智能23只涨停、diff=20.28，电子历史新高23只且金额1633.09亿；但中际旭创、寒武纪、长电科技等容量核心分歧，排序低于军工。"
+      },
+      {
+        "rank": 4,
+        "direction": "传媒/短剧游戏",
+        "strategy_language": "策略四流动性切换",
+        "nature": "资金切换",
+        "certainty": 3.2,
+        "elasticity": 3.3,
+        "timing": 3.3,
+        "crowding": 3.2,
+        "priced_in": 2.6,
+        "total": 15.6,
+        "reason": "文化传媒diff=62.23、短剧游戏diff=34.55，但涨停热度弱于军工/AI，偏轮动修复。"
+      },
+      {
+        "rank": 5,
+        "direction": "风电/储能",
+        "strategy_language": "策略三分歧回流观察",
+        "nature": "情绪脉冲",
+        "certainty": 2.9,
+        "elasticity": 3.1,
+        "timing": 3.0,
+        "crowding": 2.8,
+        "priced_in": 2.7,
+        "total": 14.5,
+        "reason": "储能14只涨停、风电13只涨停，但储能pct仅0.22/diff=14.46，宁德时代、阳光电源等容量核心仍弱，先列观察。"
+      }
+    ],
+    "rank_gap_1_vs_2": 1.5
+  },
+  "section_5_validation": {
+    "t1": {
+      "market_advancers_min": 2500,
+      "market_advancers_max": 4200,
+      "total_amount_yi_min": 32000,
+      "volume_ratio_pct_min": 98,
+      "limit_up_min": 75,
+      "limit_down_max": 15,
+      "commercial_aerospace_limit_up_min": 18,
+      "commercial_aerospace_diff_min": 20,
+      "military_informatization_diff_min": 40,
+      "ai_limit_up_min": 15,
+      "ai_diff_min": 10,
+      "medicine_diff_min": 15
+    },
+    "t3": {
+      "days_amount_ge_32000_min": 2,
+      "at_least_one_day_advancers_min": 3000,
+      "directions_double_red_min": 2,
+      "direction_pool": [
+        "商业航天",
+        "军工信息化",
+        "人工智能",
+        "CRO",
+        "创新药"
+      ]
+    },
+    "targets_by_stock": {
+      "600118.SH": {
+        "t1_close_min": 88.0,
+        "t3_close_min": 92.0,
+        "falsify_close_below": 84.5
+      },
+      "600879.SH": {
+        "t1_close_min": 22.5,
+        "t3_close_min": 23.8,
+        "falsify_close_below": 21.2
+      },
+      "000977.SZ": {
+        "t1_close_min": 88.0,
+        "t3_close_min": 92.0,
+        "falsify_close_below": 84.0
+      },
+      "002185.SZ": {
+        "t1_close_min": 24.8,
+        "t3_close_min": 26.0,
+        "falsify_close_below": 23.7
+      },
+      "300759.SZ": {
+        "t1_close_min": 33.0,
+        "t3_close_min": 35.0,
+        "falsify_close_below": 31.8
+      }
+    },
+    "falsify_signals": {
+      "t1_market_fail": "advancers<2000 AND total_amount_yi<30000 AND limit_down>25",
+      "t1_direction_fail": "商业航天limit_up<12 AND 商业航天diff_ratio<0 AND 人工智能diff_ratio<0",
+      "t3_structure_fail": "pick_avg_return_pct<=-4 AND history_high_count<30"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "claim": "7月10日强修复后，T+1仍能维持承接而非反抽即退潮",
+      "horizon": "T+1"
+    },
+    {
+      "id": "direction",
+      "claim": "商业航天/军工信息化为第一方向，AI算力和医药回流作为承接分支",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "falsify",
+      "claim": "若市场缩量跌回弱广度且商业航天与人工智能同时转负，则主判断证伪",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "target:600118.SH",
+      "claim": "中国卫星验证商业航天情绪发动机延续",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "target:600879.SH",
+      "claim": "航天电子验证军工信息化容量回流",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "target:000977.SZ",
+      "claim": "浪潮信息验证国产算力容量承接",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "target:002185.SZ",
+      "claim": "华天科技验证半导体容量新高群承接",
+      "horizon": "T+1/T+3"
+    },
+    {
+      "id": "target:300759.SZ",
+      "claim": "康龙化成验证CRO/创新药分歧回流",
+      "horizon": "T+1/T+3"
+    }
+  ]
+}

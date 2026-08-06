@@ -1,0 +1,513 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+  "market_date": "2026-07-09",
+  "created_at": "2026-07-09T23:11:15+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-09-concept_ingest-a1a0ce113a7e-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "半导体",
+      "priority": 195.96,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "澜起科技",
+        "中芯国际",
+        "长川科技",
+        "兆易创新",
+        "长电科技"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国联民生两场系统梳理：2026年Q3 DRAM环比涨约40%、NAND涨约35%，Q4二者均涨约22%-23%；服务器端涨幅高于平均7-8pct…",
+            "stance": "-",
+            "matched_by": "题材词：半导体"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：0702\"客户接受涨价\"（需求侧）→0705三星涨价函+巨头产能约束（供给侧）→0706给出分季度涨幅+长协条款+扩产上限的完整定量框架，并…",
+            "stance": "-",
+            "matched_by": "题材词：半导体"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：与主流\"成熟制程增长有限\"相反的判断；功率/模拟涨价函为可验证硬信号，与存储涨价共同构成\"全品类半导体通胀\"。[[成熟制程]] [[功率器件…",
+            "stance": "-",
+            "matched_by": "题材词：半导体"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**信号**：国联民生两场系统梳理：2026年Q3 DRAM环比涨约40%、NAND涨约35%，Q4二者均涨约22%-23%；服务器端涨幅高于平均7-8pct…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-concept_ingest-189979277dde-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "数据中心",
+      "priority": 174.46,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "澜起科技",
+        "东山精密",
+        "浪潮信息",
+        "中兴通讯",
+        "寒武纪"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "**信号**：长江「AI势不可挡」：Meta出租的是A700/AC200老卡（资源优化非减投），Meta 2026年已规划近5000瓦、两周前再增1.66GW…",
+            "stance": "-",
+            "matched_by": "题材词：数据中心"
+          },
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "**信号**：长江电新变压器：美国五年数据中心/基建带动中低压变压器需求CAGR 15%-20%、高压30%-40%；海外三大家高压交付3-4年、伊顿中低压1…",
+            "stance": "-",
+            "matched_by": "题材词：数据中心"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国信电子：成熟制程稼动率持续攀升、景气度类比2020Q1，至少2027Q1前涨价为大势所趋；英飞凌7/1起涨价10%-15%、TI已完成三轮涨价…",
+            "stance": "-",
+            "matched_by": "题材词：数据中心"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-07 晨汇 2026-07-07｜**信号**：长江「AI势不可挡」：Meta出租的是A700/AC200老卡（资源优化非减投），Meta 2026年已规划近5000瓦、两周前再增1.66GW…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-concept_ingest-bb84ccc9ae11-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "英伟达",
+      "priority": 165.88,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "浪潮信息",
+        "天孚通信",
+        "麦格米特",
+        "紫光股份",
+        "胜宏科技"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：华安机械：仅计英伟达+谷歌需求，芯片电感市场2026年58亿→2027年198亿→2028年434亿元（2027同比约+240%、2028约+1…",
+            "stance": "-",
+            "matched_by": "题材词：英伟达"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**风险**：测算仅基于英伟达+谷歌两家需求外推；台厂（乾坤）竞争格局。",
+            "stance": "-",
+            "matched_by": "题材词：英伟达"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：当日4场会议覆盖，成市场最热细分之一。国泰海通计算机：适配700W以上AI GPU、导热系数2000W/mK（纯铜5倍）、提升算力2.5-4倍、…",
+            "stance": "-",
+            "matched_by": "题材词：英伟达"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**信号**：华安机械：仅计英伟达+谷歌需求，芯片电感市场2026年58亿→2027年198亿→2028年434亿元（2027同比约+240%、2028约+1…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-concept_ingest-87ee30bb343a-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "无人驾驶",
+      "priority": 162.45,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "长电科技",
+        "浪潮信息",
+        "天孚通信",
+        "中际旭创",
+        "长光华芯"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…",
+            "stance": "-",
+            "matched_by": "强势股：中际旭创"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-05",
+            "excerpt": "**映射标的**：天孚通信/光库科技（FAU）、太辰光/中天（MPO）",
+            "stance": "-",
+            "matched_by": "强势股：天孚通信"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-disclosure-xian-jin-feng-zhuang-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "先进封装",
+      "priority": 187.69,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "长电科技",
+        "中微公司",
+        "寒武纪",
+        "华海清科",
+        "甬矽电子"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：中微公司"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：先进封装"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：华海清科"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜晚间卖方研报20260705"
+      }
+    },
+    {
+      "task_id": "2026-07-09-disclosure-cun-chu-xin-pian-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "存储芯片",
+      "priority": 186.91,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "澜起科技",
+        "中芯国际",
+        "长川科技",
+        "兆易创新",
+        "长电科技"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：0702\"客户接受涨价\"（需求侧）→0705三星涨价函+巨头产能约束（供给侧）→0706给出分季度涨幅+长协条款+扩产上限的完整定量框架，并…",
+            "stance": "-",
+            "matched_by": "题材词：存储芯片"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**KB验证**：[[存储芯片]]/[[DRAM]]\"一致认同\"、[[HBM]]\"第一轮\"；0702→0705→0706三日连续主线，本轮增量在定量框架+设备…",
+            "stance": "-",
+            "matched_by": "题材词：存储芯片"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：存储芯片"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**核心逻辑**：0702\"客户接受涨价\"（需求侧）→0705三星涨价函+巨头产能约束（供给侧）→0706给出分季度涨幅+长协条款+扩产上限的完整定量框架，并…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-disclosure-ye-leng-fu-wu-qi-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "液冷服务器",
+      "priority": 165.07,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "浪潮信息",
+        "中兴通讯",
+        "中际旭创",
+        "光迅科技",
+        "紫光股份"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…",
+            "stance": "-",
+            "matched_by": "强势股：中际旭创"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：液冷服务器"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：液冷服务器"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…"
+      }
+    },
+    {
+      "task_id": "2026-07-09-disclosure-cpo-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "CPO",
+      "priority": 164.62,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "东山精密",
+        "长电科技",
+        "天孚通信",
+        "中际旭创",
+        "京东方A"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-09",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-09-daily-agent.json",
+      "created_at": "2026-07-09T23:11:15+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…",
+            "stance": "-",
+            "matched_by": "题材词：CPO"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：0705 FAU 10倍扩容之后，光连接无源器件主线继续加密——DCI给出招标定量（Q2三家150-160亿美元为硬信号）、MPO空间上修至…",
+            "stance": "-",
+            "matched_by": "题材词：CPO"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-05",
+            "excerpt": "**信号**：国泰海通两连发：FAU市场从五六十亿扩至500亿级（2027年约550亿=光模块300-400亿+NPO 150亿+CPO 50亿），净利率超3…",
+            "stance": "-",
+            "matched_by": "题材词：CPO"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**信号**：国泰海通DCI专题：全球DCI市场2025年95-100亿→2030年240亿美元（CAGR 20%），AI-DCI从5亿→100亿美元（CAG…"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 8,
+    "by_task_type": {
+      "concept_ingest": 4,
+      "disclosure": 4
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

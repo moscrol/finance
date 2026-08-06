@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-10",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "半导体 -5.28%/diff+16.40；存储芯片 -3.80%/diff+18.30；芯片 -1.46%/diff+18.03；先进封装 -3.33%/diff+21.48；数据中心 +0.18%/diff+13.23；通信设备 +0.10%/diff+13.30",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-10",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "unverifiable",
+      "actual": "证伪条件无法机判；涨家数3774、涨停92、跌停4、成交额33884亿、量比104.3、上证-1.00%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-10"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "unverifiable",
+      "actual": "涨家数3774、涨停92、跌停4、成交额33884亿、量比104.3、上证-1.00%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-10"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

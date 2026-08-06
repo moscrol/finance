@@ -1,0 +1,2 @@
+{"ts": "2026-07-09T17:13:42+00:00", "question": "国产算力当前处于发酵哪一段？", "question_type": "general_finance_qa", "total_score": 71, "max_score": 100, "grade": "C", "failures": ["本地数据优先不足：未体现本地知识库/金融 repo 优先", "证据分层不足：缺少 L1-L4 或事实/情绪/基本面分层", "反方审稿不足：缺少反方审稿; 缺少证伪/反证检查"]}
+{"ts": "2026-07-09T17:18:30+00:00", "question": "国产算力当前处于发酵期/共识期/透支期哪一段？依据什么数据？下一个升级或降级的触发信号是什么？", "question_type": "general_finance_qa", "total_score": 80, "max_score": 100, "grade": "B", "failures": ["本地数据优先不足：未体现本地知识库/金融 repo 优先", "反方审稿不足：缺少反方审稿"]}

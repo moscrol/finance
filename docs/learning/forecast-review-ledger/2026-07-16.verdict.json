@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-16",
+  "verdicts": [
+    {
+      "id": "direction:baijiu",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "白酒 +1.37%/diff-24.11；创新药 +0.86%/diff-6.22；CRO +0.64%/diff-4.06；医疗服务 +1.83%/diff-2.10；游戏 +0.45%/diff+4.87",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "direction:medicine",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "创新药 +0.86%/diff-6.22；CRO +0.64%/diff-4.06；医疗服务 +1.83%/diff-2.10；白酒 +1.37%/diff-24.11；游戏 +0.45%/diff+4.87",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数2499、涨停42、跌停34、成交额24034亿、量比76.3、上证-1.85%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "涨家数2499、涨停42、跌停34、成交额24034亿、量比76.3、上证-1.85%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:000858",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "五粮液 收盘73.90（+0.11%），上证-1.85%，跌破证伪价75.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002558",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "巨人网络 收盘30.28（+2.44%），上证-1.85%，≥T+1阈值27.8",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16"
+    },
+    {
+      "id": "target:002821",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "凯莱英 收盘179.99（-8.05%），上证-1.85%，低于T+1阈值190.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300759",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "康龙化成 收盘38.60（-4.22%），上证-1.85%，跌破证伪价39.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:600276",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "恒瑞医药 收盘55.99（-2.63%），上证-1.85%，跌破证伪价56.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-16",
+      "failure_mode": "机判待人工归因"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

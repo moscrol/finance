@@ -1,0 +1,519 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-15",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "93758678f9e3a49a",
+  "perspective_date": "2026-07-14",
+  "input_freeze": {
+    "duckdb_cutoff": "2026-07-14",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "47a99336b2e754d78bccab98bd43dfdc63a001b1",
+    "materials_count": 0,
+    "data_gaps": [
+      "feature_market_window 和 feature_sector_window 截至 2026-07-13，2026-07-14 判断主要使用 fact_* 日频事实表",
+      "manifest 未冻结额外晨汇、卖方或外盘材料，本答卷只按 DuckDB 盘面流作答"
+    ]
+  },
+  "stage": "下跌阶段第2天；2026-07-14 上证+1.36%，涨家数4211，跌停22，涨停81，但总成交27037.82亿元、量比84.21、较前日-4.04%，属于缩量普反后的分歧回流观察期",
+  "section_1": {
+    "stage_metrics": {
+      "market_stage": "下跌阶段",
+      "stage_day": 2,
+      "sh_index_close": 3967.126,
+      "sh_index_pct_chg": 1.3627,
+      "strength_avg_pct": 9.99,
+      "strength_amount_pct": 19.08,
+      "strength_marginal_pct": 132.52,
+      "strength_status": "沸点",
+      "concentration_state": "集中",
+      "top3_industry_ratio_pct": 49.6
+    },
+    "volume_metrics": {
+      "total_amount_yi": 27037.82,
+      "amount_vs_yesterday_pct": -4.04,
+      "amount_ma20_yi": 32107.52,
+      "volume_ratio_pct": 84.21,
+      "volume_state": "缩量观望"
+    },
+    "breadth_metrics": {
+      "advancers": 4211,
+      "advancers_prior_day": 801,
+      "limit_up": 81,
+      "limit_up_prior_day": 29,
+      "limit_down": 22,
+      "limit_down_prior_day": 172
+    },
+    "dual_red_sectors_top": [
+      {
+        "sector": "医药商业",
+        "pct_chg": 4.88,
+        "diff_ratio": 55.99,
+        "amount_yi": 70.15
+      },
+      {
+        "sector": "互联网电商",
+        "pct_chg": 2.53,
+        "diff_ratio": 55.46,
+        "amount_yi": 60.55
+      },
+      {
+        "sector": "工业金属",
+        "pct_chg": 4.62,
+        "diff_ratio": 48.94,
+        "amount_yi": 503.88
+      },
+      {
+        "sector": "油气开采及服务",
+        "pct_chg": 7.39,
+        "diff_ratio": 48.11,
+        "amount_yi": 145.91
+      },
+      {
+        "sector": "贵金属",
+        "pct_chg": 4.12,
+        "diff_ratio": 40.29,
+        "amount_yi": 263.57
+      },
+      {
+        "sector": "黄金",
+        "pct_chg": 3.17,
+        "diff_ratio": 28.15,
+        "amount_yi": 632.79
+      },
+      {
+        "sector": "通信设备",
+        "pct_chg": 1.68,
+        "diff_ratio": 14.79,
+        "amount_yi": 2197.97
+      },
+      {
+        "sector": "创新药",
+        "pct_chg": 2.53,
+        "diff_ratio": 7.88,
+        "amount_yi": 1241.01
+      },
+      {
+        "sector": "共封装光学(CPO)",
+        "pct_chg": 3.31,
+        "diff_ratio": 7.75,
+        "amount_yi": 5955.75
+      },
+      {
+        "sector": "PCB",
+        "pct_chg": 4.13,
+        "diff_ratio": 5.74,
+        "amount_yi": 3105.28
+      }
+    ],
+    "limit_up_heat_top": [
+      {
+        "sector": "机器人概念",
+        "limit_up_count": 22,
+        "total_count": 1217,
+        "limit_up_ratio_pct": 1.81,
+        "market_share_pct": 27.16
+      },
+      {
+        "sector": "芯片概念",
+        "limit_up_count": 13,
+        "total_count": 913,
+        "limit_up_ratio_pct": 1.42,
+        "market_share_pct": 16.05
+      },
+      {
+        "sector": "人工智能",
+        "limit_up_count": 13,
+        "total_count": 1080,
+        "limit_up_ratio_pct": 1.2,
+        "market_share_pct": 16.05
+      },
+      {
+        "sector": "数据中心",
+        "limit_up_count": 12,
+        "total_count": 646,
+        "limit_up_ratio_pct": 1.86,
+        "market_share_pct": 14.81
+      },
+      {
+        "sector": "PCB概念",
+        "limit_up_count": 11,
+        "total_count": 228,
+        "limit_up_ratio_pct": 4.82,
+        "market_share_pct": 13.58
+      }
+    ],
+    "limit_advance": {
+      "three_board_count": 1,
+      "three_board_names": [
+        "哈药股份"
+      ],
+      "two_board_count": 5,
+      "two_board_names": [
+        "云创退",
+        "信通电子",
+        "宏桥控股",
+        "宿迁联盛",
+        "恒尚节能"
+      ],
+      "promotion_rate_2_to_3_pct": 17,
+      "promotion_rate_1_to_2_pct": 26
+    },
+    "new_high_metrics": {
+      "history_high_count": 8,
+      "three_year_high_count": 5,
+      "two_year_high_count": 13,
+      "one_year_high_count": 15,
+      "one_hundred_twenty_day_high_count": 17,
+      "sixty_day_high_count": 34,
+      "twenty_day_high_count": 213,
+      "history_high_names": [
+        "拓荆科技",
+        "宿迁联盛",
+        "同飞股份",
+        "菲菱科思",
+        "日科化学",
+        "恒尚节能",
+        "艾艾精工",
+        "锦华新材"
+      ],
+      "capacity_new_high_names": [
+        "工商银行",
+        "中国石油",
+        "中国神华",
+        "长江电力",
+        "美的集团",
+        "拓荆科技",
+        "赤峰黄金",
+        "康龙化成"
+      ]
+    },
+    "core_stocks": {
+      "engines": [
+        "东山精密",
+        "生益科技",
+        "沪电股份",
+        "长电科技",
+        "兆易创新",
+        "光迅科技",
+        "哈药股份"
+      ],
+      "capacity_cores": [
+        {
+          "code": "002384.SZ",
+          "name": "东山精密",
+          "amount_yi": 238.56,
+          "pct_chg": 10.0,
+          "role": "PCB/CPO/数据中心容量首板"
+        },
+        {
+          "code": "600183.SH",
+          "name": "生益科技",
+          "amount_yi": 117.8,
+          "pct_chg": 10.0,
+          "role": "PCB/元件容量首板"
+        },
+        {
+          "code": "002463.SZ",
+          "name": "沪电股份",
+          "amount_yi": 125.54,
+          "pct_chg": 10.0,
+          "role": "PCB/数据中心容量首板"
+        },
+        {
+          "code": "600584.SH",
+          "name": "长电科技",
+          "amount_yi": 274.25,
+          "pct_chg": 3.69,
+          "role": "半导体/先进封装容量核心"
+        },
+        {
+          "code": "603986.SH",
+          "name": "兆易创新",
+          "amount_yi": 383.38,
+          "pct_chg": 6.03,
+          "role": "芯片/存储容量核心"
+        }
+      ]
+    }
+  },
+  "main_judgment": "2026-07-14 是下跌阶段中的缩量普反，T+1 更像“高开或惯性冲高后分歧，午后看 PCB/CPO 与通信设备能否带容量核心回流”，不直接按全面主升浪处理。",
+  "scenario": {
+    "type": "A 恐慌反弹",
+    "rationale": "7月13日跌停172、涨家801后，7月14日涨家4211且跌停降至22，但成交额27037.82亿元低于20日均32107.52亿元且环比-4.04%，说明修复强在广度和涨停，弱在增量资金。"
+  },
+  "direction_ranking": [
+    "PCB/CPO",
+    "通信设备/数据中心",
+    "创新药/医药商业",
+    "工业金属/黄金",
+    "机器人/储能"
+  ],
+  "direction_scores": [
+    {
+      "direction": "PCB/CPO",
+      "certainty": 4,
+      "elasticity": 4,
+      "time_to_realize": 4,
+      "crowding_inverse": 2,
+      "priced_in_inverse": 2,
+      "total_score": 16,
+      "nature": "主线扩散后的分歧回流",
+      "reason": "PCB pct+4.13、diff+5.74、金额3105.28亿元；CPO pct+3.31、diff+7.75、金额5955.75亿元；PCB概念涨停11只，且东山精密/生益科技/沪电股份均容量首板。"
+    },
+    {
+      "direction": "通信设备/数据中心",
+      "certainty": 3,
+      "elasticity": 4,
+      "time_to_realize": 4,
+      "crowding_inverse": 3,
+      "priced_in_inverse": 2,
+      "total_score": 16,
+      "nature": "资金切换与主线残余共振",
+      "reason": "通信设备 pct+1.68、diff+14.79、金额2197.97亿元；数据中心 pct+1.29、diff+1.39、金额7638.20亿元，涨停热度12只。与第一名同分，但容量核心更分化。"
+    },
+    {
+      "direction": "创新药/医药商业",
+      "certainty": 4,
+      "elasticity": 3,
+      "time_to_realize": 3,
+      "crowding_inverse": 4,
+      "priced_in_inverse": 3,
+      "total_score": 17,
+      "nature": "低位/防守流动性切换",
+      "reason": "医药商业 pct+4.88、diff+55.99 为最强真双红；创新药 pct+2.53、diff+7.88、金额1241.01亿元，且哈药股份3板、迪哲医药20cm首板。总分高但交易路径更偏轮动防守，排序放在科技主线之后。"
+    },
+    {
+      "direction": "工业金属/黄金",
+      "certainty": 3,
+      "elasticity": 3,
+      "time_to_realize": 3,
+      "crowding_inverse": 3,
+      "priced_in_inverse": 3,
+      "total_score": 15,
+      "nature": "避险与资源重估的情绪脉冲",
+      "reason": "工业金属 pct+4.62、diff+48.94；黄金 pct+3.17、diff+28.15；宏桥控股2板、驰宏锌锗首板，但更像轮动避险。"
+    },
+    {
+      "direction": "机器人/储能",
+      "certainty": 2,
+      "elasticity": 4,
+      "time_to_realize": 3,
+      "crowding_inverse": 2,
+      "priced_in_inverse": 2,
+      "total_score": 13,
+      "nature": "涨停热度强但双红不足的情绪脉冲",
+      "reason": "机器人概念涨停22只居首、储能涨停10只，但机器人 diff=-6.56、储能 diff=-6.70，说明热度强于边际资金，若 T+1 不转双红易衰竭。"
+    }
+  ],
+  "picks": [
+    {
+      "code": "002384.SZ",
+      "name": "东山精密",
+      "strategy": "策略一：主线流动性池",
+      "reason": "绑定§1：PCB/CPO 真双红，PCB pct+4.13 diff+5.74、CPO pct+3.31 diff+7.75；个股7月14日涨停，成交238.56亿元，属于PCB/数据中心/机器人多标签容量首板。",
+      "evidence": {
+        "close": 260.37,
+        "pct_chg": 10.0,
+        "amount_yi": 238.56,
+        "sector_evidence": [
+          "PCB diff_ratio 5.74",
+          "CPO diff_ratio 7.75",
+          "PCB概念涨停11只"
+        ]
+      }
+    },
+    {
+      "code": "600183.SH",
+      "name": "生益科技",
+      "strategy": "策略一：主线流动性池",
+      "reason": "绑定§1：PCB/元件涨停热度强，PCB概念涨停11只、元件涨停11只；个股7月14日涨停，成交117.80亿元，承担PCB容量首板确认。",
+      "evidence": {
+        "close": 147.9,
+        "pct_chg": 10.0,
+        "amount_yi": 117.8,
+        "sector_evidence": [
+          "PCB pct_chg 4.13",
+          "PCB diff_ratio 5.74",
+          "元件涨停11只"
+        ]
+      }
+    },
+    {
+      "code": "002463.SZ",
+      "name": "沪电股份",
+      "strategy": "策略一：主线流动性池",
+      "reason": "绑定§1：PCB与数据中心共振，数据中心涨停12只且diff+1.39；个股7月14日涨停，成交125.54亿元，PCB容量核心回流强于普通跟风。",
+      "evidence": {
+        "close": 137.13,
+        "pct_chg": 10.0,
+        "amount_yi": 125.54,
+        "sector_evidence": [
+          "数据中心涨停12只",
+          "数据中心 diff_ratio 1.39",
+          "PCB概念涨停11只"
+        ]
+      }
+    },
+    {
+      "code": "002281.SZ",
+      "name": "光迅科技",
+      "strategy": "策略三：分歧回流",
+      "reason": "绑定§1：通信设备是真双红且金额2197.97亿元、diff+14.79；个股7月14日+7.85%、成交113.32亿元，未涨停但处在CPO/数据中心容量核心里，适合观察分歧后的承接。",
+      "evidence": {
+        "close": 232.95,
+        "pct_chg": 7.85,
+        "amount_yi": 113.32,
+        "sector_evidence": [
+          "通信设备 diff_ratio 14.79",
+          "CPO diff_ratio 7.75",
+          "数据中心涨停12只"
+        ]
+      }
+    },
+    {
+      "code": "603538.SH",
+      "name": "美诺华",
+      "strategy": "策略四：流动性切换",
+      "reason": "绑定§1：医药商业diff+55.99为最强真双红，创新药pct+2.53 diff+7.88；个股7月14日+7.42%、成交35.15亿元、20日新高，是医药轮动中较有容量的非连板观察标的。",
+      "evidence": {
+        "close": 35.45,
+        "pct_chg": 7.42,
+        "amount_yi": 35.15,
+        "sector_evidence": [
+          "医药商业 diff_ratio 55.99",
+          "创新药 diff_ratio 7.88",
+          "创新药涨停5只"
+        ]
+      }
+    }
+  ],
+  "thresholds": {
+    "market": "T+1：涨家数2800-4300、成交额25000-30500亿元、涨停>=55、跌停<=50，则缩量普反后的分歧回流成立；T+3：至少2个交易日涨家数>=2500且成交额任一日>=30000亿元，或上证收盘重新站上3996.16，才升级为主线修复。",
+    "direction": "T+1：PCB需pct_chg>0且diff_ratio>0、PCB概念涨停>=8，CPO需diff_ratio>=0；通信设备需diff_ratio>=8且数据中心涨停>=10；创新药需diff_ratio>=5且涨停>=4。T+3：PCB/CPO/通信设备三者至少2个仍为pct_chg>0且diff_ratio>0，否则主线回流降级为一日脉冲。",
+    "targets": "T+1强确认价：东山精密收盘>=260.37且盘中高点>=273.39；生益科技收盘>=147.90且高点>=155.30；沪电股份收盘>=137.13且高点>=143.99；光迅科技收盘>=232.95且高点>=244.60；美诺华收盘>=35.45且高点>=37.22。T+3确认价：东山精密收盘>=273.39，生益科技>=155.30，沪电股份>=143.99，光迅科技>=244.60，美诺华>=37.22。",
+    "falsify": "T+1若涨家数<1800或跌停>80或成交额<24000亿元，同时PCB diff_ratio<0且PCB概念涨停<6，则推翻缩量普反后的分歧回流判断；任一标的T+1收盘跌破7月14日收盘的95%也证伪其个股路径：东山精密<247.35，生益科技<140.51，沪电股份<130.27，光迅科技<221.30，美诺华<33.68。"
+  },
+  "thresholds_structured": {
+    "t1": {
+      "market": {
+        "advancers_min": 2800,
+        "advancers_max": 4300,
+        "amount_yi_min": 25000,
+        "amount_yi_max": 30500,
+        "limit_up_min": 55,
+        "limit_down_max": 50
+      },
+      "direction": {
+        "pcb_pct_chg_min": 0,
+        "pcb_diff_ratio_min": 0,
+        "pcb_limit_up_min": 8,
+        "cpo_diff_ratio_min": 0,
+        "communication_equipment_diff_ratio_min": 8,
+        "data_center_limit_up_min": 10,
+        "innovative_drug_diff_ratio_min": 5,
+        "innovative_drug_limit_up_min": 4
+      },
+      "target_confirm": {
+        "002384.SZ": {
+          "close_min": 260.37,
+          "high_min": 273.39
+        },
+        "600183.SH": {
+          "close_min": 147.9,
+          "high_min": 155.3
+        },
+        "002463.SZ": {
+          "close_min": 137.13,
+          "high_min": 143.99
+        },
+        "002281.SZ": {
+          "close_min": 232.95,
+          "high_min": 244.6
+        },
+        "603538.SH": {
+          "close_min": 35.45,
+          "high_min": 37.22
+        }
+      }
+    },
+    "t3": {
+      "market": {
+        "days_advancers_gte_2500_min": 2,
+        "any_day_amount_yi_min": 30000,
+        "sh_index_close_repair_level": 3996.16
+      },
+      "direction": {
+        "positive_pct_and_diff_sector_count_min": 2,
+        "sector_pool": [
+          "PCB",
+          "共封装光学(CPO)",
+          "通信设备"
+        ]
+      },
+      "target_confirm_close": {
+        "002384.SZ": 273.39,
+        "600183.SH": 155.3,
+        "002463.SZ": 143.99,
+        "002281.SZ": 244.6,
+        "603538.SH": 37.22
+      }
+    },
+    "falsify": {
+      "market_advancers_lt": 1800,
+      "market_limit_down_gt": 80,
+      "market_amount_yi_lt": 24000,
+      "pcb_diff_ratio_lt": 0,
+      "pcb_limit_up_lt": 6,
+      "target_close_lt": {
+        "002384.SZ": 247.35,
+        "600183.SH": 140.51,
+        "002463.SZ": 130.27,
+        "002281.SZ": 221.3,
+        "603538.SH": 33.68
+      }
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "horizon": "T+1",
+      "claim": "市场走缩量普反后的分歧回流，而不是再次单边退潮",
+      "hit_condition": "涨家数2800-4300、成交额25000-30500亿元、涨停>=55、跌停<=50"
+    },
+    {
+      "id": "direction",
+      "horizon": "T+1",
+      "claim": "PCB/CPO 与通信设备是优先观察的主线回流方向",
+      "hit_condition": "PCB pct_chg>0且diff_ratio>0且PCB概念涨停>=8，同时CPO diff_ratio>=0；通信设备diff_ratio>=8或数据中心涨停>=10"
+    },
+    {
+      "id": "falsify",
+      "horizon": "T+1",
+      "claim": "若广度和PCB同时破阈值则主判断失败",
+      "hit_condition": "涨家数<1800或跌停>80或成交额<24000亿元，同时PCB diff_ratio<0且PCB概念涨停<6"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-15",
+    "recheck_t3_date": "2026-07-17",
+    "pick_returns_t1": [
+      0.81,
+      3.06,
+      0.07,
+      -7.72,
+      10.01
+    ],
+    "pick_returns_t3": [
+      -7.0861,
+      -10.5544,
+      -6.8038,
+      -18.6735,
+      -2.6234
+    ],
+    "benchmark_return_t3": -5.1163,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00",
+    "beat_benchmark_t3": false
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-17",
+  "verdicts": [
+    {
+      "id": "dir_doublered_thin",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17"
+    },
+    {
+      "id": "dir_hardware_retreat",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17"
+    },
+    {
+      "id": "mkt_weakness_persist",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17"
+    },
+    {
+      "id": "target_pool_relative",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17"
+    },
+    {
+      "id": "direction:ai_media",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "AI应用 -4.52%/diff+6.31；人工智能 -4.86%/diff+7.80；ChatGPT -5.07%/diff+3.49；短剧游戏 -5.10%/diff+7.58；游戏 -5.93%/diff-7.17；文化传媒 -3.74%/diff+5.78；医疗器械 -5.38%/diff-4.70；血氧仪 -5.41%/diff-8.80",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "direction:medical",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "医疗器械 -5.38%/diff-4.70；创新药 -6.89%/diff-11.79；AI应用 -4.52%/diff+6.31；ChatGPT -5.07%/diff+3.49；短剧游戏 -5.10%/diff+7.58；游戏 -5.93%/diff-7.17；文化传媒 -3.74%/diff+5.78；人工智能 -4.86%/diff+7.80",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "证伪条件已触发；涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数482、涨停33、跌停193、成交额26547亿、量比85.1、上证-3.05%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:000063.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "中兴通讯 收盘36.00（-10.00%），上证-3.05%，低于T+1阈值40.8",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002558.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "巨人网络 收盘29.12（-3.83%），上证-3.05%，低于T+1阈值31.2",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300251.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "光线传媒 收盘12.52（-7.74%），上证-3.05%，跌破证伪价13.2",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300760.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "迈瑞医疗 收盘149.43（-0.59%），上证-3.05%，低于T+1阈值152.5",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:688169.SH",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "石头科技 收盘99.17（-6.44%），上证-3.05%，低于T+1阈值108.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-17",
+      "failure_mode": "机判待人工归因"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

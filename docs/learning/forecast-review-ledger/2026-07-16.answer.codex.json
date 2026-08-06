@@ -1,0 +1,782 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-16",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "183587a0f76c1990",
+  "input_freeze": {
+    "perspective_date": "2026-07-15",
+    "duckdb_cutoff": "2026-07-15",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "47a99336b2e754d78bccab98bd43dfdc63a001b1",
+    "materials": [],
+    "data_gaps": [
+      "manifest materials 为空，本答卷只使用 DuckDB 盘面流；未使用晨汇或卖方材料。",
+      "不得使用 2026-07-15 收盘后的任何行情。"
+    ]
+  },
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "support"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 3,
+      "direction": "support"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 80.69,
+      "direction": "support"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 25709.31,
+      "direction": "support"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": -4.91,
+      "direction": "support"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "advancers",
+      "value": 3351,
+      "direction": "support"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "advancers_ma5",
+      "value": 2924.6,
+      "direction": "support"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 72,
+      "direction": "support"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 32,
+      "direction": "neutral"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "strength_marginal_pct",
+      "value": -64.83,
+      "direction": "counter"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 10,
+      "direction": "neutral"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 528,
+      "direction": "support"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "sh_index_pct_chg",
+      "value": -0.2910923424161549,
+      "direction": "counter"
+    },
+    "D1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "double_red_count",
+      "value": 61,
+      "direction": "support"
+    },
+    "D2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "白酒",
+      "field": "baijiu_diff_ratio",
+      "value": 104.82,
+      "direction": "support"
+    },
+    "D3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "白酒",
+      "field": "baijiu_pct_chg",
+      "value": 5.13,
+      "direction": "support"
+    },
+    "D4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "创新药",
+      "field": "innovative_drug_diff_ratio",
+      "value": 47.05,
+      "direction": "support"
+    },
+    "D5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "创新药",
+      "field": "innovative_drug_amount",
+      "value": 1824.89,
+      "direction": "support"
+    },
+    "D6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "CRO",
+      "field": "cro_diff_ratio",
+      "value": 51.49,
+      "direction": "support"
+    },
+    "D7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "医疗服务",
+      "field": "medical_service_diff_ratio",
+      "value": 52.52,
+      "direction": "support"
+    },
+    "D8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "半导体",
+      "field": "semiconductor_diff_ratio",
+      "value": -14.95,
+      "direction": "support"
+    },
+    "D9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "PCB",
+      "field": "pcb_diff_ratio",
+      "value": -5.93,
+      "direction": "support"
+    },
+    "W1": {
+      "level": "L4",
+      "source": "feature_sector_window",
+      "source_time": "2026-07-15",
+      "entity": "创新药",
+      "field": "innovative_drug_5d_diff_change",
+      "value": 62.12,
+      "direction": "support"
+    },
+    "W2": {
+      "level": "L4",
+      "source": "feature_sector_window",
+      "source_time": "2026-07-15",
+      "entity": "白酒",
+      "field": "baijiu_5d_diff_change",
+      "value": 124.47,
+      "direction": "support"
+    },
+    "W3": {
+      "level": "L4",
+      "source": "feature_sector_window",
+      "source_time": "2026-07-15",
+      "entity": "半导体",
+      "field": "semiconductor_5d_diff_change",
+      "value": -23.87,
+      "direction": "support"
+    },
+    "H1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-15",
+      "entity": "创新药",
+      "field": "innovative_drug_limit_up_count",
+      "value": 13,
+      "direction": "support"
+    },
+    "H2": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-15",
+      "entity": "CRO",
+      "field": "cro_limit_up_count",
+      "value": 8,
+      "direction": "support"
+    },
+    "H3": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-15",
+      "entity": "医疗服务",
+      "field": "medical_service_limit_up_count",
+      "value": 7,
+      "direction": "support"
+    },
+    "H4": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-15",
+      "entity": "market",
+      "field": "max_boards",
+      "value": 4,
+      "direction": "neutral"
+    },
+    "P1": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-15",
+      "entity": "600276.SH 恒瑞医药",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 57.5,
+        "pct_chg": 4.89,
+        "amount": 109.92,
+        "high_label": "20日新高",
+        "fund_today": 20.63,
+        "market_cap": 3667.93
+      },
+      "direction": "support"
+    },
+    "P2": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-15",
+      "entity": "300759.SZ 康龙化成",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 40.3,
+        "pct_chg": 9.13,
+        "amount": 64.21,
+        "high_label": "3年新高",
+        "fund_today": 4.86,
+        "pct_chg_10d": 35.34
+      },
+      "direction": "support"
+    },
+    "P3": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-15",
+      "entity": "002821.SZ 凯莱英",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 195.75,
+        "pct_chg": 10.0,
+        "amount": 42.4,
+        "high_label": "3年新高",
+        "limit_status": "U",
+        "pct_chg_10d": 18.78
+      },
+      "direction": "support"
+    },
+    "P4": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-15",
+      "entity": "000858.SZ 五粮液",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 76.4,
+        "pct_chg": 4.09,
+        "amount": 48.06,
+        "sector": "白酒",
+        "fund_flow_1d": 6.42,
+        "float_mcap_yi": 2965.48
+      },
+      "direction": "support"
+    },
+    "P5": {
+      "level": "L4",
+      "source": "feature_l2_capital_flow_daily",
+      "source_time": "2026-07-15",
+      "entity": "002558.SZ 巨人网络",
+      "field": "stock_snapshot",
+      "value": {
+        "close": 29.56,
+        "pct_chg": 10.01,
+        "amount": 42.56,
+        "main_buy_net_wan": 55409.0,
+        "score": 1.21,
+        "rank": 1
+      },
+      "direction": "support"
+    }
+  },
+  "stage": "下跌阶段第3天的缩量修复：广度修复但量能仍接近冰点，主线从AI硬件/半导体向医药和消费切换",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-15",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 3,
+        "evidence_ref": "M2"
+      },
+      "volume_ratio": {
+        "value": 80.69,
+        "evidence_ref": "M3"
+      },
+      "total_amount": {
+        "value": 25709.31,
+        "evidence_ref": "M4"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": -4.91,
+        "evidence_ref": "M5"
+      },
+      "advancers": {
+        "value": 3351,
+        "evidence_ref": "M6"
+      },
+      "advancers_ma5": {
+        "value": 2924.6,
+        "evidence_ref": "M7"
+      },
+      "limit_up": {
+        "value": 72,
+        "evidence_ref": "M8"
+      },
+      "limit_down": {
+        "value": 32,
+        "evidence_ref": "M9"
+      },
+      "strength_marginal_pct": {
+        "value": -64.83,
+        "evidence_ref": "M10"
+      },
+      "stock_high_count_20d": {
+        "value": 528,
+        "evidence_ref": "M12"
+      },
+      "double_red_count": {
+        "value": 61,
+        "evidence_ref": "D1"
+      },
+      "innovative_drug_diff_ratio": {
+        "value": 47.05,
+        "evidence_ref": "D4"
+      },
+      "baijiu_diff_ratio": {
+        "value": 104.82,
+        "evidence_ref": "D2"
+      },
+      "semiconductor_diff_ratio": {
+        "value": -14.95,
+        "evidence_ref": "D8"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9",
+      "M10",
+      "M12",
+      "D1",
+      "D4",
+      "D2",
+      "D8"
+    ]
+  },
+  "unified_fields": {
+    "stage": "下跌阶段第3天；量能接近冰点，广度修复，不能按主升浪处理。",
+    "volume": "成交额25709.31亿，环比-4.91%，20日均量31860.71亿，量比80.69%，缩量观望。",
+    "breadth": "涨家数3351，高于5日均值2924.6；涨停72、跌停32，涨停仍可用但边际强度-64.83。",
+    "double_red": [
+      "白酒 pct=5.13 diff=104.82",
+      "减肥药 pct=4.37 diff=55.21",
+      "化学制药 pct=3.85 diff=54.53",
+      "医疗服务 pct=5.51 diff=52.52",
+      "CRO pct=4.74 diff=51.49",
+      "创新药 pct=3.65 diff=47.05"
+    ],
+    "limit_up_heat": [
+      "创新药 13家，市场占比18.06%",
+      "化学制药 9家，市场占比12.50%",
+      "CRO 8家，市场占比11.11%",
+      "医疗服务 7家，市场占比9.72%"
+    ],
+    "new_high": "20日新高528只、60日新高75只、历史新高10只；容量新高包括东山精密、通富微电、药明康德、恒瑞医药、贵州茅台、康龙化成。",
+    "core_stocks": "医药容量核心为恒瑞医药、康龙化成、凯莱英；白酒容量核心为贵州茅台、五粮液；游戏脉冲核心为巨人网络。AI算力/半导体核心东山精密、通富微电仍历史新高，但半导体diff=-14.95、PCB diff=-5.93，属于高位分歧。"
+  },
+  "main_judgment": "7月16日更像缩量修复后的结构切换确认，而不是指数主升；医药是第一流动性池，白酒是低位补涨确认，AI硬件/半导体只保留观察，不追高。",
+  "scenario": {
+    "label": "A2 缩量恐慌后修复",
+    "alternatives": {
+      "B 主升浪": "否决：成交额25709.31亿、量比80.69%，不足以支持全面主升。",
+      "C 高位拥挤": "局部成立于AI硬件/半导体，但全市场涨家数和双红数量仍支持修复。"
+    },
+    "five_factor_scores": [
+      {
+        "direction": "创新药/CRO/医疗服务",
+        "certainty": 4,
+        "elasticity": 4,
+        "time_to_realize": 4,
+        "crowding": 2,
+        "priced_in": 2,
+        "total": 16,
+        "nature": "资金切换 + 主线扩散"
+      },
+      {
+        "direction": "白酒/消费",
+        "certainty": 3,
+        "elasticity": 2,
+        "time_to_realize": 4,
+        "crowding": 1,
+        "priced_in": 2,
+        "total": 14,
+        "nature": "低位补涨 + 防御修复"
+      },
+      {
+        "direction": "游戏/AI应用",
+        "certainty": 2,
+        "elasticity": 3,
+        "time_to_realize": 3,
+        "crowding": 3,
+        "priced_in": 2,
+        "total": 11,
+        "nature": "情绪脉冲"
+      },
+      {
+        "direction": "AI算力/半导体",
+        "certainty": 2,
+        "elasticity": 2,
+        "time_to_realize": 2,
+        "crowding": 4,
+        "priced_in": 4,
+        "total": 8,
+        "nature": "高位分歧，等待回流确认"
+      }
+    ],
+    "top_gap": "第1名医药16分，第2名白酒14分，分差2分；排序优势来自医药同时具备双红、涨停热度和容量新高。"
+  },
+  "direction_ranking": [
+    "创新药/CRO/医疗服务",
+    "白酒/消费",
+    "游戏/AI应用",
+    "证券/非银",
+    "AI算力/半导体观察"
+  ],
+  "direction_notes": {
+    "创新药/CRO/医疗服务": "策略一主线流动性池 + 策略二强趋势延续：创新药diff=47.05、涨停13家；CRO diff=51.49、涨停8家；医疗服务diff=52.52、涨停7家。",
+    "白酒/消费": "策略三分歧回流：白酒diff=104.82，5日diff_change=124.47，低位补涨属性强，但成交额232.47亿低于创新药容量。",
+    "游戏/AI应用": "策略四流动性切换的脉冲观察：游戏diff=35.83，巨人网络资金分排名第1，但DeepSeek diff=-7.77，不能泛化到整个AI。",
+    "证券/非银": "风险偏好修复观察：证券diff=33.87，东方财富放量但5日涨幅只有0.05%，更适合做确认而非主攻。",
+    "AI算力/半导体观察": "东山精密、通富微电仍历史新高，但半导体diff=-14.95、PCB diff=-5.93，判为高位分歧。"
+  },
+  "picks": [
+    {
+      "code": "600276",
+      "name": "恒瑞医药",
+      "strategy": "策略一：主线流动性池容量核心",
+      "reason": "创新药/化学制药双红，个股20日新高，成交额109.92亿、当日资金20.63亿，适合验证医药从情绪扩散到容量承接。",
+      "evidence_refs": [
+        "D4",
+        "D5",
+        "H1",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-15"
+    },
+    {
+      "code": "300759",
+      "name": "康龙化成",
+      "strategy": "策略二：强趋势延续",
+      "reason": "CRO/医疗服务处于双红，个股3年新高、成交额64.21亿，5日区间涨幅32.96且L2资金排名第6，趋势强但需次日不放量滞涨。",
+      "evidence_refs": [
+        "D6",
+        "D7",
+        "H2",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-15"
+    },
+    {
+      "code": "002821",
+      "name": "凯莱英",
+      "strategy": "策略二：强趋势延续",
+      "reason": "创新药、CRO、医疗服务、减肥药多重映射，个股涨停且3年新高，成交额42.4亿；是医药强度端的验证标的。",
+      "evidence_refs": [
+        "D4",
+        "D6",
+        "D7",
+        "H1",
+        "H2",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-15"
+    },
+    {
+      "code": "000858",
+      "name": "五粮液",
+      "strategy": "策略三：分歧回流/低位补涨",
+      "reason": "白酒是全市场diff最高双红方向，五粮液成交额48.06亿、资金流入6.42亿，适合验证消费补涨能否从板块扩散到容量核心。",
+      "evidence_refs": [
+        "D2",
+        "D3",
+        "W2",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-15"
+    },
+    {
+      "code": "002558",
+      "name": "巨人网络",
+      "strategy": "策略四：流动性切换/情绪脉冲",
+      "reason": "游戏双红且个股涨停，L2资金score=1.21排名第1；只作为游戏/AI应用脉冲验证，不外推到DeepSeek或半导体。",
+      "evidence_refs": [
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-15"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1修复成立：涨家数2500-3800、成交额不低于25000亿、涨停不低于60、跌停不高于45；若成交额重新站上30000亿且涨家数>3800，才从缩量修复上调为放量修复。",
+    "direction": "医药延续：创新药diff>30且涨停家数>=8，CRO diff>30或医疗服务diff>30；白酒确认：白酒diff>50且板块成交额>180亿；游戏只在游戏diff>20且巨人网络不破27.80时保留脉冲判断。",
+    "targets": "恒瑞医药收盘>=56.00且成交额>80亿；康龙化成收盘>=39.00；凯莱英收盘>=190.00或盘中再封板；五粮液收盘>=75.00；巨人网络收盘>=27.80且不出现放量长阴。",
+    "falsify": "若T+1涨家数<2200，或成交额<24000亿且跌停>60，或创新药/CRO/医疗服务三者diff全部转负，则缩量修复与医药第一方向判断失败。"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M3",
+      "as_of": "2026-07-15"
+    },
+    "direction": {
+      "origin": "mechanical",
+      "evidence_ref": "D4",
+      "as_of": "2026-07-15"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "P1",
+      "as_of": "2026-07-15"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "M6",
+      "as_of": "2026-07-15"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1市场维持缩量修复：涨家数在2500-3800，成交额不低于25000亿，涨停不低于60。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "M1",
+        "M3",
+        "M6",
+        "M8",
+        "D1"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "T+1涨家数<2200，或成交额<24000亿且跌停>60。"
+    },
+    {
+      "id": "direction:medicine",
+      "category": "direction",
+      "claim": "医药方向T+1仍是第一流动性池：创新药diff>30且涨停家数>=8，CRO或医疗服务至少一个diff>30。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.63,
+      "evidence_refs": [
+        "D4",
+        "D6",
+        "D7",
+        "H1",
+        "H2",
+        "H3",
+        "W1"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "创新药、CRO、医疗服务三者diff全部转负，或创新药涨停家数<5。"
+    },
+    {
+      "id": "direction:baijiu",
+      "category": "direction",
+      "claim": "白酒T+1为低位补涨确认而非主线替代：白酒diff>50且板块成交额>180亿即成立。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "D2",
+        "D3",
+        "W2",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "白酒diff<20或五粮液收盘跌破75.00。"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "AI硬件/半导体若T+1重新双红并放量，说明本答卷对切换的权重给高了。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.35,
+      "evidence_refs": [
+        "D8",
+        "D9",
+        "W3"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "半导体diff>20、PCB diff>20且东山精密/通富微电继续放量新高。"
+    },
+    {
+      "id": "target:600276",
+      "category": "target",
+      "claim": "恒瑞医药T+1收盘不破56.00且成交额>80亿，作为医药容量承接成立信号。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "P1",
+        "D4",
+        "H1"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "收盘<56.00或成交额<60亿。"
+    },
+    {
+      "id": "target:300759",
+      "category": "target",
+      "claim": "康龙化成T+1收盘不破39.00，若继续高于40.30则强趋势延续。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.56,
+      "evidence_refs": [
+        "P2",
+        "D6",
+        "D7"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "收盘<39.00或放量下跌超过5%。"
+    },
+    {
+      "id": "target:002821",
+      "category": "target",
+      "claim": "凯莱英T+1守住190.00或盘中再封板，验证CRO强度端继续有效。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.54,
+      "evidence_refs": [
+        "P3",
+        "D6",
+        "H2"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "收盘<190.00且CRO diff<20。"
+    },
+    {
+      "id": "target:000858",
+      "category": "target",
+      "claim": "五粮液T+1收盘不破75.00，验证白酒容量补涨不是一日游。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "P4",
+        "D2",
+        "W2"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "收盘<75.00或白酒diff<20。"
+    },
+    {
+      "id": "target:002558",
+      "category": "target",
+      "claim": "巨人网络T+1收盘不破27.80，且游戏diff>20，说明游戏/AI应用脉冲仍可交易。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.48,
+      "evidence_refs": [
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-15",
+      "falsify_when": "收盘<27.80或游戏板块diff转负。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-16",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      -2.63,
+      -4.22,
+      -8.05,
+      0.11,
+      2.44
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00"
+  }
+}
