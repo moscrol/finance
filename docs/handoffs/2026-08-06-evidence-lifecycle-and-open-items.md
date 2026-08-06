@@ -105,7 +105,21 @@ LABEL_NOISE         = "noise_or_unconfirmed"
 
 ### P1-1 · 8801 canary 需要重启才能验本次改动
 
-它加载的是 `main@dc7378a4`（合并前）。重启：
+> **⚠️ 2026-08-06 更新：这条已被覆盖，照原样做会加载错代码。** 另一条线
+> （`fix/llm-error-handling`）在我写完本文后重启了 8801，现在那个端口跑的是
+> **主树 + 该分支的代码**（PID 75743，cwd 指向主树），不是 main。
+>
+> 要验证本次 lifecycle 改动，**换一个端口另起**，不要动 8801（会打断那条线）：
+>
+> ```bash
+> # 复制启动脚本改端口与 cwd；主树被占用，用独立 worktree
+> git worktree add .worktrees/verify-lifecycle main
+> sed -e 's/8801/8802/' -e 's#cd /Users/a77/finance-workspace-private$#cd /Users/a77/finance-workspace-private/.worktrees/verify-lifecycle#' \
+>     /tmp/start-canary-8801.sh > /tmp/start-canary-8802.sh && chmod +x /tmp/start-canary-8802.sh
+> nohup /tmp/start-canary-8802.sh > /tmp/canary-8802.log 2>&1 &
+> ```
+
+原文（端口未被占用时适用）：
 
 ```bash
 kill $(lsof -ti :8801)
