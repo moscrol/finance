@@ -1,0 +1,605 @@
+{
+  "trade_date": "2026-07-24",
+  "source": "theme-candidates-backfill-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-theme-candidates.json",
+  "generated_at": "2026-07-25T04:38:52.285123+00:00",
+  "filters": {
+    "tier": "all",
+    "min_priority": "low"
+  },
+  "candidate_count": 50,
+  "queue_count": 29,
+  "priority_counts": {
+    "high": 5,
+    "medium": 7,
+    "low": 17
+  },
+  "gap_counts": {
+    "missing_concept": 6,
+    "missing_entity_exposures": 5,
+    "missing_evidence": 17,
+    "placeholder_market_theme": 1
+  },
+  "tier_counts": {
+    "deep": 4,
+    "long_tail": 16,
+    "watch": 9
+  },
+  "items": [
+    {
+      "id": "2026-07-24-02-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "油气开采及服务",
+      "canonical_concept": "油气",
+      "sw_l1": "石油石化",
+      "candidate_tier": "deep",
+      "rank": 2,
+      "priority_score": 132.51,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-03-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "电力",
+      "canonical_concept": "电力",
+      "sw_l1": "电力设备",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 127.48,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-05-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "银行",
+      "canonical_concept": "银行",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 5,
+      "priority_score": 87.6,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-16-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "金属铅",
+      "canonical_concept": "金属铅",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 16,
+      "priority_score": 50.4,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-26-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 32.1,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-13-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "煤炭开采加工",
+      "canonical_concept": "煤炭",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 13,
+      "priority_score": 58.4,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-16-missing_entity_exposures",
+      "trade_date": "2026-07-24",
+      "theme": "金属铅",
+      "canonical_concept": "金属铅",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 16,
+      "priority_score": 50.4,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-16-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "金属铅",
+      "canonical_concept": "金属铅",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 16,
+      "priority_score": 50.4,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-17-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "金属锌",
+      "canonical_concept": "有色金属",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 17,
+      "priority_score": 48.4,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-21-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "保险",
+      "canonical_concept": "低空经济",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 21,
+      "priority_score": 33.2,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 5,
+      "exposure_count": 7,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-23-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "钢铁",
+      "canonical_concept": "钢铁",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 23,
+      "priority_score": 32.8,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-26-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 32.1,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-01-placeholder_market_theme",
+      "trade_date": "2026-07-24",
+      "theme": "连板未映射",
+      "canonical_concept": "",
+      "sw_l1": "电力设备",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 195.0,
+      "gap_type": "placeholder_market_theme",
+      "priority": "low",
+      "reason": "Deep 市场触发候选存在知识库缺口",
+      "trigger_types": [
+        "limit_advance_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-34-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "公路铁路运输",
+      "canonical_concept": "铁路运输",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 34,
+      "priority_score": 26.4,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 6,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-35-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "机器视觉",
+      "canonical_concept": "机器视觉",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 35,
+      "priority_score": 25.05,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-36-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "金属钴",
+      "canonical_concept": "金属钴",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 36,
+      "priority_score": 24.4,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-36-missing_entity_exposures",
+      "trade_date": "2026-07-24",
+      "theme": "金属钴",
+      "canonical_concept": "金属钴",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 36,
+      "priority_score": 24.4,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-36-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "金属钴",
+      "canonical_concept": "金属钴",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 36,
+      "priority_score": 24.4,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-37-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "高压氧舱",
+      "canonical_concept": "高压氧舱",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 23.6,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-37-missing_entity_exposures",
+      "trade_date": "2026-07-24",
+      "theme": "高压氧舱",
+      "canonical_concept": "高压氧舱",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 23.6,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-37-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "高压氧舱",
+      "canonical_concept": "高压氧舱",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 23.6,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-43-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "能源金属",
+      "canonical_concept": "盐湖提锂",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 43,
+      "priority_score": 12.4,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 2,
+      "exposure_count": 6,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-46-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "汽车服务及其他",
+      "canonical_concept": "汽车服务及其他",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 46,
+      "priority_score": 8.4,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-46-missing_entity_exposures",
+      "trade_date": "2026-07-24",
+      "theme": "汽车服务及其他",
+      "canonical_concept": "汽车服务及其他",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 46,
+      "priority_score": 8.4,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-46-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "汽车服务及其他",
+      "canonical_concept": "汽车服务及其他",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 46,
+      "priority_score": 8.4,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-48-missing_concept",
+      "trade_date": "2026-07-24",
+      "theme": "金属镍",
+      "canonical_concept": "金属镍",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 7.6,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-48-missing_entity_exposures",
+      "trade_date": "2026-07-24",
+      "theme": "金属镍",
+      "canonical_concept": "金属镍",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 7.6,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-48-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "金属镍",
+      "canonical_concept": "金属镍",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 7.6,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-24-50-missing_evidence",
+      "trade_date": "2026-07-24",
+      "theme": "芯片概念",
+      "canonical_concept": "芯片",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 50,
+      "priority_score": 6.45,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat"
+      ],
+      "concept_count": 1,
+      "exposure_count": 12,
+      "evidence_count": 0
+    }
+  ]
+}

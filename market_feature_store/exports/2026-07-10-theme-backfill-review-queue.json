@@ -1,0 +1,199 @@
+{
+  "trade_date": "2026-07-10",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-theme-backfill-queue.json",
+  "generated_at": "2026-07-10T11:22:15.821289+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 7,
+  "status_counts": {
+    "pending_review": 7
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 2,
+    "review_create_or_link_concept": 5
+  },
+  "items": [
+    {
+      "id": "2026-07-10-03-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "机器视觉",
+      "canonical_concept": "机器视觉",
+      "sw_l1": "机械设备",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 180.86,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 11,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-06-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "星闪",
+      "canonical_concept": "星闪技术",
+      "sw_l1": "通信",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 173.24,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 3,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-13-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 13,
+      "priority_score": 161.47,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-15-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "ChatGPT",
+      "canonical_concept": "ChatGPT",
+      "sw_l1": "传媒",
+      "candidate_tier": "watch",
+      "rank": 15,
+      "priority_score": 158.75,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-22-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "长安汽车",
+      "canonical_concept": "长安汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "watch",
+      "rank": 22,
+      "priority_score": 150.23,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-29-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "智谱AI",
+      "canonical_concept": "智谱AI",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 29,
+      "priority_score": 136.63,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-10-30-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "Web3.0",
+      "canonical_concept": "Web3.0",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 30,
+      "priority_score": 133.59,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

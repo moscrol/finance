@@ -135,3 +135,17 @@ intelligence/dream/_kb_candidates/
 
 # 记忆底座软链（指向 /Users/a77/agent-memory，仅本地，勿提交）
 .agent-memory
+
+# 工作台工作流指标流水：运行态，与上面 users/* 那批同性质
+# （同目录的 workbench.sqlite3 已被 *.sqlite3 覆盖，runs/ 已单列）
+intelligence/users/*/workflow_metrics.jsonl
+
+# 每日市场快照：程序写的运行态数据（600 权限），非成品报告，可由同步重建
+market_snapshot/
+
+# opinion-cross 中间产物（miracle-*.txt/json/md），成品进知识库不进本仓
+.tmp-opinion/
+
+# 编辑器 / 工具本地配置（与 .codex/hooks.json 同类，逐个列而非忽略整目录）
+.windsurf/
+.codex/config.toml

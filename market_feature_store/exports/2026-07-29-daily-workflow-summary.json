@@ -1,0 +1,383 @@
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-07-29T22:37:43+08:00",
+  "finished_at": "2026-07-29T22:37:44+08:00",
+  "inputs": {
+    "date": "2026-07-29",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": true,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-29 --phase data",
+      "returncode": 0,
+      "duration_sec": 0.518,
+      "stdout_tail": [
+        "fact_sector_daily: rows=403 max=2026-07-29",
+        "fact_sw_l1_daily: rows=31 max=2026-07-29",
+        "fact_sector_stock_daily: rows=52604 max=2026-07-29",
+        "fact_stock_high_daily: rows=492 max=2026-07-29",
+        "fact_theme_limit_heat_daily: rows=211 max=2026-07-29",
+        "fact_theme_limit_stock_daily: rows=657 max=2026-07-29",
+        "fact_limit_advance_daily: rows=11 max=2026-07-29",
+        "fact_stock_daily: rows=5524 max=2026-07-29",
+        "fact_mainline_theme_daily: rows=3 max=2026-07-29",
+        "fact_mainline_stock_daily: rows=53 max=2026-07-29",
+        "fact_mainline_sector_daily: rows=6 max=2026-07-29",
+        "fact_theme_flow_daily: rows=88 max=2026-07-29",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-29",
+        "feature_market_window: rows=4 max=2026-07-29",
+        "feature_sector_window: rows=1210 max=2026-07-29",
+        "feature_stock_window: rows=21721 max=2026-07-29",
+        "feature_stock_technical_daily: rows=5503 max=2026-07-29",
+        "fact_sector_daily 名称连续性: 402/406 = 99.01% (前一交易日 2026-07-28)",
+        "fact_stock_daily 覆盖率: 5519/5519 = 100.00%",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "FAIL",
+      "command": "python3 -m market_feature_store.cli check-daily --trade-date 2026-07-29 --json /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-29.json",
+      "returncode": 2,
+      "duration_sec": 0.438,
+      "stdout_tail": [
+        "跨日质检 @2026-07-29 (日历窗口=20)",
+        "  [断档] fact_sector_stock_daily: 2026-07-27",
+        "  [行数异常] fact_mainline_stock_daily: 当日 53 行 < 近20日中位数 109 × 0.5",
+        "RESULT: FAIL | fact_sector_stock_daily 断档 1 日（最近 2026-07-27）；fact_mainline_stock_daily 行数异常收缩（53/109）",
+        "json -> /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-29.json"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 2"
+      ],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "SKIP",
+      "command": "python3 skills/daily-full-review/scripts/export_increment.py --date 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review",
+      "status": "SKIP",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-review.md",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-advancers-ma5.png"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-29/2026-07-29-daily-review.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli perspective framework-daily --date 2026-07-29 --daily-review-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-review.md --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-framework-interpretation.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli checkpoint recheck --date 2026-07-29 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli theme --date 2026-07-29 --market-triggered --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-candidates.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-candidates.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-candidates.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-candidates.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-backfill-queue.json"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-theme-backfill-review-queue.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-29/2026-07-29-theme-candidates.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-market-triggered-theme-brief.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-29/2026-07-29-market-triggered-theme-brief.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "agent-daily",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli agent-daily --date 2026-07-29 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-agent.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-agent.md --out-html /Users/a77/finance-workspace-private/复盘/daily/2026-07-29/2026-07-29-daily-agent.html",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-agent.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-29-daily-agent.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-29/2026-07-29-daily-agent.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "SKIP",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-29",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "SKIP",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/index.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [],
+  "warnings": [
+    "starting from step: daily-review",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "operational alert delivery failed"
+  ],
+  "errors": [
+    "command failed with returncode 2"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}

@@ -1,0 +1,501 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+  "market_date": "2026-07-10",
+  "created_at": "2026-07-10T19:22:21+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-10-concept_ingest-87ee30bb343a-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "无人驾驶",
+      "priority": 177.51,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "华天科技",
+        "浪潮信息",
+        "高德红外",
+        "中鼎股份",
+        "海格通信"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "1. 浪潮信息 Q2 大超预期——从\"涨价景气\"上升为\"国内算力资本开支拐点\"",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "**信号**：国联民生计算机等多场解读浪潮信息（000977.SZ）H1 归母26-31 亿、测算 Q2 单季20-25 亿，去年同期 Q2 仅3 亿多（约7…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-08 晨汇 2026-07-08｜0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-concept_ingest-7a0525419670-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "星闪技术",
+      "priority": 173.24,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "力源信息",
+        "歌尔股份",
+        "移远通信",
+        "北斗星通",
+        "创维数字"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-10-concept_ingest-f4b3d6e06789-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "云计算",
+      "priority": 173.06,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "海兰信",
+        "紫光股份",
+        "浪潮信息",
+        "中科曙光",
+        "华胜天成"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "1. 浪潮信息 Q2 大超预期——从\"涨价景气\"上升为\"国内算力资本开支拐点\"",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "**信号**：国联民生计算机等多场解读浪潮信息（000977.SZ）H1 归母26-31 亿、测算 Q2 单季20-25 亿，去年同期 Q2 仅3 亿多（约7…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-08 晨汇 2026-07-08｜0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-qi-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "人形机器人",
+      "priority": 191.02,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "超捷股份",
+        "中鼎股份",
+        "和而泰",
+        "南山智尚",
+        "天娱数科"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "0707纪要主题是\"预期差\"——多条主线从叙事进入数字与交付验证期：AI基建在回调后被多路纪要重定义为\"情绪性调整而非基本面恶化\"（Meta出租老卡、2026…",
+            "stance": "-",
+            "matched_by": "题材词：人形机器人"
+          },
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "4. 人形机器人——门槛上修至\"万卡算力+场景闭环\"，T链切换但\"强预期弱现实\"",
+            "stance": "-",
+            "matched_by": "题材词：人形机器人"
+          },
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "**核心逻辑**：0706\"弗里蒙特产线开始安装/V3窗口7-8月\"→0707三场同日给出算力四梯队框架 + T链量产-份额-价值量定量 + \"强预期弱现实\"…",
+            "stance": "-",
+            "matched_by": "题材词：人形机器人"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-07 晨汇 2026-07-07｜0707纪要主题是\"预期差\"——多条主线从叙事进入数字与交付验证期：AI基建在回调后被多路纪要重定义为\"情绪性调整而非基本面恶化\"（Meta出租老卡、2026…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-75a8f7584a2c-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "商业航天",
+      "priority": 182.7,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "海兰信",
+        "航天电子",
+        "金风科技",
+        "中国卫星",
+        "乾照光电"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "**观察（情绪/事件驱动，波动大）**：人形机器人（T链弹性 vs 强预期弱现实，等7/22业绩会不追高）；有色锡钽钨（供给扰动节奏）；AI BOX/商业航天…",
+            "stance": "-",
+            "matched_by": "题材词：商业航天"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "9. 商业航天/卫星通信——双火箭窗口进入执行周，星网商用节点明确",
+            "stance": "-",
+            "matched_by": "题材词：商业航天"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：0705\"事件前布局\"→0706进入执行周（本周四起），新增星网一代星商用（7月底）与二代星发射（Q4）两个后续节点，事件链条拉长。[[商业…",
+            "stance": "-",
+            "matched_by": "题材词：商业航天"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-07 晨汇 2026-07-07｜**观察（情绪/事件驱动，波动大）**：人形机器人（T链弹性 vs 强预期弱现实，等7/22业绩会不追高）；有色锡钽钨（供给扰动节奏）；AI BOX/商业航天…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-6g-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "6G",
+      "priority": 178.57,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "紫光股份",
+        "中国卫星",
+        "信科移动",
+        "力源信息",
+        "海格通信"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-07",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-07",
+            "excerpt": "**信号**：长江「AI势不可挡」：Meta出租的是A700/AC200老卡（资源优化非减投），Meta 2026年已规划近5000瓦、两周前再增1.66GW…",
+            "stance": "-",
+            "matched_by": "题材词：6G"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**信号**：国信电新：SOFC可快速部署适配北美AI数据中心用电，2025年规模超1GW→2030年26GW（CAGR超90%）；Bloom Energy年…",
+            "stance": "-",
+            "matched_by": "题材词：6G"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-07 晨汇 2026-07-07｜**信号**：长江「AI势不可挡」：Meta出租的是A700/AC200老卡（资源优化非减投），Meta 2026年已规划近5000瓦、两周前再增1.66GW…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-hua-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "新型工业化",
+      "priority": 171.59,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "深科达",
+        "中科曙光",
+        "和而泰",
+        "赛微电子",
+        "银河电子"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-78690c5adb06-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "算力租赁",
+      "priority": 168.3,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "海兰信",
+        "紫光股份",
+        "浪潮信息",
+        "中鼎股份",
+        "中科曙光"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "1. 浪潮信息 Q2 大超预期——从\"涨价景气\"上升为\"国内算力资本开支拐点\"",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "**信号**：国联民生计算机等多场解读浪潮信息（000977.SZ）H1 归母26-31 亿、测算 Q2 单季20-25 亿，去年同期 Q2 仅3 亿多（约7…",
+            "stance": "-",
+            "matched_by": "强势股：浪潮信息"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-08 晨汇 2026-07-08｜0708 的关键词仍是\"预期差\"，但重心从 0707 的\"多主线进入数字验证\"进一步收敛为**两条硬拐点 + 一组反向纠偏**：①浪潮信息 Q2 业绩\"大超预…"
+      }
+    },
+    {
+      "task_id": "2026-07-10-disclosure-qi-002",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "机器视觉",
+      "priority": 180.86,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "深科达",
+        "高德红外",
+        "信科移动",
+        "和而泰",
+        "天娱数科"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-10",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-daily-agent.json",
+      "created_at": "2026-07-10T19:22:21+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-08",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-08",
+            "excerpt": "**半导体测试机/物理AI**：东吴存储测试机专题（AI 算力催生 HBM 带动测试机新需求、国产设备商）；Momenta（东吴智驾算法龙头，驶向物理 AI）…",
+            "stance": "-",
+            "matched_by": "题材词：机器视觉"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-08 晨汇 2026-07-08｜**半导体测试机/物理AI**：东吴存储测试机专题（AI 算力催生 HBM 带动测试机新需求、国产设备商）；Momenta（东吴智驾算法龙头，驶向物理 AI）…"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 9,
+    "by_task_type": {
+      "concept_ingest": 3,
+      "disclosure": 6
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

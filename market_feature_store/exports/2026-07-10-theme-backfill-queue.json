@@ -1,0 +1,653 @@
+{
+  "trade_date": "2026-07-10",
+  "source": "theme-candidates-backfill-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-10-theme-candidates.json",
+  "generated_at": "2026-07-10T11:22:15.790103+00:00",
+  "filters": {
+    "tier": "all",
+    "min_priority": "low"
+  },
+  "candidate_count": 50,
+  "queue_count": 30,
+  "priority_counts": {
+    "high": 7,
+    "medium": 10,
+    "low": 13
+  },
+  "gap_counts": {
+    "missing_concept": 7,
+    "missing_entity_exposures": 5,
+    "missing_evidence": 17,
+    "placeholder_market_theme": 1
+  },
+  "tier_counts": {
+    "deep": 2,
+    "long_tail": 12,
+    "watch": 16
+  },
+  "items": [
+    {
+      "id": "2026-07-10-03-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "机器视觉",
+      "canonical_concept": "机器视觉",
+      "sw_l1": "机械设备",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 180.86,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 11,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-06-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "星闪",
+      "canonical_concept": "星闪技术",
+      "sw_l1": "通信",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 173.24,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 3,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-13-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 13,
+      "priority_score": 161.47,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-15-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "ChatGPT",
+      "canonical_concept": "ChatGPT",
+      "sw_l1": "传媒",
+      "candidate_tier": "watch",
+      "rank": 15,
+      "priority_score": 158.75,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-22-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "长安汽车",
+      "canonical_concept": "长安汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "watch",
+      "rank": 22,
+      "priority_score": 150.23,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-29-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "智谱AI",
+      "canonical_concept": "智谱AI",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 29,
+      "priority_score": 136.63,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-30-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "Web3.0",
+      "canonical_concept": "Web3.0",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 30,
+      "priority_score": 133.59,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-13-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 13,
+      "priority_score": 161.47,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-15-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "ChatGPT",
+      "canonical_concept": "ChatGPT",
+      "sw_l1": "传媒",
+      "candidate_tier": "watch",
+      "rank": 15,
+      "priority_score": 158.75,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-22-missing_entity_exposures",
+      "trade_date": "2026-07-10",
+      "theme": "长安汽车",
+      "canonical_concept": "长安汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "watch",
+      "rank": 22,
+      "priority_score": 150.23,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-22-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "长安汽车",
+      "canonical_concept": "长安汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "watch",
+      "rank": 22,
+      "priority_score": 150.23,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-26-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "飞行汽车(eVTOL)",
+      "canonical_concept": "飞行汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 146.96,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-28-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "高压快充",
+      "canonical_concept": "超充",
+      "sw_l1": "电力设备",
+      "candidate_tier": "watch",
+      "rank": 28,
+      "priority_score": 142.3,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 6,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-29-missing_entity_exposures",
+      "trade_date": "2026-07-10",
+      "theme": "智谱AI",
+      "canonical_concept": "智谱AI",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 29,
+      "priority_score": 136.63,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-29-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "智谱AI",
+      "canonical_concept": "智谱AI",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 29,
+      "priority_score": 136.63,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-30-missing_entity_exposures",
+      "trade_date": "2026-07-10",
+      "theme": "Web3.0",
+      "canonical_concept": "Web3.0",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 30,
+      "priority_score": 133.59,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-30-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "Web3.0",
+      "canonical_concept": "Web3.0",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 30,
+      "priority_score": 133.59,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-27-placeholder_market_theme",
+      "trade_date": "2026-07-10",
+      "theme": "连板未映射",
+      "canonical_concept": "",
+      "sw_l1": "国防军工",
+      "candidate_tier": "watch",
+      "rank": 27,
+      "priority_score": 145.0,
+      "gap_type": "placeholder_market_theme",
+      "priority": "low",
+      "reason": "Watch 市场触发候选存在知识库缺口",
+      "trigger_types": [
+        "limit_advance_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-31-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "太赫兹",
+      "canonical_concept": "6G产业",
+      "sw_l1": "国防军工",
+      "candidate_tier": "long_tail",
+      "rank": 31,
+      "priority_score": 132.78,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 4,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-32-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "通用设备",
+      "canonical_concept": "金属制品",
+      "sw_l1": "机械设备",
+      "candidate_tier": "long_tail",
+      "rank": 32,
+      "priority_score": 131.75,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 7,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-38-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "化学制药",
+      "canonical_concept": "化学制药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "long_tail",
+      "rank": 38,
+      "priority_score": 122.1,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 3,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-39-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "MR(混合现实)",
+      "canonical_concept": "HAMR",
+      "sw_l1": "电子",
+      "candidate_tier": "long_tail",
+      "rank": 39,
+      "priority_score": 120.0,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-41-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "DeepSeek",
+      "canonical_concept": "DeepSeek",
+      "sw_l1": "计算机",
+      "candidate_tier": "long_tail",
+      "rank": 41,
+      "priority_score": 116.0,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 4,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-42-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "IP经济(谷子经济)",
+      "canonical_concept": "谷子经济",
+      "sw_l1": "传媒",
+      "candidate_tier": "long_tail",
+      "rank": 42,
+      "priority_score": 116.0,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 4,
+      "exposure_count": 7,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-47-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 47,
+      "priority_score": 114.0,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-47-missing_entity_exposures",
+      "trade_date": "2026-07-10",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 47,
+      "priority_score": 114.0,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-47-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 47,
+      "priority_score": 114.0,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-48-missing_concept",
+      "trade_date": "2026-07-10",
+      "theme": "短剧游戏",
+      "canonical_concept": "短剧游戏",
+      "sw_l1": "传媒",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 112.0,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-48-missing_entity_exposures",
+      "trade_date": "2026-07-10",
+      "theme": "短剧游戏",
+      "canonical_concept": "短剧游戏",
+      "sw_l1": "传媒",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 112.0,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-07-10-48-missing_evidence",
+      "trade_date": "2026-07-10",
+      "theme": "短剧游戏",
+      "canonical_concept": "短剧游戏",
+      "sw_l1": "传媒",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 112.0,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    }
+  ]
+}

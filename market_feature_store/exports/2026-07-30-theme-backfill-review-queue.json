@@ -1,0 +1,216 @@
+{
+  "trade_date": "2026-07-30",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-30-theme-backfill-queue.json",
+  "generated_at": "2026-07-30T16:16:17.989069+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 8,
+  "status_counts": {
+    "pending_review": 8
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 6,
+    "review_create_or_link_concept": 1,
+    "review_map_entity_exposures": 1
+  },
+  "items": [
+    {
+      "id": "2026-07-30-02-missing_entity_exposures",
+      "trade_date": "2026-07-30",
+      "theme": "中特估",
+      "canonical_concept": "中特估",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 2,
+      "priority_score": 162.84,
+      "gap_type": "missing_entity_exposures",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 3,
+      "exposure_count": 0,
+      "evidence_count": 1,
+      "review_status": "pending_review",
+      "review_action": "review_map_entity_exposures",
+      "review_note": "先确认题材核心公司，再补 entity_exposures 映射；不要用泛行业公司凑数。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-03-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "跨境支付CIPS",
+      "canonical_concept": "IP",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 161.14,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 3,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-05-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "银行",
+      "canonical_concept": "银行",
+      "sw_l1": "银行",
+      "candidate_tier": "deep",
+      "rank": 5,
+      "priority_score": 125.26,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-06-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "股权",
+      "canonical_concept": "私募股权投资",
+      "sw_l1": "基础化工",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 113.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-07-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "汽车整车",
+      "canonical_concept": "汽车整车",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 7,
+      "priority_score": 93.2,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 9,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-08-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "大消费",
+      "canonical_concept": "消费",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 8,
+      "priority_score": 93.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-09-missing_evidence",
+      "trade_date": "2026-07-30",
+      "theme": "摩托车",
+      "canonical_concept": "Robotaxi",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 9,
+      "priority_score": 86.8,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-30-28-missing_concept",
+      "trade_date": "2026-07-30",
+      "theme": "海峡西岸",
+      "canonical_concept": "海峡西岸",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 28,
+      "priority_score": 70.22,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

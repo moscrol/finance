@@ -1,0 +1,379 @@
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-07-29T03:04:42+08:00",
+  "finished_at": "2026-07-29T03:04:43+08:00",
+  "inputs": {
+    "date": "2026-07-28",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": false,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "FAIL",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-28 --phase data",
+      "returncode": 1,
+      "duration_sec": 0.801,
+      "stdout_tail": [
+        "CHECK 2026-07-28",
+        "fact_market_daily: rows=0 max=2026-06-04",
+        "fact_sector_daily: rows=0 max=2026-06-04"
+      ],
+      "stderr_tail": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/a77/Desktop/c c/金融/scripts/check_daily_review_data.py\", line 113, in <module>",
+        "    raise SystemExit(main())",
+        "                     ~~~~^^",
+        "  File \"/Users/a77/Desktop/c c/金融/scripts/check_daily_review_data.py\", line 60, in main",
+        "    max_date, count = con.execute(",
+        "                      ~~~~~~~~~~~^",
+        "        f\"select max(trade_date), count(*) filter(where trade_date=?) from {table}\", [date]",
+        "        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "    ).fetchone()",
+        "    ^",
+        "_duckdb.CatalogException: Catalog Error: Table with name fact_sw_l1_daily does not exist!",
+        "Did you mean \"fact_sector_stock_daily\"?",
+        "",
+        "LINE 1: ... max(trade_date), count(*) filter(where trade_date=?) from fact_sw_l1_daily",
+        "                                                                      ^"
+      ],
+      "outputs": [],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 1"
+      ],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "SKIP",
+      "command": "python3 -m market_feature_store.cli check-daily --trade-date 2026-07-28 --json /Users/a77/Desktop/c c/金融/skills/daily-full-review/state/quality-2026-07-28.json",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "SKIP",
+      "command": "python3 skills/daily-full-review/scripts/export_increment.py --date 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review",
+      "status": "SKIP",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-review.md",
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-advancers-ma5.png"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/daily/2026-07-28/2026-07-28-daily-review.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli perspective framework-daily --date 2026-07-28 --daily-review-md /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-review.md --out-md /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-framework-interpretation.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli checkpoint recheck --date 2026-07-28 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli theme --date 2026-07-28 --market-triggered --out-json /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-candidates.json --out-md /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-candidates.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-candidates.json",
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-candidates.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-backfill-queue.json"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-backfill-review-queue.json",
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-theme-backfill-review-queue.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/daily/2026-07-28/2026-07-28-theme-candidates.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-triggered-themes.json",
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-market-triggered-theme-brief.md",
+        "/Users/a77/Desktop/c c/金融/复盘/daily/2026-07-28/2026-07-28-market-triggered-theme-brief.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "agent-daily",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli agent-daily --date 2026-07-28 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-agent.json --out-md /Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-agent.md --out-html /Users/a77/Desktop/c c/金融/复盘/daily/2026-07-28/2026-07-28-daily-agent.html",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-agent.json",
+        "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-07-28-daily-agent.md",
+        "/Users/a77/Desktop/c c/金融/复盘/daily/2026-07-28/2026-07-28-daily-agent.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "SKIP",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-28",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "SKIP",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/Desktop/c c/金融/复盘/index.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [],
+  "warnings": [
+    "starting from step: daily-review",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed"
+  ],
+  "errors": [
+    "command failed with returncode 1"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}

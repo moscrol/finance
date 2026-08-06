@@ -1,0 +1,737 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-24",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "f8acb6d3ba3c9288",
+  "perspective_date": "2026-07-23",
+  "input_notes": "仅用 manifest(sha f8acb6d3ba3c9288)冻结输入：DuckDB 截至 2026-07-23、知识库 commit 883815c9 已冻结但本卷未引用其内容，全部证据出自 DuckDB fact_* 表。materials 为空（无晨汇/卖方冻结材料=数据缺口），本卷为纯盘面流(duckdb)答卷。数据质量核查：(1)fact_stock_daily 07-22 与 07-23 为独立行，pre_close 链逐只核验正确（中际旭创 1060.8→pre1060.8、宁德 372.26→pre372.26、立新能源 11.01→pre11.01、紫光 44.9→pre44.9、紫金 32.2→pre32.2、长缆 14.92→pre14.92），无上期 07-20 被覆盖式污染问题，07-23 收盘价可直接用。(2)fact_market_daily / fact_sector_daily 07-23 行完整。(3)strength_status『沸点』沿用上期核实结论：库内约半数交易日标此标签，高频非稀有，不作高潮信号，仅记录不入核心证据链。(4)反弹阶段 D3→D4 base rate 库内仅 2 先例(n=2)，按经验值登记不冒充硬门槛；07-14 缩量假反抽为单先例对照。",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "反弹阶段",
+      "direction": "support",
+      "note": "07-21 由『下跌阶段D6』切换为『反弹阶段』后连续第3天，fupanhui 算法维持反弹判定未回退"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 3,
+      "direction": "support",
+      "note": "反弹阶段第3天（D1 07-21 放量切换→D2 07-22 缩量分歧→D3 07-23 缩量普涨）"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "advancers",
+      "value": 4260,
+      "direction": "support",
+      "note": "涨家 1530→4260 爆发（D2 仅 1530）；近5日序列 482→1740→3107→1530→4260 振荡但中枢上移，MA5≈2224，4260 显著高于均线=卖压枯竭型广度修复"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 116,
+      "direction": "support",
+      "note": "涨停 47→116 回升（D2 47/D1 121）"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 2,
+      "direction": "support",
+      "note": "跌停仅 2 家（D2 8/D1 21/D0 212）=崩塌式出清后卖压几近枯竭，全市场无恐慌"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 21949.97,
+      "direction": "counter",
+      "note": "成交 26531→21950 亿，绝对值为本轮反弹最低"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": -17.27,
+      "direction": "counter",
+      "note": "环比 -17.27% 连续第2日萎缩（D1 +9.44→D2 -10.27→D3 -17.27），且首次跌入『缩量观望』——广度爆发与资金萎缩背离，是本日核心矛盾"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "volume_state",
+      "value": "缩量观望",
+      "direction": "counter",
+      "note": "量能状态由『正常量能』转为『缩量观望』，资金观望不追"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 74.62,
+      "direction": "counter",
+      "note": "量比 88→74 走弱"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "sh000001",
+      "field": "sh_index_close",
+      "value": 3876.777,
+      "direction": "support",
+      "note": "上证 +0.25% 收 3876.777，日内窄幅（开3868/高3878.83/低3851.71），收近日内高点=尾盘偏强但波动极小"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "sh000001",
+      "field": "sh_index_low",
+      "value": 3851.706,
+      "direction": "neutral",
+      "note": "日内低 3851.706=窄幅反弹结构下沿，T+1 收盘破此即反弹结构证伪（本卷证伪基准价）"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "sh000001",
+      "field": "sh_week_ma",
+      "value": 3830.09,
+      "direction": "support",
+      "note": "周均线 3830.09，收盘 3876 在线上方 47 点，周线级别支撑未破"
+    },
+    "M13": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 45.1,
+      "direction": "neutral",
+      "note": "top3 行业占 45.1%（集中度较 D2 的 48.4 略降=广度扩散）"
+    },
+    "M14": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "industry_1",
+      "value": "电子",
+      "direction": "counter",
+      "note": "电子占比由 D2 33.0% 降至 29.1%（仍居首但份额让出），电力设备升为行业2(8.5%)——资金正从电子让渡给新能源，集中度结构松动"
+    },
+    "M15": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "stock_high_count_1y",
+      "value": 9,
+      "direction": "counter",
+      "note": "≥1年新高仅 9（3y6/history3/20d243），较 D2 的 17 进一步萎缩；新高仍集中在 AI 算力（浪潮/锐捷/华勤历史新高）且多为回落（浪潮-2.77%、紫光3y新高-5.46%），新能源/金属方向无一新高=新方向是超跌反弹非趋势突破"
+    },
+    "M16": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-22",
+      "entity": "market",
+      "field": "advancers",
+      "value": 1530,
+      "direction": "counter",
+      "note": "D2(07-22) 涨家曾从 D1 的 3107 崩至 1530——反弹阶段内广度剧烈振荡（3107→1530→4260），单日广度不可外推，4260 次日大概率回落"
+    },
+    "M17": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-14",
+      "entity": "market",
+      "field": "fake_rebound_precedent",
+      "value": "advancers4211+缩量-4.04%+未切换阶段→07-17创新低",
+      "direction": "counter",
+      "note": "07-14 下跌阶段D2 曾涨家 4211（与本次 4260 几乎相同）但缩量 -4.04%、阶段未切换，3 日后 07-17 创新低 3745=假反抽先例；本次虽已切反弹阶段D3，但缩量程度(-17.27%)更甚，广度飙升+缩量的组合有前车之鉴"
+    },
+    "M18": {
+      "level": "L2",
+      "source": "fact_market_daily(反弹阶段D3→D4库内2先例)",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "rebound_d3_d4_base_rate",
+      "value": "2/2次日指数微涨守住+涨家回落",
+      "direction": "support",
+      "note": "反弹阶段D3 库内仅2先例：2025-01-16(D3 adv3368)→01-17(D4 +0.18%、adv2619回落)、2026-06-16(D3 adv2730)→06-17(D4 +0.40%、adv1723回落)——次日指数均微涨守住、涨家均回落、阶段均维持反弹D4；样本n=2极小，按经验值登记不冒充硬门槛"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "电网设备",
+      "field": "diff_ratio",
+      "value": 55.2,
+      "direction": "support",
+      "note": "电网设备 +6.65%/diff+55.2/501.52亿=全场唯一严格双红（pct>0且diff>10且amount>500），最强资金流入+涨幅组合，新方向最干净标杆"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "锂",
+      "field": "diff_ratio",
+      "value": 44.32,
+      "direction": "support",
+      "note": "锂 +8.03%/diff+44.32/132.9亿=全场最高涨幅、第二强 diff，锂电链弹性端（amount 小但 diff 极强）"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "电池化学品",
+      "field": "diff_ratio",
+      "value": 33.6,
+      "direction": "support",
+      "note": "电池化学品 +5.7%/diff+33.6/290.93亿，锂电链中段"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "能源金属",
+      "field": "diff_ratio",
+      "value": 27.68,
+      "direction": "support",
+      "note": "能源金属 +6.53%/diff+27.68/204.83亿"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "风电设备",
+      "field": "diff_ratio",
+      "value": 19.05,
+      "direction": "support",
+      "note": "风电设备 +3.78%/diff+19.05/89.21亿，新能源扩散端"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "电池",
+      "field": "diff_ratio",
+      "value": 8.74,
+      "direction": "support",
+      "note": "电池 +4.22%/diff+8.74/703.39亿，容量池(diff 正)"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "储能",
+      "field": "diff_ratio",
+      "value": -9.17,
+      "direction": "counter",
+      "note": "储能 +2.77% 但 diff -9.17/4531.04亿(新能源最大池)——价格涨而资金净流出，40 涨停是打板情绪脉冲非板块资金流入，最大池 diff 负是新方向『广而薄』的关键反证"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "金属铜",
+      "field": "diff_ratio",
+      "value": -7.19,
+      "direction": "counter",
+      "note": "金属铜 +3.56% 但 diff -7.19/925.09亿——价格上涨资金未跟进，金属线弱强势"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "贵金属",
+      "field": "diff_ratio",
+      "value": -7.16,
+      "direction": "counter",
+      "note": "贵金属 +2.42% 但 diff -7.16/411.26亿，价格涨资金出，与 S8 同属 diff 背离"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "芯片",
+      "field": "diff_ratio",
+      "value": -25.86,
+      "direction": "counter",
+      "note": "芯片 +0.19% 几乎走平但 diff -25.86/9410.26亿——前两日主线(D1 13604→D2 12693→D3 9410，amount 两日-30.8%)资金持续撤离，科技主线瓦解"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "半导体",
+      "field": "pct_chg",
+      "value": -3.24,
+      "direction": "counter",
+      "note": "半导体 -3.24%/diff-31.06/3578亿，科技领跌"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "半导体设备",
+      "field": "pct_chg",
+      "value": -4.61,
+      "direction": "counter",
+      "note": "半导体设备 -4.61%/diff-34.85/607.49亿，全场跌幅最大=D1 +14.97% 超跌反抽端全面回吐"
+    },
+    "S13": {
+      "level": "L4",
+      "source": "fact_sector_daily(聚合:pct>0且diff>10且amount>500)",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "strict_double_red_count",
+      "value": 1,
+      "direction": "counter",
+      "note": "严格双红仅 1 个（电网设备），较 D1 的 64 个、D2 衰减至单苗——广度爆发但真金流入板块极少，breadth-without-fuel"
+    },
+    "S14": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_heat_top5",
+      "value": "储能40/风电29/电网设备29/光伏25/机器人25",
+      "direction": "support",
+      "note": "涨停梯队从 D1 科技(芯片概念66占54.55%)彻底翻转到新能源：储能40涨停#1(34.48%)、风电29、电网设备29、光伏25、机器人25、数据中心20、特高压18；芯片概念仅10涨停#12(由#1跌至#12)=情绪核心切换实锤"
+    },
+    "S15": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_advance_ladder",
+      "value": "立新能源6板/美利云4板/长缆科技3板",
+      "direction": "support",
+      "note": "连板梯队：立新能源6板(电站/新能源方向领涨，D1 仅4板→连升)、美利云4板(算力租赁)、3板有长缆科技(电网设备)/盛达资源(贵金属)/证通电子(算力)，3板晋级率4/9=44%——反弹在新能源方向建成真实连板梯队(对照D1最高4板/晋级率7%)"
+    },
+    "S16": {
+      "level": "L4",
+      "source": "fact_sw_l1_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "sw_l1_leaders",
+      "value": "电力设备+4.07/有色+3.25/环保+3.0/钢铁+2.7;电子-2.44领跌",
+      "direction": "support",
+      "note": "申万一级：电力设备+4.07%、有色+3.25%、环保+3.0%、钢铁+2.7%、化工+2.38%领涨（全周期/新能源/材料）；电子-2.44%领跌、计算机-0.81%、传媒-0.73%、通信-0.46%——一级行业层面风格从科技切到周期新能源确认"
+    },
+    "S17": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "市场",
+      "field": "loose_double_red_count",
+      "value": 34,
+      "direction": "counter",
+      "note": "宽松双红(pct>0且diff>0)仅34个，远低于 D1 的155——有资本净流入的板块数量大幅收敛，普涨是卖压枯竭而非资金普入"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "600406国电南瑞",
+      "field": "pct_chg",
+      "value": 2.61,
+      "direction": "support",
+      "note": "+2.61% 收 24.37/29.9 亿，电网设备容量核心中军（电网自动化龙头）；pre_close 23.75（=07-22 真实收盘）为启动基/止损参照；绑定全场唯一严格双红方向 S1"
+    },
+    "T2": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "002460赣锋锂业",
+      "field": "pct_chg",
+      "value": 7.93,
+      "direction": "support",
+      "note": "+7.93% 收 51.19/42.6 亿，锂资源龙头；绑定锂+8.03%/diff+44.32（S2，最高涨幅+第二强diff）；pre_close 47.43"
+    },
+    "T3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "300750宁德时代",
+      "field": "pct_chg",
+      "value": 3.69,
+      "direction": "support",
+      "note": "+3.69% 收 385.99/136.1 亿，电池/新能源容量定海神针；绑定电池diff+8.74（S6）+电力设备SW一级+4.07%领涨（S16）；pre_close 372.26——大盘anchor，新能源真伪的试金石"
+    },
+    "T4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "002879长缆科技",
+      "field": "pct_chg",
+      "value": 9.99,
+      "direction": "support",
+      "note": "+9.99% 收 16.41/4.2 亿 涨停，电网设备3板连板（S15）；同时绑定电网设备唯一严格双红（S1）=连板+真diff双共振；pre_close 14.92"
+    },
+    "T5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "002202金风科技",
+      "field": "pct_chg",
+      "value": 4.91,
+      "direction": "support",
+      "note": "+4.91% 收 18.37/22.0 亿，风电整机龙头；绑定风电设备+3.78%/diff+19.05（S5）+风电29涨停#2（S14）；pre_close 17.51"
+    },
+    "T6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "001258立新能源",
+      "field": "pct_chg",
+      "value": 9.99,
+      "direction": "support",
+      "note": "+9.99% 收 12.11/12.7 亿，6板连板龙头（电站/新能源方向，S15）；D1 仅4板连升至6板=反弹情绪标杆，但6板已高延伸、炸板风险高，仅作情绪参照不入选标的池"
+    },
+    "T7": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "688981中芯国际",
+      "field": "pct_chg",
+      "value": -6.75,
+      "direction": "counter",
+      "note": "-6.75% 收 145.09，半导体代工中军大跌=科技主线瓦解的个股级确认（上期答卷策略一中军，D3 全面回吐），证伪科技方向"
+    },
+    "R1": {
+      "level": "L2",
+      "source": "strategy1-matrix固定规则",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "strict_double_red_rule",
+      "value": "pct_chg>0且diff_ratio>10且amount>500",
+      "direction": "neutral",
+      "note": "严格双红固定定义；方向阈值（板块 diff 符号/双红转换）判断的规则依据"
+    },
+    "R2": {
+      "level": "L2",
+      "source": "复盘经验规律(缩量假反抽判别)",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "shrinking_fake_rebound_discriminator",
+      "value": "成交环比<0+广度飙升但严格双红极少=疑似fake rebound",
+      "direction": "counter",
+      "note": "由 07-14 假反抽先例(M17)提炼：缩量环境下的广度爆发若无可放量+多严格双红确认，则倾向假反抽；本次 -17.27% 缩量+严格双红仅1，触发此判据的警戒区"
+    }
+  },
+  "stage": "反弹阶段第3天·缩量轮动市（广度极宽但资金萎缩、主线科技→新能源切换）（上证 +0.25% 收 3876.78 日内窄幅 3851.71-3878.83、收近高点和上方 47 点；涨家 1530→4260 爆发、跌停仅 2=卖压枯竭；但成交 21949.97 亿环比 -17.27% 连续2日萎缩、首次跌入缩量观望——广度与资金背离；主线从科技彻底切到新能源+金属：电子-2.44% 领跌申万一级、芯片 diff-25.86/amount 两日-30.8% 资金撤离，电力设备+4.07%/有色+3.25% 领涨、锂+8.03%/电网设备+6.65% diff+55.2 全场唯一严格双红、储能40涨停#1、立新能源6板；但新方向资金『广而薄』——严格双红仅1、宽松双红34、储能4531亿大池 diff-9.17、金属铜/贵金属 diff 皆负、新能源无新高=缩量下的风格轮动而非放量主升）",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-23",
+    "metrics": {
+      "market_stage": {
+        "value": "反弹阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 3,
+        "evidence_ref": "M2"
+      },
+      "advancers": {
+        "value": 4260,
+        "evidence_ref": "M3"
+      },
+      "limit_up": {
+        "value": 116,
+        "evidence_ref": "M4"
+      },
+      "limit_down": {
+        "value": 2,
+        "evidence_ref": "M5"
+      },
+      "total_amount": {
+        "value": 21949.97,
+        "evidence_ref": "M6"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": -17.27,
+        "evidence_ref": "M7"
+      },
+      "volume_state": {
+        "value": "缩量观望",
+        "evidence_ref": "M8"
+      },
+      "sh_index_close": {
+        "value": 3876.777,
+        "evidence_ref": "M10"
+      },
+      "sh_index_low": {
+        "value": 3851.706,
+        "evidence_ref": "M11"
+      },
+      "sh_week_ma": {
+        "value": 3830.09,
+        "evidence_ref": "M12"
+      },
+      "stock_high_count_1y": {
+        "value": 9,
+        "evidence_ref": "M15"
+      },
+      "strict_double_red_count": {
+        "value": 1,
+        "evidence_ref": "S13"
+      },
+      "loose_double_red_count": {
+        "value": 34,
+        "evidence_ref": "S17"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M5",
+      "M7",
+      "M8",
+      "M10",
+      "M11",
+      "M14",
+      "M15",
+      "M16",
+      "M17",
+      "S1",
+      "S10",
+      "S13",
+      "S14",
+      "S15",
+      "S16",
+      "M18",
+      "R2"
+    ]
+  },
+  "main_judgment": "反弹阶段第3天的缩量轮动市：广度极宽（涨家 4260/跌停 2=卖压枯竭）但成交连续2日萎缩至 21950 亿（-17.27%、首次缩量观望），主线从科技（芯片 diff-25.86、amount 两日-30.8%、电子-2.44% 领跌申万一级）彻底切到新能源+金属（电力设备+4.07%/有色+3.25% 领涨），锂电链与电网设备是唯一有真 diff 的方向（电网设备+6.65% diff+55.2 全场唯一严格双红、锂+8.03% diff+44.32），连板梯队在新能源方向成形（立新能源6板、长缆科技3板电网设备、储能40涨停居首）；但新方向资金『广而薄』——严格双红仅1个、宽松双红仅34、大池子（储能4531亿 diff-9.17/特高压/金属铜/贵金属）diff 多为负、新能源方向无一新高（新高仍集中在AI算力且回落），是缩量下的风格轮动而非放量主升。T+1（07-24）基准情形：缩量窄幅震荡（上证 3851-3885 区间），涨家数从4260回落（反弹D3→D4库内2先例次日涨家均回落）、新能源方向（电网设备/锂电）相对偏强延续；若成交续缩至<20000亿或上证跌破3851.706，则反弹第4天转分歧退潮、缩量假反抽(M17)风险上升。",
+  "direction_ranking": [
+    "[场景判定：全市场 A（恐慌出清后修复反弹，反弹阶段D3，缩量环境）| 五维 3.60·居首] 新能源锂电链+电网设备（国电南瑞/赣锋/宁德/长缆科技）：全场唯一有真 diff 的方向——电网设备+6.65%/diff+55.2 唯一严格双红、锂+8.03%/diff+44.32、电池化学品 diff+33.6、能源金属 diff+27.68；连板梯队共振（立新能源6板/长缆科技3板电网设备）。确定性3.5/弹性4/兑现时间3.5/拥挤度3.5/已定价3.5。异动性质：资金切换型主线轮动（资金从科技 diff-25.86 撤向新能源，非纯情绪脉冲）；严格双红仅1个=未拥挤、超跌反弹起点=未透支。中军国电南瑞+2.61% 稳、锂电链弹性最高",
+    "[五维 3.30·与第1名分差 0.30] 风电/光伏新能源扩散（金风科技/阳光电源）：风电设备+3.78%/diff+19.05、光伏设备+3.22%/diff+1.17，跟随锂电链的主线扩散端。确定性3/弹性3/兑现时间3/拥挤度4/已定价3.5。异动性质：主线扩散（风电29涨停#2 跟随储能）；光伏 diff 仅+1.17 偏弱、储能大池 diff-9.17=扩散力度不及锂电链核心",
+    "[五维 2.95·diff 背离削弱] 金属/资源（有色金属+3.25% SW一级：紫金/盛达资源）：申万一级有色+3.25% 领涨但板块 diff 背离——金属铜+3.56% diff-7.19、贵金属+2.42% diff-7.16、黄金 diff-3.31，价格上涨而资金净流出。确定性2.5/弹性3/兑现时间3/拥挤度3.5/已定价3。异动性质：资金切换但 diff 负背离=假强势；盛达资源3板(贵金属)是连板情绪而非板块资金，只看不追",
+    "[回避] 科技半导体/AI（芯片 diff-25.86/半导体 diff-31.06/半导体设备-4.61% 全场跌幅最大/电子-2.44% 领跌申万一级）：前两日主线已瓦解，芯片 amount 两日-30.8% 资金持续撤离、中芯国际-6.75%/寒武纪-4.66% 大跌=主线退潮的个股级确认，CPO/存储/设备端连跌3日；追科技即接正在滚落的刀",
+    "[回避] 储能打板假突破（储能板块40涨停#1 但 diff-9.17/4531亿大池资金净流出）与防御白酒/食品（白酒-1.17 diff-34.68）：涨停是情绪脉冲/小票打板非板块资金流入，大池 diff 负=假突破；防御端 diff 集体负=风格切换出局"
+  ],
+  "picks": [
+    {
+      "code": "600406",
+      "name": "国电南瑞",
+      "strategy": "策略一（主线流动性池·电网设备容量中军）",
+      "reason": "全场唯一严格双红方向=电网设备+6.65%/diff+55.2（S1）下的容量核心中军：+2.61% 收 24.37（T1），电网自动化龙头、29.9 亿承接稳健；电力设备+4.07% 领涨申万一级（S16）确认方向，严格双红仅1个=未拥挤（S13）。pre_close 23.75（=07-22 真实收盘）为分歧日守位/止损基准——缩量环境下买有真 diff 的容量中军而非打板弹性端",
+      "evidence_refs": [
+        "T1",
+        "S1",
+        "S13",
+        "S16"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "002460",
+      "name": "赣锋锂业",
+      "strategy": "策略二（强趋势延续·锂电链弹性龙头）",
+      "reason": "锂+8.03%/diff+44.32（S2，全场最高涨幅+第二强 diff）方向的锂资源龙头：+7.93% 收 51.19（T2）；锂电链（锂/电池化学品 diff+33.6/能源金属 diff+27.68）是仅次于电网设备的真 diff 集群（S3/S4）。pre_close 47.43 为启动基，跌破即锂电链弹性证伪",
+      "evidence_refs": [
+        "T2",
+        "S2",
+        "S3",
+        "S4"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "300750",
+      "name": "宁德时代",
+      "strategy": "策略四（流动性切换·新能源容量定海神针）",
+      "reason": "电池+4.22%/diff+8.74/703亿（S6，容量池 diff 正）+ 电力设备+4.07% 领涨申万一级（S16）下的大盘 anchor：+3.69% 收 385.99/136亿（T3）；新能源方向真伪的试金石——若缩量轮动为真，容量龙头应稳守；pre_close 372.26，跌破即容量核心失守、新方向存疑",
+      "evidence_refs": [
+        "T3",
+        "S6",
+        "S16"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "002879",
+      "name": "长缆科技",
+      "strategy": "策略三（分歧回流·电网设备连板共振）",
+      "reason": "电网设备3板连板（S15）且绑定全场唯一严格双红方向电网设备（S1）=连板梯队+真 diff 双共振：+9.99% 收 16.41 涨停（T4）；较6板立新能源（T6）延伸度低、仍处主升初中段。pre_close 14.92，回吐整板（跌破14.92）即连板共振失败、清仓",
+      "evidence_refs": [
+        "T4",
+        "S1",
+        "S15"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "002202",
+      "name": "金风科技",
+      "strategy": "策略二（强趋势延续·风电扩散龙头）",
+      "reason": "风电设备+3.78%/diff+19.05（S5，新能源扩散端真 diff）+ 风电29涨停#2（S14）方向的风电整机龙头：+4.91% 收 18.37（T5）；新能源扩散端跟随锂电链，pre_close 17.51 为启动基，跌破即扩散端证伪。注：标的池5只全聚新能源=方向性押注，若轮动为一日游将同向回撤（集中度风险）",
+      "evidence_refs": [
+        "T5",
+        "S5",
+        "S14"
+      ],
+      "evidence_as_of": "2026-07-23"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1(07-24)上证守住 3851.706（07-23 日内低=反弹结构下沿）窄幅震荡偏强、涨家数从 4260 回落（反弹阶段D3→D4 库内2先例次日涨家均回落 3368→2619、2730→1723）；成交维持缩量<25000亿=缩量观望延续。升级档：放量>27000亿 + 涨家>3800 + 新能源出5板连板梯队=缩量轮动升级为放量反转。退潮档：上证跌破3851.706 或 成交续缩至<20000亿=反弹第4天分歧退潮/缩量假反抽(M17)风险上升",
+    "direction": "新能源方向 T+1 延续：电网设备（唯一严格双红 diff+55.2）T+1 维持 diff>0 = 新能源方向资金延续。瓦解条件：电网设备 diff 转负 且 pct<-3% = 新能源一日游/超跌反抽兑现。反向确认：芯片 diff 继续为负（已是-25.86）= 科技主线退潮确认、不回补科技。储能大池 diff 转正 = 打板升级为资金流入（目前-9.17 为假突破警戒）",
+    "targets": "国电南瑞收盘≥24.0（守住一半涨幅）持仓/跌破23.75（pre_close=07-22收盘启动基）减仓；赣锋锂业≥49.0（守一半）/跌破47.43（pre_close）证伪；宁德时代≥379（守一半）/跌破372.26（pre_close）=容量核心失守；长缆科技≥15.7（守一半涨幅）/跌破14.92（pre_close=回吐整板炸板）清仓；金风科技≥17.9（守一半）/跌破17.51（pre_close）止损",
+    "falsify": "上证 T+1 收盘<3851.706（07-23 日内低=反弹窄幅结构下沿）= 缩量反弹动能证伪、新能源持仓同步降仓；更强证伪：收盘<3830.09（周均线）= 反弹失败重回下跌。反向证伪：放量>27000亿 且 涨家>3800 且 新能源方向出现5板+连板梯队（目前最高立新能源6板但单点、3板晋级率44%）= 缩量轮动升级为放量反转，『缩量轮动非主升』定性偏保守应加仓"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M18",
+      "as_of": "2026-07-23",
+      "note": "守住3851.706+涨家回落由反弹阶段D3→D4 库内2先例(M18)推导；缩量<25000亿由3日成交趋势 29569→26531→21950(M6/M7)外推，n=2小样本按经验值登记不冒充回测"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "R1",
+      "as_of": "2026-07-23",
+      "note": "板块 diff 符号/严格双红转换判断依据 strategy1-matrix 固定规则(R1)；电网设备 diff>0 延续/-3%瓦解带为经验微调"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "T1",
+      "as_of": "2026-07-23",
+      "note": "全部触发价由库内 07-23 收盘/pre_close 机械推导：23.75/47.43/372.26/14.92/17.51=各标的 07-22 真实收盘(取自 07-23 行 pre_close，已逐只核验链一致)；24.0/49.0/379/15.7/17.9=各标的守一半涨幅机械中值"
+    },
+    "falsify": {
+      "origin": "mechanical",
+      "evidence_ref": "M11",
+      "as_of": "2026-07-23",
+      "note": "3851.706=07-23 日内低(反弹窄幅结构下沿)、3830.09=周均线，均为库内数值机械推导"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1(2026-07-24)上证守住3851.706窄幅震荡偏强、涨家数从4260回落：反弹阶段D3→D4 库内2先例(2025-01-16→01-17、2026-06-16→06-17)次日指数均微涨守住且涨家均回落；缩量态势延续(成交<25000亿，3日趋势29569→26531→21950)",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "M3",
+        "M7",
+        "M11",
+        "M16",
+        "M18"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+1 上证收盘<3851.706（跌破反弹结构下沿）或 成交放量>27000亿（缩量态势反转）"
+    },
+    {
+      "id": "direction",
+      "category": "direction",
+      "claim": "新能源方向T+1延续：电网设备（07-23全场唯一严格双红 diff+55.2）T+1维持diff>0，锂电链（锂diff+44.32/电池化学品+33.6）同步偏强——缩量下唯一有真diff的方向在第4天资金不撤离",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S14",
+        "S15"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "电网设备diff转负 且 pct<-3%（新能源方向一日游/超跌反抽兑现瓦解）"
+    },
+    {
+      "id": "target:600406",
+      "category": "target",
+      "claim": "国电南瑞T+1收盘≥23.75守住启动基（07-22收盘）：电网设备唯一严格双红方向的容量中军在分歧日不破启动位",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "T1",
+        "S1",
+        "S13"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+1收盘<23.75（跌破07-22收盘启动基=电网设备容量中军失守）"
+    },
+    {
+      "id": "target:300750",
+      "category": "target",
+      "claim": "宁德时代T+1收盘≥372.25守住启动基（07-22收盘）：新能源容量定海神针在缩量轮动第4天不破前日收盘",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "T3",
+        "S6",
+        "S16"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+1收盘<372.26（跌破07-22收盘=容量核心失守、新能源方向存疑）"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "上证T+1收盘守住3851.706（07-23日内低=反弹窄幅结构下沿，高于周均线3830.09），缩量轮动结构有效、反弹阶段延续至D4",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M10",
+        "M11",
+        "M12",
+        "M18"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "T+1收盘<3851.706（跌破反弹结构下沿）；更强证伪<3830.09（跌破周均线=反弹失败重回下跌）"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-24",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      -3.24,
+      -4.22,
+      -0.77,
+      9.99,
+      -4.08
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00"
+  }
+}
