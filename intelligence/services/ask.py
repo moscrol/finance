@@ -1282,6 +1282,26 @@ def _market_forecast_fallback_assessment(
     return "".join((base, rebound, decline, invalidation)), rebound, decline, invalidation
 
 
+_FALLBACK_ASSESSMENT_LABELS = {
+    "market_cause": "基于周内结构化数据的机制判断（外部触发因素仍待核验）：",
+    "general_finance": "基于本轮已检索证据的初步判断（深度分析仍待补全）：",
+}
+_DEFAULT_ASSESSMENT_LABEL = "基于本轮已收集证据的判断："
+
+
+def _assessment_label_for_fallback(kind: str | None) -> str:
+    """按 fallback 种类选择降级标签。
+
+    这里必须按种类分发，不能共用一句话：market_cause 的标签写死了「周内
+    结构化数据」「外部触发因素」，那是原因题的语境。估值/公司分析题复用它
+    会给出一个措辞完全错误的降级理由——比空白更糟，因为用户无法察觉。
+    """
+
+    if kind is None:
+        return _DEFAULT_ASSESSMENT_LABEL
+    return _FALLBACK_ASSESSMENT_LABELS.get(kind, _DEFAULT_ASSESSMENT_LABEL)
+
+
 def _general_finance_fallback_assessment(
     evidence: list[agent_research.AgentEvidence],
     *,
@@ -1296,14 +1316,15 @@ def _general_finance_fallback_assessment(
     保守设计：只做证据摘要 + 明确标注「需进一步判断」，不编造数字或结论。
     """
 
+    _MAX_ITEM_CHARS = 200
     details = [
-        agent_research.evidence_display_text(item)
+        agent_research.evidence_display_text(item)[:_MAX_ITEM_CHARS]
         for item in evidence
         if item.detail.strip()
     ]
     if not details:
         return f"针对「{query}」，本轮已尝试检索但未取得可直接引用的证据材料。"
-    # 取前 3 条证据摘要，拼成可审计的 assessment
+    # 取前 3 条证据摘要（每条至多 200 字），拼成可审计的 assessment
     top = details[:3]
     summary = "；".join(top)
     return (
@@ -1943,7 +1964,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     l3_attempted = any(
         trace.provider == "agent:l3_lookup" for trace in owner_result.traces
     )
-    fallback_assessment_used = False
+    fallback_assessment_kind: str | None = None
     visible_evidence = select_agent_evidence(
         options.query,
         owner_result.evidence,
@@ -1982,7 +2003,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                     blocks=("cause_attribution",),
                     suggested_capabilities=("web_search", "news_search"),
                 )
-        fallback_assessment_used = True
+        fallback_assessment_kind = "market_cause"
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
@@ -2008,7 +2029,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             owner_result.loop.research_state.set_assessment(
                 owner_result.loop.assessment
             )
-        fallback_assessment_used = True
+        fallback_assessment_kind = "general_finance"
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
@@ -2249,11 +2270,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             )
 
     if owner_result.loop.assessment.strip() and evidence_ids:
-        assessment_label = (
-            "基于周内结构化数据的机制判断（外部触发因素仍待核验）："
-            if fallback_assessment_used
-            else "基于本轮已收集证据的判断："
-        )
+        assessment_label = _assessment_label_for_fallback(fallback_assessment_kind)
         assessment_text = (
             assessment_label
             + f"{owner_result.loop.assessment.strip()} "
