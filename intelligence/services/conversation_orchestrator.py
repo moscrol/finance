@@ -986,6 +986,31 @@ _PUBLIC_REPORT_REPLACEMENTS = (
 )
 
 
+def _llm_failure_brief() -> str | None:
+    """Build a one-line human-readable summary when all LLM calls failed.
+
+    Returns None when the ledger is empty, no calls were made, or at least one
+    call succeeded — only the "all-failed" case deserves a user-visible banner.
+    """
+    ledger = llm_refine.current_call_ledger()
+    if ledger is None or not ledger.records:
+        return None
+    records = list(ledger.records)
+    failures = [r for r in records if r.status != "success"]
+    if not failures or len(failures) != len(records):
+        return None
+    # Aggregate failure reasons for a compact message.
+    reason_counts: dict[str, int] = {}
+    for rec in failures:
+        key = rec.reason or "unknown"
+        reason_counts[key] = reason_counts.get(key, 0) + 1
+    parts = [f"{reason}×{count}" for reason, count in sorted(reason_counts.items())]
+    return (
+        f"AI 模型服务本轮不可用（{len(failures)} 次调用均失败：{', '.join(parts)}），"
+        f"请稍后重试"
+    )
+
+
 @dataclass(frozen=True)
 class ConversationContext:
     summary: str
@@ -2833,13 +2858,20 @@ class TurnOrchestrator:
                 if fulfillment.status != "complete":
                     # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
                     # 渲染，仍可能把答非所问草稿发给用户。切到现有
-                    # evidence-gap renderer，保留缺口而不是重写成另一份模板。
+                    # evidence-gap renderer，保留缺口而不是重写成另一份��板。
                     result.synthesis = None
+                    llm_failure_brief = _llm_failure_brief()
                     result.answer_spec = task_fulfillment.fail_closed_answer_spec(
                         result.answer_spec,
                         fulfillment,
+                        llm_failure_summary=llm_failure_brief,
                     )
                     answer_text = render_conversation_answer(result)
+                    if llm_failure_brief:
+                        llm_warn = "llm_all_calls_failed"
+                        if llm_warn not in warnings:
+                            warnings.append(llm_warn)
+                            self.run_store.add_degrade(run_id, llm_warn)
                     warning = "最终回答未完成任务契约，已按部分完成标记。"
                     if warning not in warnings:
                         warnings.append(warning)

@@ -74,6 +74,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_EXTERNAL_MARKET,
     QUESTION_FACT_CHECK,
+    QUESTION_GENERAL,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_MARKET_TECHNICAL,
@@ -1336,6 +1337,57 @@ def _market_forecast_fallback_assessment(
     return "".join((base, rebound, decline, invalidation)), rebound, decline, invalidation
 
 
+_FALLBACK_ASSESSMENT_LABELS = {
+    "market_cause": "基于周内结构化数据的机制判断（外部触发因素仍待核验）：",
+    "general_finance": "基于本轮已检索证据的初步判断（深度分析仍待补全）：",
+}
+_DEFAULT_ASSESSMENT_LABEL = "基于本轮已收集证据的判断："
+
+
+def _assessment_label_for_fallback(kind: str | None) -> str:
+    """按 fallback 种类选择降级标签。
+
+    这里必须按种类分发，不能共用一句话：market_cause 的标签写死了「周内
+    结构化数据」「外部触发因素」，那是原因题的语境。估值/公司分析题复用它
+    会给出一个措辞完全错误的降级理由——比空白更糟，因为用户无法察觉。
+    """
+
+    if kind is None:
+        return _DEFAULT_ASSESSMENT_LABEL
+    return _FALLBACK_ASSESSMENT_LABELS.get(kind, _DEFAULT_ASSESSMENT_LABEL)
+
+
+def _general_finance_fallback_assessment(
+    evidence: list[agent_research.AgentEvidence],
+    *,
+    query: str,
+) -> str:
+    """当 agent loop 的 LLM 不可用时，从已检索证据拼出最小可审计判断。
+
+    与 market_cause / mainline_current 等 fallback 同一思路：不替模型做
+    开放式推理，只把已有的证据要点结构化地串成一句可回查的直接回答，
+    让 completion gate 判 direct_assessment 为 fulfilled 而非 evidence_unbound。
+
+    保守设计：只做证据摘要 + 明确标注「需进一步判断」，不编造数字或结论。
+    """
+
+    _MAX_ITEM_CHARS = 200
+    details = [
+        agent_research.evidence_display_text(item)[:_MAX_ITEM_CHARS]
+        for item in evidence
+        if item.detail.strip()
+    ]
+    if not details:
+        return f"针对「{query}」，本轮已尝试检索但未取得可直接引用的证据材料。"
+    # 取前 3 条证据摘要（每条至多 200 字），拼成可审计的 assessment
+    top = details[:3]
+    summary = "；".join(top)
+    return (
+        f"针对「{query}」，本轮检索到以下可回查材料：{summary}。"
+        "以上证据为初步线索，模型的深度分析与条件化判断仍需后续补全。"
+    )
+
+
 def _filter_current_window_evidence(
     selected: list[agent_research.AgentEvidence],
     *,
@@ -1967,7 +2019,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     l3_attempted = any(
         trace.provider == "agent:l3_lookup" for trace in owner_result.traces
     )
-    fallback_assessment_used = False
+    fallback_assessment_kind: str | None = None
     visible_evidence = select_agent_evidence(
         options.query,
         owner_result.evidence,
@@ -2006,7 +2058,33 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                     blocks=("cause_attribution",),
                     suggested_capabilities=("web_search", "news_search"),
                 )
-        fallback_assessment_used = True
+        fallback_assessment_kind = "market_cause"
+        owner_result = replace(
+            owner_result,
+            completion=generic_research_owner.evaluate_completion(
+                contract, owner_result.loop
+            ),
+        )
+
+    if (
+        contract.question_type == QUESTION_GENERAL
+        and not owner_result.loop.assessment.strip()
+        and owner_result.evidence
+    ):
+        # 通用金融问题（估值、公司分析等）在 agent loop LLM 不可用时，
+        # 如果已有证据，用证据摘要拼出最小可审计判断。不替模型做开放式
+        # 推理，只让 completion gate 能判 direct_assessment 为 fulfilled，
+        # 避免"有证据但不出回答"的空白降级。
+        owner_result.loop.assessment = _general_finance_fallback_assessment(
+            list(owner_result.evidence),
+            query=options.query,
+        )
+        owner_result.loop.sufficient = True
+        if owner_result.loop.research_state is not None:
+            owner_result.loop.research_state.set_assessment(
+                owner_result.loop.assessment
+            )
+        fallback_assessment_kind = "general_finance"
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
@@ -2247,11 +2325,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             )
 
     if owner_result.loop.assessment.strip() and evidence_ids:
-        assessment_label = (
-            "基于周内结构化数据的机制判断（外部触发因素仍待核验）："
-            if fallback_assessment_used
-            else "基于本轮已收集证据的判断："
-        )
+        assessment_label = _assessment_label_for_fallback(fallback_assessment_kind)
         assessment_text = (
             assessment_label
             + f"{owner_result.loop.assessment.strip()} "
