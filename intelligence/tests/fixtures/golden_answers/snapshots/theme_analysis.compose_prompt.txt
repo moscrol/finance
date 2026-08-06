@@ -22,7 +22,7 @@
 - [conflict] 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散｜证据=无｜层级=未评级
 - [missing] 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据｜证据=无｜层级=未评级
 - [missing] 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。｜证据=无｜层级=未评级
-- [missing] 川环科技 证据 2026-05-20 已超 45 天，需复核是否被新数据证伪｜证据=R2｜层级=未评级
+- [missing] 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立｜证据=R2｜层级=未评级
 - [missing] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。｜证据=W2｜层级=未评级
 - [missing] 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现｜证据=无｜层级=未评级
 ### 候选证据（检索可回查，但未达硬证据门槛，不得写成已确认事实）
@@ -84,7 +84,7 @@
 - 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散 <!-- claim_id=counter:2; evidence_atom_ids=; claim_type=expectation -->
 - 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据 <!-- claim_id=gap:1; evidence_atom_ids=; claim_type=expectation -->
 - 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。 <!-- claim_id=gap:2; evidence_atom_ids=; claim_type=expectation -->
-- 川环科技 证据 2026-05-20 已超 45 天，需复核是否被新数据证伪 <!-- claim_id=gap:3; evidence_atom_ids=atom-e7f5b7827b85; claim_type=expectation -->
+- 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立 <!-- claim_id=gap:3; evidence_atom_ids=atom-e7f5b7827b85; claim_type=expectation -->
 - 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。 <!-- claim_id=gap:4; evidence_atom_ids=atom-ff977c6da2d1; claim_type=expectation -->
 - 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现 <!-- claim_id=gap:5; evidence_atom_ids=; claim_type=expectation -->
 - 涨幅与边际成交同步转强：板块连续两日放量上涨 <!-- claim_id=trigger:1; evidence_atom_ids=atom-6fb7d4961ec5; claim_type=fact -->
@@ -97,7 +97,7 @@
 - 命中概念：液冷服务器(20) <!-- claim_id=concept:G1; evidence_atom_ids=atom-c434b1dc8702; claim_type=expectation -->
 - 液冷服务器（相关度 0.92）：液冷渗透率随机柜功率密度提升而上行，冷板方案先行。 <!-- claim_id=wiki:W1; evidence_atom_ids=atom-2b7999527125; claim_type=expectation -->
 - 川环科技与液冷服务器存在公司级映射。 <!-- claim_id=company:川环科技:G2; evidence_atom_ids=atom-2c6d4ce4dd94; claim_type=expectation -->
-- 川环科技：券商研报提及其为液冷管路潜在供应商（券商研报, 2026-05-20, 质量 ? ⚠️过期） <!-- claim_id=evidence:R2; evidence_atom_ids=atom-c16e496f6004; claim_type=expectation -->
+- 川环科技：券商研报提及其为液冷管路潜在供应商（券商研报, 2026-05-20, 质量 ? ｜新出现·首次进入观察） <!-- claim_id=evidence:R2; evidence_atom_ids=atom-c16e496f6004; claim_type=expectation -->
 marker 只供机器核验；保留自然措辞，事实句绑定合法 EvidenceAtom，无法绑定的句子直接删除或改成明确的证据缺口。
 
 ## 内部引用图例（只用于事实核验；最终回答不得显示编号）

@@ -38,6 +38,7 @@ from intelligence.services.ask import (
     AskOptions,
     Citation,
     _evidence_is_stale,
+    _theme_lifecycle_stage,
     load_theme_candidates,
     match_candidate,
 )
@@ -266,6 +267,9 @@ class AgentSession:
         self.timeout = timeout
         self.max_steps = max_steps
         self.knowledge = KnowledgeAdapter(wiki_root=options.kb_wiki)
+        # 逻辑生命周期按题材算、整轮不变；用哨兵区分"没算过"和"算过但没有"
+        self._lifecycle_stage: str | None = None
+        self._lifecycle_resolved = False
         self.citations: list[Citation] = []
         self.sources_used: set[str] = set()
         self._export_name: str | None = None
@@ -386,6 +390,23 @@ class AgentSession:
             return f"知识图谱未命中「{query}」（可能是新词/别名未登记）。"
         return "\n".join(lines)
 
+    def _lifecycle(self) -> str | None:
+        """本轮题材的逻辑生命周期阶段；懒加载并缓存，整轮只解析一次。
+
+        与 ask 路径共用 ``_theme_lifecycle_stage``，判定仍归 ``logic_lifecycle``
+        单点所有——两条路径对同一题材必须给出同一个阶段，否则又是各自一套词表。
+        """
+        if not self._lifecycle_resolved:
+            self._lifecycle_resolved = True
+            loaded = load_theme_candidates(self.options.exports_dir, self.options.date)
+            candidate = (
+                match_candidate(self.options.query, loaded.get("doc") or {})
+                if loaded.get("found")
+                else None
+            )
+            self._lifecycle_stage = _theme_lifecycle_stage(self.options, candidate)
+        return self._lifecycle_stage
+
     def tool_search_evidence(self, target: str) -> str:
         ev = self.knowledge.get_evidence(target, limit=self.options.max_evidence)
         if not ev.get("found") or not ev.get("items"):
@@ -399,7 +420,15 @@ class AgentSession:
                 "knowledge-base · wiki/relations/evidence_index.json",
                 f"target={item.get('target')} source={item.get('source')}",
             )
-            mark = " ⚠️过期" if stale else ""
+            # 旧 ≠ 失效：同一条旧证据在盘面重新触发时是「旧逻辑唤醒」的依据，
+            # 盘面走弱时才是衰退信号。判据是生命周期阶段，不是日历天数。
+            if not stale:
+                mark = ""
+            else:
+                stage = self._lifecycle()
+                # 文案不能含 research_brief._L4_TERMS 里的词（盘面/成交/信号…），
+                # 否则证据行会被误分成 L4 盘面证据，详见 evidence_providers 同处注释
+                mark = f" ｜{stage}" if stage else " ｜周期待判"
             lines.append(
                 f"{item.get('target')}：{str(item.get('evidence'))[:120]}"
                 f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
