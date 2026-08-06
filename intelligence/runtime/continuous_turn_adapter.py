@@ -64,7 +64,7 @@ _DELIVERY_REPAIR_STOP_REASONS = frozenset(
 # late report is not discarded merely because research consumed the rest of
 # the shared turn deadline.
 DEFAULT_VERIFICATION_RESERVE_SECONDS = 40.0
-LEGACY_DETERMINISTIC_OWNER_TYPES = frozenset(
+DETERMINISTIC_OWNER_TYPES = frozenset(
     {"external_market", "quick_fact", "dated_market_review"}
 )
 
@@ -228,7 +228,7 @@ class ContinuousTurnAdapter:
             or frame.task_frame_hash != control_frame.task_frame_hash
         ):
             return _control_frame_mismatch_result(self._runtime_name)
-        if frame.question_type in LEGACY_DETERMINISTIC_OWNER_TYPES:
+        if frame.question_type in DETERMINISTIC_OWNER_TYPES:
             return _declined_result()
         if control.terminal_kind == "clarification":
             questions = tuple(
@@ -1391,7 +1391,7 @@ __all__ = [
     "ContinuousTurnAdapter",
     "ContinuousTurnResult",
     "ContinuousTurnStatus",
-    "LEGACY_DETERMINISTIC_OWNER_TYPES",
+    "DETERMINISTIC_OWNER_TYPES",
     "RuntimeMode",
     "SemanticVerifier",
 ]
