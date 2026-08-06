@@ -61,3 +61,25 @@
 5. 「你判断'高覆盖方向是共识兑现还是主线再确认'的硬条件是什么？」
 
 —— 这些答案可以直接翻译成我们双盲答卷的 prompt 规则和 verdict 判据。
+
+## 五、2026-08-02 运行态实测增量
+
+本轮三组只读实验的完整记录见：
+
+- `E-006-runtime-retrieval-memory-lifecycle.md`：finmemory 检索矩阵、fundacore 正确查询通路、推荐到长期记忆的生命周期、UI/持久化不同步边界。
+- 共享 Agent 可直接吸收的运行时契约：`/Users/a77/agent-memory/10_knowledge/finance-agent-knevo-derived-knowledge-runtime-contract.md`。
+
+本轮新增校正：
+
+1. `fundacore` 不能通过 `finance_memory_query` 查询，正确链路是 `finance_entity_resolve → finance_graph_context`。
+2. 图谱有实体不代表有边、事实或证据；返回必须保留 `entities / edges / facts / evidence / gaps`。
+3. `finmemory` 召回存在跨 query 重叠、泛化词噪声和时间词偏移；不能把一次 top-N 召回当作事实裁决。
+4. pending recommendation 不等于长期 memory；`hitCount` 不等于预测胜率，memory confidence 不等于校准概率。
+5. 异步/UI Agent 的验收必须同时检查 payload 持久化、工具事件、助手输出和会话索引，不能只看 HTTP 200。
+
+后续本地回灌优先级：
+
+- P0：统一知识卡 schema，分离 graph/shared memory/user memory/provider。
+- P0：图谱空边/空事实门控，禁止模型补关系。
+- P1：检索 provenance、跨 query 支持度和预测验证 ledger 分离。
+- P1：推荐状态机与长期 memory 写权限隔离。
