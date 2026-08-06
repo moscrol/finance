@@ -510,9 +510,17 @@ def test_dry_run_records_exact_source_provenance(tmp_path) -> None:
         capture_output=True,
         text=True,
     ).stdout.strip()
+    # 口径必须与被测生产代码 ``_source_provenance`` 逐字一致：``--porcelain``
+    # **含未跟踪文件**。这里曾多带一个 ``--untracked-files=no``，于是工作区一出现
+    # 任何游离文件，两侧就给出相反的 dirty 判断，本断言必挂。
+    #
+    # 方向是测试对齐生产、不是反过来：provenance 记录「这次跑在什么代码状态上」，
+    # 而同文件 sealed fixture 闸门直接用它拒绝不干净的树（"requires a clean
+    # source tree"）。工作区躺着未跟踪文件时确实不是可复现环境，把生产改成排除
+    # 未跟踪会让 provenance 声称「干净」而实际不干净，那是往回退。
     expected_dirty = bool(
         subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain"],
             cwd=repo_root,
             check=True,
             capture_output=True,
@@ -535,6 +543,69 @@ def test_dry_run_records_exact_source_provenance(tmp_path) -> None:
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["source_revision"] == expected_revision
     assert payload["source_dirty"] is expected_dirty
+
+
+def _git_status_argv(func) -> list[list[str]]:
+    """从函数源码里解析出所有 ``git status`` 的实参列表（argv）。
+
+    读的是**调用方写下的真实参数**，不是把两侧各跑一遍再比结果——后者在
+    「两侧恰好都错成同一种」时会一起变绿。这就是「断言生效值而不是配置值」的
+    具体做法，在任何做环境一致性/参数对齐断言的测试里都适用。
+    """
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    found: list[list[str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.List):
+            continue
+        elts = [
+            e.value
+            for e in node.elts
+            if isinstance(e, ast.Constant) and isinstance(e.value, str)
+        ]
+        if len(elts) >= 2 and elts[0] == "git" and elts[1] == "status":
+            found.append(elts)
+    return found
+
+
+def test_source_dirty_uses_one_git_status_convention_on_both_sides() -> None:
+    """回归：生产侧与测试侧的 ``git status`` 口径必须逐字一致。
+
+    历史 bug：生产 ``_source_provenance`` 用 ``--porcelain``（含未跟踪文件），
+    而本文件的断言多带了一个 ``--untracked-files=no``（排除未跟踪）。于是工作区
+    一出现任何游离文件，两侧给出相反的 dirty 判断，``test_dry_run_records_exact_
+    source_provenance`` 必挂。
+
+    它藏了很久，因为**未跟踪文件不跟随 worktree**：在新建 worktree 里跑永远是绿的，
+    只有主检出树才会红。所以「在 worktree 里跑出来的全绿」不覆盖「主树有游离文件」
+    这个状态。
+
+    方向是测试对齐生产、不是反过来：``run_agent_runtime_benchmark`` 的 sealed
+    fixture 闸门直接用这个值拒绝不干净的树（"requires a clean source tree"），
+    工作区躺着未跟踪文件时确实不是可复现环境；把生产改成排除未跟踪，会让一份
+    provenance 声称「干净」而实际不干净。
+
+    本测试对**两侧任意一侧**被改动都会变红（已做双向变异验证）。
+    """
+    production = _git_status_argv(benchmark._source_provenance)
+    test_side = _git_status_argv(test_dry_run_records_exact_source_provenance)
+
+    assert production, "生产侧 _source_provenance 里找不到 git status 调用"
+    assert test_side, "测试侧断言里找不到 git status 调用"
+
+    for argv in production + test_side:
+        assert "--untracked-files=no" not in argv, (
+            f"git status 带了 --untracked-files=no：{argv}\n"
+            "provenance 会声称「干净」而工作区实际有游离文件；两侧都必须含未跟踪。"
+        )
+
+    assert production == test_side, (
+        "生产侧与测试侧的 git status 口径不一致——这正是 2026-08-06c 那个 bug 的形状：\n"
+        f"  生产 {production}\n  测试 {test_side}"
+    )
 
 
 def test_questions_fixture_preserves_long_tail_acceptance_outputs() -> None:
