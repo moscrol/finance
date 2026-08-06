@@ -114,6 +114,24 @@ class TestDefaultRegistryCarriesProduces:
         assert "financial_assessment" in fin_spec.produces
         assert "metric_evidence" in fin_spec.produces
 
+    def test_memory_lookup_declares_nothing_by_design(self) -> None:
+        """memory_lookup 的 produces **有意留空**，不是漏填。
+
+        现有 output_id 词表里的条目全是市场事实类产出（supporting_evidence /
+        event_facts / fact_value / market_summary…），而本工具按定义只回用户
+        自己过去的判断与纠偏原则——历史先验，不是市场事实。没有任何 episode
+        证据支持它 fulfill 过其中任何一项，硬填一个就是把推断写成声明。
+
+        留空的代价在 fail-open 下是「漏抓」：它永远不会被算作某个
+        required_output 的 contributing_tool。将来若实测到它确实产出过某类
+        output，补上即可——见 ``_DEFAULT_TOOL_METADATA`` 里的同款注释。
+        """
+        registry = reg.default_registry(
+            {name: lambda *a, **k: None for name in reg._DEFAULT_TOOL_METADATA}
+        )
+        spec = registry.resolve("memory_lookup")
+        assert spec.produces == frozenset()
+
 
 # ---------------------------------------------------------------------------
 # check_satisfiability — fail-open 核心
@@ -196,6 +214,49 @@ class TestCheckSatisfiability:
         assert results[0].status == "covered"
         assert results[1].output_id == "counterpoint"
         assert results[1].status == "suspicious"
+
+    def test_blank_produces_tool_neither_contributes_nor_suppresses(self) -> None:
+        """空 produces 工具「没表态」：既不当贡献者，也不把 unknown 推成 suspicious。
+
+        判据看的是 ``declared_specs``——有没有工具真表过态，不是并集内容。
+        空声明工具若被算作表过态，「全场无人表态」就会被误判成「所有人都说
+        不产出它」，于是一个保守留空的注册表会把每个 output 都标可疑。那正是
+        fail-open 要防的噪声源。
+
+        第一段断言是这条的变异闸门：把 ``declared_specs`` 的过滤去掉，它立刻
+        翻成 suspicious。
+        """
+        blank = _spec("memory_lookup")
+
+        alone = reg.check_satisfiability(("anything",), (blank,))
+        assert alone[0].status == "unknown"
+
+        # 一旦有工具真表了态，判据由它决定；空声明工具不混进贡献者名单
+        mixed = reg.check_satisfiability(
+            ("y",), (blank, _spec("a", produces=frozenset({"x"})))
+        )
+        assert mixed[0].status == "suspicious"
+        assert "memory_lookup" not in mixed[0].contributing_tools
+
+    def test_default_registry_never_produces_a_blocking_status(self) -> None:
+        """端到端不变量：真实注册表下，任何 output 都不会得到拦截性状态。
+
+        covered / unknown / suspicious 三者都放行。这条测试的作用是：将来
+        有人给 check_satisfiability 加第四种状态（比如 blocked）时，必须先
+        回来面对「fail-open 是否还成立」这个问题，而不是悄悄改变语义。
+        """
+        registry = reg.default_registry(
+            {name: lambda *a, **k: None for name in reg._DEFAULT_TOOL_METADATA}
+        )
+        specs = registry.authorized_specs()
+        probes = ("supporting_evidence", "fact_value", "output_nobody_will_ever_declare")
+
+        statuses = {
+            check.status
+            for output_id in probes
+            for check in reg.check_satisfiability((output_id,), specs)
+        }
+        assert statuses <= {"covered", "unknown", "suspicious"}
 
     def test_empty_required_outputs_returns_empty(self) -> None:
         specs = (_spec("a", produces=frozenset({"x"})),)
