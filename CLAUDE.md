@@ -28,14 +28,14 @@
 （有 `graph_audit.py` 硬门禁，跑它拿当前节点数，别抄这里写死的数）。改能力时回写它，
 **不要另建第二份清单**。
 
-### Agent 可调工具：11 个
+### Agent 可调工具：12 个
 
 全部在 `intelligence/services/research_tool_registry.py` 的 `_DEFAULT_TOOL_METADATA`：
 
 ```
 finance_query  evidence_search  kb_search   web_search       news_search
-graph_lookup   evidence_lookup  l3_lookup   market_data      financial_data
-mainline_context
+graph_lookup   evidence_lookup  memory_lookup  l3_lookup     market_data
+financial_data mainline_context
 ```
 
 ⚠️ 逐个受 `contract.allowed_capabilities` 门控（`episode_tools.py` 内按 capability 分支）。
