@@ -1292,7 +1292,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
                     matrix["rows"],
                 ))
             else:
-                lines.append("近15个交易日暂无120日新高映射。")
+                lines.append("近15个交易日未出现120日新高映射。")
             lines.append("")
         lines.append(f"> **结论**：120日新高主要承载在 {_join_names(top_high_sw, 3)}；题材集中于 {high_plate_text}。")
         lines.append("")

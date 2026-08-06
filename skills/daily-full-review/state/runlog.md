@@ -557,3 +557,91 @@ Notes:
 > 2. CDP proxy IPv6 兼容是 macOS Chrome 常见问题（只绑 [::1]），launchd 自动重启的 proxy 也无法自愈。
 > 3. agent-daily 的 content_delta 10MB 上限在知识库大量未提交改动时会超限——需要定期 commit 知识库或提高上限。
 > 4. 两个 uvicorn 实例（8792 canonical + 8799 canary）竞争 DuckDB 写锁是隐患。
+
+## 2026-08-03 | run 2026-08-03 18:43
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 9 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 5 |  |
+| index-daily | ok | 3 |  |
+| sw-l1-daily | ok | 276 |  |
+| market-deviation | ok | 10 |  |
+| sector-daily | ok | 32 |  |
+| sector-stocks | partial | 0 | 2026-08-03 snapshot=4740cdb24fb5 success=0/403 rel=0+0/52753 pending=403 retriable=0 nulls=0 continuity=100% missing_tables=fact_sector_stock_daily mismatch=relationships after 20 loops |
+| limit-heat | ok | 342 | heat=234 stock=751 retried=0 still_empty=0 |
+| stock-high | ok | 61 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 37 | eastmoney snapshot ok |
+| mainline-daily | ok | 8 |  |
+| mainline-sector-daily | ok | 6 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sector-stocks, same-day-gate
+
+## 2026-08-04 | run 2026-08-05 00:43
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 8 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 75 |  |
+| market-deviation | ok | 0 |  |
+| sector-daily | ok | 44 |  |
+| sector-stocks | partial | 0 | 2026-08-04 snapshot=d1cf9ffe267d success=0/403 rel=0+0/52782 pending=403 retriable=0 nulls=0 continuity=100% missing_tables=fact_sector_stock_daily mismatch=relationships after 20 loops |
+| limit-heat | ok | 47 | heat=284 stock=1734 retried=0 still_empty=0 |
+| stock-high | ok | 78 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 42 | eastmoney snapshot ok |
+| mainline-daily | ok | 37 |  |
+| mainline-sector-daily | ok | 9 |  |
+| theme-flow-daily | ok | 5 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sector-stocks, same-day-gate
+
+## 2026-08-04 | run 2026-08-05 01:21
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| sector-stocks | ok | 0 | 2026-08-04 snapshot=d1cf9ffe267d success=403/403 rel=52683+99/52782 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-05 | run 2026-08-05 18:50
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 4 |  |
+| market-daily | ok | 2 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 256 | [retry r1] |
+| market-deviation | ok | 1 |  |
+| sector-daily | ok | 46 |  |
+| sector-stocks | ok | 0 | 2026-08-05 snapshot=52abf8e671e7 success=403/403 rel=52709+73/52782 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 75 | heat=251 stock=1098 retried=0 still_empty=0 |
+| stock-high | ok | 51 |  |
+| limit-advance | ok | 4 |  |
+| stock-daily | ok | 49 | eastmoney snapshot ok |
+| mainline-daily | ok | 6 |  |
+| mainline-sector-daily | ok | 5 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
