@@ -416,6 +416,60 @@ def output_marker_is_checkable(output_id: str) -> bool:
     return bool(_MARKERS.get(output_id.casefold(), ()))
 
 
+def evaluate_marker_coverage(
+    required_outputs: Iterable[str],
+    answer_text: str,
+) -> dict[str, object]:
+    """Record which required outputs' wording reached the public prose.
+
+    This is the marker half of ``evaluate_task_fulfillment``, split out so both
+    engines can run it.  The full gate needs an ``AnswerSpec`` claim registry.
+    Engine A (continuous episode) has none, and Engine B's ``POST /api/runs``
+    path does not build one either.  Running those paths through
+    ``evaluate_answer_spec_fulfillment`` with empty claims would take the
+    ``no_candidate_claim`` branch for every output and report a wall of false
+    gaps.  The marker check needs only the prose, so it works on both — which
+    also makes the two engines' completion numbers comparable for the first
+    time.
+
+    ``uncheckable`` is counted apart from ``absent`` on purpose.
+    ``answer_has_output_marker`` returns ``False`` both for "the prose skipped
+    this slot" and for "no marker vocabulary exists for this slot"; folding
+    them together would report instrument gaps as coverage failures.
+    """
+
+    present: list[str] = []
+    absent: list[str] = []
+    uncheckable: list[str] = []
+    output_ids = tuple(
+        dict.fromkeys(str(item) for item in required_outputs if str(item).strip())
+    )
+    for output_id in output_ids:
+        normalized = output_id.casefold()
+        if not output_marker_is_checkable(normalized):
+            uncheckable.append(output_id)
+        elif answer_has_output_marker(normalized, answer_text):
+            present.append(output_id)
+        else:
+            absent.append(output_id)
+    checked = len(present) + len(absent)
+    return {
+        "required_output_count": len(output_ids),
+        "checked_count": checked,
+        "present": present,
+        "absent": absent,
+        "uncheckable": uncheckable,
+        # 只在真的检了东西时才给判定；全 uncheckable 时给 None 而不是 "complete"，
+        # 否则「没得检」会被读成「检过且通过」——那正是 answer_status 现在的毛病。
+        "marker_coverage": (
+            "complete" if checked and not absent
+            else "incomplete" if absent
+            else None
+        ),
+        "observation_only": True,
+    }
+
+
 def _gap_for_output(output_id: str, answer_text: str) -> bool:
     if not _GAP_PATTERN.search(answer_text):
         return False
