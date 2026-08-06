@@ -88,7 +88,7 @@ PLANNED_RUNTIME_MODULES = frozenset(
 )
 
 # 基线：只减不增。每断一条接缝就把这个数字减一，并在 commit 里说明断的是哪条。
-ERROR_BASELINE = 1
+ERROR_BASELINE = 0
 
 
 @dataclass(frozen=True)

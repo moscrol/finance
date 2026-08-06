@@ -9,7 +9,7 @@ from intelligence.services.evidence_capabilities import (
 )
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.turn_control_core import (
+from intelligence.runtime.turn_control_core import (
     TurnControlCore,
     project_turn_decision,
 )

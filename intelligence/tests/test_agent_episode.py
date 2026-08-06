@@ -7,11 +7,11 @@ from threading import Event, Lock
 
 import pytest
 
-import intelligence.services.agent_episode as agent_episode_module
-import intelligence.services.episode_tool_batch as episode_tool_batch_module
+import intelligence.runtime.agent_episode as agent_episode_module
+import intelligence.runtime.episode_tool_batch as episode_tool_batch_module
 import intelligence.services.research_contract as research_contract_module
-from intelligence.services.agent_episode import ContinuousAgentEpisode
-from intelligence.services.glm_agent_runtime import GLMAgentRuntime
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
     ModelToolCall,
@@ -33,7 +33,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
 )
-from intelligence.services.sub_research import BranchResult, SubResearchResult
+from intelligence.runtime.sub_research import BranchResult, SubResearchResult
 from intelligence.services.task_frame import TaskFrame
 
 

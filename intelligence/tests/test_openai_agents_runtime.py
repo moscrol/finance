@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-import intelligence.services.openai_agents_runtime as sdk_runtime_module
+import intelligence.runtime.openai_agents_runtime as sdk_runtime_module
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
@@ -19,7 +19,7 @@ from intelligence.services.evidence_capabilities import (
     EvidenceRequirement,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.openai_agents_runtime import (
+from intelligence.runtime.openai_agents_runtime import (
     AgentsSdkRequest,
     AgentsSdkResult,
     AgentsSdkTool,

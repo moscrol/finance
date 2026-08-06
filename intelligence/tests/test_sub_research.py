@@ -10,7 +10,7 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
-from intelligence.services.continuous_sub_research import ContinuousSubResearchWorker
+from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.services.evidence_ledger import EvidenceLedger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -25,7 +25,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
 )
-from intelligence.services.sub_research import (
+from intelligence.runtime.sub_research import (
     BranchResult,
     BranchRequest,
     SubResearchCoordinator,

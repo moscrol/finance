@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.research_contract import (
     OWNER_RETRIEVAL_STAGES,

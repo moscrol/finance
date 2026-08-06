@@ -21,7 +21,7 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.episode_progress import EpisodeProgress
+from intelligence.runtime.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -40,7 +40,7 @@ from intelligence.services.repair_coordinator import (
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.turn_control_core import TurnControlResult
+from intelligence.runtime.turn_control_core import TurnControlResult
 
 
 RuntimeMode = Literal["off", "canary", "on"]

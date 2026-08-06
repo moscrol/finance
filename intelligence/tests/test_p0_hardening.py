@@ -508,7 +508,7 @@ class OwnerTraceRehydrationTests(unittest.TestCase):
     """P1-A（手术版）：owner 输出重建 AskResult 时不再丢内部检索 trace。"""
 
     def test_owner_traces_survive_result_rebuild(self) -> None:
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             _skill_owner_result,
         )
         from intelligence.workbench_skills.contracts import (

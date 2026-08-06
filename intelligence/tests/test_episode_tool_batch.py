@@ -8,9 +8,10 @@ import time
 
 import pytest
 
-from intelligence.services import agent_research, episode_tool_batch, query_ledger
+from intelligence.runtime import episode_tool_batch
+from intelligence.services import agent_research, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
-from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolCallResult
+from intelligence.runtime.episode_tool_batch import ToolBatchExecutor, ToolCallResult
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,

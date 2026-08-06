@@ -46,7 +46,7 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
-from intelligence.services.agent_runtime_factory import (
+from intelligence.runtime.agent_runtime_factory import (
     resolve_runtime_backend,
     runtime_backend_readiness,
 )
@@ -56,19 +56,19 @@ from intelligence.services.forecast_learning import (
     reject_reflection,
     set_rule_status,
 )
-from intelligence.services.conversation_orchestrator import (
+from intelligence.runtime.conversation_orchestrator import (
     TurnOrchestrator,
     sanitize_user_visible_artifact_text,
 )
-from intelligence.services.continuous_turn_adapter import (
+from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter,
 )
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
 )
-from intelligence.services.episode_finalizer import EpisodeFinalizer
-from intelligence.services.episode_progress import (
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,
@@ -77,7 +77,7 @@ from intelligence.services.episode_tools import latest_market_date
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
-from intelligence.services.glm_agent_runtime import (
+from intelligence.runtime.glm_agent_runtime import (
     DEFAULT_GLM_LLM_TIMEOUT,
     GLMAgentRuntime,
     GLMModelClient,
@@ -222,7 +222,7 @@ def _build_continuous_turn_adapter(
     elif selection.name == "sdk_glm":
         if not providers:
             raise RuntimeError("sdk_glm provider unavailable")
-        from intelligence.services.openai_agents_runtime import (
+        from intelligence.runtime.openai_agents_runtime import (
             OpenAIAgentsRuntime,
             build_glm_sdk_model_factory,
         )
@@ -245,7 +245,7 @@ def _build_continuous_turn_adapter(
     elif selection.name == "sdk_gpt":
         if not providers:
             raise RuntimeError("sdk_gpt provider unavailable")
-        from intelligence.services.openai_agents_runtime import (
+        from intelligence.runtime.openai_agents_runtime import (
             OpenAIAgentsRuntime,
             build_gpt_sdk_model_factory,
         )
@@ -274,7 +274,7 @@ def _build_continuous_turn_adapter(
             != "1"
         ):
             raise RuntimeError("Codex headless runtime is benchmark-only")
-        from intelligence.services.codex_headless_runtime import (
+        from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
         )
 

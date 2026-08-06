@@ -10,7 +10,7 @@ recall behave per theme.
 The scorer (:mod:`intelligence.eval.agent_eval`) is a pure, dependency-free
 function over a small serializable :class:`TurnInput` view, so it is unit-tested
 with hand-built fixtures (no LLM, no KB). The live runner
-(:mod:`intelligence.eval.runner`) drives a real :class:`~intelligence.services.agent.AgentSession`
+(:mod:`intelligence.eval.runner`) drives a real :class:`~intelligence.runtime.agent.AgentSession`
 over a golden case set and applies the gate — usable on demand or on a schedule,
 not in PR CI (it needs an LLM key + the KB).
 """

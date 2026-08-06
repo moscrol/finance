@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from intelligence.services.agent_episode import (
+from intelligence.runtime.agent_episode import (
     DEFAULT_LLM_TIMEOUT,
     ContinuousAgentEpisode,
 )
 from intelligence.services.agent_runtime import AgentModelClient
 from intelligence.services.mode_governor import ModeSignals
-from intelligence.services.sub_research import (
+from intelligence.runtime.sub_research import (
     BranchRequest,
     BranchResult,
 )
