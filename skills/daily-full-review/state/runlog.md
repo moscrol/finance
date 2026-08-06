@@ -645,3 +645,29 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 0 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-06 | run 2026-08-06 22:07
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 246 |  |
+| market-deviation | ok | 11 |  |
+| sector-daily | ok | 34 |  |
+| sector-stocks | ok | 0 | 2026-08-06 snapshot=e309c15e51ba success=403/403 rel=52707+84/52791 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 31 | heat=223 stock=846 retried=0 still_empty=0 |
+| stock-high | ok | 88 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 24 | eastmoney snapshot ok |
+| mainline-daily | ok | 4 |  |
+| mainline-sector-daily | ok | 4 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
