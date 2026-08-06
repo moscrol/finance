@@ -787,39 +787,19 @@ def _continuous_answer_coverage(
     gate delivery, because there is no distribution data yet to size a policy
     against.
 
-    ``uncheckable`` is counted apart from ``absent`` on purpose.
-    ``answer_has_output_marker`` returns ``False`` both for "the prose skipped
-    this slot" and for "no marker vocabulary exists for this slot".  Folding
-    them together would report instrument gaps as coverage failures.
+    判定本体在 ``task_fulfillment.evaluate_marker_coverage``（services 侧的纯
+    变换），两个引擎共用同一个定义——否则两条路各写一份，覆盖数就没法互相比较。
+    这里只负责补上 Engine A 的身份字段。
     """
 
-    present: list[str] = []
-    absent: list[str] = []
-    uncheckable: list[str] = []
-    for output_id in dict.fromkeys(task_frame.required_outputs):
-        if not task_fulfillment.output_marker_is_checkable(output_id):
-            uncheckable.append(output_id)
-        elif task_fulfillment.answer_has_output_marker(output_id, answer_text):
-            present.append(output_id)
-        else:
-            absent.append(output_id)
-    checked = len(present) + len(absent)
+    coverage = task_fulfillment.evaluate_marker_coverage(
+        task_frame.required_outputs,
+        answer_text,
+    )
     return {
         "task_frame_hash": task_frame.task_frame_hash,
         "question_type": task_frame.question_type,
-        "required_output_count": len(task_frame.required_outputs),
-        "checked_count": checked,
-        "present": present,
-        "absent": absent,
-        "uncheckable": uncheckable,
-        # 只在真的检了东西时才给判定；全 uncheckable 时给 None 而不是 "complete"，
-        # 否则「没得检」会被读成「检过且通过」——那正是 answer_status 现在的毛病。
-        "marker_coverage": (
-            "complete" if checked and not absent
-            else "incomplete" if absent
-            else None
-        ),
-        "observation_only": True,
+        **coverage,
     }
 
 

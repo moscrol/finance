@@ -94,6 +94,8 @@ from intelligence.services.market_snapshot_contract import (
 )
 from intelligence.services.run_store import RunStore
 from intelligence.services.runtime_provenance import build_runtime_provenance
+from intelligence.services import task_fulfillment
+from intelligence.services.task_frame import derive_required_outputs
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
     SelfUseLedger,
@@ -1132,6 +1134,43 @@ def _terminalize_pending_message(
     )
 
 
+def _ask_answer_coverage(
+    question: str,
+    result: object,
+    answer_md: str,
+) -> dict[str, object]:
+    """Record whether each required output's wording reached this path's answer.
+
+    ``POST /api/runs`` → ``_run_ask`` is a second entry point, independent of
+    ``TurnOrchestrator``.  It never calls ``task_fulfillment`` at all, and it
+    calls ``complete_report`` without ``answer_status`` — which silently falls
+    back to the ``business_status`` default ``"complete"``.  So this path has
+    always reported a complete answer without anything having checked it.
+
+    Observation only, same discipline as the continuous path: measure the gap
+    before sizing a policy against it.
+
+    ``required_outputs`` is re-derived from (question, question_type) via the
+    shared ``task_frame.derive_required_outputs`` rather than duplicating the
+    default table, so both entry points grade against the same contract.
+    ``AskResult`` does not carry the frame, and this path never builds one.
+    """
+
+    question_plan = getattr(result, "question_plan", None)
+    question_type = str(getattr(question_plan, "question_type", "") or "")
+    required_outputs = derive_required_outputs(question_type, question)
+    answer_text = str(getattr(result, "synthesis", None) or answer_md or "")
+    coverage = task_fulfillment.evaluate_marker_coverage(
+        required_outputs,
+        answer_text,
+    )
+    return {
+        "entry_point": "api_runs_ask",
+        "question_type": question_type or None,
+        **coverage,
+    }
+
+
 def _run_ask(
     store: RunStore,
     run_id: str,
@@ -1329,6 +1368,18 @@ def _run_ask(
         renderer="json",
         title="结构化摘要",
     )
+    coverage = _ask_answer_coverage(req.question, result, answer_md)
+    report["answer_marker_coverage"] = coverage
+    store.append_step(
+        run_id,
+        step_id="s01b",
+        name="answer_marker_coverage",
+        status="completed",
+        input_summary=req.question,
+        started_at=render_started_at,
+        finished_at=rs._now_iso(),
+        output_summary=json.dumps(coverage, ensure_ascii=False),
+    )
     provider = detect_provider()
     complete_report(
         report,
@@ -1336,6 +1387,11 @@ def _run_ask(
         warnings=[*report_warnings, *result.warnings],
         llm_provider=result.llm_provider,
         llm_model=provider.model if provider and result.llm_provider else None,
+        # 刻意不传 answer_status：本轮只加观测，不动交付判定。
+        # ⚠️ 这条路的 answer_status 一直是无条件 "complete"（complete_report
+        # 在 answer_status 不在白名单时回落成 business_status 默认值），
+        # 即「没有任何东西检查过答案，报告照报 complete」。coverage 现在能
+        # 量出这个洞有多大，但要不要让它影响状态，等有分布数据再定。
     )
     store.add_artifact(
         run_id,

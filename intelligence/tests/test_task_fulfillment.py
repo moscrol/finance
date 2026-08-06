@@ -7,6 +7,7 @@ from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_fulfillment import (
     answer_has_output_marker,
     evaluate_answer_spec_fulfillment,
+    evaluate_marker_coverage,
     evaluate_task_fulfillment,
     fail_closed_answer_spec,
     output_marker_is_checkable,
@@ -350,3 +351,63 @@ def test_marker_checkability_is_case_insensitive_like_the_gate():
     # 判定用 casefold，和 evaluate_task_fulfillment 里 output_id 的归一方式一致，
     # 免得同一个槽位在门禁里可检、在观测里被记成 uncheckable。
     assert output_marker_is_checkable("DIRECT_ASSESSMENT") is True
+
+
+def test_marker_coverage_is_shared_by_both_engines():
+    """两个引擎共用同一个判定，覆盖数才能互相比较。"""
+
+    coverage = evaluate_marker_coverage(
+        ("direct_assessment", "evidence_boundary"),
+        "当前主线是资金回流权重。数据截至 2026-08-07。",
+    )
+
+    assert coverage["present"] == ["direct_assessment", "evidence_boundary"]
+    assert coverage["absent"] == []
+    assert coverage["uncheckable"] == []
+    assert coverage["checked_count"] == 2
+    assert coverage["marker_coverage"] == "complete"
+    # 观测标记必须在 payload 里自述，否则下游会把它当成门禁判定来用。
+    assert coverage["observation_only"] is True
+
+
+def test_marker_coverage_separates_uncheckable_from_absent():
+    # direct_definition 无 marker 词表（不可检）；evidence_boundary 有但正文没写（真缺）。
+    coverage = evaluate_marker_coverage(
+        ("direct_definition", "evidence_boundary"),
+        "卫星互联网是一种通过低轨卫星提供接入的通信方式。",
+    )
+
+    assert coverage["uncheckable"] == ["direct_definition"]
+    assert coverage["absent"] == ["evidence_boundary"]
+    assert coverage["present"] == []
+    assert coverage["checked_count"] == 1
+    assert coverage["required_output_count"] == 2
+    assert coverage["marker_coverage"] == "incomplete"
+
+
+def test_marker_coverage_gives_no_verdict_when_nothing_is_checkable():
+    # 全不可检时给 None，而不是把「没得检」报成「检过且通过」——
+    # 那正是 answer_status 无条件 complete 的毛病。
+    coverage = evaluate_marker_coverage(("direct_definition",), "随便什么正文")
+
+    assert coverage["uncheckable"] == ["direct_definition"]
+    assert coverage["checked_count"] == 0
+    assert coverage["marker_coverage"] is None
+
+
+def test_marker_coverage_dedupes_and_drops_blank_output_ids():
+    coverage = evaluate_marker_coverage(
+        ("direct_assessment", "direct_assessment", "", "  "),
+        "当前主线是资金回流权重。",
+    )
+
+    assert coverage["required_output_count"] == 1
+    assert coverage["present"] == ["direct_assessment"]
+
+
+def test_marker_coverage_with_no_required_outputs_gives_no_verdict():
+    coverage = evaluate_marker_coverage((), "任意正文")
+
+    assert coverage["required_output_count"] == 0
+    assert coverage["checked_count"] == 0
+    assert coverage["marker_coverage"] is None

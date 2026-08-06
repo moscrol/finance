@@ -2728,6 +2728,75 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     assert context["review"] == []
 
 
+def test_ask_entry_coverage_grades_against_the_shared_required_outputs() -> None:
+    """POST /api/runs 这条入口从不调 task_fulfillment，也从不传 answer_status。
+
+    它和 TurnOrchestrator 是两个独立入口，`complete_report` 在 answer_status
+    不在白名单时会静默回落成 business_status 默认值 "complete"——即「没有任何
+    东西检查过答案，报告照报 complete」。这里锁住覆盖判定现在会被记录，
+    且用的是与 build_task_frame 同一张 required_outputs 表。
+    """
+
+    result = SimpleNamespace(
+        question_plan=SimpleNamespace(question_type="market_cause"),
+        synthesis="当前主线是资金回流权重。因果链条来自成交额放大。",
+    )
+
+    coverage = app_module._ask_answer_coverage("为什么大盘涨了", result, "")
+
+    assert coverage["entry_point"] == "api_runs_ask"
+    assert coverage["question_type"] == "market_cause"
+    # market_cause 的默认必需输出：direct_assessment / causal_chain /
+    # counterpoint / evidence_boundary。前者正文写到了，后三者没有。
+    assert coverage["present"] == ["direct_assessment"]
+    assert "evidence_boundary" in coverage["absent"]
+    assert coverage["marker_coverage"] == "incomplete"
+    assert coverage["observation_only"] is True
+    # causal_chain 没有 marker 词表，必须算 uncheckable 而不是 absent，
+    # 否则仪表盲区会被统计成答案漏写。
+    assert "causal_chain" in coverage["uncheckable"]
+    assert "causal_chain" not in coverage["absent"]
+
+
+def test_ask_entry_coverage_prefers_synthesis_over_rendered_markdown() -> None:
+    """判的必须是用户看到的正文，不是 render_answer 的模板外壳。
+
+    `render_answer` 会拼上章节标题等脚手架，用它当正文会让 marker 命中
+    虚高——量出来的覆盖率会比真实情况好看。
+    """
+
+    result = SimpleNamespace(
+        question_plan=SimpleNamespace(question_type="general_finance_qa"),
+        synthesis=None,
+    )
+
+    coverage = app_module._ask_answer_coverage(
+        "什么是 ROE",
+        result,
+        "直接回答：ROE 是净资产收益率。数据截至 2026-08-07。",
+    )
+
+    # synthesis 为 None 时回落到 answer_md
+    assert coverage["question_type"] == "general_finance_qa"
+    assert coverage["marker_coverage"] is not None
+
+
+def test_ask_entry_coverage_reports_no_verdict_without_question_type() -> None:
+    """question_plan 缺失时不能假装检过。
+
+    这条路的 question_plan 是可选的（AskResult 默认 None）。取不到类型时
+    required_outputs 落到兜底的 direct_answer/evidence_boundary，
+    其中 direct_answer 没有 marker 词表——不能把它记成「答案漏写」。
+    """
+
+    result = SimpleNamespace(question_plan=None, synthesis="随便一句话。")
+
+    coverage = app_module._ask_answer_coverage("q", result, "")
+
+    assert coverage["question_type"] is None
+    assert "direct_answer" in coverage["uncheckable"]
+
+
 def test_artifact_api_filters_describes_and_serves_registered_content(
     client: TestClient,
 ) -> None:

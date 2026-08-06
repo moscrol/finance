@@ -218,14 +218,10 @@ def build_task_frame(
         subject = "A股市场" if market_scope == "A股" else f"{market_scope}市场"
         subject_kind = "market_pattern"
 
-    explicit_outputs = _explicit_required_outputs(question)
-    outputs = (
-        explicit_outputs
-        if explicit_outputs
-        else _merge_strings(
-            _default_required_outputs(question_type, question),
-            tuple(str(item) for item in envelope.required_outputs),
-        )
+    outputs = derive_required_outputs(
+        question_type,
+        question,
+        extra=tuple(str(item) for item in envelope.required_outputs),
     )
     ambiguities = (
         ("“这个反弹”缺少可唯一绑定的主体，可能改变工具和结论",)
@@ -571,6 +567,34 @@ def _user_goal(question_type: str, question: str, fallback: str) -> str:
     if _INVALIDATION_FOLLOWUP_RE.search(question):
         return "说明上一判断的可核验失效条件及其证据依据"
     return str(fallback or "形成与用户原问题一致的直接回答").strip()
+
+
+def derive_required_outputs(
+    question_type: str,
+    question: str,
+    *,
+    extra: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    """Derive a question's required outputs from type + wording alone.
+
+    Extracted from ``build_task_frame`` so routes that never build a
+    ``QueryEnvelope`` can still name the same slots.  ``POST /api/runs``
+    (``api/app.py:_run_ask``) is one: it has the question and a resolved
+    ``question_type`` but no envelope, so before this it had no way to say what
+    the answer owed — and reported ``answer_status`` without checking anything.
+
+    Pure and deterministic: an explicit wording match wins outright, otherwise
+    the per-type defaults merge with ``extra``.  Kept as the single source for
+    that table so a second caller cannot drift from ``build_task_frame``.
+    """
+
+    explicit_outputs = _explicit_required_outputs(question)
+    if explicit_outputs:
+        return explicit_outputs
+    return _merge_strings(
+        _default_required_outputs(question_type, question),
+        tuple(str(item) for item in extra if str(item).strip()),
+    )
 
 
 def _explicit_required_outputs(question: str) -> tuple[str, ...]:
