@@ -768,6 +768,61 @@ def _specialized_owner_required_outputs(
     )
 
 
+def _continuous_answer_coverage(
+    task_frame: TaskFrame,
+    answer_text: str,
+) -> dict[str, object]:
+    """Record whether each required output's wording reached the public prose.
+
+    Engine A's completion gate (``episode_verifier`` plus the semantic judge)
+    proves that evidence *bindings* are structurally sound.  It never asks the
+    separate question Engine B asks through ``task_fulfillment``: did the final
+    prose actually say the thing?  Engine A reaches its terminal report through
+    ``_complete_continuous_turn``, which returns before the orchestrator's
+    ``task_fulfillment`` gate, so that second question has never been recorded
+    for the production research path.
+
+    This is observation only.  Phase 1 of the layered-rebuild roadmap is
+    explicitly "先量后改": the verdict here must not move ``answer_status`` or
+    gate delivery, because there is no distribution data yet to size a policy
+    against.
+
+    ``uncheckable`` is counted apart from ``absent`` on purpose.
+    ``answer_has_output_marker`` returns ``False`` both for "the prose skipped
+    this slot" and for "no marker vocabulary exists for this slot".  Folding
+    them together would report instrument gaps as coverage failures.
+    """
+
+    present: list[str] = []
+    absent: list[str] = []
+    uncheckable: list[str] = []
+    for output_id in dict.fromkeys(task_frame.required_outputs):
+        if not task_fulfillment.output_marker_is_checkable(output_id):
+            uncheckable.append(output_id)
+        elif task_fulfillment.answer_has_output_marker(output_id, answer_text):
+            present.append(output_id)
+        else:
+            absent.append(output_id)
+    checked = len(present) + len(absent)
+    return {
+        "task_frame_hash": task_frame.task_frame_hash,
+        "question_type": task_frame.question_type,
+        "required_output_count": len(task_frame.required_outputs),
+        "checked_count": checked,
+        "present": present,
+        "absent": absent,
+        "uncheckable": uncheckable,
+        # 只在真的检了东西时才给判定；全 uncheckable 时给 None 而不是 "complete"，
+        # 否则「没得检」会被读成「检过且通过」——那正是 answer_status 现在的毛病。
+        "marker_coverage": (
+            "complete" if checked and not absent
+            else "incomplete" if absent
+            else None
+        ),
+        "observation_only": True,
+    }
+
+
 def _generic_research_deadline(
     root_deadline: ResearchDeadline,
     contract: ResearchTaskContract,
@@ -3592,6 +3647,16 @@ class TurnOrchestrator:
 
         report["execution_kind"] = "continuous_episode"
         report["turn_intent"] = turn_intent.to_dict()
+        coverage = _continuous_answer_coverage(task_frame, answer_text)
+        report["answer_marker_coverage"] = coverage
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "continuous:answer_coverage",
+            "answer_marker_coverage",
+            coverage,
+        )
         complete_report(
             report,
             as_of=result.as_of,
@@ -3599,6 +3664,8 @@ class TurnOrchestrator:
             llm_provider=result.llm_provider,
             llm_model=self.llm_model,
             business_status=("complete" if result.status == "completed" else "partial"),
+            # 刻意保持不变：本轮只加观测，不让 coverage 判定影响交付状态。
+            # 见 _continuous_answer_coverage 的 docstring 与路线图 Phase 1「先量后改」。
             answer_status=("complete" if result.status == "completed" else "partial"),
         )
         public_report = _redact_object(report)

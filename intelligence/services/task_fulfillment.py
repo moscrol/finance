@@ -402,6 +402,20 @@ def answer_has_output_marker(output_id: str, answer_text: str) -> bool:
     return _has_output_marker(output_id, answer_text)
 
 
+def output_marker_is_checkable(output_id: str) -> bool:
+    """Return whether ``_MARKERS`` can decide this output at all.
+
+    ``answer_has_output_marker`` returns ``False`` both when the prose is
+    missing the slot and when no marker vocabulary exists for it.  A caller
+    that only records "absent" therefore cannot tell "the answer skipped it"
+    from "we have no way to look".  Observation call sites must split those
+    two, otherwise the resulting numbers read as coverage failures when they
+    are really instrument gaps.
+    """
+
+    return bool(_MARKERS.get(output_id.casefold(), ()))
+
+
 def _gap_for_output(output_id: str, answer_text: str) -> bool:
     if not _GAP_PATTERN.search(answer_text):
         return False
