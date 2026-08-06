@@ -132,6 +132,13 @@ Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——�
 `2026-08-02` 那批 run 全是 `runtime_backend=sdk_gpt`，`model_turn` 事件 0 个——
 这解释了为什么逐轮数据「看起来不存在」。
 
+⚠️ **别把这条读成「生产走 sdk」。** 那批 run 全在
+`tmp/agent-runtime-seam-fix-*/tmp/canary-users-*`（canary 实验目录），
+而 `agent_runtime_factory.resolve_runtime_backend` 的默认值是 **`continuous_glm`**。
+真实生产 users 目录下没有 research-path 的 `continuous-episode.json` 记录。
+所以「逐轮 token 拿不到」是那批实验的属性，不是生产链路的属性——
+生产默认那条路恰好是能拿到精确逐轮值的那条。
+
 **本轮交付（只加观测）**：`services/context_growth.summarize_context_growth`
 （纯变换，两个 backend 共用），结果进 trace 步 `context_growth` 与
 `report["context_growth"]`。
@@ -142,9 +149,60 @@ Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——�
 `run_aggregated`。把两者糊成一个数会让粗粒度 backend 看起来和精确的一样——
 和「把没有 marker 词表报成答案漏写」是同一种错：仪表盲区被读成发现。
 
-**阶段 2 才动策略**（单条工具观察截断 + 完整性元数据），需要先跑一批真实题拿
-`max_turn_input_tokens` 的 P50/P95/max 分布。⚠️ 那批题必须走
-`continuous_glm`，否则拿到的全是 `run_aggregated`，定不出阈值。
+**阶段 2 才动策略**（更激进的压缩），需要先跑一批真实题拿
+`max_turn_input_tokens` 的 P50/P95/max 分布。那批题走生产默认的
+`continuous_glm` 即可拿到 `per_turn` 精确值。
+
+### 分层压缩：五层对照与我们的实际缺口（`2026-08-07`）
+
+书（ai-agent-book 第 2 章「生产级的分层压缩机制」）给的五层，按
+「便宜/局部/确定 → 昂贵/全局/有损」升级排列。逐层对照我们的现状：
+
+| 层 | 书里的做法 | 我们的现状 |
+|---|---|---|
+| **0. 隔离**（书末结论：隔离优于压缩） | 子 Agent 独立上下文，主 Agent 只收结论 | ✅ **已实现**。`SubResearchCoordinator` 每分支独立 budget ledger + evidence sink，父只收 `BranchResult`。⚠️ 只接在 `glm_agent_runtime`，sdk/codex 两个 backend 为 0 |
+| **1. 工具结果预算** | 原始结果落盘，上下文只留冻结预览 | ✅ **本轮补齐**（见下） |
+| **2. 噪声删除** | 按使用轨迹删未被引用的结果 | ❌ 未做。**我们有比书���硬的信号**：书靠启发式猜哪些没被用，我们有 `bindings`——终局时哪些 `content_hash` 真的绑进了 required_output 是确定的 |
+| **3. API 侧微压缩** | 调 provider 的 context editing 移除 tool result | ❌ 未做，**且不建议做**：provider 特定，且必然使被移除位置之后的 KV cache 失效。收益完全取决于离窗口多远，正是现在缺的那个量 |
+| **4. 轮次归档** | 逐轮 git-log 式档案，不 squash | ⚠️ **料已齐但没当上下文用**。`ledger.events` 本身就是逐轮档（`sequence` + task/tool_request/tool_result/finish）。注意 `_summarize_messages` 是 `"…" + text[-2399:]` 尾部切片（书警告的 squash 反模式），但它作用在**对话历史**层，不是 episode messages |
+| **5. 全量 LLM 压缩 + 熔断** | 最后手段，失败要熔断 | ❌ 无全量压缩（见上方 ⛔）。但**熔断纪律我们有**：`MAX_EPISODE_TOOL_CALLS=24`、`repair_cycles`、deadline exhaustion |
+
+**结论：缺口不均匀——最贵的那层（隔离）已建好，缺的是便宜的中段。**
+这不是巧合：`SubResearchCoordinator` 那套 budget ledger 的复杂度远高于
+「给 observation 加字符上限」，说明当初是从难的一头往下做的。
+
+#### 第 1 层已交付：`services/tool_result_budget`
+
+修的是一个**引擎间不对称**，不需要等分布数据：Engine B
+（`agent_research`）一直有 `_MAX_OBSERVATION_CHARS = 900`，而 Engine A
+（`agent_episode`，**生产 research 路径**）的 tool message 是裸 `json.dumps`，
+零字符上限。
+
+这一层对我们几乎免费，因为前置条件已经成立——同一份 `public_observation`
+本来就分流到两个 sink：
+
+```
+ledger.add("tool_result", payload)   → continuous-episode.json  （审计·全量）
+messages.append({"role": "tool"})    → 模型上下文              （本轮加预算）
+```
+
+原始结果**已经在落盘**，`evidence_hashes` **已经是**回溯指针。所以只改喂模型
+那一侧，`ledger` 保持全量——否则「压缩」就变成了毁证据。
+
+**只截断叙述，标识一律不动**，这是红线（来源/时点/状态/缺口/完整性）的直接推论：
+- `evidence_hashes` / `content_hash`：终局 binding 门禁要用。删一个不会让答案变短，只会让门禁无法满足
+- `source` / `source_date` / `evidence_tier` / `freshness`：没有时点和层级的结论不是更短的结论，是另一个结论
+- `gaps`：答案必须披露的东西
+- `supports` / `contradicts`：删掉一条反证等于把有争议的发现静默升级成干净的
+
+截断时附 `context_budget` 元数据（`omitted_chars` + `full_record_in` +
+`preserved` 清单 + 指令），否则模型分不清「工具没查到」和「harness 没给我看」，
+可能重复同一次查询。**具名指路**，不是一个裸 `truncated` 标志：
+「有更多」而不说「在哪」不叫可审计。
+
+**确定性是硬约束**：纯函数，无模型调用、无时钟、无随机。provider 的 prompt
+cache 按前缀字节命中，每次生成不同预览会让恢复会话时缓存全部失效——省下的
+token 抵不上重算的成本。这也是书里强调「预览一旦生成就冻结」的原因。
 
 ⛔ **不做滑动窗口 / LLM 摘要压缩。** 它会引入「压缩时丢掉了会改变结论的状态」——
 最难查的一类 bug。压缩的红线是：**降噪 ≠ 静默丢证据**，任何压缩函数必须保留
