@@ -1,0 +1,97 @@
+{
+  "generated_at": "20260802T152731Z",
+  "base": "http://127.0.0.1:8801",
+  "preflight_ok": true,
+  "preflight_detail": "revision=6a2b3010 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A1-market-overview",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 今天市场怎么样",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）\n\n数据截至 2026-07-23。\n\n检索口径：读取 2026-07-23 的 canonical 正式日报，并以该日期盘面数据为判断依据。\n\n## 直接结论\n\n市场处于反弹阶段的第3个交易日，短线情绪偏热；上证收于3876.78点，上涨0.25%，距离短期均线1.25%。\n\n最强盘面数据集中在储能、电网设备、风电、机器人概念和光伏概念，涨停数量分别为40、29、29、25和25，其中储能居前；资金主要集中在电力设备。\n\n主要风险在于量能与热度并未完全匹配：市场成交额为21949.97亿元，较前一交易日减少17.27%，成交最集中的三个行业占45.10%；同时，只有电力设备一个方向满足上涨且放量，另有11个方向只满足上涨或放量中的一项。\n\n因此，当前更接近“反弹延续、局部高热，但量能确认有限”的结构，不能仅凭涨停集中便判断为全面走强。\n\n下一交易日重点验证三点：电力设备能否继续保持上涨且放量，市场成交能否改善，以及储能、电网设备、风电、机器人概念和光伏概念的涨停集中度与偏热情绪能否延续。若量能改善且强势方向延续，可视为反弹确认增强；若成交继续收缩或强势方向明显退潮，则应下调对反弹持续性的判断。\n\n## 知识库积累与研究缺口\n\n现有资料能够明确确认的知识库积累是医药方向：已有“医药”“AI+医药”“AI+生物医药”3个概念页，并记录了4家公司暴露。\n\n小方制药的角色是外用药专业制药企业，覆盖消化类、皮肤类和五官类产品；泰恩康覆盖两性健康、肠胃和眼科三大板块，核心品种包括爱廷玖、和胃整肠丸和沃丽汀。\n\n神奇制药的角色是医药制造与医药商业双板块经营；丽珠集团的角色是医药相关产品及材料供应商。\n\n对于已经进入盘面强势方向的储能、电网设备、风电、机器人概念和光伏概念，现有资料无法完整判定哪些方向已有知识库积累、哪些方向尚无积累，因此不能据此列出对应概念页或公司暴露；这部分是下一步最需要补充的研究缺口。\n\n盘面强弱与知识库积累必须分开看：主线方向来自2026-07-23盘面，知识库侧反映概念页、公司暴露和已入库证据；知识库有积累不代表盘面强，盘面进入主线也不能反推知识库已经完备。\n\n（非投资建议）",
+          "run_id": "run_20260802_232559_474809",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "accepted",
+            "reason_code": "validated",
+            "detail": "grounded presenter passed deterministic and semantic gates",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17
+          },
+          "gaps": [],
+          "elapsed_s": 92.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

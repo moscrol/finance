@@ -1,0 +1,112 @@
+{
+  "generated_at": "20260803T071557Z",
+  "base": "http://127.0.0.1:8801",
+  "preflight_ok": true,
+  "preflight_detail": "revision=bd845320 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A1-market-overview",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 今天市场怎么样",
+          "answer": "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据\n\n# 每日市场复盘\n\n## 结论\n**直接定性：** 截至 2026-07-23，市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**最强证据：** 市场处于反弹阶段的第3个交易日；涨停较集中的方向：储能(40)、电网设备(29)、风电(29)、机器人概念(25)、光伏概念(25)；短线情绪偏热；强势股平均上涨 9.86%，相关成交占全市场 6.12%。\n**主要风险：** 还缺：当前结论只覆盖本轮专项资料，未覆盖的信息保持未知。\n**条件边界：** 若核心指标、风险项或资料日期出现反向变化，当前判断应降级。\n**下一步验证：** 下一验证窗口复核核心指标、风险项和资料日期是否发生变化。\n\n## 支撑依据\n- 哪些方向在放量上涨：1 个方向同时上涨且放量，11 个方向只满足上涨或放量其中一项；主要放量上涨方向：电力设备(1)\n- 市场判断：2026-07-23 为普通交易日，市场处于反弹阶段。成交额 21949.97 亿元，较昨日减少17.27%；成交最集中的三个行业占 45.10%。资金主要集中在电力设备，短线情绪偏热\n- 市场性质：市场处于反弹阶段的第3个交易日\n- 主线方向取自 2026-07-23 盘面；知识库侧为概念页/公司暴露/已入库证据。知识库有积累不等于当日盘面强，两者不得互相推导。\n- 指数表现：上证收于 3876.78 点，涨跌幅 0.25%，距离短期均线 1.25%\n\n<details><summary>展开来源和数据边界</summary>\n\n### 来源\n- [K1] 本地正式日报 — market_feature_store/exports/2026-07-23-daily-review.md\n- [K2] 主线方向的知识库积累 — knowledge-base/知识库\n\n</details>",
+          "run_id": "run_20260803_151533_188294",
+          "invoked_skill_ids": [
+            "daily-review"
+          ],
+          "citations": [
+            {
+              "source": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "title": "本地正式日报",
+              "evidence_layer": "原始来源",
+              "as_of": "2026-07-23"
+            },
+            {
+              "source": "knowledge-base/知识库",
+              "title": "主线方向的知识库积累",
+              "evidence_layer": "graph",
+              "as_of": "2026-07-23"
+            },
+            {
+              "tag": "K1",
+              "source": "本地正式日报",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md"
+            },
+            {
+              "tag": "K2",
+              "source": "主线方向的知识库积累",
+              "detail": "knowledge-base/知识库"
+            }
+          ],
+          "degrades": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:K1",
+              "label": "[K1] 本地正式日报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "market_feature_store/exports/2026-07-23-daily-review.md",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:K2",
+              "label": "[K2] 主线方向的知识库积累",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "knowledge-base/wiki",
+              "status": "hit"
+            },
+            {
+              "id": "citation:K",
+              "label": "K 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "rejected",
+            "reason_code": "grounded_required_fallback",
+            "detail": "grounded presenter did not pass validation; deterministic fallback used",
+            "prepared_message_count": 2,
+            "candidate_claim_count": 17,
+            "bound_claim_count": 17,
+            "shadow_status": "brief_unavailable",
+            "phases": [
+              {
+                "name": "brief",
+                "status": "failed",
+                "remaining_ms_at_entry": 89999,
+                "timeout_s": 22,
+                "elapsed_ms": 22009,
+                "reason_code": "deadline_exhausted_local"
+              }
+            ]
+          },
+          "gaps": [
+            "Grounded Presenter自然语言合成未通过门禁或不可用（LLM 合成超过共享截止时间，已降级为模板），已降级为可核验短答。"
+          ],
+          "elapsed_s": 24.2,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}
