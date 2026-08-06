@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from intelligence.services.conversation_orchestrator import _generic_research_deadline
+from intelligence.runtime.conversation_orchestrator import _generic_research_deadline
 from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
 from intelligence.services.research_policy import (

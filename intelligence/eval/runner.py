@@ -1,6 +1,6 @@
 """Live runner for the agent eval gate.
 
-Drives a real :class:`~intelligence.services.agent.AgentSession` over a golden
+Drives a real :class:`~intelligence.runtime.agent.AgentSession` over a golden
 case set, adapts each turn's :class:`AgentResult` into a serializable
 :class:`~intelligence.eval.agent_eval.TurnInput`, and applies the gate. Needs an
 LLM key + the KB, so it is *not* a PR-CI check — run it on demand (or on a
@@ -88,7 +88,7 @@ def turn_input_from_result(
 
 def run_case(spec: CaseSpec, opts: EvalRunOptions) -> list[TurnInput]:
     """Run one case (首轮 + 依次追问) on a fresh persistent agent session."""
-    from intelligence.services.agent import AgentSession
+    from intelligence.runtime.agent import AgentSession
     from intelligence.services.ask import AskOptions
 
     options = AskOptions(

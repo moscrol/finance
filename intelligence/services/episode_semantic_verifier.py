@@ -21,7 +21,7 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal, cast
+from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import AgentEvidence
@@ -30,7 +30,6 @@ from intelligence.services.agent_runtime import (
     AgentOutcome,
     ModelTurn,
 )
-from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_output_substance import (
     lost_required_output_substance,
     remove_lost_output_scaffolding,
@@ -52,6 +51,20 @@ DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 30.0
 MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
+
+
+@runtime_checkable
+class _FinalizerJudgeProvider(Protocol):
+    """Minimal seam the verifier needs from a finalizer.
+
+    The verifier never calls ``recover()`` — it only reads ``_model`` as a
+    fallback judge client.  Defining this Protocol here (in the domain layer)
+    lets ``runtime/episode_finalizer`` satisfy it structurally, instead of the
+    domain layer importing a runtime module.  This is the dependency inversion
+    that breaks the only seam in the layer gate.
+    """
+
+    _model: AgentModelClient
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
 _CONTROL_FIELD_RE = re.compile(
@@ -376,7 +389,7 @@ class SemanticEpisodeVerifier:
     def __init__(
         self,
         judge_fn: JudgeFn | None = None,
-        finalizer: EpisodeFinalizer | None = None,
+        finalizer: _FinalizerJudgeProvider | None = None,
         *,
         primary_judge: AgentModelClient | JudgeFn | None = None,
         judge_client: AgentModelClient | JudgeFn | None = None,

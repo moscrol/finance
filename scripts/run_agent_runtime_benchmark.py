@@ -30,10 +30,10 @@ from intelligence.eval.runtime_backend_benchmark import (
 )
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentModelClient, ModelTurn
-from intelligence.services.agent_runtime_factory import resolve_runtime_backend
-from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
+from intelligence.runtime.agent_runtime_factory import resolve_runtime_backend
+from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
@@ -45,8 +45,8 @@ from intelligence.services.episode_tools import (
     latest_market_date,
     run_deterministic_fast_path,
 )
-from intelligence.services.glm_agent_runtime import GLMAgentRuntime
-from intelligence.services.glm_agent_runtime import GLMModelClient
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.runtime.glm_agent_runtime import GLMModelClient
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.research_contract import (
@@ -55,7 +55,7 @@ from intelligence.services.research_contract import (
     ResearchPolicy,
     release_root_budget,
 )
-from intelligence.services.turn_control_core import TurnControlCore
+from intelligence.runtime.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
 
@@ -627,7 +627,7 @@ def _build_runtime(
     if backend == "sdk_glm":
         if not providers:
             raise RuntimeError("sdk_glm provider unavailable")
-        from intelligence.services.openai_agents_runtime import (
+        from intelligence.runtime.openai_agents_runtime import (
             OpenAIAgentsRuntime,
             build_glm_sdk_model_factory,
         )
@@ -647,7 +647,7 @@ def _build_runtime(
             provider.model,
         )
     if backend == "sdk_gpt":
-        from intelligence.services.openai_agents_runtime import (
+        from intelligence.runtime.openai_agents_runtime import (
             OpenAIAgentsRuntime,
             build_gpt_sdk_model,
             build_gpt_sdk_model_factory,
@@ -683,7 +683,7 @@ def _build_runtime(
             model,
         )
     if backend == "codex_headless":
-        from intelligence.services.codex_headless_runtime import (
+        from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
         )
 
@@ -1663,7 +1663,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(
                     "headless provider config requires only the codex_headless backend"
                 )
-            from intelligence.services.codex_headless_runtime import (
+            from intelligence.runtime.codex_headless_runtime import (
                 headless_provider_identity,
             )
 
@@ -1900,7 +1900,7 @@ def main(argv: list[str] | None = None) -> int:
     if headless_provider is not None:
         artifact["headless_provider"] = headless_provider
     if sealed_fixture is not None:
-        from intelligence.services.codex_headless_runtime import (
+        from intelligence.runtime.codex_headless_runtime import (
             sealed_environment_policy_payload,
         )
 

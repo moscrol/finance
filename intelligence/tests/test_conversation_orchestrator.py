@@ -9,7 +9,7 @@ import pytest
 
 from intelligence import userspace
 from intelligence.services import agent_research, answer_model, llm_refine
-from intelligence.services import conversation_orchestrator as orchestrator_service
+from intelligence.runtime import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
 from intelligence.services.ask import (
     AskOptions,
@@ -25,7 +25,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_METHODOLOGY,
 )
 from intelligence.services.lane_generation import LaneAnswer
-from intelligence.services.conversation_orchestrator import (
+from intelligence.runtime.conversation_orchestrator import (
     ConversationContext,
     SUMMARY_CHAR_LIMIT,
     TurnOrchestrator,
@@ -38,7 +38,7 @@ from intelligence.services.conversation_orchestrator import (
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
-from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
+from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.research_contract import TurnIntent
@@ -2951,7 +2951,7 @@ def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
     monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "0")
     monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
     monkeypatch.setattr(
-        "intelligence.services.conversation_orchestrator."
+        "intelligence.runtime.conversation_orchestrator."
         "synthesize_shadow_grounded_answer",
         shadow_spy,
     )
@@ -3156,7 +3156,7 @@ def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
     monkeypatch.setenv("WORKBENCH_GROUNDED_PRESENTER", "0")
     monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
     monkeypatch.setattr(
-        "intelligence.services.conversation_orchestrator."
+        "intelligence.runtime.conversation_orchestrator."
         "synthesize_shadow_grounded_answer",
         shadow_spy,
     )
@@ -4025,7 +4025,7 @@ def test_cancellation_after_draft_keeps_last_safe_snapshot(
         return result
 
     monkeypatch.setattr(
-        "intelligence.services.conversation_orchestrator.synthesize_prepared_answer",
+        "intelligence.runtime.conversation_orchestrator.synthesize_prepared_answer",
         lambda prepared: (_ for _ in ()).throw(llm_refine.LLMStreamCancelled()),
     )
 

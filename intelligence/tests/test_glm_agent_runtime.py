@@ -6,11 +6,11 @@ import threading
 import pytest
 
 from intelligence.services import llm_refine
-from intelligence.services.glm_agent_runtime import (
+from intelligence.runtime.glm_agent_runtime import (
     GLMAgentRuntime,
     GLMModelClient,
 )
-from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.research_contract import (
     RequiredOutput,

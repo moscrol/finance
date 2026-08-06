@@ -19,7 +19,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
     public_agent_evidence,
 )
-from intelligence.services.episode_finalizer import (
+from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
@@ -30,7 +30,7 @@ from intelligence.services.episode_protocol import (
     expand_episode_snapshot_bindings,
     validate_episode_finish,
 )
-from intelligence.services.episode_tool_batch import (
+from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
@@ -56,7 +56,7 @@ from intelligence.services.research_plan import (
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
-from intelligence.services.sub_research import (
+from intelligence.runtime.sub_research import (
     SubResearchCoordinator,
     SubResearchResult,
 )

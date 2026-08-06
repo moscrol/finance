@@ -7,7 +7,7 @@ import json
 import time
 
 from intelligence.services import llm_refine
-from intelligence.services.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -15,14 +15,14 @@ from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
 )
-from intelligence.services.continuous_sub_research import ContinuousSubResearchWorker
-from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import ResearchPlan
 from intelligence.services.research_tool_registry import ResearchToolRegistry
-from intelligence.services.sub_research import SubResearchCoordinator
+from intelligence.runtime.sub_research import SubResearchCoordinator
 from intelligence.services.task_frame import TaskFrame
 
 

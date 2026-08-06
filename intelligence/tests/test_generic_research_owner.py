@@ -15,8 +15,8 @@ from intelligence.services import (
     generic_research_owner,
     query_ledger,
 )
-from intelligence.services import conversation_orchestrator
-from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.runtime import conversation_orchestrator
+from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (

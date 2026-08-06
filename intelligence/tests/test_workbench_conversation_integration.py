@@ -13,10 +13,10 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.api.app import create_app  # noqa: E402
-from intelligence.services.continuous_turn_adapter import (  # noqa: E402
+from intelligence.runtime.continuous_turn_adapter import (  # noqa: E402
     ContinuousTurnResult,
 )
-from intelligence.services.conversation_orchestrator import (  # noqa: E402
+from intelligence.runtime.conversation_orchestrator import (  # noqa: E402
     TurnOrchestrator,
 )
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402

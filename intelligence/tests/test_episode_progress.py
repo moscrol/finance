@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Event
 
 from intelligence.services.agent_runtime import EpisodeEvent
-from intelligence.services.episode_progress import (
+from intelligence.runtime.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,

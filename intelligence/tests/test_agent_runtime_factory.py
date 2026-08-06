@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from intelligence.services.agent_runtime_factory import (
+from intelligence.runtime.agent_runtime_factory import (
     resolve_runtime_backend,
     runtime_backend_readiness,
 )

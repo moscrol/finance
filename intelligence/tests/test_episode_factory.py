@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.turn_control_core import TurnControlCore
+from intelligence.runtime.turn_control_core import TurnControlCore
 
 
 RUNTIME_CAPABILITIES = {

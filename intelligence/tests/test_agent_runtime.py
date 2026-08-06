@@ -18,7 +18,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
+from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime
 
 
 TASK_HASH = "frame-hash-1"

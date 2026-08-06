@@ -57,7 +57,7 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
-from intelligence.services.continuous_turn_adapter import ContinuousTurnResult
+from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services import llm_refine
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
@@ -92,7 +92,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.run_store import RunStore, redact, redact_value
 from intelligence.paths import default_paths
-from intelligence.services.turn_control_core import (
+from intelligence.runtime.turn_control_core import (
     TurnControlResult,
     project_turn_decision,
 )

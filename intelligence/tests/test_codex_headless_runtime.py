@@ -13,7 +13,7 @@ from threading import Thread
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
-from intelligence.services.codex_headless_runtime import (
+from intelligence.runtime.codex_headless_runtime import (
     CodexHeadlessRuntime,
     HeadlessCommand,
     HeadlessEnvironment,
@@ -24,7 +24,7 @@ from intelligence.services.codex_headless_runtime import (
     _headless_prompt,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
-from intelligence.services.headless_tool_gateway import FINALIZATION_INSTRUCTION
+from intelligence.runtime.headless_tool_gateway import FINALIZATION_INSTRUCTION
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
@@ -1258,7 +1258,7 @@ def test_local_exec_command_enables_loopback_without_widening_tmp_roots() -> Non
 
 
 def test_invalid_actions_counts_only_model_protocol_violations() -> None:
-    from intelligence.services.codex_headless_runtime import count_invalid_actions
+    from intelligence.runtime.codex_headless_runtime import count_invalid_actions
 
     # A timeout is a harness/budget observation.  Counting it as an invalid
     # action re-encodes "we ran out of time" into "the model misbehaved", which

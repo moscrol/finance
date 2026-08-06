@@ -7,8 +7,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from intelligence.services import agent, kb_rag, llm_refine
-from intelligence.services.agent import AGENT_TOOLS, MARKET_LIVE_TOOL, AgentSession
+from intelligence.runtime import agent
+from intelligence.services import kb_rag, llm_refine
+from intelligence.runtime.agent import AGENT_TOOLS, MARKET_LIVE_TOOL, AgentSession
 from intelligence.services.ask import AskOptions
 from intelligence.services.skill_tools import SkillResult
 from intelligence.services.llm_refine import LLMProvider

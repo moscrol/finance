@@ -591,7 +591,7 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
     def public_text(value: object) -> str:
         # Lazy import avoids the structured-report ↔ conversation orchestrator
         # import cycle while keeping one canonical public sanitizer.
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             sanitize_user_visible_artifact_text,
         )
 

@@ -346,7 +346,7 @@ _SV_FULFILLED_OUTPUT_IDS = frozenset(
 
 
 def _normalize_output_id(output_id: str) -> str:
-    from intelligence.services.conversation_orchestrator import (
+    from intelligence.runtime.conversation_orchestrator import (
         _LEGACY_OUTPUT_ALIASES,
     )
 
@@ -404,7 +404,7 @@ class TestProducesMatchesHistory:
         抄一份就等于把 legacy_aliases 的修改和这里的断言解耦——那正是本轮
         要消除的第二事实源问题。
         """
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             _LEGACY_OUTPUT_ALIASES,
         )
 

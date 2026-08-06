@@ -27,13 +27,13 @@ from intelligence.services.episode_tools import (
     is_deterministic_fast_path,
     run_deterministic_fast_path,
 )
-from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.glm_agent_runtime import GLMAgentRuntime, GLMModelClient
-from intelligence.services.turn_control_core import TurnControlCore
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime, GLMModelClient
+from intelligence.runtime.turn_control_core import TurnControlCore
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
 

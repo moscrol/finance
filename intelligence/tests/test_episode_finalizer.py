@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from intelligence.services.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.evidence_capabilities import EvidencePlan

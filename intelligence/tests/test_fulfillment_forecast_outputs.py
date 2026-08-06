@@ -23,7 +23,7 @@ from __future__ import annotations
 from intelligence.services import answer_model as am
 from intelligence.services import ask_synthesis
 from intelligence.services.ask_types import AskResult
-from intelligence.services.conversation_orchestrator import _merge_frame_outputs
+from intelligence.runtime.conversation_orchestrator import _merge_frame_outputs
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.task_fulfillment import (

@@ -1151,7 +1151,7 @@ class OwnerRawResultChannelTests(unittest.TestCase):
         return raw
 
     def test_raw_result_is_consumed_with_contract_spec(self) -> None:
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             _resolve_owner_result,
         )
 
@@ -1172,7 +1172,7 @@ class OwnerRawResultChannelTests(unittest.TestCase):
         self.assertIsNone(resolved.prepared_synthesis_messages)
 
     def test_same_spec_keeps_prepared_messages(self) -> None:
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             _resolve_owner_result,
         )
 
@@ -1186,7 +1186,7 @@ class OwnerRawResultChannelTests(unittest.TestCase):
         self.assertIsNotNone(resolved.prepared_synthesis_messages)
 
     def test_cache_miss_falls_back_to_rebuild(self) -> None:
-        from intelligence.services.conversation_orchestrator import (
+        from intelligence.runtime.conversation_orchestrator import (
             _resolve_owner_result,
         )
 

@@ -16,7 +16,7 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.evidence_capabilities import EvidencePlan
-from intelligence.services.headless_tool_gateway import (
+from intelligence.runtime.headless_tool_gateway import (
     FINALIZATION_INSTRUCTION,
     HeadlessToolGateway,
 )

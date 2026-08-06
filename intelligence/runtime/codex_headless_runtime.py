@@ -34,7 +34,7 @@ from intelligence.services.episode_protocol import (
     finish_json_schema,
     validate_episode_finish,
 )
-from intelligence.services.headless_tool_gateway import (
+from intelligence.runtime.headless_tool_gateway import (
     HeadlessGatewaySnapshot,
     HeadlessToolGateway,
 )

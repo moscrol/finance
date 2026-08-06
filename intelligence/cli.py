@@ -301,7 +301,7 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def cmd_agent(args: argparse.Namespace) -> int:
-    from intelligence.services.agent import AgentSession
+    from intelligence.runtime.agent import AgentSession
     from intelligence.services.ask import AskOptions
 
     rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)

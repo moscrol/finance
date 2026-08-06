@@ -9,7 +9,7 @@ from uuid import UUID
 import duckdb
 import pytest
 
-import intelligence.services.continuous_turn_adapter as adapter_module
+import intelligence.runtime.continuous_turn_adapter as adapter_module
 from intelligence.services import ask_synthesis, episode_tools, llm_refine
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
@@ -20,11 +20,11 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
-from intelligence.services.continuous_turn_adapter import ContinuousTurnAdapter
+from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.episode_progress import EpisodeProgress
-from intelligence.services.glm_agent_runtime import GLMAgentRuntime
-from intelligence.services.openai_agents_runtime import (
+from intelligence.runtime.episode_progress import EpisodeProgress
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.runtime.openai_agents_runtime import (
     AgentsSdkRequest,
     AgentsSdkResult,
     OpenAIAgentsRuntime,
@@ -50,7 +50,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.turn_control_core import TurnControlResult
+from intelligence.runtime.turn_control_core import TurnControlResult
 
 
 def _frame(
@@ -556,7 +556,7 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
         ),
     )
     monkeypatch.setattr(
-        "intelligence.services.openai_agents_runtime.monotonic",
+        "intelligence.runtime.openai_agents_runtime.monotonic",
         lambda: 0.0,
     )
     registry = ResearchToolRegistry(
@@ -688,7 +688,7 @@ def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(
         lambda: clock["now"],
     )
     monkeypatch.setattr(
-        "intelligence.services.openai_agents_runtime.monotonic",
+        "intelligence.runtime.openai_agents_runtime.monotonic",
         lambda: 0.0,
     )
     frame = _frame(required_outputs=("direct_assessment",))

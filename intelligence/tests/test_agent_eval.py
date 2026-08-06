@@ -333,7 +333,7 @@ class TestScorecard(unittest.TestCase):
 
 class TestRunnerAdapterAndReplay(unittest.TestCase):
     def _fake_result(self):
-        from intelligence.services.agent import AgentResult, AgentStep
+        from intelligence.runtime.agent import AgentResult, AgentStep
         from intelligence.services.ask import Citation
 
         return AgentResult(

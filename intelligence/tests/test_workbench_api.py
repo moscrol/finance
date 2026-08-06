@@ -18,7 +18,7 @@ from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.agent_runtime import EpisodeEvent  # noqa: E402
-from intelligence.services.episode_progress import (  # noqa: E402
+from intelligence.runtime.episode_progress import (  # noqa: E402
     EpisodeProgress,
     RunEpisodeProgressPublisher,
 )
@@ -636,7 +636,7 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
     monkeypatch,
 ) -> None:
-    from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
+    from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime
 
     monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_glm")
     provider = app_module.LLMProvider(
@@ -670,7 +670,7 @@ def test_production_adapter_composes_sdk_glm_without_changing_verifier(
 def test_production_adapter_composes_sdk_gpt_from_session_provider(
     monkeypatch,
 ) -> None:
-    from intelligence.services.openai_agents_runtime import OpenAIAgentsRuntime
+    from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime
 
     monkeypatch.setenv("AGENT_RUNTIME_BACKEND", "sdk_gpt")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

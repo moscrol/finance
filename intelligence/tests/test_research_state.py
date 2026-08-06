@@ -155,7 +155,7 @@ def test_state_summary_preserves_cognitive_relationships() -> None:
 
 
 def _forecast_state():
-    from intelligence.services import conversation_orchestrator as co
+    from intelligence.runtime import conversation_orchestrator as co
 
     contract = co._build_generic_research_contract(
         "你觉得a股明天会怎么走",
@@ -226,7 +226,7 @@ def test_a_named_capability_must_actually_arrive_before_its_gap_clears() -> None
     那条 gap 说的就是本轮没拿到结构化盘面真值；用别的来源把它阻塞的 output
     填满，并不代表缺陷被解决。
     """
-    from intelligence.services import conversation_orchestrator as co
+    from intelligence.runtime import conversation_orchestrator as co
 
     contract = co._build_generic_research_contract(
         "你觉得a股明天会怎么走",
