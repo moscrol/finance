@@ -759,6 +759,67 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
         event["event_type"] == "trace.step"
         for event in run_store.load_stream_events(run_id)
     )
+    # Engine A 走 _complete_continuous_turn 直接返回，永远到不了编排器那道
+    # task_fulfillment 门禁，所以「正文有没有真写到」这一问在生产 research
+    # 路径上从未被记录过。这里锁住它现在会被记录。
+    coverage_step = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "answer_marker_coverage"
+    )
+    coverage = json.loads(coverage_step["output_summary"])
+    assert coverage["task_frame_hash"] == frame.task_frame_hash
+    assert coverage["absent"] == ["direct_assessment", "evidence_boundary"]
+    assert coverage["marker_coverage"] == "incomplete"
+    # 观测不许改交付状态：判定为 incomplete，run 仍然 completed。
+    assert coverage["observation_only"] is True
+    assert run.status == "completed"
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["answer_status"] == "complete"
+    assert report["answer_marker_coverage"]["marker_coverage"] == "incomplete"
+
+
+def test_continuous_answer_coverage_separates_uncheckable_from_absent() -> None:
+    """No marker vocabulary must not be reported as a coverage failure."""
+
+    query = "这个概念是什么意思"
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="解释概念",
+        question_type="concept_definition",
+        subject="某概念",
+        subject_kind="concept",
+        market_scope="",
+        timeframe="",
+        # direct_definition 不在 _MARKERS 里；evidence_boundary 在。
+        required_outputs=("direct_definition", "evidence_boundary"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="static_knowledge",
+        confidence=0.95,
+    )
+
+    coverage = orchestrator_service._continuous_answer_coverage(
+        frame,
+        "它指的是一类结构化产品。数据截至 2026-07-22，证据覆盖有限。",
+    )
+
+    assert coverage["uncheckable"] == ["direct_definition"]
+    assert coverage["present"] == ["evidence_boundary"]
+    assert coverage["absent"] == []
+    assert coverage["checked_count"] == 1
+    assert coverage["required_output_count"] == 2
+    assert coverage["marker_coverage"] == "complete"
+
+    # 全部不可检时给 None，而不是把「没得检」报成「检过且通过」。
+    blind_frame = replace(frame, required_outputs=("direct_definition",))
+    blind = orchestrator_service._continuous_answer_coverage(blind_frame, "随便什么正文")
+    assert blind["uncheckable"] == ["direct_definition"]
+    assert blind["checked_count"] == 0
+    assert blind["marker_coverage"] is None
 
 
 def test_continuous_decline_preserves_legacy_lane_behavior(

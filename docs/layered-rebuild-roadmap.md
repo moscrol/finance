@@ -64,7 +64,51 @@ Phase 3  引擎收敛        ← 数据驱动，最后做
 | 1 | **上下文压缩零实现** | 全树 grep `compact/trim/summariz/prune/evict` 无命中；`agent_episode.py` 的 `messages` 只 `.append()`；工具观察全量 `json.dumps` 无上限 | 唯一**正在积累**的风险。但已见 124K token 仍返 200（lifecycle handoff P1-3 明确排除了它作为 HTTP 400 的原因），所以**不是正在出血** |
 | 2 | **`memory_lookup` 结构性不可达** | 三个授权源（`_RUNTIME_CAPABILITY_FLOOR` 20 条策略、`_PLAN_CAPABILITY_TO_RUNTIME` 10 条映射、`conversation_orchestrator` 9 个分支）全部无它；唯一授权处是 `test_episode_tools.py:1956` | 能力图谱记 12 个工具，生产只够得着 9 个，而 `graph_audit` 照常 exit 0 |
 | 3 | **系统提示词结构** | `build_episode_instructions` 渲染后 1,601 字符 / **4 个换行** / 最长无换行段 **1,501 字符** / 24 条约束平铺 | 零行为风险的改动，但必须**只改形状不改字**，否则分不清收益来自结构还是内容 |
-| 4 | **fulfillment 判定不进 trace** | 实测 0/305 | 前三件改完都需要它来对账 |
+| 4 | **fulfillment 判定不进 trace** | 实测 0/305。**根因已纠正，见下** | 前三件改完都需要它来对账 |
+
+### 第 4 项的根因纠正（`2026-08-07`）
+
+原表述「判定不进 trace」暗示判定跑了、只是没记录。**实测不是这样：生产 research
+路径根本不跑这道判定。**
+
+```
+conversation_orchestrator.py:1795
+    if continuous_result.handled:
+        return self._complete_continuous_turn(...)   ← early return
+conversation_orchestrator.py:2864 附近
+    task_fulfillment.evaluate_answer_spec_fulfillment(...)  ← 永远到不了
+```
+
+`_complete_continuous_turn` 整个函数体内零个 fulfillment 调用，`answer_status`
+由一个硬编码三元式给出：`"complete" if result.status == "completed" else "partial"`。
+
+证据链：那行 `_trace("task_fulfillment", ...)` 由 `e67c5cad`（`2026-07-31`）引入；
+`2026-08-02` 有一个走完整 research 路径的 run（18 步 `continuous:episode:*`）仍 0 命中。
+所以不是「trace 文件比代码老」，是结构性不可达。
+
+**两条路径问的其实是两个不同的问题，都不多余：**
+
+| 路径 | 完成判定 | 问的是 |
+|---|---|---|
+| Engine B（ask） | `task_fulfillment.evaluate_answer_spec_fulfillment` | 每个 required_output **在正文里被写到了吗** |
+| Engine A（continuous） | `episode_verifier` + 语义判据 | 每个 output 的**证据绑定结构合法吗** |
+
+Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——仪表全绿，
+所以这个洞能长期不被发现。
+
+**本轮交付（只加观测）**：`_continuous_answer_coverage` 记录每个 required_output
+的措辞是否进入公开正文，写入 trace 步 `answer_marker_coverage` 与
+`report["answer_marker_coverage"]`。刻意**不动** `answer_status`、不 gate 交付。
+
+两个实现约束，都由测试锁住：
+- 不能直接复用 `evaluate_answer_spec_fulfillment`。它在 claims 为空时走
+  `no_candidate_claim` 分支把每个 output 判成 missing，而 continuous 路径没有
+  `AnswerSpec`（`agent_episode.py` 全文无 `answer_spec`）——那会产出满屏假缺口。
+  能用的是不依赖 claims 的 `answer_has_output_marker`。
+- `uncheckable` 必须与 `absent` 分开计。`answer_has_output_marker` 对「正文没写」
+  和「`_MARKERS` 里没有这个 output 的词表」都返回 `False`；混在一起会把仪表盲区
+  报成覆盖失败。全 uncheckable 时 `marker_coverage` 给 `None` 而非 `"complete"`
+  ——那正是 `answer_status` 现在的毛病。
 
 ### Phase 1 的通用纪律：先量后改
 

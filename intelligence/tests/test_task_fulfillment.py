@@ -5,9 +5,11 @@ from intelligence.services.answer_model import (
 )
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_fulfillment import (
+    answer_has_output_marker,
     evaluate_answer_spec_fulfillment,
     evaluate_task_fulfillment,
     fail_closed_answer_spec,
+    output_marker_is_checkable,
 )
 from intelligence.services import answer_model
 
@@ -323,3 +325,28 @@ def test_fail_closed_projection_keeps_evidence_bound_facts() -> None:
     assert [c.claim_id for c in projected.verified_facts] == ["fact:1"]
     # 来源只保留被留存事实真正引用到的那些
     assert [s.evidence_id for s in projected.sources] == ["S1"]
+
+
+def test_marker_checkability_separates_no_vocabulary_from_absent_prose():
+    # 有 marker 词表且正文命中
+    assert output_marker_is_checkable("direct_assessment") is True
+    assert answer_has_output_marker(
+        "direct_assessment",
+        "当前主线是资金回流权重。",
+    ) is True
+
+    # 有 marker 词表但正文没写：这才是真正的「缺」
+    assert output_marker_is_checkable("evidence_boundary") is True
+    assert answer_has_output_marker("evidence_boundary", "随便一句话。") is False
+
+    # 没有 marker 词表：answer_has_output_marker 同样返回 False，但含义完全不同。
+    # 观测调用点必须靠 output_marker_is_checkable 把这两种 False 分开，
+    # 否则「没法检」会被统计成「答案漏写」。
+    assert output_marker_is_checkable("definition") is False
+    assert answer_has_output_marker("definition", "卫星互联网是一种…") is False
+
+
+def test_marker_checkability_is_case_insensitive_like_the_gate():
+    # 判定用 casefold，和 evaluate_task_fulfillment 里 output_id 的归一方式一致，
+    # 免得同一个槽位在门禁里可检、在观测里被记成 uncheckable。
+    assert output_marker_is_checkable("DIRECT_ASSESSMENT") is True
