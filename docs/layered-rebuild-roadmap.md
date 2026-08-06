@@ -49,7 +49,7 @@ Phase 3  引擎收敛        ← 数据驱动，最后做
 | 项 | 状态 | 完成标志 |
 |---|---|---|
 | 8792 复活 | ✅ 已完成并复核 | `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8792/` == 200 |
-| 快照去耦合 | ⬜ 待办（见 `2026-08-06d` A.5） | 生产快照不出现在 `git worktree list` 里 |
+| 快照去耦合 | ✅ 已完成（`2026-08-07`） | 生产快照不出现在 `git worktree list` 里 |
 | 分层门禁 | ✅ `scripts/layer_audit.py` 已入库（`d3b793d2`） | `layer_audit.py` 存在，ERROR 0，自述 revision |
 | 领域逻辑搬出 harness | ✅ 15 个 loop 模块已搬进 `runtime/`（`b6900f47`） | 接缝 0（含命名 commit `0091f26a`） |
 
