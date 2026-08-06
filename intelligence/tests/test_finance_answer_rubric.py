@@ -239,5 +239,71 @@ class FinanceAnswerRubricTests(unittest.TestCase):
                 self.assertLessEqual(scored.total_score, case["expected_max_score"], case["id"])
 
 
+class EvidenceMarkerCJKBoundaryTests(unittest.TestCase):
+    """证据标记必须在「中文紧贴数字」的真实写法下也能命中。
+
+    起因（2026-08-06 实测）：三次真实 run 的自评都是 12/100（F），评分器报
+    「只有关键词、缺股票代码/日期/引用编号」，但答案正文里明明有 603267、
+    2026-06-03、[W5]。
+
+    根因**不是**评分器读了另一段文本，而是正则的词边界在 CJK 里失效：
+    Python 的 ``\\w`` 包含中文，所以「技」和「6」之间**不存在** ``\\b``，
+    ``r"\\b\\d{6}\\b"`` 在「川环科技603267在」里直接失配。中文财经文本不会在
+    数字两侧加空格，于是 stock_code 与 iso_date 两个模式在真实答案里恒为 0，
+    证据密度闸门（``EVIDENCE_GATED_KEYS``）把五个维度全压到低分。
+
+    可迁移教训：**别在混排 CJK 的文本上用 ``\\b``**。同样的坑存在于分词、
+    高亮、敏感词匹配、日志抽取——凡是中英数混排的中文语料都要用显式环视
+    （``(?<!\\d)`` / ``(?!\\d)``）代替词边界。
+    """
+
+    # 中文紧贴数字，无空格——这是真实答案的写法
+    CJK_TIGHT = "川环科技603267在2026-06-03的公告显示，营收12.4亿元，毛利率31.2% [G1][W5]"
+    # 同样内容，数字两侧留空格
+    SPACED = "川环科技 603267 在 2026-06-03 的公告显示，营收 12.4 亿元，毛利率 31.2% [G1][W5]"
+
+    def test_cjk_tight_and_spaced_writing_count_the_same(self) -> None:
+        """紧贴写法与空格写法必须给出同一个标记数——差异只来自排版，不是证据密度。"""
+        self.assertEqual(
+            evidence_marker_count(self.CJK_TIGHT),
+            evidence_marker_count(self.SPACED),
+        )
+
+    def test_stock_code_and_iso_date_hit_when_glued_to_chinese(self) -> None:
+        """紧贴中文的股票代码与 ISO 日期必须被识别（修复前这两项恒为 0）。"""
+        count = evidence_marker_count(self.CJK_TIGHT)
+        # 6 项：stock_code + iso_date + citation×2 + percent + amount
+        self.assertGreaterEqual(count, 6)
+
+    def test_grounded_cjk_answer_is_not_gated_like_an_empty_shell(self) -> None:
+        """带真实锚点的中文答案，不该和零事实空壳落到同一档证据密度。"""
+        shell = "科技方向都不错，可以关注，注意风险。"
+        self.assertEqual(evidence_marker_count(shell), 0)
+        self.assertGreater(evidence_marker_count(self.CJK_TIGHT), 0)
+
+    def test_word_boundary_regex_would_fail_this_case(self) -> None:
+        """变异测试：把模式换回 ``\\b`` 版本，本用例必须失败。
+
+        没有这条，任何人「顺手」把环视改回 ``\\b`` 都不会有测试变红——
+        而那正是本次 bug 的形态。
+        """
+        import re
+
+        glued = "川环科技603267在2026-06-03的公告"
+        # 旧写法：CJK 侧无词边界 → 失配
+        self.assertEqual(re.findall(r"\b\d{6}\b", glued), [])
+        self.assertEqual(re.findall(r"\b\d{4}-\d{2}-\d{2}\b", glued), [])
+        # 新写法：显式数字环视 → 命中
+        self.assertEqual(re.findall(r"(?<!\d)\d{6}(?!\d)", glued), ["603267"])
+        self.assertEqual(
+            re.findall(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)", glued), ["2026-06-03"]
+        )
+
+    def test_long_digit_runs_are_not_sliced_into_fake_codes(self) -> None:
+        """环视不能放水：7 位以上纯数字串不得被截出一个 6 位「股票代码」。"""
+        self.assertEqual(evidence_marker_count("流水号1234567"), 0)
+        self.assertEqual(evidence_marker_count("订单号12345678"), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
