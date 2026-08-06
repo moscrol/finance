@@ -602,6 +602,8 @@ def evaluate_answer_spec_fulfillment(
 def fail_closed_answer_spec(
     answer_spec: AnswerSpec,
     verdict: FulfillmentVerdict,
+    *,
+    llm_failure_summary: str | None = None,
 ) -> AnswerSpec:
     """Project an incomplete answer into the existing evidence-gap renderer.
 
@@ -609,6 +611,10 @@ def fail_closed_answer_spec(
     a still-misleading draft.  This keeps the control-plane verdict and the
     displayed text consistent while preserving the original AnswerSpec in the
     trace before projection.
+
+    When *llm_failure_summary* is provided (e.g. "3 次调用均失败（timeout×2,
+    http_502×1）"), it is prepended to the gap text so the user can distinguish
+    "the AI model was unavailable" from "we have no data on this topic".
     """
 
     missing = tuple(
@@ -617,9 +623,12 @@ def fail_closed_answer_spec(
         if item.status != "fulfilled"
     )
     detail = "；".join(dict.fromkeys(missing)) or "本轮回答未覆盖用户问题的全部必需部分。"
+    gap_text = f"本轮尚未完成问题所需的直接回答：{detail}"
+    if llm_failure_summary:
+        gap_text = f"{llm_failure_summary}。{gap_text}"
     gap = Claim(
         claim_id="task_fulfillment:gap",
-        text=f"本轮尚未完成问题所需的直接回答：{detail}",
+        text=gap_text,
         claim_type="evidence_gap",
         theme=answer_spec.research_spec.theme,
         status=ClaimStatus.MISSING,
