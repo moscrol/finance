@@ -1,7 +1,7 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-04
-- updated_by_run: `run_20260803_171452_043073`
+- updated_by_run: `2026-08-04b-finalization/c-long-capped-t1,t2`
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -29,6 +29,14 @@
 | benchmark arm `stop_reason` | 运行时的终止原因 | arm 级是**事后裁决**，会被后处理覆盖；事件级 `finish.payload.stop_reason` 才是运行时观测。五题中 `ruihuatai-valuation` 两者不一致：arm=`semantic_repair`，finish 事件=`model_finish` | `e179b15c` receipt；跨 harness 控制面比较必须用事件级 |
 | `runtime_invalid_actions:N` | 模型有 N 次动作违规 | **`< 2026-08-04` 的 artifact 里等于 `len(unique_issues)`**，超时/取消/进程失败都被计入。`e179b15c` 两题的 `runtime_invalid_actions:1` 实为 `headless_timeout`，真实违规 0 次。修正后只计 `unauthorized_headless_action` / `tool_call_during_finalization_recovery` / `headless_invalid_finish` | `codex_headless_runtime.count_invalid_actions`；口径对齐 `agent_episode` |
 | benchmark 事件 `sequence` 从 2 起跳 | 前两个事件不存在 | `sequence=1` 的 `task` 事件（intent 地标）**被落盘白名单丢弃**，不是没埋点。`< 2026-08-04` 的 artifact 无法补出 intent；此后 `task` 保留但 payload 只留 `task_frame_hash` | `runtime_backend_benchmark._TASK_EVENT_KEEP` |
+| benchmark arm `status=degraded` | runtime 没完成 | arm 级 `status` 是语义/后处理质量裁决；同一 arm 的事件级 `finish.payload.status` 可能是 `completed` 或 `partial`。预算终态分布必须两列并列，不能用 arm status 覆盖 runtime finish | `2026-08-04-budget-calibration` 四臂：20 个 arm 中 19 个为 degraded，但 finish 分布不同 |
+| `finalization → finish` 间隔 | 有 timestamp 后就是自然收尾耗时 | 只有 finish 正常完成时才是自然耗时；若 finish 是 timeout，该间隔仍是 right-censored lower bound。T1 瑞华泰为 16.190s，但终态是 `headless_timeout`，只能解释为“至少 16.190s” | `2026-08-04b-finalization/c-long-capped-t1.json` |
+| `finalization=0` | 模型不需要/没有尝试收尾 | 只说明已埋的 activation point 没发事件。T3 瑞华泰停在无 response 的 in-flight `evidence_search`，result/rejection 交接根本不可达；不能把 0 当作收尾耗时 0 或仪器故障 | `docs/verification/2026-08-04b-finalization.md` |
+| JSON 顶层 `schema_version` | 看到该字段即可当 normalized artifact 复用 | raw runtime benchmark 也有数值 `schema_version=1`；normalized 单输入产物须同时满足字符串版本、`vocabulary/source_kind/events/input_sha256` 等 marker。只看字段存在会把 raw artifact 误拒为旧 normalized schema | `normalize_harness_trace._load_normalized_artifact`；commit `f4b8c589` |
+| `unpaired_tool_requests` | `0` 表示所有 kind 都已验证配平；正数已经解释了 mailbox 超时 | 这是 `int` 或 `null` 三态指标：`runtime-benchmark` 与 Codex rollout/exec 有各自 request/response 词表，`workbench-trace` 没有逐工具词表所以必须为 `null`，不能伪装成健康零。有 `correlation_id` 时 response 只消费同 id pending；旧事件双方都无 id 才按 case FIFO 弱配对。它仍只是结构读数，不等同于 mailbox exchange 数，也不单独给出因果或迟到结果隔离证明 | `normalize_harness_trace._count_unpaired_tool_requests`；synthetic Codex 悬空调用=`1`、Workbench=`null`；T1/T2 legacy raw artifact FIFO 复算=`0/1` |
+| `request_id` / normalized `correlation_id` | event 自身的唯一 id，或 response body 的业务字段 | `request_id` 是一次 headless tool 调用的 32-hex 身份：mailbox 复用 request filename stem，direct/HTTP 在执行入口生成；同一 request/result/error 共享。normalizer 将它投影为独立的 `correlation_id`，不复用每条事件自己的 `source_event_id`。Codex 侧只读共享的 `call_id/tool_call_id`，普通 event `id` 不冒充调用关联 | `headless_tool_gateway._execute_tool`；`normalize_harness_trace._event_correlation_id` |
+| `remaining_*_seconds_at_entry` | 一个通用的“剩余预算” | `remaining_root_seconds_at_entry` 是 root 时钟，`remaining_research_seconds_at_entry` 是扣除 synthesis reserve 后的研究时钟；二者与同一条 `tool_request.timestamp/request_id` 一起读，禁止再压成含义不明的 `remaining_seconds_at_entry` | `headless_tool_gateway._execute_tool` |
+| 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -42,6 +50,7 @@
 | 旧 run 无 phase telemetry | 埋点上线前 artifact 只有合成终态 | 无法可靠重建旧 brief/composer/judge 分布 | 不回填；只用新 run 或受控 replay |
 | phase 没有显式 semantic epoch/censoring type | 同名 `elapsed_ms` 跨 revision 变义 | 历史分类器会把自然完成、retry 倍增和 grant 截断混为一类 | artifact 增加 `phase_semantic_epoch` 与 `elapsed_kind`；现阶段按 revision 映射 |
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
+| Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离。`response_path_conflict` 是 mailbox transport 诊断，允许在同 id 的执行终态后另发 `tool_error`，不能混进执行终态基数 | R-10 用 deterministic slow tool 强制得到配对 error；正常成功路径断言恰好一个 `tool_result`，handoff 路径断言恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；另断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
 
 ## 4. Grounded phase telemetry semantic epochs
 
@@ -70,27 +79,63 @@
 > triage finding 在本仓根本无法表达。产物 `schema_version` 随之升到
 > `normalized-harness-trace-2` 并新增 `vocabulary` 字段；v1 产物不可与 v2 直接比较。
 
-| source kind | native event / field | normalized step | provenance |
-|---|---|---|---|
-| `workbench-trace` | `step_id=controller` 或 `name=turn_controller` | `intent` | `native` |
-| `workbench-trace` | `step_id/name` 含 `route` | `route` | `native` |
-| `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
-| `workbench-trace` | `validate`、`budget`、`ledger`、`observe` | `observe` | `native` |
-| `workbench-trace` | `compose`、`synth`、`grounded`、`shadow` | `synthesize` | `native` |
-| `workbench-trace` | `stop`、`complete`、`terminal`、`error` | `stop` | `native` |
-| `codex-rollout` / `codex-exec` | `thread.started` / `session.started` | `configure` | `normalized` |
-| `codex-rollout` / `codex-exec` | `turn.started` | `intent` | `normalized` |
-| `codex-rollout` / `codex-exec` | function/command/MCP/tool item | `tool` | `normalized` |
-| `codex-rollout` / `codex-exec` | `*_call_output` / `tool_result` 等工具返回 | `observe` | `normalized` |
-| `codex-rollout` / `codex-exec` | message/reasoning/output item | `synthesize` | `normalized` |
-| `codex-rollout` / `codex-exec` | `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
-| `runtime-benchmark` | `task` | `intent` | `normalized` |
-| `runtime-benchmark` | `plan` / `mode_decision` / `repair_goal` | `plan` | `normalized` |
-| `runtime-benchmark` | `branch_started` | `retrieve` | `normalized` |
-| `runtime-benchmark` | `tool_request` / `tool_call` | `tool` | `normalized` |
-| `runtime-benchmark` | `tool_result` / `tool_error` / `runtime_result` / `observation` / `branch_completed` / `branch_failed` / `repair_outcome` / `invalid_action` | `observe` | `normalized` |
-| `runtime-benchmark` | `finalization` / `finalization_recovery_started` | `synthesize` | `normalized` |
-| `runtime-benchmark` | `finish` / `error` | `stop` | `normalized` |
+下表**按代码的分支求值顺序排列，先命中者胜**。顺序不是排版细节：`workbench`
+的 `configure`/`plan` 若排在通用分支之后，`turn_assembly` 会落 `unmapped`、
+`research_plan` 会被 `retrieve` 抢走；`codex` 的工具返回若排在工具请求之后，
+`function_call_output` 会因含 `function_call` 而被误判成 `tool`。
+
+| # | source kind | native event / field（匹配子串，大小写不敏感） | normalized step | provenance |
+|---|---|---|---|---|
+| 1 | `workbench-trace` | `configure`、`assembly` | `configure` | `native` |
+| 2 | `workbench-trace` | `plan` | `plan` | `native` |
+| 3 | `workbench-trace` | `controller`、`intent` | `intent` | `native` |
+| 4 | `workbench-trace` | `route` | `route` | `native` |
+| 5 | `workbench-trace` | `observe`、`validate`、`budget`、`ledger` | `observe` | `native` |
+| 6 | `workbench-trace` | `retrieve`、`skill`、`research`、`evidence` | `retrieve` | `native` |
+| 7 | `workbench-trace` | `synth`、`compose`、`grounded`、`shadow` | `synthesize` | `native` |
+| 8 | `workbench-trace` | `stop`、`complete`、`finish`、`terminal`、`error` | `stop` | `native` |
+| 1 | `codex-rollout` / `codex-exec` | `thread.started`、`session.started`、`config` | `configure` | `normalized` |
+| 2 | `codex-rollout` / `codex-exec` | `turn.started`、`input` | `intent` | `normalized` |
+| 3 | `codex-rollout` / `codex-exec` | `_call_output`、`command_execution_output`、`tool_output`、`tool_result` | `observe` | `normalized` |
+| 4 | `codex-rollout` / `codex-exec` | `function_call`、`command`、`mcp`、`tool` | `tool` | `normalized` |
+| 5 | `codex-rollout` / `codex-exec` | `message`、`reasoning`、`output_text`、`generation` | `synthesize` | `normalized` |
+| 6 | `codex-rollout` / `codex-exec` | `turn.completed`、`turn.failed`、`error`、`failed` | `stop` | `normalized` |
+| – | `runtime-benchmark` | `configure` | `configure` | `normalized` |
+| – | `runtime-benchmark` | `task` | `intent` | `normalized` |
+| – | `runtime-benchmark` | `plan` / `mode_decision` / `repair_goal` | `plan` | `normalized` |
+| – | `runtime-benchmark` | `branch_started` | `retrieve` | `normalized` |
+| – | `runtime-benchmark` | `tool_request` / `tool_call` | `tool` | `normalized` |
+| – | `runtime-benchmark` | `tool_result` / `tool_error` / `runtime_result` / `observation` / `branch_completed` / `branch_failed` / `repair_outcome` / `invalid_action` | `observe` | `normalized` |
+| – | `runtime-benchmark` | `finalization` / `finalization_recovery_started` | `synthesize` | `normalized` |
+| – | `runtime-benchmark` | `finish` / `turn.completed` / `turn.failed` / `error` | `stop` | `normalized` |
+
+`runtime-benchmark` 按 kind 精确查表（`_BENCHMARK_STEPS`），无顺序依赖；前两类按
+子串匹配，故有顺序。
+
+工具配对另有一层 kind-aware 契约：Codex event 若有 `item.type`，normalized
+`source_event_type` 保留该类型而不是统一写成 `item.completed`；Codex 的
+`function_call/command/mcp/tool` 与 output 词表配对，benchmark 的
+`tool_request/tool_call` 与 `tool_result/tool_error` 配对。Workbench 没有逐工具原生
+词表，故指标为 `null`。新事件优先用 `correlation_id` 强关联，只有历史双方都缺 id
+才退回 case 内 FIFO；因此 `0` 只能读作“本词表下没有悬空 request”，不能替代
+R-10 对同 id 执行终态和迟到结果隔离的独立断言。断言时须排除
+`tool=mailbox,error=response_path_conflict` 这一 transport 诊断事件。
+
+**本表的地位**：语义源是**runtime 的公开投影与事件生产者契约共同构成**的——
+`episode_progress._EVENT_PROJECTIONS` 只覆盖它自己投影的那些 kind（planning /
+research 请求 / research 结果 / repair / finalizing），并**不包含** `configure`、
+`task`、`tool_call`、`runtime_result`、`invalid_action`、`turn.completed` /
+`turn.failed` 等；这些 kind 的语义由其**发射方**定义（落盘白名单
+`runtime_backend_benchmark._DIAGNOSTIC_EVENT_KINDS`、`codex_headless_runtime`
+自建事件列表、workbench 的 `step_id`/`name` 约定）。因此单独把投影表称作全部映射的
+权威，是一句字面就不成立的声明。查某一行的语义时，先问该 kind 由谁发射：
+投影表覆盖的以投影表为准，其余以生产者契约为准。
+
+代码 `_workbench_mapping` / `_codex_mapping` / `_BENCHMARK_STEPS` 是**当前可执行
+行为**，本表只是它们的人读转述。三者出现分歧时，**该分歧本身就是一个缺陷**，须当场
+定位是哪一层写错，不要默认某一层为准后继续用。本表曾漏 `workbench` 的
+`configure`/`plan`、`runtime-benchmark` 的 `configure` 与
+`turn.completed`/`turn.failed`、`codex` 的 `config`/`input`，就是这种漂移。
 
 `runtime-benchmark` 的每个 step 取自运行时自己的公开语义
 （`episode_progress._EVENT_PROJECTIONS`：planning→`plan`、research 请求→
@@ -108,9 +153,33 @@ prompt、答案正文、工具参数、命令 stdout、绝对路径、凭据或�
 
 ## 7. Comparison contract and evidence boundary
 
-`compare_sequences()` 只对已映射的步骤做序列比较，并输出
-`pre_divergence_equivalence`、`first_divergence_step` 和证据短句。若一侧没有
-任何 mapped event，结果必须是 `not_established`，而不是把缺失事件判成行为分叉。
+`compare_sequences()` 只对已映射的步骤做序列比较。若一侧没有任何 mapped event，
+结果必须是 `not_established`，而不是把缺失事件判成行为分叉。
+
+**分叉的输出形状（2026-08-04 定死）**：一次不匹配在同一 ordinal 上有**两个** step
+值，单个标量无法表达，只返回左侧会让答案随入参顺序变化（同一对序列，workbench
+在左得 `route`、benchmark 在左得 `tool`）。因此：
+
+| 情形 | `relation` | `first_divergence_step`（标量） | `first_divergence`（结构化） |
+|---|---|---|---|
+| 同 ordinal 两侧 step 不同 | `step_mismatch` | `null`（契约规定） | `{ordinal, relation, left_step, right_step}`，并**必带 caveat** |
+| 一侧是另一侧的严格前缀 | `left_continues` / `right_continues` | 较长侧新增的那个 step（唯一，无歧义） | 缺失侧写 `null` |
+| 完全一致 / 证据不足 | – | `null` | `null` |
+
+交换左右输入后，`ordinal` 与 `relation=step_mismatch` **不变**，只交换
+`left_step` / `right_step`；该对称性由
+`test_step_mismatch_is_symmetric_under_input_order` 守住。消费者遇到
+`step_mismatch` 必须读结构化对象，**不得把两侧压成一个 L1 值**。
+
+**产物可再入（idempotent reuse）**：`--compare` 的任一侧都可以是本模块自己的
+单输入产物，按 `schema_version` 识别后直接复用其 `events`，并保留原始
+`input_sha256` 以维持到原始 trace 的溯源；复用侧带 `reused_normalized_artifact:
+true`。v1 产物、词表不符、事件畸形、或误传 `--compare` 的输出，一律抛
+`NormalizedArtifactError` **显式失败**——旧行为是把 normalized 事件再喂给 raw
+mapper（mapper 读 `type`/`kind`，不读 `step`），两侧 `mapped=0`、判定为 `null`，
+与「没有分叉」不可区分。这条由
+`test_compare_accepts_our_own_single_input_artifacts_round_trip` 与
+`test_incomparable_artifacts_fail_loudly_instead_of_mapping_to_nothing` 守住。
 
 截至 2026-08-03，仓库中冻结的 Codex headless benchmark artifact 只保留
 `final_text/thread_id/token usage/issues` 和有限 diagnostics；原始 rollout
@@ -162,11 +231,10 @@ cutoff、可观察的两侧原生事件和冻结的 task contract；本轮旧 re
 > `intent → configure` 而 workbench 发出 `configure → intent`，**纯靠事件顺序在
 > ordinal 0 制造一个假分叉**。
 
-这改写了跨 harness 审计「无法配对」的成因判断。此前记的是「五题的 workbench
-trace 没保留」——那只是数据保留问题。真实成因更靠前：**两侧仪器覆盖的是流水线的
-不同半段**。workbench 记 `intent/route/retrieve/synthesize`，codex 记
-`tool/stop`；即使把五题的 workbench trace 全部补齐，可对齐的 step 仍然只有
-`observe` 一个，`first_divergence_step` 依然没有行为含义。
+这改写了跨 harness 审计「无法配对」的成因判断。补埋点前，问题不只在五题的
+workbench trace 没保留：两侧仪器覆盖的是流水线的不同半段，当时真正共有的只有
+`observe`。补齐真实的 `configure/intent/plan` 地标后，两侧共有已升到 **4/9**，
+前三步前缀现在可比；`route/tool/synthesize/stop` 的结构差异仍须按矩阵解释。
 
 因此下一次公平审计的门槛是**可计数**的，不再是「让两侧都保留原生事件」这种无法验收的表述：
 
@@ -175,15 +243,13 @@ trace 没保留」——那只是数据保留问题。真实成因更靠前：**
 | `configure` | workbench | **已补** | `step_id=configure` / `name=turn_assembly`，记 skill_mode、registry 规模、selected_skill_ids、上下文条数、继承 intent；只记身份与计数 |
 | `plan` | workbench | **已补** | `step_id=plan` / `name=research_plan`。数据本来就在 `controller` 的 payload 里，属**拆融合 span**，不是造事件 |
 | `intent` | codex | **已补** | `task` 事件回到落盘白名单，**仅对 2026-08-04 之后的 run 生效**，历史 artifact 无法追认 |
-| `configure` | codex | 未补 | `thread.started` 已被 runtime 解析（`thread_id` 进了 `runtime_result` payload），但没有独立的 configure 事件；需新增 kind 并加白名单 |
-| `plan` | codex | 未补 | `mode_decision` 由 `agent_episode` 发射，`codex_headless_runtime` 自建事件列表，不走该路径 |
 | `route` | codex | **结构性差异，非缺口** | codex episode 不做 skill 分派（backend 由 benchmark 选定、tool registry 固定）。强行造一个 `route` 事件只是为了凑指标 |
 | `tool` | workbench | 未补 | `trace.jsonl` 只到 `ask_retrieve_compose` 粒度，单次工具调用在 `stream.jsonl`/retrieval 里 |
 | `stop` | workbench | 未补 | trace 以 budget 事件收尾，无显式终态 step |
 | `synthesize` | codex | 未补 | headless artifact 不保留 message span |
 
-验收标准：`configure → intent → plan` 三步在两侧都非空，`first_divergence_step`
-才第一次具备行为含义。**当前 1/3**（只有 `intent`）；workbench 侧已就位，缺口全在 codex 侧。
+验收状态：`configure → intent → plan` 三步在两侧都非空，**3/3 已达标**；
+`first_divergence_step` 在此前缀内已具备行为含义。
 
 > 门槛从「四步」收窄为「三步」：`route` 在 codex 侧是**结构性不存在**而非仪器缺失。
 > 把结构差异写成埋点缺口，会诱导为满足指标而制造事件——那正是本 profile 反复

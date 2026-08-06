@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
+from threading import Barrier, Event, Lock, Thread
 import urllib.error
 import urllib.request
 
@@ -13,7 +16,10 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.evidence_capabilities import EvidencePlan
-from intelligence.services.headless_tool_gateway import HeadlessToolGateway
+from intelligence.services.headless_tool_gateway import (
+    FINALIZATION_INSTRUCTION,
+    HeadlessToolGateway,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
@@ -161,6 +167,227 @@ def test_gateway_executes_authorized_registry_tool() -> None:
     ]
 
 
+def test_gateway_freezes_post_tool_budget_for_success_handoff() -> None:
+    class ScriptedDeadline:
+        synthesis_reserve = 30.0
+
+        def __init__(self) -> None:
+            self._remaining = iter((100.0, 100.0, 31.0, 29.0))
+            self._last = 29.0
+
+        def remaining(self) -> float:
+            self._last = next(self._remaining, self._last)
+            return self._last
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return float(configured_limit)
+
+        @property
+        def expired(self) -> bool:
+            return self._last <= 0.0
+
+    context = replace(_context(), deadline=ScriptedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+        finalization_floor_ratio=0.0,
+        transport="mailbox",
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
+    assert result["status"] == "success"
+    assert result["budget"]["remaining_research_seconds"] == 31.0
+    assert result["budget"]["must_finalize"] is False
+    assert "instruction" not in result
+    assert [event.kind for event in snapshot.events] == [
+        "tool_request",
+        "tool_result",
+    ]
+
+
+def test_gateway_records_one_effective_grant_at_request_entry() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 30.0
+
+        def remaining(self) -> float:
+            return 70.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 40.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.kind == "tool_request"
+    assert request.payload["timestamp"]
+    assert request.payload["remaining_root_seconds_at_entry"] == 70.0
+    assert request.payload["remaining_research_seconds_at_entry"] == 40.0
+    assert request.payload["finalization_handoff_seconds"] == 30.0
+    assert request.payload["transport_timeout_seconds"] == 60.0
+    assert request.payload["tool_grant_seconds"] == 10.0
+    assert request.payload["tool_grant_limiter"] == "handoff_window"
+    datetime.fromisoformat(str(request.payload["timestamp"]).replace("Z", "+00:00"))
+
+
+def test_gateway_caps_long_tool_grant_before_wrapper_timeout() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 30.0
+
+        def remaining(self) -> float:
+            return 180.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 150.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.payload["tool_grant_seconds"] == 59.0
+    assert request.payload["tool_grant_limiter"] == "transport_timeout"
+
+
+def test_gateway_zero_reserve_has_no_hidden_handoff_floor() -> None:
+    class FixedDeadline:
+        synthesis_reserve = 0.0
+
+        def remaining(self) -> float:
+            return 40.0
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(float(configured_limit), 40.0)
+
+        @property
+        def expired(self) -> bool:
+            return False
+
+    context = replace(_context(), deadline=FixedDeadline())
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        request = gateway.snapshot().events[0]
+
+    assert request.payload["finalization_handoff_seconds"] == 0.0
+    assert request.payload["tool_grant_seconds"] == 40.0
+    assert request.payload["tool_grant_limiter"] == "handoff_window"
+
+
+def test_gateway_rejects_zero_root_calls_before_dispatch() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=0,
+        hard_calls_cap=0,
+        initial_seconds=30.0,
+        hard_seconds_cap=30.0,
+    )
+    context = replace(base, root_budget=ledger)
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        rejected = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
+    assert rejected["error"] == "tool_budget_exhausted"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["budget"]["remaining_tool_calls"] == 0
+    assert rejected["budget"]["must_finalize"] is True
+    assert snapshot.executed_count == 0
+    assert calls == []
+
+
+def test_gateway_rejects_when_atomic_root_call_reservation_loses_race() -> None:
+    class RejectingLedger:
+        remaining_calls = 1
+        remaining_seconds = 10.0
+
+        def consume_call(self, *, seconds: float) -> None:
+            assert seconds > 0.0
+            self.remaining_calls = 0
+            self.remaining_seconds = 0.0
+            raise ValueError("simulated root reservation race")
+
+    calls: list[tuple[str, str]] = []
+    context = replace(_context(), root_budget=RejectingLedger())
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
+    assert result["status"] == "rejected"
+    assert result["error"] == "root_budget_exhausted"
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
+    assert calls == []
+    assert snapshot.executed_count == 0
+    terminals = [
+        event
+        for event in snapshot.events
+        if event.kind in {"tool_result", "tool_error"}
+    ]
+    assert len(terminals) == 1
+    assert terminals[0].kind == "tool_error"
+    assert terminals[0].payload["error"] == "root_budget_exhausted"
+    transitions = [event for event in snapshot.events if event.kind == "finalization"]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "tool_budget_exhausted"
+
+
+def test_gateway_success_events_share_one_stable_request_id() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        events = gateway.snapshot().events
+
+    assert [event.kind for event in events] == ["tool_request", "tool_result"]
+    request_id = events[0].payload["request_id"]
+    assert re.fullmatch(r"[0-9a-f]{32}", str(request_id))
+    assert events[1].payload["request_id"] == request_id
+
+
+def test_gateway_rejection_events_share_one_stable_request_id() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+    ) as gateway:
+        gateway.call("not_authorized", "市场")
+        events = gateway.snapshot().events
+
+    assert [event.kind for event in events] == ["tool_request", "tool_error"]
+    request_id = events[0].payload["request_id"]
+    assert re.fullmatch(r"[0-9a-f]{32}", str(request_id))
+    assert events[1].payload["request_id"] == request_id
+
+
 def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
     calls: list[tuple[str, str]] = []
     base = _context()
@@ -182,6 +409,173 @@ def test_gateway_debits_root_budget_with_real_tool_elapsed_time() -> None:
     assert result["status"] == "success"
     assert ledger.remaining_calls == 1
     assert 0.0 < ledger.remaining_seconds < 10.0
+
+
+def test_gateway_settles_concurrent_seconds_without_losing_a_debit() -> None:
+    """Two settlements racing for the last of the budget must both be accounted for.
+
+    The pre-fix code read ``remaining_seconds`` and then called
+    ``consume_seconds`` in two steps, so the loser of the race raised
+    ``ValueError`` and was swallowed by a bare ``except`` -- the seconds were
+    never debited and the overdraft never surfaced.
+    """
+
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=2,
+        initial_seconds=1.0,
+        hard_seconds_cap=1.0,
+    )
+    context = replace(base, root_budget=ledger)
+    # Each runner claims nearly the whole budget, so exactly one can be paid in
+    # full and the other must be clamped.
+    requested_each = 0.9
+    start = Barrier(2, timeout=10.0)
+    errors: list[BaseException] = []
+
+    with HeadlessToolGateway(registry=_registry([]), context=context) as gateway:
+        def settle(request_id: str) -> None:
+            try:
+                start.wait()
+                gateway._settle_root_seconds(requested_each, request_id=request_id)
+            except BaseException as exc:  # pragma: no cover - surfaced via assert
+                errors.append(exc)
+
+        threads = [Thread(target=settle, args=(f"req-{i}",)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15.0)
+            assert not thread.is_alive()
+        snapshot = gateway.snapshot()
+
+    assert errors == []
+    # Invariant: the ledger can never pay out more than it started with.
+    total_settled = ledger.initial_seconds - ledger.remaining_seconds
+    assert total_settled <= ledger.initial_seconds + 1e-9
+    assert ledger.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+
+    overdrafts = [
+        event for event in snapshot.events if event.kind == "root_budget_overdraft"
+    ]
+    # The clamped settlement must be visible, not silently dropped.
+    assert len(overdrafts) == 1
+    payload = overdrafts[0].payload
+    assert payload["requested_seconds"] == pytest.approx(requested_each)
+    assert float(payload["overdraft_seconds"]) > 0.0
+    # Nothing may fail silently: no settlement-failure telemetry either.
+    assert not any(
+        event.payload.get("settlement_failed") for event in overdrafts
+    )
+    # Both settlements together account for the full initial budget.
+    assert float(payload["settled_seconds"]) + requested_each == pytest.approx(
+        ledger.initial_seconds
+    )
+
+
+@pytest.mark.parametrize("transport", ("http", "mailbox"))
+def test_gateway_reserves_one_root_call_before_concurrent_dispatch(
+    transport: str,
+) -> None:
+    runner_entered = Event()
+    release_runner = Event()
+    runner_lock = Lock()
+    runner_calls: list[str] = []
+
+    def blocking_runner(query: str, _context: AgentToolContext):
+        with runner_lock:
+            runner_calls.append(query)
+            is_first = len(runner_calls) == 1
+        if is_first:
+            runner_entered.set()
+            assert release_runner.wait(timeout=10.0)
+        return (
+            [],
+            "没有同窗新闻",
+            ProviderTrace(
+                provider="test:news",
+                capability="news_search",
+                status="empty",
+                result_count=0,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="news_search",
+                capability="news_search",
+                description="财经新闻",
+                cost="external",
+                freshness="current",
+                runner=blocking_runner,
+            ),
+        )
+    )
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=1,
+        hard_calls_cap=1,
+        initial_seconds=10.0,
+        hard_seconds_cap=10.0,
+    )
+    context = replace(base, root_budget=ledger)
+    first_results: list[dict[str, object]] = []
+    first_errors: list[BaseException] = []
+
+    with HeadlessToolGateway(
+        registry=registry,
+        context=context,
+        transport=transport,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        def call_first() -> None:
+            try:
+                first_results.append(
+                    gateway.call("news_search", "第一次查询", timeout=15.0)
+                )
+            except BaseException as exc:
+                first_errors.append(exc)
+
+        first = Thread(target=call_first)
+        first.start()
+        assert runner_entered.wait(timeout=5.0)
+        try:
+            second = gateway.call("news_search", "第二次查询", timeout=15.0)
+        finally:
+            release_runner.set()
+        first.join(timeout=15.0)
+        assert not first.is_alive()
+        snapshot = gateway.snapshot()
+
+    assert first_errors == []
+    assert first_results[0]["status"] == "empty"
+    assert second["status"] == "rejected"
+    assert second["error"] == "tool_budget_exhausted"
+    assert second["instruction"] == FINALIZATION_INSTRUCTION
+    assert runner_calls == ["第一次查询"]
+    assert ledger.remaining_calls == 0
+
+    second_request = next(
+        event
+        for event in snapshot.events
+        if event.kind == "tool_request" and event.payload["query"] == "第二次查询"
+    )
+    second_terminals = [
+        event
+        for event in snapshot.events
+        if event.kind in {"tool_result", "tool_error"}
+        and event.payload.get("request_id") == second_request.payload["request_id"]
+    ]
+    assert len(second_terminals) == 1
+    assert second_terminals[0].kind == "tool_error"
+    assert second_terminals[0].payload["error"] == "tool_budget_exhausted"
+    transitions = [event for event in snapshot.events if event.kind == "finalization"]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "tool_budget_exhausted"
 
 
 def test_gateway_rejects_duplicate_query_without_second_execution() -> None:
@@ -209,11 +603,13 @@ def test_gateway_rejects_after_finance_tool_budget() -> None:
         registry=_registry(calls),
         context=_context(max_steps=1),
     ) as gateway:
-        gateway.call("market_data", "市场")
+        result = gateway.call("market_data", "市场")
         rejected = gateway.call("news_search", "市场新闻")
 
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
     assert rejected["status"] == "rejected"
-    assert rejected["error"] == "tool_budget_exhausted"
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
     assert calls == [("market_data", "市场")]
 
 
@@ -240,16 +636,20 @@ def test_gateway_rejects_before_tool_when_deadline_is_closed() -> None:
         context=context,
     ) as gateway:
         rejected = gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
 
-    assert rejected["error"] == "deadline_exhausted"
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["budget"]["must_finalize"] is True
+    assert snapshot.executed_count == 0
     assert calls == []
 
 
-def test_gateway_redacts_tool_exception_detail() -> None:
+def _failing_tool_registry() -> ResearchToolRegistry:
     def failing_runner(_query: str, _context: AgentToolContext):
         raise RuntimeError("PRIVATE_TOOL_EXCEPTION_SENTINEL")
 
-    registry = ResearchToolRegistry(
+    return ResearchToolRegistry(
         (
             ToolSpec(
                 name="market_data",
@@ -262,15 +662,40 @@ def test_gateway_redacts_tool_exception_detail() -> None:
         )
     )
 
-    with HeadlessToolGateway(registry=registry, context=_context()) as gateway:
+
+def test_gateway_charges_root_budget_for_tool_exception() -> None:
+    base = _context()
+    ledger = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=1,
+        hard_calls_cap=1,
+        initial_seconds=10.0,
+        hard_seconds_cap=10.0,
+    )
+    context = replace(base, root_budget=ledger)
+
+    with HeadlessToolGateway(
+        registry=_failing_tool_registry(),
+        context=context,
+    ) as gateway:
         result = gateway.call("market_data", "市场")
-        snapshot = gateway.snapshot()
 
     assert result == {
         "status": "error",
         "tool": "market_data",
         "error": "tool_exception",
     }
+    assert ledger.remaining_calls == 0
+
+
+def test_gateway_redacts_tool_exception_detail() -> None:
+    with HeadlessToolGateway(
+        registry=_failing_tool_registry(),
+        context=_context(),
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        snapshot = gateway.snapshot()
+
     assert "PRIVATE_TOOL_EXCEPTION_SENTINEL" not in str(snapshot.to_dict())
 
 
@@ -325,11 +750,39 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
     exchange = snapshot.mailbox_exchanges[0]
     assert len(exchange.request_sha256) == 64
     assert len(exchange.response_sha256) == 64
+    request_id = exchange.request_id.removesuffix(".json")
+    tool_events = [
+        event for event in snapshot.events if event.kind.startswith("tool_")
+    ]
+    assert [event.payload["request_id"] for event in tool_events] == [
+        request_id,
+        request_id,
+    ]
     assert set(gateway.subprocess_environment()) == {"FINANCE_TOOL_MAILBOX"}
     assert "urllib" not in wrapper
     assert "FINANCE_TOOL_GATEWAY_TOKEN" not in wrapper
     assert "os.O_EXCL" in wrapper
     assert "os.O_NOFOLLOW" in wrapper
+
+
+def test_generated_wrappers_share_one_transport_timeout(tmp_path: Path) -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=tmp_path / "mailbox",
+        transport="mailbox",
+    ) as gateway:
+        mailbox_source = gateway.wrapper_path.read_text(encoding="utf-8")
+
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(),
+        run_dir=tmp_path / "http",
+    ) as gateway:
+        http_source = gateway.wrapper_path.read_text(encoding="utf-8")
+
+    assert "deadline = time.monotonic() + 60.0" in mailbox_source
+    assert "urlopen(request, timeout=60.0)" in http_source
 
 
 def test_mailbox_directories_are_private_and_owned() -> None:
@@ -433,6 +886,98 @@ def test_gateway_closes_research_stage_before_finalization_budget() -> None:
     assert rejected["budget"]["must_finalize"] is True
     assert snapshot.executed_count == 1
     assert calls == [("market_data", "市场")]
+
+
+def test_gateway_records_one_timestamped_finalization_transition() -> None:
+    calls: list[tuple[str, str]] = []
+    base = _context(max_steps=3)
+    context = replace(
+        base,
+        deadline=ResearchDeadline.from_timeout(5.0),
+        policy=ResearchPolicy("quick", 3, 5.0, 0.0),
+    )
+
+    with HeadlessToolGateway(
+        registry=_registry(calls),
+        context=context,
+    ) as gateway:
+        gateway.call("market_data", "市场")
+        first_rejection = gateway.call("news_search", "第一次补查")
+        second_rejection = gateway.call("news_search", "第二次补查")
+        snapshot = gateway.snapshot()
+
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert first_rejection["error"] == "research_stage_closed"
+    assert second_rejection["error"] == "research_stage_closed"
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "research_stage_closed"
+    assert float(transitions[0].payload["remaining_seconds"]) >= 0.0
+    datetime.fromisoformat(str(transitions[0].payload["timestamp"]).replace("Z", "+00:00"))
+
+
+def test_gateway_rejects_at_visible_handoff_window() -> None:
+    class MutableDeadline:
+        synthesis_reserve = 30.0
+
+        def __init__(self) -> None:
+            self.seconds = 180.0
+
+        def remaining(self) -> float:
+            return self.seconds
+
+        def stage_timeout(self, configured_limit: float) -> float:
+            return min(
+                float(configured_limit),
+                max(0.0, self.seconds - self.synthesis_reserve),
+            )
+
+        @property
+        def expired(self) -> bool:
+            return self.seconds <= 0.0
+
+    deadline = MutableDeadline()
+    context = replace(_context(max_steps=3), deadline=deadline)
+    with HeadlessToolGateway(
+        registry=_registry(calls := []),
+        context=context,
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        first = gateway.call("market_data", "市场")
+        deadline.seconds = 60.0
+        rejected = gateway.call("news_search", "补充消息")
+        snapshot = gateway.snapshot()
+
+    assert first["status"] == "success"
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    assert calls == [("market_data", "市场")]
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "research_stage_closed"
+
+
+def test_gateway_hands_off_when_last_tool_slot_is_consumed() -> None:
+    with HeadlessToolGateway(
+        registry=_registry([]),
+        context=_context(max_steps=1),
+        finalization_floor_ratio=0.0,
+    ) as gateway:
+        result = gateway.call("market_data", "市场")
+        rejected = gateway.call("news_search", "继续补查")
+        snapshot = gateway.snapshot()
+
+    assert result["instruction"] == FINALIZATION_INSTRUCTION
+    assert rejected["error"] == "research_stage_closed"
+    assert rejected["instruction"] == FINALIZATION_INSTRUCTION
+    transitions = [
+        event for event in snapshot.events if event.kind == "finalization"
+    ]
+    assert len(transitions) == 1
+    assert transitions[0].payload["reason"] == "tool_budget_exhausted"
 
 
 def test_gateway_floor_ratio_can_be_disabled_without_changing_default() -> None:

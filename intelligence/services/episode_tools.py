@@ -24,6 +24,7 @@ from intelligence.services import (
     l3_evidence,
     market_news,
     market_technical,
+    user_memory,
     valuation_estimate,
 )
 from intelligence.services.provider_observability import ProviderTrace
@@ -53,6 +54,58 @@ _NON_EVIDENCE_PREFIXES = (
 _OFFICIAL_L3_RUNNER = object()
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
+# A dedicated tier, deliberately absent from ``answer_model._HARD_EVIDENCE_TIERS``:
+# user memory is the user's own prior judgement, never an objective market fact.
+# Reusing an existing tier (e.g. ``agent_retrieval``) would make it
+# indistinguishable downstream from objective retrieval.
+_USER_MEMORY_EVIDENCE_TIER = "user_memory"
+_AGENT_MEMORY_LOOKUP_MAX_RECORDS = 5
+# ``select_relevant`` scores a tag hit (4) above a body-text overlap (2), but it
+# can only do that when the caller names the subject.  Passing the raw tool query
+# alone leaves the ledger's ``themes``/``stocks`` tags dependent on the model
+# happening to repeat the subject verbatim, so a follow-up like "那还能追吗"
+# recalls nothing.  The upstream contract already resolved subject and
+# subject_kind; route them in rather than re-deriving intent here.
+#
+# One parameter, not two.  ``user_memory._query_terms`` flattens ``theme`` and
+# ``entity`` into a single scored term list, and which tags get scanned is fixed
+# per record type by ``relevant_memory_records`` (judgments: themes+stocks,
+# corrections: themes) regardless of which parameter the caller used.  The two
+# are therefore byte-for-byte equivalent today; ``theme`` is the one we pass
+# because production ledgers tag company names under ``themes`` (there is no
+# ``stocks`` field in corrections at all).  Do not reintroduce a split here
+# unless ``select_relevant`` first learns to weight the two differently.
+#
+# Kinds with no ledger tag counterpart (market_pattern / index /
+# external_market / unknown) route nothing: "A股市场" would only add a noise
+# term.  That bounds *which* subjects get routed, NOT how general the routed
+# term is — a short subject such as "AI" still substring-matches many tags,
+# because ``_norm`` compares against one joined tag string.  That is a
+# select_relevant scoring property this hop cannot fix, so any recall eval has
+# to record the routed subject to attribute its own false positives.
+#
+# ``SubjectKind`` (query_understanding.py) is a ``typing.Literal``, so it is not
+# enforced at runtime and ``TaskFrame.subject_kind`` is a plain ``str``; match
+# defensively rather than exhaustively.  "concept" is kept for that reason, not
+# because a production caller was observed emitting it.
+_MEMORY_SUBJECT_KINDS_WITH_LEDGER_TAGS = frozenset({"company", "concept", "theme"})
+# ``_query_terms`` drops query tokens shorter than 2 chars but applies no floor
+# to a routed subject.  Hold routed subjects to the same bar: a single-char
+# subject is never a real A-share company or theme, and substring matching makes
+# it sweep the whole ledger.
+_MIN_ROUTED_SUBJECT_CHARS = 2
+
+
+def _memory_recall_intent(contract_subject: str | None, subject_kind: str | None) -> dict[str, str]:
+    """Route the contract's resolved subject into the ledger recall parameter."""
+
+    subject = str(contract_subject or "").strip()
+    if len(subject) < _MIN_ROUTED_SUBJECT_CHARS:
+        return {}
+    kind = str(subject_kind or "").strip().lower()
+    if kind in _MEMORY_SUBJECT_KINDS_WITH_LEDGER_TAGS:
+        return {"theme": subject}
+    return {}
 
 
 @dataclass(frozen=True)
@@ -292,6 +345,8 @@ def build_episode_registry(
         _DEFAULT_EVIDENCE_SEARCH_JUDGE
     ),
     fixture_policy: SealedFixturePolicy | None = None,
+    memory_user: str | None = None,
+    memory_users_root: str | Path | None = None,
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
@@ -858,6 +913,100 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=evidence_search_runner,
+            )
+        )
+
+    if "memory_lookup" in context.contract.allowed_capabilities:
+
+        def memory_lookup_runner(
+            query: str,
+            tool_context: agent_research.AgentToolContext,
+        ):
+            tool_context.check_cancelled()
+            recall = user_memory.relevant_memory_records(
+                query,
+                user=memory_user,
+                users_root=memory_users_root,
+                **_memory_recall_intent(
+                    context.contract.subject,
+                    context.contract.subject_kind,
+                ),
+            )
+            tool_context.check_cancelled()
+            evidence: list[agent_research.AgentEvidence] = []
+            for record in recall.judgments:
+                memo = str(record.get("memo") or "").strip()
+                if not memo:
+                    continue
+                tags = [
+                    str(tag).strip()
+                    for key in ("themes", "stocks")
+                    for tag in (record.get(key) or [])
+                    if str(tag).strip()
+                ]
+                evidence.append(
+                    agent_research.AgentEvidence(
+                        tool="memory_lookup",
+                        title="用户历史判断",
+                        detail=memo,
+                        # Self-labelling source: the model only ever sees this
+                        # string, so it has to say what the record is on its own.
+                        source="用户自己的历史判断（先验，非市场事实）",
+                        internal_locator=str(recall.judgments_path),
+                        source_date=str(record.get("ts") or "")[:10] or None,
+                        evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
+                        freshness="historical",
+                        independent_key="｜".join(tags) if tags else "",
+                    )
+                )
+            for record in recall.corrections:
+                correction = str(record.get("correction") or "").strip()
+                principle = str(record.get("principle") or "").strip()
+                body = principle or correction
+                if not body:
+                    continue
+                evidence.append(
+                    agent_research.AgentEvidence(
+                        tool="memory_lookup",
+                        title="用户纠偏原则",
+                        detail=body,
+                        source="用户自己纠正过的方法论（先验，非市场事实）",
+                        internal_locator=str(recall.corrections_path),
+                        source_date=str(record.get("ts") or "")[:10] or None,
+                        evidence_tier=_USER_MEMORY_EVIDENCE_TIER,
+                        freshness="historical",
+                    )
+                )
+            observation = (
+                "；".join(f"{item.title}：{item.detail}" for item in evidence)
+                or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"
+            )
+            trace = ProviderTrace(
+                provider="episode:memory_lookup",
+                capability="memory_lookup",
+                status="success" if evidence else "empty",
+                detail=query[:120],
+                result_count=len(evidence),
+            )
+            return ToolRunResult(
+                evidence=tuple(evidence),
+                observation=observation,
+                trace=trace,
+                gaps=() if evidence else ("用户记忆中没有与本题相关的历史判断",),
+            )
+
+        specs.append(
+            ToolSpec(
+                name="memory_lookup",
+                capability="memory_lookup",
+                description=(
+                    "检索用户自己过去的判断与纠偏原则（本地私有台账）。"
+                    "返回的是这位用户的历史先验，不是市场事实、不能当作证据引用；"
+                    "用于确认用户此前怎么看、遵守其纠偏原则、聚焦增量变化。"
+                ),
+                cost="local",
+                freshness="stable",
+                runner=memory_lookup_runner,
             )
         )
 

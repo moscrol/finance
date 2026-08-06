@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -23,6 +24,7 @@ from intelligence.services.codex_headless_runtime import (
     _headless_prompt,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.headless_tool_gateway import FINALIZATION_INSTRUCTION
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
@@ -265,6 +267,59 @@ def test_headless_runtime_returns_shared_agent_outcome() -> None:
     assert calls == ["A股 当前主线"]
     assert tuple(event.sequence for event in outcome.events) == tuple(
         range(1, len(outcome.events) + 1)
+    )
+
+
+def test_headless_runtime_delivers_tool_cap_finalization_instruction() -> None:
+    frame = _frame()
+
+    def finalizing_runner(command: HeadlessCommand) -> HeadlessProcessResult:
+        wrapper = command.cwd / "finance-tool"
+        tool_command = [str(wrapper), "mainline_context", "A股 当前主线"]
+        completed = subprocess.run(
+            tool_command,
+            cwd=command.cwd,
+            env=command.env,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        result = json.loads(completed.stdout)
+        assert result["instruction"] == FINALIZATION_INSTRUCTION
+        finish = {
+            "status": "completed",
+            "draft": "截至2026-07-24，医药是韧性核心。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": result["evidence_hashes"],
+                    "gap": "",
+                }
+            ],
+        }
+        return HeadlessProcessResult(
+            _jsonl(wrapper_command=shlex.join(tool_command), finish=finish),
+            "",
+            0,
+            False,
+        )
+
+    context = replace(
+        _context(frame),
+        policy=ResearchPolicy("quick", 1, 30.0, 0.0),
+    )
+    outcome = CodexHeadlessRuntime(command_runner=finalizing_runner).run(
+        task_frame=frame,
+        context=context,
+        registry=_registry([]),
+    )
+
+    assert outcome.stop_reason == "model_finish"
+    kinds = [event.kind for event in outcome.events]
+    assert kinds.index("tool_result") < kinds.index("finalization") < kinds.index(
+        "finish"
     )
 
 
@@ -944,6 +999,19 @@ def test_headless_runtime_allows_one_finish_only_recovery() -> None:
     assert outcome.usage.llm_calls == 2
     assert outcome.usage.tool_calls == 1
     assert process_calls == 2
+    finalization_events = [
+        event for event in outcome.events if event.kind == "finalization"
+    ]
+    assert len(finalization_events) == 1
+    assert finalization_events[0].payload["reason"] == "headless_invalid_finish"
+    finalization_at = datetime.fromisoformat(
+        str(finalization_events[0].payload["timestamp"]).replace("Z", "+00:00")
+    )
+    finish_event = next(event for event in outcome.events if event.kind == "finish")
+    finish_at = datetime.fromisoformat(
+        str(finish_event.payload["timestamp"]).replace("Z", "+00:00")
+    )
+    assert finish_at >= finalization_at
     runtime_event = next(
         event for event in outcome.events if event.kind == "runtime_result"
     )

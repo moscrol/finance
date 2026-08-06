@@ -137,6 +137,103 @@ def build_memory_block(
     return "\n".join(lines)
 
 
+def _ledger_paths(
+    user: str | None,
+    users_root: str | Path | None,
+) -> tuple[Path, Path, Path, Path]:
+    """Resolve the four per-user ledger paths (judgments/corrections/checkpoints/verdicts).
+
+    ``users_root`` exists so callers -- notably tests -- can point at a temporary
+    fixture directory instead of the real, private user ledgers.
+    """
+
+    if users_root is not None:
+        root = Path(users_root).expanduser()
+        return (
+            root / "judgments.jsonl",
+            root / "corrections.jsonl",
+            root / "checkpoints.jsonl",
+            root / "verdicts.jsonl",
+        )
+    us = userspace.user_space(user)
+    return (
+        us.judgments_path,
+        us.corrections_path,
+        us.checkpoints_path,
+        us.verdicts_path,
+    )
+
+
+class MemoryRecall:
+    """Structured recall result: the records themselves plus their provenance.
+
+    ``memory_block_for_query`` renders these into one ``[M]`` markdown string,
+    which is the right shape for prompt injection but the wrong shape for a
+    tool: a caller that needs per-record evidence (each with its own locator
+    and content hash) cannot recover the individual records from the rendered
+    text. This type is that missing seam, so both callers share one recall
+    implementation instead of forking the relevance logic.
+    """
+
+    __slots__ = ("judgments", "corrections", "judgments_path", "corrections_path")
+
+    def __init__(
+        self,
+        *,
+        judgments: list[dict[str, Any]],
+        corrections: list[dict[str, Any]],
+        judgments_path: Path,
+        corrections_path: Path,
+    ) -> None:
+        self.judgments = judgments
+        self.corrections = corrections
+        self.judgments_path = judgments_path
+        self.corrections_path = corrections_path
+
+    def __bool__(self) -> bool:
+        return bool(self.judgments or self.corrections)
+
+    @property
+    def total(self) -> int:
+        return len(self.judgments) + len(self.corrections)
+
+
+def relevant_memory_records(
+    query: str,
+    theme: str | None = None,
+    entity: str | None = None,
+    user: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+    users_root: str | Path | None = None,
+) -> MemoryRecall:
+    """Recall relevant judgments/corrections as records, not rendered markdown."""
+
+    j_path, c_path, _ck_path, _v_path = _ledger_paths(user, users_root)
+    j_records, _ = judgments.load_judgments(j_path, window=DEFAULT_LOAD_WINDOW)
+    c_records, _ = corrections.load_corrections(c_path, window=DEFAULT_LOAD_WINDOW)
+    return MemoryRecall(
+        judgments=select_relevant(
+            j_records,
+            query,
+            theme,
+            entity,
+            text_keys=("memo",),
+            limit=limit,
+        ),
+        corrections=select_relevant(
+            c_records,
+            query,
+            theme,
+            entity,
+            text_keys=("correction", "original", "principle"),
+            tag_keys=("themes",),
+            limit=limit,
+        ),
+        judgments_path=j_path,
+        corrections_path=c_path,
+    )
+
+
 def memory_block_for_query(
     query: str,
     theme: str | None = None,
@@ -146,28 +243,17 @@ def memory_block_for_query(
     users_root: str | Path | None = None,
 ) -> str:
     """加载三源台账→相关性召回→渲染 [M]；台账缺失/无相关记录时返回空串。"""
-    if users_root is not None:
-        root = Path(users_root).expanduser()
-        j_path = root / "judgments.jsonl"
-        c_path = root / "corrections.jsonl"
-        ck_path = root / "checkpoints.jsonl"
-        v_path = root / "verdicts.jsonl"
-    else:
-        us = userspace.user_space(user)
-        j_path, c_path = us.judgments_path, us.corrections_path
-        ck_path, v_path = us.checkpoints_path, us.verdicts_path
-    j_records, _ = judgments.load_judgments(j_path, window=DEFAULT_LOAD_WINDOW)
-    c_records, _ = corrections.load_corrections(c_path, window=DEFAULT_LOAD_WINDOW)
-    j_hit = select_relevant(j_records, query, theme, entity, text_keys=("memo",), limit=limit)
-    c_hit = select_relevant(
-        c_records,
+    _j_path, _c_path, ck_path, v_path = _ledger_paths(user, users_root)
+    recall = relevant_memory_records(
         query,
         theme,
         entity,
-        text_keys=("correction", "original", "principle"),
-        tag_keys=("themes",),
+        user,
         limit=limit,
+        users_root=users_root,
     )
+    j_hit = recall.judgments
+    c_hit = recall.corrections
     calibration_text = ""
     if j_hit:
         try:

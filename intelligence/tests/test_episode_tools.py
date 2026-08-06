@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import date
+import json
 from pathlib import Path
 
 import duckdb
 import pytest
 
-from intelligence.services import episode_tools, finance_query, l3_evidence
+from intelligence.services import (
+    episode_tools,
+    finance_query,
+    l3_evidence,
+    user_memory,
+)
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import build_episode_registry
@@ -1859,3 +1865,353 @@ def test_l3_is_not_exposed_without_runner_or_authorization(tmp_path) -> None:
         l3_runner=lambda *_args: None,
     )
     assert "l3_lookup" not in injected_but_unauthorized.names()
+
+
+def _memory_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="光刻胶，现在怎么看",
+        user_goal="确认用户此前的判断与增量变化",
+        question_type="stock_deep_dive",
+        subject="光刻胶",
+        subject_kind="concept",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_official_evidence",
+        confidence=0.9,
+    )
+
+
+def _memory_fixture(tmp_path) -> Path:
+    """Write a throwaway memory ledger.
+
+    The real ledgers hold the user's private judgements, so every test points
+    ``memory_users_root`` at a temp dir instead: nothing here reads or asserts
+    on real content.
+    """
+
+    root = tmp_path / "users" / "fixture"
+    root.mkdir(parents=True)
+    (root / "judgments.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-01T10:00:00",
+                "memo": "光刻胶国产替代要看客户验证进度，不看产能公告",
+                "themes": ["光刻胶"],
+                "stocks": [],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "corrections.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-07-02T10:00:00",
+                "correction": "先看客户验证再谈弹性",
+                "principle": "验证进度优先于产能规划",
+                "themes": ["光刻胶"],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # A record tagged only by ``stocks``: reachable through a company subject,
+    # and deliberately scoring 0 against the theme-shaped queries above so the
+    # existing recall counts stay unchanged.
+    with (root / "judgments.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "ts": "2026-07-03T10:00:00",
+                    "memo": "瑞华泰的PI膜产线要看良率爬坡",
+                    "themes": [],
+                    "stocks": ["瑞华泰"],
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+    return root
+
+
+def _memory_registry(
+    tmp_path,
+    *,
+    users_root: Path | None,
+    task_id: str,
+    frame: TaskFrame | None = None,
+):
+    # task_id must be unique per test: root budgets are registered in a
+    # process-wide live-episode table that rejects duplicate episode ids.
+    frame = frame if frame is not None else _memory_frame()
+    context = build_episode_context(
+        frame,
+        task_id=task_id,
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+    return build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        memory_users_root=users_root,
+    ), context
+
+
+def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> None:
+    """The agent can pull the user's own prior judgements as a tool call."""
+
+    users_root = _memory_fixture(tmp_path)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-recall",
+    )
+
+    assert "memory_lookup" in registry.names()
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-recall:1",
+    )
+
+    assert result.trace.status == "success"
+    assert result.trace.result_count == 2
+    assert result.gaps == ()
+    details = [item.detail for item in result.evidence]
+    assert any("客户验证进度" in detail for detail in details)
+    assert any("验证进度优先于产能规划" in detail for detail in details)
+    # Every atom must carry the dedicated tier, so downstream can tell this
+    # apart from objective retrieval.
+    assert {item.evidence_tier for item in result.evidence} == {"user_memory"}
+    # The source label has to self-declare: it is the only semantics the model sees.
+    assert all("非市场事实" in item.source for item in result.evidence)
+    # Locators point at the fixture, never the real ledger.
+    assert all(str(users_root) in item.internal_locator for item in result.evidence)
+
+
+def test_memory_lookup_reports_empty_recall_instead_of_staying_silent(tmp_path) -> None:
+    """No memory must be an explicit signal, not an empty success."""
+
+    empty_root = tmp_path / "users" / "empty"
+    empty_root.mkdir(parents=True)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=empty_root,
+        task_id="memory-lookup-empty",
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-empty:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "empty"
+    assert result.trace.result_count == 0
+    assert "无相关命中" in result.observation
+    assert result.gaps == ("用户记忆中没有与本题相关的历史判断",)
+
+
+def test_memory_lookup_is_gated_by_allowed_capabilities(tmp_path) -> None:
+    frame = _memory_frame()
+    unauthorized = build_episode_context(
+        frame,
+        task_id="memory-unauthorized",
+        capabilities=("market_data",),
+        timeout=30.0,
+    )
+    registry = build_episode_registry(
+        frame,
+        unauthorized,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        memory_users_root=_memory_fixture(tmp_path),
+    )
+
+    assert "memory_lookup" not in registry.names()
+
+
+def test_memory_lookup_locator_never_reaches_the_outward_payload(tmp_path) -> None:
+    """Ledger paths are control-plane only (mirrors test_agent_runtime.py:196)."""
+
+    users_root = _memory_fixture(tmp_path)
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-locator",
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "光刻胶，现在怎么看",
+        context=context,
+        step_id="memory-lookup-locator:1",
+    )
+
+    assert result.evidence
+    for index, item in enumerate(result.evidence):
+        payload = asdict(item.to_observation(f"M{index}"))
+        assert "internal_locator" not in payload
+        assert str(users_root) not in json.dumps(payload, ensure_ascii=False)
+
+
+def test_memory_recall_intent_routes_tagged_kinds_through_one_parameter() -> None:
+    """Kinds with ledger tags route; the rest pass nothing.
+
+    ``theme`` is the only parameter used on purpose: ``_query_terms`` flattens
+    ``theme`` and ``entity`` into one scored list, so a split would be a
+    promise the recall code does not keep.
+    """
+
+    for kind in ("company", "concept", "theme"):
+        assert episode_tools._memory_recall_intent("瑞华泰", kind) == {
+            "theme": "瑞华泰"
+        }
+    # Kinds with no ledger tag counterpart must pass nothing: routing
+    # "A股市场" as a theme would only add a noise term to every query.
+    for kind in ("market_pattern", "index", "external_market", "unknown"):
+        assert episode_tools._memory_recall_intent("A股市场", kind) == {}
+    # Absent/blank subject and absent kind are both no-ops, never crashes.
+    assert episode_tools._memory_recall_intent(None, "company") == {}
+    assert episode_tools._memory_recall_intent("   ", "company") == {}
+    assert episode_tools._memory_recall_intent("光刻胶", None) == {}
+
+
+def test_memory_recall_intent_refuses_subjects_too_short_to_discriminate() -> None:
+    """A 1-char subject substring-matches most tags, so it must not route.
+
+    ``select_relevant`` compares against one joined tag string, so recall
+    breadth is driven by how general the routed term is, not by its kind.
+    ``_query_terms`` already drops sub-2-char query tokens; a routed subject
+    gets held to the same floor.
+    """
+
+    assert episode_tools._memory_recall_intent("股", "theme") == {}
+    assert episode_tools._memory_recall_intent("A", "company") == {}
+    assert episode_tools._memory_recall_intent(" 股 ", "theme") == {}
+    # Two chars is the floor, not an exclusion: "AI" is a real theme subject.
+    # It stays broad against substring matching, which is why a recall eval has
+    # to record the routed subject rather than trust the kind alone.
+    assert episode_tools._memory_recall_intent("AI", "theme") == {"theme": "AI"}
+
+
+def test_memory_lookup_recalls_through_contract_subject_when_query_omits_it(
+    tmp_path,
+) -> None:
+    """A follow-up that never repeats the subject must still reach the ledger.
+
+    This is the whole point of the structured-intent hop: the tool query is
+    whatever the model typed, so on "那还能追吗" the ledger's ``themes`` tags
+    are unreachable unless the resolved subject is passed in alongside it.
+    """
+
+    users_root = _memory_fixture(tmp_path)
+    followup = "那还能追吗"
+
+    # Control: the query alone carries no term overlapping the ledger.
+    assert (
+        user_memory.relevant_memory_records(followup, users_root=users_root).total == 0
+    )
+
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-contract-subject",
+    )
+    result = registry.execute(
+        "memory_lookup",
+        followup,
+        context=context,
+        step_id="memory-lookup-contract-subject:1",
+    )
+
+    assert result.trace.status == "success"
+    assert result.trace.result_count == 2
+    details = [item.detail for item in result.evidence]
+    assert any("客户验证进度" in detail for detail in details)
+    assert any("验证进度优先于产能规划" in detail for detail in details)
+    # The stock-tagged record belongs to another subject and must stay out.
+    assert not any("良率爬坡" in detail for detail in details)
+
+
+def test_memory_lookup_company_subject_recalls_only_its_own_records(
+    tmp_path,
+) -> None:
+    """A company subject recalls its own records and nothing else.
+
+    Deliberately not asserted here: *which* tag field matched.  ``theme`` and
+    ``entity`` are flattened into one term list by ``_query_terms``, so a test
+    claiming "reaches the stocks tags" would pass under either parameter and
+    prove nothing.  What is worth pinning is the subject-level partition.
+    """
+
+    users_root = _memory_fixture(tmp_path)
+    company_frame = replace(
+        _memory_frame(),
+        raw_question="现在还能追吗",
+        subject="瑞华泰",
+        subject_kind="company",
+    )
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-company-subject",
+        frame=company_frame,
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "现在还能追吗",
+        context=context,
+        step_id="memory-lookup-company-subject:1",
+    )
+
+    assert result.trace.status == "success"
+    details = [item.detail for item in result.evidence]
+    assert any("良率爬坡" in detail for detail in details)
+    # The unrelated theme-tagged records must not ride along.
+    assert not any("客户验证进度" in detail for detail in details)
+
+
+def test_memory_lookup_unmapped_subject_kind_adds_no_recall_terms(
+    tmp_path,
+) -> None:
+    """market_pattern subjects must not widen recall (guards false positives)."""
+
+    users_root = _memory_fixture(tmp_path)
+    market_frame = replace(
+        _memory_frame(),
+        raw_question="大盘还能反弹多久",
+        subject="A股市场",
+        subject_kind="market_pattern",
+    )
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-lookup-market-subject",
+        frame=market_frame,
+    )
+
+    result = registry.execute(
+        "memory_lookup",
+        "大盘还能反弹多久",
+        context=context,
+        step_id="memory-lookup-market-subject:1",
+    )
+
+    assert result.evidence == ()
+    assert result.trace.status == "empty"
+    assert result.gaps == ("用户记忆中没有与本题相关的历史判断",)

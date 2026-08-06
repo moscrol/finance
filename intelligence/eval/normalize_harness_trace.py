@@ -11,10 +11,20 @@ Two CLI shapes, both from the repository root (the package is imported as
 
 * one input  -> a single normalized artifact (``events`` + counts);
 * ``--compare`` -> both sides plus a ``comparison`` block carrying
-  ``pre_divergence_equivalence`` / ``first_divergence_step``.  Those two values
-  exist only in :func:`compare_sequences`; without this entry point a caller
-  reading the single-input artifact finds no such fields and is tempted to
-  invent them.
+  ``pre_divergence_equivalence`` / ``first_divergence_step`` /
+  ``first_divergence``.  Those values exist only in :func:`compare_sequences`;
+  without this entry point a caller reading the single-input artifact finds no
+  such fields and is tempted to invent them.
+
+Either side may itself be a single-input artifact of this module: it is detected
+by ``schema_version`` and reused as-is.  A v1 artifact or a foreign vocabulary
+raises :class:`NormalizedArtifactError` instead of being re-fed through the raw
+mapper, which would silently map every event to ``unmapped``.
+
+Divergence contract (see :class:`FirstDivergence`): a mismatch carries a step on
+*each* side, so the scalar ``first_divergence_step`` is ``null`` there and the
+structured object must be read.  Only a strict-prefix divergence, where the extra
+step exists on one side alone, keeps a scalar value.
 """
 
 from __future__ import annotations
@@ -36,6 +46,7 @@ from typing import Any, Iterable, Mapping, Sequence
 #: form the right steps" and "did it call the right tool correctly" -- into
 #: ``route``/``retrieve``, and makes an L1=``tool`` finding inexpressible here.
 VOCABULARY = "triage-l1-9"
+_ARTIFACT_SCHEMA = "normalized-harness-trace-2"
 STEPS = (
     "configure",
     "intent",
@@ -61,6 +72,10 @@ _SAFE_TIMESTAMP_TEXT = re.compile(
 )
 _TOKEN_LIKE = re.compile(r"(?i)(?:^sk-|^gh[pousr]_|^xox[a-z]-|^eyJ|^[^.\s]+\.[^.\s]+\.[^.\s]+$)")
 _ABSOLUTE_PATH = re.compile(r"(?:^|[\s=(])(?:/Users/|/home/|/tmp/|/var/|[A-Za-z]:[\\/])")
+#: ``C:/...`` / ``C:\...`` -- drive-qualified, i.e. a path, not an identity.
+#: Used only by :func:`_safe_case_id`; ``_ABSOLUTE_PATH`` needs a leading
+#: boundary and so misses a drive letter at position 0.
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
 _SECRET = re.compile(
     r"(?i)(?:api[_-]?key|token|cookie|authorization|bearer|jwt|secret|password)"
     r"\s*[:=]\s*[^\s,;]+"
@@ -75,6 +90,21 @@ _CODEX_OBSERVE_TERMS = (
     "tool_output",
     "tool_result",
 )
+_CODEX_REQUEST_TERMS = ("function_call", "command", "mcp", "tool")
+
+# Value domains for *our own* artifact, used when an artifact is fed back in via
+# ``--compare``.  Reuse skips the mapper, so it also skips the mapper's
+# sanitizers; without these the artifact path is a hole in the redaction
+# guarantee documented in ``docs/trace-profile.md`` §6.  These are producer
+# contracts, not guesses: each value below is one the mapper can actually emit.
+_PROVENANCES = ("native", "normalized", "unmapped")
+_EVENT_ROLES = ("control", "tool", "generation", "unknown")
+_SOURCE_KINDS = tuple(kind for kind in KINDS if kind != "auto")
+#: ``source_event_id`` may be a ``case_id:id`` composite truncated to 100 chars,
+#: so it is wider than :data:`_SAFE_TOKEN` -- but not less strict per character.
+_ARTIFACT_EVENT_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,100}$")
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+_MAX_SUMMARY = 240
 
 
 @dataclass(frozen=True)
@@ -85,9 +115,25 @@ class NormalizedEvent:
     native_or_normalized: str
     source_event_id: str
     source_event_type: str
+    correlation_id: str | None
     event_role: str
     timestamp: str | int | float | None
     summary: str
+
+
+@dataclass(frozen=True)
+class FirstDivergence:
+    """One divergence, carrying *both* sides.
+
+    A single scalar cannot describe a mismatch: ``route`` vs ``tool`` at the same
+    ordinal is one event with two step values.  Returning only the left one made
+    the answer depend on which file was passed first.
+    """
+
+    ordinal: int
+    relation: str
+    left_step: str | None
+    right_step: str | None
 
 
 @dataclass(frozen=True)
@@ -95,11 +141,46 @@ class ComparisonResult:
     pre_divergence_equivalence: str
     first_divergence_step: str | None
     evidence: tuple[str, ...]
+    first_divergence: FirstDivergence | None = None
 
 
 def _string_token(value: object, *, fallback: str = "unknown") -> str:
     text = str(value or "").strip()
     return text if _SAFE_TOKEN.fullmatch(text) and not _TOKEN_LIKE.search(text) else fallback
+
+
+def _safe_case_id(value: object) -> str | None:
+    """Accept a hierarchical id (``suite/case-01``); reject path *shape*.
+
+    ``_SAFE_TOKEN`` answers "which characters were used" and cannot answer
+    "is this combination safe": ``../../etc/passwd`` satisfies it in full.  The
+    case id is concatenated into ``source_event_id``, so a traversal shape would
+    propagate into logs, path-like storage, and downstream parsers.
+
+    Deliberately *not* fixed by tightening ``_SAFE_TOKEN``: ``source_event_id``
+    and other fields use ``/`` and ``:`` legitimately, so a global character ban
+    would break them while still not answering the structural question.
+
+    Returns the canonical id, or ``None`` when it is unusable.  Callers differ on
+    what to do with ``None``: the raw mapper degrades to ``None`` (tolerant, as
+    with every other raw field), while the artifact validator raises, because an
+    artifact *claims* to already satisfy this contract.
+    """
+
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or not _SAFE_TOKEN.fullmatch(text) or not _clean_text(text):
+        return None
+    # Absolute, drive-qualified, or backslash-separated: all path shape, never a
+    # case identity.  (Backslash also fails `_SAFE_TOKEN`; checked here anyway so
+    # the structural contract does not silently depend on that character list.)
+    if text.startswith("/") or "\\" in text or _WINDOWS_DRIVE.match(text):
+        return None
+    # `.`/`..` segments traverse; an empty segment means `//`.
+    if any(segment in ("", ".", "..") for segment in text.split("/")):
+        return None
+    return text
 
 
 def _safe_timestamp(value: object) -> str | int | float | None:
@@ -128,6 +209,11 @@ def _event_timestamp(record: Mapping[str, Any]) -> str | int | float | None:
     for key in ("timestamp", "created_at", "started_at", "finished_at", "time"):
         if key in record:
             return _safe_timestamp(record[key])
+    payload = record.get("payload")
+    if isinstance(payload, Mapping):
+        for key in ("timestamp", "created_at", "started_at", "finished_at", "time"):
+            if key in payload:
+                return _safe_timestamp(payload[key])
     return None
 
 
@@ -203,7 +289,7 @@ def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
         return "intent", "normalized", "control"
     if any(term in joined for term in _CODEX_OBSERVE_TERMS):
         return "observe", "normalized", "control"
-    if any(term in joined for term in ("function_call", "command", "mcp", "tool")):
+    if any(term in joined for term in _CODEX_REQUEST_TERMS):
         return "tool", "normalized", "tool"
     if any(term in joined for term in ("message", "reasoning", "output_text", "generation")):
         return "synthesize", "normalized", "generation"
@@ -244,6 +330,8 @@ _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     "branch_failed": ("observe", "control"),
     "repair_outcome": ("observe", "control"),
     "invalid_action": ("observe", "control"),
+    # settlement of a finished call that spent more than the ledger could pay
+    "root_budget_overdraft": ("observe", "control"),
     # answer construction
     "finalization": ("synthesize", "generation"),
     "finalization_recovery_started": ("synthesize", "generation"),
@@ -274,6 +362,51 @@ def _mapping(record: Mapping[str, Any], kind: str) -> tuple[str, str, str] | Non
     return _workbench_mapping(record) or _codex_mapping(record) or _benchmark_mapping(record)
 
 
+def _source_event_type(record: Mapping[str, Any], kind: str) -> str:
+    if kind in {"codex-rollout", "codex-exec"}:
+        item = record.get("item")
+        if isinstance(item, Mapping):
+            item_type = item.get("type")
+            if isinstance(item_type, str) and item_type.strip():
+                return _string_token(item_type)
+    return _string_token(_record_type(record))
+
+
+def _safe_correlation_id(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or not _SAFE_TOKEN.fullmatch(text) or not _clean_text(text):
+        return None
+    return text
+
+
+def _event_correlation_id(
+    record: Mapping[str, Any],
+    kind: str,
+) -> str | None:
+    sources: list[Mapping[str, Any]] = [record]
+    item = record.get("item")
+    if isinstance(item, Mapping):
+        sources.append(item)
+    payload = record.get("payload")
+    if isinstance(payload, Mapping):
+        sources.append(payload)
+
+    if kind == "runtime-benchmark":
+        keys = ("request_id",)
+    elif kind in {"codex-rollout", "codex-exec"}:
+        keys = ("call_id", "tool_call_id")
+    else:
+        return None
+    for source in sources:
+        for key in keys:
+            correlation_id = _safe_correlation_id(source.get(key))
+            if correlation_id is not None:
+                return correlation_id
+    return None
+
+
 def _summary(record: Mapping[str, Any], kind: str, mapping: tuple[str, str, str] | None) -> str:
     source_type = _string_token(_record_type(record))
     status = _status(record)
@@ -298,9 +431,11 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
     for index, record in enumerate(records):
         mapping = _mapping(record, kind)
         step, provenance, role = mapping if mapping else ("unmapped", "unmapped", "unknown")
-        source_type = _string_token(_record_type(record))
-        raw_case_id = str(record.get("case_id") or "").strip()
-        case_id = raw_case_id if _SAFE_TOKEN.fullmatch(raw_case_id) else None
+        source_type = _source_event_type(record, kind)
+        # Structural check, not just a character whitelist: the id is
+        # concatenated into `source_event_id` below, so a traversal shape would
+        # travel with it.  Raw input degrades to None like every other field.
+        case_id = _safe_case_id(record.get("case_id"))
         source_id = _string_token(
             record.get("step_id")
             or record.get("id")
@@ -318,12 +453,67 @@ def normalize_records(records: Sequence[Mapping[str, Any]], *, kind: str) -> lis
                 native_or_normalized=provenance,
                 source_event_id=source_id,
                 source_event_type=source_type,
+                correlation_id=_event_correlation_id(record, kind),
                 event_role=role,
                 timestamp=_event_timestamp(record),
                 summary=_summary(record, kind, mapping),
             )
         )
     return normalized
+
+
+def _tool_pairing_role(event: NormalizedEvent, *, kind: str) -> str | None:
+    source_type = event.source_event_type.lower()
+    if kind == "runtime-benchmark":
+        if source_type in {"tool_request", "tool_call"}:
+            return "request"
+        if source_type in {"tool_result", "tool_error"}:
+            return "response"
+        return None
+    if kind in {"codex-rollout", "codex-exec"}:
+        if any(term in source_type for term in _CODEX_OBSERVE_TERMS):
+            return "response"
+        if any(term in source_type for term in _CODEX_REQUEST_TERMS):
+            return "request"
+    return None
+
+
+def _count_unpaired_tool_requests(
+    events: Sequence[NormalizedEvent],
+    *,
+    kind: str,
+) -> int | None:
+    """Count visible requests when the source kind exposes pairing semantics."""
+
+    if kind == "workbench-trace":
+        return None
+
+    pending_by_identity: dict[tuple[str | None, str], int] = {}
+    legacy_pending_by_case: dict[str | None, int] = {}
+    for event in events:
+        case_id = event.case_id
+        role = _tool_pairing_role(event, kind=kind)
+        if role == "request":
+            if event.correlation_id is None:
+                legacy_pending_by_case[case_id] = (
+                    legacy_pending_by_case.get(case_id, 0) + 1
+                )
+            else:
+                key = (case_id, event.correlation_id)
+                pending_by_identity[key] = pending_by_identity.get(key, 0) + 1
+        elif role == "response":
+            if event.correlation_id is None:
+                pending = legacy_pending_by_case.get(case_id, 0)
+                if pending > 0:
+                    legacy_pending_by_case[case_id] = pending - 1
+            else:
+                key = (case_id, event.correlation_id)
+                pending = pending_by_identity.get(key, 0)
+                if pending > 0:
+                    pending_by_identity[key] = pending - 1
+    return sum(pending_by_identity.values()) + sum(
+        legacy_pending_by_case.values()
+    )
 
 
 def compare_sequences(
@@ -338,31 +528,44 @@ def compare_sequences(
             "not_established",
             None,
             ("one side has no mapped semantic events",),
+            None,
         )
     for index, (left_step, right_step) in enumerate(zip(left_steps, right_steps)):
         if left_step != right_step:
+            # Both step values matter and neither is "the" divergence step, so
+            # the scalar stays null; swapping the inputs only swaps the two
+            # named fields.
             return ComparisonResult(
                 "equivalent_before_divergence" if index else "not_established",
-                left_step,
+                None,
                 (f"left={left_step}", f"right={right_step}", f"ordinal={index}"),
+                FirstDivergence(index, "step_mismatch", left_step, right_step),
             )
     if len(left_steps) != len(right_steps):
-        # One side is a strict prefix of the other.  The first divergence is the
-        # extra step on the longer side; indexing the shorter side here would
-        # walk off the end.
+        # One side is a strict prefix of the other.  Here the extra step exists
+        # on exactly one side, so the scalar is unambiguous and is kept.
         common = min(len(left_steps), len(right_steps))
-        longer_side = "left" if len(left_steps) > len(right_steps) else "right"
-        longer = left_steps if longer_side == "left" else right_steps
+        left_longer = len(left_steps) > len(right_steps)
+        longer = left_steps if left_longer else right_steps
+        extra = longer[common]
         return ComparisonResult(
             "equivalent_before_divergence",
-            longer[common],
+            extra,
             (
                 f"mapped event counts differ: left={len(left_steps)} right={len(right_steps)}",
-                f"continues_on={longer_side}",
+                f"continues_on={'left' if left_longer else 'right'}",
                 f"ordinal={common}",
             ),
+            FirstDivergence(
+                common,
+                "left_continues" if left_longer else "right_continues",
+                extra if left_longer else None,
+                None if left_longer else extra,
+            ),
         )
-    return ComparisonResult("fully_equivalent", None, ("mapped step sequence matches",))
+    return ComparisonResult(
+        "fully_equivalent", None, ("mapped step sequence matches",), None
+    )
 
 
 def _load_records(path: Path) -> tuple[list[Mapping[str, Any]], str]:
@@ -421,18 +624,298 @@ def _infer_kind(path: Path, records: Sequence[Mapping[str, Any]]) -> str:
     return "codex-exec"
 
 
+class NormalizedArtifactError(ValueError):
+    """Raised when an input looks like our own artifact but cannot be reused.
+
+    Failing loudly is the point.  A v1 artifact silently re-fed through the raw
+    mapper yields ``mapped=0`` on both sides and a ``null`` verdict that reads
+    like "no divergence found" instead of "this input was never compared".
+    """
+
+
+def _declared_count_repr(value: object) -> str:
+    if value is None or isinstance(value, (bool, int)):
+        return repr(value)
+    return f"<{type(value).__name__}>"
+
+
+def _reject(index: int, field: str, value: object, reason: str) -> NormalizedArtifactError:
+    # The offending value is summarized by type and length, never echoed: a
+    # rejected `summary` is exactly the case where it may carry a credential.
+    shape = f"{type(value).__name__}"
+    if isinstance(value, str):
+        shape += f"[len={len(value)}]"
+    return NormalizedArtifactError(f"events[{index}].{field} {reason} (got {shape})")
+
+
+def _clean_text(value: str) -> bool:
+    """No credential, absolute path, or token-shaped text.
+
+    The mapper runs every string through :func:`_safe_summary` /
+    :func:`_string_token`, so a value failing this check cannot have been
+    produced by this module.  Rejecting is therefore both a redaction guarantee
+    and evidence that the artifact is not ours -- silently re-redacting here
+    would instead launder a tampered artifact into a clean-looking one.
+    """
+
+    return not (_SECRET.search(value) or _ABSOLUTE_PATH.search(value) or _TOKEN_LIKE.search(value))
+
+
+def _event_from_artifact(raw: object, index: int) -> NormalizedEvent:
+    """Validate one event of our own artifact, field by field.
+
+    Reuse bypasses the mapper, hence also its type coercion and sanitizers.
+    Checking only presence and the ``step`` enum (as this did before) accepted
+    ``sequence="not-an-int"``, a dict ``timestamp``, and a ``summary`` carrying
+    ``authorization: ...`` plus an absolute path -- violating both the dataclass
+    types and the redaction guarantee in ``docs/trace-profile.md`` §6.
+    """
+
+    if not isinstance(raw, Mapping):
+        raise NormalizedArtifactError(f"events[{index}] is not an object")
+    expected = set(NormalizedEvent.__dataclass_fields__)
+    optional = {"correlation_id"}
+    missing = sorted(expected - optional - set(raw))
+    if missing:
+        raise NormalizedArtifactError(f"events[{index}] is missing {missing}")
+    unexpected = sorted(set(raw) - expected)
+    if unexpected:
+        # `schema_version` gates evolution; unknown keys mean a foreign schema
+        # rather than a newer one, and dropping them silently hides that.
+        raise NormalizedArtifactError(f"events[{index}] has unexpected keys {unexpected}")
+
+    sequence = raw["sequence"]
+    if isinstance(sequence, bool) or not isinstance(sequence, int):
+        raise _reject(index, "sequence", sequence, "must be an int")
+    if sequence != index:
+        # The mapper numbers events by position, so a mismatch means events were
+        # reordered or dropped -- which would silently shift every ordinal in the
+        # divergence verdict.
+        raise _reject(index, "sequence", sequence, f"must equal its position {index}")
+
+    case_id = raw["case_id"]
+    # Same structural contract as the raw mapper, opposite failure mode: the raw
+    # mapper degrades an unusable id to None, but an artifact *claims* to already
+    # satisfy this contract, so a violation means it is not ours.
+    if case_id is not None and _safe_case_id(case_id) != case_id:
+        raise _reject(index, "case_id", case_id, "must be null or a non-traversing id")
+
+    step = raw["step"]
+    if step != "unmapped" and step not in STEPS:
+        raise NormalizedArtifactError(
+            f"events[{index}] has step={step!r} outside {VOCABULARY}"
+        )
+
+    provenance = raw["native_or_normalized"]
+    if provenance not in _PROVENANCES:
+        raise _reject(index, "native_or_normalized", provenance, f"must be one of {_PROVENANCES}")
+    if (step == "unmapped") != (provenance == "unmapped"):
+        # `unmapped` is a pair, not two independent flags: a mapped step with
+        # `unmapped` provenance (or the reverse) would let an unmapped event be
+        # counted as semantic evidence.
+        raise NormalizedArtifactError(
+            f"events[{index}] pairs step={step!r} with "
+            f"native_or_normalized={provenance!r}; both must be 'unmapped' or neither"
+        )
+
+    source_id = raw["source_event_id"]
+    if not (
+        isinstance(source_id, str)
+        and _ARTIFACT_EVENT_ID.fullmatch(source_id)
+        and _clean_text(source_id)
+    ):
+        raise _reject(index, "source_event_id", source_id, "must be a safe id")
+
+    source_type = raw["source_event_type"]
+    if not (
+        isinstance(source_type, str)
+        and _SAFE_TOKEN.fullmatch(source_type)
+        and _clean_text(source_type)
+    ):
+        raise _reject(index, "source_event_type", source_type, "must be a safe token")
+
+    correlation_id = raw.get("correlation_id")
+    if (
+        correlation_id is not None
+        and _safe_correlation_id(correlation_id) != correlation_id
+    ):
+        raise _reject(
+            index,
+            "correlation_id",
+            correlation_id,
+            "must be null or a safe token",
+        )
+
+    role = raw["event_role"]
+    if role not in _EVENT_ROLES:
+        raise _reject(index, "event_role", role, f"must be one of {_EVENT_ROLES}")
+
+    timestamp = raw["timestamp"]
+    if timestamp is not None:
+        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float, str)):
+            raise _reject(index, "timestamp", timestamp, "must be null, a number, or a string")
+        if isinstance(timestamp, str) and not (
+            len(timestamp) <= 64
+            and _SAFE_TIMESTAMP_TEXT.fullmatch(timestamp)
+            and _clean_text(timestamp)
+        ):
+            raise _reject(index, "timestamp", timestamp, "must be an ISO-8601 instant")
+
+    summary = raw["summary"]
+    if not isinstance(summary, str):
+        raise _reject(index, "summary", summary, "must be a string")
+    if len(summary) > _MAX_SUMMARY:
+        raise _reject(index, "summary", summary, f"must be at most {_MAX_SUMMARY} chars")
+    if not _clean_text(summary):
+        raise _reject(
+            index, "summary", summary, "carries a credential, absolute path, or token"
+        )
+
+    fields = {key: raw[key] for key in expected if key in raw}
+    fields.setdefault("correlation_id", None)
+    return NormalizedEvent(**fields)
+
+
+def _load_normalized_artifact(
+    path: Path,
+) -> tuple[dict[str, Any], list[NormalizedEvent]] | None:
+    """Reuse our own single-input artifact, or return ``None`` for raw input.
+
+    Detection uses this artifact's own marker fields, not a bare
+    ``schema_version``: raw benchmark artifacts also carry their independent
+    integer schema version.  Once the marker set matches, accept after full
+    validation or reject with a reason -- never quietly re-map a malformed
+    normalized artifact as raw harness trace.
+    """
+
+    if path.suffix.lower() == ".jsonl":
+        return None
+    try:
+        value = json.loads(path.read_bytes().decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, Mapping):
+        return None
+    claims_normalized_schema = "vocabulary" in value or all(
+        key in value for key in ("source_kind", "input_sha256", "events")
+    )
+    if not claims_normalized_schema:
+        return None
+
+    schema = value.get("schema_version")
+    if schema != _ARTIFACT_SCHEMA:
+        raise NormalizedArtifactError(
+            f"schema_version={schema!r} cannot be compared against "
+            f"{_ARTIFACT_SCHEMA!r}; re-normalize the original trace"
+        )
+    vocabulary = value.get("vocabulary")
+    if vocabulary != VOCABULARY:
+        raise NormalizedArtifactError(
+            f"vocabulary={vocabulary!r} is not {VOCABULARY!r}; "
+            "step values are not comparable"
+        )
+    if "comparison" in value:
+        raise NormalizedArtifactError(
+            "this is a --compare output, not one side; pass the single-input artifacts"
+        )
+    events_raw = value.get("events")
+    if not isinstance(events_raw, list):
+        raise NormalizedArtifactError("events is missing or not a list")
+
+    # `source_kind` and `input_sha256` are the provenance of the comparison
+    # verdict.  Coercing them through `_string_token` (as this did) turned a
+    # tampered or foreign value into `unknown` and kept going -- the artifact
+    # then looked well-formed while naming no original trace at all.
+    source_kind = value.get("source_kind")
+    if source_kind not in _SOURCE_KINDS:
+        raise NormalizedArtifactError(
+            f"source_kind={source_kind!r} is not one of {_SOURCE_KINDS}"
+        )
+    digest = value.get("input_sha256")
+    if not (isinstance(digest, str) and _SHA256_HEX.fullmatch(digest)):
+        raise NormalizedArtifactError(
+            "input_sha256 must be 64 lowercase hex chars naming the original "
+            f"trace (got {type(digest).__name__})"
+        )
+    source_file = value.get("source_file")
+    if not (
+        isinstance(source_file, str)
+        and _SAFE_TOKEN.fullmatch(source_file)
+        and _clean_text(source_file)
+    ):
+        raise NormalizedArtifactError(
+            f"source_file must be a safe token (got {type(source_file).__name__})"
+        )
+
+    events = [_event_from_artifact(item, index) for index, item in enumerate(events_raw)]
+    unmapped_count = sum(event.step == "unmapped" for event in events)
+    unpaired_tool_requests = _count_unpaired_tool_requests(
+        events,
+        kind=source_kind,
+    )
+    # These counts are derived, so a disagreement means the events were edited
+    # after the fact.  A missing pairing count is allowed for older v2 output
+    # and is recomputed; an explicitly declared value must match its derived
+    # int-or-null value.
+    derived_counts = (
+        ("event_count", len(events)),
+        ("unmapped_count", unmapped_count),
+        ("unpaired_tool_requests", unpaired_tool_requests),
+    )
+    for field, actual in derived_counts:
+        if field not in value:
+            continue
+        declared = value[field]
+        if actual is None:
+            mismatch = declared is not None
+        else:
+            mismatch = (
+                isinstance(declared, bool)
+                or not isinstance(declared, int)
+                or declared != actual
+            )
+        if mismatch:
+            raise NormalizedArtifactError(
+                f"{field}={_declared_count_repr(declared)} disagrees with "
+                f"recomputed {actual!r}; "
+                "the artifact was modified after it was written"
+            )
+    payload = {
+        "schema_version": _ARTIFACT_SCHEMA,
+        "vocabulary": VOCABULARY,
+        "source_kind": source_kind,
+        "source_file": source_file,
+        # The artifact's own hash names the *original* trace.  Re-hashing the
+        # artifact file would break provenance back to the raw input.
+        "input_sha256": digest,
+        "event_count": len(events),
+        "unmapped_count": unmapped_count,
+        "unpaired_tool_requests": unpaired_tool_requests,
+        "events": [asdict(event) for event in events],
+        "reused_normalized_artifact": True,
+    }
+    return payload, events
+
+
 def _build_side(path: Path, kind: str) -> tuple[dict[str, Any], list[NormalizedEvent]]:
+    reused = _load_normalized_artifact(path)
+    if reused is not None:
+        return reused
     records, digest = _load_records(path)
     resolved_kind = _infer_kind(path, records) if kind == "auto" else kind
     events = normalize_records(records, kind=resolved_kind)
     payload = {
-        "schema_version": "normalized-harness-trace-2",
+        "schema_version": _ARTIFACT_SCHEMA,
         "vocabulary": VOCABULARY,
         "source_kind": resolved_kind,
         "source_file": _string_token(path.name, fallback="source-redacted"),
         "input_sha256": digest,
         "event_count": len(events),
         "unmapped_count": sum(event.step == "unmapped" for event in events),
+        "unpaired_tool_requests": _count_unpaired_tool_requests(
+            events,
+            kind=resolved_kind,
+        ),
         "events": [asdict(event) for event in events],
     }
     return payload, events
@@ -479,6 +962,16 @@ def _build_comparison_output(
         )
     if mapped["left"] == 0 or mapped["right"] == 0:
         caveats.append("one side has no mapped semantic events: no comparison is possible")
+    if (
+        result.first_divergence is not None
+        and result.first_divergence.relation == "step_mismatch"
+    ):
+        caveats.append(
+            "first_divergence.relation=step_mismatch: the divergence has a step on "
+            "each side, so first_divergence_step is null by contract; read "
+            "first_divergence.left_step / right_step and do not collapse them into "
+            "a single L1 value"
+        )
 
     return {
         "schema_version": "normalized-harness-trace-2",
@@ -486,6 +979,11 @@ def _build_comparison_output(
         "comparison": {
             "pre_divergence_equivalence": result.pre_divergence_equivalence,
             "first_divergence_step": result.first_divergence_step,
+            "first_divergence": (
+                asdict(result.first_divergence)
+                if result.first_divergence is not None
+                else None
+            ),
             "evidence": list(result.evidence),
             "mapped_event_counts": mapped,
             "unmapped_counts": unmapped,

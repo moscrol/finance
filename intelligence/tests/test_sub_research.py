@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date
 from contextvars import ContextVar
-from threading import Lock
+from threading import Barrier, Lock, Thread
 import json
 
 import pytest
@@ -29,6 +29,7 @@ from intelligence.services.sub_research import (
     BranchResult,
     BranchRequest,
     SubResearchCoordinator,
+    _BranchBudgetView,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -393,3 +394,97 @@ def test_branch_usage_comes_from_child_budget_not_worker_claims() -> None:
     )
 
     assert result.tool_calls == 0
+
+
+def test_branch_view_settles_concurrent_seconds_without_losing_a_debit() -> None:
+    """Two settlements racing for the last of a branch's share must both land.
+
+    Without clamping inside the view's own lock, both callers read the same
+    ``remaining_seconds``, both pass the check, and the second debit either
+    over-draws the parent or raises and gets dropped.
+    """
+
+    parent = InMemoryRootBudgetLedger(
+        episode_id="branch-settle-race",
+        initial_calls=4,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=10.0,
+    )
+    view = _BranchBudgetView(
+        parent=parent,
+        episode_id="branch-settle-race:branch-0",
+        calls=2,
+        seconds=1.0,
+    )
+    # Each settlement claims most of the branch share, so one must be clamped.
+    requested_each = 0.9
+    start = Barrier(2, timeout=10.0)
+    settled: list[float] = []
+    settled_lock = Lock()
+    errors: list[BaseException] = []
+
+    def settle() -> None:
+        try:
+            start.wait()
+            amount = view.settle_seconds(seconds=requested_each)
+            with settled_lock:
+                settled.append(amount)
+        except BaseException as exc:  # pragma: no cover - surfaced via assert
+            errors.append(exc)
+
+    threads = [Thread(target=settle) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=15.0)
+        assert not thread.is_alive()
+
+    assert errors == []
+    # The branch cannot pay out more than its own share...
+    assert sum(settled) == pytest.approx(view.initial_seconds)
+    assert view.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+    # ...and every second the branch reported must have left the parent too,
+    # which is the invariant a lost debit would break.
+    assert parent.initial_seconds - parent.remaining_seconds == pytest.approx(
+        sum(settled)
+    )
+    assert sorted(settled) == [
+        pytest.approx(view.initial_seconds - requested_each),
+        pytest.approx(requested_each),
+    ]
+
+
+def test_branch_view_settlement_follows_the_parent_not_its_own_clamp() -> None:
+    """When the root has less than the branch thinks, the root's answer wins.
+
+    The branch share is carved out up front, so a parent drained by a sibling
+    can release less than this view would locally allow. Deducting the local
+    clamp instead of the parent's return value would credit the branch with
+    seconds the root never gave up.
+    """
+
+    parent = InMemoryRootBudgetLedger(
+        episode_id="branch-parent-clamp",
+        initial_calls=4,
+        hard_calls_cap=4,
+        initial_seconds=5.0,
+        hard_seconds_cap=5.0,
+    )
+    view = _BranchBudgetView(
+        parent=parent,
+        episode_id="branch-parent-clamp:branch-0",
+        calls=2,
+        seconds=4.0,
+    )
+    # A sibling drains the root below this branch's remaining share.
+    parent.consume_seconds(seconds=4.5)
+    assert parent.remaining_seconds == pytest.approx(0.5)
+
+    settled = view.settle_seconds(seconds=3.0)
+
+    # The parent only had 0.5 left, so that -- not the locally clamped 3.0 --
+    # is what was spent and what the branch balance drops by.
+    assert settled == pytest.approx(0.5)
+    assert parent.remaining_seconds == pytest.approx(0.0, abs=1e-9)
+    assert view.remaining_seconds == pytest.approx(3.5)

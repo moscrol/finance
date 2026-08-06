@@ -79,6 +79,15 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
         "stable",
         frozenset({"supporting_evidence"}),
     ),
+    "memory_lookup": (
+        "memory_lookup",
+        "用户自己过去的判断与纠偏原则（历史先验，不是市场事实）",
+        "stable",
+        # 有意留空：produces 词表里的 id 全是市场事实类产出，而本工具按定义只回
+        # 历史先验。没有 episode 证据支持它 fulfill 过任何一项，按 fail-open
+        # 约定空集只让它退出预检（漏抓），不会误拦。将来实测到再补。
+        frozenset(),
+    ),
     "l3_lookup": (
         "l3_lookup",
         "官方公告与互动证据",
