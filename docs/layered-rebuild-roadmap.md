@@ -61,7 +61,7 @@ Phase 3  引擎收敛        ← 数据驱动，最后做
 
 | # | 缺口 | 实测证据 | 优先级依据 |
 |---|---|---|---|
-| 1 | **上下文压缩零实现** | 全树 grep `compact/trim/summariz/prune/evict` 无命中；`agent_episode.py` 的 `messages` 只 `.append()`；工具观察全量 `json.dumps` 无上限 | 唯一**正在积累**的风险。但已见 124K token 仍返 200（lifecycle handoff P1-3 明确排除了它作为 HTTP 400 的原因），所以**不是正在出血** |
+| 1 | **上下文压缩零实现** | 全树 grep `compact/trim/summariz/prune/evict` 无命中；`agent_episode.py` 的 `messages` 只 `.append()`；工具观察全量 `json.dumps` 无上限。**观测部分已补，见下** | 唯一**正在积累**的风险。但已见 124K token 仍返 200（lifecycle handoff P1-3 明确排除了它作为 HTTP 400 的原因），所以**不是正在出血** |
 | 2 | **`memory_lookup` 结构性不可达** | 三个授权源（`_RUNTIME_CAPABILITY_FLOOR` 20 条策略、`_PLAN_CAPABILITY_TO_RUNTIME` 10 条映射、`conversation_orchestrator` 9 个分支）全部无它；唯一授权处是 `test_episode_tools.py:1956` | 能力图谱记 12 个工具，生产只够得着 9 个，而 `graph_audit` 照常 exit 0 |
 | 3 | **系统提示词结构** | `build_episode_instructions` 渲染后 1,601 字符 / **4 个换行** / 最长无换行段 **1,501 字符** / 24 条约束平铺 | 零行为风险的改动，但必须**只改形状不改字**，否则分不清收益来自结构还是内容 |
 | 4 | **fulfillment 判定不进 trace** | 实测 0/305。**根因已纠正，见下** | 前三件改完都需要它来对账 |
@@ -110,11 +110,41 @@ Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——�
   报成覆盖失败。全 uncheckable 时 `marker_coverage` 给 `None` 而非 `"complete"`
   ——那正是 `answer_status` 现在的毛病。
 
-### Phase 1 的通用纪律：先量后改
+### 第 1 项的根因纠正 + 阶段 1 已交付（`2026-08-07`）
 
-第 1 项尤其。现在连「每轮上下文多大、分布如何、离上限多远」都没有数字。
-**阶段 1 只加观测**（token 数进 trace/EpisodeEvent，跑一批真实题拿 P50/P95/max），
-**阶段 2 才动策略**（单条工具观察截断 + 完整性元数据）。
+原表述「连数字都没有」不准确。**实测：token 一直在收，但收法有两层问题。**
+
+1. **聚合方式无物理含义。** `agent_episode._token_usage_from_events` 把各轮
+   `input_tokens` 相加。agent loop 每轮重发全部历史，所以轮 1 的 30K + 轮 2 的
+   45K = 75K —— 既不是上下文大小（那是最后一���的 45K），也不是 token 账单。
+   回答「离窗口上限还有多远」的是**单轮最大值**，回答「还在不在长」的是
+   **逐轮序列**，两个都被加法抹掉了。
+2. **不进 trace。** `2026-08-02` 那个 18 步 research run 的 trace.jsonl 全部 18 步
+   零 token 信息；token 只在私有 artifact `continuous-episode.json` 里，且是累加和。
+
+**可观测性按 backend 不同，这是结构属性不是缺陷：**
+
+| backend | loop 在哪 | 逐轮 token |
+|---|---|---|
+| `continuous_glm` | `agent_episode` 自己的 provider 循环 | **精确**（每轮一个 `model_turn` 事件） |
+| `sdk_glm` / `sdk_gpt` | 交给 OpenAI Agents SDK | **拿不到**。适配器边界只看得到 `result.context_wrapper.usage`，而那个对象已经把 SDK 内部多轮加总了（`usage.requests` 可 > 1） |
+
+`2026-08-02` 那批 run 全是 `runtime_backend=sdk_gpt`，`model_turn` 事件 0 个——
+这解释了为什么逐轮数据「看起来不存在」。
+
+**本轮交付（只加观测）**：`services/context_growth.summarize_context_growth`
+（纯变换，两个 backend 共用），结果进 trace 步 `context_growth` 与
+`report["context_growth"]`。
+
+关键设计约束，由测试锁住：**`provenance` 是一等字段**，取
+`per_turn` / `run_aggregated` / `unavailable`。sdk 路径**不猜 `max_turn_input_tokens`**
+（真值在均值与总和之间，SDK 不说在哪），只给 `mean_turn_input_tokens` 并标
+`run_aggregated`。把两者糊成一个数会让粗粒度 backend 看起来和精确的一样——
+和「把没有 marker 词表报成答案漏写」是同一种错：仪表盲区被读成发现。
+
+**阶段 2 才动策略**（单条工具观察截断 + 完整性元数据），需要先跑一批真实题拿
+`max_turn_input_tokens` 的 P50/P95/max 分布。⚠️ 那批题必须走
+`continuous_glm`，否则拿到的全是 `run_aggregated`，定不出阈值。
 
 ⛔ **不做滑动窗口 / LLM 摘要压缩。** 它会引入「压缩时丢掉了会改变结论的状态」——
 最难查的一类 bug。压缩的红线是：**降噪 ≠ 静默丢证据**，任何压缩函数必须保留

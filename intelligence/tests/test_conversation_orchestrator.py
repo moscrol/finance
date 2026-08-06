@@ -1138,6 +1138,152 @@ def test_continuous_report_records_episode_llm_provider(tmp_path) -> None:
     }
 
 
+def _continuous_growth_report(tmp_path, query, private_artifact):
+    """Run one handled continuous turn and return its persisted report."""
+
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class GrowthAdapter:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="当前主线偏向资源方向接力，数据截至 2026-07-23。",
+                as_of="2026-07-23",
+                citations=(),
+                warnings=(),
+                private_artifact=private_artifact,
+                events=(),
+            )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_a, **_k: pytest.fail("must not enter legacy"),
+        route_skills_fn=lambda *_a, **_k: pytest.fail("must not route"),
+        lane_answer_fn=lambda *_a, **_k: pytest.fail("must not use lane"),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=GrowthAdapter(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    trace = {step["name"]: step for step in run_store.load_trace(run_id)}
+    return report, trace
+
+
+def test_continuous_records_per_turn_context_growth_for_own_loop(tmp_path) -> None:
+    # ``continuous_glm`` 走 agent_episode 自己的循环，每轮一个 model_turn 事件，
+    # 所以逐轮上下文大小是精确的。锁住 max 用的是单轮最大值而不是累加和——
+    # 累加和（30+45+60=135K）比真实窗口压力（60K）大一倍多。
+    report, trace = _continuous_growth_report(
+        tmp_path,
+        "目前市场的主线是什么",
+        {
+            "runtime_backend": "continuous_glm",
+            "events": [
+                {"kind": "task", "payload": {}},
+                {"kind": "model_turn", "payload": {"input_tokens": 30000}},
+                {"kind": "tool_result", "payload": {"input_tokens": 999}},
+                {"kind": "model_turn", "payload": {"input_tokens": 45000}},
+                {"kind": "model_turn", "payload": {"input_tokens": 60000}},
+            ],
+        },
+    )
+
+    growth = report["context_growth"]
+    assert growth["provenance"] == "per_turn"
+    assert growth["per_turn_input_tokens"] == [30000, 45000, 60000]
+    assert growth["max_turn_input_tokens"] == 60000
+    assert growth["cumulative_input_tokens"] == 135000
+    assert growth["growth_ratio"] == 2.0
+    assert growth["observation_only"] is True
+    # 观测必须自己进 trace，否则拿不到跨 run 的分布
+    assert json.loads(trace["context_growth"]["output_summary"]) == growth
+    # 只加观测：交付状态不受影响
+    assert report["answer_status"] == "complete"
+
+
+def test_continuous_marks_sdk_context_growth_as_run_aggregated(tmp_path) -> None:
+    # sdk_* 把循环交给 Agents SDK，适配器边界上只看得到 context_wrapper.usage，
+    # 而它已经把 SDK 内部多轮加总了（usage.requests 可以 > 1）。所以逐轮值
+    # 结构性不可得，必须标成 run_aggregated 并且 max 留 None——猜一个数会让
+    # 粗粒度 backend 看起来和精确 backend 一样。
+    report, trace = _continuous_growth_report(
+        tmp_path,
+        "这一周行情下跌的主要原因是什么",
+        {
+            "runtime_backend": "sdk_gpt",
+            "events": [
+                {"kind": "task", "payload": {}},
+                {
+                    "kind": "runtime_result",
+                    "payload": {
+                        "runtime": "sdk_gpt",
+                        "input_tokens": 120000,
+                        "provider_attempts": 3,
+                    },
+                },
+            ],
+        },
+    )
+
+    growth = report["context_growth"]
+    assert growth["provenance"] == "run_aggregated"
+    assert growth["per_turn_input_tokens"] is None
+    assert growth["max_turn_input_tokens"] is None
+    assert growth["cumulative_input_tokens"] == 120000
+    assert growth["turn_count"] == 3
+    assert growth["mean_turn_input_tokens"] == 40000
+    assert json.loads(trace["context_growth"]["output_summary"]) == growth
+
+
+def test_continuous_context_growth_is_unavailable_without_token_events(
+    tmp_path,
+) -> None:
+    # 实测 08-02 那批 sdk_gpt run 就是这个形状：runtime_result 在，但
+    # input_tokens 是 None。这时必须报 unavailable，不能因为「有 runtime_result
+    # 事件」就当成量到了 0。
+    report, _trace = _continuous_growth_report(
+        tmp_path,
+        "目前市场的主线是什么",
+        {
+            "runtime_backend": "sdk_gpt",
+            "events": [
+                {"kind": "task", "payload": {}},
+                {
+                    "kind": "runtime_result",
+                    "payload": {"runtime": "sdk_gpt", "input_tokens": None},
+                },
+                {"kind": "finish", "payload": {"status": "completed"}},
+            ],
+        },
+    )
+
+    growth = report["context_growth"]
+    assert growth["provenance"] == "unavailable"
+    assert growth["cumulative_input_tokens"] is None
+    assert growth["turn_count"] == 0
+
+
 def test_continuous_failed_turn_uses_same_message_and_run_identity(
     tmp_path,
 ) -> None:
