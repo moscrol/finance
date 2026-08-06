@@ -412,6 +412,8 @@ class AskResult:
     # P1 技能层：市场结构状态机（个股/题材共享）与题材生命周期诊断。
     market_state: market_structure.MarketStructureState | None = None
     theme_lifecycle: theme_lifecycle.ThemeLifecycleDiagnosis | None = None
+    # 当期「盘面 × 知识」四分类。None 表示本轮不适用或未完成共享检索。
+    market_match: dict[str, Any] | None = None
     # P2 技能层：事件冲击传导（news_impact）/ 证据缺口雷达 + 估值四问（个股深挖）。
     event_brief: event_transmission.EventTransmissionBrief | None = None
     gap_radar: evidence_gap_radar.GapRadarReport | None = None

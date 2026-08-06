@@ -44,6 +44,9 @@
 - 核验动作：区分送样、定点、订单和交付
 - 核验动作：比较公司证据硬度与盘面相对强弱
 - 对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）
+- 进入 front-map/deep-dive 验证发酵阶段与公司弹性。
+- 把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。
+- 优先补 source/raw trace，避免证据不可追溯。
 ### 运行约束（用于日期、问题规划和检索前置门，不是新增事实）
 ## 本轮任务边界
 - 类型：theme_analysis；深度：standard

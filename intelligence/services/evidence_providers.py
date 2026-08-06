@@ -124,6 +124,8 @@ class EvidenceContext:
     # 本轮题材的逻辑生命周期阶段（如「旧逻辑唤醒·沉睡后唤醒」）。None = 取不到
     # 快照历史，此时证据只按日期做中性标注，不再断言「过期」。
     lifecycle_stage: str | None = None
+    # 当期「盘面 × 知识」四分类；由 ask 在共享检索完成后计算一次。
+    market_match: dict[str, Any] | None = None
 
 
 @dataclass
@@ -150,6 +152,9 @@ class GraphEvidence:
 class EvidenceIndexBundle:
     lines: list[str] = field(default_factory=list)
     stale_notes: list[str] = field(default_factory=list)
+    # 本轮命中的原始 evidence_index 条目（去重后）。四分类要按「来源是否可追溯」
+    # 扣 confidence，复用它跑一次 check_source_trace，避免为算分重跑 KB 检索。
+    evidence_items: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _company_name_from_official_title(title: str) -> str | None:
@@ -556,6 +561,7 @@ def collect_evidence_index(
             if key in seen_evidence:
                 continue
             seen_evidence.add(key)
+            bundle.evidence_items.append(item)
             result.found_graph = True
             stale = ctx.is_stale(item)
             status = evidence_status(item)

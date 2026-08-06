@@ -208,6 +208,100 @@ def _score(market_found: bool, concept_count: int, exposure_count: int, evidence
     return max(0.05, min(0.95, round(score, 2)))
 
 
+# 四分类的中文表述。
+#
+# ⚠️ 这些文案会拼进 ask 的证据段，而证据行紧接着要过
+# ``research_brief.classify_evidence_line`` 做 L1-L4 分层：**文案里不得出现
+# ``research_brief._L4_TERMS`` 里的任何词**（涨停/新高/双红/边际量/成交/量能/
+# 相对强度/涨跌家数/MA5/盘面/信号/市场环境/容量前三/连板/强势股），否则这条知识
+# 证据会被误判成 L4 盘面证据，``audit.has_l4`` 翻 True，
+# ``build_counterevidence_plan`` 的反证从「盘面未验证」跳成「拥挤度」——纯文案改动
+# 穿过分类器改变风险结论。
+#
+# 「信号」正是 _L4_TERMS 成员，所以 noise 档取「未确认线索」而不是「待确认信号」；
+# 报表侧的 badge 文案（api/daily_reports、workbench_skills）不过分类器，保持原样。
+CLASSIFICATION_LABELS: dict[str, str] = {
+    LABEL_OLD_WAKEUP: "旧逻辑重新活跃",
+    LABEL_NEW_CANDIDATE: "新逻辑候选",
+    LABEL_DATA_GAP: "数据待补",
+    LABEL_NOISE: "未确认线索",
+}
+
+
+@dataclass
+class LogicMatchVerdict:
+    """一次「盘面 × 知识」四分类的裁定；不含检索结果本身。"""
+
+    classification: str
+    label: str
+    confidence: float
+    data_gaps: list[str] = field(default_factory=list)
+    next_actions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "classification": self.classification,
+            "label": self.label,
+            "confidence": self.confidence,
+            "data_gaps": self.data_gaps,
+            "next_actions": self.next_actions,
+        }
+
+
+def derive_data_gaps(
+    market_found: bool,
+    concept_count: int,
+    exposure_count: int,
+    evidence_count: int,
+    trace_missing: int = 0,
+) -> list[str]:
+    """由检索计数推出数据缺口；``match_logic_to_market`` 与 ask/agent 共用同一实现。"""
+    gaps: list[str] = []
+    if not market_found:
+        gaps.append("missing_market_signal")
+    if not concept_count:
+        gaps.append("missing_concept")
+    if not exposure_count:
+        gaps.append("missing_entity_exposure")
+    if not evidence_count:
+        gaps.append("missing_evidence")
+    if trace_missing:
+        gaps.append("missing_source_trace")
+    return gaps
+
+
+def classify_market_logic(
+    market_found: bool,
+    concept_count: int,
+    exposure_count: int,
+    evidence_count: int,
+    trace_missing: int = 0,
+) -> LogicMatchVerdict:
+    """用**已经算好的**检索计数做四分类，不再自己跑一遍 KB 检索。
+
+    这是 ask / agent 接入四分类的入口：两条路径已经各自检索过概念、暴露和证据，
+    再调 ``match_logic_to_market`` 会把同样的检索重跑一遍（而且它自带的
+    ``load_theme_candidates`` 会覆盖调用方已匹配到的 candidate）。判据仍归本模块
+    单点所有——``_classify`` / ``_score`` / ``_next_actions`` 三个函数是唯一实现，
+    调用方只传计数，不复制阈值。
+    """
+    gaps = derive_data_gaps(
+        market_found, concept_count, exposure_count, evidence_count, trace_missing
+    )
+    classification = _classify(
+        market_found, concept_count, exposure_count, evidence_count, gaps
+    )
+    return LogicMatchVerdict(
+        classification=classification,
+        label=CLASSIFICATION_LABELS.get(classification, classification),
+        confidence=_score(
+            market_found, concept_count, exposure_count, evidence_count, trace_missing
+        ),
+        data_gaps=gaps,
+        next_actions=_next_actions(classification, gaps),
+    )
+
+
 def _classify(market_found: bool, concept_count: int, exposure_count: int, evidence_count: int, gaps: list[str]) -> str:
     if market_found and concept_count and exposure_count and evidence_count:
         return LABEL_OLD_WAKEUP

@@ -270,6 +270,9 @@ class AgentSession:
         # 逻辑生命周期按题材算、整轮不变；用哨兵区分"没算过"和"算过但没有"
         self._lifecycle_stage: str | None = None
         self._lifecycle_resolved = False
+        # 盘面×知识四分类；同样按题材算、整轮不变、懒加载缓存。
+        self._market_match: dict[str, Any] | None = None
+        self._market_match_resolved = False
         self.citations: list[Citation] = []
         self.sources_used: set[str] = set()
         self._export_name: str | None = None
@@ -352,6 +355,13 @@ class AgentSession:
             )
         triggers = "、".join(candidate.get("trigger_types", []) or []) or "无盘面触发"
         lines.append(f"触发类型：{triggers}")
+        # 当期逻辑-知识对照（四分类），整轮只算一次；取不到时静默跳过。
+        match = self._market_match()
+        if match:
+            label = match.get("label", "")
+            conf = match.get("confidence", 0)
+            gaps = "、".join(str(g) for g in match.get("data_gaps") or []) or "无"
+            lines.append(f"逻辑-知识对照：{label}（置信 {conf}；缺口：{gaps}）")
         return "\n".join(lines)
 
     def tool_search_graph(self, query: str) -> str:
@@ -406,6 +416,49 @@ class AgentSession:
             )
             self._lifecycle_stage = _theme_lifecycle_stage(self.options, candidate)
         return self._lifecycle_stage
+
+    def _market_match(self) -> dict[str, Any] | None:
+        """当期「盘面×知识」四分类；懒加载并缓存，整轮只解析一次。
+
+        与 ask 路径共用 ``classify_market_logic``，判据仍归 ``logic_market_match``
+        单点所有——agent 只提供实际检索计数，不复制阈值。trace_missing 暂不算
+        （agent 无本轮 bundle，且按需查询不适合遍历 source；ask 侧已保障完整性）。
+        """
+        if not self._market_match_resolved:
+            self._market_match_resolved = True
+            try:
+                from intelligence.services.logic_market_match import classify_market_logic
+
+                loaded = load_theme_candidates(self.options.exports_dir, self.options.date)
+                candidate = (
+                    match_candidate(self.options.query, loaded.get("doc") or {})
+                    if loaded.get("found")
+                    else None
+                )
+                if candidate is None:
+                    return None
+                # agent 按需查询，用实际拿到的 items 计数。concept/exposure 直读知识库。
+                concepts = self.knowledge.get_concept_matches(
+                    self.options.query, limit=self.options.top_concepts
+                )
+                exposures = self.knowledge.get_exposure_matches(
+                    self.options.query, limit=self.options.top_companies
+                )
+                evidence = self.knowledge.get_evidence(
+                    self.options.query, limit=self.options.max_evidence
+                )
+                verdict = classify_market_logic(
+                    market_found=True,
+                    concept_count=len(concepts.get("items") or []),
+                    exposure_count=len(exposures.get("items") or []),
+                    evidence_count=len(evidence.get("items") or []),
+                    trace_missing=0,  # agent 按需查询不适合遍历 source
+                )
+                self._market_match = verdict.to_dict()
+            except Exception:
+                # 四分类是增强信息；取不到时不影响主检索。
+                pass
+        return self._market_match
 
     def tool_search_evidence(self, target: str) -> str:
         ev = self.knowledge.get_evidence(target, limit=self.options.max_evidence)

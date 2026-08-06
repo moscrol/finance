@@ -2804,7 +2804,6 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     evidence_lines = evidence_index_bundle.lines
     stale_notes = evidence_index_bundle.stale_notes
 
-    # --- W: 知识库 hybrid 向量召回（evidence_providers 插件层）---
     with _progress_stage(options, "wiki_rag") as stage:
         wiki_bundle = evidence_providers.collect_wiki_rag(
             evidence_ctx, company_evidence_concepts
@@ -3238,6 +3237,38 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
 
+    # --- 盘面×知识四分类（题材级裁定，整轮只算一次）---
+    # 利用本轮已经完成的盘面候选/概念/暴露/证据检索结果，不重跑 KB 查询。
+    # 判据归 logic_market_match 单点所有，ask 只提供实际计数；trace_missing 也从
+    # 本轮已收集的 evidence_items 计算，使 confidence 与独立 logic-match 路径同口径。
+    if not is_market_forecast and candidate is not None:
+        try:
+            from intelligence.services.logic_market_match import (
+                check_source_trace,
+                classify_market_logic,
+            )
+
+            trace_missing = sum(
+                1
+                for trace in check_source_trace(
+                    evidence_ctx.knowledge.resolved_wiki_root,
+                    evidence_index_bundle.evidence_items,
+                )
+                if not trace.source_exists
+            )
+            verdict = classify_market_logic(
+                market_found=True,
+                concept_count=len(concepts.get("items") or []),
+                exposure_count=len(exposures.get("items") or []),
+                evidence_count=len(evidence_index_bundle.evidence_items),
+                trace_missing=trace_missing,
+            )
+            result.market_match = verdict.to_dict()
+            evidence_ctx.market_match = result.market_match
+        except Exception:
+            # 四分类是增强信息；取不到时不能中断主检索路径。
+            pass
+
     stance_bits = []
     trig = set((candidate or {}).get("trigger_types", []) or [])
     if {"double_red"} & trig:
@@ -3254,6 +3285,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         else "；".join(stance_bits)
         if stance_bits
         else "盘面信号有限"
+    )
+    market_match = result.market_match or {}
+    market_match_label = str(market_match.get("label") or "")
+    market_match_gaps = "、".join(
+        str(item) for item in market_match.get("data_gaps") or []
+    )
+    market_match_line = (
+        f"当期逻辑-知识对照：{market_match_label}"
+        f"（置信度 {market_match.get('confidence')}；"
+        f"缺口：{market_match_gaps or '无'}）。"
+        if market_match_label
+        else ""
     )
 
     route_line = (
@@ -3295,10 +3338,14 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
             + f"：{stance}。",
             f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
+        ]
+        if market_match_line:
+            conclusion.append(market_match_line)
+        conclusion.extend([
             route_line,
             "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
             _conclusion_ttl_line(result.trade_date),
-        ]
+        ])
     conclusion = [*framing.get("conclusion", []), *conclusion]
 
     follow_ups: list[str] = (
@@ -3318,6 +3365,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
     if (gaps or tiers["peripheral"]) and not is_market_forecast:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
+    if market_match and not is_market_forecast:
+        # 四分类的下一步动作由 _next_actions 生成（单点所有），直接复用。
+        # 这些文案是行动建议，不进证据链，不影响 L1-L4 分层。
+        follow_ups.extend(str(item) for item in market_match.get("next_actions") or [])
     follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
         follow_ups.append(f"[{mod_name}] {item}")
