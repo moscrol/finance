@@ -18,6 +18,8 @@ class DefaultPathsTest(unittest.TestCase):
             "MARKET_SNAPSHOT_DIR",
             "VECTOR_INDEX_DIR",
             "RAG_INDEX_DIR",
+            # data_repo_root() 也读这个变量——不清掉就测不到真正的回退行为
+            "WORKBENCH_REPO_ROOT",
         }
         clean_env = {key: value for key, value in os.environ.items() if key not in keys}
         clean_env.update(env)
@@ -73,15 +75,37 @@ class DefaultPathsTest(unittest.TestCase):
         self.assertEqual(paths.knowledge_wiki, Path("/tmp/concept-vault/wiki"))
 
     def test_defaults_use_current_home_not_fixed_user(self):
+        # knowledge_wiki / finance_site / vector_index_dir 仍用 home 回退。
+        # finance_root 已改为回退 data_repo_root()（代码根），不再用 home。
+        # 这是故意修复：旧的 home 回退导致 DuckDB 路径（代码根）和
+        # exports/快照路径（home Desktop）不一致，造成静默失真。
         home = Path("/tmp/current-home")
         paths = self._default_paths_with_env({}, home=home)
 
-        self.assertEqual(paths.finance_root, home / "Desktop/c c/金融")
-        self.assertEqual(paths.knowledge_wiki, home / "Desktop/c c/知识库/wiki")
-        self.assertEqual(paths.market_snapshot_dir, home / "Desktop/c c/金融/market_snapshot")
-        self.assertEqual(paths.vector_index_dir, home / "Desktop/c c/知识库/.rag_index")
+        # finance_root 落在代码根，不是 home
+        from intelligence.paths import data_repo_root
+        self.assertEqual(paths.finance_root, data_repo_root())
+        self.assertNotIn("Desktop", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
+
+        # market_snapshot_dir 跟 finance_root 走（finance_root 已对齐）
+        self.assertEqual(paths.market_snapshot_dir, paths.finance_root / "market_snapshot")
+
+        # knowledge_wiki / vector_index_dir 仍用 home 回退
+        self.assertEqual(paths.knowledge_wiki, home / "Desktop/c c/知识库/wiki")
+        self.assertEqual(paths.vector_index_dir, home / "Desktop/c c/知识库/.rag_index")
         self.assertNotIn("/Users/lbq", str(paths.knowledge_wiki))
+
+    def test_finance_root_and_duckdb_are_on_the_same_data_root(self):
+        # 两根一致是这次修复的核心约束。
+        # finance_root 若指向另一棵树，_runtime_market_reference_date() 从旧仓
+        # exports 取 floor，再拿它去查本仓 DuckDB，每条结构化查询都被判「数据旧」。
+        from intelligence.paths import default_market_db_path
+        paths = self._default_paths_with_env({})
+
+        expected_db_root = default_market_db_path().parent.parent
+        self.assertEqual(paths.finance_root, expected_db_root,
+                         "finance_root 和 DuckDB 所在根不一致，会导致盘面证据静默失真")
 
 
 if __name__ == "__main__":

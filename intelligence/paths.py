@@ -27,8 +27,23 @@ class ProjectPaths:
 
 
 def default_paths() -> ProjectPaths:
+    """解析各数据根。``finance_root`` 与 DuckDB 必须落在同一个数据根。
+
+    这里回退 ``data_repo_root()`` 而不是某个写死的家目录：两者曾各自回退，
+    未设环境变量时 DuckDB 落在本仓、exports/快照落在 ``~/Desktop/c c/金融``。
+    后果不是报错而是静默失真——``_runtime_market_reference_date()`` 从旧仓
+    exports 取出 6 月的日期当 floor，再拿它去查数据已到 8 月的本仓库，于是
+    每条结构化查询都被判成「数据仅更新到 …，早于当前所需 …」。实测两次同题
+    冒烟：根不一致时 ``direct_assessment`` 缺失、仅 1 个工具取到证据；对齐后
+    marker 覆盖转 complete、4 个工具取到 17 条证据。
+
+    ``default_market_db_path()`` 的注释已记过同一教训（库不在数据根时盘面证据
+    层静默消失），但当时只修了 DuckDB 一处，本函数没跟上。两个根从此只有一个
+    真相源，``test_paths.py`` 锁住这一点。
+    """
+
+    finance_root = _env_path("FINANCE_WS", "FINANCE_ROOT") or data_repo_root()
     home = Path.home()
-    finance_root = _env_path("FINANCE_WS", "FINANCE_ROOT") or home / "Desktop/c c/金融"
     knowledge_wiki = _env_path("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT") or home / "Desktop/c c/知识库/wiki"
     finance_site = _env_path("FINANCE_SITE") or home / "Desktop/c c/windsurf/finance-research-site"
     market_snapshot_dir = _env_path("MARKET_SNAPSHOT_DIR") or finance_root / "market_snapshot"
