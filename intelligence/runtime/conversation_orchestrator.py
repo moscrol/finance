@@ -24,6 +24,7 @@ from intelligence.api.structured_reports import (
     upsert_report_module,
 )
 from intelligence.services import answer_model, followups as followups_svc
+from intelligence.services import context_growth
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
@@ -3636,6 +3637,21 @@ class TurnOrchestrator:
             "continuous:answer_coverage",
             "answer_marker_coverage",
             coverage,
+        )
+        # 上下文增长只在私有 artifact 的事件流里有据可查，而那份 artifact 不进
+        # 用户可见面。token 计数本身不是敏感信息（不含问题、证据或提示词），
+        # 所以读未脱敏的那份，避免 redact 把整数换成占位符。
+        growth = context_growth.summarize_context_growth(
+            private_artifact.get("events") or ()
+        )
+        report["context_growth"] = growth
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "continuous:context_growth",
+            "context_growth",
+            growth,
         )
         complete_report(
             report,

@@ -385,6 +385,109 @@ def _normalize_provider_field_aliases(spec: FinanceQuerySpec) -> FinanceQuerySpe
     )
 
 
+def _normalize_date_filters(
+    spec: FinanceQuerySpec,
+) -> tuple[FinanceQuerySpec, tuple[str, ...]]:
+    """把 filters 里的日期条件搬进 time_range，只在语义完全等价时才搬。
+
+    为什么由 Harness 代偿而不是只靠重试提示：日期该放 time_range 是本引擎的
+    局部约定，不是 SQL 常识——模型按「日期就是一个普通等值筛选」的直觉写，是
+    可预期的高频错法。实测一轮 research 里同一个错犯了两次（`filters` 带
+    trade_date → `date filters must use time_range`），重试提示写得很清楚但隔
+    一轮又犯，两个工具槽白烧，最终 `deadline_exhausted` 降级。提示词只能降低
+    概率，代偿能消除这类损耗。
+
+    等价性是硬边界，只搬三种算子：
+
+        eq  → start = end = 值      （闭区间单日，与 `time = ?` 等价）
+        gte → start = 值            （编译期用 `>=`，同为闭端）
+        lte → end   = 值            （编译期用 `<=`，同为闭端）
+
+    刻意不搬 ``gt`` / ``lt``：``time_range`` 的两端在 ``_compile_query`` 里编译成
+    ``>=`` / ``<=``，把开区间搬成闭区间会**静默多带一天数据**——这比报错坏得多，
+    报错只是浪费一次调用，静默改语义会让答案引用一条模型没要求的记录。同理不搬
+    ``ne`` / ``in`` / ``contains``：它们表达的是集合而非区间，``time_range``
+    无法表示。这些继续走原有校验报错。
+
+    另外三种情况也不代偿，都留给原有报错：目标端点已被显式 ``time_range`` 占用
+    （代偿会覆盖模型的明确意图）、值不是 ISO 日期、合并后 start > end。
+
+    纯函数，返回新 spec 与人类可读的代偿说明；幂等（搬完 filters 里已无日期
+    字段，再调一次是 no-op），所以放在多层调用链上重复调用是安全的。
+    """
+
+    dataset = _DATASETS.get(spec.dataset)
+    if dataset is None or dataset.time_field is None or not spec.filters:
+        return spec, ()
+    time_field = dataset.time_field
+
+    existing = spec.time_range or TimeRange()
+    start = existing.start
+    end = existing.end
+    kept: list[QueryFilter] = []
+    moved: list[str] = []
+    for item in spec.filters:
+        if item.field != time_field:
+            kept.append(item)
+            continue
+        parsed: date | None
+        try:
+            parsed = _parse_date(item.value, "filters.value")
+        except FinanceQueryValidationError:
+            parsed = None
+        if parsed is None:
+            kept.append(item)
+            continue
+        if item.op == "eq" and start is None and end is None:
+            start = end = parsed
+        elif item.op == "gte" and start is None:
+            start = parsed
+        elif item.op == "lte" and end is None:
+            end = parsed
+        else:
+            # 算子不可等价表达，或该端点已被显式 time_range 占用。
+            kept.append(item)
+            continue
+        moved.append(f"{time_field} {item.op} {parsed.isoformat()}")
+
+    if not moved:
+        return spec, ()
+    if start is not None and end is not None and start > end:
+        # 合并后区间自相矛盾：原样退回，让 `date filters must use time_range`
+        # 照常报错，而不是把一个空结果伪装成查询成功。
+        return spec, ()
+
+    note = (
+        "已自动把 filters 中的日期条件搬到 time_range（"
+        + "，".join(moved)
+        + "）；后续请直接用 time_range.start/time_range.end，filters 不接受日期字段"
+    )
+    return (
+        replace(
+            spec,
+            filters=tuple(kept),
+            time_range=TimeRange(start=start, end=end),
+        ),
+        (note,),
+    )
+
+
+def normalize_spec(
+    spec: FinanceQuerySpec,
+) -> tuple[FinanceQuerySpec, tuple[str, ...]]:
+    """把一份模型写出的 spec 归一到引擎的规范形态。
+
+    单一入口，供引擎内部与 Episode 工具层共用：两层都要看到同一个 spec，否则
+    ``episode_tools`` 的新鲜度判定读 ``spec.time_range`` 会读到 ``None``，
+    「本题授权查历史窗口」这类判断就会因为日期写错了位置而失效。
+    """
+
+    normalized, notes = _normalize_date_filters(
+        _normalize_provider_field_aliases(spec)
+    )
+    return normalized, notes
+
+
 _SCALAR_SCHEMA = {
     "anyOf": [
         {"type": "string"},
@@ -692,7 +795,9 @@ class FinanceQuery:
         cancelled = is_cancelled or (lambda: False)
         if cancelled():
             raise FinanceQueryCancelled("finance query cancelled")
-        spec = _normalize_provider_field_aliases(spec)
+        # 幂等：调用方（episode_tools）通常已归一化过，这里再调一次是 no-op。
+        # 保留这一步是因为本引擎也服务非 Episode 调用方，不能假设上游做过。
+        spec, _notes = normalize_spec(spec)
         compiled = _compile_query(
             spec,
             information_cutoff=information_cutoff,

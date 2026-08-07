@@ -27,6 +27,13 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      - id: layer-audit
+        name: "层级审计"
+        language: system
+        entry: python3 scripts/layer_audit.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail

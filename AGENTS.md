@@ -49,6 +49,38 @@ git branch --show-current
 - 分支命名：`baseline/<批次或公司名>`、`pdf-ingest/<日期或材料名>`、`theme-radar/<题材或能力>`、`data-source/<来源名>`、`fix/<问题>`。
 - commit 前必须检查不要提交：`.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf`、`*.zip`、`*.duckdb`、`*.db`、`*.sqlite*`、`*.pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存和虚拟环境。
 
+### 🔴 开工前必查：这棵树是否已经有别人在动
+
+`git status` + `git branch` **不足以判断你能不能动手**。本仓有多棵 worktree 共享同一个 `.git`，
+而**同一棵树可以同时有两个 agent 在工作**——此时你们共用同一个 git 索引（staging area）。
+开工前必须加这两条，并**逐条认领** `git status` 的每一行：
+
+```bash
+git worktree list      # 有几棵树、各在哪个分支、哪棵是我要用的
+git status --short     # 逐条问：这个改动是我做的吗？
+```
+
+**只要出现不属于自己的未提交改动（他人足迹），先停下**，选一条：
+
+- **另开干净树**（推荐）：`git worktree add <新路径> <base-ref>`，在新树干活。
+  venv 里没有 `.pth` / editable 安装，加载哪份代码由 cwd 决定，
+  所以新树里可以直接用主树的 `.venv-workbench/bin/python`。
+- **留在原树**，则：① 只能用 pathspec 提交（见下）；
+  ② **不得跑「全量测试对账」类验收**——那个 exit code 只对
+  「混着他人未提交改动的树」成立，**不对你的 revision 成立**，写进结论就是假证据。
+
+**提交纪律（两条硬约束）**：
+
+- 🚫 **禁用 `git add -A` / `git add .`** —— 会把他人未跟踪文件一并暂存。
+- ✅ **一律 `git commit -- <明确文件列表>`**（pathspec 模式）。
+  裸 `git commit` 提交的是**整个索引**：如果他在你 `git add` 与 `git commit` 之间
+  把自己的文件暂存了，那些文件就会被你的 commit 带走，而你的 `git add` 完全无辜。
+
+**实测事故（2026-08-07）**：`dae9c8c7` 本应只含 1 个文档，实际吞掉另一个 agent 的 4 个在途文件
+（2 个源码模块 + 1 个既有测试 + 1 个新建测试 187 行）。他当时 `git status` 会看到自己的活凭空消失。
+用 `git reset --soft HEAD~1` 退回（`--soft` 不碰工作树，文件内容一字未动），
+改 pathspec 重提为 `7dd25ba6`。**根因是「`git commit` 提交整个索引」，不是 `git add` 写错。**
+
 <claude-mem-context>
 # Memory Context
 

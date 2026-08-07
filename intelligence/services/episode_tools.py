@@ -754,9 +754,12 @@ def build_episode_registry(
                 raise finance_query.FinanceQueryValidationError(
                     "finance query input was not parsed"
                 )
+            # 归一化要在所有判定之前，否则新鲜度判定读 spec.time_range 会读到 None。
+            # normalize_spec 是幂等的，run() 内部还会再调一次，代价极小。
+            normalized, normalization_notes = finance_query.normalize_spec(value)
             bounded_value = replace(
-                value,
-                limit=min(value.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
+                normalized,
+                limit=min(normalized.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
             )
             freshness_floor = _structured_freshness_floor(context)
             historical_authorized = _task_authorizes_historical_window(
@@ -799,8 +802,11 @@ def build_episode_registry(
                 )
             except finance_query.FinanceQueryError as exc:
                 return _finance_query_failure_result(value, exc)
+            # 用 bounded_value 而不是 value：这条判定读 spec.time_range，读未归一化
+            # 的那份就会把「日期写进了 filters」误判成「没给时间窗口」，
+            # historical_authorized 的授权也就跟着失效——正是归一化要修的那个失真。
             if _is_current_query_stale(
-                value,
+                bounded_value,
                 served_date=result.served_date,
                 floor=freshness_floor,
                 historical_authorized=historical_authorized,
@@ -820,7 +826,7 @@ def build_episode_registry(
             )
             observation = result.observation
             if (
-                value.limit > result.audit.applied_limit
+                normalized.limit > result.audit.applied_limit
                 and result.audit.row_count >= result.audit.applied_limit
             ):
                 observation = (
@@ -828,6 +834,10 @@ def build_episode_registry(
                     f"{result.audit.applied_limit} 条；如需更多，请增加筛选、"
                     "分组或排序后继续查询"
                 )
+            # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
+            # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
+            if normalization_notes:
+                observation = "；".join((observation, *normalization_notes))
             return ToolRunResult(
                 evidence=tuple(result.evidence),
                 observation=observation,

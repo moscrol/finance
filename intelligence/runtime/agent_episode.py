@@ -61,6 +61,7 @@ from intelligence.runtime.sub_research import (
     SubResearchResult,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 
 DEFAULT_LLM_TIMEOUT = 20.0
@@ -271,12 +272,17 @@ class _EpisodeToolAccumulator:
                 "evidence_hashes": list(observation.evidence_hashes),
                 "gaps": list(observation.gaps),
             }
+            # 审计留档拿全量，模型上下文拿预算后的副本。同一份 payload 分流到
+            # 两个 sink，所以截断只发生在喂模型这一侧——ledger 仍是完整证据。
             self.ledger.add("tool_result", public_observation)
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
-                    "content": json.dumps(public_observation, ensure_ascii=False),
+                    "content": json.dumps(
+                        budget_tool_observation(public_observation),
+                        ensure_ascii=False,
+                    ),
                 }
             )
         return invalid_actions

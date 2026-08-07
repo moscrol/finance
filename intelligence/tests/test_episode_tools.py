@@ -1557,7 +1557,37 @@ def test_finance_query_wrong_dataset_points_to_the_field_owner(
     assert "拆成多个查询" in observation.observation
 
 
-def test_finance_query_date_filter_points_to_time_range(tmp_path: Path) -> None:
+def test_finance_query_date_filter_is_compensated_not_rejected(
+    tmp_path: Path,
+) -> None:
+    """日期写进 filters 时 Harness 代偿搬到 time_range，不再烧掉一个工具槽。
+
+    这条曾断言 `parse_error`：写法错了就报错，靠重试提示让模型改。实测一轮
+    research 里同一个错犯了两次，两个槽白烧后 `deadline_exhausted` 降级——提示
+    在那儿，模型隔一轮又照原样写。所以判定改成代偿：语义等价时直接搬，把
+    「写法不合规」从失败降级成一句附注。
+
+    仍要断言附注存在：代偿必须让模型看见，否则下一轮还会照原样写。
+    """
+
+    finance_root = tmp_path / "finance"
+    db_path = finance_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        create table fact_market_daily(
+            trade_date date,
+            sh_index_pct_chg double
+        )
+        """
+    )
+    connection.executemany(
+        "insert into fact_market_daily values (?, ?)",
+        [("2026-07-23", 0.4), ("2026-07-24", 1.25)],
+    )
+    connection.close()
+
     frame = _market_forecast_frame()
     context = build_episode_context(
         frame,
@@ -1571,7 +1601,7 @@ def test_finance_query_date_filter_points_to_time_range(tmp_path: Path) -> None:
     registry = build_episode_registry(
         frame,
         context,
-        finance_root=tmp_path / "finance",
+        finance_root=finance_root,
         knowledge_wiki=tmp_path / "wiki",
         l3_runner=None,
     )
@@ -1593,9 +1623,13 @@ def test_finance_query_date_filter_points_to_time_range(tmp_path: Path) -> None:
         step_id="finance-query-date-filter-repair:1",
     )
 
-    assert observation.trace.status == "parse_error"
-    assert "time_range.start/time_range.end" in observation.observation
-    assert "日期不要放入 filters" in observation.observation
+    # 查询真的跑了：`eq 2026-07-24` 搬成闭区间单日，只命中那一行。
+    assert observation.trace.status == "success"
+    assert len(observation.evidence) == 1
+    assert "1.25" in observation.observation
+    # 且模型被告知写法被改过，以及下次该怎么写。
+    assert "已自动把 filters 中的日期条件搬到 time_range" in observation.observation
+    assert "trade_date eq 2026-07-24" in observation.observation
 
 
 @pytest.mark.parametrize(

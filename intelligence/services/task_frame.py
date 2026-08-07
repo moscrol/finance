@@ -315,10 +315,14 @@ def rebase_task_frame(
         if question_type_changed
         else frame.required_outputs
     )
+    # Same filter as ``derive_required_outputs``: this is the second producer of
+    # ``frame.required_outputs``, and a blank id surviving only on the
+    # inheritance path would score one answer against two different coverage
+    # denominators depending on which path built the frame.
     merged_outputs = (
         explicit_outputs
         if explicit_outputs
-        else _merge_strings(
+        else _clean_outputs(
             inherited_outputs,
             canonical_outputs,
             required_outputs,
@@ -586,14 +590,20 @@ def derive_required_outputs(
     Pure and deterministic: an explicit wording match wins outright, otherwise
     the per-type defaults merge with ``extra``.  Kept as the single source for
     that table so a second caller cannot drift from ``build_task_frame``.
+
+    Blank ``extra`` ids are dropped, which is a deliberate tightening over the
+    pre-``03cb32fb`` behaviour (the old inline ``_merge_strings`` only filtered
+    falsy values, so a whitespace-only id survived).  Rationale and the shared
+    filter live in ``_clean_outputs``; ``rebase_task_frame`` uses the same one so
+    the two producers of ``required_outputs`` cannot disagree.
     """
 
     explicit_outputs = _explicit_required_outputs(question)
     if explicit_outputs:
         return explicit_outputs
-    return _merge_strings(
+    return _clean_outputs(
         _default_required_outputs(question_type, question),
-        tuple(str(item) for item in extra if str(item).strip()),
+        extra,
     )
 
 
@@ -691,6 +701,35 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
 
 def _merge_strings(*groups: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item for group in groups for item in group if item))
+
+
+def _clean_outputs(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    """Merge output-id groups, dropping blank ids and preserving first-seen order.
+
+    Both producers of ``frame.required_outputs`` route through here so they
+    cannot drift apart: ``derive_required_outputs`` on the build path and
+    ``rebase_task_frame`` on the multi-turn inheritance path.
+
+    Blank ids are dropped on purpose.  A whitespace-only id cannot serve as a
+    slot name when judging marker coverage, so keeping one only inflates the
+    coverage denominator by an entry nothing can ever satisfy.  Worse, if only
+    one producer dropped it, the same answer would be scored against two
+    different denominators depending on which path built the frame — and
+    ``03cb32fb`` just lifted that judging into ``services`` for both engines to
+    share, so a split producer口径 would undo it.
+
+    Deliberately not folded into ``_merge_strings``: that one also merges
+    assumptions and ambiguities, where trimming is a separate contract.
+    """
+
+    return _merge_strings(
+        tuple(
+            str(item)
+            for group in groups
+            for item in group
+            if str(item).strip()
+        )
+    )
 
 
 def _legacy_question_type(
