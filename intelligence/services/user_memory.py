@@ -64,14 +64,18 @@ def select_relevant(
         tags = []
         for k in tag_keys:
             tags += [str(t).strip() for t in (rec.get(k) or []) if str(t).strip()]
-        tag_hay = _norm(" ".join(tags))
+        norm_tags = [_norm(t) for t in tags if _norm(t)]
+        tag_hay = " ".join(norm_tags)
         text_hay = _norm(" ".join(str(rec.get(k) or "") for k in text_keys))
         s = 0
         for term in terms:
             nt = _norm(term)
             if not nt:
                 continue
-            if nt in tag_hay:
+            # 双向子串：term⊆tag（原有）或 tag⊆term（新增）。
+            # 典型场景：contract_subject = "液冷温控"，台账标签 = "液冷"，
+            # "液冷温控" ∌ "液冷" 作为子串（单向失配），但 "液冷" ⊆ "液冷温控"（双向命中）。
+            if nt in tag_hay or any(ntag in nt for ntag in norm_tags):
                 s += 4
             if nt in text_hay:
                 s += 2
