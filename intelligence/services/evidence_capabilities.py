@@ -69,12 +69,17 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     ),
     "structured_market_technical": ("market_data",),
     "current_external_market": ("market_data", "news_search", "web_search"),
+    # memory_lookup 只加在这三条策略上（另两条见下），不是全部 20 条：它每次占一个
+    # 工具槽，而实测一轮 research 在 4-6 次调用就会 budget_exhausted，广授权会挤掉
+    # 盘面查询。选中的判据是「用户很可能对这个主体表达过看法」——公司深挖、题材
+    # 分析、题材跟踪，而不是取值查询或方法论讨论。
     "company_multi_layer_evidence": (
         "market_data",
         "kb_search",
         "graph_lookup",
         "evidence_lookup",
         "web_search",
+        "memory_lookup",
     ),
     "company_valuation_evidence": (
         "market_data",
@@ -88,6 +93,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
         "graph_lookup",
         "news_search",
         "web_search",
+        "memory_lookup",
     ),
     "event_and_official_evidence": (
         "graph_lookup",
@@ -116,6 +122,7 @@ _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
         "graph_lookup",
         "news_search",
         "web_search",
+        "memory_lookup",
     ),
     "source_critique_evidence": (
         "kb_search",

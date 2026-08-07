@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from intelligence.services import research_tool_registry as reg
 from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
@@ -533,15 +534,9 @@ def test_runtime_capability_projection_uses_registry_namespace(
     capabilities = runtime_capabilities_for_frame(frame)
 
     assert expected.issubset(capabilities)
-    assert set(capabilities).issubset(
-        {
-            "market_data",
-            "mainline_context",
-            "kb_search",
-            "graph_lookup",
-            "evidence_lookup",
-            "news_search",
-            "web_search",
-            "l3_lookup",
-        }
-    )
+    # 上界从注册表本身推导，不再手抄一份。测试名说的是「registry namespace」，
+    # 而原先那 8 项是手工维护的，实际只等于「被参数化覆盖的那几条策略恰好投射
+    # 出的集合」——`financial_data` 早就在 `company_valuation_evidence` /
+    # `company_financial_evidence` 的 floor 上，却不在名单里，只因为没有用例
+    # 走到那两条策略，所以一直没红。手抄的上界会随 floor 增长而失效且不报警。
+    assert set(capabilities).issubset(set(reg._DEFAULT_TOOL_METADATA))

@@ -10,6 +10,7 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Callable
+from functools import partial
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import asdict
@@ -73,7 +74,10 @@ from intelligence.runtime.episode_progress import (
     RunEpisodeProgressPublisher,
     project_episode_progress,
 )
-from intelligence.services.episode_tools import latest_market_date
+from intelligence.services.episode_tools import (
+    build_episode_registry,
+    latest_market_date,
+)
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
 )
@@ -168,8 +172,23 @@ def _build_continuous_turn_adapter(
     is_cancelled: Callable[[], bool] | None = None,
     timeout: float = 90.0,
     deadline_expires_at: float | None = None,
+    memory_user: str | None = None,
 ) -> ContinuousTurnAdapter:
-    """Compose one provider chain into a shared continuous research kernel."""
+    """Compose one provider chain into a shared continuous research kernel.
+
+    ``memory_user`` is the one identity ``memory_lookup`` needs.  It is bound
+    here rather than threaded through ``ContinuousTurnAdapter`` because the
+    adapter has no other reason to know who the user is, and because a new
+    keyword on ``registry_factory``'s call site would break every fixed-arity
+    test double (``test_continuous_turn_adapter.py:1262`` is
+    ``lambda frame, context:``).  Binding it into the factory keeps both the
+    adapter and those doubles unchanged.
+
+    Passing ``None`` is a real configuration, not a placeholder: without an
+    identity ``build_episode_registry`` refuses to register the tool rather
+    than falling back to ``resolve_user_id(None)`` -- see the precondition in
+    ``episode_tools``.
+    """
 
     progress_publisher = None
     if run_store is not None:
@@ -289,11 +308,22 @@ def _build_continuous_turn_adapter(
         finalizer=finalizer,
     )
     task_id = f"{run_id}:{assistant_message_id}"
+    # 用 partial 绑身份，而不是给 adapter 加一个 memory_user 参数：adapter 只负责
+    # 「怎么跑一轮」，不该知道记��台账按谁分区。同时 registry_factory 的调用点
+    # （`continuous_turn_adapter.py` 里的 `self._registry_factory(frame, context)`）
+    # 保持两个位置参数不变——测试替身里有固定参数的 `lambda frame, context: ...`，
+    # 在调用点加 kwarg 会把它们全打断。
+    registry_factory = (
+        partial(build_episode_registry, memory_user=memory_user)
+        if memory_user
+        else build_episode_registry
+    )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
         runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
+        registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
         timeout=timeout,
         synthesis_reserve_for_task=(

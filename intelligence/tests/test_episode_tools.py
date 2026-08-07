@@ -2078,6 +2078,70 @@ def test_memory_lookup_is_gated_by_allowed_capabilities(tmp_path) -> None:
     assert "memory_lookup" not in registry.names()
 
 
+def test_memory_lookup_needs_identity_not_just_authorization(tmp_path) -> None:
+    """授权到位但身份缺失时不注册——否则会读到别人的台账。
+
+    这条锁的是隐私边界，不是「少一个能力」。`user_memory._ledger_paths` 在 ``user``
+    与 ``users_root`` 都为 None 时回落 ``userspace.user_space(None)`` →
+    ``resolve_user_id(None)`` → ``FORESIGHT_USER`` 或 ``"default"``。多用户服务端上
+    那意味着**每个用户都去读 default 用户的私有判断**，而且读得「成功」：有召回、
+    有证据、无报错，只是记录属于别人。
+
+    所以它也顺带把「授权」和「身份穿透」焊成一件事：把 `_RUNTIME_CAPABILITY_FLOOR`
+    里那三条 `memory_lookup` 加了、却没把 user_id 传到 `build_episode_registry`，
+    工具依然不出现——不会出现「以为接好了、实际在串号」的中间态。
+
+    变异验证：把 `memory_identity_resolved` 那个条件删掉，本条必红。
+    """
+
+    frame = _memory_frame()
+    authorized = build_episode_context(
+        frame,
+        task_id="memory-authorized-without-identity",
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+
+    registry = build_episode_registry(
+        frame,
+        authorized,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        # 既不给 memory_user 也不给 memory_users_root：生产里忘了穿透身份的形状。
+    )
+
+    assert "memory_lookup" not in registry.names()
+
+
+def test_memory_lookup_registers_once_identity_is_threaded(tmp_path) -> None:
+    """给了 user_id（不给 users_root）就应注册：这是生产实际走的那条路。
+
+    与上一条成对：上一条证明缺身份不注册，这条证明补上身份就通，两条一起才说明
+    守卫拦的是「缺身份」而不是「把工具关掉了」。既有测试都走 ``memory_users_root``
+    （临时 fixture 目录），没有一条覆盖生产用的 ``memory_user`` 分支。
+    """
+
+    frame = _memory_frame()
+    authorized = build_episode_context(
+        frame,
+        task_id="memory-identity-threaded",
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+
+    registry = build_episode_registry(
+        frame,
+        authorized,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+        memory_user="fixture-user",
+    )
+
+    assert "memory_lookup" in registry.names()
+
+
 def test_memory_lookup_locator_never_reaches_the_outward_payload(tmp_path) -> None:
     """Ledger paths are control-plane only (mirrors test_agent_runtime.py:196)."""
 

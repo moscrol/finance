@@ -926,7 +926,21 @@ def build_episode_registry(
             )
         )
 
-    if "memory_lookup" in context.contract.allowed_capabilities:
+    # 授权之外还要求身份已解析。`user_memory._ledger_paths` 在 ``user`` 与
+    # ``users_root`` 都为 None 时回落到 ``userspace.user_space(None)`` →
+    # ``resolve_user_id(None)`` → ``FORESIGHT_USER`` 或 ``"default"``：多用户服务端
+    # 上那不是「少一份召回」，而是**每个人都去读 default 用户的私有判断台账**。
+    #
+    # 所以缺身份时不注册这个工具。宁可少一个能力（模型看不到它，照常用其他工具
+    # 完成任务），也不要静默串号——这也让「授权」与「身份穿透」两件事无法只做一半：
+    # 单独加授权不会生效，必须同时把 user_id 传到这里。
+    memory_identity_resolved = (
+        str(memory_user or "").strip() != "" or memory_users_root is not None
+    )
+    if (
+        "memory_lookup" in context.contract.allowed_capabilities
+        and memory_identity_resolved
+    ):
 
         def memory_lookup_runner(
             query: str,
