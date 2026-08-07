@@ -5,7 +5,37 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
-from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services.task_frame import (
+    TaskFrame,
+    build_task_frame,
+    derive_required_outputs,
+    rebase_task_frame,
+)
+
+
+# 不命中 _explicit_required_outputs 四条正则中的任何一条，所以 rebase/build 都会
+# 真的走进 _clean_outputs 分支。若换成会命中的措辞（如「和…哪个更…主线」），
+# explicit 分支会直接返回，下面两条测试就测不到过滤，抽掉过滤也不会变红。
+_NON_EXPLICIT_QUESTION = "固态电池产业链怎么分"
+_THEME_ANALYSIS_DEFAULTS = ("direct_assessment", "chain_mapping", "counterpoint")
+
+
+def _theme_frame(required_outputs: tuple[str, ...]) -> TaskFrame:
+    return TaskFrame(
+        raw_question=_NON_EXPLICIT_QUESTION,
+        user_goal="梳理固态电池产业链",
+        question_type="theme_analysis",
+        subject="固态电池",
+        subject_kind="theme",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=required_outputs,
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="theme_multi_layer_evidence",
+        confidence=0.9,
+    )
 
 
 def test_rebound_horizon_builds_stable_a_share_task_frame() -> None:
@@ -227,3 +257,48 @@ def test_task_frame_restores_legacy_payload_without_explicit_question_type() -> 
 
     assert restored is not None
     assert restored.question_type == "comparison_analog"
+
+
+def test_rebase_drops_blank_output_ids_like_the_build_path() -> None:
+    # 变异测试：把 rebase_task_frame 里的 _clean_outputs 换回裸 _merge_strings，
+    # 本条必红——后者只过滤 falsy，而 "  " 是 truthy，会活着进 required_outputs。
+    #
+    # 空白 output_id 当不了槽位名，留着只会让 marker 覆盖的分母虚高一位。
+    # 更要紧的是：build 路（derive_required_outputs）已经丢掉它，
+    # 继承路若保留，同一个答案会因「frame 由哪条路造的」而被两个分母打分。
+    frame = _theme_frame(_THEME_ANALYSIS_DEFAULTS)
+
+    rebased = rebase_task_frame(
+        frame,
+        question_type="theme_analysis",
+        subject="固态电池",
+        required_outputs=("chain_mapping", "  ", "\t", "risk_signals"),
+    )
+
+    assert "  " not in rebased.required_outputs
+    assert "\t" not in rebased.required_outputs
+    assert all(item.strip() for item in rebased.required_outputs)
+    # 真实槽位一个不少，过滤只针对空白。
+    assert "risk_signals" in rebased.required_outputs
+    assert set(_THEME_ANALYSIS_DEFAULTS).issubset(rebased.required_outputs)
+
+
+def test_both_required_output_producers_share_one_blank_filter() -> None:
+    # 两个 producer 都写 frame.required_outputs：build 路 derive_required_outputs，
+    # 继承路 rebase_task_frame。03cb32fb 把 marker 覆盖判定提到 services 让两个
+    # 引擎共用同一张表，producer 侧口径若还是两份，那次统一就被抵消了。
+    blank_extra = ("  ",)
+
+    built = derive_required_outputs(
+        "theme_analysis",
+        _NON_EXPLICIT_QUESTION,
+        extra=blank_extra,
+    )
+    rebased = rebase_task_frame(
+        _theme_frame(_THEME_ANALYSIS_DEFAULTS),
+        question_type="theme_analysis",
+        subject="固态电池",
+        required_outputs=blank_extra,
+    ).required_outputs
+
+    assert built == rebased == _THEME_ANALYSIS_DEFAULTS
