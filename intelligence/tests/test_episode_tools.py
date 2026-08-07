@@ -2313,3 +2313,172 @@ def test_memory_lookup_unmapped_subject_kind_adds_no_recall_terms(
     assert result.evidence == ()
     assert result.trace.status == "empty"
     assert result.gaps == ("用户记忆中没有与本题相关的历史判断",)
+
+
+def test_memory_recall_binds_into_prior_recall_through_the_real_episode_loop(
+    tmp_path,
+) -> None:
+    """整条链跑一遍真实 episode 循环：注册 → 调用 → 召回 → 绑进 prior_recall。
+
+    在这条之前，`memory_lookup` 的证据只被单独执行验证过（``registry.execute``），
+    而 `prior_recall` 槽位只被单独验证过存在于契约里。两件事各自成立不等于链路通：
+    中间还隔着 `validate_episode_finish` 的 basis 校验、evidence hash 白名单、以及
+    registry 自动补 ``content_hash``（research_tool_registry.py:533）——工具 runner
+    自己并不设 hash，如果那一步没补上，绑定会因「unknown evidence hash」被拒。
+
+    这里唯一被替换掉的是模型的自由选择（``ScriptedModel`` 直接发起 memory_lookup
+    调用）。工具执行、证据落账、hash 补齐、终止校验全部走生产代码，所以它能验证
+    「模型一旦选择调用，后面每一步都接得住」，而不需要一个可用的 LLM 网关。
+
+    仍然验不到的那一格：真实模型会不会**主动**选这个工具。那需要真实 provider。
+    """
+
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+
+    users_root = _memory_fixture(tmp_path)
+    # 触发 prior_recall 注入需要两个条件同时成立：问题引用了自己过去的看法，
+    # 且题型属于「用户可能对该主体表达过看法」的那三类。
+    frame = replace(
+        _memory_frame(),
+        raw_question="光刻胶我之前的判断还成立吗",
+        user_goal="确认用户此前的判断与增量变化",
+    )
+    registry, context = _memory_registry(
+        tmp_path,
+        users_root=users_root,
+        task_id="memory-prior-recall-episode",
+        frame=frame,
+    )
+
+    prior_recall = next(
+        (
+            item
+            for item in context.contract.required_outputs
+            if item.output_id == "prior_recall"
+        ),
+        None,
+    )
+    assert prior_recall is not None, "契约里没有 prior_recall，召回结果无处可绑"
+    assert prior_recall.grounding_mode == "user_premise"
+
+    # 先单独执行一次，拿到 registry 补出来的真实 content_hash。
+    # ``evidence_content_hash`` 只取 (tool, title, detail, source)，与查询串无关，
+    # 所以下面 episode 内再次执行同一工具会得到同一个 hash——不必把 hash 或证据
+    # 字段硬编进测试，也就不会在 runner 措辞改动时假红。
+    probe = registry.execute(
+        "memory_lookup",
+        "光刻胶 我之前怎么判断的",
+        context=context,
+        step_id="memory-prior-recall-episode:probe",
+    )
+    recalled_hashes = [item.content_hash for item in probe.evidence]
+    assert recalled_hashes, "fixture 台账没被召回，后面的绑定断言会失去意义"
+
+    model = ScriptedEpisodeModel(
+        [
+            ModelTurn(
+                "",
+                (
+                    ModelToolCall(
+                        "call-1",
+                        "memory_lookup",
+                        {"query": "光刻胶 我之前怎么判断的"},
+                    ),
+                ),
+                "scripted",
+                "",
+            ),
+            _prior_recall_finish_turn(recalled_hashes),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=registry,
+    )
+
+    # 1. 工具真的被执行了，证据来自 memory_lookup
+    memory_evidence = [
+        item for item in outcome.evidence if item.tool == "memory_lookup"
+    ]
+    assert memory_evidence, "memory_lookup 没有产出证据"
+    # registry 自动补的 hash——没有它，下面的绑定会被判 unknown evidence hash
+    assert all(item.content_hash for item in memory_evidence)
+
+    # 2. 先验绑进了 prior_recall，且 basis 是 user_premise
+    binding = next(
+        (item for item in outcome.bindings if item.output_id == "prior_recall"),
+        None,
+    )
+    assert binding is not None, "召回成功却没绑进 prior_recall——链路断在终止校验"
+    assert binding.basis == "user_premise"
+    assert binding.evidence_hashes, "prior_recall 绑了空证据，等于没接上"
+    assert set(binding.evidence_hashes) <= {
+        item.content_hash for item in memory_evidence
+    }
+
+    # 3. 先验不得外泄台账路径（控制面字段）
+    assert all(str(users_root) not in outcome.draft for _ in (0,))
+
+
+class ScriptedEpisodeModel:
+    """Minimal model double: replays a fixed turn sequence.
+
+    Mirrors ``test_agent_episode.ScriptedModel``; duplicated here instead of
+    imported so this file keeps owning its own fixtures.
+    """
+
+    def __init__(self, turns) -> None:
+        self._turns = iter(turns)
+        self.calls: list[dict[str, object]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append({"tools": [*tools], "timeout": timeout})
+        return next(self._turns)
+
+
+def _prior_recall_finish_turn(recalled_hashes):
+    """Finish with the prior bound to ``prior_recall`` and the answer left open.
+
+    ``status="partial"`` is deliberate.  ``direct_assessment`` is an evidence
+    slot and this run only ever retrieved the user's own prior, which by
+    contract is not market evidence.  Claiming ``completed`` here would need
+    the memory records to prop up an evidence slot — exactly what the tool
+    description forbids — so the honest shape is: prior bound, answer still
+    owing market evidence.
+    """
+
+    from intelligence.services.agent_runtime import ModelTurn
+
+    return ModelTurn(
+        json.dumps(
+            {
+                "status": "partial",
+                "draft": (
+                    "你此前的判断是看客户验证进度而不是产能公告；"
+                    "本轮尚未取得可核验的当前市场证据，先不改动结论。"
+                ),
+                "gaps": ["缺少当前市场证据"],
+                "bindings": [
+                    {
+                        "output_id": "prior_recall",
+                        "evidence_hashes": recalled_hashes,
+                        "gap": "",
+                        "basis": "user_premise",
+                    },
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": [],
+                        "gap": "缺少当前市场证据",
+                        "basis": "evidence",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
