@@ -60,6 +60,9 @@ GUARDED_PREFIX = "services."
 # loop 底座的物理落点。
 RUNTIME_DIR = PKG_ROOT / "runtime"
 RUNTIME_PREFIX = "runtime."
+# 包模块自身（来自 runtime/__init__.py，模块名就是 "runtime"，不带点）。
+# `from intelligence import runtime` 只触及这个名字，不带前缀，必须单列。
+RUNTIME_PACKAGE = "runtime"
 
 # 迁移前的过渡清单：`intelligence/runtime/` 尚不存在时，按模块名模拟搬迁后的分层，
 # 这样门禁在搬之前就能给出基线。目录一旦建立，本清单自动失效（见 _resolve_layers）。
@@ -147,9 +150,23 @@ def _resolve_layers(modules: set[str]) -> tuple[frozenset[str], str]:
 
     目录存在就以目录为准（唯一真源，无名单可漂）；不存在则回落到迁移清单，
     让门禁在搬迁前也能给出基线。
+
+    ## 已知盲区：importlib
+
+    本门禁基于 AST 静态识别 import 语句，`importlib.import_module("intelligence
+    .runtime.agent_episode")` 这类字符串动态导入兜不住。不为它加字符串扫描：
+    字符串里出现模块名不等于导入（日志、注释、错误消息都会命中），误报会让门禁
+    失信，代价大于收益。
     """
     if RUNTIME_DIR.is_dir():
-        by_dir = frozenset(m for m in modules if m.startswith(RUNTIME_PREFIX))
+        # 包名本身必须纳入：`from intelligence import runtime` 经 _imported_modules
+        # 只返回 "runtime"，不带点，用 startswith(RUNTIME_PREFIX) 会漏掉。
+        # 本仓 services/episode_semantic_verifier.py:26 就在用这种写法导 services。
+        by_dir = frozenset(
+            m
+            for m in modules
+            if m.startswith(RUNTIME_PREFIX) or m == RUNTIME_PACKAGE
+        ) | {RUNTIME_PACKAGE}
         return by_dir, f"目录 intelligence/runtime/（{len(by_dir)} 个模块）"
 
     planned = frozenset(
