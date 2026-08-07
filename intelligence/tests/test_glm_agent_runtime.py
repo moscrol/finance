@@ -334,6 +334,44 @@ def test_explicit_single_provider_does_not_retry_transient_failure() -> None:
     assert [entry["status"] for entry in turn._provider_trace] == ["failed"]
 
 
+def test_injected_single_provider_on_the_real_adapter_retries_one_gateway_502(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """生产构造形状（注入 providers、不注入 complete_fn）必须有一次瞬时重试。
+
+    ``api/app.py:226`` 就是这个形状：它把已解析的 provider 链显式注入，但跑的仍是
+    真适配器 ``llm_refine.chat_with_tools``。旧判据只在 ``detect_providers`` 那条
+    分支置 ``_retry_single_real_provider``，于是生产路径恒为 ``False``——cockpit 网关
+    round-robin 打到坏账号返 502 时一次都不重试，直接 ``model_unavailable``。四次
+    真实决证 run 的 ``provider_attempts`` 全是 1，就是这个闸门造成的。
+
+    与 ``test_explicit_single_provider_does_not_retry_transient_failure`` 的区别是
+    唯一的：那条同时注入 ``complete_fn``（测试替身，保留历史语义，不该重试）。
+    """
+
+    provider = _provider("glm")
+    calls: list[object] = []
+
+    def chat_with_tools(**_kwargs):
+        calls.append(object())
+        if len(calls) == 1:
+            return None, provider, "LLM 调用 HTTP 502"
+        return {"content": "ok", "tool_calls": []}, provider, ""
+
+    monkeypatch.setattr(llm_refine, "chat_with_tools", chat_with_tools)
+
+    turn = GLMModelClient(providers=(provider,)).complete(
+        messages=[],
+        tools=[],
+        timeout=30,
+    )
+
+    assert len(calls) == 2, "网关 502 后必须在同一轮内重试一次"
+    assert turn.content == "ok"
+    assert turn.error == ""
+    assert turn.provider_attempts == 2
+
+
 def test_legacy_invalid_envelope_is_recorded_as_failed_trace() -> None:
     provider = _provider("glm")
     turn = GLMModelClient(

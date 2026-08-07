@@ -78,6 +78,17 @@ class GLMModelClient:
         self._retry_single_real_provider = False
         if providers is not None:
             self._providers = tuple(providers)
+            # 生产（api/app.py:226）会把已解析的 provider 链显式注入，但**不**注入
+            # complete_fn——跑的仍是真适配器。重试资格的判据因此是「有没有用真
+            # 适配器」，而不是「链是不是注入的」。
+            #
+            # 原来只有下面那条 detect_providers 分支置 True，于是生产路径的
+            # _retry_single_real_provider 恒为 False：网关 round-robin 打到坏账号
+            # 返 502 时一次都不重试，直接 model_unavailable。实测四次决证 run 全部
+            # provider_attempts=1，就是这个闸门造成的。
+            self._retry_single_real_provider = (
+                complete_fn is None and len(self._providers) == 1
+            )
         elif complete_fn is None:
             # The real adapter already has provider fallback logic. Resolve
             # that chain here so each physical call is scoped and counted once
