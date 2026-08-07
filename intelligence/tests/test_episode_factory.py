@@ -293,3 +293,142 @@ def test_episode_factory_projects_task_semantics_into_grounding_modes(
     if expected_mode in {"model_reasoning", "user_premise"}:
         assert context.contract.allowed_capabilities == ()
         assert context.contract.evidence_plan.requirements == ()
+
+
+def _prior_recall_context(question: str, task_id: str):
+    control = TurnControlCore().control(
+        question,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    return build_episode_context(
+        control.task_frame,
+        task_id=task_id,
+        capabilities=control.capabilities,
+    )
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "液冷题材现在怎么看？我之前的判断还成立吗",
+        "我过去对液冷是怎么判断的？先查我自己的历史判断和纠偏原则",
+        "液冷题材我之前的看法还成立吗",
+        # 个股口径也要覆盖：stock_deep_dive 与 theme_analysis 走的是同一个闸门，
+        # 只测题材会漏掉「授权了三条策略但只有一条真能开槽」这种半截实现。
+        "中际旭创我之前的判断还成立吗",
+    ),
+)
+def test_prior_reference_opens_a_user_premise_slot_for_the_recall(
+    question: str,
+) -> None:
+    """引用了自己过去看法的问题，必须有一格能装那份先验。
+
+    这条测试存在的理由是两次真实 run（`221010` 泛问、`221845` 明确点名「先查我自己
+    的历史判断」）：`memory_lookup` 当时已授权、已注册、召回也验过，模型**一次都没
+    调它**。根因不在措辞——那时全部 required output 都是 `grounding=evidence`，而该
+    工具的产出按设计标着「不是市场事实、不能当作证据引用」，调回来一格也填不进去。
+    在 4 次工具预算下不调它才是理性选择。
+
+    所以断言的是**契约里有落点**，而不是「提示词里提到了记忆」。
+    """
+
+    context = _prior_recall_context(question, "prior-recall-inject")
+
+    slot = next(
+        (
+            item
+            for item in context.contract.required_outputs
+            if item.output_id == "prior_recall"
+        ),
+        None,
+    )
+    assert slot is not None, (
+        "引用了历史判断却没有 prior_recall 槽位——memory_lookup 的产出将再次无处可绑，"
+        "模型会重复那两次真实 run 里的理性回避。"
+    )
+    # user_premise 而不是 evidence：这一格装的是用户自己的历史判断，不是当前世界
+    # 事实。标成 evidence 会要求它有市场证据支撑（自相矛盾），也会让这份先验可以
+    # 反过来去支撑别的结论——那正是工具描述里禁止的事。
+    assert slot.grounding_mode == "user_premise"
+    # required=False 是有意的：生产 users 根下 24 个 user 的台账全是空的
+    # （judgments=0）。设 True 会让每一个题材类问答都因为绑不上这一格而降级
+    # partial——把一个增益特性变成全局回归。
+    assert slot.required is False
+    # 授权与槽位必须同时成立，否则是半截状态：有格子但没工具，或反之。
+    assert "memory_lookup" in context.contract.allowed_capabilities
+
+
+@pytest.mark.parametrize(
+    ("question", "why"),
+    (
+        ("液冷题材现在怎么看", "泛问：没有引用任何历史判断"),
+        ("液冷的产业链结构是什么", "结构题：与用户先验无关"),
+        ("固态电池现在的强度排名", "取值查询：不该背一个先验槽位"),
+    ),
+)
+def test_questions_without_a_prior_reference_get_no_recall_slot(
+    question: str,
+    why: str,
+) -> None:
+    """没引用历史判断就不注入——这一条比上面那条更重要。
+
+    无条件注入会给每道题多加一格必须交付的内容，而绝大多数问题里用户并没有可复述
+    的先验；模型要么编一段「你此前认为…」，要么每次多烧一次工具预算去查一个注定
+    空手的台账。实测预算只有 4 次（``MAX_BATCH_TOOL_CALLS``），一次空查就是 25%。
+    """
+
+    context = _prior_recall_context(question, f"prior-recall-skip-{hash(question)}")
+
+    assert "prior_recall" not in {
+        item.output_id for item in context.contract.required_outputs
+    }, f"不该注入却注入了（{why}）"
+
+
+def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None:
+    """题型闸门：只有「用户可能对该主体表达过看法」的题才开这一格。
+
+    与 ``_RUNTIME_CAPABILITY_FLOOR`` 里给 ``memory_lookup`` 授权的三条策略同源。
+    取值查询和预测题即使句子里出现「我之前」，也不注入——前者的契约是
+    (值/口径日期/证据边界)，后者要的是条件化情景，都不该被一段历史先验占掉预算。
+    """
+
+    for question_type, question in (
+        ("quick_fact", "我之前看的那个收盘价是多少"),
+        ("market_forecast", "我之前的判断还成立吗，明天大盘怎么走"),
+    ):
+        context = _prior_recall_context(question, f"prior-recall-scope-{question_type}")
+        assert "prior_recall" not in {
+            item.output_id for item in context.contract.required_outputs
+        }, f"{question_type} 不该带 prior_recall 槽位"
+
+
+def test_prior_recall_stays_absent_where_the_tool_is_unauthorized() -> None:
+    """已知缺口，写成测试而不是留在脑子里。
+
+    「跟我上次说的比，液冷题材变了什么」这句话在语义上百分之百引用了用户先验，
+    但 ``TurnControlCore`` 把它路由成 ``comparison_analog``（历史类比题），对应
+    ``comparable_multi_source_evidence``——那条策略**没有授权 memory_lookup**。
+
+    所以这里刻意断言「不注入」。为了让语义直觉变绿而把 ``comparison_analog`` 加进
+    ``_PRIOR_RECALL_QUESTION_TYPES``，会造出一个有格子却没工具的契约：模型看到
+    ``prior_recall`` 这一格，但工具清单里没有能填它的东西，只能编或者留空——
+    正是「授权 / 槽位」这对东西只做一半的形状。
+
+    这条测试变红有两种正当原因，都要求成对修改：
+      1. 该题型加了 ``memory_lookup`` 授权 → 同时把它加进槽位题型，改这里的期望；
+      2. 路由改了，这句话不再落 ``comparison_analog`` → 换一个仍落该题型的句子。
+    """
+
+    context = _prior_recall_context(
+        "跟我上次说的比，液冷题材变了什么",
+        "prior-recall-unauthorized",
+    )
+
+    assert context.contract.question_type == "comparison_analog"
+    assert "memory_lookup" not in context.contract.allowed_capabilities
+    assert "prior_recall" not in {
+        item.output_id for item in context.contract.required_outputs
+    }, (
+        "在没有授权 memory_lookup 的题型上开了 prior_recall 槽位——"
+        "模型会看到一格自己无法用工具填充的必需内容。"
+    )

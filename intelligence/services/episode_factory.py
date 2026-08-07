@@ -7,6 +7,7 @@ question and never imports private helpers from the legacy orchestrator.
 from __future__ import annotations
 
 from datetime import date
+import re
 
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
@@ -50,7 +51,34 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "market_summary": "概括目标市场窗口的结构化表现",
     "mainline_structure": "判断当前市场主线及其强弱结构",
     "scenario_paths": "给出条件化情景路径",
+    "prior_recall": "复述用户此前对该主体的判断或纠偏原则，并说明与当前的差异",
 }
+
+# 用户在问题里引用了自己过去的看法。这类问题要回答的不是「现在怎么样」，而是
+# 「跟我上次说的比，变了什么」——后者需要先取回那份先验。
+#
+# 为什么要这条判据：`memory_lookup` 授权、注册、召回全部打通后，两次真实 run
+# （`221010` 泛问、`221845` 明确点名「先查我自己的历史判断」）里模型**一次都没调它**。
+# 原因不是提示词不够明确，而是当时全部 required output 都是 `grounding=evidence`，
+# 而该工具的产出按设计标着「不是市场事实、不能当作证据引用」——调回来的东西
+# 一格也填不进去。在 4 次工具预算下，不调它才是理性选择。
+#
+# 所以补的是**槽位**不是措辞：给这份先验一个 `user_premise` 的落点，
+# 让「调它」这个动作对完成契约有贡献。
+_PRIOR_REFERENCE_RE = re.compile(
+    r"(?:我(?:之前|此前|过去|原来|先前|上次|当初)"
+    r"|之前(?:我|的)(?:判断|看法|观点|结论)"
+    r"|我(?:的)?(?:判断|看法|观点|逻辑)(?:还|是否|对不对|成立)"
+    r"|跟我(?:上次|之前)"
+    r"|(?:还|是否)(?:成立|站得住|有效))"
+)
+
+# 只在这三类问题上注入。判据是「用户很可能对这个主体表达过看法」——与
+# `_RUNTIME_CAPABILITY_FLOOR` 里给 `memory_lookup` 授权的那三条策略保持一致，
+# 否则会出现「有槽位但工具没授权」或反之的半截状态。
+_PRIOR_RECALL_QUESTION_TYPES = frozenset(
+    {"stock_deep_dive", "theme_analysis", "theme_track"}
+)
 
 _VALUATION_REQUIRED_OUTPUTS = (
     "valuation_assessment",
@@ -163,10 +191,21 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
     )
 
 
+def _references_prior_judgement(frame: TaskFrame) -> bool:
+    """Return whether the user's own wording reaches back to a past judgement."""
+
+    if frame.question_type not in _PRIOR_RECALL_QUESTION_TYPES:
+        return False
+    return bool(_PRIOR_REFERENCE_RE.search(frame.raw_question))
+
+
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
-    if frame.question_type != "valuation_estimate":
-        return frame.required_outputs
-    return tuple(dict.fromkeys((*frame.required_outputs, *_VALUATION_REQUIRED_OUTPUTS)))
+    outputs = frame.required_outputs
+    if frame.question_type == "valuation_estimate":
+        outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
+    if _references_prior_judgement(frame):
+        outputs = tuple(dict.fromkeys((*outputs, "prior_recall")))
+    return outputs
 
 
 def _required_output_evidence_types(
@@ -190,6 +229,12 @@ def _required_output_evidence_types(
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
+    if output_id == "prior_recall":
+        # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
+        # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
+        # 已有对应契约：user_premise 题「用户明确给出的前提视为真的假设，不能
+        # 要求先证明前提」——正是这份先验需要的待遇。
+        return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
     if frame.user_goal.startswith("判断反事实条件"):
@@ -287,7 +332,17 @@ def build_episode_context(
                     output_id,
                     capability_tuple,
                 ),
-                required=True,
+                # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
+                # 生产 users 根下 24 个用户的 judgments/corrections 全为空，
+                # 台账为空时 memory_lookup 正确地返回零命中，这一格绑不上。
+                # 若设 required=True，`completed` 检查（episode_protocol:318）
+                # 会因为它缺 binding 而把每一道题材问答都压成 partial——
+                # 那是给所有老用户引入回归，只为了接一个新工具。
+                #
+                # required=False 下它仍然完整存在于契约与提示词里，模型看得见、
+                # 可以绑、绑了会被校验（basis 必须是 user_premise）；只是没有
+                # 先验可取时不判失败。
+                required=output_id != "prior_recall",
                 grounding_mode=_grounding_mode(frame, output_id),
             )
             for output_id in output_ids
