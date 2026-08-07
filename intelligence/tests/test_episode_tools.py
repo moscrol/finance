@@ -2407,6 +2407,16 @@ def test_memory_recall_binds_into_prior_recall_through_the_real_episode_loop(
     # registry 自动补的 hash——没有它，下面的绑定会被判 unknown evidence hash
     assert all(item.content_hash for item in memory_evidence)
 
+    # 0 号 model 调用：model_turn 之前 episode 要把工具清单传给模型。
+    # 「memory_lookup 出现在 tools 里」是模型能看见它的必要条件——
+    # 这一格验的是「注册到 registry → 工具描述到达模型」的最后一段传输。
+    assert model.calls, "ScriptedModel 从未被调用，测试没有跑起来"
+    first_call_tool_names = {t.get("function", {}).get("name") for t in model.calls[0]["tools"]}
+    assert "memory_lookup" in first_call_tool_names, (
+        "memory_lookup 没有出现在发给模型的 tools 列表里——"
+        "即使注册成功，模型也会像盲人一样看不见它"
+    )
+
     # 2. 先验绑进了 prior_recall，且 basis 是 user_premise
     binding = next(
         (item for item in outcome.bindings if item.output_id == "prior_recall"),
