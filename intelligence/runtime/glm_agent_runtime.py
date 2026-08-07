@@ -253,7 +253,7 @@ class GLMModelClient:
 
         providers = self._providers or ()
         provider_index = 0
-        single_retry_used = False
+        transient_retries_used = 0
         while provider_index < len(providers):
             if self._is_cancelled():
                 last_reason = "cancelled"
@@ -322,10 +322,12 @@ class GLMModelClient:
                 last_reason = reason_text or "model_unavailable"
                 if (
                     self._retry_single_real_provider
-                    and not single_retry_used
+                    and transient_retries_used < 3
                     and _is_transient_provider_error(reason_text)
                 ):
-                    single_retry_used = True
+                    # cockpit gateway round-robin 可能连续打到坏账号，
+                    # 1 次重试不够。3 次上限仍远低于 LLM_TIMEOUT，不影响 deadline。
+                    transient_retries_used += 1
                     continue
                 provider_index += 1
                 continue
