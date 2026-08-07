@@ -203,7 +203,7 @@ def _static_contract_text() -> str:
 # 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。别为了让它
 # 变绿而回退重排。
 _CONTRACT_FINGERPRINT = (
-    "0bff83422695cdc8e83606112374089dc6542c7fa80a8fc5ec30e772c3f91662"
+    "3bf11c056939b25beca044fbeee11a561315326727b7b9d5e11b7f2bf527d98f"
 )
 
 

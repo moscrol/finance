@@ -114,6 +114,25 @@ def build_episode_instructions(
         if task_frame.question_type == "valuation_estimate"
         else ""
     )
+    # prior_recall 槽位专用规则：只在该格出现于契约时注入。
+    #
+    # 没有这行时：模型看到 prior_recall（grounding=user_premise）但不知道该用哪个
+    # 工具填，而 4 次工具预算都被 3 个必需 evidence 槽瓜分——实测两次 run（tester
+    # 台账有 484 条液冷记录）模型一次都没选它。
+    # 加了这行后：模型有明确指引，在研究循环的第一轮或早期直接调 memory_lookup，
+    # 把先验拿到后再执行市场侧工具。
+    prior_recall_rule = (
+        "本任务包含 prior_recall 槽位（grounding_mode=user_premise）："
+        "研究开始时必须优先调用 memory_lookup 工具，检索用户对该主体的历史判断与"
+        "纠偏原则，把召回结果绑定到 prior_recall（basis=user_premise）；"
+        "若 memory_lookup 返回空命中，在 prior_recall 的 binding.gap 注明"
+        "「用户记忆无相关命中」，然后继续执行市场侧工具。"
+        if any(
+            o.output_id == "prior_recall"
+            for o in context.contract.required_outputs
+        )
+        else ""
+    )
     # 只改形状，一个字不改：本函数的静态契约文本去掉全部空白后，sha256 与重排前
     # 逐字节相同（`test_episode_protocol` 里那条指纹测试锁住这一点）。所以下面新增
     # 的只有换行和六个分组标题，**约束的措辞与前后顺序都没动**。
@@ -184,6 +203,7 @@ def build_episode_instructions(
         "若 output 已由 evidence_hashes 支持并完成，binding.gap 必须为空，"
         "限制条件写入顶层 gaps 或 draft。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
+        f"{prior_recall_rule}\n"
         f"{valuation_rule}\n"
         f"任务哈希：{task_frame.task_frame_hash}\n"
         f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
