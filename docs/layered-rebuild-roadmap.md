@@ -161,7 +161,7 @@ Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——�
 | 层 | 书里的做法 | 我们的现状 |
 |---|---|---|
 | **0. 隔离**（书末结论：隔离优于压缩） | 子 Agent 独立上下文，主 Agent 只收结论 | ✅ **已实现**。`SubResearchCoordinator` 每分支独立 budget ledger + evidence sink，父只收 `BranchResult`。⚠️ 只接在 `glm_agent_runtime`，sdk/codex 两个 backend 为 0 |
-| **1. 工具结果预算** | 原始结果落盘，上下文只留冻结预览 | ✅ **本轮补齐**（见下） |
+| **1. 工具结果预算** | 原始结果落盘，上下文只留冻结预览 | ⚠️ **本轮只补了 Engine A 相对 Engine B 缺的那半**：单条观察的叙述上限��见下）。落盘本来就有，**上下文总量仍无上界** |
 | **2. 噪声删除** | 按使用轨迹删未被引用的结果 | ❌ 未做。**我们有比书���硬的信号**：书靠启发式猜哪些没被用，我们有 `bindings`——终局时哪些 `content_hash` 真的绑进了 required_output 是确定的 |
 | **3. API 侧微压缩** | 调 provider 的 context editing 移除 tool result | ❌ 未做，**且不建议做**：provider 特定，且必然使被移除位置之后的 KV cache 失效。收益完全取决于离窗口多远，正是现在缺的那个量 |
 | **4. 轮次归档** | 逐轮 git-log 式档案，不 squash | ⚠️ **料已齐但没当上下文用**。`ledger.events` 本身就是逐轮档（`sequence` + task/tool_request/tool_result/finish）。注意 `_summarize_messages` 是 `"…" + text[-2399:]` 尾部切片（书警告的 squash 反模式），但它作用在**对话历史**层，不是 episode messages |
@@ -177,6 +177,28 @@ Engine A 缺的正是 B 那一问，而 `answer_status` 照报 `complete`——�
 （`agent_research`）一直有 `_MAX_OBSERVATION_CHARS = 900`，而 Engine A
 （`agent_episode`，**生产 research 路径**）的 tool message 是裸 `json.dumps`，
 零字符上限。
+
+**实测（45 份真实 `continuous-episode.json`、82 个 `tool_result` 事件）**：
+
+```
+被截断的观察  : 28 / 82  (34.1%)
+字节          : 299,552 → 287,694  = 减少 3.96%
+最大单条观察  : 13,636 字符（截后 12,382，仍是 13K 量级）
+```
+
+**这三个数要一起读**：三分之一的观察确实碰到了上限，但总字节只降 3.96%，
+且最大单条截完仍在 13K 量级——因为上限管的是**单个字段的叙述**
+（`observation` / `title` / `detail`），而一条观察的体积主要来自 `evidence`
+**条数**乘以每条的标识字段，那些一个都不能截。
+
+**所以这一层没有给上下文总量设上界。** `evidence` 条数目前不设限，只靠
+`intelligence/services/episode_tools.py` 上游各查询的 `limit`（5 / 12 / 18 /
+`_AGENT_FINANCE_QUERY_MAX_ROWS = 25`）间接兜着——那是查询侧的资源上限，
+不是上下文预算，改查询参数就会漂。
+
+⚠️ **不要因此去加 `evidence` 条数上限。** 那要等 `max_turn_input_tokens` 的
+P50/P95/max 分布，而该分布必须先修完「子 agent 聚合值污染逐轮读数」才可信
+（见 `services/context_growth.py` 的两个 kind 集合）。先量后改。
 
 这一层对我们几乎免费，因为前置条件已经成立——同一份 `public_observation`
 本来就分流到两个 sink：
