@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from typing import Any
 
-from intelligence.services.context_growth import summarize_context_growth
+from intelligence.services.context_growth import (
+    PER_TURN_EVENT_KINDS,
+    SUB_AGENT_EVENT_KINDS,
+    summarize_context_growth,
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +22,21 @@ def _model_turn(sequence: int, input_tokens: object) -> dict[str, Any]:
         "sequence": sequence,
         "kind": "model_turn",
         "payload": {"input_tokens": input_tokens, "output_tokens": 100},
+    }
+
+
+def _branch_completed(sequence: int, input_tokens: object) -> dict[str, Any]:
+    # SubResearchResult.input_tokens 是该 branch 各次调用之和
+    # （MAX_CALLS_PER_BRANCH = 8），所以这个数天然可能比任何单轮都大。
+    return {
+        "sequence": sequence,
+        "kind": "branch_completed",
+        "payload": {
+            "branch_id": f"b{sequence}",
+            "status": "completed",
+            "input_tokens": input_tokens,
+            "output_tokens": 200,
+        },
     }
 
 
@@ -152,3 +171,67 @@ def test_empty_event_stream_is_unavailable():
 
     assert reading["provenance"] == "unavailable"
     assert reading["observation_only"] is True
+
+
+def test_branch_only_stream_is_not_per_turn():
+    # 变异测试：把 "branch_completed" 加回 PER_TURN_EVENT_KINDS，本条必红
+    # （provenance 变成 per_turn，turn_count 变成 2）。
+    # branch 跑在隔离上下文里，它的 token 从不进父 agent 的窗口，所以父 agent
+    # 的上下文尺寸在这个流里是「没测到」，不是「120_000」。
+    reading = summarize_context_growth(
+        [
+            {"sequence": 1, "kind": "task", "payload": {}},
+            _branch_completed(2, 70_000),
+            _branch_completed(3, 50_000),
+        ]
+    )
+
+    assert reading["provenance"] == "unavailable"
+    assert reading["turn_count"] == 0
+    assert reading["per_turn_input_tokens"] is None
+    assert reading["max_turn_input_tokens"] is None
+    assert reading["cumulative_input_tokens"] is None
+    # 子 agent 的花费没被丢掉，只是换了字段和 provenance：branch 数不是轮数。
+    assert reading["sub_agent_provenance"] == "branch_aggregated"
+    assert reading["sub_agent_branch_count"] == 2
+    assert reading["sub_agent_input_tokens"] == 120_000
+
+
+def test_branch_aggregate_never_becomes_the_window_peak():
+    # 变异测试：把 "branch_completed" 加回 PER_TURN_EVENT_KINDS，本条必红
+    # （max 变成 90_000 = branch 聚合值，turn_count 与 growth_ratio 同时被污染）。
+    # 父 agent 真实峰值是 25_000；90_000 是子 agent 多次调用的和。
+    reading = summarize_context_growth(
+        [
+            _model_turn(1, 20_000),
+            _branch_completed(2, 90_000),
+            _model_turn(3, 25_000),
+        ]
+    )
+
+    assert reading["provenance"] == "per_turn"
+    assert reading["max_turn_input_tokens"] != 90_000
+    assert reading["max_turn_input_tokens"] == 25_000
+    assert reading["turn_count"] == 2
+    assert reading["per_turn_input_tokens"] == [20_000, 25_000]
+    # 20_000 → 25_000，而不是被 branch 抬成 4.5。
+    assert reading["growth_ratio"] == 1.25
+    assert reading["sub_agent_input_tokens"] == 90_000
+
+
+def test_sub_agent_fields_present_even_without_branches():
+    # 每个读数都带 sub_agent_* 三个字段；缺分支时是 unavailable 而不是 0，
+    # 否则「没跑子 agent」和「子 agent 没吐 usage」会读成同一件事。
+    reading = summarize_context_growth([_model_turn(1, 30_000)])
+
+    assert reading["sub_agent_provenance"] == "unavailable"
+    assert reading["sub_agent_branch_count"] == 0
+    assert reading["sub_agent_input_tokens"] is None
+
+
+def test_kind_sets_are_disjoint():
+    # 账单口径（agent_episode._token_usage_from_events）与上下文尺寸口径是两个
+    # 读数，各用一个集合。这里锁住「不重叠」，防止有人再把两者合并回去。
+    assert PER_TURN_EVENT_KINDS == frozenset({"model_turn"})
+    assert SUB_AGENT_EVENT_KINDS == frozenset({"branch_completed"})
+    assert not (PER_TURN_EVENT_KINDS & SUB_AGENT_EVENT_KINDS)
