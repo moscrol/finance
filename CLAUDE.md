@@ -70,9 +70,11 @@ AKShare）或写回（飞书 / DuckDB），接入会破坏 agent 的**只读 + �
 
 ### 编排层：存在
 
-`answer_orchestrator` / `conversation_orchestrator` / `question_router` / `route_table` /
-`ask_planner` / `retrieval_planner` / `research_task_planner` / `research_plan` /
-`generic_research_owner`（均在 `intelligence/services/`）。
+`answer_orchestrator` / `question_router` / `route_table` / `ask_planner` /
+`retrieval_planner` / `research_task_planner` / `research_plan` /
+`generic_research_owner`（在 `intelligence/services/`），
+`conversation_orchestrator`（已搬到 `intelligence/runtime/`——它管 loop 与预算，
+按 layer_audit 的判别口径属底座）。
 
 ### 已确立的可迁移原则（别重新发现）
 
