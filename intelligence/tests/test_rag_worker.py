@@ -204,11 +204,61 @@ def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
             "1",
             "--mode",
             "hybrid",
+            "--stale-policy",
+            kb_rag._STALE_POLICY,
             "--json",
         ],
         "timeout": 90,
     }
     assert len(kb_rag._RESULT_CACHE) == before
+
+
+def test_prewarm_and_query_send_the_same_stale_policy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """预热与普通查询必须用同一个 stale 口径，否则同一索引状态有两个答案。
+
+    历史缺陷：普通查询在 `_run_rag_cli` 里补 `--stale-policy`（`_STALE_POLICY`
+    默认 `warn`），预热的 argv 却整个漏掉它，落到 KB 侧 CLI 自己的默认 `fail`。
+    索引一旦过期，普通查询照常降级返回结果、预热硬失败 → 整个服务报 not_ready。
+    更严的那条路是没人显式选过的，这是「默认值分叉」而不是「策略选择」。
+
+    断言的是**下发的实参**而不是「跑两遍看结果一样」：后者在两侧恰好错成同一种
+    时会一起变绿。这个做法在任何参数对齐类测试里都适用（同仓
+    `test_source_dirty_uses_one_git_status_convention_on_both_sides` 用的是同一招）。
+    """
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    script = tmp_path / kb_rag.RAG_SCRIPT_REL
+    script.parent.mkdir(exist_ok=True)
+    script.write_text("# fixture\n", encoding="utf-8")
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    monkeypatch.setenv("KB_RAG_PYTHON", sys.executable)
+    monkeypatch.setenv("RAG_INDEX_DIR", str(index))
+    kb_rag.clear_result_cache()
+
+    with mock.patch.object(
+        kb_rag.rag_worker,
+        "prewarm",
+        return_value=WorkerResponse(
+            returncode=0,
+            stdout="[]",
+            stderr="",
+            model_load_count=1,
+        ),
+    ) as worker_call:
+        kb_rag.prewarm(wiki, timeout=90)
+
+    argv = worker_call.call_args.kwargs["argv"]
+    assert "--stale-policy" in argv, (
+        "预热漏了 --stale-policy，会落到 KB 侧默认 fail；"
+        "过期索引下普通查询降级、预热硬失败，整个服务报 not_ready"
+    )
+    assert argv[argv.index("--stale-policy") + 1] == kb_rag._STALE_POLICY
 
 
 def test_kb_rag_prewarm_is_noop_when_worker_disabled(

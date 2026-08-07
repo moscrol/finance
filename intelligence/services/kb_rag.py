@@ -508,19 +508,27 @@ def prewarm(
         raise FileNotFoundError(script)
     if not index_dir.is_dir():
         raise FileNotFoundError(index_dir)
+    # 预热必须和普通查询用同一个 stale 口径（见 `_run_rag_cli` 里同名分支）。
+    # 漏掉它不是「少一个参数」而是换了一套失败语义：KB 侧 CLI 的默认是
+    # `fail`，而 `_STALE_POLICY` 默认 `warn`——索引一旦过期，普通查询照常降级
+    # 返回结果，预热却硬失败，于是整个服务报 not_ready。同一个索引状态，两条
+    # 路给出「可用」和「完全不可用」两个答案，且更严的那条是没人显式选过的。
+    prewarm_argv = [
+        "query",
+        "Workbench RAG 预热",
+        "--k",
+        "1",
+        "--mode",
+        DEFAULT_RAG_MODE,
+    ]
+    if _STALE_POLICY:
+        prewarm_argv.extend(["--stale-policy", _STALE_POLICY])
+    prewarm_argv.append("--json")
     rag_worker.prewarm(
         python=_resolve_rag_python(root),
         kb_root=root,
         index_dir=index_dir,
-        argv=[
-            "query",
-            "Workbench RAG 预热",
-            "--k",
-            "1",
-            "--mode",
-            DEFAULT_RAG_MODE,
-            "--json",
-        ],
+        argv=prewarm_argv,
         timeout=timeout,
     )
     return rag_worker.status()
