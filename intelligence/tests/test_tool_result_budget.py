@@ -115,6 +115,32 @@ def test_non_mapping_evidence_items_pass_through_untouched():
     assert budget_tool_observation(payload)["evidence"] == ["unexpected", 42]
 
 
+def test_non_string_narrative_fields_pass_through_instead_of_emptying():
+    # 变异测试：把 _clip 改回 `value if isinstance(value, str) else ""`，本条必红。
+    # 强转成空串是**静默删数据**：omitted_chars 不增 → 不挂 context_budget →
+    # 模型看不出这个字段被动过，正是本模块存在的意义所要防的那件事。
+    # 与「非 Mapping 的 evidence 项原样透传」保持同一条口径。
+    payload = _observation(
+        observation={"structured": "not a string"},
+        evidence=[
+            {
+                **_observation()["evidence"][0],
+                "title": 12345,
+                "detail": ["a", "b"],
+            }
+        ],
+    )
+
+    budgeted = budget_tool_observation(payload)
+    item = budgeted["evidence"][0]
+
+    assert budgeted["observation"] == {"structured": "not a string"}
+    assert item["title"] == 12345
+    assert item["detail"] == ["a", "b"]
+    # 什么都没截，所以不得附完整性元数据。
+    assert "context_budget" not in budgeted
+
+
 def test_budget_is_deterministic_for_prompt_cache_reuse():
     # provider 的 prompt cache 以字节前缀为 key。同一份观察每次压出不同预览，
     # 恢复会话时缓存全失效，省下的 token 还不够抵重算成本。

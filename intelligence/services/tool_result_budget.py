@@ -54,10 +54,19 @@ FULL_RECORD_ARTIFACT = "continuous-episode.json"
 _ELLIPSIS = "…"
 
 
-def _clip(value: object, limit: int) -> tuple[str, int]:
-    """Return the clipped text and how many characters were dropped."""
+def _clip(value: object, limit: int) -> tuple[object, int]:
+    """Return the clipped value and how many characters were dropped.
 
-    text = value if isinstance(value, str) else ""
+    A non-``str`` value passes through untouched rather than becoming ``""``.
+    Coercing it would delete data while reporting ``omitted_chars == 0``, so no
+    ``context_budget`` marker would be attached and the model could not tell the
+    field had been emptied — the exact failure this module exists to prevent.
+    Same pass-through rule as a non-``Mapping`` evidence item.
+    """
+
+    if not isinstance(value, str):
+        return value, 0
+    text = value
     if len(text) <= limit:
         return text, 0
     # Reserve one character for the marker so the result never exceeds ``limit``
