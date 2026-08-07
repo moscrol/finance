@@ -166,6 +166,87 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
     )
 
 
+def _static_contract_text() -> str:
+    """Return only the hard-coded contract literals of the instruction builder.
+
+    Reads the source with ``ast`` instead of calling the builder: the returned
+    string also carries a task hash, the valuation rule and the registry block,
+    all of which change per task and would drown out the one thing this locks.
+    Plain ``Constant`` strings are the contract; ``JoinedStr`` (f-string) parts
+    are the dynamic tail and are skipped.
+    """
+
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(
+        textwrap.dedent(inspect.getsource(build_episode_instructions))
+    )
+    return "".join(
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        # Drop the docstring: it is not part of the model-facing contract.
+        and not node.value.startswith("Build one outcome-first")
+    )
+
+
+# 重排后的静态契约文本，扣掉 `【…】` 分组标题与全部空白后的指纹。
+#
+# 这条测试存在的唯一理由：`2026-08-07` 那次把 1,501 字符的单段契约拆成 26 行并
+# 插入 6 个分组标题，前提是**一个字不改**——只有措辞与顺序都没动，后续观察到的
+# 行为差异才能归因于结构。指纹是这个前提唯一的可检验形式。
+#
+# 它变红意味着有人动了约束的措辞或顺序。那可能是对的，但必须是**显式**的：
+# 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。别为了让它
+# 变绿而回退重排。
+_CONTRACT_FINGERPRINT = (
+    "0bff83422695cdc8e83606112374089dc6542c7fa80a8fc5ec30e772c3f91662"
+)
+
+
+def test_instruction_reshape_kept_every_constraint_verbatim() -> None:
+    import hashlib
+    import re
+
+    stripped = re.sub(r"\s+", "", re.sub(r"【[^】]*】", "", _static_contract_text()))
+    digest = hashlib.sha256(stripped.encode("utf-8")).hexdigest()
+
+    assert digest == _CONTRACT_FINGERPRINT, (
+        "静态契约的措辞或顺序变了（扣掉分组标题与空白后比较）。\n"
+        f"  实际 {digest}\n"
+        f"  期望 {_CONTRACT_FINGERPRINT}\n"
+        "若这次确实要改约束内容，请显式更新 _CONTRACT_FINGERPRINT 并在 commit "
+        "里说明改了哪一条；不要靠回退重排来让它变绿。"
+    )
+
+
+def test_instructions_are_grouped_not_one_flat_wall() -> None:
+    """锁形状本身，否则「指纹没变」也可能是因为重排被整体回退了。
+
+    阈值不是审美：重排前最长无换行段 1,501 字符、全文仅 4 个换行，模型要定位
+    「哪几条是关于证据绑定的」只能线性扫一遍长串。这里用一个宽松上界（400）
+    钉住「不能再退回单段墙」，而不是锁死当前的 210——留出后续增删约束的余量。
+    """
+
+    instructions = build_episode_instructions(_frame(), _context(_frame()), _registry())
+    longest_run = max(len(line) for line in instructions.split("\n"))
+
+    assert longest_run < 400, f"出现了 {longest_run} 字符的无换行段，契约正在退回单段墙"
+    assert instructions.count("\n") >= 20
+    for header in (
+        "【任务与计划】",
+        "【工具与观察】",
+        "【表达边界】",
+        "【证据绑定】",
+        "【何时停止】",
+        "【终局 JSON】",
+    ):
+        assert header in instructions
+
+
 def test_validate_finish_rejects_unknown_evidence_hash() -> None:
     frame = _frame()
     context = _context(frame)
