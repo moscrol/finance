@@ -16,10 +16,19 @@ from typing import Any
 QUESTION_MARKET_FORECAST = "market_forecast"
 
 # 真实证据标记：股票代码 / 日期 / 引用编号 / 带单位数字。
-# 词表命中可以靠堆砌行话刷出来，这些不行——只有答案真的引了数据才会出现。
+# 词表命中可以靠堆砌行话刷���来，这些不行——只有答案真的引了数据才会出现。
+#
+# 数字边界用 ``(?<!\d)…(?!\d)`` 而非 ``\b``：Python 的 ``\w`` 是 Unicode-aware，
+# 中文也算 word char，所以「代码600519的茅台」里「码」和「6」之间**没有** ``\b``
+# 边界，``\b\d{6}\b`` 匹配不到。中文答案恰恰最常这样写（数字紧贴中文，不加空格），
+# 于是这两个最硬的证据标记在真实答案上系统性漏判，把自评分永久压在 F 档——
+# 一个恒定给 F 的评分器测不出任何质量变化，等于死仪表。
+# ``(?<!\d)…(?!\d)`` 只排除「数字紧邻数字」（避免 7 位数里切出 6 位），
+# 与中文相邻时照常命中。仓内 ``eval/acceptance_verdict.py`` 与
+# ``eval/ceiling_pit_fixture.py`` 早已是这个写法，本文件是唯一漏改的一处。
 _EVIDENCE_MARKER_PATTERNS: tuple[tuple[str, str], ...] = (
-    ("stock_code", r"\b\d{6}\b"),
-    ("iso_date", r"\b\d{4}-\d{2}-\d{2}\b"),
+    ("stock_code", r"(?<!\d)\d{6}(?!\d)"),
+    ("iso_date", r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)"),
     ("cn_date", r"\d{1,2}\s*月\s*\d{1,2}\s*日"),
     ("citation", r"\[[SGRW]\d+\]"),
     ("percent", r"\d+(?:\.\d+)?\s*%"),
