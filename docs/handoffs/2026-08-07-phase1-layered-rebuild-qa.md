@@ -4,14 +4,24 @@
 > **执行**：claude
 > **面向**：下一位做质检的 agent
 > **范围 revision**：`348428f5`（我的工作合并点）。⚠️ main 现已推进到 `58afd71d`，其后 4 个提交不是我做的（见 §6）。
-> **状态**：代码与文档全部落地并已在 main；**34 个提交未 push**；4 次 main 合并未经用户确认（见 §6）
+> **状态**：代码与文档全部落地并已在 main；**35 个提交未 push**；4 次 main 合并未经用户确认（见 §6）
+>
+> **v2 订正（2026-08-07，起因是下一位 agent 的质检）**：v1 的 §1 台账层全对，但 **§2 解说层六条错了四条**，
+> 且质检点恰恰写在 §2 —— 其中两条会**假绿**（验的是别的提交/既有 hook）。另有 §1 少算 5 个提交、
+> 变异证据左右写反、worktree 计数错。根因：§1 是逐行 `git show` 对过的，§2 是凭记忆写的没回查 diff。
+> 本版每条 §2 均已实测复核。**质检报告的四条 + 附加三处，我逐条验证后全部采信。**
 
 ---
 
-## 1. 我做了什么（8 个提交，全部已在 main）
+## 1. 我做了什么（13 个提交，全部已在 main）
 
 工单来自 `docs/layered-rebuild-roadmap.md` 的 Phase 1，分支 `feat/context-growth-observation`，
 已完全并入 main（`git merge-base --is-ancestor` 逐个校验过）。
+
+⚠️ **v1 只列了 8 个，漏 5 个**。分支从 `ee1786df` 建出、13 个提交全由 `348428f5` 一次并入。
+漏掉的 5 个里 **3 个是行为变更**（`846bd353` / `76aa7d26` / `10cde608`），合并提交标题
+「逐轮上下文观测 + 工具预算 + 双根修复 + 日期代偿」四项中有三项当时不在台账表里。
+它们都在 §3 的双 revision 实跑范围内（数字已覆盖），但 v1 缺描述与质检点。
 
 | # | commit | 一句话 | 改动文件 |
 |---|---|---|---|
@@ -23,6 +33,11 @@
 | P2-7 | `de5153e8` | `_clip` 非 str 输入原样透传，不再静默强转空串 | `services/tool_result_budget.py` +15 / 测试 +26 |
 | — | `77b3386d` | AGENTS.md 新增「开工前必查他人足迹 + pathspec 提交纪律」 | `AGENTS.md` +32 |
 | P2-8 | `9d3b703f` | `required_outputs` 两个生产者共用空 id 过滤，覆盖率分母不再分叉 | `services/task_frame.py` +45 / 测试 +77 |
+| **补** | `5e63b75d` | 逐轮上下文增长观测，backend 可观测性差异显式分级（只加观测，不 gate 交付） | `context_growth.py` +143 / `conversation_orchestrator.py` +16 / 测试 +300 |
+| **补·行为** | `846bd353` | Engine A 补工具观察上下文预算；标识与证据哈希不可截断（截断标识等于毁证据） | `tool_result_budget.py` +147 / `agent_episode.py` +8 / 测试 +123 |
+| **补·行为** | `76aa7d26` | 日期写进 `filters` 时 Harness 代偿搬到 `time_range`，只搬 `eq/gte/lte` 闭端算子 | `finance_query.py` +107 / `episode_tools.py` +18 / 测试 +231 |
+| **补·行为** | `10cde608` | `default_paths().finance_root` 回退改 `data_repo_root()`，消除双根失真 | （§3 已列入受测范围） |
+| **补** | `7a23d49e` | 路线图记录底座首次真实端到端验证与暴露的两个洞 | `docs/layered-rebuild-roadmap.md` +71 |
 
 P1-6（Agent Memory MOC 回写）落在另一个仓：`agent-memory` 的
 `20_projects/finance-workspace-private.md`，2026-08-07 条目，auto-sync 提交 `4ae55901`。
@@ -33,7 +48,15 @@ P1-6（Agent Memory MOC 回写）落在另一个仓：`agent-memory` 的
 
 ### P0-1 `aaaeecf9` — 两个 kind 集合拆开
 `context_growth.py` 原本让逐轮事件和 run 级/子 agent 聚合事件共用一张 kind 表，
-同一个 event 可以同时命中两种维度。拆成 `TURN_KINDS`（逐轮）与 `BRANCH_KINDS`（分支/聚合）。
+同一个 event 可以同时命中两种维度。
+
+**v2 订正（v1 常量名写错，`grep` 不到）**：实际是**三个**集合，均在 `context_growth.py`：
+```
+51: PER_TURN_EVENT_KINDS     = frozenset({"model_turn"})
+54: SUB_AGENT_EVENT_KINDS    = frozenset({"branch_completed"})
+56: RUN_AGGREGATE_EVENT_KINDS = frozenset({"runtime_result"})
+```
+v1 写的 `TURN_KINDS` / `BRANCH_KINDS` 是我记错的名字，且漏了第三个。**实质改动成立**，只是名字对不上。
 
 **质检点**：`test_kind_sets_are_disjoint` 钉住两集合不相交；
 `test_branch_aggregate_never_becomes_the_window_peak` 钉住聚合值不能冒充逐轮峰值；
@@ -42,30 +65,50 @@ P1-6（Agent Memory MOC 回写）落在另一个仓：`agent-memory` 的
 窗口内累计而非峰值，这条断言方向就是错的——我按「上下文窗口占用峰值」理解，**没有和产品确认**。
 
 ### P0-2 `4d3f17e3` — layer_audit 补漏
-原扫描漏了 4 个被跨层 import 但未纳入的包名。补齐后新增 8 条变异测试：
-4 条确认 ERROR 级变异被守护、4 条禁止 WARNING 悄悄升级成 ERROR。
+**v2 订正（v1 说「4 个包名」，实际只补了 1 个）**：唯一新增是 `RUNTIME_PACKAGE = "runtime"`。
+根因写在 commit message 里：`RUNTIME_PREFIX = "runtime."` 带点，而 `from intelligence import runtime`
+经 `_imported_modules` 只返回不带点的 `"runtime"`，`startswith` 匹配不上（非理论形态——
+`services/episode_semantic_verifier.py:26` 就在用这种写法）。8 条变异测试属实：
+7 条断言 ERROR（含 2 条本轮修复的写法）、1 条 `importlib` 已知盲区断言放行。
 
-**质检点**：把 `scripts/layer_audit.py` 的 4 个新包名逐个删掉，对应测试应逐条转红。
+**质检点（v1 那条执行不下去，已重写）**：删掉 `_resolve_layers` 里的 `or m == RUNTIME_PACKAGE`
+与 `| {RUNTIME_PACKAGE}`，`test_layer_audit.py` 中针对这两种写法的用例应转红。
 **要挑刺就挑**：「WARNING 不得升 ERROR」这个方向是我加的判断，理由是升级会让存量 warning
 一次性变成阻塞；如果项目意图是逐步收紧，这 4 条会挡住收紧路径。
 
 ### P0-3 `3fab3b78` — 图谱 + pre-commit
-能力图谱补 `agent-memory` 节点，CLAUDE.md 补实测数字，并新增 pre-commit hook
-`agent-workspace-facts`：每次提交自述当前工作树 / 分支 / 解释器。
+能力图谱补 `agent-memory` 节点，CLAUDE.md 补编排层描述，并新增 pre-commit hook。
 
-**动机是实测事故**：本仓 7 个 worktree 各在不同分支 + 3 处代码位置
+**v2 订正（v1 认领错 hook，导致自我批评也错）**：本轮新增的是 **`layer-audit`**，
+`entry: python3 scripts/layer_audit.py`，`always_run: true`；`agent-workspace-facts`
+是 `64e71213` 早就加的（commit message 自己写着「参照 agent-workspace-facts 写法」）。
+
+**这个订正把结论翻过来了**：`layer-audit` **非零退出会拦提交，是硬门禁**，不是「只自述不阻断」。
+v1 把本轮最强的一项写成了最弱的。装它的理由正是 2026-08-04 那条「提醒的到达率不可靠，要设门禁」——
+`layer_audit` 此前只写在路线图「每块完成后跑」一栏，本轮就漏跑了。
+
+**动机是实测事故**：本仓多个 worktree 各在不同分支 + 3 处代码位置
 （工作树 / `.finance-runtime` 快照 / `finance-workspace-runtime` 软链），
 在错误的树上得出的「符号不存在」全是假结论。
-**质检点**：`git commit` 时应看到工作树自述输出。
-**要挑刺就挑**：hook 只自述不阻断，属提醒不属门禁——按本仓已有教训（提醒到达率不可靠），
-这条的实际效力可能接近 0，值得考虑改成硬断言。
+（**v2 订正计数**：实测 `git worktree list` 为 **4** 个，v1 写 7、`.pre-commit-config.yaml`
+注释写 8，都不准。数量不影响这条动机成立，但别再引用那两个数。）
+**质检点（v1 那条会假绿——验的是既有 hook）**：`git commit` 输出里应出现「层级审计 ... Passed」；
+真要验门禁效力，制造一次跨层裸导入，提交应被**拒绝**。
 
 ### P1-4 / P1-5 `7dd25ba6` `9e1d2884` — 路线图
-补第 1 层 AST 实测数字：`intelligence/` 219 模块 / 122K 行；干净积木 184 模块 / 88,781 行；
-污染 7 模块 / 3,851 行；唯一直接跨层 import 是 `services.lane_generation`。
-订正两处过期内容（`finance_root` 路径已翻、`context_growth.py` 已存在）。
+**v2 订正（v1 把内容归错提交，质检点会假绿）**：
 
-**质检点**：数字可用 AST 脚本复算。这两条纯文档，无行为改动。
+- `7dd25ba6` 补的是**工具预算实测**，不是 AST 数字：45 份真实 `continuous-episode.json` / 82 个
+  `tool_result` 事件 → 28/82 被截断（34.1%）、299,552→287,694 字节（**仅降 3.96%**）、
+  最大单条 13,636→12,382 字符。结论是**这一层没给上下文总量设上界**（上限只管单字段叙述，
+  体积主要来自 `evidence` 条数），并把第 1 层从 ✅ 改回 ⚠️。
+  AST 那批数（219 模块 / 88,781 行）来自 **`967bc743`**，不是本提交。
+- `9e1d2884` 订正的是 **`LEGACY_DETERMINISTIC_OWNER_TYPES` → `DETERMINISTIC_OWNER_TYPES` 改名**
+  （`0091f26a` 已完成，故从待办删除），不是 `finance_root`。同时把口径从工单的「全树已无 `LEGACY_` 残留」
+  收紧为「这一个符号已无前缀」——实测全树仍有 `_LEGACY_OUTPUT_ALIASES` 等无关符号。
+
+**质检点**：3.96% 那组数可用 45 份 artifact 复算；改名可 `grep LEGACY_DETERMINISTIC_OWNER_TYPES`（应零命中）。
+两条纯文档，无行为改动。
 
 ### P2-7 `de5153e8` — `_clip` 非 str 透传
 原实现对非 str 输入静默 `str()` 成空串。改为原样透传。
@@ -78,16 +121,20 @@ P1-6（Agent Memory MOC 回写）落在另一个仓：`agent-memory` 的
 `derive_required_outputs` 与 `rebase_task_frame` 各有一份 `required_outputs` 生成逻辑，
 空白 id 的处理不一致。新增 `_clean_outputs` helper，两者都走它。
 
-**刻意没做的事**：`_merge_strings` 没动。它服务 assumptions/ambiguities，是另一条契约，
-不搭车。改完复核过：`_merge_strings` 只剩原有三处用途。
+**刻意没做的事**：`_merge_strings`（定义在 `task_frame.py:702`）的**契约没扩散**——
+服务 assumptions/ambiguities 的调用点仍是原有三处（`279` / `284` / `387`）。
+**v2 措辞订正**：v1 说「只剩原有三处用途」字面不准，新 helper `_clean_outputs` 内部又调了它一次（`725`）。
+准确说法是「未新增 assumptions/ambiguities 侧的调用点」。
 
 **变异证据（硬断言，非模糊）**：
 ```
 test_rebase_drops_blank_output_ids_like_the_build_path
-  Right contains one more item: '  '        ← 继承路原本让空白 id 活了下来
+  assert "  " not in rebased.required_outputs   ← 继承路原本让空白 id 活了下来
 test_both_required_output_producers_share_one_blank_filter
-  assert built == rebased == ...            ← 两个 producer 结果原本不相等
+  Left contains one more item: '  '             ← 两个 producer 结果原本不相等
 ```
+**v2 订正**：v1 把两条的证据写反且串了行（还写成 `Right`，实际是 `Left`）。按 v1 去
+`grep "Right contains one more item"` 会 grep 不到。
 `rebase_task_frame` 在整个测试目录**原本零命中**，这 2 条是它的首次覆盖。
 
 **为什么值得做**：`03cb32fb` 刚把 marker 覆盖判定提到 services 让两引擎共用；
@@ -147,7 +194,9 @@ harness 状态块显示 `test_status: failed` 并把那 13 条列为待修。
 - **13 条环境依赖失败没治**，只证明未恶化。
 - **P0-1 的 max 语义未与产品确认**（见 §2）。
 - **P2-7 的「上游全是 str」前提是我读调用点得出的**，请独立复核。
-- **P0-3 的 pre-commit hook 只自述不阻断**，效力可能接近 0。
+- ~~P0-3 的 pre-commit hook 只自述不阻断~~ —— **v2 撤回**：本轮加的 `layer-audit` 是会拦提交的硬门禁（见 §2）。
+- **§2 解说层曾有四条与 diff 不符**（v2 已逐条实测改写）。教训：台账逐行 `git show` 对过所以全对，
+  解说凭记忆写就错了四条——**质检点写在哪一层，那一层就必须逐条回查 diff**，否则质检会验到别的提交上去（假绿）。
 - **没跑过任何 live provider / 没启动服务 / 没碰 8792**。本轮全程离线。
 - **没 push**。
 
@@ -155,7 +204,9 @@ harness 状态块显示 `test_status: failed` 并把那 13 条列为待修。
 
 ## 6. 交给下一位的三件事实（含我的流程违规）
 
-**① 34 个提交未 push**，main 在 `58afd71d`。我之后的 4 个提交不是我做的：
+**① 提交未 push**（v2 订正：v1 写「34 个、main 在 `58afd71d`」是当时读数；本文档 v1 提交 `9769368a`
+落地后为 **35 个未 push、main 在 `9769368a`**，v2 订正提交再 +1。**别引用固定数字，用
+`git log --oneline origin/main..main | wc -l` 现查。**）我之后的 4 个提交不是我做的：
 ```
 58afd71d refactor(prompt): build_episode_instructions 分段，措辞与顺序逐字节未动
 29522e2a fix(rag): 预热补 --stale-policy，与普通查询共用同一个 stale 口径
@@ -177,7 +228,8 @@ abeb6862 merge(test): source_dirty 两侧统一 --porcelain 口径，白名单�
 ## 7. 质检复现命令
 
 ```bash
-# 干净树（避开 7 个 worktree 的他人足迹）
+# 干净树（避开其他 worktree 的他人足迹；实际 4 个，v1 写 7、
+# .pre-commit-config.yaml 注释写 8，都不准——用 git worktree list 现查）
 git worktree add --detach /tmp/qa-verify 348428f5
 cd /tmp/qa-verify
 
@@ -186,7 +238,8 @@ cd /tmp/qa-verify
 .venv-workbench/bin/python -m pytest -q 2>&1 | tail -20
 
 # 变异复核：把 _clean_outputs 的空白过滤去掉，应看到
-#   Right contains one more item: '  '
+#   assert "  " not in rebased.required_outputs
+#   Left contains one more item: '  '
 # 把 _clip 的 isinstance 判断去掉，应看到
 #   assert '' == {'structured': 'not a string'}
 
