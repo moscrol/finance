@@ -611,6 +611,11 @@ def test_glm_client_returns_stable_error_for_unavailable_provider() -> None:
         "LLM 调用失败（TimeoutError）",
         "LLM 调用失败（RemoteDisconnected）",
         "LLM 调用失败（URLError）",
+        # cockpit gateway round-robin 偶发：池里某账号坏掉时返回 502/503。
+        # 这两条必须触发重试，否则单次决证会直接报 model_unavailable，
+        # 而下一轮 round-robin 通常会打到健康账号（代价 <1s）。
+        "LLM 调用 HTTP 502",
+        "LLM 调用 HTTP 503",
     ),
 )
 def test_glm_client_retries_one_transient_error_within_the_same_turn(

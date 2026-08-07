@@ -31,6 +31,11 @@ _TRANSIENT_PROVIDER_ERRORS = (
     "TimeoutError",
     "RemoteDisconnected",
     "URLError",
+    # cockpit gateway round-robin 偶发：池里某账号坏掉时返回 502/503，
+    # 下一轮 round-robin 通常会打到健康账号。一次重试代价极低（<1s），
+    # 而不重试会让单次决证直接报 model_unavailable，误导性极强。
+    "HTTP 502",
+    "HTTP 503",
 )
 DEFAULT_GLM_LLM_TIMEOUT = 75.0
 _GLM_SYNTHESIS_RESERVE = {
