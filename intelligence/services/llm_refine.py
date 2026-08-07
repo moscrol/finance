@@ -49,6 +49,31 @@ DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
 _ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
 
+# 每个出站请求都必须自报身份。不设时 urllib 会发 ``Python-urllib/3.12``，
+# 而中转/网关普遍把那个默认值当作脚本流量拦掉——实测同一把 key、同一个 URL、
+# 同一份 body，只改 UA 就能从 502 变 200：
+#   Python-urllib/3.12      -> 502 upstream_error（Upstream access forbidden）
+#   finance-workbench/1.0   -> 200
+# 症状极具误导性：错误码是 502（看起来像上游挂了），而 curl 手测恒通，于是很容易
+# 误判成"网关不稳定"。这里刻意用自己的名字而不是伪装成 curl/openai-python：
+# 目的是不被默认值误伤，不是绕过对方的客户端识别。
+_LLM_USER_AGENT = os.environ.get("LLM_USER_AGENT", "finance-workbench/1.0")
+
+
+def _llm_request_headers(
+    provider: LLMProvider,
+    **extra: str,
+) -> dict[str, str]:
+    """Return the shared outbound header set for one provider call."""
+
+    headers = {
+        "Authorization": f"Bearer {provider.api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": _LLM_USER_AGENT,
+    }
+    headers.update(extra)
+    return headers
+
 # (provider, api_key_env, default_base_url, default_model). First env var that is
 # set wins. A generic LLM_API_KEY (+ LLM_BASE_URL / LLM_MODEL) overrides all.
 _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
@@ -604,10 +629,7 @@ def _post_chat(
     req = urllib.request.Request(
         url,
         data=data,
-        headers={
-            "Authorization": f"Bearer {provider.api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=_llm_request_headers(provider),
         method="POST",
     )
     started = time.monotonic()
@@ -642,10 +664,7 @@ def _post_chat_synthesis(
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {provider.api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=_llm_request_headers(provider),
         method="POST",
     )
     started = time.monotonic()
@@ -740,10 +759,7 @@ def _post_chat_message(
     req = urllib.request.Request(
         url,
         data=data,
-        headers={
-            "Authorization": f"Bearer {provider.api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=_llm_request_headers(provider),
         method="POST",
     )
     started = time.monotonic()
@@ -1362,11 +1378,7 @@ def _post_chat_stream_raw(
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {provider.api_key}",
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-        },
+        headers=_llm_request_headers(provider, Accept="text/event-stream"),
         method="POST",
     )
     chunks: list[str] = []
