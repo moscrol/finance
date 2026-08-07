@@ -236,6 +236,77 @@ token 抵不上重算的成本。这也是书里强调「预览一旦生成就�
  "summary":"...","omitted_rows":219,"provenance":"..."}
 ```
 
+### 底座首次真实端到端验证（`2026-08-07`）
+
+在此之前，`continuous_glm`（生产默认 backend）**磁盘上零条真实 run**。
+`test_agent_episode.py` 有 40+ 用例密集覆盖 Harness 行为，但全部用 `ScriptedModel`
+（按脚本返回，不打 API）——它们验证的是「模型这样回时编排是否正确」，
+不验证真实模型在真实提示词下会不会正确回。`tmp/` 下 40 份
+`continuous-episode.json` 全是 `sdk_gpt`（canary 实验）。
+
+跑通 `scripts/smoke_workbench_self_use.py`（真实 HTTP + 真实 GLM + 真实 DuckDB）
+后暴露两个洞，都不是单元测试能抓的类型：
+
+#### 洞一：双根失真（已修，`10cde608`）
+
+```
+data_repo_root()              → 代码根（本仓）
+default_paths().finance_root  → ~/Desktop/c c/金融     ← 各自回退，指向两棵树
+```
+
+不设环境变量时 DuckDB 落在本仓、exports/快照落在另一个仓。
+`_runtime_market_reference_date()` 从旧仓 exports 取出 **6 月**的日期当 floor，
+再拿它去查数据已到 **8 月**的本仓库——每条结构化查询都被判
+「数据仅更新到 …，早于当前所需 …」。**数据一点都不旧，是标尺拿错了。**
+
+三次同题冒烟：
+
+| | 根不一致 | 手动 `FINANCE_WS` | 修复后（零环境变量） |
+|---|---|---|---|
+| 取到证据的工具 | 1 个 / 5 条 | 4 个 / 17 条 | 4 个 / 27 条 |
+| `marker_coverage` | `incomplete` | `complete` | `complete` |
+| `direct_assessment` | 缺失 | 写出 | 写出 |
+
+⚠️ **这类 bug 单元测试永远抓不到**，因为每个组件自己都是对的，
+错的是组件之间对「数据根在哪」的答案不一致。`default_market_db_path()`
+的注释早已记过同一教训（库不在数据根时盘面证据层静默消失），
+但当时只修了 DuckDB 一处。`test_paths.py` 现在锁住两根一致。
+
+#### 洞二：工具契约不可学习（已修，`dae9c8c7`）
+
+同一轮 research 里模型对同一个错犯了**两次**——把 `trade_date` 放进 `filters`
+而非 `time_range`，两次被拒，��个工具槽白烧，最终 `deadline_exhausted` 降级。
+重试提示写得很清楚（`日期不要放入 filters；请改用 time_range.start/end`），
+隔一轮又犯。
+
+**选择由 Harness 代偿而不是加强提示词**：日期该放 `time_range` 是本引擎的
+局部约定，不是 SQL 常识；模型按「日期就是一个普通等值筛选」的直觉写是可预期的
+高频错法。提示词只能降低概率，代偿能消除这类损耗。
+
+`finance_query.normalize_spec()` 只在**语义完全等价**时搬：
+
+```
+eq  → start = end = 值      单日闭区间
+gte → start = 值            编译期用 >=，同为闭端
+lte → end   = 值            编译期用 <=，同为闭端
+```
+
+⛔ **`gt` / `lt` 刻意不搬**：`time_range` 两端编译成 `>=` / `<=`，
+把开区间搬成闭区间会**静默多带一天数据**。报错只浪费一次调用，
+静默改语义会让答案引用一条模型没要求的记录——和「删掉一条反证」是同一类错。
+`ne` / `in` / `contains` 同理不搬（表达集合而非区间）。
+端点已被显式 `time_range` 占用、值非 ISO 日期、合并后 `start > end`，
+三种情况也都原样退回让原有校验报错。
+
+代偿说明必须混进 `observation`：**查询成功但写法被改过���不说它下一轮还会照原样写。**
+
+修复后同题冒烟：`stop_reason` 从 `deadline_exhausted` 变为 `model_finish`，
+6 个工具请求全部完成，日期代偿触发 2 次。
+
+**这条经验可迁移**：工具契约里凡是「引擎局部约定 ≠ 领域常识」的地方，
+都该考虑 Harness 代偿而非只写进提示词。判据是等价性——能无损映射就代偿，
+不能就报错，绝不猜。
+
 ---
 
 ## Phase 2 · 逐块搭 + 逐块测（主体）
