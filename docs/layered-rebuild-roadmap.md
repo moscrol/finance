@@ -276,7 +276,9 @@ token 抵不上重算的成本。这也是书里强调「预览一旦生成就�
 不是「用不用 LLM」。引擎 B 只在三种情况接手：
 
 ```python
-LEGACY_DETERMINISTIC_OWNER_TYPES = {"external_market", "quick_fact", "dated_market_review"}
+DETERMINISTIC_OWNER_TYPES = frozenset(
+    {"external_market", "quick_fact", "dated_market_review"}
+)
 # continuous_turn_adapter.py:67，加上 control.terminal_kind != "research"
 ```
 
@@ -286,9 +288,10 @@ LEGACY_DETERMINISTIC_OWNER_TYPES = {"external_market", "quick_fact", "dated_mark
 Phase 3 要做的：
 1. 给这三个题型各跑几轮真实对照，量**方差**（同题两次答案的差异）
 2. 有数字后再定合不合
-3. 无论合不合，把分工写成**显式契约**，并给 `LEGACY_DETERMINISTIC_OWNER_TYPES` 改名——
-   实测全仓没有任何一处文档说明它是"待清理的债"还是"有意保留的快路径"，
-   而它的行为是后者。名字里的 `LEGACY` 会让下一个人去删它。
+3. 无论合不合，把分工写成**显式契约**——它是"有意保留的快路径"还是"待清理的债"，
+   目前仍只有行为说明、没有文档声明。
+   ✅ 改名已完成（`0091f26a`）：`LEGACY_DETERMINISTIC_OWNER_TYPES` →
+   `DETERMINISTIC_OWNER_TYPES`，名字本身不再诱导下一个人去删它。
 
 ---
 
