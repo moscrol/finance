@@ -3191,3 +3191,36 @@ def test_index_serves_workbench_page(client: TestClient) -> None:
     resp = client.get("/")
     assert resp.status_code == 200
     assert "Workbench" in resp.text
+
+
+def test_continuous_turn_timeout_is_deployment_configurable(monkeypatch) -> None:
+    """回合预算必须能按部署覆盖——它是物理约束，不是偏好。
+
+    这个数经 verification_reserve 与 synthesis_reserve 层层扣减后，最终**就是**
+    发给 provider 的 HTTP 请求超时（glm_agent_runtime.py `timeout=remaining`）。
+    provider 换了，延迟分布就换了；写死会让「换 provider」变成「必须改代码」。
+
+    2026-08-08 实测：默认 120 时首轮实得约 25s，而中转 P50=28s / P95=50s，
+    约一半的 run 死在第一轮且 provider_attempts=1（没预算重试，看起来像重试
+    失效，实际是没机会跑）。
+    """
+    from intelligence.api import app as app_module
+
+    monkeypatch.delenv("WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS", raising=False)
+    assert app_module._continuous_turn_timeout_seconds() == 120.0
+
+    monkeypatch.setenv("WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS", "300")
+    assert app_module._continuous_turn_timeout_seconds() == 300.0
+
+
+def test_invalid_turn_timeout_falls_back_instead_of_crashing_startup(monkeypatch) -> None:
+    """这是服务启动路径，一个拼错的环境变量不该让服务起不来。
+
+    launchd 是 KeepAlive=true + ThrottleInterval=10：启动期抛异常不会「拒绝
+    启动」，会变成每 10 秒重启一次的无限崩溃循环。
+    """
+    from intelligence.api import app as app_module
+
+    for bad in ("abc", "", "0", "-5"):
+        monkeypatch.setenv("WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS", bad)
+        assert app_module._continuous_turn_timeout_seconds() == 120.0, bad

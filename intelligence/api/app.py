@@ -117,8 +117,45 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
-_CONTINUOUS_TURN_TIMEOUT_SECONDS = 120.0
+_DEFAULT_CONTINUOUS_TURN_TIMEOUT_SECONDS = 120.0
 _CONTINUOUS_RUNTIME_MODES = frozenset({"off", "canary", "on"})
+
+
+def _continuous_turn_timeout_seconds() -> float:
+    """一轮 continuous research 的墙钟预算，可由部署侧覆盖。
+
+    为什么需要这个旋钮：这个数不是「多久算慢」的偏好，而是**必须大于 provider
+    延迟分布**的物理约束，而 provider 是按部署换的。链路是
+
+        回合预算 T
+          → verification_reserve = min(40, T/3)          （continuous_turn_adapter.py:66,399）
+          → runtime_timeout      = T − verification_reserve
+          → 再扣 synthesis_reserve
+          → stage_timeout        = min(llm_timeout, remaining − reserve)
+          → 这个值**就是 HTTP 请求超时**（glm_agent_runtime.py:154/277 `timeout=remaining`）
+
+    所以 provider 一慢，超时表现为 `TimeoutError` → `model_unavailable`，而且
+    `provider_attempts=1`——一次尝试就把预算耗光，重试逻辑根本没机会跑，看起来
+    像「重试没生效」，实际是没预算重试。
+
+    2026-08-08 实测：出口切到中转后 T=120 时首轮实得约 25s，而中转延迟
+    P50=28s / P95=50s（N=8，同一提示词规模）。于是约一半的 run 死在第一轮，
+    与模型选型无关——换了三个模型都一样，因为 P50 本身就超预算。
+
+    默认值保持 120.0 不变：改默认会影响每个不设这个 env 的调用方与全部测试。
+    需要更大预算的部署在启动器里设 `WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS`。
+    非法值（非数字、<=0）回落默认而不是抛——这是服务启动路径，
+    一个拼错的环境变量不该让服务起不来。
+    """
+
+    raw = os.environ.get("WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return _DEFAULT_CONTINUOUS_TURN_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return _DEFAULT_CONTINUOUS_TURN_TIMEOUT_SECONDS
+    return value if value > 0 else _DEFAULT_CONTINUOUS_TURN_TIMEOUT_SECONDS
 
 
 def _positive_float_env(name: str, default: float) -> float:
@@ -1095,8 +1132,10 @@ def _run_conversation_turn(
                 event_id_prefix=event_id_prefix,
                 is_cancelled=cancellation_signal.is_set,
                 timeout=min(
-                    _CONTINUOUS_TURN_TIMEOUT_SECONDS,
-                    cancellation_signal.remaining(_CONTINUOUS_TURN_TIMEOUT_SECONDS),
+                    _continuous_turn_timeout_seconds(),
+                    cancellation_signal.remaining(
+                        _continuous_turn_timeout_seconds()
+                    ),
                 ),
                 deadline_expires_at=cancellation_signal.deadline_expires_at,
                 # 不传这个，`memory_lookup` 在生产里一次都不会注册。
