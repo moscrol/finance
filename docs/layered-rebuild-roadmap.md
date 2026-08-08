@@ -59,12 +59,40 @@ Phase 3  引擎收敛        ← 数据驱动，最后做
 
 ## Phase 1 · 补底座的洞（4 件，都已实测）
 
-| # | 缺口 | 实测证据 | 优先级依据 |
-|---|---|---|---|
-| 1 | **上下文压缩零实现** | 全树 grep `compact/trim/summariz/prune/evict` 无命中；`agent_episode.py` 的 `messages` 只 `.append()`；工具观察全量 `json.dumps` 无上限。**观测部分已补，见下** | 唯一**正在积累**的风险。但已见 124K token 仍返 200（lifecycle handoff P1-3 明确排除了它作为 HTTP 400 的原因），所以**不是正在出血** |
-| 2 | **`memory_lookup` 结构性不可达** | 三个授权源（`_RUNTIME_CAPABILITY_FLOOR` 20 条策略、`_PLAN_CAPABILITY_TO_RUNTIME` 10 条映射、`conversation_orchestrator` 9 个分支）全部无它；唯一授权处是 `test_episode_tools.py:1956` | 能力图谱记 12 个工具，生产只够得着 9 个，而 `graph_audit` 照常 exit 0 |
-| 3 | **系统提示词结构** | `build_episode_instructions` 渲染后 1,601 字符 / **4 个换行** / 最长无换行段 **1,501 字符** / 24 条约束平铺 | 零行为风险的改动，但必须**只改形状不改字**，否则分不清收益来自结构还是内容 |
-| 4 | **fulfillment 判定不进 trace** | 实测 0/305。**根因已纠正，见下** | 前三件改完都需要它来对账 |
+| # | 缺口 | 状态 | 实测证据 | 优先级依据 |
+|---|---|---|---|---|
+| 1 | **上下文压缩零实现** | ⚠️ **观测已补，策略未动** | 全树 grep `compact/trim/summariz/prune/evict` 无命中；`agent_episode.py` 的 `messages` 只 `.append()`；工具观察全量 `json.dumps` 无上限。**观测部分已补，见下** | 唯一**正在积累**的风险。但已见 124K token 仍返 200（lifecycle handoff P1-3 明确排除了它作为 HTTP 400 的原因），所以**不是正在出血** |
+| 2 | **`memory_lookup` 结构性不可达** | ✅ **已闭合**（`23335c63` + `c6a60342`，`2026-08-08` 实测复核） | 原：三个授权源（`_RUNTIME_CAPABILITY_FLOOR` 20 条策略、`_PLAN_CAPABILITY_TO_RUNTIME` 10 条映射、`conversation_orchestrator` 9 个分支）全部无它；唯一授权处是 `test_episode_tools.py:1956`。**现：见下方「第 2 项已闭合」** | 能力图谱记 12 个工具，生产只够得着 9 个，而 `graph_audit` 照常 exit 0 |
+| 3 | **系统提示词结构** | ✅ **已完成**（`58afd71d`，措辞与顺序逐字节未动） | `build_episode_instructions` 渲染后 1,601 字符 / **4 个换行** / 最长无换行段 **1,501 字符** / 24 条约束平铺 | 零行为风险的改动，但必须**只改形状不改字**，否则分不清收益来自结构还是内容 |
+| 4 | **fulfillment 判定不进 trace** | ⚠️ **观测已补，未 gate 交付** | 实测 0/305。**根因已纠正，见下** | 前三件改完都需要它来对账 |
+
+### 第 2 项已闭合（`2026-08-08`）
+
+真正的修复是**身份穿透**（`c6a60342`：把 user 身份穿透到 `memory_lookup` 的
+注册链）+ 三条策略授权（`23335c63`），**不是**提示词指引（`9380b3b9`）。
+
+决证 `run_20260808_114635_724215`［实测复核］：
+
+```
+tools : [memory_lookup, evidence_search, finance_query,
+         finance_query, graph_lookup, news_search]
+        ^ 无强制顺序指令，模型自主排在第一位
+prior_recall binding : basis=user_premise, gap="", 有 evidence_hash
+```
+
+**排查过程本身是这条路线最该记住的教训。** 中途曾有三条自洽的解释——「模型有
+工具但没选」「预算竞争挤掉了它」「`required=False` 给了跳过的理由」——三条共享
+同一个**未经验证的前提**：工具在候选列表里。实测该工具压根没注册，前提不成立，
+三条同时作废。**先问「它看没看到这份信息」，再问「它为什么没用」**；跳过第一问
+会得出一整套自洽但全错的归因。
+
+⚠️ **限定**：决证走的是 8788 冒烟实例（env 注入中转 key），**不是生产 8792**。
+生产的 LLM 出口是 `FORESIGHT_LLM_KEYCHAIN=1` → Keychain BYOK → cockpit
+`localhost:57244`，该网关活跃账号为 0（13 个凭证全 `.bak`）。**生产线的同一
+验证仍欠一次**，等上游账号恢复。
+
+这也说明「可达性」这一件必须**按线验**：同一份代码在两条部署线上，一条通了不
+等于另一条通了。
 
 ### 第 4 项的根因纠正（`2026-08-07`）
 
@@ -317,7 +345,7 @@ lte → end   = 值            编译期用 <=，同为闭端
 
 | 件 | 验收方式 |
 |---|---|
-| **可达性** | 从生产授权路径能真的调到它（不是"定义了"，是"这次开着"）。`memory_lookup` 就是反例 |
+| **可达性** | 从生产授权路径能真的调到它（不是"定义了"，是"这次开着"）。`memory_lookup` 就是反例。**且要按部署线验**——同一份代码在 8788 和 8792 上，一条通了不等于另一条通了（见 Phase 1 第 2 项） |
 | **契约** | 它产出什么 output_id、绑定什么证据、`grounding_mode` 是什么，显式声明 |
 | **观测** | 调用/失败/耗时进 trace，且判定结果可复算 |
 | **测试** | 含**变异测试**：抽掉那行 / 改掉那个值，测试必须变红 |
@@ -328,8 +356,28 @@ lte → end   = 值            编译期用 <=，同为闭端
 ### 搭一个测一个的具体含义
 
 - **一次一块，一个 commit。** 不攒批。
-- 每块完成后跑全量：**基线 `13 failed, 3807 passed, 2 skipped`**（`test_userspace` 3 +
-  `test_subconscious` 8 + `test_acceptance_board` 2，宿主环境固有）。**多出任何一条都是新引入的。**
+- 每块完成后跑全量：
+
+  ```bash
+  .venv-workbench/bin/python -m pytest -q
+  ```
+
+  **基线 `13 failed, 4387 passed, 3 skipped`**［实测 `2026-08-08` @ `a2e877ce`］
+  （`test_userspace` 3 + `test_subconscious` 8 + `test_acceptance_board` 2，
+  宿主环境固有）。**多出任何一条都是新引入的。**
+
+  ⚠️ **failed/passed 数必须与 `--collect-only` 计数对账**：`13+4387+3 = 4403`
+  应等于 collect 的条数。漏收集会伪装成「通过数变少」或「失败数没变」——
+  `2026-08-07` 质检踩过一次，collect 出 4371 却只跑了 4323。
+
+  > **基线数会随新增测试前进，别把上面这组数当常量。** 它此前长期停在
+  > `3807 passed, 2 skipped`，因为主树上这条命令**根本跑不起来**：`tmp/` 下的
+  > 历史工作 clone 与主树 `tests/` 同包名，collect 直接中断（1031 errors）。
+  > 而质检按 handoff §7 在干净 worktree 里跑（`tmp/` 已 gitignore），那条路径上
+  > 撞不到，于是「文档里的命令」和「主树能跑的命令」分叉了两周。已由 `pytest.ini`
+  > 的 `norecursedirs` 修掉，门禁测试见 `intelligence/tests/test_pytest_collection_scope.py`
+  > （断言的是 collect 的**生效结果**，不是配置里写没写 tmp）。
+
 - 解释器必须 `.venv-workbench/bin/python`。`python3` 是宿主 3.14，缺依赖，
   用它得出的"符号不存在""缺包"全是假的。
 - 每块完成后跑 `scripts/layer_audit.py`，接缝数**只减不增**。
