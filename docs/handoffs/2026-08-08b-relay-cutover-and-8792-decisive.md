@@ -14,13 +14,18 @@
 问题上：**这套预算档位表是按一个快 3-5 倍的 provider 标定的**，中转的延迟分布
 落在预算之外，第一次模型调用就被掐断（一次调用、零个工具）。
 
-剩下的活**不只是把数字调大**。复盘时定位到两个更根本的问题（§2.4）：
-BYOK 下静态秒数不可能正确，而系统**从来不测 provider 延迟**（实测：全树零命中），
-所以它没有自校准所需的输入；另外 reserve 的逻辑在第一步是反的——它为一场
-不会发生的合成攒时间，饿死了唯一能启动这一切的那次调用。
+剩下的活**不只是把数字调大**。复盘时定位到三个更根本的问题（§2.4）：
 
-**任务顺序按这个结论排过，别跳**（§4）：先让它会测 → 再修首轮那一刀的切法
-→ 再用真实分布重标定 → 再验决证。
+- **(a)** BYOK 下静态秒数不可能正确。延迟**已经被测、也已落盘**
+  （`llm_refine.py` 的 `LLMCallRecord.elapsed_ms` → orchestrator 的
+  `llm_call_ledger`），但**预算侧从不读它**。缺的是消费端，不是观测。
+- **(b)** reserve 的逻辑在第一步是反的——为一场还不存在的合成攒时间，
+  饿死了唯一能启动这一切的那次调用。
+- **(c)** deadline 紧张时把并行**关掉**（`max_branches=0`）。provider 越慢
+  越需要并行，这里恰好反着来。
+
+**任务顺序按这个结论排过，别跳**（§4）：先接消费端 → 再把「每轮多久」与
+「总共几轮」解耦 → 再用真实分布重标定 → 再验决证。
 
 ⚠️ **我做了两次尝试，都没解决**（换模型、加回合预算旋钮）。两次的过程和数据都
 留在下面，因为它们**排除了两个看起来最像的原因**，能省下你重走一遍的时间。
@@ -55,14 +60,28 @@ BYOK 下静态秒数不可能正确，而系统**从来不测 provider 延迟**�
 
 ```
 回合预算 T (_continuous_turn_timeout_seconds, 默认 120)
-  → verification_reserve = min(40, T/3)          continuous_turn_adapter.py:66,399
+  → verification_reserve = min(40, T/3)     runtime/continuous_turn_adapter.py:66,399-403
   → runtime_timeout      = T − verification_reserve
   → _generic_research_deadline 再与 ResearchPolicy 档位 min 封顶
-      quick 30s / standard 90s / deep 240s        research_contract.py:392-394
+      quick 30s / standard 90s / deep 240s        services/research_contract.py:392-394
   → 再扣 synthesis_reserve（standard 20s / deep 48s）
-  → stage_timeout = min(llm_timeout=75, remaining − reserve)   research_contract.py:356
-  → **这个值就是 HTTP 请求超时**              glm_agent_runtime.py:154/277 `timeout=remaining`
+  → stage_timeout = min(llm_timeout=75, remaining − reserve)   services/research_contract.py:356
+  → **这个值就是 HTTP 请求超时**        runtime/glm_agent_runtime.py:154,277 `timeout=remaining`
 ```
+
+⚠️ **路径订正（`b6b8bd58` 及之前的版本写错了目录）**：`glm_agent_runtime.py` 与
+`continuous_turn_adapter.py` 在 **`intelligence/runtime/`**，不在 `services/`。
+只有 `research_contract.py` 在 `services/`。**行号都是准的**，别照旧路径去找——
+`intelligence/services/` 下确实没有这两个文件，而 `tmp/` 下有 5 份 `services/`
+时代的旧副本，容易误以为找到了。
+
+`llm_timeout=75` 的来源：`runtime/glm_agent_runtime.py:40`
+`DEFAULT_GLM_LLM_TIMEOUT = 75.0`，:393 作为默认参数传进
+`ContinuousAgentEpisode`（:423）。全树无任何调用点覆盖它，所以生产路径确实是 75。
+
+> ⚠️ 埋着的坑：`runtime/agent_episode.py:67` 另有 `DEFAULT_LLM_TIMEOUT = 20.0`，
+> 是直接构造 episode 时的兜底。20s **低于实测 P50（28s）**——任何绕过
+> `GLMAgentRuntime` 直接构造的路径会拿到一个必然超时的预算，且不会有任何提示。
 
 最后一跳是关键：**stage 预算不是「软目标」，它直接当 socket timeout 用**。
 provider 一慢就 `TimeoutError` → `model_unavailable`。
@@ -103,29 +122,65 @@ gpt-5.4        10 / 19 s
 **已经超过 standard 档 90s 的总预算**。所以不是「调大一点」，是这张表整体
 偏小一个量级。
 
-### 2.4 但「把数字调大」只是止血 —— 结构上有两个更根本的问题
+### 2.4 但「把数字调大」只是止血 —— 结构上有三个更根本的问题
 
 这一节是用户在复盘时问出来的，比上面的数字更值得先读。
 
-#### (a) BYOK 下，静态秒数不可能正确 —— 而系统从来不量延迟
+#### (a) BYOK 下，静态秒数不可能正确 —— 延迟测了、落盘了，但预算侧不读
 
 provider 是用户插进来的：官方 API、中转、本地模型、限流的免费额度，
 延迟能差一个数量级。**任何写死的秒数都只对标定它的那个 provider 成立。**
 
-［实测 `0457e39e`］全树搜过 `adaptive` / `ewma` / `latency` / `elapsed` /
-`observed_*` / `calibrat*`：`intelligence/` 里（`eval/` benchmark 除外）
-**没有任何一处测量或记录 provider 的调用延迟**。真正发请求的
-`glm_agent_runtime.py`，`elapsed` / `latency` / `duration` 三个词零命中。
+🔴 **这一节我写错过两版，第三版才是对的。请只信这一版。**
+
+- v1「全树 `adaptive`/`latency`/`calibrat*` 零命中」→ **过头了**。排除 `eval/` 后
+  `latency` 命中 6 个非测试文件（含 `services/research_policy.py`），`calibrat` 7 个，
+  只有 `ewma` 真零命中。
+- v2「`glm_agent_runtime.py` 与 `continuous_turn_adapter.py` 全是『还剩多少』，
+  没有一处算『花了多少』」→ 这两个文件本身**描述准确**（:133/:146/:236/:262 与 :178
+  确实只有 `expires_at - monotonic()`），但**我找错了层**：这两个文件里根本没有
+  `urlopen`/`httpx`，它们不是发请求的那一层。
+
+**发请求的那一层是 `services/llm_refine.py`（`urlopen` 在 :637/:672/:767/:1387），
+而它一直在测延迟：**
+
+```
+llm_refine.py:340-348   class LLMCallRecord: caller / provider / model / status /
+                        elapsed_ms / reason
+llm_refine.py:558-576   _record_llm_call(...)
+                        elapsed_ms = round((monotonic() - started) * 1000)
+llm_refine.py:419       summary()["total_elapsed_ms"]
+llm_refine.py:429-433   summary()["records"]  ← 每次调用的 provider/model/status/elapsed_ms
+```
+
+**而且它已经流到 artifacts 了**：`runtime/conversation_orchestrator.py:3089-3103`
+把 ledger 作为 `llm_budget` / `llm_call_ledger` 落盘，带全量 per-record 明细。
+
+所以"系统从来不测 provider 延迟"**是错的**。准确的说法是：
+
+> **测了，也落盘了，但预算侧从不读它。**
+
+［实测］在 `services/research_contract.py` + `services/mode_governor.py` 里搜
+`elapsed` / `ledger` / 观测量的消费点：`research_contract.py` 只有自己 mint
+root ledger（:622/:635/:645）和反序列化 `elapsed_ms`（:1006），
+`mode_governor.py:242` 只校验"deep 提升需要一个 root budget ledger"的存在性。
+**没有任何一处把观测到的延迟回读进档位或 stage 预算。**
+
+这把缺口从"要建观测"缩小成"要接消费端"——**工程量小一个量级，见任务 1。**
 
 所以现状准确的描述是**半动态**：
 
 | 维度 | 状态 |
 |---|---|
-| 「还剩多少时间」 | ✅ 动态。`stage_timeout = min(llm_timeout, remaining − reserve)`，`remaining` 实时算；`synthesis_reserve_for_task` 还是个按任务算的函数 |
-| 「provider 有多快」 | ❌ **完全瞎**。全部输入（档位总秒数、各 reserve、`llm_timeout=75`）都是硬编码常量 |
+| 「还剩多少时间」 | ✅ 动态。`stage_timeout = min(llm_timeout, remaining − reserve)`，`remaining` 实时算 |
+| 「provider 有多快」 | ⚠️ **测了、落盘了、但预算侧不读**。`llm_refine` 记 per-call `elapsed_ms`，orchestrator 落进 `llm_call_ledger`，而 `research_contract` / `mode_governor` 从不回读 |
+| 「预算取值」 | ❌ 全部硬编码常量（档位总秒数、各 reserve、`llm_timeout=75`） |
 
-知道自己还剩多少、不知道对面要多久——这个组合下剩余时间算得再准也没用。
-**这就是为什么这套系统在 BYOK 下没法自校准：它没有校准所需的那个输入。**
+所以卡住我们的不是"没有测量"，是**观测与决策之间断了一根线**。
+这比"完全瞎"好修得多：数据已经在 artifacts 里，缺的是消费端。
+
+> ⚠️ 别把这条写成"系统不会测延迟"——那是我 v1/v2 的错误说法，一查 `llm_refine.py:558`
+> 就露。准确措辞是「测了但没人读」。
 
 #### (b) reserve 的逻辑在第一步是反的
 
@@ -145,6 +200,34 @@ provider 是用户插进来的：官方 API、中转、本地模型、限流的�
 > 这也解释了为什么「把回合预算从 120 调到 300」只把 `stop_reason` 从
 > `model_unavailable` 变成 `deadline_exhausted`（§3②）：**首轮那一刀的
 > 切法没变**，只是总盘子大了。
+
+#### (c) deadline 紧张时把并行关掉 —— 方向也是反的
+
+［实测］`services/mode_governor.py`：
+
+```
+:202  if not signals.deep_deadline_available:
+:203      return _quick_decision(reason="deep_deadline_unavailable", ...)
+:133          max_branches=0          ← 并行被关掉
+:153  （对照：_deep_decision 是 max_branches=3）
+```
+
+连起来是：**provider 慢 → deadline 紧张 → 判定 deep 不可用 → 降级 → 子研究分支
+归零**。而并行恰恰是**唯一能让墙钟不随步数线性增长**的杠杆（N 个分支并行，
+墙钟≈最慢那个，不是 N 倍）。**provider 越慢，这个杠杆越值钱，而这里在它最值钱
+的时候把它拿掉了。**
+
+⚠️ **读代码时容易错一层**：`_quick_decision` 里 `research_tier="standard"`（:129），
+**不是 `"quick"`**。所以"降级到 quick"降的是 `effective_mode`，档位仍落在
+standard（90s / `tool_call_cap=8`），不是 quick 档 30s。按"降级 = 30s"去推 §2.3
+会算错。
+
+> 顺带一条值得肯定的设计：`ModeGovernor.decide(plan, signals)` 的形状是
+> **模型提议、代码裁决**（docstring: "Approve model-requested depth from
+> observable, code-owned signals"），信号是硬事实（`independent_entities >= 2`、
+> `separable_branches >= 1`、`len(evidence_domains) >= 2` 等），且
+> `ResearchPolicy` 明写"不允许由 LLM 提高上限"。**这一层不要动**——模型能给
+> 自己批预算就会通胀。要改的只是「紧张时砍并行」这个方向。
 
 ---
 
@@ -180,32 +263,106 @@ run 从 28s 拉到 40s。但首轮仍超时——因为 `_generic_research_deadl
 > **顺序是有依据的，别跳。** 任务 1 是任务 3 的前置条件——没有延迟数据，
 > 重标定就只能按我这次手工量的这一份静态数字来，换个 provider 又得重来一遍。
 
-### 任务 1（前置，先做这个）：让它会测
+### 任务 1（前置，先做这个）：让它会测 —— **是接线，不是新建**
 
-**这一条我最初列成「补可观测性」，当成事后能查的诊断增强。那是低估了。**
-它是自适应预算的**前置条件**，不是可选项——见 §2.4(a)：系统对「provider 有多快」
-完全是瞎的，而 BYOK 下这个输入不可能靠写死获得。
+**这一条我最初列成「补可观测性」，当成事后能查的诊断增强。那是低估了——它是
+自适应预算的前置条件。** 但我随后又把工程量**估大了两次**，第三版才对。
 
-两件事，都写进 trace：
+🔴 **不是「让它会测」，它已经在测。是「让预算侧去读」。**
 
-1. **每次模型调用的实际耗时**。`glm_agent_runtime.py` 现在连 `elapsed` 都不记
-   （实测三个词零命中）。记 elapsed + 用掉的 provider + 那次调用**分到的
-   stage 预算**——后两者缺一，就没法判断「超时」是 provider 慢还是预算小。
-2. **本次生效的档位与预算**。现在 `report.json` / `trace.jsonl` 里
-   `research_tier`、`total_seconds`、`stage_timeout` **一个都查不到**，
-   事后无法判断一个 run 跑在哪档、首轮拿到几秒。我这次全靠读代码倒推。
+发请求那一层 `services/llm_refine.py` 一直在测，而且已经落盘（详见 §2.4(a)）：
+
+```
+llm_refine.py:558-576    _record_llm_call() → elapsed_ms + provider + model + status + reason
+llm_refine.py:419/429    summary(): total_elapsed_ms + 每次调用的 records 明细
+conversation_orchestrator.py:3089-3103   已作为 llm_budget / llm_call_ledger 落盘
+```
+
+`StageArtifact` 那两个字段也早就并排放着，20+ 处在填：
+
+```
+services/research_contract.py:967   StageArtifact.elapsed_ms: int
+services/research_contract.py:970   StageArtifact.timeout_seconds: float = 0.0
+```
+
+**所以任务 1 的真正内容是接消费端。** 按这个顺序做：
+
+1. **先证实数据够用（半天以内，可能不用改代码）。** 从生产 8792 已有的 run
+   artifacts 里把 `llm_call_ledger.records` 捞出来，看 `caller` 里
+   `chat_tools` 那些的 `elapsed_ms` 分布——**如果它够，§2.2 那份手工 N=8 探针
+   可以直接退役**，任务 3 用真实生产分布标定。这是本任务性价比最高的一步。
+2. **补 ledger 里缺的那一半：那次调用分到多少预算。** 现在 `LLMCallRecord`
+   有 `elapsed_ms` 但没有 granted budget。缺它就没法区分「超时」是 provider 慢
+   还是预算小——这正是你提的「必须一起记」。加一个字段即可，形状照
+   `llm_refine.py:340-348`。
+3. **把预算侧接上。** ［实测］`services/research_contract.py` 与
+   `services/mode_governor.py` **没有任何一处回读观测量**：前者只 mint root
+   ledger（:622/:635/:645）和反序列化 `elapsed_ms`（:1006），后者 :242 只校验
+   ledger 存在性。这是缺口的真身。
+4. **顺手补两个已知洞**：`services/agent_research.py` 四处 `elapsed_ms=0` 硬编码
+   （:827/:891/:918/:953）；`timeout_seconds` 默认 `0.0`，LLM 调用那一层是否真被填
+   我没查实（已知填充点在 `workbench_skills/research_owner.py` 多处、
+   `owner_dag.py:131,158,183,319`；`registry.py:107,122` 写死 30）。
+
+⚠️ `runtime/glm_agent_runtime.py` 本身确实不报 elapsed（只有 `expires_at -
+monotonic()`），但**别从这里下手加埋点**——下游 `llm_refine` 已经有了，
+在这里再加一份会出现两个口径不一致的 elapsed。
+
+另外**字段名别新造**：eval 侧已有 `RuntimeArm.latency_seconds`
+（`eval/runtime_backend_benchmark.py:386`，:720 median 聚合，:246 非负校验）。
+生产 trace 沿用同名，两侧数据才能直接对齐。
+
+第二件事仍然缺，照原样做：**本次生效的档位与预算**。`report.json` / `trace.jsonl`
+里 `research_tier`、`total_seconds`、`stage_timeout` 一个都查不到，事后无法判断
+一个 run 跑在哪档、首轮拿到几秒。我这次全靠读代码倒推。
+（`research_tier` 在 `services/research_contract.py:698,733,834` 是有字段的，
+同样是没往 artifacts 里带。）
+
+> 📌 **别拿 `runtime.source_revision` 当版本依据。** 生产 health 里它报
+> `edb2ea10`，而 HEAD 是 `b6b8bd58`、`repo_tree_fingerprint` 却与 loaded 一致
+> ——`0457e39e` 其实**在**运行的树里，只是这个标签停在快照构建时刻。
+> 指纹是权威的，标签滞后。与 `45d51616` 同类问题，没修干净。
 
 按路线图「一块」的四件（可达性/契约/观测/变异测试），**观测这件缺着**。
 做完这条，后面所有预算类问题一眼可见，也不必再手工跑 N=8 的探针。
 
-### 任务 2：让第一次模型调用不吃 reserve
+### 任务 2：把「每轮多久」与「总共几轮」解耦
 
-见 §2.4(b)。这是结构修正，可能比调数字更根本，而且**改动面比重标定档位表小**
-（不动那张全局表，只动首轮那一刀的切法）。
+> 原标题是「让第一次模型调用不吃 reserve」。**升级过，因为那只是症状。**
+> 根本形状是：现在**一个数同时承担两件事**——它既是研究预算，又是 socket
+> timeout（§2.1 最后一跳）。这两件事的正确依据完全不同：
+> 「一次调用最多等多久」归 **provider 特性**，「总共能跑几轮」归 **产品预算**。
+> 绑在一起，就必然出现「provider 慢 → 研究预算被吃光 → 首轮都开不了」。
 
-判据不是「数字变大了」，而是：**首轮 stage 预算 ≥ P95**（当前 50s），
-且后续轮次的 reserve 行为不变——现有那些「到点还能交出有依据答案」的测试
-必须全绿，一条都不能松。
+拆成两个独立旋钮：
+
+1. **HTTP 超时不再从研究预算推导。** 按实测 provider 延迟定（P99 + 余量，
+   §2.2 的 max=50s → 取 75s 正好，`DEFAULT_GLM_LLM_TIMEOUT` 现值就是 75），
+   它只负责**防挂死**，不负责控成本。
+2. **研究预算改在「每轮返回之后」检查**：「还够开下一轮吗？」不够就带着
+   已有证据去合成，而不是提前扣一笔 reserve 占着。
+
+这样 §2.4(b) 的首轮饿死**自动消失**——首轮不再需要跟 reserve 抢时间；
+而 `synthesis_reserve` 的大部分职责由「不开新轮」承担，不必靠提前预留。
+
+⚠️ **但 reserve 不能整个删掉。** 合成本身也是一次 LLM 调用，也要时间；
+「不开新轮」保护的是**还没开始**的轮次，保护不了**已经开始**的合成。所以
+`synthesis_reserve` 应当收缩成「只覆盖一次合成调用」，而不是现在这样
+按整个 turn 的比例切。判断依据可以用 `episode_finalizer.py:17`
+`DEFAULT_FINALIZER_TIMEOUT = 20.0`——那才是合成真正需要的量级，
+不是 `verification_reserve` 的 40s。
+
+判据（不是「数字变大了」）：
+
+1. **首轮 stage 预算 ≥ P95**（当前 50s）
+2. **HTTP 超时与研究档位无关**：改档位表不应改变 socket timeout；
+   变异测试——把档位总秒数改一半，HTTP 超时不应变化
+3. 现有那些「到点还能交出有依据答案」的测试**全绿，一条都不能松**
+4. 首轮超时后**不再是全损**：已完成的工具调用结果要能进合成
+
+> 📌 顺带修 §2.4(c) 那条反向逻辑（`max_branches=0`），两者同源：都是
+> 「时间紧 → 削减能力」，而正确方向是「时间紧 → 用并行换墙钟」。
+> 建议同一个分支做完，但**分成两个 commit**，便于单独回滚。
 
 ### 任务 3：用实测分布重标定 ResearchPolicy 档位表
 
@@ -220,6 +377,38 @@ run 从 28s 拉到 40s。但首轮仍超时——因为 `_generic_research_deadl
 任务 1 做完后**用 trace 里的真实分布**标定；在那之前可以先用 §2.2 那份
 （N=8，只覆盖 terra 一个模型、一个时段）作为临时依据，但要在 commit message
 里写明样本来源与局限。
+
+> ✅ **照抄仓内已有的模板，别自己发明。** `services/research_policy.py` 里
+> `GroundedBudgetProfile` 已经把「这个数怎么来的」做成**一等字段**而不是注释：
+>
+> ```python
+> research_policy.py:25   measurement_basis: str
+> research_policy.py:43   measurement_basis=(
+>     "single preregistered A4 canary plus frozen replay: 146.55s observed "
+>     "end-to-end need, 20% slack = 175.86s; engineering headroom only, "
+>     "not p95 or another latency percentile")
+> ```
+>
+> :13-15 的 docstring 写明用意：*"deliberately data, not only a comment, so
+> tests and traces can keep the provenance honest"*。注意它**诚实标注了自己
+> 不是 p95**——这正是我们现在需要的那种自我限定。
+>
+> **给 `ResearchPolicy` 也加 `measurement_basis`。** 这是本次最该沉淀的一条：
+> 我这回全靠读代码倒推那三个数字的来历，花了很久；而隔壁文件早就把这件事
+> 做对了。下次换 provider 时，下一个人能一眼看出这些数还成不成立。
+
+> ⚠️ **三套预算系统，严谨程度差三档，互不对账**——这是本次的结构性发现：
+>
+> | 系统 | 位置 | 数字的依据 |
+> |---|---|---|
+> | `GroundedBudgetProfile` | `services/research_policy.py:10` | ✅ 有 `measurement_basis`，且诚实标注非 p95 |
+> | `ResearchExecutionPolicy` | `services/research_policy.py:52` | ⚠️ `max_llm_calls=40`，注释写明「失控保险丝而不是常态限流」 |
+> | `ResearchPolicy` 档位表 | `services/research_contract.py:392-394` | ❌ **零依据说明** |
+>
+> **杀死我们的是第三套——唯一没人写下推导过程的那套。** 三套各按各的口径
+> 长起来、中间没有对账，这是「跨层口径对账」这个形状的又一次复发
+> （前几次：health 报 `glm-5.2` 而实际跑别的、`source_revision` 滞后于指纹、
+> 快照与仓库漂移）。重标定时至少要说明这三套的关系，不要再加第四套。
 
 **这是策略变更不是配置**，请：
 
