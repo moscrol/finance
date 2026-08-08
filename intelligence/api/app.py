@@ -1969,6 +1969,17 @@ def create_app(
             "run_store_writable": run_root_ready,
             "market_snapshot_contract": bool(snapshot_contract["ready"]),
             "market_data_consistency": market_data_consistent,
+            # 加载树与仓库树是否一致。`is not False` 而不是 `is True`：三态里的
+            # None 表示「无仓库树可比」（纯快照部署），那是未知而非不一致。
+            #
+            # 刻意**不进** `critical`：本项为真正的漂移报警，但它也会在「仓库里
+            # 有人正改着 intelligence/ 而生产快照是先前冻结的正确副本」时为假。
+            # 让那种情形把生产判成 not_ready，等于用一次无关的编辑换一次自伤。
+            # 真正的闸门放在 `scripts/deploy_workbench_runtime.sh`：那里 rsync 之后
+            # 两棵树按构造必然一致，不一致就是部署真的失败了，此时报错才可行动。
+            "code_snapshot_matches_repo": (
+                runtime_provenance.get("code_matches_repo") is not False
+            ),
         }
         critical = {
             "repo_root": checks["repo_root"],
