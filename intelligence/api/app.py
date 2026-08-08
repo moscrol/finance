@@ -1099,6 +1099,25 @@ def _run_conversation_turn(
                     cancellation_signal.remaining(_CONTINUOUS_TURN_TIMEOUT_SECONDS),
                 ),
                 deadline_expires_at=cancellation_signal.deadline_expires_at,
+                # 不传这个，`memory_lookup` 在生产里一次都不会注册。
+                #
+                # `_build_continuous_turn_adapter` 里那条
+                # `partial(build_episode_registry, memory_user=memory_user)`
+                # 早就写好了，但它的 `if memory_user` 永远为假：本函数此前没有把
+                # 身份传进去，而 `build_episode_registry` 的守卫
+                # （`episode_tools.py:937`）在缺身份时**刻意不注册**该工具，
+                # 以免把 A 用户的私有台账读给 B 用户。
+                #
+                # 后果是一个完全静默的半截状态：contract.allowed_capabilities
+                # 里有 memory_lookup、提示词里讲了怎么用它、prior_recall 槽位也
+                # 开着，唯独模型收到的工具清单里没有它。实测（run_20260808_111451）
+                # 模型看到的是 7 个工具、其中不含 memory_lookup——它不是"没选"，
+                # 是压根没得选。授权与身份穿透必须成对出现，只做一半不报错。
+                #
+                # `run_store.user_id` 是 `RunStore` 已解析好的 id（同一行下方的
+                # `runtime_providers_for(run_store.user_id)` 用的就是它），
+                # 所以这里不需要新增参数或改上游签名。
+                memory_user=run_store.user_id,
             ),
         ).run_turn(
             conversation_id=conversation_id,

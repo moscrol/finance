@@ -503,6 +503,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         assert callable(kwargs["is_cancelled"])
         assert 0 < float(kwargs["timeout"]) <= 120
         assert kwargs["deadline_expires_at"] == signal.deadline_expires_at
+        assert kwargs["memory_user"] == "selected-model-user"
         return continuous_adapter
 
     monkeypatch.setattr(
@@ -517,7 +518,12 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         "glm-4-flash",
     )
 
-    run_store = object()
+    class _RunStoreStub:
+        """同上：``run_store`` 必须带 ``user_id``，生产里它恒为真实 ``RunStore``。"""
+
+        user_id = "selected-model-user"
+
+    run_store = _RunStoreStub()
     signal = app_module.CancellationSignal(deadline_expires_at=time.monotonic() + 30.0)
     app_module._run_conversation_turn(
         repo_root=tmp_path,
@@ -775,10 +781,20 @@ def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
     )
     signal = app_module.CancellationSignal(deadline_expires_at=time.monotonic() + 300.0)
 
+    class _RunStoreStub:
+        """``run_store`` 至少要带 ``user_id``：生产里它恒为真实 ``RunStore``。
+
+        原先这里传的是裸 ``object()``。那让本函数**读不到身份也照样通过**，于是
+        「worker 有没有把 user 传给 adapter」这件事在测试里完全不可见——
+        `memory_lookup` 因此在生产静默缺席（见下面那条断言的说明）。
+        """
+
+        user_id = "conversation-user"
+
     app_module._run_conversation_turn(
         repo_root=tmp_path,
         conversation_store=object(),
-        run_store=object(),
+        run_store=_RunStoreStub(),
         conversation_id="conversation",
         run_id="run",
         assistant_message_id="message",
@@ -792,6 +808,12 @@ def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
     adapter_kwargs = captured["adapter_kwargs"]
     assert isinstance(adapter_kwargs, dict)
     assert adapter_kwargs["timeout"] == pytest.approx(120.0, abs=0.1)
+    # 身份必须真的到达 adapter，否则 `build_episode_registry` 的守卫
+    # （`episode_tools.py:937`）会拒绝注册 `memory_lookup`，而这**不报错**：
+    # contract 里仍授权它、提示词仍教怎么用它、prior_recall 槽位仍开着，
+    # 只有模型收到的工具清单里静静少了一个。实测 run_20260808_111451 就是
+    # 这个形状（模型看到 7 个工具、不含 memory_lookup）。
+    assert adapter_kwargs["memory_user"] == "conversation-user"
 
 
 def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None:
