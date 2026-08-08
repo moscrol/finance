@@ -362,13 +362,18 @@ lte → end   = 值            编译期用 <=，同为闭端
   .venv-workbench/bin/python -m pytest -q
   ```
 
-  **基线 `13 failed, 4387 passed, 3 skipped`**［实测 `2026-08-08` @ `a2e877ce`］
-  （`test_userspace` 3 + `test_subconscious` 8 + `test_acceptance_board` 2，
+  **基线 `13 failed, 4391 passed, 3 skipped`**［实测 `2026-08-08` @ `cd9f5886`，
+  231s］（`test_userspace` 3 + `test_subconscious` 8 + `test_acceptance_board` 2，
   宿主环境固有）。**多出任何一条都是新引入的。**
 
-  ⚠️ **failed/passed 数必须与 `--collect-only` 计数对账**：`13+4387+3 = 4403`
-  应等于 collect 的条数。漏收集会伪装成「通过数变少」或「失败数没变」——
-  `2026-08-07` 质检踩过一次，collect 出 4371 却只跑了 4323。
+  ⚠️ **failed/passed 数必须与 `--collect-only` 计数对账**：`13+4391+3 = 4407`
+  应等于 collect 的条数（同次实测 collect = 4407 ✅）。漏收集会伪装成「通过数
+  变少」或「失败数没变」——`2026-08-07` 质检踩过一次，collect 出 4371 却只跑了 4323。
+
+  > 📌 **这组数刚被订正过（`4387/4403` → `4391/4407`）。** 旧值来自 `a2e877ce`，
+  > 之后新增了 4 条测试，于是**路线图与 handoff 给出的靶子分叉了 4 条**——照旧值
+  > 对账的人会把正常增长误读成「引入了新失败」或「漏收集」。这正是下面那条
+  > 「别把它当常量」的现成案例：**改这组数时两份文档必须一起改。**
 
   > **基线数会随新增测试前进，别把上面这组数当常量。** 它此前长期停在
   > `3807 passed, 2 skipped`，因为主树上这条命令**根本跑不起来**：`tmp/` 下的
