@@ -62,7 +62,20 @@ print -- "      done"
 # （权限、磁盘满、rsync 被中断、symlink 指向了别处）。此时报错是可行动的，
 # 与 readiness 那一格的取舍不同：那里为假可能只是「有人正在改仓库」。
 print -- "\n[2/3] 校验加载树与仓库树一致 ..."
-PYTHONPATH="$SNAP" "$PYTHON" - "$REPO" "$SNAP" <<'PY' || die "一致性校验失败：快照与仓库不一致，未重启服务"
+# 必须先 cd 到快照，不能只设 PYTHONPATH。
+#
+# `python - <<PY` 从 stdin 读脚本时 sys.path[0] 是 ''（当前目录），它的优先级
+# **高于** PYTHONPATH。脚本原本在仓库根下运行，于是 `intelligence` 从仓库导入，
+# 校验退化成「仓库自己跟自己比」——实测首次自部署就撞上这个：
+#   loaded_code_root : …/finance-workspace-private/intelligence   ← 不是快照
+#   code_matches_repo: True                                       ← 恒真且无意义
+# 那次是下面的前置断言（loaded 必须在快照内）把它拦住的，否则这次部署会
+# 「成功」，而校验对象从头到尾不是生产真正加载的那棵树。
+#
+# cd 到快照后 sys.path[0] 解析成快照本身，与 launchd 启动器（`cd "$RUNTIME_DIR"`
+# 后再 exec uvicorn）的加载形状一致——校验环境必须复刻生产环境，否则校验的
+# 是另一个东西。PYTHONPATH 保留作为双保险。
+(cd "$SNAP" && PYTHONPATH="$SNAP" "$PYTHON" - "$REPO" "$SNAP" <<'PY'
 import sys
 from pathlib import Path
 
@@ -90,6 +103,7 @@ if matches is not True:
     raise SystemExit(1)
 raise SystemExit(0)
 PY
+) || die "一致性校验失败：快照与仓库不一致，未重启服务"
 print -- "      ✓ 一致"
 
 print -- "\n[3/3] 重启 $SERVICE ..."
@@ -101,14 +115,26 @@ for i in $(seq 1 30); do
   sleep 2
   if health="$(curl -fsS --max-time 3 localhost:8792/api/health 2>/dev/null)"; then
     print -- "      ✓ 服务已就绪"
-    print -- "$health" | "$PYTHON" -c '
+    # heredoc 传脚本、argv 传数据，两者不能都走 stdin。
+    #
+    # 踩过的两个坑，都在这几行里：
+    # 1) `-c '...'` 被单引号包裹时，里面再写 \" 是 Python 非法转义
+    #    （SyntaxError: unexpected character after line continuation character）。
+    # 2) 改成 heredoc 后又写成 `print "$health" | python <<'PY'`：管道与 heredoc
+    #    争同一个 stdin，Python 把 health JSON 当脚本读，报
+    #    `NameError: name 'true' is not defined`——那个 true 是 JSON 里的字面量。
+    # 所以数据只能从 argv 进来。
+    "$PYTHON" - "$health" <<'PY'
 import json, sys
-r = json.load(sys.stdin)["runtime"]
-print(f"      source_revision  : {str(r.get(\"source_revision\"))[:12]}")
-print(f"      loaded_code_root : {r.get(\"loaded_code_root\")}")
-print(f"      code_matches_repo: {r.get(\"code_matches_repo\")}")
-print(f"      continuous mode  : {(r.get(\"continuous_agent\") or {}).get(\"mode\")}")
-'
+
+r = json.loads(sys.argv[1])["runtime"]
+rev = str(r.get("source_revision") or "")[:12]
+mode = (r.get("continuous_agent") or {}).get("mode")
+print(f"      source_revision  : {rev}")
+print(f"      loaded_code_root : {r.get('loaded_code_root')}")
+print(f"      code_matches_repo: {r.get('code_matches_repo')}")
+print(f"      continuous mode  : {mode}")
+PY
     print -- "\n✅ 部署完成"
     exit 0
   fi
