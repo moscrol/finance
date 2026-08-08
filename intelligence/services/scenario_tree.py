@@ -28,11 +28,23 @@ _SCENARIO_TERMS = (
     "怎么走",
     "会怎样",
     "会怎么样",
-    "能否",
-    "能不能",
     "概率",
     "可能性",
     "预测",
+)
+
+# 「能否/能不能」原来在 _SCENARIO_TERMS 里做裸子串匹配，但它同时是汉语最高频的
+# 礼貌请求前缀：「能否帮我把复盘导出成 PDF」会被判成推演题，进而追加
+# scenario_tree 这一格 required_output——而一道导出请求永远填不上它，最后由契约门
+# 如实拒答。判别特征是句首无主语 + 后接请求动词：
+#     「正极能否扭亏」    → 主语在前、后接谓词，是真可行性问题
+#     「能否帮我导出…」   → 句首起头、后接请求动词，是祈使句
+_REQUEST_VERB_TAIL = (
+    r"(?:帮|替|给|告诉|说明|解释|讲|介绍|看看|看下|看一下|查|搜|找|"
+    r"导出|输出|生成|列|写|做|整理|发|把|将|提供|补充)"
+)
+_FEASIBILITY_RE = re.compile(
+    rf"[\u4e00-\u9fffA-Za-z0-9%.]{{2,}}(?:能否|能不能)(?!{_REQUEST_VERB_TAIL})"
 )
 
 
@@ -145,13 +157,19 @@ def build_scenario_tree_artifact(
 
 
 def parse_scenario_intent(query: str, question_type: str | None = None) -> bool:
-    """问题类型为 market_forecast，或命中推演/情景词面即触发。"""
+    """问题类型为 market_forecast，或命中推演/情景词面即触发。
+
+    「能否/能不能」不在 `_SCENARIO_TERMS` 里，走 `_FEASIBILITY_RE`：它要求前面有
+    主语、后面不是请求动词，把祈使句（「能否帮我导出…」）排除在推演题之外。
+    """
     if question_type == "market_forecast":
         return True
     text = re.sub(r"\s+", "", str(query or ""))
     if not text:
         return False
-    return any(term in text for term in _SCENARIO_TERMS)
+    if any(term in text for term in _SCENARIO_TERMS):
+        return True
+    return _FEASIBILITY_RE.search(text) is not None
 
 
 def build_scenario_guidance() -> str:

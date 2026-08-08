@@ -19,6 +19,26 @@ class ParseScenarioIntentTests(unittest.TestCase):
         self.assertTrue(parse_scenario_intent("如果它大幅降价会怎样"))
         self.assertTrue(parse_scenario_intent("这个切换的概率有多大"))
 
+    def test_request_prefixes_do_not_route_as_scenarios(self) -> None:
+        for question in (
+            "能否帮我把复盘导出成 PDF",
+            "能不能把今天的涨停股导出成表格",
+            "能否解释一下什么是 PE",
+            "能不能告诉我收盘价",
+        ):
+            with self.subTest(question=question):
+                self.assertFalse(parse_scenario_intent(question))
+
+    def test_feasibility_questions_with_subject_still_route(self) -> None:
+        for question in (
+            "推演一下正极能否扭亏",
+            "厦门钨业正极能否扭亏",
+            "量能能不能延续",
+            "工业富联的代工毛利率能不能证伪算力需求见顶？",
+        ):
+            with self.subTest(question=question):
+                self.assertTrue(parse_scenario_intent(question))
+
     def test_plain_questions_do_not_route(self) -> None:
         self.assertFalse(parse_scenario_intent("今天信创板块怎么样", "theme_analysis"))
         self.assertFalse(parse_scenario_intent("深信服最近一期毛利率是多少"))

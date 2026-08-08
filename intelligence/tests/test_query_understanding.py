@@ -36,6 +36,36 @@ def test_weekly_market_cause_has_window_and_causal_output() -> None:
     assert envelope.required_outputs == ("cause_attribution",)
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "能否帮我把复盘导出成 PDF",
+        "能不能把今天的涨停股导出成表格",
+        "能否解释一下什么是 PE",
+    ),
+)
+def test_request_prefix_does_not_add_scenario_contract(query: str) -> None:
+    """祈使请求不得被追加 scenario_tree 验收项。
+
+    「能否/能不能」曾在 `_SCENARIO_TERMS` 里做裸子串匹配，一句「能否帮我导出」
+    就会被判成推演题并追加 `scenario_tree` 这一格 required_output；而导出请求
+    永远填不上它，最终由契约门如实拒答，表面症状却是「证据不足」。
+    这条断言锁在 envelope 层：命中与否要落到 required_outputs 上才算真的没伤到契约。
+    """
+    envelope = understand_query(query)
+
+    assert "scenario_tree" not in envelope.operators
+    assert "scenario_tree" not in envelope.required_outputs
+
+
+def test_feasibility_question_keeps_scenario_contract() -> None:
+    """真·可行性推演仍要拿到 scenario_tree，否决权不能扩成一刀切。"""
+    envelope = understand_query("厦门钨业正极能否扭亏")
+
+    assert "scenario_tree" in envelope.operators
+    assert "scenario_tree" in envelope.required_outputs
+
+
 def test_known_alias_and_entity_are_explicit_subjects() -> None:
     theme = understand_query("液冷题材连续上涨但成交占比下降，怎么看？")
     new_theme = understand_query("请研究空芯光纤题材的产业链")
