@@ -176,3 +176,31 @@
   根因：把「理解」和「执行」串行化——先求 100% 读懂再开始第一步，而非边执行边按需点查。确定性任务下这是纯浪费、且拖慢首步交付。
   做法：确定性流程一律「立即执行 + 按需点查」。不依赖任何源码理解就能起步的步骤（如先建 source 页）先做掉；后续每步只在真正用到某机制时点查该机制那几行。首步交付优先于全局理解。
 - [kb] [2026-07-02] 年报披露日锚点抽取 4/20 落空 → 部分年报无内控披露/审计报告日锚点段落 → 兜底顺位加「财务报表业经公司董事会于X年X月X日批准报出/董事会批准报送日期」；另注意「资产负债表日后事项」中的日期会造成误抽（三峡能源 2026-01-19 误判），抽取后需 sanity check 日期是否落在 3-6 月披露季。
+
+## Agent Runtime / 预算诊断（2026-08-08）
+
+- **[2026-08-08] 按 handoff 的诊断（"档位表按更快的 provider 标定，重标定它"）准备动手，差一步就改错了地方。**
+  根因：诊断只看了 `ResearchPolicy` 档位表（quick 30 / standard 90 / deep 240），没算实际生效值。真实链路是
+  `effective_timeout = min(tier_total, turn − verification_reserve) = min(tier_total, 80)`——`80` 恒为较小者，
+  **档位表根本不参与首轮**。探针实测：standard 从 90 调到 180、300，首轮预算恒为 26.67s，一秒不变。
+  真正的绞索在 `episode_factory.py:360` 的 `reserve = min(60, 80 × 2/3) = 53.33`，于是首轮 `min(75, 80−53.33) = 26.67s`，
+  而该 provider P50=28s——**首轮预算连中位数都不到**。
+  做法：改预算前先用真实常量算一遍生效值，并与观测值对账。**数字对不上任何一条预算边界（28s ≠ 25 ≠ 70 ≠ 75）就是归因错层的信号**，
+  此时应停下读盘上真实 run（`continuous-episode.json` 的 `events[].payload`），而不是继续调那个看起来最像的旋钮。
+  前两次修（换模型、加回合预算 120→300）都失败，因为都假定了"档位太小"。
+
+- **[2026-08-08] 在 `ResearchDeadline` 上加新方法 `opening_stage_timeout()`，三条护栏测试立刻 `AttributeError`。**
+  根因：`context.deadline` 是**鸭子类型注入点**，测试替身（`_ScriptedDeadline` / `_LateRecoveryDeadline`）只实现
+  `stage_timeout` / `synthesis_timeout` / `remaining` / `expired` 四个方法。给真实类加方法，替身全炸。
+  做法：改这类注入点的行为时，只用替身已有的接口；需要读可选字段走 `getattr(obj, name, default)`。
+  本次最终实现放在调用方（`agent_episode._opening_planning_timeout`），一个新方法都没往 `ResearchDeadline` 上加。
+  另一半教训：那条 `test_planning_turn_cannot_spend_the_reserved_finalization_budget` 断言 `calls[0]["timeout"] <= 11.0`，
+  正是被改掉的语义——**没有改测试去迁就实现**，而是把"整段不扣 reserve"收窄成"只借超出合成地板（20s）的余量"，
+  于是生产 26.67→60s（≥P95 50s），而该测试（reserve=4，借不到）与四种其他配置一秒未变。
+
+- **[2026-08-08] 提交代码后读 `/api/health`，`code_matches_repo` 仍报 `True`，据此以为快照已含改动。**
+  根因：`runtime_provenance.py:113-115` docstring 明写指纹 *"called once per process (`create_app`) and the result is
+  reused by every health response"*——**启动时算一次，之后所有 health 复用**。仓库前进了，读数不会变。
+  讽刺的是同文件 :100-111 正是在讲"版本号会在最可能出错的时刻前进"这个 bug 类，缓存让它换了个形式重现。
+  做法：判断快照新旧只能靠 `scripts/deploy_workbench_runtime.sh` 里那次**现算**（它 `cd` 到快照再算，并先断言
+  "加载树必须在快照内"），或直接比对两棵树的文件 hash。**长驻进程的自述字段一律视为启动时快照，不是当前状态。**
