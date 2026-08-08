@@ -1,34 +1,39 @@
-# Handoff: 生产 8792 切中转（已完成）+ 预算档位重标定（未完成，交 agent A）
+# Handoff: 生产 8792 切中转 + 首轮预算修复 + 决证通过（均已完成）
 
-> **日期**：2026-08-08，最后更新 15:2x
-> **写给**：agent A
+> **日期**：2026-08-08，最后更新 17:4x
+> **写给**：下一个 agent
 > **前一份**：`2026-08-08-prior-recall-and-runtime-fixes.md`（读订正后的版本）
-> **范围 revision**：`0457e39e`（main，未 push）
+> **范围 revision**：`38c06356`（分支 `fix/first-turn-budget`；合并后见 main）
 > **用户决策**：不再用 cockpit；出口切到中转 `https://x.ailzd.com/v1`
 
 ---
 
 ## 0. 状态一句话
 
-**出口切换已完成并逐层验通。生产 research run 仍然跑不通**，卡在一个新暴露的
-问题上：**这套预算档位表是按一个快 3-5 倍的 provider 标定的**，中转的延迟分布
-落在预算之外，第一次模型调用就被掐断（一次调用、零个工具）。
+**出口切换、首轮预算修复、生产线决证——三件都已完成并实测通过。**
+生产 8792 现在能跑通完整 research run：`llm_calls=9 / tool_calls=9`、
+3 个子 agent 分支真并行、4 个 binding、1378B 实答（不再是模板）。
 
-剩下的活**不只是把数字调大**。复盘时定位到三个更根本的问题（§2.4）：
+⚠️ **但请先读 §2.5：原诊断是错的。** 这份 handoff 前几版把「重标定
+`ResearchPolicy` 档位表」列为主线，**那条路已被探针证伪**——档位表从 90 调到
+300，首轮预算一秒不变。真正的绞索在 `episode_factory.py:360` 的 reserve
+计算。绕过这一节会让你重走一遍已经排除的路。
+
+三个结构问题的现状（§2.4）：
 
 - **(a)** BYOK 下静态秒数不可能正确。延迟**已经被测、也已落盘**
   （`llm_refine.py` 的 `LLMCallRecord.elapsed_ms` → orchestrator 的
   `llm_call_ledger`），但**预算侧从不读它**。缺的是消费端，不是观测。
+  → **仍未做**，见任务 1。
 - **(b)** reserve 的逻辑在第一步是反的——为一场还不存在的合成攒时间，
   饿死了唯一能启动这一切的那次调用。
+  → ✅ **已修**（`38c06356`），见任务 2。
 - **(c)** deadline 紧张时把并行**关掉**（`max_branches=0`）。provider 越慢
   越需要并行，这里恰好反着来。
+  → **仍未做**，抬的是上限不是下限，优先级低于任务 1。
 
-**任务顺序按这个结论排过，别跳**（§4）：先接消费端 → 再把「每轮多久」与
-「总共几轮」解耦 → 再用真实分布重标定 → 再验决证。
-
-⚠️ **我做了两次尝试，都没解决**（换模型、加回合预算旋钮）。两次的过程和数据都
-留在下面，因为它们**排除了两个看起来最像的原因**，能省下你重走一遍的时间。
+⚠️ **前人做过两次无效尝试**（换模型、加回合预算旋钮）。过程和数据留在 §3，
+因为它们**排除了两个看起来最像的原因**，能省你重走一遍。
 
 ---
 
@@ -229,6 +234,69 @@ standard（90s / `tool_call_cap=8`），不是 quick 档 30s。按"降级 = 30s"
 > `ResearchPolicy` 明写"不允许由 LLM 提高上限"。**这一层不要动**——模型能给
 > 自己批预算就会通胀。要改的只是「紧张时砍并行」这个方向。
 
+### 2.5 🔴 根因订正：档位表根本不参与首轮 —— 原诊断已被证伪
+
+**这一节推翻本文档 15:2x 版本的核心论断，也推翻我自己在 §2.2/§2.3 的推理框架。
+先读这里，再读上面。**
+
+我在动手改代码前先按代码算了一遍「首轮实际能拿到几秒」，结果和「档位表 90s
+太小」对不上，于是没写代码，先去读盘上的真实 run。两件事都错了：
+
+#### (1) 首轮预算不由档位表决定
+
+`services/episode_factory.py:349-354`：
+
+```python
+effective_timeout = base_policy.total_seconds
+if timeout is not None:
+    effective_timeout = min(base_policy.total_seconds, max(0.0, float(timeout)))
+```
+
+`timeout` 是回合注入值（`turn − verification_reserve = 120 − 40 = 80`）。于是
+`effective = min(tier_total, 80)`，而 **80 恒为较小者**。探针实测：
+
+```
+standard total_seconds = 90  → 首轮 26.67s
+standard total_seconds = 180 → 首轮 26.67s
+standard total_seconds = 300 → 首轮 26.67s      ← 一秒不变
+```
+
+**所以「重标定档位表」对首轮失败可证明无效。** 原任务 1（主线）建立在
+一个不成立的因果上。这也解释了 §3② 为什么只把 `stop_reason` 换了个名字。
+
+#### (2) 真正的绞索是 reserve 的二次收缩
+
+`episode_factory.py:360-363` + `glm_agent_runtime.py:52`：
+
+```
+effective = min(90, 120 − 40)        = 80
+reserve   = min(60, 80 × 2/3)        = 53.33      ← _MAX_SYNTHESIS_BUDGET_FRACTION
+首轮 stage= min(75, 80 − 53.33)      = 26.67s
+provider 实测 P50                     = 28s       ← 首轮连中位数都不到
+```
+
+`_BALANCED_SYNTHESIS_RESERVE = 60.0`（`glm_agent_runtime.py:52`）、
+`_MAX_SYNTHESIS_BUDGET_FRACTION = 2/3`（`episode_factory.py:103`）。
+两个常量各自都合理，**乘起来把首轮压到了 P50 以下**。
+
+#### (3) 盘上证据（三个 run，`users/tester/runs/`）
+
+```
+run.json                 status: completed          ← 顶层「成功」
+report.json              status: partial
+continuous-episode.json  status: failed / deadline_exhausted
+events[1] model_turn     error: "LLM 调用失败（TimeoutError）", provider_attempts: 1
+trace context_growth     turn_count: 0, sub_agent_branch_count: 0
+answer.md                235B，三个 run 的 sha256 **完全相同** → 模板降级
+```
+
+⚠️ **本文档此前记的症状 `model_unavailable` 与盘上不符**（实际是
+`deadline_exhausted`，`model_unavailable` 只是 event 里那层 `TimeoutError`
+的旧措辞）。以盘上为准。
+
+⚠️ 另外注意 `run.json` 报 `status: completed` 而 episode 是 `failed`——
+**顶层状态不能用来判断 research 成功**，它只表示「HTTP 任务跑完了」。
+
 ---
 
 ## 3. 我试过但没用的两条路（省你时间）
@@ -328,6 +396,54 @@ monotonic()`），但**别从这里下手加埋点**——下游 `llm_refine` �
 
 ### 任务 2：把「每轮多久」与「总共几轮」解耦
 
+> ## ✅ 第一步已实现并通过生产决证（`38c06356`，分支 `fix/first-turn-budget`）
+>
+> **做了什么**：首轮向 `synthesis_reserve` 借**超出「跑一次合成」地板的余量**，
+> 不是整段不扣。实现在 `runtime/agent_episode.py`：
+>
+> ```
+> :74    MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS = 20.0
+> :453   is_opening_call = llm_calls == 0 and not accumulator.evidence
+> :1273  _opening_planning_timeout()  # baseline + max(0, reserve − floor)
+> ```
+>
+> **效果（探针实测，`floor=20`）**：
+>
+> | 场景 | 旧 | 新 |
+> |---|---|---|
+> | 生产 standard/theme (80, 53.33) | 26.67s | **60.00s** ≥P95 ✓ |
+> | 生产 turn=300 (90, 60) | 30.00s | **70.00s** ≥P95 ✓ |
+> | 护栏测试 (15, 4) | 11.00s | 11.00s 未变 |
+> | 测试替身 reserve=0 | 20.00s | 20.00s 未变 |
+> | quick 档 (30, 20) | 10.00s | 10.00s 未变 |
+> | grounded deep (180, 100) | 75.00s | 75.00s 未变 |
+>
+> 借出后合成仍保底 20s，「到点还能交出有依据答案」的不变量成立。
+>
+> **验证**：全量 `13 failed, 4391 passed, 3 skipped`（与改前逐条一致，零新增）；
+> 生产决证三条判据全中（见任务 4）。
+>
+> ### 🔴 两个坑，下一个人一定会踩
+>
+> **1. `context.deadline` 是鸭子类型注入点。** 我第一版在 `ResearchDeadline` 上
+> 加了个 `opening_stage_timeout()`，三条测试立刻 `AttributeError` ——
+> `test_agent_episode.py:593` 的 `_ScriptedDeadline` 和 `:615` 的
+> `_LateRecoveryDeadline` 只实现 `stage_timeout` / `synthesis_timeout` /
+> `remaining` / `expired` 四个方法。**动这条路径只能用替身已有的接口**，
+> 现在 `synthesis_reserve` 走 `getattr(..., 0.0)` 兜底。
+>
+> **2. 有条护栏测试守着「首轮不许吃光 reserve」，别改它。**
+> `test_planning_turn_cannot_spend_the_reserved_finalization_budget`（:2668）
+> 断言 `calls[0]["timeout"] <= 11.0`（15−4）。我第一版正是改掉了这个语义，
+> 它转红——**那是它在干正确的事**：首轮若吃光全部预算，合成就没了，照样吐模板。
+> 改成「借余量」后它原封不动地绿了（reserve 4 < floor 20，借不到）。
+> **不要通过改测试来迁就实现。**
+>
+> ### 下一步（本任务剩余部分，未做）
+>
+> 上面只解了「首轮饿死」。**旋钮解耦本身还没做**——HTTP 超时仍从研究预算推导。
+> 下面原文照旧有效，判据 2/4 仍未满足。
+
 > 原标题是「让第一次模型调用不吃 reserve」。**升级过，因为那只是症状。**
 > 根本形状是：现在**一个数同时承担两件事**——它既是研究预算，又是 socket
 > timeout（§2.1 最后一跳）。这两件事的正确依据完全不同：
@@ -373,6 +489,19 @@ monotonic()`），但**别从这里下手加埋点**——下游 `llm_refine` �
 "standard": cls("standard", 6,  90.0, 20.0),
 "deep":     cls("deep",     12, 240.0, 48.0),
 ```
+
+> ## 🔻 已从「主线」降级 —— 它救不了首轮（§2.5 探针证明）
+>
+> **原文把这条列为主线阻塞。那是错的。** 探针实测：standard 档从 90 调到
+> 180、300，首轮预算恒为 26.67s，**一秒不变**。因为
+> `effective_timeout = min(tier_total, turn − verification_reserve) = min(tier_total, 80)`,
+> 那个 `80` 永远是较小者，档位总秒数根本不参与首轮。
+>
+> **所以先做任务 2，别先动这张表。** 决证已在**不改这张表**的前提下通过。
+>
+> 这张表仍然值得重标定，但理由变了：不是为了救首轮，而是为了**多轮**——
+> standard 档 `max_steps=6`，按 P50 28s 算光模型调用就 168s，超过该档 90s 总预算
+> （这条原判断依然成立）。降级后它的优先级在任务 1 之后。
 
 任务 1 做完后**用 trace 里的真实分布**标定；在那之前可以先用 §2.2 那份
 （N=8，只覆盖 terra 一个模型、一个时段）作为临时依据，但要在 commit message
@@ -424,9 +553,63 @@ monotonic()`），但**别从这里下手加埋点**——下游 `llm_refine` �
 
 ⚠️ **改完必须用真实 run 验，不能只看单测。** 判据见任务 4。
 
-### 任务 4：跑通生产线决证
+### 任务 4：跑通生产线决证 —— ✅ **已通过（`38c06356`，2026-08-08 17:25）**
 
-预算修好后，在 **8792** 上跑：
+> **三条判据全中，这条不用重做。** 下面的跑法与读法保留，因为**每次改预算或
+> 换 provider 都应该重跑它**——它是唯一能证明整条链闭合的判据。
+
+实测结果（`run_20260808_172521_718800`，user=`tester`）：
+
+```
+判据 1  memory_lookup 真调用   ✓  outcome/traces 2 条 episode:memory_lookup (success)
+                                  + outcome/evidence 1 个 atom (tool=memory_lookup, 3bb2d0e9)
+判据 2  prior_recall binding   ✓  basis=user_premise, evidence_hashes=['3bb2d0e9…']
+判据 3  正文无台账路径泄漏      ✓
+
+status=partial  stop_reason=repair_model_stop
+llm_calls=9  tool_calls=9  input_tokens=43187  耗时 237s
+bindings: direct_assessment / chain_mapping / counterpoint / prior_recall
+```
+
+**修复前后对比**（同一道题、同一条中转、同一个模型）：
+
+| | 修复前（3 个 run） | 修复后 |
+|---|---|---|
+| llm_calls / tool_calls | 1 / 0 | **9 / 9** |
+| 耗时 | 28-31s | **237s** |
+| bindings | 0 | **4** |
+| answer.md | 235B 模板（三次 sha256 **完全相同**） | 1378B 实答 |
+
+⚠️ **判据 1 有个陷阱，我差点误判。** `memory_lookup` 在 `continuous-episode.json`
+里出现 **28 次**，但绝大多数落在**声明位**而不是调用位：
+
+```
+4x  /contract/required_outputs[]/evidence_types[]     ← 只是"契约里要求它"
+1x  /contract/allowed_capabilities[]                  ← 只是"这次授权了它"
+2x  /outcome/traces[]/provider = episode:memory_lookup ← 这才是"真调了"
+1x  /outcome/evidence[]/tool   = memory_lookup         ← 这才是"真产出了证据"
+```
+
+**判"真调用"只能看 `outcome/traces` + `outcome/evidence`**，不能 grep 计数——
+那正是路线图区分的「定义了」vs「这次真够得着」。原文判据写"出现在工具序列里"
+不够精确，而且 `payload.tool_calls` 在不同 event 里既可能是 list 也可能是 **int**
+（计数），照原读法脚本会直接 `TypeError`（我踩了两次）。
+
+意外收获：**子研究分支真的并行跑起来了**。events 里
+`branch_started`×3 / `branch_completed`×2 / `branch_failed`×1，
+分支目标分别是「市场交易状态与代表股分化」「产业链驱动与兑现证据」
+「用户历史判断与反证核对」，`tool_calls` 4+2+3=9 与 usage 吻合。
+这同时实证了 `runtime/sub_research.py:317-329` 那条 `ThreadPoolExecutor`
+路径在生产上是活的（不是"实现了但没接线"）。
+
+答案本身也不再是模板：给出基准判断，明确说"现有资料没有液冷题材自身的涨跌、
+资金、涨停扩散数据，因此无法确认当下强弱与拥挤程度"，并把用户原来的
+"二次侧卡脖子"升级为"能否拿到系统集成商认证、能否转化为订单与利润"。
+**是有依据的克制，不是编。**
+
+---
+
+原始跑法（保留，用于复跑）。在 **8792** 上：
 
 ```bash
 CID=$(curl -s -X POST localhost:8792/api/conversations -H 'Content-Type: application/json' \
@@ -471,13 +654,23 @@ print('prior_recall:',[b for b in o.get('bindings',[]) if b.get('output_id')=='p
 多久重算一次、漂动上下界」，并且**默认关闭、显式开启**。
 先把 1-4 做完拿到稳定基线，再谈这条。
 
-### 任务 6：8788 去留（**需先问用户**）
+### 任务 6：8788 去留（**解锁了，但仍需问用户**）
 
 8788 仍在跑（pid 79613，rev `9380b3b9`，落后 main），且 health 里没有
 `loaded_code_root` / `code_matches_repo`——**它自己不知道自己漂了**。
 
-我原本建议关掉，但**在 8792 跑通之前不要关**：8788 是目前唯一跑通过完整
-`memory_lookup → prior_recall` 链的线，关了就失去对照。**任务 4 通过后**再处理。
+原来的阻塞条件是「8792 跑通前不要关」，因为 8788 曾是唯一跑通过完整
+`memory_lookup → prior_recall` 链的线。**该条件已解除**：任务 4 已在 8792 上
+通过（`38c06356`，三条判据全中），对照线不再唯一。
+
+但**仍然先问用户再关**。两个理由：
+1. 8792 这次是 `partial` / `repair_model_stop`，链闭合了但还没有一次
+   `completed`。留着 8788 作为「已知能跑」的参照，成本只是一个进程。
+2. 关它属于动生产。
+
+⚠️ 关之前先确认端口归属，**别照 pid 记忆去 kill**：本机同时有 **5 个**
+`intelligence.api.app` uvicorn 进程（另有 worktree 起的 8795 等）。
+现查：`lsof -nP -iTCP:8788 -sTCP:LISTEN`。
 
 ---
 
@@ -494,6 +687,25 @@ print('prior_recall:',[b for b in o.get('bindings',[]) if b.get('output_id')=='p
 - ⚠️ **行号会漂**。本文档行号是 `0457e39e` 上的实测值，引用前先 grep 现查符号名。
 - ⚠️ **别用 2-3 次采样给高方差的量下结论**（§3 ①就是这么错的）。中转延迟的
   min 与 max 差 5 倍以上。
+- 🔴 **`/api/health` 的 `code_matches_repo` 不能用来判断「快照是不是新的」。**
+  ［实测］`services/runtime_provenance.py:113-115` 的 docstring 明写：指纹
+  *"called once per process (`create_app`) and the result is reused by every
+  health response"* —— **启动时算一次，之后所有 health 复用**。
+  我提交 `38c06356` 之后取 health，它仍报 `code_matches_repo: True` +
+  指纹 `bd9322cb…`，而那时快照里根本没有我的改动。
+  > 讽刺的是同一个文件 :100-111 的 docstring 正是在讲「版本号会在最可能出错的
+  > 时刻前进」这个 bug 类。缓存让它换了个形式复发：仓库前进了，health 仍报 True。
+  > **唯一可信的现算点**是 `deploy_workbench_runtime.sh` 第 [2/3] 步
+  > （它 `cd` 到快照后重新 `build_runtime_provenance`）。部署后指纹应该**变**：
+  > 这次从 `bd9322cb…` → `4e7d8323…`（471 模块）。指纹没变 = 没部署成。
+- ⚠️ **本机有 5 个 `intelligence.api.app` uvicorn 进程**（8788 / 8792 / worktree
+  起的 8795 等）。任何 kill / 重启前先 `lsof -nP -iTCP:<port> -sTCP:LISTEN`
+  现查归属，**别照 pid 记忆动手**。8792=pid 18034、8788=pid 79613 是
+  `2026-08-08 17:2x` 的读数，重启后就变。
+- ⚠️ **`deploy_workbench_runtime.sh` 部署的是工作树当前内容，不是某个 commit**
+  （脚本第 40 行自己写明了）。所以它会把**未合并的分支代码**送上生产。
+  这次就是这么把 `fix/first-turn-budget` 部到 8792 的——有意为之，但要知道
+  自己在做什么；它只 rsync `intelligence/`，`docs/`、`复盘/` 的改动不受影响。
 
 ---
 
