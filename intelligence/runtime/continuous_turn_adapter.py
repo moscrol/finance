@@ -37,7 +37,11 @@ from intelligence.services.repair_coordinator import (
     max_repair_cycles_for_tier,
     progress_from_ledger,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    SatisfiabilityCheck,
+    check_satisfiability,
+)
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.task_frame import TaskFrame
 from intelligence.runtime.turn_control_core import TurnControlResult
@@ -431,6 +435,17 @@ class ContinuousTurnAdapter:
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
             )
+            # 事前可满足性预检：这套授权工具的 produces 并集能否覆盖每项
+            # required_output。**只观测，不参与任何决策**——`check_satisfiability`
+            # 自身是 fail-open 的（三态全部放行），这里同样只把结果写进私有
+            # artifact，供事后统计 `suspicious` 的真实命中率。
+            #
+            # 为什么要这一步：契约门是事后判缺，跑完才知道填不上；而误判的
+            # required_output（例如把「哪只个股比较有机会」读成对比题而追加
+            # comparison_dimensions）在开跑前就已经注定无人能填。预检把这个
+            # 信号提到花预算之前，但**先不据此拦人**：produces 表是人手维护的，
+            # 让一张不完整的声明表拥有拦截权，就是造一个新的静默失败源。
+            satisfiability = _precheck_satisfiability(registry, context)
             if self._is_cancelled():
                 return _cancelled_result()
             start = getattr(self._runtime, "start", None)
@@ -767,6 +782,7 @@ class ContinuousTurnAdapter:
             "events": [item.to_dict() for item in outcome.events],
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
+            "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
@@ -1006,6 +1022,80 @@ def _episode_metrics(
             if semantic_status in {"passed", "repaired", "rejected", "unavailable"}
             else "unavailable"
         ),
+    }
+
+
+def _normalize_output_id(output_id: str) -> str:
+    """按 orchestrator 的别名表归一 output_id——那是「output 归一」的唯一事实源。
+
+    延迟 import：`conversation_orchestrator` 顶层已 import 本模块的
+    `ContinuousTurnResult`，顶层反向 import 会成环。
+    `test_tool_produces_satisfiability.py` 的对账测试用的是同一手法，
+    并且明确禁止抄第二份表——抄一份就等于把那边的修改和这里的比对解耦。
+    """
+
+    from intelligence.runtime.conversation_orchestrator import (
+        _LEGACY_OUTPUT_ALIASES,
+    )
+
+    return _LEGACY_OUTPUT_ALIASES.get(output_id, output_id)
+
+
+def _precheck_satisfiability(
+    registry: object,
+    context: ResearchRunContext,
+) -> tuple[SatisfiabilityCheck, ...]:
+    """事前预检，拿不到工具声明就返回空——**registry 是鸭子类型注入点**。
+
+    `registry_factory` 的既有替身有的直接返回字符串 `"registry"`（见
+    `test_continuous_turn_adapter.py` 多处），因此这里不能假设 registry 一定
+    实现了 `authorized_specs`。第一版实现直接调它，37 条既有测试立刻转红——
+    与 `38c06356` 那次在 `ResearchDeadline` 上加方法踩的是同一个坑：
+    **在鸭子类型注入点上新增依赖，必须对缺失接口 fail-open。**
+
+    观测手段不允许改变任何执行结果，所以这里对任何异常都吞掉：预检失败的
+    代价只是少一条诊断，而让它抛异常就等于让一个观测器有能力杀掉整轮回答。
+    """
+
+    accessor = getattr(registry, "authorized_specs", None)
+    if not callable(accessor):
+        return ()
+    try:
+        specs = accessor(context.contract.allowed_capabilities)
+        return check_satisfiability(
+            tuple(item.output_id for item in context.contract.required_outputs),
+            specs,
+            normalize=_normalize_output_id,
+        )
+    except Exception:  # noqa: BLE001 — 观测器不得影响执行结果
+        return ()
+
+
+def _satisfiability_payload(
+    checks: tuple[SatisfiabilityCheck, ...],
+) -> dict[str, object]:
+    """把事前预检结果摊平成可统计的私有诊断载荷。
+
+    单独留 `counts` 是为了让「`suspicious` 命中率」可以直接聚合，不必每次
+    重新遍历 `checks`——决定这个预检该不该升级为拦截门，靠的就是这个比率。
+    """
+
+    counts: dict[str, int] = {"covered": 0, "unknown": 0, "suspicious": 0}
+    for check in checks:
+        if check.status in counts:
+            counts[check.status] += 1
+    return {
+        "enforced": False,
+        "counts": counts,
+        "checks": [
+            {
+                "output_id": check.output_id,
+                "status": check.status,
+                "contributing_tools": list(check.contributing_tools),
+                "reason": check.reason,
+            }
+            for check in checks
+        ],
     }
 
 

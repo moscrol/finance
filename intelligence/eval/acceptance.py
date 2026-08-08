@@ -103,6 +103,9 @@ class TurnTrace:
     evidence: list[dict[str, Any]] = field(default_factory=list)
     trace_steps: list[str] = field(default_factory=list)
     synthesis_diagnostic: dict[str, Any] = field(default_factory=dict)
+    # 结构化判缺（哪一格 output 缺、成因码是什么）。此前只有 ``gaps`` 里那句
+    # 「最终回答未完成任务契约」——11 个 turn 命中过它，没有一个能回答缺哪一格。
+    fulfillment: dict[str, Any] = field(default_factory=dict)
     gaps: list[str] = field(default_factory=list)
     elapsed_s: float = 0.0
     status: str = "unknown"
@@ -208,6 +211,7 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
             str(s.get("name")) for s in steps if isinstance(s, dict) and s.get("name")
         ]
         trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
+        trace.fulfillment = _capture_fulfillment(steps)
 
 
 _SYNTHESIS_DIAGNOSTIC_FIELDS = (
@@ -258,6 +262,27 @@ def _capture_synthesis_diagnostic(steps: list[Any]) -> dict[str, Any]:
         }
         diagnostic["detail"] = str(diagnostic.get("detail") or "")[:200]
         return diagnostic
+    return {}
+
+
+def _capture_fulfillment(steps: list[Any]) -> dict[str, Any]:
+    """取最后一次判缺投影（含修复轮）。
+
+    倒序取第一条：修复轮 ``task_fulfillment_repair`` 排在原始判缺之后，
+    验收要看的是**终态**契约完成情况，不是修复前那份。
+    """
+
+    for step in reversed(steps):
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("fulfillment")
+        if not isinstance(raw, dict):
+            continue
+        status = raw.get("status")
+        items = raw.get("items")
+        if not isinstance(status, str) or not isinstance(items, list):
+            continue
+        return raw
     return {}
 
 

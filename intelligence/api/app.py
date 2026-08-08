@@ -346,7 +346,7 @@ def _build_continuous_turn_adapter(
     )
     task_id = f"{run_id}:{assistant_message_id}"
     # 用 partial 绑身份，而不是给 adapter 加一个 memory_user 参数：adapter 只负责
-    # 「怎么跑一轮」，不该知道记��台账按谁分区。同时 registry_factory 的调用点
+    # 「怎么跑一轮」，不该知道记忆台账按谁分区。同时 registry_factory 的调用点
     # （`continuous_turn_adapter.py` 里的 `self._registry_factory(frame, context)`）
     # 保持两个位置参数不变——测试替身里有固定参数的 `lambda frame, context: ...`，
     # 在调用点加 kwarg 会把它们全打断。
@@ -441,6 +441,7 @@ _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
     "query_ledger": "research",
     "research_execution_budget": "research",
     "budget": "research",
+    "task_fulfillment": "verification",
     "render_artifacts": "finalizing",
     "foresight_followups": "finalizing",
 }
@@ -454,6 +455,7 @@ _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "query_ledger": "已完成检索执行状态核对。",
     "research_execution_budget": "已完成本轮研究预算核对。",
     "budget": "已完成本轮研究预算核对。",
+    "task_fulfillment": "已完成回答与任务契约的逐项核对。",
     "render_artifacts": "已生成本轮研究产物。",
     "foresight_followups": "已整理后续核验问题。",
 }
@@ -611,7 +613,76 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
     diagnostic = _public_synthesis_diagnostic(step)
     if diagnostic is not None:
         public_step["diagnostic"] = diagnostic
+    fulfillment = _public_fulfillment_diagnostic(step)
+    if fulfillment is not None:
+        public_step["fulfillment"] = fulfillment
     return public_step
+
+
+# 判缺侧对外只放这几项。`items[].gap` 是给人读的中文长句，且可能带内部措辞，
+# 故**不外放**——要定位缺哪一格靠 `output_id` + `reason_code`，那才是结构化的。
+_PUBLIC_FULFILLMENT_ITEM_FIELDS = ("output_id", "status", "reason_code", "candidate_count")
+
+
+def _public_fulfillment_diagnostic(
+    step: dict[str, object],
+) -> dict[str, object] | None:
+    """把 task_fulfillment 的结构化判缺投影到公开 trace。
+
+    为什么需要它：`FulfillmentVerdict.to_dict()` 早就带了 `reason_code`
+    （`no_candidate_claim` / `text_absent` / `evidence_unbound` / `marker_absent`）
+    和 `candidate_count`，orchestrator 也已经把它写进内部 trace step。但公开
+    trace 此前只对 `answer_synthesis` 一步投影 `diagnostic`，于是这份判缺明细
+    **一次都没出过内网**：实测 11 个 turn 的 gaps 里写着「最终回答未完成任务
+    契约」，却没有一个能回答「缺的是哪一格 output」——排查只能靠读代码猜。
+
+    这也是「路 B 用历史产出反推可满足性」走不通的直接原因（见
+    `docs/superpowers/specs/2026-08-05-intent-routing-candidate-arbitration-design.md`
+    §3.4）：判缺结果没有结构化落盘，历史样本里就没有可统计的判据。
+    """
+
+    if str(step.get("name") or "") not in {
+        "task_fulfillment",
+        "task_fulfillment_repair",
+    }:
+        return None
+    raw_summary = step.get("output_summary")
+    if not isinstance(raw_summary, str):
+        return None
+    try:
+        summary = json.loads(raw_summary)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(summary, dict):
+        return None
+    status = summary.get("status")
+    items = summary.get("items")
+    if not isinstance(status, str) or not isinstance(items, list):
+        return None
+    projected: dict[str, object] = {
+        "status": status,
+        "repaired": bool(summary.get("repaired")),
+        "items": [
+            {
+                key: item[key]
+                for key in _PUBLIC_FULFILLMENT_ITEM_FIELDS
+                if key in item
+            }
+            for item in items
+            if isinstance(item, dict)
+        ],
+    }
+    counts = summary.get("reason_code_counts")
+    if isinstance(counts, dict):
+        projected["reason_code_counts"] = {
+            str(key): value
+            for key, value in counts.items()
+            if isinstance(value, int)
+        }
+    evaluated = summary.get("evaluated_output_ids")
+    if isinstance(evaluated, list):
+        projected["evaluated_output_ids"] = [str(item) for item in evaluated]
+    return projected
 
 
 def _public_synthesis_diagnostic(

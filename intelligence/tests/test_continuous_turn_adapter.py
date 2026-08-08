@@ -187,6 +187,126 @@ def _scripted_episode_result(
     ).handle(frame=frame, control=control)
 
 
+def test_satisfiability_precheck_survives_registry_without_authorized_specs() -> None:
+    """registry 是鸭子类型注入点，预检不得因替身缺接口而杀掉整轮回答。
+
+    第一版接线直接调 `registry.authorized_specs(...)`，本文件多处替身返回的是
+    字符串 `"registry"`，37 条既有测试立刻转红——与 `38c06356` 那次在
+    `ResearchDeadline` 上加方法踩的是同一个坑。观测手段不得改变执行结果：
+    拿不到工具声明就交空结果，绝不抛异常。
+
+    变异验证：把 `_precheck_satisfiability` 的 `callable` 守卫删掉，本条必红。
+    """
+
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-precheck-duck-typed",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+
+    class _RegistryMissingAccessor:
+        """只实现 resolve，不实现 authorized_specs。"""
+
+        def resolve(self, name: str) -> None:
+            del name
+
+    for registry in ("registry", _RegistryMissingAccessor(), None):
+        assert adapter_module._precheck_satisfiability(registry, context) == ()
+
+    payload = adapter_module._satisfiability_payload(())
+    assert payload["enforced"] is False
+    assert payload["checks"] == []
+    assert payload["counts"] == {"covered": 0, "unknown": 0, "suspicious": 0}
+
+
+def test_satisfiability_precheck_reports_counts_without_enforcing() -> None:
+    """声明齐备时预检要给出可聚合读数，但一格都不许拦。
+
+    `counts` 存在的理由是让「suspicious 命中率」可以直接聚合——那个比率正是
+    决定这个预检该不该升级为拦截门的唯一依据。这里同时锁住 `enforced=False`：
+    produces 表是人手维护的，让一张不完整的声明表拥有拦截权，
+    等于把「偶尔误判」换成「声明一漏就拒答」。
+    """
+
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-precheck-counts",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="盘面",
+                cost="local",
+                freshness="current",
+                runner=lambda *_a, **_k: None,
+                produces=frozenset({"direct_assessment"}),
+            ),
+        )
+    )
+    checks = adapter_module._precheck_satisfiability(registry, context)
+
+    assert [item.output_id for item in checks] == ["direct_assessment"]
+    assert checks[0].status == "covered"
+    assert checks[0].contributing_tools == ("market_data",)
+
+    payload = adapter_module._satisfiability_payload(checks)
+    assert payload["enforced"] is False
+    assert payload["counts"] == {"covered": 1, "unknown": 0, "suspicious": 0}
+
+
+def test_satisfiability_precheck_normalizes_output_ids_before_comparing() -> None:
+    """预检必须先归一 output_id，否则纯字面差异会被误报成可疑。
+
+    契约侧与 produces 侧不是同一套字面 id：`evidence_boundary` 判缺时归一到
+    `counterpoint`，`direct_answer` 归一到 `direct_assessment`。不归一就比对，
+    这两项双双落进 suspicious——实测 62 条真实 query 的 179 个 output 实例里，
+    不归一 suspicious 占 53%，归一后 16%，**65 个纯属字面差异**。
+
+    归一表 `_LEGACY_OUTPUT_ALIASES` 是 runtime 层的唯一事实源；`services/**`
+    不得反向 import（`scripts/layer_audit.py` 门禁），所以走 `normalize` 回调注入。
+
+    变异验证：把 `_precheck_satisfiability` 里的 `normalize=` 去掉，本条必红。
+    """
+
+    frame = _frame(required_outputs=("evidence_boundary",))
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-precheck-normalize",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    # 工具声明的是归一后的 counterpoint，契约要的是 evidence_boundary。
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="盘面",
+                cost="local",
+                freshness="current",
+                runner=lambda *_a, **_k: None,
+                produces=frozenset({"counterpoint"}),
+            ),
+        )
+    )
+
+    checks = adapter_module._precheck_satisfiability(registry, context)
+    statuses = {item.output_id: item.status for item in checks}
+    assert statuses.get("evidence_boundary") == "covered", (
+        f"evidence_boundary 应经别名归一到 counterpoint 后判 covered，实得 {statuses}"
+    )
+
+
 def test_live_progress_sink_replaces_posthoc_events_at_real_phase_boundaries() -> None:
     frame = _frame()
     control = _control(frame)

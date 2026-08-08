@@ -660,6 +660,8 @@ class SatisfiabilityCheck:
 def check_satisfiability(
     required_output_ids: tuple[str, ...] | list[str] | frozenset[str],
     authorized_specs: tuple[ToolSpec, ...] | list[ToolSpec],
+    *,
+    normalize: Callable[[str], str] | None = None,
 ) -> tuple[SatisfiabilityCheck, ...]:
     """事前预检：这套授权工具的 produces 并集能否覆盖每项 required_output。
 
@@ -672,21 +674,40 @@ def check_satisfiability(
 
     关键不变量：**声明不全只会漏抓，不会误拦**。一个不完整的 produces 表
     如果能造成误拦，它就成了新的静默失败源，比不做更糟。
+
+    ``normalize`` 是 output_id 归一钩子（默认恒等）。契约侧与 produces 侧用的
+    并非同一套字面 id：``evidence_boundary`` 在判缺时归一到 ``counterpoint``、
+    ``direct_answer`` 归一到 ``direct_assessment``。不归一就比对，这两项会双双
+    落到 ``suspicious``——实测 62 条真实 query 的 179 个 output 实例里，
+    不归一 suspicious 占 53%，归一后 16%，**其中 65 个纯属字面差异**。
+    归一表是 runtime 层的事实源（``_LEGACY_OUTPUT_ALIASES``），而本模块在
+    services 层不得反向 import（``scripts/layer_audit.py`` 门禁），故以回调注入
+    而非在此复制第二份。
     """
 
+    def _identity(value: str) -> str:
+        return value
+
+    norm = normalize if callable(normalize) else _identity
     specs = tuple(authorized_specs)
     # 只看声明了非空 produces 的工具——空 produces 的工具（保守留空）不参与
     # 「全部声明了但都不含」的推理，因为它们没表态。
     declared_specs = tuple(spec for spec in specs if spec.produces)
+    normalized_produces = {
+        spec.name: frozenset(norm(item) for item in spec.produces) for spec in specs
+    }
     all_declared: frozenset[str] = frozenset().union(
-        *(spec.produces for spec in declared_specs)
+        *(normalized_produces[spec.name] for spec in declared_specs)
     ) if declared_specs else frozenset()
 
     results: list[SatisfiabilityCheck] = []
     for output_id in required_output_ids:
+        normalized_id = norm(output_id)
         contributing = tuple(
             dict.fromkeys(
-                spec.name for spec in specs if output_id in spec.produces
+                spec.name
+                for spec in specs
+                if normalized_id in normalized_produces[spec.name]
             )
         )
         if contributing:
