@@ -66,6 +66,12 @@ from intelligence.services.tool_result_budget import budget_tool_observation
 
 DEFAULT_LLM_TIMEOUT = 20.0
 MIN_PLANNING_TURN_SECONDS = 8.0
+# 一次最终合成至少需要的秒数。首轮可以向 ``synthesis_reserve`` **借**超出这个
+# 地板的部分（见 ``_opening_planning_timeout``）：reserve 的正当用途是保证
+# "已查到的证据"还能被合成，但首轮一条证据都没有，保护对象不存在。地板取
+# ``EpisodeFinalizer`` 的默认超时（20s），即"够跑一次合成"的口径——借走的只是
+# reserve 里超出一次合成所需的余量，不是整段。
+MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS = 20.0
 # Planning is model-owned state, but it must still have a finite allowance so
 # a model cannot keep revising a plan forever without reaching research or
 # finalization.  The allowance is separate from max_steps, which is the
@@ -446,7 +452,14 @@ class ContinuousAgentEpisode:
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
                 )
-            planning_timeout = context.deadline.stage_timeout(self._llm_timeout)
+            # 首轮向 reserve 借超出「一次合成」的余量：那时一条证据都没有，
+            # reserve 保护的对象还不存在，而预扣会让唯一能启动检索的调用饿死。
+            is_opening_call = llm_calls == 0 and not accumulator.evidence
+            planning_timeout = (
+                self._opening_planning_timeout(context)
+                if is_opening_call
+                else context.deadline.stage_timeout(self._llm_timeout)
+            )
             remaining_tool_slots = self._remaining_tool_slots(
                 context=context,
                 tool_calls=tool_calls,
@@ -1256,6 +1269,43 @@ class ContinuousAgentEpisode:
         if root_budget is None:
             return max(1, int(context.policy.max_steps))
         return max(1, min(MAX_EPISODE_TOOL_CALLS, root_budget.hard_calls_cap))
+
+    def _opening_planning_timeout(self, context: ResearchRunContext) -> float:
+        """首轮窗口 = 常规切法 + 向 ``synthesis_reserve`` 借来的**余量**。
+
+        借的只是 reserve 里超出「跑一次合成」所需的部分
+        （``MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS``），不是整段——所以
+        「到点还能交出有依据的答案」这条不变量依然成立。
+
+        为什么首轮该借：reserve 的正当用途是保护**已查到的证据**不被写到一半
+        砍掉，但首次调用时一条证据都没有，保护对象还不存在。而首轮失败是全损的
+        ——那些秒数照样花掉，省下的 reserve 一秒都没用上，最终只能吐模板。
+
+        ［实测 2026-08-08 生产 8792］turn=120s / standard / theme_analysis：
+            effective = min(90, 120 − 40)   = 80
+            reserve   = min(60, 80 × 2/3)   = 53.33   (episode_factory:360)
+            首轮      = min(75, 80 − 53.33) = 26.67s  ← 低于 provider P50 28s
+        三个 run 均 ``TimeoutError`` → 零 binding → 235B 模板答案（sha256 相同）。
+        借入后：26.67 + (53.33 − 20) = 60s ≥ P95 50s。
+
+        注意档位表**不参与**这条路径：``effective = min(tier_total, 80)``，
+        80 恒为较小者，所以把 standard 从 90 调到 300 首轮一秒不变（已用探针
+        验证）。��也是为什么"重标定档位表"救不了首轮。
+
+        上界仍是 ``self._llm_timeout``（生产 75s，由 provider 特性定），与
+        ``expires_at``（总共能跑多久）解耦。
+
+        ``synthesis_reserve`` 用 ``getattr`` 读：``context.deadline`` 是鸭子类型
+        注入点，测试替身只实现所需子集。上一版把新方法加在 ``ResearchDeadline``
+        上，替身立刻 ``AttributeError``——这里只用替身已有的接口。
+        """
+
+        baseline = context.deadline.stage_timeout(self._llm_timeout)
+        reserve = float(getattr(context.deadline, "synthesis_reserve", 0.0) or 0.0)
+        borrowable = max(0.0, reserve - MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS)
+        if borrowable <= 0.0:
+            return baseline
+        return max(0.0, min(float(self._llm_timeout), baseline + borrowable))
 
     def _decide_mode(
         self,
