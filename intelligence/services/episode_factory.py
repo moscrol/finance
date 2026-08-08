@@ -203,15 +203,59 @@ def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
     outputs = frame.required_outputs
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
-    if _references_prior_judgement(frame):
-        outputs = tuple(dict.fromkeys((*outputs, "prior_recall")))
     return outputs
+
+
+def _with_prior_recall(
+    output_ids: tuple[str, ...],
+    frame: TaskFrame,
+    capabilities: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Add the prior_recall slot only when the tool that fills it is authorized.
+
+    这个判据里的 `memory_lookup in capabilities` 不是防御性冗余。`prior_recall`
+    的注入条件只看题型与措辞，而 `memory_lookup` 的授权来自另一条路
+    （`evidence_capabilities.py` 的 evidence policy），两者可以不同步：
+
+    - 调用方显式传 `capabilities` 且其中没有 `memory_lookup`；
+    - 或 `_is_evidence_free_task` 把 `authorized` 整个清空（反事实题的
+      `user_goal` 判据与 `theme_analysis` 题型可以同时成立）。
+
+    这两种情况下若仍注入，`_required_output_evidence_types` 会把这一格的
+    evidence_types 算成**空 tuple**：契约里挂着一个谁都填不上的槽位。那正是
+    本轮根因的同一种形态——槽位与工具各自为政、错开时不报错，只是静静地
+    产出一个填不满的契约。所以把「有工具」变成注入的前置条件。
+    """
+
+    if not _references_prior_judgement(frame):
+        return output_ids
+    if "memory_lookup" not in capabilities:
+        return output_ids
+    return tuple(dict.fromkeys((*output_ids, "prior_recall")))
 
 
 def _required_output_evidence_types(
     output_id: str,
     capabilities: tuple[str, ...],
 ) -> tuple[str, ...]:
+    if output_id == "prior_recall":
+        # 这一格只有 memory_lookup 的产出能填：它装的是用户自己的历史判断，
+        # 市场侧工具（kb_search / graph_lookup / news_search ...）返回的都是
+        # 当前世界事实，格式与 grounding_mode=user_premise 不兼容。
+        #
+        # 为什么收窄而不是加强提示词：上一轮决证（run_20260808_102708）里
+        # prior_recall 槽位、memory_lookup 授权、"必须优先调用"的提示词三样
+        # 都在，模型仍在第一轮把 7 次工具预算全投给市场侧检索。原因是这格的
+        # evidence_types 是全量能力列表——模型从契约里读不出"哪个工具能填它"，
+        # 而其余三格都是 evidence，市场侧工具对它们的贡献是确定的。
+        #
+        # 收窄后契约自身就携带了工具→槽位的映射，模型靠自主推理即可选中
+        # memory_lookup，不需要任何强制调用顺序。这保住了 agentic RAG：
+        # 其余槽位的 evidence_types 不变，市场侧工具照常参与竞争。
+        return tuple(
+            capability for capability in ("memory_lookup",)
+            if capability in capabilities
+        )
     if output_id == "financial_business_anchor":
         return tuple(
             capability
@@ -294,6 +338,12 @@ def build_episode_context(
         if capability not in authorized:
             authorized.append(capability)
     capability_tuple = tuple(authorized)
+
+    # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
+    # 「memory_lookup 真的在这次的授权里」，而授权到这一行才算最终确定
+    # （evidence_plan 的 mandatory_capabilities 会往里追加，
+    # `_is_evidence_free_task` 会把它整个清空）。放在前面判断就会读到中间态。
+    output_ids = _with_prior_recall(output_ids, frame, capability_tuple)
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds

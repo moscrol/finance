@@ -116,17 +116,19 @@ def build_episode_instructions(
     )
     # prior_recall 槽位专用规则：只在该格出现于契约时注入。
     #
-    # 没有这行时：模型看到 prior_recall（grounding=user_premise）但不知道该用哪个
-    # 工具填，而 4 次工具预算都被 3 个必需 evidence 槽瓜分——实测两次 run（tester
-    # 台账有 484 条液冷记录）模型一次都没选它。
-    # 加了这行后：模型有明确指引，在研究循环的第一轮或早期直接调 memory_lookup，
-    # 把先验拿到后再执行市场侧工具。
+    # 这条规则是**陈述性**的，不指定调用顺序。初版写的是「研究开始时必须优先调用
+    # memory_lookup」，实测无效：`run_20260808_102708` 里槽位、授权、这行强制指令
+    # 三样都在，模型仍在第一轮把 7 次工具预算全投给市场侧检索。
+    #
+    # 真正的缺口不在措辞而在契约结构——那时 prior_recall 的 evidence_types 是全量
+    # 能力列表，模型读不出「哪个工具能填这格」。修法落在 `episode_factory` 把该格
+    # 的 evidence_types 收窄成 `memory_lookup`；这里只需说明该格接受什么，让模型
+    # 自主推理出要调用它。强制顺序会牺牲 agentic 的工具选择权，且已被证伪。
     prior_recall_rule = (
-        "本任务包含 prior_recall 槽位（grounding_mode=user_premise）："
-        "研究开始时必须优先调用 memory_lookup 工具，检索用户对该主体的历史判断与"
-        "纠偏原则，把召回结果绑定到 prior_recall（basis=user_premise）；"
-        "若 memory_lookup 返回空命中，在 prior_recall 的 binding.gap 注明"
-        "「用户记忆无相关命中」，然后继续执行市场侧工具。"
+        "本任务包含 prior_recall 槽位（grounding_mode=user_premise）：该格只接受 "
+        "memory_lookup 召回的用户历史判断与纠偏原则，市场侧工具返回的当前世界事实"
+        "无法填充它；绑定时 basis 用 user_premise。若 memory_lookup 返回空命中，"
+        "在该 binding.gap 注明「用户记忆无相关命中」。"
         if any(
             o.output_id == "prior_recall"
             for o in context.contract.required_outputs
