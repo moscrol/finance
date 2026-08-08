@@ -8,6 +8,8 @@ import os
 import shutil
 from typing import Literal, cast
 
+from intelligence.services.llm_refine import detect_providers
+
 
 RuntimeBackendName = Literal[
     "continuous_glm",
@@ -69,6 +71,30 @@ def resolve_runtime_backend(value: str | None = None) -> RuntimeBackendSelection
     )
 
 
+def _effective_env_model() -> str | None:
+    """报 provider 链首实际会用的模型，而不是重新推导一遍环境变量优先级。
+
+    `detect_providers()` 是 provider 链的唯一事实源，它有三条互不相同的 model
+    取法（generic `LLM_API_KEY` → `LLM_MODEL`；managed `FORESIGHT_BUILTIN_*` →
+    `FORESIGHT_BUILTIN_LLM_MODEL`；`_PROVIDERS` 循环 → `LLM_MODEL` 或各家默认）。
+    在这里照抄那套优先级会立刻产生第二份口径，迟早分叉。
+
+    这不是假设的风险，是刚发生过的事：本函数的**凭证**判定早已改成
+    provider-neutral（认 `OPENAI_API_KEY`），而**模型**那半没跟着改——只看
+    `FORESIGHT_BUILTIN_LLM_MODEL`，读不到就硬回落 `"glm-5.2"`。2026-08-08
+    生产出口切到中转后，health 报的是 `glm-5.2`，实际跑的是 `gpt-5.6-sol`。
+    同一个函数里一半改了一半没改，正是「跨层口径对账」缺失的典型形状。
+
+    返回 None 而不是抛：这是探针路径，读不出模型不该让 `/api/health` 挂掉。
+    """
+
+    try:
+        chain = detect_providers()
+    except Exception:  # 探针不允许因为上游异常而变成不可用
+        return None
+    return chain[0].model if chain else None
+
+
 def runtime_backend_readiness(
     selection: RuntimeBackendSelection | None = None,
     *,
@@ -108,7 +134,7 @@ def runtime_backend_readiness(
             reason=reason,
             model=str(
                 session_model
-                or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+                or _effective_env_model()
                 or "glm-5.2"
             ).strip(),
             credential_available=credential,
