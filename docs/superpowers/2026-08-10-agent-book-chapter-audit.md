@@ -200,6 +200,50 @@ budget 但管的是工具输出的字符截断，与时间无关——是它把�
 
 ---
 
+## 追加（2026-08-10）：「分档用错了」这个假设被实测推翻
+
+看到 `deep` 档有 240s / 12 步 / 3 路并行分支，而我们把 S3 因果题声明成
+`standard`，我判断预算决策是个伪问题——应该升档而不是抬预算。**实测不成立。**
+
+同一道 case，只改 `tier` [实测]：
+
+| 量 | standard | deep |
+|---|---|---|
+| policy `total_seconds` | 90s | **240s** ✅ |
+| `synthesis_reserve` | 60s | 75s |
+| **工具批次上限** | 29.64s | **30.00s** ← 几乎没动 |
+| **judge 三次窗口** | (15, 7.5, 7.5) | **(15, 7.5, 7.5)** ← 完全没动 |
+| `mandatory` / floor | 不变 | 不变（换档不影响 floor） |
+
+**升档对两个真正在超时的组件几乎无效。** 原因是它们各自有**与 tier 无关的硬上限**：
+
+| 组件 | 硬上限出处 | 值 |
+|---|---|---|
+| 工具批次 | `episode_tool_batch.py:244` `stage_timeout(30.0)` | 字面 **30.0s** |
+| judge 窗口 | `episode_semantic_verifier.py` `MAX_SEMANTIC_JUDGE_WINDOW_SECONDS` | **30.0s**（→ 首次 15s） |
+
+`stage_timeout(limit)` 取的是 `min(limit, remaining − reserve)`。deep 档下
+`remaining − reserve` = 105s，远大于 30，**所以 min 被那个字面量 30 卡住**——
+tier 给的额外时间根本流不到这两个组件。
+
+### 于是问题被重新定位得更准
+
+工具是**并行**执行的（`episode_tool_batch.py:37` 共享 `ThreadPoolExecutor`），
+所以一批工具的耗时是 `max()` 不是 `sum()`。而实测最慢的
+`evidence_search` 冷调用 **28.2s**：
+
+```
+28.2s / 30.0s = 94% 占用率——没有任何余量
+```
+
+**需要重标定的是这两个常量，不是 tier 策略，也不是 `standard` 的 90 秒。**
+这比"把 standard 抬到 180s"精确得多，波及面也小得多：前者影响生产每一次普通问答，
+后者只影响工具批次与 judge 两处。
+
+⚠️ 但 08-09 已实测过：单独抬 judge 窗口会把草稿饿死（两者共用 synthesis reserve）。
+**这两个常量不能各自独立调**，要连同 reserve 一起算一次。deep 档 75s 的 reserve
+比 standard 的 60s 多出的那 15s，是这次重算里唯一的新空间。
+
 ## 方法论备注
 
 书里有一条与我们 2026-08-09 的教训完全同构，值得并置：
