@@ -342,20 +342,82 @@ exit 0；探针提交已回退。
 验收 `vault_lint` 115 passed / `graph_audit` 39 条无漂移——**均在 `agent-memory-answer-spec`
 （`main`）上跑**，见 §1.5 关于同一工具两个读数的说明。
 
-仍**刻意留在 feature 分支**、未进共享历史：`.foresight/**` 604 个运行时台账、
-3 份 `workbench.sqlite3`、`60_dialogues/` 459KB 原文、`可证伪点回检/` 8 个
-（该目录不在 `frontmatter-spec.md` 的 8 个法定 type 内且无 frontmatter，
-待定：给法定 type 或认定为派生产物不进 git）。
+#### 运行时产物已全部退出版本控制（2026-08-09 用户决定「不进 git」）
 
-⚠ 该脚本仍用 `git add -A`（已带 pathspec 排除），与本仓 `AGENTS.md:74` 的
+三类不再是 git 内容，**磁盘文件一份没删**，Obsidian 里照常可读：
+
+| 路径 | 数量 | 为什么不进 git |
+|---|---|---|
+| `.foresight/**` | 621 | 活台账，每次问答都追加；8 月内 614 个文件被改过 |
+| `可证伪点回检/` | 12 | 夜间回检的人类可读快照，自己第一行写着「明细以 `verdicts.jsonl` 为准」 |
+| `60_dialogues/` 原文 | 30 | 外部 AI 导出的逐字记录，原始语料而非提炼记忆 |
+
+`.foresight` 那条是审计中最惊险的一处：main 上那 17 个跟踪副本已经**远比磁盘旧**
+（`corrections.jsonl` main 16,686B vs 磁盘 37,574B；`tester/interactions.jsonl`
+1,670B vs 245,148B）。若不先取消跟踪就切分支，git 会用旧版**覆盖活台账**——
+而 `~/.zshrc` 的 `FORESIGHT_USERS_DIR` 正指向这里。
+
+#### ⚠ 一次假成功：`git commit -- <path>` 会静默撤销 `git rm --cached`
+
+`c9f5017c` 声称取消跟踪了 `可证伪点回检/` 4 个文件，**实际只提交了 `.gitignore`**。
+用 `git show --name-status` 复核才发现，那 4 个 `D` 从未进入提交。
+
+根因已隔离复现：
+
+```
+git rm --cached f          →  index: D f
+git commit -- f            →  "nothing to commit"，且 f 仍被跟踪
+```
+
+`git commit -- <pathspec>` 提交的是**该路径的工作树内容**，不是 index。文件还在
+工作树上，于是 `rm --cached` 标记的删除被它当作「无事发生」抹掉。同一轮里
+`dc7282d7`（`.foresight` 17 个）用的是不带 pathspec 的裸 `commit`，所以成功了——
+**两次操作看起来一样，只差一个 `-- <path>`。**
+
+这与 `AGENTS.md:75` 的「一律用 pathspec 提交」是**真实冲突**：pathspec 能防误提他人
+暂存内容，但它同时会吞掉 index 里的删除标记。判据：**取消跟踪必须用裸 `commit`**，
+提交前先 `git diff --cached --name-only` 确认 index 里没有他人内容。
+
+更要紧的是当时那道验证也是坏的——`git ls-files -z | tr -d '\0' | grep -c .` 把所有
+文件名拼成一行，恒返回 1，于是「跟踪数 1」被读成了成功。**中文/全角文件名下
+必须 `tr '\0' '\n'`**；这是本轮第二次被转义文件名坑到（第一次是 §1.5 的 tutor 检查）。
+修正提交 `753b5ed1`。
+
+#### vault 主目录已切回 `main`，同步链路首次真正走通
+
+原状态是「`main` 被 `agent-memory-answer-spec` 占着 → 主目录切不过去 → 只有本地快照」。
+处置**没有删除那棵 worktree**（会碰别人工作区），而是让它在**同一个 commit 上 detach**：
+分支名 `main` 空出来，目录与 152 个文件一字未动，随时可切回。
+
+切换代价先量清再动手，而不是靠 `-f` 压过去：
+
+| 检查 | 读数 |
+|---|---|
+| 切过去会从磁盘删除的已跟踪文件 | **0**（取消跟踪后归零；此前是 613） |
+| 碰撞文件（main 跟踪 + 磁盘同名未跟踪） | 29，逐字节 `same=29 / diff=0` |
+| 活台账 md5（切换前后） | 3 项全部一致 |
+| 8 个 main-only 文件 | 全部到位 |
+
+git 起初**如实拒绝**了切换（"Please move or remove them"）——那是它在保护数据，不是故障。
+29 个碰撞文件用 `mv`（可逆）挪到 `/tmp`，切换后 git 自行 checkout，再逐字节比对确认一致。
+切换前另做了两份 tar 备份（`/tmp/foresight-backup-*`、`/tmp/vault-switch-backup-*`）。
+
+此后**第一次真正走通脚本的 main 路径**：`Already up to date` + `[ok] sync complete`，
+exit 0。本文件上一版标注的「`main` 路径未经脚本实测」至此解除。
+
+⚠ 该脚本仍用 `git add -A`（带 pathspec 排除），与本仓 `AGENTS.md:74` 的
 "禁用 `git add -A`"纪律相反。在 vault 里风险低（单人单树），但若 vault 以后
 也出现多 agent 并写，这会是同一类事故源。
 
-⚠ **`~/bin` 下 7 个脚本全部不在任何版本控制下，且无任何备份副本**（实测逐个搜过，
-含两个 watchdog）。也就是说上面那段带 10777 次实测读数的事故注释，现在是**全机单副本**。
-本轮已把它们纳管到 vault `scripts/hosts/`（见该目�� README），因为 vault 本身
-每 180 秒自动同步、且这些脚本正是维护 vault 的那批。`~/bin` 保留为运行位置，
-launchd 仍指向它，纳管的是内容而非执行路径。
+⚠ **`~/bin` 下 7 个脚本原本全不在版本控制下、无任何备份副本**（实测逐个搜过，
+含两个 watchdog）——那段带 10777 次实测读数的事故注释曾是**全机单副本**。
+现已纳管进 vault `scripts/hosts/`（`3afd6012`，见该目录 README）：vault 本身每 180 秒
+自动同步，且这些脚本正是维护 vault 的那批。`~/bin` 保留为运行位置、launchd 仍指向它，
+**纳管的是内容而不是执行路径**——因此两边会漂移，README 写明了「改完同步两边」，
+本轮已因此同步过两次（`26203703`、`11dd97e8`）。
+
+未纳管 `cockpit-codex-auth-watchdog.py.bak-devin`：diff 显示它与正本只在
+`session-affinity` 真假上完全相反，是一份逻辑被反转的旧备份，不是有效副本。
 
 ---
 
