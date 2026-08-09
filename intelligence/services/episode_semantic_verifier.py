@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -49,6 +50,34 @@ SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 30.0
+
+
+def semantic_judge_window_seconds() -> float:
+    """Total window shared by all judge attempts, overridable for calibration.
+
+    Like the tool-batch ceiling, this caps a ``synthesis_timeout`` call, so a
+    larger episode budget does not widen it: 30.0 here yields attempts of
+    ``(15.0, 7.5, 7.5)`` at every tier.  Measured 2026-08-09: all three attempts
+    ended in ``TimeoutError`` having consumed exactly those windows, while the
+    provider's p90 for even a short-output call was 21.8s — the first attempt is
+    below p90 and the retries are hopeless.
+
+    Default unchanged at 30.0, and deliberately so: raising it in isolation was
+    measured to make things *worse*, because the judge and the draft draw from
+    the same ``synthesis_reserve`` — widening one starves the other.  Any real
+    change here has to be computed together with that reserve, which needs live
+    runs the relay has not been stable enough to provide.  Exposed so that
+    calibration can be run, not so that it can be guessed at.
+    """
+
+    raw = os.environ.get("ASK_SEMANTIC_JUDGE_WINDOW")
+    if raw is None or not str(raw).strip():
+        return MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
+    return value if value > 0 else MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
 MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
 
@@ -2821,7 +2850,7 @@ def _semantic_attempt_timeouts(
     per_attempt_cap = max(0.1, float(configured_attempt_timeout))
     total_window = deadline.synthesis_timeout(
         min(
-            MAX_SEMANTIC_JUDGE_WINDOW_SECONDS,
+            semantic_judge_window_seconds(),
             per_attempt_cap * MAX_SEMANTIC_JUDGE_ATTEMPTS,
         )
     )

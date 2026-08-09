@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from concurrent.futures import (
     FIRST_COMPLETED,
     Executor,
@@ -33,6 +34,39 @@ ToolCallStatus = Literal["success", "empty", "rejected", "timeout", "error"]
 _TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "error"})
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
+DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS = 30.0
+
+
+def tool_batch_timeout_seconds() -> float:
+    """Ceiling for one tool batch, overridable for calibration runs.
+
+    This was a bare ``30.0`` literal inside :meth:`run`.  It is the binding
+    constraint on tool execution and, because ``stage_timeout`` takes
+    ``min(limit, remaining - reserve)``, raising the episode's tier does **not**
+    relax it — a deep-tier episode has ~105s of non-synthesis budget and still
+    gave its tools 30s.  Measured 2026-08-10: ``evidence_search`` costs 28.2s on
+    a cold call, i.e. 94% of this ceiling, with no margin for its tail.  Tools
+    in a batch run concurrently (see ``_SHARED_TOOL_EXECUTOR``), so the batch
+    costs ``max()`` of its calls, not ``sum()`` — this ceiling is really "how
+    slow may the slowest tool be".
+
+    Default unchanged at 30.0.  Recalibrating it needs repeated live runs the
+    relay was too unstable to supply, so it ships adjustable rather than
+    re-guessed: an experiment arm measured `deep` tier + 60s here taking S3 to
+    `structural=completed` with zero missing outputs, on 3 valid rungs — enough
+    to justify making it tunable, not enough to move the default.
+    """
+
+    raw = os.environ.get("ASK_TOOL_BATCH_TIMEOUT")
+    if raw is None or not str(raw).strip():
+        return DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
+    return value if value > 0 else DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
+
+
 _CANCELLATION_POLL_SECONDS = 0.05
 _SHARED_TOOL_EXECUTOR = ThreadPoolExecutor(
     max_workers=MAX_GLOBAL_TOOL_WORKERS,
@@ -241,7 +275,7 @@ class EpisodeToolBatchSession:
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
-        timeout = context.deadline.stage_timeout(30.0)
+        timeout = context.deadline.stage_timeout(tool_batch_timeout_seconds())
         if selected and timeout <= 0.0:
             for candidate in selected:
                 items[candidate.index] = ToolCallResult(

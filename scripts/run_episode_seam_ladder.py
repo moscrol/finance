@@ -31,7 +31,7 @@ import time
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from intelligence.runtime import agent_episode
+from intelligence.runtime import agent_episode, episode_tool_batch
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.runtime.turn_control_core import TurnControlCore
@@ -44,6 +44,7 @@ from intelligence.runtime.glm_agent_runtime import GLMModelClient
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services import episode_semantic_verifier
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeOutcome,
     SemanticEpisodeVerifier,
@@ -1380,6 +1381,15 @@ def run_live_ladder(
             # from looking like run-to-run noise.
             "budget_status": (
                 "on" if agent_episode.budget_status_enabled() else "off"
+            ),
+            # The two ceilings that actually bind, recorded as *effective*
+            # values rather than as the constants' defaults.  Both cap a
+            # `stage_timeout`/`synthesis_timeout` call, so raising the episode
+            # tier does not widen them — a receipt that omits them cannot be
+            # compared against one from a calibration run.
+            "tool_batch_timeout": episode_tool_batch.tool_batch_timeout_seconds(),
+            "judge_window": (
+                episode_semantic_verifier.semantic_judge_window_seconds()
             ),
         },
         "preflight": preflight.to_dict(),
