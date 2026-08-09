@@ -803,6 +803,23 @@ def run_offline_stage_case(
                     if isinstance(event, Mapping)
                     and event.get("kind") == "model_error"
                 ],
+                # Which tool failed and why.  The book's rule for tool failures
+                # is to check the tool's *description* — its boundary conditions
+                # — before suspecting the model or the budget, because most
+                # wrong-tool failures come from the model not knowing what a
+                # tool *cannot* do.  That rule is unusable while the receipt
+                # records only that some tool errored.
+                "tool_errors": [
+                    {
+                        "tool": str((event.get("payload") or {}).get("tool") or ""),
+                        "error": str(
+                            (event.get("payload") or {}).get("error") or ""
+                        )[:200],
+                    }
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "tool_error"
+                ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
@@ -1240,6 +1257,23 @@ def run_live_stage_case(
                     if isinstance(event, Mapping)
                     and event.get("kind") == "model_error"
                 ],
+                # Which tool failed and why.  The book's rule for tool failures
+                # is to check the tool's *description* — its boundary conditions
+                # — before suspecting the model or the budget, because most
+                # wrong-tool failures come from the model not knowing what a
+                # tool *cannot* do.  That rule is unusable while the receipt
+                # records only that some tool errored.
+                "tool_errors": [
+                    {
+                        "tool": str((event.get("payload") or {}).get("tool") or ""),
+                        "error": str(
+                            (event.get("payload") or {}).get("error") or ""
+                        )[:200],
+                    }
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "tool_error"
+                ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
@@ -1249,6 +1283,37 @@ def run_live_stage_case(
             }
         )
         return record
+
+
+def _provider_honors_max_tokens(providers: tuple[object, ...]) -> str:
+    """One cheap call: does this provider apply the output cap we send?
+
+    Returns ``"yes"`` / ``"no"`` / ``"unknown"`` rather than a bool, because
+    "we could not find out" and "it ignores the cap" are different facts and
+    collapsing them is the same defect this receipt keeps running into.
+    """
+
+    if not providers:
+        return "unknown"
+    try:
+        # Deliberately the production synthesis path, not a hand-rolled
+        # request: what matters is whether the cap survives *the call shape we
+        # actually ship*, headers and all.
+        content, _finish = llm_refine._post_chat_synthesis(  # noqa: SLF001
+            providers[0],  # type: ignore[arg-type]
+            [{"role": "user", "content": "请用三百字介绍A股的涨跌停制度。"}],
+            60.0,
+            0.0,
+            10,
+            1_000_000,  # never trip the char guard; we are measuring tokens
+        )
+    except Exception:  # noqa: BLE001 — a probe failure is not a run failure
+        return "unknown"
+    if not content:
+        return "unknown"
+    # 10 tokens cannot render a sentence; comfortably past it means the cap
+    # was dropped somewhere between us and the model.
+    return "no" if len(content) > 120 else "yes"
 
 
 def run_live_ladder(
@@ -1298,6 +1363,16 @@ def run_live_ladder(
             "provider": preflight.provider,
             "model": preflight.model,
             "semantic_verifier": "production_llm_judge",
+            # Whether the provider actually honours the output cap we send.
+            # 2026-08-09: this relay does not — `max_tokens=10` returned 416
+            # tokens with `finish_reason=stop`, i.e. the limit was never
+            # applied.  `llm_refine` sends `max_tokens` on every synthesis call
+            # (default 3000) and the budget arithmetic downstream assumes that
+            # bound holds, so a receipt that omits this records timings drawn
+            # from a belief the provider does not share.  Recorded rather than
+            # gated: an unhonoured cap makes the run *less* comparable, not
+            # invalid.
+            "provider_honors_max_tokens": _provider_honors_max_tokens(providers),
         },
         "preflight": preflight.to_dict(),
         "stages": stages,
