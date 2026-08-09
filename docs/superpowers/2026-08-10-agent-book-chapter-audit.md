@@ -244,6 +244,40 @@ tier 给的额外时间根本流不到这两个组件。
 **这两个常量不能各自独立调**，要连同 reserve 一起算一次。deep 档 75s 的 reserve
 比 standard 的 60s 多出的那 15s，是这次重算里唯一的新空间。
 
+### 实验臂实测：两个改动合起来确实起作用
+
+按上面推导，把两处一起改成实验臂（**未提交，已还原**）：
+`tier=deep` + `episode_tool_batch.py:244` 的 `stage_timeout(30.0)` → `60.0`。
+
+| 收据 | rung | structural | missing_outputs | tools | 耗时 |
+|---|---|---|---|---|---|
+| exp2-1 | S1 | **completed** | **0** | 1 | 90.3s |
+| exp2-1 | S3 | **completed** | **0** | 4 | **129.4s** |
+| exp2-2 | S1 | **completed** | **0** | 1 | 50.5s |
+| exp2-2 | S3 | failed（`model_unavailable`，中转 503） | 5 | 0 | 31.3s |
+
+对照基线（standard + cap 30，5 次 live）：S3 有 4 次 `partial`、1 次 `completed`，
+`missing_outputs` 常年 1–5 项。
+
+**三个有效 rung 全部 `structural=completed` 且 `missing_outputs=0`**，
+其中 S3 那次跑了 **129.4s**——与前面推算的「S3 结构性需要约 130s」吻合，
+而这个时长在 `standard`（总额 90s）下**物理上不可能达到**。
+
+仍未解决的两项：
+
+- `evidence_search:tool_timeout` **仍出现 1 次**（cap 60 下）。说明 28.2s 是冷调用的
+  中位量级，尾部更长，60s 不是一劳永逸。
+- **judge 依旧 `unavailable`**——本臂没动它的窗口（仍 15/7.5/7.5），符合预期。
+
+> ⚠️ **2 次运行、其中 1 次被中转 503 作废，样本不足以定率。** 能确证的是
+> 「S3 在 `standard` 下拿不到它需要的时长」这条约束是真的，以及放开后
+> `missing_outputs` 能归零——不能据此宣称问题已解决。
+>
+> 另记：本轮中转极不稳定，小请求、大 prompt、带 tools 的请求各探 3–10 次全部 200，
+> 但 episode 期间反复 503/URLError。**探活通过不代表跑得完**，
+> 这也是为什么收据里的 `model_errors` 必须保留——三次实验里有两次靠它才认出
+> 「不是我改坏了，是中转挂了」。
+
 ## 方法论备注
 
 书里有一条与我们 2026-08-09 的教训完全同构，值得并置：
