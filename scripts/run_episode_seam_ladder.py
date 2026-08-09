@@ -710,6 +710,21 @@ def run_offline_stage_case(
             timeout=case.timeout,
             today=case.as_of,
             latest_data_date=case.as_of,
+            # Absolute deadline, not just the relative `timeout`.  Without it
+            # `_effective_timeout` returns `self._timeout` unchanged on every
+            # hop (`continuous_turn_adapter.py:176`), so each phase restarts
+            # its own clock and total wall time inflates — exactly the failure
+            # the control-plane invariant "绝对截止而非相对超时" names.
+            # Production derives it from the run's own budget the same way
+            # (`app.py:958`: `time.monotonic() + self.timeout_sec`).
+            #
+            # Deliberately NOT mirrored from production, so the omission reads
+            # as a decision rather than a third oversight:
+            #   · `is_cancelled` — the adapter already defaults to
+            #     `lambda: False` (:159) and a batch script has no canceller,
+            #     so passing one would be wiring theatre, not fidelity.
+            #   · `progress_sink` — no UI to publish progress to here.
+            deadline_expires_at=time.monotonic() + case.timeout,
         )
         started = time.monotonic()
         try:
@@ -767,6 +782,27 @@ def run_offline_stage_case(
                 # The only place a stopped episode's provider error survives:
                 # ``_stopped_outcome`` passes ``gap=turn.error``.
                 "gaps": list(outcome.get("gaps") or ()),
+                # Run trajectory.  ``_EpisodeLedger`` already records every
+                # step, and ``model_error`` events carry the *raw* provider
+                # reason (``agent_episode.py:540/611/1066/1676``) rather than a
+                # classified label.  It reaches the artifact via
+                # ``outcome["events"]`` and this receipt was simply dropping it.
+                #
+                # Kinds only, not payloads: a ``model_turn`` payload contains
+                # the full message content, which would bloat the receipt and
+                # bury the signal.  The shape of the run plus the raw errors is
+                # what diagnosis actually needs.
+                "trajectory": [
+                    str(event.get("kind") or "")
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                ],
+                "model_errors": [
+                    str((event.get("payload") or {}).get("reason") or "")
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "model_error"
+                ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
@@ -1049,6 +1085,21 @@ def run_live_stage_case(
             timeout=case.timeout,
             today=case.as_of,
             latest_data_date=case.as_of,
+            # Absolute deadline, not just the relative `timeout`.  Without it
+            # `_effective_timeout` returns `self._timeout` unchanged on every
+            # hop (`continuous_turn_adapter.py:176`), so each phase restarts
+            # its own clock and total wall time inflates — exactly the failure
+            # the control-plane invariant "绝对截止而非相对超时" names.
+            # Production derives it from the run's own budget the same way
+            # (`app.py:958`: `time.monotonic() + self.timeout_sec`).
+            #
+            # Deliberately NOT mirrored from production, so the omission reads
+            # as a decision rather than a third oversight:
+            #   · `is_cancelled` — the adapter already defaults to
+            #     `lambda: False` (:159) and a batch script has no canceller,
+            #     so passing one would be wiring theatre, not fidelity.
+            #   · `progress_sink` — no UI to publish progress to here.
+            deadline_expires_at=time.monotonic() + case.timeout,
         )
         started = time.monotonic()
         try:
@@ -1105,6 +1156,27 @@ def run_live_stage_case(
                 # The only place a stopped episode's provider error survives:
                 # ``_stopped_outcome`` passes ``gap=turn.error``.
                 "gaps": list(outcome.get("gaps") or ()),
+                # Run trajectory.  ``_EpisodeLedger`` already records every
+                # step, and ``model_error`` events carry the *raw* provider
+                # reason (``agent_episode.py:540/611/1066/1676``) rather than a
+                # classified label.  It reaches the artifact via
+                # ``outcome["events"]`` and this receipt was simply dropping it.
+                #
+                # Kinds only, not payloads: a ``model_turn`` payload contains
+                # the full message content, which would bloat the receipt and
+                # bury the signal.  The shape of the run plus the raw errors is
+                # what diagnosis actually needs.
+                "trajectory": [
+                    str(event.get("kind") or "")
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                ],
+                "model_errors": [
+                    str((event.get("payload") or {}).get("reason") or "")
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "model_error"
+                ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
