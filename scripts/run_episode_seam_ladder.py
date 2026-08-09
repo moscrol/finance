@@ -1004,12 +1004,26 @@ def run_live_stage_case(
         registry = derived.registry
         record["tool_schema_names"] = list(registry.names())
         client = GLMModelClient(providers=providers)
+        finalizer = EpisodeFinalizer(client)
         adapter = ContinuousTurnAdapter(
             runtime=GLMAgentRuntime(
                 client=client,
-                finalizer=EpisodeFinalizer(client),
+                finalizer=finalizer,
             ),
-            semantic_verifier=SemanticEpisodeVerifier(),
+            # Wire the judge exactly as `intelligence/api/app.py` does.  Built
+            # with no seam at all, the verifier has nothing to call: the judge
+            # loop exhausts its attempts and falls through to "semantic judge
+            # unavailable" (`episode_semantic_verifier.py:1196`) on every rung,
+            # every time.  That is what the 2026-08-09 live runs recorded, and
+            # it made the third completion criterion in the design spec
+            # (semantic verifier `passed` or `repaired`) unreachable by
+            # construction rather than by any property of the seam under test.
+            # The receipt already labels this path `production_llm_judge`; the
+            # label was true of the intent and false of the wiring.
+            semantic_verifier=SemanticEpisodeVerifier(
+                primary_judge=client,
+                finalizer=finalizer,
+            ),
             mode="on",
             context_factory=lambda _frame, **_kwargs: derived.context,
             registry_factory=lambda _frame, _context: registry,
