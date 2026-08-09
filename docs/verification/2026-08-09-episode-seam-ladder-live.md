@@ -178,9 +178,47 @@ run B/C 的 `gaps` 里，模型自己说了：
    照常返回一份格式正确的 draft。**离线门禁在一道真实系统会正确拒答的题上发绿光**——
    这是本轮最能说明"为什么必须跑 live"的一条。
 
-**未动。** 换题面不是改字符串：设计规格 §3.1 明写 stage floor 由
-`ResearchTaskContract.__post_init__` 的 `mandatory ⊆ allowed` 不变量推导，
-**换题必须重跑 floor 表**。建议连同 §5 一起定。
+### 4.1 已修：「下跌」→「上涨」，改前重跑了 floor 表
+
+设计规格 §3.1 明写 stage floor 由 `ResearchTaskContract.__post_init__` 的
+`mandatory ⊆ allowed` 不变量推导，**换题必须重跑 floor 表，不要只改字符串**。
+照做了，而结果推翻了直觉 [实测]：
+
+| 候选题面 | question_type | 推导 floor | required_outputs | mandatory |
+|---|---|---|---|---|
+| 原「本周行情**下跌**的主要原因」 | `market_cause` | S3 | 5 项 | `market_data, news_search` |
+| 「本周行情**上涨**的主要原因」 | `market_cause` | **S3** ✅ | 5 项 | 同上 |
+| 「本周行情**走强**的主要原因」 | `market_cause` | **S3** ✅ | 5 项 | 同上 |
+| 「本周行情的**主要驱动因素**」 | `general_finance_qa` | **S2** ❌ | **2 项** | `market_data, mainline_context` |
+| 「本周行情**变化**的主要原因」 | `general_finance_qa` | **S2** ❌ | **2 项** | 同上 |
+
+**中性措辞会把这道题静默降级到 S2，并把 required_outputs 从 5 项砍到 2 项
+（`causal_chain` / `cause_attribution` / `counterpoint` 全部消失）——等于抽掉整个因果测试，
+而 fixture 里的 `expected_stage_floor` 字段还写着 S3。**
+方向词正是路由到 `market_cause` 的信号。"换个不带前提的中性说法更稳健"这个直觉是错的。
+
+采用「上涨」（与原题最小差分、且事实为真）。fixture 里留了 `note` 字段记录本次推导；
+`load_cases` 忽略未知键，已实测不影响加载。
+
+### 4.2 换题后实测：前提异议消失，但暴露了下一层
+
+`2026-08-09-live-fixture-fixed.json`（`910c03f0-dirty`）：
+
+| | 换题前(run C) | 换题后 |
+|---|---|---|
+| S3 `gaps` 含"前提与数据相反" | **是** | **否** ✅ |
+| S3 `tool_calls` | 3 | **6** |
+| S3 `stop_reason` | `model_finish` | `repair_deadline_exhausted` |
+| S3 `structural_status` | completed | partial |
+| S3 `latency_seconds` | 68.9 | 111.2 |
+
+前提问题解决了。而题面变真之后模型**干得更多**（工具调用 3 → 6，真去找因果证据了），
+然后**在修复阶段耗尽截止时间**。
+
+**至此三轮排查的混淆项都被移除，只剩一个假设**：S1 与 S3 现在都是纯粹的
+deadline/预算失败（S1 `deadline_exhausted` 70.5s / `tool_calls=0`；
+S3 `repair_deadline_exhausted` 111.2s / `tool_calls=6`）。
+是 provider 慢，还是预算算术给的时间本来就不够——见 §5。
 
 ---
 

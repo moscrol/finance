@@ -20,11 +20,12 @@
     },
     {
       "id": "weekly-market-cause",
-      "question": "以 2026-08-07 收盘为准，本周行情下跌的主要原因是什么？",
+      "question": "以 2026-08-07 收盘为准，本周行情上涨的主要原因是什么？",
       "as_of": "2026-08-07",
       "tier": "standard",
       "timeout": 180.0,
-      "expected_stage_floor": "S3"
+      "expected_stage_floor": "S3",
+      "note": "2026-08-09 改「下跌」→「上涨」：原题前提与数据相反（fact_market_daily 该周 3809.66→3940.04，+2.81% 且逐日上行），live 实跑中模型正确拒绝为一次没发生的下跌归因，S3 因此永远到不了 public answer。方向词是路由信号，不能换成中性措辞：实测「主要驱动因素」会落到 general_finance_qa/S2 且 required_outputs 从 5 项掉到 2 项，等于抽掉整个因果测试。改动前已重跑 floor 表，「上涨」与「走强」同为 market_cause/S3/mandatory=(market_data,news_search)。详见 docs/verification/2026-08-09-episode-seam-ladder-live.md §4"
     }
   ]
 }
