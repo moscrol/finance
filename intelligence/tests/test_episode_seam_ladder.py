@@ -49,7 +49,17 @@ def test_fixture_loads_three_market_cases_with_declared_floors() -> None:
     )
     assert tuple(case.expected_stage_floor for case in cases) == ("S1", "S2", "S3")
     assert {case.as_of for case in cases} == {"2026-08-07"}
-    assert all(case.tier == "standard" and case.timeout > 0 for case in cases)
+    assert all(case.timeout > 0 for case in cases)
+    # Tier is per case, not a fixture-wide constant.  `weekly-market-cause`
+    # moved to `deep` on 2026-08-10: measured live, the causal-evidence rung
+    # needs ~130s end to end (133.5s on the run that first reached
+    # `structural=completed`), and the `standard` policy caps a whole episode
+    # at 90s — it could not finish for reasons that had nothing to do with the
+    # seam under test.  `deep` also raises max_steps 6→12 and the synthesis
+    # reserve 60→75s, and that reserve is what makes a workable judge window
+    # affordable.  Pinning the tiers keeps a future edit from silently
+    # re-flattening them.
+    assert tuple(case.tier for case in cases) == ("standard", "standard", "deep")
 
 
 def test_stage_floor_ordering_selects_which_cases_run() -> None:
