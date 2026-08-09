@@ -50,10 +50,51 @@ class EvidencePlan:
         }
 
 
-_CURRENT_MARKERS = (
-    "当前", "目前", "现在", "最新", "主线", "盘面", "市场结构", "成交", "涨停",
+# 时间信号与主体信号必须分开。初版把「主线/盘面/市场结构/成交/涨停」同时放进
+# _CURRENT_MARKERS 和下方的主体词表，于是 `has_time and has_subject` 这个 AND 对
+# 这五个词退化成单词命中——「如何判断主线候选和噪音」因此被判成要当日盘面事实。
+# 实测基线（tmp/probe_routing_baseline.py，18 条自然问法）里它是唯一的过度触发。
+_CURRENT_TIME_MARKERS = (
+    "当前", "目前", "现在", "今天", "今日", "最新", "近期", "最近",
+    "这两天", "这几天", "当下", "此刻", "本周", "截至",
+)
+# 主体词：问的是整个市场/板块层面的状态，命中后 mainline_context 才有意义。
+_MARKET_SUBJECT_MARKERS = (
+    "市场", "大盘", "行情", "板块", "主线", "盘面", "a股", "指数",
+)
+# 盘面度量词：本身就蕴含「要看数据」，可以在没有时间词时独立成立
+#（「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
+_MARKET_STATE_MARKERS = (
+    "市场结构", "成交", "涨停", "涨跌", "家数", "情绪", "换手", "北向",
+    "多少钱", "股价", "价格", "收盘",
+)
+# 现状判断词：不带时间词、也不带度量词，但问的就是「此刻强不强/在什么位置」。
+# 「A股强不强」在纯时间词方案下一个都命中不了。这里刻意不收「怎么样/如何」这类
+# 泛问句词——它们会把「市盈率怎么计算」这类知识题也拖进来；只收对**状态**本身
+# 发问的说法，且必须与主体词同时出现才成立。
+_PRESENT_CONDITION_MARKERS = (
+    "强不强", "强弱", "强势", "弱势", "什么位置", "什么状态",
+    "什么阶段", "处于", "健康", "有没有机会",
+)
+# 前瞻时间词：判断「未来一个月哪个会成为主线」同样要以当日盘面为基线，
+# 缺了它 test_comparative_mainline_decision_overrides_single_theme_defaults 会掉。
+# 那条测试原先是靠 bug 通过的——旧词表里「主线」同时是时间词和主体词，AND 退化成
+# 单词命中，恰好放它过去。信号其实是时间锚指向未来，不是「主线」这个词。
+_FORWARD_TIME_MARKERS = (
+    "未来", "明天", "明日", "后天", "下周", "下个月", "下半年",
+    "接下来", "后续", "还能", "能不能持续",
 )
 _HISTORICAL_MARKERS = ("2025", "2024", "历史上", "过去几年", "去年")
+# 与 task_frame._EXPLICIT_DATE_RE 同源：显式日期本身就是最强的时效信号，
+# 「以 2026-08-07 收盘为准…」在纯词表下一个时间词都命中不了。
+_EXPLICIT_DATE_RE = re.compile(
+    r"(?<!\d)20\d{2}(?:年|[-/.])\d{1,2}(?:月|[-/.])\d{1,2}日?(?!\d)"
+)
+# 「如何判断/怎么设计 X」问的是方法，不是当日盘面；这类问题即使带市场词也
+# 不该拿到行情数据（既有注释里「避免金融数据泄漏进知识题」的同一条纪律）。
+_DECISION_METHOD_RE = re.compile(
+    r"(?:应该|应当|该|如何|怎么|怎样).{0,20}(?:判断|区分|识别|设计|实现|构造)"
+)
 
 _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     "current_a_share_market": ("market_data", "mainline_context"),
@@ -171,14 +212,42 @@ _PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
 
 
 def is_current_market_query(query: str) -> bool:
-    """识别需要同日市场事实的问题，不改变粗粒度 question_type。"""
+    """识别需要同日市场事实的问题，不改变粗粒度 question_type。
+
+    三条入口而不是一条 AND：时间词+主体词、显式日期+主体词、盘面度量词独立
+    成立。初版只有第一条，于是「今天板块表现如何」（时间词表缺「今天」）、
+    「以 2026-08-07 收盘为准…」（无时间词，只有日期）、「涨停家数多少」
+    （无时间词）全部漏判。方法类提问先行排除，避免把知识题拖进行情数据。
+    """
 
     normalized = re.sub(r"\s+", "", str(query or "")).casefold()
-    if not normalized or any(marker in normalized for marker in _HISTORICAL_MARKERS):
+    if not normalized:
         return False
-    return any(marker in normalized for marker in _CURRENT_MARKERS) and any(
-        marker in normalized for marker in ("市场", "大盘", "行情", "板块", "主线", "盘面")
+    if _DECISION_METHOD_RE.search(normalized):
+        return False
+    has_subject = any(
+        marker in normalized for marker in _MARKET_SUBJECT_MARKERS
     )
+    has_time = any(marker in normalized for marker in _CURRENT_TIME_MARKERS)
+    has_explicit_date = _EXPLICIT_DATE_RE.search(normalized) is not None
+    has_state = any(marker in normalized for marker in _MARKET_STATE_MARKERS)
+    has_condition = any(
+        marker in normalized for marker in _PRESENT_CONDITION_MARKERS
+    )
+    has_forward = any(marker in normalized for marker in _FORWARD_TIME_MARKERS)
+    # 历史词只在「没有任何当期时间信号」时才排除。初版是无条件 return False，
+    # 于是「最近行情和2024年哪段像」这类**今昔对比**被整条否掉——而它恰恰同时
+    # 需要当日盘面和历史区间。纯历史复盘（“复盘2025年A股市场主线”，无时间词）
+    # 仍然被排除，既有测试守着这条。
+    if any(marker in normalized for marker in _HISTORICAL_MARKERS) and not (
+        has_time or has_explicit_date
+    ):
+        return False
+    if has_subject and (
+        has_time or has_explicit_date or has_condition or has_forward
+    ):
+        return True
+    return has_state
 
 
 def resolve_evidence_plan(
