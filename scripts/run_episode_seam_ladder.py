@@ -22,6 +22,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -37,10 +38,19 @@ from intelligence.services.agent_research import (
     AgentEvidence,
     evidence_content_hash,
 )
+from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+from intelligence.runtime.glm_agent_runtime import GLMModelClient
+from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
-from intelligence.services.episode_tools import build_episode_registry
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeOutcome,
+    SemanticEpisodeVerifier,
+)
+from intelligence.services.episode_tools import (
+    build_episode_registry,
+    latest_market_date,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchContractError,
@@ -823,6 +833,264 @@ def run_offline_ladder(questions: Path) -> dict[str, object]:
     }
 
 
+# --- live mode ---------------------------------------------------------------
+#
+# Live spends real provider budget against a real market snapshot, so it is
+# opt-in and never a merge gate: the production relay's P95 is tens of seconds
+# and one episode makes several model calls.  Its job is to re-validate the
+# production path, not to grade answers.
+
+LIVE_RECEIPT_ROOT = Path("/Users/a77/.finance-runtime/seam-ladder")
+# Two rungs, not the whole matrix: S1 proves the narrowest real assembly closes
+# and S3 proves the full causal surface does.  The rungs in between are already
+# covered offline, where they cost nothing.
+LIVE_STAGE_CASES: tuple[tuple[str, str], ...] = (
+    ("S1", "next-session-index"),
+    ("S3", "weekly-market-cause"),
+)
+
+
+def validate_live_output_path(path: Path | None) -> Path:
+    """Keep live receipts outside Git.
+
+    A receipt carries run-specific provider identity, timings and answers.  It
+    is evidence about one environment at one moment, not source, so committing
+    it would make the repository's history depend on whoever happened to run it.
+    """
+
+    if path is None:
+        raise ValueError(
+            "live mode requires --output under " + str(LIVE_RECEIPT_ROOT)
+        )
+    resolved = Path(path).expanduser()
+    try:
+        resolved.relative_to(LIVE_RECEIPT_ROOT)
+    except ValueError as exc:
+        raise ValueError(
+            f"live receipt must live under {LIVE_RECEIPT_ROOT}; got {resolved}"
+        ) from exc
+    return resolved
+
+
+@dataclass(frozen=True)
+class LivePreflight:
+    """Whether the environment can produce live evidence, and why not."""
+
+    ready: bool
+    failures: tuple[str, ...]
+    continuous_mode: str
+    provider: str
+    model: str
+    latest_data_date: str
+    required_as_of: str
+
+    def to_dict(self) -> dict[str, object]:
+        # Only provider *identity* is recorded.  Keys and endpoints are secrets
+        # and are never part of a receipt.
+        return {
+            "ready": self.ready,
+            "failures": list(self.failures),
+            "continuous_mode": self.continuous_mode,
+            "provider": self.provider,
+            "model": self.model,
+            "latest_data_date": self.latest_data_date,
+            "required_as_of": self.required_as_of,
+        }
+
+
+def live_preflight(
+    cases: tuple[SeamLadderCase, ...],
+    *,
+    providers: tuple[object, ...],
+    latest_data_date: str | None,
+    environ: Mapping[str, str] | None = None,
+) -> LivePreflight:
+    """Check the three inputs live evidence depends on, before spending budget.
+
+    Each check exists because failing it would produce a receipt that *looks*
+    like a seam result: a declined episode (continuous mode off), a zero-attempt
+    run (no provider), or an answer grounded in a snapshot older than the
+    question's own ``as_of``.
+    """
+
+    env = os.environ if environ is None else environ
+    failures: list[str] = []
+    mode = str(env.get("ASK_CONTINUOUS_RUNTIME") or "").strip().lower()
+    if mode != "on":
+        # Anything but "on" makes the adapter decline the turn, which would be
+        # recorded as an empty rung rather than as a configuration fact.
+        failures.append(
+            f"continuous_mode must be 'on' to run an episode; got "
+            f"'{mode or 'unset'}'"
+        )
+    provider_name = ""
+    model_name = ""
+    if not providers:
+        failures.append("provider_chain is empty: no LLM provider resolved")
+    else:
+        # Read identity off the resolved chain, never off an environment
+        # variable: the relay can rewrite which model actually serves a call.
+        provider_name = str(getattr(providers[0], "name", "") or "")
+        model_name = str(getattr(providers[0], "model", "") or "")
+    required_as_of = max((case.as_of for case in cases), default="")
+    snapshot = str(latest_data_date or "")
+    if not snapshot:
+        failures.append("market_data_freshness: no market snapshot date available")
+    elif snapshot < required_as_of:
+        failures.append(
+            f"market_data_freshness: snapshot {snapshot} predates fixture "
+            f"as_of {required_as_of}"
+        )
+    return LivePreflight(
+        ready=not failures,
+        failures=tuple(failures),
+        continuous_mode=mode,
+        provider=provider_name,
+        model=model_name,
+        latest_data_date=snapshot,
+        required_as_of=required_as_of,
+    )
+
+
+def run_live_stage_case(
+    case: SeamLadderCase,
+    control: object,
+    stage_id: str,
+    *,
+    providers: tuple[object, ...],
+) -> dict[str, object]:
+    """Run one rung against the resolved production provider and tools."""
+
+    with stage_derivation(case, control, stage_id) as derived:
+        record: dict[str, object] = {
+            "stage_id": derived.stage.stage_id,
+            "stage_name": derived.stage.name,
+            "case_id": case.case_id,
+            "enabled_capabilities": list(derived.enabled_capabilities),
+            "tool_schema_names": [],
+            "rejection": derived.rejection,
+            "rejection_detail": derived.rejection_detail,
+            "failure_class": "",
+            "failure_detail": "",
+        }
+        if derived.context is None:
+            return record
+        contract = derived.context.contract
+        record["task_frame_hash"] = contract.task_frame_hash
+        record["question_type"] = contract.question_type
+        registry = derived.registry
+        record["tool_schema_names"] = list(registry.names())
+        client = GLMModelClient(providers=providers)
+        adapter = ContinuousTurnAdapter(
+            runtime=GLMAgentRuntime(
+                client=client,
+                finalizer=EpisodeFinalizer(client),
+            ),
+            semantic_verifier=SemanticEpisodeVerifier(),
+            mode="on",
+            context_factory=lambda _frame, **_kwargs: derived.context,
+            registry_factory=lambda _frame, _context: registry,
+            tier=case.tier,
+            timeout=case.timeout,
+            today=case.as_of,
+            latest_data_date=case.as_of,
+        )
+        started = time.monotonic()
+        try:
+            result = adapter.handle(frame=control.task_frame, control=control)
+        except Exception as exc:  # noqa: BLE001 — classified, never swallowed
+            failure_class, detail = _classify_failure(exc)
+            record["failure_class"] = failure_class
+            record["failure_detail"] = detail
+            record["latency_seconds"] = round(time.monotonic() - started, 3)
+            return record
+        record["latency_seconds"] = round(time.monotonic() - started, 3)
+        artifact = result.private_artifact or {}
+        metrics = artifact.get("metrics") or {}
+        structural = artifact.get("structural_verifier") or {}
+        outcome = artifact.get("outcome") or {}
+        record.update(
+            {
+                "handled": result.handled,
+                "status": result.status,
+                "execution_kind": artifact.get("execution_kind", ""),
+                "answer": result.answer,
+                "structural_status": metrics.get("structural_status", ""),
+                "semantic_status": metrics.get("semantic_status", ""),
+                "tool_calls": metrics.get("tool_calls", 0),
+                "provider_attempts": metrics.get("provider_attempts", 0),
+                "duplicate_queries": metrics.get("duplicate_queries", 0),
+                "evidence_hashes": [
+                    str(item.get("content_hash") or "")
+                    for item in outcome.get("evidence") or ()
+                    if isinstance(item, Mapping) and item.get("content_hash")
+                ],
+                "missing_outputs": list(structural.get("missing_outputs") or ()),
+                "structural_issues": list(structural.get("issues") or ()),
+                "satisfiability_precheck": artifact.get(
+                    "satisfiability_precheck",
+                    {},
+                ),
+                "stop_reason": outcome.get("stop_reason", ""),
+                "llm_provider": result.llm_provider or "",
+            }
+        )
+        return record
+
+
+def run_live_ladder(
+    questions: Path,
+    *,
+    providers: tuple[object, ...],
+    preflight: LivePreflight,
+) -> dict[str, object]:
+    """Build the live receipt; fabricate no stage result when preflight failed."""
+
+    cases = {case.case_id: case for case in load_cases(questions)}
+    stages: list[dict[str, object]] = []
+    if preflight.ready:
+        for stage_id, case_id in LIVE_STAGE_CASES:
+            case = cases[case_id]
+            stages.append(
+                {
+                    "stage_id": stage_id,
+                    "stage_name": resolve_stage(stage_id).name,
+                    "stage_capabilities": list(
+                        resolve_stage(stage_id).capabilities
+                    ),
+                    "results": [
+                        run_live_stage_case(
+                            case,
+                            resolve_control(case),
+                            stage_id,
+                            providers=providers,
+                        )
+                    ],
+                }
+            )
+    return {
+        "schema_version": 1,
+        "artifact_kind": "episode_seam_ladder",
+        "mode": "live",
+        "source_revision": _source_revision(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "fixture": {
+            "path": str(questions),
+            "sha256": _fixture_digest(questions),
+            "as_of": sorted({case.as_of for case in cases.values()}),
+        },
+        "runtime": {
+            "backend": "continuous_glm",
+            "continuous_mode": preflight.continuous_mode,
+            "provider": preflight.provider,
+            "model": preflight.model,
+            "semantic_verifier": "production_llm_judge",
+        },
+        "preflight": preflight.to_dict(),
+        "stages": stages,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -837,14 +1105,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "Opt in to the current production provider. Spends real budget, "
+            "writes its receipt outside Git, and is never a merge gate."
+        ),
+    )
     return parser
 
 
-def main(argv: tuple[str, ...] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    artifact = run_offline_ladder(args.questions)
-    if args.output is not None:
-        _atomic_write_json(args.output, artifact)
+def _print_ladder(artifact: dict[str, object]) -> None:
     for stage in artifact["stages"]:
         for record in stage["results"]:
             print(
@@ -855,6 +1127,39 @@ def main(argv: tuple[str, ...] | None = None) -> int:
                 f"tools={record.get('tool_calls', 0)} "
                 f"failure={record.get('failure_class') or '-'}"
             )
+
+
+def main(argv: tuple[str, ...] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if not args.live:
+        artifact = run_offline_ladder(args.questions)
+        if args.output is not None:
+            _atomic_write_json(args.output, artifact)
+        _print_ladder(artifact)
+        return 0
+
+    # Live mode resolves its identity from the production seams, never from an
+    # environment variable: the relay can rewrite which model serves a call.
+    output = validate_live_output_path(args.output)
+    providers = llm_refine.detect_providers()
+    preflight = live_preflight(
+        load_cases(args.questions),
+        providers=providers,
+        latest_data_date=latest_market_date(),
+    )
+    artifact = run_live_ladder(
+        args.questions,
+        providers=providers,
+        preflight=preflight,
+    )
+    _atomic_write_json(output, artifact)
+    if not preflight.ready:
+        for failure in preflight.failures:
+            print(f"preflight: {failure}")
+        print(f"preflight blocked; receipt written to {output}")
+        return 2
+    _print_ladder(artifact)
+    print(f"live receipt written to {output}")
     return 0
 
 

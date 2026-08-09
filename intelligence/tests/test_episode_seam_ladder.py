@@ -497,3 +497,157 @@ def test_failures_are_attributed_to_the_component_that_owns_them(
     failure_class, detail = ladder._classify_failure(exception)
     assert failure_class == expected
     assert type(exception).__name__ in detail
+
+
+# --- live mode safety --------------------------------------------------------
+#
+# Live mode spends real provider budget and depends on a real market snapshot.
+# It must be opt-in, must never be reached by default, and must refuse to run
+# rather than emit a receipt that looks like evidence when its inputs are not
+# actually ready.
+
+
+class _Provider:
+    """Minimal stand-in carrying only what a receipt may record."""
+
+    def __init__(self, name: str, model: str) -> None:
+        self.name = name
+        self.model = model
+        self.api_key = "must-never-be-recorded"
+        self.base_url = "https://must-never-be-recorded.example"
+
+
+def test_default_invocation_is_offline_and_never_resolves_a_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Spending real budget must require an explicit flag."""
+
+    def explode(*_args: object, **_kwargs: object):
+        raise AssertionError("offline mode must not resolve providers")
+
+    monkeypatch.setattr(ladder.llm_refine, "detect_providers", explode)
+    monkeypatch.setattr(ladder, "GLMModelClient", explode)
+    monkeypatch.setattr(ladder, "SemanticEpisodeVerifier", explode)
+
+    exit_code = ladder.main(
+        ("--questions", str(FIXTURE), "--output", str(tmp_path / "offline.json"))
+    )
+    assert exit_code == 0
+    payload = json.loads((tmp_path / "offline.json").read_text(encoding="utf-8"))
+    assert payload["mode"] == "offline"
+    assert payload["runtime"]["provider"] == ladder.OFFLINE_PROVIDER
+
+
+def test_live_receipts_must_stay_outside_the_repository(tmp_path: Path) -> None:
+    """Receipts carry run-specific data and are not source; keep them out of Git."""
+
+    with pytest.raises(ValueError):
+        ladder.validate_live_output_path(tmp_path / "receipt.json")
+    with pytest.raises(ValueError):
+        ladder.validate_live_output_path(None)
+    accepted = ladder.LIVE_RECEIPT_ROOT / "2026-08-09T00-00-00Z-abc1234.json"
+    assert ladder.validate_live_output_path(accepted) == accepted
+
+
+@pytest.mark.parametrize(
+    ("environ", "providers", "latest", "expected"),
+    [
+        ({}, (_Provider("openai", "gpt-5.6"),), "2026-08-07", "continuous_mode"),
+        (
+            {"ASK_CONTINUOUS_RUNTIME": "canary"},
+            (_Provider("openai", "gpt-5.6"),),
+            "2026-08-07",
+            "continuous_mode",
+        ),
+        ({"ASK_CONTINUOUS_RUNTIME": "on"}, (), "2026-08-07", "provider_chain"),
+        (
+            {"ASK_CONTINUOUS_RUNTIME": "on"},
+            (_Provider("openai", "gpt-5.6"),),
+            "2026-08-06",
+            "market_data_freshness",
+        ),
+        (
+            {"ASK_CONTINUOUS_RUNTIME": "on"},
+            (_Provider("openai", "gpt-5.6"),),
+            None,
+            "market_data_freshness",
+        ),
+    ],
+)
+def test_preflight_refuses_an_unready_environment(
+    environ: dict[str, str],
+    providers: tuple[object, ...],
+    latest: str | None,
+    expected: str,
+) -> None:
+    preflight = ladder.live_preflight(
+        ladder.load_cases(FIXTURE),
+        providers=providers,
+        latest_data_date=latest,
+        environ=environ,
+    )
+    assert not preflight.ready
+    assert any(expected in item for item in preflight.failures)
+
+
+def test_preflight_passes_and_records_only_non_secret_identity() -> None:
+    provider = _Provider("openai", "gpt-5.6-terra")
+    preflight = ladder.live_preflight(
+        ladder.load_cases(FIXTURE),
+        providers=(provider,),
+        latest_data_date="2026-08-08",
+        environ={"ASK_CONTINUOUS_RUNTIME": "on"},
+    )
+    assert preflight.ready
+    assert preflight.failures == ()
+    assert preflight.provider == "openai"
+    assert preflight.model == "gpt-5.6-terra"
+    recorded = json.dumps(preflight.to_dict())
+    assert provider.api_key not in recorded
+    assert provider.base_url not in recorded
+
+
+def test_failed_preflight_writes_a_receipt_and_fabricates_no_stage_results(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A blocked run must be legible as an environment fact, not a green rung."""
+
+    receipt = tmp_path / "seam-ladder" / "blocked.json"
+    monkeypatch.setattr(ladder, "validate_live_output_path", lambda path: path)
+    monkeypatch.setattr(
+        ladder.llm_refine,
+        "detect_providers",
+        lambda *_a, **_k: (),
+    )
+    monkeypatch.setattr(ladder, "latest_market_date", lambda *_a, **_k: "2026-08-08")
+    monkeypatch.setattr(
+        ladder,
+        "GLMModelClient",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("must not build a live client after failed preflight")
+        ),
+    )
+
+    exit_code = ladder.main(
+        ("--live", "--questions", str(FIXTURE), "--output", str(receipt))
+    )
+    assert exit_code != 0
+    payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert payload["mode"] == "live"
+    assert payload["preflight"]["ready"] is False
+    assert payload["preflight"]["failures"]
+    assert payload["stages"] == []
+
+
+def test_live_runs_only_the_two_designated_rungs() -> None:
+    """Live is evidence, not a sweep: relay latency makes a full matrix wasteful."""
+
+    assert ladder.LIVE_STAGE_CASES == (
+        ("S1", "next-session-index"),
+        ("S3", "weekly-market-cause"),
+    )
+    cases = {case.case_id for case in ladder.load_cases(FIXTURE)}
+    for _stage_id, case_id in ladder.LIVE_STAGE_CASES:
+        assert case_id in cases
