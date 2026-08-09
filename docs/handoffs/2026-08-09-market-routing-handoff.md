@@ -32,7 +32,22 @@
 另：上一轮 `test/episode-seam-ladder` 的 6 个提交已在主 worktree fast-forward 合入 `main`
 （无分叉，与主树 37 个他人未提交改动**零文件交集**，已核对）。
 
-### 1.2 主结果：授权面可达率 10/18 → 18/18
+### 1.2 主结果：闸门 A 命中率 10/18 → 18/18（**自评题集，见下方边界**）
+
+> ⚠ **这个数字的三条边界，读之前必须知道**（2026-08-09 用户核对后补）：
+>
+> 1. **题集是我自己出的、判分也是我自己判的。** 18 条问法由本轮编写，不是独立样本。
+>    用户独立出 10 道盘面题复测 `is_current_market_query`，得 **8/10**——
+>    漏的是 `大盘怎么样` 与 `盘面主线是什么`，两者都不在我那 18 条里。
+> 2. **它只量闸门 A，不是"能不能拿到行情工具"。** 见 §2.1：授权由两道闸门决定，
+>    A 是 `is_current_market_query`（管强制验收项），B 是 `question_type`（管授权面）。
+>    实测 `大盘怎么样` 走 B 被判 `market_forecast`，而该题型强制底盘恰是 `market_data`，
+>    **所以它仍拿得到行情授权**，只是不经 A。用 A 的命中率代表整体覆盖会低估真实可达率。
+> 3. **`盘面主线是什么` 是真漏**，实测被判 `concept_definition`——拆词表消除过度触发
+>    （见本节末）的连带代价。可辩护但未在原版写明。
+>
+> 结论口径：本轮**确定**修好了 A 的 8 处漏判与 1 处过度触发；**不主张**"自然问法全覆盖"。
+> 要那个结论必须换独立出题人，判据见 §4 P8。
 
 `is_current_market_query` 原本是单条 `has_time AND has_subject`。改为四条入口：
 
@@ -70,6 +85,10 @@ AND 对这五个词退化为单词命中，"如何判断主线候选和噪音"�
 | 工具契约 + 协议 | 176 passed |
 | 全量（正确解释器） | 3971 passed / 13 failed |
 
+> **验收口径**：上述 pytest 读数只对当时 `fix/market-routing-default` worktree 的
+> revision 成立；解释器是 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
+> 不可把它投射到后来已合并、且另有 37 个他人未提交改动的 `main` worktree。
+
 **13 个失败全部落在本轮未触及的模块**（`test_subconscious` / `test_userspace` 等）。
 其中 11 个已用 `git checkout HEAD~1 --` 回退我的文件后复跑，**无我的改动时同样失败**，
 确认既有；剩余 2 个未逐个隔离，但同样不在改动面内。
@@ -82,13 +101,26 @@ AND 对这五个词退化为单词命中，"如何判断主线候选和噪音"�
 
 | 文件 | 说明 |
 |---|---|
-| `agent-memory/60_dialogues/knevo/2026-08-08-工具编排与step上限-44轮原文.md` | 44 轮问答 / 110 次工具调用（input+output 全留），非蒸馏 |
-| `agent-memory/60_dialogues/knevo/2026-08-08-白酒图谱实体缺失-单轮原文.md` | 同上，单轮 |
-| `agent-memory/10_knowledge/judgment-distillation-six-rules.md` | 判断沉淀 6 条规则 |
+| `agent-memory/60_dialogues/knevo/2026-08-08-工具编排与step上限-44轮原文.md` | 44 轮问答 / 110 次工具调用（input+output 全留），非蒸馏。**仍在 feature 分支，未进共享历史** |
+| ~~`…2026-08-08-白酒图谱实体缺失-单轮原文.md`~~ | **已删除**（`0223a884`，未推）。用户只请求了 44 轮那次，抓两个会话是我扩大了范围 |
+| `agent-memory/10_knowledge/judgment-distillation-six-rules.md` | 判断沉淀 6 条规则，**已在 vault `main`**（`0410c8b8`） |
 
 规则未写进 `30_conventions/`：那是受保护区，`trust-boundary.md` 明文禁止自动流程直接改写。
-`vault_lint.py` 已跑，我的文件未被点名（2 个既有 ERROR 在 08-08 被 auto-sync 提交的
-两份 knevo 文档里，缺 `source` 字段，与本轮无关）。
+
+> ⚠ **同一个 `vault_lint.py` 在本文件里出现两个读数，两条都是真的，差别在跑的地方**
+> （2026-08-09 用户核对后补）：
+>
+> | 位置 | worktree / revision | 结果 |
+> |---|---|---|
+> | 本节（当时） | `/Users/a77/agent-memory` @ `0223a884`（feature 分支） | **exit 1**，2 ERROR |
+> | §5.2 | `/Users/a77/agent-memory-answer-spec` @ `20a4e172`（`main`） | **exit 0**，115 passed |
+>
+> 差异原因：那 2 个 ERROR 是两份 knevo 文档缺 `source` 字段，我在**搬进 `main` 时补了**
+> （`0410c8b8`），feature 分支上没补。所以 feature 分支复跑至今仍是 exit 1。
+>
+> **教训**：`graph_audit.py` 自己会打印「exit 0 只对这些 revision 成立」并标 dirty；
+> 我引用它的输出时却没照做。**验收读数必须带 worktree + revision**，否则接手人
+> 无从判断哪个是当前状态。
 
 ---
 
@@ -264,24 +296,51 @@ provider 延迟与预算耗尽都是外部变量。跑失败先按 §2.2 的预�
 真实根因：脚本硬编码 `pull/push origin main`，但 vault worktree 的 HEAD 当时在
 `docs/session-tutor-first-principles`。于是每 180 秒把 feature 分支的 325 个提交
 逐个 rebase 到 `origin/main`，撞 `20_projects/finance-workspace-private.md` 冲突
-→ abort → 退出。**launchd 日志里这个错误 10770 次，最早 2026-06-29。**
+→ abort → 退出。**launchd 日志里这个错误累计 10777 次，最早 2026-06-29 21:56。**
 而 `git push origin main` 推的是本地 `main` 而非当前 HEAD，所以它从机制上
 永远不可能把 feature 分支的提交推上去——这解释了原文为何 commit 了却没到远端。
 
-已做三件事：
+#### 守卫的第一版是错的（同日 17:40 已重写）
+
+初版守卫（16:36）把**本地提交**也一起 gate 掉了：HEAD 非 `main` 就整段跳过。
+后果实测：16:39→17:33 之间 launchd 打了 19 条 `[skip]`，期间 Obsidian vault
+**连本地快照都没有**。这是把一个可见问题（没推送）换成了一个不可见问题（没版本化），
+正是本文件 §2 批评的那个形状，只是换了发生地点。
+
+而且它给的恢复指引执行不了：`main` 被另一棵 worktree（`agent-memory-answer-spec`）
+占着，git 不允许两棵树 checkout 同一分支，在 vault 目录 `git switch main` 直接 fatal。
+
+重写后的粒度：**本地快照无条件做，只有 `SYNC_BRANCH` 才碰远端。**
+两件事的风险量级本来就不同——本地提交丢编辑的代价高、blast radius 为零；
+推错分支不可逆。绑在一个开关上就只能同时关掉。
 
 | 动作 | 位置 |
 |---|---|
-| 分支守卫：HEAD 非 `main` 就干净跳过（exit 0） | `~/bin/agent-memory-sync.sh` |
-| pathspec 排除 `60_dialogues`（新增/修改不再搭车） | 同上，`EXCLUDES=(':!60_dialogues')` |
+| 无条件本地快照 + 仅 `main` 允许 pull/push | `~/bin/agent-memory-sync.sh` |
+| skip 时报出**占用 `main` 的 worktree 路径**，不再说"切回 main 即可" | 同上 |
+| pathspec 排除 `60_dialogues` **+ 四类 db 后缀** | 同上，`EXCLUDES` |
 | `.gitignore` 补 `*.sqlite*` / `*.db` / `*.duckdb` | vault `main`（`90cfce34`） |
 
-两条路都实测：feature 分支 `[skip]` exit 0；真 `main` `Already up to date` exit 0。
+db 后缀同时写进 `EXCLUDES` 与 `.gitignore` 是刻意冗余：feature 分支可能 checkout
+的是**旧版 `.gitignore`**（本例正是如此），那时 `add -A` 会再次提交 802KB 的
+`workbench.sqlite3`。**staging 规则不能依赖"当前 checkout 的是哪个分支的 ignore 文件"。**
+
+实测（feature 分支 + 真实新文件）：`[commit] local edits committed on 'docs/session-...'`
+→ `[skip] ... 不 pull/push` → `[skip] 'main' 被 worktree '/Users/a77/agent-memory-answer-spec' 占用`，
+exit 0；探针提交已回退。
+
+> ⚠ **`main` 路径未经脚本实测**。脚本 `VAULT` 写死 `/Users/a77/agent-memory`，
+> 而该目录切不到 `main`，所以本文件上一版那句"真 `main` `Already up to date` exit 0"
+> 是我手工 `cd` 到 `agent-memory-answer-spec` 跑出来的，**不是脚本路径**，没有留下
+> 可复核证据。要验证只能：释放占用 `main` 的 worktree，或把 `VAULT` 指向持有 `main` 的树。
 
 **vault 的内容搬迁另按四档做完，8 个提交已推**（`830485c0..20a4e172`）：
 工具链 3 个文件、`10_knowledge` 11 条、`70_tutor` 5 份（用户批准，补 `reviewed_at`）、
-`30_conventions` 2 份、`20_projects` 3 份（含一次三方合并，`main` 原有 216 行零缺失）。
-验收 `vault_lint` 115 passed / `graph_audit` 39 条无漂移。
+`30_conventions` 2 份、`20_projects` 3 份（含一次三方合并）。
+三方合并的对账口径：`main` 侧原有 **251 行（其中非空 216 行）零缺失**，纯新增 237 行、
+删除 0 行；上一版只写了"216 行"而未说明那是非空行数。
+验收 `vault_lint` 115 passed / `graph_audit` 39 条无漂移——**均在 `agent-memory-answer-spec`
+（`main`）上跑**，见 §1.5 关于同一工具两个读数的说明。
 
 仍**刻意留在 feature 分支**、未进共享历史：`.foresight/**` 604 个运行时台账、
 3 份 `workbench.sqlite3`、`60_dialogues/` 459KB 原文、`可证伪点回检/` 8 个
@@ -291,6 +350,12 @@ provider 延迟与预算耗尽都是外部变量。跑失败先按 §2.2 的预�
 ⚠ 该脚本仍用 `git add -A`（已带 pathspec 排除），与本仓 `AGENTS.md:74` 的
 "禁用 `git add -A`"纪律相反。在 vault 里风险低（单人单树），但若 vault 以后
 也出现多 agent 并写，这会是同一类事故源。
+
+⚠ **`~/bin` 下 7 个脚本全部不在任何版本控制下，且无任何备份副本**（实测逐个搜过，
+含两个 watchdog）。也就是说上面那段带 10777 次实测读数的事故注释，现在是**全机单副本**。
+本轮已把它们纳管到 vault `scripts/hosts/`（见该目�� README），因为 vault 本身
+每 180 秒自动同步、且这些脚本正是维护 vault 的那批。`~/bin` 保留为运行位置，
+launchd 仍指向它，纳管的是内容而非执行路径。
 
 ---
 
