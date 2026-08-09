@@ -150,9 +150,21 @@ S1/S2/S3 不是"越多能力答案必须越好"的质量单调性承诺。它们
 
 新增 3 题市场题 fixture，锚定 `2026-08-07`：
 
-1. 市场状态："以 2026-08-07 收盘为准，A 股整体市场处于什么状态？"，expected stage floor 为 S1，覆盖 `market_data`；
-2. 当前市场主线：expected stage floor 为 S2，覆盖 `market_data` 与 `mainline_context`；
-3. 本周行情下跌的主要原因：expected stage floor 为 S3，覆盖市场数据、新闻/证据检索、counterpoint 与因果输出。
+1. 次日大盘判断："以 2026-08-07 收盘为准，明天大盘怎么看"，expected stage floor 为 S1；
+2. 当前市场主线："以 2026-08-07 收盘为准，当前市场主线是什么？"，expected stage floor 为 S2；
+3. 本周行情下跌的主要原因："以 2026-08-07 收盘为准，本周行情下跌的主要原因是什么？"，expected stage floor 为 S3。
+
+**stage floor 不是主观分配，它由一条已有硬不变量决定。** `ResearchTaskContract.__post_init__` 要求 `evidence_plan` 的 mandatory capability 必须是 `allowed_capabilities` 的子集，不满足直接抛 `ResearchContractError`——契约在**构造那一步**就非法，根本到不了模型或工具。因此每题的最低可运行 stage 等于「其 evidence plan 强制能力首次被 stage 交集完全覆盖」的那一级。
+
+实测三题的强制能力与 floor（生产 `TurnControlCore` + `build_episode_context`，零网络零模型）：
+
+| case | question_type | evidence plan mandatory | floor |
+|---|---|---|---|
+| `next-session-index` | `market_forecast` | `market_data` | S1 |
+| `current-mainline` | `market_watch` | `market_data`, `mainline_context` | S2 |
+| `weekly-market-cause` | `market_cause` | `market_data`, `news_search` | S3 |
+
+S1 只能用 `market_forecast` 题：它是唯一强制底盘恰为单个 `market_data` 的市场题型。初版曾把一道 `market_watch` 题放在 S1，那一级会 100% 在构造契约时抛错——那是设计造成的必然失败，不是被测出的接缝问题。同理，带"处于什么状态"这类措辞的题会被路由判成 `general_finance_qa`（授权仅 `kb_search`/`web_search`），S1 交集为空，也不能用。**换题面前必须重跑这张表，不要只改字符串。**
 
 fixture 除 question、id、as_of、tier、timeout、conversation context 外，还显式给出每题的 expected stage floor。runner 只在 `stage_id >= expected_stage_floor` 时执行该 case；进入更高 stage 后会重跑已到达的 case，检验新增能力没有切断已有闭环。该字段只是执行矩阵约束，不取代生产 route/contract 对 required outputs 的唯一事实源。
 
