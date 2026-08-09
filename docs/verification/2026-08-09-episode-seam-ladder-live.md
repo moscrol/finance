@@ -351,13 +351,73 @@ reserve，这个修复就是死代码。**
 
 **不要先怀疑模型能力，也不要靠加重试**：重试只会把同一个窗口重踩一遍。
 
-### 5.6 仍然开着的
+### 5.6 已修：按生产的方式分配 reserve（对表控制面不变量第 1 条）
+
+对照 `agent-memory/10_knowledge/agent-control-plane-five-invariants.md` 第 1 条
+**「预算单一权威」**——同一个 standard 档，生产算出 60s、阶梯算出 20s，
+两处各算一遍算出两个答案，正是该不变量要防的形状。
+
+改动只有一处：`stage_derivation` 在 `build_episode_context` 时补上
+`GLMAgentRuntime.synthesis_reserve_for_task(...)`。前后实测：
+
+| | 改前 | 改后 |
+|---|---|---|
+| `synthesis_reserve` | 20.00s | **60.00s** |
+| 可借余量 | 0.00s | **40.00s** |
+| 首轮窗口 | 69.77s | 69.75s（借用把它补回来了） |
+
+**首轮几乎没变，变的是合成侧从 20s 变 60s。** 而 §5.3 实测一次研究型回答要
+26–91s——原来那 20s 从一开始就写不完一个答案。
+
+live 前后对照（同一 fixture、同一 provider）[实测]：
+
+| | 未接生产预算 | 接上后 |
+|---|---|---|
+| S1 `structural_status` | `failed` | **`completed`** |
+| S1 `missing_outputs` | 5 项 | **`[]`** |
+| S1 `draft_chars` | 0 | **471** |
+| S1 `stop_reason` | `deadline_exhausted` | **`model_finish`** |
+| S1 `tool_calls` | 0 | 1 |
+| S3 `missing_outputs` | 5 项 | **1 项**（仅 `cause_attribution`） |
+| S3 `draft_chars` | 0 | **382** |
+| S3 `stop_reason` | `repair_deadline_exhausted` | **`repair_model_stop`** |
+
+**一处装配修复把 S1 从整体失败推到结构完成。**
+
+### 5.7 一个 refuted：judge 的窗口不是它失败的原因
+
+`refuted` 按控制面文档的纪律记下来——它比一条侥幸成功的补丁有价值。
+
+**动手前写下的预测**：judge 三次尝试窗口实算为 `(15.0, 7.5, 7.5)`s，
+而 §5.2 实测 terra 短输出 p90 = 21.8s > 15s。若 judge 失败源于窗口过小，
+把 `MAX_SEMANTIC_JUDGE_WINDOW_SECONDS` 由 30 抬到 90（窗口变
+`(25, 25, 25)`）后，`semantic_status` 应转为 `passed` 或 `repaired`。
+
+**实测结果：预测不成立。** semantic 仍是 `unavailable`，而且**整体更差**——
+两条 rung 的 `draft_chars` 都回到 **0**，`semantic_issues` 退回
+「missing required output …」，即 episode 连草稿都没产出。
+
+**原因**：judge 窗口与草稿生成**抽的是同一笔 synthesis reserve**。
+`total_window = deadline.synthesis_timeout(min(90, 25×3))` 把最多 75s 划给 judge，
+finish 阶段就没得写了。**这两者是零和的，不是各自独立的旋钮。**
+
+改动已还原（`MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 30.0`），未提交。
+
+> ⚠ 仅 1 次采样，且本系统已多次表现出 run 间方差。
+> 能确证的只有**「窗口过小」这个假设不成立**，不能据此反推"30 就是最优值"。
+
+另一条支持它不是超时的证据：判定接线修好后共 6 次 judge 调用（3 次 live × 2 rung）
+**全部失败**。若真是 p90 尾部超时，按 §5.2 的分布应有约 8 成成功，6/6 全败的
+概率约 0.6%。**系统性失败，不是尾部。**
+
+### 5.8 仍然开着的
 
 | 项 | 现状 |
 |---|---|
-| 预算切片 25s vs 回答成本 ≈42s | **本节新结论，未修** |
-| S3 judge 的 transient provider error | judge 已接线并在跑；瞬时失败大概率同属 §5.5 的预算族，未单独验证 |
+| judge 系统性失败 | **下一步**。已排除窗口过小（§5.7）。诊断被卡在收据只存分类标签、不存 provider 原始错误——`_classify` 把 raw 丢了。要定位得先把 raw 传出来 |
+| S3 的 `cause_attribution` 缺口 | 从 5 项收敛到 1 项，剩这一项 |
 | terra 的 502 偶发 | 20 次里 1 次，样本不足以定率 |
+| `llm_timeout` 上界 75s | 已低于 §5.3 实测长输出尾部（75.9s / 135s），未动 |
 
 > ⚠ 本节所有数字是**延迟/稳定性**轴，**不含答案质量**。要下"哪个模型更好"的结论
 > 必须另做质量评测。另：10 与 6 的样本量足以看方向，不足以定小差异。
