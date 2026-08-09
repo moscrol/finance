@@ -2690,6 +2690,101 @@ def test_planning_turn_cannot_spend_the_reserved_finalization_budget() -> None:
     assert model.calls[1]["tools"] == []
 
 
+def _borrow_context(
+    frame: TaskFrame,
+    *,
+    total: float,
+    reserve: float,
+) -> ResearchRunContext:
+    base_context = _context(frame, max_steps=3)
+    return ResearchRunContext(
+        contract=base_context.contract,
+        deadline=ResearchDeadline.from_timeout(total, synthesis_reserve=reserve),
+        policy=ResearchPolicy("standard", 6, total, reserve),
+        trace_parent_id=base_context.trace_parent_id,
+    )
+
+
+class TestOpeningCallBorrowsOnlyTheSurplus:
+    """首轮向 ``synthesis_reserve`` 借余量——这段算术此前一行测试都没有。
+
+    它保护的是一个已发生的生产事故（``_opening_planning_timeout`` 的 docstring
+    记着 run 8792）：预扣整段 reserve 会让**唯一能启动检索的那次调用**拿到低于
+    provider P50 的窗口，三个 run 全部 ``TimeoutError`` → 零 binding → 模板答案。
+
+    断言落在「两个数之间的关系」而不是某个具体秒数，所以将来谁改
+    ``MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS`` 或切法，红的是这里而不是线上。
+    """
+
+    def test_opening_window_reproduces_the_run_8792_arithmetic(self) -> None:
+        # docstring 里记录的现场：effective 80s / reserve 53.33s / P50 28s。
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        context = _borrow_context(_frame(), total=80.0, reserve=53.33)
+
+        baseline = context.deadline.stage_timeout(75.0)
+        opening = episode._opening_planning_timeout(context)
+
+        # 修复前首轮只有 ~26.67s，低于 provider P50；借入后 ~60s。
+        assert baseline == pytest.approx(26.67, abs=0.5)
+        assert opening == pytest.approx(60.0, abs=0.5)
+
+    def test_borrowed_amount_never_eats_into_one_synthesis(self) -> None:
+        """借走的只能是超出「跑一次合成」的余量，不是整段 reserve。"""
+
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        floor = agent_episode_module.MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        context = _borrow_context(_frame(), total=80.0, reserve=53.33)
+
+        baseline = episode._opening_planning_timeout(context)
+        remaining_for_synthesis = context.deadline.remaining() - baseline
+
+        assert remaining_for_synthesis >= floor - 0.5
+
+    def test_reserve_at_or_below_the_floor_lends_nothing(self) -> None:
+        """reserve 本身只够一次合成时无余量可借，首轮与常规切法一致。"""
+
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        floor = agent_episode_module.MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        context = _borrow_context(_frame(), total=60.0, reserve=floor)
+
+        assert episode._opening_planning_timeout(context) == pytest.approx(
+            context.deadline.stage_timeout(75.0), abs=0.5
+        )
+
+    def test_borrowing_stays_under_the_provider_timeout_ceiling(self) -> None:
+        """上界是 provider 特性（``llm_timeout``），与总窗口解耦。"""
+
+        episode = ContinuousAgentEpisode(ScriptedModel([]), llm_timeout=75.0)
+        context = _borrow_context(_frame(), total=300.0, reserve=200.0)
+
+        assert episode._opening_planning_timeout(context) == pytest.approx(
+            75.0, abs=0.5
+        )
+
+    def test_only_the_opening_call_borrows(self) -> None:
+        """第二次调用已经有证据要保护，必须回到常规切法。"""
+
+        frame = _frame()
+        context = _borrow_context(frame, total=80.0, reserve=53.33)
+        model = ScriptedModel([_tool_turn("查当日行情"), _finish_turn()])
+
+        outcome = ContinuousAgentEpisode(model, llm_timeout=75.0).run(
+            task_frame=frame,
+            context=context,
+            registry=_market_registry(_successful_runner),
+        )
+
+        assert outcome.status == "completed"
+        assert len(model.calls) == 2
+        opening, follow_up = (
+            float(model.calls[0]["timeout"]),
+            float(model.calls[1]["timeout"]),
+        )
+        assert opening == pytest.approx(60.0, abs=1.0)
+        assert follow_up == pytest.approx(26.67, abs=1.0)
+        assert opening > follow_up
+
+
 def test_tiny_planning_window_skips_tools_and_starts_finalization() -> None:
     frame = _frame()
     base_context = _context(frame, max_steps=3)
