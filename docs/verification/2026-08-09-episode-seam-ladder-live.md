@@ -222,22 +222,109 @@ S3 `repair_deadline_exhausted` 111.2s / `tool_calls=6`）。
 
 ---
 
-## 5. 仍然开着的
+## 5. provider 稳定性实测 — 超时不是 provider 的错，是预算算术
+
+### 5.0 先撤回本文上一版的一个断言
+
+上一版写「**这条中转在 episode 量级的 prompt 下不稳**」。**这句话是错的，已实测推翻。**
+它是从两次 episode 超时反推出来的，没有独立测过 provider。真实读数见下。
+
+### 5.1 我的第一版探针测的是它自己的 bug（24/24 假失败）
+
+第一版探针用裸 `urllib` 直连中转，**24 次调用全部 HTTP 502
+`Upstream access forbidden`**，两个模型无一幸免。看起来像"上游全挂"。
+
+实际原因：`urllib` 默认发 `User-Agent: Python-urllib/3.12`，中转把它当脚本流量拦掉。
+只改 UA 就从 502 变 200 [实测]：
+
+```
+UA=Python-urllib(默认)  → HTTP 502  3.3s
+UA=curl/8.7.1           → 200      26.7s   # 同一把 key、同一个 URL、同一份 body
+```
+
+**这个坑本仓已经写在 `intelligence/services/llm_refine.py:52-59`**，连症状描述都一样：
+「症状极具误导性：错误码是 502（看起来像上游挂了），而 curl 手测恒通，于是很容易
+误判成"网关不稳定"」。生产走 `_LLM_USER_AGENT = "finance-workbench/1.0"`，**不受影响**。
+
+> **教训**：造新探针之前先搜有没有、以及生产是怎么发请求的。我绕开了生产客户端
+> 自己写 HTTP，于是把一个已被记录并已被修复的坑重新踩了一遍，还差点把它写成
+> "provider 挂了"的结论。**测量工具本身也是被测系统的一部分。**
+
+### 5.2 修正 UA 后的真实读数
+
+15K 字符 prompt、**短输出**（问一句话能答完的问题），每模型 10 次 [实测]：
+
+| model | ok/total | p50 | p90 | max | min |
+|---|---|---|---|---|---|
+| `gpt-5.6-terra` | 9/10 | **4.3s** | 21.8s | 21.8s | 3.5s |
+| `gpt-5.6-sol` | 10/10 | **5.3s** | 6.1s | 6.1s | 3.5s |
+
+（terra 那 1 次失败是 502 `Upstream service temporarily unavailable`，与 5.1 的 UA 502 不同因。）
+
+**大 prompt 根本不慢。** p50 4-5 秒，离 S1 的 111s 差两个数量级。
+所以"prompt 大 → 超时"这条因果不成立。
+
+### 5.3 真正的自变量是**输出 token**，不是输入
+
+同一个 15K prompt，把提问换成"写一份尽可能详尽的市场结构分析"，每档 3 次 [实测]：
+
+| model | 耗时 | 出参 tokens | 约合速率 |
+|---|---|---|---|
+| `gpt-5.6-terra` | 26.1 / 28.9 / 34.8 / 37.8 / 50.4 / 75.9 s | 1168–3967 | **≈ 45–52 tok/s** |
+| `gpt-5.6-sol` | 50.7 / 53.9 / 70.6 / 74.0 / 75.7 / 91.4 s | 1907–3110 | **≈ 34–43 tok/s** |
+
+延迟基本就是"出参 token ÷ 速率"。**terra 比 sol 快约 30%**——
+08-08 那次 sol→terra 的方向在这条轴上站得住，而这次是 6 样本且按 token 归一，
+比当初 2-3 次裸延迟读数硬得多。（仍只是延迟轴，**不含质量**。）
+
+### 5.4 中转**不认** `max_tokens`，也不认 `max_completion_tokens`
+
+[实测] 请求 10，实得 416 / 351，且 `finish_reason=stop` 而非 `length`——
+**限制根本没被应用，模型跑到自然结束**：
+
+```
+max_tokens=10            → finish_reason=stop  completion_tokens=416
+max_completion_tokens=10 → finish_reason=stop  completion_tokens=351
+```
+
+§5.3 里 `max_tokens=60` 的三次实得 1849 / 3967 / 2562，也是同一回事。
+
+**这是硬约束：不能靠调 token 上限来给生成时间设天花板。** 出参长度由 prompt
+的指令决定，不由参数决定。
+
+### 5.5 结论：预算切片比一次正常回答的成本还小
+
+把 §5.3 和 episode 预算摆在一起：
+
+| 量 | 值 |
+|---|---|
+| episode 首轮实际可用时间 `stage_timeout = min(llm_timeout, remaining − synthesis_reserve)` | **≈ 25s**（`start-finance-workbench` 注释所载实测） |
+| 一次 2000 token 的研究型回答在 terra 上的成本 | **≈ 42s**（2000 ÷ 48 tok/s） |
+
+**预算给 25 秒，而一次正常长度的回答结构上就要 40 秒左右。** 超时不是 provider 抖动，
+是预算切片本来就不够——这也解释了为什么三次 live 里 S1/S3 的失败形态在
+`deadline_exhausted` / `repair_deadline_exhausted` / `TimeoutError` 之间跳：
+它们都是同一个成因的不同落点。
+
+而 §5.4 说明**堵不住出参**，所以可行方向只有三类，且都不是"重试"：
+
+1. 加大首轮切片（动 `synthesis_reserve` / `llm_timeout` 的分配）
+2. 让 finish 阶段产出更短的 draft（**收窄结构，不是写"请简短"** ——
+   handoff §2.2 已记录过祈使句无效、结构收窄有效）
+3. 换更快的模型/端点
+
+**不要先怀疑模型能力，也不要靠加重试**：重试只会把 25s 的坑重踩一遍。
+
+### 5.6 仍然开着的
 
 | 项 | 现状 |
 |---|---|
-| S1 的 TimeoutError | [实测] run C 拿到错误原文。三次采样看到两种形态，**采样不足以定根因** |
-| S3 judge 的 transient provider error | judge 已在跑，provider 侧瞬时失败 |
-| S3 题面假前提 | 见 §4，换题需重跑 floor 表 |
+| 预算切片 25s vs 回答成本 ≈42s | **本节新结论，未修** |
+| S3 judge 的 transient provider error | judge 已接线并在跑；瞬时失败大概率同属 §5.5 的预算族，未单独验证 |
+| terra 的 502 偶发 | 20 次里 1 次，样本不足以定率 |
 
-两条挂掉的都指向同一处：**这条中转在 episode 量级的 prompt 下不稳**。
-旁证 [实测]：一个 6 个词的请求打过去 `prompt_tokens=4689`（中转注入约 4.7K token
-系统提示）、2.6s 返回；而真实 episode 是 17K+ token 量级，S1 在 111s 上 TimeoutError。
-
-> ⚠ **不要用 2-3 次采样去排模型/延迟的序。** 模型轴 08-08 从 `gpt-5.6-sol` 切到
-> `gpt-5.6-terra` 依据的就是每档 2-3 次的延迟读数——那个采样量在延迟这种高方差量上
-> 排不出可信序。本文所有 latency 同样是低采样，**只可用作"存在超时"的存在性证据，
-> 不可用作模型间比较**。要比较必须先把采样量提上去。
+> ⚠ 本节所有数字是**延迟/稳定性**轴，**不含答案质量**。要下"哪个模型更好"的结论
+> 必须另做质量评测。另：10 与 6 的样本量足以看方向，不足以定小差异。
 
 ---
 
