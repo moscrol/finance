@@ -292,28 +292,64 @@ max_completion_tokens=10 → finish_reason=stop  completion_tokens=351
 **这是硬约束：不能靠调 token 上限来给生成时间设天花板。** 出参长度由 prompt
 的指令决定，不由参数决定。
 
-### 5.5 结论：预算切片比一次正常回答的成本还小
+### 5.5 结论：首轮窗口落在 provider 延迟分布的中间，且借用机制在阶梯里空转
 
-把 §5.3 和 episode 预算摆在一起：
+> ⚠ **本节上一版的 "首轮 ≈25s" 是错的，此处更正。** 那个 25s 是
+> `start-finance-workbench` 注释里**生产 8792 修复前**的读数（26.67s），
+> 我把它套到了阶梯上——既不是阶梯的配置，也不是修复后的值。实际算出来见下。
 
-| 量 | 值 |
-|---|---|
-| episode 首轮实际可用时间 `stage_timeout = min(llm_timeout, remaining − synthesis_reserve)` | **≈ 25s**（`start-finance-workbench` 注释所载实测） |
-| 一次 2000 token 的研究型回答在 terra 上的成本 | **≈ 42s**（2000 ÷ 48 tok/s） |
+#### 阶梯的真实首轮窗口 = 69.77s，而 S1 卡在 70.5s
 
-**预算给 25 秒，而一次正常长度的回答结构上就要 40 秒左右。** 超时不是 provider 抖动，
-是预算切片本来就不够——这也解释了为什么三次 live 里 S1/S3 的失败形态在
-`deadline_exhausted` / `repair_deadline_exhausted` / `TimeoutError` 之间跳：
-它们都是同一个成因的不同落点。
+按 `_opening_planning_timeout` 的算法对阶梯 S1 的 context 实算 [实测]：
 
-而 §5.4 说明**堵不住出参**，所以可行方向只有三类，且都不是"重试"：
+```
+case.timeout      = 180.0
+synthesis_reserve = 20.00s
+常规首轮切片 base  = 69.77s
+可借余量           = 0.00s        ← 借用机制在这里完全空转
+借入后首轮窗口     = 69.77s       (上界 llm_timeout=75.0)
+```
 
-1. 加大首轮切片（动 `synthesis_reserve` / `llm_timeout` 的分配）
-2. 让 finish 阶段产出更短的 draft（**收窄结构，不是写"请简短"** ——
+对照 S1 的实测 `latency_seconds`：**70.478 / 70.527s**（两次 `deadline_exhausted`，
+`tool_calls=0`），以及 111.0 / 111.1s（首轮 69.77 + 修复阶段）。
+**S1 就是卡在这个窗口上，一秒不差。**
+
+#### 为什么借用会空转：阶梯没接生产的 reserve 分配
+
+`_opening_planning_timeout` 借的是 `synthesis_reserve` **超出地板的部分**，
+而 `MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS = 20.0`：
+
+| 路径 | 传 `synthesis_reserve_for_task` | 实得 reserve | 可借 |
+|---|---|---|---|
+| 生产 `intelligence/api/app.py:366` | ✅ `GLMAgentRuntime.synthesis_reserve_for_task` | standard 60s（`market_cause`/`market_watch` 75s） | 40~55s |
+| 阶梯 `run_episode_seam_ladder.py` | ❌ **一个字都没传** | tier 默认 **20.0**（`research_contract.py:393`） | **0** |
+
+`borrowable = max(0, 20.0 − 20.0) = 0`。**对 standard 档，只要没人显式传更大的
+reserve，这个修复就是死代码。**
+
+这与 §3.2 的 judge 未接线是**同一类缺陷**：阶梯号称复刻生产，却漏掉了生产的接线参数。
+两处都不是算法错，是**装配错**。
+
+#### 真正的成因：窗口落在分布中间，不是"远远不够"
+
+把 §5.3 摆进来：terra 长输出实测 **26.1 / 28.9 / 34.8 / 37.8 / 50.4 / 75.9s**，
+另有一次冒烟 6795 token / **135s**。
+
+**69.77s 的窗口不是"远远不够"，是正好卡在这条分布的中间。** 分布左半边能过、
+右半边过不去——这才是 S1 三次跑出两种失败形态（`deadline_exhausted` vs
+`repair_model_unavailable`）的原因。上一版把它归因为"预算切片本来就不够"，
+方向对但量级判断错了。
+
+而 §5.4 说明**堵不住出参**，所以可行方向：
+
+1. **先让阶梯接上生产的 reserve 分配**（补 `synthesis_reserve_for_task`）——
+   在此之前，阶梯量到的任何预算行为都不代表生产
+2. 让 finish 阶段产出更短的 draft（**收窄结构，不是写"请简短"**——
    handoff §2.2 已记录过祈使句无效、结构收窄有效）
-3. 换更快的模型/端点
+3. 抬 `llm_timeout` 上界（现 75s，已低于实测长输出的尾部）
+4. 换更快的模型/端点
 
-**不要先怀疑模型能力，也不要靠加重试**：重试只会把 25s 的坑重踩一遍。
+**不要先怀疑模型能力，也不要靠加重试**：重试只会把同一个窗口重踩一遍。
 
 ### 5.6 仍然开着的
 
