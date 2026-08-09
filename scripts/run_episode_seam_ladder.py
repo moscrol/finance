@@ -1029,6 +1029,66 @@ def live_preflight(
     )
 
 
+class _RecordingJudgeClient:
+    """Keep what the semantic verifier throws away about its judge call.
+
+    ``_stable_semantic_judge_error`` classifies a judge failure from the
+    exception's **type name alone** and discards the message, so a receipt can
+    say "semantic judge transient provider error" without ever naming what
+    happened.  Diagnosing it has meant reading source and guessing.
+
+    Wrapping the injected client is the honest seam.  The verifier has two
+    judge paths and only one is live here: the independent
+    ``llm_refine.judge_provider()`` path is skipped whenever ``LLM_JUDGE_*`` is
+    unset (``episode_semantic_verifier.py:1107``), which is our case, so the
+    judge actually arrives at ``primary.complete(...)`` at :1244 — this object.
+    An earlier version of this instrumentation patched ``llm_refine.complete``
+    and recorded nothing at all, because that is the path we never take.
+
+    Two shapes of failure reach us: a raised exception, and a returned
+    ``ModelTurn`` carrying a non-empty ``error``.  Only the first becomes the
+    classified label, so both are recorded.
+
+    Deliberately not callable and exposing ``complete``: the verifier branches
+    on ``callable(primary) and not hasattr(primary, "complete")`` (:1213), so
+    the wrapper must keep the same shape or it would silently change the path
+    under test.
+    """
+
+    def __init__(
+        self,
+        inner: object,
+        records: list[dict[str, object]],
+    ) -> None:
+        self._inner = inner
+        self._records = records
+
+    def complete(self, **kwargs: object) -> object:
+        started = time.monotonic()
+        try:
+            turn = self._inner.complete(**kwargs)  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001 — recorded, then re-raised
+            self._records.append(
+                {
+                    "seconds": round(time.monotonic() - started, 2),
+                    "outcome": "exception",
+                    "detail": f"{type(exc).__name__}: {exc}"[:300],
+                }
+            )
+            raise
+        error = str(getattr(turn, "error", "") or "")
+        self._records.append(
+            {
+                "seconds": round(time.monotonic() - started, 2),
+                "outcome": "turn_error" if error else "ok",
+                "detail": error[:300],
+                "provider_attempts": getattr(turn, "provider_attempts", None),
+                "timeout_asked": kwargs.get("timeout"),
+            }
+        )
+        return turn
+
+
 def run_live_stage_case(
     case: SeamLadderCase,
     control: object,
@@ -1059,6 +1119,8 @@ def run_live_stage_case(
         record["tool_schema_names"] = list(registry.names())
         client = GLMModelClient(providers=providers)
         finalizer = EpisodeFinalizer(client)
+        judge_calls: list[dict[str, object]] = []
+        judge_client = _RecordingJudgeClient(client, judge_calls)
         adapter = ContinuousTurnAdapter(
             runtime=GLMAgentRuntime(
                 client=client,
@@ -1075,7 +1137,7 @@ def run_live_stage_case(
             # The receipt already labels this path `production_llm_judge`; the
             # label was true of the intent and false of the wiring.
             semantic_verifier=SemanticEpisodeVerifier(
-                primary_judge=client,
+                primary_judge=judge_client,
                 finalizer=finalizer,
             ),
             mode="on",
@@ -1111,6 +1173,7 @@ def run_live_stage_case(
             record["latency_seconds"] = round(time.monotonic() - started, 3)
             return record
         record["latency_seconds"] = round(time.monotonic() - started, 3)
+        record["judge_calls"] = list(judge_calls)
         artifact = result.private_artifact or {}
         metrics = artifact.get("metrics") or {}
         structural = artifact.get("structural_verifier") or {}
