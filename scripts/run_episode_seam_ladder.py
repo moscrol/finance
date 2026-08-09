@@ -16,24 +16,41 @@ failure instead of an observed seam defect.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
+import time
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.runtime.turn_control_core import TurnControlCore
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    evidence_content_hash,
+)
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import build_episode_registry
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchContractError,
     release_root_budget,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolRunResult,
+)
+from scripts.smoke_workbench_self_use import _atomic_write_json
 
 _VALID_TIERS = frozenset({"quick", "standard", "deep"})
 
@@ -176,6 +193,73 @@ def _stage_episode_id(case_id: str, stage_id: str) -> str:
     return f"seam-ladder:{case_id}:{stage_id}"
 
 
+def narrow_context_to_stage(
+    source: object,
+    stage: Stage,
+) -> tuple[object | None, tuple[str, ...], str, str]:
+    """Narrow one production context to a rung's capability surface.
+
+    Returns ``(context, enabled, rejection, detail)``; ``context`` is ``None``
+    when this rung cannot legally run the case.
+
+    Why the intersection is taken against the *contract* rather than against
+    the stage list alone: ``build_episode_context`` re-appends the evidence
+    plan's mandatory capabilities to whatever the caller passed in, so handing
+    it a narrow ``capabilities`` tuple does not produce a narrow contract.  The
+    only honest way to shrink a rung is to derive the full production contract
+    first and then replace its ``allowed_capabilities``.
+
+    ``ResearchTaskContract.__post_init__`` rejects a contract whose evidence
+    plan demands a capability the rung does not authorize.  That rejection is
+    reported here instead of being allowed to raise, because a stage below a
+    case's floor is a *designed* impossibility rather than an observed defect.
+    """
+
+    contract = source.contract
+    stage_set = set(stage.capabilities)
+    enabled = tuple(
+        capability
+        for capability in contract.allowed_capabilities
+        if capability in stage_set
+    )
+    mandatory = tuple(contract.evidence_plan.mandatory_capabilities)
+    unauthorized = tuple(item for item in mandatory if item not in set(enabled))
+    if unauthorized:
+        return (
+            None,
+            enabled,
+            "mandatory_capability_unauthorized",
+            (
+                "evidence plan requires "
+                + ",".join(unauthorized)
+                + f"; stage {stage.stage_id} exposes "
+                + (",".join(enabled) or "nothing")
+            ),
+        )
+    if not enabled:
+        return (
+            None,
+            enabled,
+            "no_capability_in_common",
+            (
+                f"stage {stage.stage_id} shares no capability with the "
+                "contract's authorization"
+            ),
+        )
+    try:
+        stage_contract = replace(contract, allowed_capabilities=enabled)
+    except ResearchContractError as exc:
+        # Defence in depth: the invariant is the authority on legality, so a
+        # rung it rejects must be reported, never silently weakened.
+        return (
+            None,
+            enabled,
+            "mandatory_capability_unauthorized",
+            str(exc),
+        )
+    return replace(source, contract=stage_contract), enabled, "", ""
+
+
 def resolve_control(case: SeamLadderCase):
     """Run production routing for one case.
 
@@ -296,49 +380,17 @@ def stage_derivation(
         ),
     )
     try:
-        stage_set = set(stage.capabilities)
-        # Derive from the *production* contract rather than from the stage
-        # tuple: ``build_episode_context`` adds capabilities of its own (the
-        # evidence plan's mandatory ones), so the real authorization is the
-        # ordered intersection of what production granted and what this rung
-        # admits.
-        enabled = tuple(
-            capability
-            for capability in source.contract.allowed_capabilities
-            if capability in stage_set
+        stage_context, enabled, rejection, detail = narrow_context_to_stage(
+            source,
+            stage,
         )
-        mandatory = tuple(source.contract.evidence_plan.mandatory_capabilities)
-        missing = tuple(item for item in mandatory if item not in set(enabled))
-        if missing:
-            # Not a defect to fix by weakening the contract: below its floor a
-            # case is simply unrunnable, and recording that honestly is what
-            # keeps a designed failure out of the results.
+        if stage_context is None:
             yield StageDerivation(
                 stage=stage,
                 case=case,
                 enabled_capabilities=enabled,
-                rejection="mandatory_capability_unauthorized",
-                rejection_detail=(
-                    "evidence plan requires "
-                    f"{', '.join(missing)} at {stage.stage_id}"
-                ),
-            )
-            return
-        try:
-            stage_context = replace(
-                source,
-                contract=replace(
-                    source.contract,
-                    allowed_capabilities=enabled,
-                ),
-            )
-        except ResearchContractError as exc:
-            yield StageDerivation(
-                stage=stage,
-                case=case,
-                enabled_capabilities=enabled,
-                rejection="contract_or_verifier",
-                rejection_detail=str(exc),
+                rejection=rejection,
+                rejection_detail=detail,
             )
             return
         full_registry = build_episode_registry(control.task_frame, stage_context)
@@ -358,6 +410,419 @@ def stage_derivation(
         release_root_budget(episode_id)
 
 
+# --- offline execution ------------------------------------------------------
+#
+# Offline mode fixes only the *outermost* inputs: the model and the tools' data
+# source.  Everything the ladder claims to test stays production -- the Episode
+# loop, ``ResearchToolRegistry.execute`` (authorization, argument validation,
+# cutoff filtering, evidence hashing), the structural verifier and the adapter.
+
+OFFLINE_PROVIDER = "scripted"
+_FIXTURE_QUERY = "以固定收盘日为准的盘面结构"
+
+
+def fixture_tool_runner(tool_name: str, as_of: str):
+    """Return a deterministic local data source for one tool.
+
+    Only the tool's outbound call is replaced.  ``registry.execute`` remains the
+    production one, so a stage that exposes an unauthorized tool, sends invalid
+    arguments or binds an unknown hash still fails exactly as it would live.
+    """
+
+    def run(value: object, _context: object) -> ToolRunResult:
+        query = (
+            value
+            if isinstance(value, str)
+            else str((value or {}).get("query", ""))  # type: ignore[union-attr]
+        ) or _FIXTURE_QUERY
+        item = AgentEvidence(
+            tool=tool_name,
+            title=f"{tool_name} 固定观察",
+            detail=f"{query} 的封闭样本：上涨家数抬升，成交维持活跃。",
+            source="seam-ladder 固定样本",
+            source_date=as_of,
+            evidence_tier="L4_structured",
+        )
+        item = replace(item, content_hash=evidence_content_hash(item))
+        return ToolRunResult(
+            evidence=(item,),
+            observation=f"{tool_name} 原始观察",
+            trace=ProviderTrace(
+                provider="seam-ladder:fixture",
+                capability=tool_name,
+                status="ok",
+                source_trade_date=as_of,
+                result_count=1,
+            ),
+        )
+
+    return run
+
+
+def stage_registry_with_fixture_runners(
+    registry: ResearchToolRegistry,
+    as_of: str,
+) -> ResearchToolRegistry:
+    """Swap each authorized tool's data source, keeping its spec and schema."""
+
+    return ResearchToolRegistry(
+        tuple(
+            replace(spec, runner=fixture_tool_runner(spec.name, as_of))
+            for spec in registry.authorized_specs()
+        )
+    )
+
+
+def _arguments_for_schema(schema: object) -> dict[str, object]:
+    """Build arguments that satisfy one tool's own parameter schema.
+
+    This is not a detail.  ``market_data`` declares ``query_scope="episode"``
+    and therefore an *empty* closed schema: one turn-scoped snapshot whose
+    evidence surface cannot be changed by rewording a query.  Sending it a
+    ``query`` is rejected as ``invalid_arguments``, which then cascades into
+    "output binding must contain evidence or a gap" and reads like a binding
+    defect.  Query-scoped tools (``news_search``, ``evidence_search``) do
+    require one.
+    """
+
+    properties = (
+        schema.get("properties") if isinstance(schema, Mapping) else None
+    )
+    if isinstance(properties, Mapping) and "query" in properties:
+        return {"query": _FIXTURE_QUERY}
+    return {}
+
+
+class ScriptedEpisodeModel:
+    """Drive the real Episode loop: one authorized tool batch, then FINAL_JSON.
+
+    Deliberately *not* a pre-built ``AgentOutcome``: the point of the offline
+    rung is to cross the real seams (tool schema, authorization, arguments,
+    evidence hashing, binding validation), which a canned outcome would skip.
+    """
+
+    def __init__(self, contract: object) -> None:
+        self._contract = contract
+        self._asked_for_tools = False
+        self.offered_schemas: list[tuple[str, ...]] = []
+
+    def complete(
+        self,
+        *,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        timeout: float,
+    ):
+        del timeout
+        offered = tuple(
+            str(function.get("name") or "")
+            for definition in tools
+            if isinstance(definition, Mapping)
+            and isinstance(function := definition.get("function"), Mapping)
+        )
+        self.offered_schemas.append(offered)
+        if not self._asked_for_tools and offered:
+            self._asked_for_tools = True
+            calls = tuple(
+                ModelToolCall(
+                    call_id=f"seam-ladder-{index}",
+                    name=str(function["name"]),
+                    arguments=_arguments_for_schema(function.get("parameters")),
+                )
+                for index, definition in enumerate(tools)
+                if isinstance(definition, Mapping)
+                and isinstance(function := definition.get("function"), Mapping)
+                and function.get("name")
+            )
+            if calls:
+                return ModelTurn("", calls, OFFLINE_PROVIDER, "")
+        return ModelTurn(
+            _final_json(self._contract, _observed_hashes(messages)),
+            (),
+            OFFLINE_PROVIDER,
+            "",
+        )
+
+
+def _observed_hashes(messages: list[dict[str, object]]) -> tuple[str, ...]:
+    """Collect evidence hashes the episode actually put in front of the model.
+
+    Read back from the tool messages rather than from the fixture, so a hash the
+    loop never surfaced can never be bound.
+    """
+
+    hashes: list[str] = []
+    for message in messages:
+        if message.get("role") != "tool":
+            continue
+        try:
+            payload = json.loads(str(message.get("content") or ""))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        for value in payload.get("evidence_hashes") or ():
+            if isinstance(value, str) and value and value not in hashes:
+                hashes.append(value)
+    return tuple(hashes)
+
+
+def _final_json(contract: object, hashes: tuple[str, ...]) -> str:
+    """Render one FINAL_JSON that respects each slot's own grounding mode.
+
+    ``validate_episode_finish`` compares every binding's ``basis`` against its
+    required output's ``grounding_mode`` and raises on a mismatch, so a uniform
+    ``evidence`` basis would fail the ``model_reasoning`` slots that
+    ``market_cause`` carries (``causal_chain``, ``cause_attribution``).
+    """
+
+    payload = {
+        "status": "completed",
+        "draft": (
+            "基准判断：短周期修复延续，但驱动力偏弱。\n"
+            "支撑条件在于成交与上涨家数同步维持；一旦两者同时回落，"
+            "该基准判断失效。\n"
+            "以上结论仅覆盖最新一个交易日的盘面结构，不含盘后消息。"
+        ),
+        "gaps": [],
+        "bindings": [
+            {
+                "output_id": item.output_id,
+                "evidence_hashes": (
+                    list(hashes) if item.grounding_mode == "evidence" else []
+                ),
+                "basis": item.grounding_mode,
+                "gap": "",
+            }
+            for item in contract.required_outputs
+            if item.required
+        ],
+    }
+    body = json.dumps(payload, ensure_ascii=False)
+    return f"```json\n{body}\n```"
+
+
+class OfflineSemanticVerifier:
+    """Deterministic stand-in that only proves the semantic seam is invoked.
+
+    It derives its answer solely from the structural output and never judges
+    grounding, so it must not be read as evidence that the production LLM judge
+    works.  Live mode uses ``SemanticEpisodeVerifier`` for that.
+    """
+
+    def verify(
+        self,
+        *,
+        frame: object,
+        structurally_verified: object,
+        deadline: object,
+    ):
+        del frame, deadline
+        return SemanticEpisodeOutcome(
+            verified=structurally_verified,
+            status=(
+                "completed"
+                if structurally_verified.verified_status == "completed"
+                else "partial"
+            ),
+            public_answer=structurally_verified.outcome.draft,
+            judge_status="passed",
+        )
+
+
+def _classify_failure(exc: BaseException) -> tuple[str, str]:
+    """Attribute a runner exception to the component that owns it."""
+
+    if isinstance(exc, ResearchContractError) or isinstance(exc, ValueError):
+        return "contract_or_verifier", f"{type(exc).__name__}: {exc}"
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return "provider_or_budget", f"{type(exc).__name__}: {exc}"
+    return "tool_or_data", f"{type(exc).__name__}: {exc}"
+
+
+def run_offline_stage_case(
+    case: SeamLadderCase,
+    control: object,
+    stage_id: str,
+) -> dict[str, object]:
+    """Run one rung/case through the real Episode loop with fixed inputs."""
+
+    with stage_derivation(case, control, stage_id) as derived:
+        record: dict[str, object] = {
+            "stage_id": derived.stage.stage_id,
+            "stage_name": derived.stage.name,
+            "case_id": case.case_id,
+            "enabled_capabilities": list(derived.enabled_capabilities),
+            "tool_schema_names": [],
+            "rejection": derived.rejection,
+            "rejection_detail": derived.rejection_detail,
+            "failure_class": "",
+            "failure_detail": "",
+        }
+        if derived.context is None:
+            return record
+        contract = derived.context.contract
+        record["task_frame_hash"] = contract.task_frame_hash
+        record["question_type"] = contract.question_type
+        registry = stage_registry_with_fixture_runners(
+            derived.registry,
+            case.as_of,
+        )
+        record["tool_schema_names"] = list(registry.names())
+        model = ScriptedEpisodeModel(contract)
+        adapter = ContinuousTurnAdapter(
+            runtime=GLMAgentRuntime(client=model),
+            semantic_verifier=OfflineSemanticVerifier(),
+            # Explicit: never let an ambient ASK_CONTINUOUS_RUNTIME decide
+            # whether this rung ran the episode or silently declined.
+            mode="on",
+            context_factory=lambda _frame, **_kwargs: derived.context,
+            registry_factory=lambda _frame, _context: registry,
+            tier=case.tier,
+            timeout=case.timeout,
+            today=case.as_of,
+            latest_data_date=case.as_of,
+        )
+        started = time.monotonic()
+        try:
+            result = adapter.handle(frame=control.task_frame, control=control)
+        except Exception as exc:  # noqa: BLE001 — classified, never swallowed
+            failure_class, detail = _classify_failure(exc)
+            record["failure_class"] = failure_class
+            record["failure_detail"] = detail
+            record["latency_seconds"] = round(time.monotonic() - started, 3)
+            return record
+        record["latency_seconds"] = round(time.monotonic() - started, 3)
+        artifact = result.private_artifact or {}
+        metrics = artifact.get("metrics") or {}
+        structural = artifact.get("structural_verifier") or {}
+        outcome = artifact.get("outcome") or {}
+        record.update(
+            {
+                "handled": result.handled,
+                "status": result.status,
+                "execution_kind": artifact.get("execution_kind", ""),
+                "answer": result.answer,
+                "structural_status": metrics.get("structural_status", ""),
+                "semantic_status": metrics.get("semantic_status", ""),
+                "tool_calls": metrics.get("tool_calls", 0),
+                "llm_calls": len(model.offered_schemas),
+                "provider_attempts": metrics.get("provider_attempts", 0),
+                "duplicate_queries": metrics.get("duplicate_queries", 0),
+                "evidence_hashes": [
+                    str(item.get("content_hash") or "")
+                    for item in outcome.get("evidence") or ()
+                    if isinstance(item, Mapping) and item.get("content_hash")
+                ],
+                "missing_outputs": list(structural.get("missing_outputs") or ()),
+                "structural_issues": list(structural.get("issues") or ()),
+                "satisfiability_precheck": artifact.get(
+                    "satisfiability_precheck",
+                    {},
+                ),
+                "offered_schemas": [
+                    list(item) for item in model.offered_schemas
+                ],
+                "stop_reason": outcome.get("stop_reason", ""),
+            }
+        )
+        unauthorized = sorted(
+            {
+                name
+                for offered in model.offered_schemas
+                for name in offered
+                if registry.resolve(name).capability
+                not in set(derived.enabled_capabilities)
+            }
+        )
+        if unauthorized:
+            # A tool outside the rung reached the model: the ablation's only
+            # variable leaked, so the whole rung's reading is void.
+            record["failure_class"] = "contract_or_verifier"
+            record["failure_detail"] = (
+                "unauthorized capability offered: " + ",".join(unauthorized)
+            )
+        return record
+
+
+def _fixture_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _source_revision() -> str:
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(Path(__file__).resolve().parents[1]),
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+            check=False,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=str(Path(__file__).resolve().parents[1]),
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+                check=False,
+            ).stdout.strip()
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if not revision:
+        return "unknown"
+    return f"{revision}-dirty" if dirty else revision
+
+
+def run_offline_ladder(questions: Path) -> dict[str, object]:
+    """Run every rung and return one receipt for the whole ladder."""
+
+    cases = load_cases(questions)
+    controls = {case.case_id: resolve_control(case) for case in cases}
+    stages: list[dict[str, object]] = []
+    for stage in STAGES:
+        selected = cases_for_stage(cases, stage.stage_id)
+        stages.append(
+            {
+                "stage_id": stage.stage_id,
+                "stage_name": stage.name,
+                "stage_capabilities": list(stage.capabilities),
+                "results": [
+                    run_offline_stage_case(
+                        case,
+                        controls[case.case_id],
+                        stage.stage_id,
+                    )
+                    for case in selected
+                ],
+            }
+        )
+    return {
+        "schema_version": 1,
+        "artifact_kind": "episode_seam_ladder",
+        "mode": "offline",
+        "source_revision": _source_revision(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "fixture": {
+            "path": str(questions),
+            "sha256": _fixture_digest(questions),
+            "as_of": sorted({case.as_of for case in cases}),
+        },
+        "runtime": {
+            "backend": "continuous_glm",
+            "continuous_mode": "on",
+            # Offline provenance is scripted and must never be dressed up as a
+            # production provider/model.
+            "provider": OFFLINE_PROVIDER,
+            "model": OFFLINE_PROVIDER,
+            "semantic_verifier": "offline_deterministic",
+        },
+        "stages": stages,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -371,19 +836,25 @@ def build_parser() -> argparse.ArgumentParser:
             / "episode_seam_ladder_cases.json"
         ),
     )
+    parser.add_argument("--output", type=Path, default=None)
     return parser
 
 
 def main(argv: tuple[str, ...] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    cases = load_cases(args.questions)
-    for stage in STAGES:
-        selected = cases_for_stage(cases, stage.stage_id)
-        print(
-            f"{stage.stage_id} {stage.name}: "
-            f"capabilities={stage.capabilities or '()'} "
-            f"cases={[case.case_id for case in selected] or '[]'}"
-        )
+    artifact = run_offline_ladder(args.questions)
+    if args.output is not None:
+        _atomic_write_json(args.output, artifact)
+    for stage in artifact["stages"]:
+        for record in stage["results"]:
+            print(
+                f"{record['stage_id']} {record['case_id']}: "
+                f"status={record.get('status') or record.get('rejection')} "
+                f"structural={record.get('structural_status', '-')} "
+                f"semantic={record.get('semantic_status', '-')} "
+                f"tools={record.get('tool_calls', 0)} "
+                f"failure={record.get('failure_class') or '-'}"
+            )
     return 0
 
 

@@ -309,3 +309,191 @@ def test_stage_derivation_releases_its_episode_registration() -> None:
     with ladder.stage_derivation(case, control, "S1") as second:
         assert second.context is not None
         assert second.context.contract.task_id == first_id
+
+
+# --- offline execution -------------------------------------------------------
+#
+# These drive the *real* Episode loop.  Only the model and the tools' data
+# source are fixed; the registry's execute path, the structural verifier and
+# the adapter are production, which is what makes a green rung meaningful.
+
+
+def test_offline_s1_closes_the_loop_through_real_components() -> None:
+    case = CASES["next-session-index"]
+    result = ladder.run_offline_stage_case(
+        case,
+        ladder.resolve_control(case),
+        "S1",
+    )
+    assert result["execution_kind"] == "continuous_episode"
+    assert result["status"] == "completed"
+    assert result["structural_status"] == "completed"
+    assert result["semantic_status"] == "passed"
+    assert result["tool_calls"] == 1
+    assert result["evidence_hashes"]
+    assert result["answer"].strip()
+    assert result["missing_outputs"] == []
+    assert result["structural_issues"] == []
+    assert result["failure_class"] == ""
+
+
+def test_offline_model_only_ever_sees_this_rungs_tools() -> None:
+    """The capability surface is the experiment; a leak voids the reading."""
+
+    case = CASES["next-session-index"]
+    result = ladder.run_offline_stage_case(
+        case,
+        ladder.resolve_control(case),
+        "S1",
+    )
+    assert result["enabled_capabilities"] == ["market_data"]
+    assert result["tool_schema_names"] == ["market_data"]
+    for offered in result["offered_schemas"]:
+        assert set(offered) <= {"market_data"}
+
+
+def test_offline_higher_rungs_admit_more_tools_and_stay_closed() -> None:
+    """Adding a capability must not break an already-closed loop."""
+
+    case = CASES["next-session-index"]
+    control = ladder.resolve_control(case)
+    surfaces = {}
+    for stage_id in ("S1", "S2", "S3"):
+        result = ladder.run_offline_stage_case(case, control, stage_id)
+        assert result["structural_status"] == "completed", stage_id
+        assert result["semantic_status"] == "passed", stage_id
+        assert result["failure_class"] == "", stage_id
+        surfaces[stage_id] = set(result["enabled_capabilities"])
+    assert surfaces["S1"] < surfaces["S2"] < surfaces["S3"]
+
+
+def test_offline_model_reasoning_slots_are_bound_by_their_own_basis() -> None:
+    """``market_cause`` carries ``model_reasoning`` slots.
+
+    ``validate_episode_finish`` compares each binding's ``basis`` with its
+    required output's ``grounding_mode``, so a uniform ``evidence`` basis would
+    be rejected.  Reaching ``completed`` here proves the per-slot basis is used.
+    """
+
+    case = CASES["weekly-market-cause"]
+    result = ladder.run_offline_stage_case(
+        case,
+        ladder.resolve_control(case),
+        "S3",
+    )
+    assert result["question_type"] == "market_cause"
+    assert result["structural_status"] == "completed"
+    assert result["structural_issues"] == []
+    assert result["failure_class"] == ""
+
+
+def test_offline_stage_below_floor_records_rejection_without_executing() -> None:
+    case = CASES["weekly-market-cause"]
+    result = ladder.run_offline_stage_case(
+        case,
+        ladder.resolve_control(case),
+        "S2",
+    )
+    assert result["rejection"] == "mandatory_capability_unauthorized"
+    assert "news_search" in result["rejection_detail"]
+    assert "execution_kind" not in result
+    assert result["tool_schema_names"] == []
+    assert result["failure_class"] == ""
+
+
+def test_offline_planning_stage_runs_nothing() -> None:
+    case = CASES["next-session-index"]
+    result = ladder.run_offline_stage_case(
+        case,
+        ladder.resolve_control(case),
+        "S0",
+    )
+    assert result["rejection"] == "planning_only"
+    assert result["enabled_capabilities"] == []
+    assert "status" not in result
+
+
+def test_episode_scoped_tool_gets_an_empty_argument_object() -> None:
+    """``market_data`` declares an empty closed schema.
+
+    It is ``query_scope="episode"``: one turn-scoped snapshot whose evidence
+    surface cannot change by rewording a query.  Sending a ``query`` is rejected
+    as ``invalid_arguments``, which then cascades into "output binding must
+    contain evidence or a gap" and misreads as a binding defect.
+    """
+
+    assert ladder._arguments_for_schema(
+        {"type": "object", "properties": {}, "additionalProperties": False}
+    ) == {}
+    query_arguments = ladder._arguments_for_schema(
+        {
+            "type": "object",
+            "properties": {"query": {"type": "string", "minLength": 1}},
+            "required": ["query"],
+        }
+    )
+    assert set(query_arguments) == {"query"}
+    assert str(query_arguments["query"]).strip()
+
+
+def test_offline_tools_run_through_the_real_authorization_path() -> None:
+    """Fixture runners replace only the data source, never ``execute``."""
+
+    case = CASES["next-session-index"]
+    control = ladder.resolve_control(case)
+    with ladder.stage_derivation(case, control, "S1") as derived:
+        from intelligence.services.research_tool_registry import UnknownResearchTool
+
+        registry = ladder.stage_registry_with_fixture_runners(
+            derived.registry,
+            case.as_of,
+        )
+        assert registry.names() == derived.registry.names()
+        with pytest.raises(UnknownResearchTool):
+            registry.execute(
+                "news_search",
+                {"query": "越权调用"},
+                context=derived.context,
+                step_id="seam-ladder-offline-unauthorized",
+            )
+
+
+def test_offline_artifact_records_scripted_provenance(tmp_path: Path) -> None:
+    artifact = ladder.run_offline_ladder(FIXTURE)
+    assert artifact["artifact_kind"] == "episode_seam_ladder"
+    assert artifact["mode"] == "offline"
+    assert artifact["schema_version"] == 1
+    assert artifact["generated_at"].endswith("+00:00")
+    assert artifact["fixture"]["sha256"]
+    assert artifact["source_revision"]
+    # Offline provenance must never be dressed up as a production provider.
+    assert artifact["runtime"]["provider"] == ladder.OFFLINE_PROVIDER
+    assert artifact["runtime"]["model"] == ladder.OFFLINE_PROVIDER
+    assert artifact["runtime"]["semantic_verifier"] == "offline_deterministic"
+    stages = {stage["stage_id"]: stage for stage in artifact["stages"]}
+    assert stages["S0"]["results"] == []
+    assert [r["case_id"] for r in stages["S1"]["results"]] == [
+        "next-session-index",
+    ]
+    assert len(stages["S3"]["results"]) == 3
+    for stage_id in ("S1", "S2", "S3"):
+        for record in stages[stage_id]["results"]:
+            assert record["failure_class"] == "", (stage_id, record["case_id"])
+            assert record["structural_status"] == "completed"
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected"),
+    [
+        (ValueError("bad binding"), "contract_or_verifier"),
+        (TimeoutError("provider timeout"), "provider_or_budget"),
+        (RuntimeError("tool blew up"), "tool_or_data"),
+    ],
+)
+def test_failures_are_attributed_to_the_component_that_owns_them(
+    exception: BaseException,
+    expected: str,
+) -> None:
+    failure_class, detail = ladder._classify_failure(exception)
+    assert failure_class == expected
+    assert type(exception).__name__ in detail
