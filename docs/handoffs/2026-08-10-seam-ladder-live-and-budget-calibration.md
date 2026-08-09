@@ -1,0 +1,213 @@
+# 消融实验 P7 跑通 + 预算标定 — 交接（2026-08-10）
+
+> **读法**：§1 总目标与它现在到哪了；§2 已交付（含实测读数）；§3 **我在本轮被推翻的六个
+> 判断**——接手前必读，否则会重走；§4 后续要做的，带开工判据；§5 环境与坑。
+>
+> **范围**：`8640d2c7..ee4e63d6`，18 个提交，全部已合 `main` 并推送，对账 0/0。
+> vault（`agent-memory`）另有 3 个提交，已推送。
+> 主树 43 个他人未提交改动**全程未受影响**（全程 pathspec 提交，无 `git add -A`）。
+
+---
+
+## 1. 总目标：消融实验要证明什么，现在到哪了
+
+**目标**（出自 `docs/superpowers/specs/2026-08-09-episode-seam-ladder-design.md`）：
+逐层接入 episode 运行时的组件，定位是哪一层引入失败或异常行为。
+硬约束**不是**"能力越多答案越好"，而是：某一阶不得暴露未开放工具、不得绕过 verifier、
+不得因新 capability 使固定控制链路异常。
+
+### 进度盘
+
+| part | 状态 |
+|---|---|
+| P1–P5 阶梯骨架、契约派生、离线回路、live 模式、离线回归门 | ✅ 更早几轮 |
+| P6 阶梯之前那层的入口路由 | ✅ 上一轮（10/18 → 18/18） |
+| **P7 live smoke 实跑** | ✅ **本轮跑通，三条判据首次全达标** |
+| P8 断言扩到"防犯错" | ⚠️ 部分 |
+| P9 题型分类层 | ❌ 未动（建议先不动） |
+| P10 Engine A 出口闸门 | ❌ 未动（**本轮证据把它的优先级往后压了**，见 §4） |
+
+### P7 的三条完成判据，现在的状态
+
+| 判据 | 结果 |
+|---|---|
+| S1 schema 不出现 `mainline_context`/`news_search`/`evidence_search` | ✅ 一直成立 |
+| S3 tool calls 与 evidence hashes 确有已开放能力 | ✅ 一直成立 |
+| semantic verifier 为 `passed` 或 `repaired` | ✅ **本轮首次达标** |
+
+**首次全绿的那份收据**：`/Users/a77/.finance-runtime/seam-ladder/judge60-1.json`
+S1 = `status=completed / structural=completed / semantic=passed`。
+
+---
+
+## 2. 已交付
+
+### 2.1 P7 从"被环境卡住"到跑通
+
+交接文档原写 P7 被三项 preflight 卡住。**复核发现三项当时已全部满足**——
+所谓阻塞其实是"跑 ladder 的 shell 没有生产 env"，不是环境缺东西。
+
+### 2.2 修掉的四个缺陷（都是前后对照实测）
+
+| # | 缺陷 | 证据 |
+|---|---|---|
+| 1 | **live judge 根本没接线** | 收据标 `production_llm_judge`，实际构造的是无参数 `SemanticEpisodeVerifier()`，judge 循环必然落到 `unavailable`。第三条判据**在构造上不可能满足** |
+| 2 | **reserve 没按生产方式分配** | 生产 60s / 阶梯 20s（tier 默认，恰等于地板），导致 `_opening_planning_timeout` 的借用**是死代码**。修后 S1 `structural` failed→completed、`missing_outputs` 5→0 |
+| 3 | **没传绝对截止** | `deadline_expires_at` 缺失 → 每跳重置时钟。修后 S3 首次 `semantic=repaired` |
+| 4 | **S3 题面前提为假** | 问"本周下跌原因"，而实测那周 **+2.81% 且逐日上行**。模型正确拒答，**离线桩却在同一道题上发绿光** |
+
+**共同形状**：前三个都是"阶梯号称复刻生产、实际漏了参数"——**装配错，不是算法错**。
+
+### 2.3 预算标定：四处超时收敛成一件事
+
+| 组件 | 上限 | 实测需要 |
+|---|---|---|
+| 首轮模型 | 69.77s | 草稿 26–91s |
+| 工具批次 | ≤30s | `evidence_search` 冷调用 **28.2s**（94% 占用） |
+| judge 三次 | 15 / 7.5 / 7.5s | **13.3–24.1s** |
+| synthesis reserve | 60s | 草稿与 judge **共用** |
+
+**结论**：这套时间标定对应的是比当前 provider 更快的模型。
+且工具批次与 judge 各被一个**与 tier 无关的硬编码字面量**卡住
+（`stage_timeout(30.0)`、`MAX_SEMANTIC_JUDGE_WINDOW_SECONDS=30`），
+所以**升档并不能把预算送进去**。
+
+**最终有效配置（实测）**：`tier=deep` + 工具上限 60 + judge 窗口 60
+→ judge **6/6 成功**（13.3/13.8/16.3/22.6/24.1s），三条判据首次全达标。
+
+### 2.4 落下的工具（这些比结论更耐用）
+
+| 产出 | 作用 |
+|---|---|
+| 收据七类诊断字段 | `semantic_issues` / `draft_chars` / `gaps` / `trajectory` / `model_errors` / `tool_errors` / `judge_calls`。**三次实验里有两次靠 `model_errors` 才认出"是中转挂了不是我改坏了"** |
+| `runtime.*` 自述字段 | `budget_status` / `tool_batch_timeout` / `judge_window` / `provider_honors_max_tokens`。记**生效值**，让标定运行的收据可与基线对照 |
+| `scripts/probe_provider_latency.py` | provider 延迟/稳定性/token 上限探针，UA 陷阱写进 docstring |
+| 两个 ceiling 可标定 | `ASK_TOOL_BATCH_TIMEOUT` / `ASK_SEMANTIC_JUDGE_WINDOW`，**默认值一字未改** |
+| 时间预算感知 | 扩展已有 `runtime_budget` 通道加 `remaining_seconds` / `remaining_fraction`，**默认关**（`ASK_EPISODE_BUDGET_STATUS=on`） |
+| `agent-memory/10_knowledge/agent-tool-design-principles.md` | ai-agent-book 第 4 章蒸馏 + 我们的对表状态，**已进 git** |
+| `docs/superpowers/2026-08-10-agent-book-chapter-audit.md` | 按章自审全书 10 章 |
+
+---
+
+## 3. 我在本轮被推翻的六个判断（接手前必读）
+
+**这些都写进了文档，不要重走。**
+
+| # | 我说过 | 实测 |
+|---|---|---|
+| 1 | 中转在 episode 量级 prompt 下不稳 | ❌ 大 prompt p50 仅 4.3s。真正的自变量是**出参 token** |
+| 2 | judge 失败不是窗口过小（refuted） | ❌ **就是窗口过小**。当初实验在 standard 档做，reserve 只有 60s，抬窗口把草稿饿死了，我把"疗法无效"读成了"病因不成立" |
+| 3 | 工具失败先查描述边界（照搬书上判据） | ❌ 两个工具都是 `tool_timeout`，不是选错。**判据的前提是"模型选错了工具"，我套用前没验前提** |
+| 4 | 我们没有预算感知 | ❌ **步数预算一直在传**（`runtime_budget.remaining_tool_calls`），缺的只是**时间**这一维 |
+| 5 | 分档用错了，升档即可 | ❌ 升档对两个超时组件几乎无效，它们被硬编码字面量卡住 |
+| 6 | 配 `LLM_JUDGE_*` 能一次解决去相关与预算争抢 | ❌ `attempt_timeouts` 只算一次、两条 judge 路径共用同一 deadline，**它不给 judge 独立预算** |
+
+**可迁移的一条**：#2 最贵——**同一个改动，在错的档位下会得出相反结论**。
+一个改动同时动了两个耦合量时，它的失败无法区分"病因判错"和"代价没算"。
+
+---
+
+## 4. 后续要做的
+
+### 4.1 judge 窗口改成按 reserve 比例推导（**优先级最高，需你拍板**）
+
+**现状**：`MAX_SEMANTIC_JUDGE_WINDOW_SECONDS` 是固定 30.0，默认未改。
+**为什么不能直接改默认**：60 这个值**只在 deep 档验证过**。standard 档 reserve 只有 60s，
+把 judge 窗口提到 60 会重演草稿饿死（已实测）。
+
+**正解**：窗口应当**由当次 reserve 按比例推导**，而不是全局常量——
+judge 与草稿是零和的，固定常量无法同时适配两个档位。**这是设计变更，未动。**
+
+开工判据：改完后 standard 与 deep 两档都要各跑 ≥5 次，`semantic` 与 `draft_chars`
+同时不退化才算通过。
+
+### 4.2 打开时间预算感知测一次（**现在有理由了**）
+
+臂 C 里 S3 的新失败是 **`tool_budget_exhausted`**（12 个工具槽用尽），
+**不再是超时**——约束从"没时间"移到了"查得太多"。
+这正是预算感知该管的（第 10 章引 Google *Budget-Aware Tool-Use*：
+无预算意识时增加预算不保证提升）。
+
+```bash
+ASK_EPISODE_BUDGET_STATUS=on   # 默认 off
+```
+收据里 `runtime.budget_status` 会记是哪一臂，别把两臂读成 run 间噪声。
+
+### 4.3 模型轴 / 中转决策（**需你拍板**）
+
+| | cockpit `localhost:57244` | 中转 `x.ailzd.com` |
+|---|---|---|
+| 模型 | 仅 `gpt-5.6-sol` | 15 个，含 `gpt-5.6-terra` |
+| 短输出 p90 | **4.3s** | 21.8s |
+| 本轮稳定性 | 全程无 503 | **反复 503/URLError** |
+| 生产 8792 现配 | 否 | **是** |
+
+生产现在指向 x.ailzd + terra，而本轮能跑通全靠 cockpit + sol。**要不要把生产也切过来是独立决策。**
+
+### 4.4 其余（按证据强度递减）
+
+- **检索加 `recall@k`**：S3 的 `cause_attribution` 缺口到底是召回不足还是题目超纲，
+  现在**没有任何指标能回答**（第 3 章）
+- **独立出题人**：18 条题集"我出题我判分"，用户抽查只有 8/10（第 6 章抗泄漏）
+- **P10 Engine A 出口闸门**：本轮证据把它往后压了——Engine A 现在能完整产出草稿并通过
+  judge，缺的不是多一道检查。等 4.1 稳定后再评估
+- **`provider_honors_max_tokens` 已记录为 `no`**，但**系统行为仍按上限成立在算**
+  （`llm_refine` 每次合成都发 `max_tokens=3000`）。属"静默输入转换"，未修
+- 未审计：显式截断/长输出落盘、幂等性与取消语义、KV Cache 布局
+
+---
+
+## 5. 环境与坑
+
+### 5.1 跑 live 的最小 env
+
+```bash
+# 生产线（x.ailzd + terra）：从 ~/.local/bin/start-finance-workbench 提 export 段
+# 或 cockpit（本轮用的）：
+export LLM_BASE_URL='http://localhost:57244/v1'
+export LLM_MODEL='gpt-5.6-sol'      # 这条中转没有 terra
+export OPENAI_API_KEY='<用户提供，勿落盘>'
+export ASK_CONTINUOUS_RUNTIME=on
+export FORESIGHT_LLM_KEYCHAIN=0
+.venv-workbench/bin/python scripts/run_episode_seam_ladder.py --live --output <路径>
+```
+
+> ⚠️ **`.env.workbench` 是陷阱**：它仍写着 `LLM_MODEL=glm-5.2` / `bigmodel.cn`，
+> 而 GLM 是已退役那条线。`source` 它 preflight **照样 ready=True**——preflight
+> 只检查"有没有解析到 provider"，不检查"是不是产品线"。**跑完先核收据里的
+> `preflight.model`。**
+
+> ⚠️ **cockpit 中转 2026-08-08 曾因上游凭证归档被弃用**（start 脚本有"四次重试全 502"
+> 的注释）。本轮是用户重新供给 key 后恢复的。**下次用之前先探活。**
+
+### 5.2 三个反复咬人的坑
+
+1. **探活通过 ≠ 跑得完**：x.ailzd 小请求/大 prompt/带 tools 各探 3–10 次全 200，
+   但 episode 期间反复 503。**收据里的 `model_errors` 是唯一能区分的东西。**
+2. **`max_tokens` 两条中转都不兑现**（请求 10 实得 416–722，`finish_reason=stop`）。
+   **堵不住出参，别指望用参数给生成时间设天花板**——这是上游属性。
+3. **instrumentation 也会插错地方**：我第一版 judge 探针 patch 了
+   `llm_refine.complete`，**一条记录都没抓到**——验证器有两条 judge 路径，
+   `LLM_JUDGE_*` 未配时走的是另一条。**空记录是"插错了"的信号，不是"没有失败"。**
+
+### 5.3 vault 有 180 秒自动提交守护进程
+
+`com.a77.agent-memory-sync` 每 180 秒 `git add -A` + **裸 commit** + push。
+本轮实测事故：`git rm --cached` 暂存后还没提交，守护进程把我暂存的内容
+连同它自己的改动一起提交推送了。
+**在 vault 里做手工 git 操作，index 不是私有工作区**——要么先停守护进程，
+要么把命令用 `&&` 串成一条。
+
+---
+
+## 6. 验收
+
+| 项 | 结果 |
+|---|---|
+| `ruff check --config=ruff.toml`（与 pre-commit 同一条命令） | 通过 |
+| `test_episode_seam_ladder` / `test_agent_episode` / `test_episode_tool_batch` / `test_episode_semantic_verifier` | **290 passed** |
+| 离线阶梯六条 rung | 全绿 |
+| pre-commit 全钩子（含层级审计） | ERROR 0 |
+| 主树 43 个他人未提交改动 | 未受影响 |
+| 我的 16 个特性分支 | 已全部合入 `main` 并删除 |
+| 用户提供的 key | **未落盘**（全盘 grep 确认，收据亦干净） |
