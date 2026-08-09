@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 import json
+import os
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -72,6 +73,18 @@ MIN_PLANNING_TURN_SECONDS = 8.0
 # ``EpisodeFinalizer`` 的默认超时（20s），即"够跑一次合成"的口径——借走的只是
 # reserve 里超出一次合成所需的余量，不是整段。
 MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS = 20.0
+
+
+def budget_status_enabled() -> bool:
+    """Whether each planning turn is told how much budget is left.
+
+    Default **off**.  This changes what the model sees on every turn, so it
+    ships as an experiment arm the seam ladder can measure rather than as a
+    silent behaviour change in production — and the receipt records which arm
+    produced it, so nobody has to guess later.
+    """
+
+    return str(os.environ.get("ASK_EPISODE_BUDGET_STATUS") or "").strip().lower() == "on"
 # Planning is model-owned state, but it must still have a finite allowance so
 # a model cannot keep revising a plan forever without reaching research or
 # finalization.  The allowance is separate from max_steps, which is the
@@ -820,6 +833,16 @@ class ContinuousAgentEpisode:
                         context.root_budget.consume_call(seconds=seconds_per_call)
                 self._append_tool_budget_state(
                     messages=messages,
+                    remaining_seconds=(
+                        context.deadline.remaining()
+                        if budget_status_enabled()
+                        else None
+                    ),
+                    total_seconds=(
+                        float(context.policy.total_seconds)
+                        if budget_status_enabled()
+                        else None
+                    ),
                     remaining_slots=max(
                         0,
                         self._remaining_tool_slots(
@@ -1252,6 +1275,7 @@ class ContinuousAgentEpisode:
         )
 
     @staticmethod
+    @staticmethod
     def _remaining_tool_slots(
         *,
         context: ResearchRunContext,
@@ -1488,6 +1512,8 @@ class ContinuousAgentEpisode:
         *,
         messages: list[dict[str, object]],
         remaining_slots: int,
+        remaining_seconds: float | None = None,
+        total_seconds: float | None = None,
     ) -> None:
         if not messages or messages[-1].get("role") != "tool":
             return
@@ -1500,13 +1526,36 @@ class ContinuousAgentEpisode:
             return
         if not isinstance(payload, dict):
             return
-        payload["runtime_budget"] = {
+        budget: dict[str, object] = {
             "remaining_tool_calls": remaining_slots,
             "instruction": (
                 "下一轮工具调用总数不得超过 remaining_tool_calls；"
                 "只能调用当前菜单中仍可见的工具；证据足够时直接输出 FINAL_JSON。"
             ),
         }
+        # Steps were already exposed here; *time* was not.  Google's
+        # "Budget-Aware Tool-Use Enables Effective Agent Scaling" (2025) found
+        # that granting more budget does not improve results on its own — an
+        # agent without a sense of its remaining fraction keeps exploring
+        # shallowly and saturates early.  Observed here on 2026-08-09: once the
+        # S3 question was corrected the model went from 3 tool calls to 6 and
+        # then died on `repair_deadline_exhausted`, with no way to know it was
+        # nearly out of time.
+        #
+        # Extending this payload rather than adding a second status message is
+        # deliberate: two independently-computed budget channels is the
+        # "预算单一权威" violation this repo has already been bitten by.  The
+        # model reads one place for one answer.
+        if remaining_seconds is not None and total_seconds and total_seconds > 0:
+            fraction = max(0.0, min(1.0, remaining_seconds / total_seconds))
+            budget["remaining_seconds"] = round(max(0.0, remaining_seconds), 1)
+            budget["remaining_fraction"] = round(fraction, 2)
+            budget["instruction"] = (
+                str(budget["instruction"])
+                + "剩余时间充裕时可广泛探索；remaining_fraction 低于 0.3 时"
+                "收敛到最有把握的方向，宁可少查也要留出写结论的时间。"
+            )
+        payload["runtime_budget"] = budget
         messages[-1]["content"] = json.dumps(payload, ensure_ascii=False)
 
     @staticmethod

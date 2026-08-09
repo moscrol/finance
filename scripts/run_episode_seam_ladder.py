@@ -31,6 +31,7 @@ import time
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from intelligence.runtime import agent_episode
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.runtime.turn_control_core import TurnControlCore
@@ -1373,6 +1374,13 @@ def run_live_ladder(
             # gated: an unhonoured cap makes the run *less* comparable, not
             # invalid.
             "provider_honors_max_tokens": _provider_honors_max_tokens(providers),
+            # Which experiment arm produced this receipt.  The time-budget
+            # signal ships default-off, so two receipts from the same revision
+            # can legitimately differ; recording the arm is what keeps that
+            # from looking like run-to-run noise.
+            "budget_status": (
+                "on" if agent_episode.budget_status_enabled() else "off"
+            ),
         },
         "preflight": preflight.to_dict(),
         "stages": stages,
