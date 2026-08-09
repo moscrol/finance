@@ -707,6 +707,16 @@ def run_offline_stage_case(
         metrics = artifact.get("metrics") or {}
         structural = artifact.get("structural_verifier") or {}
         outcome = artifact.get("outcome") or {}
+        # ``semantic_status`` on its own is not auditable.  ``unavailable`` is
+        # returned from six sites in ``episode_semantic_verifier`` (missing
+        # contract, frame/contract hash mismatch, a structural partial that may
+        # not be released, empty public draft, judge deadline exhausted,
+        # transient judge failure) and is *also* what ``continuous_turn_adapter``
+        # records when the verifier never produced an outcome at all.  Seven
+        # distinct defects wearing one word.  Every fact that separates them was
+        # already in the artifact and only this receipt dropped it, which forced
+        # the 2026-08-09 live run to be diagnosed by reading source.
+        semantic = artifact.get("semantic_verifier") or {}
         record.update(
             {
                 "handled": result.handled,
@@ -726,6 +736,19 @@ def run_offline_stage_case(
                 ],
                 "missing_outputs": list(structural.get("missing_outputs") or ()),
                 "structural_issues": list(structural.get("issues") or ()),
+                # Absent block means the verifier never ran, which is a
+                # different failure from any verdict it could have returned.
+                "semantic_verifier_ran": bool(semantic),
+                "semantic_issues": list(semantic.get("issues") or ()),
+                # Length, not text: the draft is private and can be long, and
+                # what decides the "empty public draft" branch is whether it
+                # parses into numbered sentences.  0 means the model produced
+                # nothing; >0 with that issue means the model produced text the
+                # sentence parser rejected.  Two different bugs, one symptom.
+                "draft_chars": len(str(outcome.get("draft") or "")),
+                # The only place a stopped episode's provider error survives:
+                # ``_stopped_outcome`` passes ``gap=turn.error``.
+                "gaps": list(outcome.get("gaps") or ()),
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
@@ -1009,6 +1032,16 @@ def run_live_stage_case(
         metrics = artifact.get("metrics") or {}
         structural = artifact.get("structural_verifier") or {}
         outcome = artifact.get("outcome") or {}
+        # ``semantic_status`` on its own is not auditable.  ``unavailable`` is
+        # returned from six sites in ``episode_semantic_verifier`` (missing
+        # contract, frame/contract hash mismatch, a structural partial that may
+        # not be released, empty public draft, judge deadline exhausted,
+        # transient judge failure) and is *also* what ``continuous_turn_adapter``
+        # records when the verifier never produced an outcome at all.  Seven
+        # distinct defects wearing one word.  Every fact that separates them was
+        # already in the artifact and only this receipt dropped it, which forced
+        # the 2026-08-09 live run to be diagnosed by reading source.
+        semantic = artifact.get("semantic_verifier") or {}
         record.update(
             {
                 "handled": result.handled,
@@ -1027,6 +1060,19 @@ def run_live_stage_case(
                 ],
                 "missing_outputs": list(structural.get("missing_outputs") or ()),
                 "structural_issues": list(structural.get("issues") or ()),
+                # Absent block means the verifier never ran, which is a
+                # different failure from any verdict it could have returned.
+                "semantic_verifier_ran": bool(semantic),
+                "semantic_issues": list(semantic.get("issues") or ()),
+                # Length, not text: the draft is private and can be long, and
+                # what decides the "empty public draft" branch is whether it
+                # parses into numbered sentences.  0 means the model produced
+                # nothing; >0 with that issue means the model produced text the
+                # sentence parser rejected.  Two different bugs, one symptom.
+                "draft_chars": len(str(outcome.get("draft") or "")),
+                # The only place a stopped episode's provider error survives:
+                # ``_stopped_outcome`` passes ``gap=turn.error``.
+                "gaps": list(outcome.get("gaps") or ()),
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
                     {},
