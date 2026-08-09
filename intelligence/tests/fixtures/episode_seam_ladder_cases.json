@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-07",
+  "cases": [
+    {
+      "id": "next-session-index",
+      "question": "以 2026-08-07 收盘为准，明天大盘怎么看",
+      "as_of": "2026-08-07",
+      "tier": "standard",
+      "timeout": 180.0,
+      "expected_stage_floor": "S1"
+    },
+    {
+      "id": "current-mainline",
+      "question": "以 2026-08-07 收盘为准，当前市场主线是什么？",
+      "as_of": "2026-08-07",
+      "tier": "standard",
+      "timeout": 180.0,
+      "expected_stage_floor": "S2"
+    },
+    {
+      "id": "weekly-market-cause",
+      "question": "以 2026-08-07 收盘为准，本周行情下跌的主要原因是什么？",
+      "as_of": "2026-08-07",
+      "tier": "standard",
+      "timeout": 180.0,
+      "expected_stage_floor": "S3"
+    }
+  ]
+}
