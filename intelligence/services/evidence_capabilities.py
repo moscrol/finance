@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass
 
 from intelligence.services.task_frame import (
     TaskFrame,
+    has_explicit_date,
     task_frame_requires_retrieval,
 )
 
@@ -85,11 +86,6 @@ _FORWARD_TIME_MARKERS = (
     "接下来", "后续", "还能", "能不能持续",
 )
 _HISTORICAL_MARKERS = ("2025", "2024", "历史上", "过去几年", "去年")
-# 与 task_frame._EXPLICIT_DATE_RE 同源：显式日期本身就是最强的时效信号，
-# 「以 2026-08-07 收盘为准…」在纯词表下一个时间词都命中不了。
-_EXPLICIT_DATE_RE = re.compile(
-    r"(?<!\d)20\d{2}(?:年|[-/.])\d{1,2}(?:月|[-/.])\d{1,2}日?(?!\d)"
-)
 # 「如何判断/怎么设计 X」问的是方法，不是当日盘面；这类问题即使带市场词也
 # 不该拿到行情数据（既有注释里「避免金融数据泄漏进知识题」的同一条纪律）。
 _DECISION_METHOD_RE = re.compile(
@@ -229,7 +225,8 @@ def is_current_market_query(query: str) -> bool:
         marker in normalized for marker in _MARKET_SUBJECT_MARKERS
     )
     has_time = any(marker in normalized for marker in _CURRENT_TIME_MARKERS)
-    has_explicit_date = _EXPLICIT_DATE_RE.search(normalized) is not None
+    # 局部名不能叫 has_explicit_date：那会遮蔽上面 import 进来的同名函数。
+    dated = has_explicit_date(normalized)
     has_state = any(marker in normalized for marker in _MARKET_STATE_MARKERS)
     has_condition = any(
         marker in normalized for marker in _PRESENT_CONDITION_MARKERS
@@ -240,12 +237,10 @@ def is_current_market_query(query: str) -> bool:
     # 需要当日盘面和历史区间。纯历史复盘（“复盘2025年A股市场主线”，无时间词）
     # 仍然被排除，既有测试守着这条。
     if any(marker in normalized for marker in _HISTORICAL_MARKERS) and not (
-        has_time or has_explicit_date
+        has_time or dated
     ):
         return False
-    if has_subject and (
-        has_time or has_explicit_date or has_condition or has_forward
-    ):
+    if has_subject and (has_time or dated or has_condition or has_forward):
         return True
     return has_state
 

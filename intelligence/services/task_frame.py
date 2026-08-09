@@ -559,6 +559,18 @@ def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
     return True
 
 
+def has_explicit_date(question: str) -> bool:
+    """Whether the text carries a literal calendar date such as 2026-08-07.
+
+    Exposed because a written-out date is the strongest freshness signal there
+    is, and more than one module needs it.  ``evidence_capabilities`` first
+    carried its own copy of this pattern; two regexes that must stay identical
+    are a drift waiting to happen, so the pattern lives here alone.
+    """
+
+    return _EXPLICIT_DATE_RE.search(str(question or "")) is not None
+
+
 def _user_goal(question_type: str, question: str, fallback: str) -> str:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return "判断最近一次市场反弹的可持续时间、继续条件与失效条件"
