@@ -49,25 +49,30 @@ from intelligence.services.task_frame import TaskFrame
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
-MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 30.0
+MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 
 
 def semantic_judge_window_seconds() -> float:
     """Total window shared by all judge attempts, overridable for calibration.
 
-    Like the tool-batch ceiling, this caps a ``synthesis_timeout`` call, so a
-    larger episode budget does not widen it: 30.0 here yields attempts of
-    ``(15.0, 7.5, 7.5)`` at every tier.  Measured 2026-08-09: all three attempts
-    ended in ``TimeoutError`` having consumed exactly those windows, while the
-    provider's p90 for even a short-output call was 21.8s — the first attempt is
-    below p90 and the retries are hopeless.
+    Sized from measurement, 2026-08-10.  The judge's first attempt gets
+    ``min(per_attempt_cap=25, window * 0.5)``, so the previous 30.0 yielded
+    ``(15.0, 7.5, 7.5)``.  Live runs put the judge's actual cost at
+    **13.3–24.1s**: at a 15s first attempt it failed 6/6 with ``TimeoutError``;
+    at 25s it succeeded 6/6.  Those measurements straddle 15s, which is exactly
+    why the old value failed almost always rather than occasionally.  60.0 puts
+    the first attempt at the 25s cap, covering the observed tail.
 
-    Default unchanged at 30.0, and deliberately so: raising it in isolation was
-    measured to make things *worse*, because the judge and the draft draw from
-    the same ``synthesis_reserve`` — widening one starves the other.  Any real
-    change here has to be computed together with that reserve, which needs live
-    runs the relay has not been stable enough to provide.  Exposed so that
-    calibration can be run, not so that it can be guessed at.
+    **Raising this cannot starve the draft**, despite an earlier note in this
+    file claiming otherwise.  The pipeline is strictly sequential — episode
+    produces the draft, then structural verification, then this judge
+    (``continuous_turn_adapter.py:480`` then ``:554``) — and
+    ``synthesis_timeout`` returns ``min(limit, remaining())``.  By the time the
+    judge runs the draft has already been paid for; a larger ceiling can only
+    claim time that is genuinely still on the clock, and self-limits when it is
+    not.  The "widening one starves the other" claim was generalised from a
+    single run whose draft was empty because the relay 503'd, not because of
+    any budget interaction.
     """
 
     raw = os.environ.get("ASK_SEMANTIC_JUDGE_WINDOW")

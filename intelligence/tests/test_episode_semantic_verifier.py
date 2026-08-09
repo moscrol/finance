@@ -16,7 +16,11 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
-from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+from intelligence.services.episode_semantic_verifier import (
+    DEFAULT_JUDGE_TIMEOUT_SECONDS,
+    SemanticEpisodeVerifier,
+    semantic_judge_window_seconds,
+)
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
@@ -1874,7 +1878,16 @@ def test_primary_judge_default_attempt_reserves_retry_window(
     )
 
     assert result.status == "completed"
-    assert model.calls[0]["timeout"] == pytest.approx(15.0)
+    # Assert the *rule*, not the number: the opening attempt takes at most half
+    # the shared window so the two retries still have somewhere to live.  The
+    # window was recalibrated 30.0 → 60.0 on 2026-08-10 (judge measured at
+    # 13.3–24.1s; a 15s opening attempt failed 6/6, 25s succeeded 6/6), and a
+    # hard-coded 15.0 here made a deliberate change look like a regression.
+    window = semantic_judge_window_seconds()
+    assert model.calls[0]["timeout"] == pytest.approx(
+        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window * 0.5)
+    )
+    assert model.calls[0]["timeout"] <= window * 0.5 + 0.01
 
 
 def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
@@ -1902,7 +1915,10 @@ def test_primary_judge_shared_semantic_deadline_bounds_transient_attempts(
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert len(model.calls) == 3
-    assert sum(model.calls) <= 30.01
+    # The invariant is "all attempts together stay inside the one shared
+    # window", not any particular number of seconds — express it that way so
+    # recalibrating the window does not read as a broken bound.
+    assert sum(model.calls) <= semantic_judge_window_seconds() + 0.01
     assert model.calls[0] >= model.calls[1]
 
 
