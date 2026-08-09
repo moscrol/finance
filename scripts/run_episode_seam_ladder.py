@@ -376,6 +376,20 @@ def stage_derivation(
         return
 
     episode_id = _stage_episode_id(case.case_id, stage.stage_id)
+    # Budget must be allocated the way production allocates it, or the ladder
+    # measures a budget nobody ships.  `intelligence/api/app.py:366` hands the
+    # adapter `GLMAgentRuntime.synthesis_reserve_for_task`, which the adapter
+    # turns into a `synthesis_reserve` kwarg for the context factory
+    # (`continuous_turn_adapter.py:420`).  This ladder pre-builds its context in
+    # order to narrow the capability surface, and its context factory therefore
+    # swallows that kwarg — so the allocation has to happen here instead.
+    #
+    # Omitting it does not merely change a number, it silently disables a fix:
+    # the tier default is 20.0s (`research_contract.py:393`), exactly equal to
+    # `MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS`, so `_opening_planning_timeout` has
+    # nothing above the floor to lend the opening turn and becomes dead code.
+    # Production allocates 60s (75s for market_cause / market_watch), which is
+    # what makes the borrow real.
     source = build_episode_context(
         control.task_frame,
         task_id=episode_id,
@@ -384,6 +398,10 @@ def stage_derivation(
         timeout=case.timeout,
         today=case.as_of,
         latest_data_date=case.as_of,
+        synthesis_reserve=GLMAgentRuntime.synthesis_reserve_for_task(
+            tier=case.tier,
+            question_type=control.task_frame.question_type,
+        ),
         conversation_context="\n".join(
             f"{item['role']}: {item['content']}"
             for item in case.conversation_context
