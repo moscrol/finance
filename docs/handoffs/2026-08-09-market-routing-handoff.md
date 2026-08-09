@@ -2,9 +2,11 @@
 
 > **读法**：§1 是本轮做完的事与实测读数；§2 是**三条被推翻的前提**（我上一轮说错、这轮查实纠正的），
 > 后续任何人接手前先读它，否则会去"补"已经存在的东西；§3 是消融实验的全局盘子与本轮占的那一 part；
-> §4 是剩余 part 的交接口径与开工判据；§5 是等用户拍板的两件事。
+> §4 是剩余 part 的交接口径与开工判据；§5 是原「等用户拍板」两项的落地结果
+> （含两处对本文件上一版断言的纠正）。
 >
-> 分支 `fix/market-routing-default`，5 个提交，**未合 main**（等用户确认）。
+> 分支 `fix/market-routing-default`，6 个提交（含本文件），**已 FF 合入 `main` 并推送**
+> （`b93e4a00..6894e981`，2026-08-09 用户确认）。§5 的两项待办均已落地，见该节。
 
 ---
 
@@ -17,7 +19,7 @@
 
 ## 1. 本轮交付
 
-### 1.1 五个提交
+### 1.1 六个提交（第 6 个是本文件）
 
 | commit | 内容 |
 |---|---|
@@ -239,31 +241,56 @@ provider 延迟与预算耗尽都是外部变量。跑失败先按 §2.2 的预�
 
 ---
 
-## 5. 等用户拍板
+## 5. 原「等用户拍板」两项 — 均已落地（2026-08-09）
 
-### 5.1 `fix/market-routing-default` 5 个提交是否合 `main`
+### 5.1 合并与推送：已完成
 
-- FF 可行（`main` 无独有提交）
-- 改动面：`evidence_capabilities.py` / `task_frame.py` / `research_tool_registry.py`
-  + 2 个测试文件 + 1 个文档
-- 我改动的模块全绿；13 个全量失败已确认在改动面外（§1.4）
+`fix/market-routing-default` 的 6 个提交已 FF 合入 `main` 并推送
+（`b93e4a00..6894e981`）。合并前核对：与主树 37 个他人未提交改动**零文件交集**，
+合并后复查那 37 个文件仍在、未受影响。
 
-### 5.2 `agent-memory` auto-sync 是否排除 `60_dialogues/`
+⚠ 同一次 push 带上了 `main` 上**之前会话遗留的 23 个未推提交**（作者同为
+`linxiaoqi5111-del`）。它们此前已在 `main`，不是本轮引入；推 `main` 必然一并推送。
+接手人若在 `origin/main` 看到 08-09 之前的历史突然出现，是这个原因。
 
-已查清机制（**不是我提交的**）：
+### 5.2 `agent-memory` auto-sync：根因与原判断都不同，已修
 
-```
-launchd  com.a77.agent-memory-sync   StartInterval=180  RunAtLoad
-  → ~/bin/agent-memory-sync.sh
-     git add -A → commit "auto-sync: local edits <ts>" → pull --rebase → push origin main
-```
+**先纠正本文件上一版的两处错误断言**：
 
-两份 knevo 原文（约 47 万字符）已于 14:24 被它自动提交并推到 `origin/main`。
+1. ❌「两份 knevo 原文已推到 `origin/main`」——**没有**。实测两个提交
+   （`b50db773` / `5144c1f1`）当时只在本地。
+2. ❌ 把问题定义成"要不要排除 `60_dialogues/`"——排除只是止血，**不是根因**。
 
-三个选项：① 保持现状 ② 脚本里加 `60_dialogues/` 排除 ③ 原文改放 gitignore 目录。
+真实根因：脚本硬编码 `pull/push origin main`，但 vault worktree 的 HEAD 当时在
+`docs/session-tutor-first-principles`。于是每 180 秒把 feature 分支的 325 个提交
+逐个 rebase 到 `origin/main`，撞 `20_projects/finance-workspace-private.md` 冲突
+→ abort → 退出。**launchd 日志里这个错误 10770 次，最早 2026-06-29。**
+而 `git push origin main` 推的是本地 `main` 而非当前 HEAD，所以它从机制上
+永远不可能把 feature 分支的提交推上去——这解释了原文为何 commit 了却没到远端。
 
-⚠ 该脚本用的是 `git add -A`，与本仓 `AGENTS.md:74` 的"禁用 `git add -A`"纪律相反。
-在 vault 里风险低（单人单树），但如果以后 vault 也出现多 agent 并写，这会是同一类事故源。
+已做三件事：
+
+| 动作 | 位置 |
+|---|---|
+| 分支守卫：HEAD 非 `main` 就干净跳过（exit 0） | `~/bin/agent-memory-sync.sh` |
+| pathspec 排除 `60_dialogues`（新增/修改不再搭车） | 同上，`EXCLUDES=(':!60_dialogues')` |
+| `.gitignore` 补 `*.sqlite*` / `*.db` / `*.duckdb` | vault `main`（`90cfce34`） |
+
+两条路都实测：feature 分支 `[skip]` exit 0；真 `main` `Already up to date` exit 0。
+
+**vault 的内容搬迁另按四档做完，8 个提交已推**（`830485c0..20a4e172`）：
+工具链 3 个文件、`10_knowledge` 11 条、`70_tutor` 5 份（用户批准，补 `reviewed_at`）、
+`30_conventions` 2 份、`20_projects` 3 份（含一次三方合并，`main` 原有 216 行零缺失）。
+验收 `vault_lint` 115 passed / `graph_audit` 39 条无漂移。
+
+仍**刻意留在 feature 分支**、未进共享历史：`.foresight/**` 604 个运行时台账、
+3 份 `workbench.sqlite3`、`60_dialogues/` 459KB 原文、`可证伪点回检/` 8 个
+（该目录不在 `frontmatter-spec.md` 的 8 个法定 type 内且无 frontmatter，
+待定：给法定 type 或认定为派生产物不进 git）。
+
+⚠ 该脚本仍用 `git add -A`（已带 pathspec 排除），与本仓 `AGENTS.md:74` 的
+"禁用 `git add -A`"纪律相反。在 vault 里风险低（单人单树），但若 vault 以后
+也出现多 agent 并写，这会是同一类事故源。
 
 ---
 
