@@ -410,7 +410,49 @@ finish 阶段就没得写了。**这两者是零和的，不是各自独立的�
 **全部失败**。若真是 p90 尾部超时，按 §5.2 的分布应有约 8 成成功，6/6 全败的
 概率约 0.6%。**系统性失败，不是尾部。**
 
-### 5.8 仍然开着的
+### 5.8 装配缺口第三处：绝对截止（已修）与随后的稳定性采样
+
+补上 `deadline_expires_at`（对表控制面不变量第 5 条）后，**judge 第一次给出裁决**：
+S3 `semantic_status = repaired`，且它抓到的是真东西——草稿把「成长主线获得增量资金
+推动」写成可核验主因，而已绑定证据只支持指数/成交额/板块量价。
+
+**但那一次不可复现。** 同一 revision 连跑取样：
+
+| run | S1 结构 | S1 判卷 | S3 结构 | S3 判卷 |
+|---|---|---|---|---|
+| 1 | completed | unavailable | partial | **repaired** |
+| 2 | partial | unavailable | completed | unavailable |
+| 3 | completed | unavailable | partial | unavailable |
+| 4 | — | preflight blocked | — | — |
+| 5 | — | preflight blocked | — | — |
+
+**judge 成功率 1/6 个 rung-attempt。** 上一版据单次 `repaired` 写下的乐观口径按此更正：
+三处装配修复把系统从**「必然失败」推到「偶尔成功」，但没有一项是稳定的**。
+结构层同样不稳（S1 completed 2/3、S3 completed 1/3）。
+
+> ⚠ 一个**未解释**的模式：三次里**每次都恰好只有一条 rung completed**，从未两条都成、
+> 也从未两条都败。已排除最像的机制——root budget 按 rung 隔离（`episode_id` 唯一，
+> `stage_derivation` 的 `finally` 里 `release_root_budget`）。n=3 时「恰好一条」在独立
+> 假设下约 12.5%，**不足以断言相关性**。记录待观察，不作为结论。
+
+### 5.9 run 4/5 是被一条误导性错误吃掉的
+
+两次 preflight 报 `market_data_freshness: no market snapshot date available`，
+读起来像「数据没了」。**实际数据一直在**——事后立刻复查
+`latest_market_date()` 仍返回 `'2026-08-07'`。
+
+根因：`ask_blocks._market_data_asof` 对**三种不同情况返回同一个 `None`**——
+库文件不存在 / `try_connect_readonly` 不可用（并发占用）/ 表里查不到行。
+23:03 那一刻大概率是 DuckDB 被别的进程占着。
+
+preflight **拦住是对的**（fail closed，没伪造收据），错的是它把「此刻读不到库」
+说成「没有快照」。**这是本文第四次遇到同一族缺陷**：§3.1 的 `unavailable` 一词七义、
+§5.8 的 `_classify` 丢弃原始错误、§5.1 我自己的探针把 UA 问题报成上游故障，
+现在是这条。**一个信号承载多种成因，诊断就得靠猜。**
+
+代价具体：采样从 5 次掉到 3 次，而且是在我明确要"多采样再下结论"的那一步上。
+
+### 5.10 仍然开着的
 
 | 项 | 现状 |
 |---|---|
