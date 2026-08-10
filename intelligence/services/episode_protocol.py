@@ -301,6 +301,60 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
 }
 
 
+@dataclass(frozen=True)
+class RejectionResponse:
+    """一个拒收类别对应的**处置**——「诊断/决策解耦」里决策那一半。
+
+    上一个增量只做了分类（code → kind），三类在运行时仍走同一条路。本结构把
+    「怎么处置」也变成数据，于是分流规则可被单条测试钉住，而不是散在
+    ``agent_episode`` 的 except 分支里靠读代码推断。
+    """
+
+    reinject: bool
+    """是否把错误回灌给模型让它重写（族 A/C 一致：拒绝理由当工具结果进轨迹）。"""
+
+    allow_recovery: bool
+    """是否允许走 ``_recover_finalization``（另起一次收尾调用）。"""
+
+    stop_reason: str
+    """停下时记进收据的原因。INTEGRITY 单独命名，否则它在统计里和格式错混为一谈。"""
+
+
+# 类别 → 处置。**必须穷尽**，理由同 ``REJECTION_KINDS``：
+# book1 ch06 那条 ``withheld_error ∈ {...}`` 要求可恢复集合是明确枚举。
+#
+# INTEGRITY 不回灌、不恢复，是本表唯一与旧行为不同的一格：伪造证据哈希
+# （``forged_hash``）此前和「JSON 少个括号」一样能拿到一次重写机会。给一个
+# 编造了证据的模型第二次机会，等于把地基问题当格式问题处理——而回灌的内容
+# 就是「你编的哈希不在白名单里」，这恰好是在告诉它哪个哈希需要换。
+REJECTION_RESPONSES: dict[RejectionKind, RejectionResponse] = {
+    RejectionKind.FORMAT: RejectionResponse(
+        reinject=True, allow_recovery=True, stop_reason="invalid_model_finish"
+    ),
+    RejectionKind.SUBSTANCE: RejectionResponse(
+        reinject=True, allow_recovery=True, stop_reason="invalid_model_finish"
+    ),
+    RejectionKind.INTEGRITY: RejectionResponse(
+        reinject=False, allow_recovery=False, stop_reason="integrity_violation"
+    ),
+}
+
+
+def rejection_response(error: BaseException) -> RejectionResponse:
+    """把一个异常映射成处置。
+
+    非 ``EpisodeFinishRejection`` 的 ``ValueError``（来自本函数下游的第三方代码）
+    按 **FORMAT** 处理，即保持既有行为。刻意不按 INTEGRITY 兜底：未分类的东西
+    应当沿用旧路径，不该因为「不认识」就悄悄变得更严——那会让一次分类遗漏
+    表现成线上行为突变，且很难归因。
+    """
+
+    kind = getattr(error, "kind", None)
+    if isinstance(kind, RejectionKind):
+        return REJECTION_RESPONSES[kind]
+    return REJECTION_RESPONSES[RejectionKind.FORMAT]
+
+
 def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
 
@@ -577,9 +631,13 @@ def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
 
 __all__ = [
     "EpisodeFinish",
+    "EpisodeFinishRejection",
+    "RejectionKind",
+    "RejectionResponse",
     "build_episode_input",
     "build_episode_instructions",
     "expand_episode_snapshot_bindings",
     "finish_json_schema",
+    "rejection_response",
     "validate_episode_finish",
 ]

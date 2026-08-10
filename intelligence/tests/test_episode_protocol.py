@@ -540,3 +540,60 @@ def test_forged_hash_is_integrity_not_format() -> None:
         )
     assert bad_shape.value.code == "bindings_not_list"
     assert bad_shape.value.kind is RejectionKind.FORMAT
+
+
+def test_every_rejection_kind_has_a_disposition() -> None:
+    """每个类别都必须有明确处置——不允许「其余都算」。
+
+    对应 book1 ch06 那条熔断不变量 ``withheld_error ∈ {...}``：可恢复集合必须是
+    明确枚举。少一格不会报错，只会在运行时落进某个默认分支——那正是本轮要消除
+    的形状，所以用测试把穷尽性钉死，而不是靠 review 看出来。
+    """
+
+    from intelligence.services.episode_protocol import (
+        REJECTION_RESPONSES,
+        RejectionKind,
+    )
+
+    assert set(REJECTION_RESPONSES) == set(RejectionKind), (
+        "有类别没有登记处置，或登记了不存在的类别: "
+        f"{set(RejectionKind) ^ set(REJECTION_RESPONSES)}"
+    )
+
+
+def test_integrity_alone_is_denied_reinjection_and_recovery() -> None:
+    """伪造证据哈希不得获得重写机会——本轮唯一的行为变更，必须钉住。
+
+    改动前：``forged_hash`` 与「JSON 少个括号」走同一条路，都能拿到一次回灌。
+    而回灌的内容是「你给的哈希不在白名单里」——这等于在提示一个编造了证据的
+    模型「换个哈希再试」。格式滑档该给第二次机会，地基破坏不该。
+
+    这条也顺带钉住**另外两类仍然可回灌**：分流不是「全都变严」，
+    否则会牺牲 FORMAT/SUBSTANCE 本来正确的宽容度。
+    """
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        rejection_response,
+    )
+
+    integrity = rejection_response(EpisodeFinishRejection("forged_hash", "x"))
+    assert integrity.reinject is False
+    assert integrity.allow_recovery is False
+    # 单独命名：否则地基破坏在收据统计里与普通格式错混为一谈。
+    assert integrity.stop_reason == "integrity_violation"
+
+    for code in ("bindings_not_list", "missing_evidence"):
+        response = rejection_response(EpisodeFinishRejection(code, "x"))
+        assert response.reinject is True, f"{code} 应保留回灌"
+        assert response.allow_recovery is True, f"{code} 应保留收尾恢复"
+        assert response.stop_reason == "invalid_model_finish"
+
+    # 非本模块抛出的 ValueError 按 FORMAT 兜底 = 沿用旧行为。刻意不按 INTEGRITY
+    # 兜底：一次分类遗漏不该表现成线上突然变严，那种回归极难归因。
+    fallback = rejection_response(ValueError("来自下游第三方代码"))
+    assert fallback.reinject is True
+    assert fallback.allow_recovery is True
+    assert rejection_response(ValueError("x")) is rejection_response(
+        EpisodeFinishRejection("bad_status", "x")
+    ), "未分类异常必须与 FORMAT 得到同一处置对象"
