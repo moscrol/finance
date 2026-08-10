@@ -158,6 +158,25 @@ financial_data 0.02s │ mainline_context 0.04s │ evidence_lookup 0.00s │ me
 
 #### 🔴 主方差源不是预算配置，是 provider 的出参长度（2026-08-10 午）
 
+> ⛔ **本小节的证据在 2026-08-10 晚被推翻，结论未经验证，别照着做（见下方两条）。**
+>
+> **① 8338 token 是探针自己要来的。** `probe_provider_latency.py:48` 的长输出指令是
+> `LONG_INSTRUCTION = "请据此写一份尽可能详尽的市场结构分析。"`——「尽可能详尽」是
+> 输出量约束的**反面**，而且它不带 episode 的任何契约。它测的是 provider 自由发挥的
+> 天花板，不是 composer 实际被要求写多长。**测量条件与生产相反**，与本文档上面刚
+> 作废的 `evidence_search` 那节是同一个错。
+>
+> **② 「prompt 侧输出量约束未做」是假缺口，它一直都在，而且在生效。** 两处：
+> `episode_protocol.py:192`（常驻 system prompt）与 `agent_episode.py:1584`（收尾催促），
+> 都写着「draft 控制在 1000 汉字以内」。本轮所有真正产出草稿的样本是
+> **419 / 357 / 441 / 486 / 482 字符**，没有一个逼近上限。
+>
+> 所以「继续调预算收益有限」这个推论**没有证据支撑**——它建立在一个没测过的前提上。
+> 要重新立论，必须把 episode 真实的 system+user prompt 发出去测出参长度，而不是发
+> 「尽可能详尽」。
+>
+> 教训还是那条：**负面断言（"X 没做"）要先全树 grep**。这次两句都没搜就写了。
+
 **这条改变优先级，先读它再决定要不要继续调预算。**
 
 同一个 prompt 形态、同一条中转、同一个模型，三次探针的出参长度：
@@ -177,8 +196,9 @@ financial_data 0.02s │ mainline_context 0.04s │ evidence_lookup 0.00s │ me
 的随机性。当主方差源是出参长度时，继续微调 judge 窗口 / 工具超时的收益有限——
 它们改的是分蛋糕，而蛋糕大小本身在 2 倍区间里跳。
 
-**真正的杠杆在 prompt 侧的输出量约束**（ch4「粒度、输出量控制、显式截断」那条），
-不是请求参数——参数这条路已被实测堵死。**未做，留给下一轮。**
+~~**真正的杠杆在 prompt 侧的输出量约束**（ch4「粒度、输出量控制、显式截断」那条），
+不是请求参数——参数这条路已被实测堵死。**未做，留给下一轮。**~~
+🔁 **已撤销**：约束早就做了（见本节顶部 ⛔ 块的 ②），这条「下一步」没有对象。
 
 （另：本轮 judge 首窗 25→30 的改动 **仍未经 live 验证**，见下方 §4.1 的说明。）
 
@@ -341,6 +361,36 @@ financial_data 0.02s │ mainline_context 0.04s │ evidence_lookup 0.00s │ me
 > **judge 一次都没被调用**（收据 `judge_calls` 为空）——草稿在首轮就超时了，
 > 根本没轮到 judge。原因见上方「主方差源是出参长度」那节（那两次探针实测 8338
 > token / 156s）。**这两次跑与本改动无关，不能用作证据，也不能用作反证。**
+>
+> 🔁 **2026-08-10 晚更正：「草稿在首轮就超时」是误读，收据自己就否掉了它。**
+>
+> `judge30-run1/run2` 四个 case 的 `trajectory`，3 个是这个形状：
+>
+> ```
+> task → model_turn → tool_request → tool_result → finalization → model_turn
+>      → runtime_result → finish → repair_goal → repair_reentry → model_turn → model_error
+> ```
+>
+> **首轮 model_turn 成功了**（它发出了 tool_request），finalization 也走到了 `finish`
+> ——草稿是生出来过的。`model_error` 落在 **repair 重入轮**。
+>
+> `draft_chars` 会骗人是因为它取的是**最终** outcome（`run_episode_seam_ladder.py:784`），
+> 而修复轮失败时 `_stopped_outcome` 返回 `draft=""` / `bindings=()`，
+> `continuous_turn_adapter` 那行 `outcome, structural, _ = repaired` 又是**无条件替换**
+> ——好草稿被顶掉了。语义验证随后拿到空草稿 → `unavailable`，judge 自然一次没跑。
+>
+> **已修（commit `9a87c2dd`）**：`_stopped_outcome` 增加 `carried_draft`/`carried_bindings`，
+> `resume()` 七个失败出口全部结转上一轮的草稿与绑定；适配器加同一条不变量兜底
+> （`openai_agents_runtime` / `codex_headless_runtime` 各自还有一个 `draft=""` 出口，
+> 适配器是共同下游）。两个测试先红后绿。
+>
+> **仍未回答的是「repair 轮为什么超时」。** 已补上诊断字段：`repair_reentry` 事件现记
+> `granted_seconds` / `timeout_asked` / `timeout_configured` / `previous_draft_chars`，
+> 收据出 `repair_calls`。判读方式与 judge 那次相同——
+> `timeout_asked` 远小于 `timeout_configured` 说明修复轮进场时时钟已被耗光，
+> 此时加预算没用；两者接近才轮到怀疑 provider 本身慢。
+> 注意 `repair_deadline` 的 `synthesis_reserve` 是 **0**（`agent_episode.py:1001`），
+> 拿到的就是纯残余时钟，塌缩的先验概率不低。**下一次 live 跑完先读这个字段。**
 
 配套把两条测试从写死秒数改成断言**不变量**
 （`calls[0] <= window*0.5`、`sum(calls) <= window`），
@@ -438,6 +488,21 @@ export LLM_JUDGE_API_KEY='<cockpit key>'
 > 📌 长输出 39 tok/s 这个数**只有 2 个样本**，不足以断言"provider 劣化了"，
 > 可能就是噪声。不依赖样本量的那半条才是要紧的：
 > **83.3s 与 111.1s 都超过首轮 75s 硬顶**——这一条就足以解释 S1 的 `draft_chars=0`。
+
+### 4.5 下一步：读 `repair_calls`，别再猜（2026-08-10 晚新增）
+
+开工判据很窄，一次 live 就能定向：
+
+| `repair_calls[0]` 的读数 | 结论 | 该做什么 |
+|---|---|---|
+| `timeout_asked` ≪ `timeout_configured` | 修复轮进场时时钟已被前面耗光 | 动的是**上游**谁在吃时钟，不是给修复轮加预算 |
+| `timeout_asked` ≈ `timeout_configured`（≈75s）仍超时 | provider 在修复轮真的写不完 | 才轮到出参长度这条线，且要用**真实 episode prompt** 测，不是「尽可能详尽」 |
+| `previous_draft_chars` >0 而最终 `draft_chars` =0 | 结转又被谁清掉了 | 回归，`9a87c2dd` 的不变量被绕过了 |
+
+配套还要注意：`repair_model_unavailable` **不在** `_TERMINAL_REPAIR_STOP_REASONS`
+里（`continuous_turn_adapter.py:56`），所以 provider 超时后修复循环还会再试，
+受 `max_repair_cycles` 与根截止约束。这次没改它——是否该把它列为终止条件，
+等 `repair_calls` 的读数出来再判断，别先动。
 
 ### 4.4 其余（按证据强度递减）
 
