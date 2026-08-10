@@ -168,6 +168,50 @@ def new_run_id(now: datetime | None = None) -> str:
     return f"run_{dt.strftime('%Y%m%d_%H%M%S_%f')}"
 
 
+def build_trace_step(
+    *,
+    step_id: str,
+    name: str,
+    status: str,
+    input_summary: str = "",
+    output_summary: str = "",
+    started_at: str | None = None,
+    finished_at: str | None = None,
+    warnings: list[str] | None = None,
+    tokens: int | None = None,
+    retrieval: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """构造一条 trace step（纯函数，不落盘）。
+
+    为什么单独拆出来：``trace.jsonl`` 的字段形状是 `agent-run-triage` 这类
+    分诊工具的输入契约。生产由 ``RunStore.append_step`` 写，离线试验台
+    （``run_episode_seam_ladder``）也要写同样的东西——**但绝不能各写各的**。
+    两份定义一旦漂移，分诊工具就只能认其中一份，而"试验台产出的东西生产工具
+    读不了"恰恰是这套试验台反复吃亏的地方。
+
+    所以这里是 schema 的**唯一定义处**，落盘方式（追加进 run 目录 / 写到试验台
+    产物旁边）才是各自的事。脱敏在构造时完成，不留给调用方。
+    """
+
+    if status not in STEP_STATUSES:
+        raise ValueError(f"非法 step status：{status!r}（允许：{STEP_STATUSES}）")
+    step: dict[str, Any] = {
+        "step_id": step_id,
+        "name": name,
+        "status": status,
+        "started_at": started_at or _now_iso(),
+        "finished_at": finished_at,
+        "input_summary": redact(input_summary),
+        "output_summary": redact(output_summary),
+        "warnings": [redact(w) for w in (warnings or [])],
+    }
+    if tokens is not None:
+        step["tokens"] = tokens
+    if retrieval is not None:
+        step["retrieval"] = retrieval
+    return step
+
+
 @dataclass
 class Artifact:
     """一个产物文件的登记信息（文件本体在 run 目录内，path 为相对 run 目录）。"""
@@ -270,22 +314,18 @@ class RunStore:
         tokens: int | None = None,
         retrieval: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        if status not in STEP_STATUSES:
-            raise ValueError(f"非法 step status：{status!r}（允许：{STEP_STATUSES}）")
-        step = {
-            "step_id": step_id,
-            "name": name,
-            "status": status,
-            "started_at": started_at or _now_iso(),
-            "finished_at": finished_at,
-            "input_summary": redact(input_summary),
-            "output_summary": redact(output_summary),
-            "warnings": [redact(w) for w in (warnings or [])],
-        }
-        if tokens is not None:
-            step["tokens"] = tokens
-        if retrieval is not None:
-            step["retrieval"] = retrieval
+        step = build_trace_step(
+            step_id=step_id,
+            name=name,
+            status=status,
+            input_summary=input_summary,
+            output_summary=output_summary,
+            started_at=started_at,
+            finished_at=finished_at,
+            warnings=warnings,
+            tokens=tokens,
+            retrieval=retrieval,
+        )
         with self.trace_path(run_id).open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(step, ensure_ascii=False) + "\n")
         return step

@@ -63,6 +63,7 @@ from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolRunResult,
 )
+from intelligence.services.run_store import build_trace_step
 from scripts.smoke_workbench_self_use import _atomic_write_json
 
 _VALID_TIERS = frozenset({"quick", "standard", "deep"})
@@ -671,6 +672,100 @@ def _classify_failure(exc: BaseException) -> tuple[str, str]:
     return "tool_or_data", f"{type(exc).__name__}: {exc}"
 
 
+_TRACE_FAILED_EVENT_KINDS = frozenset(
+    {"model_error", "tool_error", "invalid_action"}
+)
+_TRACE_SUMMARY_MAX_CHARS = 2000
+
+
+def episode_trace_steps(
+    events: object,
+    *,
+    case_id: str,
+    stage_id: str,
+) -> list[dict[str, object]]:
+    """Project one episode's event ledger onto the production trace schema.
+
+    为什么要有这个：``agent-run-triage`` 那类分诊工具的输入门闩是「有中间
+    step/span」，只给最终答案会被判 ``INSUFFICIENT_TRACE``。生产每次跑都写
+    ``trace.jsonl``（``run_store``），而这个试验台此前只在收据里留一串**事件
+    名字**——名字能告诉你哪一步、不能告诉你为什么。2026-08-10 那次误诊
+    （把修复轮的失败读成首轮超时）就卡在这里。
+
+    与 ``run_store.append_step`` 共用 ``build_trace_step`` 这一个 schema 定义，
+    不另起格式；否则分诊工具只认生产那份，试验台产出照样没人能读。
+
+    时间的取法：每条事件自带发生时刻（``payload["at"]``），**下一条事件的时刻
+    就是这一步的结束时刻**。相邻差值即耗时，不需要给每步单独开 span。
+    """
+
+    if not isinstance(events, (list, tuple)):
+        return []
+    ordered = [item for item in events if isinstance(item, Mapping)]
+    steps: list[dict[str, object]] = []
+    for index, event in enumerate(ordered):
+        payload = dict(event.get("payload") or {})
+        started_at = str(payload.pop("at", "") or "") or None
+        # 每条事件都带同一个 task_frame_hash，逐条重复没有信息量。
+        payload.pop("task_frame_hash", None)
+        finished_at: str | None = None
+        if index + 1 < len(ordered):
+            next_payload = ordered[index + 1].get("payload") or {}
+            finished_at = str(next_payload.get("at") or "") or None
+        kind = str(event.get("kind") or "")
+        summary = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        if len(summary) > _TRACE_SUMMARY_MAX_CHARS:
+            # ``model_turn`` 的 payload 含整段消息正文，不截断会把 trace 撑爆。
+            # 截断长度写进串里，免得下游把「被截了」读成「模型只说了这些」。
+            summary = (
+                summary[:_TRACE_SUMMARY_MAX_CHARS]
+                + f"…[truncated from {len(summary)} chars]"
+            )
+        sequence = event.get("sequence")
+        ordinal = sequence if isinstance(sequence, int) else index + 1
+        steps.append(
+            build_trace_step(
+                step_id=f"{stage_id}:{case_id}:{ordinal:03d}",
+                name=kind,
+                status=(
+                    "failed" if kind in _TRACE_FAILED_EVENT_KINDS else "completed"
+                ),
+                output_summary=summary,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+        )
+    return steps
+
+
+def write_trace_sidecar(artifact: Mapping[str, object], output: Path) -> Path | None:
+    """把各 record 的 trace_steps 移出到 ``<收据>.trace.jsonl``。
+
+    移出而不是复制：收据是给人读的汇总，trace 是给分诊工具读的流水。把逐步
+    payload 留在收据里会让它从 15KB 涨到几百 KB，而那正是当初决定「只存事件
+    名字」的原因——这次是把内容换个地方存，不是塞回原处。
+    """
+
+    steps: list[dict[str, object]] = []
+    for stage in artifact.get("stages") or ():
+        if not isinstance(stage, Mapping):
+            continue
+        for record in stage.get("results") or ():
+            if not isinstance(record, dict):
+                continue
+            steps.extend(record.pop("trace_steps", None) or [])
+    if not steps:
+        return None
+    path = Path(output).with_suffix(".trace.jsonl")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(
+        "".join(json.dumps(step, ensure_ascii=False) + "\n" for step in steps),
+        encoding="utf-8",
+    )
+    tmp.replace(path)
+    return path
+
+
 def run_offline_stage_case(
     case: SeamLadderCase,
     control: object,
@@ -835,6 +930,13 @@ def run_offline_stage_case(
                 # 误诊的）；两者接近才轮到怀疑 provider 本身慢。
                 # ``previous_draft_chars`` 是这一轮拿去冒险的东西——它 >0 而最终
                 # ``draft_chars`` 也 >0，才说明结转生效了。
+                # 逐步流水，落盘时会被 write_trace_sidecar 移出到
+                # <收据>.trace.jsonl，收据本身不留它。
+                "trace_steps": episode_trace_steps(
+                    outcome.get("events"),
+                    case_id=case.case_id,
+                    stage_id=derived.stage.stage_id,
+                ),
                 "repair_calls": [
                     {
                         key: (event.get("payload") or {}).get(key)
@@ -1317,6 +1419,13 @@ def run_live_stage_case(
                 # 两者接近才轮到怀疑 provider 本身慢。
                 # ``previous_draft_chars`` 是这一轮拿去冒险的东西：它 >0 时最终
                 # ``draft_chars`` 也应 >0，否则说明结转又被谁清掉了。
+                # 逐步流水，落盘时会被 write_trace_sidecar 移出到
+                # <收据>.trace.jsonl，收据本身不留它。
+                "trace_steps": episode_trace_steps(
+                    outcome.get("events"),
+                    case_id=case.case_id,
+                    stage_id=derived.stage.stage_id,
+                ),
                 "repair_calls": [
                     {
                         key: (event.get("payload") or {}).get(key)
@@ -1534,7 +1643,10 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     if not args.live:
         artifact = run_offline_ladder(args.questions)
         if args.output is not None:
+            trace_path = write_trace_sidecar(artifact, Path(args.output))
             _atomic_write_json(args.output, artifact)
+            if trace_path is not None:
+                print(f"trace written to {trace_path}")
         _print_ladder(artifact)
         return 0
 
@@ -1553,7 +1665,11 @@ def main(argv: tuple[str, ...] | None = None) -> int:
         providers=providers,
         preflight=preflight,
     )
+    # 先移出 trace 再写收据：顺序反了收据里就会留一份逐步 payload 副本。
+    trace_path = write_trace_sidecar(artifact, Path(output))
     _atomic_write_json(output, artifact)
+    if trace_path is not None:
+        print(f"trace written to {trace_path}")
     if not preflight.ready:
         for failure in preflight.failures:
             print(f"preflight: {failure}")

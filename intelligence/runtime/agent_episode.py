@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 import json
 import os
 from time import monotonic
@@ -183,6 +184,13 @@ class _EpisodeLedger:
     def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
         event_payload = dict(payload)
         event_payload["task_frame_hash"] = self._task_frame_hash
+        # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
+        # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
+        #
+        # 放进 payload 而不是给 EpisodeEvent 加字段：``task_frame_hash`` 已经是
+        # 同样的做法，而 EpisodeEvent 是 services 层的冻结 dataclass，被所有
+        # runtime 共用，加字段的爆炸半径大得多。
+        event_payload["at"] = datetime.now().astimezone().isoformat(timespec="milliseconds")
         event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
         self.events.append(event)
         if self._event_sink is not None:

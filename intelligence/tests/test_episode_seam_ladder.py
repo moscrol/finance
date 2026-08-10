@@ -661,3 +661,121 @@ def test_live_runs_only_the_two_designated_rungs() -> None:
     cases = {case.case_id for case in ladder.load_cases(FIXTURE)}
     for _stage_id, case_id in ladder.LIVE_STAGE_CASES:
         assert case_id in cases
+
+
+def _event(sequence: int, kind: str, payload: dict) -> dict:
+    return {"sequence": sequence, "kind": kind, "payload": payload}
+
+
+def test_trace_step_duration_comes_from_the_next_events_clock() -> None:
+    """一步的结束时刻 = 下一步的开始时刻，所以相邻差值就是耗时。
+
+    这是「哪一步吃掉了时钟」唯一能被 trace 直接回答的形式；每步单开 span 才
+    是更贵的做法。最后一步没有下一条，``finished_at`` 必须为空而不是补一个
+    当前时间——否则它会凭空多出一段耗时。
+    """
+
+    steps = ladder.episode_trace_steps(
+        [
+            _event(1, "model_turn", {"at": "2026-08-10T12:00:00.000+08:00"}),
+            _event(2, "tool_request", {"at": "2026-08-10T12:00:18.500+08:00"}),
+            _event(3, "finish", {"at": "2026-08-10T12:00:20.000+08:00"}),
+        ],
+        case_id="c1",
+        stage_id="S1",
+    )
+
+    assert [step["step_id"] for step in steps] == [
+        "S1:c1:001",
+        "S1:c1:002",
+        "S1:c1:003",
+    ]
+    assert steps[0]["started_at"] == "2026-08-10T12:00:00.000+08:00"
+    assert steps[0]["finished_at"] == "2026-08-10T12:00:18.500+08:00"
+    assert steps[2]["finished_at"] is None
+
+
+def test_trace_marks_only_error_events_as_failed() -> None:
+    """状态要能直接筛出「第一处出错」，这是分诊工具的入口。"""
+
+    steps = ladder.episode_trace_steps(
+        [
+            _event(1, "model_turn", {"at": "2026-08-10T12:00:00.000+08:00"}),
+            _event(2, "model_error", {"reason": "TimeoutError"}),
+            _event(3, "tool_error", {"error": "tool_timeout"}),
+            _event(4, "finish", {}),
+        ],
+        case_id="c1",
+        stage_id="S3",
+    )
+
+    assert [step["status"] for step in steps] == [
+        "completed",
+        "failed",
+        "failed",
+        "completed",
+    ]
+    assert "TimeoutError" in str(steps[1]["output_summary"])
+
+
+def test_trace_summary_drops_repeated_hash_and_flags_truncation() -> None:
+    """截断长度要写进串里，否则下游会把「被截了」读成「模型只说了这些」。"""
+
+    long_content = "多" * (ladder._TRACE_SUMMARY_MAX_CHARS + 500)
+    steps = ladder.episode_trace_steps(
+        [
+            _event(
+                1,
+                "model_turn",
+                {
+                    "at": "2026-08-10T12:00:00.000+08:00",
+                    "task_frame_hash": "abc123",
+                    "content": long_content,
+                },
+            )
+        ],
+        case_id="c1",
+        stage_id="S1",
+    )
+
+    summary = str(steps[0]["output_summary"])
+    assert "abc123" not in summary, "逐条重复的 task_frame_hash 没有信息量"
+    assert '"at"' not in summary, "时刻已经进了 started_at，不该在摘要里重复"
+    assert "truncated from" in summary
+
+
+def test_trace_sidecar_moves_steps_out_of_the_receipt(tmp_path: Path) -> None:
+    """移出而不是复制：收据留逐步 payload 就会从十几 KB 涨到几百 KB。"""
+
+    receipt = tmp_path / "run.json"
+    artifact = {
+        "stages": [
+            {
+                "results": [
+                    {
+                        "case_id": "c1",
+                        "trace_steps": ladder.episode_trace_steps(
+                            [_event(1, "task", {"at": "2026-08-10T12:00:00.000+08:00"})],
+                            case_id="c1",
+                            stage_id="S1",
+                        ),
+                    }
+                ]
+            }
+        ]
+    }
+
+    path = ladder.write_trace_sidecar(artifact, receipt)
+
+    assert path == tmp_path / "run.trace.jsonl"
+    assert "trace_steps" not in artifact["stages"][0]["results"][0]
+    lines = path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["step_id"] == "S1:c1:001"
+
+
+def test_trace_sidecar_is_absent_when_there_were_no_steps(tmp_path: Path) -> None:
+    """空 trace 不能写出一个空文件——分诊工具会把它当作「跑过但没有步骤」。"""
+
+    assert ladder.write_trace_sidecar({"stages": []}, tmp_path / "run.json") is None
+    assert not (tmp_path / "run.trace.jsonl").exists()

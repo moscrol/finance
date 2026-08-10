@@ -2239,7 +2239,13 @@ def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
         for event in outcome.events
         if event.kind == "finalization_recovery_outcome"
     )
-    assert recovery_outcome.payload == {
+    # 剔除 ``at``（事件挂钟时刻）后再比：其余字段仍要求逐字相等，
+    # 但断言本身不能依赖时钟，否则每次跑都不一样。
+    assert {
+        key: value
+        for key, value in recovery_outcome.payload.items()
+        if key != "at"
+    } == {
         "task_frame_hash": frame.task_frame_hash,
         "status": "failed",
         "reason": "finalization_recovery_deadline_exhausted",
