@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -72,9 +73,12 @@ _EPISODE_SCOPED = frozenset({"market_data", "financial_data", "mainline_context"
 
 # finance_query 要的是结构化 spec 而不是一句话。给一个最小合法示例，够跑通即可；
 # 真要试别的切片用 --finance-spec 传自己的 JSON。
+# 注意字段必须属于所选 dataset：``market_daily`` 的成交额叫 ``total_amount``，
+# ``amount`` 是 sector_*/stock_daily 那几张的字段——第一版就写错了这个，
+# 而 ``validation_retry_hint`` 会跨 dataset 指出归属，照它改即可。
 _DEFAULT_FINANCE_SPEC: dict[str, object] = {
     "dataset": "market_daily",
-    "metrics": ["amount"],
+    "metrics": ["total_amount"],
     "dimensions": ["trade_date"],
     "limit": 5,
 }
@@ -90,8 +94,10 @@ def _arguments_for(tool: str, query: str, finance_spec: str | None):
     if tool == "finance_query":
         return json.loads(finance_spec) if finance_spec else _DEFAULT_FINANCE_SPEC
     if tool in _EPISODE_SCOPED:
-        # 这类工具的取值范围由 task frame 定，runner 忽略 query。
-        return ""
+        # 这类工具的取值范围由 task frame 定，``parse_snapshot_arguments`` 要求
+        # 参数为空。必须传空 dict 而**不能**传空字符串——``prepare`` 会把任何
+        # str 包成 ``{"query": ...}``，空串也一样，于是校验判定为「传了参数」。
+        return {}
     return query
 
 
@@ -150,6 +156,7 @@ def probe(
     timeout: float,
     as_of: str | None,
     finance_spec: str | None,
+    memory_user: str | None = None,
 ) -> dict:
     """构造生产同款的 frame/context/registry，然后只调这一个工具。"""
 
@@ -183,7 +190,14 @@ def probe(
                     f"{control.task_frame.question_type}）。换个 --question 再试。"
                 ),
             }
-        registry = build_episode_registry(control.task_frame, context)
+        # memory_user 不传则 memory_lookup **根本不会被注册**（episode_tools 里
+        # 「缺身份就不注册」是刻意的：多用户服务端上回落到 default 等于每个人
+        # 都去读同一份私有台账）。试验场要能测到它，就得把身份显式传进来。
+        registry = build_episode_registry(
+            control.task_frame,
+            context,
+            memory_user=memory_user,
+        )
         # 关键：给一条**独立且充裕**的 deadline。工具真实耗时才是这里要测的量，
         # 复用 episode 那条递减预算会把「工具慢」和「轮到它时没时间了」搅在一起。
         context = replace(
@@ -227,6 +241,11 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=120.0, help="给工具的独立预算")
     parser.add_argument("--as-of", default=None, help="数据截止日 YYYY-MM-DD")
     parser.add_argument("--finance-spec", default=None, help="finance_query 用的 JSON spec")
+    parser.add_argument(
+        "--memory-user",
+        default=os.environ.get("FORESIGHT_USER"),
+        help="memory_lookup 读谁的私有台账（默认取 FORESIGHT_USER）；不给则该工具不注册",
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -263,6 +282,7 @@ def main() -> int:
                 timeout=args.timeout,
                 as_of=args.as_of,
                 finance_spec=args.finance_spec,
+                memory_user=args.memory_user,
             )
         except Exception:  # noqa: BLE001 - 一个工具炸了不该中断整轮
             print("  构造失败：")
