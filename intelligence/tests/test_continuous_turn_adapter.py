@@ -484,6 +484,119 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.private_artifact["repair_cycles"] == 1
 
 
+def test_adapter_keeps_the_answer_when_a_repair_comes_back_empty() -> None:
+    """修复候选比原件更差时，适配器不得无条件接受它。
+
+    ``agent_episode`` 那边已经改成结转草稿，但 ``draft=""`` 的失败出口在
+    ``openai_agents_runtime``/``codex_headless_runtime`` 里还各有一处。适配器的
+    ``outcome, structural, delivery_only = repaired`` 是所有 runtime 的共同下游，
+    这条不变量放在这里，一次覆盖全部实现。
+    """
+
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-repair-regression",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但反方仍待确认",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="resume-evidence-1",
+        supports=("direct_assessment", "counterpoint"),
+        independent_key="market",
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，但反方证据仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("resume-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    # 未修的 runtime 在修复轮 provider 超时后返回的就是这个形状。
+    degraded = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint", "LLM 调用失败（TimeoutError）"),
+        stop_reason="repair_model_unavailable",
+        # 真实事件序列：修复轮先记 model_turn，再记 model_error，最后走
+        # ``_stopped_outcome`` 的 runtime_result/finish。少了 model_turn 这一条，
+        # ``CallbackEpisodeSession`` 会先以「未产生新模型动作」拒收，测到的就不是
+        # 适配器了。
+        events=(
+            *initial_events,
+            EpisodeEvent(3, "repair_reentry", {"cycle": 1}),
+            EpisodeEvent(4, "model_turn", {"phase": "repair"}),
+            EpisodeEvent(5, "model_error", {"reason": "LLM 调用失败（TimeoutError）"}),
+            EpisodeEvent(6, "finish", {"stop_reason": "repair_model_unavailable"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(2, 1, 0),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                del previous, goal
+                return degraded
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="partial",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    outcome = result.private_artifact["outcome"]
+    assert outcome["draft"] == initial.draft
+    assert outcome["bindings"], "绑定和草稿要一起保住，否则结构验证仍会判定全缺"
+    # 失败本身仍要留痕。
+    assert any("TimeoutError" in gap for gap in outcome["gaps"])
+
+
 def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
     frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
     control = _control(

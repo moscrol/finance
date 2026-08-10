@@ -1004,12 +1004,26 @@ class ContinuousAgentEpisode:
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
         ledger.add("repair_goal", goal.to_dict())
+        # 修复轮的时钟账，记在动手之前。
+        #
+        # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
+        # 实际 asked 已经塌到 6.67/3.33/2.07 秒——是被前面耗光的，不是配置给小了。
+        # 修复轮同样是 ``min(configured, remaining)``，而 ``repair_deadline`` 的
+        # ``synthesis_reserve`` 是 0，拿到的就是纯残余时钟。没有这三个数，收据里只剩
+        # 一个 TimeoutError，分不清「时钟被前面吃光」还是「provider 这次真慢」。
+        repair_timeout_asked = repair_deadline.stage_timeout(self._llm_timeout)
         ledger.add(
             "repair_reentry",
             {
                 "episode_id": goal.episode_id,
                 "repair_goal_id": goal.repair_goal_id,
                 "cycle": goal.cycle,
+                "granted_seconds": repair_seconds,
+                "timeout_asked": repair_timeout_asked,
+                "timeout_configured": float(self._llm_timeout),
+                "research_tools_open": research_tools_open,
+                # 这一轮拿什么去冒险：失败时它会被原样结转，不再归零。
+                "previous_draft_chars": len(previous.draft),
             },
         )
         messages.append(
@@ -1036,7 +1050,7 @@ class ContinuousAgentEpisode:
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
         invalid_actions = previous.usage.invalid_actions
-        timeout = repair_deadline.stage_timeout(self._llm_timeout)
+        timeout = repair_timeout_asked
         if timeout <= 0.001:
             return self._stopped_outcome(
                 task_frame=task_frame,
@@ -1050,6 +1064,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried_draft=previous.draft,
+                carried_bindings=previous.bindings,
             )
         definitions = (
             self._available_tool_definitions(
@@ -1084,6 +1100,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried_draft=previous.draft,
+                carried_bindings=previous.bindings,
             )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
@@ -1099,6 +1117,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried_draft=previous.draft,
+                carried_bindings=previous.bindings,
             )
         if turn.tool_calls:
             batch_started = monotonic()
@@ -1153,6 +1173,8 @@ class ContinuousAgentEpisode:
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
+                    carried_draft=previous.draft,
+                    carried_bindings=previous.bindings,
                 )
             final_started = monotonic()
             final_turn = self._model.complete(
@@ -1177,6 +1199,8 @@ class ContinuousAgentEpisode:
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
+                    carried_draft=previous.draft,
+                    carried_bindings=previous.bindings,
                 )
             turn = final_turn
         if turn.error or turn.tool_calls:
@@ -1193,6 +1217,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried_draft=previous.draft,
+                carried_bindings=previous.bindings,
             )
         try:
             finish = validate_episode_finish(
@@ -1215,6 +1241,8 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                carried_draft=previous.draft,
+                carried_bindings=previous.bindings,
             )
         bindings = expand_episode_snapshot_bindings(
             bindings=finish.bindings,
@@ -1274,7 +1302,6 @@ class ContinuousAgentEpisode:
             plan=ledger.plan,
         )
 
-    @staticmethod
     @staticmethod
     def _remaining_tool_slots(
         *,
@@ -1925,7 +1952,21 @@ class ContinuousAgentEpisode:
         llm_calls: int,
         tool_calls: int,
         invalid_actions: int,
+        carried_draft: str = "",
+        carried_bindings: tuple[OutputEvidenceBinding, ...] = (),
     ) -> AgentOutcome:
+        """Stop this episode, optionally carrying an earlier answer forward.
+
+        ``run()`` 停在这里时没有更早的答案可留，两个 carried 参数保持空——
+        行为与本参数加入前逐字相同。
+
+        ``resume()`` 不一样：修复轮进来时上一轮**已经**有草稿和绑定了。修复是
+        fix-forward，不是重跑；provider 在修复轮超时并不能让上一轮的答案失效。
+        默认空会把「partial 但有答案」降级成「什么都没有」，比不修更差——
+        2026-08-10 生产线四个 case 的 ``draft_chars=0`` 就是这么来的
+        （trajectory 里 ``finalization -> finish`` 明明走过）。
+        """
+
         final_gaps = list(gaps)
         ContinuousAgentEpisode._extend_unique(final_gaps, (gap,))
         ledger.record_runtime_result()
@@ -1935,18 +1976,21 @@ class ContinuousAgentEpisode:
                 "status": status,
                 "stop_reason": stop_reason,
                 "gaps": final_gaps,
+                # 留档结转了多长的草稿：收据里的 draft_chars 取的是最终 outcome，
+                # 没有这一行就分不清「从没生成过」和「生成了但修复轮丢了」。
+                "carried_draft_chars": len(carried_draft),
             },
         )
         return AgentOutcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
-            draft="",
+            draft=carried_draft,
             evidence=tuple(evidence),
             traces=tuple(traces),
             gaps=tuple(final_gaps),
             stop_reason=stop_reason,
             events=tuple(ledger.events),
-            bindings=(),
+            bindings=carried_bindings,
             usage=_agent_usage(
                 ledger,
                 llm_calls=llm_calls,

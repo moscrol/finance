@@ -9,7 +9,7 @@ verification gates.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 import os
 import re
@@ -887,6 +887,22 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
+        # 修复不得倒退：修复轮死在 provider 上时，上一轮那份答案并没有因此失效。
+        #
+        # 下面那行 ``outcome, structural, _ = repaired`` 是无条件替换，所以一个空
+        # 草稿的候选会把「partial 但有答案」变成「什么都没有」——2026-08-10 生产线
+        # 四个 case 的 ``draft_chars=0`` 就是这么来的。``agent_episode`` 已在源头
+        # 结转，但 ``openai_agents_runtime`` / ``codex_headless_runtime`` 各自还有
+        # 一个 ``draft=""`` 的失败出口；这里是所有 runtime 的共同下游，放一道就够。
+        #
+        # 只补草稿与绑定，status/stop_reason/gaps 一律用候选的——失败必须留痕，
+        # 不能因为保住了答案就把这一轮伪装成成功。
+        if outcome.draft.strip() and not candidate.draft.strip():
+            candidate = replace(
+                candidate,
+                draft=outcome.draft,
+                bindings=candidate.bindings or outcome.bindings,
+            )
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")

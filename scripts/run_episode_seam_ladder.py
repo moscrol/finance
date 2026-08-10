@@ -781,6 +781,12 @@ def run_offline_stage_case(
                 # parses into numbered sentences.  0 means the model produced
                 # nothing; >0 with that issue means the model produced text the
                 # sentence parser rejected.  Two different bugs, one symptom.
+                #
+                # 「0 = 模型什么都没产出」这句在 2026-08-10 之前是**假的**：这里取的是
+                # 最终 outcome，而修复轮失败会用空草稿把上一轮的顶掉，于是走过
+                # ``finalization -> finish`` 的 run 照样报 0（判 30 那两次就是）。
+                # ``agent_episode._stopped_outcome`` 已改成结转上一轮的草稿与绑定，
+                # 这句话才重新成立。要看修复轮拿什么去冒险，读 ``repair_calls``。
                 "draft_chars": len(str(outcome.get("draft") or "")),
                 # The only place a stopped episode's provider error survives:
                 # ``_stopped_outcome`` passes ``gap=turn.error``.
@@ -822,6 +828,28 @@ def run_offline_stage_case(
                     for event in outcome.get("events") or ()
                     if isinstance(event, Mapping)
                     and event.get("kind") == "tool_error"
+                ],
+                # 修复轮的时钟账，与 judge_calls 里的 timeout_asked 同一用途。
+                # ``timeout_asked`` 远小于 ``timeout_configured`` 说明修复轮进场时
+                # 时钟已经被前面耗光，此时给它加预算是没用的（judge 那次就是这么
+                # 误诊的）；两者接近才轮到怀疑 provider 本身慢。
+                # ``previous_draft_chars`` 是这一轮拿去冒险的东西——它 >0 而最终
+                # ``draft_chars`` 也 >0，才说明结转生效了。
+                "repair_calls": [
+                    {
+                        key: (event.get("payload") or {}).get(key)
+                        for key in (
+                            "cycle",
+                            "granted_seconds",
+                            "timeout_asked",
+                            "timeout_configured",
+                            "research_tools_open",
+                            "previous_draft_chars",
+                        )
+                    }
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "repair_reentry"
                 ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",
@@ -1235,6 +1263,12 @@ def run_live_stage_case(
                 # parses into numbered sentences.  0 means the model produced
                 # nothing; >0 with that issue means the model produced text the
                 # sentence parser rejected.  Two different bugs, one symptom.
+                #
+                # 「0 = 模型什么都没产出」这句在 2026-08-10 之前是**假的**：这里取的是
+                # 最终 outcome，而修复轮失败会用空草稿把上一轮的顶掉，于是走过
+                # ``finalization -> finish`` 的 run 照样报 0（判 30 那两次就是）。
+                # ``agent_episode._stopped_outcome`` 已改成结转上一轮的草稿与绑定，
+                # 这句话才重新成立。要看修复轮拿什么去冒险，读 ``repair_calls``。
                 "draft_chars": len(str(outcome.get("draft") or "")),
                 # The only place a stopped episode's provider error survives:
                 # ``_stopped_outcome`` passes ``gap=turn.error``.
@@ -1276,6 +1310,28 @@ def run_live_stage_case(
                     for event in outcome.get("events") or ()
                     if isinstance(event, Mapping)
                     and event.get("kind") == "tool_error"
+                ],
+                # 修复轮的时钟账，与上面的 judge_calls.timeout_asked 同一用途。
+                # ``timeout_asked`` 远小于 ``timeout_configured``：修复轮进场时时钟
+                # 已被前面耗光，此时给它加预算没用（judge 那次正是这么误诊的）；
+                # 两者接近才轮到怀疑 provider 本身慢。
+                # ``previous_draft_chars`` 是这一轮拿去冒险的东西：它 >0 时最终
+                # ``draft_chars`` 也应 >0，否则说明结转又被谁清掉了。
+                "repair_calls": [
+                    {
+                        key: (event.get("payload") or {}).get(key)
+                        for key in (
+                            "cycle",
+                            "granted_seconds",
+                            "timeout_asked",
+                            "timeout_configured",
+                            "research_tools_open",
+                            "previous_draft_chars",
+                        )
+                    }
+                    for event in outcome.get("events") or ()
+                    if isinstance(event, Mapping)
+                    and event.get("kind") == "repair_reentry"
                 ],
                 "satisfiability_precheck": artifact.get(
                     "satisfiability_precheck",

@@ -419,6 +419,58 @@ def test_episode_session_resume_bounds_every_action_by_granted_seconds() -> None
     assert 0.0 < model.calls[2]["timeout"] <= 2.5
 
 
+def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
+    """A repair that dies on the provider must not be worse than no repair.
+
+    2026-08-10 的生产线收据（``judge30-run1/run2``）里 ``draft_chars=0``，但同一条
+    trajectory 明确走过 ``finalization -> model_turn -> finish``——草稿是生出来过的，
+    是 repair 重入超时后 ``_stopped_outcome`` 用空草稿把它顶掉了，
+    ``continuous_turn_adapter`` 又无条件接受了这个更差的结果。
+
+    修复轮是 fix-forward，不是重跑：拿不到更好的答案时，最坏也要保住原来那份。
+    """
+
+    frame = _frame(("direct_assessment", "counterpoint"))
+    context = _context(frame, max_steps=2)
+    model = ScriptedModel(
+        [
+            _tool_turn("今日市场结构"),
+            _finish_turn(status="partial", gap="缺少反方证据"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    previous_draft = session.outcome.draft
+    previous_bindings = session.outcome.bindings
+    assert previous_draft.strip(), "前提：这一轮确实产出过草稿"
+    assert previous_bindings, "前提：这一轮确实产出过绑定"
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-model-error",
+            cycle=1,
+            missing_answer_elements=("counterpoint",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=5.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_unavailable"
+    assert updated.draft == previous_draft
+    assert updated.bindings == previous_bindings
+    # 失败本身仍要可见，只是不能以丢答案为代价。
+    assert any("TimeoutError" in gap for gap in updated.gaps)
+
+
 def test_episode_session_resume_does_not_dispatch_after_grant_expires(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
