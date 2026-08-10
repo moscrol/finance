@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/load-memory.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/session_facts.sh"
           }
         ]
       }

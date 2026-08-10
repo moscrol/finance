@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/session_facts.sh",
+            "timeout": 15,
+            "statusMessage": "探测工作区事实（树/解释器/上次读数）..."
+          }
+        ]
+      }
+    ]
+  }
+}
