@@ -22,7 +22,7 @@
 |---|---|
 | P1–P5 阶梯骨架、契约派生、离线回路、live 模式、离线回归门 | ✅ 更早几轮 |
 | P6 阶梯之前那层的入口路由 | ✅ 上一轮（10/18 → 18/18） |
-| **P7 live smoke 实跑** | ✅ **本轮跑通，三条判据首次全达标** |
+| **P7 live smoke 实跑** | ⚠️ **S1 达标，S3 从未达标**（原写"三条判据首次全达标"，2026-08-10 复核更正，见下） |
 | P8 断言扩到"防犯错" | ⚠️ 部分（**工具契约 2026-08-10 补齐至 12/12**，见 `cbfece5d`；剩出口侧三类程序检查） |
 | P9 题型分类层 | ❌ 未动（建议先不动） |
 | P10 Engine A 出口闸门 | ❌ 未动（**本轮证据把它的优先级往后压了**，见 §4） |
@@ -37,6 +37,49 @@
 
 **首次全绿的那份收据**：`/Users/a77/.finance-runtime/seam-ladder/judge60-1.json`
 S1 = `status=completed / structural=completed / semantic=passed`。
+
+> 🔁 **2026-08-10 复核更正：这份收据不是"全绿"，上面只引用了它的 S1 那一行。**
+> 同一份收据里 **S3 = `status=degraded / structural=partial / semantic=unavailable /
+> draft_chars=0`**。准确表述是「**S1 达标，S3 未达标**」，不是三条判据全达标。
+> 进度盘那个 ✅ 也据此降级。
+> 教训是老问题：**按固定验收集报 N/M，不要拿一条 rung 代表整个阶梯**。
+>
+> 另一件更要紧的：**这份收据跑在 `gpt-5.6-sol`（cockpit）上，不是生产的
+> `x.ailzd` + `gpt-5.6-terra`**（见收据 `runtime.model`）。所以它证明的是
+> "cockpit 上 S1 能过"，**没有证明过生产配置**。
+
+#### 生产配置下的首次实跑（2026-08-10，`2026-08-10-baseline-off.json`）
+
+同一套代码、同一份题集，换成生产线（`x.ailzd` + `terra`），两条 rung 都 degraded：
+
+| | judge60-1（cockpit+sol） | 本次（x.ailzd+terra） |
+|---|---|---|
+| S1 status / structural / semantic | completed / completed / **passed** | degraded / partial / unavailable |
+| S1 draft_chars | 554 | **0** |
+| S3 status / structural / semantic | degraded / partial / unavailable | degraded / **completed** / unavailable |
+| S3 draft_chars | 0 | **441** |
+
+**两条 provider 各有一条 rung 更好，没有谁全面更优**——与 §4.3 那张表同一个形状。
+
+病因由收据诊断字段直接给出，**两条 rung 完全不同**：
+
+- **S1 是首轮模型超时**：`model_errors=["LLM 调用失败（TimeoutError）"]`，`draft_chars=0`，
+  trajectory 走到 `repair_reentry` 后仍 `model_error`。而它的 **judge 两次都 `outcome=ok`**
+  （17.95s / 16.36s，asked 25.0）——**judge 是好的，草稿没生出来**。
+  对应 §4.3 复测的长输出 83.3/111.1s，而首轮硬顶是 `self._llm_timeout`（生产 75s），
+  且 `_opening_planning_timeout` 的注释写明**档位表不参与这条路径**，deep 档抬不动它。
+- **S3 是 judge 超时**：三次 `judge_calls` 全 `turn_error`（25.6 / 18.17 / 18.17s，
+  asked 25.0 / 17.5 / 17.5），草稿反而正常（441 字符、structural completed）。
+  另有 `tool_errors=[{"tool":"evidence_search","error":"tool_timeout"}]`——又是它。
+
+**共同根因是 provider 长输出速率下降**（§4.3：45–52 → 39 tok/s），不是代码回归：
+本轮改动只碰了工具契约与注释，`runtime` 自述字段确认 judge_window=60 / tool_batch=60 /
+`semantic_verifier=production_llm_judge` 全部按预期生效。
+
+⚠️ **不要拿这次和 judge60-1 直接对比得出"劣化了"**——两次的 provider 不同，
+这是一组跨 provider 的比较。要判断代码是否回归，必须用**同一条 provider** 重跑，
+而 cockpit 的 key 不在 Keychain（只有 `finance-workbench-test-relay` 这把生产 key），
+需要用户另行提供。
 
 ---
 
@@ -142,12 +185,21 @@ S1 = `status=completed / structural=completed / semantic=passed`。
 （`calls[0] <= window*0.5`、`sum(calls) <= window`），
 否则下次重标定又会把一次刻意变更读成回归。
 
-### 4.2 打开时间预算感知测一次（**现在有理由了**）
+### 4.2 打开时间预算感知测一次（⚠️ **开工理由在生产线上不成立，先别跑**）
 
 臂 C 里 S3 的新失败是 **`tool_budget_exhausted`**（12 个工具槽用尽），
 **不再是超时**——约束从"没时间"移到了"查得太多"。
 这正是预算感知该管的（第 10 章引 Google *Budget-Aware Tool-Use*：
 无预算意识时增加预算不保证提升）。
+
+> 🔁 **2026-08-10 生产线复测：那个触发现象没有复现，本节先挂起。**
+> `2026-08-10-baseline-off.json` 里 S3 只调了 **7 个工具**就结束，失败是
+> **judge 超时**（三次全 turn_error）加 `evidence_search` 的 `tool_timeout`，
+> **没有 `tool_budget_exhausted`**。当前生产配置下的瓶颈是**时间**，不是工具槽。
+> 预算感知管的是步数/槽位这一维，现在打开它测不到东西——
+> 先把 §1 那两个超时（首轮 75s 硬顶、judge 25s 首窗）处理掉，
+> 等瓶颈重新回到"查得太多"再跑这一臂。臂 C 那次是 cockpit+sol 的读数，
+> 与生产线不可直接套用。
 
 ```bash
 ASK_EPISODE_BUDGET_STATUS=on   # 默认 off
