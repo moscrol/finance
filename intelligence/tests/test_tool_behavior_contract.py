@@ -60,7 +60,13 @@ class TestContractReachesTheModel:
 
 
 class TestShippedContracts:
-    """已写的四条各自钉住它要防的那个误读。"""
+    """每条契约各自钉住它要防的那个误读。
+
+    这里**故意没有**「每个工具都必须有契约」那条不变量。它看着像自然的下一步，
+    但会和本模块的纪律正面冲突：纪律是「没依据宁可留空」，而一条全覆盖门禁会让
+    下一个加工具的人为了让测试变绿去**编一句**——正好是纪律要防的那件事。
+    覆盖率要看的是「有依据的都写了没有」，那个只能靠人判断，不能靠断言。
+    """
 
     def test_market_data_warns_about_the_snapshot_date(self) -> None:
         """实测 degrade：「盘面快照回退到 2026-07-30（2026-07-31 尚无候选）」。
@@ -106,6 +112,86 @@ class TestShippedContracts:
     def test_news_contract_blocks_the_circular_confirmation_fallacy(self) -> None:
         """多家转载同一条消息不构成交叉验证——web-access skill 里写过同一条。"""
         assert "不构成交叉验证" in reg._TOOL_CONTRACTS["news_search"]
+
+    def test_finance_query_warns_that_rows_are_truncated(self) -> None:
+        """``_AGENT_FINANCE_QUERY_MAX_ROWS = 25`` 会压 limit，而 observation 只在
+        **拿到结果之后**才追一句「已截断」。模型下单时看不到，于是可能把 25 行的
+        截断结果当全集，写出「全市场最高」这类全称断言。
+        """
+        contract = reg._TOOL_CONTRACTS["finance_query"]
+
+        assert "截断" in contract
+        assert "全称断言" in contract
+
+    def test_finance_query_states_the_two_rejected_shapes(self) -> None:
+        """两种写法 runner 会直接退回而不是查了没有：日期写进 filters
+        （``validation_retry_hint`` 逐字有这条）、未授权时查历史窗口。
+        后者实测会让模型对同一个窗口反复重试。
+        """
+        contract = reg._TOOL_CONTRACTS["finance_query"]
+
+        assert "time_range" in contract
+        assert "不要反复重试" in contract
+
+    def test_evidence_search_flags_the_mixed_stance_list(self) -> None:
+        """``_project_evidence`` 把 conclusion 与 counter_clues 合成同一个列表，
+        立场只在 observation 的 ``[支持]``/``[反方]`` 前缀里，AgentEvidence 不带该字段。
+
+        只从证据列表引用就会把反证当成支持性证据——这是本工具独有的误读。
+        """
+        contract = reg._TOOL_CONTRACTS["evidence_search"]
+
+        assert "反方" in contract
+        assert "不要把反证当成支持性证据" in contract
+
+    def test_evidence_search_declares_its_cost(self) -> None:
+        """2026-08-10 实测冷调用 28.2s，占满当时 30s 工具批次的 94%。"""
+        assert "28 秒" in reg._TOOL_CONTRACTS["evidence_search"]
+
+    def test_kb_search_carries_the_ingest_layering(self) -> None:
+        """复述 CLAUDE.md 的 PDF ingest 红线：券商材料只进「高信度研究线索」
+        或「观察列表」，不进「边际变化」。检索命中不带 section 标记。
+        """
+        contract = reg._TOOL_CONTRACTS["kb_search"]
+
+        assert "高信度研究线索" in contract
+        assert "边际变化" in contract
+        assert "l3_lookup" in contract
+
+    def test_graph_lookup_separates_match_score_from_business_strength(self) -> None:
+        """概念项 detail 逐字是 f"匹配分 {score}"——文本匹配分，不是业务关联度。"""
+        contract = reg._TOOL_CONTRACTS["graph_lookup"]
+
+        assert "匹配分" in contract
+        assert "不代表业务关联强度" in contract
+
+    def test_graph_lookup_downgrades_peripheral_mappings(self) -> None:
+        """CLAUDE.md 规定研报级产业链归类降级 graph_only（strength=peripheral），
+        即图谱里本来就混着大量未确认映射。公司项 detail 带 strength/evidence_layer。
+        """
+        contract = reg._TOOL_CONTRACTS["graph_lookup"]
+
+        assert "peripheral" in contract
+        assert "线索" in contract
+
+    def test_evidence_lookup_requires_carrying_the_quality_markers(self) -> None:
+        """每条 detail 逐字带（来源，日期，质量 X）三项，但没人说过该怎么用它们。"""
+        contract = reg._TOOL_CONTRACTS["evidence_lookup"]
+
+        assert "质量" in contract
+        assert "二手材料" in contract
+        assert "无日期" in contract
+
+    def test_mainline_context_warns_about_uneven_coverage(self) -> None:
+        """2026-08-10 实测：题材/个股两张主线表各 35 个交易日，起点晚于板块表
+        （88 天），早期日期查不到。空结果不是「当天没有主线」。
+
+        契约刻意不写死日期——覆盖会随回填推进，写死当天就过期。
+        """
+        contract = reg._TOOL_CONTRACTS["mainline_context"]
+
+        assert "不是每个交易日都齐全" in contract
+        assert "不能据此说当天没有主线" in contract
 
 
 def test_contracts_only_cover_tools_that_exist() -> None:
