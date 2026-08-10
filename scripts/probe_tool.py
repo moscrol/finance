@@ -55,6 +55,7 @@ import traceback
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from intelligence.runtime.turn_control_core import TurnControlCore
+from intelligence.services import kb_rag
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_tools import build_episode_registry
 from intelligence.services.research_contract import (
@@ -82,6 +83,14 @@ _DEFAULT_FINANCE_SPEC: dict[str, object] = {
     "dimensions": ["trade_date"],
     "limit": 5,
 }
+
+
+def _wiki_root():
+    """与 ``episode_tools._roots`` / ``api.app`` 同一个解析入口，别另开一条。"""
+
+    from intelligence.paths import default_paths
+
+    return default_paths().knowledge_wiki
 
 
 def _stub_llm_complete(*_args: object, **_kwargs: object):
@@ -127,6 +136,9 @@ def _probe_once(registry, context, tool: str, arguments, index: int) -> dict:
         "evidence": len(observation.evidence),
         "observation": (observation.observation or "")[:160],
         "gaps": list(observation.gaps or ())[:3],
+        # 多轮工具（evidence_search）的 detail 里带 aperture 与 attempt 计数。
+        # 没有它就只能从总耗时倒推「跑了几次检索」——而那正是上一次算错的地方。
+        "detail": str(getattr(trace, "detail", "") or "")[:300],
     }
 
 
@@ -142,6 +154,8 @@ def _print_reading(tool: str, reading: dict, index: int, total: int) -> None:
         f"  {tag} {reading['seconds']:>6.2f}s  status={reading['status']:<12}"
         f" evidence={reading['evidence']}"
     )
+    if reading.get("detail"):
+        print(f"        detail: {reading['detail']}")
     if reading["observation"]:
         print(f"        → {reading['observation']}")
     for gap in reading["gaps"]:
@@ -242,6 +256,11 @@ def main() -> int:
     parser.add_argument("--as-of", default=None, help="数据截止日 YYYY-MM-DD")
     parser.add_argument("--finance-spec", default=None, help="finance_query 用的 JSON spec")
     parser.add_argument(
+        "--prewarm",
+        action="store_true",
+        help="先预热 RAG worker 再测（复现生产 8792 的状态）；需 RAG_WORKER_ENABLED=1",
+    )
+    parser.add_argument(
         "--memory-user",
         default=os.environ.get("FORESIGHT_USER"),
         help="memory_lookup 读谁的私有台账（默认取 FORESIGHT_USER）；不给则该工具不注册",
@@ -259,6 +278,20 @@ def main() -> int:
     if not targets:
         parser.error("给一个工具名，或用 --all / --list")
 
+    if args.prewarm:
+        # 复现生产状态。8792 在 lifespan 里 prewarm 过一次 RAG worker，之后一直
+        # 热着；独立脚本不预热就会**每次现加载 BGE-m3 + 214MB 索引**，
+        # 测出来的是启动成本不是检索成本。实测差别：不预热 19s/次，
+        # 而 RAG_WORKER_ENABLED=1 但不预热更糟——前两次直接等到 30s 超时返回空。
+        if not kb_rag.rag_worker.enabled():
+            print("⚠ RAG_WORKER_ENABLED 未开启，--prewarm 无效（生产是 1）")
+        else:
+            started = time.monotonic()
+            try:
+                kb_rag.prewarm(_wiki_root(), timeout=120.0)
+                print(f"prewarm: {time.monotonic() - started:.1f}s")
+            except Exception as exc:  # noqa: BLE001 - 预热失败要看得见
+                print(f"prewarm 失败（{type(exc).__name__}: {exc}）")
     if args.queries:
         queries = tuple(q.strip() for q in args.queries.split(",") if q.strip())
     else:

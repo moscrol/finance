@@ -41,7 +41,8 @@ from intelligence.services.agent_research import (
 )
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.runtime.glm_agent_runtime import GLMModelClient
-from intelligence.services import llm_refine
+from intelligence.paths import default_paths
+from intelligence.services import kb_rag, llm_refine
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services import episode_semantic_verifier
@@ -1435,6 +1436,43 @@ def _print_ladder(artifact: dict[str, object]) -> None:
             )
 
 
+def _prewarm_retrieval() -> None:
+    """预热 RAG worker，否则 live 阶梯量的是启动成本不是检索成本。
+
+    生产 8792 在 ``lifespan`` 里 prewarm 一次（``api/app.py:1860``），之后 worker
+    一直热着。这个脚本是独立进程，不预热就会每次现加载 BGE-m3 与 214MB 稠密索引。
+
+    2026-08-10 用 ``scripts/probe_tool.py`` 实测的三种状态，差 5 倍：
+
+    | 条件 | kb_search | evidence_search |
+    |---|---|---|
+    | 无 worker（subprocess 每次现起） | 19s | 56-64s |
+    | worker 开但未预热 | 30s（超时返空） | — |
+    | **预热 + worker（= 生产）** | **2.6-3.6s** | **16-17s** |
+
+    影响的是结论本身：未预热时 ``evidence_search`` 必然撞 30s 工具批次上限，
+    于是阶梯把它记成 ``tool_timeout``——那是**试验台产物，不是生产缺陷**。
+    生产状态下 16-17s 在上限之内。此前几轮据此判断「evidence_search 是慢工具、
+    要并行化」，全部建立在这个测量条件错误之上。
+
+    失败不阻断：预热不了就照跑，只是读数会偏慢——但要让它在日志里看得见。
+    """
+
+    if not kb_rag.rag_worker.enabled():
+        print(
+            "preflight: RAG_WORKER_ENABLED 未开启（生产是 1）；"
+            "检索读数将包含每次现加载成本，不代表生产"
+        )
+        return
+    started = time.monotonic()
+    try:
+        kb_rag.prewarm(default_paths().knowledge_wiki, timeout=120.0)
+    except Exception as exc:  # noqa: BLE001 - 预热失败要看得见，但不阻断
+        print(f"preflight: RAG 预热失败（{type(exc).__name__}: {exc}）")
+        return
+    print(f"preflight: RAG worker 已预热（{time.monotonic() - started:.1f}s）")
+
+
 def main(argv: tuple[str, ...] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not args.live:
@@ -1447,6 +1485,7 @@ def main(argv: tuple[str, ...] | None = None) -> int:
     # Live mode resolves its identity from the production seams, never from an
     # environment variable: the relay can rewrite which model serves a call.
     output = validate_live_output_path(args.output)
+    _prewarm_retrieval()
     providers = llm_refine.detect_providers()
     preflight = live_preflight(
         load_cases(args.questions),
