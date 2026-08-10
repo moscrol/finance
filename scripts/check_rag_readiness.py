@@ -23,7 +23,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_KB = Path("/Users/a77/knowledge-base-private")
+# 知识库是**平级仓**（与本仓同一父目录），所以从脚本位置上推两级再拼名字，
+# 不写死家目录。此前是 Path("/Users/a77/knowledge-base-private")。
+# 注意这只是**回退值**：`--kb-root` 与 `KB_ROOT` 环境变量优先级都更高（见 main），
+# 所以知识库真放在别处时仍可显式指定，本次改动只是让"没指定"时的猜测不依赖某个人的家目录。
+DEFAULT_KB = Path(__file__).resolve().parents[2] / "knowledge-base-private"
 INDEXED_DIRS = ("entities", "concepts", "sources", "synthesis", "briefings")
 
 

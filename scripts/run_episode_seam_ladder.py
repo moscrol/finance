@@ -1067,7 +1067,10 @@ def run_offline_ladder(questions: Path) -> dict[str, object]:
 # and one episode makes several model calls.  Its job is to re-validate the
 # production path, not to grade answers.
 
-LIVE_RECEIPT_ROOT = Path("/Users/a77/.finance-runtime/seam-ladder")
+# 家目录下的运行时目录（与 agent-review / test-receipts 同一约定），故用
+# Path.home() 而非仓根推导——它刻意在仓树之外，收据不该被 git 管。
+# 此前写死 Path("/Users/a77/.finance-runtime/seam-ladder")。
+LIVE_RECEIPT_ROOT = Path.home() / ".finance-runtime" / "seam-ladder"
 # Two rungs, not the whole matrix: S1 proves the narrowest real assembly closes
 # and S3 proves the full causal surface does.  The rungs in between are already
 # covered offline, where they cost nothing.
