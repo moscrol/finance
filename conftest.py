@@ -39,9 +39,13 @@ worktree 里跑测试时用的是主树的 `.venv-workbench/bin/python`（AGENTS
 
 from __future__ import annotations
 
+import datetime as _dt
+import hashlib
+import importlib.metadata as _md
 import importlib.util
 import json
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -83,17 +87,20 @@ def _missing() -> tuple[str, ...]:
     return tuple(m for m in REQUIRED if importlib.util.find_spec(m) is None)
 
 
+def _git(*args: str) -> str:
+    """在**本仓根**执行 git。模块级而非嵌套：收据钩子也要用它取 revision。"""
+
+    try:
+        out = subprocess.run(
+            ["git", *args], cwd=REPO, capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
 def _revision() -> str:
     """自述 revision——`14 failed` 单独看无法复核是对哪棵树哪个提交成立的。"""
-
-    def _git(*args: str) -> str:
-        try:
-            out = subprocess.run(
-                ["git", *args], cwd=REPO, capture_output=True, text=True, timeout=10
-            )
-        except (OSError, subprocess.SubprocessError):
-            return ""
-        return out.stdout.strip() if out.returncode == 0 else ""
 
     branch = _git("rev-parse", "--abbrev-ref", "HEAD") or "(unknown)"
     rev = _git("rev-parse", "--short", "HEAD") or "(unknown)"
@@ -142,3 +149,109 @@ def pytest_report_header() -> list[str]:
     if os.environ.get(_ESCAPE) == "1":
         lines.append(f"⚠ {_ESCAPE}=1 —— 依赖门禁已被绕过，读数不可跨环境比较")
     return lines
+
+
+# ---------------------------------------------------------------------------
+# 读数收据：让下一个 agent 不必重跑就能判断「这个读数能不能用」
+#
+# 多 agent 协作里反复出现的浪费：上一个 agent 报「3943 passed」，下一个不采信、
+# 重跑一遍。这不是不礼貌，是**理性反应**——那个数字没有说明它在哪个解释器、
+# 哪棵树、哪个 revision 上得出，因此不可复核。而 2026-08-10 的实测证明这种怀疑
+# 是必要的：同一棵树，宿主 python3 得 71 failed，.venv-workbench 得 14 failed。
+#
+# 解决方向不是「互相信任」（做不到，也不该做），而是**把验证成本降到几乎为零**：
+# 结论自带它成立的条件，下一个 agent 比对条件即可决定采信还是重跑。
+# 业界叫 provenance（来源溯源）。核心一句话：结论必须携带它成立的条件。
+#
+# 上面的 report_header 已经在做这件事，但那是给人读的文本。收据是机器可读版，
+# 供 scripts/check_test_receipt.py 做「能不能采信」的判定。
+# ---------------------------------------------------------------------------
+
+_RECEIPT_DIR = Path.home() / ".finance-runtime" / "test-receipts"
+_RECEIPT_ENV = "FWP_TEST_RECEIPT"
+
+
+def _dependency_fingerprint() -> str:
+    """当前环境已安装发行版的指纹。
+
+    只取**锁文件里声明的那些包**的版本，而不是整个 site-packages：后者含 pytest
+    插件、ipython 之类与被测行为无关的东西，噪声会让指纹永远对不上，于是校验器
+    永远建议重跑——那等于没做。
+    """
+
+    names = tuple(_SPEC.get("required_modules") or ())
+    lock = REPO / "requirements-consumer.lock"
+    if lock.is_file():
+        pinned = [
+            line.split("==")[0].strip()
+            for line in lock.read_text(encoding="utf-8").splitlines()
+            if "==" in line and not line.startswith("#")
+        ]
+        names = tuple(sorted({*names, *pinned}))
+    parts = []
+    for name in names:
+        try:
+            parts.append(f"{name}=={_md.version(name)}")
+        except _md.PackageNotFoundError:
+            parts.append(f"{name}==<缺失>")
+    blob = ";".join(parts)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """落一份机器可读收据。
+
+    刻意**不**因写收据失败而影响测试结果：收据是观测设施，观测设施故障不该改变
+    被观测对象的结论。任何异常静默跳过，但会在终端提示（不静默到无痕）。
+    """
+
+    if os.environ.get(_RECEIPT_ENV) == "0":
+        return
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:
+        return
+    stats = reporter.stats
+    failed_ids = sorted(
+        report.nodeid
+        for key in ("failed", "error")
+        for report in stats.get(key, [])
+        if hasattr(report, "nodeid")
+    )
+    counts = {
+        key: len(stats.get(key, []))
+        for key in ("passed", "failed", "error", "skipped")
+    }
+    receipt = {
+        # ——— 判定采信所需的条件（校验器逐条比对这些）———
+        "interpreter": sys.executable,
+        "python_version": platform.python_version(),
+        "dependency_fingerprint": _dependency_fingerprint(),
+        "tree": str(REPO),
+        "revision": _git("rev-parse", "HEAD") or "(unknown)",
+        "branch": _git("rev-parse", "--abbrev-ref", "HEAD") or "(unknown)",
+        # dirty=True 时收据只能用于「本机此刻」，不可跨 agent 采信：
+        # 未提交改动无法被 revision 描述，别人无从复现同一份代码。
+        "dirty": bool(_git("status", "--porcelain")),
+        "dependency_gate_bypassed": os.environ.get(_ESCAPE) == "1",
+        # ——— 读数本身 ———
+        "target": " ".join(session.config.args or []),
+        "counts": counts,
+        # 存 ID 而非只存个数：修好 3 条 + 引入 3 条 = 总数不变。
+        # 失败归属必须按名字比，这是 baseline_diff.py 学到的同一条。
+        "failed_ids": failed_ids,
+        "exit_status": int(exitstatus),
+        "finished_at": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
+    }
+    try:
+        _RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+        path = _RECEIPT_DIR / f"{stamp}-{receipt['revision'][:8]}.json"
+        path.write_text(
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        (_RECEIPT_DIR / "latest.json").write_text(
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        reporter.write_line(f"读数收据: {path}")
+    except OSError as exc:
+        reporter.write_line(f"⚠ 收据未写出（不影响测试结论）: {exc}")
