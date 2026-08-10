@@ -22,7 +22,7 @@
 |---|---|
 | P1–P5 阶梯骨架、契约派生、离线回路、live 模式、离线回归门 | ✅ 更早几轮 |
 | P6 阶梯之前那层的入口路由 | ✅ 上一轮（10/18 → 18/18） |
-| **P7 live smoke 实跑** | ⚠️ **S1 达标，S3 从未达标**（原写"三条判据首次全达标"，2026-08-10 复核更正，见下） |
+| **P7 live smoke 实跑** | ⚠️ **生产线 n=3：S1 2/3、S3 1/3 达标；RUN2 两条同时达标**（原写"三条判据首次全达标"，复核更正，见下） |
 | P8 断言扩到"防犯错" | ⚠️ 部分（**工具契约 2026-08-10 补齐至 12/12**，见 `cbfece5d`；剩出口侧三类程序检查） |
 | P9 题型分类层 | ❌ 未动（建议先不动） |
 | P10 Engine A 出口闸门 | ❌ 未动（**本轮证据把它的优先级往后压了**，见 §4） |
@@ -48,7 +48,47 @@ S1 = `status=completed / structural=completed / semantic=passed`。
 > `x.ailzd` + `gpt-5.6-terra`**（见收据 `runtime.model`）。所以它证明的是
 > "cockpit 上 S1 能过"，**没有证明过生产配置**。
 
-#### 生产配置下的首次实跑（2026-08-10，`2026-08-10-baseline-off.json`）
+#### 生产配置下的实跑 ×3（2026-08-10）
+
+> 🔁 **本节初稿只有 RUN1 一次，据它写了"两条 rung 都 degraded、共同根因是 provider
+> 变慢"。重跑两次后那个结论被推翻——RUN1 是离群值。下面是 n=3 的版本。**
+
+**三次同配置连跑**（`x.ailzd` + `terra`，`budget_status=off`，`tool_batch=60`）：
+
+| | RUN1 | RUN2 | RUN3 | 判据 |
+|---|---|---|---|---|
+| S1 status | degraded | **completed** | **completed** | — |
+| S1 semantic | unavailable | **passed** | **passed** | **2/3 达标** |
+| S1 draft_chars | 0 | 419 | 357 | |
+| S3 status | degraded | partial | degraded | — |
+| S3 semantic | unavailable | **repaired** | unavailable | **1/3 达标** |
+| S3 draft_chars | 441 | 486 | 482 | |
+| S3 tool_calls | 7 | 13 | 8 | |
+
+**RUN2 是生产配置下第一次两条 rung 同时达标**——比 §1 那份 `judge60-1`（cockpit+sol，
+S3 是 `degraded/draft=0`）更好。所以"生产线跑不通"不成立，**它是不稳定，不是不通**。
+
+**两条 rung 的病因不同，且都不是"provider 整体变慢"这个笼统说法**：
+
+- **S1（2/3 稳）**：唯一一次失败是 RUN1 的首轮 `TimeoutError`（`draft_chars=0`）。
+  它的 **judge 四次全部 `ok`**（17.95 / 16.36 / 22.85 / 11.33s，窗口都是 25s）——
+  S1 这条 rung 上 judge 从没超时过。属偶发首轮超时，对应 §4.3 长输出 83–111s 撞 75s 硬顶。
+- **S3（1/3 稳）**：`judge` 看着是元凶，实际是**受害者**。看 RUN3 的 `timeout_asked`：
+  **6.67 / 3.33 / 2.07 秒**——那是 §4.1 自限行为（`min(limit, remaining())`）在
+  时钟已被耗光时的塌缩，不是配置给小了。真正吃掉时钟的是它前面的
+  `evidence_search` **`tool_timeout`**（RUN1、RUN3 都有）加两次模型 `TimeoutError`。
+  **给 judge 加预算救不了 S3，得先让 `evidence_search` 别超时。**
+
+**judge 的真实耗时分布**（本轮 6 次成功调用）：11.33 / 16.36 / 17.95 / 22.43 / 22.85s，
+唯一失败的那次要 **25.6s**（窗口 25.0s，**差 0.6 秒**）。
+即 **25s 首窗正卡在需求上沿**。注意 `MAX_SEMANTIC_JUDGE_WINDOW_SECONDS` 已是 60，
+但首窗另有一个 25s 的上限（§4.1 的自限表：150s 剩余 → `(25.0, 17.5, 17.5)`），
+要抬首窗得动那个 25，不是动 60。
+
+⚠️ **样本仍然只有 3。** S3 的 1/3 与 2/3 在 n=3 下区分不开，别把它读成"33% 通过率"。
+
+<details>
+<summary>初稿基于 RUN1 的那版对照表（已被 n=3 推翻，留档）</summary>
 
 同一套代码、同一份题集，换成生产线（`x.ailzd` + `terra`），两条 rung 都 degraded：
 
@@ -80,6 +120,13 @@ S1 = `status=completed / structural=completed / semantic=passed`。
 这是一组跨 provider 的比较。要判断代码是否回归，必须用**同一条 provider** 重跑，
 而 cockpit 的 key 不在 Keychain（只有 `finance-workbench-test-relay` 这把生产 key），
 需要用户另行提供。
+
+</details>
+
+> 📌 **这一节自己就是教训 #2 的又一个实例**：初稿在 n=1 上把两条 rung 的失败
+> 归到同一个根因（"provider 变慢"），重跑两次后发现 **S1 偶发、S3 另有病因，
+> 且 RUN2 两条全达标**。改运行时预算前先重跑——这次重跑省下的是一次
+> 「照着离群值去调预算」的返工。
 
 ---
 
