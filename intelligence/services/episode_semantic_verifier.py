@@ -48,7 +48,25 @@ from intelligence.services.task_frame import TaskFrame
 
 SemanticStatus = Literal["completed", "partial", "failed"]
 JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
-DEFAULT_JUDGE_TIMEOUT_SECONDS = 25.0
+# 25.0 → 30.0（2026-08-10 晚，5 次 live 的实测重标定）。
+#
+# 上一次把它定在 25.0 时，观测到的 judge 耗时是 13.3–24.1s，25s 刚好罩住尾部。
+# 本轮 5 次 live 的 judge 调用把尾部推到了窗口之外，而且形态非常一致：
+#
+#   成功：11.33 / 16.36 / 17.95 / 22.43 / 22.85 / 23.69s
+#   失败：25.60 / 25.67 / 25.68s   ← 全部紧贴 25.0 的窗口，是**被截断**的
+#
+# 三次独立失败都落在 25.6–25.7s，说明真实需求 ≥25.7s，只差窗口一点点——
+# 这正是「刚好不够」那一档，和当初 15s 失败 6/6 是同一个形状。
+# 上游变慢是合理解释（本轮探针实测长输出 ≈39 tok/s，上一轮记录 45–52）。
+#
+# 代价看清楚了再改：``_semantic_attempt_timeouts`` 里
+# ``first = min(cap, window*0.5)``、``retry = min(cap, (window-first)/2)``，
+# 所以 25→30 会把充裕时钟下的三次窗口从 (25, 17.5, 17.5) 变成 (30, 15, 15)。
+# **重试窗口变小不构成损失**：观测中重试失败都在 18.1–18.4s，17.5 和 15 都不够，
+# 它本来就救不回来；而首窗成功就根本不会走到重试。
+# 提高首窗成功率优先于保留一个够不着的重试窗口。
+DEFAULT_JUDGE_TIMEOUT_SECONDS = 30.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 
 
@@ -56,12 +74,17 @@ def semantic_judge_window_seconds() -> float:
     """Total window shared by all judge attempts, overridable for calibration.
 
     Sized from measurement, 2026-08-10.  The judge's first attempt gets
-    ``min(per_attempt_cap=25, window * 0.5)``, so the previous 30.0 yielded
+    ``min(per_attempt_cap, window * 0.5)``, so the previous 30.0 yielded
     ``(15.0, 7.5, 7.5)``.  Live runs put the judge's actual cost at
     **13.3–24.1s**: at a 15s first attempt it failed 6/6 with ``TimeoutError``;
     at 25s it succeeded 6/6.  Those measurements straddle 15s, which is exactly
     why the old value failed almost always rather than occasionally.  60.0 puts
-    the first attempt at the 25s cap, covering the observed tail.
+    the first attempt at the per-attempt cap, covering the observed tail.
+
+    ⚠️ 这个 60.0 与 ``DEFAULT_JUDGE_TIMEOUT_SECONDS`` **是两个数，别混**：
+    首窗取两者的较小值（`min(cap, 60*0.5=30)`），所以在 cap ≤30 时**真正卡住
+    首窗的是 cap 不是这个 60**。2026-08-10 晚把 cap 从 25 提到 30 之后，
+    两者恰好都等于 30——再想抬首窗就必须同时动这个 60，只改 cap 不会有任何效果。
 
     **Raising this cannot starve the draft**, despite an earlier note in this
     file claiming otherwise.  The pipeline is strictly sequential — episode
