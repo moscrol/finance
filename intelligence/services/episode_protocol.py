@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import Enum
 import json
 import re
 from typing import cast
@@ -238,6 +239,72 @@ def build_episode_input(
     )
 
 
+
+class RejectionKind(str, Enum):
+    """拒收的**类别**，决定上游该做什么——与具体病因（``code``）分开。
+
+    分层出处：马书 ch06b 的三层漏斗（25+ 具体类型 → 4 类别 → 1 布尔），
+    「诊断信息可以非常详细，而决策逻辑保持简洁，两个关注点完全解耦」。
+    本文件此前是这个结构的反面：15 个病因共用一个 ``ValueError``，
+    于是「格式滑一档」和「伪造证据哈希」得到同一个动作，收据里也留不下
+    可归类的字段——那正是 ``synthesis_health`` 读出 59% 「口径未知」的上游。
+    """
+
+    FORMAT = "format"
+    """模型把结构写错了。官方口径：作为 tool result **回灌**给模型让它换个写法，
+    不是丢弃整份输出。"""
+
+    SUBSTANCE = "substance"
+    """结构合法但内容不足。harness-books 9.7：恢复的目标是继续工作，
+    应降级并**保留草稿**，别把用户困在失败态里。"""
+
+    INTEGRITY = "integrity"
+    """证据体系的地基被破坏（伪造哈希、越界输出）。**硬拒，不可恢复。**"""
+
+
+class EpisodeFinishRejection(ValueError):
+    """带稳定分类的拒收。
+
+    继承 ``ValueError`` 是刻意的：上游所有 ``except ValueError`` 原样继续工作，
+    因此本次改动**不改变任何行为**，只让病因变得可归类。决策分流是下一个增量——
+    按 ch06b 的顺序，classify → categorize → decide，没有命名就无法划分可恢复集合。
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.kind = REJECTION_KINDS[code]
+
+
+# 病因 → 类别。**必须穷尽**：``test_every_rejection_code_is_classified``
+# 钉住「每个 raise 出去的 code 都在这张表里」，对应 book1 ch06 那条不变量
+# ``withheld_error ∈ {...}``——可恢复集合必须是明确枚举，不是「其余都算」。
+REJECTION_KINDS: dict[str, RejectionKind] = {
+    # 结构写错 → 回灌重写
+    "not_json_object": RejectionKind.FORMAT,
+    "bad_status": RejectionKind.FORMAT,
+    "draft_not_string": RejectionKind.FORMAT,
+    "bad_gaps": RejectionKind.FORMAT,
+    "bindings_not_list": RejectionKind.FORMAT,
+    "binding_not_object": RejectionKind.FORMAT,
+    "hashes_not_list": RejectionKind.FORMAT,
+    "basis_mismatch": RejectionKind.FORMAT,
+    "duplicate_binding": RejectionKind.FORMAT,
+    # 内容不足 → 降级保留草稿
+    "empty_draft": RejectionKind.SUBSTANCE,
+    "evidence_type_floor": RejectionKind.SUBSTANCE,
+    "no_substantive_answer": RejectionKind.SUBSTANCE,
+    "missing_evidence": RejectionKind.SUBSTANCE,
+    # 地基破坏 → 硬拒
+    "unknown_output": RejectionKind.INTEGRITY,
+    "forged_hash": RejectionKind.INTEGRITY,
+}
+
+
+def _reject(code: str, message: str) -> EpisodeFinishRejection:
+    return EpisodeFinishRejection(code, message)
+
+
 def validate_episode_finish(
     value: object,
     *,
@@ -252,33 +319,33 @@ def validate_episode_finish(
     evidence_hashes = set(evidence_by_hash)
     decoded = _finish_object(value)
     if decoded is None:
-        raise ValueError("finish must be one JSON object")
+        raise _reject("not_json_object", "finish must be one JSON object")
     status = decoded.get("status")
     if status not in _FINISH_STATUSES:
-        raise ValueError("finish status must be completed or partial")
+        raise _reject("bad_status", "finish status must be completed or partial")
     draft = decoded.get("draft")
     if not isinstance(draft, str):
-        raise ValueError("finish draft must be a string")
+        raise _reject("draft_not_string", "finish draft must be a string")
     draft = _normalize_natural_language_layout(draft)
     if status == "completed" and not draft.strip():
-        raise ValueError("completed finish draft must be non-empty")
+        raise _reject("empty_draft", "completed finish draft must be non-empty")
     raw_gaps = decoded.get("gaps", [])
     if not isinstance(raw_gaps, list) or any(
         not isinstance(item, str) for item in raw_gaps
     ):
-        raise ValueError("finish gaps must be a string list")
+        raise _reject("bad_gaps", "finish gaps must be a string list")
     gaps = tuple(dict.fromkeys(item.strip() for item in raw_gaps if item.strip()))
     raw_bindings = decoded.get("bindings")
     if not isinstance(raw_bindings, list):
-        raise ValueError("finish bindings must be a list")
+        raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
     allowed_outputs = {item.output_id for item in context.contract.required_outputs}
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
-            raise ValueError("each finish binding must be an object")
+            raise _reject("binding_not_object", "each finish binding must be an object")
         raw_hashes = raw.get("evidence_hashes", [])
         if not isinstance(raw_hashes, list):
-            raise ValueError("binding evidence_hashes must be a list")
+            raise _reject("hashes_not_list", "binding evidence_hashes must be a list")
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=tuple(raw_hashes),
@@ -286,27 +353,32 @@ def validate_episode_finish(
             basis=str(raw.get("basis") or "evidence"),
         )
         if binding.output_id not in allowed_outputs:
-            raise ValueError(f"unknown required output: {binding.output_id}")
+            raise _reject(
+                "unknown_output",
+                f"unknown required output: {binding.output_id}",
+            )
         required = next(
             item
             for item in context.contract.required_outputs
             if item.output_id == binding.output_id
         )
         if binding.basis != required.grounding_mode:
-            raise ValueError(
+            raise _reject(
+                "basis_mismatch",
                 f"grounding basis mismatch for {binding.output_id}: "
-                f"expected {required.grounding_mode}, got {binding.basis}"
+                f"expected {required.grounding_mode}, got {binding.basis}",
             )
         unknown = set(binding.evidence_hashes) - evidence_hashes
         if unknown:
-            raise ValueError(
+            raise _reject(
+                "forged_hash",
                 "binding contains unknown evidence hash: "
-                + ",".join(sorted(unknown))
+                + ",".join(sorted(unknown)),
             )
         bindings.append(binding)
 
     if len({item.output_id for item in bindings}) != len(bindings):
-        raise ValueError("duplicate output binding")
+        raise _reject("duplicate_binding", "duplicate output binding")
     for binding in bindings:
         bound_tools = tuple(
             evidence_by_hash[evidence_hash].tool
@@ -318,9 +390,10 @@ def validate_episode_finish(
             if tool not in bound_tools
         )
         if binding.evidence_hashes and missing_floor:
-            raise ValueError(
+            raise _reject(
+                "evidence_type_floor",
                 f"required output lacks evidence type {binding.output_id}: "
-                + ",".join(missing_floor)
+                + ",".join(missing_floor),
             )
 
     binding_map = {item.output_id: item for item in bindings}
@@ -333,26 +406,47 @@ def validate_episode_finish(
         if output_id in binding_map and not binding_map[output_id].gap
     )
     if empty_outputs:
-        raise ValueError(
+        raise _reject(
+            "no_substantive_answer",
             "required output lacks substantive answer: "
-            + ",".join(empty_outputs)
+            + ",".join(empty_outputs),
         )
+    # ``binding.gap`` 与 ``evidence_hashes`` 同时非空，是模型的**格式滑档**，
+    # 不是必需输出缺失：该 output 已有直接证据支撑，gap 里写的是附带限制条件。
+    # 本函数上游的契约（第 204-206 行）要求这种限制写进顶层 ``gaps`` 或 ``draft``，
+    # 而 2026-08-10 的 live 实测里模型**三处都写了**——``evidence_boundary``
+    # 带 2 条证据哈希、顶层 gaps 有该条、binding.gap 又抄了一份。
+    #
+    # 把这种滑档判成「缺失」，代价与过失不成比例：整份 FINAL_JSON 作废，
+    # 连同已绑好的证据一起丢，最终 ``draft_chars=0``（实测 508 字符答案被丢弃两轮）。
+    # 而同一个事实在 ``episode_verifier.py:115`` 只降级为 partial 且**保留草稿**。
+    # 两条路径对同一输入严厉度不同，更严厉的那条丢掉的恰是用户唯一能看到的东西。
+    #
+    # 这里只放宽「有证据支撑时的附带 gap」这一种组合：gap 而**无**证据哈希，
+    # 仍然是缺口，仍然判缺失。放宽的边界就是「有没有直接证据」，不是「有没有写 gap」。
     if status == "completed":
-        missing = [
-            required.output_id
-            for required in context.contract.required_outputs
-            if required.required
-            and (
-                required.output_id not in binding_map
-                or binding_map[required.output_id].gap
-                or (
-                    required.grounding_mode == "evidence"
-                    and not binding_map[required.output_id].evidence_hashes
-                )
-            )
-        ]
+        missing = []
+        for required in context.contract.required_outputs:
+            if not required.required:
+                continue
+            binding = binding_map.get(required.output_id)
+            if binding is None:
+                missing.append(required.output_id)
+                continue
+            if binding.gap and not binding.evidence_hashes:
+                missing.append(required.output_id)
+                continue
+            if required.grounding_mode == "evidence" and not binding.evidence_hashes:
+                missing.append(required.output_id)
         if missing:
-            raise ValueError("required output lacks evidence: " + ",".join(missing))
+            raise _reject(
+                "missing_evidence",
+                "required output lacks evidence: " + ",".join(missing),
+            )
+    # 放宽不等于把痕迹放掉：被容忍的 gap 原样留在 ``binding.gap`` 里，
+    # ``episode_verifier.py:115`` 读到它照旧把这一格判 missing 并降级为 partial。
+    # 于是「有答案」与「这一格有保留意见」两件事都成立——这正是本轮要的差别：
+    # 失败留痕，但不再连答案一起销毁。
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,
