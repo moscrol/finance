@@ -79,6 +79,38 @@ S3 是 `degraded/draft=0`）更好。所以"生产线跑不通"不成立，**它
   `evidence_search` **`tool_timeout`**（RUN1、RUN3 都有）加两次模型 `TimeoutError`。
   **给 judge 加预算救不了 S3，得先让 `evidence_search` 别超时。**
 
+##### `evidence_search` 的真实成本（2026-08-10 用 `scripts/probe_tool.py` 实测）
+
+**两个先前的诊断都是错的，别再走**：
+
+| 说法 | 实测 |
+|---|---|
+| 「一次性预热成本，之后 4–6s」 | ❌ 同一进程内换个全新 query 仍要 **55.59s** |
+| 「首次调用 28s，给首查更多预算即可」 | ❌ 每次有命中的调用都是 **~56s**，加预算救不了 |
+
+**真实结构**：一次 `evidence_search` = **9 次串行 KB 检索**
+（`_narrow_queries` / `_broad_queries` / `_counter_queries` **各返回 3 元组**，
+三个 aperture 各 3 条），单次约 6s × 9 ≈ 54s，与实测 56.14 / 55.59s 吻合。
+`closed_loop_retrieval.py:170` 那句「热查询 4-6s」说的是**单次检索**——
+之前被误读成整个工具的耗时，两次错误诊断都源于这一次误读。
+
+**处方回到 ch4 原话「只读 → 可缓存、可并行」，而且并行是安全的**：
+`narrow` 的 3 条彼此独立；`broad` 与 `counter` 的 6 条都只依赖 `relevant_narrow_hits`、
+**彼此不依赖**（见 `retrieve_closed_loop` 的赋值顺序）。
+即 `narrow(3并行) → broad+counter(6并行)`，两轮而不是九轮。
+本仓已有现成并行执行器 `ask_planner.py`（ThreadPoolExecutor），不必从头造。
+
+**12 工具耗时基线**（同一次 `--all`，query=「光伏 装机」）：
+
+```
+evidence_search 56.10s │ kb_search 20.13s │ web_search 2.10s │ news_search 0.78s
+graph_lookup 0.38s │ finance_query 0.28s │ l3_lookup 0.03s │ market_data 0.02s
+financial_data 0.02s │ mainline_context 0.04s │ evidence_lookup 0.00s │ memory_lookup 0.00s
+```
+
+**11 个在 2.1s 内返回，只有 2 个慢，且都在 KB 检索链上**；查 DuckDB 的那几个都是
+毫秒级。所以瓶颈是 RAG 这一条链，不是「工具多所以慢」。
+
 **judge 的真实耗时分布**（本轮 6 次成功调用）：11.33 / 16.36 / 17.95 / 22.43 / 22.85s，
 唯一失败的那次要 **25.6s**（窗口 25.0s，**差 0.6 秒**）。
 即 **25s 首窗正卡在需求上沿**。注意 `MAX_SEMANTIC_JUDGE_WINDOW_SECONDS` 已是 60，
