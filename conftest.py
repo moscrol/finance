@@ -99,6 +99,45 @@ def _git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
+# 能影响被测行为的路径前缀。判据是「改了它，测试结果就可能变」——
+# 代码、测试、依赖契约、pytest 配置。
+#
+# 反面：`docs/`、`market_feature_store/exports/`、`复盘/`、`skills/*/state/`、
+# `work/` 是每日 ingest 的正常产物，本仓工作区长期有 44 个这类脏文件。把它们
+# 计入会让收据永远 dirty、校验器永远建议重跑——那比没有门禁更糟。
+# 不在这里硬编码：两处各写一份清单必漂——本仓当天已在依赖清单上栽过一次
+# （conftest 与 check_agent_workspace_facts 各存一份，uvicorn/ruff 只在其中一处）。
+# 与 scripts/check_test_receipt.py 共读 test-environment.json 同两个字段。
+_CODE_PREFIXES = tuple(_SPEC.get("code_path_prefixes") or ())
+
+# `market_feature_store/` 整体算代码，但它下面的 exports/ 是数据产物，要挖掉。
+_DATA_EXCEPTIONS = tuple(_SPEC.get("data_path_exceptions") or ())
+
+
+def _code_dirt() -> list[str]:
+    """未提交改动里**能影响被测行为**的那些路径，排序后返回。
+
+    只看代码/测试/契约/配置。收窄依据是实验而非推理：那 44 个长期脏文件中有 9 个
+    被测试按路径提到，全部是 ``tmp_path`` 自建夹具或字符串字面量，无一读取真实
+    脏文件；实测这 9 个测试在当前脏树上 25 passed。
+    """
+
+    out: list[str] = []
+    for line in (_git("status", "--porcelain") or "").splitlines():
+        if not line.strip():
+            continue
+        # porcelain 格式：两位状态 + 空格 + 路径（重命名为 "old -> new"）。
+        path = line[3:].strip().strip('"')
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        if not path.startswith(_CODE_PREFIXES):
+            continue
+        if path.startswith(_DATA_EXCEPTIONS):
+            continue
+        out.append(path)
+    return sorted(out)
+
+
 def _revision() -> str:
     """自述 revision——`14 failed` 单独看无法复核是对哪棵树哪个提交成立的。"""
 
@@ -231,7 +270,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD") or "(unknown)",
         # dirty=True 时收据只能用于「本机此刻」，不可跨 agent 采信：
         # 未提交改动无法被 revision 描述，别人无从复现同一份代码。
-        "dirty": bool(_git("status", "--porcelain")),
+        #
+        # 但判据不能是**全树**脏。本仓工作区长期有 44 个脏文件（复盘台账、
+        # market_feature_store/exports、复盘/ 下的 HTML 产物等），它们是每日
+        # ingest 的正常产物，与消费侧代码无关。若按全树判，收据将**永远** dirty，
+        # 于是校验器永远建议重跑——永远发红的门禁比没有门禁更糟，它训练人忽略它。
+        #
+        # 收窄依据是实验，不是推理：那 44 个脏文���里有 9 个被测试文件按路径提到，
+        # 全部是 `tmp_path` 自建夹具或字符串字面量，无一读取真实脏文件；实测这
+        # 9 个测试在当前脏树上 25 passed。故只把**能影响被测行为的路径**计入。
+        "dirty": bool(_code_dirt()),
+        # 完整脏文件数另存，便于人判断「这棵树整体有多脏」而不参与采信判定。
+        "dirty_paths": _code_dirt(),
+        "worktree_dirty_total": len(
+            [ln for ln in (_git("status", "--porcelain") or "").splitlines() if ln]
+        ),
         "dependency_gate_bypassed": os.environ.get(_ESCAPE) == "1",
         # ——— 读数本身 ———
         "target": " ".join(session.config.args or []),

@@ -52,6 +52,16 @@ _SPEC_PATH = REPO / "test-environment.json"
 _LOCK = REPO / "requirements-consumer.lock"
 
 
+def _spec() -> dict:
+    try:
+        return json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_SPEC = _spec()
+
+
 def _git(*args: str) -> str:
     try:
         out = subprocess.run(
@@ -60,6 +70,35 @@ def _git(*args: str) -> str:
     except (OSError, subprocess.SubprocessError):
         return ""
     return out.stdout.strip() if out.returncode == 0 else ""
+
+
+# 与 conftest.py 共读 test-environment.json 的同两个字段，不各写一份。
+_CODE_PREFIXES = tuple(_SPEC.get("code_path_prefixes") or ())
+_DATA_EXCEPTIONS = tuple(_SPEC.get("data_path_exceptions") or ())
+
+
+def _code_dirt() -> list[str]:
+    """未提交改动里**能影响被测行为**的那些路径。
+
+    与 ``conftest.py`` 的 ``_code_dirt`` 同判据。为什么不按全树 ``git status``：
+    本仓工作区长期有 45 个脏文件（复盘台账、exports、复盘/ 下 HTML 产物等），
+    都是每日 ingest 的正常产物。按全树判则每份收据都 dirty、本校验器永远建议
+    重跑——永远发红的门禁比没有门禁更糟，它训练人忽略它。
+    """
+
+    out: list[str] = []
+    for line in (_git("status", "--porcelain") or "").splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip().strip('"')
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        if not path.startswith(_CODE_PREFIXES):
+            continue
+        if path.startswith(_DATA_EXCEPTIONS):
+            continue
+        out.append(path)
+    return sorted(out)
 
 
 def _fingerprint() -> str:
@@ -127,7 +166,8 @@ def main() -> int:
         "interpreter": sys.executable,
         "python_version": platform.python_version(),
         "dependency_fingerprint": _fingerprint(),
-        "dirty": bool(_git("status", "--porcelain")),
+        # 与收据同判据：只看能影响被测行为的路径，不看全树。
+        "dirty": bool(_code_dirt()),
     }
 
     print("=" * 72)
@@ -161,12 +201,19 @@ def main() -> int:
     compare("dependency_fingerprint", "依赖指纹一致")
 
     if receipt.get("dirty"):
-        print("  ✗ 收据来自干净树")
+        print("  ✗ 收据来自干净树（按代码路径判，非全树）")
         print("      收据自述 dirty=true —— 未提交改动无法被 revision 描述，")
         print("      别人无从复现同一份代码。这类收据只对「本机此刻」有效。")
+        for item in (receipt.get("dirty_paths") or [])[:8]:
+            print(f"        脏: {item}")
         blockers.append("收据来自脏树")
     else:
-        print("  ✓ 收据来自干净树")
+        total = receipt.get("worktree_dirty_total")
+        note = ""
+        if isinstance(total, int) and total:
+            # 说清「全树脏但代码干净」，否则读者会以为判据漏了东西。
+            note = f"（全树另有 {total} 个脏文件，均为 ingest 数据产物，不影响被测行为）"
+        print(f"  ✓ 收据来自干净树{note}")
 
     if receipt.get("dependency_gate_bypassed"):
         print("  ✗ 依赖门禁未被绕过")
@@ -177,8 +224,10 @@ def main() -> int:
 
     if here["dirty"]:
         # 当前树脏不影响「这份收据是否成立」，但影响「你能不能拿它代表你手上的代码��。
-        print("\n  ⚠ 你当前的树有未提交改动：即使上面全部一致，收据描述的是")
-        print("    已提交的那份代码，不含你手上的改动。")
+        print("\n  ⚠ 你当前的树有未提交的**代码**改动：即使上面全部一致，")
+        print("    收据描述的是已提交的那份代码，不含你手上的改动。")
+        for item in _code_dirt()[:8]:
+            print(f"      脏: {item}")
 
     if args.require_target:
         target = receipt.get("target") or ""
