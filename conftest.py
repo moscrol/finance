@@ -40,6 +40,7 @@ worktree 里跑测试时用的是主树的 `.venv-workbench/bin/python`（AGENTS
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -49,14 +50,31 @@ import pytest
 
 REPO = Path(__file__).resolve().parent
 
-# 主检出树的共享解释器。worktree 也用它（AGENTS.md:67），所以写绝对路径。
-EXPECTED_PY = Path("/Users/a77/finance-workspace-private/.venv-workbench/bin/python")
+# 唯一真本源。初版把清单硬编码在这里、并在 docstring 里写「与
+# check_agent_workspace_facts.py 两处都改才算改完」——当天就漂了（uvicorn 与 ruff
+# 只在其中一处）。用一句提醒去同步两份清单，正是这两道门禁本身要治的病。
+_SPEC_PATH = REPO / "test-environment.json"
 
-# 被反复误报成「环境缺包」的依赖。清单来自真实误报，与
-# check_agent_workspace_facts.py 的 WATCHED 同源——两处都改才算改完。
-REQUIRED = ("fastapi", "agents", "yaml", "duckdb", "pytest")
 
-_ESCAPE = "FWP_ALLOW_ANY_PYTHON"
+def _spec() -> dict[str, object]:
+    """读环境契约。**只用 json + pathlib**：conftest 在收集前执行，此刻不能假设
+    ``intelligence/`` 可 import（缺依赖时正是它要报错的场景），`scripts/` 也不是包。
+    """
+
+    try:
+        return json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_SPEC = _spec()
+EXPECTED_PY = Path(
+    str(_SPEC.get("interpreter"))
+    if _SPEC.get("interpreter")
+    else REPO / ".venv-workbench" / "bin" / "python"
+)
+REQUIRED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
+_ESCAPE = str(_SPEC.get("escape_env_var") or "FWP_ALLOW_ANY_PYTHON")
 
 
 def _missing() -> tuple[str, ...]:

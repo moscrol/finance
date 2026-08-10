@@ -23,17 +23,41 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
 
-# .venv-workbench 是全仓共享的唯一解释器，用绝对路径。
-VENV_PY = Path("/Users/a77/finance-workspace-private/.venv-workbench/bin/python")
 # 主检出树（各 worktree 的 .git 都指向它）；用于区分「主树 vs 附属 worktree」。
 MAIN_CHECKOUT = "/Users/a77/finance-workspace-private"
 
+# 唯一真本源，与 conftest.py 共读同一份。此前两处各存一份清单、靠 docstring 里
+# 一句「两处都改才算改完」同步，当天就漂了（uvicorn 与 ruff 只在其中一处）��
+# 用提醒去同步两份清单，正是这两道门禁本身要治的病。
+_SPEC_PATH = Path(MAIN_CHECKOUT) / "test-environment.json"
+
+
+def _spec() -> dict:
+    """只用 json + pathlib 读，不 import 本仓任何模块。
+
+    本脚本要在「依赖可能缺失」的环境里如实报告，自己不能依赖那些包。
+    """
+
+    try:
+        return json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_SPEC = _spec()
+# .venv-workbench 是全仓共享的唯一解释器，用绝对路径。
+VENV_PY = Path(
+    str(_SPEC.get("interpreter"))
+    if _SPEC.get("interpreter")
+    else f"{MAIN_CHECKOUT}/.venv-workbench/bin/python"
+)
 # 被反复误报为「缺失」的包。清单来自真实误报，不是凭空列的。
-WATCHED = ("fastapi", "agents", "yaml", "uvicorn", "duckdb", "pytest", "ruff")
+WATCHED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
 
 
 def _git(*args: str) -> str:

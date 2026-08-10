@@ -1,0 +1,22 @@
+{
+  "_why": "测试环境的唯一真本源。两道门禁都读这里，不各自维护清单。",
+  "_history": "2026-08-10：conftest.py 与 scripts/check_agent_workspace_facts.py 各存一份依赖清单，靠 docstring 里一句『两处都改才算改完』同步。当天就漂了——uvicorn 与 ruff 只在其中一处。提醒的到达率不可靠，这正是这两道门禁本身要治的病，不该在它们的实现里重犯。",
+  "_format": "JSON 而非 python 模块：conftest 在收集前跑，此时还不能保证 intelligence/ 能 import（缺依赖时正是它要报错的场景）；scripts/ 也不是包。只用 json+pathlib 读，无 import 依赖。",
+
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+
+  "_required_why": "被反复误报成『环境缺包』的依赖。清单来自真实误报，不是凭空列的。",
+  "required_modules": [
+    "fastapi",
+    "agents",
+    "yaml",
+    "uvicorn",
+    "duckdb",
+    "pytest",
+    "ruff"
+  ],
+
+  "_escape_hatch": "FWP_ALLOW_ANY_PYTHON=1 放行依赖门禁（用于故意验证缺依赖时的行为），放行时仍打横幅，不静默。",
+  "escape_env_var": "FWP_ALLOW_ANY_PYTHON"
+}
