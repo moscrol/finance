@@ -79,6 +79,38 @@ S3 是 `degraded/draft=0`）更好。所以"生产线跑不通"不成立，**它
   `evidence_search` **`tool_timeout`**（RUN1、RUN3 都有）加两次模型 `TimeoutError`。
   **给 judge 加预算救不了 S3，得先让 `evidence_search` 别超时。**
 
+##### ⛔ 本小节整节作废（2026-08-10 晚）：`evidence_search` 的「慢」是测量条件造的
+
+> **别照着下面这节做任何优化。** 用 `probe_tool.py --prewarm` 复测后，
+> 三种状态差 5 倍：
+>
+> | 条件 | kb_search | evidence_search |
+> |---|---|---|
+> | 无 worker（subprocess 每次现起）← **阶梯此前一直是这个** | 19s | 56–64s |
+> | worker 开但未预热 | 30s（超时返空） | — |
+> | **预热 + worker（= 生产 8792）** | **2.6–3.6s** | **16–17s** |
+>
+> 生产在 `lifespan` 里 prewarm 一次（`api/app.py:1860`）、worker 一直热着；
+> 阶梯是独立进程，`RAG_WORKER_ENABLED` 默认 `0`、也从不预热，于是每次现加载
+> BGE-m3 与 214MB 索引。**16–17s 在 30s 工具批次上限之内——生产不超时。**
+> 阶梯记的 `evidence_search tool_timeout` 是**试验台产物，不是生产缺陷**。
+>
+> 已修：`run_episode_seam_ladder.py` 的 live 入口加 `_prewarm_retrieval()`（`58db01de`）。
+> **下一次 live 跑出来的读数与本文档此前所有 live 读数不可比**，因为测量条件变了。
+>
+> 另外下面那句「9 次串行检索」也是错的：实测
+> `attempts=narrow:ok:6,broad:ok:6,counter:ok:6`，**只有 3 次**——
+> `_run_aperture` 是 first-hit-wins（`closed_loop_retrieval.py:349`），
+> 第一个命中的 query 就 return，不跑满 3 条。
+>
+> **教训**：试验台不复现生产的运行时环境，测出来的就是试验台自己的毛病。
+> 这条与 `[[copy-runtime-env-from-the-process-not-the-docs]]` 同源——
+> 生产进程的 env 里有 `RAG_WORKER_ENABLED=1`，启动脚本和文档里都看不出来，
+> **要从进程读**（`ps eww <pid>`）。
+
+<details>
+<summary>作废原文（留档，勿照做）</summary>
+
 ##### `evidence_search` 的真实成本（2026-08-10 用 `scripts/probe_tool.py` 实测）
 
 **两个先前的诊断都是错的，别再走**：
@@ -110,6 +142,11 @@ financial_data 0.02s │ mainline_context 0.04s │ evidence_lookup 0.00s │ me
 
 **11 个在 2.1s 内返回，只有 2 个慢，且都在 KB 检索链上**；查 DuckDB 的那几个都是
 毫秒级。所以瓶颈是 RAG 这一条链，不是「工具多所以慢」。
+
+（⚠️ 上面这份基线是**未预热**状态测的，`evidence_search 56.10s` / `kb_search 20.13s`
+两项在生产状态下分别是 **16–17s** 与 **2.6–3.6s**。其余 10 个工具不走 RAG，不受影响。）
+
+</details>
 
 **judge 的真实耗时分布**（本轮 6 次成功调用）：11.33 / 16.36 / 17.95 / 22.43 / 22.85s，
 唯一失败的那次要 **25.6s**（窗口 25.0s，**差 0.6 秒**）。
