@@ -45,6 +45,21 @@ MIN_VIABLE_LLM_SECONDS = float(os.environ.get("LLM_MIN_VIABLE_SECONDS", "15"))
 # The provider budget includes structured claim markers that are removed before
 # display.  A visible 1,200-1,800 character answer can therefore exceed 2,200
 # model tokens even though the user-facing response is still concise.
+#
+# 这两个上限**不是一回事，也不能互相替代**，2026-08-10 实测确认过一次：
+#   MAX_TOKENS 是**请求参数**，执行权在上游。当前两条中转都不兑现它
+#   （请求 3000，实得 416–722，且 ``finish_reason=stop`` 而非 ``length``），
+#   收据里的 ``runtime.provider_honors_max_tokens=no`` 记的就是这件事。
+#   MAX_CHARS 是**客户端闸**，执行权在我们：非流式在 ``_post_chat_synthesis``
+#   收到 content 后校验，流式在 ``_stream_chat_synthesis`` 里边收边数、超限即抛
+#   ``LLMOutputTooLong``——且抛在 ``on_delta`` **之前**，超长内容不会先落到用户面前。
+#
+# 所以「上游不兑现 max_tokens」不等于「输出长度没有防线」：真正兜底的是 max_chars
+# 加那根 deadline，两者都不依赖上游的配合。**别因为 max_tokens 不生效就删掉它**——
+# 它是免费的第一道闸，换一个兑现它的 provider 就会重新生效。
+# 反过来也别拿 max_tokens 去推算时间（token/秒 × 剩余秒数）：
+# ``ask_synthesis._phase_slice_collapsed`` 的注释写明了那条路刻意没走，
+# 因为一个不被兑现的值推不出任何东西。
 DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
 _ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
