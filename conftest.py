@@ -348,9 +348,26 @@ _PERSONAL_STATE_ENV = (
 )
 
 
+# ⚠ 必须在**模块级**先清一次，不能只靠下面的 autouse 夹具（2026-08-12 实测补）：
+#
+#   夹具是每个用例执行前跑的，而**导入期比它早得多**。实测
+#   `intelligence/tests/test_acceptance_trace_capture.py` 里一句
+#   `from intelligence.api.app import ...` ——**光是导入这个模块就会碰真人目录**
+#   （app 在 import 时就初始化了用户态存储）。于是 `pytest --collect-only`
+#   一次都不执行任何用例，真人目录 mtime 照样变。
+#
+#   这也是为什么加了夹具之后「全量跑仍在动真人目录」：夹具没错，是**时机**错了。
+#   定位手法值得记：逐用例探针一无所获 → 换 `--collect-only` 复现 → 证明是导入期 →
+#   再按收集单元归因到具体文件。**副作用发生在哪个阶段，探针就得架在哪个阶段。**
+#
+# conftest.py 由 pytest 在收集任何测试模块之前导入，所以这里是最早的可控点。
+for _name in _PERSONAL_STATE_ENV:
+    os.environ.pop(_name, None)
+
+
 @pytest.fixture(autouse=True)
 def _isolate_personal_state_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """默认清掉「指向真人数据」的环境变量，让测试密封。
+    """每个用例再兜一次底，防止中途有代码把变量设回去。
 
     需要这些变量的测试自己 ``monkeypatch.setenv`` 显式设回去——测试内的设置
     发生在本夹具之后，天然覆盖。
