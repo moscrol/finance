@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-11T03:31:22Z",
+  "generated_at": "2026-08-11T04:00:09Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -225,6 +225,11 @@
       "computedHash": "sha256:a0eccb39b855e82431008865e726871ffb279af0b4d262c09343b891b1757ca6",
       "agentOnly": false,
       "views": [
+        {
+          "path": ".agents/skills/handoff",
+          "type": "symlink",
+          "target": "../../skills/handoff"
+        },
         {
           "path": ".claude/skills/handoff",
           "type": "symlink",
