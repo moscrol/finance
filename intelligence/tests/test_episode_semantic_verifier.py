@@ -1884,8 +1884,15 @@ def test_primary_judge_default_attempt_reserves_retry_window(
     # 13.3–24.1s; a 15s opening attempt failed 6/6, 25s succeeded 6/6), and a
     # hard-coded 15.0 here made a deliberate change look like a regression.
     window = semantic_judge_window_seconds()
+    # 绝对容差，不用 approx 的默认相对容差（2026-08-11 改）：
+    # 这个 timeout 是从**活的 deadline** 现算的，`from_timeout(60)` 到判定发生之间
+    # 真实流逝的时间会被减掉，实测得到 29.99995141645195。而 approx 默认 rel=1e-6
+    # 对 30.0 就是 ±3e-5 —— 差 4.9e-5 即判失败，等于把「断言规则」又写回成
+    # 「断言精确值」（正是上面注释想避免的），于是**机器忙一点就红**：
+    # 单独跑 5/5 失败、全量跑里反而过，是典型的时钟敏感偶发。
+    # 50ms 对负载抖动足够宽，对真回归足够紧——真回归会把它挪几秒（如 15 vs 30）。
     assert model.calls[0]["timeout"] == pytest.approx(
-        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window * 0.5)
+        min(DEFAULT_JUDGE_TIMEOUT_SECONDS, window * 0.5), abs=0.05
     )
     assert model.calls[0]["timeout"] <= window * 0.5 + 0.01
 

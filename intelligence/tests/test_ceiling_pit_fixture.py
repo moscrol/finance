@@ -24,6 +24,19 @@ from intelligence.eval.ceiling_pit_fixture import (
 
 AS_OF = "2026-07-24"
 
+# 知识库仓的 RAG 虚拟环境。下面那条 true-hybrid 用例是**集成测试**：它要拿这个
+# 解释器真建一次 BGE-m3 + BM25 索引。该环境不在本仓、也不由本仓安装。
+#
+# 缺席时必须 skip 而不是 fail（2026-08-11 改）：「依赖没装」和「代码坏了」是两件事，
+# 混成同一个红色的代价是实打实的——本仓 15 条常年失败里，只有这 1 条是真的依赖缺席，
+# 另外 11 条是测试直连了真人数据（环境变量泄漏），2 条是金标样本漂移。
+# 长期红着，就没人再去分辨里面哪几条是真问题，掩护了那 11 条数据污染很久。
+#
+# 用 Path.home() 派生而不是写死家目录字面量：写死的路径换台机器就废，
+# 且本仓 pre-commit 有「不得新增硬编码家目录」门禁。
+RAG_PYTHON = Path.home() / "knowledge-base-private" / ".rag_venv" / "bin" / "python3"
+_RAG_MISSING = not RAG_PYTHON.is_file()
+
 
 def _source_db(path: Path) -> None:
     connection = duckdb.connect(str(path))
@@ -746,6 +759,10 @@ def test_true_hybrid_build_adopts_only_a_byte_identical_prebuilt_index(
     assert adopted.hits[0]["index_freshness"] == "fresh"
 
 
+@pytest.mark.skipif(
+    _RAG_MISSING,
+    reason=f"知识库仓 RAG 虚拟环境不可用（{RAG_PYTHON}）——集成测试跳过，非代码问题",
+)
 def test_true_hybrid_build_accepts_explicit_dependency_interpreter(
     tmp_path: Path,
 ) -> None:
@@ -772,7 +789,7 @@ def test_true_hybrid_build_accepts_explicit_dependency_interpreter(
         index_root=tmp_path / "fixture" / "index",
         code_root=code,
         code_revision=revision,
-        rag_python=Path("/Users/a77/knowledge-base-private/.rag_venv/bin/python3"),
+        rag_python=RAG_PYTHON,
         query="before",
     )
 

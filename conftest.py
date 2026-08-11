@@ -308,3 +308,52 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         reporter.write_line(f"读数收据: {path}")
     except OSError as exc:
         reporter.write_line(f"⚠ 收据未写出（不影响测试结论）: {exc}")
+
+
+# --------------------------------------------------------------------------- #
+# 环境隔离：把「本机个人状态」类环境变量挡在测试之外
+# --------------------------------------------------------------------------- #
+# 2026-08-11 实测的事故（15 条常年失败里的 11 条，根因都是这个）：
+#
+#   本机为了「两台机器共享一个大脑」，真实设置了这三个变量（值指向云同步 vault
+#   与真人 user_id，故此处不抄具体路径——注释里的绝对路径同样会过期）：
+#       FORESIGHT_USERS_DIR   → 云同步盘上的大脑目录
+#       FORESIGHT_USER        → 真人 user_id
+#       SUBCONSCIOUS_VAULT    → Obsidian 沉淀 vault 根
+#   而 userspace.users_dir() / resolve_user_id() 是**运行时**读 env 的（这是对的，
+#   跨机同步就靠它）。于是不显式指定用户的测试直接落到**真人的目录**：
+#
+#   · test_subconscious 断言 len(buf)==1，实际读到 913 条——那是真实的会话缓冲
+#   · 断言 judgments_path 不存在，实际 True——真实目录里本来就有
+#   · 断言 weight==1.5，实际 1.0——读到的是真人数据
+#   · 更糟的是**写**：实测 .foresight/tester/ 与 .foresight/alice/ 被测试创建，
+#     真人目录 mtime 也被改动。这些还会被云同步推到另一台机器。
+#
+# 所以这不只是「测试挂了」，是**测试在污染生产数据**。失败本身反而是唯一的警报。
+#
+# 为什么用 delenv 而不是重定向到 tmp_path：
+#   test_userspace 断言的就是「没设 env 时应落在 userspace.USERS_DIR」——
+#   删掉变量正好恢复它想测的那条路径。重定向到 tmp 会让这些断言换一种方式失败。
+#
+# 为什么放 conftest 而不是逐个测试改：
+#   逐个改只治已知的 5 个文件，下一个忘了隔离的测试照样直连真人数据，
+#   而且**失败方式是读到真数据后断言不符**——看起来像业务 bug，不像环境问题，
+#   会把人引向错误的方向（这 15 条挂了很久没人定位，就是这个原因）。
+#   放这里让「密封」成为默认，显式需要时各测试自己 monkeypatch.setenv 覆盖回来
+#   （test_workbench_api.py 里 20 多处已经是这个正确写法，不受影响）。
+_PERSONAL_STATE_ENV = (
+    "FORESIGHT_USERS_DIR",  # 大脑目录重定位（云同步盘）
+    "FORESIGHT_USER",  # 默认 user_id
+    "SUBCONSCIOUS_VAULT",  # Obsidian 沉淀 vault 根
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_personal_state_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认清掉「指向真人数据」的环境变量，让测试密封。
+
+    需要这些变量的测试自己 ``monkeypatch.setenv`` 显式设回去——测试内的设置
+    发生在本夹具之后，天然覆盖。
+    """
+    for name in _PERSONAL_STATE_ENV:
+        monkeypatch.delenv(name, raising=False)

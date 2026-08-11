@@ -311,16 +311,28 @@ def test_freeze_rejects_unknown_agent(tmp_path, monkeypatch):
     assert acceptance.cmd_freeze(args) == 2
 
 
-def test_board_keeps_operational_truth_and_experience_axes_separate(
-    monkeypatch, capsys
-):
+# 2026-08-11 修：原先这里 `monkeypatch.setattr(acceptance, "latest_run", ...)`，
+# 但 cmd_board 早已不调 latest_run，改成 select_latest_case_runs(RUNS_DIR, ...)。
+# **mock 点随实现重构失效后成了空操作**：board 于是去扫真实的 runs 目录（现有 20 份），
+# 断言随之漂移——失败信息看起来像「板子渲染坏了」，其实是测试没钉住输入。
+# 现在走公开接口显式指定 run，输入固定、不随目录增长而变。
+def test_board_keeps_operational_truth_and_experience_axes_separate(capsys):
     run_path = acceptance.REPO / "intelligence/eval/runs/20260727T032229Z.json"
-    monkeypatch.setattr(acceptance, "latest_run", lambda: run_path)
 
-    assert acceptance.cmd_board(acceptance.argparse.Namespace()) == 0
+    assert (
+        acceptance.cmd_board(acceptance.argparse.Namespace(run=str(run_path))) == 0
+    )
     output = capsys.readouterr().out
 
-    assert "| 题 | 组 | 运行 | 真值 | 体验 |" in output
+    # 断言「三轴各自独立成列」，而不是钉死整行表头。
+    # 这条用例的名字说的就是「运行/真值/体验三轴分离」——那才是要守的不变量。
+    # 原先钉死 `| 题 | 组 | 运行 | 真值 | 体验 |`，板子后来加了 来源/送达/信息量/
+    # 可信度/耗时/绑定证据/说明 七列，表头一变就红，而三轴分离其实完好无损：
+    # **过度具体的断言会在无关变更上报警，把真正的回归淹掉**。
+    header = next(line for line in output.splitlines() if line.startswith("| 题 |"))
+    columns = [cell.strip() for cell in header.strip("|").split("|")]
+    for axis in ("运行", "真值", "体验"):
+        assert axis in columns, f"{axis} 轴应当是独立一列，实际列为 {columns}"
     assert "**运行口径**" in output
     assert "**真值口径**" in output
     assert "不可判" in output
@@ -328,11 +340,11 @@ def test_board_keeps_operational_truth_and_experience_axes_separate(
     assert "有答案待判" not in output
 
 
-def test_board_accepts_only_explicit_hash_bound_sidecars(
-    tmp_path, monkeypatch, capsys
-):
+# 同上：mock 点失效导致这里没传 run，撞上「sidecar 只绑定单个 run」的守卫，
+# cmd_board 返回 2 而断言要 0。sidecar 本来就按 run 的 sha256 绑定，
+# 显式传 run 才是这条用例真正要测的路径。
+def test_board_accepts_only_explicit_hash_bound_sidecars(tmp_path, capsys):
     run_path = acceptance.REPO / "intelligence/eval/runs/20260727T032229Z.json"
-    monkeypatch.setattr(acceptance, "latest_run", lambda: run_path)
     source = {
         "run_path": "intelligence/eval/runs/20260727T032229Z.json",
         "run_sha256": hashlib.sha256(run_path.read_bytes()).hexdigest(),
@@ -425,6 +437,7 @@ def test_board_accepts_only_explicit_hash_bound_sidecars(
     experience_path.write_text(json.dumps(experience), encoding="utf-8")
 
     args = acceptance.argparse.Namespace(
+        run=str(run_path),
         truth_observations=str(truth_path),
         experience_labels=str(experience_path),
         blind_manifest=str(blind_path),
