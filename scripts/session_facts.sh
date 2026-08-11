@@ -219,7 +219,17 @@ if [ -f "$inflight" ]; then
     }
   ' "$inflight" 2>/dev/null)"
   if [ -n "$brief" ]; then
-    LINES+=("在途交接: docs/handoffs/inflight/${slug}.md（本分支活文档，接手先读）")
+    # 超出 ≤3K 约定时在指针行标注实际字节数：预算总量固定（工作区事实约占 790 字符，
+    # 留给正文约 1140 ≈ 3K 中文），文档一超标，被截断的就不再是末尾的「已验证」，
+    # 而是「下一步」和「踩过的坑」——机制的价值恰好丢在这里。
+    # 标注救不回被砍的内容，但它让「这份交接超标了」对读者和下一个写者都可见，
+    # 而不是让人以为自己看到的就是全部（静默截断正是本仓反复吃亏的形状）。
+    doc_bytes="$(wc -c < "$inflight" 2>/dev/null | tr -d ' ')"
+    if [ "${doc_bytes:-0}" -gt 3072 ]; then
+      LINES+=("在途交接: docs/handoffs/inflight/${slug}.md（⚠ ${doc_bytes} 字节，超 ≤3K 约定，下面正文已被截断，接手请读原文件）")
+    else
+      LINES+=("在途交接: docs/handoffs/inflight/${slug}.md（本分支活文档，接手先读）")
+    fi
     [ -n "$stale_line" ] && LINES+=("$stale_line") && stale_line=""
     while IFS= read -r l; do LINES+=("  ${l}"); done <<< "$brief"
   fi
@@ -235,11 +245,26 @@ fi
 [ -n "$stale_line" ] && LINES+=("$stale_line")
 
 # ── 组装：预算内输出，超限则截断并**声明**砍了什么 ─────────────────────
+#
+# 标题与尾部声明都要**先生成、再量实际长度**做预留，不写死常量。
+# 这是本仓 load-memory.sh 已经踩过并改掉的同一个坑（dd77c316：手写 RESERVED=1000
+# 实际是 986，且会随内容漂移——预留太小则总量超预算，太大则白扔额度）。
+#
+# 2026-08-11 实测：本脚本原先两样都没算，标题（约 30 字符）和声明（约 40 字符）
+# 都在 BUDGET 之外，实际输出 2069 字符 / 预算 2000，**声明「已达 2000 预算」的那句话
+# 本身就是超出预算的一部分**。量具报的数和它自己的规矩对不上，虽然只溢出 3%，
+# 但一个自己都不守的预算，下次没人会拿它当约束。
+#
+# 省略条数取 ${#LINES[@]}（全被砍时的可达上界），所以量出的是长度上界，不是估值。
+HEADER="## 工作区事实（SessionStart 自动探测，非文档摘抄）"
+decl_max="（已达 ${BUDGET} 字符预算，省略后 ${#LINES[@]} 条；完整事实跑 scripts/check_agent_workspace_facts.py）"
+avail=$(( BUDGET - ${#HEADER} - 1 - ${#decl_max} - 1 ))   # 两个 -1 是各自的尾部换行
+
 body=""
 kept=0
 for line in "${LINES[@]}"; do
   candidate="${body}${line}"$'\n'
-  if [ "${#candidate}" -gt "$BUDGET" ]; then
+  if [ "${#candidate}" -gt "$avail" ]; then
     body="${body}（已达 ${BUDGET} 字符预算，省略后 $(( ${#LINES[@]} - kept )) 条；完整事实跑 scripts/check_agent_workspace_facts.py）"$'\n'
     break
   fi
