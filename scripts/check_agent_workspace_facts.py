@@ -23,17 +23,82 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
 
-# .venv-workbench 是全仓共享的唯一解释器，用绝对路径。
-VENV_PY = Path("/Users/a77/finance-workspace-private/.venv-workbench/bin/python")
 # 主检出树（各 worktree 的 .git 都指向它）；用于区分「主树 vs 附属 worktree」。
-MAIN_CHECKOUT = "/Users/a77/finance-workspace-private"
+def _raw_git(*args: str) -> str:
+    """模块级 git 调用，供下面推导主树用。
 
+    不设 ``cwd``，继承调用方所在目录——pre-commit 以被提交仓库的根为 cwd，
+    所以从附属 worktree 提交时这里问到的就是那棵树，正是本脚本要报告的对象。
+    """
+
+    try:
+        out = subprocess.run(
+            ["git", *args], capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def _main_checkout() -> str:
+    """主检出树路径，**问 git 而不是写死**。
+
+    此前这里是 ``MAIN_CHECKOUT = "/Users/a77/finance-workspace-private"``。
+    危害不是「换台机器跑不了」，而是**从附属 worktree 跑时它会认错树**：
+    ``worktree == MAIN_CHECKOUT`` 在别的机器/别的检出名下恒为假，于是那句
+    「⚠ 这是主检出树，另有 N 个 worktree」永远不显示；而过滤 ``others`` 的
+    ``startswith(MAIN_CHECKOUT + " ")`` 也会把主树自己误算进「其他 worktree」。
+
+    本文件的 ``_git`` docstring 已记过同形的坑（初版用 ``cwd=<脚本目录>``，
+    于是从附属 worktree 跑却报告主树的分支——一个专门用来防「在错误的树上工作」
+    的检查，自己认错了树）。那次只修了 ``_git`` 的 cwd，这个常量没跟上。
+    **一个报告错树的体检工具比没有体检更危险：它让人确信自己在正确的地方。**
+
+    推导依据：附属 worktree 的 ``.git`` 是文件而非目录，指向
+    ``<主树>/.git/worktrees/<名>``；``--git-common-dir`` 一律解析到 ``<主树>/.git``，
+    取其父目录即主树。解析不到时回退脚本自身所在的仓根（脚本在 ``scripts/`` 下）。
+    """
+
+    common = _raw_git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if common:
+        return str(Path(common).resolve().parent)
+    return str(Path(__file__).resolve().parents[1])
+
+
+MAIN_CHECKOUT = _main_checkout()
+
+# 唯一真本源，与 conftest.py 共读同一份。此前两处各存一份清单、靠 docstring 里
+# 一句「两处都改才算改完」同步，当天就漂了（uvicorn 与 ruff 只在其中一处）��
+# 用提醒去同步两份清单，正是这两道门禁本身要治的病。
+_SPEC_PATH = Path(MAIN_CHECKOUT) / "test-environment.json"
+
+
+def _spec() -> dict:
+    """只用 json + pathlib 读，不 import 本仓任何模块。
+
+    本脚本要在「依赖可能缺失」的环境里如实报告，自己不能依赖那些包。
+    """
+
+    try:
+        return json.loads(_SPEC_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+_SPEC = _spec()
+# .venv-workbench 是全仓共享的唯一解释器，用绝对路径。
+VENV_PY = Path(
+    str(_SPEC.get("interpreter"))
+    if _SPEC.get("interpreter")
+    else f"{MAIN_CHECKOUT}/.venv-workbench/bin/python"
+)
 # 被反复误报为「缺失」的包。清单来自真实误报，不是凭空列的。
-WATCHED = ("fastapi", "agents", "yaml", "uvicorn", "duckdb", "pytest", "ruff")
+WATCHED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
 
 
 def _git(*args: str) -> str:

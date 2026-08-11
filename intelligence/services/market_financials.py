@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -163,11 +164,33 @@ def _report_name(report_date: str) -> str:
     return f"{year}{suffix}" if suffix else report_date
 
 
+def akshare_available() -> bool:
+    """备源库在不在。**不 import，只查 spec**——import 会拖进 akshare 的全部依赖。
+
+    存在的理由：``fetch_quarterly_financials_akshare`` 里 ``except Exception``
+    把三件不同的事压成同一个 ``[]``：
+
+        1. akshare 没装（ImportError）        —— 备源**从未尝试**
+        2. akshare 装了但取数失败（网络等）    —— 备源尝试过、失败
+        3. 取到了但没有目标字段              —— 备源尝试过、无数据
+
+    这三件对用户的含义完全不同，而缺口文案写死了「东财与 AKShare 均未取到」。
+    2026-08-10 实测：akshare 在 .venv-workbench 里从未安装，于是那句话对**每一次**
+    财报缺口都成立地撒谎——声称试过两个源，实际只试了一个。
+
+    这不是文案瑕疵。它让「备源不可用」这个基础设施事实，伪装成「这家公司查不到
+    财报」这个数据事实，于是没人会去修备源——因为仪表显示它已经试过了。
+    """
+
+    return importlib.util.find_spec("akshare") is not None
+
+
 def fetch_quarterly_financials_akshare(
     ts_code: str, name: str = "", periods: int = DEFAULT_PERIODS
 ) -> list[QuarterFinancials]:
     """AKShare fallback：新浪财务摘要 `stock_financial_abstract`（累计口径，与东财 F10 一致）。
-    任何异常返回空列表，由上层写缺口。"""
+    任何异常返回空列表，由上层写缺口；备源未安装时同样返回空列表，
+    由 ``akshare_available()`` 供上层区分「未尝试」与「尝试过但失败」。"""
     secucode = _secucode(ts_code)
     if secucode is None:
         return []
@@ -221,14 +244,36 @@ def build_financials_block(
     rows: list[QuarterFinancials],
     fetch_disabled: bool = False,
     data_source: str = "东财 F10",
+    fallback_attempted: bool | None = None,
 ) -> str:
-    """生成 D7 逐季财报数据块（注入 compose）；缺数时仍返回带显式缺口的块或空串。"""
+    """生成 D7 逐季财报数据块（注入 compose）；缺数时仍返回带显式缺口的块或空串。
+
+    ``fallback_attempted``：备源（AKShare）这次到底跑没跑过。``None`` = 调用方
+    没说，则按 ``akshare_available()`` 现场判定。它只改缺口文案的措辞——
+    把「这家公司查不到数据」与「备源不可用」分开，理由见 ``akshare_available``。
+    """
+
     lines = [f"## 逐季财报数据块 [D7]（{data_source} 主要财务指标，硬数据；口径=累计值）"]
     if fetch_disabled:
         lines.append(f"- ⚠财报取数已被 {FETCH_ENV_FLAG}=0 关闭：逐季营收/净利/毛利率全部为缺口，需说明数据不可得。")
         return "\n".join(lines)
     if not rows:
-        lines.append("- ⚠缺逐季财报：东财 F10 与 AKShare(新浪财务摘要) 均未取到目标公司主要财务指标，业绩兑现节奏按缺口处理，不得编造。")
+        attempted = (
+            akshare_available() if fallback_attempted is None else fallback_attempted
+        )
+        if attempted:
+            lines.append(
+                "- ⚠缺逐季财报：东财 F10 与 AKShare(新浪财务摘要) 均未取到目标公司主要财务指标，"
+                "业绩兑现节奏按缺口处理，不得编造。"
+            )
+        else:
+            # 说清「只试了一个源」，并指明这是环境缺依赖而非该公司无数据——否则
+            # 备源不可用会被永久伪装成数据缺失，于是没人会去修备源。
+            lines.append(
+                "- ⚠缺逐季财报：东财 F10 未取到目标公司主要财务指标；"
+                "**备源 AKShare 未安装，本次未尝试**（环境缺依赖，非该公司无数据）。"
+                "业绩兑现节奏按缺口处理，不得编造。"
+            )
         return "\n".join(lines)
     lines.append(f"- 目标：{target_name}（{ts_code}），近 {len(rows)} 期累计口径（新→旧）：")
     lines.append("- | 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率% | 销售净利率% |")
@@ -269,9 +314,20 @@ def financials_block_for_target(
         else fetch(ts_code, name, periods)
     )
     source = "东财 F10"
+    # 备源到底跑没跑过，必须如实往下传：显式注入 fallback_fetcher 时它真的跑了；
+    # 未注入且 akshare 没装时，那次调用只是撞上 ImportError 被吞掉——两种情况
+    # 对用户的含义不同（数据缺失 vs 环境缺依赖），不能共用一句缺口文案。
+    fallback_attempted = False
     if not rows:
         fallback = fallback_fetcher or fetch_quarterly_financials_akshare
+        fallback_attempted = fallback_fetcher is not None or akshare_available()
         rows = fallback(ts_code, name, periods)
         if rows:
             source = "AKShare·新浪财务摘要（东财 F10 不可用，已降级备源）"
-    return build_financials_block(name or ts_code, ts_code, rows, data_source=source)
+    return build_financials_block(
+        name or ts_code,
+        ts_code,
+        rows,
+        data_source=source,
+        fallback_attempted=fallback_attempted,
+    )

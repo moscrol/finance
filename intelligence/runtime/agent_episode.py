@@ -30,6 +30,7 @@ from intelligence.services.episode_protocol import (
     build_episode_input,
     build_episode_instructions,
     expand_episode_snapshot_bindings,
+    rejection_response,
     validate_episode_finish,
 )
 from intelligence.runtime.episode_tool_batch import (
@@ -894,8 +895,25 @@ class ContinuousAgentEpisode:
                 finish_failures += 1
                 invalid_actions += 1
                 reason = str(exc)
-                ledger.add("invalid_action", {"reason": reason})
-                if finish_failures == 1 and not finalization_started:
+                response = rejection_response(exc)
+                # 病因与类别进收据：此前只留一句自由文本 reason，事后无法按类
+                # 归并，`synthesis_health` 那 59% 「口径未知」就是从这里开始的。
+                ledger.add(
+                    "invalid_action",
+                    {
+                        "reason": reason,
+                        "code": getattr(exc, "code", "unclassified"),
+                        "kind": getattr(
+                            getattr(exc, "kind", None), "value", "unclassified"
+                        ),
+                        "disposition": response.stop_reason,
+                    },
+                )
+                if (
+                    response.reinject
+                    and finish_failures == 1
+                    and not finalization_started
+                ):
                     messages.append(
                         {
                             "role": "user",
@@ -907,7 +925,7 @@ class ContinuousAgentEpisode:
                         }
                     )
                     continue
-                if self._can_recover_finalization(
+                if response.allow_recovery and self._can_recover_finalization(
                     context=context,
                     evidence=accumulator.evidence,
                 ):

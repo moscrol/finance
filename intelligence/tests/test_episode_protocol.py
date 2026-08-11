@@ -344,6 +344,103 @@ def test_validate_finish_accepts_model_reasoning_without_fake_evidence() -> None
     )
 
 
+def _context_with_evidence_boundary(frame: TaskFrame) -> ResearchRunContext:
+    """两格必需输出的契约，复刻 2026-08-10 live 里真实作废的那份 FINAL_JSON。"""
+
+    context = _context(frame)
+    return dataclasses.replace(
+        context,
+        contract=dataclasses.replace(
+            context.contract,
+            required_outputs=(
+                RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+                RequiredOutput("evidence_boundary", "证据边界", ("market_data",), True),
+            ),
+        ),
+    )
+
+
+def test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat() -> None:
+    """有证据支撑的附带 gap 不得作废整份答案。
+
+    2026-08-10 live 实测：``evidence_boundary`` 带 2 条证据哈希、顶层 gaps 已写同一
+    条限制，模型又在 ``binding.gap`` 里抄了一份。契约（``episode_protocol`` 第
+    204-206 行）确实要求这种限制只写顶层，所以模型是**格式滑档**——但旧判定把它
+    等同于「必需输出缺失」，��是 508 字符、5 格全绑证据的答案连续两轮整份作废，
+    收据里只剩 ``draft_chars=0``。
+
+    同一个事实在 ``episode_verifier.py:115`` 只降级为 partial 且保留草稿。这里锁住
+    更宽松的那一侧：答案保住，gap 原样留在 binding 里继续供下游降级。
+    """
+
+    frame = _frame()
+    context = _context_with_evidence_boundary(frame)
+
+    finish = validate_episode_finish(
+        {
+            "status": "completed",
+            "draft": "基准判断：偏强震荡，冲高回落风险同步上升。",
+            "gaps": ["缺少同一时间窗口的新闻证据。"],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "",
+                },
+                {
+                    "output_id": "evidence_boundary",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "缺少同一时间窗口的新闻证据。",
+                },
+            ],
+        },
+        context=context,
+        evidence=_evidence(),
+    )
+
+    assert finish.status == "completed"
+    assert finish.draft == "基准判断：偏强震荡，冲高回落风险同步上升。"
+    # 留痕不可省：下游 verifier 靠这条 gap 把该格判 missing 并降级为 partial。
+    boundary = next(
+        item for item in finish.bindings if item.output_id == "evidence_boundary"
+    )
+    assert boundary.gap == "缺少同一时间窗口的新闻证据。"
+
+
+def test_validate_finish_still_rejects_gap_without_any_evidence() -> None:
+    """放宽的边界是「有没有直接证据」，不是「有没有写 gap」。
+
+    没有证据哈希的 gap 是真缺口，仍须判必需输出缺失——否则上一条测试就会把
+    「模型什么都没查到」一起放行，等于用取消校验来换取答案不丢。
+    """
+
+    frame = _frame()
+    context = _context_with_evidence_boundary(frame)
+
+    with pytest.raises(ValueError, match="required output lacks evidence"):
+        validate_episode_finish(
+            {
+                "status": "completed",
+                "draft": "基准判断：偏强震荡。",
+                "gaps": ["没有查到证据边界所需数据。"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["market-hash"],
+                        "gap": "",
+                    },
+                    {
+                        "output_id": "evidence_boundary",
+                        "evidence_hashes": [],
+                        "gap": "没有查到证据边界所需数据。",
+                    },
+                ],
+            },
+            context=context,
+            evidence=_evidence(),
+        )
+
+
 def test_validate_finish_rejects_basis_that_weakens_evidence_contract() -> None:
     frame = _frame()
     context = _context(frame)
@@ -366,3 +463,137 @@ def test_validate_finish_rejects_basis_that_weakens_evidence_contract() -> None:
             context=context,
             evidence=(),
         )
+
+
+def test_every_rejection_code_is_classified() -> None:
+    """每个 raise 出去的 code 都必须在分类表里——可恢复集合是明确枚举。
+
+    对应 book1 ch06 那条不变量 ``withheld_error ∈ {prompt_too_long, ...}``：
+    恢复集合必须是显式枚举，不能是「其余都算」。
+
+    **code 清单从源码 AST 解析，不手抄。** 手抄的清单会和源码分叉，
+    而分叉时这条测试仍然发绿——那就成了 [[gate-assertion-granularity]] 里
+    「只钉文件名的审计保不住符号」的同一个形状。
+    """
+
+    import ast
+    import pathlib
+
+    from intelligence.services import episode_protocol as mod
+
+    source = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
+    raised = {
+        node.args[0].value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_reject"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and isinstance(node.args[0].value, str)
+    }
+
+    assert raised, "AST 没解析到任何 _reject 调用——解析器坏了，不是代码干净了"
+    unclassified = raised - set(mod.REJECTION_KINDS)
+    assert not unclassified, f"这些病因没有类别: {sorted(unclassified)}"
+    unused = set(mod.REJECTION_KINDS) - raised
+    assert not unused, f"分类表里有已不再抛出的病因，应删除: {sorted(unused)}"
+
+
+def test_forged_hash_is_integrity_not_format() -> None:
+    """伪造证据哈希是地基破坏，与「格式写错」必须落在不同类别。
+
+    这两件事此前共用一个 ``ValueError``，因此得到同一个动作。分类的意义
+    就在于让上游能对它们做不同处置：格式回灌重写，地基破坏硬拒。
+    """
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        RejectionKind,
+    )
+
+    context = _context(_frame())
+    with pytest.raises(EpisodeFinishRejection) as forged:
+        validate_episode_finish(
+            {
+                "status": "completed",
+                "draft": "有内容的草稿。",
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["hash-that-was-never-collected"],
+                        "basis": "evidence",
+                    }
+                ],
+            },
+            context=context,
+            evidence=(),
+        )
+    assert forged.value.code == "forged_hash"
+    assert forged.value.kind is RejectionKind.INTEGRITY
+
+    with pytest.raises(EpisodeFinishRejection) as bad_shape:
+        validate_episode_finish(
+            {"status": "completed", "draft": "有内容。", "bindings": "not-a-list"},
+            context=context,
+            evidence=(),
+        )
+    assert bad_shape.value.code == "bindings_not_list"
+    assert bad_shape.value.kind is RejectionKind.FORMAT
+
+
+def test_every_rejection_kind_has_a_disposition() -> None:
+    """每个类别都必须有明确处置——不允许「其余都算」。
+
+    对应 book1 ch06 那条熔断不变量 ``withheld_error ∈ {...}``：可恢复集合必须是
+    明确枚举。少一格不会报错，只会在运行时落进某个默认分支——那正是本轮要消除
+    的形状，所以用测试把穷尽性钉死，而不是靠 review 看出来。
+    """
+
+    from intelligence.services.episode_protocol import (
+        REJECTION_RESPONSES,
+        RejectionKind,
+    )
+
+    assert set(REJECTION_RESPONSES) == set(RejectionKind), (
+        "有类别没有登记处置，或登记了不存在的类别: "
+        f"{set(RejectionKind) ^ set(REJECTION_RESPONSES)}"
+    )
+
+
+def test_integrity_alone_is_denied_reinjection_and_recovery() -> None:
+    """伪造证据哈希不得获得重写机会——本轮唯一的行为变更，必须钉住。
+
+    改动前：``forged_hash`` 与「JSON 少个括号」走同一条路，都能拿到一次回灌。
+    而回灌的内容是「你给的哈希不在白名单里」——这等于在提示一个编造了证据的
+    模型「换个哈希再试」。格式滑档该给第二次机会，地基破坏不该。
+
+    这条也顺带钉住**另外两类仍然可回灌**：分流不是「全都变严」，
+    否则会牺牲 FORMAT/SUBSTANCE 本来正确的宽容度。
+    """
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        rejection_response,
+    )
+
+    integrity = rejection_response(EpisodeFinishRejection("forged_hash", "x"))
+    assert integrity.reinject is False
+    assert integrity.allow_recovery is False
+    # 单独命名：否则地基破坏在收据统计里与普通格式错混为一谈。
+    assert integrity.stop_reason == "integrity_violation"
+
+    for code in ("bindings_not_list", "missing_evidence"):
+        response = rejection_response(EpisodeFinishRejection(code, "x"))
+        assert response.reinject is True, f"{code} 应保留回灌"
+        assert response.allow_recovery is True, f"{code} 应保留收尾恢复"
+        assert response.stop_reason == "invalid_model_finish"
+
+    # 非本模块抛出的 ValueError 按 FORMAT 兜底 = 沿用旧行为。刻意不按 INTEGRITY
+    # 兜底：一次分类遗漏不该表现成线上突然变严，那种回归极难归因。
+    fallback = rejection_response(ValueError("来自下游第三方代码"))
+    assert fallback.reinject is True
+    assert fallback.allow_recovery is True
+    assert rejection_response(ValueError("x")) is rejection_response(
+        EpisodeFinishRejection("bad_status", "x")
+    ), "未分类异常必须与 FORMAT 得到同一处置对象"

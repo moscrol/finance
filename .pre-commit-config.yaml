@@ -34,6 +34,19 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      # 棘轮门禁：存量 51 处家目录字面量免检，只拦**新增**。
+      # 判据刻意不是「是否合理」——测试目录里既有必须保留的脱敏夹具
+      # （assert "/Users/a77" not in encoded），也有真实��径依赖
+      # （.venv-workbench/bin/python），按目录或按语义判都必错。
+      # 实测 0.70~0.83s（扫 778 个 .py），与 layer-audit 同量级，故可入链。
+      # 宿主 python3 已实测可跑：本脚本只用 stdlib，与其他 hook 保持一致。
+      - id: path-literals
+        name: "路径字面量：不得新增写死的家目录"
+        language: system
+        entry: python3 scripts/check_path_literals.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail

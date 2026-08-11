@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/a77/finance-workspace-private/scripts/session_facts.sh",
+            "timeout": 15,
+            "statusMessage": "探测工作区事实（树/解释器/上次读数）..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/a77/finance-workspace-private/scripts/check_inflight_stale.sh",
+            "timeout": 15,
+            "statusMessage": "检测交接过期（有代码改动但 inflight 没跟上）..."
+          }
+        ]
+      }
+    ]
+  }
+}

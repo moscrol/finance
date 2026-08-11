@@ -33,6 +33,24 @@ python3 -m intelligence.cli record-correction --correction "<纠正后的说法>
 **完成后沉淀：** 先判断层级：项目级代码/配置/流程/架构/数据管线决策才追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」；稳定且可跨任务复用的方法论提炼进 `.agent-memory/10_knowledge/`；单次问答评分、用户纠偏、经验样本优先写项目内学习层（如 `experience_cards.jsonl` / `corrections.jsonl`），不要把聊天流水塞进项目交接。
 详细回写步骤见 vault `.agent-memory/40_playbooks/devin-writeback.md`。
 
+## 📚 外部知识源（检索起点）
+
+本项目依赖三处外部知识源，agent 遇到问题时可主动检索：
+
+1. **`~/agent-memory/10_knowledge/`** — 已沉淀的失败形状、审查清单（跨项目可复用方法论）
+   - 如：`evidence-hygiene-three-failure-shapes.md`（证据卫生三大失败形状）
+   - 触发场景：agent 自审、证据链校验、测试对账失败归因
+
+2. **`~/ai-agent-book/`** — agent 使用模式、最佳实践（通用方法论）
+   - 触发场景：不确定某类任务的标准做法、需要参考既有 pattern
+
+3. **`~/harness-reference/`** — audit 工具和数据源索引
+   - `TOOLKIT.md`：可用的审查工具（如 `check_rag_readiness.py`、`baseline_diff.py`）
+   - `INDEX.md`：vetted 数据源清单（官方文档、内部测量、第三方作品），及"只有跨 tribe 一致才算交叉验证"的原则
+   - 触发场景：需要审查工具、需要查证某个 API 行为、需要交叉验证某个事实
+
+**使用约束**：检索时必须用 `grep` / `find_file_by_name` 等工具明确查找，不得臆测内容或路径。若某份知识在上述三处都没有，则说明尚未沉淀——可在本轮任务完成后按沉淀规则补录。
+
 ## Git Branch Safety Rules（强制）
 
 `main` 是当前共享基线，不代表已经完美稳定；本项目仍在持续修缮。任何 agent 开始工作时必须先执行并汇报：

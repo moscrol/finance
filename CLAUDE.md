@@ -261,6 +261,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | dispatcher | 所有请求默认经过本 dispatcher、不需要显式触发 |
 | stock-deep-dive | 个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判 |
 | researcher-valuation | 拍估值、估值带、贵不贵、隐含预期、值多少钱、估值分位、估值怎么看、合理估值 |
+| handoff | handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说"handoff"就执行本流程、不用等会话结束 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
