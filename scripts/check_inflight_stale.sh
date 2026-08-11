@@ -29,6 +29,15 @@
 # 取舍理由：漏报只是没帮上忙，误报会让整个机制被无视。
 #
 # 退出码恒 0：观测设施故障不该阻断会话结束。
+#
+# ⏱ **SessionEnd hook 的超时只有 1.5 秒**（马书 ch18:284，`hooks.ts:174-182`，
+#   env `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS` 可覆盖；且 1.5s 同时是单 hook
+#   超时和整体 AbortSignal 上限，因为所有 hook 并行跑）。本仓这条 hook 没配
+#   `timeout` 字段，吃的就是默认值。
+#   2026-08-11 实测本脚本 110~143 ms，约 10 倍余量。**往下加任何 git 操作前先重测**
+#   ——超时被杀是静默的，门禁会无声失效而不是报错。
+#   顺带：本仓 SessionEnd 没配 matcher，所以 clear / logout / prompt_input_exit /
+#   other 四种 reason 都会触发（`/clear` 也算），这是有意的。
 
 set -uo pipefail
 
@@ -54,8 +63,16 @@ slug="$(printf '%s' "$branch" | tr '/' '-')"
 marker_dir="$REPO/.git/agent-memory"
 marker="$marker_dir/stale-inflight-${slug}.marker"
 
-# 清理旧标记：每次 SessionEnd 都重算，避免上一轮的 stale 一直挂着
-rm -f "$marker"
+# 标记的增删**推迟到判定完成之后**，本段只定义动作、不执行。
+#
+# 依据 10_knowledge/gate-covers-only-its-return-value.md：给一段逻辑加闸门时，
+# 先问「它除了返回值还写了什么」——写在别处的副作用不受判定路径管辖。
+# 旧写法开头就 `rm -f "$marker"`，之后才做几次 git 查询。脚本一旦在中间被杀
+# （SessionEnd 只有 1.5 秒预算；用户 Ctrl+C 同理），**上一轮留下的合法 stale 标记
+# 就被无声销毁了**，而门禁自己不会报任何错——下一个 agent 少看见一条告警，
+# 且没有任何迹象表明它曾经存在。
+# 「先清空再重算」在**可被中断**的执行体里不是幂等操作，是有损操作。
+not_stale() { rm -f "$marker"; exit 0; }
 
 # 0) 归属基线：topic 分支比 main；main 自己比 origin/main（未推送的提交即在途工作）。
 #    基线解析不了（无 main ref / detached HEAD）时**不静默关掉门禁**，退回旧的宽判据，
@@ -101,7 +118,7 @@ fi
 [ -z "$commit_newest" ] && commit_newest=0
 
 # 两级都没信号 = 本分支这轮没干活，不标记
-[ "${code_n:-0}" -eq 0 ] && [ "${commit_newest:-0}" -eq 0 ] && exit 0
+[ "${code_n:-0}" -eq 0 ] && [ "${commit_newest:-0}" -eq 0 ] && not_stale
 
 # 4) inflight 文档是否跟上
 inflight="$REPO/docs/handoffs/inflight/${slug}.md"
@@ -132,7 +149,7 @@ else
   if [ "$work_newest" -gt "$inflight_mtime" ]; then
     reason="${basis}晚于 inflight 文档更新（交接可能没跟上）${degraded}"
   else
-    exit 0   # 交接文档比本分支最近一次工作新，跟上了
+    not_stale   # 交接文档比本分支最近一次工作新，跟上了
   fi
 fi
 
