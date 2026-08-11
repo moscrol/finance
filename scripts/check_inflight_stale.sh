@@ -129,6 +129,10 @@ fi
 [ "${code_n:-0}" -eq 0 ] && [ "${commit_newest:-0}" -eq 0 ] && not_stale
 
 # 4) inflight 文档是否跟上
+#
+# ⏱ 已知边界：时间戳是**秒级**的。若「写完交接提交」与「又改了代码」发生在同一秒内，
+#   `-gt` 不成立、门禁静默。实测撞到过一次，差点被判成回归。真实会话跨分钟，
+#   这个边界无实际影响；但调试「为什么没响」时先看两个 mtime 是不是同一秒。
 inflight="$REPO/docs/handoffs/inflight/${slug}.md"
 if [ ! -f "$inflight" ]; then
   reason="本分支有在途工作但没有任何 inflight 交接文档${degraded}"
