@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/check_inflight_stale.sh",
+            "timeout": 15,
+            "statusMessage": "检测交接过期（有代码改动但 inflight 没跟上）..."
+          }
+        ]
+      }
     ]
   }
 }

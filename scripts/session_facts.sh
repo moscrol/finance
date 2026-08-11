@@ -176,6 +176,16 @@ elif [ -d "$inflight_dir" ]; then
   fi
 fi
 
+# ── 6b. 交接过期标记：SessionEnd 检测到「干了活但没跟上交接」时落的 stale ──
+# 这是写侧门禁的**读侧暴露**：check_inflight_stale.sh 在 SessionEnd 时检测并落标记，
+# 这里把它注入给下一个 agent——「上一轮忘写交接」从静默变成开工第一眼可见。
+# 标记放 .git/agent-memory/（本仓既有约定，不入版本库、不污染 git status）。
+marker="$REPO/.git/agent-memory/stale-inflight-${slug}.marker"
+if [ -f "$marker" ]; then
+  stale_txt="$(head -3 "$marker" 2>/dev/null | tr '\n' ' ')"
+  LINES+=("⚠ 交接可能过期: ${stale_txt}。若已交接请删标记；否则跑 handoff skill 补写（见 docs/handoffs/inflight/）")
+fi
+
 # ── 组装：预算内输出，超限则截断并**声明**砍了什么 ─────────────────────
 body=""
 kept=0
