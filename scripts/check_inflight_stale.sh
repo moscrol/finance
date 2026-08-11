@@ -86,9 +86,17 @@ fi
 code_n="$(printf '%s' "$code_dirty" | grep -c . || true)"
 
 # 3) 本分支提交里最新的一个（一级判据，强归属）
+#
+# **必须排除交接文档自己那条路径**，否则门禁自噬：写完交接去提交，这个提交的时间
+# 必然晚于文档 mtime（git commit 不改文件 mtime），下一轮立刻又判「过期」——
+# 写了也没用，永远报警。2026-08-11 实测撞到：本分支交接文档提交完当场复发。
+# 这是本仓已记过的「提交动作让文档当场失效」在门禁侧的重现。
+#
+# 只动交接文档的提交 = 交接行为本身，不是「新干的活」，必须不计入。
 commit_newest=0
 if [ -n "$base_ref" ]; then
-  commit_newest="$(git log -1 --format=%ct "${base_ref}..HEAD" 2>/dev/null || echo 0)"
+  commit_newest="$(git log -1 --format=%ct "${base_ref}..HEAD" \
+    -- ":(exclude)docs/handoffs/inflight/${slug}.md" 2>/dev/null || echo 0)"
 fi
 [ -z "$commit_newest" ] && commit_newest=0
 
@@ -100,7 +108,13 @@ inflight="$REPO/docs/handoffs/inflight/${slug}.md"
 if [ ! -f "$inflight" ]; then
   reason="本分支有在途工作但没有任何 inflight 交接文档${degraded}"
 else
+  # 文档时间取 max(工作区 mtime, 最后一次改动它的提交时间)。
+  # 只取 mtime 会漏一种情况：交接文档与代码写在**同一个提交**里——此时该提交
+  # 计入上面的 commit_newest（它也动了代码），而文档 mtime 停在写入那一刻、
+  # 恒早于提交时刻，于是又误判过期。取两者较大值，两种写法都成立。
   inflight_mtime="$(stat -f '%m' "$inflight" 2>/dev/null || echo 0)"
+  doc_commit="$(git log -1 --format=%ct -- "docs/handoffs/inflight/${slug}.md" 2>/dev/null || echo 0)"
+  [ "${doc_commit:-0}" -gt "${inflight_mtime:-0}" ] && inflight_mtime="$doc_commit"
   work_newest="${commit_newest:-0}"
   basis="本分支提交"
   if [ "${code_n:-0}" -gt 0 ]; then
