@@ -66,8 +66,8 @@ python3 -m intelligence.cli record-correction --correction "<纠正后的说法>
 | 件 | 现状 | 入口 |
 |---|---|---|
 | 正确的设计 | ⚠ 材料齐备未收口 | `~/agent-memory/10_knowledge/`（骨架判据）+ `70_tutor/` 20 篇（按 agent 分层） |
-| 正确的搭建 | ❌ 缺口，但零件已编目 16 个 | `~/harness-reference/KIT.md` 第二节 |
-| 正确的审计 | ✅ 已成型 | `~/harness-reference/TOOLKIT.md` |
+| 正确的搭建 | ✅ 已建（2026-08-12） | `~/harness-reference/BUILD.md` —— 七个可迁移模式 + 16 个零件 |
+| 正确的审计 | ✅ 已成型 | `~/harness-reference/TOOLKIT.md` —— 按成本档位 A–H |
 
 **落地要求**：本仓写出来的通用件（如 SessionStart 事实注入、棘轮式路径门禁、
 带条件的测试收据、按分支归属而非 mtime 的交接判定）属于「搭建」那一件，
