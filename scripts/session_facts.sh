@@ -143,6 +143,39 @@ if [ -f "$REPO/.pre-commit-config.yaml" ]; then
   LINES+=("门禁: pre-commit ${gates} 道（解释器用错 / 层级违规 / 新增硬编码路径 会被拦下）")
 fi
 
+# ── 6. 在途交接：当前分支的活文档 ──────────────────────────────────────
+# 为什么注入而不是靠 agent 记得去读：`docs/handoffs/` 有 63 份日期快照、无索引，
+# 接手者既不知该读哪份、也没有机制迫使他读。本轮已证明「提醒的到达率不可靠」
+# ——CLAUDE.md 写着用哪个解释器，我照样连续二十多次用错。
+#
+# 只注入**当前分支那一份**（分片键 = 分支名，`/` 换 `-`）：
+#  · 一个共享的 CURRENT.md 在本仓是错的设计——多棵 worktree 共享同一个 .git、
+#    同树可并发两个 agent，单个可变文件就是争用点（2026-08-07 一次 commit 吞掉
+#    另一 agent 的 4 个在途文件）。按写者分片让并发天然无冲突。
+#  · 顺带白送索引：`ls inflight/` 即「当前几件事在飞」。
+#
+# 这一段放在最后：预算耗尽时先被截断的是它，而不是解释器那条硬事实。
+# 排序即优先级——预算不够时保住哪条，是设计决定，不能靠碰巧。
+inflight_dir="$REPO/docs/handoffs/inflight"
+slug="$(printf '%s' "$branch" | tr '/' '-')"
+inflight="$inflight_dir/${slug}.md"
+if [ -f "$inflight" ]; then
+  # 只取正文前若干行喂进注入；全文让 agent 自己 Read（路径已给出）。
+  # 用 awk 按行截断而非 head -c：后者按字节切会把中文劈成半个字符，产出非法
+  # UTF-8，下游 grep/cut/rg 全部把输出当二进制——本轮在 load-memory.sh 上实测踩过，
+  # 且因此连续误判了五次根因（量具被自己污染的输出骗了）。
+  brief="$(LC_ALL=C awk 'NR<=12 && !/^$/ { print }' "$inflight" 2>/dev/null)"
+  if [ -n "$brief" ]; then
+    LINES+=("在途交接: docs/handoffs/inflight/${slug}.md（本分支活文档，接手先读）")
+    while IFS= read -r l; do LINES+=("  ${l}"); done <<< "$brief"
+  fi
+elif [ -d "$inflight_dir" ]; then
+  others="$(ls "$inflight_dir" 2>/dev/null | grep -c '\.md$' || true)"
+  if [ "${others:-0}" -gt 0 ]; then
+    LINES+=("在途交接: 本分支无（inflight/ 下另有 ${others} 份属其他分支）。完工请按 devin-writeback.md 覆写 inflight/${slug}.md")
+  fi
+fi
+
 # ── 组装：预算内输出，超限则截断并**声明**砍了什么 ─────────────────────
 body=""
 kept=0
