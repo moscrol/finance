@@ -79,6 +79,43 @@ remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
 if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
 note="$V/20_projects/$repo.md"
 
+# ── 尾部固定段：先生成到变量，用**实测长度**做预留，不写死 RESERVED ──────
+# 原来写 RESERVED=1000（估的），是「手写常量必漂」同一形状——本轮已在横幅那处
+# 修过一次（320 → 由内容自算），这里当时只修了一半。git status 行数一变，估值
+# 立刻失真且无任何报错：预留太小则总量超预算，太大则白扔额度。
+#
+# 顺序上尾部排在最后，但预留值必须在**截断项目笔记之前**就知道，
+# 所以这里先把它整段算出来存着，最后再打印。
+# 这个「先量后裁、最后输出」的次序，就是上一处 bug（先写「未提交」再提交，
+# 文档当场失效）的反面：**凡是要用到某个量，就必须在用它之前把它测准。**
+build_tail() {
+  echo "## Git 现状（开工先看）"
+  br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  echo "当前分支：${br:-?}"
+  all_n="$(git status --porcelain 2>/dev/null | grep -c . || true)"
+  code="$(git status --porcelain 2>/dev/null \
+    | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
+    | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
+    | grep -v '^market_feature_store/exports/' || true)"
+  code_n="$(printf '%s' "$code" | grep -c . || true)"
+  if [ "${code_n:-0}" -gt 0 ]; then
+    echo "未提交的**代码**改动 ${code_n} 个（全树另有 $((all_n - code_n)) 个 ingest 数据产物，与被测行为无关）："
+    echo '```'
+    printf '%s\n' "$code" | head -15
+    [ "$code_n" -gt 15 ] && echo "…另 $((code_n - 15)) 个"
+    echo '```'
+  else
+    echo "无未提交代码改动（全树 ${all_n} 个脏文件均为 ingest 数据产物）"
+  fi
+  echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
+  echo
+  echo "## 回写约定"
+  echo "完工后按 $V/40_playbooks/devin-writeback.md 分层沉淀：项目级决策写 $V/20_projects/$repo.md（**只写一行索引**，正文进 docs/handoffs/inflight/<分支>.md）；稳定方法论写 $V/10_knowledge/；单次纠偏/评分样本写项目学习层。"
+  echo "在途交接：完工前覆写 docs/handoffs/inflight/<当前分支，/ 换 ->.md，SessionStart 会自动注入给下一个 agent。**在动作完成之后写**，否则注入的是假状态。"
+}
+tail_part="$(build_tail)"
+tail_bytes="$(printf '%s\n' "$tail_part" | wc -c | tr -d ' ')"
+
 # 切点：`## 交接记录` 之前的全部内容 = 开工必读（概述/导览/数据流/环境要求/
 # 关键约定/任务看板/用户决策线路）；它之后是交接流水与逐条 PR 记录，需要时
 # Read 全文即可。
@@ -158,28 +195,9 @@ if [ -f "$note" ]; then
   fi
 fi
 
-# ── Git 现状：只列影响被测行为的代码改动 ───────────────────────────────
-echo "## Git 现状（开工先看）"
-br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-echo "当前分支：${br:-?}"
-all_n="$(git status --porcelain 2>/dev/null | grep -c . || true)"
-code="$(git status --porcelain 2>/dev/null \
-  | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
-  | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
-  | grep -v '^market_feature_store/exports/' || true)"
-code_n="$(printf '%s' "$code" | grep -c . || true)"
-if [ "${code_n:-0}" -gt 0 ]; then
-  echo "未提交的**代码**改动 ${code_n} 个（全树另有 $((all_n - code_n)) 个 ingest 数据产物，与被测行为无关）："
-  echo '```'
-  printf '%s\n' "$code" | head -15
-  [ "$code_n" -gt 15 ] && echo "…另 $((code_n - 15)) 个"
-  echo '```'
-else
-  echo "无未提交代码改动（全树 ${all_n} 个脏文件均为 ingest 数据产物）"
-fi
-echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
-echo
-
-echo "## 回写约定"
-echo "完工后按 $V/40_playbooks/devin-writeback.md 分层沉淀：项目级决策写 $V/20_projects/$repo.md；稳定方法论写 $V/10_knowledge/；单次纠偏/评分样本写项目学习层，不把聊天流水写进交接记录。"
+# ── 尾部固定段：打印前面已量过的那一份 ─────────────────────────────────
+# 内容在 build_tail() 里（第 ~90 行），此处只输出。**不要在这里重新生成**：
+# 那会让「量到的」和「打印的」是两次不同的 git status 结果，预留值随之失准。
+# 一份内容只算一次、只有一处定义，是本轮反复出现的同一条纪律。
+printf '%s\n' "$tail_part"
 exit 0
