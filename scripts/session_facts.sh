@@ -169,14 +169,58 @@ fi
 inflight_dir="$REPO/docs/handoffs/inflight"
 slug="$(printf '%s' "$branch" | tr '/' '-')"
 inflight="$inflight_dir/${slug}.md"
+
+# stale 标记先算好，**排在正文之前**注入（2026-08-11 实测调序）：
+# 它是对下面那份文档的信任度限定。放在正文之后时，正文一变长就把它挤出预算——
+# 结果是「限定语没了、正文还在」，接手者会全额相信一份已经过期的交接。
+# 这是最坏的组合，比两者都不注入更坏。限定语必须先于被限定的内容到达。
+marker="$REPO/.git/agent-memory/stale-inflight-${slug}.marker"
+stale_line=""
+if [ -f "$marker" ]; then
+  # 只取第 1 行（判据/理由）。marker 后两行是通用行动建议，与本行末尾的
+  # 「跑 handoff skill 补写」重复——重复文案在 2000 字符预算里是实打实的挤占，
+  # 实测多花 ~110 字符、多砍掉 4 行正文。
+  stale_txt="$(head -1 "$marker" 2>/dev/null | tr '\n' ' ')"
+  stale_line="⚠ 交接可能过期: ${stale_txt}。若已交接请删标记；否则跑 handoff skill 补写（见 docs/handoffs/inflight/）"
+fi
+
 if [ -f "$inflight" ]; then
-  # 只取正文前若干行喂进注入；全文让 agent 自己 Read（路径已给出）。
-  # 用 awk 按行截断而非 head -c：后者按字节切会把中文劈成半个字符，产出非法
+  # 用 awk 按行处理而非 head -c：后者按字节切会把中文劈成半个字符，产出非法
   # UTF-8，下游 grep/cut/rg 全部把输出当二进制——本轮在 load-memory.sh 上实测踩过，
   # 且因此连续误判了五次根因（量具被自己污染的输出骗了）。
-  brief="$(LC_ALL=C awk 'NR<=12 && !/^$/ { print }' "$inflight" 2>/dev/null)"
+  #
+  # 为什么不再用 `NR<=12` 取前 12 行（2026-08-11 实测改）：
+  #   交接文档的自然结构是「身份 → 已做 → 未验/边界 → 下一步 → 踩过的坑」，
+  #   前 12 行只覆盖到「已做」。也就是说**截断恰好砍掉了风险面**：接手者拿到了
+  #   「这分支在干嘛」，没拿到「哪里会咬人」。实测本分支那份 46 行文档，
+  #   「本轮没跑 pytest」「别在这棵树跑全量对账」「6 条静默失真的坑」全在 12 行之外。
+  #
+  # 为什么是「重排」而不是「按小节名挑」：
+  #   写死中文小节名会踩本仓记过的坑——`## 任**务**看**板**` 夹粗体就匹配不上，
+  #   且失败方式是**静默出空**。这里只做一件弱耦合的事：把「已验证」这类
+  #   *回顾性* 小节挪到末尾，其余保持原序。预算够就全都注入，不够时由下面的
+  #   组装循环从尾部砍——砍掉的是「我做完了什么」，保住的是「什么还没验」。
+  #   小节名没匹配上只会退化成原序，匹配不到 `^## ` 则整篇按原序注入，都不会出空。
+  #
+  # 不在这里做字数截断：awk 在 LC_ALL=C 下 length() 数的是字节，而预算是字符，
+  # 两个量纲混用必然算错。截断统一交给下面按字符计数、且会**声明**砍了多少的循环。
+  brief="$(LC_ALL=C awk '
+    # BEGIN 里必须显式 sec=0。awk 用**未初始化变量**做数组下标时，下标是空串 ""
+    # 而不是数字 0——于是首个 `## ` 之前的正文（标题、更新日期）写进 body[""]，
+    # 而 END 的 `for (i=0; ...)` 读的是 body["0"]，两个不同的格子。
+    # 后果：整篇没有 `## ` 的交接文档会**注入全空**，且退出码 0、无任何报错。
+    # 2026-08-11 实测踩到，正是本段注释声称要避开的那种「静默出空」。
+    BEGIN { sec = 0 }
+    /^## / { sec++; late[sec] = ($0 ~ /已验证|验证通过|已完成|已交付|[Vv]erified|[Dd]one/) ? 1 : 0 }
+    !/^$/  { body[sec] = body[sec] $0 "\n" }
+    END {
+      for (i = 0; i <= sec; i++) if (!late[i]) printf "%s", body[i]
+      for (i = 0; i <= sec; i++) if ( late[i]) printf "%s", body[i]
+    }
+  ' "$inflight" 2>/dev/null)"
   if [ -n "$brief" ]; then
     LINES+=("在途交接: docs/handoffs/inflight/${slug}.md（本分支活文档，接手先读）")
+    [ -n "$stale_line" ] && LINES+=("$stale_line") && stale_line=""
     while IFS= read -r l; do LINES+=("  ${l}"); done <<< "$brief"
   fi
 elif [ -d "$inflight_dir" ]; then
@@ -186,15 +230,9 @@ elif [ -d "$inflight_dir" ]; then
   fi
 fi
 
-# ── 6b. 交接过期标记：SessionEnd 检测到「干了活但没跟上交接」时落的 stale ──
-# 这是写侧门禁的**读侧暴露**：check_inflight_stale.sh 在 SessionEnd 时检测并落标记，
-# 这里把它注入给下一个 agent——「上一轮忘写交接」从静默变成开工第一眼可见。
-# 标记放 .git/agent-memory/（本仓既有约定，不入版本库、不污染 git status）。
-marker="$REPO/.git/agent-memory/stale-inflight-${slug}.marker"
-if [ -f "$marker" ]; then
-  stale_txt="$(head -3 "$marker" 2>/dev/null | tr '\n' ' ')"
-  LINES+=("⚠ 交接可能过期: ${stale_txt}。若已交接请删标记；否则跑 handoff skill 补写（见 docs/handoffs/inflight/）")
-fi
+# 没有 inflight 正文可挂（文档缺失 / brief 为空）时，stale 仍需独立发出——
+# 「该有交接却没有」正是最该被看见的那种情况。
+[ -n "$stale_line" ] && LINES+=("$stale_line")
 
 # ── 组装：预算内输出，超限则截断并**声明**砍了什么 ─────────────────────
 body=""
