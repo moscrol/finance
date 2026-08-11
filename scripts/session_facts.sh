@@ -174,7 +174,9 @@ inflight="$inflight_dir/${slug}.md"
 # 它是对下面那份文档的信任度限定。放在正文之后时，正文一变长就把它挤出预算——
 # 结果是「限定语没了、正文还在」，接手者会全额相信一份已经过期的交接。
 # 这是最坏的组合，比两者都不注入更坏。限定语必须先于被限定的内容到达。
-marker="$REPO/.git/agent-memory/stale-inflight-${slug}.marker"
+# 同 check_inflight_stale.sh：worktree 里 `.git` 是文件不是目录，必须走 common dir，
+# 否则读侧也对不上写侧的路径（2026-08-12 实测修）。
+marker="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")/agent-memory/stale-inflight-${slug}.marker"
 stale_line=""
 if [ -f "$marker" ]; then
   # 只取第 1 行（判据/理由）。marker 后两行是通用行动建议，与本行末尾的

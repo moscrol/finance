@@ -60,7 +60,15 @@ branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
 [ "$branch" = "?" ] && exit 0
 slug="$(printf '%s' "$branch" | tr '/' '-')"
 
-marker_dir="$REPO/.git/agent-memory"
+# 走 git 的 **common dir**，不能写死 "$REPO/.git"（2026-08-12 实测修）：
+# 附属 worktree 里 `.git` 是一个**文件**（73 字节，内容形如 `gitdir: .../worktrees/xxx`），
+# 不是目录——`mkdir -p "$REPO/.git/agent-memory"` 直接 `Not a directory`，
+# 标记永远写不下去，而门禁照样 exit 0。
+# 后果比看上去大：**本门禁在所有附属 worktree 里完全失效**，而本仓常态是 5 棵 worktree
+# 并行。此前只在主检出树验过，所以一直没暴露。
+# common dir 在主树和 worktree 里都解析到同一个真实 .git；标记按分支名分片，
+# 而一个分支同时只可能被一棵树检出，共享一份不会串。
+marker_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")/agent-memory"
 marker="$marker_dir/stale-inflight-${slug}.marker"
 
 # 标记的增删**推迟到判定完成之后**，本段只定义动作、不执行。
