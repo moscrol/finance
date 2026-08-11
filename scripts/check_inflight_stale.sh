@@ -21,13 +21,19 @@
 
 set -uo pipefail
 
-REPO="${DEVIN_PROJECT_DIR:-}"
-if [ -z "$REPO" ] || [ ! -d "$REPO" ]; then
-  REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
-  if [ -z "$REPO" ]; then
-    REPO="$(cd "$(dirname "$0")/.." && pwd)"
-  fi
-fi
+# 仓根：候选逐个试，必须通过哨兵文件校验才采信（`-d` 不够——多根工作区下
+# DEVIN_PROJECT_DIR 可能是父目录 /Users/a77，它存在但不是本仓。
+# 详见 scripts/session_facts.sh 同段注释，2026-08-11 实测）。
+SENTINEL="scripts/check_inflight_stale.sh"
+REPO=""
+for cand in \
+  "${DEVIN_PROJECT_DIR:-}" \
+  "$(git rev-parse --show-toplevel 2>/dev/null)" \
+  "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
+do
+  if [ -n "$cand" ] && [ -f "$cand/$SENTINEL" ]; then REPO="$cand"; break; fi
+done
+[ -n "$REPO" ] || exit 0
 cd "$REPO" 2>/dev/null || exit 0
 
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"

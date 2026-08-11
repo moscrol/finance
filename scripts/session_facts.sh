@@ -51,18 +51,28 @@
 
 set -uo pipefail
 
-# 仓根：优先 Devin 提供的 DEVIN_PROJECT_DIR，其次 git，最后脚本位置。
+# 仓根：候选逐个试，**必须通过哨兵文件校验**才采信（`-d` 不够）。
 # 不写死家目录（scripts/check_path_literals.py 会拦）。
-REPO="${DEVIN_PROJECT_DIR:-}"
-if [ -z "$REPO" ] || [ ! -d "$REPO" ]; then
-  # 分两步，不写成 `$(A || cd .. && pwd)`：那个写法里 `||` 与 `&&` 的优先级会让
-  # git 成功时 `pwd` 仍然执行，REPO 变成两行拼接，随后 cd 失败静默 exit 0
-  # ——一个静默不输出的 hook 等于没装，且没有任何报错提示。实测踩过。
-  REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
-  if [ -z "$REPO" ]; then
-    REPO="$(cd "$(dirname "$0")/.." && pwd)"
-  fi
-fi
+#
+# 2026-08-11 实测：多根工作区下 DEVIN_PROJECT_DIR=/Users/a77（父目录，不是仓根）。
+# 旧逻辑只判 `-d`，该目录恰好存在于是被无条件采信，脚本对着错的树输出
+# 「树: a77 @ ?、解释器不存在、代码改动 0」——四项全错，退出码却是 0。
+# **静默失真比静默不输出更坏**：不输出只是没帮上忙，假事实会被下一个 agent 当真。
+# 所以判据从「目录存在」升级为「这棵树里有本脚本」。
+#
+# 逐个候选用 for + break，不写成 `$(A || B)` 串联：`||` 与 `&&` 的优先级会让
+# git 成功时后半段仍然执行，REPO 变成两行拼接，随后 cd 失败静默 exit 0
+# ——一个静默不输出的 hook 等于没装，且没有任何报错提示。实测踩过。
+SENTINEL="scripts/session_facts.sh"
+REPO=""
+for cand in \
+  "${DEVIN_PROJECT_DIR:-}" \
+  "$(git rev-parse --show-toplevel 2>/dev/null)" \
+  "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
+do
+  if [ -n "$cand" ] && [ -f "$cand/$SENTINEL" ]; then REPO="$cand"; break; fi
+done
+[ -n "$REPO" ] || exit 0
 cd "$REPO" 2>/dev/null || exit 0
 
 BUDGET=2000

@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/load-memory.sh"
+            "command": "bash /Users/a77/finance-workspace-private/.claude/hooks/load-memory.sh"
           },
           {
             "type": "command",
-            "command": "bash scripts/session_facts.sh"
+            "command": "bash /Users/a77/finance-workspace-private/scripts/session_facts.sh"
           }
         ]
       }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/check_inflight_stale.sh"
+            "command": "bash /Users/a77/finance-workspace-private/scripts/check_inflight_stale.sh"
           }
         ]
       }
