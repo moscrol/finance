@@ -4,7 +4,7 @@
   "_regen": ".venv-workbench/bin/python scripts/check_path_literals.py --update-baseline",
   "_note": "比对「文件+具体字面量」而非个数：同文件删一处加一处，个数不变但应被拦。",
   "files": 35,
-  "literals": 51,
+  "literals": 50,
   "entries": {
     "intelligence/cli.py": [
       "/Users/a77/knowledge-base-private/wiki"
@@ -30,8 +30,7 @@
       "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
     ],
     "intelligence/tests/test_ceiling_pit_fixture.py": [
-      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
-      "/Users/a77/knowledge-base-private/.rag_venv/bin/python3"
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
     ],
     "intelligence/tests/test_conversation_orchestrator.py": [
       "/Users/a77/repo/module.py"
