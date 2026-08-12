@@ -1,32 +1,32 @@
 # 在途交接 · cursor/rag-worker-unhashable-store-d7ac
 
-更新：2026-08-13 · 8792 切到 #301 后 RAG 预热 4.5s 失败
+更新：2026-08-13 · 测试绿；8792 已热补丁，RAG ready
 
 ## 这个分支做什么
 
-修 `rag_query_worker`：KB `_load_retriever` 传入不可哈希 `RagStore`，`lru_cache` 炸了。
+修 `rag_query_worker`：KB 传入不可哈希 `RagStore`，`lru_cache` 炸了。
 
 ## 当前状态
 
-- 生产探针：`TypeError: unhashable type: 'RagStore'`，`model_load_count=0`。
-- 改动：缓存键丢掉不可哈希参数；假 RAG fixture 改为每次传新 RagStore。
-- 未部署。8792 仍是 `09dacdea` 原文件。
+- 代码已提交 `702be3ca`，PR #302。测试 11 passed。
+- 8792 runtime `09dacdea` **热补了一份** `scripts/rag_query_worker.py`（worktree dirty），kickstart 后 `workers.rag.state=ready`，`model_load_count=1`，预热 166s。
+- 合入后应干净蓝绿切，去掉热补丁。
 
 ## 下一步
 
-1. 测 `intelligence/tests/test_rag_worker.py`。
-2. 合入后 kickstart 8792，看 `workers.rag.state=ready`。
-3. 回 A4 唯一前缀哈希。
+1. 用户确认后合 #302，新建 detached worktree 切 8792（不要 `reset --hard`）。
+2. A4：15 位哈希唯一前缀 → FORMAT。
 
 ## 未验证
 
-- 生产预热（需部署后）。未关 8797/8794。
+- 干净 SHA 部署（当前是热补丁）。A3 生产冒烟未跑。
 
 ## 踩过的坑
 
-- 旧 worker 活在内存里时 health 仍绿；一切换进程才暴露 KB API 变了。
-- 缓存键若用 `id(store)`，每次 query 都 miss，BGE 会反复加载。
+- 旧 worker 活在内存里时 health 仍绿；换进程才暴露 KB API 变了。
+- 缓存键不能用 `id(store)`，否则每次 query miss、BGE 反复加载。
+- 预热是同步的，kickstart 后 8792 会有 2–3 分钟不监听。
 
 ## 已验证
 
-- 一发探针复现 TypeError。代码侧待测。
+- 一发探针原脚本 TypeError；热补丁后生产 ready。
