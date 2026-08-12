@@ -709,13 +709,21 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             "type": "array",
             "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
             "uniqueItems": True,
-            "description": '标识/分组列，数组。例：["trade_date", "sector_name"]',
+            "description": (
+                "标识/分组列，数组，只接受本列表里的维度字段。"
+                '例：["trade_date", "sector_name"]。'
+                # 实测：模型把 rank（metric）塞进 dimensions → not a dimension: rank。
+                # 枚举已经排除了它，但枚举本身挡不住，得明说两个槽位不能互串。
+                "数值列（如 rank、amount）属于 metrics，放进来会报 not a dimension。"
+            ),
         },
         "filters": {
             "type": "array",
             # 限定语排在被限定内容之前：先说形状，再说例子，最后说禁区。
             "description": (
-                "数组，每个元素是 {field, op, value} 三件套。"
+                # 实测 2 次：元素缺键 → each filter requires field, op, and value。
+                # 「三件套」三个字不够，得把「一个都不能少」说出来。
+                "数组，每个元素必须同时有 field、op、value 三个键，一个都不能少。"
                 '例：[{"field": "return_pct", "op": "gt", "value": 0}]。'
                 'op 为 in 时 value 必须是数组：[{"field": "sector_name", '
                 '"op": "in", "value": ["电网设备", "光伏设备"]}]。'
@@ -764,7 +772,17 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             "type": "array",
             "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
             "uniqueItems": True,
-            "description": '聚合维度，数组，取值同 dimensions。例：["sector_name"]',
+            # 2026-08-12 复核实测：24 次采样里 2 次栽在这条。schema 表达不了
+            # 「group_by 必须等于 dimensions 全集」这种跨字段约束（_compile_query:1030）。
+            # 先说「多数情况不要传」——那是最省事且最不会错的用法。
+            "description": (
+                "只在需要聚合时传；不传就按 dimensions 逐行返回原始数据，"
+                "多数查询都不需要它。"
+                "一旦传了，就必须把 dimensions 里的**每一个**都列进来"
+                '（少一个报 all selected dimensions must appear in group_by），'
+                "且此时 metrics 会被聚合而不是返回原值。"
+                '例：dimensions=["sector_name"] 时传 ["sector_name"]。'
+            ),
         },
         "order_by": {
             "type": "array",

@@ -153,6 +153,22 @@ def _classify(exc: Exception) -> str:
         "order_by must be an array": "order_by_not_array",
         "filters must be an array": "filters_not_array",
         "must be an array of strings": "string_array_shape",
+        # 2026-08-12 --repeat 3 复核时冒出来的第二批，全部是 schema 结构上
+        # 表达不了的**跨字段约束**（住在 _compile_query 里）。这一类是本工具
+        # 的主要长尾：AST 扫出 FinanceQueryValidationError 共 35 处，
+        # 其中相当一部分光看 schema 完全推不出来。
+        "all selected dimensions must appear in group_by": "group_by_incomplete",
+        "group_by fields must be selected dimensions": "group_by_not_dimension",
+        "order field must be selected": "order_field_not_selected",
+        "each filter requires field, op, and value": "filter_missing_key",
+        "each order requires field and direction": "order_missing_key",
+        "not a dimension": "metric_used_as_dimension",
+        "not a metric": "dimension_used_as_metric",
+        "metric cannot be grouped": "metric_not_aggregatable",
+        "selected fields must be unique": "duplicate_selection",
+        "in filter cannot be empty": "in_empty",
+        "contains filter requires a text field": "contains_needs_text",
+        "time range conflicts with information cutoff": "time_beyond_cutoff",
     }
     for needle, label in table.items():
         if needle in message:
