@@ -34,5 +34,4 @@
 
 ## 已验证
 
-- R2 归因链完整：continuous-episode.json 的 outcome/semantic_verifier/model_error 三层。
-- #294 修的两缺陷均来自 R2 真实产物（gap 标签指令泄漏、25 条证据零绑定无感知）。
+- R2/R3 归因链走 continuous-episode.json 三层（outcome/semantic_verifier/model_error）。
