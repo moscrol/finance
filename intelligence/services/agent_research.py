@@ -269,14 +269,44 @@ def build_default_tools(
                     source_date=hit_date.isoformat() if hit_date is not None else None,
                 )
             )
-        observation = (
-            "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
-            or f"无命中（{getattr(getattr(rag, 'telemetry', None), 'status', 'unknown')}）"
-        )
+        telemetry = getattr(rag, "telemetry", None)
+        status = str(getattr(telemetry, "status", "unknown") or "unknown")
+        # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
+        #
+        # 原来一律拼成「无命中（{status}）」，于是 status=error 时模型看到的是
+        # 一句「无命中（error）」：它没有理由把括号里那个词读成故障。更糟的是
+        # trace 记 status="empty"，**任何按 error 计数的下游审计都会看到零错误**。
+        # 2026-08-12 历史对账实测：kb_search 22 次调用 22 次「无命中」，
+        # 逐条查看全部是 `无命中（error）`——即 100% 是故障，而不是知识库空。
+        #
+        # 这条还和我们自己的行为契约互相打架：kb_search 的契约写着「无命中只说明
+        # 知识库没有回填过，不等于该事实不存在」——status=error 时这句话是错的，
+        # 契约在主动教模型把工具故障读成「没回填」。
+        #
+        # 依据：ai-agent-book ch4「静默截断同样危险——Agent 会误以为自己看到了
+        # 全部内容」；族 A 官方 custom-tools「Return isError: true ... so Claude
+        # can react to it」+「compose the message Claude reads」。
+        failed = status in {"error", "timeout"}
+        if evidence:
+            observation = "；".join(
+                f"{item.title}：{item.detail[:80]}" for item in evidence
+            )
+        elif failed:
+            warning = str(getattr(telemetry, "warning", "") or "").strip()
+            observation = (
+                f"知识库检索未能执行完成（{status}）"
+                + (f"：{warning[:120]}" if warning else "")
+                + "。这是检索失败，不是知识库里没有该内容；"
+                "不要据此写成证据缺口或否定结论，可改写检索词重试或改用其他工具。"
+            )
+        else:
+            observation = f"无命中（{status}）"
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",
-            status="success" if evidence else "empty",
+            # 故障必须记成 error：记成 empty 会让「工具坏了」在所有按状态
+            # 计数的审计里消失，而覆盖率类检查永远发现不了这种静默降级。
+            status="success" if evidence else ("error" if failed else "empty"),
             detail=query[:120],
             result_count=len(evidence),
         )

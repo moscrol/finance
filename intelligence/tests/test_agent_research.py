@@ -571,3 +571,69 @@ def test_configured_step_budget_supports_deep_hard_ceiling(monkeypatch) -> None:
     assert agent_research.max_steps() == 1
     monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "invalid")
     assert agent_research.max_steps() == agent_research.DEFAULT_MAX_STEPS
+
+
+class TestKbSearchSeparatesFailureFromEmptiness:
+    """检索**失败**不等于知识库**没有**——模型必须能区分这两件事。
+
+    2026-08-12 历史对账：kb_search 22 次调用 22 次「无命中」，逐条查看
+    **全部是 `无命中（error）`**——即 100% 是工具故障，不是知识库为空。
+    模型没有理由把括号里那个 ``error`` 读成故障，于是把每一次故障都写成了
+    「知识库没有回填」。
+
+    更糟的是 ``ProviderTrace.status`` 记的是 ``empty`` 而非 ``error``：
+    **任何按状态计数的下游审计都会看到零错误**，而覆盖率类检查永远发现不了
+    这种静默降级。
+
+    依据：ai-agent-book ch4「静默截断同样危险——Agent 会误以为自己看到了全部
+    内容」；族 A 官方 custom-tools「Return isError: true ... so Claude can react
+    to it」。
+    """
+
+    @staticmethod
+    def _run(status: str, warning: str = "", hits=()):
+        class _Telemetry:
+            def __init__(self) -> None:
+                self.status = status
+                self.warning = warning
+
+        class _Rag:
+            def __init__(self) -> None:
+                self.hits = list(hits)
+                self.telemetry = _Telemetry()
+
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(5.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+        return tools["kb_search"]("瑞华泰 主营业务", context)
+
+    def test_error_is_reported_as_a_failure_not_as_a_miss(self) -> None:
+        evidence, observation, trace = self._run("error", "wiki-rag 调用失败")
+
+        assert not evidence
+        assert "检索失败" in observation
+        assert "wiki-rag 调用失败" in observation
+        # 反面同样要钉：不能再说成「无命中」
+        assert "无命中" not in observation
+
+    def test_error_is_counted_as_error_in_the_trace(self) -> None:
+        """记成 empty 会让「工具坏了」在所有按状态计数的审计里消失。"""
+        _evidence, _observation, trace = self._run("error", "wiki-rag 调用失败")
+
+        assert trace.status == "error"
+
+    def test_timeout_is_treated_the_same_way(self) -> None:
+        _evidence, observation, trace = self._run("timeout", "wiki-rag 查询超时")
+
+        assert trace.status == "error"
+        assert "检索失败" in observation
+
+    def test_a_genuine_miss_still_reads_as_a_miss(self) -> None:
+        """真正的空结果不能被误报成故障——误报的代价是模型放弃一条本该走的路。"""
+        _evidence, observation, trace = self._run("empty")
+
+        assert "无命中" in observation
+        assert trace.status == "empty"
