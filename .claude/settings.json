@@ -1,4 +1,5 @@
 {
+  "_why_portable_hooks": "原先写死 /Users/a77/finance-workspace-private/...。云端 Linux 该路径不存在；dash 对打不开的文件 exit 2，Claude Code 把 2 当成 hook blocked。现用 CLAUDE_PROJECT_DIR + 存在才执行 + 永远 exit 0。",
   "hooks": {
     "SessionStart": [
       {
@@ -6,11 +7,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/a77/finance-workspace-private/.claude/hooks/load-memory.sh"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-${DEVIN_PROJECT_DIR:-.}}\"; SH=\"$ROOT/.claude/hooks/load-memory.sh\"; [ -f \"$SH\" ] && bash \"$SH\"; exit 0"
           },
           {
             "type": "command",
-            "command": "bash /Users/a77/finance-workspace-private/scripts/session_facts.sh"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-${DEVIN_PROJECT_DIR:-.}}\"; SH=\"$ROOT/scripts/session_facts.sh\"; [ -f \"$SH\" ] && bash \"$SH\"; exit 0"
           }
         ]
       }
@@ -20,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/a77/finance-workspace-private/scripts/check_inflight_stale.sh"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-${DEVIN_PROJECT_DIR:-.}}\"; SH=\"$ROOT/scripts/check_inflight_stale.sh\"; [ -f \"$SH\" ] && bash \"$SH\"; exit 0"
           }
         ]
       }
