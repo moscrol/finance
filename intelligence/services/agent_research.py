@@ -252,7 +252,7 @@ ToolRunner = Callable[..., tuple[list[AgentEvidence], str, ProviderTrace]]
 #   12 次 request_error（URLError / deadline exhausted）—— **是故障不是没有**
 #   18 次 真的 empty
 #   12 次 其实是 harness 去重（「与本轮已有证据重复」），压根不是失败
-# kb_search 更极端：22 次「无命中」**全部**是 error。
+# kb_search 更极端：22 次「无命中」里 20 次是故障（14 error + 6 timeout）。
 #
 # 危害不是「少了一条证据」，而是模型据此写出**否定结论**——把「查不到」写成
 # 「不存在」。ai-agent-book ch4：静默降级会让 Agent 误以为自己看到了全部内容，
@@ -323,8 +323,10 @@ def build_default_tools(
         # 原来一律拼成「无命中（{status}）」，于是 status=error 时模型看到的是
         # 一句「无命中（error）」：它没有理由把括号里那个词读成故障。更糟的是
         # trace 记 status="empty"，**任何按 error 计数的下游审计都会看到零错误**。
-        # 2026-08-12 历史对账实测：kb_search 22 次调用 22 次「无命中」，
-        # 逐条查看全部是 `无命中（error）`——即 100% 是故障，而不是知识库空。
+        # 2026-08-12 历史对账实测：kb_search 22 次调用全部「无命中」，逐条统计是
+        # 14 error + 6 timeout + 2 真 empty——即 20/22（91%）是故障，不是知识库空。
+        # ⚠ 初版据 3 条抽样写成「22/22 全部是 error」，是把抽样当成了全称断言。
+        # 修复本身不受影响（error 与 timeout 都在故障集合里），但数字已更正。
         #
         # 这条还和我们自己的行为契约互相打架：kb_search 的契约写着「无命中只说明
         # 知识库没有回填过，不等于该事实不存在」——status=error 时这句话是错的，

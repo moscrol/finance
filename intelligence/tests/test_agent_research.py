@@ -576,8 +576,10 @@ def test_configured_step_budget_supports_deep_hard_ceiling(monkeypatch) -> None:
 class TestKbSearchSeparatesFailureFromEmptiness:
     """检索**失败**不等于知识库**没有**——模型必须能区分这两件事。
 
-    2026-08-12 历史对账：kb_search 22 次调用 22 次「无命中」，逐条查看
-    **全部是 `无命中（error）`**——即 100% 是工具故障，不是知识库为空。
+    2026-08-12 历史对账：kb_search 22 次调用全部「无命中」，逐条统计后是
+    **14 次 error + 6 次 timeout + 2 次真 empty**——即 20/22（91%）是工具故障，
+    不是知识库为空。（初版据 3 条抽样写成「22/22 全部是 error」，是把抽样
+    当成了全称断言，已更正。）
     模型没有理由把括号里那个 ``error`` 读成故障，于是把每一次故障都写成了
     「知识库没有回填」。
 
@@ -646,7 +648,7 @@ class TestNoResultWordingSeparatesFailureFromEmptiness:
       12 次 request_error（URLError / deadline exhausted）—— **故障**
       18 次 真的 empty
       12 次 其实是 harness 去重（「与本轮已有证据重复」）—— 压根不是失败
-    kb_search 更极端：22 次「无命中」**全部**是 error。
+    kb_search 更极端：22 次「无命中」里 20 次是故障（14 error + 6 timeout）。
 
     危害不是少一条证据，而是模型据此写出**否定结论**——把「查不到」写成
     「不存在」。抽成一处而不是三个 runner 各写各的：同一条规则散在三处，
