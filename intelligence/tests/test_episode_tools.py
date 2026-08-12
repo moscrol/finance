@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from intelligence.services.research_tool_registry import QUERY_TOOL_PARAMETERS
+
 from dataclasses import asdict, replace
 from datetime import date
 import json
@@ -1009,12 +1011,8 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
     assert "sector_daily" in descriptions["finance_query"]
     assert "return_pct" in descriptions["finance_query"]
     assert "不要混用不同 dataset 的字段" in descriptions["finance_query"]
-    assert definitions["evidence_search"] == {
-        "type": "object",
-        "properties": {"query": {"type": "string", "minLength": 1}},
-        "required": ["query"],
-        "additionalProperties": False,
-    }
+    # 比对真本源而非手抄字面量，见 BUILD 模式 6。
+    assert definitions["evidence_search"] == QUERY_TOOL_PARAMETERS
 
     structured = registry.execute(
         "finance_query",

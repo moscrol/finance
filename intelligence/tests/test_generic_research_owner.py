@@ -32,6 +32,7 @@ from intelligence.services.research_state import (
     ResearchState,
 )
 from intelligence.services.research_tool_registry import (
+    QUERY_TOOL_PARAMETERS,
     ResearchToolRegistry,
     ToolSpec,
     UnknownResearchTool,
@@ -964,12 +965,8 @@ def test_registry_definitions_only_expose_authorized_capabilities() -> None:
     assert [item["function"]["name"] for item in definitions] == ["market_data"]
     function = definitions[0]["function"]
     assert function["description"] == "结构化行情"
-    assert function["parameters"] == {
-        "type": "object",
-        "properties": {"query": {"type": "string", "minLength": 1}},
-        "required": ["query"],
-        "additionalProperties": False,
-    }
+    # 比对真本源而非手抄字面量，见 BUILD 模式 6。
+    assert function["parameters"] == QUERY_TOOL_PARAMETERS
 
 
 def test_empty_capability_filter_exposes_no_tools() -> None:

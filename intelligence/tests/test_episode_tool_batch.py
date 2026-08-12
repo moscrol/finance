@@ -25,6 +25,7 @@ from intelligence.services.research_contract import (
     ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import (
+    QUERY_TOOL_PARAMETERS,
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
@@ -159,12 +160,10 @@ def test_tool_definitions_use_each_specs_own_json_schema() -> None:
 
     definitions = registry.tool_definitions()
 
-    assert definitions[0]["function"]["parameters"] == {
-        "type": "object",
-        "properties": {"query": {"type": "string", "minLength": 1}},
-        "required": ["query"],
-        "additionalProperties": False,
-    }
+    # 断言的是「用了 spec 自己的 schema」，不是 schema 的具体内容——
+    # 手抄一份字面量会让每次改参数描述都无谓地变红（2026-08-12 就这么红过 3 条）。
+    # 比对真本源（BUILD 模式 6：单一真本源，且生成而非手抄）。
+    assert definitions[0]["function"]["parameters"] == QUERY_TOOL_PARAMETERS
     assert definitions[1]["function"]["parameters"] == typed_schema
 
 

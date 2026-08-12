@@ -197,3 +197,61 @@ class TestShippedContracts:
 def test_contracts_only_cover_tools_that_exist() -> None:
     """契约表不能引用已经不存在的工具名，否则它会静默失效。"""
     assert set(reg._TOOL_CONTRACTS) <= set(reg._DEFAULT_TOOL_METADATA)
+
+
+class TestDoubleEncodedQueryIsUnwrappedAndDeclared:
+    """模型把参数对象又 JSON 编码一遍时，拆回来**并且说出来**。
+
+    失败形状（2026-08-12 历史对账，扫 44564 份 run 产物）：``query`` 的值本身
+    又是一个 JSON 串，检索器拿着那串花括号做全文检索，必然空手。
+    **551 次 query 类调用里 276 次（50%）是这个形状**，kb_search 高达 83%。
+
+    同工具内部的对照（聚合相关性会误导，必须按工具分开看）：
+    evidence_search 包了 100% 空手 (14/14) vs 没包 37% (7/19)；
+    web_search 100% (4/4) vs 14% (4/28)；
+    但 news_search 46% vs 55%——**它解释不了 news_search**，别当成万能解释。
+
+    ⚠ 只拆不说就是 ai-agent-book ch4 点名的**静默输入转换**（Cursor 静默转换
+    弯引号那个案例）：模型反复失败且无法自行诊断。书里的要求是「必须在工具描述
+    中加以说明，并在工具返回中明确告知模型」——所以本类的断言是**成对的**。
+    """
+
+    def test_single_key_wrapper_is_unwrapped(self) -> None:
+        raw, note = reg.unwrap_double_encoded_query(
+            {"query": '{"query":"瑞华泰 688323 聚酰亚胺薄膜"}'}
+        )
+
+        assert raw == {"query": "瑞华泰 688323 聚酰亚胺薄膜"}
+        assert note
+
+    def test_plain_query_is_untouched_and_silent(self) -> None:
+        """常态是不转换。误拆会把模型真想搜的内容改掉，比不拆更糟。"""
+        raw, note = reg.unwrap_double_encoded_query({"query": "瑞华泰 产能"})
+
+        assert raw == {"query": "瑞华泰 产能"}
+        assert note == ""
+
+    def test_unrecognised_shapes_are_left_alone(self) -> None:
+        """认不出来就别动（BUILD 模式 7）：多键、非 query 键、坏 JSON 一律原样退回。"""
+        for payload in (
+            {"query": '{"q":"瑞华泰"}'},
+            {"query": '{"query":"a","extra":1}'},
+            {"query": "{不是合法 JSON}"},
+            {"query": "{}"},
+        ):
+            raw, note = reg.unwrap_double_encoded_query(payload)
+            assert raw == payload
+            assert note == ""
+
+    def test_the_note_tells_the_model_what_to_do_next(self) -> None:
+        """告知不能只说「改过了」，要说下次该怎么写——否则模型下一轮照旧。"""
+        _raw, note = reg.unwrap_double_encoded_query({"query": '{"query":"x"}'})
+
+        assert "不要再包一层" in note
+
+    def test_the_schema_declares_the_normalization(self) -> None:
+        """描述那一半：只做转换不声明，就是书里点名的静默输入转换。"""
+        description = reg.QUERY_TOOL_PARAMETERS["properties"]["query"]["description"]
+
+        assert "不要再包一层 JSON" in description
+        assert "检索词本身" in description
