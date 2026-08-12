@@ -269,7 +269,35 @@
 | research catalog | `fact_research_report_catalog` | 列表元数据；正文仍 401 |
 | fundamentals | `fact_theme_fundamental_doc` + `wiki/raw/fupanhui-fundamentals/` | 需 `KNOWLEDGE_BASE_ROOT`；`graph_only` |
 
-手动入口：`python3 -m market_feature_store.cli sync-fupanhui-public-assets --trade-date YYYY-MM-DD`
+手动入口：
 
-未进 `check_daily` 断档表：历史为空，进了会天天误报。正文研报仍要登录后再走 ingest 门。
+- 单日：`python3 -m market_feature_store.cli sync-fupanhui-public-assets --trade-date YYYY-MM-DD`
+- 对齐窗口回补：`python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --sleep 0.2`  
+  窗口 = `MIN(fact_stock_high_daily)` → `MAX(fact_market_daily)`（与 `fact_stock_daily` 相同，当前 **2025-01-02 ~ 2026-08-12，390 个交易日**）。  
+  `fact_market_daily` 另有 8 个 2024-12 日，其它日表没有，不纳入。
+
+未进 `check_daily` 断档表：历史为空，进了会天天误报。正文研报仍要登录后再走 ingest 门。  
+题材挖掘 markdown 默认不写知识库仓（无 ingest 消费路径）；要落盘需 `FUPANHUI_KB_NOTES=1`。DuckDB `fact_theme_fundamental_doc` 仍写。
+
+### 实盘回补收据（Mac 主库，2026-08-13）
+
+对齐命令：`sync-fupanhui-public-assets --align --sleep 0.2`  
+日历 390 日 | 失败 1 条已补（`2025-11-27` `core_stocks` SSL EOF，重跑成功 50 行）
+
+| 资产 | 有数交易日 | 窗口内缺口 | 说明 |
+|---|---:|---:|---|
+| keywords | 390 | 0 | `fact_market_daily.summary_keywords` |
+| core_stocks | 390 | 0 | |
+| dragon | 390 | 0 | |
+| regulation_pool | 390 | 0 | |
+| leader_height | 390（表内共 480，含 2024-08-19 起） | 0 | 一次 height_trend 覆盖约 120 日 |
+| historical_mapping | 344 | 46 | 接口空结果，ops=`empty` |
+| auction | 137 | 253 | 接口自 2026-01-16 起才有数 |
+| regulation_event | 139 | 251 | 不是每天都有监管事件；池子已 390 |
+| events（非 future） | 147 | 243 | 时间线自 2026-01-05 起；另 7 条 future 到 08-15 |
+| global_index/stock | 回补后应对齐 390 | 曾 132 | 见下 |
+
+**外盘覆盖事故（已修）**：`sync_global_market` 曾用接口回写的 `trade_date` 做主键。DESC 回补时后写日期打到同一 PK，表上只剩 258 日，且 `2026-08-12` 被覆盖成 `2026-01-27` 的收盘价（DJI 49003）。现改为**请求的 A 股日历日**做主键，`source_trade_date` 保留美股实际日。修完后需清掉无行的 `ops` 再 `--align` 只补 `global_market`。
+
+成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets`；未 `--refresh`。
 

@@ -171,8 +171,12 @@ def sync_global_market(trade_date: str) -> dict:
     data = fs.get_global_market(trade_date)
     now = _now()
     source = f"{SOURCE_PREFIX}/reviews/global-market"
-    req_date = _date_text(data.get("trade_date") or trade_date)
-    src_date = _date_text(data.get("source_trade_date") or req_date)
+    # 主键必须是请求的 A 股日历日，不能信接口回写的 trade_date。
+    # 实测回补时后写的日期会把 PK 打到同一天，390 个交易日只剩 258 行，
+    # 且最新日被覆盖成更早一天的收盘价。source_trade_date 仍保留接口口径
+    # （美股实际交易日 / 节假日回退）。
+    req_date = _date_text(trade_date)
+    src_date = _date_text(data.get("source_trade_date") or data.get("trade_date") or trade_date)
     data_stage = data.get("data_stage")
     index_rows = []
     for item in data.get("markets") or []:
@@ -675,6 +679,11 @@ def sync_research_catalog(page_size: int = 50, max_pages: int = 20) -> dict:
 
 
 def _kb_root() -> Path | None:
+    # KB markdown 落盘默认关：wiki/raw/fupanhui-fundamentals/ 无 ingest 消费路径，
+    # 按「不进消费层不入库」需显式 FUPANHUI_KB_NOTES=1 才写。
+    # DuckDB fact_theme_fundamental_doc 不受影响。
+    if os.environ.get("FUPANHUI_KB_NOTES", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return None
     raw = os.environ.get("KNOWLEDGE_BASE_ROOT") or os.environ.get("FINANCE_KB_ROOT")
     if not raw:
         return None

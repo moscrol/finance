@@ -104,6 +104,53 @@ def test_historical_mapping_and_leader_height_upsert(patched_db, monkeypatch):
         con.close()
 
 
+def test_global_market_keys_by_requested_date(patched_db, monkeypatch):
+    """接口若回写别的 trade_date，仍按请求日入库，避免回补互相覆盖。"""
+    monkeypatch.setattr(
+        assets.fs,
+        "get_global_market",
+        lambda td: {
+            "trade_date": "2026-08-12",
+            "source_trade_date": "2026-01-27",
+            "data_stage": "final",
+            "markets": [
+                {"code": "DJI", "name": "道指", "market_group": "us", "close": 49003.41, "pct_chg": -0.83}
+            ],
+            "core_stocks": [
+                {"ts_code": "AAPL", "name_cn": "苹果", "close": 100.0, "pct_chg": 1.0}
+            ],
+        },
+    )
+    out = assets.sync_global_market("2026-06-02")
+    assert out["index_rows"] == 1
+    assert out["stock_rows"] == 1
+    con = patched_db()
+    try:
+        idx = con.execute(
+            "SELECT CAST(trade_date AS VARCHAR), CAST(source_trade_date AS VARCHAR), close "
+            "FROM fact_global_index_daily WHERE code = 'DJI'"
+        ).fetchone()
+        assert idx[0] == "2026-06-02"
+        assert idx[1] == "2026-01-27"
+        assert idx[2] == pytest.approx(49003.41)
+        n_aug = con.execute(
+            "SELECT COUNT(*) FROM fact_global_index_daily WHERE trade_date = DATE '2026-08-12'"
+        ).fetchone()[0]
+        assert n_aug == 0
+    finally:
+        con.close()
+
+
+def test_kb_root_requires_explicit_flag(monkeypatch, tmp_path):
+    kb = tmp_path / "knowledge-base-private"
+    kb.mkdir()
+    monkeypatch.setenv("KNOWLEDGE_BASE_ROOT", str(kb))
+    monkeypatch.delenv("FUPANHUI_KB_NOTES", raising=False)
+    assert assets._kb_root() is None
+    monkeypatch.setenv("FUPANHUI_KB_NOTES", "1")
+    assert assets._kb_root() == kb
+
+
 def test_orchestrator_isolates_failures(patched_db, monkeypatch):
     monkeypatch.setattr(
         assets.fs,
