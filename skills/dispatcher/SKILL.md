@@ -1,5 +1,6 @@
 ---
 name: dispatcher
+disable-model-invocation: true
 metadata:
   pattern: meta
   also: [router]

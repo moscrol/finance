@@ -3,7 +3,7 @@ name: opinion-cross
 metadata:
   pattern: pipeline
   also: [reviewer]
-description: 把一段**已筛过的**卖方观点/产业消息流（研报口播、机构观点合集、产业小作文）提纯成「三重共振」机会卡片。逐标的做 事实硬度分层（硬证据/卖方喊单/情绪噪音）+ 多空分歧识别 + 三维交叉（公告事实×产业趋势×市场热点）排 Tier1/2/3，输出带操作建议的卡片报告。底层复用 theme-radar 三维交叉引擎。Use when the user pastes 卖方观点/产业消息流并想要 提纯/分层/排 Tier/三重共振机会卡片，而不是扫全市场公告。注：知识库仓 sellside-coverage-cross（卖方覆盖密度交叉验证）是另一个 skill，问"第几篇研报/首覆/扎堆透支"时用那个。
+description: "把已筛过的卖方观点/产业消息流提纯成三重共振机会卡片：事实硬度分层、多空分歧、三维交叉排 Tier。用户粘贴卖方观点并要提纯/排 Tier 时用，不是扫全市场公告。问「第几篇研报/首覆/扎堆」用知识库 sellside-coverage-cross。"
 ---
 
 # opinion-cross 观点提纯 → 三重共振机会卡片
