@@ -52,6 +52,27 @@
 
 R6 **不能**替代白天中转公平对照——换的是模型通道，不是把 R4/R5 的超时分布重跑了一遍。
 
+## 第四圈：R7 白天中转公平对照（8792 生产，与 R6 并行跑）
+
+**R7**（8792 @ 中转 terra，`eval/runs/20260813T0333Z-r7-relay-daytime.json`，A1–A10，白天时段）：
+
+10/10 `completed`；7/10 无降级。**`repair_model_retry` 触发 3 次（A5/A6/A10），
+全部 `asked=30.0 granted=30.0`，三题全部救回**（各 3 证据 0 降级）——这正是
+R2/R4 里死于 `repair_model_unavailable` 的形状，`repair_model_unavailable` /
+`repair_deadline_exhausted` 在 R7 **零出现**。A10 的完整链路：修复首枪 16s
+超时 → 30s 重试 → `repair_model_finish`。A1/A2/A8 主路径超时由修复轮首枪救回。
+
+R7 仍在的失败（下一批立案对象）：A3 `deadline_exhausted`（43s 0 证据）、
+A4 `invalid_model_finish`（30s 0 证据）、A7 `repair_model_stop`（0 证据）。
+
+三轮横向（同题同库）：
+
+| 轮 | 通道 | 时段 | 完成 | 无降级 | 重试触发/救回 |
+|----|------|------|------|--------|---------------|
+| R4 | 中转 | 凌晨 | 10/10 | 3/10 | 5 次 / 0（窗 16/8s 太小，缺陷） |
+| R6 | GLM Coding Plan | 凌晨 | 10/10 | 8/10 | 0 次（首枪够用，闸门正确空转） |
+| R7 | 中转 | 白天 | 10/10 | 7/10 | **3 次 / 3**（30s 窗全部命中） |
+
 ## 判决与新形状
 
 - A1 三轮 31s/103s/85s **均为 `standard`**，非路由方差；~30s 是 standard 90s 被合成保留（75→2/3 钳 60）挤出的检索分配段。
