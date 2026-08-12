@@ -21,6 +21,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services import research_tool_registry as reg
+from intelligence.services.research_tool_registry import default_registry
 
 
 def _spec(name: str, contract: str = "") -> reg.ToolSpec:
@@ -255,3 +256,58 @@ class TestDoubleEncodedQueryIsUnwrappedAndDeclared:
 
         assert "不要再包一层 JSON" in description
         assert "检索词本身" in description
+
+
+class TestEvidenceLookupDeclaresItsExactMatchBoundary:
+    """evidence_lookup 要的是**登记名本身**，不是检索短语。
+
+    2026-08-12 历史对账 + 代码核对：``KnowledgeAdapter.get_evidence`` 的判据是
+    ``item.get("target") != target``——**精确字符串相等**，无归一、无分词、无模糊。
+    索引里有 23942 条、17.9MB，**一点都不空**；28/28 空手全部是形状不匹配。
+    实测「瑞华泰」→3 条，「瑞华泰 688323 估值 PB 情景 保守 中性 乐观」→0 条。
+
+    对照组证明这是形状问题而非数据问题：``graph_lookup`` 空手率 **0%**，
+    因为它走 ``get_concept_matches`` 的打分模糊匹配，长 query 也能命中。
+
+    ch4 §工具描述的艺术：「清晰列出工具的边界条件——做不到什么、不接受什么输入
+    ——往往比描述能力本身更重要」。这条正是「不接受什么输入」。
+    """
+
+    def test_hint_states_the_exact_match_requirement(self) -> None:
+        description = reg.query_parameters("evidence_lookup")["properties"]["query"][
+            "description"
+        ]
+
+        assert "精确字符串匹配" in description
+        assert "不要传检索短语" in description
+
+    def test_hint_points_at_the_tool_that_resolves_names(self) -> None:
+        """只说「不行」不够，要说「那该怎么办」——否则模型只能放弃。"""
+        description = reg.query_parameters("evidence_lookup")["properties"]["query"][
+            "description"
+        ]
+
+        assert "graph_lookup" in description
+
+    def test_tools_without_a_special_shape_keep_the_generic_description(self) -> None:
+        """只给形状确实不同的那几个写专属提示。
+
+        每个工具都写一句会稀释掉真正重要的差异——这与契约表「没依据宁可留空」
+        是同一条纪律。
+        """
+        generic = reg.query_parameters("kb_search")
+
+        assert generic == dict(reg.QUERY_TOOL_PARAMETERS)
+
+    def test_registry_actually_ships_the_per_tool_schema(self) -> None:
+        """活性检查：提示写了但没接进 registry，等于没写。"""
+        registry = default_registry(
+            {
+                "evidence_lookup": lambda *a, **k: None,
+                "kb_search": lambda *a, **k: None,
+            }
+        )
+
+        shipped = registry.resolve("evidence_lookup").parameters["properties"]["query"]
+
+        assert "精确字符串匹配" in shipped["description"]

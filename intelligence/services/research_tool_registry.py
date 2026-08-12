@@ -164,6 +164,45 @@ EMPTY_TOOL_PARAMETERS: dict[str, object] = {
 }
 
 
+# 逐工具的 query 形状提示。**只给形状确实不同的那几个**，其余用通用描述——
+# 每个工具都写一句会稀释掉真正重要的差异。
+#
+# 依据是 2026-08-12 的历史对账 + 代码核对，不是猜的：
+#   evidence_lookup  28/28 空手。``KnowledgeAdapter.get_evidence`` 是
+#                    ``item.get("target") != target`` **精确字符串相等**，
+#                    无归一、无分词、无模糊。实测「瑞华泰」→3 条，
+#                    「瑞华泰 688323 估值 PB 情景 保守 中性 乐观」→0 条。
+#                    **工具没坏，是被当成搜索引擎用了。**
+#   graph_lookup     0% 空手。它走 ``get_concept_matches`` 的打分模糊匹配，
+#                    所以长 query 也能命中——正是这个对照证明了上面那条是形状问题。
+#
+# ch4 §工具描述的艺术：「清晰列出工具的边界条件——做不到什么、不接受什么输入
+# ——往往比描述能力本身更重要」。
+_QUERY_PARAM_HINTS: dict[str, str] = {
+    "evidence_lookup": (
+        "**必须是索引里登记的实体或概念名本身**，单个词，"
+        "按精确字符串匹配——多加一个词就会零命中。"
+        '例："瑞华泰"、"3D打印"。'
+        '不要传检索短语：写成 "瑞华泰 688323 估值 PB 情景" 必然查不到任何东西。'
+        "不确定名字怎么登记的，先用 graph_lookup 找到准确名称再来查。"
+    ),
+}
+
+
+def query_parameters(tool: str) -> dict[str, object]:
+    """按工具生成 query 参数 schema：形状不同的给专属提示，其余用通用描述。"""
+
+    hint = _QUERY_PARAM_HINTS.get(tool)
+    if not hint:
+        return dict(QUERY_TOOL_PARAMETERS)
+    base = QUERY_TOOL_PARAMETERS["properties"]["query"]
+    assert isinstance(base, Mapping)
+    return {
+        **QUERY_TOOL_PARAMETERS,
+        "properties": {"query": {**base, "description": hint}},
+    }
+
+
 ToolInput = object
 ToolArgumentParser = Callable[
     [Mapping[str, object]],
@@ -818,7 +857,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             parameters=(
                 EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "financial_data", "mainline_context"}
-                else QUERY_TOOL_PARAMETERS
+                else query_parameters(name)
             ),
             parse_arguments=(
                 parse_snapshot_arguments
