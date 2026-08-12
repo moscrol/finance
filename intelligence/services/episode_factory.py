@@ -30,11 +30,17 @@ from intelligence.services.research_tool_registry import (
 from intelligence.services.task_frame import TaskFrame
 
 
+# 盘面类槽位的描述带「写出具体数值」的硬要求。这是 #289（composer 看得见
+# 评分表）的引擎 A 版：08-12 A 组冒烟里证据已绑定（3~15 条）仍 0/7，12 条失败
+# 全在 fact 层——模型做了定性概括，把证据里的成交额环比、涨停家数、强度状态词
+# 全部省掉了（draft 有 1000 字上限，省数字是模型的理性选择）。判卷按数字判，
+# 生成侧却没人告诉模型数字必须落在正文——「上层知道的，下层不知道，要显式
+# 搬运」。描述经 build_episode_input 进模型输入，不碰指纹锁定的指令文本。
 _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "direct_assessment": "直接回答用户问题并说明判断强度",
     "direct_answer": "直接回答用户问题",
     "direct_definition": "解释用户所问概念",
-    "current_baseline": "说明最新可用市场基线与数据日期",
+    "current_baseline": "说明最新可用市场基线与数据日期，关键指标写出具体数值",
     "duration_assessment": "判断反弹可能持续的时间窗口",
     "continuation_conditions": "列出判断继续成立的可核验条件",
     "invalidation_conditions": "列出判断失效或降级的条件",
@@ -46,10 +52,20 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "scenario_range": "给出明确方法与假设边界的估值情景区间",
     "causal_chain": "解释时间对齐的原因、传导链和盘面印证",
     "counterpoint": "提供主要反证或竞争性解释",
-    "supporting_evidence": "列出与结论直接相关的支持证据",
+    "supporting_evidence": (
+        "列出与结论直接相关的支持证据；证据中的关键数值与状态词须原样写进"
+        "正文（如成交额及环比、涨停/跌停家数、涨幅、家数、状态标签），"
+        "不得只作定性概括"
+    ),
     "risk_signals": "列出风险信号与观察条件",
-    "market_summary": "概括目标市场窗口的结构化表现",
-    "mainline_structure": "判断当前市场主线及其强弱结构",
+    "market_summary": (
+        "概括目标市场窗口的结构化表现，写出成交额及环比、涨停/跌停家数、"
+        "指数涨幅等证据中的具体数值"
+    ),
+    "mainline_structure": (
+        "判断当前市场主线及其强弱结构，写出主线题材的涨停家数等证据中的"
+        "具体数值"
+    ),
     "scenario_paths": "给出条件化情景路径",
     "prior_recall": "复述用户此前对该主体的判断或纠偏原则，并说明与当前的差异",
 }
