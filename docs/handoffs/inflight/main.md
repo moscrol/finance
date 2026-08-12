@@ -12,11 +12,18 @@
 
 ## 下一步
 
-1. **A3 档位/预算立案（最优先）**：R7 实测 43s 失败 0 证据。形状：个股深挖被路由成 `theme_analysis`/standard（检索片仅 ~30s），首个 finance_query 打偏（sector_stock_daily 查个股无结果）烧掉窗口，模型末尾批量补发 kb/news/graph 检索，全部在**同一毫秒**被截止时间判 `tool_timeout`。方向：stock-deep-dive 类问题升 deep 档，或检索排序把 KB/证据检索提前。
-2. **A4 伪造哈希的边界案例**：模型给的哈希 `54a5b453de9366b` 是 **15 位**（真哈希 16 位）——更像抄漏一位而非编造。现行 INTEGRITY 硬拒（不回灌不恢复）是刻意设计且有测试钉死；可议的口子是「unknown hash 恰为唯一已知哈希的前缀 → 按 FORMAT 处理」，动之前先过设计评审，别顺手改。
-3. A7/A10 的 `repair_model_stop` + 核验降级：修复轮产出合法 partial + 绑定，交付层按证据边界过滤是正确行为；剩余优化在语义核验预算。A5 日期错位待立案。
-4. knevo 后续：suggest_options 缺口镜像、report→track 接力。
-5. 工具沉淀待归位（Mac `~/harness-reference`）：「纠正层写自己的收据」「重试窗口尺寸取当前权威」「NULL 渲染按字段业务语义（缺失≠否定事实）」候选 BUILD.md。
+1. **PR #301（A3 冷启动修复）待用户确认合并**：`cursor/repair-cold-restart-d7ac`。零证据饿死型 episode（`stop_reason=deadline_exhausted` + 零证据）获一发带工具的冷启动修复授予（≤30s，cycle 1 一发定音）。隔离 E2E 四轮：R12 完整点火走通（饿死 → 冷启动带工具 → 证据 0→5 → finalize 超时 → 瞬态重试 30s → `repair_model_finish`，交付 2 证据 0 降级）；R10/R11 未饿死时正确不触发。合并后需蓝绿重部署 8792。
+2. **判据教训（已写进代码注释）**：第一版拿「试过工具」当饿死判据，被 R9 零 trace 形状证伪——首个模型轮就吃光窗口时一次工具都没轮到。饿死的共同观察量是 stop_reason，不是 trace。
+3. **A4 伪造哈希的边界案例**：模型给的哈希 `54a5b453de9366b` 是 **15 位**（真哈希 16 位）——更像抄漏一位而非编造。现行 INTEGRITY 硬拒是刻意设计且有测试钉死；可议的口子是「unknown hash 恰为唯一已知哈希的前缀 → 按 FORMAT 处理」，动之前先过设计评审。
+4. A7/A10 的 `repair_model_stop` + 核验降级：交付层按证据边界过滤是正确行为；剩余优化在语义核验预算。A5 日期错位待立案。模型自估 quick 但 governor 观察信号支持 deep 的升档问题（R7-A3 `model_requested_quick`）也留设计评审——governor 现在只把关不主动升档。
+5. knevo 后续：suggest_options 缺口镜像、report→track 接力。
+6. 工具沉淀待归位（Mac `~/harness-reference`）：「纠正层写自己的收据」「重试窗口尺寸取当前权威」「NULL 渲染按字段业务语义」「饿死判据用 stop_reason 不用 trace」候选 BUILD.md。
+
+## 隔离环境现状
+
+- **8797** = `cursor/repair-cold-restart-d7ac` @ 中转 terra（E2E 用，验证完可关：`lsof -nP -iTCP:8797` 找 pid kill；worktree `finance-workspace-5d611d19e6a3` 已 checkout 到 `54887fc0` 之前的 fix 提交）。
+- **8794** = GLM Coding Plan（R6 质检遗留，可复用可关）。
+- E2E 产物：`intelligence/eval/runs/20260813T04{30,37,44,50}Z-r{9,10,11,12}-a3-*.json`（Mac 私有仓，未提交）。
 
 ## 踩过的坑
 
