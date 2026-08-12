@@ -8,18 +8,17 @@
 
 ## 当前状态
 
-- main=bc669725 已推送，Mac 主树已 pull。**生产 8792 仍跑旧快照——合并≠部署**，要 `scripts/deploy_workbench_runtime.sh`。
-- 未合并：#290 标注残片剥离、#291 daily-full 预检+逐步计时。
-- daily-full 08-12 第三轮跑收据中（/tmp/daily-full-20260812.log）。跨日门抓到的两个窟窿已补：08-11 limit-heat、08-12 period_rank（写方 scripts/compute_features.py，不在 daily-full 内）。
-- 08-01 验收产物复盘：15 FAIL = 6 题被 fulfillment gap 模板吞（C5 绑了 24 条证据仍被吞）+ ~9 题缺正典词/字段；无 stale/deadline 签名。**08-01 测的是引擎 B，08-12「证据不足」是引擎 A——两次验收不同引擎**。
-- knevo 对照：五元素/缺数三档/闭环检索早已建成（BaseFinanceMode、closed_loop_retrieval），但**只在引擎 B；引擎 A（生产默认）零引用，被 08-08 cutover 孤儿化**。checklist 验收 4 条未勾。
+- **main=b89df3e2 已推送（#287–293 七个 PR 全合并），Mac 主树停在 5b7464be——合并≠部署，隧道 530 断连挡住了 pull+deploy**。恢复后跑 `git pull && ./scripts/deploy_workbench_runtime.sh`。
+- daily-full 08-12 三道门全绿、日报已出、audit_coverage 今日全表覆盖；快照↔DuckDB 对账 PASS。iCloud 导出已废弃（correction 已落，SKILL.md 已改）。
+- A 组冒烟（5b7464be，backend=continuous_glm，run=20260812T131457Z）：**证据链已通（7/10 绑定 3–15 条）**，真值仍 0/7，12 条失败全在 fact 层（数字没进正文）→ #293 修此；#292 修 gap 答案中间档。
+- knevo 对照：BaseFinanceMode/closed_loop_retrieval 只在引擎 B，**引擎 A 被 cutover 孤儿化**；#292/#293 是接线第一批。
 
 ## 下一步
 
-1. deploy_workbench_runtime.sh 部署 + 重启 8792，health 对 source_revision。
-2. 重跑 28 题验收：按 evidence_bound=0 分桶；run 产物记录 engine/backend（现在没有这字段）。
-3. skill 收尾：audit_coverage.py + db_delta_export 到 iCloud。
-4. 决定 #290/#291；设计题：BaseFinanceMode 质量层接进引擎 A。
+1. 隧道恢复后：Mac pull + deploy（目标 revision b89df3e2）。
+2. 重跑 A 组对照：fact 层 12 条红是否下降 = #292/#293 的直接判决。
+3. A3 个股深挖 terminal failed（证据=0）待翻 trace 归因。
+4. 后续接线：suggest_options 缺口镜像、report→track 接力（knevo Top5 第 4/5）。
 
 ## 踩过的坑
 
