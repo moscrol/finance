@@ -204,6 +204,7 @@ def run_daily_update(
     from .sync_fupanhui_mainline_daily import sync as sync_mainline_daily
     from .sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
     from .sync_fupanhui_mainline_sector_daily import sync as sync_mainline_sector_daily
+    from .sync_fupanhui_public_assets import sync as sync_public_assets
 
     steps.append(_run_step("sync-sectors", sync_dim_sector, trade_date=td))
     steps.append(_run_step("sync-market-overview", sync_fupanhui_market_overview, trade_date=td, days=60))
@@ -227,6 +228,7 @@ def run_daily_update(
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))
+    steps.append(_run_step("sync-fupanhui-public-assets", sync_public_assets, td))
     if with_chart:
         steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
     validation = validate_daily_data(td)

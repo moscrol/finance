@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, date
+import json
 import re
 import time
 
@@ -19,6 +20,7 @@ STRENGTH_COLUMNS = {
     "strength_status": "TEXT",
     "strength_source": "TEXT",
     "strength_updated_at": "TIMESTAMP",
+    "summary_keywords": "TEXT",
 }
 
 
@@ -51,8 +53,8 @@ OVERVIEW_UPSERT_SQL = """
          industry_3, industry_3_ratio, strength_avg_pct, strength_amount_pct,
          strength_amount, strength_marginal_pct, strength_yesterday_avg_pct,
          strength_ma5_avg_pct, strength_ma20_avg_pct, strength_status,
-         strength_source, strength_updated_at, note, source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         strength_source, strength_updated_at, note, summary_keywords, source, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT (trade_date) DO UPDATE SET
         market_stage = excluded.market_stage,
         stage_day = excluded.stage_day,
@@ -84,6 +86,7 @@ OVERVIEW_UPSERT_SQL = """
         strength_source = excluded.strength_source,
         strength_updated_at = excluded.strength_updated_at,
         note = excluded.note,
+        summary_keywords = excluded.summary_keywords,
         source = excluded.source,
         updated_at = excluded.updated_at
 """
@@ -158,6 +161,29 @@ def _ice_point(cycle: dict):
     if value is True:
         return "冰点"
     return str(value)
+
+
+def _keywords_json(summary: dict | None) -> str | None:
+    """把 /reviews/summary.keywords 收成 JSON 数组文本，空则 None。"""
+    if not isinstance(summary, dict):
+        return None
+    raw = summary.get("keywords")
+    parts: list[str] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict):
+                text = str(
+                    item.get("name") or item.get("keyword") or item.get("text") or ""
+                ).strip()
+            else:
+                text = str(item).strip()
+            if text:
+                parts.append(text)
+    elif isinstance(raw, str) and raw.strip():
+        parts = [raw.strip()]
+    if not parts:
+        return None
+    return json.dumps(parts, ensure_ascii=False)
 
 
 def _ensure_columns(con):
@@ -292,6 +318,7 @@ def sync_fupanhui_market_overview(trade_date: str | None = None, days: int = 60)
         "fupanhui:reviews/market",
         now,
         summary.get("content"),
+        _keywords_json(summary),
         "fupanhui:reviews",
         now,
     )

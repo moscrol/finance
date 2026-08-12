@@ -427,6 +427,31 @@ def cmd_sync_theme_flow_daily(args) -> int:
     return 0
 
 
+def cmd_sync_fupanhui_public_assets(args) -> int:
+    from .sync.sync_fupanhui_public_assets import sync as sync_public_assets
+
+    td = args.trade_date
+    if not td:
+        con = connect(read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        td = str(row[0]) if row and row[0] is not None else None
+    if not td:
+        print("无交易日：请传 --trade-date 或先同步 fact_market_daily")
+        return 2
+    s = sync_public_assets(td)
+    print(f"交易日: {td}")
+    for name, result in (s.get("results") or {}).items():
+        print(f"  {name}: {result}")
+    if s.get("errors"):
+        print("失败子任务:")
+        for name, err in s["errors"].items():
+            print(f"  {name}: {err}")
+    return 0 if s.get("ok") else 2
+
+
 def cmd_sync_limit_advance_feishu(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -1122,6 +1147,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_tf = sub.add_parser("sync-theme-flow-daily", help="同步复盘会题材资金面板到 fact_theme_flow_daily")
     p_tf.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
     p_tf.set_defaults(func=cmd_sync_theme_flow_daily)
+
+    p_pa = sub.add_parser(
+        "sync-fupanhui-public-assets",
+        help="同步复盘会公开增量资产（相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）",
+    )
+    p_pa.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_pa.set_defaults(func=cmd_sync_fupanhui_public_assets)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")

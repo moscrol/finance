@@ -248,3 +248,28 @@
 - 未在本机 Chrome 登录，故 **未实测** 需 CDP 的：`/sector-features`、`/prime-stocks`、研报正文、自选流
 
 下次发版后若要复盘这份清单：重新下 bundle，diff `nt.get("/...")` 路径集合即可，不必重读页面。
+
+---
+
+## 7. 落地状态（2026-08-12）
+
+已实现并接入 `daily-full` 一步 `sync-fupanhui-public-assets`（公开 API，不依赖 CDP）：
+
+| 子任务 | 落点 | 备注 |
+|---|---|---|
+| `summary.keywords` | `fact_market_daily.summary_keywords` | 写在既有 `sync-market-overview` |
+| historical-mapping | `fact_historical_mapping` | 接通已有空表 |
+| leader-height | `fact_leader_height_daily` | 一次写入 height_trend 全序列 |
+| global-market | `fact_global_index_daily` / `fact_global_stock_daily` | 保留 `source_trade_date` |
+| dragon | `fact_dragon_tiger_daily` | |
+| regulation | `fact_regulation_event_daily` / `fact_regulation_pool_daily` | |
+| core-stocks | `fact_core_stock_daily` | 不存 120 日形态数组 |
+| auction | `fact_auction_stock_daily` | |
+| events | `fact_event_daily` | timeline + future |
+| research catalog | `fact_research_report_catalog` | 列表元数据；正文仍 401 |
+| fundamentals | `fact_theme_fundamental_doc` + `wiki/raw/fupanhui-fundamentals/` | 需 `KNOWLEDGE_BASE_ROOT`；`graph_only` |
+
+手动入口：`python3 -m market_feature_store.cli sync-fupanhui-public-assets --trade-date YYYY-MM-DD`
+
+未进 `check_daily` 断档表：历史为空，进了会天天误报。正文研报仍要登录后再走 ingest 门。
+

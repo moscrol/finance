@@ -310,6 +310,69 @@ def get_historical_mapping(trade_date: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def get_leader_ladder(trade_date: str) -> dict:
+    data = api_get_public("/reviews/leader-ladder", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_global_market(trade_date: str) -> dict:
+    data = api_get_public("/reviews/global-market", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_dragon_list(trade_date: str) -> dict:
+    data = api_get_public("/data/dragon/list", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_regulation_logs(trade_date: str) -> dict:
+    data = api_get_public("/regulation/logs", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_regulation_pool(trade_date: str) -> dict:
+    data = api_get_public("/regulation/pool", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_core_stocks(trade_date: str) -> dict:
+    data = api_get_public("/core-stocks/list", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_auction_dashboard(trade_date: str) -> dict:
+    data = api_get_public("/data/auction/dashboard", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_news_events_timeline(trade_date: str) -> dict:
+    data = api_get_public("/news/events/timeline", {"date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_news_events_future() -> dict:
+    data = api_get_public("/news/events/future")
+    return data if isinstance(data, dict) else {}
+
+
+def get_reports_page(page: int = 1, page_size: int = 50) -> dict:
+    data = api_get_public("/reports/list", {"page": page, "page_size": page_size})
+    return data if isinstance(data, dict) else {}
+
+
+def get_fundamentals_list(limit: int = 100, offset: int = 0, trade_date: str | None = None) -> dict:
+    params = {"limit": limit, "offset": offset}
+    if trade_date:
+        params["trade_date"] = trade_date
+    data = api_get_public("/topics/fundamentals", params)
+    return data if isinstance(data, dict) else {}
+
+
+def get_fundamentals_detail(document_pk: int | str) -> dict:
+    data = api_get_public(f"/topics/fundamentals/{document_pk}")
+    return data if isinstance(data, dict) else {}
+
+
 def get_latest_date_public() -> str | None:
     """公开路径获取最新交易日期（不需 CDP）。"""
     data = api_get_public("/reviews/latest-date")
