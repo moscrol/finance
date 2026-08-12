@@ -334,13 +334,22 @@ def grant_for_transient_model_retry(
     TimeoutError 会把 repair deadline 吃到 0——「失败后再看余量」这条
     重试闸门对超时是死代码。
 
+    尺寸必须按 **root 未分配余量** 算，不能按 ``goal.remaining_seconds``：
+    admission 已把后者替换成刚烧穿的那笔授予（生产实测 16s / 8s），按它
+    重铸等于用同样大小的窗口对着 P50≈28s 的 provider 再撞一次——
+    2026-08-13 R4 验收 A4/A5/A8/A9/A10 五题全是这个死法。
+
     这笔 grant 动的是 research 从未分配的 hard-cap 余量（synthesis
     reserve 那截），不重开工具槽，不突破单笔 30 秒帽。铸不出就 fail
     closed。grant_id 按 repair_goal 固定，同一 goal 第二次调用会被
     root ledger 拒掉，和熔断上限 1 对齐。
     """
 
-    seconds = min(max(0.0, float(goal.remaining_seconds)), 30.0)
+    headroom = max(
+        0.0,
+        float(root_budget.hard_seconds_cap) - float(root_budget.allocated_seconds),
+    )
+    seconds = min(headroom, 30.0)
     if seconds < 1.0:
         return None
     grant = BudgetGrant(

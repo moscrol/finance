@@ -1042,6 +1042,8 @@ class ContinuousAgentEpisode:
         1. repair deadline 还有余量（502/断连这种快速失败）——用余量重问价；
         2. 余量被 TimeoutError 烧穿，但 root hard-cap 还有未分配秒数——再铸
            一笔 ``grant_for_transient_model_retry``，用新窗口重问价。
+           「烧穿」包括耗时略超账本残余、``consume_seconds`` fail closed
+           一分未扣的情形：先 ``settle_seconds`` 结平残余再铸。
 
         失败 turn 的空 assistant 消息不在这里进历史。
         """
@@ -1068,19 +1070,31 @@ class ContinuousAgentEpisode:
             budget_alive = _consume_root_seconds(repair_context, model_elapsed)
             if (
                 turn.error
-                and budget_alive
                 and transient_retries_left > 0
                 and not self._is_cancelled()
                 and is_transient_model_error(turn.error)
             ):
-                retry_timeout = repair_deadline.stage_timeout(self._llm_timeout)
+                retry_timeout = (
+                    repair_deadline.stage_timeout(self._llm_timeout)
+                    if budget_alive
+                    else 0.0
+                )
                 retry_grant = None
                 if retry_timeout <= 0.001 and repair_context.root_budget is not None:
+                    if not budget_alive:
+                        # 记账失败 = 耗时超过残余，consume fail closed 一分未扣。
+                        # 先把残余结平再铸新窗；否则「恰好烧爆账本」的 turn 连
+                        # 重试闸门都进不去——2026-08-13 R4 的 A6/A7 就是这个
+                        # 形状，而那正是这条补救路径要救的时刻。
+                        repair_context.root_budget.settle_seconds(
+                            seconds=model_elapsed
+                        )
                     retry_grant = grant_for_transient_model_retry(
                         goal,
                         root_budget=repair_context.root_budget,
                     )
                     if retry_grant is not None:
+                        budget_alive = True
                         repair_deadline = ResearchDeadline.from_timeout(
                             retry_grant.seconds_granted
                         )
