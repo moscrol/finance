@@ -25,6 +25,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_METHODOLOGY,
 )
 from intelligence.services.lane_generation import LaneAnswer
+import intelligence.runtime.conversation_orchestrator as conversation_orchestrator
 from intelligence.runtime.conversation_orchestrator import (
     ConversationContext,
     SUMMARY_CHAR_LIMIT,
@@ -2894,7 +2895,9 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     assert calls[0].perspective_ids == ()
     assert calls[0].include_memory_block is True
     assert calls[0].include_recall_block is True
-    assert "较早消息摘要" in calls[1].conversation_context
+    # 标题必须如实说是截断而非摘要：模型把「摘要」读成「已概括全部较早内容」，
+    # 就不会知道最早那几轮已经不在了（ai-agent-book ch2：静默截断危险）。
+    assert "较早消息（原文，超预算时从最早处截断）" in calls[1].conversation_context
     assert "第一轮：液冷怎么样？" in calls[1].conversation_context
     assert "第二轮：证据够硬吗？" not in calls[1].conversation_context
     assert "第一轮：液冷怎么样？" in calls[2].conversation_context
@@ -5519,3 +5522,63 @@ def test_turn_trace_exposes_configure_and_plan_as_their_own_l1_steps(
     assert steps[0] == "configure"
     assert "plan" in steps
     assert "unmapped" not in steps
+
+
+class TestEarlierMessagesDiscloseWhatWasDropped:
+    """会话层的「压缩」是尾部截断，必须自述砍了多少。
+
+    ai-agent-book ch2「压缩策略的设计原则」：**压缩最容易丢失的不是细节本身，
+    而是早期的架构决策、约束背后的理由和失败的路径**——LLM 会优先删「看起来
+    还可以重新获取」的信息。而按位置截尾恰好先丢最早的那一段。
+
+    同仓已有范本 ``tool_result_budget.py``：落盘全量 + 有界预览 + 显式标注
+    省略了多少、去哪找回来（「'there was more' without 'and here is where it
+    is' is not auditable」）。会话这一层此前只有一个裸 "…"——**同一个仓，
+    两套标准**。
+
+    ⚠ 本类**不**断言截断方向。保留末尾是刻意的：紧邻当前轮的上下文对指代消解
+    最有用。真正的修法是 ch2 第 4 层「归档式摘要」（逐轮结构化，git log 式），
+    需要 LLM 调用与失败熔断器，尚未实现。
+    """
+
+    @staticmethod
+    def _messages(count: int, filler: str):
+        from intelligence.runtime.conversation_orchestrator import Message
+
+        return [
+            Message(
+                message_id=f"m{i}",
+                conversation_id="c0",
+                role="user",
+                content=f"第{i}轮 {filler}",
+                created_at="2026-08-12T00:00:00Z",
+                status="completed",
+                run_id="r0",
+            )
+            for i in range(count)
+        ]
+
+    def test_short_history_is_returned_verbatim_without_a_marker(self) -> None:
+        """没超预算就别加噪声——每次都挂一句「已省略」会训练模型忽略它。"""
+        text = conversation_orchestrator._summarize_messages(self._messages(2, "短"))
+
+        assert "已省略" not in text
+        assert "第0轮" in text
+
+    def test_truncated_history_states_how_much_was_dropped(self) -> None:
+        messages = self._messages(60, "x" * 200)
+
+        text = conversation_orchestrator._summarize_messages(messages)
+
+        assert "已省略" in text
+        assert "共 60 条较早消息" in text
+        # 光说「有更多」不够，要给出量
+        assert any(ch.isdigit() for ch in text.split("已省略")[0])
+
+    def test_the_marker_is_inside_the_budget_not_on_top_of_it(self) -> None:
+        """标记要从预算里扣，不能加在预算之上——否则「压缩」反而超支。"""
+        messages = self._messages(60, "x" * 200)
+
+        text = conversation_orchestrator._summarize_messages(messages)
+
+        assert len(text) <= SUMMARY_CHAR_LIMIT
