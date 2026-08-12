@@ -349,3 +349,149 @@ def test_public_schema_is_a_provider_compatible_semantic_object() -> None:
     assert minimal.dataset == "market_daily"
     assert minimal.filters == ()
     assert minimal.time_range is None
+
+
+class TestSchemaExamplesAreRunnable:
+    """写进参数描述的每个例子，都必须真的能通过校验。
+
+    ai-agent-book ch4 §工具描述的艺术要求参数描述用**具体的例子**代替抽象规范
+    （族 A 官方 custom-tools 同样示范 `.describe("… e.g. kilometers")`，A×C 跨族
+    一致）。但一个**跑不通的例子比没有例子更糟**——它把错误模式直接教给模型。
+
+    2026-08-12 写这批描述时，靠人眼审查连漏两次：
+      ① order_by 多字段例子用了 rank+amount，实跑报 `order field must be
+         selected: rank` —— 排序字段必须先出现在 metrics/dimensions 里，
+         这条约束只写在 _compile_query 里，看 schema 完全看不出来
+      ② 改完又用 rank 配 sector_daily，实跑报 `unknown field: rank` ——
+         rank 只存在于 mainline_theme_daily。**我自己踩了一遍跨 dataset 混用**
+
+    所以这条门禁是必需的：例子的正确性不能靠写的人细心。
+
+    ``examples`` 同时充当「例子的真本源」：每条既要跑通，也要逐字出现在对应
+    描述里。少了后半条，测试和描述会各自漂移，而漂移时两边都发绿。
+    """
+
+    # (属性名, 完整可执行查询, 该查询里必须逐字出现在描述中的片段)
+    examples = [
+        (
+            "time_range",
+            {
+                "dataset": "market_daily",
+                "metrics": ["total_amount", "limit_up"],
+                "dimensions": ["trade_date"],
+                "time_range": {"start": "2026-07-23", "end": "2026-07-23"},
+            },
+            '{"start": "2026-07-23", "end": "2026-07-23"}',
+        ),
+        (
+            "filters",
+            {
+                "dataset": "sector_daily",
+                "metrics": ["amount"],
+                "dimensions": ["sector_name"],
+                "filters": [{"field": "return_pct", "op": "gt", "value": 0}],
+            },
+            '[{"field": "return_pct", "op": "gt", "value": 0}]',
+        ),
+        (
+            "filters",
+            {
+                "dataset": "sector_daily",
+                "metrics": ["amount"],
+                "dimensions": ["sector_name"],
+                "filters": [
+                    {
+                        "field": "sector_name",
+                        "op": "in",
+                        "value": ["电网设备", "光伏设备"],
+                    }
+                ],
+            },
+            '"value": ["电网设备", "光伏设备"]',
+        ),
+        (
+            "order_by",
+            {
+                "dataset": "sector_daily",
+                "metrics": ["strength"],
+                "dimensions": ["sector_name"],
+                "order_by": [{"field": "strength", "direction": "desc"}],
+            },
+            '[{"field": "strength", "direction": "desc"}]',
+        ),
+        (
+            "order_by",
+            {
+                "dataset": "sector_daily",
+                "metrics": ["strength", "amount"],
+                "dimensions": ["sector_name"],
+                "order_by": [
+                    {"field": "strength", "direction": "desc"},
+                    {"field": "amount", "direction": "desc"},
+                ],
+            },
+            '{"field": "amount", "direction": "desc"}',
+        ),
+        (
+            "group_by",
+            {
+                "dataset": "sector_daily",
+                "metrics": ["amount"],
+                "dimensions": ["sector_name"],
+                "group_by": ["sector_name"],
+            },
+            '["sector_name"]',
+        ),
+    ]
+
+    @pytest.mark.parametrize("prop,query,snippet", examples)
+    def test_example_passes_the_real_validation_chain(
+        self, prop: str, query: dict, snippet: str
+    ) -> None:
+        """走生产同一条链，停在编译（纯 SQL 构造，不需要 DB）。"""
+        from intelligence.services.finance_query import _compile_query, normalize_spec
+        from intelligence.services.research_contract import InformationCutoff
+
+        spec = FinanceQuerySpec.from_arguments(query)
+        normalized, _ = normalize_spec(spec)
+
+        _compile_query(
+            normalized,
+            information_cutoff=InformationCutoff(date(2026, 7, 23), "requested"),
+            max_rows=25,
+        )
+
+    @pytest.mark.parametrize("prop,query,snippet", examples)
+    def test_example_actually_appears_in_the_description(
+        self, prop: str, query: dict, snippet: str
+    ) -> None:
+        """跑得通但没写进描述，等于没给模型看——两边都要成立才算数。"""
+        description = FINANCE_QUERY_PARAMETERS["properties"][prop]["description"]
+
+        assert snippet in description
+
+    def test_order_by_description_states_the_array_shape(self) -> None:
+        """2026-08-12 实测的头号错法：13 次调用 9 次把 order_by 写成单个对象。
+
+        schema 本来就写着 "type": "array"——**光有类型挡不住**。
+        """
+        description = FINANCE_QUERY_PARAMETERS["properties"]["order_by"]["description"]
+
+        assert "数组" in description
+        assert "只排一个字段也要用方括号" in description
+
+    def test_order_by_description_states_the_selection_constraint(self) -> None:
+        """排序字段必须已在 metrics/dimensions 里（_compile_query 的隐藏约束）。"""
+        description = FINANCE_QUERY_PARAMETERS["properties"]["order_by"]["description"]
+
+        assert "必须已经出现在 metrics 或 dimensions" in description
+
+    def test_time_range_description_carries_an_iso_example(self) -> None:
+        """解析是 date.fromisoformat(value[:10])，ISO 是唯一可靠写法。
+
+        ch4 §3 点名这类隐式约定（「时间戳到底是秒还是毫秒」）靠例子最容易传达。
+        """
+        properties = FINANCE_QUERY_PARAMETERS["properties"]["time_range"]["properties"]
+
+        for endpoint in ("start", "end"):
+            assert "2026-07-23" in properties[endpoint]["description"]
