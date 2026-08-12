@@ -700,7 +700,8 @@ def test_repair_timeout_that_burns_the_window_retries_from_root_headroom(
     assert updated.stop_reason == "repair_model_finish"
     retries = [e for e in updated.events if e.kind == "repair_model_retry"]
     assert len(retries) == 1
-    assert retries[0].payload.get("seconds_granted") == 8.0
+    # 新窗按 headroom（30-18=12）铸，不再抄刚烧穿的那笔 8 秒授予。
+    assert retries[0].payload.get("seconds_granted") == 12.0
     assert retries[0].payload.get("grant_id") == (
         "transient-retry-repair-burn-with-headroom"
     )
@@ -761,6 +762,93 @@ def test_repair_timeout_that_burns_the_window_does_not_retry_when_hard_cap_is_sp
     assert updated.stop_reason == "repair_model_unavailable"
     assert not [e for e in updated.events if e.kind == "repair_model_retry"]
     assert len(model.calls) == 2
+
+
+def _burn_clock_past_timeout(now: list[float], *, overshoot: float):
+    """超时 turn 的实际耗时略超授予窗口（timeout + overshoot）。
+
+    生产里这是常态：provider 超时异常抛出前还有网络/序列化开销，
+    elapsed 会比 timeout 多零点几秒，恰好把账本残余烧爆。
+    """
+
+    class OvershootTimeoutModel:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            if len(self.calls) == 1:
+                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+            if len(self.calls) == 2:
+                now[0] += float(timeout) + overshoot
+                return ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）")
+            if len(self.calls) == 3:
+                return _tool_turn("补齐行情证据", call_id="retry-after-overdraft")
+            return _finish_turn()
+
+    return OvershootTimeoutModel()
+
+
+def test_repair_timeout_that_overdrafts_the_ledger_still_retries_from_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """耗时略超账本残余（consume fail closed 一分未扣）仍要走 headroom 重试。
+
+    2026-08-13 R4 生产 A6/A7 的形状：repair 授予 16s，超时 turn 实际耗时
+    16.x 秒，记账失败 → budget_alive=False → 老代码连重试闸门都进不去，
+    直接 repair_deadline_exhausted。正确行为：结平残余、铸新窗、重试。
+    """
+
+    frame = _frame()
+    base = _context(frame, max_steps=1)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=6.0,
+        hard_seconds_cap=30.0,
+    )
+    context = replace(base, root_budget=root)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    model = _burn_clock_past_timeout(now, overshoot=0.5)
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-overdraft-headroom",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 1
+    # 残余结平后从 headroom（30-6=24）铸新窗。
+    assert retries[0].payload.get("seconds_granted") == 24.0
+    assert retries[0].payload.get("grant_id") == (
+        "transient-retry-repair-overdraft-headroom"
+    )
+    assert len(model.calls) == 4
+    # 账本没有被击穿：结平 + 新 grant 后 remaining 不为负。
+    assert root.remaining_seconds >= 0.0
 
 
 def test_repair_retries_raised_timeout_exception_once() -> None:

@@ -347,9 +347,12 @@ def test_grant_for_transient_model_retry_mints_seconds_from_headroom() -> None:
 
     assert retry is not None
     assert retry.calls_granted == 0
-    assert retry.seconds_granted == 8.0
+    # 尺寸按 root 未分配余量（30-18=12）铸，不按 goal.remaining_seconds（8）：
+    # 后者是 admission 塞回来的、刚被超时烧穿的那笔授予，按它重铸等于用同样
+    # 大小的窗口再撞一次同一个慢 provider（R4 生产 A4/A5/A8/A9/A10 的死法）。
+    assert retry.seconds_granted == 12.0
     assert retry.grant_id == f"transient-retry-{goal.repair_goal_id}"
-    assert root.allocated_seconds == 26.0
+    assert root.allocated_seconds == 30.0
     # 同一 goal 再铸一次被 grant_id 拒掉，和熔断上限 1 对齐。
     assert grant_for_transient_model_retry(goal, root_budget=root) is None
 
@@ -385,3 +388,31 @@ def test_grant_for_transient_model_retry_fails_closed_at_hard_cap() -> None:
 
     assert grant_for_transient_model_retry(goal, root_budget=root) is None
     assert root.allocated_seconds == 18.0
+
+
+def test_grant_for_transient_model_retry_caps_headroom_mint_at_thirty_seconds() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    goal = build_repair_goal(
+        episode_id="episode-cap",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-cap",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=20.0,
+        hard_seconds_cap=100.0,
+    )
+
+    retry = grant_for_transient_model_retry(goal, root_budget=root)
+
+    assert retry is not None
+    # 余量 80 秒也只铸 30：单笔 30 秒帽不因余量充裕而放大。
+    assert retry.seconds_granted == 30.0
+    assert root.allocated_seconds == 50.0
