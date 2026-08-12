@@ -298,6 +298,8 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
+    # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
+    "truncated_hash": RejectionKind.FORMAT,
 }
 
 
@@ -357,6 +359,32 @@ def rejection_response(error: BaseException) -> RejectionResponse:
 
 def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
+
+
+def _is_unique_one_char_truncation(
+    unknown: set[object],
+    evidence_hashes: set[str],
+) -> bool:
+    """True iff every unknown hash is a unique 1-char-short prefix of a collected hash.
+
+    生产 A4 形状：模型抄了 15/16 位。这是截断不是伪造。只认「少恰好 1 位」——
+    更短的唯一前缀碰撞面太大，放过去等于把 INTEGRITY 闸门凿开。
+    0 匹配或多匹配仍走 forged_hash。混进任何一条真伪造，整笔 fail closed。
+    """
+
+    if not unknown or not evidence_hashes:
+        return False
+    for item in unknown:
+        if not isinstance(item, str) or not item:
+            return False
+        matches = [
+            known
+            for known in evidence_hashes
+            if known.startswith(item) and len(known) == len(item) + 1
+        ]
+        if len(matches) != 1:
+            return False
+    return True
 
 
 def validate_episode_finish(
@@ -424,10 +452,18 @@ def validate_episode_finish(
             )
         unknown = set(binding.evidence_hashes) - evidence_hashes
         if unknown:
+            if _is_unique_one_char_truncation(unknown, evidence_hashes):
+                # 文案只回截断值，不带完整哈希——否则 FORMAT 回灌等于把白名单提示给模型。
+                raise _reject(
+                    "truncated_hash",
+                    "binding contains truncated evidence hash: "
+                    + ",".join(sorted(str(item) for item in unknown))
+                    + "; copy the complete hash from the evidence list",
+                )
             raise _reject(
                 "forged_hash",
                 "binding contains unknown evidence hash: "
-                + ",".join(sorted(unknown)),
+                + ",".join(sorted(str(item) for item in unknown)),
             )
         bindings.append(binding)
 

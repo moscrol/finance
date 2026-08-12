@@ -120,6 +120,35 @@ def _evidence() -> tuple[AgentEvidence, ...]:
     )
 
 
+def _hex_evidence(*hashes: str) -> tuple[AgentEvidence, ...]:
+    return tuple(
+        AgentEvidence(
+            tool="market_data",
+            title="A股市场总览",
+            detail="截至2026-07-24，上涨家数增加。",
+            source="本地行情",
+            source_date="2026-07-24",
+            evidence_tier="L4",
+            content_hash=content_hash,
+        )
+        for content_hash in hashes
+    )
+
+
+def _finish_with_hashes(*hashes: str) -> dict[str, object]:
+    return {
+        "status": "completed",
+        "draft": "有内容的草稿。",
+        "bindings": [
+            {
+                "output_id": "direct_assessment",
+                "evidence_hashes": list(hashes),
+                "basis": "evidence",
+            }
+        ],
+    }
+
+
 def test_finish_schema_is_closed_and_requires_all_fields() -> None:
     schema = finish_json_schema()
 
@@ -542,6 +571,102 @@ def test_forged_hash_is_integrity_not_format() -> None:
     assert bad_shape.value.kind is RejectionKind.FORMAT
 
 
+def test_unique_one_char_truncated_hash_is_format_not_integrity() -> None:
+    """生产 A4 形状：模型抄了 15/16 位。这是截断不是伪造。
+
+    唯一前缀且只少 1 位 → FORMAT（可回灌重写）。
+    回灌文案不得带出完整哈希，否则等于把白名单提示给模型。
+    """
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        RejectionKind,
+        rejection_response,
+    )
+
+    full = "54a5b453de9366b0"
+    truncated = full[:-1]
+    context = _context(_frame())
+    with pytest.raises(EpisodeFinishRejection) as err:
+        validate_episode_finish(
+            _finish_with_hashes(truncated),
+            context=context,
+            evidence=_hex_evidence(full),
+        )
+    assert err.value.code == "truncated_hash"
+    assert err.value.kind is RejectionKind.FORMAT
+    assert truncated in str(err.value)
+    assert full not in str(err.value)
+
+    response = rejection_response(err.value)
+    assert response.reinject is True
+    assert response.allow_recovery is True
+    assert response.stop_reason == "invalid_model_finish"
+
+
+def test_truncated_hash_stays_integrity_when_prefix_is_ambiguous_or_too_short() -> None:
+    """少 2 位、或 15 位对上两条证据，仍是伪造——不能把 INTEGRITY 闸门凿开。"""
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        RejectionKind,
+    )
+
+    context = _context(_frame())
+    full_a = "54a5b453de9366b0"
+    full_b = "54a5b453de9366b1"
+
+    with pytest.raises(EpisodeFinishRejection) as ambiguous:
+        validate_episode_finish(
+            _finish_with_hashes("54a5b453de9366b"),
+            context=context,
+            evidence=_hex_evidence(full_a, full_b),
+        )
+    assert ambiguous.value.code == "forged_hash"
+    assert ambiguous.value.kind is RejectionKind.INTEGRITY
+
+    with pytest.raises(EpisodeFinishRejection) as too_short:
+        validate_episode_finish(
+            _finish_with_hashes(full_a[:-2]),
+            context=context,
+            evidence=_hex_evidence(full_a),
+        )
+    assert too_short.value.code == "forged_hash"
+    assert too_short.value.kind is RejectionKind.INTEGRITY
+
+
+def test_mixed_truncated_and_forged_hash_fails_closed_as_integrity() -> None:
+    """一笔绑定里混进真伪造，不能因为另一条只是抄漏就给 FORMAT 回灌。"""
+
+    from intelligence.services.episode_protocol import (
+        EpisodeFinishRejection,
+        RejectionKind,
+    )
+
+    full = "54a5b453de9366b0"
+    context = _context(_frame())
+    with pytest.raises(EpisodeFinishRejection) as err:
+        validate_episode_finish(
+            _finish_with_hashes(full[:-1], "deadbeefdeadbeef"),
+            context=context,
+            evidence=_hex_evidence(full),
+        )
+    assert err.value.code == "forged_hash"
+    assert err.value.kind is RejectionKind.INTEGRITY
+
+
+def test_exact_hash_still_accepts_after_truncation_gate() -> None:
+    """截断口子不能误伤完整哈希。"""
+
+    full = "54a5b453de9366b0"
+    finish = validate_episode_finish(
+        _finish_with_hashes(full),
+        context=_context(_frame()),
+        evidence=_hex_evidence(full),
+    )
+    assert finish.bindings[0].evidence_hashes == (full,)
+
+
 def test_every_rejection_kind_has_a_disposition() -> None:
     """每个类别都必须有明确处置——不允许「其余都算」。
 
@@ -583,7 +708,7 @@ def test_integrity_alone_is_denied_reinjection_and_recovery() -> None:
     # 单独命名：否则地基破坏在收据统计里与普通格式错混为一谈。
     assert integrity.stop_reason == "integrity_violation"
 
-    for code in ("bindings_not_list", "missing_evidence"):
+    for code in ("bindings_not_list", "missing_evidence", "truncated_hash"):
         response = rejection_response(EpisodeFinishRejection(code, "x"))
         assert response.reinject is True, f"{code} 应保留回灌"
         assert response.allow_recovery is True, f"{code} 应保留收尾恢复"
