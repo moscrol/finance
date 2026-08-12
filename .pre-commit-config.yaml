@@ -47,6 +47,13 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      - id: unread-fields
+        name: "字段契约：不得新增「写了没人读」的字段"
+        language: system
+        entry: python3 scripts/check_unread_fields.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail

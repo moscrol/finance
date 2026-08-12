@@ -97,3 +97,86 @@ class TestRagReadinessGateCoversTheInterpreter:
         ).read_text(encoding="utf-8")
 
         assert "check_rag_readiness.py" in deploy
+
+
+class TestUnreadFieldsGate:
+    """把「契约与交付不符」的排查手法固化成判据。
+
+    2026-08-12 一天七例同一形状，其中三例是本门禁能机械抓到的那种——
+    字段填了没人读（`tel.degraded` / `recall_desc` / `fallback_reason` 记了
+    但从没往模型那边传）。现有门禁粒度都在模块/文件级，外部工具
+    code-review-graph 实测也只到 Function/Class 且本仓精度 1/3。
+
+    本类钉住的是**判据本身**，不是存量清单——清单会随代码变，判据不该变。
+    """
+
+    @staticmethod
+    def _scan(tmp_path, source: str):
+        import importlib.util
+        from pathlib import Path
+
+        pkg = tmp_path / "intelligence"
+        pkg.mkdir(parents=True, exist_ok=True)
+        (pkg / "sample.py").write_text(source, encoding="utf-8")
+        spec = importlib.util.spec_from_file_location(
+            "cuf",
+            Path(__file__).resolve().parents[2] / "scripts" / "check_unread_fields.py",
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.REPO = tmp_path
+        return [n for v in mod.scan().values() for n in v]
+
+    def test_written_but_never_read_is_flagged(self, tmp_path) -> None:
+        found = self._scan(
+            tmp_path,
+            "class T:\n"
+            "    degraded: bool = False\n"
+            "def w(t):\n"
+            "    t.degraded = True\n",
+        )
+
+        assert "degraded" in found
+
+    def test_written_and_read_is_not_flagged(self, tmp_path) -> None:
+        """误报的代价是门禁被训练成忽略——反面必须一起钉。"""
+        found = self._scan(
+            tmp_path,
+            "class T:\n"
+            "    used: str = ''\n"
+            "def w(t):\n"
+            "    t.used = 'x'\n"
+            "def r(t):\n"
+            "    return t.used\n",
+        )
+
+        assert "used" not in found
+
+    def test_string_literal_counts_as_a_possible_dynamic_read(self, tmp_path) -> None:
+        """本仓大量走 payload["detail"] / to_dict()——字符串就是它们的读法。
+
+        刻意保守：宁可漏抓，不要吵。吵闹的门禁会被忽略，漏抓至少不损伤信任。
+        """
+        found = self._scan(
+            tmp_path,
+            "class T:\n"
+            "    detail: str = ''\n"
+            "def w(t):\n"
+            "    t.detail = 'x'\n"
+            "def r(p):\n"
+            "    return p['detail']\n",
+        )
+
+        assert "detail" not in found
+
+    def test_annotated_local_variable_is_not_a_field(self, tmp_path) -> None:
+        """局部变量不是契约。初版一律收，存量从 ~100 涨到 606 条、几乎全是噪声。"""
+        found = self._scan(
+            tmp_path,
+            "def f():\n"
+            "    idx: dict = {}\n"
+            "    idx['a'] = 1\n"
+            "    return len(idx)\n",
+        )
+
+        assert "idx" not in found

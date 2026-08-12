@@ -1,0 +1,182 @@
+{
+  "intelligence/api/app.py": [
+    "cancellation_registry",
+    "conversation_locks",
+    "conversation_locks_guard",
+    "daemon",
+    "llm_settings",
+    "supervisor"
+  ],
+  "intelligence/eval/acceptance.py": [
+    "trace_steps"
+  ],
+  "intelligence/eval/acceptance_comparison.py": [
+    "evaluator_independent",
+    "evaluator_kind",
+    "reference_answer_sha256",
+    "reference_path",
+    "workbench_answer",
+    "workbench_answer_sha256"
+  ],
+  "intelligence/eval/acceptance_observations.py": [
+    "evaluator_independent",
+    "evaluator_kind",
+    "source_cases_sha256",
+    "source_overlay_sha256",
+    "source_run_sha256"
+  ],
+  "intelligence/eval/acceptance_runs.py": [
+    "run_record",
+    "source_sha256"
+  ],
+  "intelligence/eval/agent_eval.py": [
+    "cited_tags",
+    "concept_recall",
+    "dangling_citations",
+    "disclaimer_present",
+    "graph_only_flagged",
+    "stale_flagged",
+    "tool_calls_in_range"
+  ],
+  "intelligence/eval/capability_monotonicity.py": [
+    "deltas",
+    "leak_kinds",
+    "regressions",
+    "template_signature"
+  ],
+  "intelligence/eval/ceiling_instruction_export.py": [
+    "component_root",
+    "instruction_root",
+    "leak_scan"
+  ],
+  "intelligence/eval/normalize_harness_trace.py": [
+    "left_step",
+    "ordinal",
+    "right_step"
+  ],
+  "intelligence/eval/presentation_diversity.py": [
+    "advisory",
+    "answer_count",
+    "left_id",
+    "max_template_similarity",
+    "mean_template_similarity",
+    "pair_count",
+    "right_id"
+  ],
+  "intelligence/eval/selector_resolution.py": [
+    "telemetry_totals",
+    "top3_changed",
+    "union_size",
+    "unique_ordered_lists"
+  ],
+  "intelligence/runtime/episode_tool_batch.py": [
+    "normalized_queries"
+  ],
+  "intelligence/runtime/headless_tool_gateway.py": [
+    "daemon_threads"
+  ],
+  "intelligence/runtime/turn_control_core.py": [
+    "contract_required",
+    "execution_route"
+  ],
+  "intelligence/services/akshare_market_snapshot.py": [
+    "preserved_existing_snapshot",
+    "written_files"
+  ],
+  "intelligence/services/ask.py": [
+    "market_data_source"
+  ],
+  "intelligence/services/ask_types.py": [
+    "market_data_source"
+  ],
+  "intelligence/services/auto_eval.py": [
+    "card_path"
+  ],
+  "intelligence/services/episode_session.py": [
+    "resume_count"
+  ],
+  "intelligence/services/evidence_search.py": [
+    "apertures_attempted",
+    "clue_count"
+  ],
+  "intelligence/services/finance_query.py": [
+    "bound_parameters",
+    "output_bytes",
+    "physical_sql"
+  ],
+  "intelligence/services/kb_rag.py": [
+    "display_excerpt_chars",
+    "requested_index_dir",
+    "unsupported_options"
+  ],
+  "intelligence/services/keychain_credentials.py": [
+    "argtypes",
+    "restype"
+  ],
+  "intelligence/services/llm_refine.py": [
+    "daemon"
+  ],
+  "intelligence/services/llm_settings.py": [
+    "provider_id"
+  ],
+  "intelligence/services/market_snapshot_sync.py": [
+    "duration_ms",
+    "preserved_existing_snapshot",
+    "written_files"
+  ],
+  "intelligence/services/market_technical.py": [
+    "exchange",
+    "instrument",
+    "security_kind",
+    "source_as_of"
+  ],
+  "intelligence/services/mode_governor.py": [
+    "max_branches",
+    "max_repair_cycles"
+  ],
+  "intelligence/services/query_resolution.py": [
+    "reference_kind"
+  ],
+  "intelligence/services/query_understanding.py": [
+    "research_mode"
+  ],
+  "intelligence/services/research_brief.py": [
+    "source_tag"
+  ],
+  "intelligence/services/research_contract.py": [
+    "output_schema",
+    "owner",
+    "preset",
+    "required_skill_ids"
+  ],
+  "intelligence/services/research_policy.py": [
+    "measurement_basis",
+    "retry_count"
+  ],
+  "intelligence/services/retrieval_audit.py": [
+    "d_blocks"
+  ],
+  "intelligence/services/run_store.py": [
+    "previewable"
+  ],
+  "intelligence/services/self_use_maturity.py": [
+    "stream_event_count"
+  ],
+  "intelligence/services/theme_modules.py": [
+    "theme_key"
+  ],
+  "intelligence/services/turn_controller.py": [
+    "llm_failure_detail",
+    "llm_failure_reason"
+  ],
+  "intelligence/summary.py": [
+    "stderr_tail",
+    "stdout_tail"
+  ],
+  "intelligence/workbench_skills/contracts.py": [
+    "inherited_evidence_atoms",
+    "inherited_stage_artifacts",
+    "raw_result_ref",
+    "shared_retrieval_cache"
+  ]
+}
