@@ -1671,24 +1671,19 @@ class SemanticEpisodeVerifier:
         targets = missing or required
         labels = tuple(
             dict.fromkeys(
-                (item.description.strip() or item.output_id)
-                for item in targets
-                if item.description.strip() or item.output_id
+                _gap_label(item) for item in targets if _gap_label(item)
             )
         )
         parts = [base]
         if labels:
-            parts.append("仍需核验：" + "、".join(labels[:3]))
+            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         bound_counts = {
             binding.output_id: len(dict.fromkeys(binding.evidence_hashes))
             for binding in verified.outcome.bindings
             if binding.evidence_hashes
         }
         kept = tuple(
-            (
-                item.description.strip() or item.output_id,
-                bound_counts[item.output_id],
-            )
+            (_gap_label(item), bound_counts[item.output_id])
             for item in required
             if status_by_id.get(item.output_id) == "fulfilled"
             and bound_counts.get(item.output_id)
@@ -1699,16 +1694,42 @@ class SemanticEpisodeVerifier:
                 + "、".join(
                     f"{label}（{count} 条证据）" for label, count in kept[:3]
                 )
+                + "。"
+            )
+        elif verified.outcome.evidence:
+            # LLM 超时 / deadline 打断时常见的形状：检索已完成、证据在手，
+            # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
+            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+            # 让用户区分「没查到」和「查到了没来得及核验」——两者的下一步
+            # 完全不同（换问法 vs 直接重试）。
+            parts.append(
+                f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
+                "但未完成核验绑定，暂不能引用；可直接重试。"
             )
         window = _latest_evidence_date(verified.outcome.evidence)
         if window:
-            parts.append(f"数据截至 {window}；缺口补齐后可复验。")
+            parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")
         return "".join(parts)
 
     @staticmethod
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
         return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+
+
+def _gap_label(item) -> str:
+    """gap 答案里的槽位标签：描述只取首个分句。
+
+    契约描述现在是给模型看的完整要求（#293 起带「写出具体数值……不得只作
+    定性概括」的长指令），整段引用会把面向模型的指令文本原样打到用户可见的
+    gap 答案里（08-12 A 组第二轮实测：A1 的 gap 答案变成一屏指令）。
+    首个分句（「；」「，」之前）是描述的名词性主干，够定位、不带指令。
+    """
+
+    text = str(item.description or "").strip()
+    if text:
+        return re.split(r"[；，;,]", text, maxsplit=1)[0].strip()
+    return str(item.output_id or "").strip()
 
 
 def _latest_evidence_date(evidence: tuple) -> str:
