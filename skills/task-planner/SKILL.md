@@ -1,6 +1,6 @@
 ---
 name: task-planner
-description: 批量/会话级高风险任务前的「采访」前置（Inversion 反转模式）——在复盘批处理、DuckDB 大回填、开新题材前，先按顺序问清任务类型、范围（日期区间/标的/题材）、数据源、结果落库去向、分支、凭证、无前视、dry-run、缺数处置，把回答合成成 task-plan，经 check_task_plan.py 门控校验通过后才放行抓数/回填/写库，再交给 market-overview / duckdb-backfill / theme-radar / top-gainers-feishu 等下游执行。触发词：批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问。注意：仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。
+description: "高风险批量任务前的采访前置。复盘批处理、DuckDB 大回填、开新题材前先问清范围/数据源/落库/分支/dry-run，合成 task-plan，经 check_task_plan.py 通过才放行。触发：批量任务规划、开工前采访、回填前先问、开新题材前先问。单日复盘/单股查询不用。"
 metadata:
   pattern: inversion
   also: [pipeline]

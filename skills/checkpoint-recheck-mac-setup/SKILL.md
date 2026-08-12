@@ -1,9 +1,10 @@
 ---
 name: checkpoint-recheck-mac-setup
+disable-model-invocation: true
 metadata:
   pattern: tool-wrapper
   also: [runbook]
-description: 在 Mac 上经 remote-exec 隧道安装「可证伪点夜间回检」launchd 定时任务、并接通跨机共享大脑（.foresight）台账的安装/排障 runbook。Use when the user asks to 装夜间回检、安装 checkpoint recheck 定时、可证伪点回检 cron、launchd 装回检、远程在 Mac 上跑命令、remote-exec 隧道、隧道多字节乱码核对、codepoint 校验、共享大脑台账、.foresight 台账接通、登点回检闭环、多机台账一致. 触发词：夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环。注意：只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。
+description: "Mac 经隧道安装可证伪点夜间回检 launchd，并接通 .foresight 台账。用户说「装夜间回检」「checkpoint recheck 定时」「launchd 装回检」「remote-exec 隧道乱码」「共享大脑台账」时用。只做安装/排障；登点打分用 intelligence.cli checkpoint。"
 ---
 
 # Mac 可证伪点夜间回检安装（remote-exec + launchd + 共享大脑）

@@ -1,5 +1,6 @@
 ---
 name: strategy-evolve
+disable-model-invocation: true
 metadata:
   pattern: pipeline
   also: [generator]

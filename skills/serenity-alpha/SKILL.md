@@ -1,5 +1,6 @@
 ---
 name: serenity-alpha
+disable-model-invocation: true
 metadata:
   pattern: generator
   also: [pipeline]
