@@ -1000,6 +1000,7 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
         "stock_daily",
         "sector_daily",
         "sector_stock_daily",
+        "stock_high_daily",
         "mainline_theme_daily",
         "mainline_sector_daily",
     }

@@ -768,6 +768,9 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "此时按提示把时间窗调回截止日附近，不要反复重试同一个窗口。"
         "返回为空只说明该 dataset 在这组条件与时点下没有结构化结果，"
         "应写成证据缺口，不得据此推断事实不存在。"
+        "新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，"
+        "按 high_period/sw_l1 分组计数即新高结构）；"
+        "sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。"
     ),
     # 依据在 ``evidence_search._project_evidence``：它把 ``conclusion`` 与
     # ``counter_clues`` 合成同一个 evidence 列表，stance（"支持"/"反方"）**只出现在

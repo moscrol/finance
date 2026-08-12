@@ -73,6 +73,86 @@ def market_db(tmp_path: Path) -> Path:
                 ("2026-07-24", "S2", "银行", "银行", -1.0, 900.0, -5.0, -1.0, False),
             ],
         )
+        connection.execute(
+            """
+            create table fact_stock_high_daily(
+                trade_date date,
+                stock_ts_code varchar,
+                stock_name varchar,
+                primary_high_period varchar,
+                primary_high_label varchar,
+                is_new boolean,
+                price double,
+                pct_chg double,
+                pct_chg_10d double,
+                amount double,
+                market_cap double,
+                fund_today double,
+                limit_status varchar,
+                limit_times integer,
+                sw_l1 varchar,
+                sw_l2 varchar,
+                plate varchar
+            )
+            """
+        )
+        connection.executemany(
+            "insert into fact_stock_high_daily values "
+            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    "2026-07-21", "600001.SH", "甲股", "1y", "一年新高",
+                    True, 10.0, 5.0, 12.0, 8.0, 100.0, 0.5,
+                    "涨停", 2, "电子", "半导体", "半导体",
+                ),
+                (
+                    "2026-07-21", "600002.SH", "乙股", "20d", "20日新高",
+                    True, 20.0, 3.0, 8.0, 6.0, 80.0, 0.2,
+                    None, 0, "电子", "半导体", "存储芯片",
+                ),
+                (
+                    "2026-07-24", "600003.SH", "丙股", "3y", "三年新高",
+                    True, 30.0, 9.9, 25.0, 12.0, 200.0, 1.1,
+                    "涨停", 3, "通信", "光模块", "CPO",
+                ),
+            ],
+        )
+        connection.execute(
+            """
+            create table fact_sector_stock_daily(
+                trade_date date,
+                sector_ts_code varchar,
+                sector_name varchar,
+                stock_ts_code varchar,
+                stock_name varchar,
+                sw_industry varchar,
+                high_status varchar,
+                price double,
+                pct_chg double,
+                pct_chg_5d double,
+                pct_chg_10d double,
+                pct_chg_20d double,
+                amount double,
+                fund_flow_1d double,
+                fund_flow_5d double,
+                float_mcap_yi double
+            )
+            """
+        )
+        connection.executemany(
+            "insert into fact_sector_stock_daily values "
+            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    "2026-07-21", "S3", "芯片", "600001.SH", "甲股", "电子",
+                    "20d", 10.0, 5.0, 6.0, 12.0, 20.0, 8.0, 0.5, 1.0, 50.0,
+                ),
+                (
+                    "2026-07-21", "S3", "芯片", "600009.SH", "丁股", "电子",
+                    None, 15.0, 1.0, 2.0, 3.0, 4.0, 30.0, 0.1, 0.2, 90.0,
+                ),
+            ],
+        )
     finally:
         connection.close()
     return path
@@ -222,6 +302,96 @@ def test_group_by_uses_registered_aggregation_semantics(market_db: Path) -> None
         {"sector_name": "银行", "amount": 900.0, "return_pct": -1.0},
     )
     assert result.evidence[0].source_date == "2026-07-24"
+
+
+def test_stock_high_dataset_answers_new_high_structure_directly() -> None:
+    """新高家数结构的 canonical 表必须注册在 finance_query 里。
+
+    2026-08-13 A10 实测：该表未注册时，模型只能借道 sector_stock_daily.high_status
+    间接拼，被 NULL 主导的分组误导后错误宣告「数据缺口」——数据其实在。
+    """
+    from intelligence.services.finance_query import _DATASETS
+
+    dataset = _DATASETS["stock_high_daily"]
+    assert dataset.table == "fact_stock_high_daily"
+    assert "high_period" in dataset.dimensions
+    assert "sw_l1" in dataset.dimensions
+
+
+def test_stock_high_query_groups_by_period(market_db: Path) -> None:
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "stock_high_daily",
+            "metrics": ["amount"],
+            "dimensions": ["high_period"],
+            "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+            "group_by": ["high_period"],
+            "order_by": [{"field": "amount", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+
+    result = FinanceQuery(market_db).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert {row["high_period"] for row in result.rows} == {"1y", "20d"}
+    # 07-24 的丙股被 time_range 排除
+    assert all("3y" != row["high_period"] for row in result.rows)
+
+
+def test_null_high_status_renders_as_fact_not_unknown(market_db: Path) -> None:
+    """high_status 的 NULL 是「非新高」这个事实，不是数据缺失。
+
+    渲染成「未知」会让模型把多数个股不是新高误读成数据没回填
+    （2026-08-13 A10：GROUP BY high_status 按成交额降序，NULL 组天然最大，
+    top25 全「未知」→ 模型错误宣告数据缺口）。
+    """
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "sector_stock_daily",
+            "metrics": ["amount"],
+            "dimensions": ["trade_date", "stock_name", "high_status"],
+            "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+            "limit": 10,
+        }
+    )
+
+    result = FinanceQuery(market_db).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    assert "新高状态=非新高" in result.observation
+    assert "新高状态=未知" not in result.observation
+    # 有值的行照常显示
+    assert "新高状态=20d" in result.observation
+
+
+def test_null_display_defaults_to_unknown_for_other_fields(market_db: Path) -> None:
+    """null_label 只改声明了业务语义的字段；其他字段 NULL 仍显示「未知」。"""
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "stock_high_daily",
+            "metrics": ["price"],
+            "dimensions": ["trade_date", "stock_name", "limit_status"],
+            "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+            "limit": 10,
+        }
+    )
+
+    result = FinanceQuery(market_db).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+
+    # limit_status 声明了 null_label="非涨停"
+    assert "涨停状态=非涨停" in result.observation
+    assert "涨停状态=涨停" in result.observation
 
 
 def test_evidence_has_semantic_lineage_without_public_physical_schema(

@@ -190,6 +190,11 @@ class _FieldDefinition:
     role: Literal["dimension", "metric"]
     aggregate: Literal["avg", "sum", "max", "min"] | None = None
     value_kind: Literal["text", "number", "integer", "boolean", "date"] = "text"
+    # NULL 的业务语义因字段而异：high_status 的 NULL 是「非新高」这个事实，
+    # 渲染成「未知」会让模型把"多数个股不是新高"误读成"数据没回填"
+    # （2026-08-13 A10 实测：GROUP BY high_status 按成交额降序，NULL 组
+    # 天然最大，top25 全显示「未知」，模型据此错误宣告数据缺口）。
+    null_label: str = "未知"
 
 
 @dataclass(frozen=True)
@@ -210,8 +215,9 @@ def _dimension(
     column: str,
     label: str,
     value_kind: Literal["text", "number", "integer", "boolean", "date"] = "text",
+    null_label: str = "未知",
 ) -> _FieldDefinition:
-    return _FieldDefinition(column, label, "dimension", None, value_kind)
+    return _FieldDefinition(column, label, "dimension", None, value_kind, null_label)
 
 
 def _metric(
@@ -301,7 +307,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "stock_code": _dimension("stock_ts_code", "股票代码"),
             "stock_name": _dimension("stock_name", "股票名称"),
             "sw_industry": _dimension("sw_industry", "申万行业"),
-            "high_status": _dimension("high_status", "新高状态"),
+            "high_status": _dimension(
+                "high_status", "新高状态", null_label="非新高"
+            ),
         },
         metrics={
             "price": _metric("price", "价格"),
@@ -313,6 +321,38 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "fund_flow_1d": _metric("fund_flow_1d", "1日资金流"),
             "fund_flow_5d": _metric("fund_flow_5d", "5日资金流"),
             "float_market_cap_yi": _metric("float_mcap_yi", "流通市值亿元"),
+        },
+    ),
+    # 新高家数结构的 canonical 表。表内只有当日创出新高的个股，直接
+    # COUNT/GROUP BY 就是「新高家数结构」；此前该表没有注册，模型只能借道
+    # sector_stock_daily.high_status 间接拼，且被 NULL 主导的分组误导
+    # （2026-08-13 A10 实测）。
+    "stock_high_daily": _DatasetDefinition(
+        table="fact_stock_high_daily",
+        label="个股新高日频记录",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "high_period": _dimension("primary_high_period", "新高周期"),
+            "high_label": _dimension("primary_high_label", "新高级别"),
+            "is_new": _dimension("is_new", "是否首次新高", "boolean"),
+            "limit_status": _dimension(
+                "limit_status", "涨停状态", null_label="非涨停"
+            ),
+            "sw_l1": _dimension("sw_l1", "申万一级行业"),
+            "sw_l2": _dimension("sw_l2", "申万二级行业"),
+            "plate": _dimension("plate", "所属板块"),
+        },
+        metrics={
+            "price": _metric("price", "价格"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "return_10d_pct": _metric("pct_chg_10d", "10日涨跌幅"),
+            "amount": _metric("amount", "成交额", "sum"),
+            "market_cap": _metric("market_cap", "总市值"),
+            "fund_today": _metric("fund_today", "当日资金", "sum"),
+            "limit_times": _metric("limit_times", "连板数", "max", "integer"),
         },
     ),
     "mainline_theme_daily": _DatasetDefinition(
@@ -340,7 +380,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "sector_name": _dimension("sector_name", "板块名称"),
             "cycle_level": _dimension("cycle_level", "周期层级"),
             "cycle_status": _dimension("cycle_status", "周期状态"),
-            "high_status": _dimension("high_status", "新高状态"),
+            "high_status": _dimension(
+                "high_status", "新高状态", null_label="非新高"
+            ),
         },
         metrics={
             "return_pct": _metric("today_pct", "当日涨跌幅"),
@@ -1188,7 +1230,7 @@ def _rows_to_evidence(
     for index, row in enumerate(rows, start=1):
         source_date = source_dates[index - 1]
         detail = "；".join(
-            f"{fields[name].label}={_display_value(value)}"
+            f"{fields[name].label}={_display_value(value, fields[name])}"
             for name, value in row.items()
         )
         title = dataset.label + (f"（{source_date}）" if source_date else "")
@@ -1306,11 +1348,11 @@ def _date_text(value: object) -> str | None:
     return None
 
 
-def _display_value(value: object) -> str:
+def _display_value(value: object, field: _FieldDefinition | None = None) -> str:
     if isinstance(value, float):
         return f"{value:.4f}".rstrip("0").rstrip(".")
     if value is None:
-        return "未知"
+        return field.null_label if field is not None else "未知"
     return str(value)
 
 
