@@ -25,6 +25,7 @@ from intelligence.services.research_contract import (
     ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import (
+    QUERY_TOOL_PARAMETERS,
     ResearchToolRegistry,
     ToolObservation,
     ToolSpec,
@@ -159,12 +160,10 @@ def test_tool_definitions_use_each_specs_own_json_schema() -> None:
 
     definitions = registry.tool_definitions()
 
-    assert definitions[0]["function"]["parameters"] == {
-        "type": "object",
-        "properties": {"query": {"type": "string", "minLength": 1}},
-        "required": ["query"],
-        "additionalProperties": False,
-    }
+    # 断言的是「用了 spec 自己的 schema」，不是 schema 的具体内容——
+    # 手抄一份字面量会让每次改参数描述都无谓地变红（2026-08-12 就这么红过 3 条）。
+    # 比对真本源（BUILD 模式 6：单一真本源，且生成而非手抄）。
+    assert definitions[0]["function"]["parameters"] == QUERY_TOOL_PARAMETERS
     assert definitions[1]["function"]["parameters"] == typed_schema
 
 
@@ -1571,3 +1570,36 @@ def test_one_batch_submits_at_most_four_calls() -> None:
     assert result.items[4].error == "tool_budget_exhausted"
     assert result.executed_count == 4
     assert set(ran) == {"query-0", "query-1", "query-2", "query-3"}
+
+
+def test_rejection_carries_the_actionable_reason_not_just_the_code() -> None:
+    """拒绝理由必须回灌给模型，否则它只能原样重试。
+
+    ``error`` 是分类码（invalid_arguments），对模型没有可操作性——它不知道是哪个
+    参数、错在哪。2026-08-12 实测：改前基线 15 次失败里 **14 次是同一个 order_by
+    形状错误一模一样地重复**，因为模型收到的 tool 消息逐字是
+    ``{"ok": false, "error": "invalid_arguments", "detail": ""}``。
+    detail 字段早就在结构里，只是从没被填过。
+
+    两族检索源都点名这条：族 A 官方 agent-sdk/custom-tools「Claude sees the message
+    you compose … such as which request failed or what to try instead」；族 C
+    ai-agent-book ch4「审批失败后不应简单重试，而应将拒绝理由作为工具调用结果
+    加入 Agent 的轨迹」。族 A 的幸存蒸馏稿把它标为「最该抄的一条」。
+    """
+
+    built = default_registry({"market_data": lambda *a, **k: None})
+    built.resolve("market_data").parameters  # 该工具不吃参数
+
+    result = ToolBatchExecutor().execute(
+        (ModelToolCall("snapshot-1", "market_data", {"query": "ignored"}),),
+        registry=built,
+        context=_context(allowed=("market_data",)),
+        remaining_slots=1,
+    )
+
+    item = result.items[0]
+    assert item.status == "rejected"
+    assert item.error == "invalid_arguments"
+    # 关键断言：具体原因必须在，不能是空串
+    assert item.detail
+    assert "snapshot tool accepts no arguments" in item.detail

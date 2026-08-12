@@ -2868,3 +2868,43 @@ def test_tiny_planning_window_skips_tools_and_starts_finalization() -> None:
         event for event in outcome.events if event.kind == "finalization"
     )
     assert finalization.payload["reason"] == "retrieval_deadline_closed"
+
+
+def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
+    """seam 的另一端：理由必须真的进到**模型看得到的那条消息**里。
+
+    上一条测试（test_episode_tool_batch.py）验的是 ToolCallResult.detail 被填了；
+    这条验的是它有没有被搬进 messages。两端都要钉——只钉一端时，中间那一跳
+    悄悄丢掉 detail，两个测试仍会全绿。
+
+    这正是「授予的额度必须真的传到最下游执行者」那条已确立原则的同构：
+    只写进结构体不生效，比不做更危险（仪表全绿、实际没人管）。
+    """
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.services.agent_runtime import ModelToolCall
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    messages: list[dict[str, object]] = []
+    # 用真的构造函数，别拿 __new__ + setattr 拼桩：拼桩每加一个内部字段就断一次，
+    # 而且断的时候看起来像被测代码坏了。
+    accumulator = _EpisodeToolAccumulator(
+        messages=messages,
+        ledger=_EpisodeLedger(_frame()),
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+
+    accumulator._append_tool_error(
+        ModelToolCall("c1", "finance_query", {}),
+        "invalid_arguments",
+        "order_by must be an array",
+    )
+
+    payload = json.loads(messages[-1]["content"])
+    assert payload["error"] == "invalid_arguments"
+    assert payload["detail"] == "order_by must be an array"

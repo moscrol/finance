@@ -244,6 +244,86 @@ class AgentToolContext:
 ToolRunner = Callable[..., tuple[list[AgentEvidence], str, ProviderTrace]]
 
 
+# 检索**失败**与检索**没有结果**必须让模型区分得开。
+#
+# 失败形状（2026-08-12 历史对账，扫 44564 份 run 产物）：三个检索工具的空结果
+# 一律写成「无X（{status}：{detail}）」，于是网络故障、超时、被禁用统统长得像
+# 「这个世界上没有相关内容」。实测 news_search 78 次空手里：
+#   12 次 request_error（URLError / deadline exhausted）—— **是故障不是没有**
+#   18 次 真的 empty
+#   12 次 其实是 harness 去重（「与本轮已有证据重复」），压根不是失败
+# kb_search 更极端：22 次「无命中」里 20 次是故障（14 error + 6 timeout）。
+#
+# 危害不是「少了一条证据」，而是模型据此写出**否定结论**——把「查不到」写成
+# 「不存在」。ai-agent-book ch4：静默降级会让 Agent 误以为自己看到了全部内容，
+# 且**无法自行诊断**；族 A 官方 custom-tools 要求 isError 明确、并告诉模型
+# 「what to try instead」。
+#
+# 抽成一处而不是三处各写各的：同一条规则散在三个 runner 里，改一处漏两处，
+# 而漏的时候没有任何门禁会红（BUILD 模式 6：单一真本源）。
+_FAILED_PROVIDER_STATUSES = frozenset(
+    {"request_error", "parse_error", "proxy_unavailable", "error", "timeout",
+     "fallback_failed", "disabled"}
+)
+
+
+def _describe_retrieval_degradation(telemetry: object) -> str:
+    """检索降级了就说出来——哪怕这次有命中。
+
+    ``kb_rag`` 会在稠密依赖不可用时把 hybrid/rerank 降到纯 BM25，且遥测里
+    ``degraded`` / ``fallback_reason`` / ``recall_desc`` 全都如实记了。此前
+    没有任何一条往模型那边传，所以模型看到的是一份「正常」的关键词命中。
+
+    只在真的降级时返回文本。没降级返回空串——每次都挂一句「本次未降级」
+    会训练模型忽略这一行，那比不说更糟。
+    """
+
+    if not getattr(telemetry, "degraded", False):
+        return ""
+    requested = str(getattr(telemetry, "requested_mode", "") or "").strip()
+    effective = str(getattr(telemetry, "effective_mode", "") or "").strip()
+    recall = str(getattr(telemetry, "recall_desc", "") or "").strip()
+    reason = str(getattr(telemetry, "fallback_reason", "") or "").strip()
+    details: list[str] = []
+    if requested and effective and requested != effective:
+        details.append(f"{requested}→{effective}")
+    if recall:
+        details.append(f"实际只用了：{recall}")
+    if reason:
+        details.append(f"原因 {reason}")
+    head = "⚠ 本次检索已降级"
+    if details:
+        head = f"{head}（{'，'.join(details)}）"
+    return (
+        f"{head}。语义检索未生效，同义/近义表述可能整片漏掉；"
+        "结果为空或偏少时不要据此下否定结论。"
+    )
+
+
+def describe_no_result(
+    subject: str,
+    miss_text: str,
+    status: str,
+    detail: str = "",
+) -> str:
+    """把「没结果」写成模型读得懂的那句话：是查不到，还是查不了。
+
+    两个措辞参数是分开的，不能合并：``subject`` 进故障句（「知识库检索未能
+    执行完成」），``miss_text`` 是真空结果的原话（「无命中」/「无资讯」）。
+    第一版只传一个 ``kind`` 去拼 ``无{kind}``，对资讯/网页读得通，
+    对知识库就成了「无知识库」——**共用规则不等于共用措辞**。
+    """
+
+    tail = f"：{detail[:120]}" if detail else ""
+    if status in _FAILED_PROVIDER_STATUSES:
+        return (
+            f"{subject}检索未能执行完成（{status}{tail}）。"
+            "这是检索失败，不是不存在该内容；"
+            "不要据此下否定结论，可改写检索词重试或改用其他工具。"
+        )
+    return f"{miss_text}（{status}{tail}）"
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -269,14 +349,58 @@ def build_default_tools(
                     source_date=hit_date.isoformat() if hit_date is not None else None,
                 )
             )
-        observation = (
-            "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
-            or f"无命中（{getattr(getattr(rag, 'telemetry', None), 'status', 'unknown')}）"
-        )
+        telemetry = getattr(rag, "telemetry", None)
+        status = str(getattr(telemetry, "status", "unknown") or "unknown")
+        # 检索**失败**不等于知识库**没有** —— 这两件事必须让模型区分得开。
+        #
+        # 原来一律拼成「无命中（{status}）」，于是 status=error 时模型看到的是
+        # 一句「无命中（error）」：它没有理由把括号里那个词读成故障。更糟的是
+        # trace 记 status="empty"，**任何按 error 计数的下游审计都会看到零错误**。
+        # 2026-08-12 历史对账实测：kb_search 22 次调用全部「无命中」，逐条统计是
+        # 14 error + 6 timeout + 2 真 empty——即 20/22（91%）是故障，不是知识库空。
+        # ⚠ 初版据 3 条抽样写成「22/22 全部是 error」，是把抽样当成了全称断言。
+        # 修复本身不受影响（error 与 timeout 都在故障集合里），但数字已更正。
+        #
+        # 这条还和我们自己的行为契约互相打架：kb_search 的契约写着「无命中只说明
+        # 知识库没有回填过，不等于该事实不存在」——status=error 时这句话是错的，
+        # 契约在主动教模型把工具故障读成「没回填」。
+        #
+        # 依据：ai-agent-book ch4「静默截断同样危险——Agent 会误以为自己看到了
+        # 全部内容」；族 A 官方 custom-tools「Return isError: true ... so Claude
+        # can react to it」+「compose the message Claude reads」。
+        failed = status in {"error", "timeout"}
+        if evidence:
+            observation = "；".join(
+                f"{item.title}：{item.detail[:80]}" for item in evidence
+            )
+        else:
+            observation = describe_no_result(
+                "知识库",
+                "无命中",
+                status,
+                str(getattr(telemetry, "warning", "") or "").strip(),
+            )
+        # 检索**降级**必须跟着结果一起走，哪怕这次有命中。
+        #
+        # ``kb_rag`` 在稠密依赖不可用时会把 hybrid/rerank 降到纯 BM25，并如实
+        # 记 ``degraded`` / ``fallback_reason`` / ``recall_desc``——**遥测是诚实的，
+        # 只是从没往上传**。于是模型拿到一份看起来完全正常的关键词命中，
+        # 却不知道语义那一路根本没跑。
+        #
+        # 这比报错更危险：报错至少是可见的失败，而这是**成功外观下的能力降级**。
+        # 模型会据此判断「知识库里没有语义相关的内容」，而真相是没检索过。
+        # ai-agent-book ch3 §混合检索：稀疏检索「读不懂同义词」（搜 kitty 找不到
+        # 只写 cat 的文档）——降级后丢的正是这一半能力，而这一半恰恰无法从
+        # 返回结果里看出来。
+        degraded_note = _describe_retrieval_degradation(telemetry)
+        if degraded_note:
+            observation = "；".join(part for part in (observation, degraded_note) if part)
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",
-            status="success" if evidence else "empty",
+            # 故障必须记成 error：记成 empty 会让「工具坏了」在所有按状态
+            # 计数的审计里消失，而覆盖率类检查永远发现不了这种静默降级。
+            status="success" if evidence else ("error" if failed else "empty"),
             detail=query[:120],
             result_count=len(evidence),
         )
@@ -317,7 +441,7 @@ def build_default_tools(
         ]
         observation = (
             "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
-            or f"无结果（{web.trace.status}：{web.trace.detail}）"
+            or describe_no_result("网页", "无结果", web.trace.status, web.trace.detail)
         )
         return evidence, observation, web.trace
 
@@ -353,7 +477,7 @@ def build_default_tools(
         ]
         observation = (
             "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-            or f"无资讯（{news.trace.status}：{news.trace.detail}）"
+            or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
         )
         return evidence, observation, news.trace
 

@@ -1056,8 +1056,11 @@ class ConversationContext:
         recent = "\n".join(
             f"{message.role}: {message.content}" for message in self.recent_messages
         )
+        # 标题原为「较早消息摘要」，而内容其实是尾部截断的原文——**标签与内容
+        # 不符**，模型会把「摘要」读成「这里已经概括了全部较早内容」，从而不知道
+        # 最早的那几轮已经不在了。省略量由 ``_summarize_messages`` 写在正文首行。
         return (
-            "## 较早消息摘要\n"
+            "## 较早消息（原文，超预算时从最早处截断）\n"
             f"{self.summary or '（无较早消息）'}\n\n"
             "## 最近消息原文\n"
             f"{recent or '（无历史消息）'}"
@@ -1235,10 +1238,37 @@ def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:
 
 
 def _summarize_messages(messages: Sequence[Message]) -> str:
-    text = "\n".join(f"{message.role}: {message.content}" for message in messages)
+    """把较早消息压进预算，并**说清楚砍了什么**。
+
+    这不是摘要，是尾部截断——函数名沿用历史叫法，但输出必须如实自述，
+    否则就是给模型贴了一个与内容不符的标签。
+
+    为什么这条重要（ai-agent-book ch2「压缩策略的设计原则」）：
+    **压缩最容易丢失的不是细节本身，而是早期的架构决策、约束背后的理由和
+    失败的路径**——LLM 会优先删「看起来还可以重新获取」的信息。而按位置
+    截尾恰好先丢最早的那一段，也就是最不可能自己回来的那一段。
+
+    同仓已有范本：``tool_result_budget.py`` 落盘全量、上下文留有界预览、
+    并显式标注省略了多少、去哪找回来（「'there was more' without 'and here
+    is where it is' is not auditable」）。会话这一层此前只有一个裸 "…"，
+    模型无从知道有多少轮对话被丢掉了——**同一个仓，两套标准**。
+
+    ⚠ 这里**刻意不改截断方向**。保留末尾是对的：紧邻当前轮的上下文对指代
+    消解最有用（``contextualize_follow_up_query`` 依赖它）。真正的修法是
+    第 4 层「归档式摘要」——逐轮结构化摘要，像 git log 而非 git squash。
+    那需要一次 LLM 调用与配套的失败熔断器，**尚未实现**，见交接文档。
+    """
+
+    lines = [f"{message.role}: {message.content}" for message in messages]
+    text = "\n".join(lines)
     if len(text) <= SUMMARY_CHAR_LIMIT:
         return text
-    return "…" + text[-(SUMMARY_CHAR_LIMIT - 1) :]
+    marker = f"（前 {{dropped}} 字符已省略，共 {len(messages)} 条较早消息）\n"
+    # 先按标记的最终长度扣预算，再切——否则加上标记就超预算了。
+    reserve = len(marker.format(dropped=len(text)))
+    kept = max(0, SUMMARY_CHAR_LIMIT - reserve)
+    dropped = len(text) - kept
+    return marker.format(dropped=dropped) + text[-kept:]
 
 
 def _redact_object(value: object) -> object:

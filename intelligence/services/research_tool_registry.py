@@ -135,7 +135,25 @@ class InvalidResearchToolArguments(ValueError):
 
 QUERY_TOOL_PARAMETERS: dict[str, object] = {
     "type": "object",
-    "properties": {"query": {"type": "string", "minLength": 1}},
+    "properties": {
+        "query": {
+            "type": "string",
+            "minLength": 1,
+            # 「必须在工具描述中加以说明」那一半（ch4 参数传递的保真性）：
+            # 另一半是 execute() 把代偿写进 observation。两半都要有，
+            # 只做转换不声明就是书里点名的静默输入转换。
+            #
+            # 实测依据：551 次 query 类调用里 276 次（50%）把整个参数对象
+            # 又 JSON 编码了一遍，kb_search 高达 83%。见
+            # ``unwrap_double_encoded_query`` 的 docstring。
+            "description": (
+                "检索词本身，纯文本。"
+                '例："瑞华泰 聚酰亚胺薄膜 产能"。'
+                '不要再包一层 JSON——写成 "{\\"query\\": \\"…\\"}" 时，'
+                "系统会拆掉外层并在返回里说明，但那一轮已经浪费了。"
+            ),
+        }
+    },
     "required": ["query"],
     "additionalProperties": False,
 }
@@ -144,6 +162,45 @@ EMPTY_TOOL_PARAMETERS: dict[str, object] = {
     "properties": {},
     "additionalProperties": False,
 }
+
+
+# 逐工具的 query 形状提示。**只给形状确实不同的那几个**，其余用通用描述——
+# 每个工具都写一句会稀释掉真正重要的差异。
+#
+# 依据是 2026-08-12 的历史对账 + 代码核对，不是猜的：
+#   evidence_lookup  28/28 空手。``KnowledgeAdapter.get_evidence`` 是
+#                    ``item.get("target") != target`` **精确字符串相等**，
+#                    无归一、无分词、无模糊。实测「瑞华泰」→3 条，
+#                    「瑞华泰 688323 估值 PB 情景 保守 中性 乐观」→0 条。
+#                    **工具没坏，是被当成搜索引擎用了。**
+#   graph_lookup     0% 空手。它走 ``get_concept_matches`` 的打分模糊匹配，
+#                    所以长 query 也能命中——正是这个对照证明了上面那条是形状问题。
+#
+# ch4 §工具描述的艺术：「清晰列出工具的边界条件——做不到什么、不接受什么输入
+# ——往往比描述能力本身更重要」。
+_QUERY_PARAM_HINTS: dict[str, str] = {
+    "evidence_lookup": (
+        "**必须是索引里登记的实体或概念名本身**，单个词，"
+        "按精确字符串匹配——多加一个词就会零命中。"
+        '例："瑞华泰"、"3D打印"。'
+        '不要传检索短语：写成 "瑞华泰 688323 估值 PB 情景" 必然查不到任何东西。'
+        "不确定名字怎么登记的，先用 graph_lookup 找到准确名称再来查。"
+    ),
+}
+
+
+def query_parameters(tool: str) -> dict[str, object]:
+    """按工具生成 query 参数 schema：形状不同的给专属提示，其余用通用描述。"""
+
+    hint = _QUERY_PARAM_HINTS.get(tool)
+    if not hint:
+        return dict(QUERY_TOOL_PARAMETERS)
+    base = QUERY_TOOL_PARAMETERS["properties"]["query"]
+    assert isinstance(base, Mapping)
+    return {
+        **QUERY_TOOL_PARAMETERS,
+        "properties": {"query": {**base, "description": hint}},
+    }
 
 
 ToolInput = object
@@ -174,6 +231,65 @@ def parse_snapshot_arguments(
     return "", "snapshot"
 
 
+def unwrap_double_encoded_query(
+    raw: Mapping[str, object],
+) -> tuple[dict[str, object], str]:
+    """模型把整个参数对象又 JSON 编码了一遍时，拆回来并**说出来**。
+
+    失败形状（2026-08-12 历史对账，扫 44564 份 run 产物）：模型发出的
+    ``query`` 值本身又是一个 JSON 串，例如
+    ``{"query": "{\\"query\\":\\"瑞华泰 688323 D5 PB 情景估值\\"}"}``，
+    于是检索器拿着那串花括号去做全文检索，必然空手。
+    **551 次 query 类调用里 276 次（50%）是这个形状**，kb_search 高达 83%。
+
+    同工具内部的对照（聚合相关性会误导，必须按工具分开看）：
+
+    | 工具 | 包了的空手率 | 没包的空手率 |
+    |---|---|---|
+    | evidence_search | 100% (14/14) | 37% (7/19) |
+    | web_search | 100% (4/4) | 14% (4/28) |
+    | news_search | 46% | 55% ← **无效应** |
+
+    即：它确实打死了 evidence_search 与 web_search，但**解释不了 news_search**。
+    别把它当成所有空手的原因。
+
+    ⚠ **必须告知模型，不能静默改**。ai-agent-book ch4「参数传递的保真性」把
+    静默输入转换列为比功能缺失更隐蔽的反模式（Cursor 静默转换弯引号那个案例），
+    并明确要求「如果确实需要对输入进行规范化处理，必须在工具描述中加以说明，
+    并在工具返回中明确告知模型」。本函数只负责拆 + 生成告知文本，
+    ``execute`` 负责把它拼进 observation，参数描述里另有一句写明。
+    仓内先例：``finance_query.normalize_spec`` 的日期代偿就是这么做的。
+
+    只拆**单键 query** 这一种形状。多键或键名不同的一律原样退回——
+    认不出来就别动（BUILD 模式 7），猜着拆会把模型真正想搜的内容改掉。
+    """
+
+    if set(raw) != {"query"}:
+        return dict(raw), ""
+    value = raw.get("query")
+    if not isinstance(value, str):
+        return dict(raw), ""
+    text = value.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return dict(raw), ""
+    try:
+        inner = json.loads(text)
+    except (TypeError, ValueError):
+        return dict(raw), ""
+    if not isinstance(inner, dict) or set(inner) != {"query"}:
+        return dict(raw), ""
+    unwrapped = inner.get("query")
+    if not isinstance(unwrapped, str) or not unwrapped.strip():
+        return dict(raw), ""
+    return (
+        {"query": unwrapped.strip()},
+        (
+            "已自动拆掉多包的一层 JSON（本次实际检索的是内层的检索词）；"
+            "后续 query 请直接传检索词本身，不要再包一层 {\"query\": ...}"
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class PreparedToolArguments:
     tool: str
@@ -181,6 +297,9 @@ class PreparedToolArguments:
     runner_input: ToolInput
     normalized_key: str
     display_query: str
+    # 输入被规范化时的告知文本，由 ``execute`` 拼进 observation 交回模型。
+    # 空串表示没做任何转换——这是常态，别默认非空。
+    normalization_note: str = ""
 
 
 ToolCutoffResolver = Callable[
@@ -402,6 +521,7 @@ class ResearchToolRegistry:
             raw = copied
         else:
             raise InvalidResearchToolArguments("tool arguments must be an object")
+        raw, normalization_note = unwrap_double_encoded_query(raw)
         try:
             runner_input, display_query = spec.parse_arguments(raw)
         except InvalidResearchToolArguments:
@@ -430,6 +550,7 @@ class ResearchToolRegistry:
             runner_input=runner_input,
             normalized_key=normalized_key,
             display_query=str(display_query or "").strip() or canonical,
+            normalization_note=normalization_note,
         )
 
     def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
@@ -484,6 +605,12 @@ class ResearchToolRegistry:
             )
             evidence = list(run_result.evidence)
             observation = run_result.observation
+            # 代偿必须让模型看见：输入被改过而不说，模型下一轮还会照原样写，
+            # 且它无法自行诊断为什么检索总是空手（ch4「参数传递的保真性」）。
+            if prepared.normalization_note:
+                observation = "；".join(
+                    part for part in (observation, prepared.normalization_note) if part
+                )
             trace = run_result.trace
             gaps = run_result.gaps
             if is_cancelled is not None and is_cancelled():
@@ -666,7 +793,12 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "「高信度研究线索」是券商研报的待复核判断，「观察列表」更弱。"
         "检索结果不带这层标记，引用前先看命中片段落在哪一节："
         "券商来源的结论只能作为待验证线索，需要 l3_lookup 的公告确认后才能当硬事实。"
-        "无命中只说明知识库没有回填过，不等于该事实不存在。"
+        # 「无命中」与「检索失败」是两件事，契约必须先把它们分开再谈怎么读，
+        # 否则这句话会教模型把工具故障读成「知识库没回填」。2026-08-12 实测：
+        # 历史 22 次 kb_search 全部无命中，逐条统计 14 error + 6 timeout + 2 真 empty。
+        "返回文本明确说「检索未能执行完成」时那是工具故障，不是知识库为空，"
+        "此时既不能写成证据缺口也不能下否定结论，应改写检索词重试或换工具；"
+        "只有在确实「无命中」时，才说明知识库没有回填过，且仍不等于该事实不存在。"
     ),
     # 两条依据都直接来自 ``agent_research.build_graph_tools._graph_lookup`` 的构造：
     # 概念项 detail 逐字是 f"匹配分 {score}"（文本匹配分，不是业务关联度）；
@@ -725,7 +857,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             parameters=(
                 EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "financial_data", "mainline_context"}
-                else QUERY_TOOL_PARAMETERS
+                else query_parameters(name)
             ),
             parse_arguments=(
                 parse_snapshot_arguments

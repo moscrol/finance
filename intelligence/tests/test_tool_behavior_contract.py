@@ -21,6 +21,7 @@ from __future__ import annotations
 import pytest
 
 from intelligence.services import research_tool_registry as reg
+from intelligence.services.research_tool_registry import default_registry
 
 
 def _spec(name: str, contract: str = "") -> reg.ToolSpec:
@@ -197,3 +198,116 @@ class TestShippedContracts:
 def test_contracts_only_cover_tools_that_exist() -> None:
     """契约表不能引用已经不存在的工具名，否则它会静默失效。"""
     assert set(reg._TOOL_CONTRACTS) <= set(reg._DEFAULT_TOOL_METADATA)
+
+
+class TestDoubleEncodedQueryIsUnwrappedAndDeclared:
+    """模型把参数对象又 JSON 编码一遍时，拆回来**并且说出来**。
+
+    失败形状（2026-08-12 历史对账，扫 44564 份 run 产物）：``query`` 的值本身
+    又是一个 JSON 串，检索器拿着那串花括号做全文检索，必然空手。
+    **551 次 query 类调用里 276 次（50%）是这个形状**，kb_search 高达 83%。
+
+    同工具内部的对照（聚合相关性会误导，必须按工具分开看）：
+    evidence_search 包了 100% 空手 (14/14) vs 没包 37% (7/19)；
+    web_search 100% (4/4) vs 14% (4/28)；
+    但 news_search 46% vs 55%——**它解释不了 news_search**，别当成万能解释。
+
+    ⚠ 只拆不说就是 ai-agent-book ch4 点名的**静默输入转换**（Cursor 静默转换
+    弯引号那个案例）：模型反复失败且无法自行诊断。书里的要求是「必须在工具描述
+    中加以说明，并在工具返回中明确告知模型」——所以本类的断言是**成对的**。
+    """
+
+    def test_single_key_wrapper_is_unwrapped(self) -> None:
+        raw, note = reg.unwrap_double_encoded_query(
+            {"query": '{"query":"瑞华泰 688323 聚酰亚胺薄膜"}'}
+        )
+
+        assert raw == {"query": "瑞华泰 688323 聚酰亚胺薄膜"}
+        assert note
+
+    def test_plain_query_is_untouched_and_silent(self) -> None:
+        """常态是不转换。误拆会把模型真想搜的内容改掉，比不拆更糟。"""
+        raw, note = reg.unwrap_double_encoded_query({"query": "瑞华泰 产能"})
+
+        assert raw == {"query": "瑞华泰 产能"}
+        assert note == ""
+
+    def test_unrecognised_shapes_are_left_alone(self) -> None:
+        """认不出来就别动（BUILD 模式 7）：多键、非 query 键、坏 JSON 一律原样退回。"""
+        for payload in (
+            {"query": '{"q":"瑞华泰"}'},
+            {"query": '{"query":"a","extra":1}'},
+            {"query": "{不是合法 JSON}"},
+            {"query": "{}"},
+        ):
+            raw, note = reg.unwrap_double_encoded_query(payload)
+            assert raw == payload
+            assert note == ""
+
+    def test_the_note_tells_the_model_what_to_do_next(self) -> None:
+        """告知不能只说「改过了」，要说下次该怎么写——否则模型下一轮照旧。"""
+        _raw, note = reg.unwrap_double_encoded_query({"query": '{"query":"x"}'})
+
+        assert "不要再包一层" in note
+
+    def test_the_schema_declares_the_normalization(self) -> None:
+        """描述那一半：只做转换不声明，就是书里点名的静默输入转换。"""
+        description = reg.QUERY_TOOL_PARAMETERS["properties"]["query"]["description"]
+
+        assert "不要再包一层 JSON" in description
+        assert "检索词本身" in description
+
+
+class TestEvidenceLookupDeclaresItsExactMatchBoundary:
+    """evidence_lookup 要的是**登记名本身**，不是检索短语。
+
+    2026-08-12 历史对账 + 代码核对：``KnowledgeAdapter.get_evidence`` 的判据是
+    ``item.get("target") != target``——**精确字符串相等**，无归一、无分词、无模糊。
+    索引里有 23942 条、17.9MB，**一点都不空**；28/28 空手全部是形状不匹配。
+    实测「瑞华泰」→3 条，「瑞华泰 688323 估值 PB 情景 保守 中性 乐观」→0 条。
+
+    对照组证明这是形状问题而非数据问题：``graph_lookup`` 空手率 **0%**，
+    因为它走 ``get_concept_matches`` 的打分模糊匹配，长 query 也能命中。
+
+    ch4 §工具描述的艺术：「清晰列出工具的边界条件——做不到什么、不接受什么输入
+    ——往往比描述能力本身更重要」。这条正是「不接受什么输入」。
+    """
+
+    def test_hint_states_the_exact_match_requirement(self) -> None:
+        description = reg.query_parameters("evidence_lookup")["properties"]["query"][
+            "description"
+        ]
+
+        assert "精确字符串匹配" in description
+        assert "不要传检索短语" in description
+
+    def test_hint_points_at_the_tool_that_resolves_names(self) -> None:
+        """只说「不行」不够，要说「那该怎么办」——否则模型只能放弃。"""
+        description = reg.query_parameters("evidence_lookup")["properties"]["query"][
+            "description"
+        ]
+
+        assert "graph_lookup" in description
+
+    def test_tools_without_a_special_shape_keep_the_generic_description(self) -> None:
+        """只给形状确实不同的那几个写专属提示。
+
+        每个工具都写一句会稀释掉真正重要的差异——这与契约表「没依据宁可留空」
+        是同一条纪律。
+        """
+        generic = reg.query_parameters("kb_search")
+
+        assert generic == dict(reg.QUERY_TOOL_PARAMETERS)
+
+    def test_registry_actually_ships_the_per_tool_schema(self) -> None:
+        """活性检查：提示写了但没接进 registry，等于没写。"""
+        registry = default_registry(
+            {
+                "evidence_lookup": lambda *a, **k: None,
+                "kb_search": lambda *a, **k: None,
+            }
+        )
+
+        shipped = registry.resolve("evidence_lookup").parameters["properties"]["query"]
+
+        assert "精确字符串匹配" in shipped["description"]

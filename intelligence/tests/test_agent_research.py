@@ -571,3 +571,202 @@ def test_configured_step_budget_supports_deep_hard_ceiling(monkeypatch) -> None:
     assert agent_research.max_steps() == 1
     monkeypatch.setenv(agent_research.ENV_MAX_STEPS, "invalid")
     assert agent_research.max_steps() == agent_research.DEFAULT_MAX_STEPS
+
+
+class TestKbSearchSeparatesFailureFromEmptiness:
+    """检索**失败**不等于知识库**没有**——模型必须能区分这两件事。
+
+    2026-08-12 历史对账：kb_search 22 次调用全部「无命中」，逐条统计后是
+    **14 次 error + 6 次 timeout + 2 次真 empty**——即 20/22（91%）是工具故障，
+    不是知识库为空。（初版据 3 条抽样写成「22/22 全部是 error」，是把抽样
+    当成了全称断言，已更正。）
+    模型没有理由把括号里那个 ``error`` 读成故障，于是把每一次故障都写成了
+    「知识库没有回填」。
+
+    更糟的是 ``ProviderTrace.status`` 记的是 ``empty`` 而非 ``error``：
+    **任何按状态计数的下游审计都会看到零错误**，而覆盖率类检查永远发现不了
+    这种静默降级。
+
+    依据：ai-agent-book ch4「静默截断同样危险——Agent 会误以为自己看到了全部
+    内容」；族 A 官方 custom-tools「Return isError: true ... so Claude can react
+    to it」。
+    """
+
+    @staticmethod
+    def _run(status: str, warning: str = "", hits=()):
+        class _Telemetry:
+            def __init__(self) -> None:
+                self.status = status
+                self.warning = warning
+
+        class _Rag:
+            def __init__(self) -> None:
+                self.hits = list(hits)
+                self.telemetry = _Telemetry()
+
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(5.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+        return tools["kb_search"]("瑞华泰 主营业务", context)
+
+    def test_error_is_reported_as_a_failure_not_as_a_miss(self) -> None:
+        evidence, observation, trace = self._run("error", "wiki-rag 调用失败")
+
+        assert not evidence
+        assert "检索失败" in observation
+        assert "wiki-rag 调用失败" in observation
+        # 反面同样要钉：不能再说成「无命中」
+        assert "无命中" not in observation
+
+    def test_error_is_counted_as_error_in_the_trace(self) -> None:
+        """记成 empty 会让「工具坏了」在所有按状态计数的审计里消失。"""
+        _evidence, _observation, trace = self._run("error", "wiki-rag 调用失败")
+
+        assert trace.status == "error"
+
+    def test_timeout_is_treated_the_same_way(self) -> None:
+        _evidence, observation, trace = self._run("timeout", "wiki-rag 查询超时")
+
+        assert trace.status == "error"
+        assert "检索失败" in observation
+
+    def test_a_genuine_miss_still_reads_as_a_miss(self) -> None:
+        """真正的空结果不能被误报成故障——误报的代价是模型放弃一条本该走的路。"""
+        _evidence, observation, trace = self._run("empty")
+
+        assert "无命中" in observation
+        assert trace.status == "empty"
+
+
+class TestNoResultWordingSeparatesFailureFromEmptiness:
+    """三个检索工具共用一条规则：查不了 ≠ 查不到。
+
+    2026-08-12 历史对账，news_search 78 次「空手」拆开来看是四类：
+      12 次 request_error（URLError / deadline exhausted）—— **故障**
+      18 次 真的 empty
+      12 次 其实是 harness 去重（「与本轮已有证据重复」）—— 压根不是失败
+    kb_search 更极端：22 次「无命中」里 20 次是故障（14 error + 6 timeout）。
+
+    危害不是少一条证据，而是模型据此写出**否定结论**——把「查不到」写成
+    「不存在」。抽成一处而不是三个 runner 各写各的：同一条规则散在三处，
+    改一处漏两处，且漏的时候没有任何门禁会红（BUILD 模式 6）。
+    """
+
+    def test_transport_failures_read_as_failures(self) -> None:
+        for status in ("request_error", "proxy_unavailable", "parse_error", "timeout"):
+            text = agent_research.describe_no_result("资讯", "无资讯", status, "URLError")
+
+            assert "检索未能执行完成" in text, status
+            assert "不要据此下否定结论" in text, status
+            assert "无资讯" not in text, status
+
+    def test_a_real_empty_keeps_its_own_wording(self) -> None:
+        """误报的代价是模型放弃一条本该走的路，所以真空结果不能被写成故障。"""
+        text = agent_research.describe_no_result("资讯", "无资讯", "empty", "title search")
+
+        assert text.startswith("无资讯")
+        assert "检索未能执行完成" not in text
+
+    def test_wording_is_per_tool_not_shared(self) -> None:
+        """共用规则 ≠ 共用措辞。
+
+        第一版只传一个 kind 去拼 ``无{kind}``，对资讯读得通，
+        对知识库就成了「无知识库」——中文读不通。
+        """
+        assert agent_research.describe_no_result(
+            "知识库", "无命中", "empty"
+        ).startswith("无命中")
+        assert agent_research.describe_no_result(
+            "网页", "无结果", "empty"
+        ).startswith("无结果")
+
+
+class TestRetrievalDegradationReachesTheModel:
+    """检索降级必须跟着结果一起走——**哪怕这次有命中**。
+
+    `kb_rag` 在稠密依赖不可用时把 hybrid/rerank 降到纯 BM25，并如实记
+    `degraded` / `fallback_reason` / `recall_desc`。**遥测一直是诚实的，
+    只是从没往上传**：`_kb_search` 只读 status 和 warning，有命中时观测就只是
+    命中内容。于是模型拿到一份看起来完全正常的关键词命中，却不知道语义那一路
+    根本没跑。
+
+    这比报错更危险：报错至少是可见的失败，这是**成功外观下的能力降级**。
+    ai-agent-book ch3 §混合检索：稀疏检索「读不懂同义词」（搜 kitty 找不到只写
+    cat 的文档）——降级后丢的正是这一半能力，而这一半**无法从返回结果里看出来**。
+    """
+
+    @staticmethod
+    def _telemetry(**kwargs):
+        class _T:
+            status = "ok"
+            warning = ""
+            degraded = False
+            requested_mode = ""
+            effective_mode = ""
+            recall_desc = ""
+            fallback_reason = ""
+
+        tel = _T()
+        for key, value in kwargs.items():
+            setattr(tel, key, value)
+        return tel
+
+    def test_no_note_when_retrieval_was_not_degraded(self) -> None:
+        """每次都挂一句「本次未降级」会训练模型忽略这一行，比不说更糟。"""
+        assert agent_research._describe_retrieval_degradation(self._telemetry()) == ""
+
+    def test_degraded_note_names_what_was_lost(self) -> None:
+        note = agent_research._describe_retrieval_degradation(
+            self._telemetry(
+                degraded=True,
+                requested_mode="hybrid",
+                effective_mode="bm25",
+                recall_desc="BM25 关键词",
+                fallback_reason="dense_dependency_cached_unavailable",
+            )
+        )
+
+        assert "已降级" in note
+        assert "hybrid→bm25" in note
+        # 关键：要说清丢的是什么能力，而不只是「降级了」
+        assert "语义检索未生效" in note
+        assert "不要据此下否定结论" in note
+
+    def test_note_survives_missing_telemetry_fields(self) -> None:
+        """字段不全也要报降级——认不出细节不等于可以不报（BUILD 模式 7）。"""
+        note = agent_research._describe_retrieval_degradation(
+            self._telemetry(degraded=True)
+        )
+
+        assert "已降级" in note
+
+    def test_degradation_is_appended_even_when_there_are_hits(self) -> None:
+        """有命中时也必须带上——这正是此前漏掉的那条路径。"""
+
+        class _Hit:
+            title = "瑞华泰"
+            excerpt = "聚酰亚胺薄膜"
+            file_path = "wiki/x.md"
+            source_date = None
+
+        class _Rag:
+            hits = [_Hit()]
+            telemetry = None
+
+        _Rag.telemetry = TestRetrievalDegradationReachesTheModel._telemetry(
+            degraded=True, requested_mode="hybrid", effective_mode="bm25"
+        )
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(5.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+
+        evidence, observation, _trace = tools["kb_search"]("瑞华泰", context)
+
+        assert evidence, "前提：这条用例要覆盖的是**有命中**的路径"
+        assert "已降级" in observation

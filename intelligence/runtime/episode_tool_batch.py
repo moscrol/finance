@@ -80,6 +80,19 @@ class ToolCallResult:
     status: ToolCallStatus
     observation: ToolObservation | None = None
     error: str = ""
+    # 拒绝的**具体原因**，回灌给模型让它改写重试。
+    #
+    # ``error`` 是分类码（``invalid_arguments``），对模型没有可操作性——它不知道
+    # 是哪个参数、错在哪。2026-08-12 实测：改前基线 15 次失败里 14 次是同一个
+    # ``order_by`` 形状错误，一模一样地重复，因为模型收到的 tool 消息逐字是
+    # ``{"ok": false, "error": "invalid_arguments", "detail": ""}``——**detail
+    # 字段早就在那儿，只是从没被填过**。
+    #
+    # 两族检索源都点名这条：族 A 官方 agent-sdk/custom-tools「Claude sees the
+    # message you compose. You can add context the raw exception lacks, such as
+    # which request failed or what to try instead」；族 C ai-agent-book ch4
+    # 「审批失败后不应简单重试，而应将拒绝理由作为工具调用结果加入 Agent 的轨迹」。
+    detail: str = ""
     step_id: str = ""
 
     def __post_init__(self) -> None:
@@ -227,6 +240,9 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error=exc.code,
+                    # ``prepare`` 把底层校验异常包成 InvalidResearchToolArguments 时
+                    # 用的就是 ``str(exc)``，原因一直在，只是此前没往下传。
+                    detail=str(exc),
                     step_id=step_ids[index],
                 )
                 continue

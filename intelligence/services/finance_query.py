@@ -690,19 +690,45 @@ def validation_retry_hint(
 FINANCE_QUERY_PARAMETERS: dict[str, object] = {
     "type": "object",
     "properties": {
-        "dataset": {"type": "string", "enum": _PUBLIC_DATASETS},
+        "dataset": {
+            "type": "string",
+            "enum": _PUBLIC_DATASETS,
+            "description": (
+                "先选表。字段必须属于所选 dataset，跨表混用会被拒绝："
+                "成交额在 market_daily 叫 total_amount，"
+                "在 sector_daily / stock_daily 叫 amount。"
+            ),
+        },
         "metrics": {
             "type": "array",
             "items": {"type": "string", "enum": _PUBLIC_METRICS},
             "uniqueItems": True,
+            "description": '要取的数值列，数组。例：["total_amount", "limit_up"]',
         },
         "dimensions": {
             "type": "array",
             "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
             "uniqueItems": True,
+            "description": (
+                "标识/分组列，数组，只接受本列表里的维度字段。"
+                '例：["trade_date", "sector_name"]。'
+                # 实测：模型把 rank（metric）塞进 dimensions → not a dimension: rank。
+                # 枚举已经排除了它，但枚举本身挡不住，得明说两个槽位不能互串。
+                "数值列（如 rank、amount）属于 metrics，放进来会报 not a dimension。"
+            ),
         },
         "filters": {
             "type": "array",
+            # 限定语排在被限定内容之前：先说形状，再说例子，最后说禁区。
+            "description": (
+                # 实测 2 次：元素缺键 → each filter requires field, op, and value。
+                # 「三件套」三个字不够，得把「一个都不能少」说出来。
+                "数组，每个元素必须同时有 field、op、value 三个键，一个都不能少。"
+                '例：[{"field": "return_pct", "op": "gt", "value": 0}]。'
+                'op 为 in 时 value 必须是数组：[{"field": "sector_name", '
+                '"op": "in", "value": ["电网设备", "光伏设备"]}]。'
+                "⚠ 日期条件不要放这里，放 time_range。"
+            ),
             "items": {
                 "type": "object",
                 "properties": {
@@ -711,7 +737,12 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
                         "type": "string",
                         "enum": sorted(_FILTER_OPERATORS),
                     },
-                    "value": {"description": "字符串、数字、布尔值或这些标量的数组"},
+                    "value": {
+                        "description": (
+                            "字符串、数字、布尔值或这些标量的数组；"
+                            "op 为 in 时必须给数组"
+                        )
+                    },
                 },
                 "required": ["field", "op", "value"],
                 "additionalProperties": False,
@@ -719,9 +750,21 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
         },
         "time_range": {
             "type": "object",
+            "description": (
+                "闭区间，两端都包含。所有日期条件都走这里，不要写进 filters。"
+                '单日查询把两端写成同一天：{"start": "2026-07-23", "end": "2026-07-23"}'
+            ),
             "properties": {
-                "start": {"type": "string"},
-                "end": {"type": "string"},
+                # 「隐式约定靠例子最容易传达」——ch4 §3 点名的就是这类。
+                # 解析是 date.fromisoformat(value[:10])，所以 ISO 日期是唯一可靠写法。
+                "start": {
+                    "type": "string",
+                    "description": 'ISO 日期 YYYY-MM-DD，例："2026-07-23"',
+                },
+                "end": {
+                    "type": "string",
+                    "description": 'ISO 日期 YYYY-MM-DD，例："2026-07-23"',
+                },
             },
             "additionalProperties": False,
         },
@@ -729,9 +772,34 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             "type": "array",
             "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
             "uniqueItems": True,
+            # 2026-08-12 复核实测：24 次采样里 2 次栽在这条。schema 表达不了
+            # 「group_by 必须等于 dimensions 全集」这种跨字段约束（_compile_query:1030）。
+            # 先说「多数情况不要传」——那是最省事且最不会错的用法。
+            "description": (
+                "只在需要聚合时传；不传就按 dimensions 逐行返回原始数据，"
+                "多数查询都不需要它。"
+                "一旦传了，就必须把 dimensions 里的**每一个**都列进来"
+                '（少一个报 all selected dimensions must appear in group_by），'
+                "且此时 metrics 会被聚合而不是返回原值。"
+                '例：dimensions=["sector_name"] 时传 ["sector_name"]。'
+            ),
         },
         "order_by": {
             "type": "array",
+            # 2026-08-12 实测的头号错法：13 次调用里 9 次把 order_by 写成单个对象。
+            # schema 本来就写着 "type": "array"——**光有类型挡不住，缺的是例子**。
+            # 所以这条描述的第一句就是形状，且给出「只排一个字段也要包方括号」的反例。
+            "description": (
+                "数组，即使只排一个字段也要用方括号包起来。"
+                '例：[{"field": "strength", "direction": "desc"}]。'
+                '多字段按先后依次生效：[{"field": "strength", "direction": "desc"}, '
+                '{"field": "amount", "direction": "desc"}]。'
+                '写成单个对象 {"field": ..., "direction": ...} 会被拒绝。'
+                # 这条约束是写例子时实跑才发现的（_compile_query:1031）：
+                # 光看 schema 完全看不出来，模型更不可能猜到。
+                "排序字段必须已经出现在 metrics 或 dimensions 里，"
+                "否则报 order field must be selected。"
+            ),
             "items": {
                 "type": "object",
                 "properties": {
