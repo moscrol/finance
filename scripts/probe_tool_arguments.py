@@ -77,6 +77,7 @@ ALL_TOOLS: tuple[str, ...] = tuple(_DEFAULT_TOOL_METADATA)
 _ABLATION_MIN_REPEAT = 3
 
 
+
 def _jsonable(value: object) -> object:
     """深转成可序列化结构。
 
@@ -183,8 +184,22 @@ def _validate_finance_call(
     *,
     as_of: date,
     max_rows: int,
+    registry=None,
 ) -> dict[str, object]:
-    """跑生产同一条校验链，但停在编译，不执行。"""
+    """跑生产同一条校验链，但停在编译，不执行。
+
+    **切成两段，因为生产给模型的回灌消息形状不同**：
+
+    | 阶段 | 抛在哪 | 生产回灌成什么 |
+    |---|---|---|
+    | 解析期 | ``registry.prepare`` → InvalidResearchToolArguments | ``{"ok": false, "error": code, "detail": …}`` |
+    | 编译期 | runner 里的 ``_compile_query`` | 正常观测，正文含「结构化查询参数无效：…；重试提示：…」 |
+
+    分水岭是 ``FinanceQueryValidationError`` 继承 ``ValueError``：``prepare`` 的
+    ``except (KeyError, TypeError, ValueError)`` 会把解析期错误捞走包成
+    InvalidResearchToolArguments，于是**走不到 validation_retry_hint**。
+    2026-08-12 基线里 14/15 的失败正好落在没提示的那一侧。
+    """
 
     cutoff = InformationCutoff(as_of, "requested")
     # 保真性观测必须在校验之前取。第一版放在成功分支里，dry-run 当场证伪：
@@ -195,8 +210,33 @@ def _validate_finance_call(
         "limit_requested": requested,
         "limit_over_cap": bool(isinstance(requested, int) and requested > max_rows),
     }
+
+    spec = None
+    if registry is not None:
+        # 走生产入口，拿到的 code/detail 才和模型真正收到的一致。
+        try:
+            prepared = registry.prepare(call.name, call.arguments)
+        except InvalidResearchToolArguments as exc:
+            return observation | {
+                "valid": False,
+                "stage": "parse",
+                "failure": _classify(exc),
+                "detail": str(exc)[:180],
+                "error_code": getattr(exc, "code", "invalid_arguments"),
+            }
+        spec = prepared.runner_input
+    if spec is None:
+        try:
+            spec = finance_query.FinanceQuerySpec.from_arguments(call.arguments)
+        except Exception as exc:  # noqa: BLE001
+            return observation | {
+                "valid": False,
+                "stage": "parse",
+                "failure": _classify(exc),
+                "detail": str(exc)[:180],
+                "error_code": "invalid_arguments",
+            }
     try:
-        spec = finance_query.FinanceQuerySpec.from_arguments(call.arguments)
         normalized, notes = finance_query.normalize_spec(spec)
         finance_query._compile_query(
             normalized,
@@ -206,15 +246,110 @@ def _validate_finance_call(
     except Exception as exc:  # noqa: BLE001 - 试验场要如实报告任何失败
         return observation | {
             "valid": False,
+            "stage": "compile",
             "failure": _classify(exc),
             "detail": str(exc)[:180],
+            # 编译期这一侧生产是有重试提示的，量具要如实带上，
+            # 否则回灌出去的消息比生产更贫瘠，测出来的自愈率会偏低。
+            "retry_hint": (
+                finance_query.validation_retry_hint(spec, exc)[:300]
+                if isinstance(exc, finance_query.FinanceQueryValidationError)
+                else ""
+            ),
         }
     return observation | {
         "valid": True,
+        "stage": "ok",
         # 代偿不是免费的：它意味着模型第一次写错了，只是 harness 兜住了。
         # 分开计数，否则「合法率 100%」会掩盖「每次都要兜」。
         "compensated": [str(note)[:120] for note in notes],
     }
+
+
+def _feedback_messages(
+    turn: ModelTurn,
+    results_by_call_id: dict[str, dict[str, object]],
+    *,
+    task_frame,
+) -> list[dict[str, object]]:
+    """复刻生产回灌给模型的那几条消息。
+
+    **不自己拼字符串**——assistant 轮用 ``ContinuousAgentEpisode._assistant_message``，
+    错误轮用 ``_EpisodeToolAccumulator._append_tool_error``，两个都是生产在跑的
+    同一段代码。量具必须复刻生产（TOOLKIT 量具陷阱一）：手抄一份等价实现，
+    生产改了它不会跟着改，而漂了的时候读数照样发绿。
+
+    ⚠ **保真边界（读结论时必须知道）**：合法的那些调用生产会真的执行工具并回灌
+    观测正文，本量具不执行，只回一条标注了 probe 的占位。所以本模式**只能用来
+    判「失败的那些会不会自愈」**，不能用来判整体轨迹质量。
+    """
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+        ContinuousAgentEpisode,
+    )
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    messages: list[dict[str, object]] = [
+        ContinuousAgentEpisode._assistant_message(turn)
+    ]
+    error_sink: list[dict[str, object]] = []
+    accumulator = _EpisodeToolAccumulator(
+        messages=error_sink,
+        ledger=_EpisodeLedger(task_frame),
+        evidence_ledger=EvidenceLedger(information_cutoff=date(2026, 1, 1)),
+    )
+    for call in turn.tool_calls:
+        result = results_by_call_id.get(call.call_id)
+        if result is None or result.get("valid"):
+            # 占位：不是生产文本，但每个 tool_call 都必须有配对的 tool 消息，
+            # 否则消息序列对 OpenAI 风格接口是非法的。标注出来免得被误读。
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.call_id,
+                    "content": json.dumps(
+                        {"ok": True, "tool": call.name, "observation": "[probe] 参数合法，本量具不执行工具"},
+                        ensure_ascii=False,
+                    ),
+                }
+            )
+            continue
+        if result.get("stage") == "parse":
+            error_sink.clear()
+            accumulator._append_tool_error(
+                call,
+                str(result.get("error_code") or "invalid_arguments"),
+                str(result.get("detail") or ""),
+            )
+            messages.append(dict(error_sink[-1]))
+        else:
+            # 编译期：生产走 _finance_query_failure_result，是一条正常观测，
+            # 正文含「结构化查询参数无效：…；重试提示：…」。
+            hint = str(result.get("retry_hint") or "")
+            observation = f"结构化查询参数无效：{str(result.get('detail'))[:160]}"
+            if hint:
+                observation = f"{observation}；重试提示：{hint}"
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.call_id,
+                    "content": json.dumps(
+                        {
+                            "ok": True,
+                            "tool": call.name,
+                            "observation": observation,
+                            "evidence": [],
+                            "gaps": [
+                                "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                }
+            )
+    return messages
 
 
 def _probe_case(
@@ -224,6 +359,7 @@ def _probe_case(
     client,
     timeout: float,
     attempt: int,
+    follow_up: int = 0,
 ) -> dict[str, object]:
     question = str(case["query"])
     as_of = str(case.get("date") or date.today().isoformat())
@@ -293,17 +429,22 @@ def _probe_case(
                 "seconds": elapsed,
                 "skipped": f"provider 未产出可判样本：{turn.error}",
             }
+        def _validate(model_turn: ModelTurn) -> list[dict[str, object]]:
+            return [
+                _validate_finance_call(
+                    call,
+                    as_of=date.fromisoformat(as_of),
+                    max_rows=_agent_max_rows(),
+                    registry=registry,
+                )
+                | {"arguments": _jsonable(call.arguments), "call_id": call.call_id}
+                for call in model_turn.tool_calls
+                if call.name == tool
+            ]
+
         calls = [call for call in turn.tool_calls if call.name == tool]
-        results = [
-            _validate_finance_call(
-                call,
-                as_of=date.fromisoformat(as_of),
-                max_rows=_agent_max_rows(),
-            )
-            | {"arguments": _jsonable(call.arguments)}
-            for call in calls
-        ]
-        return {
+        results = _validate(turn)
+        reading = {
             "case_id": case["id"],
             "attempt": attempt,
             "live": True,
@@ -318,6 +459,47 @@ def _probe_case(
             ),
             "validations": results,
         }
+
+        # ── 回灌轮：把生产会发的拒绝消息喂回去，看模型会不会自我修正 ──
+        # 这是**唯一**能测到「拒绝理由回灌」那条改动的方式：单轮探针里，
+        # 回灌根本还没发生。
+        if follow_up > 0 and any(not item["valid"] for item in results):
+            history = list(messages)
+            current_turn, current_results = turn, results
+            rounds: list[dict[str, object]] = []
+            for round_index in range(1, follow_up + 1):
+                history = history + _feedback_messages(
+                    current_turn,
+                    {str(item["call_id"]): item for item in current_results},
+                    task_frame=control.task_frame,
+                )
+                try:
+                    retry_turn: ModelTurn = client.complete(
+                        messages=history,
+                        tools=definitions,
+                        timeout=timeout,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    rounds.append({"round": round_index, "error": str(exc)[:180]})
+                    break
+                if retry_turn.error:
+                    rounds.append({"round": round_index, "error": retry_turn.error})
+                    break
+                retry_results = _validate(retry_turn)
+                rounds.append(
+                    {
+                        "round": round_index,
+                        "tool_calls_for_target": len(retry_results),
+                        "validations": retry_results,
+                    }
+                )
+                current_turn, current_results = retry_turn, retry_results
+                if retry_results and all(item["valid"] for item in retry_results):
+                    break
+                if not retry_results:
+                    break
+            reading["follow_up_rounds"] = rounds
+        return reading
     finally:
         release_root_budget(task_id)
 
@@ -333,9 +515,32 @@ class _StubClient:
 
     只发坏调用是不够的——那样只证明「能报错」，不能证明「合法的不会被误报」。
     误报的量具比没有量具更糟：它会把改进读成退步。
+
+    **回灌轮的 stub**：第二次被调用时（消息里已经出现 role=tool）返回全合法的
+    参数，模拟「模型看懂拒绝理由并改对了」。这样 --dry-run 能零配额走通
+    follow-up 整条路径——否则那段代码只有真跑才会被执行到，而那正是
+    「模型调用花完、最后一步崩掉」那次事故的成因。
     """
 
     def complete(self, *, messages, tools, timeout):  # noqa: ANN001, ARG002
+        if any(m.get("role") == "tool" for m in messages):
+            return ModelTurn(
+                content="",
+                tool_calls=(
+                    ModelToolCall(
+                        call_id="stub-retry",
+                        name="finance_query",
+                        arguments={
+                            "dataset": "market_daily",
+                            "metrics": ["total_amount"],
+                            "dimensions": ["trade_date"],
+                            "time_range": {"start": "2026-07-23", "end": "2026-07-23"},
+                            "limit": 5,
+                        },
+                    ),
+                ),
+                provider_name="stub",
+            )
         return ModelTurn(
             content="",
             tool_calls=(
@@ -437,6 +642,41 @@ def _summarize(readings: list[dict[str, object]]) -> dict[str, object]:
             failures[key] = failures.get(key, 0) + 1
     valid = sum(1 for item in validations if item.get("valid"))
     errored = [r for r in readings if r.get("model_error")]
+
+    # ── 自愈统计：拒绝理由回灌之后，模型改对了没有 ──
+    # 只统计**首轮失败**的那些，合法的本来就没什么可修。
+    healed = 0
+    unhealed = 0
+    heal_rounds: list[dict[str, object]] = []
+    for reading in live:
+        rounds = reading.get("follow_up_rounds") or []
+        if not rounds:
+            continue
+        heal_rounds.append(
+            {
+                "case_id": reading.get("case_id"),
+                "attempt": reading.get("attempt"),
+                "rounds": len(rounds),
+                "outcome": rounds[-1].get("error")
+                or (
+                    "healed"
+                    if (rounds[-1].get("validations") or [])
+                    and all(v.get("valid") for v in rounds[-1]["validations"])
+                    else "still_invalid"
+                ),
+                "first_turn_failures": sorted(
+                    {
+                        str(v.get("failure"))
+                        for v in reading.get("validations", [])
+                        if not v.get("valid")
+                    }
+                ),
+            }
+        )
+        if heal_rounds[-1]["outcome"] == "healed":
+            healed += 1
+        else:
+            unhealed += 1
     return {
         # usable=false 时**下面所有数都不成立**，别读。放在第一个键，
         # 因为被截断时首先要活下来的是这条限定语（BUILD 模式 4）。
@@ -458,6 +698,15 @@ def _summarize(readings: list[dict[str, object]]) -> dict[str, object]:
         "compensated_but_valid": compensated,
         "limit_over_cap": over_cap,
         "failure_taxonomy": dict(sorted(failures.items())),
+        # 回灌自愈：只有 --follow-up>0 时才有值。首轮失败的样本里，
+        # 收到生产的拒绝消息后改对了几个。
+        "followed_up_samples": healed + unhealed,
+        "self_healed": healed,
+        "still_invalid_after_feedback": unhealed,
+        "self_heal_rate": (
+            round(healed / (healed + unhealed), 3) if (healed + unhealed) else None
+        ),
+        "heal_detail": heal_rounds,
     }
 
 
@@ -470,6 +719,12 @@ def main() -> int:
     parser.add_argument("--case-ids", default="", help="逗号分隔，限定题目")
     parser.add_argument("--model", default="glm-5.2")
     parser.add_argument("--timeout", type=float, default=90.0)
+    parser.add_argument(
+        "--follow-up",
+        type=int,
+        default=0,
+        help="失败后把生产的拒绝消息回灌，最多追加几轮（0=关闭，单轮模式）",
+    )
     parser.add_argument("--dry-run", action="store_true", help="stub 模型，零配额")
     parser.add_argument("--out", type=Path, default=None, help="读数落盘路径")
     args = parser.parse_args()
@@ -495,6 +750,7 @@ def main() -> int:
                 client=client,
                 timeout=args.timeout,
                 attempt=attempt,
+                follow_up=args.follow_up,
             )
             readings.append(reading)
             _print_reading(reading)
