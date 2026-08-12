@@ -267,6 +267,39 @@ _FAILED_PROVIDER_STATUSES = frozenset(
 )
 
 
+def _describe_retrieval_degradation(telemetry: object) -> str:
+    """检索降级了就说出来——哪怕这次有命中。
+
+    ``kb_rag`` 会在稠密依赖不可用时把 hybrid/rerank 降到纯 BM25，且遥测里
+    ``degraded`` / ``fallback_reason`` / ``recall_desc`` 全都如实记了。此前
+    没有任何一条往模型那边传，所以模型看到的是一份「正常」的关键词命中。
+
+    只在真的降级时返回文本。没降级返回空串——每次都挂一句「本次未降级」
+    会训练模型忽略这一行，那比不说更糟。
+    """
+
+    if not getattr(telemetry, "degraded", False):
+        return ""
+    requested = str(getattr(telemetry, "requested_mode", "") or "").strip()
+    effective = str(getattr(telemetry, "effective_mode", "") or "").strip()
+    recall = str(getattr(telemetry, "recall_desc", "") or "").strip()
+    reason = str(getattr(telemetry, "fallback_reason", "") or "").strip()
+    details: list[str] = []
+    if requested and effective and requested != effective:
+        details.append(f"{requested}→{effective}")
+    if recall:
+        details.append(f"实际只用了：{recall}")
+    if reason:
+        details.append(f"原因 {reason}")
+    head = "⚠ 本次检索已降级"
+    if details:
+        head = f"{head}（{'，'.join(details)}）"
+    return (
+        f"{head}。语义检索未生效，同义/近义表述可能整片漏掉；"
+        "结果为空或偏少时不要据此下否定结论。"
+    )
+
+
 def describe_no_result(
     subject: str,
     miss_text: str,
@@ -347,6 +380,21 @@ def build_default_tools(
                 status,
                 str(getattr(telemetry, "warning", "") or "").strip(),
             )
+        # 检索**降级**必须跟着结果一起走，哪怕这次有命中。
+        #
+        # ``kb_rag`` 在稠密依赖不可用时会把 hybrid/rerank 降到纯 BM25，并如实
+        # 记 ``degraded`` / ``fallback_reason`` / ``recall_desc``——**遥测是诚实的，
+        # 只是从没往上传**。于是模型拿到一份看起来完全正常的关键词命中，
+        # 却不知道语义那一路根本没跑。
+        #
+        # 这比报错更危险：报错至少是可见的失败，而这是**成功外观下的能力降级**。
+        # 模型会据此判断「知识库里没有语义相关的内容」，而真相是没检索过。
+        # ai-agent-book ch3 §混合检索：稀疏检索「读不懂同义词」（搜 kitty 找不到
+        # 只写 cat 的文档）——降级后丢的正是这一半能力，而这一半恰恰无法从
+        # 返回结果里看出来。
+        degraded_note = _describe_retrieval_degradation(telemetry)
+        if degraded_note:
+            observation = "；".join(part for part in (observation, degraded_note) if part)
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",

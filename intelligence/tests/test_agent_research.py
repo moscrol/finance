@@ -682,3 +682,91 @@ class TestNoResultWordingSeparatesFailureFromEmptiness:
         assert agent_research.describe_no_result(
             "网页", "无结果", "empty"
         ).startswith("无结果")
+
+
+class TestRetrievalDegradationReachesTheModel:
+    """检索降级必须跟着结果一起走——**哪怕这次有命中**。
+
+    `kb_rag` 在稠密依赖不可用时把 hybrid/rerank 降到纯 BM25，并如实记
+    `degraded` / `fallback_reason` / `recall_desc`。**遥测一直是诚实的，
+    只是从没往上传**：`_kb_search` 只读 status 和 warning，有命中时观测就只是
+    命中内容。于是模型拿到一份看起来完全正常的关键词命中，却不知道语义那一路
+    根本没跑。
+
+    这比报错更危险：报错至少是可见的失败，这是**成功外观下的能力降级**。
+    ai-agent-book ch3 §混合检索：稀疏检索「读不懂同义词」（搜 kitty 找不到只写
+    cat 的文档）——降级后丢的正是这一半能力，而这一半**无法从返回结果里看出来**。
+    """
+
+    @staticmethod
+    def _telemetry(**kwargs):
+        class _T:
+            status = "ok"
+            warning = ""
+            degraded = False
+            requested_mode = ""
+            effective_mode = ""
+            recall_desc = ""
+            fallback_reason = ""
+
+        tel = _T()
+        for key, value in kwargs.items():
+            setattr(tel, key, value)
+        return tel
+
+    def test_no_note_when_retrieval_was_not_degraded(self) -> None:
+        """每次都挂一句「本次未降级」会训练模型忽略这一行，比不说更糟。"""
+        assert agent_research._describe_retrieval_degradation(self._telemetry()) == ""
+
+    def test_degraded_note_names_what_was_lost(self) -> None:
+        note = agent_research._describe_retrieval_degradation(
+            self._telemetry(
+                degraded=True,
+                requested_mode="hybrid",
+                effective_mode="bm25",
+                recall_desc="BM25 关键词",
+                fallback_reason="dense_dependency_cached_unavailable",
+            )
+        )
+
+        assert "已降级" in note
+        assert "hybrid→bm25" in note
+        # 关键：要说清丢的是什么能力，而不只是「降级了」
+        assert "语义检索未生效" in note
+        assert "不要据此下否定结论" in note
+
+    def test_note_survives_missing_telemetry_fields(self) -> None:
+        """字段不全也要报降级——认不出细节不等于可以不报（BUILD 模式 7）。"""
+        note = agent_research._describe_retrieval_degradation(
+            self._telemetry(degraded=True)
+        )
+
+        assert "已降级" in note
+
+    def test_degradation_is_appended_even_when_there_are_hits(self) -> None:
+        """有命中时也必须带上——这正是此前漏掉的那条路径。"""
+
+        class _Hit:
+            title = "瑞华泰"
+            excerpt = "聚酰亚胺薄膜"
+            file_path = "wiki/x.md"
+            source_date = None
+
+        class _Rag:
+            hits = [_Hit()]
+            telemetry = None
+
+        _Rag.telemetry = TestRetrievalDegradationReachesTheModel._telemetry(
+            degraded=True, requested_mode="hybrid", effective_mode="bm25"
+        )
+        tools = agent_research.build_default_tools(lambda *_a, **_k: _Rag())
+        context = agent_research.AgentToolContext(
+            ResearchDeadline.from_timeout(5.0),
+            lambda: False,
+            InformationCutoff(date(2026, 7, 24), "requested"),
+        )
+
+        evidence, observation, _trace = tools["kb_search"]("瑞华泰", context)
+
+        assert evidence, "前提：这条用例要覆盖的是**有命中**的路径"
+        assert "已降级" in observation
