@@ -295,9 +295,9 @@
 | auction | 137 | 253 | 接口自 2026-01-16 起才有数 |
 | regulation_event | 139 | 251 | 不是每天都有监管事件；池子已 390 |
 | events（非 future） | 147 | 243 | 时间线自 2026-01-05 起；另 7 条 future 到 08-15 |
-| global_index/stock | 回补后应对齐 390 | 曾 132 | 见下 |
+| global_index/stock | 390 | 0 | 见下；美股休市日 `source_trade_date` 回退前一美股日 |
 
-**外盘覆盖事故（已修）**：`sync_global_market` 曾用接口回写的 `trade_date` 做主键。DESC 回补时后写日期打到同一 PK，表上只剩 258 日，且 `2026-08-12` 被覆盖成 `2026-01-27` 的收盘价（DJI 49003）。现改为**请求的 A 股日历日**做主键，`source_trade_date` 保留美股实际日。修完后需清掉无行的 `ops` 再 `--align` 只补 `global_market`。
+**外盘覆盖事故（已修并补齐）**：`sync_global_market` 曾用接口回写的 `trade_date` 做主键。DESC 回补时后写日期打到同一 PK，表上只剩 258 日，且 `2026-08-12` 被覆盖成 `2026-01-27` 的收盘价（DJI 49003）。现改为**请求的 A 股日历日**做主键。清无行 ops + 污染的 08-12 行后 `--align` 只拉 `global_market` 133 日，失败 0。抽查：`2026-08-12` DJI=52208.06（与公开 API 一致），`2026-06-02` DJI=51307.79；`2025-04-18`（美股耶稣受难日）主键仍是 A 股日，`source_trade_date=2025-04-17`。
 
-成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets`；未 `--refresh`。
+成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets` @ `2bc06eeb`；未 `--refresh`。
 
