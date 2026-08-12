@@ -2017,6 +2017,20 @@ def create_app(
             "knowledge_wiki": runtime_paths.knowledge_wiki.is_dir(),
             "relations": (runtime_paths.knowledge_wiki / "relations").is_dir(),
             "vector_index": runtime_paths.vector_index_dir.is_dir(),
+            # 索引目录在 ≠ 检索跑得起来。``vector_index`` 只判目录存在，而
+            # kb_search 是 subprocess 拉起 ``KB_RAG_PYTHON`` 去跑 rag_index.py：
+            # **解释器不可执行时索引目录照样在，health 照样全绿**。
+            #
+            # 2026-08-12 实测到这个缺口的代价：
+            # ``knowledge-base-private/.rag_venv`` 是指向 ``~/知识库/.rag_venv``
+            # 的符号链接，而那个目录已不存在（链接建于 07-14）。于是 kb_search
+            # 每次都 7ms 抛 FileNotFoundError，被脱敏成「研究过程中出现内部错误」，
+            # 历史 22 次调用 22 次空手（20 次 error/timeout）——**静默停摆约一个月，
+            # 而 health 一直报 vector_index: true**。
+            #
+            # 这就是「契约体检」那条审查项本身长在仪表上的样子：
+            # 广告的是「向量检索就绪」，交付的是「目录存在」。
+            "rag_runtime": kb_rag.rag_runtime_ready(),
             "market_snapshot": runtime_paths.market_snapshot_dir.is_dir(),
             "frontend_built": (STATIC_DIR / "index.html").is_file(),
         }

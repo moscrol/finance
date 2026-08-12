@@ -1259,3 +1259,26 @@ def retrieve(
         tel.status = "empty"
         tel.warning = res.warning
     return _cache_put(cache_key, res) if cache_scope else res
+
+def rag_runtime_ready() -> bool:
+    """kb_search 的解释器**真的能执行吗**——不是「路径字符串存在吗」。
+
+    判据对齐**消费方的失败条件**（subprocess 能否拉起解释器），不是对齐
+    「文件系统里有没有这个名字」：悬空符号链接、目录、无执行位三种情况
+    ``Path.exists()`` 的答案各不相同，对 subprocess 却是同一个结果。
+
+    2026-08-12 实测到这个缺口的代价：``knowledge-base-private/.rag_venv`` 是指向
+    ``~/知识库/.rag_venv`` 的符号链接，而那个目录已不存在（链接建于 07-14）。
+    kb_search 每次 7ms 抛 FileNotFoundError，被脱敏成「研究过程中出现内部错误」，
+    历史 22 次调用 22 次空手（20 次 error/timeout）——**静默停摆约一个月，
+    而 health 一直报 vector_index: true**，因为它只判索引目录存不存在。
+    """
+
+    import os
+    import shutil
+
+    candidate = str(os.environ.get("KB_RAG_PYTHON") or "").strip()
+    if not candidate:
+        return bool(shutil.which("python3"))
+    path = Path(candidate).expanduser()
+    return path.is_file() and os.access(path, os.X_OK)
