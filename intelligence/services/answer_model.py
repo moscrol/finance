@@ -109,6 +109,19 @@ _GROUNDED_CLAIM_MARKER_RE = re.compile(
     r"claim_type=(?P<claim_type>fact|candidate|inference|expectation|gap)"
     r"\s*-->"
 )
+# 标注残片兜底：只认「带标注键名的注释碎块」，不碰普通正文。
+#
+# 完整标注正则只匹配形状完好的 `<!-- claim_ids=…; …; claim_type=… -->`。
+# 模型偶尔把一条标注写成两行（08-01 验收 C4 实测：公开正文尾部漏出
+# `claim_type=candidate -->`）——此时逐行剥离两半都认不出：前半有头没尾、
+# 后半有尾没头。两个分支分别接住这两半：`<!--` + 标注键名（到 --> 或行尾），
+# 以及 标注键名 + `-->`。键名带 `=` 是硬条件，正文里单说「claim_type 这个词」
+# 不会被误删。
+_GROUNDED_MARKER_RESIDUE_RE = re.compile(
+    r"<!--[^<>]*?\b(?:claim_ids?|evidence_atom_ids|claim_type)=[^<>]*?(?:-->|$)"
+    r"|\b(?:claim_ids?|evidence_atom_ids|claim_type)=[^<>\n]*?-->",
+    re.MULTILINE,
+)
 _PRESENTER_REPLACEMENTS = (
     ("仅有 graph_only 关联", "仅有概念关联，尚无公司级证据"),
     (
@@ -3399,9 +3412,16 @@ def present_grounded_composer_answer(
         _merge_orphan_grounded_markers(answer),
         answer_spec,
     )
+    # 先整文剥完整标注，再剥残片，最后才逐行 rstrip。原先只做逐行剥离：
+    # 标注正则的字符类本可以跨行匹配，但按行切开后「跨两行的标注」两半都
+    # 认不出来，残片原样进公开正文（08-01 验收 C4 泄漏 `claim_type=candidate -->`
+    # 的机制就是这个）。整文一遍 + 残片兜底，两类都收掉。
+    without_markers = _GROUNDED_MARKER_RESIDUE_RE.sub(
+        "",
+        _GROUNDED_CLAIM_MARKER_RE.sub("", cleaned),
+    )
     return "\n".join(
-        _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
-        for line in cleaned.splitlines()
+        line.rstrip() for line in without_markers.splitlines()
     ).strip()
 
 
