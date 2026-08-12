@@ -15,10 +15,11 @@
 
 ## 下一步
 
-1. R3 跑完出 board（`acceptance board --run <R3 json>`），对照 R1 的 fact 层 12 条与 gap 模板题数。
-2. **LLM 超时 harness 策略**（正在出血）：首轮慢→预算烧穿→deadline_exhausted；repair 轮超时→带 24 条证据零呈现。对口判据 `serial-phase-budget`（allocator 只能移动失败点）。
-3. knevo 后续：suggest_options 缺口镜像、report→track 接力。
-4. TOOLKIT 待补条目（canonical 云端无权限）：变异还原禁用 `git checkout <file>`（吞未提交改动），成文已交用户。
+1. **R3 已出**（run=20260812T155420Z）：真值 0/7、fact 层 12（=R1，**#293 无效果**）；运行面明显变好（8/10 完成、A3 首次跑通、product_language 2→0 但该层噪声大不作数）。
+2. **#293 的深归因**：翻 R3 A1 的 draft——数字是「模型没写」还是「写了被绑定规则删」？两者修法完全不同（前者=描述没到位/被忽略，后者=要配套放行已绑定数字的表述）。
+3. **LLM 超时 harness 策略**（A7 本轮仍中招 31s failed）：对口判据 `serial-phase-budget`。
+4. knevo 后续：suggest_options 缺口镜像、report→track 接力。
+5. TOOLKIT 待补：变异还原禁用 `git checkout <file>`，成文已交用户。
 
 ## 踩过的坑
 
