@@ -244,6 +244,53 @@ class AgentToolContext:
 ToolRunner = Callable[..., tuple[list[AgentEvidence], str, ProviderTrace]]
 
 
+# 检索**失败**与检索**没有结果**必须让模型区分得开。
+#
+# 失败形状（2026-08-12 历史对账，扫 44564 份 run 产物）：三个检索工具的空结果
+# 一律写成「无X（{status}：{detail}）」，于是网络故障、超时、被禁用统统长得像
+# 「这个世界上没有相关内容」。实测 news_search 78 次空手里：
+#   12 次 request_error（URLError / deadline exhausted）—— **是故障不是没有**
+#   18 次 真的 empty
+#   12 次 其实是 harness 去重（「与本轮已有证据重复」），压根不是失败
+# kb_search 更极端：22 次「无命中」**全部**是 error。
+#
+# 危害不是「少了一条证据」，而是模型据此写出**否定结论**——把「查不到」写成
+# 「不存在」。ai-agent-book ch4：静默降级会让 Agent 误以为自己看到了全部内容，
+# 且**无法自行诊断**；族 A 官方 custom-tools 要求 isError 明确、并告诉模型
+# 「what to try instead」。
+#
+# 抽成一处而不是三处各写各的：同一条规则散在三个 runner 里，改一处漏两处，
+# 而漏的时候没有任何门禁会红（BUILD 模式 6：单一真本源）。
+_FAILED_PROVIDER_STATUSES = frozenset(
+    {"request_error", "parse_error", "proxy_unavailable", "error", "timeout",
+     "fallback_failed", "disabled"}
+)
+
+
+def describe_no_result(
+    subject: str,
+    miss_text: str,
+    status: str,
+    detail: str = "",
+) -> str:
+    """把「没结果」写成模型读得懂的那句话：是查不到，还是查不了。
+
+    两个措辞参数是分开的，不能合并：``subject`` 进故障句（「知识库检索未能
+    执行完成」），``miss_text`` 是真空结果的原话（「无命中」/「无资讯」）。
+    第一版只传一个 ``kind`` 去拼 ``无{kind}``，对资讯/网页读得通，
+    对知识库就成了「无知识库」——**共用规则不等于共用措辞**。
+    """
+
+    tail = f"：{detail[:120]}" if detail else ""
+    if status in _FAILED_PROVIDER_STATUSES:
+        return (
+            f"{subject}检索未能执行完成（{status}{tail}）。"
+            "这是检索失败，不是不存在该内容；"
+            "不要据此下否定结论，可改写检索词重试或改用其他工具。"
+        )
+    return f"{miss_text}（{status}{tail}）"
+
+
 def build_default_tools(
     kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
@@ -291,16 +338,13 @@ def build_default_tools(
             observation = "；".join(
                 f"{item.title}：{item.detail[:80]}" for item in evidence
             )
-        elif failed:
-            warning = str(getattr(telemetry, "warning", "") or "").strip()
-            observation = (
-                f"知识库检索未能执行完成（{status}）"
-                + (f"：{warning[:120]}" if warning else "")
-                + "。这是检索失败，不是知识库里没有该内容；"
-                "不要据此写成证据缺口或否定结论，可改写检索词重试或改用其他工具。"
-            )
         else:
-            observation = f"无命中（{status}）"
+            observation = describe_no_result(
+                "知识库",
+                "无命中",
+                status,
+                str(getattr(telemetry, "warning", "") or "").strip(),
+            )
         trace = ProviderTrace(
             provider="agent:kb_search",
             capability="agent_loop",
@@ -347,7 +391,7 @@ def build_default_tools(
         ]
         observation = (
             "；".join(f"{item.title}：{item.detail[:80]}" for item in evidence)
-            or f"无结果（{web.trace.status}：{web.trace.detail}）"
+            or describe_no_result("网页", "无结果", web.trace.status, web.trace.detail)
         )
         return evidence, observation, web.trace
 
@@ -383,7 +427,7 @@ def build_default_tools(
         ]
         observation = (
             "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-            or f"无资讯（{news.trace.status}：{news.trace.detail}）"
+            or describe_no_result("资讯", "无资讯", news.trace.status, news.trace.detail)
         )
         return evidence, observation, news.trace
 

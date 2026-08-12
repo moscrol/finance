@@ -637,3 +637,46 @@ class TestKbSearchSeparatesFailureFromEmptiness:
 
         assert "无命中" in observation
         assert trace.status == "empty"
+
+
+class TestNoResultWordingSeparatesFailureFromEmptiness:
+    """三个检索工具共用一条规则：查不了 ≠ 查不到。
+
+    2026-08-12 历史对账，news_search 78 次「空手」拆开来看是四类：
+      12 次 request_error（URLError / deadline exhausted）—— **故障**
+      18 次 真的 empty
+      12 次 其实是 harness 去重（「与本轮已有证据重复」）—— 压根不是失败
+    kb_search 更极端：22 次「无命中」**全部**是 error。
+
+    危害不是少一条证据，而是模型据此写出**否定结论**——把「查不到」写成
+    「不存在」。抽成一处而不是三个 runner 各写各的：同一条规则散在三处，
+    改一处漏两处，且漏的时候没有任何门禁会红（BUILD 模式 6）。
+    """
+
+    def test_transport_failures_read_as_failures(self) -> None:
+        for status in ("request_error", "proxy_unavailable", "parse_error", "timeout"):
+            text = agent_research.describe_no_result("资讯", "无资讯", status, "URLError")
+
+            assert "检索未能执行完成" in text, status
+            assert "不要据此下否定结论" in text, status
+            assert "无资讯" not in text, status
+
+    def test_a_real_empty_keeps_its_own_wording(self) -> None:
+        """误报的代价是模型放弃一条本该走的路，所以真空结果不能被写成故障。"""
+        text = agent_research.describe_no_result("资讯", "无资讯", "empty", "title search")
+
+        assert text.startswith("无资讯")
+        assert "检索未能执行完成" not in text
+
+    def test_wording_is_per_tool_not_shared(self) -> None:
+        """共用规则 ≠ 共用措辞。
+
+        第一版只传一个 kind 去拼 ``无{kind}``，对资讯读得通，
+        对知识库就成了「无知识库」——中文读不通。
+        """
+        assert agent_research.describe_no_result(
+            "知识库", "无命中", "empty"
+        ).startswith("无命中")
+        assert agent_research.describe_no_result(
+            "网页", "无结果", "empty"
+        ).startswith("无结果")
