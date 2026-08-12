@@ -1,32 +1,32 @@
 # 在途交接 · main
 
-更新：2026-08-12 · Cursor Cloud（经 exec 隧道操作本机）
+更新：2026-08-12 · Cursor Cloud（经 exec 隧道操作本机，工具 scripts/rexec.py）
 
 ## 这个分支做什么
 
-上一份交接的根因已修并合并：#287 快照↔DuckDB 对账门禁、#288 词表三方审计、#289 措辞词表注入。今天 daily-full 主链已跑通。
+修「自建 agent 效果差」：#287–294 八个 PR 全合并，生产已部署 `ad743a64`。数据链全绿（daily-full 三道门 + 快照对账 PASS + 覆盖审计）。
 
 ## 当前状态
 
-- **main=b89df3e2 已推送（#287–293 七个 PR 全合并），Mac 主树停在 5b7464be——合并≠部署，隧道 530 断连挡住了 pull+deploy**。恢复后跑 `git pull && ./scripts/deploy_workbench_runtime.sh`。
-- daily-full 08-12 三道门全绿、日报已出、audit_coverage 今日全表覆盖；快照↔DuckDB 对账 PASS。iCloud 导出已废弃（correction 已落，SKILL.md 已改）。
-- A 组冒烟（5b7464be，backend=continuous_glm，run=20260812T131457Z）：**证据链已通（7/10 绑定 3–15 条）**，真值仍 0/7，12 条失败全在 fact 层（数字没进正文）→ #293 修此；#292 修 gap 答案中间档。
-- knevo 对照：BaseFinanceMode/closed_loop_retrieval 只在引擎 B，**引擎 A 被 cutover 孤儿化**；#292/#293 是接线第一批。
+- **A 组验收第三轮跑到一半**（日志 /tmp/acceptance-a3-20260812.log，run JSON 落 intelligence/eval/runs/）。前 7 题：6 题带证据完成（A3 个股深挖首次跑通），A7 failed 31s（疑 deadline 族）。
+- 三轮对照口径：R1=5b7464be（修复前基线）、R2=11da9707（被 LLM 超时污染，4/10 题 deadline_exhausted/repair_model_unavailable，产物实证 TimeoutError）、R3=ad743a64。**R2 不可用于 #293 判决**。
+- #292 已生产验证（A5 渲染出验证窗口段）；#293（盘面槽位要数值）效果待 R3 board 判：fact 层 R1=12 条，看走向。
+- knevo 结论：BaseFinanceMode/closed_loop_retrieval 只在引擎 B、被 cutover 孤儿化；#292/#293/#294 是接线第一批。
 
 ## 下一步
 
-1. 隧道恢复后：Mac pull + deploy（目标 revision b89df3e2）。
-2. 重跑 A 组对照：fact 层 12 条红是否下降 = #292/#293 的直接判决。
-3. A3 个股深挖 terminal failed（证据=0）待翻 trace 归因。
-4. 后续接线：suggest_options 缺口镜像、report→track 接力（knevo Top5 第 4/5）。
+1. R3 跑完出 board（`acceptance board --run <R3 json>`），对照 R1 的 fact 层 12 条与 gap 模板题数。
+2. **LLM 超时 harness 策略**（正在出血）：首轮慢→预算烧穿→deadline_exhausted；repair 轮超时→带 24 条证据零呈现。对口判据 `serial-phase-budget`（allocator 只能移动失败点）。
+3. knevo 后续：suggest_options 缺口镜像、report→track 接力。
+4. TOOLKIT 待补条目（canonical 云端无权限）：变异还原禁用 `git checkout <file>`（吞未提交改动），成文已交用户。
 
 ## 踩过的坑
 
-- exec 隧道有 CF ~100s 响应上限：长命令 nohup 到日志再轮询（scripts/rexec.py）。
-- 非交互 shell 的 python3=系统 3.9（import 即崩）；.venv-workbench 无 akshare（第 4 步才暴露，白跑 7 分钟）。日常解释器 /opt/homebrew/bin/python3。→ #291 预检。
-- 变异还原禁用 `git checkout <file>`（吞未提交改动）；同长度变异+同秒还原会命中 .pyc 旧字节码，先清 __pycache__。
+- **归因先翻 episode 产物再下结论**：R2 退化我先猜「#293 触发删句级联」，产物证伪——A1 根本没写出草稿（deadline_exhausted 31s 零产出）。中途读数会骗人。
+- 中转晚间超时会整轮污染对照；挑稳定时段跑。
+- 隧道 530=Mac 侧 cloudflared 掉线，云端只能等；长命令 nohup+轮询（CF 100s 上限）。
 
 ## 已验证
 
-- #287 门禁真数据正确 FAIL（快照 08-12 超前库 08-11 的活漂移现场）。
-- #289 分支 .venv-workbench 全量 4571 passed / 4 failed，4 条均 main 固有或负载偶发。
+- R2 归因链完整：continuous-episode.json 的 outcome/semantic_verifier/model_error 三层。
+- #294 修的两缺陷均来自 R2 真实产物（gap 标签指令泄漏、25 条证据零绑定无感知）。
