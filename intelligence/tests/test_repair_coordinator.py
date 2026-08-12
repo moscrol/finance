@@ -3,6 +3,7 @@ from intelligence.services.repair_coordinator import (
     RepairAdmission,
     admit_repair,
     build_repair_goal,
+    grant_for_cold_restart,
     grant_for_delivery_repair,
     grant_for_progress,
     grant_for_transient_model_retry,
@@ -388,6 +389,230 @@ def test_grant_for_transient_model_retry_fails_closed_at_hard_cap() -> None:
 
     assert grant_for_transient_model_retry(goal, root_budget=root) is None
     assert root.allocated_seconds == 18.0
+
+
+def _starved_progress():
+    """主路径零证据的进度快照：R7-A3 的形状。"""
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    return progress_from_ledger(before, after)
+
+
+def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
+    """零证据 + 有尝试 + 有余量 → 一发带工具的冷启动窗口。
+
+    2026-08-13 R7-A3：检索窗被首个打偏的查询烧穿，末尾批量补发的检索在
+    截止线上集体 ``tool_timeout``，episode 43s 零证据终局——而 root 余量
+    还有 ~257s。进度闸（要求 ≥1 新证据）把这种「饿死」和「没干活」一起
+    挡死；冷启动只放行前者。
+    """
+    progress = _starved_progress()
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-starved",
+        initial_calls=2,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-starved",
+        missing_outputs=("direct", "counterpoint"),
+        attempted_actions=("finance_query:duckdb", "kb_search:rag"),
+        previous_progress=progress,
+        remaining_calls=6,
+        remaining_seconds=257.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        cold_restart_candidate=True,
+        evidence_count=0,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.goal.reopen_tools is True
+    assert admission.delivery_only is False
+    assert admission.grant.grant_id.startswith("cold-restart-")
+    assert admission.grant.calls_granted >= 1
+    assert admission.goal.remaining_calls == admission.grant.calls_granted
+    # 沿用进度修复的额度公式：≤30s、按缺口计工时。
+    assert 0.0 < admission.grant.seconds_granted <= 30.0
+    assert admission.goal.remaining_seconds == admission.grant.seconds_granted
+
+
+def test_cold_restart_requires_adapter_observed_starvation() -> None:
+    """不带 cold_restart_candidate 的 admit_repair 不会漏进冷启动。
+
+    饿死判据（stop_reason == deadline_exhausted 且零证据）由 adapter 观察后
+    显式传入；坐标器对没有这个标记的零证据 episode（如 model_finish 拒答）
+    保持原有拒收。R9-A3 实测教训：不能拿「试过工具」当判据——首个模型轮
+    吃光窗口的形状零 trace，但同样是饿死。
+    """
+    progress = _starved_progress()
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-no-flag",
+        initial_calls=2,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-no-flag",
+        missing_outputs=("direct",),
+        attempted_actions=(),
+        previous_progress=progress,
+        remaining_calls=6,
+        remaining_seconds=257.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        cold_restart_candidate=False,
+        evidence_count=0,
+    )
+
+    assert admission is None
+    assert root.allocated_seconds == 30.0
+
+
+def test_cold_restart_fires_for_zero_trace_starvation() -> None:
+    """R9-A3 形状：首个模型轮吃光窗口、零 trace 零证据，也要放行。"""
+    progress = _starved_progress()
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-zero-trace",
+        initial_calls=2,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-zero-trace",
+        missing_outputs=("direct",),
+        attempted_actions=(),
+        previous_progress=progress,
+        remaining_calls=6,
+        remaining_seconds=257.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        cold_restart_candidate=True,
+        evidence_count=0,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.goal.reopen_tools is True
+    assert admission.grant.calls_granted >= 1
+
+
+def test_cold_restart_refuses_when_any_evidence_exists() -> None:
+    """一旦有证据，走常规进度/交付通道；冷启动只救零证据。"""
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(evidence=("e1",), covered=(), gaps=("direct",), family="news")
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-has-evidence",
+        missing_outputs=("direct",),
+        attempted_actions=("finance_query:duckdb",),
+        previous_progress=progress,
+        remaining_calls=4,
+        remaining_seconds=100.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-has-evidence",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+
+
+def test_cold_restart_is_single_shot_cycle_one_only() -> None:
+    """cycle 2 不给：冷启动失败不再续命，防的是进度闸原本防的循环。"""
+    progress = _starved_progress()
+    goal = build_repair_goal(
+        episode_id="episode-cycle2",
+        missing_outputs=("direct",),
+        attempted_actions=("finance_query:duckdb",),
+        previous_progress=progress,
+        remaining_calls=4,
+        remaining_seconds=100.0,
+        cycle=2,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-cycle2",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+
+
+def test_cold_restart_fails_closed_without_root_headroom() -> None:
+    """root 余量不够时 fail closed，不铸空头授予。"""
+    progress = _starved_progress()
+    goal = build_repair_goal(
+        episode_id="episode-broke",
+        missing_outputs=("direct",),
+        attempted_actions=("finance_query:duckdb",),
+        previous_progress=progress,
+        remaining_calls=4,
+        remaining_seconds=100.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-broke",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=30.0,
+    )
+
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+    assert root.allocated_seconds == 30.0
+
+
+def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
+    """delivery 候选（有证据没答案）与冷启动（有尝试零证据）互斥。
+
+    admit_repair 的分流顺序若写错，一个 delivery 候选在授予失败后可能
+    漏进冷启动拿到工具——那会把「交付修复不得重开检索」的边界打穿。
+    """
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(evidence=("e1",), covered=(), gaps=("direct",), family="news")
+    progress = progress_from_ledger(before, after)
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-delivery-x",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        # 余量 0：delivery 授予必然失败，验证不会漏到冷启动。
+        hard_seconds_cap=30.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-delivery-x",
+        missing_outputs=("direct",),
+        attempted_actions=("finance_query:duckdb",),
+        previous_progress=progress,
+        remaining_calls=0,
+        remaining_seconds=8.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        delivery_candidate=True,
+        cold_restart_candidate=True,
+        evidence_count=1,
+    )
+
+    assert admission is None
 
 
 def test_grant_for_transient_model_retry_caps_headroom_mint_at_thirty_seconds() -> None:

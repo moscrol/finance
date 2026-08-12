@@ -863,6 +863,14 @@ class ContinuousTurnAdapter:
             and structural.missing_outputs
             and (not outcome.draft.strip() or not outcome.bindings)
         )
+        # 饿死判据：检索窗烧穿且零证据。生产实测两种形状（R7-A3 / R9-A3）——
+        # 打偏的查询烧穿窗口后批量检索被集体判 tool_timeout，或首个模型轮
+        # 就吃光窗口一次工具都没轮到。后者零 trace，所以不能拿「试过工具」
+        # 当判据；stop_reason 才是两种形状的共同观察量。
+        cold_restart_candidate = (
+            outcome.stop_reason == "deadline_exhausted"
+            and not outcome.evidence
+        )
         admission = admit_repair(
             episode_id=episode_id,
             missing_outputs=missing_outputs,
@@ -880,6 +888,7 @@ class ContinuousTurnAdapter:
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
             delivery_candidate=bool(delivery_candidate),
+            cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
         )
         if admission is None:
