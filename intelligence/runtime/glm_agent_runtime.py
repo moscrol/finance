@@ -14,6 +14,7 @@ from intelligence.services.agent_runtime import (
     EpisodeEvent,
     ModelToolCall,
     ModelTurn,
+    is_transient_model_error,
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
@@ -27,16 +28,9 @@ from intelligence.services.task_frame import TaskFrame
 
 
 ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
-_TRANSIENT_PROVIDER_ERRORS = (
-    "TimeoutError",
-    "RemoteDisconnected",
-    "URLError",
-    # cockpit gateway round-robin 偶发：池里某账号坏掉时返回 502/503，
-    # 下一轮 round-robin 通常会打到健康账号。一次重试代价极低（<1s），
-    # 而不重试会让单次决证直接报 model_unavailable，误导性极强。
-    "HTTP 502",
-    "HTTP 503",
-)
+# 瞬态错误判据已上移到 services.agent_runtime（修复轮与 provider 链共用一份，
+# 不另建第二份清单）。本模块内保留原私有名，调用点不动。
+_is_transient_provider_error = is_transient_model_error
 DEFAULT_GLM_LLM_TIMEOUT = 75.0
 _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
@@ -640,12 +634,6 @@ def _provider_name(provider: object | None) -> str:
         return provider.strip()
     name = getattr(provider, "name", "")
     return name.strip() if isinstance(name, str) else ""
-
-
-def _is_transient_provider_error(reason: object) -> bool:
-    return isinstance(reason, str) and any(
-        marker in reason for marker in _TRANSIENT_PROVIDER_ERRORS
-    )
 
 
 def _is_call_budget_rejection(reason: object) -> bool:

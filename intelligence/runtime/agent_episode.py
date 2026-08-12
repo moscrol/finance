@@ -19,6 +19,7 @@ from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
     OutputEvidenceBinding,
+    is_transient_model_error,
     public_agent_evidence,
 )
 from intelligence.runtime.episode_finalizer import (
@@ -1109,18 +1110,48 @@ class ContinuousAgentEpisode:
             if research_tools_open
             else []
         )
-        model_started = monotonic()
-        turn = self._model.complete(
-            messages=list(messages),
-            tools=definitions,
-            timeout=timeout,
-        )
-        model_elapsed = max(0.0, monotonic() - model_started)
-        llm_calls += turn.provider_attempts
-        ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
-        messages.append(self._assistant_message(turn))
+        # 瞬态模型错误（超时/断连/网关 5xx）在修复轮不再一击终局：deadline 还有
+        # 余量时补救一次，熔断上限 1 次。主路径（planning 循环）对同类错误早有
+        # finalization 恢复层兜底，修复轮此前却是唯一零纠正层的模型调用点——
+        # 单发 TimeoutError 直接判死整轮修复。重试用同一份消息历史重发（失败
+        # turn 的空 assistant 消息不进历史，只进台账），时间账照常记：失败那次
+        # 的耗时已从 root 预算扣掉，重试窗口按残余 deadline 重新问价。
+        transient_retries_left = 1
+        while True:
+            model_started = monotonic()
+            turn = self._model.complete(
+                messages=list(messages),
+                tools=definitions,
+                timeout=timeout,
+            )
+            model_elapsed = max(0.0, monotonic() - model_started)
+            llm_calls += turn.provider_attempts
+            ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
+            budget_alive = _consume_root_seconds(repair_context, model_elapsed)
+            if (
+                turn.error
+                and budget_alive
+                and transient_retries_left > 0
+                and not self._is_cancelled()
+                and is_transient_model_error(turn.error)
+            ):
+                retry_timeout = repair_deadline.stage_timeout(self._llm_timeout)
+                if retry_timeout > 0.001:
+                    transient_retries_left -= 1
+                    ledger.add(
+                        "repair_model_retry",
+                        {
+                            "reason": turn.error,
+                            "timeout_asked": retry_timeout,
+                            "retries_left": transient_retries_left,
+                        },
+                    )
+                    timeout = retry_timeout
+                    continue
+            messages.append(self._assistant_message(turn))
+            break
         performed_tool_action = False
-        if not _consume_root_seconds(repair_context, model_elapsed):
+        if not budget_alive:
             return self._stopped_outcome(
                 task_frame=task_frame,
                 status="partial" if accumulator.evidence else "failed",
