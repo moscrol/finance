@@ -53,6 +53,7 @@ from intelligence.services import (
     llm_refine,
     market_analogs,
     market_financials,
+    task_fulfillment,
     market_midterm,
     market_moneyflow,
     market_news,
@@ -2552,8 +2553,13 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             # 判不过就把整份答案换成「请补充数据源」——模型是在一张它看不见的评分表
             # 上被打分。专项 owner 早就填了这个字段（research_owner 的 output_contract），
             # 只有 GenericResearchOwner 这条路一直是空的。
+            #
+            # render_prompt_constraint 在描述后追加该槽位「验收接受的措辞标记」：
+            # 光给描述不够——门禁按 _MARKERS 的子串判 marker_absent，模型写出
+            # 语义正确但不含标记词的正文照样判缺（08-01 C5：24 条证据全绑定仍被
+            # 换成缺口模板）。词表真源在 task_fulfillment，这里不复制。
             prompt_constraints=tuple(
-                f"{required.output_id}：{required.description}"
+                task_fulfillment.render_prompt_constraint(required)
                 for required in contract.required_outputs
                 if required.required
             ),

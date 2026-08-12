@@ -243,6 +243,11 @@ _MARKERS: dict[str, tuple[str, ...]] = {
     "metric_evidence": ("财务指标", "指标", "同比", "毛利率", "净利率"),
 }
 
+# 措辞门禁的豁免槽位：这两格的语义（判断动词 / 证据名词）几乎必然出现在任何
+# 合格答案里，强行要求标记词只会制造假缺口。evaluate_task_fulfillment 的
+# fulfilled 分支与 marker_vocabulary_hint 共用这一份，别在两处各写一个集合。
+_MARKER_EXEMPT_OUTPUTS = frozenset({"supporting_evidence", "direct_assessment"})
+
 
 def _tokens(text: str) -> set[str]:
     result: set[str] = set()
@@ -438,6 +443,43 @@ def output_marker_is_checkable(output_id: str) -> bool:
     return bool(_MARKERS.get(output_id.casefold(), ()))
 
 
+def marker_vocabulary_hint(output_id: str, *, limit: int = 6) -> str:
+    """该输出若受措辞门禁约束，返回「接受的标记词」提示；否则空串。
+
+    门禁按 ``_MARKERS`` 的子串判 ``marker_absent``，而模型此前看不到这张词表。
+    实测（08-01 验收 C5）：24 条证据全部绑定，只因 counterpoint 缺一个标记词，
+    整份答案被换成缺口模板——模型在一张它看不见的评分表上被打分，且回灌的
+    诊断只说「缺少措辞标记」、不说哪些词算数，补写轮也无从改起。
+
+    提示注入两处：初次合成的 ``prompt_constraints``（``render_prompt_constraint``）
+    与 ``marker_absent`` 的 gap 文本（补写回灌自动携带）。都走本函数，
+    词表只有 ``_MARKERS`` 一处真源。
+
+    豁免槽位（``_MARKER_EXEMPT_OUTPUTS``）返回空串：门禁本就不对它们做措辞
+    要求，提示只会稀释真正需要遵守的那几条。
+    """
+
+    key = str(output_id or "").casefold()
+    if key in _MARKER_EXEMPT_OUTPUTS:
+        return ""
+    phrases = _MARKERS.get(key, ())
+    if not phrases:
+        return ""
+    return "验收接受的措辞标记（正文含任一即可）：" + "、".join(phrases[:limit])
+
+
+def render_prompt_constraint(required: RequiredOutput) -> str:
+    """合成 prompt 里一行验收标准：``output_id：描述（+标记词提示）``。
+
+    ``answer_model`` 按「output_id：描述」在第一个全角冒号处拆分登记合法标题
+    （``_legal_heading_subjects``），提示追加在描述之后、括号内，拆分不受影响。
+    """
+
+    hint = marker_vocabulary_hint(required.output_id)
+    suffix = f"（{hint}）" if hint else ""
+    return f"{required.output_id}：{required.description}{suffix}"
+
+
 def evaluate_marker_coverage(
     required_outputs: Iterable[str],
     answer_text: str,
@@ -589,7 +631,7 @@ def evaluate_task_fulfillment(
         if bound and (
             marker
             or not marker_required
-            or output_id in {"supporting_evidence", "direct_assessment"}
+            or output_id in _MARKER_EXEMPT_OUTPUTS
         ):
             items.append(
                 FulfillmentItem(
@@ -615,7 +657,13 @@ def evaluate_task_fulfillment(
             why = f"候选 {len(candidates)} 条且正文已写到，但证据未能绑定"
             reason_code = "evidence_unbound"
         elif marker_required and not marker:
-            why = "已绑定，但正文缺少该输出的措辞标记"
+            # 带上接受的标记词：这段 gap 会原样进补写回灌
+            # （fulfillment_revision_user_content），只说「缺少标记」不说哪些词
+            # 算数，模型无从改起——同「把工具拒绝的具体原因回灌给模型」一条纪律。
+            hint = marker_vocabulary_hint(output_id)
+            why = "已绑定，但正文缺少该输出的措辞标记" + (
+                f"；{hint}" if hint else ""
+            )
             reason_code = "marker_absent"
         else:
             why = "未满足"
