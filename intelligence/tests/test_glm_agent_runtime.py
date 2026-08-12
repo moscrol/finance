@@ -654,6 +654,8 @@ def test_glm_client_returns_stable_error_for_unavailable_provider() -> None:
         # 而下一轮 round-robin 通常会打到健康账号（代价 <1s）。
         "LLM 调用 HTTP 502",
         "LLM 调用 HTTP 503",
+        "LLM 调用 HTTP 504",
+        "model deadline exhausted",
     ),
 )
 def test_glm_client_retries_one_transient_error_within_the_same_turn(

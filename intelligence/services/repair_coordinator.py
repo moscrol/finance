@@ -322,6 +322,37 @@ def grant_for_delivery_repair(
     return grant if root_budget.grant(grant) else None
 
 
+def grant_for_transient_model_retry(
+    goal: RepairGoal,
+    *,
+    root_budget: RootBudgetLedger,
+) -> BudgetGrant | None:
+    """超时把修复窗口烧穿后，从 hard-cap 未分配余量再铸一笔秒数。
+
+    修复授予是 ``min(剩余, 30, 缺口×8)``，常只有 8 秒；生产 ``llm_timeout``
+    是 75 秒。第一次 ``complete`` 的 timeout 因此等于整笔授予，真实
+    TimeoutError 会把 repair deadline 吃到 0——「失败后再看余量」这条
+    重试闸门对超时是死代码。
+
+    这笔 grant 动的是 research 从未分配的 hard-cap 余量（synthesis
+    reserve 那截），不重开工具槽，不突破单笔 30 秒帽。铸不出就 fail
+    closed。grant_id 按 repair_goal 固定，同一 goal 第二次调用会被
+    root ledger 拒掉，和熔断上限 1 对齐。
+    """
+
+    seconds = min(max(0.0, float(goal.remaining_seconds)), 30.0)
+    if seconds < 1.0:
+        return None
+    grant = BudgetGrant(
+        grant_id=f"transient-retry-{goal.repair_goal_id}",
+        episode_id=goal.episode_id,
+        cycle=goal.cycle,
+        calls_granted=0,
+        seconds_granted=seconds,
+    )
+    return grant if root_budget.grant(grant) else None
+
+
 def admit_repair(
     *,
     episode_id: str,
@@ -405,6 +436,7 @@ __all__ = [
     "build_repair_goal",
     "grant_for_delivery_repair",
     "grant_for_progress",
+    "grant_for_transient_model_retry",
     "max_repair_cycles_for_tier",
     "progress_from_ledger",
     "should_reenter",

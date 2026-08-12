@@ -180,6 +180,10 @@ TRANSIENT_MODEL_ERROR_MARKERS = (
     # 而不重试会让单次决证直接报 model_unavailable，误导性极强。
     "HTTP 502",
     "HTTP 503",
+    # 网关超时是 TimeoutError 的 HTTP 形态；适配器窗口烧穿时返回
+    # ``model deadline exhausted`` 而不是 TimeoutError 这个类名。
+    "HTTP 504",
+    "model deadline exhausted",
 )
 
 

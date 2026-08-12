@@ -45,7 +45,10 @@ from intelligence.services.mode_governor import (
     ModeSignals,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.repair_coordinator import RepairGoal
+from intelligence.services.repair_coordinator import (
+    RepairGoal,
+    grant_for_transient_model_retry,
+)
 from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchRunContext,
@@ -1011,6 +1014,105 @@ class ContinuousAgentEpisode:
             invalid_actions=invalid_actions,
         )
 
+    def _repair_model_complete(
+        self,
+        *,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        timeout: float,
+        repair_deadline: ResearchDeadline,
+        repair_context: ResearchRunContext,
+        goal: RepairGoal,
+        ledger: _EpisodeLedger,
+        phase: str,
+        llm_calls: int,
+        transient_retries_left: int,
+    ) -> tuple[
+        ModelTurn,
+        int,
+        bool,
+        ResearchDeadline,
+        ResearchRunContext,
+        int,
+    ]:
+        """修复轮的一次模型调用：瞬态错误最多补救一次。
+
+        两条补救路径，熔断共用 1 次：
+
+        1. repair deadline 还有余量（502/断连这种快速失败）——用余量重问价；
+        2. 余量被 TimeoutError 烧穿，但 root hard-cap 还有未分配秒数——再铸
+           一笔 ``grant_for_transient_model_retry``，用新窗口重问价。
+
+        失败 turn 的空 assistant 消息不在这里进历史。
+        """
+
+        while True:
+            model_started = monotonic()
+            try:
+                turn = self._model.complete(
+                    messages=list(messages),
+                    tools=tools,
+                    timeout=timeout,
+                )
+            except Exception as exc:
+                turn = ModelTurn(
+                    "",
+                    (),
+                    "",
+                    f"model_exception:{type(exc).__name__}",
+                    provider_attempts=1,
+                )
+            model_elapsed = max(0.0, monotonic() - model_started)
+            llm_calls += turn.provider_attempts
+            ledger.add("model_turn", {"phase": phase, **turn.to_dict()})
+            budget_alive = _consume_root_seconds(repair_context, model_elapsed)
+            if (
+                turn.error
+                and budget_alive
+                and transient_retries_left > 0
+                and not self._is_cancelled()
+                and is_transient_model_error(turn.error)
+            ):
+                retry_timeout = repair_deadline.stage_timeout(self._llm_timeout)
+                retry_grant = None
+                if retry_timeout <= 0.001 and repair_context.root_budget is not None:
+                    retry_grant = grant_for_transient_model_retry(
+                        goal,
+                        root_budget=repair_context.root_budget,
+                    )
+                    if retry_grant is not None:
+                        repair_deadline = ResearchDeadline.from_timeout(
+                            retry_grant.seconds_granted
+                        )
+                        repair_context = replace(
+                            repair_context,
+                            deadline=repair_deadline,
+                        )
+                        retry_timeout = repair_deadline.stage_timeout(
+                            self._llm_timeout
+                        )
+                if retry_timeout > 0.001:
+                    transient_retries_left -= 1
+                    payload: dict[str, object] = {
+                        "reason": turn.error,
+                        "timeout_asked": retry_timeout,
+                        "retries_left": transient_retries_left,
+                    }
+                    if retry_grant is not None:
+                        payload["grant_id"] = retry_grant.grant_id
+                        payload["seconds_granted"] = retry_grant.seconds_granted
+                    ledger.add("repair_model_retry", payload)
+                    timeout = retry_timeout
+                    continue
+            return (
+                turn,
+                llm_calls,
+                budget_alive,
+                repair_deadline,
+                repair_context,
+                transient_retries_left,
+            )
+
     def resume(
         self,
         state: _EpisodeContinuationState,
@@ -1110,46 +1212,41 @@ class ContinuousAgentEpisode:
             if research_tools_open
             else []
         )
-        # 瞬态模型错误（超时/断连/网关 5xx）在修复轮不再一击终局：deadline 还有
-        # 余量时补救一次，熔断上限 1 次。主路径（planning 循环）对同类错误早有
-        # finalization 恢复层兜底，修复轮此前却是唯一零纠正层的模型调用点——
-        # 单发 TimeoutError 直接判死整轮修复。重试用同一份消息历史重发（失败
-        # turn 的空 assistant 消息不进历史，只进台账），时间账照常记：失败那次
-        # 的耗时已从 root 预算扣掉，重试窗口按残余 deadline 重新问价。
+        # 瞬态模型错误（超时/断连/网关 5xx）在修复轮不再一击终局。
+        # 余量够就用余量重试；余量被真实 TimeoutError 烧穿则从 root hard-cap
+        # 未分配余量再铸一笔（grant_for_transient_model_retry）。熔断上限 1，
+        # 两跳（repair / repair_finalize）共用。失败 turn 不进消息历史。
         transient_retries_left = 1
-        while True:
-            model_started = monotonic()
-            turn = self._model.complete(
-                messages=list(messages),
-                tools=definitions,
-                timeout=timeout,
+        repair_expires_before = repair_deadline.expires_at
+        (
+            turn,
+            llm_calls,
+            budget_alive,
+            repair_deadline,
+            repair_context,
+            transient_retries_left,
+        ) = self._repair_model_complete(
+            messages=messages,
+            tools=definitions,
+            timeout=timeout,
+            repair_deadline=repair_deadline,
+            repair_context=repair_context,
+            goal=goal,
+            ledger=ledger,
+            phase="repair",
+            llm_calls=llm_calls,
+            transient_retries_left=transient_retries_left,
+        )
+        messages.append(self._assistant_message(turn))
+        # 额外 grant 换了 repair 窗口后，工具窗口也要跟着换；否则重试若要
+        # 调工具，会撞上已经烧穿的旧 bounded_stage。
+        if repair_deadline.expires_at > repair_expires_before + 0.001:
+            repair_tool_context = replace(
+                context,
+                deadline=context.deadline.bounded_stage(
+                    repair_deadline.remaining()
+                ),
             )
-            model_elapsed = max(0.0, monotonic() - model_started)
-            llm_calls += turn.provider_attempts
-            ledger.add("model_turn", {"phase": "repair", **turn.to_dict()})
-            budget_alive = _consume_root_seconds(repair_context, model_elapsed)
-            if (
-                turn.error
-                and budget_alive
-                and transient_retries_left > 0
-                and not self._is_cancelled()
-                and is_transient_model_error(turn.error)
-            ):
-                retry_timeout = repair_deadline.stage_timeout(self._llm_timeout)
-                if retry_timeout > 0.001:
-                    transient_retries_left -= 1
-                    ledger.add(
-                        "repair_model_retry",
-                        {
-                            "reason": turn.error,
-                            "timeout_asked": retry_timeout,
-                            "retries_left": transient_retries_left,
-                        },
-                    )
-                    timeout = retry_timeout
-                    continue
-            messages.append(self._assistant_message(turn))
-            break
         performed_tool_action = False
         if not budget_alive:
             return self._stopped_outcome(
@@ -1240,17 +1337,27 @@ class ContinuousAgentEpisode:
                     carried_draft=previous.draft,
                     carried_bindings=previous.bindings,
                 )
-            final_started = monotonic()
-            final_turn = self._model.complete(
-                messages=list(messages),
+            (
+                turn,
+                llm_calls,
+                budget_alive,
+                repair_deadline,
+                repair_context,
+                transient_retries_left,
+            ) = self._repair_model_complete(
+                messages=messages,
                 tools=[],
                 timeout=final_timeout,
+                repair_deadline=repair_deadline,
+                repair_context=repair_context,
+                goal=goal,
+                ledger=ledger,
+                phase="repair_finalize",
+                llm_calls=llm_calls,
+                transient_retries_left=transient_retries_left,
             )
-            final_elapsed = max(0.0, monotonic() - final_started)
-            llm_calls += final_turn.provider_attempts
-            ledger.add("model_turn", {"phase": "repair_finalize", **final_turn.to_dict()})
-            messages.append(self._assistant_message(final_turn))
-            if not _consume_root_seconds(repair_context, final_elapsed):
+            messages.append(self._assistant_message(turn))
+            if not budget_alive:
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -1266,7 +1373,6 @@ class ContinuousAgentEpisode:
                     carried_draft=previous.draft,
                     carried_bindings=previous.bindings,
                 )
-            turn = final_turn
         if turn.error or turn.tool_calls:
             invalid_actions += len(turn.tool_calls)
             return self._stopped_outcome(
