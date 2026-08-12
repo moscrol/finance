@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 import subprocess
 import sys
+import time
+import urllib.request
 
 from ..db import PROJECT_DIR, connect
 
@@ -18,12 +21,84 @@ def _latest_trade_date() -> str:
         con.close()
 
 
+def preflight_daily_update(
+    *,
+    module_exists=None,
+    cdp_probe=None,
+) -> dict:
+    """开跑前把「这个解释器/环境跑不完整条链」的事实一次说清。
+
+    2026-08-12 实测两次白跑：宿主 python3(3.9) 在 import 期就崩
+    （`dataclass(slots=True)`），换 `.venv-workbench` 后 akshare 缺失——
+    但那次直到第 4 步才暴露，前面 3 步的网络抓取已经花掉，且 index/sw-l1/
+    deviation 三步连环 FAIL、同日门必挂、报告必不生成，整轮 7 分钟注定白跑。
+
+    按「事实投递 > 提醒」：缺什么、哪些步骤会因此失败、该用哪个解释器，
+    开跑前打出与错误信念直接矛盾的那条事实，而不是让人事后从 step 错误里拼。
+    返回 {ok, problems: [...]}；调用方 fail closed。
+    """
+
+    exists = module_exists or (
+        lambda name: importlib.util.find_spec(name) is not None
+    )
+    problems: list[str] = []
+    if not exists("akshare"):
+        problems.append(
+            f"当前解释器 {sys.executable} 缺 akshare："
+            "sync-index-daily / sync-sw-l1-daily 必挂，"
+            "sync-market-deviation 的 MA 兜底缺当日上证收盘价也会挂，"
+            "同日门必不通过、报告必不生成。"
+            "请换装有 akshare 的解释器（日常为 homebrew python3）再跑。"
+        )
+    if not exists("duckdb"):
+        problems.append(
+            f"当前解释器 {sys.executable} 缺 duckdb：所有写库步骤必挂。"
+        )
+
+    def _default_cdp_probe() -> bool:
+        try:
+            urllib.request.urlopen("http://localhost:3456/targets", timeout=3)
+            return True
+        except Exception:
+            return False
+
+    if not (cdp_probe or _default_cdp_probe)():
+        problems.append(
+            "CDP proxy(localhost:3456) 不可达：fupanhui 侧全部 sync 步骤必挂。"
+            "先启动 node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs"
+            "（需 Chrome 已开 remote debugging）。"
+        )
+    return {"ok": not problems, "problems": problems}
+
+
 def _run_step(name, func, *args, **kwargs):
+    # 即时输出 + 逐步计时：这条链单步可到分钟级，重定向到文件时 Python 还会
+    # 块缓冲——2026-08-12 实测跑了 6 分钟日志 0 字节，中途卡在哪完全不可判。
+    # flush 让「文件里最后一行」重新成为可信的进度指针；elapsed_s 让「哪步最贵」
+    # 不用靠掐表（先量后改的量就从这来）。
+    started = time.monotonic()
+    print(f"[step] {name} ...", flush=True)
     try:
         result = func(*args, **kwargs)
-        return {"name": name, "ok": True, "result": result, "error": None}
+        elapsed = round(time.monotonic() - started, 1)
+        print(f"[step] {name} ok ({elapsed}s)", flush=True)
+        return {
+            "name": name,
+            "ok": True,
+            "result": result,
+            "error": None,
+            "elapsed_s": elapsed,
+        }
     except Exception as exc:
-        return {"name": name, "ok": False, "result": None, "error": str(exc)}
+        elapsed = round(time.monotonic() - started, 1)
+        print(f"[step] {name} FAIL ({elapsed}s): {exc}", flush=True)
+        return {
+            "name": name,
+            "ok": False,
+            "result": None,
+            "error": str(exc),
+            "elapsed_s": elapsed,
+        }
 
 
 def _run_advancers_chart(trade_date: str, chart_table: str | None = None) -> dict:

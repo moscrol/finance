@@ -535,9 +535,30 @@ def cmd_sync_stock_daily_snapshot(args) -> int:
     return 0
 
 
+def _daily_preflight_or_exit() -> int | None:
+    """开跑前拦下「这个环境注定跑不完」的情况，exit 2 并说清缺什么、会挂哪几步。
+
+    只挡 CLI 入口，不进 run_daily_update——测试与编排层直接调函数层，
+    无 CDP 的环境不该被误拦。2026-08-12 实测：akshare 缺失直到第 4 步才暴露，
+    整轮 7 分钟白跑；这里把同一事实提前到第 0 秒。
+    """
+    from .sync.sync_daily_full import preflight_daily_update
+
+    verdict = preflight_daily_update()
+    if verdict["ok"]:
+        return None
+    print("环境预检不通过（fail closed，未发起任何抓取）：")
+    for problem in verdict["problems"]:
+        print(f"  ✗ {problem}")
+    return 2
+
+
 def cmd_daily_update(args) -> int:
     from .sync.sync_daily_full import run_daily_update
 
+    blocked = _daily_preflight_or_exit()
+    if blocked is not None:
+        return blocked
     result = run_daily_update(
         trade_date=args.trade_date,
         chart_table=args.chart_table,
@@ -591,6 +612,9 @@ def cmd_daily_review(args) -> int:
 def cmd_daily_full(args) -> int:
     from .sync.sync_daily_full import run_daily_full
 
+    blocked = _daily_preflight_or_exit()
+    if blocked is not None:
+        return blocked
     result = run_daily_full(
         trade_date=args.trade_date,
         chart_table=args.chart_table,
@@ -600,7 +624,9 @@ def cmd_daily_full(args) -> int:
     print(f"交易日: {result['trade_date']} | 全流程状态: {'OK' if result['ok'] else 'CHECK'}")
     for step in result["update"]["steps"]:
         status = "OK" if step["ok"] else "FAIL"
-        print(f"[{status}] {step['name']}")
+        elapsed = step.get("elapsed_s")
+        suffix = f" ({elapsed}s)" if elapsed is not None else ""
+        print(f"[{status}] {step['name']}{suffix}")
         if not step["ok"]:
             print(f"  {step['error']}")
     cross_day = result["cross_day_gate"]
