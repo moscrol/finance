@@ -23,10 +23,40 @@
 
 **R5 隔离验证**（8794 @ fix 分支，`eval/runs/20260813T0245Z-r5-headroom-fix.json`，A4–A10）：重试窗全部 `asked=30.0`；A4 完整走通（`repair_model_finish`，2 证据 0 降级）；A6/A7 进闸门；降级 6/7→2/7，带证据 2/7→5/7。
 
+## 第三圈：R6 本地 GLM 质检（不改 8792）
+
+用户要求「不用中转、用本地 GLM」。本机没有 ollama/vllm；本地 GLM = Keychain `finance-workbench-glm` + Coding Plan。
+
+| 通道 | 环境变量 | URL | 结果 |
+|------|----------|-----|------|
+| 官方 GLM | `ZHIPU_API_KEY` | `.../api/paas/v4` | HTTP 429 余额不足（半成品已杀，不当结论） |
+| **Coding Plan** | `FORESIGHT_BUILTIN_LLM_API_KEY` | `.../api/coding/paas/v4` | 冒烟 8.2s「收到」；全 A 组可跑 |
+| 中转 terra | 8792 生产 | `x.ailzd.com` | **未动** |
+
+**R6**（8794 @ `a317f37f` / 源 `97642e26`，`eval/runs/20260813T0314Z-r6-glm-qc.json`，A1–A10）：
+
+| 题 | 秒 | 证据 | 降级 | stop | 修复授予 |
+|----|----|------|------|------|----------|
+| A1 | 87.6 | 22 | 0 | `repair_model_finish` | 24s（主路径 TimeoutError 后救回） |
+| A2 | 71.4 | 7 | 0 | `repair_model_finish` | 30s |
+| A3 | 69.3 | 3 | 0 | `repair_model_stop` | 24s |
+| A4 | 81.5 | 9 | 0 | `repair_model_finish` | **16s 首枪走通** |
+| A5 | 28.7 | 4 | 0 | `model_finish` | — |
+| A6 | 50.8 | 3 | 0 | `model_finish` | — |
+| A7 | 57.0 | 9 | 0 | `model_finish` | — |
+| A8 | 73.4 | 19 | 0 | `model_finish` | — |
+| A9 | 77.6 | 6 | 1 | `model_finish` | —（语义/证据核验降级） |
+| A10 | 45.0 | 0 | 1 | `repair_model_stop` | 16s |
+
+对照 R5（中转，仅 A4–A10）：同题普遍更快、证据更多；A6 0→3 证据且不再降级。**零次 `repair_model_retry`**：GLM 修复首枪 16–24s 够用，30s 重试闸门空转是正确行为，不是漏触发。中转 R4 正是 16s 窗不够才需要那次重试。
+
+R6 **不能**替代白天中转公平对照——换的是模型通道，不是把 R4/R5 的超时分布重跑了一遍。
+
 ## 判决与新形状
 
 - A1 三轮 31s/103s/85s **均为 `standard`**，非路由方差；~30s 是 standard 90s 被合成保留（75→2/3 钳 60）挤出的检索分配段。
-- 新形状（待立案）：30s 窗内 provider 到货但模型没吐合法修复 FINISH（`repair_model_stop`×4、`invalid_repair_finish`×1）；A3 `continuous_runtime_failed`；A1-R2 主路径超时+零证据。
+- 新形状（待立案）：修复窗内 provider 到货但模型没吐合法 FINISH（R5：`repair_model_stop`×4 + `invalid_repair_finish`×1；R6 GLM：A3、A10 仍是 `repair_model_stop`）。A1-R2 主路径超时+零证据（`tools_open=False` 时 `admit_repair` 拒）仍是另一条链。
+- A3 `continuous_runtime_failed` 在 GLM 上消失，中转侧是否还在要白天对照。
 
 ## 可迁移
 
@@ -34,7 +64,8 @@
 2. **重试窗口尺寸取自当前权威（ledger headroom），不能取自被中途替换的旧字段**。
 3. **fail closed 的记账要配 settle 兜底**：烧爆账本恰是补救层最该工作的时刻。
 4. 工具归位：`scripts/dump_episode_receipts.py`（验收 run → 逐题修复收据表）。
+5. **同一把 key、两个 URL、两套配额**：`ZHIPU_API_KEY` → 官方 `paas/v4`（可能 429 余额不足）；`FORESIGHT_BUILTIN_LLM_API_KEY` → Coding Plan。health 都报 `zhipu/glm-5.2`，看 URL 才能分清。这在任何「兼容 OpenAI 的多入口供应商」都能用。
 
 ## 环境
 
-canonical 8792 = `a317f37f`；生产 run 目录在 `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`；两轮验收均在凌晨（中转最差时段），公平对照待白天重跑。
+canonical 8792 = 中转 terra（本轮未切模型）；隔离 8794 = GLM Coding Plan。生产 run 目录在 `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`。R4/R5 凌晨中转；R6 是 GLM 通道质检。中转公平对照仍待白天重跑。
