@@ -1151,6 +1151,12 @@ class ContinuousAgentEpisode:
         repair_deadline = ResearchDeadline.from_timeout(repair_seconds)
         repair_context = replace(context, deadline=repair_deadline)
         repair_tool_deadline = context.deadline.bounded_stage(repair_seconds)
+        if goal.reopen_tools and repair_tool_deadline.expired:
+            # 冷启动修复：主检索窗已烧穿，工具窗改用坐标器授予的窗口。
+            # 「关闭的检索窗禁止工具」仍是常规修复的不变量；这里的例外由
+            # admit_repair 的 grant_for_cold_restart 三道准入把关（仅 cycle 1、
+            # 仅零证据、仅确实尝试过检索），模型无权自行申请。
+            repair_tool_deadline = repair_deadline
         repair_tool_context = replace(context, deadline=repair_tool_deadline)
         research_tools_open = not repair_tool_deadline.expired
         ledger.add("repair_goal", goal.to_dict())
@@ -1253,12 +1259,15 @@ class ContinuousAgentEpisode:
         )
         messages.append(self._assistant_message(turn))
         # 额外 grant 换了 repair 窗口后，工具窗口也要跟着换；否则重试若要
-        # 调工具，会撞上已经烧穿的旧 bounded_stage。
+        # 调工具，会撞上已经烧穿的旧 bounded_stage。冷启动修复的工具窗直接
+        # 跟随新授予窗口——它的旧 bounded_stage 本来就是烧穿的。
         if repair_deadline.expires_at > repair_expires_before + 0.001:
             repair_tool_context = replace(
                 context,
-                deadline=context.deadline.bounded_stage(
-                    repair_deadline.remaining()
+                deadline=(
+                    repair_deadline
+                    if goal.reopen_tools
+                    else context.deadline.bounded_stage(repair_deadline.remaining())
                 ),
             )
         performed_tool_action = False

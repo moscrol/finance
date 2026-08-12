@@ -130,6 +130,9 @@ class RepairGoal:
     evidence_progress: CoverageDelta
     remaining_calls: int
     remaining_seconds: float
+    # 冷启动修复专用：主检索窗已烧穿时，允许修复轮在授予的窗口内重开工具。
+    # 只由 admit_repair 在 grant_for_cold_restart 命中时置位，模型无权申请。
+    reopen_tools: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -147,6 +150,7 @@ class RepairGoal:
             },
             "remaining_calls": self.remaining_calls,
             "remaining_seconds": self.remaining_seconds,
+            "reopen_tools": self.reopen_tools,
         }
 
 
@@ -281,6 +285,60 @@ def grant_for_progress(
     return grant if root_budget.grant(grant) else None
 
 
+def grant_for_cold_restart(
+    goal: RepairGoal,
+    progress: ProgressSnapshot,
+    *,
+    root_budget: RootBudgetLedger,
+) -> BudgetGrant | None:
+    """Grant one tool-open restart turn for an episode starved of evidence.
+
+    进度闸（``should_reenter`` 的 ``coverage_delta.progressed``）要求主路径至少
+    捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把另一种
+    形状一并挡死：检索窗被首个打偏的查询烧穿、末尾批量补发的检索在截止线上被
+    集体判 ``tool_timeout``、episode 以**零证据**终局，而轮预算还有大量未分配
+    余量（2026-08-13 R7-A3 实测：43s 失败终局，root 余量 ~257s）。
+
+    冷启动是进度闸的镜像兜底，与 ``grant_for_delivery_repair`` 互斥：
+    delivery 修复要求「有证据、没答案」，冷启动要求「有尝试、零证据」。
+    三道准入缺一不可——
+
+    - ``cycle == 1``：只给一发，失败不再续（防循环，与进度闸的目的一致）；
+    - ``attempted_actions`` 非空：模型确实尝试过检索，是「饿死」不是「没干活」；
+    - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道。
+
+    授予额度沿用进度修复的公式（≤30s、按缺口计工时），从 root 未分配余量铸造，
+    失败即 fail closed。
+    """
+
+    if goal.cycle != 1:
+        return None
+    if progress.after_evidence_ids:
+        return None
+    if not goal.attempted_actions:
+        return None
+    if not goal.missing_answer_elements:
+        return None
+    if goal.remaining_calls < 1 or goal.remaining_seconds < 1.0:
+        return None
+    work_units = min(
+        4,
+        max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
+    )
+    calls = min(work_units, goal.remaining_calls)
+    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    if calls < 1 or seconds < 1.0:
+        return None
+    grant = BudgetGrant(
+        grant_id=f"cold-restart-{goal.repair_goal_id}",
+        episode_id=goal.episode_id,
+        cycle=goal.cycle,
+        calls_granted=calls,
+        seconds_granted=seconds,
+    )
+    return grant if root_budget.grant(grant) else None
+
+
 def grant_for_delivery_repair(
     goal: RepairGoal,
     *,
@@ -400,6 +458,7 @@ def admit_repair(
     )
     grant: BudgetGrant | None = None
     delivery_only = False
+    cold_restart = False
     if not delivery_candidate:
         grant = grant_for_progress(
             goal,
@@ -422,6 +481,18 @@ def admit_repair(
             evidence_count=evidence_count,
         )
         delivery_only = grant is not None
+    if (
+        grant is None
+        and not delivery_candidate
+        and evidence_count == 0
+        and missing_outputs
+    ):
+        grant = grant_for_cold_restart(
+            goal,
+            previous_progress,
+            root_budget=root_budget,
+        )
+        cold_restart = grant is not None
     if grant is None:
         return None
     return RepairAdmission(
@@ -429,6 +500,7 @@ def admit_repair(
             goal,
             remaining_calls=grant.calls_granted,
             remaining_seconds=grant.seconds_granted,
+            reopen_tools=cold_restart,
         ),
         grant=grant,
         delivery_only=delivery_only,
@@ -443,6 +515,7 @@ __all__ = [
     "RepairGoal",
     "admit_repair",
     "build_repair_goal",
+    "grant_for_cold_restart",
     "grant_for_delivery_repair",
     "grant_for_progress",
     "grant_for_transient_model_retry",

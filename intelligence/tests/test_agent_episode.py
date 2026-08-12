@@ -382,6 +382,144 @@ def test_glm_resume_uses_existing_evidence_after_research_deadline(
     assert updated.usage.tool_calls == 1
 
 
+def test_cold_restart_goal_reopens_tools_inside_granted_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``reopen_tools`` 的修复轮在授予窗口内重新拿到工具。
+
+    上一个测试钉住的不变量是「关闭的检索窗禁止工具」；本测试钉住它唯一的
+    例外：坐标器为饿死型 episode（零证据 + 有尝试 + cycle 1）铸的冷启动
+    授予自带工具权。没有这个例外，R7-A3 形状（检索窗烧穿、零证据、root
+    余量 ~257s）在修复轮只能做措辞修复——对零证据的 episode 是空转。
+    """
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        research_contract_module.time,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    monkeypatch.setattr(
+        agent_episode_module,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+    model = ScriptedModel(
+        [
+            _plan_turn(answer_elements=["direct_assessment"]),
+            # 主路径直接空手收场：模拟检索窗内一无所获。
+            _finish_turn(status="partial", hashes=(), gap="检索窗内未取得证据"),
+            # 冷启动修复轮：先补一发检索，再交 FINAL。
+            _tool_turn("补齐市场结构证据", call_id="call-2"),
+            _finish_turn(draft="补检索后：当前更像阶段性修复。"),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    assert session.outcome.evidence == ()
+    clock["now"] = 31.0  # 主检索窗（30s）已烧穿
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-cold-restart-test",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=("market_data:test",),
+            evidence_progress=CoverageDelta(0, 0, 0),
+            remaining_calls=2,
+            remaining_seconds=16.0,
+            reopen_tools=True,
+        )
+    )
+
+    assert updated.status == "completed"
+    assert updated.stop_reason == "repair_model_finish"
+    # 修复轮的第一发模型调用拿到了工具（对照上个测试的 tools == []）。
+    repair_call = model.calls[2]
+    assert repair_call["tools"], "冷启动修复轮必须携带工具定义"
+    # 工具真的执行了，证据从零到一。
+    assert updated.usage.tool_calls == 1
+    assert any(item.content_hash == "evidence-1" for item in updated.evidence)
+    # 工具动作后的收尾调用回到无工具（修复终止阶段禁调工具的既有约束不变）。
+    assert model.calls[-1]["tools"] == []
+
+
+def test_resume_without_reopen_tools_keeps_expired_window_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """默认路径回归钉：普通修复目标在烧穿的检索窗后仍然拿不到工具。"""
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        research_contract_module.time,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    monkeypatch.setattr(
+        agent_episode_module,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=20.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+    model = ScriptedModel(
+        [
+            _plan_turn(answer_elements=["direct_assessment"]),
+            _finish_turn(status="partial", hashes=(), gap="检索窗内未取得证据"),
+            _finish_turn(status="partial", hashes=(), gap="仍无证据"),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    clock["now"] = 31.0
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-no-reopen-test",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=("market_data:test",),
+            evidence_progress=CoverageDelta(0, 0, 0),
+            remaining_calls=2,
+            remaining_seconds=16.0,
+        )
+    )
+
+    repair_call = model.calls[2]
+    assert repair_call["tools"] == []
+    assert updated.usage.tool_calls == 0
+
+
 def test_episode_session_resume_bounds_every_action_by_granted_seconds() -> None:
     frame = _frame()
     context = _context(frame, max_steps=1)
