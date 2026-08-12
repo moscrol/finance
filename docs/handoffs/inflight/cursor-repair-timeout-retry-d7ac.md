@@ -1,6 +1,6 @@
 # 在途交接 · cursor/repair-timeout-retry-d7ac
 
-更新：2026-08-12 · Cursor Cloud
+更新：2026-08-12 · Cursor Cloud（审查修复后第二版）
 
 ## 这个分支做什么
 
@@ -8,21 +8,21 @@
 
 ## 当前状态
 
-- 全部已提交已推送（92599b00 实现 + 5c81e335 交接），工作树干净。
+- 三个实现提交已推送（92599b00 首版 + 450933b2 审查修复），工作树干净。
+- **首版有空操作，已自审查出并修掉**：修复授予常仅 8s（min(剩余,30,缺口×8)），单次 LLM 上限 75s，第一发 timeout=整笔授予，真实 TimeoutError 烧穿后「看余量再重试」恒不触发。第二版从 root hard-cap 未分配余量再铸单次 grant（`grant_for_transient_model_retry`，≤30s、0 工具槽、grant_id 幂等、fail closed），repair/repair_finalize 两跳共用熔断 1 次；异常路径收成 turn.error；瞬态名单补 HTTP 504 / model deadline exhausted。
 - **卡在等用户审 #296**；合并 main 必须用户确认，未动。
-- 顺带更新了 `inflight/main.md`（tier 方差归因 + Mac 侧判决命令），随 PR 走。
 
 ## 已验证
 
-- 受影响 6 测试文件 245 passed；改/新增 4 条重试测试全绿；ruff 干净。
-- 全量 4074 passed / 26 failed，失败集合与 main 基线（e999c979，独立 worktree）逐条一致=环境性。**收据条件：云端 /usr/bin/python3 + FWP_ALLOW_ANY_PYTHON=1，非 canonical venv**。
+- 4 条烧真实时钟的测试（monkeypatch monotonic）钉死空操作不复发；受影响 7 文件 262 passed；ruff 干净。
+- 全量 4074 passed / 26 failed，失败集合与 main 基线逐条一致=环境性。**收据条件：云端 /usr/bin/python3 + FWP_ALLOW_ANY_PYTHON=1，非 canonical venv**。
 
 ## 未验证 / 已知边界
 
-- 未在真实 provider 上验证重试路径（云端无 LLM key）；只有 ScriptedModel。
-- 合并后需重跑 A 组看 A7/A9/A10 超时降级是否消失——这是效果判决，测试绿≠效果达成。
-- tier 方差只归因到机制未判决：需 Mac 上对比 R1/R2 A1 的 continuous-episode.json `contract.research_tier`（细节见 inflight/main.md 第 2 条）。
-- 云端无 CC_REMOTE_EXEC_TOKEN，触不到 Mac。
+- 未在真实 provider 上验证（云端无 LLM key）；只有 ScriptedModel + 假时钟。
+- 铸新 grant 动的是 synthesis reserve 段的 hard-cap 余量——设计上超时补救优先于保留段，quick 档（30s 硬顶）常铸不出，属预期 fail closed。
+- 合并后需重跑 A 组看 A7/A9/A10 超时降级是否消失——测试绿≠效果达成。
+- tier 方差只归因到机制未判决（见 inflight/main.md 第 2 条）；云端无 CC_REMOTE_EXEC_TOKEN 触不到 Mac。
 
 ## 下一步
 
