@@ -597,6 +597,210 @@ def test_adapter_keeps_the_answer_when_a_repair_comes_back_empty() -> None:
     assert any("TimeoutError" in gap for gap in outcome["gaps"])
 
 
+def test_starved_episode_admits_cold_restart_with_tool_reopen() -> None:
+    """deadline_exhausted + 零证据 → 冷启动修复，goal 带 reopen_tools。
+
+    R7-A3 / R9-A3 生产形状：检索窗烧穿、零证据终局，进度闸（要求 ≥1 新证据）
+    与 delivery 闸（要求有证据）都进不去，episode 43s 死掉而轮预算还有大量
+    余量。本测试钉住 adapter 的接线：它必须把「stop_reason=deadline_exhausted
+    且零证据」观察成 cold_restart_candidate 传给 admit_repair——R9 实测这一环
+    缺失时，单测全绿但生产一次都不点火。
+    """
+
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-cold-restart",
+        capabilities=control.capabilities,
+        timeout=120.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=2,
+            hard_calls_cap=8,
+            initial_seconds=30.0,
+            hard_seconds_cap=300.0,
+        ),
+    )
+    starved = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="failed",
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=("研究截止时间已到，仍有必需输出未覆盖",),
+        stop_reason="deadline_exhausted",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {}),
+            EpisodeEvent(3, "finish", {"stop_reason": "deadline_exhausted"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(1, 0, 0),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="冷启动补检索取得的行情观察",
+        source="测试行情",
+        source_date="2026-07-24",
+        content_hash="cold-restart-evidence",
+        independent_key="market-window",
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="补检索后：当前更像阶段性修复。",
+        evidence=(evidence,),
+        traces=(ProviderTrace("test:market", "market_data", "success"),),
+        gaps=(),
+        stop_reason="repair_model_finish",
+        events=(
+            *starved.events,
+            EpisodeEvent(4, "repair_reentry", {"cycle": 1}),
+            EpisodeEvent(5, "model_turn", {"phase": "repair"}),
+            EpisodeEvent(6, "tool_result", {"ok": True}),
+            EpisodeEvent(7, "finish", {"stop_reason": "repair_model_finish"}),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                output_id="direct_assessment",
+                evidence_hashes=("cold-restart-evidence",),
+                gap="",
+            ),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    resume_goals = []
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(previous, goal):
+                assert previous is starved
+                resume_goals.append(goal)
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=starved,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert len(resume_goals) == 1
+    goal = resume_goals[0]
+    assert goal.reopen_tools is True
+    assert goal.remaining_calls >= 1
+    assert 0.0 < goal.remaining_seconds <= 30.0
+    assert result.status == "completed"
+    assert result.private_artifact["repair_cycles"] == 1
+
+
+def test_zero_evidence_model_finish_does_not_get_cold_restart() -> None:
+    """回归钉：零证据但主动收场（model_finish）的 episode 不进冷启动。
+
+    冷启动只救「饿死」；模型自己宣布完成/拒答不是饿死，给它重开工具会把
+    「零证据降级是检索缺陷信号」这个观察量冲掉。
+    """
+
+    frame = _frame(required_outputs=("direct_assessment",))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-no-cold-restart",
+        capabilities=control.capabilities,
+        timeout=120.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=2,
+            hard_calls_cap=8,
+            initial_seconds=30.0,
+            hard_seconds_cap=300.0,
+        ),
+    )
+    refused = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="缺少证据，暂无法判断。",
+        evidence=(),
+        traces=(),
+        gaps=("direct_assessment",),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {}),
+            EpisodeEvent(3, "finish", {"stop_reason": "model_finish"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(1, 0, 0),
+    )
+    resume_calls = 0
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            del registry
+
+            def resume(_previous, _goal):
+                nonlocal resume_calls
+                resume_calls += 1
+                return refused
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=refused,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, structurally_verified, **_kwargs):
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="partial",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert resume_calls == 0
+    assert result.private_artifact["repair_cycles"] == 0
+
+
 def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
     frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
     control = _control(
