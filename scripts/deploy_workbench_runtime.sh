@@ -44,6 +44,24 @@ else
   print -- "revision: $(git -C "$REPO" rev-parse --short HEAD)（干净）"
 fi
 
+# 部署前闸门：检索解释器必须可执行。
+#
+# 为什么放在部署侧：2026-08-12 实测过这个缺口的代价——`.rag_venv` 是指向一个
+# 已不存在目录的符号链接，kb_search 每次 7ms FileNotFoundError，而 health 报
+# vector_index: true（只判索引目录）、check_rag_readiness 报「就绪」（只判索引
+# 元数据）。**两个仪表都绿，能力却是零。**
+#
+# 不阻断部署的其余部分（代码修复该上线），但必须**大声说出来**——静默才是
+# 上次能停摆好几天的原因。用 || true 是刻意的：这条是可见性闸门不是正确性闸门，
+# 检索坏了不该拦住一次与检索无关的代码部署。
+if ! "$PYTHON" "$REPO/scripts/check_rag_readiness.py" --quiet 2>/dev/null; then
+  print -- ""
+  print -- "⚠️  RAG 就绪自检未通过 —— kb_search 很可能不可用"
+  "$PYTHON" "$REPO/scripts/check_rag_readiness.py" 2>&1 | sed 's/^/    /' || true
+  print -- "    （不阻断本次部署；修法见 docs/handoffs/2026-08-12-rag-venv-rebuild.md）"
+  print -- ""
+fi
+
 # 全量 rsync，不做逐文件补丁。
 #
 # 逐文件 cp 在这里是陷阱：2026-08-08 那次先补 episode_protocol.py + llm_refine.py

@@ -47,3 +47,53 @@ class TestRagRuntimeDependencyIsExecutabilityNotExistence:
         monkeypatch.setenv("KB_RAG_PYTHON", sys.executable)
 
         assert rag_runtime_ready()
+
+
+class TestRagReadinessGateCoversTheInterpreter:
+    """就绪门禁必须判「解释器能不能跑」，不只判「索引新不新鲜」。
+
+    2026-08-12 的实测教训：`.rag_venv` 悬空期间 kb_search 每次 7ms
+    FileNotFoundError，而**两个仪表同时发绿**——health 报 vector_index: true
+    （只判索引目录存在）、check_rag_readiness 报「就绪」退出 0（只判索引元数据）。
+    一个专门用来判「向量层能不能当证据用」的门禁，漏掉了最基本的那一问。
+
+    本类钉住的是**判据的存在性**，不是它的实现：门禁与 health 必须共用
+    ``kb_rag.rag_runtime_ready`` 这一个真相源。两份判据必漂，且漂的时候两边都绿。
+    """
+
+    def test_readiness_gate_imports_the_shared_predicate(self) -> None:
+        """门禁脚本必须复用同一个判据，不得另写一份。"""
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "scripts"
+            / "check_rag_readiness.py"
+        ).read_text(encoding="utf-8")
+
+        assert "rag_runtime_ready" in source
+
+    def test_health_and_gate_agree_on_a_dangling_interpreter(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """同一个坏路径，两处必须得出同一个结论——否则就是两份判据。"""
+        dangling = tmp_path / "gone" / "python"
+        monkeypatch.setenv("KB_RAG_PYTHON", str(dangling))
+
+        assert rag_runtime_ready() is False
+
+    def test_deploy_script_runs_the_readiness_gate(self) -> None:
+        """判据存在但没人调用等于不存在——部署链必须真的跑它。
+
+        这是「授予的额度必须真的传到最下游执行者」的同构：
+        只写进脚本不接进流程，比不做更危险（看起来有防护）。
+        """
+        from pathlib import Path
+
+        deploy = (
+            Path(__file__).resolve().parents[2]
+            / "scripts"
+            / "deploy_workbench_runtime.sh"
+        ).read_text(encoding="utf-8")
+
+        assert "check_rag_readiness.py" in deploy

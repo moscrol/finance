@@ -58,6 +58,25 @@ def _dirty_indexed_paths(kb: Path) -> list[str] | None:
     return [line[3:].strip().strip('"') for line in proc.stdout.splitlines() if line.strip()]
 
 
+
+def _rag_runtime_ready() -> bool:
+    """借用 intelligence 层的判据；本仓不可导入时退回等价实现（脚本要能独立跑）。"""
+
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from intelligence.services.kb_rag import rag_runtime_ready
+
+        return rag_runtime_ready()
+    except Exception:  # noqa: BLE001 - 门禁不能因为导入失败就放行
+        import shutil
+
+        candidate = str(os.environ.get("KB_RAG_PYTHON") or "").strip()
+        if not candidate:
+            return bool(shutil.which("python3"))
+        path = Path(candidate).expanduser()
+        return path.is_file() and os.access(path, os.X_OK)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kb-root", default=os.environ.get("KB_ROOT") or str(DEFAULT_KB))
@@ -85,6 +104,19 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     problems: list[str] = []
+    # 索引新鲜 ≠ 检索跑得起来。本门禁历史上只判索引元数据，于是
+    # 2026-08-12 那次 `.rag_venv` 悬空（符号链接目标目录已不存在）期间，
+    # kb_search 每次 7ms 抛 FileNotFoundError，而这里一路报「就绪」退出 0——
+    # **一个专门用来抓「向量层能不能当证据用」的门禁，漏掉了「解释器在不在」。**
+    #
+    # 判据复用 kb_rag.rag_runtime_ready（唯一真相源，health 的 rag_runtime 用的
+    # 也是它），不在这里另写一份——两份判据必漂，且漂的时候两边都发绿。
+    if not _rag_runtime_ready():
+        problems.append(
+            f"检索解释器不可执行（KB_RAG_PYTHON={os.environ.get('KB_RAG_PYTHON') or '未设置'}）"
+            "｜补救：重建 .rag_venv 并装 requirements-rag.txt，"
+            "见 docs/handoffs/2026-08-12-rag-venv-rebuild.md"
+        )
     if meta.get("source_dirty") is True:
         problems.append(
             "索引是在脏工作区上建的（source_dirty=true）"
