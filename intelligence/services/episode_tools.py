@@ -7,6 +7,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -54,6 +55,44 @@ _NON_EVIDENCE_PREFIXES = (
 _OFFICIAL_L3_RUNNER = object()
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
+
+
+def _agent_finance_parameters() -> dict[str, object]:
+    """把 Agent 侧的真实行数上限**写进 schema**，而不是只写在契约散文里。
+
+    保真性缺口（2026-08-12 实测修复）：``FINANCE_QUERY_PARAMETERS`` 的
+    ``limit.maximum`` 是 1000（那是查询引擎的通用上限），但 Agent 路径在
+    ``finance_query_runner`` 里 ``min(normalized.limit, 25)``。于是模型按 schema
+    以为能取 1000 行，实际永远只有 25 行，且**只在拿到结果之后**才由 observation
+    补一句「已截断」——下单时它不知道。
+
+    这不是理论风险。历史 run 里模型写出的 limit 分布：20(72) 10(43) 30(18)
+    100(16) 15(16) 200(13) **1000(8)** 5(3) —— **189 次调用里 55 次（约 29%）
+    要的行数超过工具能给的上限**，其中 8 次逐字写了 schema 广告的 1000。
+    ai-agent-book ch4 那条底线说的就是这个：模型感知到的世界与工具操作的世界
+    之间不能存在系统性偏差。
+
+    **上限从 ``_AGENT_FINANCE_QUERY_MAX_ROWS`` 生成，不手抄**（BUILD 模式 6）：
+    手抄的数会和真正执行的那个常数分叉，而分叉时没有任何门禁会发红。
+    ``test_agent_finance_schema_limit_matches_enforced_cap`` 钉住这条等式。
+    """
+
+    parameters = copy.deepcopy(finance_query.FINANCE_QUERY_PARAMETERS)
+    properties = parameters["properties"]
+    assert isinstance(properties, dict)
+    properties["limit"] = {
+        **properties["limit"],
+        "maximum": _AGENT_FINANCE_QUERY_MAX_ROWS,
+        # 限定语排在被限定内容之前（BUILD 模式 4）：先说上限是硬的，再说怎么办。
+        "description": (
+            f"返回行数上限 {_AGENT_FINANCE_QUERY_MAX_ROWS}，这是硬上限，"
+            "写更大的值不会拿到更多行。需要更完整的切片就加筛选、分组或排序后再查一次，"
+            "不要靠调大 limit。"
+        ),
+    }
+    return parameters
+
+
 # A dedicated tier, deliberately absent from ``answer_model._HARD_EVIDENCE_TIERS``:
 # user memory is the user's own prior judgement, never an objective market fact.
 # Reusing an existing tier (e.g. ``agent_retrieval``) would make it
@@ -870,7 +909,7 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=finance_query_runner,
-                parameters=finance_query.FINANCE_QUERY_PARAMETERS,
+                parameters=_agent_finance_parameters(),
                 parse_arguments=parse_finance_arguments,
             )
         )

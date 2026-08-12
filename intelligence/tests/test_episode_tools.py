@@ -2492,3 +2492,50 @@ def _prior_recall_finish_turn(recalled_hashes):
         "scripted",
         "",
     )
+
+
+class TestAgentFinanceSchemaTellsTheTruth:
+    """schema 广告的行数上限必须等于真正执行的那个上限。
+
+    2026-08-12 修的保真性缺口：``FINANCE_QUERY_PARAMETERS`` 的 limit.maximum 是
+    1000（查询引擎的通用上限），而 Agent 路径 ``min(normalized.limit, 25)``。
+    模型按 schema 以为能取 1000 行，实际永远 25 行，且只在**拿到结果之后**才由
+    observation 补一句「已截断」。
+
+    历史 run 实测：189 次 finance_query 调用里 55 次（约 29%）要的行数超过 25，
+    其中 8 次逐字写了 schema 广告的 1000。ai-agent-book ch4「参数传递的保真性」：
+    模型感知到的世界与工具操作的世界之间不能存在系统性偏差。
+
+    与 ``test_tool_behavior_contract.py`` 里那些契约断言不同，**这一条是硬不变量**：
+    契约那边刻意不做全覆盖门禁（会逼人编一句），而「schema 说的 = 执行的」两边
+    都是机器可读的数，等式要么成立要么不成立，没有编造空间。
+    """
+
+    def test_agent_finance_schema_limit_matches_enforced_cap(self) -> None:
+        parameters = episode_tools._agent_finance_parameters()
+
+        advertised = parameters["properties"]["limit"]["maximum"]
+
+        assert advertised == episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS
+
+    def test_agent_schema_does_not_mutate_the_shared_engine_schema(self) -> None:
+        """引擎那份是通用的（别的调用方上限本就更高），不能被 Agent 侧就地改掉。"""
+        before = finance_query.FINANCE_QUERY_PARAMETERS["properties"]["limit"]["maximum"]
+
+        episode_tools._agent_finance_parameters()
+
+        after = finance_query.FINANCE_QUERY_PARAMETERS["properties"]["limit"]["maximum"]
+        assert before == after
+        assert after > episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS
+
+    def test_limit_description_states_the_cap_is_hard(self) -> None:
+        """光把 maximum 调小不够——模型会以为「写 25 就能拿 25」而不知道该改查法。
+
+        ch4 §工具描述的艺术：清晰列出边界（做不到什么）比描述能力更重要。
+        """
+        description = episode_tools._agent_finance_parameters()["properties"]["limit"][
+            "description"
+        ]
+
+        assert str(episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS) in description
+        assert "硬上限" in description
