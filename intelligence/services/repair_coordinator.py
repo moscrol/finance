@@ -294,28 +294,28 @@ def grant_for_cold_restart(
     """Grant one tool-open restart turn for an episode starved of evidence.
 
     进度闸（``should_reenter`` 的 ``coverage_delta.progressed``）要求主路径至少
-    捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把另一种
-    形状一并挡死：检索窗被首个打偏的查询烧穿、末尾批量补发的检索在截止线上被
-    集体判 ``tool_timeout``、episode 以**零证据**终局，而轮预算还有大量未分配
-    余量（2026-08-13 R7-A3 实测：43s 失败终局，root 余量 ~257s）。
+    捞到 1 条证据才配修复——它挡的是「无进展还无限续命」的循环。但它把饿死型
+    episode 一并挡死。生产实测两种饿死形状（2026-08-13）：
 
-    冷启动是进度闸的镜像兜底，与 ``grant_for_delivery_repair`` 互斥：
-    delivery 修复要求「有证据、没答案」，冷启动要求「有尝试、零证据」。
-    三道准入缺一不可——
+    - R7-A3：首个打偏的查询烧穿检索窗，末尾批量补发的检索在截止线上被集体判
+      ``tool_timeout``，43s 零证据终局，root 余量 ~257s；
+    - R9-A3：首个模型轮（规划）就把窗口吃光，**一次工具都没轮到**，零 trace。
+
+    第二种形状说明「试过工具」不能当饿死判据——模型没偷懒，是 provider 慢。
+    饿死的判据是 ``stop_reason == deadline_exhausted`` 且零证据，它由调用方
+    （continuous_turn_adapter）观察后以 ``cold_restart_candidate`` 传入
+    ``admit_repair``；本函数只负责额度侧的三道闸——
 
     - ``cycle == 1``：只给一发，失败不再续（防循环，与进度闸的目的一致）；
-    - ``attempted_actions`` 非空：模型确实尝试过检索，是「饿死」不是「没干活」；
-    - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道。
+    - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道；
+    - root 余量足额：fail closed，不铸空头授予。
 
-    授予额度沿用进度修复的公式（≤30s、按缺口计工时），从 root 未分配余量铸造，
-    失败即 fail closed。
+    授予额度沿用进度修复的公式（≤30s、按缺口计工时），从 root 未分配余量铸造。
     """
 
     if goal.cycle != 1:
         return None
     if progress.after_evidence_ids:
-        return None
-    if not goal.attempted_actions:
         return None
     if not goal.missing_answer_elements:
         return None
@@ -436,6 +436,7 @@ def admit_repair(
     tools_open: bool = True,
     allow_delivery_repair: bool = True,
     delivery_candidate: bool = False,
+    cold_restart_candidate: bool = False,
     evidence_count: int = 0,
 ) -> RepairAdmission | None:
     """Build one goal and admit exactly one budget grant.
@@ -484,6 +485,7 @@ def admit_repair(
     if (
         grant is None
         and not delivery_candidate
+        and cold_restart_candidate
         and evidence_count == 0
         and missing_outputs
     ):

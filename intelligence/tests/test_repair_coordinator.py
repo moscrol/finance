@@ -426,6 +426,7 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
         root_budget=root,
         research_tier="standard",
         tools_open=False,
+        cold_restart_candidate=True,
         evidence_count=0,
     )
 
@@ -440,27 +441,71 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
     assert admission.goal.remaining_seconds == admission.grant.seconds_granted
 
 
-def test_cold_restart_requires_attempted_actions_not_idle_model() -> None:
-    """没尝试过检索的 episode 不配冷启动——那是「没干活」，不是「饿死」。"""
+def test_cold_restart_requires_adapter_observed_starvation() -> None:
+    """不带 cold_restart_candidate 的 admit_repair 不会漏进冷启动。
+
+    饿死判据（stop_reason == deadline_exhausted 且零证据）由 adapter 观察后
+    显式传入；坐标器对没有这个标记的零证据 episode（如 model_finish 拒答）
+    保持原有拒收。R9-A3 实测教训：不能拿「试过工具」当判据——首个模型轮
+    吃光窗口的形状零 trace，但同样是饿死。
+    """
     progress = _starved_progress()
-    goal = build_repair_goal(
-        episode_id="episode-idle",
-        missing_outputs=("direct",),
-        attempted_actions=(),
-        previous_progress=progress,
-        remaining_calls=4,
-        remaining_seconds=100.0,
-    )
     root = InMemoryRootBudgetLedger(
-        episode_id="episode-idle",
-        initial_calls=1,
+        episode_id="episode-no-flag",
+        initial_calls=2,
         hard_calls_cap=8,
         initial_seconds=30.0,
         hard_seconds_cap=300.0,
     )
 
-    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
+    admission = admit_repair(
+        episode_id="episode-no-flag",
+        missing_outputs=("direct",),
+        attempted_actions=(),
+        previous_progress=progress,
+        remaining_calls=6,
+        remaining_seconds=257.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        cold_restart_candidate=False,
+        evidence_count=0,
+    )
+
+    assert admission is None
     assert root.allocated_seconds == 30.0
+
+
+def test_cold_restart_fires_for_zero_trace_starvation() -> None:
+    """R9-A3 形状：首个模型轮吃光窗口、零 trace 零证据，也要放行。"""
+    progress = _starved_progress()
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-zero-trace",
+        initial_calls=2,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=300.0,
+    )
+
+    admission = admit_repair(
+        episode_id="episode-zero-trace",
+        missing_outputs=("direct",),
+        attempted_actions=(),
+        previous_progress=progress,
+        remaining_calls=6,
+        remaining_seconds=257.0,
+        cycle=1,
+        root_budget=root,
+        research_tier="standard",
+        tools_open=False,
+        cold_restart_candidate=True,
+        evidence_count=0,
+    )
+
+    assert isinstance(admission, RepairAdmission)
+    assert admission.goal.reopen_tools is True
+    assert admission.grant.calls_granted >= 1
 
 
 def test_cold_restart_refuses_when_any_evidence_exists() -> None:
@@ -563,6 +608,7 @@ def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
         research_tier="standard",
         tools_open=False,
         delivery_candidate=True,
+        cold_restart_candidate=True,
         evidence_count=1,
     )
 
