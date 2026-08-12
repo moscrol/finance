@@ -1,0 +1,52 @@
+{
+  "slots_without_markers": [
+    "analog_similarities",
+    "as_of_date",
+    "biases_and_gaps",
+    "causal_chain",
+    "change_summary",
+    "claim_summary",
+    "comparison_conclusion",
+    "comparison_dimensions",
+    "conditional_thesis",
+    "data_date",
+    "direct_answer",
+    "direct_definition",
+    "direct_explanation",
+    "event_facts",
+    "evidence_assessment",
+    "evidence_hierarchy",
+    "fact_value",
+    "failure_modes",
+    "impact_transmission",
+    "key_differences",
+    "limits_of_analogy",
+    "mainline_structure",
+    "market_summary",
+    "method",
+    "risk_signals",
+    "scenario_range",
+    "technical_levels",
+    "tracking_signals",
+    "tradeoffs",
+    "transmission_chain",
+    "valuation_assessment",
+    "verification_conditions",
+    "verification_path"
+  ],
+  "grader_only": [
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "phrases": [
+        "断层"
+      ]
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "phrases": [
+        "graph_only",
+        "观察列表"
+      ]
+    }
+  ]
+}
