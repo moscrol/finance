@@ -858,3 +858,31 @@ def test_benign_degrades_do_not_mark_a_turn_degraded() -> None:
     # 原因必须点名真降级，而不是「one or more turns reported degradation」
     assert "知识库检索失败" in verdict.reason
     assert "1 条良性" in verdict.reason
+
+
+def test_extract_numbers_survives_cjk_adjacency() -> None:
+    """`\\w` 在 Unicode 模式匹配中文——数字紧贴汉字时旧断言把整数部分拦死，
+    引擎从小数点后半截匹配（21949.97→97），带小数的 fact 断言全军覆没
+    （08-12 R3 实测整窗撕碎）。负向断言只该挡 ASCII 词字符和小数点。"""
+    from intelligence.eval.acceptance_verdict import _extract_numbers
+
+    text = "全市场成交额21949.97，上证收涨0.252%，环比降17.27%，占比45.1%"
+    assert _extract_numbers(text) == [21949.97, 0.252, 17.27, 45.1]
+
+
+def test_extract_numbers_still_skips_identifier_fragments() -> None:
+    from intelligence.eval.acceptance_verdict import _extract_numbers
+
+    assert _extract_numbers("run_20260812 与 v2 版本，1,234.5 亿") == [1234.5]
+
+
+def test_fact_rule_passes_with_cjk_tight_number() -> None:
+    """端到端：R3 A1 的真实行文形状——数字紧贴「成交额」，必须判 PASS。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 21949.97, "tol_pct": 1.0},
+        "涨停116家、跌停2家；但全市场成交额21949.97，环比降17.27%。",
+        {"total_amount": ("成交额",)},
+    )
+    assert rule.state is VerdictState.PASS

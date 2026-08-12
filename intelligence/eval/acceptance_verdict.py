@@ -71,7 +71,14 @@ _KNOWN_OVERLAY_FIELDS = frozenset(
 _ALIAS_WINDOW_BACK = 40
 _ALIAS_WINDOW_FORWARD = 40
 
-_NUMBER_RE = re.compile(r"(?<![\w])[-+]?\d[\d,]*(?:\.\d+)?%?")
+# 负向断言只挡 ASCII 词字符和小数点，**不能用 `\w`**：Python re 的 Unicode 模式
+# 下 `\w` 匹配中文，而中文行文里数字几乎总是紧贴汉字（「成交额21949.97」）——
+# 用 `\w` 会把整数部分拦死，引擎跳到小数点后匹配出 97（08-12 R3 实测：窗口里
+# 0.252%→252、21949.97→97、17.27%→27，整窗数字全部撕碎，带小数的 fact 断言
+# 全军覆没）。这个坑从量具初版就在，08-01 的答案恰好数字前有标点才没踩响。
+# 挡 `.` 是为了不从小数点后半截开始匹配；挡 ASCII 字母/数字/下划线是防
+# run_20260812、v2 这类标识符里的碎数字。
+_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.])[-+]?\d[\d,]*(?:\.\d+)?%?")
 _TAG_RE = re.compile(r"\[([SGRWE]\d+)\]")
 _ISO_DATE_RE = re.compile(r"\b(20\d{2})-(\d{1,2})-(\d{1,2})\b")
 _CN_DATE_RE = re.compile(r"(?<!\d)(\d{1,2})月(\d{1,2})日")
