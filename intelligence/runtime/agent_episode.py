@@ -254,7 +254,7 @@ class _EpisodeToolAccumulator:
                             step_id=result.step_id,
                         )
                     )
-                self._append_tool_error(call, result.error)
+                self._append_tool_error(call, result.error, result.detail)
                 continue
 
             if result.status in {"error", "timeout"}:
@@ -315,12 +315,19 @@ class _EpisodeToolAccumulator:
             )
         return invalid_actions
 
-    def _append_tool_error(self, call: ModelToolCall, error: str) -> None:
+    def _append_tool_error(
+        self,
+        call: ModelToolCall,
+        error: str,
+        detail: str = "",
+    ) -> None:
         payload = {
             "ok": False,
             "tool": call.name,
             "error": error,
-            "detail": "",
+            # 分类码之外还要给可操作的原因——``error`` 只说「参数不合法」，
+            # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
+            "detail": str(detail or "")[:400],
         }
         self.ledger.add("tool_error", payload)
         self.messages.append(
