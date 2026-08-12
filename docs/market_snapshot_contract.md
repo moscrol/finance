@@ -72,3 +72,21 @@ python3 -m scripts.check_market_snapshot_contract --root market_snapshot --date 
 ```
 
 返回 `PASS` 表示文件和关键字段齐；`WARN` 表示可读但有字段缺失或日期不一致；`FAIL` 表示缺每日文件、日期缺失或核心结构不可用。
+
+## 快照 ↔ DuckDB 对账（2026-08-12 起默认必跑）
+
+格式校验之外，脚本默认还会对账：**快照 `served_trade_date` 必须等于 DuckDB
+`fact_market_daily` 的 `max(trade_date)`**（实现在
+`intelligence/services/market_snapshot_reconcile.py`，结果在输出的
+`reconciliation` 字段）。
+
+为什么：新鲜度门禁（要求方）读快照的 `served_trade_date`，结构化查询（供给方）
+读 DuckDB 的 `max(trade_date)`。两者读不同的源，快照超前一天时每条结构化查询
+都会被判「数据仅更新到 X，早于当前所需 Y」，证据整批作废、fail-closed 到
+「证据不足」——且格式校验对此完全静默（2026-08-12 实测：验收 28 题真值通过 0）。
+
+- 不等（无论超前/落后）、库文件缺失、表缺失、空表：一律 `FAIL`（fail closed），
+  错误消息带方向，指明该跑 `daily-full` 还是快照同步。
+- 库路径默认 `MARKET_FEATURE_STORE_DB` → 数据根 `db/market_feature_store.duckdb`，
+  可用 `--db` 覆盖。
+- 没有 DuckDB 的机器（纯快照消费端）用 `--skip-db` 保留旧的纯格式校验。
