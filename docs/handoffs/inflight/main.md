@@ -17,7 +17,12 @@
 
 1. **#295 待合并（量具修复，重大）**：`_NUMBER_RE` 的 `(?<![\w])` 在中文紧邻时把数字整窗撕碎（21949.97→97）。修复后零配额重判：R3 真值 **0/7→1/7（A1 全绿，史上第一个 PASS）**、fact 12→6；R1 重判不变（当时真缺）。**此前「#293 无效果」结论作废——数值注入实际生效**，被量具 bug 掩盖。
 2. 剩余 6 条 fact 红已归因：A3/A4 真缺数字；**A5 日期错位**（07-23 的题拿 08-12 证据作答成「电力最集中」，真值储能 40——且被路由进 general_finance_qa 泛型桶，双重问题，待立案）；A9/A10 超时降级。
-3. **LLM 超时 harness 策略**（A7 R3 仍中招）：对口判据 `serial-phase-budget`。
+3. **LLM 超时 harness 策略**（A7 R3 仍中招，设计已定待实现）：
+   ① repair 路径 `agent_episode.py:1139` 对 turn.error 一击终局——超时类错误应在
+   repair deadline 余量足够时**单次重试**（马书 ch1「超时重试=Harness 纠正层职责」
+   + ch2「重试配熔断」，上限 1 次）；主路径 :639 已有 finalization 恢复层不用动。
+   ② R2 A1 deadline_exhausted 于 31s ≈ quick 档 30s 预算——**同题两轮 tier 不同**
+   （R1 跑了 103s），查 tier 分配的方差来源（research_contract.py:390 for_tier）。
 4. knevo 后续：suggest_options 缺口镜像、report→track 接力。
 5. TOOLKIT 待补：变异还原禁用 `git checkout <file>`，成文已交用户。
 
