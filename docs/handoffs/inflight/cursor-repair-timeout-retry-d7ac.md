@@ -1,39 +1,55 @@
 # 在途交接 · cursor/repair-timeout-retry-d7ac
 
-更新：2026-08-12 · Cursor Cloud（审查修复后第二版）
+更新：2026-08-12 · Cursor Cloud（Mac 隧道已通，A1/A7 产物已判决）
 
 ## 这个分支做什么
 
-修复轮 LLM 瞬态错误单次重试（熔断上限 1）——`agent_episode.resume()` 此前对超时一击终局，R2 四题、R3 A7 的死因。PR #296 已 ready for review。
+修复轮 LLM 瞬态错误单次重试（熔断上限 1）。生产形状：repair 授予 16s，`timeout_configured=75`，第一发 TimeoutError 烧穿后一击终局。PR #296 ready for review。
 
 ## 当前状态
 
-- 三个实现提交已推送（92599b00 首版 + 450933b2 审查修复），工作树干净。
-- **首版有空操作，已自审查出并修掉**：修复授予常仅 8s（min(剩余,30,缺口×8)），单次 LLM 上限 75s，第一发 timeout=整笔授予，真实 TimeoutError 烧穿后「看余量再重试」恒不触发。第二版从 root hard-cap 未分配余量再铸单次 grant（`grant_for_transient_model_retry`，≤30s、0 工具槽、grant_id 幂等、fail closed），repair/repair_finalize 两跳共用熔断 1 次；异常路径收成 turn.error；瞬态名单补 HTTP 504 / model deadline exhausted。
+- 实现已推送：92599b00 首版 + 450933b2 审查修复（烧穿后从 root hard-cap 未分配余量再铸 ≤30s grant）。
 - **卡在等用户审 #296**；合并 main 必须用户确认，未动。
+- Mac 产物目录不在仓内 `intelligence/users/`，而在 `FORESIGHT_USERS_DIR=/Users/a77/.local/share/finance-workbench/users`（8792 进程环境）。
 
-## 已验证
+## A1 31s vs 103s 判决（产物，不是猜）
 
-- 4 条烧真实时钟的测试（monkeypatch monotonic）钉死空操作不复发；受影响 7 文件 262 passed；ruff 干净。
-- 全量 4074 passed / 26 failed，失败集合与 main 基线逐条一致=环境性。**收据条件：云端 /usr/bin/python3 + FWP_ALLOW_ANY_PYTHON=1，非 canonical venv**。
+三轮 `contract.research_tier` **全是 `standard`**，`question_type=market_watch`。**不是路由方差。**
 
-## 未验证 / 已知边界
+| 轮 | elapsed | stop_reason | repair | 形状 |
+|---|---|---|---|---|
+| R1 | 103.4s | `model_finish` | 0 | 首跳直接 tool call，30s 内写完，其余是 judge |
+| R2 | 31.0s | `deadline_exhausted` | **0** | PLAN→quick 裁决→第二跳 TimeoutError，0 证据，进不了 repair |
+| R3 | 84.6s | `repair_model_finish` | 1 | 先拿到 4 条工具证据，主路径超时后 delivery repair 24s 写完 |
 
-- 未在真实 provider 上验证（云端无 LLM key）；只有 ScriptedModel + 假时钟。
-- 铸新 grant 动的是 synthesis reserve 段的 hard-cap 余量——设计上超时补救优先于保留段，quick 档（30s 硬顶）常铸不出，属预期 fail closed。
-- 合并后需重跑 A 组看 A7/A9/A10 超时降级是否消失——测试绿≠效果达成。
-- tier 方差只归因到机制未判决（见 inflight/main.md 第 2 条）；云端无 CC_REMOTE_EXEC_TOKEN 触不到 Mac。
+~30s 是 standard 的**检索分配段**：档位 90s，GLM `market_watch` 要 75s 合成保留，被 `_MAX_SYNTHESIS_BUDGET_FRACTION=2/3` 钳成 60s，分配段 = 90−60 = **30s**。R1 的 103s 是 30s agent + judge，不是换了 deep 档。
+
+R2 本 PR **救不了**：0 证据 + `stage_timeout=0` → `tools_open=False` → `admit_repair` 拒。那是「主路径超时且没证据」另一条失败形状，别并进本 PR。
+
+## 本 PR 对得上的生产收据
+
+同一用户目录，repair 授予恒 16s（缺口×8），`timeout_asked≈16`，`timeout_configured=75`，第一发 TimeoutError 后无重试：
+
+- A7-R1 / A10-R1 → `repair_deadline_exhausted`
+- A9-R2 / A9-R3 / A10-R3 → `repair_model_unavailable`
+
+第二版从 hard-cap 未分配余量（90−已分配）再铸 ≤30s，就是为这一击。
+
+## 已验证 / 未验证
+
+- 测试：烧时钟 4 条 + 受影响 7 文件 262 passed；全量 4074/26 与 main 基线逐条一致。收据条件：云端 `/usr/bin/python3` + `FWP_ALLOW_ANY_PYTHON=1`。
+- 未在真实 provider 上验证。quick 档 30s 硬顶常铸不出，属预期 fail closed。
+- 合并后重跑 A 组：看 A7/A9/A10 的 repair TimeoutError 是否变成 retry 后的 `repair_model_finish`；**不要用 A1-R2 当本 PR 验收题**。
 
 ## 下一步
 
-1. 用户审 #296 → 确认后合并 → 部署 → 重跑 A 组验收。
-2. Mac 侧会话执行 tier 判决命令（inflight/main.md）。
-3. **工具沉淀待归位（云端触不到 Mac 的三件套文件）**：
-   - 「失败集合对基线 worktree 逐条 diff」手法本轮用了两次，应进 TOOLKIT 低成本档；
-   - 模式「重试放在能看到剩余预算的那一层，每层重试预算独立」候选 BUILD.md/10_knowledge。
+1. 用户审 #296 → 确认后合并 → 部署 → 重跑 A 组。
+2. A1-R2 形状另立案（主路径超时 + 零证据 + tools 已关）。
+3. A5 日期错位仍待立案。
+4. 工具沉淀（Mac `~/harness-reference`）：失败集合对基线 worktree diff；「重试放在能看见剩余预算的那一层」。
 
 ## 踩过的坑
 
-- 云端跑测试要先装 fastapi/uvicorn/duckdb/ruff/pyyaml/openai-agents，再带 FWP_ALLOW_ANY_PYTHON=1（test-environment.json 门禁按设计拦系统解释器）。
-- 云端全量 26 条失败全是环境性（duckdb 数据缺、日期敏感），别当回归归因——先对基线 diff 再下结论。
-- provider 链内重试受单次调用 timeout 窗口锁死（烧穿后 remaining≈0），「链内已有重试」不等于「超时有纠正层」。
+- 找 run 目录先看 8792 的 `FORESIGHT_USERS_DIR`，别在仓内 `users/` 里 rglob。
+- 远程 `python3 -c` 会被 `sh -c` 吃括号；复杂脚本用 stdin heredoc。
+- 不要把隧道 token 写进交接或 commit。
