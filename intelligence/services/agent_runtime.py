@@ -167,6 +167,38 @@ class ModelTurn:
         return payload
 
 
+# 瞬态模型/provider 错误的判据（单一真本源）。provider 适配器
+# （glm_agent_runtime）用它决定链内换 provider 重试，episode 修复轮用它决定
+# harness 层是否补救一次。两处共用同一份标记，避免「适配器认为可重试、
+# 修复轮认为致命」这种口径漂移。
+TRANSIENT_MODEL_ERROR_MARKERS = (
+    "TimeoutError",
+    "RemoteDisconnected",
+    "URLError",
+    # cockpit gateway round-robin 偶发：池里某账号坏掉时返回 502/503，
+    # 下一轮 round-robin 通常会打到健康账号。一次重试代价极低（<1s），
+    # 而不重试会让单次决证直接报 model_unavailable，误导性极强。
+    "HTTP 502",
+    "HTTP 503",
+    # 网关超时是 TimeoutError 的 HTTP 形态；适配器窗口烧穿时返回
+    # ``model deadline exhausted`` 而不是 TimeoutError 这个类名。
+    "HTTP 504",
+    "model deadline exhausted",
+)
+
+
+def is_transient_model_error(reason: object) -> bool:
+    """这个模型错误是不是「再试一次大概率就好」的瞬态故障。
+
+    命中判据是子串匹配：错误串可能被包装（如 ``LLM 调用失败（TimeoutError）``），
+    只要瞬态标记出现就算。配置错误（缺 key）、预算拒绝等确定性失败不在此列。
+    """
+
+    return isinstance(reason, str) and any(
+        marker in reason for marker in TRANSIENT_MODEL_ERROR_MARKERS
+    )
+
+
 @runtime_checkable
 class AgentModelClient(Protocol):
     """One provider adapter call; the episode owns continuity and policy."""

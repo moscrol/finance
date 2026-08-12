@@ -16,11 +16,16 @@ from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
+    is_transient_model_error,
 )
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.mode_governor import ModeSignals
-from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+from intelligence.services.repair_coordinator import (
+    BudgetGrant,
+    CoverageDelta,
+    RepairGoal,
+)
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
     RequiredOutput,
@@ -428,6 +433,9 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
     ``continuous_turn_adapter`` 又无条件接受了这个更差的结果。
 
     修复轮是 fix-forward，不是重跑：拿不到更好的答案时，最坏也要保住原来那份。
+
+    2026-08-12 起修复轮对瞬态错误有单次重试（熔断上限 1），所以这里给两发
+    连续超时：第一发触发重试、第二发证明熔断生效——重试耗尽后仍必须保住原稿。
     """
 
     frame = _frame(("direct_assessment", "counterpoint"))
@@ -436,6 +444,7 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
         [
             _tool_turn("今日市场结构"),
             _finish_turn(status="partial", gap="缺少反方证据"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
             ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
         ]
     )
@@ -469,6 +478,328 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
     assert updated.bindings == previous_bindings
     # 失败本身仍要可见，只是不能以丢答案为代价。
     assert any("TimeoutError" in gap for gap in updated.gaps)
+    # 熔断上限 1：正好重试一次，第二发失败后不得再试。
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 1
+    assert len(model.calls) == 4
+
+
+def test_repair_retries_transient_model_error_once_then_finishes() -> None:
+    """修复轮对超时类错误要有一次 harness 层补救，而不是一击终局。
+
+    机制归因（2026-08-12 验收 R2/R3）：修复轮此前是全 episode 唯一没有纠正层的
+    模型调用点——provider 链内的瞬态重试受单次调用 timeout 窗口约束，超时把窗口
+    烧穿后链内 remaining≈0 一次都补不了；主路径有 finalization 恢复层兜底，修复
+    轮却直接 ``repair_model_unavailable``。单发 TimeoutError 判死整轮修复，
+    R2 四题、R3 A7 全是这个形状。
+    """
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
+            _tool_turn("补齐行情证据", call_id="repair-retry-call"),
+            _finish_turn(),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-transient-retry",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 1
+    assert "TimeoutError" in str(retries[0].payload.get("reason"))
+    # 重试窗口按残余 deadline 重新问价，且不超过修复轮授予的秒数。
+    asked = retries[0].payload.get("timeout_asked")
+    assert isinstance(asked, float) and 0.0 < asked <= 10.0
+    # 失败那次调用也要进 llm_calls 账本，不能因为重试成功就抹掉。
+    assert updated.usage.llm_calls >= 4
+
+
+def test_repair_does_not_retry_deterministic_model_error() -> None:
+    """缺 key/预算拒绝这类确定性失败重试也不会好，必须立即终局省下时钟。"""
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            ModelTurn("", (), "scripted", "未配置 LLM key，无法完成模型调用"),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-deterministic-error",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_unavailable"
+    assert not [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(model.calls) == 2
+
+
+def test_is_transient_model_error_covers_gateway_timeout_and_deadline_exhausted() -> None:
+    assert is_transient_model_error("LLM 调用失败（TimeoutError）")
+    assert is_transient_model_error("LLM 调用 HTTP 504")
+    assert is_transient_model_error("model deadline exhausted")
+    assert not is_transient_model_error("未配置 LLM key，无法完成模型调用")
+    assert not is_transient_model_error("LLM 调用 HTTP 400")
+
+
+def _burn_clock_on_timeout(now: list[float]):
+    class BurningTimeoutModel:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            if len(self.calls) == 1:
+                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+            if len(self.calls) == 2:
+                now[0] += float(timeout)
+                return ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）")
+            if len(self.calls) == 3:
+                return _tool_turn("补齐行情证据", call_id="retry-after-burn")
+            return _finish_turn()
+
+    return BurningTimeoutModel()
+
+
+def test_repair_timeout_that_burns_the_window_does_not_retry_without_root_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """真实 TimeoutError 把授予窗口睡满后，没有 hard-cap 余量就不得重试。
+
+    这是审查里钉死的空操作：ScriptedModel 瞬时返回 TimeoutError 会让余量
+    看起来还在，生产里等满 timeout 后余量是 0。
+    """
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    model = _burn_clock_on_timeout(now)
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-burn-no-headroom",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_unavailable"
+    assert not [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(model.calls) == 2
+
+
+def test_repair_timeout_that_burns_the_window_retries_from_root_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """烧穿 repair 窗口后，从 hard-cap 未分配余量再铸一笔，重试一次应能完成。"""
+
+    frame = _frame()
+    base = _context(frame, max_steps=1)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=30.0,
+    )
+    assert root.grant(
+        BudgetGrant(
+            grant_id="grant-first",
+            episode_id=base.contract.task_id,
+            cycle=1,
+            calls_granted=1,
+            seconds_granted=8.0,
+        )
+    )
+    context = replace(base, root_budget=root)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    model = _burn_clock_on_timeout(now)
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-burn-with-headroom",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 1
+    assert retries[0].payload.get("seconds_granted") == 8.0
+    assert retries[0].payload.get("grant_id") == (
+        "transient-retry-repair-burn-with-headroom"
+    )
+    # 初始 finish、烧穿的 repair、重试（工具 turn）、repair_finalize。
+    assert len(model.calls) == 4
+
+
+def test_repair_timeout_that_burns_the_window_does_not_retry_when_hard_cap_is_spent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = _frame()
+    base = _context(frame, max_steps=1)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=18.0,
+    )
+    assert root.grant(
+        BudgetGrant(
+            grant_id="grant-first",
+            episode_id=base.contract.task_id,
+            cycle=1,
+            calls_granted=1,
+            seconds_granted=8.0,
+        )
+    )
+    context = replace(base, root_budget=root)
+    now = [context.deadline.expires_at - 29.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    model = _burn_clock_on_timeout(now)
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-burn-cap-spent",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_unavailable"
+    assert not [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(model.calls) == 2
+
+
+def test_repair_retries_raised_timeout_exception_once() -> None:
+    """complete() 抛 TimeoutError 也要收成 turn.error 再走同一条重试闸门。"""
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            TimeoutError("provider hung"),
+            _tool_turn("补齐行情证据", call_id="retry-after-raise"),
+            _finish_turn(),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-raised-timeout",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 1
+    assert "TimeoutError" in str(retries[0].payload.get("reason"))
 
 
 def test_episode_session_resume_does_not_dispatch_after_grant_expires(

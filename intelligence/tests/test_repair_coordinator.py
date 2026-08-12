@@ -5,8 +5,10 @@ from intelligence.services.repair_coordinator import (
     build_repair_goal,
     grant_for_delivery_repair,
     grant_for_progress,
+    grant_for_transient_model_retry,
     progress_from_ledger,
     should_reenter,
+    BudgetGrant,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
@@ -310,3 +312,76 @@ def test_root_budget_debits_model_seconds_without_spending_a_tool_call() -> None
 
     assert root.remaining_calls == 3
     assert root.remaining_seconds == 25.5
+
+
+def test_grant_for_transient_model_retry_mints_seconds_from_headroom() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    goal = build_repair_goal(
+        episode_id="episode-retry",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-retry",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=10.0,
+        hard_seconds_cap=30.0,
+    )
+    assert root.grant(
+        BudgetGrant(
+            grant_id="grant-first",
+            episode_id="episode-retry",
+            cycle=1,
+            calls_granted=0,
+            seconds_granted=8.0,
+        )
+    )
+
+    retry = grant_for_transient_model_retry(goal, root_budget=root)
+
+    assert retry is not None
+    assert retry.calls_granted == 0
+    assert retry.seconds_granted == 8.0
+    assert retry.grant_id == f"transient-retry-{goal.repair_goal_id}"
+    assert root.allocated_seconds == 26.0
+    # 同一 goal 再铸一次被 grant_id 拒掉，和熔断上限 1 对齐。
+    assert grant_for_transient_model_retry(goal, root_budget=root) is None
+
+
+def test_grant_for_transient_model_retry_fails_closed_at_hard_cap() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    goal = build_repair_goal(
+        episode_id="episode-full",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-full",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=10.0,
+        hard_seconds_cap=18.0,
+    )
+    assert root.grant(
+        BudgetGrant(
+            grant_id="grant-first",
+            episode_id="episode-full",
+            cycle=1,
+            calls_granted=0,
+            seconds_granted=8.0,
+        )
+    )
+
+    assert grant_for_transient_model_retry(goal, root_budget=root) is None
+    assert root.allocated_seconds == 18.0
