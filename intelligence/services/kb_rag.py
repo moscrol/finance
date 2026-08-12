@@ -1267,11 +1267,16 @@ def rag_runtime_ready() -> bool:
     「文件系统里有没有这个名字」：悬空符号链接、目录、无执行位三种情况
     ``Path.exists()`` 的答案各不相同，对 subprocess 却是同一个结果。
 
-    2026-08-12 实测到这个缺口的代价：``knowledge-base-private/.rag_venv`` 是指向
-    ``~/知识库/.rag_venv`` 的符号链接，而那个目录已不存在（链接建于 07-14）。
-    kb_search 每次 7ms 抛 FileNotFoundError，被脱敏成「研究过程中出现内部错误」，
-    历史 22 次调用 22 次空手（20 次 error/timeout）——**静默停摆约一个月，
-    而 health 一直报 vector_index: true**，因为它只判索引目录存不存在。
+    2026-08-12 [实测] ``knowledge-base-private/.rag_venv`` 是指向
+    ``~/知识库/.rag_venv`` 的符号链接，而那个目录已不存在。kb_search 每次 7ms 抛
+    FileNotFoundError（当场复现过），被脱敏成「研究过程中出现内部错误」，
+    **而 health 一直报 vector_index: true**——它只判索引目录存不存在。
+
+    ⚠ **断裂窗口 ≤6 天，不是「一个月」**：符号链接的创建日期（07-14）不是它
+    断掉的日期。索引 2026-08-06 22:20 用 bge-m3 成功建成，且当天 kb_search 还
+    返回过真 ``empty``，证明那时 venv 可用。历史上 14 次 ``无命中（error）``
+    集中在 07-28/29，属**另一次故障**，别和这次连成一条因果链——
+    初版注释就是这么连的，已更正。
     """
 
     import os
