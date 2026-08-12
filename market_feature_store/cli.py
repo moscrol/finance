@@ -428,7 +428,50 @@ def cmd_sync_theme_flow_daily(args) -> int:
 
 
 def cmd_sync_fupanhui_public_assets(args) -> int:
-    from .sync.sync_fupanhui_public_assets import sync as sync_public_assets
+    from .sync.sync_fupanhui_public_assets import align_bounds, sync as sync_public_assets, sync_range
+
+    if args.align or args.start_date or args.end_date or args.days:
+        if args.align and not args.start_date and not args.end_date and not args.days:
+            start, end = align_bounds()
+        elif args.days:
+            start, end = align_bounds()
+            con = connect(read_only=True)
+            try:
+                rows = con.execute(
+                    """
+                    SELECT CAST(trade_date AS VARCHAR) FROM fact_market_daily
+                    WHERE trade_date <= ?
+                    ORDER BY trade_date DESC
+                    LIMIT ?
+                    """,
+                    [end, int(args.days)],
+                ).fetchall()
+            finally:
+                con.close()
+            dates = [r[0] for r in reversed(rows)]
+            if not dates:
+                print("无交易日可回补")
+                return 2
+            start, end = dates[0], dates[-1]
+        else:
+            if not args.start_date or not args.end_date:
+                print("范围回补需要 --start-date 与 --end-date，或使用 --align / --days")
+                return 2
+            start, end = args.start_date, args.end_date
+        print(f"对齐窗口: {start} ~ {end} | sleep={args.sleep} refresh={args.refresh}")
+        s = sync_range(
+            start,
+            end,
+            refresh=args.refresh,
+            sleep=args.sleep,
+            include_catalog=args.include_catalog,
+        )
+        print(
+            f"日历 {s['calendar_days']} 日 | 同步 {s['synced']} | 跳过 {s['skipped']} | 失败 {s['failed']}"
+        )
+        for name, stats in (s.get("per_task") or {}).items():
+            print(f"  {name}: {stats}")
+        return 0 if s.get("ok") else 2
 
     td = args.trade_date
     if not td:
@@ -1153,6 +1196,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="同步复盘会公开增量资产（相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）",
     )
     p_pa.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_pa.add_argument("--align", action="store_true", help="按其它日表窗口回补缺口（默认新高表起点~market_daily 终点）")
+    p_pa.add_argument("--start-date", default=None, help="范围回补起始日 YYYY-MM-DD")
+    p_pa.add_argument("--end-date", default=None, help="范围回补结束日 YYYY-MM-DD")
+    p_pa.add_argument("--days", type=int, default=None, help="从对齐窗口终点往回 N 个交易日")
+    p_pa.add_argument("--sleep", type=float, default=0.2, help="子任务间隔秒数, 默认 0.2")
+    p_pa.add_argument("--refresh", action="store_true", help="不跳过已有行, 强制重刷")
+    p_pa.add_argument("--include-catalog", action="store_true", help="范围回补时也重拉研报目录/题材挖掘")
     p_pa.set_defaults(func=cmd_sync_fupanhui_public_assets)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")

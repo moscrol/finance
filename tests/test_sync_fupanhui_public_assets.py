@@ -234,3 +234,54 @@ def test_market_overview_persists_keywords(patched_db, monkeypatch):
         assert json.loads(kw) == ["光纤光缆", "CPO"]
     finally:
         con.close()
+
+
+def _stub_empty_daily_apis(monkeypatch):
+    monkeypatch.setattr(assets.fs, "get_review_summary", lambda td: {"keywords": ["光纤"]})
+    monkeypatch.setattr(
+        assets.fs,
+        "get_historical_mapping",
+        lambda td: {"source_date": td, "similar_days": [{"date": "2025-01-01", "similarity": 0.4}]},
+    )
+    empty = lambda *_a, **_k: {}
+    for name in (
+        "get_leader_ladder",
+        "get_global_market",
+        "get_dragon_list",
+        "get_regulation_logs",
+        "get_regulation_pool",
+        "get_core_stocks",
+        "get_auction_dashboard",
+        "get_news_events_timeline",
+        "get_news_events_future",
+    ):
+        monkeypatch.setattr(assets.fs, name, empty)
+
+
+def test_sync_range_aligns_to_market_calendar_and_skips_existing(patched_db, monkeypatch):
+    con = patched_db()
+    try:
+        con.executemany(
+            "INSERT INTO fact_market_daily (trade_date, source) VALUES (?, ?)",
+            [("2026-08-11", "test"), ("2026-08-12", "test")],
+        )
+    finally:
+        con.close()
+    _stub_empty_daily_apis(monkeypatch)
+    first = assets.sync_range("2026-08-11", "2026-08-12", sleep=0)
+    assert first["calendar_days"] == 2
+    assert first["per_task"]["historical_mapping"]["synced"] == 2
+    assert first["per_task"]["keywords"]["synced"] == 2
+    second = assets.sync_range("2026-08-11", "2026-08-12", sleep=0)
+    assert second["per_task"]["historical_mapping"]["skipped"] == 2
+    assert second["per_task"]["keywords"]["skipped"] == 2
+    con = patched_db()
+    try:
+        n = con.execute("SELECT COUNT(*) FROM fact_historical_mapping").fetchone()[0]
+        kw = con.execute(
+            "SELECT COUNT(*) FROM fact_market_daily WHERE summary_keywords IS NOT NULL"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    assert n == 2
+    assert kw == 2

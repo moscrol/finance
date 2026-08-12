@@ -310,6 +310,11 @@ def get_historical_mapping(trade_date: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def get_review_summary(trade_date: str) -> dict:
+    data = api_get_public("/reviews/summary", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
 def get_leader_ladder(trade_date: str) -> dict:
     data = api_get_public("/reviews/leader-ladder", {"trade_date": trade_date})
     return data if isinstance(data, dict) else {}

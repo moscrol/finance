@@ -845,7 +845,40 @@ def sync_fundamentals(*, sleep: float = 0.15, kb_root: Path | None = None) -> di
     }
 
 
-ASSET_SYNCS = (
+def sync_summary_keywords(trade_date: str) -> dict:
+    """只补 fact_market_daily.summary_keywords，不改其它市场字段。"""
+    from .sync_fupanhui_market_daily import _keywords_json
+
+    data = fs.get_review_summary(trade_date)
+    keywords = _keywords_json(data if isinstance(data, dict) else {})
+    init_db()
+    con = connect()
+    try:
+        con.execute(
+            "ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT"
+        )
+        exists = con.execute(
+            "SELECT 1 FROM fact_market_daily WHERE trade_date = ?",
+            [trade_date],
+        ).fetchone()
+        if not exists:
+            return {"keywords": keywords, "updated": False, "rows": 0}
+        con.execute(
+            """
+            UPDATE fact_market_daily
+            SET summary_keywords = ?,
+                updated_at = ?
+            WHERE trade_date = ?
+            """,
+            [keywords, _now(), trade_date],
+        )
+    finally:
+        con.close()
+    return {"keywords": keywords, "updated": True, "rows": 1 if keywords else 0}
+
+
+DAILY_SYNCS = (
+    ("keywords", sync_summary_keywords),
     ("historical_mapping", sync_historical_mapping),
     ("leader_height", sync_leader_height),
     ("global_market", sync_global_market),
@@ -854,9 +887,154 @@ ASSET_SYNCS = (
     ("core_stocks", sync_core_stocks),
     ("auction", sync_auction),
     ("events", sync_events),
+)
+
+ONCE_SYNCS = (
     ("research_catalog", lambda _td: sync_research_catalog()),
     ("fundamentals", lambda _td: sync_fundamentals()),
 )
+
+ASSET_SYNCS = DAILY_SYNCS + ONCE_SYNCS
+
+_COVERAGE_SQL = {
+    "keywords": (
+        "SELECT COUNT(*) FROM fact_market_daily "
+        "WHERE trade_date = ? AND summary_keywords IS NOT NULL AND summary_keywords <> ''"
+    ),
+    "historical_mapping": (
+        "SELECT COUNT(*) FROM fact_historical_mapping WHERE source_date = ?"
+    ),
+    "leader_height": (
+        "SELECT COUNT(*) FROM fact_leader_height_daily WHERE trade_date = ?"
+    ),
+    "global_market": (
+        "SELECT COUNT(*) FROM fact_global_index_daily WHERE trade_date = ?"
+    ),
+    "dragon": (
+        "SELECT COUNT(*) FROM fact_dragon_tiger_daily WHERE trade_date = ?"
+    ),
+    "regulation": (
+        "SELECT COUNT(*) FROM fact_regulation_pool_daily WHERE effective_date = ?"
+    ),
+    "core_stocks": (
+        "SELECT COUNT(*) FROM fact_core_stock_daily WHERE trade_date = ?"
+    ),
+    "auction": (
+        "SELECT COUNT(*) FROM fact_auction_stock_daily WHERE trade_date = ?"
+    ),
+    "events": (
+        "SELECT COUNT(*) FROM fact_event_daily WHERE event_date = ? AND is_future IS NOT TRUE"
+    ),
+}
+
+_PIPELINE = "fupanhui-public-assets"
+
+
+def _has_rows(con, name: str, trade_date: str) -> bool:
+    sql = _COVERAGE_SQL.get(name)
+    if not sql:
+        return False
+    try:
+        row = con.execute(sql, [trade_date]).fetchone()
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(row and row[0])
+
+
+def _ops_done(con, trade_date: str, step: str) -> bool:
+    try:
+        row = con.execute(
+            """
+            SELECT status FROM ops_pipeline_run_daily
+            WHERE trade_date = ? AND pipeline = ? AND step = ?
+            """,
+            [trade_date, _PIPELINE, step],
+        ).fetchone()
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(row and row[0] in {"complete", "empty"})
+
+
+def _mark_ops(trade_date: str, step: str, status: str, row_count: int, message: str | None = None) -> None:
+    init_db()
+    con = connect()
+    try:
+        con.execute(
+            """
+            INSERT INTO ops_pipeline_run_daily
+                (trade_date, pipeline, step, status, row_count, message, source, finished_at)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
+                status = excluded.status,
+                row_count = excluded.row_count,
+                message = excluded.message,
+                source = excluded.source,
+                finished_at = excluded.finished_at
+            """,
+            [
+                trade_date,
+                _PIPELINE,
+                step,
+                status,
+                int(row_count),
+                message,
+                f"{SOURCE_PREFIX}/{step}",
+                _now(),
+            ],
+        )
+    finally:
+        con.close()
+
+
+def _result_row_count(result) -> int:
+    if not isinstance(result, dict):
+        return 0
+    for key in ("rows", "index_rows", "event_rows", "pool_rows", "stock_rows"):
+        val = result.get(key)
+        if isinstance(val, int) and val > 0:
+            return val
+    if result.get("updated"):
+        return 1
+    return 0
+
+
+def align_bounds() -> tuple[str, str]:
+    """其它复盘会日表的共同窗口：新高/涨停热度起点 → market_daily 终点。"""
+    init_db()
+    con = connect()
+    try:
+        row = con.execute(
+            """
+            SELECT
+              COALESCE(
+                (SELECT MIN(trade_date) FROM fact_stock_high_daily),
+                (SELECT MIN(trade_date) FROM fact_market_daily)
+              ),
+              (SELECT MAX(trade_date) FROM fact_market_daily)
+            """
+        ).fetchone()
+    finally:
+        con.close()
+    if not row or not row[0] or not row[1]:
+        raise RuntimeError("无法从 fact_market_daily / fact_stock_high_daily 推断对齐窗口")
+    return str(row[0]), str(row[1])
+
+
+def calendar_dates(start_date: str, end_date: str) -> list[str]:
+    init_db()
+    con = connect()
+    try:
+        rows = con.execute(
+            """
+            SELECT CAST(trade_date AS VARCHAR) FROM fact_market_daily
+            WHERE trade_date BETWEEN ? AND ?
+            ORDER BY trade_date DESC
+            """,
+            [start_date, end_date],
+        ).fetchall()
+    finally:
+        con.close()
+    return [r[0] for r in rows]
 
 
 def sync(trade_date: str) -> dict:
@@ -878,3 +1056,78 @@ def sync(trade_date: str) -> dict:
     if not results:
         raise RuntimeError(f"复盘会公开资产全部失败: {errors}")
     return payload
+
+
+def sync_range(
+    start_date: str,
+    end_date: str,
+    *,
+    refresh: bool = False,
+    sleep: float = 0.2,
+    include_catalog: bool = False,
+) -> dict:
+    """按 fact_market_daily 交易日历回补日频资产，跳过已有行。
+
+    研报目录 / 题材挖掘默认不重拉（不是按日切片的库）。
+    """
+    dates = calendar_dates(start_date, end_date)
+    if not dates:
+        raise RuntimeError(f"fact_market_daily 在 {start_date}~{end_date} 无交易日")
+    tasks = list(DAILY_SYNCS)
+    if include_catalog:
+        tasks.extend(ONCE_SYNCS)
+
+    synced = 0
+    skipped = 0
+    failed = 0
+    per_task = {name: {"synced": 0, "skipped": 0, "failed": 0, "empty": 0} for name, _fn in tasks}
+
+    for i, td in enumerate(dates, start=1):
+        init_db()
+        con = connect()
+        try:
+            pending = []
+            for name, fn in tasks:
+                if not refresh and (_has_rows(con, name, td) or _ops_done(con, td, name)):
+                    per_task[name]["skipped"] += 1
+                    skipped += 1
+                    continue
+                pending.append((name, fn))
+        finally:
+            con.close()
+
+        if not pending:
+            print(f"[{i}/{len(dates)}] {td} skip-all", flush=True)
+            continue
+
+        print(f"[{i}/{len(dates)}] {td} run={','.join(n for n, _ in pending)}", flush=True)
+        for name, fn in pending:
+            try:
+                result = fn(td)
+                rows = _result_row_count(result)
+                if rows > 0 or (name == "keywords" and isinstance(result, dict) and result.get("updated")):
+                    _mark_ops(td, name, "complete", max(rows, 1))
+                    per_task[name]["synced"] += 1
+                    synced += 1
+                else:
+                    _mark_ops(td, name, "empty", 0)
+                    per_task[name]["empty"] += 1
+                    synced += 1
+            except Exception as exc:  # noqa: BLE001
+                _mark_ops(td, name, "failed", 0, f"{type(exc).__name__}: {exc}")
+                per_task[name]["failed"] += 1
+                failed += 1
+                print(f"  FAIL {name}: {type(exc).__name__}: {exc}", flush=True)
+            if sleep:
+                time.sleep(float(sleep))
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "calendar_days": len(dates),
+        "synced": synced,
+        "skipped": skipped,
+        "failed": failed,
+        "per_task": per_task,
+        "ok": failed == 0 or synced > 0,
+    }
