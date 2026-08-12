@@ -116,7 +116,36 @@ class TestGapAnswerMiddleTier:
         assert "仍需核验：失效条件" in answer
         assert "本轮已核验" in answer
         assert "直接判断（2 条证据）" in answer
-        assert "数据截至 2026-08-12" in answer
+        assert "证据数据截至 2026-08-12" in answer
+
+    def test_labels_take_only_the_first_clause_of_long_descriptions(self):
+        """#293 起描述带面向模型的长指令；gap 标签只取首个分句，
+        不把指令文本打到用户可见正文（08-12 A 组第二轮实测形状）。"""
+        from dataclasses import replace
+
+        frame, verified = _verified()
+        contract = verified.contract
+        assert contract is not None
+        long_desc = replace(
+            contract,
+            required_outputs=tuple(
+                replace(
+                    item,
+                    description=(
+                        "列出与结论直接相关的支持证据；证据中的关键数值须"
+                        "原样写进正文，不得只作定性概括"
+                    ),
+                )
+                if item.output_id == "invalidation_conditions"
+                else item
+                for item in contract.required_outputs
+            ),
+        )
+        answer = SemanticEpisodeVerifier._gap_answer(
+            frame, replace(verified, contract=long_desc)
+        )
+        assert "仍需核验：列出与结论直接相关的支持证据。" in answer
+        assert "不得只作定性概括" not in answer
 
     def test_kept_section_never_quotes_the_draft(self):
         """红线：Y 段只用契约描述与计数，draft 原文一个字不进 gap 答案。"""
