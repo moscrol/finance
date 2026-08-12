@@ -1641,40 +1641,93 @@ class SemanticEpisodeVerifier:
         frame: TaskFrame,
         verified: VerifiedEpisodeOutcome,
     ) -> str:
+        """缺数三档的中间档：缺 X → 仍可判 Y → 验证窗口 Z。
+
+        原版只说「证据不足 + 仍需核验 X」——把「一格没核验」和「全军覆没」
+        呈现成同一句话，用户无从知道本轮其实已经核验了什么（knevo 对照里
+        「从不输出裸的不知道」那条；08-01 验收 C 组的诚实度失分同源）。
+
+        「仍可判 Y」的取材红线：**只用结构性事实**——契约里的槽位描述、
+        binding 里去重后的证据哈希数、证据的来源日期。一个字都不从 draft 捞：
+        gap 答案出现的场合正是 draft 被拒的场合，捞正文等于绕过语义门禁。
+        """
+
         question = frame.raw_question.strip() or "当前问题"
+        base = f"关于“{question}”，现有证据不足，暂不能可靠回答。"
         contract = verified.contract
-        if contract is not None:
-            status_by_id = {
-                item.output_id: item.status for item in verified.completion.outputs
-            }
-            required = tuple(
-                item for item in contract.required_outputs if item.required
+        if contract is None:
+            return base
+        status_by_id = {
+            item.output_id: item.status for item in verified.completion.outputs
+        }
+        required = tuple(
+            item for item in contract.required_outputs if item.required
+        )
+        missing = tuple(
+            item
+            for item in required
+            if status_by_id.get(item.output_id) != "fulfilled"
+        )
+        targets = missing or required
+        labels = tuple(
+            dict.fromkeys(
+                (item.description.strip() or item.output_id)
+                for item in targets
+                if item.description.strip() or item.output_id
             )
-            missing = tuple(
-                item
-                for item in required
-                if status_by_id.get(item.output_id) != "fulfilled"
+        )
+        parts = [base]
+        if labels:
+            parts.append("仍需核验：" + "、".join(labels[:3]))
+        bound_counts = {
+            binding.output_id: len(dict.fromkeys(binding.evidence_hashes))
+            for binding in verified.outcome.bindings
+            if binding.evidence_hashes
+        }
+        kept = tuple(
+            (
+                item.description.strip() or item.output_id,
+                bound_counts[item.output_id],
             )
-            targets = missing or required
-            labels = tuple(
-                dict.fromkeys(
-                    (item.description.strip() or item.output_id)
-                    for item in targets
-                    if item.description.strip() or item.output_id
+            for item in required
+            if status_by_id.get(item.output_id) == "fulfilled"
+            and bound_counts.get(item.output_id)
+        )
+        if kept:
+            parts.append(
+                "本轮已核验（供参考，不构成完整结论）："
+                + "、".join(
+                    f"{label}（{count} 条证据）" for label, count in kept[:3]
                 )
             )
-            if labels:
-                return (
-                    f"关于“{question}”，现有证据不足，暂不能可靠回答。"
-                    + "仍需核验："
-                    + "、".join(labels[:3])
-                )
-        return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+        window = _latest_evidence_date(verified.outcome.evidence)
+        if window:
+            parts.append(f"数据截至 {window}；缺口补齐后可复验。")
+        return "".join(parts)
 
     @staticmethod
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
         return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+
+
+def _latest_evidence_date(evidence: tuple) -> str:
+    """本轮证据的最新来源日期（YYYY-MM-DD），没有合法日期返回空串。
+
+    只认 ISO 形状的前 10 位：source_date 是自由文本字段，旧 runner 会填
+    「日期+媒体」之类的混合串，直接 max() 会把非日期串比进来。
+    """
+
+    dates = sorted(
+        value[:10]
+        for item in evidence
+        if (value := str(getattr(item, "source_date", "") or ""))
+        and _ISO_DATE_RE.match(value[:10])
+    )
+    return dates[-1] if dates else ""
+
+
+_ISO_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
 
 
 def _gap_task_context(frame: TaskFrame) -> str:
