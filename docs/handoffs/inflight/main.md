@@ -1,43 +1,59 @@
 # 在途交接 · main
+
 更新：2026-08-12 · Claude
 
 ## 这个分支做什么
-main 是共享基线。本轮工作（测试套件归零、工具包三件套、hook 修缮）**全部已合并并推送**
-（`94157bd1`），无我的在途改动。本文件记的是**接手要知道的地雷与待决事项**。
+
+对照检索源逐层修缮 agent（工具接口 / 压缩 / RAG），已合并 `fc0540ee`、部署生产
+`da27ad01`。**卡在一个已定位未解决的问题上。** 展开见
+`docs/handoffs/2026-08-12-tool-interface-and-rag-fixes.md`。
 
 ## 当前状态
-main 与 origin/main 同步，未推送 0。
-⚠ 工作区 44 个脏文件，**其中 5 个代码文件不是本轮的活**，别提交、别 stash：
-`scripts/check_daily_review_data.py`、`scripts/moneyflow/{run_l2_pipeline.sh,write_to_duckdb.py}`、
-`market_feature_store/trading_days.py`、`scripts/verify_l2_recovery_artifacts.py`。
-其余 39 个是每日 ingest 产物，正常。
 
-## 未验证 / 已知边界
-- **SessionEnd hook 在真实会话的触发时机始终未实测**。本轮所有验证都是直接调脚本。
-  下次会话若看到本文件被注入，那就是读侧的验收。
-- **`import intelligence.api.app` 有文件系统副作用**（导入即初始化用户态存储）。
-  这是测试污染真人数据的**根因**，本轮只在测试侧挡住（conftest 模块级清 env），**生产码未改**。
-  任何导入该模块的工具（CLI、脚本、IDE 分析）都会碰用户数据目录。建议改惰性初始化。
-- **两个大脑目录数据分裂**：交互式 shell 走 `~/agent-memory/.foresight/`（12M），
-  服务走 `~/.local/share/finance-workbench/users/`（33M）。同一 user id 两份互不相通。
-- 负载敏感偶发：`test_continuous_episode_citations_survive_run_context_reload`
-  在一次 564 秒（平时 2.3 倍）的全量跑里失败一次，此后 5 次均过。**成因未定，未修。**
-- `scripts/agent_review/` 约 2300 行**无人读过语义**，故未进任何工具包清单。
+生产 `rev=da27ad01 code_matches_repo=True rag_runtime=True`，与 main 一致。
+工作区脏文件**全不是本轮的**（ingest 产物 + 5 个他人代码文件），别提交别 stash。
+
+**卡点：continuous 路径 `evidence_bound` 恒为 0。** 工具正常取回 24–60 条证据，
+答案却输出「现有证据不足」。验收 28 题真值通过 0 就是这个。
 
 ## 下一步
-1. `~/kb-ingest-tx-archive/` 216MB 待用户决定去留（README 写了删除条件）
-2. 三件套的「设计」那件仍未收口 → `~/harness-reference/KIT.md` 第一节有材料清单
-3. 上面那条 `api.app` 导入副作用值得单独开一支修
+
+查 **continuous_episode 为什么绑定 0**。变量已锁定、可二分、零配额起步：
+
+| `ASK_CONTINUOUS_RUNTIME` | B1 | C1 |
+|---|---|---|
+| `off` | 30 | 13 |
+| `on`（生产） | **0** | **0** |
+
+**与代码版本无关**（合并前后同为 0）。轨迹在
+`<用户目录>/runs/*/continuous-episode.json`，先离线比对 evidence 在哪步被丢。
+`evidence_bound` = `/api/runs/{id}/context` 里 `status=="hit"` 的条数
+（`acceptance.py:198`）。
 
 ## 踩过的坑
-- **worktree 里 `.git` 是文件不是目录**：标记路径写死 `$REPO/.git/` 会 `Not a directory`，
-  且门禁照样 exit 0 —— 该门禁曾在**所有附属 worktree 里完全失效**。已修（走 `--git-common-dir`）。
-- **`git status` 的「干净」是相对 gitignore 的**：删目录类操作必须带 `--ignored`，
-  否则会连唯一数据一起删。判据的作用域必须匹配动作的作用域。
-- **这个 shell 是 zsh，无引号变量不做词分割**（bash 会）。同一坑本轮犯两次，
-  一次导致 pytest `no tests ran` 却被 `diff` 报成「零回归」。**A/B 差分先断言两侧非空。**
-- 门禁自噬：「产物必须跟上源」的门禁要把「更新产物」这个动作排除在「源变动」之外。
+
+- **起临时实例做对照必须复刻 `ASK_CONTINUOUS_RUNTIME`**。漏了它我误判成
+  「自己造成回归」并回滚了生产——两臂差的不只是代码。
+- **双根要分开**：代码根用 cwd/worktree，数据根 `FINANCE_WS` 指主树。搞混的症状
+  与 `paths.py` docstring 记的一模一样。
+- **`loaded_code_root: None` 只说明从哪加载，不说明何时加载**。canary 进程跑了
+  6 天，磁盘新代码、进程里是旧的。
+- 工具调用记在 `continuous-episode.json`（300KB+），**不在 trace/stream.jsonl**。
+- 变异验证要**先确认变异真的落盘**，且**删整句别改一半**（改后仍是断言子串）。
+
+## 未验证 / 已知边界
+
+- 回灌 / 拆包 / 降级告知三条改动**没触发条件**，效果未测，属长尾保险。
+- `probe_tool_arguments.py` 用 `capabilities=ALL_TOOLS` **绕过路由**，其
+  「87.9% 参数合法率」只在「工具已授权」前提下成立。
+- 规划器对多数问题交白卷（`retrieval_stages: []`），靠 agent loop 自主性兜底
+  ——**换个问法可能不兜**。
+- 组件 4（记忆）/ 5（多 agent）检索源未精读，**不得下结论**。
+- `import intelligence.api.app` 有文件系统副作用，生产码未改；两个大脑目录
+  数据分裂互不相通；`scripts/agent_review/` 约 2300 行无人读过语义。
 
 ## 已验证
-全量 4513 → 4508 passed / 0 failed（收据 `dirty: False`）；跑完真人数据目录零变化；
-四道门禁全绿；四仓 main 均同步。详见 `docs/handoffs/2026-08-12-*.md`。
+
+全量 4516 passed / 0 failed @ `.venv-workbench/bin/python`，8 道 pre-commit 全过。
+生产实测 finance_query 24/24 参数合法（改前干净对照 55.9%）。`.rag_venv` 已重建，
+kb_search 从死到活；就绪门禁与部署闸门均变异验证。
