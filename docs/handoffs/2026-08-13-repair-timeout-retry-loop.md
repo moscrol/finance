@@ -73,6 +73,34 @@ A4 `invalid_model_finish`（30s 0 证据）、A7 `repair_model_stop`（0 证据�
 | R6 | GLM Coding Plan | 凌晨 | 10/10 | 8/10 | 0 次（首枪够用，闸门正确空转） |
 | R7 | 中转 | 白天 | 10/10 | 7/10 | **3 次 / 3**（30s 窗全部命中） |
 
+## 第五圈：#299 A10 根因修复 + 部署 + R8 验证
+
+R6 A10 归因（fail-closed 边界工作正常，42 条未核验证据没泄漏）挖出检索侧三层根因：
+①新高主表 `fact_stock_high_daily` 未注册进 finance_query（07-21 实有 339 行）；
+②`high_status` NULL 渲染成「未知」——业务语义是「非新高」，`GROUP BY` 按成交额降序时
+NULL 组天然最大，top25 全「未知」→ 模型宣告**假缺口**；③日期过滤协议烧 2 次调用。
+
+**#299 修复**（`bcd3b6ce` 合并）：注册 `stock_high_daily` 数据集；`_FieldDefinition`
+加 `null_label`（`high_status`→「非新高」、`limit_status`→「非涨停」）；工具指引补新高类
+问题入口。8792 蓝绿切至 `bcd3b6ce64f7`。
+
+**R8 单题验证**（`eval/runs/20260813T0357Z-r8-a10-postfix.json`）：模型两次查询
+`stock_high_daily`（第二次直接 `GROUP BY high_label/is_new`），答案给出真正的新高结构
+分析（首次 vs 非首次新高的资金特征对比），证据 0→3。途中还顺带又跑了一次完整的
+「修复首枪 16s 超时 → 30s 重试」链路。
+
+## R7 剩余失败的立案结论
+
+- **A3**（`deadline_exhausted`，0 证据）：个股深挖被路由 standard 档（检索片 ~30s），
+  首个 finance_query 打偏烧掉窗口，末尾批量补发的 kb/news/graph 检索在**同一毫秒**
+  被截止时间集体判 `tool_timeout`（03:38:08.003/.008/.011，finalization .012）。
+  档位/预算问题，不是工具坏了。
+- **A4**（`invalid_model_finish`）：模型绑定了 15 位哈希 `54a5b453de9366b`（真哈希 16 位），
+  触发 `forged_hash` INTEGRITY 硬拒——不回灌不恢复是刻意设计（回灌等于教它换哈希）。
+  但 15 位更像**抄漏**而非编造；「唯一前缀匹配 → FORMAT」是可议的口子，需设计评审。
+- **A7**（`repair_model_stop`，交付 0 证据但 episode 有 17 条）：修复轮产出合法 partial
+  + 绑定；语义核验没完成 → 交付层按证据边界过滤。边界正确，优化点在核验预算。
+
 ## 判决与新形状
 
 - A1 三轮 31s/103s/85s **均为 `standard`**，非路由方差；~30s 是 standard 90s 被合成保留（75→2/3 钳 60）挤出的检索分配段。
