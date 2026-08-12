@@ -1696,6 +1696,16 @@ class SemanticEpisodeVerifier:
                 )
                 + "。"
             )
+        elif verified.outcome.evidence:
+            # LLM 超时 / deadline 打断时常见的形状：检索已完成、证据在手，
+            # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
+            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+            # 让用户区分「没查到」和「查到了没来得及核验」——两者的下一步
+            # 完全不同（换问法 vs 直接重试）。
+            parts.append(
+                f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
+                "但未完成核验绑定，暂不能引用；可直接重试。"
+            )
         window = _latest_evidence_date(verified.outcome.evidence)
         if window:
             parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")

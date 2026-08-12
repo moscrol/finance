@@ -154,6 +154,21 @@ class TestGapAnswerMiddleTier:
         assert "市场偏弱" not in answer
         assert "观察缩量" not in answer
 
+    def test_unbound_evidence_is_reported_as_count_only(self):
+        """LLM 超时打断（有证据、零绑定）时报条数——区分「没查到」和
+        「查到了没来得及核验」（08-12 A5：25 条证据、repair_model_unavailable）。"""
+        from dataclasses import replace
+
+        frame, verified = _verified()
+        no_bindings = replace(
+            verified,
+            outcome=replace(verified.outcome, bindings=()),
+        )
+        answer = SemanticEpisodeVerifier._gap_answer(frame, no_bindings)
+        assert "已取得 2 条证据" in answer
+        assert "未完成核验绑定" in answer
+        assert "本轮已核验" not in answer
+
     def test_no_contract_keeps_the_bare_sentence(self):
         from dataclasses import replace
 
