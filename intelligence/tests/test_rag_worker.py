@@ -217,6 +217,84 @@ def test_closed_worker_does_not_schedule_recovery(
     assert worker._recovery_thread is None
 
 
+def test_probe_recovery_revives_externally_killed_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """探针发现死进程要按预热配方拉起——不依赖查询流量。
+
+    R23 注入实测（2026-08-13）：杀掉子进程后 episode 的 KB 查询全带
+    filters 走 CLI，查询失败式自愈的入口永远不被踩到，readiness 永久红。
+    探针入口就是为这个形状开的。
+    """
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    try:
+        rag_worker.prewarm(
+            python=sys.executable,
+            kb_root=tmp_path,
+            index_dir=index,
+            argv=["query", "warmup", "--json"],
+            timeout=5,
+        )
+        with rag_worker._WORKERS_LOCK:
+            (worker,) = rag_worker._WORKERS.values()
+        # 外部杀死：等价于进程自己崩掉——没有任何查询异常会被抛出。
+        assert worker._process is not None
+        worker._process.kill()
+        worker._process.wait(timeout=5)
+        assert worker.healthy() is False
+        before = rag_worker.status()
+        assert before["active"] == 0
+
+        rag_worker.ensure_recovery()
+        thread = worker._recovery_thread
+        assert thread is not None, "探针必须为死进程调度自愈"
+        thread.join(timeout=10)
+        after = rag_worker.status()
+    finally:
+        rag_worker.close_all()
+
+    assert after["state"] == "ready"
+    assert after["active"] == 1
+    # model_load_count 是**进程内**计数：自愈起的新进程重载一次后从 1 起，
+    # 不做跨进程累计。真正证明重载发生的是 active 0→1 + state ready。
+    assert after["model_load_count"] == 1
+
+
+def test_probe_recovery_skips_healthy_and_warming_workers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=5)
+        worker.ensure_recovery_if_dead()
+        assert worker._recovery_thread is None, "健康 worker 不得被探针重启"
+
+        # warming：预热正在进行（进程可能尚未 spawn），探针不得叠一发。
+        worker._process.kill()
+        worker._process.wait(timeout=5)
+        worker._state = "warming"
+        worker.ensure_recovery_if_dead()
+        assert worker._recovery_thread is None
+    finally:
+        worker.close()
+
+
+def test_module_ensure_recovery_is_noop_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "0")
+    # 不应触碰任何 worker：直接调用不抛错即可。
+    rag_worker.ensure_recovery()
+
+
 def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     wiki = tmp_path / "wiki"
     page = wiki / "concepts" / "液冷.md"
