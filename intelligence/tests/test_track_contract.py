@@ -91,5 +91,55 @@ class ContractGuidancePromptTests(unittest.TestCase):
         self.assertNotIn("输出结构契约", msgs[0]["content"])
 
 
+class ContractGateTests(unittest.TestCase):
+    def test_complete_answer_has_no_missing_elements(self) -> None:
+        from intelligence.services.track_contract import missing_contract_elements
+
+        text = (
+            "无上期基线，本期建立基线。\n"
+            "毛利率判断：信息不足 [D7]。复核期限：2026-09-12。\n"
+            "## 下期关注清单\n- 中报毛利率 <20% 则削弱扩产逻辑"
+        )
+        self.assertEqual(missing_contract_elements(text), ())
+
+    def test_incomplete_answer_lists_missing_and_stub_appends(self) -> None:
+        from intelligence.services.track_contract import (
+            CONTRACT_STUB_HEADING,
+            append_contract_stub,
+            missing_contract_elements,
+        )
+
+        text = "固态电池还在发酵，可以继续看。（非投资建议）"
+        missing = missing_contract_elements(text)
+        self.assertIn("quad_or_baseline", missing)
+        self.assertIn("ttl", missing)
+        self.assertIn("next_watch", missing)
+        patched = append_contract_stub(text, missing)
+        self.assertTrue(patched.endswith("（非投资建议）"))
+        self.assertIn(CONTRACT_STUB_HEADING, patched)
+        self.assertLess(patched.index(CONTRACT_STUB_HEADING), patched.index("（非投资建议）"))
+
+    def test_ensure_visible_only_on_track_intent(self) -> None:
+        from intelligence.services.ask_synthesis import ensure_track_contract_visible
+        from intelligence.services.ask_types import AskResult
+        from intelligence.services.track_contract import CONTRACT_STUB_HEADING
+
+        plain = AskResult(query="固态电池产业链全景", trade_date=None, matched_theme="固态电池", candidate_tier=None, priority_score=None)
+        plain.synthesis = "一段没有契约结构的回答"
+        ensure_track_contract_visible(plain)
+        self.assertNotIn(CONTRACT_STUB_HEADING, plain.synthesis)
+
+        track = AskResult(query="固态电池最新进展如何", trade_date=None, matched_theme="固态电池", candidate_tier=None, priority_score=None)
+        track.synthesis = "一段没有契约结构的回答"
+        ensure_track_contract_visible(track)
+        self.assertIn(CONTRACT_STUB_HEADING, track.synthesis)
+        self.assertTrue(any("跟踪契约补全" in w for w in track.warnings))
+
+        off = AskResult(query="固态电池最新进展如何", trade_date=None, matched_theme="固态电池", candidate_tier=None, priority_score=None)
+        off.synthesis = "一段没有契约结构的回答"
+        ensure_track_contract_visible(off, enabled=False)
+        self.assertNotIn(CONTRACT_STUB_HEADING, off.synthesis)
+
+
 if __name__ == "__main__":
     unittest.main()

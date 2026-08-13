@@ -215,5 +215,33 @@ class ExperienceCardTests(unittest.TestCase):
         self.assertIn("强反证", rendered)
 
 
+class ResidentCardTests(unittest.TestCase):
+    def test_methodology_cards_are_resident_even_without_query_match(self) -> None:
+        cards = [
+            {
+                "ts": "2026-08-01T00:00:00",
+                "question": "无关问题",
+                "promotion": "methodology",
+                "prompt_rule": "结论必须带成立条件",
+                "applies_to": ["条件化结论"],
+            },
+            {
+                "ts": "2026-08-02T00:00:00",
+                "question": "液冷怎么看",
+                "promotion": "candidate",
+                "prompt_rule": "液冷要看渗透率",
+                "applies_to": ["液冷"],
+            },
+        ]
+        resident = experience_cards.select_resident_cards(cards)
+        self.assertEqual(len(resident), 1)
+        self.assertEqual(resident[0]["promotion"], "methodology")
+        merged = experience_cards.merge_cards_for_prompt(
+            resident,
+            experience_cards.select_relevant_cards(cards, "固态电池近况"),
+        )
+        self.assertEqual(merged[0]["promotion"], "methodology")
+
+
 if __name__ == "__main__":
     unittest.main()

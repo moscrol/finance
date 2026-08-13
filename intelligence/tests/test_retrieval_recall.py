@@ -118,5 +118,20 @@ class EvaluateCasesTests(unittest.TestCase):
         self.assertIsNone(report["recall_at"][3])
 
 
+class FixtureSetTests(unittest.TestCase):
+    def test_bundled_fixture_is_runnable(self) -> None:
+        from intelligence.eval.retrieval_recall import FIXTURE_CASES, FIXTURE_LEDGERS
+
+        cases = load_cases(FIXTURE_CASES)
+        self.assertGreaterEqual(len(cases), 3)
+        report = evaluate_cases(
+            cases, user_memory_retriever, ks=(5,), users_root=FIXTURE_LEDGERS
+        )
+        by_id = {r["case_id"]: r for r in report["per_case"]}
+        self.assertEqual(by_id["m-001"]["recall_at"][5], 1.0)
+        self.assertEqual(by_id["m-002"]["recall_at"][5], 1.0)
+        self.assertEqual(by_id["m-003"]["recall_at"][5], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

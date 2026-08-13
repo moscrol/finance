@@ -155,6 +155,24 @@ def load_corrections(
     return records, None
 
 
+DEFAULT_RESIDENT_LIMIT = 5
+
+
+def select_resident_principles(
+    records: list[dict[str, Any]],
+    *,
+    limit: int = DEFAULT_RESIDENT_LIMIT,
+) -> list[dict[str, Any]]:
+    """常驻概览：带 principle 的纠偏每次都带着，不靠本轮题材标签命中。"""
+    resident = [
+        rec
+        for rec in records
+        if isinstance(rec, dict) and str(rec.get("principle") or "").strip()
+    ]
+    resident.sort(key=lambda rec: str(rec.get("ts") or ""), reverse=True)
+    return resident[: max(0, int(limit))]
+
+
 def render_for_prompt(records: list[dict[str, Any]]) -> str:
     """把纠偏记录渲染成注入系统提示词的要点列表（最近的在前，原则优先呈现）。"""
     lines: list[str] = []

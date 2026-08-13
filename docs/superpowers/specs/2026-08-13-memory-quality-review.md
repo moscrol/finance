@@ -98,7 +98,7 @@ Advanced JSON Cards **常驻上下文当概览**；海量细节用上下文感�
 | 离线生成候选更新 | **双盲复盘**已有：`forecast_learning_loop` 的 reflection → `lessons.jsonl` / `rule_candidates.jsonl`（pending→approved/rejected） | user_memory / experience_cards **没有**等价提案层；`memory_gate` 是同步入口门，不是离线提案 |
 | 验证后再发布 | gold review（知识库）、forecast 人工 approve | 经验卡片 `promotion=candidate` 字段在，但没有离线审核流把它推到 `promoted` |
 | 可回滚 | git + append-only 状态行 | 🟢 记忆条目可回滚；Prompt 规则没有「这条经验导致了哪次回答变差」的归因 |
-| 睡眠学习五步（触发→定向→比较→提案→修剪） | 夜间回检（checkpoint-recheck）存在 | 回检的是**判断对错**，不是「记忆库该增/改/归档哪些条目」 |
+| 睡眠学习五步（触发→定向→比较→提案→修剪） | 🟢 **夜间整理已经存在，不要再开一条**。采集半 `intelligence/dream/nightly.py`；策略建议半 `evolve_suggest.py`（suggest-only 分支）；判断回检 `checkpoint-recheck`；潜意识收工 `subconscious.consolidate`；双盲 `forecast_learning_loop`。缺的不是「夜间进程」，是 user_memory 平面还没接到这些已有出口 |
 | Curator：跟踪陈旧并归档 | `memory_status` 是**人工**出口 | 缺 TTL / 长期未命中 → 建议归档（建议，不自动删） |
 | 评价器 ≠ 进化模块 | semantic judge / 结构 verifier 评回答；`memory_gate` 决定能否进 durable | 🟢 已分开。不要让 judge 直接 `record_card` |
 | Prompt 膨胀 | 跟踪契约进了 system prompt；live 仍部分不遵守 | 书：能确定执行的约束进程序。对应 Q4 |
@@ -129,27 +129,21 @@ direct/counterpoint 缺口修复环），而不是再加一段更长的 prompt�
 
 ### 现在就值得做（0–1 档）
 
-1. **建 user_memory 标注集（Q1）**  
-   10–20 条 JSONL：`query` / `theme` / `relevant: [ts...]`。先覆盖「纠偏必须召回」
-   「过题材不得召回」「归档后不得召回」三类。跑通尺子后，才知道 [M] 块该不该改打分。
-   *替代方案：用 LLM 自动标 —— 不选。书第 6 章抗泄漏：自评自判已被抽查证伪；标注是尺子的可信根。*
+1. **建 user_memory 标注集（Q1）** ✅ 本轮已落合成夹具
+   `intelligence/eval/fixtures/user_memory_recall/`（3 case：命中纠偏、过题材、负例）。
+   **不是真人标注**——真人标注仍要你出 10–20 条才有生产读数。夹具只证明尺子能跑。
 
-2. **跟踪契约进结构 verifier（Q4）**  
-   命中 `parse_track_intent` 时，检查答里是否出现：四态词面、无基线时的声明、
-   「下期关注」标题。缺则走已有 repair 环。  
-   *替代方案：再加更强硬的 prompt / 把契约塞进 user 消息 —— 已试过独立 system 段，
-   中转模型仍部分不遵守。书：能确定执行的进程序。*
+2. **跟踪契约进结构 verifier（Q4）** ✅ 本轮已做
+   `ensure_track_contract_visible`：缺四态/无基线声明、TTL、下期关注时追加可见补全段，
+   不覆盖模型正文。与 `ensure_forecast_scenarios_visible` 同形状。
+   `include_track_guidance=False` 时不补。
 
-3. **设计稿状态栏改成「已落地，质检见本文」**（Q9）  
-   防止下一任按未实施重新开六 slice。
+3. **设计稿状态栏改成「已落地，质检见本文」**（Q9） ✅ 上一提交
 
-4. **常驻概览小块（第 3 章双层的最小实现）**  
-   从 corrections 取最近 N 条带 `principle` 的、从 experience_cards 取
-   `promotion in {promoted, methodology}` 的，**无条件**注入（硬顶 5 条），
-   与按需 [M] 召回分开渲染。  
-   *替代方案：把所有卡片常驻 —— 窗口会被撑爆，正是书要拆双层的原因。*
-   *替代方案：上 Mem0 / 向量库做记忆 —— 本仓台账 <200 行窗口，关键词重合够用；
-   向量检索在这个尺度没有可观察收益。*
+4. **常驻概览小块** ✅ 本轮已做
+   `experience_cards.select_resident_cards`（promotion ∈ promoted/methodology）+
+   `corrections.select_resident_principles`（带 principle），硬顶 5，注入经验卡通道。
+   [M] 块仍按 query 召回，棘轮不变。
 
 ### 标注集跑出数字之后再做（1 档）
 
@@ -167,7 +161,7 @@ direct/counterpoint 缺口修复环），而不是再加一段更长的 prompt�
 |---|---|
 | RAPTOR / GraphRAG / 层次摘要 | 原书：混合检索够用时不上。本仓图谱已服务 theme-radar |
 | wiki-rag 上下文前缀 | 索引期加法，落点在知识库仓，不在本轮记忆平面 |
-| user_memory 离线提案层（睡眠学习五步） | 骨架已在 `forecast_learning_loop`；先让标注集证明「召回不够」或「过时记忆仍被召回」，再扩平面 |
+| user_memory 离线提案层 | 夜间整理已有（dream / checkpoint-recheck / subconscious / forecast_learning_loop）。扩平面等真人标注集证明召回问题再做 |
 | 自动 Curator 归档 | 没有 hitCount / lastHit，陈旧检测会误伤低频但正确的纠偏。先人工 `memory-status` |
 | D10 接 research_owner | 仅当 workbench 路径确实问环境类比；episode 级 D10 已 6/6 PASS |
 | 给历史类比上 HMM / embedding | 设计稿 §7 已否；库厚度才是 q9 瓶颈 |
@@ -192,3 +186,43 @@ Knevo 四平面（文本 / 图谱 / 用户记忆 / 预测台账）是同一刀�
 **面试常考点：** 书脚注把 recall@k 定义成 hit rate。被问到时要能说出：
 学术 recall@k = |命中相关| / |全部相关|；hit@k = 前 k 里有没有至少一条相关。
 本仓两个都报，对比 Anthropic Contextual Retrieval 论文时应对他们的 hit-rate 口径。
+
+---
+
+## 6. 续作（2026-08-13）：夜间整理不是缺口；二阶提问要踏一层
+
+### 6.1 夜间整理——纠偏前一版质检
+
+前一版把「睡眠学习五步」写成缺口，**说错了**。仓内已经有一整条夜间链，不要再开：
+
+| 已有件 | 做什么 |
+|---|---|
+| `intelligence/dream/nightly.py` | 采集半：脱敏 digest 提交到 `dream-loop/transcripts-<date>`，不合 main |
+| `intelligence/dream/evolve_suggest.py` | 策略建议半：`evolve.py suggest` 只读 DuckDB，建议进独立分支 |
+| `checkpoint-recheck` launchd | 到期核对可证伪判断 → verdict → 校准回注 foresight |
+| `subconscious.consolidate` | 潜意识收工：缓冲信号 → 提案 → 人确认后落 judgments |
+| `forecast_learning_loop` | 双盲 reflection → lessons / rule_candidates（pending→approved） |
+
+user_memory 平面若要「夜间整理记忆」，接这些出口，不新写 sleep-learn 进程。
+
+### 6.2 二阶提问——还需要，但要停在一阶事实之上
+
+三套生成器不是重复建设，触发不同：
+
+| 生成器 | 触发 | 去留 |
+|---|---|---|
+| `foresight.py` 猜你想问 | 盘面驱动、每日主动 | **留**。这是 Knevo「进阶提问」和书第 3 章「主动服务」的本仓实现 |
+| `followups.generate_answer_spec_followups` | 本轮 AnswerSpec 的缺口/触发/动作 | **留**。workbench 已在用，追问锚在本轮证据 |
+| `followups.generate_followups` 五类模板 | 答后芯片；API `foresight_followups` 步 | **留，但改成二阶**。跟踪题去掉 `recheck`（与下期关注重复）；模板不再问「近 5 日双红如何」（D 块已答） |
+| `ask.py` 后续验证点 | 答案正文里的确定性跟踪句 | 留。与芯片是不同落点（正文 vs 可点击） |
+| 跟踪契约「下期关注」 | 仅跟踪题 | 留。是输出契约，不是提问器 |
+
+**不要删 foresight。** 新切片（D10 / 时间线 / 跟踪契约）回答的是一阶事实；二阶提问的产品价值是「由此推出的下一层后果」。优化是禁止它再问已经被数据块答过的问题：
+
+- 不要问「有没有历史上类似情绪环境」→ D10
+- 不要问「题材处于哪个生命周期阶段」→ 时间线
+- 不要问「上期结论有什么变化」→ 跟踪契约
+- 跟踪题不要再生成盘面回检芯片
+
+本轮已改 `_SYSTEM_PROMPT`（foresight）和 followups 模板/过滤。
+
