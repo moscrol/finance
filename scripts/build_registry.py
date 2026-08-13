@@ -464,6 +464,15 @@ def cmd_check() -> int:
             print(f"[check] - 缺失 {k}")
         for k in changed:
             print(f"[check] ~ 变更 {k}")
+            # 只报 key 不报字段，等于让人拿着「哪里不一样」再查一遍——而漂移常常
+            # 来自环境差异（解析器、行尾、视图），本机复现不出来时那一遍无从查起。
+            exp_entry, got_entry = exp_skills[k], got_skills[k]
+            for field in sorted(set(exp_entry) | set(got_entry)):
+                if exp_entry.get(field) == got_entry.get(field):
+                    continue
+                print(f"[check]     {field}:")
+                print(f"[check]       注册表 {json.dumps(exp_entry.get(field), ensure_ascii=False)}")
+                print(f"[check]       重扫   {json.dumps(got_entry.get(field), ensure_ascii=False)}")
 
     if drift or meta_drift:
         print("[check] 注册表与源不一致，请运行 `python3 scripts/build_registry.py scan` 并提交。", file=sys.stderr)
