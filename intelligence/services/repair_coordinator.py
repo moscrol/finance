@@ -12,6 +12,14 @@ from uuid import uuid4
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.research_contract import RootBudgetLedger
 
+# 修复轮单笔授予帽（秒）。曾按 `min(剩余, 30, 缺口×8)` 计工时——缺口少窗口
+# 就小（1 缺口=8s、3 缺口=24s）。但一次 LLM 调用的成本由**固定延迟地板**
+# 主导（网络 + prompt 处理，生产中转 P50≈28s），与缺口数无关：低于地板的
+# 窗口注定超时，还要白烧掉授予本身。2026-08-13 生产收据（R7/R21）：
+# 16/24s 窗 0/5 全超时，30s 窗 5/5 全成功。故删去按缺口缩放项，一律给满窗
+# （仍受 remaining 与 root ledger 约束，fail closed 不变）。
+_REPAIR_SECONDS_CAP = 30.0
+
 
 @dataclass(frozen=True)
 class CoverageDelta:
@@ -270,7 +278,7 @@ def grant_for_progress(
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
     calls = min(work_units, goal.remaining_calls) if tools_open else 0
-    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
     if tools_open and calls <= 0:
         return None
     if seconds < 1.0:
@@ -312,7 +320,7 @@ def grant_for_cold_restart(
     - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道；
     - root 余量足额：fail closed，不铸空头授予。
 
-    授予额度沿用进度修复的公式（≤30s、按缺口计工时），从 root 未分配余量铸造。
+    授予额度沿用进度修复的公式（≤30s 满窗），从 root 未分配余量铸造。
     """
 
     if goal.cycle != 1:
@@ -328,7 +336,7 @@ def grant_for_cold_restart(
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
     calls = min(work_units, goal.remaining_calls)
-    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
     if calls < 1 or seconds < 1.0:
         return None
     grant = BudgetGrant(
@@ -368,8 +376,7 @@ def grant_for_delivery_repair(
         return None
     if goal.remaining_seconds < 1.0:
         return None
-    work_units = min(4, max(1, len(goal.missing_answer_elements)))
-    seconds = min(goal.remaining_seconds, 30.0, work_units * 8.0)
+    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
     if seconds < 1.0:
         return None
     grant = BudgetGrant(
@@ -389,10 +396,11 @@ def grant_for_transient_model_retry(
 ) -> BudgetGrant | None:
     """超时把修复窗口烧穿后，从 hard-cap 未分配余量再铸一笔秒数。
 
-    修复授予是 ``min(剩余, 30, 缺口×8)``，常只有 8 秒；生产 ``llm_timeout``
-    是 75 秒。第一次 ``complete`` 的 timeout 因此等于整笔授予，真实
-    TimeoutError 会把 repair deadline 吃到 0——「失败后再看余量」这条
-    重试闸门对超时是死代码。
+    历史背景：修复授予曾是 ``min(剩余, 30, 缺口×8)``，常只有 8 秒（该缩放项
+    已删，见 ``_REPAIR_SECONDS_CAP``）；生产 ``llm_timeout`` 是 75 秒。
+    第一次 ``complete`` 的 timeout 因此等于整笔授予，真实 TimeoutError
+    会把 repair deadline 吃到 0——「失败后再看余量」这条重试闸门对超时是
+    死代码。即使首笔已是满窗 30s，root 剩余不足时仍会出现小窗，本函数仍有意义。
 
     尺寸必须按 **root 未分配余量** 算，不能按 ``goal.remaining_seconds``：
     admission 已把后者替换成刚烧穿的那笔授予（生产实测 16s / 8s），按它
