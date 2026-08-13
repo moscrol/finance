@@ -3465,3 +3465,84 @@ def test_rejected_tool_message_carries_the_reason_to_the_model() -> None:
     payload = json.loads(messages[-1]["content"])
     assert payload["error"] == "invalid_arguments"
     assert payload["detail"] == "order_by must be an array"
+
+
+def test_settle_batch_calls_never_raises_when_ledger_is_burned() -> None:
+    """结算已完成的批次不得抛异常——账本烧穿时降级为 settle。
+
+    R13-A3 生产形状：模型首轮吃掉 ~30s，工具批次执行完记账时
+    ``consume_call`` 抛 "root seconds budget exhausted"，异常逃出主循环，
+    整个 run 变硬失败。结算发生在工作完成之后，此刻抛异常撤不回任何东西。
+    """
+
+    ledger = InMemoryRootBudgetLedger(
+        episode_id="settle-test",
+        initial_calls=1,
+        hard_calls_cap=1,
+        initial_seconds=5.0,
+        hard_seconds_cap=5.0,
+    )
+
+    agent_episode_module._settle_batch_calls(
+        ledger,
+        executed_count=3,
+        batch_elapsed=30.0,
+    )
+
+    assert ledger.remaining_seconds == 0.0
+
+
+def test_slow_tool_batch_overshooting_root_ledger_finishes_the_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """批次耗时超过 root 秒余量时，episode 必须交出 AgentOutcome 而不是炸掉。
+
+    修复前这条测试死在 ``run()`` 里的 ``ValueError: root seconds budget
+    exhausted``——run 拿不到 stopped_outcome，修复轮和冷启动都够不着
+    （adapter 收到的是异常不是 AgentOutcome）。修复后账本结平、证据保住、
+    模型正常交卷。
+    """
+
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        research_contract_module.time,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    monkeypatch.setattr(
+        agent_episode_module,
+        "monotonic",
+        lambda: clock["now"],
+    )
+    frame = _frame()
+    base_context = _context(frame, max_steps=3)
+    root_budget = InMemoryRootBudgetLedger(
+        episode_id=base_context.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=20.0,
+    )
+    context = replace(base_context, root_budget=root_budget)
+
+    def slow_runner(query: str, tool_context: AgentToolContext):
+        clock["now"] += 15.0  # 批次耗时 15s > root 秒余量 10s
+        return _successful_runner(query, tool_context)
+
+    model = ScriptedModel(
+        [
+            _plan_turn(answer_elements=["direct_assessment"]),
+            _tool_turn("当前市场结构"),
+            _finish_turn(draft="当前更像阶段性修复。"),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(slow_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.evidence, "批次抓到的证据必须保住"
+    assert root_budget.remaining_seconds == 0.0

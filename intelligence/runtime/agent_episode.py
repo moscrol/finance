@@ -167,6 +167,38 @@ def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
     return True
 
 
+def _settle_batch_calls(
+    root_budget: object,
+    *,
+    executed_count: int,
+    batch_elapsed: float,
+) -> None:
+    """Settle a finished tool batch against the root ledger without raising.
+
+    结算已经发生的工作不能 fail closed——工具批次执行完才记账，此刻抛
+    ``ValueError`` 撤不回任何东西，只会把整个 run 炸成硬失败。生产实测
+    （2026-08-13 R13-A3）：首个模型轮耗时 ~30s 把 root 秒账本烧到只剩零头，
+    工具批次执行完 ``consume_call`` 抛 "root seconds budget exhausted"，
+    异常逃出 episode 主循环，run 直接 failed——没有 stopped_outcome、没有
+    修复轮、冷启动也够不着（adapter 拿到的是异常不是 AgentOutcome）。
+
+    账本烧穿时降级为 ``settle_seconds``（能扣多少扣多少，绝不抛）；
+    call 槽位随 ``remaining_calls`` 归零自然反映到 ``_remaining_tool_slots``，
+    下一轮进入 ``tool_budget_exhausted`` finalization，模型还能带着
+    已取得的证据交卷。这与 #297 在重试闸门确立的原则同源：
+    **纠正/结算层自己不能成为新的失败源**。
+    """
+
+    if root_budget is None or executed_count <= 0:
+        return
+    seconds_per_call = max(batch_elapsed / executed_count, 1e-6)
+    for _ in range(executed_count):
+        try:
+            root_budget.consume_call(seconds=seconds_per_call)
+        except ValueError:
+            root_budget.settle_seconds(seconds=seconds_per_call)
+
+
 class _EpisodeLedger:
     def __init__(
         self,
@@ -844,13 +876,11 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
-                if context.root_budget is not None and batch.executed_count:
-                    seconds_per_call = max(
-                        batch_elapsed / batch.executed_count,
-                        1e-6,
-                    )
-                    for _ in range(batch.executed_count):
-                        context.root_budget.consume_call(seconds=seconds_per_call)
+                _settle_batch_calls(
+                    context.root_budget,
+                    executed_count=batch.executed_count,
+                    batch_elapsed=batch_elapsed,
+                )
                 self._append_tool_budget_state(
                     messages=messages,
                     remaining_seconds=(
@@ -1327,13 +1357,11 @@ class ContinuousAgentEpisode:
             tool_calls += batch.executed_count
             performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
-            if repair_context.root_budget is not None and batch.executed_count:
-                seconds_per_call = max(
-                    batch_elapsed / batch.executed_count,
-                    1e-6,
-                )
-                for _ in range(batch.executed_count):
-                    repair_context.root_budget.consume_call(seconds=seconds_per_call)
+            _settle_batch_calls(
+                repair_context.root_budget,
+                executed_count=batch.executed_count,
+                batch_elapsed=batch_elapsed,
+            )
             messages.append(
                 {
                     "role": "user",
