@@ -322,3 +322,20 @@ Mac 主树 `main` 有大量他人未提交改动，按 worktree 纪律另开干�
 规则本身可回放、可审计，但**不能当用户可读的生命周期叙事**。slice 3.1 加滞回
 （最短阶段时长，或合并短于 N 日的相邻切换）后再给用户看。板块名要对齐
 `dim_sector` / `resolve_query_themes`，不能硬编码口语别名。
+
+**滞回后对照**（slice 3.1，`reflow_confirm_days=2`）[实测]：固态电池 53→25 段、
+信创 65→37 段；`=3` 过度合并（固态电池只剩 3 段——多数双红连串仅 2 天，回流全被吞），
+默认取 2。
+
+**全量回归**（2026-08-13，revision `626a2c15`，Mac `.venv-workbench`）[实测]：
+`4215 passed, 6 failed, 3 skipped`。6 个失败全部集中在
+`test_conversation_orchestrator.py` / `test_codex_headless_runtime.py`——
+三次运行（本分支全量、`origin/main` 对照、本分支隔离重跑）各挂**不同**子集，
+`main` 基线同样失败，失败形态为 sqlite tmp 路径打不开与沙箱网络拒绝类，
+判定为**存量环境敏感 flaky，与本分支无关**。本分支新增/触碰面的测试
+（regime/timeline/memory_status/retrieval_recall/track_contract/registry/
+ask_synthesis 相关）全部通过。
+
+**隧道运维备注**：exec-a77 走 Cloudflare，单请求 >100s 会 524；长任务须
+`nohup ... > /tmp/x.log &` 后台化 + 轮询日志，且 524 后原进程仍在跑，
+重试前必须 `pgrep` 防双跑。
