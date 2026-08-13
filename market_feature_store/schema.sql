@@ -80,9 +80,11 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     stock_high_source        TEXT,
     stock_high_updated_at    TIMESTAMP,
     note                     TEXT,
+    summary_keywords         TEXT,
     source                   TEXT,
     updated_at               TIMESTAMP
 );
+ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS summary_keywords TEXT;
 
 -- 板块 universe 快照台账：同一交易日可有多份候选，只有 published 那份对外可见。
 -- 供应商会换代码、改名单，没有这层就无法回答「当时用的是哪一版板块清单」。
@@ -470,6 +472,194 @@ CREATE TABLE IF NOT EXISTS fact_historical_mapping (
     PRIMARY KEY (source_date, similar_date)
 );
 CREATE INDEX IF NOT EXISTS idx_fact_hist_mapping_date ON fact_historical_mapping(source_date);
+
+-- 复盘会龙头高度（/reviews/leader-ladder.height_trend，一次可回填约 120 日）
+CREATE TABLE IF NOT EXISTS fact_leader_height_daily (
+    trade_date       DATE PRIMARY KEY,
+    height           INTEGER,
+    leader_ts_code   TEXT,
+    leader_name      TEXT,
+    limit_times      INTEGER,
+    fd_amount        DOUBLE,
+    first_limit_time TEXT,
+    source           TEXT,
+    updated_at       TIMESTAMP
+);
+
+-- 外盘指数（请求日=A股交易日，source_trade_date=外盘实际会话日）
+CREATE TABLE IF NOT EXISTS fact_global_index_daily (
+    trade_date         DATE,
+    source_trade_date  DATE,
+    code               TEXT,
+    name               TEXT,
+    market_group       TEXT,
+    close              DOUBLE,
+    pct_chg            DOUBLE,
+    data_stage         TEXT,
+    source             TEXT,
+    updated_at         TIMESTAMP,
+    PRIMARY KEY (trade_date, code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_global_index_date ON fact_global_index_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_global_stock_daily (
+    trade_date         DATE,
+    source_trade_date  DATE,
+    ts_code            TEXT,
+    name_cn            TEXT,
+    name_en            TEXT,
+    exchange           TEXT,
+    close              DOUBLE,
+    pct_chg            DOUBLE,
+    pct_chg_5d         DOUBLE,
+    market_cap_usd     DOUBLE,
+    business           TEXT,
+    industry_position  TEXT,
+    source             TEXT,
+    updated_at         TIMESTAMP,
+    PRIMARY KEY (trade_date, ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_global_stock_date ON fact_global_stock_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_dragon_tiger_daily (
+    trade_date      DATE,
+    stock_ts_code   TEXT,
+    stock_name      TEXT,
+    close           DOUBLE,
+    pct_change      DOUBLE,
+    turnover_rate   DOUBLE,
+    amount          DOUBLE,
+    l_buy           DOUBLE,
+    l_sell          DOUBLE,
+    l_amount        DOUBLE,
+    net_amount      DOUBLE,
+    net_rate        DOUBLE,
+    amount_rate     DOUBLE,
+    reason          TEXT,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_date ON fact_dragon_tiger_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_regulation_event_daily (
+    effective_date           DATE,
+    stock_ts_code            TEXT,
+    stock_name               TEXT,
+    start_date               DATE,
+    end_date                 DATE,
+    days_remaining_trading   INTEGER,
+    status_type              TEXT,
+    event_type               TEXT,
+    event_types              TEXT,
+    leader_plate             TEXT,
+    source                   TEXT,
+    updated_at               TIMESTAMP,
+    PRIMARY KEY (effective_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_reg_event_date ON fact_regulation_event_daily(effective_date);
+
+CREATE TABLE IF NOT EXISTS fact_regulation_pool_daily (
+    effective_date   DATE,
+    stock_ts_code    TEXT,
+    stock_name       TEXT,
+    pool_status      TEXT,
+    close            DOUBLE,
+    pct_chg_10d      DOUBLE,
+    safe_space_10d   DOUBLE,
+    safe_days_10d    INTEGER,
+    pct_chg_30d      DOUBLE,
+    safe_space_30d   DOUBLE,
+    source           TEXT,
+    updated_at       TIMESTAMP,
+    PRIMARY KEY (effective_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_reg_pool_date ON fact_regulation_pool_daily(effective_date);
+
+CREATE TABLE IF NOT EXISTS fact_core_stock_daily (
+    trade_date       DATE,
+    rank             INTEGER,
+    stock_ts_code    TEXT,
+    stock_name       TEXT,
+    close            DOUBLE,
+    pct_chg          DOUBLE,
+    amount           DOUBLE,
+    circ_mv          DOUBLE,
+    sw_l1_name       TEXT,
+    leader_plate     TEXT,
+    fund_flow_today  DOUBLE,
+    gain_5d          DOUBLE,
+    gain_10d         DOUBLE,
+    source           TEXT,
+    updated_at       TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_core_stock_date ON fact_core_stock_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_auction_stock_daily (
+    trade_date       DATE,
+    panel_key        TEXT,
+    panel_label      TEXT,
+    stock_ts_code    TEXT,
+    stock_name       TEXT,
+    auction_pct      DOUBLE,
+    pct_chg          DOUBLE,
+    auction_amount   DOUBLE,
+    day_amount       DOUBLE,
+    limit_seq        INTEGER,
+    leader_plate     TEXT,
+    source           TEXT,
+    updated_at       TIMESTAMP,
+    PRIMARY KEY (trade_date, panel_key, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_auction_date ON fact_auction_stock_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_event_daily (
+    event_date     DATE,
+    event_id       TEXT,
+    title          TEXT,
+    content        TEXT,
+    importance     INTEGER,
+    event_type     TEXT,
+    source_types   TEXT,
+    sectors        TEXT,
+    is_future      BOOLEAN,
+    source         TEXT,
+    updated_at     TIMESTAMP,
+    PRIMARY KEY (event_date, event_id)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_event_date ON fact_event_daily(event_date);
+
+CREATE TABLE IF NOT EXISTS fact_research_report_catalog (
+    report_id      INTEGER PRIMARY KEY,
+    title          TEXT,
+    report_date    DATE,
+    report_type    TEXT,
+    is_hot         BOOLEAN,
+    sector_tags    TEXT,
+    concept_tags   TEXT,
+    stock_count    INTEGER,
+    stocks         TEXT,
+    created_at     TEXT,
+    source         TEXT,
+    updated_at     TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_fact_research_report_date ON fact_research_report_catalog(report_date);
+
+CREATE TABLE IF NOT EXISTS fact_theme_fundamental_doc (
+    document_pk          INTEGER PRIMARY KEY,
+    title                TEXT,
+    produced_at          TEXT,
+    workflow_name        TEXT,
+    analysis_type        TEXT,
+    core_theme           TEXT,
+    verification_points  TEXT,
+    linked_themes        TEXT,
+    linked_sectors       TEXT,
+    kb_path              TEXT,
+    source               TEXT,
+    updated_at           TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS fact_high_volume_gainers (
     start_date         DATE,

@@ -53,6 +53,28 @@ curl -s http://localhost:3456/targets
 
 回补 runbook（按表顺序：日历/基础 fact → 轻表 → stock_high 中表 → limit_heat/sector_stock 重表；常用 CLI 命令清单；以及 2026-06-15 起的已知覆盖状态、卡死/超时/CDP 500 日期与 skip 文件）见 `references/backfill-runbook.md`。回补前加载，按顺序小批执行。
 
+## 复盘会公开资产（2026-08-13 起）
+
+十类公开 API 资产（keywords/相似日/龙头高度/外盘/龙虎榜/监管/核心个股/竞价/事件/研报目录/题材挖掘）已进 `daily-full` 一步 `sync-fupanhui-public-assets`，无需 CDP。回补与质检：
+
+```bash
+# 按其它日表窗口回补缺口（跳过已有行；空结果记 ops 不死循环）
+python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --sleep 0.2
+# 定点重刷单个子任务（如龙头 as-of）
+python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --only leader_height --refresh
+# 质检：结构门（全窗口）+ 公开 API 抽查对账，只读
+python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
+QA_SAMPLE=2026-07-01,2025-06-03 python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
+```
+
+三条硬约束（都是实测事故换来的）：
+
+- **外盘/核心股等主键 = 请求的 A 股日历日**，不能信接口回写的 `trade_date`（DESC 回补会互相覆盖，390 日只剩 258）。
+- **龙头高度：请求日 as-of UPSERT，趋势图历史点只填洞**（同一天在当天图和事后图上龙头可不同）。
+- **验收不能只数行数**：必须跑 QA 脚本对源头抽查（本仓有过「行数全对、值是空壳」的静默降级）。
+
+恒定宇宙（core 每日 50 / global_index 每日 5 / global_stock 每日 194）已进 `check_daily` 的断档 + 行数收缩门禁；auction / events / mapping / regulation_event 天然稀疏，不进门禁，靠 ops `empty` 台账区分「接口没有」和「没同步」。
+
 ## 已知问题（2026-06-20 更新）
 
 - **sync-market-deviation tooltip 提取失败**：`sync-market-deviation` 通过 hover K 线图 tooltip 提取周均线/偏离度，偶发失败。Fallback：手动查询最近 5 个交易日上证收盘价，计算 MA5，然后直接 SQL 写入：
