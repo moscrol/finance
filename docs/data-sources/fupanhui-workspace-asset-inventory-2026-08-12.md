@@ -324,12 +324,14 @@
 |---|---|---|---|
 | 个股当日资金流 `fund_flow_today` | `/core-stocks/list` | 公开 | **已入库**（`fact_core_stock_daily`） |
 | 龙虎榜个股汇总（净额/买卖额） | `/data/dragon/list` | 公开 | **已入库**（`fact_dragon_tiger_daily`） |
-| **龙虎榜席位级明细** | `/data/dragon/all?trade_date=` + `/data/dragon/detail?trade_date=&id=<ts_code>` | **公开**（历史日也 200） | **未入库，新发现** |
-| 全市场机构/游资净买入日汇总 | `/data/dragon/all` 的 `summary` | 公开 | 未入库 |
+| **龙虎榜席位级明细** | `/data/dragon/detail?trade_date=&id=<ts_code>` | **公开**（历史日也 200） | **已入库**（`fact_dragon_seat_daily`，2026-08-13） |
+| 全市场机构/游资净买入日汇总 | `/data/dragon/all` 的 `summary` | 公开 | **已入库**（`fact_dragon_summary_daily`） |
 | 多平台热门个股 | `/data/hot-stocks?trade_date=` | 公开 | 未入库 |
 | 个股 K 线 + `fundFlows` 日资金序列（Wind 口径） | `/stock-kline/{ts}/kline`、`/detail/quick`、`/detail/extra`、`/intraday` | **401 要登录**（CDP 可拿） | 未入库；接 CDP 前须先论证不破只读红线 |
 
 席位明细字段（`buy_seats`/`sell_seats` 各 5/3 席）：`exalter`（营业部全称）、`seat_type`（营业部/游资/机构）、`hm_name`（游资名，如"深股通专用"）、`buy/sell`（亿）、`buy_rate/sell_rate`（%）、`net_buy`。`summary`：`stock_count` / `inst_net_buy` / `youzi_net_buy` / `active_brokers`。
 
-若要入库：席位明细是「一日 × 一股 × 一席」粒度，46 股/日 × 8 席 ≈ 370 行/日；`detail` 要逐股请求（46 次/日），390 日回补约 1.8 万次调用，需评估限流后分批。`dragon/all` 的 summary 一天一行，可以先只吃这个。
+**入库落地（2026-08-13，第 11/12 类资产）**：两个子任务 `dragon_summary` / `dragon_seats` 进 `daily-full`。单日实盘 `2026-08-12`：summary 一行（机构 +3.82 亿 / 游资 +1.81 亿 / 174 活跃席位），席位 416 行覆盖 46 股，seat_type = 营业部 194 / 游资 174 / 机构 48；宏桥控股买卖席位、游资名（深股通专用）、机构专用逐项与接口一致。
+
+席位明细是「一日 × 一股 × 一席」粒度，约 370~420 行/日；`detail` 逐股请求（约 46~105 次/日，内部限速 0.15s，单日约 100 秒），390 日回补 seats 约 1.8 万次调用需分批。`dragon_summary` 一天一个 `all` 调用，可先快速回补 390 日；回补齐后把 `fact_dragon_summary_daily` 加进 `check_daily` 断档门禁。
 
