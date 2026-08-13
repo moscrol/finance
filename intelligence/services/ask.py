@@ -55,6 +55,7 @@ from intelligence.services import (
     market_analogs,
     market_financials,
     market_regime_analogs,
+    stock_analogs,
     task_fulfillment,
     market_midterm,
     market_moneyflow,
@@ -3856,6 +3857,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("D10", "市场情绪环境类比", _d10_applies, _build_d10))
+
+        def _d11_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D11") and bool(
+                stock_analogs.parse_stock_analog_intent(options.query)
+            )
+
+        def _build_d11():
+            block = stock_analogs.stock_analog_block_for_llm(options.query, options.market_db_path)
+            return block, Citation(
+                "D11",
+                "本地 DuckDB 个股走势类比数据块",
+                f"个股自身历史上与当前 {stock_analogs.DEFAULT_WINDOW} 日量价结构最相似窗口及后续 5/10/20 日实际走法（含区间最高/达峰/峰后回撤；小样本历史事实，非概率预测）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D11", "个股走势类比", _d11_applies, _build_d11))
 
         def _d7_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D7") and bool(
