@@ -113,3 +113,60 @@ def episode_track_rule(query: str, question_type: str | None = None) -> str:
     if not parse_track_intent(query, question_type):
         return ""
     return build_track_guidance_for_episode()
+
+
+# 结构门：prompt 对中转模型约束力有限（2026-08-13 live）。缺段用确定性文本补上，
+# 不覆盖模型已写的正文——与 ensure_forecast_scenarios_visible 同一形状。
+_QUAD_MARKERS = ("削弱", "无变化", "信息不足", "四态")
+_TTL_MARKERS = ("复核期限", "valid_until")
+_WATCH_MARKERS = ("下期关注",)
+_BASELINE_MARKERS = ("无上期基线",)
+CONTRACT_STUB_HEADING = "## 跟踪契约补全（模型未按强制结构输出的段落）"
+
+
+def missing_contract_elements(answer: str) -> tuple[str, ...]:
+    """扫描回答里缺了契约的哪几件。非跟踪题的调用方应先自己判断是否要查。"""
+    text = str(answer or "")
+    missing: list[str] = []
+    has_baseline_decl = any(m in text for m in _BASELINE_MARKERS)
+    has_quad = any(m in text for m in _QUAD_MARKERS) or ("支持 /" in text) or ("判定：支持" in text)
+    if not has_quad and not has_baseline_decl:
+        missing.append("quad_or_baseline")
+    if not any(m in text for m in _TTL_MARKERS):
+        missing.append("ttl")
+    if not any(m in text for m in _WATCH_MARKERS):
+        missing.append("next_watch")
+    return tuple(missing)
+
+
+_STUB_LINES = {
+    "quad_or_baseline": (
+        "- **观点四态对照**：正文未给出「支持 / 削弱 / 无变化 / 信息不足」，"
+        "也未声明「无上期基线」。按契约视为信息不足，不得把未对照的旧判断当成仍成立。"
+    ),
+    "ttl": (
+        "- **结论 TTL**：正文未标注「复核期限」。跟踪级默认 30 天、框架级默认 90 天；"
+        "到期未复核不得当已验证事实引用。"
+    ),
+    "next_watch": (
+        "- **下期关注清单**：正文未给出「指标 + 时间节点 + 触发条件」。"
+        "下一轮跟踪缺少强制对照输入，本期只建立观察、不升格为已验证。"
+    ),
+}
+
+
+def append_contract_stub(answer: str, missing: tuple[str, ...]) -> str:
+    """把缺件以可见补全段追加到回答末尾；missing 为空则原文返回。"""
+    if not missing:
+        return str(answer or "")
+    lines = [CONTRACT_STUB_HEADING]
+    lines.extend(_STUB_LINES[key] for key in missing if key in _STUB_LINES)
+    stub = "\n".join(lines)
+    body = str(answer or "").rstrip()
+    if not body:
+        return stub
+    disclaimer = "（非投资建议）"
+    if body.endswith(disclaimer):
+        head = body[: -len(disclaimer)].rstrip()
+        return f"{head}\n\n{stub}\n\n{disclaimer}"
+    return f"{body}\n\n{stub}"

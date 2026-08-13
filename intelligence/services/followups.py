@@ -83,8 +83,11 @@ def _template_followups(question: str, theme: str | None) -> list[Followup]:
                  "预设可证伪条件，避免单边叙事"),
         Followup(f"除了当前提到的标的，{subject}产业链上还有哪些暴露度相近的替代标的？", "alternative",
                  "对比同链条标的的证据硬度与位置"),
-        Followup(f"{subject}最近 5 个交易日的板块双红 / 边际量 / 涨停热度表现如何？", "recheck",
-                 "用盘面数据回检叙事是否被资金认可"),
+        Followup(
+            f"若{subject}当前阶段被证伪，哪一个盘面指标会最先翻面，对应什么动作分层？",
+            "recheck",
+            "二阶回检：不问近几日双红事实（数据块已覆盖），问证伪后的动作",
+        ),
         Followup(f"{subject}的资金和逻辑接下来最可能向哪个相邻题材迁移？", "migration",
                  "提前布局题材扩散的下一站"),
     ]
@@ -128,6 +131,8 @@ def _llm_followups(question: str, theme: str | None, answer_excerpt: str,
         "每条必须具体、可执行、可证伪，且只能属于以下类型之一："
         "evidence(证据加深)/counter(反证验证)/alternative(替代标的)/recheck(盘面回检)/migration(题材迁移)。"
         "每条同时给 label（按钮文案，最多20字）和 full_prompt（完整用户口吻问题）。"
+        "禁止生成本仓数据块已能直接回答的一阶问题：历史上类似情绪环境、题材生命周期阶段、"
+        "近几日双红/边际量/涨停热度事实。追问必须是二阶——下一层后果、跨域传导、证伪后的动作分层。"
         '只输出 JSON：{"followups":[{"label":"...","full_prompt":"...",'
         '"type":"evidence","rationale":"..."}]}'
     )
@@ -176,19 +181,30 @@ def generate_followups(
     llm_timeout: int = 60,
     use_llm: bool = True,
 ) -> FollowupResult:
-    """生成 3-5 条追问卡片；LLM 不可用时优雅降级为五类模板。"""
+    """生成 3-5 条追问卡片；LLM 不可用时优雅降级为五类模板。
+
+    跟踪类问题跳过 recheck：跟踪契约的「下期关注清单」已经覆盖盘面回检，
+    再生成「近几日双红如何」是一阶重复。
+    """
+    from intelligence.services.track_contract import parse_track_intent
+
+    skip_types: set[str] = set()
+    if parse_track_intent(question):
+        skip_types.add("recheck")
     result = FollowupResult()
     if use_llm:
         followups, provider, warn = _llm_followups(
             question, matched_theme, answer_excerpt, n, llm_model, llm_timeout
         )
+        followups = [f for f in followups if f.type not in skip_types]
         if followups:
             result.followups = followups
             result.llm_used = True
             result.llm_provider = provider
             return result
         result.warnings.append(f"{warn}（已降级为模板追问）")
-    result.followups = _template_followups(question, matched_theme)[:n]
+    templates = [f for f in _template_followups(question, matched_theme) if f.type not in skip_types]
+    result.followups = templates[:n]
     return result
 
 

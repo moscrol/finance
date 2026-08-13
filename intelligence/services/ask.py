@@ -42,6 +42,7 @@ from intelligence.services import (
     evidence_registry,
     checkpoint_recall,
     closed_loop_retrieval,
+    corrections,
     entity_anchor,
     experience_cards,
     external_market,
@@ -54,6 +55,7 @@ from intelligence.services import (
     market_analogs,
     market_financials,
     market_regime_analogs,
+    stock_analogs,
     task_fulfillment,
     market_midterm,
     market_moneyflow,
@@ -163,6 +165,7 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _stable_llm_fallback_reason,
     _strip_empty_grounded_sections,
     ensure_forecast_scenarios_visible as _ensure_forecast_scenarios_visible,
+    ensure_track_contract_visible as _ensure_track_contract_visible,
     promote_daily_agent_grounded_answer,
     promote_grounded_answer,
     repair_unfulfilled_answer,
@@ -573,22 +576,27 @@ def _market_today() -> str:
     return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
-def _market_data_date_line(trade_date: str | None) -> str:
+def _market_data_date_line(trade_date: str | None, *, today: str | None = None) -> str:
     """把「数据日期是不是今天」算出来告诉模型，而不是指望它自己注意到。
 
     用户问"今天大盘怎么样"时，盘后到夜间入库之间最新可用的就是上一交易日。
     只在提示词里写一句"保留数据日期"太软：实测模型会把 07-29 的收盘说成"今天"，
     正文一个日期都不提，只有引用的 as_of 是诚实的。日期关系是确定可算的，
     就不该交给模型判断。
+
+    ``today`` 只为测试留的注入口：默认仍走 `_market_today()`。另外「今天」在本函数
+    内只解析一次——此前两个分支各调一次 `_market_today()`，跨北京午夜时同一条消息
+    里的两个日期会来自不同的一天。
     """
+    reference = today or _market_today()
     date_text = str(trade_date or "").strip()
     if not date_text:
         return "数据日期：未确认（没有可用盘面日期，不得给出任何当日定性）"
-    if date_text == _market_today():
+    if date_text == reference:
         return f"数据日期：{date_text}（即今天）"
     return (
         f"数据日期：{date_text}"
-        f"（今天是 {_market_today()}，因此这不是当日数据："
+        f"（今天是 {reference}，因此这不是当日数据："
         f"正文首句必须写明「数据截至 {date_text}」，全文不得称其为今天/今日/当天）"
     )
 
@@ -709,8 +717,23 @@ def _answer_market_review(
         if card_warning:
             result.warnings.append(card_warning)
         card_guidance = experience_cards.render_for_prompt(
-            experience_cards.select_relevant_cards(cards, options.query)
+            experience_cards.merge_cards_for_prompt(
+                experience_cards.select_resident_cards(cards),
+                experience_cards.select_relevant_cards(cards, options.query),
+            )
         )
+        corr_records, corr_warn = corrections.load_corrections(user_space.corrections_path)
+        if corr_warn:
+            result.warnings.append(corr_warn)
+        resident_principles = corrections.render_for_prompt(
+            corrections.select_resident_principles(corr_records)
+        )
+        if resident_principles:
+            card_guidance = (
+                f"{resident_principles}\n{card_guidance}".strip()
+                if card_guidance
+                else resident_principles
+            )
         if card_guidance:
             prior_parts.append(
                 "## 历史经验卡片（回答方法，不是市场事实）\n"
@@ -3840,6 +3863,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         providers.append(ask_planner.DataBlockProvider("D10", "市场情绪环境类比", _d10_applies, _build_d10))
 
+        def _d11_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D11") and bool(
+                stock_analogs.parse_stock_analog_intent(options.query)
+            )
+
+        def _build_d11():
+            block = stock_analogs.stock_analog_block_for_llm(options.query, options.market_db_path)
+            return block, Citation(
+                "D11",
+                "本地 DuckDB 个股走势类比数据块",
+                f"个股自身历史上与当前 {stock_analogs.DEFAULT_WINDOW} 日量价结构最相似窗口及后续 5/10/20 日实际走法（含区间最高/达峰/峰后回撤；小样本历史事实，非概率预测）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D11", "个股走势类比", _d11_applies, _build_d11))
+
         def _d7_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D7") and bool(
                 market_financials.parse_financials_intent(options.query)
@@ -4169,6 +4207,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         for issue in result.answer_spec.quality.issues
     )
     _ensure_forecast_scenarios_visible(result)
+    _ensure_track_contract_visible(result, enabled=options.include_track_guidance)
 
     with _progress_stage(options, "output_review") as stage:
         result.review_gate = output_review.review_output(

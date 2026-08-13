@@ -16,6 +16,8 @@ from typing import Any
 from intelligence.eval.finance_answer_rubric import FinanceAnswerScore
 
 DEFAULT_WINDOW = 12
+RESIDENT_PROMOTIONS = frozenset({"promoted", "methodology"})
+DEFAULT_RESIDENT_LIMIT = 5
 
 
 def _now() -> datetime:
@@ -264,6 +266,41 @@ def select_relevant_cards(cards: list[dict[str, Any]], query: str, *, limit: int
     ranked = [item for item in ranked if item[0][0] > 0 or len(cards) <= limit]
     ranked.sort(key=lambda item: (item[0][0], item[0][1]), reverse=True)
     return [card for _, card in ranked[:limit]]
+
+
+def select_resident_cards(
+    cards: list[dict[str, Any]],
+    *,
+    limit: int = DEFAULT_RESIDENT_LIMIT,
+) -> list[dict[str, Any]]:
+    """常驻概览：已晋升/方法论卡每次都带着，不靠本轮 query 命中。"""
+    resident = [
+        card
+        for card in cards
+        if str(card.get("promotion") or "").strip() in RESIDENT_PROMOTIONS
+    ]
+    resident.sort(key=lambda card: str(card.get("ts") or ""), reverse=True)
+    return resident[: max(0, int(limit))]
+
+
+def merge_cards_for_prompt(
+    resident: list[dict[str, Any]],
+    relevant: list[dict[str, Any]],
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """常驻在前、相关在后，按 ts+question 去重。"""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for card in [*resident, *relevant]:
+        key = f"{card.get('ts') or ''}|{card.get('question') or ''}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(card)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def render_for_prompt(cards: list[dict[str, Any]]) -> str:
