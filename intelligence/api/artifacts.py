@@ -152,6 +152,7 @@ def _daily_kind(path: Path) -> tuple[str, str] | None:
     name = path.stem
     mapping = (
         ("daily-agent", "daily_agent", "每日 Agent 简报"),
+        ("research-queue", "research_queue", "研究队列"),
         ("daily-review", "daily_review", "每日复盘"),
         ("theme-candidates", "theme_candidates", "题材候选"),
         ("daily-workflow-summary", "daily_review", "每日工作流摘要"),
@@ -170,6 +171,10 @@ def _daily_canonical(context: ProviderContext, path: Path, category: str) -> str
     exports = context.repo_root / "market_feature_store" / "exports"
     candidates = {
         "daily_agent": [exports / f"{date}-daily-agent.json", exports / f"{date}-daily-agent.md"],
+        "research_queue": [
+            exports / f"{date}-research-queue.json",
+            exports / f"{date}-research-queue.md",
+        ],
         "theme_candidates": [
             exports / f"{date}-theme-candidates.json",
             exports / f"{date}-theme-candidates.md",
@@ -184,7 +189,7 @@ def _daily_canonical(context: ProviderContext, path: Path, category: str) -> str
         ],
     }
     if path.suffix in {".md", ".json"} and not (
-        category == "daily_agent" and path.suffix == ".md"
+        category in {"daily_agent", "research_queue"} and path.suffix == ".md"
     ):
         return context.repo_relative(path)
     for candidate in candidates.get(category, []):
@@ -257,6 +262,8 @@ class DailyArtifactProvider:
         patterns = (
             "*-daily-agent.md",
             "*-daily-agent.json",
+            "*-research-queue.md",
+            "*-research-queue.json",
             "*-theme-candidates.md",
             "*-theme-candidates.json",
             "*-daily-workflow-summary.json",
@@ -389,7 +396,7 @@ class BriefingArtifactProvider:
             )
 
         exports = context.repo_root / "market_feature_store" / "exports"
-        for pattern in ("*-market-triggered-theme-brief.md", "*-research-queue.md", "*-research-queue.json"):
+        for pattern in ("*-market-triggered-theme-brief.md",):
             for path in sorted(exports.glob(pattern)):
                 yield _descriptor(
                     context,

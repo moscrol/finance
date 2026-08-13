@@ -567,7 +567,7 @@ def cmd_effectiveness(args: argparse.Namespace) -> int:
 def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "agent-daily",
-        help="每日 agent 入口：读取日常复盘/知识库/逻辑盘面匹配，生成只读研究员简报；不自动回补。",
+        help="每日研究入口：写出 canonical 研究队列；完整 daily-agent 日报仅在 fidelity 1.2 通过时落盘。",
     )
     parser.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
     parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
@@ -582,9 +582,9 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
     parser.add_argument("--catalyst-window-days", type=int, default=5, help="催化归因回看的自然日数（卖方观点/晨汇）")
-    parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
-    parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
-    parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
+    parser.add_argument("--out-json", default=None, help="写出完整 agent 日报 JSON（best-effort；研究队列写在其 sibling）")
+    parser.add_argument("--out-md", default=None, help="写出完整 agent 日报 Markdown（best-effort）")
+    parser.add_argument("--out-html", default=None, help="写出完整 agent 日报 HTML（best-effort；工作台优先读研究队列 HTML）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON；否则输出 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_daily_agent)
@@ -696,6 +696,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     import json as _json
 
     from intelligence.paths import default_paths
+    from intelligence.services.research_queue import sibling_queue_path
     from intelligence.workflows.daily_agent import DailyAgentOptions, run_daily_agent, write_daily_agent_outputs
 
     summary, report, answer = run_daily_agent(
@@ -720,17 +721,35 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     out_json = Path(args.out_json).expanduser() if args.out_json else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.json"
     out_md = Path(args.out_md).expanduser() if args.out_md else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.md"
     out_html = Path(args.out_html).expanduser() if args.out_html else finance_root / "复盘" / "daily" / args.date / f"{args.date}-daily-agent.html"
-    write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
+    queue_json = sibling_queue_path(out_json)
+    queue_md = sibling_queue_path(out_md)
+    queue_html = sibling_queue_path(out_html)
     kb_queue_path = out_json.with_name(f"{args.date}-kb-ingest-queue.json")
-    summary.outputs.extend([str(out_json), str(out_md), str(out_html), str(kb_queue_path)])
+    full_written = True
+    try:
+        write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
+    except ValueError as exc:
+        if not str(exc).startswith("invalid fidelity contract"):
+            raise
+        full_written = False
+        summary.warnings.append(str(exc))
+        print(f"WARN 完整 daily-agent 未落盘：{exc}", file=sys.stderr)
+        print(f"研究队列已落盘：{queue_json}", file=sys.stderr)
+    summary.outputs.extend([str(queue_json), str(queue_md), str(queue_html), str(kb_queue_path)])
+    if full_written:
+        summary.outputs.extend([str(out_json), str(out_md), str(out_html)])
     if args.summary_json:
         summary.write_json(args.summary_json)
     if args.json:
         print(_json.dumps(report, ensure_ascii=False, indent=2))
     else:
         print(answer, end="")
-        print(f"\n输出: {out_md}\n输出: {out_json}\n输出: {out_html}")
+        print(f"\n输出: {queue_md}\n输出: {queue_json}\n输出: {queue_html}")
         print(f"输出: {kb_queue_path}")
+        if full_written:
+            print(f"输出: {out_md}\n输出: {out_json}\n输出: {out_html}")
+        else:
+            print("完整 daily-agent 因 fidelity 1.2 未落盘；研究队列已作为 canonical 产物写出。")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -1154,6 +1173,32 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.add_argument("--dry-run", action="store_true", help="Print command plan without execution")
     parser.set_defaults(func=cmd_daily)
+
+
+def add_kb_queue_receive_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "kb-queue-receive",
+        help="把当日 kb-ingest-queue.json 归档进知识库 wiki/raw（只 receive，不入库、不 apply）",
+    )
+    parser.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
+    parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认 env/auto")
+    parser.set_defaults(func=cmd_kb_queue_receive)
+
+
+def cmd_kb_queue_receive(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_paths
+    from intelligence.services.kb_queue_receive import receive_kb_ingest_queue
+
+    paths = default_paths()
+    finance_root = Path(args.finance_root).expanduser() if args.finance_root else paths.finance_root
+    kb_wiki = Path(args.kb_wiki).expanduser() if args.kb_wiki else paths.knowledge_wiki
+    result = receive_kb_ingest_queue(date=args.date, finance_root=finance_root, kb_wiki=kb_wiki)
+    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    if result.status == "warn":
+        print(f"WARN kb-queue-receive: {result.reason}", file=sys.stderr)
+    # 归档失败不阻断复盘；skipped/warn 都当成功退出。
+    return 0
 
 
 def add_kb_queue_status_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -3033,6 +3078,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
+    add_kb_queue_receive_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)

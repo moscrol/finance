@@ -73,7 +73,8 @@
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
 | `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly_full_review.sh sync` | 同步段（全 fact 同步 + same/cross-day 门），不依赖 L2 |
-| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | sync 守卫（复查 same-day-gate）→ L2 → 生成段 → 终极门 |
+| `com.financeworkspace.fidelity-daily-agent` | 20:05 | `run_fidelity_daily_agent.sh` | theme-candidates 合同校验 + agent-daily（`--semantic-rag-top-n 0`）+ kb-queue-receive |
+| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | sync 守卫（复查 same-day-gate）→ L2 → 生成段（含研究队列 + receive）→ 终极门 |
 
 手动补跑用 `nightly_full_review.sh [date]`（phase=all，全量；跨日补跑也用它）。
 脚本带 phase 参数（`sync`/`finalize`/`all`），date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
@@ -157,8 +158,15 @@
 
 - **agent-daily 不在 evolve_daily.sh 中**：evolve 只有 8 步（generate→validate→log→theme→backfill→review→audit→suggest）。
   agent-daily 是独立命令 `python3 -m intelligence.cli agent-daily --date D`，
-  必须在 evolve 后单独跑，否则驾驶台不会显示 "Agent 简报" 标签。
-  完整后置流程：evolve_daily.sh → agent-daily → render_cockpit.py（重渲染）。
+  必须在 evolve 后单独跑，否则驾驶台不会显示研究队列标签。
+  完整后置流程：evolve_daily.sh → agent-daily → kb-queue-receive → render_cockpit.py（重渲染）。
+  **夜跑不要开 wiki RAG**：分桶不读向量索引；`--semantic-rag-top-n 0`。2026-08-13
+  曾 3×120s 超时白烧 ~6 分钟。手动深挖再显式传 `--semantic-rag-top-n 3`。
+  **kb-ingest-queue 只归档不入库**：`kb-queue-receive` / `kb_ingest_queue.py receive`
+  写入 `wiki/raw/cross-repo-ingest-queue/` 并生成 receipt；禁止 `--apply`、禁止
+  改 `auto_apply`、禁止自动写 IMA/relations。概念入库仍走人工 `concept-ingest`。
+  LaunchAgent 跑的是 **runtime 快照 + 数据仓 main**；本优化在 `feat/research-queue-canonical`
+  落地后，需合并进 main 并刷新 `FINANCE_CODE_ROOT` runtime，20:05/20:40 才会吃到新代码。
 
 - **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。
   rx.py 必须 `TOKEN = os.environ.get("CC_REMOTE_EXEC_TOKEN","").strip().strip("\u2028\u2029")`。
