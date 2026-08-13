@@ -29,13 +29,21 @@ try:
 except ImportError:
     from rag_freshness import IMPORT_CONTEXT
 
-def _load_retriever(model, need_dense, reranker_name=None):
+class RagStore:
+    # 复现知识库仓现状：cmd_query 每次传入新的 RagStore 实例。
+    # 不可哈希。worker 若再用 lru_cache 包 _load_retriever，预热会 TypeError。
+    __hash__ = None
+
+    def __eq__(self, other):
+        return False
+
+def _load_retriever(model, need_dense, reranker_name=None, store=None, index_freshness=None):
     return object()
 
 def main(argv=None):
     argv = list(argv or [])
     query = argv[1]
-    _load_retriever("hash", True, None)
+    _load_retriever("hash", True, None, store=RagStore(), index_freshness="fresh")
     if query == "slow":
         time.sleep(0.2)
     print(json.dumps([{"query": query, "import_context": IMPORT_CONTEXT}], ensure_ascii=False))
@@ -299,3 +307,40 @@ def test_worker_status_reports_lazy_lifecycle(monkeypatch) -> None:
     assert payload["lifecycle"] == "startup_prewarm"
     assert payload["state"] in {"cold", "ready", "failed", "warming"}
     assert isinstance(payload["active"], int)
+
+
+def test_hashable_cache_key_treats_distinct_stores_as_the_same_loader() -> None:
+    """同一 (model, mode, freshness) 换一个 RagStore 实例，必须命中同一缓存键。
+
+    否则 worker 会每问一次就重新 load BGE，预热的意义全没了。
+    """
+
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "rag_query_worker.py"
+    spec = importlib.util.spec_from_file_location("rag_query_worker_under_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class RagStore:
+        __hash__ = None
+
+        def __eq__(self, other):
+            return False
+
+    key_a = module._hashable_cache_key(
+        ("bge-m3", True, None),
+        {"store": RagStore(), "index_freshness": "fresh"},
+    )
+    key_b = module._hashable_cache_key(
+        ("bge-m3", True, None),
+        {"store": RagStore(), "index_freshness": "fresh"},
+    )
+    key_stale = module._hashable_cache_key(
+        ("bge-m3", True, None),
+        {"store": RagStore(), "index_freshness": "stale"},
+    )
+    assert key_a == key_b
+    assert key_a != key_stale
+

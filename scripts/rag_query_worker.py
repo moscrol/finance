@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import functools
 import importlib.util
 import io
 import json
@@ -32,16 +31,27 @@ def main() -> int:
     original_loader = module._load_retriever
     load_count = 0
     state = {"retriever": None, "chunks": {}, "revision": "", "freshness": "unknown"}
+    loader_cache: dict[tuple, object] = {}
 
-    @functools.lru_cache(maxsize=8)
-    def cached_loader(*loader_args):
+    def cached_loader(*loader_args, **loader_kwargs):
         nonlocal load_count
+        # 不能用 functools.lru_cache：KB 侧 `_load_retriever` 后来加了
+        # `store: RagStore`，每次 query 都传入新实例。lru_cache 要求参数可哈希，
+        # 生产预热会变成 `TypeError: unhashable type: 'RagStore'`，
+        # model_load_count 停在 0，Workbench 整段 RAG 判 not_ready。
+        # 缓存键只取可哈希参数（model / mode / reranker / freshness）；
+        # 跳过 store 正是本 worker 的语义——同一组检索配置共用一具热模型。
+        key = _hashable_cache_key(loader_args, loader_kwargs)
+        cached = loader_cache.get(key)
+        if cached is not None:
+            return cached
         load_count += 1
-        retriever = original_loader(*loader_args)
+        retriever = original_loader(*loader_args, **loader_kwargs)
         state["retriever"] = retriever
         store = getattr(retriever, "store", None)
         if store is None:
             state["retriever"] = None
+            loader_cache[key] = retriever
             return retriever
         state["chunks"] = {
             str(chunk.get("id") or ""): chunk
@@ -63,6 +73,7 @@ def main() -> int:
             state["freshness"] = "stale" if report.get("stale") else "fresh"
         except Exception:
             state["freshness"] = "unknown"
+        loader_cache[key] = retriever
         return retriever
 
     module._load_retriever = cached_loader
@@ -131,6 +142,25 @@ def _enrich_query_output(output: str, state: dict[str, object]) -> str:
             }
         )
     return json.dumps(rows, ensure_ascii=False)
+
+
+def _hashable_cache_key(args: tuple, kwargs: dict) -> tuple:
+    """Build a cache key that silently drops unhashable values such as RagStore."""
+
+    frozen: list[object] = []
+    for value in args:
+        try:
+            hash(value)
+        except TypeError:
+            continue
+        frozen.append(value)
+    for key, value in sorted(kwargs.items()):
+        try:
+            hash(value)
+        except TypeError:
+            continue
+        frozen.append((key, value))
+    return tuple(frozen)
 
 
 def _load_module(path: Path):
