@@ -62,6 +62,9 @@ class TurnControlResult:
     clarification_questions: tuple[str, ...] = ()
     # Prompt-only history: useful for reference resolution, never evidence.
     conversation_context: str = ""
+    # Prompt-only KOL perspective constraints (perspective_lab runtime prompt);
+    # never evidence.  Empty string means neutral: legacy behavior byte-for-byte.
+    perspective_context: str = ""
 
 
 def project_turn_decision(
@@ -70,6 +73,7 @@ def project_turn_decision(
     task_frame: TaskFrame,
     turn_intent: TurnIntent | None = None,
     conversation_context: str = "",
+    perspective_context: str = "",
 ) -> TurnControlResult:
     """Project one already-made decision without invoking understanding again."""
 
@@ -115,6 +119,7 @@ def project_turn_decision(
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,
         clarification_questions=clarification_questions,
         conversation_context=str(conversation_context or "").strip(),
+        perspective_context=str(perspective_context or "").strip(),
     )
 
 

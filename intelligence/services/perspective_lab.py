@@ -608,6 +608,34 @@ def runtime_fallback_notice(mode: str) -> str:
     )
 
 
+def active_runtime_prompt(
+    us: UserSpace,
+    *,
+    mode: str,
+    perspective_ids: list[str] | tuple[str, ...],
+    query: str,
+) -> str:
+    """single/compare 时返回视角约束 prompt，neutral 或未选择返回空串。
+
+    通用注入原语：grounded composer 链与 continuous episode 输入共用一份语义。
+    neutral 不注入是刻意的——默认行为必须逐字节不变，只有用户显式选了 KOL
+    视角才改变模型输入。选择在 API 边界已做过 validate_runtime_selection，
+    这里的异常兜底只防构建期 profile 被手工删除的窗口：降级为无视角，
+    而不是让整轮回答失败。
+    """
+    if mode == PERSPECTIVE_MODE_NEUTRAL or not perspective_ids:
+        return ""
+    try:
+        return build_runtime_context(
+            us,
+            mode=mode,
+            perspective_ids=list(perspective_ids),
+            query=query,
+        ).prompt
+    except (ValueError, FileNotFoundError):
+        return ""
+
+
 def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:
     path = profile_path(us, str(profile.get("id")))
     profile["updated_at"] = _now_iso()

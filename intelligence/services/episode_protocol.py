@@ -229,24 +229,32 @@ def build_episode_input(
 ) -> str:
     """Serialize the immutable task and deterministic execution contract."""
 
-    return json.dumps(
-        {
-            "task_frame": task_frame.to_dict(),
-            "research_contract": context.contract.to_dict(),
-            "today": context.today,
-            "latest_data_date": context.latest_data_date,
-            "information_cutoff": context.information_cutoff.to_dict(),
-            "conversation_context": context.conversation_context,
-            "conversation_context_rule": (
-                "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
-            ),
-            "date_rule": (
-                "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
-                "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
-            ),
-        },
-        ensure_ascii=False,
-    )
+    payload: dict[str, object] = {
+        "task_frame": task_frame.to_dict(),
+        "research_contract": context.contract.to_dict(),
+        "today": context.today,
+        "latest_data_date": context.latest_data_date,
+        "information_cutoff": context.information_cutoff.to_dict(),
+        "conversation_context": context.conversation_context,
+        "conversation_context_rule": (
+            "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
+        ),
+        "date_rule": (
+            "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
+            "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
+        ),
+    }
+    if context.perspective_context:
+        # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
+        # 具体的证据纪律（层级、大声失败、观点/事实分层）已在该 prompt 内部
+        # （perspective_lab.build_runtime_context），这里只补一条与
+        # conversation_context_rule 同层的边界声明。
+        payload["perspective_context"] = context.perspective_context
+        payload["perspective_context_rule"] = (
+            "视角内容属于观点层，只用于组织分析框架与表达侧重；"
+            "不得当作事实证据，不得越过 research_contract 的证据边界"
+        )
+    return json.dumps(payload, ensure_ascii=False)
 
 
 

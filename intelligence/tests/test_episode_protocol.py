@@ -195,6 +195,30 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
     )
 
 
+def test_episode_input_carries_perspective_context_only_when_active() -> None:
+    """视角块只在激活时进模型输入；neutral 不得出现任何新键。
+
+    neutral 逐字节不变是注入原语的既有契约（ask_synthesis 侧同源）；
+    激活时观点层/事实层的边界声明必须与内容同时到达。
+    """
+    frame = _frame()
+    neutral_context = _context(frame)
+    active_context = dataclasses.replace(
+        neutral_context,
+        perspective_context="只允许使用下方这一位 KOL 的画像与原文召回。",
+    )
+
+    neutral_input = json.loads(build_episode_input(frame, neutral_context))
+    active_input = json.loads(build_episode_input(frame, active_context))
+
+    assert "perspective_context" not in neutral_input
+    assert "perspective_context_rule" not in neutral_input
+    assert active_input["perspective_context"] == (
+        "只允许使用下方这一位 KOL 的画像与原文召回。"
+    )
+    assert "不得当作事实证据" in active_input["perspective_context_rule"]
+
+
 def _static_contract_text() -> str:
     """Return only the hard-coded contract literals of the instruction builder.
 

@@ -187,6 +187,43 @@ def _scripted_episode_result(
     ).handle(frame=frame, control=control)
 
 
+def test_perspective_context_reaches_context_factory_only_when_active() -> None:
+    """视角约束进 context 构造只在激活时发生。
+
+    neutral（perspective_context=""）的 context_factory kwargs 必须与改动前
+    完全一致——不认识该参数的注入式 factory 不得在中立轮被炸；激活时该值
+    必须原样到达。变异验证：删掉 _run_episode 里的 if 守卫，本条必红。
+    """
+    frame = _frame()
+    captured: list[dict[str, object]] = []
+
+    def factory(_frame, **kwargs):
+        captured.append(dict(kwargs))
+        raise RuntimeError("stop after capturing context kwargs")
+
+    def run_once(control) -> None:
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            mode="on",
+            context_factory=factory,
+            registry_factory=_raises,
+            semantic_verifier=_SemanticThatRaises(),
+        ).handle(frame=frame, control=control)
+
+    run_once(_control(frame))
+    assert "perspective_context" not in captured[0]
+
+    run_once(
+        replace(
+            _control(frame),
+            perspective_context="只允许使用下方这一位 KOL 的画像与原文召回。",
+        )
+    )
+    assert captured[1]["perspective_context"] == (
+        "只允许使用下方这一位 KOL 的画像与原文召回。"
+    )
+
+
 def test_satisfiability_precheck_survives_registry_without_authorized_specs() -> None:
     """registry 是鸭子类型注入点，预检不得因替身缺接口而杀掉整轮回答。
 

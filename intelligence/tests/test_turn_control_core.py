@@ -165,6 +165,34 @@ def test_frozen_decision_projects_control_without_calling_controller_again() -> 
     assert result.capabilities == ("market_data", "mainline_context")
 
 
+def test_projection_carries_perspective_context_for_the_episode_input() -> None:
+    """视角约束经投影原样到达 control，neutral 默认为空串。
+
+    control 是视角进 continuous 引擎的唯一通道：投影丢了它，视角就退回
+    「只验证、只存储、模型看不见」的死数据状态（2026-08-14 生产实测形状）。
+    """
+    frame = _financial_frame()
+    decision = TurnDecision(
+        lane="research",
+        needs_retrieval=True,
+        needs_memory=False,
+        needs_template=True,
+        question_type=frame.question_type,
+        capabilities=("market_news",),
+        task_frame=frame,
+    )
+
+    neutral = project_turn_decision(decision, task_frame=frame)
+    active = project_turn_decision(
+        decision,
+        task_frame=frame,
+        perspective_context="  只允许使用该 KOL 的画像与原文召回。  ",
+    )
+
+    assert neutral.perspective_context == ""
+    assert active.perspective_context == "只允许使用该 KOL 的画像与原文召回。"
+
+
 def test_frozen_non_research_decision_is_not_upgraded_by_lexical_replanning() -> None:
     frame = TaskFrame(
         raw_question="当前市场主线是什么意思",
