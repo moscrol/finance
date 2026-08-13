@@ -4439,3 +4439,47 @@ def test_calendar_disclosure_leaves_plain_frames_and_empty_answers_alone() -> No
 
     noted = _calendar_frame(("2026-07-25 为周六，A股休市，该日无行情数据",))
     assert adapter_module._with_calendar_disclosure("", noted) == ""
+
+
+def test_open_gap_labels_project_unfulfilled_required_descriptions() -> None:
+    """缺口镜像的源头口径：契约必需输出里没被满足的描述，最多 3 条。
+
+    描述文本与公开降级声明（「仍需核验：…」）同一来源，因此不需要
+    再脱敏；非必需输出与空描述不进镜像。
+    """
+    from intelligence.services.research_contract import (
+        RequiredOutput,
+        ResearchTaskContract,
+    )
+
+    contract = ResearchTaskContract(
+        task_id="t-gap",
+        question="q",
+        subject="液冷",
+        subject_kind="theme",
+        question_type="theme_analysis",
+        required_outputs=(
+            RequiredOutput(output_id="a", description="主线判断依据"),
+            RequiredOutput(output_id="b", description="失效条件"),
+            RequiredOutput(output_id="c", description="", required=True),
+            RequiredOutput(output_id="d", description="选读背景", required=False),
+            RequiredOutput(output_id="e", description="反方证据"),
+            RequiredOutput(output_id="f", description="资金流向"),
+        ),
+        allowed_capabilities=(),
+    )
+
+    labels = adapter_module._open_gap_labels(
+        contract,
+        fulfilled_output_ids=frozenset({"a"}),
+    )
+
+    # b/e/f 未满足且必需且有描述；c 空描述、d 非必需不进；上限 3。
+    assert labels == ("失效条件", "反方证据", "资金流向")
+    assert adapter_module._open_gap_labels(
+        None, fulfilled_output_ids=frozenset()
+    ) == ()
+    assert adapter_module._open_gap_labels(
+        contract,
+        fulfilled_output_ids=frozenset({"a", "b", "e", "f"}),
+    ) == ()

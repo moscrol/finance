@@ -349,6 +349,81 @@ def test_continuous_episode_citations_survive_run_context_reload(
         ]
 
 
+def test_open_gaps_mirror_into_message_followups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """缺口镜像端到端：episode 报缺口 → 消息带「缺口补齐」追问 + artifact。
+
+    R15 knevo 对照 9:2:0 的失分形状：降级声明把缺口变成句号，追问负担全在
+    用户。缺口必须镜像成可点击的下一步（knevo q12 的 suggest_options 形状），
+    且确定性生成——模型没机会顺嘴编数据。
+    """
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class GapAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="degraded",
+                answer="关于当前主线，现有证据不足，暂不能给出可靠结论。仍需核验：主线判断依据、失效条件。",
+                as_of="2026-07-24",
+                citations=(),
+                warnings=("证据或语义核验未完全通过，已按证据边界降级。",),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+                llm_provider="test",
+                open_gaps=("主线判断依据", "失效条件"),
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: GapAdapter(),
+    )
+
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "缺口镜像", "user": "alice"},
+        ).json()["conversation_id"]
+        created, run = _send(
+            client,
+            conversation_id,
+            "目前市场的主线是什么，给出判断依据和失效条件",
+        )
+
+        assert run["status"] == "completed"
+        messages = _wait_message_terminal(client, conversation_id)
+        followups = messages[-1]["followups"]
+        assert len(followups) == 2
+        assert all(item["type"] == "gap" for item in followups)
+        assert all(item["type_label"] == "缺口补齐" for item in followups)
+        assert "主线判断依据" in followups[0]["full_prompt"]
+        assert all(len(item["label"]) <= 20 for item in followups)
+        # full_prompt 是替用户写好的完整问题，直接可发。
+        assert all(item["full_prompt"].strip() for item in followups)
+
+        # artifact 端点是最终一致的旁路（#321 写序：消息终稿先于 artifact
+        # 落盘，run=completed 不保证 followups.json 已写完），按其语义轮询。
+        # 消息里的 followups 才是交付主通道，上面已即时断言。
+        deadline = time.monotonic() + 5.0
+        document: dict[str, object] = {"followups": []}
+        while time.monotonic() < deadline:
+            document = client.get(
+                f"/api/runs/{created['run_id']}/followups",
+                params={"user": "alice"},
+            ).json()
+            if document.get("followups"):
+                break
+            time.sleep(0.02)
+        assert len(document["followups"]) == 2
+        assert document["llm_used"] is False
+
+
 def test_terminal_claim_and_message_revise_are_adjacent_writes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
