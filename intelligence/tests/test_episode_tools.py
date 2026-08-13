@@ -995,15 +995,15 @@ def test_episode_registry_exposes_and_executes_model_owned_research_tools(
         item["function"]["name"]: item["function"]["description"]
         for item in tool_definitions
     }
-    assert set(definitions["finance_query"]["properties"]["dataset"]["enum"]) == {
-        "market_daily",
-        "stock_daily",
-        "sector_daily",
-        "sector_stock_daily",
-        "stock_high_daily",
-        "mainline_theme_daily",
-        "mainline_sector_daily",
-    }
+    # 比对真本源而非手抄清单（BUILD 模式 6）：这里原来抄了 7 个数据集名，
+    # #305 注册龙虎榜 6 个新数据集时没人知道要来改这份抄件——2026-08-13
+    # 全量质检才发现它红了。要钉的不变量是「注册表里的每个数据集都出现在
+    # 模型可见的枚举里」，不是某个时点的名单快照。
+    from intelligence.services.finance_query import _DATASETS
+
+    assert set(
+        definitions["finance_query"]["properties"]["dataset"]["enum"]
+    ) == set(_DATASETS)
     assert set(definitions["finance_query"]["required"]) == {
         "dataset",
         "metrics",
