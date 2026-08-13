@@ -111,7 +111,14 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
         if ":" not in line or line.lstrip().startswith("#"):
             continue
         key, _, val = line.partition(":")
-        out[key.strip()] = val.strip()
+        val = val.strip()
+        # 必须与上面 PyYAML 分支脱引号的行为一致，否则同一份 SKILL.md 在装了
+        # PyYAML 的机器与没装的 CI 上会解析出不同的 description，注册表产物随之
+        # 不同——本仓 2026-08-13 的 registry-check 长红就是这么来的：本地 scan
+        # 出无引号版，CI check 算出带引号版，无论重跑多少次都判漂移。
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        out[key.strip()] = val
     return out
 
 
