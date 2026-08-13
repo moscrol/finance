@@ -311,3 +311,5 @@
 
 成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets` @ `1a0555e0`；抽查日接口当时仍返回这些值。
 
+**第二轮（随机抽样，FAIL 0 / WARN 0）**：`random.seed(20260813)` 从 390 日日历中排除第一轮 8 日后随机抽 8 日：`2025-02-19` / `04-22` / `06-03` / `06-12` / `08-08` / `12-22` / `2026-03-04` / `07-01`。同一组比对项全部一致；结构门（390/390、core 每日 50、global 每日 5、无克隆、ops failed=0）复查通过。两轮合计 16/390 个交易日与公开 API 逐项对账无差异。
+
