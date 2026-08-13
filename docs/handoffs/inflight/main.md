@@ -1,35 +1,36 @@
 # 在途交接 · main
 
-更新：2026-08-13 · 三 PR 已合并（MERGED），8792 已干净切到 `1d45f5cf`
+更新：2026-08-13 · 夜间循环收口：5 PR 合并部署，R13–R15 全量验收 + knevo 对照完成
 
 ## 这个分支做什么
 
-生产基线。夜间修复循环已收口并部署。
+生产基线。夜间修复循环 + 验收对照已收口，快照见 `docs/handoffs/2026-08-13b-night-loop-and-r15-knevo-comparison.md`。
 
 ## 当前状态
 
-- `main` @ `1d45f5cf` 含：#301 A3 冷启动、#302 RAG worker 缓存键、#303 A4 截断哈希、#304 A1-R2 冷启动扩判据。
-- 8792 = `1d45f5cfa947`，worktree clean（热补丁已随切换退役），ready，RAG 预热 70s。
-- 旧 runtime `09dacdeaca30` / `bcd3b6ce64f7` 保留可回滚。不要动 Mac 开发区。
+- 8792 = `3b7158a8`（含 #301–#306 全部修复），clean，ready，RAG ready。
+- 28 题全量：A 组 10/10（A3 经 #306 修复后 completed）、B 8/8、C 10/10。
+- knevo 对比包已生成（Mac 私有仓 runs/ 未提交）。
 
 ## 下一步
 
-1. 可选生产冒烟 A1/A3/A4（验证三修复的真实形状）。
-2. A5 非本仓 bug；A7/A10、governor 升档是设计评审项。
-3. #304 的 `model_unavailable` 判据偏宽（非瞬态异常也给一发冷启动），有 cycle/余量闸兜底；要收紧按 gap 里的异常类型滤。
+1. **实体识别吞前缀**：「立新能源」→theme「新能源」，A3/B1 零证据共同上游，最高优先。
+2. **交易日历判定**：C1 该答「周六休市」不是「证据不足」。
+3. A7/A10 核验预算、governor 升档——设计评审。
+4. C2/C4/C5 degrades=9~10 偏高，可看核验剪裁量。
 
 ## 未验证
 
-- 三修复的生产真实形状（需等真实流量或跑验收）。
+- 对比包只生成未判分（information comparison 需评审员跑）。
 
 ## 踩过的坑
 
-- 切 8792 不要 `reset --hard`。预热同步，kickstart 后 2–3 分钟不监听。
-- 饿死看 stop_reason；`model_finish` 不是饿死。
-- 多 PR 都写 inflight/main.md 时顺序合必冲突；以合并末态覆写一次即可。
+- 收据 `repair=0/0 stop=None` = 失败在修复层之前，别当饿死修。
+- 结算已完成的工作不能 fail closed（#297/#306 两处现场）。
+- 切 8792 不要 `reset --hard`；预热期 2–3 分钟不监听。
 
 ## 已验证
 
-- 合并末态回归 192 passed（rag_worker/episode_protocol/adapter/coordinator/agent_episode）。
-- 8792 health healthy、ready 无缺项、`workers.rag.state=ready`、runtime clean。
-- 三 PR GitHub 状态 MERGED。
+- R14：A3 硬失败→completed（#306 生产判决）。
+- R15：18/18 completed；5 次瞬态重试全按窗发放。
+- 合并末态回归 192 passed + episode 套件 82 passed。
