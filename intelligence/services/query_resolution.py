@@ -146,6 +146,36 @@ class QueryResolver:
     def _resolve_theme(self, query: str) -> str | None:
         folded = query.casefold()
         for term, canonical in _theme_terms(self.knowledge):
-            if term.casefold() in folded:
+            if _has_clean_occurrence(folded, term.casefold()):
                 return canonical
         return None
+
+
+_CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _has_clean_occurrence(folded_query: str, folded_term: str) -> bool:
+    """主题词在问句里是否有一次非后缀嵌入的出现（左邻不是 CJK 字符）。
+
+    生产事故（2026-08-13 R13-A3）：「立新能源怎么看」问的是个股 001258，
+    实体锚定因 wiki 未登记而落空后，主题词典把「新能源」从「立新能源」
+    肚子里抠了出来——theme_analysis 路由、theme-research owner、零证据终局。
+    同形状地雷不止一颗：国新能源、宝新能源、华润新能源全是「X+新能源」
+    后缀嵌入。
+
+    规则刻意不对称：只 veto **左邻 CJK**（后缀嵌入是公司名的形状），
+    不 veto 右邻延伸（「新能源汽车」是主题短语的形状，且更长的别名按
+    长度降序先匹配）。取舍依据：主题词把个股问题偷走是零证据灾难，
+    veto 过头只是降级到 general QA——后者仍能检索。
+    """
+
+    if not folded_term:
+        return False
+    start = 0
+    while True:
+        index = folded_query.find(folded_term, start)
+        if index < 0:
+            return False
+        if index == 0 or not _CJK_CHAR_RE.match(folded_query[index - 1]):
+            return True
+        start = index + 1
