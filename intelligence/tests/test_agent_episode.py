@@ -572,8 +572,9 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
 
     修复轮是 fix-forward，不是重跑：拿不到更好的答案时，最坏也要保住原来那份。
 
-    2026-08-12 起修复轮对瞬态错误有单次重试（熔断上限 1），所以这里给两发
-    连续超时：第一发触发重试、第二发证明熔断生效——重试耗尽后仍必须保住原稿。
+    2026-08-12 起修复轮对瞬态错误有 harness 层重试（熔断上限见
+    ``_TRANSIENT_RETRY_LIMIT``，2026-08-13 起为 2），所以这里给三发
+    连续超时：前两发各触发一次重试、第三发证明熔断耗尽——之后仍必须保住原稿。
     """
 
     frame = _frame(("direct_assessment", "counterpoint"))
@@ -582,6 +583,7 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
         [
             _tool_turn("今日市场结构"),
             _finish_turn(status="partial", gap="缺少反方证据"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
             ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
             ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
         ]
@@ -616,10 +618,10 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
     assert updated.bindings == previous_bindings
     # 失败本身仍要可见，只是不能以丢答案为代价。
     assert any("TimeoutError" in gap for gap in updated.gaps)
-    # 熔断上限 1：正好重试一次，第二发失败后不得再试。
+    # 熔断上限 2：正好重试两次，第三发失败后不得再试。
     retries = [e for e in updated.events if e.kind == "repair_model_retry"]
-    assert len(retries) == 1
-    assert len(model.calls) == 4
+    assert len(retries) == 2
+    assert len(model.calls) == 5
 
 
 def test_repair_retries_transient_model_error_once_then_finishes() -> None:
@@ -845,6 +847,99 @@ def test_repair_timeout_that_burns_the_window_retries_from_root_headroom(
     )
     # 初始 finish、烧穿的 repair、重试（工具 turn）、repair_finalize。
     assert len(model.calls) == 4
+
+
+def _burn_clock_twice_on_timeout(now: list[float]):
+    """连环 stall：修复首发与第一次重试都把窗口睡满（R21-B2 的形状）。"""
+
+    class DoubleBurningTimeoutModel:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(float(timeout))
+            if len(self.calls) == 1:
+                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+            if len(self.calls) in (2, 3):
+                now[0] += float(timeout)
+                return ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）")
+            if len(self.calls) == 4:
+                return _tool_turn("补齐行情证据", call_id="retry-after-double-burn")
+            return _finish_turn()
+
+    return DoubleBurningTimeoutModel()
+
+
+def test_double_stall_is_saved_by_second_headroom_mint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """连环 stall 后第二发重试要能从余量再铸新窗——熔断 1 时这里就是终局。
+
+    取证（2026-08-13，86 个带修复 episode 的收据）：首发超时后换新调用
+    救回率 61%（17/28），连环 stall 11/28；同批取证证伪了「升窗到 45/60s」
+    ——成功修复调用 n=66 的 max=27.8s，慢的是挂死型 stall（主路径 75s 窗
+    也 12% 超时），等更久不如再换一发新调用。R21-B2 两发全灭即此形状。
+    """
+
+    frame = _frame()
+    base = _context(frame, max_steps=1)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=2,
+        hard_calls_cap=4,
+        initial_seconds=10.0,
+        hard_seconds_cap=60.0,
+    )
+    assert root.grant(
+        BudgetGrant(
+            grant_id="grant-first",
+            episode_id=base.contract.task_id,
+            cycle=1,
+            calls_granted=1,
+            seconds_granted=8.0,
+        )
+    )
+    context = replace(base, root_budget=root)
+    now = [context.deadline.expires_at - 80.0]
+
+    def monotonic() -> float:
+        return now[0]
+
+    monkeypatch.setattr(agent_episode_module, "monotonic", monotonic)
+    monkeypatch.setattr(research_contract_module.time, "monotonic", monotonic)
+    model = _burn_clock_twice_on_timeout(now)
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-double-burn",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+
+    assert updated.stop_reason == "repair_model_finish"
+    retries = [e for e in updated.events if e.kind == "repair_model_retry"]
+    assert len(retries) == 2
+    # 两笔铸窗的 grant_id 必须不同：账本按 (goal, attempt) 幂等，
+    # 若沿用同一 id 第二笔会被拒掉——熔断 2 就成了纸面数字。
+    grant_ids = [r.payload.get("grant_id") for r in retries if r.payload.get("grant_id")]
+    assert len(grant_ids) == len(set(grant_ids)) == len(
+        [r for r in retries if r.payload.get("seconds_granted")]
+    )
+    # 初始 finish、烧穿的 repair、烧穿的重试一、重试二（工具 turn）、repair_finalize。
+    assert len(model.calls) == 5
 
 
 def test_repair_timeout_that_burns_the_window_does_not_retry_when_hard_cap_is_spent(

@@ -1028,12 +1028,18 @@ def build_synthesis_messages(
     quality_context: object | None = None,
     experience_guidance: str = "",
     exemplar_guidance: str = "",
+    contract_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
     Static guidance blocks (experience_guidance, exemplar_guidance) are appended
     to the **system** prompt rather than the user prompt.  This keeps the large
     static prefix cacheable across different queries / evidence sets.
+
+    contract_guidance 与 experience_guidance 语义不同，必须分开：前者是**强制的
+    输出结构契约**（情景树/跟踪契约等表达层），后者是参考性经验。2026-08-13
+    workbench 实测发现契约被塞进「历史经验卡片」标题下时模型遵守率极低——
+    语义标签错了，模型把契约当成了可选参考。
 
     Exposed so the multi-turn driver can keep the exact same evidence-laden first
     turn and then append follow-ups on top of it (grounding stays anchored to the
@@ -1050,6 +1056,12 @@ def build_synthesis_messages(
             "\n\n## 高分样板（few-shot 锚：只学结构、叙事组织和论证方式；"
             "严禁照抄样板里的结论、数据或个股判断，回答只能基于上方证据）\n"
             f"{exemplar_guidance}"
+        )
+    if contract_guidance:
+        system_content += (
+            "\n\n## 输出结构契约（本题命中的强制格式约束；优先级高于上方经验卡片"
+            "与样板，回答必须按契约组织，不得省略契约要求的段落）\n"
+            f"{contract_guidance}"
         )
     return [
         {"role": "system", "content": system_content},

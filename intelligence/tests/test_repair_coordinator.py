@@ -81,7 +81,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         )
         is None
     )
-    # The deterministic grant is 2 calls/16 seconds, which exceeds this cap.
+    # The deterministic grant is 2 calls/30 seconds, which exceeds this cap.
     assert root.remaining_calls == 3
 
     accepted_root = InMemoryRootBudgetLedger(
@@ -101,6 +101,76 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
     assert accepted_root.remaining_calls == 5
     accepted_root.consume_call(seconds=8)
     assert accepted_root.remaining_calls == 4
+
+
+def test_single_gap_repair_still_gets_full_window() -> None:
+    """缺口数不得缩小修复窗：一次 LLM 调用的成本由固定延迟地板主导。
+
+    旧公式 ``min(剩余, 30, 缺口×8)`` 给 1 缺口 8s、3 缺口 24s——都低于
+    生产中转 P50≈28s 的单次调用地板，注定超时还白烧授予。2026-08-13
+    R7/R21 收据：16/24s 窗 0/5 全超时，30s 窗 5/5 全成功。
+    """
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=("direct",), gaps=(), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-floor",
+        missing_outputs=("direct",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=120.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-floor",
+        initial_calls=3,
+        hard_calls_cap=8,
+        initial_seconds=120.0,
+        hard_seconds_cap=240.0,
+    )
+
+    grant = grant_for_progress(
+        goal,
+        progress,
+        root_budget=root,
+        research_tier="quick",
+    )
+
+    assert grant is not None
+    # 1 个缺口，旧公式会给 8s；现在必须给满窗 30s。
+    assert grant.seconds_granted == 30.0
+
+
+def test_single_gap_delivery_repair_gets_full_window() -> None:
+    goal = build_repair_goal(
+        episode_id="episode-floor-delivery",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(
+            _snap(evidence=(), covered=(), gaps=("direct",), family="market"),
+            _snap(evidence=("e1",), covered=(), gaps=("direct",), family="market"),
+        ),
+        remaining_calls=0,
+        remaining_seconds=120.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-floor-delivery",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=120.0,
+        hard_seconds_cap=240.0,
+    )
+
+    grant = grant_for_delivery_repair(
+        goal,
+        root_budget=root,
+        research_tier="quick",
+        evidence_count=5,
+    )
+
+    assert grant is not None
+    assert grant.calls_granted == 0
+    assert grant.seconds_granted == 30.0
 
 
 def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
@@ -354,8 +424,45 @@ def test_grant_for_transient_model_retry_mints_seconds_from_headroom() -> None:
     assert retry.seconds_granted == 12.0
     assert retry.grant_id == f"transient-retry-{goal.repair_goal_id}"
     assert root.allocated_seconds == 30.0
-    # 同一 goal 再铸一次被 grant_id 拒掉，和熔断上限 1 对齐。
+    # 同一 (goal, attempt) 再铸一次被 grant_id 拒掉（幂等防呆）；
+    # 不同 attempt 各铸各的——熔断次数由调用方管，账本只管余量。
     assert grant_for_transient_model_retry(goal, root_budget=root) is None
+    assert (
+        grant_for_transient_model_retry(goal, root_budget=root, attempt=2) is None
+    ), "余量已耗尽时第二 attempt 也必须 fail closed"
+
+
+def test_transient_retry_second_attempt_mints_with_distinct_grant_id() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    goal = build_repair_goal(
+        episode_id="episode-retry-2",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-retry-2",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=10.0,
+        hard_seconds_cap=100.0,
+    )
+
+    first = grant_for_transient_model_retry(goal, root_budget=root, attempt=1)
+    second = grant_for_transient_model_retry(goal, root_budget=root, attempt=2)
+
+    assert first is not None and second is not None
+    assert first.grant_id == f"transient-retry-{goal.repair_goal_id}"
+    assert second.grant_id == f"transient-retry-{goal.repair_goal_id}-2"
+    assert first.grant_id != second.grant_id
+    # 各铸各的 30s 帽，仍受 hard cap 约束。
+    assert first.seconds_granted == 30.0
+    assert second.seconds_granted == 30.0
+    assert root.allocated_seconds == 70.0
 
 
 def test_grant_for_transient_model_retry_fails_closed_at_hard_cap() -> None:
@@ -436,7 +543,7 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
     assert admission.grant.grant_id.startswith("cold-restart-")
     assert admission.grant.calls_granted >= 1
     assert admission.goal.remaining_calls == admission.grant.calls_granted
-    # 沿用进度修复的额度公式：≤30s、按缺口计工时。
+    # 沿用进度修复的额度公式：≤30s 满窗（缺口缩放项已删，见 _REPAIR_SECONDS_CAP）。
     assert 0.0 < admission.grant.seconds_granted <= 30.0
     assert admission.goal.remaining_seconds == admission.grant.seconds_granted
 

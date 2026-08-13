@@ -1015,6 +1015,75 @@ def add_record_correction_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_record_correction)
 
 
+def add_memory_status_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "memory-status",
+        help="记忆退出机制：归档/撤销/恢复一条核心判断或纠偏（追加状态行，不改历史；归档后不再被召回）",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument(
+        "--ledger", required=True, choices=("judgments", "corrections"),
+        help="目标台账：judgments（核心判断）或 corrections（纠偏）",
+    )
+    parser.add_argument("--target-ts", required=True, help="目标记录的 ts（原样精确匹配）")
+    parser.add_argument(
+        "--status", required=True, choices=("archived", "rejected", "reinstated"),
+        help="archived=过时归档 / rejected=错记撤销 / reinstated=恢复召回",
+    )
+    parser.add_argument("--reason", default="", help="归档/撤销理由（留审计链，建议填）")
+    parser.add_argument("--ledger-file", default=None, help="覆盖台账文件路径（测试用）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_memory_status)
+
+
+def cmd_memory_status(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import memory_status
+
+    if args.ledger_file:
+        path = args.ledger_file
+    else:
+        us = userspace.user_space(args.user)
+        path = us.judgments_path if args.ledger == "judgments" else us.corrections_path
+    ledger_path = Path(path).expanduser()
+    if not ledger_path.exists():
+        print(f"台账不存在：{ledger_path}", file=sys.stderr)
+        return 2
+    # 目标必须真实存在：状态行指向不存在的 ts 只会制造悬空审计链
+    target = str(args.target_ts).strip()
+    found = False
+    for line in ledger_path.read_text(encoding="utf-8").splitlines():
+        try:
+            rec = _json.loads(line)
+        except Exception:
+            continue
+        if (
+            isinstance(rec, dict)
+            and not memory_status.is_status_record(rec)
+            and str(rec.get("ts") or "").strip() == target
+        ):
+            found = True
+            break
+    if not found:
+        print(f"目标记录不存在：ts={target}（先用台账文件核对 ts）", file=sys.stderr)
+        return 2
+    _, record = memory_status.record_status(
+        ledger_path,
+        target_ts=target,
+        status=args.status,
+        reason=args.reason,
+    )
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        verb = {"archived": "已归档", "rejected": "已撤销", "reinstated": "已恢复"}[args.status]
+        print(f"{verb} {args.ledger} 记录 ts={target} → {ledger_path}")
+        print("历史行未改动（追加式状态覆盖）；归档/撤销的记录不再进入 [M] 召回与 foresight 注入。")
+    return 0
+
+
 def add_migrate_workbench_store_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "migrate-workbench-store",
@@ -2957,6 +3026,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_prime_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
+    add_memory_status_parser(subparsers)
     add_refresh_profile_parser(subparsers)
     add_migrate_workbench_store_parser(subparsers)
     add_adapter_smoke_parser(subparsers)

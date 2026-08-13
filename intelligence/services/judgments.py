@@ -135,7 +135,7 @@ def load_judgments(
         lines = p.read_text(encoding="utf-8").splitlines()
     except Exception as exc:  # pragma: no cover - defensive
         return [], f"核心判断台账读取失败：{exc}"
-    records: list[dict[str, Any]] = []
+    raw: list[dict[str, Any]] = []
     for line in lines:
         line = line.strip()
         if not line:
@@ -144,8 +144,16 @@ def load_judgments(
             rec = json.loads(line)
         except Exception:
             continue
-        if isinstance(rec, dict) and str(rec.get("memo") or "").strip():
-            records.append(rec)
+        if isinstance(rec, dict):
+            raw.append(rec)
+    # 记忆退出机制（memory_status）：先应用追加式状态覆盖（归档/撤销的不再召回），
+    # 台账无状态行时行为不变。
+    from intelligence.services.memory_status import apply_status_overrides
+
+    records = [
+        rec for rec in apply_status_overrides(raw)
+        if str(rec.get("memo") or "").strip()
+    ]
     if window and window > 0:
         records = records[-window:]
     return records, None

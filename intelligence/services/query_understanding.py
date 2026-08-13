@@ -10,6 +10,7 @@ from typing import Literal
 
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
@@ -778,7 +779,7 @@ def _time_horizon(query: str) -> TimeHorizon:
 
 def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
     operators: list[ResearchOperator] = []
-    if parse_analog_intent(query):
+    if parse_analog_intent(query) or parse_regime_intent(query):
         operators.append("history_analog")
     if parse_scenario_intent(query):
         operators.append("scenario_tree")

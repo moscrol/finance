@@ -79,6 +79,14 @@ MIN_PLANNING_TURN_SECONDS = 8.0
 # ``EpisodeFinalizer`` 的默认超时（20s），即"够跑一次合成"的口径——借走的只是
 # reserve 里超出一次合成所需的余量，不是整段。
 MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS = 20.0
+# 修复轮瞬态错误的补救次数上限（repair / repair_finalize 两跳共用）。
+# 2026-08-13 收据（86 个带修复 episode）：首发超时后换新调用救回率 61%
+# （17/28），连环 stall 11/28——第二发 retry 预计再救回约六成连环 stall。
+# 每发仍是 ≤30s 满窗、从 root hard-cap 未分配余量铸造，余量不足自然 fail
+# closed，所以上限 2 只在「前两发都 stall 且余量还在」时才多花一笔。
+# 同批取证证伪了「升窗到 45/60s」：成功修复调用 n=66 的 max=27.8s，
+# 慢的是挂死型 stall（主路径 75s 窗也 12% 超时），等更久不如换新调用。
+_TRANSIENT_RETRY_LIMIT = 2
 
 
 def budget_status_enabled() -> bool:
@@ -1065,9 +1073,9 @@ class ContinuousAgentEpisode:
         ResearchRunContext,
         int,
     ]:
-        """修复轮的一次模型调用：瞬态错误最多补救一次。
+        """修复轮的一次模型调用：瞬态错误最多补救 ``_TRANSIENT_RETRY_LIMIT`` 次。
 
-        两条补救路径，熔断共用 1 次：
+        两条补救路径，熔断共用：
 
         1. repair deadline 还有余量（502/断连这种快速失败）——用余量重问价；
         2. 余量被 TimeoutError 烧穿，但 root hard-cap 还有未分配秒数——再铸
@@ -1122,6 +1130,11 @@ class ContinuousAgentEpisode:
                     retry_grant = grant_for_transient_model_retry(
                         goal,
                         root_budget=repair_context.root_budget,
+                        # 第几次补救：账本按 (goal, attempt) 幂等去重，
+                        # 不同 attempt 各铸各的 30s 窗。
+                        attempt=(
+                            _TRANSIENT_RETRY_LIMIT - transient_retries_left + 1
+                        ),
                     )
                     if retry_grant is not None:
                         budget_alive = True
@@ -1264,9 +1277,10 @@ class ContinuousAgentEpisode:
         )
         # 瞬态模型错误（超时/断连/网关 5xx）在修复轮不再一击终局。
         # 余量够就用余量重试；余量被真实 TimeoutError 烧穿则从 root hard-cap
-        # 未分配余量再铸一笔（grant_for_transient_model_retry）。熔断上限 1，
-        # 两跳（repair / repair_finalize）共用。失败 turn 不进消息历史。
-        transient_retries_left = 1
+        # 未分配余量再铸一笔（grant_for_transient_model_retry）。熔断上限见
+        # _TRANSIENT_RETRY_LIMIT，两跳（repair / repair_finalize）共用。
+        # 失败 turn 不进消息历史。
+        transient_retries_left = _TRANSIENT_RETRY_LIMIT
         repair_expires_before = repair_deadline.expires_at
         (
             turn,
