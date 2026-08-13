@@ -213,6 +213,61 @@ def test_public_asset_tables_in_cross_day_gate():
     assert "fact_dragon_tiger_daily" not in ROW_ANOMALY_TABLES
 
 
+def test_dragon_summary_and_seats(patched_db, monkeypatch):
+    monkeypatch.setattr(
+        assets.fs,
+        "get_dragon_all",
+        lambda td: {
+            "trade_date": td,
+            "summary": {"stock_count": 46, "inst_net_buy": 3.82, "youzi_net_buy": 1.81, "active_brokers": 174},
+        },
+    )
+    monkeypatch.setattr(
+        assets.fs,
+        "get_dragon_list",
+        lambda td: {"trade_date": td, "items": [{"ts_code": "002379.SZ", "name": "宏桥控股"}]},
+    )
+    monkeypatch.setattr(
+        assets.fs,
+        "get_dragon_detail",
+        lambda td, ts: {
+            "stock": {"ts_code": ts, "name": "宏桥控股"},
+            "buy_seats": [
+                {"exalter": "国联民生宁波分公司", "seat_type": "营业部", "hm_name": None,
+                 "buy": 1.73, "sell": 0.0, "buy_rate": 11.63, "sell_rate": 0.0, "net_buy": 1.73},
+            ],
+            "sell_seats": [
+                {"exalter": "深股通专用", "seat_type": "游资", "hm_name": "深股通专用",
+                 "buy": 1.13, "sell": 0.39, "buy_rate": 7.6, "sell_rate": 2.63, "net_buy": 0.74},
+            ],
+        },
+    )
+    s = assets.sync_dragon_summary("2026-08-12")
+    seats = assets.sync_dragon_seats("2026-08-12", sleep=0)
+    assert s["rows"] == 1
+    assert seats["rows"] == 2 and seats["stocks"] == 1
+    con = patched_db()
+    try:
+        summ = con.execute(
+            "SELECT inst_net_buy, youzi_net_buy, active_brokers FROM fact_dragon_summary_daily "
+            "WHERE trade_date = DATE '2026-08-12'"
+        ).fetchone()
+        assert summ == (pytest.approx(3.82), pytest.approx(1.81), 174)
+        buy = con.execute(
+            "SELECT exalter, net_buy FROM fact_dragon_seat_daily "
+            "WHERE trade_date = DATE '2026-08-12' AND stock_ts_code='002379.SZ' AND side='buy'"
+        ).fetchone()
+        assert buy[0] == "国联民生宁波分公司"
+        assert buy[1] == pytest.approx(1.73)
+        sell_type = con.execute(
+            "SELECT seat_type, hm_name FROM fact_dragon_seat_daily "
+            "WHERE trade_date = DATE '2026-08-12' AND side='sell'"
+        ).fetchone()
+        assert sell_type == ("游资", "深股通专用")
+    finally:
+        con.close()
+
+
 def test_kb_root_requires_explicit_flag(monkeypatch, tmp_path):
     kb = tmp_path / "knowledge-base-private"
     kb.mkdir()
@@ -237,6 +292,8 @@ def test_orchestrator_isolates_failures(patched_db, monkeypatch):
         "get_leader_ladder",
         "get_global_market",
         "get_dragon_list",
+        "get_dragon_all",
+        "get_dragon_detail",
         "get_regulation_logs",
         "get_regulation_pool",
         "get_core_stocks",

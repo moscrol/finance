@@ -542,6 +542,41 @@ CREATE TABLE IF NOT EXISTS fact_dragon_tiger_daily (
 );
 CREATE INDEX IF NOT EXISTS idx_fact_dragon_date ON fact_dragon_tiger_daily(trade_date);
 
+-- 龙虎榜席位级明细（/data/dragon/detail），比 fact_dragon_tiger_daily 深一层：
+-- 谁买谁卖（营业部/游资/机构席位）。一日 × 一股 × 一席一行。
+CREATE TABLE IF NOT EXISTS fact_dragon_seat_daily (
+    trade_date      DATE,
+    stock_ts_code   TEXT,
+    stock_name      TEXT,
+    side            TEXT,      -- buy / sell（席位在买方榜还是卖方榜）
+    seat_no         INTEGER,   -- 榜内序号（1 起）
+    exalter         TEXT,      -- 营业部/席位全称
+    seat_type       TEXT,      -- 营业部 / 游资 / 机构
+    hm_name         TEXT,      -- 游资名（游资席位才有）
+    buy             DOUBLE,    -- 买入额（亿）
+    sell            DOUBLE,    -- 卖出额（亿）
+    buy_rate        DOUBLE,    -- 买入占成交比（%）
+    sell_rate       DOUBLE,
+    net_buy         DOUBLE,    -- 净买入（亿）
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code, side, exalter)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_seat_date ON fact_dragon_seat_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_seat_stock ON fact_dragon_seat_daily(stock_ts_code);
+
+-- 龙虎榜全市场日汇总（/data/dragon/all 的 summary）：机构/游资净买入、上榜数、活跃营业部。
+CREATE TABLE IF NOT EXISTS fact_dragon_summary_daily (
+    trade_date      DATE PRIMARY KEY,
+    stock_count     INTEGER,   -- 上榜个股数
+    inst_net_buy    DOUBLE,    -- 机构净买入（亿）
+    youzi_net_buy   DOUBLE,    -- 游资净买入（亿）
+    active_brokers  INTEGER,   -- 活跃营业部数
+    source          TEXT,
+    updated_at      TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_fact_dragon_summary_date ON fact_dragon_summary_daily(trade_date);
+
 CREATE TABLE IF NOT EXISTS fact_regulation_event_daily (
     effective_date           DATE,
     stock_ts_code            TEXT,

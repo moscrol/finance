@@ -363,6 +363,111 @@ def sync_dragon(trade_date: str) -> dict:
     return {"rows": written}
 
 
+def sync_dragon_summary(trade_date: str) -> dict:
+    """龙虎榜全市场日汇总（机构/游资净买入、上榜数、活跃营业部）。一天一行。"""
+    data = fs.get_dragon_all(trade_date)
+    td = _date_text(data.get("trade_date") or trade_date)
+    summary = data.get("summary") if isinstance(data.get("summary"), dict) else {}
+    if not td or not summary:
+        return {"rows": 0}
+    now = _now()
+    written = _executemany(
+        """
+        INSERT INTO fact_dragon_summary_daily
+            (trade_date, stock_count, inst_net_buy, youzi_net_buy, active_brokers,
+             source, updated_at)
+        VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT (trade_date) DO UPDATE SET
+            stock_count = excluded.stock_count,
+            inst_net_buy = excluded.inst_net_buy,
+            youzi_net_buy = excluded.youzi_net_buy,
+            active_brokers = excluded.active_brokers,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+        """,
+        [(
+            td,
+            _int(summary.get("stock_count")),
+            _num(summary.get("inst_net_buy")),
+            _num(summary.get("youzi_net_buy")),
+            _int(summary.get("active_brokers")),
+            f"{SOURCE_PREFIX}/data/dragon/all",
+            now,
+        )],
+    )
+    return {"rows": written}
+
+
+def sync_dragon_seats(trade_date: str, sleep: float = 0.15) -> dict:
+    """龙虎榜席位级明细：逐股拉 /data/dragon/detail 的买卖席位。
+
+    名单来自 /data/dragon/list（与 fact_dragon_tiger_daily 同源），逐股一次
+    detail 请求；股数随行情波动（实测约 45~105 只/日），故内部限速。
+    """
+    listing = fs.get_dragon_list(trade_date)
+    td = _date_text(listing.get("trade_date") or trade_date)
+    if not td:
+        return {"rows": 0, "stocks": 0}
+    now = _now()
+    source = f"{SOURCE_PREFIX}/data/dragon/detail"
+    rows = []
+    stocks = 0
+    for item in listing.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        ts = str(item.get("ts_code") or "").strip()
+        if not ts:
+            continue
+        stocks += 1
+        try:
+            detail = fs.get_dragon_detail(td, ts)
+        except Exception:  # noqa: BLE001 —— 单股失败不拖垮整日，缺行下次可补
+            if sleep:
+                time.sleep(sleep)
+            continue
+        stock = detail.get("stock") if isinstance(detail.get("stock"), dict) else {}
+        name = stock.get("name") or item.get("name")
+        for side, key in (("buy", "buy_seats"), ("sell", "sell_seats")):
+            for idx, seat in enumerate(detail.get(key) or [], start=1):
+                if not isinstance(seat, dict):
+                    continue
+                exalter = str(seat.get("exalter") or "").strip()
+                if not exalter:
+                    continue
+                rows.append((
+                    td, ts, name, side, idx, exalter,
+                    seat.get("seat_type"), seat.get("hm_name"),
+                    _num(seat.get("buy")), _num(seat.get("sell")),
+                    _num(seat.get("buy_rate")), _num(seat.get("sell_rate")),
+                    _num(seat.get("net_buy")), source, now,
+                ))
+        if sleep:
+            time.sleep(sleep)
+    written = _executemany(
+        """
+        INSERT INTO fact_dragon_seat_daily
+            (trade_date, stock_ts_code, stock_name, side, seat_no, exalter,
+             seat_type, hm_name, buy, sell, buy_rate, sell_rate, net_buy,
+             source, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (trade_date, stock_ts_code, side, exalter) DO UPDATE SET
+            stock_name = excluded.stock_name,
+            seat_no = excluded.seat_no,
+            seat_type = excluded.seat_type,
+            hm_name = excluded.hm_name,
+            buy = excluded.buy,
+            sell = excluded.sell,
+            buy_rate = excluded.buy_rate,
+            sell_rate = excluded.sell_rate,
+            net_buy = excluded.net_buy,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+        """,
+        rows,
+    )
+    return {"rows": written, "stocks": stocks}
+
+
 def sync_regulation(trade_date: str) -> dict:
     logs = fs.get_regulation_logs(trade_date)
     pool = fs.get_regulation_pool(trade_date)
@@ -926,6 +1031,8 @@ DAILY_SYNCS = (
     ("leader_height", sync_leader_height),
     ("global_market", sync_global_market),
     ("dragon", sync_dragon),
+    ("dragon_summary", sync_dragon_summary),
+    ("dragon_seats", sync_dragon_seats),
     ("regulation", sync_regulation),
     ("core_stocks", sync_core_stocks),
     ("auction", sync_auction),
@@ -955,6 +1062,12 @@ _COVERAGE_SQL = {
     ),
     "dragon": (
         "SELECT COUNT(*) FROM fact_dragon_tiger_daily WHERE trade_date = ?"
+    ),
+    "dragon_summary": (
+        "SELECT COUNT(*) FROM fact_dragon_summary_daily WHERE trade_date = ?"
+    ),
+    "dragon_seats": (
+        "SELECT COUNT(*) FROM fact_dragon_seat_daily WHERE trade_date = ?"
     ),
     "regulation": (
         "SELECT COUNT(*) FROM fact_regulation_pool_daily WHERE effective_date = ?"

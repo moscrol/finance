@@ -330,6 +330,20 @@ def get_dragon_list(trade_date: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def get_dragon_all(trade_date: str) -> dict:
+    """龙虎榜全量：summary（机构/游资净买入日汇总）+ stocks 名单。"""
+    data = api_get_public("/data/dragon/all", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_dragon_detail(trade_date: str, ts_code: str) -> dict:
+    """单股龙虎榜席位明细（买方/卖方席位）。id 参数为 ts_code。"""
+    data = api_get_public(
+        "/data/dragon/detail", {"trade_date": trade_date, "id": ts_code}
+    )
+    return data if isinstance(data, dict) else {}
+
+
 def get_regulation_logs(trade_date: str) -> dict:
     data = api_get_public("/regulation/logs", {"trade_date": trade_date})
     return data if isinstance(data, dict) else {}
