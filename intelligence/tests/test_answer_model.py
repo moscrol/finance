@@ -25,6 +25,7 @@ from intelligence.services.answer_model import (
     parse_grounded_sentences,
     parse_grounding_judge_report,
     present_grounded_composer_answer,
+    quality_requires_fail_closed,
     present_llm_answer,
     repair_grounded_composer_answer,
     repair_llm_answer,
@@ -506,6 +507,63 @@ class ClaimAdjudicationTests(unittest.TestCase):
         self.assertIn("theme_contamination", codes)
         self.assertNotIn("engineering_term_leak", codes)
         self.assertIn("仅有概念关联", humanize(other_theme_claim.text))
+
+    def test_stale_theme_on_a_gap_note_is_not_contamination(self) -> None:
+        # 跨轮沿用研究上下文时，同一句缺口会既以本轮题材、又以上一轮题材各出一条
+        # （实测个股深挖追问：两条正文一字不差，只有 theme 不同）。缺口主张不下
+        # 结论，不该让 16 条同题材主张的答案整份判污染、被渲染层扔成缺口页。
+        gap_text = "估值四问：缺同链市值对比。"
+        answer = AnswerSpec(
+            research_spec=self.spec,
+            summary=(
+                make_claim(
+                    claim_id="summary:company",
+                    text="公司层面已找到可回查的公开材料。",
+                    claim_type="summary",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.VERIFIED,
+                    evidence_ids=("G1",),
+                ),
+            ),
+            verified_facts=(
+                make_claim(
+                    claim_id="company:G1",
+                    text="该公司与本题材存在公司级映射。",
+                    claim_type="company_mapping",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.VERIFIED,
+                    evidence_ids=("G1",),
+                ),
+            ),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap:6",
+                    text=gap_text,
+                    claim_type="evidence_gap",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+                make_claim(
+                    claim_id="gap:7",
+                    text=gap_text,
+                    claim_type="evidence_gap",
+                    theme="上一轮题材",
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对公告。",),
+            sources=(EvidenceRef("G1", "图谱"),),
+            system_notices=(),
+        )
+
+        codes = {issue.code for issue in evaluate_answer_spec(answer).issues}
+
+        self.assertNotIn("theme_contamination", codes)
+        # 污染判定失守会直接表现为渲染层把整份答案换成缺口页。
+        self.assertFalse(quality_requires_fail_closed(answer))
 
 
 class PresenterAndLLMGateTests(unittest.TestCase):
