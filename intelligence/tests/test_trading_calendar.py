@@ -84,6 +84,10 @@ def test_saturday_note_names_the_weekday_and_previous_trading_day() -> None:
     assert "周六" in note
     assert "休市" in note
     assert "2026-07-24" in note
+    # R16-C1：模型用对了 07-24 的数据却说成「当日收跌」。日期归属要求
+    # 必须写进事实本身，模型无须猜这条要不要转述。
+    assert "不得称为当日行情" in note
+    assert "回答须先说明该日休市" in note
 
 
 def test_spring_festival_closure_note_uses_the_official_schedule() -> None:
@@ -107,6 +111,7 @@ def test_weekday_outside_closure_table_fails_closed() -> None:
     weekend = non_trading_day_note(date(2027, 1, 2))
     assert weekend is not None and "周六" in weekend
     assert "前一交易日" not in weekend
+    assert "回答须先说明该日休市" in weekend
 
 
 def test_question_note_extracts_full_dates_only() -> None:
