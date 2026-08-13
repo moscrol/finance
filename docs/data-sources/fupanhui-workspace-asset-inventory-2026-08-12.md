@@ -335,3 +335,33 @@
 
 席位明细是「一日 × 一股 × 一席」粒度，约 370~420 行/日；`detail` 逐股请求（约 46~105 次/日，内部限速 0.15s，单日约 100 秒），390 日回补 seats 约 1.8 万次调用需分批。`dragon_summary` 一天一个 `all` 调用，可先快速回补 390 日；回补齐后把 `fact_dragon_summary_daily` 加进 `check_daily` 断档门禁。
 
+## 9. agent 消费方式（2026-08-13）
+
+**入库 ≠ agent 能查到。** agent 读 DuckDB 只走 `intelligence/services/finance_query.py` 的语义 dataset 注册表 `_DATASETS`（`finance_query` 工具的 dataset/字段枚举全从这里自动派生）。此前入库的复盘会资产（dragon/core/leader/global 等）**都没注册，agent 够不着**。本轮注册 6 个高价值资产为 dataset：
+
+| dataset | 表 | 能答的问题 |
+|---|---|---|
+| `dragon_summary_daily` | `fact_dragon_summary_daily` | 某日机构/游资净买入、活跃营业部数 |
+| `dragon_seat_daily` | `fact_dragon_seat_daily` | 谁买了某股、某游资近期上了哪些票 |
+| `dragon_tiger_daily` | `fact_dragon_tiger_daily` | 某日龙虎榜个股净买入排序 |
+| `core_stock_daily` | `fact_core_stock_daily` | 市场核心 TOP50、某股是否在核心榜 |
+| `leader_height_daily` | `fact_leader_height_daily` | 某日最高连板高度、龙头是谁 |
+| `global_index_daily` | `fact_global_index_daily` | 隔夜外盘指数涨跌 |
+
+稀疏/半结构表（auction/event/regulation/mapping）暂不注册，保持工具面收敛。keywords 已在 `fact_market_daily` 列内。
+
+### 回补状态与写锁约束
+
+- summary：**389/390**（缺 `2025-01-16`，`/data/dragon/all` 超时，可单日重跑）。
+- seats：**9 日**（2026-07-31~08-12，5236 行），60 日窗口回补跑到第 8 天撞 DuckDB 写锁停下。
+- **写锁被线上 agent API 服务（`uvicorn intelligence.api.app` 端口 8792）长期占用**——DuckDB 单写者，批量写入需在该服务停止的窗口进行，或 daily-full 已有的写窗口内。补齐残余命令（写窗口内跑）：
+
+  ```bash
+  # 补失败的 summary 单日
+  python3 -m market_feature_store.cli sync-fupanhui-public-assets \
+      --start-date 2025-01-16 --end-date 2025-01-16 --only dragon_summary
+  # 续跑 60 日席位（已有行自动跳过）
+  python3 -m market_feature_store.cli sync-fupanhui-public-assets \
+      --days 60 --only dragon_seats --sleep 0.15
+  ```
+
