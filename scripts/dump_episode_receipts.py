@@ -8,7 +8,7 @@ repair_model_retry 的 timeout_asked / seconds_granted——那两个数才能�
 
 用法：
     python3 scripts/dump_episode_receipts.py <eval_run.json> \
-        [--runs-dir /Users/a77/.local/share/finance-workbench/users/<uid>/runs] \
+        [--runs-dir ~/.local/share/finance-workbench/users/<uid>/runs] \
         [--case A7-mainline ...]
 
 runs-dir 默认按 RunStore 的规则解析（FORESIGHT_USERS_DIR 优先）；
