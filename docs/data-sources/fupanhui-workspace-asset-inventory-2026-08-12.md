@@ -276,7 +276,8 @@
   窗口 = `MIN(fact_stock_high_daily)` → `MAX(fact_market_daily)`（与 `fact_stock_daily` 相同，当前 **2025-01-02 ~ 2026-08-12，390 个交易日**）。  
   `fact_market_daily` 另有 8 个 2024-12 日，其它日表没有，不纳入。
 
-未进 `check_daily` 断档表：历史为空，进了会天天误报。正文研报仍要登录后再走 ingest 门。  
+`check_daily` 门禁（2026-08-13 起，棘轮：先补齐存量再拦新增）：390 日回补齐后，core/dragon/leader/global_index/global_stock 已进断档表；core/global_index/global_stock（恒定宇宙 50/5/194）另进行数收缩门禁。auction/events/mapping/regulation_event 天然稀疏，不进门禁。正文研报仍要登录后再走 ingest 门。  
+质检脚本已沉淀：`skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py`（`QA_SAMPLE` 换抽查日）。  
 题材挖掘 markdown 默认不写知识库仓（无 ingest 消费路径）；要落盘需 `FUPANHUI_KB_NOTES=1`。DuckDB `fact_theme_fundamental_doc` 仍写。
 
 ### 实盘回补收据（Mac 主库，2026-08-13）

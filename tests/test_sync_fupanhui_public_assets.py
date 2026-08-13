@@ -192,6 +192,27 @@ def test_global_market_keys_by_requested_date(patched_db, monkeypatch):
         con.close()
 
 
+def test_public_asset_tables_in_cross_day_gate():
+    """棘轮：390 日回补齐后必须留在跨日门禁里，防止再退回历史空表状态。"""
+    from market_feature_store.quality import GAP_TABLES, ROW_ANOMALY_TABLES
+
+    for table in (
+        "fact_core_stock_daily",
+        "fact_dragon_tiger_daily",
+        "fact_leader_height_daily",
+        "fact_global_index_daily",
+        "fact_global_stock_daily",
+    ):
+        assert table in GAP_TABLES
+    for table in ("fact_core_stock_daily", "fact_global_index_daily", "fact_global_stock_daily"):
+        assert table in ROW_ANOMALY_TABLES
+    # 天然稀疏的表不得进断档门禁（部分日接口即空，进了天天误报）
+    for table in ("fact_auction_stock_daily", "fact_event_daily", "fact_historical_mapping"):
+        assert table not in GAP_TABLES
+    # dragon 行数随行情波动（实测 46~104），不进行数收缩门禁
+    assert "fact_dragon_tiger_daily" not in ROW_ANOMALY_TABLES
+
+
 def test_kb_root_requires_explicit_flag(monkeypatch, tmp_path):
     kb = tmp_path / "knowledge-base-private"
     kb.mkdir()

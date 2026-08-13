@@ -24,6 +24,16 @@ GAP_TABLES = [
     "fact_mainline_theme_daily",
     "fact_mainline_stock_daily",
     "fact_mainline_sector_daily",
+    # 复盘会公开资产（2026-08-13 起）：390 日回补齐后才进门禁——之前历史为空，
+    # 进了会天天误报（棘轮：先补齐存量，再拦新增断档）。
+    # 天然稀疏的不进：auction（2026-01-16 起才有数）、fact_event_daily /
+    # fact_historical_mapping（部分日接口即空）、fact_regulation_*（事件非每日，
+    # 且 pool 用 effective_date 列，本检查按 trade_date 扫）。
+    "fact_core_stock_daily",
+    "fact_dragon_tiger_daily",
+    "fact_leader_height_daily",
+    "fact_global_index_daily",
+    "fact_global_stock_daily",
 ]
 
 # 行数异常收缩只查"宇宙规模近似恒定"的结构表；新高/涨停/晋级类表行数随行情天然大幅波动，
@@ -49,6 +59,11 @@ ROW_ANOMALY_TABLES = [
     "fact_sector_stock_daily",
     "fact_stock_daily",
     "fact_sector_period_rank_daily",
+    # 复盘会公开资产里的恒定宇宙表（390 日实测每日行数恒定：50 / 5 / 194）。
+    # dragon 随行情波动（实测 46~104），不进本列表，断档检查已覆盖。
+    "fact_core_stock_daily",
+    "fact_global_index_daily",
+    "fact_global_stock_daily",
 ]
 
 # (字段, 下限, 上限)；None = 不设界。基于 A 股常识口径，宁松勿严，只拦明显脏数。
