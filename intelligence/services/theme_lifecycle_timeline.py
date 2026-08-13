@@ -47,6 +47,9 @@ DOUBLE_RED_AMOUNT = 500.0
 
 MAINUP_CONSECUTIVE = 3   # 主升：连续双红天数下限
 EBB_BREAK_DAYS = 5       # 退潮：连续无双红天数下限
+# 回流滞回（slice 3.1）：退潮中出现双红须连续 ≥N 日才确认回流，孤立单日双红不切段。
+# live 实测（2026-08-13，固态电池 53 段/信创 65 段）：无滞回时真实双红闪烁把时间线切成锯齿。
+REFLOW_CONFIRM_DAYS = 2
 
 STAGE_INCUBATION = "酝酿"
 STAGE_FIRST_MOVE = "首发"
@@ -117,6 +120,7 @@ def derive_stages(
     message_dates: tuple[str, ...] = (),
     mainup_consecutive: int = MAINUP_CONSECUTIVE,
     ebb_break_days: int = EBB_BREAK_DAYS,
+    reflow_confirm_days: int = REFLOW_CONFIRM_DAYS,
 ) -> tuple[list[StageSegment], list[str]]:
     """从升序逐日行派生阶段段落。rows 每行至少含：
 
@@ -125,7 +129,9 @@ def derive_stages(
         max_boards（题材连板最高度，可空）
 
     message_dates：消息面事件日（证据/认知跃迁），仅用于酝酿段；为空则声明缺口。
-    返回（阶段段落列表, 缺口声明列表）。全程确定性规则，可对任意区间重放。
+    reflow_confirm_days：回流滞回——退潮中须连续 ≥N 日双红才确认回流（起点回溯
+    确认串首日）；设 1 即关闭滞回。返回（阶段段落列表, 缺口声明列表）。
+    全程确定性规则，可对任意区间重放。
     """
     gaps: list[str] = []
     if not rows:
@@ -173,6 +179,8 @@ def derive_stages(
     consecutive_dr = 0
     break_run = 0
     break_start: str | None = None
+    dr_run_start: str | None = None       # 当前双红连串的首日（回流起点回溯用）
+    dr_run_prev_date: str | None = None   # 双红连串首日的前一交易日（关闭上一段用）
     cycle_amount_max: float | None = None
     boards_at_ferment: float | None = None
 
@@ -205,6 +213,9 @@ def derive_stages(
 
         if dr:
             consecutive_dr += 1
+            if consecutive_dr == 1:
+                dr_run_start = day
+                dr_run_prev_date = prev_date
             break_run = 0
             break_start = None
             if amount is not None:
@@ -221,8 +232,16 @@ def derive_stages(
                     f"板块双红（pct>{DOUBLE_RED_PCT:g} & diff>{DOUBLE_RED_DIFF:g} & amount>{DOUBLE_RED_AMOUNT:g}）",
                     prev_date,
                 )
-            elif stage == STAGE_EBB:
-                open_segment(STAGE_REFLOW, day, "退潮后再现双红", prev_date)
+            elif stage == STAGE_EBB and consecutive_dr >= reflow_confirm_days:
+                # 滞回：孤立单日双红不切段；确认后起点回溯到连串首日
+                open_segment(
+                    STAGE_REFLOW,
+                    dr_run_start or day,
+                    f"退潮后连续 {reflow_confirm_days} 日双红确认回流（起点回溯确认串首日）"
+                    if reflow_confirm_days > 1
+                    else "退潮后再现双红",
+                    dr_run_prev_date or prev_date,
+                )
             elif stage == STAGE_DIVERGENCE:
                 open_segment(STAGE_FERMENT, day, "分歧后双红修复", prev_date)
             if stage in (STAGE_FERMENT, STAGE_REFLOW) and consecutive_dr >= mainup_consecutive:
@@ -362,10 +381,12 @@ def load_theme_timeline_artifact(
     kb_vault: str | Path | None = None,
     mainup_consecutive: int = MAINUP_CONSECUTIVE,
     ebb_break_days: int = EBB_BREAK_DAYS,
+    reflow_confirm_days: int = REFLOW_CONFIRM_DAYS,
 ) -> ThemeTimelineArtifact:
     params = {
         "mainup_consecutive": mainup_consecutive,
         "ebb_break_days": ebb_break_days,
+        "reflow_confirm_days": reflow_confirm_days,
         "double_red": f"pct>{DOUBLE_RED_PCT:g} & diff>{DOUBLE_RED_DIFF:g} & amount>{DOUBLE_RED_AMOUNT:g}",
     }
     db_path = (
@@ -394,6 +415,7 @@ def load_theme_timeline_artifact(
             message_dates=message_dates,
             mainup_consecutive=mainup_consecutive,
             ebb_break_days=ebb_break_days,
+            reflow_confirm_days=reflow_confirm_days,
         )
         if not segments:
             return ThemeTimelineArtifact(
@@ -420,8 +442,9 @@ def lifecycle_markdown(artifact: ThemeTimelineArtifact) -> str:
     lines.append(
         f"- 口径：{artifact.params.get('double_red')}；主升=连续双红 ≥"
         f"{artifact.params.get('mainup_consecutive')} 且高度抬升；退潮=连续 "
-        f"{artifact.params.get('ebb_break_days')} 日无双红。阶段由库内逐日行按规则派生，"
-        "非 LLM 生成；规则版本变更时历史阶段自动重算。"
+        f"{artifact.params.get('ebb_break_days')} 日无双红；回流=退潮后连续 "
+        f"{artifact.params.get('reflow_confirm_days')} 日双红确认（滞回，孤立单日不切段）。"
+        "阶段由库内逐日行按规则派生，非 LLM 生成；规则版本变更时历史阶段自动重算。"
     )
     for gap in artifact.gaps:
         lines.append(f"- 数据缺口：{gap}。")
@@ -447,10 +470,15 @@ def _main() -> int:
     parser.add_argument("--theme", required=True, help="题材名（fact_sector_daily.sector_name）")
     parser.add_argument("--db", default=None, help="DuckDB 路径（默认主库）")
     parser.add_argument("--kb-vault", default=None, help="知识库 vault 路径（可选，供酝酿段）")
+    parser.add_argument(
+        "--reflow-confirm", type=int, default=REFLOW_CONFIRM_DAYS,
+        help="回流滞回确认天数（默认 %(default)s；设 1 关闭滞回）",
+    )
     parser.add_argument("--json", action="store_true", help="输出 JSON payload")
     args = parser.parse_args()
     artifact = load_theme_timeline_artifact(
-        args.theme, market_db_path=args.db, kb_vault=args.kb_vault
+        args.theme, market_db_path=args.db, kb_vault=args.kb_vault,
+        reflow_confirm_days=args.reflow_confirm,
     )
     if args.json:
         print(json.dumps(artifact.to_payload(), ensure_ascii=False, indent=2))

@@ -80,7 +80,8 @@ class DeriveStagesTests(unittest.TestCase):
     def test_full_cycle_with_reflow(self) -> None:
         rows = []
         # 0-2 弱势；3 首板日（涨停出现但未双红）；4-8 连续双红且高度抬升（主升）；
-        # 9 放量新高但边际转负（分歧）；10-15 断红 ≥5 日（退潮）；16 再现双红（回流）
+        # 9 放量新高但边际转负（分歧）；10-15 断红 ≥5 日（退潮）；
+        # 16-17 连续两日双红（滞回确认 → 回流，起点回溯 16）
         rows += [_row(i) for i in range(3)]
         rows.append(_row(3, limit_up=2.0, first_board=2.0, boards=1.0))
         rows.append(_dr(4, amount=900.0, boards=2.0))
@@ -91,7 +92,8 @@ class DeriveStagesTests(unittest.TestCase):
         rows.append(_row(9, pct=-1.0, diff=-5.0, amount=1500.0, boards=5.0))
         rows += [_row(10 + k, boards=1.0) for k in range(6)]
         rows.append(_dr(16, amount=800.0, boards=2.0))
-        rows.append(_row(17))
+        rows.append(_dr(17, amount=850.0, boards=2.0))
+        rows.append(_row(18))
 
         message_dates = (_day(0), _day(1))
         segments, gaps = derive_stages(rows, message_dates=message_dates)
@@ -117,9 +119,32 @@ class DeriveStagesTests(unittest.TestCase):
         self.assertEqual(by_stage[STAGE_DIVERGENCE].start_date, _day(9))
         # 退潮起点回溯到断红首日（分歧日 9 是首个断红日）
         self.assertEqual(by_stage[STAGE_EBB].start_date, _day(9))
+        # 回流经两日确认，起点回溯到确认串首日 16
         self.assertEqual(by_stage[STAGE_REFLOW].start_date, _day(16))
+        self.assertIn("确认回流", by_stage[STAGE_REFLOW].trigger)
         # 消息面已提供 → 不应报酝酿缺口
         self.assertFalse(any("酝酿段无法判定" in g for g in gaps))
+
+    def test_isolated_double_red_in_ebb_does_not_flip(self) -> None:
+        # 滞回核心：退潮中孤立单日双红不切回流（这正是 live 上 53 段锯齿的根源）
+        rows = [_dr(i) for i in range(4)]                      # 发酵/主升
+        rows += [_row(4 + k) for k in range(6)]                # 退潮
+        rows.append(_dr(10))                                   # 孤立单日双红
+        rows += [_row(11 + k) for k in range(6)]               # 继续断红
+        rows.append(_dr(18))                                   # 又一次孤立
+        rows.append(_row(19))
+        segments, _ = derive_stages(rows)
+        stages = [s.stage for s in segments]
+        self.assertNotIn(STAGE_REFLOW, stages)
+        self.assertEqual(segments[-1].stage, STAGE_EBB)
+
+    def test_reflow_confirm_one_restores_sensitive_behavior(self) -> None:
+        rows = [_dr(i) for i in range(4)]
+        rows += [_row(4 + k) for k in range(6)]
+        rows.append(_dr(10))
+        rows.append(_row(11))
+        segments, _ = derive_stages(rows, reflow_confirm_days=1)
+        self.assertIn(STAGE_REFLOW, [s.stage for s in segments])
 
     def test_mainup_requires_board_lift_when_data_present(self) -> None:
         # 连续双红 ≥3 但连板高度不抬升 → 停在发酵
