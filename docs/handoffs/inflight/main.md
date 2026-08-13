@@ -1,5 +1,7 @@
 # 在途交接 · main
 
+> 指针（2026-08-13）：复盘会资产线**代码已收口**，完工快照 `docs/handoffs/2026-08-13-fupanhui-public-assets-and-consume.md`。dragon 双表主库回补已完成（summary 390/390、seats 近 60 日 44932 行），两表已进 `GAP_TABLES` 断档门禁。
+
 更新：2026-08-13 17:10 CST · #327 缺口镜像已部署，R25 生产判决通过
 
 ## 这个分支做什么
