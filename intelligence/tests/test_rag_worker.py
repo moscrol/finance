@@ -128,6 +128,95 @@ def test_prewarm_timeout_is_failed_and_stops_process(tmp_path: Path) -> None:
     assert isinstance(payload["prewarm_latency_ms"], int)
 
 
+def test_query_timeout_after_prewarm_self_heals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """查询超时杀进程后，worker 按预热配方后台重生，不永久停在 failed。
+
+    生产失败形状（2026-08-13）：预热窗 240s > 查询窗 90s，模型加载 ~145s。
+    查询超时 `_mark_failed` 杀进程后，「下次查询自然重启」必然二次超时，
+    readiness 的 rag_worker 判据永久红。自愈必须用预热的窗口，不能用查询的。
+    """
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        with pytest.raises(TimeoutError):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        thread = worker._recovery_thread
+        assert thread is not None, "查询失败后必须调度后台自愈"
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+        payload = worker.status()
+    finally:
+        worker.close()
+
+    assert payload["state"] == "ready"
+    assert payload["active"] is True
+    assert payload["last_error_type"] is None
+
+
+def test_query_timeout_without_prewarm_recipe_stays_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """没做过 prewarm 的 worker 查询失败后不自愈：没有已知安全的重生口径。"""
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        with pytest.raises(TimeoutError):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        assert worker._recovery_thread is None
+        payload = worker.status()
+    finally:
+        worker.close()
+
+    assert payload["state"] == "failed"
+
+
+def test_recovery_respects_cooldown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """冷却期内的连续失败不重复起自愈线程——索引真坏时不能烧 CPU 循环重载。"""
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "3600")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        with pytest.raises(TimeoutError):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        first_thread = worker._recovery_thread
+        assert first_thread is not None
+        first_thread.join(timeout=10)
+        with pytest.raises(TimeoutError):
+            worker.query(["query", "slow", "--json"], timeout=0.02)
+        assert worker._recovery_thread is first_thread, "冷却期内不得再起新线程"
+    finally:
+        worker.close()
+
+
+def test_closed_worker_does_not_schedule_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "0")
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    worker.prewarm(["query", "warmup", "--json"], timeout=2)
+    worker.close()
+    with pytest.raises((TimeoutError, RuntimeError)):
+        worker.query(["query", "slow", "--json"], timeout=0.02)
+    assert worker._recovery_thread is None
+
+
 def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     wiki = tmp_path / "wiki"
     page = wiki / "concepts" / "液冷.md"
