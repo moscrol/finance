@@ -186,6 +186,9 @@ class AskOptions:
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
     # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
     include_scenario_guidance: bool = True
+    # 跟踪表达层（q8 契约回灌）：theme_track 类问题命中时注入「delta-only + 观点四态对照 +
+    # 结论 TTL + 下期关注清单」表达契约；非跟踪问题不注入，行为不变。
+    include_track_guidance: bool = True
     # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
     # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
     include_memory_block: bool = True

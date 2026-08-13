@@ -20,6 +20,7 @@ from intelligence.services import (
     llm_refine,
     perspective_lab,
     scenario_tree,
+    track_contract,
 )
 from intelligence.services.answer_quality import (
     AnswerQualityContext,
@@ -830,6 +831,17 @@ def _prepare_answer_spec_synthesis(
                 f"{experience_guidance}\n\n{scenario_guidance}"
                 if experience_guidance
                 else scenario_guidance
+            )
+    if options.include_track_guidance:
+        track_guidance = track_contract.track_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if track_guidance:
+            experience_guidance = (
+                f"{experience_guidance}\n\n{track_guidance}"
+                if experience_guidance
+                else track_guidance
             )
     messages = llm_refine.build_synthesis_messages(
         options.query,
