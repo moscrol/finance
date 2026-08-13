@@ -27,8 +27,8 @@ description: 视角蒸馏——用户发来 KOL/博主原文，走固定闭环�
    生产读不到的副本**——先确认写的是 canonical 那份。
 2. **角色 id**：已有角色（`perspective profile --perspective <id>` 能读到）就直接
    ingest；新角色先 init。id 用小写下划线（如 `sptfei`），display_name 存中文名。
-3. **文章元信息**：每篇要有 date（发文日期）和 title；缺了后面评审时无法判断
-   条目是不是过期的单次观察。
+3. **文章元信息**：每篇要有 date（发文日期）和 title；`--date` **缺省是今天**，
+   旧文漏传会把证据日期全标成今天，后面评审无法判断是不是过期的单次观察。
 
 ```bash
 python3 -m intelligence.cli perspective init --user <id> --id <角色id> --name "<博主名>" --type blogger
@@ -93,8 +93,9 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 ## 第 6 步：验收
 
 1. `perspective profile --user <id> --perspective <角色id>` 通读一遍，确认没有 episodic 残留；
-2. Workbench 单视角选该角色问一句行情题 smoke：正文应出现该视角的证据层级语言，
-   首选证据缺失时应显式声明而不是降格为通用研究结论；
+2. 有生产 Workbench 且 DuckDB 无写锁时，单视角选该角色问一句行情题 smoke：
+   正文应出现该视角的证据层级语言，首选证据缺失时应显式声明而不是降格为
+   通用研究结论。**没有环境就停在 profile 通读，不编造端到端通过。**
 3. 回复用户：几篇入库、几条 patch（approve/reject 各多少 + 拒绝理由）、哪些字段待复核。
 
 ## 常见坑
@@ -105,3 +106,5 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
   想翻案要手工删 patch 文件再 propose。
 - 画像/卡片/patch/原文全部在 gitignore 的用户命名空间内——commit 前 `git status` 里
   不该出现它们，出现了说明写错了地方。
+- 生产 Workbench 读 `FORESIGHT_USERS_DIR`；Mac 主仓若脏，另开干净 worktree 再跑
+  CLI，venv 可用主树的，加载哪份代码由 cwd 决定。
