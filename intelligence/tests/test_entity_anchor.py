@@ -145,5 +145,103 @@ class EntityAnchorTests(unittest.TestCase):
             self.assertEqual(anchor.entity, "另一家公司")
 
 
+def _write_securities_db(path: Path) -> None:
+    import duckdb
+
+    con = duckdb.connect(str(path))
+    try:
+        con.execute(
+            "create table fact_stock_daily("
+            "trade_date date, stock_ts_code varchar, stock_name varchar)"
+        )
+        con.execute(
+            "insert into fact_stock_daily values "
+            "('2026-07-23','001258.SZ','立新能源'),"
+            "('2026-07-23','300308.SZ','旭创科技曾用名'),"
+            "('2026-07-23','000002.SZ','万科'),"  # 2 字名：回退词典不收
+            "('2026-07-22','001258.SZ','立新能源')"  # 同名多日去重
+        )
+    finally:
+        con.close()
+
+
+class SecurityMasterFallbackTests(unittest.TestCase):
+    """第二本词典（DuckDB 证券名单）：wiki 未登记个股的锚定回退。
+
+    R13-A3 生产形状：「立新能源怎么看」wiki 未登记 → 锚定落空 → 被主题
+    词典误抢/落进通用问答。全市场名单一直在 fact_stock_daily 里。
+    """
+
+    def setUp(self) -> None:
+        _clear_entity_lexicon_cache()
+        self._tmp = TemporaryDirectory()
+        root = Path(self._tmp.name)
+        _write_relations(root)
+        self.knowledge = KnowledgeAdapter(wiki_root=root)
+        self.db_path = root / "securities.duckdb"
+        _write_securities_db(self.db_path)
+
+    def tearDown(self) -> None:
+        _clear_entity_lexicon_cache()
+        self._tmp.cleanup()
+
+    def test_unregistered_stock_anchors_via_security_master(self) -> None:
+        anchor = resolve_entity_anchor(
+            "立新能源怎么看",
+            self.knowledge,
+            securities_db_path=self.db_path,
+        )
+        assert anchor is not None
+        self.assertEqual(anchor.entity, "立新能源")
+        self.assertEqual(anchor.ticker, "001258.SZ")
+        self.assertEqual(anchor.matched_by, "name")
+        self.assertEqual(anchor.concepts, ())
+        self.assertTrue(any("证券名单" in item for item in anchor.warnings))
+
+    def test_code_match_falls_back_to_security_master(self) -> None:
+        anchor = resolve_entity_anchor(
+            "001258 怎么看",
+            self.knowledge,
+            securities_db_path=self.db_path,
+        )
+        assert anchor is not None
+        self.assertEqual(anchor.entity, "立新能源")
+        self.assertEqual(anchor.matched_by, "code")
+
+    def test_wiki_entity_still_wins_over_security_master(self) -> None:
+        # 中际旭创两本词典都可能命中；wiki 带概念暴露，必须优先。
+        anchor = resolve_entity_anchor(
+            "中际旭创怎么看",
+            self.knowledge,
+            securities_db_path=self.db_path,
+        )
+        assert anchor is not None
+        self.assertEqual(anchor.entity, "中际旭创")
+        self.assertIn("CPO", anchor.concepts)
+
+    def test_two_char_security_name_is_not_in_the_fallback_lexicon(self) -> None:
+        # 2 字简称常用词碰撞面太大；仍可经 wiki 登记或 6 位代码锚定。
+        self.assertIsNone(
+            resolve_entity_anchor(
+                "万科怎么看",
+                self.knowledge,
+                securities_db_path=self.db_path,
+            )
+        )
+
+    def test_missing_db_fails_closed_to_wiki_only(self) -> None:
+        anchor = resolve_entity_anchor(
+            "立新能源怎么看",
+            self.knowledge,
+            securities_db_path=Path(self._tmp.name) / "missing.duckdb",
+        )
+        self.assertIsNone(anchor)
+
+    def test_env_zero_disables_the_fallback(self) -> None:
+        # conftest 已把 ENTITY_ANCHOR_SECURITIES_DB 钉成 "0"：不传参数时
+        # 第二本词典必须关死，测试才不会在有真实库的机器上变环境依赖。
+        self.assertIsNone(resolve_entity_anchor("立新能源怎么看", self.knowledge))
+
+
 if __name__ == "__main__":
     unittest.main()

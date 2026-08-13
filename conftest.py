@@ -347,6 +347,13 @@ _PERSONAL_STATE_ENV = (
     "SUBCONSCIOUS_VAULT",  # Obsidian 沉淀 vault 根
 )
 
+# 证券名单词典（entity_anchor 第二本词典）在测试里必须显式禁用，不能只 delenv：
+# 它的默认路径经 data_repo_root() 回退解析，**不设任何 env 也能命中真实生产
+# DuckDB**——在有库的机器上，实体锚定测试会随全市场股票名单变化而变（#310
+# 刚修过的同一种环境依赖病）。需要该词典的测试自己 setenv 指向 tmp 库，
+# 或直接给 resolve_entity_anchor 传 securities_db_path 参数。
+_FORCED_TEST_ENV = (("ENTITY_ANCHOR_SECURITIES_DB", "0"),)
+
 
 # ⚠ 必须在**模块级**先清一次，不能只靠下面的 autouse 夹具（2026-08-12 实测补）：
 #
@@ -363,6 +370,8 @@ _PERSONAL_STATE_ENV = (
 # conftest.py 由 pytest 在收集任何测试模块之前导入，所以这里是最早的可控点。
 for _name in _PERSONAL_STATE_ENV:
     os.environ.pop(_name, None)
+for _name, _value in _FORCED_TEST_ENV:
+    os.environ[_name] = _value
 
 
 @pytest.fixture(autouse=True)
@@ -374,3 +383,5 @@ def _isolate_personal_state_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     for name in _PERSONAL_STATE_ENV:
         monkeypatch.delenv(name, raising=False)
+    for name, value in _FORCED_TEST_ENV:
+        monkeypatch.setenv(name, value)

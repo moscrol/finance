@@ -114,6 +114,43 @@ def test_punctuation_before_theme_term_is_a_clean_boundary(
     assert resolution.envelope.subject_kind == "theme"
 
 
+def test_unregistered_stock_routes_to_deep_dive_via_security_master(
+    resolver: QueryResolver,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R13-A3 完整闭环：wiki 未登记个股经证券名单锚定，路由 stock_deep_dive。
+
+    没有第二本词典时它最好也只是 general QA 泛答（#308 挡住了被主题偷走）；
+    有词典后应当正向锚定，盘面工具按个股查得到数据。
+    """
+
+    import duckdb
+
+    db_path = tmp_path / "securities.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            "create table fact_stock_daily("
+            "trade_date date, stock_ts_code varchar, stock_name varchar)"
+        )
+        con.execute(
+            "insert into fact_stock_daily values "
+            "('2026-07-23','001258.SZ','立新能源')"
+        )
+    finally:
+        con.close()
+    monkeypatch.setenv("ENTITY_ANCHOR_SECURITIES_DB", str(db_path))
+
+    resolution = resolver.resolve("立新能源怎么看")
+
+    assert resolution.anchor is not None
+    assert resolution.anchor.entity == "立新能源"
+    assert resolution.envelope.subject == "立新能源"
+    assert resolution.envelope.subject_kind == "company"
+    assert resolution.envelope.question_type == "stock_deep_dive"
+
+
 @pytest.mark.parametrize(
     ("query", "kind"),
     (
