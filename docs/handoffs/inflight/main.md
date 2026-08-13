@@ -26,11 +26,15 @@
 ## 踩过的坑
 
 - 收据 `repair=0/0 stop=None` = 失败在修复层之前，别当饿死修。
-- 结算已完成的工作不能 fail closed（#297/#306 两处现场）。
+- 结算已完成的工作不能 fail closed（#297/#306 两处现场，已归位 BUILD.md）。
 - 切 8792 不要 `reset --hard`；预热期 2–3 分钟不监听。
+- **RAG worker 查询超时后状态停在 failed 直到下次查询才懒恢复**，readiness 期间红着
+  （R15 高负载后实测，kickstart 可救）。要不要加自愈探针属设计项。
 
 ## 已验证
 
 - R14：A3 硬失败→completed（#306 生产判决）。
 - R15：18/18 completed；5 次瞬态重试全按窗发放。
 - 合并末态回归 192 passed + episode 套件 82 passed。
+- 收尾核验：8792 ready（RAG 重预热 94.7s），8794/8797 已关，
+  本循环 9 条已合并远端分支已删，BUILD/TOOLKIT/记忆底座回写已提交。
