@@ -59,6 +59,7 @@ from intelligence.services import (
     market_news,
     market_technical,
     market_timeseries,
+    perspective_lab,
     research_brief,
     retrieval_planner,
     generic_research_owner,
@@ -193,6 +194,17 @@ def _emit_progress(
         callback(stage, status, dict(detail or {}))
     except Exception:  # noqa: BLE001 - telemetry sink 必须 fail-open
         return
+
+
+def _perspective_active(options: "AskOptions") -> bool:
+    """本轮是否带 KOL 视角（single/compare 且至少选了一个视角）。
+
+    供 D6 门控放宽与检索 planner 的视角必选块共用同一判定，防两处各写一份漂移。
+    """
+    return (
+        options.perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+        and bool(options.perspective_ids)
+    )
 
 
 def _unique_citation_sources(citations: list[Citation]) -> list[str]:
@@ -3681,7 +3693,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             and options.enabled_providers is None
         ):
             planner_plan = retrieval_planner.plan_retrieval(
-                options.query, question_plan.question_type,
+                options.query,
+                question_plan.question_type,
+                perspective_active=_perspective_active(options),
             )
             plan_applied = (
                 _planner_mode == retrieval_planner.MODE_LLM
@@ -3752,7 +3766,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         def _d6_applies() -> bool:
             if not evidence_registry.provider_enabled(options, "D6"):
                 return False
-            intent = market_midterm.parse_midterm_intent(options.query)
+            # 视角模式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
+            intent = market_midterm.midterm_intent_for(
+                options.query, perspective_active=_perspective_active(options)
+            )
             if intent is None:
                 return False
             d6_intents.append(intent)

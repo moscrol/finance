@@ -197,6 +197,27 @@ class RuntimePerspectiveTests(unittest.TestCase):
         self.assertNotIn("长期估值", context.prompt)
         self.assertIn("该视角未知", context.prompt)
 
+    def test_single_context_carries_full_cognitive_frame_and_discipline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "kol_fengyuan", ptype="kol_fengyuan")
+            context = perspective_lab.build_runtime_context(
+                us,
+                mode="single",
+                perspective_ids=["kol_fengyuan"],
+                query="行情怎么看",
+            )
+
+        # 画像认知字段完整注入（此前缺证据层级/推理模板/反模式 → 视角名存实薄）
+        self.assertIn("证据层级", context.prompt)
+        self.assertIn("盘面资金选择", context.prompt)  # evidence_hierarchy 首项
+        self.assertIn("推理模板", context.prompt)
+        self.assertIn("先定周期位置再谈标的", context.prompt)
+        self.assertIn("反模式", context.prompt)
+        # 证据纪律：首选证据缺失必须显式声明，不得降格为通用研究结论
+        self.assertIn("首选证据", context.prompt)
+        self.assertIn("不得因此把视角输出降格为通用研究结论", context.prompt)
+
     def test_compare_context_keeps_neutral_and_kol_sections_separate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             us = _us(tmp)

@@ -113,6 +113,24 @@ def parse_midterm_intent(query: str) -> MidtermIntent | None:
     return MidtermIntent(window=DEFAULT_WINDOW)
 
 
+def midterm_intent_for(
+    query: str,
+    *,
+    perspective_active: bool = False,
+) -> MidtermIntent | None:
+    """D6 门控入口：词面意图优先；视角模式下意图缺失回退默认窗口。
+
+    KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法（"站在X视角看
+    AI应用/地产"）往往不带中期意图词。实测失败形状（2026-08-13）：D6 被词面门
+    拦下 → 视角对着空判断"该方向无盘面信号"，与库内双红数据直接矛盾。
+    ``perspective_active=False`` 时行为与 :func:`parse_midterm_intent` 逐字节一致。
+    """
+    intent = parse_midterm_intent(query)
+    if intent is None and perspective_active:
+        return MidtermIntent(window=DEFAULT_WINDOW)
+    return intent
+
+
 def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None, limit: int = 4) -> list[str]:
     """从 query 里解析出要对比的题材（子串匹配 distinct sector_name，长名优先）。
 

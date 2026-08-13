@@ -30,6 +30,15 @@ class ParseMidtermIntentTests(unittest.TestCase):
         self.assertIsNotNone(parse_midterm_intent("未来 6 个月信创怎么配置"))
         self.assertIsNotNone(parse_midterm_intent("3-6个月这个方向的配置价值"))
 
+    def test_perspective_fallback_supplies_default_intent(self) -> None:
+        from intelligence.services.market_midterm import midterm_intent_for, DEFAULT_WINDOW
+
+        query = "站在SPT视角看AI应用、地产这些方向怎么看"
+        self.assertIsNone(midterm_intent_for(query))
+        intent = midterm_intent_for(query, perspective_active=True)
+        self.assertIsNotNone(intent)
+        self.assertEqual(intent.window, DEFAULT_WINDOW)
+
     def test_short_line_question_does_not_route(self) -> None:
         self.assertIsNone(parse_midterm_intent("今天信创板块怎么样"))
         self.assertIsNone(parse_midterm_intent("过去 10 个交易日涨停家数逐日变化"))
