@@ -143,6 +143,31 @@ class ExtractCardTests(unittest.TestCase):
             self.assertIn("无法解析", summary["failed"][0]["reason"])
             self.assertFalse(perspective_learning.card_path(us, "blogger_x", article_id).exists())
 
+    def test_short_quote_not_verified(self) -> None:
+        """超短引文（如「复盘」）在任何文章里都能命中，不构成出处 → 不进确认流。"""
+        payload = _fake_llm_payload()
+        payload["profile_updates"] = [
+            {
+                "field": "risk_triggers",
+                "value": "短引文不该通过核验",
+                # 「今天复盘」确实是原文逐字片段，但归一后仅 4 字 < MIN_QUOTE_CHARS
+                "supporting_quote": "今天复盘",
+            }
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            us, article_id = _setup_with_article(tmp)
+            perspective_learning.extract_cards(
+                us, "blogger_x", llm_complete=_fake_llm(payload=payload)
+            )
+            card = json.loads(
+                perspective_learning.card_path(us, "blogger_x", article_id).read_text(encoding="utf-8")
+            )
+            self.assertFalse(card["profile_updates"][0]["quote_verified"])
+            self.assertTrue(any("过短" in i for i in card["validation_issues"]))
+            # 核验不过 → propose 阶段不产生 patch
+            summary = perspective_learning.propose_patches(us, "blogger_x")
+            self.assertEqual(summary["created"], [])
+
     def test_all_empty_payload_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             us, _ = _setup_with_article(tmp)

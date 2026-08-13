@@ -230,6 +230,94 @@ class TestSourceConstraint:
         assert content.index(registry) < content.index("只能用 claim registry")
 
 
+class TestPerspectiveCarryOver:
+    """视角模式下补写轮必须带上首轮 composer 的同一份视角约束。
+
+    否则门禁修复会把 SPT 这类盘面派话术"洗"回通用研究口径——用户拿到一份
+    被修复轮改掉视角的答案（2026-08-13 质检发现的缺口）。
+    """
+
+    def test_builder_places_perspective_between_answer_and_instruction(self) -> None:
+        block = "### SPT视角\n- 证据层级：盘面量价资金结构"
+        content = llm_refine.fulfillment_revision_user_content(
+            (("invalidation", "缺口"),),
+            '{"claim_id":"c1"}',
+            "上一版正文",
+            perspective_block=block,
+        )
+
+        assert "本轮视角约束" in content
+        assert "不得把视角输出降格为通用研究结论" in content
+        assert (
+            content.index("上一版正文")
+            < content.index(block)
+            < content.index("未覆盖的输出及原因")
+        )
+
+    def test_empty_perspective_block_is_byte_identical(self) -> None:
+        args = ((("invalidation", "缺口"),), '{"claim_id":"c1"}', "上一版正文")
+        assert llm_refine.fulfillment_revision_user_content(
+            *args
+        ) == llm_refine.fulfillment_revision_user_content(*args, perspective_block="")
+
+    def test_repair_injects_active_perspective_from_options(
+        self, monkeypatch: pytest.MonkeyPatch, stub_registry: None
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def capture(messages, **kwargs):
+            captured["user"] = next(
+                m["content"] for m in messages if m["role"] == "user"
+            )
+            return (
+                llm_refine.SynthesisResult("补写", "p", "m", "stop"),
+                "",
+            )
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", capture)
+        monkeypatch.setattr(
+            task_fulfillment,
+            "evaluate_answer_spec_fulfillment",
+            lambda **k: FulfillmentVerdict(status="complete", items=()),
+        )
+        # 门控逻辑收口在 _active_perspective_prompt（neutral/缺 profile 返回空串），
+        # 这里只验证「repair 把它的输出接进了补写 prompt」。
+        monkeypatch.setattr(
+            ask_synthesis,
+            "_active_perspective_prompt",
+            lambda options: "### SPT视角约束",
+        )
+
+        _repair(options=object())
+
+        assert "### SPT视角约束" in captured["user"]
+
+    def test_repair_without_options_keeps_old_prompt(
+        self, monkeypatch: pytest.MonkeyPatch, stub_registry: None
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def capture(messages, **kwargs):
+            captured["user"] = next(
+                m["content"] for m in messages if m["role"] == "user"
+            )
+            return (
+                llm_refine.SynthesisResult("补写", "p", "m", "stop"),
+                "",
+            )
+
+        monkeypatch.setattr(llm_refine, "synthesize_messages", capture)
+        monkeypatch.setattr(
+            task_fulfillment,
+            "evaluate_answer_spec_fulfillment",
+            lambda **k: FulfillmentVerdict(status="complete", items=()),
+        )
+
+        _repair()
+
+        assert "本轮视角约束" not in captured["user"]
+
+
 class TestNoOpGuards:
     def test_nothing_missing_means_no_call(
         self, monkeypatch: pytest.MonkeyPatch, stub_registry: None

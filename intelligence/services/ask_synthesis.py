@@ -1602,6 +1602,7 @@ def repair_unfulfilled_answer(
     required_outputs,  # tuple[RequiredOutput, ...]
     llm_model: str | None = None,
     timeout: int,
+    options: "AskOptions | None" = None,
 ) -> tuple[str, object] | None:
     """门禁判缺时补写一轮；仍不过则返回 None，由调用方 fail-closed。
 
@@ -1621,6 +1622,11 @@ def repair_unfulfilled_answer(
        ``fulfillment_revision_user_content`` 的来源约束。
     3. **补写后必须重新过门禁**——重判在下面，只有新判定为 complete 才返回。
        这一条做成结构性的：调用方拿不到「跑过修复轮」这个理由来放行。
+
+    ``options``：传入本轮 AskOptions 时，视角模式（single/compare）的补写轮
+    会带上与首轮 composer 相同的视角约束——门控逻辑收口在
+    ``_active_perspective_prompt``（neutral / profile 缺失均返回空串），
+    调用方不需要也不能自己判断视角是否激活。不传时行为与旧版逐字节一致。
     """
 
     from intelligence.services import task_fulfillment
@@ -1638,6 +1644,9 @@ def repair_unfulfilled_answer(
     )
     if not registry_block.strip():
         return None
+    perspective_block = (
+        _active_perspective_prompt(options) if options is not None else ""
+    )
     revised, _reason = llm_refine.synthesize_messages(
         [
             {
@@ -1650,6 +1659,7 @@ def repair_unfulfilled_answer(
                     missing,
                     registry_block,
                     answer_text,
+                    perspective_block=perspective_block,
                 ),
             },
         ],

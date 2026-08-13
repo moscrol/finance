@@ -1641,6 +1641,8 @@ def fulfillment_revision_user_content(
     missing: tuple[tuple[str, str], ...],
     registry_block: str,
     answer_text: str,
+    *,
+    perspective_block: str = "",
 ) -> str:
     """把「哪几个必需输出没覆盖、为什么没绑上」回灌给模型做一轮定向补写。
 
@@ -1656,15 +1658,29 @@ def fulfillment_revision_user_content(
 
     来源约束逐字复用 ``_required_outputs_block()`` 里那句：只说「必须写到」而
     不说来源约束，等于在鼓励为了过门禁而编。
+
+    ``perspective_block``：视角模式下补写轮必须带上首轮 composer 见过的同一份
+    视角约束——否则修复轮会把 SPT 这类盘面派话术"洗"回通用研究口径，用户拿到
+    的是一份被门禁改掉视角的答案（2026-08-13 质检发现的缺口）。空串逐字节不变。
     """
 
     items = "\n".join(f"- {output_id}：{gap}" for output_id, gap in missing)
+    perspective_section = (
+        (
+            "本轮视角约束（补写沿用该视角的证据层级与措辞，不得把视角输出"
+            "降格为通用研究结论；claim/EvidenceAtom 绑定规则不变）：\n"
+            f"{perspective_block}\n\n"
+        )
+        if perspective_block
+        else ""
+    )
     # 长输入在前、指令在最后（与三个 composer builder 一致）。
     return (
         f"{_registry_document(registry_block)}"
         "<previous_answer>\n"
         f"{answer_text}\n"
         "</previous_answer>\n\n"
+        f"{perspective_section}"
         "上一版没有覆盖全部必需输出。保留已经写好的部分和原有措辞，"
         "只针对下面点名的输出补写，不要重写整篇答案。\n"
         "只能用 claim registry 里的事实来覆盖；registry 里没有支撑的那一条，"

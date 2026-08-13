@@ -39,6 +39,12 @@ DEFAULT_MANDATORY: tuple[str, ...] = ("M", "V")
 # 视角模式激活时的追加必选块：KOL 视角是解释盘面的镜头，事实底座至少要有
 # 同日市场总览（MARKET_DAILY）、主线结构（D4）与题材量价趋势（D6），否则视角
 # 会对着空产生"该方向无盘面信号"的假阴性判断（2026-08-13 实测）。
+#
+# 生效边界（勿高估）：本必选块只在 ``ASK_PLANNER_MODE=llm`` 的钳制路径生效
+# （rules 默认模式不跑 plan_retrieval，也就不写 enabled_providers）；且
+# enabled 只是"允许"，各 provider 的 ``applies()`` 意图门仍要过。默认模式下
+# 视角的盘面证据放宽实际由 ``market_midterm.midterm_intent_for`` 的
+# perspective 回退承担（D6），D4 默认开启，MARKET_DAILY 走 owner 侧预取。
 PERSPECTIVE_MANDATORY: tuple[str, ...] = ("MARKET_DAILY", "D4", "D6")
 
 

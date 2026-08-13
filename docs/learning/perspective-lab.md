@@ -81,7 +81,8 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective b
 证据卫生三道闸（认不出来就 fail closed）：
 
 - **引文逐字核验**：候选的 `supporting_quote` 必须是原文逐字连续片段（空白归一后子串
-  命中），核验不过的候选留在卡片里存档，但**不进入确认流**——防 LLM 编造出处；
+  命中，且不短于 6 字——超短子串在任何文章里都能命中，不构成出处），核验不过的候选
+  留在卡片里存档，但**不进入确认流**——防 LLM 编造出处；
 - **字段白名单**：LLM 候选只能进四个字符串列表字段（opportunity_preferences /
   risk_triggers / anti_patterns / falsification_style）；market_lenses、
   reasoning_patterns、evidence_hierarchy 带结构或顺序语义，仍走人工编辑 JSON；

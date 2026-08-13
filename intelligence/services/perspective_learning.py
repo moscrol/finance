@@ -54,6 +54,10 @@ PATCH_STATUSES = ("pending", "approved", "rejected")
 # （BUILD.md 模式：限定语排在被限定内容之前，模型先知道自己看到的是节选）。
 MAX_ARTICLE_PROMPT_CHARS = 16000
 
+# 引文核验的最短长度（空白归一后）。「复盘」「的」这类超短子串几乎在任何
+# 文章里都能命中，逐字核验会形同虚设——引文太短等于没有出处。
+MIN_QUOTE_CHARS = 6
+
 _EXTRACT_SYSTEM_PROMPT = (
     "你是研究方法论蒸馏器。任务：从一篇市场观察/复盘文章中抽取作者的「认知框架」"
     "（怎么判断、看什么变量、如何证伪），不是复述文章内容，不学口癖。硬性要求："
@@ -159,7 +163,8 @@ def _validate_card_payload(
 
     - claim 缺正文的条目直接丢；claim_type 不在枚举内降为 ``other``；
     - profile_updates 的 field 不在白名单、value 为空的条目丢弃（记 issue）；
-    - supporting_quote 做**逐字核验**（空白归一后必须是原文子串），结果写进
+    - supporting_quote 做**逐字核验**（空白归一后必须是原文子串，且不短于
+      ``MIN_QUOTE_CHARS``——超短子串在任何文章里都能命中，不构成出处），结果写进
       ``quote_verified``——核验不过的候选保留在卡片里供人工看，但 propose 阶段不采纳。
     """
     issues: list[str] = []
@@ -196,9 +201,18 @@ def _validate_card_payload(
         if not value:
             issues.append(f"丢弃 value 为空的画像候选（field={field}）")
             continue
-        quote_verified = bool(quote) and _norm(quote) in norm_text
-        if not quote_verified:
+        norm_quote = _norm(quote)
+        if len(norm_quote) < MIN_QUOTE_CHARS:
+            quote_verified = False
+            issues.append(
+                f"画像候选引文过短（field={field}，<{MIN_QUOTE_CHARS} 字），"
+                "短引文不构成出处，仅存档不进入确认流"
+            )
+        elif norm_quote not in norm_text:
+            quote_verified = False
             issues.append(f"画像候选引文核验未通过（field={field}），仅存档不进入确认流")
+        else:
+            quote_verified = True
         updates.append(
             {
                 "field": field,

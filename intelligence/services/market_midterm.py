@@ -131,6 +131,28 @@ def midterm_intent_for(
     return intent
 
 
+# 宽松匹配轮的问句停用词：问法本身的功能词，不是题材内容词。
+# 失败形状（2026-08-13 质检实测）：「分析今天的行情，AI硬件、地产这些方向怎么看」
+# 里的「分析」「行情」「方向」以前后缀片段身份误命中「行业分析」「行情预测」
+# 「方向龙头」类板块名，把真正的内容词题材（房地产）挤出 limit。
+# 只作用于宽松轮：精确匹配仍在完整 query 上跑，名字里真含这些词的板块
+# （如「行业分析」被用户逐字点名）不受影响。
+_LOOSE_MATCH_STOPWORDS = (
+    "怎么看", "怎么样", "怎么办",
+    "分析", "行情", "方向", "板块", "题材", "市场", "走势", "研判", "复盘",
+    "今天", "明天", "昨天", "近期", "最近", "未来",
+    "这些", "那些", "怎么", "如何", "对比", "比较", "看看", "关注",
+    "中期", "短期", "长期", "赔率", "配置", "机会", "风险", "价值",
+)
+
+
+def _strip_loose_stopwords(text: str) -> str:
+    """把问句功能词打掉（等长占位，防止拼接出新片段），只喂内容词给宽松轮。"""
+    for word in _LOOSE_MATCH_STOPWORDS:
+        text = text.replace(word, "□" * len(word))
+    return text
+
+
 def _anchored_fragment(name: str, text: str) -> str | None:
     """query 片段以前缀/后缀方式命中板块名时返回该片段，否则 None。
 
@@ -154,7 +176,8 @@ def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None
     - 长名优先避免「数据要素」被「数据」抢先命中；
     - 精确匹配填不满 limit 时做一轮**锚定宽松匹配**（见 _anchored_fragment）：
       用户说「地产」而板块表只有「房地产」时不再漏空——2026-08-13 真链路实测
-      这个粒度错配让视角回答只能对地产写"无量价证据"；
+      这个粒度错配让视角回答只能对地产写"无量价证据"；宽松轮先剥问句停用词
+      （_LOOSE_MATCH_STOPWORDS），防「分析/行情」误配「行业分析/行情预测」；
     - anchored_theme（上游锚定题材）兜底，保证至少有一个题材可查。
     """
     text = re.sub(r"\s+", "", str(query or ""))
@@ -174,14 +197,16 @@ def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None
         if len(hit) >= limit:
             break
     if len(hit) < limit:
-        # 宽松轮不消耗 remaining：兄弟板块共享片段是合法结果（如「半导体」
-        # 同时带出「半导体材料/半导体设备」），limit 与长名优先保证确定性。
+        # 宽松轮不消耗 remaining：兄弟板块共享片段是合法结果（如「地产」
+        # 同时带出「房地产/商业地产」），limit 与长名优先保证确定性。
+        # 但要先剥掉问句停用词，防「分析/行情/方向」这类功能词误配板块名。
+        loose_text = _strip_loose_stopwords(remaining)
         for name in names_sorted:
             if len(hit) >= limit:
                 break
             if name in hit:
                 continue
-            if _anchored_fragment(name, remaining):
+            if _anchored_fragment(name, loose_text):
                 hit.append(name)
     if anchored_theme and anchored_theme not in hit:
         # 锚定题材放到末尾兜底（不抢占用户显式点名的题材顺序）。

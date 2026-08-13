@@ -2903,6 +2903,9 @@ class TurnOrchestrator:
                         required_outputs=fulfillment_outputs,
                         llm_model=self.llm_model,
                         timeout=llm_refine.DEFAULT_LLM_TIMEOUT,
+                        # 视角模式下补写轮沿用首轮 composer 的视角约束；
+                        # neutral 时 _active_perspective_prompt 返回空串，行为不变。
+                        options=ask_options,
                     )
                     if repaired is not None:
                         answer_text, fulfillment = repaired

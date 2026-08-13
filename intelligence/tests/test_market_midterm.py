@@ -116,6 +116,43 @@ class MidtermBlockTests(unittest.TestCase):
         mid = _FakeCon(["土地产权流转"])
         self.assertEqual(resolve_query_themes(mid, "地产怎么看"), [])
 
+    def test_resolve_themes_loose_round_ignores_query_function_words(self) -> None:
+        """脏夹具：问句功能词（分析/行情/方向）不得以片段身份误配板块名。
+
+        2026-08-13 质检实测的失败形状：夹具里只放"干净"的板块名时测试假绿；
+        补上「行业分析/行情预测/方向龙头」后，「分析今天的行情…怎么看」的功能词
+        把内容词题材（房地产）挤出 limit=4。停用词只作用于宽松轮。
+        """
+
+        class _FakeCon:
+            def __init__(self, names: list[str]) -> None:
+                self._rows = [(n,) for n in names]
+
+            def execute(self, _sql: str):
+                rows = self._rows
+
+                class _R:
+                    def fetchall(self) -> list[tuple[str]]:
+                        return rows
+
+                return _R()
+
+        con = _FakeCon(
+            [
+                "AI硬件", "AI应用", "房地产", "商业地产",
+                "行业分析", "行情预测", "方向龙头", "应用软件", "住宅开发",
+            ]
+        )
+        query = "分析今天的行情，AI硬件、AI应用、地产这些方向怎么看"
+        themes = resolve_query_themes(con, query)
+        self.assertIn("AI硬件", themes)
+        self.assertIn("AI应用", themes)
+        self.assertIn("房地产", themes)
+        for noise in ("行业分析", "行情预测", "方向龙头"):
+            self.assertNotIn(noise, themes)
+        # 精确匹配不受停用词影响：用户逐字点名「行业分析」仍能命中
+        self.assertIn("行业分析", resolve_query_themes(con, "行业分析板块怎么看"))
+
     def test_block_renders_trend_and_crowding(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
