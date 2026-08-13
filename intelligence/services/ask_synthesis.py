@@ -1761,6 +1761,30 @@ def _judge_outage_release(
     return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
 
 
+def _active_perspective_prompt(options: "AskOptions") -> str:
+    """视角激活（single/compare）时返回视角约束 prompt，neutral 返回空串。
+
+    专供 grounded composer 链注入。neutral 不注入是刻意的：保持默认 grounded
+    行为逐字节不变，只有用户显式选了 KOL 视角才改变 composer 的输入。
+    选择在 API 边界已做过 validate_runtime_selection，这里的异常兜底只防
+    构建期 profile 被手工删除的窗口，降级为无视角而不是让整轮回答失败。
+    """
+    if (
+        options.perspective_mode == perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+        or not options.perspective_ids
+    ):
+        return ""
+    try:
+        return perspective_lab.build_runtime_context(
+            userspace.user_space(options.user),
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
+        ).prompt
+    except (ValueError, FileNotFoundError):
+        return ""
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1852,6 +1876,7 @@ def synthesize_shadow_grounded_answer(
             decision_brief.to_prompt_block(),
             registry_block,
             required_outputs=required_outputs_block,
+            perspective_block=_active_perspective_prompt(options),
         ),
         model_override=options.llm_model,
         timeout=compose_timeout,

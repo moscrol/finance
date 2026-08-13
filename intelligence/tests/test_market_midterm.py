@@ -86,6 +86,36 @@ class MidtermBlockTests(unittest.TestCase):
         self.assertIn("信创", themes)
         self.assertIn("数据要素", themes)
 
+    def test_resolve_themes_anchored_fuzzy_match(self) -> None:
+        """精确匹配漏空时，前后缀锚定的宽松匹配兜底（「地产」→「房地产」）。"""
+
+        class _FakeCon:
+            def __init__(self, names: list[str]) -> None:
+                self._rows = [(n,) for n in names]
+
+            def execute(self, _sql: str):
+                rows = self._rows
+
+                class _R:
+                    def fetchall(self) -> list[tuple[str]]:
+                        return rows
+
+                return _R()
+
+        con = _FakeCon(["房地产", "住宅开发", "地下管网", "白酒"])
+        themes = resolve_query_themes(con, "AI硬件、AI应用、地产这些方向怎么看")
+        self.assertIn("房地产", themes)
+        self.assertNotIn("地下管网", themes)
+        self.assertNotIn("住宅开发", themes)
+        # 精确命中优先于宽松命中
+        both = resolve_query_themes(con, "地产和白酒怎么看")
+        self.assertEqual(both[0], "白酒")
+        self.assertIn("房地产", both)
+        # 无关问题不误报；片段在名字中间不算命中
+        self.assertEqual(resolve_query_themes(con, "分析今天的行情"), [])
+        mid = _FakeCon(["土地产权流转"])
+        self.assertEqual(resolve_query_themes(mid, "地产怎么看"), [])
+
     def test_block_renders_trend_and_crowding(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"

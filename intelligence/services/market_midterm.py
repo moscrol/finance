@@ -131,11 +131,30 @@ def midterm_intent_for(
     return intent
 
 
+def _anchored_fragment(name: str, text: str) -> str | None:
+    """query 片段以前缀/后缀方式命中板块名时返回该片段，否则 None。
+
+    约束（防误匹配）：片段 ≥2 字，且必须覆盖板块名至少一半长度，并锚定在
+    名字的开头或结尾。例：query「地产」命中「房地产」（后缀，2/3），但
+    命不中「地下管网」（无该片段）也命不中「土地产权」（片段在中间）。
+    """
+    for k in range(len(name) - 1, 1, -1):
+        if 2 * k < len(name):
+            break
+        for fragment in (name[:k], name[-k:]):
+            if fragment in text:
+                return fragment
+    return None
+
+
 def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None, limit: int = 4) -> list[str]:
     """从 query 里解析出要对比的题材（子串匹配 distinct sector_name，长名优先）。
 
     - 只做「板块表里已存在的题材名」子串匹配，天然把 query 收敛到可查口径；
     - 长名优先避免「数据要素」被「数据」抢先命中；
+    - 精确匹配填不满 limit 时做一轮**锚定宽松匹配**（见 _anchored_fragment）：
+      用户说「地产」而板块表只有「房地产」时不再漏空——2026-08-13 真链路实测
+      这个粒度错配让视角回答只能对地产写"无量价证据"；
     - anchored_theme（上游锚定题材）兜底，保证至少有一个题材可查。
     """
     text = re.sub(r"\s+", "", str(query or ""))
@@ -154,6 +173,16 @@ def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None
             remaining = remaining.replace(name, "□")
         if len(hit) >= limit:
             break
+    if len(hit) < limit:
+        # 宽松轮不消耗 remaining：兄弟板块共享片段是合法结果（如「半导体」
+        # 同时带出「半导体材料/半导体设备」），limit 与长名优先保证确定性。
+        for name in names_sorted:
+            if len(hit) >= limit:
+                break
+            if name in hit:
+                continue
+            if _anchored_fragment(name, remaining):
+                hit.append(name)
     if anchored_theme and anchored_theme not in hit:
         # 锚定题材放到末尾兜底（不抢占用户显式点名的题材顺序）。
         if any(anchored_theme in n or n in anchored_theme for n in names_sorted):

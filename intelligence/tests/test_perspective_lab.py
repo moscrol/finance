@@ -410,6 +410,44 @@ class DebateTests(unittest.TestCase):
                 )
 
 
+class GroundedPerspectiveInjectionTests(unittest.TestCase):
+    def test_active_perspective_prompt_gates_by_mode(self) -> None:
+        import os
+        from unittest import mock
+
+        from intelligence.services import ask_synthesis
+        from intelligence.services.ask_types import AskOptions
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"FORESIGHT_USERS_DIR": tmp}):
+                us = userspace.user_space("tester")
+                perspective_lab.init_perspective(us, "kol_fengyuan", ptype="kol_fengyuan")
+                neutral = ask_synthesis._active_perspective_prompt(
+                    AskOptions(query="行情怎么看", user="tester")
+                )
+                single = ask_synthesis._active_perspective_prompt(
+                    AskOptions(
+                        query="行情怎么看",
+                        user="tester",
+                        perspective_mode="single",
+                        perspective_ids=("kol_fengyuan",),
+                    )
+                )
+                missing = ask_synthesis._active_perspective_prompt(
+                    AskOptions(
+                        query="行情怎么看",
+                        user="tester",
+                        perspective_mode="single",
+                        perspective_ids=("ghost",),
+                    )
+                )
+
+        self.assertEqual(neutral, "")  # neutral 不改变 grounded 行为
+        self.assertIn("风远框架视角", single)
+        self.assertIn("证据层级", single)
+        self.assertEqual(missing, "")  # profile 缺失降级为无视角，不炸整轮回答
+
+
 class CliParseabilityTests(unittest.TestCase):
     def test_perspective_subcommands_parse(self) -> None:
         parser = cli.build_parser()

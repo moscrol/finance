@@ -1186,7 +1186,25 @@ def build_grounded_composer_messages(
     registry_block: str,
     *,
     required_outputs: tuple[str, ...] = (),
+    perspective_block: str = "",
 ) -> list[dict]:
+    # 视角约束放 user turn 而不是 system prompt：它随 query（BM25 召回）变化，
+    # 进 system 会破坏缓存前缀（与 experience/exemplar 的处理相反，那两块是静态的）。
+    # 空串时输出与旧版逐字节一致。
+    #
+    # 为什么必须有这个口子（2026-08-13 真链路实测）：视角上下文此前只进
+    # build_synthesis_messages 一条链，grounded composer 从没见过视角——
+    # 答案顶部的「当前视角」头是 orchestrator 事后拼的，正文被通用研究话术
+    # 整体接管，用户拿到一份"戴着视角帽子的无视角报告"。
+    perspective_section = (
+        (
+            "本轮视角约束（正文组织与证据取舍服从它；claim/EvidenceAtom 绑定"
+            "规则不变，视角观点层不得改写事实）：\n"
+            f"{perspective_block}\n\n"
+        )
+        if perspective_block
+        else ""
+    )
     return [
         {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
         {
@@ -1195,6 +1213,7 @@ def build_grounded_composer_messages(
                 f"{_registry_document(registry_block)}"
                 f"DecisionBrief：\n{decision_brief}\n\n"
                 f"{_required_outputs_block(required_outputs)}"
+                f"{perspective_section}"
                 f"用户问题：{query}"
             ),
         },
