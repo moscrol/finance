@@ -129,8 +129,20 @@ launchctl kickstart -k "gui/$(id -u)/$SERVICE"
 
 # 等服务真的起来再宣布成功。kickstart 是异步的，立刻返回不代表进程健康——
 # 直接结束会把「起不来」误报成部署成功。
-for i in $(seq 1 30); do
+#
+# 等待窗必须覆盖**启动路径自己的预算**，否则误报方向会反过来。原值 30×2s=60s，
+# 而 lifespan 里的 kb_rag.prewarm 光超时上限就有 90s（RAG_WORKER_PREWARM_TIMEOUT
+# 默认值），冷启动实测整轮约 3 分钟（RAG worker 加载模型烧掉 1:38 CPU）。
+# 2026-08-14 实测：部署一切正常、服务在 T+3min 起来并 health 全绿，脚本却在
+# T+60s 就 die 掉，还让人去翻 workbench.err.log——那里只有一行「Waiting for
+# application startup」，完全看不出是在等预热。**比服务的最坏启动时间还短的
+# 失败窗，报出来的不是故障而是噪声**，而这种噪声最容易触发一次不必要的回滚。
+WAIT_SEC="${WORKBENCH_READY_TIMEOUT:-300}"
+print -- "      （最长等 ${WAIT_SEC}s：RAG 预热冷启动实测约 3 分钟）"
+for i in $(seq 1 $((WAIT_SEC / 2))); do
   sleep 2
+  # 每 30s 报一次进度，否则长时间无输出本身就像挂了。
+  (( i % 15 == 0 )) && print -- "      ... 已等 $((i * 2))s（仍在启动，多半在 RAG 预热）"
   if health="$(curl -fsS --max-time 3 localhost:8792/api/health 2>/dev/null)"; then
     print -- "      ✓ 服务已就绪"
     # heredoc 传脚本、argv 传数据，两者不能都走 stdin。
@@ -157,4 +169,7 @@ PY
     exit 0
   fi
 done
-die "服务在 60s 内未就绪，检查 ~/.local/share/finance-workbench/workbench.err.log"
+die "服务在 ${WAIT_SEC}s 内未就绪。先看 ~/.local/share/finance-workbench/workbench.err.log 的最后一行：
+    停在「Waiting for application startup」= 还卡在 lifespan（通常是 RAG 预热），
+    此时 rag_query_worker.py 子进程还在，可用 \`ps\` 看它是否仍在吃 CPU；
+    有 Traceback = 真起不来。前者可加大 WORKBENCH_READY_TIMEOUT 再试。"
