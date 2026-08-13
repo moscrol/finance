@@ -101,12 +101,20 @@ def non_trading_day_note(value: date) -> str | None:
             return None
         reason = "交易所公告休市日"
     previous = previous_scheduled_trading_day(value)
-    tail = (
-        f"；其前一交易日为 {previous.isoformat()}"
-        if previous is not None
-        else ""
+    # 「回答时应先说明休市」与「引用行情须标注实际日期」写进事实本身：
+    # R16-C1 生产实测，模型拿到假设后用对了前一交易日的数据，却把它说成
+    # 「当日收跌」——日期归属含糊比不答更误导。前提字段带上归属要求后，
+    # 模型无须猜「这条事实要不要转述」。
+    if previous is not None:
+        return (
+            f"{value.isoformat()} 为{reason}，A股休市，该日无行情数据；"
+            f"回答须先说明该日休市，如引用行情须明确标注为前一交易日 "
+            f"{previous.isoformat()} 的数据，不得称为当日行情"
+        )
+    return (
+        f"{value.isoformat()} 为{reason}，A股休市，该日无行情数据；"
+        "回答须先说明该日休市"
     )
-    return f"{value.isoformat()} 为{reason}，A股休市，该日无行情数据{tail}"
 
 
 def question_non_trading_note(question: str) -> str | None:
