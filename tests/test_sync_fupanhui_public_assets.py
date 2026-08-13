@@ -202,6 +202,8 @@ def test_public_asset_tables_in_cross_day_gate():
         "fact_leader_height_daily",
         "fact_global_index_daily",
         "fact_global_stock_daily",
+        # 2026-08-13 补齐 2025-01-16 后 390/390 进门禁
+        "fact_dragon_summary_daily",
     ):
         assert table in GAP_TABLES
     for table in ("fact_core_stock_daily", "fact_global_index_daily", "fact_global_stock_daily"):

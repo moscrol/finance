@@ -34,6 +34,9 @@ GAP_TABLES = [
     "fact_leader_height_daily",
     "fact_global_index_daily",
     "fact_global_stock_daily",
+    # 2026-08-13 补齐 2025-01-16 后 390/390，棘轮闭合进门禁。
+    # fact_dragon_seat_daily 暂不进：仅回补近 60 日，等窗口跑完验证连续后再加。
+    "fact_dragon_summary_daily",
 ]
 
 # 行数异常收缩只查"宇宙规模近似恒定"的结构表；新高/涨停/晋级类表行数随行情天然大幅波动，
