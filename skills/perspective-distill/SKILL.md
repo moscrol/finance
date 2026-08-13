@@ -21,13 +21,24 @@ description: 视角蒸馏——用户发来 KOL/博主原文，走固定闭环�
 
 ## 第 0 步：前置确认（别跳）
 
-1. **用户空间是哪个**：生产 Workbench 读 `FORESIGHT_USERS_DIR` 指向的目录
-   （Mac 上是 `~/agent-memory/.foresight/<user>/perspectives/`）；不设环境变量时
-   默认落 `intelligence/users/<user>/perspectives/`。**在 worktree 里跑会写出一份
-   生产读不到的副本**——先确认写的是 canonical 那份。
-2. **角色 id**：已有角色（`perspective profile --perspective <id>` 能读到）就直接
+1. **用户空间是哪个**：生产 Workbench 读 `FORESIGHT_USERS_DIR`，而它的真值**只在
+   启动器里**，别照抄本文档、也别信当前 shell 的环境变量——交互 shell 的
+   `.zshenv`/`.zshrc` 导出的是另一个目录，裸跑 CLI 会写出一份生产读不到的副本
+   （2026-08-13 sptfei 实测踩中：画像四篇齐全、patch 全过，Workbench 里那个视角
+   压根不存在）。每次现查，不缓存结论：
+
+   ```bash
+   rg -n 'FORESIGHT_USERS_DIR' ~/.local/bin/start-finance-workbench   # 生产真值
+   FORESIGHT_USERS_DIR="<上面查到的值>" python3 -m intelligence.cli perspective ...
+   ```
+
+   不设环境变量时默认落 `intelligence/users/<user>/perspectives/`。**在 worktree 里
+   跑同样会写出生产读不到的副本**——先确认写的是启动器那份。
+2. **user 是哪个**：路径对了但 user 写错，视角照样不可见。用 Workbench 里实际登录
+   的那个 user（本机生产是 `linxiaoqi5111`，不是 `a77`/`default`）。
+3. **角色 id**：已有角色（`perspective profile --perspective <id>` 能读到）就直接
    ingest；新角色先 init。id 用小写下划线（如 `sptfei`），display_name 存中文名。
-3. **文章元信息**：每篇要有 date（发文日期）和 title；`--date` **缺省是今天**，
+4. **文章元信息**：每篇要有 date（发文日期）和 title；`--date` **缺省是今天**，
    旧文漏传会把证据日期全标成今天，后面评审无法判断是不是过期的单次观察。
 
 ```bash
@@ -93,10 +104,17 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 ## 第 6 步：验收
 
 1. `perspective profile --user <id> --perspective <角色id>` 通读一遍，确认没有 episodic 残留；
-2. 有生产 Workbench 且 DuckDB 无写锁时，单视角选该角色问一句行情题 smoke：
+2. **生产可见性闸**（这一条不过，前面全部不算完成）：
+
+   ```bash
+   curl -s "http://127.0.0.1:8792/api/perspectives?user=<id>" | rg '<角色id>'
+   ```
+
+   查不到就是写到了生产读不到的地方、或 user 写错——回第 0 步，别接着往下走。
+3. 有生产 Workbench 且 DuckDB 无写锁时，单视角选该角色问一句行情题 smoke：
    正文应出现该视角的证据层级语言，首选证据缺失时应显式声明而不是降格为
    通用研究结论。**没有环境就停在 profile 通读，不编造端到端通过。**
-3. 回复用户：几篇入库、几条 patch（approve/reject 各多少 + 拒绝理由）、哪些字段待复核。
+4. 回复用户：几篇入库、几条 patch（approve/reject 各多少 + 拒绝理由）、哪些字段待复核。
 
 ## 常见坑
 
@@ -108,3 +126,6 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
   不该出现它们，出现了说明写错了地方。
 - 生产 Workbench 读 `FORESIGHT_USERS_DIR`；Mac 主仓若脏，另开干净 worktree 再跑
   CLI，venv 可用主树的，加载哪份代码由 cwd 决定。
+- **CLI 与生产是两套用户空间**：CLI 跟随 shell 环境变量，生产跟随启动器里的 export。
+  两者不一致时闭环每一步都会"成功"，只有 Workbench 里选不到视角这一个症状——所以
+  第 6 步那道 API 可见性闸是唯一能证明蒸馏落地的检查，不能省。
