@@ -66,6 +66,8 @@ python3 -m market_feature_store.cli sync-fupanhui-public-assets --align --only l
 # 质检：结构门（全窗口）+ 公开 API 抽查对账，只读
 python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
 QA_SAMPLE=2026-07-01,2025-06-03 python3 skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py
+# 席位表大窗口回补（~70 次 detail/日，断点续跑+撞锁退避+完整性修复，建议 spawn.py 守护）
+python3 skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py --start-date 2025-01-02 --end-date 2026-05-19
 ```
 
 三条硬约束（都是实测事故换来的）：
