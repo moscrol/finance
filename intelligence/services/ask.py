@@ -576,22 +576,27 @@ def _market_today() -> str:
     return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
-def _market_data_date_line(trade_date: str | None) -> str:
+def _market_data_date_line(trade_date: str | None, *, today: str | None = None) -> str:
     """把「数据日期是不是今天」算出来告诉模型，而不是指望它自己注意到。
 
     用户问"今天大盘怎么样"时，盘后到夜间入库之间最新可用的就是上一交易日。
     只在提示词里写一句"保留数据日期"太软：实测模型会把 07-29 的收盘说成"今天"，
     正文一个日期都不提，只有引用的 as_of 是诚实的。日期关系是确定可算的，
     就不该交给模型判断。
+
+    ``today`` 只为测试留的注入口：默认仍走 `_market_today()`。另外「今天」在本函数
+    内只解析一次——此前两个分支各调一次 `_market_today()`，跨北京午夜时同一条消息
+    里的两个日期会来自不同的一天。
     """
+    reference = today or _market_today()
     date_text = str(trade_date or "").strip()
     if not date_text:
         return "数据日期：未确认（没有可用盘面日期，不得给出任何当日定性）"
-    if date_text == _market_today():
+    if date_text == reference:
         return f"数据日期：{date_text}（即今天）"
     return (
         f"数据日期：{date_text}"
-        f"（今天是 {_market_today()}，因此这不是当日数据："
+        f"（今天是 {reference}，因此这不是当日数据："
         f"正文首句必须写明「数据截至 {date_text}」，全文不得称其为今天/今日/当天）"
     )
 
