@@ -782,6 +782,108 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     assert report["answer_marker_coverage"]["marker_coverage"] == "incomplete"
 
 
+def test_continuous_turn_injects_selected_perspective_and_headers_answer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """显式选择的 KOL 视角必须到达 continuous 引擎并署名在答案头。
+
+    2026-08-14 生产 smoke 的失败形状：视角在 API 层验证、存储都通过，但
+    continuous 主路径在 ask_options 构造前返回，模型 prompt 与最终答案
+    都没有任何视角痕迹——画像成了死数据。本条锁两个到达点：
+    (1) control.perspective_context 携带真实画像内容（镜头名，而不只是
+    模式标记）；(2) 交付文本带 runtime_answer_header 署名。
+    neutral 轮的原样透传由 test_continuous_handled_turn_bypasses_legacy_
+    and_persists_public_result 的 startswith 断言锁住。
+    """
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    us = userspace.user_space("alice")
+    perspective_lab.init_perspective(
+        us, "lens_teacher", display_name="测试老师", ptype="blogger"
+    )
+    profile = perspective_lab.load_profile(us, "lens_teacher")
+    profile["market_lenses"] = [
+        {
+            "name": "筹码测试透镜",
+            "description": "看抱团补涨结构与分歧承接",
+            "weight": 0.5,
+        }
+    ]
+    perspective_lab.profile_path(us, "lens_teacher").write_text(
+        json.dumps(profile, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    query = "今天的市场适合加仓吗"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        frame,
+        intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+    captured: dict[str, str] = {}
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            captured["perspective_context"] = control.perspective_context
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="按该视角映射：当前结构接近临界，等待放量确认。",
+                as_of="2026-07-22",
+                citations=(),
+                warnings=(),
+                private_artifact=None,
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+        perspective_mode=perspective_lab.PERSPECTIVE_MODE_SINGLE,
+        selected_perspective_ids=["lens_teacher"],
+    )
+
+    injected = captured["perspective_context"]
+    assert "筹码测试透镜" in injected
+    assert "只允许使用下方这一位 KOL" in injected
+    assert result.status == "completed"
+    assert result.content.startswith("当前视角：测试老师")
+    assert "按该视角映射" in result.content
+    assistant = next(
+        message
+        for message in conversation_store.load_messages(conversation.conversation_id)
+        if message.message_id == assistant_message_id
+    )
+    assert assistant.content == result.content
+    answer_artifact = (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    )
+    assert answer_artifact.startswith("当前视角：测试老师")
+
+
 def test_continuous_answer_coverage_separates_uncheckable_from_absent() -> None:
     """No marker vocabulary must not be reported as a coverage failure."""
 

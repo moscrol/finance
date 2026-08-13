@@ -429,6 +429,13 @@ class ContinuousTurnAdapter:
                 "latest_data_date": self._latest_data_date,
                 "conversation_context": control.conversation_context,
             }
+            # 视角约束只在激活时进 kwargs：neutral 的 context 构造调用保持
+            # 逐字节不变，不认识该参数的注入式 factory 也不会在中立轮炸掉。
+            perspective_context = str(
+                getattr(control, "perspective_context", "") or ""
+            )
+            if perspective_context:
+                context_kwargs["perspective_context"] = perspective_context
             if self._synthesis_reserve_for_task is not None:
                 context_kwargs["synthesis_reserve"] = max(
                     0.0,

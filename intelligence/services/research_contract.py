@@ -884,6 +884,10 @@ class ResearchRunContext:
         default_factory=InformationCutoff.runtime_default
     )
     root_budget: RootBudgetLedger | None = None
+    # Prompt-only KOL perspective constraints (perspective_lab runtime prompt);
+    # never evidence.  Empty means neutral.  Trailing default keeps positional
+    # construction in older integrations backwards compatible.
+    perspective_context: str = ""
 
 
 @dataclass(frozen=True)
