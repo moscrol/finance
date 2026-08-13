@@ -1,26 +1,26 @@
 # 在途交接 · main
 
-更新：2026-08-13 · 夜间三 PR（#302/#303/#304）已全部合入，待蓝绿切 8792
+更新：2026-08-13 · 三 PR 已合并（MERGED），8792 已干净切到 `1d45f5cf`
 
 ## 这个分支做什么
 
-生产基线。夜间修复循环已收口。
+生产基线。夜间修复循环已收口并部署。
 
 ## 当前状态
 
-- `main` 含：#301 A3 冷启动、#302 RAG worker 缓存键、#303 A4 截断哈希、#304 A1-R2 冷启动扩判据。
-- 8792 仍在 `09dacdea` + RAG 热补丁（与 #302 文件逐字节一致），待切到合并末态。
-- 不要动 Mac 开发区。
+- `main` @ `1d45f5cf` 含：#301 A3 冷启动、#302 RAG worker 缓存键、#303 A4 截断哈希、#304 A1-R2 冷启动扩判据。
+- 8792 = `1d45f5cfa947`，worktree clean（热补丁已随切换退役），ready，RAG 预热 70s。
+- 旧 runtime `09dacdeaca30` / `bcd3b6ce64f7` 保留可回滚。不要动 Mac 开发区。
 
 ## 下一步
 
-1. 干净蓝绿切 8792 到最新 main（新 detached worktree，去掉热补丁；旧 runtime 保留回滚）。
-2. 可选冒烟 A1/A3/A4。
-3. A5 非本仓 bug；A7/A10、governor 升档是设计评审项。
+1. 可选生产冒烟 A1/A3/A4（验证三修复的真实形状）。
+2. A5 非本仓 bug；A7/A10、governor 升档是设计评审项。
+3. #304 的 `model_unavailable` 判据偏宽（非瞬态异常也给一发冷启动），有 cycle/余量闸兜底；要收紧按 gap 里的异常类型滤。
 
 ## 未验证
 
-- 合并末态生产冒烟（切完后验 health/ready + RAG）。
+- 三修复的生产真实形状（需等真实流量或跑验收）。
 
 ## 踩过的坑
 
@@ -30,5 +30,6 @@
 
 ## 已验证
 
-- 合并前各分支单测全绿（11/18/10 passed）；合并后全量回归见最新提交说明。
-- 热补丁 SHA 与 #302 一致；8792 RAG ready。
+- 合并末态回归 192 passed（rag_worker/episode_protocol/adapter/coordinator/agent_episode）。
+- 8792 health healthy、ready 无缺项、`workers.rag.state=ready`、runtime clean。
+- 三 PR GitHub 状态 MERGED。
