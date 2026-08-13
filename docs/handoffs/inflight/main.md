@@ -27,11 +27,14 @@
 
 ## 下一步
 
-1. 合 **#314**（枚举比对真本源，测试-only）。
-2. 设计评审项：核验合成层预算（剩余最大质量瓶颈）、RAG worker 懒恢复、
-   governor 升档、knevo 接力。
-3. 待清理（非紧急）：Mac 11 个 runtime worktree 只需留最近 2-3 个；
-   8795/8796/8801 三个 8 月上旬的旧 uvicorn 进程待确认关闭。
+1. 合 **#315**（long_tail 路由用例密封，测试-only）——质检失败集的最后一条。
+2. 失败集归因收口（终版云端读数 17F/4140P @ `d3fb678b`）：15 条云端缺
+   RAG venv/KB（Mac 全过）+ 1 条双端真红（#315 已备）+ 1 条 flaky
+   （`citations_survive_run_context_reload` 全量红单跑 3/3 绿，测试间状态
+   泄漏，待排查）。7 条 pandas/pytz 已装依赖消掉。**真产品 bug 0。**
+3. 设计评审项：核验合成层预算、RAG worker 懒恢复、governor 升档、knevo 接力。
+4. 待清理（非紧急）：Mac 11 个 runtime worktree 留最近 2-3 个；
+   8795/8796/8801 三个 8 月上旬旧 uvicorn 进程待确认关闭。
 
 ## 未验证
 
