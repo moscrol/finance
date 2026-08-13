@@ -73,7 +73,12 @@ def _iter_files() -> list[Path]:
         if not root.is_dir():
             continue
         for path in root.rglob("*.py"):
-            if SKIP_PARTS & set(path.parts):
+            # 按**仓内相对路径**判，不能拿绝对路径的每一段去比：SKIP_PARTS 说的是
+            # 「仓里的这些目录不扫」。用绝对路径时，仓一旦被检出到含 tmp/ 的路径下
+            # （worktree 放 /tmp 是常事），整棵树都会被跳过，于是拿 0 个文件去比
+            # 非空基线，门禁报「✅ 无新增」并 exit 0——静默假绿，而它是 pre-commit
+            # 钩子，等于那次提交完全没被这道门禁看过。
+            if SKIP_PARTS & set(path.relative_to(REPO).parts):
                 continue
             out.append(path)
     return sorted(out)
@@ -169,6 +174,20 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     current = scan()
+    baseline = _load_baseline()
+
+    # 扫到 0 个文件却有非空基线 = 这次运行根本没看过代码。必须响亮失败：门禁最坏的
+    # 失效不是漏抓，是**空转却发绿**——那会让人以为查过了。放在 --update-baseline
+    # 之前，因为空转时写基线会把存量清单直接清空，比误报更难发现。
+    if not _iter_files() and baseline:
+        print(
+            f"用不了：{', '.join(SCAN_DIRS)} 下扫到 0 个 .py，"
+            f"而基线有 {sum(len(v) for v in baseline.values())} 个字段。"
+            f"\n  这次运行没有看过任何代码，报绿就是假绿。"
+            f"\n  REPO={REPO}"
+        )
+        return 2
+
     if args.update_baseline:
         BASELINE_PATH.write_text(
             json.dumps(current, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -178,7 +197,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"基线已写入：{len(current)} 文件 / {total} 个字段")
         return 0
 
-    baseline = _load_baseline()
     # 比对「文件 + 具体字段名」，**不比个数**——清理 1 个 + 新增 1 个总数不变。
     added: dict[str, list[str]] = {}
     for rel, names in current.items():
