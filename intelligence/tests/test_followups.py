@@ -70,6 +70,48 @@ class LLMPathTests(unittest.TestCase):
         self.assertIn("full_prompt", doc["followups"][0])
 
 
+class GapMirrorTests(unittest.TestCase):
+    """缺口镜像：结构化缺口确定性变「猜你想问」，零模型调用。
+
+    动机（R15 knevo 对照 9:2:0）：多题失分不在缺口本身，在缺口变成句号
+    ——「追问负担全在用户」。文案来自任务契约必需输出描述，与公开降级
+    声明同一口径。
+    """
+
+    def test_gaps_become_typed_clickable_followups(self) -> None:
+        result = followups.gap_mirror_followups(
+            "液冷题材",
+            ("主线判断依据", "失效条件"),
+        )
+        self.assertFalse(result.llm_used)
+        self.assertEqual(len(result.followups), 2)
+        for item, gap in zip(result.followups, ("主线判断依据", "失效条件")):
+            self.assertEqual(item.type, "gap")
+            self.assertEqual(item.type_label, "缺口补齐")
+            self.assertIn("液冷题材", item.full_prompt)
+            self.assertIn(gap, item.full_prompt)
+            self.assertLessEqual(len(item.label), 20)
+            self.assertTrue(item.label.startswith("补齐"))
+
+    def test_limit_and_blank_gaps(self) -> None:
+        result = followups.gap_mirror_followups(
+            "X",
+            ("a", "  ", "b", "c", "d"),
+            limit=3,
+        )
+        # 先滤空白再截上限：a/b/c 占满 3 个名额，空白不浪费名额。
+        self.assertEqual(
+            [item.full_prompt.count("「") for item in result.followups],
+            [1, 1, 1],
+        )
+        self.assertEqual(len(result.followups), 3)
+        self.assertEqual(followups.gap_mirror_followups("X", ()).followups, [])
+
+    def test_blank_subject_gets_placeholder(self) -> None:
+        result = followups.gap_mirror_followups("  ", ("反方证据",))
+        self.assertIn("该问题", result.followups[0].full_prompt)
+
+
 class AnswerSpecFollowupTests(unittest.TestCase):
     def test_suggestions_only_use_gaps_actions_and_validation_boundaries(self) -> None:
         gap = answer_model.make_claim(

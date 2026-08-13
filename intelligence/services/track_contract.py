@@ -71,11 +71,48 @@ def build_track_guidance() -> str:
     )
 
 
+def build_track_guidance_for_episode() -> str:
+    """episode 主路径版跟踪契约——纪律同 :func:`build_track_guidance`，术语换血。
+
+    legacy 版的「上期基线」指向 [M]/[V] 检索块、证据引用用 [D0]/[W7] 编号——
+    这些是 ask_synthesis 路径的记号，episode 里不存在：episode 的记忆通道是
+    memory_lookup 工具、证据纪律是 evidence_hash 绑定。原样注入会让模型对照
+    一个不存在的块。两版共存于本模块（单一真本源），改纪律要两边一起动。
+    """
+    return "\n".join(
+        [
+            "【跟踪表达契约】本题为持续跟踪类问题，draft 必须按此结构组织：\n"
+            "1. delta-only 纪律：以上期基线为锚只报有信息量的变化；上期结论仍成立的项"
+            "写一句「无变化」即可，禁止重跑全景模板凑字数。上期基线只能来自 "
+            "memory_lookup 召回的用户既有判断或 conversation_context 里的先前结论；"
+            "两处都无相关记录时，draft 开头显式声明「无上期基线，本期建立基线」，"
+            "禁止虚构或臆测上期说过什么。\n"
+            "2. 观点四态对照：对每条召回的既有判断给显式判定——"
+            "「支持 / 削弱 / 无变化 / 信息不足」四态之一；判定必须由本轮 evidence "
+            "支撑并进入对应 binding，没有证据支撑的判定只能写「信息不足」。\n"
+            "3. 结论 TTL：本期每条新结论标注「复核期限：YYYY-MM-DD」——跟踪级默认 "
+            "30 天、框架级默认 90 天；到期未复核视为待复核，不得当作已验证事实引用。\n"
+            "4. 下期关注清单（draft 结尾必给）：每项 = 指标/事件 + 时间节点 + 触发条件"
+            "（可观察、可证伪，如「若 X 月中报毛利率 <Y% 则削弱扩产逻辑」）；"
+            "禁止「持续关注市场情绪」这类不可证伪表述。\n"
+            "5. 跟踪不改变证据纪律：变化必须来自本轮工具证据，"
+            "不得由「距上次隔了很久」推断「肯定有变化」。"
+        ]
+    )
+
+
 def track_guidance_for_query(query: str, question_type: str | None = None) -> str:
     """命中意图返回表达契约，否则空串（不注入，行为不变）。"""
     if not parse_track_intent(query, question_type):
         return ""
     return build_track_guidance()
+
+
+def episode_track_rule(query: str, question_type: str | None = None) -> str:
+    """episode 指令的条件注入口：命中跟踪意图返回 episode 版契约，否则空串。"""
+    if not parse_track_intent(query, question_type):
+        return ""
+    return build_track_guidance_for_episode()
 
 
 # 结构门：prompt 对中转模型约束力有限（2026-08-13 live）。缺段用确定性文本补上，

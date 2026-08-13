@@ -276,6 +276,34 @@ def test_instructions_are_grouped_not_one_flat_wall() -> None:
         assert header in instructions
 
 
+def test_track_questions_get_episode_track_contract() -> None:
+    """跟踪题的 episode 指令必须带跟踪表达契约（knevo q8 回灌的 episode 版）。
+
+    此前该契约只接在 legacy ask_synthesis 路径——生产主路径（episode）的
+    跟踪题仍被答成一次性全景重跑。episode 版术语必须对齐本路径：基线来源
+    是 memory_lookup / conversation_context，不是 legacy 的 [M]/[V] 检索块。
+    """
+    frame = dataclasses.replace(
+        _frame(),
+        raw_question="光伏自上次之后有什么新变化",
+        question_type="theme_track",
+    )
+    instructions = build_episode_instructions(frame, _context(frame), _registry())
+
+    assert "跟踪表达契约" in instructions
+    assert "无上期基线，本期建立基线" in instructions
+    assert "memory_lookup" in instructions
+    # legacy 检索块记号不得泄漏进 episode 指令——episode 里没有这些块。
+    for legacy_marker in ("[M]", "[V]", "[D0]", "[D6]", "[W7]"):
+        assert legacy_marker not in instructions
+
+
+def test_non_track_questions_keep_instructions_unchanged() -> None:
+    frame = _frame()
+    instructions = build_episode_instructions(frame, _context(frame), _registry())
+    assert "跟踪表达契约" not in instructions
+
+
 def test_validate_finish_rejects_unknown_evidence_hash() -> None:
     frame = _frame()
     context = _context(frame)

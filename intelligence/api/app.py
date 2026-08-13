@@ -2051,6 +2051,10 @@ def create_app(
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
         rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
+        # 探针的写侧半步：发现死进程 worker 就按预热配方调度自愈（单飞+冷却）。
+        # 查询失败式自愈覆盖不了「进程死了但后续查询全带 filters 走 CLI」的
+        # 形状（2026-08-13 R23 注入实测），那时 readiness 会永久红。
+        kb_rag.rag_worker.ensure_recovery()
         worker_status = kb_rag.rag_worker.status()
         snapshot_contract = validate_market_snapshot_root(
             runtime_paths.market_snapshot_dir

@@ -57,7 +57,44 @@ python3 -m intelligence.cli perspective profile --user <id> --perspective blogge
 ```
 
 博主画像的认知字段（market_lenses / risk_triggers / falsification_style 等）P0 由人工编辑
-profile JSON 填写（对照文章原文提炼）；LLM 自动抽取是 P1 开关。
+profile JSON 填写（对照文章原文提炼）；也可走下面的 P1 学习闭环让 LLM 提候选、你来确认。
+
+> 💡 「用户发原文 → 蒸馏进画像」的端到端固定流程已沉淀为 skill：
+> `skills/perspective-distill/SKILL.md`（触发词：蒸馏视角、学这个博主、喂文章），
+> 含前置确认（canonical 用户空间）、原文落盘红线、patch 评审判据与验收清单。
+
+### 3.5 学习闭环（P1，2026-08-13 上线）：文章 → 认知卡片 → patch → 人工确认
+
+原理：画像是「慢变量」（方法论），不该每次回答现场重算，也不该永远靠手填。学习闭环把
+agent book 说的记忆结构化机制做成动态版——**LLM 只产候选，人工确认才写画像**（与 P4
+胜率驱动修正共用同一道人工门禁）。服务代码：`intelligence/services/perspective_learning.py`。
+
+```bash
+# 第一步：逐篇抽结构化认知卡片（需配置 LLM key；失败明确报错、不写半成品）
+python3 -m intelligence.cli perspective extract-cards --user <id> --perspective blogger_x [--limit 5]
+
+# 第二步：聚合卡片里的画像候选 → pending patch（确定性，不调 LLM，幂等）
+python3 -m intelligence.cli perspective propose-patches --user <id> --perspective blogger_x
+
+# 第三步：人工逐条确认（approve 写画像 + patch_history 溯源；reject 只改状态、不会被复活）
+python3 -m intelligence.cli perspective patches --user <id> --perspective blogger_x --status pending
+python3 -m intelligence.cli perspective review-patch --user <id> --perspective blogger_x \
+  --patch-id pp-xxxx --approve   # 或 --reject [--note 理由]
+```
+
+证据卫生三道闸（认不出来就 fail closed）：
+
+- **引文逐字核验**：候选的 `supporting_quote` 必须是原文逐字连续片段（空白归一后子串
+  命中，且不短于 6 字——超短子串在任何文章里都能命中，不构成出处），核验不过的候选
+  留在卡片里存档，但**不进入确认流**——防 LLM 编造出处；
+- **字段白名单**：LLM 候选只能进四个字符串列表字段（opportunity_preferences /
+  risk_triggers / anti_patterns / falsification_style）；market_lenses、
+  reasoning_patterns、evidence_hierarchy 带结构或顺序语义，仍走人工编辑 JSON；
+- **人工门禁**：patch 三态 pending/approved/rejected，approve 才写 profile 并在
+  `patch_history` 留 patch_id 溯源；同一 (field, value) 的 patch id 是确定性哈希，
+  重复 propose 幂等，rejected 不会被重新提出。
+
+落点（均本地私有）：卡片 `articles/<id>/cards/pa-*.json`；patch `patches/<id>/pp-*.json`。
 
 ### 4. 多角色合议
 
@@ -115,7 +152,8 @@ python3 -m intelligence.cli perspective ingest \
   裁判最终按用户主框架的结论格式落结论与证伪——多视角不是多声音。
 - P0 角色容器（本期）→ P1 先固化 user_framework 六层认知框架（市场阶段/题材生命
   周期/盘面确认/证据硬度/反证降级/二阶导发散），再做博主文章 LLM 抽取（单篇结构化
-  卡片 + candidate 人工确认后才写 profile）→ P2 BM25 召回原文例证 → P3 盘后结果
+  卡片 + candidate 人工确认后才写 profile，**已于 2026-08-13 上线，见 3.5 节**）
+  → P2 BM25 召回原文例证（Workbench 已接入）→ P3 盘后结果
   评价角色有效性（接 checkpoint，按市场阶段分桶）→ P4 自动生成 profile 修正建议。
   详见 spec 第 16 节。
 

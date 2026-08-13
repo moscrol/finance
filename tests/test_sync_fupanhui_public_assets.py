@@ -202,6 +202,10 @@ def test_public_asset_tables_in_cross_day_gate():
         "fact_leader_height_daily",
         "fact_global_index_daily",
         "fact_global_stock_daily",
+        # 2026-08-13 补齐 2025-01-16 后 390/390 进门禁
+        "fact_dragon_summary_daily",
+        # 2026-08-13 近 60 日回补完成后进门禁（gap 只从表首日起算）
+        "fact_dragon_seat_daily",
     ):
         assert table in GAP_TABLES
     for table in ("fact_core_stock_daily", "fact_global_index_daily", "fact_global_stock_daily"):
@@ -419,7 +423,9 @@ def _stub_empty_daily_apis(monkeypatch):
         "get_historical_mapping",
         lambda td: {"source_date": td, "similar_days": [{"date": "2025-01-01", "similarity": 0.4}]},
     )
-    empty = lambda *_a, **_k: {}
+    def empty(*_a, **_k):
+        return {}
+
     for name in (
         "get_leader_ladder",
         "get_global_market",

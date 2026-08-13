@@ -1479,6 +1479,27 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["workers"]["capacity"] == 2
 
 
+def test_readiness_probe_schedules_dead_worker_recovery(
+    client: TestClient, monkeypatch
+) -> None:
+    """readiness 必须携带自愈的写侧半步，不能只是读探针。
+
+    查询失败式自愈覆盖不了「进程死了但后续查询全带 filters 走 CLI」的
+    形状（2026-08-13 R23 注入实测：readiness 永久红、只能 kickstart）。
+    """
+    calls: list[bool] = []
+    monkeypatch.setattr(
+        app_module.kb_rag.rag_worker,
+        "ensure_recovery",
+        lambda: calls.append(True),
+    )
+
+    response = client.get("/api/readiness")
+
+    assert response.status_code in (200, 503)
+    assert calls, "readiness 探针没有调用 ensure_recovery"
+
+
 def test_continuous_adapter_receives_runtime_and_snapshot_dates(
     tmp_path: Path,
     monkeypatch,

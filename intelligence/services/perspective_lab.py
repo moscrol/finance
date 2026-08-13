@@ -481,8 +481,19 @@ def _profile_prompt(
             f"{lens.get('name')}：{lens.get('description')}"
             for lens in profile.get("market_lenses") or []
         ),
+        # 证据层级与推理模板此前没进 prompt——实测后果是视角"名存实薄"：
+        # LLM 拿不到「该视角先看什么、按什么顺序推理」，输出被通用研究契约压过。
+        "- 证据层级（该视角的证据优先顺序，越靠前越优先）："
+        + "；".join(str(item) for item in profile.get("evidence_hierarchy") or []),
+        "- 推理模板："
+        + "；".join(
+            f"{pattern.get('name')}：{pattern.get('rule')}"
+            for pattern in profile.get("reasoning_patterns") or []
+        ),
         "- 机会偏好：" + "；".join(profile.get("opportunity_preferences") or []),
         "- 风险信号：" + "；".join(profile.get("risk_triggers") or []),
+        "- 反模式（该视角会批评/避免的做法）："
+        + "；".join(profile.get("anti_patterns") or []),
         "- 证伪方式：" + "；".join(profile.get("falsification_style") or []),
         "- 原文召回（观点层，不是事实）：",
     ]
@@ -523,10 +534,21 @@ def build_runtime_context(
         )
         for profile in profiles
     ]
+    # 证据纪律对 single/compare 通用：视角的证据层级决定证据的组织顺序；
+    # 首选证据层缺失时必须"大声失败"而不是静默换证据——上次实测的失败形状是
+    # 盘面派视角拿不到量价数据时，回答被通用研究话术（公告/订单门槛）整体接管，
+    # 用户看到的是一份没有视角的报告，且没人告诉他视角其实没起作用。
+    evidence_discipline = (
+        "证据组织必须服从该视角的证据层级：优先用其排序靠前的证据类型作答；"
+        "若本轮证据缺少该视角的首选证据层（如盘面量价/成交结构），"
+        "必须在回答开头显式声明「该视角首选证据（XX）本轮缺失，以下映射基于次级证据」，"
+        "不得用其他层级证据冒充首选层判断，也不得因此把视角输出降格为通用研究结论。"
+    )
     if mode == PERSPECTIVE_MODE_SINGLE:
         contract = (
             "只允许使用下方这一位 KOL 的画像与原文召回，不得混入其他 KOL 或个人记忆。"
             "KOL 内容属于观点层，当前检索数据属于事实层，AI 映射属于推理层，三者必须分开。"
+            f"{evidence_discipline}"
             "按以下结构输出：当前视角、来源范围、KOL原始判断、当前行情映射、"
             "支持/冲突数据、适用条件、失效条件、置信度、未知项。"
             "原文未覆盖的问题必须写“该视角未知”，不得代替本人补写。"
@@ -535,6 +557,7 @@ def build_runtime_context(
         contract = (
             "本轮使用多视角并列。先单列“数据中立”，再逐一单列下方每个 KOL；"
             "各视角不得互相污染，不得以多数意见自动成为事实。"
+            f"{evidence_discipline}"
             "最后单列视角冲突、综合判断、风险与未知；综合判断必须标注为 AI 推理。"
         )
     return RuntimePerspectiveContext(

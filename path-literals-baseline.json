@@ -3,8 +3,8 @@
   "_rule": "只减不增。新增需在站点写 `# path-literal-ok: 理由`，或删掉硬编码。",
   "_regen": ".venv-workbench/bin/python scripts/check_path_literals.py --update-baseline",
   "_note": "比对「文件+具体字面量」而非个数：同文件删一处加一处，个数不变但应被拦。",
-  "files": 35,
-  "literals": 50,
+  "files": 34,
+  "literals": 49,
   "entries": {
     "intelligence/cli.py": [
       "/Users/a77/knowledge-base-private/wiki"
@@ -98,9 +98,6 @@
     ],
     "scripts/sync_market_snapshot.py": [
       "/Users/a77/.local/share/finance-workbench/akshare-venv"
-    ],
-    "scripts/verify_l2_recovery_artifacts.py": [
-      "/Users/a77/finance-workspace-private"
     ],
     "skills/daily-full-review/scripts/l3_daily_backfill.py": [
       "/Users/a77/knowledge-base-private/wiki"
