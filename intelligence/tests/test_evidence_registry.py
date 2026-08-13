@@ -6,7 +6,8 @@ from intelligence.services.ask import AskOptions
 
 def test_registry_covers_all_data_blocks_in_order():
     assert evidence_registry.PROVIDER_NAMES == (
-        "D0", "D6", "D9", "D8", "D7", "W7", "M", "MARKET_DAILY", "V",
+        # D10 紧跟 D8：同为历史类比（D8 题材级 / D10 市场情绪级），提示词里相邻。
+        "D0", "D6", "D9", "D8", "D10", "D7", "W7", "M", "MARKET_DAILY", "V",
         # MAINLINE_KB 紧跟 D4：两块在提示词里相邻，讲的是同一批主线方向的两条腿
         # （盘面结构 vs 知识库积累）。D0-D9 已占满，故沿用 MARKET_DAILY 的描述式命名。
         "D1", "D4", "MAINLINE_KB", "D2", "D5", "D3",
@@ -31,7 +32,7 @@ def test_enabled_providers_whitelist_overrides_legacy_flags():
     )
     assert evidence_registry.provider_enabled(options, "D9") is True
     assert evidence_registry.provider_enabled(options, "D5") is True
-    for name in ("D0", "D6", "D8", "D7", "W7", "M", "V", "D1", "D4", "D2", "D3"):
+    for name in ("D0", "D6", "D8", "D10", "D7", "W7", "M", "V", "D1", "D4", "D2", "D3"):
         assert evidence_registry.provider_enabled(options, name) is False
 
 

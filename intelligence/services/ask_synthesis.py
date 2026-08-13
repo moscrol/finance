@@ -129,6 +129,7 @@ _DATA_BLOCK_STATUS_OVERRIDES = {
     "M": answer_model.ClaimStatus.CANDIDATE,
     "V": answer_model.ClaimStatus.CANDIDATE,
     "D8": answer_model.ClaimStatus.INFERRED,
+    "D10": answer_model.ClaimStatus.INFERRED,
 }
 
 

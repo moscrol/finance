@@ -328,5 +328,47 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertIsInstance(payload["current_summary"], dict)
 
 
+class WiringTests(unittest.TestCase):
+    """D10 接线断言（slice 2）：注册表门控 / claim 状态 / 路由 / 研究操作符。"""
+
+    def test_registry_gating_via_legacy_flag(self) -> None:
+        from intelligence.services import evidence_registry
+        from intelligence.services.ask import AskOptions
+
+        on = AskOptions(query="q")
+        off = AskOptions(query="q", include_regime_block=False)
+        self.assertTrue(evidence_registry.provider_enabled(on, "D10"))
+        self.assertFalse(evidence_registry.provider_enabled(off, "D10"))
+
+    def test_d10_claims_are_inferred_not_verified(self) -> None:
+        # 类比是推演不是当期事实：D10 行绝不能被铸成 VERIFIED（同 D8 的 P0 纪律）
+        from intelligence.services.answer_model import ClaimStatus
+        from intelligence.services.ask_synthesis import _claims_from_data_block
+
+        claims = _claims_from_data_block(
+            "- 与 2025-12 情绪窗口距离 0.64，后续 10 日指数 +0.97%",
+            "D10",
+            "市场情绪环境类比",
+            "全市场",
+        )
+        self.assertTrue(claims)
+        self.assertTrue(all(c.status == ClaimStatus.INFERRED for c in claims))
+
+    def test_regime_query_routes_to_comparison_analog(self) -> None:
+        from intelligence.services.turn_controller import _fine_grained_route_row
+
+        row = _fine_grained_route_row("对标历史，现在这种情绪环境像哪一段")
+        assert row is not None
+        self.assertEqual(row.route_id, "comparison_analog")
+
+    def test_regime_query_yields_history_analog_operator(self) -> None:
+        from intelligence.services.query_understanding import _research_operators
+
+        self.assertIn(
+            "history_analog",
+            _research_operators("对标历史，现在这种情绪环境像哪一段"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
