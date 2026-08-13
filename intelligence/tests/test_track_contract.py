@@ -62,5 +62,34 @@ class AskOptionsWiringTests(unittest.TestCase):
         self.assertFalse(off.include_track_guidance)
 
 
+class ContractGuidancePromptTests(unittest.TestCase):
+    """契约必须走独立「输出结构契约」段——塞进「历史经验卡片」会被模型当参考忽略
+    （2026-08-13 workbench 实测教训）。"""
+
+    def test_contract_guidance_gets_own_system_section(self) -> None:
+        from intelligence.services import llm_refine
+
+        msgs = llm_refine.build_synthesis_messages(
+            "固态电池最新进展如何",
+            "固态电池",
+            "## 证据链\n- 双红 [S1]",
+            experience_guidance="- 一条经验",
+            contract_guidance=build_track_guidance(),
+        )
+        system = msgs[0]["content"]
+        self.assertIn("输出结构契约", system)
+        self.assertIn("跟踪表达契约", system)
+        # 契约段在经验卡片段之后（独立且更靠近 user 消息）
+        self.assertGreater(system.index("输出结构契约"), system.index("历史经验卡片"))
+
+    def test_no_contract_no_section(self) -> None:
+        from intelligence.services import llm_refine
+
+        msgs = llm_refine.build_synthesis_messages(
+            "q", "t", "## 证据链\n- x [S1]",
+        )
+        self.assertNotIn("输出结构契约", msgs[0]["content"])
+
+
 if __name__ == "__main__":
     unittest.main()
