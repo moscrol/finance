@@ -17,8 +17,9 @@
   落盘的可见性竞态。写序调整 + 消息级终态轮询 + 写序 spy 回归（变异验证过）。
 - **Mac 清理完成**：8795/8796/8801 已杀（8788 第二代码线保留）；
   runtime worktree 13→3（270d00fc 世代起保留链）+ standalone 未动。
-- 云端全量验证跑数中（预期只剩 15 条 pre-existing：ceiling fixture 族 +
-  api_health unread）。
+- **云端全量验证（@13b5ddd1）：15F/4149P，flaky 不再出现**；15 红全部为
+  已立案 pre-existing（ceiling fixture 族「RAG Python unavailable」14 +
+  api_health unread 1，云端缺 RAG venv 的环境差异，Mac 全过）。
 
 ## 未验证 / 已知边界
 
@@ -29,10 +30,10 @@
 
 ## 下一步
 
-1. 云端全量读数出来后确认 flaky 归零，记入日期快照。
-2. governor 升档设计：取修复调用延迟分布（收据里有 asked/granted/结果），
-   论证 30s 帽是否升到 45/60。
-3. knevo 接力项（suggest_options 缺口镜像、report→track）。
+1. governor 升档设计：取修复调用延迟分布（收据里有 asked/granted/结果），
+   论证 30s 帽是否升到 45/60（R22-B2 满窗仍两发超时是入口证据）。
+2. knevo 接力项（suggest_options 缺口镜像、report→track）。
+3. #317 自愈、#319 满窗的自然生产判决（等真实流量形状）。
 
 ## 踩过的坑
 
