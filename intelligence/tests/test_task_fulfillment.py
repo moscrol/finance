@@ -73,6 +73,48 @@ def test_mainline_requires_direct_assessment_and_supporting_evidence():
     }
 
 
+def test_direct_definition_is_claimable_from_the_summary_namespace():
+    # 定义题的定义句和别的结论一样落在 summary: 下。没有这条映射时 direct_definition
+    # 取不到任何候选，恒判 no_candidate_claim，把已写出定义的答案整份 fail-closed。
+    definition = "英维克的液冷业务指的是面向数据中心的冷板与 CDU 温控系统。"
+    verdict = evaluate_task_fulfillment(
+        question="英维克的液冷业务是什么",
+        required_outputs=(
+            RequiredOutput("direct_definition", "概念定义", ("kb_search",)),
+        ),
+        answer_text=definition,
+        claims=(_claim("summary:company", definition),),
+        sources=(_source("英维克 液冷 冷板 CDU 数据中心 温控 产品资料"),),
+    )
+
+    assert verdict.status == "complete"
+    item = next(item for item in verdict.items if item.output_id == "direct_definition")
+    assert item.status == "fulfilled"
+    assert item.reason_code == ""
+
+
+def test_direct_definition_still_fails_when_the_prose_omits_it():
+    # 上一条不能退化成无条件放行：候选取到了但正文没写，仍须判缺。
+    verdict = evaluate_task_fulfillment(
+        question="英维克的液冷业务是什么",
+        required_outputs=(
+            RequiredOutput("direct_definition", "概念定义", ("kb_search",)),
+        ),
+        answer_text="本轮没有可回查的公司材料。",
+        claims=(
+            _claim(
+                "summary:company",
+                "英维克的液冷业务指的是面向数据中心的冷板与 CDU 温控系统。",
+            ),
+        ),
+        sources=(_source("英维克 液冷 冷板 CDU 数据中心 温控 产品资料"),),
+    )
+
+    assert verdict.status == "missing"
+    item = next(item for item in verdict.items if item.output_id == "direct_definition")
+    assert item.reason_code == "text_absent"
+
+
 def test_forecast_requires_baseline_both_scenarios_and_invalidation():
     required = tuple(
         RequiredOutput(output_id, output_id, ("market_data",))
