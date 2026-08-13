@@ -111,7 +111,14 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
         if ":" not in line or line.lstrip().startswith("#"):
             continue
         key, _, val = line.partition(":")
-        out[key.strip()] = val.strip()
+        val = val.strip()
+        # 必须与上面的 PyYAML 路径给出同一个值：带引号的标量要脱引号。否则同一份
+        # SKILL.md 在装/未装 PyYAML 的机器上算出不同 description，注册表就成了
+        # 「环境的函数」——CI 的 registry-check 不装依赖走这条分支，开发机走 yaml
+        # 分支，两边永远互相判对方漂移（实测 5 个 description 带引号的 skill）。
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+            val = val[1:-1]
+        out[key.strip()] = val
     return out
 
 
