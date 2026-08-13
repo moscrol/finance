@@ -3589,6 +3589,19 @@ class TurnOrchestrator:
                 rs.STATUS_FAILED,
                 error="continuous_runtime_failed",
             )
+            # 与完成分支同理：claim 后消息终稿先于 artifact 落盘（见下方注释）。
+            assistant = self.conversation_store.revise_message(
+                conversation_id,
+                assistant_message_id,
+                content=failure_text,
+                status="failed",
+                selected_skill_ids=list(selected_skill_ids),
+                invoked_skill_ids=[],
+                citations=citations,
+                degrades=warnings,
+                turn_intent=turn_intent.to_dict(),
+                research_plan=research_plan.to_dict(),
+            )
             self.run_store.add_artifact(
                 run_id,
                 "continuous-episode.json",
@@ -3620,18 +3633,6 @@ class TurnOrchestrator:
                 ),
                 renderer="structured_report",
                 title="结构化对话报告",
-            )
-            assistant = self.conversation_store.revise_message(
-                conversation_id,
-                assistant_message_id,
-                content=failure_text,
-                status="failed",
-                selected_skill_ids=list(selected_skill_ids),
-                invoked_skill_ids=[],
-                citations=citations,
-                degrades=warnings,
-                turn_intent=turn_intent.to_dict(),
-                research_plan=research_plan.to_dict(),
             )
             self._emit(
                 run_id,
@@ -3699,6 +3700,23 @@ class TurnOrchestrator:
             report = public_report
         self._check_cancelled()
         self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        # claim 一落盘，run 状态对轮询方立即可见——消息终稿必须紧跟着写，
+        # 中间不得插入 artifact 落盘（三份 json.dumps 是几百毫秒级 IO）。
+        # 否则「run=completed 但消息还没带 citations」的窗口会被读者命中：
+        # 全量测试负载下 citations_survive_run_context_reload 就是这么红的，
+        # 真实 UI 按「run 完成→读消息」同样会读到空引用。
+        assistant = self.conversation_store.revise_message(
+            conversation_id,
+            assistant_message_id,
+            content=answer_text,
+            status="completed",
+            selected_skill_ids=list(selected_skill_ids),
+            invoked_skill_ids=[],
+            citations=citations,
+            degrades=warnings,
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
+        )
         self.run_store.update_provenance(run_id, source_date=result.as_of)
         self.run_store.add_artifact(
             run_id,
@@ -3727,18 +3745,6 @@ class TurnOrchestrator:
             json.dumps(report, ensure_ascii=False, indent=2),
             renderer="structured_report",
             title="结构化对话报告",
-        )
-        assistant = self.conversation_store.revise_message(
-            conversation_id,
-            assistant_message_id,
-            content=answer_text,
-            status="completed",
-            selected_skill_ids=list(selected_skill_ids),
-            invoked_skill_ids=[],
-            citations=citations,
-            degrades=warnings,
-            turn_intent=turn_intent.to_dict(),
-            research_plan=research_plan.to_dict(),
         )
         self._emit(
             run_id,
