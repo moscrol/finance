@@ -1,6 +1,6 @@
 # 在途交接 · main
 
-更新：2026-08-13 13:40 CST · 全面审查现场取证（inflight 原写「ready」已漂）
+更新：2026-08-13 13:52 CST · 与知识库对齐：现在没在建索引
 
 ## 这个分支做什么
 
@@ -11,8 +11,10 @@
 - 8792 loaded `02028b29`（#313 合并点），LaunchAgent running，runtime **clean**。
   `/api/health` = healthy，agent ready，中转 `gpt-5.6-terra`。
 - **`/api/readiness` = 503 not_ready**，唯一缺项 `rag_worker`：
-  `state=failed last_error=TimeoutError active=0`，`prewarm_latency_ms=145143`
-  （启动预热成功残留；查询超时杀进程后状态停住）。
+  `state=failed last_error=TimeoutError active=0`，子进程已不在。
+  **不是正在建索引。** KB `.rag_index` 已于 10:46 CST 更新完（`built_at=02:45Z`，
+  142004 chunks，`source_git_revision=f91cc96b` = 知识库当前 HEAD）。
+  现场无 `rag_index.py` / `.rag_venv` 进程，索引文件无写入者。
 - origin/main = `6d9c6328`（#314/#315 + 交接文档）。生产未切这些 SHA——
   全是测试/文档，运行时等价。不要用 Mac 开发区 `d4832797` 判生产。
 - 唯一 open PR：**#307**（他人 draft，勿动）。
@@ -37,7 +39,10 @@
 ## 踩过的坑
 
 - health 绿 ≠ readiness 绿。inflight 写 ready 必须打 `/api/readiness` 正文。
+- `rag update` 即使 `embedded=0` 也会加载 bge-m3 的 391 个分片，看起来像在建索引。
+  R15 C2/C4/C5 的 worker 超时（约 10:00–10:29）撞上了 10:06–10:46 的更新窗。
 - 预热 240s、查询 90s：杀进程后懒恢复会二次超时，不是「等下次查询就好」。
+- `lifecycle=startup_prewarm` 是写死的标签，不能用来判断失败发生在启动还是查询。
 
 ## 已验证
 
