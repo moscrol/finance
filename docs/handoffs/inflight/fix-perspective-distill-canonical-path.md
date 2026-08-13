@@ -1,6 +1,6 @@
 # 在途交接 · fix/perspective-distill-canonical-path
 
-> 指针（2026-08-14）：PR #331 开着，代码已推完。workbench-check 红 = main 基线红（#332/#334 在修），不是本分支引入。
+> 指针（2026-08-14）：本轮验收闭环完成，PR #331 已具备合并条件。剩余事项只有两个立案（见下一步），基线最后 1 红由 #335 收。
 
 ## 这个分支做什么
 
@@ -9,7 +9,8 @@
 ## 当前状态
 
 - 全部已提交已推送，无未提交改动。registry-check 绿。
-- workbench-check 17 红全为基线问题（date.today 跨日 flake + 写死 `/Users/a77` 路径的 ceiling fixture 测试），main 同红。等 #334 落地后 merge main 重跑即绿。
+- workbench-check：合入 main（含 #332/#334 的 16 个修复）后重跑，剩 1 红
+  `TestUnreadFieldsGate`，与 main 完全一致、由在途 #335 修——本分支零新增失败（4829 过）。
 
 ## 未验证 / 已知边界
 
@@ -18,9 +19,9 @@
 
 ## 下一步
 
-1. main 绿后 `git merge origin/main` 重跑 CI，合并 #331。
-2. 立案：continuous 路径接视角注入（不接，画像永远是死数据）。
-3. 立案：夜间 check 撞 duckdb 写锁应重试/降级，limit-heat 空返回应晚点重试。
+1. 立案：continuous 路径接视角注入（不接，画像永远是死数据）。
+2. 立案：夜间 check 撞 duckdb 写锁应重试/降级，limit-heat 空返回应晚点重试。
+3. #335 合并后基线全绿，本文件可转日期快照归档。
 
 ## 踩过的坑
 
