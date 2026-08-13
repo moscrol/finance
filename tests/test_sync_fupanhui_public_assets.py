@@ -100,6 +100,57 @@ def test_historical_mapping_and_leader_height_upsert(patched_db, monkeypatch):
         ).fetchone()
         assert h[0] == 7
         assert h[1] == "600721.SH"
+        h11 = con.execute(
+            "SELECT height, leader_ts_code FROM fact_leader_height_daily WHERE trade_date = DATE '2026-08-11'"
+        ).fetchone()
+        assert h11[0] == 6
+        assert h11[1] == "600000.SH"
+    finally:
+        con.close()
+
+
+def test_leader_as_of_not_overwritten_by_later_window(patched_db, monkeypatch):
+    """更晚一张趋势图里的历史点，不能盖掉请求日的当日龙头。"""
+
+    def ladder(td):
+        if td == "2026-08-12":
+            return {
+                "height_trend": [
+                    {
+                        "trade_date": "2026-03-03",
+                        "height": 3,
+                        "leader_stock": {"ts_code": "002980.SZ", "name": "华盛昌"},
+                    },
+                    {
+                        "trade_date": "2026-08-12",
+                        "height": 7,
+                        "leader_stock": {"ts_code": "600721.SH", "name": "百花医药"},
+                    },
+                ]
+            }
+        return {
+            "height_trend": [
+                {
+                    "trade_date": "2026-03-03",
+                    "height": 3,
+                    "leader_stock": {"ts_code": "603318.SH", "name": "水发燃气"},
+                }
+            ]
+        }
+
+    monkeypatch.setattr(assets.fs, "get_leader_ladder", ladder)
+    assets.sync_leader_height("2026-08-12")
+    assets.sync_leader_height("2026-03-03")
+    con = patched_db()
+    try:
+        mar = con.execute(
+            "SELECT leader_ts_code FROM fact_leader_height_daily WHERE trade_date = DATE '2026-03-03'"
+        ).fetchone()
+        aug = con.execute(
+            "SELECT leader_ts_code FROM fact_leader_height_daily WHERE trade_date = DATE '2026-08-12'"
+        ).fetchone()
+        assert mar[0] == "603318.SH"
+        assert aug[0] == "600721.SH"
     finally:
         con.close()
 

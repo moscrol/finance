@@ -458,13 +458,16 @@ def cmd_sync_fupanhui_public_assets(args) -> int:
                 print("范围回补需要 --start-date 与 --end-date，或使用 --align / --days")
                 return 2
             start, end = args.start_date, args.end_date
-        print(f"对齐窗口: {start} ~ {end} | sleep={args.sleep} refresh={args.refresh}")
+        print(f"对齐窗口: {start} ~ {end} | sleep={args.sleep} refresh={args.refresh}"
+              + (f" only={args.only}" if getattr(args, "only", None) else ""))
+        only = tuple(args.only) if getattr(args, "only", None) else None
         s = sync_range(
             start,
             end,
             refresh=args.refresh,
             sleep=args.sleep,
             include_catalog=args.include_catalog,
+            only=only,
         )
         print(
             f"日历 {s['calendar_days']} 日 | 同步 {s['synced']} | 跳过 {s['skipped']} | 失败 {s['failed']}"
@@ -1203,6 +1206,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_pa.add_argument("--sleep", type=float, default=0.2, help="子任务间隔秒数, 默认 0.2")
     p_pa.add_argument("--refresh", action="store_true", help="不跳过已有行, 强制重刷")
     p_pa.add_argument("--include-catalog", action="store_true", help="范围回补时也重拉研报目录/题材挖掘")
+    p_pa.add_argument(
+        "--only",
+        nargs="+",
+        default=None,
+        help="范围回补只跑这些子任务（如 leader_height），可与 --refresh 联用定点重刷",
+    )
     p_pa.set_defaults(func=cmd_sync_fupanhui_public_assets)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")

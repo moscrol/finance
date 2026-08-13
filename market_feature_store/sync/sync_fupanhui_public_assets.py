@@ -123,30 +123,59 @@ def sync_historical_mapping(trade_date: str) -> dict:
     return {"rows": written, "source_date": source_date}
 
 
+def _leader_point_row(point: dict, now: str, source: str) -> tuple | None:
+    td = _date_text(point.get("trade_date"))
+    if not td:
+        return None
+    leader = point.get("leader_stock") if isinstance(point.get("leader_stock"), dict) else {}
+    return (
+        td,
+        _int(point.get("height")),
+        leader.get("ts_code"),
+        leader.get("name"),
+        _int(leader.get("limit_times")),
+        _num(leader.get("fd_amount")),
+        str(leader.get("first_limit_time") or "") or None,
+        source,
+        now,
+    )
+
+
 def sync_leader_height(trade_date: str) -> dict:
+    """写入龙头高度。请求日那一点是「当日 as-of」，必须覆盖；序列里其它日只填洞。
+
+    接口每次返回以请求日为终点的约 120 日 height_trend。同一日历日在
+    「当天收盘 as-of」和「更晚一张趋势图里的历史点」上，龙头代码可能不同
+    （质检 2026-03-03：as-of=603318.SH，8 月图里=002980.SZ）。全量 UPSERT
+    会让后写的趋势图盖掉当日事实。
+    """
     data = fs.get_leader_ladder(trade_date)
     now = _now()
     source = f"{SOURCE_PREFIX}/reviews/leader-ladder"
-    rows = []
+    req = _date_text(trade_date)
+    as_of: list[tuple] = []
+    fill: list[tuple] = []
     for point in data.get("height_trend") or []:
         if not isinstance(point, dict):
             continue
-        td = _date_text(point.get("trade_date"))
-        if not td:
+        row = _leader_point_row(point, now, source)
+        if not row:
             continue
-        leader = point.get("leader_stock") if isinstance(point.get("leader_stock"), dict) else {}
-        rows.append((
-            td,
-            _int(point.get("height")),
-            leader.get("ts_code"),
-            leader.get("name"),
-            _int(leader.get("limit_times")),
-            _num(leader.get("fd_amount")),
-            str(leader.get("first_limit_time") or "") or None,
-            source,
-            now,
-        ))
-    written = _executemany(
+        if row[0] == req:
+            as_of.append(row)
+        else:
+            fill.append(row)
+    n_fill = _executemany(
+        """
+        INSERT INTO fact_leader_height_daily
+            (trade_date, height, leader_ts_code, leader_name, limit_times,
+             fd_amount, first_limit_time, source, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (trade_date) DO NOTHING
+        """,
+        fill,
+    )
+    n_as_of = _executemany(
         """
         INSERT INTO fact_leader_height_daily
             (trade_date, height, leader_ts_code, leader_name, limit_times,
@@ -162,9 +191,14 @@ def sync_leader_height(trade_date: str) -> dict:
             source = excluded.source,
             updated_at = excluded.updated_at
         """,
-        rows,
+        as_of,
     )
-    return {"rows": written, "requested_date": trade_date}
+    return {
+        "rows": n_as_of + n_fill,
+        "as_of_rows": n_as_of,
+        "fill_rows": n_fill,
+        "requested_date": trade_date,
+    }
 
 
 def sync_global_market(trade_date: str) -> dict:
@@ -1074,10 +1108,12 @@ def sync_range(
     refresh: bool = False,
     sleep: float = 0.2,
     include_catalog: bool = False,
+    only: tuple[str, ...] | None = None,
 ) -> dict:
     """按 fact_market_daily 交易日历回补日频资产，跳过已有行。
 
     研报目录 / 题材挖掘默认不重拉（不是按日切片的库）。
+    only: 只跑这些子任务名（如 leader_height），配合 refresh 做定点重刷。
     """
     dates = calendar_dates(start_date, end_date)
     if not dates:
@@ -1085,6 +1121,14 @@ def sync_range(
     tasks = list(DAILY_SYNCS)
     if include_catalog:
         tasks.extend(ONCE_SYNCS)
+    if only:
+        allow = set(only)
+        unknown = allow - {name for name, _fn in tasks}
+        if unknown:
+            raise RuntimeError(f"未知子任务: {sorted(unknown)}")
+        tasks = [(name, fn) for name, fn in tasks if name in allow]
+        if not tasks:
+            raise RuntimeError("only 过滤后无子任务")
 
     synced = 0
     skipped = 0
