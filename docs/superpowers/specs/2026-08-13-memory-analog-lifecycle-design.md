@@ -262,9 +262,9 @@ recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
 | Slice | 内容 | 动到的组件 | 风险 |
 |---|---|---|---|
 | 1 ✅（2026-08-13 已实现） | `market_regime_analogs.py` 纯函数核（每日情绪向量→窗口签名→滑窗匹配→后续事实）+ 合成数据单测 | 仅新增文件 + tests（`intelligence/services/market_regime_analogs.py`，证据编号 D10，18 测试全绿） | 低：不接线、不碰运行时 |
-| 2 | 接线成 D 块：意图路由词面、注入 ask/turn_controller、预算与降级 | `ask.py` / `turn_controller.py` / `query_understanding.py`（参考 D8 接线面） | 中：碰生产问答链路，需 live 验证 |
+| 2 ✅（2026-08-13 已实现） | D10 接线：`evidence_registry` 注册（紧跟 D8）+ `include_regime_block` 开关 + ask provider + `ask_synthesis` claim 状态 INFERRED + `comparison_analog` 路由 + `history_analog` 操作符；workbench research_owner 的 stage 适配器面**未接**（留待需要时） | `ask_types` / `evidence_registry` / `ask.py` / `ask_synthesis` / `turn_controller` / `query_understanding`；Mac 真 venv 受影响面 9 个测试文件 218 全绿（收据 20260813T064027Z-6831f79d） | 中：完整 episode 级 live 问答尚未跑（需 LLM 中转），provider 级取数已 live 验证 |
 | 3 ✅（2026-08-13 已实现） | 题材生命周期**时间线回放**只读 CLI（既有 `theme_lifecycle.py` 八阶段诊断已覆盖当前态，见 §5.1 修正；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle_timeline.py`（`python3 -m intelligence.services.theme_lifecycle_timeline --theme X`，14 测试全绿） | 低：只读 |
-| 3.1 | 时间线滞回：live 上双红闪烁导致 50+ 段，需最短阶段时长 / 合并相邻同向切换后再给用户看 | `theme_lifecycle_timeline.py` 纯函数核 | 低：只改派生规则，可回放对照 |
+| 3.1 ✅（2026-08-13 已实现） | 时间线滞回：进「回流」须连续 ≥2 日双红确认（孤立单日不切段，起点回溯确认串首日）。live 对照：固态电池 53→25 段、信创 65→37 段；确认 3 日会过度合并（固态电池只剩 3 段，因多数双红连串仅 2 天），默认取 2 | `theme_lifecycle_timeline.py`（`reflow_confirm_days` 参数，CLI `--reflow-confirm`） | 低：只改派生规则，可回放对照 |
 | 4 | q8 契约回灌：题材跟踪输出加四态对照 + `valid_until` + 下期关注衔接 | 输出模板/synthesis 契约 | 中：改输出形状，需用户看样张 |
 | 5 | 用户记忆状态机（新增记录带 `status`，棘轮式不迁移存量）+ 夜间回检呈现 candidate | `intelligence/users/` 台账 schema + 回检脚本 | 中：涉及台账 schema |
 | 6 | recall@k 尺子（离线，判卷说「证据不足」的 case 回放） | eval 侧新增 | 低：离线尺子 |
