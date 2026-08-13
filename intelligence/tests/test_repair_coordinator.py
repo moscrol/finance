@@ -81,7 +81,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         )
         is None
     )
-    # The deterministic grant is 2 calls/16 seconds, which exceeds this cap.
+    # The deterministic grant is 2 calls/30 seconds, which exceeds this cap.
     assert root.remaining_calls == 3
 
     accepted_root = InMemoryRootBudgetLedger(
@@ -101,6 +101,76 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
     assert accepted_root.remaining_calls == 5
     accepted_root.consume_call(seconds=8)
     assert accepted_root.remaining_calls == 4
+
+
+def test_single_gap_repair_still_gets_full_window() -> None:
+    """缺口数不得缩小修复窗：一次 LLM 调用的成本由固定延迟地板主导。
+
+    旧公式 ``min(剩余, 30, 缺口×8)`` 给 1 缺口 8s、3 缺口 24s——都低于
+    生产中转 P50≈28s 的单次调用地板，注定超时还白烧授予。2026-08-13
+    R7/R21 收据：16/24s 窗 0/5 全超时，30s 窗 5/5 全成功。
+    """
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=("direct",), gaps=(), family="news"
+    )
+    progress = progress_from_ledger(before, after)
+    goal = build_repair_goal(
+        episode_id="episode-floor",
+        missing_outputs=("direct",),
+        previous_progress=progress,
+        remaining_calls=3,
+        remaining_seconds=120.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-floor",
+        initial_calls=3,
+        hard_calls_cap=8,
+        initial_seconds=120.0,
+        hard_seconds_cap=240.0,
+    )
+
+    grant = grant_for_progress(
+        goal,
+        progress,
+        root_budget=root,
+        research_tier="quick",
+    )
+
+    assert grant is not None
+    # 1 个缺口，旧公式会给 8s；现在必须给满窗 30s。
+    assert grant.seconds_granted == 30.0
+
+
+def test_single_gap_delivery_repair_gets_full_window() -> None:
+    goal = build_repair_goal(
+        episode_id="episode-floor-delivery",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(
+            _snap(evidence=(), covered=(), gaps=("direct",), family="market"),
+            _snap(evidence=("e1",), covered=(), gaps=("direct",), family="market"),
+        ),
+        remaining_calls=0,
+        remaining_seconds=120.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-floor-delivery",
+        initial_calls=1,
+        hard_calls_cap=8,
+        initial_seconds=120.0,
+        hard_seconds_cap=240.0,
+    )
+
+    grant = grant_for_delivery_repair(
+        goal,
+        root_budget=root,
+        research_tier="quick",
+        evidence_count=5,
+    )
+
+    assert grant is not None
+    assert grant.calls_granted == 0
+    assert grant.seconds_granted == 30.0
 
 
 def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
@@ -436,7 +506,7 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
     assert admission.grant.grant_id.startswith("cold-restart-")
     assert admission.grant.calls_granted >= 1
     assert admission.goal.remaining_calls == admission.grant.calls_granted
-    # 沿用进度修复的额度公式：≤30s、按缺口计工时。
+    # 沿用进度修复的额度公式：≤30s 满窗（缺口缩放项已删，见 _REPAIR_SECONDS_CAP）。
     assert 0.0 < admission.grant.seconds_granted <= 30.0
     assert admission.goal.remaining_seconds == admission.grant.seconds_granted
 
