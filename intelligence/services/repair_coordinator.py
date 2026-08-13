@@ -393,6 +393,7 @@ def grant_for_transient_model_retry(
     goal: RepairGoal,
     *,
     root_budget: RootBudgetLedger,
+    attempt: int = 1,
 ) -> BudgetGrant | None:
     """超时把修复窗口烧穿后，从 hard-cap 未分配余量再铸一笔秒数。
 
@@ -409,8 +410,9 @@ def grant_for_transient_model_retry(
 
     这笔 grant 动的是 research 从未分配的 hard-cap 余量（synthesis
     reserve 那截），不重开工具槽，不突破单笔 30 秒帽。铸不出就 fail
-    closed。grant_id 按 repair_goal 固定，同一 goal 第二次调用会被
-    root ledger 拒掉，和熔断上限 1 对齐。
+    closed。grant_id 按 (repair_goal, attempt) 固定：同一 attempt 重复
+    调用被 root ledger 拒掉（幂等防呆），不同 attempt 各铸各的——
+    熔断次数由调用方的 ``transient_retries_left`` 独占，账本只管余量。
     """
 
     headroom = max(
@@ -420,8 +422,9 @@ def grant_for_transient_model_retry(
     seconds = min(headroom, 30.0)
     if seconds < 1.0:
         return None
+    suffix = "" if attempt <= 1 else f"-{attempt}"
     grant = BudgetGrant(
-        grant_id=f"transient-retry-{goal.repair_goal_id}",
+        grant_id=f"transient-retry-{goal.repair_goal_id}{suffix}",
         episode_id=goal.episode_id,
         cycle=goal.cycle,
         calls_granted=0,

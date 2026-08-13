@@ -424,8 +424,45 @@ def test_grant_for_transient_model_retry_mints_seconds_from_headroom() -> None:
     assert retry.seconds_granted == 12.0
     assert retry.grant_id == f"transient-retry-{goal.repair_goal_id}"
     assert root.allocated_seconds == 30.0
-    # 同一 goal 再铸一次被 grant_id 拒掉，和熔断上限 1 对齐。
+    # 同一 (goal, attempt) 再铸一次被 grant_id 拒掉（幂等防呆）；
+    # 不同 attempt 各铸各的——熔断次数由调用方管，账本只管余量。
     assert grant_for_transient_model_retry(goal, root_budget=root) is None
+    assert (
+        grant_for_transient_model_retry(goal, root_budget=root, attempt=2) is None
+    ), "余量已耗尽时第二 attempt 也必须 fail closed"
+
+
+def test_transient_retry_second_attempt_mints_with_distinct_grant_id() -> None:
+    before = _snap(evidence=(), covered=(), gaps=("direct",), family="market")
+    after = _snap(
+        evidence=("e1",), covered=(), gaps=("direct",), family="news"
+    )
+    goal = build_repair_goal(
+        episode_id="episode-retry-2",
+        missing_outputs=("direct",),
+        previous_progress=progress_from_ledger(before, after),
+        remaining_calls=0,
+        remaining_seconds=8.0,
+    )
+    root = InMemoryRootBudgetLedger(
+        episode_id="episode-retry-2",
+        initial_calls=1,
+        hard_calls_cap=2,
+        initial_seconds=10.0,
+        hard_seconds_cap=100.0,
+    )
+
+    first = grant_for_transient_model_retry(goal, root_budget=root, attempt=1)
+    second = grant_for_transient_model_retry(goal, root_budget=root, attempt=2)
+
+    assert first is not None and second is not None
+    assert first.grant_id == f"transient-retry-{goal.repair_goal_id}"
+    assert second.grant_id == f"transient-retry-{goal.repair_goal_id}-2"
+    assert first.grant_id != second.grant_id
+    # 各铸各的 30s 帽，仍受 hard cap 约束。
+    assert first.seconds_granted == 30.0
+    assert second.seconds_granted == 30.0
+    assert root.allocated_seconds == 70.0
 
 
 def test_grant_for_transient_model_retry_fails_closed_at_hard_cap() -> None:
