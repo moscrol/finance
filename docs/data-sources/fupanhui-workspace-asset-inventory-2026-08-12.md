@@ -314,3 +314,22 @@
 
 **第二轮（随机抽样，FAIL 0 / WARN 0）**：`random.seed(20260813)` 从 390 日日历中排除第一轮 8 日后随机抽 8 日：`2025-02-19` / `04-22` / `06-03` / `06-12` / `08-08` / `12-22` / `2026-03-04` / `07-01`。同一组比对项全部一致；结构门（390/390、core 每日 50、global 每日 5、无克隆、ops failed=0）复查通过。两轮合计 16/390 个交易日与公开 API 逐项对账无差异。
 
+## 8. L2 大单资金逆向补查（2026-08-13）
+
+问题：复盘会里有没有 L2 逐笔级大单资金？结论：**没有**。bundle 全文搜「逐笔」「分时资金」均 0 命中；它的个股资金流标注来源是 **Wind 主力资金**（holding 视图 UI 原文），不是自家 Level-2 逐笔。本仓自有大单口径继续走 `l2-moneyflow` skill（ClickHouse 逐笔判主动方向），两者不是同类数据。
+
+复盘会的「资金」数据实测分三档：
+
+| 数据 | 端点 | 鉴权 | 状态 |
+|---|---|---|---|
+| 个股当日资金流 `fund_flow_today` | `/core-stocks/list` | 公开 | **已入库**（`fact_core_stock_daily`） |
+| 龙虎榜个股汇总（净额/买卖额） | `/data/dragon/list` | 公开 | **已入库**（`fact_dragon_tiger_daily`） |
+| **龙虎榜席位级明细** | `/data/dragon/all?trade_date=` + `/data/dragon/detail?trade_date=&id=<ts_code>` | **公开**（历史日也 200） | **未入库，新发现** |
+| 全市场机构/游资净买入日汇总 | `/data/dragon/all` 的 `summary` | 公开 | 未入库 |
+| 多平台热门个股 | `/data/hot-stocks?trade_date=` | 公开 | 未入库 |
+| 个股 K 线 + `fundFlows` 日资金序列（Wind 口径） | `/stock-kline/{ts}/kline`、`/detail/quick`、`/detail/extra`、`/intraday` | **401 要登录**（CDP 可拿） | 未入库；接 CDP 前须先论证不破只读红线 |
+
+席位明细字段（`buy_seats`/`sell_seats` 各 5/3 席）：`exalter`（营业部全称）、`seat_type`（营业部/游资/机构）、`hm_name`（游资名，如"深股通专用"）、`buy/sell`（亿）、`buy_rate/sell_rate`（%）、`net_buy`。`summary`：`stock_count` / `inst_net_buy` / `youzi_net_buy` / `active_brokers`。
+
+若要入库：席位明细是「一日 × 一股 × 一席」粒度，46 股/日 × 8 席 ≈ 370 行/日；`detail` 要逐股请求（46 次/日），390 日回补约 1.8 万次调用，需评估限流后分批。`dragon/all` 的 summary 一天一行，可以先只吃这个。
+
