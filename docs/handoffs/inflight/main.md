@@ -1,51 +1,47 @@
 # 在途交接 · main
 
-更新：2026-08-13 13:52 CST · 与知识库对齐：现在没在建索引
+更新：2026-08-13 14:05 CST · RAG 已救活（kickstart），自愈修复 #317 待合
 
 ## 这个分支做什么
 
-生产基线。夜间修复 PR 已全部合入。无在途修 bug PR。
+生产基线。夜间修复 PR 已全部合入；本轮新增 #317 待用户确认合并。
 
 ## 当前状态
 
-- 8792 loaded `02028b29`（#313 合并点），LaunchAgent running，runtime **clean**。
-  `/api/health` = healthy，agent ready，中转 `gpt-5.6-terra`。
-- **`/api/readiness` = 503 not_ready**，唯一缺项 `rag_worker`：
-  `state=failed last_error=TimeoutError active=0`，子进程已不在。
-  **不是正在建索引。** KB `.rag_index` 已于 10:46 CST 更新完（`built_at=02:45Z`，
-  142004 chunks，`source_git_revision=f91cc96b` = 知识库当前 HEAD）。
-  现场无 `rag_index.py` / `.rag_venv` 进程，索引文件无写入者。
-- origin/main = `6d9c6328`（#314/#315 + 交接文档）。生产未切这些 SHA——
-  全是测试/文档，运行时等价。不要用 Mac 开发区 `d4832797` 判生产。
-- 唯一 open PR：**#307**（他人 draft，勿动）。
+- **8792 已恢复绿**：14:00 kickstart（新 pid 47143），预热 59s（索引在页缓存），
+  `/api/readiness` = 200 ready，`rag.state=ready active=1`。
+- loaded 仍 `02028b29`，runtime clean。origin/main = `6d9c6328`（文档/测试，
+  运行时等价，不必切）。
+- 今早红灯根因已钉死：**不是在建索引**（KB `.rag_index` 10:46 建完，
+  `source_git_revision=f91cc96b` 对齐 KB HEAD）。是查询超时杀 worker 后
+  永久 failed——预热窗 240s > 查询窗 90s，加载 ~145s，懒恢复必二次超时。
+- **#317**（`cursor/rag-worker-self-heal-d7ac`）：查询失败按预热配方后台自愈，
+  单飞 + 60s 冷却 + 不自我续期；close() 先无锁杀子进程防停机挂预热窗。
+  新增 4 测试，rag 套件 15/15。**未部署**——合并后下次切生产生效。
+- #316：本轮取证与交接修正（本分支）。唯一他人 PR #307 draft 未动。
 
 ## 未验证 / 已知边界
 
-- RAG 查询超时会 `_mark_failed` + 杀进程；`TimeoutError` **不回退 CLI**。
-  下次查询会重生，但加载约 145s、查询窗默认 90s → **懒恢复实际走不通**，
-  readiness 会一直红。要恢复现在只能 kickstart（未做，需确认）。
-- R15 knevo 对照 9 wins / 2 tie / 0 WB：根因是核验合成层把已抓证据删空。
-  C1 日历缺口已由 #313 在 R19 补上，对照包未重评。
+- #317 只有云端单测判决；生产判决要等合并 + 切 8792 后复现「查询超时」形状。
+- 在此之前再遇超时仍需人工 kickstart。
+- `test_api_health` unread-fields 一条红为 pre-existing（stash 验证同红）。
 
 ## 下一步
 
-1. **现活**：确认后 `launchctl kickstart -k` 救 RAG；不要当设计项搁置。
-2. 耐久：超时后后台按 240s 预热窗重生，或 TimeoutError 回退 CLI。
-3. 设计：核验合成层预算（质量最大瓶颈）、governor 升档。
-4. flaky：`citations_survive_run_context_reload`（测试间泄漏，非今晚引入）。
-5. 清理（需确认）：12 个 runtime worktree 留 2–3；杀 8795/8796/8801
-   （8/5–8/6 起的旧 uvicorn）。
+1. 用户确认后合 #316/#317；切 8792 到合并末态（detached worktree + 软链）。
+2. 设计项：核验合成层预算（质量最大瓶颈）、governor 升档。
+3. flaky：`citations_survive_run_context_reload`。
+4. 清理（需确认）：12 个 runtime worktree 留 2–3；杀 8795/8796/8801。
 
 ## 踩过的坑
 
-- health 绿 ≠ readiness 绿。inflight 写 ready 必须打 `/api/readiness` 正文。
-- `rag update` 即使 `embedded=0` 也会加载 bge-m3 的 391 个分片，看起来像在建索引。
-  R15 C2/C4/C5 的 worker 超时（约 10:00–10:29）撞上了 10:06–10:46 的更新窗。
-- 预热 240s、查询 90s：杀进程后懒恢复会二次超时，不是「等下次查询就好」。
-- `lifecycle=startup_prewarm` 是写死的标签，不能用来判断失败发生在启动还是查询。
+- health 绿 ≠ readiness 绿；`lifecycle=startup_prewarm` 是写死标签别拿来归因。
+- `rag update` 即使 embedded=0 也加载 391 分片，日志像在建索引；判据是
+  pid/lsof/`meta.json.built_at`，不是日志形状。
+- `monotonic()` 从开机起算：冷却戳初值用 -inf，别用 0.0（CI 容器会误判）。
 
 ## 已验证
 
-- R20 A 组 10/10 completed、9/10 无降级、0 零证据（A3=13）。
-- R19 C1 休市披露通过。R14 #306、R16 #308、R17 #312 路由通过。
-- #314/#315 已合；双端真产品红 0。Mac 干净读数以 runtime worktree 为准。
+- kickstart 后 readiness 200 ready（14:01 实测）。
+- #317 分支：test_rag_worker 15/15、workbench_api readiness/rag 11/11。
+- R20 A 组 10/10；R19 休市披露；R14/R16/R17 判决未变。
