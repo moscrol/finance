@@ -31,5 +31,5 @@ for thr_wan in [50, 100, 200, 300, 500]:
     ab, tb = rows[0]
     print(f"委托聚合 ≥{thr_wan:>3d}万: 主买={ab/1e8:>6.0f}亿  总买={tb/1e8:>6.0f}亿")
 
-print(f"\n目标: 主买≈404亿  总买≈638亿")
+print("\n目标: 主买≈404亿  总买≈638亿")
 client.disconnect()

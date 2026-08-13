@@ -34,6 +34,19 @@ def daily_update_result(ok: bool, validation_ok: bool) -> dict:
     }
 
 
+def patch_preflight_ok():
+    """放行 CLI 的环境预检——本组用例只验结构化状态产物。
+
+    预检本身（缺 akshare/duckdb/CDP 时 fail closed）在 test_daily_full_preflight.py
+    里单独覆盖；不放行的话，任何缺 akshare 的解释器（含 CI）都跑不到被 patch 的
+    run_daily_update。
+    """
+    return patch(
+        "market_feature_store.sync.sync_daily_full.preflight_daily_update",
+        return_value={"ok": True, "problems": []},
+    )
+
+
 class StructuredDailyUpdateStatusTest(unittest.TestCase):
     def test_step_timeout_must_be_positive(self):
         with self.assertRaisesRegex(ValueError, "step_timeout_sec must be positive"):
@@ -50,7 +63,7 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
                 stock_source="snapshot",
                 status_json=str(status_path),
             )
-            with patch(
+            with patch_preflight_ok(), patch(
                 "market_feature_store.sync.sync_daily_full.run_daily_update",
                 return_value=daily_update_result(ok=False, validation_ok=True),
             ):
@@ -73,7 +86,7 @@ class StructuredDailyUpdateStatusTest(unittest.TestCase):
                 stock_source="snapshot",
                 status_json=str(status_path),
             )
-            with patch(
+            with patch_preflight_ok(), patch(
                 "market_feature_store.sync.sync_daily_full.run_daily_update",
                 return_value=daily_update_result(ok=False, validation_ok=False),
             ):
