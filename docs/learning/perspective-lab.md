@@ -59,6 +59,10 @@ python3 -m intelligence.cli perspective profile --user <id> --perspective blogge
 博主画像的认知字段（market_lenses / risk_triggers / falsification_style 等）P0 由人工编辑
 profile JSON 填写（对照文章原文提炼）；也可走下面的 P1 学习闭环让 LLM 提候选、你来确认。
 
+> 💡 「用户发原文 → 蒸馏进画像」的端到端固定流程已沉淀为 skill：
+> `skills/perspective-distill/SKILL.md`（触发词：蒸馏视角、学这个博主、喂文章），
+> 含前置确认（canonical 用户空间）、原文落盘红线、patch 评审判据与验收清单。
+
 ### 3.5 学习闭环（P1，2026-08-13 上线）：文章 → 认知卡片 → patch → 人工确认
 
 原理：画像是「慢变量」（方法论），不该每次回答现场重算，也不该永远靠手填。学习闭环把
