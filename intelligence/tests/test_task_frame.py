@@ -302,3 +302,38 @@ def test_both_required_output_producers_share_one_blank_filter() -> None:
     ).required_outputs
 
     assert built == rebased == _THEME_ANALYSIS_DEFAULTS
+
+
+# --- 确定性日历事实注入（R15-C1/C2 生产形状） ------------------------------
+
+
+def test_weekend_date_in_question_injects_non_trading_assumption() -> None:
+    """「2026-07-25 市场怎么样」烧完整条研究链后答「证据不足」——
+    而它是周六这件事一行日历代码就能判定。注入假设让模型直接回答。"""
+
+    question = "2026-07-25 市场怎么样"
+    frame = build_task_frame(question, understand_query(question))
+
+    notes = [item for item in frame.assumptions if "休市" in item]
+    assert notes, frame.assumptions
+    assert "周六" in notes[0]
+    assert "2026-07-24" in notes[0]
+
+
+def test_holiday_metric_question_injects_closure_assumption() -> None:
+    """「涨停家数」不带任何旧关键词也必须被认成财务问题（C2 形状），
+    否则春节休市的日历事实整条落空。"""
+
+    question = "2026-02-17 涨停家数多少"
+    frame = build_task_frame(question, understand_query(question))
+
+    notes = [item for item in frame.assumptions if "休市" in item]
+    assert notes, frame.assumptions
+    assert "2026-02-13" in notes[0]
+
+
+def test_trading_day_date_injects_nothing() -> None:
+    question = "2026-07-23 市场怎么样"
+    frame = build_task_frame(question, understand_query(question))
+
+    assert not [item for item in frame.assumptions if "休市" in item]

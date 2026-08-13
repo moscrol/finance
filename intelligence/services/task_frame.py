@@ -13,6 +13,7 @@ import re
 from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
+from intelligence.services.trading_calendar import question_non_trading_note
 from intelligence.services.user_task import UserTask
 
 if TYPE_CHECKING:
@@ -208,6 +209,13 @@ def build_task_frame(
         assumptions.append("用户未明确市场范围，按A股市场理解")
     if timeframe_assumption:
         assumptions.append(timeframe_assumption)
+    # 确定性日历事实（R15-C1/C2）：问题里的日期是周末/公告休市日时，把
+    # 「该日休市、无行情数据」注入假设——它随 episode input 到达模型，
+    # 模型据此直接回答，而不是烧完检索窗后答「证据不足」。
+    if _is_financial_task(question_type, question):
+        calendar_note = question_non_trading_note(question)
+        if calendar_note is not None:
+            assumptions.append(calendar_note)
     if subject is None and inherited_subject:
         subject = _safe_subject(inherited_subject, question)
     if subject is None and not unbound_rebound_reference and question_type in {
@@ -522,8 +530,12 @@ def _is_financial_task(question_type: str, question: str) -> bool:
             # 能命中、「你觉得a股明天会怎么走」命不中。这是产品最核心的说法
             # （CLAUDE.md 标题就是「A股量化复盘+研究工具集」）。
             # 港股/美股一并补上，它们同样是这里天天出现的主体。
+            # 涨停/跌停/连板/涨家数/成交额（2026-08-13 R15-C2）：「2026-02-17
+            # 涨停家数多少」一个财务词都不带地问了最典型的盘面指标——
+            # 这些是复盘工作流的一等公民词，缺席让日历事实注入整条落空。
             r"(?:市场|行情|大盘|[Aa]\s*股|港股|美股|股票|个股|题材|板块|"
-            r"公司|指数|反弹|产业|趋势|财务|估值|订单|客户|收入|利润)",
+            r"公司|指数|反弹|产业|趋势|财务|估值|订单|客户|收入|利润|"
+            r"涨停|跌停|连板|涨家数|成交额)",
             question,
         )
     )
