@@ -290,6 +290,16 @@ _OUTPUT_CLAIM_NAMESPACES: dict[str, frozenset[str]] = {
     "direct_assessment": frozenset({"summary", "generic", "assessment"}),
     "answer": frozenset({"summary", "generic", "assessment"}),
     "conclusion": frozenset({"summary", "generic", "assessment"}),
+    # direct_definition 走同一组命名空间：定义题的「直接回答」就是那句定义，owner
+    # 把它和别的结论一样写在 summary:/generic: 下，没有单独的定义命名空间。此前它
+    # 不在本表、不在 _OUTPUT_CLAIM_TYPES、也不会被 claim_id/正文精确命中，
+    # _claim_candidates 三条路径全不命中 → 候选恒为空 → no_candidate_claim 恒成立。
+    # 于是只要 TaskFrame 要求这一项（concept_definition 题型必然要求；个股深挖的
+    # 追问会因为 user_goal 落在「解释定义」而一并要求），答案再完整也整份
+    # fail-closed。2026-08-02 起 E2E「个股深挖追问」实测就是这样被打成 378 字的
+    # 「请补充数据源或稍后重试」，而同一份正文里 direct_assessment 认领的正是
+    # 「英维克的研究范围是：…」那句定义。
+    "direct_definition": frozenset({"summary", "generic", "assessment"}),
     "counterpoint": frozenset({"counter", "risk"}),
     "counter_evidence": frozenset({"counter", "risk"}),
     "risk": frozenset({"counter", "risk"}),
