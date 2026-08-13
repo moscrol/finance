@@ -18,6 +18,7 @@ from intelligence.services.query_understanding import (
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
 from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_timeseries import parse_single_metric_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
@@ -534,7 +535,11 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
         route_id = "trade_advice"
     elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
         route_id = "kol_review"
-    elif parse_analog_intent(query) or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query):
+    elif (
+        parse_analog_intent(query)
+        or parse_regime_intent(query)
+        or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query)
+    ):
         route_id = "comparison_analog"
     elif _THEME_TRACK_ROUTE_PATTERN.search(query):
         route_id = "theme_track"
