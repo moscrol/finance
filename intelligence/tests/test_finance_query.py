@@ -318,6 +318,72 @@ def test_stock_high_dataset_answers_new_high_structure_directly() -> None:
     assert "sw_l1" in dataset.dimensions
 
 
+def test_fupanhui_assets_registered_as_datasets() -> None:
+    """入库 ≠ 可消费：复盘会公开资产必须注册进 finance_query 才能被 agent 查到。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    expected = {
+        "dragon_summary_daily": "fact_dragon_summary_daily",
+        "dragon_seat_daily": "fact_dragon_seat_daily",
+        "dragon_tiger_daily": "fact_dragon_tiger_daily",
+        "core_stock_daily": "fact_core_stock_daily",
+        "leader_height_daily": "fact_leader_height_daily",
+        "global_index_daily": "fact_global_index_daily",
+    }
+    for name, table in expected.items():
+        assert name in _DATASETS, name
+        assert _DATASETS[name].table == table
+
+
+def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
+    """席位 dataset 端到端：谁买了某股，按净买入排序。"""
+    import duckdb
+
+    db_path = tmp_path / "market_feature_store.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            create table fact_dragon_seat_daily(
+                trade_date date, stock_ts_code varchar, stock_name varchar,
+                side varchar, seat_no integer, exalter varchar, seat_type varchar,
+                hm_name varchar, buy double, sell double, buy_rate double,
+                sell_rate double, net_buy double, source varchar, updated_at timestamp
+            )
+            """
+        )
+        con.executemany(
+            "insert into fact_dragon_seat_daily values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("2026-07-24", "600001.SH", "甲股", "buy", 1, "宁波营业部", "游资",
+                 "宁波帮", 1.73, 0.0, 11.6, 0.0, 1.73, "s", None),
+                ("2026-07-24", "600001.SH", "甲股", "buy", 2, "机构专用", "机构",
+                 None, 0.75, 0.25, 5.0, 1.7, 0.50, "s", None),
+            ],
+        )
+    finally:
+        con.close()
+
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "dragon_seat_daily",
+            "metrics": ["net_buy"],
+            "dimensions": ["seat_name", "seat_type"],
+            "filters": [{"field": "side", "op": "eq", "value": "buy"}],
+            "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
+            "order_by": [{"field": "net_buy", "direction": "desc"}],
+            "limit": 10,
+        }
+    )
+    result = FinanceQuery(db_path).run(
+        spec,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    assert [row["seat_name"] for row in result.rows] == ["宁波营业部", "机构专用"]
+    assert result.rows[0]["net_buy"] == 1.73
+
+
 def test_stock_high_query_groups_by_period(market_db: Path) -> None:
     spec = FinanceQuerySpec.from_arguments(
         {

@@ -397,6 +397,112 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "strength_change": _metric("strength_chg", "强度变化"),
         },
     ),
+    # ── 复盘会公开资产（2026-08-13 接入语义层，此前入库但 agent 够不着）──
+    "dragon_summary_daily": _DatasetDefinition(
+        table="fact_dragon_summary_daily",
+        label="龙虎榜全市场日汇总（机构/游资净买入）",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+        },
+        metrics={
+            "listed_count": _metric("stock_count", "上榜个股数", "max", "integer"),
+            "inst_net_buy": _metric("inst_net_buy", "机构净买入亿", "sum"),
+            "retail_net_buy": _metric("youzi_net_buy", "游资净买入亿", "sum"),
+            "active_brokers": _metric("active_brokers", "活跃营业部数", "max", "integer"),
+        },
+    ),
+    "dragon_seat_daily": _DatasetDefinition(
+        table="fact_dragon_seat_daily",
+        label="龙虎榜席位级明细（谁买谁卖）",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "side": _dimension("side", "买卖方向"),
+            "seat_type": _dimension("seat_type", "席位类型"),
+            "seat_name": _dimension("exalter", "营业部/席位名"),
+            "hot_money": _dimension("hm_name", "游资名", null_label="非游资"),
+        },
+        metrics={
+            "buy": _metric("buy", "买入额亿", "sum"),
+            "sell": _metric("sell", "卖出额亿", "sum"),
+            "net_buy": _metric("net_buy", "净买入亿", "sum"),
+            "buy_rate": _metric("buy_rate", "买入占比"),
+        },
+    ),
+    "dragon_tiger_daily": _DatasetDefinition(
+        table="fact_dragon_tiger_daily",
+        label="龙虎榜个股汇总",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "reason": _dimension("reason", "上榜原因"),
+        },
+        metrics={
+            "close": _metric("close", "收盘价"),
+            "return_pct": _metric("pct_change", "涨跌幅"),
+            "net_amount": _metric("net_amount", "龙虎榜净买入亿", "sum"),
+            "buy_amount": _metric("l_buy", "买入额亿", "sum"),
+            "sell_amount": _metric("l_sell", "卖出额亿", "sum"),
+            "amount": _metric("amount", "成交额亿", "sum"),
+        },
+    ),
+    "core_stock_daily": _DatasetDefinition(
+        table="fact_core_stock_daily",
+        label="市场核心个股 TOP50",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "sw_l1": _dimension("sw_l1_name", "申万一级行业"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+        },
+        metrics={
+            "rank": _metric("rank", "核心榜名次", "min", "integer"),
+            "close": _metric("close", "收盘价"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+            "amount": _metric("amount", "成交额亿", "sum"),
+            "float_market_cap": _metric("circ_mv", "流通市值亿"),
+            "fund_flow_today": _metric("fund_flow_today", "当日资金流亿", "sum"),
+            "gain_5d": _metric("gain_5d", "5日涨幅"),
+            "gain_10d": _metric("gain_10d", "10日涨幅"),
+        },
+    ),
+    "leader_height_daily": _DatasetDefinition(
+        table="fact_leader_height_daily",
+        label="连板龙头高度日频",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "leader_code": _dimension("leader_ts_code", "龙头代码"),
+            "leader_name": _dimension("leader_name", "龙头名称"),
+        },
+        metrics={
+            "height": _metric("height", "最高连板高度", "max", "integer"),
+            "limit_times": _metric("limit_times", "龙头连板数", "max", "integer"),
+            "seal_amount": _metric("fd_amount", "封单额", "max"),
+        },
+    ),
+    "global_index_daily": _DatasetDefinition(
+        table="fact_global_index_daily",
+        label="海外指数日频（隔夜外盘）",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "index_code": _dimension("code", "指数代码"),
+            "index_name": _dimension("name", "指数名称"),
+            "market_group": _dimension("market_group", "市场分组"),
+        },
+        metrics={
+            "close": _metric("close", "收盘"),
+            "return_pct": _metric("pct_chg", "涨跌幅"),
+        },
+    ),
 }
 
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
