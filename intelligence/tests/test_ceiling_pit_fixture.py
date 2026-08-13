@@ -5,6 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import sys
 import textwrap
 
 import duckdb
@@ -36,6 +37,13 @@ AS_OF = "2026-07-24"
 # 且本仓 pre-commit 有「不得新增硬编码家目录」门禁。
 RAG_PYTHON = Path.home() / "knowledge-base-private" / ".rag_venv" / "bin" / "python3"
 _RAG_MISSING = not RAG_PYTHON.is_file()
+
+# 只有上面那条**真**建索引的用例需要 RAG_PYTHON。其余用例经 `_fake_rag_code` 注入
+# 桩 rag_index.py，桩只 `import numpy`，所以「任何跑得动本测试进程的解释器」都够用——
+# 传 sys.executable 而不是某个字面路径。理由同 conftest.py 的「按能力判不按路径判」：
+# worktree 里跑测试用的是主树的 venv，路径本就与所在树不同，写死就换机器即废。
+# 这也是 2026-08-13 前 CI 里 14 条常年红的成因：写死的 Mac venv 路径在 CI 不存在，
+# 于是 fixture 抛 `RAG Python executable is unavailable`，看着像代码坏了。
 
 
 def _source_db(path: Path) -> None:
@@ -687,9 +695,7 @@ def test_true_hybrid_build_seals_fresh_content_bound_index(tmp_path: Path) -> No
         index_root=tmp_path / "fixture" / "index",
         code_root=code,
         code_revision=revision,
-        rag_python=Path(
-            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
-        ),
+        rag_python=Path(sys.executable),
         query="before",
     )
 
@@ -726,9 +732,7 @@ def test_true_hybrid_build_adopts_only_a_byte_identical_prebuilt_index(
     code = tmp_path / "rag-code"
     code.mkdir()
     revision = _fake_rag_code(code)
-    python = Path(
-        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
-    )
+    python = Path(sys.executable)
     prebuilt = build_true_hybrid_index(
         wiki_receipt=wiki_receipt,
         index_root=tmp_path / "prebuilt" / "index",
@@ -822,8 +826,6 @@ def test_true_hybrid_build_rejects_wrong_chunk_source_set(tmp_path: Path) -> Non
             index_root=tmp_path / "fixture" / "index",
             code_root=code,
             code_revision=revision,
-            rag_python=Path(
-                "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
-            ),
+            rag_python=Path(sys.executable),
             query="before",
         )

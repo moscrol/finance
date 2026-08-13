@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -95,9 +96,8 @@ def _config(tmp_path: Path, *, leak: bool = False) -> fixture_builder.CeilingFix
         kb_source_repo=knowledge,
         kb_code_root=rag_code,
         kb_code_revision=rag_revision,
-        kb_rag_python=Path(
-            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
-        ),
+        # 桩 rag_index.py（_fake_rag_code）只 import numpy，不需要 kb 的 RAG venv。
+        kb_rag_python=Path(sys.executable),
         question_file=questions,
         reference_file=references,
         prior_artifacts=(prior,),
@@ -231,7 +231,7 @@ def test_fixture_input_hash_binds_prebuilt_hybrid_bytes(tmp_path: Path) -> None:
 def test_fixture_cli_direct_entrypoint_imports_repo_modules() -> None:
     result = subprocess.run(
         [
-            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            sys.executable,
             "scripts/build_agent_runtime_ceiling_fixture.py",
             "--help",
         ],
