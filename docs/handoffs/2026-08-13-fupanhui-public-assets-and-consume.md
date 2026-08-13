@@ -27,28 +27,20 @@
 - Mac worktree `8dbd588d`：`FinanceQuerySpec.from_arguments` → `FinanceQuery.run` 六 dataset 均有行，`served_date=2026-08-12`，evidence `L4_structured`。
 - 席位单日 2026-08-12：summary 机构 +3.82 / 游资 +1.81 / 174 席；seats 416 行 / 46 股，与公开 `/data/dragon/detail` 抽查一致。
 
-## 回补现状（主库，不是 git）
+## 回补现状（主库，2026-08-13 二次收尾后）
 
-| 表 | 覆盖 | 缺口 |
+| 表 | 覆盖 | 备注 |
 |---|---|---|
-| 公开资产主体 | 390/390 | 无 |
-| `fact_dragon_summary_daily` | **389/390** | `2025-01-16` `/data/dragon/all` 超时 |
-| `fact_dragon_seat_daily` | **9 日**（2026-07-31~08-12，5236 行） | 60 日窗口撞写锁停；390 日全量未做（~1.8 万次 detail） |
+| 公开资产主体 | 390/390 | QA 三轮 FAIL 0（定向 8 日 + 随机 8 日 + 收尾复检 8 日） |
+| `fact_dragon_summary_daily` | **390/390** | `2025-01-16` 超时缺口已补，**已进 `GAP_TABLES`** |
+| `fact_dragon_seat_daily` | **近 60 日全量**（2026-05-20~08-12，44932 行） | 同步 51/跳过 9/失败 0；无重复主键、随机 2 日逐席对源头一致；**已进 `GAP_TABLES`**（gap 从表首日起算） |
 
-`fact_dragon_summary_daily` **还没进** `GAP_TABLES`（棘轮：先补齐再拦断档）。core/dragon_tiger/leader/global 已进 GAP；core/global_index/global_stock 进 ROW_ANOMALY（恒定 50/5/194）。
+写锁实测补充：8792 是**惰性持锁**，空闲时可能不抓库文件——批量写前先探锁（RW 连接秒开秒关），别假设锁一定被占。QA 自己的只读连接也占共享锁。
 
-## 下一步（写窗口内跑，勿杀 8792）
+## 下一步
 
-写锁在 `uvicorn intelligence.api.app` 端口 **8792**。DuckDB 单写者。不要杀该进程；等写窗口或走 `daily-full` 既有窗口：
-
-```bash
-python3 -m market_feature_store.cli sync-fupanhui-public-assets \
-    --start-date 2025-01-16 --end-date 2025-01-16 --only dragon_summary
-python3 -m market_feature_store.cli sync-fupanhui-public-assets \
-    --days 60 --only dragon_seats --sleep 0.15
-```
-
-之后：summary 390 齐 → `fact_dragon_summary_daily` 进 `GAP_TABLES`。Mac **主树** `git pull` 后 daily-full 才带新步（当时主树有他人未提交，未代 pull）。席位 390 日全量另立项。研报正文仍 401。知识库 36 篇 fundamentals 默认不写（`FUPANHUI_KB_NOTES=1` 才写）。
+- Mac **主树** `git pull` 后 daily-full 才带新步 + 新门禁（主树有他人未提交，未代 pull）。
+- 席位 390 日全量回补（~1.8 万次 detail）另立项。研报正文仍 401。L2 等 `CH_PASSWORD` 续期。知识库 36 篇 fundamentals 默认不写（`FUPANHUI_KB_NOTES=1` 才写）。
 
 ## 工具沉淀盘点
 

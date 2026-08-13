@@ -352,16 +352,7 @@
 
 ### 回补状态与写锁约束
 
-- summary：**389/390**（缺 `2025-01-16`，`/data/dragon/all` 超时，可单日重跑）。
-- seats：**9 日**（2026-07-31~08-12，5236 行），60 日窗口回补跑到第 8 天撞 DuckDB 写锁停下。
-- **写锁被线上 agent API 服务（`uvicorn intelligence.api.app` 端口 8792）长期占用**——DuckDB 单写者，批量写入需在该服务停止的窗口进行，或 daily-full 已有的写窗口内。补齐残余命令（写窗口内跑）：
-
-  ```bash
-  # 补失败的 summary 单日
-  python3 -m market_feature_store.cli sync-fupanhui-public-assets \
-      --start-date 2025-01-16 --end-date 2025-01-16 --only dragon_summary
-  # 续跑 60 日席位（已有行自动跳过）
-  python3 -m market_feature_store.cli sync-fupanhui-public-assets \
-      --days 60 --only dragon_seats --sleep 0.15
-  ```
+- summary：**390/390**（2026-08-13 补齐 `2025-01-16` 超时缺口，已进 `GAP_TABLES` 断档门禁）。
+- seats：**近 60 交易日全量**（2026-05-20~08-12，44932 行，60/60 连续；同步 51 / 跳过 9 / 失败 0）。质检：主键无重复、无空席位名、随机 2 日逐席与公开 `detail` 接口一致。已进 `GAP_TABLES`（gap 检查只从表首日 2026-05-20 起算，更早为空不误报）。390 日全量回补（~1.8 万次 detail 调用）未做，另立项。
+- **写锁**：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app` 端口 8792）在跑时会占写锁——但它是**惰性持锁**，空闲时可能不抓库文件；批量写入前先探锁（开一个 RW 连接立即关，失败即锁被占），别假设锁一定在。QA 脚本自己的只读连接同样占共享锁，跑 QA 时写入也进不去。
 
