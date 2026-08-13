@@ -1612,6 +1612,7 @@ def repair_unfulfilled_answer(
     required_outputs,  # tuple[RequiredOutput, ...]
     llm_model: str | None = None,
     timeout: int,
+    options: "AskOptions | None" = None,
 ) -> tuple[str, object] | None:
     """门禁判缺时补写一轮；仍不过则返回 None，由调用方 fail-closed。
 
@@ -1631,6 +1632,11 @@ def repair_unfulfilled_answer(
        ``fulfillment_revision_user_content`` 的来源约束。
     3. **补写后必须重新过门禁**——重判在下面，只有新判定为 complete 才返回。
        这一条做成结构性的：调用方拿不到「跑过修复轮」这个理由来放行。
+
+    ``options``：传入本轮 AskOptions 时，视角模式（single/compare）的补写轮
+    会带上与首轮 composer 相同的视角约束——门控逻辑收口在
+    ``_active_perspective_prompt``（neutral / profile 缺失均返回空串），
+    调用方不需要也不能自己判断视角是否激活。不传时行为与旧版逐字节一致。
     """
 
     from intelligence.services import task_fulfillment
@@ -1648,6 +1654,9 @@ def repair_unfulfilled_answer(
     )
     if not registry_block.strip():
         return None
+    perspective_block = (
+        _active_perspective_prompt(options) if options is not None else ""
+    )
     revised, _reason = llm_refine.synthesize_messages(
         [
             {
@@ -1660,6 +1669,7 @@ def repair_unfulfilled_answer(
                     missing,
                     registry_block,
                     answer_text,
+                    perspective_block=perspective_block,
                 ),
             },
         ],
@@ -1771,6 +1781,30 @@ def _judge_outage_release(
     return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
 
 
+def _active_perspective_prompt(options: "AskOptions") -> str:
+    """视角激活（single/compare）时返回视角约束 prompt，neutral 返回空串。
+
+    专供 grounded composer 链注入。neutral 不注入是刻意的：保持默认 grounded
+    行为逐字节不变，只有用户显式选了 KOL 视角才改变 composer 的输入。
+    选择在 API 边界已做过 validate_runtime_selection，这里的异常兜底只防
+    构建期 profile 被手工删除的窗口，降级为无视角而不是让整轮回答失败。
+    """
+    if (
+        options.perspective_mode == perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+        or not options.perspective_ids
+    ):
+        return ""
+    try:
+        return perspective_lab.build_runtime_context(
+            userspace.user_space(options.user),
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
+        ).prompt
+    except (ValueError, FileNotFoundError):
+        return ""
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1862,6 +1896,7 @@ def synthesize_shadow_grounded_answer(
             decision_brief.to_prompt_block(),
             registry_block,
             required_outputs=required_outputs_block,
+            perspective_block=_active_perspective_prompt(options),
         ),
         model_override=options.llm_model,
         timeout=compose_timeout,

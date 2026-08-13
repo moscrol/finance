@@ -2903,6 +2903,9 @@ class TurnOrchestrator:
                         required_outputs=fulfillment_outputs,
                         llm_model=self.llm_model,
                         timeout=llm_refine.DEFAULT_LLM_TIMEOUT,
+                        # 视角模式下补写轮沿用首轮 composer 的视角约束；
+                        # neutral 时 _active_perspective_prompt 返回空串，行为不变。
+                        options=ask_options,
                     )
                     if repaired is not None:
                         answer_text, fulfillment = repaired
@@ -3698,6 +3701,16 @@ class TurnOrchestrator:
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
             report = public_report
+        # 缺口镜像（knevo 接力第一片）：契约里未满足的必需输出确定性变成
+        # 「猜你想问」。缺口不该是句号——R15 对照的失分形状是追问负担全在
+        # 用户。零模型调用，文案与公开降级声明同一口径。
+        gap_followups = followups_svc.gap_mirror_followups(
+            str(task_frame.subject or ""),
+            result.open_gaps,
+        )
+        continuous_followup_payload = [
+            asdict(item) for item in gap_followups.followups
+        ]
         self._check_cancelled()
         self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
         # claim 一落盘，run 状态对轮询方立即可见——消息终稿必须紧跟着写，
@@ -3714,6 +3727,7 @@ class TurnOrchestrator:
             invoked_skill_ids=[],
             citations=citations,
             degrades=warnings,
+            followups=continuous_followup_payload,
             turn_intent=turn_intent.to_dict(),
             research_plan=research_plan.to_dict(),
         )
@@ -3746,6 +3760,25 @@ class TurnOrchestrator:
             renderer="structured_report",
             title="结构化对话报告",
         )
+        if continuous_followup_payload:
+            # 与 legacy 检索路径同一份 followups.json 契约，
+            # /api/runs/{run_id}/followups 端点两条路径都能读到。
+            self.run_store.add_artifact(
+                run_id,
+                "followups.json",
+                json.dumps(
+                    {
+                        "followups": continuous_followup_payload,
+                        "llm_used": False,
+                        "llm_provider": None,
+                        "warnings": [],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                renderer="json",
+                title="猜你想问",
+            )
         self._emit(
             run_id,
             assistant_message_id,

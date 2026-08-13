@@ -1,6 +1,8 @@
 # 在途交接 · main
 
-更新：2026-08-13 16:15 CST · #323 已部署；#317 注入判决=部分证伪（自愈盲区）
+> 指针（2026-08-13）：复盘会资产线**代码已收口**，完工快照 `docs/handoffs/2026-08-13-fupanhui-public-assets-and-consume.md`。dragon 双表主库回补已完成（summary 390/390、seats 近 60 日 44932 行），两表已进 `GAP_TABLES` 断档门禁。
+
+更新：2026-08-13 17:10 CST · #327 缺口镜像已部署，R25 生产判决通过
 
 ## 这个分支做什么
 
@@ -8,31 +10,31 @@
 
 ## 当前状态
 
-- **8792 = `dd3d6b64`**（含 #323 熔断 1→2），rag ready（预热 107s）。
-- readiness 缺 `market_data_consistency`：收盘后快照=08-13、DuckDB 待今日
-  复盘回填——**日常节奏非故障**，跑完 daily-full 自然绿。
-- **#317 注入判决（R23）＝部分证伪**：杀 worker 子进程后跑 B1（144.7s
-  completed），worker 全程 `cold/active=0` 没被拉起。机制：`kb_rag` 只在
-  `worker_enabled and not filters` 才走 worker，**带 filters 的分层检索
-  直接走 CLI**——查询不经过 worker 就永远不触发查询失败式自愈。
-  「进程死亡 + 后续全是 filters 查询」= readiness 永久红，只能 kickstart。
-- #323 上线未判决；#319 满窗已过 R22 机制判决。
-- 隧道 15:35–16:00 曾 530（cloudflared 波动，Mac 未睡未重启），已自愈。
+- **8792 = `0e392541`**（含 #323 熔断 1→2、#326 探针自愈、#327 缺口镜像），
+  rag ready。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
+- **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
+  消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
+  零模型调用），`/api/runs/{id}/followups` 可读。episode 主路径首次接上
+  猜你想问通道。
+- **R24 判决通过**（#326）：杀 worker → 探针调度 → T+142s 自动 ready，
+  零 kickstart。R22（#319 满窗）判决已过；#323 待明早对照。
+- 隧道今日两次 530/502 波动（cloudflared，Mac 侧正常），均自愈。
 
 ## 未验证 / 已知边界
 
 - #323 生产判决：需收据出现两次 `repair_model_retry` 且第二笔 grant_id
   带 `-2`、第二发救回——明早 10–11 时复跑 B 组对照 R15/R21。
+- 候选②（filters 查询走 worker）未做：改 worker 协议动静大，另行论证。
 - R23 产物 `20260813T0805Z-r23-selfheal-inject.json`（Mac 私有仓未提交）。
 
 ## 下一步
 
-1. **修自愈盲区**（R23 打出的洞）：二选一——①自愈入口从「查询失败」扩到
-   「status 发现 enabled 且 active=0 且非 warming」（readiness 探针处调度）；
-   ②kb_rag 让 filters 查询也走 worker（需 worker 协议支持 filters 参数）。
-   ①改动小且不动检索语义，推荐先做①。
-2. 明早 10–11 时 B 组对照（#319+#323 双发判决）。
-3. knevo 接力（suggest_options 缺口镜像、report→track）：材料齐，等拍板。
+1. 明早 10–11 时 B 组对照（#319+#323 双发判决）。
+2. knevo 接力第二片 **report→track**（q8 蒸馏：delta-only + 观点四态 +
+   下期关注触发条件自衔接）：要拍两个板——基线落哪（wiki vs users 私有层）、
+   首个题型（推荐 theme-radar）。
+3. 缺口文案质量：R25 第二张卡显示 `chain_mapping`——上游部分契约输出的
+   description 是机器 ID 风格，镜像如实呈现；改进属 task_frame 契约生成侧。
 4. governor 升帽已被取证证伪（成功修复调用 max=27.8s），别再立案。
 
 ## 踩过的坑
@@ -46,6 +48,6 @@
 
 ## 已验证
 
-- 8792 @ dd3d6b64 rag ready（16:14 实测）；R22 满窗判决；R23 注入判决。
-- repair/episode 相关 577 条、orchestrator 相关 372 条全绿。
+- 8792 @ 7d379b07（16:44 实测）；R22 满窗、R23 盲区、R24 探针自愈三判决。
+- repair/episode 相关 577 条、rag_worker 18 条、orchestrator 372 条全绿。
 - 云端全量 15F/4149P，flaky 归零，15 红全为已立案环境差异。

@@ -36,6 +36,16 @@ MANDATORY_PROVIDERS: dict[str, tuple[str, ...]] = {
     "valuation": ("D5", "M", "V"),
 }
 DEFAULT_MANDATORY: tuple[str, ...] = ("M", "V")
+# 视角模式激活时的追加必选块：KOL 视角是解释盘面的镜头，事实底座至少要有
+# 同日市场总览（MARKET_DAILY）、主线结构（D4）与题材量价趋势（D6），否则视角
+# 会对着空产生"该方向无盘面信号"的假阴性判断（2026-08-13 实测）。
+#
+# 生效边界（勿高估）：本必选块只在 ``ASK_PLANNER_MODE=llm`` 的钳制路径生效
+# （rules 默认模式不跑 plan_retrieval，也就不写 enabled_providers）；且
+# enabled 只是"允许"，各 provider 的 ``applies()`` 意图门仍要过。默认模式下
+# 视角的盘面证据放宽实际由 ``market_midterm.midterm_intent_for`` 的
+# perspective 回退承担（D6），D4 默认开启，MARKET_DAILY 走 owner 侧预取。
+PERSPECTIVE_MANDATORY: tuple[str, ...] = ("MARKET_DAILY", "D4", "D6")
 
 
 def planner_mode() -> str:
@@ -95,13 +105,22 @@ def _parse_plan_json(content: str) -> dict[str, object] | None:
     return data if isinstance(data, dict) else None
 
 
-def mandatory_for(question_type: str) -> tuple[str, ...]:
-    return MANDATORY_PROVIDERS.get(question_type, DEFAULT_MANDATORY)
+def mandatory_for(
+    question_type: str,
+    *,
+    perspective_active: bool = False,
+) -> tuple[str, ...]:
+    base = MANDATORY_PROVIDERS.get(question_type, DEFAULT_MANDATORY)
+    if not perspective_active:
+        return base
+    return tuple(dict.fromkeys((*base, *PERSPECTIVE_MANDATORY)))
 
 
 def clamp_plan(
     raw_providers: object,
     question_type: str,
+    *,
+    perspective_active: bool = False,
 ) -> tuple[str, ...]:
     """钳制 LLM 计划：∩ 注册表白名单，∪ 规则必选块，按注册顺序输出（确定性）。"""
     requested = {
@@ -109,7 +128,7 @@ def clamp_plan(
         for name in (raw_providers if isinstance(raw_providers, list) else [])
     }
     allowed = requested & set(evidence_registry.PROVIDER_NAMES)
-    allowed |= set(mandatory_for(question_type))
+    allowed |= set(mandatory_for(question_type, perspective_active=perspective_active))
     return tuple(
         name for name in evidence_registry.PROVIDER_NAMES if name in allowed
     )
@@ -120,6 +139,7 @@ def plan_retrieval(
     question_type: str,
     *,
     timeout: int = DEFAULT_TIMEOUT,
+    perspective_active: bool = False,
 ) -> RetrievalPlan:
     """调小模型出计划；任何失败都回退 rules（source 说明原因，供 trace 审计）。"""
     messages = [
@@ -144,7 +164,9 @@ def plan_retrieval(
         return RetrievalPlan(
             providers=(), source="llm_fallback:非法 JSON 输出",
         )
-    providers = clamp_plan(data.get("providers"), question_type)
+    providers = clamp_plan(
+        data.get("providers"), question_type, perspective_active=perspective_active,
+    )
     raw_queries = data.get("queries")
     queries = {
         str(key).strip().upper(): str(value).strip()

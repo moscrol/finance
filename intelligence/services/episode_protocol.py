@@ -21,6 +21,7 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.track_contract import episode_track_rule
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
@@ -115,6 +116,14 @@ def build_episode_instructions(
         if task_frame.question_type == "valuation_estimate"
         else ""
     )
+    # 跟踪题表达契约（knevo q8 回灌，episode 版）：文本住在 track_contract
+    # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
+    # 非跟踪题得到空串，指令逐字节不变。从模块导入的文本不进本函数的
+    # 静态契约指纹（test_episode_protocol 只提取本函数体内的字符串常量）。
+    track_rule = episode_track_rule(
+        task_frame.raw_question,
+        task_frame.question_type,
+    )
     # prior_recall 槽位专用规则：只在该格出现于契约时注入。
     #
     # 这条规则是**陈述性**的，不指定调用顺序。初版写的是「研究开始时必须优先调用
@@ -208,6 +217,7 @@ def build_episode_instructions(
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
         f"{prior_recall_rule}\n"
         f"{valuation_rule}\n"
+        f"{track_rule}\n"
         f"任务哈希：{task_frame.task_frame_hash}\n"
         f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
     )

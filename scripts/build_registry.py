@@ -111,7 +111,14 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
         if ":" not in line or line.lstrip().startswith("#"):
             continue
         key, _, val = line.partition(":")
-        out[key.strip()] = val.strip()
+        val = val.strip()
+        # 必须与上面 PyYAML 分支脱引号的行为一致，否则同一份 SKILL.md 在装了
+        # PyYAML 的机器与没装的 CI 上会解析出不同的 description，注册表产物随之
+        # 不同——本仓 2026-08-13 的 registry-check 长红就是这么来的：本地 scan
+        # 出无引号版，CI check 算出带引号版，无论重跑多少次都判漂移。
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        out[key.strip()] = val
     return out
 
 
@@ -457,6 +464,15 @@ def cmd_check() -> int:
             print(f"[check] - 缺失 {k}")
         for k in changed:
             print(f"[check] ~ 变更 {k}")
+            # 只报 key 不报字段，等于让人拿着「哪里不一样」再查一遍——而漂移常常
+            # 来自环境差异（解析器、行尾、视图），本机复现不出来时那一遍无从查起。
+            exp_entry, got_entry = exp_skills[k], got_skills[k]
+            for field in sorted(set(exp_entry) | set(got_entry)):
+                if exp_entry.get(field) == got_entry.get(field):
+                    continue
+                print(f"[check]     {field}:")
+                print(f"[check]       注册表 {json.dumps(exp_entry.get(field), ensure_ascii=False)}")
+                print(f"[check]       重扫   {json.dumps(got_entry.get(field), ensure_ascii=False)}")
 
     if drift or meta_drift:
         print("[check] 注册表与源不一致，请运行 `python3 scripts/build_registry.py scan` 并提交。", file=sys.stderr)

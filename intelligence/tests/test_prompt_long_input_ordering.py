@@ -93,3 +93,29 @@ def test_repair_turn_also_leads_with_the_registry() -> None:
     content = llm_refine.claim_binding_revision_user_content(["第 2 句越界"], REGISTRY)
 
     assert content.index(REGISTRY) < content.index("第 2 句越界")
+
+
+def test_composer_perspective_block_between_registry_and_query() -> None:
+    """视角约束进 user turn（保缓存），排在长输入之后、用户问题之前。"""
+    block = "### SPT-Molmansk\n- 证据层级：盘面量价资金结构"
+    content = _user(
+        llm_refine.build_grounded_composer_messages(
+            QUERY, "brief", REGISTRY, perspective_block=block
+        )
+    )
+
+    assert "本轮视角约束" in content
+    assert "claim/EvidenceAtom 绑定" in content
+    assert content.index(REGISTRY) < content.index(block) < content.index(f"用户问题：{QUERY}")
+
+
+def test_composer_without_perspective_block_is_unchanged() -> None:
+    """空视角块与旧版逐字节一致（neutral 模式不改变 grounded 行为）。"""
+    baseline = llm_refine.build_grounded_composer_messages(
+        QUERY, "brief", REGISTRY, required_outputs=REQUIRED
+    )
+    with_empty = llm_refine.build_grounded_composer_messages(
+        QUERY, "brief", REGISTRY, required_outputs=REQUIRED, perspective_block=""
+    )
+
+    assert baseline == with_empty
