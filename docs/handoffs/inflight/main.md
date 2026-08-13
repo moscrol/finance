@@ -1,6 +1,6 @@
 # 在途交接 · main
 
-更新：2026-08-13 16:45 CST · #326 探针侧自愈已部署，R24 注入判决通过
+更新：2026-08-13 17:10 CST · #327 缺口镜像已部署，R25 生产判决通过
 
 ## 这个分支做什么
 
@@ -8,14 +8,15 @@
 
 ## 当前状态
 
-- **8792 = `7d379b07`**（含 #323 熔断 1→2、#326 探针侧自愈），rag ready。
-- **R24 注入判决通过**（#326）：杀 worker 子进程 → 第一打 readiness 即
-  `warming`（探针调度）→ T+142s 自动 `ready/active=1`，**全程零 kickstart**。
-  R23 打出的「filters 查询绕开 worker → 死进程永久红」盲区闭环。
-- readiness 缺 `market_data_consistency`：收盘后快照=08-13、DuckDB 待今日
-  复盘回填——**日常节奏非故障**，跑完 daily-full 自然绿。
-- #323 上线未判决；#319 满窗已过 R22 机制判决。
-- 隧道 15:35–16:00 曾 530（cloudflared 波动，Mac 未睡未重启），已自愈。
+- **8792 = `0e392541`**（含 #323 熔断 1→2、#326 探针自愈、#327 缺口镜像），
+  rag ready。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
+- **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
+  消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
+  零模型调用），`/api/runs/{id}/followups` 可读。episode 主路径首次接上
+  猜你想问通道。
+- **R24 判决通过**（#326）：杀 worker → 探针调度 → T+142s 自动 ready，
+  零 kickstart。R22（#319 满窗）判决已过；#323 待明早对照。
+- 隧道今日两次 530/502 波动（cloudflared，Mac 侧正常），均自愈。
 
 ## 未验证 / 已知边界
 
@@ -27,8 +28,12 @@
 ## 下一步
 
 1. 明早 10–11 时 B 组对照（#319+#323 双发判决）。
-2. knevo 接力（suggest_options 缺口镜像、report→track）：材料齐，等拍板。
-3. governor 升帽已被取证证伪（成功修复调用 max=27.8s），别再立案。
+2. knevo 接力第二片 **report→track**（q8 蒸馏：delta-only + 观点四态 +
+   下期关注触发条件自衔接）：要拍两个板——基线落哪（wiki vs users 私有层）、
+   首个题型（推荐 theme-radar）。
+3. 缺口文案质量：R25 第二张卡显示 `chain_mapping`——上游部分契约输出的
+   description 是机器 ID 风格，镜像如实呈现；改进属 task_frame 契约生成侧。
+4. governor 升帽已被取证证伪（成功修复调用 max=27.8s），别再立案。
 
 ## 踩过的坑
 
