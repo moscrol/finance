@@ -48,6 +48,7 @@ curl -s http://localhost:3456/targets
 - **全A日线分两条路径**: 单日盘后增量用东财快照 `sync-stock-daily-snapshot`（数十秒，`daily-full`/`daily-update` 默认 `--stock-source snapshot`）；补历史多日区间仍用 mootdx `sync-stock-daily`（`--stock-source mootdx` 可强制）。详见 `references/backfill-runbook.md`「单日快照 vs 历史 mootdx」。
 - **Separate facts from sparse tables**: `fact_limit_advance_presence` is the daily coverage table; `fact_limit_advance_daily` is sparse by design.
 - **Record blockers**: Keep a list of skipped dates/sectors and explain why they were skipped.
+- **入库后必接消费层**：新增/回填一张 `fact_*` 表后，**必须**判断要不要在 `intelligence/services/finance_query.py` 的 `_DATASETS` 注册成 dataset。**入库 ≠ agent 能查到**——agent 读 DuckDB 只走 `finance_query`，没注册的表它够不着（2026-08-13 实测：龙虎榜/核心股/龙头高度/外盘入库多轮但从未注册，agent 一直用不上）。详见下方「收尾对齐」。
 
 ## Backfill runbook（顺序 / 常用命令 / 已知覆盖状态）
 
@@ -74,6 +75,16 @@ QA_SAMPLE=2026-07-01,2025-06-03 python3 skills/duckdb-backfill/scripts/qa_fupanh
 - **验收不能只数行数**：必须跑 QA 脚本对源头抽查（本仓有过「行数全对、值是空壳」的静默降级）。
 
 恒定宇宙（core 每日 50 / global_index 每日 5 / global_stock 每日 194）已进 `check_daily` 的断档 + 行数收缩门禁；auction / events / mapping / regulation_event 天然稀疏，不进门禁，靠 ops `empty` 台账区分「接口没有」和「没同步」。
+
+## 收尾对齐（每次入库/新表后逐条过，别漏）
+
+一张 fact 表从「写进 DuckDB」到「agent 真能用」有三段，缺任一段都白做。落库后对着走：
+
+1. **门禁**（数据别悄悄断/塌）：稳定每日有的表进 `market_feature_store/quality.py` 的 `GAP_TABLES`（断档）；宇宙规模恒定的再进 `ROW_ANOMALY_TABLES`（行数收缩）。**棘轮**：历史空的先回补齐再进门禁，否则天天误报。天然稀疏的表不进，靠 `ops_pipeline_run_daily` 的 `empty` 台账区分「源头没有」和「没同步」。
+2. **消费层**（agent 够得着）：在 `intelligence/services/finance_query.py` 的 `_DATASETS` 注册成语义 dataset（`dimensions`/`metrics` 映射到真实列，列名对齐 `schema.sql`）。工具的 dataset/字段枚举从 `_DATASETS` 自动派生，注册即生效，无需改工具 schema。稀疏/半结构、低查询价值的可暂不注册以收敛工具面，但要在收尾里显式说明「暂不注册及原因」，不能默认漏。
+3. **质检**（值对不对，不只是行数对）：跑对源头的抽查对账（参考 `scripts/qa_fupanhui_public_assets.py` 的结构门 + API 抽样两层），别只数 `COUNT(*)`。
+
+写锁约束：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app`，端口 8792）在跑时会占写锁，批量回填得在其停止的写窗口进行，或走 `daily-full` 既有写窗口。
 
 ## 已知问题（2026-06-20 更新）
 
