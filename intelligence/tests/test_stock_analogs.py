@@ -193,6 +193,56 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertTrue(payload["available"])
         self.assertIsInstance(payload["analogs"], list)
 
+    def test_name_catalog_uses_latest_day_not_full_history(self) -> None:
+        """旧名/已退市名只出现在历史行时，不应靠全表 group by 命中。
+
+        applies 层只要类比词面就进 build；若扫全历史名称，题材类比问也会
+        全表扫描生产 fact_stock_daily。这里用「末日才叫英维克、旧日叫旧维克、
+        另有一只只出现在首日的幽灵股」钉死最新日宇宙。
+        """
+        import duckdb
+        from datetime import date, timedelta
+
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            con = duckdb.connect(str(db))
+            con.execute(
+                """
+                create table fact_stock_daily (
+                    trade_date date, stock_ts_code text, stock_name text,
+                    close double, pre_close double, pct_chg double,
+                    amount double, turnover double, source text, updated_at timestamp
+                )
+                """
+            )
+            base = date(2025, 1, 1)
+            n = 200
+            for i in range(n):
+                name = "英维克" if i == n - 1 else "旧维克"
+                pct = 6.0 if i >= n - 20 else 0.1
+                con.execute(
+                    "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [base + timedelta(days=i), "300001.SZ", name, 10.0, 10.0, pct, 5.0, 2.0, "t", None],
+                )
+            con.execute(
+                "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [base, "999999.SZ", "幽灵股", 10.0, 10.0, 1.0, 1.0, 1.0, "t", None],
+            )
+            con.close()
+            current = load_stock_analog_artifact("英维克这段走势历史上有类似的吗", db)
+            old_name = load_stock_analog_artifact("旧维克这段走势历史上有类似的吗", db)
+            ghost = load_stock_analog_artifact("幽灵股历史上类似走势", db)
+            theme_only = load_stock_analog_artifact("固态电池历史上类似的行情", db)
+            ghost_block = stock_analog_block_for_llm("幽灵股历史上类似走势", db)
+            theme_block = stock_analog_block_for_llm("固态电池历史上类似的行情", db)
+        self.assertEqual(current.stock_code, "300001.SZ")
+        self.assertTrue(current.available)
+        self.assertIsNone(old_name.stock_code)
+        self.assertIsNone(ghost.stock_code)
+        self.assertEqual(ghost_block, "")
+        self.assertIsNone(theme_only.stock_code)
+        self.assertEqual(theme_block, "")
+
 
 class WiringTests(unittest.TestCase):
     def test_registry_gating_via_legacy_flag(self) -> None:

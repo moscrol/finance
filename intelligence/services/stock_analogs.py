@@ -196,7 +196,15 @@ def find_stock_analog_windows(
 
 
 def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
-    """从 query 解析目标个股（6 位代码优先，其次名称子串命中最长者）。"""
+    """从 query 解析目标个股（6 位代码优先，其次名称子串命中最长者）。
+
+    名称目录只取 **最新交易日** 一行宇宙，不扫全表。applies 层只要类比词面
+    就会进 build——题材/情绪类比问（D8/D10）没有个股时也会走到这里；生产库
+    ``fact_stock_daily`` 是百万行事实表，全历史 ``group by stock_ts_code, stock_name``
+    会把每一次「历史上类似」都做成一次全表扫描。最新日有日期索引，量级是当日
+    股票数（约数千），不是历史行数。代价：已更名/已退市且当日不在表里的旧名
+    解析不到，降级为空块（与「只对标当前这只正在交易的股」一致）。
+    """
     code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
     if code_match:
         raw, suffix = code_match.group(1), code_match.group(2)
@@ -214,10 +222,11 @@ def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
             return str(rows[0][0]), str(rows[0][1] or rows[0][0])
     rows = con.execute(
         """
-        select stock_ts_code, stock_name
+        select stock_ts_code, any_value(stock_name)
         from fact_stock_daily
-        where stock_name is not null and stock_name <> ''
-        group by stock_ts_code, stock_name
+        where trade_date = (select max(trade_date) from fact_stock_daily)
+          and stock_name is not null and stock_name <> ''
+        group by stock_ts_code
         """
     ).fetchall()
     q = str(query or "")
