@@ -53,6 +53,7 @@ from intelligence.services import (
     llm_refine,
     market_analogs,
     market_financials,
+    market_regime_analogs,
     task_fulfillment,
     market_midterm,
     market_moneyflow,
@@ -3806,6 +3807,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("D8", "历史类比检索", _d8_applies, _build_d8))
+
+        def _d10_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D10") and bool(
+                market_regime_analogs.parse_regime_intent(options.query)
+            )
+
+        def _build_d10():
+            block = market_regime_analogs.regime_block_for_llm(options.market_db_path)
+            return block, Citation(
+                "D10",
+                "本地 DuckDB 市场情绪环境类比数据块",
+                f"市场级情绪向量与当前 {market_regime_analogs.DEFAULT_WINDOW} 日环境最相似的历史窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D10", "市场情绪环境类比", _d10_applies, _build_d10))
 
         def _d7_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D7") and bool(
