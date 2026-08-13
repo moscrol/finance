@@ -77,7 +77,7 @@
 |---|---|---|---|
 | 文本记忆 | finmemory 共享库（框架卡/场景模板） | wiki 知识库 + `market_playbooks.jsonl` 剧本卡（**6 张 approved**） | 剧本卡厚度（q9：厚度即质量瓶颈） |
 | 实体图谱 | fundacore（实测很稀疏） | `wiki/relations/`（entity_exposures / evidence_index / theme_signals），带 gaps 纪律 | 无生命周期维度（只有关系，没有阶段） |
-| 用户记忆 | 长期 memories + pending recommendations 状态机 | `intelligence/users/<id>/` 四台账（judgments/corrections/checkpoints/verdicts）+ interactions.jsonl 亲和度（14 天半衰期）+ `user_memory` 检索工具（专属 evidence_tier，只作先验） | **无状态机**：correction 落盘即生效，没有候选→审阅→接受层 |
+| 用户记忆 | 长期 memories + pending recommendations 状态机 | `intelligence/users/<id>/` 四台账 + interactions.jsonl 亲和度（14 天半衰期）+ `user_memory` 检索工具（专属 evidence_tier，只作先验）+ **`memory_gate.py` fail-closed 晋升门（见 §3.2 修正）** | ~~无状态机~~（入口已有）；真差距是**退出机制**（→ slice 5 已补） |
 | 预测台账 | （未公开，E-006 建议单建 ledger） | foresight checkpoints/verdicts 已是雏形（可证伪点 + 回检） | 与「记忆命中」的度量还没分开呈现；无 error_class 归因字段 |
 
 行情/题材侧的既有资产：
@@ -104,15 +104,26 @@
 
 ### 3.2 缺口与设计（按 E-006 回灌优先级）
 
-1. **记忆状态机（P1）**。现在 correction/judgment 一落盘就永久生效，没有
-   「候选 → 待审 → 接受/拒绝 → 生效/归档」的生命周期。后果：错记、过时记忆
-   没有退出机制，只能人工翻 JSONL 删。设计：
-   - 台账记录加 `status: candidate | accepted | rejected | archived` 字段
-     （存量记录视为 accepted，**棘轮式**：不迁移存量、只约束新增）；
-   - 对话中 agent 自动提炼的经验默认 `candidate`，用户显式确认过的（如 correction）
-     直接 `accepted`；
-   - 夜间回检（已有 checkpoint-recheck 机制）把 candidate 批量呈现给用户裁决——
-     这正好补上 agent book 第 8 章缺的「离线候选更新」层。
+> 🔴 **2026-08-13 实施时的能力现状修正（本文第二处误判）**：本节初版说「没有
+> 状态机」，**入口侧是错的**——`intelligence/services/memory_gate.py` 已有
+> fail-closed 的记忆晋升门：`MemoryCandidate`（五种 kind）经 `MemoryGate.decide()`
+> 裁决，只有「已回检且有终局裁决的 checkpoint 教训」或「provenance 严格绑定的
+> 用户显式纠偏」才 eligible 进 durable 层，模型自评判断（model_judgment）与
+> 易变事实（volatile_fact）一律拒绝，写入时 content SHA-256 绑定。
+> 这正是 E-006 candidate→accepted 状态机的本仓版本，且比「加 status 字段」更强。
+>
+> **修正后的真差距是出口**：append-only 台账没有退出机制，错记/过时记录只能
+> 人工删行（破坏可回放性）。
+
+1. **记忆退出机制（P1，✅ 2026-08-13 已实现，slice 5）**：
+   `intelligence/services/memory_status.py`——归档/撤销/恢复都是**追加**状态行
+   （`record_type=memory_status`，指向目标记录 ts），不改历史；同一目标以最新
+   状态行为准；`load_judgments`/`load_corrections` 侧过滤 archived/rejected，
+   台账无状态行时行为逐字节不变（棘轮）。CLI：
+   `python3 -m intelligence.cli memory-status --ledger judgments --target-ts <ts> --status archived --reason ...`
+   （目标 ts 不存在时拒绝，防悬空审计链）。
+   夜间回检呈现 candidate 批次的部分**未做**——入口门是同步裁决器，没有 pending
+   candidates 台账；等真实出现「agent 想沉淀但无回检 provenance」的积压再建。
 2. **预测台账与记忆命中分离（P1）**。foresight verdicts 已有雏形，补两件：
    - verdict 记录加 `error_class`（可复用 knevo 蒸馏 q3 的错因六分类）；
    - 呈现层区分「这条框架被召回过 N 次」与「这条框架验证后命中率 X/Y」，
@@ -265,9 +276,9 @@ recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
 | 2 ✅（2026-08-13 已实现） | D10 接线：`evidence_registry` 注册（紧跟 D8）+ `include_regime_block` 开关 + ask provider + `ask_synthesis` claim 状态 INFERRED + `comparison_analog` 路由 + `history_analog` 操作符；workbench research_owner 的 stage 适配器面**未接**（留待需要时） | `ask_types` / `evidence_registry` / `ask.py` / `ask_synthesis` / `turn_controller` / `query_understanding`；Mac 真 venv 受影响面 9 个测试文件 218 全绿（收据 20260813T064027Z-6831f79d） | 中：完整 episode 级 live 问答尚未跑（需 LLM 中转），provider 级取数已 live 验证 |
 | 3 ✅（2026-08-13 已实现） | 题材生命周期**时间线回放**只读 CLI（既有 `theme_lifecycle.py` 八阶段诊断已覆盖当前态，见 §5.1 修正；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle_timeline.py`（`python3 -m intelligence.services.theme_lifecycle_timeline --theme X`，14 测试全绿） | 低：只读 |
 | 3.1 ✅（2026-08-13 已实现） | 时间线滞回：进「回流」须连续 ≥2 日双红确认（孤立单日不切段，起点回溯确认串首日）。live 对照：固态电池 53→25 段、信创 65→37 段；确认 3 日会过度合并（固态电池只剩 3 段，因多数双红连串仅 2 天），默认取 2 | `theme_lifecycle_timeline.py`（`reflow_confirm_days` 参数，CLI `--reflow-confirm`） | 低：只改派生规则，可回放对照 |
-| 4 | q8 契约回灌：题材跟踪输出加四态对照 + `valid_until` + 下期关注衔接 | 输出模板/synthesis 契约 | 中：改输出形状，需用户看样张 |
-| 5 | 用户记忆状态机（新增记录带 `status`，棘轮式不迁移存量）+ 夜间回检呈现 candidate | `intelligence/users/` 台账 schema + 回检脚本 | 中：涉及台账 schema |
-| 6 | recall@k 尺子（离线，判卷说「证据不足」的 case 回放） | eval 侧新增 | 低：离线尺子 |
+| 4 ✅（2026-08-13 已实现） | q8 契约回灌：跟踪表达契约（delta-only + 四态对照带证据编号 + 结论「复核期限」30/90 天 + 下期关注清单；无 [M]/[V] 基线时显式声明不虚构）。沿 scenario_tree 表达层模式，theme_track/跟踪词面命中才注入 | `track_contract.py` + `ask_types.include_track_guidance` + `ask_synthesis` 注入点 | 中：改输出形状——**样张待用户过目**，不满意关开关即回退 |
+| 5 ✅（2026-08-13 已实现，范围修正见 §3.2） | 记忆退出机制：append-only 状态覆盖行（归档/撤销/恢复），loader 过滤，CLI `memory-status`；入口状态机 `memory_gate.py` 已存在（能力断言修正） | `memory_status.py` + `judgments/corrections` loader + CLI | 低：无状态行时行为逐字节不变 |
+| 6 ✅（2026-08-13 已实现） | recall@k 尺子：`intelligence/eval/retrieval_recall.py`，user_memory 通道对齐 [M] 块生产语义（记录身份=ts），检索器可插拔；标注集 JSONL 需人工建 | eval 侧新增 + tests | 低：离线只读 |
 
 依赖关系：1→2 顺序硬依赖；3→3.1 再进入 4；5、6 相互独立可并行。
 剧本卡增厚（§4.4）是持续流程，不占 slice。
