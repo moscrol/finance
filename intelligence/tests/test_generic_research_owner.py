@@ -1787,7 +1787,37 @@ def test_orchestrator_ownerless_turn_skips_skill_router_and_template(
     assert route_output["selected"] == []
 
 
-def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() -> None:
+def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # 密封的实体词典（#310 同病）：two_hop_relation 用例期望「浪潮信息」
+    # 锚定成 stock_deep_dive，而 decide_turn 的 QueryResolver 读默认 wiki
+    # 路径——测试会话里该路径不存在（云端无 KB，Mac 默认路径也解析不到），
+    # 用例出生即红且看起来像路由 bug。注入 tmp 词典后生产逻辑原样通过；
+    # 其余用例不含词典实体，行为与无 KB 环境一致。
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "浪潮信息": {
+                        "codes": ["000977.SZ"],
+                        "concepts": {"服务器": {}},
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KNOWLEDGE_WIKI", str(tmp_path))
+
     fixture = Path(__file__).parent / "fixtures" / "long_tail_cases.json"
     cases = json.loads(fixture.read_text(encoding="utf-8"))
     required_categories = {
