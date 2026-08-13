@@ -401,7 +401,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:99af756af45e4d6ca13d6a347f353e79c3b0baf26aa91dd6362fa39d3c52619e",
+      "computedHash": "sha256:c00bafd615f8c1308525a809a61b1f882f28a6e3354f1eb8a09fc68d85c2739f",
       "agentOnly": false,
       "views": [
         {
