@@ -13,6 +13,7 @@ from pathlib import Path
 from intelligence import userspace
 from intelligence.services import (
     answer_model,
+    corrections,
     evidence_providers,
     evidence_registry,
     experience_cards,
@@ -813,13 +814,25 @@ def _prepare_answer_spec_synthesis(
         )
         if card_warn:
             result.warnings.append(card_warn)
-        selected_cards = experience_cards.select_relevant_cards(
-            cards,
-            options.query,
+        selected_cards = experience_cards.merge_cards_for_prompt(
+            experience_cards.select_resident_cards(cards),
+            experience_cards.select_relevant_cards(cards, options.query),
         )
         experience_guidance = experience_cards.render_for_prompt(
             selected_cards
         )
+        corr_records, corr_warn = corrections.load_corrections(us.corrections_path)
+        if corr_warn:
+            result.warnings.append(corr_warn)
+        resident_principles = corrections.render_for_prompt(
+            corrections.select_resident_principles(corr_records)
+        )
+        if resident_principles:
+            experience_guidance = (
+                f"{resident_principles}\n{experience_guidance}".strip()
+                if experience_guidance
+                else resident_principles
+            )
     exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
     # 表达契约（情景树/跟踪）与经验卡片分开注入：契约是强制格式约束，塞进
     # 「历史经验卡片」段会被模型当参考经验忽略（2026-08-13 workbench 实测）。
@@ -1296,6 +1309,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         if result.data_notice and not result.prepared_synthesis_is_market_review
         else presented_synthesis
     )
+    ensure_track_contract_visible(result, enabled=options.include_track_guidance)
     result.llm_provider = accepted_composition.provider
     result.synthesis_messages = [
         *messages,
@@ -1434,6 +1448,7 @@ def promote_grounded_answer(
         # 补分支必须在 stream 之前：先推给前端再改 result.synthesis，会让流式看到的
         # 正文和最终落库的正文不一致。
         ensure_forecast_scenarios_visible(result)
+        ensure_track_contract_visible(result, enabled=options.include_track_guidance)
         result.synthesis_messages = [
             *(result.prepared_synthesis_messages or []),
             {"role": "assistant", "content": result.synthesis},
@@ -1475,6 +1490,7 @@ def promote_grounded_answer(
             detail="grounded presenter passed deterministic and semantic gates",
         )
     ensure_forecast_scenarios_visible(result)
+    ensure_track_contract_visible(result, enabled=options.include_track_guidance)
     result.llm_provider = shadow.provider
     result.synthesis_messages = [
         *(result.prepared_synthesis_messages or []),
@@ -1552,6 +1568,33 @@ def ensure_forecast_scenarios_visible(result: AskResult) -> None:
         result.synthesis = f"{head}\n\n{block}\n\n{disclaimer}"
         return
     result.synthesis = f"{body}\n\n{block}"
+
+
+def ensure_track_contract_visible(
+    result: AskResult,
+    *,
+    enabled: bool = True,
+) -> None:
+    """跟踪题缺契约段时追加可见补全，不覆盖模型已写的正文。
+
+    与 ``ensure_forecast_scenarios_visible`` 同形状：prompt 约束失败后由程序把门。
+    开关关闭或非跟踪意图时是空操作（棘轮：普通问答行为不变）。
+    """
+    if not enabled or not result.synthesis:
+        return
+    question_type = (
+        result.question_plan.question_type if result.question_plan is not None else None
+    )
+    if not track_contract.parse_track_intent(result.query, question_type):
+        return
+    missing = track_contract.missing_contract_elements(result.synthesis)
+    if not missing:
+        return
+    patched = track_contract.append_contract_stub(result.synthesis, missing)
+    result.synthesis = patched
+    result.warnings.append(
+        "跟踪契约补全：" + "、".join(missing) + "（模型未按强制结构输出，已追加可见缺段）"
+    )
 
 
 def _shadow_support_claims(

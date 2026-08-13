@@ -1,10 +1,11 @@
 # 记忆机制设计：越用越懂 × 行情对标历史 × 题材生命周期
 
 > 日期：2026-08-13
-> 状态：**设计稿，未动产品代码**。三个能力全部涉及运行时接线（D 块 / 台账 / 状态机），
-> 按本仓「可控的单步」纪律，先收口设计，逐 slice 实施。
+> 状态：**六 slice 已落地并合入 `main`**（PR #318 + 契约注入修复 #322）。
+> 质检与对照 agent book 原书第 3/8 章的优化点见
+> `docs/superpowers/specs/2026-08-13-memory-quality-review.md`。
 > 调研来源：① `docs/superpowers/2026-08-10-agent-book-chapter-audit.md`（agent book 第 3/8 章
-> 对照本仓的章节审计；原书本地 clone 在 Mac 上，本文引用的是审计稿结论）；
+> 对照本仓的章节审计；质检轮已改对照 GitHub 原书 raw，不只沿用审计稿）；
 > ② `docs/learning/knevo-distill/` 的 E-006（记忆生命周期实测）、q9（历史类比引擎）、
 > q8（行业连续跟踪契约）。
 

@@ -23,6 +23,11 @@
     python3 -m intelligence.eval.retrieval_recall --cases <标注集.jsonl> \
         [--retriever user_memory] [--users-root <台账目录>] [--k 1,3,5] [--json]
 
+    仓内自带合成夹具（不是真人标注，只证明尺子能跑）：
+    python3 -m intelligence.eval.retrieval_recall \
+        --cases intelligence/eval/fixtures/user_memory_recall/cases.jsonl \
+        --users-root intelligence/eval/fixtures/user_memory_recall/ledgers
+
 纪律：本尺子只读；分数低说明「召回不足」，分数高不说明「答案正确」——
     它度量的是检索层，不是推理层。
 """
@@ -35,6 +40,9 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_KS = (1, 3, 5)
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "user_memory_recall"
+FIXTURE_CASES = FIXTURE_DIR / "cases.jsonl"
+FIXTURE_LEDGERS = FIXTURE_DIR / "ledgers"
 
 # 检索器签名：(query, theme, entity, k, **kwargs) -> 有序 id 列表（截断到该通道的 k 语义）
 Retriever = Callable[..., list[str]]

@@ -42,6 +42,7 @@ from intelligence.services import (
     evidence_registry,
     checkpoint_recall,
     closed_loop_retrieval,
+    corrections,
     entity_anchor,
     experience_cards,
     external_market,
@@ -163,6 +164,7 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _stable_llm_fallback_reason,
     _strip_empty_grounded_sections,
     ensure_forecast_scenarios_visible as _ensure_forecast_scenarios_visible,
+    ensure_track_contract_visible as _ensure_track_contract_visible,
     promote_daily_agent_grounded_answer,
     promote_grounded_answer,
     repair_unfulfilled_answer,
@@ -709,8 +711,23 @@ def _answer_market_review(
         if card_warning:
             result.warnings.append(card_warning)
         card_guidance = experience_cards.render_for_prompt(
-            experience_cards.select_relevant_cards(cards, options.query)
+            experience_cards.merge_cards_for_prompt(
+                experience_cards.select_resident_cards(cards),
+                experience_cards.select_relevant_cards(cards, options.query),
+            )
         )
+        corr_records, corr_warn = corrections.load_corrections(user_space.corrections_path)
+        if corr_warn:
+            result.warnings.append(corr_warn)
+        resident_principles = corrections.render_for_prompt(
+            corrections.select_resident_principles(corr_records)
+        )
+        if resident_principles:
+            card_guidance = (
+                f"{resident_principles}\n{card_guidance}".strip()
+                if card_guidance
+                else resident_principles
+            )
         if card_guidance:
             prior_parts.append(
                 "## 历史经验卡片（回答方法，不是市场事实）\n"
@@ -4169,6 +4186,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         for issue in result.answer_spec.quality.issues
     )
     _ensure_forecast_scenarios_visible(result)
+    _ensure_track_contract_visible(result, enabled=options.include_track_guidance)
 
     with _progress_stage(options, "output_review") as stage:
         result.review_gate = output_review.review_output(

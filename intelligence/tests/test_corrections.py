@@ -172,6 +172,15 @@ class RenderForPromptTests(unittest.TestCase):
     def test_render_empty_records(self) -> None:
         self.assertEqual(corrections.render_for_prompt([]), "")
 
+    def test_resident_principles_ignore_theme_and_skip_empty_principle(self) -> None:
+        records = [
+            {"ts": "t1", "correction": "无原则纠偏", "themes": ["液冷"]},
+            {"ts": "t2", "correction": "有原则", "principle": "双红看边际量", "themes": ["液冷"]},
+            {"ts": "t3", "correction": "更新的原则", "principle": "跟踪只报变化", "themes": ["固态电池"]},
+        ]
+        resident = corrections.select_resident_principles(records, limit=5)
+        self.assertEqual([r["ts"] for r in resident], ["t3", "t2"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -118,5 +118,35 @@ class EvaluateCasesTests(unittest.TestCase):
         self.assertIsNone(report["recall_at"][3])
 
 
+class FixtureSetTests(unittest.TestCase):
+    def test_bundled_fixture_is_runnable_and_labels_are_truthful(self) -> None:
+        # 夹具标注必须全部真实（该召回的才标 relevant）：错误标注会永久拉低宏平均，
+        # 后来者会把 66% 当成检索坏了。「尺子能测出 miss」由下面的合成 case 证明。
+        from intelligence.eval.retrieval_recall import FIXTURE_CASES, FIXTURE_LEDGERS
+
+        cases = load_cases(FIXTURE_CASES)
+        self.assertGreaterEqual(len(cases), 2)
+        report = evaluate_cases(
+            cases, user_memory_retriever, ks=(5,), users_root=FIXTURE_LEDGERS
+        )
+        for row in report["per_case"]:
+            self.assertEqual(row["recall_at"][5], 1.0, row["case_id"])
+        self.assertEqual(report["recall_at"][5], 1.0)
+
+    def test_ruler_detects_miss_with_synthetic_wrong_label(self) -> None:
+        # 故意错标（无关题材标成 relevant）→ 尺子必须读出 0 召回。
+        from intelligence.eval.retrieval_recall import FIXTURE_LEDGERS
+
+        report = evaluate_cases(
+            [{"case_id": "syn-miss", "query": "光模块份额", "theme": "光模块",
+              "relevant": ["j-liquid-1"]}],
+            user_memory_retriever,
+            ks=(5,),
+            users_root=FIXTURE_LEDGERS,
+        )
+        self.assertEqual(report["per_case"][0]["recall_at"][5], 0.0)
+        self.assertIn("j-liquid-1", report["per_case"][0]["missed"][5])
+
+
 if __name__ == "__main__":
     unittest.main()

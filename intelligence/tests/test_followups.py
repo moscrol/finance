@@ -17,6 +17,13 @@ class TemplateFallbackTests(unittest.TestCase):
             self.assertLessEqual(len(f.label), 20)
             self.assertEqual(f.full_prompt, f.question)
 
+    def test_track_question_skips_first_order_recheck(self) -> None:
+        result = followups.generate_followups("固态电池最新进展如何", matched_theme="固态电池", use_llm=False)
+        types = [f.type for f in result.followups]
+        self.assertNotIn("recheck", types)
+        self.assertIn("counter", types)
+        self.assertFalse(any("双红" in f.question and "最近" in f.question for f in result.followups))
+
     def test_no_theme_falls_back_to_question_prefix(self) -> None:
         result = followups.generate_followups("英维克现在贵不贵", use_llm=False)
         self.assertTrue(all("英维克现在贵不贵" in f.question for f in result.followups))
