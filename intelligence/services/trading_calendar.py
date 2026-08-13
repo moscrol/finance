@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from datetime import date, timedelta
 from pathlib import Path
@@ -56,6 +57,88 @@ def _known_trading_days(db_path: str | Path | None) -> list[date]:
     finally:
         connection.close()
     return [date.fromisoformat(str(row[0])) for row in rows]
+
+
+# 只认带年份的完整写法。无年份写法（7.25 / 7月25日）的年份归属已由
+# query_understanding.market_review_requested_date 处理，但该模块 import 本层的
+# 反方向（query_understanding → task_frame → 本模块），这里不能回头引用；
+# 无年份日期直接放过（返回 None），宁可少判也不猜年份。
+_FULL_DATE_RE = re.compile(
+    r"(20\d{2})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]?\s*(\d{1,2})\s*日?"
+)
+
+
+def previous_scheduled_trading_day(value: date) -> date | None:
+    """按周末 + 交易所公告休市表向前找最近交易日；年份不在表内 fail closed。"""
+
+    candidate = value - timedelta(days=1)
+    for _ in range(20):
+        closures = _SSE_CLOSURES.get(candidate.year)
+        if closures is None:
+            return None
+        if candidate.weekday() < 5 and candidate not in closures:
+            return candidate
+        candidate -= timedelta(days=1)
+    return None
+
+
+def non_trading_day_note(value: date) -> str | None:
+    """该日确定性休市时返回一句可直接引用的事实，交易日/无法判定返回 None。
+
+    周末判定不依赖休市表（任何年份成立）；工作日只有当年休市表存在且命中
+    才判休市——表外年份的工作日无法证明休市，fail closed 返回 None，
+    宁可漏报也不把交易日说成休市。
+    """
+
+    weekday = value.weekday()
+    if weekday == 5:
+        reason = "周六"
+    elif weekday == 6:
+        reason = "周日"
+    else:
+        closures = _SSE_CLOSURES.get(value.year)
+        if closures is None or value not in closures:
+            return None
+        reason = "交易所公告休市日"
+    previous = previous_scheduled_trading_day(value)
+    # 「回答时应先说明休市」与「引用行情须标注实际日期」写进事实本身：
+    # R16-C1 生产实测，模型拿到假设后用对了前一交易日的数据，却把它说成
+    # 「当日收跌」——日期归属含糊比不答更误导。前提字段带上归属要求后，
+    # 模型无须猜「这条事实要不要转述」。
+    if previous is not None:
+        return (
+            f"{value.isoformat()} 为{reason}，A股休市，该日无行情数据；"
+            f"回答须先说明该日休市，如引用行情须明确标注为前一交易日 "
+            f"{previous.isoformat()} 的数据，不得称为当日行情"
+        )
+    return (
+        f"{value.isoformat()} 为{reason}，A股休市，该日无行情数据；"
+        "回答须先说明该日休市"
+    )
+
+
+def question_non_trading_note(question: str) -> str | None:
+    """问题里出现的第一个「确定性休市日」的事实说明；没有则 None。
+
+    生产形状（2026-08-13 R15-C1/C2）：「2026-07-25 市场怎么样」（周六）与
+    「2026-02-17 涨停家数多少」（春节休市）都走完了整条研究链，烧几十秒后
+    答「证据不足」——而「这天休市」是纯日历事实，一行代码就能判定。
+    判定结果作为 task frame 假设注入，模型据此直接回答，不再盲查。
+    """
+
+    for match in _FULL_DATE_RE.finditer(str(question or "")):
+        try:
+            value = date(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            )
+        except ValueError:
+            continue
+        note = non_trading_day_note(value)
+        if note is not None:
+            return note
+    return None
 
 
 def next_trading_day(

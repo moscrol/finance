@@ -1015,6 +1015,75 @@ def add_record_correction_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_record_correction)
 
 
+def add_memory_status_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "memory-status",
+        help="记忆退出机制：归档/撤销/恢复一条核心判断或纠偏（追加状态行，不改历史；归档后不再被召回）",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument(
+        "--ledger", required=True, choices=("judgments", "corrections"),
+        help="目标台账：judgments（核心判断）或 corrections（纠偏）",
+    )
+    parser.add_argument("--target-ts", required=True, help="目标记录的 ts（原样精确匹配）")
+    parser.add_argument(
+        "--status", required=True, choices=("archived", "rejected", "reinstated"),
+        help="archived=过时归档 / rejected=错记撤销 / reinstated=恢复召回",
+    )
+    parser.add_argument("--reason", default="", help="归档/撤销理由（留审计链，建议填）")
+    parser.add_argument("--ledger-file", default=None, help="覆盖台账文件路径（测试用）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_memory_status)
+
+
+def cmd_memory_status(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import memory_status
+
+    if args.ledger_file:
+        path = args.ledger_file
+    else:
+        us = userspace.user_space(args.user)
+        path = us.judgments_path if args.ledger == "judgments" else us.corrections_path
+    ledger_path = Path(path).expanduser()
+    if not ledger_path.exists():
+        print(f"台账不存在：{ledger_path}", file=sys.stderr)
+        return 2
+    # 目标必须真实存在：状态行指向不存在的 ts 只会制造悬空审计链
+    target = str(args.target_ts).strip()
+    found = False
+    for line in ledger_path.read_text(encoding="utf-8").splitlines():
+        try:
+            rec = _json.loads(line)
+        except Exception:
+            continue
+        if (
+            isinstance(rec, dict)
+            and not memory_status.is_status_record(rec)
+            and str(rec.get("ts") or "").strip() == target
+        ):
+            found = True
+            break
+    if not found:
+        print(f"目标记录不存在：ts={target}（先用台账文件核对 ts）", file=sys.stderr)
+        return 2
+    _, record = memory_status.record_status(
+        ledger_path,
+        target_ts=target,
+        status=args.status,
+        reason=args.reason,
+    )
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        verb = {"archived": "已归档", "rejected": "已撤销", "reinstated": "已恢复"}[args.status]
+        print(f"{verb} {args.ledger} 记录 ts={target} → {ledger_path}")
+        print("历史行未改动（追加式状态覆盖）；归档/撤销的记录不再进入 [M] 召回与 foresight 注入。")
+    return 0
+
+
 def add_migrate_workbench_store_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "migrate-workbench-store",
@@ -2130,6 +2199,51 @@ def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
     p_deb.add_argument("--no-save", action="store_true", help="不写 debates.jsonl（仅打印报告）")
     p_deb.set_defaults(func=cmd_perspective_debate)
 
+    p_ext = sub.add_parser(
+        "extract-cards",
+        help="学习闭环第一步（P1）：LLM 把已 ingest 的文章逐篇抽成结构化认知卡片"
+        "（claims/推理步骤/风险提示/画像候选，含引文逐字核验）；"
+        "需配置 LLM key，失败时明确报错、不写半成品",
+    )
+    p_ext.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_ext.add_argument("--perspective", required=True, help="角色 id")
+    p_ext.add_argument("--article-id", default=None, help="只抽这一篇（形如 pa-xxxx；默认抽所有未抽的）")
+    p_ext.add_argument("--limit", type=int, default=None, help="本次最多抽几篇（控制 LLM 调用量）")
+    p_ext.add_argument("--force", action="store_true", help="已有卡片也重抽（覆盖）")
+    p_ext.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_ext.set_defaults(func=cmd_perspective_extract_cards)
+
+    p_pp = sub.add_parser(
+        "propose-patches",
+        help="学习闭环第二步（P1）：聚合认知卡片里引文核验通过的画像候选 → pending patch"
+        "（确定性聚合，不调 LLM、不自动改画像；同一候选幂等）",
+    )
+    p_pp.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_pp.add_argument("--perspective", required=True, help="角色 id")
+    p_pp.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_pp.set_defaults(func=cmd_perspective_propose_patches)
+
+    p_pl = sub.add_parser("patches", help="查看画像 patch 候选（pending/approved/rejected）")
+    p_pl.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_pl.add_argument("--perspective", required=True, help="角色 id")
+    p_pl.add_argument("--status", default=None, choices=["pending", "approved", "rejected"], help="按状态过滤")
+    p_pl.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_pl.set_defaults(func=cmd_perspective_list_patches)
+
+    p_rv = sub.add_parser(
+        "review-patch",
+        help="学习闭环第三步（P1）：人工确认 patch。--approve 写入画像并在 patch_history 留溯源；"
+        "--reject 只改状态。LLM 候选不经这步永远进不了画像",
+    )
+    p_rv.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_rv.add_argument("--perspective", required=True, help="角色 id")
+    p_rv.add_argument("--patch-id", required=True, help="patch id（形如 pp-xxxx）")
+    decision = p_rv.add_mutually_exclusive_group(required=True)
+    decision.add_argument("--approve", action="store_true", help="确认写入画像")
+    decision.add_argument("--reject", action="store_true", help="拒绝该候选")
+    p_rv.add_argument("--note", default="", help="评审备注（可选）")
+    p_rv.set_defaults(func=cmd_perspective_review_patch)
+
     p_fw = sub.add_parser(
         "framework-daily",
         help="框架解读步（P1）：按 user_framework 画像解读当日 daily-review 硬数据，"
@@ -2259,6 +2373,124 @@ def cmd_perspective_debate(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(report, end="")
+    return 0
+
+
+def cmd_perspective_extract_cards(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        summary = perspective_learning.extract_cards(
+            us,
+            args.perspective,
+            article_id=args.article_id,
+            limit=args.limit,
+            force=args.force,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"[卡片抽取] {summary['perspective_id']}：文章 {summary['articles']} 篇，"
+            f"本次抽取 {len(summary['extracted'])}，已有跳过 {len(summary['skipped_existing'])}，"
+            f"失败 {len(summary['failed'])}"
+        )
+        for item in summary["failed"]:
+            print(f"  ✗ {item['article_id']}：{item['reason']}")
+        if summary["extracted"]:
+            print(
+                f"  下一步：`perspective propose-patches --user {us.user_id} "
+                f"--perspective {summary['perspective_id']}` 聚合画像候选"
+            )
+    return 1 if summary["failed"] else 0
+
+
+def cmd_perspective_propose_patches(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        summary = perspective_learning.propose_patches(us, args.perspective)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"[patch 聚合] {summary['perspective_id']}：候选 {summary['candidates']} 条，"
+            f"新建 pending {len(summary['created'])}，画像已有跳过 "
+            f"{len(summary['skipped_already_in_profile'])}，已有 patch 跳过 "
+            f"{len(summary['skipped_existing_patch'])}"
+        )
+        if summary["created"]:
+            print(
+                f"  下一步：`perspective patches --user {us.user_id} --perspective "
+                f"{summary['perspective_id']} --status pending` 查看后逐条 review-patch"
+            )
+    return 0
+
+
+def cmd_perspective_list_patches(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        patches = perspective_learning.list_patches(us, args.perspective, status=args.status)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(patches, ensure_ascii=False, indent=2))
+        return 0
+    if not patches:
+        print("无 patch" + (f"（状态 {args.status}）" if args.status else ""))
+        return 0
+    for patch in patches:
+        print(
+            f"[{patch.get('status')}] {patch.get('patch_id')} · {patch.get('field')} · "
+            f"{patch.get('value')}（{patch.get('supporting_article_count')} 篇支持）"
+        )
+        for ev in patch.get("evidence") or []:
+            quote = str(ev.get("quote") or "")
+            print(f"    ↳ {ev.get('date')} {ev.get('title')}：「{quote}」")
+    return 0
+
+
+def cmd_perspective_review_patch(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        patch = perspective_learning.review_patch(
+            us,
+            args.perspective,
+            args.patch_id,
+            approve=args.approve,
+            note=args.note,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if patch["status"] == "approved":
+        applied = "已写入画像" if patch.get("applied") else "画像已有同义条目，未重复写入"
+        print(f"已确认 {patch['patch_id']}：{patch['field']} ← {patch['value']}（{applied}）")
+    else:
+        print(f"已拒绝 {patch['patch_id']}")
     return 0
 
 
@@ -2794,6 +3026,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_prime_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
+    add_memory_status_parser(subparsers)
     add_refresh_profile_parser(subparsers)
     add_migrate_workbench_store_parser(subparsers)
     add_adapter_smoke_parser(subparsers)

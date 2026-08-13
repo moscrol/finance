@@ -4379,3 +4379,107 @@ def test_canary_handles_only_with_matching_environment_and_identifier(
     assert adapter.canary_id == "candidate-sha"
     assert handled.handled is True
     assert handled.answer == "请确认市场。"
+
+
+# --- 休市事实的确定性披露（R16/R18 生产形状） -------------------------------
+
+
+def _calendar_frame(assumptions: tuple[str, ...]) -> TaskFrame:
+    return replace(
+        _frame(required_outputs=("direct_assessment",)),
+        raw_question="2026-07-25 市场怎么样",
+        assumptions=assumptions,
+    )
+
+
+def test_calendar_disclosure_is_prepended_deterministically() -> None:
+    """R16/R18 两轮：假设注入到位、文案带转述要求，模型仍不说休市。
+
+    披露义务不能交给模型自觉；交付层读 frame 假设里的休市事实并前置。
+    """
+
+    frame = _calendar_frame(
+        (
+            "用户未明确市场范围，按A股市场理解",
+            "2026-07-25 为周六，A股休市，该日无行情数据；"
+            "回答须先说明该日休市，如引用行情须明确标注为前一交易日 "
+            "2026-07-24 的数据，不得称为当日行情",
+        )
+    )
+
+    answer = adapter_module._with_calendar_disclosure(
+        "成交额19352.8亿元，环比减少11.83%。",
+        frame,
+    )
+
+    assert answer.startswith("2026-07-25 为周六，A股休市，该日无行情数据。")
+    assert "成交额19352.8亿元" in answer
+    # 只前置纯事实子句，指令性文案不进公开答案。
+    assert "回答须先说明" not in answer
+
+
+def test_calendar_disclosure_skips_when_answer_already_states_it() -> None:
+    frame = _calendar_frame(
+        ("2026-07-25 为周六，A股休市，该日无行情数据",)
+    )
+
+    answer = adapter_module._with_calendar_disclosure(
+        "2026-07-25 为周六休市，以下为 07-24 的行情。",
+        frame,
+    )
+
+    assert answer.count("休市") == 1
+
+
+def test_calendar_disclosure_leaves_plain_frames_and_empty_answers_alone() -> None:
+    plain = _calendar_frame(("用户未明确市场范围，按A股市场理解",))
+    assert (
+        adapter_module._with_calendar_disclosure("正常答案。", plain) == "正常答案。"
+    )
+
+    noted = _calendar_frame(("2026-07-25 为周六，A股休市，该日无行情数据",))
+    assert adapter_module._with_calendar_disclosure("", noted) == ""
+
+
+def test_open_gap_labels_project_unfulfilled_required_descriptions() -> None:
+    """缺口镜像的源头口径：契约必需输出里没被满足的描述，最多 3 条。
+
+    描述文本与公开降级声明（「仍需核验：…」）同一来源，因此不需要
+    再脱敏；非必需输出与空描述不进镜像。
+    """
+    from intelligence.services.research_contract import (
+        RequiredOutput,
+        ResearchTaskContract,
+    )
+
+    contract = ResearchTaskContract(
+        task_id="t-gap",
+        question="q",
+        subject="液冷",
+        subject_kind="theme",
+        question_type="theme_analysis",
+        required_outputs=(
+            RequiredOutput(output_id="a", description="主线判断依据"),
+            RequiredOutput(output_id="b", description="失效条件"),
+            RequiredOutput(output_id="c", description="", required=True),
+            RequiredOutput(output_id="d", description="选读背景", required=False),
+            RequiredOutput(output_id="e", description="反方证据"),
+            RequiredOutput(output_id="f", description="资金流向"),
+        ),
+        allowed_capabilities=(),
+    )
+
+    labels = adapter_module._open_gap_labels(
+        contract,
+        fulfilled_output_ids=frozenset({"a"}),
+    )
+
+    # b/e/f 未满足且必需且有描述；c 空描述、d 非必需不进；上限 3。
+    assert labels == ("失效条件", "反方证据", "资金流向")
+    assert adapter_module._open_gap_labels(
+        None, fulfilled_output_ids=frozenset()
+    ) == ()
+    assert adapter_module._open_gap_labels(
+        contract,
+        fulfilled_output_ids=frozenset({"a", "b", "e", "f"}),
+    ) == ()

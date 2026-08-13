@@ -22,6 +22,24 @@ def test_clamp_plan_intersects_whitelist_and_unions_mandatory():
     assert providers == ("D9", "M", "V", "D5")
 
 
+def test_clamp_plan_perspective_unions_market_blocks():
+    providers = retrieval_planner.clamp_plan([], "general", perspective_active=True)
+    for name in retrieval_planner.PERSPECTIVE_MANDATORY:
+        assert name in providers
+    # 非视角模式不受影响
+    baseline = retrieval_planner.clamp_plan([], "general")
+    assert "MARKET_DAILY" not in baseline
+    assert "D6" not in baseline
+
+
+def test_mandatory_for_perspective_keeps_question_type_blocks():
+    providers = retrieval_planner.mandatory_for(
+        "valuation", perspective_active=True
+    )
+    assert "D5" in providers  # 问题类型必选块不丢
+    assert "MARKET_DAILY" in providers and "D4" in providers and "D6" in providers
+
+
 def test_clamp_plan_market_review_mandatory():
     providers = retrieval_planner.clamp_plan([], "market_review")
     assert providers == ("M", "V", "D4")

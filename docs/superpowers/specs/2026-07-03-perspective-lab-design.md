@@ -854,8 +854,12 @@ P2 目标：让角色视角可回测、可排名、可修正。
      candidate，用户确认后写入 user_framework profile，每次 ask/debate 默认加载；
   2. 再做博主文章框架抽取：ingest 时按 7.3 字段抽取单篇结构化卡片（事实/阶段判断/
      关注与忽略的变量/核心判断/依赖条件/证伪条件），LLM 聚合出 profile candidate；
+     ——**已实现（2026-08-13）**：`perspective_learning.py` 的 `extract-cards`（LLM
+     可注入、失败不落半成品、引文逐字核验）+ `propose-patches`（确定性聚合，幂等）；
   3. candidate 只入 patch-review 流，人工确认后才写 profile（与 13.3 的自动修正
      共用同一确认机制），绝不自动当真；
+     ——**已实现（2026-08-13）**：`review-patch --approve/--reject`，approve 写
+     profile 并落 `patch_history` 溯源，rejected 不会被重新 propose；
   4. debate 默认结构改为「主框架先解释 → 外部角色 challenge/supplement → 裁判按
      user_framework 的结论格式落结论与证伪」；
   5. AskOptions 增加 perspective 字段，compose 注入 perspective context，加 review gate。

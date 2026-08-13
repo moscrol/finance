@@ -82,6 +82,35 @@ def _send(
     return created, _wait_terminal(client, created["run_id"])
 
 
+def _wait_message_terminal(
+    client: TestClient,
+    conversation_id: str,
+    *,
+    timeout: float = 10.0,
+) -> list[dict[str, object]]:
+    """轮询到**消息自身**终态再返回，不能只看 run 状态。
+
+    run 终态（claim_terminal_run）和消息终稿（revise_message）是两次文件写：
+    读者以 run 状态为信号立刻读消息，会命中「run=completed 但消息还没带
+    citations」的窗口。消息的 status 与 citations 在同一次写入里原子落盘，
+    所以消息级断言必须等消息级终态。
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        messages = client.get(
+            f"/api/conversations/{conversation_id}/messages",
+            params={"user": "alice"},
+        ).json()
+        if messages and messages[-1]["status"] in {
+            "completed",
+            "failed",
+            "cancelled",
+        }:
+            return messages
+        time.sleep(0.02)
+    raise AssertionError(f"conversation {conversation_id} 消息未在 {timeout} 秒内终态")
+
+
 def _stream_payloads(response_text: str) -> list[dict[str, object]]:
     return [
         json.loads(line.removeprefix("data: "))
@@ -303,10 +332,7 @@ def test_continuous_episode_citations_survive_run_context_reload(
         )
 
         assert run["status"] == "completed"
-        messages = client.get(
-            f"/api/conversations/{conversation_id}/messages",
-            params={"user": "alice"},
-        ).json()
+        messages = _wait_message_terminal(client, conversation_id)
         assert len(messages[-1]["citations"]) == 1
 
         context = client.get(
@@ -321,6 +347,171 @@ def test_continuous_episode_citations_survive_run_context_reload(
         assert [item["label"] for item in bound_evidence] == [
             "[E1] 本地市场数据"
         ]
+
+
+def test_open_gaps_mirror_into_message_followups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """缺口镜像端到端：episode 报缺口 → 消息带「缺口补齐」追问 + artifact。
+
+    R15 knevo 对照 9:2:0 的失分形状：降级声明把缺口变成句号，追问负担全在
+    用户。缺口必须镜像成可点击的下一步（knevo q12 的 suggest_options 形状），
+    且确定性生成——模型没机会顺嘴编数据。
+    """
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class GapAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="degraded",
+                answer="关于当前主线，现有证据不足，暂不能给出可靠结论。仍需核验：主线判断依据、失效条件。",
+                as_of="2026-07-24",
+                citations=(),
+                warnings=("证据或语义核验未完全通过，已按证据边界降级。",),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+                llm_provider="test",
+                open_gaps=("主线判断依据", "失效条件"),
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: GapAdapter(),
+    )
+
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "缺口镜像", "user": "alice"},
+        ).json()["conversation_id"]
+        created, run = _send(
+            client,
+            conversation_id,
+            "目前市场的主线是什么，给出判断依据和失效条件",
+        )
+
+        assert run["status"] == "completed"
+        messages = _wait_message_terminal(client, conversation_id)
+        followups = messages[-1]["followups"]
+        assert len(followups) == 2
+        assert all(item["type"] == "gap" for item in followups)
+        assert all(item["type_label"] == "缺口补齐" for item in followups)
+        assert "主线判断依据" in followups[0]["full_prompt"]
+        assert all(len(item["label"]) <= 20 for item in followups)
+        # full_prompt 是替用户写好的完整问题，直接可发。
+        assert all(item["full_prompt"].strip() for item in followups)
+
+        # artifact 端点是最终一致的旁路（#321 写序：消息终稿先于 artifact
+        # 落盘，run=completed 不保证 followups.json 已写完），按其语义轮询。
+        # 消息里的 followups 才是交付主通道，上面已即时断言。
+        deadline = time.monotonic() + 5.0
+        document: dict[str, object] = {"followups": []}
+        while time.monotonic() < deadline:
+            document = client.get(
+                f"/api/runs/{created['run_id']}/followups",
+                params={"user": "alice"},
+            ).json()
+            if document.get("followups"):
+                break
+            time.sleep(0.02)
+        assert len(document["followups"]) == 2
+        assert document["llm_used"] is False
+
+
+def test_terminal_claim_and_message_revise_are_adjacent_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """钉死写序：run 终态 claim 之后、消息终稿之前，不得插入 artifact 落盘。
+
+    2026-08-13 定位的竞态：claim 先把 run=completed 落盘，随后三份 artifact
+    （含 MB 级 json.dumps）再落盘，最后才 revise 消息。轮询方以 run 状态为
+    信号读消息，几百毫秒窗口内读到零 citations——全量测试负载下
+    citations_survive_run_context_reload 就是这么红的。claim 必须先行
+    （终态线性化，防与取消赛跑），所以修法是把消息终稿挪到 claim 紧后。
+    顺序断言即产品属性：窗口宽度 = claim 与 revise 之间的写盘次数。
+    """
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
+
+    class CitationAdapter:
+        def handle(self, **_kwargs: object) -> ContinuousTurnResult:
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="当前主线是半导体，失效条件是量能与核心股承接同步转弱。",
+                as_of="2026-07-24",
+                citations=(
+                    {
+                        "title": "半导体板块成交集中度居前",
+                        "source": "本地市场数据",
+                        "date": "2026-07-24",
+                    },
+                ),
+                warnings=(),
+                private_artifact={"runtime_backend": "test_episode"},
+                events=(),
+                llm_provider="test",
+            )
+
+    monkeypatch.setattr(
+        app_module,
+        "_build_continuous_turn_adapter",
+        lambda **_kwargs: CitationAdapter(),
+    )
+
+    ops: list[str] = []
+    original_claim = RunStore.claim_terminal_run
+    original_artifact = RunStore.add_artifact
+    original_revise = ConversationStore.revise_message
+
+    def spy_claim(self, *args, **kwargs):
+        ops.append("claim")
+        return original_claim(self, *args, **kwargs)
+
+    def spy_artifact(self, *args, **kwargs):
+        ops.append("artifact")
+        return original_artifact(self, *args, **kwargs)
+
+    def spy_revise(self, *args, **kwargs):
+        ops.append("revise")
+        return original_revise(self, *args, **kwargs)
+
+    monkeypatch.setattr(RunStore, "claim_terminal_run", spy_claim)
+    monkeypatch.setattr(RunStore, "add_artifact", spy_artifact)
+    monkeypatch.setattr(ConversationStore, "revise_message", spy_revise)
+
+    with TestClient(create_app(repo_root=repo_root)) as client:
+        conversation_id = client.post(
+            "/api/conversations",
+            json={"title": "写序回归", "user": "alice"},
+        ).json()["conversation_id"]
+        _, run = _send(
+            client,
+            conversation_id,
+            "目前市场的主线是什么，给出判断依据和失效条件",
+        )
+
+    assert run["status"] == "completed"
+    assert "claim" in ops and "revise" in ops
+    claim_at = ops.index("claim")
+    revise_after_claim = next(
+        (i for i in range(claim_at + 1, len(ops)) if ops[i] == "revise"),
+        None,
+    )
+    assert revise_after_claim is not None, f"claim 后没有消息终稿：{ops}"
+    between = ops[claim_at + 1 : revise_after_claim]
+    assert "artifact" not in between, (
+        f"run 终态与消息终稿之间插入了 artifact 落盘，竞态窗口回宽：{ops}"
+    )
 
 
 @dataclass

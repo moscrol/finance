@@ -113,11 +113,71 @@ def parse_midterm_intent(query: str) -> MidtermIntent | None:
     return MidtermIntent(window=DEFAULT_WINDOW)
 
 
+def midterm_intent_for(
+    query: str,
+    *,
+    perspective_active: bool = False,
+) -> MidtermIntent | None:
+    """D6 门控入口：词面意图优先；视角模式下意图缺失回退默认窗口。
+
+    KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法（"站在X视角看
+    AI应用/地产"）往往不带中期意图词。实测失败形状（2026-08-13）：D6 被词面门
+    拦下 → 视角对着空判断"该方向无盘面信号"，与库内双红数据直接矛盾。
+    ``perspective_active=False`` 时行为与 :func:`parse_midterm_intent` 逐字节一致。
+    """
+    intent = parse_midterm_intent(query)
+    if intent is None and perspective_active:
+        return MidtermIntent(window=DEFAULT_WINDOW)
+    return intent
+
+
+# 宽松匹配轮的问句停用词：问法本身的功能词，不是题材内容词。
+# 失败形状（2026-08-13 质检实测）：「分析今天的行情，AI硬件、地产这些方向怎么看」
+# 里的「分析」「行情」「方向」以前后缀片段身份误命中「行业分析」「行情预测」
+# 「方向龙头」类板块名，把真正的内容词题材（房地产）挤出 limit。
+# 只作用于宽松轮：精确匹配仍在完整 query 上跑，名字里真含这些词的板块
+# （如「行业分析」被用户逐字点名）不受影响。
+_LOOSE_MATCH_STOPWORDS = (
+    "怎么看", "怎么样", "怎么办",
+    "分析", "行情", "方向", "板块", "题材", "市场", "走势", "研判", "复盘",
+    "今天", "明天", "昨天", "近期", "最近", "未来",
+    "这些", "那些", "怎么", "如何", "对比", "比较", "看看", "关注",
+    "中期", "短期", "长期", "赔率", "配置", "机会", "风险", "价值",
+)
+
+
+def _strip_loose_stopwords(text: str) -> str:
+    """把问句功能词打掉（等长占位，防止拼接出新片段），只喂内容词给宽松轮。"""
+    for word in _LOOSE_MATCH_STOPWORDS:
+        text = text.replace(word, "□" * len(word))
+    return text
+
+
+def _anchored_fragment(name: str, text: str) -> str | None:
+    """query 片段以前缀/后缀方式命中板块名时返回该片段，否则 None。
+
+    约束（防误匹配）：片段 ≥2 字，且必须覆盖板块名至少一半长度，并锚定在
+    名字的开头或结尾。例：query「地产」命中「房地产」（后缀，2/3），但
+    命不中「地下管网」（无该片段）也命不中「土地产权」（片段在中间）。
+    """
+    for k in range(len(name) - 1, 1, -1):
+        if 2 * k < len(name):
+            break
+        for fragment in (name[:k], name[-k:]):
+            if fragment in text:
+                return fragment
+    return None
+
+
 def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None, limit: int = 4) -> list[str]:
     """从 query 里解析出要对比的题材（子串匹配 distinct sector_name，长名优先）。
 
     - 只做「板块表里已存在的题材名」子串匹配，天然把 query 收敛到可查口径；
     - 长名优先避免「数据要素」被「数据」抢先命中；
+    - 精确匹配填不满 limit 时做一轮**锚定宽松匹配**（见 _anchored_fragment）：
+      用户说「地产」而板块表只有「房地产」时不再漏空——2026-08-13 真链路实测
+      这个粒度错配让视角回答只能对地产写"无量价证据"；宽松轮先剥问句停用词
+      （_LOOSE_MATCH_STOPWORDS），防「分析/行情」误配「行业分析/行情预测」；
     - anchored_theme（上游锚定题材）兜底，保证至少有一个题材可查。
     """
     text = re.sub(r"\s+", "", str(query or ""))
@@ -136,6 +196,18 @@ def resolve_query_themes(con: Any, query: str, anchored_theme: str | None = None
             remaining = remaining.replace(name, "□")
         if len(hit) >= limit:
             break
+    if len(hit) < limit:
+        # 宽松轮不消耗 remaining：兄弟板块共享片段是合法结果（如「地产」
+        # 同时带出「房地产/商业地产」），limit 与长名优先保证确定性。
+        # 但要先剥掉问句停用词，防「分析/行情/方向」这类功能词误配板块名。
+        loose_text = _strip_loose_stopwords(remaining)
+        for name in names_sorted:
+            if len(hit) >= limit:
+                break
+            if name in hit:
+                continue
+            if _anchored_fragment(name, loose_text):
+                hit.append(name)
     if anchored_theme and anchored_theme not in hit:
         # 锚定题材放到末尾兜底（不抢占用户显式点名的题材顺序）。
         if any(anchored_theme in n or n in anchored_theme for n in names_sorted):

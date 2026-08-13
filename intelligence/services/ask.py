@@ -53,12 +53,14 @@ from intelligence.services import (
     llm_refine,
     market_analogs,
     market_financials,
+    market_regime_analogs,
     task_fulfillment,
     market_midterm,
     market_moneyflow,
     market_news,
     market_technical,
     market_timeseries,
+    perspective_lab,
     research_brief,
     retrieval_planner,
     generic_research_owner,
@@ -193,6 +195,17 @@ def _emit_progress(
         callback(stage, status, dict(detail or {}))
     except Exception:  # noqa: BLE001 - telemetry sink 必须 fail-open
         return
+
+
+def _perspective_active(options: "AskOptions") -> bool:
+    """本轮是否带 KOL 视角（single/compare 且至少选了一个视角）。
+
+    供 D6 门控放宽与检索 planner 的视角必选块共用同一判定，防两处各写一份漂移。
+    """
+    return (
+        options.perspective_mode != perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+        and bool(options.perspective_ids)
+    )
 
 
 def _unique_citation_sources(citations: list[Citation]) -> list[str]:
@@ -3681,7 +3694,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             and options.enabled_providers is None
         ):
             planner_plan = retrieval_planner.plan_retrieval(
-                options.query, question_plan.question_type,
+                options.query,
+                question_plan.question_type,
+                perspective_active=_perspective_active(options),
             )
             plan_applied = (
                 _planner_mode == retrieval_planner.MODE_LLM
@@ -3752,7 +3767,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         def _d6_applies() -> bool:
             if not evidence_registry.provider_enabled(options, "D6"):
                 return False
-            intent = market_midterm.parse_midterm_intent(options.query)
+            # 视角模式下放宽词面门控（回退逻辑与理由见 midterm_intent_for）。
+            intent = market_midterm.midterm_intent_for(
+                options.query, perspective_active=_perspective_active(options)
+            )
             if intent is None:
                 return False
             d6_intents.append(intent)
@@ -3806,6 +3824,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("D8", "历史类比检索", _d8_applies, _build_d8))
+
+        def _d10_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D10") and bool(
+                market_regime_analogs.parse_regime_intent(options.query)
+            )
+
+        def _build_d10():
+            block = market_regime_analogs.regime_block_for_llm(options.market_db_path)
+            return block, Citation(
+                "D10",
+                "本地 DuckDB 市场情绪环境类比数据块",
+                f"市场级情绪向量与当前 {market_regime_analogs.DEFAULT_WINDOW} 日环境最相似的历史窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D10", "市场情绪环境类比", _d10_applies, _build_d10))
 
         def _d7_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D7") and bool(

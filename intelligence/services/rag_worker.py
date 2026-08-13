@@ -21,6 +21,15 @@ class WorkerResponse:
     model_load_count: int = 0
 
 
+def _recovery_cooldown_seconds() -> float:
+    raw = os.environ.get("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return 60.0
+    return max(0.0, value)
+
+
 class PersistentRagWorker:
     def __init__(self, python: str, kb_root: Path, index_dir: Path) -> None:
         self.python = python
@@ -32,6 +41,20 @@ class PersistentRagWorker:
         self._state = "cold"
         self._last_error_type: str | None = None
         self._prewarm_latency_ms: int | None = None
+        # 自愈配方：prewarm 时记下 argv/timeout，查询失败后按同样的口径重生。
+        # 为什么不能靠「下次查询自然重启」：预热窗（240s）远大于查询窗（90s），
+        # 模型加载 ~145s，查询路径重启必然二次超时——failed 会一直卡住，
+        # readiness 永久红（2026-08-13 生产实测）。
+        self._recovery_argv: list[str] | None = None
+        self._recovery_timeout: float | None = None
+        self._recovery_thread: threading.Thread | None = None
+        # -inf 哨兵：monotonic() 从开机起算，用 0.0 会在开机不足一个冷却周期的
+        # 机器（CI 容器常见）上把首次自愈误判成「冷却中」。
+        self._last_recovery_at: float = float("-inf")
+        # 调度检查（单飞/冷却）自己的小锁：探针路径不持 self._lock 调进来，
+        # 与查询路径（持 self._lock）并发时 check-then-spawn 不能撕开。
+        self._schedule_lock = threading.Lock()
+        self._closed = False
 
     def query(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
@@ -39,6 +62,7 @@ class PersistentRagWorker:
                 response = self._query_locked(argv, timeout)
             except Exception as exc:
                 self._mark_failed(exc)
+                self._schedule_recovery()
                 raise
             if response.returncode == 0 and response.model_load_count > 0:
                 self._state = "ready"
@@ -47,6 +71,8 @@ class PersistentRagWorker:
 
     def prewarm(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
+            self._recovery_argv = list(argv)
+            self._recovery_timeout = float(timeout)
             self._state = "warming"
             self._last_error_type = None
             started = time.monotonic()
@@ -80,6 +106,10 @@ class PersistentRagWorker:
         return self._process is not None and self._process.poll() is None
 
     def close(self) -> None:
+        self._closed = True
+        # 先无锁杀一次：恢复线程可能正持锁阻塞在预热的 select 里（上限=预热窗）。
+        # 杀掉子进程会让它立刻读到 EOF 抛错并释放锁，否则这里要等满整个预热窗。
+        self._stop_process()
         with self._lock:
             self._stop_process()
 
@@ -160,6 +190,63 @@ class PersistentRagWorker:
         self._last_error_type = type(exc).__name__
         self._stop_process()
 
+    def ensure_recovery_if_dead(self) -> None:
+        """探针侧自愈入口：进程死了且没在预热，就按配方调度重生。
+
+        查询失败式入口（``query()`` 异常路径）覆盖不了的形状（2026-08-13
+        R23 注入实测）：进程被外部杀死/自己崩掉后，若后续查询全带 filters
+        （``kb_rag`` 分层检索走 CLI 不经 worker），查询入口永远不会被踩到，
+        readiness 永久红、只能人工 kickstart。本入口挂在 readiness 探针上，
+        不依赖查询流量；单飞与冷却仍由 ``_schedule_recovery`` 统一把关，
+        探针轮询不会打出重复预热。
+        """
+        if self.healthy():
+            return
+        if self._state == "warming":
+            # 启动预热或自愈预热正在进行（进程可能尚未 spawn），别叠一发。
+            return
+        self._schedule_recovery()
+
+    def _schedule_recovery(self) -> None:
+        """按预热配方后台重生（单飞 + 冷却，需求/探针驱动，不自我续期）。
+
+        触发口只有两个：查询失败（``query()`` 异常路径）与探针发现死进程
+        （``ensure_recovery_if_dead``）。不从 prewarm 失败触发：恢复本身失败
+        不再自我调度，否则索引真坏时会每个冷却周期烧一次 ~145s 的模型加载，
+        永不收敛——下一次查询失败或下一轮探针（过了冷却）才会再触发。
+        """
+        if self._closed:
+            return
+        if self._recovery_argv is None or self._recovery_timeout is None:
+            return
+        with self._schedule_lock:
+            if (
+                self._recovery_thread is not None
+                and self._recovery_thread.is_alive()
+            ):
+                return
+            now = time.monotonic()
+            if now - self._last_recovery_at < _recovery_cooldown_seconds():
+                return
+            self._last_recovery_at = now
+            thread = threading.Thread(
+                target=self._recover,
+                name="rag-worker-recovery",
+                daemon=True,
+            )
+            self._recovery_thread = thread
+            thread.start()
+
+    def _recover(self) -> None:
+        argv = self._recovery_argv
+        timeout = self._recovery_timeout
+        if argv is None or timeout is None or self._closed:
+            return
+        try:
+            self.prewarm(argv, timeout)
+        except Exception:  # noqa: BLE001 - 失败状态已由 prewarm 内部记账
+            return
+
     def _stop_process(self) -> None:
         process = self._process
         self._process = None
@@ -234,6 +321,21 @@ def record_startup_failure(exc: Exception) -> None:
     global _STARTUP_FAILURE_TYPE
     with _WORKERS_LOCK:
         _STARTUP_FAILURE_TYPE = type(exc).__name__
+
+
+def ensure_recovery() -> None:
+    """遍历已注册 worker，对死进程调度自愈（readiness 探针的写侧半步）。
+
+    刻意做成独立函数而不是塞进 ``status()``：status 是纯读探针，让每个
+    观察者都变成治疗者会把「读状态」和「改状态」搅在一起——测试断言
+    cold/failed 状态时会被隐式自愈拆台。readiness 端点显式调用本函数。
+    """
+    if not enabled():
+        return
+    with _WORKERS_LOCK:
+        workers = list(_WORKERS.values())
+    for worker in workers:
+        worker.ensure_recovery_if_dead()
 
 
 def close_all() -> None:

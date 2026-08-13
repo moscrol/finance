@@ -168,6 +168,10 @@ class AskOptions:
     # D8 历史类比检索块：仅当问题命中「类似/历史上/上一次/先例」意图时生成，从题材自身历史
     # 找与当前 N 日形态最相似的窗口及其后续 5/10/20 日实际走法，只列历史事实不给概率。
     include_analog_block: bool = True
+    # D10 市场情绪环境类比块：仅当问题同时命中「环境类词面（情绪/盘面/行情…）」与「类比类
+    # 词面（类似/对标/历史上…）」时生成——D8 管题材自身历史，D10 管市场级情绪环境对标；
+    # 每日情绪向量 z 标准化后滑窗找相似窗口，后续 5/10/20 日只列历史事实不给概率。
+    include_regime_block: bool = True
     # D7 逐季财报数据块：仅当问题命中「财报/业绩/营收/净利/毛利率」意图且能解析到目标股时生成，
     # 走东财免费 F10 取逐季营收/归母净利/毛利率/净利率（+同比），补业绩兑现节奏缺口。
     include_financials_block: bool = True
@@ -182,6 +186,9 @@ class AskOptions:
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
     # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
     include_scenario_guidance: bool = True
+    # 跟踪表达层（q8 契约回灌）：theme_track 类问题命中时注入「delta-only + 观点四态对照 +
+    # 结论 TTL + 下期关注清单」表达契约；非跟踪问题不注入，行为不变。
+    include_track_guidance: bool = True
     # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
     # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
     include_memory_block: bool = True

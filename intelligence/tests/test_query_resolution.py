@@ -20,7 +20,11 @@ def resolver(tmp_path: Path) -> QueryResolver:
                     "中际旭创": {
                         "codes": ["300308.SZ"],
                         "concepts": {"CPO": {}, "光模块": {}},
-                    }
+                    },
+                    "宁德时代": {
+                        "codes": ["300750.SZ"],
+                        "concepts": {"新能源": {}},
+                    },
                 }
             },
             ensure_ascii=False,
@@ -60,6 +64,91 @@ def test_resolver_matches_registered_theme_alias(resolver: QueryResolver) -> Non
     assert resolution.envelope.subject == "光模块"
     assert resolution.envelope.subject_kind == "theme"
     assert resolution.envelope.question_type == "theme_analysis"
+
+
+def test_theme_term_embedded_in_a_longer_name_is_not_stolen(
+    resolver: QueryResolver,
+) -> None:
+    """生产 R13-A3：「立新能源」是个股 001258，主题「新能源」不得从名字里抠出来。
+
+    实体锚定因 wiki 未登记落空后，旧的无边界子串匹配把问题偷进
+    theme_analysis / theme-research，零证据终局。国新能源、宝新能源、
+    华润新能源同形状。降级到 general QA 是可接受的失败，被偷走不是。
+    """
+
+    resolution = resolver.resolve("立新能源怎么看")
+
+    assert resolution.envelope.subject != "新能源"
+    assert resolution.envelope.subject_kind != "theme"
+    assert resolution.envelope.question_type != "theme_analysis"
+
+
+def test_bare_theme_term_still_matches(resolver: QueryResolver) -> None:
+    resolution = resolver.resolve("新能源怎么看")
+
+    assert resolution.envelope.subject == "新能源"
+    assert resolution.envelope.subject_kind == "theme"
+
+
+def test_theme_term_extended_to_the_right_still_matches(
+    resolver: QueryResolver,
+) -> None:
+    """右邻延伸（新能源汽车）是主题短语的形状，刻意不 veto。
+
+    更长的别名在词表里按长度降序先匹配；词表缺失时把它归到「新能源」
+    大体无害——与左邻嵌入（公司名后缀）不对称是设计决定。
+    """
+
+    resolution = resolver.resolve("新能源汽车板块怎么看")
+
+    assert resolution.envelope.subject == "新能源"
+    assert resolution.envelope.subject_kind == "theme"
+
+
+def test_punctuation_before_theme_term_is_a_clean_boundary(
+    resolver: QueryResolver,
+) -> None:
+    resolution = resolver.resolve("光伏、新能源怎么看")
+
+    assert resolution.envelope.subject == "新能源"
+    assert resolution.envelope.subject_kind == "theme"
+
+
+def test_unregistered_stock_routes_to_deep_dive_via_security_master(
+    resolver: QueryResolver,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R13-A3 完整闭环：wiki 未登记个股经证券名单锚定，路由 stock_deep_dive。
+
+    没有第二本词典时它最好也只是 general QA 泛答（#308 挡住了被主题偷走）；
+    有词典后应当正向锚定，盘面工具按个股查得到数据。
+    """
+
+    import duckdb
+
+    db_path = tmp_path / "securities.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            "create table fact_stock_daily("
+            "trade_date date, stock_ts_code varchar, stock_name varchar)"
+        )
+        con.execute(
+            "insert into fact_stock_daily values "
+            "('2026-07-23','001258.SZ','立新能源')"
+        )
+    finally:
+        con.close()
+    monkeypatch.setenv("ENTITY_ANCHOR_SECURITIES_DB", str(db_path))
+
+    resolution = resolver.resolve("立新能源怎么看")
+
+    assert resolution.anchor is not None
+    assert resolution.anchor.entity == "立新能源"
+    assert resolution.envelope.subject == "立新能源"
+    assert resolution.envelope.subject_kind == "company"
+    assert resolution.envelope.question_type == "stock_deep_dive"
 
 
 @pytest.mark.parametrize(
