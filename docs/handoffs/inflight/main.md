@@ -1,36 +1,33 @@
 # 在途交接 · main
 
-更新：2026-08-13 · #301 已合已切；RAG 已用 #302 热补丁恢复
+更新：2026-08-13 · 夜间循环三 PR 解冲突合并中（#302/#303/#304）
 
 ## 这个分支做什么
 
-生产基线。A3 冷启动已上线。
+生产基线。夜间按 part 修 bug，早上验收。
 
 ## 当前状态
 
-- 8792 = `09dacdea`（#301）+ **热补丁** `rag_query_worker.py`（#302，未合）。中转 terra。旧 runtime `bcd3b6ce64f7` 可回滚。
-- `/api/health/ready` = ready；`workers.rag.state=ready`，预热 166s。
-- 不要动 Mac 开发区。合 #302 后应干净蓝绿切，去掉热补丁。
+- 8792 = `09dacdea`（#301）+ RAG 热补丁。中转 terra。
+- #302 RAG worker、#303 A4 截断哈希已合入；#304 A1-R2 冷启动待合。
+- 不要动 Mac 开发区。
 
 ## 下一步
 
-1. 合 #302，干净蓝绿切 8792。
-2. A4：15 位哈希唯一前缀 → FORMAT；0/多匹配仍 INTEGRITY。
-3. A7/A10 核验预算、A5 日期错位、governor 升档——需评审。
-4. BUILD.md 候选：纠正层写收据、重试窗取当前权威、NULL 按业务语义、饿死看 stop_reason、lru_cache 勿包不可哈希加载参数。
+1. 合完三 PR 后干净蓝绿切 8792（去掉热补丁）。
+2. A5 日期错位：非本仓 bug；A7/A10、governor 升档是设计不是 bug。
 
 ## 未验证
 
-- 干净 #302 SHA 部署。A3 生产冒烟未跑（R12 在 8797）。
+- 合并后全量测试、生产冒烟。
 
 ## 踩过的坑
 
-- 饿死判据用 stop_reason，不用 trace。
-- 本地 GLM = Coding Plan URL；`ZHIPU_API_KEY` 走官方 429。
-- 切 8792 不要 `reset --hard`。旧 worker 活着时 health 仍绿，换进程才暴露 KB API 变了。
-- 预热同步，kickstart 后 2–3 分钟不监听。
+- 切 8792 不要 `reset --hard`。预热同步，kickstart 后 2–3 分钟不监听。
+- 饿死看 stop_reason；`model_finish` 不是饿死。
+- 三 PR 都改 inflight/main.md，顺序合必冲突——本文件以合并末态为准。
 
 ## 已验证
 
-- R12 冷启动点火；R7 超时重试生产通过；R8 A10 证据 0→3。
-- 热补丁后 8792 RAG ready。
+- 各 PR 单测：#302 11 passed；#303 18 passed；#304 筛选 10 passed。
+- 热补丁与 #302 文件逐字节一致；8792 RAG ready。
