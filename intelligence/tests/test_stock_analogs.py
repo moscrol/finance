@@ -174,6 +174,39 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertEqual(artifact.stock_code, "300001.SZ")
         self.assertEqual(artifact.stock_name, "英维克")
 
+    def test_strips_null_padded_vendor_names(self) -> None:
+        """生产库 code 路径曾打出「英维克\\x00\\x00」（CHAR 填充）。"""
+        import duckdb
+        from datetime import date, timedelta
+
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            con = duckdb.connect(str(db))
+            con.execute(
+                """
+                create table fact_stock_daily (
+                    trade_date date, stock_ts_code text, stock_name text,
+                    close double, pre_close double, pct_chg double,
+                    amount double, turnover double, source text, updated_at timestamp
+                )
+                """
+            )
+            base = date(2025, 1, 1)
+            padded = "英维克\x00\x00"
+            for i in range(200):
+                con.execute(
+                    "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [base + timedelta(days=i), "002837.SZ", padded, 10.0, 10.0, 0.5, 5.0, 2.0, "t", None],
+                )
+            con.close()
+            by_code = load_stock_analog_artifact("002837 类似历史走势", db)
+            by_name = load_stock_analog_artifact("英维克这段走势历史上有类似的吗", db)
+            block = stock_analog_block_for_llm("002837 类似历史走势", db)
+        self.assertEqual(by_code.stock_name, "英维克")
+        self.assertNotIn("\x00", by_code.stock_name or "")
+        self.assertEqual(by_name.stock_code, "002837.SZ")
+        self.assertNotIn("\x00", block)
+
     def test_short_history_declares_degrade_in_block(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"

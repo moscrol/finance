@@ -65,6 +65,11 @@ def parse_stock_analog_intent(query: str) -> bool:
     return any(term in text for term in _ANALOG_TERMS)
 
 
+def _clean_stock_text(value: Any) -> str:
+    """供应商名称/代码偶发 CHAR 填充（尾部 \\x00）；展示和子串匹配前先剥掉。"""
+    return str(value or "").replace("\x00", "").strip()
+
+
 @dataclass(frozen=True)
 class StockSignature:
     strong_days: int              # 窗口内涨幅 ≥5% 的天数
@@ -210,16 +215,20 @@ def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
         raw, suffix = code_match.group(1), code_match.group(2)
         if suffix:
             rows = con.execute(
-                "select stock_ts_code, stock_name from fact_stock_daily where stock_ts_code=? limit 1",
+                "select stock_ts_code, stock_name from fact_stock_daily "
+                "where stock_ts_code=? order by trade_date desc limit 1",
                 [f"{raw}.{suffix.upper()}"],
             ).fetchall()
         else:
             rows = con.execute(
-                "select stock_ts_code, stock_name from fact_stock_daily where stock_ts_code like ? limit 1",
+                "select stock_ts_code, stock_name from fact_stock_daily "
+                "where stock_ts_code like ? order by trade_date desc limit 1",
                 [f"{raw}.%"],
             ).fetchall()
         if rows:
-            return str(rows[0][0]), str(rows[0][1] or rows[0][0])
+            code = _clean_stock_text(rows[0][0])
+            name = _clean_stock_text(rows[0][1]) or code
+            return code, name
     rows = con.execute(
         """
         select stock_ts_code, any_value(stock_name)
@@ -230,7 +239,12 @@ def _resolve_stock(con: Any, query: str) -> tuple[str, str] | None:
         """
     ).fetchall()
     q = str(query or "")
-    matches = [(str(code), str(name)) for code, name in rows if str(name) and str(name) in q]
+    matches = []
+    for code, name in rows:
+        cleaned_name = _clean_stock_text(name)
+        cleaned_code = _clean_stock_text(code)
+        if cleaned_name and cleaned_name in q:
+            matches.append((cleaned_code, cleaned_name))
     if matches:
         matches.sort(key=lambda item: len(item[1]), reverse=True)
         return matches[0]
