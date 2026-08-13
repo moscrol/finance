@@ -43,7 +43,13 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
 - **Devin 远程场景必须 nohup 后台**：通过 Cloudflare 隧道跑 ≥ 100s 的命令一律
   `nohup python3 -u ... > /tmp/bf/<log>.log 2>&1 &`，然后轮询日志。
 - **agent-daily 是独立步骤**：不在 evolve_daily.sh 中，evolve 跑完后必须单独执行
-  `python3 -m intelligence.cli agent-daily --date D`，否则驾驶台缺 Agent 简报。
+  `python3 -m intelligence.cli agent-daily --date D`，否则驾驶台缺研究队列。
+  研究队列 `{D}-research-queue.json` 是 canonical；完整 `{D}-daily-agent.*` 仅在
+  fidelity 1.2 通过时落盘，缺它不阻断后续矩阵。
+  **夜跑 / `intelligence.cli daily` 默认 `--semantic-rag-top-n 0`**：分桶不读 wiki RAG，
+  避免索引超时拖死 20:40 生成段。手动深挖仍可显式传 `--semantic-rag-top-n 3`。
+  队列写出后会 `kb-queue-receive` 把 `{D}-kb-ingest-queue.json` 归档到知识库
+  `wiki/raw/cross-repo-ingest-queue/`；**只归档、不 apply、不改 relations**。
 
 ## Git 安全
 
@@ -113,7 +119,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
 | 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
 | 8 | 进化流水线 8步 | `bash scripts/evolve_daily.sh D` | 不加 --force 除非数据有缺口 |
-| 9 | Agent 每日简报 | `python3 -m intelligence.cli agent-daily --date D` | **不在 evolve 中，必须单独跑** |
+| 9 | 研究队列 | `python3 -m intelligence.cli agent-daily --date D`（夜跑带 `--semantic-rag-top-n 0`） | canonical `{D}-research-queue.*`；完整日报 best-effort |
+| 9b | 跨仓缺口归档 | `python3 -m intelligence.cli kb-queue-receive --date D` | 只 receive 到 wiki/raw；`auto_apply` 保持 false；不写 IMA/relations |
 | 10 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
 | 11 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
 | 12 | L3 补录（例行池+agent缺口） | `python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply` | **在 agent-daily 之后**；详见下方「L3 补录」节 |
@@ -122,7 +129,7 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 
 ## L3 补录（全量复盘后必做，两项）
 
-时点：全量同步 + 生成段 + evolve + **agent-daily 之后**（依赖 <D>-daily-agent.json）。
+时点：全量同步 + 生成段 + evolve + **agent-daily 之后**（依赖 <D>-research-queue.json，fallback daily-agent.json）。
 统一入口（例行池 + agent-daily 缺口一次跑完）：
 
 ```bash
@@ -139,9 +146,10 @@ python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply
 1. **每日巨潮/互动易例行扫描**：候选池 = `复盘/matrices/strategy1-priority-stock-matrix.md`
    全部代码；每只按交易所路由源：沪市 `cninfo,sse_einteract`、深市 `cninfo,irm_szse`、
    北交所仅 `cninfo`。默认近 3 天增量窗口。
-2. **agent-daily L3 缺口自动补**：从 `market_feature_store/exports/<D>-daily-agent.json`
-   的 `research_queue.today_find_official_evidence` / `today_do_ima` 及证据裁判
-   「重点验证/能力栈候选」目标中提取股票代码，并入本轮查询（纯题材名无代码的跳过）。
+2. **agent-daily L3 缺口自动补**：优先读 `market_feature_store/exports/<D>-research-queue.json`
+   （没有则 fallback `<D>-daily-agent.json`）的
+   `research_queue.today_find_official_evidence` / `today_do_ima`；完整 daily-agent
+   若存在，再并入证据裁判「重点验证/能力栈候选」目标中的股票代码（纯题材名无代码的跳过）。
 
 硬性闸门（不可越过）：
 

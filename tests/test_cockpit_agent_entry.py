@@ -52,6 +52,32 @@ class CockpitAgentEntryTest(unittest.TestCase):
             self.assertIn("Agent 简报", cards[0])
             self.assertIn("2026-06-11-daily-agent.html", cards[0])
 
+    def test_cockpit_daily_cards_prefer_research_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fupan = root / "复盘"
+            daily_root = fupan / "daily"
+            daily_dir = daily_root / "2026-08-13"
+            daily_dir.mkdir(parents=True)
+            (daily_dir / "2026-08-13-daily-review.html").write_text("review", encoding="utf-8")
+            (daily_dir / "2026-08-13-daily-agent.html").write_text("agent", encoding="utf-8")
+            (daily_dir / "2026-08-13-research-queue.html").write_text("queue", encoding="utf-8")
+
+            original_daily = render_cockpit.DAILY
+            original_out = render_cockpit.OUT_PATH
+            try:
+                render_cockpit.DAILY = daily_root
+                render_cockpit.OUT_PATH = fupan / "index.html"
+                cards = render_cockpit.daily_cards()
+            finally:
+                render_cockpit.DAILY = original_daily
+                render_cockpit.OUT_PATH = original_out
+
+            self.assertEqual(len(cards), 1)
+            self.assertIn("研究队列", cards[0])
+            self.assertIn("2026-08-13-research-queue.html", cards[0])
+            self.assertNotIn("Agent 简报", cards[0])
+
 
 if __name__ == "__main__":
     unittest.main()

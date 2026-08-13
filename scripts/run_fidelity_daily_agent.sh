@@ -91,11 +91,30 @@ done
 mv "${TMP_JSON}" "${EXPORTS}/${D}-theme-candidates.json"
 mv "${TMP_MD}" "${EXPORTS}/${D}-theme-candidates.md"
 
-exec /usr/bin/python3 -m intelligence.cli agent-daily \
+agent_rc=0
+/usr/bin/python3 -m intelligence.cli agent-daily \
   --date "${D}" \
   --finance-root "${DATA_ROOT}" \
   --kb-wiki "${KB_WIKI}" \
   --out-json "${DATA_ROOT}/market_feature_store/exports/${D}-daily-agent.json" \
   --out-md "${DATA_ROOT}/market_feature_store/exports/${D}-daily-agent.md" \
   --out-html "${DATA_ROOT}/复盘/daily/${D}/${D}-daily-agent.html" \
-  --summary-json "${DATA_ROOT}/market_feature_store/exports/${D}-daily-agent-summary.json"
+  --summary-json "${DATA_ROOT}/market_feature_store/exports/${D}-daily-agent-summary.json" \
+  --semantic-rag-top-n 0 \
+  || agent_rc=$?
+
+# 研究队列分桶不依赖 wiki RAG；归档缺口任务包到 wiki/raw，永不 apply。
+RECEIVE_SH="${CODE_ROOT}/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+if [ -x "${RECEIVE_SH}" ] || [ -f "${RECEIVE_SH}" ]; then
+  /bin/zsh "${RECEIVE_SH}" "${D}" "${DATA_ROOT}" "${KB_WIKI}" \
+    || echo "kb ingest receive 失败（不阻断）"
+else
+  RECV="$(dirname "${KB_WIKI}")/scripts/kb_ingest_queue.py"
+  QUEUE="${DATA_ROOT}/market_feature_store/exports/${D}-kb-ingest-queue.json"
+  if [ -f "${QUEUE}" ] && [ -f "${RECV}" ]; then
+    python3 "${RECV}" receive "${QUEUE}" --wiki-root "${KB_WIKI}" \
+      || echo "kb ingest receive 失败（不阻断）"
+  fi
+fi
+
+exit "${agent_rc}"

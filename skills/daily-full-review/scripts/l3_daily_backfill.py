@@ -4,8 +4,8 @@
 两个任务合一：
 1. 例行池：strategy1 优先个股矩阵全部代码，每日查巨潮公告 + 交易所互动
    （沪市 sse_einteract / 深市 irm_szse / 北交所仅 cninfo）。
-2. agent-daily 缺口：从 <date>-daily-agent.json 提取「找官方证据/重点验证/
-   能力栈候选」目标中的股票代码，并入本轮查询。
+2. agent-daily 缺口：从 <date>-research-queue.json（fallback daily-agent.json）提取「找官方证据/今日 IMA」
+   目标中的股票代码，并入本轮查询。完整 daily-agent 仅用于补充证据裁判「重点验证/能力栈候选」。
 
 产出只进审核队列：apply 默认 dry-run；加 --apply 才写 wiki，且永远不带
 --reviewed（review_required=true），不碰 relations/evidence_index、不提升图谱。
@@ -18,6 +18,12 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from intelligence.services.research_queue import extract_queue, load_research_queue  # noqa: E402
 
 CODE_RE = re.compile(r"\b(\d{6})\b")
 
@@ -32,22 +38,29 @@ def _matrix_codes(matrix_path: Path) -> list[str]:
     return list(seen)
 
 
-def _agent_gap_codes(agent_json: Path) -> list[str]:
-    if not agent_json.exists():
-        return []
-    report = json.loads(agent_json.read_text(encoding="utf-8"))
+def _agent_gap_codes(exports_dir: Path, date: str) -> list[str]:
+    _path, payload = load_research_queue(exports_dir, date=date)
     targets: list[str] = []
-    queue = report.get("research_queue") or {}
+    queue = extract_queue(payload) or {}
     for key in ("today_find_official_evidence", "today_do_ima"):
         for item in queue.get(key) or []:
-            targets.append(str(item.get("目标") or ""))
-    decision = report.get("decision") or {}
-    rows = decision.values() if isinstance(decision, dict) else []
-    for group in rows:
-        for row in group or []:
-            judgment = row.get("research_judgment") or {}
-            if judgment.get("证据状态") in {"重点验证", "能力栈候选"}:
-                targets.append(str(judgment.get("目标") or ""))
+            if isinstance(item, dict):
+                targets.append(str(item.get("目标") or ""))
+    agent_json = exports_dir / f"{date}-daily-agent.json"
+    if agent_json.exists():
+        try:
+            report = json.loads(agent_json.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            report = {}
+        decision = report.get("decision") or {}
+        rows = decision.values() if isinstance(decision, dict) else []
+        for group in rows:
+            for row in group or []:
+                if not isinstance(row, dict):
+                    continue
+                judgment = row.get("research_judgment") or {}
+                if judgment.get("证据状态") in {"重点验证", "能力栈候选"}:
+                    targets.append(str(judgment.get("目标") or ""))
     seen: dict[str, None] = {}
     for target in targets:
         for match in CODE_RE.finditer(target):
@@ -83,7 +96,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     pool = _matrix_codes(Path(args.matrix)) if args.matrix else []
-    gaps = _agent_gap_codes(Path(args.exports_dir) / f"{args.date}-daily-agent.json")
+    gaps = _agent_gap_codes(Path(args.exports_dir), args.date)
     codes = list(dict.fromkeys(pool + gaps))
     if not codes:
         print("没有候选代码（矩阵缺失且 agent-daily 无缺口目标），跳过。")

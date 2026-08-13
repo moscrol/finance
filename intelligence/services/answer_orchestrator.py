@@ -816,7 +816,7 @@ def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
             "外盘双源：先读 fupanhui /reviews/global-market 作为可对齐底座；若 source_trade_date 滞后或需要当晚美股收盘，用 web/finance search 补最新纳指、费半、SOXX/QQQ、AI硬件链和核心股涨跌幅",
             "策略一二三四方法论：把策略看成市场状态语言，而不是静态股票池标签",
             "daily-agent 策略候选：读取策略一/二/三/四生成的题材和个股候选，做策略组合优选与次日验证",
-            "forecast_preflight：读取 daily-agent research_queue，先检查旧逻辑唤醒 / 新逻辑候选 / DeepDive / L3 官方验证缺口；未通过时先让用户补材料并 ingest，再生成正式复盘",
+            "forecast_preflight：读取 research-queue，先检查旧逻辑唤醒 / 新逻辑候选 / DeepDive / L3 官方验证缺口；未通过时先让用户补材料并 ingest，再生成正式复盘",
             "hypothesis ledger：记录前瞻假设，盘后验证",
             *common,
         ]
@@ -1076,7 +1076,7 @@ def _missing_data_policy(question_type: str) -> list[str]:
         base.append("缺晚间卖方、晨汇或最新隔夜美股时，必须显式标记缺口并降低前瞻置信度")
         base.append("fupanhui 外盘若只返回昨日 source_trade_date，应用 web/finance search 补当晚美股涨跌幅")
         base.append("缺 daily-agent 策略候选时，可以基于策略底层方法论手工推演，但必须标注未读取候选池")
-        base.append("daily-agent research_queue 存在今日该做 IMA / 今日该找公告或调研时，先补 DeepDive / L3 证据并 ingest；未补前只能生成带缺口标记的草稿")
+        base.append("research-queue 存在今日该做 IMA / 今日该找公告或调研时，先补 DeepDive / L3 证据并 ingest；未补前只能生成带缺口标记的草稿")
     if question_type == QUESTION_MARKET_REVIEW:
         base.append("缺本地复盘报告或最新 DuckDB 市场总览时，不能伪装成最新交易日复盘")
         base.append("行业数据使用替代口径时，只判断方向，不把精确值表述为官方行业指数")

@@ -128,12 +128,15 @@ def daily_cards() -> list[str]:
         tags: list[tuple[str, str]] = []
         brief = d / f"{date}-market-triggered-theme-brief.html"
         cand = d / f"{date}-theme-candidates.html"
+        queue = d / f"{date}-research-queue.html"
         agent = d / f"{date}-daily-agent.html"
         if brief.exists():
             tags.append(("题材简报", rel(brief)))
         if cand.exists():
             tags.append(("题材候选", rel(cand)))
-        if agent.exists():
+        if queue.exists():
+            tags.append(("研究队列", rel(queue)))
+        elif agent.exists():
             tags.append(("Agent 简报", rel(agent)))
         head = f'<a class="c-date" href="{rel(review)}">{date}</a>'
         cards.append(card("Daily Review", head, "每日复盘 · 指数/情绪/行业/双红题材", tags))

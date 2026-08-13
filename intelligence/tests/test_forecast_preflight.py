@@ -78,8 +78,27 @@ class ForecastPreflightTests(unittest.TestCase):
         self.assertEqual(result["status"], STATUS_MISSING_DAILY_AGENT)
         self.assertFalse(result["can_generate_formal"])
         self.assertTrue(result["can_generate_draft"])
-        self.assertIn("未读取到 daily-agent", result["human_summary"])
-        self.assertIn("先生成或同步 daily-agent", result["next_steps"][0])
+        self.assertIn("未读取到研究队列", result["human_summary"])
+        self.assertIn("先生成或同步 research-queue", result["next_steps"][0])
+
+    def test_accepts_wrapped_research_queue_artifact(self) -> None:
+        artifact = {
+            "schema_version": "research-queue/v1",
+            "date": "2026-08-13",
+            "research_queue": {
+                "today_do_ima": [{"目标": "CXO", "优先级": 120, "缺失证据层": ["L1 叙事线索"]}],
+                "today_find_official_evidence": [],
+                "today_wait_market_validation": [],
+                "today_downgrade_or_watch": [],
+            },
+        }
+        result = build_forecast_preflight(
+            artifact,
+            source_artifact="2026-08-13-research-queue.json",
+        )
+        self.assertEqual(result["status"], STATUS_NEEDS_DEEPDIVE)
+        self.assertEqual(result["blocking_items"][0]["theme"], "CXO")
+        self.assertIn("2026-08-13-research-queue.json", result["prompt_block"])
 
 
 if __name__ == "__main__":

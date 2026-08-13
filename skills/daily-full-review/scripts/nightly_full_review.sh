@@ -103,6 +103,15 @@ run_generation_and_finalize() {
   python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
     --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
+
+  # 幂等兜底：20:05 fidelity 或 daily 步已写出的 kb-ingest-queue 归档进 wiki/raw。
+  # 只 receive，不 apply。daily 计划里也有同一步；重复跑按 payload hash 去重。
+  local RECEIVE_SH="$WORKSPACE/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+  if [ -f "$RECEIVE_SH" ]; then
+    /bin/zsh "$RECEIVE_SH" "$D" "$WORKSPACE" "$KNOWLEDGE_WIKI" \
+      || echo "[$(date '+%F %T')] kb ingest receive 失败（不阻断）"
+  fi
+
   if [ "$rc" -ne 0 ]; then
     echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
     notify "⚠️ 全量复盘 $D 生成段失败 rc=$rc（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"

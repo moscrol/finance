@@ -23,7 +23,9 @@ def daily_reviews() -> list[dict[str, str | bool]]:
             continue
         theme_path = path.parent / f"{date}-market-triggered-theme-brief.html"
         candidates_path = path.parent / f"{date}-theme-candidates.html"
+        queue_path = path.parent / f"{date}-research-queue.html"
         agent_path = path.parent / f"{date}-daily-agent.html"
+        queue_view = queue_path if queue_path.exists() else agent_path
         items.append({
             "date": date,
             "src": rel_to_workbench(path),
@@ -34,9 +36,9 @@ def daily_reviews() -> list[dict[str, str | bool]]:
             "candidates_src": rel_to_workbench(candidates_path) if candidates_path.exists() else "",
             "candidates_title": f"{date} 题材候选工作台",
             "has_candidates": candidates_path.exists(),
-            "agent_src": rel_to_workbench(agent_path) if agent_path.exists() else "",
-            "agent_title": f"{date} Agent 简报",
-            "has_agent": agent_path.exists(),
+            "agent_src": rel_to_workbench(queue_view) if queue_view.exists() else "",
+            "agent_title": f"{date} 研究队列" if queue_path.exists() else f"{date} Agent 简报",
+            "has_agent": queue_view.exists(),
         })
     return sorted(items, key=lambda item: str(item["date"]), reverse=True)
 
@@ -68,7 +70,7 @@ def main() -> int:
     <section class="group">
       <p class="group-title">Workspace</p>
       <nav class="nav" aria-label="主页面切换">
-        <button class="tab active" data-mode="daily">每日复盘<small>市场复盘 / 题材候选 / Agent 简报</small></button>
+        <button class="tab active" data-mode="daily">每日复盘<small>市场复盘 / 题材候选 / 研究队列</small></button>
         <button class="tab" data-mode="strategy">策略组合<small>策略一 / 策略二 / 策略三 / 策略四 / 二板晋级</small></button>
       </nav>
       <div class="daily-picker" id="dailyPicker">
@@ -77,10 +79,10 @@ def main() -> int:
         <div class="view-switch" aria-label="每日复盘子视图">
           <button class="viewtab active" data-daily-view="review">市场复盘</button>
           <button class="viewtab" data-daily-view="candidates">题材候选</button>
-          <button class="viewtab" data-daily-view="agent">Agent 简报</button>
+          <button class="viewtab" data-daily-view="agent">研究队列</button>
           <button class="viewtab" data-daily-view="theme">旧题材雷达</button>
         </div>
-        <div class="hint" id="dailyHint">同一日期下切换市场复盘、新版题材候选、Agent 简报和旧版题材雷达；旧版仅作 legacy 对照。</div>
+        <div class="hint" id="dailyHint">同一日期下切换市场复盘、新版题材候选、研究队列和旧版题材雷达；旧版仅作 legacy 对照。</div>
       </div>
     </section>
     <section class="group">
@@ -106,7 +108,7 @@ const mainTabs=[...document.querySelectorAll('.tab')],subTabs=[...document.query
 let currentMode='daily',currentDailyView='review';
 function currentDaily(){{return dailyReviews.find(x=>x.date===dailyDate.value)||dailyReviews[0];}}
 function dailyViewItem(){{const item=currentDaily();if(currentDailyView==='agent'&&item.has_agent)return {{src:item.agent_src,title:item.agent_title,date:item.date}};if(currentDailyView==='theme'&&item.has_theme)return {{src:item.theme_src,title:item.theme_title,date:item.date}};if(currentDailyView==='candidates'&&item.has_candidates)return {{src:item.candidates_src,title:item.candidates_title,date:item.date}};return {{src:item.src,title:item.title,date:item.date}};}}
-function refreshDailyViewTabs(){{const item=currentDaily();if(currentDailyView==='agent'&&!item.has_agent)currentDailyView='review';if(currentDailyView==='theme'&&!item.has_theme)currentDailyView='review';if(currentDailyView==='candidates'&&!item.has_candidates)currentDailyView='review';dailyViewTabs.forEach(btn=>{{const view=btn.dataset.dailyView;const disabled=(view==='agent'&&!item.has_agent)||(view==='theme'&&!item.has_theme)||(view==='candidates'&&!item.has_candidates);btn.disabled=disabled;btn.classList.toggle('active',view===currentDailyView);}});dailyHint.textContent=item.has_agent?'Agent 简报是日常研究入口：旧逻辑唤醒、新逻辑候选、数据缺口和下一步分发。':item.has_candidates?'题材候选是新版主入口，聚焦 Deep / Watch / Critical Queue；旧题材雷达仅作 legacy 对照。':item.has_theme?'该日期暂无新版题材候选，仅可查看旧版题材雷达 legacy 对照。':'该日期暂无题材雷达、题材候选或 Agent 简报，已回到市场复盘。';}}
+function refreshDailyViewTabs(){{const item=currentDaily();if(currentDailyView==='agent'&&!item.has_agent)currentDailyView='review';if(currentDailyView==='theme'&&!item.has_theme)currentDailyView='review';if(currentDailyView==='candidates'&&!item.has_candidates)currentDailyView='review';dailyViewTabs.forEach(btn=>{{const view=btn.dataset.dailyView;const disabled=(view==='agent'&&!item.has_agent)||(view==='theme'&&!item.has_theme)||(view==='candidates'&&!item.has_candidates);btn.disabled=disabled;btn.classList.toggle('active',view===currentDailyView);}});dailyHint.textContent=item.has_agent?'研究队列是日常入口：今日 IMA / 找公告 / 等盘面 / 降级观察。完整 Agent 简报只是这份队列的展开阅读，不再当独立日报养。':item.has_candidates?'题材候选是新版主入口，聚焦 Deep / Watch / Critical Queue；旧题材雷达仅作 legacy 对照。':item.has_theme?'该日期暂无新版题材候选，仅可查看旧版题材雷达 legacy 对照。':'该日期暂无题材雷达、题材候选或研究队列，已回到市场复盘。';}}
 function setFrame(src,text){{frame.src=src;frame.title=text;title.textContent=text;openLink.href=src;}}
 function setMode(mode){{currentMode=mode;mainTabs.forEach(x=>x.classList.toggle('active',x.dataset.mode===mode));if(mode==='daily'){{refreshDailyViewTabs();const item=dailyViewItem();activeDate.textContent=item.date;setFrame(item.src,item.title);}}else{{const active=subTabs.find(x=>x.classList.contains('active'))||subTabs[0];setFrame(active.dataset.src,active.dataset.title);}}}}
 function hideDailyToc(){{if(currentMode!=='daily')return;try{{const doc=frame.contentDocument;if(!doc)return;const style=doc.createElement('style');style.textContent='.rail,.side{{display:none!important}}.shell,.wrap{{display:block!important;max-width:1280px!important;padding:18px!important}}.content,.main{{width:100%!important;max-width:none!important}}.hero{{margin-top:0!important}}';doc.head.appendChild(style);}}catch(e){{}}}}
