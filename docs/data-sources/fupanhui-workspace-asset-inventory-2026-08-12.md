@@ -287,17 +287,27 @@
 | 资产 | 有数交易日 | 窗口内缺口 | 说明 |
 |---|---:|---:|---|
 | keywords | 390 | 0 | `fact_market_daily.summary_keywords` |
-| core_stocks | 390 | 0 | |
+| core_stocks | 390 | 0 | 每日恰好 50 行 |
 | dragon | 390 | 0 | |
 | regulation_pool | 390 | 0 | |
-| leader_height | 390（表内共 480，含 2024-08-19 起） | 0 | 一次 height_trend 覆盖约 120 日 |
+| leader_height | 390（表内另有窗口前填洞） | 0 | 请求日 as-of UPSERT；趋势图历史点不覆盖 |
+| global_index/stock | 390 | 0 | 美股休市日 `source_trade_date` 回退前一美股日 |
 | historical_mapping | 344 | 46 | 接口空结果，ops=`empty` |
 | auction | 137 | 253 | 接口自 2026-01-16 起才有数 |
 | regulation_event | 139 | 251 | 不是每天都有监管事件；池子已 390 |
 | events（非 future） | 147 | 243 | 时间线自 2026-01-05 起；另 7 条 future 到 08-15 |
-| global_index/stock | 390 | 0 | 见下；美股休市日 `source_trade_date` 回退前一美股日 |
 
-**外盘覆盖事故（已修并补齐）**：`sync_global_market` 曾用接口回写的 `trade_date` 做主键。DESC 回补时后写日期打到同一 PK，表上只剩 258 日，且 `2026-08-12` 被覆盖成 `2026-01-27` 的收盘价（DJI 49003）。现改为**请求的 A 股日历日**做主键。清无行 ops + 污染的 08-12 行后 `--align` 只拉 `global_market` 133 日，失败 0。抽查：`2026-08-12` DJI=52208.06（与公开 API 一致），`2026-06-02` DJI=51307.79；`2025-04-18`（美股耶稣受难日）主键仍是 A 股日，`source_trade_date=2025-04-17`。
+**外盘覆盖事故（已修并补齐）**：`sync_global_market` 曾用接口回写的 `trade_date` 做主键。DESC 回补时后写日期打到同一 PK，表上只剩 258 日，且 `2026-08-12` 被覆盖成 `2026-01-27` 的收盘价（DJI 49003）。现改为**请求的 A 股日历日**做主键。清无行 ops + 污染的 08-12 行后 `--align` 只拉 `global_market` 133 日，失败 0。
 
-成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets` @ `2bc06eeb`；未 `--refresh`。
+**龙头 as-of 事故（已修并重刷）**：`height_trend` 是以请求日为终点的约 120 日图。同一天在「当日收盘」和「更晚一张图里的历史点」上龙头代码可能不同。全量 UPSERT 会盖掉当日事实（质检：2026-03-03 库=002980.SZ / API as-of=603318.SH）。现请求日 UPSERT、其余 `DO NOTHING`，并 `--only leader_height --refresh` 重刷 390 日（`2025-03-17` 超时已单日补）。
+
+### 质检收据（2026-08-13，FAIL 0）
+
+对照公开 API 抽 8 日：`2026-08-12` / `06-02` / `03-03` / `01-27` / `2025-11-27` / `07-18` / `04-18` / `01-02`。
+
+每项比对：keywords 数组、DJI close、core top5 代码 + 第 1 名 close/pct、dragon 行数 + 首只 net_amount、mapping 相似日集合、leader 当日 height+代码、auction 行数、reg_pool 代码集合。
+
+结构门：窗口 390；core 每日恰好 50；global 每日 5 指数；keywords 合法 JSON；core close 无空；DJI 非污染值 49003；core 无跨日代码克隆；ops failed=0。
+
+成立条件：主库 `/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`；代码 worktree `fwp-wt-fupanhui-assets` @ `1a0555e0`；抽查日接口当时仍返回这些值。
 
