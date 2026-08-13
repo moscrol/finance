@@ -27,6 +27,10 @@ TYPE_LABELS = {
     "alternative": "替代标的",
     "recheck": "盘面回检",
     "migration": "题材迁移",
+    # 缺口镜像：降级答案里「仍需核验：X」的 X 直接变成可点击的追问。
+    # 不在 FOLLOWUP_TYPES 里——那五类是"围绕完整答案往深处问"的模板轮换，
+    # gap 类只在契约有未满足必需输出时出现，数量由缺口数决定。
+    "gap": "缺口补齐",
 }
 
 
@@ -84,6 +88,37 @@ def _template_followups(question: str, theme: str | None) -> list[Followup]:
         Followup(f"{subject}的资金和逻辑接下来最可能向哪个相邻题材迁移？", "migration",
                  "提前布局题材扩散的下一站"),
     ]
+
+
+def gap_mirror_followups(
+    subject: str,
+    gaps: tuple[str, ...] | list[str],
+    *,
+    limit: int = 3,
+) -> FollowupResult:
+    """把结构化缺口镜像成「猜你想问」——确定性，零模型调用。
+
+    形状来自 knevo q12 蒸馏（label 短入口 + full_prompt 替用户写好的完整问题）；
+    动机来自 R15 对照 9:2:0：多题失分不在缺口本身（fail-closed 是对的），
+    在缺口变成句号——「追问负担全在用户」（C1 判词原文）。缺口文案来自任务
+    契约的必需输出描述，与公开降级声明同一口径，模型没机会顺嘴编数据。
+    """
+    subject = (subject or "").strip() or "该问题"
+    cleaned = [str(gap).strip() for gap in gaps]
+    items: list[Followup] = []
+    for text in [gap for gap in cleaned if gap][: max(0, limit)]:
+        items.append(
+            Followup(
+                question=(
+                    f"关于{subject}，上一轮「{text}」未完成核验：请只针对这一项"
+                    "补齐证据，给出可核对的来源与数据日期。"
+                ),
+                type="gap",
+                rationale="上一轮降级缺口的直接回补",
+                label=f"补齐：{text}",
+            )
+        )
+    return FollowupResult(followups=items, llm_used=False)
 
 
 def _llm_followups(question: str, theme: str | None, answer_excerpt: str,

@@ -95,6 +95,11 @@ class ContinuousTurnResult:
     private_artifact: dict[str, object] | None
     events: tuple[dict[str, object], ...]
     llm_provider: str | None = None
+    # 未满足的必需输出（契约描述文案，已是公开口径）。交付层用它把
+    # 「缺口声明」镜像成可点击的追问（knevo q12 蒸馏的 suggest_options
+    # 形状）：R15 对照 9:2:0 里多题的失分不是缺口本身，而是缺口变成了
+    # 句号——追问负担全落在用户身上。
+    open_gaps: tuple[str, ...] = ()
 
 
 class SemanticVerifier(Protocol):
@@ -735,6 +740,10 @@ class ContinuousTurnAdapter:
                         _redact_private(partial_artifact),
                     ),
                     events=self._terminal_events(status="degraded"),
+                    open_gaps=_open_gap_labels(
+                        context.contract,
+                        fulfilled_output_ids=fulfilled_output_ids,
+                    ),
                 )
             return ContinuousTurnResult(
                 handled=True,
@@ -824,6 +833,10 @@ class ContinuousTurnAdapter:
             llm_provider=_episode_llm_provider(
                 outcome,
                 runtime_name=self._runtime_name,
+            ),
+            open_gaps=_open_gap_labels(
+                context.contract,
+                fulfilled_output_ids=fulfilled_output_ids,
             ),
         )
 
@@ -1300,6 +1313,28 @@ def _with_calendar_disclosure(answer: str, frame: TaskFrame) -> str:
     if disclosure is None or not answer.strip() or "休市" in answer:
         return answer
     return f"{disclosure}。\n{answer}"
+
+
+def _open_gap_labels(
+    contract,
+    *,
+    fulfilled_output_ids: frozenset[str],
+    limit: int = 3,
+) -> tuple[str, ...]:
+    """未满足必需输出的描述文案——与公开缺口声明同一套口径。
+
+    只取契约里 ``required`` 且描述非空的项；描述本来就会进公开答案
+    （「仍需核验：…」），所以直接复用不需要再脱敏。
+    """
+    if contract is None:
+        return ()
+    return tuple(
+        item.description.strip()
+        for item in contract.required_outputs
+        if item.required
+        and item.output_id not in fulfilled_output_ids
+        and item.description.strip()
+    )[:limit]
 
 
 def _episode_gap_answer(
