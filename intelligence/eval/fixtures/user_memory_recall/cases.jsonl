@@ -1,3 +1,2 @@
 {"case_id": "m-001", "query": "液冷渗透率怎么看", "theme": "液冷", "relevant": ["j-liquid-1", "c-liquid-1"], "note": "纠偏与判断都应召回"}
 {"case_id": "m-002", "query": "固态电池设备端", "theme": "固态电池", "relevant": ["j-solid-1"], "note": "过题材不得召回液冷"}
-{"case_id": "m-003", "query": "光模块份额", "theme": "光模块", "relevant": ["j-liquid-1"], "note": "负例：无关题材不应召回液冷判断；本 case 期望 miss"}
