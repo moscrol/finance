@@ -251,10 +251,9 @@ recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
    - 每期末尾产出「下期关注：指标 + 时间节点 + 触发条件」，作为下一轮的强制输入
      （与 foresight checkpoint 同构，但覆盖「观察清单」而不只是可证伪点）。
 
-4. **落点与台账**：新增 `theme_lifecycle` 判定脚本（先做只读 CLI，挂进
-   theme-radar / fermentation-tracer 的输出里），阶段事件台账按仓规
-   **先在 `docs/learning/ledger-map.md` 登记**（canonical 路径、格式、唯一写入者）
-   再创建。
+4. **落点与台账**：时间线模块已落 `intelligence/services/theme_lifecycle_timeline.py`
+   （只读 CLI）。阶段事件台账若要建，按仓规**先在 `docs/learning/ledger-map.md` 登记**
+   再创建。live 数据上段落过碎（见 §8），下一刀加滞回后再挂进 tracer/radar 输出。
 
 ---
 
@@ -265,11 +264,12 @@ recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
 | 1 ✅（2026-08-13 已实现） | `market_regime_analogs.py` 纯函数核（每日情绪向量→窗口签名→滑窗匹配→后续事实）+ 合成数据单测 | 仅新增文件 + tests（`intelligence/services/market_regime_analogs.py`，证据编号 D10，18 测试全绿） | 低：不接线、不碰运行时 |
 | 2 | 接线成 D 块：意图路由词面、注入 ask/turn_controller、预算与降级 | `ask.py` / `turn_controller.py` / `query_understanding.py`（参考 D8 接线面） | 中：碰生产问答链路，需 live 验证 |
 | 3 ✅（2026-08-13 已实现） | 题材生命周期**时间线回放**只读 CLI（既有 `theme_lifecycle.py` 八阶段诊断已覆盖当前态，见 §5.1 修正；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle_timeline.py`（`python3 -m intelligence.services.theme_lifecycle_timeline --theme X`，14 测试全绿） | 低：只读 |
+| 3.1 | 时间线滞回：live 上双红闪烁导致 50+ 段，需最短阶段时长 / 合并相邻同向切换后再给用户看 | `theme_lifecycle_timeline.py` 纯函数核 | 低：只改派生规则，可回放对照 |
 | 4 | q8 契约回灌：题材跟踪输出加四态对照 + `valid_until` + 下期关注衔接 | 输出模板/synthesis 契约 | 中：改输出形状，需用户看样张 |
 | 5 | 用户记忆状态机（新增记录带 `status`，棘轮式不迁移存量）+ 夜间回检呈现 candidate | `intelligence/users/` 台账 schema + 回检脚本 | 中：涉及台账 schema |
 | 6 | recall@k 尺子（离线，判卷说「证据不足」的 case 回放） | eval 侧新增 | 低：离线尺子 |
 
-依赖关系：1→2 顺序硬依赖；3、5、6 相互独立可并行；4 依赖 3 的阶段判定产出。
+依赖关系：1→2 顺序硬依赖；3→3.1 再进入 4；5、6 相互独立可并行。
 剧本卡增厚（§4.4）是持续流程，不占 slice。
 
 ---
@@ -281,3 +281,33 @@ recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
 - ❌ 不接 knevo 的「按记忆条数决定检索深度」降级梯度（2026-08-04e 已被用户显式划掉）。
 - ❌ 不给历史类比输出任何概率表述——D8 的「小样本历史事实，不是概率预测」红线
   原样适用于市场级与生命周期输出。
+
+---
+
+## 8. Live 验证（2026-08-13，经 exec-a77 隧道）
+
+Mac 主树 `main` 有大量他人未提交改动，按 worktree 纪律另开干净树
+`/Users/a77/fwp-wt-memory-analog` @ `124ca773`，只读主库
+`/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`。
+
+**D10 市场情绪类比** [实测]：
+
+- 十维全齐（`missing_features=()`），`available=True`。
+- 当前近 20 日均值：成交额 23921 亿 · 涨停 79 家 · 最高连板 6 · 双红题材 40 个 · 偏离度 0.0%。
+- Top-3 相似窗口：`2025-12-10~2026-01-08`（d=0.644）、`2026-03-23~2026-04-20`（0.668）、
+  `2026-01-30~2026-03-06`（0.673）；后续 5/10/20 日指数累计与日均涨停已出。
+- 部分窗口后续「最高连板」为 `—`：对应日期 `fact_limit_advance_daily` 缺行，按覆盖率降权，
+  未伪造。这是缺数声明在干活，不是 bug。
+
+**题材生命周期时间线** [实测]：
+
+| 题材名 | 结果 |
+|---|---|
+| 固态电池 | 53 段，当前退潮；首发 2025-01-02 |
+| 信创 | 65 段，当前退潮 |
+| 液冷 / AI概念 | `fact_sector_daily` 无该 `sector_name`（板块名未对齐，显式降级） |
+
+53/65 段说明「连续 5 日无双红 → 退潮」在真实双红闪烁下过于敏感，时间线变成锯齿。
+规则本身可回放、可审计，但**不能当用户可读的生命周期叙事**。slice 3.1 加滞回
+（最短阶段时长，或合并短于 N 日的相邻切换）后再给用户看。板块名要对齐
+`dim_sector` / `resolve_query_themes`，不能硬编码口语别名。
