@@ -7,6 +7,10 @@ from dataclasses import dataclass
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.ask import AskResult
+from intelligence.services.honesty_gates import (
+    calendar_disclosure,
+    retired_table_disclosure,
+)
 from intelligence.services.turn_controller import TurnDecision
 
 LLMComplete = Callable[[list[dict[str, str]]], tuple[str | None, object | None, str]]
@@ -32,6 +36,14 @@ class LaneAnswer:
 
 
 def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
+    retired = retired_table_disclosure(query)
+    if retired is not None:
+        return retired
+    frame = decision.task_frame
+    if frame is not None and decision.question_type == "quick_fact":
+        disclosure = calendar_disclosure(frame)
+        if disclosure:
+            return disclosure if disclosure.endswith("。") else f"{disclosure}。"
     if decision.lane == "chat" and decision.reason == "明确寒暄":
         return "你好，我是 Foresight。你可以直接聊天，也可以让我做需要证据的金融研究。"
     if decision.lane == "chat" and _THANKS_PATTERN.fullmatch(query):

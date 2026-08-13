@@ -15,6 +15,7 @@ from intelligence.services.evidence_capabilities import (
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
 )
+from intelligence.services.honesty_gates import requested_information_cutoff
 from intelligence.services.research_contract import (
     InformationCutoff,
     RequiredOutput,
@@ -424,9 +425,13 @@ def build_episode_context(
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
     )
-    cutoff = information_cutoff or _default_information_cutoff(
-        today=today,
-        latest_data_date=latest_data_date,
+    cutoff = (
+        information_cutoff
+        or requested_information_cutoff(frame.raw_question, today=today)
+        or _default_information_cutoff(
+            today=today,
+            latest_data_date=latest_data_date,
+        )
     )
     return ResearchRunContext(
         contract=contract,

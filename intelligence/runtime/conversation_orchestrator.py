@@ -64,6 +64,7 @@ from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
+    deterministic_lane_answer,
     generate_lane_answer,
     knowledge_evidence,
     render_knowledge_fallback,
@@ -1846,7 +1847,8 @@ class TurnOrchestrator:
                 },
             )
             self._check_cancelled()
-            if self.continuous_turn_adapter is not None:
+            canned = deterministic_lane_answer(query, decision)
+            if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
                     decision,
                     task_frame=task_frame,
@@ -1871,8 +1873,10 @@ class TurnOrchestrator:
                         turn_intent=turn_intent,
                         research_plan=research_plan,
                     )
-            if decision.lane in {"chat", "meta", "clarify"} or (
-                decision.lane == "knowledge" and not decision.needs_retrieval
+            if (
+                decision.lane in {"chat", "meta", "clarify"}
+                or (decision.lane == "knowledge" and not decision.needs_retrieval)
+                or canned is not None
             ):
                 lane_answer = self.generate_lane_answer(
                     query,

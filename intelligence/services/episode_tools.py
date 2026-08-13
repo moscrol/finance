@@ -177,6 +177,19 @@ def _structured_freshness_floor(
     return min(snapshot_date, context.information_cutoff.as_of_date)
 
 
+def _structured_as_of(context: ResearchRunContext) -> str:
+    """盘面查询上界：有快照用 min(快照, cutoff)，没有快照也必须夹在 cutoff 内。
+
+    freshness_floor 在缺快照时返回 None，是为了不把「昨天的数」误判成 stale。
+    查询上界不能跟着变成 None——否则 cutoff=07-21 仍会取出 08-13 的最新行（C7）。
+    """
+
+    floor = _structured_freshness_floor(context)
+    if floor is not None:
+        return floor.isoformat()
+    return context.information_cutoff.as_of_date.isoformat()
+
+
 def _is_current_query_stale(
     spec: finance_query.FinanceQuerySpec,
     *,
@@ -308,8 +321,7 @@ def _market_block(
     subject_query: str | None = None,
     valuation_fetcher: object | None = None,
 ) -> tuple[str, str, str]:
-    as_of = _structured_freshness_floor(context)
-    as_of_value = as_of.isoformat() if as_of is not None else None
+    as_of_value = _structured_as_of(context)
     if frame.question_type == "market_forecast":
         block = "\n".join(
             part
@@ -400,11 +412,7 @@ def build_episode_registry(
     if frame.question_type != "valuation_estimate":
         structured_source_date = ask_blocks._market_data_asof(  # noqa: SLF001
             market_db_path,
-            as_of=(
-                freshness_floor.isoformat()
-                if freshness_floor is not None
-                else None
-            ),
+            as_of=_structured_as_of(context),
         )
     market_reference_date = context.latest_data_date or structured_source_date
     evidence_profile = context.contract.evidence_plan.profile
@@ -648,11 +656,7 @@ def build_episode_registry(
             frame.raw_question,
             frame.subject,
             market_db_path,
-            as_of=(
-                freshness_floor.isoformat()
-                if freshness_floor is not None
-                else None
-            ),
+            as_of=_structured_as_of(context),
         )
         tool_context.check_cancelled()
         if not block or "当前交易日的题材级主线未知" in block:
