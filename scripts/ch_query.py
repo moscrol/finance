@@ -8,7 +8,9 @@
 后台跑:
   nohup python scripts/ch_query.py 688825 2026-07-27 > /tmp/ch_out.txt 2>&1 &
 """
-import os, sys, time
+import os
+import sys
+import time
 
 def main():
     if len(sys.argv) < 3:
@@ -39,7 +41,9 @@ def main():
     )[0][0]
     print(f"逐笔成交笔数: {cnt:,}")
     if cnt == 0:
-        print("无数据"); client.disconnect(); return
+        print("无数据")
+        client.disconnect()
+        return
 
     # 上交所走 ngts_tick
     source = {

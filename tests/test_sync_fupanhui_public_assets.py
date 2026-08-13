@@ -423,7 +423,9 @@ def _stub_empty_daily_apis(monkeypatch):
         "get_historical_mapping",
         lambda td: {"source_date": td, "similar_days": [{"date": "2025-01-01", "similarity": 0.4}]},
     )
-    empty = lambda *_a, **_k: {}
+    def empty(*_a, **_k):
+        return {}
+
     for name in (
         "get_leader_ladder",
         "get_global_market",

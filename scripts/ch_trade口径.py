@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """对比逐笔口径 vs 委托聚合口径的大单资金。"""
-import os, time
+import os
 
 def main():
     from clickhouse_driver import Client
@@ -12,7 +12,7 @@ def main():
     for thr_wan in [50, 100]:
         thr = thr_wan * 1e4
         # 逐笔口径：每笔成交独立判定
-        query = f"""
+        query = """
         SELECT
             sumIf(amount, buy_no > sell_no AND amount >= %(thr)s) AS active_buy,
             sumIf(amount, buy_no < sell_no AND amount >= %(thr)s) AS active_sell,
