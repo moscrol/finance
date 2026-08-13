@@ -307,6 +307,46 @@ def _prior_recall_context(question: str, task_id: str):
     )
 
 
+@pytest.fixture
+def anchored_wiki(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """密封的实体词典：个股口径的路由依赖 wiki 实体锚定。
+
+    「中际旭创…」那条参数化用例出生即红：题材口径走仓内
+    ``config/theme_research_specs.json``，个股口径要靠
+    ``relations/entity_exposures.json`` 锚定——而测试会话密封了
+    ``KNOWLEDGE_WIKI``，默认路径又不存在，实体锚不上 → 落进
+    general_finance_qa（capabilities 为空）→ 槽位永远开不出来。
+    红的是环境不是产品：注入词典后生产逻辑原样通过。
+
+    缓存安全：entity_anchor / query_resolution 的词典缓存按
+    「解析路径 + 文件指纹」为键，tmp_path 每个用例唯一，不串台。
+    """
+
+    import json
+
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "中际旭创": {
+                        "codes": ["300308.SZ"],
+                        "concepts": {"光模块": {}},
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KNOWLEDGE_WIKI", str(tmp_path))
+
+
 @pytest.mark.parametrize(
     "question",
     (
@@ -320,6 +360,7 @@ def _prior_recall_context(question: str, task_id: str):
 )
 def test_prior_reference_opens_a_user_premise_slot_for_the_recall(
     question: str,
+    anchored_wiki: None,
 ) -> None:
     """引用了自己过去看法的问题，必须有一格能装那份先验。
 
