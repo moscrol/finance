@@ -201,9 +201,21 @@ q9 的结论适用于市场级同理：**类比质量与库的厚度成正比**�
 
 ### 5.1 差距定位
 
-素材齐但**没有「生命周期阶段」这个一等公民**：theme-radar 给当前快照、
-fermentation-tracer 给历史回溯、recognition_timeline 给认知跃迁，但没有任何地方
-回答「这个题材现在处于生命周期第几段、逻辑从哪一版演化到哪一版」。
+> 🔴 **2026-08-13 实施时的能力现状修正**：本节初版断言「没有生命周期阶段这个
+> 一等公民」，**这是错的**——`intelligence/services/theme_lifecycle.py`（P1 批次）
+> 已有**八阶段题材生命周期诊断**（新出现/旧逻辑唤醒/升温验证/加速定价/高位分歧/
+> 二阶段回流/衰退观察/证伪退出），基于证据侧信号 + market_structure 状态机，
+> 已接进 ask/agent 运行时。这次失误再次验证了 CLAUDE.md「断言我们没有 X 之前
+> 必读能力图谱」的纪律（且实施时一度覆盖了该文件，已从 git 恢复并验证逐字节一致）。
+>
+> **修正后的真差距**：既有模块答「市场**现在**把题材交易到哪段」（当前态诊断），
+> 缺的是「题材**历史上**怎么走过来的」（可回放时间线）。故 slice 3 的产出命名为
+> `theme_lifecycle_timeline.py`，与诊断模块互补：两套阶段词表口径不同
+> （交易叙事段 vs 盘面结构段），引用时须标明来源模块，不得混用。
+
+素材盘点：theme-radar 给当前快照、fermentation-tracer 给发酵链路回溯、
+recognition_timeline 给认知跃迁、theme_lifecycle 给当前阶段诊断；
+缺「历史阶段切换时间线」与「逻辑从哪一版演化到哪一版」的追溯。
 
 ### 5.2 设计：事件日志 + 派生阶段（不落库状态机）
 
@@ -252,7 +264,7 @@ fermentation-tracer 给历史回溯、recognition_timeline 给认知跃迁，但
 |---|---|---|---|
 | 1 ✅（2026-08-13 已实现） | `market_regime_analogs.py` 纯函数核（每日情绪向量→窗口签名→滑窗匹配→后续事实）+ 合成数据单测 | 仅新增文件 + tests（`intelligence/services/market_regime_analogs.py`，证据编号 D10，18 测试全绿） | 低：不接线、不碰运行时 |
 | 2 | 接线成 D 块：意图路由词面、注入 ask/turn_controller、预算与降级 | `ask.py` / `turn_controller.py` / `query_understanding.py`（参考 D8 接线面） | 中：碰生产问答链路，需 live 验证 |
-| 3 ✅（2026-08-13 已实现） | `theme_lifecycle` 阶段判定只读 CLI（复用 tracer 对齐逻辑；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle.py`（`python3 -m intelligence.services.theme_lifecycle --theme X`，14 测试全绿） | 低：只读 |
+| 3 ✅（2026-08-13 已实现） | 题材生命周期**时间线回放**只读 CLI（既有 `theme_lifecycle.py` 八阶段诊断已覆盖当前态，见 §5.1 修正；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle_timeline.py`（`python3 -m intelligence.services.theme_lifecycle_timeline --theme X`，14 测试全绿） | 低：只读 |
 | 4 | q8 契约回灌：题材跟踪输出加四态对照 + `valid_until` + 下期关注衔接 | 输出模板/synthesis 契约 | 中：改输出形状，需用户看样张 |
 | 5 | 用户记忆状态机（新增记录带 `status`，棘轮式不迁移存量）+ 夜间回检呈现 candidate | `intelligence/users/` 台账 schema + 回检脚本 | 中：涉及台账 schema |
 | 6 | recall@k 尺子（离线，判卷说「证据不足」的 case 回放） | eval 侧新增 | 低：离线尺子 |

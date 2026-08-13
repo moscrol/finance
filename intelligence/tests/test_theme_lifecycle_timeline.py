@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from intelligence.services.theme_lifecycle import (
+from intelligence.services.theme_lifecycle_timeline import (
     STAGE_DIVERGENCE,
     STAGE_EBB,
     STAGE_FERMENT,
@@ -18,7 +18,7 @@ from intelligence.services.theme_lifecycle import (
     lifecycle_markdown,
     load_message_dates,
     load_theme_daily_rows,
-    load_theme_lifecycle_artifact,
+    load_theme_timeline_artifact,
 )
 
 try:
@@ -153,9 +153,9 @@ class RenderTests(unittest.TestCase):
     def test_markdown_contains_discipline_and_gaps(self) -> None:
         rows = [_dr(i) for i in range(6)] + [_row(6)]
         segments, gaps = derive_stages(rows)
-        from intelligence.services.theme_lifecycle import ThemeLifecycleArtifact
+        from intelligence.services.theme_lifecycle_timeline import ThemeTimelineArtifact
 
-        artifact = ThemeLifecycleArtifact(
+        artifact = ThemeTimelineArtifact(
             "固态电池", tuple(segments), tuple(gaps),
             {"mainup_consecutive": 3, "ebb_break_days": 5, "double_red": "pct>0 & diff>10 & amount>500"},
         )
@@ -166,9 +166,9 @@ class RenderTests(unittest.TestCase):
         self.assertIn("不是预测", text)
 
     def test_unavailable_renders_empty(self) -> None:
-        from intelligence.services.theme_lifecycle import ThemeLifecycleArtifact
+        from intelligence.services.theme_lifecycle_timeline import ThemeTimelineArtifact
 
-        artifact = ThemeLifecycleArtifact("X", (), (), {}, degrade_reason="库不存在")
+        artifact = ThemeTimelineArtifact("X", (), (), {}, degrade_reason="库不存在")
         self.assertEqual(lifecycle_markdown(artifact), "")
 
 
@@ -215,7 +215,7 @@ class LoaderTests(unittest.TestCase):
             self.assertEqual(len(rows), 20)
             self.assertEqual(rows[5]["limit_up_count"], 5)
             self.assertEqual(rows[5]["max_boards"], 2)
-            artifact = load_theme_lifecycle_artifact("固态电池", market_db_path=db)
+            artifact = load_theme_timeline_artifact("固态电池", market_db_path=db)
         self.assertTrue(artifact.available)
         stages = [s.stage for s in artifact.segments]
         self.assertIn(STAGE_FERMENT, stages)
@@ -227,12 +227,12 @@ class LoaderTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
             self._make_db(db)
-            artifact = load_theme_lifecycle_artifact("不存在的题材", market_db_path=db)
+            artifact = load_theme_timeline_artifact("不存在的题材", market_db_path=db)
         self.assertFalse(artifact.available)
         self.assertIn("无「不存在的题材」", artifact.degrade_reason or "")
 
     def test_missing_db_degrades(self) -> None:
-        artifact = load_theme_lifecycle_artifact("固态电池", market_db_path="/nonexistent/x.duckdb")
+        artifact = load_theme_timeline_artifact("固态电池", market_db_path="/nonexistent/x.duckdb")
         self.assertFalse(artifact.available)
         self.assertIsNotNone(artifact.degrade_reason)
 
