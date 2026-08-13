@@ -47,8 +47,8 @@
 | 问 | 归位 |
 |---|---|
 | 质检跑了两轮以上？ | 已进 `skills/duckdb-backfill/scripts/qa_fupanhui_public_assets.py`（结构门 + 对源头抽查） |
-| `/tmp` 一次性脚本？ | `consume_test.py` / `dragon_backfill.sh` 不入库 |
-| 门禁洞？ | `quality.py` 已棘轮；summary 未齐故未进 GAP |
+| `/tmp` 一次性脚本？ | `consume_test.py` / `dragon_backfill.sh` 不入库；席位大窗口回补 driver 已归位 `skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py` |
+| 门禁洞？ | `quality.py` 已棘轮；dragon 双表补齐后两表均已进 `GAP_TABLES` |
 | 可迁移模式？ | 「表在 ≠ 消费者在」+「主键用请求日」+「只数行数不够」→ 已写进 duckdb-backfill SKILL「收尾对齐」。本环境无 `~/harness-reference`，未回写 KIT.md |
 | 为何是手法不是脚本？ | 「这张表要不要注册 dataset」要语义判断（稀疏/低查询价值故意不注册），清单比自动扫描合适 |
 
