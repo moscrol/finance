@@ -703,10 +703,13 @@ class ContinuousTurnAdapter:
                 return ContinuousTurnResult(
                     handled=True,
                     status="degraded",
-                    answer=_verification_failure_gap_answer(
+                    answer=_with_calendar_disclosure(
+                        _verification_failure_gap_answer(
+                            frame,
+                            context,
+                            trusted_structural,
+                        ),
                         frame,
-                        context,
-                        trusted_structural,
                     ),
                     as_of=(
                         _episode_as_of(
@@ -776,6 +779,7 @@ class ContinuousTurnAdapter:
             status = "failed"
         if not answer and final_outcome.evidence:
             answer = _episode_gap_answer(frame, structural)
+        answer = _with_calendar_disclosure(answer, frame)
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
@@ -1269,6 +1273,33 @@ def _safe_gap_answer(
         return safe
     subject = _safe_public_text(str(frame.subject or "")) or "当前问题"
     return f"关于{subject}，本轮证据或核验不足，暂不能给出可靠结论。"
+
+
+def _calendar_disclosure(frame: TaskFrame) -> str | None:
+    """任务假设里的休市事实（纯事实子句），没有则 None。
+
+    单一事实源：``build_task_frame`` 已经判定过「金融题 + 问句日期休市」
+    才注入该假设；交付层只读出，不重新判定。
+    """
+
+    for item in frame.assumptions:
+        if "休市" in item:
+            return item.split("；")[0].strip()
+    return None
+
+
+def _with_calendar_disclosure(answer: str, frame: TaskFrame) -> str:
+    """确定性前置休市事实——不依赖模型转述。
+
+    R16/R18 两轮生产实测：假设注入到位、#311 又把「回答须先说明休市」写进
+    事实文案，模型仍两次都不转述，且把前一交易日数据说成「当日」。提示词
+    层对这类披露义务不可靠；日历事实是确定性判定，披露也应当确定性执行。
+    """
+
+    disclosure = _calendar_disclosure(frame)
+    if disclosure is None or not answer.strip() or "休市" in answer:
+        return answer
+    return f"{disclosure}。\n{answer}"
 
 
 def _episode_gap_answer(
