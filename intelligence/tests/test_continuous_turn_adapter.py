@@ -597,21 +597,26 @@ def test_adapter_keeps_the_answer_when_a_repair_comes_back_empty() -> None:
     assert any("TimeoutError" in gap for gap in outcome["gaps"])
 
 
-def test_starved_episode_admits_cold_restart_with_tool_reopen() -> None:
-    """deadline_exhausted + 零证据 → 冷启动修复，goal 带 reopen_tools。
+@pytest.mark.parametrize(
+    "stop_reason",
+    ["deadline_exhausted", "model_unavailable"],
+    ids=["retrieval-window", "main-llm-timeout"],
+)
+def test_starved_episode_admits_cold_restart_with_tool_reopen(
+    stop_reason: str,
+) -> None:
+    """零证据饿死 → 冷启动修复，goal 带 reopen_tools。
 
-    R7-A3 / R9-A3 生产形状：检索窗烧穿、零证据终局，进度闸（要求 ≥1 新证据）
-    与 delivery 闸（要求有证据）都进不去，episode 43s 死掉而轮预算还有大量
-    余量。本测试钉住 adapter 的接线：它必须把「stop_reason=deadline_exhausted
-    且零证据」观察成 cold_restart_candidate 传给 admit_repair——R9 实测这一环
-    缺失时，单测全绿但生产一次都不点火。
+    三种生产形状共用这条接线：R7-A3 / R9-A3 是 deadline_exhausted，
+    A1-R2 是主路径 TimeoutError → model_unavailable。adapter 必须把
+    这两种 stop_reason 都观察成 cold_restart_candidate。
     """
 
     frame = _frame(required_outputs=("direct_assessment",))
     control = _control(frame, capabilities=("market_data",))
     context = build_episode_context(
         frame,
-        task_id="adapter-cold-restart",
+        task_id=f"adapter-cold-restart-{stop_reason}",
         capabilities=control.capabilities,
         timeout=120.0,
     )
@@ -632,11 +637,11 @@ def test_starved_episode_admits_cold_restart_with_tool_reopen() -> None:
         evidence=(),
         traces=(),
         gaps=("研究截止时间已到，仍有必需输出未覆盖",),
-        stop_reason="deadline_exhausted",
+        stop_reason=stop_reason,
         events=(
             EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
             EpisodeEvent(2, "model_turn", {}),
-            EpisodeEvent(3, "finish", {"stop_reason": "deadline_exhausted"}),
+            EpisodeEvent(3, "finish", {"stop_reason": stop_reason}),
         ),
         bindings=(),
         usage=AgentUsage(1, 0, 0),

@@ -302,9 +302,11 @@ def grant_for_cold_restart(
     - R9-A3：首个模型轮（规划）就把窗口吃光，**一次工具都没轮到**，零 trace。
 
     第二种形状说明「试过工具」不能当饿死判据——模型没偷懒，是 provider 慢。
-    饿死的判据是 ``stop_reason == deadline_exhausted`` 且零证据，它由调用方
-    （continuous_turn_adapter）观察后以 ``cold_restart_candidate`` 传入
-    ``admit_repair``；本函数只负责额度侧的三道闸——
+    第三种（A1-R2）是主路径 LLM TimeoutError，stop_reason 变成
+    ``model_unavailable``，检索窗也已关（``tools_open=False``）：进度闸、
+    delivery 闸、旧冷启动判据三条路全死。饿死的判据因此是「零证据 +
+    终态属于窗烧穿或主路径模型不可用」，由调用方以
+    ``cold_restart_candidate`` 传入；本函数只负责额度侧的三道闸——
 
     - ``cycle == 1``：只给一发，失败不再续（防循环，与进度闸的目的一致）；
     - ``after_evidence_ids`` 为空：一旦有任何证据，走常规进度/交付通道；

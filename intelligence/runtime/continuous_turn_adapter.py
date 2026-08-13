@@ -62,6 +62,13 @@ _TERMINAL_REPAIR_STOP_REASONS = frozenset(
 _DELIVERY_REPAIR_STOP_REASONS = frozenset(
     {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
 )
+# 饿死型冷启动：检索窗烧穿，或主路径 LLM 超时/异常，且零证据。
+# A1-R2 是后者——TimeoutError 走 model_unavailable，tools_open 已关，
+# delivery 要证据，进度闸要新证据，三条路全死。不能把「模型主动收场」
+# （model_finish）算进来，那是零证据降级信号，不是饿死。
+_COLD_RESTART_STOP_REASONS = frozenset(
+    {"deadline_exhausted", "model_unavailable"}
+)
 # The semantic judge itself is bounded to 25 seconds, but OpenAI-compatible
 # transports can return a few seconds after their client timeout while the
 # socket/request stack unwinds.  Reserve explicit transport grace so a valid
@@ -863,12 +870,12 @@ class ContinuousTurnAdapter:
             and structural.missing_outputs
             and (not outcome.draft.strip() or not outcome.bindings)
         )
-        # 饿死判据：检索窗烧穿且零证据。生产实测两种形状（R7-A3 / R9-A3）——
-        # 打偏的查询烧穿窗口后批量检索被集体判 tool_timeout，或首个模型轮
-        # 就吃光窗口一次工具都没轮到。后者零 trace，所以不能拿「试过工具」
-        # 当判据；stop_reason 才是两种形状的共同观察量。
+        # 饿死判据：零证据 + 终态是窗烧穿或主路径模型不可用。
+        # 生产三种形状：R7-A3 查询烧穿窗口、R9-A3 规划轮吃光窗口零
+        # trace、A1-R2 主路径 TimeoutError → model_unavailable。
+        # 共同观察量是 stop_reason，不是 trace。
         cold_restart_candidate = (
-            outcome.stop_reason == "deadline_exhausted"
+            outcome.stop_reason in _COLD_RESTART_STOP_REASONS
             and not outcome.evidence
         )
         admission = admit_repair(
