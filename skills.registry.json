@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-13T08:40:46Z",
+  "generated_at": "2026-08-13T16:30:31Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -87,24 +87,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/checkpoint-recheck-mac-setup/SKILL.md",
-      "description": "在 Mac 上经 remote-exec 隧道安装「可证伪点夜间回检」launchd 定时任务、并接通跨机共享大脑（.foresight）台账的安装/排障 runbook。Use when the user asks to 装夜间回检、安装 checkpoint recheck 定时、可证伪点回检 cron、launchd 装回检、远程在 Mac 上跑命令、remote-exec 隧道、隧道多字节乱码核对、codepoint 校验、共享大脑台账、.foresight 台账接通、登点回检闭环、多机台账一致. 触发词：夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环。注意：只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
-      "triggers": [
-        "夜间回检",
-        "checkpoint recheck",
-        "可证伪点回检",
-        "launchd 安装",
-        "远程执行",
-        "remote-exec",
-        "隧道乱码",
-        "codepoint 校验",
-        "共享大脑",
-        "foresight 台账",
-        "多机一致",
-        "登点闭环"
-      ],
-      "note": "只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
+      "description": "Mac 经隧道安装可证伪点夜间回检 launchd，并接通 .foresight 台账。用户说「装夜间回检」「checkpoint recheck 定时」「launchd 装回检」「remote-exec 隧道乱码」「共享大脑台账」时用。只做安装/排障；登点打分用 intelligence.cli checkpoint。",
+      "triggers": [],
+      "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8b0afa65fead25e7ad78d836a6fd3c8a20d7006ceb200a7cd3ac81510e47c5ad",
+      "computedHash": "sha256:7b4291da4b849793347e7402039a7cd5b1ce76d48e438b3226f8f94d3e04d59a",
       "agentOnly": false,
       "views": []
     },
@@ -113,11 +100,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/daily-full-review/SKILL.md",
-      "description": "仅用于\"单日全量复盘\"的同步编排与防坑流程。触发词严格限定：全量复盘、今日全量复盘、跑全量复盘、单日全量复盘、做一次全量复盘、daily full review。仅当用户明确要对某个交易日做整轮全量复盘（同步全部 market_feature_store 模块 + 生成日报/题材/HTML/工作台）时触发；只补单表、只补历史缺口、只跑某个 sync-* 子命令、只生成报告或矩阵等局部任务，都不触发本 skill（历史多日补缺口请用 duckdb-backfill）。用于把某个交易日的同步按\"已验证模块顺序 + 逐模块超时 + 自动兜底 + 经验记录\"跑完，再交给 intelligence.cli daily 生成产物。专治 daily-update monolith 静默挂起后乱手搓的问题。",
+      "description": "仅用于单日全量复盘。触发：全量复盘、今日全量复盘、跑全量复盘、daily full review。按已验证模块顺序同步当日 market_feature_store 并生成日报/题材/HTML。只补单表、只补历史缺口、只跑某个 sync 子命令不要用（历史缺口用 duckdb-backfill）。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:374fc94ec32a14feb8f8fdf1fae518fed7d8c710003ea24a92f3d96469ec8bc4",
+      "computedHash": "sha256:9e5ca52b6b8c052b9c8bf5d03b2e484e960f205e94550b6d127d8b35cd15b3d6",
       "agentOnly": false,
       "views": []
     },
@@ -154,7 +141,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:4539255ae943c5addbf660acf53dae0ce90f768fd9ff41053b415a11d25b2c4d",
+      "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
       "agentOnly": false,
       "views": []
     },
@@ -163,11 +150,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/duckdb-backfill/SKILL.md",
-      "description": "DuckDB market_feature_store full/backfill workflow for the finance workspace. Use when the user asks to 回补 duckdb、全量回补、补缺口、补 market_feature_store 数据、修复 fact_* 覆盖、同步 stock_high/sector_stock/limit_heat/limit_advance/sw_l1, or when a sync command hangs and the workflow needs short-command retries, coverage audits, timeout handling, and iterative skill optimization.",
+      "description": "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:34f1832e9f9b39fbd4accd4581111339c26d66eff233f6e8edcc9e9299c1a74d",
+      "computedHash": "sha256:2378253788e818fb7684fd81022afc48ba638298b47f7b87a8985f3d5f45bab2",
       "agentOnly": false,
       "views": []
     },
@@ -222,7 +209,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a0eccb39b855e82431008865e726871ffb279af0b4d262c09343b891b1757ca6",
+      "computedHash": "sha256:5ced603794ceae913e8f182c1d97e5eed983bba7c0b09941982be5bf37b7e615",
       "agentOnly": false,
       "views": [
         {
@@ -373,7 +360,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:778bceb45d4bb6e5a41d47c2d661ecdb69d0ec440b2a423479c2370ed03bca82",
+      "computedHash": "sha256:a2f8d7e59ba8a96b9fdeaf5b433cf9b94c829a987c389e9b060729982960ff5b",
       "agentOnly": false,
       "views": [
         {
@@ -388,11 +375,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/opinion-cross/SKILL.md",
-      "description": "把一段**已筛过的**卖方观点/产业消息流（研报口播、机构观点合集、产业小作文）提纯成「三重共振」机会卡片。逐标的做 事实硬度分层（硬证据/卖方喊单/情绪噪音）+ 多空分歧识别 + 三维交叉（公告事实×产业趋势×市场热点）排 Tier1/2/3，输出带操作建议的卡片报告。底层复用 theme-radar 三维交叉引擎。Use when the user pastes 卖方观点/产业消息流并想要 提纯/分层/排 Tier/三重共振机会卡片，而不是扫全市场公告。注：知识库仓 sellside-coverage-cross（卖方覆盖密度交叉验证）是另一个 skill，问\"第几篇研报/首覆/扎堆透支\"时用那个。",
+      "description": "把已筛过的卖方观点/产业消息流提纯成三重共振机会卡片：事实硬度分层、多空分歧、三维交叉排 Tier。用户粘贴卖方观点并要提纯/排 Tier 时用，不是扫全市场公告。问「第几篇研报/首覆/扎堆」用知识库 sellside-coverage-cross。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9c8cc418d758193eeab9358e9cf1f8396932a73516361ce34b6b0723ad10ed35",
+      "computedHash": "sha256:587c46aab637bc6ddc803b78c3cebdf4b57a697b4c53d4b7ed80949b9e35da9c",
       "agentOnly": false,
       "views": []
     },
@@ -510,7 +497,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e72a4bf74a8f5aff14116292ac0fd5edf8905d995eefd4310deeb530702958e9",
+      "computedHash": "sha256:cfa2ce2a5f6a9e014a9bfe9725e6098c6c06ee2fcf1eb371c1a94d081832ad00",
       "agentOnly": false,
       "views": []
     },
@@ -546,7 +533,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5f8def35a28c07c16b57932e42be0e3b2a85cb4f792160319d97f790c3735d44",
+      "computedHash": "sha256:ddf9cd21385f2382e487d2769ec8313f4234ba65bbd4dead016fe0fb01a7c93d",
       "agentOnly": false,
       "views": []
     },
@@ -585,22 +572,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/task-planner/SKILL.md",
-      "description": "批量/会话级高风险任务前的「采访」前置（Inversion 反转模式）——在复盘批处理、DuckDB 大回填、开新题材前，先按顺序问清任务类型、范围（日期区间/标的/题材）、数据源、结果落库去向、分支、凭证、无前视、dry-run、缺数处置，把回答合成成 task-plan，经 check_task_plan.py 门控校验通过后才放行抓数/回填/写库，再交给 market-overview / duckdb-backfill / theme-radar / top-gainers-feishu 等下游执行。触发词：批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问。注意：仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
-      "triggers": [
-        "批量任务规划",
-        "开工前采访",
-        "批量回填前先问",
-        "开新题材前先问",
-        "运行前规划",
-        "采访前置",
-        "先问后做",
-        "task planner",
-        "batch plan",
-        "回填前先问"
-      ],
-      "note": "仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
+      "description": "高风险批量任务前的采访前置。复盘批处理、DuckDB 大回填、开新题材前先问清范围/数据源/落库/分支/dry-run，合成 task-plan，经 check_task_plan.py 通过才放行。触发：批量任务规划、开工前采访、回填前先问、开新题材前先问。单日复盘/单股查询不用。",
+      "triggers": [],
+      "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7891744bfc2c08787778fcba3c6915bda3a72b250463f66e4141d219667591ed",
+      "computedHash": "sha256:33f2b7be840616383997466b40a95e1dc37405ef4e9b19b2bc0986a266aeabbe",
       "agentOnly": false,
       "views": [
         {
@@ -645,7 +621,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:26af890ce86a4c5ff04e78ce5f433d5ed79712b75239e91729c4652ca95e7294",
+      "computedHash": "sha256:67af60a7b7cac084983b95396d98320b3ad7f744d6e2237af7a4dd4404ed42c0",
       "agentOnly": false,
       "views": [
         {
@@ -805,7 +781,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2b2bd9b0a3751154a1e77a521455786b996e98b40d16256c74be4703498285a8",
+      "computedHash": "sha256:14e075eec32027b7b0ab6d1a7641ad2cb9cfc39784cbf47baceabb59749d3640",
       "agentOnly": false,
       "views": [
         {
