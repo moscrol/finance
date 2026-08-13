@@ -821,28 +821,23 @@ def _prepare_answer_spec_synthesis(
             selected_cards
         )
     exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
+    # 表达契约（情景树/跟踪）与经验卡片分开注入：契约是强制格式约束，塞进
+    # 「历史经验卡片」段会被模型当参考经验忽略（2026-08-13 workbench 实测）。
+    contract_parts: list[str] = []
     if options.include_scenario_guidance:
         scenario_guidance = scenario_tree.scenario_guidance_for_query(
             options.query,
             question_plan.question_type,
         )
         if scenario_guidance:
-            experience_guidance = (
-                f"{experience_guidance}\n\n{scenario_guidance}"
-                if experience_guidance
-                else scenario_guidance
-            )
+            contract_parts.append(scenario_guidance)
     if options.include_track_guidance:
         track_guidance = track_contract.track_guidance_for_query(
             options.query,
             question_plan.question_type,
         )
         if track_guidance:
-            experience_guidance = (
-                f"{experience_guidance}\n\n{track_guidance}"
-                if experience_guidance
-                else track_guidance
-            )
+            contract_parts.append(track_guidance)
     messages = llm_refine.build_synthesis_messages(
         options.query,
         theme,
@@ -851,6 +846,7 @@ def _prepare_answer_spec_synthesis(
         quality_context=None if is_market_review else quality_context,
         experience_guidance=experience_guidance,
         exemplar_guidance=exemplar_guidance,
+        contract_guidance="\n\n".join(contract_parts),
     )
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
