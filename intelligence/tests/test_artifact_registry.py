@@ -247,3 +247,24 @@ def test_daily_agent_markdown_uses_json_as_canonical_source(tmp_path: Path) -> N
         "market_feature_store/exports/2026-07-09-daily-agent.json"
     )
     assert registry.canonical_path(descriptor.artifact_id)[1] == canonical.resolve()
+
+
+def test_research_queue_markdown_uses_json_as_canonical_source(tmp_path: Path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    markdown = exports / "2026-08-13-research-queue.md"
+    canonical = exports / "2026-08-13-research-queue.json"
+    markdown.write_text("# 研究队列", encoding="utf-8")
+    canonical.write_text('{"date":"2026-08-13","research_queue":{}}', encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(
+        item
+        for item in registry.list(category="research_queue")
+        if item.content_path == markdown.resolve()
+    )
+
+    assert descriptor.source_of_truth == (
+        "market_feature_store/exports/2026-08-13-research-queue.json"
+    )
+    assert registry.canonical_path(descriptor.artifact_id)[1] == canonical.resolve()

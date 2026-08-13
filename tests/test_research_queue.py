@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from intelligence.services.research_queue import build_research_queue
+from intelligence.services.research_queue import (
+    SCHEMA_VERSION,
+    build_research_queue,
+    extract_queue,
+    find_research_queue_path,
+    load_research_queue,
+    sibling_queue_path,
+    wrap_research_queue_artifact,
+    write_research_queue_outputs,
+)
 
 
 def row(
@@ -178,6 +190,91 @@ class ResearchQueueTest(unittest.TestCase):
 
         self.assertEqual(queue["summary"]["total"], 0)
         self.assertEqual(queue["skipped"]["data_gap_or_unconfirmed"][0]["目标"], "金属铜")
+
+
+class ResearchQueueArtifactTest(unittest.TestCase):
+    def test_wrap_and_extract_round_trip(self):
+        queue = build_research_queue(
+            {
+                "old_logic_wakeup": [
+                    row("电子化学品", 154.08, "旧逻辑唤醒", "盘面触发待解释", layers=["L0 图谱登记"], missing=["L2 基线", "L3 官方验证"])
+                ],
+                "new_logic_candidate": [],
+                "data_gap": [],
+                "noise_or_unconfirmed": [],
+            }
+        )
+        artifact = wrap_research_queue_artifact(queue, date="2026-08-13", generated_at="2026-08-13T21:00:00+08:00")
+        self.assertEqual(artifact["schema_version"], SCHEMA_VERSION)
+        self.assertEqual(artifact["date"], "2026-08-13")
+        self.assertIn("IMA 1", artifact["human_summary"])
+        self.assertEqual(extract_queue(artifact)["today_do_ima"][0]["目标"], "电子化学品")
+        self.assertEqual(extract_queue(queue)["today_do_ima"][0]["目标"], "电子化学品")
+
+    def test_prefers_queue_file_over_nested_daily_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports = Path(tmp)
+            (exports / "2026-08-13-daily-agent.json").write_text(
+                json.dumps({"date": "2026-08-13", "research_queue": {"today_do_ima": [{"目标": "旧日报"}]}}),
+                encoding="utf-8",
+            )
+            (exports / "2026-08-13-research-queue.json").write_text(
+                json.dumps(
+                    wrap_research_queue_artifact(
+                        {"today_do_ima": [{"目标": "队列文件"}], "summary": {"today_do_ima": 1, "total": 1}},
+                        date="2026-08-13",
+                    )
+                ),
+                encoding="utf-8",
+            )
+            path, payload = load_research_queue(exports, date="2026-08-13")
+            self.assertTrue(str(path).endswith("2026-08-13-research-queue.json"))
+            self.assertEqual(extract_queue(payload)["today_do_ima"][0]["目标"], "队列文件")
+
+    def test_falls_back_to_daily_agent_when_queue_file_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports = Path(tmp)
+            (exports / "2026-08-07-daily-agent.json").write_text(
+                json.dumps({"date": "2026-08-07", "research_queue": {"today_find_official_evidence": [{"目标": "液冷"}]}}),
+                encoding="utf-8",
+            )
+            path, payload = load_research_queue(exports, date="2026-08-07")
+            self.assertTrue(str(path).endswith("2026-08-07-daily-agent.json"))
+            self.assertEqual(extract_queue(payload)["today_find_official_evidence"][0]["目标"], "液冷")
+
+    def test_latest_prefers_newer_queue_over_older_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports = Path(tmp)
+            (exports / "2026-08-07-daily-agent.json").write_text("{}", encoding="utf-8")
+            (exports / "2026-08-13-research-queue.json").write_text(
+                json.dumps({"date": "2026-08-13", "research_queue": {"today_do_ima": []}}),
+                encoding="utf-8",
+            )
+            path = find_research_queue_path(exports)
+            self.assertEqual(path.name, "2026-08-13-research-queue.json")
+
+    def test_write_outputs_does_not_need_fidelity_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            queue = {"today_do_ima": [{"目标": "CXO", "优先级": 1}], "summary": {"today_do_ima": 1, "total": 1}}
+            written = write_research_queue_outputs(
+                {"date": "2026-08-13", "generated_at": "now", "research_queue": queue},
+                json_path=root / "2026-08-13-research-queue.json",
+                md_path=root / "2026-08-13-research-queue.md",
+                html_path=root / "2026-08-13-research-queue.html",
+            )
+            payload = json.loads(written["json"].read_text(encoding="utf-8"))
+            self.assertEqual(payload["schema_version"], SCHEMA_VERSION)
+            self.assertIn("CXO", written["md"].read_text(encoding="utf-8"))
+            self.assertIn("研究队列", written["html"].read_text(encoding="utf-8"))
+
+    def test_sibling_queue_path_maps_dated_and_bare_agent_names(self):
+        self.assertEqual(
+            sibling_queue_path(Path("/tmp/2026-08-13-daily-agent.json")).name,
+            "2026-08-13-research-queue.json",
+        )
+        self.assertEqual(sibling_queue_path(Path("/tmp/daily-agent.html")).name, "research-queue.html")
+        self.assertEqual(sibling_queue_path(Path("/tmp/tampered.json")).name, "tampered-research-queue.json")
 
 
 if __name__ == "__main__":

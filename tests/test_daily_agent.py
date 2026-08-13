@@ -295,6 +295,12 @@ class DailyAgentTest(unittest.TestCase):
                 output / "daily-agent.html",
             )
             self.assertTrue((output / "daily-agent.json").is_file())
+            self.assertTrue((output / "research-queue.json").is_file())
+            self.assertTrue((output / "research-queue.md").is_file())
+            self.assertTrue((output / "research-queue.html").is_file())
+            queue_payload = json.loads((output / "research-queue.json").read_text(encoding="utf-8"))
+            self.assertEqual(queue_payload["schema_version"], "research-queue/v1")
+            self.assertEqual(queue_payload["research_queue"]["today_find_official_evidence"][0]["目标"], "液冷服务器")
             with self.assertRaisesRegex(
                 ValueError,
                 "markdown provenance marker mismatch",
@@ -310,6 +316,7 @@ class DailyAgentTest(unittest.TestCase):
                     output / "tampered.html",
                 )
             self.assertFalse((output / "tampered.json").exists())
+            self.assertTrue((output / "tampered-research-queue.json").exists())
             with self.assertRaisesRegex(
                 ValueError,
                 "markdown content does not match canonical report",
@@ -324,6 +331,7 @@ class DailyAgentTest(unittest.TestCase):
             self.assertFalse(
                 (output / "content-tampered.json").exists()
             )
+            self.assertTrue((output / "content-tampered-research-queue.json").exists())
 
     def test_daily_agent_rejects_wiki_changes_during_generation(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -10,6 +10,7 @@ import duckdb
 
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
 from intelligence.services.forecast_learning import learning_feedback_projection
+from intelligence.services.research_queue import load_research_queue
 
 
 _FRESHNESS_TABLES = (
@@ -170,6 +171,14 @@ def _add_theme_coverage(
                 item["message"] = (
                     f"当前题材覆盖 {covered}/{themes}；未覆盖部分保持未知"
                 )
+
+
+def _latest_research_queue(
+    repo_root: Path, as_of_date: str | None
+) -> tuple[Path | None, dict[str, object]]:
+    exports = repo_root / "market_feature_store" / "exports"
+    path, payload = load_research_queue(exports, as_of=as_of_date)
+    return path, payload
 
 
 def _latest_daily_agent(
@@ -845,7 +854,9 @@ def build_workbench_overview(
     wiki = Path(knowledge_wiki)
     db_path = root / "db" / "market_feature_store.duckdb"
     agent_path, agent_payload = _latest_daily_agent(root, None)
-    agent_date = str(agent_payload.get("date") or "") or None
+    queue_path, queue_payload = _latest_research_queue(root, None)
+    signal_payload = queue_payload or agent_payload
+    agent_date = str(signal_payload.get("date") or agent_payload.get("date") or "") or None
     winrate, sellside_flow, sellside_date = _load_sellside(wiki)
     forecast_performance = _load_forecast_performance(root)
     learning_feedback = learning_feedback_projection(
@@ -866,7 +877,7 @@ def build_workbench_overview(
             "knowledge": list(_KNOWLEDGE_STAGES),
             "market": list(_MARKET_STAGES),
         },
-        "signals": _load_signals(agent_payload, agent_date),
+        "signals": _load_signals(signal_payload, agent_date),
         "signal_date": agent_date,
         "winrate": winrate,
         "forecast_performance": forecast_performance,
@@ -889,7 +900,7 @@ def build_workbench_overview(
                 "message": "数据库文件不存在",
             }
         ],
-        "agent_artifact": str(agent_path) if agent_path else None,
+        "agent_artifact": str(queue_path or agent_path) if (queue_path or agent_path) else None,
     }
     if not db_path.is_file():
         return missing_response
@@ -905,7 +916,9 @@ def build_workbench_overview(
                 con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()[0]
             )
         agent_path, agent_payload = _latest_daily_agent(root, target_date)
-        agent_date = str(agent_payload.get("date") or "") or None
+        queue_path, queue_payload = _latest_research_queue(root, target_date)
+        signal_payload = queue_payload or agent_payload
+        agent_date = str(signal_payload.get("date") or agent_payload.get("date") or "") or None
         statuses = [
             _latest_table_status(
                 con,
@@ -969,7 +982,7 @@ def build_workbench_overview(
                 ),
                 "row_count": sum(
                     len(rows)
-                    for rows in _load_signals(agent_payload, agent_date).values()
+                    for rows in _load_signals(signal_payload, agent_date).values()
                 ),
                 "message": (
                     "暂无可用事件快照"
@@ -990,7 +1003,7 @@ def build_workbench_overview(
                 "knowledge": list(_KNOWLEDGE_STAGES),
                 "market": list(_MARKET_STAGES),
             },
-            "signals": _load_signals(agent_payload, agent_date),
+            "signals": _load_signals(signal_payload, agent_date),
             "signal_date": agent_date,
             "winrate": winrate,
             "forecast_performance": forecast_performance,
@@ -1007,7 +1020,9 @@ def build_workbench_overview(
             },
             "data_status": statuses,
             "agent_artifact": (
-                str(agent_path.relative_to(root)) if agent_path else None
+                str((queue_path or agent_path).relative_to(root))
+                if (queue_path or agent_path)
+                else None
             ),
         }
     except Exception:

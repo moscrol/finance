@@ -648,7 +648,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     kb_queue = kb_ingest_queue.build_kb_ingest_queue(
         task_queue,
         market_date=options.date,
-        source_artifact=str(paths.market_exports / f"{options.date}-daily-agent.json"),
+        source_artifact=str(paths.market_exports / f"{options.date}-research-queue.json"),
         resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
@@ -1175,38 +1175,7 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
 
 
 def _html_research_queue(queue: dict[str, Any]) -> str:
-    sections = [
-        ("today_do_ima", "今日该做 IMA", "info"),
-        ("today_find_official_evidence", "今日该找公告/调研/订单", "watch"),
-        ("today_wait_market_validation", "今日等盘面验证", "good"),
-        ("today_downgrade_or_watch", "今日降级/观察", "gap"),
-    ]
-    columns = []
-    for key, title, kind in sections:
-        items = list(queue.get(key) or [])
-        body = []
-        if not items:
-            body.append('<p class="empty small">暂无</p>')
-        for item in items[:6]:
-            stocks = "、".join(item.get("强势股") or []) or "-"
-            missing = "、".join(item.get("缺失证据层") or []) or "-"
-            body.append(
-                '<li>'
-                f'<strong>{escape(str(item.get("目标") or "-"))}</strong>'
-                f'<span>{escape(str(item.get("理由") or "-"))}</span>'
-                f'<small>priority={escape(str(item.get("优先级") or "-"))}｜生命周期={escape(str(item.get("生命周期阶段") or "-"))}｜裁判={escape(str(item.get("证据状态") or "-"))}</small>'
-                f'<small>缺：{escape(missing)}｜强势股：{escape(stocks)}</small>'
-                f'<small>催化：{escape(catalyst_attribution.catalyst_brief(item.get("催化归因")))}</small>'
-                '</li>'
-            )
-        columns.append(
-            '<div class="task-col">'
-            f'<h3>{_html_badge(title, kind)}</h3>'
-            '<ul>'
-            + "".join(body)
-            + '</ul></div>'
-        )
-    return '<div class="task-grid">' + "".join(columns) + "</div>"
+    return research_queue.render_queue_grid_html(queue)
 
 
 def _html_kb_ingest_queue(queue: dict[str, Any]) -> str:
@@ -1442,6 +1411,13 @@ def write_daily_agent_outputs(
 ) -> None:
     json_path = Path(out_json).expanduser()
     md_path = Path(out_md).expanduser()
+    html_path = Path(out_html).expanduser() if out_html else None
+    research_queue.write_research_queue_outputs(
+        report,
+        json_path=research_queue.sibling_queue_path(json_path),
+        md_path=research_queue.sibling_queue_path(md_path),
+        html_path=research_queue.sibling_queue_path(html_path) if html_path else None,
+    )
     contract_validation = validate_daily_agent_report(report)
     knowledge_path = (
         (report.get("paths") or {}).get("knowledge_wiki")
@@ -1481,7 +1457,6 @@ def write_daily_agent_outputs(
     if kb_queue:
         kb_queue_path = json_path.with_name(f"{report['date']}-kb-ingest-queue.json")
         kb_queue_path.write_text(json.dumps(kb_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    if out_html:
-        html_path = Path(out_html).expanduser()
+    if html_path:
         html_path.parent.mkdir(parents=True, exist_ok=True)
         html_path.write_text(html, encoding="utf-8")

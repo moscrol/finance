@@ -408,7 +408,7 @@ class AskResult:
     clarify: ask_clarify.ClarifyDecision | None = None
     # 实体锚定结果：确定性实体解析命中的实体与锚定概念；None=未命中/未启用。
     anchored_entity: entity_anchor.EntityAnchor | None = None
-    # 行情前瞻前置查漏门：从 daily-agent research_queue 判断是否应先补 DeepDive / L3 证据。
+    # 行情前瞻前置查漏门：从 research-queue（fallback daily-agent）判断是否应先补 DeepDive / L3 证据。
     forecast_preflight: dict[str, Any] | None = None
     # 运行时 L3 官方证据补查。默认空；只有 use_l3_lookup 时才尝试调用外接 CLI。
     l3_evidence: l3_evidence.L3EvidenceBundle = field(

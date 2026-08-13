@@ -216,12 +216,34 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                     str(exports / f"{date}-daily-agent.md"),
                     "--out-html",
                     str(daily_dir / f"{date}-daily-agent.html"),
+                    "--semantic-rag-top-n",
+                    "0",
                 ],
                 outputs=[
+                    str(exports / f"{date}-research-queue.json"),
+                    str(exports / f"{date}-research-queue.md"),
+                    str(daily_dir / f"{date}-research-queue.html"),
                     str(exports / f"{date}-daily-agent.json"),
                     str(exports / f"{date}-daily-agent.md"),
                     str(daily_dir / f"{date}-daily-agent.html"),
                 ],
+            ))
+            # 只归档到 wiki/raw；不 apply、不改 relations。缺文件或失败由 CLI 退出 0。
+            plan.append(CommandSpec(
+                name="kb-ingest-receive",
+                argv=[
+                    "python3",
+                    "-m",
+                    "intelligence.cli",
+                    "kb-queue-receive",
+                    "--date",
+                    date,
+                    "--finance-root",
+                    str(paths.finance_root),
+                    "--kb-wiki",
+                    str(paths.knowledge_wiki),
+                ],
+                outputs=[],
             ))
 
     plan.append(CommandSpec(

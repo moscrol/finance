@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from intelligence.services.research_queue import extract_queue
+
 
 STATUS_READY = "ready"
 STATUS_NEEDS_DEEPDIVE = "needs_deepdive"
@@ -21,12 +23,12 @@ def build_forecast_preflight(
 ) -> dict[str, Any]:
     """Build the readiness gate for a market forecast / daily review.
 
-    The input can be a full daily-agent report containing ``research_queue`` or
-    the queue itself. The gate does not redo lifecycle analysis; it reuses the
-    daily-agent research queue as the contract for what must be checked before a
-    formal forecast is generated.
+    The input can be a research-queue artifact, a full daily-agent report
+    containing ``research_queue``, or the queue itself. The gate does not redo
+    lifecycle analysis; it reuses the canonical research queue as the contract
+    for what must be checked before a formal forecast is generated.
     """
-    queue = _extract_queue(report_or_queue)
+    queue = extract_queue(report_or_queue)
     if not queue:
         result = {
             "status": STATUS_MISSING_DAILY_AGENT,
@@ -35,10 +37,10 @@ def build_forecast_preflight(
             "source_artifact": source_artifact or "-",
             "blocking_items": [],
             "next_steps": [
-                "先生成或同步 daily-agent，再运行生命周期 / research_queue 查漏。",
+                "先生成或同步 research-queue（agent-daily 的研究队列产物），再运行生命周期 / 查漏。",
                 "若必须先写，只能生成带缺口标记的草稿，不能伪装成正式复盘。",
             ],
-            "human_summary": "未读取到 daily-agent 研究队列；正式复盘前置查漏无法完成。",
+            "human_summary": "未读取到研究队列；正式复盘前置查漏无法完成。",
         }
         result["prompt_block"] = render_preflight_prompt(result)
         return result
@@ -53,7 +55,7 @@ def build_forecast_preflight(
             "blocking_items": blocking_items,
             "next_steps": [
                 "先让用户补 DeepDive / IMA / 题材地图或 L3 官方证据。",
-                "ingest 完成并重跑 daily-agent 后，再生成正式复盘。",
+                "ingest 完成并重跑研究队列后，再生成正式复盘。",
                 "如用户要求先看草稿，必须把 blocking_items 写成显式证据缺口。",
             ],
             "human_summary": f"正式复盘生成前需要先补 {len(blocking_items)} 个研究缺口。",
@@ -68,7 +70,7 @@ def build_forecast_preflight(
         "source_artifact": source_artifact or "-",
         "blocking_items": [],
         "next_steps": ["可以生成正式复盘；仍需在输出中保留四源合议和盘后验证表。"],
-        "human_summary": "daily-agent 查漏门禁通过，可以生成正式复盘。",
+        "human_summary": "研究队列查漏门禁通过，可以生成正式复盘。",
     }
     result["prompt_block"] = render_preflight_prompt(result)
     return result
@@ -98,17 +100,6 @@ def render_preflight_prompt(result: dict[str, Any]) -> str:
         lines.append("- 下一步：")
         lines.extend(f"  - {step}" for step in steps)
     return "\n".join(lines)
-
-
-def _extract_queue(report_or_queue: dict[str, Any]) -> dict[str, Any] | None:
-    if not isinstance(report_or_queue, dict):
-        return None
-    maybe_queue = report_or_queue.get("research_queue")
-    if isinstance(maybe_queue, dict):
-        return maybe_queue
-    if any(key in report_or_queue for key in BLOCKING_BUCKETS):
-        return report_or_queue
-    return None
 
 
 def _blocking_items(queue: dict[str, Any]) -> list[dict[str, Any]]:

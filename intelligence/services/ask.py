@@ -64,6 +64,7 @@ from intelligence.services import (
     market_timeseries,
     perspective_lab,
     research_brief,
+    research_queue,
     retrieval_planner,
     generic_research_owner,
     research_task_planner,
@@ -400,26 +401,19 @@ def _forecast_preflight_for_options(
         or trade_date_override
         or str(market_doc.get("trade_date") or "").strip()
     )
-    path: Path | None = None
-    if trade_date:
-        candidate = base / f"{trade_date}-daily-agent.json"
-        if candidate.exists():
-            path = candidate
-    else:
-        matches = sorted(glob.glob(str(base / "*-daily-agent.json")))
-        if matches:
-            path = Path(matches[-1])
+    path, payload = research_queue.load_research_queue(
+        base,
+        date=trade_date or None,
+    )
     if path is None:
-        source = str(base / f"{trade_date or '<latest>'}-daily-agent.json")
+        source = str(base / f"{trade_date or '<latest>'}-research-queue.json")
         return forecast_preflight.build_forecast_preflight({}, source_artifact=source)
-    try:
-        report = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
+    if not payload:
         result = forecast_preflight.build_forecast_preflight({}, source_artifact=str(path))
-        result["human_summary"] = f"daily-agent 读取失败：{exc}"
+        result["human_summary"] = "研究队列读取失败。"
         result["prompt_block"] = forecast_preflight.render_preflight_prompt(result)
         return result
-    return forecast_preflight.build_forecast_preflight(report, source_artifact=str(path))
+    return forecast_preflight.build_forecast_preflight(payload, source_artifact=str(path))
 
 
 def _all_candidates(doc: dict[str, Any]) -> list[dict[str, Any]]:
