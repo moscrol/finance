@@ -250,9 +250,9 @@ fermentation-tracer 给历史回溯、recognition_timeline 给认知跃迁，但
 
 | Slice | 内容 | 动到的组件 | 风险 |
 |---|---|---|---|
-| 1 | `market_regime_analogs.py` 纯函数核（每日情绪向量→窗口签名→滑窗匹配→后续事实）+ 合成数据单测 | 仅新增文件 + tests | 低：不接线、不碰运行时 |
+| 1 ✅（2026-08-13 已实现） | `market_regime_analogs.py` 纯函数核（每日情绪向量→窗口签名→滑窗匹配→后续事实）+ 合成数据单测 | 仅新增文件 + tests（`intelligence/services/market_regime_analogs.py`，证据编号 D10，18 测试全绿） | 低：不接线、不碰运行时 |
 | 2 | 接线成 D 块：意图路由词面、注入 ask/turn_controller、预算与降级 | `ask.py` / `turn_controller.py` / `query_understanding.py`（参考 D8 接线面） | 中：碰生产问答链路，需 live 验证 |
-| 3 | `theme_lifecycle` 阶段判定只读 CLI（复用 tracer 对齐逻辑）+ ledger-map 登记 | skills/ 或 scripts/ 新增 + 文档 | 低：只读 |
+| 3 ✅（2026-08-13 已实现） | `theme_lifecycle` 阶段判定只读 CLI（复用 tracer 对齐逻辑；台账暂未建，建时先登记 ledger-map） | `intelligence/services/theme_lifecycle.py`（`python3 -m intelligence.services.theme_lifecycle --theme X`，14 测试全绿） | 低：只读 |
 | 4 | q8 契约回灌：题材跟踪输出加四态对照 + `valid_until` + 下期关注衔接 | 输出模板/synthesis 契约 | 中：改输出形状，需用户看样张 |
 | 5 | 用户记忆状态机（新增记录带 `status`，棘轮式不迁移存量）+ 夜间回检呈现 candidate | `intelligence/users/` 台账 schema + 回检脚本 | 中：涉及台账 schema |
 | 6 | recall@k 尺子（离线，判卷说「证据不足」的 case 回放） | eval 侧新增 | 低：离线尺子 |
