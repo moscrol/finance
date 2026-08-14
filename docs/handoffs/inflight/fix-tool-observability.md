@@ -21,14 +21,9 @@
 
 ## 已验证
 
-- 全量 `intelligence/tests + tests` **4819 passed / 4 skipped**；ruff check 通过。
-- 新增 6 条测试，含 2 条变异测试（把归一化换回 `trace.capability`、把未测到的耗时
-  写成 0，都必须变红）。
-- **现场验证 ③**：8801 canary（cwd 指本 worktree）真实跑一题，读出
-  `kb_search 排队0.1ms/执行5523ms`、`finance_query 排队2.2ms/执行107ms`；
+- 全量 4819 passed / 4 skipped；ruff 通过；新增 6 条测试含 2 条变异测试。
+- **现场验证 ③**：8801 canary 真实跑一题，读出 `kb_search 排队0.1ms/执行5523ms`；
   `tool_budget_exhausted` 四条如实为 `None/None`。
-- 审计脚本复现生产读数：evidence_search 23 次 0%、kb_search 20 次 0%、l3_lookup 100%，
-  证据 266→58（22%）。
 
 ## 未验证 / 已知边界
 
