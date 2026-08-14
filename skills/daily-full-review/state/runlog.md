@@ -671,3 +671,177 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 0 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-07 | run 2026-08-07 18:42
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 4 |  |
+| market-daily | ok | 5 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 101 |  |
+| market-deviation | ok | 11 |  |
+| sector-daily | ok | 79 |  |
+| sector-stocks | partial | 0 | 2026-08-07 snapshot=cc656eaac1eb success=403/403 rel=52713+78/52791 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=fact_sector_daily mismatch=daily_identities after 20 loops |
+| limit-heat | ok | 36 | heat=222 stock=745 retried=0 still_empty=0 |
+| stock-high | ok | 76 |  |
+| limit-advance | ok | 3 |  |
+| stock-daily | ok | 43 | eastmoney snapshot ok |
+| mainline-daily | ok | 6 |  |
+| mainline-sector-daily | ok | 6 |  |
+| theme-flow-daily | ok | 2 |  |
+| features | ok | 2 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sector-stocks
+
+## 2026-08-06 | run 2026-08-09 23:05
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 1 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 4 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 35 |  |
+| market-deviation | ok | 9 |  |
+| sector-daily | ok | 35 |  |
+| sector-stocks | ok | 0 | 2026-08-06 snapshot=e309c15e51ba success=403/403 rel=52707+84/52791 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 31 | heat=223 stock=846 retried=0 still_empty=0 |
+| stock-high | ok | 63 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 23 | eastmoney snapshot ok |
+| mainline-daily | ok | 4 |  |
+| mainline-sector-daily | ok | 3 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 2 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-10 | run 2026-08-10 18:45
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 226 | [retry r1] |
+| market-deviation | ok | 12 |  |
+| sector-daily | ok | 33 |  |
+| sector-stocks | ok | 0 | 2026-08-10 snapshot=f715720f327d success=403/403 rel=52751+59/52810 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 36 | heat=260 stock=755 retried=0 still_empty=0 |
+| stock-high | ok | 121 |  |
+| limit-advance | ok | 1 |  |
+| stock-daily | ok | 31 | eastmoney snapshot ok |
+| mainline-daily | ok | 4 |  |
+| mainline-sector-daily | ok | 3 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-11 | run 2026-08-11 18:41
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 3 |  |
+| market-overview | ok | 3 |  |
+| market-daily | ok | 5 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 276 |  |
+| market-deviation | ok | 17 |  |
+| sector-daily | ok | 35 |  |
+| sector-stocks | ok | 0 | 2026-08-11 snapshot=2de8d8db34bd success=403/403 rel=52770+56/52826 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | fail | 1 | heat=0 stock=0 retried=0 still_empty=0 [retry r1] |
+| stock-high | ok | 106 |  |
+| limit-advance | ok | 2 |  |
+| stock-daily | ok | 38 | eastmoney snapshot ok |
+| mainline-daily | ok | 4 |  |
+| mainline-sector-daily | ok | 4 |  |
+| theme-flow-daily | ok | 1 |  |
+| features | ok | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：limit-heat, same-day-gate
+
+## 2026-08-13 | run 2026-08-14 02:03
+
+同步段前半由并行会话 `daily-update` 完成（homebrew python3，约 23min），本轮从 features 接续。`sync-fupanhui-public-assets` 单日入口曾卡在无进度 HTTPS；杀进程后 `sync_range` 显示 DAILY_SYNCS 已有行（skip-all），覆盖已齐。
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| sectors | ok | 7 | daily-update |
+| market-overview | ok | 10 | daily-update |
+| market-daily | ok | 5 | daily-update |
+| index-daily | ok | 2 | daily-update |
+| sw-l1-daily | ok | 480 | daily-update，偏慢 |
+| market-deviation | ok | 15 | tooltip 失败，回退 MA5 |
+| sector-daily | ok | 147 | daily-update |
+| sector-stocks | ok | 419 | daily-update chunk 41/41 |
+| limit-heat | ok | 61 | daily-update 18/18 chunks errors=0 |
+| stock-high | ok | 189 | daily-update |
+| limit-advance | ok | 4 | daily-update |
+| stock-daily | ok | 31 | eastmoney snapshot ok |
+| mainline-daily | ok | 11 | daily-update |
+| mainline-sector-daily | ok | 11 | daily-update |
+| theme-flow-daily | ok | 5 | daily-update |
+| fupanhui-public-assets | ok | - | 杀无进度进程后 skip-all 确认已有行；leader/dragon/core/global 8-13 有数 |
+| advancers-chart | ok | 10 | daily-update |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 | 3.2 MB iCloud increment |
+| quality-gate | COMPLETE | - | check_daily_review_data.py（--phase data；L2 未过） |
+| l2-moneyflow | fail | - | CH Code 516 hisdata180 鉴权失败（8-10 起同样 failed）；Fake-IP 与公网 IP 均 516 |
+| daily-review md | ok | 3 | exports/2026-08-13-daily-review.md |
+| daily-review html | ok | - | 走 render_daily_review_html.py（briefing 脚本被 L2 全量门拦住） |
+| theme-candidates | ok | - | CXO/创新药/医疗服务 居前 |
+| agent-daily | fail | 257 | fidelity 1.2：KB HEAD `b9767723` 提交于 2026-08-14 01:57，晚于 8-13 evidence_cutoff，未落盘 |
+| strategy1/3/4 + workbench + cockpit | ok | - | 手工续跑 |
+| evolve | ok | - | --force（L2 缺口）；suggest 样本不足未调参 |
+| winrate | ok | - | 复盘/winrate/winrate-2026-08-13.html |
+| morning-briefing / L3 | skip | - | 无 8-13 晨汇源；无 daily-agent.json |
+
+> 需关注（坑/未全绿）：l2-moneyflow（CH 密码/账号 516，自 8-10）、agent-daily（PIT 截断 vs 8-14 01:57 KB 提交）、legacy theme brief（L2 门）、晨汇断更 18 天、卖方观点断更 39 天
+
+## 2026-08-13 | run 2026-08-14 10:59
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 5 |  |
+| market-overview | ok | 10 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | timeout | 300 | [retry r1] |
+| market-deviation | ok | 11 |  |
+| sector-daily | ok | 172 |  |
+| sector-stocks | ok | 0 | 2026-08-13 snapshot=e1ab0892d761 success=403/403 rel=52792+52/52844 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 83 | heat=213 stock=575 retried=0 still_empty=0 |
+| stock-high | ok | 193 | [retry r1] |
+| limit-advance | ok | 6 |  |
+| stock-daily | ok | 33 | eastmoney snapshot ok |
+| mainline-daily | ok | 11 |  |
+| mainline-sector-daily | ok | 11 |  |
+| theme-flow-daily | ok | 4 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 2 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 19 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sw-l1-daily

@@ -6,7 +6,7 @@
       "id": "direction",
       "agent": "claude",
       "verdict": "partial",
-      "actual": "稀土永磁 +0.73%/diff-8.53；金属铜 +1.00%/diff-2.34；氟化工 -3.95%/diff-17.15；机器人 +2.38%/diff-0.38；黄金 +1.99%/diff+6.98",
+      "actual": "有色 +0.76%/diff-2.25；稀土永磁 +0.58%/diff-9.22；金属铜 +1.00%/diff-2.34；氟化工 -3.95%/diff-17.15；化工 -1.41%/diff-12.42；机器人概念 +2.38%/diff+0.91；机器人 +11.49%/diff+20.97；黄金 +1.99%/diff+6.98",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
@@ -82,7 +82,7 @@
       "id": "direction:double-red-chem-metals",
       "agent": "codex",
       "verdict": "partial",
-      "actual": "氟化工 -3.95%/diff-17.15；金属铜 +1.00%/diff-2.34；化学制品 -1.52%/diff-19.55",
+      "actual": "氟化工 -3.95%/diff-17.15；化工 -1.41%/diff-12.42；金属铜 +1.00%/diff-2.34；化学制品 -3.67%/diff-20.10",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
@@ -101,7 +101,7 @@
       "id": "sellside:diamond-heat",
       "agent": "codex",
       "verdict": "partial",
-      "actual": "氟化工 -3.95%/diff-17.15；金属铜 +1.00%/diff-2.34；化学制品 -1.52%/diff-19.55",
+      "actual": "氟化工 -3.95%/diff-17.15；化工 -1.41%/diff-12.42；金属铜 +1.00%/diff-2.34；化学制品 -3.67%/diff-20.10",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
@@ -117,5 +117,5 @@
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
     }
   ],
-  "generated_at": "2026-07-08T22:19:11+08:00"
+  "generated_at": "2026-08-07T21:02:17+08:00"
 }

@@ -423,7 +423,7 @@
   "recheck": {
     "benchmark": "sh000001",
     "recheck_t1_date": "2026-07-17",
-    "recheck_t3_date": null,
+    "recheck_t3_date": "2026-07-21",
     "pick_returns_t1": [
       -9.46,
       3.88,
@@ -431,8 +431,15 @@
       0.93,
       -3.72
     ],
-    "pick_returns_t3": [],
-    "benchmark_return_t3": null,
-    "recheck_generated_at": "2026-07-18T11:40:32+08:00"
+    "pick_returns_t3": [
+      -17.4353,
+      2.763,
+      -10.3906,
+      4.8193,
+      -3.7718
+    ],
+    "benchmark_return_t3": -0.4648,
+    "recheck_generated_at": "2026-08-07T21:02:17+08:00",
+    "beat_benchmark_t3": false
   }
 }
