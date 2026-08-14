@@ -104,6 +104,17 @@ class TimeseriesBlockTests(unittest.TestCase):
         self.assertIn("2026-07-07", block)
         self.assertIn("pct_chg>0", block.replace(" ", ""))
 
+    def test_on_date_holiday_declares_closure(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            intent = parse_timeseries_intent("涨停家数逐日变化")
+            assert intent is not None
+            block = timeseries_block_for_llm(intent, db, on_date="2026-02-17")
+        self.assertIn("休市", block)
+        self.assertIn("2026-02-17", block)
+        self.assertIn("| 2026-02-17 | — |", block)
+
     def test_missing_db_returns_empty(self) -> None:
         intent = parse_timeseries_intent("过去 5 日涨停家数逐日变化")
         assert intent is not None

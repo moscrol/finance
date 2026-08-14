@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from intelligence.services import retrieval_cache
+from intelligence.services.trading_calendar import non_trading_day_note
 
 from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
 from intelligence.paths import default_market_db_path
@@ -202,8 +204,15 @@ def fetch_timeseries(
         }
     con = db_result.connection
     try:
+        warnings: list[str] = []
         if on_date:
             dates = [str(on_date)]
+            try:
+                closure = non_trading_day_note(date.fromisoformat(str(on_date)[:10]))
+            except ValueError:
+                closure = None
+            if closure:
+                warnings.append(closure.split("；")[0].strip())
         else:
             date_rows = con.execute(
                 "SELECT DISTINCT trade_date FROM fact_market_daily ORDER BY trade_date DESC LIMIT ?",
@@ -219,7 +228,6 @@ def fetch_timeseries(
                 }
         start = dates[0]
         values: dict[str, dict[str, Any]] = {}
-        warnings: list[str] = []
         market_keys = [k for k in intent.metric_keys if k in {"limit_up", "limit_down", "advancers", "total_amount"}]
         if market_keys:
             cols = ", ".join(market_keys)
