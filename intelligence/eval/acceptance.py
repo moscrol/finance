@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -110,6 +111,23 @@ class TurnTrace:
     elapsed_s: float = 0.0
     status: str = "unknown"
     error: str | None = None
+    # --- 运行态三元组（R-20260815-01）---------------------------------------
+    # ``evidence_bound`` 是**交付层**计数，它把至少四种互不相同的运行态压成同一个
+    # ``0``：没执行 / 没取到 / 取到没合成 / 合成了但绑定被判缺而丢弃。2026-08-14
+    # 那份诊断正是被这个同码读数带偏，把 9 个 ``Connection refused`` 读成了业务
+    # 行为。下面三个字段把「取回多少」「绑上多少」「交付多少」拆开各自可见。
+    #
+    # ⚠️ 这三个字段来自 episode 产物（``continuous-episode.json``），不是公共 API
+    # ——公共 ``/trace`` 是脱敏展示投影（step_id 为哈希、name 只有 research/
+    # understanding），拿不到结构化判据。取不到产物时**不猜**：三个字段留 None、
+    # ``execution_state`` 落 ``undetermined``、``execution_state_source`` 记
+    # ``api_only``，让读者知道这一格没有证据支撑，而不是看到一个像样的默认值。
+    evidence_retrieved: int | None = None
+    bindings_count: int | None = None
+    outputs_missing: int | None = None
+    outputs_fulfilled: int | None = None
+    execution_state: str = "unknown"
+    execution_state_source: str = "unknown"
 
 
 @dataclass
@@ -181,6 +199,144 @@ def preflight(base: str) -> tuple[bool, str]:
     return True, f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
 
 
+#: 运行态冻结枚举（R-20260815-01）。**不要新增值而不同步更新判定函数与看板**——
+#: 这张表的价值全在「同一个读数只对应一种成因」，多一个语义重叠的值就退回同码。
+EXECUTION_STATES = (
+    "not_run",  # 基础设施失败：服务不可达/超时，题目根本没跑（R-02：不进分母）
+    "clarification",  # 正常澄清轮：反问用户，无 gaps、无 episode 产物（非失败）
+    "no_evidence",  # 跑了但一条证据都没取到（检索侧）
+    "retrieved_unsynthesized",  # 取到证据但没合成出 draft / 无绑定（合成侧）
+    "bound_but_dropped",  # 合成并绑定了，但绑定被判缺而未交付（交付侧）
+    "delivered",  # 有证据交付到验收可见面
+    "undetermined",  # 缺 episode 产物，无法判定——不许猜
+)
+
+#: ``not_run`` 是部署接缝失败，不是题目失败。R-20260815-02：把它计进质量分母会
+#: 稀释读数——2026-08-13 那份 28 题产物里 C 组 9 题全是 ``Connection refused``，
+#: 被当成「C 组 90% 证据为零」写进了结论。
+_STATES_OUT_OF_QUALITY_DENOMINATOR = frozenset({"not_run"})
+
+
+def counts_toward_quality(turn: Mapping[str, Any]) -> bool:
+    """该 turn 是否计入业务质量分母。"""
+
+    state = str(turn.get("execution_state") or "")
+    if state in _STATES_OUT_OF_QUALITY_DENOMINATOR:
+        return False
+    # 旧产物没有 execution_state，退回既有判据，保持向后可读
+    if not state or state == "unknown":
+        return not (
+            turn.get("status") == "error" and not (turn.get("trace_steps") or [])
+        )
+    return True
+
+
+def summarize_execution_states(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    """按运行态汇总，并给出剔除 `not_run` 后的质量分母。
+
+    R-20260815-02 的落点：`quality_denominator` 是**分母本身**，不是又一个提示。
+    2026-08-13 那份产物里 C 组 10 题有 9 题是 `Connection refused`，旧口径按
+    10 做分母，于是「C 组 90% 证据为零」被当成业务结论写进了诊断。
+    """
+
+    tally: dict[str, int] = {}
+    source_tally: dict[str, int] = {}
+    denominator = 0
+    excluded: list[str] = []
+    for case in cases:
+        turns = case.get("turns") or []
+        if not turns:
+            continue
+        head = turns[0]
+        state = str(head.get("execution_state") or "unknown")
+        tally[state] = tally.get(state, 0) + 1
+        # `execution_state_source` 必须跟着 tally 一起报：只有
+        # `episode_artifact` 那部分是有结构化产物支撑的，`api_only` 那部分
+        # 只能到 not_run/clarification/undetermined 三档。不报来源，读者无法
+        # 判断这张表里有多少格其实是「没证据」而非「测出来是这样」。
+        source = str(head.get("execution_state_source") or "unknown")
+        source_tally[source] = source_tally.get(source, 0) + 1
+        if counts_toward_quality(head):
+            denominator += 1
+        else:
+            excluded.append(str(case.get("case_id") or "?"))
+    return {
+        "execution_state_tally": dict(sorted(tally.items())),
+        "execution_state_source_tally": dict(sorted(source_tally.items())),
+        "quality_denominator": denominator,
+        "excluded_from_denominator": excluded,
+    }
+
+
+def _read_episode_facts(run_id: str, user: str | None) -> dict[str, Any] | None:
+    """从已落盘的 episode 产物读结构化判据。
+
+    只读、不请求、不改任何运行时状态。定位方式与 runtime 的存储约定一致
+    （``$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/continuous-episode.json``）；
+    读不到就返回 None 交由调用方标注 ``undetermined``，绝不构造默认值。
+    """
+
+    users_dir = os.environ.get("FORESIGHT_USERS_DIR")
+    if not users_dir or not run_id:
+        return None
+    root = Path(users_dir)
+    candidates = [root / user / "runs" / run_id] if user else []
+    candidates.extend(sorted(root.glob(f"*/runs/{run_id}")))
+    for run_dir in candidates:
+        path = run_dir / "continuous-episode.json"
+        if not path.is_file():
+            continue
+        try:
+            episode = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(episode, dict):
+            return None
+        outcome = episode.get("outcome")
+        outcome = outcome if isinstance(outcome, dict) else {}
+        structural = episode.get("structural_verifier")
+        structural = structural if isinstance(structural, dict) else {}
+        completion = structural.get("completion")
+        completion = completion if isinstance(completion, dict) else {}
+        outputs = completion.get("outputs")
+        outputs = outputs if isinstance(outputs, list) else []
+        statuses = [
+            str(item.get("status"))
+            for item in outputs
+            if isinstance(item, Mapping)
+        ]
+        return {
+            "evidence_retrieved": len(outcome.get("evidence") or []),
+            "bindings_count": len(outcome.get("bindings") or []),
+            "draft_chars": len(str(outcome.get("draft") or "")),
+            "outputs_missing": sum(1 for s in statuses if s == "missing"),
+            "outputs_fulfilled": sum(1 for s in statuses if s == "fulfilled"),
+        }
+    return None
+
+
+def _classify_execution_state(
+    trace: TurnTrace, facts: Mapping[str, Any] | None
+) -> str:
+    """按结构化事实定运行态。**不读答案正文**——那是给用户看的话术，不是观测。"""
+
+    if trace.status in {"error", "timeout"} and not trace.trace_steps:
+        return "not_run"
+    if trace.evidence_bound > 0:
+        return "delivered"
+    if facts is None:
+        # 没有 episode 产物：可能是澄清轮（B6 形状：秒级返回、无 gaps、步数极少），
+        # 也可能只是产物读不到。两者不可混为一谈。
+        if trace.status == "completed" and not trace.gaps and len(trace.trace_steps) <= 6:
+            return "clarification"
+        return "undetermined"
+    if not facts.get("evidence_retrieved"):
+        return "no_evidence"
+    if not facts.get("draft_chars") or not facts.get("bindings_count"):
+        return "retrieved_unsynthesized"
+    return "bound_but_dropped"
+
+
 def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) -> None:
     """补 run 级证据绑定与步骤。取不到不算失败 —— 答案本身已经拿到了。"""
     if not trace.run_id:
@@ -212,6 +368,16 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         ]
         trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
         trace.fulfillment = _capture_fulfillment(steps)
+    facts = _read_episode_facts(trace.run_id, user)
+    if facts is not None:
+        trace.evidence_retrieved = int(facts["evidence_retrieved"])
+        trace.bindings_count = int(facts["bindings_count"])
+        trace.outputs_missing = int(facts["outputs_missing"])
+        trace.outputs_fulfilled = int(facts["outputs_fulfilled"])
+        trace.execution_state_source = "episode_artifact"
+    else:
+        trace.execution_state_source = "api_only"
+    trace.execution_state = _classify_execution_state(trace, facts)
 
 
 _SYNTHESIS_DIAGNOSTIC_FIELDS = (
@@ -373,12 +539,17 @@ def cmd_run(args: argparse.Namespace) -> int:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = output_path or RUNS_DIR / f"{stamp}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
+    case_payload = [asdict(r) for r in runs]
     payload = {
         "generated_at": stamp,
         "base": args.base,
         "preflight_ok": ok,
         "preflight_detail": detail,
-        "cases": [asdict(r) for r in runs],
+        # R-20260815-01/-02：把「多少题跑了、各自卡在哪一层」写进产物本身。
+        # 此前只能靠事后逐题翻 run 目录才能区分四种 eb=0，读产物的人拿到的是
+        # 一列不可区分的 0。
+        **summarize_execution_states(case_payload),
+        "cases": case_payload,
     }
     try:
         with out.open("x", encoding="utf-8") as handle:
@@ -722,7 +893,18 @@ def classify_failure(turn: dict[str, Any]) -> str:
     if turn.get("degrades") and not (turn.get("evidence_bound") or 0):
         # 服务健康、模型答了，但一条证据都没绑上就降级 —— 这是检索/绑定的业务
         # 缺陷（可能是假拒答），不是部署接缝，别混进接缝账里当"环境没配好"。
-        return "业务质量:零证据降级"
+        #
+        # R-20260815-01：这一格此前把三种成因写成同一句话。带 `execution_state`
+        # 的产物按成因分开报——「没取到」和「取到并绑上了却被判缺零掉」是相反的
+        # 病，前者查检索、后者查绑定判据，混在一起会让两轮归因都指错层。
+        state = str(turn.get("execution_state") or "")
+        suffix = {
+            "no_evidence": ":未取到证据",
+            "retrieved_unsynthesized": ":取到未合成",
+            "bound_but_dropped": ":绑定被判缺丢弃",
+            "clarification": ":澄清轮",
+        }.get(state, "")
+        return f"业务质量:零证据降级{suffix}"
     return "业务质量"
 
 
