@@ -12,7 +12,7 @@
 最值得吸收的不是 dsh 的 TypeScript 代码，而是它已经明确化的六个边界：
 
 1. Durable Session Event 与 Live Extension Event 分离；
-2. pre-step -> request -> pre-execute -> execute -> post-execute -> result 工具流水线；
+2. pre-execute -> execute -> post-execute -> finalizeContent -> result 工具流水线，加上 agent/pre-step、agent/request-error 等 Step 级扩展点；
 3. 每个 Agent/Session 的 Scoped Context 和能力集；
 4. 创建、恢复、取消、排空、销毁的回滚式生命周期；
 5. Profile/Bundle 的组合式配置；
@@ -110,15 +110,18 @@ git grep -n "agent/pre-step\|tools/pre-execute\|session/event"
 git grep -n "ReactLoopAgent\|interface Agent\|SessionEvent"
 ~~~
 
-需要重建副本时：
+需要重建副本时，必须检出本节 pinned commit，不得检出 master；克隆不加 --depth，否则 master 前移后无法回到该 commit：
 
 ~~~bash
-git clone --filter=blob:none --no-checkout --depth 1 \
-  https://github.com/deepseek-ai/deepseek-harness.git /tmp/dsh-source-index
-git -C /tmp/dsh-source-index sparse-checkout init --cone
-git -C /tmp/dsh-source-index sparse-checkout set \
+DSH_INDEX=/Users/a77/finance-workspace-private/tmp/dsh-source-index
+DSH_COMMIT=47f943859bef60e4160492346772ded9b24f765a
+git clone --filter=blob:none --no-checkout \
+  https://github.com/deepseek-ai/deepseek-harness.git "$DSH_INDEX"
+git -C "$DSH_INDEX" sparse-checkout init --cone
+git -C "$DSH_INDEX" sparse-checkout set \
   docs packages/core packages/bundle/base apps/cli packages/host
-git -C /tmp/dsh-source-index checkout --force master
+git -C "$DSH_INDEX" checkout --force "$DSH_COMMIT"
+git -C "$DSH_INDEX" rev-parse HEAD
 ~~~
 
 关键 dsh 源码证据：
@@ -173,7 +176,7 @@ git -C /tmp/dsh-source-index checkout --force master
 - Plugin/Service Seam：服务定义、Provider、Consumer 分离，扩展通过插件挂载；
 - Typed Event Taxonomy：Durable Session Event 和 Live Agent/Tool Event 分离；
 - Session Event Sourcing：从事件派生模型历史、UI、恢复、Fork 和 Transcript；
-- 工具执行流水线：pre-execute -> execute -> post-execute -> result，并支持 Guard；
+- 工具执行流水线：pre-execute -> execute -> post-execute -> finalizeContent -> result，并支持 Guard；
 - Scoped Context：每个 Agent 可以拥有独立工具、Prompt、策略和注册范围；
 - 生命周期纪律：创建、发布、恢复、取消、排空、销毁是有回滚边界的事务；
 - Profile/Bundle：通过有序配置层组合 Web、Headless、模型、工具和策略；
@@ -220,6 +223,8 @@ class ToolPipeline(Protocol):
     def post_execute(self, result: ToolRunResult, scope: EpisodeScope) -> ToolRunResult: ...
     def project_result(self, result: ToolRunResult) -> PublicToolResult: ...
 ~~~
+
+与 dsh 的对应关系：prepare/authorize/pre_execute 合并承担 tools/pre-execute 与 Guard 的职责，execute/post_execute 对应同名阶段，project_result 覆盖 dsh 中 definition-owned finalizeContent 和 tools/result 两段。
 
 金融层继续负责：截止日、查询语义、证据来源、hash、freshness、gaps 和 output binding。
 
@@ -416,6 +421,7 @@ Runtime 质量：
 - repair recovery rate；
 - P50/P95 wall time；
 - input/output token 和每个阶段耗时；
+- Arm B 的跨语言桥接耗时，单独记录，不并入 Runtime 耗时；
 - cancel、resume、restart 的成功率；
 - Trace 与事件对账完整率。
 
@@ -431,9 +437,11 @@ Runtime 质量：
 
 以下是实施前的候选门槛，不是现有实测结论：
 
+- 判定前必须固定题集规模和每臂重复次数，并说明 5 个百分点的差异在该样本量下可与噪声区分；样本量不足时先扩大题集或重复次数，不得直接判定；
 - B 不能让 evidence-bound output rate 下降超过 5 个百分点；
 - B 不能增加未经绑定的数字/日期断言；
 - B 在 P95 延迟、修复成功率、恢复能力或维护成本中至少有一项达到明确改善，才值得进入长期维护；
+- 比较 P50/P95 延迟时必须把跨语言桥接耗时单独拆出：桥接导致的劣势记为 Adapter 实现成本，不作为底座优劣的证据；
 - 任意 Arm 的 Trace/Projection 对账失败，直接判该 Arm 不可发布；
 - dsh Developer Preview 升级后必须重跑同一固定题集，不能用源码更新后看起来更好替代回归。
 
@@ -452,7 +460,7 @@ Runtime 质量：
 
 ## 11. 实施顺序
 
-1. 复核基线：运行 layer_audit.py、现有 Runtime benchmark 和单元测试，保存 revision、环境、Provider、数据截止日。
+1. 复核基线：运行 layer_audit.py、现有 Runtime benchmark 和单元测试，保存 revision、环境、Provider、数据截止日；同时确认 dsh base bundle 在 pinned commit 下有 Arm A 实际 Provider/模型的适配器，没有则先解决模型可比性再继续。
 2. 建立 EpisodeScope 和 Tool Pipeline 的 Protocol，不改变现有行为。
 3. 为现有工具注册表接入阶段事件和可达性 Dump。
 4. 统一 Runtime Handle 生命周期，补取消、排空、恢复和重启测试。
