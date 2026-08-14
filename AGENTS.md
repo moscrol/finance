@@ -91,17 +91,23 @@ git branch --show-current
 
 ### 🟢 合并纪律：CI 绿才可合（强制）
 
-私有仓 + 免费计划开不了 GitHub 分支保护（API 返回 403），这条纪律就是唯一的合并闸。**任何 agent 合并 PR 前必须**：
+日常远程是本机 Gitea（`gitea` / `remote.pushDefault=gitea`）。GitHub `origin` 保留，但不假设会解封。Gitea 不跑 Actions，这条纪律仍是合并闸。**任何 agent 合并 PR 前必须在本机跑完等价检查**：
 
 ```bash
-gh pr checks <PR号> --watch   # workbench-check 与 registry-check 必须全部 pass
+# 叶子：python / frontend / e2e；聚合仍叫 workbench-check
+.venv-workbench/bin/python -m ruff check . && .venv-workbench/bin/python -m pytest -q
+cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
-- `workbench-check` / `registry-check` 任一红或未出结论：**禁止合并**，先修红或等结论，不允许「带红合入、回头再修」。
+- `python` / `frontend` / `e2e` / `registry-check` 任一红或未出结论：**禁止合并**，先修红或等结论，不允许「带红合入、回头再修」。
 - `workbench-check` 是聚合 job：叶子是并行的 `python` / `frontend` / `e2e`。聚合红时先看是哪片叶子红，不要再假设「前面红了后面没跑」。
 - `data-quality-check` 按 paths 触发：触发了就必须绿；没触发不算数。
 - 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红、本文件把串行单 job 拆成并行叶子）。
-- 若升级 GitHub Pro 或转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
+- 若 GitHub 解封且升级 Pro / 转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
+
+### 🟢 PR 关闭纪律（强制）
+
+关闭 PR 必须留下接替指针（替代 PR / 提交 / 文档路径）或废弃理由。禁止静默关闭。合入后由托管端删除已合并分支。
 
 ### 🔴 开工前必查：这棵树是否已经有别人在动
 
