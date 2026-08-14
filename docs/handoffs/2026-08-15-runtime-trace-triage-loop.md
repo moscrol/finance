@@ -384,3 +384,34 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
   rebase 后净增量应等于检阅方已核的两点 diff，重推即可合。
 - **Round 3 暂不开**：A 侧 live canary 与 `carried_draft_chars=0` 丢稿分诊
   等用户裁决 8792；轨道 B Round 2 交付后统一定轮。
+
+### 检阅批注 · Round 2 轨道 B（2026-08-15，检阅方）
+
+- **判定：PASS（合并前需勘误，见下）。** 独立复核：`validate-report.sh` RC:0
+  复跑；12 条新单测 + acceptance 相关 174 passed 复跑（收据
+  `20260814T183634Z/183643Z-cbe8d8b0`）；codex 分支 31 passed；判别式亲手
+  探针 3/3 成立——B1 RunB `1/6/0` 全带 gap → struct 三格 missing /
+  `evidence_ids=0`（实测）、B4 `5/14/7` 无 gap → 全 fulfilled、B′ B1
+  `1/9/9`、B3 `3/3/3` 与报告一致；**换样本**重放修复后 mapper（00-55 份，
+  243 条，执行方未用过）：`tool=43/observe=43` 配平、`unmapped=50`，机制
+  跨样本成立；B6 澄清轮实证（answer 为反问、两跑均无 episode 产物），
+  5/7 口径接受。账本纪律全对（只动 B 段；R-06 把用户裁决转成可证伪验收线）。
+- **勘误（合并门，[#12](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/12)）**：
+  ①E-002 把 B′ 读数（1/9/9）标在 Run B 的 run_id 下，实测 Run B=`1/6/0`
+  ——Run B 是**混合形**（counterpoint 0 哈希真缺口），与 B7 同形，仍在
+  F-001 射程，机制结论不变；②E-003 Run B 行第三值 9→0（其括注「0 变 9」
+  本来就对）；③B′ 产物文件名 UTC 日期应为 0814（`generated_at=20260814T181552Z`）。
+- **接受两条对检阅方预读的更正**：B6 非失败（分母 5/7）；H4 INCONCLUSIVE
+  成立——脏文件 mtime 16:42/18:29 落在 Run A 与 Run B 之间（检阅方实测
+  确认），消融非单变量，02:10 补注「窗口是主要贡献因」降级为候选；
+  「3 个脏文件」按 20 个更正（当时只列了已知 3 个 runtime 文件）。
+- **检阅方环境补注（两轨都读）**：8792 已于 08-15 02:17:59 **原地重启**
+  （新 pid 91233），仍从 `finance-workspace-07af9160a677` 脏目录加载
+  （现 23 dirty），但该目录 `episode_protocol.py` 与 main（`a189d6bd`）
+  **内容一致**——R-001+caveat_slips 已以热贴形式上线。B 的 Run B/B′ 同身份
+  前提不受影响（B′ 02:16 完成，先于重启）。正式收口该项用户决策，用
+  `R-20260815-06` 的判据（porcelain 空 + `source_revision` 与目录一致）。
+- **合并次序**：#12（勘误后 rebase）→ #13 rebase → #10（A）rebase。
+  三者都动 ledger 头行，冲突琐碎。
+- **Round 3 统一定轮前置**：用户按 R-06 判据裁决 8792（热贴身份下 A 的
+  canary 只能作弱确认，正式结案要干净部署）。
