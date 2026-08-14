@@ -128,6 +128,11 @@ class TurnTrace:
     outputs_fulfilled: int | None = None
     execution_state: str = "unknown"
     execution_state_source: str = "unknown"
+    # R-20260815-07：逐格形状（output_id → clean / gap_zeroed / no_hash）。
+    # 混合形的 turn 只靠 `execution_state` 一个标量表达不了，必须留明细。
+    slot_shapes: dict[str, str] = field(default_factory=dict)
+    slots_gap_zeroed: int | None = None
+    slots_no_hash: int | None = None
 
 
 @dataclass
@@ -206,7 +211,15 @@ EXECUTION_STATES = (
     "clarification",  # 正常澄清轮：反问用户，无 gaps、无 episode 产物（非失败）
     "no_evidence",  # 跑了但一条证据都没取到（检索侧）
     "retrieved_unsynthesized",  # 取到证据但没合成出 draft / 无绑定（合成侧）
-    "bound_but_dropped",  # 合成并绑定了，但绑定被判缺而未交付（交付侧）
+    # R-20260815-07：原 `bound_but_dropped` 细分为下面两态。二者都是「绑定了却没
+    # 交付」，但**成因相反、处置也相反**：
+    #   `gap_zeroed` —— 该格有 `evidence_hashes` 却因附带 gap 被整格判缺。证据是
+    #                   真的存在却被扣住，属可修缺陷（轨道 A 的 F-001/R-001 面）。
+    #   `no_hash`    —— 该格本就没有任何可绑证据。判缺是**正确行为**，不该"修"。
+    # 混在一起会让「该修的」和「本就对的」共用一个读数——这正是 `evidence_bound`
+    # 同码问题在下一层的复发。
+    "gap_zeroed",  # 至少一格「有哈希 + 带 gap」被零化（证据被扣住）
+    "no_hash",  # 被判缺的格全部零哈希（真缺口，判缺正确）
     "delivered",  # 有证据交付到验收可见面
     "undetermined",  # 缺 episode 产物，无法判定——不许猜
 )
@@ -305,12 +318,32 @@ def _read_episode_facts(run_id: str, user: str | None) -> dict[str, Any] | None:
             for item in outputs
             if isinstance(item, Mapping)
         ]
+        slot_shapes: dict[str, str] = {}
+        for binding in outcome.get("bindings") or []:
+            if not isinstance(binding, Mapping):
+                continue
+            output_id = str(binding.get("output_id") or "")
+            if not output_id:
+                continue
+            hashes = binding.get("evidence_hashes") or []
+            if not binding.get("gap"):
+                slot_shapes[output_id] = "clean"
+            elif len(hashes) > 0:
+                slot_shapes[output_id] = "gap_zeroed"
+            else:
+                slot_shapes[output_id] = "no_hash"
         return {
             "evidence_retrieved": len(outcome.get("evidence") or []),
             "bindings_count": len(outcome.get("bindings") or []),
             "draft_chars": len(str(outcome.get("draft") or "")),
             "outputs_missing": sum(1 for s in statuses if s == "missing"),
             "outputs_fulfilled": sum(1 for s in statuses if s == "fulfilled"),
+            # R-20260815-07：逐格形状。**必须逐格记而不是只给 turn 级标签**——
+            # B7 与 B1@RunB 都是混合形（同一 turn 内既有滑档格又有真缺口格），
+            # 只给一个 turn 级值会把其中一种抹掉。
+            "slot_shapes": slot_shapes,
+            "slots_gap_zeroed": sum(1 for s in slot_shapes.values() if s == "gap_zeroed"),
+            "slots_no_hash": sum(1 for s in slot_shapes.values() if s == "no_hash"),
         }
     return None
 
@@ -334,7 +367,12 @@ def _classify_execution_state(
         return "no_evidence"
     if not facts.get("draft_chars") or not facts.get("bindings_count"):
         return "retrieved_unsynthesized"
-    return "bound_but_dropped"
+    # 混合形（同一 turn 内两种格都有）按 `gap_zeroed` 归类：只要存在一格证据被
+    # 无谓扣住，这个 turn 就有可修的东西，这是行动意义上更强的信号。逐格明细在
+    # `slot_shapes` 里不丢。
+    if facts.get("slots_gap_zeroed"):
+        return "gap_zeroed"
+    return "no_hash"
 
 
 def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) -> None:
@@ -374,6 +412,9 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         trace.bindings_count = int(facts["bindings_count"])
         trace.outputs_missing = int(facts["outputs_missing"])
         trace.outputs_fulfilled = int(facts["outputs_fulfilled"])
+        trace.slot_shapes = dict(facts["slot_shapes"])
+        trace.slots_gap_zeroed = int(facts["slots_gap_zeroed"])
+        trace.slots_no_hash = int(facts["slots_no_hash"])
         trace.execution_state_source = "episode_artifact"
     else:
         trace.execution_state_source = "api_only"

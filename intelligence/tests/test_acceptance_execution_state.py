@@ -32,7 +32,7 @@ def _episode(
     user: str = "tester",
     draft: str = "",
     evidence: int = 0,
-    bindings: int = 0,
+    bindings: int | list[tuple[str, int, bool]] = 0,
     missing: int = 0,
     fulfilled: int = 0,
 ) -> Path:
@@ -44,7 +44,18 @@ def _episode(
         "outcome": {
             "draft": draft,
             "evidence": [{"content_hash": f"h{i}"} for i in range(evidence)],
-            "bindings": [{"output_id": f"o{i}"} for i in range(bindings)],
+            "bindings": (
+                [
+                    {
+                        "output_id": oid,
+                        "evidence_hashes": [f"h{j}" for j in range(n)],
+                        "gap": "缺少一手证据" if gap else None,
+                    }
+                    for oid, n, gap in bindings
+                ]
+                if isinstance(bindings, list)
+                else [{"output_id": f"o{i}"} for i in range(bindings)]
+            ),
         },
         "structural_verifier": {"completion": {"outputs": outputs}},
     }
@@ -106,14 +117,67 @@ def test_bound_but_dropped_is_distinct_from_never_retrieving(tmp_path: Path) -> 
     ——一个是压根没取到，一个是取到并绑上了却在交付前被零掉。
     """
 
-    _episode(tmp_path, "r2", draft="x" * 302, evidence=19, bindings=3, missing=3)
+    _episode(
+        tmp_path,
+        "r2",
+        draft="x" * 302,
+        evidence=19,
+        bindings=[("direct_assessment", 1, True), ("chain_mapping", 6, True)],
+        missing=3,
+    )
     facts = _read_episode_facts("r2", "tester")
     trace = TurnTrace(question="q", status="completed", trace_steps=["a"] * 21)
-    assert _classify_execution_state(trace, facts) == "bound_but_dropped"
+    assert _classify_execution_state(trace, facts) == "gap_zeroed"
 
     _episode(tmp_path, "r3", draft="y" * 209, evidence=0, bindings=3, missing=3)
     facts_empty = _read_episode_facts("r3", "tester")
     assert _classify_execution_state(trace, facts_empty) == "no_evidence"
+
+
+def test_mixed_turn_keeps_both_slot_shapes_visible(tmp_path: Path) -> None:
+    """B7@RunA 实测形状：同一 turn 内真缺口格与滑档格并存（R-20260815-07）。
+
+    `direct_answer` 0 哈希是**真缺口**，判缺正确、不该修；`evidence_boundary`
+    13 哈希带 gap 是**滑档**，证据被无谓扣住、该修。只给 turn 级一个标签会把
+    其中一种抹掉——那是 `evidence_bound` 同码问题在下一层的复发。
+    """
+
+    _episode(
+        tmp_path,
+        "r7",
+        draft="w" * 266,
+        evidence=13,
+        bindings=[("direct_answer", 0, True), ("evidence_boundary", 13, True)],
+        missing=2,
+    )
+    facts = _read_episode_facts("r7", "tester")
+    assert facts["slot_shapes"] == {
+        "direct_answer": "no_hash",
+        "evidence_boundary": "gap_zeroed",
+    }
+    assert facts["slots_gap_zeroed"] == 1
+    assert facts["slots_no_hash"] == 1
+    trace = TurnTrace(question="q", status="completed", trace_steps=["a"] * 16)
+    # 混合形按 gap_zeroed 归类：存在可修的格，就是行动意义上更强的信号
+    assert _classify_execution_state(trace, facts) == "gap_zeroed"
+
+
+def test_all_slots_without_hashes_is_a_true_gap_not_a_defect(tmp_path: Path) -> None:
+    """被判缺的格全部零哈希 → `no_hash`：判缺是**正确行为**，不该当缺陷去修。"""
+
+    _episode(
+        tmp_path,
+        "r8",
+        draft="v" * 180,
+        evidence=4,
+        bindings=[("direct_answer", 0, True), ("evidence_boundary", 0, True)],
+        missing=2,
+    )
+    facts = _read_episode_facts("r8", "tester")
+    assert facts["slots_gap_zeroed"] == 0
+    assert facts["slots_no_hash"] == 2
+    trace = TurnTrace(question="q", status="completed", trace_steps=["a"] * 12)
+    assert _classify_execution_state(trace, facts) == "no_hash"
 
 
 def test_delivered_when_evidence_reaches_the_acceptance_surface(
@@ -162,7 +226,8 @@ def test_every_state_is_reachable_and_frozen() -> None:
         "clarification",
         "no_evidence",
         "retrieved_unsynthesized",
-        "bound_but_dropped",
+        "gap_zeroed",
+        "no_hash",
         "delivered",
         "undetermined",
     }
@@ -181,7 +246,7 @@ def test_summary_drops_not_run_from_the_quality_denominator() -> None:
     ]
     cases += [
         {"case_id": "B1", "turns": [{"execution_state": "retrieved_unsynthesized"}]},
-        {"case_id": "B5", "turns": [{"execution_state": "bound_but_dropped"}]},
+        {"case_id": "B5", "turns": [{"execution_state": "gap_zeroed"}]},
         {"case_id": "C1", "turns": [{"execution_state": "delivered"}]},
     ]
     cases += [
@@ -192,7 +257,7 @@ def test_summary_drops_not_run_from_the_quality_denominator() -> None:
     assert summary["quality_denominator"] == 13
     assert summary["excluded_from_denominator"] == [f"C{i}" for i in range(2, 11)]
     assert summary["execution_state_tally"]["not_run"] == 9
-    assert summary["execution_state_tally"]["bound_but_dropped"] == 1
+    assert summary["execution_state_tally"]["gap_zeroed"] == 1
 
 
 def test_summary_skips_cases_without_turns() -> None:
