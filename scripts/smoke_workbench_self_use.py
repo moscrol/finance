@@ -229,11 +229,26 @@ def _is_cause_question(question: str) -> bool:
     return has_cause_request and has_market_context
 
 
-def _task_gap_anchors(question: str) -> tuple[str, ...]:
+def _task_gap_anchors(question: str, subject: str = "") -> tuple[str, ...]:
+    """缺口陈述必须点到的名词。
+
+    ``subject`` 来自 ``report.task_frame.subject``——上游 LLM 已经抽好的研究对象。
+    优先用它，不要从原始问句里猜：2026-08-14 实测，问句「液冷服务器现在发酵到什么
+    阶段？主线还是补涨？…」只被猜出唯一锚点「主线」，于是
+
+      · 741 字实质回答（三家公司分层 + 17 条证据）因为缺口句里没写「主线」→ 判红
+      · 185 字拒答因为**复述了题干**（题干含「主线」）→ 判绿
+
+    判据把「复述问题」奖励成了「说清缺口」。同一形状已在
+    ``docs/handoffs/2026-08-05-user-memory-recall-cjk.md`` 记过并作废：
+    **实体在上游已经抽好，只是没往下传**——修法是接上游，不是造更好的分词器。
+    """
+
+    extra = (subject,) if subject else ()
     if "主线" in question:
-        return ("主线",)
+        return extra + ("主线",)
     if "估值" in question:
-        return (
+        return extra + (
             "估值",
             "市值",
             "市盈",
@@ -247,7 +262,7 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
             "降级",
         )
     if "反弹" in question and any(marker in question for marker in ("持续", "多久")):
-        return (
+        return extra + (
             "反弹",
             "持续",
             "时长",
@@ -258,29 +273,55 @@ def _task_gap_anchors(question: str) -> tuple[str, ...]:
             "成交",
         )
     if _is_cause_question(question):
-        return ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
-    return ("问题所需", "直接回答")
+        return extra + ("下跌", "原因", "归因", "因果", "诱因", "新闻", "事件")
+    return extra + ("问题所需", "直接回答")
 
 
-def _has_task_specific_gap(question: str, answer: str) -> bool:
-    anchors = _task_gap_anchors(question)
+_QUESTION_ECHO_MIN_CHARS = 15
+
+
+def _echoes_question(segment: str, question: str) -> bool:
+    """段落是否只是把题干抄了一遍。
+
+    复述题干会把题干里的每个词都带进来，于是任何基于「锚点出现在缺口句里」的
+    判据都被无条件满足——2026-08-14 实测，一份 185 字的纯拒答就是这样过门的。
+    这类段落不构成「说清了缺什么」，必须排除。
+
+    阈值取 15 个字符：短于此的重合（「液冷服务器」这类实体名本身）是正常引用，
+    正是我们想奖励的；长逐字片段才是复述。
+    """
+
+    if len(question) < _QUESTION_ECHO_MIN_CHARS:
+        return False
+    return any(
+        question[i : i + _QUESTION_ECHO_MIN_CHARS] in segment
+        for i in range(len(question) - _QUESTION_ECHO_MIN_CHARS + 1)
+    )
+
+
+def _has_task_specific_gap(question: str, answer: str, subject: str = "") -> bool:
+    anchors = _task_gap_anchors(question, subject)
     clauses = re.split(r"[。；;\n]+", answer)
     if "估值" in question:
         return any(
-            _segment_asserts_valuation_gap(segment)
-            or (
-                _segment_asserts_gap(segment)
-                and (
-                    "条件" in segment
-                    and any(marker in segment for marker in ("失效", "降级"))
+            (
+                _segment_asserts_valuation_gap(segment)
+                or (
+                    _segment_asserts_gap(segment)
+                    and (
+                        "条件" in segment
+                        and any(marker in segment for marker in ("失效", "降级"))
+                    )
                 )
             )
+            and not _echoes_question(segment, question)
             for clause in clauses
             for segment in _gap_segments(clause)
         )
     return any(
         _segment_asserts_gap(segment)
         and any(anchor in segment for anchor in anchors)
+        and not _echoes_question(segment, question)
         for clause in clauses
         for segment in _gap_segments(clause)
     )
@@ -390,10 +431,17 @@ def semantic_answer_issues(
     if not assistant_text.strip():
         issues.append("assistant_answer_missing")
         return issues
+    # 研究对象由上游 LLM 抽好后随 report 一起下发，别再从问句里猜（见
+    # _task_gap_anchors 的说明）。取不到就退回原行为，不 fail closed——
+    # 这个门只该拦「说不清缺口」，不该因为 payload 少个字段就误杀。
+    task_frame = report.get("task_frame")
+    subject = ""
+    if isinstance(task_frame, dict):
+        subject = str(task_frame.get("subject") or "").strip()
     explicit_gap = (
         _has_specific_cause_gap(assistant_text)
         if _is_cause_question(question)
-        else _has_task_specific_gap(question, assistant_text)
+        else _has_task_specific_gap(question, assistant_text, subject)
     )
     if answer_status == "partial" and not explicit_gap:
         issues.append(f"answer_status={answer_status!r}")
