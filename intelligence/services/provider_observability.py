@@ -67,3 +67,35 @@ class ProviderTrace:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+_AGENT_PROVIDER_PREFIX = "agent:"
+
+
+def provider_trace_tool_name(trace: "ProviderTrace") -> str:
+    """从一条 trace 里取出**真实工具名**。
+
+    为什么需要这个函数：agent 工具的 trace 在成功和失败两条路上把工具名放在
+    了不同字段——
+
+        成功  provider="agent:kb_search"   capability="agent_loop"
+        失败  provider="agent:kb_search"   capability="kb_search"
+
+    于是任何 ``group by capability`` 的统计，都会把所有成功扫进 ``agent_loop``
+    这个桶，真名下面只剩失败。2026-08-14 实测被这个坑到过一次：按 capability
+    算出「kb_search 20 次调用 0% 成功」，按真名重算是另一回事。**这类偏差不是
+    噪声，它单向地把每个工具都读成接近全灭。**
+
+    统一口径：``provider`` 带 ``agent:`` 前缀时以它为准（那一侧两条路都对），
+    否则回落 ``capability``（非 agent 工具没有这个歧义）。
+
+    可迁移：同一事实在不同代码路径上写进不同字段，比"字段缺失"更难发现——
+    缺失会露出 None，而错位会给你一个看着挺合理的错数。
+    """
+
+    provider = str(getattr(trace, "provider", "") or "")
+    if provider.startswith(_AGENT_PROVIDER_PREFIX):
+        name = provider[len(_AGENT_PROVIDER_PREFIX):].strip()
+        if name:
+            return name
+    return str(getattr(trace, "capability", "") or "")

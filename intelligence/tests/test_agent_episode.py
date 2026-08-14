@@ -3641,3 +3641,95 @@ def test_slow_tool_batch_overshooting_root_ledger_finishes_the_run(
     assert outcome.status == "completed"
     assert outcome.evidence, "批次抓到的证据必须保住"
     assert root_budget.remaining_seconds == 0.0
+
+
+def test_branch_tools_emit_events_instead_of_disappearing() -> None:
+    """分支里跑的工具此前一条事件都不发，事件流里只剩 branch_started/completed。
+
+    2026-08-14 实测：两个 run 的 metrics.tool_calls=8，而 tool_* 事件 0 条——
+    8 次调用全发生在 3 个并发分支里。后果不只是"看不见"：任何按事件计数的
+    成功率/错误率都会整条路径漏掉，而漏掉的恰恰是并发压力最大的那条。
+    """
+
+    from datetime import date as _date
+
+    from intelligence.runtime.agent_episode import (
+        _EpisodeLedger,
+        _EpisodeToolAccumulator,
+    )
+    from intelligence.runtime.sub_research import BranchResult, SubResearchResult
+    from intelligence.services.evidence_ledger import EvidenceLedger
+
+    ledger = _EpisodeLedger(_frame())
+    accumulator = _EpisodeToolAccumulator(
+        messages=[],
+        ledger=ledger,
+        evidence_ledger=EvidenceLedger(information_cutoff=_date(2026, 7, 23)),
+    )
+
+    accumulator.consume_sub_research(
+        SubResearchResult(
+            branches=(
+                BranchResult(
+                    branch_id="branch-1",
+                    goal="核验客户与订单",
+                    status="completed",
+                    evidence=(),
+                    traces=(
+                        # 成功路：真名在 provider，capability 被改写成 agent_loop
+                        ProviderTrace(
+                            provider="agent:kb_search",
+                            capability="agent_loop",
+                            status="success",
+                            result_count=5,
+                        ),
+                        ProviderTrace(
+                            provider="agent:evidence_search",
+                            capability="evidence_search",
+                            status="request_error",
+                            detail="tool_timeout",
+                        ),
+                    ),
+                    gaps=(),
+                    llm_calls=1,
+                    tool_calls=2,
+                ),
+            )
+        )
+    )
+
+    emitted = [event for event in ledger.events if event.kind == "branch_tool"]
+    assert len(emitted) == 2, "分支里每个工具都要留下事件"
+    assert [item.payload["tool"] for item in emitted] == [
+        "kb_search",
+        "evidence_search",
+    ], "工具名要归一化到真名，别让成功的那条落进 agent_loop 桶"
+    assert [item.payload["status"] for item in emitted] == [
+        "success",
+        "request_error",
+    ]
+    assert all(item.payload["branch_id"] == "branch-1" for item in emitted)
+
+
+def test_tool_call_result_separates_queue_delay_from_execution() -> None:
+    """排队时长与执行时长必须分开：它们指向完全不同的修法。
+
+    只记总耗时的话，「工具本身慢」和「被别人挤着排队」长得一模一样，而前者
+    要调工具、后者要调并发度或批次窗口。派发前就被拒的调用两者都是 None——
+    「没测到」不能写成 0，否则又是一个看着合理的假读数。
+    """
+
+    from intelligence.runtime.agent_episode import _tool_timing_payload
+    from intelligence.runtime.episode_tool_batch import ToolCallResult
+    from intelligence.services.agent_runtime import ModelToolCall
+
+    call = ModelToolCall("c1", "kb_search", {})
+
+    measured = ToolCallResult(call, "timeout", error="tool_timeout", queued_ms=4200.0, elapsed_ms=None)
+    assert _tool_timing_payload(measured) == {"queued_ms": 4200.0}
+
+    ran = ToolCallResult(call, "success", queued_ms=12.5, elapsed_ms=13900.0)
+    assert _tool_timing_payload(ran) == {"queued_ms": 12.5, "elapsed_ms": 13900.0}
+
+    never_dispatched = ToolCallResult(call, "rejected", error="tool_budget_exhausted")
+    assert _tool_timing_payload(never_dispatched) == {}, "没测到就不写，别伪装成零耗时"

@@ -38,13 +38,17 @@ from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
+    ToolCallResult,
 )
 from intelligence.services.mode_governor import (
     ModeDecision,
     ModeGovernor,
     ModeSignals,
 )
-from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.provider_observability import (
+    ProviderTrace,
+    provider_trace_tool_name,
+)
 from intelligence.services.repair_coordinator import (
     RepairGoal,
     grant_for_transient_model_retry,
@@ -264,6 +268,22 @@ class _EpisodeLedger:
         )
 
 
+
+def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
+    """把一次工具调用的排队/执行时长摊平成事件字段。
+
+    只有测到的才写：派发前就被拒的调用压根没进线程池，此时写 0 会把
+    「没测到」伪装成「零耗时」——那正是这套埋点要消灭的那类假读数。
+    """
+
+    payload: dict[str, object] = {}
+    if result.queued_ms is not None:
+        payload["queued_ms"] = result.queued_ms
+    if result.elapsed_ms is not None:
+        payload["elapsed_ms"] = result.elapsed_ms
+    return payload
+
+
 @dataclass
 class _EpisodeToolAccumulator:
     messages: list[dict[str, object]]
@@ -283,6 +303,7 @@ class _EpisodeToolAccumulator:
         invalid_actions = 0
         for result in batch.items:
             call = result.call
+            timing = _tool_timing_payload(result)
             self.ledger.add("tool_request", call.to_dict())
 
             if result.status == "rejected":
@@ -298,7 +319,7 @@ class _EpisodeToolAccumulator:
                             step_id=result.step_id,
                         )
                     )
-                self._append_tool_error(call, result.error, result.detail)
+                self._append_tool_error(call, result.error, result.detail, timing)
                 continue
 
             if result.status in {"error", "timeout"}:
@@ -315,7 +336,7 @@ class _EpisodeToolAccumulator:
                         step_id=result.step_id,
                     )
                 )
-                self._append_tool_error(call, public_error)
+                self._append_tool_error(call, public_error, timing=timing)
                 continue
 
             observation = result.observation
@@ -346,7 +367,7 @@ class _EpisodeToolAccumulator:
             }
             # 审计留档拿全量，模型上下文拿预算后的副本。同一份 payload 分流到
             # 两个 sink，所以截断只发生在喂模型这一侧——ledger 仍是完整证据。
-            self.ledger.add("tool_result", public_observation)
+            self.ledger.add("tool_result", {**public_observation, **timing})
             self.messages.append(
                 {
                     "role": "tool",
@@ -364,6 +385,7 @@ class _EpisodeToolAccumulator:
         call: ModelToolCall,
         error: str,
         detail: str = "",
+        timing: dict[str, object] | None = None,
     ) -> None:
         payload = {
             "ok": False,
@@ -373,7 +395,9 @@ class _EpisodeToolAccumulator:
             # 模型据此改不了任何东西。详见 ToolCallResult.detail 的注释。
             "detail": str(detail or "")[:400],
         }
-        self.ledger.add("tool_error", payload)
+        # 耗时只进 ledger，**不进 payload**——下面那条 messages 是喂模型的，
+        # 给它塞毫秒数既没用又占预算。审计要全量、模型要够用，同一份事实两个出口。
+        self.ledger.add("tool_error", {**payload, **(timing or {})})
         self.messages.append(
             {
                 "role": "tool",
@@ -391,6 +415,25 @@ class _EpisodeToolAccumulator:
     def consume_sub_research(self, result: SubResearchResult) -> None:
         self.traces.extend(result.traces)
         for branch in result.branches:
+            # 分支里跑的工具此前**一条事件都不发**：只有 branch_started /
+            # branch_completed 这对括号，中间发生了什么在事件流里是黑的。
+            # 2026-08-14 实测两个 run 声称 tool_calls=8、工具事件 0 条，全部
+            # 发生在 3 个并发分支里。后果不只是"看不见"——任何按事件计数的
+            # 成功率/错误率都会漏掉整条路径，而漏掉的恰恰是并发压力最大的那条。
+            for trace in branch.traces:
+                self.ledger.add(
+                    "branch_tool",
+                    {
+                        "branch_id": branch.branch_id,
+                        "goal": branch.goal,
+                        "tool": provider_trace_tool_name(trace),
+                        "provider": trace.provider,
+                        "capability": trace.capability,
+                        "status": trace.status,
+                        "result_count": trace.result_count,
+                        "detail": str(trace.detail or "")[:200],
+                    },
+                )
             self._extend_unique_gaps(
                 tuple(f"{branch.goal}: {gap}" for gap in branch.gaps)
             )
