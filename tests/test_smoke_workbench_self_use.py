@@ -533,3 +533,66 @@ def test_secret_scanner_does_not_echo_unsafe_dictionary_keys() -> None:
     scanner.scan({"/Users/private": "ghp_abcdefghijklmnopqrstuvwxyz"}, "fixture")
 
     assert scanner.hits == [{"source": "fixture.field", "marker": "token_prefix"}]
+
+
+# ── 缺口锚点：用上游抽好的 subject，别从问句里猜 ────────────────────────────
+# 2026-08-14 实测的判据倒挂：问句「液冷服务器现在发酵到什么阶段？主线还是补涨？…」
+# 只被猜出唯一锚点「主线」，于是 741 字实质回答判红、185 字复述题干的拒答判绿。
+# 收据：~/.local/share/finance-workbench/users/smoke-quality-0814/runs/
+#       run_20260814_112138_376189（实质）与 run_20260814_134100_771575（拒答）
+
+_THEME_QUESTION = (
+    "液冷服务器现在发酵到什么阶段？主线还是补涨？核心受益公司有哪些，"
+    "各自的证据和风险是什么，接下来一周的验证点是什么"
+)
+_SUBSTANTIVE_ANSWER = (
+    "截至8月13日的基准判断：液冷服务器处于AI算力内部扩散的早期至中段，"
+    "更像算力主线的补涨。中石科技是当前最强交易核心之一；"
+    "康盛股份现有材料仅支持液冷关联，缺少可核验的液冷服务器产品及订单资料，风险更高。"
+)
+_REFUSAL_ECHOING_QUESTION = (
+    f"关于“{_THEME_QUESTION}”，现有证据不足，暂不能可靠回答。"
+    "本轮已取得 36 条证据，但未完成核验绑定，暂不能引用。"
+)
+
+
+def test_substantive_gap_passes_when_it_names_the_upstream_subject() -> None:
+    """实质回答点名了 subject（液冷服务器）就该算说清了缺口。"""
+    assert smoke._has_task_specific_gap(
+        _THEME_QUESTION, _SUBSTANTIVE_ANSWER, "液冷服务器"
+    )
+
+
+def test_refusal_that_only_echoes_the_question_is_not_a_gap_statement() -> None:
+    """复述题干会把每个锚点都带进来，不能算「说清了缺什么」。"""
+    assert not smoke._has_task_specific_gap(
+        _THEME_QUESTION, _REFUSAL_ECHOING_QUESTION, "液冷服务器"
+    )
+
+
+def test_subject_anchor_is_load_bearing() -> None:
+    """变异测试：拿掉 subject 就退回旧行为，实质回答会被误杀。
+
+    没有这条，任何人把 subject 参数删掉都不会有测试变红。
+    """
+    assert not smoke._has_task_specific_gap(_THEME_QUESTION, _SUBSTANTIVE_ANSWER, "")
+
+
+def test_question_echo_exclusion_is_load_bearing() -> None:
+    """变异测试：不排除复述题干时，拒答会蒙混过关。"""
+    segments = smoke._gap_segments(_REFUSAL_ECHOING_QUESTION.split("。")[0])
+    asserts_gap = [s for s in segments if smoke._segment_asserts_gap(s)]
+    assert asserts_gap, "样本本身要含缺口断言，否则这条变异测试测了个寂寞"
+    assert any("液冷服务器" in s for s in asserts_gap), "复述确实把锚点带了进来"
+    assert all(smoke._echoes_question(s, _THEME_QUESTION) for s in asserts_gap)
+
+
+def test_semantic_issues_reads_subject_from_report_task_frame() -> None:
+    """端到端：subject 走 report.task_frame，缺字段时不 fail closed。"""
+    report = {"answer_status": "partial", "task_frame": {"subject": "液冷服务器"}}
+    messages = [{"role": "assistant", "content": _SUBSTANTIVE_ANSWER}]
+    assert "answer_status='partial'" not in smoke.semantic_answer_issues(
+        _THEME_QUESTION, report, messages
+    )
+    no_frame = {"answer_status": "partial"}
+    assert smoke.semantic_answer_issues(_THEME_QUESTION, no_frame, messages) is not None
