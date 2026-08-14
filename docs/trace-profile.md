@@ -257,8 +257,9 @@ workbench trace 没保留：两侧仪器覆盖的是流水线的不同半段，�
 | `plan` | workbench | **已补** | `step_id=plan` / `name=research_plan`。数据本来就在 `controller` 的 payload 里，属**拆融合 span**，不是造事件 |
 | `intent` | codex | **已补** | `task` 事件回到落盘白名单，**仅对 2026-08-04 之后的 run 生效**，历史 artifact 无法追认 |
 | `route` | codex | **结构性差异，非缺口** | codex episode 不做 skill 分派（backend 由 benchmark 选定、tool registry 固定）。强行造一个 `route` 事件只是为了凑指标 |
-| `tool` | workbench | 未补 | `trace.jsonl` 只到 `ask_retrieve_compose` 粒度，单次工具调用在 `stream.jsonl`/retrieval 里 |
+| `tool` | workbench | **已补（2026-08-15 更正）** | 本行原记「未补」已不成立：`trace.jsonl` 实际含逐工具事件 `continuous:episode:<n>:tool_request` / `tool_result` / `tool_error`（B1 实测 5 请求 / 3 结果 / 2 错误），带 `status` 与起止时刻。**注意**：这些事件的 `output_summary` 是给用户看的话术（「已取得一批可核验资料。」），不是机器观测，不可当证据读——真实载荷在 `continuous-episode.json` 的 `outcome`。出处 `run_20260814_021938_990234` |
 | `stop` | workbench | 未补 | trace 以 budget 事件收尾，无显式终态 step |
+| 交付层证据来源 | workbench | **新增缺口（2026-08-15）** | `/api/runs/{id}/context` 的 `evidence[]` **只从 `trace[].retrieval` 构造**（`app.py:1661-1718`），而 `continuous:evidence` 步只在 `citations` 非空时发射（`conversation_orchestrator.py:3564`）。故 episode 的 `outcome.evidence` 不为空也可能交付 0 条，且两者之间没有任何对账字段 |
 | `synthesize` | codex | 未补 | headless artifact 不保留 message span |
 
 验收状态：`configure → intent → plan` 三步在两侧都非空，**3/3 已达标**；
