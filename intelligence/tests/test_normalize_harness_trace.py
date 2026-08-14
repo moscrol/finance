@@ -7,6 +7,7 @@ import pytest
 
 from intelligence.eval.normalize_harness_trace import (
     STEPS,
+    _load_records,
     NormalizedArtifactError,
     compare_sequences,
     main,
@@ -1103,3 +1104,52 @@ def test_derived_count_rejection_does_not_echo_invalid_text(tmp_path) -> None:
     assert "/Users/alice" not in message
     assert "event_count=<str>" in message
     assert "recomputed" in message
+
+
+def test_real_rollout_envelope_shape_maps_instead_of_falling_to_unmapped(
+    tmp_path,
+) -> None:
+    """真 ``rollout-*.jsonl`` 的信封形状必须能映射（R-20260815-05 回归夹具）。
+
+    磁盘上的 Codex 会话日志是 ``{"type": <信封>, "payload": {"type": <语义>}}``，
+    **没有 ``item`` 键**。此前 mapper 只读 ``item.type``，一份 264 条记录的真
+    rollout 归一化后 264/264 落 ``unmapped``——`unpaired_tool_requests` 还同时
+    报 0，看起来像「配平健康」，实为分母为零。这条夹具钉住那个形状。
+    """
+
+    import json as _json
+
+    path = tmp_path / "rollout-real-shape.jsonl"
+    path.write_text(
+        "\n".join(
+            _json.dumps(row)
+            for row in (
+                {"type": "session_meta", "payload": {"type": "session_meta"}},
+                {"type": "response_item", "payload": {"type": "function_call"}},
+                {"type": "response_item", "payload": {"type": "function_call_output"}},
+                {"type": "response_item", "payload": {"type": "custom_tool_call"}},
+                {
+                    "type": "response_item",
+                    "payload": {"type": "custom_tool_call_output"},
+                },
+                {"type": "response_item", "payload": {"type": "message"}},
+            )
+        ),
+        encoding="utf-8",
+    )
+    records, _ = _load_records(path)
+    events = normalize_records(records, kind="codex-rollout")
+    steps = [event.step for event in events]
+
+    # 工具请求与工具结果各自落位，且**结果排在请求之前判定**——
+    # ``function_call_output`` 含子串 ``function_call``，顺序反了会被误判成 tool。
+    assert steps[1] == "tool"
+    assert steps[2] == "observe"
+    assert steps[3] == "tool"
+    assert steps[4] == "observe"
+    assert steps[5] == "synthesize"
+
+    # source_event_type 必须是语义类型，不是信封名，否则产物里会出现
+    # 「step=observe 而 source_event_type=response_item」这种自相矛盾的行
+    assert events[2].source_event_type == "function_call_output"
+    assert sum(1 for s in steps if s == "unmapped") < len(steps)

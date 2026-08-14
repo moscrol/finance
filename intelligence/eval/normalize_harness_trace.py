@@ -276,12 +276,34 @@ def _workbench_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None
     return None
 
 
+def _codex_semantic_type(record: Mapping[str, Any]) -> str:
+    """取 Codex 事件的**语义**类型。
+
+    Codex 有两种在用的落盘形状，两种都要认：
+
+    - ``exec`` 流式：``{"type": "item.completed", "item": {"type": "function_call_output"}}``
+    - 会话 rollout 日志：``{"type": "response_item", "payload": {"type": "function_call_output"}}``
+
+    2026-08-15 实测：磁盘上的 ``rollout-*.jsonl`` **全部**是后一种，顶层 ``type``
+    只是信封名（``response_item`` / ``event_msg`` / ``turn_context`` /
+    ``world_state`` / ``session_meta``），且**没有 ``item`` 键**——抽查
+    2026-06-02 / 07-16 / 08-03 / 08-14 四份，``item`` 出现次数均为 0。此前只读
+    ``item.type``，于是一份 264 条记录的真 rollout 归一化后 264/264 落
+    ``unmapped``，跨 harness 比较拿不到任何信号（`R-20260804-02` 因此 refuted）。
+    """
+
+    for container_key in ("item", "payload"):
+        container = record.get(container_key)
+        if isinstance(container, Mapping):
+            value = container.get("type")
+            if isinstance(value, str) and value.strip():
+                return value.strip().lower()
+    return ""
+
+
 def _codex_mapping(record: Mapping[str, Any]) -> tuple[str, str, str] | None:
     event_type = _record_type(record).lower()
-    item = record.get("item")
-    item_type = (
-        str(item.get("type") or "").lower() if isinstance(item, Mapping) else ""
-    )
+    item_type = _codex_semantic_type(record)
     joined = f"{event_type} {item_type}"
     if any(term in joined for term in ("thread.started", "session.started", "config")):
         return "configure", "normalized", "control"
@@ -364,11 +386,12 @@ def _mapping(record: Mapping[str, Any], kind: str) -> tuple[str, str, str] | Non
 
 def _source_event_type(record: Mapping[str, Any], kind: str) -> str:
     if kind in {"codex-rollout", "codex-exec"}:
-        item = record.get("item")
-        if isinstance(item, Mapping):
-            item_type = item.get("type")
-            if isinstance(item_type, str) and item_type.strip():
-                return _string_token(item_type)
+        # 与 `_codex_mapping` 用同一个取值函数：两处若各读各的，`step` 和
+        # `source_event_type` 会来自不同层，产物里就出现「步是 observe、
+        # 事件类型却是 response_item」这种自相矛盾的行。
+        semantic = _codex_semantic_type(record)
+        if semantic:
+            return _string_token(semantic)
     return _string_token(_record_type(record))
 
 
