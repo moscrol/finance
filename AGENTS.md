@@ -89,6 +89,19 @@ git branch --show-current
 - 分支命名：`baseline/<批次或公司名>`、`pdf-ingest/<日期或材料名>`、`theme-radar/<题材或能力>`、`data-source/<来源名>`、`fix/<问题>`。
 - commit 前必须检查不要提交：`.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf`、`*.zip`、`*.duckdb`、`*.db`、`*.sqlite*`、`*.pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存和虚拟环境。
 
+### 🟢 合并纪律：CI 绿才可合（强制）
+
+私有仓 + 免费计划开不了 GitHub 分支保护（API 返回 403），这条纪律就是唯一的合并闸。**任何 agent 合并 PR 前必须**：
+
+```bash
+gh pr checks <PR号> --watch   # workbench-check 与 registry-check 必须全部 pass
+```
+
+- `workbench-check` / `registry-check` 任一红或未出结论：**禁止合并**，先修红或等结论，不允许「带红合入、回头再修」。
+- `data-quality-check` 按 paths 触发：触发了就必须绿；没触发不算数。
+- 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红）。
+- 若升级 GitHub Pro 或转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
+
 ### 🔴 开工前必查：这棵树是否已经有别人在动
 
 `git status` + `git branch` **不足以判断你能不能动手**。本仓有多棵 worktree 共享同一个 `.git`，
