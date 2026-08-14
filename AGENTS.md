@@ -98,8 +98,9 @@ gh pr checks <PR号> --watch   # workbench-check 与 registry-check 必须全部
 ```
 
 - `workbench-check` / `registry-check` 任一红或未出结论：**禁止合并**，先修红或等结论，不允许「带红合入、回头再修」。
+- `workbench-check` 是聚合 job：叶子是并行的 `python` / `frontend` / `e2e`。聚合红时先看是哪片叶子红，不要再假设「前面红了后面没跑」。
 - `data-quality-check` 按 paths 触发：触发了就必须绿；没触发不算数。
-- 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红）。
+- 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红、本文件把串行单 job 拆成并行叶子）。
 - 若升级 GitHub Pro 或转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
 
 ### 🔴 开工前必查：这棵树是否已经有别人在动
