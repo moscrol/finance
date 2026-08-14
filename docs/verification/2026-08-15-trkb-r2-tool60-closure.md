@@ -5,7 +5,12 @@
 - outcome: ROOT_CAUSE_NOT_CONFIRMED
 - mode: M2
 - failure_criterion: B 组题走完 continuous episode 后，episode 取得的证据应有 ≥1 条到达验收可见面（`evidence_bound > 0`）。基线 `20260813T1810Z-qc28-full.json` 中 B1-B7 全部为 0，B8=11。
-- trace_coverage: 三份产物共 19 个 B 组 turn —— Run A `20260813T1810Z-qc28-full.json`（8 题，`sha256=8536c231…578d80`）、Run B `20260814T1446Z-b-rerun-tool60.json`（8 题，`sha256=11dedecc…1b06e8`）、Run B′ `20260815T1813Z-trkb-b136-recheck.json`（B1/B3/B6 三题，本轮补跑）。每题另有 workbench run 目录（`trace.jsonl` / `continuous-episode.json`）。**缺**：Run A 时点的部署代码内容无法回溯（见混淆因子）。
+- trace_coverage: 三份产物共 19 个 B 组 turn —— Run A `20260813T1810Z-qc28-full.json`（8 题，`sha256=8536c231…578d80`）、Run B `20260814T1446Z-b-rerun-tool60.json`（8 题，`sha256=11dedecc…1b06e8`）、Run B′ `20260814T1813Z-trkb-b136-recheck.json`（B1/B3/B6 三题，本轮补跑，`sha256=75dc34f7…358249`）。**Run B 与 Run B′ 两份产物已随本 PR 进 git**，报告不再引用仓外文件。每题另有 workbench run 目录（`trace.jsonl` / `continuous-episode.json`，仍在仓外）。**缺**：Run A 时点的部署代码内容无法回溯（见混淆因子）。
+
+> **产物命名勘误（2026-08-15）**：B′ 原名 `20260815T1813Z-…`，日期前缀错。成因是
+> **run 目录用本地时命名、acceptance 产物用 UTC 命名**，而补跑命令把日期段写死成
+> `20260815` 却对时间段取 `date -u +%H%M`——UTC 当时仍是 08-14（18:13Z = 本地 08-15
+> 02:13）。产物自身的 `generated_at=20260814T181552Z` 才是准的。已改名对齐。
 - trace_depth: D3
 - completion_status: PARTIAL_SUCCESS
 - confidence: low
@@ -71,8 +76,8 @@
 | ID | ranked hypothesis | falsifiable prediction | evidence/probe | status | probe_if_absent | why |
 |---|---|---|---|---|---|---|
 | H1 | 30s 工具窗口是 B 组卡点的单一根因 | 若成立，窗口改 60s 后 B 组 8/8 转 eb>0 | E-001, E-004 | **REJECTED** | — | 实测 5/8（B2/B4/B5/B7/B8）。B1/B3 两次复跑均仍为 0，未达 §6 的 ≥6/8 结案线 |
-| H2 | B1/B3 剩余失败是单次噪声 | 若成立，同代码同进程再跑一次应有机会转正 | E-003 | **REJECTED** | — | Run B′ 定点补跑：B1/B3 签名与 Run B 逐项一致（三格绑定全带 gap、全判 missing、`evidence_ids=0`），检索量却在波动（B1 counterpoint 0→9 哈希）。**取证在抖，归零是恒定的** |
-| H3 | B1/B3 的机制与轨道 A 的 F-001（有哈希的绑定附带 gap 被零化）同源 | 若成立，B1/B3 的绑定应「有 `evidence_hashes` 且带 `gap`」，而 eb>0 的对照题应「有哈希且无 gap」 | E-002 | **CONFIRMED** | — | B1 n_hash=1/9/9 全带 gap → 全 missing；B3 n_hash=3/3/3 全带 gap → 全 missing；B4 对照 n_hash=5/14/7 **gap 全无** → 全 fulfilled。判别式在 3/3 上成立 |
+| H2 | B1/B3 剩余失败是单次噪声 | 若成立，同代码同进程再跑一次应有机会转正 | E-003 | **REJECTED** | — | Run B′ 定点补跑：B1/B3 的**结构签名**两次一致（三格绑定全带 gap、全判 missing、`evidence_ids=0`、eb=0），但**哈希数在波动**（B1 `1/6/0` → `1/9/9`，counterpoint 由真缺口变为 9 条可绑证据仍被判缺；B3 `2/8/2` → `3/3/3`）。**取证在抖，归零是恒定的** |
+| H3 | B1/B3 的机制与轨道 A 的 F-001（有哈希的绑定附带 gap 被零化）同源 | 若成立，B1/B3 的绑定应「有 `evidence_hashes` 且带 `gap`」，而 eb>0 的对照题应「有哈希且无 gap」 | E-002 | **CONFIRMED** | — | Run B：B1 `1/6/0`、B3 `2/8/2`，全带 gap → 全 missing；Run B′：B1 `1/9/9`、B3 `3/3/3`，同样全 missing；B4 对照 `5/14/7` **gap 全无** → 全 fulfilled。**有哈希且带 gap → missing** 这条判别式在两次跑的 11 个有哈希格上无一例外；B1@Run B 的 `counterpoint`(n=0) 是真缺口不是滑档，属混合形（与 B7 同），不计入该判别式分母 |
 | H4 | 五题恢复可归因于工具窗口 | 若成立，A→B 之间除窗口外无其它相关变量 | E-007 | **INCONCLUSIVE** | 冻结部署代码（提交或从干净 commit 重部署）后，仅改窗口值再跑一次同 8 题；H4 预测五题仍恢复，若恢复数明显下降即证伪 | A→B 之间另有 ≥20 个文件改动（含本失败链上的三个 runtime 文件与一个 git 中不存在的新模块），**消融不是单变量**，不能把五题恢复独占归给窗口 |
 | H5 | B6 是失败题 | 若成立，B6 应有 episode 产物且证据为零 | E-004 | **REJECTED** | — | B6 在 Run B/B′ 两次均为 2.0s / 4 步 / `gaps=[]` / **无 episode 产物**，落 rerun-todo §5 判据表第 4 行「正常澄清轮」。它不该计入失败分子 |
 
@@ -136,24 +141,29 @@
 - source_ref: 同上两个 run 目录
 - observed_at: 2026-08-14T22:46–22:51+08:00
 - raw_excerpt: |
-    B1  direct_assessment n_hash=1 gap=有 | chain_mapping n_hash=9 gap=有 | counterpoint n_hash=9 gap=有
+    B1 @Run B (run_20260814_224652_671640)
+        direct_assessment n_hash=1 gap=有 | chain_mapping n_hash=6 gap=有 | counterpoint n_hash=0 gap=有
         [struct] 三格 status=missing，evidence_ids=0
-    B4  direct_assessment n_hash=5 gap=无 | chain_mapping n_hash=14 gap=无 | counterpoint n_hash=7 gap=无
+    B3 @Run B (run_20260814_225106_544685)
+        direct_assessment n_hash=2 gap=有 | chain_mapping n_hash=8 gap=有 | counterpoint n_hash=2 gap=有
+        [struct] 三格 status=missing，evidence_ids=0
+    B4 @Run B 对照 (run_20260814_225217_025230)
+        direct_assessment n_hash=5 gap=无 | chain_mapping n_hash=14 gap=无 | counterpoint n_hash=7 gap=无
         [struct] 三格 status=fulfilled，evidence_ids=5/14/7
-- observation: 带 gap 与不带 gap 是 `missing`/`fulfilled` 的完全判别式（3/3 命中）。
+- observation: 带 gap 与不带 gap 是 `missing`/`fulfilled` 的判别式；B4 三格无 gap 全 `fulfilled`，B1/B3 三格带 gap 全 `missing`。**但 B1@Run B 是混合形，不是纯滑档**：`counterpoint` 的 `n_hash=0`，那是**真缺口**（没有任何证据可绑），与 B7 的 `direct_answer` 同形；只有 `direct_assessment`(1) 与 `chain_mapping`(6) 两格是「有哈希却被 gap 零化」的滑档。B3@Run B 三格哈希均 >0（2/8/2），是纯滑档形。两种形都落在轨道 A 的 F-001 射程内，但修复后的预期不同：滑档格应恢复，真缺口格**本就该判缺**。
 - confidence: high
 
 #### E-003
 - title: 定点补跑证明归零是确定性的、取证是波动的
-- run_id: Run B′ `20260815T1813Z-trkb-b136-recheck.json`
+- run_id: Run B′ `20260814T1813Z-trkb-b136-recheck.json`
 - step_or_span_id: `outcome.bindings`
 - native_or_normalized: native
 - source_type: file
-- source_ref: `intelligence/eval/runs/20260815T1813Z-trkb-b136-recheck.json` 及对应 run 目录
+- source_ref: `intelligence/eval/runs/20260814T1813Z-trkb-b136-recheck.json` 及对应 run 目录
 - observed_at: 2026-08-15T18:13Z
 - raw_excerpt: |
     B1 Run B′: draft=302 ev=19 bind=3 miss/ful=3/0；n_hash=1/9/9 全带 gap
-    B1 Run B : draft=364 ev=19 bind=3 miss/ful=3/0；n_hash=1/6/9（counterpoint 由 0 变 9）
+    B1 Run B : draft=364 ev=19 bind=3 miss/ful=3/0；n_hash=1/6/0（counterpoint 由 0 变 9）
     B3 Run B′: draft=428 ev=6  bind=3 miss/ful=3/0；n_hash=3/3/3 全带 gap
 - observation: 同进程同代码两次跑，取证量变化而「全带 gap → 全 missing → eb=0」不变。
 - confidence: high
@@ -313,7 +323,7 @@
 
 - **任务 1（主靶）完成**：`R-20260815-01/-02` 一个 PR 落地（`88befa87`），EVAL_ONLY，只动 `acceptance.py`。两行预测**逐字自证全绿**（用真实 19 个 run 目录重放，非夹具）：B4 `retrieved=125,bound=0`、B3 `retrieved=0,bound=0`、C2-C10 全 `not_run`、三者落三个互不相同的值、C 组分母 10→1。12 条新单测，acceptance 套件 127 passed。字段契约门禁曾拦下 `execution_state_source`「写了没人读」，**补了真实读取点而非加豁免**。
 - **任务 2 收口：落 §6 矩阵第 2 行「部分转正、部分仍 0 → 不是单一根因」**。5/8 恢复（B2/B4/B5/B7/B8），未达 ≥6/8 结案线。**与检阅方预读的两处不同**：① B6 不是「另有机制」而是**根本不是失败**——两次跑均为 2.0s/4 步/无 episode 产物，落 rerun-todo §5 第 4 行澄清轮；② B1/B3 的「另有机制」已**具名**：就是轨道 A 的 F-001（带哈希绑定附 gap 被整格零化），判别式 3/3 命中，不是未知新机制。
-- **定点补跑排除了噪声**：B1/B3 两次跑签名逐项一致，而取证量在波动（B1 counterpoint 哈希 0→9）——**取证在抖，归零是恒定的**。
+- **定点补跑排除了噪声**：B1/B3 的结构签名两次一致（全带 gap、全判 missing、eb=0），而哈希数在波动（B1 `1/6/0`→`1/9/9`，B3 `2/8/2`→`3/3/3`）——**取证在抖，归零是恒定的**。B1@Run B 另是混合形（`counterpoint` n=0 为真缺口，与 B7 同形）。
 - **身份前提比 handoff 预期更强**：8792 同一进程（pid 32482，18:29:34 起未重启）、全部脏文件 mtime ≤18:29、23:02 后零改动，故 Run B/B′ 是干净复制，补跑可用于噪声排除而非只作新基线。
 - **但发现一条更要紧的**：Run A（02:xx）**早于全部脏改动**（mtime 16:42/18:29），所以 A→B 的消融**不是单变量**——窗口之外还有 ≥20 个文件改动，含本失败链上的三个 runtime 文件。故 H4 停在 INCONCLUSIVE，**不能把五题恢复独占归给工具窗口**。
 - **更正检阅方记录**：脏文件不是 3 个而是 **20 个**（17 改 + 3 未跟踪），其中 `services/honesty_gates.py` 是整个模块只存在于部署目录、git 中不存在。
