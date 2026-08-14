@@ -22,6 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
+from market_feature_store.trading_days import is_trading_day  # noqa: E402
 
 SOURCE = "clickhouse:share(level2服务端聚合)"
 STEPS = ("limitup", "top100", "quant")
@@ -33,6 +34,15 @@ def begin_l2_run(date):
         init_db(con)
         con.execute("BEGIN TRANSACTION")
         for step in STEPS:
+            row = con.execute(
+                "SELECT status FROM ops_pipeline_run_daily "
+                "WHERE trade_date = ? AND pipeline = 'l2-moneyflow' AND step = ?",
+                [date, step],
+            ).fetchone()
+            if row is not None and row[0] == "complete":
+                # 已完成步骤不得被重跑降级：保留完整状态与统计，避免失败覆写历史成功
+                print(f"DuckDB: l2-moneyflow/{step} {date} 已 complete，跳过 begin 降级", flush=True)
+                continue
             con.execute(
                 """
                 INSERT INTO ops_pipeline_run_daily
@@ -169,6 +179,14 @@ def mark_failed(date, message, steps=STEPS, only_running=True):
     try:
         init_db(con)
         con.execute("BEGIN TRANSACTION")
+        if not is_trading_day(date):
+            # 非交易日：不允许落 failed，避免把历史 complete 或空跑降级成失败
+            print(
+                f"DuckDB: {date} 非交易日，跳过 mark_failed（不写 failed）",
+                flush=True,
+            )
+            con.execute("COMMIT")
+            return
         for step in steps:
             if only_running:
                 row = con.execute(

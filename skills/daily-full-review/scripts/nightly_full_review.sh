@@ -86,6 +86,8 @@ run_l2_branch() {
   moneyflow_rc=$?
   if [ "$moneyflow_rc" -ne 0 ]; then
     echo "[$(date '+%F %T')] 资金流段失败 rc=$moneyflow_rc"
+    # --fail 仅在实际交易日落 failed；非交易日由 write_to_duckdb.py 内部保护跳过，
+    # 避免把历史 complete 或空跑降级成失败（8.6 覆写事故根因）。
     python3 "$CODE_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=$moneyflow_rc" \
       || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
     notify "❌ 全量复盘 $D 资金流段失败 rc=$moneyflow_rc；日志 logs/daily-full-review.out.log"
