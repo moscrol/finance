@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 import json
 import re
@@ -521,17 +521,33 @@ def validate_episode_finish(
         )
     # ``binding.gap`` 与 ``evidence_hashes`` 同时非空，是模型的**格式滑档**，
     # 不是必需输出缺失：该 output 已有直接证据支撑，gap 里写的是附带限制条件。
-    # 本函数上游的契约（第 204-206 行）要求这种限制写进顶层 ``gaps`` 或 ``draft``，
-    # 而 2026-08-10 的 live 实测里模型**三处都写了**——``evidence_boundary``
-    # 带 2 条证据哈希、顶层 gaps 有该条、binding.gap 又抄了一份。
+    # 契约（第 214-216 行）要求这种限制写进顶层 ``gaps`` 或 ``draft``，
+    # ``binding.gap`` 只留给「这一格无法回答」。
     #
-    # 把这种滑档判成「缺失」，代价与过失不成比例：整份 FINAL_JSON 作废，
-    # 连同已绑好的证据一起丢，最终 ``draft_chars=0``（实测 508 字符答案被丢弃两轮）。
-    # 而同一个事实在 ``episode_verifier.py:115`` 只降级为 partial 且**保留草稿**。
-    # 两条路径对同一输入严厉度不同，更严厉的那条丢掉的恰是用户唯一能看到的东西。
+    # 2026-08-10 先放宽「不要因此作废整份 FINAL_JSON」，但把 gap 原样留在
+    # binding 里。``episode_verifier.py:115`` 读到非空 gap 就短路径判 missing
+    # 并丢掉 hashes。单格滑档时还能靠其它已 fulfilled 的格交付；**所有**
+    # required output 都滑档时，结构性 fulfilled=0 → 语义 judge 被跳过 →
+    # 公开答案走「未完成核验绑定」模板，交付证据=0。这是 R7-A7 / R5-A6 /
+    # R5-A10 / R6-A10 的冻结形状。
     #
-    # 这里只放宽「有证据支撑时的附带 gap」这一种组合：gap 而**无**证据哈希，
-    # 仍然是缺口，仍然判缺失。放宽的边界就是「有没有直接证据」，不是「有没有写 gap」。
+    # 本函数在此把「有哈希的附带限制」挪到顶层 ``gaps`` 并清空
+    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：无哈希的 gap
+    # 仍是真缺口；若有人绕过本函数把 gap 留在 binding 里，verifier 仍会
+    # 把那一格判 missing。
+    relocated_gaps: list[str] = []
+    normalized_bindings: list[OutputEvidenceBinding] = []
+    for binding in bindings:
+        caveat = binding.gap.strip()
+        if binding.evidence_hashes and caveat:
+            relocated_gaps.append(caveat)
+            normalized_bindings.append(replace(binding, gap=""))
+        else:
+            normalized_bindings.append(binding)
+    bindings = normalized_bindings
+    if relocated_gaps:
+        gaps = tuple(dict.fromkeys((*gaps, *relocated_gaps)))
+    binding_map = {item.output_id: item for item in bindings}
     if status == "completed":
         missing = []
         for required in context.contract.required_outputs:
@@ -551,10 +567,6 @@ def validate_episode_finish(
                 "missing_evidence",
                 "required output lacks evidence: " + ",".join(missing),
             )
-    # 放宽不等于把痕迹放掉：被容忍的 gap 原样留在 ``binding.gap`` 里，
-    # ``episode_verifier.py:115`` 读到它照旧把这一格判 missing 并降级为 partial。
-    # 于是「有答案」与「这一格有保留意见」两件事都成立——这正是本轮要的差别：
-    # 失败留痕，但不再连答案一起销毁。
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,
