@@ -11,7 +11,36 @@ if str(ROOT) not in sys.path:
 
 # Direct execution needs the repository root on sys.path before project imports.
 # The E402 below is therefore an ordering requirement, not an oversight.
-from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.db import (  # noqa: E402
+    DatabaseLockedError,
+    connect,
+    connect_read_only_with_retry,
+)
+
+# 闸门没能执行（duckdb 写锁占用超出重试窗）≠ 数据不完整。
+# 专用退出码让 nightly_full_review.sh 等外层如实播报，而不是误报缺数。
+EXIT_BLOCKED = 3
+
+
+def _lock_retry_config() -> tuple[int, float]:
+    """锁重试参数（次数, 间隔秒）。
+
+    默认 13 次 × 10s ≈ 2 分钟：够等 sync 单步写事务收尾，又不至于让
+    launchd 任务吊死在整晚 backfill 上。环境变量供演练/联调时收窄窗口。
+    """
+    attempts = int(os.environ.get("REVIEW_GATE_LOCK_ATTEMPTS", "13"))
+    delay = float(os.environ.get("REVIEW_GATE_LOCK_DELAY_SECONDS", "10"))
+    return attempts, delay
+
+
+def _connect_read_only():
+    # opener 走本模块的 connect 绑定：既有测试 monkeypatch 的就是这个符号。
+    attempts, delay = _lock_retry_config()
+    return connect_read_only_with_retry(
+        attempts=attempts,
+        delay_seconds=delay,
+        opener=lambda: connect(read_only=True),
+    )
 
 
 def _l2_allow_all_empty() -> bool:
@@ -93,7 +122,7 @@ def is_null(value: object) -> bool:
 
 def check_data(date: str) -> list[str]:
     missing: list[str] = []
-    con = connect(read_only=True)
+    con = _connect_read_only()
     try:
         print(f"CHECK DATA {date}")
         for table in TABLES:
@@ -330,7 +359,7 @@ def check_report(date: str) -> list[str]:
 
 def check_l2(date: str) -> list[str]:
     missing: list[str] = []
-    con = connect(read_only=True)
+    con = _connect_read_only()
     try:
         print(f"CHECK L2 {date}")
         for step in L2_STEPS:
@@ -423,12 +452,19 @@ def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
     args = parser.parse_args(argv)
 
     missing: list[str] = []
-    if args.phase in {"data", "all"}:
-        missing.extend(check_data(args.date))
-    if args.phase in {"report", "all"}:
-        missing.extend(check_report(args.date))
-    if args.phase in {"l2", "all"}:
-        missing.extend(check_l2(args.date))
+    try:
+        if args.phase in {"data", "all"}:
+            missing.extend(check_data(args.date))
+        if args.phase in {"report", "all"}:
+            missing.extend(check_report(args.date))
+        if args.phase in {"l2", "all"}:
+            missing.extend(check_l2(args.date))
+    except DatabaseLockedError as exc:
+        # 检查没有执行成功，完整性未知；不得冒充 INCOMPLETE（缺数）结论。
+        print("RESULT: BLOCKED")
+        print(f"- 质检闸门未能执行：{exc}")
+        print("- 处置：等写进程（sync/backfill）收工后重跑本检查，勿按缺数补录")
+        return EXIT_BLOCKED
 
     print("RESULT:", "INCOMPLETE" if missing else "COMPLETE")
     for item in missing:

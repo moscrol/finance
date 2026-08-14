@@ -10,7 +10,9 @@ schema.sql 与本模块同目录, 可重复执行 (全部 CREATE ... IF NOT EXIS
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+from typing import Callable
 
 import duckdb
 
@@ -21,12 +23,67 @@ DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / "db" / "marke
 DB_DIR = DB_PATH.parent
 SCHEMA_PATH = PACKAGE_DIR / "schema.sql"
 
+# duckdb 对文件锁冲突只给 IOException + 消息文本，没有专用异常类型；
+# 两个片段分别覆盖「拿不到锁」与「谁在持锁」两种措辞，缩窄误判面。
+_LOCK_CONFLICT_MARKERS = ("Could not set lock", "Conflicting lock")
+
+
+class DatabaseLockedError(RuntimeError):
+    """只读诊断连接在重试窗口内始终拿不到 duckdb 文件锁。
+
+    语义：库文件被写进程（通常是 sync/backfill）独占，检查**没有执行**——
+    调用方必须把它与「检查执行了但数据不完整」区分开，不得混报。
+    """
+
+
+def is_lock_conflict(exc: BaseException) -> bool:
+    """该异常是否为 duckdb 文件锁冲突（可等待重试），而非其他 IO 故障。"""
+    return isinstance(exc, duckdb.IOException) and any(
+        marker in str(exc) for marker in _LOCK_CONFLICT_MARKERS
+    )
+
 
 def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """打开 DuckDB 连接。非只读模式会确保 db 目录存在。"""
     if not read_only:
         DB_DIR.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(DB_PATH), read_only=read_only)
+
+
+def connect_read_only_with_retry(
+    *,
+    attempts: int = 6,
+    delay_seconds: float = 10.0,
+    opener: Callable[[], duckdb.DuckDBPyConnection] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> duckdb.DuckDBPyConnection:
+    """只读连接 + 文件锁有界重试；等不到锁时抛 DatabaseLockedError。
+
+    供只读诊断类调用方（质检闸门等）使用：夜间 sync/backfill 持写锁是常态，
+    直接 connect 会当场炸 IOException，被外层误报成「数据不完整」。这里
+    在有界窗口内等写进程收工；非锁类 IOException 原样抛出，不掩盖真故障。
+
+    opener 可注入是为了让调用方保留自己模块级的 connect 绑定
+    （既有测试靠 monkeypatch 那个符号换假库），默认走本模块 connect。
+    """
+    if attempts < 1:
+        raise ValueError(f"attempts 必须 >= 1，得到 {attempts}")
+    open_connection = opener or (lambda: connect(read_only=True))
+    last_error: duckdb.IOException | None = None
+    for attempt in range(attempts):
+        try:
+            return open_connection()
+        except duckdb.IOException as exc:
+            if not is_lock_conflict(exc):
+                raise
+            last_error = exc
+            if attempt + 1 < attempts:
+                sleep(delay_seconds)
+    waited = delay_seconds * (attempts - 1)
+    raise DatabaseLockedError(
+        f"duckdb 文件锁持续被占用：重试 {attempts} 次（约 {waited:.0f}s）仍未拿到"
+        f"只读锁；最后错误：{last_error}"
+    ) from last_error
 
 
 def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
