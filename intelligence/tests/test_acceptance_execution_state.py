@@ -303,3 +303,34 @@ def test_summary_reports_how_many_states_are_artifact_backed() -> None:
 @pytest.fixture(autouse=True)
 def _users_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+
+
+def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
+    """干净基线批（`20260814T1926Z-r3-clean-baseline`）实测的 4 个真缺口格。
+
+    取值来自该批 A4 / C6 / C9 三题：这些格 `n_hash=0` 且带 gap，structural 判
+    `missing` 是**正确行为**，不是缺陷。把它们和滑档格分开，正是 R-20260815-07
+    的目的——同一个 `missing` 底下，一种该修、一种不该动。
+
+    注：该批 `gap_zeroed` 出现 **0 次**（R-001 部署后该形状未在本窗口再现），
+    故 `gap_zeroed` 一侧仍只由三个冻结 run 夹具覆盖，本用例不冒充有 live 样本。
+    """
+
+    _episode(
+        tmp_path,
+        "c6",
+        draft="u" * 300,
+        evidence=0,
+        bindings=[("direct_answer", 0, True), ("evidence_boundary", 0, True)],
+        missing=2,
+    )
+    facts = _read_episode_facts("c6", "tester")
+    assert facts["slot_shapes"] == {
+        "direct_answer": "no_hash",
+        "evidence_boundary": "no_hash",
+    }
+    assert facts["slots_gap_zeroed"] == 0
+    trace = TurnTrace(question="q", status="completed", trace_steps=["a"] * 18)
+    # C6 实测 evidence_retrieved=0，故先落 no_evidence——真缺口格的判缺与
+    # 「压根没取到」在本批同时出现，两者也必须分得开
+    assert _classify_execution_state(trace, facts) == "no_evidence"
