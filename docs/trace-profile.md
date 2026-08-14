@@ -1,7 +1,8 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-04
-- updated_by_run: `2026-08-04b-finalization/c-long-capped-t1,t2`
+- last_updated: 2026-08-15
+- updated_by_run: `2026-08-15 Round 1 开工前回填`（真 Codex rollout 首次过归一化器；
+  前值 `2026-08-04b-finalization/c-long-capped-t1,t2`）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -36,6 +37,8 @@
 | `unpaired_tool_requests` | `0` 表示所有 kind 都已验证配平；正数已经解释了 mailbox 超时 | 这是 `int` 或 `null` 三态指标：`runtime-benchmark` 与 Codex rollout/exec 有各自 request/response 词表，`workbench-trace` 没有逐工具词表所以必须为 `null`，不能伪装成健康零。有 `correlation_id` 时 response 只消费同 id pending；旧事件双方都无 id 才按 case FIFO 弱配对。它仍只是结构读数，不等同于 mailbox exchange 数，也不单独给出因果或迟到结果隔离证明 | `normalize_harness_trace._count_unpaired_tool_requests`；synthetic Codex 悬空调用=`1`、Workbench=`null`；T1/T2 legacy raw artifact FIFO 复算=`0/1` |
 | `request_id` / normalized `correlation_id` | event 自身的唯一 id，或 response body 的业务字段 | `request_id` 是一次 headless tool 调用的 32-hex 身份：mailbox 复用 request filename stem，direct/HTTP 在执行入口生成；同一 request/result/error 共享。normalizer 将它投影为独立的 `correlation_id`，不复用每条事件自己的 `source_event_id`。Codex 侧只读共享的 `call_id/tool_call_id`，普通 event `id` 不冒充调用关联 | `headless_tool_gateway._execute_tool`；`normalize_harness_trace._event_correlation_id` |
 | `remaining_*_seconds_at_entry` | 一个通用的“剩余预算” | `remaining_root_seconds_at_entry` 是 root 时钟，`remaining_research_seconds_at_entry` 是扣除 synthesis reserve 后的研究时钟；二者与同一条 `tool_request.timestamp/request_id` 一起读，禁止再压成含义不明的 `remaining_seconds_at_entry` | `headless_tool_gateway._execute_tool` |
+| 真 `rollout-*.jsonl` 可被 `--kind auto` 正确识别为 `codex-rollout` | 识别成功即说明该 kind 能解析它 | **kind 判定与事件映射是两层，前者成功不蕴含后者**。真 rollout 记录形如 `{"timestamp":…,"type":"response_item","payload":{"type":"function_call_output",…}}`：顶层 `type` 只是信封名（`response_item`/`event_msg`/`turn_context`/`world_state`/`session_meta`），语义类型在 `payload.type`。而 `_codex_mapping` 只读顶层 `type` 与 `record["item"]["type"]`，**真产物根本没有 `item` 键**（2026-06-02 / 07-16 / 08-03 / 08-14 四份抽查，`item` 出现次数均为 0），于是整份 264/264 落 `unmapped`。`_source_event_type`（:365-372）同样只在 `item` 下找类型，故 `source_event_type` 一律显示信封名 | 实测 `sha256=62385ee5…b316a7`；`normalize_harness_trace.py:279-298` / `:365-372`；夹具形状见 `test_normalize_harness_trace.py:180`（`item.completed`+`item`）与 `:350`（类型在顶层），**两种夹具形状都不是真产物形状** |
+| 单输入产物的 `unpaired_tool_requests=0` | 至少说明工具请求都配平了 | 这是本表上一条三态警告的**实例化现场**：一份 264/264 `unmapped` 的产物同样报 `0`——没有任何事件进入配对词表，分母就是 0。读它之前必须先读同产物的 `unmapped_count`；两者相等时该指标无意义 | 同上实测产物 |
 | 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
 
 ## 3. 当前 trace_depth 与盲区清单
@@ -111,6 +114,16 @@
 
 `runtime-benchmark` 按 kind 精确查表（`_BENCHMARK_STEPS`），无顺序依赖；前两类按
 子串匹配，故有顺序。
+
+> ⚠️ **本表的 `codex-rollout` 行当前对真产物不成立（2026-08-15 实测）**。表里那些子串
+> （`function_call`、`_call_output` 等）在真 `rollout-*.jsonl` 里位于 `payload.type`，
+> 而 `_codex_mapping` 只在顶层 `type` 与 `record["item"]["type"]` 里找它们。**这正是
+> 本节下文「本表与代码分歧即缺陷」的一次现场**——分歧方是代码：表描述的是
+> `codex-exec` 流式形状（`{"type":"item.completed","item":{…}}`），代码也只实现了那一种，
+> 而磁盘上的 rollout 会话日志是第三种形状，两边都没覆盖。在 mapper 补上
+> `payload.type` 之前，**`codex-rollout` 这一列只对 exec 流式产物有效，对
+> `rollout-*.jsonl` 一律产出全 `unmapped`**。详见 §2 新增的两条字段陷阱与
+> [prediction-ledger.md](prediction-ledger.md) §2026-08-15。
 
 工具配对另有一层 kind-aware 契约：Codex event 若有 `item.type`，normalized
 `source_event_type` 保留该类型而不是统一写成 `item.completed`；Codex 的
