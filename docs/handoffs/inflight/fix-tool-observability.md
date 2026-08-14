@@ -10,40 +10,36 @@
 
 ## 当前状态
 
-- 已提交 `67d5ee6f`（运行时三处）+ `62b1f15c`（审计脚本），工作区干净，未 push、未合 main。
-- ① `consume_sub_research` 补发 `branch_tool` 事件（此前分支里的工具一条事件都不发）。
-- ② `provider_observability.provider_trace_tool_name()` 做**单一归一化口径**，
-  运行时与审计脚本共用，不另立第二份映射。
-- ③ `ToolCallResult` 加 `queued_ms` / `elapsed_ms`，**分开记**：前者要调并发度、
-  后者要调工具。没测到写 None 不写 0（派发前被拒的调用压根没进线程池）。
-  耗时只进 ledger 不进喂模型的 messages。
-- `scripts/audit_episode_tool_outcomes.py`：0 档只读审计，按真名出成功率 + 证据消费率。
+- 已提交 `d49b551b`（运行时三处）+ `c50dd34e`（审计脚本），rebase 到 origin/main，待 CI。
+- ① `consume_sub_research` 补发 `branch_tool`（此前分支里的工具一条事件都不发）。
+- ② `provider_trace_tool_name()` 单一归一化口径，运行时与审计脚本共用。
+- ③ `queued_ms` / `elapsed_ms` 分开记；派发前被拒的调用写 None 不写 0。
+- `scripts/audit_episode_tool_outcomes.py`：0 档只读，按真名出成功率 + 证据消费率。
 
 ## 已验证
 
 - 全量 4819 passed / 4 skipped；ruff 通过；新增 6 条测试含 2 条变异测试。
-- **现场验证 ③**：8801 canary 真实跑一题，读出 `kb_search 排队0.1ms/执行5523ms`；
-  `tool_budget_exhausted` 四条如实为 `None/None`。
+- **现场验证 ③**：8801 读出 `kb_search 排队0.1ms/执行5523ms`；
+  `tool_budget_exhausted` 四条如实 `None/None`。
 
 ## 未验证 / 已知边界
 
-- **① `branch_tool` 只有单测，没有现场验证**：验证那一跑没走分支路径
-  （`branch_started` 事件数 0）。带分支的多是公司题。
-- 未在生产 8792 上验证（它加载 `.finance-runtime/finance-workspace-07af9160a677`）。
-- 计时用 `monotonic()`，跨进程不可比；只用于同一 episode 内部归因。
+- **① `branch_tool` 仍只有单测。** 8801 三道现场题都没进分支路径
+  （英维克 / 三家对比 / 重放历史会分支的「中际旭创怎么看」）。
+  按 triage：第一次分叉是 `model_turn` 跳过 PLAN、直接 `tool_calls`，
+  没有 `plan` / `mode_decision` / `branch_started`——埋点函数没被调用，
+  不是事件发不出来。同题 03:53 的生产跑曾出过 PLAN + 3 分支（GLM 5.2 今天不发）。
+- 未在生产 8792 验证。计时用 `monotonic()`，只用于同一 episode 内归因。
 
 ## 下一步
 
-1. **挑一道会触发分支的题（公司题）跑 8801**，确认 `branch_tool` 事件真出得来——
-   这是三条里唯一没被现场验证的。
-2. 用新埋点结掉悬案：生产 evidence_search 23 次 / kb_search 20 次全 `tool_timeout`，
-   但排队实测仅 0.1–2.2ms、kb_search 执行仅 ~5s。**排队饿死与工具慢两个假设都已排除**，
-   剩下指向那个实例特有状态——它 10:53 启动、RAG worker 直到 13:53 才出现。
-   生产下次重启后用 `elapsed_ms` 复核。
+1. 不要再拿公司题撞运气。要现场验 ①，得先让模型发出带 `branch_goals` 的 PLAN
+   （或写一个绕过模型、直接喂 coordinator 的 runtime 探针）。
+2. 生产 timeout 悬案：排队与工具慢都已排除；下次 8792 重启后用 `elapsed_ms` 复核。
 
 ## 踩过的坑
 
-- 我先断言「events 被截断」，**证伪了**：sequence 连续 1..N 一条没丢，是分支路径不埋点。
-- 又断言「工具错误率算不出来」，**也证伪了**：traces 里有，只是按 capability 分组时
-  成功全被扫进 `agent_loop`。**这类错位比字段缺失更难发现——缺失会露出 None，
-  错位会给你一个看着合理的错数。**
+- 「events 被截断」证伪（sequence 连续）；「错误率算不出来」证伪（写错栏）。
+  字段错位比缺失更难发现。已归位
+  `agent-memory/10_knowledge/misaligned-field-looks-plausible.md`（PR #29）+
+  BUILD 候选模式 8（harness-reference PR #6）。
