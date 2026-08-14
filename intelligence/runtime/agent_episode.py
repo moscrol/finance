@@ -1060,6 +1060,7 @@ class ContinuousAgentEpisode:
                     "stop_reason": "model_finish",
                     "bindings": [item.to_dict() for item in bindings],
                     "gaps": list(current_gaps),
+                    "caveat_slips": finish.caveat_slips,
                 },
             )
             return AgentOutcome(
@@ -1557,6 +1558,7 @@ class ContinuousAgentEpisode:
                 ),
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
+                "caveat_slips": finish.caveat_slips,
             },
         )
         return AgentOutcome(
@@ -2095,6 +2097,7 @@ class ContinuousAgentEpisode:
                 "stop_reason": "finalization_recovered",
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
+                "caveat_slips": finish.caveat_slips,
             },
         )
         return AgentOutcome(
@@ -2257,6 +2260,8 @@ class ContinuousAgentEpisode:
                 # 留档结转了多长的草稿：收据里的 draft_chars 取的是最终 outcome，
                 # 没有这一行就分不清「从没生成过」和「生成了但修复轮丢了」。
                 "carried_draft_chars": len(carried_draft),
+                # 未走过 validate 的停机路径：没有搬运，计数为 0 且字段在场。
+                "caveat_slips": 0,
             },
         )
         return AgentOutcome(

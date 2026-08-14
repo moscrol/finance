@@ -1416,6 +1416,33 @@ def test_plan_only_turn_does_not_consume_the_first_tool_budget_slot() -> None:
     assert len(model.calls) == 3
     assert model.calls[1]["tools"]
     assert model.calls[2]["tools"] == []
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert finish.payload["caveat_slips"] == 0
+
+
+def test_finish_event_exposes_caveat_slips_count() -> None:
+    """EVAL_ONLY：hashes+gap 滑档后 finish.payload.caveat_slips 可见且等于搬运格数。"""
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("A股 最新行情"),
+            _finish_turn(gap="新闻窗口未覆盖"),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.bindings[0].gap == ""
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert "caveat_slips" in finish.payload
+    assert finish.payload["caveat_slips"] == 1
 
 
 def test_latest_valid_plan_revision_is_retained() -> None:

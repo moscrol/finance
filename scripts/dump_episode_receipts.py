@@ -60,6 +60,14 @@ def _episode_lines(ep: dict) -> list[str]:
             lines.append(
                 f"  model_err[{payload.get('phase') or 'main'}] {payload.get('error')}"
             )
+        elif kind == "finish":
+            slips = payload.get("caveat_slips")
+            slips_s = slips if slips is not None else "<ABSENT>"
+            lines.append(
+                f"  finish stop={payload.get('stop_reason')} "
+                f"status={payload.get('status')} "
+                f"caveat_slips={slips_s}"
+            )
     return lines
 
 

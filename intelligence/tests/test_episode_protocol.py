@@ -490,6 +490,7 @@ def test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat() -> N
     assert boundary.gap == ""
     assert boundary.evidence_hashes == ("market-hash",)
     assert "缺少同一时间窗口的新闻证据。" in finish.gaps
+    assert finish.caveat_slips == 1
 
 
 def test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill() -> None:
@@ -522,6 +523,7 @@ def test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill() ->
     assert all(not item.gap for item in finish.bindings)
     assert "技术定义检索超时，盘面判断仍有同日数据。" in finish.gaps
     assert "没有同日新闻证据。" in finish.gaps
+    assert finish.caveat_slips == 2
 
     outcome = AgentOutcome(
         task_frame_hash=context.contract.task_frame_hash,
@@ -828,3 +830,321 @@ def test_integrity_alone_is_denied_reinjection_and_recovery() -> None:
     assert rejection_response(ValueError("x")) is rejection_response(
         EpisodeFinishRejection("bad_status", "x")
     ), "未分类异常必须与 FORMAT 得到同一处置对象"
+
+
+def _qa_context(frame: TaskFrame, *output_ids: str) -> ResearchRunContext:
+    """B 组 / A6 冻结形状用的两格契约（direct_answer + evidence_boundary）。"""
+
+    context = _context(frame)
+    return dataclasses.replace(
+        context,
+        contract=dataclasses.replace(
+            context.contract,
+            required_outputs=tuple(
+                RequiredOutput(output_id, output_id, ("market_data",), True)
+                for output_id in output_ids
+            ),
+        ),
+    )
+
+
+def _definition_context(frame: TaskFrame) -> ResearchRunContext:
+    """R7-A7 冻结主 case 的两格契约。"""
+
+    return _qa_context(frame, "direct_definition", "evidence_boundary")
+
+
+def _slip_binding(output_id: str, hashes: list[str], gap: str) -> dict[str, object]:
+    return {
+        "output_id": output_id,
+        "evidence_hashes": hashes,
+        "gap": gap,
+        "basis": "evidence",
+    }
+
+
+def test_caveat_slips_replays_r7_a7_frozen_finish() -> None:
+    """R-22 断言 1：重放 R7-A7 冻结 FINAL_JSON 形状，计数 = 被搬运格数。
+
+    源 run ``run_20260813_034211_544672``：两格 hashes+gap（6/7），
+    哈希用合成值，只钉形状。
+    """
+
+    frame = _frame()
+    context = _definition_context(frame)
+    definition_hashes = [f"a7-def-{index:02d}" for index in range(6)]
+    boundary_hashes = [f"a7-bnd-{index:02d}" for index in range(7)]
+    evidence = _hex_evidence(*definition_hashes, *boundary_hashes)
+    finish = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "直接定义：该概念按公开口径解释。证据边界：同日盘面可核验。",
+            "gaps": [],
+            "bindings": [
+                _slip_binding(
+                    "direct_definition",
+                    definition_hashes,
+                    "技术定义检索超时，盘面判断仍有同日数据。",
+                ),
+                _slip_binding(
+                    "evidence_boundary",
+                    boundary_hashes,
+                    "没有同日新闻证据。",
+                ),
+            ],
+        },
+        context=context,
+        evidence=evidence,
+    )
+
+    assert finish.caveat_slips == 2
+    assert all(not item.gap for item in finish.bindings)
+    verified = verify_episode_outcome(
+        context.contract,
+        AgentOutcome(
+            task_frame_hash=context.contract.task_frame_hash,
+            status="partial",
+            draft=finish.draft,
+            evidence=evidence,
+            traces=(),
+            gaps=finish.gaps,
+            stop_reason="repair_model_stop",
+            events=(
+                EpisodeEvent(
+                    1, "task", {"task_frame_hash": context.contract.task_frame_hash}
+                ),
+            ),
+            bindings=finish.bindings,
+            usage=AgentUsage(llm_calls=1, tool_calls=1),
+        ),
+    )
+    assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
+
+
+def test_caveat_slips_zero_on_clean_finish() -> None:
+    """R-22 断言 2：无 gap、或 gap 已在顶层时，计数为 0 且字段在场。"""
+
+    frame = _frame()
+    context = _context(frame)
+    clean = validate_episode_finish(
+        {
+            "status": "completed",
+            "draft": "当前更接近条件化修复。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "",
+                }
+            ],
+        },
+        context=context,
+        evidence=_evidence(),
+    )
+    assert clean.caveat_slips == 0
+
+    top_level_only = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "当前更接近条件化修复。",
+            "gaps": ["新闻窗口未覆盖，限制已写在顶层。"],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "",
+                }
+            ],
+        },
+        context=context,
+        evidence=_evidence(),
+    )
+    assert top_level_only.caveat_slips == 0
+    assert "新闻窗口未覆盖，限制已写在顶层。" in top_level_only.gaps
+
+
+def test_caveat_slips_not_emitted_on_true_gap_reject() -> None:
+    """R-22 断言 3：无哈希 gap 的拒绝路径不产生搬运计数，拒绝语义不变。"""
+
+    frame = _frame()
+    context = _context_with_evidence_boundary(frame)
+    with pytest.raises(ValueError, match="required output lacks evidence") as caught:
+        validate_episode_finish(
+            {
+                "status": "completed",
+                "draft": "基准判断：偏强震荡。证据边界：尚未取得。",
+                "gaps": ["没有查到证据边界所需数据。"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": ["market-hash"],
+                        "gap": "",
+                    },
+                    {
+                        "output_id": "evidence_boundary",
+                        "evidence_hashes": [],
+                        "gap": "没有查到证据边界所需数据。",
+                    },
+                ],
+            },
+            context=context,
+            evidence=_evidence(),
+        )
+    assert not isinstance(caught.value, EpisodeFinish)
+    assert not hasattr(caught.value, "caveat_slips")
+
+
+def test_r001_fixture_b5_all_slot_slip() -> None:
+    """R-001 跨组夹具：B5 ``run_20260814_022902_659281`` 全格滑档 15/18。"""
+
+    frame = _frame()
+    context = _qa_context(frame, "direct_answer", "evidence_boundary")
+    hashes = [f"b5-h{index:02d}" for index in range(18)]
+    evidence = _hex_evidence(*hashes)
+    finish = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "直接回答：该指标按公开口径解释。证据边界：同日盘面可核验。",
+            "gaps": [],
+            "bindings": [
+                _slip_binding("direct_answer", hashes[:15], "附带限制：新闻窗口未对齐。"),
+                _slip_binding("evidence_boundary", hashes, "附带限制：缺少同日新闻。"),
+            ],
+        },
+        context=context,
+        evidence=evidence,
+    )
+    assert finish.caveat_slips == 2
+    assert all(not item.gap for item in finish.bindings)
+    verified = verify_episode_outcome(
+        context.contract,
+        AgentOutcome(
+            task_frame_hash=context.contract.task_frame_hash,
+            status="partial",
+            draft=finish.draft,
+            evidence=evidence,
+            traces=(),
+            gaps=finish.gaps,
+            stop_reason="repair_model_stop",
+            events=(
+                EpisodeEvent(
+                    1, "task", {"task_frame_hash": context.contract.task_frame_hash}
+                ),
+            ),
+            bindings=finish.bindings,
+            usage=AgentUsage(llm_calls=1, tool_calls=1),
+        ),
+    )
+    assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
+
+
+def test_r001_fixture_b7_mixed_true_gap_still_missing() -> None:
+    """R-001 核心夹具：B7 ``run_20260814_023030_100048`` 混合形。
+
+    ``direct_answer`` 0 hash 真缺口必须仍不满足；``evidence_boundary`` 13 hashes
+    搬运后 fulfilled。证明修复没有放宽真缺口。
+    """
+
+    frame = _frame()
+    context = _qa_context(frame, "direct_answer", "evidence_boundary")
+    hashes = [f"b7-h{index:02d}" for index in range(13)]
+    evidence = _hex_evidence(*hashes)
+    finish = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "直接回答：该格仍缺可绑定证据。证据边界：同日盘面可核验。",
+            "gaps": [],
+            "bindings": [
+                _slip_binding("direct_answer", [], "没有查到可直接回答的证据。"),
+                _slip_binding(
+                    "evidence_boundary",
+                    hashes,
+                    "附带限制：新闻窗口未覆盖。",
+                ),
+            ],
+        },
+        context=context,
+        evidence=evidence,
+    )
+    assert finish.caveat_slips == 1
+    by_id = {item.output_id: item for item in finish.bindings}
+    assert by_id["direct_answer"].gap
+    assert not by_id["direct_answer"].evidence_hashes
+    assert by_id["evidence_boundary"].gap == ""
+    assert by_id["evidence_boundary"].evidence_hashes == tuple(hashes)
+
+    verified = verify_episode_outcome(
+        context.contract,
+        AgentOutcome(
+            task_frame_hash=context.contract.task_frame_hash,
+            status="partial",
+            draft=finish.draft,
+            evidence=evidence,
+            traces=(),
+            gaps=finish.gaps,
+            stop_reason="repair_model_finish",
+            events=(
+                EpisodeEvent(
+                    1, "task", {"task_frame_hash": context.contract.task_frame_hash}
+                ),
+            ),
+            bindings=finish.bindings,
+            usage=AgentUsage(llm_calls=1, tool_calls=1),
+        ),
+    )
+    status_by_id = {
+        item.output_id: item.status for item in verified.completion.outputs
+    }
+    assert status_by_id["direct_answer"] == "missing"
+    assert status_by_id["evidence_boundary"] == "fulfilled"
+    assert any(
+        issue.startswith("required output reports gap: direct_answer")
+        for issue in verified.issues
+    )
+
+
+def test_r001_fixture_a6_all_slot_slip() -> None:
+    """R-001 跨组夹具：A6 ``run_20260814_021218_897744`` 全格滑档 1/1。
+
+    终态 ``repair_model_finish`` 也在射程内：搬运后两格 fulfilled。
+    """
+
+    frame = _frame()
+    context = _qa_context(frame, "direct_answer", "evidence_boundary")
+    evidence = _hex_evidence("a6-h00")
+    finish = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "直接回答：该指标按公开口径解释。证据边界：同日盘面可核验。",
+            "gaps": [],
+            "bindings": [
+                _slip_binding("direct_answer", ["a6-h00"], "附带限制：样本偏少。"),
+                _slip_binding("evidence_boundary", ["a6-h00"], "附带限制：缺新闻。"),
+            ],
+        },
+        context=context,
+        evidence=evidence,
+    )
+    assert finish.caveat_slips == 2
+    assert all(not item.gap for item in finish.bindings)
+    verified = verify_episode_outcome(
+        context.contract,
+        AgentOutcome(
+            task_frame_hash=context.contract.task_frame_hash,
+            status="partial",
+            draft=finish.draft,
+            evidence=evidence,
+            traces=(),
+            gaps=finish.gaps,
+            stop_reason="repair_model_finish",
+            events=(
+                EpisodeEvent(
+                    1, "task", {"task_frame_hash": context.contract.task_frame_hash}
+                ),
+            ),
+            bindings=finish.bindings,
+            usage=AgentUsage(llm_calls=1, tool_calls=1),
+        ),
+    )
+    assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
