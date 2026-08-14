@@ -92,7 +92,11 @@ run_l2_branch() {
   fi
   python3 scripts/check_daily_review_data.py "$D" --phase l2
   l2_rc=$?
-  if [ "$l2_rc" -ne 0 ]; then
+  # rc=3：闸门被 duckdb 写锁挡住没跑成，结果未知——与「质量门未通过」是两回事
+  if [ "$l2_rc" -eq 3 ]; then
+    echo "[$(date '+%F %T')] L2 质量门未能执行：duckdb 写锁占用超重试窗 rc=3，结果未知"
+    notify "⚠️ 全量复盘 $D L2 质量门没跑成（duckdb 写锁占用，非质量问题）；等写进程收工后重跑 finalize；日志 logs/daily-full-review.out.log"
+  elif [ "$l2_rc" -ne 0 ]; then
     echo "[$(date '+%F %T')] L2 质量门未通过 rc=$l2_rc"
     notify "❌ 全量复盘 $D L2 质量门未通过；日志 logs/daily-full-review.out.log"
   fi
@@ -142,7 +146,11 @@ run_generation_and_finalize() {
   # 最终硬门：数据/报告/L2 全部通过才允许宣布完成
   python3 scripts/check_daily_review_data.py "$D" --phase all
   local all_rc=$?
-  if [ "$all_rc" -ne 0 ]; then
+  if [ "$all_rc" -eq 3 ]; then
+    echo "[$(date '+%F %T')] === 最终硬门未能执行 date=$D（duckdb 写锁占用 rc=3，完整性未知）==="
+    notify "⚠️ 全量复盘 $D 最终质量门没跑成（duckdb 写锁占用，非缺数）；等写进程收工后重跑 finalize；日志 logs/daily-full-review.out.log"
+    return "$all_rc"
+  elif [ "$all_rc" -ne 0 ]; then
     echo "[$(date '+%F %T')] === 全量复盘失败 date=$D all gate rc=$all_rc ==="
     notify "❌ 全量复盘 $D 未通过最终质量门；日志 logs/daily-full-review.out.log"
     return "$all_rc"
@@ -171,7 +179,13 @@ case "$PHASE" in
     # 定时 @20:40。守卫：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
     python3 scripts/check_daily_review_data.py "$D" --phase data
     guard_rc=$?
-    if [ "$guard_rc" -ne 0 ]; then
+    if [ "$guard_rc" -eq 3 ]; then
+      # 闸门被写锁挡住没跑成 ≠ 数据不完整；如实播报，别引导人去补数
+      echo "[$(date '+%F %T')] finalize 守卫未能执行：duckdb 写锁占用超重试窗（rc=3），完整性未知，中止生成段"
+      notify "⚠️ 全量复盘 $D finalize 中止：质检闸门被 duckdb 写锁挡住没跑成（非缺数）；等写进程收工后重跑 finalize；日志 logs/daily-full-review.out.log"
+      echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
+      exit "$guard_rc"
+    elif [ "$guard_rc" -ne 0 ]; then
       echo "[$(date '+%F %T')] finalize 守卫未通过：$D 同步段数据不完整（same-day-gate rc=$guard_rc），中止生成段"
       notify "⚠️ 全量复盘 $D finalize 中止：18:30 sync 段未成功（same-day-gate fail），未生成报告；需先补跑 sync；日志 logs/daily-full-review.out.log"
       echo "[$(date '+%F %T')] === finalize 中止 date=$D sync 守卫 rc=$guard_rc ==="
