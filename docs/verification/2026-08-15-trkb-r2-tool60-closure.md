@@ -97,7 +97,7 @@
 - failure_detection_timing: ONLY_AT_TASK_END
 - completion_status: PARTIAL_SUCCESS
 - evidence_ids: [E-002, E-003]
-- explanation: B1/B3 已产出 draft、已生成 3 条带哈希的绑定，但三格绑定各自附带一句 gap；结构核验据此判 `missing` 并把 `evidence_ids` 归零，于是 19/6 条证据一条都进不了 `allowed_output_ids`。**竞争 L0 未分胜负**：是模型该给 gap 却本不必给（REASONING），还是判据不该因附带 gap 就整格零化（HARNESS），当前产物无区分变量。轨道 A 的 `d6f50688` 正针对后者，**但尚未部署到 8792**，故本轮不能以它为准结案。
+- explanation: B1/B3 已产出 draft、已生成 3 条带哈希的绑定，但三格绑定各自附带一句 gap；结构核验据此判 `missing` 并把 `evidence_ids` 归零，于是 19/6 条证据一条都进不了 `allowed_output_ids`。**竞争 L0 未分胜负**：是模型该给 gap 却本不必给（REASONING），还是判据不该因附带 gap 就整格零化（HARNESS），当前产物无区分变量。轨道 A 的修复正针对后者，**已随 #6 并入 main（`a189d6bd`，原分支提交 `d6f50688`），但尚未部署到 8792**——合并不等于生效，本轮读数仍取自未含该修复的运行时，故不能以它为准结案。
 
 ### SECONDARY
 
@@ -313,7 +313,7 @@
 
 1. 报用户裁决脏部署（R-20260815-06）——它同时卡着 H4、轨道 A 的 canary 与一切跨时点 A/B。
 2. 实施 R-20260815-07：让 `gap_zeroed` 与真缺口在读数上分开，代价低且立刻可用。
-3. 轨道 A 的 `d6f50688` 部署后，对 B1/B3 重跑一次——那是分开 RU-2 两个竞争 L0 的最短路径。
+3. 轨道 A 的修复（main `a189d6bd`）**部署到 8792 后**，对 B1/B3 重跑一次——那是分开 RU-2 两个竞争 L0 的最短路径。预期：B3（纯滑档形）三格恢复；B1 的 `direct_assessment`/`chain_mapping` 两格恢复而 `counterpoint` 视当次是否取到证据而定（Run B 该格 0 哈希是真缺口，本就该判缺）。
 4. `gap_origin` 埋点（表内第 2 行），确定 gap 的归属层。
 5. 把 acceptance preflight 的身份盖戳改为 `loaded_code_root` 三读数，消除错源字段。
 
