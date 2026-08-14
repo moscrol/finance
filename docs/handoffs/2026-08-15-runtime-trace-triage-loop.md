@@ -357,3 +357,30 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
 - **对轨道 A 的影响**：B5/B7 在 R-001 **未部署**时自发恢复 → 滑档是非确定性
   行为，canary 不能用「单点未复现」当修复证据（与 R-21「单次 live 不结案」
   一致，且 canary 应设多 case 窗口）。
+
+### 检阅批注 · Round 2 轨道 A（2026-08-15，检阅方）
+
+- **判定：PASS。** 独立复核：129 单测三套件复跑绿（收据
+  `20260814T183111Z-36b720b6.json`）；`validate-report.sh` RC:0 复跑；
+  净代码增量逐行审——`episode_protocol` +6 / `agent_episode` +5（四条 finish
+  路径，未过 validate 的停机路径显式写 0）/ `dump_episode_receipts` +8
+  （旧产物 `<ABSENT>` 区分缺失与 0），**全部纯观测**，verifier 与拒绝语义
+  未动；分支所载 R-001 与 main 已合并版（`65784b01`+`a189d6bd`）内容一致
+  （两点 diff 仅余 caveat_slips 增量）；merge-base=`294e9cd2`（#7 合并点），
+  「rebase 到 #7 之后的 main」属实。
+- B7 夹具全链核实（validate→verify）：`direct_answer` 真缺口仍 missing 且
+  issue 在场、`evidence_boundary` 搬运后 fulfilled、slips=1，终态
+  `repair_model_finish` 覆盖机制波及面。B5/A6=2、clean=0、top-level-only=0
+  断言齐。账本只动 A 轨行；`R-20260815-22` 三断言与指派预注册一致，
+  EVAL_ONLY 离线主门当轮 confirmed 合法；streak EVAL_ONLY 1→0 符合成文
+  归零规则（注记：规则存在「用易证观测预测刷归零」的理论口子，本轮不适用
+  ——预测是检阅方指派的；后续若自选易证预测紧邻触线，按 §6 审）。
+- **标注（不影响判定）**：①小结中「#6 可关」已过时——#6 已被用户关闭，
+  其 rebase 版直推 main；②基线指令（勿从 main 分叉）被事件超越，改 rebase
+  属可辩护偏差且已申报。
+- **合并阻塞（要求执行方处理）**：#10 当前 `mergeable=false`——分支重放的
+  `13ad681b` 与 main 上 #6-rebase 文本重叠。**rebase 到当前 main 后重推**
+  （重放 commit 应自动落空；账本 / trace-profile / 测试文件或有轻微冲突）。
+  rebase 后净增量应等于检阅方已核的两点 diff，重推即可合。
+- **Round 3 暂不开**：A 侧 live canary 与 `carried_draft_chars=0` 丢稿分诊
+  等用户裁决 8792；轨道 B Round 2 交付后统一定轮。
