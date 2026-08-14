@@ -94,10 +94,58 @@ class ToolCallResult:
     # 「审批失败后不应简单重试，而应将拒绝理由作为工具调用结果加入 Agent 的轨迹」。
     detail: str = ""
     step_id: str = ""
+    # 排队时长与执行时长**分开**记，因为它们指向完全不同的修法。
+    #
+    # 一个批次里的工具是并发提交的，但共享一个 deadline
+    # （``stage_timeout(tool_batch_timeout_seconds())``），而线程池
+    # ``MAX_GLOBAL_TOOL_WORKERS=8`` 是**全局**的：3 个并发分支各发一批
+    # （每批至多 ``MAX_BATCH_TOOL_CALLS=4``）就可能有 12 个调用抢 8 个 worker，
+    # 排队的那几秒照样从共享窗口里扣。
+    #
+    # 只记总耗时的话，「这个工具本身慢」和「它被别人挤着排队」长得一模一样，
+    # 而前者要调工具、后者要调并发度或窗口。2026-08-14 就卡在这个分辨不出上：
+    # 生产 evidence_search 23 次、kb_search 20 次全部 tool_timeout，而 RAG 查询
+    # 本体实测只要 13-14 秒，两种解释都说得通、都无法证伪。
+    #
+    # None = 没测到（在派发之前就被拒/超时的调用，压根没进线程池）。
+    queued_ms: float | None = None
+    elapsed_ms: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, str) or self.status not in _TOOL_CALL_STATUSES:
             raise ValueError(f"unsupported tool call status: {self.status}")
+
+
+@dataclass
+class _ToolTiming:
+    """一次工具调用的三个时刻。``started_at`` 由工作线程自己写，所以
+    ``started - submitted`` 就是真实排队延迟，不是估的。"""
+
+    submitted_at: float
+    started_at: float | None = None
+    finished_at: float | None = None
+
+    @staticmethod
+    def _ms(begin: float | None, end: float | None) -> float | None:
+        if begin is None or end is None:
+            return None
+        return round(max(0.0, end - begin) * 1000.0, 1)
+
+    @property
+    def queued_ms(self) -> float | None:
+        return self._ms(self.submitted_at, self.started_at)
+
+    @property
+    def elapsed_ms(self) -> float | None:
+        return self._ms(self.started_at, self.finished_at)
+
+
+def _run_timed(timing: _ToolTiming, operation: Callable[[], ToolObservation]) -> ToolObservation:
+    timing.started_at = monotonic()
+    try:
+        return operation()
+    finally:
+        timing.finished_at = monotonic()
 
 
 @dataclass(frozen=True)
@@ -385,6 +433,7 @@ class EpisodeToolBatchSession:
             is_cancelled=is_cancelled,
         )
         future_candidates: dict[Future[ToolObservation], _Candidate] = {}
+        timings: dict[int, _ToolTiming] = {}
         try:
             for candidate in selected:
                 operation = partial(
@@ -401,7 +450,10 @@ class EpisodeToolBatchSession:
                     publish_guard,
                     operation,
                 )
-                future = self._executor.submit(worker_context.run, guarded_operation)
+                timing = _ToolTiming(submitted_at=monotonic())
+                timings[candidate.index] = timing
+                timed_operation = partial(_run_timed, timing, guarded_operation)
+                future = self._executor.submit(worker_context.run, timed_operation)
                 future_candidates[future] = candidate
 
             completed: set[Future[ToolObservation]] = set()
@@ -430,14 +482,21 @@ class EpisodeToolBatchSession:
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]
+                timing = timings[candidate.index]
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "rejected" if cancelled_during_wait else "timeout",
                     error="cancelled" if cancelled_during_wait else "tool_timeout",
                     step_id=step_ids[candidate.index],
+                    # 超时的这条最需要读数：``queued_ms`` 有值而 ``elapsed_ms`` 为 None，
+                    # 说明它排到了但没跑完；两个都是 None 说明它连线程都没抢到——
+                    # 后者是并发度问题，不是工具慢。
+                    queued_ms=timing.queued_ms,
+                    elapsed_ms=timing.elapsed_ms,
                 )
             for future in completed:
                 candidate = future_candidates[future]
+                timing = timings[candidate.index]
                 try:
                     observation = future.result()
                 except TimeoutError:
@@ -446,6 +505,8 @@ class EpisodeToolBatchSession:
                         "timeout",
                         error="tool_timeout",
                         step_id=step_ids[candidate.index],
+                        queued_ms=timing.queued_ms,
+                        elapsed_ms=timing.elapsed_ms,
                     )
                     continue
                 except Exception as exc:
@@ -455,6 +516,8 @@ class EpisodeToolBatchSession:
                         "error",
                         error=detail,
                         step_id=step_ids[candidate.index],
+                        queued_ms=timing.queued_ms,
+                        elapsed_ms=timing.elapsed_ms,
                     )
                     continue
                 observation = replace(
@@ -470,6 +533,8 @@ class EpisodeToolBatchSession:
                     "success" if observation.evidence else "empty",
                     observation=observation,
                     step_id=step_ids[candidate.index],
+                    queued_ms=timing.queued_ms,
+                    elapsed_ms=timing.elapsed_ms,
                 )
         finally:
             publish_guard.close()
