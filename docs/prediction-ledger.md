@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-04（L7 finalization T3 闭环）
+- last_updated: 2026-08-15（轨道 A Round 1 追加 `R-20260815-21`；不改 R-02/R-10）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -29,6 +29,7 @@
 |---|---|---|---|---|---|
 | `R-20260804-02` | 收口审计 §修复2 | `EVAL_ONLY` | 真 Codex rollout 中 `function_call_output` 归入 `observe`，与 workbench 的 `validate→observe` 对齐；第一个工具结果处不再出现**词表性**分叉 | 取一份真 rollout JSONL 跑 `normalize_harness_trace --kind codex-rollout`，检查首个工具结果的 step | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |
+| `R-20260815-21` | 轨道 A M1 F-001 | `DATA_CONTRACT_FIX` | 全格 `evidence_hashes`+非空 `binding.gap` 的 partial FINAL_JSON 经 `validate_episode_finish` 后，各格 `binding.gap=""`、原 gap 文本进入顶层 `gaps`；再过 `verify_episode_outcome` 这些格 `fulfilled`，issues 不再含 `required output reports gap:`。无哈希的 gap 仍被拒绝。绕过 validate 把 leftover gap 直接喂 verifier 仍 missing（判据不变） | **主门离线**：`test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill`、`test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat`、`test_validate_finish_still_rejects_gap_without_any_evidence`、`test_leftover_binding_gap_still_drops_hashes`。live canary 只作确认：同窗口同 revision 下若再出现全格滑档，eb 应>0；单次 live 不独立结案 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -139,6 +140,11 @@ L0/L1/L2，也没有 3 条以上排名假设。因此这些条目**只有 `fix_t
 已按 Evidence → Finding → Path、四条可证伪假设和冻结 taxonomy 定位
 `F-001: LOOP/stop/execution-error-category-timeout`；它可以作为后续 Prior prediction
 closure 与 PRIMARY 证据引用。
+
+`R-20260815-21` 来自轨道 A 标准 M1 分诊
+[`docs/verification/2026-08-15-trka-repair-finish-gap-slip.md`](verification/2026-08-15-trka-repair-finish-gap-slip.md)，
+PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`。它可以作为后续
+Prior prediction closure 与 PRIMARY 证据引用。轨道 A 不回写 `R-20260804-02` / `R-20260804-10`。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。

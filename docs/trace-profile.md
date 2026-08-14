@@ -1,6 +1,6 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-04
+- last_updated: 2026-08-15
 - updated_by_run: `2026-08-04b-finalization/c-long-capped-t1,t2`
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
@@ -37,6 +37,8 @@
 | `request_id` / normalized `correlation_id` | event 自身的唯一 id，或 response body 的业务字段 | `request_id` 是一次 headless tool 调用的 32-hex 身份：mailbox 复用 request filename stem，direct/HTTP 在执行入口生成；同一 request/result/error 共享。normalizer 将它投影为独立的 `correlation_id`，不复用每条事件自己的 `source_event_id`。Codex 侧只读共享的 `call_id/tool_call_id`，普通 event `id` 不冒充调用关联 | `headless_tool_gateway._execute_tool`；`normalize_harness_trace._event_correlation_id` |
 | `remaining_*_seconds_at_entry` | 一个通用的“剩余预算” | `remaining_root_seconds_at_entry` 是 root 时钟，`remaining_research_seconds_at_entry` 是扣除 synthesis reserve 后的研究时钟；二者与同一条 `tool_request.timestamp/request_id` 一起读，禁止再压成含义不明的 `remaining_seconds_at_entry` | `headless_tool_gateway._execute_tool` |
 | 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
+| episode `stop_reason=repair_model_stop` | 修复轮没产出合法 FINISH，所以交付 0 | stop 只说「无工具且未 completed」。交付 0 的区分变量是**全部** required output 的 `binding.gap` 非空（hashes 会被 verifier 丢掉）。同 stop 但至少一格 gap 为空时 eb>0（R5-A7 / live A7） | `docs/verification/2026-08-15-trka-repair-finish-gap-slip.md` |
+| `semantic_status=unavailable` / 「未完成核验绑定」 | 核验预算不够或模型没走到 FINAL_JSON | 当 structural fulfilled=0 时 judge **根本不会被调用**（`_can_semantically_release_partial`）。模板文案的注释假设「没绑定」，但 R7-A7 的 episode 里 bindings 有 hashes。混槽 + judge 瞬时失败会走另一条「候选草稿」文案且 eb>0 | R7-A7 vs live A7/A10；`episode_semantic_verifier.py:503-522` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
