@@ -16,6 +16,7 @@ from market_feature_store.db import (  # noqa: E402
     connect,
     connect_read_only_with_retry,
 )
+from market_feature_store.trading_days import is_trading_day  # noqa: E402
 
 # 闸门没能执行（duckdb 写锁占用超出重试窗）≠ 数据不完整。
 # 专用退出码让 nightly_full_review.sh 等外层如实播报，而不是误报缺数。
@@ -358,6 +359,9 @@ def check_report(date: str) -> list[str]:
 
 
 def check_l2(date: str) -> list[str]:
+    if not is_trading_day(date):
+        print(f"CHECK L2 {date} 非交易日，自动放行")
+        return []
     missing: list[str] = []
     con = _connect_read_only()
     try:

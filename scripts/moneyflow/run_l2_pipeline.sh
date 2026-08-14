@@ -43,6 +43,20 @@ REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 echo "L2 start date=$D code=$CODE_ROOT rev=$REV db=$MARKET_FEATURE_STORE_DB"
 echo "L2 shared cache=$MONEYFLOW_OUTPUT_DIR/l2_query_cache_${D}.json force_rescan=${L2_FORCE_RESCAN:-0}"
 
+# 非交易日预检查：明确非交易日直接跳过整个 L2 流水线（不写 --begin、不跑扫描、不落 failed）。
+# 判定失败（无输出/异常）时继续执行，由 write_to_duckdb.py 内的状态保护兜底。
+IS_TRADE="$(MARKET_FEATURE_STORE_DB="$MARKET_FEATURE_STORE_DB" python3 - "$D" "$CODE_ROOT" <<'PY' 2>/dev/null || true
+import sys
+sys.path.insert(0, sys.argv[2])
+from market_feature_store.trading_days import is_trading_day
+print("1" if is_trading_day(sys.argv[1]) else "0")
+PY
+)"
+if [ "$IS_TRADE" = "0" ]; then
+  echo "[$(date '+%F %T')] 非交易日 date=$D，跳过 L2 流水线"
+  exit 0
+fi
+
 cd "$moneyflow_dir" || exit 1
 python3 write_to_duckdb.py --begin "$D" \
   && python3 scan_limitup.py "$D" \
