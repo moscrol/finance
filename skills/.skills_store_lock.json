@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "report-search": {
+      "name": "report-search",
+      "zip_url": "http://ms.10jqka.com.cn/gateway/market/api/v1/skills/square/download?name=report-search",
+      "source": "skillhub",
+      "version": ""
+    },
+    "hithink-market-query": {
+      "name": "hithink-market-query",
+      "zip_url": "http://ms.10jqka.com.cn/gateway/market/api/v1/skills/square/download?name=hithink-market-query",
+      "source": "skillhub",
+      "version": ""
+    },
+    "行业概览": {
+      "name": "行业概览",
+      "zip_url": "http://ms.10jqka.com.cn/gateway/market/api/v1/skills/square/download?name=%E8%A1%8C%E4%B8%9A%E6%A6%82%E8%A7%88",
+      "source": "skillhub",
+      "version": ""
+    },
+    "公司画像页": {
+      "name": "公司画像页",
+      "zip_url": "http://ms.10jqka.com.cn/gateway/market/api/v1/skills/square/download?name=%E5%85%AC%E5%8F%B8%E7%94%BB%E5%83%8F%E9%A1%B5",
+      "source": "skillhub",
+      "version": ""
+    }
+  }
+}

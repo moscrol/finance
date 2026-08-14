@@ -1,0 +1,400 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+  "market_date": "2026-07-14",
+  "created_at": "2026-07-14T22:18:46+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-14-concept_ingest-50b301bad403-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "通信设备",
+      "priority": 118.0,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "新易盛",
+        "中际旭创",
+        "光迅科技",
+        "亨通光电",
+        "永鼎股份"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-jin-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "黄金",
+      "priority": 106.0,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "紫金矿业",
+        "洛阳钼业",
+        "江西铜业",
+        "驰宏锌锗",
+        "赤峰黄金"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-jin-shu-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "小金属",
+      "priority": 90.0,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "风华高科",
+        "紫金矿业",
+        "中国铝业",
+        "洛阳钼业",
+        "江西铜业"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-b84604b8bb9d-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "创新药",
+      "priority": 76.28,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "药明康德",
+        "康龙化成",
+        "陇神戎发",
+        "科伦药业",
+        "凯莱英"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-concept_ingest-jin-shu-tong-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "金属铜",
+      "priority": 106.0,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "紫金矿业",
+        "洛阳钼业",
+        "江西铜业",
+        "中钨高新",
+        "赤峰黄金"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-jin-shu-tong-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "金属铜",
+      "priority": 106.0,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "紫金矿业",
+        "洛阳钼业",
+        "江西铜业",
+        "中钨高新",
+        "赤峰黄金"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-concept_ingest-jin-shu-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "工业金属",
+      "priority": 95.4,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "紫金矿业",
+        "中国铝业",
+        "洛阳钼业",
+        "江西铜业",
+        "云铝股份"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-jin-shu-002",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "工业金属",
+      "priority": 95.4,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "紫金矿业",
+        "中国铝业",
+        "洛阳钼业",
+        "江西铜业",
+        "云铝股份"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-a129e052e52c-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "中药",
+      "priority": 67.92,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "陇神戎发",
+        "九芝堂",
+        "中恒集团",
+        "以岭药业",
+        "佐力药业"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-14-disclosure-hua-xue-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "化学制药",
+      "priority": 67.77,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "科伦药业",
+        "美诺华",
+        "迪哲医药",
+        "哈药股份",
+        "贝达药业"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-14",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-daily-agent.json",
+      "created_at": "2026-07-14T22:18:46+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 10,
+    "by_task_type": {
+      "concept_ingest": 3,
+      "disclosure": 7
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

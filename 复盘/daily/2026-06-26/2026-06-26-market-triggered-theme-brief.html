@@ -1,0 +1,809 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2026-06-26 盘面触发题材雷达</title><style>
+:root{--paper:#0f1412;--paper-2:#151d1a;--ink:#f5efe2;--muted:#a89f90;--line:#33413b;--line-strong:#e8d9b8;--accent:#b6ff4d;--accent-2:#ff7a3d;--card:#19231f;--shadow:0 24px 70px rgba(0,0,0,.32)}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 12% 8%,rgba(182,255,77,.14),transparent 30%),radial-gradient(circle at 86% 14%,rgba(255,122,61,.12),transparent 34%),linear-gradient(135deg,rgba(255,255,255,.045) 1px,transparent 1px),var(--paper);background-size:auto,auto,26px 26px;color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif}.skip{position:absolute;left:-999px;top:12px;background:var(--accent);color:#111;padding:10px 14px;border-radius:999px;z-index:10}.skip:focus{left:16px}.shell{display:grid;grid-template-columns:330px minmax(0,1fr);gap:28px;max-width:1840px;margin:0 auto;padding:24px}.rail{position:sticky;top:24px;height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line-strong);background:rgba(15,20,18,.82);backdrop-filter:blur(18px);box-shadow:var(--shadow);padding:22px}.mark{font-family:'Bodoni 72','Songti SC',serif;font-size:42px;line-height:.88;letter-spacing:-.06em;color:var(--ink)}.date-card{margin:22px 0;padding:18px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(182,255,77,.12),rgba(255,255,255,.02))}.label{font-size:11px;letter-spacing:.18em;color:var(--muted);font-weight:900}.date{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;font-size:38px;font-weight:900;margin-top:6px;color:var(--accent)}.tools{display:flex;gap:8px;margin:18px 0}.tools button{min-height:44px;border:1px solid var(--line-strong);background:var(--accent);color:#10130f;padding:9px 12px;font-weight:900;cursor:pointer}.tools button:nth-child(2){background:transparent;color:var(--ink)}.toc{display:flex;flex-direction:column;gap:6px}.toc a{display:grid;grid-template-columns:36px 1fr;gap:8px;align-items:start;color:var(--muted);text-decoration:none;padding:8px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.35}.toc a:hover,.toc a:focus{color:var(--accent)}.toc span{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;color:var(--accent-2);font-size:18px}.content{min-width:0}.hero{position:relative;min-height:330px;border:1px solid var(--line-strong);background:linear-gradient(135deg,rgba(25,35,31,.95),rgba(15,20,18,.86));box-shadow:var(--shadow);padding:34px;margin-bottom:24px;overflow:hidden}.hero:after{content:"";position:absolute;right:-90px;bottom:-120px;width:420px;height:420px;border:1px solid rgba(182,255,77,.45);border-radius:50%;box-shadow:inset 0 0 80px rgba(182,255,77,.08)}.kicker{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:900}.hero h1{position:relative;margin:18px 0 16px;font-family:'Bodoni 72','Songti SC',serif;font-size:78px;line-height:.92;letter-spacing:-.055em;max-width:900px}.summary{position:relative;max-width:820px;color:var(--muted);font-size:17px;line-height:1.8}.content h2{margin:26px 0 12px;font-family:'Bodoni 72','Songti SC',serif;font-size:38px;letter-spacing:-.035em;border-bottom:1px solid var(--line-strong);padding-bottom:10px}.content h3{margin:24px 0 10px;color:var(--accent);font-size:18px;letter-spacing:.04em}.content p,.content li{line-height:1.78;color:#ded6c8}.content strong{color:var(--ink)}.content a{color:var(--accent)}.content code{background:#0a0d0c;border:1px solid var(--line);padding:2px 5px}.table-card{overflow:auto;border:1px solid var(--line);background:rgba(25,35,31,.84);box-shadow:0 14px 40px rgba(0,0,0,.18);margin:14px 0 22px}.table-card.board{border-color:var(--line-strong)}table{width:100%;border-collapse:collapse;min-width:860px}th,td{border-bottom:1px solid var(--line);border-right:1px solid rgba(51,65,59,.65);padding:10px 12px;text-align:left;vertical-align:top;font-size:13px;line-height:1.55}th{position:sticky;top:0;background:#101713;color:var(--accent);font-size:12px;letter-spacing:.08em;z-index:1}tr:hover td{background:rgba(182,255,77,.055)}body.compact th,body.compact td{padding:6px 8px;font-size:12px}body.focus .rail{display:none}body.focus .shell{display:block;max-width:1320px}.note{color:var(--muted);font-size:13px;margin-top:10px}@media(max-width:960px){.shell{display:block;padding:14px}.rail{position:relative;height:auto;margin-bottom:16px}.hero h1{font-size:52px}table{min-width:760px}}
+</style></head><body><a class="skip" href="#main">跳到正文</a><div class="shell"><aside class="rail"><div class="mark">Theme<br>Radar</div><div class="date-card"><div class="label">TRADE DATE</div><div class="date">2026-06-26</div><div class="note">盘面信号 → 知识库解释 → 次日验证点</div></div><div class="tools"><button id="compact" type="button">紧凑表格</button><button id="focus" type="button">专注阅读</button></div><nav class="toc" aria-label="题材雷达目录"><a href="#一-今日市场脉络"><span>01</span>一、今日市场脉络</a><a href="#二-触发题材总览"><span>02</span>二、触发题材总览</a><a href="#三-新高方向独立扫描"><span>03</span>三、新高方向独立扫描</a><a href="#4-深度题材-光学光电子-led芯片"><span>04</span>4. 深度题材：光学光电子 → LED芯片</a><a href="#盘面触发"><span>05</span>盘面触发</a><a href="#知识库解释"><span>06</span>知识库解释</a><a href="#核心公司分层候选"><span>07</span>核心公司分层候选</a><a href="#今日市场验证股票"><span>08</span>今日市场验证股票</a><a href="#本地证据样本"><span>09</span>本地证据样本</a><a href="#次日验证点"><span>10</span>次日验证点</a><a href="#5-深度题材-光刻机-光刻机"><span>11</span>5. 深度题材：光刻机 → 光刻机</a><a href="#盘面触发"><span>12</span>盘面触发</a><a href="#知识库解释"><span>13</span>知识库解释</a><a href="#核心公司分层候选"><span>14</span>核心公司分层候选</a><a href="#今日市场验证股票"><span>15</span>今日市场验证股票</a><a href="#本地证据样本"><span>16</span>本地证据样本</a><a href="#次日验证点"><span>17</span>次日验证点</a><a href="#6-深度题材-电子化学品-电子化学品"><span>18</span>6. 深度题材：电子化学品 → 电子化学品</a><a href="#盘面触发"><span>19</span>盘面触发</a><a href="#知识库解释"><span>20</span>知识库解释</a><a href="#核心公司分层候选"><span>21</span>核心公司分层候选</a><a href="#今日市场验证股票"><span>22</span>今日市场验证股票</a><a href="#本地证据样本"><span>23</span>本地证据样本</a><a href="#次日验证点"><span>24</span>次日验证点</a><a href="#七-简要观察题材"><span>25</span>七、简要观察题材</a><a href="#八-今日总结"><span>26</span>八、今日总结</a></nav></aside><main class="content" id="main"><section class="hero"><div class="kicker">Market Triggered Theme Intelligence</div><h1>2026-06-26<br>题材雷达</h1><div class="summary">从日终盘面自动识别双红、连板、新高和多周期方向，再回到本地知识库做概念映射、公司暴露、证据覆盖和次日验证拆解。</div></section><h1>2026-06-26 盘面触发题材雷达</h1>
+<ul>
+<li><strong>生成时间</strong>：2026-06-27T21:42:02</li>
+<li><strong>知识库</strong>：/Users/lbq/Desktop/c c/知识库/wiki（resolver=True）</li>
+</ul>
+<h2 id="一-今日市场脉络">一、今日市场脉络</h2>
+<div class="table-card board"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>市场脉络</td>
+<td>弱势冰点</td>
+</tr>
+<tr>
+<td>市场阶段</td>
+<td>探底阶段 第4天</td>
+</tr>
+<tr>
+<td>成交额</td>
+<td>35520.8 亿</td>
+</tr>
+<tr>
+<td>较昨日成交</td>
+<td>-1.17%</td>
+</tr>
+<tr>
+<td>20日量比</td>
+<td>114.83%</td>
+</tr>
+<tr>
+<td>涨家数</td>
+<td>790</td>
+</tr>
+<tr>
+<td>涨停/跌停</td>
+<td>60 / 30</td>
+</tr>
+<tr>
+<td>上证涨跌</td>
+<td>-2.26%</td>
+</tr>
+<tr>
+<td>容量前三</td>
+<td>电子(34.1%)、电力设备(8.4%)、通信(8.1%)</td>
+</tr>
+<tr>
+<td>强度状态</td>
+<td>强势</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="二-触发题材总览">二、触发题材总览</h2>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>题材</th>
+<th>标准概念</th>
+<th>申万一级</th>
+<th>评分</th>
+<th>触发</th>
+<th>双红</th>
+<th>新高方向</th>
+<th>连板</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>光学光电子</td>
+<td>LED芯片</td>
+<td>电子</td>
+<td>194.75</td>
+<td>双红、容量行业、涨停热度、新高方向、新高集群</td>
+<td>0.11% / 22.98 / 1638.1亿</td>
+<td>26只 / 1068.2亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>光刻机</td>
+<td>光刻机</td>
+<td>电子</td>
+<td>185.63</td>
+<td>双红、容量行业、新高方向、新高集群</td>
+<td>0.85% / 23.32 / 1076.4亿</td>
+<td>19只 / 770.1亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>电子化学品</td>
+<td>电子化学品</td>
+<td>基础化工</td>
+<td>165.57</td>
+<td>双红、新高方向、新高集群</td>
+<td>0.26% / 14.07 / 1082.3亿</td>
+<td>19只 / 765.8亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>连板未映射</td>
+<td>连板未映射</td>
+<td>计算机</td>
+<td>153.0</td>
+<td>连板集群</td>
+<td>-</td>
+<td>-</td>
+<td>8只 / 6板</td>
+</tr>
+<tr>
+<td>存储芯片</td>
+<td>存储芯片</td>
+<td>电子</td>
+<td>100.45</td>
+<td>涨停热度、新高方向、容量行业、新高集群</td>
+<td>-</td>
+<td>79只 / 4714.6亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>先进封装</td>
+<td>先进封装</td>
+<td>电子</td>
+<td>99.75</td>
+<td>涨停热度、新高方向、容量行业、新高集群</td>
+<td>-</td>
+<td>64只 / 3597.1亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>AI眼镜</td>
+<td>AI眼镜</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>-</td>
+<td>32只 / 2148.2亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>共封装光学(CPO)</td>
+<td>CPO</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>-</td>
+<td>37只 / 2263.5亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>半导体</td>
+<td>半导体</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>-</td>
+<td>66只 / 3592.9亿</td>
+<td>-</td>
+</tr>
+<tr>
+<td>商业航天</td>
+<td>商业航天</td>
+<td>国防军工</td>
+<td>92.55</td>
+<td>涨停热度、新高方向、新高集群</td>
+<td>-</td>
+<td>51只 / 1813.6亿</td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="三-新高方向独立扫描">三、新高方向独立扫描</h2>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>新高方向</th>
+<th>标准概念</th>
+<th>申万一级</th>
+<th>新高数</th>
+<th>新高成交额亿</th>
+<th>容量前三</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>存储芯片</td>
+<td>存储芯片</td>
+<td>电子</td>
+<td>79</td>
+<td>4714.6</td>
+<td>是</td>
+</tr>
+<tr>
+<td>先进封装</td>
+<td>先进封装</td>
+<td>电子</td>
+<td>64</td>
+<td>3597.1</td>
+<td>是</td>
+</tr>
+<tr>
+<td>半导体</td>
+<td>半导体</td>
+<td>电子</td>
+<td>66</td>
+<td>3592.9</td>
+<td>是</td>
+</tr>
+<tr>
+<td>数据中心</td>
+<td>数据中心</td>
+<td>计算机</td>
+<td>50</td>
+<td>2446.9</td>
+<td>否</td>
+</tr>
+<tr>
+<td>共封装光学(CPO)</td>
+<td>共封装光学(CPO)</td>
+<td>电子</td>
+<td>37</td>
+<td>2263.5</td>
+<td>是</td>
+</tr>
+<tr>
+<td>AI眼镜</td>
+<td>AI眼镜</td>
+<td>电子</td>
+<td>32</td>
+<td>2148.2</td>
+<td>是</td>
+</tr>
+<tr>
+<td>商业航天</td>
+<td>商业航天</td>
+<td>国防军工</td>
+<td>51</td>
+<td>1813.6</td>
+<td>否</td>
+</tr>
+<tr>
+<td>传感器</td>
+<td>传感器</td>
+<td>机械设备</td>
+<td>36</td>
+<td>1752.0</td>
+<td>否</td>
+</tr>
+<tr>
+<td>PCB</td>
+<td>PCB</td>
+<td>电子</td>
+<td>38</td>
+<td>1280.2</td>
+<td>是</td>
+</tr>
+<tr>
+<td>AI PC</td>
+<td>AI PC</td>
+<td>电子</td>
+<td>10</td>
+<td>1277.6</td>
+<td>是</td>
+</tr>
+<tr>
+<td>无人驾驶</td>
+<td>无人驾驶</td>
+<td>汽车</td>
+<td>31</td>
+<td>1261.5</td>
+<td>否</td>
+</tr>
+<tr>
+<td>光纤</td>
+<td>光纤</td>
+<td>通信</td>
+<td>25</td>
+<td>1178.5</td>
+<td>是</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="4-深度题材-光学光电子-led芯片">4. 深度题材：光学光电子 → LED芯片</h2>
+<h3 id="盘面触发">盘面触发</h3>
+<ul>
+<li><strong>触发类型</strong>：双红、容量行业、涨停热度、新高方向、新高集群</li>
+<li><strong>优先级评分</strong>：194.75</li>
+<li><strong>双红证据</strong>：涨幅 0.11%，边际量 22.98，成交额 1638.1 亿。</li>
+<li><strong>新高方向</strong>：26 只新高，新高成交额 1068.2 亿。</li>
+<li><strong>涨停热度</strong>：4 只涨停，市场占比 6.67%。</li>
+</ul>
+<h3 id="知识库解释">知识库解释</h3>
+<ul>
+<li><strong>覆盖状态</strong>：本地知识库已命中：概念、公司暴露、证据。</li>
+<li><strong>匹配概念</strong>：LED芯片（6）、显示材料（6）</li>
+</ul>
+<h3 id="核心公司分层候选">核心公司分层候选</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>公司</th>
+<th>代码</th>
+<th>概念</th>
+<th>角色/摘要</th>
+<th>强度</th>
+<th>证据层</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>万润科技</td>
+<td>002654</td>
+<td>AI存储</td>
+<td>半导体存储器业务</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>三利谱</td>
+<td>002876</td>
+<td>显示材料</td>
+<td>面板上游光学显示材料供应商</td>
+<td>peripheral</td>
+<td>graph_only</td>
+</tr>
+<tr>
+<td>三安光电</td>
+<td>600703</td>
+<td>LED芯片</td>
+<td>LED外延片和芯片供应商</td>
+<td>peripheral</td>
+<td>graph_only</td>
+</tr>
+<tr>
+<td>五方光电</td>
+<td>002962</td>
+<td>CPO</td>
+<td>TGV玻璃通孔基板、红外截止滤光片、车载光学、AR/VR光学</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>凤凰光学</td>
+<td>600071</td>
+<td>低空经济</td>
+<td>精密光学元件与组件（车载/安防/红外/医疗内窥镜/机器视觉镜头）、智能控制器（厨房家电/工业控…</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>天禄科技</td>
+<td>301045</td>
+<td>TAC膜</td>
+<td>TAC光学膜（第二成长曲线）、反射式偏光增亮膜（第三成长曲线）、导光板（主业）</td>
+<td>core</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>宝明科技</td>
+<td>002992</td>
+<td>AI服务器</td>
+<td>复合铜箔业务（PP基复合铜箔）、HVLP5代高频高速铜箔业务</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>戈碧迦</td>
+<td>920438</td>
+<td>6G通信</td>
+<td>光学玻璃、特种功能玻璃、半导体玻璃载板</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="今日市场验证股票">今日市场验证股票</h3>
+<ul>
+<li><strong>强势成交股</strong>：长信科技（3年新高）、雷曼光电（20日新高）、京东方A（3年新高）、凯盛科技（历史新高）、戈碧迦（历史新高）、乾照光电（9.84）、欧菲光（8.8）、华灿光电（3年新高）</li>
+<li><strong>新高股</strong>：京东方A（3年新高）、TCL科技（1年新高）、三安光电（3年新高）、长信科技（3年新高）、沃格光电（历史新高）、华灿光电（3年新高）、彩虹股份（3年新高）、凯盛科技（历史新高）</li>
+<li><strong>连板股</strong>：-</li>
+</ul>
+<h3 id="本地证据样本">本地证据样本</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>标题/来源</th>
+<th>实体</th>
+<th>概念</th>
+<th>摘要</th>
+<th>层级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>[[iFinD baseline 2026-05-25]]</td>
+<td>-</td>
+<td>显示材料</td>
+<td>iFinD行业分类为电子--光学光电子--面板，主营产品为偏光片。</td>
+<td>medium</td>
+</tr>
+<tr>
+<td>[[水晶光电_002273_最新逻辑跟踪_20260612]]</td>
+<td>-</td>
+<td>汽车电子</td>
+<td>主营业务；光学影像（滤片、盖板、黑膜、棱镜）、薄膜光学面板、汽车电子(AR+)、反光材料；收入结构（2025年报）；光…</td>
+<td>L1_L3_candidate</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="次日验证点">次日验证点</h3>
+<ul>
+<li>观察题材次日是否继续保持涨幅为正、边际量大于 10、成交额不明显塌缩。</li>
+<li>观察新高股是否继续扩散，还是高位核心冲高回落导致新高方向转分歧。</li>
+<li>观察题材是否继续留在成交占比前三行业内，避免从主线容量退化为孤立情绪。</li>
+</ul>
+<h2 id="5-深度题材-光刻机-光刻机">5. 深度题材：光刻机 → 光刻机</h2>
+<h3 id="盘面触发">盘面触发</h3>
+<ul>
+<li><strong>触发类型</strong>：双红、容量行业、新高方向、新高集群</li>
+<li><strong>优先级评分</strong>：185.63</li>
+<li><strong>双红证据</strong>：涨幅 0.85%，边际量 23.32，成交额 1076.4 亿。</li>
+<li><strong>新高方向</strong>：19 只新高，新高成交额 770.1 亿。</li>
+</ul>
+<h3 id="知识库解释">知识库解释</h3>
+<ul>
+<li><strong>覆盖状态</strong>：本地知识库已命中：概念、公司暴露、证据。</li>
+<li><strong>匹配概念</strong>：光刻机（30）、电子束光刻机（15）、电子束光刻机产业（15）、AI端侧（6）</li>
+</ul>
+<h3 id="核心公司分层候选">核心公司分层候选</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>公司</th>
+<th>代码</th>
+<th>概念</th>
+<th>角色/摘要</th>
+<th>强度</th>
+<th>证据层</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>中旗新材</td>
+<td>001212</td>
+<td>先进封装</td>
+<td>键合机等）</td>
+<td>related</td>
+<td>L2</td>
+</tr>
+<tr>
+<td>凤凰光学</td>
+<td>600071</td>
+<td>光刻机</td>
+<td>半导体制造级、精密超高解像度光刻镜头精密抛光及在研平台</td>
+<td>related</td>
+<td>L1</td>
+</tr>
+<tr>
+<td>凯美特气</td>
+<td>002549</td>
+<td>光刻机</td>
+<td>图谱弱关联</td>
+<td>peripheral</td>
+<td>graph_only</td>
+</tr>
+<tr>
+<td>北方华创</td>
+<td>002371</td>
+<td>光刻机</td>
+<td>上游设备</td>
+<td>peripheral</td>
+<td>graph_only</td>
+</tr>
+<tr>
+<td>华特气体</td>
+<td>688268</td>
+<td>电子束光刻机产业</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>同飞股份</td>
+<td>300990</td>
+<td>光刻机</td>
+<td>精密温控系统</td>
+<td>related</td>
+<td>L2_curated_research</td>
+</tr>
+<tr>
+<td>奥普光电</td>
+<td>002338</td>
+<td>光刻机</td>
+<td>光源系统/科益虹源股东与整机布局</td>
+<td>core</td>
+<td>L2_curated_research</td>
+</tr>
+<tr>
+<td>富创精密</td>
+<td>688409</td>
+<td>光刻机</td>
+<td>半导体设备精密零部件</td>
+<td>related</td>
+<td>L2_curated_research</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="今日市场验证股票">今日市场验证股票</h3>
+<ul>
+<li><strong>强势成交股</strong>：富创精密（历史新高）、新莱应材（历史新高）、江丰电子（历史新高）、珂玛科技（历史新高）、晶方科技（3年新高）、广立微（20日新高）、沃格光电（历史新高）、美迪凯（5.55）</li>
+<li><strong>新高股</strong>：大族激光（历史新高）、江丰电子（历史新高）、中船特气（历史新高）、晶方科技（3年新高）、沃格光电（历史新高）、新莱应材（历史新高）、泰晶科技（历史新高）、珂玛科技（历史新高）</li>
+<li><strong>连板股</strong>：-</li>
+</ul>
+<h3 id="本地证据样本">本地证据样本</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>标题/来源</th>
+<th>实体</th>
+<th>概念</th>
+<th>摘要</th>
+<th>层级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>[[001212_逻辑卡_20260620]]</td>
+<td>-</td>
+<td>先进封装</td>
+<td>对应业务：半导体设备资产注入预期（星空科技光刻机、键合机等）；简要说明：星空科技2025年6月成为控股股东，实控人贺荣…</td>
+<td>L2</td>
+</tr>
+<tr>
+<td>[[20260519 市场逻辑精选]]</td>
+<td>-</td>
+<td>光刻机</td>
+<td>从既有entity markdown重建</td>
+<td>medium</td>
+</tr>
+<tr>
+<td>[[AI端侧产业新变化和新格局深度研究报告]]</td>
+<td>-</td>
+<td>AI端侧</td>
+<td>福晶科技作为全球最大非线性光学晶体供应商，市占率超 60%，产品用于光刻机激光光源系统，其激光晶体全球市占率超 30%…</td>
+<td>medium</td>
+</tr>
+<tr>
+<td>[[iFinD baseline 2026-05-25]]</td>
+<td>-</td>
+<td>半导体光刻</td>
+<td>光刻机及高精光学镜头转型方向来自既有entity，公司在母公司中国电科大股东背景支持下前瞻向高精显微及半导体检测光学镜…</td>
+<td>low</td>
+</tr>
+<tr>
+<td>[[光刻机产业新变化与新格局深度研究报告]]</td>
+<td>-</td>
+<td>-</td>
+<td>从既有concept markdown重建</td>
+<td>medium</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="次日验证点">次日验证点</h3>
+<ul>
+<li>观察题材次日是否继续保持涨幅为正、边际量大于 10、成交额不明显塌缩。</li>
+<li>观察新高股是否继续扩散，还是高位核心冲高回落导致新高方向转分歧。</li>
+<li>观察题材是否继续留在成交占比前三行业内，避免从主线容量退化为孤立情绪。</li>
+</ul>
+<h2 id="6-深度题材-电子化学品-电子化学品">6. 深度题材：电子化学品 → 电子化学品</h2>
+<h3 id="盘面触发">盘面触发</h3>
+<ul>
+<li><strong>触发类型</strong>：双红、新高方向、新高集群</li>
+<li><strong>优先级评分</strong>：165.57</li>
+<li><strong>双红证据</strong>：涨幅 0.26%，边际量 14.07，成交额 1082.3 亿。</li>
+<li><strong>新高方向</strong>：19 只新高，新高成交额 765.8 亿。</li>
+</ul>
+<h3 id="知识库解释">知识库解释</h3>
+<ul>
+<li><strong>覆盖状态</strong>：本地知识库已命中：概念、公司暴露、证据。</li>
+<li><strong>匹配概念</strong>：电子化学品（30）、湿电子化学品（15）、AIPCB专用油墨（6）、PCB油墨（6）</li>
+</ul>
+<h3 id="核心公司分层候选">核心公司分层候选</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>公司</th>
+<th>代码</th>
+<th>概念</th>
+<th>角色/摘要</th>
+<th>强度</th>
+<th>证据层</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>万润股份</td>
+<td>002643</td>
+<td>电子化学品</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>三友化工</td>
+<td>600409</td>
+<td>PVC</td>
+<td>氯碱（烧碱53万吨、PVC 52.5万吨）</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>三孚新科</td>
+<td>688359</td>
+<td>HVLP铜箔</td>
+<td>PCB电子化学品+电镀设备、mSAP全制程、TGV玻璃基板设备+药水</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>三美股份</td>
+<td>603379</td>
+<td>六氟磷酸锂</td>
+<td>氟制冷剂、氟发泡剂、氟化氢</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>上海新阳</td>
+<td>300236</td>
+<td>晶圆制造材料</td>
+<td>晶圆制造用湿电子化学品供应商</td>
+<td>peripheral</td>
+<td>graph_only</td>
+</tr>
+<tr>
+<td>中巨芯</td>
+<td>688549</td>
+<td>电子化学品</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr>
+<td>兴发集团</td>
+<td>600141</td>
+<td>新能源材料</td>
+<td>新能源材料（磷酸铁/磷酸铁锂/磷酸二氢锂）</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>兴福电子</td>
+<td>688545</td>
+<td>3D NAND</td>
+<td>湿电子化学品（电子级磷酸、硫酸、双氧水</td>
+<td>related</td>
+<td>L1_L3_candidate</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="今日市场验证股票">今日市场验证股票</h3>
+<ul>
+<li><strong>强势成交股</strong>：飞凯材料（历史新高）、国瓷材料（历史新高）、宏和科技（历史新高）、南大光电（历史新高）、三孚新科（历史新高）、光华科技（6.13）、天承科技（6.7）、宏昌电子（历史新高）</li>
+<li><strong>新高股</strong>：国瓷材料（历史新高）、南大光电（历史新高）、天通股份（历史新高）、中船特气（历史新高）、飞凯材料（历史新高）、鼎龙股份（历史新高）、宏和科技（历史新高）、宏昌电子（历史新高）</li>
+<li><strong>连板股</strong>：-</li>
+</ul>
+<h3 id="本地证据样本">本地证据样本</h3>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>标题/来源</th>
+<th>实体</th>
+<th>概念</th>
+<th>摘要</th>
+<th>层级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>[[002597_逻辑卡_20260620]]</td>
+<td>-</td>
+<td>电子化学品</td>
+<td>对应业务：电子化学品；电子级双氧水项目投产并批量供货；项目建设中；2025年2月投产，2026年4月确认已向头部光伏及…</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>[[300927_逻辑卡_20260619]]</td>
+<td>-</td>
+<td>半导体材料</td>
+<td>半导体材料应用情况；媒体市场；2026-06-11；超高纯氯甲烷已切入中芯国际供应链，光刻胶配套材料已供应；电子化学品…</td>
+<td>L1_L3_candidate</td>
+</tr>
+<tr>
+<td>[[ConceptBridge_P0_补链_20260602]]</td>
+<td>-</td>
+<td>-</td>
+<td>半导体设备材料是晶圆制造和先进封装的上游支撑，覆盖光刻、刻蚀、薄膜沉积、CMP、封装材料和电子化学品。</td>
+<td>medium</td>
+</tr>
+<tr>
+<td>[[a-stock baseline 2026-06-02 a…</td>
+<td>-</td>
+<td>电子化学品</td>
+<td>mootdx F10主营业务显示：高科技制造领域适用的屏幕显示材料、半导体材料及紫外固化材料等的研究、生产和销售。</td>
+<td>L2</td>
+</tr>
+<tr>
+<td>[[a-stock baseline 2026-06-02 a…</td>
+<td>-</td>
+<td>电子化学品</td>
+<td>mootdx F10主营业务显示：食品添加剂、大宗化学品、中间体及材料等产品的研发、生产和销售。</td>
+<td>L2</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="次日验证点">次日验证点</h3>
+<ul>
+<li>观察题材次日是否继续保持涨幅为正、边际量大于 10、成交额不明显塌缩。</li>
+<li>观察新高股是否继续扩散，还是高位核心冲高回落导致新高方向转分歧。</li>
+</ul>
+<h2 id="七-简要观察题材">七、简要观察题材</h2>
+<div class="table-card"><table>
+<thead>
+<tr>
+<th>题材</th>
+<th>标准概念</th>
+<th>申万一级</th>
+<th>评分</th>
+<th>触发</th>
+<th>市场验证</th>
+<th>知识库状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>连板未映射</td>
+<td>连板未映射</td>
+<td>计算机</td>
+<td>153.0</td>
+<td>连板集群</td>
+<td>强势：-；新高：-；连板：-</td>
+<td>本地已命中：-；待补：missing_concept、missing_entity_exposures、missing_evidence。</td>
+</tr>
+<tr>
+<td>存储芯片</td>
+<td>存储芯片</td>
+<td>电子</td>
+<td>100.45</td>
+<td>涨停热度、新高方向、容量行业、新高集群</td>
+<td>强势：正帆科技（历史新高）、德明利（历史新高）、有研硅（历史新高）；新高：兆易创新（历史新高）、长电科技（历史新高）、佰维存储（历史新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+<tr>
+<td>先进封装</td>
+<td>先进封装</td>
+<td>电子</td>
+<td>99.75</td>
+<td>涨停热度、新高方向、容量行业、新高集群</td>
+<td>强势：长信科技（3年新高）、有研新材（历史新高）、太极实业（历史新高）；新高：京东方A（3年新高）、长电科技（历史新高）、佰维存储（历史新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+<tr>
+<td>AI眼镜</td>
+<td>AI眼镜</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>强势：京东方A（3年新高）、佰维存储（历史新高）、超声电子（历史新高）；新高：京东方A（3年新高）、佰维存储（历史新高）、大族激光（历史新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+<tr>
+<td>共封装光学(CPO)</td>
+<td>CPO</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>强势：德明利（历史新高）、立昂微（6.91）、京东方A（3年新高）；新高：京东方A（3年新高）、长电科技（历史新高）、德明利（历史新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+<tr>
+<td>半导体</td>
+<td>半导体</td>
+<td>电子</td>
+<td>94.0</td>
+<td>新高方向、容量行业、新高集群</td>
+<td>强势：富创精密（历史新高）、德明利（历史新高）、有研硅（历史新高）；新高：兆易创新（历史新高）、长电科技（历史新高）、佰维存储（历史新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+<tr>
+<td>商业航天</td>
+<td>商业航天</td>
+<td>国防军工</td>
+<td>92.55</td>
+<td>涨停热度、新高方向、新高集群</td>
+<td>强势：长信科技（3年新高）、中国卫星（10.0）、TCL中环（60日新高）；新高：大族激光（历史新高）、国瓷材料（历史新高）、信维通信（20日新高）；连板：-</td>
+<td>本地知识库已命中：概念、公司暴露、证据。</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="八-今日总结">八、今日总结</h2>
+<ul>
+<li>今日深度题材为：光学光电子、光刻机、电子化学品。</li>
+<li>新高方向中，容量前三行业内较突出的包括：存储芯片、先进封装、半导体、共封装光学(CPO)、AI眼镜、PCB、AI PC、光纤、光学光电子、MCU芯片、钙钛矿电池、光刻机。</li>
+<li>后续应优先验证深度题材是否继续留在容量行业内，并观察新高集群是否从单日修复升级为连续扩散。</li>
+</ul></main></div><script>document.getElementById("compact").onclick=()=>document.body.classList.toggle("compact");document.getElementById("focus").onclick=()=>document.body.classList.toggle("focus");</script></body></html>

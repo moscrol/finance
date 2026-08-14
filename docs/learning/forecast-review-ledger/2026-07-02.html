@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2026-07-02 复盘推演验证台账</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --text: #1f2933;
+      --muted: #64748b;
+      --line: #d9dee7;
+      --panel: #ffffff;
+      --good: #0f8b5f;
+      --bad: #c2410c;
+      --warn: #a16207;
+      --ink: #0f172a;
+      --blue: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    header { background: #111827; color: white; padding: 28px 32px; }
+    header h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: 0; }
+    header p { margin: 0; color: #cbd5e1; max-width: 980px; }
+    main { max-width: 1180px; margin: 0 auto; padding: 24px 18px 48px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    h2 { margin: 0 0 12px; font-size: 20px; color: var(--ink); }
+    h3 { margin: 18px 0 8px; font-size: 16px; color: var(--ink); }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-height: 96px;
+    }
+    .metric .label { color: var(--muted); font-size: 13px; }
+    .metric .value { font-size: 23px; font-weight: 700; color: var(--ink); margin-top: 6px; }
+    .metric .note { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .good { color: var(--good); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    .tag {
+      display: inline-block;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.good { color: var(--good); background: #ecfdf5; }
+    .tag.bad { color: var(--bad); background: #fff7ed; }
+    .tag.warn { color: var(--warn); background: #fffbeb; }
+    .tag.neutral { color: var(--blue); background: #eff6ff; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 2px; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px 9px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; background: #f8fafc; }
+    .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #eff6ff;
+      padding: 12px 14px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+    .source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .source-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-height: 128px;
+    }
+    .source-card .title { font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+    .source-card .status { margin-bottom: 6px; }
+    .source-card p { margin: 0; color: var(--muted); font-size: 13px; }
+    .source-frame {
+      width: 100%;
+      height: min(70vh, 760px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .source-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .source-actions a { color: var(--blue); font-weight: 700; text-decoration: none; }
+    .source-actions a:hover { text-decoration: underline; }
+    .review-box {
+      min-height: 110px;
+      border: 1px dashed #94a3b8;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fcfcfd;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .source-grid { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+      header { padding: 22px 18px; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      section { padding: 14px; }
+      th, td { padding: 7px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>2026-07-02 复盘推演验证台账</h1>
+    <p>站在 2026-07-01 盘后前瞻 2026-07-02；本页是待验证假设，不是事后回检。</p>
+  </header>
+  <main>
+    <section>
+      <h2>一眼结论</h2>
+      <div class="grid">
+        <div class="metric">
+          <div class="label">核心判断</div>
+          <div class="value">分化确认日</div>
+          <div class="note">强广度后看二日延续</div>
+        </div>
+        <div class="metric">
+          <div class="label">第一验证线</div>
+          <div class="value good">AI 应用</div>
+          <div class="note">AI智能体/数据要素/算力租赁同组</div>
+        </div>
+        <div class="metric">
+          <div class="label">第二验证线</div>
+          <div class="value good">机器人</div>
+          <div class="note">涨停热度第一，但需过三日确认</div>
+        </div>
+        <div class="metric">
+          <div class="label">第四验证线</div>
+          <div class="value warn">外盘映射</div>
+          <div class="note">半导体/CPO/先进封装看承接</div>
+        </div>
+      </div>
+      <div class="callout">
+        本版继续沿用昨天的方法框架：先看市场阶段、量能、广度、双红、涨停和新高；代表标的只作方向观察样本，不用单日涨跌反推方法成败。已补入外盘映射；晚间卖方材料来自 knowledge-base-private PR188，本地/iCloud 镜像未同步导致此前误判为缺口。
+      </div>
+    </section>
+
+    <section>
+      <h2>输入源状态</h2>
+      <div class="source-grid">
+        <div class="source-card">
+          <div class="title">美股已收盘映射</div>
+          <div class="status"><span class="tag good">偏正面</span></div>
+          <p>北京时间 2026-07-01 凌晨，美股三大指数收涨；纳指 +1.52%，SMH +3.78%，费城半导体 +3.92%，AMD/TSM/NVDA 明显走强。对 A 股半导体、存储、CPO、AI硬件是正映射。</p>
+        </div>
+        <div class="source-card">
+          <div class="title">美股 7/1 盘中变化</div>
+          <div class="status"><span class="tag warn">高波动</span></div>
+          <p>截至 2026-07-01 16:05 UTC 左右的即时行情，QQQ、SOXX、AMD、NVDA、TSM 普遍回落，KWEB 逆势偏强。该时间点不是收盘，因此只用于提示波动，不作定论。</p>
+        </div>
+        <div class="source-card">
+          <div class="title">晚间卖方 / 晨汇</div>
+          <div class="status"><span class="tag good">PR188 已合入</span></div>
+          <p>材料在 knowledge-base-private PR188：晚间卖方研报20260701、卖方观点交叉、催化日历、提及频率均已进入远端 origin/main。本地/iCloud 镜像尚未同步，所以只查本地会误判缺口。</p>
+        </div>
+        <div class="source-card">
+          <div class="title">本地盘面复盘</div>
+          <div class="status"><span class="tag neutral">已纳入</span></div>
+          <p>7/1 触发简报显示氢能源、AI眼镜、风电、光刻胶、燃料电池、信创、数据要素靠前；新高方向中存储芯片、半导体、先进封装、数据中心、CPO 居前。</p>
+        </div>
+      </div>
+      <div class="callout">
+        补完输入源后，核心判断仍是“强广度后的分化确认日”，但验证轴增加两条：外盘映射后的半导体/存储/CPO是否真正承接，以及 PR188 卖方真增量能否被盘面选择。
+      </div>
+    </section>
+
+    <section>
+      <h2>PR188 卖方增量</h2>
+      <table>
+        <thead><tr><th>分层</th><th>方向</th><th>读法</th><th>7/2 验证</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag good">真增量</span></td><td>IDC / 数据中心</td><td>五年首次涨价，字节 7 月招标，库内 IDC 覆盖低。</td><td>润泽、东方国信、奥飞数据等是否强于数据中心指数。</td></tr>
+          <tr><td><span class="tag good">真增量</span></td><td>燃机</td><td>西门子能源上修需求指引，偏海外硬数据映射。</td><td>应流、上海电气、东方电气映射是否被资金选择。</td></tr>
+          <tr><td><span class="tag good">真增量</span></td><td>电容 / MLCC</td><td>国巨 7/1 全系列涨价，属于价格事件。</td><td>东阳光、三环集团等是否有涨价传导承接。</td></tr>
+          <tr><td><span class="tag good">真增量</span></td><td>SOFC / 燃料电池</td><td>Brookfield×Bloom、FCEL 数据中心订单，库内早期。</td><td>潍柴、德昌、奥福等映射是否启动。</td></tr>
+          <tr><td><span class="tag good">真增量</span></td><td>DRAM 长协</td><td>长鑫×腾讯长协，存储扎堆中的新硬事件。</td><td>存储若强，要区分长协事件驱动和高位惯性。</td></tr>
+          <tr><td><span class="tag bad">透支</span></td><td>机器人 / 光模块 / PCB / 液冷等</td><td>PR188 覆盖密度显示已是高共识方向。</td><td>强也要看承接，不能把第 N 篇卖方覆盖当作新增量。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>复盘原文窗口</h2>
+      <div class="source-actions">
+        <span>下面窗口直接读取本页 Markdown 原文，方便回看完整推演与待填验证表。</span>
+        <a href="2026-07-02.md" target="_blank">打开原文</a>
+      </div>
+      <iframe class="source-frame" src="2026-07-02.md" title="2026-07-02 复盘推演原文"></iframe>
+    </section>
+
+    <section>
+      <h2>7/1 市场底稿</h2>
+      <table>
+        <thead><tr><th>字段</th><th class="num">数值</th><th>读法</th></tr></thead>
+        <tbody>
+          <tr><td>市场阶段</td><td class="num">底部横盘第 2 天</td><td>修复进入第二日。</td></tr>
+          <tr><td>成交额</td><td class="num good">36397.84</td><td>较 6/30 放量 11.19%。</td></tr>
+          <tr><td>涨家数</td><td class="num good">4240</td><td>强广度，次日边际延续难度升高。</td></tr>
+          <tr><td>涨停 / 跌停</td><td class="num">148 / 7</td><td>热度强，风险未扩张。</td></tr>
+          <tr><td>电子成交占比</td><td class="num warn">34.7%</td><td>仍最大，但电子本身 -2.01%。</td></tr>
+          <tr><td>20 日新高数</td><td class="num good">641</td><td>短周期强度明显扩散。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>方向排序</h2>
+      <table>
+        <thead><tr><th>排序</th><th>方向</th><th>7/1 证据</th><th>7/2 验证</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>AI 应用 / AI 智能体 / 数据要素 / 算力租赁</td><td>多方向真双红，AI应用 diff 25.36，数据要素 diff 28.09。</td><td>至少 2-3 个方向继续涨并维持涨停热度。</td></tr>
+          <tr><td>2</td><td>机器人 / 人形机器人</td><td>机器人概念涨停 38，人形机器人涨停 22。</td><td>机器人涨停维持 25-30 只以上，前排不明显掉队。</td></tr>
+          <tr><td>3</td><td>储能 / 光伏 / 风电</td><td>概念真双红，但电力设备一级行业 -1.45%。</td><td>电力设备一级转正，才算行业承接。</td></tr>
+          <tr><td>4</td><td>半导体 / CPO / 先进封装</td><td>7/1 A 股高位分歧，但隔夜美股半导体强映射。</td><td>看高开后承接，不能只看开盘溢价。</td></tr>
+          <tr><td>5</td><td>IDC / 燃机 / 电容 / SOFC / DRAM</td><td>PR188 晚间卖方真增量，覆盖密度相对更低或有硬事件。</td><td>观察是否跑赢高覆盖透支方向。</td></tr>
+          <tr><td>6</td><td>非银 / 医药 / 化工</td><td>非银 4.67，医药 3.90，化工强。</td><td>继续强且科技不崩，才是多线修复。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>五个代表观察标的</h2>
+      <table>
+        <thead><tr><th>标的</th><th>代码</th><th>方向</th><th class="num">评分</th><th>验证条件</th></tr></thead>
+        <tbody>
+          <tr><td>润泽科技</td><td>300442.SZ</td><td>数据中心 / 算力承接</td><td class="num">86</td><td>是否继续强于数据中心/算力租赁。</td></tr>
+          <tr><td>同花顺</td><td>300033.SZ</td><td>软件开发 / 金融科技</td><td class="num">85</td><td>是否继续强于软件开发和证券。</td></tr>
+          <tr><td>埃斯顿</td><td>002747.SZ</td><td>机器人 / 人形机器人</td><td class="num">83</td><td>机器人强扩散时是否不掉队。</td></tr>
+          <tr><td>长电科技</td><td>600584.SH</td><td>半导体韧性观察</td><td class="num">82</td><td>若半导体弱而它仍强，说明内部切换。</td></tr>
+          <tr><td>东方财富</td><td>300059.SZ</td><td>非银金融 / 风险偏好</td><td class="num">80</td><td>验证广谱风险偏好是否继续。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>待验证假设</h2>
+      <table>
+        <thead><tr><th>假设</th><th>强验证</th><th>失败信号</th></tr></thead>
+        <tbody>
+          <tr><td>H1 市场路径</td><td>成交 >3.4 万亿，涨家数 >3000，涨停 >120。</td><td>成交 <3.2 万亿，涨家数 <2000，涨停 <80。</td></tr>
+          <tr><td>H2 扩散方向延续</td><td>AI应用/数据要素/算力租赁至少 2-3 个继续强。</td><td>新双红方向多数高开低走。</td></tr>
+          <tr><td>H3 机器人升级</td><td>机器人涨停仍在 25-30 只以上。</td><td>前排开板大跌，涨停骤降。</td></tr>
+          <tr><td>H4 外盘映射下硬件止跌</td><td>澜起/长电/北方/雅克等容量股继续强，且不是高开低走。</td><td>CPO/先进封装/通信继续大跌，或外盘刺激只形成开盘溢价。</td></tr>
+          <tr><td>H4b PR188 卖方增量</td><td>IDC/燃机/电容/SOFC/DRAM 等真增量跑赢高覆盖方向。</td><td>机器人/光模块/PCB/液冷等高覆盖方向强但承接不足，或真增量无人接。</td></tr>
+          <tr><td>H5 电力设备承接</td><td>电力设备一级转正且储能/光伏热度维持。</td><td>概念涨、一级行业仍弱。</td></tr>
+          <tr><td>H6 多线修复</td><td>金融/医药/化工强且科技不崩。</td><td>只有非科技强，科技高位继续杀。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>收盘后回填区</h2>
+      <div class="review-box">
+        市场路径实际结果：<br>
+        成交额：待填　涨家数：待填　涨停：待填　跌停：待填
+      </div>
+      <div class="review-box">
+        代表标的观察结果：<br>
+        润泽科技：待填　同花顺：待填　埃斯顿：待填　长电科技：待填　东方财富：待填
+      </div>
+    </section>
+  </main>
+</body>
+</html>

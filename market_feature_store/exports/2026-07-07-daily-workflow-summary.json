@@ -1,0 +1,395 @@
+{
+  "workflow": "daily",
+  "status": "PASS",
+  "started_at": "2026-07-07T23:32:21+08:00",
+  "finished_at": "2026-07-07T23:33:22+08:00",
+  "inputs": {
+    "date": "2026-07-07",
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "daily-review",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 11.249,
+      "stdout_tail": [
+        "交易日: 2026-07-07",
+        "报告: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-review.md",
+        "图表: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-advancers-ma5.png"
+      ],
+      "stderr_tail": [
+        "Matplotlib is building the font cache; this may take a moment.",
+        "findfont: Failed to find font weight bold, now using 400."
+      ],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-review.md",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-advancers-ma5.png"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.297,
+      "stdout_tail": [
+        "CHECK 2026-07-07",
+        "fact_market_daily: rows=1 max=2026-07-07",
+        "fact_sector_daily: rows=224 max=2026-07-07",
+        "fact_sw_l1_daily: rows=31 max=2026-07-07",
+        "fact_sector_stock_daily: rows=28314 max=2026-07-07",
+        "fact_stock_high_daily: rows=47 max=2026-07-07",
+        "fact_theme_limit_heat_daily: rows=86 max=2026-07-07",
+        "fact_theme_limit_stock_daily: rows=176 max=2026-07-07",
+        "fact_limit_advance_daily: rows=5 max=2026-07-07",
+        "fact_stock_daily: rows=5518 max=2026-07-07",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "daily-review-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.354,
+      "stdout_tail": [
+        "CHECK 2026-07-07",
+        "fact_market_daily: rows=1 max=2026-07-07",
+        "fact_sector_daily: rows=224 max=2026-07-07",
+        "fact_sw_l1_daily: rows=31 max=2026-07-07",
+        "fact_sector_stock_daily: rows=28314 max=2026-07-07",
+        "fact_stock_high_daily: rows=47 max=2026-07-07",
+        "fact_theme_limit_heat_daily: rows=86 max=2026-07-07",
+        "fact_theme_limit_stock_daily: rows=176 max=2026-07-07",
+        "fact_limit_advance_daily: rows=5 max=2026-07-07",
+        "fact_stock_daily: rows=5518 max=2026-07-07",
+        "RESULT: COMPLETE",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-review.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-review.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli perspective framework-daily --date 2026-07-07 --daily-review-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-review.md --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-framework-interpretation.md",
+      "returncode": 0,
+      "duration_sec": 0.085,
+      "stdout_tail": [
+        "[框架解读] 跳过：user_framework profile 不存在（perspective init 后手工编辑或用问卷 candidate 编译）"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli checkpoint recheck --date 2026-07-07 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": 0,
+      "duration_sec": 0.081,
+      "stdout_tail": [
+        "回检并落盘 2 条",
+        "- ck-2026-07-06-daa436｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "- ck-2026-07-06-4be68b｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "人类可读回检日志：/Users/a77/agent-memory/可证伪点回检/2026-07-07.md"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli theme --date 2026-07-07 --market-triggered --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.md",
+      "returncode": 0,
+      "duration_sec": 41.325,
+      "stdout_tail": [
+        "  \"outputs\": [",
+        "    \"trade_date=2026-07-07\",",
+        "    \"candidate_count=43\",",
+        "    \"deep_count=10\",",
+        "    \"watch_count=20\",",
+        "    \"long_tail_count=13\",",
+        "    \"candidate=通用设备 score=67.45 triggers=new_high_direction,new_high_cluster,capacity_industry concept_count=1 exposure_count=8 evidence_count=0\",",
+        "    \"candidate=液冷服务器 score=67.11 triggers=new_high_direction,new_high_cluster,capacity_industry concept_count=5 exposure_count=12 evidence_count=2\",",
+        "    \"candidate=半导体 score=64.24 triggers=limit_heat,new_high_direction,new_high_cluster,capacity_industry concept_count=5 exposure_count=12 evidence_count=1\",",
+        "    \"candidate=数据中心 score=62.88 triggers=limit_heat,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=1\",",
+        "    \"candidate=人形机器人 score=62.12 triggers=new_high_direction,new_high_cluster,capacity_industry concept_count=5 exposure_count=12 evidence_count=5\",",
+        "    \"out_json=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.json\",",
+        "    \"out_md=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.md\"",
+        "  ],",
+        "  \"warnings\": [],",
+        "  \"errors\": [],",
+        "  \"next_actions\": [",
+        "    \"Review market-triggered candidates before enabling deep radar report generation.\"",
+        "  ]",
+        "}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.md"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.061,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-queue.json",
+        "queue_count=27",
+        "priority_counts={'critical': 2, 'high': 4, 'medium': 6, 'low': 15}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-queue.json"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.037,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.md",
+        "review_count=6",
+        "status_counts={'pending_review': 6}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.md"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.031,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-theme-candidates.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-theme-candidates.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.831,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-market-triggered-theme-brief.md",
+        "COMPLETE",
+        "DEEP 67.45: 通用设备 / 通用设备 / new_high_direction,capacity_industry,new_high_cluster",
+        "DEEP 67.11: 液冷服务器 / 液冷服务器 / new_high_direction,capacity_industry,new_high_cluster",
+        "DEEP 64.24: 半导体 / 半导体 / limit_heat,new_high_direction,capacity_industry,new_high_cluster",
+        "WATCH 62.88: 数据中心 / 数据中心 / limit_heat,new_high_direction,new_high_cluster",
+        "WATCH 62.12: 人形机器人 / 人形机器人 / new_high_direction,capacity_industry,new_high_cluster",
+        "WATCH 58.06: 燃料电池 / 燃料电池 / new_high_direction,capacity_industry,new_high_cluster",
+        "WATCH 53.2: 先进封装 / 先进封装 / limit_heat,new_high_direction,capacity_industry,new_high_cluster",
+        "WATCH 52.51: 共封装光学(CPO) / 共封装光学(CPO) / limit_heat,new_high_direction,capacity_industry,new_high_cluster",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-market-triggered-theme-brief.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-market-triggered-theme-brief.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-market-triggered-theme-brief.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "agent-daily",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli agent-daily --date 2026-07-07 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.md --out-html /Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-agent.html",
+      "returncode": 0,
+      "duration_sec": 6.297,
+      "stdout_tail": [
+        "",
+        "## 下一步",
+        "",
+        "- 今日研究任务队列：做 IMA 1 条；找公告/调研/订单 2 条；降级观察 6 条。",
+        "- 已生成知识库回补任务包：6 条，等待 KB repo 校验归档和人工复核。",
+        "- 催化归因未命中：金属制品, 液冷服务器, 机器人；先确认是否有场外产业事件（新闻/发布会），否则按纯盘面异动处理。",
+        "- 催化归因数据源有缺口（研报观点/晨汇缺档），归因结果只作参考，先补数据源。",
+        "- 优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+        "- 数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+        "",
+        "## 说明",
+        "",
+        "- agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
+        "- 回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
+        "- kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
+        "",
+        "输出: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.md",
+        "输出: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.json",
+        "输出: /Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-agent.html",
+        "输出: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-kb-ingest-queue.json"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-agent.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "PASS",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.35,
+      "stdout_tail": [
+        "{\"matrix\": \"/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html\", \"date\": \"2026-07-07\", \"action\": \"inserted\", \"t1\": 0, \"t2\": 5, \"obs\": 0, \"dry_run\": false}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "PASS",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": 0,
+      "duration_sec": 0.179,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html",
+        "replaced 38 empty rows: ['2026-04-08', '2026-04-09', '2026-04-10'] ... ['2026-06-11', '2026-06-12', '2026-06-15']",
+        "appended 15 new rows: ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25', '2026-06-26', '2026-06-29', '2026-06-30', '2026-07-01', '2026-07-02', '2026-07-03', '2026-07-06', '2026-07-07']"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "PASS",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-07",
+      "returncode": 0,
+      "duration_sec": 0.167,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html",
+        "days=61 engineA_rows=853 engineB_rows=3657"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "review-workbench",
+      "status": "PASS",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": 0,
+      "duration_sec": 0.028,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html",
+        "daily_reviews 2026-07-07, 2026-07-01, 2026-06-30, 2026-06-29, 2026-06-26, 2026-06-25, 2026-06-24, 2026-06-23, 2026-06-22, 2026-06-18, 2026-06-17, 2026-06-16, 2026-06-15, 2026-06-12, 2026-06-11, 2026-06-10, 2026-06-09, 2026-06-08, 2026-06-05, 2026-04-07, 2026-04-03, 2026-04-02, 2026-04-01"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "cockpit",
+      "status": "PASS",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": 0,
+      "duration_sec": 0.042,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/index.html",
+        "daily: 23 | winrate: 2 | briefing: 41 | matrices: 7 | headtohead: 0 | size: 27 KB"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/index.html"
+      ],
+      "warnings": [],
+      "errors": []
+    }
+  ],
+  "outputs": [
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-review.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-advancers-ma5.png",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-review.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-candidates.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-theme-backfill-review-queue.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-theme-candidates.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-triggered-themes.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-market-triggered-theme-brief.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-market-triggered-theme-brief.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-07-daily-agent.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-07/2026-07-07-daily-agent.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html",
+    "/Users/a77/finance-workspace-private/复盘/index.html"
+  ],
+  "warnings": [
+    "starting from step: daily-review"
+  ],
+  "errors": [],
+  "next_actions": []
+}

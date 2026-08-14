@@ -1,0 +1,195 @@
+{
+  "workflow": "daily",
+  "status": "PASS",
+  "started_at": "2026-07-22T01:01:22+08:00",
+  "finished_at": "2026-07-22T01:01:24+08:00",
+  "inputs": {
+    "date": "2026-07-20",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "strategy1-matrix-draft",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": true,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-20 --phase data",
+      "returncode": 0,
+      "duration_sec": 0.402,
+      "stdout_tail": [
+        "fact_market_daily: rows=1 max=2026-07-20",
+        "fact_sector_daily: rows=224 max=2026-07-20",
+        "fact_sw_l1_daily: rows=31 max=2026-07-20",
+        "fact_sector_stock_daily: rows=28412 max=2026-07-20",
+        "fact_stock_high_daily: rows=260 max=2026-07-20",
+        "fact_theme_limit_heat_daily: rows=85 max=2026-07-20",
+        "fact_theme_limit_stock_daily: rows=212 max=2026-07-20",
+        "fact_limit_advance_daily: rows=7 max=2026-07-20",
+        "fact_stock_daily: rows=5526 max=2026-07-20",
+        "fact_mainline_theme_daily: rows=4 max=2026-07-20",
+        "fact_mainline_stock_daily: rows=82 max=2026-07-20",
+        "fact_mainline_sector_daily: rows=11 max=2026-07-20",
+        "fact_theme_flow_daily: rows=66 max=2026-07-20",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-20",
+        "feature_market_window: rows=4 max=2026-07-20",
+        "feature_sector_window: rows=895 max=2026-07-20",
+        "feature_stock_window: rows=21731 max=2026-07-20",
+        "feature_stock_technical_daily: rows=5194 max=2026-07-20",
+        "fact_stock_daily 覆盖率: 5516/5517 = 99.98%",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli check-daily --trade-date 2026-07-20 --json /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-20.json",
+      "returncode": 0,
+      "duration_sec": 0.233,
+      "stdout_tail": [
+        "跨日质检 @2026-07-20 (日历窗口=20)",
+        "RESULT: PASS | 通过",
+        "json -> /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-20.json"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "PASS",
+      "command": "python3 skills/daily-full-review/scripts/export_increment.py --date 2026-07-20",
+      "returncode": 0,
+      "duration_sec": 0.14,
+      "stdout_tail": [
+        "[export-increment] 2026-07-20: 19 表 / 40359 行 -> /Users/a77/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-2026-07-20.tar.gz (1.1 MB)"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "PASS",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-20",
+      "returncode": 0,
+      "duration_sec": 0.256,
+      "stdout_tail": [
+        "{\"matrix\": \"/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html\", \"date\": \"2026-07-20\", \"action\": \"replaced\", \"t1\": 0, \"t2\": 1, \"obs\": 0, \"dry_run\": false}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "PASS",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": 0,
+      "duration_sec": 0.158,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html",
+        "replaced 62 empty rows: ['2026-04-08', '2026-04-09', '2026-04-10'] ... ['2026-07-16', '2026-07-17', '2026-07-20']"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "PASS",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-20",
+      "returncode": 0,
+      "duration_sec": 0.137,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html",
+        "days=70 engineA_rows=956 engineB_rows=3711"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "PASS",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": 0,
+      "duration_sec": 0.021,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html",
+        "daily_reviews 2026-07-20, 2026-07-17, 2026-07-01, 2026-06-30, 2026-06-29, 2026-06-26, 2026-06-25, 2026-06-24, 2026-06-23, 2026-06-22, 2026-06-18, 2026-06-17, 2026-06-16, 2026-06-15, 2026-06-12, 2026-06-11, 2026-06-10, 2026-06-09, 2026-06-08, 2026-06-05, 2026-04-07, 2026-04-03, 2026-04-02, 2026-04-01"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "PASS",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": 0,
+      "duration_sec": 0.032,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/index.html",
+        "daily: 24 | winrate: 2 | briefing: 41 | matrices: 7 | headtohead: 0 | moneyflow: 1 | dualblind: 1 | size: 28 KB"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/index.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html",
+    "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html",
+    "/Users/a77/finance-workspace-private/复盘/index.html"
+  ],
+  "warnings": [
+    "starting from step: strategy1-matrix-draft",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them"
+  ],
+  "errors": [],
+  "next_actions": []
+}

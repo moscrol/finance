@@ -1,0 +1,882 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-17",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "8b19cde97216a852",
+  "input_freeze": {
+    "perspective_date": "2026-07-16",
+    "duckdb_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+    "duckdb_cutoff": "2026-07-16",
+    "kb_commit": "47a99336b2e754d78bccab98bd43dfdc63a001b1",
+    "materials": [],
+    "data_gaps": [
+      "manifest materials 为空；本答卷只使用 DuckDB 盘面流，未使用 2026-07-16 后数据。"
+    ]
+  },
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "support"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 4,
+      "direction": "support"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 24033.87,
+      "direction": "support",
+      "unit": "亿元"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": -6.52,
+      "direction": "counter",
+      "unit": "%"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 76.26,
+      "direction": "support",
+      "unit": "% of 20d average",
+      "interpretation": "极冰量能区"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "advancers",
+      "value": 2499,
+      "direction": "support"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "advancers_ma5",
+      "value": 2927.2,
+      "direction": "support"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 42,
+      "direction": "support"
+    },
+    "M9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 34,
+      "direction": "counter"
+    },
+    "M10": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 4,
+      "direction": "counter"
+    },
+    "M11": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "stock_high_count_20d",
+      "value": 557,
+      "direction": "support"
+    },
+    "M12": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "top3_industry_ratio",
+      "value": 48.4,
+      "direction": "support",
+      "unit": "%",
+      "industry_top3": [
+        "电子",
+        "医药生物",
+        "通信"
+      ]
+    },
+    "M13": {
+      "level": "L4",
+      "source": "feature_market_window",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "breadth_trend_5d",
+      "value": "flat",
+      "direction": "neutral",
+      "advancers_start": 2486,
+      "advancers_end": 2499
+    },
+    "S0": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "double_red_count",
+      "value": 49,
+      "direction": "support"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "ChatGPT",
+      "field": "chatgpt_diff_ratio",
+      "value": 16.78,
+      "direction": "support",
+      "pct_chg": 1.1,
+      "amount": 876.71
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "短剧游戏",
+      "field": "short_drama_diff_ratio",
+      "value": 21.83,
+      "direction": "support",
+      "pct_chg": 2.15,
+      "amount": 427.63
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "Sora概念(文生视频)",
+      "field": "sora_diff_ratio",
+      "value": 20.82,
+      "direction": "support",
+      "pct_chg": 1.17,
+      "amount": 302.59
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "文化传媒",
+      "field": "media_diff_ratio",
+      "value": 20.61,
+      "direction": "support",
+      "pct_chg": 2.1,
+      "amount": 242.99
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "血氧仪",
+      "field": "oximeter_diff_ratio",
+      "value": 77.55,
+      "direction": "support",
+      "pct_chg": 0.75,
+      "amount": 133.97
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "医疗器械",
+      "field": "medical_device_diff_ratio",
+      "value": 14.93,
+      "direction": "support",
+      "pct_chg": 1.1,
+      "amount": 285.86
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "小家电",
+      "field": "small_appliance_diff_ratio",
+      "value": 24.72,
+      "direction": "support",
+      "pct_chg": 0.61,
+      "amount": 30.09
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "AIGC概念",
+      "field": "aigc_strength_chg",
+      "value": 1679.6,
+      "direction": "support",
+      "today_pct": 1.089,
+      "limit_up_count": 4,
+      "net_inflow_1d": 9414344000.0
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "创新药",
+      "field": "innovative_drug_strength_chg",
+      "value": -2690.8,
+      "direction": "counter",
+      "today_pct": 0.8628,
+      "limit_up_count": 5,
+      "max_limit_height": 5
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "华为昇腾",
+      "field": "ascend_strength_chg",
+      "value": 2131.0,
+      "direction": "support",
+      "today_pct": 0.4552,
+      "limit_up_count": 2
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_mainline_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "半导体",
+      "field": "semiconductor_today_pct",
+      "value": -5.3498,
+      "direction": "counter",
+      "limit_up_count": 0,
+      "net_inflow_1d": -6674925000.0
+    },
+    "H1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "人工智能",
+      "field": "ai_limit_up_count",
+      "value": 13,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 30.95
+    },
+    "H2": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "DeepSeek概念",
+      "field": "deepseek_limit_up_count",
+      "value": 10,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 23.81
+    },
+    "H3": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "AI智能体",
+      "field": "agent_ai_limit_up_count",
+      "value": 8,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 19.05
+    },
+    "H4": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "创新药",
+      "field": "innovative_drug_limit_up_count",
+      "value": 5,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 11.9
+    },
+    "H5": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "IP经济(谷子经济)",
+      "field": "ip_economy_limit_up_count",
+      "value": 5,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 11.9
+    },
+    "H6": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "消费电子",
+      "field": "consumer_electronics_limit_up_count",
+      "value": 5,
+      "direction": "support",
+      "market_limit_up_count": 42,
+      "market_share": 11.9
+    },
+    "P1": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "000063.SZ 中兴通讯",
+      "field": "zte_close",
+      "value": 40.0,
+      "direction": "support",
+      "pct_chg": 1.39,
+      "amount": 145.83,
+      "fund_flow_1d": 3.02,
+      "sector_name": "ChatGPT",
+      "float_mcap_yi": 1611.05
+    },
+    "P2": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "002558.SZ 巨人网络",
+      "field": "giant_close",
+      "value": 30.28,
+      "direction": "support",
+      "pct_chg": 2.44,
+      "amount": 60.55,
+      "fund_flow_1d": 3.61,
+      "sector_name": "ChatGPT",
+      "high_status_label": "20日新高",
+      "float_mcap_yi": 575.49
+    },
+    "P3": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "300251.SZ 光线传媒",
+      "field": "enlight_close",
+      "value": 13.57,
+      "direction": "support",
+      "pct_chg": 9.52,
+      "amount": 27.03,
+      "fund_flow_1d": 4.74,
+      "sector_name": "Sora概念(文生视频)",
+      "high_status_label": "20日新高",
+      "float_mcap_yi": 376.62
+    },
+    "P4": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-16",
+      "entity": "300760.SZ 迈瑞医疗",
+      "field": "mindray_close",
+      "value": 150.31,
+      "direction": "support",
+      "pct_chg": 2.95,
+      "amount": 31.62,
+      "fund_today": 1.18,
+      "primary_high_label": "20日新高",
+      "market_cap": 1820.85,
+      "sw_l2": "医疗器械"
+    },
+    "P5": {
+      "level": "L4",
+      "source": "fact_sector_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "688169.SH 石头科技",
+      "field": "roborock_close",
+      "value": 106.0,
+      "direction": "support",
+      "pct_chg": 2.99,
+      "amount": 11.53,
+      "fund_flow_1d": 1.23,
+      "sector_name": "小家电",
+      "high_status_label": "20日新高",
+      "float_mcap_yi": 274.82
+    },
+    "K1": {
+      "level": "L1",
+      "source": "manifest.kb_commit",
+      "source_time": "2026-07-16",
+      "entity": "knowledge_base",
+      "field": "kb_commit",
+      "value": "47a99336b2e754d78bccab98bd43dfdc63a001b1",
+      "direction": "neutral",
+      "note": "manifest 冻结的知识库 commit；本盘面流未读取新增材料"
+    }
+  },
+  "stage": "下跌阶段第4天 / 极冰缩量后的恐慌反弹观察位",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-16",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 4,
+        "evidence_ref": "M2"
+      },
+      "total_amount": {
+        "value": 24033.87,
+        "evidence_ref": "M3"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": -6.52,
+        "evidence_ref": "M4"
+      },
+      "volume_ratio": {
+        "value": 76.26,
+        "evidence_ref": "M5"
+      },
+      "advancers": {
+        "value": 2499,
+        "evidence_ref": "M6"
+      },
+      "advancers_ma5": {
+        "value": 2927.2,
+        "evidence_ref": "M7"
+      },
+      "limit_up": {
+        "value": 42,
+        "evidence_ref": "M8"
+      },
+      "limit_down": {
+        "value": 34,
+        "evidence_ref": "M9"
+      },
+      "stock_high_count_history": {
+        "value": 4,
+        "evidence_ref": "M10"
+      },
+      "stock_high_count_20d": {
+        "value": 557,
+        "evidence_ref": "M11"
+      },
+      "top3_industry_ratio": {
+        "value": 48.4,
+        "evidence_ref": "M12"
+      },
+      "breadth_trend_5d": {
+        "value": "flat",
+        "evidence_ref": "M13"
+      },
+      "double_red_count": {
+        "value": 49,
+        "evidence_ref": "S0"
+      },
+      "ai_limit_up_count": {
+        "value": 13,
+        "evidence_ref": "H1"
+      },
+      "chatgpt_diff_ratio": {
+        "value": 16.78,
+        "evidence_ref": "S1"
+      },
+      "semiconductor_today_pct": {
+        "value": -5.3498,
+        "evidence_ref": "S11"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9",
+      "M10",
+      "M11",
+      "M12",
+      "M13",
+      "S0",
+      "H1",
+      "S1",
+      "S11"
+    ]
+  },
+  "unified_fields": {
+    "stage": "下跌阶段第4天；量能 76.26%/20日均量，已进入极冰，但涨家数 2499 仍低于 MA5 2927.2。",
+    "volume": "成交额 24033.87 亿元，环比 -6.52%，20日均额 31516.65 亿元，缩量观望。",
+    "breadth": "涨家数 2499，5日窗口广度 flat；涨停 42，跌停 34。",
+    "double_red": [
+      "血氧仪 diff 77.55 pct 0.75",
+      "影视院线 diff 40.92 pct 4.96",
+      "MLOps diff 38.83 pct 1.15",
+      "短剧游戏 diff 21.83 pct 2.15",
+      "ChatGPT diff 16.78 pct 1.10",
+      "医疗器械 diff 14.93 pct 1.10",
+      "小家电 diff 24.72 pct 0.61"
+    ],
+    "limit_heat": [
+      "人工智能 13/42",
+      "DeepSeek概念 10/42",
+      "机器人概念 9/42",
+      "AI智能体 8/42",
+      "创新药 5/42",
+      "消费电子 5/42"
+    ],
+    "new_high": "历史新高 4 家，20日新高 557 家；容量核心新高中有中国电信、比亚迪、迈瑞医疗、海天味业等。",
+    "core_stocks": [
+      "中兴通讯",
+      "巨人网络",
+      "光线传媒",
+      "迈瑞医疗",
+      "石头科技"
+    ],
+    "data_gaps": [
+      "无晨汇/卖方材料；不做 L2/L3 基本面增量判断。"
+    ]
+  },
+  "main_judgment": "市场处在下跌第4天的极冰缩量位，T+1 更像“高开/低开后分歧修复”的冰点反弹观察，而不是指数级主升；方向上优先看 AI 应用/传媒的双红延续，医药作为情绪高度和防御修复的备选，小家电/消费电子只看低位容量切换。",
+  "scenario": "A 恐慌反弹",
+  "direction_ranking": [
+    "AI应用/传媒",
+    "医药/医疗器械",
+    "小家电/消费电子"
+  ],
+  "direction_scores": [
+    {
+      "direction": "AI应用/传媒",
+      "score_total": 78,
+      "certainty": 17,
+      "elasticity": 18,
+      "realization_time": 17,
+      "crowding_risk_reverse_score": 11,
+      "pricing_gap": 15,
+      "nature": "主线扩散 + 冰点修复",
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S8",
+        "H1",
+        "H3"
+      ]
+    },
+    {
+      "direction": "医药/医疗器械",
+      "score_total": 70,
+      "certainty": 15,
+      "elasticity": 14,
+      "realization_time": 16,
+      "crowding_risk_reverse_score": 12,
+      "pricing_gap": 13,
+      "nature": "情绪高度 + 防御修复",
+      "evidence_refs": [
+        "S5",
+        "S6",
+        "S9",
+        "H4",
+        "P4"
+      ]
+    },
+    {
+      "direction": "小家电/消费电子",
+      "score_total": 63,
+      "certainty": 13,
+      "elasticity": 12,
+      "realization_time": 13,
+      "crowding_risk_reverse_score": 14,
+      "pricing_gap": 11,
+      "nature": "流动性切换",
+      "evidence_refs": [
+        "S7",
+        "H6",
+        "P5"
+      ]
+    }
+  ],
+  "picks": [
+    {
+      "code": "000063.SZ",
+      "name": "中兴通讯",
+      "strategy": "策略一：主线流动性池",
+      "reason": "ChatGPT 仍为真双红，人工智能涨停热度 13/42；中兴成交 145.83 亿元、资金流入 3.02，适合作为 AI 应用/算力容量锚。",
+      "evidence_refs": [
+        "S1",
+        "H1",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "002558.SZ",
+      "name": "巨人网络",
+      "strategy": "策略二：强趋势延续",
+      "reason": "ChatGPT diff 为正且成交额居前；个股 20日新高、成交 60.55 亿元、5日涨幅 6.92%，是 AI 应用里相对更顺的趋势票。",
+      "evidence_refs": [
+        "S1",
+        "H1",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "300251.SZ",
+      "name": "光线传媒",
+      "strategy": "策略四：流动性切换",
+      "reason": "影视院线/短剧/Sora/文化传媒均真双红，IP经济也有 5 个涨停；光线传媒 20日新高且单日 9.52%，代表传媒修复弹性，但需防高开兑现。",
+      "evidence_refs": [
+        "S2",
+        "S3",
+        "S4",
+        "H5",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "300760.SZ",
+      "name": "迈瑞医疗",
+      "strategy": "策略三：分歧回流",
+      "reason": "医疗器械、血氧仪真双红，创新药涨停高度有 5 板；迈瑞医疗 20日新高、成交 31.62 亿元，更偏医药容量修复而非纯连板博弈。",
+      "evidence_refs": [
+        "S5",
+        "S6",
+        "H4",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "688169.SH",
+      "name": "石头科技",
+      "strategy": "策略四：流动性切换",
+      "reason": "小家电真双红但板块成交小，石头科技 20日新高、5日涨幅 9.22%、资金流入 1.23，适合观察从高拥挤 AI 向消费电子/家电的低位切换。",
+      "evidence_refs": [
+        "S7",
+        "H6",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-16"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1 视为冰点修复成立：涨家数 2800-3800 且跌停数 <=30，成交额不低于 24000 亿元；若成交额放大到 26000 亿元以上且涨停数 >=55，则阶段从“下跌观察”切到“反弹发酵”。",
+    "direction": "AI应用/传媒延续：ChatGPT、短剧游戏、Sora、文化传媒中至少 2 个继续 pct_chg>0 且 diff_ratio>0，且人工智能涨停热度 >=8；医药备选要求医疗器械/血氧仪/创新药至少 1 个真双红。",
+    "targets": "000063.SZ 收盘>=40.80；002558.SZ 收盘>=31.20；300251.SZ 收盘>=14.00且不低开低走跌破13.20；300760.SZ 收盘>=152.50；688169.SH 收盘>=108.00。",
+    "falsify": "若 T+1 涨家数 <2200 或跌停数 >50，或成交额 <23000 亿元且 AI应用/传媒四个核心方向全部 diff_ratio<=0，则“冰点修复 + AI/传媒延续”主判断推翻。"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M5",
+      "as_of": "2026-07-16",
+      "note": "极冰量能后的修复阈值，非回测硬阈值。"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "S0",
+      "as_of": "2026-07-16",
+      "note": "真双红固定规则：pct_chg>0 且 diff_ratio>0。"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "P1",
+      "as_of": "2026-07-16",
+      "note": "以 7月16日收盘价机械上浮约 2%-3% 作为 T+1 强弱确认。"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "M9",
+      "as_of": "2026-07-16",
+      "note": "用广度、跌停和主线 diff 同时失效定义推翻。"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+1 出现冰点后的分歧修复：涨家数落在 2800-3800 且跌停数 <=30，成交额不低于 24000 亿元。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "M1",
+        "M5",
+        "M6",
+        "M7",
+        "M8",
+        "M9",
+        "M13"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "涨家数 <2200 或跌停数 >50 或成交额 <23000 亿元。"
+    },
+    {
+      "id": "direction:ai_media",
+      "category": "direction",
+      "claim": "AI应用/传媒仍是 T+1 最优先方向，至少 2 个核心板块继续真双红且人工智能涨停热度 >=8。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.62,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S8",
+        "H1",
+        "H3"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "ChatGPT、短剧游戏、Sora、文化传媒全部 diff_ratio<=0，或人工智能涨停热度 <6。"
+    },
+    {
+      "id": "direction:medical",
+      "category": "direction",
+      "claim": "医药/医疗器械作为修复备选，T+1 至少 1 个医疗相关方向保持真双红，且创新药涨停数不少于 3。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "S5",
+        "S6",
+        "S9",
+        "H4"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "医疗器械、血氧仪、创新药均 diff_ratio<=0 且创新药涨停数 <3。"
+    },
+    {
+      "id": "target:000063.SZ",
+      "category": "target",
+      "claim": "中兴通讯 T+1 收盘站上 40.80，作为 AI 容量锚强于市场。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.56,
+      "evidence_refs": [
+        "S1",
+        "H1",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "收盘跌破 39.20 或成交额明显缩至 90 亿元以下。"
+    },
+    {
+      "id": "target:002558.SZ",
+      "category": "target",
+      "claim": "巨人网络 T+1 收盘站上 31.20，延续 20日新高趋势。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.57,
+      "evidence_refs": [
+        "S1",
+        "H1",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "收盘跌破 29.30 或 ChatGPT 板块 diff_ratio<=0。"
+    },
+    {
+      "id": "target:300251.SZ",
+      "category": "target",
+      "claim": "光线传媒 T+1 收盘站上 14.00，代表传媒高弹性延续。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.48,
+      "evidence_refs": [
+        "S2",
+        "S3",
+        "S4",
+        "H5",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "低开低走并收盘跌破 13.20，或传媒相关双红全部消失。"
+    },
+    {
+      "id": "target:300760.SZ",
+      "category": "target",
+      "claim": "迈瑞医疗 T+1 收盘站上 152.50，延续医疗器械容量修复。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.54,
+      "evidence_refs": [
+        "S5",
+        "S6",
+        "H4",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "收盘跌破 147.00 或医疗器械 diff_ratio<=0。"
+    },
+    {
+      "id": "target:688169.SH",
+      "category": "target",
+      "claim": "石头科技 T+1 收盘站上 108.00，验证小家电/消费电子低位切换。",
+      "horizon": "T+1",
+      "confidence": "low",
+      "confidence_probability": 0.47,
+      "evidence_refs": [
+        "S7",
+        "H6",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "收盘跌破 102.80 或小家电 diff_ratio<=0。"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "若 T+1 广度继续低迷且 AI/传媒双红消失，则本答卷的“冰点修复 + AI/传媒延续”路径失败。",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M5",
+        "M6",
+        "M9",
+        "S1",
+        "S2",
+        "S3",
+        "S4"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "涨家数 <2200、跌停数 >50、且 ChatGPT/短剧/Sora/文化传媒全部 diff_ratio<=0 同时出现。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-17",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      -10.0,
+      -3.83,
+      -7.74,
+      -0.59,
+      -6.44
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-22",
+  "perspective_date": "2026-07-21",
+  "duckdb_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "duckdb_cutoff": "2026-07-21",
+  "kb_root": "/Users/a77/knowledge-base-private",
+  "kb_commit": "0ef486a95712844db8eab4bc896917c8056dce9f",
+  "materials": [],
+  "generated_at": "2026-07-22T09:18:51+08:00",
+  "warnings": [],
+  "manifest_sha": "c621f0f3bdd6e02f"
+}

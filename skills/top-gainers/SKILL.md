@@ -1,0 +1,27 @@
+---
+name: top-gainers
+metadata:
+  pattern: pipeline
+description: A股区间涨幅排行榜（只查询展示，不入库）。触发词：涨幅排行、涨幅前N、区间涨幅、哪些股票涨得最多、排行榜。注意：要"入库/筛选入库/均线回踩"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。
+---
+
+# A股区间涨幅排行榜
+
+## 触发条件
+
+用户提供日期区间并要求查涨幅排名时触发。即使用户没有明确说"排行榜"，只要给出了日期并要求查涨幅，都应使用此技能。
+
+查询指定日期区间内涨幅最大的前20只A股个股，附带行业、题材和板块涨幅统计。
+
+## 执行流程
+
+执行流程 7 步（解析日期 → 并行发起 iFinD 涨幅前20 + AKShare 板块 → 分批并行查申万行业与概念 → 筛除通用噪声留 2–3 核心题材 → ASCII 个股表 + 行业分布/题材主线 → markdown 板块表）见 `references/execution-flow.md`，逐步执行。
+
+## 注意事项
+
+- 涨幅为前复权涨跌幅
+- iFinD API 返回 ok:false 时检查错误并重试
+- 非交易日自动取最近交易日
+- **并行关键路径**：iFinD 个股涨幅（Step 2）和 AKShare 板块涨幅同时发起；拿到个股后，iFinD 行业/题材查询（Step 4 的 8 个调用）也全部并行
+- AKShare 行业用 `period="日k"`，概念板块用 `period="daily"`
+- AKShare 概念板块必须用板块代码（如 BK0884）而非名称查询历史数据

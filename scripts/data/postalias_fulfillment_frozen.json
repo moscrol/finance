@@ -1,0 +1,227 @@
+{
+  "source": "report.json -> task_fulfillment.items (production post-alias verdict)",
+  "frozen_at": "2026-08-06",
+  "caliber": {
+    "what_this_is": "生产在 run 结束时自己写下的 fulfillment 判定，别名归一之后的真值。别名表见 conversation_orchestrator._merge_frame_outputs 的 legacy_aliases。",
+    "why_it_beats_local_recompute": "本地复算从 answer_spec.json 重构 Claim 再调门禁，无法完整还原_claim_candidates 的特判分支；supporting_evidence 上本地算 2/28、生产真值 30/32，该 id 的复算结果是错的而非偏差。",
+    "coverage_is_partial": "58/304 份 report.json 带 task_fulfillment.items（19.1%）。这段遥测晚于大部分历史 run，不覆盖全量。trace.jsonl 里没有这段判定（0/305），只在 report.json。",
+    "vocabulary_is_post_alias": "这里的 output_id 是 contract 词表，不是 TaskFrame 词表。frame 侧的 direct_answer / continuation_conditions / scenario_paths / invalidation_conditions 在此已被别名转成 direct_assessment / rebound_case / invalidation，所以不会以原名出现。",
+    "risk_signals_absent": "risk_signals 在本词表中完全不出现，但 frame 侧要求过 26 次、structural_verifier 侧也评过。它是在 frame -> contract 转换阶段就被丢掉的，丢弃点未定位——这条是待查线索，不是结论。"
+  },
+  "stats": {
+    "report_json_total": 304,
+    "with_task_fulfillment_items": 58,
+    "coverage_pct": 19.1,
+    "per_ledger": {
+      "/Users/a77/.local/share/finance-workbench/users": {
+        "exists": 1,
+        "scanned_report_json": 270,
+        "with_task_fulfillment_items": 53
+      },
+      "/Users/a77/agent-memory/.foresight": {
+        "exists": 1,
+        "scanned_report_json": 34,
+        "with_task_fulfillment_items": 5
+      }
+    },
+    "distinct_output_ids": 15
+  },
+  "outputs": {
+    "direct_assessment": {
+      "fulfilled": 43,
+      "total": 58,
+      "status_counts": {
+        "fulfilled": 43,
+        "partial": 15
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "counterpoint": {
+      "fulfilled": 21,
+      "total": 46,
+      "status_counts": {
+        "fulfilled": 21,
+        "missing": 8,
+        "partial": 17
+      },
+      "sample_runs": [
+        "run_20260731_192937_846766",
+        "run_20260731_193226_755646",
+        "run_20260731_193821_892916"
+      ]
+    },
+    "supporting_evidence": {
+      "fulfilled": 30,
+      "total": 32,
+      "status_counts": {
+        "fulfilled": 30,
+        "partial": 2
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "chain_mapping": {
+      "fulfilled": 26,
+      "total": 26,
+      "status_counts": {
+        "fulfilled": 26
+      },
+      "sample_runs": [
+        "run_20260731_224437_544301",
+        "run_20260731_233256_392109",
+        "run_20260731_233546_390215"
+      ]
+    },
+    "evidence_boundary": {
+      "fulfilled": 9,
+      "total": 12,
+      "status_counts": {
+        "fulfilled": 9,
+        "missing": 3
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "decline_case": {
+      "fulfilled": 10,
+      "total": 10,
+      "status_counts": {
+        "fulfilled": 10
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "invalidation": {
+      "fulfilled": 9,
+      "total": 10,
+      "status_counts": {
+        "fulfilled": 9,
+        "missing": 1
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "rebound_case": {
+      "fulfilled": 10,
+      "total": 10,
+      "status_counts": {
+        "fulfilled": 10
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047",
+        "run_20260731_031601_415738",
+        "run_20260731_034344_300179"
+      ]
+    },
+    "comparison": {
+      "fulfilled": 0,
+      "total": 2,
+      "status_counts": {
+        "missing": 2
+      },
+      "sample_runs": [
+        "run_20260802_013211_778431",
+        "run_20260805_144205_479901"
+      ]
+    },
+    "comparison_dimensions": {
+      "fulfilled": 0,
+      "total": 2,
+      "status_counts": {
+        "missing": 2
+      },
+      "sample_runs": [
+        "run_20260802_013211_778431",
+        "run_20260805_144205_479901"
+      ]
+    },
+    "key_differences": {
+      "fulfilled": 0,
+      "total": 2,
+      "status_counts": {
+        "missing": 2
+      },
+      "sample_runs": [
+        "run_20260802_013211_778431",
+        "run_20260805_144205_479901"
+      ]
+    },
+    "comparison_basis": {
+      "fulfilled": 0,
+      "total": 1,
+      "status_counts": {
+        "missing": 1
+      },
+      "sample_runs": [
+        "run_20260802_013211_778431"
+      ]
+    },
+    "direct_definition": {
+      "fulfilled": 0,
+      "total": 1,
+      "status_counts": {
+        "missing": 1
+      },
+      "sample_runs": [
+        "run_20260801_031354_694051"
+      ]
+    },
+    "key_difference": {
+      "fulfilled": 0,
+      "total": 1,
+      "status_counts": {
+        "missing": 1
+      },
+      "sample_runs": [
+        "run_20260802_013211_778431"
+      ]
+    },
+    "情景树": {
+      "fulfilled": 0,
+      "total": 1,
+      "status_counts": {
+        "missing": 1
+      },
+      "sample_runs": [
+        "run_20260731_024144_312047"
+      ]
+    }
+  },
+  "never_fulfilled": [
+    "comparison",
+    "comparison_basis",
+    "comparison_dimensions",
+    "direct_definition",
+    "key_difference",
+    "key_differences",
+    "情景树"
+  ],
+  "suspected_synonym_pairs_do_not_auto_merge": [
+    {
+      "a": "comparison_dimensions",
+      "b": "comparison_basis",
+      "reason": "语义疑似同义，两侧实测均为 0 fulfilled，需人工判语义"
+    },
+    {
+      "a": "key_differences",
+      "b": "key_difference",
+      "reason": "单复数疑似同义，两侧实测均为 0 fulfilled，需人工判语义"
+    }
+  ]
+}

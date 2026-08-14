@@ -1,0 +1,690 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-20",
+  "agent": "codex",
+  "source": "sellside",
+  "manifest_sha": "eed501f0cad4c1b3",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "counter"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "stage_day",
+      "value": 5,
+      "direction": "counter"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "advancers",
+      "value": 482,
+      "direction": "counter"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "limit_down",
+      "value": 193,
+      "direction": "counter"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 85.12,
+      "direction": "neutral"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 26547.43,
+      "direction": "neutral"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "market",
+      "field": "sh_index_pct_chg",
+      "value": -3.045992,
+      "direction": "counter"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-17",
+      "entity": "电子",
+      "field": "industry_1_ratio",
+      "value": 30.7,
+      "direction": "support"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯片",
+      "field": "chip_pct_chg",
+      "value": -7.18,
+      "direction": "counter"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯片",
+      "field": "chip_amount",
+      "value": 11990.12,
+      "direction": "support"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯片",
+      "field": "chip_diff_ratio",
+      "value": 9.11,
+      "direction": "support"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体",
+      "field": "semiconductor_pct_chg",
+      "value": -9.83,
+      "direction": "counter"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体",
+      "field": "semiconductor_amount",
+      "value": 4605.14,
+      "direction": "support"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体",
+      "field": "semiconductor_diff_ratio",
+      "value": 7.24,
+      "direction": "support"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "存储芯片",
+      "field": "storage_chip_pct_chg",
+      "value": -8.84,
+      "direction": "counter"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "存储芯片",
+      "field": "storage_chip_amount",
+      "value": 4751.93,
+      "direction": "support"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体设备",
+      "field": "semi_equipment_pct_chg",
+      "value": -8.67,
+      "direction": "counter"
+    },
+    "S10": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "半导体设备",
+      "field": "semi_equipment_diff_ratio",
+      "value": 13.25,
+      "direction": "support"
+    },
+    "S11": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "共封装光学(CPO)",
+      "field": "cpo_pct_chg",
+      "value": -9.19,
+      "direction": "counter"
+    },
+    "S12": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-17",
+      "entity": "共封装光学(CPO)",
+      "field": "cpo_amount",
+      "value": 5203.68,
+      "direction": "support"
+    },
+    "C1": {
+      "level": "L4",
+      "source": "sellside_raw_bundle",
+      "source_time": "2026-07-17",
+      "entity": "AI半导体硬件链",
+      "field": "ai_semiconductor_related_report_count",
+      "value": 9,
+      "direction": "support",
+      "note": "15份指定raw中，科技产业/半导体设备/能源电子/金刚石散热/仕佳光子/兆易创新/奥尼电子/芯原股份/日联科技均指向AI硬件或半导体链"
+    },
+    "R1": {
+      "level": "L1",
+      "source": "sellside_raw:东吴证券半导体设备",
+      "source_time": "2026-07-17",
+      "entity": "ASML/半导体设备",
+      "field": "asml_2026_revenue_guidance_midpoint_raise_pct",
+      "value": 16,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-东吴证券-半导体设备_ASMLQ2业绩超预期_全年指引上修_看好存储_先进逻辑Capex上行.md"
+    },
+    "R2": {
+      "level": "L1",
+      "source": "sellside_raw:东吴证券半导体设备",
+      "source_time": "2026-07-17",
+      "entity": "存储设备",
+      "field": "asml_h1_storage_revenue_yoy_pct",
+      "value": 53,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-东吴证券-半导体设备_ASMLQ2业绩超预期_全年指引上修_看好存储_先进逻辑Capex上行.md"
+    },
+    "R3": {
+      "level": "L3",
+      "source": "sellside_raw:交银国际证券兆易创新",
+      "source_time": "2026-07-17",
+      "entity": "兆易创新",
+      "field": "dram_foundry_procurement_quota_2026_cny_bn",
+      "value": 57.11,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-交银国际证券-兆易创新_产能替代窗口开启_大厂淡出与长鑫赋能共振.md"
+    },
+    "R4": {
+      "level": "L3",
+      "source": "sellside_raw:国金证券芯原股份",
+      "source_time": "2026-07-17",
+      "entity": "芯原股份",
+      "field": "new_orders_2026_ytd_cny_bn",
+      "value": 146.53,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-国金证券-芯原股份_新签订单继续高增_持续看好AI_ASIC趋势.md"
+    },
+    "R5": {
+      "level": "L3",
+      "source": "sellside_raw:国金证券芯原股份",
+      "source_time": "2026-07-17",
+      "entity": "芯原股份",
+      "field": "ai_data_processing_order_share_pct",
+      "value": 90,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-国金证券-芯原股份_新签订单继续高增_持续看好AI_ASIC趋势.md"
+    },
+    "R6": {
+      "level": "L1",
+      "source": "sellside_raw:国信证券能源电子月报",
+      "source_time": "2026-07-17",
+      "entity": "功率器件",
+      "field": "power_device_delivery_and_price_trend",
+      "value": "2Q26交期持续延长、价格保持上行",
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-国信证券-能源电子月报_功率器件交期持续拉长_行业景气度稳步提升.md"
+    },
+    "R7": {
+      "level": "L2",
+      "source": "sellside_raw:国金证券仕佳光子",
+      "source_time": "2026-07-17",
+      "entity": "仕佳光子",
+      "field": "awg_1p6t_small_batch_supply",
+      "value": "1.6T光模块AWG芯片及组件已实现小批量出货",
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-国金证券-仕佳光子_无源_有源_平台型光器件厂商_卡位AI高成长赛道.md"
+    },
+    "R8": {
+      "level": "L3",
+      "source": "sellside_raw:国金证券日联科技",
+      "source_time": "2026-07-17",
+      "entity": "日联科技",
+      "field": "h1_revenue_yoy_pct",
+      "value": 55.3,
+      "direction": "support",
+      "source_path": "/Users/a77/knowledge-base-private/wiki/raw/sellside/2026-07-17-国金证券-日联科技_中报预告超预期_新领域多管齐下.md"
+    },
+    "P1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "北方华创",
+      "field": "close",
+      "value": 677.0,
+      "direction": "neutral",
+      "stock_ts_code": "002371.SZ"
+    },
+    "P2": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "中微公司",
+      "field": "close",
+      "value": 350.69,
+      "direction": "neutral",
+      "stock_ts_code": "688012.SH"
+    },
+    "P3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "兆易创新",
+      "field": "close",
+      "value": 463.15,
+      "direction": "counter",
+      "stock_ts_code": "603986.SH"
+    },
+    "P4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "芯原股份",
+      "field": "close",
+      "value": 231.6,
+      "direction": "neutral",
+      "stock_ts_code": "688521.SH"
+    },
+    "P5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-17",
+      "entity": "仕佳光子",
+      "field": "close",
+      "value": 117.99,
+      "direction": "counter",
+      "stock_ts_code": "688313.SH"
+    }
+  },
+  "stage": "下跌阶段第5天：AI半导体硬件链高覆盖但处于拥挤杀跌后的修复观察窗口",
+  "stage_features": {
+    "rule_id": "sellside-coverage-cross-v1",
+    "as_of": "2026-07-17",
+    "metrics": {
+      "market_stage": {
+        "value": "下跌阶段",
+        "evidence_ref": "M1"
+      },
+      "stage_day": {
+        "value": 5,
+        "evidence_ref": "M2"
+      },
+      "advancers": {
+        "value": 482,
+        "evidence_ref": "M3"
+      },
+      "limit_down": {
+        "value": 193,
+        "evidence_ref": "M4"
+      },
+      "volume_ratio": {
+        "value": 85.12,
+        "evidence_ref": "M5"
+      },
+      "total_amount": {
+        "value": 26547.43,
+        "evidence_ref": "M6"
+      },
+      "industry_1_ratio": {
+        "value": 30.7,
+        "evidence_ref": "M8"
+      },
+      "ai_semiconductor_related_report_count": {
+        "value": 9,
+        "evidence_ref": "C1"
+      },
+      "chip_amount": {
+        "value": 11990.12,
+        "evidence_ref": "S2"
+      },
+      "semiconductor_pct_chg": {
+        "value": -9.83,
+        "evidence_ref": "S4"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M8",
+      "C1",
+      "S2",
+      "S4"
+    ]
+  },
+  "main_judgment": "判AI半导体硬件链为信息增量，但不是当晚可直接追高的增量：卖方覆盖密度和订单/采购/交期证据足够，7月17日盘面却处于下跌阶段第5天且半导体链价格大幅杀跌，T+3必须先看到芯片/半导体/存储芯片至少2个板块转双红并伴随成交放大，才说明增量被市场重新接住。",
+  "direction_ranking": [
+    "AI半导体硬件链（存储设备/ASIC/CPO/功率器件）：信息增量，76/100；确定性高、弹性高、但拥挤度和短线位置扣分",
+    "券商并购与中报链：观察，65/100；业绩和并购事件清晰，但更多受大盘beta与审批节奏约束",
+    "AI视频应用：观察，61/100；可灵融资和API降本有产业增量，但AIGC/传媒盘面尚未形成主线承接"
+  ],
+  "sellside_assessment": {
+    "selected_direction": "AI半导体硬件链",
+    "judgment_type": "信息增量",
+    "coverage_density": "指定15份raw中约9份与AI硬件/半导体链相关，已经不是单篇孤立推荐",
+    "evidence_hardness": "L1为ASML指引、功率器件交期价格、AI Token计费；L3线索包括兆易DRAM采购额度、芯原新签订单、日联中报预告；L4盘面显示电子成交占比第一但半导体链大跌",
+    "market_position": "下跌阶段第5天，涨家数482、跌停193；芯片成交额11990.12亿元但跌7.18%，半导体跌9.83%，属于拥挤释放后的确认窗口",
+    "not_selected_as_primary": [
+      "券商：两篇覆盖且基本面/并购事件明确，但7月17日证券板块跌1.15%，更像事件驱动观察，不如半导体链覆盖密度高",
+      "AI视频应用：可灵融资数据强，但对应AIGC板块7月17日跌4.94%，缺少当晚多篇交叉覆盖",
+      "创新药出海：BD交易额有硬事实，但创新药板块7月17日跌6.89%且diff_ratio为-11.79，短线承接弱"
+    ]
+  },
+  "picks": [
+    {
+      "code": "002371",
+      "name": "北方华创",
+      "strategy": "卖方信息增量-半导体设备容量核心",
+      "reason": "ASML上修收入指引和先进逻辑/HBM扩产验证设备景气，北方华创是前道设备容量核心；7月17日收677.00元、成交113.79亿元，T+3需先修复到711元以上才算被市场接住。",
+      "evidence_refs": [
+        "R1",
+        "R2",
+        "S9",
+        "S10",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "t3_confirm": "2026-07-22收盘价>=711元且当日成交额>=110亿元；强确认为进入fact_stock_high_daily 20d/60d新高"
+    },
+    {
+      "code": "688012",
+      "name": "中微公司",
+      "strategy": "卖方信息增量-前道设备核心验证",
+      "reason": "同属ASML先进制程和存储Capex上行的国产前道设备映射，7月17日跌幅小于多数半导体高弹性票；若T+3收复368元并保持百亿级成交，说明资金优先回到容量核心。",
+      "evidence_refs": [
+        "R1",
+        "R2",
+        "S9",
+        "S10",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "t3_confirm": "2026-07-22收盘价>=368元且当日成交额>=120亿元；强确认为进入fact_stock_high_daily 20d/60d新高"
+    },
+    {
+      "code": "603986",
+      "name": "兆易创新",
+      "strategy": "卖方信息增量-存储产能替代",
+      "reason": "交银报告给出DRAM代工采购额度由2025年11.82亿元升至2026年57.11亿元、专用型存储需求由AI/智能驾驶拉动；但7月17日跌停，必须用T+3修复而非当天观点追高。",
+      "evidence_refs": [
+        "R3",
+        "S7",
+        "S8",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "t3_confirm": "2026-07-22收盘价>=486元且当日成交额>=250亿元；若仍低于463.15元则该票不确认"
+    },
+    {
+      "code": "688521",
+      "name": "芯原股份",
+      "strategy": "卖方信息增量-AI ASIC订单验证",
+      "reason": "国金报告转述公司1月1日至7月16日累计新签订单146.53亿元，AI算力及数据处理订单占比超过90%，是本轮半导体链中最直接的订单线索；7月17日收231.60元，需T+3放量修复。",
+      "evidence_refs": [
+        "R4",
+        "R5",
+        "S1",
+        "S2",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "t3_confirm": "2026-07-22收盘价>=243元且当日成交额>=75亿元；强确认为涨幅进入当日半导体链前20%"
+    },
+    {
+      "code": "688313",
+      "name": "仕佳光子",
+      "strategy": "卖方信息增量-CPO光器件高弹性验证",
+      "reason": "国金首次覆盖强调1.6T AWG芯片及组件小批量出货、MPO大批量出货和CW光源小批量供货，能映射AI数据中心光互联；但7月17日跌16.93%，只作为高弹性观察，不作为确定性核心。",
+      "evidence_refs": [
+        "R7",
+        "S11",
+        "S12",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "t3_confirm": "2026-07-22收盘价>=124元且当日成交额>=32亿元；强确认为CPO板块同步转双红"
+    }
+  ],
+  "thresholds": {
+    "market": "T+3(2026-07-22)市场弱修复确认：涨家数>=2500、跌停<=60、全市场成交额>=28000亿元，且上证收盘不低于2026-07-17收盘3764.155；否则只算卖方方向内局部修复。",
+    "direction": "AI半导体链T+3确认：半导体、芯片、存储芯片三者中至少2个板块当日pct_chg>0且diff_ratio>0；芯片成交额>=13000亿元或半导体成交额>=5300亿元；CPO或通信设备至少1个板块转双红。",
+    "targets": "5只标的T+3确认：至少3只收盘价较2026-07-17收盘上涨>=5%，且至少1只上涨>=10%或进入fact_stock_high_daily的20d/60d/1y新高；逐只机械价位为北方华创>=711、中微公司>=368、兆易创新>=486、芯原股份>=243、仕佳光子>=124。",
+    "t3": "T+3总确认=市场弱修复阈值命中 + 方向双红阈值命中 + 5只均值跑赢上证T+3；若只有报告继续加密但上述三项未命中，视作信息增量未被市场确认。",
+    "falsify": "T+3证伪：半导体、芯片、存储芯片三者均未双红，且芯片成交额<10000亿元、半导体成交额<4000亿元，同时5只标的少于2只收盘高于各自2026-07-17收盘价，则本判断由信息增量降级为跟风透支。"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M1",
+      "as_of": "2026-07-17"
+    },
+    "direction": {
+      "origin": "mechanical",
+      "evidence_ref": "S4",
+      "as_of": "2026-07-17"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "P1",
+      "as_of": "2026-07-17"
+    },
+    "t3": {
+      "origin": "heuristic",
+      "evidence_ref": "C1",
+      "as_of": "2026-07-17"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "S2",
+      "as_of": "2026-07-17"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+3市场从7月17日的下跌阶段第5天进入弱修复：涨家数>=2500、跌停<=60、成交额>=28000亿元且上证收盘不低于3764.155。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.52,
+      "evidence_refs": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        "M7"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22涨家数<1800或跌停>100或上证收盘低于3764.155且成交额<26000亿元。"
+    },
+    {
+      "id": "direction:ai_semiconductor_increment",
+      "category": "direction",
+      "claim": "AI半导体硬件链是卖方信息增量而非单纯跟风：T+3半导体、芯片、存储芯片中至少2个转双红，且芯片成交额>=13000亿元或半导体成交额>=5300亿元。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.58,
+      "evidence_refs": [
+        "C1",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6",
+        "S7",
+        "S8"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22半导体、芯片、存储芯片三者均未双红，或芯片成交额<10000亿元且半导体成交额<4000亿元。"
+    },
+    {
+      "id": "target:002371",
+      "category": "target",
+      "claim": "北方华创作为半导体设备容量核心，T+3收盘价应>=711元且成交额>=110亿元。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.5,
+      "evidence_refs": [
+        "R1",
+        "R2",
+        "S9",
+        "S10",
+        "P1"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22收盘价<677元或成交额<90亿元，同时半导体设备板块未双红。"
+    },
+    {
+      "id": "target:688012",
+      "category": "target",
+      "claim": "中微公司作为前道设备核心，T+3收盘价应>=368元且成交额>=120亿元。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.5,
+      "evidence_refs": [
+        "R1",
+        "R2",
+        "S9",
+        "S10",
+        "P2"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22收盘价<350.69元且半导体设备板块未双红。"
+    },
+    {
+      "id": "target:603986",
+      "category": "target",
+      "claim": "兆易创新若真被存储产能替代逻辑重新接住，T+3收盘价应>=486元且成交额>=250亿元。",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.43,
+      "evidence_refs": [
+        "R3",
+        "S7",
+        "S8",
+        "P3"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22收盘价仍低于463.15元，或存储芯片板块未双红且成交额<4500亿元。"
+    },
+    {
+      "id": "target:688521",
+      "category": "target",
+      "claim": "芯原股份若订单增量被市场确认，T+3收盘价应>=243元且成交额>=75亿元。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.54,
+      "evidence_refs": [
+        "R4",
+        "R5",
+        "S1",
+        "S2",
+        "P4"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22收盘价<231.6元，或成交额<60亿元且芯片板块未双红。"
+    },
+    {
+      "id": "target:688313",
+      "category": "target",
+      "claim": "仕佳光子若CPO高弹性修复成立，T+3收盘价应>=124元且成交额>=32亿元，并最好与CPO板块双红共振。",
+      "horizon": "T+3",
+      "confidence": "low",
+      "confidence_probability": 0.41,
+      "evidence_refs": [
+        "R7",
+        "S11",
+        "S12",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22收盘价<117.99元，或CPO板块未双红且成交额<4500亿元。"
+    },
+    {
+      "id": "falsify",
+      "category": "falsify",
+      "claim": "若T+3半导体链未双红、成交额收缩且标的池多数不能收复7月17日收盘价，则卖方高覆盖应被解释为跟风透支而非信息增量。",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M1",
+        "M3",
+        "M4",
+        "C1",
+        "S1",
+        "S2",
+        "S4",
+        "S5",
+        "S7",
+        "S8"
+      ],
+      "evidence_as_of": "2026-07-17",
+      "falsify_when": "2026-07-22方向阈值和标的阈值均命中，则本证伪假设不成立。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-20",
+    "recheck_t3_date": "2026-07-22",
+    "pick_returns_t1": [
+      10.0,
+      19.09,
+      10.0,
+      8.76,
+      9.33
+    ],
+    "pick_returns_t3": [
+      12.8658,
+      14.7416,
+      8.7208,
+      6.4311,
+      4.3049
+    ],
+    "benchmark_return_t3": 2.7331,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": true
+  }
+}

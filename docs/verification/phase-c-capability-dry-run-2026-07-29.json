@@ -1,0 +1,753 @@
+{
+  "budget_ablation_validity": null,
+  "canonical_runtime_port": 8792,
+  "canonical_runtime_touched": false,
+  "case_count": 5,
+  "cases": [
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "current_baseline",
+        "duration_assessment",
+        "continuation_conditions",
+        "invalidation_conditions",
+        "evidence_boundary"
+      ],
+      "as_of": "2026-07-24",
+      "contract": {
+        "allowed_capabilities": [
+          "market_data",
+          "mainline_context",
+          "finance_query",
+          "evidence_search"
+        ],
+        "contract_version": "1",
+        "evidence_plan": {
+          "freshness": "current",
+          "profile": "market_forecast",
+          "requirements": [
+            {
+              "capability": "market_data",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "MARKET_DAILY",
+              "reason": "最新市场总览"
+            },
+            {
+              "capability": "mainline_context",
+              "freshness": "current",
+              "mandatory": false,
+              "provider_name": "D4",
+              "reason": "主线结构补充"
+            }
+          ]
+        },
+        "freshness": "current",
+        "presentation_profile": "market_scenarios",
+        "question": "昨天的反弹能持续多久",
+        "question_type": "market_forecast",
+        "required_outputs": [
+          {
+            "description": "说明最新可用市场基线与数据日期",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "current_baseline",
+            "required": true
+          },
+          {
+            "description": "判断反弹可能持续的时间窗口",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "duration_assessment",
+            "required": true
+          },
+          {
+            "description": "列出判断继续成立的可核验条件",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "continuation_conditions",
+            "required": true
+          },
+          {
+            "description": "列出判断失效或降级的条件",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "invalidation_conditions",
+            "required": true
+          },
+          {
+            "description": "说明证据覆盖范围、数据日期与缺口",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "evidence_boundary",
+            "required": true
+          }
+        ],
+        "research_tier": "standard",
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+        "task_id": "runtime-benchmark:rebound-duration",
+        "timeframe": "最近交易日"
+      },
+      "control": {
+        "capabilities": [
+          "market_data",
+          "mainline_context"
+        ],
+        "execution_route": "market_forecast",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "planned",
+      "id": "rebound-duration",
+      "question": "昨天的反弹能持续多久",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解",
+          "“昨天”按最近一个有数据的交易日解释，具体日期以后续证据日期为准"
+        ],
+        "clarification_question": null,
+        "confidence": 0.92,
+        "evidence_policy": "current_market_scenarios",
+        "market_scope": "A股",
+        "question_type": "market_forecast",
+        "raw_question": "昨天的反弹能持续多久",
+        "required_outputs": [
+          "current_baseline",
+          "duration_assessment",
+          "continuation_conditions",
+          "invalidation_conditions",
+          "evidence_boundary"
+        ],
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+        "timeframe": "最近交易日",
+        "user_goal": "判断最近一次市场反弹的可持续时间、继续条件与失效条件"
+      },
+      "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+      "tier": "standard",
+      "timeout": 180.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "valuation_assessment",
+        "scenario_range",
+        "evidence_boundary"
+      ],
+      "as_of": "2026-07-24",
+      "contract": {
+        "allowed_capabilities": [
+          "market_data",
+          "financial_data",
+          "kb_search",
+          "evidence_lookup",
+          "web_search",
+          "finance_query",
+          "evidence_search"
+        ],
+        "contract_version": "1",
+        "evidence_plan": {
+          "freshness": "current",
+          "profile": "valuation_current_anchor",
+          "requirements": [
+            {
+              "capability": "market_data",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "VALUATION_MARKET",
+              "reason": "当前价格、交易日与可比估值锚点"
+            },
+            {
+              "capability": "financial_data",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "VALUATION_FINANCIAL",
+              "reason": "逐季营收、利润或盈利质量硬数据锚点"
+            }
+          ]
+        },
+        "freshness": "current",
+        "presentation_profile": "company_valuation",
+        "question": "瑞华泰的合理估值",
+        "question_type": "valuation_estimate",
+        "required_outputs": [
+          {
+            "description": "基于当前市场锚点说明估值方法、关键假设与当前估值判断",
+            "evidence_types": [
+              "market_data",
+              "financial_data",
+              "kb_search",
+              "evidence_lookup",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "valuation_assessment",
+            "required": true
+          },
+          {
+            "description": "给出明确方法与假设边界的估值情景区间",
+            "evidence_types": [
+              "market_data",
+              "financial_data",
+              "kb_search",
+              "evidence_lookup",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "scenario_range",
+            "required": true
+          },
+          {
+            "description": "说明证据覆盖范围、数据日期与缺口",
+            "evidence_types": [
+              "market_data",
+              "financial_data",
+              "kb_search",
+              "evidence_lookup",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "evidence_boundary",
+            "required": true
+          },
+          {
+            "description": "给出至少一项逐季财务或业务兑现硬数据锚点",
+            "evidence_types": [
+              "financial_data",
+              "evidence_lookup",
+              "kb_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "financial_business_anchor",
+            "required": true
+          },
+          {
+            "description": "列出判断失效或降级的条件",
+            "evidence_types": [
+              "market_data",
+              "financial_data",
+              "kb_search",
+              "evidence_lookup",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "invalidation_conditions",
+            "required": true
+          }
+        ],
+        "research_tier": "standard",
+        "subject": "瑞华泰",
+        "subject_kind": "company",
+        "task_frame_hash": "0e584311fc1c999d24e938ade5fe5b627e8d4f695f6501af67b64ada4ddbec15",
+        "task_id": "runtime-benchmark:ruihuatai-valuation",
+        "timeframe": null
+      },
+      "control": {
+        "capabilities": [
+          "market_data",
+          "financial_data",
+          "kb_search",
+          "evidence_lookup",
+          "web_search"
+        ],
+        "execution_route": "valuation_estimate",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "planned",
+      "id": "ruihuatai-valuation",
+      "question": "瑞华泰的合理估值",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解"
+        ],
+        "clarification_question": null,
+        "confidence": 1.0,
+        "evidence_policy": "company_valuation_evidence",
+        "market_scope": "A股",
+        "question_type": "valuation_estimate",
+        "raw_question": "瑞华泰的合理估值",
+        "required_outputs": [
+          "valuation_assessment",
+          "scenario_range",
+          "evidence_boundary"
+        ],
+        "subject": "瑞华泰",
+        "subject_kind": "company",
+        "task_frame_hash": "0e584311fc1c999d24e938ade5fe5b627e8d4f695f6501af67b64ada4ddbec15",
+        "timeframe": null,
+        "user_goal": "形成条件化判断"
+      },
+      "task_frame_hash": "0e584311fc1c999d24e938ade5fe5b627e8d4f695f6501af67b64ada4ddbec15",
+      "tier": "standard",
+      "timeout": 180.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "direct_assessment",
+        "causal_chain",
+        "counterpoint",
+        "evidence_boundary",
+        "cause_attribution"
+      ],
+      "as_of": "2026-07-24",
+      "contract": {
+        "allowed_capabilities": [
+          "market_data",
+          "news_search",
+          "web_search",
+          "finance_query",
+          "evidence_search"
+        ],
+        "contract_version": "1",
+        "evidence_plan": {
+          "freshness": "current",
+          "profile": "time_aligned_market_causal",
+          "requirements": [
+            {
+              "capability": "market_data",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "MARKET_CAUSE_WINDOW",
+              "reason": "指定市场窗口的结构化表现"
+            },
+            {
+              "capability": "news_search",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "MARKET_CAUSE_NEWS",
+              "reason": "与市场窗口时间对齐的原因证据"
+            },
+            {
+              "capability": "web_search",
+              "freshness": "current",
+              "mandatory": false,
+              "provider_name": "MARKET_CAUSE_WEB",
+              "reason": "明确标注为外部观点的竞争性解释"
+            }
+          ]
+        },
+        "freshness": "current",
+        "presentation_profile": "market_causal",
+        "question": "这一周行情下跌的主要原因是什么",
+        "question_type": "market_cause",
+        "required_outputs": [
+          {
+            "description": "直接回答用户问题并说明判断强度",
+            "evidence_types": [
+              "market_data",
+              "news_search",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "direct_assessment",
+            "required": true
+          },
+          {
+            "description": "解释时间对齐的原因、传导链和盘面印证",
+            "evidence_types": [
+              "market_data",
+              "news_search",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "model_reasoning",
+            "output_id": "causal_chain",
+            "required": true
+          },
+          {
+            "description": "提供主要反证或竞争性解释",
+            "evidence_types": [
+              "market_data",
+              "news_search",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "counterpoint",
+            "required": true
+          },
+          {
+            "description": "说明证据覆盖范围、数据日期与缺口",
+            "evidence_types": [
+              "market_data",
+              "news_search",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "evidence_boundary",
+            "required": true
+          },
+          {
+            "description": "cause_attribution",
+            "evidence_types": [
+              "market_data",
+              "news_search",
+              "web_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "model_reasoning",
+            "output_id": "cause_attribution",
+            "required": true
+          }
+        ],
+        "research_tier": "standard",
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+        "task_id": "runtime-benchmark:weekly-market-cause",
+        "timeframe": "这一周"
+      },
+      "control": {
+        "capabilities": [
+          "market_data",
+          "news_search",
+          "web_search"
+        ],
+        "execution_route": "market_cause",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "planned",
+      "id": "weekly-market-cause",
+      "question": "这一周行情下跌的主要原因是什么",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解",
+          "“这一周”按最新可用证据覆盖的交易周解释"
+        ],
+        "clarification_question": null,
+        "confidence": 0.96,
+        "evidence_policy": "time_aligned_market_causal",
+        "market_scope": "A股",
+        "question_type": "market_cause",
+        "raw_question": "这一周行情下跌的主要原因是什么",
+        "required_outputs": [
+          "direct_assessment",
+          "causal_chain",
+          "counterpoint",
+          "evidence_boundary",
+          "cause_attribution"
+        ],
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+        "timeframe": "这一周",
+        "user_goal": "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链"
+      },
+      "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+      "tier": "standard",
+      "timeout": 180.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "direct_assessment",
+        "supporting_evidence",
+        "risk_signals"
+      ],
+      "as_of": "2026-07-24",
+      "contract": {
+        "allowed_capabilities": [
+          "market_data",
+          "mainline_context",
+          "news_search",
+          "finance_query",
+          "evidence_search"
+        ],
+        "contract_version": "1",
+        "evidence_plan": {
+          "freshness": "current",
+          "profile": "mainline_current",
+          "requirements": [
+            {
+              "capability": "market_data",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "MARKET_DAILY",
+              "reason": "同日市场总览"
+            },
+            {
+              "capability": "mainline_context",
+              "freshness": "current",
+              "mandatory": true,
+              "provider_name": "D4",
+              "reason": "同日主线结构"
+            },
+            {
+              "capability": "market_timeseries",
+              "freshness": "current",
+              "mandatory": false,
+              "provider_name": "D0",
+              "reason": "盘面时序补充"
+            },
+            {
+              "capability": "market_midterm",
+              "freshness": "current",
+              "mandatory": false,
+              "provider_name": "D6",
+              "reason": "中期持续性补充"
+            },
+            {
+              "capability": "news_search",
+              "freshness": "current",
+              "mandatory": false,
+              "provider_name": "W7",
+              "reason": "消息面补充"
+            }
+          ]
+        },
+        "freshness": "current",
+        "presentation_profile": "market_watch",
+        "question": "目前市场的主线是什么",
+        "question_type": "market_watch",
+        "required_outputs": [
+          {
+            "description": "直接回答用户问题并说明判断强度",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "news_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "direct_assessment",
+            "required": true
+          },
+          {
+            "description": "列出与结论直接相关的支持证据",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "news_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "supporting_evidence",
+            "required": true
+          },
+          {
+            "description": "列出风险信号与观察条件",
+            "evidence_types": [
+              "market_data",
+              "mainline_context",
+              "news_search",
+              "finance_query",
+              "evidence_search"
+            ],
+            "grounding_mode": "evidence",
+            "output_id": "risk_signals",
+            "required": true
+          }
+        ],
+        "research_tier": "standard",
+        "subject": null,
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "43383a0928f4caa2f7525e66c35a5451c17b8dad84981b04214a95a41c8a31b7",
+        "task_id": "runtime-benchmark:current-mainline",
+        "timeframe": null
+      },
+      "control": {
+        "capabilities": [
+          "market_data",
+          "mainline_context",
+          "news_search"
+        ],
+        "execution_route": "market_watch",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "planned",
+      "id": "current-mainline",
+      "question": "目前市场的主线是什么",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解"
+        ],
+        "clarification_question": null,
+        "confidence": 0.98,
+        "evidence_policy": "current_a_share_market",
+        "market_scope": "A股",
+        "question_type": "market_watch",
+        "raw_question": "目前市场的主线是什么",
+        "required_outputs": [
+          "direct_assessment",
+          "supporting_evidence",
+          "risk_signals"
+        ],
+        "subject": null,
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "43383a0928f4caa2f7525e66c35a5451c17b8dad84981b04214a95a41c8a31b7",
+        "timeframe": null,
+        "user_goal": "总结当日盘面主线、观察清单与验证信号"
+      },
+      "task_frame_hash": "43383a0928f4caa2f7525e66c35a5451c17b8dad84981b04214a95a41c8a31b7",
+      "tier": "standard",
+      "timeout": 180.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "method",
+        "evidence_hierarchy",
+        "failure_modes",
+        "verification_path"
+      ],
+      "as_of": "2026-07-24",
+      "contract": {
+        "allowed_capabilities": [],
+        "contract_version": "1",
+        "evidence_plan": {
+          "freshness": "stable",
+          "profile": "model_reasoning",
+          "requirements": []
+        },
+        "freshness": "current",
+        "presentation_profile": "general",
+        "question": "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+        "question_type": "general_finance_qa",
+        "required_outputs": [
+          {
+            "description": "method",
+            "evidence_types": [],
+            "grounding_mode": "model_reasoning",
+            "output_id": "method",
+            "required": true
+          },
+          {
+            "description": "evidence_hierarchy",
+            "evidence_types": [],
+            "grounding_mode": "model_reasoning",
+            "output_id": "evidence_hierarchy",
+            "required": true
+          },
+          {
+            "description": "failure_modes",
+            "evidence_types": [],
+            "grounding_mode": "model_reasoning",
+            "output_id": "failure_modes",
+            "required": true
+          },
+          {
+            "description": "verification_path",
+            "evidence_types": [],
+            "grounding_mode": "model_reasoning",
+            "output_id": "verification_path",
+            "required": true
+          }
+        ],
+        "research_tier": "standard",
+        "subject": null,
+        "subject_kind": "unknown",
+        "task_frame_hash": "425c4fa434b3c05e37f5836283350f7f78c9fde5a80927e1d7176dacf954103f",
+        "task_id": "runtime-benchmark:unfamiliar-methodology",
+        "timeframe": null
+      },
+      "control": {
+        "capabilities": [
+          "kb_search",
+          "web_search",
+          "market_data",
+          "mainline_context",
+          "news_search"
+        ],
+        "execution_route": "general_finance_qa",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "planned",
+      "id": "unfamiliar-methodology",
+      "question": "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解"
+        ],
+        "clarification_question": null,
+        "confidence": 0.4,
+        "evidence_policy": "general_finance_evidence",
+        "market_scope": "A股",
+        "question_type": "general_finance_qa",
+        "raw_question": "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+        "required_outputs": [
+          "method",
+          "evidence_hierarchy",
+          "failure_modes",
+          "verification_path"
+        ],
+        "subject": null,
+        "subject_kind": "unknown",
+        "task_frame_hash": "425c4fa434b3c05e37f5836283350f7f78c9fde5a80927e1d7176dacf954103f",
+        "timeframe": null,
+        "user_goal": "给出可执行的判断方法、证据层级、失败模式与验证路径"
+      },
+      "task_frame_hash": "425c4fa434b3c05e37f5836283350f7f78c9fde5a80927e1d7176dacf954103f",
+      "tier": "standard",
+      "timeout": 180.0
+    }
+  ],
+  "credential_source": "environment",
+  "expected_backends": [
+    "sdk_gpt"
+  ],
+  "finance_root": "/Users/a77/finance-workspace-private",
+  "generated_at": "2026-07-29",
+  "headless_budget_profile": null,
+  "knowledge_wiki": "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/wiki",
+  "market_data_date": null,
+  "mode": "dry_run",
+  "runtime_switched": false,
+  "schema_version": 1,
+  "source_dirty": false,
+  "source_revision": "b60a759e8aea2ac52d54b80a05a5e12923fc82a4"
+}

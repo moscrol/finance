@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>猜你想问 · 反馈回路</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>猜你想问 · 反馈回路</h1>
+    <span class="spacer"></span>
+    <label for="user">用户</label>
+    <select id="user"></select>
+    <button id="reload" class="ghost" title="重新加载当前用户全部数据">重载</button>
+  </header>
+
+  <nav>
+    <button data-tab="foresight" class="active">猜你想问</button>
+    <button data-tab="affinity">亲和度 &amp; 反馈</button>
+    <button data-tab="profile">画像</button>
+    <button data-tab="strategy">策略 overlay</button>
+  </nav>
+
+  <main>
+    <!-- 猜你想问 -->
+    <section id="tab-foresight" class="panel active">
+      <p class="meta-line" id="foresight-meta">加载中…</p>
+      <div class="row">
+        <button id="regen" class="primary">重新生成</button>
+        <span class="meta-line" style="margin:0;align-self:center">每张卡的「想深挖 / 关注 / 置顶 / 不看了 / 打分」点一下就自动落 interaction。</span>
+      </div>
+      <div id="cards"></div>
+    </section>
+
+    <!-- 亲和度 & 反馈 -->
+    <section id="tab-affinity" class="panel">
+      <div class="warn-box" style="background:rgba(76,154,255,.1);border-color:var(--accent);color:var(--fg)">
+        这里就是「系统现在以为你在追什么」。分数 = Σ 反馈权重 × 时间衰减（半衰期 14 天）；觉得不对就在下面补一笔纠偏。
+      </div>
+      <div class="section-title">快速记一笔</div>
+      <div class="row">
+        <div class="field"><label>类型</label>
+          <select id="qk-kind">
+            <option value="click">想深挖 click (+1.0)</option>
+            <option value="follow">关注 follow (+1.5)</option>
+            <option value="pin">置顶 pin (+2.0)</option>
+            <option value="ask">追问 ask (+1.2)</option>
+            <option value="view">扫一眼 view (+0.3)</option>
+            <option value="skip">跳过 skip (-0.5)</option>
+            <option value="dismiss">不看了 dismiss (-1.0)</option>
+            <option value="mute">别再推 mute (-1.5)</option>
+            <option value="rate">打分 rate (1~5)</option>
+          </select>
+        </div>
+        <div class="field"><label>题材（逗号分隔）</label><input id="qk-theme" placeholder="液冷, 固态电池" /></div>
+        <div class="field"><label>个股（逗号分隔）</label><input id="qk-stock" placeholder="中际旭创" /></div>
+        <div class="field"><label>评分(1~5)</label><input id="qk-rating" type="number" min="1" max="5" style="width:80px" /></div>
+        <button id="qk-submit" class="primary">记一笔</button>
+      </div>
+
+      <div class="section-title">亲和度榜</div>
+      <div id="affinity-list"></div>
+
+      <div class="section-title">最近反馈</div>
+      <div id="records-list"></div>
+    </section>
+
+    <!-- 画像 -->
+    <section id="tab-profile" class="panel">
+      <p class="meta-line" id="profile-meta"></p>
+      <div class="row">
+        <button id="refresh-diff">刷新画像（预览 diff）</button>
+        <button id="refresh-apply" class="primary">应用派生</button>
+        <span class="meta-line" style="margin:0;align-self:center">从 DuckDB 强势股 + 知识库 theme_signals 派生候选；钉住项写在 profile.json，不会被覆盖。</span>
+      </div>
+      <div id="profile-warn"></div>
+      <div class="section-title">关注题材 focus_themes</div>
+      <div class="chips" id="profile-themes"></div>
+      <div class="section-title">自选 watchlist</div>
+      <div class="chips" id="profile-watch"></div>
+      <div id="refresh-result"></div>
+    </section>
+
+    <!-- 策略 overlay -->
+    <section id="tab-strategy" class="panel">
+      <p class="meta-line" id="strategy-meta"></p>
+      <div class="warn-box">
+        这里只读写 <code>users/&lt;id&gt;/strategy_params.json</code>（稀疏 overlay）。真正跑 evolve 需要本机 DuckDB；保存只落盘参数。
+        可覆盖段：<span id="allowed-sections"></span>
+      </div>
+      <div class="section-title">overlay（编辑后保存）</div>
+      <textarea id="overlay-text" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button id="overlay-save" class="primary">保存 overlay</button>
+        <button id="overlay-skeleton" class="ghost">插入模板骨架</button>
+      </div>
+      <div class="section-title">生效参数 = baseline ⊕ overlay</div>
+      <pre class="answer" id="effective-params"></pre>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

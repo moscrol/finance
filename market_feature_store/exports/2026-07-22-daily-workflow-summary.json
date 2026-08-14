@@ -1,0 +1,461 @@
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-07-23T01:50:44+08:00",
+  "finished_at": "2026-07-23T01:52:56+08:00",
+  "inputs": {
+    "date": "2026-07-22",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": true,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-07-22 --phase data",
+      "returncode": 0,
+      "duration_sec": 0.397,
+      "stdout_tail": [
+        "fact_market_daily: rows=1 max=2026-07-22",
+        "fact_sector_daily: rows=224 max=2026-07-22",
+        "fact_sw_l1_daily: rows=31 max=2026-07-22",
+        "fact_sector_stock_daily: rows=28453 max=2026-07-22",
+        "fact_stock_high_daily: rows=155 max=2026-07-22",
+        "fact_theme_limit_heat_daily: rows=96 max=2026-07-22",
+        "fact_theme_limit_stock_daily: rows=226 max=2026-07-22",
+        "fact_limit_advance_daily: rows=12 max=2026-07-22",
+        "fact_stock_daily: rows=5527 max=2026-07-22",
+        "fact_mainline_theme_daily: rows=5 max=2026-07-22",
+        "fact_mainline_stock_daily: rows=116 max=2026-07-22",
+        "fact_mainline_sector_daily: rows=13 max=2026-07-22",
+        "fact_theme_flow_daily: rows=75 max=2026-07-22",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-22",
+        "feature_market_window: rows=4 max=2026-07-22",
+        "feature_sector_window: rows=895 max=2026-07-22",
+        "feature_stock_window: rows=18419 max=2026-07-22",
+        "feature_stock_technical_daily: rows=5194 max=2026-07-22",
+        "fact_stock_daily 覆盖率: 5518/5519 = 99.98%",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli check-daily --trade-date 2026-07-22 --json /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-22.json",
+      "returncode": 0,
+      "duration_sec": 0.224,
+      "stdout_tail": [
+        "跨日质检 @2026-07-22 (日历窗口=20)",
+        "RESULT: PASS | 通过",
+        "json -> /Users/a77/finance-workspace-private/skills/daily-full-review/state/quality-2026-07-22.json"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "PASS",
+      "command": "python3 skills/daily-full-review/scripts/export_increment.py --date 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.135,
+      "stdout_tail": [
+        "[export-increment] 2026-07-22: 19 表 / 40473 行 -> /Users/a77/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-2026-07-22.tar.gz (1.1 MB)"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.647,
+      "stdout_tail": [
+        "交易日: 2026-07-22",
+        "报告: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-review.md",
+        "图表: /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-advancers-ma5.png"
+      ],
+      "stderr_tail": [
+        "findfont: Failed to find font weight bold, now using 400."
+      ],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-review.md",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-advancers-ma5.png"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.341,
+      "stdout_tail": [
+        "fact_limit_advance_daily: rows=12 max=2026-07-22",
+        "fact_stock_daily: rows=5527 max=2026-07-22",
+        "fact_mainline_theme_daily: rows=5 max=2026-07-22",
+        "fact_mainline_stock_daily: rows=116 max=2026-07-22",
+        "fact_mainline_sector_daily: rows=13 max=2026-07-22",
+        "fact_theme_flow_daily: rows=75 max=2026-07-22",
+        "fact_sector_period_rank_daily: rows=40 max=2026-07-22",
+        "feature_market_window: rows=4 max=2026-07-22",
+        "feature_sector_window: rows=895 max=2026-07-22",
+        "feature_stock_window: rows=18419 max=2026-07-22",
+        "feature_stock_technical_daily: rows=5194 max=2026-07-22",
+        "fact_stock_daily 覆盖率: 5518/5519 = 99.98%",
+        "CHECK L2 2026-07-22",
+        "l2-moneyflow/limitup: ('complete', 120, 120, 120, 0, datetime.datetime(2026, 7, 23, 1, 12, 3, 485561))",
+        "l2-moneyflow/top100: ('complete', 100, 100, 100, 0, datetime.datetime(2026, 7, 23, 1, 14, 8, 346585))",
+        "l2-moneyflow/quant: ('complete', 70, 100, 100, 0, datetime.datetime(2026, 7, 23, 1, 16, 40, 719246))",
+        "feature_l2_capital_flow_daily: rows=220 max=2026-07-22",
+        "feature_l2_quant_orders_daily: rows=70 max=2026-07-22",
+        "RESULT: COMPLETE",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-daily-review.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-daily-review.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli perspective framework-daily --date 2026-07-22 --daily-review-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-review.md --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-framework-interpretation.md",
+      "returncode": 0,
+      "duration_sec": 0.119,
+      "stdout_tail": [
+        "[框架解读] 跳过：user_framework profile 不存在（perspective init 后手工编辑或用问卷 candidate 编译）"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli checkpoint recheck --date 2026-07-22 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": 0,
+      "duration_sec": 0.127,
+      "stdout_tail": [
+        "回检并落盘 3 条",
+        "- ck-2026-07-06-4be68b｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "- ck-2026-07-06-aef0e5｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "- ck-2026-07-06-f211eb｜unverifiable（manual）：无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",
+        "人类可读回检日志：/Users/a77/agent-memory/可证伪点回检/2026-07-22.md"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli theme --date 2026-07-22 --market-triggered --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.md",
+      "returncode": 0,
+      "duration_sec": 51.029,
+      "stdout_tail": [
+        "  \"outputs\": [",
+        "    \"trade_date=2026-07-22\",",
+        "    \"candidate_count=50\",",
+        "    \"deep_count=10\",",
+        "    \"watch_count=20\",",
+        "    \"long_tail_count=20\",",
+        "    \"candidate=电力 score=287.93 triggers=limit_heat,limit_advance_cluster,multi_period_rank,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=0\",",
+        "    \"candidate=算力租赁 score=205.67 triggers=limit_heat,limit_advance_cluster,new_high_direction,new_high_cluster,capacity_industry concept_count=5 exposure_count=12 evidence_count=5\",",
+        "    \"candidate=贵金属 score=184.35 triggers=limit_advance_cluster,multi_period_rank,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=1\",",
+        "    \"candidate=黄金 score=179.13 triggers=double_red,multi_period_rank,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=2\",",
+        "    \"candidate=金属铅 score=168.7 triggers=double_red,multi_period_rank,new_high_direction,new_high_cluster concept_count=0 exposure_count=0 evidence_count=0\",",
+        "    \"out_json=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.json\",",
+        "    \"out_md=/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.md\"",
+        "  ],",
+        "  \"warnings\": [],",
+        "  \"errors\": [],",
+        "  \"next_actions\": [",
+        "    \"Review market-triggered candidates before enabling deep radar report generation.\"",
+        "  ]",
+        "}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.md"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.05,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-queue.json",
+        "queue_count=20",
+        "priority_counts={'critical': 2, 'high': 7, 'medium': 6, 'low': 5}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-queue.json"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.03,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.md",
+        "review_count=9",
+        "status_counts={'pending_review': 9}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.md"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.041,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-theme-candidates.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-theme-candidates.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-07-22",
+      "returncode": 0,
+      "duration_sec": 0.643,
+      "stdout_tail": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-market-triggered-theme-brief.md",
+        "COMPLETE",
+        "DEEP 287.93: 电力 / 电力 / limit_heat,limit_advance_cluster,multi_period_rank,new_high_direction,new_high_cluster",
+        "DEEP 205.67: 算力租赁 / 算力租赁 / limit_heat,limit_advance_cluster,capacity_industry,new_high_direction,new_high_cluster",
+        "DEEP 184.35: 贵金属 / 贵金属 / limit_advance_cluster,multi_period_rank,new_high_direction,new_high_cluster",
+        "WATCH 179.13: 黄金 / 黄金 / double_red,multi_period_rank,new_high_direction,new_high_cluster",
+        "WATCH 168.7: 金属铅 / 金属铅 / double_red,multi_period_rank,new_high_direction,new_high_cluster",
+        "WATCH 166.73: 金属锌 / 金属锌 / double_red,multi_period_rank,new_high_direction,new_high_cluster",
+        "WATCH 165.56: 半导体 / 半导体 / limit_heat,limit_advance_cluster,capacity_industry,new_high_direction,new_high_cluster",
+        "WATCH 150.54: 金属铜 / 金属铜 / double_red,new_high_direction,new_high_cluster",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-market-triggered-theme-brief.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-triggered-themes.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-market-triggered-theme-brief.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-market-triggered-theme-brief.html"
+      ],
+      "warnings": [],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "agent-daily",
+      "status": "FAIL",
+      "command": "python3 -m intelligence.cli agent-daily --date 2026-07-22 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-agent.json --out-md /Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-agent.md --out-html /Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-daily-agent.html",
+      "returncode": 1,
+      "duration_sec": 78.336,
+      "stdout_tail": [],
+      "stderr_tail": [
+        "Traceback (most recent call last):",
+        "  File \"<frozen runpy>\", line 203, in _run_module_as_main",
+        "  File \"<frozen runpy>\", line 88, in _run_code",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 2820, in <module>",
+        "    raise SystemExit(main(sys.argv[1:]))",
+        "                     ~~~~^^^^^^^^^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 2816, in main",
+        "    return args.func(args)",
+        "           ~~~~~~~~~^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/cli.py\", line 723, in cmd_daily_agent",
+        "    write_daily_agent_outputs(report, answer, out_json, out_md, out_html)",
+        "    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"/Users/a77/finance-workspace-private/intelligence/workflows/daily_agent.py\", line 1473, in write_daily_agent_outputs",
+        "    raise ValueError(",
+        "        \"invalid fidelity contract 1.2: \" + \"; \".join(errors)",
+        "    )",
+        "ValueError: invalid fidelity contract 1.2: evidence ev-20e10b9acec976d6 is after evidence_cutoff; evidence ev-a327fcbdda0882cb is after evidence_cutoff; evidence ev-93a70410c24b458d is after evidence_cutoff; evidence ev-37b2f5059734a9b6 is after evidence_cutoff; evidence ev-e2133ad2ec60db11 is after evidence_cutoff; evidence ev-29d6943304ad2f05 is after evidence_cutoff; evidence ev-f483292fafe06bde is after evidence_cutoff; evidence ev-74bb5c5256a3a78c is after evidence_cutoff; evidence ev-f62f71289276b5a3 is after evidence_cutoff; evidence ev-6864fee943b7f595 is after evidence_cutoff; evidence ev-c80244ce3b46eec8 is after evidence_cutoff; evidence ev-b9bb6696125ddbf2 is after evidence_cutoff; evidence ev-4b6b005d67da4f8d is after evidence_cutoff; evidence ev-765ebf0210acafce is after evidence_cutoff; evidence ev-58187b3405dc24e5 is after evidence_cutoff; evidence ev-e3ac0ad56d164025 is after evidence_cutoff; evidence ev-837419d01295d829 is after evidence_cutoff; evidence ev-6466a9895ee3663d is after evidence_cutoff; evidence ev-6dea707362a70e5c is after evidence_cutoff; evidence ev-ed49a2d19ecc5b1f is after evidence_cutoff; evidence ev-9a0653bb7b935e1e is after evidence_cutoff; evidence ev-963bebaf601eefce is after evidence_cutoff; evidence ev-f58882561df2ba56 is after evidence_cutoff; evidence ev-7cc62f2798a393d5 is after evidence_cutoff; evidence ev-b8cb3f40d37ebc40 is after evidence_cutoff; evidence ev-8bc37790d95438de is after evidence_cutoff; evidence ev-a51ec718b0e24e73 is after evidence_cutoff; evidence ev-2c4ebfe412f044a6 is after evidence_cutoff; evidence ev-59f79014b1b91479 is after evidence_cutoff; evidence ev-372b58d5e430d5e8 is after evidence_cutoff; evidence ev-597bbcee5fb48ff6 is after evidence_cutoff; evidence ev-cadf0de7832e92cf is after evidence_cutoff; evidence ev-78fb4495f713d630 is after evidence_cutoff; evidence ev-0573d8ae20735844 is after evidence_cutoff; evidence ev-981ebe879eecb6a2 is after evidence_cutoff; evidence ev-845b595689da4c4e is after evidence_cutoff; evidence ev-7d23c9a151a84c8c is after evidence_cutoff; evidence ev-10f4762a60ac81c7 is after evidence_cutoff; evidence ev-115c8df4717fbcdb is after evidence_cutoff; evidence ev-f53b28a711578baf is after evidence_cutoff; evidence ev-0049e691fa51f129 is after evidence_cutoff; evidence ev-464567be462b7419 is after evidence_cutoff; evidence ev-88ffbc14e075ec4e is after evidence_cutoff; evidence ev-5f815b144f0302f5 is after evidence_cutoff; evidence ev-3127d275c969f2b9 is after evidence_cutoff; evidence ev-add6786b7272c28f is after evidence_cutoff; evidence ev-08a5e2915d7a9735 is after evidence_cutoff; evidence ev-e381df434eff657c is after evidence_cutoff; evidence ev-7c0bb0543d7b6c90 is after evidence_cutoff; evidence ev-18cbc837af3a1b85 is after evidence_cutoff; evidence ev-2a8eaa215a15862b is after evidence_cutoff; evidence ev-4485a47e5b6998a6 is after evidence_cutoff; evidence ev-635ee116a8e8ed7a is after evidence_cutoff; evidence ev-5c43b06815aa3409 is after evidence_cutoff; evidence ev-095769f6f44dceb4 is after evidence_cutoff; evidence ev-2bebc16bd272fb6e is after evidence_cutoff; evidence ev-363005aaa9ae22ed is after evidence_cutoff; evidence ev-cb648981b5deefe6 is after evidence_cutoff; evidence ev-4fc3ec7d3949d11d is after evidence_cutoff; evidence ev-45d462567ff6b210 is after evidence_cutoff; evidence ev-3decfa8c474c198b is after evidence_cutoff; evidence ev-b9b2467b629622f1 is after evidence_cutoff; evidence ev-58f862c8b3f96489 is after evidence_cutoff; evidence ev-87f52de95c79c9ac is after evidence_cutoff; evidence ev-50dcb89fbdf8e53c is after evidence_cutoff; evidence ev-653a2d145603b613 is after evidence_cutoff; evidence ev-430a9fb75136fa49 is after evidence_cutoff; evidence ev-28be27940e60a736 is after evidence_cutoff; evidence ev-da7c22b7b4d5becf is after evidence_cutoff; evidence ev-0304fea7637d28c8 is after evidence_cutoff; evidence ev-fdaa68579e8029ac is after evidence_cutoff; evidence ev-9b32264b764a126b is after evidence_cutoff; evidence ev-b55739c34e794d09 is after evidence_cutoff; evidence ev-192c69af13a90c1a is after evidence_cutoff; evidence ev-d9e43c067d22ffd5 is after evidence_cutoff; evidence ev-8b732fcb9aff1e53 is after evidence_cutoff; evidence ev-dce33c3d2c16077d is after evidence_cutoff; evidence ev-7dfdacf344f3be82 is after evidence_cutoff; evidence ev-d101367fae11d28c is after evidence_cutoff; evidence ev-4057aa84bd7ea8b0 is after evidence_cutoff; evidence ev-3185a812bce9c824 is after evidence_cutoff; evidence ev-b3a888b559d4fa5d is after evidence_cutoff; evidence ev-e7cc38f8e87ef50f is after evidence_cutoff; evidence ev-4a4ca3ace32ba352 is after evidence_cutoff; evidence ev-7b62d3102acade30 is after evidence_cutoff; evidence ev-58d040027c98cf68 is after evidence_cutoff; evidence ev-fd83cc46e3fdfa89 is after evidence_cutoff; evidence ev-59b56a720a94df6b is after evidence_cutoff; evidence ev-c4e1663de61acabd is after evidence_cutoff; evidence ev-aea3671875cc9fc8 is after evidence_cutoff; evidence ev-8911b2db25c82ab8 is after evidence_cutoff; evidence ev-59ede294d4f90bdc is after evidence_cutoff; evidence ev-6d062dae89b44c7d is after evidence_cutoff; evidence ev-f86229c033161c30 is after evidence_cutoff; evidence ev-a5f25f482feff130 is after evidence_cutoff; evidence ev-392cd1716dd5a014 is after evidence_cutoff; evidence ev-e928d452c7f5b686 is after evidence_cutoff; evidence ev-4ca4c27d760e221b is after evidence_cutoff; evidence ev-16f1e9efa03ca64e is after evidence_cutoff; evidence ev-fa79586ec6adaee9 is after evidence_cutoff; evidence ev-4a96aaab0f8102b6 is after evidence_cutoff; evidence ev-1ff59567dfedd678 is after evidence_cutoff; evidence ev-75b4275806a6c539 is after evidence_cutoff; evidence ev-93f976cc088421a6 is after evidence_cutoff; evidence ev-3dda7ec83626647b is after evidence_cutoff; evidence ev-61cb555596cb0ef6 is after evidence_cutoff; evidence ev-4682530a3ab06929 is after evidence_cutoff; evidence ev-3ff2f712e9d5d4de is after evidence_cutoff; evidence ev-23c23cad743392e1 is after evidence_cutoff; evidence ev-889487ee6ca73317 is after evidence_cutoff; evidence ev-cd0e8e6a50747771 is after evidence_cutoff; evidence ev-658bc8b2fdb12b22 is after evidence_cutoff; evidence ev-52ebbbf555da0793 is after evidence_cutoff; evidence ev-7b9236adbe4e3761 is after evidence_cutoff; evidence ev-776c8bbe0b47b4ee is after evidence_cutoff; evidence ev-5c42e60e4cb4f448 is after evidence_cutoff; evidence ev-b4f3f67ea66ca436 is after evidence_cutoff; evidence ev-c78ec99327e83228 is after evidence_cutoff; evidence ev-725ba14577d6541c is after evidence_cutoff; evidence ev-249eaf115d32b088 is after evidence_cutoff; evidence ev-09fcb41595ae0337 is after evidence_cutoff; evidence ev-d9bd3fa0d1d1122e is after evidence_cutoff; evidence ev-e8b66db61fbe2781 is after evidence_cutoff; evidence ev-1dfa31afa2e81d00 is after evidence_cutoff; evidence ev-f4008cfde7ddef02 is after evidence_cutoff; evidence ev-c784181c0fcc2836 is after evidence_cutoff; evidence ev-560c6e31dbc26481 is after evidence_cutoff; evidence ev-335cdbf7f370daf8 is after evidence_cutoff; evidence ev-3f61559c1e7dc0e9 is after evidence_cutoff; evidence ev-e976ff48678fc9a5 is after evidence_cutoff; evidence ev-e8b6331cf332fbb3 is after evidence_cutoff; evidence ev-62fd164cf0d4e3ac is after evidence_cutoff; evidence ev-45f2a5aa4aeceabc is after evidence_cutoff; evidence ev-74aaa2914a55e3bc is after evidence_cutoff; evidence ev-b0c1945d211982da is after evidence_cutoff; evidence ev-101f5777180b97f2 is after evidence_cutoff; evidence ev-f3a1e23b3eae8cde is after evidence_cutoff; evidence ev-db89099f02af048b is after evidence_cutoff; evidence ev-1ed14c99693f5ff9 is after evidence_cutoff; evidence ev-efb3966542c39e66 is after evidence_cutoff; evidence ev-ccad00664f21cef6 is after evidence_cutoff; evidence ev-50f818db56fabbbb is after evidence_cutoff; evidence ev-4b42dcd14303a5e5 is after evidence_cutoff; evidence ev-3c91d982b206846a is after evidence_cutoff; evidence ev-789e4af3356796b2 is after evidence_cutoff; evidence ev-3a4b4113f6eb8b2b is after evidence_cutoff; evidence ev-71b9478a7baedb3c is after evidence_cutoff; evidence ev-5cadff1494d63717 is after evidence_cutoff; evidence ev-020ae84a8be31b7c is after evidence_cutoff; evidence ev-c03a8ac4df32a704 is after evidence_cutoff; evidence ev-54a345cedb7f1c29 is after evidence_cutoff; evidence ev-28666ec8be32d40c is after evidence_cutoff; evidence ev-161df3f526544046 is after evidence_cutoff; evidence ev-e743d1347a64193b is after evidence_cutoff; evidence ev-9ce33432e2b9b37f is after evidence_cutoff; evidence ev-8003c10c270f637e is after evidence_cutoff; evidence ev-995d6db4056bdc41 is after evidence_cutoff; evidence ev-6d24e9381651f1ee is after evidence_cutoff; evidence ev-23b7507af9b4f6ff is after evidence_cutoff; evidence ev-616077a93d7951bd is after evidence_cutoff; evidence ev-c4888d2e96357f8b is after evidence_cutoff; evidence ev-ccf69ec77e3b3478 is after evidence_cutoff; evidence ev-a1c4032b02651150 is after evidence_cutoff; evidence ev-c85fbc4bf32fef4e is after evidence_cutoff; evidence ev-5cb20b4d42c3f7d6 is after evidence_cutoff; evidence ev-5e22035ff3dc1d43 is after evidence_cutoff; evidence ev-7fd1ff40a2f57b3a is after evidence_cutoff; evidence ev-276d6d539f246c4b is after evidence_cutoff; evidence ev-ce97ea8bfa70ffea is after evidence_cutoff; evidence ev-454adc82f4b1dabd is after evidence_cutoff; evidence ev-6e78123f0d5f54bd is after evidence_cutoff; evidence ev-9757f6555002243b is after evidence_cutoff; evidence ev-35872a2e312d3410 is after evidence_cutoff; evidence ev-28da20033a6b5173 is after evidence_cutoff; evidence ev-5793250dab6fae85 is after evidence_cutoff; evidence ev-a025f46930a3e862 is after evidence_cutoff; evidence ev-d7fe8740c7fe4842 is after evidence_cutoff; evidence ev-ce14495b76e3df7d is after evidence_cutoff; evidence ev-8ac38ffc5eabbef7 is after evidence_cutoff; evidence ev-ab7d0a4165b82505 is after evidence_cutoff; evidence ev-18742f4f9db40a18 is after evidence_cutoff; evidence ev-724fa2c4a3c34e3d is after evidence_cutoff; evidence ev-417203b7a61c11c9 is after evidence_cutoff; evidence ev-dc96755d2b6d7ad5 is after evidence_cutoff; evidence ev-43ba30820c543d71 is after evidence_cutoff; evidence ev-4d4da2d640ebdd3f is after evidence_cutoff; evidence ev-f403f2a4eabea850 is after evidence_cutoff; evidence ev-faa296fbd61160f4 is after evidence_cutoff; evidence ev-1d28ca93a7b8458d is after evidence_cutoff; evidence ev-0d3f7772a62c5fb4 is after evidence_cutoff; evidence ev-b7f009333fff3944 is after evidence_cutoff; evidence ev-c6b14f79728ce75a is after evidence_cutoff; evidence ev-468342f0602c181a is after evidence_cutoff; evidence ev-0795c5745d323279 is after evidence_cutoff; evidence ev-2484823dbb7b6186 is after evidence_cutoff; evidence ev-66a321eb70311adc is after evidence_cutoff; evidence ev-6aad4a42d2ebf5ce is after evidence_cutoff; evidence ev-b6b4613bcbbf0766 is after evidence_cutoff; evidence ev-2266c6d6f516e269 is after evidence_cutoff; evidence ev-4bab6a8d739c370b is after evidence_cutoff; evidence ev-c27142da09ca525b is after evidence_cutoff; evidence ev-2d4f55f93921a1ee is after evidence_cutoff; evidence ev-2f0cc3103edb8ef9 is after evidence_cutoff; evidence ev-70224adc1a3a780e is after evidence_cutoff; evidence ev-c2a1f0f987de94f1 is after evidence_cutoff; evidence ev-ea5235ac2d8ecc49 is after evidence_cutoff; evidence ev-ad53d207cd3f08d8 is after evidence_cutoff; evidence ev-48534d4a4932070c is after evidence_cutoff; evidence ev-a9b8e854e0f7c4e2 is after evidence_cutoff; evidence ev-e2d9e688f0c848e0 is after evidence_cutoff; evidence ev-071b8efaf8f184e4 is after evidence_cutoff; evidence ev-b2488ac1ba123e1a is after evidence_cutoff; evidence ev-fc98623590c7124a is after evidence_cutoff; evidence ev-7ffb4680fb90632f is after evidence_cutoff; evidence ev-b7f696ed4384ca83 is after evidence_cutoff; evidence ev-c4a860b47293c87c is after evidence_cutoff; evidence ev-df22d89199982b5a is after evidence_cutoff; evidence ev-6827ae5ce09115d6 is after evidence_cutoff; evidence ev-6e760563803c913c is after evidence_cutoff; evidence ev-3f81bcacbeb6fdf3 is after evidence_cutoff; evidence ev-d871a9a5847a1015 is after evidence_cutoff; evidence ev-414030471aaf3096 is after evidence_cutoff; evidence ev-b992270e5fd25c5f is after evidence_cutoff; evidence ev-e589ef30e839985d is after evidence_cutoff; evidence ev-94bb3a3d0da43ad1 is after evidence_cutoff; evidence ev-5fe0cf848a8080cf is after evidence_cutoff; evidence ev-8e12b5f1a92e4972 is after evidence_cutoff; evidence ev-597236c8679dadd6 is after evidence_cutoff; evidence ev-699c845042f23492 is after evidence_cutoff; evidence ev-f72798c6accdf74f is after evidence_cutoff; evidence ev-a5535137a23da091 is after evidence_cutoff; evidence ev-46e64fba7e48d188 is after evidence_cutoff; evidence ev-bead649b82da9f60 is after evidence_cutoff; evidence ev-7373cc26a8aeec8d is after evidence_cutoff; evidence ev-cd8217d1b3189fc3 is after evidence_cutoff; evidence ev-6a18f046524234bb is after evidence_cutoff; evidence ev-6a17a985562a5573 is after evidence_cutoff; evidence ev-287098017d9c6b0b is after evidence_cutoff; evidence ev-7d674d3c6ec83c2f is after evidence_cutoff; evidence ev-04e422d24148bbc7 is after evidence_cutoff; evidence ev-6d34ff4ccf32d5df is after evidence_cutoff; evidence ev-c399c3c272c7c270 is after evidence_cutoff; evidence ev-0fed996d11499164 is after evidence_cutoff; evidence ev-abc37883abd9e004 is after evidence_cutoff; evidence ev-0c1aef88bda0a187 is after evidence_cutoff; evidence ev-3f3826a4cf0b592b is after evidence_cutoff; evidence ev-56350ff03533dc91 is after evidence_cutoff; evidence ev-4d71dacdec260f85 is after evidence_cutoff; evidence ev-9baa550680e96efe is after evidence_cutoff; evidence ev-c78c6fc33f7548d1 is after evidence_cutoff; evidence ev-71ee5eedf4e9361b is after evidence_cutoff; evidence ev-76764947ca43c461 is after evidence_cutoff; evidence ev-47f731730957e2ac is after evidence_cutoff; evidence ev-813984ebe92e8999 is after evidence_cutoff; evidence ev-990a54c8e8160993 is after evidence_cutoff; evidence ev-f3c8aa52cca542d3 is after evidence_cutoff; evidence ev-217fb010f8e6f681 is after evidence_cutoff; evidence ev-d1aeb94b98eb2dde is after evidence_cutoff; evidence ev-df8cf56c7678f070 is after evidence_cutoff; evidence ev-906d40413f422d39 is after evidence_cutoff; evidence ev-77bffa8ec6c7ce89 is after evidence_cutoff; evidence ev-088cffc820daacd2 is after evidence_cutoff; evidence ev-1b2792e1215ba2f7 is after evidence_cutoff; evidence ev-2ee81ee95ef0d2cf is after evidence_cutoff; evidence ev-51314214586a42a3 is after evidence_cutoff; evidence ev-13d434f7c0dc25bc is after evidence_cutoff; evidence ev-a00efd7228d0e7e5 is after evidence_cutoff; evidence ev-e99992a60f609de7 is after evidence_cutoff; evidence ev-ce1b2188943db29e is after evidence_cutoff; evidence ev-a3d729671ec7cc05 is after evidence_cutoff; evidence ev-c6900c65895f9522 is after evidence_cutoff; evidence ev-739af9f4f810a67b is after evidence_cutoff; evidence ev-61ac13ce2be6db29 is after evidence_cutoff; evidence ev-eeb5562f05f52d5e is after evidence_cutoff; evidence ev-d293f1bc9a7a25ab is after evidence_cutoff; evidence ev-c4963fa3eb0da3b5 is after evidence_cutoff; evidence ev-6209538a05376d16 is after evidence_cutoff; evidence ev-26a7a1a9b849d899 is after evidence_cutoff; evidence ev-7cb346d22305032f is after evidence_cutoff; evidence ev-d01a6f158ca3104a is after evidence_cutoff; evidence ev-4717d49e861c302a is after evidence_cutoff; evidence ev-2e19e7b233fb5145 is after evidence_cutoff; evidence ev-d6e08941db481a42 is after evidence_cutoff; evidence ev-9d590e2f370989c1 is after evidence_cutoff; evidence ev-1823f1c06ef5f43d is after evidence_cutoff; evidence ev-a21c2bf0abeb2903 is after evidence_cutoff; evidence ev-18bdde52a5e67bb3 is after evidence_cutoff; evidence ev-e7d3ceb4d941572c is after evidence_cutoff; evidence ev-1ed9a02c49170880 is after evidence_cutoff; evidence ev-5fade7281957abd8 is after evidence_cutoff; evidence ev-40e2a31fb8a9bf74 is after evidence_cutoff; evidence ev-89e00251b5cdfdcb is after evidence_cutoff; evidence ev-010410bc2dcd303e is after evidence_cutoff; evidence ev-6ba0473e5040a22a is after evidence_cutoff; evidence ev-44ceab046ce692cd is after evidence_cutoff; evidence ev-b08ff12795045b48 is after evidence_cutoff; evidence ev-202fd53d3113441b is after evidence_cutoff; evidence ev-e76cd8cfa7fe03c9 is after evidence_cutoff; evidence ev-6a1da8a22254a0c6 is after evidence_cutoff; evidence ev-0812b9b63db69708 is after evidence_cutoff; evidence ev-40009979cae95e0d is after evidence_cutoff; evidence ev-b0ed7499349fe25a is after evidence_cutoff; evidence ev-afdd0670602e3147 is after evidence_cutoff; evidence ev-f6c86144b001ed98 is after evidence_cutoff; evidence ev-8b738837ada973c5 is after evidence_cutoff; evidence ev-befbab30f78b18c5 is after evidence_cutoff; evidence ev-dd49b2efceabf143 is after evidence_cutoff; evidence ev-ec8bed5e4f2654cc is after evidence_cutoff; evidence ev-8b2635be9cfa4dbe is after evidence_cutoff; evidence ev-35a0eebb250d003f is after evidence_cutoff; evidence ev-5e991f4b6ed80de6 is after evidence_cutoff; evidence ev-b3a12bce3ccf20b1 is after evidence_cutoff; evidence ev-a23d1a2cb1d3341f is after evidence_cutoff; evidence ev-d5ef529da6800cce is after evidence_cutoff; evidence ev-b573e81d22efe35d is after evidence_cutoff; evidence ev-5d202d86f94bcb6a is after evidence_cutoff; evidence ev-6e91e17ef8585a49 is after evidence_cutoff; evidence ev-1c00bf7c5470d659 is after evidence_cutoff; evidence ev-fa61e006f187ce18 is after evidence_cutoff; evidence ev-8f02e055419d5cdc is after evidence_cutoff; evidence ev-ff661474bbb7e1cf is after evidence_cutoff; evidence ev-0f2ba22dd4aa1f7c is after evidence_cutoff; evidence ev-105bc7ebae44b83f is after evidence_cutoff; evidence ev-3f6f9d71e2c31956 is after evidence_cutoff; evidence ev-1c8500b28ed1d248 is after evidence_cutoff; evidence ev-cf2157af4c718005 is after evidence_cutoff; evidence ev-96dab23fa5cf71f7 is after evidence_cutoff; evidence ev-67c36c4ee77db124 is after evidence_cutoff; evidence ev-82d8a7019d6c084f is after evidence_cutoff; evidence ev-6d309db11160489c is after evidence_cutoff; evidence ev-5b46ebbeb916209b is after evidence_cutoff; evidence ev-d9bfd4bc76ad4a0e is after evidence_cutoff; evidence ev-d46e186f15aab255 is after evidence_cutoff; evidence ev-54c9e1279eaf154f is after evidence_cutoff; evidence ev-d95d318562484478 is after evidence_cutoff; evidence ev-76a12584b4820db6 is after evidence_cutoff; evidence ev-4601a18725641c39 is after evidence_cutoff; evidence ev-4ca3d342cb71c3f0 is after evidence_cutoff; evidence ev-9d0ee057f930cf83 is after evidence_cutoff; evidence ev-30c12dc15b44fb73 is after evidence_cutoff; evidence ev-8807b2bd89c6454e is after evidence_cutoff; evidence ev-d5f9f1f196fe735e is after evidence_cutoff; evidence ev-a0bbe106160e28fd is after evidence_cutoff; evidence ev-b1df619bd089703e is after evidence_cutoff; evidence ev-4142fdb61d2c24c4 is after evidence_cutoff; evidence ev-03a6a07108ed9969 is after evidence_cutoff; evidence ev-29c4984bf609c039 is after evidence_cutoff; evidence ev-84c6680ff1ecd99f is after evidence_cutoff; evidence ev-4af507b90028ff2b is after evidence_cutoff; evidence ev-e354c51ac4860e60 is after evidence_cutoff; evidence ev-b8e5cd6865b13bc4 is after evidence_cutoff; evidence ev-82251edb7c5fb2a2 is after evidence_cutoff; evidence ev-73c49c89ffb96e64 is after evidence_cutoff; evidence ev-fed13207129049c7 is after evidence_cutoff; evidence ev-72b38d6e1173ba7d is after evidence_cutoff; evidence ev-4d07f385dde45c46 is after evidence_cutoff; evidence ev-9d50419a7a77f859 is after evidence_cutoff; evidence ev-49f96e7570a81f6c is after evidence_cutoff; evidence ev-303911417063613e is after evidence_cutoff; evidence ev-d69900b0ba660a75 is after evidence_cutoff; evidence ev-b3f54237f0ce7c81 is after evidence_cutoff; evidence ev-5364c6c452c24eda is after evidence_cutoff; evidence ev-5d5648cbecb6df74 is after evidence_cutoff; evidence ev-6e04f12f2bca1695 is after evidence_cutoff; evidence ev-296b0f6d752b9df9 is after evidence_cutoff; evidence ev-a74900ca272ee62e is after evidence_cutoff; evidence ev-7a170aa516c55619 is after evidence_cutoff; evidence ev-c263c549c9c2d34b is after evidence_cutoff; evidence ev-6e2aa6b25fe7f89d is after evidence_cutoff; evidence ev-717b0826a54a5cd1 is after evidence_cutoff; evidence ev-b12b432afb1d0c28 is after evidence_cutoff; evidence ev-a1a52f58259a2dcb is after evidence_cutoff; evidence ev-a044f91c5cf242a9 is after evidence_cutoff; evidence ev-52c545be49838fd2 is after evidence_cutoff; evidence ev-b23a392c319485b8 is after evidence_cutoff; evidence ev-b60d6c9e5d7870f0 is after evidence_cutoff; evidence ev-05bea39687a7a754 is after evidence_cutoff; evidence ev-4cd7b3d5cdf6a420 is after evidence_cutoff; evidence ev-eb493cf0176fb2ae is after evidence_cutoff; evidence ev-8db86e56aa509798 is after evidence_cutoff; evidence ev-54b14e4a851a24ab is after evidence_cutoff; evidence ev-506b51acdfc5a974 is after evidence_cutoff; evidence ev-300767e9351f4550 is after evidence_cutoff; evidence ev-9a0ac662b18a5615 is after evidence_cutoff; evidence ev-a5e353a0ec8ace0a is after evidence_cutoff; evidence ev-e35f7fba5086f36a is after evidence_cutoff; evidence ev-09ba27f17947d220 is after evidence_cutoff; evidence ev-bdc09c61d6f60771 is after evidence_cutoff; evidence ev-07a10869db492e29 is after evidence_cutoff; evidence ev-8204bc7c44c19155 is after evidence_cutoff; evidence ev-786d8a46b5d1f2fb is after evidence_cutoff; evidence ev-6aa5d2835b0cc532 is after evidence_cutoff; evidence ev-86071d28056bfca3 is after evidence_cutoff; evidence ev-28eca647e9226128 is after evidence_cutoff; evidence ev-5bea6323c4ed52cd is after evidence_cutoff; evidence ev-2fec201f29db8060 is after evidence_cutoff; evidence ev-ba3239570abe9cc3 is after evidence_cutoff; evidence ev-b7f56d8e64e950a5 is after evidence_cutoff; evidence ev-de82b1abe3e014bc is after evidence_cutoff; evidence ev-05be0f3443a3b9ae is after evidence_cutoff; evidence ev-0f9c600fd8e936e7 is after evidence_cutoff; evidence ev-9e2b8be612d7b35d is after evidence_cutoff; evidence ev-4da2cdfa2d3270f5 is after evidence_cutoff; evidence ev-8159d9861188be9c is after evidence_cutoff; evidence ev-a6d7628af60647f3 is after evidence_cutoff; evidence ev-6579e6cead8a1fc4 is after evidence_cutoff; evidence ev-bd691f9c07ad6c0d is after evidence_cutoff; evidence ev-a976207d9f57886a is after evidence_cutoff; evidence ev-49ffe905b31e1d43 is after evidence_cutoff; evidence ev-ca3f75248707afdf is after evidence_cutoff; evidence ev-fbe95b7f22152b32 is after evidence_cutoff; evidence ev-ed69d7c84b6d6032 is after evidence_cutoff; evidence ev-d6060d11526edea9 is after evidence_cutoff; evidence ev-ad15810554fdc065 is after evidence_cutoff; evidence ev-de85d908251a9782 is after evidence_cutoff; evidence ev-e9d25185819ee0ac is after evidence_cutoff; evidence ev-a5312c7415bce1f9 is after evidence_cutoff; evidence ev-9f2c91de2c588796 is after evidence_cutoff; input_artifacts[0] contract invalid"
+      ],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-agent.json",
+        "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-agent.md",
+        "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-daily-agent.html"
+      ],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 1"
+      ],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "SKIP",
+      "command": "python3 scripts/generate_strategy1_mechanical_row.py --date 2026-07-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "SKIP",
+      "command": "python3 scripts/render_strategy4_dual_engine_matrix.py --end 2026-07-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "SKIP",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/finance-workspace-private/复盘/index.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-daily-review.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-advancers-ma5.png",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-daily-review.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-candidates.md",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-theme-backfill-review-queue.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-theme-candidates.html",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-triggered-themes.json",
+    "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-22-market-triggered-theme-brief.md",
+    "/Users/a77/finance-workspace-private/复盘/daily/2026-07-22/2026-07-22-market-triggered-theme-brief.html"
+  ],
+  "warnings": [
+    "starting from step: daily-review",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "operational alert delivery failed"
+  ],
+  "errors": [
+    "command failed with returncode 1"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}

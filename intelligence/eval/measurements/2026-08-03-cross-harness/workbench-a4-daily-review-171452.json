@@ -1,0 +1,99 @@
+{
+  "schema_version": "normalized-harness-trace-2",
+  "vocabulary": "triage-l1-9",
+  "source_kind": "workbench-trace",
+  "source_file": "trace.jsonl",
+  "input_sha256": "6ab2f09a196c64a566783d742022d9b428352640ff1c66893014dc0b58cebf56",
+  "event_count": 8,
+  "unmapped_count": 0,
+  "events": [
+    {
+      "sequence": 0,
+      "case_id": null,
+      "step": "intent",
+      "native_or_normalized": "native",
+      "source_event_id": "controller",
+      "source_event_type": "turn_controller",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:14:52+08:00",
+      "summary": "source=turn_controller status=completed role=control"
+    },
+    {
+      "sequence": 1,
+      "case_id": null,
+      "step": "route",
+      "native_or_normalized": "native",
+      "source_event_id": "route",
+      "source_event_type": "route_skills",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:14:52+08:00",
+      "summary": "source=route_skills status=completed role=control"
+    },
+    {
+      "sequence": 2,
+      "case_id": null,
+      "step": "retrieve",
+      "native_or_normalized": "native",
+      "source_event_id": "compose",
+      "source_event_type": "skill_answer_owner",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:14:53+08:00",
+      "summary": "source=skill_answer_owner status=completed role=control"
+    },
+    {
+      "sequence": 3,
+      "case_id": null,
+      "step": "retrieve",
+      "native_or_normalized": "native",
+      "source_event_id": "retrieve",
+      "source_event_type": "ask_retrieve_compose",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:14:53+08:00",
+      "summary": "source=ask_retrieve_compose status=completed role=control"
+    },
+    {
+      "sequence": 4,
+      "case_id": null,
+      "step": "synthesize",
+      "native_or_normalized": "native",
+      "source_event_id": "synthesize",
+      "source_event_type": "answer_synthesis",
+      "event_role": "generation",
+      "timestamp": "2026-08-03T17:15:21+08:00",
+      "summary": "source=answer_synthesis status=completed role=generation"
+    },
+    {
+      "sequence": 5,
+      "case_id": null,
+      "step": "observe",
+      "native_or_normalized": "native",
+      "source_event_id": "validate",
+      "source_event_type": "evidence_atom_validation",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:15:21+08:00",
+      "summary": "source=evidence_atom_validation status=completed role=control"
+    },
+    {
+      "sequence": 6,
+      "case_id": null,
+      "step": "observe",
+      "native_or_normalized": "native",
+      "source_event_id": "llm_budget",
+      "source_event_type": "llm_call_ledger",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:15:21+08:00",
+      "summary": "source=llm_call_ledger status=completed role=control"
+    },
+    {
+      "sequence": 7,
+      "case_id": null,
+      "step": "observe",
+      "native_or_normalized": "native",
+      "source_event_id": "budget",
+      "source_event_type": "research_execution_budget",
+      "event_role": "control",
+      "timestamp": "2026-08-03T17:15:21+08:00",
+      "summary": "source=research_execution_budget status=completed role=control"
+    }
+  ]
+}

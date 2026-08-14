@@ -1,0 +1,273 @@
+{
+  "query": "光刻胶",
+  "date": "2026-06-11",
+  "classification": "old_logic_wakeup",
+  "confidence": 0.95,
+  "market_found": true,
+  "matched_theme": "光刻胶",
+  "market_theme": "光刻胶",
+  "priority_score": 184.57,
+  "trigger_types": [
+    "double_red",
+    "capacity_industry",
+    "limit_heat",
+    "new_high_direction",
+    "new_high_cluster"
+  ],
+  "strong_stocks": [
+    {
+      "stock_name": "华特气体",
+      "stock_ts_code": "688268.SH",
+      "pct_chg": 20.0,
+      "amount": 36.4,
+      "high_status_label": "历史新高"
+    },
+    {
+      "stock_name": "兴福电子",
+      "stock_ts_code": "688545.SH",
+      "pct_chg": 20.0,
+      "amount": 19.59,
+      "high_status_label": "历史新高"
+    },
+    {
+      "stock_name": "雅克科技",
+      "stock_ts_code": "002409.SZ",
+      "pct_chg": 10.0,
+      "amount": 75.05,
+      "high_status_label": "历史新高"
+    },
+    {
+      "stock_name": "南大光电",
+      "stock_ts_code": "300346.SZ",
+      "pct_chg": 8.08,
+      "amount": 82.15,
+      "high_status_label": "历史新高"
+    },
+    {
+      "stock_name": "彤程新材",
+      "stock_ts_code": "603650.SH",
+      "pct_chg": 7.58,
+      "amount": 34.76,
+      "high_status_label": "3年新高"
+    },
+    {
+      "stock_name": "鼎龙股份",
+      "stock_ts_code": "300054.SZ",
+      "pct_chg": 6.25,
+      "amount": 37.31,
+      "high_status_label": null
+    },
+    {
+      "stock_name": "百合花",
+      "stock_ts_code": "603823.SH",
+      "pct_chg": 9.84,
+      "amount": 12.61,
+      "high_status_label": "历史新高"
+    },
+    {
+      "stock_name": "安集科技",
+      "stock_ts_code": "688019.SH",
+      "pct_chg": 6.49,
+      "amount": 28.78,
+      "high_status_label": null
+    },
+    {
+      "stock_name": "芯源微",
+      "stock_ts_code": "688037.SH",
+      "pct_chg": 6.63,
+      "amount": 24.78,
+      "high_status_label": null
+    },
+    {
+      "stock_name": "聚和材料",
+      "stock_ts_code": "688503.SH",
+      "pct_chg": 7.38,
+      "amount": 19.95,
+      "high_status_label": null
+    }
+  ],
+  "concept_matches": [
+    {
+      "concept": "光刻胶",
+      "score": 10
+    },
+    {
+      "concept": "EUV光刻胶",
+      "score": 5
+    },
+    {
+      "concept": "g线光刻胶",
+      "score": 5
+    },
+    {
+      "concept": "i线光刻胶",
+      "score": 5
+    },
+    {
+      "concept": "光刻胶树脂",
+      "score": 5
+    },
+    {
+      "concept": "AI PCB",
+      "score": 2
+    }
+  ],
+  "entity_exposures": [
+    {
+      "company": "万润股份",
+      "ticker": "002643",
+      "concept": "光刻胶",
+      "role": "",
+      "strength": "",
+      "confidence": "",
+      "evidence_layer": "",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "上海新阳",
+      "ticker": "300236",
+      "concept": "光刻胶",
+      "role": "光刻胶）",
+      "strength": "related",
+      "confidence": "high",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "中芯国际",
+      "ticker": "688981",
+      "concept": "光刻胶",
+      "role": "2025 年国内 12 英寸晶圆产能同比增长 25%，带动成熟制程光刻胶需求激增",
+      "strength": "peripheral",
+      "confidence": "medium",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "光华股份",
+      "ticker": "001333",
+      "concept": "光刻胶",
+      "role": "粉末涂料用聚酯树脂的研发、生产和销售",
+      "strength": "related",
+      "confidence": "medium",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "八亿时空",
+      "ticker": "688181",
+      "concept": "光刻胶",
+      "role": "百吨级KrF高端光刻胶配方树脂国产化自主突破及生产平台",
+      "strength": "related",
+      "confidence": "medium",
+      "evidence_layer": "L1",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "兴福电子",
+      "ticker": "688545",
+      "concept": "光刻胶",
+      "role": "湿电子化学品（电子级磷酸、硫酸、双氧水",
+      "strength": "related",
+      "confidence": "high",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "华特气体",
+      "ticker": "688268",
+      "concept": "光刻胶",
+      "role": "",
+      "strength": "",
+      "confidence": "",
+      "evidence_layer": "",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "华虹宏力",
+      "ticker": "688347",
+      "concept": "光刻胶",
+      "role": "特色工艺晶圆代工、12英寸成熟制程扩产、华力微收购并表",
+      "strength": "related",
+      "confidence": "high",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "南大光电",
+      "ticker": "300346",
+      "concept": "光刻胶",
+      "role": "光刻胶及配套材料",
+      "strength": "related",
+      "confidence": "high",
+      "evidence_layer": "L2",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "圣泉集团",
+      "ticker": "605589",
+      "concept": "光刻胶",
+      "role": "先进电子材料（高频高速树脂）、合成树脂、生物质化工、新能源材料",
+      "strength": "related",
+      "confidence": "high",
+      "evidence_layer": "L1_L3_candidate",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "容大感光",
+      "ticker": "300576",
+      "concept": "光刻胶",
+      "role": "光刻胶相关产品/材料供应商",
+      "strength": "related",
+      "confidence": "medium",
+      "evidence_layer": "L2",
+      "source": "",
+      "score": 10
+    },
+    {
+      "company": "广信材料",
+      "ticker": "300537",
+      "concept": "光刻胶",
+      "role": "光刻胶相关产品/材料供应商",
+      "strength": "related",
+      "confidence": "medium",
+      "evidence_layer": "L2",
+      "source": "",
+      "score": 10
+    }
+  ],
+  "evidence_items": [
+    {
+      "confidence": "medium",
+      "evidence": "从既有concept markdown重建",
+      "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+      "source_date": "",
+      "target": "光刻胶",
+      "target_type": "concept"
+    }
+  ],
+  "source_traces": [
+    {
+      "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+      "source_name": "光刻胶产业新变化与新格局深度研究报告",
+      "source_exists": true,
+      "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+    }
+  ],
+  "data_gaps": [],
+  "next_actions": [
+    "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+    "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+  ],
+  "warnings": []
+}

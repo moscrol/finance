@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-15",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "PCB -3.49%/diff-5.93；通信设备 -1.69%/diff-16.94；数据中心 -1.30%/diff-13.60；创新药 +3.65%/diff+47.05",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-15",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数3351、涨停72、跌停32、成交额25709亿、量比80.7、上证-0.29%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-15"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "涨家数3351、涨停72、跌停32、成交额25709亿、量比80.7、上证-0.29%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-15"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

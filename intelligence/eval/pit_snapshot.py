@@ -1,0 +1,1239 @@
+"""Immutable daily snapshots and historical point-in-time evidence inventory."""
+
+from __future__ import annotations
+
+import gzip
+import hashlib
+import json
+import subprocess
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Iterable
+from zoneinfo import ZoneInfo
+
+from intelligence.services.content_delta import (
+    content_delta_errors,
+)
+from intelligence.services.fidelity_contract import (
+    CONTRACT_SCHEMA_VERSION,
+    PIT_MANIFEST_SCHEMA_VERSION,
+    PIT_SNAPSHOT_SCHEMA_VERSION,
+    build_run_id,
+    parse_timestamp,
+    report_cutoffs,
+    validate_daily_agent_report,
+)
+
+SNAPSHOT_TABLES = {
+    "fact_market_daily": "history",
+    "fact_sector_daily": "history",
+    "fact_sw_l1_daily": "history",
+    "fact_sector_stock_daily": "current",
+    "fact_stock_daily": "current",
+    "fact_stock_high_daily": "current",
+    "fact_theme_limit_heat_daily": "current",
+    "fact_theme_limit_stock_daily": "current",
+    "fact_limit_advance_daily": "current",
+    "fact_limit_advance_presence": "current",
+    "fact_mainline_sector_daily": "current",
+    "fact_mainline_theme_daily": "current",
+    "fact_mainline_stock_daily": "current",
+    "fact_theme_flow_daily": "current",
+}
+REQUIRED_TABLES = {
+    "fact_market_daily",
+    "fact_sector_daily",
+    "fact_sw_l1_daily",
+    "fact_sector_stock_daily",
+    "fact_stock_daily",
+    "fact_stock_high_daily",
+}
+PIT_BASELINE_TABLES = (
+    "fact_market_daily",
+    "fact_sector_daily",
+    "fact_stock_daily",
+)
+ARTIFACT_SUFFIXES = {
+    ".csv",
+    ".html",
+    ".json",
+    ".jsonl",
+    ".md",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+LOCAL_TIMEZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
+
+
+def _canonical_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=_json_default,
+    ).encode("utf-8")
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _manifest_payload(manifest: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(manifest)
+    payload.pop("manifest_sha", None)
+    payload.pop("manifest_payload_sha256", None)
+    return payload
+
+
+def _seal_manifest(manifest: dict[str, Any]) -> None:
+    digest = _sha256(_canonical_bytes(_manifest_payload(manifest)))
+    manifest["manifest_sha"] = digest
+    manifest["manifest_payload_sha256"] = digest
+
+
+def _connect(db_path: str | Path):
+    import duckdb
+
+    return duckdb.connect(str(Path(db_path).expanduser()), read_only=True)
+
+
+def _table_columns(con: Any, table: str) -> list[str]:
+    return [
+        str(row[0])
+        for row in con.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'main' AND table_name = ?
+            ORDER BY ordinal_position
+            """,
+            [table],
+        ).fetchall()
+    ]
+
+
+def _git(
+    root: str | Path, args: list[str], *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(Path(root).expanduser()), *args],
+        check=check,
+        capture_output=True,
+        text=True,
+    )
+
+
+def git_state(
+    root: str | Path, *, as_of: str | None = None
+) -> dict[str, Any] | None:
+    repo = Path(root).expanduser()
+    try:
+        if as_of:
+            cutoff = f"{as_of}T23:59:59+08:00"
+            commit = _git(repo, ["rev-list", "-1", f"--before={cutoff}", "HEAD"])
+            sha = commit.stdout.strip()
+        else:
+            sha = _git(repo, ["rev-parse", "HEAD"]).stdout.strip()
+        if not sha:
+            return None
+        committed_at = _git(repo, ["show", "-s", "--format=%cI", sha]).stdout.strip()
+        state = {
+            "root": str(repo),
+            "commit": sha,
+            "committed_at": committed_at,
+        }
+        if as_of is None:
+            state["dirty"] = bool(_git(repo, ["status", "--porcelain"]).stdout.strip())
+        return state
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def _trade_dates(con: Any, as_of: str, lookback: int) -> list[str]:
+    rows = con.execute(
+        """
+        SELECT DISTINCT CAST(trade_date AS VARCHAR)
+        FROM fact_market_daily
+        WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE)
+        ORDER BY 1 DESC
+        LIMIT ?
+        """,
+        [as_of, lookback],
+    ).fetchall()
+    return sorted(str(row[0])[:10] for row in rows)
+
+
+def _table_rows(
+    con: Any,
+    table: str,
+    dates: Iterable[str],
+    cutoff_local: datetime,
+    captured_local: datetime,
+) -> list[dict[str, Any]]:
+    selected_dates = list(dates)
+    if not selected_dates:
+        return []
+    placeholders = ", ".join("?" for _ in selected_dates)
+    columns = _table_columns(con, table)
+    if "updated_at" not in columns:
+        return []
+    cursor = con.execute(
+        f"""
+        SELECT *
+        FROM {table}
+        WHERE CAST(trade_date AS VARCHAR) IN ({placeholders})
+          AND updated_at <= ?
+          AND updated_at <= ?
+        """,
+        [*selected_dates, cutoff_local, captured_local],
+    )
+    columns = [str(item[0]) for item in cursor.description]
+    rows = [
+        _annotate_pit_row(table, dict(zip(columns, row)), captured_local)
+        for row in cursor.fetchall()
+    ]
+    rows.sort(
+        key=lambda row: json.dumps(
+            row, ensure_ascii=False, sort_keys=True, default=_json_default
+        )
+    )
+    return rows
+
+
+def _annotate_pit_row(
+    table: str,
+    row: dict[str, Any],
+    captured_local: datetime,
+) -> dict[str, Any]:
+    source_time_field = (
+        "source_update_time"
+        if row.get("source_update_time") is not None
+        else "updated_at"
+    )
+    source_field = next(
+        (
+            field
+            for field in (
+                "source",
+                "strength_source",
+                "stock_high_source",
+                "sh_index_source",
+            )
+            if row.get(field) not in {None, ""}
+        ),
+        None,
+    )
+    row["_pit"] = {
+        "valid_time": _json_default(row.get("trade_date")),
+        "known_at": _json_default(row.get("updated_at")),
+        "captured_at": captured_local.replace(tzinfo=LOCAL_TIMEZONE).isoformat(),
+        "source_time": _json_default(row.get(source_time_field)),
+        "source_time_field": source_time_field,
+        "source_time_kind": (
+            "source_publication"
+            if source_time_field == "source_update_time"
+            else "ingestion_fallback"
+        ),
+        "source": row.get(source_field) if source_field else table,
+        "source_field": source_field,
+    }
+    return row
+
+
+def _table_stats(
+    con: Any, table: str, as_of: str, captured_local: datetime
+) -> dict[str, Any]:
+    columns = _table_columns(con, table)
+    required = table in REQUIRED_TABLES
+    if not columns or "trade_date" not in columns:
+        return {
+            "required": required,
+            "status": "missing_table",
+            "d0_rows": 0,
+            "timestamp_field": None,
+        }
+    d0_rows = int(
+        con.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)",
+            [as_of],
+        ).fetchone()[0]
+    )
+    if "updated_at" not in columns:
+        return {
+            "required": required,
+            "status": "unverifiable" if d0_rows else "missing",
+            "d0_rows": d0_rows,
+            "timestamp_field": None,
+        }
+    cutoff_local = datetime.fromisoformat(as_of) + timedelta(days=1)
+    row = con.execute(
+        f"""
+        SELECT
+            COUNT(*) FILTER (WHERE updated_at IS NOT NULL),
+            MIN(updated_at),
+            MAX(updated_at),
+            COUNT(*) FILTER (WHERE updated_at > ?),
+            COUNT(*) FILTER (WHERE updated_at >= ?)
+        FROM {table}
+        WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+        """,
+        [captured_local, cutoff_local, as_of],
+    ).fetchone()
+    timestamped = int(row[0] or 0)
+    future_timestamp_rows = int(row[3] or 0)
+    after_cutoff_rows = int(row[4] or 0)
+    if not d0_rows:
+        status = "missing"
+    elif timestamped != d0_rows:
+        status = "unverifiable"
+    elif future_timestamp_rows:
+        status = "future_timestamp"
+    elif after_cutoff_rows:
+        status = "after_cutoff"
+    else:
+        status = "captured"
+    return {
+        "required": required,
+        "status": status,
+        "d0_rows": d0_rows,
+        "timestamped_rows": timestamped,
+        "min_updated_at": _json_default(row[1]) if row[1] else None,
+        "max_updated_at": _json_default(row[2]) if row[2] else None,
+        "future_timestamp_rows": future_timestamp_rows,
+        "after_cutoff_rows": after_cutoff_rows,
+        "timestamp_field": "updated_at",
+    }
+
+
+def _coverage_checks(con: Any, as_of: str) -> dict[str, Any]:
+    active_sectors = int(
+        con.execute(
+            "SELECT COUNT(*) FROM dim_sector WHERE COALESCE(is_active, TRUE)"
+        ).fetchone()[0]
+    )
+    sector_daily = int(
+        con.execute(
+            """
+            SELECT COUNT(DISTINCT sector_ts_code)
+            FROM fact_sector_daily
+            WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+            """,
+            [as_of],
+        ).fetchone()[0]
+    )
+    sector_stock = int(
+        con.execute(
+            """
+            SELECT COUNT(DISTINCT sector_ts_code)
+            FROM fact_sector_stock_daily
+            WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+            """,
+            [as_of],
+        ).fetchone()[0]
+    )
+    stock_rows = int(
+        con.execute(
+            """
+            SELECT COUNT(DISTINCT stock_ts_code)
+            FROM fact_stock_daily
+            WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+            """,
+            [as_of],
+        ).fetchone()[0]
+    )
+    previous = con.execute(
+        """
+        SELECT CAST(trade_date AS VARCHAR), COUNT(DISTINCT stock_ts_code)
+        FROM fact_stock_daily
+        WHERE CAST(trade_date AS DATE) < CAST(? AS DATE)
+        GROUP BY trade_date
+        ORDER BY trade_date DESC
+        LIMIT 1
+        """,
+        [as_of],
+    ).fetchone()
+    previous_stock_rows = int(previous[1]) if previous else None
+    missing_sector_rows = con.execute(
+        """
+        SELECT sector_ts_code
+        FROM dim_sector
+        WHERE COALESCE(is_active, TRUE)
+          AND sector_ts_code NOT IN (
+              SELECT sector_ts_code
+              FROM fact_sector_daily
+              WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+          )
+        ORDER BY sector_ts_code
+        """,
+        [as_of],
+    ).fetchall()
+    return {
+        "active_sectors": active_sectors,
+        "sector_daily": {
+            "covered": sector_daily,
+            "expected": active_sectors,
+            "rate": round(sector_daily / active_sectors, 6)
+            if active_sectors
+            else None,
+            "missing_sector_codes": [str(row[0]) for row in missing_sector_rows],
+        },
+        "sector_stock": {
+            "covered": sector_stock,
+            "expected": active_sectors,
+            "rate": round(sector_stock / active_sectors, 6)
+            if active_sectors
+            else None,
+        },
+        "stock_daily": {
+            "covered": stock_rows,
+            "previous_trade_date": str(previous[0])[:10] if previous else None,
+            "previous_covered": previous_stock_rows,
+            "ratio_to_previous": round(stock_rows / previous_stock_rows, 6)
+            if previous_stock_rows
+            else None,
+        },
+    }
+
+
+def _daily_agent_upstream(
+    daily_agent_path: str | Path | None,
+    as_of: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    path = (
+        Path(daily_agent_path).expanduser()
+        if daily_agent_path
+        else None
+    )
+    upstream: dict[str, Any] = {
+        "status": "missing",
+        "path": str(path) if path else None,
+        "errors": ["daily agent artifact missing"],
+    }
+    if path is None or not path.is_file():
+        return None, upstream
+    daily_agent = json.loads(path.read_text(encoding="utf-8"))
+    upstream_errors = validate_daily_agent_report(daily_agent)
+    if daily_agent.get("date") != as_of:
+        upstream_errors.append("daily agent report date mismatch")
+    knowledge_snapshot = daily_agent.get("knowledge_snapshot")
+    if not isinstance(knowledge_snapshot, dict):
+        knowledge_snapshot = {}
+    return daily_agent, {
+        "status": "valid" if not upstream_errors else "invalid",
+        "path": str(path),
+        "errors": upstream_errors,
+        "report_generated_at": daily_agent.get("report_generated_at"),
+        "evidence_cutoff": daily_agent.get("evidence_cutoff"),
+        "decision_cutoff": daily_agent.get("decision_cutoff"),
+        "daily_snapshot_captured_at": daily_agent.get(
+            "snapshot_captured_at"
+        ),
+        "generator_commit": daily_agent.get("generator_commit"),
+        "run_id": daily_agent.get("run_id"),
+        "artifact_sha": daily_agent.get("artifact_sha"),
+        "manifest_sha": daily_agent.get("manifest_sha"),
+        "knowledge_snapshot_artifact_sha": knowledge_snapshot.get(
+            "artifact_sha"
+        ),
+        "knowledge_snapshot_base_commit": knowledge_snapshot.get(
+            "base_commit"
+        ),
+    }
+
+
+def _content_delta_summary(delta: object) -> dict[str, Any] | None:
+    if not isinstance(delta, dict):
+        return None
+    return {
+        key: delta.get(key)
+        for key in (
+            "schema_version",
+            "captured_at",
+            "base_commit",
+            "base_committed_at",
+            "scope",
+            "dirty",
+            "entry_count",
+            "total_bytes",
+            "artifact_sha",
+            "replay_recipe",
+        )
+    }
+
+
+def build_daily_snapshot(
+    db_path: str | Path,
+    *,
+    as_of: str | None,
+    finance_root: str | Path,
+    kb_root: str | Path,
+    lookback: int = 20,
+    daily_agent_path: str | Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    con = _connect(db_path)
+    try:
+        captured_at = datetime.now(timezone.utc)
+        captured_local_aware = captured_at.astimezone(LOCAL_TIMEZONE)
+        captured_local = captured_local_aware.replace(tzinfo=None)
+        if as_of is None:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+            if not row or not row[0]:
+                raise ValueError("fact_market_daily has no trade date")
+            as_of = str(row[0])[:10]
+        dates = _trade_dates(con, as_of, lookback)
+        if as_of not in dates:
+            raise ValueError(f"{as_of} is not available in fact_market_daily")
+        daily_agent, upstream = _daily_agent_upstream(
+            daily_agent_path,
+            as_of,
+        )
+        captured_iso = captured_local_aware.isoformat()
+        generated_iso = (
+            str(daily_agent.get("report_generated_at"))
+            if daily_agent and upstream["status"] == "valid"
+            else captured_iso
+        )
+        cutoff_fields = (
+            {
+                field: str(daily_agent[field])
+                for field in (
+                    "report_generated_at",
+                    "evidence_cutoff",
+                    "decision_cutoff",
+                )
+            }
+            if daily_agent and upstream["status"] == "valid"
+            else report_cutoffs(
+                as_of,
+                snapshot_captured_at=captured_iso,
+                report_generated_at=generated_iso,
+            )
+        )
+        cutoff_fields["snapshot_captured_at"] = captured_iso
+        evidence_cutoff_local = (
+            parse_timestamp(cutoff_fields["evidence_cutoff"])
+            .astimezone(LOCAL_TIMEZONE)
+            .replace(tzinfo=None)
+        )
+        stats = {
+            table: _table_stats(con, table, as_of, captured_local)
+            for table in SNAPSHOT_TABLES
+        }
+        data: dict[str, list[dict[str, Any]]] = {}
+        for table, mode in SNAPSHOT_TABLES.items():
+            if stats[table]["status"] == "missing_table":
+                data[table] = []
+                continue
+            data[table] = _table_rows(
+                con,
+                table,
+                dates if mode == "history" else [as_of],
+                evidence_cutoff_local,
+                captured_local,
+            )
+        coverage = _coverage_checks(con, as_of)
+    finally:
+        con.close()
+
+    finance_as_of = git_state(finance_root, as_of=as_of)
+    wiki_as_of = git_state(kb_root, as_of=as_of)
+    finance_current = git_state(finance_root)
+    wiki_current = git_state(kb_root)
+    required_failures = [
+        table
+        for table in sorted(REQUIRED_TABLES)
+        if stats[table]["status"] != "captured"
+    ]
+    coverage_gaps = [
+        name
+        for name in ("sector_daily", "sector_stock")
+        if coverage[name]["rate"] is not None and coverage[name]["rate"] < 1
+    ]
+    repository_gaps = [
+        name
+        for name, state in (("finance", finance_as_of), ("wiki", wiki_as_of))
+        if state is None
+    ]
+    if bool((finance_current or {}).get("dirty")):
+        repository_gaps.append("finance_dirty_worktree")
+    wiki_content_delta = (
+        daily_agent.get("knowledge_snapshot")
+        if isinstance(daily_agent, dict)
+        else None
+    )
+    wiki_delta_errors = content_delta_errors(
+        wiki_content_delta,
+        evidence_cutoff=str(cutoff_fields["evidence_cutoff"]),
+    )
+    if isinstance(wiki_content_delta, dict):
+        base_commit = str(wiki_content_delta.get("base_commit") or "")
+        try:
+            _git(
+                kb_root,
+                ["cat-file", "-e", f"{base_commit}^{{commit}}"],
+            )
+            actual_committed_at = _git(
+                kb_root,
+                ["show", "-s", "--format=%cI", base_commit],
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            wiki_delta_errors.append(
+                "content delta base commit is unavailable"
+            )
+        else:
+            if actual_committed_at != wiki_content_delta.get(
+                "base_committed_at"
+            ):
+                wiki_delta_errors.append(
+                    "content delta base commit timestamp mismatch"
+                )
+    if wiki_delta_errors:
+        repository_gaps.append("wiki_content_delta_invalid")
+    wiki_input_state = (
+        {
+            "root": str(Path(kb_root).expanduser()),
+            "commit": wiki_content_delta.get("base_commit"),
+            "committed_at": wiki_content_delta.get("base_committed_at"),
+            "content_delta_artifact_sha": wiki_content_delta.get(
+                "artifact_sha"
+            ),
+        }
+        if isinstance(wiki_content_delta, dict) and not wiki_delta_errors
+        else wiki_as_of
+    )
+    status = (
+        "pending"
+        if required_failures
+        else "frozen_with_gaps"
+        if coverage_gaps or repository_gaps
+        else "frozen"
+    )
+    generator_commit = str((finance_current or {}).get("commit") or "")
+    run_id = build_run_id(
+        "pit-snapshot",
+        as_of,
+        generator_commit,
+        captured_iso,
+    )
+    provenance_gaps = []
+    if upstream.get("status") != "valid":
+        provenance_gaps.append("daily_agent_contract_not_linked")
+    elif upstream.get("generator_commit") != generator_commit:
+        provenance_gaps.append("daily_agent_generator_commit_mismatch")
+    if wiki_delta_errors:
+        provenance_gaps.append("wiki_content_delta_not_replayable")
+    if provenance_gaps and status == "frozen":
+        status = "frozen_with_gaps"
+    snapshot = {
+        "schema_version": PIT_SNAPSHOT_SCHEMA_VERSION,
+        "task_id": "pit-snapshot-inventory-v1",
+        "as_of": as_of,
+        "captured_at": _json_default(captured_at),
+        "captured_at_local": captured_local_aware.isoformat(),
+        "fidelity_contract_version": CONTRACT_SCHEMA_VERSION,
+        **cutoff_fields,
+        "generator_commit": generator_commit,
+        "run_id": run_id,
+        "upstream_daily_agent": upstream,
+        "timezone": "Asia/Shanghai",
+        "lookback_trade_dates": dates,
+        "boundary": {
+            "max_embedded_date": as_of,
+            "outcome_data_included": False,
+            "result_phase_physically_separate": True,
+        },
+        "repositories": {
+            "input_materials": {
+                "finance": finance_as_of,
+                "wiki": wiki_input_state,
+            },
+            "capture_implementation": finance_current,
+            "working_trees": {
+                "finance_dirty": bool((finance_current or {}).get("dirty")),
+                "wiki_dirty": bool((wiki_current or {}).get("dirty")),
+            },
+            "wiki_content_delta": wiki_content_delta,
+        },
+        "data": data,
+    }
+    canonical = _canonical_bytes(snapshot)
+    manifest = {
+        "schema_version": PIT_MANIFEST_SCHEMA_VERSION,
+        "task_id": "pit-snapshot-inventory-v1",
+        "as_of": as_of,
+        "captured_at": snapshot["captured_at"],
+        "fidelity_contract_version": CONTRACT_SCHEMA_VERSION,
+        **cutoff_fields,
+        "generator_commit": generator_commit,
+        "run_id": run_id,
+        "status": status,
+        "required_failures": required_failures,
+        "coverage_gaps": coverage_gaps,
+        "repository_gaps": repository_gaps,
+        "provenance_gaps": provenance_gaps,
+        "replay_eligible": not (
+            required_failures
+            or coverage_gaps
+            or repository_gaps
+            or provenance_gaps
+        ),
+        "coverage": coverage,
+        "tables": stats,
+        "snapshot_sha256": _sha256(canonical),
+        "artifact_sha": _sha256(canonical),
+        "upstream_daily_agent": upstream,
+        "repositories": {
+            **snapshot["repositories"],
+            "wiki_content_delta": _content_delta_summary(
+                wiki_content_delta
+            ),
+        },
+        "boundary": snapshot["boundary"],
+        "known_at_contract": {
+            "row_known_at_field": "updated_at",
+            "source_publication_field": "source_update_time",
+            "source_publication_fallback": "updated_at",
+            "selection_rule": (
+                "updated_at <= evidence_cutoff AND "
+                "updated_at <= snapshot_captured_at"
+            ),
+        },
+    }
+    _seal_manifest(manifest)
+    return snapshot, manifest
+
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(data)
+    temporary.replace(path)
+    path.chmod(0o444)
+
+
+def _latest_trade_date(db_path: str | Path) -> str:
+    con = _connect(db_path)
+    try:
+        row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+    finally:
+        con.close()
+    if not row or not row[0]:
+        raise ValueError("fact_market_daily has no trade date")
+    return str(row[0])[:10]
+
+
+def _existing_frozen_manifest(root: Path, as_of: str) -> dict[str, Any] | None:
+    manifest_path = root / f"{as_of}.manifest.json"
+    snapshot_path = root / f"{as_of}.snapshot.json.gz"
+    if not manifest_path.exists() and not snapshot_path.exists():
+        return None
+    if not manifest_path.exists() or not snapshot_path.exists():
+        raise ValueError(f"incomplete frozen pair for {as_of}")
+    manifest = validate_frozen_snapshot(root, as_of)
+    return {**manifest, "write_status": "already_frozen"}
+
+
+def _previous_manifest_link(root: Path, as_of: str) -> dict[str, str] | None:
+    candidates = sorted(
+        path
+        for path in root.glob("*.manifest.json")
+        if path.name[:10] < as_of
+    )
+    if not candidates:
+        return None
+    previous = candidates[-1]
+    return {
+        "as_of": previous.name[:10],
+        "manifest_file": previous.name,
+        "manifest_file_sha256": _sha256(previous.read_bytes()),
+    }
+
+
+def _local_datetime(value: object) -> datetime | None:
+    if value in {None, ""}:
+        return None
+    parsed = datetime.fromisoformat(str(value))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(LOCAL_TIMEZONE).replace(tzinfo=None)
+    return parsed
+
+
+def validate_frozen_snapshot(
+    out_dir: str | Path,
+    as_of: str,
+) -> dict[str, Any]:
+    root = Path(out_dir).expanduser()
+    manifest_path = root / f"{as_of}.manifest.json"
+    snapshot_path = root / f"{as_of}.snapshot.json.gz"
+    if not manifest_path.exists() or not snapshot_path.exists():
+        raise ValueError(f"incomplete frozen pair for {as_of}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    compressed = snapshot_path.read_bytes()
+    if _sha256(compressed) != manifest.get("compressed_sha256"):
+        raise ValueError(f"frozen snapshot checksum mismatch for {as_of}")
+    try:
+        canonical = gzip.decompress(compressed)
+    except (OSError, EOFError) as exc:
+        raise ValueError(f"frozen snapshot gzip is invalid for {as_of}") from exc
+    if _sha256(canonical) != manifest.get("snapshot_sha256"):
+        raise ValueError(f"snapshot payload checksum mismatch for {as_of}")
+    snapshot = json.loads(canonical)
+    if snapshot.get("as_of") != as_of:
+        raise ValueError(f"snapshot as_of mismatch for {as_of}")
+    if (snapshot.get("boundary") or {}).get("max_embedded_date") != as_of:
+        raise ValueError(f"snapshot boundary mismatch for {as_of}")
+    payload_sha = manifest.get("manifest_payload_sha256")
+    expected_manifest_sha = _sha256(
+        _canonical_bytes(_manifest_payload(manifest))
+    )
+    if payload_sha != expected_manifest_sha:
+        raise ValueError(f"manifest payload checksum mismatch for {as_of}")
+    if manifest.get("manifest_sha") != expected_manifest_sha:
+        raise ValueError(f"manifest_sha mismatch for {as_of}")
+    if manifest.get("artifact_sha") != manifest.get("snapshot_sha256"):
+        raise ValueError(f"artifact_sha mismatch for {as_of}")
+    if manifest.get("schema_version") != PIT_MANIFEST_SCHEMA_VERSION:
+        raise ValueError(f"manifest schema mismatch for {as_of}")
+    if snapshot.get("schema_version") != PIT_SNAPSHOT_SCHEMA_VERSION:
+        raise ValueError(f"snapshot schema mismatch for {as_of}")
+    if manifest.get("fidelity_contract_version") != CONTRACT_SCHEMA_VERSION:
+        raise ValueError(f"manifest contract mismatch for {as_of}")
+    if snapshot.get("fidelity_contract_version") != CONTRACT_SCHEMA_VERSION:
+        raise ValueError(f"snapshot contract mismatch for {as_of}")
+    for field in (
+        "report_generated_at",
+        "evidence_cutoff",
+        "decision_cutoff",
+        "snapshot_captured_at",
+        "generator_commit",
+        "run_id",
+    ):
+        if not manifest.get(field):
+            raise ValueError(f"manifest {field} missing for {as_of}")
+        if manifest.get(field) != snapshot.get(field):
+            raise ValueError(f"{field} mismatch for {as_of}")
+    if manifest.get("generator_commit") != (
+        (
+            (snapshot.get("repositories") or {}).get(
+                "capture_implementation"
+            )
+            or {}
+        ).get("commit")
+    ):
+        raise ValueError(f"generator_commit mismatch for {as_of}")
+    try:
+        evidence_cutoff = parse_timestamp(manifest.get("evidence_cutoff"))
+        decision_cutoff = parse_timestamp(manifest.get("decision_cutoff"))
+        snapshot_captured_at = parse_timestamp(
+            manifest.get("snapshot_captured_at")
+        )
+        report_generated_at = parse_timestamp(
+            manifest.get("report_generated_at")
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid contract timestamp for {as_of}") from exc
+    if evidence_cutoff > decision_cutoff:
+        raise ValueError(f"evidence cutoff crosses decision cutoff for {as_of}")
+    if evidence_cutoff > snapshot_captured_at:
+        raise ValueError(f"evidence cutoff crosses snapshot capture for {as_of}")
+    if decision_cutoff > report_generated_at:
+        raise ValueError(f"decision cutoff crosses report generation for {as_of}")
+    if report_generated_at > snapshot_captured_at:
+        raise ValueError(f"report generation crosses snapshot capture for {as_of}")
+    if manifest.get("upstream_daily_agent") != snapshot.get(
+        "upstream_daily_agent"
+    ):
+        raise ValueError(f"upstream daily agent mismatch for {as_of}")
+    repositories = snapshot.get("repositories") or {}
+    wiki_content_delta = repositories.get("wiki_content_delta")
+    manifest_repositories = manifest.get("repositories") or {}
+    if manifest_repositories.get(
+        "wiki_content_delta"
+    ) != _content_delta_summary(wiki_content_delta):
+        raise ValueError(f"wiki content delta summary mismatch for {as_of}")
+    if isinstance(wiki_content_delta, dict):
+        delta_validation = content_delta_errors(
+            wiki_content_delta,
+            evidence_cutoff=str(manifest.get("evidence_cutoff") or ""),
+        )
+        if delta_validation:
+            raise ValueError(
+                f"wiki content delta invalid for {as_of}: "
+                + "; ".join(delta_validation)
+            )
+        upstream_delta_sha = (
+            (manifest.get("upstream_daily_agent") or {}).get(
+                "knowledge_snapshot_artifact_sha"
+            )
+        )
+        if upstream_delta_sha != wiki_content_delta.get("artifact_sha"):
+            raise ValueError(f"wiki content delta link mismatch for {as_of}")
+        input_materials = repositories.get("input_materials")
+        if not isinstance(input_materials, dict):
+            input_materials = {}
+        wiki_input = input_materials.get("wiki")
+        if not isinstance(wiki_input, dict):
+            wiki_input = {}
+        if (
+            wiki_input.get("commit")
+            != wiki_content_delta.get("base_commit")
+            or wiki_input.get("committed_at")
+            != wiki_content_delta.get("base_committed_at")
+            or wiki_input.get("content_delta_artifact_sha")
+            != wiki_content_delta.get("artifact_sha")
+        ):
+            raise ValueError(
+                f"wiki input material link mismatch for {as_of}"
+            )
+        try:
+            delta_captured_at = parse_timestamp(
+                wiki_content_delta.get("captured_at")
+            )
+            upstream_captured_at = parse_timestamp(
+                (manifest.get("upstream_daily_agent") or {}).get(
+                    "daily_snapshot_captured_at"
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"wiki content delta capture is invalid for {as_of}"
+            ) from exc
+        if delta_captured_at != upstream_captured_at:
+            raise ValueError(
+                f"wiki content delta capture mismatch for {as_of}"
+            )
+    elif "wiki_content_delta_invalid" not in (
+        manifest.get("repository_gaps") or []
+    ):
+        raise ValueError(f"wiki content delta missing for {as_of}")
+    gap_fields = (
+        manifest.get("required_failures") or [],
+        manifest.get("coverage_gaps") or [],
+        manifest.get("repository_gaps") or [],
+        manifest.get("provenance_gaps") or [],
+    )
+    expected_replay_eligible = not any(gap_fields)
+    if manifest.get("replay_eligible") is not expected_replay_eligible:
+        raise ValueError(f"replay eligibility mismatch for {as_of}")
+    previous = manifest.get("previous_manifest")
+    if isinstance(previous, dict):
+        previous_path = root / str(previous.get("manifest_file") or "")
+        if not previous_path.exists():
+            raise ValueError(f"previous manifest missing for {as_of}")
+        if _sha256(previous_path.read_bytes()) != previous.get(
+            "manifest_file_sha256"
+        ):
+            raise ValueError(f"previous manifest chain mismatch for {as_of}")
+    if snapshot.get("schema_version") == PIT_SNAPSHOT_SCHEMA_VERSION:
+        captured_local = _local_datetime(snapshot.get("captured_at_local"))
+        cutoff_local = _local_datetime(manifest.get("evidence_cutoff"))
+        if cutoff_local is None:
+            raise ValueError(f"evidence cutoff missing for {as_of}")
+        for table, rows in (snapshot.get("data") or {}).items():
+            if not isinstance(rows, list):
+                raise ValueError(f"snapshot table is not a list: {table}")
+            for row in rows:
+                pit = row.get("_pit") if isinstance(row, dict) else None
+                if not isinstance(pit, dict):
+                    raise ValueError(f"row PIT metadata missing: {table}")
+                known_at = _local_datetime(pit.get("known_at"))
+                if known_at is None:
+                    raise ValueError(f"row known_at missing: {table}")
+                if known_at > cutoff_local:
+                    raise ValueError(f"row known_at crosses cutoff: {table}")
+                if captured_local is not None and known_at > captured_local:
+                    raise ValueError(f"row known_at crosses capture: {table}")
+                source_time = _local_datetime(pit.get("source_time"))
+                if source_time is None:
+                    raise ValueError(f"row source_time missing: {table}")
+                if source_time > cutoff_local:
+                    raise ValueError(f"row source_time crosses cutoff: {table}")
+                if captured_local is not None and source_time > captured_local:
+                    raise ValueError(f"row source_time crosses capture: {table}")
+    return {**manifest, "validation_status": "valid"}
+
+
+def freeze_daily_snapshot(
+    db_path: str | Path,
+    *,
+    as_of: str | None,
+    finance_root: str | Path,
+    kb_root: str | Path,
+    out_dir: str | Path,
+    lookback: int = 20,
+    dry_run: bool = False,
+    daily_agent_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    root = Path(out_dir).expanduser()
+    as_of = as_of or _latest_trade_date(db_path)
+    existing = _existing_frozen_manifest(root, as_of)
+    if existing is not None:
+        return existing
+
+    snapshot, manifest = build_daily_snapshot(
+        db_path,
+        as_of=as_of,
+        finance_root=finance_root,
+        kb_root=kb_root,
+        lookback=lookback,
+        daily_agent_path=(
+            Path(daily_agent_dir).expanduser()
+            / f"{as_of}-daily-agent.json"
+            if daily_agent_dir
+            else None
+        ),
+    )
+    resolved_as_of = str(snapshot["as_of"])
+    manifest_path = root / f"{resolved_as_of}.manifest.json"
+    snapshot_path = root / f"{resolved_as_of}.snapshot.json.gz"
+    if manifest_path.exists() or snapshot_path.exists():
+        raise ValueError(f"frozen snapshot already exists for {resolved_as_of}")
+    canonical = _canonical_bytes(snapshot)
+    compressed = gzip.compress(canonical, compresslevel=9, mtime=0)
+    manifest.update(
+        {
+            "snapshot_file": snapshot_path.name,
+            "manifest_file": manifest_path.name,
+            "compressed_sha256": _sha256(compressed),
+            "uncompressed_bytes": len(canonical),
+            "compressed_bytes": len(compressed),
+            "write_status": "dry_run" if dry_run else "written",
+            "previous_manifest": _previous_manifest_link(
+                root,
+                resolved_as_of,
+            ),
+        }
+    )
+    _seal_manifest(manifest)
+    if not dry_run:
+        _write_atomic(snapshot_path, compressed)
+        manifest_bytes = json.dumps(
+            manifest, ensure_ascii=False, indent=2, default=_json_default
+        ).encode("utf-8")
+        _write_atomic(
+            manifest_path,
+            manifest_bytes + b"\n",
+        )
+    return manifest
+
+
+def _pit_table_status(con: Any, table: str, as_of: str) -> dict[str, Any]:
+    columns = _table_columns(con, table)
+    if "trade_date" not in columns:
+        return {"status": "missing_table", "rows": 0, "provable_rows": 0}
+    rows = int(
+        con.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)",
+            [as_of],
+        ).fetchone()[0]
+    )
+    if not rows:
+        return {"status": "missing", "rows": 0, "provable_rows": 0}
+    if "updated_at" not in columns:
+        return {"status": "unverifiable", "rows": rows, "provable_rows": 0}
+    provable = int(
+        con.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM {table}
+            WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+              AND updated_at < CAST(? AS DATE) + INTERVAL 1 DAY
+            """,
+            [as_of, as_of],
+        ).fetchone()[0]
+    )
+    return {
+        "status": "ready"
+        if provable == rows
+        else "partial"
+        if provable
+        else "unavailable",
+        "rows": rows,
+        "provable_rows": provable,
+    }
+
+
+def _artifact_kind(repo_name: str, path: str) -> str | None:
+    if path.startswith("market_feature_store/exports/"):
+        return "market_export"
+    if path.startswith("docs/learning/forecast-review-ledger/"):
+        return "answer_archive"
+    if path.startswith("复盘/"):
+        return "review_artifact"
+    wiki_source = repo_name == "wiki" and (
+        path.startswith("wiki/raw/") or path.startswith("wiki/sources/")
+    )
+    if path.startswith("raw/") or wiki_source:
+        return "source_material"
+    return None
+
+
+def _dated_artifacts(
+    root: str | Path, commit: str, as_of: str, repo_name: str
+) -> list[dict[str, str]]:
+    try:
+        paths = _git(root, ["ls-tree", "-r", "--name-only", commit]).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    compact = as_of.replace("-", "")
+    artifacts = []
+    for path in paths:
+        kind = _artifact_kind(repo_name, path)
+        matches_date = as_of in path or compact in path
+        supported_suffix = Path(path).suffix.lower() in ARTIFACT_SUFFIXES
+        if kind and matches_date and supported_suffix:
+            artifacts.append({"path": path, "kind": kind})
+    return sorted(artifacts, key=lambda item: (item["kind"], item["path"]))
+
+
+def build_historical_inventory(
+    db_path: str | Path,
+    *,
+    finance_root: str | Path,
+    kb_root: str | Path,
+    start: str,
+    end: str,
+) -> dict[str, Any]:
+    con = _connect(db_path)
+    try:
+        dates = [
+            str(row[0])[:10]
+            for row in con.execute(
+                """
+                SELECT DISTINCT trade_date
+                FROM fact_market_daily
+                WHERE CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+                ORDER BY trade_date
+                """,
+                [start, end],
+            ).fetchall()
+        ]
+        cases: list[dict[str, Any]] = []
+        for as_of in dates:
+            db_tables = {
+                table: _pit_table_status(con, table, as_of)
+                for table in PIT_BASELINE_TABLES
+            }
+            db_ready = all(item["status"] == "ready" for item in db_tables.values())
+            repos: dict[str, Any] = {}
+            for name, root in (("finance", finance_root), ("wiki", kb_root)):
+                state = git_state(root, as_of=as_of)
+                artifacts = (
+                    _dated_artifacts(root, state["commit"], as_of, name)
+                    if state
+                    else []
+                )
+                kind_counts = {
+                    kind: sum(item["kind"] == kind for item in artifacts)
+                    for kind in sorted({item["kind"] for item in artifacts})
+                }
+                repos[name] = {
+                    **(state or {"commit": None, "committed_at": None}),
+                    "artifact_count": len(artifacts),
+                    "artifact_kind_counts": kind_counts,
+                    "artifacts": artifacts[:100],
+                }
+            artifact_count = sum(item["artifact_count"] for item in repos.values())
+            artifact_kinds = {
+                kind
+                for repo in repos.values()
+                for kind in repo["artifact_kind_counts"]
+            }
+            candidate_scope = (
+                "market_state"
+                if "market_export" in artifact_kinds
+                else "semantic_evidence"
+                if "source_material" in artifact_kinds
+                else "answer_archive"
+                if "answer_archive" in artifact_kinds
+                else None
+            )
+            status = (
+                "ready_db"
+                if db_ready
+                else "artifact_candidate"
+                if artifact_count
+                else "pending"
+            )
+            cases.append(
+                {
+                    "as_of": as_of,
+                    "status": status,
+                    "db_tables": db_tables,
+                    "repositories": repos,
+                    "artifact_count": artifact_count,
+                    "candidate_scope": candidate_scope,
+                    "note": (
+                        "artifact_candidate 仅证明文件在 cutoff 前存在；"
+                        "仍需人工确认其字段与语义足以重建当日输入。"
+                        if status == "artifact_candidate"
+                        else ""
+                    ),
+                }
+            )
+    finally:
+        con.close()
+    counts = {
+        status: sum(case["status"] == status for case in cases)
+        for status in ("ready_db", "artifact_candidate", "pending")
+    }
+    scope_counts = {
+        scope: sum(case["candidate_scope"] == scope for case in cases)
+        for scope in ("market_state", "semantic_evidence", "answer_archive")
+    }
+    return {
+        "schema_version": "pit-historical-inventory-1.0",
+        "task_id": "pit-snapshot-inventory-v1",
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "range": {"start": start, "end": end},
+        "trade_date_count": len(cases),
+        "status_counts": counts,
+        "candidate_scope_counts": scope_counts,
+        "cases": cases,
+        "rules": [
+            "DuckDB ready 要求基线表全部行 updated_at < as_of + 1 day。",
+            "Git artifact 只接受在 as_of 当日 23:59:59+08:00 前已提交的文件。",
+            "artifact_candidate 不自动升级为可回放，必须人工核验内容覆盖。",
+        ],
+    }
+
+
+def render_historical_inventory(inventory: dict[str, Any]) -> str:
+    counts = inventory["status_counts"]
+    lines = [
+        "# 历史 PIT 证据盘点",
+        "",
+        f"- 区间：{inventory['range']['start']} ～ {inventory['range']['end']}",
+        f"- 交易日：{inventory['trade_date_count']}",
+        f"- DuckDB 可证明：{counts['ready_db']}",
+        f"- Git 旧资料候选：{counts['artifact_candidate']}",
+        f"- 其中市场状态候选：{inventory['candidate_scope_counts']['market_state']}",
+        f"- 仅语义证据候选：{inventory['candidate_scope_counts']['semantic_evidence']}",
+        f"- 无候选：{counts['pending']}",
+        "",
+        "> `artifact_candidate` 仅证明资料当时已存在，不代表已通过人工金标准。",
+        "",
+        "| 日期 | 状态 | 候选范围 | DB ready | finance 资料 | wiki 资料 |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for case in inventory["cases"]:
+        db_ready = sum(
+            item["status"] == "ready" for item in case["db_tables"].values()
+        )
+        repos = case["repositories"]
+        lines.append(
+            f"| {case['as_of']} | {case['status']} | {case['candidate_scope'] or '-'} "
+            f"| {db_ready}/{len(PIT_BASELINE_TABLES)} "
+            f"| {repos['finance']['artifact_count']} | {repos['wiki']['artifact_count']} |"
+        )
+    lines.extend(["", "## 判定规则", ""])
+    lines.extend(f"- {rule}" for rule in inventory["rules"])
+    return "\n".join(lines) + "\n"

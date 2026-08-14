@@ -1,0 +1,678 @@
+{
+  "generated_at": "20260803T062809Z",
+  "base": "http://127.0.0.1:8801",
+  "preflight_ok": true,
+  "preflight_detail": "revision=6c16b73a backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A1-market-overview",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 今天市场怎么样",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n截至2026-07-23收盘，A股呈“普涨反弹、缩量且结构集中”的格局，判断强度为中等：上证涨0.252%，上涨4260家、涨停116家、跌停2家；但成交额21949.97，环比减少17.27%，低于20日均额29414.95。系统标记为反弹阶段第3天，这只是阶段标签，不代表连续上涨3天。\n主线看，有色金属与电力占优：金属锌涨4.5301%、4家涨停，贵金属涨2.4249%，电力涨1.7363%、8家涨停且最高连板6板。观察清单优先放在金属锌、贵金属、电力，验证信号是后续成交改善、板块强度变化由弱转稳，同时涨停梯队得以延续。\n风险主要在“指数温和、题材分化”：前三行业成交占比45.1%，资金较集中；金属锌、贵金属和电力虽上涨，但强度变化均为负。科技方向偏弱，CPO下跌并出现净流出，存储芯片、半导体设备及半导体板块均下跌。若成交继续萎缩、强势板块强度继续下降，或半导体资金流出延续，本轮反弹的持续性将受限。",
+          "run_id": "run_20260803_141709_251926",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 104.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A2-next-day-call",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 收盘了，明天怎么看",
+          "answer": "关于“2026-07-21 收盘了，明天怎么看”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、给出条件化情景路径、列出判断继续成立的可核验条件",
+          "run_id": "run_20260803_141853_814673",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 88.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A3-stock-deep-dive",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "立新能源怎么看",
+          "answer": "基准判断：对立新能源短线中性偏谨慎，不建议在剧烈波动后追高；更适合等待价格企稳、资金流由弱转强后再观察。公司在申万分类中属于公用事业—电力，题材链主要映射为风力发电、绿色电力，并延伸至储能、新型电力和特高压，因而更像新能源运营端标的，而非设备制造商。主要反证是强势趋势尚未完全破坏，近10日仍上涨49.21%，若后续回落收敛且资金流持续改善，仍可能延续强势；反之，若价格继续走弱且资金流维持负向，应优先控制风险。以上主要是交易面判断，不能替代基于装机、发电量、上网电价和盈利质量的基本面估值。",
+          "run_id": "run_20260803_142022_336124",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "板块成分股日频行情（2026-07-31）",
+              "source": "本地结构化数据 · 板块成分股日频行情",
+              "date": "2026-07-31"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 2,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 板块成分股日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块成分股日频行情（2026-07-31）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "1 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [],
+          "elapsed_s": 106.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A4-dual-red",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 哪些板块是双红",
+          "answer": "关于“2026-07-23 哪些板块是双红”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260803_142208_980896",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 38.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A5-limit-heat",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停集中在哪些题材",
+          "answer": "关于“2026-07-23 涨停集中在哪些题材”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260803_142247_235331",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 60.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A6-limit-advance-ladder",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 连板梯队什么情况，有没有断层",
+          "answer": "关于“2026-07-23 连板梯队什么情况，有没有断层”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260803_142347_593680",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 36.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A7-mainline",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 当天主线是什么",
+          "answer": null,
+          "run_id": null,
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [],
+          "synthesis_diagnostic": {},
+          "gaps": [],
+          "elapsed_s": 50.5,
+          "status": "error",
+          "error": "HTTP Error 404: Not Found"
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A8-market-stage",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "现在市场处于什么阶段，第几天了",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n截至最近已收盘交易日2026-07-31，A股处于数据口径下的“底部横盘阶段，第3天”，判断强度中高。注意，“第3天”是阶段标签，并不代表连续上涨3天。\n支持依据：当日量能为正常水平，全市场成交额较前一日增加8.50%；上涨4691家、涨停99家、跌停0家，显示市场修复广度较好。同时强势股状态已达“沸点”，说明短线情绪明显强于指数所处阶段。主线集中在科技方向：半导体与AI算力近20日均有15天进入主线，属于连续主线；AI应用中AIGC呈增量启动，更偏当日新启动分支。\n观察与风险：重点看半导体、AI算力能否继续获得量价承接，以及AI应用能否从单日启动转为持续主线。风险信号包括强势股由沸点转弱、市场成交和上涨家数明显回落、科技主线放量滞涨；此外银行已出现放量分歧，消费零售主要是缩量修复或存量抱团，暂不宜视为全面增量主升。",
+          "run_id": "run_20260803_142514_404372",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场数据截至：2026-07-31。该日期是本轮整体盘面日期。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "市场阶段：底部横盘阶段（第 3 天）；量能状态：正常量能。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "全市场成交额：25417.56 亿元；较前一日 8.50%；量比 98.89%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "涨跌结构：上涨 4691 家；涨停 99 家；跌停 0 家。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "上证指数：3832.262 点，当日 0.72%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "强势股状态：沸点；平均涨幅 11.65%；边际变化 5.36%。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "行业集中度：正常；领先行业为电子（29.00%）、通信（8.30%）、计算机（7.20%）。",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "主线题材（截至 2026-07-31）：AI应用（2 个核心板块）、消费零售（3 个核心板块）、",
+              "source": "本地市场数据 · MARKET_DAILY 市场总览",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "最新主线日期：2026-07-31；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "主线持续性：半导体近20日出现15天（2026-07-13~2026-07-31，板块行45）；",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "AI应用核心板块：AI营销(-，未标注/-，涨8.66%，边际量76.76%，成交450.36亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "AI算力核心板块：CPO概念(-，未标注/-，涨4.78%，边际量7.69%，成交4928.56",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "半导体核心板块：PCB(电子，未标注/-，涨6.44%，边际量9.99%，成交907.66亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "大金融核心板块：银行(银行，未标注/-，涨-1.77%，边际量7.54%，成交494.63亿，涨",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            },
+            {
+              "title": "消费零售核心板块：一般零售(-，未标注/-，涨1.27%，边际量-20.68%，成交71.79亿",
+              "source": "本地市场数据 · 同日主线结构",
+              "date": "2026-07-31"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 16,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场数据截至：2026-07-31。该日期是本轮整体盘面日期。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场阶段：底部横盘阶段（第 3 天）；量能状态：正常量能。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "全市场成交额：25417.56 亿元；较前一日 8.50%；量比 98.89%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "涨跌结构：上涨 4691 家；涨停 99 家；跌停 0 家。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "上证指数：3832.262 点，当日 0.72%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "强势股状态：沸点；平均涨幅 11.65%；边际变化 5.36%。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "行业集中度：正常；领先行业为电子（29.00%）、通信（8.30%）、计算机（7.20%）。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地市场数据 · MARKET_DAILY 市场总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材（截至 2026-07-31）：AI应用（2 个核心板块）、消费零售（3 个核心板块）、",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "最新主线日期：2026-07-31；匹配口径：最新全市场主线；该块是 L4_market_sig",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E10",
+              "label": "[E10] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线持续性：半导体近20日出现15天（2026-07-13~2026-07-31，板块行45）；",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E11",
+              "label": "[E11] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "AI应用核心板块：AI营销(-，未标注/-，涨8.66%，边际量76.76%，成交450.36亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E12",
+              "label": "[E12] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "AI算力核心板块：CPO概念(-，未标注/-，涨4.78%，边际量7.69%，成交4928.56",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E13",
+              "label": "[E13] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "半导体核心板块：PCB(电子，未标注/-，涨6.44%，边际量9.99%，成交907.66亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E14",
+              "label": "[E14] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "大金融核心板块：银行(银行，未标注/-，涨-1.77%，边际量7.54%，成交494.63亿，涨",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E15",
+              "label": "[E15] 本地市场数据 · 同日主线结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "消费零售核心板块：一般零售(-，未标注/-，涨1.27%，边际量-20.68%，成交71.79亿",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "15 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 52.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A9-sentiment-contradiction",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 的市场情绪怎么解读",
+          "answer": "关于“2026-07-23 的市场情绪怎么解读”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260803_142606_679876",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 60.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "A10-new-high-structure",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 的新高家数结构说明什么",
+          "answer": "关于“2026-07-21 的新高家数结构说明什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口",
+          "run_id": "run_20260803_142707_003426",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing"
+          ],
+          "synthesis_diagnostic": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 62.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

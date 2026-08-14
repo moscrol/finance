@@ -1,0 +1,417 @@
+from __future__ import annotations
+
+import json
+import math
+
+import pytest
+
+from intelligence.eval.capability_monotonicity import (
+    DEFAULT_CAPABILITY_CASES,
+    CapabilityCase,
+    CapabilityRunResult,
+    TaskCapabilityScore,
+    ThreeArmRecord,
+    compare_with_bare,
+    evaluate_three_arm_record,
+    summarize_three_arm_records,
+)
+from scripts import capability_monotonicity as capability_cli
+
+
+def _result(
+    *,
+    arm: str,
+    score: TaskCapabilityScore,
+    protocol_passed: bool = True,
+    case_id: str = "rebound-duration",
+    tool_calls: int | None = None,
+    structural_status: str | None = None,
+    semantic_status: str | None = None,
+    task_alignment_score: float | None = None,
+) -> CapabilityRunResult:
+    if arm == "episode":
+        structural_status = structural_status or "completed"
+        semantic_status = semantic_status or "passed"
+        task_alignment_score = (
+            1.0 if task_alignment_score is None else task_alignment_score
+        )
+    return CapabilityRunResult(
+        case_id=case_id,
+        arm=arm,
+        answer=("回答包含反弹、持续、条件、风险等全部协议关键词。"),
+        score=score,
+        latency=1.0,
+        llm_calls=1,
+        tool_calls=(0 if arm == "bare" else 3) if tool_calls is None else tool_calls,
+        fallback_reason=None,
+        protocol_passed=protocol_passed,
+        protocol_issues=(),
+        structural_status=structural_status,
+        semantic_status=semantic_status,
+        provider_attempts=(1 if arm == "episode" else None),
+        runtime_mode=("canary" if arm == "episode" else ""),
+        runtime_revision=("candidate-sha" if arm == "episode" else ""),
+        task_alignment_score=task_alignment_score,
+    )
+
+
+def test_keywords_cannot_hide_current_capability_regression() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    current = _result(
+        arm="current",
+        score=TaskCapabilityScore(1, 1, 1, 4, 1),
+    )
+
+    comparison = compare_with_bare(bare, current)
+
+    assert current.protocol_passed is True
+    assert comparison.passed is False
+    assert comparison.failure_reasons == ("capability_regression",)
+    assert comparison.bare_score == 0.9
+    assert comparison.harness_score == 0.4
+
+
+def test_harness_passes_when_non_degraded_with_better_truth_boundary() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    episode = _result(
+        arm="episode",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+    )
+
+    comparison = compare_with_bare(bare, episode)
+
+    assert episode.score.truth_boundary > bare.score.truth_boundary
+    assert comparison.passed is True
+    assert comparison.failure_reasons == ()
+    assert comparison.harness_score == 1.0
+
+
+@pytest.mark.parametrize("semantic_status", ["rejected", "unavailable"])
+def test_completed_structure_with_unaccepted_semantics_is_a_regression(
+    semantic_status: str,
+) -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    episode = _result(
+        arm="episode",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        structural_status="completed",
+        semantic_status=semantic_status,
+    )
+
+    comparison = compare_with_bare(bare, episode)
+
+    assert comparison.passed is False
+    assert comparison.failure_reasons == ("semantic_regression",)
+
+
+def test_semantic_regression_has_its_own_report_counter() -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+    record = ThreeArmRecord(
+        case=case,
+        bare=_result(
+            arm="bare",
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
+            case_id=case.case_id,
+        ),
+        current=_result(
+            arm="current",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+        ),
+        episode=_result(
+            arm="episode",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+            structural_status="completed",
+            semantic_status="unavailable",
+        ),
+    )
+
+    report = summarize_three_arm_records([record])
+
+    assert report["passed"] is False
+    assert report["regression_count"] == 0
+    assert report["semantic_regression_count"] == 1
+
+
+def test_episode_acceptance_rejects_inconsistent_status_and_dirty_identity() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
+    )
+    inconsistent = CapabilityRunResult(
+        case_id=bare.case_id,
+        arm="episode",
+        answer="直接回答。",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        latency=1.0,
+        llm_calls=1,
+        tool_calls=1,
+        fallback_reason=None,
+        protocol_passed=True,
+        protocol_issues=(),
+        structural_status="failed",
+        semantic_status="passed",
+        provider_attempts=1,
+        runtime_mode="sidecar",
+        runtime_revision="abc123-dirty",
+        task_alignment_score=1.0,
+    )
+
+    comparison = compare_with_bare(bare, inconsistent)
+
+    assert comparison.passed is False
+    assert comparison.failure_reasons == (
+        "runtime_mode_invalid",
+        "runtime_revision_invalid",
+        "acceptance_status_inconsistent",
+    )
+
+
+def test_old_run_result_schema_remains_readable() -> None:
+    old_payload = _result(
+        arm="episode",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+    ).to_dict()
+    for key in (
+        "structural_status",
+        "semantic_status",
+        "provider_attempts",
+        "duplicate_queries",
+        "runtime_mode",
+        "runtime_revision",
+        "task_alignment_score",
+    ):
+        old_payload.pop(key, None)
+
+    restored = CapabilityRunResult.from_dict(old_payload)
+
+    assert restored.structural_status is None
+    assert restored.semantic_status is None
+    assert restored.provider_attempts is None
+    assert restored.duplicate_queries == 0
+    assert restored.task_alignment_score is None
+    assert compare_with_bare(
+        _result(
+            arm="bare",
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
+        ),
+        restored,
+    ).failure_reasons == ("acceptance_metadata_missing",)
+
+
+def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),  # 18/20 = 0.9
+    )
+    exactly_allowed = _result(
+        arm="current",
+        score=TaskCapabilityScore(3, 3, 3, 2, 3),  # 14/20 = 0.7
+    )
+    beyond_allowed = _result(
+        arm="episode",
+        score=TaskCapabilityScore(3, 3, 3, 1, 3),  # 13/20 = 0.65
+    )
+
+    assert compare_with_bare(bare, exactly_allowed).passed is True
+    assert compare_with_bare(bare, beyond_allowed).failure_reasons == (
+        "capability_regression",
+    )
+
+
+def test_non_fixed_margin_cannot_relax_the_capability_gate() -> None:
+    bare = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+    )
+    harness = _result(
+        arm="current",
+        score=TaskCapabilityScore(0, 0, 0, 0, 0),
+    )
+
+    for margin in (1.0, 0.1):
+        with pytest.raises(ValueError, match="fixed at 0.2"):
+            compare_with_bare(bare, harness, threshold=margin)
+
+
+def test_bare_baseline_requires_zero_tools_and_protocol_pass() -> None:
+    current = _result(
+        arm="current",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+    )
+    with_tools = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        tool_calls=1,
+    )
+    with_protocol_failure = _result(
+        arm="bare",
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
+        protocol_passed=False,
+    )
+
+    with pytest.raises(ValueError, match="bare arm must not call tools"):
+        compare_with_bare(with_tools, current)
+    with pytest.raises(ValueError, match="bare arm protocol must pass"):
+        compare_with_bare(with_protocol_failure, current)
+
+
+@pytest.mark.parametrize("non_finite", [math.nan, math.inf, -math.inf])
+def test_case_and_run_metrics_reject_non_finite_numbers(non_finite: float) -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+
+    with pytest.raises(ValueError, match="finite"):
+        CapabilityCase(
+            case_id=case.case_id,
+            question=case.question,
+            conversation_context=case.conversation_context,
+            model=case.model,
+            temperature=non_finite,
+            timeout=case.timeout,
+            as_of=case.as_of,
+        )
+
+    with pytest.raises(ValueError, match="finite"):
+        CapabilityRunResult(
+            case_id=case.case_id,
+            arm="bare",
+            answer="直接回答。",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            latency=non_finite,
+            llm_calls=1,
+            tool_calls=0,
+            fallback_reason=None,
+            protocol_passed=True,
+            protocol_issues=(),
+        )
+
+
+def test_default_fixture_fixes_inputs_for_five_acceptance_questions() -> None:
+    assert [case.question for case in DEFAULT_CAPABILITY_CASES] == [
+        "昨天的反弹能持续多久",
+        "科创50你认为反弹空间有多少",
+        "瑞华泰的合理估值",
+        "这一周行情下跌的主要原因是什么",
+        "目前市场的主线是什么",
+    ]
+    for case in DEFAULT_CAPABILITY_CASES:
+        assert isinstance(case, CapabilityCase)
+        assert case.model
+        assert case.temperature == 0.0
+        assert case.timeout > 0
+        assert case.as_of == "2026-07-22"
+
+
+def test_three_arm_record_round_trips_all_result_fields() -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+    record = ThreeArmRecord(
+        case=case,
+        bare=_result(
+            arm="bare",
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
+            case_id=case.case_id,
+        ),
+        current=_result(
+            arm="current",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+        ),
+        episode=_result(
+            arm="episode",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            case_id=case.case_id,
+        ),
+    )
+
+    payload = record.to_dict()
+    evaluation = evaluate_three_arm_record(record)
+
+    assert ThreeArmRecord.from_dict(payload) == record
+    assert set(payload) == {"case", "bare", "current", "episode"}
+    assert {
+        "answer",
+        "score",
+        "latency",
+        "llm_calls",
+        "tool_calls",
+        "fallback_reason",
+        "protocol_passed",
+        "protocol_issues",
+    }.issubset(payload["current"])
+    assert evaluation.current.passed is True
+    assert evaluation.episode.passed is True
+
+
+def test_three_arm_report_marks_capability_regression() -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+    strong = TaskCapabilityScore(4, 4, 4, 2, 4)
+    weak = TaskCapabilityScore(1, 1, 1, 4, 1)
+    record = ThreeArmRecord(
+        case=case,
+        bare=_result(arm="bare", score=strong, case_id=case.case_id),
+        current=_result(arm="current", score=weak, case_id=case.case_id),
+        episode=_result(arm="episode", score=strong, case_id=case.case_id),
+    )
+
+    report = summarize_three_arm_records([record])
+
+    assert report["gate"] == "capability_monotonicity"
+    assert report["passed"] is False
+    assert report["regression_count"] == 1
+    assert report["evaluations"][0]["current"]["failure_reasons"] == [
+        "capability_regression"
+    ]
+
+
+def test_cli_writes_offline_fixture_and_scores_saved_records(tmp_path) -> None:
+    fixture_path = tmp_path / "fixture.json"
+
+    assert capability_cli.main(["--write-fixture", str(fixture_path)]) == 0
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    assert set(fixture["arm_contracts"]) == {"bare", "current", "episode"}
+
+    case = DEFAULT_CAPABILITY_CASES[0]
+    strong = TaskCapabilityScore(4, 4, 4, 2, 4)
+    weak = TaskCapabilityScore(1, 1, 1, 4, 1)
+    record = ThreeArmRecord(
+        case=case,
+        bare=_result(arm="bare", score=strong, case_id=case.case_id),
+        current=_result(arm="current", score=weak, case_id=case.case_id),
+        episode=_result(arm="episode", score=strong, case_id=case.case_id),
+    )
+    input_path = tmp_path / "records.json"
+    output_path = tmp_path / "report.json"
+    input_path.write_text(
+        json.dumps({"schema_version": 1, "records": [record.to_dict()]}),
+        encoding="utf-8",
+    )
+
+    code = capability_cli.main(
+        ["--input", str(input_path), "--output", str(output_path)]
+    )
+
+    assert code == 1
+    assert json.loads(output_path.read_text(encoding="utf-8"))["passed"] is False
+
+    with pytest.raises(SystemExit) as rejected:
+        capability_cli.main(
+            [
+                "--input",
+                str(input_path),
+                "--output",
+                str(output_path),
+                "--threshold",
+                "1.0",
+            ]
+        )
+    assert rejected.value.code == 2

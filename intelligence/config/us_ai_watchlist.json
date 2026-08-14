@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "美股 AI 阵营",
+  "symbols": [
+    {"ticker": "ANET", "name": "Arista Networks", "group": "网络与数据中心", "enabled": true},
+    {"ticker": "GOOGL", "name": "Alphabet", "group": "云与平台", "enabled": true},
+    {"ticker": "NVDA", "name": "NVIDIA", "group": "算力芯片", "enabled": true},
+    {"ticker": "META", "name": "Meta Platforms", "group": "云与平台", "enabled": true},
+    {"ticker": "VRT", "name": "Vertiv", "group": "网络与数据中心", "enabled": true},
+    {"ticker": "AMD", "name": "AMD", "group": "算力芯片", "enabled": true},
+    {"ticker": "AMZN", "name": "Amazon", "group": "云与平台", "enabled": true},
+    {"ticker": "SNOW", "name": "Snowflake", "group": "云与平台", "enabled": true},
+    {"ticker": "DELL", "name": "Dell Technologies", "group": "网络与数据中心", "enabled": true},
+    {"ticker": "CRDO", "name": "Credo Technology", "group": "网络与数据中心", "enabled": true},
+    {"ticker": "MU", "name": "Micron", "group": "算力芯片", "enabled": true},
+    {"ticker": "MSFT", "name": "Microsoft", "group": "云与平台", "enabled": true},
+    {"ticker": "AVGO", "name": "Broadcom", "group": "算力芯片", "enabled": true},
+    {"ticker": "MRVL", "name": "Marvell Technology", "group": "算力芯片", "enabled": true},
+    {"ticker": "CRM", "name": "Salesforce", "group": "云与平台", "enabled": true},
+    {"ticker": "ARM", "name": "Arm Holdings", "group": "算力芯片", "enabled": true}
+  ]
+}

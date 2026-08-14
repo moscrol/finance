@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-29",
+  "runtime_revision": "fe8051dba3d98fe7cf4d25ae865add8e0badd88b",
+  "kb_revision": "9053b0c4137428e9ad9d8b4be3ba475b7377b435",
+  "knowledge_wiki": "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/wiki",
+  "index_dir": "/Users/a77/finance-workspace-private/tmp/knowledge-base-phase-c-freshness/.rag_index",
+  "information_cutoff": "2026-07-24",
+  "require_fresh": true,
+  "requested_mode": "hybrid",
+  "semantic_judge": "disabled_deterministic_replay",
+  "environment": {
+    "finance_python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "kb_rag_python": "/Users/a77/knowledge-base-private/.rag_venv/bin/python3",
+    "kb_rag_python_realpath": "/Users/a77/知识库/.rag_venv/bin/python3",
+    "kb_rag_python_version": "3.12.13",
+    "rag_bge_model": "/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181",
+    "hf_hub_offline": true,
+    "rag_worker_enabled": true,
+    "model_load_count": 1,
+    "prewarm_seconds": 31.399
+  },
+  "index_sha256": {
+    "meta.json": "3ab0d301c7480a8ee12ebb2540a0d03421b722ea193ca0ac1a754289129ac79b",
+    "chunks.jsonl": "76034c6e4e8db169dc5b0963ce3992c1c4482d5e50b901a5178e9c3a32bf7f3c",
+    "dense.npy": "6a012a5c66f18ebdf2da148b911e636aecfdf6291eeab4d583a181c9ef563b10",
+    "bm25_tokens.jsonl.gz": "64549ce54c11e80eb580ff49e0f6b1e2d60a33cdd9c9bfa6e6363f0df9f8314a"
+  },
+  "direct_hybrid_probe": {
+    "query": "瑞华泰 估值",
+    "k": 5,
+    "weights_loaded": "391/391",
+    "index_freshness": "fresh",
+    "rrf_score_max": 0.195625,
+    "rrf_score_min": 0.177903,
+    "sources": [
+      "wiki/entities/瑞华泰.md",
+      "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+      "wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md",
+      "wiki/concepts/PI薄膜.md",
+      "wiki/entities/天奈科技.md"
+    ]
+  },
+  "pre_change_attempt_mode_telemetry_available": false,
+  "cases": [
+    {
+      "case_id": "ruihuatai-valuation",
+      "query": "瑞华泰的合理估值",
+      "elapsed_seconds": 11.858,
+      "trace_status": "success",
+      "trace_detail": "attempts=narrow:ok:6,broad:ok:6,counter:ok:6; conclusion=10; counter=6; discarded=0",
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "瑞华泰 688323",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "broad",
+          "query": "瑞华泰 AI散热 HJT PCB PI薄膜 瑞华泰 待补充 上下游 同业",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "counter",
+          "query": "瑞华泰 瑞华泰 待补充 最新逻辑卡 项目 风险 证伪 不及预期",
+          "status": "ok",
+          "hit_count": 6
+        }
+      ],
+      "evidence_count": 12,
+      "evidence_freshness": [
+        "fresh"
+      ],
+      "evidence_sources": [
+        "wiki/entities/瑞华泰.md",
+        "wiki/sources/688323_瑞华泰_最新逻辑卡.md",
+        "wiki/sources/瑞华泰 2025年年度报告 baseline 2026-04-28.md",
+        "wiki/concepts/PI薄膜.md",
+        "wiki/entities/天奈科技.md",
+        "wiki/sources/20260521 市场逻辑精选.md",
+        "wiki/entities/方邦股份.md",
+        "wiki/sources/功能薄膜产业新变化与新格局全面研究分析报告.md",
+        "wiki/concepts/AI散热.md"
+      ],
+      "known_contamination": [
+        "wiki/entities/天奈科技.md",
+        "wiki/entities/方邦股份.md"
+      ]
+    },
+    {
+      "case_id": "weekly-market-cause",
+      "query": "这一周行情下跌的主要原因是什么",
+      "elapsed_seconds": 13.44,
+      "trace_status": "success",
+      "trace_detail": "attempts=narrow:ok:6,broad:ok:6,counter:ok:6; conclusion=10; counter=0; discarded=7",
+      "attempts": [
+        {
+          "aperture": "narrow",
+          "query": "这一周行情下跌的主要原因是什么",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "broad",
+          "query": "这一周行情下跌的主要原因是什么 晚间卖方研报202602 半导体 光纤光缆 存储下跌 周内首现下跌 点评与解释 上下游 同业",
+          "status": "ok",
+          "hit_count": 6
+        },
+        {
+          "aperture": "counter",
+          "query": "这一周行情下跌的主要原因是什么 晚间卖方研报202602 半导体 光纤光缆 存储下跌 风险 证伪 不及预期",
+          "status": "ok",
+          "hit_count": 6
+        }
+      ],
+      "evidence_count": 10,
+      "evidence_freshness": [
+        "fresh"
+      ],
+      "evidence_sources": [
+        "wiki/sources/晚间卖方研报20260202.md",
+        "wiki/sources/中顺洁柔_002511_最新逻辑跟踪_20260613.md",
+        "wiki/sources/600583_逻辑卡_20260621.md",
+        "wiki/sources/牧原股份_最新逻辑卡_20260614.md",
+        "wiki/sources/603341_逻辑卡_20260616.md",
+        "wiki/concepts/光纤光缆.md",
+        "wiki/sources/晚间卖方研报20260709.md",
+        "wiki/sources/0506卖方观点合集.md",
+        "wiki/sources/0511卖方观点合集.md",
+        "wiki/sources/卖方研报汇总-20260622.md"
+      ],
+      "diagnosis": "true Hybrid changes the drifted topic from the BM25 pig-cycle branch to a semiconductors/optical-fiber branch, but still does not establish a 2026-07-24 market-week causal anchor"
+    }
+  ],
+  "conclusions": {
+    "true_hybrid_reproduced": true,
+    "all_returned_evidence_fresh": true,
+    "valuation_contamination_survives_true_hybrid": true,
+    "weekly_causal_anchor_gap_survives_true_hybrid": true,
+    "next_required_observability": "per-attempt requested/effective mode, fallback reason, and degraded state"
+  },
+  "boundaries": {
+    "original_kb_written": false,
+    "index_rebuilt": false,
+    "runtime_ports_touched": false,
+    "twenty_eight_case_suite_run": false,
+    "app_server_changed": false,
+    "probe_access_log_lines_removed": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "trade_date": "2026-07-29",
+  "window": 20,
+  "gaps": [],
+  "row_anomalies": [
+    {
+      "table": "fact_mainline_stock_daily",
+      "rows": 53,
+      "median": 109,
+      "note": "当日 53 行 < 近20日中位数 109 × 0.5"
+    }
+  ],
+  "range_violations": [],
+  "ok": false,
+  "brief": "fact_mainline_stock_daily 行数异常收缩（53/109）"
+}

@@ -1,0 +1,519 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-10",
+  "perspective_date": "2026-07-09",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "d1558eacdef6121b",
+  "stage": "底部横盘阶段第8天：接近冰点后的放量修复，半导体/AI硬件主线回流但量能仍低于20日均量",
+  "section_0": {
+    "duckdb_cutoff": "2026-07-09",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "0025c34b8332a64a1c74809ba29f707c4f150599",
+    "materials": [],
+    "data_gaps": [
+      "manifest materials 为空，本答卷只使用 DuckDB 盘面流",
+      "feature_market_window 与 feature_sector_window 在 2026-07-09 无可用窗口行，MA5/趋势用 fact_market_daily 与 fact_sector_daily 近5日手工聚合"
+    ]
+  },
+  "section_1": {
+    "stage": {
+      "market_stage": "底部横盘阶段",
+      "stage_day": 8,
+      "ice_point_level": "偏冷",
+      "strength_status": "沸点",
+      "sh_index_close": 4036.588,
+      "sh_index_pct_chg": 1.654747,
+      "switch_judgment": "从 2026-07-08 接近冰点修复到 2026-07-09 放量回流；若 T+1 量能继续大于 28000 且涨家数大于 2200，可确认底部横盘内的主线修复。"
+    },
+    "volume": {
+      "total_amount": 29135.4,
+      "amount_vs_yesterday_pct": 13.66,
+      "amount_ma20": 32051.45,
+      "amount_vs_ma20_pct": 90.9,
+      "volume_ratio": 90.9,
+      "volume_state": "正常量能",
+      "amount_ma5": 28662.08,
+      "prev_total_amount": 25633.57
+    },
+    "breadth": {
+      "advancers": 2486,
+      "prev_advancers": 1593,
+      "advancers_change": 893,
+      "advancers_ma5": 2090.4,
+      "limit_up": 75,
+      "prev_limit_up": 47,
+      "limit_up_ma5": 65.4,
+      "limit_down": 12,
+      "prev_limit_down": 42,
+      "limit_down_ma5": 30.0
+    },
+    "double_red": {
+      "definition": "pct_chg > 0 且 diff_ratio > 0",
+      "count": 142,
+      "count_amount_ge_1000": 53,
+      "top_by_diff_ratio": [
+        {
+          "sector": "太赫兹",
+          "pct_chg": 2.71,
+          "diff_ratio": 61.07,
+          "amount": 593.78
+        },
+        {
+          "sector": "星闪",
+          "pct_chg": 2.31,
+          "diff_ratio": 50.5,
+          "amount": 620.59
+        },
+        {
+          "sector": "计算机设备",
+          "pct_chg": 0.65,
+          "diff_ratio": 41.48,
+          "amount": 666.85
+        },
+        {
+          "sector": "量子科技",
+          "pct_chg": 1.46,
+          "diff_ratio": 39.08,
+          "amount": 1710.46
+        },
+        {
+          "sector": "通信设备",
+          "pct_chg": 2.72,
+          "diff_ratio": 34.58,
+          "amount": 2372.93
+        },
+        {
+          "sector": "AI手机",
+          "pct_chg": 3.98,
+          "diff_ratio": 30.27,
+          "amount": 1363.69
+        },
+        {
+          "sector": "光纤",
+          "pct_chg": 3.97,
+          "diff_ratio": 28.09,
+          "amount": 3112.95
+        },
+        {
+          "sector": "6G",
+          "pct_chg": 3.23,
+          "diff_ratio": 27.59,
+          "amount": 1865.55
+        },
+        {
+          "sector": "数据中心",
+          "pct_chg": 1.64,
+          "diff_ratio": 23.64,
+          "amount": 8508.12
+        },
+        {
+          "sector": "半导体",
+          "pct_chg": 6.52,
+          "diff_ratio": 18.21,
+          "amount": 5898.4
+        }
+      ]
+    },
+    "limit_up_heat": {
+      "market_limit_up_count": 75,
+      "top_sectors": [
+        {
+          "sector": "芯片概念",
+          "limit_up_count": 32,
+          "market_share_pct": 42.67
+        },
+        {
+          "sector": "机器人概念",
+          "limit_up_count": 25,
+          "market_share_pct": 33.33
+        },
+        {
+          "sector": "先进封装",
+          "limit_up_count": 22,
+          "market_share_pct": 29.33
+        },
+        {
+          "sector": "存储芯片",
+          "limit_up_count": 20,
+          "market_share_pct": 26.67
+        },
+        {
+          "sector": "人工智能",
+          "limit_up_count": 17,
+          "market_share_pct": 22.67
+        },
+        {
+          "sector": "半导体",
+          "limit_up_count": 13,
+          "market_share_pct": 17.33
+        },
+        {
+          "sector": "数据中心",
+          "limit_up_count": 12,
+          "market_share_pct": 16.0
+        }
+      ],
+      "limit_advance_core": [
+        {
+          "code": "603137.SH",
+          "name": "恒尚节能",
+          "boards": 8,
+          "theme": "股权"
+        },
+        {
+          "code": "002841.SZ",
+          "name": "视源股份",
+          "boards": 3,
+          "theme": "业绩"
+        },
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息",
+          "boards": 2,
+          "theme": "业绩"
+        }
+      ],
+      "promotion_rate_sample": "4/39=10%"
+    },
+    "stock_high": {
+      "history_high_count": 25,
+      "three_year_high_count": 34,
+      "one_year_high_count": 37,
+      "high_120d_count": 42,
+      "high_60d_count": 50,
+      "high_20d_count": 130,
+      "history_high_prev": 23,
+      "high_20d_prev": 139,
+      "clusters": [
+        {
+          "cluster": "电子",
+          "high_count": 23,
+          "history_count": 14,
+          "new_count": 14,
+          "amount_sum": 994.0
+        },
+        {
+          "cluster": "计算机",
+          "high_count": 21,
+          "history_count": 3,
+          "new_count": 12,
+          "amount_sum": 608.04
+        },
+        {
+          "cluster": "通信",
+          "high_count": 4,
+          "history_count": 1,
+          "new_count": 2,
+          "amount_sum": 279.09
+        }
+      ],
+      "capacity_core_new_high": [
+        {
+          "code": "688981.SH",
+          "name": "中芯国际",
+          "label": "历史新高",
+          "price": 173.0,
+          "pct_chg": 13.74,
+          "amount": 236.46,
+          "market_cap": 3459.24
+        },
+        {
+          "code": "300604.SZ",
+          "name": "长川科技",
+          "label": "历史新高",
+          "price": 374.0,
+          "pct_chg": 17.9,
+          "amount": 134.56,
+          "market_cap": 1830.62
+        },
+        {
+          "code": "000063.SZ",
+          "name": "中兴通讯",
+          "label": "20日新高",
+          "price": 40.33,
+          "pct_chg": 9.38,
+          "amount": 209.84,
+          "market_cap": 1624.34
+        },
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息",
+          "label": "历史新高",
+          "price": 85.99,
+          "pct_chg": 10.0,
+          "amount": 185.34,
+          "market_cap": 1261.33,
+          "limit_times": 2
+        }
+      ]
+    },
+    "core_stocks": {
+      "engine": [
+        "半导体/存储：603986.SH 兆易创新、688981.SH 中芯国际、600584.SH 长电科技、688008.SH 澜起科技",
+        "AI算力/数据中心：000977.SZ 浪潮信息、300308.SZ 中际旭创、300502.SZ 新易盛",
+        "通信扩散：000063.SZ 中兴通讯"
+      ],
+      "capacity_core": [
+        "688981.SH 中芯国际：历史新高，成交额236.46，市值3459.24",
+        "000063.SZ 中兴通讯：20日新高，成交额209.84，市值1624.34",
+        "000977.SZ 浪潮信息：历史新高且2连板，成交额185.34，市值1261.33"
+      ]
+    }
+  },
+  "main_judgment": "市场处在底部横盘后的放量修复日，芯片/半导体以涨停热度和容量新高确认主线回流，但量能只有20日均量的90.9%，更像分歧后的主线修复而非全面主升浪。",
+  "section_2": {
+    "one_sentence": "市场处在底部横盘后的放量修复日，芯片/半导体以涨停热度和容量新高确认主线回流，但量能只有20日均量的90.9%，更像分歧后的主线修复而非全面主升浪。"
+  },
+  "direction_ranking": [
+    "半导体/存储芯片/先进封装",
+    "AI算力/数据中心/CPO",
+    "通信设备/6G/光纤",
+    "PCB/元件",
+    "机器人/储能低位修复"
+  ],
+  "section_3": {
+    "scenario": "A 恐慌反弹后的主线回流，不是 B 全面主升浪，也不是 C 高位拥挤退潮",
+    "ranking_detail": [
+      {
+        "rank": 1,
+        "direction": "半导体/存储芯片/先进封装",
+        "strategy_language": "策略一主线流动性池 + 策略二强趋势延续",
+        "nature": "主线扩散",
+        "certainty": 18,
+        "elasticity": 18,
+        "timing": 19,
+        "crowding_score": 14,
+        "priced_in_score": 17,
+        "total_score": 86,
+        "evidence": "半导体 pct_chg 6.52/diff 18.21/amount 5898.40；存储芯片 pct_chg 6.10/diff 17.87；先进封装涨停22只；电子新高23只、历史新高14只。"
+      },
+      {
+        "rank": 2,
+        "direction": "AI算力/数据中心/CPO",
+        "strategy_language": "策略二强趋势延续 + 策略三分歧回流",
+        "nature": "主线扩散",
+        "certainty": 17,
+        "elasticity": 16,
+        "timing": 17,
+        "crowding_score": 14,
+        "priced_in_score": 16,
+        "total_score": 80,
+        "score_gap_vs_rank1": 6,
+        "evidence": "数据中心 pct_chg 1.64/diff 23.64/amount 8508.12；CPO pct_chg 4.35/diff 18.38；浪潮信息历史新高且2连板。"
+      },
+      {
+        "rank": 3,
+        "direction": "通信设备/6G/光纤",
+        "strategy_language": "策略三分歧回流",
+        "nature": "资金切换",
+        "certainty": 15,
+        "elasticity": 15,
+        "timing": 16,
+        "crowding_score": 15,
+        "priced_in_score": 14,
+        "total_score": 75,
+        "evidence": "通信设备 diff 34.58，光纤 diff 28.09，6G diff 27.59；中兴通讯20日新高、成交额209.84。"
+      },
+      {
+        "rank": 4,
+        "direction": "PCB/元件",
+        "strategy_language": "策略三分歧回流 + 策略四流动性切换",
+        "nature": "主线扩散",
+        "certainty": 14,
+        "elasticity": 15,
+        "timing": 15,
+        "crowding_score": 13,
+        "priced_in_score": 13,
+        "total_score": 70,
+        "evidence": "PCB pct_chg 3.17/diff 19.46，元件 pct_chg 4.39/diff 24.93；东山精密涨停、成交额277.86。"
+      },
+      {
+        "rank": 5,
+        "direction": "机器人/储能低位修复",
+        "strategy_language": "策略四流动性切换",
+        "nature": "情绪脉冲",
+        "certainty": 12,
+        "elasticity": 14,
+        "timing": 13,
+        "crowding_score": 13,
+        "priced_in_score": 12,
+        "total_score": 64,
+        "evidence": "机器人涨停热度25只但板块 pct_chg 0.93/diff 10.73；储能 pct_chg 0.57/diff 13.19，强度弱于半导体/AI硬件。"
+      }
+    ]
+  },
+  "picks": [
+    {
+      "code": "688981.SH",
+      "name": "中芯国际",
+      "strategy": "策略一主线流动性池",
+      "reason": "绑定§1：半导体 pct_chg 6.52/diff 18.21，存储芯片涨停20只；个股历史新高、收盘173.00、涨幅13.74%、成交额236.46、市值3459.24，是半导体容量核心。"
+    },
+    {
+      "code": "000977.SZ",
+      "name": "浪潮信息",
+      "strategy": "策略二强趋势延续",
+      "reason": "绑定§1：数据中心 pct_chg 1.64/diff 23.64/amount 8508.12，人工智能涨停17只；个股历史新高且2连板，收盘85.99、成交额185.34。"
+    },
+    {
+      "code": "000063.SZ",
+      "name": "中兴通讯",
+      "strategy": "策略三分歧回流",
+      "reason": "绑定§1：通信设备 diff 34.58、光纤 diff 28.09、6G diff 27.59；个股20日新高，收盘40.33、涨幅9.38%、成交额209.84。"
+    },
+    {
+      "code": "002384.SZ",
+      "name": "东山精密",
+      "strategy": "策略三分歧回流",
+      "reason": "绑定§1：PCB pct_chg 3.17/diff 19.46，元件 pct_chg 4.39/diff 24.93，CPO pct_chg 4.35/diff 18.38；个股涨停，收盘261.32、成交额277.86。"
+    },
+    {
+      "code": "603986.SH",
+      "name": "兆易创新",
+      "strategy": "策略一主线流动性池",
+      "reason": "绑定§1：芯片概念涨停32只、存储芯片涨停20只、半导体涨停13只；个股涨停，收盘663.49、成交额381.85，是存储芯片方向的最大成交发动机。"
+    }
+  ],
+  "thresholds": {
+    "market": {
+      "t1": {
+        "advancers_min": 2200,
+        "advancers_max": 3300,
+        "total_amount_min": 28000,
+        "limit_up_min": 65,
+        "limit_down_max": 20,
+        "sh_index_close_min": 4000
+      },
+      "t3": {
+        "advancers_ma3_min": 2300,
+        "total_amount_avg_min": 30000,
+        "limit_up_avg_min": 70,
+        "limit_down_avg_max": 25,
+        "stock_high_history_min": 22
+      },
+      "interpretation": "T+1 若涨家数维持2200以上且量能大于28000，视作底部横盘内的修复延续；T+3 需量能回到30000以上才升级为主升确认。"
+    },
+    "direction": {
+      "t1": {
+        "semiconductor_pct_min": 0.5,
+        "semiconductor_diff_min": 10,
+        "semiconductor_amount_min": 5500,
+        "storage_diff_min": 12,
+        "advanced_packaging_diff_min": 12,
+        "data_center_diff_min": 18,
+        "communication_equipment_diff_min": 20
+      },
+      "t3": {
+        "semiconductor_diff_min": 12,
+        "storage_or_advanced_packaging_limit_up_min": 15,
+        "data_center_amount_min": 8000,
+        "capacity_core_new_high_count_min": 2
+      },
+      "watchlist": [
+        "半导体",
+        "存储芯片",
+        "先进封装",
+        "数据中心",
+        "通信设备"
+      ]
+    },
+    "targets": {
+      "688981.SH": {
+        "name": "中芯国际",
+        "close_2026_07_09": 173.0,
+        "t1_trigger_close_min": 176.46,
+        "t3_trigger_close_min": 180.0,
+        "falsify_close_below": 164.35,
+        "extra_signal": "继续创历史新高"
+      },
+      "000977.SZ": {
+        "name": "浪潮信息",
+        "close_2026_07_09": 85.99,
+        "t1_trigger_close_min": 90.3,
+        "t3_trigger_close_min": 94.6,
+        "falsify_close_below": 81.69,
+        "extra_signal": "维持涨停或收盘不低于T日涨停价上方5%"
+      },
+      "000063.SZ": {
+        "name": "中兴通讯",
+        "close_2026_07_09": 40.33,
+        "t1_trigger_close_min": 41.54,
+        "t3_trigger_close_min": 42.35,
+        "falsify_close_below": 38.31,
+        "extra_signal": "继续刷新20日新高"
+      },
+      "002384.SZ": {
+        "name": "东山精密",
+        "close_2026_07_09": 261.32,
+        "t1_trigger_close_min": 269.16,
+        "t3_trigger_close_min": 274.39,
+        "falsify_close_below": 248.25,
+        "extra_signal": "PCB/CPO 双红延续时保持强于板块"
+      },
+      "603986.SH": {
+        "name": "兆易创新",
+        "close_2026_07_09": 663.49,
+        "t1_trigger_close_min": 696.66,
+        "t3_trigger_close_min": 729.84,
+        "falsify_close_below": 630.32,
+        "extra_signal": "存储芯片涨停热度继续居前"
+      }
+    },
+    "falsify": {
+      "t1_fail_if_any": [
+        "advancers < 1600",
+        "total_amount < 26000",
+        "limit_down > 35",
+        "半导体 pct_chg < -2 且 diff_ratio < 0",
+        "数据中心 diff_ratio < 0 且通信设备 diff_ratio < 0"
+      ],
+      "t3_fail_if_any": [
+        "total_amount_avg < 27000",
+        "semiconductor_diff < 0 for 2 trading days",
+        "stock_high_history_count < 18",
+        "5只标的中至少4只跌破各自 falsify_close_below"
+      ],
+      "plain_language": "若放量修复无法维持，且半导体/数据中心/通信设备同时转负，说明7月9日只是单日情绪脉冲，推翻主线回流判断。"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "horizon": "T+1",
+      "statement": "T+1 市场维持底部横盘修复：涨家数大于2200、成交额大于28000、涨停不少于65、跌停不超过20。"
+    },
+    {
+      "id": "direction",
+      "horizon": "T+1",
+      "statement": "半导体/存储/先进封装继续是第一方向：半导体 diff 不低于10，存储和先进封装 diff 均不低于12。"
+    },
+    {
+      "id": "falsify",
+      "horizon": "T+1/T+3",
+      "statement": "若 T+1 涨家数小于1600或半导体、数据中心、通信设备同时转负，则主线回流判断证伪。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-10",
+    "recheck_t3_date": "2026-07-14",
+    "pick_returns_t1": [
+      -5.77,
+      4.11,
+      0.5,
+      -7.28,
+      -7.76
+    ],
+    "pick_returns_t3": [
+      -6.9422,
+      -1.2094,
+      -1.0414,
+      -0.3635,
+      -11.9821
+    ],
+    "benchmark_return_t3": -1.7208,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00",
+    "beat_benchmark_t3": false
+  }
+}

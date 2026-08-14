@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-13",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "商业航天 -6.82%/diff-20.62；军工信息化 -7.14%/diff-13.32；军工 -6.55%/diff-17.12；人工智能 -4.43%/diff-18.67；CRO -0.80%/diff-10.10；创新药 -0.10%/diff-3.40；减肥药 -0.11%/diff-5.46",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "证伪条件已触发；涨家数801、涨停29、跌停172、成交额28176亿、量比87.3、上证-2.06%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数801、涨停29、跌停172、成交额28176亿、量比87.3、上证-2.06%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:000977.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "浪潮信息 收盘85.49（-4.50%），上证-2.06%，低于T+1阈值88.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002185.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "华天科技 收盘24.13（-4.66%），上证-2.06%，低于T+1阈值24.8",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300759.SZ",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "康龙化成 收盘34.08（+0.41%），上证-2.06%，≥T+1阈值33.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13"
+    },
+    {
+      "id": "target:600118.SH",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "中国卫星 收盘91.26（+1.38%），上证-2.06%，≥T+1阈值88.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13"
+    },
+    {
+      "id": "target:600879.SH",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "航天电子 收盘21.36（-8.29%），上证-2.06%，低于T+1阈值22.5",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-13",
+      "failure_mode": "机判待人工归因"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

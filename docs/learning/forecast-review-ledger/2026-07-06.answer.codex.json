@@ -1,0 +1,250 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-06",
+  "agent": "codex",
+  "manifest_sha": "5a819dc4d6826df8",
+  "stage": "底部横盘第4天后的分歧修复发酵期",
+  "input_freeze": {
+    "duckdb_cutoff": "2026-07-03",
+    "perspective_date": "2026-07-03",
+    "materials": [],
+    "data_gaps": [
+      "未找到 2026-07-06 当日复盘材料文件；本答卷仅使用截至 2026-07-03 收盘 DuckDB 冻结数据。",
+      "未使用卖方、晨汇、外盘增量材料；方向判断只代表盘面流。"
+    ]
+  },
+  "section_1_fields": {
+    "stage": "fact_market_daily 显示 2026-07-03 为底部横盘阶段第4天；7.2 大跌分歧后 7.3 宽度修复，但成交缩量。",
+    "volume": {
+      "total_amount_yi": 31822.39,
+      "amount_ma20_yi": 32037.27,
+      "volume_ratio_pct": 99.33,
+      "amount_vs_yesterday_pct": -7.77,
+      "volume_state": "正常量能"
+    },
+    "breadth": {
+      "advancers": 3804,
+      "advancers_ma5": 3157.2,
+      "limit_up": 108,
+      "limit_down": 19,
+      "sh_index_pct_chg": 0.3658
+    },
+    "double_red": {
+      "definition": "pct_chg > 0 且 diff_ratio > 0",
+      "count": 53,
+      "top_by_diff": [
+        {
+          "sector": "电机",
+          "pct_chg": 5.59,
+          "diff_ratio": 37.23,
+          "red_count": 24,
+          "stock_count": 26,
+          "limit_heat": 3
+        },
+        {
+          "sector": "汽车零部件",
+          "pct_chg": 4.24,
+          "diff_ratio": 33.25,
+          "red_count": 250,
+          "stock_count": 273,
+          "limit_heat": 20
+        },
+        {
+          "sector": "减速器",
+          "pct_chg": 5.74,
+          "diff_ratio": 27.41,
+          "red_count": 128,
+          "stock_count": 138,
+          "limit_heat": 14
+        },
+        {
+          "sector": "人形机器人",
+          "pct_chg": 3.46,
+          "diff_ratio": 10.72,
+          "red_count": 359,
+          "stock_count": 458,
+          "limit_heat": 31
+        }
+      ],
+      "recent_counts": {
+        "2026-07-01": 183,
+        "2026-07-02": 35,
+        "2026-07-03": 53
+      }
+    },
+    "limit_heat": {
+      "market_limit_up": 108,
+      "top": [
+        {
+          "sector": "机器人概念",
+          "limit_up_count": 45,
+          "previous_limit_up_count": 20,
+          "market_share_pct": 41.67
+        },
+        {
+          "sector": "人形机器人",
+          "limit_up_count": 31,
+          "previous_limit_up_count": 13,
+          "market_share_pct": 28.7
+        },
+        {
+          "sector": "储能",
+          "limit_up_count": 20,
+          "previous_limit_up_count": 12,
+          "market_share_pct": 18.52
+        },
+        {
+          "sector": "汽车零部件",
+          "limit_up_count": 20,
+          "previous_limit_up_count": 8,
+          "market_share_pct": 18.52
+        }
+      ]
+    },
+    "new_high": {
+      "stock_high_count_history": 40,
+      "stock_high_count_3y": 59,
+      "stock_high_count_2y": 66,
+      "stock_high_count_1y": 70,
+      "stock_high_count_120d": 84,
+      "stock_high_count_60d": 109,
+      "stock_high_count_20d": 367,
+      "capacity_new_highs": [
+        "三花智控:20日新高, 成交153.71亿",
+        "绿的谐波:历史新高, 成交125.29亿",
+        "埃斯顿:历史新高, 成交55.08亿",
+        "奥比中光:历史新高, 成交53.48亿",
+        "双环传动:60日新高, 成交34.12亿"
+      ]
+    },
+    "limit_advance": {
+      "one_to_two": "13/74=18%",
+      "two_to_three": "2/15=13%",
+      "three_to_four": "1/3=33%",
+      "advance_stock_count": 16,
+      "max_boards": 4
+    },
+    "core_stocks": {
+      "engines": [
+        "三花智控",
+        "绿的谐波",
+        "拓普集团",
+        "埃斯顿",
+        "双环传动"
+      ],
+      "capacity_context": "人形机器人成交5364.93亿、红盘359/458、涨停热度31；汽车零部件成交948.85亿、红盘250/273、涨停热度20。"
+    }
+  },
+  "main_judgment": "市场处在底部横盘后的分歧修复发酵期，7.3 是缩量广度修复而非放量加速，7.6 的关键是机器人/汽车链分歧后能否继续维持双红与涨停热度。",
+  "direction_ranking": [
+    "人形机器人/减速器",
+    "汽车零部件",
+    "储能/风电",
+    "军工/商业航天"
+  ],
+  "direction_reasoning": [
+    "人形机器人/减速器：人形机器人红盘359/458、diff=10.72、涨停热度31；减速器diff=27.41、红盘128/138、涨停热度14，属于主线流动性池的强趋势延续。",
+    "汽车零部件：diff=33.25、红盘250/273、涨停热度20，从7.2涨停8家扩至20家，属于机器人链外溢与汽车链共振。",
+    "储能/风电：储能涨停热度20、风电15，但本答卷未取到对应双红明细居前，优先级低于机器人/汽车。",
+    "军工/商业航天：涨停热度明显提升，但双红与核心容量弱于机器人/汽车，作为流动性切换观察。"
+  ],
+  "picks": [
+    {
+      "code": "002050",
+      "ts_code": "002050.SZ",
+      "name": "三花智控",
+      "strategy": "策略四-强趋势延续",
+      "reason": "绑定§1：人形机器人红盘359/458、涨停热度31；个股7.3涨幅9.06%、成交153.71亿、20日新高，是容量核心。"
+    },
+    {
+      "code": "688017",
+      "ts_code": "688017.SH",
+      "name": "绿的谐波",
+      "strategy": "策略一-主线流动性池核心",
+      "reason": "绑定§1：减速器diff=27.41、红盘128/138、涨停热度14；个股7.3涨幅18.15%、成交125.29亿、历史新高。"
+    },
+    {
+      "code": "601689",
+      "ts_code": "601689.SH",
+      "name": "拓普集团",
+      "strategy": "策略一-容量核心首板",
+      "reason": "绑定§1：汽车零部件diff=33.25、红盘250/273、涨停热度20；个股7.3涨停、成交52.24亿，兼具汽车链与机器人链映射。"
+    },
+    {
+      "code": "002472",
+      "ts_code": "002472.SZ",
+      "name": "双环传动",
+      "strategy": "策略三-分歧回流确认",
+      "reason": "绑定§1：减速器与汽车零部件双红；个股7.3涨停、成交34.12亿、60日新高，适合看分歧后承接。"
+    },
+    {
+      "code": "002747",
+      "ts_code": "002747.SZ",
+      "name": "埃斯顿",
+      "strategy": "策略四-强趋势延续",
+      "reason": "绑定§1：人形机器人涨停热度31；个股7.3涨停、成交55.08亿、历史新高，是机器人自动化方向的强趋势样本。"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1：涨家数>=3000、涨停>=95、跌停<=25、成交额>=30000亿且量比>=95%，则分歧修复发酵成立；T+3：至少2日涨家数>=2800且市场未出现跌停>35。若T+1涨家数<2500或跌停>30，主判断降级。",
+    "direction": "T+1：人形机器人保持红盘数>=300且diff_ratio>0、涨停热度>=20；汽车零部件保持红盘数>=200且diff_ratio>0、涨停热度>=12。T+3：两条主线至少一条连续2日双红，且diff_ratio不连续为负。",
+    "targets": "三花智控T+1不低于46.50且T+3不低于46.50；绿的谐波T+1不低于463.60且T+3不低于463.60；拓普集团T+1不低于59.31且T+3不低于59.31；双环传动T+1不低于44.66且T+3不低于44.66；埃斯顿T+1不低于42.53且T+3不低于42.53。任一标的若T+1跌破阈值且所属板块diff转负，记该标的假设miss。",
+    "falsify": "若T+1市场涨停<90且跌停>30，或人形机器人与汽车零部件同时diff_ratio<0，或1进2晋级率<15%，则§2主判断证伪；若贵金属/防御方向替代成为涨停热度Top1且机器人热度<15，方向排序证伪。"
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "text": "7.6 市场维持分歧修复发酵，涨家数>=3000、涨停>=95、跌停<=25。"
+    },
+    {
+      "id": "direction",
+      "text": "人形机器人或汽车零部件至少一条继续双红，且对应涨停热度不低于阈值。"
+    },
+    {
+      "id": "falsify",
+      "text": "涨停<90且跌停>30，或两条主线同时diff<0，或1进2<15%，即证伪主判断。"
+    },
+    {
+      "id": "target:002050",
+      "text": "三花智控T+1/T+3不跌破46.50且机器人链不退潮。"
+    },
+    {
+      "id": "target:688017",
+      "text": "绿的谐波T+1/T+3不跌破463.60且减速器diff不连续转负。"
+    },
+    {
+      "id": "target:601689",
+      "text": "拓普集团T+1/T+3不跌破59.31且汽车零部件维持双红。"
+    },
+    {
+      "id": "target:002472",
+      "text": "双环传动T+1/T+3不跌破44.66且减速器/汽车链至少一条维持双红。"
+    },
+    {
+      "id": "target:002747",
+      "text": "埃斯顿T+1/T+3不跌破42.53且机器人涨停热度不低于20。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-06",
+    "recheck_t3_date": "2026-07-08",
+    "pick_returns_t1": [
+      -5.8,
+      -6.97,
+      -2.98,
+      0.04,
+      2.81
+    ],
+    "pick_returns_t3": [
+      -14.2478,
+      -19.877,
+      -12.3338,
+      -9.3944,
+      -1.4965
+    ],
+    "benchmark_return_t3": -1.7994,
+    "recheck_generated_at": "2026-07-08T20:06:02+08:00",
+    "beat_benchmark_t3": false
+  }
+}

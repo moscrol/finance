@@ -1,0 +1,102 @@
+{
+  "_comment": "Golden cases for the agent eval gate (P1+). 期望实体取各题材图谱核心层/中间层中、库内确有硬证据覆盖的公司，刻意留余量（recall 闸 0.5）以免过拟合 LLM 措辞。新增题材直接往 cases 里加一条即可。",
+  "aggregate_gate": 1.0,
+  "cases": [
+    {
+      "id": "liquid-cooling",
+      "query": "液冷",
+      "date": "2026-06-11",
+      "followups": [
+        "强瑞技术和冰轮环境，谁的证据更硬？",
+        "高澜股份最新逻辑是什么，和前两家横向对比"
+      ],
+      "expect_entities": ["英维克", "高澜股份", "申菱环境", "川润股份"],
+      "expect_concepts": ["液冷"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5
+    },
+    {
+      "id": "photoresist",
+      "query": "光刻胶",
+      "date": "2026-06-11",
+      "followups": [
+        "光刻胶上游的树脂和单体环节，国产化进展如何？",
+        "ArF 和 KrF 光刻胶的国产标的分别有哪些，对比一下"
+      ],
+      "expect_entities": ["彤程新材", "南大光电", "上海新阳", "容大感光", "雅克科技"],
+      "expect_concepts": ["光刻胶"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5
+    },
+    {
+      "id": "commercial-aerospace",
+      "query": "商业航天",
+      "date": "2026-06-11",
+      "followups": [
+        "卫星制造和火箭发射两条链，各自的核心标的是谁？",
+        "可回收火箭带来的边际变化，最受益的标的怎么排序"
+      ],
+      "expect_entities": ["上海瀚讯", "中国卫通", "中科星图", "中航重机", "航天电器"],
+      "expect_concepts": ["商业航天"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 50,
+      "entity_recall_gate": 0.5
+    },
+    {
+      "id": "pcb",
+      "query": "PCB",
+      "date": "2026-06-11",
+      "followups": [
+        "AI 服务器 PCB 和高多层板的核心标的分别是谁？",
+        "高速 CCL 覆铜板环节，国产标的怎么排序"
+      ],
+      "expect_entities": ["世运电路", "兴森科技", "东山精密", "光华科技"],
+      "expect_concepts": ["PCB"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["宁德时代", "比亚迪"],
+      "forbid_phrases": ["保证收益", "稳赚不赔"]
+    },
+    {
+      "id": "solid-state-battery",
+      "query": "固态电池",
+      "date": "2026-06-11",
+      "followups": [
+        "硫化物和氧化物路线的设备与材料标的分别有哪些？",
+        "固态电解质环节国产化进展和核心标的"
+      ],
+      "expect_entities": ["先导智能", "天赐材料", "国轩高科", "天奈科技"],
+      "expect_concepts": ["固态电池"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["世运电路", "兴森科技"],
+      "forbid_phrases": ["保证收益", "稳赚不赔"]
+    },
+    {
+      "id": "ai-glasses",
+      "query": "AI眼镜",
+      "date": "2026-06-11",
+      "followups": [
+        "AI 眼镜的 SoC 主控和声学环节核心标的分别是谁？",
+        "光波导和显示环节的国产标的有哪些"
+      ],
+      "expect_entities": ["歌尔股份", "恒玄科技", "瑞芯微", "全志科技"],
+      "expect_concepts": ["AI眼镜"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["先导智能", "天赐材料"],
+      "forbid_phrases": ["业绩已兑现", "已完成财务验证", "L3官方验证已确认", "确定性兑现"]
+    }
+  ]
+}

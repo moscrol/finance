@@ -1,0 +1,146 @@
+用户问题：液冷服务器题材怎么看
+命中主题：液冷服务器
+
+以下是已检索到的多源证据（你的回答只能据此展开）：
+## AnswerSpec（唯一事实边界，禁止增加未列出的事实、公司和数字）
+### 三行结论
+- [inferred] 液冷服务器的研究范围是：围绕 AI 服务器和数据中心散热，从冷板、CDU、快接、泵阀、冷源到系统集成与交付的研究方向。｜证据=ONTOLOGY｜层级=research_ontology
+- [candidate] 盘面上已经出现涨幅与边际成交同步转强、new_high_mapping、limit_up_heat，说明市场关注度有所升温；但这些信号只能反映资金行为，不能替代公司公告、客户、订单或收入证据。｜证据=S1,S2,S3,S4｜层级=market_data
+- [verified] 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。｜证据=G2,R1｜层级=company_evidence
+### 已核验事实
+- [verified] 涨幅与边际成交同步转强：板块连续两日放量上涨｜证据=S1｜层级=L4
+- [verified] new_high_mapping：板块内 6 只个股创一年新高｜证据=S2｜层级=L4
+- [verified] limit_up_heat：题材涨停 5 家、市占率 8.6%｜证据=S3｜层级=L4
+- [verified] 市场环境：分歧日，成交 18234 亿，涨停 58 / 跌停 7，容量前三 算力硬件（占比 8.4%）、液冷服务器（占比 5.1%）、存储芯片（占比 4.7%）｜证据=S4｜层级=L4
+- [verified] 英维克与液冷服务器存在公司级映射。｜公司=英维克｜证据=G2｜层级=l3
+- [verified] 英维克：中标某互联网大厂液冷集采项目，金额约 3.2 亿元（公司公告, 2026-07-01, 质量 ?）｜公司=英维克｜证据=R1｜层级=L3
+### 公司判断
+- 英维克｜core｜core｜证据=G2,R1｜缺口=无
+- 川环科技｜peripheral｜peripheral｜证据=G2,R2｜缺口=候选资料需公告、年报、订单或客户证据确认
+### 反证与缺口
+- [conflict] 价格可能已抢跑：市场交易的是预期而非已验证事实，公告/兑现日反而可能是分歧点｜证据=无｜层级=未评级
+- [conflict] 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散｜证据=无｜层级=未评级
+- [missing] 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据｜证据=无｜层级=未评级
+- [missing] 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。｜证据=无｜层级=未评级
+- [missing] 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立｜证据=R2｜层级=未评级
+- [missing] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。｜证据=W2｜层级=未评级
+- [missing] 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现｜证据=无｜层级=未评级
+### 候选证据（检索可回查，但未达硬证据门槛，不得写成已确认事实）
+- [candidate] 命中概念：液冷服务器(20)｜证据=G1｜层级=concept_graph
+- [candidate] 液冷服务器（相关度 0.92）：液冷渗透率随机柜功率密度提升而上行，冷板方案先行。｜证据=W1｜层级=wiki_candidate
+### 触发条件与核验动作
+- [verified] 涨幅与边际成交同步转强：板块连续两日放量上涨｜证据=S1｜层级=L4
+- [verified] new_high_mapping：板块内 6 只个股创一年新高｜证据=S2｜层级=L4
+- [verified] limit_up_heat：题材涨停 5 家、市占率 8.6%｜证据=S3｜层级=L4
+- [verified] 市场环境：分歧日，成交 18234 亿，涨停 58 / 跌停 7，容量前三 算力硬件（占比 8.4%）、液冷服务器（占比 5.1%）、存储芯片（占比 4.7%）｜证据=S4｜层级=L4
+- [inferred] 客户验证转订单｜证据=ONTOLOGY｜层级=research_ontology
+- [inferred] 机柜或 CDU 交付放量｜证据=ONTOLOGY｜层级=research_ontology
+- [inferred] 液冷收入和利润开始兑现｜证据=ONTOLOGY｜层级=research_ontology
+- 核对产品和客户原文
+- 区分送样、定点、订单和交付
+- 比较公司证据硬度与盘面相对强弱
+- 观点有效期：建议 30 天内复查（至 2026-08-07）；过期引用本结论须先经当下盘面复核。
+- 核验动作：核对产品和客户原文
+- 核验动作：区分送样、定点、订单和交付
+- 核验动作：比较公司证据硬度与盘面相对强弱
+- 对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）
+### 运行约束（用于日期、问题规划和检索前置门，不是新增事实）
+## 本轮任务边界
+- 类型：theme_analysis；深度：standard
+- 必要视角：市场阶段：当前是扩散、主升、第一次分歧、反弹还是兑现；题材结构：双红、涨停扩散、新高集群、容量行业和边际量；强势股队列：领先核心、同步确认、后排补涨和被抛弃方向
+- 优先证据：DuckDB/theme candidates：双红、涨停热度、新高集群、容量行业、边际量；DuckDB mainline sectors：每日主线题材、核心板块、cycle_status、启动日和新高/临近突破状态；wiki concept + hybrid RAG：产业链结构、概念页、研报页
+- 完成条件：自然回答，但必须显式区分事实、推导、反证和后续验证
+- 事实门：不能只给结论，必须说明关键推理链和证据边界；必须主动写反证和证伪条件；缺数据时要说明缺口，不能用常识或印象补齐
+- 缺数据：本地没有命中时，先声明缺口，再决定是否需要 web/API 补查；外部实时查询只补最新事实，不替代知识库/金融库的结构化底座
+- 金融检索底线：产业链/关系
+## 交易日历约束
+- 数据交易日：2026-07-08
+- 下一交易日：日期待交易日历确认
+### 来源索引
+- 2026-07-08-theme-candidates.json · score_detail.double_red [S1] — fact_sector_daily
+- 2026-07-08-theme-candidates.json · score_detail.new_high_mapping [S2] — fact_stock_high_daily
+- 2026-07-08-theme-candidates.json · score_detail.limit_up_heat [S3] — fact_theme_limit_heat_daily
+- 2026-07-08-theme-candidates.json · market_context [S4]
+- knowledge-base · wiki/relations/concept_graph.json [G1]
+- knowledge-base · wiki/relations/entity_exposures.json [G2]
+- knowledge-base · wiki/relations/evidence_index.json [R1] — target=英维克 source=公司公告
+- knowledge-base · wiki/relations/evidence_index.json [R2] — target=川环科技 source=券商研报
+- knowledge-base · wiki/concepts/液冷服务器.md [W1] — closed-loop:narrow｜液冷服务器｜chunk=chunk-1｜evidence_chunks=chunk-1｜hash=｜index=｜freshness=
+- knowledge-base · wiki/concepts/液冷服务器.md [W2] — closed-loop:counter｜液冷服务器｜chunk=chunk-9｜evidence_chunks=chunk-9｜hash=｜index=｜freshness=
+- 本地证据链客户硬度数据块 [D2] — 客户/订单/量产/送样/验证证据按硬度分层
+- 本地 DuckDB + 证据链二阶导研究队列数据块 [D3] — 强势替代表达/目标股再升级/产业瓶颈补盲
+- 题材研究配置 · 液冷服务器 [ONTOLOGY] — 仅用于定义、产业链和核验协议，不作为公司级事实。
+### 结构化 claim registry（正文必须绑定）
+- 液冷服务器的研究范围是：围绕 AI 服务器和数据中心散热，从冷板、CDU、快接、泵阀、冷源到系统集成与交付的研究方向。 <!-- claim_id=summary:definition; evidence_atom_ids=atom-4f0c5f5ec8d2; claim_type=inference -->
+- 盘面上已经出现涨幅与边际成交同步转强、new_high_mapping、limit_up_heat，说明市场关注度有所升温；但这些信号只能反映资金行为，不能替代公司公告、客户、订单或收入证据。 <!-- claim_id=summary:market; evidence_atom_ids=atom-c9413afe35a3,atom-7beea9060e8a,atom-0600bd85525b,atom-07276bb8b5f4; claim_type=expectation -->
+- 公司层面已找到可回查的公开材料，覆盖英维克；是否属于核心受益者，仍需结合业务直接性和收入贡献判断。 <!-- claim_id=summary:company; evidence_atom_ids=atom-e02f53875e22,atom-4191fd3e49f4; claim_type=fact -->
+- 涨幅与边际成交同步转强：板块连续两日放量上涨 <!-- claim_id=market:S1; evidence_atom_ids=atom-82126eeb1626; claim_type=fact -->
+- new_high_mapping：板块内 6 只个股创一年新高 <!-- claim_id=market:S2; evidence_atom_ids=atom-6d04d7dfd09e; claim_type=fact -->
+- limit_up_heat：题材涨停 5 家、市占率 8.6% <!-- claim_id=market:S3; evidence_atom_ids=atom-f82389f685d2; claim_type=fact -->
+- 市场环境：分歧日，成交 18234 亿，涨停 58 / 跌停 7，容量前三 算力硬件（占比 8.4%）、液冷服务器（占比 5.1%）、存储芯片（占比 4.7%） <!-- claim_id=market:S4; evidence_atom_ids=atom-df8ef9215b95; claim_type=fact -->
+- 英维克与液冷服务器存在公司级映射。 <!-- claim_id=company:英维克:G2; evidence_atom_ids=atom-260783eb493e; claim_type=fact -->
+- 英维克：中标某互联网大厂液冷集采项目，金额约 3.2 亿元（公司公告, 2026-07-01, 质量 ?） <!-- claim_id=evidence:R1; evidence_atom_ids=atom-08e0fc0b0175; claim_type=fact -->
+- 价格可能已抢跑：市场交易的是预期而非已验证事实，公告/兑现日反而可能是分歧点 <!-- claim_id=counter:1; evidence_atom_ids=; claim_type=expectation -->
+- 事实与盘面同向时最大的反证是拥挤度：若成交占比过高且靠旧主线资金切换，属兑现风险而非增量扩散 <!-- claim_id=counter:2; evidence_atom_ids=; claim_type=expectation -->
+- 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据 <!-- claim_id=gap:1; evidence_atom_ids=; claim_type=expectation -->
+- 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。 <!-- claim_id=gap:2; evidence_atom_ids=; claim_type=expectation -->
+- 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立 <!-- claim_id=gap:3; evidence_atom_ids=atom-e7f5b7827b85; claim_type=expectation -->
+- 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。 <!-- claim_id=gap:4; evidence_atom_ids=atom-ff977c6da2d1; claim_type=expectation -->
+- 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现 <!-- claim_id=gap:5; evidence_atom_ids=; claim_type=expectation -->
+- 涨幅与边际成交同步转强：板块连续两日放量上涨 <!-- claim_id=trigger:1; evidence_atom_ids=atom-6fb7d4961ec5; claim_type=fact -->
+- new_high_mapping：板块内 6 只个股创一年新高 <!-- claim_id=trigger:2; evidence_atom_ids=atom-cb0b304a61b0; claim_type=fact -->
+- limit_up_heat：题材涨停 5 家、市占率 8.6% <!-- claim_id=trigger:3; evidence_atom_ids=atom-2a97045709de; claim_type=fact -->
+- 市场环境：分歧日，成交 18234 亿，涨停 58 / 跌停 7，容量前三 算力硬件（占比 8.4%）、液冷服务器（占比 5.1%）、存储芯片（占比 4.7%） <!-- claim_id=trigger:4; evidence_atom_ids=atom-9ba3c3b96ed8; claim_type=fact -->
+- 客户验证转订单 <!-- claim_id=trigger:5; evidence_atom_ids=atom-899f38eb6377; claim_type=inference -->
+- 机柜或 CDU 交付放量 <!-- claim_id=trigger:6; evidence_atom_ids=atom-67deb63b3a39; claim_type=inference -->
+- 液冷收入和利润开始兑现 <!-- claim_id=trigger:7; evidence_atom_ids=atom-8c6757ac532e; claim_type=inference -->
+- 命中概念：液冷服务器(20) <!-- claim_id=concept:G1; evidence_atom_ids=atom-c434b1dc8702; claim_type=expectation -->
+- 液冷服务器（相关度 0.92）：液冷渗透率随机柜功率密度提升而上行，冷板方案先行。 <!-- claim_id=wiki:W1; evidence_atom_ids=atom-2b7999527125; claim_type=expectation -->
+- 川环科技与液冷服务器存在公司级映射。 <!-- claim_id=company:川环科技:G2; evidence_atom_ids=atom-2c6d4ce4dd94; claim_type=expectation -->
+- 川环科技：券商研报提及其为液冷管路潜在供应商（券商研报, 2026-05-20, 质量 ? ｜新出现·首次进入观察） <!-- claim_id=evidence:R2; evidence_atom_ids=atom-c16e496f6004; claim_type=expectation -->
+marker 只供机器核验；保留自然措辞，事实句绑定合法 EvidenceAtom，无法绑定的句子直接删除或改成明确的证据缺口。
+
+## 内部引用图例（只用于事实核验；最终回答不得显示编号）
+[S1] 2026-07-08-theme-candidates.json · score_detail.double_red — fact_sector_daily
+[S2] 2026-07-08-theme-candidates.json · score_detail.new_high_mapping — fact_stock_high_daily
+[S3] 2026-07-08-theme-candidates.json · score_detail.limit_up_heat — fact_theme_limit_heat_daily
+[S4] 2026-07-08-theme-candidates.json · market_context
+[G1] knowledge-base · wiki/relations/concept_graph.json
+[G2] knowledge-base · wiki/relations/entity_exposures.json
+[R1] knowledge-base · wiki/relations/evidence_index.json — target=英维克 source=公司公告
+[R2] knowledge-base · wiki/relations/evidence_index.json — target=川环科技 source=券商研报
+[W1] knowledge-base · wiki/concepts/液冷服务器.md — closed-loop:narrow｜液冷服务器｜chunk=chunk-1｜evidence_chunks=chunk-1｜hash=｜index=｜freshness=
+[W2] knowledge-base · wiki/concepts/液冷服务器.md — closed-loop:counter｜液冷服务器｜chunk=chunk-9｜evidence_chunks=chunk-9｜hash=｜index=｜freshness=
+[D2] 本地证据链客户硬度数据块 — 客户/订单/量产/送样/验证证据按硬度分层
+[D3] 本地 DuckDB + 证据链二阶导研究队列数据块 — 强势替代表达/目标股再升级/产业瓶颈补盲
+
+## 回答质量约束（内部研究审稿，不要机械复述为模板）
+- 阶段判断：事实验证但兑现分歧
+- 证据层：L1, L2, L3, L4
+- 只使用下列与本题相关的审稿提醒；结构与标题由问题本身决定。
+- 盘面反向解读（从全量盘面数据推导市场真实选择，不能只罗列数据）：
+  - 先从第一性原理解释数据：资金推动价格、量能决定周期；成交额/20日量能回归决定有没有新增资金，涨家数MA5和涨跌停决定赚钱效应，容量前三和成交占比环比决定资金主战场，双红/新高/涨停决定板块是否被持续重定价。
+  - 每个盘面指标都要做正反两面推导：它支持什么结论，也否定什么结论。例如板块 priority 上升但目标股不进强势股榜，说明市场在交易该题材，但没有把目标股选为前排核心。
+- 高位主线反证与生命周期推理（学分析动作，不照搬观点）：
+  - 第一性原理：高位主线继续上涨，不取决于长期产业确定性本身，而取决于边际预期、流动性、证据硬度和位置约束是否还能同时改善。
+  - 外部约束不是泛宏观复述：只讨论会不会改变风险偏好、成交额、估值倍数和高估值题材定价的变量；已被市场定价的冲击要考虑边际递减或靴子落地。
+- 输出前质检器（内部执行，不要把清单原样输出；若不通过，先补写再给最终回答）：
+  - 覆盖率门槛：公司本体、产业链暴露、证据层、高位主线反证、大盘流动性、市场风格、行业容量、题材结构、个股相对强度、生命周期、二阶导、条件化结论至少都要被思考；缺数据要写明缺口。
+  - 第一性原理门槛：不能只贴标签或罗列数据，必须解释资金为什么选择/不选择它，产业事实如何传导到收入、毛利率、订单、产能或估值预期。
+  - 盘面融合门槛：大盘阶段、成交额/20日量能、涨家数/MA5、容量前三、双红/新高/涨停、个股相对强度要形成一条推理链；不能孤立看个股。
+  - 证据分层门槛：明确 L1观点、L2基本面、L3订单/认证/量产/客户验证/反证、L4盘面强度；不得把观点研报或题材标签当成硬事实。
+- 叙事编排器（内部执行，视角不是小标题，不要输出编排过程）：
+  - 先在内部写出核心矛盾句：这家公司真实业务是什么，市场正在交易什么预期，最大的证据缺口或反证是什么。
+  - 视角不是小标题：公司本体、收入结构、客户证据、盘面、生命周期、二阶导和反证，都必须服务核心矛盾句，而不是分块填空。
+- 市场结构推演路径：
+  - 市场量能：用成交额、20日量能回归或放缩量状态判断有没有新增资金。
+  - 市场情绪：用涨跌家数、涨停/跌停和情绪扩散判断赚钱效应。
+- 阶段解释：
+  - 事实层不降级：L3 出现说明逻辑有硬证据，但不要把盘面下跌直接等同于逻辑证伪。
+  - 情绪层要降温：需要判断预期是否已经提前交易，短线可能是公告兑现而不是新一轮启动。
+- 反方审稿：
+  - 预期是否已经提前交易，盘面是在继续重估还是兑现分歧？
+  - 这条信息是新事实，还是市场早已知道的旧预期？
+  - 一阶受益和二阶受益分别是谁，是否存在更直接的替代标的？
+
+请据此有机融合成一段分析师口吻的回答。优先给出直接判断，只使用真正回答问题所需的 claim；不要为了完整而逐条罗列 registry。

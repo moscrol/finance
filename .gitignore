@@ -1,0 +1,151 @@
+# macOS
+.DS_Store
+._*
+__MACOSX/
+**/._*
+**/__MACOSX/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.crt
+*.token
+*.secret
+credentials.json
+cookie*
+
+# moneyflow 产物（CSV/PNG/名单缓存不入库）
+scripts/moneyflow/outputs/
+
+# Local agent configs
+.claude/settings.json
+.claude/settings.local.json
+.claude/mcp.json
+.mcp.json
+.codex/hooks.json
+.superpowers/
+khazix-skills/
+rsshub/
+*.code-workspace
+
+# Machine-local symlink to the shared Feishu toolkit (points into ~/.claude/shared).
+# Never commit it: the absolute path differs per machine/user and leaks the home path.
+# Recreate per machine:  ln -s ~/.claude/shared shared
+shared
+
+# Python/cache
+__pycache__/
+*.pyc
+.venv/
+.venv-*/
+venv/
+
+# Node
+node_modules/
+
+# Logs/temp
+*.log
+tmp/
+temp/
+*.tmp
+
+# Generated market review exports
+market_feature_store/exports/*-daily-review.md
+market_feature_store/exports/*-advancers-ma5.png
+market_feature_store/exports/*-triggered-themes.json
+market_feature_store/exports/*-market-triggered-theme-brief.md
+# 单份已涨到 20~25MB，超 pre-commit 5MB 硬上限，物理上无法入库；
+# 历史上有 14/48 份小体积版本已跟踪，那些保持原样，只挡新增。
+market_feature_store/exports/*-daily-agent.json
+market_feature_store/exports/*-theme-candidates.json
+复盘/index.html
+复盘/moneyflow/
+复盘/dualblind/
+
+# Databases
+db/
+*.duckdb
+*.db
+*.sqlite
+*.sqlite3
+
+# Local iFinD MCP package/config may contain auth_token
+ifind-finance-data/
+skills/ifind/mcp_config.json
+
+# Archives / large binaries
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+*.pdf
+*.pptx
+
+
+# foresight 记忆回路 + 个人画像（含真实自选股/提问历史，不入库）
+intelligence/foresight_memory.jsonl
+intelligence/foresight_profile.local.json
+
+# 多用户应用态：只跟踪 users/README.md 与 users/profile.template.json，
+# 各用户运行时文件（画像/派生/记忆/反馈/策略 overlay）全部忽略
+intelligence/users/*/profile.json
+intelligence/users/*/profile.derived.json
+intelligence/users/*/foresight_memory.jsonl
+intelligence/users/*/interactions.jsonl
+intelligence/users/*/corrections.jsonl
+intelligence/users/*/experience_cards.jsonl
+intelligence/users/*/judgments.jsonl
+intelligence/users/*/checkpoints.jsonl
+intelligence/users/*/verdicts.jsonl
+intelligence/users/*/strategy_params.json
+intelligence/users/*/perspectives/
+# 潜意识模式运行时态：会话 buffer / active 标记，以及未设 SUBCONSCIOUS_VAULT 时的回退沉淀 vault
+intelligence/users/*/.subconscious/
+intelligence/users/*/runs/
+intelligence/users/*/conversations/
+intelligence/users/*/self-use/
+intelligence/users/*/market-cache/
+intelligence/users/*/_vault/
+
+# evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
+evolution/records/
+evolution/validation/
+evolution/suggestions/
+
+# 本地手动备份，从不入库
+*.bak
+*.bak-*
+*.bak.*
+# 按用户的 evolve 输出（overlay 生效后的记录/验证/建议/进化.md），运行时生成，不入库
+evolution/users/
+
+# dream-loop transcript store：正文 jsonl 仅本地留存，不入库；
+# 只有 manifest.jsonl 与 digest-*.md（脱敏摘要）可提交（设计 decision1 §1）。
+intelligence/dream/_local_store/
+# 飞书 bot --transcript-log 的原始事件落盘（含正文，本地留存）
+feishu-events*.jsonl
+# 若把 store 指向本仓内的 raw/transcripts/，按日期分桶的正文 jsonl 一律忽略
+raw/transcripts/*/*.jsonl
+# dream-loop 7B：KB 事实回写候选默认 staging（人工 review 前不入库）
+intelligence/dream/_kb_candidates/
+
+# 记忆底座软链（指向 /Users/a77/agent-memory，仅本地，勿提交）
+.agent-memory
+
+# 工作台工作流指标流水：运行态，与上面 users/* 那批同性质
+# （同目录的 workbench.sqlite3 已被 *.sqlite3 覆盖，runs/ 已单列）
+intelligence/users/*/workflow_metrics.jsonl
+
+# 每日市场快照：程序写的运行态数据（600 权限），非成品报告，可由同步重建
+market_snapshot/
+
+# opinion-cross 中间产物（miracle-*.txt/json/md），成品进知识库不进本仓
+.tmp-opinion/
+
+# 编辑器 / 工具本地配置（与 .codex/hooks.json 同类，逐个列而非忽略整目录）
+.windsurf/
+.codex/config.toml

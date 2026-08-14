@@ -1,0 +1,360 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+  "market_date": "2026-07-15",
+  "created_at": "2026-07-15T20:21:55+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-15-concept_ingest-fu-wu-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "医疗服务",
+      "priority": 299.04,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "康龙化成",
+        "凯莱英",
+        "万邦医药",
+        "睿智医药",
+        "昭衍新药"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-concept_ingest-cro-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "CRO",
+      "priority": 293.12,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "康龙化成",
+        "凯莱英",
+        "美诺华",
+        "万邦医药",
+        "中赋科技"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-concept_ingest-e289b95bd783-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "合成生物",
+      "priority": 186.51,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "凯莱英",
+        "美诺华",
+        "中赋科技",
+        "博瑞医药",
+        "翰宇药业"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-concept_ingest-e4bb9da18861-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "医药",
+      "priority": 115.0,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-concept_ingest-ai-pc-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "AI PC",
+      "priority": 113.0,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-disclosure-b84604b8bb9d-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "创新药",
+      "priority": 329.12,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "康龙化成",
+        "常山药业",
+        "凯莱英",
+        "迪哲医药",
+        "万邦医药"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-12",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-12",
+            "excerpt": "8. **创新药 BD/Newco**：上半年 BD 总金额 1700+亿美金（达 2025 全年 64%），CD19/CD3 取代 GLP-1 位列榜首；美…",
+            "stance": "-",
+            "matched_by": "题材词：创新药"
+          },
+          {
+            "date": "2026-07-12",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-12",
+            "excerpt": "**次优先**：存储（紧平衡跨年逻辑）、煤炭/电解铝（超跌+供给收缩，红利属性）、创新药（BD 金额+XBI 传导）。",
+            "stance": "-",
+            "matched_by": "题材词：创新药"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-12 晨汇 2026-07-12｜8. **创新药 BD/Newco**：上半年 BD 总金额 1700+亿美金（达 2025 全年 64%），CD19/CD3 取代 GLP-1 位列榜首；美…"
+      }
+    },
+    {
+      "task_id": "2026-07-15-disclosure-hua-xue-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "化学制药",
+      "priority": 289.39,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "常山药业",
+        "迪哲医药",
+        "美诺华",
+        "舒泰神",
+        "恒瑞医药"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-disclosure-a129e052e52c-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "中药",
+      "priority": 144.01,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "众生药业",
+        "生物谷",
+        "汉森制药",
+        "九芝堂",
+        "沃华医药"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-15-disclosure-35a3b3cd7123-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "维生素",
+      "priority": 126.05,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "石药创新",
+        "众生药业",
+        "海南海药",
+        "哈药股份",
+        "新赣江"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-15",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-15-daily-agent.json",
+      "created_at": "2026-07-15T20:21:55+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 9,
+    "by_task_type": {
+      "concept_ingest": 5,
+      "disclosure": 4
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

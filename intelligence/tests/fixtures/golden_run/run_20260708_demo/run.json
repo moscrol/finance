@@ -1,0 +1,44 @@
+{
+  "run_id": "run_20260708_demo",
+  "user": "default",
+  "question": "帮我分析浪潮信息这次 Q2 业绩预告的含金量",
+  "task_type": "stock_research",
+  "status": "completed",
+  "schema_version": 1,
+  "session_id": "sess_demo",
+  "parent_run_id": null,
+  "created_at": "2026-07-08T15:12:11+00:00",
+  "finished_at": "2026-07-08T15:12:11+00:00",
+  "source_date": "2026-07-08",
+  "duckdb_cutoff": "2026-07-08",
+  "kb_commit": "abc123",
+  "kb_index_built_at": "2026-07-08T14:30:00+00:00",
+  "kb_index_freshness": "fresh",
+  "manifest_ref": null,
+  "degrades": [
+    "ftshare_unavailable"
+  ],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_answer_md",
+      "path": "answer.md",
+      "renderer": "markdown",
+      "title": "浪潮信息 Q2 业绩预告深度分析",
+      "sha256": "09359dbcc58f8e9e60dc566acfb9b496c7481ab41e5332584f6785bc30a9ddfe",
+      "bytes": 504,
+      "previewable": true,
+      "downloadable": true
+    },
+    {
+      "artifact_id": "artifact_summary_json",
+      "path": "summary.json",
+      "renderer": "json",
+      "title": "结构化摘要",
+      "sha256": "c969a4e33fd0ae16a8d4a9c08e2364b0a9876a830d2066a574dae02c43a9e8b7",
+      "bytes": 66,
+      "previewable": true,
+      "downloadable": true
+    }
+  ]
+}

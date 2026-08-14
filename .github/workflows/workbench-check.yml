@@ -1,0 +1,135 @@
+name: workbench-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 三个叶子 job 并行：python / frontend / e2e 各自独立报红。
+# 历史上单 job 串行 ruff→pytest→E2E，前一步 fail-fast 会把后面变成 skipped
+# （看起来像「还没结论」），pytest 红的 26 天里 E2E 一次没跑（#337/#342）。
+# #342 用 !cancelled() 治了步骤级掩红；本文件把它们拆成独立 job，
+# GitHub Checks 也能分别钉死。聚合 job 仍叫 workbench-check，合并纪律和
+# 将来的 required checks 不用改名。
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML ruff==0.11.13 duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3 requests==2.32.4
+
+      - name: Lint Python with Ruff
+        if: ${{ !cancelled() }}
+        run: python -m ruff check .
+
+      - name: Test Python packages
+        if: ${{ !cancelled() }}
+        run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install frontend dependencies
+        working-directory: intelligence/webapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint frontend
+        if: ${{ !cancelled() }}
+        working-directory: intelligence/webapp
+        run: pnpm lint
+
+      - name: Typecheck frontend
+        if: ${{ !cancelled() }}
+        working-directory: intelligence/webapp
+        run: pnpm typecheck
+
+      - name: Test frontend components
+        if: ${{ !cancelled() }}
+        working-directory: intelligence/webapp
+        run: pnpm test
+
+      - name: Build production frontend
+        if: ${{ !cancelled() }}
+        working-directory: intelligence/webapp
+        run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML ruff==0.11.13 duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3 requests==2.32.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install frontend dependencies
+        working-directory: intelligence/webapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: intelligence/webapp
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test Workbench end to end
+        working-directory: intelligence/webapp
+        env:
+          WORKBENCH_PYTHON: python
+        run: pnpm test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: intelligence/webapp/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  workbench-check:
+    if: ${{ always() }}
+    needs: [python, frontend, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require python, frontend, and e2e
+        run: |
+          python="${{ needs.python.result }}"
+          frontend="${{ needs.frontend.result }}"
+          e2e="${{ needs.e2e.result }}"
+          echo "python=$python frontend=$frontend e2e=$e2e"
+          test "$python" = success -a "$frontend" = success -a "$e2e" = success

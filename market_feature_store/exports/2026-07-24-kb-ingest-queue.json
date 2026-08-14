@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+  "market_date": "2026-07-24",
+  "created_at": "2026-07-25T12:40:10+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-24-concept_ingest-75a5e1bc515e-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "房地产",
+      "priority": 110.05,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "合肥城建",
+        "深物业A",
+        "荣丰控股",
+        "香江控股",
+        "阳光股份"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-24-concept_ingest-87ee30bb343a-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "无人驾驶",
+      "priority": 71.64,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "华天科技",
+        "长电科技",
+        "高德红外",
+        "浙江华远",
+        "涛涛车业"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-24-disclosure-9273fdc3488a-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "氢能源",
+      "priority": 78.55,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "正帆科技",
+        "滨化股份",
+        "武汉天源",
+        "汉缆股份",
+        "广钢气体"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-24-disclosure-75a8f7584a2c-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "商业航天",
+      "priority": 71.12,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "翱捷科技",
+        "拓日新能",
+        "滨化股份",
+        "中光防雷",
+        "高德红外"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-24-disclosure-dian-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "电力",
+      "priority": 127.48,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "立新能源",
+        "拓日新能",
+        "新能股份",
+        "世茂能源",
+        "新中港"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-24-disclosure-cb8a39d9d1d9-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "银行",
+      "priority": 87.6,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "农业银行",
+        "交通银行",
+        "工商银行",
+        "招商银行",
+        "中国银行"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-24",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-24-daily-agent.json",
+      "created_at": "2026-07-25T12:40:10+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-23",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-23",
+            "excerpt": "6. **银行：资金面出清 + 城商行基本面分化**",
+            "stance": "-",
+            "matched_by": "题材词：银行"
+          },
+          {
+            "date": "2026-07-23",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-23",
+            "excerpt": "**信号**：二季度主动偏股公募银行持仓 1.1% 历史新低（减持近 40 亿），齐鲁 +3.8 亿（首进前十大重仓第九）、青岛 +2.4 亿、南京 +4.4…",
+            "stance": "-",
+            "matched_by": "题材词：银行"
+          },
+          {
+            "date": "2026-07-23",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-23",
+            "excerpt": "**核心逻辑**：\"持仓历史新低 + 少数标的逆势加仓\"是资金面出清尾声的典型结构，与库内 [[银行]]/[[红利资产]] 的机构低配框架衔接；15-17 个…",
+            "stance": "-",
+            "matched_by": "题材词：银行"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-23 晨汇 2026-07-23｜6. **银行：资金面出清 + 城商行基本面分化**"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 6,
+    "by_task_type": {
+      "concept_ingest": 2,
+      "disclosure": 4
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

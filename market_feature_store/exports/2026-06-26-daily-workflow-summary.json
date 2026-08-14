@@ -1,0 +1,66 @@
+{
+  "workflow": "daily",
+  "status": "PASS",
+  "started_at": "2026-06-27T21:50:44+08:00",
+  "finished_at": "2026-06-27T21:50:44+08:00",
+  "inputs": {
+    "date": "2026-06-26",
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "review-workbench",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "review-workbench",
+      "status": "PASS",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": 0,
+      "duration_sec": 0.07,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html",
+        "daily_reviews 2026-06-26, 2026-06-25, 2026-06-24, 2026-06-23, 2026-06-22, 2026-06-18, 2026-06-17, 2026-06-12, 2026-06-11, 2026-06-10, 2026-06-09, 2026-06-08, 2026-06-05, 2026-04-07, 2026-04-03, 2026-04-02, 2026-04-01"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "cockpit",
+      "status": "PASS",
+      "command": "python3 scripts/render_cockpit.py --knowledge-root /Users/lbq/Desktop/c c/知识库",
+      "returncode": 0,
+      "duration_sec": 0.085,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/复盘/index.html",
+        "daily: 17 | winrate: 2 | briefing: 41 | matrices: 7 | headtohead: 0 | size: 26 KB"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/index.html"
+      ],
+      "warnings": [],
+      "errors": []
+    }
+  ],
+  "outputs": [
+    "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html",
+    "/Users/lbq/Desktop/c c/金融/复盘/index.html"
+  ],
+  "warnings": [
+    "starting from step: review-workbench"
+  ],
+  "errors": [],
+  "next_actions": []
+}

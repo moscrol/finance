@@ -1,0 +1,173 @@
+{
+  "trade_date": "2026-08-04",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-08-04-theme-backfill-queue.json",
+  "generated_at": "2026-08-04T17:46:23.204216+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 6,
+  "status_counts": {
+    "pending_review": 6
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 2,
+    "review_create_or_link_concept": 4
+  },
+  "items": [
+    {
+      "id": "2026-08-04-06-missing_evidence",
+      "trade_date": "2026-08-04",
+      "theme": "短剧游戏",
+      "canonical_concept": "游戏",
+      "sw_l1": "传媒",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 167.02,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-04-10-missing_evidence",
+      "trade_date": "2026-08-04",
+      "theme": "医药医疗",
+      "canonical_concept": "医疗",
+      "sw_l1": "",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 158.48,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-04-16-missing_concept",
+      "trade_date": "2026-08-04",
+      "theme": "AI营销",
+      "canonical_concept": "AI营销",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 16,
+      "priority_score": 137.65,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 3,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-04-17-missing_concept",
+      "trade_date": "2026-08-04",
+      "theme": "广告营销",
+      "canonical_concept": "广告营销",
+      "sw_l1": "",
+      "candidate_tier": "watch",
+      "rank": 17,
+      "priority_score": 137.07,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-04-28-missing_concept",
+      "trade_date": "2026-08-04",
+      "theme": "高压快充",
+      "canonical_concept": "高压快充",
+      "sw_l1": "电力设备",
+      "candidate_tier": "watch",
+      "rank": 28,
+      "priority_score": 126.0,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 6,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-08-04-29-missing_concept",
+      "trade_date": "2026-08-04",
+      "theme": "智谱AI",
+      "canonical_concept": "智谱AI",
+      "sw_l1": "计算机",
+      "candidate_tier": "watch",
+      "rank": 29,
+      "priority_score": 123.13,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "multi_period_rank",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "rebound-duration",
+      "question": "昨天的反弹能持续多久",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["current_baseline", "duration_assessment", "continuation_conditions", "invalidation_conditions", "evidence_boundary"]
+    },
+    {
+      "id": "index-rebound-space",
+      "question": "科创50你认为反弹空间有多少",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["technical_levels", "invalidation_conditions", "data_date"]
+    },
+    {
+      "id": "ruihuatai-valuation",
+      "question": "瑞华泰的合理估值",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["valuation_assessment", "scenario_range", "evidence_boundary"]
+    },
+    {
+      "id": "weekly-market-cause",
+      "question": "这一周行情下跌的主要原因是什么",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["direct_assessment", "causal_chain", "counterpoint", "evidence_boundary", "cause_attribution"]
+    },
+    {
+      "id": "current-mainline",
+      "question": "目前市场的主线是什么",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["direct_assessment", "supporting_evidence", "risk_signals"]
+    },
+    {
+      "id": "theme-comparison",
+      "question": "低空经济和商业航天，未来一个月哪个更可能成为A股主线，为什么",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["comparison_conclusion", "supporting_evidence", "counterpoint", "invalidation_conditions"]
+    },
+    {
+      "id": "counterfactual-mainline",
+      "question": "如果电力板块涨停家数很多但成交占比和核心股承接下降，还能算主线吗",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["direct_assessment", "causal_chain", "counterpoint", "verification_conditions"]
+    },
+    {
+      "id": "unfamiliar-methodology",
+      "question": "一个没有历史胜率的新题材，应该如何判断它是主线候选还是一天噪音",
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["method", "evidence_hierarchy", "failure_modes", "verification_path"]
+    },
+    {
+      "id": "contextual-follow-up",
+      "question": "那它什么时候算失效",
+      "conversation_context": [
+        {"role": "user", "content": "昨天的反弹能持续多久"},
+        {"role": "assistant", "content": "基准判断是短周期修复。"}
+      ],
+      "as_of": "2026-07-24",
+      "tier": "standard",
+      "timeout": 180.0,
+      "required_outputs": ["invalidation_conditions", "supporting_evidence"]
+    }
+  ]
+}

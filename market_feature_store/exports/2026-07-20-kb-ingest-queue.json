@@ -1,0 +1,319 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+  "market_date": "2026-07-20",
+  "created_at": "2026-07-20T23:13:13+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-20-concept_ingest-ce27a645957b-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "油气",
+      "priority": 173.4,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "通源石油",
+        "科力股份",
+        "中国海油",
+        "潜能恒信",
+        "ST洲际"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-concept_ingest-ad0e5d730378-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "低空经济",
+      "priority": 149.9,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "中国平安",
+        "中国太保",
+        "中国人寿",
+        "新华保险",
+        "中国人保"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-concept_ingest-189979277dde-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "数据中心",
+      "priority": 75.35,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "新易盛",
+        "紫光股份",
+        "浪潮信息",
+        "盛科通信",
+        "中际旭创"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-disclosure-055cd0e6985e-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "白酒",
+      "priority": 167.25,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "贵州茅台",
+        "五粮液",
+        "古井贡酒",
+        "泸州老窖",
+        "山西汾酒"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-disclosure-7a4e4ea687f3-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "煤炭",
+      "priority": 135.65,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "兖矿能源",
+        "中煤能源",
+        "华电能源",
+        "中国神华",
+        "潞安环能"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-disclosure-dian-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "电力",
+      "priority": 400.85,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "大唐发电",
+        "华电辽能",
+        "九洲集团",
+        "上海电力",
+        "华能蒙电"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-disclosure-cb8a39d9d1d9-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "银行",
+      "priority": 173.81,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "农业银行",
+        "兴业银行",
+        "招商银行",
+        "工商银行",
+        "交通银行"
+      ],
+      "suggested_action": "优先找公告/互动/调研/订单/客户验证，把 IMA 候选硬事实升级成官方 L3。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-20-disclosure-6d8bbcaa57c2-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "铁路运输",
+      "priority": 82.8,
+      "reason": "数据缺口触发：missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "皖通高速",
+        "京沪高铁",
+        "大秦铁路",
+        "山东高速",
+        "宁沪高速"
+      ],
+      "suggested_action": "先找公告、调研、订单、客户验证或产能/出货变化；年报基线之后不要直接升级。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-20",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-20-daily-agent.json",
+      "created_at": "2026-07-20T23:13:13+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 8,
+    "by_task_type": {
+      "concept_ingest": 3,
+      "disclosure": 5
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

@@ -1,0 +1,63 @@
+# 红线硬拦截：阻止提交密钥 / 大文件 / 缓存 / 虚拟环境 / 依赖等危险文件。
+# 新机首次启用：  pip install pre-commit && pre-commit install
+# 之后每次 git commit 自动检查；命中红线则提交失败。
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key            # 内容里出现私钥 -> 拦截
+      - id: check-added-large-files       # 新增大文件 -> 拦截
+        args: ["--maxkb=5120"]
+      - id: check-merge-conflict          # 残留冲突标记 -> 拦截
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff-check
+        args: ["--config=ruff.toml"]
+  - repo: local
+    hooks:
+      # 事实投递，不是风格检查：本仓 8 个 worktree 各在不同分支、宿主 python3 与
+      # .venv-workbench 依赖完全不同。2026-08-05 两个 agent 在这两件事上合计出错 7 次，
+      # 且没有一次被 AGENTS.md/CLAUDE.md 拦住——提醒的到达率不可靠，门禁是 100%。
+      # always_run + verbose：无论改了什么文件都跑，且输出必须可见（否则等于没装）。
+      - id: agent-workspace-facts
+        name: "工作区事实：你在哪棵树、用哪个解释器"
+        language: system
+        entry: python3 scripts/check_agent_workspace_facts.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: layer-audit
+        name: "层级审计"
+        language: system
+        entry: python3 scripts/layer_audit.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      # 棘轮门禁：存量 51 处家目录字面量免检，只拦**新增**。
+      # 判据刻意不是「是否合理」——测试目录里既有必须保留的脱敏夹具
+      # （assert "/Users/a77" not in encoded），也有真实��径依赖
+      # （.venv-workbench/bin/python），按目录或按语义判都必错。
+      # 实测 0.70~0.83s（扫 778 个 .py），与 layer-audit 同量级，故可入链。
+      # 宿主 python3 已实测可跑：本脚本只用 stdlib，与其他 hook 保持一致。
+      - id: path-literals
+        name: "路径字面量：不得新增写死的家目录"
+        language: system
+        entry: python3 scripts/check_path_literals.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: unread-fields
+        name: "字段契约：不得新增「写了没人读」的字段"
+        language: system
+        entry: python3 scripts/check_unread_fields.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: block-forbidden-files
+        name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
+        language: fail
+        entry: "红线命中：该文件不允许提交（.env*/密钥/大二进制/缓存/虚拟环境/依赖等）。如确需提交请人工确认并 git commit --no-verify。"
+        # 文件后缀类：私钥/大二进制/编译缓存/日志；目录类：虚拟环境/依赖/各类缓存（dist/build 不拦，避免误伤部署）
+        files: '(^|/)(\.env($|\..+)|.*\.pem$|.*\.key$|.*\.pdf$|.*\.zip$|.*\.duckdb$|.*\.db$|.*\.pyc$|.*\.log$|\.DS_Store$|(\.venv|venv|env|node_modules|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.ipynb_checkpoints|\.cache)/)'
+        exclude: '\.env\.(example|sample|template)$'

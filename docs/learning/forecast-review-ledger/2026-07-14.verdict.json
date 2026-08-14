@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-14",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "中药 +1.54%/diff+0.68；创新药 +2.53%/diff+7.88；化学制药 +2.69%/diff+4.34；半导体设备 -0.56%/diff-8.40；半导体 +0.01%/diff-4.76；银行 +0.55%/diff-10.55",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    },
+    {
+      "id": "falsify",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数4211、涨停81、跌停22、成交额27038亿、量比84.2、上证+1.36%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    },
+    {
+      "id": "market",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数4211、涨停81、跌停22、成交额27038亿、量比84.2、上证+1.36%（下跌阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    },
+    {
+      "id": "target:000938",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "紫光股份 收盘36.98（-3.70%），上证+1.36%，跌破证伪价37.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:003020",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "立方制药 收盘20.80（+0.92%），上证+1.36%，≥T+1阈值20.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    },
+    {
+      "id": "target:600664",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "哈药股份 收盘4.08（+9.97%），上证+1.36%，≥T+1阈值3.71",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    },
+    {
+      "id": "target:601398",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "工商银行 收盘7.50（-0.40%），上证+1.36%，低于T+1阈值7.53但未破证伪价7.35",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:688072",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "拓荆科技 收盘850.01（+0.59%），上证+1.36%，≥T+1阈值845.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-14"
+    }
+  ],
+  "generated_at": "2026-07-18T11:41:34+08:00"
+}

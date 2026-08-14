@@ -1,0 +1,481 @@
+"""未命中专项 Skill 时的受约束通用研究 Owner。
+
+该模块只负责任务契约、循环控制和完成度裁决；事实仍来自白名单工具，
+最终措辞仍交给现有 AnswerSpec/Grounded Presenter。
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import date
+
+from intelligence.services import (
+    agent_research,
+    research_task_planner,
+    research_tool_registry,
+)
+from intelligence.services.evidence_window import is_time_aligned_evidence
+from intelligence.services.research_contract import (
+    OutputStatus,
+    RequiredOutput,
+    ResearchRunContext,
+    ResearchTaskContract,
+)
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_state import ResearchGap, state_from_contract
+
+
+@dataclass(frozen=True)
+class CompletionReport:
+    status: str
+    outputs: tuple[OutputStatus, ...]
+    factual_grounding: str = "unknown"
+    causal_adequacy: str = "unknown"
+    task_coverage: str = "unknown"
+    # 业务完成度与 transport/run status 分离。status 保留旧字段兼容已有
+    # trace；business_status 是展示和 synthesis gate 的唯一业务判断。
+    business_status: str = "partial"
+
+    @property
+    def missing_required(self) -> tuple[OutputStatus, ...]:
+        return tuple(item for item in self.outputs if item.status == "missing")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "business_status": self.business_status,
+            "factual_grounding": self.factual_grounding,
+            "causal_adequacy": self.causal_adequacy,
+            "task_coverage": self.task_coverage,
+            "outputs": [
+                {
+                    "output_id": item.output_id,
+                    "status": item.status,
+                    "evidence_ids": list(item.evidence_ids),
+                    "gap": item.gap,
+                }
+                for item in self.outputs
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class GenericResearchResult:
+    run_id: str
+    contract: ResearchTaskContract
+    loop: agent_research.AgentLoopResult
+    completion: CompletionReport
+    evidence: tuple[agent_research.AgentEvidence, ...]
+    task_plan: research_task_planner.TaskPlan | None = None
+
+    @property
+    def traces(self):
+        return tuple(self.loop.traces)
+
+    @property
+    def gaps(self) -> tuple[str, ...]:
+        state_gaps = (
+            tuple(item.description for item in self.loop.research_state.gaps)
+            if self.loop.research_state is not None
+            else ()
+        )
+        return tuple(
+            dict.fromkeys(
+                (*self.loop.gaps, *state_gaps, *(item.gap for item in self.completion.outputs if item.gap))
+            )
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "run_id": self.run_id,
+            "contract": self.contract.to_dict(),
+            "loop": self.loop.to_dict(),
+            "completion": self.completion.to_dict(),
+            "task_plan": self.task_plan.to_dict() if self.task_plan else None,
+            "gaps": list(self.gaps),
+        }
+
+
+def _evidence_pairs(
+    evidence: tuple[agent_research.AgentEvidence, ...],
+) -> tuple[tuple[str, agent_research.AgentEvidence], ...]:
+    return tuple(
+        (f"agent:{index}:{item.tool}", item)
+        for index, item in enumerate(evidence, start=1)
+    )
+
+
+def _causal_external_match(
+    item: agent_research.AgentEvidence,
+    evidence: tuple[agent_research.AgentEvidence, ...],
+) -> bool:
+    if item.tool not in {"news_search", "web_search"}:
+        return False
+    reference_dates: list[date] = []
+    for value in evidence:
+        if not value.source_date:
+            continue
+        try:
+            reference_dates.append(
+                date.fromisoformat(str(value.source_date)[:10].replace("/", "-"))
+            )
+        except ValueError:
+            continue
+    reference_date = reference_dates[-1] if reference_dates else None
+    if not is_time_aligned_evidence(item, reference_date=reference_date):
+        return False
+    text = f"{item.title} {item.detail}"
+    # 市场原因题不能把同日但无关的公司新闻当成外部触发证据。
+    return any(
+        term in text
+        for term in ("指数", "股市", "资金", "政策", "美股", "市场", "A股", "外盘")
+    )
+
+
+_EVENT_HYPOTHESIS_OUTPUTS = frozenset(
+    {
+        "event_facts",
+        "event_transmission",
+        "verification_window",
+        "falsification_window",
+        "counter_evidence",
+    }
+)
+
+
+def _explicit_gap_for_output(
+    required: RequiredOutput,
+    loop: agent_research.AgentLoopResult,
+) -> str:
+    """Return a deliberately bound gap instead of treating it as evidence."""
+
+    if loop.research_state is None:
+        return ""
+    for gap in loop.research_state.gaps:
+        if required.output_id in gap.blocks:
+            return gap.description
+    return ""
+
+
+def _matches_output(
+    contract: ResearchTaskContract,
+    required: RequiredOutput,
+    evidence: tuple[agent_research.AgentEvidence, ...],
+    loop: agent_research.AgentLoopResult,
+) -> tuple[agent_research.AgentEvidence, ...]:
+    if not evidence:
+        return ()
+    normalized = required.output_id.casefold()
+    if normalized in {"direct_assessment", "answer", "conclusion"}:
+        # 历史通用契约的 finish 仍向后兼容；原因归因题另由
+        # cause_attribution 强制要求带文字的判断，避免一次升级破坏旧长尾。
+        if loop.sufficient is not True or not loop.assessment.strip():
+            return ()
+        if not required.evidence_types:
+            return evidence
+        allowed = set(required.evidence_types)
+        matches = tuple(item for item in evidence if item.tool in allowed)
+        mandatory_capabilities = {
+            requirement.capability
+            for requirement in contract.evidence_plan.requirements
+            if requirement.mandatory
+        }
+        if mandatory_capabilities and mandatory_capabilities.issubset(allowed):
+            if not mandatory_capabilities.issubset({item.tool for item in evidence}):
+                return ()
+        return matches
+    if normalized in {"cause_attribution", "causal_explanation"}:
+        if loop.sufficient is not True or not loop.assessment.strip():
+            return ()
+        return tuple(item for item in evidence if item.tool == "market_data")
+    if normalized in {
+        "external_cause_evidence",
+        "event_evidence",
+        "funding_evidence",
+    }:
+        return tuple(
+            item
+            for item in evidence
+            if _causal_external_match(item, evidence)
+        )
+    if normalized in _EVENT_HYPOTHESIS_OUTPUTS:
+        if normalized == "counter_evidence":
+            # 反证必须真的反驳某个事件命题；两条无关材料不能拼成反证。
+            event_hypotheses = {
+                hypothesis.hypothesis_id
+                for hypothesis in (loop.research_state.hypotheses if loop.research_state else ())
+                if hypothesis.hypothesis_id in _EVENT_HYPOTHESIS_OUTPUTS
+            }
+            return tuple(
+                item
+                for item in evidence
+                if event_hypotheses.intersection(item.contradicts)
+            )
+        # 事件事实、传导、验证/证伪窗口均须显式绑定到自己的 output
+        # hypothesis。窗口类 output 由此可接受 support 或 contradict 的
+        # 明确证据关系，而非仅因工具类型相同就完成。
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
+        )
+    if normalized in {"counterpoint", "risk", "counter_evidence"}:
+        return evidence[:2] if len(evidence) >= 2 else ()
+    if normalized in {"rebound_case", "decline_case", "invalidation"}:
+        # 情景输出只接受 agent 明确绑定到对应 hypothesis 的证据；不能用
+        # 同一条最新行情同时冒充反弹、下跌和失效条件。
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
+        )
+    if normalized == "premise_check":
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
+        )
+    if required.evidence_types:
+        allowed = set(required.evidence_types)
+        matches = tuple(item for item in evidence if item.tool in allowed)
+        # EvidencePlan 的 mandatory capability 是“组合事实”约束：例如当前
+        # 主线必须同时有 MARKET_DAILY 和 D4。不能让一条 market_data 证据
+        # 同时冒充两个来源，亦不能因 web 证据存在就绕过缺失的本地能力。
+        mandatory_capabilities = {
+            requirement.capability
+            for requirement in contract.evidence_plan.requirements
+            if requirement.mandatory
+        }
+        if mandatory_capabilities and mandatory_capabilities.issubset(allowed):
+            present = {item.tool for item in evidence}
+            if not mandatory_capabilities.issubset(present):
+                return ()
+        return matches
+    return evidence
+
+
+def evaluate_completion(
+    contract: ResearchTaskContract,
+    loop: agent_research.AgentLoopResult,
+) -> CompletionReport:
+    state = loop.research_state
+    evidence = tuple(loop.evidence)
+    evidence_pairs = _evidence_pairs(evidence)
+    outputs: list[OutputStatus] = []
+    for required in contract.required_outputs:
+        matches = _matches_output(contract, required, evidence, loop)
+        if matches:
+            match_ids = tuple(
+                evidence_id
+                for evidence_id, item in evidence_pairs
+                if item in matches
+            )
+            outputs.append(OutputStatus(required.output_id, "fulfilled", match_ids))
+            continue
+        explicit_gap = _explicit_gap_for_output(required, loop)
+        # 只有事件反证允许用显式缺口交付：这是“尚无反向证据”的可审计
+        # 结论。其余 required output 维持原有 missing 语义，避免把循环末尾
+        # 的通用 gap 误当成已满足的事实/传导/比较输出。
+        if required.output_id.casefold() == "counter_evidence" and explicit_gap:
+            outputs.append(OutputStatus(required.output_id, "gap", (), explicit_gap))
+            continue
+        gap = "；".join(loop.gaps) or f"仍缺少：{required.description}"
+        outputs.append(
+            OutputStatus(
+                required.output_id,
+                "gap" if not required.required else "missing",
+                (),
+                gap,
+            )
+        )
+    # 逐项匹配先算，再评认知状态：ResearchState 需要知道哪些 output 已经交付，
+    # 才能判断某条早期 gap 是否还在阻塞什么。二者无循环依赖——_matches_output
+    # 不读 completion。
+    if state is not None:
+        completion = state.evaluate_completion(
+            fulfilled_outputs=frozenset(
+                status.output_id
+                for status in outputs
+                if status.status == "fulfilled"
+            )
+        )
+    else:
+        completion = None
+    required_statuses = [
+        status
+        for required, status in zip(contract.required_outputs, outputs)
+        if required.required
+    ]
+    required_outputs_fulfilled = all(
+        status.status == "fulfilled" for status in required_statuses
+    )
+    if completion is not None:
+        # ResearchState 负责认知状态（假设、支持/反驳和 gap）；这里再把
+        # 契约的逐项 output 匹配作为最终保险，防止新增的非 hypothesis
+        # required output 被状态层遗漏后误报 completed。
+        result_status = (
+            completion.status
+            if completion.status != "completed" or required_outputs_fulfilled
+            else "partial"
+        )
+    elif all(status.status == "fulfilled" for status in required_statuses):
+        result_status = "completed"
+    elif any(status.status == "missing" for status in required_statuses):
+        result_status = "partial"
+    else:
+        result_status = "gap"
+    task_coverage = "unknown"
+    if completion is not None:
+        task_coverage = (
+            completion.task_coverage if required_outputs_fulfilled else "partial"
+        )
+    direct_status = next(
+        (item for item in outputs if item.output_id.casefold() in {"direct_assessment", "answer", "conclusion"}),
+        None,
+    )
+    direct_required = direct_status is not None
+    direct_bound = bool(
+        not direct_required
+        or (
+            direct_status is not None
+            and direct_status.status == "fulfilled"
+            and direct_status.evidence_ids
+        )
+    )
+    # 业务 complete 必须同时具备：契约 required outputs 全部 fulfilled、
+    # 直接判断非空且绑定证据、事实 grounding 通过。不能让 factual_grounding
+    # 单独掩盖 direct_assessment 缺口。
+    business_status = (
+        "complete"
+        if (
+            result_status == "completed"
+            and required_outputs_fulfilled
+            and direct_bound
+            and (completion is None or completion.factual_grounding == "fulfilled")
+        )
+        else "partial"
+        if any(status.status == "missing" for status in required_statuses)
+        else "gap"
+    )
+    return CompletionReport(
+        result_status,
+        tuple(outputs),
+        factual_grounding=completion.factual_grounding if completion else "unknown",
+        causal_adequacy=completion.causal_adequacy if completion else "unknown",
+        task_coverage=task_coverage,
+        business_status=business_status,
+    )
+
+
+def run_generic_research(
+    contract: ResearchTaskContract,
+    *,
+    context: ResearchRunContext,
+    registry: research_tool_registry.ResearchToolRegistry,
+    run_id: str,
+    complete_fn: agent_research.CompleteFn | None = None,
+    existing_evidence_summary: str = "",
+    preloaded_evidence: tuple[agent_research.AgentEvidence, ...] = (),
+    preloaded_traces: tuple[ProviderTrace, ...] = (),
+    preloaded_gaps: tuple[ResearchGap, ...] = (),
+    preloaded_observation: str = "",
+    disabled_tools: tuple[str, ...] = (),
+    task_plan: research_task_planner.TaskPlan | None = None,
+) -> GenericResearchResult:
+    """在契约、白名单和共享 deadline 内运行一个长尾研究闭环。"""
+
+    step_counter = 0
+
+    def wrapped_runner(name: str):
+        def _runner(
+            query: str,
+            _agent_context: agent_research.AgentToolContext,
+        ):
+            nonlocal step_counter
+            step_counter += 1
+            arguments: str | dict[str, object] = (
+                {}
+                if registry.resolve(name).query_scope == "episode"
+                else query
+            )
+            observation = registry.execute(
+                name,
+                arguments,
+                context=context,
+                step_id=f"{run_id}:owner:{step_counter}",
+            )
+            return list(observation.evidence), observation.observation, observation.trace
+
+        return _runner
+
+    tools = {
+        name: wrapped_runner(name)
+        for name in registry.names()
+        if name not in set(disabled_tools)
+        if not context.contract.allowed_capabilities
+        or registry.resolve(name).capability in context.contract.allowed_capabilities
+    }
+    instructions = json.dumps(
+        {
+            "required_outputs": [
+                {
+                    "id": item.output_id,
+                    "description": item.description,
+                    "evidence_types": list(item.evidence_types),
+                    "required": item.required,
+                }
+                for item in contract.required_outputs
+            ],
+            "allowed_tools": list(tools),
+            "presentation_profile": contract.presentation_profile,
+            "evidence_plan": contract.evidence_plan.to_dict(),
+            # 任务规划只是检索顺序参考；工具白名单、预算和 required outputs
+            # 仍由上面的 contract/loop 硬约束决定。
+            "task_plan": task_plan.to_dict() if task_plan else None,
+        },
+        ensure_ascii=False,
+    )
+    state = state_from_contract(contract)
+    for gap in preloaded_gaps:
+        state.add_gap(
+            gap.gap_id,
+            gap.description,
+            blocks=gap.blocks,
+            suggested_capabilities=gap.suggested_capabilities,
+        )
+    for index, item in enumerate(preloaded_evidence, start=1):
+        state.add_evidence(
+            item.to_observation(f"agent:preloaded:{index}:{item.tool}")
+        )
+    loop = agent_research.run_agent_loop(
+        contract.question,
+        tools=tools,
+        existing_evidence_summary=(
+            f"{existing_evidence_summary}\n{preloaded_observation}".strip()
+        ),
+        steps_budget=context.policy.max_steps,
+        total_seconds=context.policy.total_seconds,
+        deadline=context.deadline,
+        complete_fn=complete_fn,
+        task_instructions=instructions,
+        research_state=state,
+        context_block=(
+            f"today={context.today or 'unknown'}；"
+            f"latest_data_date={context.latest_data_date or 'unknown'}；"
+            "today 不是市场数据日期，市场事实必须服从 latest_data_date 和证据自身日期。"
+        ),
+    )
+    if preloaded_evidence:
+        loop.evidence = [*preloaded_evidence, *loop.evidence]
+    if preloaded_traces:
+        loop.traces = [*preloaded_traces, *loop.traces]
+    evidence = tuple(loop.evidence)
+    return GenericResearchResult(
+        run_id=run_id,
+        contract=contract,
+        loop=loop,
+        completion=evaluate_completion(contract, loop),
+        evidence=evidence,
+        task_plan=task_plan,
+    )

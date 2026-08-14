@@ -1,0 +1,678 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-21",
+  "agent": "claude",
+  "source": "sellside",
+  "manifest_sha": "46e49190c2d9ae8a",
+  "perspective_date": "2026-07-20",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "stage_day",
+      "value": 6,
+      "note": "下跌阶段第6天(market_stage=下跌阶段)"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "advancers",
+      "value": 1740,
+      "note": "涨家数从07-17的482修复至1740,但仍为分化市"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "total_amount",
+      "value": 27019.21,
+      "value_note": "亿元",
+      "note": "成交27019亿环比+1.78%,量能维持高位=资金切换而非离场"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "limit_down",
+      "value": 212,
+      "note": "跌停212家(vs涨停53家),指数+0.85%但个股仍在踩踏——去杠杆尾声的极端分化"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-14",
+      "entity": "market",
+      "direction": "support",
+      "field": "advancers",
+      "value": 4112,
+      "note": "样本:07-13恐慌(涨家801/跌停172)次日07-14修复至4112,支撑T+3广度修复假设"
+    },
+    "S1": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 3.79,
+      "note": "白酒+3.79双红(diff+66.55),资金再平衡方向盘面确认"
+    },
+    "S2": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "diff_ratio",
+      "value": 66.55,
+      "note": "白酒边际量+66.55%,全场双红板块中diff最高"
+    },
+    "S3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "amount",
+      "value": 285.06,
+      "note": "板块成交285.06亿,为7月单日峰值(前峰07-15为232.47亿),量能升级"
+    },
+    "S4": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-15",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "diff_ratio",
+      "value": 104.82,
+      "note": "07-15白酒双红(pct+5.13/diff+104.82),7月内第3次双红尝试(07-10/07-15/07-20),低位反复吸筹"
+    },
+    "S5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "电力",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 4.8,
+      "note": "电力+4.80/diff+28.12/777.83亿,07-17与07-20连续两日全场唯一严格双红(pct>0&diff>10&amount>500)"
+    },
+    "S6": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "存储芯片",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -7.42,
+      "note": "存储芯片四连阴(-5.20/-8.84/-7.42),指数+0.85%日仍-7.42,diff-2.34缩量阴跌=承接不足"
+    },
+    "S7": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "共封装光学(CPO)",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -6.64,
+      "note": "CPO -6.64/diff+0.35,长阴后无修复,支持AI链透支判断"
+    },
+    "S8": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "半导体",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": -6.39,
+      "note": "半导体-6.39/diff-4.08,与存储/CPO同步阴跌"
+    },
+    "S9": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-20",
+      "entity": "算力租赁",
+      "direction": "counter",
+      "field": "amount",
+      "value": 1532.14,
+      "note": "反证:算力租赁成交三日递增(1297→1403→1532)且diff连续为正(+4.03/+8.16/+9.22),跌幅收窄至-1.16——AI链内部算力租赁承接最强,透支判断的主要风险点"
+    },
+    "T1": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-20",
+      "entity": "电力",
+      "direction": "support",
+      "field": "limit_up_count",
+      "value": 16,
+      "note": "电力涨停16家居第2(风电18家第1,储能13家第3),涨停热度集中于电力系防御"
+    },
+    "X1": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "promotion_rate_2b",
+      "value": "6/24=25%",
+      "note": "二板晋级率25%(vs 07-17的12%),情绪自冰点回升,晋级集中在电力(乐山/华银/桂冠/深南/湖南发展)"
+    },
+    "K1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "贵州茅台",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 5.95,
+      "note": "茅台+5.95收1327.50,成交138.98亿(vs前日73.23亿近翻倍),提价后第一个交易日放量长阳"
+    },
+    "K2": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-20",
+      "entity": "贵州茅台",
+      "direction": "support",
+      "field": "primary_high_label",
+      "value": "20日新高",
+      "note": "07-15至07-20连续4个交易日创20日新高,趋势启动形态"
+    },
+    "K3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "古井贡酒",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 10.0,
+      "note": "古井涨停收93.83创20日新高,区域α(合肥/长鑫存储上市)+提价共振,4-7月区间高点109.86为上方参照"
+    },
+    "K4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "国电电力",
+      "direction": "support",
+      "field": "close",
+      "value": 4.88,
+      "note": "+2.74收4.88创20日新高,电力双红方向低价央企连续第2日放量"
+    },
+    "K5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "长城汽车",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 4.47,
+      "note": "+4.47收16.36,成交4.34亿较前日3.18亿放大37%,订单事件当日兑现"
+    },
+    "K6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "安克创新",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 6.66,
+      "note": "+6.66收117.97,成交8.78亿放大70%"
+    },
+    "K7": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-20",
+      "entity": "安克创新",
+      "direction": "support",
+      "field": "primary_high_label",
+      "value": "20日新高",
+      "note": "出口链龙头创20日新高,风格再平衡的盘面确认"
+    },
+    "K8": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-20",
+      "entity": "中际旭创",
+      "direction": "support",
+      "field": "pct_chg",
+      "value": 2.51,
+      "note": "光模块龙头07-17暴跌-12%后仅反抽+2.51且成交缩至460.9亿(前日564.9亿),缩量弱反抽支持透支判断"
+    },
+    "R1": {
+      "level": "L1",
+      "source": "国泰海通食饮-白酒大涨点评(sellside材料)",
+      "source_time": "2026-07-20",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "moutai_price_hike_count_2026",
+      "value": 2,
+      "note": "茅台上周五宣布普飞/公斤茅台年内第二次提价(i茅台零售价与合同价各上调100元,经建投食饮转述细节),带动周末批价上涨——公告级催化"
+    },
+    "R2": {
+      "level": "L3",
+      "source": "国新/诚通国资买入公告(经国泰海通食饮转述)",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "state_capital_buy",
+      "value": "大几百亿",
+      "note": "周末两大国有资本运营公司宣布买入,资金面公告级利好,利好滞涨传统行业"
+    },
+    "R3": {
+      "level": "L3",
+      "source": "6月社零数据(经建投食饮转述)",
+      "source_time": "2026-07-20",
+      "entity": "消费",
+      "direction": "support",
+      "field": "retail_sales_yoy_pct",
+      "value": 1.0,
+      "note": "6月社零+1.0%好于预期(5月-0.6%),烟酒类同比+12%,官方统计口径"
+    },
+    "R4": {
+      "level": "L1",
+      "source": "建投食饮周观点(sellside材料)",
+      "source_time": "2026-07-20",
+      "entity": "白酒",
+      "direction": "support",
+      "field": "coverage_position",
+      "value": "提价后第一批",
+      "note": "消费政策+6月社零+茅台提价三共振,推荐贵州茅台/关注古井迎驾;提价07-17盘后官宣,本纪要国泰海通+建投为提价后第一批系统覆盖,覆盖早期未扎堆"
+    },
+    "R5": {
+      "level": "L2",
+      "source": "当日sellside材料集统计",
+      "source_time": "2026-07-20",
+      "entity": "AI算力链",
+      "direction": "support",
+      "field": "coverage_density",
+      "value": "11/24条AI链",
+      "note": "覆盖密度再顶格:光模块/海关出口/Kimi K3/算力租赁(中泰浙商东吴3篇)/阿里/交换芯片/光芯片/光设备/超节点/存储/谷歌芯片——延续07-17的9/15篇密度,覆盖再加密但板块四连阴不创新高=模板定义的衰竭形态"
+    },
+    "R6": {
+      "level": "L1",
+      "source": "摩根士丹利存储行业研究(sellside材料转述)",
+      "source_time": "2026-07-20",
+      "entity": "存储芯片",
+      "direction": "support",
+      "field": "q3_dc_storage_price_qoq_pct",
+      "value": 25,
+      "note": "大摩喊'回调是优质布局窗口'+Q3数据中心存储价格环比至少+25%——暴跌后的追认式抄底覆盖,产业逻辑为真但属滞后信息,支持覆盖透支判断"
+    },
+    "R7": {
+      "level": "L1",
+      "source": "陈果策略观点+华泰策略周观点(sellside材料)",
+      "source_time": "2026-07-20",
+      "entity": "market",
+      "direction": "support",
+      "field": "panic_percentile",
+      "value": "90%+分位",
+      "note": "华泰:恐慌四指标均超90%分位,历史16次样本未来5日中位+2.4%胜率70%,1-3周看多但'大概率不是前期热门板块',推荐中小盘宽基;预喜行业非银/有色/电子——支持修复窗口+风格切换判断"
+    },
+    "R8": {
+      "level": "L3",
+      "source": "长城汽车订单数据(经sellside大涨点评转述)",
+      "source_time": "2026-07-20",
+      "entity": "长城汽车",
+      "direction": "support",
+      "field": "h10_presale_orders_12h",
+      "value": 22000,
+      "note": "长城H10预售12h订单2.2万+、坦克300上市12h大定1.5万+,订单口径硬数据;卖方预计7月批发11.5万辆同比+10%"
+    },
+    "R9": {
+      "level": "L1",
+      "source": "国金商社出口链大涨点评(sellside材料)",
+      "source_time": "2026-07-20",
+      "entity": "出口链",
+      "direction": "support",
+      "field": "coverage_position",
+      "value": "第2篇(昨日电话会提示在先)",
+      "note": "出口链Q2业绩预期改善,安克+7.5%/致欧+7.4%;'主线从单一科技抱团切换至业绩稳健低估值消费'——与华泰风格判断交叉印证"
+    },
+    "R10": {
+      "level": "L3",
+      "source": "Kimi K3限购公告(经中泰传媒/国联民生电子转述)",
+      "source_time": "2026-07-20",
+      "entity": "AI算力链",
+      "direction": "counter",
+      "field": "kimi_k3_status",
+      "value": "暂停C端新增订阅",
+      "note": "反证:Kimi K3发布48h请求量逼近集群极限暂停订阅,为公告级真实需求硬事实——AI产业趋势为真,透支的是短期覆盖密度与反抽空间,非产业方向;此事实使算力租赁分支(行云/利通)最可能证伪透支判断"
+    },
+    "R11": {
+      "level": "L1",
+      "source": "国泰海通食饮-白酒点评(sellside材料)",
+      "source_time": "2026-07-20",
+      "entity": "古井贡酒",
+      "direction": "support",
+      "field": "regional_alpha",
+      "value": "长鑫存储月底上市",
+      "note": "长鑫存储上周科创板申购月底上市,合肥国资为核心股东,区域财富效应传导至当地消费,古井300-500元价位优势明显"
+    }
+  },
+  "stage": "下跌阶段第6天(指数企稳但个股仍分化,资金再平衡日)",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-20",
+    "metrics": {
+      "stage_day": {
+        "value": 6,
+        "evidence_ref": "M1"
+      },
+      "advancers": {
+        "value": 1740,
+        "evidence_ref": "M2"
+      },
+      "total_amount": {
+        "value": 27019.21,
+        "evidence_ref": "M3"
+      },
+      "limit_down": {
+        "value": 212,
+        "evidence_ref": "M4"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4"
+    ]
+  },
+  "main_judgment": "下跌第6天进入'指数修复+个股分化'的资金再平衡期(涨家1740/跌停仍212/成交27019亿高位),晚间卖方流中唯一具备'公告级催化×覆盖早期×盘面双红刚启动'三重交叉的是白酒/消费再平衡线(茅台二次提价+国资买入+社零超预期,判信息增量);而当晚11/24条扎堆的AI算力链覆盖(Kimi限购/超节点/大摩存储抄底/陈果转多)属暴跌后的追认式跟风透支——存储/CPO/半导体四连阴中覆盖再加密但板块不创新高,正是衰竭形态,T+3内AI链反抽难跑赢白酒。",
+  "sellside_assessment": {
+    "scenario": "A-恐慌反弹窗口内的风格再平衡(非主升浪;华泰16次恐慌极值样本5日中位+2.4%,但'大概率不是前期热门板块')",
+    "increment_call": {
+      "direction": "白酒/消费再平衡线",
+      "verdict": "信息增量",
+      "coverage_position": "茅台提价07-17盘后官宣,本纪要国泰海通+建投为提价后第一批系统覆盖,未扎堆 [R4];出口链为第2篇 [R9]",
+      "evidence_hardness": "L3公告级三连:茅台年内第二次提价[R1]、国新/诚通国资买入大几百亿[R2]、6月社零+1.0%烟酒+12%[R3];古井区域α挂钩长鑫存储上市为可验证事件[R11]",
+      "market_position": "低位第3次双红(07-10/07-15/07-20)[S4],07-20 diff+66.55为全场双红最高[S2]、板块成交285亿创7月峰值[S3],茅台放量翻倍连续4日创20日新高[K1,K2]、古井涨停[K3]——启动而非高位"
+    },
+    "exhaust_call": {
+      "direction": "AI算力链(光模块/存储/超节点/交换芯片密集覆盖)",
+      "verdict": "跟风透支",
+      "coverage_position": "单日11/24条AI链,延续07-17的9/15篇顶格密度;大摩存储'布局窗口'与陈果'不应悲观'均为暴跌后追认式转多 [R5,R6]",
+      "evidence_hardness": "Kimi K3限购为L3真实硬事实[R10]、江苏光模块出口环比-4%转弱为海关口径;但'27-28年二阶导为正'等核心论据均为L1远期判断,且库内AI链概念覆盖早已饱和",
+      "market_position": "存储四连阴-7.42[S6]/CPO-6.64[S7]/半导体-6.39[S8]在指数+0.85%日仍普跌,光模块龙头中际旭创暴跌后仅缩量反抽+2.51[K8]——覆盖再加密而板块不创新高,即问句模板定义的衰竭信号;唯一反证是算力租赁分支成交三日递增diff连正[S9]"
+    },
+    "five_dim_scoring": {
+      "note": "确定性/弹性/兑现时间/拥挤度/已定价,各1-5分(拥挤度/已定价高分=不拥挤/未定价)",
+      "白酒消费再平衡": {
+        "确定性": 4,
+        "弹性": 3,
+        "兑现时间": 4,
+        "拥挤度": 4,
+        "已定价": 4,
+        "总分": 19
+      },
+      "电力防御": {
+        "确定性": 4,
+        "弹性": 2,
+        "兑现时间": 4,
+        "拥挤度": 3,
+        "已定价": 3,
+        "总分": 16
+      },
+      "出口链消费": {
+        "确定性": 3,
+        "弹性": 3,
+        "兑现时间": 3,
+        "拥挤度": 4,
+        "已定价": 3,
+        "总分": 16
+      },
+      "AI链超跌反抽": {
+        "确定性": 2,
+        "弹性": 4,
+        "兑现时间": 2,
+        "拥挤度": 2,
+        "已定价": 2,
+        "总分": 12
+      },
+      "top2_gap": "第1/2名分差3分——白酒线是明确第一优先,催化硬度与盘面位置均优于电力(电力已连续两日双红+涨停16家,拥挤度开始累积)"
+    },
+    "move_nature": "白酒07-20放量双红属资金切换(去杠杆资金从AI抱团流向低估值+公告催化方向)而非情绪脉冲——量能升级(285亿7月峰值)+龙头创新高+涨停扩散(古井)三要素齐;AI链若T+3反抽默认按超跌脉冲对待,除非放量收复07-17长阴"
+  },
+  "direction_ranking": [
+    "白酒/消费再平衡(判信息增量:提价+国资买入+社零三重公告级催化×提价后第一批覆盖×低位第3次双红量能升级)",
+    "电力(防御主线延续:07-17/07-20连续唯一严格双红+涨停16家+晋级梯队完整,但已两日大涨、追高性价比下降)",
+    "出口链/汽车(业绩再平衡分支:安克20日新高+长城订单硬数据,覆盖第2篇,弹性中等)",
+    "AI算力链(判跟风透支:11/24条密集覆盖vs板块四连阴,仅按超跌脉冲对待,不作为T+3持仓方向;算力租赁分支为最可能证伪点)"
+  ],
+  "picks": [
+    {
+      "code": "600519",
+      "name": "贵州茅台",
+      "strategy": "策略二(业绩强趋势-提价直接增厚)",
+      "reason": "年内第二次提价公告级[R1]直接增厚今明年业绩确定性,提价后首日+5.95放量翻倍[K1]且连续4日创20日新高[K2],板块diff+66.55量能升级[S2,S3],国资买入受益权重[R2]",
+      "evidence_refs": [
+        "R1",
+        "K1",
+        "K2",
+        "S2",
+        "S3",
+        "R2"
+      ],
+      "evidence_as_of": "2026-07-20"
+    },
+    {
+      "code": "000596",
+      "name": "古井贡酒",
+      "strategy": "策略一(主线流动性池-情绪辨识度龙头)",
+      "reason": "白酒线唯一涨停+20日新高[K3],区域α挂钩长鑫存储月底上市的可验证事件[R11],建投点名关注[R4];二板晋级率回升至25%[X1]支持辨识度打法",
+      "evidence_refs": [
+        "K3",
+        "R11",
+        "R4",
+        "X1"
+      ],
+      "evidence_as_of": "2026-07-20"
+    },
+    {
+      "code": "600795",
+      "name": "国电电力",
+      "strategy": "策略四(流动性切换-防御双红延续)",
+      "reason": "电力连续两日全场唯一严格双红[S5]+涨停16家热度第2[T1],个股+2.74创20日新高连续放量[K4];已涨两日,仓位控制、回踩才加",
+      "evidence_refs": [
+        "S5",
+        "T1",
+        "K4"
+      ],
+      "evidence_as_of": "2026-07-20"
+    },
+    {
+      "code": "601633",
+      "name": "长城汽车",
+      "strategy": "策略二(业绩强趋势-订单事件驱动)",
+      "reason": "H10预售12h订单2.2万+/坦克300大定1.5万+订单口径硬数据[R8],当日+4.47放量37%[K5],7月销量拐点逻辑可T+3内用周度数据跟踪",
+      "evidence_refs": [
+        "R8",
+        "K5"
+      ],
+      "evidence_as_of": "2026-07-20"
+    },
+    {
+      "code": "300866",
+      "name": "安克创新",
+      "strategy": "策略三(分歧回流-超跌业绩反转)",
+      "reason": "出口链Q2业绩预期改善覆盖第2篇未扎堆[R9],+6.66放量70%[K6]创20日新高[K7],与华泰'业绩稳健+非前期热门'风格判断交叉[R7]",
+      "evidence_refs": [
+        "R9",
+        "K6",
+        "K7",
+        "R7"
+      ],
+      "evidence_as_of": "2026-07-20"
+    }
+  ],
+  "thresholds": {
+    "market": "T+3(2026-07-21至07-23收盘)内至少1个交易日全市场涨家数>3000且当日跌停家数<100(分化修复完成,参照07-13涨家801→07-14修复4112样本);若三日涨家均≤3000则修复窗口证伪",
+    "direction": "确认(白酒信息增量):T+3内白酒板块至少再现1日双红(pct_chg>0且diff_ratio>0)且当日板块成交额≥250亿元(锚定07-20的285亿7月峰值口径),同时贵州茅台至少1日收盘>1327.50续创20日新高。衰竭(AI链透支):存储芯片板块07-21~07-23三日累计涨幅<+7.42%(即不收复07-20单日阴线)且同区间白酒板块累计涨幅>存储芯片板块累计涨幅;辅助观察算力租赁板块——若其率先双红且成交突破1600亿(高于07-20的1532亿),记录为透支判断的分支裂缝",
+    "targets": "贵州茅台:确认=收盘>1327.50续创20日新高,止损=收盘<1253.00(跌回07-17收盘);古井贡酒:确认=收盘>93.83(涨停价上方,朝4-7月区间高点109.86推进),止损=收盘<85.30(回吐涨停);国电电力:确认=收盘>4.88且电力板块T+3内再现严格双红,止损=收盘<4.60;长城汽车:确认=收盘>16.36,止损=收盘<15.66(回吐订单日涨幅);安克创新:确认=收盘>117.97续创20日新高,止损=收盘<110.60",
+    "falsify": "以下三条在T+3内同时成立则主判断整体推翻:①白酒板块无任何一日双红且贵州茅台收盘跌回1253.00下方;②存储芯片板块三日累计涨幅≥+7.42%收复阴线且累计涨幅反超白酒——AI重新虹吸、再平衡假设错误;③全市场涨家数无一日>3000——修复窗口未开启,仍为无差别踩踏"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M5",
+      "as_of": "2026-07-20"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "S3",
+      "as_of": "2026-07-20"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "K1",
+      "as_of": "2026-07-20"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "S6",
+      "as_of": "2026-07-20"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "category": "market",
+      "claim": "T+3内(2026-07-21至07-23)至少1个交易日全市场涨家数>3000且当日跌停家数<100(去杠杆尾声、分化修复完成)",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.65,
+      "evidence_refs": [
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "R7"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "至2026-07-23收盘,三个交易日涨家数均≤3000或跌停始终≥100——修复窗口假设miss,踩踏延续"
+    },
+    {
+      "id": "direction-baijiu-increment",
+      "category": "direction",
+      "claim": "白酒消费再平衡线为信息增量:T+3内白酒板块至少再现1日双红(pct_chg>0且diff_ratio>0)且当日成交额≥250亿元,同时贵州茅台至少1日收盘>1327.50续创20日新高",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "K1",
+        "K2",
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "T+3内白酒板块无任何一日双红,或双红日成交均<250亿且茅台收盘始终≤1327.50——信息增量判断miss(一日脉冲而非再平衡)"
+    },
+    {
+      "id": "direction-ai-exhaust",
+      "category": "direction",
+      "claim": "AI算力链当晚密集覆盖为跟风透支:存储芯片板块07-21~07-23三日累计涨幅<+7.42%(不收复07-20阴线),且同区间白酒板块累计涨幅>存储芯片板块累计涨幅",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S6",
+        "S7",
+        "S8",
+        "S9",
+        "K8",
+        "R5",
+        "R6",
+        "R10"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "存储芯片三日累计涨幅≥+7.42%收复阴线,或存储累计涨幅反超白酒——覆盖密度阈值定早,透支判断证伪(Kimi限购[R10]与算力租赁承接[S9]为最可能的证伪路径,需沉淀)"
+    },
+    {
+      "id": "target-moutai",
+      "category": "target",
+      "claim": "贵州茅台T+3内至少1日收盘价>1327.50(提价放量长阳后续创20日新高),确认白酒线为趋势启动而非单日脉冲",
+      "horizon": "T+3",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "K1",
+        "K2",
+        "R1",
+        "R2"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "T+3内收盘价始终≤1327.50且任一日收盘<1253.00——提价长阳回吐,趋势启动证伪"
+    },
+    {
+      "id": "direction-baijiu-t5",
+      "category": "direction",
+      "claim": "至T+5(2026-07-27收盘),白酒板块自07-20起区间累计涨幅>上证指数同区间累计涨幅(再平衡相对强度为正)",
+      "horizon": "T+5",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "S1",
+        "S2",
+        "S3",
+        "R1",
+        "R3",
+        "R9"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "T+5白酒板块区间累计涨幅≤上证指数——再平衡跑不赢beta,增量判断在T+5窗口miss"
+    },
+    {
+      "id": "falsify-main",
+      "category": "falsify",
+      "claim": "主判断存活:至2026-07-23,白酒板块至少1日双红、贵州茅台收盘≥1253.00、全市场至少1日涨家数>3000,三者至少其一成立",
+      "horizon": "T+3",
+      "confidence": "high",
+      "confidence_probability": 0.85,
+      "evidence_refs": [
+        "M2",
+        "M5",
+        "S1",
+        "K1"
+      ],
+      "evidence_as_of": "2026-07-20",
+      "falsify_when": "三者同时不成立(白酒零双红+茅台收盘<1253+涨家数无一日>3000)——主判断整体推翻,记miss并归因"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-21",
+    "recheck_t3_date": "2026-07-23",
+    "pick_returns_t1": [
+      -1.47,
+      2.31,
+      -0.61,
+      -1.65,
+      3.49
+    ],
+    "pick_returns_t3": [
+      -2.6734,
+      -3.1333,
+      3.2787,
+      -0.9169,
+      -0.8222
+    ],
+    "benchmark_return_t3": 2.1204,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00",
+    "beat_benchmark_t3": false
+  }
+}

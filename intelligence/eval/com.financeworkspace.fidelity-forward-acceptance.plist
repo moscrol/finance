@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.financeworkspace.fidelity-forward-acceptance</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/a77/finance-workspace-runtime/scripts/run_fidelity_forward_acceptance.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/a77/finance-workspace-runtime</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FINANCE_CODE_ROOT</key>
+    <string>/Users/a77/finance-workspace-runtime</string>
+    <key>FINANCE_WS</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>PIT_SNAPSHOT_DIR</key>
+    <string>/Users/a77/fidelity-replay/pit-snapshots</string>
+    <key>FIDELITY_RUNTIME_ROOT</key>
+    <string>/Users/a77/fidelity-runtime</string>
+    <key>MARKET_FEATURE_STORE_DB</key>
+    <string>/Users/a77/finance-workspace-private/db/market_feature_store.duckdb</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>20</integer>
+    <key>Minute</key>
+    <integer>45</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.err.log</string>
+</dict>
+</plist>

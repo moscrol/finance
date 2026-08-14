@@ -1,0 +1,124 @@
+{
+  "trade_date": "2026-06-26",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-26-theme-backfill-queue.json",
+  "generated_at": "2026-06-27T13:41:35.015133+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 4,
+  "status_counts": {
+    "pending_review": 4
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 2,
+    "review_create_or_link_concept": 2
+  },
+  "items": [
+    {
+      "id": "2026-06-26-01-missing_evidence",
+      "trade_date": "2026-06-26",
+      "theme": "光学光电子",
+      "canonical_concept": "LED芯片",
+      "sw_l1": "电子",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 194.75,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-26-08-missing_evidence",
+      "trade_date": "2026-06-26",
+      "theme": "共封装光学(CPO)",
+      "canonical_concept": "CPO",
+      "sw_l1": "电子",
+      "candidate_tier": "deep",
+      "rank": 8,
+      "priority_score": 94.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-26-19-missing_concept",
+      "trade_date": "2026-06-26",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 19,
+      "priority_score": 84.93,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-26-24-missing_concept",
+      "trade_date": "2026-06-26",
+      "theme": "钙钛矿电池",
+      "canonical_concept": "钙钛矿电池",
+      "sw_l1": "电力设备",
+      "candidate_tier": "watch",
+      "rank": 24,
+      "priority_score": 83.91,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 0,
+      "exposure_count": 6,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

@@ -1,0 +1,565 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-09",
+  "perspective_date": "2026-07-08",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "38c09d5004273154",
+  "stage": "底部横盘阶段第7天，缩量分歧后的AI算力局部回流修复，尚未切换为普涨主升",
+  "section_0_input_freeze": {
+    "duckdb_cutoff": "2026-07-08",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "b4598b76824caf77bb3f3e885e2789436d52262f",
+    "materials": [],
+    "data_gaps": [
+      "当日feature_market_window为空，市场趋势改用fact_market_daily近10日事实表计算",
+      "当日feature_sector_window为空，方向趋势改用fact_sector_daily近6个交易日事实表计算"
+    ]
+  },
+  "section_1_fields": {
+    "stage": {
+      "market_stage": "底部横盘阶段",
+      "stage_day": 7,
+      "switch_judgment": "从7月7日冰点后反抽到7月8日局部主线修复，但量能仍低于20日均量19.65%，不是全面主升确认"
+    },
+    "volume": {
+      "total_amount_yi": 25633.57,
+      "amount_vs_yesterday_pct": -0.68,
+      "amount_ma20_yi": 31904.18,
+      "amount_vs_ma20_pct": -19.65,
+      "volume_ratio_pct": 80.35,
+      "volume_state": "缩量观望"
+    },
+    "breadth": {
+      "advancers": 1593,
+      "advancers_previous_day": 693,
+      "advancers_change": 900,
+      "limit_up": 47,
+      "limit_up_previous_day": 33,
+      "limit_down": 42,
+      "limit_down_previous_day": 31,
+      "breadth_read": "宽度从极弱修复，但涨跌停仍接近，属于局部回流而非普涨"
+    },
+    "double_red": {
+      "definition": "pct_chg>0且diff_ratio>0",
+      "count": 38,
+      "top_by_diff": [
+        {
+          "sector": "旅游及酒店",
+          "pct_chg": 1.68,
+          "diff_ratio": 75.57,
+          "amount_yi": 42.7
+        },
+        {
+          "sector": "油气开采及服务",
+          "pct_chg": 3.52,
+          "diff_ratio": 69.89,
+          "amount_yi": 85.41
+        },
+        {
+          "sector": "智谱AI",
+          "pct_chg": 1.22,
+          "diff_ratio": 51.29,
+          "amount_yi": 440.38
+        },
+        {
+          "sector": "IT服务",
+          "pct_chg": 1.61,
+          "diff_ratio": 45.31,
+          "amount_yi": 596.85
+        },
+        {
+          "sector": "云计算",
+          "pct_chg": 1.86,
+          "diff_ratio": 38.07,
+          "amount_yi": 1379.6
+        },
+        {
+          "sector": "星闪",
+          "pct_chg": 0.57,
+          "diff_ratio": 36.55,
+          "amount_yi": 412.35
+        },
+        {
+          "sector": "通信服务",
+          "pct_chg": 1.1,
+          "diff_ratio": 35.41,
+          "amount_yi": 178.46
+        },
+        {
+          "sector": "华为昇腾",
+          "pct_chg": 1.9,
+          "diff_ratio": 33.09,
+          "amount_yi": 482.63
+        },
+        {
+          "sector": "软件开发",
+          "pct_chg": 1.54,
+          "diff_ratio": 32.94,
+          "amount_yi": 475.73
+        },
+        {
+          "sector": "算力租赁",
+          "pct_chg": 0.93,
+          "diff_ratio": 29.35,
+          "amount_yi": 1405.12
+        },
+        {
+          "sector": "半导体设备",
+          "pct_chg": 2.0,
+          "diff_ratio": 21.04,
+          "amount_yi": 741.93
+        },
+        {
+          "sector": "计算机设备",
+          "pct_chg": 1.21,
+          "diff_ratio": 20.76,
+          "amount_yi": 471.32
+        },
+        {
+          "sector": "AI智能体",
+          "pct_chg": 0.7,
+          "diff_ratio": 19.26,
+          "amount_yi": 2023.18
+        },
+        {
+          "sector": "信创",
+          "pct_chg": 1.49,
+          "diff_ratio": 14.75,
+          "amount_yi": 1673.71
+        }
+      ]
+    },
+    "limit_heat": {
+      "market_limit_up": 47,
+      "top_sectors": [
+        {
+          "sector": "数据中心",
+          "limit_up_count": 20,
+          "market_share_pct": 42.55,
+          "top_stocks": [
+            "浪潮信息",
+            "星网锐捷",
+            "网宿科技",
+            "深信服",
+            "数据港"
+          ]
+        },
+        {
+          "sector": "人工智能",
+          "limit_up_count": 19,
+          "market_share_pct": 40.43,
+          "top_stocks": [
+            "浪潮信息",
+            "星网锐捷",
+            "网宿科技",
+            "深信服",
+            "岭南控股"
+          ]
+        },
+        {
+          "sector": "机器人概念",
+          "limit_up_count": 15,
+          "market_share_pct": 31.91,
+          "top_stocks": [
+            "星网锐捷",
+            "深信服",
+            "华菱线缆",
+            "天海电子",
+            "恒为科技"
+          ]
+        },
+        {
+          "sector": "DeepSeek概念",
+          "limit_up_count": 14,
+          "market_share_pct": 29.79,
+          "top_stocks": [
+            "浪潮信息",
+            "星网锐捷",
+            "网宿科技",
+            "深信服",
+            "岭南控股"
+          ]
+        },
+        {
+          "sector": "信创",
+          "limit_up_count": 13,
+          "market_share_pct": 27.66,
+          "top_stocks": [
+            "浪潮信息",
+            "星网锐捷",
+            "网宿科技",
+            "深信服",
+            "浪潮软件"
+          ]
+        },
+        {
+          "sector": "AI智能体",
+          "limit_up_count": 12,
+          "market_share_pct": 25.53,
+          "top_stocks": [
+            "网宿科技",
+            "深信服",
+            "岭南控股",
+            "浪潮软件",
+            "广电运通"
+          ]
+        },
+        {
+          "sector": "云计算",
+          "limit_up_count": 11,
+          "market_share_pct": 23.4,
+          "top_stocks": [
+            "浪潮信息",
+            "网宿科技",
+            "深信服",
+            "数据港",
+            "浪潮软件"
+          ]
+        }
+      ]
+    },
+    "new_high": {
+      "history_high_count": 23,
+      "three_year_high_count": 28,
+      "one_year_high_count": 35,
+      "one_hundred_twenty_day_high_count": 41,
+      "sixty_day_high_count": 49,
+      "twenty_day_high_count": 139,
+      "clusters": [
+        {
+          "sw_l1": "电子",
+          "count": 17,
+          "history_high_count": 9,
+          "long_high_count_history_3y_1y": 11,
+          "amount_sum_yi": 564.88
+        },
+        {
+          "sw_l1": "计算机",
+          "count": 18,
+          "history_high_count": 2,
+          "long_high_count_history_3y_1y": 3,
+          "amount_sum_yi": 358.13
+        },
+        {
+          "sw_l1": "通信",
+          "count": 6,
+          "history_high_count": 1,
+          "long_high_count_history_3y_1y": 2,
+          "amount_sum_yi": 93.26
+        },
+        {
+          "sw_l1": "国防军工",
+          "count": 5,
+          "history_high_count": 4,
+          "long_high_count_history_3y_1y": 4,
+          "amount_sum_yi": 160.27
+        },
+        {
+          "sw_l1": "医药生物",
+          "count": 23,
+          "history_high_count": 0,
+          "long_high_count_history_3y_1y": 0,
+          "amount_sum_yi": 63.24
+        }
+      ],
+      "capacity_new_highs": [
+        {
+          "code": "688347.SH",
+          "name": "华虹宏力",
+          "label": "历史新高",
+          "market_cap_yi": 1461.38,
+          "amount_yi": 100.02,
+          "pct_chg": 10.62
+        },
+        {
+          "code": "301165.SZ",
+          "name": "锐捷网络",
+          "label": "历史新高",
+          "market_cap_yi": 1174.89,
+          "amount_yi": 39.44,
+          "pct_chg": 11.63
+        },
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息",
+          "label": "20日新高",
+          "market_cap_yi": 1146.62,
+          "amount_yi": 31.93,
+          "pct_chg": 10.01
+        },
+        {
+          "code": "000938.SZ",
+          "name": "紫光股份",
+          "label": "3年新高",
+          "market_cap_yi": 961.56,
+          "amount_yi": 164.15,
+          "pct_chg": 6.8
+        },
+        {
+          "code": "603893.SH",
+          "name": "瑞芯微",
+          "label": "20日新高",
+          "market_cap_yi": 854.24,
+          "amount_yi": 89.34,
+          "pct_chg": 5.92
+        },
+        {
+          "code": "688702.SH",
+          "name": "盛科通信",
+          "label": "历史新高",
+          "market_cap_yi": 815.01,
+          "amount_yi": 50.02,
+          "pct_chg": 5.1
+        }
+      ]
+    },
+    "core_stocks": {
+      "engines": [
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息",
+          "role": "数据中心/云计算涨停发动机",
+          "limit_status": "U",
+          "limit_times": 1,
+          "fund_today_yi": 20.62
+        },
+        {
+          "code": "000938.SZ",
+          "name": "紫光股份",
+          "role": "国产算力容量核心",
+          "amount_yi": 164.15,
+          "fund_today_yi": 36.9
+        },
+        {
+          "code": "301165.SZ",
+          "name": "锐捷网络",
+          "role": "AI硬件/信创历史新高核心",
+          "market_cap_yi": 1174.89,
+          "pct_chg_10d": 57.96
+        }
+      ],
+      "capacity_cores": [
+        {
+          "code": "688347.SH",
+          "name": "华虹宏力",
+          "role": "电子/半导体历史新高容量核心",
+          "market_cap_yi": 1461.38,
+          "amount_yi": 100.02
+        },
+        {
+          "code": "603893.SH",
+          "name": "瑞芯微",
+          "role": "AI芯片容量核心",
+          "market_cap_yi": 854.24,
+          "amount_yi": 89.34
+        },
+        {
+          "code": "688702.SH",
+          "name": "盛科通信",
+          "role": "数据中心半导体历史新高容量核心",
+          "market_cap_yi": 815.01,
+          "amount_yi": 50.02
+        }
+      ]
+    }
+  },
+  "main_judgment": "7月9日更可能走AI算力/半导体容量核心的分歧后回流，而不是指数级普涨；若量能不能回到2.7万亿以上，修复会以核心抱团和局部双红延续为主。",
+  "scenario": {
+    "classification": "A恐慌反弹向B主升浪试探的中间态",
+    "why_not_b": "成交额25633.57亿、量比80.35%、涨家数1593，量能和广度均未确认主升",
+    "why_not_c": "历史新高23只、20日新高139只仍有容量核心创新高，但涨停47只且跌停42只，尚未形成单边高位拥挤"
+  },
+  "direction_ranking": [
+    "1. 云计算/算力租赁/信创/AI智能体：主线流动性池回流，总分78，性质=主线扩散",
+    "2. 半导体设备/电子容量核心：强趋势延续，总分70，性质=资金切换+新高确认",
+    "3. 数据中心/国产算力硬件：分歧回流，总分68，性质=主线扩散但板块指数仍未红盘",
+    "4. 机器人概念：情绪脉冲，总分59，涨停热但容量核心分化",
+    "5. 旅游及酒店/油气：资金切换，总分52，diff高但容量小，持续性需二次确认"
+  ],
+  "direction_scores": [
+    {
+      "direction": "云计算/算力租赁/信创/AI智能体",
+      "certainty": 17,
+      "elasticity": 16,
+      "realization_timing": 17,
+      "crowding_risk_inverse": 13,
+      "priced_in_inverse": 15,
+      "total": 78,
+      "evidence": "云计算pct=1.86 diff=38.07 amount=1379.60亿；算力租赁pct=0.93 diff=29.35 amount=1405.12亿；信创pct=1.49 diff=14.75 amount=1673.71亿；AI智能体pct=0.70 diff=19.26 amount=2023.18亿"
+    },
+    {
+      "direction": "半导体设备/电子容量核心",
+      "certainty": 15,
+      "elasticity": 15,
+      "realization_timing": 14,
+      "crowding_risk_inverse": 13,
+      "priced_in_inverse": 13,
+      "total": 70,
+      "evidence": "半导体设备pct=2.00 diff=21.04 amount=741.93亿；电子新高17只、历史新高9只，华虹宏力/瑞芯微/盛科通信均为大成交容量核心"
+    },
+    {
+      "direction": "数据中心/国产算力硬件",
+      "certainty": 14,
+      "elasticity": 14,
+      "realization_timing": 15,
+      "crowding_risk_inverse": 11,
+      "priced_in_inverse": 14,
+      "total": 68,
+      "evidence": "数据中心涨停20只、市场占比42.55%，但板块pct=-0.86、diff=3.02，说明核心强、整体仍分歧"
+    },
+    {
+      "direction": "机器人概念",
+      "certainty": 11,
+      "elasticity": 15,
+      "realization_timing": 13,
+      "crowding_risk_inverse": 9,
+      "priced_in_inverse": 11,
+      "total": 59,
+      "evidence": "机器人概念涨停15只、市场占比31.91%，但主线股中双环传动-5.85%、埃斯顿-10.00%，更像情绪脉冲"
+    }
+  ],
+  "picks": [
+    {
+      "code": "000938.SZ",
+      "name": "紫光股份",
+      "strategy": "策略一：主线流动性池容量核心",
+      "reason": "绑定§1：云计算/数据中心/算力租赁均为回流方向，紫光股份7月8日涨6.80%、成交164.15亿、3年新高、主力净流入36.90亿，是AI算力池内最强容量承接。"
+    },
+    {
+      "code": "000977.SZ",
+      "name": "浪潮信息",
+      "strategy": "策略二：强趋势延续发动机",
+      "reason": "绑定§1：数据中心涨停20只、云计算涨停11只；浪潮信息7月8日涨停、20日新高、成交31.93亿、主力净流入20.62亿，是数据中心/云计算涨停热度的共同发动机。"
+    },
+    {
+      "code": "301165.SZ",
+      "name": "锐捷网络",
+      "strategy": "策略二：强趋势延续容量新高",
+      "reason": "绑定§1：信创pct=1.49 diff=14.75，AI硬件方向资金流入；锐捷网络7月8日涨11.63%、历史新高、市值1174.89亿、10日涨57.96%，用于验证AI硬件高位核心能否继续承接。"
+    },
+    {
+      "code": "688347.SH",
+      "name": "华虹宏力",
+      "strategy": "策略三：半导体分歧回流容量核心",
+      "reason": "绑定§1：半导体设备pct=2.00 diff=21.04，电子板块新高17只/历史新高9只；华虹宏力7月8日涨10.62%、历史新高、成交100.02亿、市值1461.38亿，代表电子容量新高路径。"
+    },
+    {
+      "code": "603893.SH",
+      "name": "瑞芯微",
+      "strategy": "策略四：AI芯片流动性切换",
+      "reason": "绑定§1：电子新高集群和人工智能涨停热度共振；瑞芯微7月8日涨5.92%、20日新高、成交89.34亿、市值854.24亿、主力净流入20.61亿，作为AI端侧/芯片承接观察标的。"
+    }
+  ],
+  "thresholds": {
+    "market": {
+      "T+1": "7月9日若涨家数>=1800、成交额>=25000亿、涨停>=45、跌停<=45，则确认局部修复延续；若涨家数>=3000且成交额>=30000亿，才升级为普涨修复。",
+      "T+3": "到7月13日，3个交易日均值需满足成交额>=27000亿、涨家数均值>=1800、跌停均值<=35、20日新高数>=120，才说明底部横盘向上试探未失败。"
+    },
+    "direction": {
+      "T+1": "云计算diff_ratio>20且pct_chg>0；算力租赁diff_ratio>15且pct_chg>=0；信创diff_ratio>10且pct_chg>0；半导体设备diff_ratio>10且pct_chg>=0，四项满足至少3项则方向判断命中。",
+      "T+3": "上述四个方向中至少2个在7月9日至7月13日期间保持diff_ratio>0且累计pct_chg>0；数据中心涨停热度不得低于8只。"
+    },
+    "targets": {
+      "000938.SZ": {
+        "T+1": "收盘>=33.00且成交额>=100亿",
+        "T+3": "区间最高价>=34.50或7月13日收盘>=33.62"
+      },
+      "000977.SZ": {
+        "T+1": "收盘>=76.00且成交额>=25亿",
+        "T+3": "区间最高价>=82.00或7月13日收盘>=78.17"
+      },
+      "301165.SZ": {
+        "T+1": "收盘>=100.00且成交额>=25亿",
+        "T+3": "区间最高价>=111.00或7月13日收盘>=105.50"
+      },
+      "688347.SH": {
+        "T+1": "收盘>=340.00且成交额>=70亿",
+        "T+3": "区间最高价>=370.00或7月13日收盘>=358.40"
+      },
+      "603893.SH": {
+        "T+1": "收盘>=194.00且成交额>=60亿",
+        "T+3": "区间最高价>=210.00或7月13日收盘>=202.00"
+      }
+    },
+    "falsify": {
+      "T+1": "若7月9日涨家数<1200或成交额<24000亿或跌停>60，同时云计算/算力租赁/信创/半导体设备四个方向中少于2个diff_ratio>0，则主判断证伪。",
+      "T+3": "若到7月13日三日成交额均值<25000亿、跌停均值>50、20日新高数<80，且5只标的区间均值收益<-4%，则AI算力/半导体局部回流路径证伪。"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "horizon": "T+1",
+      "claim": "7月9日局部修复延续但不是全面主升",
+      "verify_by": "advancers>=1800, total_amount>=25000, limit_up>=45, limit_down<=45",
+      "falsify": "advancers<1200 or total_amount<24000 or limit_down>60"
+    },
+    {
+      "id": "direction",
+      "horizon": "T+1",
+      "claim": "云计算/算力租赁/信创/半导体设备至少3项继续正diff",
+      "verify_by": "四个方向中至少3个满足diff_ratio阈值且pct_chg>=0",
+      "falsify": "四个方向中少于2个diff_ratio>0"
+    },
+    {
+      "id": "falsify",
+      "horizon": "T+3",
+      "claim": "若缩量破坏和新高塌陷同时出现，则本答卷主路径失败",
+      "verify_by": "total_amount_3d_avg>=27000, advancers_3d_avg>=1800, twenty_day_high_count>=120",
+      "falsify": "total_amount_3d_avg<25000 and limit_down_3d_avg>50 and twenty_day_high_count<80"
+    },
+    {
+      "id": "target:000938.SZ",
+      "horizon": "T+3",
+      "claim": "紫光股份维持AI算力容量核心承接",
+      "verify_by": "T+1 close>=33.00 and T+3 high>=34.50"
+    },
+    {
+      "id": "target:000977.SZ",
+      "horizon": "T+3",
+      "claim": "浪潮信息维持数据中心涨停发动机地位",
+      "verify_by": "T+1 close>=76.00 and T+3 high>=82.00"
+    },
+    {
+      "id": "target:301165.SZ",
+      "horizon": "T+3",
+      "claim": "锐捷网络历史新高后继续有高位承接",
+      "verify_by": "T+1 close>=100.00 and T+3 high>=111.00"
+    },
+    {
+      "id": "target:688347.SH",
+      "horizon": "T+3",
+      "claim": "华虹宏力代表半导体容量核心延续",
+      "verify_by": "T+1 close>=340.00 and T+3 high>=370.00"
+    },
+    {
+      "id": "target:603893.SH",
+      "horizon": "T+3",
+      "claim": "瑞芯微代表AI芯片容量承接延续",
+      "verify_by": "T+1 close>=194.00 and T+3 high>=210.00"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-09",
+    "recheck_t3_date": "2026-07-13",
+    "pick_returns_t1": [
+      6.13,
+      10.0,
+      3.49,
+      11.75,
+      2.65
+    ],
+    "pick_returns_t3": [
+      14.2206,
+      9.3604,
+      -0.5859,
+      -2.3408,
+      8.4122
+    ],
+    "benchmark_return_t3": -1.4376,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00",
+    "beat_benchmark_t3": true
+  }
+}

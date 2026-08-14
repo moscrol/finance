@@ -1,0 +1,546 @@
+{
+  "trade_date": "2026-04-03",
+  "source": "theme-candidates-backfill-queue",
+  "source_file": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-04-03-theme-candidates.json",
+  "generated_at": "2026-06-11T10:44:59.173447+00:00",
+  "filters": {
+    "tier": "all",
+    "min_priority": "low"
+  },
+  "candidate_count": 50,
+  "queue_count": 25,
+  "priority_counts": {
+    "critical": 2,
+    "high": 6,
+    "medium": 8,
+    "low": 9
+  },
+  "gap_counts": {
+    "missing_concept": 6,
+    "missing_entity_exposures": 4,
+    "missing_evidence": 15
+  },
+  "tier_counts": {
+    "deep": 5,
+    "long_tail": 9,
+    "watch": 11
+  },
+  "items": [
+    {
+      "id": "2026-04-03-04-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "铜缆高速连接",
+      "canonical_concept": "铜缆高速连接",
+      "sw_l1": "电力设备",
+      "candidate_tier": "deep",
+      "rank": 4,
+      "priority_score": 159.49,
+      "gap_type": "missing_concept",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-04-missing_entity_exposures",
+      "trade_date": "2026-04-03",
+      "theme": "铜缆高速连接",
+      "canonical_concept": "铜缆高速连接",
+      "sw_l1": "电力设备",
+      "candidate_tier": "deep",
+      "rank": 4,
+      "priority_score": 159.49,
+      "gap_type": "missing_entity_exposures",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-01-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "共封装光学(CPO)",
+      "canonical_concept": "CPO",
+      "sw_l1": "电子",
+      "candidate_tier": "deep",
+      "rank": 1,
+      "priority_score": 190.81,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-02-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "光纤",
+      "canonical_concept": "AI算力驱动下的MPO光纤连接器产业",
+      "sw_l1": "通信",
+      "candidate_tier": "deep",
+      "rank": 2,
+      "priority_score": 184.24,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-04-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "铜缆高速连接",
+      "canonical_concept": "铜缆高速连接",
+      "sw_l1": "电力设备",
+      "candidate_tier": "deep",
+      "rank": 4,
+      "priority_score": 159.49,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "capacity_industry",
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-19-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 19,
+      "priority_score": 63.41,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-23-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "新型工业化",
+      "canonical_concept": "新型工业化",
+      "sw_l1": "机械设备",
+      "candidate_tier": "watch",
+      "rank": 23,
+      "priority_score": 60.86,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-26-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "机器视觉",
+      "canonical_concept": "机器视觉",
+      "sw_l1": "机械设备",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 59.64,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-15-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "光学光电子",
+      "canonical_concept": "LED芯片",
+      "sw_l1": "电子",
+      "candidate_tier": "watch",
+      "rank": 15,
+      "priority_score": 68.12,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 2,
+      "exposure_count": 2,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-16-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "化学制药",
+      "canonical_concept": "原料药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "watch",
+      "rank": 16,
+      "priority_score": 67.95,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-19-missing_entity_exposures",
+      "trade_date": "2026-04-03",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 19,
+      "priority_score": 63.41,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-19-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 19,
+      "priority_score": 63.41,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-23-missing_entity_exposures",
+      "trade_date": "2026-04-03",
+      "theme": "新型工业化",
+      "canonical_concept": "新型工业化",
+      "sw_l1": "机械设备",
+      "candidate_tier": "watch",
+      "rank": 23,
+      "priority_score": 60.86,
+      "gap_type": "missing_entity_exposures",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-23-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "新型工业化",
+      "canonical_concept": "新型工业化",
+      "sw_l1": "机械设备",
+      "candidate_tier": "watch",
+      "rank": 23,
+      "priority_score": 60.86,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-24-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "医药商业",
+      "canonical_concept": "医药流通",
+      "sw_l1": "医药生物",
+      "candidate_tier": "watch",
+      "rank": 24,
+      "priority_score": 60.72,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-26-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "机器视觉",
+      "canonical_concept": "机器视觉",
+      "sw_l1": "机械设备",
+      "candidate_tier": "watch",
+      "rank": 26,
+      "priority_score": 59.64,
+      "gap_type": "missing_evidence",
+      "priority": "medium",
+      "reason": "Watch 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-35-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "TOPCON电池",
+      "canonical_concept": "TOPCon电池",
+      "sw_l1": "电力设备",
+      "candidate_tier": "long_tail",
+      "rank": 35,
+      "priority_score": 47.97,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 5,
+      "exposure_count": 7,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-36-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "太赫兹",
+      "canonical_concept": "6G产业",
+      "sw_l1": "国防军工",
+      "candidate_tier": "long_tail",
+      "rank": 36,
+      "priority_score": 46.12,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 1,
+      "exposure_count": 2,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-37-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 45.03,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-37-missing_entity_exposures",
+      "trade_date": "2026-04-03",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 45.03,
+      "gap_type": "missing_entity_exposures",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地公司暴露映射",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-37-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "小米汽车",
+      "canonical_concept": "小米汽车",
+      "sw_l1": "汽车",
+      "candidate_tier": "long_tail",
+      "rank": 37,
+      "priority_score": 45.03,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 0,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-38-missing_concept",
+      "trade_date": "2026-04-03",
+      "theme": "减肥药",
+      "canonical_concept": "减肥药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "long_tail",
+      "rank": 38,
+      "priority_score": 44.62,
+      "gap_type": "missing_concept",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-38-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "减肥药",
+      "canonical_concept": "减肥药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "long_tail",
+      "rank": 38,
+      "priority_score": 44.62,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-48-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "软件开发",
+      "canonical_concept": "AIGC",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 48,
+      "priority_score": 23.4,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 6,
+      "evidence_count": 0
+    },
+    {
+      "id": "2026-04-03-49-missing_evidence",
+      "trade_date": "2026-04-03",
+      "theme": "钠离子电池",
+      "canonical_concept": "储能",
+      "sw_l1": "",
+      "candidate_tier": "long_tail",
+      "rank": 49,
+      "priority_score": 23.05,
+      "gap_type": "missing_evidence",
+      "priority": "low",
+      "reason": "Long Tail 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 9,
+      "evidence_count": 0
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-24",
+  "agent": "claude",
+  "source": "briefing",
+  "manifest_sha": "f8acb6d3ba3c9288",
+  "perspective_date": "2026-07-23",
+  "evidence_catalog": {
+    "B1": {
+      "level": "L2",
+      "source": "briefing/2026-07-23晨汇 Tier2#1",
+      "source_time": "2026-07-23",
+      "entity": "AI重资本期",
+      "direction": "support",
+      "claim": "公告增量三重跨渠道确认（全批最强）：谷歌capex指引上调至1950-2050亿、Q2 FCF转负-58.6亿；北京下半年智算新增5万匹较上半年翻倍、年内破13万匹；杰瑞14.6亿美元订单、GEV订单242亿(+88%)燃机链爆发"
+    },
+    "B2": {
+      "level": "L2",
+      "source": "briefing/2026-07-23晨汇 Tier2#1镜像",
+      "source_time": "2026-07-23",
+      "entity": "AI重资本期",
+      "direction": "counter",
+      "claim": "拥挤度实锤：公募二季报TMT持仓>60%(电子>40%)，前三大重仓中际旭创/新易盛/东山精密；持仓>60%意味着增量资金边际减弱，产业超预期不再自动转化为超额收益（0716批拥挤度分歧延续）"
+    },
+    "B3": {
+      "level": "L2",
+      "source": "briefing/2026-07-23晨汇+库内AI主线框架",
+      "source_time": "2026-07-23",
+      "entity": "AI重资本期",
+      "direction": "support",
+      "claim": "库内认知：与0722 ETF净赎回+0723卖方AI重资本共振构成完整产业加杠杆vs持仓拥挤对照框架；北京Token工厂是国产算力需求首个地方政府量化验证，衔接国产算力"
+    },
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 21949.97,
+      "direction": "counter",
+      "claim": "07-23上证成交额萎缩至21949.97亿，反弹第3天量能不足"
+    },
+    "M2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "amount_vs_yesterday_pct",
+      "value": -17.27,
+      "direction": "counter",
+      "claim": "07-23较前日缩量-17.27%，volume_state=缩量观望"
+    },
+    "M3": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "advancers",
+      "value": 4260,
+      "direction": "neutral",
+      "claim": "07-23涨家数4260，广度强但与缩量背离（广度虚高）"
+    },
+    "M4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 116,
+      "direction": "support",
+      "claim": "07-23涨停116家、跌停仅2家，赚钱效应尚可（但梯队断层、题材散乱）"
+    },
+    "M5": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-23",
+      "entity": "sector_rotation",
+      "direction": "counter",
+      "claim": "三日板块日轮动无主线：半导体设备/半导体/存储(07-21)→有色铅锌铜金(07-22)→电网设备/特高压/电池/钠电(07-23)，每日换一个集群领涨、无一持续2日"
+    },
+    "M6": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "AI硬件龙头",
+      "direction": "counter",
+      "claim": "光模块双雄退潮：中际旭创07-21+13.2%→07-22-6.66%→07-23+1.1%；新易盛07-23-2.26%持续走弱；东山精密(公募第三大重仓)07-22-5.84%→07-23-4.99%持续下跌，拥挤筹码松动"
+    },
+    "M7": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-23",
+      "entity": "燃机支线",
+      "direction": "support",
+      "claim": "杰瑞股份07-23+10%涨停(07-17曾跌停117.45后超跌反包，非主升)，燃机/油服支线硬催化兑现，是AI重资本主题内07-23唯一封板"
+    },
+    "M8": {
+      "level": "L4",
+      "source": "fact_market_daily.note",
+      "source_time": "2026-07-23",
+      "entity": "market",
+      "direction": "counter",
+      "claim": "盘后note原文：无明确主线、超跌轮动为主、量能无法支撑主线形成、连板梯队断层接力情绪一般、反弹持续性存疑、热点集中于锂/电网设备/能源金属等超跌反弹品种"
+    }
+  },
+  "stage": "反弹阶段第3天·缩量分歧（超跌轮动退潮、无明确主线）",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-23",
+    "metrics": {
+      "total_amount": {
+        "value": 21949.97,
+        "evidence_ref": "M1"
+      },
+      "amount_vs_yesterday_pct": {
+        "value": -17.27,
+        "evidence_ref": "M2"
+      },
+      "advancers": {
+        "value": 4260,
+        "evidence_ref": "M3"
+      },
+      "limit_up": {
+        "value": 116,
+        "evidence_ref": "M4"
+      }
+    },
+    "evidence_refs": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M8"
+    ]
+  },
+  "main_judgment": "晨汇最强增量AI重资本期公告维三重确认最强、库内认知强，但盘面维已counter（反弹第3天缩量17%至21950亿、强度沸点、板块日轮动无主线、光模块龙头退潮、拥挤>60%），三维错配下07-24最可能盘中脉冲而非直接涨停——这是典型认知对但位置/情绪不配合。",
+  "direction_ranking": [
+    "储能/电网设备（三维最齐：十五五置信出力框架+库内储能久期认知+盘面电网设备双红diff+55.2当日最强）",
+    "AI重资本/光模块燃机（公告最强但盘面退潮拥挤→盘中脉冲，本卷事件锚）",
+    "钠电（消费税政策套利+盘面钠离子电池+3.71%双红）",
+    "铜（供给归零叙事+认知强，但金属铜diff-7.19资金流出）",
+    "银行（公募持仓历史新低出清+城商行分化，无盘面配合，慢变量）"
+  ],
+  "picks": [
+    {
+      "code": "002353",
+      "name": "杰瑞股份",
+      "strategy": "晨汇事件流·燃机支线硬催化（Tier2#1映射，盘中脉冲主观察标的）",
+      "reason": "公告增量最硬：14.6亿美元订单+GEV242亿(+88%)燃机链[B1]；07-23已+10%涨停属超跌反包[M7]；涨停次日（缩量环境下）观察是否冲高回落即盘中脉冲兑现",
+      "evidence_refs": [
+        "B1",
+        "M7"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "300308",
+      "name": "中际旭创",
+      "strategy": "晨汇事件流·光模块龙头拥挤观察",
+      "reason": "公募第一大重仓、拥挤代表[B2]；公告维AI重资本三重确认[B1]；但07-23仅+1.1%已退潮(07-21+13.2%见顶后退)[M6]；观察是否盘中冲高但收盘回落",
+      "evidence_refs": [
+        "B1",
+        "B2",
+        "M6"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "002518",
+      "name": "科士达",
+      "strategy": "晨汇事件流·AI电源/数据中心扩散",
+      "reason": "公告增量：订单+60% vs 收入+20%（订单领先收入）[B1]；AI电源支线07-23+2.48%震荡[M6]；观察盘中脉冲强度",
+      "evidence_refs": [
+        "B1",
+        "M6"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "603115",
+      "name": "海星股份",
+      "strategy": "晨汇事件流·AI电极箔上游扩散",
+      "reason": "公告增量：AI电极箔26-28年3/4/23亿收入外推[B1]；07-23+4.85%[M6]；AI上游材料扩散支线脉冲观察",
+      "evidence_refs": [
+        "B1",
+        "M6"
+      ],
+      "evidence_as_of": "2026-07-23"
+    },
+    {
+      "code": "300502",
+      "name": "新易盛",
+      "strategy": "晨汇事件流·光模块拥挤退潮反向观察",
+      "reason": "公募第二大重仓、拥挤[B2]；07-23-2.26%持续走弱[M6]；作为拥挤退潮反向标的，若07-24继续下跌则印证盘面counter、盘中脉冲判断",
+      "evidence_refs": [
+        "B1",
+        "B2",
+        "M6"
+      ],
+      "evidence_as_of": "2026-07-23"
+    }
+  ],
+  "thresholds": {
+    "market": "07-24上证成交额能否回升至>25000亿（摆脱21950缩量观望）；涨家数维持>3000则广度仍在，否则缩量分歧加深",
+    "direction": "AI重资本题材篮子(杰瑞/中际旭创/科士达/海星/新易盛)盘中是否≥2只冲高>5%但收盘回落（盘中脉冲特征）；储能/电网设备能否延续双红(diff>0)作为盘面最强方向参照",
+    "targets": "杰瑞涨停次日不破07-23收盘135.11；中际旭创/新易盛收盘不继续跌破07-23收盘(1072.52/497.30)；盘中冲高>5%但收盘回落=盘中脉冲兑现",
+    "falsify": "AI重资本题材内5只代表标的07-24无一异动(收盘全<1.5%且无盘中>3%脉冲)→Tier2分级证伪(公告+认知对但盘面维错配，应降级Tier3)；反之≥2只涨停或收盘>7%则盘中脉冲miss(实为强势兑现/直接涨停)"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "M1",
+      "as_of": "2026-07-23"
+    },
+    "direction": {
+      "origin": "heuristic",
+      "evidence_ref": "M6",
+      "as_of": "2026-07-23"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "M7",
+      "as_of": "2026-07-23"
+    },
+    "falsify": {
+      "origin": "fixed_rule",
+      "evidence_ref": "B1",
+      "as_of": "2026-07-23"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "briefing_event",
+      "category": "target",
+      "claim": "AI重资本事件07-24兑现形态=盘中脉冲：题材篮子(光模块/AI电源/燃机代表标的)盘中≥2只冲高>5%但收盘回落，代表性标的收盘涨幅集中+2%~+5%，无大面积涨停（公告够硬必生盘中试探，但缩量+拥挤+主线已轮动出去→冲高无法封板）",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.42,
+      "evidence_refs": [
+        "B1",
+        "B3",
+        "M1",
+        "M5",
+        "M6",
+        "M7"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "出现代表性标的涨停或收盘>7%（实为直接涨停/强势兑现，盘中脉冲miss）；或全篮子收盘<1.5%且无盘中>3%脉冲（实为不反应，盘中脉冲miss且Tier分级证伪）"
+    },
+    {
+      "id": "market_volume",
+      "category": "market",
+      "claim": "07-24上证成交额仍难回升至25000亿，缩量观望延续（07-23为21949.97亿/-17.27%，反弹第3天量能不济、接力情绪一般）",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "M1",
+        "M2",
+        "M8"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "07-24成交额回升至>25000亿且涨家数>3500（量能回归、主线形成，缩量观望判断证伪）"
+    },
+    {
+      "id": "tier_classification",
+      "category": "falsify",
+      "claim": "若AI重资本题材内5只代表标的07-24无一异动(收盘全<2%且无盘中冲高)，则Tier2分级证伪：公告维[B1]+认知维[B3]对但盘面维错配(拥挤+缩量+主线已轮动)，应降级Tier3观察——对应模板提示的通常是盘面维认知对但位置/情绪不配合",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.45,
+      "evidence_refs": [
+        "B1",
+        "B3",
+        "M6",
+        "M8"
+      ],
+      "evidence_as_of": "2026-07-23",
+      "falsify_when": "题材内出现≥2只标的收盘>5%或涨停（Tier2成立、分级正确，证伪条件不触发）"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-24",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      1.61,
+      -2.43,
+      -4.61,
+      -1.45,
+      -4.28
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-25T12:40:13+08:00"
+  }
+}

@@ -1,0 +1,3468 @@
+{
+  "budget_ablation_observation": {
+    "max_observed_tool_calls": 2,
+    "minimum_tool_calls_to_exercise": 0
+  },
+  "budget_ablation_validity": "exercised",
+  "canonical_runtime_port": 8792,
+  "canonical_runtime_touched": false,
+  "case_count": 2,
+  "cases": [
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "current_baseline",
+        "duration_assessment",
+        "continuation_conditions",
+        "invalidation_conditions",
+        "evidence_boundary"
+      ],
+      "arms": [
+        {
+          "answer": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件",
+          "artifact_sha256": "56ed0a5f14bb77a5b5835be5cdec61fd046efd334bb45e0fd5be4f7caa31ca58",
+          "backend": "codex_headless",
+          "blind_projection": {
+            "claims": [
+              {
+                "claim_id": "C1",
+                "end": 30,
+                "material_numeric": false,
+                "source_ids": [],
+                "start": 0,
+                "text": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。"
+              },
+              {
+                "claim_id": "C2",
+                "end": 79,
+                "material_numeric": false,
+                "source_ids": [],
+                "start": 30,
+                "text": "仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件"
+              }
+            ],
+            "published_answer": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件",
+            "sources": [
+              {
+                "content_hash": "ad9a4c2a4774f934b65dd4d27b019a98222637bfa22e4e388c3365432c48fd95",
+                "source_date": "2026-07-24",
+                "source_id": "E1",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "60f21dc7784e331239c51396922b3a205230befdfaba93e717375d3591e7bccb",
+                "source_date": "2026-07-24",
+                "source_id": "E2",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "32fd7fe537db45e33715751b0e071e2154662f4155185a4f8cdb2ec64dae3ce6",
+                "source_date": "2026-07-24",
+                "source_id": "E3",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "19a33154672ba4ea67e096254c6925f710a945dbab5594924b4dc7335abb293f",
+                "source_date": "2026-07-24",
+                "source_id": "E4",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "8f008643ac0dd1f6b556562f6faaa18b48dd3001d5de3268648d904a3e4adafa",
+                "source_date": "2026-07-24",
+                "source_id": "E5",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "a7fcaf8daee2827f9e32e37b1b75c23649513f0b080f3173d9b52e37e804f3c5",
+                "source_date": "2026-07-24",
+                "source_id": "E6",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "07d49e95fdbd764a476a1dd2ab037616f13872a65b043e6e4d3f800db2c582ff",
+                "source_date": "2026-07-24",
+                "source_id": "E7",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "ac2ffb4b288b0c493990a9f84a9b81a5b4dccaabff80c1356bf6a166caea74fa",
+                "source_date": "2026-07-24",
+                "source_id": "E8",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "94c45b44913da991c9a2c458003a84086ef88a2d664d86f9e5a9b8b182004577",
+                "source_date": "2026-07-24",
+                "source_id": "E9",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "19ee497f5b88d9b473ff7ec7824fd41a19eefdbbcba803d5cba6ad93634e5818",
+                "source_date": "2026-07-24",
+                "source_id": "E10",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "98b3be70d5f28fa7a575ecb9bed36d6700e410cedc56ae595f07b4e8139993fa",
+                "source_date": "2026-07-24",
+                "source_id": "E11",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "44f0a5f8a83839058f422d46639a6672fb59ef14bbe0f0a79696ceff00a2451b",
+                "source_date": "2026-07-24",
+                "source_id": "E12",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "e1c5741b76420bb7bd2383dea35c95b27b499c8d71bccb2bd005182650b3314a",
+                "source_date": "2026-07-24",
+                "source_id": "E13",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "21c683ef79ffc8e62a0dd8d5412a6f0667432cfbb2b1f77d48cb38bf7bc6bd95",
+                "source_date": "2026-07-24",
+                "source_id": "E14",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "f2f01014dcfbb7ddae77ca7825cd33d8d0b2d448e5f23fe7a0552b546b56e2ae",
+                "source_date": "2026-07-24",
+                "source_id": "E15",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "2c6582ca948dec1594cdf2f59e736c50387d600ea43b81091fd832a7a7264742",
+                "source_date": "2026-07-24",
+                "source_id": "E16",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "d561f344f984f386b95f095d3eb2c8ab8ebc5f4386d13be49b8127d796d2272e",
+                "source_date": "2026-07-24",
+                "source_id": "E17",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "22233409f940b79e238b2a5b246bde57a7922d4f35c763a854f559bbb3ca531f",
+                "source_date": "2026-07-24",
+                "source_id": "E18",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "6fdd9c254c7903dd5771c1d5c0cd2316a8728b051e7f70f0b1dd1f4f1c92c9aa",
+                "source_date": "2026-07-24",
+                "source_id": "E19",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "d974050becc3c5dc9b6c40bdeca061cdd4cc367fb4ee6b185335e976585b12d6",
+                "source_date": "2026-07-24",
+                "source_id": "E20",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "7ca20370a13f9dc8af51cb3972d617cf849ac16f78c6372f6564bd73c3d5ab6a",
+                "source_date": "2026-07-24",
+                "source_id": "E21",
+                "tool": "mainline_context"
+              },
+              {
+                "content_hash": "9e2edcf7c2a0f70ddce8f1591550064ca0f9236a889869b28a62ee32bcc0a3d7",
+                "source_date": "2026-07-24",
+                "source_id": "E22",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "b3ff1004aea29f3723f8e7881e6be26f3eb2cb465c7cba1ea4a16a484ab93cae",
+                "source_date": "2026-07-24",
+                "source_id": "E23",
+                "tool": "market_data"
+              }
+            ]
+          },
+          "blind_projection_json_pointer": "/cases/0/arms/0/blind_projection",
+          "blind_projection_sha256": "1e9ed3e01ff53f73ce5ee11f73e29a3f53020a0f40f3ead32211759f66b4d113",
+          "candidate_answer": "基准判断：按信息截止日，所谓“昨天的反弹”对应2026-07-23；它没有延续，7月24日已转为明显回撤。7月23日上涨家数扩至4260家，但7月24日上证跌1.61%、仅534家上涨，成交额降至19352.8亿元，市场被标记为下跌阶段、缩量观望。因此这更像一日修复，而非已确认的新上升波段。\n\n持续时间判断：本轮反弹事实上只维持了1个交易日。目前不足以判断能演化为更长行情。\n\n重新延续的条件：上涨家数显著恢复、涨停增加而跌停收敛；成交额停止连续萎缩；半导体等仍有持续性的主线由局部修复转为板块扩散，同时医药、有色、电力不再普遍退潮。\n\n失效或降级条件：指数继续回撤且上涨家数维持低位；成交进一步缩减；跌停继续增加；半导体修复转弱，且其他主线仍处于消亡或缩量状态。若出现这些信号，应把判断从“短反弹”降级为“下跌中的脉冲修复”。\n\n证据边界：结论仅覆盖2026-07-20至7月24日，未使用截止日之后的数据，也没有同类历史样本统计，故1—3日是情景基准，不是历史概率结论。",
+          "case_id": "rebound-duration",
+          "citations": [
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "上证指数：3814.198 点，当日 -1.61%。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 预测盘面窗口",
+              "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_sig"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.4"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.7"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交30"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · D4 同日主线结构",
+              "title": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.1"
+            }
+          ],
+          "claims": [
+            {
+              "claim_id": "C1",
+              "end": 30,
+              "material_numeric": false,
+              "source_ids": [],
+              "start": 0,
+              "text": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。"
+            },
+            {
+              "claim_id": "C2",
+              "end": 79,
+              "material_numeric": false,
+              "source_ids": [],
+              "start": 30,
+              "text": "仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件"
+            }
+          ],
+          "data_cutoff": "2026-07-24",
+          "diagnostics": {
+            "bindings": [
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "5a24d15eb79c6434",
+                  "09b28ce3d2c76516",
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "7b35982ab3ee480e",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "0303b527f848d667",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3"
+                ],
+                "gap": "",
+                "output_id": "current_baseline"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "0303b527f848d667",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e",
+                  "09b28ce3d2c76516",
+                  "5a24d15eb79c6434",
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "7b35982ab3ee480e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3"
+                ],
+                "gap": "",
+                "output_id": "duration_assessment"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "829fbf71aece0d43",
+                  "950c5c9c11995180",
+                  "f215b4f365deef3a",
+                  "802ebb150a861e57",
+                  "dacca604e29099fa",
+                  "5a24d15eb79c6434",
+                  "09b28ce3d2c76516",
+                  "7b35982ab3ee480e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "0303b527f848d667",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e",
+                  "9ad2ab4ee06097cd",
+                  "9847ca1dee65577d"
+                ],
+                "gap": "",
+                "output_id": "continuation_conditions"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "09b28ce3d2c76516",
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "f215b4f365deef3a",
+                  "950c5c9c11995180",
+                  "802ebb150a861e57",
+                  "dacca604e29099fa",
+                  "5a24d15eb79c6434",
+                  "7b35982ab3ee480e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "0303b527f848d667",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e",
+                  "9ad2ab4ee06097cd",
+                  "829fbf71aece0d43",
+                  "9847ca1dee65577d"
+                ],
+                "gap": "",
+                "output_id": "invalidation_conditions"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "5a24d15eb79c6434",
+                  "0303b527f848d667",
+                  "09b28ce3d2c76516",
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "7b35982ab3ee480e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e"
+                ],
+                "gap": "",
+                "output_id": "evidence_boundary"
+              }
+            ],
+            "events": [
+              {
+                "kind": "configure",
+                "payload": {
+                  "information_cutoff": "2026-07-24",
+                  "isolated": false,
+                  "model": "codex-account-default",
+                  "reasoning_effort": "medium",
+                  "registry_tool_count": 9,
+                  "runtime": "codex_headless",
+                  "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+                  "thread_id": "019fc8dc-366d-79e0-8a62-7a77e73aef4e"
+                },
+                "sequence": 1
+              },
+              {
+                "kind": "task",
+                "payload": {
+                  "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40"
+                },
+                "sequence": 2
+              },
+              {
+                "kind": "plan",
+                "payload": {
+                  "max_steps": 6,
+                  "required_output_count": 5,
+                  "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+                  "tier": "standard",
+                  "total_seconds": 90.0
+                },
+                "sequence": 3
+              },
+              {
+                "kind": "tool_request",
+                "payload": {
+                  "query": "{}",
+                  "tool": "market_data"
+                },
+                "sequence": 4
+              },
+              {
+                "kind": "tool_result",
+                "payload": {
+                  "budget": {
+                    "executed_tool_calls": 1,
+                    "max_tool_calls": 6,
+                    "must_finalize": false,
+                    "remaining_research_seconds": 44.512,
+                    "remaining_tool_calls": 5
+                  },
+                  "evidence": [
+                    {
+                      "content_hash": "5a24d15eb79c6434",
+                      "contradicts": [],
+                      "detail": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "09b28ce3d2c76516",
+                      "contradicts": [],
+                      "detail": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "47663fab4774814a",
+                      "contradicts": [],
+                      "detail": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "ab33cc5f444eaba4",
+                      "contradicts": [],
+                      "detail": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "7b35982ab3ee480e",
+                      "contradicts": [],
+                      "detail": "上证指数：3814.198 点，当日 -1.61%。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "上证指数：3814.198 点，当日 -1.61%。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "fb8001195802c49a",
+                      "contradicts": [],
+                      "detail": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "bde808eb1ac8d9d5",
+                      "contradicts": [],
+                      "detail": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "a3b09d7ef0ce5005",
+                      "contradicts": [],
+                      "detail": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力（1 个核心板块）、半导体（3 个核心板块）。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "0303b527f848d667",
+                      "contradicts": [],
+                      "detail": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "1816426d56c71e55",
+                      "contradicts": [],
+                      "detail": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "f7a51734d22fc2a5",
+                      "contradicts": [],
+                      "detail": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "6b9f5ad0a7205755",
+                      "contradicts": [],
+                      "detail": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "b1b2c82f79755049",
+                      "contradicts": [],
+                      "detail": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "8d04b098d02984a3",
+                      "contradicts": [],
+                      "detail": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "85f69acca431dc90",
+                      "contradicts": [],
+                      "detail": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "457f29ad6bd72e3e",
+                      "contradicts": [],
+                      "detail": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 预测盘面窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；",
+                      "tool": "market_data"
+                    }
+                  ],
+                  "evidence_hashes": [
+                    "5a24d15eb79c6434",
+                    "09b28ce3d2c76516",
+                    "47663fab4774814a",
+                    "ab33cc5f444eaba4",
+                    "7b35982ab3ee480e",
+                    "fb8001195802c49a",
+                    "bde808eb1ac8d9d5",
+                    "a3b09d7ef0ce5005",
+                    "0303b527f848d667",
+                    "1816426d56c71e55",
+                    "f7a51734d22fc2a5",
+                    "6b9f5ad0a7205755",
+                    "b1b2c82f79755049",
+                    "8d04b098d02984a3",
+                    "85f69acca431dc90",
+                    "457f29ad6bd72e3e"
+                  ],
+                  "gaps": [],
+                  "observation": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。；市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。；全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。；涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。；上证指数：3814.198 点，当日 -1.61%。；强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。；行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。；主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力（1 个核心板块）、半导体（3 个核心板块）。；窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。；上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。；下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。；2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。；2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。；2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。；2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。；2026-07-",
+                  "query": "snapshot",
+                  "status": "success",
+                  "tool": "market_data"
+                },
+                "sequence": 5
+              },
+              {
+                "kind": "tool_request",
+                "payload": {
+                  "query": "{}",
+                  "tool": "mainline_context"
+                },
+                "sequence": 6
+              },
+              {
+                "kind": "tool_result",
+                "payload": {
+                  "budget": {
+                    "executed_tool_calls": 2,
+                    "max_tool_calls": 6,
+                    "must_finalize": false,
+                    "remaining_research_seconds": 40.351,
+                    "remaining_tool_calls": 4
+                  },
+                  "evidence": [
+                    {
+                      "content_hash": "9ad2ab4ee06097cd",
+                      "contradicts": [],
+                      "detail": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_sig",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "829fbf71aece0d43",
+                      "contradicts": [],
+                      "detail": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；AI算力近20日出现15天（2026-07-06~2026-07-24，板块行33）；医药近20日出现13天（2026-07-06~2026-07-24，板块行33）；AI应用近20日出现6天（2026-07-10~2026-07-17，板块行6）；大金融近20日出现5天（2026-07-06~2026-07-22，板块行8）",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "9847ca1dee65577d",
+                      "contradicts": [],
+                      "detail": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336.19亿，涨停1，量价状态待确认)；共封装光学(CPO)(电子，未标注/-，涨-2.35%，边际量-18.92%，成交3457.23亿，涨停1，量价状态待确认)",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "950c5c9c11995180",
+                      "contradicts": [],
+                      "detail": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.42亿，涨停0，量价状态待确认，启动日2026-07-09)；中药(医药生物，消亡/小级别，涨-3.55%，边际量-1.83%，成交127.22亿，涨停0，量价状态待确认，启动日2026-07-23)；维生素(基础化工，未标注/-，涨-3.87%，边际量-7.44%，成交147.65亿，涨停0，量价状态待确认)",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.4",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "f215b4f365deef3a",
+                      "contradicts": [],
+                      "detail": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.75亿，涨停3，量价状态待确认，启动日2026-07-21)；存储芯片(电子，启动/小级别，涨-0.59%，边际量-1.66%，成交3693.28亿，涨停4，量价状态待确认，启动日2026-07-21)；半导体设备(电子，未标注/-，涨3.40%，边际量7.90%，成交655.47亿，涨停2，弱放量修复)",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.7",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "802ebb150a861e57",
+                      "contradicts": [],
+                      "detail": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交309.67亿，涨停0，量价状态待确认，启动日2026-07-22)；金属锌(有色金属，未标注/-，涨-4.49%，边际量-21.07%，成交388.39亿，涨停0，量价状态待确认)",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交30",
+                      "tool": "mainline_context"
+                    },
+                    {
+                      "content_hash": "dacca604e29099fa",
+                      "contradicts": [],
+                      "detail": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.18亿，涨停1，量价状态待确认，启动日2026-07-20)",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · D4 同日主线结构",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.1",
+                      "tool": "mainline_context"
+                    }
+                  ],
+                  "evidence_hashes": [
+                    "9ad2ab4ee06097cd",
+                    "829fbf71aece0d43",
+                    "9847ca1dee65577d",
+                    "950c5c9c11995180",
+                    "f215b4f365deef3a",
+                    "802ebb150a861e57",
+                    "dacca604e29099fa"
+                  ],
+                  "gaps": [],
+                  "observation": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。；主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；AI算力近20日出现15天（2026-07-06~2026-07-24，板块行33）；医药近20日出现13天（2026-07-06~2026-07-24，板块行33）；AI应用近20日出现6天（2026-07-10~2026-07-17，板块行6）；大金融近20日出现5天（2026-07-06~2026-07-22，板块行8）；AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336.19亿，涨停1，量价状态待确认)；共封装光学(CPO)(电子，未标注/-，涨-2.35%，边际量-18.92%，成交3457.23亿，涨停1，量价状态待确认)；医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.42亿，涨停0，量价状态待确认，启动日2026-07-09)；中药(医药生物，消亡/小级别，涨-3.55%，边际量-1.83%，成交127.22亿，涨停0，量价状态待确认，启动日2026-07-23)；维生素(基础化工，未标注/-，涨-3.87%，边际量-7.44%，成交147.65亿，涨停0，量价状态待确认)；半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.75亿，涨停3，量价状态待确认，启动日2026-07-21)；存储芯片(电子，启动/小级别，涨-0.59%，边际量-1.66%，成交3693.28亿，涨停4，量价状态待确认，启动日2026-07-21)；半导体设备(电子，未标注/-，涨3.40%，边际量7.90%，成交655.47亿，涨停2，弱放量修复)；有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交309.67亿，涨停0，量价状态待确认，启动日2026-07-22)；金属锌(有色金属，未标注/-，涨-4.49%，边际量-21.07%，成交388.39亿，涨停0，量价状态待确认)；电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%",
+                  "query": "snapshot",
+                  "status": "success",
+                  "tool": "mainline_context"
+                },
+                "sequence": 7
+              },
+              {
+                "kind": "runtime_result",
+                "payload": {
+                  "isolation": null,
+                  "issues": [],
+                  "mailbox_exchanges": [
+                    {
+                      "request_id": "10fb13a199634aefa0e68b029b542a4e.json",
+                      "request_sha256": "689c3a4ed2926cd2458a753cc9c96d9dc9830c3316f6c3b5d3b5384e3dd47a09",
+                      "response_sha256": "dc334e9c836fcc51f85b4c6d4fb1bb3060d33fd4dcf6ad755446097dd5a07b8b"
+                    },
+                    {
+                      "request_id": "f46ea7c84a894683a3c3129a6292b1c7.json",
+                      "request_sha256": "90a49e792c7162d5d56da2c57b7e298063b36fd99f81a893284ea284b5485ba6",
+                      "response_sha256": "1aa323a3cbbf32630e3cffe26cfa3d6e7aa1d895b7ece95f7ea31e848da6379d"
+                    }
+                  ],
+                  "model": "codex-account-default",
+                  "reasoning_effort": "medium",
+                  "runtime": "codex_headless",
+                  "thread_id": "019fc8dc-366d-79e0-8a62-7a77e73aef4e"
+                },
+                "sequence": 8
+              },
+              {
+                "kind": "finish",
+                "payload": {
+                  "gaps": [
+                    "缺少2026-07-24之后的行情，无法确认后续是否出现二次反弹。",
+                    "缺少同类缩量反弹的历史样本统计，无法给出可靠胜率或持续天数分布。"
+                  ],
+                  "status": "completed",
+                  "stop_reason": "model_finish"
+                },
+                "sequence": 9
+              }
+            ],
+            "future_of_cutoff": [],
+            "gaps": [
+              "缺少2026-07-24之后的行情，无法确认后续是否出现二次反弹。",
+              "缺少同类缩量反弹的历史样本统计，无法给出可靠胜率或持续天数分布。"
+            ],
+            "mandatory_missing_capabilities": [],
+            "missing_outputs": [],
+            "provider_traces": [
+              {
+                "capability": "market_data",
+                "detail": "market_forecast_window",
+                "parent_id": "runtime-benchmark:rebound-duration",
+                "provider": "agent:market_data",
+                "requested_date": "2026-07-24",
+                "result_count": 16,
+                "served_date": "2026-07-24",
+                "source_trade_date": "2026-07-24",
+                "status": "success",
+                "step_id": "runtime-benchmark:rebound-duration:headless:tool:1"
+              },
+              {
+                "capability": "mainline_context",
+                "detail": "current_mainline_context",
+                "parent_id": "runtime-benchmark:rebound-duration",
+                "provider": "agent:mainline_context",
+                "requested_date": "2026-07-24",
+                "result_count": 7,
+                "served_date": "2026-07-24",
+                "source_trade_date": null,
+                "status": "success",
+                "step_id": "runtime-benchmark:rebound-duration:headless:tool:3"
+              }
+            ],
+            "root_budget": {
+              "allocated_calls": 6,
+              "allocated_seconds": 60.0,
+              "episode_id": "runtime-benchmark:rebound-duration",
+              "hard_calls_cap": 6,
+              "hard_seconds_cap": 90.0,
+              "initial_calls": 6,
+              "initial_seconds": 60.0,
+              "remaining_calls": 4,
+              "remaining_seconds": 59.898029584030155
+            }
+          },
+          "duplicate_queries": 0,
+          "effective_timeout_seconds": 90.0,
+          "input_tokens": 75852,
+          "latency_seconds": 55.560209541989025,
+          "llm_calls": 1,
+          "model": "codex-account-default",
+          "output_tokens": 1768,
+          "protocol_issues": [],
+          "provider_attempts": 1,
+          "published_answer": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件",
+          "semantic_status": "unavailable",
+          "sources": [
+            {
+              "content_hash": "ad9a4c2a4774f934b65dd4d27b019a98222637bfa22e4e388c3365432c48fd95",
+              "source_date": "2026-07-24",
+              "source_id": "E1",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "60f21dc7784e331239c51396922b3a205230befdfaba93e717375d3591e7bccb",
+              "source_date": "2026-07-24",
+              "source_id": "E2",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "32fd7fe537db45e33715751b0e071e2154662f4155185a4f8cdb2ec64dae3ce6",
+              "source_date": "2026-07-24",
+              "source_id": "E3",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "19a33154672ba4ea67e096254c6925f710a945dbab5594924b4dc7335abb293f",
+              "source_date": "2026-07-24",
+              "source_id": "E4",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "8f008643ac0dd1f6b556562f6faaa18b48dd3001d5de3268648d904a3e4adafa",
+              "source_date": "2026-07-24",
+              "source_id": "E5",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "a7fcaf8daee2827f9e32e37b1b75c23649513f0b080f3173d9b52e37e804f3c5",
+              "source_date": "2026-07-24",
+              "source_id": "E6",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "07d49e95fdbd764a476a1dd2ab037616f13872a65b043e6e4d3f800db2c582ff",
+              "source_date": "2026-07-24",
+              "source_id": "E7",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "ac2ffb4b288b0c493990a9f84a9b81a5b4dccaabff80c1356bf6a166caea74fa",
+              "source_date": "2026-07-24",
+              "source_id": "E8",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "94c45b44913da991c9a2c458003a84086ef88a2d664d86f9e5a9b8b182004577",
+              "source_date": "2026-07-24",
+              "source_id": "E9",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "19ee497f5b88d9b473ff7ec7824fd41a19eefdbbcba803d5cba6ad93634e5818",
+              "source_date": "2026-07-24",
+              "source_id": "E10",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "98b3be70d5f28fa7a575ecb9bed36d6700e410cedc56ae595f07b4e8139993fa",
+              "source_date": "2026-07-24",
+              "source_id": "E11",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "44f0a5f8a83839058f422d46639a6672fb59ef14bbe0f0a79696ceff00a2451b",
+              "source_date": "2026-07-24",
+              "source_id": "E12",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "e1c5741b76420bb7bd2383dea35c95b27b499c8d71bccb2bd005182650b3314a",
+              "source_date": "2026-07-24",
+              "source_id": "E13",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "21c683ef79ffc8e62a0dd8d5412a6f0667432cfbb2b1f77d48cb38bf7bc6bd95",
+              "source_date": "2026-07-24",
+              "source_id": "E14",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "f2f01014dcfbb7ddae77ca7825cd33d8d0b2d448e5f23fe7a0552b546b56e2ae",
+              "source_date": "2026-07-24",
+              "source_id": "E15",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "2c6582ca948dec1594cdf2f59e736c50387d600ea43b81091fd832a7a7264742",
+              "source_date": "2026-07-24",
+              "source_id": "E16",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "d561f344f984f386b95f095d3eb2c8ab8ebc5f4386d13be49b8127d796d2272e",
+              "source_date": "2026-07-24",
+              "source_id": "E17",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "22233409f940b79e238b2a5b246bde57a7922d4f35c763a854f559bbb3ca531f",
+              "source_date": "2026-07-24",
+              "source_id": "E18",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "6fdd9c254c7903dd5771c1d5c0cd2316a8728b051e7f70f0b1dd1f4f1c92c9aa",
+              "source_date": "2026-07-24",
+              "source_id": "E19",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "d974050becc3c5dc9b6c40bdeca061cdd4cc367fb4ee6b185335e976585b12d6",
+              "source_date": "2026-07-24",
+              "source_id": "E20",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "7ca20370a13f9dc8af51cb3972d617cf849ac16f78c6372f6564bd73c3d5ab6a",
+              "source_date": "2026-07-24",
+              "source_id": "E21",
+              "tool": "mainline_context"
+            },
+            {
+              "content_hash": "9e2edcf7c2a0f70ddce8f1591550064ca0f9236a889869b28a62ee32bcc0a3d7",
+              "source_date": "2026-07-24",
+              "source_id": "E22",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "b3ff1004aea29f3723f8e7881e6be26f3eb2cb465c7cba1ea4a16a484ab93cae",
+              "source_date": "2026-07-24",
+              "source_id": "E23",
+              "tool": "market_data"
+            }
+          ],
+          "status": "degraded",
+          "stop_reason": "semantic_repair",
+          "structural_status": "completed",
+          "task_alignment_score": 0.25,
+          "tool_calls": 2
+        }
+      ],
+      "as_of": "2026-07-24",
+      "contract": null,
+      "control": {
+        "capabilities": [
+          "market_data",
+          "mainline_context"
+        ],
+        "execution_route": "market_forecast",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "completed",
+      "id": "rebound-duration",
+      "question": "昨天的反弹能持续多久",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解",
+          "“昨天”按最近一个有数据的交易日解释，具体日期以后续证据日期为准"
+        ],
+        "clarification_question": null,
+        "confidence": 0.92,
+        "evidence_policy": "current_market_scenarios",
+        "market_scope": "A股",
+        "question_type": "market_forecast",
+        "raw_question": "昨天的反弹能持续多久",
+        "required_outputs": [
+          "current_baseline",
+          "duration_assessment",
+          "continuation_conditions",
+          "invalidation_conditions",
+          "evidence_boundary"
+        ],
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+        "timeframe": "最近交易日",
+        "user_goal": "判断最近一次市场反弹的可持续时间、继续条件与失效条件"
+      },
+      "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+      "tier": "standard",
+      "timeout": 90.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "direct_assessment",
+        "causal_chain",
+        "counterpoint",
+        "evidence_boundary",
+        "cause_attribution"
+      ],
+      "arms": [
+        {
+          "answer": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释",
+          "artifact_sha256": "1eed2b71f751da2b08549d82e071452a623845604403c9f55fccc7aef8dd1319",
+          "backend": "codex_headless",
+          "blind_projection": {
+            "claims": [
+              {
+                "claim_id": "C1",
+                "end": 35,
+                "material_numeric": false,
+                "source_ids": [],
+                "start": 0,
+                "text": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。"
+              },
+              {
+                "claim_id": "C2",
+                "end": 87,
+                "material_numeric": false,
+                "source_ids": [],
+                "start": 35,
+                "text": "仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释"
+              }
+            ],
+            "published_answer": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释",
+            "sources": [
+              {
+                "content_hash": "374f9933ac2d71543dc8ce1854df7ca2608050e10505c58bc661644e6b5ee7d2",
+                "source_date": "2026-07-24",
+                "source_id": "E1",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "c80ad0d22d27f396abe2dcf14119ac07a82f67e7f1ffcf630b6d05ddaf6c68d5",
+                "source_date": "2026-07-24",
+                "source_id": "E2",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "544ab48ea65d055018fb8efad4d625947d7ba2482b54a2a82f8fbbab962e4d27",
+                "source_date": "2026-07-24",
+                "source_id": "E3",
+                "tool": "news_search"
+              },
+              {
+                "content_hash": "f2453ec082e5d1aaba791029f453f02e24c4f788b8390c0838a30fcd7e648b6a",
+                "source_date": "2026-07-24",
+                "source_id": "E4",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "9aa011b22f2e61ab8e098167d34ad64d45344c41d3ca4621155436259fc3d743",
+                "source_date": "2026-07-24",
+                "source_id": "E5",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "9a8ee7d7987ce8974d1294e7efddf94447ba3f4e7bcceb24ed922ffba66fda30",
+                "source_date": "2026-07-24",
+                "source_id": "E6",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "23f6315db65a2025c21bc755dfa19bdb398f720f379b20e32f10476ea55872eb",
+                "source_date": "2026-07-24",
+                "source_id": "E7",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "ae22c179e178906b75182b7944f87b032834e87ad5f4ea6912a0d8b45803befd",
+                "source_date": "2026-07-24",
+                "source_id": "E8",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "8f9beb0a727b3034e993a2cb40e46a203c3c8d023f3794677a6eb1444506e16a",
+                "source_date": "2026-07-24",
+                "source_id": "E9",
+                "tool": "news_search"
+              },
+              {
+                "content_hash": "7ee41aa50f9b5b4179b443b166fa22dafa9fedec088e66821d4ee14dc0a95504",
+                "source_date": "2026-07-24",
+                "source_id": "E10",
+                "tool": "market_data"
+              },
+              {
+                "content_hash": "05260217ca45cb822b3b9fc8e8512be6057ade1c1d60d205bb055aa75a670d31",
+                "source_date": "2026-07-24",
+                "source_id": "E11",
+                "tool": "news_search"
+              }
+            ]
+          },
+          "blind_projection_json_pointer": "/cases/1/arms/0/blind_projection",
+          "blind_projection_sha256": "f61c5d8de1fe9e2154c112d08cc8cf2ef56cd25b382b6731e9980690fa4c92a9",
+          "candidate_answer": "基准判断：用户所说的“本周下跌”并不成立。按截至2026年7月24日的5个交易日统计，上证指数本周反而上涨0.47%，仅周五下跌1.61%；更准确的描述是“周内冲高后，周五普跌回撤”。周五成交额降至19352.8亿元，较周初收缩28.37%，上涨股票仅534家，说明风险偏好下降、增量承接不足，获利盘兑现可能放大了回撤。因果链可概括为：前半周上涨积累兑现压力→成交持续收缩、承接减弱→周五卖压集中释放→多数股票下跌。同日新闻也记录了低开低走、超4900只股票飘绿，并指出银行及部分半导体逆势上涨；这构成反证，说明并非所有方向遭遇无差别冲击。原因归因强度为中低：现有同期新闻只能确认缩量普跌及行业分化，尚无足够内容证明某项宏观、政策或外部事件是主因，因此“获利回吐叠加缩量”应视为盘面解释，而非已核验的事件因果。",
+          "case_id": "weekly-market-cause",
+          "citations": [
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "本地 DuckDB · 周内市场归因窗口",
+              "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "http://finance.eastmoney.com/a/202607243820465622.html",
+              "title": "A股跳水 仅500多家上涨！全天缩量调整 原因找到了"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "http://finance.eastmoney.com/a/202607243820431594.html",
+              "title": "A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元"
+            },
+            {
+              "date": "2026-07-24",
+              "source": "http://stock.eastmoney.com/a/202607243820424660.html",
+              "title": "A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌"
+            }
+          ],
+          "claims": [
+            {
+              "claim_id": "C1",
+              "end": 35,
+              "material_numeric": false,
+              "source_ids": [],
+              "start": 0,
+              "text": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。"
+            },
+            {
+              "claim_id": "C2",
+              "end": 87,
+              "material_numeric": false,
+              "source_ids": [],
+              "start": 35,
+              "text": "仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释"
+            }
+          ],
+          "data_cutoff": "2026-07-24",
+          "diagnostics": {
+            "bindings": [
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "9d3fb905ac06c748",
+                  "7af7c3af16f7cce0",
+                  "709916ea47dad5ab",
+                  "bfa45fdd8d03ed01",
+                  "b497be4e6e6be2cc",
+                  "d86b8d1a5326e406",
+                  "5c3bae63b0d5ff23",
+                  "6b7bb252351f1232"
+                ],
+                "gap": "",
+                "output_id": "direct_assessment"
+              },
+              {
+                "basis": "model_reasoning",
+                "evidence_hashes": [],
+                "gap": "",
+                "output_id": "causal_chain"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "6d4993f8a442274d",
+                  "cd46c1dd3960023a"
+                ],
+                "gap": "",
+                "output_id": "counterpoint"
+              },
+              {
+                "basis": "evidence",
+                "evidence_hashes": [
+                  "9d3fb905ac06c748",
+                  "dea2f6e8a9bebcd6",
+                  "6d4993f8a442274d",
+                  "cd46c1dd3960023a",
+                  "7af7c3af16f7cce0",
+                  "709916ea47dad5ab",
+                  "b497be4e6e6be2cc",
+                  "d86b8d1a5326e406",
+                  "5c3bae63b0d5ff23",
+                  "6b7bb252351f1232",
+                  "bfa45fdd8d03ed01"
+                ],
+                "gap": "",
+                "output_id": "evidence_boundary"
+              },
+              {
+                "basis": "model_reasoning",
+                "evidence_hashes": [],
+                "gap": "",
+                "output_id": "cause_attribution"
+              }
+            ],
+            "events": [
+              {
+                "kind": "configure",
+                "payload": {
+                  "information_cutoff": "2026-07-24",
+                  "isolated": false,
+                  "model": "codex-account-default",
+                  "reasoning_effort": "medium",
+                  "registry_tool_count": 8,
+                  "runtime": "codex_headless",
+                  "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+                  "thread_id": "019fc8dd-0e37-7ce3-9393-79443effe5cd"
+                },
+                "sequence": 1
+              },
+              {
+                "kind": "task",
+                "payload": {
+                  "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55"
+                },
+                "sequence": 2
+              },
+              {
+                "kind": "plan",
+                "payload": {
+                  "max_steps": 6,
+                  "required_output_count": 5,
+                  "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+                  "tier": "standard",
+                  "total_seconds": 90.0
+                },
+                "sequence": 3
+              },
+              {
+                "kind": "tool_request",
+                "payload": {
+                  "query": "{}",
+                  "tool": "market_data"
+                },
+                "sequence": 4
+              },
+              {
+                "kind": "tool_result",
+                "payload": {
+                  "budget": {
+                    "executed_tool_calls": 1,
+                    "max_tool_calls": 6,
+                    "must_finalize": false,
+                    "remaining_research_seconds": 44.643,
+                    "remaining_tool_calls": 5
+                  },
+                  "evidence": [
+                    {
+                      "content_hash": "9d3fb905ac06c748",
+                      "contradicts": [],
+                      "detail": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "7af7c3af16f7cce0",
+                      "contradicts": [],
+                      "detail": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "709916ea47dad5ab",
+                      "contradicts": [],
+                      "detail": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "b497be4e6e6be2cc",
+                      "contradicts": [],
+                      "detail": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "d86b8d1a5326e406",
+                      "contradicts": [],
+                      "detail": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "5c3bae63b0d5ff23",
+                      "contradicts": [],
+                      "detail": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "6b7bb252351f1232",
+                      "contradicts": [],
+                      "detail": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿",
+                      "tool": "market_data"
+                    },
+                    {
+                      "content_hash": "bfa45fdd8d03ed01",
+                      "contradicts": [],
+                      "detail": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。",
+                      "evidence_tier": "L4_structured",
+                      "freshness": "unknown",
+                      "independent_key": "",
+                      "source": "本地 DuckDB · 周内市场归因窗口",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；",
+                      "tool": "market_data"
+                    }
+                  ],
+                  "evidence_hashes": [
+                    "9d3fb905ac06c748",
+                    "7af7c3af16f7cce0",
+                    "709916ea47dad5ab",
+                    "b497be4e6e6be2cc",
+                    "d86b8d1a5326e406",
+                    "5c3bae63b0d5ff23",
+                    "6b7bb252351f1232",
+                    "bfa45fdd8d03ed01"
+                  ],
+                  "gaps": [],
+                  "observation": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。；上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。；下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。；2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。；2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。；2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。；2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。；2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。；因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。",
+                  "query": "snapshot",
+                  "status": "success",
+                  "tool": "market_data"
+                },
+                "sequence": 5
+              },
+              {
+                "kind": "tool_request",
+                "payload": {
+                  "query": "{\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}",
+                  "tool": "news_search"
+                },
+                "sequence": 6
+              },
+              {
+                "kind": "tool_result",
+                "payload": {
+                  "budget": {
+                    "executed_tool_calls": 2,
+                    "max_tool_calls": 6,
+                    "must_finalize": true,
+                    "remaining_research_seconds": 34.94,
+                    "remaining_tool_calls": 4
+                  },
+                  "evidence": [
+                    {
+                      "content_hash": "dea2f6e8a9bebcd6",
+                      "contradicts": [],
+                      "detail": "2026-07-24 16:02:00 中国基金报",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://finance.eastmoney.com/a/202607243820465622.html",
+                      "source": "http://finance.eastmoney.com/a/202607243820465622.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "A股跳水 仅500多家上涨！全天缩量调整 原因找到了",
+                      "tool": "news_search"
+                    },
+                    {
+                      "content_hash": "6d4993f8a442274d",
+                      "contradicts": [],
+                      "detail": "2026-07-24 15:15:00 澎湃新闻",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://finance.eastmoney.com/a/202607243820431594.html",
+                      "source": "http://finance.eastmoney.com/a/202607243820431594.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元",
+                      "tool": "news_search"
+                    },
+                    {
+                      "content_hash": "cd46c1dd3960023a",
+                      "contradicts": [],
+                      "detail": "2026-07-24 15:03:00 中新经纬",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://stock.eastmoney.com/a/202607243820424660.html",
+                      "source": "http://stock.eastmoney.com/a/202607243820424660.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌",
+                      "tool": "news_search"
+                    },
+                    {
+                      "content_hash": "cf8d46fc8a1581de",
+                      "contradicts": [],
+                      "detail": "2026-07-24 13:09:33 每日经济新闻",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://stock.eastmoney.com/a/202607243820278286.html",
+                      "source": "http://stock.eastmoney.com/a/202607243820278286.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "A股震荡调整，沪指半日下跌1.2%",
+                      "tool": "news_search"
+                    },
+                    {
+                      "content_hash": "1f03b15f5fe00d73",
+                      "contradicts": [],
+                      "detail": "2026-07-24 12:09:00 21世纪经济报道",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://finance.eastmoney.com/a/202607243820251535.html",
+                      "source": "http://finance.eastmoney.com/a/202607243820251535.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "A股午评：创业板指下跌1.78%，兵装重组概念涨幅居前",
+                      "tool": "news_search"
+                    },
+                    {
+                      "content_hash": "c8bb6dc5d63a5217",
+                      "contradicts": [],
+                      "detail": "2026-07-24 12:01:14 每日经济新闻",
+                      "evidence_tier": "news",
+                      "freshness": "unknown",
+                      "independent_key": "http://finance.eastmoney.com/a/202607243820247887.html",
+                      "source": "http://finance.eastmoney.com/a/202607243820247887.html",
+                      "source_date": "2026-07-24",
+                      "supports": [],
+                      "title": "集体下跌，指数全绿！军工、电网设备活跃，长缆科技4连板；贵金属领跌，算力租赁走弱｜A股早盘",
+                      "tool": "news_search"
+                    }
+                  ],
+                  "evidence_hashes": [
+                    "dea2f6e8a9bebcd6",
+                    "6d4993f8a442274d",
+                    "cd46c1dd3960023a",
+                    "cf8d46fc8a1581de",
+                    "1f03b15f5fe00d73",
+                    "c8bb6dc5d63a5217"
+                  ],
+                  "gaps": [],
+                  "observation": "2026-07-24 16:02:00 中国基金报《A股跳水 仅500多家上涨！全天缩量调整 原因找到了》；2026-07-24 15:15:00 澎湃新闻《A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元》；2026-07-24 15:03:00 中新经纬《A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌》；2026-07-24 13:09:33 每日经济新闻《A股震荡调整，沪指半日下跌1.2%》；2026-07-24 12:09:00 21世纪经济报道《A股午评：创业板指下跌1.78%，兵装重组概念涨幅居前》；2026-07-24 12:01:14 每日经济新闻《集体下跌，指数全绿！军工、电网设备活跃，长缆科技4连板；贵金属领跌，算力租赁走弱｜A股早盘》",
+                  "query": "{\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}",
+                  "status": "success",
+                  "tool": "news_search"
+                },
+                "sequence": 7
+              },
+              {
+                "kind": "runtime_result",
+                "payload": {
+                  "isolation": null,
+                  "issues": [],
+                  "mailbox_exchanges": [
+                    {
+                      "request_id": "1cfe6224cf5c49168ee4b4dfb2d70f26.json",
+                      "request_sha256": "689c3a4ed2926cd2458a753cc9c96d9dc9830c3316f6c3b5d3b5384e3dd47a09",
+                      "response_sha256": "5c151337b3773065d65a1958d851cf95efedfba3b527fec5f3a5c6e3d3991926"
+                    },
+                    {
+                      "request_id": "984fac6fad514e0e89f35b5571d99ea7.json",
+                      "request_sha256": "632950aad5097f0c34f6def88190ea41274f3e096ddc25925d5e712e421cbeff",
+                      "response_sha256": "fea722a9fdcf4bd35cce9fbd4224575f0f6b39c0b35a9acaad48340ac6c2e1f1"
+                    }
+                  ],
+                  "model": "codex-account-default",
+                  "reasoning_effort": "medium",
+                  "runtime": "codex_headless",
+                  "thread_id": "019fc8dd-0e37-7ce3-9393-79443effe5cd"
+                },
+                "sequence": 8
+              },
+              {
+                "kind": "finish",
+                "payload": {
+                  "gaps": [
+                    "缺少能够直接解释7月24日卖压来源的同期新闻正文、资金流向及明确宏观事件证据，无法把某个外部事件确认为主因。",
+                    "结论仅覆盖上证指数及A股整体宽度；不同指数、风格和行业的周度表现可能不同。"
+                  ],
+                  "status": "completed",
+                  "stop_reason": "model_finish"
+                },
+                "sequence": 9
+              }
+            ],
+            "future_of_cutoff": [],
+            "gaps": [
+              "缺少能够直接解释7月24日卖压来源的同期新闻正文、资金流向及明确宏观事件证据，无法把某个外部事件确认为主因。",
+              "结论仅覆盖上证指数及A股整体宽度；不同指数、风格和行业的周度表现可能不同。"
+            ],
+            "mandatory_missing_capabilities": [],
+            "missing_outputs": [],
+            "provider_traces": [
+              {
+                "capability": "market_data",
+                "detail": "market_cause_window",
+                "parent_id": "runtime-benchmark:weekly-market-cause",
+                "provider": "agent:market_data",
+                "requested_date": "2026-07-24",
+                "result_count": 8,
+                "served_date": "2026-07-24",
+                "source_trade_date": "2026-07-24",
+                "status": "success",
+                "step_id": "runtime-benchmark:weekly-market-cause:headless:tool:1"
+              },
+              {
+                "capability": "directional_news",
+                "detail": "Eastmoney title search; queries={\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}|A股下跌|A股调整|A股下跌原因; Eastmoney title search; pages=1; future_of_cutoff=27; fallbacks=3",
+                "parent_id": "runtime-benchmark:weekly-market-cause",
+                "provider": "东财",
+                "requested_date": "2026-07-24",
+                "result_count": 6,
+                "served_date": "2026-07-24",
+                "source_trade_date": null,
+                "status": "fallback_success",
+                "step_id": "runtime-benchmark:weekly-market-cause:headless:tool:3"
+              }
+            ],
+            "root_budget": {
+              "allocated_calls": 6,
+              "allocated_seconds": 60.0,
+              "episode_id": "runtime-benchmark:weekly-market-cause",
+              "hard_calls_cap": 6,
+              "hard_seconds_cap": 90.0,
+              "initial_calls": 6,
+              "initial_seconds": 60.0,
+              "remaining_calls": 4,
+              "remaining_seconds": 55.04500562598696
+            }
+          },
+          "duplicate_queries": 0,
+          "effective_timeout_seconds": 90.0,
+          "input_tokens": 73033,
+          "latency_seconds": 49.84063887502998,
+          "llm_calls": 1,
+          "model": "codex-account-default",
+          "output_tokens": 1396,
+          "protocol_issues": [],
+          "provider_attempts": 1,
+          "published_answer": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释",
+          "semantic_status": "unavailable",
+          "sources": [
+            {
+              "content_hash": "374f9933ac2d71543dc8ce1854df7ca2608050e10505c58bc661644e6b5ee7d2",
+              "source_date": "2026-07-24",
+              "source_id": "E1",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "c80ad0d22d27f396abe2dcf14119ac07a82f67e7f1ffcf630b6d05ddaf6c68d5",
+              "source_date": "2026-07-24",
+              "source_id": "E2",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "544ab48ea65d055018fb8efad4d625947d7ba2482b54a2a82f8fbbab962e4d27",
+              "source_date": "2026-07-24",
+              "source_id": "E3",
+              "tool": "news_search"
+            },
+            {
+              "content_hash": "f2453ec082e5d1aaba791029f453f02e24c4f788b8390c0838a30fcd7e648b6a",
+              "source_date": "2026-07-24",
+              "source_id": "E4",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "9aa011b22f2e61ab8e098167d34ad64d45344c41d3ca4621155436259fc3d743",
+              "source_date": "2026-07-24",
+              "source_id": "E5",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "9a8ee7d7987ce8974d1294e7efddf94447ba3f4e7bcceb24ed922ffba66fda30",
+              "source_date": "2026-07-24",
+              "source_id": "E6",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "23f6315db65a2025c21bc755dfa19bdb398f720f379b20e32f10476ea55872eb",
+              "source_date": "2026-07-24",
+              "source_id": "E7",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "ae22c179e178906b75182b7944f87b032834e87ad5f4ea6912a0d8b45803befd",
+              "source_date": "2026-07-24",
+              "source_id": "E8",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "8f9beb0a727b3034e993a2cb40e46a203c3c8d023f3794677a6eb1444506e16a",
+              "source_date": "2026-07-24",
+              "source_id": "E9",
+              "tool": "news_search"
+            },
+            {
+              "content_hash": "7ee41aa50f9b5b4179b443b166fa22dafa9fedec088e66821d4ee14dc0a95504",
+              "source_date": "2026-07-24",
+              "source_id": "E10",
+              "tool": "market_data"
+            },
+            {
+              "content_hash": "05260217ca45cb822b3b9fc8e8512be6057ade1c1d60d205bb055aa75a670d31",
+              "source_date": "2026-07-24",
+              "source_id": "E11",
+              "tool": "news_search"
+            }
+          ],
+          "status": "degraded",
+          "stop_reason": "model_finish",
+          "structural_status": "completed",
+          "task_alignment_score": 0.25,
+          "tool_calls": 2
+        }
+      ],
+      "as_of": "2026-07-24",
+      "contract": null,
+      "control": {
+        "capabilities": [
+          "market_data",
+          "news_search",
+          "web_search"
+        ],
+        "execution_route": "market_cause",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "completed",
+      "id": "weekly-market-cause",
+      "question": "这一周行情下跌的主要原因是什么",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解",
+          "“这一周”按最新可用证据覆盖的交易周解释"
+        ],
+        "clarification_question": null,
+        "confidence": 0.96,
+        "evidence_policy": "time_aligned_market_causal",
+        "market_scope": "A股",
+        "question_type": "market_cause",
+        "raw_question": "这一周行情下跌的主要原因是什么",
+        "required_outputs": [
+          "direct_assessment",
+          "causal_chain",
+          "counterpoint",
+          "evidence_boundary",
+          "cause_attribution"
+        ],
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+        "timeframe": "这一周",
+        "user_goal": "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链"
+      },
+      "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+      "tier": "standard",
+      "timeout": 90.0
+    }
+  ],
+  "credential_source": "environment",
+  "expected_backends": [
+    "codex_headless"
+  ],
+  "finance_root": "/Users/a77/finance-workspace-private",
+  "generated_at": "2026-08-04",
+  "headless_budget_profile": {
+    "gateway_floor_ratio": 0.65,
+    "max_tool_calls": 6,
+    "minimum_tool_calls_to_exercise": 0,
+    "profile_id": "a_control",
+    "synthesis_reserve_seconds": 30.0,
+    "total_seconds": 90.0
+  },
+  "knowledge_wiki": "/Users/a77/知识库/wiki",
+  "market_data_date": "2026-08-03",
+  "mode": "live",
+  "runtime_switched": false,
+  "schema_version": 1,
+  "source_dirty": false,
+  "source_revision": "090880339a19e2f2ee39e710425c584c3bec3e56",
+  "summary": {
+    "arm_count": 2,
+    "backends": {
+      "codex_headless": {
+        "case_count": 2,
+        "duplicate_queries": 0,
+        "input_tokens": 148885,
+        "llm_calls": 2,
+        "median_latency_seconds": 52.7004242085095,
+        "output_tokens": 3164,
+        "protocol_issue_count": 2,
+        "provider_attempts": 2,
+        "tool_calls": 4
+      }
+    },
+    "case_count": 2,
+    "expected_backends": [
+      "codex_headless"
+    ],
+    "gate": "runtime_backend_benchmark",
+    "passed": false,
+    "protocol_failure_count": 2,
+    "results": [
+      {
+        "answer": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件",
+        "artifact_sha256": "56ed0a5f14bb77a5b5835be5cdec61fd046efd334bb45e0fd5be4f7caa31ca58",
+        "backend": "codex_headless",
+        "candidate_answer": "基准判断：按信息截止日，所谓“昨天的反弹”对应2026-07-23；它没有延续，7月24日已转为明显回撤。7月23日上涨家数扩至4260家，但7月24日上证跌1.61%、仅534家上涨，成交额降至19352.8亿元，市场被标记为下跌阶段、缩量观望。因此这更像一日修复，而非已确认的新上升波段。\n\n持续时间判断：本轮反弹事实上只维持了1个交易日。目前不足以判断能演化为更长行情。\n\n重新延续的条件：上涨家数显著恢复、涨停增加而跌停收敛；成交额停止连续萎缩；半导体等仍有持续性的主线由局部修复转为板块扩散，同时医药、有色、电力不再普遍退潮。\n\n失效或降级条件：指数继续回撤且上涨家数维持低位；成交进一步缩减；跌停继续增加；半导体修复转弱，且其他主线仍处于消亡或缩量状态。若出现这些信号，应把判断从“短反弹”降级为“下跌中的脉冲修复”。\n\n证据边界：结论仅覆盖2026-07-20至7月24日，未使用截止日之后的数据，也没有同类历史样本统计，故1—3日是情景基准，不是历史概率结论。",
+        "case_id": "rebound-duration",
+        "citations": [
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "上证指数：3814.198 点，当日 -1.61%。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 预测盘面窗口",
+            "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_sig"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.4"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.7"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交30"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · D4 同日主线结构",
+            "title": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.1"
+          }
+        ],
+        "claims": [
+          {
+            "claim_id": "C1",
+            "end": 30,
+            "material_numeric": false,
+            "source_ids": [],
+            "start": 0,
+            "text": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。"
+          },
+          {
+            "claim_id": "C2",
+            "end": 79,
+            "material_numeric": false,
+            "source_ids": [],
+            "start": 30,
+            "text": "仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件"
+          }
+        ],
+        "data_cutoff": "2026-07-24",
+        "diagnostics": {
+          "bindings": [
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "5a24d15eb79c6434",
+                "09b28ce3d2c76516",
+                "47663fab4774814a",
+                "ab33cc5f444eaba4",
+                "7b35982ab3ee480e",
+                "85f69acca431dc90",
+                "457f29ad6bd72e3e",
+                "fb8001195802c49a",
+                "bde808eb1ac8d9d5",
+                "a3b09d7ef0ce5005",
+                "0303b527f848d667",
+                "1816426d56c71e55",
+                "f7a51734d22fc2a5",
+                "6b9f5ad0a7205755",
+                "b1b2c82f79755049",
+                "8d04b098d02984a3"
+              ],
+              "gap": "",
+              "output_id": "current_baseline"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "0303b527f848d667",
+                "85f69acca431dc90",
+                "457f29ad6bd72e3e",
+                "09b28ce3d2c76516",
+                "5a24d15eb79c6434",
+                "47663fab4774814a",
+                "ab33cc5f444eaba4",
+                "7b35982ab3ee480e",
+                "fb8001195802c49a",
+                "bde808eb1ac8d9d5",
+                "a3b09d7ef0ce5005",
+                "1816426d56c71e55",
+                "f7a51734d22fc2a5",
+                "6b9f5ad0a7205755",
+                "b1b2c82f79755049",
+                "8d04b098d02984a3"
+              ],
+              "gap": "",
+              "output_id": "duration_assessment"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "47663fab4774814a",
+                "ab33cc5f444eaba4",
+                "829fbf71aece0d43",
+                "950c5c9c11995180",
+                "f215b4f365deef3a",
+                "802ebb150a861e57",
+                "dacca604e29099fa",
+                "5a24d15eb79c6434",
+                "09b28ce3d2c76516",
+                "7b35982ab3ee480e",
+                "fb8001195802c49a",
+                "bde808eb1ac8d9d5",
+                "a3b09d7ef0ce5005",
+                "0303b527f848d667",
+                "1816426d56c71e55",
+                "f7a51734d22fc2a5",
+                "6b9f5ad0a7205755",
+                "b1b2c82f79755049",
+                "8d04b098d02984a3",
+                "85f69acca431dc90",
+                "457f29ad6bd72e3e",
+                "9ad2ab4ee06097cd",
+                "9847ca1dee65577d"
+              ],
+              "gap": "",
+              "output_id": "continuation_conditions"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "09b28ce3d2c76516",
+                "47663fab4774814a",
+                "ab33cc5f444eaba4",
+                "f215b4f365deef3a",
+                "950c5c9c11995180",
+                "802ebb150a861e57",
+                "dacca604e29099fa",
+                "5a24d15eb79c6434",
+                "7b35982ab3ee480e",
+                "fb8001195802c49a",
+                "bde808eb1ac8d9d5",
+                "a3b09d7ef0ce5005",
+                "0303b527f848d667",
+                "1816426d56c71e55",
+                "f7a51734d22fc2a5",
+                "6b9f5ad0a7205755",
+                "b1b2c82f79755049",
+                "8d04b098d02984a3",
+                "85f69acca431dc90",
+                "457f29ad6bd72e3e",
+                "9ad2ab4ee06097cd",
+                "829fbf71aece0d43",
+                "9847ca1dee65577d"
+              ],
+              "gap": "",
+              "output_id": "invalidation_conditions"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "5a24d15eb79c6434",
+                "0303b527f848d667",
+                "09b28ce3d2c76516",
+                "47663fab4774814a",
+                "ab33cc5f444eaba4",
+                "7b35982ab3ee480e",
+                "fb8001195802c49a",
+                "bde808eb1ac8d9d5",
+                "a3b09d7ef0ce5005",
+                "1816426d56c71e55",
+                "f7a51734d22fc2a5",
+                "6b9f5ad0a7205755",
+                "b1b2c82f79755049",
+                "8d04b098d02984a3",
+                "85f69acca431dc90",
+                "457f29ad6bd72e3e"
+              ],
+              "gap": "",
+              "output_id": "evidence_boundary"
+            }
+          ],
+          "events": [
+            {
+              "kind": "configure",
+              "payload": {
+                "information_cutoff": "2026-07-24",
+                "isolated": false,
+                "model": "codex-account-default",
+                "reasoning_effort": "medium",
+                "registry_tool_count": 9,
+                "runtime": "codex_headless",
+                "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+                "thread_id": "019fc8dc-366d-79e0-8a62-7a77e73aef4e"
+              },
+              "sequence": 1
+            },
+            {
+              "kind": "task",
+              "payload": {
+                "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40"
+              },
+              "sequence": 2
+            },
+            {
+              "kind": "plan",
+              "payload": {
+                "max_steps": 6,
+                "required_output_count": 5,
+                "task_frame_hash": "1cde0df7cfb02bb1651506c98163c8fe9b5784a1428bfc7b7ef7e01dcd1c6c40",
+                "tier": "standard",
+                "total_seconds": 90.0
+              },
+              "sequence": 3
+            },
+            {
+              "kind": "tool_request",
+              "payload": {
+                "query": "{}",
+                "tool": "market_data"
+              },
+              "sequence": 4
+            },
+            {
+              "kind": "tool_result",
+              "payload": {
+                "budget": {
+                  "executed_tool_calls": 1,
+                  "max_tool_calls": 6,
+                  "must_finalize": false,
+                  "remaining_research_seconds": 44.512,
+                  "remaining_tool_calls": 5
+                },
+                "evidence": [
+                  {
+                    "content_hash": "5a24d15eb79c6434",
+                    "contradicts": [],
+                    "detail": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "09b28ce3d2c76516",
+                    "contradicts": [],
+                    "detail": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "47663fab4774814a",
+                    "contradicts": [],
+                    "detail": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "ab33cc5f444eaba4",
+                    "contradicts": [],
+                    "detail": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "7b35982ab3ee480e",
+                    "contradicts": [],
+                    "detail": "上证指数：3814.198 点，当日 -1.61%。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "上证指数：3814.198 点，当日 -1.61%。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "fb8001195802c49a",
+                    "contradicts": [],
+                    "detail": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "bde808eb1ac8d9d5",
+                    "contradicts": [],
+                    "detail": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "a3b09d7ef0ce5005",
+                    "contradicts": [],
+                    "detail": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力（1 个核心板块）、半导体（3 个核心板块）。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "0303b527f848d667",
+                    "contradicts": [],
+                    "detail": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "1816426d56c71e55",
+                    "contradicts": [],
+                    "detail": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "f7a51734d22fc2a5",
+                    "contradicts": [],
+                    "detail": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "6b9f5ad0a7205755",
+                    "contradicts": [],
+                    "detail": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "b1b2c82f79755049",
+                    "contradicts": [],
+                    "detail": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "8d04b098d02984a3",
+                    "contradicts": [],
+                    "detail": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "85f69acca431dc90",
+                    "contradicts": [],
+                    "detail": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "457f29ad6bd72e3e",
+                    "contradicts": [],
+                    "detail": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 预测盘面窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；",
+                    "tool": "market_data"
+                  }
+                ],
+                "evidence_hashes": [
+                  "5a24d15eb79c6434",
+                  "09b28ce3d2c76516",
+                  "47663fab4774814a",
+                  "ab33cc5f444eaba4",
+                  "7b35982ab3ee480e",
+                  "fb8001195802c49a",
+                  "bde808eb1ac8d9d5",
+                  "a3b09d7ef0ce5005",
+                  "0303b527f848d667",
+                  "1816426d56c71e55",
+                  "f7a51734d22fc2a5",
+                  "6b9f5ad0a7205755",
+                  "b1b2c82f79755049",
+                  "8d04b098d02984a3",
+                  "85f69acca431dc90",
+                  "457f29ad6bd72e3e"
+                ],
+                "gaps": [],
+                "observation": "市场数据截至：2026-07-24。该日期是本轮整体盘面日期。；市场阶段：下跌阶段（第 1 天）；量能状态：缩量观望。；全市场成交额：19352.80 亿元；较前一日 -11.83%；量比 65.79%。；涨跌结构：上涨 534 家；涨停 40 家；跌停 24 家。；上证指数：3814.198 点，当日 -1.61%。；强势股状态：强势；平均涨幅 5.52%；边际变化 120.25%。；行业集中度：正常；领先行业为 电子（29.60%）、电力设备（8.00%）、通信（6.70%）。；主线题材（截至 2026-07-24）：医药（3 个核心板块）、有色金属（2 个核心板块）、电力（1 个核心板块）、半导体（3 个核心板块）。；窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。；上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。；下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。；2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。；2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。；2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。；2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。；2026-07-",
+                "query": "snapshot",
+                "status": "success",
+                "tool": "market_data"
+              },
+              "sequence": 5
+            },
+            {
+              "kind": "tool_request",
+              "payload": {
+                "query": "{}",
+                "tool": "mainline_context"
+              },
+              "sequence": 6
+            },
+            {
+              "kind": "tool_result",
+              "payload": {
+                "budget": {
+                  "executed_tool_calls": 2,
+                  "max_tool_calls": 6,
+                  "must_finalize": false,
+                  "remaining_research_seconds": 40.351,
+                  "remaining_tool_calls": 4
+                },
+                "evidence": [
+                  {
+                    "content_hash": "9ad2ab4ee06097cd",
+                    "contradicts": [],
+                    "detail": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_sig",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "829fbf71aece0d43",
+                    "contradicts": [],
+                    "detail": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；AI算力近20日出现15天（2026-07-06~2026-07-24，板块行33）；医药近20日出现13天（2026-07-06~2026-07-24，板块行33）；AI应用近20日出现6天（2026-07-10~2026-07-17，板块行6）；大金融近20日出现5天（2026-07-06~2026-07-22，板块行8）",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "9847ca1dee65577d",
+                    "contradicts": [],
+                    "detail": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336.19亿，涨停1，量价状态待确认)；共封装光学(CPO)(电子，未标注/-，涨-2.35%，边际量-18.92%，成交3457.23亿，涨停1，量价状态待确认)",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "950c5c9c11995180",
+                    "contradicts": [],
+                    "detail": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.42亿，涨停0，量价状态待确认，启动日2026-07-09)；中药(医药生物，消亡/小级别，涨-3.55%，边际量-1.83%，成交127.22亿，涨停0，量价状态待确认，启动日2026-07-23)；维生素(基础化工，未标注/-，涨-3.87%，边际量-7.44%，成交147.65亿，涨停0，量价状态待确认)",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.4",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "f215b4f365deef3a",
+                    "contradicts": [],
+                    "detail": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.75亿，涨停3，量价状态待确认，启动日2026-07-21)；存储芯片(电子，启动/小级别，涨-0.59%，边际量-1.66%，成交3693.28亿，涨停4，量价状态待确认，启动日2026-07-21)；半导体设备(电子，未标注/-，涨3.40%，边际量7.90%，成交655.47亿，涨停2，弱放量修复)",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.7",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "802ebb150a861e57",
+                    "contradicts": [],
+                    "detail": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交309.67亿，涨停0，量价状态待确认，启动日2026-07-22)；金属锌(有色金属，未标注/-，涨-4.49%，边际量-21.07%，成交388.39亿，涨停0，量价状态待确认)",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交30",
+                    "tool": "mainline_context"
+                  },
+                  {
+                    "content_hash": "dacca604e29099fa",
+                    "contradicts": [],
+                    "detail": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.18亿，涨停1，量价状态待确认，启动日2026-07-20)",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · D4 同日主线结构",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%，成交606.1",
+                    "tool": "mainline_context"
+                  }
+                ],
+                "evidence_hashes": [
+                  "9ad2ab4ee06097cd",
+                  "829fbf71aece0d43",
+                  "9847ca1dee65577d",
+                  "950c5c9c11995180",
+                  "f215b4f365deef3a",
+                  "802ebb150a861e57",
+                  "dacca604e29099fa"
+                ],
+                "gaps": [],
+                "observation": "最新主线日期：2026-07-24；匹配口径：最新全市场主线；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。；主线持续性：半导体近20日出现15天（2026-07-06~2026-07-24，板块行45）；AI算力近20日出现15天（2026-07-06~2026-07-24，板块行33）；医药近20日出现13天（2026-07-06~2026-07-24，板块行33）；AI应用近20日出现6天（2026-07-10~2026-07-17，板块行6）；大金融近20日出现5天（2026-07-06~2026-07-22，板块行8）；AI算力核心板块：华为昇腾(计算机，未标注/-，涨-3.45%，边际量-11.24%，成交336.19亿，涨停1，量价状态待确认)；共封装光学(CPO)(电子，未标注/-，涨-2.35%，边际量-18.92%，成交3457.23亿，涨停1，量价状态待确认)；医药核心板块：创新药(医药生物，消亡/小级别，涨-4.07%，边际量-6.75%，成交871.42亿，涨停0，量价状态待确认，启动日2026-07-09)；中药(医药生物，消亡/小级别，涨-3.55%，边际量-1.83%，成交127.22亿，涨停0，量价状态待确认，启动日2026-07-23)；维生素(基础化工，未标注/-，涨-3.87%，边际量-7.44%，成交147.65亿，涨停0，量价状态待确认)；半导体核心板块：半导体(电子，启动/小级别，涨-0.10%，边际量-3.84%，成交3440.75亿，涨停3，量价状态待确认，启动日2026-07-21)；存储芯片(电子，启动/小级别，涨-0.59%，边际量-1.66%，成交3693.28亿，涨停4，量价状态待确认，启动日2026-07-21)；半导体设备(电子，未标注/-，涨3.40%，边际量7.90%，成交655.47亿，涨停2，弱放量修复)；有色金属核心板块：贵金属(有色金属，消亡/小级别，涨-6.01%，边际量-24.70%，成交309.67亿，涨停0，量价状态待确认，启动日2026-07-22)；金属锌(有色金属，未标注/-，涨-4.49%，边际量-21.07%，成交388.39亿，涨停0，量价状态待确认)；电力核心板块：电力(公用事业，消亡/小级别，涨-4.92%，边际量-17.92%",
+                "query": "snapshot",
+                "status": "success",
+                "tool": "mainline_context"
+              },
+              "sequence": 7
+            },
+            {
+              "kind": "runtime_result",
+              "payload": {
+                "isolation": null,
+                "issues": [],
+                "mailbox_exchanges": [
+                  {
+                    "request_id": "10fb13a199634aefa0e68b029b542a4e.json",
+                    "request_sha256": "689c3a4ed2926cd2458a753cc9c96d9dc9830c3316f6c3b5d3b5384e3dd47a09",
+                    "response_sha256": "dc334e9c836fcc51f85b4c6d4fb1bb3060d33fd4dcf6ad755446097dd5a07b8b"
+                  },
+                  {
+                    "request_id": "f46ea7c84a894683a3c3129a6292b1c7.json",
+                    "request_sha256": "90a49e792c7162d5d56da2c57b7e298063b36fd99f81a893284ea284b5485ba6",
+                    "response_sha256": "1aa323a3cbbf32630e3cffe26cfa3d6e7aa1d895b7ece95f7ea31e848da6379d"
+                  }
+                ],
+                "model": "codex-account-default",
+                "reasoning_effort": "medium",
+                "runtime": "codex_headless",
+                "thread_id": "019fc8dc-366d-79e0-8a62-7a77e73aef4e"
+              },
+              "sequence": 8
+            },
+            {
+              "kind": "finish",
+              "payload": {
+                "gaps": [
+                  "缺少2026-07-24之后的行情，无法确认后续是否出现二次反弹。",
+                  "缺少同类缩量反弹的历史样本统计，无法给出可靠胜率或持续天数分布。"
+                ],
+                "status": "completed",
+                "stop_reason": "model_finish"
+              },
+              "sequence": 9
+            }
+          ],
+          "future_of_cutoff": [],
+          "gaps": [
+            "缺少2026-07-24之后的行情，无法确认后续是否出现二次反弹。",
+            "缺少同类缩量反弹的历史样本统计，无法给出可靠胜率或持续天数分布。"
+          ],
+          "mandatory_missing_capabilities": [],
+          "missing_outputs": [],
+          "provider_traces": [
+            {
+              "capability": "market_data",
+              "detail": "market_forecast_window",
+              "parent_id": "runtime-benchmark:rebound-duration",
+              "provider": "agent:market_data",
+              "requested_date": "2026-07-24",
+              "result_count": 16,
+              "served_date": "2026-07-24",
+              "source_trade_date": "2026-07-24",
+              "status": "success",
+              "step_id": "runtime-benchmark:rebound-duration:headless:tool:1"
+            },
+            {
+              "capability": "mainline_context",
+              "detail": "current_mainline_context",
+              "parent_id": "runtime-benchmark:rebound-duration",
+              "provider": "agent:mainline_context",
+              "requested_date": "2026-07-24",
+              "result_count": 7,
+              "served_date": "2026-07-24",
+              "source_trade_date": null,
+              "status": "success",
+              "step_id": "runtime-benchmark:rebound-duration:headless:tool:3"
+            }
+          ],
+          "root_budget": {
+            "allocated_calls": 6,
+            "allocated_seconds": 60.0,
+            "episode_id": "runtime-benchmark:rebound-duration",
+            "hard_calls_cap": 6,
+            "hard_seconds_cap": 90.0,
+            "initial_calls": 6,
+            "initial_seconds": 60.0,
+            "remaining_calls": 4,
+            "remaining_seconds": 59.898029584030155
+          }
+        },
+        "duplicate_queries": 0,
+        "effective_timeout_seconds": 90.0,
+        "input_tokens": 75852,
+        "latency_seconds": 55.560209541989025,
+        "llm_calls": 1,
+        "model": "codex-account-default",
+        "output_tokens": 1768,
+        "protocol_issues": [],
+        "provider_attempts": 1,
+        "published_answer": "关于“昨天的反弹能持续多久”，现有证据不足，暂不能可靠回答。仍需核验：说明最新可用市场基线与数据日期、判断反弹可能持续的时间窗口、列出判断继续成立的可核验条件",
+        "semantic_status": "unavailable",
+        "sources": [
+          {
+            "content_hash": "ad9a4c2a4774f934b65dd4d27b019a98222637bfa22e4e388c3365432c48fd95",
+            "source_date": "2026-07-24",
+            "source_id": "E1",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "60f21dc7784e331239c51396922b3a205230befdfaba93e717375d3591e7bccb",
+            "source_date": "2026-07-24",
+            "source_id": "E2",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "32fd7fe537db45e33715751b0e071e2154662f4155185a4f8cdb2ec64dae3ce6",
+            "source_date": "2026-07-24",
+            "source_id": "E3",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "19a33154672ba4ea67e096254c6925f710a945dbab5594924b4dc7335abb293f",
+            "source_date": "2026-07-24",
+            "source_id": "E4",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "8f008643ac0dd1f6b556562f6faaa18b48dd3001d5de3268648d904a3e4adafa",
+            "source_date": "2026-07-24",
+            "source_id": "E5",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "a7fcaf8daee2827f9e32e37b1b75c23649513f0b080f3173d9b52e37e804f3c5",
+            "source_date": "2026-07-24",
+            "source_id": "E6",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "07d49e95fdbd764a476a1dd2ab037616f13872a65b043e6e4d3f800db2c582ff",
+            "source_date": "2026-07-24",
+            "source_id": "E7",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "ac2ffb4b288b0c493990a9f84a9b81a5b4dccaabff80c1356bf6a166caea74fa",
+            "source_date": "2026-07-24",
+            "source_id": "E8",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "94c45b44913da991c9a2c458003a84086ef88a2d664d86f9e5a9b8b182004577",
+            "source_date": "2026-07-24",
+            "source_id": "E9",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "19ee497f5b88d9b473ff7ec7824fd41a19eefdbbcba803d5cba6ad93634e5818",
+            "source_date": "2026-07-24",
+            "source_id": "E10",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "98b3be70d5f28fa7a575ecb9bed36d6700e410cedc56ae595f07b4e8139993fa",
+            "source_date": "2026-07-24",
+            "source_id": "E11",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "44f0a5f8a83839058f422d46639a6672fb59ef14bbe0f0a79696ceff00a2451b",
+            "source_date": "2026-07-24",
+            "source_id": "E12",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "e1c5741b76420bb7bd2383dea35c95b27b499c8d71bccb2bd005182650b3314a",
+            "source_date": "2026-07-24",
+            "source_id": "E13",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "21c683ef79ffc8e62a0dd8d5412a6f0667432cfbb2b1f77d48cb38bf7bc6bd95",
+            "source_date": "2026-07-24",
+            "source_id": "E14",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "f2f01014dcfbb7ddae77ca7825cd33d8d0b2d448e5f23fe7a0552b546b56e2ae",
+            "source_date": "2026-07-24",
+            "source_id": "E15",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "2c6582ca948dec1594cdf2f59e736c50387d600ea43b81091fd832a7a7264742",
+            "source_date": "2026-07-24",
+            "source_id": "E16",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "d561f344f984f386b95f095d3eb2c8ab8ebc5f4386d13be49b8127d796d2272e",
+            "source_date": "2026-07-24",
+            "source_id": "E17",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "22233409f940b79e238b2a5b246bde57a7922d4f35c763a854f559bbb3ca531f",
+            "source_date": "2026-07-24",
+            "source_id": "E18",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "6fdd9c254c7903dd5771c1d5c0cd2316a8728b051e7f70f0b1dd1f4f1c92c9aa",
+            "source_date": "2026-07-24",
+            "source_id": "E19",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "d974050becc3c5dc9b6c40bdeca061cdd4cc367fb4ee6b185335e976585b12d6",
+            "source_date": "2026-07-24",
+            "source_id": "E20",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "7ca20370a13f9dc8af51cb3972d617cf849ac16f78c6372f6564bd73c3d5ab6a",
+            "source_date": "2026-07-24",
+            "source_id": "E21",
+            "tool": "mainline_context"
+          },
+          {
+            "content_hash": "9e2edcf7c2a0f70ddce8f1591550064ca0f9236a889869b28a62ee32bcc0a3d7",
+            "source_date": "2026-07-24",
+            "source_id": "E22",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "b3ff1004aea29f3723f8e7881e6be26f3eb2cb465c7cba1ea4a16a484ab93cae",
+            "source_date": "2026-07-24",
+            "source_id": "E23",
+            "tool": "market_data"
+          }
+        ],
+        "status": "degraded",
+        "stop_reason": "semantic_repair",
+        "structural_status": "completed",
+        "task_alignment_score": 0.25,
+        "tool_calls": 2
+      },
+      {
+        "answer": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释",
+        "artifact_sha256": "1eed2b71f751da2b08549d82e071452a623845604403c9f55fccc7aef8dd1319",
+        "backend": "codex_headless",
+        "candidate_answer": "基准判断：用户所说的“本周下跌”并不成立。按截至2026年7月24日的5个交易日统计，上证指数本周反而上涨0.47%，仅周五下跌1.61%；更准确的描述是“周内冲高后，周五普跌回撤”。周五成交额降至19352.8亿元，较周初收缩28.37%，上涨股票仅534家，说明风险偏好下降、增量承接不足，获利盘兑现可能放大了回撤。因果链可概括为：前半周上涨积累兑现压力→成交持续收缩、承接减弱→周五卖压集中释放→多数股票下跌。同日新闻也记录了低开低走、超4900只股票飘绿，并指出银行及部分半导体逆势上涨；这构成反证，说明并非所有方向遭遇无差别冲击。原因归因强度为中低：现有同期新闻只能确认缩量普跌及行业分化，尚无足够内容证明某项宏观、政策或外部事件是主因，因此“获利回吐叠加缩量”应视为盘面解释，而非已核验的事件因果。",
+        "case_id": "weekly-market-cause",
+        "citations": [
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "本地 DuckDB · 周内市场归因窗口",
+            "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "http://finance.eastmoney.com/a/202607243820465622.html",
+            "title": "A股跳水 仅500多家上涨！全天缩量调整 原因找到了"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "http://finance.eastmoney.com/a/202607243820431594.html",
+            "title": "A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元"
+          },
+          {
+            "date": "2026-07-24",
+            "source": "http://stock.eastmoney.com/a/202607243820424660.html",
+            "title": "A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌"
+          }
+        ],
+        "claims": [
+          {
+            "claim_id": "C1",
+            "end": 35,
+            "material_numeric": false,
+            "source_ids": [],
+            "start": 0,
+            "text": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。"
+          },
+          {
+            "claim_id": "C2",
+            "end": 87,
+            "material_numeric": false,
+            "source_ids": [],
+            "start": 35,
+            "text": "仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释"
+          }
+        ],
+        "data_cutoff": "2026-07-24",
+        "diagnostics": {
+          "bindings": [
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "9d3fb905ac06c748",
+                "7af7c3af16f7cce0",
+                "709916ea47dad5ab",
+                "bfa45fdd8d03ed01",
+                "b497be4e6e6be2cc",
+                "d86b8d1a5326e406",
+                "5c3bae63b0d5ff23",
+                "6b7bb252351f1232"
+              ],
+              "gap": "",
+              "output_id": "direct_assessment"
+            },
+            {
+              "basis": "model_reasoning",
+              "evidence_hashes": [],
+              "gap": "",
+              "output_id": "causal_chain"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "6d4993f8a442274d",
+                "cd46c1dd3960023a"
+              ],
+              "gap": "",
+              "output_id": "counterpoint"
+            },
+            {
+              "basis": "evidence",
+              "evidence_hashes": [
+                "9d3fb905ac06c748",
+                "dea2f6e8a9bebcd6",
+                "6d4993f8a442274d",
+                "cd46c1dd3960023a",
+                "7af7c3af16f7cce0",
+                "709916ea47dad5ab",
+                "b497be4e6e6be2cc",
+                "d86b8d1a5326e406",
+                "5c3bae63b0d5ff23",
+                "6b7bb252351f1232",
+                "bfa45fdd8d03ed01"
+              ],
+              "gap": "",
+              "output_id": "evidence_boundary"
+            },
+            {
+              "basis": "model_reasoning",
+              "evidence_hashes": [],
+              "gap": "",
+              "output_id": "cause_attribution"
+            }
+          ],
+          "events": [
+            {
+              "kind": "configure",
+              "payload": {
+                "information_cutoff": "2026-07-24",
+                "isolated": false,
+                "model": "codex-account-default",
+                "reasoning_effort": "medium",
+                "registry_tool_count": 8,
+                "runtime": "codex_headless",
+                "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+                "thread_id": "019fc8dd-0e37-7ce3-9393-79443effe5cd"
+              },
+              "sequence": 1
+            },
+            {
+              "kind": "task",
+              "payload": {
+                "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55"
+              },
+              "sequence": 2
+            },
+            {
+              "kind": "plan",
+              "payload": {
+                "max_steps": 6,
+                "required_output_count": 5,
+                "task_frame_hash": "747e64615978a415540d726d40b81621f652d2d339099b4082fb83c3a9a1ab55",
+                "tier": "standard",
+                "total_seconds": 90.0
+              },
+              "sequence": 3
+            },
+            {
+              "kind": "tool_request",
+              "payload": {
+                "query": "{}",
+                "tool": "market_data"
+              },
+              "sequence": 4
+            },
+            {
+              "kind": "tool_result",
+              "payload": {
+                "budget": {
+                  "executed_tool_calls": 1,
+                  "max_tool_calls": 6,
+                  "must_finalize": false,
+                  "remaining_research_seconds": 44.643,
+                  "remaining_tool_calls": 5
+                },
+                "evidence": [
+                  {
+                    "content_hash": "9d3fb905ac06c748",
+                    "contradicts": [],
+                    "detail": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "7af7c3af16f7cce0",
+                    "contradicts": [],
+                    "detail": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "709916ea47dad5ab",
+                    "contradicts": [],
+                    "detail": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37%",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "b497be4e6e6be2cc",
+                    "contradicts": [],
+                    "detail": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "d86b8d1a5326e406",
+                    "contradicts": [],
+                    "detail": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "5c3bae63b0d5ff23",
+                    "contradicts": [],
+                    "detail": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "6b7bb252351f1232",
+                    "contradicts": [],
+                    "detail": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿",
+                    "tool": "market_data"
+                  },
+                  {
+                    "content_hash": "bfa45fdd8d03ed01",
+                    "contradicts": [],
+                    "detail": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。",
+                    "evidence_tier": "L4_structured",
+                    "freshness": "unknown",
+                    "independent_key": "",
+                    "source": "本地 DuckDB · 周内市场归因窗口",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；",
+                    "tool": "market_data"
+                  }
+                ],
+                "evidence_hashes": [
+                  "9d3fb905ac06c748",
+                  "7af7c3af16f7cce0",
+                  "709916ea47dad5ab",
+                  "b497be4e6e6be2cc",
+                  "d86b8d1a5326e406",
+                  "5c3bae63b0d5ff23",
+                  "6b7bb252351f1232",
+                  "bfa45fdd8d03ed01"
+                ],
+                "gaps": [],
+                "observation": "窗口：2026-07-20 ~ 2026-07-24，共 5 个交易日；该块只描述周内变化，不等同于外部因果。；上证指数：3796.281 → 3814.198 点；区间变化 0.47% 。；下跌交易日：1/5；成交额 27019.21 → 19352.8 亿元；区间变化 -28.37% 。；2026-07-20：指数 0.8534717619226528%；成交 27019.21 亿；上涨 1740 家；涨停/跌停 53/212；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、通信(8.4%)、机械设备(7.1%)。；2026-07-21：指数 1.793492104509653%；成交 29569.03 亿；上涨 3107 家；涨停/跌停 121/21；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(31.1%)、通信(8.9%)、机械设备(6.9%)。；2026-07-22：指数 0.06901518411681629%；成交 26531.66 亿；上涨 1530 家；涨停/跌停 47/8；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(33.0%)、通信(9.0%)、计算机(6.7%)。；2026-07-23：指数 0.25195020266177703%；成交 21949.97 亿；上涨 4260 家；涨停/跌停 116/2；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.1%)、电力设备(8.5%)、通信(7.8%)。；2026-07-24：指数 -1.6142016938296977%；成交 19352.8 亿；上涨 534 家；涨停/跌停 40/24；行业成交额占全市场比例前三（括号为成交额占比，绝非行业涨跌幅）电子(29.6%)、电力设备(8.0%)、通信(6.7%)。；因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。",
+                "query": "snapshot",
+                "status": "success",
+                "tool": "market_data"
+              },
+              "sequence": 5
+            },
+            {
+              "kind": "tool_request",
+              "payload": {
+                "query": "{\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}",
+                "tool": "news_search"
+              },
+              "sequence": 6
+            },
+            {
+              "kind": "tool_result",
+              "payload": {
+                "budget": {
+                  "executed_tool_calls": 2,
+                  "max_tool_calls": 6,
+                  "must_finalize": true,
+                  "remaining_research_seconds": 34.94,
+                  "remaining_tool_calls": 4
+                },
+                "evidence": [
+                  {
+                    "content_hash": "dea2f6e8a9bebcd6",
+                    "contradicts": [],
+                    "detail": "2026-07-24 16:02:00 中国基金报",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://finance.eastmoney.com/a/202607243820465622.html",
+                    "source": "http://finance.eastmoney.com/a/202607243820465622.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "A股跳水 仅500多家上涨！全天缩量调整 原因找到了",
+                    "tool": "news_search"
+                  },
+                  {
+                    "content_hash": "6d4993f8a442274d",
+                    "contradicts": [],
+                    "detail": "2026-07-24 15:15:00 澎湃新闻",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://finance.eastmoney.com/a/202607243820431594.html",
+                    "source": "http://finance.eastmoney.com/a/202607243820431594.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元",
+                    "tool": "news_search"
+                  },
+                  {
+                    "content_hash": "cd46c1dd3960023a",
+                    "contradicts": [],
+                    "detail": "2026-07-24 15:03:00 中新经纬",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://stock.eastmoney.com/a/202607243820424660.html",
+                    "source": "http://stock.eastmoney.com/a/202607243820424660.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌",
+                    "tool": "news_search"
+                  },
+                  {
+                    "content_hash": "cf8d46fc8a1581de",
+                    "contradicts": [],
+                    "detail": "2026-07-24 13:09:33 每日经济新闻",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://stock.eastmoney.com/a/202607243820278286.html",
+                    "source": "http://stock.eastmoney.com/a/202607243820278286.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "A股震荡调整，沪指半日下跌1.2%",
+                    "tool": "news_search"
+                  },
+                  {
+                    "content_hash": "1f03b15f5fe00d73",
+                    "contradicts": [],
+                    "detail": "2026-07-24 12:09:00 21世纪经济报道",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://finance.eastmoney.com/a/202607243820251535.html",
+                    "source": "http://finance.eastmoney.com/a/202607243820251535.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "A股午评：创业板指下跌1.78%，兵装重组概念涨幅居前",
+                    "tool": "news_search"
+                  },
+                  {
+                    "content_hash": "c8bb6dc5d63a5217",
+                    "contradicts": [],
+                    "detail": "2026-07-24 12:01:14 每日经济新闻",
+                    "evidence_tier": "news",
+                    "freshness": "unknown",
+                    "independent_key": "http://finance.eastmoney.com/a/202607243820247887.html",
+                    "source": "http://finance.eastmoney.com/a/202607243820247887.html",
+                    "source_date": "2026-07-24",
+                    "supports": [],
+                    "title": "集体下跌，指数全绿！军工、电网设备活跃，长缆科技4连板；贵金属领跌，算力租赁走弱｜A股早盘",
+                    "tool": "news_search"
+                  }
+                ],
+                "evidence_hashes": [
+                  "dea2f6e8a9bebcd6",
+                  "6d4993f8a442274d",
+                  "cd46c1dd3960023a",
+                  "cf8d46fc8a1581de",
+                  "1f03b15f5fe00d73",
+                  "c8bb6dc5d63a5217"
+                ],
+                "gaps": [],
+                "observation": "2026-07-24 16:02:00 中国基金报《A股跳水 仅500多家上涨！全天缩量调整 原因找到了》；2026-07-24 15:15:00 澎湃新闻《A股低开低走，震荡下跌：银行股逆势上涨，两市成交额不足2万亿元》；2026-07-24 15:03:00 中新经纬《A股收评：超4900只个股飘绿，三大指数集体收跌；长鑫存储概念股大涨，半导体、银行部分上涨；贵金属全天领跌，制药、煤炭、券商下跌》；2026-07-24 13:09:33 每日经济新闻《A股震荡调整，沪指半日下跌1.2%》；2026-07-24 12:09:00 21世纪经济报道《A股午评：创业板指下跌1.78%，兵装重组概念涨幅居前》；2026-07-24 12:01:14 每日经济新闻《集体下跌，指数全绿！军工、电网设备活跃，长缆科技4连板；贵金属领跌，算力租赁走弱｜A股早盘》",
+                "query": "{\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}",
+                "status": "success",
+                "tool": "news_search"
+              },
+              "sequence": 7
+            },
+            {
+              "kind": "runtime_result",
+              "payload": {
+                "isolation": null,
+                "issues": [],
+                "mailbox_exchanges": [
+                  {
+                    "request_id": "1cfe6224cf5c49168ee4b4dfb2d70f26.json",
+                    "request_sha256": "689c3a4ed2926cd2458a753cc9c96d9dc9830c3316f6c3b5d3b5384e3dd47a09",
+                    "response_sha256": "5c151337b3773065d65a1958d851cf95efedfba3b527fec5f3a5c6e3d3991926"
+                  },
+                  {
+                    "request_id": "984fac6fad514e0e89f35b5571d99ea7.json",
+                    "request_sha256": "632950aad5097f0c34f6def88190ea41274f3e096ddc25925d5e712e421cbeff",
+                    "response_sha256": "fea722a9fdcf4bd35cce9fbd4224575f0f6b39c0b35a9acaad48340ac6c2e1f1"
+                  }
+                ],
+                "model": "codex-account-default",
+                "reasoning_effort": "medium",
+                "runtime": "codex_headless",
+                "thread_id": "019fc8dd-0e37-7ce3-9393-79443effe5cd"
+              },
+              "sequence": 8
+            },
+            {
+              "kind": "finish",
+              "payload": {
+                "gaps": [
+                  "缺少能够直接解释7月24日卖压来源的同期新闻正文、资金流向及明确宏观事件证据，无法把某个外部事件确认为主因。",
+                  "结论仅覆盖上证指数及A股整体宽度；不同指数、风格和行业的周度表现可能不同。"
+                ],
+                "status": "completed",
+                "stop_reason": "model_finish"
+              },
+              "sequence": 9
+            }
+          ],
+          "future_of_cutoff": [],
+          "gaps": [
+            "缺少能够直接解释7月24日卖压来源的同期新闻正文、资金流向及明确宏观事件证据，无法把某个外部事件确认为主因。",
+            "结论仅覆盖上证指数及A股整体宽度；不同指数、风格和行业的周度表现可能不同。"
+          ],
+          "mandatory_missing_capabilities": [],
+          "missing_outputs": [],
+          "provider_traces": [
+            {
+              "capability": "market_data",
+              "detail": "market_cause_window",
+              "parent_id": "runtime-benchmark:weekly-market-cause",
+              "provider": "agent:market_data",
+              "requested_date": "2026-07-24",
+              "result_count": 8,
+              "served_date": "2026-07-24",
+              "source_trade_date": "2026-07-24",
+              "status": "success",
+              "step_id": "runtime-benchmark:weekly-market-cause:headless:tool:1"
+            },
+            {
+              "capability": "directional_news",
+              "detail": "Eastmoney title search; queries={\"query\":\"2026年7月24日 A股 下跌 原因 上证指数 收盘 跳水 成交缩量 7月20日至24日\"}|A股下跌|A股调整|A股下跌原因; Eastmoney title search; pages=1; future_of_cutoff=27; fallbacks=3",
+              "parent_id": "runtime-benchmark:weekly-market-cause",
+              "provider": "东财",
+              "requested_date": "2026-07-24",
+              "result_count": 6,
+              "served_date": "2026-07-24",
+              "source_trade_date": null,
+              "status": "fallback_success",
+              "step_id": "runtime-benchmark:weekly-market-cause:headless:tool:3"
+            }
+          ],
+          "root_budget": {
+            "allocated_calls": 6,
+            "allocated_seconds": 60.0,
+            "episode_id": "runtime-benchmark:weekly-market-cause",
+            "hard_calls_cap": 6,
+            "hard_seconds_cap": 90.0,
+            "initial_calls": 6,
+            "initial_seconds": 60.0,
+            "remaining_calls": 4,
+            "remaining_seconds": 55.04500562598696
+          }
+        },
+        "duplicate_queries": 0,
+        "effective_timeout_seconds": 90.0,
+        "input_tokens": 73033,
+        "latency_seconds": 49.84063887502998,
+        "llm_calls": 1,
+        "model": "codex-account-default",
+        "output_tokens": 1396,
+        "protocol_issues": [],
+        "provider_attempts": 1,
+        "published_answer": "关于“这一周行情下跌的主要原因是什么”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、解释时间对齐的原因、传导链和盘面印证、提供主要反证或竞争性解释",
+        "semantic_status": "unavailable",
+        "sources": [
+          {
+            "content_hash": "374f9933ac2d71543dc8ce1854df7ca2608050e10505c58bc661644e6b5ee7d2",
+            "source_date": "2026-07-24",
+            "source_id": "E1",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "c80ad0d22d27f396abe2dcf14119ac07a82f67e7f1ffcf630b6d05ddaf6c68d5",
+            "source_date": "2026-07-24",
+            "source_id": "E2",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "544ab48ea65d055018fb8efad4d625947d7ba2482b54a2a82f8fbbab962e4d27",
+            "source_date": "2026-07-24",
+            "source_id": "E3",
+            "tool": "news_search"
+          },
+          {
+            "content_hash": "f2453ec082e5d1aaba791029f453f02e24c4f788b8390c0838a30fcd7e648b6a",
+            "source_date": "2026-07-24",
+            "source_id": "E4",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "9aa011b22f2e61ab8e098167d34ad64d45344c41d3ca4621155436259fc3d743",
+            "source_date": "2026-07-24",
+            "source_id": "E5",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "9a8ee7d7987ce8974d1294e7efddf94447ba3f4e7bcceb24ed922ffba66fda30",
+            "source_date": "2026-07-24",
+            "source_id": "E6",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "23f6315db65a2025c21bc755dfa19bdb398f720f379b20e32f10476ea55872eb",
+            "source_date": "2026-07-24",
+            "source_id": "E7",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "ae22c179e178906b75182b7944f87b032834e87ad5f4ea6912a0d8b45803befd",
+            "source_date": "2026-07-24",
+            "source_id": "E8",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "8f9beb0a727b3034e993a2cb40e46a203c3c8d023f3794677a6eb1444506e16a",
+            "source_date": "2026-07-24",
+            "source_id": "E9",
+            "tool": "news_search"
+          },
+          {
+            "content_hash": "7ee41aa50f9b5b4179b443b166fa22dafa9fedec088e66821d4ee14dc0a95504",
+            "source_date": "2026-07-24",
+            "source_id": "E10",
+            "tool": "market_data"
+          },
+          {
+            "content_hash": "05260217ca45cb822b3b9fc8e8512be6057ade1c1d60d205bb055aa75a670d31",
+            "source_date": "2026-07-24",
+            "source_id": "E11",
+            "tool": "news_search"
+          }
+        ],
+        "status": "degraded",
+        "stop_reason": "model_finish",
+        "structural_status": "completed",
+        "task_alignment_score": 0.25,
+        "tool_calls": 2
+      }
+    ],
+    "schema_version": 1
+  }
+}

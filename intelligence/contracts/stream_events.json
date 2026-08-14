@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "event_type": "message.start",
+      "payload_schema": {"type": "object", "required": ["status"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "message_status"
+    },
+    {
+      "event_type": "trace.step",
+      "payload_schema": {"type": "object", "required": ["step"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "trace"
+    },
+    {
+      "event_type": "workflow.loaded",
+      "payload_schema": {
+        "type": "object",
+        "required": [
+          "owner",
+          "label",
+          "execution_mode",
+          "preset",
+          "required_skill_ids",
+          "retrieval_stages",
+          "output_schema",
+          "presentation_kind",
+          "max_wall_time_seconds",
+          "status"
+        ]
+      },
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "workflow_status"
+    },
+    {
+      "event_type": "skill.start",
+      "payload_schema": {
+        "type": "object",
+        "required": ["skill_id", "selection_source"]
+      },
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "skill_status"
+    },
+    {
+      "event_type": "skill.result",
+      "payload_schema": {
+        "type": "object",
+        "required": ["skill_id", "status"]
+      },
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "skill_status"
+    },
+    {
+      "event_type": "report.start",
+      "payload_schema": {"type": "object", "required": ["report"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "structured_report"
+    },
+    {
+      "event_type": "report.module",
+      "payload_schema": {"type": "object", "required": ["module"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "structured_report"
+    },
+    {
+      "event_type": "citation.ready",
+      "payload_schema": {"type": "object", "required": ["citation"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "citation"
+    },
+    {
+      "event_type": "text.delta",
+      "payload_schema": {"type": "object", "required": ["delta"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "narrative"
+    },
+    {
+      "event_type": "answer.snapshot",
+      "payload_schema": {
+        "type": "object",
+        "required": ["revision", "phase", "text", "final"]
+      },
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "narrative"
+    },
+    {
+      "event_type": "report.complete",
+      "payload_schema": {"type": "object", "required": ["report"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "structured_report"
+    },
+    {
+      "event_type": "report.error",
+      "payload_schema": {"type": "object", "required": ["report"]},
+      "public": true,
+      "terminal": false,
+      "ui_renderer": "structured_report"
+    },
+    {
+      "event_type": "message.complete",
+      "payload_schema": {"type": "object", "required": ["message"]},
+      "public": true,
+      "terminal": true,
+      "ui_renderer": "message_status"
+    },
+    {
+      "event_type": "message.error",
+      "payload_schema": {"type": "object", "required": ["message"]},
+      "public": true,
+      "terminal": true,
+      "ui_renderer": "message_status"
+    },
+    {
+      "event_type": "run_recovered",
+      "payload_schema": {"type": "object", "required": ["reason"]},
+      "public": false,
+      "terminal": false,
+      "ui_renderer": "none"
+    }
+  ]
+}

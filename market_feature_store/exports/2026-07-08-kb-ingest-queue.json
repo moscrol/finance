@@ -1,0 +1,569 @@
+{
+  "schema_version": "1.0",
+  "source_repo": "finance-workspace-private",
+  "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+  "market_date": "2026-07-08",
+  "created_at": "2026-07-08T20:06:01+08:00",
+  "tasks": [
+    {
+      "task_id": "2026-07-08-concept_ingest-f4b3d6e06789-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "云计算",
+      "priority": 161.02,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "网宿科技",
+        "深信服",
+        "紫光股份",
+        "浪潮信息",
+        "中科曙光"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：中科曙光"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：浪潮信息"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜晚间卖方研报20260705"
+      }
+    },
+    {
+      "task_id": "2026-07-08-concept_ingest-it-fu-wu-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "IT服务",
+      "priority": 144.93,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "网宿科技",
+        "紫光股份",
+        "云天励飞",
+        "神州数码",
+        "飞利信"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "market_only",
+        "label": "纯盘面异动",
+        "window_days": 5,
+        "events": [],
+        "summary": "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
+      }
+    },
+    {
+      "task_id": "2026-07-08-concept_ingest-ai-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "多模态AI",
+      "priority": 139.98,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "网宿科技",
+        "昆仑万维",
+        "云天励飞",
+        "雷神科技",
+        "中兴通讯"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "业内相关消息指出，三星电子已经启动第三季度 DRAM 合约价格的协商工作，旗下普通产品的目标涨价幅度最高看至 20%；",
+            "stance": "中性",
+            "matched_by": "题材词：多模态AI"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "永鼎股份发布半年预告：预计2026年半年度归属于上市公司股东的扣非净利润为49,000万元到69,000万元，与上年同期相比将增加17,469万元到37,46…",
+            "stance": "看多",
+            "matched_by": "题材词：多模态AI"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：多模态AI"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜业内相关消息指出，三星电子已经启动第三季度 DRAM 合约价格的协商工作，旗下普通产品的目标涨价幅度最高看至 20%；"
+      }
+    },
+    {
+      "task_id": "2026-07-08-concept_ingest-zi-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "量子科技",
+      "priority": 110.0,
+      "reason": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "中科曙光",
+        "大恒科技",
+        "中国长城",
+        "国芯科技",
+        "中兴通讯"
+      ],
+      "suggested_action": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。",
+      "origin": "research_queue.today_do_ima",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**量子科技（政策催化）**：美国政府20亿美元入股9家量子公司、IBM 5年100亿美元；Quantinuum上市估值150亿美元（PS 450倍）；国盾量…",
+            "stance": "-",
+            "matched_by": "题材词：量子科技"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：中科曙光"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**量子科技（政策催化）**：美国政府20亿美元入股9家量子公司、IBM 5年100亿美元；Quantinuum上市估值150亿美元（PS 450倍）；国盾量…"
+      }
+    },
+    {
+      "task_id": "2026-07-08-disclosure-78690c5adb06-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "算力租赁",
+      "priority": 162.73,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "网宿科技",
+        "深信服",
+        "紫光股份",
+        "昆仑万维",
+        "浪潮信息"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：浪潮信息"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：昆仑万维"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-05",
+            "excerpt": "**核心逻辑**：0702给出量化证伪（外租占新增需求<10%），0705升级为跨机构共识+资本开支上修定量；7月底海外CSP财报为下一个验证节点（华源：若上…",
+            "stance": "-",
+            "matched_by": "题材词：算力租赁"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜晚间卖方研报20260705"
+      }
+    },
+    {
+      "task_id": "2026-07-08-disclosure-ai-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "AI应用",
+      "priority": 147.85,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "深信服",
+        "紫光股份",
+        "锐捷网络",
+        "昆仑万维",
+        "绿盟科技"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**腾讯混元Hy3（AI应用）**：参数295B/激活21B、幻觉率12.5%→5.4%；Work Body日活500万、月活2000万为国内B端办公agen…",
+            "stance": "-",
+            "matched_by": "题材词：AI应用"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "业内相关消息指出，三星电子已经启动第三季度 DRAM 合约价格的协商工作，旗下普通产品的目标涨价幅度最高看至 20%；",
+            "stance": "中性",
+            "matched_by": "题材词：AI应用"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "永鼎股份发布半年预告：预计2026年半年度归属于上市公司股东的扣非净利润为49,000万元到69,000万元，与上年同期相比将增加17,469万元到37,46…",
+            "stance": "看多",
+            "matched_by": "题材词：AI应用"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜**腾讯混元Hy3（AI应用）**：参数295B/激活21B、幻觉率12.5%→5.4%；Work Body日活500万、月活2000万为国内B端办公agen…"
+      }
+    },
+    {
+      "task_id": "2026-07-08-disclosure-qi-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "机器人",
+      "priority": 137.0,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "深信服",
+        "紫光股份",
+        "威尔高",
+        "芯朋微",
+        "华勤技术"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "5. 人形机器人——弗里蒙特产线开始安装，V3发布窗口7-8月",
+            "stance": "-",
+            "matched_by": "题材词：机器人"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**核心逻辑**：0705\"清场改造+周排产数字\"→0706\"产线开始安装+V3发布窗口\"，实证链条继续推进；筛选标准落到具体环节标的。[[人形机器人]] […",
+            "stance": "-",
+            "matched_by": "题材词：机器人"
+          },
+          {
+            "date": "2026-07-06",
+            "source_type": "morning_briefing",
+            "source": "晨汇 2026-07-06",
+            "excerpt": "**KB验证**：[[人形机器人]]\"一致认同\"、[[谐波减速器]]\"第一轮\"；与0705恒立份额线互补（本轮点名科达利谐波最大份额）。",
+            "stance": "-",
+            "matched_by": "题材词：机器人"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-06 晨汇 2026-07-06｜5. 人形机器人——弗里蒙特产线开始安装，V3发布窗口7-8月"
+      }
+    },
+    {
+      "task_id": "2026-07-08-disclosure-ai-002",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "AI智能体",
+      "priority": 124.2,
+      "reason": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [],
+      "strong_stocks": [
+        "网宿科技",
+        "深信服",
+        "紫光股份",
+        "锐捷网络",
+        "昆仑万维"
+      ],
+      "suggested_action": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。",
+      "origin": "research_queue.today_find_official_evidence",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "业内相关消息指出，三星电子已经启动第三季度 DRAM 合约价格的协商工作，旗下普通产品的目标涨价幅度最高看至 20%；",
+            "stance": "中性",
+            "matched_by": "题材词：AI智能体"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "永鼎股份发布半年预告：预计2026年半年度归属于上市公司股东的扣非净利润为49,000万元到69,000万元，与上年同期相比将增加17,469万元到37,46…",
+            "stance": "看多",
+            "matched_by": "题材词：AI智能体"
+          },
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "题材词：AI智能体"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜业内相关消息指出，三星电子已经启动第三季度 DRAM 合约价格的协商工作，旗下普通产品的目标涨价幅度最高看至 20%；"
+      }
+    },
+    {
+      "task_id": "2026-07-08-concept_ingest-chatgpt-001",
+      "task_type": "concept_ingest",
+      "task_type_label": "概念入库",
+      "theme": "ChatGPT",
+      "priority": 138.85,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "深信服",
+        "昆仑万维",
+        "云天励飞",
+        "神州数码",
+        "中兴通讯"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：昆仑万维"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜晚间卖方研报20260705"
+      }
+    },
+    {
+      "task_id": "2026-07-08-disclosure-chatgpt-001",
+      "task_type": "disclosure",
+      "task_type_label": "官方证据归档",
+      "theme": "ChatGPT",
+      "priority": 138.85,
+      "reason": "数据缺口触发：missing_concept, missing_evidence。仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+      "evidence_gap": [
+        "L2 基线",
+        "L3 官方验证"
+      ],
+      "data_gaps": [
+        "missing_concept",
+        "missing_evidence"
+      ],
+      "strong_stocks": [
+        "深信服",
+        "昆仑万维",
+        "云天励飞",
+        "神州数码",
+        "中兴通讯"
+      ],
+      "suggested_action": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+      "origin": "research_queue.skipped.data_gap_or_unconfirmed",
+      "requires_human_review": true,
+      "auto_apply": false,
+      "status": "pending",
+      "market_date": "2026-07-08",
+      "source_repo": "finance-workspace-private",
+      "source_artifact": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-08-daily-agent.json",
+      "created_at": "2026-07-08T20:06:01+08:00",
+      "catalyst": {
+        "status": "narrative_hit",
+        "label": "叙事驱动",
+        "window_days": 5,
+        "events": [
+          {
+            "date": "2026-07-05",
+            "source_type": "sellside_opinion",
+            "source": "GD电子",
+            "excerpt": "晚间卖方研报20260705",
+            "stance": "中性",
+            "matched_by": "强势股：昆仑万维"
+          }
+        ],
+        "summary": "驱动在叙事端：2026-07-05 GD电子｜晚间卖方研报20260705"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 10,
+    "by_task_type": {
+      "concept_ingest": 5,
+      "disclosure": 5
+    },
+    "resolved_themes_skipped": []
+  },
+  "glossary": {
+    "RAG": "检索增强生成（Retrieval-Augmented Generation）：先从知识库找证据，再让模型生成回答。",
+    "BM25": "一种关键词相关性排序算法，适合精确词命中；常和向量检索组成混合检索。",
+    "rerank": "二次排序：先粗召回一批材料，再用更精细模型重排，提升证据相关性。",
+    "IMA": "题材/产业链深度拆解材料；这里指补清题材边界、核心公司、证据层级的研究动作。",
+    "MOC": "收盘集合竞价（Market-on-Close）；如果用于成交或盘口语境，必须写出中文释义。"
+  },
+  "notes": [
+    "本队列只表达金融 repo 发现的知识库缺口；知识库 repo 接收后仍需人工复核。",
+    "所有任务默认 requires_human_review=true、auto_apply=false，不允许自动写入 wiki/relations。"
+  ]
+}

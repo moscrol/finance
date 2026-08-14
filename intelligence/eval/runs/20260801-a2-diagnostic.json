@@ -1,0 +1,144 @@
+{
+  "generated_at": "20260801T170724Z",
+  "base": "http://127.0.0.1:8793",
+  "preflight_ok": true,
+  "preflight_detail": "revision=0430d544 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "A2-next-day-call",
+      "tier": "high_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 收盘了，明天怎么看",
+          "answer": "# 通用研究\n\n本轮尚未完成问题所需的直接回答：仍缺少：针对用户问题的直接判断（候选 1 条且正文已写到，但证据未能绑定）；仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）\n\n**缺少的数据/证据：**\n- 本轮尚未完成问题所需的直接回答：仍缺少：针对用户问题的直接判断（候选 1 条且正文已写到，但证据未能绑定）；仍缺少：反方或证据边界（工具目录 里没有该输出对应的 claim）\n\n请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
+          "run_id": "run_20260802_010641_844570",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "tag": "G1",
+              "source": "http://finance.eastmoney.com/a/202607213815395965.html",
+              "detail": "2026-07-21 13:57:03 中国证券报·中证金牛座"
+            },
+            {
+              "tag": "G2",
+              "source": "http://finance.eastmoney.com/a/202607213815424095.html",
+              "detail": "2026-07-21 14:18:00 证券时报网"
+            },
+            {
+              "tag": "G3",
+              "source": "http://finance.eastmoney.com/a/202607213815427718.html",
+              "detail": "2026-07-21 14:18:00 证券时报网"
+            },
+            {
+              "tag": "G4",
+              "source": "http://finance.eastmoney.com/a/202607213815467418.html",
+              "detail": "2026-07-21 14:51:25 证券时报网"
+            },
+            {
+              "tag": "G5",
+              "source": "http://stock.eastmoney.com/a/202607213815442562.html",
+              "detail": "2026-07-21 14:21:41 界面新闻"
+            },
+            {
+              "tag": "G6",
+              "source": "http://stock.eastmoney.com/a/202607213815508795.html",
+              "detail": "2026-07-21 13:53:30 界面新闻"
+            }
+          ],
+          "degrades": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "evidence_bound": 7,
+          "evidence": [
+            {
+              "id": "citation-record:G1",
+              "label": "[G1] http://finance.eastmoney.com/a/202607213815395965.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 13:57:03 中国证券报·中证金牛座",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G2",
+              "label": "[G2] http://finance.eastmoney.com/a/202607213815424095.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 14:18:00 证券时报网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G3",
+              "label": "[G3] http://finance.eastmoney.com/a/202607213815427718.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 14:18:00 证券时报网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G4",
+              "label": "[G4] http://finance.eastmoney.com/a/202607213815467418.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 14:51:25 证券时报网",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G5",
+              "label": "[G5] http://stock.eastmoney.com/a/202607213815442562.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 14:21:41 界面新闻",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:G6",
+              "label": "[G6] http://stock.eastmoney.com/a/202607213815508795.html",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "2026-07-21 13:53:30 界面新闻",
+              "status": "hit"
+            },
+            {
+              "id": "citation:G",
+              "label": "图谱证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "6 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "understanding",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {
+            "state": "not_prepared",
+            "reason_code": "no_prepared_messages",
+            "detail": "synthesis messages were not prepared for this route",
+            "prepared_message_count": 0,
+            "candidate_claim_count": 7,
+            "bound_claim_count": 6
+          },
+          "gaps": [
+            "最终回答未完成任务契约，已按部分完成标记。"
+          ],
+          "elapsed_s": 42.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}

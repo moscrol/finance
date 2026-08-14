@@ -1,0 +1,44 @@
+name: registry-check
+
+# A-S3：把 skill 注册表的四个 --check 接进 CI。
+# 任何会引起注册表漂移的改动（skills/、agent 视图、CLAUDE.md skill 表、注册表本身）
+# 都会触发；漂移 / SKILL.md 不可解析 / 文档表过期 / 视图不规范 → CI fail。
+# 只 checkout 本仓：build_registry 的跨仓比对在缺仓时自动跳过，不会误报
+# （含 disclosure-archive 这类合法跨仓拆分）。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  registry-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 四条 --check 一律 !cancelled()：默认 fail-fast 下第一条红就把后三条变成
+      # skipped，而 skipped 不是失败——看着「没结论」，实际从未执行，修完第一条
+      # 才发现还有三条。四条互不依赖，一次跑完给全量清单。
+      - name: check-parseability（每个 SKILL.md frontmatter 可解析、name 与目录名一致）
+        if: ${{ !cancelled() }}
+        run: python3 scripts/build_registry.py check-parseability
+
+      - name: check（注册表 skills.registry.json 与源一致，无漂移）
+        if: ${{ !cancelled() }}
+        run: python3 scripts/build_registry.py check
+
+      - name: backfill-tables --check（文档里的 skill 表与注册表一致）
+        if: ${{ !cancelled() }}
+        run: python3 scripts/build_registry.py backfill-tables --check
+
+      - name: generate-views --check（agent 目录视图规范、无物理拷贝/坏链）
+        if: ${{ !cancelled() }}
+        run: python3 scripts/build_registry.py generate-views --check

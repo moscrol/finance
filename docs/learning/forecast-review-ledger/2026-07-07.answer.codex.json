@@ -1,0 +1,253 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-07",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "ba362c3df17681ac",
+  "date_policy": {
+    "date_field": "forecast_target_trade_date",
+    "target_trade_date": "2026-07-07",
+    "perspective_trade_date": "2026-07-06",
+    "duckdb_cutoff": "2026-07-06",
+    "source_material_date": "2026-07-06",
+    "rule": "本文件按每日四问口径：站在 perspective_trade_date 收盘，研判下一交易日 target_trade_date。用户口语里的'7.6四问'指 2026-07-06 收盘事实层。"
+  },
+  "daily_four_questions": {
+    "duckdb_flow": {
+      "status": "answered",
+      "source": "duckdb_flow",
+      "core_values": {
+        "advancers": 1876,
+        "limit_up": 64,
+        "limit_down": 46,
+        "total_amount_yi": 30909.06,
+        "amount_vs_yesterday_pct": -2.87,
+        "volume_ratio_pct": 96.45,
+        "market_stage": "底部横盘阶段第5天",
+        "concentration_state": "集中",
+        "top3_industry_ratio_pct": 47.6
+      },
+      "double_red_candidates": [
+        {
+          "sector": "创新药",
+          "judgment": "延续",
+          "pct_chg": 1.1,
+          "diff_ratio": 27.66,
+          "amount_yi": 1478.11,
+          "threshold": "T+1 pct_chg>0 且 diff_ratio>10 且 amount>1200亿；若 diff<0 或 amount<1000亿则判医药主线承接失败"
+        },
+        {
+          "sector": "化学制药",
+          "judgment": "延续",
+          "pct_chg": 0.97,
+          "diff_ratio": 25.66,
+          "amount_yi": 834.3,
+          "threshold": "T+1 pct_chg>0 且 diff_ratio>10 且 amount>700亿；若 diff<0 或涨幅<0 则判扩散衰竭"
+        },
+        {
+          "sector": "减肥药",
+          "judgment": "延续但容量临界",
+          "pct_chg": 1.59,
+          "diff_ratio": 27.28,
+          "amount_yi": 500.98,
+          "threshold": "T+1 pct_chg>0 且 diff_ratio>15 且 amount>500亿才算延续；若 amount<500亿或 diff<10 则判衰竭"
+        }
+      ],
+      "limit_heat_direction": "降温：7/6 全市场涨停64，较7/3的108明显回落；涨停热度从机器人单极转向数据中心17、芯片概念15、机器人概念13，机器人虽仍在热度Top3但对应人形机器人/减速器/汽车零部件双红全部转负。",
+      "advance_direction": "晋级率结构偏弱：2板4/92=4%、3板1/13=8%，低位晋级明显弱；高标5板1/1与4板1/2只是幸存者结构，不能代表整体回暖。",
+      "most_likely_path": "低开惯性分歧 -> 医药/AI硬件局部承接 -> 午后弱修复或窄幅震荡",
+      "path_failure_signal": "若T+1涨家数<1600且跌停>55，同时创新药/化学制药/减肥药三者全部不再双红，则弱修复路径失败，市场切入退潮；若T+1涨家数>2800且涨停>85且机器人链重新至少2个板块双红，则说明我对退潮程度判断过悲观。"
+    },
+    "briefing_cross": {
+      "status": "skipped_missing_source",
+      "source": "briefing_cross",
+      "reason": "未检索到知识库 canonical 晨汇文件 wiki/briefings/2026-07-06.md 或 2026-07-06 三维交叉产物；不构造 Tier 1 事件判断。",
+      "late_backfill_rule": "若后续补入 2026-07-06 晨汇材料，应先跑 red-team，再登记 briefing_cross checkpoint，并标记 late_backfill。"
+    },
+    "sellside_cross": {
+      "status": "skipped_missing_source",
+      "source": "sellside_cross",
+      "reason": "未检索到 2026-07-06 晚间卖方交叉材料；不构造覆盖密度增量/透支判断。7/6 盘面仅可作为前期金刚石散热 checkpoint 的验证材料。",
+      "late_backfill_rule": "若后续补入 2026-07-06 卖方材料，应按覆盖篇数、库内证据硬度、盘面位置三项重新判断，并登记 T+3/T+5 checkpoint。"
+    },
+    "dual_blind": {
+      "status": "answered_codex_only",
+      "source": "dual_blind_forecast",
+      "manifest": "docs/learning/forecast-review-ledger/2026-07-07.manifest.json",
+      "note": "已按 2026-07-06 DuckDB cutoff 生成 Codex 答卷；Claude 答卷需另行独立生成，互不可见。"
+    }
+  },
+  "flow_entries": [
+    {
+      "flow_type": "duckdb_market",
+      "flow_name": "DuckDB 盘面流",
+      "validation_windows": [
+        "T+1",
+        "T+3"
+      ],
+      "hypothesis_ids": [
+        "market:path-20260707",
+        "direction:medicine-double-red",
+        "sentiment:limit-heat-advance"
+      ]
+    },
+    {
+      "flow_type": "briefing_cross",
+      "flow_name": "晨汇事件流",
+      "status": "skipped_missing_source",
+      "validation_windows": [
+        "当日",
+        "T+1"
+      ],
+      "hypothesis_ids": []
+    },
+    {
+      "flow_type": "sellside_cross",
+      "flow_name": "晚间卖方流",
+      "status": "skipped_missing_source",
+      "validation_windows": [
+        "T+3",
+        "T+5"
+      ],
+      "hypothesis_ids": []
+    },
+    {
+      "flow_type": "dual_blind",
+      "flow_name": "复盘验证答卷流",
+      "validation_windows": [
+        "T+1",
+        "T+3"
+      ],
+      "hypothesis_ids": [
+        "market:path-20260707",
+        "direction:medicine-double-red",
+        "target:600276.SH",
+        "target:000938.SZ",
+        "target:688629.SH",
+        "target:300684.SZ",
+        "target:600172.SH"
+      ]
+    }
+  ],
+  "stage": "底部横盘阶段第5天，缩量分歧加深，主线从机器人兑现退潮切向医药双红与AI硬件局部承接。",
+  "main_judgment": "7/6不是机器人主线分歧后修复，而是缩量下的主线切换观察日：广度降至1876、涨停降至64、跌停升至46，7/7只有医药双红和AI硬件涨停热度能承接时，市场才是弱修复，否则进入退潮确认。",
+  "direction_ranking": [
+    "创新药/化学制药/减肥药",
+    "数据中心/液冷服务器/AI硬件",
+    "金刚石散热",
+    "机器人链仅作反抽观察"
+  ],
+  "picks": [
+    {
+      "code": "600276.SH",
+      "name": "恒瑞医药",
+      "strategy": "医药双红容量核心",
+      "reason": "绑定§1：创新药 pct+1.10%、diff+27.66、成交1478.11亿；个股7/6 +4.26%、成交101.53亿、20日新高，是医药承接的容量样本。"
+    },
+    {
+      "code": "000938.SZ",
+      "name": "紫光股份",
+      "strategy": "AI硬件涨停热度核心",
+      "reason": "绑定§1：数据中心涨停17、芯片概念15居热度前二；个股7/6涨停+10.01%、成交99.34亿、20日新高，是AI硬件承接强度样本。"
+    },
+    {
+      "code": "688629.SH",
+      "name": "华丰科技",
+      "strategy": "液冷/数据中心新高弹性",
+      "reason": "绑定§1：液冷服务器虽未双红但在涨停热度链中强；个股7/6 +11.81%、成交66.79亿、历史新高，验证AI硬件强趋势是否延续。"
+    },
+    {
+      "code": "300684.SZ",
+      "name": "中石科技",
+      "strategy": "液冷服务器弹性涨停",
+      "reason": "绑定§1：AI硬件热度承接；个股7/6 +20.00%、成交33.57亿、历史新高，验证热度能否从涨停扩到趋势。"
+    },
+    {
+      "code": "600172.SH",
+      "name": "黄河旋风",
+      "strategy": "金刚石散热前期卖方增量验证",
+      "reason": "绑定§1：7/6黄河旋风+10.02%、成交52.48亿，四方达+5.07%、惠丰钻石+11.09%、力量钻石+3.23%，说明前期金刚石散热信息增量在T+3附近获得盘面确认；本日作为残余强度观察。"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1若涨家数>=2300、涨停>=70、跌停<=35且成交额>=30000亿，则弱修复成立；若涨家数<1600或跌停>55，则退潮确认。T+3至少2日跌停<=40且涨家数不连续低于2000，才算底部横盘未破。",
+    "direction": "创新药/化学制药/减肥药三者T+1至少2个继续双红，且创新药成交>1200亿；数据中心/液冷服务器若涨停热度维持Top3且核心股不大幅回落，则AI硬件承接有效；机器人链只有人形机器人、减速器、汽车零部件至少2个重新pct>0且diff>0，才恢复主线资格。",
+    "targets": "恒瑞医药T+1不跌破55.0且创新药双红；紫光股份不跌破32.0且数据中心涨停热度>=10；华丰科技不跌破190且不跌出历史新高趋势；中石科技不跌破70且液冷链仍有涨停；黄河旋风不跌破18.0且金刚石篮子至少2只红盘。",
+    "falsify": "若T+1医药三板块全部diff<0，且数据中心涨停热度<8，同时市场跌停>55，则主判断miss；若T+1机器人链重新至少2个板块双红且机器人概念涨停>20，则我对机器人退潮判断过早。"
+  },
+  "hypotheses": [
+    {
+      "id": "market:path-20260707",
+      "flow_type": "duckdb_market",
+      "type": "market_path",
+      "claim": "7/7低开惯性分歧后弱修复或窄幅震荡",
+      "metric": "advancers/limit_up/limit_down/total_amount",
+      "falsify_when": "涨家数<1600或跌停>55；或涨家数>2800且涨停>85形成强修复"
+    },
+    {
+      "id": "direction:medicine-double-red",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "claim": "医药双红成为7/7最重要承接方向",
+      "metric": "创新药/化学制药/减肥药 pct_chg,diff_ratio,amount",
+      "falsify_when": "三者T+1全部diff<0或创新药成交<1000亿"
+    },
+    {
+      "id": "sentiment:limit-heat-advance",
+      "flow_type": "duckdb_market",
+      "type": "sentiment",
+      "claim": "涨停热度和低位晋级率偏弱，7/7不应直接判加速",
+      "metric": "limit_up,limit_down,2板/3板晋级率",
+      "falsify_when": "涨停>85、跌停<30且2板晋级率回到10%以上"
+    },
+    {
+      "id": "target:600276.SH",
+      "flow_type": "dual_blind",
+      "type": "target",
+      "claim": "恒瑞医药验证医药容量承接",
+      "metric": "T+1 close/return vs 创新药",
+      "falsify_when": "跌破55.0且创新药不再双红"
+    },
+    {
+      "id": "target:000938.SZ",
+      "flow_type": "dual_blind",
+      "type": "target",
+      "claim": "紫光股份验证AI硬件涨停热度承接",
+      "metric": "T+1 close/return and 数据中心limit heat",
+      "falsify_when": "跌破32.0或数据中心涨停热度<10"
+    },
+    {
+      "id": "target:688629.SH",
+      "flow_type": "dual_blind",
+      "type": "target",
+      "claim": "华丰科技验证液冷强趋势延续",
+      "metric": "T+1 close/return",
+      "falsify_when": "跌破190或放量长阴"
+    },
+    {
+      "id": "target:300684.SZ",
+      "flow_type": "dual_blind",
+      "type": "target",
+      "claim": "中石科技验证液冷弹性是否继续",
+      "metric": "T+1 close/return",
+      "falsify_when": "跌破70且液冷链无涨停"
+    },
+    {
+      "id": "target:600172.SH",
+      "flow_type": "dual_blind",
+      "type": "target",
+      "claim": "黄河旋风验证金刚石散热前期增量仍有余温",
+      "metric": "T+1 close/return and basket breadth",
+      "falsify_when": "跌破18.0且金刚石篮子少于2只红盘"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-07",
+    "recheck_t3_date": "2026-07-09",
+    "pick_returns_t1": [],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": -0.1151,
+    "recheck_generated_at": "2026-07-22T01:01:24+08:00"
+  }
+}

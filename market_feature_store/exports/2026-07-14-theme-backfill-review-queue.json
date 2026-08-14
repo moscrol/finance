@@ -1,0 +1,215 @@
+{
+  "trade_date": "2026-07-14",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-07-14-theme-backfill-queue.json",
+  "generated_at": "2026-07-14T14:18:36.950009+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 8,
+  "status_counts": {
+    "pending_review": 8
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 4,
+    "review_create_or_link_concept": 4
+  },
+  "items": [
+    {
+      "id": "2026-07-14-03-missing_concept",
+      "trade_date": "2026-07-14",
+      "theme": "金属铜",
+      "canonical_concept": "金属铜",
+      "sw_l1": "有色金属",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 106.0,
+      "gap_type": "missing_concept",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-05-missing_concept",
+      "trade_date": "2026-07-14",
+      "theme": "工业金属",
+      "canonical_concept": "工业金属",
+      "sw_l1": "有色金属",
+      "candidate_tier": "deep",
+      "rank": 5,
+      "priority_score": 95.4,
+      "gap_type": "missing_concept",
+      "priority": "critical",
+      "reason": "Deep 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "double_red",
+        "limit_heat"
+      ],
+      "concept_count": 0,
+      "exposure_count": 8,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-03-missing_evidence",
+      "trade_date": "2026-07-14",
+      "theme": "金属铜",
+      "canonical_concept": "金属铜",
+      "sw_l1": "有色金属",
+      "candidate_tier": "deep",
+      "rank": 3,
+      "priority_score": 106.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 2,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-05-missing_evidence",
+      "trade_date": "2026-07-14",
+      "theme": "工业金属",
+      "canonical_concept": "工业金属",
+      "sw_l1": "有色金属",
+      "candidate_tier": "deep",
+      "rank": 5,
+      "priority_score": 95.4,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "limit_heat"
+      ],
+      "concept_count": 0,
+      "exposure_count": 8,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-09-missing_evidence",
+      "trade_date": "2026-07-14",
+      "theme": "中药",
+      "canonical_concept": "中药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "deep",
+      "rank": 9,
+      "priority_score": 67.92,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-10-missing_evidence",
+      "trade_date": "2026-07-14",
+      "theme": "化学制药",
+      "canonical_concept": "化学制药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 67.77,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 3,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-11-missing_concept",
+      "trade_date": "2026-07-14",
+      "theme": "三胎",
+      "canonical_concept": "三胎",
+      "sw_l1": "社会服务",
+      "candidate_tier": "watch",
+      "rank": 11,
+      "priority_score": 67.32,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-07-14-12-missing_concept",
+      "trade_date": "2026-07-14",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 12,
+      "priority_score": 66.56,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

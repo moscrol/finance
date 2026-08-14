@@ -1,0 +1,438 @@
+{
+  "schema_version": "1.1",
+  "date": "2026-07-17",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "8b19cde97216a852",
+  "evidence_catalog": {
+    "E1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "advancers",
+      "value": 2499,
+      "direction": "support",
+      "note": "涨家数2499（不足半数），广度偏弱，支持退潮判断"
+    },
+    "E2": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "volume_ratio",
+      "value": 76.26,
+      "direction": "support",
+      "note": "量比76.26，缩量观望"
+    },
+    "E3": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "double_red_sectors",
+      "field": "double_red_count",
+      "value": 5,
+      "direction": "support",
+      "note": "真双红(pct>0且diff>10且amount>500)仅5个且全为AI系：ChatGPT/IT服务/消费电子/多模态AI/云计算"
+    },
+    "E4": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "limit_up",
+      "value": 42,
+      "direction": "support",
+      "note": "涨停42家（07-10为92家），赚钱效应收敛"
+    },
+    "E5": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "sh_deviation_pct",
+      "value": -2.03,
+      "direction": "support",
+      "note": "上证偏离周均线-2.03%，收盘3882.41低于周均3955.41"
+    },
+    "E6": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "total_amount",
+      "value": 24033.87,
+      "direction": "support",
+      "note": "成交额24033.87亿，自07-10(33883)起连续4日缩量"
+    },
+    "E7": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "amount_ma20",
+      "value": 31516.65,
+      "direction": "neutral",
+      "note": "20日均量31516.65亿，当前成交额低于该线=量能未回正"
+    },
+    "E8": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "stock_high_count_history",
+      "value": 4,
+      "direction": "support",
+      "note": "历史新高仅4家（07-10为46家），新高动能骤降"
+    },
+    "E9": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-16",
+      "entity": "market",
+      "field": "market_stage",
+      "value": "下跌阶段",
+      "direction": "support",
+      "note": "下跌阶段第4天（07-13由底部横盘切换）"
+    },
+    "E11": {
+      "level": "L4",
+      "source": "fact_sw_l1_daily",
+      "source_time": "2026-07-16",
+      "entity": "电子",
+      "field": "pct_chg",
+      "value": -4.35,
+      "direction": "support",
+      "note": "申万一级电子-4.35%全场最差且成交757834亿全场最大=放量领跌出货"
+    },
+    "E12": {
+      "level": "L4",
+      "source": "fact_sw_l1_daily",
+      "source_time": "2026-07-16",
+      "entity": "传媒",
+      "field": "pct_chg",
+      "value": 1.66,
+      "direction": "support",
+      "note": "申万一级传媒+1.66%最强，逆周期高低切方向"
+    },
+    "E13": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-16",
+      "entity": "医药生物",
+      "field": "new_high_count_sw_l1",
+      "value": 201,
+      "direction": "support",
+      "note": "新高集群医药生物201家占绝对优势(电子仅8/计算机6/通信4)"
+    },
+    "E14": {
+      "level": "L4",
+      "source": "fact_sector_daily",
+      "source_time": "2026-07-16",
+      "entity": "半导体",
+      "field": "pct_chg",
+      "value": -5.35,
+      "direction": "support",
+      "note": "半导体近5日有4日跌超5%（07-10/13/15/16），退潮中继"
+    },
+    "E15": {
+      "level": "L4",
+      "source": "fact_stock_high_daily",
+      "source_time": "2026-07-16",
+      "entity": "翱捷科技",
+      "field": "pct_chg",
+      "value": -8.1,
+      "direction": "support",
+      "note": "AI芯片翱捷科技创历史新高当日-8.10%放量回落=主线龙头顶部反转信号"
+    },
+    "E16": {
+      "level": "L4",
+      "source": "fact_limit_advance_daily",
+      "source_time": "2026-07-16",
+      "entity": "哈药股份",
+      "field": "boards",
+      "value": 5,
+      "direction": "neutral",
+      "note": "高度板5板让位医药哈药，AI缺连板龙头，晋级率7/56=12%偏低"
+    },
+    "E17": {
+      "level": "L4",
+      "source": "fact_theme_limit_heat_daily",
+      "source_time": "2026-07-16",
+      "entity": "人工智能",
+      "field": "limit_up_count",
+      "value": 13,
+      "direction": "support",
+      "note": "涨停热度第一人工智能13家(占30.95%)，但以首板扩散为主"
+    },
+    "R1": {
+      "level": "L2",
+      "source": "strategy1-matrix:双红定义",
+      "source_time": "2026-07-16",
+      "direction": "neutral",
+      "note": "真双红固定规则：pct_chg>0 且 diff_ratio>10 且 amount>500"
+    },
+    "R2": {
+      "level": "L2",
+      "source": "market-overview:市场阶段规则",
+      "source_time": "2026-07-16",
+      "direction": "neutral",
+      "note": "下跌阶段+缩量观望的市场状态判定规则"
+    },
+    "P1": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "688166",
+      "field": "pct_chg",
+      "value": 19.92,
+      "direction": "support",
+      "note": "博瑞医药+19.92%(科创20%涨停)成交19.46亿，创新药方向"
+    },
+    "P2": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "600436",
+      "field": "pct_chg",
+      "value": 10.0,
+      "direction": "support",
+      "note": "片仔癀+10.00%涨停成交23.16亿，中药容量核心"
+    },
+    "P3": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "300251",
+      "field": "pct_chg",
+      "value": 9.52,
+      "direction": "support",
+      "note": "光线传媒+9.52%(未封板)成交27.03亿，传媒影视龙头"
+    },
+    "P4": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "600602",
+      "field": "pct_chg",
+      "value": 10.0,
+      "direction": "support",
+      "note": "云赛智联+10.00%涨停，人工智能/数据中心/AI智能体涨停榜个股"
+    },
+    "P5": {
+      "level": "L4",
+      "source": "fact_stock_daily",
+      "source_time": "2026-07-16",
+      "entity": "300638",
+      "field": "pct_chg",
+      "value": 13.75,
+      "direction": "support",
+      "note": "广和通+13.75%成交11.54亿，AI终端/无线模组补涨"
+    }
+  },
+  "stage": "下跌阶段 第4天｜缩量观望｜结构高低切（科技硬件退潮+防御/应用层占优）",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-16",
+    "metrics": {
+      "advancers": {
+        "value": 2499,
+        "evidence_ref": "E1"
+      },
+      "volume_ratio": {
+        "value": 76.26,
+        "evidence_ref": "E2"
+      },
+      "double_red_count": {
+        "value": 5,
+        "evidence_ref": "E3"
+      },
+      "limit_up": {
+        "value": 42,
+        "evidence_ref": "E4"
+      },
+      "sh_deviation_pct": {
+        "value": -2.03,
+        "evidence_ref": "E5"
+      }
+    },
+    "evidence_refs": [
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5"
+    ]
+  },
+  "main_judgment": "下跌阶段第4天缩量退潮中继：电子/通信在全场最大成交额下放量领跌、历史新高骤降至4家，AI仅剩应用层低位首板扩散(连板断层、高度板让位医药哈药)，资金高低切至医药/传媒/消费防御——是高位拥挤后的结构退潮，非恐慌见底亦非主升。",
+  "direction_ranking": [
+    "医药生物(创新药/AI医疗)",
+    "传媒(AI应用/影视/谷子)",
+    "AI算力应用层(DeepSeek/人工智能/IT服务)"
+  ],
+  "picks": [
+    {
+      "code": "688166",
+      "name": "博瑞医药",
+      "strategy": "策略一·主线(创新药新高集群)",
+      "reason": "医药生物新高集群201家绝对占优(电子仅8)，创新药为防御主线最强分支；博瑞医药科创20%涨停放量19.46亿，绑定新高集群与医药防御占优结构。",
+      "evidence_refs": [
+        "P1",
+        "E13"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "600436",
+      "name": "片仔癀",
+      "strategy": "策略一·主线(中药容量核心)",
+      "reason": "中药板块+1.47%、片仔癀涨停成交23.16亿，作为大市值中药容量核心承接防御性高低切资金，避免追小盘连板妖股。",
+      "evidence_refs": [
+        "P2",
+        "E13"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "300251",
+      "name": "光线传媒",
+      "strategy": "策略一·分歧回流(传媒逆周期)",
+      "reason": "传媒sw_l1+1.66%全场最强、影视院线+4.96%；光线传媒+9.52%未封板、成交27.03亿，非追板且处逆周期最强方向，相对收益属性好。",
+      "evidence_refs": [
+        "P3",
+        "E12"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "600602",
+      "name": "云赛智联",
+      "strategy": "策略一·主线扩散(AI应用首板)",
+      "reason": "双红板块全为AI系(IT服务/多模态/云计算)、涨停热度人工智能13家第一；云赛智联涨停且横跨人工智能/数据中心/AI智能体，国资云AI应用层扩散标的。",
+      "evidence_refs": [
+        "P4",
+        "E3",
+        "E17"
+      ],
+      "evidence_as_of": "2026-07-16"
+    },
+    {
+      "code": "300638",
+      "name": "广和通",
+      "strategy": "策略三·补涨(AI终端模组)",
+      "reason": "消费电子为5个双红之一(diff14.14)、AI眼镜涨停热度在榜；广和通+13.75%放量，AI终端/无线模组低位补涨，硬件杀跌中终端应用层相对独立。",
+      "evidence_refs": [
+        "P5",
+        "E3"
+      ],
+      "evidence_as_of": "2026-07-16"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1(2026-07-17) 涨家数<3500视为弱势广度延续；成交额回升至20日均量31516.65亿上方为量能转正信号(当前24033.87)",
+    "direction": "T+1 真双红板块数≤10视为广度偏弱延续；电子/半导体板块diff为负或跌幅居前视为硬件退潮延续；医药/传媒维持正收益或双红视为防御高低切延续",
+    "targets": "博瑞医药不破40.38(涨停价42.50的-5%)；片仔癀守141.15不破；光线传媒突破14.00；云赛智联守18.26不破；广和通守20.68不破",
+    "falsify": "T+1 出现放量反包(成交额>31516.65亿 且 涨家数>3500 且 电子sw_l1转涨) 即推翻'退潮中继'主判断，转为缩量见底反抽"
+  },
+  "threshold_provenance": {
+    "market": {
+      "origin": "heuristic",
+      "evidence_ref": "E6",
+      "as_of": "2026-07-16"
+    },
+    "direction": {
+      "origin": "fixed_rule",
+      "evidence_ref": "R1",
+      "as_of": "2026-07-16"
+    },
+    "targets": {
+      "origin": "mechanical",
+      "evidence_ref": "P1",
+      "as_of": "2026-07-16"
+    },
+    "falsify": {
+      "origin": "heuristic",
+      "evidence_ref": "E1",
+      "as_of": "2026-07-16"
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "mkt_weakness_persist",
+      "category": "market",
+      "claim": "T+1 大盘延续弱势：成交额仍低于20日均量31516.65亿，涨家数难以站上3500（量能与广度均未修复）",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "E2",
+        "E6",
+        "E7",
+        "R2"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "T+1 成交额>31516.65亿 且 涨家数>3500"
+    },
+    {
+      "id": "dir_hardware_retreat",
+      "category": "direction",
+      "claim": "T+1 电子/半导体板块延续弱势（申万一级跌幅仍居前、diff为负），科技硬件退潮未止",
+      "horizon": "T+1",
+      "confidence": "high",
+      "confidence_probability": 0.7,
+      "evidence_refs": [
+        "E11",
+        "E14",
+        "E15"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "T+1 电子sw_l1涨幅>1% 且 半导体板块转涨"
+    },
+    {
+      "id": "dir_doublered_thin",
+      "category": "direction",
+      "claim": "T+1 真双红板块数维持低位(≤10)，广度难以快速扩张",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.6,
+      "evidence_refs": [
+        "E3",
+        "E4"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "T+1 真双红板块数>15"
+    },
+    {
+      "id": "target_pool_relative",
+      "category": "target",
+      "claim": "标的池5只 T+1 算术平均收益跑赢上证指数（防御+应用层组合在退潮中具相对收益）",
+      "horizon": "T+1",
+      "confidence": "medium",
+      "confidence_probability": 0.55,
+      "evidence_refs": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "evidence_as_of": "2026-07-16",
+      "falsify_when": "标的池T+1均值跑输上证指数超过1个百分点"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-17",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [
+      -9.46,
+      3.88,
+      -7.74,
+      0.93,
+      -3.72
+    ],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-18T11:40:32+08:00"
+  }
+}

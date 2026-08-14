@@ -1,0 +1,280 @@
+# Chat-first Skill Workbench 本地私有站点运行说明
+
+## 定位与边界
+
+当前 Workbench 面向单机或受控私网研究环境。它已有用户目录校验、写入脱敏、
+协作式取消和 Skill 超时，但**尚未提供生产级认证与服务端身份绑定**。因此：
+
+- 只监听 `127.0.0.1`，或置于已有身份认证和网络访问控制之后；
+- 不把端口、临时隧道或反向代理直接暴露到公网；
+- 不将当前页面描述为公共 SaaS 或公开站点；
+- 完成本文末尾全部安全门之前，不使用 `0.0.0.0`。
+
+## 运行环境
+
+- Python 3.10+；CI 使用 Python 3.12。
+- Node.js 22。
+- pnpm 10.12.1（仓库 `packageManager` 固定版本）。
+- 推荐 Linux/macOS；命令以 POSIX shell 为例。
+
+在仓库根目录准备 Python 环境：
+
+```bash
+python3 -m venv .venv-workbench
+source .venv-workbench/bin/activate
+python -m pip install -r intelligence/api/requirements.txt PyYAML "duckdb==1.4.3"
+```
+
+## 构建前端
+
+Vite 将 React 构建结果写入 `intelligence/api/static/`，FastAPI 随后从同一端口
+提供页面和 API。
+
+```bash
+cd intelligence/webapp
+corepack enable
+corepack prepare pnpm@10.12.1 --activate
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+cd ../..
+```
+
+开发前端时可在第二个终端运行 `pnpm dev`；Vite 会把 `/api` 代理到
+`http://127.0.0.1:8788`。日常私有使用优先选择生产构建加单个 FastAPI 进程，
+路径更短，也与验收环境一致。
+
+## 数据与环境变量
+
+### 用户运行时数据
+
+推荐把 `FORESIGHT_USERS_DIR` 指向仓库外、权限为 `0700` 的绝对路径。每个用户
+的持久数据位于该目录下：
+
+```text
+<FORESIGHT_USERS_DIR>/<user_id>/conversations/
+<FORESIGHT_USERS_DIR>/<user_id>/runs/
+```
+
+未配置时默认写入 `intelligence/users/<user_id>/`；该目录已被 Git 忽略，但仓库外
+目录更适合备份、权限隔离和避免误操作。`FORESIGHT_USER` 只设置本地默认用户，
+不是认证机制。
+
+### 研究数据
+
+- 默认仓库根目录由应用源码位置推导。
+- Daily Review / Daily Agent 仅读取
+  `market_feature_store/exports/` 中的 canonical Markdown / JSON。
+- “美股 AI 回撤榜” Skill 从 Alpaca Market Data 读取 IEX 复权日线，展示当日、
+  5 日、10 日涨幅及窗口最大回撤。服务端需由 secret manager 注入
+  `ALPACA_API_KEY_ID` 与 `ALPACA_API_SECRET_KEY`；密钥不能写入 `.env`、前端变量、
+  Run 产物或仓库。标的池配置位于
+  `intelligence/config/us_ai_watchlist.json`，行情缓存按用户写入
+  `<FORESIGHT_USERS_DIR>/<user_id>/market-cache/`。
+- `WORKBENCH_REPO_ROOT` 仅用于显式切换研究数据根目录，例如隔离测试 fixture。
+- 不把会话、Run、DuckDB、凭据或真实用户数据提交到 Git。
+
+### LLM 配置
+
+不设置 LLM key 时，Workbench 会保留真实检索与 Skill 结果，并用确定性模板表达；
+UI 会明确显示“未配置 LLM”。产品默认使用服务端托管的 GLM，可由 secret manager
+注入以下变量，文档不提供任何值：
+
+- `FORESIGHT_BUILTIN_LLM_API_KEY`：默认模型的 GLM Coding Plan 服务端密钥；
+  也兼容既有
+  `ZHIPU_API_KEY` / `GLM_API_KEY`。
+- `FORESIGHT_BUILTIN_LLM_MODEL`：可选，默认 `glm-5.2`。
+- `FORESIGHT_BUILTIN_LLM_BASE_URL`：可选；托管密钥默认使用
+  `https://open.bigmodel.cn/api/coding/paas/v4`，兼容 key 默认使用普通
+  OpenAI-compatible endpoint。
+
+默认模型未配置时，继续兼容原有服务端 provider 自动探测：
+
+- Provider key：`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`KIMI_API_KEY`、
+  `DASHSCOPE_API_KEY`、`QWEN_API_KEY`、`ZHIPU_API_KEY`、`GLM_API_KEY`、
+  `OPENAI_API_KEY`。
+- 通用 OpenAI-compatible gateway：`LLM_API_KEY`。
+- 可选配置：`LLM_BASE_URL`、`OPENAI_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT`、
+  `LLM_THINKING`。
+- Workbench 精修专用配置：`LLM_SYNTHESIS_TIMEOUT`（默认继承
+  `LLM_TIMEOUT`，最终默认 60 秒）、`LLM_SYNTHESIS_MAX_TOKENS`（默认 2200）、
+  `LLM_SYNTHESIS_MAX_CHARS`（默认 16000）、`LLM_SYNTHESIS_THINKING`
+  （默认 `disabled`；显式设为 `enabled` 才开启）。
+
+通用 `LLM_API_KEY` 的优先级高于 provider key；provider key 按应用代码中的固定
+顺序选择。生产环境应只配置预期 provider，密钥只能存在于服务端 secret manager
+或进程环境，不能写入仓库、日志、浏览器变量或前端构建产物。
+
+“模型连接”面板还支持会话级 BYOK。用户密钥只保存在当前服务进程的内存中，
+按用户隔离，不进入磁盘、Conversation、Run、日志或响应；服务重启后自动清除。
+首版只开放固定的 HTTPS provider endpoint，不接受任意 Base URL，避免把 BYOK
+接口变成访问内网地址的 SSRF 入口。
+
+### Agent Runtime backend
+
+`AGENT_RUNTIME_BACKEND` 显式选择长尾研究的执行内核；不设置时保持
+`continuous_glm`。支持值：
+
+- `continuous_glm`：仓库自建的连续 Episode 对照组；
+- `sdk_glm`：OpenAI Agents SDK 承载工具循环，模型仍使用托管 GLM；
+- `sdk_gpt`：同一 SDK/工具/verifier 合同，模型改用 `OPENAI_API_KEY` 和
+  `OPENAI_AGENT_MODEL`；
+- `codex_headless`：调用本机 Codex CLI 的质量上界对照，只允许隔离 benchmark，
+  还必须设置 `AGENT_RUNTIME_BENCHMARK_ENABLE=1`。在 Codex Desktop 已提供本地
+  `/api/exec` 路由时，可再设置 `CODEX_HEADLESS_TRANSPORT=local_exec`，让 CLI
+  通过当前已登录的本地会话执行，不需要 `OPENAI_API_KEY`；`CC_EXEC_TOKEN`
+  只能由本地进程环境注入，禁止写进脚本或仓库。
+
+SDK 是嵌入 Python 进程的 agent 执行库；headless 是启动一个没有图形界面的完整
+Codex CLI 子进程。前者适合垂直产品生产集成，后者只用于判断自建 runtime 与成熟
+harness 的质量差距。所有 backend 共用同一 TaskFrame、只读工具白名单、预算、
+结构/语义 verifier、Conversation/Run/SSE/UI。backend 不可用时 readiness 失败，
+禁止静默切换到其他 backend，否则 A/B 结果和费用归属都会失真。
+
+本地 Codex 路由的隔离 benchmark 示例（由已登录的 Codex Desktop 环境启动，
+不复制 token）：
+
+```bash
+AGENT_RUNTIME_BENCHMARK_ENABLE=1 \
+CODEX_HEADLESS_TRANSPORT=local_exec \
+CODEX_HEADLESS_BIN=/Applications/ChatGPT.app/Contents/Resources/codex \
+python scripts/run_agent_runtime_benchmark.py \
+  --backend codex_headless \
+  --questions-file intelligence/tests/fixtures/runtime_backend_cases.json \
+  --finance-root /Users/a77/finance-workspace-private \
+  --knowledge-wiki "/Users/a77/Desktop/c c/知识库/wiki" \
+  --output /Users/a77/.finance-runtime/evals/codex-headless-local-exec.json
+```
+
+`local_exec` 只改变 Codex CLI 的进程传输方式；金融工具仍通过本轮专属
+`HeadlessToolGateway`，工具白名单、预算、证据和出口 verifier 不变。若路由返回
+额度或认证错误，arm 必须记录失败，不能回退到 GLM。
+
+启动 `sdk_glm` 的示例（密钥值由进程环境或 Keychain 注入，不写入脚本）：
+
+```bash
+AGENT_RUNTIME_BACKEND=sdk_glm \
+ASK_CONTINUOUS_RUNTIME=on \
+FINANCE_WS=/Users/a77/finance-workspace-private \
+python -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8796
+```
+
+冻结九题 benchmark 必须显式传代码之外的真实数据根。runner 会在任何模型调用前
+检查 DuckDB 最新日期；数据早于题集 `as_of` 时 fail-closed，不再用旧快照冒充当前
+证据：
+
+```bash
+python scripts/run_agent_runtime_benchmark.py \
+  --backend continuous_glm \
+  --backend sdk_glm \
+  --questions-file intelligence/tests/fixtures/runtime_backend_cases.json \
+  --finance-root /Users/a77/finance-workspace-private \
+  --knowledge-wiki "/Users/a77/Desktop/c c/知识库/wiki" \
+  --output /Users/a77/.finance-runtime/evals/agent-runtime-backends.json
+```
+
+回滚只需在隔离进程中恢复 `AGENT_RUNTIME_BACKEND=continuous_glm` 并重启；不要在
+同一进程内按单题自动 fallback。切换 canonical 8792 仍须走本文和
+`canonical-8792-cutover.md` 的 clean revision、readiness、数据新鲜度与回滚门禁。
+
+## 启动
+
+先配置所需的非敏感目录变量和可选的服务端 LLM secret，再从仓库根目录执行：
+
+```bash
+python -m uvicorn intelligence.api.app:app \
+  --host 127.0.0.1 \
+  --port 8788
+```
+
+打开 `http://127.0.0.1:8788`。本地首版使用进程内 worker；不要启动多个 Uvicorn
+worker 共享同一用户目录，否则当前单进程锁和取消信号无法提供跨进程保证。
+
+### a77 canonical runtime
+
+a77 Mac 只保留一个长期 Workbench 进程：
+
+- canonical 端口为 `8792`；
+- 代码入口必须是 `/Users/a77/finance-workspace-runtime`，且该软链指向
+  最新 `main` 的只读运行 worktree；
+- `WORKBENCH_REPO_ROOT`、`FINANCE_WS` 指向 canonical 数据仓库，
+  `FORESIGHT_USERS_DIR` 指向仓库外的持久用户目录；
+- `8791`、`8795`、`8797`、`8798` 只允许用于短期 PR 验收，验收结束后必须停止，
+  不得与 canonical 进程同时长期运行；
+- 模型密钥只由 LaunchAgent 或 secret manager 注入，禁止复制到脚本、plist、
+  日志或仓库。
+
+发布前先确认运行 worktree 的 commit 与 `origin/main` 一致，再重启 `8792`；不得让
+某个功能分支或 detached PR 验收目录长期充当 canonical runtime。
+
+## 健康检查
+
+页面、Skill Registry 和 readiness 都返回成功，才视为可用：
+
+```bash
+curl --fail --silent --output /dev/null http://127.0.0.1:8788/
+curl --fail --silent http://127.0.0.1:8788/api/skills | python -m json.tool
+curl --fail --silent http://127.0.0.1:8788/api/health/ready | python -m json.tool
+```
+
+第二条应返回包含 `daily-review`、`daily-agent` 与 `us-ai-drawdown` 的 JSON
+数组。可在 Workbench 输入“生成美股 AI 阵营最近 30 个交易日最大回撤排序”验证
+结构化榜单。若根路径返回 `503`，先在 `intelligence/webapp` 运行
+`pnpm build`。readiness 会把
+`market_snapshot` 作为关键研究数据检查；目录缺失时返回 `503 not_ready`，并在
+`missing_critical` 中列出缺口，不能再把“页面能打开”误报成完整可用。
+
+## Self-use 真实运行 smoke
+
+服务启动后，用 smoke 脚本创建一个 Conversation、发送 hybrid mode 问题、消费并
+按 cursor 重放 SSE、检查终态与结构化 report：
+
+```bash
+python scripts/smoke_workbench_self_use.py \
+  --base-url http://127.0.0.1:8788 \
+  --user linxiaoqi5111 \
+  --question "今天市场怎么样" \
+  --timeout 180 \
+  --output /tmp/workbench-self-use-smoke.json
+```
+
+输出 JSON 只保存聚合状态、Run ID、事件计数、report/model 元数据和 secret scan
+结果；不保存问题正文、回答正文、完整 citation、Authorization header、API key
+或用户私有路径。secret scan 仅扫描 RunStore/ConversationStore 已脱敏后的响应
+字符串，命中时只记录字段位置和 marker 类型，不回显原值。summary 使用同目录
+临时文件、`fsync` 和原子替换写入。
+
+退出码：
+
+- `0`：Run completed，包含显式 degraded completed；
+- `1`：Run failed 或 cancelled；
+- `2`：HTTP/SSE/report 协议异常，或 secret scan 命中。
+
+## 公开部署前的安全门
+
+以下项目必须全部设计、实现、测试并经过安全评审；当前代码中的路径校验和脱敏
+只是纵深防御，不能替代这些边界：
+
+1. **认证与会话**：接入 OIDC/OAuth2 或受信反向代理，使用安全 cookie、CSRF
+   防护、TLS、短会话和撤销机制；所有 API 与 SSE 都必须鉴权。
+2. **服务端推导用户**：`user_id` 必须来自已验证 token/session 的不可变 claim；
+   忽略并拒绝客户端 query/body 中自报的 `user`，同时校验会话、Run 和 artifact
+   的所有权。
+3. **用户隔离**：为每个租户设置独立 namespace、文件权限和备份边界；增加跨用户
+   IDOR 测试，禁止通过路径、ID、SSE cursor 或 artifact 下载越权。
+4. **限流与费用控制**：按用户和组织限制请求速率、并发 Run、输入长度、输出
+   token、每轮 Skill 数和日/月预算；provider 调用前后记录可结算用量并设置熔断。
+5. **队列、取消与超时**：将进程内线程池替换为可恢复的持久任务队列；加入幂等
+   key、并发上限、重试/死信策略，并把取消和超时传播到 Skill、检索和 LLM 网络。
+6. **服务端密钥**：使用 secret manager 注入、最小权限、轮换和 provider 出站
+   allowlist；禁止将密钥放入 `VITE_` 变量、响应、trace、artifact 或错误详情。
+7. **审计、脱敏与保留**：记录身份、操作、资源、结果和费用但不记录 secret；
+   对 prompt、引用、错误、SSE、日志和下载统一脱敏，并定义保留、导出、删除和
+   安全事件告警流程。
+8. **网络与运行隔离**：使用 TLS、安全响应头、可信代理列表、CORS allowlist、
+   容器/系统用户最小权限，以及按租户控制的存储和备份加密。
+
+只有安全门全部通过后，才可评估公网域名和多用户部署；在此之前，本服务保持
+“本地/私有站点”定位。
