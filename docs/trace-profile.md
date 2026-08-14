@@ -119,7 +119,12 @@
 `runtime-benchmark` 按 kind 精确查表（`_BENCHMARK_STEPS`），无顺序依赖；前两类按
 子串匹配，故有顺序。
 
-> ⚠️ **本表的 `codex-rollout` 行当前对真产物不成立（2026-08-15 实测）**。表里那些子串
+> ✅ **已修（2026-08-15，`R-20260815-05`）**：`_codex_mapping` 与 `_source_event_type` 现在共用
+> `_codex_semantic_type()`，先读 `item.type` 再读 `payload.type`，两种落盘形状都认。同一份真
+> rollout 的 `unmapped` 由 264 降至 53（`tool`/`observe` 各 42 配平），剩余 53 以 `token_count`
+> 遥测为主，按契约保持 unmapped。下面这段是修复前的记录，保留作陷阱溯源：
+>
+> ~~**本表的 `codex-rollout` 行当前对真产物不成立（2026-08-15 实测）**~~。表里那些子串
 > （`function_call`、`_call_output` 等）在真 `rollout-*.jsonl` 里位于 `payload.type`，
 > 而 `_codex_mapping` 只在顶层 `type` 与 `record["item"]["type"]` 里找它们。**这正是
 > 本节下文「本表与代码分歧即缺陷」的一次现场**——分歧方是代码：表描述的是
