@@ -356,9 +356,12 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
     text = str(stdout or "").strip()
     if not text:
         return []
-    parsed = _try_parse_json_items(source_type, text)
-    if parsed:
-        return parsed
+    # 载荷是合法 JSON 时，「解析出 0 条」是**结论**（这家公司近 N 天没有够格的
+    # 公告），不是「解析失败」。这两件事以前共用一个 falsy 分支，于是 CLI 正常
+    # 返回 `[]` 会一路落到下面的纯文本兜底，把第一行 `[` 当成证据标题——凭空造出
+    # 一条假证据。空集该走 to_prompt_block 的空集措辞，那是它专门写好的路径。
+    if _decode_json_payload(text) is not None:
+        return _try_parse_json_items(source_type, text)
     lines = [_squash(line, 220) for line in text.splitlines() if line.strip()]
     if not lines:
         return []
@@ -370,6 +373,27 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
     title = lines[0]
     summary = "；".join(lines[:4])
     return [L3EvidenceItem(source_type=source_type, title=title, summary=summary, citation="runtime cli")]
+
+
+# 上游 disclosure_lookup 的 triage 打分器分 P0–P3，而它**自己的**证据管线
+# （finhot `disclosure_lookup/evidence_card.py`：「过滤 P0/P1 → 生成证据卡候选，
+# P2/P3 跳过」）只认 P0/P1。这里跟同一口径。
+#
+# 不跟会怎样（2026-08-14 实测）：运行时模板要了 `--sort triage` 却没要 `--level`，
+# 于是「本公司近 90 天没有相关公告」这个事实，被降格成「返回 5 条按分数排序的
+# 治理噪声」——董事会决议、股权激励调价、权益分派，`matched_keywords` 全空。
+# 一次英维克公司题因此捞回 45 条 l3 证据、绑进答案 0 条：标题撑不起任何引用，
+# 模型不引用它们是对的。副作用比「没用上」更糟——它们照样计进证据数，让
+# 「检索到 45 条」看起来很健康，还占着 prompt 预算。
+#
+# 空结果不是降级：`L3EvidenceBundle.to_prompt_block` 对空集有专门措辞
+# （「未取得可注入的 L3 证据；读作公司端尚未兑现……不得据此否定题材」），
+# 那才是这种情况该走的路径。
+#
+# **fail-open**：只有上游明确标了 P2/P3 才丢。没有 triage_level 字段的源
+# （互动易、以及不带该字段的历史/测试载荷）一律保留——门禁只该拦它认得出的
+# 低信号，不该因为字段缺失就误杀。
+_LOW_SIGNAL_TRIAGE_LEVELS = frozenset({"P2", "P3"})
 
 
 def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
@@ -386,6 +410,8 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
     out: list[L3EvidenceItem] = []
     for row in rows:
         if not isinstance(row, dict):
+            continue
+        if str(row.get("triage_level") or "").strip().upper() in _LOW_SIGNAL_TRIAGE_LEVELS:
             continue
         actual_source = str(
             row.get("source_type")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,7 @@ from intelligence.services.answer_orchestrator import (
 )
 from intelligence.services.ask import AskOptions, answer_query
 from intelligence.services.l3_evidence import (
+    _try_parse_json_items,
     L3LookupConfig,
     L3EvidenceBundle,
     L3EvidenceGap,
@@ -427,6 +429,70 @@ class AskL3IntegrationTests(unittest.TestCase):
         self.assertTrue(result.l3_evidence.items)
         self.assertIn("L3 官方证据工具补查", captured["prompt"])
         self.assertIn("瑞华泰公告", captured["prompt"])
+
+
+class L3TriageLevelFilterTests(unittest.TestCase):
+    """P2/P3 是上游自己判的低信号档，不该被当成证据端上来。
+
+    2026-08-14 实测：运行时模板要了 --sort triage 却没要 --level，于是
+    「近 90 天没有相关公告」被降格成「5 条按分数排序的治理噪声」，
+    一次公司题捞回 45 条 l3 证据、绑进答案 0 条。
+    """
+
+    def _rows(self, *levels: str) -> str:
+        rows = [
+            {
+                "title": f"公告{idx}",
+                "summary": f"公告{idx}正文摘要，含订单与客户口径。",
+                "url": f"https://www.cninfo.com.cn/example{idx}",
+                "source": "cninfo",
+                **({"triage_level": lv} if lv else {}),
+            }
+            for idx, lv in enumerate(levels, start=1)
+        ]
+        return json.dumps(rows, ensure_ascii=False)
+
+    def test_p2_p3_rows_are_not_minted_as_evidence(self) -> None:
+        items = _try_parse_json_items("cninfo", self._rows("P2", "P3"))
+        self.assertEqual(items, [])
+
+    def test_p0_p1_rows_survive(self) -> None:
+        items = _try_parse_json_items("cninfo", self._rows("P0", "P1"))
+        self.assertEqual(len(items), 2)
+
+    def test_rows_without_triage_level_are_kept_fail_open(self) -> None:
+        """字段缺失时保留：门禁只拦它认得出的低信号，不因缺字段误杀。"""
+        items = _try_parse_json_items("cninfo", self._rows("", ""))
+        self.assertEqual(len(items), 2)
+
+    def test_triage_filter_is_load_bearing(self) -> None:
+        """变异测试：同一批载荷只改 triage_level，产出必须不同。
+
+        没有这条，任何人把过滤删掉都不会有测试变红。
+        """
+        noisy = _try_parse_json_items("cninfo", self._rows("P2", "P2"))
+        same_rows_unlabelled = _try_parse_json_items("cninfo", self._rows("", ""))
+        self.assertEqual(len(noisy), 0)
+        self.assertEqual(len(same_rows_unlabelled), 2)
+
+
+    def test_empty_json_result_does_not_mint_fake_evidence(self) -> None:
+        """CLI 合法返回空集时，不得落到纯文本兜底把 `[` 当成证据标题。
+
+        这是先于 triage 过滤就存在的缺陷：`if parsed:` 把「JSON 解析出 0 条」
+        和「不是 JSON」并成了一个 falsy 分支。
+        """
+        from intelligence.services.l3_evidence import _parse_lookup_output
+
+        self.assertEqual(_parse_lookup_output("cninfo", "[]"), [])
+        self.assertEqual(_parse_lookup_output("cninfo", self._rows("P2")), [])
+
+    def test_non_json_output_still_falls_back_to_text(self) -> None:
+        """兜底本身要留着：真的不是 JSON 时仍按行解析。"""
+        from intelligence.services.l3_evidence import _parse_lookup_output
+
+        items = _parse_lookup_output("cninfo", "瑞华泰公告：签订重大采购合同")
+        self.assertTrue(items)
 
 
 if __name__ == "__main__":
