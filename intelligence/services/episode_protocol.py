@@ -44,6 +44,9 @@ class EpisodeFinish:
     draft: str
     gaps: tuple[str, ...]
     bindings: tuple[OutputEvidenceBinding, ...]
+    # EVAL_ONLY：本次把 hashes+gap 滑档挪到顶层 gaps 的格数。
+    # 无滑档时为 0，字段仍在场。不参与任何判定。
+    caveat_slips: int = 0
 
 
 def finish_json_schema() -> dict[str, object]:
@@ -537,11 +540,13 @@ def validate_episode_finish(
     # 把那一格判 missing。
     relocated_gaps: list[str] = []
     normalized_bindings: list[OutputEvidenceBinding] = []
+    caveat_slips = 0
     for binding in bindings:
         caveat = binding.gap.strip()
         if binding.evidence_hashes and caveat:
             relocated_gaps.append(caveat)
             normalized_bindings.append(replace(binding, gap=""))
+            caveat_slips += 1
         else:
             normalized_bindings.append(binding)
     bindings = normalized_bindings
@@ -572,6 +577,7 @@ def validate_episode_finish(
         draft=draft,
         gaps=gaps,
         bindings=tuple(bindings),
+        caveat_slips=caveat_slips,
     )
 
 
