@@ -39,29 +39,42 @@ jobs:
         working-directory: intelligence/webapp
         run: pnpm exec playwright install --with-deps chromium
 
+      # 以下检查步骤一律 !cancelled()：默认的 fail-fast 会让前一步红时后面整片
+      # 步骤变成 skipped，而 skipped 在 UI 和 API 里都不是失败——门禁看着「还没
+      # 结论」，实际是从未执行。2026-07-18 到 08-13 main 连红 142 次期间，pytest
+      # 一直红，排在它后面的 E2E 因此 26 天没被跑过一次；那段时间落地的验收门禁
+      # 改动（431ebcdb 并入的那条线）把追问答案打成缺口页，没有任何信号。
+      # 安装/准备类步骤仍然 fail-fast——它们挂了后面本来就无从执行。
       - name: Lint Python with Ruff
+        if: ${{ !cancelled() }}
         run: python -m ruff check .
 
       - name: Test Python packages
+        if: ${{ !cancelled() }}
         run: python -m pytest -q
 
       - name: Lint frontend
+        if: ${{ !cancelled() }}
         working-directory: intelligence/webapp
         run: pnpm lint
 
       - name: Typecheck frontend
+        if: ${{ !cancelled() }}
         working-directory: intelligence/webapp
         run: pnpm typecheck
 
       - name: Test frontend components
+        if: ${{ !cancelled() }}
         working-directory: intelligence/webapp
         run: pnpm test
 
       - name: Build production frontend
+        if: ${{ !cancelled() }}
         working-directory: intelligence/webapp
         run: pnpm build
 
       - name: Test Workbench end to end
+        if: ${{ !cancelled() }}
         working-directory: intelligence/webapp
         env:
           WORKBENCH_PYTHON: python

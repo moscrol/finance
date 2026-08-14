@@ -37,8 +37,12 @@ jobs:
           python -m pip install pytest duckdb==1.4.3
           python -m pip install -r skills/report-search/scripts/requirements.txt
 
+      # 两条测试互不依赖，一律 !cancelled()：默认 fail-fast 下前一条红会把后一条
+      # 变成 skipped，而 skipped 不是失败，等于这条回归没跑却也没人知道。
       - name: Test delta import/export data contract
+        if: ${{ !cancelled() }}
         run: python -m pytest -q tests/test_db_delta.py
 
       - name: Test report-search
+        if: ${{ !cancelled() }}
         run: python -m pytest -q skills/report-search/scripts/test_basic.py
