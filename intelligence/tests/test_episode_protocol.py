@@ -6,7 +6,12 @@ import json
 import pytest
 
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
-from intelligence.services.agent_runtime import OutputEvidenceBinding
+from intelligence.services.agent_runtime import (
+    AgentOutcome,
+    AgentUsage,
+    EpisodeEvent,
+    OutputEvidenceBinding,
+)
 from intelligence.services.episode_protocol import (
     EpisodeFinish,
     build_episode_input,
@@ -14,6 +19,7 @@ from intelligence.services.episode_protocol import (
     finish_json_schema,
     validate_episode_finish,
 )
+from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import EvidencePlan
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -442,16 +448,13 @@ def _context_with_evidence_boundary(frame: TaskFrame) -> ResearchRunContext:
 
 
 def test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat() -> None:
-    """有证据支撑的附带 gap 不得作废整份答案。
+    """有证据支撑的附带 gap 不得作废整份答案，限制挪到顶层 gaps。
 
-    2026-08-10 live 实测：``evidence_boundary`` 带 2 条证据哈希、顶层 gaps 已写同一
-    条限制，模型又在 ``binding.gap`` 里抄了一份。契约（``episode_protocol`` 第
-    204-206 行）确实要求这种限制只写顶层，所以模型是**格式滑档**——但旧判定把它
-    等同于「必需输出缺失」，��是 508 字符、5 格全绑证据的答案连续两轮整份作废，
-    收据里只剩 ``draft_chars=0``。
-
-    同一个事实在 ``episode_verifier.py:115`` 只降级为 partial 且保留草稿。这里锁住
-    更宽松的那一侧：答案保住，gap 原样留在 binding 里继续供下游降级。
+    2026-08-10 live 实测：``evidence_boundary`` 带证据哈希、顶层 gaps 已写同一
+    条限制，模型又在 ``binding.gap`` 里抄了一份。契约要求这种限制只写顶层，
+    所以这是格式滑档。08-10 先锁住「不要因此作废整份 FINAL_JSON」。
+    08-15 补完第二步：把附带限制挪到顶层 ``gaps`` 并清空 ``binding.gap``，
+    否则全格滑档时 verifier 会把已绑 hashes 全部丢掉，交付证据=0。
     """
 
     frame = _frame()
@@ -481,11 +484,62 @@ def test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat() -> N
 
     assert finish.status == "completed"
     assert finish.draft == "基准判断：偏强震荡，冲高回落风险同步上升。"
-    # 留痕不可省：下游 verifier 靠这条 gap 把该格判 missing 并降级为 partial。
     boundary = next(
         item for item in finish.bindings if item.output_id == "evidence_boundary"
     )
-    assert boundary.gap == "缺少同一时间窗口的新闻证据。"
+    assert boundary.gap == ""
+    assert boundary.evidence_hashes == ("market-hash",)
+    assert "缺少同一时间窗口的新闻证据。" in finish.gaps
+
+
+def test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill() -> None:
+    """R7-A7 形状：两格都是 hashes+gap 时，normalize 后 verifier 能 fulfilled。"""
+
+    frame = _frame()
+    context = _context_with_evidence_boundary(frame)
+    finish = validate_episode_finish(
+        {
+            "status": "partial",
+            "draft": "基准判断：偏强震荡。证据边界：同日盘面可核验，新闻缺口另列。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "技术定义检索超时，盘面判断仍有同日数据。",
+                },
+                {
+                    "output_id": "evidence_boundary",
+                    "evidence_hashes": ["market-hash"],
+                    "gap": "没有同日新闻证据。",
+                },
+            ],
+        },
+        context=context,
+        evidence=_evidence(),
+    )
+
+    assert all(not item.gap for item in finish.bindings)
+    assert "技术定义检索超时，盘面判断仍有同日数据。" in finish.gaps
+    assert "没有同日新闻证据。" in finish.gaps
+
+    outcome = AgentOutcome(
+        task_frame_hash=context.contract.task_frame_hash,
+        status="partial",
+        draft=finish.draft,
+        evidence=_evidence(),
+        traces=(),
+        gaps=finish.gaps,
+        stop_reason="repair_model_stop",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": context.contract.task_frame_hash}),),
+        bindings=finish.bindings,
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    verified = verify_episode_outcome(context.contract, outcome)
+    assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
+    assert not any(
+        issue.startswith("required output reports gap:") for issue in verified.issues
+    )
 
 
 def test_validate_finish_still_rejects_gap_without_any_evidence() -> None:
