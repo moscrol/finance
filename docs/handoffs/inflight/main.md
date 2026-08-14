@@ -2,6 +2,10 @@
 
 > 指针（2026-08-13）：复盘会资产线**代码已收口**，完工快照 `docs/handoffs/2026-08-13-fupanhui-public-assets-and-consume.md`。dragon 双表主库回补已完成（summary 390/390、seats 近 60 日 44932 行），两表已进 `GAP_TABLES` 断档门禁。
 
+更新：2026-08-14 16:30 CST · #345/#346/#347 已合 origin/main，**尚未切 8792**。完工快照：
+`docs/handoffs/2026-08-14-smoke-gap-anchor.md`、
+`2026-08-14-l3-evidence-title-only.md`、
+`2026-08-14-tool-observability.md`。
 更新：2026-08-13 17:10 CST · #327 缺口镜像已部署，R25 生产判决通过
 
 ## 这个分支做什么
