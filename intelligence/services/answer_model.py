@@ -1132,7 +1132,19 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
                 "弱证据主张包含硬确定性措辞。",
             )
         )
-    if any(claim.theme != answer_spec.research_spec.theme for claim in all_claims):
+    # 缺口主张说的是「本轮还缺什么」，不下结论，也不可能把回答绑定到别的题材——
+    # 而污染判定要防的正是后者（真实事故：问科创50支撑位返回半导体/AI 算力题材
+    # 模板）。跨轮沿用研究上下文时，同一句缺口会既以本轮题材、又以上一轮题材各出
+    # 一条：实测个股深挖追问里 gap:6（theme=英维克）与 gap:7（theme=液冷）正文
+    # 一字不差，仅题材不同。把 MISSING 主张也算进来，那条残留题材就会让 17 条
+    # 主张里 16 条同题材的答案整份判污染，被渲染层 fail-closed 成缺口页，连带丢掉
+    # 已经绑定证据的公司事实。
+    asserted_claims = tuple(
+        claim for claim in all_claims if claim.status != ClaimStatus.MISSING
+    )
+    if any(
+        claim.theme != answer_spec.research_spec.theme for claim in asserted_claims
+    ):
         issues.append(
             QualityIssue(
                 "theme_contamination",
