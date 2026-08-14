@@ -9,7 +9,7 @@ CLI 合法返回空集时凭空造出一条假证据。
 
 ## 当前状态
 
-- 已提交 `f12df8fe`，工作区干净，未 push、未合 main。
+- 已提交 `88179fe2`（rebase 到 origin/main 后），工作区干净，待 CI 绿合并。
 - ① 解析层按 `triage_level` 丢弃 P2/P3，**fail-open**：只有上游明确标了才丢，
   没这个字段的源（互动易、历史/测试载荷）一律保留。口径不是拍的——上游
   finhot `disclosure_lookup/evidence_card.py` 自己就写着「P0/P1 生成证据卡，P2/P3 跳过」。
@@ -25,11 +25,13 @@ CLI 合法返回空集时凭空造出一条假证据。
 - `--level P0,P1` 直查同样是 0 条，佐证「确实没有够格公告」不是过滤过头。
 - 全量 `intelligence/tests + tests` **4819 passed / 4 skipped**；ruff check 通过。
 - 新增 6 条测试，含 2 条变异测试。
+- **不误杀已实测**（2026-08-14，真实 CLI）：双良节能 `--days 90 --source cninfo`
+  共 21 条（1 P0 中标结果公告 + 16 P2 + 4 P3），过滤后恰好保留那条 P0，
+  治理噪声全部退出。
 
 ## 未验证 / 已知边界
 
-- **只验了 cninfo 一个源、英维克一家公司。** 互动易（sse_einteract）没有
-  `triage_level`，走 fail-open 保留，未实测。
+- 互动易（sse_einteract）没有 `triage_level`，走 fail-open 保留，未实测。
 - 未验证「过滤后 L3 证据变少」对答案质量的净影响——理论上空集措辞比噪声更有用，
   但没跑 A/B。
 - 命令模板 `FINANCE_L3_COMPANY_CMD` 仍在 launcher 的 env 里，**没动**；判据放在
@@ -37,7 +39,7 @@ CLI 合法返回空集时凭空造出一条假证据。
 
 ## 下一步
 
-1. 跑一家**有** P0/P1 公告的公司（如近期有订单/中标公告的），确认没被误杀。
+1. ~~跑一家有 P0/P1 公告的公司确认不误杀~~ 已完成（双良节能，见「已验证」）。
 2. 合并后重跑证据消费率：l3_lookup 那 19 条 100% 成功的噪声退出证据池后，
    分母不再被灌水，`scripts/audit_episode_tool_outcomes.py` 的读数会变。
 
