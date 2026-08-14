@@ -25,6 +25,16 @@ permissions:
 jobs:
   data-quality-check:
     runs-on: ubuntu-latest
+    # conftest.py 的解释器守卫按「必需依赖在不在」判，required_modules 是整套
+    # workbench 的（fastapi/agents/yaml/uvicorn/duckdb/pytest/ruff）。本工作流刻意
+    # 只装 pytest + duckdb + report-search 那几个，于是每次都被守卫以 exit 4 拦在
+    # 收集之前——两条测试根本没跑，报的却是「解释器用错了，应当使用
+    # .venv-workbench/bin/python」，那个路径在 runner 上并不存在。守卫要防的是本机
+    # 用错解释器导致失败数虚高（71 vs 14），这里不适用：依赖窄是本工作流的设计。
+    # 用它自带的正规逃生阀，绕过时仍打印横幅、并在读数收据里记
+    # dependency_gate_bypassed，不会静默。
+    env:
+      FWP_ALLOW_ANY_PYTHON: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -37,8 +47,12 @@ jobs:
           python -m pip install pytest duckdb==1.4.3
           python -m pip install -r skills/report-search/scripts/requirements.txt
 
+      # 两条测试互不依赖，一律 !cancelled()：默认 fail-fast 下前一条红会把后一条
+      # 变成 skipped，而 skipped 不是失败，等于这条回归没跑却也没人知道。
       - name: Test delta import/export data contract
+        if: ${{ !cancelled() }}
         run: python -m pytest -q tests/test_db_delta.py
 
       - name: Test report-search
+        if: ${{ !cancelled() }}
         run: python -m pytest -q skills/report-search/scripts/test_basic.py
