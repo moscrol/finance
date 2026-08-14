@@ -1,0 +1,862 @@
+{
+  "generated_at": "20260814T150223Z",
+  "base": "http://127.0.0.1:8792",
+  "preflight_ok": true,
+  "preflight_detail": "revision=5b456532 backend=continuous_glm",
+  "cases": [
+    {
+      "case_id": "B1-theme-photoresist",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "光刻胶",
+          "answer": "关于“光刻胶”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。本轮已取得 19 条证据，但未完成核验绑定，暂不能引用；可直接重试。证据数据截至 2026-08-14；缺口补齐后可复验。",
+          "run_id": "run_20260814_224652_671640",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 66.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B2-theme-liquid-cooling",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "液冷",
+          "answer": "但截至观察日，缺少主题当日涨跌、资金流、成交及高标数据，不能确认它是否正处于资金主线或启动阶段。\n已见到数据中心冷站压缩机产品的业务关联证据；公司映射仍应优先核验公告、客户认证、订单和收入确认，不能把概念归类等同于业绩受益。\n失效条件是：AI数据中心建设放缓、液冷渗透低于预期，或项目仅停留在方案和试点而未形成可复制交付。\n主要反证包括：冷板与浸没式等路线的选择仍会影响价值量归属；外部研究中关于业绩拐点和订单节奏的表述仍属待验证线索，不应视为既成事实。\n证据缺口：直接回答用户问题并说明判断强度、chain_mapping中的未核验表述已删除，需补充直接证据后再判断。",
+          "run_id": "run_20260814_224759_084611",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "英维克_002837_最新逻辑卡_20260613",
+              "source": "知识库/sources/英维克_002837_最新逻辑卡_20260613.md",
+              "date": "2026-06-13"
+            },
+            {
+              "title": "英维克_最新逻辑卡_20260604",
+              "source": "知识库/sources/英维克_最新逻辑卡_20260604.md",
+              "date": "2026-06-04"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 知识库/sources/英维克_002837_最新逻辑卡_20260613.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "英维克_002837_最新逻辑卡_20260613",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 知识库/sources/英维克_最新逻辑卡_20260604.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "英维克_最新逻辑卡_20260604",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 187.4,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B3-theme-solid-state-battery",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "固态电池",
+          "answer": "关于“固态电池”，现有证据不足，暂不能可靠回答。仍需核验：直接回答用户问题并说明判断强度、chain_mapping、提供主要反证或竞争性解释。本轮已取得 16 条证据，但未完成核验绑定，暂不能引用；可直接重试。",
+          "run_id": "run_20260814_225106_544685",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 70.5,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B4-fermentation-trace",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n这里将“双红”暂按“板块上涨且边际成交同步转正”理解。基准判断：7月23日电网设备更像是“已有特高压/电网投资预期底座，前一日细分标的先行，随后在资金由半导体等方向切换时被放大”的共振日，而非目前已能证实由某一条当日新闻单独触发，判断强度中等。\n链路可回溯为：第一层，特高压建设、订单与交付预期此前已是市场持续跟踪的产业线索，但现有材料多含研究判断，不能把它视为7月23日的直接因果。第二层，7月17日至20日板块下跌时边际成交仍为正，7月22日板块口径偏弱但日丰股份、长缆科技、华通线缆、亿能电力、扬电科技等已明显走强，说明资金先在电缆、配网和变压器等细分试错。第三层，7月23日板块在两个统计口径下分别上涨5.88%和6.65%，边际成交分别为58.6和55.2；中能电气、双杰电气、金冠股份等创业板标的，以及金盘科技、汉缆股份、保变电气等不同市值标的同步大涨，才完成从细分先行到全板块扩散的“双红”。\n主要反证是风格切换而非纯产业重估：当日市场处于反弹阶段但缩量观望，电力设备为成交第二行业；半导体走弱，AI算力相关方向亦偏弱，说明资金轮动提供了重要放大器。且电网投资执行、特高压落地及客户招标节奏仍是后续风险。因此，只有后续板块成交维持活跃、非小盘标的继续跟随、并有招标或订单等一手增量验证，才能把这次共振上调为产业主升；若量能回落且核心大票掉队，则应按一次高弹性轮动处理。",
+          "run_id": "run_20260814_225217_025230",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "板块成分股日频行情（2026-07-23）",
+              "source": "本地结构化数据 · 板块成分股日频行情",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "板块日频行情（2026-07-23）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "板块日频行情（2026-07-17）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-17"
+            },
+            {
+              "title": "板块日频行情（2026-07-20）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-20"
+            },
+            {
+              "title": "板块日频行情（2026-07-22）",
+              "source": "本地结构化数据 · 板块日频行情",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "板块成分股日频行情（2026-07-22）",
+              "source": "本地结构化数据 · 板块成分股日频行情",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "平高电气_最新逻辑卡",
+              "source": "知识库/sources/平高电气_最新逻辑卡.md",
+              "date": ""
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 10,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 板块成分股日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块成分股日频行情（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-17）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-20）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 本地结构化数据 · 板块日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块日频行情（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 本地结构化数据 · 板块成分股日频行情",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "板块成分股日频行情（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 知识库/sources/平高电气_最新逻辑卡.md",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "平高电气_最新逻辑卡",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "9 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 235.9,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B5-cross-table-intersection",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+          "answer": "半导体不满足：其覆盖的存储芯片、半导体设备及半导体板块当日均下跌且资金净流出。因此“前四”若按不同的涨停热度原始榜单而非主线排序定义，结论需以该榜单复核。\n证据仅覆盖该日题材与板块的结构化截面；",
+          "run_id": "run_20260814_225612_885511",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "主线题材日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线题材日频结构",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "主线板块日频结构（2026-07-23）",
+              "source": "本地结构化数据 · 主线板块日频结构",
+              "date": "2026-07-23"
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 3,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 主线题材日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线题材日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 主线板块日频结构",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "主线板块日频结构（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "2 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 98.7,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B6-sellside-distillation",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+          "answer": "我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？",
+          "run_id": "run_20260814_225751_611313",
+          "invoked_skill_ids": [],
+          "citations": [],
+          "degrades": [],
+          "evidence_bound": 0,
+          "evidence": [],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 2.0,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B7-volume-sentiment-evolution",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "2026-07-21 到 07-24 量能和情绪是怎么演化的",
+          "answer": "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；以下仅为候选草稿，不视为最终核验结论：\n量能与情绪呈现“首日放量启动，随后连续缩量，末日情绪转弱”的四日演化。\n7月21日，成交额较前日增加，市场处于反弹标签的起点；上涨家数和涨停家数均较高，电子、通信等方向居前，属于风险偏好快速修复、资金集中进攻。7月22日，成交额明显回落，涨停与上涨家数同步减少；指数近乎持平，说明首日强势后进入分歧和轮动，追高意愿降温。7月23日继续缩量，但上涨家数及涨停家数回升、跌停很少，表现为低成交下的普涨修复，广度改善而增量资金不足，强度的可靠性偏弱。7月24日再度缩量且指数明显下跌，上涨家数显著收缩、跌停增加，市场阶段标签切换为下跌，说明修复未获量能确认，情绪转为退潮/风险规避。\n基准判断：这不是健康的持续上攻，而是一次放量脉冲后，资金承接递减、结构由集中进攻转向分歧，再到缩量转弱。后续只有成交恢复并同时带动上涨广度和强势股表现改善，才可视为情绪重新修复；若仍缩量且跌停扩散，则应按弱势延续理解。\n证据覆盖7月21日至24日的市场日频量能、涨跌广度、涨停跌停、指数表现及结构标签。阶段第N天仅是数据标签，不代表连续上涨天数；未据此归因于具体消息或政策。",
+          "run_id": "run_20260814_225753_650572",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "市场日频总览（2026-07-21）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-21"
+            },
+            {
+              "title": "市场日频总览（2026-07-22）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-22"
+            },
+            {
+              "title": "市场日频总览（2026-07-23）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-23"
+            },
+            {
+              "title": "市场日频总览（2026-07-24）",
+              "source": "本地结构化数据 · 市场日频总览",
+              "date": "2026-07-24"
+            }
+          ],
+          "degrades": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "evidence_bound": 5,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-21）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-22）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-23）",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 本地结构化数据 · 市场日频总览",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "市场日频总览（2026-07-24）",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "4 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [
+            "证据或语义核验未完全通过，已按证据边界降级。"
+          ],
+          "elapsed_s": 92.6,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    },
+    {
+      "case_id": "B8-valuation-band",
+      "tier": "mid_freq",
+      "turns": [
+        {
+          "question": "立新能源现在贵不贵，隐含了什么预期",
+          "answer": "基准判断：立新能源处于“盈利修复已被部分提前定价”的偏贵状态，而非资产端绝对昂贵。截至2026-08-14估值快照，总市值128.33亿元、PE(TTM)86.04倍、PB4.15倍；PE高于可比样本55.17倍中位数，PB低于6.66倍中位数。市场隐含的核心不是单纯资产重估，而是利润修复与利润率改善能够持续。\n财务锚点是2026年中报累计营收6.44亿元、归母净利0.73亿元，分别同比增长29.75%和715.75%，毛利率32.51%、净利率12.5%。其中净利高增受2025年中报低基数影响，不能直接外推全年。若营收增长、盈利增长和利润率改善不能延续，当前PE缺乏当期盈利支撑。\n情景估值以“净资产不变、PB可比带机械映射”为唯一方法，不是目标价。保守情景：盈利修复转弱或利润率回落，PB取4.89倍，对应151.21亿元；中性情景：营收、利润保持改善，PB为4.89至6.66倍，对应151.21至205.95亿元；乐观情景：营收增长、利润增长及利润率改善持续，PB为6.66至16.9倍，对应205.95至522.60亿元。\n判断失效或降级的条件是：后续累计营收、归母净利、毛利率或净利率明显转弱；或估值回落但盈利兑现不足。数据边界：财务为累计口径；估值快照返回于2026-08-14，未获得可确认的实际收盘日、严格同业可比集及公司一手项目兑现材料，因此不能把预期归因于具体项目、订单、产能或客户。",
+          "run_id": "run_20260814_225926_202832",
+          "invoked_skill_ids": [],
+          "citations": [
+            {
+              "title": "目标估值现状：立新能源（001258.SZ）总市值 128.33 亿，PE(TTM) 86.04",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "估值快照日期：2026-08-14（来源返回时间；不等同本地盘面日期）。",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "可比公司快照（同题材成交前排，共 4 家）：紫光股份 PE 53.77/PB 7.45、胜宏科技",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "可比 PE(TTM) 估值带：21.44 ~ 236.18，中位 55.17，目标横截面分位约",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "可比 PB 估值带：4.89 ~ 16.9，中位 6.66。",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "PB 情景计算锚（可比带机械推演，不是目标价；假设净资产不变）：保守 4.89 ~ 4.89 倍",
+              "source": "东财快照 + 本地市场数据可比集",
+              "date": "2026-08-14"
+            },
+            {
+              "title": "目标：立新能源（001258.SZ），近 6 期累计口径（新→旧）：",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率%",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "|---|---|---|---|---|---|---|",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2026中报 | 6.44 | 29.75 | 0.73 | 715.75 | 32.51",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2026一季报 | 2.65 | 22.2 | 0.06 | 167.71 | 23.52",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025年报 | 10.6 | 9.19 | 0.85 | 69.54 | 48.84 |",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025三季报 | 8.4 | 3.26 | 1.33 | 2.44 | 54.41 | 1",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025中报 | 4.96 | -6.02 | 0.09 | -90.17 | 49.07",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "| 2025一季报 | 2.17 | 5.23 | -0.09 | -166.51 | 43.7",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            },
+            {
+              "title": "口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；本",
+              "source": "东财 F10 / AKShare · 逐季财报",
+              "date": ""
+            }
+          ],
+          "degrades": [],
+          "evidence_bound": 17,
+          "evidence": [
+            {
+              "id": "citation-record:E1",
+              "label": "[E1] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "目标估值现状：立新能源（001258.SZ）总市值 128.33 亿，PE(TTM) 86.04",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E2",
+              "label": "[E2] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "估值快照日期：2026-08-14（来源返回时间；不等同本地盘面日期）。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E3",
+              "label": "[E3] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "可比公司快照（同题材成交前排，共 4 家）：紫光股份 PE 53.77/PB 7.45、胜宏科技",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E4",
+              "label": "[E4] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "可比 PE(TTM) 估值带：21.44 ~ 236.18，中位 55.17，目标横截面分位约",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E5",
+              "label": "[E5] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "可比 PB 估值带：4.89 ~ 16.9，中位 6.66。",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E6",
+              "label": "[E6] 东财快照 + 本地市场数据可比集",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "PB 情景计算锚（可比带机械推演，不是目标价；假设净资产不变）：保守 4.89 ~ 4.89 倍",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E7",
+              "label": "[E7] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "目标：立新能源（001258.SZ），近 6 期累计口径（新→旧）：",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E8",
+              "label": "[E8] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率%",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E9",
+              "label": "[E9] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "|---|---|---|---|---|---|---|",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E10",
+              "label": "[E10] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2026中报 | 6.44 | 29.75 | 0.73 | 715.75 | 32.51",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E11",
+              "label": "[E11] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2026一季报 | 2.65 | 22.2 | 0.06 | 167.71 | 23.52",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E12",
+              "label": "[E12] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025年报 | 10.6 | 9.19 | 0.85 | 69.54 | 48.84 |",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E13",
+              "label": "[E13] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025三季报 | 8.4 | 3.26 | 1.33 | 2.44 | 54.41 | 1",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E14",
+              "label": "[E14] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025中报 | 4.96 | -6.02 | 0.09 | -90.17 | 49.07",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E15",
+              "label": "[E15] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "| 2025一季报 | 2.17 | 5.23 | -0.09 | -166.51 | 43.7",
+              "status": "hit"
+            },
+            {
+              "id": "citation-record:E16",
+              "label": "[E16] 东财 F10 / AKShare · 逐季财报",
+              "kind": "citation_record",
+              "classification": "bound_evidence",
+              "detail": "口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；本",
+              "status": "hit"
+            },
+            {
+              "id": "citation:E",
+              "label": "E 类证据",
+              "kind": "citation",
+              "classification": "fact_or_context",
+              "detail": "16 条引用",
+              "status": "hit"
+            }
+          ],
+          "trace_steps": [
+            "research",
+            "understanding",
+            "research",
+            "planning",
+            "planning",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "research",
+            "finalizing",
+            "verification",
+            "repair",
+            "finalizing",
+            "finalizing",
+            "verification",
+            "research",
+            "research"
+          ],
+          "synthesis_diagnostic": {},
+          "fulfillment": {},
+          "gaps": [],
+          "elapsed_s": 177.3,
+          "status": "completed",
+          "error": null
+        }
+      ],
+      "blocked_reason": null
+    }
+  ]
+}
