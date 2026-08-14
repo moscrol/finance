@@ -252,6 +252,26 @@ def test_explicit_gap_is_partial_not_fake_completed() -> None:
     assert all(item.status == "missing" for item in verified.completion.outputs)
 
 
+def test_leftover_binding_gap_still_drops_hashes() -> None:
+    """绕过 protocol normalize 时，verifier 仍把非空 gap 当 missing（判据不变）。"""
+
+    market = _evidence("market_data", "market-1")
+    outcome = _outcome(
+        status="partial",
+        evidence=(market,),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("market-1",), "附带限制"),
+            OutputEvidenceBinding("evidence_boundary", ("market-1",), "附带限制"),
+        ),
+    )
+
+    verified = verify_episode_outcome(_contract(), outcome)
+
+    assert {item.status for item in verified.completion.outputs} == {"missing"}
+    assert all(not item.evidence_ids for item in verified.completion.outputs)
+    assert any("required output reports gap:" in issue for issue in verified.issues)
+
+
 def test_fulfilled_bindings_do_not_upgrade_declared_partial_status() -> None:
     market = _evidence("market_data", "market-1")
     outcome = _outcome(
