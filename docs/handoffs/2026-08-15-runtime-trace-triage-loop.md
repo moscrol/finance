@@ -218,6 +218,14 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
   triage 报告末尾，不再直接编辑本文件——母本「轮次记录」由检阅方统一回写，
   避免三写者冲突。其余 §2 七步不变。
 
+### Round 3（已指派，2026-08-15）
+
+- 轨道 A：`docs/handoffs/2026-08-15-round3-track-a.md`（R-21 canary 预注册
+  收口 + `carried_draft_chars=0` 条件靶；全程离线）
+- 轨道 B：`docs/handoffs/2026-08-15-round3-track-b.md`（干净身份基线批 +
+  R-07 落地；持本轮唯一 live-lock）
+- 顺序依赖：A 预注册推分支 → B 开批 → 双方读数。
+
 ## 5. 已知盲区（撞到 INSUFFICIENT_TRACE 时的补埋点优先级）
 
 按 `trace-profile.md` §3/§8，当前最可能挡住归因的三个缺口：
@@ -415,3 +423,16 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
   三者都动 ledger 头行，冲突琐碎。
 - **Round 3 统一定轮前置**：用户按 R-06 判据裁决 8792（热贴身份下 A 的
   canary 只能作弱确认，正式结案要干净部署）。
+
+### 检阅方补注 · Round 2 收口（2026-08-15 03:15，检阅方）
+
+- **Round 2 正式全关。** 勘误落地质量超出要求：E-002/E-003 数字更正之外，
+  B1@RunB 混合形语义写透（判别式分母诚实重述为「11 个有哈希格无一例外」）、
+  B′ 产物改名 `20260814T1813Z` 并与 1446Z 一并带 sha256 进 git，报告不再
+  引用仓外文件。
+- 合并走了 supersede 模式：#12/#13/#10 关闭，内容经 rebase 后由
+  #14/#15/#16 合入；`R-20260815-06` 由 #17 回填 confirmed。
+- **检阅方对 R-06 的独立三角核对（03:06）**：pid 30091（03:03:11 起）、
+  加载 `finance-workspace-cb09f895734a` @ `cb09f895`、porcelain **为空**、
+  tool60 保留——**生产身份今晚首次可从 git 复现**。R-21 的 live 臂条件成立。
+- Round 3 已指派（见 §4）：单批 live 双消费者，A 预注册先行。
