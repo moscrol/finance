@@ -37,8 +37,8 @@
 | L1-S7 | 行情写锁消除 | done | staging+原子换库 | #39 | 已合；未切见 L1-8792 |
 | L1-S8 | 记忆质检清扫 | done | Q3/Q4/Q7/Q8 | #37 | 已合 |
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
-| L1-S10 | branch_tool 诊断 | planned | Phase A 出 PRIMARY | `2026-08-15-bookgap-s10-branch-tool-activation.md` | Phase A 可开 |
-| L1-R24 | E-007 修复部署 | blocked_on_user | 独立部署窗落地 | 离线实现在 `fix/r24-marker-loss-binding`；合入后仍等用户开窗 | 用户 |
+| L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
+| L1-R24 | E-007 修复部署 | blocked_on_user | 独立部署窗落地 | #49 已合离线实现；仍等用户开窗 | 用户 |
 | L1-8792 | 生产追平 | blocked_on_user | health.revision = main tip | inflight/main.md（已腐，以 live health 为准） | 用户 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
