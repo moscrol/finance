@@ -29,7 +29,7 @@
 |---|---|---|---|---|---|
 | L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | `2026-08-16-dsh-absorption-conflict-matrix.md`（已入 main）· 实施仍在 `feat/dsh-absorption-p0-seams` @ `9ab8c191`（第 8 步 live A/B 未开） | 执行方已交 |
 | L1-S1 | 时间预算可见 | planned | 状态栏 v1 | `2026-08-15-bookgap-s1-time-budget-statusline.md` | 窗已开，可另开 PR |
-| L1-S2 | judge 模态切换 | planned | 数据源回查钩子 | `2026-08-15-bookgap-s2-judge-source-recheck.md` | 窗已开，可另开 PR |
+| L1-S2 | judge 模态切换 | done | 数据源回查钩子 | #60 · `2026-08-15-bookgap-s2-judge-source-recheck.md` | 已合；默认 off；10 题对照实验未跑 |
 | L1-S3 | 超时窗口比例化 | planned | reserve 推导窗口 | `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 窗已开，可另开 PR |
 | L1-S4 | recall@k 标注集 | done | 基线文档在场 | #40 | 已合；分数走运行平面 |
 | L1-S5 | uq15 出题 | done | 题集+协议+QC 在场 | #33 #35 | 已合；判分未开，不挡 P0 口径 |
@@ -53,5 +53,6 @@
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
 | 2026-08-16 | dsh 实施分支已 push 到 `9ab8c191`（第 1–7 步 + 冲突矩阵） | 已决 | L1-DSH |
 | 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 保留到合 main；已备份远程 | 已决 | L1-DSH |
+| 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
