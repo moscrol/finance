@@ -54,6 +54,24 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      # 抓的是「声明了但生产装配够不着」——工具在测试注册表里跑得好好的，
+      # 生产装配少接一根线，于是它在生产里从来没被调起过，而单元测试全绿。
+      #
+      # ⚠️ entry 与上面几条**不同**：必须用主树 venv 解释器的绝对路径。
+      # 本脚本 import 生产模块（build_episode_registry），不是纯 stdlib，
+      # 宿主 python3 跑不了。这与仓内其它绝对路径依赖是同一现实：
+      # 新机没有该 venv 时本 hook 会挂，属预期。
+      #
+      # 实测 0.89~1.09s（3 次），与 path-literals 同量级，故可入链。
+      # 注意别沿用早期记的 0.2s——那是初版恒真式的数：当时判据取自声明本身，
+      # unreachable 恒空、永不报警，快是因为它什么也没验。
+      - id: tool-reachability
+        name: "工具可达性：声明了的工具生产装配必须够得着"
+        language: system
+        entry: /Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/audit_tool_reachability.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail
