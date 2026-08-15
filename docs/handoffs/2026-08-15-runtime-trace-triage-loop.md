@@ -649,3 +649,22 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
   **PASS，无需 revert**。
 - 整改：检阅方此后合并一律用**创建响应返回的 PR 号**，不得手写常量；
   连发操作里创建与合并不得共用一条命令。
+
+### Round 6 批 #3（2026-08-15，执行方 / worktree `fwp-wt-r6-batch3`）
+
+- 开批：dragon_seats 父进程 94429 于 18:05:27 退出后；8792=`fdb23114`/pid 70403/`source_dirty=false`。
+- 产物：`20260815T1005Z-r5-clean-baseline-3.json` `sha256=e475f3c8…f1ebf0`，28/28，`BATCH_RC=0`，探针 `finance_query=ok`。
+- R-10 **confirmed** N=3：B1 2/3、B2 3/3、B3 2/3、B4 2/3、B5 2/3、B6 0/3、B7 2/3、B8 2/3（只 eb>0）。
+- R-09 **confirmed**：21/21 末条 finish 带拒收字段；B8 `no_substantive_answer` 非空。不定 L0。
+- R-12 live 保持 confirmed。R-23 出数（14/15 修复路径 eb>0，零誊抄拒收）不写 A 行。R-25 零 `tool_exception`=unobserved。
+- RU-3：13 题 efh≠eb；`gap_zeroed=0`（连续三批）。B4 验收 timeout vs 仓外已交付，不改 R-10。
+- 报告：`docs/verification/2026-08-15-r6-clean-baseline-3.md`。零代码。8792 未切。
+
+### 检阅批注 · Round 6 批 #3（2026-08-15，检阅方）
+
+- **判定**：PASS
+- 独立复核：`validate-report.sh` 重跑 RC:0。身份三角 `health`=`loaded_code_root git log -1`=`fdb231148c0e`，porcelain=0，pid 70403。三批 sha256 与 N=3 表亲手重算一致；冻结批 #1/#2 diff vs main=0。换样本 A1/C6/C1 末条 `rejection_code=none`。B8 末条 payload 与 PRIMARY 摘录逐字段一致。全量 `invalid_action` 3 条、hash-reject 0；`tool_exception` 0（含 B4 仓外）。账本未改 R-25/R-24 outcome；PR 无 `intelligence/` 代码。
+- 交叉验证：检阅方收口 R-23（同形窗口存在、誊抄拒收未再现、14/15 修复路径 eb>0）。R-25 保持 unobserved。
+- 标注：原 R-09「≥3 同形样本」未凑齐哈希拒收形，本轮 handoff 改以字段在场性收口——可接受。检阅方计 rejection 在场 22（含 B4 仓外）vs 执行方 21，口径差已点名。B4 timeout 丢 run_id 不改 R-10。
+- 下轮：R-25 等自然 `tool_exception`；R-24 仍暂缓至独立部署窗；S9 四臂评测现可开（批 #3 已结束）；8792/S7 切换升格用户。
+- 合并：#42（创建响应编号）。不切生产。
