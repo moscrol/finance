@@ -140,6 +140,14 @@
 - 验收 1–3：off 无 `source_recheck`；on 夹具 mismatch 注入 judge JSON；超时 fail-open。source_ref：`test_judge_source_recheck`（155 与 verifier 同跑全绿）。
 - 验收 4：10 题对照实验未跑；值不值尚未定量。L1 完成判据是钩子，不是实验。
 
+### S1 · 时间预算可见 ｜ 2026-08-16 ｜ 分支 bookgap/s1-time-budget
+
+- 交付：`runtime_budget` 默认带时间（`ASK_EPISODE_BUDGET_STATUS=off` 保险丝）；CJK `status_line`；finish `time_budget_injected`。
+- 同址：最后一条 tool 消息的 JSON，不另开状态栏。不改档位数字（S3 的缝）。
+- 验收 1：夹具时间行在、剩秒与 `policy.total_seconds` 差 ≤2s。source_ref：`test_next_model_turn_sees_dynamic_tools_and_remaining_budget`。
+- 验收 2：`test_agent_episode.py` 全绿；`[预算]` 不进 draft。
+- 验收 3：live 率留给部署后读数，本轮不硬判。
+
 ### S3 · 超时窗口比例化 ｜ 2026-08-16 ｜ 分支 bookgap/s3-timeout-ratio
 
 - 交付：`derive_stage_caps` / `apply_env_ceiling`；工具批次与 judge 窗口读推导值。#63。

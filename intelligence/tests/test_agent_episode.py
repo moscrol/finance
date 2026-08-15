@@ -2690,7 +2690,17 @@ def test_next_model_turn_sees_dynamic_tools_and_remaining_budget() -> None:
     assert second_tools == {"web_search"}
     assert model.calls[1]["messages"][-1]["role"] == "tool"
     budget_payload = json.loads(model.calls[1]["messages"][-1]["content"])
-    assert budget_payload["runtime_budget"]["remaining_tool_calls"] == 1
+    budget = budget_payload["runtime_budget"]
+    assert budget["remaining_tool_calls"] == 1
+    assert "remaining_seconds" in budget
+    assert "status_line" in budget
+    assert budget["status_line"].startswith("[预算] 时间 剩 ")
+    assert "工具 剩 1 次" in budget["status_line"]
+    total = float(_context(frame, max_steps=2).policy.total_seconds)
+    assert abs(float(budget["remaining_seconds"]) - total) <= 2.0
+    assert "[预算]" not in outcome.draft
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert finish.payload["time_budget_injected"] is True
     assert outcome.status == "completed"
     assert outcome.usage.invalid_actions == 0
 
