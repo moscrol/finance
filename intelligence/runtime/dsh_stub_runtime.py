@@ -16,12 +16,12 @@ Stub **走现有** ``HeadlessToolGateway`` 的 JSON/HTTP 面（spec §8.2：对�
 
 本模块**不**做的事：
 
-- 不 import dsh SDK，不复制 dsh 源码；sparse checkout 只经
-  ``DSH_SOURCE_INDEX`` 做 pin 探测，路径不写进源码；
+- 不 import dsh SDK，不复制 dsh 源码，不拉起 Node；sparse checkout 只经
+  ``DSH_SOURCE_INDEX`` 做 pin + cone 探测，路径不写进源码、不写进收据；
 - 不把 ``dsh_stub`` 加进 ``RUNTIME_BACKEND_NAMES``——factory 一旦认这个名字
   却没有独立 readiness，会掉进 headless 的回落分支；
-- 不跑 live A/B，不把 ``DSH_AB_RELAY_KEY`` 注入当前进程。第 8 步在本模块
-  只落 ``form_step8_decision``：协议过且 live A/B 未跑 → 默认不保留运行时。
+- 不跑 live A/B，不把 ``DSH_AB_RELAY_KEY`` 注入当前进程。
+  ``form_step8_decision`` 只是默认立场的函数，不是第 8 步对照收据。
 
 --------------------------------------------------------------------------
 禁止的双写（spec §8.3）
@@ -76,6 +76,12 @@ ADAPTER_PROTOCOL_KEYS: tuple[str, ...] = (
 DSH_SOURCE_INDEX_ENV = "DSH_SOURCE_INDEX"
 DSH_AB_RELAY_KEY_ENV = "DSH_AB_RELAY_KEY"
 PINNED_DSH_COMMIT = "47f943859bef60e4160492346772ded9b24f765a"
+# Step 1 收据要求 cone 含 packages/llm；缺它就会退回 git show 读 README。
+# 只记相对路径，收据里不得出现家目录。
+DSH_CONE_MARKERS: tuple[str, ...] = (
+    "packages/llm/llm-pi-ai/README.md",
+    "packages/bundle/base/cordis.patch.yml",
+)
 
 _PRIVATE_MARKERS: tuple[str, ...] = (
     "internal_locator",
@@ -377,8 +383,22 @@ def relay_key_fingerprint(raw_key: str) -> str:
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()[:16]
 
 
+def _empty_probe(*, status: str, pinned: str) -> dict[str, object]:
+    return {
+        "status": status,
+        "head": "",
+        "pinned": pinned,
+        "matches_pin": False,
+        "cone_ok": False,
+        "missing_markers": list(DSH_CONE_MARKERS),
+    }
+
+
 def probe_dsh_checkout(*, source_index: str | None = None) -> dict[str, object]:
-    """探测本地 sparse checkout 是否钉在 pinned commit。路径只来自参数或环境。"""
+    """探测本地 sparse checkout 的 pin 与 cone。路径只来自参数或环境。
+
+    收据故意不含 path：artifact 不能把工作机家目录带出去。
+    """
 
     raw = source_index if source_index is not None else os.environ.get(
         DSH_SOURCE_INDEX_ENV, ""
@@ -386,20 +406,10 @@ def probe_dsh_checkout(*, source_index: str | None = None) -> dict[str, object]:
     path = str(raw or "").strip()
     pinned = PINNED_DSH_COMMIT
     if not path:
-        return {
-            "status": "missing",
-            "head": "",
-            "pinned": pinned,
-            "matches_pin": False,
-        }
+        return _empty_probe(status="missing", pinned=pinned)
     root = Path(path)
     if not (root / ".git").exists():
-        return {
-            "status": "not_git",
-            "head": "",
-            "pinned": pinned,
-            "matches_pin": False,
-        }
+        return _empty_probe(status="not_git", pinned=pinned)
     completed = subprocess.run(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
         check=False,
@@ -407,18 +417,24 @@ def probe_dsh_checkout(*, source_index: str | None = None) -> dict[str, object]:
         text=True,
     )
     if completed.returncode != 0:
-        return {
-            "status": "not_git",
-            "head": "",
-            "pinned": pinned,
-            "matches_pin": False,
-        }
+        return _empty_probe(status="not_git", pinned=pinned)
     head = completed.stdout.strip()
+    missing = [marker for marker in DSH_CONE_MARKERS if not (root / marker).is_file()]
+    matches_pin = head == pinned
+    cone_ok = not missing
+    if not matches_pin:
+        status = "pin_mismatch"
+    elif not cone_ok:
+        status = "cone_incomplete"
+    else:
+        status = "ok"
     return {
-        "status": "ok",
+        "status": status,
         "head": head,
         "pinned": pinned,
-        "matches_pin": head == pinned,
+        "matches_pin": matches_pin,
+        "cone_ok": cone_ok,
+        "missing_markers": missing,
     }
 
 
@@ -428,7 +444,7 @@ def form_step8_decision(
     live_ab_ran: bool,
     net_benefit: bool = False,
 ) -> dict[str, object]:
-    """spec §11 第 8–9 步 / §12：没跑 live A/B 就不能保留 dsh 运行时。"""
+    """默认立场，不是第 8 步对照收据。没跑 live A/B 就不能保留运行时。"""
 
     if not protocol_ok:
         reason = "protocol_failed"
@@ -521,6 +537,7 @@ def _outcome_from_snapshot(
 __all__ = [
     "ADAPTER_PROTOCOL_KEYS",
     "DSH_AB_RELAY_KEY_ENV",
+    "DSH_CONE_MARKERS",
     "DSH_SOURCE_INDEX_ENV",
     "DshAdapterProtocolError",
     "DshStubRuntime",

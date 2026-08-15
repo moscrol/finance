@@ -1,8 +1,8 @@
-"""第 7 步：scripted dsh stub 验证 Adapter 窄协议。
+"""第 7 步：scripted stub 协议 + pin/cone 探测。
 
-不连真实 dsh，不跑 A/B。验的是：ResumableAgentRuntime、网关带上
-EpisodeScope、tool_call_id 成对、协议收据无私有路径、Handle 门挡住
-close/cancel 之后的 resume。
+上半：ResumableAgentRuntime、网关带 Scope、tool_call_id 成对、协议收据
+无私有路径、Handle 门。下半：``probe_dsh_checkout`` 的 pin 与 cone 状态机。
+真实 checkout 只经 ``DSH_SOURCE_INDEX`` 进来，源码不写家目录。不跑 A/B。
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ from intelligence.runtime.agent_runtime_factory import resolve_runtime_backend
 from intelligence.runtime.dsh_stub_runtime import (
     ADAPTER_PROTOCOL_KEYS,
     DSH_AB_RELAY_KEY_ENV,
+    DSH_CONE_MARKERS,
+    DSH_SOURCE_INDEX_ENV,
     DshAdapterProtocolError,
     DshStubRuntime,
     PINNED_DSH_COMMIT,
@@ -412,22 +414,9 @@ def test_relay_key_fingerprint_does_not_echo_secret() -> None:
     assert relay_key_fingerprint(secret) == digest
 
 
-def test_checkout_probe_missing_and_not_git(tmp_path: Path) -> None:
-    missing = probe_dsh_checkout(source_index="")
-    assert missing["status"] == "missing"
-    assert missing["matches_pin"] is False
-    assert missing["pinned"] == PINNED_DSH_COMMIT
-    empty = probe_dsh_checkout(source_index=str(tmp_path))
-    assert empty["status"] == "not_git"
-    assert empty["matches_pin"] is False
-
-
-def test_checkout_probe_matches_and_mismatches_pin(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    repo = tmp_path / "index"
-    repo.mkdir()
-    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+def _init_git_repo(root: Path, message: str) -> str:
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
     subprocess.run(
         [
             "git",
@@ -438,19 +427,64 @@ def test_checkout_probe_matches_and_mismatches_pin(
             "commit",
             "--allow-empty",
             "-m",
-            "pin",
+            message,
         ],
-        cwd=repo,
+        cwd=root,
         check=True,
         capture_output=True,
     )
-    head = subprocess.run(
+    return subprocess.run(
         ["git", "rev-parse", "HEAD"],
-        cwd=repo,
+        cwd=root,
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
+
+
+def _write_cone_markers(root: Path) -> None:
+    for marker in DSH_CONE_MARKERS:
+        path = root / marker
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("marker\n", encoding="utf-8")
+
+
+def test_checkout_probe_missing_and_not_git(tmp_path: Path) -> None:
+    missing = probe_dsh_checkout(source_index="")
+    assert missing["status"] == "missing"
+    assert missing["matches_pin"] is False
+    assert missing["cone_ok"] is False
+    assert missing["pinned"] == PINNED_DSH_COMMIT
+    empty = probe_dsh_checkout(source_index=str(tmp_path))
+    assert empty["status"] == "not_git"
+    assert empty["matches_pin"] is False
+    assert empty["cone_ok"] is False
+    dumped = json.dumps(empty)
+    assert "/Users/" not in dumped
+
+
+def test_checkout_probe_pin_match_without_cone_is_incomplete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "index"
+    head = _init_git_repo(repo, "pin")
+    monkeypatch.setattr(
+        "intelligence.runtime.dsh_stub_runtime.PINNED_DSH_COMMIT",
+        head,
+    )
+    probed = probe_dsh_checkout(source_index=str(repo))
+    assert probed["matches_pin"] is True
+    assert probed["status"] == "cone_incomplete"
+    assert probed["cone_ok"] is False
+    assert probed["missing_markers"] == list(DSH_CONE_MARKERS)
+
+
+def test_checkout_probe_ok_when_pin_and_cone_match(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "index"
+    head = _init_git_repo(repo, "pin")
+    _write_cone_markers(repo)
     monkeypatch.setattr(
         "intelligence.runtime.dsh_stub_runtime.PINNED_DSH_COMMIT",
         head,
@@ -459,27 +493,41 @@ def test_checkout_probe_matches_and_mismatches_pin(
     assert probed["status"] == "ok"
     assert probed["head"] == head
     assert probed["matches_pin"] is True
-    other = tmp_path / "other"
-    other.mkdir()
-    subprocess.run(["git", "init"], cwd=other, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "-c", "user.email=t@example.com", "-c", "user.name=t",
-         "commit", "--allow-empty", "-m", "other"],
-        cwd=other,
-        check=True,
-        capture_output=True,
-    )
-    other_head = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=other,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if other_head == head:
-        pytest.skip("two empty commits hashed to the same revision")
-    mismatched = probe_dsh_checkout(source_index=str(other))
+    assert probed["cone_ok"] is True
+    assert probed["missing_markers"] == []
+    assert "/Users/" not in json.dumps(probed)
+
+
+def test_checkout_probe_pin_mismatch_beats_cone(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "other"
+    _init_git_repo(repo, "other")
+    _write_cone_markers(repo)
+    mismatched = probe_dsh_checkout(source_index=str(repo))
     assert mismatched["matches_pin"] is False
+    assert mismatched["status"] == "pin_mismatch"
+    assert mismatched["cone_ok"] is True
+
+
+def test_env_source_index_probe_reads_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(DSH_SOURCE_INDEX_ENV, raising=False)
+    assert probe_dsh_checkout()["status"] == "missing"
+    repo = tmp_path / "env-index"
+    head = _init_git_repo(repo, "pin")
+    _write_cone_markers(repo)
+    monkeypatch.setattr(
+        "intelligence.runtime.dsh_stub_runtime.PINNED_DSH_COMMIT",
+        head,
+    )
+    monkeypatch.setenv(DSH_SOURCE_INDEX_ENV, str(repo))
+    probed = probe_dsh_checkout()
+    assert probed["status"] == "ok"
+    assert probed["matches_pin"] is True
+    assert probed["cone_ok"] is True
+    assert "/Users/" not in json.dumps(probed)
 
 
 def test_step8_decision_defaults_to_not_retain() -> None:
