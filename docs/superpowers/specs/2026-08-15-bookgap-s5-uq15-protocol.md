@@ -20,18 +20,19 @@
 
 1. 声明身份：在 run 工件里写明自己未读过 uq15 任何 rubric、未参与 runtime 实现。
 2. 固定被评对象：记录 runtime 的 git commit / 部署位（与 triage loop 跑批同一产品问答入口口径；入口选择写进工件）。
-3. 逐题投放：题面 `question` 原文投放；`context` 非空的题（uq15-q14）必须把语境随题面一并注入（模拟提问时刻）。**不做任何提示词增补或改写。**
+3. 逐题投放：题面 `question` 原文投放；`context` 非空的题（uq15-q14）只把 `context` 原文随题面注入（模拟提问时刻）。`runner_note` 给跑批方看，禁止注入模型。**不做任何提示词增补或改写。** 开跑前把一条可复制的产品问答入口命令写入工件字段 `entry_cmd`（由用户/检阅方在开跑指令里写死；本协议不绑定部署位）。
 4. 数据基准：`asof_data_cutoff` 标注了每题的事实基准日。若跑批日期晚于 2026-08-15，须在工件里记录跑批时 DuckDB `max(trade_date)`，供判分方核对时间边界类关键点（q14 的判定以题面注入的提问时刻为准，不随跑批日漂移）。
-5. 产出工件：`intelligence/eval/runs/uq15-<UTC时间戳>.json`，每题记录 `{id, question, context, answer_text 全文, trace 引用, 开始/结束时间}`，外加 `{runtime_commit, 入口说明, duckdb_max_trade_date}`。工件先提交（PR 或推分支），**提交完成后才允许开封 rubric**——防止见 rubric 后回改答案。
+5. 产出工件：`intelligence/eval/runs/uq15-<UTC时间戳>.json`，每题记录 `{id, question, context, answer_text 全文, trace 引用, 开始/结束时间}`，外加 `{runtime_commit, entry_cmd, duckdb_max_trade_date}`。工件先提交（PR 或推分支），**提交完成后才允许开封 rubric**——防止见 rubric 后回改答案。
 
 ## 3. 判分规程（判分方照此执行）
 
-1. 验封：从用户处取得 15 份 rubric，逐一 `shasum -a 256`，对照 `uq15_rubric_hashes.json`。任何一份不匹配→停止判分，报告用户。
-2. 逐题判分：每题按 rubric 的关键点表打分（关键点分值合计 10 分/题，总分 150）。每个关键点必须引用答案原文片段作为命中依据；无法引用原文=未命中。
-3. 一票否决：q13/q14/q15 的 rubric 含一票否决条款，触发即该题 0 分（否决理由写明原文依据）。
-4. 容差执行：rubric 写明的容差带是唯一口径；判分方不得自行放宽或收紧。
-5. 产出工件：`intelligence/eval/runs/uq15-<同时间戳>-scored.json`：每题 `{id, 各KP得分+依据引文, 小计, 否决标记}`，汇总 `{总分/150, 分题型均分（盘面事实/归因分析/主题链条/反证与边界）, 判分方身份声明}`。
-6. 公开：判分完成后，rubric 本体由判分方原样提交入仓（`intelligence/eval/cases/uq15_rubrics/`），入仓文件必须逐一通过哈希校验。
+1. 验封：从用户处取得 15 份 rubric，逐一 `shasum -a 256`，对照 `uq15_rubric_hashes.json`。任何一份不匹配→停止判分，报告用户。**验封用原文件，即使该题已被勘误作废。**
+2. 施加勘误：验封通过后，按 `intelligence/eval/cases/uq15_errata/README.md` 的顺序读完全部 `erratum_*.md`。勘误与密封条款冲突时勘误优先；题面以 `uq15_questions.jsonl` 为准。
+3. 逐题判分：每题按（勘误后的）关键点表打分（关键点分值合计 10 分/题，总分 150）。每个关键点必须引用答案原文片段作为命中依据；无法引用原文=未命中。
+4. 一票否决：q13/q14/q15 的 rubric 含一票否决条款，触发即该题 0 分（否决理由写明原文依据）。
+5. 容差执行：勘误后的容差带是唯一口径；判分方不得自行放宽或收紧。密封原文里的「就高给分」已废止，见 `erratum_uq15-scoring.md`。
+6. 产出工件：`intelligence/eval/runs/uq15-<同时间戳>-scored.json`：每题 `{id, 各KP得分+依据引文, 小计, 否决标记, 所用勘误}`，汇总 `{总分/150, 分题型均分（盘面事实/归因分析/主题链条/反证与边界）, 判分方身份声明}`。
+7. 公开：判分完成后，rubric 本体由判分方原样提交入仓（`intelligence/eval/cases/uq15_rubrics/`），入仓文件必须逐一通过哈希校验；勘误仍留在 `uq15_errata/`，不回写密封件。
 
 ## 4. 翻案规则
 
@@ -66,7 +67,14 @@
 
 ## 7. 验收判据对勾（预注册判据 → 交付状态）
 
-1. ✅ 15 题齐，配比 4/4/4/3 符合 spec §3.2；每题 `material_domain` 均在限定面内（KB wiki / DuckDB 只读 / .foresight）。
-2. ✅ 哈希清单与密封 rubric 一致（`MANIFEST.sha256` 与仓内 JSON 同源生成；用户可按 README 抽 2 题当场验）。
+1. ✅ 15 题齐，配比 4/4/4/3 符合 spec §3.2。QC-1 后：q09 改用 concepts/医疗服务；q06/q13 的 entities 引用见 §8 批准例外。其余素材在 DuckDB / concepts / .foresight。
+2. ✅ 哈希清单与密封 rubric 一致（QC-1 **未改** 密封件与哈希；用户可按 README 抽 2 题当场验）。
 3. ✅ 已读路径清单见 §6，不含隔离区路径。
-4. ✅ 本协议给出跑批/判分/翻案全流程，第三方 agent 可照此执行，无需问人。
+4. ✅ 本协议给出跑批/判分/翻案全流程；QC-1 补了勘误施加顺序、`context`/`runner_note` 分界。跑批入口命令由开跑指令写入 `entry_cmd`，不绑部署位。
+
+## 8. QC-1 收口（2026-08-15，出题后第一方复验）
+
+1. **entities 批准例外**：q06、q13 允许引用 `wiki/entities/`（个股年报 baseline）。spec §3.1 原文写 sources/concepts；蓝盾光电的年报数字只在实体页，低空概念页撑不起 q13。后续新题仍默认 concepts/sources。
+2. **密封件冻结**：`~/uq15-rubrics-sealed-20260815/` 与 `uq15_rubric_hashes.json` 一字不改。口径修正只走 `intelligence/eval/cases/uq15_errata/`。
+3. **题面补丁**：q07 去掉假前提「持续走强」；q09 整题换成医疗服务链条（拆光纤簇）；q14 的 `context` 只留时间句。
+4. **计分补丁**：废止「就高给分」；q06 KP4 不得靠复述题干；q15 KP3 半分解见 scoring 勘误。
