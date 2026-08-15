@@ -85,3 +85,12 @@
 - Q7：「液冷」→`液冷概念`（复用 `resolve_query_themes`）；解析不到仍显式降级。source_ref: `test_theme_lifecycle_timeline.LoaderTests.test_colloquial_alias_resolves_via_resolve_query_themes`。
 - Q8：固态电池 08-13 夹具 25→20 段，无 <3 日段。被合并：发酵2025-01-14~15、回流2026-07-01~02、回流2026-07-21~22。source_ref: `SolidStateBatteryLiveFixtureTests`。
 - 记忆面单测 77 passed（`test_memory_status` / `test_track_contract` / `test_theme_lifecycle_timeline` / `test_market_regime_analogs`）。未碰 `memory_gate` / experience cards 退出 / D10 / 保留缝。
+
+### S7 · 行情同步写锁消除 ｜ 2026-08-15 ｜ 分支 bookgap/s7-sync-lock-elimination
+
+- 方案 A：APFS clonefile 3.4G = 0.01–0.07s（盘余 188G，不选 B）。`daily-full` 写同卷 staging → 校验 → `os.replace`；子进程 env 重定向，生产库全程无写锁。
+- 判据 1：现状臂 rw 持锁时跨进程 read_only 必败（单测）；staging 臂每秒探针 892 次 **0 失败**（隔离 3.4G 真同步 20min）。source_ref: `test_market_feature_store_staging_swap` + `/Users/a77/fwp-wt-artifacts/s7-e2e/probe.jsonl`。
+- 判据 2：子进程 SIGKILL / 无 status.json 均不换名，生产字节不变。source_ref: `test_sigkill_during_staging_leaves_production_bytes_unchanged` / `test_crash_without_status_json_does_not_swap`。
+- 判据 3：换名 0.266s（mtime 窗口远小于 5s）；收据 `ops_sync_run.run_id=9c1dd5e59dbf`（clonefile 0.066s / 1212.8s / ok）。
+- 判据 4：周六隔离副本真同步 rc=0，抽 3 表 count 与开工前一致（`fact_market_daily` 400 / `fact_stock_daily` 2026538 / `fact_limit_advance_daily` 4737）。未动生产库、未动 `finance_query.py`。
+- 部署就绪：8792 不切；生产 `daily-full` 换本分支后锁窗从 ~14min 变换名瞬间。dragon_seats 回补等旁路 `sync-*` 仍直写生产库，不在本缝。
