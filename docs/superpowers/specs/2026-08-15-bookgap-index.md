@@ -139,3 +139,11 @@
 - 未碰 `_marker_loss_partial_public` / 窗口函数。8792 不追切。
 - 验收 1–3：off 无 `source_recheck`；on 夹具 mismatch 注入 judge JSON；超时 fail-open。source_ref：`test_judge_source_recheck`（155 与 verifier 同跑全绿）。
 - 验收 4：10 题对照实验未跑；值不值尚未定量。L1 完成判据是钩子，不是实验。
+
+### S3 · 超时窗口比例化 ｜ 2026-08-16 ｜ 分支 bookgap/s3-timeout-ratio
+
+- 交付：`derive_stage_caps` / `apply_env_ceiling`；工具批次与 judge 窗口读推导值。#63。
+- 现档 `for_tier()`：quick 30/20、standard 90/20、deep 240/48。deep 工具 192、judge 窗口 50（首窗 25）。
+- env 只下压。未改 reserve / `_marker_loss_partial_public`。8792 不追切。
+- 验收 1–3：三档表 + env 保险丝单测。source_ref：`test_stage_caps`。
+- 验收 4：离线 3 题冒烟未跑。spec 旧 75s/60s reserve 已过时，推导钉在当前数字。
