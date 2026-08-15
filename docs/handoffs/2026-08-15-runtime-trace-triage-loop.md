@@ -490,7 +490,38 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
 R-21 行自己写的收口条件。
 
 **Round 4 已指派**：`2026-08-15-round4-track-a.md`（R-21 收口、条件靶
-收窄谓词了结、R-09 拒收原因码实现——只实现不部署）；
+收窄谓词了结、哈希誊抄契约修复——只实现不部署）；
 `2026-08-15-round4-track-b.md`（勘误+rebase 先行、聚合口径修复、R-08、
 基线批 #2 按 R-10 口径）。合并队列：B 勘误+rebase → 合 B 批 PR →
-合本批注 PR → A 收口 PR。B1/B7 的 L0 等 R-09 部署后的批再收。
+合本批注 PR → A 收口 PR。
+
+### 检阅方勘探 · Round 3 之后（2026-08-15 10:0x）——B1/B7 根因已定
+
+- **出发点**：B 报告称「拒收判据不在产物内」→ L0 UNCLEAR。核对：验收
+  产物内确实没有，但 **run 目录事件流里有**——`invalid_action` 事件带
+  完整拒收原因（`agent_episode.py` 分支 2 抛 ValueError 时
+  `ledger.add("invalid_action", {reason})`，事件已持久化）。trace-first
+  应下钻到事件流；此处停早了一层（批注，不构成勘误：对「产物」的字面
+  陈述为真）。
+- **标本**（冻结 run 目录，检阅方逐字符比对证据集 `content_hash`）：
+  - B1 `invalid_action.reason`：`binding contains unknown evidence hash:
+    3b0895e3a338d58f,8b9fcfe85a338d58f`。证据集 19 条、全部 16 hex。
+    第一个 = 真哈希 `3b0893e5a338d58f` 的**字符换位**（`93e5`→`95e3`）；
+    第二个（17 字符）= 真哈希 `8b9fcfe85c43d0d0` 前 9 字符 + 真哈希
+    `3b0893e5a338d58f` 后 8 字符**拼接**。
+  - B7：`20eea1861410bd4d5`（17 字符）= 真哈希 `20eea1861410bd4d`
+    **多写一字符**；`e82eaa545eafa11`（15 字符）= 真哈希
+    `e82eaa545eafa11a` **少写一字符**。
+- **结论**：修复轮模型在**引用真实证据**，但逐字誊抄 16-hex 哈希时出现
+  插入/删除/换位/拼接错误；协议 fail-closed 正确拒收 → 零绑定 → eb=0。
+  高熵 hex 串对 LLM 是誊抄陷阱，错误按 run 随机——这同时给 R-10 的
+  「失败集跨窗口换人」提供了机制解释。
+- **完整链路**：数据源不可用/新鲜度缺口（B1「结构化数据源暂不可用」、
+  B7「数据仅到 08-13」）→ 主路径 `deadline_exhausted` → 修复轮携证据
+  收尾 → 哈希誊抄错 → 拒收。第一环是数据层运维问题，另行立项；
+  本缝修第二环（修复轮从「必失败」变「可交付 partial」）。
+- **fix 方向**（A 缝，Round 4 任务 3 已按此改写）：终局契约停止让模型
+  逐字抄哈希——证据序号引用（E1..En）由 harness 解析回 `content_hash`；
+  解析失败/越界/歧义仍拒收（B1 拼接标本同时近配两条真哈希——歧义必须拒，
+  不做模糊自动纠正）。R-09 缩为「把既有 `invalid_action.reason` 提升进
+  finish payload」。
