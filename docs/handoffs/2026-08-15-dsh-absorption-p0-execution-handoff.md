@@ -458,7 +458,15 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
    8 个 worker 会并发调同一个 `event_sink`（外部回调），第 2 条实施前先确认现有
    sink 实现（`api/app.py:339`/`:362`/`:388`）在并发下的行为——第 1 条那把锁保护的是
    `ledger.events`，保护不到 sink 内部。
-3. Projection 收口到 services 层，三个消费者改读它；
+3. **✅ 已完成一半**（见本轮小结）：唯一口径已落 `intelligence/services/episode_projection.py`，
+   `continuous_turn_adapter` 这**唯一的生产者**改读它。**实测更正**：这一步原先写作
+   "三个消费者改读它"，实际形状是**一个生产者 / 五个消费者**——
+   `artifact["events"]` 由 adapter 的一行内联推导产出，被 `conversation_orchestrator`
+   / `api/stream_events` / `eval/runtime_backend_benchmark` /
+   `eval/normalize_harness_trace` / `scripts/dump_episode_receipts` 五处读。收口生产者
+   即收口口径，消费者不需要改。**剩下的一半**：`project_episode_progress`
+   （`runtime/episode_progress.py`，UI 进度那条投影）仍在 runtime 层，尚未并入；
+   它无 runtime 依赖，可迁，但迁移会动 `api/app.py` 的 import，单独一轮做。
 4. 子研究三条对账断言（含结果循环 payload 补 `error`）；`branch_*` 的 Durable/Live
    归属在这一步按 §5.3-3 单独裁定（D3 明确不覆盖它）。
 
@@ -865,6 +873,37 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   （新模块在 services 且不 import runtime）；可达性 12 声明一致 / 0 够不着；
   ruff 全绿；pre-commit 随提交跑。变异读数（Live 锁 5/5）是独立跑。
 - **下一轮**：§10.5 第 3 条（Projection 收口到 services 层）。**新基线锚点：5061 / 4 / 0。**
+
+### 执行方小结 · Round「§10.5 第 3 条：artifact 事件投影收口」（2026-08-15，执行方）
+
+- **两个提交**：`713fcdd0`（`episode_projection` + adapter 改读 + 5 条用例）+ 本提交
+  （台账）。分支仍**未 push、未合 main**，未动生产快照树。
+- **对台账原描述的一处实测更正**：第 3 条原写"三个消费者改读它"，实际形状是
+  **一个生产者 / 五个消费者**——`artifact["events"]` 由
+  `continuous_turn_adapter` 的一行内联推导产出，被 `conversation_orchestrator`、
+  `api/stream_events`、`eval/runtime_backend_benchmark`、
+  `eval/normalize_harness_trace`、`scripts/dump_episode_receipts` 五处读
+  （[实测] grep）。**收口生产者即收口口径，消费者一个都不用改**——这也是为什么
+  本轮存量零改动。
+- **钉住的不变量**：只投 Durable。今天 Live 进不了 `ledger.events`，所以上线输出
+  逐字节不变；钉它是为了第 4 条动事件出口时，"Live 悄悄漏进重放/评测口径"这种
+  最难发现的回归会立刻红。变异实测：去掉 Live 过滤 → 恰 2 条红。
+- **两个边界的 fail 策略故意相反**（模块 docstring 写明理由）：发射边界
+  `lane_for` 对未登记 kind **抛错**（那里抛错什么都不丢，`EpisodeScope.emit` 兜住
+  并计进 `event_sink_failures`）；artifact 边界**保留该事件**并记进
+  `unregistered_kinds`（这里已是研究做完之后，抛错等于把一次完成的研究连同证据
+  一起丢掉）。**但不静默**：异常装进返回值，adapter 只在非空时写
+  `artifact["events_projection_anomalies"]`——常态下 artifact 形状一字不变。
+- **计数**：5061 → **5066**，k=5 恰为新增用例数，**存量零改动**。
+- **本轮只做完第 3 条的一半，明确申报**：UI 进度那条投影
+  （`project_episode_progress`，在 `runtime/episode_progress.py`）仍未并入 services。
+  它无 runtime 依赖、可迁，但迁移会动 `api/app.py` 的 import 面，单独一轮做更干净。
+- **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5066 passed / 4 skipped /
+  0 failed**（446.0s）；`layer_audit` ERROR 0；可达性 12 声明一致 / 0 够不着；
+  ruff 全绿；pre-commit 随提交跑。变异读数是独立跑。
+- **下一轮**：§10.5 第 4 条（子研究三条对账断言，含结果循环 payload 补 `error`；
+  `branch_*` 的车道归属按 §5.3-3 在那一轮单独裁定），或先把上面那半条进度投影迁完。
+  **新基线锚点：5066 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
