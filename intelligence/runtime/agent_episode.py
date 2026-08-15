@@ -70,6 +70,7 @@ from intelligence.services.research_plan import (
     plan_to_public_dict,
     validate_plan_revision,
 )
+from intelligence.services.episode_event_lanes import LiveEventSink
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
@@ -575,10 +576,13 @@ class ContinuousAgentEpisode:
         # （glm_agent_runtime.py:481、openai_agents_runtime.py:1006 都这么取），
         # 不另发明第二种 Episode 身份。
         #
-        # event_sink 先给 None：本运行器已有一个形状不同的事件出口
-        # （``Callable[[EpisodeEvent], None]``，走 _EpisodeLedger）。把两者合成
-        # 一个出口是第 5 步 Durable/Live 分类要做的事，现在强行搭桥会造出第二条
-        # 事件链路。sink 为 None 时登记和 dump 照常有真值，只是不发事件。
+        # event_sink 接 Live 车道（第 5 步第 2 条，检阅裁定 D3）：工具阶段事件
+        # ``tool/*`` 走实时出口，**不进 ledger.events、不占 durable sequence**，
+        # 分类由 ``episode_event_lanes`` 那张单表说了算。durable 侧的
+        # ``tool_request``/``tool_result``/``tool_error`` 一字未动，仍是对账权威。
+        #
+        # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
+        # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
             # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
@@ -586,6 +590,11 @@ class ContinuousAgentEpisode:
             user_id="",
             context=context,
             registry=registry,
+            event_sink=(
+                LiveEventSink(self._event_sink)
+                if self._event_sink is not None
+                else None
+            ),
         )
         tool_session = self._tool_executor.new_session(scope=episode_scope)
         if (

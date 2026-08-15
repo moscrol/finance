@@ -269,12 +269,39 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
         registry=_market_registry(_successful_runner),
     )
 
+    from intelligence.services.research_tool_registry import (
+        TOOL_PRE_EXECUTE,
+        TOOL_RESULT,
+    )
+
     assert outcome.status == "completed"
-    observed_kinds = [event.kind for event in observed]
+    # sink 现在是两条车道的**共同出口**（第 5 步第 2 条，检阅裁定 D3）：durable 事件
+    # 与 tool/* Live 事件都从这里出去，靠 payload 的 ``lane`` 区分。本用例原先断言
+    # 「sink 流 == durable 流」——那在合流之前成立。现在它断言的是**durable 子集逐条
+    # 相等**：顺序与只增性没变，变的是同一个出口上多了一条车道。
+    durable_observed = [
+        event for event in observed if event.payload.get("lane") != "live"
+    ]
+    observed_kinds = [event.kind for event in durable_observed]
     assert observed_kinds == [event.kind for event in outcome.events]
     assert observed_kinds.index("plan") < observed_kinds.index("tool_request")
     assert observed_kinds.index("tool_request") < observed_kinds.index("tool_result")
     assert observed_kinds.index("tool_result") < observed_kinds.index("finish")
+
+    # Live 车道：阶段事件到了 sink，但**一条都没进重放日志**（裁定条件②）。
+    live_observed = [event for event in observed if event.payload.get("lane") == "live"]
+    assert [event.kind for event in live_observed] == [TOOL_PRE_EXECUTE, TOOL_RESULT]
+    assert not [event for event in outcome.events if event.kind.startswith("tool/")]
+    # 两条车道可对账（裁定条件①的前提）：同一次调用的 call_id 在两侧对得上。
+    durable_call_ids = [
+        event.payload["call_id"]
+        for event in outcome.events
+        if event.kind == "tool_request"
+    ]
+    assert durable_call_ids
+    assert [event.payload["tool_call_id"] for event in live_observed] == (
+        durable_call_ids * 2
+    )
 
 
 def test_glm_episode_session_resume_keeps_original_model_history() -> None:
