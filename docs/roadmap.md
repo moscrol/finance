@@ -41,7 +41,8 @@
 | L1-R24 | E-007 修复部署 | blocked_on_user | 独立部署窗落地 | 母本 Round 6 批注 | 用户 |
 | L1-8792 | 生产追平 | blocked_on_user | health.revision = main tip | inflight/main.md（已腐，以 live health 为准） | 用户 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
-| L1-OBS | 进度观测台 | in_flight | Phase 1 已合；Phase 2 曲线另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
+| L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
+| L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
 
 ## 决策队列
 
