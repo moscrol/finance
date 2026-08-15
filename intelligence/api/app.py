@@ -10,7 +10,6 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Callable
-from functools import partial
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import asdict
@@ -198,6 +197,64 @@ def _zero_inner_synthesis_reserve(
     return 0.0
 
 
+def _memory_bound_registry_factory(
+    memory_user: str | None,
+) -> Callable[..., object]:
+    """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
+
+    第 4 步认领项 2（spec §7.2 的收尾）：可达性审计的三分法里，
+    ``memory_lookup`` 落在「条件装配」档——审计只能证明**给了身份就装配得
+    出来**，证明不了**生产真的把身份递到了装配函数**。这中间一段断掉时的
+    形状是完全静默的半截状态：contract 仍授权、提示词仍教用法、模型收到的
+    工具清单里静静少一个（实测 run_20260808_111451，注释在
+    ``_run_conversation_turn`` 的调用点）。此前靠一条
+    ``partial(..., memory_user=...)`` 的 if/else 撑着，回归时没有任何东西会红。
+
+    所以在**身份存在的这一层**装断言：给了身份、且本轮 contract 授权了
+    ``memory_lookup``，装配产物就必须包含它——否则响亮地炸，不许静默半截。
+    能力未授权时缺席是正确行为，不断言（注册门在 ``episode_tools`` 是
+    「授权 ∧ 身份」双条件）。
+
+    ``memory_user`` 为空时原样返回 ``build_episode_registry``：None 是真配置
+    不是占位（见 ``_build_continuous_turn_adapter`` docstring），该路径行为
+    与接线前逐字节一致。
+
+    两层对「身份为空」用的判据有意不同，这也是本断言不是恒真式的地方：本层
+    用 Python 真值（``not memory_user``），装配层用 ``str(...).strip() != ""``
+    （``episode_tools`` 的 ``memory_identity_resolved``）。于是「传了但是空白」
+    ——上游 id 只剩空格这类——本层判它非空、装配层判它为空，落在**被守卫的
+    那一侧**：两层口径不一致时炸，而不是静默少一个工具。真 ``None`` 与空串
+    两层判据一致，走无守卫的原样路径。
+
+    **本守卫盖不住的形状（写死认领）**：新增一个生产装配点、压根不传
+    ``memory_user``。那时 ``None`` 与「本该有身份」无法在本层区分，守卫不
+    介入，静默半截会重新出现。今天挡住它的是唯一那个生产调用点上的两条
+    既有测试（``test_workbench_api.py`` 的
+    ``test_conversation_worker_allocates_120_seconds_to_continuous_runtime``
+    与 ``test_conversation_worker_passes_selected_model_to_orchestrator``，
+    都断言 ``memory_user`` 等于该轮的 user id）；再开第二个装配点的人要把它
+    一起钉住。可达性审计的 ⓘ 注记说的也是这一档残留，本轮未改。
+    """
+
+    if not memory_user:
+        return build_episode_registry
+
+    def registry_factory(frame, context):
+        registry = build_episode_registry(frame, context, memory_user=memory_user)
+        if (
+            "memory_lookup" in context.contract.allowed_capabilities
+            and "memory_lookup" not in registry.names()
+        ):
+            raise RuntimeError(
+                "memory 身份已提供且能力已授权，但装配产物缺少 memory_lookup——"
+                "身份在装配链路上被丢掉了（历史形状：注册守卫因缺身份刻意不注册，"
+                f"而调用方明明有身份）。实际装配出的工具：{sorted(registry.names())}"
+            )
+        return registry
+
+    return registry_factory
+
+
 def _build_continuous_turn_adapter(
     *,
     providers: tuple[LLMProvider, ...],
@@ -345,16 +402,12 @@ def _build_continuous_turn_adapter(
         finalizer=finalizer,
     )
     task_id = f"{run_id}:{assistant_message_id}"
-    # 用 partial 绑身份，而不是给 adapter 加一个 memory_user 参数：adapter 只负责
+    # 在装配层绑身份，而不是给 adapter 加一个 memory_user 参数：adapter 只负责
     # 「怎么跑一轮」，不该知道记忆台账按谁分区。同时 registry_factory 的调用点
     # （`continuous_turn_adapter.py` 里的 `self._registry_factory(frame, context)`）
     # 保持两个位置参数不变——测试替身里有固定参数的 `lambda frame, context: ...`，
     # 在调用点加 kwarg 会把它们全打断。
-    registry_factory = (
-        partial(build_episode_registry, memory_user=memory_user)
-        if memory_user
-        else build_episode_registry
-    )
+    registry_factory = _memory_bound_registry_factory(memory_user)
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
@@ -1212,7 +1265,8 @@ def _run_conversation_turn(
                 # 不传这个，`memory_lookup` 在生产里一次都不会注册。
                 #
                 # `_build_continuous_turn_adapter` 里那条
-                # `partial(build_episode_registry, memory_user=memory_user)`
+                # `_memory_bound_registry_factory(memory_user)`（当时还是
+                # `partial(build_episode_registry, memory_user=memory_user)`）
                 # 早就写好了，但它的 `if memory_user` 永远为假：本函数此前没有把
                 # 身份传进去，而 `build_episode_registry` 的守卫
                 # （`episode_tools.py:937`）在缺身份时**刻意不注册**该工具，

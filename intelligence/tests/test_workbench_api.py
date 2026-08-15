@@ -760,6 +760,195 @@ def test_sdk_gpt_adapter_wires_safe_live_episode_progress(
     assert "private-provider" not in public_progress
 
 
+def _memory_identity_frame():
+    """A frame whose question type keeps ``memory_lookup`` on the table."""
+
+    from intelligence.services.task_frame import TaskFrame
+
+    return TaskFrame(
+        raw_question="光刻胶，现在怎么看",
+        user_goal="确认用户此前的判断与增量变化",
+        question_type="stock_deep_dive",
+        subject="光刻胶",
+        subject_kind="concept",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_official_evidence",
+        confidence=0.9,
+    )
+
+
+def _isolate_assembly_roots(monkeypatch, tmp_path) -> None:
+    """Point the assembly-time roots at throwaway dirs.
+
+    ``_memory_bound_registry_factory`` calls ``build_episode_registry`` with
+    production defaults on purpose (that is the call site under test), so the
+    roots have to be moved rather than passed as kwargs.  Both lookups are
+    fail-soft when the tree is empty, which is what we want: this test is about
+    identity threading, not about market data.
+    """
+
+    (tmp_path / "finance").mkdir(exist_ok=True)
+    (tmp_path / "wiki").mkdir(exist_ok=True)
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path / "finance"))
+    monkeypatch.setenv("KB_VAULT", str(tmp_path / "wiki"))
+    # Backend selection is irrelevant here but not inert: a stray
+    # AGENT_RUNTIME_BACKEND=sdk_gpt in the host env would reject the zhipu
+    # provider before we ever reach the registry factory.
+    monkeypatch.delenv("AGENT_RUNTIME_BACKEND", raising=False)
+
+
+def _memory_identity_adapter(monkeypatch, tmp_path, *, memory_user):
+    _isolate_assembly_roots(monkeypatch, tmp_path)
+    return app_module._build_continuous_turn_adapter(
+        providers=(
+            app_module.LLMProvider(
+                "zhipu",
+                "primary-secret",
+                "https://glm.example.invalid/v1",
+                "glm-5.2",
+            ),
+        ),
+        run_id="memory-identity-run",
+        assistant_message_id="memory-identity-message",
+        timeout=42.0,
+        memory_user=memory_user,
+    )
+
+
+def test_production_adapter_binds_memory_identity_through_to_the_registry(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """身份必须真的走到装配产物里，不是走到某个参数里就算数。
+
+    `test_workbench_api.py:816` 已经钉住「`run_store.user_id` 传进了
+    `_build_continuous_turn_adapter`」，`test_episode_tools.py` 已经钉住
+    「`build_episode_registry` 拿到身份就注册」。中间这一段——适配器最终
+    调用的那个 `registry_factory` 是否带着身份——此前没有任何测试覆盖，
+    而它断掉的形状是静默的：模型的工具清单里少一个，没有东西会红。
+    """
+
+    from intelligence.services.episode_factory import build_episode_context
+
+    adapter = _memory_identity_adapter(
+        monkeypatch,
+        tmp_path,
+        memory_user="ledger-user",
+    )
+    frame = _memory_identity_frame()
+    context = build_episode_context(
+        frame,
+        task_id="memory-identity-authorized",
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+    assert "memory_lookup" in context.contract.allowed_capabilities
+
+    registry = adapter._registry_factory(frame, context)
+
+    assert "memory_lookup" in registry.names()
+
+
+def test_production_adapter_refuses_a_blank_memory_identity(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """两层空值判据的差集，必须落在会炸的一侧。
+
+    装配层用 `str(...).strip() != ""` 判身份，本层用 Python 真值。只剩空格的
+    id 因此被上层判成「给了」、被装配层判成「没给」——历史上这类不一致的
+    结局是静默少一个工具。这条断言的价值也在这里：守卫不是恒真式，它拦得住
+    一个真实存在的口径差。
+    """
+
+    from intelligence.services.episode_factory import build_episode_context
+
+    adapter = _memory_identity_adapter(
+        monkeypatch,
+        tmp_path,
+        memory_user="   ",
+    )
+    frame = _memory_identity_frame()
+    context = build_episode_context(
+        frame,
+        task_id="memory-identity-blank",
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+
+    with pytest.raises(RuntimeError, match="memory_lookup"):
+        adapter._registry_factory(frame, context)
+
+
+def test_production_adapter_accepts_memory_lookup_absence_without_the_capability(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """未授权时缺席是正确行为，守卫不得把它当故障。
+
+    `episode_tools` 的注册门是「授权 ∧ 身份」双条件。只钉「有身份就必须有
+    工具」会把关掉能力的正常 contract 判成事故。
+    """
+
+    from intelligence.services.episode_factory import build_episode_context
+
+    adapter = _memory_identity_adapter(
+        monkeypatch,
+        tmp_path,
+        memory_user="ledger-user",
+    )
+    frame = _memory_identity_frame()
+    context = build_episode_context(
+        frame,
+        task_id="memory-identity-unauthorized",
+        capabilities=("kb_search",),
+        timeout=30.0,
+    )
+    assert "memory_lookup" not in context.contract.allowed_capabilities
+
+    registry = adapter._registry_factory(frame, context)
+
+    assert "memory_lookup" not in registry.names()
+
+
+def test_production_adapter_without_memory_identity_keeps_the_bare_factory(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """无身份是真配置，不是待修的缺口——该路径与接线前逐字节一致。
+
+    这里既断言工厂本身没有被包一层（没有身份就没有可断言的东西，包了只会
+    在无关的地方抛），也断言它装配出来的东西仍然照 `episode_tools` 的守卫
+    缺席 `memory_lookup`：多用户服务端上串号比少一个工具严重得多。
+    """
+
+    from intelligence.services.episode_factory import build_episode_context
+
+    adapter = _memory_identity_adapter(
+        monkeypatch,
+        tmp_path,
+        memory_user=None,
+    )
+
+    assert adapter._registry_factory is app_module.build_episode_registry
+
+    frame = _memory_identity_frame()
+    context = build_episode_context(
+        frame,
+        task_id="memory-identity-absent",
+        capabilities=("memory_lookup",),
+        timeout=30.0,
+    )
+    registry = adapter._registry_factory(frame, context)
+
+    assert "memory_lookup" not in registry.names()
+
+
 def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(
     monkeypatch,
     tmp_path,
