@@ -14,7 +14,7 @@
 
 | prior report | recommendation ID | verification_prediction（原文） | prediction_outcome | evidence（本次 trace 的 E-ID） | implication |
 |---|---|---|---|---|---|
-| 轨道 B Round 2 | R-20260815-07 | `bound_but_dropped` 细分 `gap_zeroed`/`no_hash` 后：重放 B1/B3 落 `gap_zeroed`；B7 同一 turn 内两格分别可见 | confirmed | E-004 | 三个冻结夹具逐字命中；本批另贡献 4 个 `no_hash` 真缺口格 |
+| 轨道 B Round 2 | R-20260815-07 | `bound_but_dropped` 细分 `gap_zeroed`/`no_hash` 后：重放 B1/B3 落 `gap_zeroed`；B7 同一 turn 内两格分别可见 | confirmed | E-004 | 三个冻结夹具逐字命中；本批另贡献 6 个 `no_hash` 真缺口格（勘误 E-r3-2：原稿写 4，漏 C10-t3 两格） |
 | 轨道 B Round 2 | R-20260815-06 | porcelain 空且 health revision 与目录一致 | confirmed（#17 已关） | E-001 | 本轮五项盖戳复核成立，另给该关闭行补了测量时刻 |
 | 轨道 B Round 2 | R-20260815-04 | `draft_source` 埋点 | still_pending | 无 | 暂缓已解除，但本轮未做（见 Limits） |
 | 轨道 B Round 2 | R-20260815-03 | 两套 output 判定对账 | still_pending | 无 | 本轮无新证据 |
@@ -126,7 +126,7 @@ none
     Round 1: delivered 11 / not_run 9 / bound_but_dropped 3 / retrieved_unsynthesized 3 / no_evidence 2
     quality_denominator=28，excluded_from_denominator=[]
     execution_state_source_tally: episode_artifact 21 / api_only 7
-- observation: `not_run` 由 9 归零；`bound_but_dropped`（现细分为 `gap_zeroed`）由 3 归零。C2-C10 由「连接被拒未执行」变为真实执行。
+- observation: `not_run` 由 9 归零。`bound_but_dropped`/`gap_zeroed`：**按 case 聚合（tally 取 turns[0]）0 例**；**按轮 1 例**（C10 第 3 轮，两格 `n=0`+gap，no_hash 侧）。tally 把 C10 计为 `delivered`（计入 20），case 末轮字段却是 `bound_but_dropped`——同一产物两口径矛盾，属量具缺陷（Round 4 修）。`gap_zeroed` 归零结论不受影响。C2-C10 由「连接被拒未执行」变为真实执行。
 - confidence: high
 
 #### E-004
@@ -141,8 +141,8 @@ none
     B1@RunB → gap_zeroed（slots: gap_zeroed / gap_zeroed / no_hash）
     B3@RunB → gap_zeroed（三格全 gap_zeroed）
     B7@RunA → direct_answer=no_hash 与 evidence_boundary=gap_zeroed 同 turn 分别可见
-    本批逐格：clean 49 / no_hash 4 / gap_zeroed 0
-- observation: 预注册三条断言逐字命中；本批的 `gap_zeroed` 为 0，该态在本窗口无 live 样本。
+    本批逐格：clean 49 / no_hash 6 / gap_zeroed 0
+- observation: 预注册三条断言逐字命中；本批的 `gap_zeroed` 为 0，该态在本窗口无 live 样本。`no_hash` 6 格含 C10-t3 的 `direct_answer`+`evidence_boundary`（勘误 E-r3-2；原稿漏计，因 tally 把 C10 掩成 delivered）。
 - confidence: high
 
 #### E-005
@@ -161,8 +161,8 @@ none
 - confidence: high
 
 #### E-006
-- title: 四个真缺口格仍判 missing
-- run_id: 本批 A4 / C6 / C9
+- title: 六个真缺口格仍判 missing
+- run_id: 本批 A4 / C6 / C9 / C10-t3
 - step_or_span_id: `outcome.bindings` + `structural_verifier.completion.outputs`
 - native_or_normalized: native
 - source_type: file
@@ -173,7 +173,9 @@ none
     C6 direct_answer      n_hash=0 gap=有 → struct=missing
     C6 evidence_boundary  n_hash=0 gap=有 → struct=missing
     C9 chain_mapping      n_hash=0 gap=有 → struct=missing
-- observation: 四格无一被放宽为 `fulfilled`。
+    C10-t3 direct_answer      n_hash=0 gap=有 → struct=missing
+    C10-t3 evidence_boundary  n_hash=0 gap=有 → struct=missing
+- observation: 六格无一被放宽为 `fulfilled`。后两格是 C10 第 3 轮（`run_20260815_040117_473124`），tally 掩蔽不影响 fail-closed。
 - confidence: high
 
 ### Findings
@@ -278,7 +280,8 @@ none
 - **B 组 5/8 交付**（B2/B3/B4/B5/B8），B6 澄清轮（非失败），**B1/B7 仍 0 且形状已迁移**：不再是 `gap_zeroed`，而是零绑定 + `stop_reason=invalid_repair_finish`。失败点前移一步，故 outcome 记 `ROOT_CAUSE_NOT_CONFIRMED`。
 - **给轨道 A 的数（不替其判）**：`caveat_slips>0` 的 case **9 个**；C1「滑档格必须交付」违反 **0**；C2「真缺口格仍 missing」违反 **0**；批内 `gap_zeroed` 出现 **0 格**。C3 零命中条款**不适用**（窗口存在）。
 - **一条要紧的限制**：失败集**跨窗口换人**——tool60 批失败 B1/B3/B6，本批失败 B1/B7，B3 由 0→13 恢复、B7 由 5→0 退化。「哪两题失败」不是稳定结论，已立 `R-20260815-10` 约束口径。
-- **`R-20260815-07` confirmed**：三个冻结夹具逐字命中；本批另贡献 4 个 `no_hash` 真缺口格。**但 `gap_zeroed` 本批 0 次**，该态无 live 样本，如实记录未补造。
+- **`R-20260815-07` confirmed**：三个冻结夹具逐字命中；本批另贡献 6 个 `no_hash` 真缺口格（A4 / C6×2 / C9 / C10-t3×2；勘误 E-r3-2）。**但 `gap_zeroed` 本批 0 次**，该态无 live 样本，如实记录未补造。
 - **新登记 `R-20260815-08`**：开批前实测发现我 shell 的 `FORESIGHT_USERS_DIR` 与服务端不同，直接开批会让五态整批静默落 `undetermined`/`api_only`——我自己 Round 2 那把量具的同形陷阱。已手工纠正后开批；修复另开 PR。
 - **开工核对**：`#17` 的 `R-06` 关闭行合规，仅给旧脏树计数补测量时刻（23 @03:0x 与轨道 B Round 2 的 20 @02:13 都对，差额是 `episode_protocol.py` 等三文件 02:17 被改）；outcome 未动。
 - **边界**：`R-20260815-04` 未做（与 F-001 相邻缝，等原因码先落地）；未碰 A 的缝；账本只写 B 段。
+- **勘误 E-r3-1 / E-r3-2（Round 3 检阅门，合 PR 前）**：L129「`bound_but_dropped` 由 3 归零」改为按轮 1 例 / 按 case 0 例；L17/L281 与账本 R-07「4 个 `no_hash` 格」改为 6 格。批产物 JSON 不改。分支已 rebase 到 `f43f2507`（#19），避免回退 A 的 R-21 预注册。

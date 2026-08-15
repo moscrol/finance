@@ -306,11 +306,13 @@ def _users_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
-    """干净基线批（`20260814T1926Z-r3-clean-baseline`）实测的 4 个真缺口格。
+    """干净基线批（`20260814T1926Z-r3-clean-baseline`）实测的 6 个真缺口格。
 
-    取值来自该批 A4 / C6 / C9 三题：这些格 `n_hash=0` 且带 gap，structural 判
+    取值来自该批 A4 / C6 / C9 / C10-t3：这些格 `n_hash=0` 且带 gap，structural 判
     `missing` 是**正确行为**，不是缺陷。把它们和滑档格分开，正是 R-20260815-07
     的目的——同一个 `missing` 底下，一种该修、一种不该动。
+    C10-t3 两格（`direct_answer`+`evidence_boundary`）被 tally 按首轮掩成
+    delivered，勘误 E-r3-2 补进计数；本用例仍用 C6 形状自证分类器。
 
     注：该批 `gap_zeroed` 出现 **0 次**（R-001 部署后该形状未在本窗口再现），
     故 `gap_zeroed` 一侧仍只由三个冻结 run 夹具覆盖，本用例不冒充有 live 样本。
