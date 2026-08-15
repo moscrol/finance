@@ -5,23 +5,32 @@
     召回质量指标。本尺子补上最小版本：人工标注「这条 query 应该召回哪些记录」，
     离线跑检索通道，算 recall@k / hit@k。
 
-口径（对齐生产语义，不发明新检索）：
-    - 首个通道是 user_memory（[M] 块）：retrieved@k = `relevant_memory_records`
+口径（对齐生产语义，不发明新检索；完整契约见 docs/retrieval-recall-at-k-contract.md）：
+    - **生产 @k = 每通道 k，不是全局 top-k**（质检 Q2 收口）。
+    - user_memory（[M] 块）：retrieved@k = `relevant_memory_records`
       在 limit=k 下实际会装进 [M] 块的记录（judgments + corrections 各至多 k 条，
-      与生产一致）。记录身份 = 台账行的 ``ts``。
+      并集可达 2k，与生产一致）。记录身份 = 台账行的 ``ts``。
+    - experience_cards：retrieved@k = `select_relevant_cards(limit=k)` 的相关卡
+      ``ts``（生产默认 k=3）；常驻卡不看 query、无条件入 prompt，不属检索召回。
+    - kb_rag（W 源）：retrieved@k = `kb_rag.retrieve`（hybrid、require_fresh）
+      命中按序去重后的前 k 个页面路径；命中身份 = 仓相对 ``file_path``
+      （chunk_id 绑定索引 revision、重建即漂移，不作标注身份）。
     - recall@k = |retrieved@k ∩ relevant| / |relevant|（宏平均按 case 等权）；
       hit@k = retrieved@k 是否命中任一 relevant。
-    - 检索器可插拔（``RETRIEVERS`` 注册表）：kb_rag / evidence_search 等通道
+    - 检索器可插拔（``RETRIEVERS`` 注册表）：evidence_search 等通道
       等有标注集后同一把尺子直接挂，不另建第二份口径。
 
 标注集格式（JSONL，每行一个 case）：
-    {"case_id": "m-001", "query": "液冷渗透率怎么看", "theme": "液冷",
-     "relevant": ["2026-08-01T10:00:00", ...],   # 应召回记录的 ts
-     "note": "可选备注"}
+    {"case_id": "m-001", "channel": "user_memory", "query": "液冷渗透率怎么看",
+     "theme": "液冷", "relevant": ["2026-08-01T10:00:00", ...],  # ts 或 file_path
+     "note": "标注理由", "source_ref": "出处"}
+    channel 缺省视作 user_memory；真实标注集：
+    intelligence/eval/cases/retrieval_recall_v1.jsonl（20 条，S4）。
 
 用法：
     python3 -m intelligence.eval.retrieval_recall --cases <标注集.jsonl> \
-        [--retriever user_memory] [--users-root <台账目录>] [--k 1,3,5] [--json]
+        [--retriever user_memory] [--channel user_memory] \
+        [--users-root <台账目录>] [--kb-wiki <KB wiki 路径>] [--k 1,3,5] [--json]
 
     仓内自带合成夹具（不是真人标注，只证明尺子能跑）：
     python3 -m intelligence.eval.retrieval_recall \
@@ -35,6 +44,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -68,13 +79,88 @@ def user_memory_retriever(
     return [i for i in ids if i]
 
 
+def experience_cards_retriever(
+    query: str,
+    theme: str | None,
+    entity: str | None,
+    k: int,
+    *,
+    users_root: str | Path | None = None,
+    user: str | None = None,
+) -> list[str]:
+    """经验卡生产语义：``select_relevant_cards(limit=k)`` 实际入 prompt 的相关卡 ts。
+
+    生产默认 k=3（``ask.py`` 不传 limit）。常驻卡（promoted/methodology 概览）
+    不看 query、无条件入 prompt，不属「检索召回」，不计入本通道读数。
+    """
+    from intelligence.services import experience_cards
+
+    if users_root is not None:
+        path = Path(users_root).expanduser() / "experience_cards.jsonl"
+    else:
+        from intelligence import userspace
+
+        path = userspace.user_space(user).experience_cards_path
+    cards, _warn = experience_cards.load_cards(path)
+    hit = experience_cards.select_relevant_cards(cards, query, limit=k)
+    return [str(c.get("ts") or "").strip() for c in hit if str(c.get("ts") or "").strip()]
+
+
+def kb_rag_retriever(
+    query: str,
+    theme: str | None,
+    entity: str | None,
+    k: int,
+    *,
+    kb_wiki: str | Path | None = None,
+    kb_mode: str | None = None,
+    kb_timeout: int | None = None,
+) -> list[str]:
+    """wiki RAG（W 源）生产语义：``kb_rag.retrieve``（require_fresh 契约同生产）
+    命中按序去重后的前 k 个页面路径。
+
+    命中身份 = 仓相对 ``file_path``（如 ``wiki/entities/飞凯材料.md``）。
+    theme/entity 不参与——生产 W 源只发 query。通道不可用（无索引/守卫
+    fail-closed/超时）时降级为空召回并在 stderr 留因，不让尺子崩。
+    """
+    from intelligence.services import kb_rag
+
+    wiki = kb_wiki or os.environ.get("KNOWLEDGE_WIKI")
+    res = kb_rag.retrieve(
+        query,
+        kb_wiki=wiki,
+        k=k,
+        mode=kb_mode or kb_rag.DEFAULT_RAG_MODE,
+        timeout=int(kb_timeout or kb_rag.DEFAULT_RAG_TIMEOUT),
+    )
+    if not res.ok:
+        print(f"[retrieval_recall] kb_rag 通道不可用：{res.warning}", file=sys.stderr)
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for h in res.hits:
+        rel = str(h.file_path or "").strip()
+        if rel and rel not in seen:
+            seen.add(rel)
+            out.append(rel)
+    return out[:k]
+
+
 RETRIEVERS: dict[str, Retriever] = {
     "user_memory": user_memory_retriever,
+    "experience_cards": experience_cards_retriever,
+    "kb_rag": kb_rag_retriever,
 }
 
+DEFAULT_CHANNEL = "user_memory"
 
-def load_cases(path: str | Path) -> list[dict[str, Any]]:
-    """读标注集 JSONL；跳过空行/注释行/坏行，query 或 relevant 缺失的 case 丢弃。"""
+
+def load_cases(path: str | Path, channel: str | None = None) -> list[dict[str, Any]]:
+    """读标注集 JSONL；跳过空行/注释行/坏行，query 或 relevant 缺失的 case 丢弃。
+
+    ``channel`` 给定时只保留该通道的 case；case 未写 channel 字段的按
+    ``user_memory`` 算（兼容既有夹具）。
+    """
     p = Path(path).expanduser()
     cases: list[dict[str, Any]] = []
     for line in p.read_text(encoding="utf-8").splitlines():
@@ -86,6 +172,8 @@ def load_cases(path: str | Path) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
         if not isinstance(case, dict):
+            continue
+        if channel and str(case.get("channel") or DEFAULT_CHANNEL) != channel:
             continue
         query = str(case.get("query") or "").strip()
         relevant = [str(r).strip() for r in (case.get("relevant") or []) if str(r).strip()]
@@ -179,22 +267,39 @@ def _main() -> int:
         "--retriever", default="user_memory", choices=sorted(RETRIEVERS),
         help="检索通道（默认 user_memory）",
     )
+    parser.add_argument(
+        "--channel", default=None,
+        help="只跑标注集中该通道的 case（case 未写 channel 按 user_memory 算）；默认不过滤",
+    )
     parser.add_argument("--users-root", default=None, help="台账目录（默认当前用户 userspace）")
     parser.add_argument("--user", default=None, help="用户 id")
+    parser.add_argument("--kb-wiki", default=None, help="KB wiki 路径（默认 KNOWLEDGE_WIKI 环境变量）")
+    parser.add_argument("--kb-mode", default=None, help="kb_rag 检索模式（默认 hybrid）")
+    parser.add_argument(
+        "--kb-timeout", type=int, default=None,
+        help="kb_rag 单次检索超时秒（默认走 kb_rag.DEFAULT_RAG_TIMEOUT=90；冷启动 hybrid 建议 180）",
+    )
     parser.add_argument("--k", default="1,3,5", help="逗号分隔的 k 值（默认 1,3,5）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     args = parser.parse_args()
     ks = tuple(int(x) for x in args.k.split(",") if x.strip())
-    cases = load_cases(args.cases)
+    cases = load_cases(args.cases, channel=args.channel)
     if not cases:
-        print("标注集为空或全部无效（每行需含 query 与非空 relevant）")
+        print("标注集为空或全部无效（每行需含 query 与非空 relevant；--channel 过滤后可能为空）")
         return 2
+    if args.retriever == "kb_rag":
+        retriever_kwargs: dict[str, Any] = {
+            "kb_wiki": args.kb_wiki,
+            "kb_mode": args.kb_mode,
+            "kb_timeout": args.kb_timeout,
+        }
+    else:
+        retriever_kwargs = {"users_root": args.users_root, "user": args.user}
     report = evaluate_cases(
         cases,
         RETRIEVERS[args.retriever],
         ks=ks,
-        users_root=args.users_root,
-        user=args.user,
+        **retriever_kwargs,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render_report(report))
     return 0

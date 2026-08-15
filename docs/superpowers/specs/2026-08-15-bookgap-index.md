@@ -94,3 +94,10 @@
 - 判据 3：换名 0.266s（mtime 窗口远小于 5s）；收据 `ops_sync_run.run_id=9c1dd5e59dbf`（clonefile 0.066s / 1212.8s / ok）。
 - 判据 4：周六隔离副本真同步 rc=0，抽 3 表 count 与开工前一致（`fact_market_daily` 400 / `fact_stock_daily` 2026538 / `fact_limit_advance_daily` 4737）。未动生产库、未动 `finance_query.py`。
 - 部署就绪：8792 不切；生产 `daily-full` 换本分支后锁窗从 ~14min 变换名瞬间。dragon_seats 回补等旁路 `sync-*` 仍直写生产库，不在本缝。
+
+### S4 · recall@k 标注集 v1 ｜ 2026-08-15 ｜ 分支 bookgap/s4-recall-annotation-set-r2
+
+- 交付：20 条真实标注入 `intelligence/eval/cases/retrieval_recall_v1.jsonl`；口径文档收口 Q2（生产 @k=每通道 k）。
+- user_memory 15 条 recall@5=42.2% / hit@5=46.7%；experience_cards 3 条 hit@5=100% recall@5=83.3%；kb_rag 2 条本窗与 S9 抢索引超时、记通道不可用非 0 分。
+- 08-09 S3 定性：**三已挂通道上是题目超纲**（库中无该周可核验主因；因果通道 news_search 未挂尺）。基线 `docs/verification/2026-08-15-recall-baseline.md`。
+- 本分支为 #38 在 S7 合入后的 rebase 副本（原分支 `bookgap/s4-recall-annotation-set` 不强推）。
