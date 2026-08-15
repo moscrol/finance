@@ -199,9 +199,133 @@ def preflight(base: str) -> tuple[bool, str]:
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         failed.append(f"llm/config 不可达: {type(exc).__name__}")
 
+    try:
+        users_dir = try_resolve_episode_users_dir(
+            health, os.environ.get("FORESIGHT_USERS_DIR")
+        )
+    except UsersDirMismatch as exc:
+        failed.append(str(exc))
+        users_dir = None
+
     if failed:
         return False, "; ".join(failed)
-    return True, f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
+    if users_dir is not None:
+        os.environ["FORESIGHT_USERS_DIR"] = str(users_dir)
+        users_note = f" users_dir={users_dir}"
+    else:
+        users_note = " users_dir=<unset>"
+    return (
+        True,
+        f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
+        f"{users_note}",
+    )
+
+
+class UsersDirMismatch(RuntimeError):
+    """users 目录错配。静默落 ``undetermined``/``api_only`` 会产出「看起来正常」
+    的五态——这正是 Round 3 开批前拦下的陷阱（R-20260815-08）。
+    """
+
+
+def resolve_episode_users_dir(
+    health: Mapping[str, Any] | None,
+    env: str | None,
+) -> Path:
+    """服务端 users 目录优先；与 ``FORESIGHT_USERS_DIR`` 不一致则响亮失败。
+
+    ``/api/health`` 的 ``runtime.users_dir`` 在未部署新字段时可能缺失——此时
+    退回 env，但 ``require_episode_if_expected`` 仍会在 completed 非澄清轮
+    找不到 episode 时失败，避免整批静默降级。
+    """
+
+    runtime = (health or {}).get("runtime") if isinstance(health, Mapping) else {}
+    runtime = runtime if isinstance(runtime, Mapping) else {}
+    raw_server = runtime.get("users_dir")
+    if not raw_server and isinstance(health, Mapping):
+        raw_server = health.get("users_dir")
+    server = (
+        Path(str(raw_server)).expanduser().resolve() if raw_server else None
+    )
+    env_path = Path(env).expanduser().resolve() if env and str(env).strip() else None
+    if server is not None and env_path is not None and server != env_path:
+        raise UsersDirMismatch(
+            f"FORESIGHT_USERS_DIR={env_path} 与 /api/health "
+            f"users_dir={server} 不一致"
+        )
+    if server is not None:
+        return server
+    if env_path is not None:
+        return env_path
+    raise UsersDirMismatch(
+        "无法解析 users 目录：/api/health 无 users_dir 且 FORESIGHT_USERS_DIR 未设"
+    )
+
+
+def try_resolve_episode_users_dir(
+    health: Mapping[str, Any] | None,
+    env: str | None,
+) -> Path | None:
+    """preflight 用：两边都缺时不挡（8792 尚未暴露字段）；不一致仍响亮失败。"""
+
+    runtime = (health or {}).get("runtime") if isinstance(health, Mapping) else {}
+    runtime = runtime if isinstance(runtime, Mapping) else {}
+    raw_server = runtime.get("users_dir")
+    if not raw_server and isinstance(health, Mapping):
+        raw_server = health.get("users_dir")
+    if not raw_server and not (env and str(env).strip()):
+        return None
+    return resolve_episode_users_dir(health, env)
+
+
+def episode_artifact_expected(trace: TurnTrace) -> bool:
+    """澄清轮合法无 episode；其它 completed 长跑必须能读到产物。"""
+
+    if not trace.run_id:
+        return False
+    if trace.status not in {"completed", "degraded"}:
+        return False
+    if not trace.gaps and len(trace.trace_steps) <= 6:
+        return False
+    return True
+
+
+_episode_hits_this_run = 0
+
+
+def reset_episode_hit_counter() -> None:
+    """每开一批清零。已有命中后再缺产物，是单题缺口，不是目录错配。"""
+
+    global _episode_hits_this_run
+    _episode_hits_this_run = 0
+
+
+def require_episode_if_expected(
+    trace: TurnTrace, facts: Mapping[str, Any] | None
+) -> None:
+    """错目录会让**整批**读不到 episode。本批已读到过产物后再缺，只标该题。
+
+    2026-08-15 批 #2 第一次开跑：C4 `run_20260815_105037_639945` 目录正确、
+    无 `continuous-episode.json`。当时整批中止、21 题已读产物作废——那是量具
+    误杀，不是 R-08 要拦的静默降级。
+    """
+
+    global _episode_hits_this_run
+    if facts is not None:
+        _episode_hits_this_run += 1
+        return
+    if not episode_artifact_expected(trace):
+        return
+    if _episode_hits_this_run > 0:
+        return
+    if run_dir_exists(trace.run_id, None):
+        # 目录对、文件晚写或根本没写：单题缺口，不是 R-08 要拦的错配。
+        return
+    raise UsersDirMismatch(
+        f"run {trace.run_id} 在 "
+        f"{os.environ.get('FORESIGHT_USERS_DIR') or '<unset>'} "
+        "找不到 continuous-episode.json（completed 且非澄清轮，"
+        "且本批尚未读到任何 episode，run 目录也不在）。这是 users 目录错配，不是五态业务读数。"
+    )
 
 
 #: 运行态冻结枚举（R-20260815-01）。**不要新增值而不同步更新判定函数与看板**——
@@ -244,58 +368,121 @@ def counts_toward_quality(turn: Mapping[str, Any]) -> bool:
     return True
 
 
+# 多轮题五态聚合口径（R-20260815-11）。写死，不要事后改口。
+#
+# 1. ``execution_state_tally`` **按轮**计数，并附 ``execution_state_turn_rows``
+#    （case_id / turn_index / state / source）。
+# 2. case 级 ``execution_state_aggregate`` **取最后一轮**（``turns[-1]``）。
+#    不是首轮、不是最坏轮。取法字段 ``execution_state_aggregate_rule=last_turn``。
+# 3. ``execution_state_case_tally`` 按 aggregate 再计一列，避免把按轮 tally
+#    误读成「题数」。
+# 4. 质量分母仍按 **case 的 aggregate** 是否 ``not_run``（R-02：基础设施失败
+#    整题剔除）。单轮题与旧口径重合。
+#
+# 发现样本：20260814T1926Z-r3-clean-baseline 的 C10 三轮
+# delivered / clarification / bound_but_dropped。旧 tally 取 turns[0] 计成
+# delivered（计入 20），末轮字段却是 bound_but_dropped——同一产物两口径矛盾。
+EXECUTION_STATE_AGGREGATE_RULE = "last_turn"
+
+
 def summarize_execution_states(cases: list[dict[str, Any]]) -> dict[str, Any]:
     """按运行态汇总，并给出剔除 `not_run` 后的质量分母。
 
     R-20260815-02 的落点：`quality_denominator` 是**分母本身**，不是又一个提示。
     2026-08-13 那份产物里 C 组 10 题有 9 题是 `Connection refused`，旧口径按
     10 做分母，于是「C 组 90% 证据为零」被当成业务结论写进了诊断。
+
+    R-20260815-11：多轮题按轮进 tally，case 级另立 `execution_state_aggregate`
+    （最后一轮）。旧实现取 `turns[0]`，把 C10 掩成 delivered。
     """
 
-    tally: dict[str, int] = {}
+    turn_tally: dict[str, int] = {}
+    case_tally: dict[str, int] = {}
     source_tally: dict[str, int] = {}
+    turn_rows: list[dict[str, Any]] = []
     denominator = 0
     excluded: list[str] = []
     for case in cases:
         turns = case.get("turns") or []
         if not turns:
             continue
-        head = turns[0]
-        state = str(head.get("execution_state") or "unknown")
-        tally[state] = tally.get(state, 0) + 1
-        # `execution_state_source` 必须跟着 tally 一起报：只有
-        # `episode_artifact` 那部分是有结构化产物支撑的，`api_only` 那部分
-        # 只能到 not_run/clarification/undetermined 三档。不报来源，读者无法
-        # 判断这张表里有多少格其实是「没证据」而非「测出来是这样」。
-        source = str(head.get("execution_state_source") or "unknown")
-        source_tally[source] = source_tally.get(source, 0) + 1
-        if counts_toward_quality(head):
+        for idx, turn in enumerate(turns):
+            state = str(turn.get("execution_state") or "unknown")
+            source = str(turn.get("execution_state_source") or "unknown")
+            turn_tally[state] = turn_tally.get(state, 0) + 1
+            # `execution_state_source` 必须跟着 tally 一起报：只有
+            # `episode_artifact` 那部分是有结构化产物支撑的，`api_only` 那部分
+            # 只能到 not_run/clarification/undetermined 三档。不报来源，读者无法
+            # 判断这张表里有多少格其实是「没证据」而非「测出来是这样」。
+            source_tally[source] = source_tally.get(source, 0) + 1
+            turn_rows.append(
+                {
+                    "case_id": str(case.get("case_id") or "?"),
+                    "turn_index": idx,
+                    "execution_state": state,
+                    "execution_state_source": source,
+                }
+            )
+        last = turns[-1]
+        aggregate = str(last.get("execution_state") or "unknown")
+        case["execution_state_aggregate"] = aggregate
+        case["execution_state_aggregate_rule"] = EXECUTION_STATE_AGGREGATE_RULE
+        case_tally[aggregate] = case_tally.get(aggregate, 0) + 1
+        if counts_toward_quality({"execution_state": aggregate}):
             denominator += 1
         else:
             excluded.append(str(case.get("case_id") or "?"))
     return {
-        "execution_state_tally": dict(sorted(tally.items())),
+        "execution_state_tally": dict(sorted(turn_tally.items())),
+        "execution_state_case_tally": dict(sorted(case_tally.items())),
         "execution_state_source_tally": dict(sorted(source_tally.items())),
+        "execution_state_turn_rows": turn_rows,
+        "execution_state_aggregate_rule": EXECUTION_STATE_AGGREGATE_RULE,
         "quality_denominator": denominator,
         "excluded_from_denominator": excluded,
     }
 
 
-def _read_episode_facts(run_id: str, user: str | None) -> dict[str, Any] | None:
+def _episode_run_dirs(
+    run_id: str,
+    user: str | None,
+    *,
+    users_dir: str | Path | None = None,
+) -> list[Path]:
+    resolved = users_dir if users_dir is not None else os.environ.get("FORESIGHT_USERS_DIR")
+    if not resolved or not run_id:
+        return []
+    root = Path(resolved)
+    seen: list[Path] = []
+    ordered = [root / user / "runs" / run_id] if user else []
+    ordered.extend(sorted(root.glob(f"*/runs/{run_id}")))
+    for path in ordered:
+        if path not in seen:
+            seen.append(path)
+    return seen
+
+
+def run_dir_exists(run_id: str, user: str | None) -> bool:
+    """run 目录在配置的 users 根下存在 ⇒ 目录没指错，缺的是 episode 文件。"""
+
+    return any(path.is_dir() for path in _episode_run_dirs(run_id, user))
+
+
+def _read_episode_facts(
+    run_id: str,
+    user: str | None,
+    *,
+    users_dir: str | Path | None = None,
+) -> dict[str, Any] | None:
     """从已落盘的 episode 产物读结构化判据。
 
     只读、不请求、不改任何运行时状态。定位方式与 runtime 的存储约定一致
     （``$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/continuous-episode.json``）；
     读不到就返回 None 交由调用方标注 ``undetermined``，绝不构造默认值。
+    错目录的响亮失败在 ``require_episode_if_expected``，不在这里猜一个态。
     """
 
-    users_dir = os.environ.get("FORESIGHT_USERS_DIR")
-    if not users_dir or not run_id:
-        return None
-    root = Path(users_dir)
-    candidates = [root / user / "runs" / run_id] if user else []
-    candidates.extend(sorted(root.glob(f"*/runs/{run_id}")))
-    for run_dir in candidates:
+    for run_dir in _episode_run_dirs(run_id, user, users_dir=users_dir):
         path = run_dir / "continuous-episode.json"
         if not path.is_file():
             continue
@@ -345,6 +532,36 @@ def _read_episode_facts(run_id: str, user: str | None) -> dict[str, Any] | None:
             "slots_gap_zeroed": sum(1 for s in slot_shapes.values() if s == "gap_zeroed"),
             "slots_no_hash": sum(1 for s in slot_shapes.values() if s == "no_hash"),
         }
+    return None
+
+
+def _read_episode_facts_wait(
+    run_id: str,
+    user: str | None,
+    *,
+    attempts: int = 6,
+    delay_s: float = 0.5,
+) -> dict[str, Any] | None:
+    """API completed 后 episode 可能晚几秒落盘（批 #2 第二次 A1 实测竞态）。
+
+    未设 ``FORESIGHT_USERS_DIR`` 时不重试。目录尚未出现时只短等一轮；
+    目录已在、文件未到才继续退避，避免错目录空耗。
+    """
+
+    facts = _read_episode_facts(run_id, user)
+    if facts is not None or not os.environ.get("FORESIGHT_USERS_DIR"):
+        return facts
+    time.sleep(delay_s)
+    facts = _read_episode_facts(run_id, user)
+    if facts is not None:
+        return facts
+    if not run_dir_exists(run_id, user):
+        return None
+    for attempt in range(2, attempts):
+        time.sleep(delay_s * attempt)
+        facts = _read_episode_facts(run_id, user)
+        if facts is not None:
+            return facts
     return None
 
 
@@ -406,7 +623,8 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         ]
         trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
         trace.fulfillment = _capture_fulfillment(steps)
-    facts = _read_episode_facts(trace.run_id, user)
+    facts = _read_episode_facts_wait(trace.run_id, user)
+    require_episode_if_expected(trace, facts)
     if facts is not None:
         trace.evidence_retrieved = int(facts["evidence_retrieved"])
         trace.bindings_count = int(facts["bindings_count"])
@@ -538,6 +756,7 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    reset_episode_hit_counter()
     requested_output = getattr(args, "output", None)
     output_path = Path(requested_output) if requested_output else None
     if output_path is not None and output_path.exists():
@@ -565,7 +784,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"[{i}/{len(selected)}] {case['id']} … ", end="", flush=True)
         questions = [case["query"], *case.get("followups", [])]
         for q in questions:
-            t = ask_once(args.base, args.user, q, args.timeout)
+            try:
+                t = ask_once(args.base, args.user, q, args.timeout)
+            except UsersDirMismatch as exc:
+                print(f"❌ {exc}")
+                print("   拒绝落盘「看起来正常」的五态——这是 users 目录错配。")
+                return 2
             cr.turns.append(t)
             if t.status in {"error", "timeout"}:
                 break

@@ -11,16 +11,25 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
 from intelligence.eval.acceptance import (
+    EXECUTION_STATE_AGGREGATE_RULE,
     EXECUTION_STATES,
     TurnTrace,
+    UsersDirMismatch,
     _classify_execution_state,
     _read_episode_facts,
+    _read_episode_facts_wait,
     counts_toward_quality,
+    require_episode_if_expected,
+    reset_episode_hit_counter,
+    resolve_episode_users_dir,
+    run_dir_exists,
     summarize_execution_states,
 )
 
@@ -258,12 +267,18 @@ def test_summary_drops_not_run_from_the_quality_denominator() -> None:
     assert summary["excluded_from_denominator"] == [f"C{i}" for i in range(2, 11)]
     assert summary["execution_state_tally"]["not_run"] == 9
     assert summary["execution_state_tally"]["gap_zeroed"] == 1
+    # 单轮题：按轮 tally 与按 case aggregate 必须重合
+    assert summary["execution_state_case_tally"] == summary["execution_state_tally"]
+    assert summary["execution_state_aggregate_rule"] == EXECUTION_STATE_AGGREGATE_RULE
 
 
 def test_summary_skips_cases_without_turns() -> None:
     assert summarize_execution_states([{"case_id": "X", "turns": []}]) == {
         "execution_state_tally": {},
+        "execution_state_case_tally": {},
         "execution_state_source_tally": {},
+        "execution_state_turn_rows": [],
+        "execution_state_aggregate_rule": EXECUTION_STATE_AGGREGATE_RULE,
         "quality_denominator": 0,
         "excluded_from_denominator": [],
     }
@@ -303,6 +318,7 @@ def test_summary_reports_how_many_states_are_artifact_backed() -> None:
 @pytest.fixture(autouse=True)
 def _users_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    reset_episode_hit_counter()
 
 
 def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
@@ -336,3 +352,196 @@ def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
     # C6 实测 evidence_retrieved=0，故先落 no_evidence——真缺口格的判缺与
     # 「压根没取到」在本批同时出现，两者也必须分得开
     assert _classify_execution_state(trace, facts) == "no_evidence"
+
+
+_CLEAN_BASELINE = (
+    Path(__file__).resolve().parents[1]
+    / "eval"
+    / "runs"
+    / "20260814T1926Z-r3-clean-baseline.json"
+)
+
+
+def test_c10_frozen_multiturn_tally_matches_last_turn_aggregate() -> None:
+    """C10 冻结产物：按轮 tally 与 case aggregate 口径必须一致（R-20260815-11）。
+
+    旧 tally 取 `turns[0]` → delivered；末轮字段是 `bound_but_dropped`
+    （两格 no_hash 真缺口）。同一份产物两个数互相矛盾。新口径：tally 按轮，
+    aggregate 取最后一轮，二者对得上。批 JSON 本身不改——它是冻结证据。
+    """
+
+    payload = json.loads(_CLEAN_BASELINE.read_text(encoding="utf-8"))
+    cases = [case for case in payload["cases"] if case["case_id"].startswith("C10")]
+    assert len(cases) == 1
+    c10 = cases[0]
+    assert [t["execution_state"] for t in c10["turns"]] == [
+        "delivered",
+        "clarification",
+        "bound_but_dropped",
+    ]
+    summary = summarize_execution_states(cases)
+    assert c10["execution_state_aggregate"] == "bound_but_dropped"
+    assert c10["execution_state_aggregate_rule"] == "last_turn"
+    assert summary["execution_state_tally"] == {
+        "bound_but_dropped": 1,
+        "clarification": 1,
+        "delivered": 1,
+    }
+    assert summary["execution_state_case_tally"] == {"bound_but_dropped": 1}
+    # 口径一致：aggregate 出现在该 case 的 turn 明细里，且 tally 按轮而非按首轮
+    last_row = summary["execution_state_turn_rows"][-1]
+    assert last_row == {
+        "case_id": "C10-multi-turn-consistency",
+        "turn_index": 2,
+        "execution_state": "bound_but_dropped",
+        "execution_state_source": "episode_artifact",
+    }
+    assert last_row["execution_state"] == c10["execution_state_aggregate"]
+    assert summary["quality_denominator"] == 1
+
+
+def test_users_dir_mismatch_against_health_raises(tmp_path: Path) -> None:
+    correct = tmp_path / "server-users"
+    wrong = tmp_path / "wrong-users"
+    correct.mkdir()
+    wrong.mkdir()
+    health = {"runtime": {"users_dir": str(correct)}}
+    with pytest.raises(UsersDirMismatch, match="不一致"):
+        resolve_episode_users_dir(health, str(wrong))
+    assert resolve_episode_users_dir(health, str(correct)) == correct.resolve()
+
+
+def test_wrong_users_dir_does_not_emit_plausible_five_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """错目录 + 对目录各读同一 run：前者必须响亮失败，不能落 undetermined 五态。
+
+    这是 R-20260815-08 的负夹具。错目录存在但没有 episode 时，旧量具会把
+    completed 长跑判成 `undetermined`/`api_only`，整批看起来像正常五态。
+    """
+
+    correct = tmp_path / "server-users"
+    wrong = tmp_path / "wrong-users"
+    wrong.mkdir()
+    _episode(
+        correct,
+        "run-same",
+        user="tester",
+        draft="x" * 80,
+        evidence=10,
+        bindings=[("direct_answer", 0, True), ("evidence_boundary", 0, True)],
+        missing=2,
+    )
+    trace = TurnTrace(
+        question="q",
+        run_id="run-same",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["证据或语义核验未完全通过"],
+    )
+
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(wrong))
+    facts_bad = _read_episode_facts("run-same", "tester")
+    assert facts_bad is None
+    assert _classify_execution_state(trace, facts_bad) == "undetermined"
+    with pytest.raises(UsersDirMismatch, match="找不到 continuous-episode"):
+        require_episode_if_expected(trace, facts_bad)
+
+    reset_episode_hit_counter()
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(correct))
+    facts_ok = _read_episode_facts("run-same", "tester")
+    assert facts_ok is not None
+    require_episode_if_expected(trace, facts_ok)
+    state_ok = _classify_execution_state(trace, facts_ok)
+    assert state_ok == "no_hash"
+    ok_summary = summarize_execution_states(
+        [{"case_id": "B1", "turns": [{"execution_state": state_ok}]}]
+    )
+    assert ok_summary["execution_state_tally"] == {"no_hash": 1}
+    # 守卫触发 = 不会走到 summarize 去写一张「看起来正常」的五态表
+    assert "undetermined" not in ok_summary["execution_state_tally"]
+
+
+def test_missing_episode_after_a_hit_is_per_case_gap_not_dir_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """批 #2 第一次：C4 无 episode 但前 21 题已读到产物——不得整批中止。"""
+
+    _episode(
+        tmp_path,
+        "hit",
+        draft="x" * 80,
+        evidence=4,
+        bindings=[("direct_answer", 1, False)],
+        fulfilled=1,
+    )
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    ok = TurnTrace(
+        question="q",
+        run_id="hit",
+        status="completed",
+        trace_steps=["research"] * 12,
+        gaps=["x"],
+    )
+    require_episode_if_expected(ok, _read_episode_facts("hit", "tester"))
+    missing = TurnTrace(
+        question="q",
+        run_id="missing",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["x"],
+    )
+    require_episode_if_expected(missing, None)
+
+
+def test_run_dir_without_episode_is_per_case_gap_not_dir_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """批 #2 第二次 A1：run 目录已在、episode 晚写——不得当错目录整批中止。"""
+
+    run_dir = tmp_path / "tester" / "runs" / "empty"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    assert run_dir_exists("empty", "tester")
+    missing = TurnTrace(
+        question="q",
+        run_id="empty",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["x"],
+    )
+    require_episode_if_expected(missing, None)
+
+
+def test_read_episode_facts_wait_sees_late_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "tester" / "runs" / "late"
+    run_dir.mkdir(parents=True)
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    payload = {
+        "outcome": {
+            "draft": "x" * 80,
+            "evidence": [1],
+            "bindings": [
+                {"output_id": "direct_answer", "evidence_hashes": ["h"], "gap": False}
+            ],
+        },
+        "structural_verifier": {
+            "completion": {
+                "outputs": [{"output_id": "direct_answer", "status": "fulfilled"}]
+            }
+        },
+    }
+
+    def _write() -> None:
+        time.sleep(0.25)
+        (run_dir / "continuous-episode.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+
+    threading.Thread(target=_write, daemon=True).start()
+    facts = _read_episode_facts_wait("late", "tester", attempts=6, delay_s=0.15)
+    assert facts is not None
+    assert facts["evidence_retrieved"] == 1
