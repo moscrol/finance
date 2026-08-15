@@ -68,6 +68,57 @@ class ApplyOverridesTests(unittest.TestCase):
         self.assertEqual([r["ts"] for r in out], ["t1"])
 
 
+class RecordIdentityTests(unittest.TestCase):
+    """Q3：记录身份 id=sha256(kind+ts+content)[:12]，同秒并发不碰撞；旧行仍认 ts。"""
+
+    def test_same_second_records_get_distinct_ids(self) -> None:
+        ts = "2026-08-15T09:00:00"
+        with TemporaryDirectory() as tmp:
+            p = Path(tmp) / "judgments.jsonl"
+            _, rec_a = judgments.record_judgment(p, memo="判断A", ts=ts)
+            _, rec_b = judgments.record_judgment(p, memo="判断B", ts=ts)
+        self.assertEqual(rec_a["ts"], rec_b["ts"])  # 同秒
+        self.assertNotEqual(rec_a["id"], rec_b["id"])  # id 不碰撞
+        for rec in (rec_a, rec_b):
+            self.assertRegex(rec["id"], r"^[0-9a-f]{12}$")
+            self.assertEqual(
+                rec["id"],
+                memory_status.memory_record_id("judgment", ts, rec["memo"]),
+            )
+
+    def test_kind_separates_ledgers_with_same_ts_and_content(self) -> None:
+        ts = "2026-08-15T09:00:00"
+        self.assertNotEqual(
+            memory_status.memory_record_id("judgment", ts, "同一段文本"),
+            memory_status.memory_record_id("correction", ts, "同一段文本"),
+        )
+
+    def test_exit_by_id_suppresses_exactly_one_of_colliding_pair(self) -> None:
+        ts = "2026-08-15T09:00:00"
+        with TemporaryDirectory() as tmp:
+            p = Path(tmp) / "judgments.jsonl"
+            _, rec_a = judgments.record_judgment(p, memo="判断A", ts=ts)
+            judgments.record_judgment(p, memo="判断B", ts=ts)
+            memory_status.record_status(
+                p, target_ts=rec_a["id"], status="archived", reason="过时"
+            )
+            records, warn = judgments.load_judgments(p)
+        self.assertIsNone(warn)
+        self.assertEqual([r["memo"] for r in records], ["判断B"])
+
+    def test_legacy_ts_rows_still_exit_by_ts(self) -> None:
+        with TemporaryDirectory() as tmp:
+            p = Path(tmp) / "corrections.jsonl"
+            # 旧行：无 id（存量不回填）
+            _write_jsonl(p, [{"ts": "t-legacy", "correction": "旧纠偏"}])
+            _, rec_new = corrections.record_correction(p, correction="新纠偏")
+            memory_status.record_status(p, target_ts="t-legacy", status="archived")
+            records, warn = corrections.load_corrections(p)
+        self.assertIsNone(warn)
+        self.assertEqual([r["correction"] for r in records], ["新纠偏"])
+        self.assertIn("id", rec_new)
+
+
 class LoaderIntegrationTests(unittest.TestCase):
     def test_load_judgments_filters_archived(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -133,6 +184,18 @@ class CliTests(unittest.TestCase):
             proc = self._run(
                 "--ledger", "judgments", "--target-ts", "2026-08-01T00:00:00",
                 "--status", "archived", "--reason", "过时", "--ledger-file", str(p), "--json",
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            records, _ = judgments.load_judgments(p)
+        self.assertEqual(records, [])
+
+    def test_cli_accepts_record_id_as_target(self) -> None:
+        with TemporaryDirectory() as tmp:
+            p = Path(tmp) / "judgments.jsonl"
+            _, rec = judgments.record_judgment(p, memo="按 id 退出", ts="2026-08-15T09:00:00")
+            proc = self._run(
+                "--ledger", "judgments", "--target-ts", rec["id"],
+                "--status", "archived", "--reason", "同秒消歧", "--ledger-file", str(p),
             )
             self.assertEqual(proc.returncode, 0, proc.stderr)
             records, _ = judgments.load_judgments(p)
