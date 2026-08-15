@@ -479,6 +479,10 @@ def run_daily_full_staged(
         return _abort(
             f"子进程被信号终止 (rc={child_rc}), staging 视为半成品, 不换名"
         )
+    if not status:
+        return _abort(
+            f"子进程未写出 status.json (rc={child_rc}), 视为未跑完管道, 不换名"
+        )
     if child_rc not in (0, 1):
         return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
 

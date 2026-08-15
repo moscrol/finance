@@ -46,15 +46,20 @@ def _child(code: str) -> list[str]:
 
 # 子进程剧本: 全部从 env 读 staging 路径——与真实 daily-full-exec 同一契约。
 CHILD_PRELUDE = (
-    "import duckdb, os, sys, time\n"
+    "import duckdb, json, os, pathlib, sys, time\n"
     "path = os.environ['MARKET_FEATURE_STORE_DB']\n"
     "con = duckdb.connect(path)\n"
     "con.execute('CREATE TABLE IF NOT EXISTS sync_marker (note TEXT)')\n"
     "con.execute(\"INSERT INTO sync_marker VALUES ('written-by-child')\")\n"
     "con.execute(\"INSERT INTO fact_market_daily VALUES ('2026-08-15', 12345)\")\n"
 )
+CHILD_WRITE_STATUS = (
+    "pathlib.Path(path + '.status.json').write_text("
+    "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': []}))\n"
+)
 
-CHILD_OK = CHILD_PRELUDE + "con.close()\nsys.exit(0)\n"
+CHILD_OK = CHILD_PRELUDE + "con.close()\n" + CHILD_WRITE_STATUS + "sys.exit(0)\n"
+# 崩了没交 status.json: 编排必须 fail-closed, 不得按 rc=1 换库。
 CHILD_FAILED_STEP = CHILD_PRELUDE + "con.close()\nsys.exit(1)\n"
 CHILD_SELFKILL = CHILD_PRELUDE + (
     "import signal\n"
@@ -65,8 +70,8 @@ CHILD_SLOW = CHILD_PRELUDE + (
     "for _ in range(25):\n"
     "    con.execute(\"INSERT INTO sync_marker VALUES ('tick')\")\n"
     "    time.sleep(0.1)\n"
-    "con.close()\nsys.exit(0)\n"
-)
+    "con.close()\n"
+) + CHILD_WRITE_STATUS + "sys.exit(0)\n"
 
 
 @pytest.fixture()
@@ -180,8 +185,21 @@ def test_receipt_row_present_after_swap(prod_db):
 
 
 def test_failed_step_still_lands_like_today(prod_db):
-    """现状口径: 失败步不回滚已提交写入——子进程 rc=1 仍换库, 出口 rc=1。"""
-    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_FAILED_STEP))
+    """现状口径: 失败步不回滚已提交写入——子进程 rc=1 仍换库, 出口 rc=1。
+
+    与「进程崩了没写 status.json」区分: 后者走 fail-closed, 见下一测。
+    """
+    # 真 daily-full-exec 在收笔时写 status.json; 这里模拟「管道跑完但有失败步」。
+    code = CHILD_FAILED_STEP.replace(
+        "sys.exit(1)\n",
+        (
+            "import json, pathlib\n"
+            "p = pathlib.Path(path + '.status.json')\n"
+            "p.write_text(json.dumps({'trade_date': '2026-08-15', 'ok': False, 'steps': []}))\n"
+            "sys.exit(1)\n"
+        ),
+    )
+    result = sdf.run_daily_full_staged(child_argv=_child(code))
     assert result["swapped"] is True
     assert result["rc"] == 1
     con = duckdb.connect(str(prod_db), read_only=True)
@@ -191,15 +209,33 @@ def test_failed_step_still_lands_like_today(prod_db):
         con.close()
 
 
+def test_crash_without_status_json_does_not_swap(prod_db):
+    """子进程异常退出且没交 status.json = 没跑完, 不得按 rc=1 换库。
+
+    2026-08-15 实测: worktree 缺 shared/feishu_utils, 子进程 import 期崩,
+    旧逻辑把 rc=1 当成「失败步仍落库」换了名——收据在、数据没动, 但语义错。
+    """
+    before = _sha256(prod_db)
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_FAILED_STEP))
+    assert result["swapped"] is False
+    assert result["rc"] == 2
+    assert "status.json" in result["reason"]
+    assert _sha256(prod_db) == before
+
+
 def test_fresh_database_bootstrap(tmp_path, monkeypatch):
     target = tmp_path / "fresh.duckdb"
     monkeypatch.setattr(db, "DB_PATH", target)
     monkeypatch.setattr(db, "DB_DIR", target.parent)
     code = (
-        "import duckdb, os, sys\n"
-        "con = duckdb.connect(os.environ['MARKET_FEATURE_STORE_DB'])\n"
+        "import duckdb, json, os, pathlib, sys\n"
+        "path = os.environ['MARKET_FEATURE_STORE_DB']\n"
+        "con = duckdb.connect(path)\n"
         "con.execute('CREATE TABLE fact_market_daily (trade_date DATE, total_amount DOUBLE)')\n"
-        "con.close()\nsys.exit(0)\n"
+        "con.close()\n"
+        "pathlib.Path(path + '.status.json').write_text("
+        "json.dumps({'trade_date': '2026-08-15', 'ok': True, 'steps': []}))\n"
+        "sys.exit(0)\n"
     )
     result = sdf.run_daily_full_staged(child_argv=_child(code))
     assert result["swapped"] is True and result["copy"] is None
@@ -310,7 +346,8 @@ def test_third_party_writer_guard_blocks_swap(prod_db):
     # 模拟同步窗口内 backfill 等旁路写者落笔。
     code = CHILD_PRELUDE + (
         "con.close()\n"
-        f"third = duckdb.connect({str(prod_db)!r})\n"
+        + CHILD_WRITE_STATUS
+        + f"third = duckdb.connect({str(prod_db)!r})\n"
         "third.execute(\"INSERT INTO fact_market_daily VALUES ('2026-08-12', 1)\")\n"
         "third.close()\n"
         "sys.exit(0)\n"
