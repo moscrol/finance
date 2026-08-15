@@ -91,6 +91,89 @@ class ContractGuidancePromptTests(unittest.TestCase):
         self.assertNotIn("输出结构契约", msgs[0]["content"])
 
 
+class ContractMissingOutputsTests(unittest.TestCase):
+    """Q4：契约缺件程序核对进 repair_coordinator.missing_outputs 词表 + EVAL 可读收据。"""
+
+    _BARE = "固态电池还在发酵，可以继续看。"
+    _COMPLETE = (
+        "无上期基线，本期建立基线。\n"
+        "毛利率判断：信息不足 [D7]。复核期限：2026-09-12。\n"
+        "## 下期关注清单\n- 中报毛利率 <20% 则削弱扩产逻辑"
+    )
+
+    def test_track_intent_maps_missing_elements_to_output_ids(self) -> None:
+        from intelligence.services.track_contract import contract_missing_outputs
+
+        missing = contract_missing_outputs(self._BARE, query="固态电池最新进展如何")
+        self.assertEqual(
+            missing,
+            ("track_quad_or_baseline", "track_ttl", "track_next_watch"),
+        )
+
+    def test_non_track_query_checks_nothing(self) -> None:
+        from intelligence.services.track_contract import contract_missing_outputs
+
+        self.assertEqual(
+            contract_missing_outputs(self._BARE, query="固态电池产业链全景"), ()
+        )
+
+    def test_complete_track_answer_has_no_missing_outputs(self) -> None:
+        from intelligence.services.track_contract import contract_missing_outputs
+
+        self.assertEqual(
+            contract_missing_outputs(
+                self._COMPLETE, query="光伏产业链", question_type="theme_track"
+            ),
+            (),
+        )
+
+    def test_receipt_field_always_present_and_json_native(self) -> None:
+        import json
+
+        from intelligence.services.track_contract import contract_receipt
+
+        # 缺件收据：missing_outputs 在场且列出缺件
+        receipt = contract_receipt(self._BARE, query="固态电池最新进展如何")
+        self.assertEqual(receipt["check"], "track_contract")
+        self.assertTrue(receipt["track_intent"])
+        self.assertEqual(
+            receipt["missing_outputs"],
+            ["track_quad_or_baseline", "track_ttl", "track_next_watch"],
+        )
+        # 非跟踪题：字段仍在场（空 = 不适用），且整体可 JSON 序列化（EVAL 可读）
+        plain = contract_receipt(self._BARE, query="固态电池产业链全景")
+        self.assertFalse(plain["track_intent"])
+        self.assertEqual(plain["missing_outputs"], [])
+        json.dumps(receipt), json.dumps(plain)
+
+    def test_output_ids_compose_into_repair_goal(self) -> None:
+        """词表兼容不是口头承诺：缺件 id 能原样进 build_repair_goal 的缺口修复环。"""
+        from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
+        from intelligence.services.repair_coordinator import (
+            build_repair_goal,
+            progress_from_ledger,
+        )
+        from intelligence.services.track_contract import contract_missing_outputs
+
+        snap = EvidenceLedgerSnapshot(
+            evidence_ids=("e1",),
+            covered_outputs=(),
+            open_gaps=(),
+            independent_source_families=("market",),
+            evidence_source_families=(("e1", "market"),),
+            evidence_targets=(("e1", ()),),
+        )
+        missing = contract_missing_outputs(self._BARE, query="固态电池最新进展如何")
+        goal = build_repair_goal(
+            episode_id="episode-1",
+            missing_outputs=missing,
+            previous_progress=progress_from_ledger(snap, snap),
+            remaining_calls=2,
+            remaining_seconds=30.0,
+        )
+        self.assertEqual(goal.missing_answer_elements, missing)
+
+
 class ContractGateTests(unittest.TestCase):
     def test_complete_answer_has_no_missing_elements(self) -> None:
         from intelligence.services.track_contract import missing_contract_elements
