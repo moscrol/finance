@@ -75,6 +75,10 @@ def finish_json_schema() -> dict[str, object]:
                         "evidence_hashes": {
                             "type": "array",
                             "items": {"type": "string"},
+                            "description": (
+                                "Episode ordinals E1..En from the observation, "
+                                "or an exact collected content_hash"
+                            ),
                         },
                         "basis": {
                             "type": "string",
@@ -111,7 +115,7 @@ def build_episode_instructions(
         "三种条件化情景中的实际估值倍数或市值区间，并写清方法/假设；不能把"
         "当前单一 PB、标题或空表当作情景区间。证据不足时应返回 partial，"
         "并在该 binding.gap 明确说明。financial_business_anchor 的 binding "
-        "必须至少包含一个 financial_data 证据哈希；KB、公告或业务材料可以作为"
+        "必须至少包含一个 financial_data 证据序号（E1、E2…）；KB、公告或业务材料可以作为"
         "补充证据，但不能替代逐季财务硬锚。若 D5 已给出 PB 情景计算锚，优先"
         "逐字复用其保守/中性/乐观数值，模型只补条件与风险，不得另造倍数。"
         "情景条件优先只用 financial_data 已观察到的营收、净利、毛利率或净利率"
@@ -174,7 +178,7 @@ def build_episode_instructions(
         "【工具与观察】\n"
         "每次看到工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的"
         "只读工具，不能臆造工具结果。\n"
-        "事实判断必须绑定工具返回的 evidence_hashes；"
+        "事实判断必须绑定工具观察里的证据序号 E1、E2…；"
         "缺数据要写 gap。\n"
         "观察事实与分析判断分开；不得编造精确数值阈值。\n"
         "\n"
@@ -189,13 +193,13 @@ def build_episode_instructions(
         "\n"
         "【证据绑定】\n"
         "draft 中每个精确数字事实都必须由相应 required output 的"
-        "binding 包含其直接 evidence_hash；不能绑定就省略该数字。\n"
+        "binding 包含其直接证据序号（E1、E2…）；不能绑定就省略该数字。\n"
         "公开网页中的"
         "预测或观点只能明确标作外部观点，不能冒充当前事实或历史概率。\n"
         "对于原因归因题，news_search 未返回同一时间窗口证据时，不得用普通 "
         "web_search 摘要补成已核验因果；应保留已核验盘面，把原因写为 gap "
         "或明确标注为外部观点候选。\n"
-        "每条被正文使用的观察事实都必须把直接证据哈希加入对应 output binding；"
+        "每条被正文使用的观察事实都必须把直接证据序号加入对应 output binding；"
         "不得用同一次工具返回的相邻证据代替，也不得正文使用后漏绑。\n"
         "\n"
         "【何时停止】\n"
@@ -209,13 +213,14 @@ def build_episode_instructions(
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
-        '"evidence_hashes":["..."],"basis":"evidence|user_premise|model_reasoning",'
+        '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
         '"gap":""}]}。\n'
         "每个 binding 的 basis 必须与对应 required output 的 grounding_mode 一致；"
         "evidence 表示当前世界事实，user_premise 表示只评估用户给出的条件，"
-        "model_reasoning 表示方法论或推理框架，不得伪造证据哈希。\n"
+        "model_reasoning 表示方法论或推理框架，不得伪造证据序号或哈希。"
+        "evidence_hashes 填观察里的序号 E1、E2…，不要誊抄 content_hash。\n"
         "binding.gap 只在该 required output 无法回答时填写；"
-        "若 output 已由 evidence_hashes 支持并完成，binding.gap 必须为空，"
+        "若 output 已由证据序号支持并完成，binding.gap 必须为空，"
         "限制条件写入顶层 gaps 或 draft。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
         f"{prior_recall_rule}\n"
@@ -309,6 +314,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "bindings_not_list": RejectionKind.FORMAT,
     "binding_not_object": RejectionKind.FORMAT,
     "hashes_not_list": RejectionKind.FORMAT,
+    "unknown_evidence_ref": RejectionKind.FORMAT,
     "basis_mismatch": RejectionKind.FORMAT,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
@@ -382,6 +388,140 @@ def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
 
 
+ABSENT_REJECTION_CODE = "none"
+"""无拒收时 finish/stop 仍在场的占位，与 ``caveat_slips=0`` 同款。"""
+
+REPAIR_PROTOCOL_REJECTION_CODES = frozenset(
+    {"repair_model_error", "repair_tool_during_finish"}
+)
+"""修复轮未进入 ``validate_episode_finish`` 的两条 ``invalid_repair_finish`` 原因码。
+
+只写事件，不进 ``REJECTION_KINDS``：它们不是 ``_reject`` 抛出的契约病因。
+"""
+
+# E1..E999。上限挡住「e + 15 位数字」这种 16-hex 哈希被误读成超大序号。
+_EVIDENCE_ORDINAL_RE = re.compile(r"^[Ee]([1-9][0-9]{0,2})$")
+
+
+def evidence_ordinal_table(evidence: tuple[AgentEvidence, ...]) -> dict[str, str]:
+    """``content_hash → E<n>``，按 episode 内首次出现顺序，从 1 起。"""
+
+    table: dict[str, str] = {}
+    for item in evidence:
+        digest = str(item.content_hash or "").strip()
+        if not digest or digest in table:
+            continue
+        table[digest] = f"E{len(table) + 1}"
+    return table
+
+
+def parse_evidence_ordinal(token: str) -> int | None:
+    """``E1`` / ``e12`` → 序号；对不上则 ``None``（交给哈希路径）。"""
+
+    match = _EVIDENCE_ORDINAL_RE.fullmatch(str(token or "").strip())
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def resolve_evidence_refs(
+    raw_refs: list[object],
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
+
+    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
+    供旧夹具与偶发抄对的路径；抄错的哈希走既有 forged/truncated，
+    **不做模糊纠正**（拼接标本会同时近配两条真哈希）。
+    """
+
+    table = evidence_ordinal_table(evidence)
+    by_id = {eid: digest for digest, eid in table.items()}
+    resolved: list[str] = []
+    for raw in raw_refs:
+        if not isinstance(raw, str):
+            raise _reject(
+                "hashes_not_list",
+                "binding evidence_hashes must be a string list",
+            )
+        token = raw.strip()
+        ordinal = parse_evidence_ordinal(token)
+        if ordinal is not None:
+            eid = f"E{ordinal}"
+            digest = by_id.get(eid)
+            if digest is None:
+                raise _reject(
+                    "unknown_evidence_ref",
+                    f"unknown evidence ordinal: {eid}",
+                )
+            resolved.append(digest)
+            continue
+        resolved.append(token)
+    return tuple(resolved)
+
+
+def attach_evidence_ordinals(
+    items: list[dict[str, object]],
+    table: dict[str, str],
+) -> list[dict[str, object]]:
+    """给公开证据行补 ``evidence_id``，不改 hash。"""
+
+    annotated: list[dict[str, object]] = []
+    for item in items:
+        row = dict(item)
+        digest = str(row.get("content_hash") or "").strip()
+        if digest in table:
+            row["evidence_id"] = table[digest]
+        annotated.append(row)
+    return annotated
+
+
+def strip_hashes_for_model(observation: Mapping[str, object]) -> dict[str, object]:
+    """模型上下文去掉 ``content_hash`` / ``evidence_hashes``，只留序号。"""
+
+    facing = dict(observation)
+    evidence: list[object] = []
+    evidence_ids: list[str] = []
+    for item in facing.get("evidence") or []:
+        if not isinstance(item, Mapping):
+            evidence.append(item)
+            continue
+        row = {key: value for key, value in item.items() if key != "content_hash"}
+        eid = row.get("evidence_id")
+        if isinstance(eid, str) and eid:
+            evidence_ids.append(eid)
+        evidence.append(row)
+    facing["evidence"] = evidence
+    if evidence_ids:
+        facing["evidence_ids"] = evidence_ids
+        facing.pop("evidence_hashes", None)
+    return facing
+
+
+def finish_rejection_fields(
+    error: BaseException | None = None,
+    *,
+    code: str | None = None,
+    reason: str | None = None,
+) -> dict[str, str]:
+    """把 ``invalid_action.reason`` 提升进 finish。无拒收时 code=none、reason 空串。"""
+
+    if error is None and not code and not reason:
+        return {
+            "rejection_code": ABSENT_REJECTION_CODE,
+            "rejection_reason": "",
+        }
+    resolved_code = code
+    resolved_reason = reason or ""
+    if error is not None:
+        resolved_code = getattr(error, "code", None) or resolved_code or "unclassified"
+        resolved_reason = str(error)
+    return {
+        "rejection_code": resolved_code or "unclassified",
+        "rejection_reason": resolved_reason,
+    }
+
+
 def _is_unique_one_char_truncation(
     unknown: set[object],
     evidence_hashes: set[str],
@@ -451,7 +591,7 @@ def validate_episode_finish(
             raise _reject("hashes_not_list", "binding evidence_hashes must be a list")
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
-            evidence_hashes=tuple(raw_hashes),
+            evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
         )
@@ -479,7 +619,7 @@ def validate_episode_finish(
                     "truncated_hash",
                     "binding contains truncated evidence hash: "
                     + ",".join(sorted(str(item) for item in unknown))
-                    + "; copy the complete hash from the evidence list",
+                    + "; use the evidence ordinal (E1, E2, …) from the observation",
                 )
             raise _reject(
                 "forged_hash",
@@ -702,14 +842,22 @@ def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
 
 
 __all__ = [
+    "ABSENT_REJECTION_CODE",
     "EpisodeFinish",
     "EpisodeFinishRejection",
+    "REPAIR_PROTOCOL_REJECTION_CODES",
     "RejectionKind",
     "RejectionResponse",
     "build_episode_input",
     "build_episode_instructions",
     "expand_episode_snapshot_bindings",
+    "attach_evidence_ordinals",
+    "evidence_ordinal_table",
     "finish_json_schema",
+    "finish_rejection_fields",
+    "parse_evidence_ordinal",
     "rejection_response",
+    "resolve_evidence_refs",
+    "strip_hashes_for_model",
     "validate_episode_finish",
 ]

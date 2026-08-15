@@ -28,10 +28,14 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
+    attach_evidence_ordinals,
     build_episode_input,
     build_episode_instructions,
+    evidence_ordinal_table,
     expand_episode_snapshot_bindings,
+    finish_rejection_fields,
     rejection_response,
+    strip_hashes_for_model,
     validate_episode_finish,
 )
 from intelligence.runtime.episode_tool_batch import (
@@ -354,26 +358,35 @@ class _EpisodeToolAccumulator:
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
+            ordinals = evidence_ordinal_table(tuple(self.evidence))
             public_observation = {
                 "ok": True,
                 "tool": observation.tool,
                 "query": observation.query,
                 "observation": observation.observation,
-                "evidence": [
-                    public_agent_evidence(item) for item in observation.evidence
-                ],
+                "evidence": attach_evidence_ordinals(
+                    [public_agent_evidence(item) for item in observation.evidence],
+                    ordinals,
+                ),
                 "evidence_hashes": list(observation.evidence_hashes),
+                "evidence_ids": [
+                    ordinals[digest]
+                    for digest in observation.evidence_hashes
+                    if digest in ordinals
+                ],
                 "gaps": list(observation.gaps),
             }
-            # 审计留档拿全量，模型上下文拿预算后的副本。同一份 payload 分流到
-            # 两个 sink，所以截断只发生在喂模型这一侧——ledger 仍是完整证据。
+            # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
+            # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
             self.ledger.add("tool_result", {**public_observation, **timing})
             self.messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": call.call_id,
                     "content": json.dumps(
-                        budget_tool_observation(public_observation),
+                        strip_hashes_for_model(
+                            budget_tool_observation(public_observation)
+                        ),
                         ensure_ascii=False,
                     ),
                 }
@@ -834,6 +847,7 @@ class ContinuousAgentEpisode:
                                 self._append_sub_research_message(
                                     messages=messages,
                                     result=pending_branch_result,
+                                    evidence=tuple(accumulator.evidence),
                                 )
                             continue
                     else:
@@ -961,6 +975,7 @@ class ContinuousAgentEpisode:
                     self._append_sub_research_message(
                         messages=messages,
                         result=pending_branch_result,
+                        evidence=tuple(accumulator.evidence),
                     )
                 if self._snapshot_surface_satisfied(
                     registry=registry,
@@ -990,11 +1005,12 @@ class ContinuousAgentEpisode:
                 response = rejection_response(exc)
                 # 病因与类别进收据：此前只留一句自由文本 reason，事后无法按类
                 # 归并，`synthesis_health` 那 59% 「口径未知」就是从这里开始的。
+                rejection = finish_rejection_fields(exc)
                 ledger.add(
                     "invalid_action",
                     {
                         "reason": reason,
-                        "code": getattr(exc, "code", "unclassified"),
+                        "code": rejection["rejection_code"],
                         "kind": getattr(
                             getattr(exc, "kind", None), "value", "unclassified"
                         ),
@@ -1044,6 +1060,7 @@ class ContinuousAgentEpisode:
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
+                    **rejection,
                 )
 
             bindings = expand_episode_snapshot_bindings(
@@ -1061,6 +1078,7 @@ class ContinuousAgentEpisode:
                     "bindings": [item.to_dict() for item in bindings],
                     "gaps": list(current_gaps),
                     "caveat_slips": finish.caveat_slips,
+                    **finish_rejection_fields(),
                 },
             )
             return AgentOutcome(
@@ -1484,6 +1502,20 @@ class ContinuousAgentEpisode:
                 )
         if turn.error or turn.tool_calls:
             invalid_actions += len(turn.tool_calls)
+            rejection = finish_rejection_fields(
+                code=(
+                    "repair_model_error" if turn.error else "repair_tool_during_finish"
+                ),
+                reason=turn.error or "修复终止阶段仍尝试调用工具",
+            )
+            ledger.add(
+                "invalid_action",
+                {
+                    "reason": rejection["rejection_reason"],
+                    "code": rejection["rejection_code"],
+                    "disposition": "invalid_repair_finish",
+                },
+            )
             return self._stopped_outcome(
                 task_frame=task_frame,
                 status="partial" if accumulator.evidence else "failed",
@@ -1498,6 +1530,7 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
                 carried_bindings=previous.bindings,
+                **rejection,
             )
         try:
             finish = validate_episode_finish(
@@ -1507,7 +1540,15 @@ class ContinuousAgentEpisode:
             )
         except ValueError as exc:
             invalid_actions += 1
-            ledger.add("invalid_action", {"reason": str(exc)})
+            rejection = finish_rejection_fields(exc)
+            ledger.add(
+                "invalid_action",
+                {
+                    "reason": rejection["rejection_reason"],
+                    "code": rejection["rejection_code"],
+                    "disposition": "invalid_repair_finish",
+                },
+            )
             return self._stopped_outcome(
                 task_frame=task_frame,
                 status="partial" if accumulator.evidence else "failed",
@@ -1522,6 +1563,7 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
                 carried_bindings=previous.bindings,
+                **rejection,
             )
         bindings = expand_episode_snapshot_bindings(
             bindings=finish.bindings,
@@ -1559,6 +1601,7 @@ class ContinuousAgentEpisode:
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
                 "caveat_slips": finish.caveat_slips,
+                **finish_rejection_fields(),
             },
         )
         return AgentOutcome(
@@ -1760,7 +1803,9 @@ class ContinuousAgentEpisode:
         *,
         messages: list[dict[str, object]],
         result: SubResearchResult,
+        evidence: tuple[AgentEvidence, ...] = (),
     ) -> None:
+        ordinals = evidence_ordinal_table(evidence)
         messages.append(
             {
                 "role": "user",
@@ -1772,10 +1817,17 @@ class ContinuousAgentEpisode:
                                 "branch_id": branch.branch_id,
                                 "goal": branch.goal,
                                 "status": branch.status,
-                                "evidence": [
-                                    public_agent_evidence(item)
-                                    for item in branch.evidence
-                                ],
+                                "evidence": strip_hashes_for_model(
+                                    {
+                                        "evidence": attach_evidence_ordinals(
+                                            [
+                                                public_agent_evidence(item)
+                                                for item in branch.evidence
+                                            ],
+                                            ordinals,
+                                        )
+                                    }
+                                )["evidence"],
                                 "gaps": list(branch.gaps),
                             }
                             for branch in result.branches
@@ -1784,7 +1836,7 @@ class ContinuousAgentEpisode:
                         "instruction": (
                             "这些是只读分支返回的公开证据观察，不是最终答案。"
                             "主 episode 仍需自行比较证据、处理冲突并决定停止；"
-                            "不得把分支状态或内部标识写入公开答案。"
+                            "绑定用证据序号 E1、E2…，不得把分支状态或内部标识写入公开答案。"
                         ),
                     },
                     ensure_ascii=False,
@@ -1878,13 +1930,13 @@ class ContinuousAgentEpisode:
                 "role": "user",
                 "content": (
                     "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
-                    "原始观察，立即基于已有 evidence_hashes 输出 FINAL_JSON；"
+                    "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
                     "证据不足的 required output 必须标 partial 并写明 gap。"
                     "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
                     "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
                     "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
-                    "必须把直接证据哈希放入对应 output binding，否则删去数字。"
-                    "每条被正文使用的观察事实也必须把其直接证据哈希加入对应 "
+                    "必须把直接证据序号放入对应 output binding，否则删去数字。"
+                    "每条被正文使用的观察事实也必须把其直接证据序号加入对应 "
                     "output binding；不得用同一次工具返回的另一条证据代替。"
                     "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
                     "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
@@ -2067,7 +2119,15 @@ class ContinuousAgentEpisode:
         except ValueError as exc:
             invalid_actions += 1
             reason = str(exc)
-            ledger.add("invalid_action", {"reason": reason})
+            rejection = finish_rejection_fields(exc)
+            ledger.add(
+                "invalid_action",
+                {
+                    "reason": reason,
+                    "code": rejection["rejection_code"],
+                    "disposition": "finalization_recovery_failed",
+                },
+            )
             return self._failed_recovery_outcome(
                 task_frame=task_frame,
                 ledger=ledger,
@@ -2077,6 +2137,7 @@ class ContinuousAgentEpisode:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
+                **rejection,
             )
 
         bindings = expand_episode_snapshot_bindings(
@@ -2098,6 +2159,7 @@ class ContinuousAgentEpisode:
                 "bindings": [item.to_dict() for item in bindings],
                 "gaps": list(current_gaps),
                 "caveat_slips": finish.caveat_slips,
+                **finish_rejection_fields(),
             },
         )
         return AgentOutcome(
@@ -2154,6 +2216,8 @@ class ContinuousAgentEpisode:
         llm_calls: int,
         tool_calls: int,
         invalid_actions: int,
+        rejection_code: str = "none",
+        rejection_reason: str = "",
     ) -> AgentOutcome:
         ledger.add(
             "finalization_recovery_outcome",
@@ -2171,6 +2235,8 @@ class ContinuousAgentEpisode:
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
+            rejection_code=rejection_code,
+            rejection_reason=rejection_reason,
         )
 
     @staticmethod
@@ -2235,6 +2301,8 @@ class ContinuousAgentEpisode:
         invalid_actions: int,
         carried_draft: str = "",
         carried_bindings: tuple[OutputEvidenceBinding, ...] = (),
+        rejection_code: str = "none",
+        rejection_reason: str = "",
     ) -> AgentOutcome:
         """Stop this episode, optionally carrying an earlier answer forward.
 
@@ -2262,6 +2330,8 @@ class ContinuousAgentEpisode:
                 "carried_draft_chars": len(carried_draft),
                 # 未走过 validate 的停机路径：没有搬运，计数为 0 且字段在场。
                 "caveat_slips": 0,
+                "rejection_code": rejection_code,
+                "rejection_reason": rejection_reason,
             },
         )
         return AgentOutcome(

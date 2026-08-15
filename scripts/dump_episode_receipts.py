@@ -63,10 +63,22 @@ def _episode_lines(ep: dict) -> list[str]:
         elif kind == "finish":
             slips = payload.get("caveat_slips")
             slips_s = slips if slips is not None else "<ABSENT>"
+            code = payload.get("rejection_code")
+            code_s = code if code is not None else "<ABSENT>"
+            reason = payload.get("rejection_reason")
+            reason_s = "<ABSENT>" if reason is None else ("<empty>" if reason == "" else "set")
             lines.append(
                 f"  finish stop={payload.get('stop_reason')} "
                 f"status={payload.get('status')} "
-                f"caveat_slips={slips_s}"
+                f"caveat_slips={slips_s} "
+                f"rejection_code={code_s} "
+                f"rejection_reason={reason_s}"
+            )
+        elif kind == "invalid_action" and payload.get("code"):
+            lines.append(
+                f"  invalid_action code={payload.get('code')} "
+                f"kind={payload.get('kind')} "
+                f"disposition={payload.get('disposition')}"
             )
     return lines
 

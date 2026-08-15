@@ -13,10 +13,16 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_protocol import (
+    ABSENT_REJECTION_CODE,
     EpisodeFinish,
+    EpisodeFinishRejection,
     build_episode_input,
     build_episode_instructions,
+    evidence_ordinal_table,
     finish_json_schema,
+    finish_rejection_fields,
+    resolve_evidence_refs,
+    strip_hashes_for_model,
     validate_episode_finish,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
@@ -262,7 +268,7 @@ def _static_contract_text() -> str:
 # 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。别为了让它
 # 变绿而回退重排。
 _CONTRACT_FINGERPRINT = (
-    "f953cb34172874f948476283d68b2c725bfcef80128881c2e35e901a758323ad"
+    "acb20a7df27a44c59f4febcff330d852ed78e70cf14a34f7c9fa3acc126efce8"
 )
 
 
@@ -1148,3 +1154,123 @@ def test_r001_fixture_a6_all_slot_slip() -> None:
         ),
     )
     assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
+
+
+def test_evidence_ordinals_resolve_and_unknown_ordinal_rejects() -> None:
+    """E1/E2 解析回 hash；E99 越界硬拒。精确 hash 仍接受。"""
+
+    frame = _frame()
+    context = _context(frame)
+    evidence = _hex_evidence("aaa111aaa111aaa1", "bbb222bbb222bbb2")
+    table = evidence_ordinal_table(evidence)
+    assert table == {"aaa111aaa111aaa1": "E1", "bbb222bbb222bbb2": "E2"}
+    assert resolve_evidence_refs(["E1", "e2"], evidence) == (
+        "aaa111aaa111aaa1",
+        "bbb222bbb222bbb2",
+    )
+    assert resolve_evidence_refs(["aaa111aaa111aaa1"], evidence) == (
+        "aaa111aaa111aaa1",
+    )
+    with pytest.raises(EpisodeFinishRejection) as err:
+        resolve_evidence_refs(["E99"], evidence)
+    assert err.value.code == "unknown_evidence_ref"
+
+    finish = validate_episode_finish(
+        {
+            "status": "completed",
+            "draft": "当前更接近条件化修复。",
+            "gaps": [],
+            "bindings": [
+                {
+                    "output_id": "direct_assessment",
+                    "evidence_hashes": ["E1"],
+                    "gap": "",
+                }
+            ],
+        },
+        context=context,
+        evidence=evidence,
+    )
+    assert finish.bindings[0].evidence_hashes == ("aaa111aaa111aaa1",)
+
+
+def test_hash_transcription_specimens_stay_rejected() -> None:
+    """B1/B7 四个誊抄标本：换位/插入/删除/拼接，全部 fail-closed，不做模糊纠正。"""
+
+    frame = _frame()
+    context = _context(frame)
+    real_b1_a = "3b0893e5a338d58f"
+    real_b1_b = "8b9fcfe85c43d0d0"
+    written_transpose = "3b0895e3a338d58f"
+    written_concat = "8b9fcfe85a338d58f"
+    real_b7_insert = "20eea1861410bd4d"
+    written_insert = "20eea1861410bd4d5"
+    real_b7_delete = "e82eaa545eafa11a"
+    written_delete = "e82eaa545eafa11"
+
+    def _reject_code(*hashes: str, known: tuple[str, ...]) -> str:
+        with pytest.raises(EpisodeFinishRejection) as err:
+            validate_episode_finish(
+                _finish_with_hashes(*hashes),
+                context=context,
+                evidence=_hex_evidence(*known),
+            )
+        return err.value.code
+
+    assert (
+        _reject_code(written_transpose, known=(real_b1_a, real_b1_b)) == "forged_hash"
+    )
+    with pytest.raises(EpisodeFinishRejection) as concat_err:
+        validate_episode_finish(
+            _finish_with_hashes(written_concat),
+            context=context,
+            evidence=_hex_evidence(real_b1_a, real_b1_b),
+        )
+    assert concat_err.value.code == "forged_hash"
+    assert (
+        _reject_code(written_insert, known=(real_b7_insert, real_b7_delete))
+        == "forged_hash"
+    )
+    assert (
+        _reject_code(written_delete, known=(real_b7_insert, real_b7_delete))
+        == "truncated_hash"
+    )
+    assert (
+        _reject_code(
+            written_insert,
+            written_delete,
+            known=(real_b7_insert, real_b7_delete),
+        )
+        == "forged_hash"
+    )
+
+
+def test_strip_hashes_for_model_keeps_ordinals_only() -> None:
+    facing = strip_hashes_for_model(
+        {
+            "evidence": [
+                {
+                    "title": "t",
+                    "content_hash": "aaa111aaa111aaa1",
+                    "evidence_id": "E1",
+                }
+            ],
+            "evidence_hashes": ["aaa111aaa111aaa1"],
+            "evidence_ids": ["E1"],
+        }
+    )
+    assert facing["evidence_ids"] == ["E1"]
+    assert "evidence_hashes" not in facing
+    assert "content_hash" not in facing["evidence"][0]
+    assert facing["evidence"][0]["evidence_id"] == "E1"
+
+
+def test_finish_rejection_fields_present_when_absent() -> None:
+    empty = finish_rejection_fields()
+    assert empty["rejection_code"] == ABSENT_REJECTION_CODE
+    assert empty["rejection_reason"] == ""
+    filled = finish_rejection_fields(
+        EpisodeFinishRejection("forged_hash", "binding contains unknown evidence hash")
+    )
+    assert filled["rejection_code"] == "forged_hash"
+    assert "unknown evidence hash" in filled["rejection_reason"]
