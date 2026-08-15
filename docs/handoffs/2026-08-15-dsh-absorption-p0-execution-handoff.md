@@ -85,9 +85,11 @@ git diff --shortstat HEAD...gitea/main    # 空（分叉为 0）
 
 ## 3. 提交史（实施分支，全部通过复验）
 
-> **rebase 重盖（2026-08-15，收检阅方标注 ①）**：旧版这里列的七个哈希是 rebase
-> **之前**的，删掉安全 ref 再 gc 就会 dangle。下面是重放后的当前哈希，oldest-first
-> 全列。旧→新映射随时可复现（14 行全 `=`）：
+> **本节的定位是「旧→新映射 + 基线锚点」，不是 live 全列**（2026-08-15 收检阅方标注 ①
+> 改的定位）。上一版把它当"当前提交史全列"写，于是每落一个提交就过期一次。
+> **要看当前全部提交，现取**：`git log --oneline gitea/main..HEAD`。
+> 本节只保证两件事：① rebase 前后那 **14 个**提交的旧→新映射（下表，截至 `017c564c`
+> 的提交一并留档）；② 当时的基线锚点。映射随时可复现（14 行全 `=`）：
 > `git range-diff 23e2a07e..prerebase/dsh-seams-e21c50bf cf86e891..5e0b38cd`
 
 ```
@@ -397,7 +399,17 @@ ledger 侧的 `tool_request`/`tool_result`/`tool_error`（`agent_episode.py:336`
 > **并发序号唯一性**的行为测试（多线程打同一个 ledger，断言 sequence 恰好是 1..N
 > 的排列）。**顺序不能反**：先接线后加锁 = 制造一个随机变红的门禁。
 
-### 10.3 D3【需检阅裁定】阶段事件归 Durable 还是 Live
+### 10.3 D3【已裁定：归 Live，三条件】阶段事件归 Durable 还是 Live
+
+> **检阅裁定（2026-08-15，`a64901cf`）：归 Live**，三个条件——
+> ① durable 侧 `tool_request`/`tool_result`/`tool_error` 保持**对账权威**，阶段事件
+> 不得成为任何金融字段或发布判据的**唯一载体**；② 分类落 D4 那张 services 单表并
+> **用测试钉住** `tool/*` → Live，Live 事件**不进 `ledger.events`、不携带 durable
+> sequence**；③ 本裁定**只覆盖 `tool/*` 三事件**，`branch_*` 归属留 D6 按 §5.3-3
+> 单独裁定。除下面列的代价 A/B 外，裁定还给了一条执行方没写的依据：**方向不对称
+> ——Live→Durable 将来是加法，Durable→Live 是对重放消费者的破坏。**
+>
+> 下面保留原始论证作为依据留档。
 
 spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是本仓已有的
 `tool_request`/`tool_result`。三个 `tool/*` 阶段事件如果也进 Durable：
@@ -410,7 +422,7 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
   `openai_agents_runtime.py:1198`/`:1243`/`:1347` 把 `events` 当重放日志用；
   每次工具调用多 2–3 条事件会按并发批次成倍放大前缀长度。
 
-**执行方建议：阶段事件先归 Live**（只走 `event_sink` 实时出口，不进 `ledger.events`），
+**执行方建议（已被采纳）：阶段事件先归 Live**（只走 `event_sink` 实时出口，不进 `ledger.events`），
 理由是它当前的用途是可观测性，且 Live/Durable 的分流点放在 `ledger.add` 内部时，
 **对外契约零变化**。§7.1 那条"每次工具调用都有完整阶段事件"的对账，等真要做时再
 决定是否翻转 durable 侧的工具事件契约——那时它是一次有意的、单独成轮的翻转。
@@ -423,7 +435,8 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
   放 payload（理由见 `agent_episode.py:242-248` 的注释）。分类用 **kind 命名空间**
   （`tool/` 已经是）+ services 层一张表。
 - **D5 Projection 落层**：services（`layer_audit` 硬门禁：services 不得 import
-  runtime）。现在事实上的 projection 是 `continuous_turn_adapter.py:824` 的
+  runtime）。现在事实上的 projection 是
+  `intelligence/runtime/continuous_turn_adapter.py:824` 的
   `[item.to_dict() for item in outcome.events]`；第 5 步把它收成一个 services 层函数，
   adapter / trace / 评测三个消费者共用，**不新建第二个投影口径**。
 - **D6 子研究对账**：§5.3 那三条要求逐条变断言（成对 / cancelled 可区分 /
@@ -432,10 +445,18 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
 
 ### 10.5 建议的实施顺序（每条可独立成轮）
 
-1. `ledger.add` 上锁 + 并发序号唯一性测试（**无行为改动，可先行**）；
-2. Live/Durable 分类表 + Scope sink 接到 ledger（按 D3 裁定结果决定阶段事件走哪侧）；
+1. ~~`ledger.add` 上锁 + 并发序号唯一性测试（**无行为改动，可先行**）~~
+   **✅ 已完成**（`f5fd13a6`，2026-08-15）。变异 5/5 抓到；过程教训见本轮小结。
+2. Live/Durable 分类表（services 单表）+ Scope sink 接到 Live 出口。按 D3 裁定：
+   `tool/*` 三事件走 Live，**不进 `ledger.events`、不携带 durable sequence**，并要
+   **用测试钉住这条分类**；durable 侧 `tool_request/tool_result/tool_error` 保持
+   对账权威。⚠️ 注意 D3 条件②把并发暴露面**从 durable 列表移到了 Live sink**：
+   8 个 worker 会并发调同一个 `event_sink`（外部回调），第 2 条实施前先确认现有
+   sink 实现（`api/app.py:339`/`:362`/`:388`）在并发下的行为——第 1 条那把锁保护的是
+   `ledger.events`，保护不到 sink 内部。
 3. Projection 收口到 services 层，三个消费者改读它；
-4. 子研究三条对账断言（含结果循环 payload 补 `error`）。
+4. 子研究三条对账断言（含结果循环 payload 补 `error`）；`branch_*` 的 Durable/Live
+   归属在这一步按 §5.3-3 单独裁定（D3 明确不覆盖它）。
 
 ---
 
@@ -756,6 +777,44 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   `layer_audit` ERROR 0（自报"对 `59c53e16` 成立"）；可达性 12 声明一致 / 0 够不着；
   ruff 全绿；pre-commit 随两次提交各跑一次。
 - **未做**：第 5 步的实现（四条实施步一条都没做）；`error` 进事件的收据缺口仍在。
+
+### 执行方小结 · Round「§10.5 第 1 条：ledger.add 上锁」（2026-08-15，执行方）
+
+- **两个提交**：`f5fd13a6`（上锁 + 并发用例）+ 本提交（台账）。分支仍**未 push、
+  未合 main**，未动生产快照树。
+- **改了什么**（`agent_episode.py`，行为中性）：`add` 的「读 `len(self.events)` →
+  追加」进 `RLock` 临界区；`record_runtime_result` 读列表改为锁内取快照；
+  **sink 调用留在锁外**（外部回调，持锁调它是经典死锁源；代价——并发时到达顺序可能
+  与 sequence 不一致，消费者按 sequence 排序，已写进注释）。
+- **计数**：5055 → **5056**，k=1 恰为新增用例数，存量零改动。
+- **变异 5/5 抓到**：抽掉 `add` 里的锁，新用例连红 5 次（实测重号
+  `[1, 2, 2, 2, 2, 2, ...]`）；恢复后树干净。
+- ⚠️ **过程自报两件，都是我的错，也都是可复用的教训**：
+  1. **第一版并发用例是假绿**。没有确定性抢占注入时，抽掉锁跑 5 次**全绿**——CPython
+     按 5ms 时间片切线程，8 个线程各自在一个时间片内就跑完了全部 `add`，交错从未
+     发生。**那一版测的是调度器的运气，不是不变量**，已废弃重写：现版在临界区中央
+     monkeypatch `EpisodeEvent` 使其 `sleep(0.5ms)` 让出 GIL，把窗口确定性撑开——
+     有锁时 sleep 在锁内发生、序号照样唯一，没锁时立刻重号。
+     **教训：并发用例必须先证明它在"去掉保护"的版本下会红，否则它是一条假门禁。**
+     这与本仓已有的两种假测试（spy 透传、`inspect.getsource`）是同族第三形状。
+  2. **变异恢复 `git checkout -- <file>` 把我未提交的实现一起还原掉了**。当时锁还没
+     提交，一条恢复命令把它擦了，导致我以为"有锁也红"，差点去追一个不存在的 bug。
+     **教训：变异测试前先提交被测实现**——`git checkout --` 的恢复目标是 HEAD，
+     不是"我改之前的样子"。
+- **收上轮两条标注**：§3 定位改为「旧→新映射 + 基线锚点」，并写明要看当前全列请现取
+  `git log --oneline gitea/main..HEAD`（不再承诺 live 全列）；§10.4 的
+  `continuous_turn_adapter.py:824` 补全 `intelligence/runtime/` 路径。
+- **D3 裁定已回填** §10.3（归 Live + 三条件 + 方向不对称性那条依据），§10.5 第 2 条
+  按裁定重写，并加了一条**裁定的副作用**：条件②把并发暴露面从 durable 列表移到了
+  **Live sink**——8 个 worker 会并发调同一个外部 `event_sink`，第 1 条这把锁保护不到
+  它。第 2 条实施前要先确认 `api/app.py:339`/`:362`/`:388` 那三个 sink 在并发下的行为。
+- **门禁**（跑在 `f5fd13a6` 之上、含本提交的工作树，`umask 022`，LOADED=工作树路径）：
+  全量 **5056 passed / 4 skipped / 0 failed**（602.4s）＝上轮基线 5055 **+1**，
+  k 恰为新增用例数；`layer_audit` ERROR 0（自报"对 `f5fd13a6` 成立"）；可达性
+  12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随两次提交各跑一次。
+  变异读数（5/5）与门禁读数是**两次独立跑**。
+- **下一轮**：§10.5 第 2 条（Live/Durable 分类表 + Scope sink 接 Live 出口），
+  开工前先做上面那条 sink 并发确认。**新基线锚点：5056 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
