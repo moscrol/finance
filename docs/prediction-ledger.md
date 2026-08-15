@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-15（轨道 A Round 3：R-21 canary 判据开批前预注册；不改 B 轨行 / R-10）
+- last_updated: 2026-08-15（轨道 A Round 4：R-21 confirmed；开 R-23 证据序号契约；不改 B 轨行 / R-10）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -31,9 +31,22 @@
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |
-| `R-20260815-21` | 轨道 A M1 F-001 | `DATA_CONTRACT_FIX` | 全格 `evidence_hashes`+非空 `binding.gap` 的 partial FINAL_JSON 经 `validate_episode_finish` 后，各格 `binding.gap=""`、原 gap 文本进入顶层 `gaps`；再过 `verify_episode_outcome` 这些格 `fulfilled`，issues 不再含 `required output reports gap:`。无哈希的 gap 仍被拒绝。绕过 validate 把 leftover gap 直接喂 verifier 仍 missing（判据不变） | **主门离线**：`test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill`、`test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat`、`test_validate_finish_still_rejects_gap_without_any_evidence`、`test_leftover_binding_gap_still_drops_hashes`。live canary 只作确认：同窗口同 revision 下若再出现全格滑档，eb 应>0；单次 live 不独立结案。**Round 3 开批前预注册**（`docs/verification/2026-08-15-trka-r3-r21-canary.md` §Pre-registered canary，frozen_at=2026-08-15T03:14:33+08:00）：C1 `caveat_slips>0` → 有哈希格全部 fulfilled 且 eb>0；C2 `n_hash=0`+gap → 仍 missing；C3 零命中=`unobserved-in-window`，R-21 保持 pending，不扩批 | `pending` |
+| `R-20260815-23` | 轨道 A Round 4 M1 F-001 | `DATA_CONTRACT_FIX` | 本修复部署到 8792 之后的下一批：主路径 `deadline_exhausted`、修复轮已收集证据的同形 case，修复终局应解析出绑定且 `evidence_bound>0`。该批若再出现 `invalid_action.reason` 含 `unknown evidence hash`（誊抄 16-hex），本预测 **reproduces → refuted**。越界序号 / 歧义拼接仍拒收；不做模糊纠正 | **主门离线已绿**：`test_evidence_ordinals_resolve_and_unknown_ordinal_rejects`、`test_hash_transcription_specimens_stay_rejected`、`test_repair_finish_accepts_evidence_ordinal`、`test_invalid_repair_finish_lifts_reason_onto_finish`。live 臂等用户裁决部署后的下一批；本轮不上 8792。不回填 B 的 `R-09` 行 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
+
+### 2026-08-15 Round 4 收口回填
+
+此表冻结在 Round 4 新归因之前。干净基线批在 B 分支 `fix/b-group-gap-shape-split`，
+`sha256=b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`，
+`generated_at=20260814T200212Z`，`preflight_detail=revision=cb09f895`。
+轨道 A 独立重扫 run 目录，不改 B 轨行 / R-10。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260815-21` | 预注册 C1 零违反：`caveat_slips>0` 恰 9 题（A6=2 / A8=2 / A10=1 / B2=3 / B3=3 / B4=2 / B5=1 / C7=1 / C9=1），有哈希格全部 `fulfilled` 且 eb>0。C2 零违反：6 个真缺口格（A4 `evidence_boundary`；C6 `direct_answer`+`evidence_boundary`；C9 `chain_mapping`；C10-t3 `direct_answer`+`evidence_boundary`）全部 `missing`。C3 不适用（有命中）。混合形正样本 C9：slips=1 与真缺口 missing 同 turn。条件靶收窄谓词（曾 `draft_chars>0` 其后 `carried_draft_chars=0`）0 命中，不开 M1 | `confirmed` | 从 Open 移到 Closed。预注册原文一字未改；收口见 `docs/verification/2026-08-15-trka-r3-r21-canary.md` §Post-batch closure。C10-t3 为 `bound_but_dropped`（两格 no_hash 真缺口），不移动 C1/C2 |
+| `R-20260804-10` | 本轮无 headless handoff 新证据 | `pending` | 保持 Open；本轨道不写该行 |
+| `R-20260815-07` / `-03` / `-04` | 本轮不取 B 缝证据 | `pending` | 保持 Open；本轨道不写这些行 |
 
 ### 2026-08-15 Round 1 开工前回填
 
@@ -114,6 +127,7 @@
 | `R-20260804-08` | 设计评审 §仪器覆盖矩阵 | `HARNESS_FIX` | 补齐埋点后，`configure → intent → plan` 三步在 workbench 与 codex **两侧都非空**，`first_divergence_step` 首次具备行为含义 | `confirmed` | 两侧真实路径实测：workbench 真 turn 读 `trace.jsonl` → `configure→intent→plan→route→retrieve→synthesize→observe`；codex 跑 `CodexHeadlessRuntime.run()`（真 `_to_outcome`，仅 subprocess 用 fake stdout）→ `configure→intent→plan→tool→observe→observe→stop`。**门槛 3/3**，两侧共有由 1/9 升至 **4/9**。测试：`test_runtime_emits_configure_and_plan_landmarks_in_l1_order`、`test_turn_trace_exposes_configure_and_plan_as_their_own_l1_steps` |
 | `R-20260804-09` | 标准 M2 分诊 F-001 | `HARNESS_FIX` | 显式 finalization handoff 后，瑞华泰进入 finalization 并以 `model_finish` 在 root 前结束 | `refuted` | `2026-08-04b-finalization/c-long-capped-t2.json`：事件级 `headless_protocol_rejected` / 135.555s，5 requests / 4 mailbox exchanges / 0 finalization；最后一个 in-flight `evidence_search` 无 result/error，交接未激活。wrapper 60s timeout 是静态支持的候选退出路径，非 artifact 直接读数 |
 | `R-20260815-22` | 轨道 A Round 2 F-001 | `EVAL_ONLY` | ① 重放 R7-A7 冻结 FINAL_JSON 形状（`run_20260813_034211_544672`，两格 hashes+gap）经 `validate_episode_finish` 后 `caveat_slips` = 被搬运格数（2）；② 干净 finish（无 gap 或 gap 已在顶层）`caveat_slips=0` 且字段在场；③ 无哈希 gap 的拒绝路径不产生搬运计数，拒绝语义不变 | `confirmed` | `test_caveat_slips_replays_r7_a7_frozen_finish`、`test_caveat_slips_zero_on_clean_finish`、`test_caveat_slips_not_emitted_on_true_gap_reject`、`test_finish_event_exposes_caveat_slips_count`。R-001 跨组夹具：`test_r001_fixture_b5_all_slot_slip`、`test_r001_fixture_b7_mixed_true_gap_still_missing`、`test_r001_fixture_a6_all_slot_slip` |
+| `R-20260815-21` | 轨道 A M1 F-001 | `DATA_CONTRACT_FIX` | 全格 `evidence_hashes`+非空 `binding.gap` 的 partial FINAL_JSON 经 `validate_episode_finish` 后，各格 `binding.gap=""`、原 gap 文本进入顶层 `gaps`；再过 `verify_episode_outcome` 这些格 `fulfilled`，issues 不再含 `required output reports gap:`。无哈希的 gap 仍被拒绝。绕过 validate 把 leftover gap 直接喂 verifier 仍 missing（判据不变） | `confirmed` | 干净基线批 `intelligence/eval/runs/20260814T1926Z-r3-clean-baseline.json`（B 分支，`sha256=b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`，`generated_at=20260814T200212Z`，`revision=cb09f895`，`quality_denominator=28`）。轨道 A 独立重扫：C1 9 题 slips>0 全交付且 eb>0；C2 6 个真缺口格全 missing；C9 混合形（slips=1 + `chain_mapping` missing）同 turn。预注册原文未改。详见 `docs/verification/2026-08-15-trka-r3-r21-canary.md` §Post-batch closure 与母本 Round 3 批注 |
 
 ### fix_type refuted streak（作用域：本项目累计）
 
@@ -166,14 +180,23 @@ closure 与 PRIMARY 证据引用。
 
 `R-20260815-21` 来自轨道 A 标准 M1 分诊
 [`docs/verification/2026-08-15-trka-repair-finish-gap-slip.md`](verification/2026-08-15-trka-repair-finish-gap-slip.md)，
-PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`。它可以作为后续
-Prior prediction closure 与 PRIMARY 证据引用。轨道 A 不回写 `R-20260804-02` / `R-20260804-10`。
+PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`。Round 3 开批前预注册
+C1/C2/C3；Round 4 按预注册原文收口为 `confirmed`（批 `sha256=b712bd2e…`，9 题 slips
+全交付，6 个真缺口格仍 missing）。它可以作为后续 Prior prediction closure 与 PRIMARY
+证据引用。轨道 A 不回写 `R-20260804-02` / `R-20260804-10`。
 
 `R-20260815-22` 来自轨道 A Round 2 标准 M1
 [`docs/verification/2026-08-15-trka-r2-caveat-slips.md`](verification/2026-08-15-trka-r2-caveat-slips.md)，
 PRIMARY=`HARNESS/stop/local-missing-caveat-slips-count`（EVAL_ONLY 观测洞，不改判定）。
 三条离线断言均已兑现，故进 Closed；`EVAL_ONLY` refuted streak 因中间出现
 `confirmed` 归零。轨道 A 不回写 B 轨行与 R-10。
+
+`R-20260815-23` 来自轨道 A Round 4 标准 M1
+[`docs/verification/2026-08-15-trka-r4-evidence-ordinals.md`](verification/2026-08-15-trka-r4-evidence-ordinals.md)，
+PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`（终局契约逼模型
+誊抄 16-hex `content_hash`）。离线门已绿；live 臂等部署后下一批，outcome 保持
+`pending`。不回填 B 登记的 R-09 行（本轮只把 `invalid_action.reason` 提升进 finish
+payload，口径由 B 回填）。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。

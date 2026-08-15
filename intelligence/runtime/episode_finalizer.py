@@ -10,6 +10,11 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     public_agent_evidence,
 )
+from intelligence.services.episode_protocol import (
+    attach_evidence_ordinals,
+    evidence_ordinal_table,
+    strip_hashes_for_model,
+)
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.task_frame import TaskFrame
 
@@ -33,14 +38,14 @@ _FAILURE_REASON_CODES = frozenset(
 
 _RECOVERY_SYSTEM_PROMPT = (
     "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或"
-    "臆造任何新证据。只能使用用户 JSON 中 evidence 已存在的 content_hash，严格"
+    "臆造任何新证据。只能使用用户 JSON 中 evidence 的序号 E1、E2…，严格"
     "回答原始 TaskFrame 与 required_outputs。只输出一个 FINAL_JSON 对象："
     '{"status":"completed|partial","draft":"自然语言回答",'
     '"gaps":["..."],"bindings":[{"output_id":"...",'
-    '"evidence_hashes":["..."],"basis":"evidence|user_premise|model_reasoning",'
+    '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
     '"gap":""}]}。'
     "binding.basis 必须与 required_outputs 的 grounding_mode 一致；"
-    "model_reasoning 与 user_premise 可以不带证据哈希，但不得把它们伪装成 evidence。"
+    "model_reasoning 与 user_premise 可以不带证据序号，但不得把它们伪装成 evidence。"
     "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
@@ -49,7 +54,7 @@ _RECOVERY_SYSTEM_PROMPT = (
     "若 required_outputs 包含 scenario_range，必须给出保守、中性、乐观三种"
     "条件化情景中的实际估值倍数或市值区间；不能把当前单一 PB、标题或空表当作"
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "
-    "financial_data 哈希；KB 或业务材料只能作补充。无法满足时返回 partial 并写 gap。"
+    "financial_data 证据序号；KB 或业务材料只能作补充。无法满足时返回 partial 并写 gap。"
     "evidence 若含 PB 情景计算锚，逐字复用其三组数值，只补条件与风险，不得另造倍数。"
     "情景条件优先只使用 financial_data 的营收、净利、毛利率或净利率变化；"
     "没有直接 evidence 的项目、产能、客户和业务催化不得写入。"
@@ -182,7 +187,7 @@ class EpisodeFinalizer:
 def _compact_evidence(
     evidence: tuple[AgentEvidence, ...],
 ) -> list[dict[str, object]]:
-    """Select a bounded, tool-balanced view while retaining original hashes."""
+    """Select a bounded, tool-balanced view. IDs follow the full episode table."""
 
     grouped: dict[str, list[AgentEvidence]] = {}
     for item in evidence:
@@ -203,6 +208,7 @@ def _compact_evidence(
             break
         index += 1
 
+    ordinals = evidence_ordinal_table(evidence)
     projected: list[dict[str, object]] = []
     for item in selected:
         public = public_agent_evidence(item)
@@ -212,7 +218,10 @@ def _compact_evidence(
                 detail[: MAX_RECOVERY_DETAIL_CHARS - 3].rstrip() + "..."
             )
         projected.append(public)
-    return projected
+    facing = strip_hashes_for_model(
+        {"evidence": attach_evidence_ordinals(projected, ordinals)}
+    )
+    return list(facing["evidence"])
 
 
 __all__ = [

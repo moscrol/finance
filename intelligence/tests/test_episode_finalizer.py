@@ -148,14 +148,17 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
             "contradicts": [],
             "independent_key": "",
             "freshness": "unknown",
-            "content_hash": "h1",
+            "evidence_id": "E1",
         }
     ]
     assert payload["gaps"] == ["missing news"]
     assert payload["today"] == "2026-07-23"
     assert payload["latest_data_date"] == "2026-07-22"
     assert payload["failure_reason"] == "invalid_model_finish"
-    assert "h2" not in json.dumps(sent["messages"], ensure_ascii=False)
+    sent_text = json.dumps(sent["messages"], ensure_ascii=False)
+    assert "h1" not in sent_text
+    assert "h2" not in sent_text
+    assert "E1" in sent_text
     assert turn.tool_calls == ()
     assert 0.0 < sent["timeout"] <= 20.0
 
@@ -194,8 +197,8 @@ def test_recovery_compacts_large_evidence_round_robin_without_minting_hashes() -
         "market_data",
         "mainline_context",
     ]
-    original_hashes = {item.content_hash for item in evidence}
-    assert {item["content_hash"] for item in projected} <= original_hashes
+    assert all("content_hash" not in item for item in projected)
+    assert all(str(item.get("evidence_id") or "").startswith("E") for item in projected)
     assert all(len(item["detail"]) <= 360 for item in projected)
     assert len(json.dumps(projected, ensure_ascii=False)) < 9_000
     assert "不超过1200字" in model.calls[0]["messages"][0]["content"]

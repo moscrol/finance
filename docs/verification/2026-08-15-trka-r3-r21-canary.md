@@ -219,3 +219,51 @@ none
 - 开批前冻结 C1 滑档交付、C2 真缺口仍 missing、C3 零命中=`unobserved-in-window` 保持 pending。
 - 条件靶：批内 `carried_draft_chars=0` 则转 M1。
 - 全程离线。批后按本文件收口，不得改口。
+
+## Post-batch closure
+
+- closed_at: 2026-08-15（轨道 A Round 4；预注册原文一字未改）
+- batch: `/Users/a77/fwp-wt-b-r3/intelligence/eval/runs/20260814T1926Z-r3-clean-baseline.json`
+- sha256: `b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`
+- generated_at: `20260814T200212Z`（晚于 frozen_at `2026-08-15T03:14:33+08:00` / 提交 `4df486c2` @ 03:15:31+08）
+- stamp: `preflight_ok=true`，`preflight_detail=revision=cb09f895 backend=continuous_glm`，`quality_denominator=28`，`excluded_from_denominator=[]`
+- reader: 轨道 A 独立重扫 `$FORESIGHT_USERS_DIR/linxiaoqi5111/runs/<run_id>/continuous-episode.json` 的 `finish.payload.caveat_slips` + `structural_verifier.completion.outputs` + 验收台 `evidence_bound`。不改 B 产物。
+
+### C1 · 通过（零违反）
+
+`caveat_slips>0` 恰 9 题，有哈希格全部 `fulfilled` 且 `evidence_bound>0`：
+
+| case | slips | eb | 有哈希格 |
+|---|---|---|---|
+| A6-limit-advance-ladder | 2 | 3 | direct_answer / evidence_boundary |
+| A8-market-stage | 2 | 4 | direct_assessment / supporting_evidence / risk_signals |
+| A10-new-high-structure | 1 | 3 | direct_answer / evidence_boundary |
+| B2-theme-liquid-cooling | 3 | 5 | 三格均有哈希 |
+| B3-theme-solid-state-battery | 3 | 13 | 三格均有哈希 |
+| B4-fermentation-trace | 2 | 2 | 三格均有哈希 |
+| B5-cross-table-intersection | 1 | 3 | 两格均有哈希 |
+| C7-temporal-leakage | 1 | 2 | 五格均有哈希 |
+| C9-citation-integrity | 1 | 2 | direct_assessment / counterpoint fulfilled；chain_mapping 0 哈希 → C2 |
+
+### C2 · 通过（零违反）
+
+`n_hash=0` 且 `binding.gap` 非空的格共 6 个，structural status 全部 `missing`：
+
+- A4 `evidence_boundary`
+- C6 `direct_answer` + `evidence_boundary`
+- C9 `chain_mapping`（与 C1 同 turn，混合形正样本）
+- C10-t3 `direct_answer` + `evidence_boundary`
+
+### C3 · 不适用
+
+滑档命中 9>0，不走 `unobserved-in-window`。
+
+### 条件靶 · 未触发（谓词过宽已修正，收窄后零命中）
+
+- 字面谓词「批内出现 `carried_draft_chars=0`」过宽：41 个 finish 事件中 21 个为 0（停机路径无稿可携带时合法写 0）。
+- 收窄谓词：同 episode 内曾有 `draft_chars>0`，其后事件 `carried_draft_chars=0`。**0 命中**。
+- 处置：不开 M1，不自行扩缝。B1/B7 主路径 `deadline_exhausted` 的 finish 带 `carried_draft_chars=0`，但从未产生 `draft_chars>0`。
+
+### 账本
+
+`R-20260815-21` → Closed `confirmed`。C10-t3 验收态为 `bound_but_dropped`（两格 no_hash 真缺口），不移动 C1/C2 / `gap_zeroed`；tally 聚合仍归 B。

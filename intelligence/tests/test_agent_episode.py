@@ -1362,7 +1362,10 @@ def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None
     assert second_messages[3]["role"] == "tool"
     tool_payload = json.loads(second_messages[3]["content"])
     assert tool_payload["observation"] == "raw market observation"
-    assert tool_payload["evidence_hashes"] == ["evidence-1"]
+    assert tool_payload["evidence_ids"] == ["E1"]
+    assert "evidence_hashes" not in tool_payload
+    assert tool_payload["evidence"][0]["evidence_id"] == "E1"
+    assert "content_hash" not in tool_payload["evidence"][0]
     assert outcome.status == "completed"
     assert outcome.usage.llm_calls == 2
     assert outcome.usage.tool_calls == 1
@@ -1418,6 +1421,8 @@ def test_plan_only_turn_does_not_consume_the_first_tool_budget_slot() -> None:
     assert model.calls[2]["tools"] == []
     finish = next(event for event in outcome.events if event.kind == "finish")
     assert finish.payload["caveat_slips"] == 0
+    assert finish.payload["rejection_code"] == "none"
+    assert finish.payload["rejection_reason"] == ""
 
 
 def test_finish_event_exposes_caveat_slips_count() -> None:
@@ -1443,6 +1448,125 @@ def test_finish_event_exposes_caveat_slips_count() -> None:
     finish = next(event for event in outcome.events if event.kind == "finish")
     assert "caveat_slips" in finish.payload
     assert finish.payload["caveat_slips"] == 1
+    assert finish.payload["rejection_code"] == "none"
+    assert finish.payload["rejection_reason"] == ""
+
+
+def test_repair_finish_accepts_evidence_ordinal() -> None:
+    """修复轮用 E1 绑定，不再誊抄 hash。"""
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("A股 最新行情"),
+            _finish_turn(status="partial", hashes=(), gap="缺少完整覆盖"),
+            ModelTurn(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "draft": "当前更接近条件化修复，持续性取决于量能。",
+                        "gaps": [],
+                        "bindings": [
+                            {
+                                "output_id": "direct_assessment",
+                                "evidence_hashes": ["E1"],
+                                "gap": "",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            ),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-ordinal",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+    assert updated.stop_reason == "repair_model_finish"
+    assert updated.bindings[0].evidence_hashes == ("evidence-1",)
+    finish = [event for event in updated.events if event.kind == "finish"][-1]
+    assert finish.payload["rejection_code"] == "none"
+    assert finish.payload["rejection_reason"] == ""
+
+
+def test_invalid_repair_finish_lifts_reason_onto_finish() -> None:
+    """R-09 缩水版：拒收 reason 进 finish，验收台不用再扫事件流。"""
+
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("A股 最新行情"),
+            _finish_turn(status="partial", hashes=(), gap="缺少完整覆盖"),
+            ModelTurn(
+                json.dumps(
+                    {
+                        "status": "partial",
+                        "draft": "SENSITIVE_DRAFT_SHOULD_NOT_MATTER",
+                        "gaps": [],
+                        "bindings": [
+                            {
+                                "output_id": "direct_assessment",
+                                "evidence_hashes": ["3b0895e3a338d58f"],
+                                "gap": "",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                (),
+                "scripted",
+                "",
+            ),
+        ]
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+    updated = session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-forged",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=(),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=8.0,
+        )
+    )
+    assert updated.stop_reason == "invalid_repair_finish"
+    finish = [event for event in updated.events if event.kind == "finish"][-1]
+    assert finish.payload["rejection_code"] == "forged_hash"
+    assert "unknown evidence hash" in finish.payload["rejection_reason"]
+    invalid = [event for event in updated.events if event.kind == "invalid_action"][-1]
+    assert invalid.payload["code"] == "forged_hash"
 
 
 def test_latest_valid_plan_revision_is_retained() -> None:
@@ -1719,7 +1843,7 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "必须给出一个明确标注的基准判断" in system_prompt
     assert "每个精确数字事实" in system_prompt
     assert "每条被正文使用的观察事实" in system_prompt
-    assert "直接证据哈希加入对应 output binding" in system_prompt
+    assert "直接证据序号加入对应 output binding" in system_prompt
     assert "公开网页中的预测或观点" in system_prompt
     assert "news_search 未返回同一时间窗口证据" in system_prompt
     assert "不得用普通 web_search 摘要补成已核验因果" in system_prompt
