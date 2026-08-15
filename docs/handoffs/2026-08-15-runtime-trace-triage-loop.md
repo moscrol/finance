@@ -618,18 +618,25 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
 
 **② 新快照已备好，一步之遥（切换权在用户，R-06 纪律）。**
 
-- `~/.finance-runtime/finance-workspace-576bf26e3f95`：gitea 克隆、
-  detached @ `576bf26e`（含 #24 证据序号契约 + #25 批 #2 + #26 指派），
-  `git status --porcelain` 空，原地 53 测绿，`evidence_ordinal_table` /
-  `REJECTION_KINDS` 可导入。与现役快照同规约（detached、无本地改动）。
+- **快照已推进到 `fdb231148c0e`**（初版备在 `576bf26e`，随后 #27/#28/#29
+  合入，遂 fetch+checkout 到新 main tip 并按规约改名——R-25 的 live 臂
+  需要 #28 的 runtime 改动在部署里，停在 `576bf26e` 会让 detail 修复
+  缺席批 #3）。
+- `~/.finance-runtime/finance-workspace-fdb231148c0e`：gitea 克隆、
+  detached @ `fdb23114`（含 #24 证据序号契约 + #27 探针/并行字段 +
+  #28 tool_exception detail），`git status --porcelain` 空，原地
+  protocol+agent_episode 122 测绿。与现役快照同规约（detached、无本地改动）。
 - 切换步骤（两条命令，用户执行或授权执行）：
-  `ln -sfn ~/.finance-runtime/finance-workspace-576bf26e3f95 ~/finance-workspace-runtime`
+  `ln -sfn ~/.finance-runtime/finance-workspace-fdb231148c0e ~/finance-workspace-runtime`
   然后 `kill <pid>`（launchd KeepAlive 自动拉起；或
   `launchctl kickstart -k gui/$UID/com.a77.finance-workbench`）。
-- 切换后验收（R-06 同款三读数）：`/api/health` `source_revision=576bf26e…`、
+- 切换后验收（R-06 同款三读数）：`/api/health` `source_revision=fdb23114…`、
   `source_dirty=false`、新 pid；旧快照 `cb09f895734a` 保留可回滚。
   `ASK_TOOL_BATCH_TIMEOUT=60` 等 env 在启动器脚本里，跨切换保留。
 - 切换完成即满足批 #3 前置 ①；前置 ② 只剩「开批时无同步管道在跑」。
+- 批 #3 就绪清单（切换后）：R-23 after（序号契约）、R-25 live 臂
+  （detail 非空）、R-12 live 臂（探针字段在场）、R-10 N=3、R-09 回填、
+  RU-3 并行字段读数——一批六收。
 
 **③ 事故披露：检阅方误合 #27（B 的 Round 5 任务 1+2）。**
 
