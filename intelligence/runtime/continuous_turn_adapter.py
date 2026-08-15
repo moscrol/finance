@@ -766,6 +766,20 @@ class ContinuousTurnAdapter:
                 ),
                 events=self._terminal_events(status="failed"),
             )
+        finally:
+            # 会话生命周期在此收口（spec §7.3）：无论早退（取消）、异常还是
+            # 成功落穿，session 离开本方法后不会再被 resume——不关闭它，
+            # RuntimeHandle 的收据就永远停在 running，「close 后不得发布」
+            # 也无从谈起。放 finally 而不是各出口各写一遍，是让「没有一条
+            # 出口漏关」成为结构事实而不是纪律要求。
+            close_session = getattr(session, "close", None)
+            if callable(close_session):
+                try:
+                    close_session()
+                except Exception:
+                    # close 是收尾观测，不改写主路径：finally 里抛出会顶替
+                    # 真正的返回值或异常（与 EpisodeScope.emit 同一条原则）。
+                    pass
 
         final_outcome = semantic.verified.outcome
         private_tokens = _private_tokens(final_outcome)

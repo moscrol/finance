@@ -502,6 +502,11 @@ class _EpisodeContinuationState:
     accumulator: _EpisodeToolAccumulator
     evidence_ledger: EvidenceLedger
     initial_evidence_snapshot: EvidenceLedgerSnapshot
+    # run() 入口构造的那个 Scope。resume 复用本 state（含同一 tool_session，
+    # 其内就是这个 scope），所以 Scope 的生命周期覆盖整个 Episode 含修复轮
+    # ——这里显式暴露引用，是让会话层（RuntimeHandle）能把生命周期收据与
+    # 能力收据钉在同一个对象上，而不是各拿各的。
+    episode_scope: EpisodeScope
 
 
 class ContinuousAgentEpisode:
@@ -616,6 +621,7 @@ class ContinuousAgentEpisode:
                 accumulator=accumulator,
                 evidence_ledger=evidence_ledger,
                 initial_evidence_snapshot=initial_evidence_snapshot,
+                episode_scope=episode_scope,
             )
             _continuation_sink.append(continuation_state)
         finalization_started = False
