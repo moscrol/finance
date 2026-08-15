@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 7 步已收口，冲突矩阵已画，第 8 步未开）
+# 交接：dsh 吸收 P0 接缝实施（第 8 步校准已收口，对照未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1–7 步完成；冲突矩阵已画（不是第 8 步对照收据）；第 8 步 live A/B 未开；未合 main
+状态：第 1–7 步完成；冲突矩阵已画；Arm A 校准 45 次已跑（30×3 压不住 5pp，门槛不放宽）；第 8 步 live A/B 未开；未合 main
 
 ---
 
@@ -1168,6 +1168,43 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：第 8 步校准窗（Step 1 §3.2 / §6），或观测台薄账 PR
   （指针改为第 7 步已收口 + 冲突矩阵已画；第 8 步 live A/B 进决策队列）。
   **基线锚点不变：5115 / 4 / 0。**
+
+### 执行方小结 · Round「第 8 步先半段：Arm A 校准窗」（2026-08-16，执行方）
+
+- **两个提交**：`ccdcfd00`（校准编排 + 14 条用例）+ 本提交（台账）。
+  本轮提交**未 push**。**未合 main**，未动生产快照树。
+- **这轮是什么 / 不是什么**：量的是 workbench 现有 episode（`continuous_glm`，
+  Arm A）在冻结九题上的重复噪声。**不是**把 dsh 的 TypeScript 优化搬进
+  episode，也不是 Arm B 对照。第 2–7 步吸收的是 dsh 的边界模式
+  （Scope / 事件 / Handle / Profile / 窄协议）；dsh 运行时默认不保留，
+  直到对照收据推翻。
+- **做了什么**：
+  - `intelligence/eval/arm_a_calibration.py` + `scripts/run_arm_a_calibration.py`
+    重复调用现有 benchmark，禁止 `--keychain-user` / `localhost:57244` /
+    `gpt-5.6-sol`。Arm A 凭证走生产 env（`OPENAI_API_KEY` +
+    `credential_source=environment`），**不**用 `DSH_AB_RELAY_KEY`
+    （那是以后 dsh 子进程的专用变量）。
+  - [实测] 冻结九题 × 5 = 45 次 live，约 64 分钟。五份产物
+    `source_dirty=false`、`rev=ccdcfd00`、`market_data_date=2026-08-14`、
+    8 题 `gpt-5.6-terra` + 1 题确定性快路径（`index-rebound-space`，
+    不进 σ 池）。无 sol、无 keychain。
+  - 主指标 `evidence_bound_rate`：合并方差 **0.125**（有信息）。
+    投影 30×3 的 95% CI 半宽 **10.3pp > 5pp**，所需 n×r ≈ **384**
+    （30×3=90 不够）。`can_resolve_5pp=false`。
+    `next_action=increase_n_or_repeats_do_not_loosen_threshold`。
+  - 收据重算与落盘一致；`retain_dsh_runtime=false`，
+    `live_ab_ran=false`，`official_window=true`。
+- **故意没做**：不跑 Arm B、不扩 30 题、不放宽 5pp、不登记 `dsh_stub`、
+  不用 stub 失败注入代替对照。
+- **计数**：5115 → **5129**，k=14 恰为 `test_arm_a_calibration.py` 新增数。
+- **门禁**（`umask 022`，LOADED=工作树；全量时**未**携带冒烟留下的
+  `RAG_*` / `LLM_*`——带着会误伤 workbench/RAG 测试）：
+  全量 **5129 passed / 4 skipped / 0 failed**（557.1s）；
+  `layer_audit` ERROR 0（扫 249 模块 / runtime 16）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。
+- **下一轮**：按裁定加题或加重复，使 n×r ≥ 384，再开 30 题分层题集；
+  然后才是 Arm B。开 Arm B 前读 Step 1 §3.2 / §6.2。
+  **新基线锚点：5129 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 

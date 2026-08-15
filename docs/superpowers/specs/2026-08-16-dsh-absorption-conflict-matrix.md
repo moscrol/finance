@@ -9,7 +9,7 @@ roadmap_ref: L1-DSH
 
 ## 0. 范围
 
-第 1–7 步已在实施分支收口（上半 `3962a8ab`，下半 `6b78fdbf`）。第 8 步 live A/B **未开**。下面的矩阵回答「下一刀砍在哪、和谁冲突」，不回答「dsh 有没有净收益」。
+第 1–7 步已在实施分支收口（上半 `3962a8ab`，下半 `6b78fdbf`）。第 8 步 Arm A 校准已跑（`ccdcfd00`）；live A/B **未开**。下面的矩阵回答「下一刀砍在哪、和谁冲突」，不回答「dsh 有没有净收益」。
 
 默认立场（函数 `form_step8_decision`，已有测试）是 `retain_dsh_runtime=false` / `reason=live_ab_not_run`。这是 §12「样本量不足不得判定」的钉，不是对照结论。
 
@@ -26,15 +26,17 @@ roadmap_ref: L1-DSH
 | 7 | dsh 源码 | pinned sparse checkout | 不复制；路径只经 `DSH_SOURCE_INDEX` | 第 7 步下半已关 |
 | 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 不在本实施分支改薄账 | 另开观测台 PR |
 | 9 | 合 main / 删安全 ref | 用户 | 执行方不得自作主张 | 未做 |
-| 10 | 推翻默认立场 | 用户开 live 窗 | 先 45× Arm A，再 30×3，CI 上界；不许放宽 5pp | 未开 |
+| 10 | 推翻默认立场 | 用户开 live 窗 | 先 45× Arm A，再够样本量的对照，CI 上界；不许放宽 5pp | 校准已跑；30×3 压不住 5pp；对照未开 |
 
 ## 2. 第 8 步仍欠什么
 
-Step 1 收据 §3.2 / §6.1 原样有效：
+Step 1 收据 §3.2 / §6.1 原样有效。第 1 条已跑完 [实测]：
 
-1. 冻结九题 × 5 纯 Arm A 校准 σ_d；
-2. 30 题 × 每臂 3 重复，九题作子集；
-3. bootstrap 95% CI 上界，压不住 5pp 就加题/加重复；
-4. 生产对齐 env（`credential_source=environment`，terra）。
+1. ~~冻结九题 × 5 纯 Arm A 校准 σ_d~~ → 合并方差 0.125，投影 30×3 半宽 10.3pp，所需 n×r ≈ 384。门槛仍是 5pp。
+2. 题集必须再加大或加重复，使 n×r ≥ 384；九题作子集保留。
+3. bootstrap 95% CI 上界，压不住 5pp 就继续加题/加重复，不得放宽门槛。
+4. 生产对齐 env 已在校准窗核对（`credential_source=environment`，terra，无 keychain）。
+
+对照（Arm B）仍未开。
 
 stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。
