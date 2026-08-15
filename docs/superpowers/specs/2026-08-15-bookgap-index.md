@@ -123,3 +123,11 @@
 - source_ref：KB PR http://127.0.0.1:3300/a77/knowledge-base-private/pulls/12 ；`eval/rerank-ab-20260815.md` sha256 `f64e7d8d373fa6dd8f948c3fe502a0f28e6801311cf103d7d460bb1555934aa1`。
 - 判据：1 否定结论合格 / 2 超 500ms 已给降级 / 3 off 旁路单测 PASS / 4 选型文档 PASS / 5 权重不进 git。
 - 质检 2026-08-15 23:13：独立重算 hit@5（32/40 vs 26/40）、JSON sha256、单测 24、默认 off、权重未入 git、8792 仍 `fdb231`。**PASS**，合入后仍不上线。
+
+### S10 · branch_tool 激活诊断 Phase A ｜ 2026-08-15 ｜ 分支 eval/s10-branch-activation
+
+- 形态：EVAL_ONLY。报告 `docs/verification/2026-08-15-s10-branch-activation.md`；夹具 `intelligence/eval/cases/s10_branch_eligible_tasks.json`（`frozen_at=2026-08-15T23:42:08+08:00`，N=5）。
+- 冻结窗调用率 1/5（B4=`run_20260815_182037_434217` 9 次 `branch_tool`）。08-14「三次未进路径」不能当全集基线。
+- 结论：`ROOT_CAUSE_NOT_CONFIRMED`。H1/H3/H4/H5 REJECTED；H2 INCONCLUSIVE（S1 前不得 PRIMARY）。未改 prompt / 工具描述 / 路由 / `episode_semantic_verifier.py`。
+- 账本：`R-20260815-26`（EVAL_ONLY，pending）。Phase B 候选 R-027/R-028 未进 Open。
+- 判据：1 失败标准先冻结后取证 / 2 假设逐条判定且未硬选 PRIMARY / 3 H2 未结案 / 5 未碰保留地。
