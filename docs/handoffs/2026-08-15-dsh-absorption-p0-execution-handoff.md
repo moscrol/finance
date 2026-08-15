@@ -447,7 +447,11 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
 
 1. ~~`ledger.add` 上锁 + 并发序号唯一性测试（**无行为改动，可先行**）~~
    **✅ 已完成**（`f5fd13a6`，2026-08-15）。变异 5/5 抓到；过程教训见本轮小结。
-2. Live/Durable 分类表（services 单表）+ Scope sink 接到 Live 出口。按 D3 裁定：
+2. ~~Live/Durable 分类表（services 单表）+ Scope sink 接到 Live 出口~~
+   **✅ 已完成**（`d08cb867`，2026-08-15；落点 `intelligence/services/episode_event_lanes.py`）。
+   前置的 sink 并发确认已做且**结论是安全**：`RunEpisodeProgressPublisher.publish`
+   本来就是 `RLock` 全程持锁 + key 去重（`episode_progress.py:123`/`:128`）。
+   下面是当时的原始要求，留档：按 D3 裁定：
    `tool/*` 三事件走 Live，**不进 `ledger.events`、不携带 durable sequence**，并要
    **用测试钉住这条分类**；durable 侧 `tool_request/tool_result/tool_error` 保持
    对账权威。⚠️ 注意 D3 条件②把并发暴露面**从 durable 列表移到了 Live sink**：
@@ -815,6 +819,52 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   变异读数（5/5）与门禁读数是**两次独立跑**。
 - **下一轮**：§10.5 第 2 条（Live/Durable 分类表 + Scope sink 接 Live 出口），
   开工前先做上面那条 sink 并发确认。**新基线锚点：5056 / 4 / 0。**
+
+### 执行方小结 · Round「§10.5 第 2 条：工具阶段事件接 Live 车道」（2026-08-15，执行方）
+
+- **两个提交**：`d08cb867`（分类表 + Live 出口 + 接线 + 5 条用例）+ 本提交（台账）。
+  分支仍**未 push、未合 main**，未动生产快照树。
+- **前置先做了**（上轮我自己立的条件）：`RunEpisodeProgressPublisher.publish`
+  实测**本来就并发安全**——`RLock` 全程持锁 + `progress.key` 去重
+  （`episode_progress.py:123`/`:128`）。所以裁定条件②把并发暴露面移到 Live sink
+  这件事，下游是接得住的；新增的锁只需保 Live 计数器。
+- **落点**：新模块 `intelligence/services/episode_event_lanes.py`——两张不相交的
+  kind 表 + `lane_for()` + `LiveEventSink`。`lane_for` 对未登记 kind **fail closed
+  抛错**（抛出点在 `EpisodeScope.emit` 的兜底内，计进 `event_sink_failures`，
+  不影响主路径）。接线只在**真有下游 sink 时才挂**，否则 `dump()` 的
+  `event_sink_attached` 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+- **裁定三条件的兑现方式**：① durable 侧一字未动，且新增断言钉住两侧
+  `call_id` ↔ `tool_call_id` 可对账；② 分类落**这一张**表并由 5 条用例钉住，
+  Live 自带独立编号空间 + `lane="live"` 标记，且用例断言 `outcome.events` 里
+  **没有任何 `tool/` 前缀**；③ 表里 `branch_*` 仍在 DURABLE，并在模块 docstring
+  写明"那是今天的实际去向，不是已裁定的终局"。
+- **计数**：5056 → **5061**，k=5 恰为新增用例数。
+- **存量改动 1 处（有意，非顺手改，单独申报）**：
+  `test_progress_sink_observes_append_only_events_before_and_during_model_work`
+  原先断言「sink 流 == durable 流」。sink 现在是两条车道的**共同出口**，该等式
+  按裁定必然不再成立，故改为断言 **durable 子集逐条相等**（顺序与只增性不变），
+  并补三条新性质（Live 到达、durable 无 `tool/`、两侧 id 可对账）。**这是把用例
+  改成钉新契约，不是放宽它。**
+- **生产 UI 行为零变化**（[实测]）：`project_episode_progress` 按 kind 查
+  `_EVENT_PROJECTIONS`，未知 kind 返 None，而 `tool/*` 不在表里 → 不会多出任何
+  进度条目。**这也意味着 Live 车道目前止于投影表**：事件确实流到了 sink（用例断言
+  过），但还没有人渲染它。要让它可见是一次**有意的加法**，归第 3 条 Projection
+  收口轮，不在本轮偷偷做。
+- ⚠️ **过程自报两件，都是上一轮那条教训的更细一层**：
+  1. **Live 并发用例第一版又是假绿**（变异 0/3）。这次注入点在锁块内，但排在
+     `self._sequence += 1` **之后**——`+= 1` 自己的「读 → 写回」窗口没被撑开。
+     **"注入在锁里"不够，必须注入在被保护的那对读写之间。** 把实现改成
+     「读号 → 建事件（可注入）→ 写回」后变异 **5/5 抓到**；顺带修掉一个真 bug：
+     构造抛错时不再白白消耗序号，Live 编号不留空洞。
+  2. **对未跟踪的新文件做变异，`git checkout --` 恢复不了**（报
+     `pathspec did not match`），磁盘上直接留着变异版本。上一轮的教训是"先提交"，
+     这次的补充是**新文件至少要先 `git add` 进 index**，并且**恢复后要验**。
+     （本轮因此作废过一次全量门禁读数——它跑在被变异的文件上。）
+- **门禁**（重跑于恢复后的树，`umask 022`，LOADED=工作树路径）：全量
+  **5061 passed / 4 skipped / 0 failed**（466.9s）；`layer_audit` ERROR 0
+  （新模块在 services 且不 import runtime）；可达性 12 声明一致 / 0 够不着；
+  ruff 全绿；pre-commit 随提交跑。变异读数（Live 锁 5/5）是独立跑。
+- **下一轮**：§10.5 第 3 条（Projection 收口到 services 层）。**新基线锚点：5061 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
