@@ -79,6 +79,7 @@ PLANNED_RUNTIME_MODULES = frozenset(
         "continuous_sub_research",
         "continuous_turn_adapter",
         "conversation_orchestrator",
+        "dsh_stub_runtime",
         "episode_finalizer",
         "episode_tool_batch",
         "glm_agent_runtime",

@@ -87,12 +87,11 @@ EpisodeScope）。
       没有 ``start()``，不满足 ``ResumableAgentRuntime``；且 ``benchmark_only``
       （``agent_runtime_factory`` 判定）+ 入口要 ``AGENT_RUNTIME_BENCHMARK_ENABLE=1``。
       在单发 run 上挂会话生命周期，是给一个不存在的会话造状态机。
-   b. ``headless_tool_gateway``：**驱动方按 spec 第 7 步到场，届时一并接**。
-      它唯一的生产构造点是 (a) 里那个 benchmark-only 运行时；而它正是 spec
-      §8.2 说的「dsh 的 TypeScript Agent 通过窄协议调用的 Python Domain
-      Gateway」，真正的驱动方是 Arm B（§11 第 7 步：先用 scripted dsh stub
-      验证 Adapter 协议）。现在接等于机制休眠。同轮要办的还有一件：§8.2 要求
-      窄协议传 **episode scope**，而网关目前只收 ``registry`` + ``context``。
+   b. ``headless_tool_gateway``：**第 7 步 scripted stub 已到场。**
+      网关现收可选 ``scope``；``DshStubRuntime`` 构造 Scope、挂 Handle，
+      并经网关 JSON/HTTP 面打工具。``scope is None`` 时行为与接线前一致
+      （codex headless 仍不传）。**未做**：factory 登记 ``dsh_stub`` 名、
+      连接本地 dsh sparse checkout、A/B——那是第 7 步下半 / 第 8 步。
    c. **子研究后台分支排空**：spec §4.2 第 4 条点名「Episode 的关闭、取消、
       **后台分支排空**和重启恢复需要统一生命周期对象」，所以这是缺口不是装饰。
       不在本轮做的原因是它有一个真设计点：分支在
