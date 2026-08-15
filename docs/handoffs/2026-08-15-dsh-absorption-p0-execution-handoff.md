@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 7 步已收口，冲突矩阵已画，第 8 步未开）
+# 交接：dsh 吸收 P0 接缝实施（#61 已合 main；第 8 步 live A/B 未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1–7 步完成；冲突矩阵已画（不是第 8 步对照收据）；第 8 步 live A/B 未开；未合 main
+状态：第 1–7 步已合 main（#61）；Arm A 校准脚手架已落（不跑对照）；第 8 步 live A/B 未开；安全 ref `prerebase/dsh-seams-e21c50bf` 仍在（仓内红线 hook 挡住 agent 删除，等用户手动删）
 
 ---
 
@@ -35,13 +35,13 @@ PASS / 打回。
 
 | 对象 | 位置 / 值 |
 |---|---|
-| 实施工作树 | `/Users/a77/fwp-wt-dsh-seams`，分支 `feat/dsh-absorption-p0-seams`（tip 见文末 rebase 轮小结） |
+| 实施工作树 | 接缝已合 main（#61）。史分支 `feat/dsh-absorption-p0-seams`；本轮收尾树 `fwp-wt-arma-cal` |
 | 分叉基线 | **已 rebase 到 `gitea/main` = `cf86e891`，merge-base 即 `cf86e891`，分叉 = 0**（2026-08-15 rebase 轮；旧值 merge-base `23e2a07e` / main `bcde2851` 已作废）。**这一格会漂，引用前照 §2.1 重测** |
 | Spec | `docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md`，在主检出树 `/Users/a77/finance-workspace-private` 的 `docs/dsh-absorption-spec` 分支 @ `d98a8a59` |
 | Step 1 基线收据 | `docs/superpowers/specs/2026-08-15-dsh-absorption-step1-baseline-receipt.md`（实施分支上；§6 是三条已裁定问题，§7 是备查项） |
 | dsh 源码快照 | `/Users/a77/finance-workspace-private/tmp/dsh-source-index`，钉在 `47f9438`，sparse cone 含 `packages/llm` |
 | 零件回写 | `~/harness-reference/BUILD.md`（工具可达性审计、阶段事件加法两节） |
-| 两个分支 | 均**未 push、未合 main**。红线：不得 push、不得合 main、不得动生产快照树 |
+| 合入 | 接缝 #61；S1 #65；观测台指针 #66。第 8 步 live A/B **仍未开**。生产快照 8792 不因本战役追切 |
 | 本文档 | 已随 `f69a8b96` 入库（早先「未提交」的口径已作废） |
 
 ### 2.1 分叉盖戳（2026-08-15 rebase 轮重做，附测量命令）
@@ -117,6 +117,8 @@ d5fb5452 rebase 到 cf86e891 + 分叉/坐标重盖 + 基线重建收据       �
 
 ⚠️ **删安全 ref `prerebase/dsh-seams-e21c50bf` 之前先看这节**：上表的旧哈希靠它解引用，
 删 ref 并 gc 后 `git show <旧哈希>` 会失败（预期行为）。本节重盖之后，旧值只剩映射用途。
+对象哈希 `e21c50bfdbdbdcc192956bd8f80a99d69d6d84ea`。2026-08-16 收尾时 agent
+删除该 ref 被仓内红线 hook 拦住，仍须用户手动删。
 
 ## 4. 机制现状（读代码前先看这段）
 
@@ -1168,6 +1170,21 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：第 8 步校准窗（Step 1 §3.2 / §6），或观测台薄账 PR
   （指针改为第 7 步已收口 + 冲突矩阵已画；第 8 步 live A/B 进决策队列）。
   **基线锚点不变：5115 / 4 / 0。**
+
+### 执行方小结 · Round「收尾：校准脚手架 + 安全 ref」（2026-08-16，执行方）
+
+- **合 main 已发生**：接缝 #61（`2a2523f7`）、S1 #65、观测台 #66。
+  本文件文首「未合 main」作废。
+- **本轮只收尾巴，不开 live**：把未合入的 Arm A 校准脚手架落到 main
+  （`intelligence/eval/arm_a_calibration.py` + runner + 14 测）。
+  禁止 `--keychain-user` / `localhost:57244` / `gpt-5.6-sol`。
+  收据里 `retain_dsh_runtime` 仍为 false，`live_ab_ran` 仍为 false。
+  **没有**跑 45× Arm A，也没有上 Arm B。
+- **安全 ref**：删除条件已满足。对象哈希
+  `e21c50bfdbdbdcc192956bd8f80a99d69d6d84ea`。agent 删除该 ref 被红线
+  hook 拦住，**仍须用户手动删**（本地 + `gitea`）。不跑 `git gc`。
+- **下一轮**：仍卡用户——是否开第 8 步 live 校准窗（先 45× Arm A）。
+  不要用脚手架 dry-run 冒充对照收据。
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
