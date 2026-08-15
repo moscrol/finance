@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import os
 import re
+from threading import RLock
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -226,6 +227,9 @@ class _EpisodeLedger:
     ) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
         self._event_sink = event_sink
+        # 见 add() 里的临界区注释：序号是「读长度 → 追加」两步，不锁就会重号。
+        # RLock 而非 Lock：同线程重入（将来若有 sink 回调再发事件）不该自锁死。
+        self._lock = RLock()
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.add(
@@ -246,8 +250,20 @@ class _EpisodeLedger:
         # 同样的做法，而 EpisodeEvent 是 services 层的冻结 dataclass，被所有
         # runtime 共用，加字段的爆炸半径大得多。
         event_payload["at"] = datetime.now().astimezone().isoformat(timespec="milliseconds")
-        event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
-        self.events.append(event)
+        # 临界区：序号取自 ``len(self.events)``，与 append 之间必须原子。两个线程
+        # 各读到同一个长度就会发出重号，而重号会撞 episode_session 的 resume 前缀
+        # 不变量（事件只增、前缀逐条相等）和「sequence 恰好是 1..N」的断言。
+        #
+        # 今天所有 add 都在主线程（阶段事件的 sink 还是 None，emit 直接返回），
+        # 所以这把锁现在是**先决条件**不是修复：spec §11 第 5 步要把发射点接到
+        # 8 worker 的共享工具线程池上，先接线后加锁等于造一个随机变红的门禁。
+        # 顺序见台账 §10.2 的 D2。
+        with self._lock:
+            event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
+            self.events.append(event)
+        # sink 调用**留在锁外**：它是外部回调（UI/进度），持锁调外部代码是经典死锁
+        # 源，且慢 sink 会把研究主路径一起卡住。代价是并发时 sink 的到达顺序可能与
+        # sequence 不一致——消费者按 sequence 排序，别按到达顺序。
         if self._event_sink is not None:
             try:
                 self._event_sink(event)
@@ -262,7 +278,9 @@ class _EpisodeLedger:
         return self.add("plan", plan_to_public_dict(plan))
 
     def record_runtime_result(self) -> None:
-        input_tokens, output_tokens = _token_usage_from_events(self.events)
+        with self._lock:
+            snapshot = tuple(self.events)
+        input_tokens, output_tokens = _token_usage_from_events(snapshot)
         if input_tokens is None and output_tokens is None:
             return
         self.add(

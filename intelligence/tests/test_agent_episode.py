@@ -3937,3 +3937,64 @@ def test_tool_call_result_separates_queue_delay_from_execution() -> None:
 
     never_dispatched = ToolCallResult(call, "rejected", error="tool_budget_exhausted")
     assert _tool_timing_payload(never_dispatched) == {}, "没测到就不写，别伪装成零耗时"
+
+
+def test_episode_ledger_sequences_stay_unique_under_concurrent_adds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """并发 add 时序号仍必须是 1..N 的排列，且列表顺序与序号一致。
+
+    **为什么要把 EpisodeEvent 换成会 sleep 的版本**：第一版没有这一下，抽掉 add 里的
+    锁跑 5 次全绿——CPython 按 5ms 时间片切线程，8 个线程各自在一个时间片里就跑完了
+    全部 add，「读长度 → 追加」之间根本没发生过交错。那样的用例测的是调度器的运气，
+    不是不变量。这里在临界区中央确定性地让出 GIL，把窗口撑开：**有锁时 sleep 在锁内
+    发生，序号照样唯一；没锁时立刻重号。** 变异读数见台账本轮小结。
+
+    为什么直接构造 ``_EpisodeLedger`` 而不走 Episode 入口：竞态要多线程同时打同一个
+    ledger 才复现，跑完整 episode 既不确定又遮蔽根因；这测的是它自己的真实行为。
+
+    为什么现在就有这条：spec §11 第 5 步要把工具阶段事件接到 8 worker 的共享工具线程
+    池上（台账 §10.2 的 D2——先上锁再接线）。重号会同时撞 ``episode_session`` 的
+    resume 前缀不变量与「sequence 恰好 1..N」。
+    """
+
+    from threading import Barrier, Thread
+    from time import sleep
+
+    from intelligence.runtime.agent_episode import _EpisodeLedger
+
+    real_episode_event = agent_episode_module.EpisodeEvent
+
+    def preemptible_event(sequence: int, kind: str, payload: object) -> object:
+        sleep(0.0005)
+        return real_episode_event(sequence, kind, payload)
+
+    monkeypatch.setattr(agent_episode_module, "EpisodeEvent", preemptible_event)
+
+    ledger = _EpisodeLedger(_frame())
+    workers = 8
+    per_worker = 10
+    barrier = Barrier(workers)
+    errors: list[BaseException] = []
+
+    def hammer(worker_id: int) -> None:
+        try:
+            barrier.wait()
+            for index in range(per_worker):
+                ledger.add("phase", {"worker": worker_id, "index": index})
+        except BaseException as exc:  # 线程里的异常不会自己传到主线程
+            errors.append(exc)
+
+    threads = [Thread(target=hammer, args=(index,)) for index in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    # +1 是构造 _EpisodeLedger 时发的那条 "task" 事件
+    expected_total = workers * per_worker + 1
+    sequences = [event.sequence for event in ledger.events]
+    assert len(sequences) == expected_total
+    assert sorted(sequences) == list(range(1, expected_total + 1)), "序号重了或跳了"
+    assert sequences == sorted(sequences), "列表顺序与序号不一致"
