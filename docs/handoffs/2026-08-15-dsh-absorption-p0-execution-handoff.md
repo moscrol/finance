@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 5 步已收口，第 6 步未开）
+# 交接：dsh 吸收 P0 接缝实施（第 6 步已收口，第 7 步未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1-5 步完成（§10.5 #1–4 + 进度投影已迁）；第 6–8 步未开；分支未 push、未合 main
+状态：第 1-6 步完成（§10.5 #1–4 + 进度投影已迁 + ResearchProfile）；第 7–8 步未开；本轮提交未 push、未合 main
 
 ---
 
@@ -1011,6 +1011,60 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：第 6 步 ResearchProfile + effective-config 收据（必须吸收
   已有 `GroundedBudgetProfile`，不另起第二配置源）。不要和别的步叠一轮。
   **新基线锚点：5075 / 4 / 0。**
+
+### 执行方小结 · Round「第 6 步 ResearchProfile + effective-config」（2026-08-16，执行方）
+
+- **两个提交**：`3e855615`（信封 + 18 条用例 + conversation 入口接线）+ 本提交（台账）。
+  本轮提交**未 push**。远程已有同名分支 `gitea/feat/dsh-absorption-p0-seams`
+  （此前轮次已在远端；本轮结束后本地 ahead 1，再加本台账提交）。**未合 main**，
+  未动生产快照树。
+- **做了什么**：新建 `intelligence/services/research_profile.py`。
+  `ResearchProfile` 是不可变信封，**持有**已有 `GroundedBudgetProfile`，
+  不抄 `root_seconds` 等字段。`dump_effective_config()` 是 §7.5 收据；
+  `override()` 是 typed merge（漏写的字段留下，未声明字段抛
+  `ResearchProfileError`）。六份目录名按 spec：`quick-research` /
+  `deep-research` / `daily-review` / `read-only` / `benchmark` / `headless`。
+  只有 `deep-research` 持有 `grounded_deep`（同一对象身份）；其余预算为
+  None，走 `ResearchExecutionPolicy` 既有默认。conversation 入口从手写
+  `ResearchExecutionPolicy(180/100, grounded_deep)` 改为
+  `profile_named("deep-research").execution_policy()`。
+  factory 的 backend 名集改从本模块进口，消灭第二份 frozenset。
+- **钉住的不变量（D7）**：
+  1. **不另起第二配置源**：Profile 字段集与
+     `root_seconds` / `target_seconds` / `total_seconds` /
+     `max_repair_cycles` 等外来数字键不相交；修复次数从
+     `max_repair_cycles_for_tier(research_tier)` 派生。
+  2. **吸收是持有，不是抄**：`profile.budget is grounded_deep`，
+     `execution_policy().grounded_budget_profile is grounded_deep`。
+  3. **覆盖显式声明**：切到 `codex_headless` 必须同时声明
+     `benchmark_only=True`，不隐式翻转；未知 override 键（含
+     `root_seconds`）抛错；`budget=None` 是显式清空，不是漏写。
+  4. **收据不抄别人的钟**：不把 `ResearchPolicy.for_tier`（30/90/240）、
+     `ModeDecision.target_seconds`（90/240）、continuous turn 120s、
+     `HeadlessBenchmarkBudgetProfile` 写进字段。
+- **没做（避免叠步）**：
+  - 不改 `AskOptions.grounded_budget_profile`（ask 合成链另轮）；
+  - 不把 ModeGovernor / ResearchPolicy.for_tier 收进信封；
+  - 不接线第 7–8 步（scripted dsh stub / A/B）。
+- **计数**：5075 → **5093**，k=18 恰为新增用例数（`test_research_profile.py`）。
+  存量 `test_workbench_api` 只加一行 `policy == profile_named(...).execution_policy()`。
+- **变异（提交后、`git checkout --` 恢复，树干净）**：
+  1. `deep-research` 去掉 `budget=grounded_deep` → 身份断言 `None is grounded_deep`，
+     入口政策从 180 掉回默认 120；
+  2. `override` 改成按 dsh 替换整行重建 → `changed.budget is grounded_deep` 变 None；
+  3. conversation 入口改回手写 `ResearchExecutionPolicy(180, 100)` →
+     源码断言红，且 `ResearchExecutionPolicy` 已不在 `app.py` 进口（NameError）；
+  4. 信封上加 `root_seconds: int = 180` →
+     `test_profile_does_not_grow_its_own_budget_numbers` 红。
+- **收口时更新本账 L1-DSH**：本轮之后另开观测台薄账 PR，指针改为第 6 步
+  已收口 / 第 7–8 步未开 / 本轮未 push。
+- **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5093 passed / 4 skipped /
+  0 failed**（613.4s）；`layer_audit` ERROR 0（扫 247 模块 / runtime 15）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。变异读数是独立跑。
+- **下一轮**：第 7 步 scripted dsh stub 验证 Adapter 协议。开之前读 Step 1
+  收据 §3.2（benchmark 交接命令指向死网关+退役模型，不能照抄）和 §6
+  （样本量 / `DSH_AB_RELAY_KEY` / spec 基线行）。不要和第 8 步 A/B 叠一轮。
+  **新基线锚点：5093 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
