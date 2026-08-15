@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 6 步已收口，第 7 步未开）
+# 交接：dsh 吸收 P0 接缝实施（第 7 步上半已收口，第 8 步未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1-6 步完成（§10.5 #1–4 + 进度投影已迁 + ResearchProfile）；第 7–8 步未开；本轮提交未 push、未合 main
+状态：第 1–7 步上半完成（scripted stub + 网关传 Scope）；第 7 步下半（连真实 dsh checkout）与第 8 步 A/B 未开；本轮提交未 push、未合 main
 
 ---
 
@@ -1065,6 +1065,43 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   收据 §3.2（benchmark 交接命令指向死网关+退役模型，不能照抄）和 §6
   （样本量 / `DSH_AB_RELAY_KEY` / spec 基线行）。不要和第 8 步 A/B 叠一轮。
   **新基线锚点：5093 / 4 / 0。**
+
+### 执行方小结 · Round「第 7 步上半：scripted stub + 网关 Scope」（2026-08-16，执行方）
+
+- **两个提交**：`3962a8ab`（stub + 网关 `scope` + 13 条用例）+ 本提交（台账）。
+  本轮提交**未 push**。远程已有同名分支；**未合 main**，未动生产快照树。
+- **做了什么**：
+  - `DshStubRuntime` 实现 `ResumableAgentRuntime`（`start`/`run`/`resume`）。
+  - 工具走现有 `HeadlessToolGateway` 的 JSON/HTTP 面（spec §8.2），
+    **不另写执行器**。`tool_call_id` 就是网关 `request_id`。
+  - 网关新增可选 `scope`：身份必须与 context 对上；授权走
+    `scope.authorize`；runner 真跑过才 `record_invocation`。
+    `scope is None` 时与接线前一致（codex headless 不传）。
+  - `dump_adapter_protocol()` 投影 §8.2 七段收据；扫描
+    `internal_locator` / `duckdb` / 家目录 / 通用 key 名。
+  - Handle 挂上 Scope；close/cancel 挡住新 resume。
+- **故意没做**（避免和第 8 步、以及「再连接 checkout」叠一轮）：
+  - 不把 `dsh_stub` 加进 `RUNTIME_BACKEND_NAMES`（加了会掉进
+    headless readiness 回落，且生产可选臂要等真连接）；
+  - 不 import dsh SDK、不复制 dsh 源码、不跑 live A/B；
+  - 不照抄 `--keychain-user`（Step 1 收据 §3.2：死网关 + 退役模型）；
+  - **不**用「没跑 A/B ⇒ retain=False」把第 8 步收口——那是默认立场，
+    不是对照收据。spec §11 第 8 步仍未开。
+- **并行草稿**：同树一度出现 `dsh_adapter.py`（直接 `registry.execute`、
+  自称第 7–8 步收口）。与台账认领的「网关传 Scope」和「不要叠 A/B」冲突，
+  已挪到 `/tmp/dsh-adapter-parallel-draft-20260816/`，未入库。
+- **计数**：5093 → **5106**，k=13 恰为 `test_dsh_stub_runtime.py` 新增用例数。
+  存量 headless 网关测试零改动。
+- **变异（提交后、`git checkout --` 恢复，树干净）**：
+  1. stub 构造网关时不传 `scope` → `invoked_tools == []`；
+  2. 协议收据另造 `tool_call_id` → 成对断言红；
+  3. 名集加上 `dsh_stub` → `test_factory_does_not_register_dsh_stub_this_round` 红。
+- **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5106 passed / 4 skipped /
+  0 failed**（633.3s）；`layer_audit` ERROR 0（扫 248 模块 / runtime 16）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。
+- **下一轮**：第 7 步下半（`DSH_SOURCE_INDEX` 探测 pinned checkout）或第 8 步
+  校准窗。开第 8 步前读 Step 1 收据 §3.2 / §6。不要用 stub 失败注入代替 live A/B。
+  **新基线锚点：5106 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
