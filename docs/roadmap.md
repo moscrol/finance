@@ -39,7 +39,7 @@
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
 | L1-R24 | E-007 修复部署 | done | 独立部署窗落地 | #49 · `2026-08-16-r24-deploy-window.md` | 已切 `437cd5e9`；live 结案仍看账本 |
-| L1-8792 | 生产追平 | done | health.revision = main tip | `2026-08-16-r24-deploy-window.md` | 已切；旧快照 `fdb23114` 可回滚 |
+| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 docs-only tip 不追切 | `2026-08-16-r24-deploy-window.md` | 8792=`437cd5e9`；旧快照 `fdb23114` 可回滚 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |

@@ -17,8 +17,8 @@
 
 ## 当前状态
 
-- **8792 = `437cd5e9`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准），
-  health 绿；ready 冷启动时 rag_worker 可能仍 warming。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
+- **8792 = `437cd5e9`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准）。
+  其后 docs-only main tip 不追切。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
 - **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
   消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
   零模型调用），`/api/runs/{id}/followups` 可读。episode 主路径首次接上
