@@ -67,3 +67,13 @@
 - 素材面：KB wiki 概念/实体页 + DuckDB 只读（鲜度至 08-14）+ `.foresight` 用户台账（判分产物类文件刻意未读）。
 - 反证题埋点：蓝盾光电 5 板题材归类 vs 基本面、周六时间边界、蓝思"拟收购"证据硬度，均带一票否决。
 - 待下游：跑批方/判分方按协议 §1 角色隔离执行；qc28 未读未动、不替换。
+
+### S6 · user_memory 离线候选更新链 ｜ 2026-08-15 ｜ 分支 `bookgap/s6-memory-candidate-loop`
+
+- 交付：`intelligence/services/memory_candidate_loop.py` + `scripts/run_memory_candidate_loop.py`；生命周期 `docs/learning/memory-candidate-lifecycle.md`；`ledger-map` 已登记 `memory_candidates.jsonl`。
+- v1 规则：`repeated_correction_same_theme`（同主题 ≥2 条同向纠偏）/ `verdict_overturned_by_user`（机判终态被人工翻案）；宁缺勿滥。
+- 验收 1：夹具产 ≥1 候选，归因链含 `source_record_ids`/`trigger_rule`/`generated_at`；`--dry-run` 不落盘。source_ref：`test_run_accepts_candidates_with_full_attribution` / `test_dry_run_writes_nothing`。
+- 验收 2：同一台账重跑第二次零新候选。source_ref：`test_second_run_produces_zero_new_candidates`。
+- 验收 3：gate 拒绝留档带理由；durable 只经 `record_validated_*`（拔掉写入口或 `promotion_metadata` 则零 durable 写）。source_ref：`test_gate_rejection_is_archived_with_reason` / `test_durable_writes_only_go_through_gate_api`。
+- 验收 4：给 accepted 经验，`trace --candidate-id|--sha|--content` 一步查到来源 ids。source_ref：`test_trace_by_candidate_id_and_content_sha` / `test_cli_run_trace_roundtrip`。
+- 边界：未改 `memory_gate.py` / `memory_status.py` / 检索器；候选不自动 accepted。单测 16 passed。
