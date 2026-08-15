@@ -1044,7 +1044,10 @@ def add_memory_status_parser(subparsers: argparse._SubParsersAction) -> None:
         "--ledger", required=True, choices=("judgments", "corrections"),
         help="目标台账：judgments（核心判断）或 corrections（纠偏）",
     )
-    parser.add_argument("--target-ts", required=True, help="目标记录的 ts（原样精确匹配）")
+    parser.add_argument(
+        "--target-ts", required=True,
+        help="目标记录的 ts 或 id（原样精确匹配；同秒多条记录时用 id 精确退出其中一条）",
+    )
     parser.add_argument(
         "--status", required=True, choices=("archived", "rejected", "reinstated"),
         help="archived=过时归档 / rejected=错记撤销 / reinstated=恢复召回",
@@ -1070,7 +1073,8 @@ def cmd_memory_status(args: argparse.Namespace) -> int:
     if not ledger_path.exists():
         print(f"台账不存在：{ledger_path}", file=sys.stderr)
         return 2
-    # 目标必须真实存在：状态行指向不存在的 ts 只会制造悬空审计链
+    # 目标必须真实存在：状态行指向不存在的 target 只会制造悬空审计链。
+    # id/ts 双键：新行认 id（同秒并发不碰撞），旧行仍认 ts。
     target = str(args.target_ts).strip()
     found = False
     for line in ledger_path.read_text(encoding="utf-8").splitlines():
@@ -1081,12 +1085,16 @@ def cmd_memory_status(args: argparse.Namespace) -> int:
         if (
             isinstance(rec, dict)
             and not memory_status.is_status_record(rec)
-            and str(rec.get("ts") or "").strip() == target
+            and target
+            in {
+                str(rec.get("ts") or "").strip(),
+                str(rec.get("id") or "").strip(),
+            }
         ):
             found = True
             break
     if not found:
-        print(f"目标记录不存在：ts={target}（先用台账文件核对 ts）", file=sys.stderr)
+        print(f"目标记录不存在：{target}（ts/id 均未命中；先用台账文件核对）", file=sys.stderr)
         return 2
     _, record = memory_status.record_status(
         ledger_path,
@@ -1098,7 +1106,7 @@ def cmd_memory_status(args: argparse.Namespace) -> int:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
     else:
         verb = {"archived": "已归档", "rejected": "已撤销", "reinstated": "已恢复"}[args.status]
-        print(f"{verb} {args.ledger} 记录 ts={target} → {ledger_path}")
+        print(f"{verb} {args.ledger} 记录 target={target} → {ledger_path}")
         print("历史行未改动（追加式状态覆盖）；归档/撤销的记录不再进入 [M] 召回与 foresight 注入。")
     return 0
 

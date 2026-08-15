@@ -28,8 +28,13 @@ from intelligence.services.memory_gate import (
     PromotionDecision,
     promotion_metadata,
 )
+from intelligence.services.memory_status import memory_record_id
 
 DEFAULT_WINDOW = 10
+
+# 记录身份（Q3）：新增行写稳定 id=sha256(kind+ts+content)[:12]，同秒并发不碰撞；
+# 存量旧行不回填，仍按 ts 退出（见 memory_status 模块迁移说明）。
+_RECORD_KIND = "judgment"
 
 
 def _now() -> datetime:
@@ -72,8 +77,10 @@ def record_judgment(
     if not text:
         raise ValueError("memo 不能为空：核心判断至少要有正文")
     p = Path(path).expanduser()
+    record_ts = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "ts": ts or _now().isoformat(timespec="seconds"),
+        "ts": record_ts,
+        "id": memory_record_id(_RECORD_KIND, record_ts, text),
         "memo": text,
         "themes": _clean_terms(themes),
         "stocks": _clean_terms(stocks),
@@ -107,8 +114,10 @@ def record_validated_judgment(
     ):
         raise ValueError("judgment promotion requires checkpoint lesson authority")
     promotion = promotion_metadata(decision, text)
+    record_ts = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "ts": ts or _now().isoformat(timespec="seconds"),
+        "ts": record_ts,
+        "id": memory_record_id(_RECORD_KIND, record_ts, text),
         "memo": text,
         "themes": _clean_terms(themes),
         "stocks": _clean_terms(stocks),
