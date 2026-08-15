@@ -30,6 +30,7 @@ from intelligence.services.research_policy import (  # noqa: E402
     ResearchExecutionPolicy,
     grounded_deep,
 )
+from intelligence.services.research_profile import profile_named  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
 from intelligence.services.self_use_maturity import (  # noqa: E402
     SelfUseEvent,
@@ -549,6 +550,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         grounded_deep.synthesis_reserve_seconds
     )
     assert policy.grounded_budget_profile is grounded_deep
+    assert policy == profile_named("deep-research").execution_policy()
 
 
 def test_production_continuous_adapter_shares_provider_client_across_gates(

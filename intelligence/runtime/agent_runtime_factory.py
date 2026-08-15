@@ -6,25 +6,17 @@ from dataclasses import dataclass
 import importlib.util
 import os
 import shutil
-from typing import Literal, cast
+from typing import cast
 
 from intelligence.services.llm_refine import detect_providers
-
-
-RuntimeBackendName = Literal[
-    "continuous_glm",
-    "sdk_glm",
-    "sdk_gpt",
-    "codex_headless",
-]
-_SUPPORTED_BACKENDS = frozenset(
-    {
-        "continuous_glm",
-        "sdk_glm",
-        "sdk_gpt",
-        "codex_headless",
-    }
+# Backend 名集的唯一事实源在 ResearchProfile：factory 解析，Profile 声明，
+# 两处各写一份 frozenset 会和 kind 表同样的方式漏名字。
+from intelligence.services.research_profile import (
+    DEFAULT_RUNTIME_BACKEND,
+    RUNTIME_BACKEND_NAMES,
+    RuntimeBackendName,
 )
+
 # 会话级 BYOK 允许的 provider，与 `keychain_credentials._ALLOWED_PROVIDERS` 保持一致。
 # 这里不 import 那个常量，避免 factory 反向依赖凭证层。
 _SESSION_PROVIDERS = frozenset(
@@ -62,8 +54,8 @@ def resolve_runtime_backend(value: str | None = None) -> RuntimeBackendSelection
     """Resolve one backend without silently falling back from invalid input."""
 
     raw = value if value is not None else os.environ.get("AGENT_RUNTIME_BACKEND")
-    name = str(raw or "continuous_glm").strip().lower()
-    if name not in _SUPPORTED_BACKENDS:
+    name = str(raw or DEFAULT_RUNTIME_BACKEND).strip().lower()
+    if name not in RUNTIME_BACKEND_NAMES:
         raise RuntimeError(f"unsupported agent runtime backend: {name}")
     return RuntimeBackendSelection(
         name=cast(RuntimeBackendName, name),
@@ -188,6 +180,8 @@ def runtime_backend_readiness(
 
 
 __all__ = [
+    "DEFAULT_RUNTIME_BACKEND",
+    "RUNTIME_BACKEND_NAMES",
     "RuntimeBackendName",
     "RuntimeBackendReadiness",
     "RuntimeBackendSelection",

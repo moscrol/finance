@@ -86,10 +86,7 @@ from intelligence.runtime.glm_agent_runtime import (
     GLMModelClient,
 )
 from intelligence.services.llm_refine import LLMProvider
-from intelligence.services.research_policy import (
-    ResearchExecutionPolicy,
-    grounded_deep,
-)
+from intelligence.services.research_profile import profile_named
 from intelligence.services.keychain_credentials import KeychainCredentialError
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
@@ -1246,13 +1243,8 @@ def _run_conversation_turn(
             # The legacy grounded presenter owns a two-provider synthesis tail;
             # reserve its measured frozen-replay envelope explicitly.  The
             # continuous adapter below keeps its separate 120s contract.
-            research_policy=ResearchExecutionPolicy(
-                max_elapsed_seconds=grounded_deep.root_seconds,
-                synthesis_reserve_seconds=(
-                    grounded_deep.synthesis_reserve_seconds
-                ),
-                grounded_budget_profile=grounded_deep,
-            ),
+            # Budget numbers stay on grounded_deep; this envelope only holds it.
+            research_policy=profile_named("deep-research").execution_policy(),
             continuous_turn_adapter=_build_continuous_turn_adapter(
                 providers=llm_providers,
                 run_id=run_id,
