@@ -2,7 +2,7 @@
 
 日期：2026-08-16
 对应 spec：`docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md` §8、§9、§12
-实施：已合 main #61。Arm A 校准脚手架本轮合入。第 8 步 live A/B 未开。
+实施：已合 main #61。Arm A 45× 官方窗已跑。第 8 步对照未开。
 roadmap_ref: L1-DSH
 
 本文件已在 main。
@@ -11,7 +11,7 @@ roadmap_ref: L1-DSH
 
 ## 0. 范围
 
-第 1–7 步已合 main（#61）。第 8 步 live A/B **未开**。下面的矩阵回答「下一刀砍在哪、和谁冲突」，不回答「dsh 有没有净收益」。
+第 1–7 步已合 main（#61）。第 8 步先半段 45× Arm A 已跑；对照 **未开**。下面的矩阵回答「下一刀砍在哪、和谁冲突」，不回答「dsh 有没有净收益」。
 
 默认立场（函数 `form_step8_decision`，已有测试）是 `retain_dsh_runtime=false` / `reason=live_ab_not_run`。这是 §12「样本量不足不得判定」的钉，不是对照结论。
 
@@ -28,15 +28,15 @@ roadmap_ref: L1-DSH
 | 7 | dsh 源码 | pinned sparse checkout | 不复制；路径只经 `DSH_SOURCE_INDEX` | 第 7 步下半已关 |
 | 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 收口时另开观测台 PR | #66 已记 #61/#65 |
 | 9 | 合 main / 删安全 ref | 用户 | #61 已合；删 ref 条件已满足，hook 挡住 agent，须用户手动 | 合 main 已做；ref 仍在 |
-| 10 | 推翻默认立场 | 用户开 live 窗 | 先 45× Arm A，再 30×3，CI 上界；不许放宽 5pp | 脚手架已落；live 未开 |
+| 10 | 推翻默认立场 | 用户开对照窗 | 先校准，再扩到能压住 5pp 的 n×r，才上 Arm B；不许放宽 5pp | 45× 已跑；30×3 半宽 10.8pp |
 
 ## 2. 第 8 步仍欠什么
 
 Step 1 收据 §3.2 / §6.1 原样有效：
 
-1. 冻结九题 × 5 纯 Arm A 校准 σ_d；
-2. 30 题 × 每臂 3 重复，九题作子集；
-3. bootstrap 95% CI 上界，压不住 5pp 就加题/加重复；
-4. 生产对齐 env（`credential_source=environment`，terra）。
+1. 冻结九题 × 5 纯 Arm A 校准 σ_d — **已做**（`2026-08-16-dsh-arm-a-calibration-receipt.md`）；
+2. 30 题 × 每臂 3 重复不够：投影半宽 10.8pp，所需 n×r≈423；
+3. bootstrap 95% CI 上界，压不住 5pp 就加题/加重复，**不许放宽门槛**；
+4. 生产对齐 env 本窗已对齐（`credential_source=environment`，terra）。对照仍未开。
 
 stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。

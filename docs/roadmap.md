@@ -1,10 +1,10 @@
 # 进度观测台薄账（L0 / L1）
 
 - 日期:2026-08-16 · 唯一写入者:检阅方 · spec:`docs/superpowers/specs/2026-08-15-progress-observatory.md` · ADR:`docs/adr/0001-observatory-legislative-core.md`
-- **未闭合的最低层:P2**（口径=dsh P0 五步完成数/5；五步+冲突矩阵已收口，第 8 步 live A/B 在决策队列）
+- **未闭合的最低层:P2**（口径=dsh P0 五步完成数/5；五步+冲突矩阵已收口；Arm A 45× 已跑，对照未开）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
-- L1-DSH 实施已合 main（#61）；Arm A 校准脚手架本轮合入。第 8 步 live A/B 仍在决策队列。
+- L1-DSH 实施已合 main（#61）；Arm A 45× 官方窗已跑，30×3 压不住 5pp。对照仍未开。
 
 ## L0 阶段线
 
@@ -27,7 +27,7 @@
 
 | ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做 |
 |---|---|---|---|---|---|
-| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | #61 · 校准脚手架本轮 · `2026-08-16-dsh-absorption-conflict-matrix.md`（live A/B 未开） | 已合 main |
+| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | #61 · `2026-08-16-dsh-arm-a-calibration-receipt.md`（45× 已跑；对照未开） | 已合 main |
 | L1-S1 | 时间预算可见 | done | 状态栏 v1 | #65 · `2026-08-15-bookgap-s1-time-budget-statusline.md` | 已合；默认开；`ASK_EPISODE_BUDGET_STATUS=off` 可关 |
 | L1-S2 | judge 模态切换 | done | 数据源回查钩子 | #60 · `2026-08-15-bookgap-s2-judge-source-recheck.md` | 已合；默认 off；10 题对照实验未跑 |
 | L1-S3 | 超时窗口比例化 | done | reserve 推导窗口 | #63 · `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 已合；3 题冒烟未跑；不追切 8792 |
@@ -48,12 +48,13 @@
 
 | 提出日 | 事项 | 卡在谁 | 关联 |
 |---|---|---|---|
-| 2026-08-16 | 是否开第 8 步 live A/B 校准窗（先 45× Arm A） | 用户 | L1-DSH |
+| 2026-08-16 | 第 8 步先半段 45× Arm A 已跑；30×3 半宽 10.8pp，加题/加重复，不许放宽 5pp | 已决 | L1-DSH |
+| 2026-08-16 | 扩样到 n×r≈423 再上 Arm B，还是先另开窗 | 用户 | L1-DSH |
 | 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
 | 2026-08-16 | dsh 接缝已合 main #61；第 8 步 live A/B 未开 | 已决 | L1-DSH |
 | 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 条件已满足；hook 挡住 agent 删，仍须用户手动 | 用户 | L1-DSH |
-| 2026-08-16 | Arm A 校准脚手架已合；live 45× 仍未跑 | 已决 | L1-DSH |
+| 2026-08-16 | Arm A 校准脚手架已合 #67；live 45× 已跑，对照未开 | 已决 | L1-DSH |
 | 2026-08-16 | S1 时间预算已合 #65；默认注入；live 率未读 | 已决 | L1-S1 |
 | 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
 | 2026-08-16 | S3 窗口推导已合 #63；ASK_* 只下压；3 题冒烟未跑；不追切 8792 | 已决 | L1-S3 |
