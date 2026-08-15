@@ -436,3 +436,61 @@ A 组修复链形状（repair_model_stop / deadline_exhausted / forged_hash 一�
   加载 `finance-workspace-cb09f895734a` @ `cb09f895`、porcelain **为空**、
   tool60 保留——**生产身份今晚首次可从 git 复现**。R-21 的 live 臂条件成立。
 - Round 3 已指派（见 §4）：单批 live 双消费者，A 预注册先行。
+
+### 检阅方批注 · Round 3（2026-08-15 10:xx，检阅方）
+
+**轨道 A（预注册，#19 已合）：PASS。** 时序链独立验证：`frozen_at`
+03:14:33 → 提交 `4df486c2` 03:15:31 → #19 合入 03:34:40 → 批
+`generated_at=20260814T200212Z`（04:02+08）。判据先于数据落死，无事后改口
+空间——预注册纪律本轮成立。
+
+- **批注 A-r3-1（条件靶谓词过宽）**：`carried_draft_chars=0` 在停机路径是
+  合法值（无稿可携带时写 0）。检阅方粗扫：**全批 28/28 个 run 都命中**该
+  字面谓词。收窄为「同 episode 内曾有 `draft_chars>0`、其后
+  `carried_draft_chars=0`」再判是否触发 M1。检阅方探针：B1/B7 从未产生
+  draft（两次 finish 均 `carried_draft_chars=0`，先 `deadline_exhausted`
+  后 `invalid_repair_finish`），按收窄谓词预计**不触发**；若然，记
+  「条件靶未触发」即可，不开 M1。
+
+**轨道 B（干净基线批）：PASS，勘误门 ×2 + rebase 后可合。**
+
+检阅方独立复核（全部实测，非转录）：
+
+- **C1 零违反 ✓**：逐 run 重扫 `caveat_slips>0` 集合，恰好 9 题且与报告
+  逐题一致（A6=2/A8=2/A10=1/B2=3/B3=3/B4=2/B5=1/C7=1/C9=1），全部
+  `delivered` 且 eb>0；B5 双格 n=16 全交付。
+- **C2 零违反 ✓**：A4·evidence_boundary、C6·direct_answer+
+  evidence_boundary、C9·chain_mapping 逐格验绑定，`n=0`+gap 全 missing。
+  C9 为混合形正样本（slips=1 + 真缺口 missing 同 turn 共存）。
+- **批内 gap_zeroed=0 ✓**（见勘误 E-r3-1 的限定）；`not_run` 9→0、
+  `quality_denominator=28`、`excluded=[]` ✓；B1/B7 零绑定 +
+  `stop_reason=invalid_repair_finish` 开 run 目录实测 ✓；
+  `revision=cb09f895` 与检阅方 03:06 独立核对一致 ✓；产物
+  `sha256=b712bd2e…` 一致 ✓；缝纪律 ✓（只动 acceptance+tests）；
+  开批前拦下 `FORESIGHT_USERS_DIR` 静默降级并登记 R-08，是本轮最佳实践。
+
+**勘误门（合 PR 前 B 完成）：**
+
+- **E-r3-1**：报告 L129「`bound_but_dropped` 由 3 归零」过度声明。
+  C10（多轮题）第 3 轮即 `bound_but_dropped`（两格 `n=0`+gap，no_hash
+  侧），被 tally 聚合掩蔽——tally 把 C10 计为 `delivered`（20），case 级
+  字段却显示 turns[-1] 的 `bound_but_dropped`，同一产物两个口径互相矛盾。
+  更正为：按轮 1 例（C10-t3，no_hash 侧）、按 case 聚合 0 例；
+  `gap_zeroed` 归零的结论**不受影响**。
+- **E-r3-2**：报告 L17/L281 与账本 R-07 行「本批另贡献 4 个 `no_hash`
+  真缺口格」→ **6 格**（补 C10 的 `direct_answer`+`evidence_boundary`）。
+- **新缺陷（B 下轮缝内）**：多轮题五态聚合口径未定义。要求：定义聚合规则
+  （建议按轮记 tally、case 级另立聚合字段并写明取法）+ C10 冻结夹具。
+- **rebase**：分叉点 `23e2a07e` 早于 #19 合入；现分支直接合并会回退 A 的
+  R-21 预注册文本并删除 canary 报告。rebase 到 `f43f2507` 后再开 PR。
+
+**R-21 裁决**：按预注册判据 C1/C2 通过、C3 不适用（窗口存在）→ 检阅方
+认定 canary **通过**。收口权在 A：账本行翻 `confirmed` 时引批
+`sha256=b712bd2e…` 与本批注。离线主门（37 测）+ 预注册单批确认，符合
+R-21 行自己写的收口条件。
+
+**Round 4 已指派**：`2026-08-15-round4-track-a.md`（R-21 收口、条件靶
+收窄谓词了结、R-09 拒收原因码实现——只实现不部署）；
+`2026-08-15-round4-track-b.md`（勘误+rebase 先行、聚合口径修复、R-08、
+基线批 #2 按 R-10 口径）。合并队列：B 勘误+rebase → 合 B 批 PR →
+合本批注 PR → A 收口 PR。B1/B7 的 L0 等 R-09 部署后的批再收。
