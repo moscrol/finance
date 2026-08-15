@@ -1569,8 +1569,11 @@ def test_real_episode_rewrites_typed_query_error_and_repairs_in_same_history(
             for payload in SameHistoryModel._tool_payloads(messages):
                 if not payload.get("ok"):
                     continue
+                refs = payload.get("evidence_ids") or payload.get(
+                    "evidence_hashes", []
+                )
                 hashes.setdefault(str(payload["tool"]), []).extend(
-                    str(item) for item in payload.get("evidence_hashes", [])
+                    str(item) for item in refs
                 )
             return hashes
 

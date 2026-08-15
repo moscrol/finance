@@ -1,8 +1,9 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-15
-- updated_by_run: `2026-08-15-trka-r2-caveat-slips`（`finish.payload.caveat_slips`；
-  前值 `2026-08-15 Round 1 开工前回填`；#6 另补 repair_model_stop / semantic_status 两条陷阱）
+- updated_by_run: `2026-08-15-trka-r4-evidence-ordinals`（`finish.payload.rejection_code` /
+  `rejection_reason`；模型上下文 `evidence_id=E1..En`，ledger 仍留 `content_hash`。
+  前值 `2026-08-15-trka-r2-caveat-slips`）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -43,6 +44,8 @@
 | episode `stop_reason=repair_model_stop` | 修复轮没产出合法 FINISH，所以交付 0 | stop 只说「无工具且未 completed」。交付 0 的区分变量是**全部** required output 的 `binding.gap` 非空（hashes 会被 verifier 丢掉）。同 stop 但至少一格 gap 为空时 eb>0（R5-A7 / live A7） | `docs/verification/2026-08-15-trka-repair-finish-gap-slip.md` |
 | `semantic_status=unavailable` / 「未完成核验绑定」 | 核验预算不够或模型没走到 FINAL_JSON | 当 structural fulfilled=0 时 judge **根本不会被调用**（`_can_semantically_release_partial`）。模板文案的注释假设「没绑定」，但 R7-A7 的 episode 里 bindings 有 hashes。混槽 + judge 瞬时失败会走另一条「候选草稿」文案且 eb>0 | R7-A7 vs live A7/A10；`episode_semantic_verifier.py:503-522` |
 | `finish.payload.caveat_slips` | 顶层 `gaps` 条数，或「有 caveat 就是失败」 | **本次** `validate_episode_finish` 把 hashes+gap 滑档挪到顶层 `gaps` 的格数。无滑档时为 `0` 且字段仍在场。旧 artifact 字段缺失 ≠ 0。不参与判定；查询入口是 episode `finish.payload`，本轮不改 `normalize_harness_trace`（B 轨缝） | `docs/verification/2026-08-15-trka-r2-caveat-slips.md`；健康阈值 `=0`；`≥2` 全格滑档、`=1` 混槽 |
+| `finish.payload.rejection_code` / `rejection_reason` | 验收 JSON 没有拒收原因，所以判据不在产物内 | 验收台摘要可以没有；**run 目录事件流已有** `invalid_action.reason`。R-23 起 finish 亦带 `rejection_code`（无拒收=`none`）与 `rejection_reason`（无拒收=空串）。旧 artifact 字段缺失 ≠ `none`。查询入口是 episode `finish.payload`，本轮不改 normalize（B 轨缝） | B1 `run_20260815_034008_215204` seq 20；B7 `run_20260815_034828_738989` seq 17；`docs/verification/2026-08-15-trka-r4-evidence-ordinals.md` |
+| 模型上下文里的 `content_hash` / `evidence_hashes` | 绑定必须抄 16-hex 哈希 | R-23 起模型上下文只留 `evidence_id`（E1..En，episode 首次出现序）；ledger `tool_result` 仍保留哈希供审计。FINAL_JSON 的字段名仍是 `evidence_hashes`，值写 `E1`/`E2` 或精确哈希；validate 解析回 `content_hash`。抄错的哈希仍 forged/truncated，**不做模糊纠正** | 同上；健康：修复轮同形不应再出现 `unknown evidence hash` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -58,6 +61,7 @@
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
 | Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离。`response_path_conflict` 是 mailbox transport 诊断，允许在同 id 的执行终态后另发 `tool_error`，不能混进执行终态基数 | R-10 用 deterministic slow tool 强制得到配对 error；正常成功路径断言恰好一个 `tool_result`，handoff 路径断言恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；另断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
 | 历史 finish 无 `caveat_slips` | 2026-08-15 R-22 之前的 episode 不写该字段 | 不能用旧 artifact 直接数滑档频率 | 不回填；只用新 run。健康阈值 `=0`；`≥2` 全格、`=1` 混槽。查询 `finish.payload.caveat_slips`，旧产物打印 `<ABSENT>` |
+| 历史 finish 无 `rejection_code` | 2026-08-15 R-23 之前的 episode 不写该字段 | 不能用旧 artifact 的字段缺失推断「没有拒收」；要下钻 `invalid_action.reason` | 不回填。新 run 无拒收时 code=`none`、reason 空串。`dump_episode_receipts.py` 对旧产物打印 `<ABSENT>` |
 
 ## 4. Grounded phase telemetry semantic epochs
 

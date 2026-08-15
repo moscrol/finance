@@ -577,10 +577,11 @@ class ScriptedEpisodeModel:
 
 
 def _observed_hashes(messages: list[dict[str, object]]) -> tuple[str, ...]:
-    """Collect evidence hashes the episode actually put in front of the model.
+    """Collect evidence refs the episode actually put in front of the model.
 
-    Read back from the tool messages rather than from the fixture, so a hash the
-    loop never surfaced can never be bound.
+    Prefer ``evidence_ids`` (E1..En). Fall back to hashes only if the
+    observation still exposes them. Read back from tool messages rather than
+    the fixture, so a ref the loop never surfaced can never be bound.
     """
 
     hashes: list[str] = []
@@ -593,9 +594,16 @@ def _observed_hashes(messages: list[dict[str, object]]) -> tuple[str, ...]:
             continue
         if not isinstance(payload, Mapping):
             continue
-        for value in payload.get("evidence_hashes") or ():
+        refs = payload.get("evidence_ids") or payload.get("evidence_hashes") or ()
+        for value in refs:
             if isinstance(value, str) and value and value not in hashes:
                 hashes.append(value)
+        for item in payload.get("evidence") or ():
+            if not isinstance(item, Mapping):
+                continue
+            token = item.get("evidence_id") or item.get("content_hash")
+            if isinstance(token, str) and token and token not in hashes:
+                hashes.append(token)
     return tuple(hashes)
 
 
