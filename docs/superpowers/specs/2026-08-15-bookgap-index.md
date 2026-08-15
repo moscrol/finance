@@ -34,6 +34,7 @@
 | S7 | 行情同步写锁消除 | 批 #2 塌方根因（今晨实测） | finance | `market_feature_store/` | **P0** |
 | S8 | 记忆质检 Q3/Q4/Q7/Q8 清扫 | 质检遗留 | finance | services 记忆/时间线 | P2 |
 | S9 | KB Hybrid 检索加 rerank + 评测闭环 | 第 3 章；KB 学习重点自述 | kb | KB `scripts/` + `.rag_index` | P1 |
+| S10 | branch_tool 激活诊断（子研究分支为何从未被走进） | 第 10 章 + 马书 ch20；08-14 实测三次未进路径 | finance | Phase A 纯诊断（EVAL_ONLY）；Phase B 视 PRIMARY 而定 | P2 |
 
 ## 2. 冲突矩阵（派工前必读）
 
@@ -45,6 +46,8 @@
 |---|---|---|
 | S1 | `feat/dsh-absorption-p0-seams`（dsh 吸收 P0）落地或确认未开工 | 同文件 `agent_episode.py`（该 spec §11 第 2–5 步）。开工前 `git log gitea/feat/dsh-absorption-p0-seams` 查状态；若未开工，先到先得并知会对方 rebase |
 | S2、S3 | R-24（E-007 修复，裁决在下个部署窗）落地后 | 同文件 `episode_semantic_verifier.py`。S2 只加回查钩子、S3 只改 `_judge_window` 推导，函数不相交，S2/S3 之间可先后紧邻，但都别与 R-24 并行 |
+| S10 Phase A | 无（纯诊断可即开，live 批遵守锁） | 判据 H2（预算不可见抑制分支）不许在 S1 落地前结案为 PRIMARY，见 spec §4 |
+| S10 Phase B | S10 Phase A 出 PRIMARY + dsh 第 5 步与 S1 落地后 | 若动 `agent_episode.py` 与两者同文件；`NO_SYSTEM_FIX` 结论则无 Phase B |
 
 **在飞工作占用的缝（所有 spec 都不许碰）**：
 `intelligence/eval/acceptance.py`（triage loop 批 #3 读数中）、
