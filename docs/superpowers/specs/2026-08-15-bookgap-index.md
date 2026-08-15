@@ -67,3 +67,12 @@
 - 素材面：KB wiki 概念/实体页 + DuckDB 只读（鲜度至 08-14）+ `.foresight` 用户台账（判分产物类文件刻意未读）。
 - 反证题埋点：蓝盾光电 5 板题材归类 vs 基本面、周六时间边界、蓝思"拟收购"证据硬度，均带一票否决。
 - 待下游：跑批方/判分方按协议 §1 角色隔离执行；qc28 未读未动、不替换。
+
+### S8 · 记忆质检 Q3/Q4/Q7/Q8 清扫 ｜ 2026-08-15 ｜ 分支 bookgap/s8-memory-qa-sweep
+
+- 四条独立提交（可单独 cherry-pick）：Q3 `de04b3e9` / Q4 `0a3719be` / Q7 `6bc43c8e` / Q8 `8d22b920`；Q9 状态行 `db62e54a`。
+- Q3：新行 `id=sha256(kind+ts+content)[:12]`，退出 id/ts 双键；旧行不迁，仍按 ts 退出。source_ref: `test_memory_status.RecordIdentityTests`。
+- Q4：`contract_missing_outputs` → `repair_coordinator.missing_outputs` 词表；`contract_receipt.missing_outputs` 恒在场。prompt 零改动。source_ref: `test_track_contract.ContractMissingOutputsTests`。
+- Q7：「液冷」→`液冷概念`（复用 `resolve_query_themes`）；解析不到仍显式降级。source_ref: `test_theme_lifecycle_timeline.LoaderTests.test_colloquial_alias_resolves_via_resolve_query_themes`。
+- Q8：固态电池 08-13 夹具 25→20 段，无 <3 日段。被合并：发酵2025-01-14~15、回流2026-07-01~02、回流2026-07-21~22。source_ref: `SolidStateBatteryLiveFixtureTests`。
+- 记忆面单测 77 passed（`test_memory_status` / `test_track_contract` / `test_theme_lifecycle_timeline` / `test_market_regime_analogs`）。未碰 `memory_gate` / experience cards 退出 / D10 / 保留缝。
