@@ -4,7 +4,7 @@
 - **未闭合的最低层:P2**（口径=dsh P0 五步完成数/5；五步+冲突矩阵已收口，第 8 步 live A/B 在决策队列）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
-- L1-DSH 母本仍只在未合入分支 `feat/dsh-absorption-p0-seams`（已 push，tip `9ab8c191`）；矩阵已入 main：`2026-08-16-dsh-absorption-conflict-matrix.md`。
+- L1-DSH 实施已合 main（#61）；矩阵 `2026-08-16-dsh-absorption-conflict-matrix.md`。第 8 步 live A/B 仍在决策队列。
 
 ## L0 阶段线
 
@@ -27,8 +27,8 @@
 
 | ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做 |
 |---|---|---|---|---|---|
-| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | `2026-08-16-dsh-absorption-conflict-matrix.md`（已入 main）· 实施仍在 `feat/dsh-absorption-p0-seams` @ `9ab8c191`（第 8 步 live A/B 未开） | 执行方已交 |
-| L1-S1 | 时间预算可见 | planned | 状态栏 v1 | `2026-08-15-bookgap-s1-time-budget-statusline.md` | 窗已开，可另开 PR |
+| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | #61 · `2026-08-16-dsh-absorption-conflict-matrix.md`（第 8 步 live A/B 未开） | 已合 main |
+| L1-S1 | 时间预算可见 | done | 状态栏 v1 | #65 · `2026-08-15-bookgap-s1-time-budget-statusline.md` | 已合；默认开；`ASK_EPISODE_BUDGET_STATUS=off` 可关 |
 | L1-S2 | judge 模态切换 | done | 数据源回查钩子 | #60 · `2026-08-15-bookgap-s2-judge-source-recheck.md` | 已合；默认 off；10 题对照实验未跑 |
 | L1-S3 | 超时窗口比例化 | done | reserve 推导窗口 | #63 · `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 已合；3 题冒烟未跑；不追切 8792 |
 | L1-S4 | recall@k 标注集 | done | 基线文档在场 | #40 | 已合；分数走运行平面 |
@@ -51,8 +51,9 @@
 | 2026-08-16 | 是否开第 8 步 live A/B 校准窗（先 45× Arm A） | 用户 | L1-DSH |
 | 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
-| 2026-08-16 | dsh 实施分支已 push 到 `9ab8c191`（第 1–7 步 + 冲突矩阵） | 已决 | L1-DSH |
-| 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 保留到合 main；已备份远程 | 已决 | L1-DSH |
+| 2026-08-16 | dsh 接缝已合 main #61；第 8 步 live A/B 未开 | 已决 | L1-DSH |
+| 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 合 main 条件已满足，删否仍卡用户 | 用户 | L1-DSH |
+| 2026-08-16 | S1 时间预算已合 #65；默认注入；live 率未读 | 已决 | L1-S1 |
 | 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
 | 2026-08-16 | S3 窗口推导已合 #63；ASK_* 只下压；3 题冒烟未跑；不追切 8792 | 已决 | L1-S3 |
 
