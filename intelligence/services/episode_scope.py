@@ -34,6 +34,25 @@ generic_research_owner、ask ……）。每处都自己判一次，就会各自
    ``PreparedToolArguments`` / ``ToolObservation`` 承担同样职责。
    两套名字并存会逼着每个读代码的人做一次心算翻译，且迟早有人把它们当成
    两种东西。dsh 阶段名与本仓类型名的对应关系记在 spec §7.1 的注记里。
+
+--------------------------------------------------------------------------
+⚠ 当前接线状态（2026-08-15，读之前先看这段）
+--------------------------------------------------------------------------
+
+**生产链路目前没有任何一处构造 EpisodeScope。** ``agent_episode`` 仍然是裸
+``ToolBatchExecutor()``，不传 scope。所以本模块的事件、调用登记和 ``dump()``
+收据在生产里**都不会发生**——机制建好了但处于休眠。
+
+这是有意的增量，不是遗漏：第 3 步的边界是「把接缝接到执行路径上」，
+让愿意传 scope 的调用方拿到能力。
+
+**认领：在 Episode 入口构造 Scope 属于第 4 步**（spec §11）——RuntimeHandle
+本来就要在那里建生命周期对象，Scope 在同一处构造最自然，sink 可以先给 None
+（登记与 dump 立刻就有真值，事件等第 5 步挂真 sink）。
+
+写死这条认领是因为：第 4、5、6 步都会碰到「谁来构造 Scope」，三步互相以为
+对方会接，就会一直没人接，而机制休眠时所有测试都是绿的——没有任何断言在问
+「生产里真的建了吗」。
 """
 
 from __future__ import annotations
@@ -95,6 +114,15 @@ class EventSink(Protocol):
 
     只声明「事件往哪去」，不规定事件怎么存——第 5 步做 Durable/Live 分类和
     Projection 时，实现方替换即可，Scope 这一侧不用动。
+
+    **契约：``emit`` 不得改变调用方的控制流。** 实现方应当自己兜住失败；
+    真抛出来的话 ``EpisodeScope.emit`` 会吞掉并计进 ``dump()`` 的
+    ``event_sink_failures``——因为发射点就在工具执行的主路径上，让 sink 故障
+    改写错误契约或把成功改判成失败是不可接受的。**实现方不要依赖这层兜底**：
+    它保的是主路径，不是你的事件不丢。
+
+    ``emit`` 也应当**快**：它在工具执行的同步路径上，慢 sink 会直接变成工具延迟。
+    要落盘或外发就自己排队异步做。
     """
 
     def emit(self, kind: str, payload: Mapping[str, object]) -> None: ...
@@ -208,6 +236,11 @@ class EpisodeScope:
     # 注册表）在一次 Episode 内不可变，而「哪些工具真的跑过」是运行中累积的事实，
     # 只能边跑边记。compare=False：两个 Scope 是否相同不取决于跑到哪一步了。
     invoked_tools: set[str] = field(default_factory=set, compare=False)
+    # sink 发射失败的事件种类，按发生顺序。与 invoked_tools 同理是可变的。
+    # 存种类而不是只存计数：知道「掉的是 tool/result 还是 tool/error」才有诊断价值。
+    _event_sink_failures: list[str] = field(
+        default_factory=list, compare=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         if not str(self.episode_id).strip():
@@ -222,20 +255,39 @@ class EpisodeScope:
 
         只在 runner 真的被调起后才登记，不在「决定要调」时登记——否则被预算、
         取消或去重挡掉的调用会被记成跑过了，可达性收据就会说谎。
+
+        **并发**：同一批工具在线程池里并发执行，这里会被多线程调用。
+        ``set.add`` 在 CPython 下是原子的（GIL 保护单个 bytecode 级操作），
+        故不加锁。这是**对 CPython 的显式依赖**，不是疏忽——换成自由线程构建
+        或非 CPython 实现时，这行需要重新审。
         """
 
         self.invoked_tools.add(str(tool))
 
     def emit(self, kind: str, payload: Mapping[str, object]) -> None:
-        """把阶段事件送到 event sink；没挂 sink 时静默丢弃。
+        """把阶段事件送到 event sink。**任何情况下都不影响主路径。**
 
-        丢弃是刻意的：事件是可观测性，不是正确性。没挂 sink 的调用方
-        （现存大多数）行为必须与接线前逐字节一致，所以这里不能抛也不能记日志。
-        「有没有挂上」由 ``dump()`` 的 event_sink_attached 回答。
+        两种「不影响」：
+
+        1. **没挂 sink** → 静默丢弃。没挂 sink 的调用方（现存全部）行为必须与
+           接线前逐字节一致，所以不能抛也不能记日志。
+        2. **sink 自己抛了** → 吞掉并计数。这条是必需的，不是防御性编程：
+           发射点之一在 authorize 拒绝路径上（sink 异常会顶替
+           ``UnknownResearchTool``，等于让 sink 故障改写错误契约），另一条在
+           runner 成功之后（sink 异常会把一次成功执行改判成失败）。
+           「事件是可观测性，不是正确性」这句话必须由代码兑现，不能只写在注释里。
+
+        吞掉不等于假装没发生：``dump()`` 报 ``event_sink_failures``，
+        收据不说谎。**只吞 Exception 不吞 BaseException**——取消和 KeyboardInterrupt
+        是控制流，吞掉它们会让 Episode 取消不掉。
         """
 
-        if self.event_sink is not None:
+        if self.event_sink is None:
+            return
+        try:
             self.event_sink.emit(kind, payload)
+        except Exception:
+            self._event_sink_failures.append(kind)
 
     # ── 派生视图：以下全部从 context + registry 算出，不另存一份 ──────────
 
@@ -379,6 +431,9 @@ class EpisodeScope:
             "allowed_tools": list(self.allowed_tools()),
             "evidence_ledger_attached": self.evidence_ledger is not None,
             "event_sink_attached": self.event_sink is not None,
+            # 挂上了不等于送到了。sink 抛异常被吞掉时，这里是唯一的痕迹。
+            "event_sink_failures": len(self._event_sink_failures),
+            "event_sink_failed_kinds": sorted(set(self._event_sink_failures)),
             "root_budget_attached": self.root_budget is not None,
             "information_cutoff": self._cutoff_dict(),
             "policy_present": self.policy is not None,

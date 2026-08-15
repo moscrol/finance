@@ -20,7 +20,7 @@ from typing import Literal, cast
 
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
-from intelligence.services.episode_scope import EpisodeScope
+from intelligence.services.episode_scope import TOOL_ERROR, EpisodeScope
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
     InvalidResearchToolArguments,
@@ -282,6 +282,23 @@ class EpisodeToolBatchSession:
 
             spec = authorized_specs.get(call.name)
             if spec is None:
+                # 压扁**真正发生在这里**，不在 registry.execute 里——这条分支直接
+                # continue，execute 根本走不到。所以区分事件必须发在这个点上，
+                # 否则「诊断拿到了区分」只在测试里成立，生产批次流一条都收不到。
+                if self._scope is not None:
+                    decision = self._scope.authorize(call.name)
+                    self._scope.emit(
+                        TOOL_ERROR,
+                        {
+                            "tool": call.name,
+                            "tool_call_id": call.call_id,
+                            "step_id": step_ids[index],
+                            "stage": "authorize",
+                            # wire 上仍是压扁的那个串；区分只在事件里
+                            "reason": decision.reason,
+                            "capability": decision.capability,
+                        },
+                    )
                 items[index] = ToolCallResult(
                     call,
                     "rejected",

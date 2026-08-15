@@ -17,8 +17,11 @@ spec §7.2 验收第 2 条：「新增工具若只存在于测试注册表而不
 里跑得好好的，生产装配少接一根线，于是它在生产里从来没被调起过——而单元测试全绿、
 `/api/health` 一切正常，因为没有任何断言在问「生产装配里有它吗」。
 
-本脚本用**声明（元数据表）**对**装配（default_registry 的产物）**，两边不一致就
-报警。它不需要跑起真实 Episode，也不外呼。
+本脚本用**声明（元数据表）**对**真实装配函数 ``build_episode_registry`` 的产物**，
+两边不一致就报警。它不跑真实 Episode，也不外呼。
+
+> 初版拿声明本身去合成装配输入，unreachable 恒空、永不报警，还报了一次「12/12
+> 一致」的假绿。判据必须取自**独立于声明**的那一侧，否则审计只是在照镜子。
 
 --------------------------------------------------------------------------
 为什么判据是「声明 vs 装配」而不是「授权与否」
@@ -42,34 +45,83 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from intelligence.services import agent_research  # noqa: E402
+from intelligence.services.episode_factory import build_episode_context  # noqa: E402
+from intelligence.services.episode_tools import (  # noqa: E402
+    build_episode_registry,
+)
 from intelligence.services.research_tool_registry import (  # noqa: E402
     _DEFAULT_TOOL_METADATA,
-    default_registry,
 )
+from intelligence.services.task_frame import TaskFrame  # noqa: E402
 
 
-def _noop_runner(
-    value: object,
-    context: agent_research.AgentToolContext,
-) -> tuple[list[object], str, object]:
-    """装配探针用的空 runner。
+def _all_capability_frame() -> TaskFrame:
+    """一个只为走通装配而存在的题面。
 
-    审计只问「装配得出来吗」，不问「跑起来对不对」——后者是单元测试的事。
-    用真 runner 会把审计变成一次真实外呼。
+    ``question_type`` 取 ``valuation_estimate`` 是有讲究的：``build_episode_registry``
+    只在**不是**该题型时才去读 market DB 取 as-of（episode_tools.py:412）。
+    审计不该碰数据库——它要回答的是装配问题，不是数据问题。
     """
 
-    raise AssertionError("audit runner must never be invoked")
+    return TaskFrame(
+        raw_question="工具可达性审计探针",
+        user_goal="装配探针",
+        question_type="valuation_estimate",
+        subject="探针",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("valuation_range",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="valuation_with_current_anchor",
+        confidence=0.95,
+    )
 
 
-def audit() -> tuple[list[str], list[str], list[str]]:
-    """返回（声明的、装配出来的、够不着的）三份名单。"""
+def _assemble(*, memory_identity: bool) -> set[str]:
+    """跑一次真实装配，返回产出的工具名。"""
+
+    frame = _all_capability_frame()
+    # 全能力授权：审计问的是「结构性够不着」，不是「这一轮授没授权」。
+    context = build_episode_context(
+        frame,
+        task_id="tool-reachability-audit",
+        capabilities=tuple(sorted(_DEFAULT_TOOL_METADATA)),
+        timeout=30.0,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        memory_user="__audit_probe__" if memory_identity else None,
+    )
+    return set(registry.names())
+
+
+def audit() -> tuple[list[str], list[str], list[str], list[str]]:
+    """返回（声明的、无条件装配的、够不着的）三份名单，外加条件装配的一份。
+
+    **装配名单必须来自真实装配函数** ``build_episode_registry``——它按
+    ``allowed_capabilities`` 逐个 ``if`` 手拼 runner dict，而「声明了、runner 没接线」
+    这个历史故障形状只有拿它的产物来比才抓得住。
+
+    初版这里是用声明本身合成 runner dict 再喂 ``default_registry``，装配输入来自声明，
+    于是 unreachable 恒空、永不报警——一个把假绿制度化的恒真式，而且它还真的报了一次
+    「12/12 一致」的假绿。这条注释留着，因为下一个想「简化」这个函数的人会正好又走回那条路。
+
+    **三分而不是二分**：有些工具除了能力授权还要额外输入才装配得出来
+    （``memory_lookup`` 要 ``memory_user`` 或 ``memory_users_root``）。把它们算进
+    「够不着」会天天误报然后被人关掉；算进「装配出来了」又会掩盖「生产忘了传身份 →
+    该工具静默永不装配」这个真故障。所以单列一档，报告但不失败。
+    """
 
     declared = sorted(_DEFAULT_TOOL_METADATA)
-    registry = default_registry({name: _noop_runner for name in declared})
-    assembled = sorted(registry.names())
-    unreachable = sorted(set(declared) - set(assembled))
-    return declared, assembled, unreachable
+    bare = _assemble(memory_identity=False)
+    enriched = _assemble(memory_identity=True)
+    unreachable = sorted(set(declared) - enriched)
+    conditional = sorted(enriched - bare)
+    return declared, sorted(bare), unreachable, conditional
 
 
 def main() -> int:
@@ -81,7 +133,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    declared, assembled, unreachable = audit()
+    declared, assembled, unreachable, conditional = audit()
 
     if args.json:
         print(
@@ -89,6 +141,7 @@ def main() -> int:
                 {
                     "declared": declared,
                     "assembled": assembled,
+                    "conditional": conditional,
                     "unreachable": unreachable,
                     "ok": not unreachable,
                 },
@@ -101,9 +154,16 @@ def main() -> int:
     print("=" * 72)
     print("工具可达性审计 — 声明 vs 生产装配")
     print("=" * 72)
-    print(f"  声明（_DEFAULT_TOOL_METADATA）  {len(declared)} 个")
-    print(f"  装配（default_registry）        {len(assembled)} 个")
+    print(f"  声明（_DEFAULT_TOOL_METADATA）      {len(declared)} 个")
+    print(f"  无条件装配（build_episode_registry） {len(assembled)} 个")
+    print(f"  条件装配（需额外输入）               {len(conditional)} 个")
     print()
+    if conditional:
+        print("  ⓘ 以下工具在能力授权之外还需额外输入才装配得出来：")
+        for name in conditional:
+            print(f"      - {name}")
+        print("    这不是缺陷，但生产入口若忘了传那个输入，它会静默永不装配。")
+        print()
 
     if unreachable:
         print(f"❌ {len(unreachable)} 个工具声明了但生产装配里够不着：")

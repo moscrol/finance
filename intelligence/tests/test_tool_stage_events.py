@@ -283,3 +283,96 @@ def test_scope_without_sink_records_but_emits_nothing() -> None:
     )
     assert scope.dump()["invoked_tools"] == ["market_data"]
     assert scope.dump()["event_sink_attached"] is False
+
+
+# ── sink 故障不得改变主路径 ────────────────────────────────────────────
+
+
+class ExplodingSink:
+    def emit(self, kind: str, payload: dict) -> None:
+        raise RuntimeError("sink 挂了")
+
+
+def test_sink_failure_does_not_rewrite_error_contract() -> None:
+    """authorize 拒绝路径上，sink 异常不得顶替 UnknownResearchTool。"""
+
+    registry = _registry()
+    scope = _scope(registry, ExplodingSink())
+
+    with pytest.raises(UnknownResearchTool, match="能力未授权：memory_lookup"):
+        registry.execute(
+            "memory_lookup",
+            {"query": "x"},
+            context=_context(),
+            step_id="s-1",
+            scope=scope,
+        )
+
+    assert scope.dump()["event_sink_failures"] == 1
+
+
+def test_sink_failure_does_not_fail_a_successful_execution() -> None:
+    """TOOL_RESULT 发在 runner 成功之后——sink 异常不得把成功改判成失败。"""
+
+    registry = _registry()
+    scope = _scope(registry, ExplodingSink())
+
+    observation = registry.execute(
+        "market_data",
+        {"query": "上证"},
+        context=_context(),
+        step_id="s-1",
+        scope=scope,
+    )
+
+    assert observation.tool == "market_data"
+    dumped = scope.dump()
+    assert dumped["event_sink_attached"] is True
+    # 挂上了不等于送到了——收据必须说实话
+    assert dumped["event_sink_failures"] == 2
+    assert dumped["event_sink_failed_kinds"] == [TOOL_PRE_EXECUTE, TOOL_RESULT]
+
+
+# ── 批次预筛：压扁真正发生的地方 ───────────────────────────────────────
+
+
+def test_batch_prefilter_emits_distinction_where_flattening_happens() -> None:
+    """生产批次流在 registry.execute **之前**就 continue 了。
+
+    区分事件只发在 execute 内部的话，「诊断拿到了区分」就只在测试里成立，
+    真实批次一条都收不到——这是本步最容易自欺的一处。
+    """
+
+    from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
+    from intelligence.services.agent_runtime import ModelToolCall
+
+    registry = _registry()
+    sink = RecordingSink()
+    scope = _scope(registry, sink)
+
+    result = ToolBatchExecutor(scope=scope).execute(
+        (
+            ModelToolCall(call_id="c-1", name="memory_lookup", arguments={"query": "x"}),
+            ModelToolCall(call_id="c-2", name="no_such_tool", arguments={"query": "y"}),
+        ),
+        registry=registry,
+        context=_context(),
+        remaining_slots=4,
+    )
+
+    # wire 上仍是压扁的那个串——错误契约没动
+    assert [item.error for item in result.items] == [
+        "unknown_or_unauthorized_tool",
+        "unknown_or_unauthorized_tool",
+    ]
+
+    # 事件里分得开
+    by_call = {
+        payload["tool_call_id"]: payload
+        for kind, payload in sink.events
+        if kind == TOOL_ERROR
+    }
+    assert by_call["c-1"]["capability"] == "memory_lookup"
+    assert "能力未授权" in by_call["c-1"]["reason"]
+    assert by_call["c-2"]["capability"] is None
+    assert by_call["c-2"]["reason"] == "工具未注册"
