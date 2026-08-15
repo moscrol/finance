@@ -17,7 +17,7 @@ roadmap_ref: L1-R24
 - `source_dirty=false`
 - `code_matches_repo=true`
 - `loaded_code_root=.../finance-workspace-437cd5e9aa1a/intelligence`
-- 新 pid 15841（旧 70403）
+- 切窗后 pid 15841（旧 70403）；质检 kickstart 后 pid 50594（同一快照）
 - 从快照 cwd 加载：`_shrink_verified_for_marker_loss` 在场
 
 ## 与 S7 / S9 的边界
@@ -34,7 +34,9 @@ roadmap_ref: L1-R24
 
 ## RAG
 
-`/api/health/ready` 在切换后一段时间 503，`missing_critical=['rag_worker']`，worker `state=warming`，prewarm 触到 240s `TimeoutError`。health 已绿。与冷启动预热预算同类，不是回滚条件。
+切窗后 `/api/health` 绿，`/api/health/ready` 一度 503：`rag_worker.state=failed`，`TimeoutError` / `startup_prewarm`，`prewarm_latency_ms=237327`（启动器当时 240s）。worker 进程可能仍在，但模块级 `_STARTUP_FAILURE_TYPE` 会把 status 钉在 failed，readiness 探针自愈清不掉。
+
+2026-08-16 质检收尾：启动器 `RAG_WORKER_PREWARM_TIMEOUT` 240→360，杀掉孤儿 `rag_query_worker` 后 kickstart **同一快照** `437cd5e9`（不新建目录、不追 docs tip）。T+342s health 绿；ready=`ready` / `rag_worker.state=ready` / `prewarm_latency_ms=346532` / `last_error_type=None`。346s 证实 240 不够。不把这次 kickstart 当成回滚。
 
 ## dsh / 安全 ref
 
