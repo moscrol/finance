@@ -271,6 +271,29 @@ class SubResearchCoordinator:
         registry: ResearchToolRegistry,
         evidence_sink_factory: Callable[[str], BranchEvidenceSink],
     ) -> SubResearchResult:
+        """把每个分支跑到终态再返回。
+
+        **承重不变量（写死认领，别静默改）：本方法保持同步。** 分支全部提交后在
+        同一次调用里消费完 ``as_completed``，返回值又对每个 request 取
+        ``results[request.branch_id]``——"已返回"这件事本身就蕴含"没有分支线程还
+        活着"，``with ThreadPoolExecutor`` 的 join 只是第二道保险。"Episode 关闭时
+        不存在后台分支泄漏"（spec §4.2.4 的排空档）整个靠这一条成立。
+
+        谁把它改成 async / fire-and-forget——提前返回 future、把 executor 提到实例
+        或模块级、``shutdown(wait=False)`` 后不消费、把分支挪进后台队列——谁就必须
+        重开 spec §4.2.4，并在 RuntimeHandle 上补分支粒度 drain；台账
+        ``docs/handoffs/2026-08-15-dsh-absorption-p0-execution-handoff.md`` §4.1 的
+        四条证据届时全部作废。**仓内没有测试直接钉住它**：唯一的线程存活断言在
+        ``test_sub_research.py`` 的 ``_BranchBudgetView`` 并发结算用例，与排空无关。
+
+        取消语义（spec §7.3）：入口整体早退 + ``_run_one`` 里每个分支启动前各查一次，
+        两处用的都是 ``self._is_cancelled``——与 RuntimeHandle 折叠的是同一个上游
+        callable（见 ``glm_agent_runtime.GLMAgentRuntime.__init__`` 里的
+        ``_upstream_cancelled`` 注释）。已进入 worker 的分支不打断，由上面那条同步
+        消费排空。**这两处守卫同样没有测试钉住**：2026-08-15 抽掉它们跑全量，
+        4982 passed / 0 红。
+        """
+
         normalized = _clean_goals(goals)
         if not normalized:
             return SubResearchResult(())

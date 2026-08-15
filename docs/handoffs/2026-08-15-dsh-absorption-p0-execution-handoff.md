@@ -114,7 +114,92 @@ b920feb6 Step 1 基线复核收据
   已入 pre-commit（entry 用主树 venv 绝对路径，宿主 python3 跑不了它）+
   pytest 侧复挂（`test_tool_reachability_audit.py`）。
 
+### 4.1 子研究后台分支：排空泄漏**结构上不成立**（spec §4.2.4 的排空档）
+
+> 本节替代早先"子研究后台分支排空是缺口、要单独开一轮"的记法。裁定原文见文末
+> 「检阅裁定 · 子研究轮形状」；**不采纳的备选**（父 Handle 上 `begin_work`）已进
+> §6 第 4 条，不要重开。**剩余的只有收据对账，归第 5 步**，要求写在 §5.3。
+
+**坐标口径**：行号 @ 本节所在提交。`sub_research.py` 本轮加了 docstring，其行号比
+父提交 `57b3682d` 下移 23 行；`agent_episode.py` 本轮**未改**，与父提交同值。
+符号名以 **`_run_sub_research`** 为准——早先小结里的 `_maybe_sub_research` 是笔误，
+全仓 grep 零命中，不得再进台账。
+
+**四条证据并列**（归属逐条标注）：
+
+1. **同步包含**（执行方 [实测·读码]，检阅方复核并加强一档）：`coordinator.run` 的
+   唯一调用点是 `agent_episode.py:1719`，在 `_run_sub_research`（def `:1695`）内；
+   `_run_sub_research` 的两个调用点 `:840` / `:877` 都落在 `run()` 体内（`run` 起
+   `:498`，下一个 def `_repair_model_complete` 在 `:1126`）。**`resume`（`:1244`–
+   `:1612`）无调用点**——子研究只发生在 initial_run 工作窗口，包含性比"都在 run
+   里"再强一档。
+2. **"已返回"即"已终结"**（执行方本轮读码补强，比"with 即 join"硬一档）：
+   `sub_research.py:340` 的 `with ThreadPoolExecutor` 在 `__exit__` join 只是第二道
+   保险；**第一道**是 `:352` 的 `as_completed(futures)` 遍历全部已提交 future，
+   而 `:369-370` 的返回值对**每个** request 取 `results[request.branch_id]`——少一个
+   分支就 KeyError。即"返回"这个事件本身蕴含"所有分支已终态"，不依赖清理路径。
+3. **per-branch 收据已经在**（执行方 [实测·读码]，检阅方复核字段多于小结所列；
+   本轮补出第三段）：`_EpisodeLedger` 三段式发射——`branch_started` 每目标一条
+   （`agent_episode.py:1714-1718`）→ 结果循环发 `branch_completed`/`branch_failed`
+   （`:1729-1746`）→ **未执行兜底循环**（`:1747-1758`）给没回来的 branch_id 补
+   `branch_failed`（`reason = refused_reason or "branch_not_executed"`）。所以整轮
+   refused 路径（`cancelled` / `deep_mode_required` / `root_budget_*` /
+   `deadline_exhausted`）也成对。**成对性的上游前提**：`goals` 只来自
+   `ResearchPlan.branch_goals`，而 `ResearchPlan.__post_init__`（`research_plan.py:78-82`
+   → `_bounded_branch_goals:137-148`）已强制"非空、去重、≤3"，所以协调器里的
+   `_clean_goals` 在这条调用链上抛不出异常——否则 `branch_started` 发完就异常逃逸，
+   会留下无终态事件。同一前提还保证 `_clean_goals` 的去重不会重排 `branch-{i}`
+   编号：一旦上游放开重复目标，`branch_started` 的编号（按原始列表）与协调器返回的
+   编号（按去重后列表）会错位，成对性还在、**goal 与 branch_id 的绑定会串**。
+4. **取消语义已按 §7.3 实现且与 Handle 同源**（**检阅方**提供 [实测·读码]，执行方
+   本轮逐条复核成立）：`sub_research.py:263` 持上游 `is_cancelled`；
+   `glm_agent_runtime.py:416-417` 的注释钉明 RuntimeHandle 折叠的就是同一个
+   callable，`:418` 的 `self._upstream_cancelled = is_cancelled` 与 `:407`/`:414`/
+   `:423` 注入 client / coordinator / episode 的是**同一个实参**，`:481` 又把它递给
+   `RuntimeHandle(upstream_cancelled=...)`；`:305-306` run()
+   入口整体早退 `refused_reason="cancelled"`；`:407` 把同一 callable 递进每个
+   `BranchRequest`；`_run_one`（`:410`）的 `:411-422` 在每个分支启动前各查一次
+   （未启动 → `status="failed"` + `error="cancelled"`；已启动的不打断，由证据 2
+   那条同步消费排空）。
+
+**承重不变量（谁破谁重开 §4.2.4）**：`SubResearchCoordinator.run()` **保持同步**。
+谁把它改成 async / fire-and-forget（提前返回 future、executor 提到实例或模块级、
+`shutdown(wait=False)` 后不消费、分支挪进后台队列），谁就必须重开 §4.2.4 的排空档
+并在 RuntimeHandle 上补分支粒度 drain——**上面四条证据届时全部作废**。代码侧认领已
+写进 `SubResearchCoordinator.run` 的 docstring（§9 要求的"docstring + 台账"两处）。
+
+⚠️ **别把上面四条当门禁继承——它们一条都没有测试钉住。**
+
+- 两处取消守卫（[实测·变异]）：抽掉 `:305-306` 入口早退与 `:411-422` 分支守卫后跑
+  全量，**4982 passed / 4 skipped / 0 红**（597.4s；`git checkout` 恢复后树干净）。
+- 同步性（[推断] + [实测·grep]）：连变异都构造不出来——要造出泄漏就得先改掉"消费完
+  全部 future 才构造返回值"这个结构，那时红的会是结果缺失类断言，不是泄漏断言。仓内
+  唯一的线程存活断言在 `test_sub_research.py:441`，测的是 `_BranchBudgetView` 并发
+  结算的辅助线程，与协调器排空无关。
+
+**所以这一档现在是"设计约束 + docstring + 台账"三处认领，不是门禁**；第 5 步做收据
+对账时一并把它变成可执行判据。
+
+**本轮 rebase 负担 = 0**（[实测]，命令如下）：main 至 `cf86e891` 未碰
+`sub_research.py` / `glm_agent_runtime.py` / `runtime_handle.py` / `research_plan.py`；
+docstring 只落在 `sub_research.py`，**刻意不碰 `agent_episode.py`**（唯一真冲突面）
+——那里的同款认领**写死认领给第 5 步落笔**（它本来就要改这个文件）。
+
+```bash
+cd /Users/a77/fwp-wt-dsh-seams
+git rev-parse gitea/main    # cf86e891（本轮未 fetch，值与检阅方裁定时同）
+git diff --name-only $(git merge-base HEAD gitea/main)..gitea/main \
+  -- intelligence/runtime/sub_research.py intelligence/runtime/glm_agent_runtime.py \
+     intelligence/services/runtime_handle.py intelligence/services/research_plan.py
+# 空输出 = 未碰
+```
+
 ## 5. 马上要做的（按优先序）
+
+> **状态盖戳（2026-08-15 台账改写轮）**：5.0 / 5.1 / 5.2 三项均已在此前轮次交付并
+> 经检阅方判定 PASS（判定原文见文末轮次记录；本轮未独立复跑，只做指针）。本节保留
+> 为历史依据与设计出处。**当前在途只剩两项**：rebase 轮（待用户批准）与 §5.3 的
+> 第 5 步。5.1 里那条「子研究后台分支排空」已另有裁定，见 §4.1。
 
 ### 5.0 打回项（先修，很小）
 
@@ -158,6 +243,27 @@ Episode（含 repair resume）？若 resume 重进 run() 新建 Scope，invoked_
   现有 `_EpisodeLedger` 出口与 EventSink 合成一个，消灭"第二条事件链路"的暂留状态。
   届时按 §7.1 验收对账"每次工具调用都有完整阶段事件"——预筛的去重/预算/取消
   rejected 分支目前不发事件，是已知缺口，到这步补。
+
+  **子研究收据对账要求**（2026-08-15 由子研究轮并入，依据见 §4.1；本项不做完，
+  §4.2.4 不算收尾）：
+
+  1. **成对**：每条 `branch_started` 必须对上一条 `branch_completed` 或
+     `branch_failed`。现状已成立，靠 `_run_sub_research` 末尾的未执行兜底循环
+     （`agent_episode.py:1747-1758`）兜住全部 refused 路径——**Projection 必须把它
+     变成断言，不能当巧合继承**：那个循环一旦在合流改写里丢掉，成对性静默失效。
+  2. **cancelled 可区分：现状只成立一半**（[实测·读码]，本轮新查）。整轮拒绝
+     （`refused_reason="cancelled"`）走兜底循环、payload 带 `reason`，可区分；
+     **单分支取消不可区分**——`BranchResult.error="cancelled"` 没有任何事件字段
+     承载它，结果循环的 payload（`agent_episode.py:1735-1745`）只有
+     branch_id/goal/status/evidence_count/gap_count/llm_calls/tool_calls/tokens，
+     与 worker 异常失败（`error="branch_worker_exception:*"`，同为 status=failed、
+     gap_count=1）在事件流里**同形**。第 5 步必须把 `error` 或等价字段带进事件，
+     否则这条对账要求在 Projection 上根本判不出来。
+  3. **Durable/Live 归属未定**：`branch_started` / `branch_completed` /
+     `branch_failed` / `branch_tool` 四种事件在 spec §7.4 的两份名单里都没出现。
+     第 5 步要给它们定归属——它们承载证据来源与分支预算消耗，按 §7.4 的金融约束
+     （evidence hash/source/status/gaps 不得在 Projection 丢失）倾向 Durable，但这是
+     第 5 步的裁定项，本轮不替它定。
 - 第 6 步：ResearchProfile + effective-config 收据。**必须吸收**
   `research_policy.py:10` 已有的 `GroundedBudgetProfile`，不另起第二配置源。
 - 第 7-8 步：scripted dsh stub 验证 Adapter 协议 → A/B。跑之前读 Step 1 收据
@@ -176,6 +282,11 @@ Episode（含 repair resume）？若 resume 重进 run() 新建 Scope，invoked_
    `OPENAI_API_KEY`，防 ambient discovery 误拾）；只注入 dsh 子进程；artifact
    只记指纹。`ctx.credentials` host 插件记为 P2。
 3. **pre-commit 接审计**：已裁定接、已落地（d69ee387）。
+4. **子研究分支不绑父 Handle**（2026-08-15 检阅裁定，见文末）：不在父 Handle 上开
+   `begin_work("branch:{id}")`——它与 `_EpisodeLedger` 的 branch 事件构成双账（违反
+   「不造第二事实源」），且要把 Handle 穿 runtime→episode→coordinator 三层；换来的
+   分支粒度 drain 在第 5 步 Projection 对账里免费得到。**排空泄漏这一档已判定结构上
+   不成立**，四条证据、承重不变量与剩余对账项见 §4.1。
 
 ## 7. 验证纪律（每轮收尾必跑，检阅方会独立复跑）
 
@@ -366,3 +477,95 @@ $PY -m ruff check intelligence scripts
 - 升格用户事项：**rebase 时机批准**。建议顺序「子研究轮 → rebase 轮 → 第 5 步」，
   依据：子研究轮与 main 现无重叠；rebase 独立成轮保住「差值恰为新增」判据；
   第 5 步撞热点必须在 rebase 之后。
+
+### 检阅裁定 · 子研究轮形状（2026-08-15，检阅方）
+
+执行方提交的三条 [实测] 事实全部读码复核成立（坐标精确）：
+
+1. 同步包含：`coordinator.run` 调用点 `agent_episode.py:1719`，外层
+   `_run_sub_research` 的两个调用点 `:840` / `:877` 均落在 `run()` 体内
+   （498–1125）；`sub_research.py:317` 的 `with ThreadPoolExecutor` 保证
+   __exit__ 即 join。**且 `resume`（:1244 起）无调用点——子研究只发生在
+   initial_run 工作窗口，包含性比小结表述更强一档。**
+2. per-branch 事实已在 `_EpisodeLedger`（branch_started :1714，
+   branch_completed/failed :1729-1746，字段还多于小结所列）。
+3. 协调器在 `GLMAgentRuntime.__init__`（:409）构造、运行时级长生命周期；
+   Handle per-run。绑构造器 = 把 per-run 收据钉在可复用对象上。
+
+**检阅方新证据（归属检阅方，改写台账时一并回填）**：取消语义在协调器层
+**已按 §7.3 实现且信号与 Handle 同源**——`sub_research.py:263`
+持上游 `is_cancelled`（`glm_agent_runtime` 注释钉明与 Handle 折叠的是同一
+callable）；`:282-283` run() 入口整体早退（"cancelled"）；`:388-398`
+每分支启动时各查一次（未启动的分支变 error="cancelled"，已启动的排空）。
+cancelled 分支流入 ledger branch 事件，可观测。**所以"并入第 5 步"不会
+埋掉行为缺口：行为面（泄漏、取消）都已闭合，剩的只有收据对账。**
+
+**裁定：采纳「并入第 5 步」，不采纳备选**（父 Handle 上
+`begin_work("branch:{id}")` = 与 ledger branch 事件双账 + Handle 穿三层，
+违反「不造第二事实源」元规则；换来的分支粒度 drain 在第 5 步 Projection
+对账里免费得到）。
+
+**并入的对价——台账改写必须做实，四条**：
+
+1. §4.2.4 条目从「缺口」改写为「排空泄漏结构上不成立 + 收据对账归第 5 步」，
+   证据四条并列（执行方三条 + 检阅方取消语义一条，注明归属）。
+2. **点名承重不变量**：全部论证成立的条件是 `coordinator.run()` 保持同步
+   （with-block join）。写明：谁把它改成 async / fire-and-forget，谁重开
+   §4.2.4。
+3. 符号名精确可 grep：`_run_sub_research`（:840/:877，仅 run() 内）。
+   小结里的 `_maybe_sub_research` 是笔误，不得进台账。
+4. 给第 5 步立对账要求一句：Projection 里 branch_started 与
+   branch_completed/failed 必须成对，cancelled 分支可区分。
+
+**顺序更新**：台账改写（小轮，docs+docstring 级，不碰 main 热点，可先行）
+→ rebase 轮（**待用户批准**，独立成轮含基线重建）→ 第 5 步（含子研究
+对账要求）。当前唯一阻塞决策 = rebase 批准。
+
+另：执行方引用检阅方测量并申报「未独立复跑」——处理正确；检阅方已复核
+main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
+
+### 执行方小结 · Round「台账改写：子研究并入第 5 步」（2026-08-15，执行方）
+
+- **本提交**：docs 1 文件（本文档）+ 代码 1 文件（`sub_research.py` **仅新增
+  `run()` docstring，无行为改动**）。父提交 `57b3682d`。分支
+  `feat/dsh-absorption-p0-seams` 仍**未 push、未合 main**、未动生产快照树。
+  检阅方裁定原文（此前未提交）随本提交一并入库。
+- **裁定对价四条的落点**：
+  1. §4.2.4 改写 → 新增 **§4.1**，四条证据并列、逐条标注归属（执行方三条 +
+     检阅方取消语义一条）；
+  2. 承重不变量 → §4.1「承重不变量」段 + `SubResearchCoordinator.run` docstring
+     （§9 要求的两处认领都落到位）；
+  3. 符号名 → §4.1「坐标口径」段点名 `_run_sub_research`（`:840`/`:877`，仅
+     `run()` 内），并记 `_maybe_sub_research` 全仓 grep 零命中；
+  4. 第 5 步对账要求 → §5.3 第 5 步下三条（成对 / cancelled 可区分 /
+     Durable-Live 归属）。
+- **本轮新查到的两条**（都不翻转裁定，但改变第 5 步要做的事）：
+  1. **「cancelled 分支可观测」只成立一半**（[实测·读码]，对检阅方证据 4 的精确化）：
+     整轮拒绝走兜底循环、payload 带 `reason`，可区分；**单分支取消区分不出来**——
+     `BranchResult.error="cancelled"` 没有任何事件字段承载它，结果循环 payload
+     （`agent_episode.py:1735-1745`）与 worker 异常失败同形（同为 status=failed、
+     gap_count=1）。原话"cancelled 分支流入 ledger branch 事件，可观测"应读作
+     **流入了，但区分不出来**。已落成 §5.3 第 5 步第 2 条那个可判定的要求。
+  2. **取消语义零测试覆盖**（[实测·变异]）：抽掉入口早退与分支守卫两处跑全量，
+     **4982 passed / 4 skipped / 0 红**。行为闭合 ≠ 有门禁守着——§4.1 已把它标成
+     "三处认领、不是门禁"，第 5 步补对账时一并变判据。
+- **边界决定与理由**：
+  - 只改 `sub_research.py` 的 docstring，**不碰 `agent_episode.py`**：后者是唯一真
+    冲突面（主侧 U0 口径 37 hunk），rebase 前动它等于自愿扩大冲突面——与 §5.3
+    第 5 步排在 rebase 之后是同一条理由。该文件里的同款认领**写死认领给第 5 步**
+    （它本来就要改这个文件）。
+  - **不修** `error` 不进事件这个收据缺口：修它要动 `_run_sub_research` 的 payload
+    （在 `agent_episode.py`），属第 5 步事件合流的活；本轮修 = 顺手改 + 扩冲突面。
+  - **不改 spec 本体**（主检出树 `docs/dsh-absorption-spec` 分支）：§4.2 第 4 条是
+    通用底座条目，涵盖关闭/取消/**排空**/重启四档，本轮只裁定了排空一档，改条目
+    正文会把另外三档一起带走；台账才是这条裁定的落点。
+  - §5 加状态盖戳但**不删** 5.0–5.2：只标"已 PASS、本轮未独立复跑"，保留设计出处。
+- **门禁**（本轮复跑，`umask 022`，`LOADED` = 工作树路径，**跑的是工作树即改后状态**，
+  彼时 HEAD 仍是父提交 `57b3682d`，故 layer_audit 自报的 revision 标签是父提交的）：
+  - 全量 **4982 passed / 4 skipped / 0 failed**（565.0s）—— 与父提交基线**逐值相等**：
+    本轮新增用例 0（k=0），存量零改动，docstring 不改行为，判据是"差值恰为 0"。
+  - `layer_audit.py` ERROR 0；`audit_tool_reachability.py` 12 声明一致、0 够不着；
+    `ruff check intelligence scripts` 全绿；pre-commit 随提交跑。
+  - 变异读数（上面第 2 条，597.4s）与门禁读数（565.0s）是**两次独立全量跑**。
+- **未做/未验**：`4982 @ 57b3682d` 的父提交基线**未独立复跑**（引用检阅方上轮读数，
+  本轮只跑改后值；两者相等本身就是"零改动"的证据，但父值归属检阅方）。
