@@ -289,16 +289,39 @@ def episode_artifact_expected(trace: TurnTrace) -> bool:
     return True
 
 
+_episode_hits_this_run = 0
+
+
+def reset_episode_hit_counter() -> None:
+    """每开一批清零。已有命中后再缺产物，是单题缺口，不是目录错配。"""
+
+    global _episode_hits_this_run
+    _episode_hits_this_run = 0
+
+
 def require_episode_if_expected(
     trace: TurnTrace, facts: Mapping[str, Any] | None
 ) -> None:
-    if facts is not None or not episode_artifact_expected(trace):
+    """错目录会让**整批**读不到 episode。本批已读到过产物后再缺，只标该题。
+
+    2026-08-15 批 #2 第一次开跑：C4 `run_20260815_105037_639945` 目录正确、
+    无 `continuous-episode.json`。当时整批中止、21 题已读产物作废——那是量具
+    误杀，不是 R-08 要拦的静默降级。
+    """
+
+    global _episode_hits_this_run
+    if facts is not None:
+        _episode_hits_this_run += 1
+        return
+    if not episode_artifact_expected(trace):
+        return
+    if _episode_hits_this_run > 0:
         return
     raise UsersDirMismatch(
         f"run {trace.run_id} 在 "
         f"{os.environ.get('FORESIGHT_USERS_DIR') or '<unset>'} "
-        "找不到 continuous-episode.json（completed 且非澄清轮）。"
-        "这是 users 目录错配，不是五态业务读数。"
+        "找不到 continuous-episode.json（completed 且非澄清轮，"
+        "且本批尚未读到任何 episode）。这是 users 目录错配，不是五态业务读数。"
     )
 
 
@@ -643,6 +666,7 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    reset_episode_hit_counter()
     requested_output = getattr(args, "output", None)
     output_path = Path(requested_output) if requested_output else None
     if output_path is not None and output_path.exists():

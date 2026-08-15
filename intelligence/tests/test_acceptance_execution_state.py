@@ -23,6 +23,7 @@ from intelligence.eval.acceptance import (
     _read_episode_facts,
     counts_toward_quality,
     require_episode_if_expected,
+    reset_episode_hit_counter,
     resolve_episode_users_dir,
     summarize_execution_states,
 )
@@ -306,6 +307,7 @@ def test_summary_reports_how_many_states_are_artifact_backed() -> None:
 @pytest.fixture(autouse=True)
 def _users_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    reset_episode_hit_counter()
 
 
 def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
@@ -381,6 +383,14 @@ def test_wrong_users_dir_does_not_emit_plausible_five_state(
         gaps=["证据或语义核验未完全通过"],
     )
 
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(wrong))
+    facts_bad = _read_episode_facts("run-same", "tester")
+    assert facts_bad is None
+    assert _classify_execution_state(trace, facts_bad) == "undetermined"
+    with pytest.raises(UsersDirMismatch, match="找不到 continuous-episode"):
+        require_episode_if_expected(trace, facts_bad)
+
+    reset_episode_hit_counter()
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(correct))
     facts_ok = _read_episode_facts("run-same", "tester")
     assert facts_ok is not None
@@ -391,12 +401,37 @@ def test_wrong_users_dir_does_not_emit_plausible_five_state(
         [{"case_id": "B1", "turns": [{"execution_state": state_ok}]}]
     )
     assert ok_summary["execution_state_tally"] == {"no_hash": 1}
-
-    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(wrong))
-    facts_bad = _read_episode_facts("run-same", "tester")
-    assert facts_bad is None
-    assert _classify_execution_state(trace, facts_bad) == "undetermined"
-    with pytest.raises(UsersDirMismatch, match="找不到 continuous-episode"):
-        require_episode_if_expected(trace, facts_bad)
     # 守卫触发 = 不会走到 summarize 去写一张「看起来正常」的五态表
     assert "undetermined" not in ok_summary["execution_state_tally"]
+
+
+def test_missing_episode_after_a_hit_is_per_case_gap_not_dir_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """批 #2 第一次：C4 无 episode 但前 21 题已读到产物——不得整批中止。"""
+
+    _episode(
+        tmp_path,
+        "hit",
+        draft="x" * 80,
+        evidence=4,
+        bindings=[("direct_answer", 1, False)],
+        fulfilled=1,
+    )
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    ok = TurnTrace(
+        question="q",
+        run_id="hit",
+        status="completed",
+        trace_steps=["research"] * 12,
+        gaps=["x"],
+    )
+    require_episode_if_expected(ok, _read_episode_facts("hit", "tester"))
+    missing = TurnTrace(
+        question="q",
+        run_id="missing",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["x"],
+    )
+    require_episode_if_expected(missing, None)
