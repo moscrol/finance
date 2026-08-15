@@ -46,6 +46,7 @@
 | `finish.payload.caveat_slips` | 顶层 `gaps` 条数，或「有 caveat 就是失败」 | **本次** `validate_episode_finish` 把 hashes+gap 滑档挪到顶层 `gaps` 的格数。无滑档时为 `0` 且字段仍在场。旧 artifact 字段缺失 ≠ 0。不参与判定；查询入口是 episode `finish.payload`，本轮不改 `normalize_harness_trace`（B 轨缝） | `docs/verification/2026-08-15-trka-r2-caveat-slips.md`；健康阈值 `=0`；`≥2` 全格滑档、`=1` 混槽 |
 | `finish.payload.rejection_code` / `rejection_reason` | 验收 JSON 没有拒收原因，所以判据不在产物内 | 验收台摘要可以没有；**run 目录事件流已有** `invalid_action.reason`。R-23 起 finish 亦带 `rejection_code`（无拒收=`none`）与 `rejection_reason`（无拒收=空串）。旧 artifact 字段缺失 ≠ `none`。查询入口是 episode `finish.payload`，本轮不改 normalize（B 轨缝） | B1 `run_20260815_034008_215204` seq 20；B7 `run_20260815_034828_738989` seq 17；`docs/verification/2026-08-15-trka-r4-evidence-ordinals.md` |
 | 模型上下文里的 `content_hash` / `evidence_hashes` | 绑定必须抄 16-hex 哈希 | R-23 起模型上下文只留 `evidence_id`（E1..En，episode 首次出现序）；ledger `tool_result` 仍保留哈希供审计。FINAL_JSON 的字段名仍是 `evidence_hashes`，值写 `E1`/`E2` 或精确哈希；validate 解析回 `content_hash`。抄错的哈希仍 forged/truncated，**不做模糊纠正** | 同上；健康：修复轮同形不应再出现 `unknown evidence hash` |
+| `execution_state_tally` | 每题一个态，等于 case 终态分布 | **`< R-20260815-11` 的产物按 `turns[0]` 计**，多轮题会被首轮掩蔽（C10 三轮 delivered/clarification/bound_but_dropped，tally 计 delivered，末轮却是 bound_but_dropped）。此后 tally **按轮**，case 级另立 `execution_state_aggregate`（写死 `last_turn`），并带 `execution_state_case_tally` / `execution_state_turn_rows`。读旧产物前先看有没有 `execution_state_aggregate_rule` | `20260814T1926Z-r3-clean-baseline` C10；`summarize_execution_states` |
 
 ## 3. 当前 trace_depth 与盲区清单
 

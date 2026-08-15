@@ -244,38 +244,76 @@ def counts_toward_quality(turn: Mapping[str, Any]) -> bool:
     return True
 
 
+# 多轮题五态聚合口径（R-20260815-11）。写死，不要事后改口。
+#
+# 1. ``execution_state_tally`` **按轮**计数，并附 ``execution_state_turn_rows``
+#    （case_id / turn_index / state / source）。
+# 2. case 级 ``execution_state_aggregate`` **取最后一轮**（``turns[-1]``）。
+#    不是首轮、不是最坏轮。取法字段 ``execution_state_aggregate_rule=last_turn``。
+# 3. ``execution_state_case_tally`` 按 aggregate 再计一列，避免把按轮 tally
+#    误读成「题数」。
+# 4. 质量分母仍按 **case 的 aggregate** 是否 ``not_run``（R-02：基础设施失败
+#    整题剔除）。单轮题与旧口径重合。
+#
+# 发现样本：20260814T1926Z-r3-clean-baseline 的 C10 三轮
+# delivered / clarification / bound_but_dropped。旧 tally 取 turns[0] 计成
+# delivered（计入 20），末轮字段却是 bound_but_dropped——同一产物两口径矛盾。
+EXECUTION_STATE_AGGREGATE_RULE = "last_turn"
+
+
 def summarize_execution_states(cases: list[dict[str, Any]]) -> dict[str, Any]:
     """按运行态汇总，并给出剔除 `not_run` 后的质量分母。
 
     R-20260815-02 的落点：`quality_denominator` 是**分母本身**，不是又一个提示。
     2026-08-13 那份产物里 C 组 10 题有 9 题是 `Connection refused`，旧口径按
     10 做分母，于是「C 组 90% 证据为零」被当成业务结论写进了诊断。
+
+    R-20260815-11：多轮题按轮进 tally，case 级另立 `execution_state_aggregate`
+    （最后一轮）。旧实现取 `turns[0]`，把 C10 掩成 delivered。
     """
 
-    tally: dict[str, int] = {}
+    turn_tally: dict[str, int] = {}
+    case_tally: dict[str, int] = {}
     source_tally: dict[str, int] = {}
+    turn_rows: list[dict[str, Any]] = []
     denominator = 0
     excluded: list[str] = []
     for case in cases:
         turns = case.get("turns") or []
         if not turns:
             continue
-        head = turns[0]
-        state = str(head.get("execution_state") or "unknown")
-        tally[state] = tally.get(state, 0) + 1
-        # `execution_state_source` 必须跟着 tally 一起报：只有
-        # `episode_artifact` 那部分是有结构化产物支撑的，`api_only` 那部分
-        # 只能到 not_run/clarification/undetermined 三档。不报来源，读者无法
-        # 判断这张表里有多少格其实是「没证据」而非「测出来是这样」。
-        source = str(head.get("execution_state_source") or "unknown")
-        source_tally[source] = source_tally.get(source, 0) + 1
-        if counts_toward_quality(head):
+        for idx, turn in enumerate(turns):
+            state = str(turn.get("execution_state") or "unknown")
+            source = str(turn.get("execution_state_source") or "unknown")
+            turn_tally[state] = turn_tally.get(state, 0) + 1
+            # `execution_state_source` 必须跟着 tally 一起报：只有
+            # `episode_artifact` 那部分是有结构化产物支撑的，`api_only` 那部分
+            # 只能到 not_run/clarification/undetermined 三档。不报来源，读者无法
+            # 判断这张表里有多少格其实是「没证据」而非「测出来是这样」。
+            source_tally[source] = source_tally.get(source, 0) + 1
+            turn_rows.append(
+                {
+                    "case_id": str(case.get("case_id") or "?"),
+                    "turn_index": idx,
+                    "execution_state": state,
+                    "execution_state_source": source,
+                }
+            )
+        last = turns[-1]
+        aggregate = str(last.get("execution_state") or "unknown")
+        case["execution_state_aggregate"] = aggregate
+        case["execution_state_aggregate_rule"] = EXECUTION_STATE_AGGREGATE_RULE
+        case_tally[aggregate] = case_tally.get(aggregate, 0) + 1
+        if counts_toward_quality({"execution_state": aggregate}):
             denominator += 1
         else:
             excluded.append(str(case.get("case_id") or "?"))
     return {
-        "execution_state_tally": dict(sorted(tally.items())),
+        "execution_state_tally": dict(sorted(turn_tally.items())),
+        "execution_state_case_tally": dict(sorted(case_tally.items())),
         "execution_state_source_tally": dict(sorted(source_tally.items())),
+        "execution_state_turn_rows": turn_rows,
+        "execution_state_aggregate_rule": EXECUTION_STATE_AGGREGATE_RULE,
         "quality_denominator": denominator,
         "excluded_from_denominator": excluded,
     }

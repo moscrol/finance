@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.eval.acceptance import (
+    EXECUTION_STATE_AGGREGATE_RULE,
     EXECUTION_STATES,
     TurnTrace,
     _classify_execution_state,
@@ -258,12 +259,18 @@ def test_summary_drops_not_run_from_the_quality_denominator() -> None:
     assert summary["excluded_from_denominator"] == [f"C{i}" for i in range(2, 11)]
     assert summary["execution_state_tally"]["not_run"] == 9
     assert summary["execution_state_tally"]["gap_zeroed"] == 1
+    # 单轮题：按轮 tally 与按 case aggregate 必须重合
+    assert summary["execution_state_case_tally"] == summary["execution_state_tally"]
+    assert summary["execution_state_aggregate_rule"] == EXECUTION_STATE_AGGREGATE_RULE
 
 
 def test_summary_skips_cases_without_turns() -> None:
     assert summarize_execution_states([{"case_id": "X", "turns": []}]) == {
         "execution_state_tally": {},
+        "execution_state_case_tally": {},
         "execution_state_source_tally": {},
+        "execution_state_turn_rows": [],
+        "execution_state_aggregate_rule": EXECUTION_STATE_AGGREGATE_RULE,
         "quality_denominator": 0,
         "excluded_from_denominator": [],
     }
@@ -336,3 +343,49 @@ def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
     # C6 实测 evidence_retrieved=0，故先落 no_evidence——真缺口格的判缺与
     # 「压根没取到」在本批同时出现，两者也必须分得开
     assert _classify_execution_state(trace, facts) == "no_evidence"
+
+
+_CLEAN_BASELINE = (
+    Path(__file__).resolve().parents[1]
+    / "eval"
+    / "runs"
+    / "20260814T1926Z-r3-clean-baseline.json"
+)
+
+
+def test_c10_frozen_multiturn_tally_matches_last_turn_aggregate() -> None:
+    """C10 冻结产物：按轮 tally 与 case aggregate 口径必须一致（R-20260815-11）。
+
+    旧 tally 取 `turns[0]` → delivered；末轮字段是 `bound_but_dropped`
+    （两格 no_hash 真缺口）。同一份产物两个数互相矛盾。新口径：tally 按轮，
+    aggregate 取最后一轮，二者对得上。批 JSON 本身不改——它是冻结证据。
+    """
+
+    payload = json.loads(_CLEAN_BASELINE.read_text(encoding="utf-8"))
+    cases = [case for case in payload["cases"] if case["case_id"].startswith("C10")]
+    assert len(cases) == 1
+    c10 = cases[0]
+    assert [t["execution_state"] for t in c10["turns"]] == [
+        "delivered",
+        "clarification",
+        "bound_but_dropped",
+    ]
+    summary = summarize_execution_states(cases)
+    assert c10["execution_state_aggregate"] == "bound_but_dropped"
+    assert c10["execution_state_aggregate_rule"] == "last_turn"
+    assert summary["execution_state_tally"] == {
+        "bound_but_dropped": 1,
+        "clarification": 1,
+        "delivered": 1,
+    }
+    assert summary["execution_state_case_tally"] == {"bound_but_dropped": 1}
+    # 口径一致：aggregate 出现在该 case 的 turn 明细里，且 tally 按轮而非按首轮
+    last_row = summary["execution_state_turn_rows"][-1]
+    assert last_row == {
+        "case_id": "C10-multi-turn-consistency",
+        "turn_index": 2,
+        "execution_state": "bound_but_dropped",
+        "execution_state_source": "episode_artifact",
+    }
+    assert last_row["execution_state"] == c10["execution_state_aggregate"]
+    assert summary["quality_denominator"] == 1
