@@ -4,7 +4,7 @@
 - **未闭合的最低层:P2**（口径=dsh P0 五步完成数/5；五步+冲突矩阵已收口，第 8 步 live A/B 在决策队列）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
-- L1-DSH 母本仍只在未合入分支 `feat/dsh-absorption-p0-seams`（已 push，tip `9ab8c191`）；矩阵见 `2026-08-16-dsh-absorption-conflict-matrix.md`。
+- L1-DSH 母本仍只在未合入分支 `feat/dsh-absorption-p0-seams`（已 push，tip `9ab8c191`）；矩阵已入 main：`2026-08-16-dsh-absorption-conflict-matrix.md`。
 
 ## L0 阶段线
 
@@ -27,7 +27,7 @@
 
 | ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做 |
 |---|---|---|---|---|---|
-| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | `2026-08-16-dsh-absorption-conflict-matrix.md` · `feat/dsh-absorption-p0-seams` @ `9ab8c191`（未合 main；第 8 步 live A/B 未开） | 执行方已交 |
+| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | `2026-08-16-dsh-absorption-conflict-matrix.md`（已入 main）· 实施仍在 `feat/dsh-absorption-p0-seams` @ `9ab8c191`（第 8 步 live A/B 未开） | 执行方已交 |
 | L1-S1 | 时间预算可见 | planned | 状态栏 v1 | `2026-08-15-bookgap-s1-time-budget-statusline.md` | 窗已开，可另开 PR |
 | L1-S2 | judge 模态切换 | planned | 数据源回查钩子 | `2026-08-15-bookgap-s2-judge-source-recheck.md` | 窗已开，可另开 PR |
 | L1-S3 | 超时窗口比例化 | planned | reserve 推导窗口 | `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 窗已开，可另开 PR |

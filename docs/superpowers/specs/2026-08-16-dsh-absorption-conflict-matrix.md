@@ -2,8 +2,10 @@
 
 日期：2026-08-16
 对应 spec：`docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md` §8、§9、§12
-实施分支：`feat/dsh-absorption-p0-seams` @ `b06fb5d5`（第 7 步已收口）
+实施分支：`feat/dsh-absorption-p0-seams` @ `9ab8c191`（第 7 步已收口 + 矩阵落盘）
 roadmap_ref: L1-DSH
+
+本文件已在 main。本合入把实施代码一并带上。
 
 证据等级：**[实测]** = 跑过命令/读过代码。本文件是 L1-DSH 完成判据「冲突矩阵可画」的落点，**不是** spec §11 第 8 步对照收据。
 
