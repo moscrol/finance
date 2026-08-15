@@ -1,0 +1,25 @@
+{
+  "set": "uq15",
+  "created": "2026-08-15",
+  "author": "s5-independent-examiner",
+  "hash_algo": "sha256",
+  "sealed_location_hint": "rubric 本体密封于用户本地保管目录（仓外），出分后按 uq15-protocol 提交入仓公开",
+  "verify_cmd": "shasum -a 256 <rubric_file> 后对照本清单",
+  "rubrics": {
+    "uq15-q01": "d1335adc5248adfb55200cd638374306ebceebf9e522af2fa0ad9aa723826eed",
+    "uq15-q02": "1a850b186534efd085736e6a9866cf3a3bdb22e262b09b3970c6a9353d02990b",
+    "uq15-q03": "7967aa8478894312ae86e2cffa193869a8a66d5fbeb284e6df40ae86eb25a359",
+    "uq15-q04": "c7463cdd9ccd7874e1a4997a612995f6cfba6222e1cd28ef8211ee59a1bb3a71",
+    "uq15-q05": "3d750d103d5657767362971b8b15df44472a990ef72c730329196db91e10be38",
+    "uq15-q06": "c011a113f82c79636ad8f8a56da7bafd4090c3c17a39369b192af75de73c3262",
+    "uq15-q07": "9d19db11a5f033597dff0101fba0d63a9b0b75d36569c896fda467646111ee3c",
+    "uq15-q08": "a0f5e3cf82859988106cbd3a148f8d0ba9714577f2761221f043a6da0734907d",
+    "uq15-q09": "1b53b282b3223d8e402faddf3aa4928fcc48ec8a4e9c1805fa371645354feca7",
+    "uq15-q10": "a9df8565ad138248baef509d0a5cfe02ef8d3d39a3b94de3558fbd73c7220422",
+    "uq15-q11": "78a0b4a14e572e21fe90bced1fdaee2cc9aaa2043ba6e83c2a5185392deea5b6",
+    "uq15-q12": "5f566aef2395ffe50d8a7cedfcc7fed0946fd37e02164aff6903a85caf8d42f0",
+    "uq15-q13": "b56a8a4f610ef8867c641a07d3dfd6e1e6b5edd874f834fad44a9b78f21bff59",
+    "uq15-q14": "242fcd5668920afa638b61a25caf8ef559e870f41b9c736d3030d5033a89d4bf",
+    "uq15-q15": "e9cb55f0f1612d23b9855c5b8dee8a89423b7005988ad9542ce89b31a19a9d6d"
+  }
+}

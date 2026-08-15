@@ -59,4 +59,11 @@
 
 ## 4. 执行记录（各 agent 追加）
 
-（空）
+### S5 · 独立出题人 uq15 ｜ 2026-08-15 ｜ 分支 data/bookgap-s5-uq15
+
+- 交付：15 题（盘面4/归因4/链条4/反证3）`intelligence/eval/cases/uq15_questions.jsonl`；sha256×15 `uq15_rubric_hashes.json`；判分协议 `2026-08-15-bookgap-s5-uq15-protocol.md`。
+- rubric 密封仓外交用户保管（含 MANIFEST 与抽验命令），出分后入仓公开；哈希先行入仓防"看题优化"。
+- 隔离已守：未读 `intelligence/eval/cases/` 既有内容、`docs/verification/`、runtime 源码；已读路径全清单在协议 §6。
+- 素材面：KB wiki 概念/实体页 + DuckDB 只读（鲜度至 08-14）+ `.foresight` 用户台账（判分产物类文件刻意未读）。
+- 反证题埋点：蓝盾光电 5 板题材归类 vs 基本面、周六时间边界、蓝思"拟收购"证据硬度，均带一票否决。
+- 待下游：跑批方/判分方按协议 §1 角色隔离执行；qc28 未读未动、不替换。
