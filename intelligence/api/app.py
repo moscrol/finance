@@ -68,7 +68,7 @@ from intelligence.services.conversation_store import (
     ConversationStore,
 )
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
-from intelligence.runtime.episode_progress import (
+from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,

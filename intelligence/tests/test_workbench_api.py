@@ -18,7 +18,7 @@ from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.agent_runtime import EpisodeEvent  # noqa: E402
-from intelligence.runtime.episode_progress import (  # noqa: E402
+from intelligence.services.episode_progress import (  # noqa: E402
     EpisodeProgress,
     RunEpisodeProgressPublisher,
 )

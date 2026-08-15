@@ -80,7 +80,6 @@ PLANNED_RUNTIME_MODULES = frozenset(
         "continuous_turn_adapter",
         "conversation_orchestrator",
         "episode_finalizer",
-        "episode_progress",
         "episode_tool_batch",
         "glm_agent_runtime",
         "headless_tool_gateway",

@@ -22,7 +22,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.runtime.episode_progress import EpisodeProgress
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.runtime.openai_agents_runtime import (
     AgentsSdkRequest,

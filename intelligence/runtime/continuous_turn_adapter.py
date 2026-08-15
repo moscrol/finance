@@ -22,7 +22,7 @@ from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_projection import project_durable_events
-from intelligence.runtime.episode_progress import EpisodeProgress
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import (
     build_episode_registry,
