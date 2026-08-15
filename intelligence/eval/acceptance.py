@@ -317,11 +317,14 @@ def require_episode_if_expected(
         return
     if _episode_hits_this_run > 0:
         return
+    if run_dir_exists(trace.run_id, None):
+        # 目录对、文件晚写或根本没写：单题缺口，不是 R-08 要拦的错配。
+        return
     raise UsersDirMismatch(
         f"run {trace.run_id} 在 "
         f"{os.environ.get('FORESIGHT_USERS_DIR') or '<unset>'} "
         "找不到 continuous-episode.json（completed 且非澄清轮，"
-        "且本批尚未读到任何 episode）。这是 users 目录错配，不是五态业务读数。"
+        "且本批尚未读到任何 episode，run 目录也不在）。这是 users 目录错配，不是五态业务读数。"
     )
 
 
@@ -402,6 +405,31 @@ def summarize_execution_states(cases: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _episode_run_dirs(
+    run_id: str,
+    user: str | None,
+    *,
+    users_dir: str | Path | None = None,
+) -> list[Path]:
+    resolved = users_dir if users_dir is not None else os.environ.get("FORESIGHT_USERS_DIR")
+    if not resolved or not run_id:
+        return []
+    root = Path(resolved)
+    seen: list[Path] = []
+    ordered = [root / user / "runs" / run_id] if user else []
+    ordered.extend(sorted(root.glob(f"*/runs/{run_id}")))
+    for path in ordered:
+        if path not in seen:
+            seen.append(path)
+    return seen
+
+
+def run_dir_exists(run_id: str, user: str | None) -> bool:
+    """run 目录在配置的 users 根下存在 ⇒ 目录没指错，缺的是 episode 文件。"""
+
+    return any(path.is_dir() for path in _episode_run_dirs(run_id, user))
+
+
 def _read_episode_facts(
     run_id: str,
     user: str | None,
@@ -416,13 +444,7 @@ def _read_episode_facts(
     错目录的响亮失败在 ``require_episode_if_expected``，不在这里猜一个态。
     """
 
-    resolved = users_dir if users_dir is not None else os.environ.get("FORESIGHT_USERS_DIR")
-    if not resolved or not run_id:
-        return None
-    root = Path(resolved)
-    candidates = [root / user / "runs" / run_id] if user else []
-    candidates.extend(sorted(root.glob(f"*/runs/{run_id}")))
-    for run_dir in candidates:
+    for run_dir in _episode_run_dirs(run_id, user, users_dir=users_dir):
         path = run_dir / "continuous-episode.json"
         if not path.is_file():
             continue
@@ -472,6 +494,36 @@ def _read_episode_facts(
             "slots_gap_zeroed": sum(1 for s in slot_shapes.values() if s == "gap_zeroed"),
             "slots_no_hash": sum(1 for s in slot_shapes.values() if s == "no_hash"),
         }
+    return None
+
+
+def _read_episode_facts_wait(
+    run_id: str,
+    user: str | None,
+    *,
+    attempts: int = 6,
+    delay_s: float = 0.5,
+) -> dict[str, Any] | None:
+    """API completed 后 episode 可能晚几秒落盘（批 #2 第二次 A1 实测竞态）。
+
+    未设 ``FORESIGHT_USERS_DIR`` 时不重试。目录尚未出现时只短等一轮；
+    目录已在、文件未到才继续退避，避免错目录空耗。
+    """
+
+    facts = _read_episode_facts(run_id, user)
+    if facts is not None or not os.environ.get("FORESIGHT_USERS_DIR"):
+        return facts
+    time.sleep(delay_s)
+    facts = _read_episode_facts(run_id, user)
+    if facts is not None:
+        return facts
+    if not run_dir_exists(run_id, user):
+        return None
+    for attempt in range(2, attempts):
+        time.sleep(delay_s * attempt)
+        facts = _read_episode_facts(run_id, user)
+        if facts is not None:
+            return facts
     return None
 
 
@@ -533,7 +585,7 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         ]
         trace.synthesis_diagnostic = _capture_synthesis_diagnostic(steps)
         trace.fulfillment = _capture_fulfillment(steps)
-    facts = _read_episode_facts(trace.run_id, user)
+    facts = _read_episode_facts_wait(trace.run_id, user)
     require_episode_if_expected(trace, facts)
     if facts is not None:
         trace.evidence_retrieved = int(facts["evidence_retrieved"])
