@@ -283,8 +283,10 @@ class SubResearchCoordinator:
         或模块级、``shutdown(wait=False)`` 后不消费、把分支挪进后台队列——谁就必须
         重开 spec §4.2.4，并在 RuntimeHandle 上补分支粒度 drain；台账
         ``docs/handoffs/2026-08-15-dsh-absorption-p0-execution-handoff.md`` §4.1 的
-        四条证据届时全部作废。**仓内没有测试直接钉住它**：唯一的线程存活断言在
-        ``test_sub_research.py`` 的 ``_BranchBudgetView`` 并发结算用例，与排空无关。
+        四条证据届时全部作废。**仓内没有测试直接钉住它**：test 侧四处 ``is_alive()``
+        断言（``test_sub_research.py`` / ``test_headless_tool_gateway.py`` ×2 /
+        ``test_rag_worker.py``）钉的都不是协调器排空——本文件那处测的是
+        ``_BranchBudgetView`` 并发结算的辅助线程。
 
         取消语义（spec §7.3）：入口整体早退 + ``_run_one`` 里每个分支启动前各查一次，
         两处用的都是 ``self._is_cancelled``——与 RuntimeHandle 折叠的是同一个上游

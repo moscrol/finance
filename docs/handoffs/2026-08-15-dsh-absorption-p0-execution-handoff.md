@@ -53,10 +53,15 @@ PASS / 打回。
 cd /Users/a77/fwp-wt-dsh-seams
 git rev-parse gitea/main                  # cf86e891（远程跟踪 ref，本轮未 fetch）
 git merge-base HEAD gitea/main            # cf86e891 ← 等于 main 本身 = 已线性叠在上面
-git rev-list --count gitea/main..HEAD     # 14（本分支提交数，rebase 前后相同）
+git rev-list --count gitea/main..HEAD     # 14 ← 见下方口径注，这个数会长
 git rev-list --count HEAD..gitea/main     # 0（main 上没有本分支不含的提交）
 git diff --shortstat HEAD...gitea/main    # 空（分叉为 0）
 ```
+
+> **口径注（收检阅方标注 ②）**：`14` 是**盖戳当刻**重放完的提交数，**不是常量**——
+> 收据提交、检阅批注提交落库后它就变 15、16……照抄它去"验证 rebase 对不对"会得到
+> 一个必然对不上的数（**自指漂移**：这条命令数的东西包含记录它的那次提交）。要验
+> rebase 本身，用**不自指**的两条：`HEAD..gitea/main` = 0，以及 range-diff 全 `=`。
 
 - **rebase 结果：14/14 干净重放，零冲突**（[实测]，`git -c rerere.enabled=true
   rebase gitea/main`）。等价性用 range-diff 逐提交核过，全部标 `=`：
@@ -80,17 +85,36 @@ git diff --shortstat HEAD...gitea/main    # 空（分叉为 0）
 
 ## 3. 提交史（实施分支，全部通过复验）
 
+> **rebase 重盖（2026-08-15，收检阅方标注 ①）**：旧版这里列的七个哈希是 rebase
+> **之前**的，删掉安全 ref 再 gc 就会 dangle。下面是重放后的当前哈希，oldest-first
+> 全列。旧→新映射随时可复现（14 行全 `=`）：
+> `git range-diff 23e2a07e..prerebase/dsh-seams-e21c50bf cf86e891..5e0b38cd`
+
 ```
-4b23a516 Episode 入口构造 EpisodeScope，机制解除休眠（第 4 步 1/2）
-d69ee387 工具可达性审计接入 pre-commit + pytest 侧复挂
-d35f32a2 第 3 步打回项修复（审计恒真式、区分事件不可达、sink 故障改写主路径）
-96e74d43 工具阶段事件与可达性登记接线（第 3 步）
-13f26bf8 检阅意见收口（窄化异常捕获 + trace context）
-0c97c41a EpisodeScope 与 ToolPipeline 接缝（第 2 步，不改变现有行为）
-b920feb6 Step 1 基线复核收据
+ad2e3b02 Step 1 基线复核收据                                   （旧 b920feb6）
+592a3552 EpisodeScope 与 ToolPipeline 接缝，不改变现有行为       （旧 0c97c41a）
+26491965 检阅意见收口：窄化异常捕获 + trace context             （旧 13f26bf8）
+6b5c8dcb 工具阶段事件与可达性登记接线（第 3 步）                 （旧 96e74d43）
+7f7885b8 第 3 步打回项修复：恒真式/区分事件/sink 故障改写主路径   （旧 d35f32a2）
+fee28de7 工具可达性审计接入 pre-commit + pytest 侧复挂          （旧 d69ee387）
+103f47c7 Episode 入口构造 EpisodeScope，机制解除休眠（4 步 1/2） （旧 4b23a516）
+adae26e5 打回项修复：Scope 构造断言改为经真实入口的行为测试       （旧 f69a8b96）
+123da292 RuntimeHandle 六态生命周期，会话层接线（4 步 2/2-a）    （旧 06851cc7）
+fa6e1b18 装配点身份断言：memory 身份穿透到装配产物（5.2）        （旧 23072aa3）
+20ee811b §2 分叉盖戳重做 + 检阅批注入库                         （旧 bf991c69）
+d03733f5 Arm C 会话接 RuntimeHandle + 三处认领裁定（4 步收尾）   （旧 639bad78）
+26eff07a §2.1 差额口径修正 + 检阅批注入库                       （旧 57b3682d）
+5e0b38cd §4.2.4 排空档改判 + 承重不变量认领（台账改写轮）         （旧 e21c50bf）
+d5fb5452 rebase 到 cf86e891 + 分叉/坐标重盖 + 基线重建收据       （rebase 轮新增）
+017c564c 检阅批注入库：台账改写轮 + rebase 轮均 PASS             （检阅方提交）
 ```
 
-当前全量基线：**4955 passed / 4 skipped / 0 failed**（@ `4b23a516`，umask 022）。
+当前全量基线：**5055 passed / 4 skipped / 0 failed**（@ `d5fb5452`，`umask 022`，
+检阅方已独立复跑一致）。旧记的「4955 @ `4b23a516`」是 **rebase 前**在旧哈希上的读数，
+**不在新历史上重测**——中间 main 带进 73 个用例，两个数不可比。
+
+⚠️ **删安全 ref `prerebase/dsh-seams-e21c50bf` 之前先看这节**：上表的旧哈希靠它解引用，
+删 ref 并 gc 后 `git show <旧哈希>` 会失败（预期行为）。本节重盖之后，旧值只剩映射用途。
 
 ## 4. 机制现状（读代码前先看这段）
 
@@ -138,9 +162,9 @@ b920feb6 Step 1 基线复核收据
    `:1687`）无调用点**——子研究只发生在 initial_run 工作窗口，包含性比"都在 run
    里"再强一档。
 2. **"已返回"即"已终结"**（执行方本轮读码补强，比"with 即 join"硬一档）：
-   `sub_research.py:340` 的 `with ThreadPoolExecutor` 在 `__exit__` join 只是第二道
-   保险；**第一道**是 `:352` 的 `as_completed(futures)` 遍历全部已提交 future，
-   而 `:369-370` 的返回值对**每个** request 取 `results[request.branch_id]`——少一个
+   `sub_research.py:342` 的 `with ThreadPoolExecutor` 在 `__exit__` join 只是第二道
+   保险；**第一道**是 `:354` 的 `as_completed(futures)` 遍历全部已提交 future，
+   而 `:371-372` 的返回值对**每个** request 取 `results[request.branch_id]`——少一个
    分支就 KeyError。即"返回"这个事件本身蕴含"所有分支已终态"，不依赖清理路径。
 3. **per-branch 收据已经在**（执行方 [实测·读码]，检阅方复核字段多于小结所列；
    本轮补出第三段）：`_EpisodeLedger` 三段式发射——`branch_started` 每目标一条
@@ -160,9 +184,9 @@ b920feb6 Step 1 基线复核收据
    `glm_agent_runtime.py:416-417` 的注释钉明 RuntimeHandle 折叠的就是同一个
    callable，`:418` 的 `self._upstream_cancelled = is_cancelled` 与 `:407`/`:414`/
    `:423` 注入 client / coordinator / episode 的是**同一个实参**，`:481` 又把它递给
-   `RuntimeHandle(upstream_cancelled=...)`；`:305-306` run()
-   入口整体早退 `refused_reason="cancelled"`；`:407` 把同一 callable 递进每个
-   `BranchRequest`；`_run_one`（`:410`）的 `:411-422` 在每个分支启动前各查一次
+   `RuntimeHandle(upstream_cancelled=...)`；`:307-308` run()
+   入口整体早退 `refused_reason="cancelled"`；`:409` 把同一 callable 递进每个
+   `BranchRequest`；`_run_one`（`:412`）的 `:413-424` 在每个分支启动前各查一次
    （未启动 → `status="failed"` + `error="cancelled"`；已启动的不打断，由证据 2
    那条同步消费排空）。
 
@@ -174,12 +198,18 @@ b920feb6 Step 1 基线复核收据
 
 ⚠️ **别把上面四条当门禁继承——它们一条都没有测试钉住。**
 
-- 两处取消守卫（[实测·变异]）：抽掉 `:305-306` 入口早退与 `:411-422` 分支守卫后跑
+- 两处取消守卫（[实测·变异]）：抽掉 `:307-308` 入口早退与 `:413-424` 分支守卫后跑
   全量，**4982 passed / 4 skipped / 0 红**（597.4s；`git checkout` 恢复后树干净）。
 - 同步性（[推断] + [实测·grep]）：连变异都构造不出来——要造出泄漏就得先改掉"消费完
-  全部 future 才构造返回值"这个结构，那时红的会是结果缺失类断言，不是泄漏断言。仓内
-  唯一的线程存活断言在 `test_sub_research.py:441`，测的是 `_BranchBudgetView` 并发
-  结算的辅助线程，与协调器排空无关。
+  全部 future 才构造返回值"这个结构，那时红的会是结果缺失类断言，不是泄漏断言。
+  **全仓 test 侧共 4 处 `is_alive()` 断言**（`test_sub_research.py:441`、
+  `test_headless_tool_gateway.py:451` 与 `:551`、`test_rag_worker.py:152`），
+  **没有一处钉协调器排空**；`test_sub_research.py` 里那处（文件内唯一）测的是
+  `_BranchBudgetView` 并发结算的辅助线程。
+  > 勘误（检阅方换样本查出，2026-08-15）：本条初版写作"仓内唯一的线程存活断言在
+  > `test_sub_research.py:441`"——**全称量词不成立**，rebase 前快照就有 4 处。承重结论
+  > （排空/同步性零门禁）不受影响，因为另三处钉的都不是协调器。**教训**：写"仓内唯一
+  > X"必须全树 grep 后按命中数写，别把"我关心的那个文件里唯一"升格成全仓唯一。
 
 **所以这一档现在是"设计约束 + docstring + 台账"三处认领，不是门禁**；第 5 步做收据
 对账时一并把它变成可执行判据。
