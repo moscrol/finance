@@ -1457,6 +1457,8 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     health = client.get("/api/health").json()
     assert health["status"] == "healthy"
     assert health["dependencies"]["knowledge_wiki"] is True
+    assert health["runtime"]["users_dir"]
+    assert Path(health["runtime"]["users_dir"]).is_absolute()
     assert health["runtime"]["continuous_agent"] == {
         "mode": "off",
         "canary_id": "",

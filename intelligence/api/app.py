@@ -1883,6 +1883,7 @@ def create_app(
 
     user_ids = {effective_default_user_id}
     users_root = userspace.users_dir()
+    runtime_provenance["users_dir"] = str(users_root.resolve())
     if users_root.is_dir():
         user_ids.update(
             path.name
