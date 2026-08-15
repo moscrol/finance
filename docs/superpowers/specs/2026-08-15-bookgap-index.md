@@ -121,4 +121,5 @@
 - 四臂（`queries.real.jsonl` n=40，干净 `.rag_index`）：bm25 hit@5=0.85 / dense 0.825 / hybrid **0.80** / rerank **0.65**（回退 9 / 改善 3）。
 - 结论：**不上线**。rerank_ms_p50=62.5s（CPU；16GB 避 MPS+双模型 swap）。8792 保持 off。
 - source_ref：KB PR http://127.0.0.1:3300/a77/knowledge-base-private/pulls/12 ；`eval/rerank-ab-20260815.md` sha256 `f64e7d8d373fa6dd8f948c3fe502a0f28e6801311cf103d7d460bb1555934aa1`。
-- 判据：1 否定结论合格 / 2 超 500ms 已给降级 / 3 off 旁路单测 PASS / 4 选型文档 PASS / 5 权重不进 git。合 KB main 等确认。
+- 判据：1 否定结论合格 / 2 超 500ms 已给降级 / 3 off 旁路单测 PASS / 4 选型文档 PASS / 5 权重不进 git。
+- 质检 2026-08-15 23:13：独立重算 hit@5（32/40 vs 26/40）、JSON sha256、单测 24、默认 off、权重未入 git、8792 仍 `fdb231`。**PASS**，合入后仍不上线。
