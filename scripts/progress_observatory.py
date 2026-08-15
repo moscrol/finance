@@ -227,12 +227,182 @@ def delivery_rate(batch: dict[str, Any]) -> tuple[int, int]:
     return hits, total
 
 
+def load_batch_or_none(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def run_json_files(root: Path) -> list[Path]:
+    return sorted((root / "intelligence" / "eval" / "runs").glob("*.json"))
+
+
 def latest_batch(root: Path) -> dict[str, Any]:
-    runs = sorted((root / "intelligence" / "eval" / "runs").glob("*.json"))
+    runs = run_json_files(root)
     if not runs:
         raise CheckError("EVAL_RUNS_MISSING", "no json")
-    chosen = max(runs, key=lambda p: p.name)
-    return load_json_file(chosen)
+    for path in reversed(runs):
+        batch = load_batch_or_none(path)
+        if batch is not None:
+            return batch
+    raise CheckError("EVAL_RUNS_MISSING", "no readable json")
+
+
+def delivery_series(root: Path) -> list[dict[str, Any]]:
+    points: list[dict[str, Any]] = []
+    for path in run_json_files(root):
+        batch = load_batch_or_none(path)
+        if batch is None:
+            continue
+        generated_at = batch.get("generated_at")
+        if not isinstance(generated_at, str) or not generated_at.strip():
+            continue
+        try:
+            hits, total = delivery_rate(batch)
+        except (TypeError, ValueError):
+            continue
+        if total == 0:
+            continue
+        points.append(
+            {
+                "label": generated_at.strip(),
+                "hits": hits,
+                "total": total,
+                "rate": hits / total,
+            }
+        )
+    points.sort(key=lambda item: (item["label"],))
+    return points
+
+
+def _backfill_sort_key(heading: str, index: int) -> tuple[str, str, int, int]:
+    dated = re.search(r"(\d{4}-\d{2}-\d{2})([a-z])?", heading)
+    date = dated.group(1) if dated else "9999-99-99"
+    letter = dated.group(2) or "" if dated else ""
+    rnd = re.search(r"Round\s+(\d+)", heading)
+    return (date, letter, int(rnd.group(1)) if rnd else 0, index)
+
+
+def hit_rate_series(text: str) -> list[dict[str, Any]]:
+    lines = text.splitlines()
+    found: list[dict[str, Any]] = []
+    i = 0
+    while i < len(lines):
+        if lines[i].startswith("###") and "回填" in lines[i]:
+            heading = lines[i]
+            j = i + 1
+            while j < len(lines) and not lines[j].startswith("###"):
+                j += 1
+            confirmed = 0
+            refuted = 0
+            for header, rows in iter_tables("\n".join(lines[i:j])):
+                if "outcome" not in header:
+                    continue
+                idx = header.index("outcome")
+                for row in rows:
+                    if idx >= len(row):
+                        continue
+                    outcome = strip_ticks(row[idx])
+                    if outcome == "confirmed":
+                        confirmed += 1
+                    elif outcome == "refuted":
+                        refuted += 1
+            denom = confirmed + refuted
+            if denom > 0:
+                found.append(
+                    {
+                        "label": heading.lstrip("# ").strip(),
+                        "hits": confirmed,
+                        "total": denom,
+                        "rate": confirmed / denom,
+                        "index": i,
+                    }
+                )
+            i = j
+        else:
+            i += 1
+    found.sort(key=lambda item: _backfill_sort_key(item["label"], item["index"]))
+    return found
+
+
+def parse_recall_at5(text: str) -> float | None:
+    for header, rows in iter_tables(text):
+        if "recall@5" not in header:
+            continue
+        idx = header.index("recall@5")
+        channel_idx = header.index("通道") if "通道" in header else None
+        for row in rows:
+            if idx >= len(row):
+                continue
+            if channel_idx is not None and channel_idx < len(row):
+                if row[channel_idx].strip() != "user_memory":
+                    continue
+            raw = row[idx].strip()
+            if raw in {"—", "-", ""}:
+                continue
+            match = re.search(r"(\d+(?:\.\d+)?)\s*%", raw)
+            if match:
+                return round(float(match.group(1)) / 100.0, 4)
+    return None
+
+
+def recall_series(root: Path) -> list[dict[str, Any]]:
+    points: list[dict[str, Any]] = []
+    verification = root / "docs" / "verification"
+    if not verification.is_dir():
+        return points
+    for path in sorted(verification.glob("*recall-baseline*.md")):
+        text = path.read_text(encoding="utf-8")
+        rate = parse_recall_at5(text)
+        if rate is None:
+            continue
+        version = path.stem
+        named = re.search(r"retrieval_recall_v(\d+)", text)
+        if named:
+            version = f"v{named.group(1)}"
+        points.append({"label": version, "rate": rate, "hits": None, "total": None})
+    return points
+
+
+def format_rate(rate: float) -> str:
+    return f"{rate:.6g}"
+
+
+def render_svg_curve(svg_id: str, title: str, rates: list[float]) -> str:
+    if not rates:
+        return ""
+    width, height = 640, 160
+    pad_l, pad_r, pad_t, pad_b = 36, 12, 12, 24
+    inner_w = width - pad_l - pad_r
+    inner_h = height - pad_t - pad_b
+    n = len(rates)
+    coords: list[tuple[str, str]] = []
+    for i, rate in enumerate(rates):
+        x = pad_l + (inner_w / 2 if n == 1 else inner_w * i / (n - 1))
+        y = pad_t + inner_h * (1 - rate)
+        coords.append((f"{x:.2f}", f"{y:.2f}"))
+    poly = " ".join(f"{x},{y}" for x, y in coords)
+    circles = "".join(
+        f'<circle class="pt" cx="{x}" cy="{y}" r="3" fill="#111"/>' for x, y in coords
+    )
+    values = ",".join(format_rate(rate) for rate in rates)
+    y0 = f"{pad_t + inner_h:.2f}"
+    y1 = f"{pad_t:.2f}"
+    x0 = f"{pad_l:.2f}"
+    x1 = f"{width - pad_r:.2f}"
+    return (
+        f'<svg id="{escape(svg_id)}" data-n="{n}" data-values="{values}" '
+        f'viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{escape(title)}">'
+        f"<title>{escape(title)}</title>"
+        f'<line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#333"/>'
+        f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#333"/>'
+        f'<polyline fill="none" stroke="#111" stroke-width="2" points="{poly}"/>'
+        f"{circles}"
+        f"</svg>"
+    )
 
 
 def unclosed_lowest(l0_rows: list[list[str]]) -> str:
@@ -448,7 +618,20 @@ def render_html(model: dict[str, Any]) -> str:
         f"<p>账本命中率 {escape(hit_rate)}（confirmed/(confirmed+refuted)）</p>\n"
         f"<p>health {escape(model['health_rev'])} dirty={model['dirty']}</p>\n"
         "</section>\n"
+        "<section id=\"trends\"><h2>趋势</h2>\n"
+        f"{_trend_block('curve-delivery', '交付率随批次', model.get('delivery_series') or [], 'evidence_bound&gt;0 / 有该键的 turn')}"
+        f"{_trend_block('curve-hit', '命中率随轮次', model.get('hit_series') or [], '回填表 confirmed/(confirmed+refuted)')}"
+        f"{_trend_block('curve-recall', 'recall@5 随标注集版本', model.get('recall_series') or [], 'user_memory recall@5；无第二版不造点')}"
+        "</section>\n"
     )
+
+
+def _trend_block(svg_id: str, title: str, series: list[dict[str, Any]], caption: str) -> str:
+    rates = [float(item["rate"]) for item in series]
+    svg = render_svg_curve(svg_id, title, rates)
+    if not svg:
+        return f"<h3>{escape(title)}</h3>\n<p>无历史点</p>\n"
+    return f"<h3>{escape(title)}</h3>\n<p>{caption}</p>\n{svg}\n"
 
 
 def run_render(
@@ -479,7 +662,8 @@ def run_render(
             return 1
         health = load_health(health_file, health_url)
         revision = health_revision(health)
-        ledger = parse_ledger(required_path(root, "PREDICTION_LEDGER").read_text(encoding="utf-8"))
+        ledger_text = required_path(root, "PREDICTION_LEDGER").read_text(encoding="utf-8")
+        ledger = parse_ledger(ledger_text)
         batch = latest_batch(root)
         pulls, _source = load_pulls(pulls_file, git_root, as_of)
         week = week_pulls(pulls, as_of)
@@ -503,6 +687,9 @@ def run_render(
             "next_decision": next_decision,
             "l2_local": worktree_rows(git_root),
             "delivery": delivery_rate(batch),
+            "delivery_series": delivery_series(root),
+            "hit_series": hit_rate_series(ledger_text),
+            "recall_series": recall_series(root),
             "health_rev": revision,
             "dirty": bool(health.get("runtime", {}).get("source_dirty")),
         }
