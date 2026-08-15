@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import os
 import re
+from threading import RLock
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -69,6 +70,8 @@ from intelligence.services.research_plan import (
     plan_to_public_dict,
     validate_plan_revision,
 )
+from intelligence.services.episode_event_lanes import LiveEventSink
+from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
@@ -225,6 +228,9 @@ class _EpisodeLedger:
     ) -> None:
         self._task_frame_hash = task_frame.task_frame_hash
         self._event_sink = event_sink
+        # 见 add() 里的临界区注释：序号是「读长度 → 追加」两步，不锁就会重号。
+        # RLock 而非 Lock：同线程重入（将来若有 sink 回调再发事件）不该自锁死。
+        self._lock = RLock()
         self.events: list[EpisodeEvent] = []
         self.plan: ResearchPlan | None = None
         self.add(
@@ -245,8 +251,20 @@ class _EpisodeLedger:
         # 同样的做法，而 EpisodeEvent 是 services 层的冻结 dataclass，被所有
         # runtime 共用，加字段的爆炸半径大得多。
         event_payload["at"] = datetime.now().astimezone().isoformat(timespec="milliseconds")
-        event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
-        self.events.append(event)
+        # 临界区：序号取自 ``len(self.events)``，与 append 之间必须原子。两个线程
+        # 各读到同一个长度就会发出重号，而重号会撞 episode_session 的 resume 前缀
+        # 不变量（事件只增、前缀逐条相等）和「sequence 恰好是 1..N」的断言。
+        #
+        # 今天所有 add 都在主线程（阶段事件的 sink 还是 None，emit 直接返回），
+        # 所以这把锁现在是**先决条件**不是修复：spec §11 第 5 步要把发射点接到
+        # 8 worker 的共享工具线程池上，先接线后加锁等于造一个随机变红的门禁。
+        # 顺序见台账 §10.2 的 D2。
+        with self._lock:
+            event = EpisodeEvent(len(self.events) + 1, kind, event_payload)
+            self.events.append(event)
+        # sink 调用**留在锁外**：它是外部回调（UI/进度），持锁调外部代码是经典死锁
+        # 源，且慢 sink 会把研究主路径一起卡住。代价是并发时 sink 的到达顺序可能与
+        # sequence 不一致——消费者按 sequence 排序，别按到达顺序。
         if self._event_sink is not None:
             try:
                 self._event_sink(event)
@@ -261,7 +279,9 @@ class _EpisodeLedger:
         return self.add("plan", plan_to_public_dict(plan))
 
     def record_runtime_result(self) -> None:
-        input_tokens, output_tokens = _token_usage_from_events(self.events)
+        with self._lock:
+            snapshot = tuple(self.events)
+        input_tokens, output_tokens = _token_usage_from_events(snapshot)
         if input_tokens is None and output_tokens is None:
             return
         self.add(
@@ -501,6 +521,11 @@ class _EpisodeContinuationState:
     accumulator: _EpisodeToolAccumulator
     evidence_ledger: EvidenceLedger
     initial_evidence_snapshot: EvidenceLedgerSnapshot
+    # run() 入口构造的那个 Scope。resume 复用本 state（含同一 tool_session，
+    # 其内就是这个 scope），所以 Scope 的生命周期覆盖整个 Episode 含修复轮
+    # ——这里显式暴露引用，是让会话层（RuntimeHandle）能把生命周期收据与
+    # 能力收据钉在同一个对象上，而不是各拿各的。
+    episode_scope: EpisodeScope
 
 
 class ContinuousAgentEpisode:
@@ -543,7 +568,35 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> AgentOutcome:
-        tool_session = self._tool_executor.new_session()
+        # EpisodeScope 在这里构造——这是 Episode 的入口，contract、注册表、
+        # 身份都齐了。第 3 步把接缝接到了执行路径上，但生产链路一直没人构造 Scope，
+        # 于是事件、调用登记和 dump 收据在生产里都不发生（机制休眠）。
+        #
+        # episode_id 用 context.contract.task_id：这是仓内既有约定
+        # （glm_agent_runtime.py:481、openai_agents_runtime.py:1006 都这么取），
+        # 不另发明第二种 Episode 身份。
+        #
+        # event_sink 接 Live 车道（第 5 步第 2 条，检阅裁定 D3）：工具阶段事件
+        # ``tool/*`` 走实时出口，**不进 ledger.events、不占 durable sequence**，
+        # 分类由 ``episode_event_lanes`` 那张单表说了算。durable 侧的
+        # ``tool_request``/``tool_result``/``tool_error`` 一字未动，仍是对账权威。
+        #
+        # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
+        # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+        episode_scope = EpisodeScope(
+            episode_id=context.contract.task_id,
+            # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
+            # 的 memory_user），运行器拿不到也不该拿。留空是如实陈述，不是占位。
+            user_id="",
+            context=context,
+            registry=registry,
+            event_sink=(
+                LiveEventSink(self._event_sink)
+                if self._event_sink is not None
+                else None
+            ),
+        )
+        tool_session = self._tool_executor.new_session(scope=episode_scope)
         if (
             context.contract.task_frame_hash
             and context.contract.task_frame_hash != task_frame.task_frame_hash
@@ -595,6 +648,7 @@ class ContinuousAgentEpisode:
                 accumulator=accumulator,
                 evidence_ledger=evidence_ledger,
                 initial_evidence_snapshot=initial_evidence_snapshot,
+                episode_scope=episode_scope,
             )
             _continuation_sink.append(continuation_state)
         finalization_started = False
@@ -1785,6 +1839,12 @@ class ContinuousAgentEpisode:
                     "branch_id": branch.branch_id,
                     "goal": branch.goal,
                     "status": branch.status,
+                    # 台账 §5.3-2：不带这个字段，「单分支取消」在事件流里与
+                    # 「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
+                    # 于是「cancelled 分支可区分」这条对账要求在 Projection 上根本
+                    # 判不出来。BranchResult.error 无错时是空串，照抄即可，不另造
+                    # 一个 cancelled 布尔位——那会变成第二事实源。
+                    "error": branch.error,
                     "evidence_count": len(branch.evidence),
                     "gap_count": len(branch.gaps),
                     "llm_calls": branch.llm_calls,

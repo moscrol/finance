@@ -1737,3 +1737,159 @@ def test_real_sdk_glm_smoke() -> None:
     assert outcome.evidence
     assert outcome.stop_reason == "model_finish"
     assert calls
+
+
+def _lifecycle_runner(calls: list[str]):
+    """One finishing turn, counting invocations.
+
+    计数是为了钉「被拒绝的 resume 不产生模型调用」——没有计数的话，
+    「resume 被拒」和「resume 跑了一遍又失败」在断言上分不开。
+    """
+
+    def runner(_request: AgentsSdkRequest) -> AgentsSdkResult:
+        calls.append("model_turn")
+        return AgentsSdkResult(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "draft": "截至2026-07-24，医药是韧性核心。",
+                    "gaps": [],
+                    "bindings": [
+                        {
+                            "output_id": "direct_assessment",
+                            "evidence_hashes": [],
+                            "gap": "",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            1,
+        )
+
+    return runner
+
+
+def test_sdk_start_binds_a_runtime_handle_without_inventing_a_scope() -> None:
+    """Arm C 也要有生命周期收据，否则 §9.3 的 cancel/resume/restart 成功率算不出来。
+
+    同时钉一条**如实**：本运行时不构造 EpisodeScope（Scope 的构造点只有
+    `ContinuousAgentEpisode.run()`），所以收据里 `scope_attached` 必须是 False。
+    为了让收据好看而在这里凭空造一个 Scope，就会多出第二个 Scope 构造点。
+    """
+
+    frame = _frame()
+    context = _context(frame)
+    calls: list[str] = []
+
+    session = OpenAIAgentsRuntime(
+        runner=_lifecycle_runner(calls),
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    ).start(frame, context=context, registry=_registry([]))
+
+    handle = session.runtime_handle
+    assert handle is not None
+    assert handle.episode_id == context.contract.task_id
+    assert handle.task_frame_hash == frame.task_frame_hash
+    assert handle.state == "running"
+
+    receipt = handle.dump()
+    assert receipt["scope_attached"] is False
+    assert receipt["scope"] is None
+    # 引导 run 的工作单元必须成对，否则收据会永远停在「有在飞工作」。
+    notes = [row for row in receipt["receipts"] if row.get("kind") == "note"]
+    assert [
+        row["event"] for row in notes if str(row["event"]).startswith("work_")
+    ] == ["work_begun", "work_ended"]
+    assert receipt["in_flight"] == 0
+
+
+def test_sdk_session_refuses_resume_after_upstream_cancel() -> None:
+    """取消只挡未派发的工作：resume 被拒，且不得偷偷跑一次模型。"""
+
+    from intelligence.services.episode_session import EpisodeSessionError
+
+    frame = _frame()
+    context = _context(frame)
+    calls: list[str] = []
+    cancelled = {"value": False}
+
+    session = OpenAIAgentsRuntime(
+        runner=_lifecycle_runner(calls),
+        backend="sdk_glm",
+        model_name="glm-5.2",
+        is_cancelled=lambda: cancelled["value"],
+    ).start(frame, context=context, registry=_registry([]))
+
+    assert calls == ["model_turn"]
+    cancelled["value"] = True
+
+    with pytest.raises(EpisodeSessionError):
+        session.resume(
+            RepairGoal(
+                episode_id=context.contract.task_id,
+                repair_goal_id="repair-sdk-cancelled-1",
+                cycle=1,
+                missing_answer_elements=("direct_assessment",),
+                unsupported_claims=(),
+                missing_evidence_modes=(),
+                attempted_actions=(),
+                evidence_progress=CoverageDelta(0, 0, 0),
+                remaining_calls=1,
+                remaining_seconds=10.0,
+            )
+        )
+
+    # 没有 orphan 模型调用：被拒的 resume 一次都没进模型。
+    assert calls == ["model_turn"]
+    handle = session.runtime_handle
+    assert handle is not None
+    assert handle.is_cancel_requested() is True
+    events = [
+        row["event"]
+        for row in handle.dump()["receipts"]
+        if row.get("kind") == "note"
+    ]
+    assert "work_denied_cancelled" in events
+
+
+def test_sdk_session_close_records_stop_reason_and_seals_the_handle() -> None:
+    """close 后不得再派发新工作；关闭理由带上终态，四类场景靠它区分。"""
+
+    from intelligence.services.episode_session import EpisodeSessionError
+
+    frame = _frame()
+    context = _context(frame)
+    calls: list[str] = []
+
+    session = OpenAIAgentsRuntime(
+        runner=_lifecycle_runner(calls),
+        backend="sdk_glm",
+        model_name="glm-5.2",
+    ).start(frame, context=context, registry=_registry([]))
+
+    session.close()
+    handle = session.runtime_handle
+    assert handle is not None
+    assert handle.is_closed() is True
+    close_reason = str(handle.dump()["close_reason"])
+    assert close_reason.startswith("session_closed:")
+    assert (session.outcome.stop_reason or session.outcome.status) in close_reason
+
+    with pytest.raises(EpisodeSessionError):
+        session.resume(
+            RepairGoal(
+                episode_id=context.contract.task_id,
+                repair_goal_id="repair-sdk-closed-1",
+                cycle=1,
+                missing_answer_elements=("direct_assessment",),
+                unsupported_claims=(),
+                missing_evidence_modes=(),
+                attempted_actions=(),
+                evidence_progress=CoverageDelta(0, 0, 0),
+                remaining_calls=1,
+                remaining_seconds=10.0,
+            )
+        )
+    assert calls == ["model_turn"]

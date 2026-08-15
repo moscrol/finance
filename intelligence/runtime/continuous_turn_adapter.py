@@ -21,7 +21,8 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.runtime.episode_progress import EpisodeProgress
+from intelligence.services.episode_projection import project_durable_events
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -766,6 +767,20 @@ class ContinuousTurnAdapter:
                 ),
                 events=self._terminal_events(status="failed"),
             )
+        finally:
+            # 会话生命周期在此收口（spec §7.3）：无论早退（取消）、异常还是
+            # 成功落穿，session 离开本方法后不会再被 resume——不关闭它，
+            # RuntimeHandle 的收据就永远停在 running，「close 后不得发布」
+            # 也无从谈起。放 finally 而不是各出口各写一遍，是让「没有一条
+            # 出口漏关」成为结构事实而不是纪律要求。
+            close_session = getattr(session, "close", None)
+            if callable(close_session):
+                try:
+                    close_session()
+                except Exception:
+                    # close 是收尾观测，不改写主路径：finally 里抛出会顶替
+                    # 真正的返回值或异常（与 EpisodeScope.emit 同一条原则）。
+                    pass
 
         final_outcome = semantic.verified.outcome
         private_tokens = _private_tokens(final_outcome)
@@ -800,6 +815,10 @@ class ContinuousTurnAdapter:
         semantic_verifier_stale = semantic_verifier_stale or (
             semantic.verified.outcome.events != outcome.events
         )
+        # 事件数组走唯一投影口径（services 层 ``project_durable_events``）：五个下游
+        # 读的就是这个数组，形状与此前逐字段一致，多出来的只有「只投 Durable」这条
+        # 被钉住的不变量。异常（Live 漏进来 / kind 未登记）不静默，见下面那行。
+        event_projection = project_durable_events(outcome.events)
         artifact = {
             "schema_version": 1,
             "execution_kind": "continuous_episode",
@@ -807,7 +826,7 @@ class ContinuousTurnAdapter:
             "research_context": _episode_context_provenance(context),
             "contract": context.contract.to_dict(),
             "outcome": _private_outcome(outcome),
-            "events": [item.to_dict() for item in outcome.events],
+            "events": list(event_projection.events),
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
@@ -822,6 +841,12 @@ class ContinuousTurnAdapter:
                 semantic_status=semantic.judge_status,
             ),
         }
+        if event_projection.has_anomalies:
+            # 只在真有异常时才出现这个键：常态下 artifact 形状一字不变，出问题时
+            # 它自己会说出来（Live 漏进 durable 流 / 有 kind 没在车道表里登记）。
+            artifact["events_projection_anomalies"] = (
+                event_projection.anomalies_to_dict()
+            )
         return ContinuousTurnResult(
             handled=True,
             status=status,

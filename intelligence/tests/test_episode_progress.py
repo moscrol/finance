@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 from threading import Event
 
+import pytest
+
 from intelligence.services.agent_runtime import EpisodeEvent
-from intelligence.runtime.episode_progress import (
+from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
+from intelligence.services.episode_progress import (
+    PROGRESS_EVENT_KINDS,
     EpisodeProgress,
     RunEpisodeProgressPublisher,
     project_episode_progress,
 )
+from intelligence.services.research_tool_registry import TOOL_PRE_EXECUTE
 from intelligence.services.run_store import RunStore
 
 
@@ -46,6 +52,33 @@ def test_projector_never_exposes_control_plane_payload() -> None:
 def test_projector_ignores_private_model_and_unknown_events() -> None:
     assert project_episode_progress(EpisodeEvent(1, "model_turn", {})) is None
     assert project_episode_progress(EpisodeEvent(2, "provider_trace", {})) is None
+    # Live 阶段事件不进 UI 进度：未知 kind 返 None，不会多出进度条目。
+    assert project_episode_progress(EpisodeEvent(3, TOOL_PRE_EXECUTE, {})) is None
+
+
+def test_progress_kinds_are_registered_durable_kinds() -> None:
+    """UI 进度只投影已登记的 durable kind，不另造一套词表。
+
+    进度表是精选子集（不是全表）：model_turn / configure 等故意不出进度。
+    但子集里的每一个必须在车道表里——否则 UI 认的 kind 和投影层认的 kind 会漂。
+    """
+
+    unknown = sorted(PROGRESS_EVENT_KINDS - DURABLE_EVENT_KINDS)
+    assert unknown == [], f"进度表有车道表不认识的 kind: {unknown}"
+
+
+def test_runtime_no_longer_owns_episode_progress() -> None:
+    """D5 收口：进度投影在 services，runtime 不得再留一份。
+
+    两份并存就是第二事实源。旧路径必须消失，不能靠「没人 import」假装迁完。
+    """
+
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("intelligence.runtime.episode_progress")
+    assert (
+        project_episode_progress.__module__
+        == "intelligence.services.episode_progress"
+    )
 
 
 def test_projector_exposes_branch_repair_and_finalization_as_fixed_stages() -> None:

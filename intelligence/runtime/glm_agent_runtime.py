@@ -23,6 +23,7 @@ from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_plan import ResearchPlan
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.runtime_handle import RuntimeHandle
 from intelligence.runtime.sub_research import SubResearchCoordinator
 from intelligence.services.task_frame import TaskFrame
 
@@ -412,6 +413,9 @@ class GLMAgentRuntime:
             ),
             is_cancelled=is_cancelled,
         )
+        # RuntimeHandle 折叠的上游取消信号与 episode/coordinator 收到的是同一个
+        # ——生命周期收据必须与实际执行看同一份事实，不能各订阅各的。
+        self._upstream_cancelled = is_cancelled
         self._episode = ContinuousAgentEpisode(
             selected_client,
             llm_timeout=llm_timeout,
@@ -467,16 +471,38 @@ class GLMAgentRuntime:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> EpisodeSession:
-        continuation = []
-        outcome = self._episode.run(
-            task_frame=task_frame,
-            context=context,
-            registry=registry,
-            _continuation_sink=continuation,
+        # 生命周期状态机在会话构造点建立（spec §7.3，第 4 步 2/2）。
+        # 身份沿用仓内约定：episode_id = contract.task_id，与 EpisodeScope 同源。
+        handle = RuntimeHandle(
+            episode_id=context.contract.task_id,
+            task_frame_hash=(
+                context.contract.task_frame_hash or task_frame.task_frame_hash
+            ),
+            upstream_cancelled=self._upstream_cancelled,
         )
+        continuation = []
+        handle.mark_started()
+        # 初始 run 是 start() 同步派发的引导工作：取消先到时它就是要排空的
+        # 那一个（episode 内层会立刻以 cancelled 终态返回，不派发任何工具），
+        # 所以 allow_during_cancel——挡它不会更快，只会把诚实的 cancelled
+        # outcome 换成一个异常。
+        handle.begin_work("initial_run", allow_during_cancel=True)
+        try:
+            outcome = self._episode.run(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                _continuation_sink=continuation,
+            )
+        finally:
+            handle.end_work("initial_run")
         if len(continuation) != 1:
             raise RuntimeError("episode continuation state was not captured")
         state = continuation[0]
+        # 一个 Episode 一个 Scope：把 run() 入口构造的那个挂上收据（引用，
+        # 不复制）。修复轮复用同一 continuation state，Scope 不会碎片化。
+        handle.attach_scope(state.episode_scope)
+        handle.mark_running()
         return CallbackEpisodeSession(
             episode_id=context.contract.task_id,
             outcome=outcome,
@@ -487,6 +513,7 @@ class GLMAgentRuntime:
             ),
             evidence_ledger=state.evidence_ledger,
             initial_evidence_snapshot=state.initial_evidence_snapshot,
+            runtime_handle=handle,
         )
 
 

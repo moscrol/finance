@@ -1,4 +1,4 @@
-"""Loop 底座：agent 编排、provider 适配、子研究、事件投影。
+"""Loop 底座：agent 编排、provider 适配、子研究。
 
 这里是可替换的固定底座，与领域层（intelligence/services/）单向解耦：
 

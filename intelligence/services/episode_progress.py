@@ -4,6 +4,16 @@ The Episode ledger contains model messages, queries, tool identities, hashes,
 and provider diagnostics.  None of those values may cross the public Run/SSE
 seam.  This module is the single projection and persistence owner for live
 continuous-runtime progress.
+
+--------------------------------------------------------------------------
+Why this lives in services (D5)
+--------------------------------------------------------------------------
+
+No runtime imports: the projector is a pure kind→milestone map, and the
+publisher only talks to ``RunStore`` (already services).  It is a **different
+contract** from ``episode_projection`` (the artifact ``events`` array).
+Unknown kinds return ``None`` — the UI stays silent — unlike the artifact
+boundary, which keeps the event and flags ``unregistered_kinds``.
 """
 
 from __future__ import annotations
@@ -79,6 +89,9 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
     ),
     "finish": ("finalizing", "研究回答已形成，正在完成最终核验。", "completed"),
 }
+
+# 公开词表：UI 进度覆盖的 kind。是车道表的精选子集，不是第二套分类。
+PROGRESS_EVENT_KINDS = frozenset(_EVENT_PROJECTIONS)
 
 
 def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
@@ -157,6 +170,7 @@ class RunEpisodeProgressPublisher:
 
 __all__ = [
     "EpisodeProgress",
+    "PROGRESS_EVENT_KINDS",
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
 ]

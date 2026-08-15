@@ -26,6 +26,7 @@ from intelligence.services.episode_session import (
     EpisodeSession,
     EpisodeSessionError,
 )
+from intelligence.services.runtime_handle import RuntimeHandle
 from intelligence.services.episode_protocol import (
     build_episode_input,
     build_episode_instructions,
@@ -976,13 +977,35 @@ class OpenAIAgentsRuntime:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> EpisodeSession:
-        continuation: list[_SdkContinuationState] = []
-        outcome = self._run_episode(
-            task_frame=task_frame,
-            context=context,
-            registry=registry,
-            continuation_sink=continuation,
+        # 生命周期状态机在会话构造点建立，与 GLMAgentRuntime.start 同形
+        # （spec §7.3，第 4 步收尾轮）。身份沿用仓内约定 contract.task_id。
+        #
+        # 与 GLM 侧的**唯一实质差别**：本运行时不构造 EpisodeScope，所以不
+        # attach_scope，收据里 scope_attached 如实为 False。Scope 的构造点钉在
+        # `ContinuousAgentEpisode.run()`（4b23a516），而本运行时把轮次循环交给
+        # Agents SDK、根本不走那条路径。不为了让收据好看而在这里凭空造一个
+        # Scope——那会造出第二个 Scope 构造点，正是第 4 步 1/2 特意避免的。
+        handle = RuntimeHandle(
+            episode_id=context.contract.task_id,
+            task_frame_hash=(
+                context.contract.task_frame_hash or task_frame.task_frame_hash
+            ),
+            upstream_cancelled=self._is_cancelled,
         )
+        continuation: list[_SdkContinuationState] = []
+        handle.mark_started()
+        # 初始 run 是 start() 同步派发的引导工作，取消先到时它就是要排空的那一个
+        # ——理由与 GLM 侧逐字相同，见 glm_agent_runtime.start 的注释。
+        handle.begin_work("initial_run", allow_during_cancel=True)
+        try:
+            outcome = self._run_episode(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                continuation_sink=continuation,
+            )
+        finally:
+            handle.end_work("initial_run")
         if not continuation:
             fallback_state = _AgentsRunState(
                 registry=registry,
@@ -1002,6 +1025,7 @@ class OpenAIAgentsRuntime:
         if len(continuation) != 1:
             raise RuntimeError("SDK episode continuation state was not captured")
         state = continuation[0]
+        handle.mark_running()
         return CallbackEpisodeSession(
             episode_id=context.contract.task_id,
             outcome=outcome,
@@ -1012,6 +1036,7 @@ class OpenAIAgentsRuntime:
             ),
             evidence_ledger=state.run_state.evidence_ledger,
             initial_evidence_snapshot=state.run_state.initial_evidence_snapshot,
+            runtime_handle=handle,
         )
 
     def _run_episode(

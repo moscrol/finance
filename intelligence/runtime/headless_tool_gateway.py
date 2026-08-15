@@ -24,6 +24,7 @@ import urllib.request
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import EpisodeEvent, public_agent_evidence
+from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -172,6 +173,7 @@ class HeadlessToolGateway:
         run_dir: Path | None = None,
         transport: str = "http",
         finalization_floor_ratio: float = 0.65,
+        scope: EpisodeScope | None = None,
     ) -> None:
         selected_transport = str(transport or "").strip().lower()
         if selected_transport not in {"http", "mailbox"}:
@@ -199,6 +201,12 @@ class HeadlessToolGateway:
                 context.contract.allowed_capabilities
             )
         }
+        if scope is not None:
+            if scope.episode_id != context.contract.task_id:
+                raise ValueError("gateway scope episode_id mismatch")
+            if scope.task_frame_hash != context.contract.task_frame_hash:
+                raise ValueError("gateway scope task_frame_hash mismatch")
+        self._scope = scope
         self._requested_run_dir = run_dir
         self._transport = selected_transport
         self._temporary_directory: tempfile.TemporaryDirectory[str] | None = None
@@ -249,6 +257,12 @@ class HeadlessToolGateway:
         if self._wrapper_path is None:
             raise RuntimeError("headless tool gateway has not started")
         return self._wrapper_path
+
+    @property
+    def scope_attached(self) -> bool:
+        """spec §8.2：窄协议是否带上了 EpisodeScope。缺省 False，行为与接线前一致。"""
+
+        return self._scope is not None
 
     def start(self) -> HeadlessToolGateway:
         if self._server is not None:
@@ -700,6 +714,8 @@ class HeadlessToolGateway:
                 f"{request_event.sequence - 1}"
             )
             spec = self._authorized.get(name)
+            if self._scope is not None and not self._scope.authorize(name).allowed:
+                spec = None
             if spec is None:
                 rejected = "unknown_or_unauthorized_tool"
                 prepared = None
@@ -800,6 +816,9 @@ class HeadlessToolGateway:
                 request_id=resolved_request_id,
             )
             return {"status": "error", "tool": name, "error": "tool_exception"}
+
+        if self._scope is not None:
+            self._scope.record_invocation(name)
 
         self._settle_root_seconds(
             time.monotonic() - started_at,

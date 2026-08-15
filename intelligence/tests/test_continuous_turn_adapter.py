@@ -22,7 +22,7 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.runtime.episode_progress import EpisodeProgress
+from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.runtime.openai_agents_runtime import (
     AgentsSdkRequest,
@@ -4523,3 +4523,141 @@ def test_open_gap_labels_project_unfulfilled_required_descriptions() -> None:
         contract,
         fulfilled_output_ids=frozenset({"a", "b", "e", "f"}),
     ) == ()
+
+
+# ── 会话生命周期在适配器收口（spec §7.3，第 4 步 2/2）────────────────
+
+
+def _completed_outcome(frame: TaskFrame) -> AgentOutcome:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数增加，量能温和放大",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="close-evidence-1",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    return AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前更接近条件化修复，持续性取决于量能。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("close-evidence-1",), ""),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+
+
+def _session_with_handle(context, outcome):
+    from intelligence.services.runtime_handle import RuntimeHandle
+
+    handle = RuntimeHandle(
+        episode_id=context.contract.task_id,
+        task_frame_hash=outcome.task_frame_hash,
+    )
+    handle.mark_started()
+    handle.mark_running()
+    return CallbackEpisodeSession(
+        episode_id=context.contract.task_id,
+        outcome=outcome,
+        resume_callback=lambda previous, goal: previous,
+        runtime_handle=handle,
+    )
+
+
+def test_adapter_closes_session_on_success_path() -> None:
+    """成功落穿也必须关会话：不关，生命周期收据永远停在 running。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-close-success",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    sessions: list[CallbackEpisodeSession] = []
+
+    class Runtime:
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            session = _session_with_handle(context, _completed_outcome(frame))
+            sessions.append(session)
+            return session
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    [session] = sessions
+    handle = session.runtime_handle
+    assert handle is not None
+    assert handle.is_closed()
+    assert handle.dump()["close_reason"] == "session_closed:model_finish"
+
+
+def test_adapter_closes_session_on_exception_path() -> None:
+    """异常出口同样收口：坏掉的核验器不能把会话留在 running。"""
+
+    frame = _frame()
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-close-exception",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    sessions: list[CallbackEpisodeSession] = []
+
+    class Runtime:
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            session = _session_with_handle(context, _completed_outcome(frame))
+            sessions.append(session)
+            return session
+
+    class BrokenSemantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, structurally_verified, deadline
+            return "not a semantic outcome"
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=BrokenSemantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status in {"failed", "degraded"}
+    [session] = sessions
+    handle = session.runtime_handle
+    assert handle is not None
+    assert handle.is_closed()

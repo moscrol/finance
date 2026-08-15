@@ -19,6 +19,7 @@ from typing import Literal, cast
 
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
+from intelligence.services.episode_scope import TOOL_ERROR, EpisodeScope
 from intelligence.services.research_contract import (
     ResearchPolicy,
     ResearchRunContext,
@@ -167,12 +168,19 @@ def _run_with_publish_guard(
 class EpisodeToolBatchSession:
     """Own episode query state and execute independent tool calls concurrently."""
 
-    def __init__(self, *, executor: Executor | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        scope: EpisodeScope | None = None,
+    ) -> None:
         self._seen_queries: set[tuple[str, str]] = set()
         self._successful_episode_tools: set[str] = set()
         self._lock = Lock()
         self._next_call_sequence = 1
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
+        # 缺省 None：不传 scope 的调用方行为与接线前逐字节一致。
+        self._scope = scope
 
     def available_tool_names(
         self,
@@ -262,6 +270,23 @@ class EpisodeToolBatchSession:
 
             spec = authorized_specs.get(call.name)
             if spec is None:
+                # 压扁**真正发生在这里**，不在 registry.execute 里——这条分支直接
+                # continue，execute 根本走不到。所以区分事件必须发在这个点上，
+                # 否则「诊断拿到了区分」只在测试里成立，生产批次流一条都收不到。
+                if self._scope is not None:
+                    decision = self._scope.authorize(call.name)
+                    self._scope.emit(
+                        TOOL_ERROR,
+                        {
+                            "tool": call.name,
+                            "tool_call_id": call.call_id,
+                            "step_id": step_ids[index],
+                            "stage": "authorize",
+                            # wire 上仍是压扁的那个串；区分只在事件里
+                            "reason": decision.reason,
+                            "capability": decision.capability,
+                        },
+                    )
                 items[index] = ToolCallResult(
                     call,
                     "rejected",
@@ -433,6 +458,11 @@ class EpisodeToolBatchSession:
                     context=context,
                     step_id=step_ids[candidate.index],
                     is_cancelled=is_cancelled,
+                    scope=self._scope,
+                    # 模型给的那个 call_id，不是 step_id。step_id 是本仓按
+                    # trace_parent+序号生成的，跨臂/跨引擎对不上；call_id 才是
+                    # §7.1 要求「逐次对账」时两边都认的那个锚。
+                    tool_call_id=candidate.call.call_id,
                 )
                 worker_context = copy_context()
                 guarded_operation = partial(
@@ -533,11 +563,29 @@ class EpisodeToolBatchSession:
 class ToolBatchExecutor:
     """Stateless factory for episode-scoped tool batch sessions."""
 
-    def __init__(self, *, executor: Executor | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        scope: EpisodeScope | None = None,
+    ) -> None:
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
+        self._scope = scope
 
-    def new_session(self) -> EpisodeToolBatchSession:
-        return EpisodeToolBatchSession(executor=self._executor)
+    def new_session(
+        self, *, scope: EpisodeScope | None = None
+    ) -> EpisodeToolBatchSession:
+        """开一个批次会话。
+
+        ``scope`` 是**每次运行**的东西（带着这一轮的 contract、注册表、登记簿），
+        而 executor 是可复用的长生命周期对象——所以 scope 要能在这里覆盖，
+        不能只在 executor 构造时给一次。executor 上那个仍作缺省。
+        """
+
+        return EpisodeToolBatchSession(
+            executor=self._executor,
+            scope=scope if scope is not None else self._scope,
+        )
 
     def execute(
         self,

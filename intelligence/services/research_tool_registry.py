@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from functools import partial
 import json
 from types import MappingProxyType
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
@@ -18,6 +19,21 @@ from intelligence.services.research_contract import (
     InformationCutoff,
     ResearchRunContext,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    # 只在类型检查期 import：episode_scope 运行期 import 本模块，反向的运行期
+    # import 会成环。执行路径上 scope 是鸭子类型用的，不需要真的拿到这个类。
+    from intelligence.services.episode_scope import EpisodeScope
+
+
+# 工具流水线的阶段事件名。与 dsh 的 tools/* 同形，但串留在本仓命名空间下：
+# 事件名会进 Trace 与评测 artifact，跟 dsh 的字面串绑死，将来换底座就得改数据。
+#
+# 定义在本模块而不是 episode_scope，是因为发射点在这里，且本模块是它的下层——
+# 反过来会成环。episode_scope 转出这三个名字，供事件消费方 import。
+TOOL_PRE_EXECUTE = "tool/pre_execute"
+TOOL_RESULT = "tool/result"
+TOOL_ERROR = "tool/error"
 
 
 # 第四个字段 ``produces`` 声明该工具能贡献哪些 output_id（词表来自 task_frame.py
@@ -569,9 +585,39 @@ class ResearchToolRegistry:
         context: ResearchRunContext,
         step_id: str,
         is_cancelled: Callable[[], bool] | None = None,
+        scope: EpisodeScope | None = None,
+        tool_call_id: str = "",
     ) -> ToolObservation:
+        """执行一个工具。
+
+        ``scope`` 缺省为 ``None``，此时行为与接线前**逐字节一致**：不发事件、
+        不登记调用。这是刻意的——现存三十余个调用方一个都不用改，
+        阶段事件是给愿意传 scope 的调用方的增量能力，不是所有人的新负担。
+        """
+
         spec = self.resolve(name)
         if spec.capability not in context.contract.allowed_capabilities:
+            # 错误契约保持不变（仍抛 UnknownResearchTool、消息逐字不变）：
+            # ``unknown_or_unauthorized_tool`` 这个串有 4 个生产者、1 个分支消费者
+            # （agent_episode.py:311），并且进了模型可见的消息文本。拆它是一次
+            # 有意的错误契约变更，不该混在「接入阶段事件」里做。
+            #
+            # 但**区分**不用等：它落进阶段事件（新增，无存量消费者），
+            # 于是诊断拿到了区分，契约一点没动。
+            if scope is not None:
+                decision = scope.authorize(name)
+                scope.emit(
+                    TOOL_ERROR,
+                    {
+                        "tool": spec.name,
+                        "tool_call_id": tool_call_id,
+                        "step_id": step_id,
+                        "stage": "authorize",
+                        # 与 wire 上那个压扁的串不同，这里是分开的
+                        "reason": decision.reason,
+                        "capability": decision.capability,
+                    },
+                )
             raise UnknownResearchTool(
                 f"能力未授权：{spec.capability}（工具 {spec.name}）"
             )
@@ -595,6 +641,24 @@ class ResearchToolRegistry:
             )
 
         def fetch() -> ToolObservation:
+            if scope is not None:
+                # 登记必须在 runner 真的被调起时发生，不在「决定要调」时。
+                # 这个闭包由 query_ledger.executed 决定跑不跑——被去重挡掉的调用
+                # 根本不进这里，于是可达性收据里也就不会把它记成跑过了。
+                scope.record_invocation(spec.name)
+                scope.emit(
+                    TOOL_PRE_EXECUTE,
+                    {
+                        "tool": spec.name,
+                        "tool_call_id": tool_call_id,
+                        "step_id": step_id,
+                        "capability": spec.capability,
+                        "query": prepared.display_query,
+                        "cutoff": (
+                            effective_context.information_cutoff.as_of_date.isoformat()
+                        ),
+                    },
+                )
             run_result = spec.runner(
                 prepared.runner_input,
                 agent_research.AgentToolContext(
@@ -685,6 +749,21 @@ class ResearchToolRegistry:
             # The content hash is the stable identifier carried into
             # AgentOutcome/verifier. Do not mint a second observation-only ID.
             hashes = tuple(item.content_hash for item in evidence)
+            if scope is not None:
+                scope.emit(
+                    TOOL_RESULT,
+                    {
+                        "tool": spec.name,
+                        "tool_call_id": tool_call_id,
+                        "step_id": step_id,
+                        "status": trace.status,
+                        "evidence_count": len(evidence),
+                        # hash 是带进 AgentOutcome/verifier 的稳定标识，
+                        # 事件里带上它，Trace/UI/评测三者才对得上账。
+                        "evidence_hashes": list(hashes),
+                        "gaps": list(gaps),
+                    },
+                )
             return ToolObservation(
                 tool=spec.name,
                 query=prepared.display_query,
@@ -695,7 +774,8 @@ class ResearchToolRegistry:
                 evidence_hashes=hashes,
             )
 
-        return query_ledger.executed(
+        ledger_call = partial(
+            query_ledger.executed,
             f"generic:{spec.name}",
             normalized,
             fetch,
@@ -704,6 +784,27 @@ class ResearchToolRegistry:
                 f"{effective_context.information_cutoff.as_of_date.isoformat()}"
             ),
         )
+        if scope is None:
+            return ledger_call()
+        try:
+            return ledger_call()
+        except BaseException as exc:
+            # 只观测，不改变传播：事件发完原样 raise。吞掉异常会把一次失败静默成
+            # 一次空结果，那正是 ToolPipeline docstring 里禁止的做法。
+            # 捕 BaseException 是为了让取消（可能以 BaseException 子类抛出）
+            # 也留下收据；因为立即 re-raise，不存在吞掉控制流的风险。
+            scope.emit(
+                TOOL_ERROR,
+                {
+                    "tool": spec.name,
+                    "tool_call_id": tool_call_id,
+                    "step_id": step_id,
+                    "stage": "execute",
+                    "error_type": type(exc).__name__,
+                    "reason": str(exc),
+                },
+            )
+            raise
 
 
 # 行为契约（见 ``ToolSpec.contract``）。**只写验证过的**：每条要么来自线上实测的
