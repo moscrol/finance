@@ -593,3 +593,52 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
 - **账本**：R-12 → Closed。R-10/R-09/R-23 仍 pending。不改 A 的行。
 - **测**：acceptance 三套 64 passed；`validate-report.sh` RC:0。
 - **报告**：`docs/verification/2026-08-15-trkb-r5-preflight-probe.md`。
+
+### 检阅方勘探 · Round 5 前置两项落地（2026-08-15 12:xx，检阅方）
+
+**① 数据层故障已定根因（诊断闭环，无需修 runtime/eval）。**
+
+- 库 `db/market_feature_store.duckdb`（3.4G）mtime = **11:16:30**，正落
+  批 #2 窗口（11:02–11:43）。库内 23 张表当天有写：`fact_stock_daily` /
+  `fact_limit_advance_daily` / `fact_market_daily` / `fact_sector_*` +
+  全套 `feature_*` 重算 + `ops_*` 同步行，写入时间戳 11:15:24–11:16:29
+  ——是**日频行情同步 + 特征重算管道**的完整指纹。
+- 机制：DuckDB 单写者独占锁。管道启动（≈11:02 前，先拉远端数据）到
+  11:16:29 收笔期间持锁，`finance_query` 的 read_only 短连接**秒败**
+  （5–12ms `tool_exception`）。时间线吻合：A1–A8（11:02–11:1x）全灭，
+  B1（11:19）起恢复。A9/A10 交付系其证据主要来自非该库工具。
+- 写者身份：**不是**定时任务（`com.a77.finance-akshare-snapshot` 日程为
+  工作日 16:15，日志停在 08-14）；shell 历史无同步命令——是某个
+  会话外/手动触发的同步，用户可对号入座。
+- 现状：**库已健康**（read_only 打开+查询 0.05s，50 表），故障是瞬态
+  锁窗口，无需数据修复。
+- 处方：批与同步**不得重叠**。检测由轨道 B Round 5 任务 1 的 preflight
+  探针覆盖；根治（同步管道 staging 文件 + 原子换名，或批前查锁）属
+  数据层排期，用户裁决。批 #3 开批前确认无同步在跑即可。
+
+**② 新快照已备好，一步之遥（切换权在用户，R-06 纪律）。**
+
+- `~/.finance-runtime/finance-workspace-576bf26e3f95`：gitea 克隆、
+  detached @ `576bf26e`（含 #24 证据序号契约 + #25 批 #2 + #26 指派），
+  `git status --porcelain` 空，原地 53 测绿，`evidence_ordinal_table` /
+  `REJECTION_KINDS` 可导入。与现役快照同规约（detached、无本地改动）。
+- 切换步骤（两条命令，用户执行或授权执行）：
+  `ln -sfn ~/.finance-runtime/finance-workspace-576bf26e3f95 ~/finance-workspace-runtime`
+  然后 `kill <pid>`（launchd KeepAlive 自动拉起；或
+  `launchctl kickstart -k gui/$UID/com.a77.finance-workbench`）。
+- 切换后验收（R-06 同款三读数）：`/api/health` `source_revision=576bf26e…`、
+  `source_dirty=false`、新 pid；旧快照 `cb09f895734a` 保留可回滚。
+  `ASK_TOOL_BATCH_TIMEOUT=60` 等 env 在启动器脚本里，跨切换保留。
+- 切换完成即满足批 #3 前置 ①；前置 ② 只剩「开批时无同步管道在跑」。
+
+**③ 事故披露：检阅方误合 #27（B 的 Round 5 任务 1+2）。**
+
+- 经过：检阅方开自己的 docs PR 时把合并命令的 PR 号**写死成预期值**，
+  而 A/B 已抢先开了 #27/#28，实际创建号是 #29——命令打在 #27 上并成功。
+  #27 在**未检阅状态**进入 main，违反本 handoff §2 Step 7。
+- 事后检阅（15 分钟内完成）：acceptance 三套 64 passed、报告 RC:0、
+  R-12 行判据可证伪、`DATA_PROBE_ON_FAILURE=run_and_flag` 写死带理由、
+  污染戳只在「探针已跑且失败」时盖、B3#2 夹具两字段并存不相等——
+  **PASS，无需 revert**。
+- 整改：检阅方此后合并一律用**创建响应返回的 PR 号**，不得手写常量；
+  连发操作里创建与合并不得共用一条命令。
