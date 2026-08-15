@@ -1,10 +1,10 @@
 # 进度观测台薄账（L0 / L1）
 
 - 日期:2026-08-16 · 唯一写入者:检阅方 · spec:`docs/superpowers/specs/2026-08-15-progress-observatory.md` · ADR:`docs/adr/0001-observatory-legislative-core.md`
-- **未闭合的最低层:P1**（口径=dsh P0 五步完成数/5；第 5 步已收口，冲突矩阵未画，第 6–8 步未开）
+- **未闭合的最低层:P1**（口径=dsh P0 五步完成数/5；第 1–7 步已收口，冲突矩阵未画，第 8 步未开）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
-- L1-DSH 母本仍只在未合入分支 `feat/dsh-absorption-p0-seams`（已 push，tip `feabcb53`）；进度投影已迁 services。
+- L1-DSH 母本仍只在未合入分支 `feat/dsh-absorption-p0-seams`（已 push，tip `b06fb5d5`）；第 8 步 A/B 未开。
 
 ## L0 阶段线
 
@@ -27,7 +27,7 @@
 
 | ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做 |
 |---|---|---|---|---|---|
-| L1-DSH | dsh 吸收 P0 五步 | in_flight | 五步完成且冲突矩阵可画 | `feat/dsh-absorption-p0-seams` @ `feabcb53`（已 push；未合 main） | 执行方 / `fwp-wt-dsh-seams` |
+| L1-DSH | dsh 吸收 P0 五步 | in_flight | 五步完成且冲突矩阵可画 | `feat/dsh-absorption-p0-seams` @ `b06fb5d5`（第 1–7 步已收口；第 8 步未开；未合 main） | 执行方 / `fwp-wt-dsh-seams` |
 | L1-S1 | 时间预算可见 | planned | 状态栏 v1 | `2026-08-15-bookgap-s1-time-budget-statusline.md` | 等 L1-DSH |
 | L1-S2 | judge 模态切换 | planned | 数据源回查钩子 | `2026-08-15-bookgap-s2-judge-source-recheck.md` | 窗已开，可另开 PR |
 | L1-S3 | 超时窗口比例化 | planned | reserve 推导窗口 | `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 窗已开，可另开 PR |
@@ -48,9 +48,10 @@
 
 | 提出日 | 事项 | 卡在谁 | 关联 |
 |---|---|---|---|
+| 2026-08-16 | 是否开第 8 步 live A/B 校准窗（先 45× Arm A） | 用户 | L1-DSH |
 | 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
-| 2026-08-16 | dsh 实施分支已 push `feat/dsh-absorption-p0-seams` | 已决 | L1-DSH |
+| 2026-08-16 | dsh 实施分支已 push 到 `b06fb5d5`（第 1–7 步） | 已决 | L1-DSH |
 | 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 保留到合 main；已备份远程 | 已决 | L1-DSH |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
