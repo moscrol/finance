@@ -18,9 +18,12 @@ import pytest
 from intelligence.eval.acceptance import (
     EXECUTION_STATES,
     TurnTrace,
+    UsersDirMismatch,
     _classify_execution_state,
     _read_episode_facts,
     counts_toward_quality,
+    require_episode_if_expected,
+    resolve_episode_users_dir,
     summarize_execution_states,
 )
 
@@ -336,3 +339,64 @@ def test_true_gap_slots_from_the_clean_baseline_batch(tmp_path: Path) -> None:
     # C6 实测 evidence_retrieved=0，故先落 no_evidence——真缺口格的判缺与
     # 「压根没取到」在本批同时出现，两者也必须分得开
     assert _classify_execution_state(trace, facts) == "no_evidence"
+
+
+def test_users_dir_mismatch_against_health_raises(tmp_path: Path) -> None:
+    correct = tmp_path / "server-users"
+    wrong = tmp_path / "wrong-users"
+    correct.mkdir()
+    wrong.mkdir()
+    health = {"runtime": {"users_dir": str(correct)}}
+    with pytest.raises(UsersDirMismatch, match="不一致"):
+        resolve_episode_users_dir(health, str(wrong))
+    assert resolve_episode_users_dir(health, str(correct)) == correct.resolve()
+
+
+def test_wrong_users_dir_does_not_emit_plausible_five_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """错目录 + 对目录各读同一 run：前者必须响亮失败，不能落 undetermined 五态。
+
+    这是 R-20260815-08 的负夹具。错目录存在但没有 episode 时，旧量具会把
+    completed 长跑判成 `undetermined`/`api_only`，整批看起来像正常五态。
+    """
+
+    correct = tmp_path / "server-users"
+    wrong = tmp_path / "wrong-users"
+    wrong.mkdir()
+    _episode(
+        correct,
+        "run-same",
+        user="tester",
+        draft="x" * 80,
+        evidence=10,
+        bindings=[("direct_answer", 0, True), ("evidence_boundary", 0, True)],
+        missing=2,
+    )
+    trace = TurnTrace(
+        question="q",
+        run_id="run-same",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["证据或语义核验未完全通过"],
+    )
+
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(correct))
+    facts_ok = _read_episode_facts("run-same", "tester")
+    assert facts_ok is not None
+    require_episode_if_expected(trace, facts_ok)
+    state_ok = _classify_execution_state(trace, facts_ok)
+    assert state_ok == "no_hash"
+    ok_summary = summarize_execution_states(
+        [{"case_id": "B1", "turns": [{"execution_state": state_ok}]}]
+    )
+    assert ok_summary["execution_state_tally"] == {"no_hash": 1}
+
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(wrong))
+    facts_bad = _read_episode_facts("run-same", "tester")
+    assert facts_bad is None
+    assert _classify_execution_state(trace, facts_bad) == "undetermined"
+    with pytest.raises(UsersDirMismatch, match="找不到 continuous-episode"):
+        require_episode_if_expected(trace, facts_bad)
+    # 守卫触发 = 不会走到 summarize 去写一张「看起来正常」的五态表
+    assert "undetermined" not in ok_summary["execution_state_tally"]
