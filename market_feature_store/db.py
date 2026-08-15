@@ -6,10 +6,17 @@ schema.sql 与本模块同目录, 可重复执行 (全部 CREATE ... IF NOT EXIS
 可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在
 不同机器 / 自定义目录 / 样本库自测时切换, 不必把库放在仓内 db/ 下。
 未设置时回退到 PROJECT_DIR/db/market_feature_store.duckdb (与原行为一致)。
+
+staging 换库 (2026-08-15, bookgap S7): 长事务同步全程持生产库写锁会把
+生产端 read_only 短连接饿死 (实测锁窗 ≥14min, 批 #2 A 组全灭)。处方是
+同步写 staging 副本、收笔后 os.replace 原子换名——本模块提供路径推导、
+克隆与换名三个工具, 编排在 sync.sync_daily_full.run_daily_full_staged。
 """
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import time
 from pathlib import Path
 from typing import Callable
@@ -139,3 +146,113 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
         """
     ).fetchall()
     return [r[0] for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# staging 写 + 原子换名 (bookgap S7)
+# ---------------------------------------------------------------------------
+
+STAGING_SUFFIX = ".staging"
+
+
+def staging_path(db_path: Path | None = None) -> Path:
+    """同步用 staging 副本路径: 与目标库同目录 (同卷才保证 os.replace 原子)。"""
+    target = Path(db_path) if db_path is not None else DB_PATH
+    return target.with_name(target.name + STAGING_SUFFIX)
+
+
+def wal_path(db_path: Path) -> Path:
+    """duckdb 的 WAL 伴生文件路径 (<db>.wal)。"""
+    return Path(str(db_path) + ".wal")
+
+
+def clone_to_staging(source: Path, staging: Path) -> dict:
+    """把 source 库克隆成 staging 副本, 返回 {method, seconds, bytes}。
+
+    优先 APFS clonefile (`cp -c`): 同卷 COW 克隆是单个 syscall, 秒级完成、
+    初始零额外磁盘占用, 且相对文件系统是原子快照。非 APFS/非 macOS 退回
+    shutil.copy2 (3.4G 实测约几十秒, 磁盘峰值 2×库大小)。
+
+    source 若带 WAL (上一个写者崩溃留下), 一并按 staging 命名克隆——
+    duckdb 打开 staging 时自动重放, 不丢已提交事务。
+    """
+    started = time.monotonic()
+    method = "clonefile"
+    try:
+        subprocess.run(
+            ["cp", "-c", str(source), str(staging)],
+            check=True,
+            capture_output=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        method = "copy"
+        shutil.copy2(source, staging)
+    source_wal = wal_path(source)
+    if source_wal.exists():
+        shutil.copy2(source_wal, wal_path(staging))
+    return {
+        "method": method,
+        "seconds": round(time.monotonic() - started, 3),
+        "bytes": source.stat().st_size,
+    }
+
+
+def probe_no_active_writer(db_path: Path) -> None:
+    """确认 db_path 当前没有 rw 写者; 有则抛 DatabaseLockedError。
+
+    机制: duckdb 单写者独占——存在 rw 连接时 read_only 打开立即
+    IOException(锁冲突)。探针本身只做 read_only 开/关, 不取写锁,
+    不会反过来饿死生产读者。文件不存在视为无写者。
+    """
+    if not db_path.exists():
+        return
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except duckdb.IOException as exc:
+        if is_lock_conflict(exc):
+            raise DatabaseLockedError(
+                f"{db_path} 存在活跃写者 (read_only 探针拿不到锁): {exc}"
+            ) from exc
+        raise
+    con.close()
+
+
+def atomic_swap_into_place(staging: Path, target: Path) -> None:
+    """os.replace 把 staging 原子换名为 target。
+
+    前置断言 (fail closed):
+    - staging 存在且无残留 WAL——写者收笔后 duckdb close 会 checkpoint,
+      仍有 WAL 说明 staging 没有干净关闭, 换过去会让生产端做恢复重放;
+    - target 无 WAL——生产路径出现 WAL 说明有第三方写者在写/刚崩溃,
+      此时换名会覆盖它的工作, 必须人工裁决。
+
+    POSIX rename 语义: 已打开旧文件的读者继续读旧 inode (安全),
+    新连接读新文件; 旧文件空间在最后一个句柄释放后归还。
+    """
+    if not staging.exists():
+        raise FileNotFoundError(f"staging 副本不存在: {staging}")
+    staging_wal = wal_path(staging)
+    if staging_wal.exists():
+        raise RuntimeError(
+            f"staging 带未 checkpoint 的 WAL ({staging_wal}), 拒绝换名——"
+            "写者未干净关闭"
+        )
+    if wal_path(target).exists():
+        raise RuntimeError(
+            f"生产路径存在 WAL ({wal_path(target)}), 疑似第三方写者, 拒绝换名"
+        )
+    os.replace(staging, target)
+
+
+def remove_stale_staging(staging: Path) -> bool:
+    """清掉上一轮崩溃残留的 staging (含 WAL); 有清理动作返回 True。
+
+    staging 语义上是一次性中间产物: 收据从未写入、生产库未动,
+    残留文件只占磁盘, 开新一轮前直接丢弃。
+    """
+    removed = False
+    for leftover in (staging, wal_path(staging)):
+        if leftover.exists():
+            leftover.unlink()
+            removed = True
+    return removed
