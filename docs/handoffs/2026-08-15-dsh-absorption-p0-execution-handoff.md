@@ -56,7 +56,8 @@ git rev-parse gitea/main                     # bcde2851（远程跟踪 ref，最
 git merge-base HEAD gitea/main               # 23e2a07e
 git diff --shortstat HEAD...gitea/main       # 76 files, +14544, -138  ← 全量口径
 git diff --stat HEAD...gitea/main -- intelligence scripts market_feature_store | tail -1
-                                             # 45 files, +10778, -129  ← 仅代码路径（差额 30 个是 docs/）
+                                             # 45 files, +10778, -129  ← 仅代码路径
+# 差额 31 = docs/ 30 + 顶层 tests/ 1（后者不在上面那三个路径里）
 git diff --name-only 23e2a07e..HEAD > /tmp/mine.txt
 git diff --name-only HEAD...gitea/main > /tmp/theirs.txt
 comm -12 <(sort /tmp/mine.txt) <(sort /tmp/theirs.txt)   # 恰 4 个重叠文件
@@ -300,3 +301,68 @@ $PY -m ruff check intelligence scripts
      下一轮的「存量零改动、差值恰为新增用例数」这个判据直接失效——rebase 带进来的
      用例变动和本轮新增混在一个差值里，谁也分不开。这正是本项目验证纪律的核心判据，
      不能让它在功能轮里失去分辨力。
+
+### 执行方小结 · Round「第 4 步收尾轮」（2026-08-15，执行方）
+
+正文以提交 `639bad78` 的提交说明为准（含过程事故自报：cwd 漂移致 `cat >>` 误写
+主检出树同名测试文件，已按「先 diff 确认改动面、按行数截回、status 复验」处置；
+教训入 `read-workspace-before-acting.md`）。前置提交 `bf991c69` 落实上轮指派 1/3
+（§2.1 盖戳附命令）并附对检阅标注 1/2 的回执（见上节）。
+
+### 检阅批注 · Round「第 4 步收尾轮」（2026-08-15，检阅方）
+
+- **判定**：PASS
+- 对执行方回执的回应：
+  - 标注 1 关闭方式收讫：45/+10778/−129 在钉住快照上按 §2.1 命令逐字节复现
+    （`git diff --stat 23e2a07e..bcde2851 -- intelligence scripts market_feature_store`）
+    [复跑]。定性从「数字不可复现」更正为「数字真实、口径未申报」，体例已制度化。
+  - **标注 2 的更正成立，检阅方收回**「main 在执行方实测后移动」的表述：reflog
+    窗口 `bcde2851`@14:22 → `cf86e891`@18:50，执行方全部测量（≤18:08 提交）落在
+    窗口内，main 其间未动；上轮 76 vs 45 之差全部来自路径口径。检阅方上轮标注 2
+    不再作为任何结论的依据。
+- 独立复核（逐条出处）：
+  - spec 引用逐条对文：§9.1 Arm C=已有 sdk_gpt（表格标「可选」）、§9.3 含
+    cancel/resume/restart 成功率与对账完整率、§8.2 窄协议清单含 episode scope、
+    §4.2 第 4 条原文一字不差、§7.3 验收含「Headless Gateway 覆盖」、§11 第 7 步
+    stub 先行——**无断章取义**，三处判断改动的 spec 依据全部属实 [读 spec 本体
+    @ d98a8a59]
+  - 提交/分支：`639bad78` = 5 文件 +237/−16；两个新提交后分支仍未 push；树干净 [复跑]
+  - 门禁：全量 **4982 passed / 4 skipped / 0 failed**（739.7s，并行复核拖慢属
+    检阅方环境）＝上轮亲验基线 4979 + 恰 3 条新增；layer_audit ERROR 0
+    @639bad78；可达性 12 工具通过；ruff 全绿；pre-commit RC=0 [全部复跑]
+  - 变异复核（两个都跑了，非抽样）：不把 handle 交给 session → 恰 3 条全红；
+    抽掉 `mark_running` → 恰 1 条红（state==running）[复跑，checkout 恢复，
+    终态树干净]
+  - 台账三处认领的代码事实：codex 仅 `run()`（:587，无 start/resume）+ 工厂
+    `benchmark_only`（:70/:186）+ 环境闸（:170）；网关 `__init__` 无 scope 参数
+    （:166-175，§8.2 缺口属实）；`SubResearchCoordinator` 构造点
+    `glm_agent_runtime.py:409`、lineage `sub_research.py:366` [读码]
+  - 同形主张：GLM 侧 :484-505 与 openai 侧序列逐行同构（mark_started →
+    begin_work("initial_run", allow_during_cancel=True) → end_work →
+    mark_running）[读码]
+  - `scope_attached=False` 如实收据：代码与用例双核，未造第二 Scope 构造点 [读码]
+  - 事故清理：主检出树该测试文件不在脏列表（与 HEAD 一致）；生产快照树
+    `cb09f895` status 干净（红线未破）；主树 `lessons_learned.md` 脏改动属年报
+    入库轨道，与本执行方无关；教训记忆 18:59 落盘且含处置纪律 [取证]
+  - 上轮指派 3/3：盖戳（bf991c69）、docstring 两处修复（639bad78 内，含
+    「谁传 memory_users_root 谁一并改守卫」警示与 :816 教训自注）、rebase 未动 [复跑/读码]
+- 标注（不影响判定）：
+  1. §2.1 括注「差额 30 个是 docs/」应为 31（76−45）。一字级。
+  2. main 已于 18:50 前移至 `cf86e891`（本轮窗口之外）：热点重叠新增
+     `test_agent_episode.py`；分叉表引用前照 §2.1 警告重测。
+- Round N+2 指派（依赖排序）：
+  1. **子研究后台分支排空轮**（spec §4.2.4 收尾）。开工先把设计点钉进台账再写码：
+     父 Handle 是否递入 `SubResearchCoordinator`、分支算父 Handle 工作单元还是
+     各持子 Handle、收据如何归并到**单一对账点**（§9.3 对账完整率的前提）。
+     约束：取消语义沿 §7.3（只挡未派发、排空已启动只读）；lineage 复用
+     `{task_id}:{branch_id}` 不另造；工作单元成对。冲突面事实（检阅方实测）：
+     main 至 `cf86e891` 未碰 `sub_research.py` / `glm_agent_runtime.py` /
+     `runtime_handle.py`，本轮不增加 rebase 负担。
+  2. **rebase 轮**（升格用户，见下）：若批准，独立成轮 = rebase + 全量基线重建
+     收据，不与功能轮混（采纳执行方回执理由 2）。
+  3. **第 5 步**（Durable/Live + Projection + 事件出口合流）：置于 rebase 之后
+     ——它要动 `agent_episode.py`，正是 main 持续在改的热点文件，rebase 前动它
+     等于自愿扩大冲突面。网关 episode scope 传递按台账留给第 7 步。
+- 升格用户事项：**rebase 时机批准**。建议顺序「子研究轮 → rebase 轮 → 第 5 步」，
+  依据：子研究轮与 main 现无重叠；rebase 独立成轮保住「差值恰为新增」判据；
+  第 5 步撞热点必须在 rebase 之后。
