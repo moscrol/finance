@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 4 步进行中）
+# 交接：dsh 吸收 P0 接缝实施（第 5 步进行中）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1-3 步完成并通过复验；第 4 步完成 1/2；有一个打回项待修
+状态：第 1-4 步完成；第 5 步 §10.5 #1–4 已完成，剩 `project_episode_progress` 半截；分支未 push、未合 main
 
 ---
 
@@ -439,9 +439,15 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
   `intelligence/runtime/continuous_turn_adapter.py:824` 的
   `[item.to_dict() for item in outcome.events]`；第 5 步把它收成一个 services 层函数，
   adapter / trace / 评测三个消费者共用，**不新建第二个投影口径**。
-- **D6 子研究对账**：§5.3 那三条要求逐条变断言（成对 / cancelled 可区分 /
-  `branch_*` 归属）。其中"cancelled 可区分"必须先给结果循环 payload 加
-  `error`（见 §5.3 第 2 条），那是本步唯一要动 `agent_episode.py` 的地方。
+- **D6 子研究对账【已裁定：`branch_*` 归 Durable】**：§5.3 三条已落成断言
+  （成对 / cancelled 可区分 / 车道归属）。"cancelled 可区分"给结果循环
+  payload 加了 `error`（照抄 `BranchResult.error`），这是本步唯一改动
+  `agent_episode.py` 发射形状的地方。整轮拒绝仍走兜底循环的 `reason`，
+  两条路径都经 `run()` 钉住。D6 依据见本轮小结：它们没有 durable 孪生
+  事件（不像 `tool/*` 对 `tool_request/result/error`），归 Live 会让重放
+  日志缺分支，配对对账无处可依，也违反「阶段事件不得成为金融字段唯一载体」
+  的精神。方向不对称与 D3 相同——先 Durable 是低代价可逆侧的反面：这里
+  本来就在 Durable，搬到 Live 才是破坏。
 
 ### 10.5 建议的实施顺序（每条可独立成轮）
 
@@ -467,8 +473,9 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
    即收口口径，消费者不需要改。**剩下的一半**：`project_episode_progress`
    （`runtime/episode_progress.py`，UI 进度那条投影）仍在 runtime 层，尚未并入；
    它无 runtime 依赖，可迁，但迁移会动 `api/app.py` 的 import，单独一轮做。
-4. 子研究三条对账断言（含结果循环 payload 补 `error`）；`branch_*` 的 Durable/Live
-   归属在这一步按 §5.3-3 单独裁定（D3 明确不覆盖它）。
+4. **✅ 已完成**（`cbe4df10`，2026-08-15）：§5.3 三条对账 + D6 裁定 `branch_*`
+   归 Durable。过程中投影层「未登记就报」抓到车道表漏了 `finish`，已穷尽补齐。
+   详见本轮小结。
 
 ---
 
@@ -901,9 +908,69 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5066 passed / 4 skipped /
   0 failed**（446.0s）；`layer_audit` ERROR 0；可达性 12 声明一致 / 0 够不着；
   ruff 全绿；pre-commit 随提交跑。变异读数是独立跑。
-- **下一轮**：§10.5 第 4 条（子研究三条对账断言，含结果循环 payload 补 `error`；
+-   **下一轮**：§10.5 第 4 条（子研究三条对账断言，含结果循环 payload 补 `error`；
   `branch_*` 的车道归属按 §5.3-3 在那一轮单独裁定），或先把上面那半条进度投影迁完。
   **新基线锚点：5066 / 4 / 0。**
+
+### 执行方小结 · Round「§10.5 第 4 条：子研究对账 + D6 + 车道表穷尽补齐」（2026-08-15，执行方）
+
+- **两个提交**：`cbe4df10`（对账断言 + D6 + 表补齐 + 7 条用例）+ 本提交（台账）。
+  分支仍**未 push、未合 main**，未动生产快照树。安全 ref
+  `prerebase/dsh-seams-e21c50bf` **未删**（条件已满足，等用户明示）。
+- **D6 裁定（执行方）：`branch_started` / `branch_completed` / `branch_failed` /
+  `branch_tool` 归 Durable。** 依据：
+  1. spec §7.4 金融约束——evidence hash/source/status/gaps 不得在 Projection
+     丢失；这四种事件承载证据来源、分支预算消耗和成对身份；
+  2. 它们**没有** durable 孪生事件（`tool/*` 对得上 `tool_request/result/error`，
+     `branch_*` 对不上任何东西）。归 Live 会让它们成为分支身份的唯一载体，
+     违反 D3 条件①的精神；
+  3. 方向不对称：它们今天已经在 Durable。搬到 Live 是对重放消费者的破坏；
+     保持 Durable 是零契约变化。归 Live 的后果可测——`project_durable_events`
+     会把它们当 Live 丢掉，配对对账字段全空。
+  D3 明确不覆盖 `branch_*`，本轮单独定。检阅可确认或推翻。
+- **§5.3 三条对账的兑现**：
+  1. 成对性从「兜底循环的实现细节」变成投影层断言
+     （`unpaired_branch_ids` / `orphan_branch_terminals`，两个方向）；
+  2. 单分支取消：结果循环 payload 照抄 `BranchResult.error`，不另造
+     cancelled 布尔位。真实 `run()` 入口一条断言它与
+     `branch_worker_exception:*` 可区分；
+  3. 整轮拒绝：空 `branches` + `refused_reason="cancelled"` 走兜底循环，
+     payload 带 `reason`。这条也经 `run()` 钉住——两条路径丢掉其中一条时
+     另一条仍绿，是上一条单独存在时的盲区。
+- **过程中被投影层第一天抓住的表缺陷**（这正是「未登记就报」要抓的）：
+  真实 `run()` 出口必有 `finish`，表里没有 → 投影会把正常 openai/codex
+  跑次标成 `unregistered_kinds`。穷尽扫三条 runtime 的发射 API
+  （`ledger.add` / `self.add` / `_add_event` / `EpisodeEvent` 字面量，
+  含 `if/else` 二选一；`layers.add` 这类集合操作不算）：
+  - 两个**假 kind**：`phase` / `reason` 是 payload 键，不是事件种类；
+  - 四个 continuous 真 kind：`finish`、`repair_reentry`、
+    `finalization_recovery_started`、`finalization_recovery_outcome`；
+  - 三个旁路 runtime 真 kind：`configure`（codex）、`tool_closed`（SDK）、
+    `root_budget_overdraft`（gateway）。
+  表注释从「`_EpisodeLedger.add` 今天发出的全部 kind」改成「凡是能进
+  `AgentOutcome.events`、再被 `project_durable_events` 投影的 kind」——
+  投影挂在 `ContinuousTurnAdapter` 上，三条 backend 共用。
+- **计数**：5066 → **5073**，k=7 恰为新增用例数（1 条穷尽性 + 4 条投影对账
+  + 2 条真实入口：单分支 `error` / 整轮 `reason`），**存量零改动**。
+- **变异（提交后、`git checkout --` 恢复，树干净）**：
+  1. 结果循环去掉 `error` → `test_cancelled_branch_carries_error...`
+     `KeyError: 'error'`；
+  2. 投影去掉成对跟踪 → unpaired / orphan 两条断言 `() == ('branch-…',)`；
+  3. 表里拿掉 `finish` → 恰报 `发射了但表里没有: ['finish']`；
+  4. 把 `branch_*` 挪到 Live → 分类抽样 + 投影 cancelled + 真实入口
+     三条同红（事件被当 Live 丢掉）。
+- ⚠️ **过程自报**：上一会话在未提交时用 `git checkout --` 做 `finish`
+  变异，把整张表修正还原成 HEAD 旧表。本轮先提交再变异，恢复后
+  `git status` 干净。教训没变：**未提交的实现不要用 checkout 做变异恢复。**
+- **收口时更新本账 L1-DSH**：本轮之后另开观测台薄账 PR，指针改为
+  §10.5 #1–4 已完成 / 进度投影半截未迁 / 未 push。不在本分支改
+  `docs/roadmap.md`（那是 main 上的薄账，本分支未合）。
+- **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5073 passed / 4 skipped /
+  0 failed**（549.3s）；`layer_audit` ERROR 0（扫 246 模块）；可达性
+  12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。变异读数是独立跑。
+- **下一轮**：第 3 条剩下的半条（`project_episode_progress` 迁到 services，
+  会动 `api/app.py` import），或第 6 步 ResearchProfile。不要两件叠在一轮。
+  **新基线锚点：5073 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
