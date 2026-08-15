@@ -16,6 +16,7 @@
 | Workbench run | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/` | 每个 run 一个目录 | `run.json` 保存运行元数据；`report.json` 保存结构化报告；`answer.md` 是最终展示正文 |
 | Runtime trace | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/trace.jsonl` | 一行一个控制面事件 | `step_id` 是原生定位符；`llm_call_ledger` 记录 provider 调用；`research_execution_budget` 记录 root 预算与工具尝试 |
 | Grounded shadow | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/grounded_composer_shadow.json` | 单个 JSON | `status/failure_reason/elapsed_ms` 描述 Grounded 链终态；只在阶段产出存在时保存 brief/raw/judge 内容 |
+| recall@k 标注集 | `intelligence/eval/cases/retrieval_recall_v1.jsonl` | 每行一个 case | 口径见 [retrieval-recall-at-k-contract.md](retrieval-recall-at-k-contract.md)：**生产 @k = 每通道 k**（judgments/corrections 各 k，并集可达 2k）。基线：`docs/verification/2026-08-15-recall-baseline.md` |
 
 ## 2. 已知字段陷阱
 

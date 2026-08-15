@@ -59,4 +59,9 @@
 
 ## 4. 执行记录（各 agent 追加）
 
-（空）
+- **S4** `bookgap/s4-recall-annotation-set`（2026-08-15）：20 条真实标注入
+  `intelligence/eval/cases/retrieval_recall_v1.jsonl`；口径文档收口 Q2（生产 @k=每通道 k）。
+  user_memory 15 条 recall@5=42.2% / hit@5=46.7%；experience_cards 3 条 hit@5=100% recall@5=83.3%；
+  kb_rag 2 条本窗与 S9 抢索引超时、记通道不可用非 0 分。08-09 S3 定性：**三已挂通道上是题目超纲**
+  （库中无该周可核验主因；因果通道 news_search 未挂尺）。基线
+  `docs/verification/2026-08-15-recall-baseline.md`。
