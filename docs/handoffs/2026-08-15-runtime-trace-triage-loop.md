@@ -649,3 +649,13 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
   **PASS，无需 revert**。
 - 整改：检阅方此后合并一律用**创建响应返回的 PR 号**，不得手写常量；
   连发操作里创建与合并不得共用一条命令。
+
+### Round 6 批 #3（2026-08-15，执行方 / worktree `fwp-wt-r6-batch3`）
+
+- 开批：dragon_seats 父进程 94429 于 18:05:27 退出后；8792=`fdb23114`/pid 70403/`source_dirty=false`。
+- 产物：`20260815T1005Z-r5-clean-baseline-3.json` `sha256=e475f3c8…f1ebf0`，28/28，`BATCH_RC=0`，探针 `finance_query=ok`。
+- R-10 **confirmed** N=3：B1 2/3、B2 3/3、B3 2/3、B4 2/3、B5 2/3、B6 0/3、B7 2/3、B8 2/3（只 eb>0）。
+- R-09 **confirmed**：21/21 末条 finish 带拒收字段；B8 `no_substantive_answer` 非空。不定 L0。
+- R-12 live 保持 confirmed。R-23 出数（14/15 修复路径 eb>0，零誊抄拒收）不写 A 行。R-25 零 `tool_exception`=unobserved。
+- RU-3：13 题 efh≠eb；`gap_zeroed=0`（连续三批）。B4 验收 timeout vs 仓外已交付，不改 R-10。
+- 报告：`docs/verification/2026-08-15-r6-clean-baseline-3.md`。零代码。8792 未切。
