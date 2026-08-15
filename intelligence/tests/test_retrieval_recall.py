@@ -4,9 +4,13 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from intelligence.eval.retrieval_recall import (
     evaluate_cases,
+    experience_cards_retriever,
+    kb_rag_retriever,
     load_cases,
     render_report,
     user_memory_retriever,
@@ -75,6 +79,95 @@ class UserMemoryRetrieverTests(unittest.TestCase):
             )
             ids = user_memory_retriever("液冷渗透率怎么看", "液冷", None, 5, users_root=root)
         self.assertNotIn("j1", ids)
+
+
+class ExperienceCardsRetrieverTests(unittest.TestCase):
+    def _make_cards(self, root: Path) -> None:
+        _write_jsonl(
+            root / "experience_cards.jsonl",
+            [
+                {"ts": "e1", "question": "深挖飞凯材料", "applies_to": ["个股深挖"]},
+                {"ts": "e2", "question": "液冷温控怎么看", "applies_to": ["题材方向判断"]},
+                {"ts": "e3", "question": "深挖飞凯材料（旧版）", "applies_to": ["个股深挖"],
+                 "invalidated": "坏指标"},
+            ],
+        )
+
+    def test_relevant_card_ts_and_invalidated_skipped(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_cards(root)
+            ids = experience_cards_retriever("帮我深挖飞凯材料", None, None, 3, users_root=root)
+        self.assertIn("e1", ids)
+        # invalidated 卡不参与召回（load_cards 已过滤，尺子必须继承该语义）
+        self.assertNotIn("e3", ids)
+
+    def test_k_limits_returned_cards(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_cards(root)
+            ids = experience_cards_retriever("帮我深挖飞凯材料", None, None, 1, users_root=root)
+        self.assertLessEqual(len(ids), 1)
+
+
+class KbRagRetrieverTests(unittest.TestCase):
+    def _hit(self, rel: str) -> SimpleNamespace:
+        return SimpleNamespace(file_path=rel)
+
+    def test_dedup_order_and_trim_to_k(self) -> None:
+        res = SimpleNamespace(
+            ok=True,
+            warning="",
+            hits=[self._hit("wiki/a.md"), self._hit("wiki/a.md"),
+                  self._hit("wiki/b.md"), self._hit("wiki/c.md")],
+        )
+        with patch("intelligence.services.kb_rag.retrieve", return_value=res) as mocked:
+            ids = kb_rag_retriever("q", None, None, 2, kb_wiki="/tmp/wiki")
+        self.assertEqual(ids, ["wiki/a.md", "wiki/b.md"])
+        self.assertEqual(mocked.call_args.kwargs["k"], 2)
+
+    def test_unavailable_channel_degrades_to_empty(self) -> None:
+        res = SimpleNamespace(ok=False, warning="索引不可用", hits=[])
+        with patch("intelligence.services.kb_rag.retrieve", return_value=res):
+            ids = kb_rag_retriever("q", None, None, 3, kb_wiki="/tmp/wiki")
+        self.assertEqual(ids, [])
+
+
+class ChannelFilterTests(unittest.TestCase):
+    def test_channel_filter_and_default_channel(self) -> None:
+        with TemporaryDirectory() as tmp:
+            p = Path(tmp) / "cases.jsonl"
+            p.write_text(
+                '{"case_id": "m1", "query": "液冷", "relevant": ["j1"]}\n'
+                '{"case_id": "k1", "channel": "kb_rag", "query": "液冷", "relevant": ["wiki/a.md"]}\n',
+                encoding="utf-8",
+            )
+            um = load_cases(p, channel="user_memory")
+            kb = load_cases(p, channel="kb_rag")
+            all_cases = load_cases(p)
+        # 未写 channel 的 case 按 user_memory 算（兼容既有夹具）
+        self.assertEqual([c["case_id"] for c in um], ["m1"])
+        self.assertEqual([c["case_id"] for c in kb], ["k1"])
+        self.assertEqual(len(all_cases), 2)
+
+
+class CasesV1Tests(unittest.TestCase):
+    """钉住 S4 标注集本体：20 条、通道配比、每条带标注理由与出处。"""
+
+    CASES = Path(__file__).resolve().parents[1] / "eval" / "cases" / "retrieval_recall_v1.jsonl"
+
+    def test_v1_shape_and_provenance(self) -> None:
+        cases = load_cases(self.CASES)
+        self.assertEqual(len(cases), 20)
+        by_channel: dict[str, int] = {}
+        for c in cases:
+            by_channel[str(c.get("channel"))] = by_channel.get(str(c.get("channel")), 0) + 1
+            self.assertTrue(str(c.get("note") or "").strip(), c["case_id"])
+            self.assertTrue(str(c.get("source_ref") or "").strip(), c["case_id"])
+        self.assertEqual(
+            by_channel,
+            {"user_memory": 15, "experience_cards": 3, "kb_rag": 2},
+        )
 
 
 class EvaluateCasesTests(unittest.TestCase):
