@@ -26,8 +26,8 @@
 
 | 平面 | 回答什么 | 数据从哪来 |
 |---|---|---|
-| **参照系**(北极星) | 什么是好的设计;我们现在在七层生命周期的哪一层;每层离"好"多远 | 七层×资产映射表(§3,手写、月级);章审计总评;bookgap S 状态 |
-| **推进**(战役) | 本周合了什么;哪些战役 in_flight/blocked;下一个用户决策是什么 | roadmap L0/L1(手写薄账、周级)+ L2 全部生成(git/PR/账本) |
+| **参照系**(北极星) | 什么是好的设计;未闭合的最低层是哪一层;每层离"好"多远 | 七层×资产映射表(§3,手写、月级);章审计总评;bookgap S 状态 |
+| **推进**(战役) | 本周合了什么;哪些战役 in_flight/blocked;下一个用户决策是什么 | roadmap L0/L1(手写薄账、周级)+ L2 全部生成(本机 worktree / 仓 PR 史分栏) |
 | **运行**(读数) | 生产健康吗;交付率曲线在动吗;量具命中率如何 | `/api/health`、`intelligence/eval/runs/*.json`、账本 outcome 统计 |
 
 反腐烂三原则(本 spec 的立法层,执行不得违反):
@@ -40,6 +40,16 @@
    roadmap,`--check` 非零退出,挂进合并前本地 CI 替身。列名与枚举值冻结在
    本 spec,各 agent 不得自拟(同账本「列名不自拟」纪律)。
 
+立法三句(与三原则同级,见 `docs/adr/0001-observatory-legislative-core.md`):
+
+1. **未闭合的最低层**:五问①不问「哪层质量最差」。沿 P0→P6 找第一根未达
+   该层完成判据的 rung,只标这一个指针。禁止跨层打分或无出处红黄绿。
+   下层未闭合时,上层资产可以在场,但闭合列记 `未评`,不得宣称该层已闭合。
+2. **进步 ≠ 合并**:任意合并都出现在「本周合了什么」。只有声称的进步必须
+   留下 L1 翻转或曲线位移;无位移合并只做可见,`--check` 不因此失败。
+3. **L2 分栏**:worktree / ahead 是本机投影;PR 史是仓全局。推进平面 L2
+   必须分「本机 / 仓」两栏,禁止混成一张表假装全局。
+
 ## 2. 数据契约(全部已存在,写死解析口径)
 
 | 源 | 路径 | 取什么 | 口径 |
@@ -49,7 +59,7 @@
 | 验收批 | `intelligence/eval/runs/*.json` | 每批交付率(evidence_bound>0 计数)、efh≠eb 数、slips 数、sha256 | 只读整批 JSON;批次按 `generated_at` 排序成曲线 |
 | 生产身份 | `http://127.0.0.1:8792/api/health` | source_revision / dirty / pid | 与 main tip 比对得「生产落后 N 个合并」 |
 | PR 史 | gitea API `/repos/a77/finance-workspace-private/pulls?state=closed` | 最近合并列表(编号/标题/时间) | 凭证走 osxkeychain,token 不落盘 |
-| worktree 态 | `git worktree list` + 各分支 `ahead` 计数 | L2 在途任务视图 | 分支名前缀即方向(`fix/trk*`/`bookgap/*`/`docs/*`) |
+| worktree 态 | `git worktree list` + 各分支 `ahead` 计数 | L2 **本机**在途视图 | 本机投影,不是仓全局;与 PR 史分栏,禁止混表 |
 | 轮次记录 | `docs/handoffs/2026-08-15-runtime-trace-triage-loop.md` 附录 | 最近轮次与判定 | 只取「### Round」标题行与判定行 |
 
 新增台账只有一份:`docs/roadmap.md`(L0/L1 手写薄账)。**建档时必须在
@@ -82,15 +92,16 @@ in_flight/blocked 的战役数**。禁止出现无出处的红黄绿。
   (列名冻结:`ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做`,
   状态枚举:`planned / in_flight / blocked_on_user / done / dropped`)、
   决策队列(等用户裁决事项,含提出日期)。
-- `ledger-map.md` 登记;两份母本 handoff(triage-loop、dsh)各加一行
-  「收口时更新 roadmap 对应行」。
+- `ledger-map.md` 登记;triage-loop 母本追加「收口时更新 roadmap 对应行」。
+  dsh 母本 handoff 现只在未合入分支 `feat/dsh-absorption-p0-seams`,本 Phase
+  不把该文件造进 main;该分支下次追加必须含「收口时更新 roadmap L1-DSH」。
 - 新 handoff 头部约定:必须带 `roadmap_ref: <L1-ID>` 一行(闸只查在场性)。
 
 ### Phase 1 · 生成器 + 检查闸(一个执行方轮次)
 
 - `scripts/progress_observatory.py`(新,stdlib-only):
   - `render`:按 §2 契约聚合,输出单文件 `var/observatory/index.html`
-    (gitignored)+ 终端摘要;三平面各一节,L2 视图全生成。
+    (gitignored)+ 终端摘要;三平面各一节,L2 分「本机 / 仓」两栏全生成。
   - `--check`:schema 校验(roadmap 列名/枚举)+ staleness 校验(§1 原则 3,
     含 inflight/main.md 声称的 8792 revision vs live health 对账)+
     数据源缺失响亮失败。挂进合并前本地 CI 替身清单(不动
@@ -115,7 +126,7 @@ in_flight/blocked 的战役数**。禁止出现无出处的红黄绿。
 ## 5. 验收判据(预注册)
 
 1. **五问验收**(核心):用户不问任何 agent,打开观测台 60 秒内能回答——
-   ① 现在最弱的是哪一层;② 本周合并了什么;③ 账本还有几条 open;
+   ① 现在未闭合的最低层是哪一层;② 本周合并了什么;③ 账本还有几条 open;
    ④ 生产落后 main 几个合并;⑤ 下一个等我裁决的事项是什么。
    验收方式:检阅方按五问逐项截图对答案。
 2. 生成器幂等(连跑两次 diff 为空)、只读(仓内零写入,除 gitignored 产物)、
@@ -128,8 +139,9 @@ in_flight/blocked 的战役数**。禁止出现无出处的红黄绿。
 ## 6. 冲突矩阵
 
 - 纯新增:`docs/roadmap.md`、`scripts/progress_observatory.py`、测试与夹具。
-- 只追加:`ledger-map.md` 一行、两份母本 handoff 各一行——按「共享文件只
-  追加」纪律,后合并者 rebase 保留双方行。
+- 只追加:`ledger-map.md` 一行、triage-loop 母本一行。dsh 母本不在 main,
+  不在本 PR 造文件;债记在 `docs/roadmap.md` 头注。共享文件只追加,后合并者
+  rebase 保留双方行。
 - **不碰**:`.pre-commit-config.yaml`(dsh 在途)、`intelligence/` 任何文件、
   `episode_semantic_verifier.py`(R-24)、`agent_episode.py`(dsh/S1)。
 - 与 S1–S10 全部可并行。
