@@ -170,3 +170,60 @@ def append_contract_stub(answer: str, missing: tuple[str, ...]) -> str:
         head = body[: -len(disclaimer)].rstrip()
         return f"{head}\n\n{stub}\n\n{disclaimer}"
     return f"{body}\n\n{stub}"
+
+
+# —— Q4（bookgap S8）：契约缺件的程序核对——「能程序判定的约束进程序，不堆 prompt」。
+# 三件套（四态对照/无基线声明、TTL、下期关注）是可确定检查的输出结构，此前只有
+# prompt 约束 + 可见补全段（append_contract_stub），live 遵守不全且缺件不进任何
+# 机器可读通道。这里把缺件映射成 ``repair_coordinator.missing_outputs`` 词表里的
+# 输出项 id（直接可并入 ``build_repair_goal(missing_outputs=...)`` 的缺口修复环），
+# 并给出 EVAL 可读收据。本条只落程序核对与收据（08-13 质检判的 1 档：小补丁+单测）；
+# episode 运行时接线是 2 档，且落点 agent_episode/episode_protocol 是在飞保留缝
+# （索引 §2 冲突矩阵），归缝持有者。prompt 原文一字不动。
+TRACK_CONTRACT_OUTPUT_IDS: dict[str, str] = {
+    "quad_or_baseline": "track_quad_or_baseline",
+    "ttl": "track_ttl",
+    "next_watch": "track_next_watch",
+}
+
+
+def contract_missing_outputs(
+    answer: str,
+    *,
+    query: str = "",
+    question_type: str | None = None,
+) -> tuple[str, ...]:
+    """程序核对：跟踪题的契约缺件 → missing_outputs 词表输出项 id。
+
+    非跟踪意图恒返回空元组（普通问答零改动）。返回值形状与
+    ``repair_coordinator.build_repair_goal(missing_outputs=...)`` 兼容。
+    """
+    if not parse_track_intent(query, question_type):
+        return ()
+    return tuple(
+        TRACK_CONTRACT_OUTPUT_IDS[key]
+        for key in missing_contract_elements(answer)
+        if key in TRACK_CONTRACT_OUTPUT_IDS
+    )
+
+
+def contract_receipt(
+    answer: str,
+    *,
+    query: str = "",
+    question_type: str | None = None,
+) -> dict[str, object]:
+    """EVAL 可读收据：``missing_outputs`` 字段恒在场（空列表 = 契约齐/非跟踪题）。
+
+    只含 JSON 原生类型，可直接落 ledger/trace/eval 载荷；``track_intent``
+    区分「契约齐」与「本题不适用契约」两种空缺件。
+    """
+    track_intent = parse_track_intent(query, question_type)
+    missing = contract_missing_outputs(
+        answer, query=query, question_type=question_type
+    )
+    return {
+        "check": "track_contract",
+        "track_intent": track_intent,
+        "missing_outputs": list(missing),
+    }
