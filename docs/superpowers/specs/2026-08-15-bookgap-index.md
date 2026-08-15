@@ -34,6 +34,7 @@
 | S7 | 行情同步写锁消除 | 批 #2 塌方根因（今晨实测） | finance | `market_feature_store/` | **P0** |
 | S8 | 记忆质检 Q3/Q4/Q7/Q8 清扫 | 质检遗留 | finance | services 记忆/时间线 | P2 |
 | S9 | KB Hybrid 检索加 rerank + 评测闭环 | 第 3 章；KB 学习重点自述 | kb | KB `scripts/` + `.rag_index` | P1 |
+| S10 | branch_tool 激活诊断（子研究分支为何从未被走进） | 第 10 章 + 马书 ch20；08-14 实测三次未进路径 | finance | Phase A 纯诊断（EVAL_ONLY）；Phase B 视 PRIMARY 而定 | P2 |
 
 ## 2. 冲突矩阵（派工前必读）
 
@@ -45,6 +46,8 @@
 |---|---|---|
 | S1 | `feat/dsh-absorption-p0-seams`（dsh 吸收 P0）落地或确认未开工 | 同文件 `agent_episode.py`（该 spec §11 第 2–5 步）。开工前 `git log gitea/feat/dsh-absorption-p0-seams` 查状态；若未开工，先到先得并知会对方 rebase |
 | S2、S3 | R-24（E-007 修复，裁决在下个部署窗）落地后 | 同文件 `episode_semantic_verifier.py`。S2 只加回查钩子、S3 只改 `_judge_window` 推导，函数不相交，S2/S3 之间可先后紧邻，但都别与 R-24 并行 |
+| S10 Phase A | 无（纯诊断可即开，live 批遵守锁） | 判据 H2（预算不可见抑制分支）不许在 S1 落地前结案为 PRIMARY，见 spec §4 |
+| S10 Phase B | S10 Phase A 出 PRIMARY + dsh 第 5 步与 S1 落地后 | 若动 `agent_episode.py` 与两者同文件；`NO_SYSTEM_FIX` 结论则无 Phase B |
 
 **在飞工作占用的缝（所有 spec 都不许碰）**：
 `intelligence/eval/acceptance.py`（triage loop 批 #3 读数中）、
@@ -111,3 +114,20 @@
 - 验收 3：gate 拒绝留档带理由；durable 只经 `record_validated_*`（拔掉写入口或 `promotion_metadata` 则零 durable 写）。source_ref：`test_gate_rejection_is_archived_with_reason` / `test_durable_writes_only_go_through_gate_api`。
 - 验收 4：给 accepted 经验，`trace --candidate-id|--sha|--content` 一步查到来源 ids。source_ref：`test_trace_by_candidate_id_and_content_sha` / `test_cli_run_trace_roundtrip`。
 - 边界：未改 `memory_gate.py` / `memory_status.py` / 检索器；候选不自动 accepted。单测 16 passed（含 S8 的 main 上重跑）。本分支为 #34 在 S7/S4 合入后的 rebase 副本（原分支不强推）。
+
+### S9 · KB Hybrid + rerank 评测闭环 ｜ 2026-08-15 ｜ 分支 feat/bookgap-s9-rerank-eval
+
+- 仓：knowledge-base-private。`--rerank on/off` / `RAG_RERANK`，默认 off；权重不进 git（`download_reranker.py` + sha256）。
+- 四臂（`queries.real.jsonl` n=40，干净 `.rag_index`）：bm25 hit@5=0.85 / dense 0.825 / hybrid **0.80** / rerank **0.65**（回退 9 / 改善 3）。
+- 结论：**不上线**。rerank_ms_p50=62.5s（CPU；16GB 避 MPS+双模型 swap）。8792 保持 off。
+- source_ref：KB PR http://127.0.0.1:3300/a77/knowledge-base-private/pulls/12 ；`eval/rerank-ab-20260815.md` sha256 `f64e7d8d373fa6dd8f948c3fe502a0f28e6801311cf103d7d460bb1555934aa1`。
+- 判据：1 否定结论合格 / 2 超 500ms 已给降级 / 3 off 旁路单测 PASS / 4 选型文档 PASS / 5 权重不进 git。
+- 质检 2026-08-15 23:13：独立重算 hit@5（32/40 vs 26/40）、JSON sha256、单测 24、默认 off、权重未入 git、8792 仍 `fdb231`。**PASS**，合入后仍不上线。
+
+### S10 · branch_tool 激活诊断 Phase A ｜ 2026-08-15 ｜ 分支 eval/s10-branch-activation
+
+- 形态：EVAL_ONLY。报告 `docs/verification/2026-08-15-s10-branch-activation.md`；夹具 `intelligence/eval/cases/s10_branch_eligible_tasks.json`（`frozen_at=2026-08-15T23:42:08+08:00`，N=5）。
+- 冻结窗调用率 1/5（B4=`run_20260815_182037_434217` 9 次 `branch_tool`）。08-14「三次未进路径」不能当全集基线。
+- 结论：`ROOT_CAUSE_NOT_CONFIRMED`。H1/H3/H4/H5 REJECTED；H2 INCONCLUSIVE（S1 前不得 PRIMARY）。未改 prompt / 工具描述 / 路由 / `episode_semantic_verifier.py`。
+- 账本：`R-20260815-26`（EVAL_ONLY，pending）。Phase B 候选 R-027/R-028 未进 Open。
+- 判据：1 失败标准先冻结后取证 / 2 假设逐条判定且未硬选 PRIMARY / 3 H2 未结案 / 5 未碰保留地。

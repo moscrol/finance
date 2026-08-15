@@ -46,6 +46,9 @@ venv/
 # Node
 node_modules/
 
+# 观测台生成物（只读幂等，不入库）
+var/observatory/
+
 # Logs/temp
 *.log
 tmp/

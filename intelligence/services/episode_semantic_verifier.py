@@ -20,7 +20,7 @@ import json
 import os
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
@@ -30,6 +30,7 @@ from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
     ModelTurn,
+    OutputEvidenceBinding,
 )
 from intelligence.services.episode_output_substance import (
     lost_required_output_substance,
@@ -1588,6 +1589,7 @@ class SemanticEpisodeVerifier:
     ) -> SemanticEpisodeOutcome:
         """Keep reviewed remainder and expose only the deleted slot as a gap."""
 
+        verified = _shrink_verified_for_marker_loss(verified, output_ids)
         public = _sanitize_public_answer(
             remove_lost_output_scaffolding(
                 verified.outcome.draft,
@@ -1749,6 +1751,83 @@ def _latest_evidence_date(evidence: tuple) -> str:
 
 
 _ISO_DATE_RE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
+_MARKER_LOSS_GAP = "semantic repair removed required output"
+
+
+def _shrink_verified_for_marker_loss(
+    verified: VerifiedEpisodeOutcome,
+    output_ids: tuple[str, ...],
+) -> VerifiedEpisodeOutcome:
+    """Contract lost public cells so they are no longer structurally fulfilled."""
+
+    lost = tuple(
+        dict.fromkeys(
+            output_id.strip() for output_id in output_ids if output_id.strip()
+        )
+    )
+    if not lost:
+        return verified
+
+    known_outputs = {item.output_id for item in verified.completion.outputs}
+    known_bindings = {item.output_id for item in verified.outcome.bindings}
+    actionable = tuple(
+        output_id
+        for output_id in lost
+        if output_id in known_outputs or output_id in known_bindings
+    )
+    if not actionable:
+        return verified
+
+    actionable_set = frozenset(actionable)
+    new_outputs = tuple(
+        replace(
+            item,
+            status="missing",
+            evidence_ids=(),
+            gap=item.gap or _MARKER_LOSS_GAP,
+        )
+        if item.output_id in actionable_set
+        else item
+        for item in verified.completion.outputs
+    )
+    new_bindings: list[OutputEvidenceBinding] = []
+    seen: set[str] = set()
+    for binding in verified.outcome.bindings:
+        seen.add(binding.output_id)
+        if binding.output_id in actionable_set:
+            new_bindings.append(
+                replace(
+                    binding,
+                    evidence_hashes=(),
+                    gap=binding.gap or _MARKER_LOSS_GAP,
+                )
+            )
+        else:
+            new_bindings.append(binding)
+    for output_id in actionable:
+        if output_id not in seen:
+            new_bindings.append(
+                OutputEvidenceBinding(output_id, (), _MARKER_LOSS_GAP)
+            )
+
+    extra_issues = tuple(
+        f"{_MARKER_LOSS_GAP}: {output_id}" for output_id in actionable
+    )
+    return replace(
+        verified,
+        outcome=replace(verified.outcome, bindings=tuple(new_bindings)),
+        completion=replace(
+            verified.completion,
+            status="partial",
+            outputs=new_outputs,
+            factual_grounding="partial",
+            task_coverage="partial",
+            business_status="partial",
+        ),
+        verified_status="partial",
+        missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *actionable))),
+        issues=tuple(dict.fromkeys((*verified.issues, *extra_issues))),
+    )
 
 
 def _gap_task_context(frame: TaskFrame) -> str:

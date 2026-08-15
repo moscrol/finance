@@ -38,6 +38,7 @@ agent-run-triage 的 L1 九步（`triage-l1-9`），归一化入口
   ```sh
   cd ~/finance-workspace-private
   .venv-workbench/bin/python -m ruff check . && .venv-workbench/bin/python -m pytest -q
+  .venv-workbench/bin/python scripts/progress_observatory.py --check
   cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build
   ```
   五道 pre-commit 门禁照常拦，不得绕过（`--no-verify` 禁用）。
@@ -668,3 +669,8 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
 - 标注：原 R-09「≥3 同形样本」未凑齐哈希拒收形，本轮 handoff 改以字段在场性收口——可接受。检阅方计 rejection 在场 22（含 B4 仓外）vs 执行方 21，口径差已点名。B4 timeout 丢 run_id 不改 R-10。
 - 下轮：R-25 等自然 `tool_exception`；R-24 仍暂缓至独立部署窗；S9 四臂评测现可开（批 #3 已结束）；8792/S7 切换升格用户。
 - 合并：#42（创建响应编号）。不切生产。
+
+### 观测台约定（2026-08-15，检阅方）
+
+- 收口时更新 `docs/roadmap.md` 对应 L1 行（本循环当前触及 `L1-R24` / `L1-8792`；账本轮次本身走运行平面，不在 L1 手写任务）。
+- 新 handoff 头部必须带 `roadmap_ref: <L1-ID>` 一行。

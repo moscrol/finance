@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-15（Round 6 批 #3 检阅 PASS：R-10/R-09/R-12 维持；检阅方收口 `R-20260815-23`；R-25 仍 unobserved——8792=`fdb23114`/pid 70403）
+- last_updated: 2026-08-16（R-24 部署窗已开，8792=`437cd5e9`，outcome 仍 `pending` 等 live 同形批；S10 Phase A：`R-20260815-26` 维持。Round 6 批 #3 检阅 PASS 维持）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -30,8 +30,9 @@
 | `R-20260815-03` | 标准 M1 分诊 F-003 | `DATA_CONTRACT_FIX` | `answer_coverage` 与 `structural_verifier` 对同一 `output_id` 改用同一判据函数后，本轮 9 个 run 中的 6 处冲突全部消失或转为显式 warning；B8 的 `evidence_boundary` 不再同时是 present 与 missing | 用本轮冲突的 6 个 run 作回归夹具，断言无静默分歧 | `pending` |
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |
-| `R-20260815-24` | 轨道 A Round 5 M1 F-001（E-007） | `DATA_CONTRACT_FIX` | marker-loss 删除某 required output 并写入 `gap_output_ids` 时，同步收缩/清空该格绑定或标 structural missing 后：同形 case（hashed fulfilled + 对这些 ID 做 marker-loss）不得再同时出现「结构 fulfilled + `gap_output_ids` 含这些 ID + `citations=0`」。要么剩余 fulfilled 格仍被引用且 `evidence_bound>0`，要么被删格不再 fulfilled。再出现 B3#2 分道即 **reproduces → refuted**。不给已删正文发引用 | **本轮只提案、不实现**（根在 `episode_semantic_verifier._marker_loss_partial_public`，不在本轮可改名单；避免与 R-23 部署窗叠变量）。检阅方裁决实现后用 B3#2 冻结字段作夹具；C6 部分 marker-loss 仍须交付 `direct_answer` 引用 | `pending` |
+| `R-20260815-24` | 轨道 A Round 5 M1 F-001（E-007） | `DATA_CONTRACT_FIX` | marker-loss 删除某 required output 并写入 `gap_output_ids` 时，同步收缩/清空该格绑定或标 structural missing 后：同形 case（hashed fulfilled + 对这些 ID 做 marker-loss）不得再同时出现「结构 fulfilled + `gap_output_ids` 含这些 ID + `citations=0`」。要么剩余 fulfilled 格仍被引用且 `evidence_bound>0`，要么被删格不再 fulfilled。再出现 B3#2 分道即 **reproduces → refuted**。不给已删正文发引用 | **离线已绿**（2026-08-15）：`_shrink_verified_for_marker_loss` 在 `_marker_loss_partial_public` 两条返回路径上收缩 `semantic.verified`（lost 格 `missing`、绑定清空并补 gap）。夹具 `test_marker_loss_shrinks_b3_hashed_cells_and_clears_bindings`、`test_marker_loss_keeps_remaining_hashed_cell_on_partial_c6_shape`、`test_marker_loss_ignores_output_ids_absent_from_contract`。确认口径是 `semantic_verifier.verified.completion`，不是 `episode_fulfilled_hashed`（该仪器仍读 `structural_verifier` + 顶层 `outcome.bindings`，本轮不改 `acceptance.py`）。**部署窗已开**（2026-08-16）：8792=`437cd5e9aa1a` / `source_dirty=false` / `code_matches_repo=true` / 加载树含 `_shrink_verified_for_marker_loss`。live 臂仍等下一批同形 case；**切窗本身不得写 confirmed** | `pending` |
 | `R-20260815-25` | 轨道 A Round 5 F-003 | `HARNESS_FIX` | 本修复部署后：新的 `tool_error` 且 `error=tool_exception` 的事件 `detail` 非空，形如 `ClassName: first line`，且不含 `/Users/` 或 `/home/`。再出现 `detail=""` 即 **reproduces → refuted**。不要求数据层已修；A 组仍可抛 `tool_exception` | **离线已绿**：`test_tool_exception_is_traced_and_model_can_finish_same_episode`、`test_tool_exception_detail_strips_home_path_and_stays_nonempty`、`test_public_tool_exception_detail_keeps_class_and_first_line`；timeout 夹具仍禁止 raw sentinel。live 臂等部署后下一批 | `pending` |
+| `R-20260815-26` | S10 Phase A 标准 M1 F-001 | `EVAL_ONLY` | 冻结谓词与 N=5 题写入 `intelligence/eval/cases/s10_branch_eligible_tasks.json` 后：Phase B / S1 A/B 必须引用该夹具，不得改用 08-14「三次现场零调用」当基线。夹具 `frozen_at` 与五题原文保持不变；生产 prompt / 路由 / `episode_semantic_verifier.py` 本行不改 | 夹具存在且五题与报告 Freeze 表逐字相同；S10 报告 `validate-report.sh` RC=0。Phase B 若开，另用 `R-20260815-27` / `-28` 候选行，不把本行当 ROUTING 已确认 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -264,7 +265,16 @@ PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`（终局契
 [`docs/verification/2026-08-15-trka-r5-e007-split.md`](verification/2026-08-15-trka-r5-e007-split.md)，
 PRIMARY=`HARNESS/synthesize/orchestration-related-errors-category-reasoning-mismatch`
 （`_marker_loss_partial_public` 删已 fulfilled 格正文并设 `gap_output_ids`，不收缩绑定）。
-本轮只提案，outcome 保持 `pending`。不改 adapter 去给已删正文发引用。
+2026-08-15 特性分支 `fix/r24-marker-loss-binding` 已实现收缩：lost 格在
+`semantic.verified` 上改为 `missing` 并清空绑定哈希。outcome 仍 `pending`，
+等独立部署窗 + 下一批 live。不改 adapter 去给已删正文发引用；不改
+`acceptance.py` 的 `episode_fulfilled_hashed` 口径（该字段继续读结构快照，
+历史夹具 `b3-r4-batch2-episode.json` 的 efh=2 vs eb=0 保持冻结）。
+
+`R-20260815-26` 来自 S10 Phase A 标准 M1
+[`docs/verification/2026-08-15-s10-branch-activation.md`](verification/2026-08-15-s10-branch-activation.md)，
+outcome=`ROOT_CAUSE_NOT_CONFIRMED`（冻结集调用率 1/5，原「零调用」未复现；三条机制未分出全班 PRIMARY）。
+本行只锁定评测夹具。报告里的 `R-027`/`R-028` 是 Phase B 候选，未进 Open——未确认根因不得把 ROUTING / SYSTEM_PROMPT 写成已确认预测。
 
 `R-20260815-25` 来自同一份 Round 5 报告的并行缺陷 F-003（`tool_exception` 吞 `detail`），
 `HARNESS/observe/context-handling-error-category-context-handling-failures`。
