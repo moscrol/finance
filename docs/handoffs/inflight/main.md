@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-- **8792 = `0e392541`**（含 #323 熔断 1→2、#326 探针自愈、#327 缺口镜像），
+- **8792 = `fdb23114`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准），
   rag ready。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
 - **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
   消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
