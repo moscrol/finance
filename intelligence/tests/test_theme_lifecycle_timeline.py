@@ -13,12 +13,15 @@ from intelligence.services.theme_lifecycle_timeline import (
     STAGE_INCUBATION,
     STAGE_MAIN_UP,
     STAGE_REFLOW,
+    StageSegment,
     derive_stages,
     is_double_red,
     lifecycle_markdown,
     load_message_dates,
     load_theme_daily_rows,
     load_theme_timeline_artifact,
+    merge_short_phases,
+    segment_calendar_days,
 )
 
 try:
@@ -96,7 +99,10 @@ class DeriveStagesTests(unittest.TestCase):
         rows.append(_row(18))
 
         message_dates = (_day(0), _day(1))
-        segments, gaps = derive_stages(rows, message_dates=message_dates)
+        # 状态机单测关闭短段合并（min_phase_days=1），与 Q8 后处理正交
+        segments, gaps = derive_stages(
+            rows, message_dates=message_dates, min_phase_days=1
+        )
         stages = [s.stage for s in segments]
         self.assertEqual(
             stages,
@@ -133,7 +139,7 @@ class DeriveStagesTests(unittest.TestCase):
         rows += [_row(11 + k) for k in range(6)]               # 继续断红
         rows.append(_dr(18))                                   # 又一次孤立
         rows.append(_row(19))
-        segments, _ = derive_stages(rows)
+        segments, _ = derive_stages(rows, min_phase_days=1)
         stages = [s.stage for s in segments]
         self.assertNotIn(STAGE_REFLOW, stages)
         self.assertEqual(segments[-1].stage, STAGE_EBB)
@@ -143,24 +149,24 @@ class DeriveStagesTests(unittest.TestCase):
         rows += [_row(4 + k) for k in range(6)]
         rows.append(_dr(10))
         rows.append(_row(11))
-        segments, _ = derive_stages(rows, reflow_confirm_days=1)
+        segments, _ = derive_stages(rows, reflow_confirm_days=1, min_phase_days=1)
         self.assertIn(STAGE_REFLOW, [s.stage for s in segments])
 
     def test_mainup_requires_board_lift_when_data_present(self) -> None:
         # 连续双红 ≥3 但连板高度不抬升 → 停在发酵
         rows = [_dr(i, boards=3.0) for i in range(6)] + [_row(6, boards=3.0)]
-        segments, _ = derive_stages(rows)
+        segments, _ = derive_stages(rows, min_phase_days=1)
         self.assertEqual([s.stage for s in segments], [STAGE_FERMENT])
 
     def test_mainup_waived_without_board_data(self) -> None:
         rows = [_dr(i) for i in range(6)] + [_row(6)]
-        segments, gaps = derive_stages(rows)
+        segments, gaps = derive_stages(rows, min_phase_days=1)
         self.assertIn(STAGE_MAIN_UP, [s.stage for s in segments])
         self.assertTrue(any("连板高度数据缺失" in g for g in gaps))
 
     def test_no_message_dates_declares_incubation_gap(self) -> None:
         rows = [_dr(i) for i in range(4)]
-        segments, gaps = derive_stages(rows)
+        segments, gaps = derive_stages(rows, min_phase_days=1)
         self.assertNotIn(STAGE_INCUBATION, [s.stage for s in segments])
         self.assertTrue(any("酝酿段无法判定" in g for g in gaps))
 
@@ -168,7 +174,7 @@ class DeriveStagesTests(unittest.TestCase):
         # 断红但缩量 → 不判分歧，走退潮路径
         rows = [_dr(i, amount=1000.0) for i in range(4)]
         rows += [_row(4 + k, amount=400.0, diff=-3.0) for k in range(6)]
-        segments, _ = derive_stages(rows)
+        segments, _ = derive_stages(rows, min_phase_days=1)
         stages = [s.stage for s in segments]
         self.assertNotIn(STAGE_DIVERGENCE, stages)
         self.assertIn(STAGE_EBB, stages)
@@ -177,7 +183,7 @@ class DeriveStagesTests(unittest.TestCase):
 class RenderTests(unittest.TestCase):
     def test_markdown_contains_discipline_and_gaps(self) -> None:
         rows = [_dr(i) for i in range(6)] + [_row(6)]
-        segments, gaps = derive_stages(rows)
+        segments, gaps = derive_stages(rows, min_phase_days=1)
         from intelligence.services.theme_lifecycle_timeline import ThemeTimelineArtifact
 
         artifact = ThemeTimelineArtifact(
@@ -240,7 +246,9 @@ class LoaderTests(unittest.TestCase):
             self.assertEqual(len(rows), 20)
             self.assertEqual(rows[5]["limit_up_count"], 5)
             self.assertEqual(rows[5]["max_boards"], 2)
-            artifact = load_theme_timeline_artifact("固态电池", market_db_path=db)
+            artifact = load_theme_timeline_artifact(
+                "固态电池", market_db_path=db, min_phase_days=1
+            )
         self.assertTrue(artifact.available)
         stages = [s.stage for s in artifact.segments]
         self.assertIn(STAGE_FERMENT, stages)
@@ -255,6 +263,33 @@ class LoaderTests(unittest.TestCase):
             artifact = load_theme_timeline_artifact("不存在的题材", market_db_path=db)
         self.assertFalse(artifact.available)
         self.assertIn("无「不存在的题材」", artifact.degrade_reason or "")
+        # 解析不到时显式降级，且降级理由声明别名解析也试过了
+        self.assertIn("别名解析", artifact.degrade_reason or "")
+
+    def test_colloquial_alias_resolves_via_resolve_query_themes(self) -> None:
+        # Q7：口语名「液冷」对不上 sector_name「液冷概念」→ 入口别名解析命中，
+        # 不再降级；解析结果进 params 与渲染，可审计。
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            con = duckdb.connect(str(db))
+            con.execute(
+                "create table fact_sector_daily (trade_date date, sector_name varchar, "
+                "pct_chg double, diff_ratio double, amount double)"
+            )
+            for i in range(8):
+                hot = i < 4
+                con.execute(
+                    "insert into fact_sector_daily values (?, '液冷概念', ?, ?, ?)",
+                    [_day(i), 2.5 if hot else -0.5, 15.0 if hot else 2.0, 900.0 if hot else 300.0],
+                )
+            con.close()
+            artifact = load_theme_timeline_artifact("液冷", market_db_path=db)
+        self.assertTrue(artifact.available)
+        self.assertEqual(artifact.theme, "液冷")  # 用户口径不被偷换
+        self.assertEqual(artifact.params.get("resolved_sector_name"), "液冷概念")
+        text = lifecycle_markdown(artifact)
+        self.assertIn("板块别名", text)
+        self.assertIn("液冷概念", text)
 
     def test_missing_db_degrades(self) -> None:
         artifact = load_theme_timeline_artifact("固态电池", market_db_path="/nonexistent/x.duckdb")
@@ -277,6 +312,94 @@ class MessageDatesTests(unittest.TestCase):
             self.assertEqual(load_message_dates(tmp, "别的题材"), ())
         self.assertEqual(load_message_dates(None, "固态电池"), ())
         self.assertEqual(load_message_dates("/nonexistent", "固态电池"), ())
+
+
+class MinPhaseDaysTests(unittest.TestCase):
+    """Q8：最短阶段时长与滞回正交；硬判据是无 <3 日段，段数只报不判。"""
+
+    def test_short_middle_segment_merges_into_previous(self) -> None:
+        segs = [
+            StageSegment(STAGE_EBB, "2026-03-01", "2026-03-10", "退潮"),
+            StageSegment(STAGE_REFLOW, "2026-03-11", "2026-03-12", "回流"),
+            StageSegment(STAGE_EBB, "2026-03-13", "2026-03-20", "再退潮"),
+        ]
+        merged, absorbed = merge_short_phases(segs, min_phase_days=3)
+        self.assertEqual([s.stage for s in merged], [STAGE_EBB])
+        self.assertEqual(len(absorbed), 1)
+        self.assertEqual(absorbed[0].stage, STAGE_REFLOW)
+        self.assertTrue(all(segment_calendar_days(s) >= 3 for s in merged))
+
+    def test_first_short_segment_merges_into_next(self) -> None:
+        segs = [
+            StageSegment(STAGE_FERMENT, "2026-03-01", "2026-03-02", "发酵"),
+            StageSegment(STAGE_EBB, "2026-03-03", "2026-03-10", "退潮"),
+        ]
+        merged, absorbed = merge_short_phases(segs, min_phase_days=3)
+        self.assertEqual([s.stage for s in merged], [STAGE_EBB])
+        self.assertEqual(merged[0].start_date, "2026-03-01")
+        self.assertEqual(absorbed[0].stage, STAGE_FERMENT)
+
+    def test_min_phase_days_one_is_identity(self) -> None:
+        segs = [
+            StageSegment(STAGE_FERMENT, "2026-03-01", "2026-03-01", "发酵"),
+            StageSegment(STAGE_EBB, "2026-03-02", "2026-03-10", "退潮"),
+        ]
+        merged, absorbed = merge_short_phases(segs, min_phase_days=1)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(absorbed, [])
+
+    def test_derive_default_merges_and_hysteresis_still_holds(self) -> None:
+        # 滞回仍在：孤立单日双红不切回流；短发酵被后处理吃掉
+        rows = [_dr(i) for i in range(4)]
+        rows += [_row(4 + k) for k in range(6)]
+        rows.append(_dr(10))
+        rows += [_row(11 + k) for k in range(6)]
+        segments, gaps = derive_stages(rows)  # 默认 min_phase_days=3
+        self.assertNotIn(STAGE_REFLOW, [s.stage for s in segments])
+        self.assertTrue(all(segment_calendar_days(s) >= 3 for s in segments))
+        self.assertTrue(any("最短阶段合并" in g for g in gaps))
+
+
+def _live_market_db() -> Path | None:
+    from intelligence.paths import default_market_db_path
+
+    candidates = (
+        default_market_db_path(),
+        Path.home() / "finance-workspace-private" / "db" / "market_feature_store.duckdb",
+    )
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+@unittest.skipUnless(_live_market_db() is not None, "08-13 live 主库不在本机，跳过固态电池夹具对照")
+class SolidStateBatteryLiveFixtureTests(unittest.TestCase):
+    """Q8 验收：08-13 同一夹具（固态电池滞回后 25 段）对照前后段数与被合并清单。"""
+
+    def test_live_fixture_drops_below_25_and_has_no_sub_3day_segments(self) -> None:
+        from intelligence.services import retrieval_cache
+
+        db = _live_market_db()
+        assert db is not None
+        db_result = retrieval_cache.try_connect_readonly(db)
+        if not db_result.available:
+            self.skipTest("主库此刻不可读（可能被同步写锁占用）")
+        con = db_result.connection
+        try:
+            rows = load_theme_daily_rows(con, "固态电池")
+        finally:
+            con.close()
+        before, _ = derive_stages(rows, min_phase_days=1)
+        after, gaps = derive_stages(rows, min_phase_days=3)
+        self.assertEqual(len(before), 25, "滞回后基线仍应是 25 段（08-13 夹具）")
+        self.assertLess(len(after), len(before))
+        self.assertTrue(all(segment_calendar_days(s) >= 3 for s in after))
+        merge_notes = [g for g in gaps if "最短阶段合并" in g]
+        self.assertTrue(merge_notes)
+        # 被合并段清单在缺口声明里，供检阅方抽验
+        self.assertIn("发酵", merge_notes[0])
+        self.assertIn("回流", merge_notes[0])
 
 
 if __name__ == "__main__":

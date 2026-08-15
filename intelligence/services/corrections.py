@@ -26,8 +26,13 @@ from intelligence.services.memory_gate import (
     PromotionDecision,
     promotion_metadata,
 )
+from intelligence.services.memory_status import memory_record_id
 
 DEFAULT_WINDOW = 20
+
+# 记录身份（Q3）：新增行写稳定 id=sha256(kind+ts+content)[:12]，同秒并发不碰撞；
+# 存量旧行不回填，仍按 ts 退出（见 memory_status 模块迁移说明）。
+_RECORD_KIND = "correction"
 
 
 def _now() -> datetime:
@@ -70,8 +75,10 @@ def record_correction(
     if not corrected:
         raise ValueError("correction 不能为空：至少说清你把它纠正成什么")
     p = Path(path).expanduser()
+    record_ts = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "ts": ts or _now().isoformat(timespec="seconds"),
+        "ts": record_ts,
+        "id": memory_record_id(_RECORD_KIND, record_ts, corrected),
         "correction": corrected,
         "themes": _clean_terms(themes),
     }
@@ -105,8 +112,10 @@ def record_validated_preference(
     ):
         raise ValueError("preference promotion requires correction authority")
     promotion = promotion_metadata(decision, text)
+    record_ts = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
-        "ts": ts or _now().isoformat(timespec="seconds"),
+        "ts": record_ts,
+        "id": memory_record_id(_RECORD_KIND, record_ts, text),
         "correction": text,
         "principle": text,
         "themes": _clean_terms(themes),

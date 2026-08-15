@@ -1,7 +1,7 @@
 # 记忆机制设计：越用越懂 × 行情对标历史 × 题材生命周期
 
 > 日期：2026-08-13
-> 状态：**六 slice 已落地并合入 `main`**（PR #318 + 契约注入修复 #322）。
+> 状态：**已实施（六 slice）**（PR #318 + 契约注入修复 #322）。
 > 质检与对照 agent book 原书第 3/8 章的优化点见
 > `docs/superpowers/specs/2026-08-13-memory-quality-review.md`。
 > 调研来源：① `docs/superpowers/2026-08-10-agent-book-chapter-audit.md`（agent book 第 3/8 章
