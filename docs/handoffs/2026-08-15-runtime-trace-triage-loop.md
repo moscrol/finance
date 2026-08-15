@@ -38,6 +38,7 @@ agent-run-triage 的 L1 九步（`triage-l1-9`），归一化入口
   ```sh
   cd ~/finance-workspace-private
   .venv-workbench/bin/python -m ruff check . && .venv-workbench/bin/python -m pytest -q
+  .venv-workbench/bin/python scripts/progress_observatory.py --check
   cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build
   ```
   五道 pre-commit 门禁照常拦，不得绕过（`--no-verify` 禁用）。
