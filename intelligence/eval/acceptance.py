@@ -133,6 +133,10 @@ class TurnTrace:
     slot_shapes: dict[str, str] = field(default_factory=dict)
     slots_gap_zeroed: int | None = None
     slots_no_hash: int | None = None
+    # R-20260815-12 / RU-3：episode 层已 fulfilled 且带哈希的格数。
+    # 与 ``evidence_bound``（context API 的 hit 数）并行，互不覆盖。
+    # B3@批#2：本字段=2、eb=0。
+    episode_fulfilled_hashed: int | None = None
 
 
 @dataclass
@@ -160,12 +164,108 @@ def _get(url: str, timeout: float = 30.0) -> Any:
         return json.loads(resp.read().decode("utf-8") or "{}")
 
 
+# R-20260815-12：数据源探针失败处置**写死**——照跑，产物顶层带
+# ``window_contamination``。不中止。静默混进「看起来干净」的批即证伪本预测。
+# 中止会让 R-10/R-23/R-09 失去 B 组读数；A 组污染用顶层标注隔离。
+DATA_PROBE_ON_FAILURE = "run_and_flag"
+_last_data_probe: dict[str, Any] | None = None
+
+
+_DATA_PROBE_FAIL = frozenset({"tool_exception", "empty"})
+
+
+def window_contamination_for(probe: Mapping[str, Any] | None) -> str | None:
+    """只有探针**已跑且失败**才盖污染戳。未探测 / ok / unset 都不算污染。"""
+
+    if not probe or probe.get("status") not in _DATA_PROBE_FAIL:
+        return None
+    return "finance_query"
+
+
+def probe_finance_query_data(
+    finance_root: str | Path | None,
+    *,
+    db_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """对 ``market_daily`` 做一条已知可答的冒烟查询（limit=1）。
+
+    走验收台进程内的 ``FinanceQuery``，打的是 health 给出的数据根下的
+    DuckDB——批 #2 A 组塌方的就是这一层，不是代码身份。不经 8792 工具包装
+    （那是 A 缝）。失败映射为 ``tool_exception``，与检阅方在 trace 里看到的
+    名称对齐。
+    """
+
+    started = time.monotonic()
+
+    def _done(status: str, **extra: Any) -> dict[str, Any]:
+        payload = {
+            "tool": "finance_query",
+            "status": status,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            "row_count": 0,
+        }
+        payload.update(extra)
+        return payload
+
+    try:
+        from datetime import date as date_cls
+
+        from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
+        from intelligence.services.research_contract import (
+            InformationCutoff,
+            ResearchDeadline,
+        )
+    except ImportError as exc:
+        return _done("tool_exception", detail=type(exc).__name__)
+
+    path = (
+        Path(db_path)
+        if db_path is not None
+        else (
+            Path(finance_root).expanduser() / "db" / "market_feature_store.duckdb"
+            if finance_root
+            else None
+        )
+    )
+    if path is None or not path.is_file():
+        return _done("tool_exception", detail="db_missing")
+    spec = FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "market_daily",
+            "metrics": ["index_return_pct", "total_amount"],
+            "dimensions": ["trade_date"],
+            "filters": [],
+            "group_by": [],
+            "order_by": [{"field": "trade_date", "direction": "desc"}],
+            "limit": 1,
+        }
+    )
+    try:
+        result = FinanceQuery(path).run(
+            spec,
+            information_cutoff=InformationCutoff(date_cls.today(), "requested"),
+            deadline=ResearchDeadline.from_timeout(5.0),
+        )
+    except Exception as exc:  # noqa: BLE001 — 探针必须吞一切，不能砸开批
+        return _done("tool_exception", detail=type(exc).__name__)
+    rows = list(result.rows or [])
+    if not rows:
+        return _done("empty", served_date=getattr(result, "served_date", None))
+    return _done(
+        "ok",
+        row_count=len(rows),
+        served_date=getattr(result, "served_date", None),
+    )
+
+
 def preflight(base: str) -> tuple[bool, str]:
     """部署接缝前置检查。跑不过就不许报进度 —— 这四道缝各自坑过一次。
 
     注意 /api/llm/config 当前恒定阻塞约 6s（疑似 Keychain 查询），所以 timeout
     必须给到 10s 以上，否则前置检查会因自身超时而误报『不可达』。
     """
+    global _last_data_probe
+    _last_data_probe = None
     try:
         health = _get(f"{base}/api/health", timeout=10)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -214,10 +314,12 @@ def preflight(base: str) -> tuple[bool, str]:
         users_note = f" users_dir={users_dir}"
     else:
         users_note = " users_dir=<unset>"
+    probe = probe_finance_query_data(runtime.get("finance_root"))
+    _last_data_probe = probe
     return (
         True,
         f"revision={revision[:8]} backend={agent_runtime.get('backend')}"
-        f"{users_note}",
+        f"{users_note} data_probe: finance_query={probe['status']}",
     )
 
 
@@ -506,6 +608,12 @@ def _read_episode_facts(
             if isinstance(item, Mapping)
         ]
         slot_shapes: dict[str, str] = {}
+        fulfilled_ids = {
+            str(item.get("output_id"))
+            for item in outputs
+            if isinstance(item, Mapping) and item.get("status") == "fulfilled"
+        }
+        episode_fulfilled_hashed = 0
         for binding in outcome.get("bindings") or []:
             if not isinstance(binding, Mapping):
                 continue
@@ -519,6 +627,8 @@ def _read_episode_facts(
                 slot_shapes[output_id] = "gap_zeroed"
             else:
                 slot_shapes[output_id] = "no_hash"
+            if output_id in fulfilled_ids and len(hashes) > 0:
+                episode_fulfilled_hashed += 1
         return {
             "evidence_retrieved": len(outcome.get("evidence") or []),
             "bindings_count": len(outcome.get("bindings") or []),
@@ -531,6 +641,7 @@ def _read_episode_facts(
             "slot_shapes": slot_shapes,
             "slots_gap_zeroed": sum(1 for s in slot_shapes.values() if s == "gap_zeroed"),
             "slots_no_hash": sum(1 for s in slot_shapes.values() if s == "no_hash"),
+            "episode_fulfilled_hashed": episode_fulfilled_hashed,
         }
     return None
 
@@ -633,6 +744,7 @@ def _fill_run_detail(base: str, trace: TurnTrace, *, user: str | None = None) ->
         trace.slot_shapes = dict(facts["slot_shapes"])
         trace.slots_gap_zeroed = int(facts["slots_gap_zeroed"])
         trace.slots_no_hash = int(facts["slots_no_hash"])
+        trace.episode_fulfilled_hashed = int(facts["episode_fulfilled_hashed"])
         trace.execution_state_source = "episode_artifact"
     else:
         trace.execution_state_source = "api_only"
@@ -756,6 +868,8 @@ def ask_once(base: str, user: str, question: str, timeout: float) -> TurnTrace:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    global _last_data_probe
+    _last_data_probe = None
     reset_episode_hit_counter()
     requested_output = getattr(args, "output", None)
     output_path = Path(requested_output) if requested_output else None
@@ -805,11 +919,15 @@ def cmd_run(args: argparse.Namespace) -> int:
     out = output_path or RUNS_DIR / f"{stamp}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     case_payload = [asdict(r) for r in runs]
+    probe = _last_data_probe
     payload = {
         "generated_at": stamp,
         "base": args.base,
         "preflight_ok": ok,
         "preflight_detail": detail,
+        "data_probe": probe,
+        "data_probe_ok": None if probe is None else probe.get("status") == "ok",
+        "window_contamination": window_contamination_for(probe),
         # R-20260815-01/-02：把「多少题跑了、各自卡在哪一层」写进产物本身。
         # 此前只能靠事后逐题翻 run 目录才能区分四种 eb=0，读产物的人拿到的是
         # 一列不可区分的 0。

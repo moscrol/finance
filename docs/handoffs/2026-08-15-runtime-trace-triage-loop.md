@@ -572,3 +572,24 @@ R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干
 （main @ `788afd4e`）——R-23 after 测量的前提；②排查数据层
 `finance_query` 故障（cron/锁/上游）——批 #3 之前不修，A 组读数
 继续被污染。批 #3 在两者之后。
+
+### Round 4（2026-08-15，执行方：轨道 B / worktree `fwp-wt-trkb-r4`）
+
+- **勘误+rebase**：E-r3-1/E-r3-2 合入 #21（基线 `f43f2507`）。批 #1 JSON 未改。
+- **R-11 confirmed**：五态按轮 tally、aggregate=`last_turn`；C10 冻结 + 批 #2 live 同态。#22。
+- **R-08 confirmed**：错目录响亮失败；C4/C5 无 episode 不整批中止，A1 落盘竞态短等。#23。
+- **批 #2**：`20260815T0302Z-r4-clean-baseline-2.json` `sha256=51e61710…304ef4`，28/28，`not_run=0`，`cb09f895`/pid 30091/tool60。
+- **R-10 N=2**（不结案）：B1 1/2、B2 2/2、B3 1/2、B4 2/2、B5 1/2、B6 0/2（澄清）、B7 1/2、B8 2/2。
+- **同形换题**：B1/B7 本批交付；`invalid_repair_finish`+零绑定在 B5/C7。不开 L0。
+- **监测**：`gap_zeroed=0`（连续两批）；no_hash 16 格全 missing；slips>0 共 8 case。
+- **边界**：R-09/R-10 仍 pending；不改 R-21；当时未写母本（#20 未合）。
+
+### Round 5（2026-08-15，执行方：轨道 B / worktree `fwp-wt-trkb-r5`）
+
+- **任务 1**：`finance_query` 冒烟写入 `preflight_detail`；失败写死 `run_and_flag`，顶层 `window_contamination`。R-12 离线 confirmed。
+- **任务 2**：`episode_fulfilled_hashed` 与 eb 并行。B3#2 夹具 2 ≠ 0。冻结批 JSON 未改。
+- **任务 3 未开**：8792 仍 `cb09f895` / pid 30091 / tool60。main 已含 `2e50e263`（#24），未部署。
+- **数据层此刻**：探针 `ok`（768ms / served_date=2026-08-14）。不代替切快照。
+- **账本**：R-12 → Closed。R-10/R-09/R-23 仍 pending。不改 A 的行。
+- **测**：acceptance 三套 64 passed；`validate-report.sh` RC:0。
+- **报告**：`docs/verification/2026-08-15-trkb-r5-preflight-probe.md`。

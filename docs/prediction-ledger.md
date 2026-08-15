@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-15（轨道 A Round 4：R-21 confirmed、开 R-23 证据序号契约；轨道 B Round 4：R-11 + R-08 confirmed、批 #2 `20260815T0302Z-r4-clean-baseline-2` 落盘、R-10 仍 pending（N=2/3）；不改 R-10 判据）
+- last_updated: 2026-08-15（轨道 A Round 4：R-21 confirmed、开 R-23 证据序号契约；轨道 B Round 4：R-11 + R-08 confirmed、批 #2 `20260815T0302Z-r4-clean-baseline-2` 落盘、R-10 仍 pending（N=2/3）；不改 R-10 判据；轨道 B Round 5：开并离线 confirmed `R-20260815-12`（preflight 数据源盖戳 + `episode_fulfilled_hashed`）；不改 R-23 / R-21；R-10 / R-09 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -110,10 +110,23 @@
 > `["headless_timeout"]`，而 `protocol_issues` 均为 `[]`。此前缺失的 runtime stdout
 > → usage → benchmark projection 中间跳已有实测，不再只靠 code reading。
 
+### 2026-08-15 Round 5 轨道 B 回填
+
+此表冻结在 Round 5 新归因之前。不改 R-23 / R-21。R-10 仍要 N=3 live 批才结案。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260815-12` | 离线：探针失败 preflight 仍 True 且 `preflight_detail` 含 `data_probe: finance_query=tool_exception`；`cmd_run` 产物顶层 `window_contamination=finance_query`、`data_probe_ok=false`；未探测不得盖污染戳。B3@批#2 夹具 `episode_fulfilled_hashed=2` 与冻结 `evidence_bound=0` 并存且不相等 | `confirmed` | 从 Open 移到 Closed。失败处置写死 `DATA_PROBE_ON_FAILURE=run_and_flag`。live 批 #3 若探针失败而无顶层标注，按原文 refuted |
+| `R-20260815-10` | 本轮仪器已齐；N 仍为 2（缺批 #3） | `pending` | 保持 Open；不改判据 |
+| `R-20260815-09` | 本轮不读未部署的 finish 拒收字段 | `pending` | 保持 Open；等新快照批 #3 |
+| `R-20260815-23` | 本轨道只出数、不写该行 | `pending` | 保持 Open；不改 A 的行 |
+| `R-20260804-10` / `R-20260804-02` / `-03` / `-04` | 本轮无新证据 | `pending` | 保持 Open |
+
 ### Closed
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
 |---|---|---|---|---|---|
+| `R-20260815-12` | Round 5 轨道 B（preflight 数据源盖戳 + RU-3） | `EVAL_ONLY` | 开批前 `finance_query` 冒烟探针写入 `preflight_detail`（`data_probe: finance_query=ok/tool_exception/empty`）；失败处置写死 `DATA_PROBE_ON_FAILURE=run_and_flag`：不中止，产物顶层 `window_contamination="finance_query"` 且 `data_probe_ok=false`。探针失败的批必须可被评审一眼识别为污染窗口；静默混进「看起来干净」的批（无顶层标注）即 refuted。并行字段 `episode_fulfilled_hashed` 与 `evidence_bound` 同时在场、互不覆盖；B3@批#2 两值不等（2 vs 0） | `confirmed` | `test_preflight_probe_failure_does_not_abort`、`test_run_stamps_window_contamination_when_probe_failed`、`test_run_output_writes_exact_requested_path`（未探测不盖戳）、`test_b3_batch2_episode_fulfilled_hashed_unequal_to_frozen_eb`。处置常量写死 `run_and_flag`。冻结批 JSON 未改 |
 | `R-20260815-11` | Round 4 轨道 B（检阅 E-r3 新缺陷） | `EVAL_ONLY` | 多轮题的 `execution_state_tally` 按轮计数且含 `execution_state_turn_rows`；case 级 `execution_state_aggregate` 取最后一轮（`last_turn`，写死）后：重放 C10（`20260814T1926Z-r3-clean-baseline`）时 tally 含 1 个末轮 `bound_but_dropped`，该 case 的 aggregate 同为 `bound_but_dropped`，二者不再互相矛盾 | `confirmed` | `test_c10_frozen_multiturn_tally_matches_last_turn_aggregate`：C10 三轮 delivered/clarification/bound_but_dropped；tally 按轮 `{bound_but_dropped:1, clarification:1, delivered:1}`；`execution_state_aggregate=bound_but_dropped`（`last_turn`）；turn_rows[-1] 与 aggregate 同态。批 JSON 未改。`test_acceptance_execution_state` 16 passed |
 | `R-20260815-08` | Round 3 轨道 B 开批前实测 | `EVAL_ONLY` | 验收台改为从 `/api/health` 取服务端的 users 目录（或在自身 env 与服务端不一致时**响亮失败**）后：故意把 `FORESIGHT_USERS_DIR` 指向一个存在但错误的目录跑一次，产物应报错或显式标注不一致，而**不是**整批静默落 `undetermined`/`api_only` | `confirmed` | 离线负夹具：`test_users_dir_mismatch_against_health_raises`、`test_preflight_rejects_mismatched_users_dir`、`test_wrong_users_dir_does_not_emit_plausible_five_state`。错目录存在但无 episode 时 `require_episode_if_expected` 抛 `UsersDirMismatch`，`cmd_run` 返回 2 且不落盘五态；对目录读到 `no_hash`。health 增 `runtime.users_dir`（未部署 8792 时 env 不一致仍由 missing-episode 门拦住）。`test_acceptance_execution_state` + `test_acceptance_board` 覆盖 |
 | `R-20260815-06` | Round 2 轨道 B（M2 F-002） | `NO_SYSTEM_FIX` | 生产代码身份属用户裁决；裁决后 `loaded_code_root` 对应目录 `git status --porcelain` 为空，且 `/api/health` 的 `source_revision` 与该目录 `git log -1` 一致 | `confirmed` | 8792 蓝绿切到干净快照 `~/.finance-runtime/finance-workspace-cb09f895734a`（main `cb09f895`，含 #11/#12/#13/#10）。`git -C loaded_code_root status --porcelain` 空；`/api/health` `source_revision=cb09f895734a65a38ae23f04d940f18ece2959fd` 与该目录 `git log -1` 一致；`source_dirty=false`；`code_matches_repo=true`。启动器 `WORKBENCH_REPO_ROOT` 改指 runtime 软链（数据根仍 `FINANCE_WS`）。旧脏树 `07af9160a677`（**23 dirty @2026-08-15 03:0x**，其中 20 M + 3 未跟踪）未改、可回滚。pid 30091 |

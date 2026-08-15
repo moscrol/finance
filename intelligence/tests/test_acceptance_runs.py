@@ -180,6 +180,37 @@ def test_run_output_writes_exact_requested_path(
     assert output.is_file()
     saved = json.loads(output.read_text(encoding="utf-8"))
     assert saved["cases"][0]["case_id"] == "A1-market-overview"
+    # preflight 被 stub、未跑探针：不得把 unset 误盖成污染窗口
+    assert saved["data_probe"] is None
+    assert saved["data_probe_ok"] is None
+    assert saved["window_contamination"] is None
+
+
+def test_run_stamps_window_contamination_when_probe_failed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R-12：探针失败的批必须一眼能认出污染窗口，不能静默混进干净批。"""
+
+    def failed_preflight(_base: str) -> tuple[bool, str]:
+        acceptance._last_data_probe = {
+            "tool": "finance_query",
+            "status": "tool_exception",
+            "elapsed_ms": 3,
+            "row_count": 0,
+            "detail": "db_missing",
+        }
+        return True, "revision=deadbeef data_probe: finance_query=tool_exception"
+
+    _stub_run_dependencies(monkeypatch)
+    monkeypatch.setattr(acceptance, "preflight", failed_preflight)
+    output = tmp_path / "contaminated.json"
+    assert acceptance.main(["run", "--output", str(output)]) == 0
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    assert saved["data_probe"]["status"] == "tool_exception"
+    assert saved["data_probe_ok"] is False
+    assert saved["window_contamination"] == "finance_query"
+    assert "data_probe: finance_query=tool_exception" in saved["preflight_detail"]
 
 
 def test_run_output_refuses_to_overwrite_existing_path(

@@ -545,3 +545,52 @@ def test_read_episode_facts_wait_sees_late_file(
     facts = _read_episode_facts_wait("late", "tester", attempts=6, delay_s=0.15)
     assert facts is not None
     assert facts["evidence_retrieved"] == 1
+
+
+_BATCH2 = (
+    Path(__file__).resolve().parents[1]
+    / "eval"
+    / "runs"
+    / "20260815T0302Z-r4-clean-baseline-2.json"
+)
+_B3_EPISODE_FIXTURE = (
+    Path(__file__).resolve().parent / "fixtures" / "b3-r4-batch2-episode.json"
+)
+
+
+def test_b3_batch2_episode_fulfilled_hashed_unequal_to_frozen_eb(
+    tmp_path: Path,
+) -> None:
+    """RU-3 / R-12 并行字段：B3@批#2 冻结形状 fulfilled+hashed=2，eb=0。
+
+    两字段必须同时在场且不相等。R-10 交付率仍按冻结的 ``evidence_bound>0``，
+    不得用本字段事后改口。
+    """
+
+    episode = json.loads(_B3_EPISODE_FIXTURE.read_text(encoding="utf-8"))
+    run_id = str(episode["run_id"])
+    dest = tmp_path / "tester" / "runs" / run_id
+    dest.mkdir(parents=True)
+    (dest / "continuous-episode.json").write_text(
+        _B3_EPISODE_FIXTURE.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    facts = _read_episode_facts(run_id, "tester")
+    assert facts is not None
+    assert facts["episode_fulfilled_hashed"] == 2
+    assert facts["outputs_fulfilled"] == 2
+    assert facts["slots_no_hash"] == 1
+    batch = json.loads(_BATCH2.read_text(encoding="utf-8"))
+    b3 = next(c for c in batch["cases"] if c["case_id"].startswith("B3"))
+    frozen_eb = b3["turns"][-1]["evidence_bound"]
+    assert frozen_eb == 0
+    assert "episode_fulfilled_hashed" not in b3["turns"][-1]
+    assert facts["episode_fulfilled_hashed"] != frozen_eb
+    trace = TurnTrace(
+        question="q",
+        status="completed",
+        evidence_bound=frozen_eb,
+        episode_fulfilled_hashed=facts["episode_fulfilled_hashed"],
+    )
+    assert trace.episode_fulfilled_hashed == 2
+    assert trace.evidence_bound == 0

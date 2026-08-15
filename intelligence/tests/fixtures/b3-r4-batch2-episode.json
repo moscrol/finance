@@ -1,0 +1,46 @@
+{
+  "run_id": "run_20260815_111907_054023",
+  "note": "B3@批#2 冻结形状：两格 hashed+fulfilled，一格 no_hash missing。正文已剥。",
+  "outcome": {
+    "draft": "x",
+    "evidence": [
+      {"content_hash": "h0"},
+      {"content_hash": "h1"},
+      {"content_hash": "h2"},
+      {"content_hash": "h3"},
+      {"content_hash": "h4"},
+      {"content_hash": "h5"},
+      {"content_hash": "h6"},
+      {"content_hash": "h7"},
+      {"content_hash": "h8"},
+      {"content_hash": "h9"},
+      {"content_hash": "h10"}
+    ],
+    "bindings": [
+      {
+        "output_id": "direct_assessment",
+        "evidence_hashes": ["a", "b", "c"],
+        "gap": null
+      },
+      {
+        "output_id": "chain_mapping",
+        "evidence_hashes": ["d", "e", "f", "g", "h", "i", "j", "k"],
+        "gap": null
+      },
+      {
+        "output_id": "counterpoint",
+        "evidence_hashes": [],
+        "gap": "缺少同一时间窗口的新闻、一手公告及有效行情数据"
+      }
+    ]
+  },
+  "structural_verifier": {
+    "completion": {
+      "outputs": [
+        {"output_id": "direct_assessment", "status": "fulfilled"},
+        {"output_id": "chain_mapping", "status": "fulfilled"},
+        {"output_id": "counterpoint", "status": "missing"}
+      ]
+    }
+  }
+}

@@ -1,10 +1,11 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-15
-- updated_by_run: `20260815T0302Z-r4-clean-baseline-2`（多条 finish 取末条；
-  `evidence_bound` ≠ episode fulfilled。前值 `2026-08-15-trka-r4-evidence-ordinals`——
-  `finish.payload.rejection_code` / `rejection_reason`；模型上下文
-  `evidence_id=E1..En`，ledger 仍留 `content_hash`）
+- updated_by_run: `R-20260815-12` 仪器（`window_contamination` /
+  `episode_fulfilled_hashed`）。前值 `20260815T0302Z-r4-clean-baseline-2`（多条
+  finish 取末条；`evidence_bound` ≠ episode fulfilled）。再前
+  `2026-08-15-trka-r4-evidence-ordinals`——`finish.payload.rejection_code` /
+  `rejection_reason`；模型上下文 `evidence_id=E1..En`，ledger 仍留 `content_hash`
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -45,12 +46,13 @@
 | episode `stop_reason=repair_model_stop` | 修复轮没产出合法 FINISH，所以交付 0 | stop 只说「无工具且未 completed」。交付 0 的区分变量是**全部** required output 的 `binding.gap` 非空（hashes 会被 verifier 丢掉）。同 stop 但至少一格 gap 为空时 eb>0（R5-A7 / live A7） | `docs/verification/2026-08-15-trka-repair-finish-gap-slip.md` |
 | `semantic_status=unavailable` / 「未完成核验绑定」 | 核验预算不够或模型没走到 FINAL_JSON | 当 structural fulfilled=0 时 judge **根本不会被调用**（`_can_semantically_release_partial`）。模板文案的注释假设「没绑定」，但 R7-A7 的 episode 里 bindings 有 hashes。混槽 + judge 瞬时失败会走另一条「候选草稿」文案且 eb>0 | R7-A7 vs live A7/A10；`episode_semantic_verifier.py:503-522` |
 | `finish.payload.caveat_slips` | 顶层 `gaps` 条数，或「有 caveat 就是失败」 | **本次** `validate_episode_finish` 把 hashes+gap 滑档挪到顶层 `gaps` 的格数。无滑档时为 `0` 且字段仍在场。旧 artifact 字段缺失 ≠ 0。不参与判定；查询入口是 episode `finish.payload`，本轮不改 `normalize_harness_trace`（B 轨缝） | `docs/verification/2026-08-15-trka-r2-caveat-slips.md`；健康阈值 `=0`；`≥2` 全格滑档、`=1` 混槽 |
-<<<<<<< HEAD
 | `finish.payload.rejection_code` / `rejection_reason` | 验收 JSON 没有拒收原因，所以判据不在产物内 | 验收台摘要可以没有；**run 目录事件流已有** `invalid_action.reason`。R-23 起 finish 亦带 `rejection_code`（无拒收=`none`）与 `rejection_reason`（无拒收=空串）。旧 artifact 字段缺失 ≠ `none`。查询入口是 episode `finish.payload`，本轮不改 normalize（B 轨缝） | B1 `run_20260815_034008_215204` seq 20；B7 `run_20260815_034828_738989` seq 17；`docs/verification/2026-08-15-trka-r4-evidence-ordinals.md` |
 | 模型上下文里的 `content_hash` / `evidence_hashes` | 绑定必须抄 16-hex 哈希 | R-23 起模型上下文只留 `evidence_id`（E1..En，episode 首次出现序）；ledger `tool_result` 仍保留哈希供审计。FINAL_JSON 的字段名仍是 `evidence_hashes`，值写 `E1`/`E2` 或精确哈希；validate 解析回 `content_hash`。抄错的哈希仍 forged/truncated，**不做模糊纠正** | 同上；健康：修复轮同形不应再出现 `unknown evidence hash` |
 | 多条 `kind=finish` | 取任意一条即可读 `caveat_slips` / `stop_reason` | 同一 episode 常有**两条** finish：第一条多是检索截止 `deadline_exhausted` 且 `slips=0`，第二条才是修复轮终态。数 slips / 判 `invalid_repair_finish` 必须取**最后一条**。批 #2 若取首条，8 个 slips>0 窗口会全部读成 0 | `20260815T0302Z-r4-clean-baseline-2` A9/B2/B3/B4/B7/C1/C6/C10；B5/C7 末条才是 `invalid_repair_finish` |
 | `execution_state_tally` | 每题一个态，等于 case 终态分布 | **`< R-20260815-11` 的产物按 `turns[0]` 计**，多轮题会被首轮掩蔽（C10 三轮 delivered/clarification/bound_but_dropped，tally 计 delivered，末轮却是 bound_but_dropped）。此后 tally **按轮**，case 级另立 `execution_state_aggregate`（写死 `last_turn`），并带 `execution_state_case_tally` / `execution_state_turn_rows`。读旧产物前先看有没有 `execution_state_aggregate_rule` | `20260814T1926Z-r3-clean-baseline` C10；`summarize_execution_states` |
-| `evidence_bound` | 与 episode 已 fulfilled 且带哈希的格同义 | 验收台从 `/api/runs/<id>/context` 计 `status=hit`。B3@批#2：episode `direct_assessment`/`chain_mapping` 共 11 哈希且 struct=fulfilled，context 证据列表为空 → `evidence_bound=0`。R-10 交付率仍按冻结的 `evidence_bound>0` 口径，不得事后改口；并行读 episode 格 | `run_20260815_111907_054023` |
+| `evidence_bound` | 与 episode 已 fulfilled 且带哈希的格同义 | 验收台从 `/api/runs/<id>/context` 计 `status=hit`。B3@批#2：episode `direct_assessment`/`chain_mapping` 共 11 哈希且 struct=fulfilled，context 证据列表为空 → `evidence_bound=0`。R-10 交付率仍按冻结的 `evidence_bound>0` 口径，不得事后改口；并行读 `episode_fulfilled_hashed` | `run_20260815_111907_054023` |
+| `episode_fulfilled_hashed` | 可替代 `evidence_bound` 作交付率 | **并行字段**，不覆盖 eb。计数 = structural `fulfilled` ∩ `len(evidence_hashes)>0`。无 episode 时为 `null`（`api_only`）。B3@批#2：本字段=2、eb=0。旧批 JSON 无此键 ≠ 0 | `test_b3_batch2_episode_fulfilled_hashed_unequal_to_frozen_eb` |
+| `window_contamination` / `data_probe` | 前置检查过了就是数据层也健康 | 身份盖戳不管数据层。R-12 起 `preflight_detail` 带 `data_probe: finance_query=ok/tool_exception/empty`；失败写死 `run_and_flag`：不中止，顶层 `window_contamination="finance_query"`、`data_probe_ok=false`。未探测时两字段为 `null`，不得当成污染。静默混批即证伪 R-12 | `acceptance.DATA_PROBE_ON_FAILURE`；`probe_finance_query_data` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
