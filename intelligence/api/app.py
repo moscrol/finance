@@ -220,8 +220,14 @@ def _memory_bound_registry_factory(
     与接线前逐字节一致。
 
     两层对「身份为空」用的判据有意不同，这也是本断言不是恒真式的地方：本层
-    用 Python 真值（``not memory_user``），装配层用 ``str(...).strip() != ""``
-    （``episode_tools`` 的 ``memory_identity_resolved``）。于是「传了但是空白」
+    用 Python 真值（``not memory_user``），装配层是
+    ``str(memory_user or "").strip() != "" or memory_users_root is not None``
+    （``episode_tools`` 的 ``memory_identity_resolved``）。**第二个析取支在本
+    调用点恒为假**——本工厂不传 ``memory_users_root``（它是测试 fixture 用的
+    入口），所以装配层判据在这里退化成 strip 口径，下面这段推理才成立。谁要是
+    将来在本调用点也传 ``memory_users_root``，这个退化就不再成立：那时空白身份
+    会被装配层判成「身份已解析」而**静默注册**，本守卫不会响——改那里的人要
+    一并改这里。于是「传了但是空白」
     ——上游 id 只剩空格这类——本层判它非空、装配层判它为空，落在**被守卫的
     那一侧**：两层口径不一致时炸，而不是静默少一个工具。真 ``None`` 与空串
     两层判据一致，走无守卫的原样路径。

@@ -69,11 +69,42 @@ EpisodeScope）。
    决定），事件出口合流与 sink 级「close 后拒发」属第 5 步 Durable/Live。
 2. **收据落盘**：``dump()`` 本轮只在对象上可取（经 ``session.runtime_handle``），
    进 artifact/Projection 属第 5 步。
-3. **其余会话构造点的接线**：本轮接 ``GLMAgentRuntime.start``（生产主线）+
-   ``ContinuousTurnAdapter`` 收尾 close。``openai_agents_runtime`` /
-   ``codex_headless_runtime`` / ``headless_tool_gateway`` 的会话与
-   子研究分支的 per-branch Handle 是第 4 步收尾轮（spec §7.3 验收里
-   「Session、Headless Gateway 覆盖」尚未闭合，不得据本轮声称完成）。
+3. **其余会话构造点的接线**（第 4 步收尾轮已逐个裁定，结论如下）：
+
+   已接：``GLMAgentRuntime.start``（Arm A，生产主线）+ ``ContinuousTurnAdapter``
+   收尾 close + ``OpenAIAgentsRuntime.start``（Arm C，spec §9.1 的通用 SDK
+   对照臂；该运行时不构造 EpisodeScope，收据里 ``scope_attached`` 如实为
+   False——不为了让收据好看而造第二个 Scope 构造点）。
+
+   **为什么每条臂都要接**：spec §9.3 的 Runtime 质量指标含「cancel、resume、
+   restart 的成功率」与「Trace 与事件对账完整率」，§9.2 要求各臂跑同一套失败
+   注入（含取消、重启）。**Handle 的收据就是那几项指标的量具**，哪条臂没接，
+   那条臂的这几项算不出来。
+
+   未接，三处各有理由（不是遗漏）：
+
+   a. ``codex_headless_runtime``：**没有会话接缝可接**。它只有 ``run()``，
+      没有 ``start()``，不满足 ``ResumableAgentRuntime``；且 ``benchmark_only``
+      （``agent_runtime_factory`` 判定）+ 入口要 ``AGENT_RUNTIME_BENCHMARK_ENABLE=1``。
+      在单发 run 上挂会话生命周期，是给一个不存在的会话造状态机。
+   b. ``headless_tool_gateway``：**驱动方按 spec 第 7 步到场，届时一并接**。
+      它唯一的生产构造点是 (a) 里那个 benchmark-only 运行时；而它正是 spec
+      §8.2 说的「dsh 的 TypeScript Agent 通过窄协议调用的 Python Domain
+      Gateway」，真正的驱动方是 Arm B（§11 第 7 步：先用 scripted dsh stub
+      验证 Adapter 协议）。现在接等于机制休眠。同轮要办的还有一件：§8.2 要求
+      窄协议传 **episode scope**，而网关目前只收 ``registry`` + ``context``。
+   c. **子研究后台分支排空**：spec §4.2 第 4 条点名「Episode 的关闭、取消、
+      **后台分支排空**和重启恢复需要统一生命周期对象」，所以这是缺口不是装饰。
+      不在本轮做的原因是它有一个真设计点：分支在
+      ``SubResearchCoordinator``（线程池，``sub_research.py``）里跑，而父 Handle
+      在 ``GLMAgentRuntime.start`` 里——协调器由同一个类在 L409 构造，父 Handle
+      要不要递进去、分支算父 Handle 的工作单元还是各自持 Handle、收据怎么对账，
+      够单独一轮。分支的 lineage 与 per-branch Scope 已存在
+      （``{task_id}:{branch_id}``），不缺身份，缺的是排空表达。
+
+   **结论：第 4 步不得声称完成。** spec §7.3 验收的「Headless Gateway 覆盖」
+   与 §4.2.4 的「后台分支排空」两项未闭合，分别落在第 7 步与一轮专门的
+   子研究轮。
 """
 
 from __future__ import annotations

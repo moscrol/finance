@@ -826,9 +826,12 @@ def test_production_adapter_binds_memory_identity_through_to_the_registry(
 ) -> None:
     """身份必须真的走到装配产物里，不是走到某个参数里就算数。
 
-    `test_workbench_api.py:816` 已经钉住「`run_store.user_id` 传进了
-    `_build_continuous_turn_adapter`」，`test_episode_tools.py` 已经钉住
-    「`build_episode_registry` 拿到身份就注册」。中间这一段——适配器最终
+    `test_conversation_worker_allocates_120_seconds_to_continuous_runtime`
+    已经钉住「`run_store.user_id` 传进了 `_build_continuous_turn_adapter`」，
+    `test_memory_lookup_registers_once_identity_is_threaded`
+    （`test_episode_tools.py`）已经钉住「`build_episode_registry` 拿到身份就
+    注册」。**引用符号名不引用行号**：上一版这里写的 `:816` 被本文件自己的
+    插入推成了 `:1005`。中间这一段——适配器最终
     调用的那个 `registry_factory` 是否带着身份——此前没有任何测试覆盖，
     而它断掉的形状是静默的：模型的工具清单里少一个，没有东西会红。
     """
