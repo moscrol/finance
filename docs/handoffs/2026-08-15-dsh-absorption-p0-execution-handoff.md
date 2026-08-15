@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 8 步校准已收口，对照未开）
+# 交接：dsh 吸收 P0 接缝实施（第 8 步 30 题已冻、样本量已锁，对照未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1–7 步完成；冲突矩阵已画；Arm A 校准 45 次已跑（30×3 压不住 5pp，门槛不放宽）；第 8 步 live A/B 未开；未合 main
+状态：第 1–7 步完成；Arm A 校准已跑；30 题分层集已冻（九题原样子集）；样本量锁 30×13；第 8 步 live A/B 未开；未合 main
 
 ---
 
@@ -1205,6 +1205,34 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：按裁定加题或加重复，使 n×r ≥ 384，再开 30 题分层题集；
   然后才是 Arm B。开 Arm B 前读 Step 1 §3.2 / §6.2。
   **新基线锚点：5129 / 4 / 0。**
+
+### 执行方小结 · Round「第 8 步：冻 30 题 + 锁 30×13」（2026-08-16，执行方）
+
+- **两个提交**：feat（30 题冻结集 + 样本量锁 + 3 条用例）+ 本提交（台账）。
+  本轮提交**未 push**。**未合 main**。
+- **这轮是什么 / 不是什么**：落实校准窗的 `next_action`——加题且加重复，
+  使 n×r ≥ 384，门槛仍是 5pp。**不是** Arm B，不是把 dsh 优化写进 episode，
+  也不是再开一轮 45 次。
+- **做了什么**：
+  - 冻结集 `intelligence/eval/fixtures/frozen-thirty-2026-08-16.questions.json`：
+    前九题与 07-25 九题逐字相同；其余 21 题只搬
+    `acceptance_cases` / `long_tail_cases` 已有题面。
+    `required_outputs` 由 `TurnControlCore` dry-run 钉住。
+    分层 10 `quick-research` / 10 `daily-review` / 10 `deep-research`，
+    对应 tier `quick` / `standard` / `deep`。
+  - 样本量锁：方差 0.125 → n=30 时 r=**13**（n×r=390 ≥ 384）。
+    投影半宽约 4.96pp < 5pp。`recommend_design()` 把 5pp 钉死，
+    `retain_dsh_runtime` 仍为 false。
+  - dry-run 30 题：`acceptance_contract_gaps` 全空。
+- **故意没做**：不跑 30×13 live（约 390 次 / 十小时级）；不跑 Arm B；
+  不放宽 5pp；不登记 `dsh_stub`。
+- **计数**：5129 → **5132**，k=3 恰为 `test_frozen_thirty.py`。
+- **门禁**（`umask 022`，LOADED=工作树）：全量 **5132 passed / 4 skipped /
+  0 failed**（470.3s）；`layer_audit` ERROR 0（扫 251 模块 / runtime 16）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿。
+- **下一轮**：30×13 锁定窗（仍先纯 Arm A，或等 Arm B 可连再配对）。
+  开 Arm B 前读 Step 1 §3.2 / §6.2。
+  **新基线锚点：5132 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 

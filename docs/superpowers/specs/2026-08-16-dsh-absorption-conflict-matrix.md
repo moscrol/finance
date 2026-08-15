@@ -26,17 +26,15 @@ roadmap_ref: L1-DSH
 | 7 | dsh 源码 | pinned sparse checkout | 不复制；路径只经 `DSH_SOURCE_INDEX` | 第 7 步下半已关 |
 | 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 不在本实施分支改薄账 | 另开观测台 PR |
 | 9 | 合 main / 删安全 ref | 用户 | 执行方不得自作主张 | 未做 |
-| 10 | 推翻默认立场 | 用户开 live 窗 | 先 45× Arm A，再够样本量的对照，CI 上界；不许放宽 5pp | 校准已跑；30×3 压不住 5pp；对照未开 |
+| 10 | 推翻默认立场 | 用户开 live 窗 | 先 45× Arm A，再够样本量的对照，CI 上界；不许放宽 5pp | 校准已跑；30 题已冻；锁 30×13；对照未开 |
 
 ## 2. 第 8 步仍欠什么
 
 Step 1 收据 §3.2 / §6.1 原样有效。第 1 条已跑完 [实测]：
 
-1. ~~冻结九题 × 5 纯 Arm A 校准 σ_d~~ → 合并方差 0.125，投影 30×3 半宽 10.3pp，所需 n×r ≈ 384。门槛仍是 5pp。
-2. 题集必须再加大或加重复，使 n×r ≥ 384；九题作子集保留。
-3. bootstrap 95% CI 上界，压不住 5pp 就继续加题/加重复，不得放宽门槛。
+1. ~~冻结九题 × 5 纯 Arm A 校准 σ_d~~ → 合并方差 0.125。
+2. ~~30 题分层、九题作子集~~ → `frozen-thirty-2026-08-16.questions.json`，10/10/10。
+3. 样本量锁 **30×13**（n×r=390 ≥ 384），半宽约 4.96pp。门槛仍是 5pp。
 4. 生产对齐 env 已在校准窗核对（`credential_source=environment`，terra，无 keychain）。
 
-对照（Arm B）仍未开。
-
-stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。
+30×13 live 与 Arm B 仍未开。stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。
