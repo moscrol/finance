@@ -168,6 +168,14 @@
   LaunchAgent 跑的是 **runtime 快照 + 数据仓 main**；本优化在 `feat/research-queue-canonical`
   落地后，需合并进 main 并刷新 `FINANCE_CODE_ROOT` runtime，20:05/20:40 才会吃到新代码。
 
+- **S7 夜跑 sync（2026-08-16）**：18:30 不再直接跑仓内
+  `nightly_full_review.sh sync`。入口是
+  `~/.local/bin/nightly-full-review-s7.sh`，写锁只落 staging，成功才
+  `os.replace` 进生产库。子进程仍用 private 工作树上的
+  `run_review_sync.py`（那棵树有未提交的主线 static 回退）。**不要**为了
+  S7 去切 8792——S7 不在 `intelligence/`。详见
+  `docs/handoffs/2026-08-16-s7-nightly-staging.md`。
+
 - **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。
   rx.py 必须 `TOKEN = os.environ.get("CC_REMOTE_EXEC_TOKEN","").strip().strip("\u2028\u2029")`。
 

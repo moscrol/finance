@@ -34,7 +34,7 @@
 | L1-S4 | recall@k 标注集 | done | 基线文档在场 | #40 | 已合；分数走运行平面 |
 | L1-S5 | uq15 出题 | done | 题集+协议+QC 在场 | #33 #35 | 已合；判分未开，不挡 P0 口径 |
 | L1-S6 | memory 候选链 | done | 候选→gate→归因 | #41 | 已合 |
-| L1-S7 | 行情写锁消除 | done | staging+原子换库 | #39 | 已合；未切见 L1-8792 |
+| L1-S7 | 行情写锁消除 | done | 夜跑 sync 走 staging 换库 | #39 · `2026-08-16-s7-nightly-staging.md` | 18:30 已挂；8792 不因 S7 切 |
 | L1-S8 | 记忆质检清扫 | done | Q3/Q4/Q7/Q8 | #37 | 已合 |
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
@@ -48,7 +48,7 @@
 
 | 提出日 | 事项 | 卡在谁 | 关联 |
 |---|---|---|---|
-| 2026-08-15 | 8792 是否切到含 S7 的 main tip | 用户 | L1-8792 |
+| 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-15 | R-24 独立部署窗何时开 | 用户 | L1-R24 |
 | 2026-08-15 | dsh 实施分支仍禁止 push，检阅无法从远程看 §10.5 #1–4 | 用户 | L1-DSH |
 | 2026-08-16 | 是否删除安全 ref `prerebase/dsh-seams-e21c50bf` | 用户 | L1-DSH |
