@@ -131,3 +131,19 @@
 - 结论：`ROOT_CAUSE_NOT_CONFIRMED`。H1/H3/H4/H5 REJECTED；H2 INCONCLUSIVE（S1 前不得 PRIMARY）。未改 prompt / 工具描述 / 路由 / `episode_semantic_verifier.py`。
 - 账本：`R-20260815-26`（EVAL_ONLY，pending）。Phase B 候选 R-027/R-028 未进 Open。
 - 判据：1 失败标准先冻结后取证 / 2 假设逐条判定且未硬选 PRIMARY / 3 H2 未结案 / 5 未碰保留地。
+
+### S2 · judge 数据源回查钩子 ｜ 2026-08-16 ｜ 分支 bookgap/s2-judge-recheck
+
+- 交付：`intelligence/services/judge_source_recheck.py` + verifier `_judge_request` 一处开关；默认 `ASK_JUDGE_RECHECK=off`。
+- 抽取：一句一个数字 + 日期 token；比对 ±0.05；失败 `recheck_unavailable`，不挡 judge。
+- 未碰 `_marker_loss_partial_public` / 窗口函数。8792 不追切。
+- 验收 1–3：off 无 `source_recheck`；on 夹具 mismatch 注入 judge JSON；超时 fail-open。source_ref：`test_judge_source_recheck`（155 与 verifier 同跑全绿）。
+- 验收 4：10 题对照实验未跑；值不值尚未定量。L1 完成判据是钩子，不是实验。
+
+### S3 · 超时窗口比例化 ｜ 2026-08-16 ｜ 分支 bookgap/s3-timeout-ratio
+
+- 交付：`derive_stage_caps` / `apply_env_ceiling`；工具批次与 judge 窗口读推导值。#63。
+- 现档 `for_tier()`：quick 30/20、standard 90/20、deep 240/48。deep 工具 192、judge 窗口 50（首窗 25）。
+- env 只下压。未改 reserve / `_marker_loss_partial_public`。8792 不追切。
+- 验收 1–3：三档表 + env 保险丝单测。source_ref：`test_stage_caps`。
+- 验收 4：离线 3 题冒烟未跑。spec 旧 75s/60s reserve 已过时，推导钉在当前数字。

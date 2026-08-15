@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import inspect
 import json
-import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -46,6 +45,10 @@ from intelligence.services.judge_source_recheck import recheck_draft, recheck_en
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
+    ResearchPolicy,
+    apply_env_ceiling,
+    derive_stage_caps,
+    policy_for_env,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -74,42 +77,17 @@ DEFAULT_JUDGE_TIMEOUT_SECONDS = 30.0
 MAX_SEMANTIC_JUDGE_WINDOW_SECONDS = 60.0
 
 
-def semantic_judge_window_seconds() -> float:
-    """Total window shared by all judge attempts, overridable for calibration.
+def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
+    """Total window shared by all judge attempts.
 
-    Sized from measurement, 2026-08-10.  The judge's first attempt gets
-    ``min(per_attempt_cap, window * 0.5)``, so the previous 30.0 yielded
-    ``(15.0, 7.5, 7.5)``.  Live runs put the judge's actual cost at
-    **13.3–24.1s**: at a 15s first attempt it failed 6/6 with ``TimeoutError``;
-    at 25s it succeeded 6/6.  Those measurements straddle 15s, which is exactly
-    why the old value failed almost always rather than occasionally.  60.0 puts
-    the first attempt at the per-attempt cap, covering the observed tail.
-
-    ⚠️ 这个 60.0 与 ``DEFAULT_JUDGE_TIMEOUT_SECONDS`` **是两个数，别混**：
-    首窗取两者的较小值（`min(cap, 60*0.5=30)`），所以在 cap ≤30 时**真正卡住
-    首窗的是 cap 不是这个 60**。2026-08-10 晚把 cap 从 25 提到 30 之后，
-    两者恰好都等于 30——再想抬首窗就必须同时动这个 60，只改 cap 不会有任何效果。
-
-    **Raising this cannot starve the draft**, despite an earlier note in this
-    file claiming otherwise.  The pipeline is strictly sequential — episode
-    produces the draft, then structural verification, then this judge
-    (``continuous_turn_adapter.py:480`` then ``:554``) — and
-    ``synthesis_timeout`` returns ``min(limit, remaining())``.  By the time the
-    judge runs the draft has already been paid for; a larger ceiling can only
-    claim time that is genuinely still on the clock, and self-limits when it is
-    not.  The "widening one starves the other" claim was generalised from a
-    single run whose draft was empty because the relay 503'd, not because of
-    any budget interaction.
+    Bookgap S3: the source of truth is ``derive_stage_caps`` (a fraction of
+    synthesis reserve).  ``ASK_SEMANTIC_JUDGE_WINDOW`` can only lower it.
+    First attempt remains ``min(per_attempt_cap, window * 0.5)``; deep's
+    derived window is 50s so that first attempt is 25s (08-10 arm C).
     """
 
-    raw = os.environ.get("ASK_SEMANTIC_JUDGE_WINDOW")
-    if raw is None or not str(raw).strip():
-        return MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
-    try:
-        value = float(raw)
-    except ValueError:
-        return MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
-    return value if value > 0 else MAX_SEMANTIC_JUDGE_WINDOW_SECONDS
+    caps = derive_stage_caps(policy or policy_for_env())
+    return apply_env_ceiling(caps.judge_window_seconds, "ASK_SEMANTIC_JUDGE_WINDOW")
 MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
 JudgeFn = Callable[..., object]
 

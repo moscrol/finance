@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-import os
 from concurrent.futures import (
     FIRST_COMPLETED,
     Executor,
@@ -21,7 +20,13 @@ from typing import Literal, cast
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.services.episode_scope import TOOL_ERROR, EpisodeScope
-from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_contract import (
+    ResearchPolicy,
+    ResearchRunContext,
+    apply_env_ceiling,
+    derive_stage_caps,
+    policy_for_env,
+)
 from intelligence.services.research_tool_registry import (
     InvalidResearchToolArguments,
     PreparedToolArguments,
@@ -38,34 +43,17 @@ MAX_GLOBAL_TOOL_WORKERS = 8
 DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS = 30.0
 
 
-def tool_batch_timeout_seconds() -> float:
-    """Ceiling for one tool batch, overridable for calibration runs.
+def tool_batch_timeout_seconds(policy: ResearchPolicy | None = None) -> float:
+    """Ceiling for one tool batch: derived from the tier, env can only lower it.
 
-    This was a bare ``30.0`` literal inside :meth:`run`.  It is the binding
-    constraint on tool execution and, because ``stage_timeout`` takes
-    ``min(limit, remaining - reserve)``, raising the episode's tier does **not**
-    relax it — a deep-tier episode has ~105s of non-synthesis budget and still
-    gave its tools 30s.  Measured 2026-08-10: ``evidence_search`` costs 28.2s on
-    a cold call, i.e. 94% of this ceiling, with no margin for its tail.  Tools
-    in a batch run concurrently (see ``_SHARED_TOOL_EXECUTOR``), so the batch
-    costs ``max()`` of its calls, not ``sum()`` — this ceiling is really "how
-    slow may the slowest tool be".
-
-    Default unchanged at 30.0.  Recalibrating it needs repeated live runs the
-    relay was too unstable to supply, so it ships adjustable rather than
-    re-guessed: an experiment arm measured `deep` tier + 60s here taking S3 to
-    `structural=completed` with zero missing outputs, on 3 valid rungs — enough
-    to justify making it tunable, not enough to move the default.
+    The old 30.0 literal did not move when the episode tier did — a deep run
+    still gave tools 30s of a ~192s pre-synthesis remainder.  Bookgap S3
+    replaces that literal with ``derive_stage_caps``.  ``ASK_TOOL_BATCH_TIMEOUT``
+    is a fuse, not the source of truth.
     """
 
-    raw = os.environ.get("ASK_TOOL_BATCH_TIMEOUT")
-    if raw is None or not str(raw).strip():
-        return DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
-    try:
-        value = float(raw)
-    except ValueError:
-        return DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
-    return value if value > 0 else DEFAULT_TOOL_BATCH_TIMEOUT_SECONDS
+    caps = derive_stage_caps(policy or policy_for_env())
+    return apply_env_ceiling(caps.tool_batch_seconds, "ASK_TOOL_BATCH_TIMEOUT")
 
 
 _CANCELLATION_POLL_SECONDS = 0.05
@@ -364,7 +352,9 @@ class EpisodeToolBatchSession:
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
-        timeout = context.deadline.stage_timeout(tool_batch_timeout_seconds())
+        timeout = context.deadline.stage_timeout(
+            tool_batch_timeout_seconds(context.policy)
+        )
         if selected and timeout <= 0.0:
             for candidate in selected:
                 items[candidate.index] = ToolCallResult(
