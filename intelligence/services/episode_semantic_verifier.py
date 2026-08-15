@@ -10,7 +10,9 @@ The module is provider-neutral.  Tests and canary callers can inject a small
 ``judge_fn``/primary model; production can use the independent provider chosen
 by :func:`llm_refine.judge_provider`.  No NLI model or second retrieval path is
 introduced here: a semantic judge may reject or narrow an answer, never add
-evidence or upgrade a structurally partial outcome.
+evidence or upgrade a structurally partial outcome.  Optional numeric-claim
+recheck (bookgap S2) may attach ``source_recheck`` when ``ASK_JUDGE_RECHECK``
+is on; the default remains off.
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ from intelligence.services.episode_verifier import (
     VerifiedEpisodeOutcome,
     verify_episode_outcome,
 )
+from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     ResearchDeadline,
@@ -1122,7 +1125,7 @@ class SemanticEpisodeVerifier:
             verified.outcome
         )
         answer_grounding_mode = _answer_grounding_mode(contract)
-        return {
+        payload: dict[str, object] = {
             "question": frame.raw_question,
             "task_frame": {
                 "subject": frame.subject,
@@ -1141,6 +1144,10 @@ class SemanticEpisodeVerifier:
             "claim_policy": dict(_CLAIM_POLICY),
             "sentences": sentences,
         }
+        if recheck_enabled():
+            draft = " ".join(str(item.get("text") or "") for item in sentences)
+            payload["source_recheck"] = recheck_draft(draft)
+        return payload
 
     def _run_judge(
         self,
