@@ -1,0 +1,285 @@
+"""工具阶段事件与可达性登记（spec §7.1/§7.2，实施顺序第 3 步）。
+
+这里验的是**接线**：registry.execute 在拿到 scope 时发事件、登记调用，
+拿不到 scope 时行为与接线前逐字节一致。
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from intelligence.services import agent_research, query_ledger
+from intelligence.services.episode_scope import (
+    TOOL_ERROR,
+    TOOL_PRE_EXECUTE,
+    TOOL_RESULT,
+    EpisodeScope,
+)
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import (
+    RequiredOutput,
+    ResearchDeadline,
+    ResearchPolicy,
+    ResearchRunContext,
+    ResearchTaskContract,
+)
+from intelligence.services.research_tool_registry import (
+    QUERY_TOOL_PARAMETERS,
+    ResearchToolRegistry,
+    ToolSpec,
+    UnknownResearchTool,
+)
+
+
+class RecordingSink:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict]] = []
+
+    def emit(self, kind: str, payload: dict) -> None:
+        self.events.append((kind, dict(payload)))
+
+    def kinds(self) -> list[str]:
+        return [kind for kind, _ in self.events]
+
+    def payload(self, kind: str) -> dict:
+        for seen, payload in self.events:
+            if seen == kind:
+                return payload
+        raise AssertionError(f"没有 {kind} 事件；实际有 {self.kinds()}")
+
+
+def _ok_runner(
+    value: str,
+    context: agent_research.AgentToolContext,
+) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+    return ([], f"ran {value}", ProviderTrace(provider="test", capability="market_data", status="ok"))
+
+
+def _boom_runner(
+    value: str,
+    context: agent_research.AgentToolContext,
+) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+    raise RuntimeError("runner 炸了")
+
+
+def _registry(runner=_ok_runner) -> ResearchToolRegistry:
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="行情",
+                cost="local",
+                freshness="current",
+                runner=runner,
+                parameters=dict(QUERY_TOOL_PARAMETERS),
+            ),
+            ToolSpec(
+                name="memory_lookup",
+                capability="memory_lookup",
+                description="记忆",
+                cost="local",
+                freshness="stable",
+                runner=runner,
+                parameters=dict(QUERY_TOOL_PARAMETERS),
+            ),
+        )
+    )
+
+
+def _context(allowed: tuple[str, ...] = ("market_data",)) -> ResearchRunContext:
+    contract = ResearchTaskContract(
+        task_id="stage-events",
+        question="测试",
+        subject=None,
+        subject_kind=None,
+        question_type="quick_fact",
+        required_outputs=(RequiredOutput("direct_assessment", "判断", allowed, True),),
+        allowed_capabilities=allowed,
+        task_frame_hash="hash-1",
+    )
+    return ResearchRunContext(
+        contract=contract,
+        deadline=ResearchDeadline.from_timeout(5.0),
+        policy=ResearchPolicy("quick", 4, 5.0, 0.0),
+        trace_parent_id="stage-events",
+    )
+
+
+def _scope(registry: ResearchToolRegistry, sink: RecordingSink | None = None):
+    return EpisodeScope(
+        episode_id="ep-1",
+        user_id="u-1",
+        context=_context(),
+        registry=registry,
+        event_sink=sink,
+    )
+
+
+# 去重由 ``query_ledger_scope()`` 这个 ContextVar 上下文管理器界定：
+# 不进该 scope 就没有 ledger，``executed`` 直接透传。所以只有那条去重用例需要
+# 显式开 scope，其余用例天然互不干扰。
+
+
+# ── 不传 scope：与接线前逐字节一致 ─────────────────────────────────────
+
+
+def test_without_scope_nothing_is_emitted_and_result_unchanged() -> None:
+    registry = _registry()
+    observation = registry.execute(
+        "market_data",
+        {"query": "上证"},
+        context=_context(),
+        step_id="s-1",
+    )
+    assert observation.tool == "market_data"
+    assert "ran" in observation.observation
+
+
+def test_without_scope_authorization_error_contract_unchanged() -> None:
+    """错误契约没动：仍是 UnknownResearchTool，消息逐字不变。"""
+
+    registry = _registry()
+    with pytest.raises(UnknownResearchTool, match="能力未授权：memory_lookup"):
+        registry.execute(
+            "memory_lookup",
+            {"query": "x"},
+            context=_context(),
+            step_id="s-1",
+        )
+
+
+# ── 传 scope：发事件、登记调用 ─────────────────────────────────────────
+
+
+def test_successful_call_emits_pre_execute_then_result() -> None:
+    registry = _registry()
+    sink = RecordingSink()
+    scope = _scope(registry, sink)
+
+    registry.execute(
+        "market_data",
+        {"query": "上证"},
+        context=_context(),
+        step_id="s-1",
+        scope=scope,
+        tool_call_id="call-42",
+    )
+
+    assert sink.kinds() == [TOOL_PRE_EXECUTE, TOOL_RESULT]
+    assert sink.payload(TOOL_PRE_EXECUTE)["tool_call_id"] == "call-42"
+    assert sink.payload(TOOL_RESULT)["tool_call_id"] == "call-42"
+
+
+def test_invocation_is_recorded_for_reachability() -> None:
+    registry = _registry()
+    scope = _scope(registry)
+    assert scope.dump()["invoked_tools"] == []
+
+    registry.execute(
+        "market_data",
+        {"query": "上证"},
+        context=_context(),
+        step_id="s-1",
+        scope=scope,
+    )
+
+    rows = {row["name"]: row for row in scope.dump()["tools"]}
+    assert rows["market_data"]["invoked"] is True
+    assert rows["market_data"]["broken_at"] is None
+
+
+def test_deduplicated_call_is_not_recorded_as_invoked() -> None:
+    """被去重挡掉的第二次调用不能记成跑过了。
+
+    登记写在 fetch 闭包里而不是 execute 顶部，就是为了这个：可达性收据说
+    「跑过」时，必须真的有 runner 被调起。
+    """
+
+    calls: list[str] = []
+
+    def counting_runner(value, context):
+        calls.append(value)
+        return _ok_runner(value, context)
+
+    registry = _registry(counting_runner)
+    scope = _scope(registry)
+
+    with query_ledger.query_ledger_scope():
+        for _ in range(2):
+            registry.execute(
+                "market_data",
+                {"query": "同一个问题"},
+                context=_context(),
+                step_id="s-1",
+                scope=scope,
+            )
+
+    assert len(calls) == 1, "第二次应被 query ledger 去重"
+    assert scope.dump()["invoked_tools"] == ["market_data"]
+
+
+def test_authorization_denial_emits_distinction_without_changing_contract() -> None:
+    """事件里分得清「未授权」，而抛出的异常一个字没变。
+
+    这是本步刻意画的边界：unknown_or_unauthorized_tool 那个压扁的串有 4 个
+    生产者、1 个分支消费者、且进了模型可见文本，拆它是另一次有意变更。
+    """
+
+    registry = _registry()
+    sink = RecordingSink()
+    scope = _scope(registry, sink)
+
+    with pytest.raises(UnknownResearchTool, match="能力未授权：memory_lookup"):
+        registry.execute(
+            "memory_lookup",
+            {"query": "x"},
+            context=_context(),
+            step_id="s-1",
+            scope=scope,
+            tool_call_id="call-9",
+        )
+
+    payload = sink.payload(TOOL_ERROR)
+    assert payload["stage"] == "authorize"
+    assert payload["capability"] == "memory_lookup"
+    assert "能力未授权" in payload["reason"]
+    assert payload["tool_call_id"] == "call-9"
+
+
+def test_runner_failure_emits_error_and_still_propagates() -> None:
+    """只观测，不改变传播——吞掉异常就是把失败静默成空结果。"""
+
+    registry = _registry(_boom_runner)
+    sink = RecordingSink()
+    scope = _scope(registry, sink)
+
+    with pytest.raises(RuntimeError, match="runner 炸了"):
+        registry.execute(
+            "market_data",
+            {"query": "上证"},
+            context=_context(),
+            step_id="s-1",
+            scope=scope,
+        )
+
+    payload = sink.payload(TOOL_ERROR)
+    assert payload["stage"] == "execute"
+    assert payload["error_type"] == "RuntimeError"
+    assert "runner 炸了" in payload["reason"]
+
+
+def test_scope_without_sink_records_but_emits_nothing() -> None:
+    """没挂 sink 时事件静默丢弃，但登记照做——事件是可观测性，登记是事实。"""
+
+    registry = _registry()
+    scope = _scope(registry, sink=None)
+    registry.execute(
+        "market_data",
+        {"query": "上证"},
+        context=_context(),
+        step_id="s-1",
+        scope=scope,
+    )
+    assert scope.dump()["invoked_tools"] == ["market_data"]
+    assert scope.dump()["event_sink_attached"] is False

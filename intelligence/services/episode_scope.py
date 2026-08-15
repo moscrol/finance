@@ -43,12 +43,28 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.research_tool_registry import (
+    TOOL_ERROR,
+    TOOL_PRE_EXECUTE,
+    TOOL_RESULT,
     PreparedToolArguments,
     ResearchToolRegistry,
     ToolObservation,
     ToolRunResult,
     UnknownResearchTool,
 )
+
+__all__ = [
+    "TOOL_ERROR",
+    "TOOL_PRE_EXECUTE",
+    "TOOL_RESULT",
+    "Authorization",
+    "EpisodeScope",
+    "EventSink",
+    "ReachabilityStage",
+    "ToolPipeline",
+    "ToolReachability",
+    "ToolRequest",
+]
 
 if TYPE_CHECKING:  # pragma: no cover - 仅供类型检查，避免运行期循环 import
     from intelligence.services.evidence_ledger import EvidenceLedger
@@ -68,6 +84,9 @@ ReachabilityStage = Literal[
     "not_model_visible",
     "not_invoked",
 ]
+
+# 阶段事件名定义在 research_tool_registry（发射点、且是本模块的下层），
+# 这里只转出去。定义放上层会成环，抄一份则是第二事实源。
 
 
 @runtime_checkable
@@ -182,15 +201,41 @@ class EpisodeScope:
     registry: ResearchToolRegistry
     evidence_ledger: EvidenceLedger | None = None
     event_sink: EventSink | None = None
-    # 本次实际发生过调用的工具名。可达性四段里的最后一段靠它填；
-    # 由调用方在执行后登记（第 3 步接线时才有写入方，第 2 步只读）。
-    invoked_tools: frozenset[str] = field(default_factory=frozenset)
+    # 本次实际发生过调用的工具名——可达性四段里的最后一段靠它填。
+    #
+    # 这是一个**可变**集合，而 Scope 本身是 frozen：frozen 只挡重新绑定属性，
+    # 不挡改它指向的对象。这个区别是有意的——Scope 的**身份**（episode、契约、
+    # 注册表）在一次 Episode 内不可变，而「哪些工具真的跑过」是运行中累积的事实，
+    # 只能边跑边记。compare=False：两个 Scope 是否相同不取决于跑到哪一步了。
+    invoked_tools: set[str] = field(default_factory=set, compare=False)
 
     def __post_init__(self) -> None:
         if not str(self.episode_id).strip():
             raise ValueError("episode scope 必须携带 episode_id")
-        if not isinstance(self.invoked_tools, frozenset):
-            object.__setattr__(self, "invoked_tools", frozenset(self.invoked_tools))
+        if not isinstance(self.invoked_tools, set):
+            object.__setattr__(self, "invoked_tools", set(self.invoked_tools))
+
+    # ── 运行中登记 ────────────────────────────────────────────────────
+
+    def record_invocation(self, tool: str) -> None:
+        """登记一次真实发生的工具调用。
+
+        只在 runner 真的被调起后才登记，不在「决定要调」时登记——否则被预算、
+        取消或去重挡掉的调用会被记成跑过了，可达性收据就会说谎。
+        """
+
+        self.invoked_tools.add(str(tool))
+
+    def emit(self, kind: str, payload: Mapping[str, object]) -> None:
+        """把阶段事件送到 event sink；没挂 sink 时静默丢弃。
+
+        丢弃是刻意的：事件是可观测性，不是正确性。没挂 sink 的调用方
+        （现存大多数）行为必须与接线前逐字节一致，所以这里不能抛也不能记日志。
+        「有没有挂上」由 ``dump()`` 的 event_sink_attached 回答。
+        """
+
+        if self.event_sink is not None:
+            self.event_sink.emit(kind, payload)
 
     # ── 派生视图：以下全部从 context + registry 算出，不另存一份 ──────────
 

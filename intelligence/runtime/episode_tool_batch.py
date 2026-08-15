@@ -20,6 +20,7 @@ from typing import Literal, cast
 
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
+from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
     InvalidResearchToolArguments,
@@ -179,12 +180,19 @@ def _run_with_publish_guard(
 class EpisodeToolBatchSession:
     """Own episode query state and execute independent tool calls concurrently."""
 
-    def __init__(self, *, executor: Executor | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        scope: EpisodeScope | None = None,
+    ) -> None:
         self._seen_queries: set[tuple[str, str]] = set()
         self._successful_episode_tools: set[str] = set()
         self._lock = Lock()
         self._next_call_sequence = 1
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
+        # 缺省 None：不传 scope 的调用方行为与接线前逐字节一致。
+        self._scope = scope
 
     def available_tool_names(
         self,
@@ -443,6 +451,11 @@ class EpisodeToolBatchSession:
                     context=context,
                     step_id=step_ids[candidate.index],
                     is_cancelled=is_cancelled,
+                    scope=self._scope,
+                    # 模型给的那个 call_id，不是 step_id。step_id 是本仓按
+                    # trace_parent+序号生成的，跨臂/跨引擎对不上；call_id 才是
+                    # §7.1 要求「逐次对账」时两边都认的那个锚。
+                    tool_call_id=candidate.call.call_id,
                 )
                 worker_context = copy_context()
                 guarded_operation = partial(
@@ -543,11 +556,17 @@ class EpisodeToolBatchSession:
 class ToolBatchExecutor:
     """Stateless factory for episode-scoped tool batch sessions."""
 
-    def __init__(self, *, executor: Executor | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        scope: EpisodeScope | None = None,
+    ) -> None:
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
+        self._scope = scope
 
     def new_session(self) -> EpisodeToolBatchSession:
-        return EpisodeToolBatchSession(executor=self._executor)
+        return EpisodeToolBatchSession(executor=self._executor, scope=self._scope)
 
     def execute(
         self,
