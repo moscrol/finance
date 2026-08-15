@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-15（轨道 B Round 4：R-11 + R-08 confirmed；不改 R-21 / R-10）
+- last_updated: 2026-08-15（轨道 B Round 4：批 #2 `20260815T0302Z-r4-clean-baseline-2` 落盘；R-10 仍 pending——N=2 交付率表已出，缺第 3 批；不改 R-21）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）

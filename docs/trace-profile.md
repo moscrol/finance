@@ -1,8 +1,8 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-15
-- updated_by_run: `2026-08-15-trka-r2-caveat-slips`（`finish.payload.caveat_slips`；
-  前值 `2026-08-15 Round 1 开工前回填`；#6 另补 repair_model_stop / semantic_status 两条陷阱）
+- updated_by_run: `20260815T0302Z-r4-clean-baseline-2`（多条 finish 取末条；
+  `evidence_bound` ≠ episode fulfilled。前值 `2026-08-15-trka-r2-caveat-slips`）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -43,7 +43,9 @@
 | episode `stop_reason=repair_model_stop` | 修复轮没产出合法 FINISH，所以交付 0 | stop 只说「无工具且未 completed」。交付 0 的区分变量是**全部** required output 的 `binding.gap` 非空（hashes 会被 verifier 丢掉）。同 stop 但至少一格 gap 为空时 eb>0（R5-A7 / live A7） | `docs/verification/2026-08-15-trka-repair-finish-gap-slip.md` |
 | `semantic_status=unavailable` / 「未完成核验绑定」 | 核验预算不够或模型没走到 FINAL_JSON | 当 structural fulfilled=0 时 judge **根本不会被调用**（`_can_semantically_release_partial`）。模板文案的注释假设「没绑定」，但 R7-A7 的 episode 里 bindings 有 hashes。混槽 + judge 瞬时失败会走另一条「候选草稿」文案且 eb>0 | R7-A7 vs live A7/A10；`episode_semantic_verifier.py:503-522` |
 | `finish.payload.caveat_slips` | 顶层 `gaps` 条数，或「有 caveat 就是失败」 | **本次** `validate_episode_finish` 把 hashes+gap 滑档挪到顶层 `gaps` 的格数。无滑档时为 `0` 且字段仍在场。旧 artifact 字段缺失 ≠ 0。不参与判定；查询入口是 episode `finish.payload`，本轮不改 `normalize_harness_trace`（B 轨缝） | `docs/verification/2026-08-15-trka-r2-caveat-slips.md`；健康阈值 `=0`；`≥2` 全格滑档、`=1` 混槽 |
+| 多条 `kind=finish` | 取任意一条即可读 `caveat_slips` / `stop_reason` | 同一 episode 常有**两条** finish：第一条多是检索截止 `deadline_exhausted` 且 `slips=0`，第二条才是修复轮终态。数 slips / 判 `invalid_repair_finish` 必须取**最后一条**。批 #2 若取首条，8 个 slips>0 窗口会全部读成 0 | `20260815T0302Z-r4-clean-baseline-2` A9/B2/B3/B4/B7/C1/C6/C10；B5/C7 末条才是 `invalid_repair_finish` |
 | `execution_state_tally` | 每题一个态，等于 case 终态分布 | **`< R-20260815-11` 的产物按 `turns[0]` 计**，多轮题会被首轮掩蔽（C10 三轮 delivered/clarification/bound_but_dropped，tally 计 delivered，末轮却是 bound_but_dropped）。此后 tally **按轮**，case 级另立 `execution_state_aggregate`（写死 `last_turn`），并带 `execution_state_case_tally` / `execution_state_turn_rows`。读旧产物前先看有没有 `execution_state_aggregate_rule` | `20260814T1926Z-r3-clean-baseline` C10；`summarize_execution_states` |
+| `evidence_bound` | 与 episode 已 fulfilled 且带哈希的格同义 | 验收台从 `/api/runs/<id>/context` 计 `status=hit`。B3@批#2：episode `direct_assessment`/`chain_mapping` 共 11 哈希且 struct=fulfilled，context 证据列表为空 → `evidence_bound=0`。R-10 交付率仍按冻结的 `evidence_bound>0` 口径，不得事后改口；并行读 episode 格 | `run_20260815_111907_054023` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
