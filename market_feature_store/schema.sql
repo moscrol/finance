@@ -963,3 +963,25 @@ ALTER TABLE ops_pipeline_run_daily ADD COLUMN IF NOT EXISTS processed_count INTE
 ALTER TABLE ops_pipeline_run_daily ADD COLUMN IF NOT EXISTS failed_count INTEGER;
 CREATE INDEX IF NOT EXISTS idx_ops_pipeline_run_date
     ON ops_pipeline_run_daily(trade_date, pipeline);
+
+-- 同步收据 (append-only, bookgap S7): 每次 daily-full staging 换库成功写一行,
+-- 回答「最近一次同步何时开始/结束、写了多少行」——R-12 探针与人共用。
+-- 与 ops_pipeline_run_daily 的区别: 那张是特征管道逐步收据 (按日+步骤主键),
+-- 这张是整库同步的逐次收据, 同一天可多行。DDL 需与 sync_daily_full.OPS_SYNC_RUN_DDL 一致。
+CREATE TABLE IF NOT EXISTS ops_sync_run (
+    run_id        TEXT,      -- 本次同步短 id
+    kind          TEXT,      -- 入口, 如 daily-full
+    plan          TEXT,      -- 换库方案, 如 staging-swap
+    trade_date    TEXT,
+    started_at    TIMESTAMP,
+    finished_at   TIMESTAMP, -- 收据写入时刻 (紧邻换名前); 文件 mtime 即换名瞬间
+    duration_s    DOUBLE,
+    ok            BOOLEAN,   -- 管道全绿; false = 有失败步但按现状口径落库
+    pid           BIGINT,    -- 编排进程 pid (换名后旧文件空间在旧句柄释放前不归还, 排查用)
+    child_pid     BIGINT,    -- staging 写者子进程 pid
+    copy_method   TEXT,      -- clonefile / copy
+    copy_seconds  DOUBLE,
+    source_bytes  BIGINT,
+    rows_summary  TEXT,      -- json: 核心表行数
+    steps_summary TEXT       -- json: [{name, ok, elapsed_s}]
+);

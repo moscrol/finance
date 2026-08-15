@@ -681,11 +681,38 @@ def cmd_daily_review(args) -> int:
 
 
 def cmd_daily_full(args) -> int:
-    from .sync.sync_daily_full import run_daily_full
+    """staging 编排入口: 同步全程不持有生产库写锁 (bookgap S7)。
+
+    真正的管道跑在 daily-full-exec 子进程里 (env 重定向到 staging 副本),
+    这里只负责预检与编排结果的出口语义。rc: 0=全绿并已换名, 1=有失败步
+    但按现状口径落库 (已换名), 2=fail closed (生产库未动)。
+    """
+    from .sync.sync_daily_full import run_daily_full_staged
 
     blocked = _daily_preflight_or_exit()
     if blocked is not None:
         return blocked
+    result = run_daily_full_staged(
+        trade_date=args.trade_date,
+        chart_table=args.chart_table,
+        skip_long=args.skip_long,
+        stock_source=args.stock_source,
+    )
+    if result["swapped"]:
+        print(f"全流程状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
+    else:
+        print(f"全流程状态: BLOCKED | 生产库未动 | {result['reason']}")
+    return result["rc"]
+
+
+def cmd_daily_full_exec(args) -> int:
+    """(内部) daily-full 的子进程管道入口, 由 run_daily_full_staged 拉起。
+
+    与旧 daily-full 完全同构 (跑管道+三道门+报告并打印), 差别只有:
+    不做环境预检 (父进程已做), 并把结构化结果写 --status-json 交回父进程。
+    """
+    from .sync.sync_daily_full import run_daily_full
+
     result = run_daily_full(
         trade_date=args.trade_date,
         chart_table=args.chart_table,
@@ -708,6 +735,21 @@ def cmd_daily_full(args) -> int:
             print(f"图表: {result['review']['chart_path']}")
     else:
         print("报告: 未生成（质量门未通过）")
+    _write_status_json(args.status_json, {
+        "trade_date": str(result["trade_date"]),
+        "ok": bool(result["ok"]),
+        "validation_ok": bool(result["update"]["validation"]["ok"]),
+        "cross_day_ok": bool(cross_day["ok"]),
+        "sector_gate_ok": bool(result["sector_gate"]["ok"]),
+        "steps": [
+            {
+                "name": s["name"],
+                "ok": bool(s["ok"]),
+                "elapsed_s": s.get("elapsed_s"),
+            }
+            for s in result["update"]["steps"]
+        ],
+    })
     return 0 if result["ok"] else 1
 
 
@@ -1253,13 +1295,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_dr.add_argument("--start-date", default=None, help="启动日 YYYY-MM-DD, 用于生成启动日主线确认模块")
     p_dr.set_defaults(func=cmd_daily_review)
 
-    p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘")
+    p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘 (staging 写+原子换库, 生产库无写锁)")
     p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
     p_df.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_df.set_defaults(func=cmd_daily_full)
+
+    p_dfe = sub.add_parser("daily-full-exec",
+                           help="(内部) daily-full 的 staging 子进程入口, 勿直接使用")
+    p_dfe.add_argument("--trade-date", default=None)
+    p_dfe.add_argument("--chart-table", default=None)
+    p_dfe.add_argument("--skip-long", action="store_true")
+    p_dfe.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot")
+    p_dfe.add_argument("--status-json", default=None,
+                       help="结构化结果落盘路径, 父进程用它拼收据")
+    p_dfe.set_defaults(func=cmd_daily_full_exec)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 

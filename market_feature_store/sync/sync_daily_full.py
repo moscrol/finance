@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
 import time
 import urllib.request
+import uuid
+from datetime import datetime
+from pathlib import Path
 
+import duckdb
+
+from .. import db as _db
 from ..db import PROJECT_DIR, connect
 
 
@@ -262,6 +269,307 @@ def sector_completion_gate(trade_date: str) -> dict:
         "missing_tables": list(audit.missing_tables),
         "status_counts": dict(audit.status_counts),
     }
+
+
+OPS_SYNC_RUN_DDL = """
+CREATE TABLE IF NOT EXISTS ops_sync_run (
+    run_id        TEXT,
+    kind          TEXT,
+    plan          TEXT,
+    trade_date    TEXT,
+    started_at    TIMESTAMP,
+    finished_at   TIMESTAMP,
+    duration_s    DOUBLE,
+    ok            BOOLEAN,
+    pid           BIGINT,
+    child_pid     BIGINT,
+    copy_method   TEXT,
+    copy_seconds  DOUBLE,
+    source_bytes  BIGINT,
+    rows_summary  TEXT,
+    steps_summary TEXT
+)
+"""
+
+# 校验/收据行数口径: 与 validate_daily_data 同一张表清单, 不另造分母。
+_RECEIPT_TABLES = (
+    "fact_market_daily", "fact_sector_daily", "fact_sw_l1_daily",
+    "fact_sector_stock_daily", "fact_stock_high_daily",
+    "fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+    "fact_limit_advance_daily", "fact_stock_daily",
+)
+
+
+def _db_shape(path: Path) -> dict | None:
+    """read_only 读一个库的形状: 表数 / 核心表行数 / fact_market_daily 覆盖上界。
+
+    打不开 (损坏/半成品) 返回 None——调用方 fail closed。
+    """
+    try:
+        con = duckdb.connect(str(path), read_only=True)
+    except Exception:
+        return None
+    try:
+        from ..db import list_tables
+
+        tables = list_tables(con)
+        rows: dict[str, int] = {}
+        for table in _RECEIPT_TABLES:
+            if table in tables:
+                rows[table] = con.execute(
+                    f'SELECT COUNT(*) FROM "{table}"'
+                ).fetchone()[0]
+        max_trade_date = None
+        if "fact_market_daily" in tables:
+            row = con.execute(
+                "SELECT MAX(trade_date) FROM fact_market_daily"
+            ).fetchone()
+            max_trade_date = str(row[0]) if row and row[0] is not None else None
+        return {
+            "table_count": len(tables),
+            "rows": rows,
+            "max_trade_date": max_trade_date,
+        }
+    finally:
+        con.close()
+
+
+def _write_receipt(staging: Path, receipt: dict) -> None:
+    """收据写进 staging、随换名一起可见——生产库自始至终不开 rw 连接。
+
+    (spec §2 的「换名后写收据」若按字面在换名后写生产库, 那一瞬的 rw 打开
+    会让恰好撞上的 read_only 连接秒败, 违背判据 1 的零失败; 故收笔前写入
+    staging, 换名后收据自然在场, 文件 mtime 即换名时刻。)
+    """
+    con = duckdb.connect(str(staging))
+    try:
+        con.execute(OPS_SYNC_RUN_DDL)
+        con.execute(
+            """
+            INSERT INTO ops_sync_run
+                (run_id, kind, plan, trade_date, started_at, finished_at,
+                 duration_s, ok, pid, child_pid, copy_method, copy_seconds,
+                 source_bytes, rows_summary, steps_summary)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            [
+                receipt["run_id"], receipt["kind"], receipt["plan"],
+                receipt["trade_date"], receipt["started_at"],
+                receipt["finished_at"], receipt["duration_s"], receipt["ok"],
+                receipt["pid"], receipt["child_pid"], receipt["copy_method"],
+                receipt["copy_seconds"], receipt["source_bytes"],
+                json.dumps(receipt["rows_summary"], ensure_ascii=False),
+                json.dumps(receipt["steps_summary"], ensure_ascii=False),
+            ],
+        )
+    finally:
+        con.close()
+
+
+def run_daily_full_staged(
+    trade_date: str | None = None,
+    chart_table: str | None = None,
+    skip_long: bool = False,
+    stock_source: str = "snapshot",
+    child_argv: list[str] | None = None,
+) -> dict:
+    """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
+
+    克隆生产库 → 子进程对 staging 副本跑原管道 (env 重定向, 见下) → 校验 →
+    第三方写者守卫 → 收据 → os.replace 原子换名。生产库文件只在换名一瞬变化,
+    正持旧句柄的读者继续读旧 inode, 新连接读新库。
+
+    为什么是子进程而不是进程内改 DB_PATH: 包内存在 import 期捕获路径的读点
+    (cli 顶层常量、analysis.sector_data 的默认参), 进程内改全局会漏掉它们,
+    以后新增的捕获点也会静默漏掉; 子进程在 import 前就带上
+    MARKET_FEATURE_STORE_DB, 天然覆盖全部现有与未来读点 (含孙子进程)。
+
+    child_argv 是测试缝: 注入假子进程 (自身读 env 写库/自杀) 来测换名、
+    守卫与 crash 语义, 不必跑真管道。
+
+    返回 {rc, swapped, reason, ...}; rc: 0=全绿, 1=管道有失败步但按现状
+    口径落库 (换名照做——今天的行为就是失败步不回滚已提交写入),
+    2=fail closed (未换名, 生产库未动)。
+    """
+    started_at = datetime.now()
+    started_mono = time.monotonic()
+    target = _db.DB_PATH
+    staging = _db.staging_path(target)
+    result: dict = {
+        "target": str(target),
+        "staging": str(staging),
+        "swapped": False,
+        "rc": 2,
+        "reason": None,
+        "copy": None,
+        "child_returncode": None,
+        "run_id": None,
+        "stale_staging_removed": False,
+    }
+
+    result["stale_staging_removed"] = _db.remove_stale_staging(staging)
+    if result["stale_staging_removed"]:
+        print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+
+    # 开工闸: 有活跃写者时开跑, 克隆是撕裂快照、换名会覆盖对方工作。
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.DatabaseLockedError as exc:
+        result["reason"] = f"生产库有活跃写者, 拒绝开工: {exc}"
+        print(f"[staging] {result['reason']}", flush=True)
+        return result
+
+    source_exists = target.exists()
+    source_stat = target.stat() if source_exists else None
+    source_shape = _db_shape(target) if source_exists else None
+    if source_exists and source_shape is None:
+        result["reason"] = f"生产库打不开, 拒绝开工: {target}"
+        return result
+
+    if source_exists:
+        result["copy"] = _db.clone_to_staging(target, staging)
+        # 克隆完成后的基线 stat: 此后生产文件再有任何变化 = 第三方写者。
+        source_stat = target.stat()
+        copy = result["copy"]
+        print(
+            f"[staging] 克隆生产库 -> {staging.name} "
+            f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
+            flush=True,
+        )
+
+    status_json = Path(str(staging) + ".status.json")
+    if child_argv is None:
+        child_argv = [
+            sys.executable, "-m", "market_feature_store.cli",
+            "daily-full-exec", "--status-json", str(status_json),
+        ]
+        if trade_date:
+            child_argv += ["--trade-date", trade_date]
+        if chart_table:
+            child_argv += ["--chart-table", chart_table]
+        if skip_long:
+            child_argv.append("--skip-long")
+        child_argv += ["--stock-source", stock_source]
+
+    child_env = os.environ.copy()
+    child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    proc = subprocess.Popen(child_argv, env=child_env, cwd=str(PROJECT_DIR))
+    print(
+        f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
+        flush=True,
+    )
+    child_rc = proc.wait()
+    result["child_returncode"] = child_rc
+    result["child_pid"] = proc.pid
+
+    status: dict = {}
+    if status_json.exists():
+        try:
+            status = json.loads(status_json.read_text(encoding="utf-8"))
+        finally:
+            status_json.unlink()
+    result["status"] = status
+
+    def _abort(reason: str) -> dict:
+        result["reason"] = reason
+        print(f"[staging] {reason}", flush=True)
+        return result
+
+    if child_rc < 0:
+        return _abort(
+            f"子进程被信号终止 (rc={child_rc}), staging 视为半成品, 不换名"
+        )
+    if child_rc not in (0, 1):
+        return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
+
+    staging_shape = _db_shape(staging)
+    if staging_shape is None:
+        return _abort(f"staging 打不开, 不换名: {staging}")
+    if source_shape is not None:
+        if staging_shape["table_count"] < source_shape["table_count"]:
+            return _abort(
+                f"校验失败: staging 表数 {staging_shape['table_count']} < "
+                f"生产 {source_shape['table_count']}, 不换名"
+            )
+        if (
+            source_shape["max_trade_date"]
+            and (staging_shape["max_trade_date"] or "")
+            < source_shape["max_trade_date"]
+        ):
+            return _abort(
+                f"校验失败: staging 交易日覆盖 {staging_shape['max_trade_date']}"
+                f" 倒退于生产 {source_shape['max_trade_date']}, 不换名"
+            )
+    result["validation"] = {
+        "source": source_shape,
+        "staging": staging_shape,
+    }
+    print(
+        "[staging] 校验通过: 表 "
+        f"{staging_shape['table_count']}"
+        + (f">={source_shape['table_count']}" if source_shape else "")
+        + f", fact_market_daily 覆盖到 {staging_shape['max_trade_date']}",
+        flush=True,
+    )
+
+    run_id = uuid.uuid4().hex[:12]
+    result["run_id"] = run_id
+    finished_at = datetime.now()
+    _write_receipt(staging, {
+        "run_id": run_id,
+        "kind": "daily-full",
+        "plan": "staging-swap",
+        "trade_date": status.get("trade_date") or trade_date,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_s": round(time.monotonic() - started_mono, 1),
+        "ok": child_rc == 0,
+        "pid": os.getpid(),
+        "child_pid": proc.pid,
+        "copy_method": (result["copy"] or {}).get("method"),
+        "copy_seconds": (result["copy"] or {}).get("seconds"),
+        "source_bytes": (result["copy"] or {}).get("bytes"),
+        "rows_summary": staging_shape["rows"],
+        "steps_summary": status.get("steps") or [],
+    })
+
+    # 第三方写者守卫: 克隆基线之后生产文件动过、或此刻有写者持锁,
+    # 换名都会覆盖对方工作——fail closed, staging 留作取证。
+    if source_exists:
+        if not target.exists():
+            return _abort("生产库文件在同步期间被移除, 不换名")
+        now_stat = target.stat()
+        if (
+            now_stat.st_mtime_ns != source_stat.st_mtime_ns
+            or now_stat.st_size != source_stat.st_size
+        ):
+            return _abort(
+                "第三方写者守卫: 生产库在同步期间被修改 "
+                f"(mtime {source_stat.st_mtime_ns}->{now_stat.st_mtime_ns}), "
+                "拒绝换名以免覆盖其写入; staging 保留待人工裁决"
+            )
+    elif target.exists():
+        return _abort("生产库文件在同步期间被第三方创建, 不换名")
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.DatabaseLockedError as exc:
+        return _abort(f"第三方写者守卫: {exc}; 拒绝换名")
+
+    swap_started = time.monotonic()
+    try:
+        _db.atomic_swap_into_place(staging, target)
+    except (RuntimeError, FileNotFoundError, OSError) as exc:
+        return _abort(f"换名失败: {exc}")
+    result["swap_seconds"] = round(time.monotonic() - swap_started, 3)
+    result["swapped"] = True
+    result["rc"] = child_rc
+    result["reason"] = "ok"
+    print(
+        f"[staging] 原子换名完成 ({result['swap_seconds']}s), "
+        f"收据 run_id={run_id}",
+        flush=True,
+    )
+    return result
 
 
 def run_daily_full(
