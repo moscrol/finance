@@ -76,3 +76,12 @@
 - entities：协议 §8 书面批准 q06/q13 为例外；后续新题仍默认 concepts/sources。
 - 计分：废止「就高给分」（未满分 +1 封顶）；q15 KP3 改为 1 或 3。
 - 待下游：判分方验封 → 读 errata → 再打分。
+
+### S8 · 记忆质检 Q3/Q4/Q7/Q8 清扫 ｜ 2026-08-15 ｜ 分支 bookgap/s8-memory-qa-sweep
+
+- 四条独立提交（可单独 cherry-pick）：Q3 `4ce0ce56` / Q4 `f4680c8c` / Q7 `99d3b7bd` / Q8 `e932cdef`；Q9 状态行 `5c1982ef`。
+- Q3：新行 `id=sha256(kind+ts+content)[:12]`，退出 id/ts 双键；旧行不迁，仍按 ts 退出。source_ref: `test_memory_status.RecordIdentityTests`。
+- Q4：`contract_missing_outputs` → `repair_coordinator.missing_outputs` 词表；`contract_receipt.missing_outputs` 恒在场。prompt 零改动。source_ref: `test_track_contract.ContractMissingOutputsTests`。
+- Q7：「液冷」→`液冷概念`（复用 `resolve_query_themes`）；解析不到仍显式降级。source_ref: `test_theme_lifecycle_timeline.LoaderTests.test_colloquial_alias_resolves_via_resolve_query_themes`。
+- Q8：固态电池 08-13 夹具 25→20 段，无 <3 日段。被合并：发酵2025-01-14~15、回流2026-07-01~02、回流2026-07-21~22。source_ref: `SolidStateBatteryLiveFixtureTests`。
+- 记忆面单测 77 passed（`test_memory_status` / `test_track_contract` / `test_theme_lifecycle_timeline` / `test_market_regime_analogs`）。未碰 `memory_gate` / experience cards 退出 / D10 / 保留缝。
