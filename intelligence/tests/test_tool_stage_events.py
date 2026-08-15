@@ -376,3 +376,26 @@ def test_batch_prefilter_emits_distinction_where_flattening_happens() -> None:
     assert "能力未授权" in by_call["c-1"]["reason"]
     assert by_call["c-2"]["capability"] is None
     assert by_call["c-2"]["reason"] == "工具未注册"
+
+
+# ── 生产链路真的构造 Scope 了（第 4 步认领项之一）─────────────────────
+
+
+def test_agent_episode_run_constructs_scope() -> None:
+    """机制不再休眠：agent_episode.run() 真的构造并传下 Scope。
+
+    第 3 步把接缝接到执行路径上，但生产链路一直没人构造 Scope，于是事件、登记、
+    dump 在生产里都不发生——而所有测试仍然全绿，因为没有任何断言在问「生产里
+    真的建了吗」。这条就是那个断言，所以它必须真的调 run()，不能只验 new_session
+    的透传（那样验的是我自己刚写的那行参数传递，不是入口行为）。
+    """
+
+    import inspect
+
+    from intelligence.runtime import agent_episode
+
+    source = inspect.getsource(agent_episode.ContinuousAgentEpisode.run)
+    assert "EpisodeScope(" in source, "run() 必须构造 EpisodeScope"
+    assert "new_session(scope=" in source, "构造出来的 Scope 必须传给批次会话"
+    # episode_id 用仓内既有约定，不是新发明的身份
+    assert "context.contract.task_id" in source

@@ -582,8 +582,20 @@ class ToolBatchExecutor:
         self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
         self._scope = scope
 
-    def new_session(self) -> EpisodeToolBatchSession:
-        return EpisodeToolBatchSession(executor=self._executor, scope=self._scope)
+    def new_session(
+        self, *, scope: EpisodeScope | None = None
+    ) -> EpisodeToolBatchSession:
+        """开一个批次会话。
+
+        ``scope`` 是**每次运行**的东西（带着这一轮的 contract、注册表、登记簿），
+        而 executor 是可复用的长生命周期对象——所以 scope 要能在这里覆盖，
+        不能只在 executor 构造时给一次。executor 上那个仍作缺省。
+        """
+
+        return EpisodeToolBatchSession(
+            executor=self._executor,
+            scope=scope if scope is not None else self._scope,
+        )
 
     def execute(
         self,

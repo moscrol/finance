@@ -69,6 +69,7 @@ from intelligence.services.research_plan import (
     plan_to_public_dict,
     validate_plan_revision,
 )
+from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
 )
@@ -543,7 +544,27 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> AgentOutcome:
-        tool_session = self._tool_executor.new_session()
+        # EpisodeScope 在这里构造——这是 Episode 的入口，contract、注册表、
+        # 身份都齐了。第 3 步把接缝接到了执行路径上，但生产链路一直没人构造 Scope，
+        # 于是事件、调用登记和 dump 收据在生产里都不发生（机制休眠）。
+        #
+        # episode_id 用 context.contract.task_id：这是仓内既有约定
+        # （glm_agent_runtime.py:481、openai_agents_runtime.py:1006 都这么取），
+        # 不另发明第二种 Episode 身份。
+        #
+        # event_sink 先给 None：本运行器已有一个形状不同的事件出口
+        # （``Callable[[EpisodeEvent], None]``，走 _EpisodeLedger）。把两者合成
+        # 一个出口是第 5 步 Durable/Live 分类要做的事，现在强行搭桥会造出第二条
+        # 事件链路。sink 为 None 时登记和 dump 照常有真值，只是不发事件。
+        episode_scope = EpisodeScope(
+            episode_id=context.contract.task_id,
+            # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
+            # 的 memory_user），运行器拿不到也不该拿。留空是如实陈述，不是占位。
+            user_id="",
+            context=context,
+            registry=registry,
+        )
+        tool_session = self._tool_executor.new_session(scope=episode_scope)
         if (
             context.contract.task_frame_hash
             and context.contract.task_frame_hash != task_frame.task_frame_hash
