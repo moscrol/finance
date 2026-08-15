@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -22,10 +24,12 @@ from intelligence.eval.acceptance import (
     UsersDirMismatch,
     _classify_execution_state,
     _read_episode_facts,
+    _read_episode_facts_wait,
     counts_toward_quality,
     require_episode_if_expected,
     reset_episode_hit_counter,
     resolve_episode_users_dir,
+    run_dir_exists,
     summarize_execution_states,
 )
 
@@ -488,3 +492,56 @@ def test_missing_episode_after_a_hit_is_per_case_gap_not_dir_mismatch(
         gaps=["x"],
     )
     require_episode_if_expected(missing, None)
+
+
+def test_run_dir_without_episode_is_per_case_gap_not_dir_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """批 #2 第二次 A1：run 目录已在、episode 晚写——不得当错目录整批中止。"""
+
+    run_dir = tmp_path / "tester" / "runs" / "empty"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    assert run_dir_exists("empty", "tester")
+    missing = TurnTrace(
+        question="q",
+        run_id="empty",
+        status="completed",
+        trace_steps=["research"] * 18,
+        gaps=["x"],
+    )
+    require_episode_if_expected(missing, None)
+
+
+def test_read_episode_facts_wait_sees_late_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_dir = tmp_path / "tester" / "runs" / "late"
+    run_dir.mkdir(parents=True)
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path))
+    payload = {
+        "outcome": {
+            "draft": "x" * 80,
+            "evidence": [1],
+            "bindings": [
+                {"output_id": "direct_answer", "evidence_hashes": ["h"], "gap": False}
+            ],
+        },
+        "structural_verifier": {
+            "completion": {
+                "outputs": [{"output_id": "direct_answer", "status": "fulfilled"}]
+            }
+        },
+    }
+
+    def _write() -> None:
+        time.sleep(0.25)
+        (run_dir / "continuous-episode.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+
+    threading.Thread(target=_write, daemon=True).start()
+    facts = _read_episode_facts_wait("late", "tester", attempts=6, delay_s=0.15)
+    assert facts is not None
+    assert facts["evidence_retrieved"] == 1
