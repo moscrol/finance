@@ -114,3 +114,11 @@
 - 验收 3：gate 拒绝留档带理由；durable 只经 `record_validated_*`（拔掉写入口或 `promotion_metadata` 则零 durable 写）。source_ref：`test_gate_rejection_is_archived_with_reason` / `test_durable_writes_only_go_through_gate_api`。
 - 验收 4：给 accepted 经验，`trace --candidate-id|--sha|--content` 一步查到来源 ids。source_ref：`test_trace_by_candidate_id_and_content_sha` / `test_cli_run_trace_roundtrip`。
 - 边界：未改 `memory_gate.py` / `memory_status.py` / 检索器；候选不自动 accepted。单测 16 passed（含 S8 的 main 上重跑）。本分支为 #34 在 S7/S4 合入后的 rebase 副本（原分支不强推）。
+
+### S9 · KB Hybrid + rerank 评测闭环 ｜ 2026-08-15 ｜ 分支 feat/bookgap-s9-rerank-eval
+
+- 仓：knowledge-base-private。`--rerank on/off` / `RAG_RERANK`，默认 off；权重不进 git（`download_reranker.py` + sha256）。
+- 四臂（`queries.real.jsonl` n=40，干净 `.rag_index`）：bm25 hit@5=0.85 / dense 0.825 / hybrid **0.80** / rerank **0.65**（回退 9 / 改善 3）。
+- 结论：**不上线**。rerank_ms_p50=62.5s（CPU；16GB 避 MPS+双模型 swap）。8792 保持 off。
+- source_ref：KB PR http://127.0.0.1:3300/a77/knowledge-base-private/pulls/12 ；`eval/rerank-ab-20260815.md` sha256 `f64e7d8d373fa6dd8f948c3fe502a0f28e6801311cf103d7d460bb1555934aa1`。
+- 判据：1 否定结论合格 / 2 超 500ms 已给降级 / 3 off 旁路单测 PASS / 4 选型文档 PASS / 5 权重不进 git。合 KB main 等确认。
