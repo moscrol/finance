@@ -525,3 +525,50 @@ R-21 行自己写的收口条件。
   解析失败/越界/歧义仍拒收（B1 拼接标本同时近配两条真哈希——歧义必须拒，
   不做模糊自动纠正）。R-09 缩为「把既有 `invalid_action.reason` 提升进
   finish payload」。
+
+### 检阅方批注 · Round 4 收口（2026-08-15 12:xx，检阅方）
+
+**轨道 A（#24 证据序号契约）：PASS，已合。** 同源同序不变量成立（表按
+episode 首现序、append-only、两处子研究调用点先 consume 再取全量表）；
+fail-closed 未松（未知/越界/歧义拒收、`E1..E999` 上限挡 hex 误读、
+精确哈希路径保留）；四誊抄标本逐字进夹具；`rejection_code` 带穷尽性
+测试；195+15 测绿、rebase 后 32 绿；R-21 收口引据完整（C2 按 6 格）；
+R-23 已立；R-09 未越权回填；canary 报告纯追加；8792 未动。
+
+**轨道 B（#21/#22/#23/#25）：PASS，已合。** 检阅方独立复核：批 #2
+`sha256=51e61710…` 一致、身份 `cb09f895`/pid 30091 未变、28 题/30 轮
+逐 case 对读一致；R-10 N=2 表与产物一致、H2（失败集固定）否证成立；
+双 tally 并列披露（case 级 delivered 10）、两次中止批未缝进 N=2、
+E-007 双仪器冲突不选边——诚实度高。R-11 aggregate=last_turn 写死 +
+C10 冻结/live 双夹具 ✓；R-08 响亮失败 + C4/C5 误杀收窄 + A1 竞态短等 ✓。
+勘误 E-r3-1/E-r3-2 按门落地 ✓。合并冲突（ledger `last_updated` ×3、
+trace-profile 追加行 ×2）由检阅方机械 rebase 双保留，40 测绿后合入。
+#22/#23 内容随 #25 落地，按 supersede 关闭。
+
+**检阅方超出报告的三条勘探（Round 5 靶源）：**
+
+1. **A 组塌方根因 = 数据层宕**：A1 `run_20260815_110258_512040` 内
+   `finance_query` 三连 `tool_exception`（5-12ms 即抛、`detail` 为空串），
+   零证据；A 组 7 题同形。同 pid 无重启，代码身份未变——是批窗口内
+   数据层（DuckDB/行情源）故障，批 #1（03:2x）同题全交付。模型行为
+   诚实（fail-closed 写 gap），B 分类正确。**数据层第一环从「另行立项」
+   升级为「有 8 题级爆炸半径的实证」，属用户排期。**
+2. **`tool_exception` 吞详情**：`detail=""` 使 trace 无法诊断异常类型
+   ——runtime 工具包装层缺陷（A 缝），Round 5 修。
+3. **E-007 钻探（B3#2 `run_20260815_111907_054023`）**：episode 两格
+   fulfilled（3+8 哈希）、slips=2、structural partial 仅剩真缺口，但
+   最终 answer（122 字）**只含 counterpoint 内容**（0 哈希真缺口格），
+   两个 fulfilled 格内容整体缺席（模型自述「chain_mapping 中的未核验
+   表述已删除」），citations=0 → eb=0。对照 A9/B2/C6（同
+   `repair_model_stop`、slips>0）投影正常——判别变量不是 stop 路径，
+   是**答案文本与绑定分道**：绑定声称交付、正文没有对应内容，投影
+   fail-closed 给 0 属正确。Round 5 轨道 A 的 M1 靶（标本+对照齐）。
+
+**Round 5 已指派**：`2026-08-15-round5-track-a.md`（E-007 M1、
+tool_exception detail 修复、R-23 部署后收口）；
+`2026-08-15-round5-track-b.md`（preflight 数据源盖戳、RU-3
+`episode_fulfilled_hashed` 并行字段、部署后批 #3 = R-23 after +
+R-10 N=3 + R-09 字段在场回填）。**用户前置**：①裁决部署新干净快照
+（main @ `788afd4e`）——R-23 after 测量的前提；②排查数据层
+`finance_query` 故障（cron/锁/上游）——批 #3 之前不修，A 组读数
+继续被污染。批 #3 在两者之后。
