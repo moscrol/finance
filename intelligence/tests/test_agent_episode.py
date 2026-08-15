@@ -10,7 +10,10 @@ import pytest
 import intelligence.runtime.agent_episode as agent_episode_module
 import intelligence.runtime.episode_tool_batch as episode_tool_batch_module
 import intelligence.services.research_contract as research_contract_module
-from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.agent_episode import (
+    ContinuousAgentEpisode,
+    _public_tool_exception_detail,
+)
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
@@ -2130,13 +2133,63 @@ def test_tool_exception_is_traced_and_model_can_finish_same_episode() -> None:
     assert outcome.traces[0].status == "request_error"
     assert outcome.traces[0].detail == "tool_exception"
     assert outcome.traces[0].step_id == "episode-test:episode:tool:1"
-    assert "tool_exception" in model.calls[1]["messages"][-1]["content"]
-    assert "provider unavailable" not in json.dumps(
-        {
-            "outcome": outcome.to_dict(),
-            "tool_message": model.calls[1]["messages"][-1],
-        },
-        ensure_ascii=False,
+    tool_payload = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert tool_payload["error"] == "tool_exception"
+    assert tool_payload["detail"] == "RuntimeError: provider unavailable"
+    tool_error = next(
+        event for event in outcome.events if event.kind == "tool_error"
+    )
+    assert tool_error.payload["error"] == "tool_exception"
+    assert tool_error.payload["detail"] == "RuntimeError: provider unavailable"
+
+
+def test_tool_exception_detail_strips_home_path_and_stays_nonempty() -> None:
+    def broken_runner(_query: str, _context: AgentToolContext):
+        raise RuntimeError(
+            "DuckDB failed opening /Users/a77/secret.duckdb"  # path-literal-ok: redaction fixture
+        )
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            _finish_turn(
+                status="partial",
+                draft="行情工具不可用，本轮只能报告证据缺口。",
+                hashes=(),
+                gap="行情工具暂不可用",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(broken_runner),
+    )
+
+    tool_payload = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert tool_payload["error"] == "tool_exception"
+    assert tool_payload["detail"].startswith("RuntimeError:")
+    assert "DuckDB failed opening" in tool_payload["detail"]
+    assert "/Users/" not in tool_payload["detail"]
+    assert "secret.duckdb" not in tool_payload["detail"]
+    assert "<path>" in tool_payload["detail"]
+    tool_error = next(
+        event for event in outcome.events if event.kind == "tool_error"
+    )
+    assert tool_error.payload["detail"] == tool_payload["detail"]
+    assert outcome.traces[0].detail == "tool_exception"
+
+
+def test_public_tool_exception_detail_keeps_class_and_first_line() -> None:
+    assert (
+        _public_tool_exception_detail("RuntimeError: provider unavailable")
+        == "RuntimeError: provider unavailable"
+    )
+    assert _public_tool_exception_detail("") == ""
+    assert "/Users/" not in _public_tool_exception_detail(
+        "OSError: [Errno 2] /Users/a77/.finance-runtime/db\nTRACE"  # path-literal-ok: redaction fixture
     )
 
 

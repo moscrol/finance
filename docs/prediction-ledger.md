@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-15（轨道 A Round 4：R-21 confirmed、开 R-23 证据序号契约；轨道 B Round 4：R-11 + R-08 confirmed、批 #2 `20260815T0302Z-r4-clean-baseline-2` 落盘、R-10 仍 pending（N=2/3）；不改 R-10 判据；轨道 B Round 5：开并离线 confirmed `R-20260815-12`（preflight 数据源盖戳 + `episode_fulfilled_hashed`）；不改 R-23 / R-21；R-10 / R-09 仍 pending）
+- last_updated: 2026-08-15（轨道 B Round 5：开并离线 confirmed `R-20260815-12`（preflight 数据源盖戳 + `episode_fulfilled_hashed`）；轨道 A Round 5：E-007 开 R-24 提案、tool_exception detail 开 R-25 已实现；R-23 / R-10 / R-09 仍 pending——8792=`cb09f895`、无批 #3）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -33,8 +33,21 @@
 | `R-20260815-04` | 标准 M1 分诊 F-001 | `HARNESS_FIX` | `outcome` 落盘补 `draft_source ∈ {model_returned_empty, truncated_by_budget, provider_error}` 与合成入口 `remaining_ms` 后，下一次空 draft 的 turn 其 `draft_source` 非空，可据以在 REASONING 与 HARNESS 之间定夺 F-001 的 L0 | 字段存在性单测；**单次读数不得结案**，需 ≥3 个同形样本 | `pending` |
 | `R-20260804-10` | L7 finalization T3 | `HARNESS_FIX` | deadline-aligned per-tool handoff 能让超出安全窗口的 deterministic slow tool 在生效阈值返回一条可配对的 `research_stage_closed + instruction`；正常成功路径同 id 恰好一个 `tool_result`，handoff 路径同 id 恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；只发一次 finalization，归一化后 `unpaired_tool_requests=0`；finalization reason 与 budget payload 同时看见 root-ledger 耗尽，handoff window 来自 profile / 生效预算而非隐藏的 `initial×0.20` reserve | **主门只用离线** slow-tool fake clock/隔离测试，并另测 `policy calls>0、root ledger calls=0` 与 `floor_ratio=0`；按 request id 分开断言正常 `tool_result`、handoff 执行层 `tool_error` 和 late-result 不入账，`tool=mailbox,error=response_path_conflict` 作为独立 transport 诊断不计入执行终态基数；再断言配对计数、finalization 次数/余量与落盘生效值。全部通过后才跑一次瑞华泰 canary，单次 live 不能独立结案 | `pending` |
 | `R-20260815-23` | 轨道 A Round 4 M1 F-001 | `DATA_CONTRACT_FIX` | 本修复部署到 8792 之后的下一批：主路径 `deadline_exhausted`、修复轮已收集证据的同形 case，修复终局应解析出绑定且 `evidence_bound>0`。该批若再出现 `invalid_action.reason` 含 `unknown evidence hash`（誊抄 16-hex），本预测 **reproduces → refuted**。越界序号 / 歧义拼接仍拒收；不做模糊纠正 | **主门离线已绿**：`test_evidence_ordinals_resolve_and_unknown_ordinal_rejects`、`test_hash_transcription_specimens_stay_rejected`、`test_repair_finish_accepts_evidence_ordinal`、`test_invalid_repair_finish_lifts_reason_onto_finish`。live 臂等用户裁决部署后的下一批；本轮不上 8792。不回填 B 的 `R-09` 行 | `pending` |
+| `R-20260815-24` | 轨道 A Round 5 M1 F-001（E-007） | `DATA_CONTRACT_FIX` | marker-loss 删除某 required output 并写入 `gap_output_ids` 时，同步收缩/清空该格绑定或标 structural missing 后：同形 case（hashed fulfilled + 对这些 ID 做 marker-loss）不得再同时出现「结构 fulfilled + `gap_output_ids` 含这些 ID + `citations=0`」。要么剩余 fulfilled 格仍被引用且 `evidence_bound>0`，要么被删格不再 fulfilled。再出现 B3#2 分道即 **reproduces → refuted**。不给已删正文发引用 | **本轮只提案、不实现**（根在 `episode_semantic_verifier._marker_loss_partial_public`，不在本轮可改名单；避免与 R-23 部署窗叠变量）。检阅方裁决实现后用 B3#2 冻结字段作夹具；C6 部分 marker-loss 仍须交付 `direct_answer` 引用 | `pending` |
+| `R-20260815-25` | 轨道 A Round 5 F-003 | `HARNESS_FIX` | 本修复部署后：新的 `tool_error` 且 `error=tool_exception` 的事件 `detail` 非空，形如 `ClassName: first line`，且不含 `/Users/` 或 `/home/`。再出现 `detail=""` 即 **reproduces → refuted**。不要求数据层已修；A 组仍可抛 `tool_exception` | **离线已绿**：`test_tool_exception_is_traced_and_model_can_finish_same_episode`、`test_tool_exception_detail_strips_home_path_and_stays_nonempty`、`test_public_tool_exception_detail_keeps_class_and_first_line`；timeout 夹具仍禁止 raw sentinel。live 臂等部署后下一批 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
+
+### 2026-08-15 Round 5 收口回填
+
+此表冻结在 Round 5 新归因之前。8792 health `runtime.source_revision=cb09f895734a65a38ae23f04d940f18ece2959fd`，`source_dirty=false`，`code_matches_repo=true`，`loaded_code_root=.../finance-workspace-cb09f895734a/intelligence`。无 `/tmp/finance-8792-live.lock`。无批 #3。批 #2 仍是 R-23 的 before。轨道 A 不写 B 轨行 / R-10。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260815-23` | 8792 仍 `cb09f895`；无 `*baseline-3*` / 本轮 r5 批。批 #2 before：B5#2 `run_20260815_112319_467917` seq 23、C7#2 `run_20260815_113732_480025` seq 17，`invalid_action.reason` 均为 truncated evidence hash；两题 `retrieved_unsynthesized` eb=0 | `pending` | 保持 Open。不得因 before 证据加长而写 confirmed / refuted。收口等用户部署 + 批 #3；若 A 组仍被数据层污染，只看 B5/C7 同形 |
+| `R-20260815-21` / `-22` | 本轮无新 canary / slips 证据 | `confirmed` | 已在 Closed；不重开 |
+| `R-20260804-10` | 本轮无 headless handoff 新证据 | `pending` | 保持 Open；本轨道不写该行 |
+| `R-20260815-09` / `-10` / `-03` / `-04` | 本轮不取 B 缝证据 | `pending` | 保持 Open；本轨道不写这些行 |
 
 ### 2026-08-15 Round 4 收口回填
 
@@ -222,6 +235,16 @@ PRIMARY=`HARNESS/configure/task-instruction-category-non-compliance`（终局契
 誊抄 16-hex `content_hash`）。离线门已绿；live 臂等部署后下一批，outcome 保持
 `pending`。不回填 B 登记的 R-09 行（本轮只把 `invalid_action.reason` 提升进 finish
 payload，口径由 B 回填）。
+
+`R-20260815-24` 来自轨道 A Round 5 标准 M1
+[`docs/verification/2026-08-15-trka-r5-e007-split.md`](verification/2026-08-15-trka-r5-e007-split.md)，
+PRIMARY=`HARNESS/synthesize/orchestration-related-errors-category-reasoning-mismatch`
+（`_marker_loss_partial_public` 删已 fulfilled 格正文并设 `gap_output_ids`，不收缩绑定）。
+本轮只提案，outcome 保持 `pending`。不改 adapter 去给已删正文发引用。
+
+`R-20260815-25` 来自同一份 Round 5 报告的并行缺陷 F-003（`tool_exception` 吞 `detail`），
+`HARNESS/observe/context-handling-error-category-context-handling-failures`。
+离线门已绿；live 臂等部署后下一批，outcome 保持 `pending`。不修数据层。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。

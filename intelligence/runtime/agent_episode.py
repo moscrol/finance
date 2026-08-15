@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 import json
 import os
+import re
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -288,6 +289,29 @@ def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
     return payload
 
 
+_ABS_PATH_RE = re.compile(
+    r"(?:~|/Users|/home|/private/var|/var/folders)[^\s\"'，。]+"
+)
+_TOOL_EXCEPTION_DETAIL_LIMIT = 160
+
+
+def _public_tool_exception_detail(raw: str) -> str:
+    """Keep exception class + first line; strip home paths; truncate.
+
+    ``error`` stays the public classification ``tool_exception``. The batch
+    layer already formats ``TypeName: message``, but ``consume`` used to drop
+    that string and persist ``detail=""``.
+    """
+
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    text = text.splitlines()[0].strip()
+    if not text:
+        return ""
+    return _ABS_PATH_RE.sub("<path>", text)[:_TOOL_EXCEPTION_DETAIL_LIMIT]
+
+
 @dataclass
 class _EpisodeToolAccumulator:
     messages: list[dict[str, object]]
@@ -330,6 +354,13 @@ class _EpisodeToolAccumulator:
                 public_error = (
                     "tool_timeout" if result.status == "timeout" else "tool_exception"
                 )
+                public_detail = (
+                    ""
+                    if result.status == "timeout"
+                    else _public_tool_exception_detail(
+                        result.detail or result.error
+                    )
+                )
                 self.traces.append(
                     ProviderTrace(
                         provider=f"agent:{call.name}",
@@ -340,7 +371,9 @@ class _EpisodeToolAccumulator:
                         step_id=result.step_id,
                     )
                 )
-                self._append_tool_error(call, public_error, timing=timing)
+                self._append_tool_error(
+                    call, public_error, public_detail, timing=timing
+                )
                 continue
 
             observation = result.observation
