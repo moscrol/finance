@@ -757,6 +757,76 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   ruff 全绿；pre-commit 随两次提交各跑一次。
 - **未做**：第 5 步的实现（四条实施步一条都没做）；`error` 进事件的收据缺口仍在。
 
+### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
+
+- **判定：PASS**（含对 D3 的裁定，见下）
+- 独立复核（全部亲手复跑/读码，逐条出处）：
+  - 门禁 @ `88287cbf`：全量 **5055 passed / 4 skipped / 0 failed**（610.6s，
+    LOADED=工作树，umask 022）——与 `d5fb5452` 基线逐值相等、差值 0，
+    与「两提交只动 docs + docstring」互证；layer_audit ERROR 0（自报
+    `88287cbf`）；可达性 12 声明一致 / 0 够不着；ruff 全绿 [全部复跑]
+  - 三条修正逐条对上轮指派核销：量词勘误落 §4.1 + docstring 两处、勘误块
+    与教训在、三处反例坐标与检阅方证据逐字一致；§3 的 14 行旧→新映射与
+    检阅方上轮亲跑的 range-diff 逐行一致（+ `d5fb5452`、`017c564c` = 16）、
+    删 ref 警示在；§2.1 口径注给出的不自指验证对（`HEAD..gitea/main` = 0 +
+    range-diff 全 `=`）本轮均复跑成立 [读 diff + 复跑]
+  - 坐标重测：`sub_research.py` 六处新值（`:263` 不变，`:307-308`/`:342`/
+    `:354`/`:371-372`/`:409`/`:412-424`）全部命中 [读码]
+  - §10 设计钉的代码主张**逐条读码核过，无一漂移**：`_EpisodeLedger` `:220`、
+    `add` `:239-258` 的 `EpisodeEvent(len(self.events)+1)` → `append` 确无锁、
+    sink 转发 `:251-257`；`EpisodeScope.emit` `:267`、sink None 早退 `:285-286`；
+    `event_sink=None` 认领注释 `:560-571`；阶段事件常量
+    `research_tool_registry.py:34-36`、发射点 `:609`/`:649`/`:753`/`:796` 全在
+    `execute`（def `:580`）内，而 `execute` 正是批次提交进 worker 的 operation
+    （`episode_tool_batch.py:465` → `:486` submit）；共享池 `:72`、8 worker
+    `:37`；ledger 侧 `tool_request`/`tool_result`/`tool_error` `:336`/`:415`/
+    `:447`；**全部 `ledger.add` 调用点都在 `agent_episode.py`**（批次文件零命中），
+    经 `accumulator.consume`（`:1003`/`:1495`）在主流程消费——「现有 add 全在
+    主线程」结构上成立；撞击目标 `episode_session.py:108-112` 前缀不变量与
+    `test_agent_episode.py:1784-1786` 序号断言属实；消费侧
+    `continuous_turn_adapter.py:824`（events 投影）、`openai_agents_runtime.py`
+    `:1198`/`:1243`/`:1347`（重放用途）、冻结 `EpisodeEvent`
+    （`services/agent_runtime.py:250`）全部核实 [读码]
+  - 红线：未 push（ls-remote 零命中）、远程 main 实查仍 = `cf86e891`、
+    生产快照树 `cb09f895` 干净、树干净、安全 ref 在位 [取证]
+  - 偏差申报核：上轮指派为「第 5 步即开」，本轮交付为设计钉而非实现——
+    符合本仓「开工先钉设计再写码」惯例，且 D3 阻塞接线的理由读码属实，
+    偏差已申报，不构成打回项。
+- **D3 裁定（检阅方）：三个 `tool/*` 阶段事件归 Live**。依据：
+  spec §7.4 的 Durable 名单以「模型可见内容可重建」划界，本仓对应物是
+  `tool_request`/`tool_result`（读码核实 `:336`/`:415` 即派发/回收）；阶段事件
+  是执行遥测（「runner 真被调起」），最接近 Live 名单的 agent status /
+  queue timing 档；金融五字段（hash/source/date/status/gaps）不经阶段事件
+  承载；备选的代价 A（durable 双账，违 §8.3 与「不造第二事实源」）、代价 B
+  （重放前缀按并发批次放大，撞 `:108-112` 与 openai 重放三处）均读码属实。
+  且方向不对称：Live→Durable 将来是加法，Durable→Live 是对既有重放消费者的
+  破坏——先 Live 是低代价可逆侧。**三个条件**：
+  1. durable 侧 `tool_request`/`tool_result`/`tool_error` 保持对账权威，阶段
+     事件不得成为任何金融字段或发布判据的**唯一**载体；
+  2. 分类落 D4 那张 services 层单表，`tool/*` → Live 用测试钉住；Live 事件
+     不进 `ledger.events`、不携带 durable sequence，resume 前缀不变量与
+     序号断言保持绿；
+  3. 本裁定只覆盖 `tool/*` 三事件；`branch_*` 归属仍按 §5.3 第 3 条在 D6
+     单独裁定。将来若 §7.1「完整阶段事件」要变成离线可审计判据，按对外契约
+     翻转单独成轮重议，不回溯本裁定。
+  D2 的顺序（先上锁后接线）一并背书：先接线后加锁 = 制造随机变红的门禁。
+- 标注（不影响判定）：
+  1. §3 哈希清单以 `017c564c` 截止，`59c53e16`/`88287cbf` 及本批注提交不在
+     列——与 §2.1 口径注同理，「全列」是盖戳当刻口径。下次重盖时建议把 §3
+     定位改写为「旧→新映射 + 当前基线锚点」，不承诺 live 全列。
+  2. §10.4 引 `continuous_turn_adapter.py:824` 未带路径（实际在
+     `intelligence/runtime/`）。一字级。
+- Round N+2 指派（依赖排序）：
+  1. §10.5 第 1 条：`ledger.add` 上锁 + 并发序号唯一性测试（行为中性轮，
+     判据「5055 + k，k = 新增用例数，存量零改动」）；
+  2. §10.5 第 2 条：分类表 + Scope sink → ledger 合流，按 D3=Live 接线，
+     `tool/*` → Live 断言进测试；
+  3. §10.5 第 3、4 条依序（Projection 收口 services 层；子研究三条对账断言
+     + 结果循环 payload 补 `error`）。
+- 升格用户事项：**安全 ref `prerebase/dsh-seams-e21c50bf` 删除条件已满足**
+  （§3 重盖已入库且映射自持）——删除本身是破坏性动作，仍由用户执行或明示
+  后代执行；push 红线维持不变。
+
 ### 检阅批注 · Round「台账改写轮 + rebase 轮」（2026-08-15，检阅方）
 
 - **判定：两轮均 PASS**
