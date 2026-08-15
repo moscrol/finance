@@ -35,8 +35,8 @@ PASS / 打回。
 
 | 对象 | 位置 / 值 |
 |---|---|
-| 实施工作树 | `/Users/a77/fwp-wt-dsh-seams`，分支 `feat/dsh-absorption-p0-seams` @ `23072aa3` |
-| 分叉基线 | merge-base `23e2a07e`；`gitea/main` 现为 `bcde2851`（**盖戳时刻见下节；这一格会漂，引用前重测**） |
+| 实施工作树 | `/Users/a77/fwp-wt-dsh-seams`，分支 `feat/dsh-absorption-p0-seams`（tip 见文末 rebase 轮小结） |
+| 分叉基线 | **已 rebase 到 `gitea/main` = `cf86e891`，merge-base 即 `cf86e891`，分叉 = 0**（2026-08-15 rebase 轮；旧值 merge-base `23e2a07e` / main `bcde2851` 已作废）。**这一格会漂，引用前照 §2.1 重测** |
 | Spec | `docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md`，在主检出树 `/Users/a77/finance-workspace-private` 的 `docs/dsh-absorption-spec` 分支 @ `d98a8a59` |
 | Step 1 基线收据 | `docs/superpowers/specs/2026-08-15-dsh-absorption-step1-baseline-receipt.md`（实施分支上；§6 是三条已裁定问题，§7 是备查项） |
 | dsh 源码快照 | `/Users/a77/finance-workspace-private/tmp/dsh-source-index`，钉在 `47f9438`，sparse cone 含 `packages/llm` |
@@ -44,36 +44,39 @@ PASS / 打回。
 | 两个分支 | 均**未 push、未合 main**。红线：不得 push、不得合 main、不得动生产快照树 |
 | 本文档 | 已随 `f69a8b96` 入库（早先「未提交」的口径已作废） |
 
-### 2.1 分叉盖戳（2026-08-15 18:20，附测量命令）
+### 2.1 分叉盖戳（2026-08-15 rebase 轮重做，附测量命令）
 
-上一版这一节写「增量纯 docs，不碰代码，无需 rebase」——**已作废**。现在 main
-碰代码，且碰到了本分支改过的文件。下面每个数字后面就是产出它的命令，重测请照抄
-（口径不同数字就不同，这正是上一轮被点名的地方）。
+**分叉已归零**：本分支已 rebase 到 `gitea/main` = `cf86e891`。下面每个数字后面
+就是产出它的命令，重测请照抄（口径不同数字就不同，这是前几轮反复被点名的地方）。
 
 ```bash
 cd /Users/a77/fwp-wt-dsh-seams
-git rev-parse gitea/main                     # bcde2851（远程跟踪 ref，最后 fetch 08-15 14:26）
-git merge-base HEAD gitea/main               # 23e2a07e
-git diff --shortstat HEAD...gitea/main       # 76 files, +14544, -138  ← 全量口径
-git diff --stat HEAD...gitea/main -- intelligence scripts market_feature_store | tail -1
-                                             # 45 files, +10778, -129  ← 仅代码路径
-# 差额 31 = docs/ 30 + 顶层 tests/ 1（后者不在上面那三个路径里）
-git diff --name-only 23e2a07e..HEAD > /tmp/mine.txt
-git diff --name-only HEAD...gitea/main > /tmp/theirs.txt
-comm -12 <(sort /tmp/mine.txt) <(sort /tmp/theirs.txt)   # 恰 4 个重叠文件
+git rev-parse gitea/main                  # cf86e891（远程跟踪 ref，本轮未 fetch）
+git merge-base HEAD gitea/main            # cf86e891 ← 等于 main 本身 = 已线性叠在上面
+git rev-list --count gitea/main..HEAD     # 14（本分支提交数，rebase 前后相同）
+git rev-list --count HEAD..gitea/main     # 0（main 上没有本分支不含的提交）
+git diff --shortstat HEAD...gitea/main    # 空（分叉为 0）
 ```
 
-- **`gitea/main` 是跨工作树共享的 ref**（同一个 `.git`），所以两棵树读到的值必然
-  一致；`git reflog show gitea/main` 能看到它的历次落点（@{5} 是 `f248613e`）。
-  拿旧 reflog 位置量出来的数字和拿 @{0} 量出来的对不上，是**快照不同**，不是
-  谁算错——这也是本节每个数字都必须带 ref 值的原因。
-- 四个重叠文件：`intelligence/api/app.py`、`intelligence/tests/test_workbench_api.py`、
-  `intelligence/tests/test_continuous_turn_adapter.py`、
-  `intelligence/runtime/agent_episode.py`。
-- **真冲突面只有 `agent_episode.py`**（main 侧 27 hunk / U0 口径 37，本分支 4）。
-  另外三个：main 侧各 1 hunk 且与本分支改动区不相交（`app.py` 的那处在
-  `create_app`，不碰装配段——已逐个读码核实）。
-- rebase 时机是**用户裁定项**，见文末轮次记录的升格事项。
+- **rebase 结果：14/14 干净重放，零冲突**（[实测]，`git -c rerere.enabled=true
+  rebase gitea/main`）。等价性用 range-diff 逐提交核过，全部标 `=`：
+  ```bash
+  git range-diff 23e2a07e..prerebase/dsh-seams-e21c50bf cf86e891..HEAD
+  ```
+  安全 ref **`prerebase/dsh-seams-e21c50bf`** 保留着 rebase 前的 tip，随时可对照
+  （确认无误后由用户决定何时删）。
+- **「真冲突面 37 hunk」的预判为什么没兑现**：hunk 数衡量的是**改动量**，冲突取决于
+  **改动区是否相交**。main 的两个 `agent_episode.py` 提交（`1f8cdc24` tool_exception
+  detail、`2e50e263` 终局绑定改证据序号）落在 finalization 区，本分支的两个
+  （EpisodeScope 构造、RuntimeHandle 接线）落在 `run()` 入口与会话装配区，三方
+  合并算法自动分开了。**教训：预估 rebase 成本要看改动区重叠，不是 hunk 计数**——
+  但预判偏保守没有代价，反过来会有。
+- **`gitea/main` 是跨工作树共享的 ref**（同一个 `.git`），两棵树读到的值必然一致；
+  `git reflog show gitea/main` 能看到历次落点。拿旧 reflog 位置量出来的数字和拿
+  @{0} 量的对不上，是**快照不同**，不是谁算错——这也是本节每个数字都带 ref 值的原因。
+- **行号会随 rebase 漂**：main 在 `agent_episode.py` 里加了行，本次 rebase 后
+  `run()` 起点 +46、`_run_sub_research` 区 +76。§4.1 / §5.3 引用的坐标已随本轮重测；
+  **下一次 rebase 之后同样要重测，别照抄**。
 
 ## 3. 提交史（实施分支，全部通过复验）
 
@@ -120,18 +123,19 @@ b920feb6 Step 1 基线复核收据
 > 「检阅裁定 · 子研究轮形状」；**不采纳的备选**（父 Handle 上 `begin_work`）已进
 > §6 第 4 条，不要重开。**剩余的只有收据对账，归第 5 步**，要求写在 §5.3。
 
-**坐标口径**：行号 @ 本节所在提交。`sub_research.py` 本轮加了 docstring，其行号比
-父提交 `57b3682d` 下移 23 行；`agent_episode.py` 本轮**未改**，与父提交同值。
-符号名以 **`_run_sub_research`** 为准——早先小结里的 `_maybe_sub_research` 是笔误，
-全仓 grep 零命中，不得再进台账。
+**坐标口径**：行号 = **rebase 到 `cf86e891` 之后重测值**（2026-08-15 rebase 轮）。
+`agent_episode.py` 因 main 加行整体下移（`run()` 区 +46、`_run_sub_research` 区 +76），
+本节与 §5.3 已按新值改过；`sub_research.py` main 没碰，只有本仓 docstring 造成的位移。
+**下次 rebase 后必须重测**，别照抄。符号名以 **`_run_sub_research`** 为准——早先小结里
+的 `_maybe_sub_research` 是笔误，全仓 grep 零命中，不得再进台账。
 
 **四条证据并列**（归属逐条标注）：
 
 1. **同步包含**（执行方 [实测·读码]，检阅方复核并加强一档）：`coordinator.run` 的
-   唯一调用点是 `agent_episode.py:1719`，在 `_run_sub_research`（def `:1695`）内；
-   `_run_sub_research` 的两个调用点 `:840` / `:877` 都落在 `run()` 体内（`run` 起
-   `:498`，下一个 def `_repair_model_complete` 在 `:1126`）。**`resume`（`:1244`–
-   `:1612`）无调用点**——子研究只发生在 initial_run 工作窗口，包含性比"都在 run
+   唯一调用点是 `agent_episode.py:1795`，在 `_run_sub_research`（def `:1771`）内；
+   `_run_sub_research` 的两个调用点 `:886` / `:924` 都落在 `run()` 体内（`run` 起
+   `:544`，下一个 def `_repair_model_complete` 在 `:1177`）。**`resume`（`:1295`–
+   `:1687`）无调用点**——子研究只发生在 initial_run 工作窗口，包含性比"都在 run
    里"再强一档。
 2. **"已返回"即"已终结"**（执行方本轮读码补强，比"with 即 join"硬一档）：
    `sub_research.py:340` 的 `with ThreadPoolExecutor` 在 `__exit__` join 只是第二道
@@ -140,8 +144,8 @@ b920feb6 Step 1 基线复核收据
    分支就 KeyError。即"返回"这个事件本身蕴含"所有分支已终态"，不依赖清理路径。
 3. **per-branch 收据已经在**（执行方 [实测·读码]，检阅方复核字段多于小结所列；
    本轮补出第三段）：`_EpisodeLedger` 三段式发射——`branch_started` 每目标一条
-   （`agent_episode.py:1714-1718`）→ 结果循环发 `branch_completed`/`branch_failed`
-   （`:1729-1746`）→ **未执行兜底循环**（`:1747-1758`）给没回来的 branch_id 补
+   （`agent_episode.py:1790-1794`）→ 结果循环发 `branch_completed`/`branch_failed`
+   （`:1805-1822`）→ **未执行兜底循环**（`:1823-1834`）给没回来的 branch_id 补
    `branch_failed`（`reason = refused_reason or "branch_not_executed"`）。所以整轮
    refused 路径（`cancelled` / `deep_mode_required` / `root_budget_*` /
    `deadline_exhausted`）也成对。**成对性的上游前提**：`goals` 只来自
@@ -249,12 +253,12 @@ Episode（含 repair resume）？若 resume 重进 run() 新建 Scope，invoked_
 
   1. **成对**：每条 `branch_started` 必须对上一条 `branch_completed` 或
      `branch_failed`。现状已成立，靠 `_run_sub_research` 末尾的未执行兜底循环
-     （`agent_episode.py:1747-1758`）兜住全部 refused 路径——**Projection 必须把它
+     （`agent_episode.py:1823-1834`）兜住全部 refused 路径——**Projection 必须把它
      变成断言，不能当巧合继承**：那个循环一旦在合流改写里丢掉，成对性静默失效。
   2. **cancelled 可区分：现状只成立一半**（[实测·读码]，本轮新查）。整轮拒绝
      （`refused_reason="cancelled"`）走兜底循环、payload 带 `reason`，可区分；
      **单分支取消不可区分**——`BranchResult.error="cancelled"` 没有任何事件字段
-     承载它，结果循环的 payload（`agent_episode.py:1735-1745`）只有
+     承载它，结果循环的 payload（`agent_episode.py:1811-1821`）只有
      branch_id/goal/status/evidence_count/gap_count/llm_calls/tool_calls/tokens，
      与 worker 异常失败（`error="branch_worker_exception:*"`，同为 status=failed、
      gap_count=1）在事件流里**同形**。第 5 步必须把 `error` 或等价字段带进事件，
@@ -569,3 +573,42 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   - 变异读数（上面第 2 条，597.4s）与门禁读数（565.0s）是**两次独立全量跑**。
 - **未做/未验**：`4982 @ 57b3682d` 的父提交基线**未独立复跑**（引用检阅方上轮读数，
   本轮只跑改后值；两者相等本身就是"零改动"的证据，但父值归属检阅方）。
+
+### 执行方小结 · Round「rebase onto `cf86e891`（独立成轮 + 基线重建）」（2026-08-15，执行方）
+
+- **前置**：rebase 时机是升格用户事项，用户裁定**「批准，独立成轮」**。本轮因此
+  **零功能改动、零测试改动**，只有 rebase + 台账重新盖戳。
+- **结果：14/14 干净重放，零冲突**（`git -c rerere.enabled=true rebase gitea/main`）。
+  - 等价性 [实测]：`git range-diff 23e2a07e..prerebase/dsh-seams-e21c50bf cf86e891..HEAD`
+    14 行**全部标 `=`**，逐提交内容等价，无静默丢失。
+  - 分叉 [实测]：`git merge-base HEAD gitea/main` = `cf86e891` = main 本身；
+    `git rev-list --count HEAD..gitea/main` = 0。
+  - 安全 ref：**`prerebase/dsh-seams-e21c50bf`** 保留 rebase 前 tip，未删——留给检阅方
+    复核，确认后由用户决定何时删。
+- **预判校正（写给下一个估 rebase 成本的人）**：上一版 §2.1 写"真冲突面
+  `agent_episode.py`，主侧 U0 口径 37 hunk vs 本分支 4"，**实际零冲突**。hunk 数量的是
+  **改动量**，冲突取决于**改动区是否相交**——main 的两个提交（`1f8cdc24` tool_exception
+  detail、`2e50e263` 终局绑定改证据序号）在 finalization 区，本分支两个在 `run()` 入口与
+  会话装配区，三方合并自动分开。已写进 §2.1。预估偏保守没代价，反过来有。
+- **基线重建收据**（本轮的交付物，供下一轮继续用"差值恰为新增用例数"这把尺）：
+
+  | 口径 | 读数 |
+  |---|---|
+  | **新基线（执行）** | **5055 passed / 4 skipped / 0 failed**（606.5s） |
+  | 新基线（收集） | 5059 collected = 5055 + 4 ✓ |
+  | main @ `cf86e891`（收集） | 5001 collected（临时 worktree 量完即删，已 prune） |
+  | 本分支净增 | 5059 − 5001 = **58** 个用例 |
+  | rebase 前基线 | 4982 passed / 4 skipped = 4986 collected；main 带进 73 个，与执行侧 5055 − 4982 = +73 对上 |
+
+  **两个方向的算术都闭合 = rebase 既没丢测试也没重复测试**。下一轮的判据锚点是
+  **5055 / 4 / 0 @ 本提交**。
+- 其余门禁（`umask 022`，LOADED=工作树路径）：`layer_audit` ERROR 0（自报"对
+  `5e0b38cd` 成立"，即本提交的父）；可达性 12 声明一致 / 0 够不着；ruff 全绿；
+  pre-commit 随本提交跑。
+- **坐标重测**：main 在 `agent_episode.py` 加了行，§4.1 / §5.3 引用的行号已全部按
+  rebase 后重测（`run()` 区 +46、`_run_sub_research` 区 +76）；§2.1 记下"下次 rebase
+  之后同样要重测"。**历史轮次记录里的旧行号一律不改**（append-only），live 坐标
+  **只以 §4.1 / §5.3 为准**——上面那两条轮次小结里的 `:840`/`:1735-1745` 等是当时值。
+- 分支状态：仍**未 push、未合 main**，未动生产快照树。
+- **下一步**：第 5 步（Durable/Live + Projection + 事件出口合流，含 §5.3 那三条子研究
+  对账要求）。它要动 `agent_episode.py`——现在正是冲突面最小的时刻。
