@@ -2,8 +2,15 @@
 
 日期：2026-08-15
 状态：已确认，待实施
-基线：main@a189d6bd
+基线：gitea/main@23e2a07e（生产实跑 cb09f895，是 gitea/main 的祖先）
 细节分支：docs/dsh-absorption-spec
+实施分支：feat/dsh-absorption-p0-seams
+基线复核收据：docs/superpowers/specs/2026-08-15-dsh-absorption-step1-baseline-receipt.md
+
+> 初版此处写「基线：main@a189d6bd」，实施第 1 步复核时证伪：本地 `main` 落后
+> `gitea/main` 19 个提交，且生产 8792 加载的 `cb09f895` 不在本地 `main` 上。
+> 那 19 个提交改动的正是 §11 第 2–5 步要动的 `agent_episode.py` /
+> `episode_protocol.py` 及其测试。详见上面那份收据。
 
 ## 0. 一句话结论
 
@@ -102,7 +109,13 @@ https://github.com/deepseek-ai/deepseek-harness/tree/47f943859bef60e416049234677
 /Users/a77/finance-workspace-private/tmp/dsh-source-index
 ~~~
 
-当前本地副本包含 docs、packages/core、packages/bundle/base、apps/cli 和 packages/host，目录被 .gitignore 的 tmp/ 忽略，不会进入 Finance 生产仓库。进入该目录后可以直接检索：
+当前本地副本包含 docs、packages/core、packages/bundle/base、packages/llm、apps/cli 和 packages/host，目录被 .gitignore 的 tmp/ 忽略，不会进入 Finance 生产仓库。
+
+> `packages/llm` 是第 1 步复核时补进 cone 的：base bundle 只声明挂载哪些 adapter，
+> Provider 能力（能否接 OpenAI 兼容网关）的判据在 `packages/llm/llm-pi-ai/README.md`，
+> 不在 cone 里就只能靠 `git show` 取证，本地复现路径是断的。
+
+进入该目录后可以直接检索：
 
 ~~~bash
 cd /Users/a77/finance-workspace-private/tmp/dsh-source-index
@@ -119,7 +132,7 @@ git clone --filter=blob:none --no-checkout \
   https://github.com/deepseek-ai/deepseek-harness.git "$DSH_INDEX"
 git -C "$DSH_INDEX" sparse-checkout init --cone
 git -C "$DSH_INDEX" sparse-checkout set \
-  docs packages/core packages/bundle/base apps/cli packages/host
+  docs packages/core packages/bundle/base packages/llm apps/cli packages/host
 git -C "$DSH_INDEX" checkout --force "$DSH_COMMIT"
 git -C "$DSH_INDEX" rev-parse HEAD
 ~~~
@@ -135,6 +148,8 @@ git -C "$DSH_INDEX" rev-parse HEAD
 | packages/core/session/src/types.ts | Durable Session Event 的类型和可重建边界 |
 | packages/core/tools/src/types.ts | Tool 定义、执行模式、结果和 Schema 类型 |
 | packages/bundle/base/README.md | Base Bundle 提供的模型、工具、持久化、策略、凭证和 Telemetry |
+| packages/bundle/base/cordis.patch.yml | Base Bundle 实际挂载的插件行；LLM adapter 只有 llm-deepseek 与 llm-pi-ai，默认模型 deepseek-official/deepseek-v4-flash |
+| packages/llm/llm-pi-ai/README.md | 多 provider adapter；手写声明路由可接 OpenAI 兼容网关（配置而非改代码）；凭证走 apiKeyEnv 或 ctx.credentials seam；无 profile 时休眠零路由 |
 | apps/cli/README.md | Profile、Bundle、CLI、Web 和 Headless 入口 |
 
 源码快照、GitHub 链接和本 Spec 的判断必须绑定同一个 commit；禁止拿最新 master 的未记录变更回填历史结论。
