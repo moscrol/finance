@@ -101,3 +101,13 @@
 - user_memory 15 条 recall@5=42.2% / hit@5=46.7%；experience_cards 3 条 hit@5=100% recall@5=83.3%；kb_rag 2 条本窗与 S9 抢索引超时、记通道不可用非 0 分。
 - 08-09 S3 定性：**三已挂通道上是题目超纲**（库中无该周可核验主因；因果通道 news_search 未挂尺）。基线 `docs/verification/2026-08-15-recall-baseline.md`。
 - 本分支为 #38 在 S7 合入后的 rebase 副本（原分支 `bookgap/s4-recall-annotation-set` 不强推）。
+
+### S6 · user_memory 离线候选更新链 ｜ 2026-08-15 ｜ 分支 bookgap/s6-memory-candidate-loop-r2
+
+- 交付：`intelligence/services/memory_candidate_loop.py` + `scripts/run_memory_candidate_loop.py`；生命周期 `docs/learning/memory-candidate-lifecycle.md`；`ledger-map` 已登记 `memory_candidates.jsonl`。
+- v1 规则：`repeated_correction_same_theme`（同主题 ≥2 条同向纠偏）/ `verdict_overturned_by_user`（机判终态被人工翻案）；宁缺勿滥。
+- 验收 1：夹具产 ≥1 候选，归因链含 `source_record_ids`/`trigger_rule`/`generated_at`；`--dry-run` 不落盘。source_ref：`test_run_accepts_candidates_with_full_attribution` / `test_dry_run_writes_nothing`。
+- 验收 2：同一台账重跑第二次零新候选。source_ref：`test_second_run_produces_zero_new_candidates`。
+- 验收 3：gate 拒绝留档带理由；durable 只经 `record_validated_*`（拔掉写入口或 `promotion_metadata` 则零 durable 写）。source_ref：`test_gate_rejection_is_archived_with_reason` / `test_durable_writes_only_go_through_gate_api`。
+- 验收 4：给 accepted 经验，`trace --candidate-id|--sha|--content` 一步查到来源 ids。source_ref：`test_trace_by_candidate_id_and_content_sha` / `test_cli_run_trace_roundtrip`。
+- 边界：未改 `memory_gate.py` / `memory_status.py` / 检索器；候选不自动 accepted。单测 16 passed（含 S8 的 main 上重跑）。本分支为 #34 在 S7/S4 合入后的 rebase 副本（原分支不强推）。
