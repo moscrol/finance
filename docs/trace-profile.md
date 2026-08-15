@@ -53,6 +53,8 @@
 | `evidence_bound` | 与 episode 已 fulfilled 且带哈希的格同义 | 验收台从 `/api/runs/<id>/context` 计 `status=hit`。B3@批#2：episode `direct_assessment`/`chain_mapping` 共 11 哈希且 struct=fulfilled，context 证据列表为空 → `evidence_bound=0`。R-10 交付率仍按冻结的 `evidence_bound>0` 口径，不得事后改口；并行读 `episode_fulfilled_hashed` | `run_20260815_111907_054023` |
 | `episode_fulfilled_hashed` | 可替代 `evidence_bound` 作交付率 | **并行字段**，不覆盖 eb。计数 = structural `fulfilled` ∩ `len(evidence_hashes)>0`。无 episode 时为 `null`（`api_only`）。B3@批#2：本字段=2、eb=0。旧批 JSON 无此键 ≠ 0 | `test_b3_batch2_episode_fulfilled_hashed_unequal_to_frozen_eb` |
 | `window_contamination` / `data_probe` | 前置检查过了就是数据层也健康 | 身份盖戳不管数据层。R-12 起 `preflight_detail` 带 `data_probe: finance_query=ok/tool_exception/empty`；失败写死 `run_and_flag`：不中止，顶层 `window_contamination="finance_query"`、`data_probe_ok=false`。未探测时两字段为 `null`，不得当成污染。静默混批即证伪 R-12 | `acceptance.DATA_PROBE_ON_FAILURE`；`probe_finance_query_data` |
+| `semantic_verifier.gap_output_ids` ∩ structural fulfilled | 结构 fulfilled 即公开答案含该格正文，或 `gap_output_ids` 空 | marker-loss 可把已 fulfilled 格写入 `gap_output_ids` 并删公开正文，**不收缩绑定**。B3#2：两格 fulfilled + `gap_output_ids=['direct_assessment','chain_mapping']` + 公开答案只剩 counterpoint → adapter 排除引用 → cites=0。读交付前先对这两栏；只读结构或只读 eb 都会误判 | `run_20260815_111907_054023`；对照 C6#2 只 gap `evidence_boundary` 仍 eb=11；`docs/verification/2026-08-15-trka-r5-e007-split.md` |
+| `tool_error.error=tool_exception` 且 `detail=""` | 没有可诊断的异常信息，或「工具没抛异常」 | **`< R-20260815-25` 的产物** consume 丢掉批次层已格式化的 `TypeName: message`，`detail` 恒为空。A1#2 三连 5–12ms 即此形。R-25 起 `detail` 为类名+首行（剥路径、截断 160）；`error` 仍是分类码。旧 artifact 空串 ≠ 无异常。ProviderTrace.detail 仍是 `tool_exception`，查事件/`tool` 消息的 `detail` | A1 `run_20260815_110258_512040` seq 8/10/22；`docs/verification/2026-08-15-trka-r5-e007-split.md` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -69,6 +71,8 @@
 | Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离。`response_path_conflict` 是 mailbox transport 诊断，允许在同 id 的执行终态后另发 `tool_error`，不能混进执行终态基数 | R-10 用 deterministic slow tool 强制得到配对 error；正常成功路径断言恰好一个 `tool_result`，handoff 路径断言恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；另断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
 | 历史 finish 无 `caveat_slips` | 2026-08-15 R-22 之前的 episode 不写该字段 | 不能用旧 artifact 直接数滑档频率 | 不回填；只用新 run。健康阈值 `=0`；`≥2` 全格、`=1` 混槽。查询 `finish.payload.caveat_slips`，旧产物打印 `<ABSENT>` |
 | 历史 finish 无 `rejection_code` | 2026-08-15 R-23 之前的 episode 不写该字段 | 不能用旧 artifact 的字段缺失推断「没有拒收」；要下钻 `invalid_action.reason` | 不回填。新 run 无拒收时 code=`none`、reason 空串。`dump_episode_receipts.py` 对旧产物打印 `<ABSENT>` |
+| 历史 `tool_exception` 的 `detail` 为空 | 2026-08-15 R-25 之前 consume 丢掉类名/首行 | 不能从空 `detail` 推断「没有异常消息」或具体故障类型 | 不回填。新 run 健康阈值：`error=tool_exception` ⇒ `detail` 非空且无 `/Users/`。查事件 payload，不查 ProviderTrace.detail |
+| `gap_output_ids` 与 structural fulfilled 分道 | 语义修复删正文不收缩绑定；无显式 `bindings_contracted` 位 | 只读结构或只读 eb 分不出「没绑」与「绑了但公开删了」 | R-24 提案：删格时收缩绑定。在落地前并行读 `semantic_verifier.gap_output_ids` ∩ fulfilled。健康：交集为空 |
 
 ## 4. Grounded phase telemetry semantic epochs
 
