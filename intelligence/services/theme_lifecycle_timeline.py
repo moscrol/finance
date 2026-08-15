@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,9 @@ EBB_BREAK_DAYS = 5       # 退潮：连续无双红天数下限
 # 回流滞回（slice 3.1）：退潮中出现双红须连续 ≥N 日才确认回流，孤立单日双红不切段。
 # live 实测（2026-08-13，固态电池 53 段/信创 65 段）：无滞回时真实双红闪烁把时间线切成锯齿。
 REFLOW_CONFIRM_DAYS = 2
+# 最短阶段时长（Q8，bookgap S8）：滞回只消回流抖动，<N 日切段仍把时间线切碎。
+# 与滞回正交——派生完成后再合并，不改状态机。设 1 即关闭合并。
+MIN_PHASE_DAYS = 3
 
 STAGE_INCUBATION = "酝酿"
 STAGE_FIRST_MOVE = "首发"
@@ -115,12 +119,98 @@ class ThemeTimelineArtifact:
         }
 
 
+def segment_calendar_days(seg: StageSegment) -> int:
+    """段时长：起止日含首尾的日历天数。同日段 = 1。"""
+    start = date.fromisoformat(str(seg.start_date)[:10])
+    end = date.fromisoformat(str(seg.end_date)[:10])
+    return (end - start).days + 1
+
+
+def merge_short_phases(
+    segments: list[StageSegment],
+    min_phase_days: int = MIN_PHASE_DAYS,
+) -> tuple[list[StageSegment], list[StageSegment]]:
+    """把短于 ``min_phase_days`` 的切段并入邻段（Q8）。
+
+    与滞回正交：只做派生后的后处理。规则：
+    - ``min_phase_days <= 1`` 关闭合并（与 ``reflow_confirm_days=1`` 同形）；
+    - 短段优先并入前一段（保留前段阶段名）；首段过短则并入后一段；
+    - 合并后相邻同名段再粘合，避免「退潮-短回流-退潮」拆成两段退潮；
+    - 整条时间线短于阈值时无法再并，短段保留（数据跨度限制，不臆造天数）。
+    返回 ``(合并后段落, 被吸收的原短段清单)``。
+    """
+    if min_phase_days <= 1 or len(segments) <= 1:
+        return list(segments), []
+
+    absorbed: list[StageSegment] = []
+    segs = list(segments)
+
+    def _coalesce(items: list[StageSegment]) -> list[StageSegment]:
+        if not items:
+            return []
+        out = [items[0]]
+        for item in items[1:]:
+            prev = out[-1]
+            if item.stage == prev.stage:
+                out[-1] = StageSegment(
+                    prev.stage,
+                    prev.start_date,
+                    item.end_date if item.end_date > prev.end_date else prev.end_date,
+                    prev.trigger,
+                )
+            else:
+                out.append(item)
+        return out
+
+    changed = True
+    while changed:
+        changed = False
+        segs = _coalesce(segs)
+        i = 0
+        while i < len(segs):
+            if segment_calendar_days(segs[i]) >= min_phase_days:
+                i += 1
+                continue
+            short = segs[i]
+            if i > 0:
+                prev = segs[i - 1]
+                segs[i - 1] = StageSegment(
+                    prev.stage,
+                    prev.start_date,
+                    short.end_date if short.end_date > prev.end_date else prev.end_date,
+                    f"{prev.trigger}；合并短于{min_phase_days}日的「{short.stage}」"
+                    f"{short.start_date}~{short.end_date}",
+                )
+                del segs[i]
+                absorbed.append(short)
+                changed = True
+                segs = _coalesce(segs)
+                i = max(i - 1, 0)
+            elif i + 1 < len(segs):
+                nxt = segs[i + 1]
+                segs[i + 1] = StageSegment(
+                    nxt.stage,
+                    short.start_date if short.start_date < nxt.start_date else nxt.start_date,
+                    nxt.end_date,
+                    f"{nxt.trigger}；合并短于{min_phase_days}日的「{short.stage}」"
+                    f"{short.start_date}~{short.end_date}",
+                )
+                del segs[i]
+                absorbed.append(short)
+                changed = True
+                segs = _coalesce(segs)
+            else:
+                i += 1
+    return segs, absorbed
+
+
 def derive_stages(
     rows: list[dict[str, Any]],
     message_dates: tuple[str, ...] = (),
     mainup_consecutive: int = MAINUP_CONSECUTIVE,
     ebb_break_days: int = EBB_BREAK_DAYS,
     reflow_confirm_days: int = REFLOW_CONFIRM_DAYS,
+    min_phase_days: int = MIN_PHASE_DAYS,
 ) -> tuple[list[StageSegment], list[str]]:
     """从升序逐日行派生阶段段落。rows 每行至少含：
 
@@ -130,7 +220,9 @@ def derive_stages(
 
     message_dates：消息面事件日（证据/认知跃迁），仅用于酝酿段；为空则声明缺口。
     reflow_confirm_days：回流滞回——退潮中须连续 ≥N 日双红才确认回流（起点回溯
-    确认串首日）；设 1 即关闭滞回。返回（阶段段落列表, 缺口声明列表）。
+    确认串首日）；设 1 即关闭滞回。
+    min_phase_days：最短阶段时长，派生后再合并短于 N 日的切段（与滞回正交；
+    设 1 关闭）。返回（阶段段落列表, 缺口声明列表）。
     全程确定性规则，可对任意区间重放。
     """
     gaps: list[str] = []
@@ -293,6 +385,14 @@ def derive_stages(
         prev_date = day
 
     close_segment(prev_date)
+    segments, absorbed = merge_short_phases(segments, min_phase_days)
+    if absorbed:
+        merged = "、".join(
+            f"{item.stage}{item.start_date}~{item.end_date}" for item in absorbed
+        )
+        gaps.append(
+            f"最短阶段合并：吸收 {len(absorbed)} 段短于 {min_phase_days} 日的切段（{merged}）"
+        )
     return segments, gaps
 
 
@@ -398,11 +498,13 @@ def load_theme_timeline_artifact(
     mainup_consecutive: int = MAINUP_CONSECUTIVE,
     ebb_break_days: int = EBB_BREAK_DAYS,
     reflow_confirm_days: int = REFLOW_CONFIRM_DAYS,
+    min_phase_days: int = MIN_PHASE_DAYS,
 ) -> ThemeTimelineArtifact:
     params = {
         "mainup_consecutive": mainup_consecutive,
         "ebb_break_days": ebb_break_days,
         "reflow_confirm_days": reflow_confirm_days,
+        "min_phase_days": min_phase_days,
         "double_red": f"pct>{DOUBLE_RED_PCT:g} & diff>{DOUBLE_RED_DIFF:g} & amount>{DOUBLE_RED_AMOUNT:g}",
     }
     db_path = (
@@ -444,6 +546,7 @@ def load_theme_timeline_artifact(
             mainup_consecutive=mainup_consecutive,
             ebb_break_days=ebb_break_days,
             reflow_confirm_days=reflow_confirm_days,
+            min_phase_days=min_phase_days,
         )
         if not segments:
             return ThemeTimelineArtifact(
@@ -471,7 +574,8 @@ def lifecycle_markdown(artifact: ThemeTimelineArtifact) -> str:
         f"- 口径：{artifact.params.get('double_red')}；主升=连续双红 ≥"
         f"{artifact.params.get('mainup_consecutive')} 且高度抬升；退潮=连续 "
         f"{artifact.params.get('ebb_break_days')} 日无双红；回流=退潮后连续 "
-        f"{artifact.params.get('reflow_confirm_days')} 日双红确认（滞回，孤立单日不切段）。"
+        f"{artifact.params.get('reflow_confirm_days')} 日双红确认（滞回，孤立单日不切段）；"
+        f"短于 {artifact.params.get('min_phase_days')} 日的切段并入邻段（与滞回正交）。"
         "阶段由库内逐日行按规则派生，非 LLM 生成；规则版本变更时历史阶段自动重算。"
     )
     resolved = artifact.params.get("resolved_sector_name")
@@ -511,11 +615,16 @@ def _main() -> int:
         "--reflow-confirm", type=int, default=REFLOW_CONFIRM_DAYS,
         help="回流滞回确认天数（默认 %(default)s；设 1 关闭滞回）",
     )
+    parser.add_argument(
+        "--min-phase-days", type=int, default=MIN_PHASE_DAYS,
+        help="最短阶段时长（默认 %(default)s；设 1 关闭短段合并）",
+    )
     parser.add_argument("--json", action="store_true", help="输出 JSON payload")
     args = parser.parse_args()
     artifact = load_theme_timeline_artifact(
         args.theme, market_db_path=args.db, kb_vault=args.kb_vault,
         reflow_confirm_days=args.reflow_confirm,
+        min_phase_days=args.min_phase_days,
     )
     if args.json:
         print(json.dumps(artifact.to_payload(), ensure_ascii=False, indent=2))
