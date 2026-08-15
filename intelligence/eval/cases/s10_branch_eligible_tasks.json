@@ -1,0 +1,51 @@
+{
+  "id": "s10-branch-eligible-v1",
+  "spec": "docs/superpowers/specs/2026-08-15-bookgap-s10-branch-tool-activation.md",
+  "report": "docs/verification/2026-08-15-s10-branch-activation.md",
+  "frozen_at": "2026-08-15T23:42:08+08:00",
+  "predicate": {
+    "all": [
+      "multi_subquestion_parallelizable",
+      "each_subquestion_needs_independent_retrieval",
+      "prompt_has_no_jian_da_constraint"
+    ],
+    "exclude_examples": ["光刻胶", "液冷", "固态电池"]
+  },
+  "scoring": {
+    "window": "latest complete continuous-episode.json per task at frozen_at",
+    "success_metric": "branch_tool event count",
+    "reproduction_of_zero_call_claim": "sum(branch_tool) / n == 0"
+  },
+  "tasks": [
+    {
+      "freeze_id": "S10-B4",
+      "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+      "latest_run_id": "run_20260815_182037_434217",
+      "branch_tool_count": 9
+    },
+    {
+      "freeze_id": "S10-B5",
+      "question": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+      "latest_run_id": "run_20260815_182537_751801",
+      "branch_tool_count": 0
+    },
+    {
+      "freeze_id": "S10-B7",
+      "question": "2026-07-21 到 07-24 量能和情绪是怎么演化的",
+      "latest_run_id": "run_20260815_182731_454211",
+      "branch_tool_count": 0
+    },
+    {
+      "freeze_id": "S10-B8",
+      "question": "立新能源现在贵不贵，隐含了什么预期",
+      "latest_run_id": "run_20260815_182902_790837",
+      "branch_tool_count": 0
+    },
+    {
+      "freeze_id": "S10-C9",
+      "question": "2026-07-23 电网设备为什么涨，给出证据来源",
+      "latest_run_id": "run_20260815_183924_701039",
+      "branch_tool_count": 0
+    }
+  ]
+}
