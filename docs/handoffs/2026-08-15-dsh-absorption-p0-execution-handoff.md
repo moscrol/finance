@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 5 步进行中）
+# 交接：dsh 吸收 P0 接缝实施（第 5 步已收口，第 6 步未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1-4 步完成；第 5 步 §10.5 #1–4 已完成，剩 `project_episode_progress` 半截；分支未 push、未合 main
+状态：第 1-5 步完成（§10.5 #1–4 + 进度投影已迁）；第 6–8 步未开；分支未 push、未合 main
 
 ---
 
@@ -464,15 +464,15 @@ spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是�
    8 个 worker 会并发调同一个 `event_sink`（外部回调），第 2 条实施前先确认现有
    sink 实现（`api/app.py:339`/`:362`/`:388`）在并发下的行为——第 1 条那把锁保护的是
    `ledger.events`，保护不到 sink 内部。
-3. **✅ 已完成一半**（见本轮小结）：唯一口径已落 `intelligence/services/episode_projection.py`，
+3. **✅ 已完成**（artifact 半截 `713fcdd0`；进度半截 `93bbb18b`，2026-08-16）：
+   唯一口径已落 `intelligence/services/episode_projection.py`，
    `continuous_turn_adapter` 这**唯一的生产者**改读它。**实测更正**：这一步原先写作
    "三个消费者改读它"，实际形状是**一个生产者 / 五个消费者**——
    `artifact["events"]` 由 adapter 的一行内联推导产出，被 `conversation_orchestrator`
    / `api/stream_events` / `eval/runtime_backend_benchmark` /
    `eval/normalize_harness_trace` / `scripts/dump_episode_receipts` 五处读。收口生产者
-   即收口口径，消费者不需要改。**剩下的一半**：`project_episode_progress`
-   （`runtime/episode_progress.py`，UI 进度那条投影）仍在 runtime 层，尚未并入；
-   它无 runtime 依赖，可迁，但迁移会动 `api/app.py` 的 import，单独一轮做。
+   即收口口径，消费者不需要改。**进度半截**：`episode_progress` 整模块从
+   `runtime/` 迁到 `services/`（无 runtime 依赖；五处 import 一次改完；不留 shim）。
 4. **✅ 已完成**（`cbe4df10`，2026-08-15）：§5.3 三条对账 + D6 裁定 `branch_*`
    归 Durable。过程中投影层「未登记就报」抓到车道表漏了 `finish`，已穷尽补齐。
    详见本轮小结。
@@ -971,6 +971,46 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：第 3 条剩下的半条（`project_episode_progress` 迁到 services，
   会动 `api/app.py` import），或第 6 步 ResearchProfile。不要两件叠在一轮。
   **新基线锚点：5073 / 4 / 0。**
+
+### 执行方小结 · Round「§10.5 第 3 条下半：进度投影迁到 services」（2026-08-16，执行方）
+
+- **两个提交**：`93bbb18b`（整模块迁移 + 2 条用例）+ 本提交（台账）。
+  分支仍**未 push、未合 main**，未动生产快照树。安全 ref 未删。
+- **做了什么**：`episode_progress.py` 整模块从 `runtime/` 迁到 `services/`
+  （git 记成 rename 89%）。2026-07-27 的计划本来就写落 services；它零
+  runtime import，只依赖 `EpisodeEvent` 和 `RunStore`（都在 services）。
+  `layer_audit` 扫描 runtime 模块 16 → **15**。
+- **为什么整模块而不是拆开发射器 / 只迁函数**：
+  - 拆开：`RunEpisodeProgressPublisher` 写 RunStore，按「做 IO → runtime」
+    可以留，但 RunStore 本身就在 services，services 允许 IO；拆开会让
+    `EpisodeProgress` 出现两个进口。
+  - 只迁 `project_episode_progress`：adapter 直接构造 `EpisodeProgress`，
+    类型和投影必须同层。
+  - **不留 runtime shim**：shim 是第二入口。五处 import 一次改完
+    （`api/app.py`、`continuous_turn_adapter.py`、三条测试）。
+- **没和 `episode_projection` 合并**：那是 artifact `events` 数组的唯一口径；
+  这是 UI 进度。未知 kind 的 fail 策略故意相反（进度返 None / artifact
+  保留并记 `unregistered_kinds`），合在一个模块里会把两条契约搅在一起。
+- **钉住的不变量**：
+  1. `PROGRESS_EVENT_KINDS ⊆ DURABLE_EVENT_KINDS`——进度表是车道表的精选
+     子集，不是全表（`model_turn` / `configure` 故意不出进度）；
+  2. 旧路径 `intelligence.runtime.episode_progress` 必须
+     `ModuleNotFoundError`，现役函数的 `__module__` 是 services。
+  Live 阶段事件（`tool/pre_execute`）也返 None，UI 不多出条目（落在原有
+  「未知 kind 返 None」那条上，不是新用例）。
+- **计数**：5073 → **5075**，k=2 恰为新增用例数。存量改动是 import 路径
+  和一层 docstring，行为零变化。
+- **变异（提交后、checkout / rm 恢复，树干净）**：
+  1. 进度表加未登记 kind → 恰报 `['not_a_lane_kind']`；
+  2. 把 `runtime/episode_progress.py` 放回去 → `DID NOT RAISE ModuleNotFoundError`。
+- **收口时更新本账 L1-DSH**：本轮之后另开观测台薄账 PR，指针改为第 5 步
+  已收口 / 第 6–8 步未开 / 未 push。
+- **门禁**（`umask 022`，LOADED=工作树路径）：全量 **5075 passed / 4 skipped /
+  0 failed**（476.7s）；`layer_audit` ERROR 0（扫 246 模块 / runtime 15）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。
+- **下一轮**：第 6 步 ResearchProfile + effective-config 收据（必须吸收
+  已有 `GroundedBudgetProfile`，不另起第二配置源）。不要和别的步叠一轮。
+  **新基线锚点：5075 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
