@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import time
 from dataclasses import asdict, dataclass, field
@@ -394,6 +395,57 @@ class ResearchPolicy:
             "deep": cls("deep", 12, 240.0, 48.0),
         }
         return policies.get(tier, policies["standard"])
+
+
+@dataclass(frozen=True)
+class StageCaps:
+    """Derived tool / judge caps for one :class:`ResearchPolicy`."""
+
+    tool_batch_seconds: float
+    judge_window_seconds: float
+
+
+# Shared judge window per second of synthesis reserve.  Current deep reserve
+# is 48s; 50/48 makes the existing half-window first attempt 25s (08-10 arm C).
+# Spec numbers (75s reserve / 60s standard reserve) are stale vs for_tier().
+_JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
+
+
+def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
+    """Derive stage caps from tier totals.  Env ceilings are applied by callers.
+
+    Tool batch gets the pre-synthesis remainder — the same quantity
+    ``stage_timeout`` already mins against — so the old 30.0 literal is no
+    longer the source of truth.  Judge window is a fixed fraction of reserve.
+    Draft protection stays ``policy.synthesis_reserve`` (not changed here).
+    """
+
+    total = max(0.0, float(policy.total_seconds))
+    reserve = max(0.0, float(policy.synthesis_reserve))
+    return StageCaps(
+        tool_batch_seconds=max(0.0, total - reserve),
+        judge_window_seconds=reserve * _JUDGE_WINDOW_PER_RESERVE,
+    )
+
+
+def apply_env_ceiling(derived: float, env_name: str) -> float:
+    """Env is a fuse that can only lower a derived cap, never raise it."""
+
+    raw = os.environ.get(env_name)
+    if raw is None or not str(raw).strip():
+        return max(0.0, float(derived))
+    try:
+        ceiling = float(raw)
+    except ValueError:
+        return max(0.0, float(derived))
+    if ceiling <= 0:
+        return max(0.0, float(derived))
+    return max(0.0, min(float(derived), ceiling))
+
+
+def policy_for_env(tier: str | None = None) -> ResearchPolicy:
+    raw = tier if tier is not None else os.environ.get("ASK_RESEARCH_TIER", "standard")
+    return ResearchPolicy.for_tier(str(raw or "standard").strip().lower())
 
 
 class RootBudgetLedger(Protocol):
