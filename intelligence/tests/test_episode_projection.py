@@ -86,3 +86,91 @@ def test_empty_events_project_to_empty_without_anomalies() -> None:
 
     assert projection.events == ()
     assert not projection.has_anomalies
+
+
+def _branch_event(sequence: int, kind: str, branch_id: str, **payload: object) -> EpisodeEvent:
+    return EpisodeEvent(sequence, kind, {"branch_id": branch_id, **payload})
+
+
+def test_paired_branch_events_report_no_anomaly() -> None:
+    events = (
+        _branch_event(1, "branch_started", "branch-1"),
+        _branch_event(2, "branch_started", "branch-2"),
+        _branch_event(3, "branch_completed", "branch-1", status="completed"),
+        _branch_event(4, "branch_failed", "branch-2", status="failed"),
+    )
+
+    projection = project_durable_events(events)
+
+    assert not projection.has_anomalies
+
+
+def test_branch_started_without_terminal_is_reported() -> None:
+    """成对性从「实现细节」变成「被断言的性质」（台账 §5.3-1）。
+
+    今天它靠 ``_run_sub_research`` 末尾的未执行兜底循环成立。那个循环在将来的事件
+    出口合流改写里一旦丢掉，成对性会静默失效而所有测试仍是绿的——这条就是为那一天
+    准备的。
+    """
+
+    events = (
+        _branch_event(1, "branch_started", "branch-1"),
+        _branch_event(2, "branch_started", "branch-2"),
+        _branch_event(3, "branch_completed", "branch-1", status="completed"),
+    )
+
+    projection = project_durable_events(events)
+
+    assert projection.unpaired_branch_ids == ("branch-2",)
+    assert projection.anomalies_to_dict() == {"unpaired_branch_ids": ["branch-2"]}
+
+
+def test_branch_terminal_without_start_is_reported() -> None:
+    """反方向也查：有终态却没起过，说明发射点漏了 started 或 branch_id 串了。"""
+
+    events = (
+        _branch_event(1, "branch_started", "branch-1"),
+        _branch_event(2, "branch_completed", "branch-1", status="completed"),
+        _branch_event(3, "branch_failed", "branch-9", status="failed"),
+    )
+
+    projection = project_durable_events(events)
+
+    assert projection.orphan_branch_terminals == ("branch-9",)
+    assert projection.unpaired_branch_ids == ()
+
+
+def test_cancelled_branch_is_distinguishable_from_worker_exception() -> None:
+    """台账 §5.3-2：没有 ``error`` 字段，这两种失败在事件流里完全同形。
+
+    两者都是 ``branch_failed`` / ``status="failed"`` / ``gap_count=1``——能区分开
+    的唯一依据就是 payload 里的 ``error``。
+    """
+
+    events = (
+        _branch_event(1, "branch_started", "branch-1"),
+        _branch_event(2, "branch_started", "branch-2"),
+        _branch_event(
+            3, "branch_failed", "branch-1", status="failed", gap_count=1,
+            error="cancelled",
+        ),
+        _branch_event(
+            4, "branch_failed", "branch-2", status="failed", gap_count=1,
+            error="branch_worker_exception:TimeoutError",
+        ),
+    )
+
+    projection = project_durable_events(events)
+
+    assert not projection.has_anomalies
+    failures = [
+        item for item in projection.events if item["kind"] == "branch_failed"
+    ]
+    assert [item["payload"]["error"] for item in failures] == [
+        "cancelled",
+        "branch_worker_exception:TimeoutError",
+    ]
+    cancelled = [
+        item for item in failures if item["payload"]["error"] == "cancelled"
+    ]
+    assert [item["payload"]["branch_id"] for item in cancelled] == ["branch-1"]

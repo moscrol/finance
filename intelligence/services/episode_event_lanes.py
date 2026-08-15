@@ -33,9 +33,10 @@
 
 裁定的三个条件（本模块逐条兑现）：① durable 侧保持对账权威，阶段事件不得成为任何
 金融字段或发布判据的唯一载体；② 分类落**这一张**表并用测试钉住，Live 不进
-``ledger.events``、不携带 durable sequence；③ 只覆盖 ``tool/*`` 三事件，
-``branch_*`` 的归属留给第 5 步第 4 条单独裁定——**所以它们现在在 DURABLE 里，
-那是它们今天的实际去向，不是已裁定的终局。**
+``ledger.events``、不携带 durable sequence；③ D3 只覆盖 ``tool/*`` 三事件。
+``branch_*`` 由 D6（台账 §5.3-3）裁定归 Durable：它们承载证据来源、分支预算
+消耗和成对身份，按 spec §7.4 不得在 Projection 丢失；归 Live 会让重放日志缺
+分支，配对对账也无处可依。
 """
 
 from __future__ import annotations
@@ -55,9 +56,13 @@ from intelligence.services.research_tool_registry import (
 EventLane = Literal["durable", "live"]
 
 
-# ``_EpisodeLedger.add`` 今天发出的全部 kind。改动这里要同步改 ledger 的发射点，
-# 反之亦然——``lane_for`` 对未登记的 kind **fail closed**，就是为了让漏登记在
-# 接线处立刻暴露，而不是让一条没人认领的事件悄悄流进重放日志。
+# 凡是能进 ``AgentOutcome.events``、再被 ``project_durable_events`` 投影的
+# kind，都必须在这张表里。投影挂在 ``ContinuousTurnAdapter`` 上，三条 runtime
+# 共用（``agent_episode`` / ``openai_agents_runtime`` / ``codex_headless`` +
+# gateway），不是只覆盖 ``_EpisodeLedger.add``。
+#
+# 完整性由 ``test_durable_kind_table_matches_every_runtime_emitter`` 守住：
+# 发射点漏登记会红，表里出现假 kind（payload 键冒充事件种类）也会红。
 DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
     {
         "task",
@@ -68,17 +73,22 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "tool_request",
         "tool_result",
         "tool_error",
+        "tool_closed",
         "branch_started",
         "branch_completed",
         "branch_failed",
         "branch_tool",
         "repair_goal",
+        "repair_reentry",
         "repair_model_retry",
         "invalid_action",
         "finalization",
-        "phase",
-        "reason",
+        "finalization_recovery_started",
+        "finalization_recovery_outcome",
         "runtime_result",
+        "finish",
+        "configure",
+        "root_budget_overdraft",
     }
 )
 

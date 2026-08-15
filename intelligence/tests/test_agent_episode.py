@@ -42,6 +42,7 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.runtime.sub_research import BranchResult, SubResearchResult
+from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -4025,3 +4026,164 @@ def test_episode_ledger_sequences_stay_unique_under_concurrent_adds(
     assert len(sequences) == expected_total
     assert sorted(sequences) == list(range(1, expected_total + 1)), "序号重了或跳了"
     assert sequences == sorted(sequences), "列表顺序与序号不一致"
+
+
+def test_cancelled_branch_carries_error_into_the_durable_event() -> None:
+    """台账 §5.3-2：单分支取消必须能在事件流里与 worker 异常失败区分开。
+
+    没有 payload 里的 ``error``，两者完全同形（同为 ``branch_failed`` /
+    ``status="failed"`` / ``gap_count=1``），"cancelled 可区分"这条对账要求在
+    Projection 上根本判不出来。这里经真实 ``run()`` 入口断言，不是验发射行的透传。
+    """
+
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    context = replace(
+        base,
+        contract=replace(base.contract, research_tier="standard"),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(90.0, synthesis_reserve=20.0),
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=base.contract.task_id,
+            initial_calls=6,
+            hard_calls_cap=8,
+            initial_seconds=70.0,
+            hard_seconds_cap=90.0,
+        ),
+    )
+
+    class CancellingCoordinator:
+        def run(self, **kwargs):
+            return SubResearchResult(
+                (
+                    BranchResult(
+                        branch_id="branch-1",
+                        goal="查找反方驱动",
+                        status="failed",
+                        evidence=(),
+                        traces=(),
+                        gaps=("分支研究已取消",),
+                        llm_calls=0,
+                        tool_calls=0,
+                        error="cancelled",
+                    ),
+                    BranchResult(
+                        branch_id="branch-2",
+                        goal="查找同向驱动",
+                        status="failed",
+                        evidence=(),
+                        traces=(),
+                        gaps=("分支研究未完成",),
+                        llm_calls=0,
+                        tool_calls=0,
+                        error="branch_worker_exception:TimeoutError",
+                    ),
+                )
+            )
+
+    model = ScriptedModel(
+        [
+            _plan_turn(
+                requested_mode="deep",
+                evidence_needs=["盘面结构"],
+                open_gaps=[],
+                branch_goals=["查找反方驱动", "查找同向驱动"],
+            ),
+            _finish_turn(status="partial", hashes=(), gap="分支未返回证据"),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(
+        model,
+        sub_research_coordinator=CancellingCoordinator(),
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    failures = [event for event in outcome.events if event.kind == "branch_failed"]
+    assert [event.payload["branch_id"] for event in failures] == [
+        "branch-1",
+        "branch-2",
+    ]
+    # 两条在 status / gap_count 上一模一样——只有 error 能把它们分开。
+    assert {event.payload["status"] for event in failures} == {"failed"}
+    assert {event.payload["gap_count"] for event in failures} == {1}
+    assert [event.payload["error"] for event in failures] == [
+        "cancelled",
+        "branch_worker_exception:TimeoutError",
+    ]
+
+    # 成对性：两条 branch_started 都对上了终态，投影层不报异常。
+    projection = project_durable_events(outcome.events)
+    assert not projection.has_anomalies
+
+
+def test_whole_round_refused_branches_pair_and_carry_reason() -> None:
+    """台账 §5.3-2 的另一半：整轮拒绝走兜底循环，payload 带 ``reason``。
+
+    单分支取消靠结果循环的 ``error``（上一条）；整轮拒绝（空 branches +
+    ``refused_reason``）从不进结果循环，区分字段是兜底循环写下的 ``reason``。
+    两条路径都要经 ``run()`` 钉住，否则合流改写丢掉其中一条时另一条仍绿。
+    """
+
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    context = replace(
+        base,
+        contract=replace(base.contract, research_tier="standard"),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(90.0, synthesis_reserve=20.0),
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=base.contract.task_id,
+            initial_calls=6,
+            hard_calls_cap=8,
+            initial_seconds=70.0,
+            hard_seconds_cap=90.0,
+        ),
+    )
+
+    class RefusingCoordinator:
+        def run(self, **kwargs):
+            return SubResearchResult((), refused_reason="cancelled")
+
+    model = ScriptedModel(
+        [
+            _plan_turn(
+                requested_mode="deep",
+                evidence_needs=["盘面结构"],
+                open_gaps=[],
+                branch_goals=["查找反方驱动", "查找同向驱动"],
+            ),
+            _finish_turn(status="partial", hashes=(), gap="分支未返回证据"),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(
+        model,
+        sub_research_coordinator=RefusingCoordinator(),
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    started = [event for event in outcome.events if event.kind == "branch_started"]
+    failures = [event for event in outcome.events if event.kind == "branch_failed"]
+    assert [event.payload["branch_id"] for event in started] == [
+        "branch-1",
+        "branch-2",
+    ]
+    assert [event.payload["branch_id"] for event in failures] == [
+        "branch-1",
+        "branch-2",
+    ]
+    assert [event.payload["reason"] for event in failures] == [
+        "cancelled",
+        "cancelled",
+    ]
+
+    projection = project_durable_events(outcome.events)
+    assert not projection.has_anomalies
+    assert projection.unpaired_branch_ids == ()

@@ -34,6 +34,20 @@ Live 车道（``tool/*`` 阶段事件，见 ``episode_event_lanes``）**不进�
 ``unregistered_kinds``。因为这里已经是研究做完之后，抛错等于把一次完成的研究
 连同它的证据一起丢掉——为了一个分类表没跟上的 kind 付这个代价是荒谬的。
 **但也不静默**：异常都装进返回值，由调用方写进 artifact，收据不说谎。
+
+--------------------------------------------------------------------------
+子研究分支的成对性对账（台账 §5.3-1）
+--------------------------------------------------------------------------
+
+每条 ``branch_started`` 必须对上一条 ``branch_completed`` / ``branch_failed``。
+今天它靠 ``_run_sub_research`` 末尾那个「未执行兜底循环」成立——**但那是实现细节，
+不是被断言的性质**：兜底循环在将来的事件出口合流改写里一旦丢掉，成对性会静默失效，
+而所有测试都还是绿的。所以这里把它变成投影层的一条对账，两个方向都查：
+``unpaired_branch_ids``（起了没终态）与 ``orphan_branch_terminals``（有终态没起）。
+
+配套的另一半在发射侧：``branch_completed`` / ``branch_failed`` 的 payload 带
+``error`` 字段（台账 §5.3-2）。没有它，「单分支取消」与「worker 异常失败」在事件流
+里完全同形，"cancelled 可区分"这条要求在这一层根本判不出来。
 """
 
 from __future__ import annotations
@@ -43,6 +57,14 @@ from dataclasses import dataclass
 
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.episode_event_lanes import lane_for
+
+
+_BRANCH_START_KINDS = frozenset({"branch_started"})
+_BRANCH_TERMINAL_KINDS = frozenset({"branch_completed", "branch_failed"})
+
+
+def _branch_id_of(event: EpisodeEvent) -> str:
+    return str(event.payload.get("branch_id") or "")
 
 
 @dataclass(frozen=True)
@@ -55,10 +77,19 @@ class DurableEventProjection:
     dropped_live_kinds: tuple[str, ...] = ()
     # 两张车道表都不认识的 kind（去重、保序）。事件**已保留**在 events 里。
     unregistered_kinds: tuple[str, ...] = ()
+    # 发了 ``branch_started`` 却没有终态事件的 branch_id（保序）。
+    unpaired_branch_ids: tuple[str, ...] = ()
+    # 有终态却没见过 ``branch_started`` 的 branch_id（保序）。
+    orphan_branch_terminals: tuple[str, ...] = ()
 
     @property
     def has_anomalies(self) -> bool:
-        return bool(self.dropped_live_kinds or self.unregistered_kinds)
+        return bool(
+            self.dropped_live_kinds
+            or self.unregistered_kinds
+            or self.unpaired_branch_ids
+            or self.orphan_branch_terminals
+        )
 
     def anomalies_to_dict(self) -> dict[str, list[str]]:
         payload: dict[str, list[str]] = {}
@@ -66,6 +97,10 @@ class DurableEventProjection:
             payload["dropped_live_kinds"] = list(self.dropped_live_kinds)
         if self.unregistered_kinds:
             payload["unregistered_kinds"] = list(self.unregistered_kinds)
+        if self.unpaired_branch_ids:
+            payload["unpaired_branch_ids"] = list(self.unpaired_branch_ids)
+        if self.orphan_branch_terminals:
+            payload["orphan_branch_terminals"] = list(self.orphan_branch_terminals)
         return payload
 
 
@@ -82,6 +117,8 @@ def project_durable_events(
     kept: list[dict[str, object]] = []
     dropped: dict[str, None] = {}
     unregistered: dict[str, None] = {}
+    started: dict[str, None] = {}
+    terminated: dict[str, None] = {}
     for event in events:
         try:
             lane = lane_for(event.kind)
@@ -92,11 +129,21 @@ def project_durable_events(
         if lane == "live":
             dropped[event.kind] = None
             continue
+        if event.kind in _BRANCH_START_KINDS:
+            started[_branch_id_of(event)] = None
+        elif event.kind in _BRANCH_TERMINAL_KINDS:
+            terminated[_branch_id_of(event)] = None
         kept.append(event.to_dict())
     return DurableEventProjection(
         events=tuple(kept),
         dropped_live_kinds=tuple(dropped),
         unregistered_kinds=tuple(unregistered),
+        unpaired_branch_ids=tuple(
+            branch_id for branch_id in started if branch_id not in terminated
+        ),
+        orphan_branch_terminals=tuple(
+            branch_id for branch_id in terminated if branch_id not in started
+        ),
     )
 
 

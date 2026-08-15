@@ -1839,6 +1839,12 @@ class ContinuousAgentEpisode:
                     "branch_id": branch.branch_id,
                     "goal": branch.goal,
                     "status": branch.status,
+                    # 台账 §5.3-2：不带这个字段，「单分支取消」在事件流里与
+                    # 「worker 异常失败」完全同形（同为 status=failed、gap_count=1），
+                    # 于是「cancelled 分支可区分」这条对账要求在 Projection 上根本
+                    # 判不出来。BranchResult.error 无错时是空串，照抄即可，不另造
+                    # 一个 cancelled 布尔位——那会变成第二事实源。
+                    "error": branch.error,
                     "evidence_count": len(branch.evidence),
                     "gap_count": len(branch.gaps),
                     "llm_calls": branch.llm_calls,

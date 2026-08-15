@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
 from threading import Barrier, Thread
 
 import pytest
@@ -23,6 +25,89 @@ from intelligence.services.research_tool_registry import (
     TOOL_RESULT,
 )
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_EMITTER_MARKERS = (
+    "EpisodeEvent(",
+    "_add_event(",
+    "class _EpisodeLedger",
+    "ledger.add(",
+)
+
+
+def _string_constants(node: ast.AST) -> list[str]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [node.value]
+    if isinstance(node, ast.IfExp):
+        return _string_constants(node.body) + _string_constants(node.orelse)
+    return []
+
+
+def _call_name(func: ast.AST) -> str | None:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def _receiver_root(func: ast.AST) -> str | None:
+    """``ledger.add`` / ``self.ledger.add`` / ``self.add`` 才算发射，``layers.add`` 不算。"""
+
+    if not isinstance(func, ast.Attribute):
+        return None
+    value = func.value
+    if isinstance(value, ast.Name):
+        return value.id
+    if isinstance(value, ast.Attribute):
+        return value.attr
+    return None
+
+
+def _kind_from_call(node: ast.Call, *, positional_index: int) -> list[str]:
+    kinds: list[str] = []
+    if len(node.args) > positional_index:
+        kinds.extend(_string_constants(node.args[positional_index]))
+    for keyword in node.keywords:
+        if keyword.arg == "kind":
+            kinds.extend(_string_constants(keyword.value))
+    return kinds
+
+
+def _production_emitter_paths() -> tuple[Path, ...]:
+    root = _REPO_ROOT / "intelligence"
+    return tuple(
+        sorted(
+            path
+            for path in root.rglob("*.py")
+            if "tests" not in path.parts
+            and any(marker in path.read_text(encoding="utf-8") for marker in _EMITTER_MARKERS)
+        )
+    )
+
+
+def _emitted_durable_kinds() -> set[str]:
+    """穷尽扫生产发射 API 的字面量 kind，不扫测试、不扫 ``.add()`` 的其它用法。
+
+    三种写法都算：``ledger.add("kind", ...)`` / ``_add_event("kind", ...)`` /
+    ``EpisodeEvent(seq, "kind", ...)``，以及 ``if/else`` 里二选一的字面量。
+    变量形参（``EpisodeEvent(seq, kind, ...)``）不贡献——那是出口本身。
+    """
+
+    kinds: set[str] = set()
+    for path in _production_emitter_paths():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = _call_name(node.func)
+            if name == "_add_event":
+                kinds.update(_kind_from_call(node, positional_index=0))
+            elif name == "add" and _receiver_root(node.func) in {"ledger", "self"}:
+                kinds.update(_kind_from_call(node, positional_index=0))
+            elif name == "EpisodeEvent":
+                kinds.update(_kind_from_call(node, positional_index=1))
+    return kinds
+
 
 def test_tool_stage_events_are_live_and_ledger_kinds_are_durable() -> None:
     """裁定条件②：``tool/*` 三事件归 Live，durable 侧的 kind 仍归 Durable。"""
@@ -32,11 +117,12 @@ def test_tool_stage_events_are_live_and_ledger_kinds_are_durable() -> None:
         assert lane_for(kind) == "live"
 
     # 抽样 durable 侧：重放日志与对账权威那一批必须留在 Durable。
-    for kind in ("task", "plan", "model_turn", "tool_request", "tool_result"):
+    # finish 是终局事件，漏登记会被投影层第一天抓到——抽样里必须有它。
+    for kind in ("task", "plan", "model_turn", "tool_request", "tool_result", "finish"):
         assert lane_for(kind) == "durable"
 
-    # 条件③：branch_* 本轮不裁定，今天的实际去向是 durable，表要如实反映。
-    for kind in ("branch_started", "branch_completed", "branch_failed"):
+    # D6：branch_* 裁定归 Durable（证据来源 / 分支预算 / 成对身份）。
+    for kind in ("branch_started", "branch_completed", "branch_failed", "branch_tool"):
         assert lane_for(kind) == "durable"
 
     # 两条车道不得相交——同一个 kind 走两条路就是双账。
@@ -52,6 +138,25 @@ def test_unregistered_kind_fails_closed() -> None:
 
     with pytest.raises(ValueError):
         lane_for("tool/definitely_not_registered")
+
+
+def test_durable_kind_table_matches_every_runtime_emitter() -> None:
+    """负面断言：表不多不少，正好等于三条 runtime 实际发出的 durable kind。
+
+    投影挂在 ``ContinuousTurnAdapter`` 上，``continuous_glm`` / ``sdk_*`` /
+    ``codex_headless`` 的 ``outcome.events`` 都走它。只 grep ``ledger.add``
+    一种写法会漏 ``finish`` / ``configure`` / ``tool_closed`` 这类终局或旁路
+    事件，也会把 payload 键（``phase`` / ``reason``）误收进表。
+    """
+
+    emitted = _emitted_durable_kinds()
+    registered = set(DURABLE_EVENT_KINDS)
+
+    missing = sorted(emitted - registered)
+    stale = sorted(registered - emitted)
+    assert missing == [], f"发射了但表里没有: {missing}"
+    assert stale == [], f"表里有但没有任何发射点: {stale}"
+    assert not (emitted & set(LIVE_EVENT_KINDS))
 
 
 def test_live_sink_publishes_without_durable_sequence() -> None:
