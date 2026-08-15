@@ -381,21 +381,58 @@ def test_batch_prefilter_emits_distinction_where_flattening_happens() -> None:
 # ── 生产链路真的构造 Scope 了（第 4 步认领项之一）─────────────────────
 
 
-def test_agent_episode_run_constructs_scope() -> None:
-    """机制不再休眠：agent_episode.run() 真的构造并传下 Scope。
+def test_agent_episode_run_constructs_scope(monkeypatch: pytest.MonkeyPatch) -> None:
+    """机制不再休眠：真实驱动 run()，批次会话拿到的必须是入口构造的 Scope。
 
     第 3 步把接缝接到执行路径上，但生产链路一直没人构造 Scope，于是事件、登记、
     dump 在生产里都不发生——而所有测试仍然全绿，因为没有任何断言在问「生产里
-    真的建了吗」。这条就是那个断言，所以它必须真的调 run()，不能只验 new_session
-    的透传（那样验的是我自己刚写的那行参数传递，不是入口行为）。
+    真的建了吗」。这条就是那个断言：驱动一次最小 Episode（一轮工具调用 +
+    一轮 finish），在 new_session 处捕获 scope 实参，断言身份沿用仓内既有约定、
+    注册表就是传给 run() 的同一个对象、且经真实路径执行过的调用登记进了收据。
+
+    此前的版本是 inspect.getsource 抓源码子串：run() 从未被调用，
+    「context.contract.task_id」被 run() 里注释的字面串满足着，抽个 helper
+    就会假报警——本仓明令禁止的假测试形状，故重写为经真实入口的行为断言。
     """
 
-    import inspect
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.runtime.episode_tool_batch import ToolBatchExecutor
+    from intelligence.tests.test_agent_episode import (
+        ScriptedModel,
+        _context as _episode_context,
+        _finish_turn,
+        _frame,
+        _market_registry,
+        _successful_runner,
+        _tool_turn,
+    )
 
-    from intelligence.runtime import agent_episode
+    captured: list[EpisodeScope | None] = []
+    real_new_session = ToolBatchExecutor.new_session
 
-    source = inspect.getsource(agent_episode.ContinuousAgentEpisode.run)
-    assert "EpisodeScope(" in source, "run() 必须构造 EpisodeScope"
-    assert "new_session(scope=" in source, "构造出来的 Scope 必须传给批次会话"
-    # episode_id 用仓内既有约定，不是新发明的身份
-    assert "context.contract.task_id" in source
+    def capturing_new_session(self, *, scope=None):
+        captured.append(scope)
+        return real_new_session(self, scope=scope)
+
+    # spy 本身不是问题，问题只会出在不经真入口。这里 run() 是真的在跑：
+    # 模型轮次、工具执行、finish 全走生产代码，spy 只把 scope 实参拿出来看，
+    # 然后原样委托回真 new_session，不改变任何行为。
+    monkeypatch.setattr(ToolBatchExecutor, "new_session", capturing_new_session)
+
+    frame = _frame()
+    context = _episode_context(frame)
+    registry = _market_registry(_successful_runner)
+    outcome = ContinuousAgentEpisode(
+        ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+    ).run(task_frame=frame, context=context, registry=registry)
+
+    assert outcome.status == "completed"
+    assert outcome.usage.tool_calls == 1
+    [scope] = captured  # 一次 run() 恰好开一个批次会话
+    assert isinstance(scope, EpisodeScope)
+    # 身份是仓内既有约定（contract.task_id），不是新发明的第二种 Episode 身份
+    assert scope.episode_id == context.contract.task_id
+    # 注册表不经复制或替换：授权、可见性、登记对着的是同一个对象
+    assert scope.registry is registry
+    # Scope 不只是被构造了，还真的活在执行路径里：登记经真实入口发生
+    assert scope.dump()["invoked_tools"] == ["market_data"]
