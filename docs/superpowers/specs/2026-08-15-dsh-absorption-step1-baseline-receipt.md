@@ -42,12 +42,22 @@ provider 可以整条自己声明，README 原文——
 可配字段含 `api: openai-completions`、`baseURL`、`apiKeyEnv`、`models[].id`。
 Arm A 的中转正是 OpenAI 兼容端点，故形状吻合。
 
+> **取证路径**：`packages/llm/**` 起初不在 sparse cone 内（cone 只有 docs、
+> packages/core、packages/bundle/base、apps/cli、packages/host），上述 README
+> 当时是用 `git show HEAD:packages/llm/llm-pi-ai/README.md` 读的。**cone 已扩入
+> `packages/llm`**，现在可直接 `cd tmp/dsh-source-index && cat
+> packages/llm/llm-pi-ai/README.md` 复现。spec §3.2 的重建命令需同步加该路径。
+
 ### 落地时的三个前提（都不是阻塞项，但漏一个就跑不起来）
 
 1. **pi-ai 默认休眠**，A/B 前必须在 dsh settings 供 `llm-pi-ai:` 段，否则零路由。
-2. **凭证形态不匹配**：pi-ai 用 `apiKeyEnv`（环境变量引用），而本仓的 key 在
-   macOS Keychain。需要在拉起 dsh 进程时把 key 注入环境变量——这是新增的密钥
-   暴露面，要单独决定注入方式。
+2. **凭证注入**（本条初版写错，已更正）：README L108 实测原文为
+   「Credentials resolve per stream call through `apiKeyEnv` **and the optional
+   `ctx.credentials` seam**; without that seam, the adapter reads exactly the
+   referenced environment variable.」——即 `apiKeyEnv` **不是唯一通路**，
+   还有 `ctx.credentials` seam。初版据此把「Keychain→env」称作**新增的密钥暴露面**，
+   属于夸大：Arm A 生产今天就是 Keychain→env（`start-finance-workbench`），
+   这只是同一模式的第二个消费者，不是新类别。A/B 轮的做法见 §6.2。
 3. **可能需要 `compat.thinkingFormat`**：pi-ai 认不出中转的 URL 时，推理方言要显式声明。
 
 ## 2. 基线事实（第 1 步要求保存的四项）
@@ -200,3 +210,45 @@ $PY -m pytest -q -p no:cacheprovider > /tmp/x.log 2>&1; echo "PYTEST_EXIT=$?"   
   episode_tools、conversation_orchestrator、headless_tool_gateway、
   codex_headless_runtime、openai_agents_runtime、generic_research_owner、ask
   ……），这正是 EpisodeScope 要收拢的东西。
+
+## 6. 三个待决问题的裁定（2026-08-15 检阅方定，第 8 步执行前生效）
+
+### 6.1 A/B 样本量：校准先行，门槛不动
+
+九题不够——n=9 配对下，5pp 只在单题方差 ≤5pp 时才可分辨，不现实。故：
+
+1. **先做校准**：第 8 步前用冻结九题 × 5 重复跑**纯 Arm A**（45 次），
+   实测每题配对差值的方差 σ_d；
+2. **题集扩到 30 题**，按 quick / deep / daily-review 分层，**九题作为子集保留**，
+   冻结成新题集文件（沿用现有冻结机制，不改判据表达力）；
+3. **每臂每题 3 重复**，成本地板 2；
+4. **判定用同题配对差值的 bootstrap 95% CI，门槛落在 CI 上界**，不看点估计；
+5. 若校准显示 30×3 压不住 5pp，**加题或加重复，不许放宽门槛**——这正是 §9.4
+   现在的写法（样本量不足时先扩大题集或重复次数，不得直接判定）。
+
+### 6.2 dsh 凭证注入：走 `apiKeyEnv`，但用专用变量名
+
+A/B 轮走 `apiKeyEnv`（`ctx.credentials` host 插件记为 **P2**，只有 Adapter 熬过
+A/B 进入长期维护才评估）。四条要点：
+
+- **专用变量名**（如 `DSH_AB_RELAY_KEY`），**不复用 `OPENAI_API_KEY`**：
+  README 写明 `apiKeyEnv` 省略时 catalog route 会走 pi-ai 的 provider-native
+  **ambient discovery**，共用通用变量名容易被别的工具误拾；
+- **只注入 dsh 子进程环境**，不进当前 shell、不进 launchd plist；
+- `settings.yaml` 本来就只存**引用**不存密钥，保持；
+- **artifact 只记指纹**，不记 key 本身。
+
+### 6.3 spec 基线行：改
+
+`docs/superpowers/specs/2026-08-15-agent-base-dsh-absorption-design.md` 第 5 行
+改为 `gitea/main@23e2a07e`，同行注明生产实跑 `cb09f895`（gitea/main 祖先），
+并引用本收据。
+
+> ⚠️ **合回时留意**：`gitea/main` 已推进到 `f43f2507`，越过了本实现分支的分叉点
+> `23e2a07e`。合并前需重新对表，本收据的「基线」一节只对 `23e2a07e` 成立。
+
+## 7. 交付外的发现（不属本次范围，记录备查）
+
+`ceiling fixture` 的三个测试文件**对 umask 敏感**：`umask 077` 下 mode 审计必挂
+（检阅方复跑时得到 16 个失败，校正回 022 后 35/35 全过）。进 CI 或换执行环境时
+会咬人，值得加一个 umask fixture 或在测试内显式设权限。

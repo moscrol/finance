@@ -115,10 +115,25 @@ def test_model_visible_set_equals_authorized_set() -> None:
     """
 
     scope = _scope(context=_context(allowed=("market_data", "memory_lookup")))
-    visible = {
-        item["function"]["name"] for item in scope.model_visible_definitions()
-    }
-    assert visible == set(scope.allowed_tools())
+    assert scope.model_visible_names() == frozenset(scope.allowed_tools())
+
+
+def test_model_visible_names_fail_closed_on_unexpected_schema() -> None:
+    """schema 形状变了要炸，不能跳过。
+
+    跳过的话，漏掉的工具会静默从可见集合消失，收据上与「本来就不该可见」
+    长得一模一样。
+    """
+
+    class BadSchemaRegistry(ResearchToolRegistry):
+        def tool_definitions(
+            self, allowed: tuple[str, ...] | None = None
+        ) -> list[dict[str, object]]:
+            return [{"type": "function"}]
+
+    scope = _scope(registry=BadSchemaRegistry(()))
+    with pytest.raises(TypeError, match="function"):
+        scope.model_visible_names()
 
 
 def test_authorize_distinguishes_unregistered_from_unauthorized() -> None:
@@ -138,8 +153,24 @@ def test_authorize_distinguishes_unregistered_from_unauthorized() -> None:
 
     unknown = scope.authorize("no_such_tool")
     assert unknown.allowed is False
-    assert unknown.capability == ""
+    assert unknown.capability is None
     assert unknown.reason == "工具未注册"
+
+
+def test_authorize_does_not_swallow_registry_bugs() -> None:
+    """registry 内部的真 bug 不得被误诊成「工具未注册」。
+
+    宽捕获会把这种 bug 压成一条正常的拒绝理由，恰好重演 Authorization
+    要消灭的那种分诊压扁。
+    """
+
+    class ExplodingRegistry(ResearchToolRegistry):
+        def resolve(self, name: str) -> ToolSpec:
+            raise TypeError("registry 内部坏了")
+
+    scope = _scope(registry=ExplodingRegistry(()))
+    with pytest.raises(TypeError, match="registry 内部坏了"):
+        scope.authorize("market_data")
 
 
 def test_authorization_rejects_incoherent_values() -> None:
@@ -147,6 +178,8 @@ def test_authorization_rejects_incoherent_values() -> None:
         Authorization(allowed=True, tool="t", capability="c", reason="不该有")
     with pytest.raises(ValueError):
         Authorization(allowed=False, tool="t", capability="c", reason="   ")
+    with pytest.raises(ValueError):
+        Authorization(allowed=True, tool="t", capability=None)
 
 
 # ── 可达性四段 ─────────────────────────────────────────────────────────
@@ -213,6 +246,14 @@ def test_dump_lists_every_registered_tool_with_all_four_stages() -> None:
     assert dumped["invoked_tools"] == ["market_data"]
     assert dumped["episode_id"] == "ep-1"
     assert dumped["task_frame_hash"] == "hash-abc"
+
+
+def test_dump_carries_trace_context() -> None:
+    """§7.2 要求 Scope 派生 trace context——事件挂在哪条 trace 下不能是空白。"""
+
+    scope = _scope()
+    assert scope.trace_parent_id == "scope-test"
+    assert scope.dump()["trace_parent_id"] == "scope-test"
 
 
 def test_dump_carries_information_cutoff() -> None:

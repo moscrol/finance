@@ -40,18 +40,34 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.research_tool_registry import (
     PreparedToolArguments,
     ResearchToolRegistry,
     ToolObservation,
     ToolRunResult,
+    UnknownResearchTool,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - 仅供类型检查，避免运行期循环 import
     from intelligence.services.evidence_ledger import EvidenceLedger
-    from intelligence.services.research_contract import ResearchRunContext
+    from intelligence.services.research_contract import (
+        InformationCutoff,
+        ResearchPolicy,
+        ResearchRunContext,
+        RootBudgetLedger,
+    )
+
+
+# 可达性链条断裂的位置。做成 Literal 而不是裸字符串：这四个值会进 dump() 收据、
+# 被分诊侧按值分支，裸串一旦拼错就是静默走空分支。
+ReachabilityStage = Literal[
+    "not_defined",
+    "not_authorized",
+    "not_model_visible",
+    "not_invoked",
+]
 
 
 @runtime_checkable
@@ -91,7 +107,10 @@ class Authorization:
 
     allowed: bool
     tool: str
-    capability: str
+    # ``None`` 表示「这个工具压根没注册，谈不上能力」——与「注册了但能力未授权」
+    # 是两回事。用空串当哨兵会让下游 `if not capability` 把两种情况又压回一起，
+    # 而区分它们正是本类存在的理由。
+    capability: str | None
     reason: str = ""
 
     def __post_init__(self) -> None:
@@ -99,6 +118,8 @@ class Authorization:
             raise ValueError("授权通过时不应带拒绝理由")
         if not self.allowed and not self.reason.strip():
             raise ValueError("拒绝授权必须给出理由")
+        if self.allowed and self.capability is None:
+            raise ValueError("授权通过的工具必须有能力名")
 
 
 @dataclass(frozen=True)
@@ -128,7 +149,7 @@ class ToolReachability:
             "broken_at": self.broken_at(),
         }
 
-    def broken_at(self) -> str | None:
+    def broken_at(self) -> ReachabilityStage | None:
         """返回链条断在哪一段；``None`` 表示一路走到了实际调用。
 
         注意「未调用」不等于故障：模型有权不选某个工具。所以最后一段返回的是
@@ -182,15 +203,26 @@ class EpisodeScope:
         return tuple(self.context.contract.allowed_capabilities)
 
     @property
-    def information_cutoff(self) -> object:
+    def trace_parent_id(self) -> str:
+        """Trace 上下文。
+
+        spec §7.2 要求 Scope 一次性派生 trace context；它就在 ``context`` 上，
+        但此前没有从 Scope 这一侧暴露出来，``dump()`` 也看不到——于是「这次
+        Episode 的事件挂在哪条 trace 下」在 Scope 的收据里是空白的。
+        """
+
+        return self.context.trace_parent_id
+
+    @property
+    def information_cutoff(self) -> InformationCutoff:
         return self.context.information_cutoff
 
     @property
-    def root_budget(self) -> object:
+    def root_budget(self) -> RootBudgetLedger | None:
         return self.context.root_budget
 
     @property
-    def policy(self) -> object:
+    def policy(self) -> ResearchPolicy:
         return self.context.policy
 
     def allowed_tools(self) -> tuple[str, ...]:
@@ -212,6 +244,29 @@ class EpisodeScope:
 
         return self.registry.tool_definitions(self.allowed_capabilities)
 
+    def model_visible_names(self) -> frozenset[str]:
+        """从**实际发给模型的那份 schema** 里读出工具名。
+
+        刻意不走 ``authorized_specs``：那样这个集合就恒等于 ``allowed_tools()``，
+        「授权了但模型看不见」这条不变量的检查会变成一句同义反复。要检查的正是
+        schema 生成过程有没有把某个工具漏掉。
+
+        schema 形状不合预期时 **fail closed**（抛错），不是跳过——认不出来就
+        当作故障，否则漏掉的工具会静默从可见集合里消失，而那与「工具本来就
+        不该可见」在收据上长得一模一样。
+        """
+
+        names: set[str] = set()
+        for item in self.model_visible_definitions():
+            function = item.get("function")
+            if not isinstance(function, Mapping):
+                raise TypeError("tool definition 缺少 function 段")
+            name = function.get("name")
+            if not isinstance(name, str) or not name:
+                raise TypeError("tool definition 的 function.name 不是非空字符串")
+            names.add(name)
+        return frozenset(names)
+
     def authorize(self, tool: str) -> Authorization:
         """判定单个工具是否被本次 contract 授权。
 
@@ -222,11 +277,14 @@ class EpisodeScope:
 
         try:
             spec = self.registry.resolve(tool)
-        except Exception:  # UnknownResearchTool 及其子类
+        except UnknownResearchTool:
+            # 只捕这一个。此前写的是裸 ``except Exception``，会把 registry 内部的
+            # 真 bug（比如 spec 构造抛 TypeError）一律误诊成「工具未注册」——
+            # 那恰好是本类要消灭的那种分诊压扁，只是换了个地方重演。
             return Authorization(
                 allowed=False,
                 tool=str(tool),
-                capability="",
+                capability=None,
                 reason="工具未注册",
             )
         if spec.capability not in self.allowed_capabilities:
@@ -241,10 +299,7 @@ class EpisodeScope:
     def reachability(self) -> tuple[ToolReachability, ...]:
         """全注册表逐工具的四段状态。"""
 
-        visible = {
-            str(item["function"]["name"])  # type: ignore[index]
-            for item in self.model_visible_definitions()
-        }
+        visible = self.model_visible_names()
         rows = []
         for name in self.registry.names():
             spec = self.registry.resolve(name)
@@ -274,6 +329,7 @@ class EpisodeScope:
             "episode_id": self.episode_id,
             "user_id": self.user_id,
             "task_frame_hash": self.task_frame_hash,
+            "trace_parent_id": self.trace_parent_id,
             "allowed_capabilities": list(self.allowed_capabilities),
             "allowed_tools": list(self.allowed_tools()),
             "evidence_ledger_attached": self.evidence_ledger is not None,
@@ -285,10 +341,8 @@ class EpisodeScope:
             "tools": [row.to_dict() for row in self.reachability()],
         }
 
-    def _cutoff_dict(self) -> object:
-        cutoff = self.information_cutoff
-        to_dict = getattr(cutoff, "to_dict", None)
-        return to_dict() if callable(to_dict) else None
+    def _cutoff_dict(self) -> dict[str, str]:
+        return self.information_cutoff.to_dict()
 
 
 @runtime_checkable
@@ -307,6 +361,14 @@ class ToolPipeline(Protocol):
     受众不同：``post_execute`` 的产物进 Evidence Ledger（内部、可含 locator），
     ``project_result`` 的产物回模型和 UI（公开、不得含私有路径与凭证）。
     压成一段就没有地方安放这条边界。
+
+    **阶段失败的归属（spec §7.1 验收：「任意阶段失败都转为结构化 Tool Result，
+    不让结算代码成为新的失败源」）：不在本 Protocol 上。** 各阶段照常抛异常，
+    由第 3 步接线的 runner 统一兜住并转成结构化结果。理由是现有的
+    ``ToolRunResult`` / ``ToolObservation`` **都没有 status/error 位**，
+    要让阶段自己返回结构化失败，得先给这两个类型加字段——那是改变现有行为，
+    超出第 2 步「不改变现有行为」的边界。在此之前，实现方不要自行吞异常：
+    吞掉就等于把失败静默成一次空结果。
     """
 
     def prepare(
