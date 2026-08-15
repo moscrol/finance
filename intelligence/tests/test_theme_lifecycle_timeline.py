@@ -255,6 +255,33 @@ class LoaderTests(unittest.TestCase):
             artifact = load_theme_timeline_artifact("不存在的题材", market_db_path=db)
         self.assertFalse(artifact.available)
         self.assertIn("无「不存在的题材」", artifact.degrade_reason or "")
+        # 解析不到时显式降级，且降级理由声明别名解析也试过了
+        self.assertIn("别名解析", artifact.degrade_reason or "")
+
+    def test_colloquial_alias_resolves_via_resolve_query_themes(self) -> None:
+        # Q7：口语名「液冷」对不上 sector_name「液冷概念」→ 入口别名解析命中，
+        # 不再降级；解析结果进 params 与渲染，可审计。
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            con = duckdb.connect(str(db))
+            con.execute(
+                "create table fact_sector_daily (trade_date date, sector_name varchar, "
+                "pct_chg double, diff_ratio double, amount double)"
+            )
+            for i in range(8):
+                hot = i < 4
+                con.execute(
+                    "insert into fact_sector_daily values (?, '液冷概念', ?, ?, ?)",
+                    [_day(i), 2.5 if hot else -0.5, 15.0 if hot else 2.0, 900.0 if hot else 300.0],
+                )
+            con.close()
+            artifact = load_theme_timeline_artifact("液冷", market_db_path=db)
+        self.assertTrue(artifact.available)
+        self.assertEqual(artifact.theme, "液冷")  # 用户口径不被偷换
+        self.assertEqual(artifact.params.get("resolved_sector_name"), "液冷概念")
+        text = lifecycle_markdown(artifact)
+        self.assertIn("板块别名", text)
+        self.assertIn("液冷概念", text)
 
     def test_missing_db_degrades(self) -> None:
         artifact = load_theme_timeline_artifact("固态电池", market_db_path="/nonexistent/x.duckdb")

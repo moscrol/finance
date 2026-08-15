@@ -355,6 +355,22 @@ def load_theme_daily_rows(con: Any, theme: str) -> list[dict[str, Any]]:
     return rows
 
 
+def resolve_theme_alias(con: Any, theme: str) -> str | None:
+    """板块口语名 → ``fact_sector_daily.sector_name``（Q7，bookgap S8）。
+
+    08-13 live 实测：「液冷 / AI概念」这类口语名对不上库内 sector_name，
+    时间线只能显式降级。别名解析**复用**既有 ``resolve_query_themes``
+    （子串 + 锚定宽松匹配，收敛到板块表已存在的口径），不另建硬编码别名表。
+    解析不到返回 None——调用方保持显式降级，禁止臆配。
+    """
+    from intelligence.services.market_midterm import resolve_query_themes
+
+    candidates = resolve_query_themes(con, theme, limit=1)
+    if candidates and candidates[0] != theme:
+        return candidates[0]
+    return None
+
+
 def load_message_dates(kb_vault: str | Path | None, theme: str) -> tuple[str, ...]:
     """从知识库 theme_signals.json 取该题材认知跃迁日期（缺库/缺字段→空元组）。"""
     if not kb_vault:
@@ -405,9 +421,21 @@ def load_theme_timeline_artifact(
     try:
         rows = load_theme_daily_rows(con, theme)
         if not rows:
+            # Q7：口语名对不上 sector_name 时先走别名解析（resolve_query_themes），
+            # 解析不到仍显式降级——只收敛盘面取数入口，阶段算法与 KB 消息面
+            # 查询口径（按用户原名）都不动。
+            resolved = resolve_theme_alias(con, theme)
+            if resolved is not None:
+                rows = load_theme_daily_rows(con, resolved)
+                if rows:
+                    params["resolved_sector_name"] = resolved
+        if not rows:
             return ThemeTimelineArtifact(
                 theme, (), (), params,
-                degrade_reason=f"fact_sector_daily 无「{theme}」逐日行",
+                degrade_reason=(
+                    f"fact_sector_daily 无「{theme}」逐日行"
+                    "（别名解析 resolve_query_themes 也未命中）"
+                ),
             )
         message_dates = load_message_dates(kb_vault, theme)
         segments, gaps = derive_stages(
@@ -446,6 +474,12 @@ def lifecycle_markdown(artifact: ThemeTimelineArtifact) -> str:
         f"{artifact.params.get('reflow_confirm_days')} 日双红确认（滞回，孤立单日不切段）。"
         "阶段由库内逐日行按规则派生，非 LLM 生成；规则版本变更时历史阶段自动重算。"
     )
+    resolved = artifact.params.get("resolved_sector_name")
+    if resolved:
+        lines.append(
+            f"- 板块别名：「{artifact.theme}」按 sector_name「{resolved}」取数"
+            "（resolve_query_themes 解析）。"
+        )
     for gap in artifact.gaps:
         lines.append(f"- 数据缺口：{gap}。")
     lines.append(f"- **当前阶段：{artifact.current_stage}**")
@@ -467,7 +501,10 @@ def _main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="题材生命周期时间线回放（只读）")
-    parser.add_argument("--theme", required=True, help="题材名（fact_sector_daily.sector_name）")
+    parser.add_argument(
+        "--theme", required=True,
+        help="题材名（fact_sector_daily.sector_name；口语别名会经 resolve_query_themes 解析）",
+    )
     parser.add_argument("--db", default=None, help="DuckDB 路径（默认主库）")
     parser.add_argument("--kb-vault", default=None, help="知识库 vault 路径（可选，供酝酿段）")
     parser.add_argument(
