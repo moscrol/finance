@@ -31,8 +31,14 @@ HEALTHY = {
         "source_revision": "17e0b21a30182c707a0d204dfff1ed6dcbe53ca0",
         "finance_root": "/Users/a77/finance-workspace-private",
         "agent_runtime": {"backend": "sdk_gpt", "ready": True, "reason": None},
+        "users_dir": "/tmp/foresight-users-healthy",
     },
 }
+
+
+@pytest.fixture(autouse=True)
+def _align_users_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", HEALTHY["runtime"]["users_dir"])
 
 
 def _stub_get(monkeypatch, health: dict, llm: dict) -> None:
@@ -48,11 +54,22 @@ def _stub_get(monkeypatch, health: dict, llm: dict) -> None:
 
 def test_preflight_reads_nested_runtime_fields(monkeypatch):
     """健康服务必须判通过 —— 回归『按顶层读字段』那个 bug。"""
+    monkeypatch.delenv("FORESIGHT_USERS_DIR", raising=False)
     _stub_get(monkeypatch, HEALTHY, {"ready": True})
     ok, detail = acceptance.preflight("http://stub")
     assert ok, f"healthy service must pass preflight, got: {detail}"
     assert "17e0b21a" in detail
     assert "sdk_gpt" in detail
+    assert "foresight-users-healthy" in detail
+
+
+def test_preflight_rejects_mismatched_users_dir(monkeypatch, tmp_path):
+    """R-08：env 与 health.users_dir 不一致必须挡在开批前，不许静默降级。"""
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "wrong"))
+    _stub_get(monkeypatch, HEALTHY, {"ready": True})
+    ok, detail = acceptance.preflight("http://stub")
+    assert not ok
+    assert "不一致" in detail
 
 
 def test_preflight_flags_missing_credential(monkeypatch):
