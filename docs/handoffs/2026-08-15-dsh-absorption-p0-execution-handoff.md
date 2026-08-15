@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（第 7 步上半已收口，第 8 步未开）
+# 交接：dsh 吸收 P0 接缝实施（第 7 步已收口，第 8 步未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1–7 步上半完成（scripted stub + 网关传 Scope）；第 7 步下半（连真实 dsh checkout）与第 8 步 A/B 未开；本轮提交未 push、未合 main
+状态：第 1–7 步完成（scripted stub + 网关 Scope + pin/cone 探测）；第 8 步 A/B 未开；本轮提交未 push、未合 main
 
 ---
 
@@ -1102,6 +1102,52 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - **下一轮**：第 7 步下半（`DSH_SOURCE_INDEX` 探测 pinned checkout）或第 8 步
   校准窗。开第 8 步前读 Step 1 收据 §3.2 / §6。不要用 stub 失败注入代替 live A/B。
   **新基线锚点：5106 / 4 / 0。**
+
+### 执行方小结 · Round「第 7 步下半：pin + cone 探测」（2026-08-16，执行方）
+
+- **两个提交**：`6b78fdbf`（`probe_dsh_checkout` 加上 cone / `pin_mismatch`）+
+  本提交（台账）。本轮提交**未 push**。远程已有同名分支；**未合 main**，
+  未动生产快照树。
+- **做了什么**（spec §11 第 7 步「再连接本地 dsh sparse checkout」= 身份与锥面
+  核对，不是拉起 TypeScript Agent）：
+  - `probe_dsh_checkout` 状态机：`missing` / `not_git` / `pin_mismatch` /
+    `cone_incomplete` / `ok`。pin 先于 cone。
+  - cone 标记只记相对路径：`packages/llm/llm-pi-ai/README.md`（Step 1 补进
+    cone 的那份 Provider 判据）、`packages/bundle/base/cordis.patch.yml`。
+  - 路径只来自参数或 `DSH_SOURCE_INDEX`。收据**不含 path**，
+    `json.dumps(receipt)` 不得出现 `/Users/`。
+  - [实测] 本机 checkout 经环境变量探测：
+    `status=ok`、`matches_pin=true`、`cone_ok=true`、
+    `head=47f943859bef60e4160492346772ded9b24f765a`、收据无家目录。
+- **故意没做**：
+  - 不 import dsh SDK、不复制源码、不拉起 Node、不跑 live A/B；
+  - 不把 `dsh_stub` 加进 `RUNTIME_BACKEND_NAMES`；
+  - 不照抄 `--keychain-user` / `localhost:57244` / `gpt-5.6-sol`；
+  - **不**用「没跑 A/B ⇒ retain=False」把第 8 步收成对照收据。
+    `form_step8_decision` 仍只是默认立场函数。spec §11 第 8 步仍未开。
+- **未入库**：工作区里有一份未跟踪的
+  `docs/superpowers/specs/2026-08-16-dsh-absorption-step78-decision-receipt.md`
+  （把默认立场写成第 8 步收据、并声称冲突矩阵可画）。与「第 8 步未开」冲突，
+  本轮不提交。
+- **计数**：上半小结报 5106 / k=13，但 `3962a8ab` 落库时
+  `test_dsh_stub_runtime.py` 已是 **19** 条（探测/指纹/决策那 6 条当时没重计
+  全量）。本轮 19 → **22**（+3：缺 cone、pin+cone 通过、pin 先于 cone；
+  环境探测条在设了 `DSH_SOURCE_INDEX` 时跑，未设则 skip）。
+  5106 + 6（已在树上未重计）+ 3（本轮）= **5115**。
+- **变异**（提交前改、提交后树干净）：
+  1. `missing = []` 跳过 cone 核对 →
+     `test_checkout_probe_pin_match_without_cone_is_incomplete` 收到
+     `status=ok` 而非 `cone_incomplete`；已恢复。
+- **门禁**（`umask 022`，LOADED=工作树路径，全量时导出了
+  `DSH_SOURCE_INDEX` 指向本机 pinned checkout）：
+  全量 **5115 passed / 4 skipped / 0 failed**（452.0s）；
+  `layer_audit` ERROR 0（扫 248 模块 / runtime 16）；
+  可达性 12 声明一致 / 0 够不着；ruff 全绿；pre-commit 随提交跑。
+  未设该环境变量时，环境探测条会 skip（5114 / 5 / 0），不是回归。
+- **下一轮**：第 8 步校准窗。开之前读 Step 1 收据 §3.2 / §6
+  （死网关+退役模型不能照抄；先冻结九题 × 5 纯 Arm A；凭证走
+  `DSH_AB_RELAY_KEY`）。不要用 stub 失败注入代替 live A/B。
+  **新基线锚点：5115 / 4 / 0。**
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
