@@ -1,9 +1,9 @@
-# 交接：dsh 吸收 P0 接缝实施（#61 已合 main；第 8 步 live A/B 未开）
+# 交接：dsh 吸收 P0 接缝实施（#61 已合 main；Arm A 45× 已跑，对照未开）
 
 日期：2026-08-15
 交接人：上一任执行方（上下文耗尽）+ 检阅方（本文由检阅方整理）
 接收人：新执行方 agent
-状态：第 1–7 步已合 main（#61）；Arm A 校准脚手架已落（不跑对照）；第 8 步 live A/B 未开；安全 ref `prerebase/dsh-seams-e21c50bf` 仍在（仓内红线 hook 挡住 agent 删除，等用户手动删）
+状态：第 1–7 步已合 main（#61）；Arm A 45× 官方窗已跑，30×3 压不住 5pp；对照未开；安全 ref 仍在
 
 ---
 
@@ -1185,6 +1185,17 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
   hook 拦住，**仍须用户手动删**（本地 + `gitea`）。不跑 `git gc`。
 - **下一轮**：仍卡用户——是否开第 8 步 live 校准窗（先 45× Arm A）。
   不要用脚手架 dry-run 冒充对照收据。
+
+### 执行方小结 · Round「第 8 步先半段：45× Arm A 官方窗」（2026-08-16，执行方）
+
+- **开了校准，没开对照**。生产 env（`x.ailzd.com` + terra + keychain=0），
+  冻结九题 × 5，墙钟 4030s，退出码 0。收据
+  `docs/superpowers/specs/2026-08-16-dsh-arm-a-calibration-receipt.md`。
+- **官方窗成立**：`official_window=true`，pooled variance `0.1375`，
+  30×3 半宽 10.8pp，所需 n×r≈423。`can_resolve_5pp=false`。
+- **默认立场不动**：`retain_dsh_runtime=false`，`live_ab_ran=false`。
+  没有上 Arm B，没有放宽 5pp。
+- **下一轮**：扩样到能压住 5pp 的 n×r，或另开窗；不要用本收据当对照结论。
 
 ### 检阅批注 · Round「三条修正 + 第 5 步设计钉」（2026-08-15，检阅方）
 
