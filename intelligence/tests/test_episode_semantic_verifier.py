@@ -1660,6 +1660,250 @@ def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> Non
     assert result.gap_output_ids == ("direct_assessment",)
 
 
+def _theme_chain_structural(
+    draft: str,
+    *,
+    missing_output_ids: tuple[str, ...] = ("counterpoint",),
+):
+    """B3#2-shaped structural: two hashed fulfilled cells + one missing."""
+
+    frame = replace(
+        _frame(),
+        raw_question="2026-07-23 电网设备为什么涨，给出证据来源",
+        user_goal="判断电网设备当日上涨的主要驱动",
+        question_type="theme_analysis",
+        subject="电网设备",
+        subject_kind="theme",
+        required_outputs=("direct_assessment", "chain_mapping", "counterpoint"),
+    )
+    evidence_assessment = AgentEvidence(
+        tool="market_data",
+        title="电网设备盘面",
+        detail="2026-07-23 电网设备上涨，电力设备成交集中。",
+        source="行情快照",
+        source_date="2026-07-23",
+        content_hash="HASH_ASSESS",
+    )
+    evidence_chain = AgentEvidence(
+        tool="market_data",
+        title="电网设备链路",
+        detail="反弹阶段成交向电力设备集中，个股扩散可见。",
+        source="主线快照",
+        source_date="2026-07-23",
+        content_hash="HASH_CHAIN",
+    )
+    contract = ResearchTaskContract(
+        task_id="r24-b3-shape",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("chain_mapping", "链路映射", ("market_data",), True),
+            RequiredOutput("counterpoint", "反证", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    hash_by_id = {
+        "direct_assessment": (evidence_assessment.content_hash,),
+        "chain_mapping": (evidence_chain.content_hash,),
+    }
+    bindings = []
+    for output_id in frame.required_outputs:
+        if output_id in missing_output_ids:
+            bindings.append(
+                OutputEvidenceBinding(output_id, (), f"{output_id} not collected")
+            )
+        else:
+            bindings.append(OutputEvidenceBinding(output_id, hash_by_id[output_id]))
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft=draft,
+        evidence=(evidence_assessment, evidence_chain),
+        traces=(),
+        gaps=(),
+        stop_reason="repair_model_stop",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=tuple(bindings),
+        usage=AgentUsage(llm_calls=1, tool_calls=2),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def _partial_marker_loss_structural(draft: str):
+    """C6-shaped structural: hashed fulfilled assessment + hashed boundary."""
+
+    frame = replace(
+        _frame(),
+        raw_question="2026-07-23 电网设备为什么涨",
+        user_goal="判断上涨驱动并标明证据边界",
+        question_type="theme_analysis",
+        subject="电网设备",
+        subject_kind="theme",
+        required_outputs=("direct_assessment", "evidence_boundary"),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="电网设备盘面",
+        detail="2026-07-23 电网设备上涨。",
+        source="行情快照",
+        source_date="2026-07-23",
+        content_hash="HASH_C6",
+    )
+    contract = ResearchTaskContract(
+        task_id="r24-c6-shape",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput("evidence_boundary", "证据边界", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="repair_model_stop",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+            OutputEvidenceBinding("evidence_boundary", (evidence.content_hash,)),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def _fulfilled_ids(verified) -> set[str]:
+    return {
+        item.output_id
+        for item in verified.completion.outputs
+        if item.status == "fulfilled"
+    }
+
+
+def test_marker_loss_shrinks_b3_hashed_cells_and_clears_bindings() -> None:
+    frame, structural = _theme_chain_structural(
+        "【直接判断】电网设备当日上涨显著，强度中等。"
+        "【链路映射】市场反弹带动电力设备成交集中，再扩散到电网设备个股。"
+        "【反证】仍缺少独立于大盘的对照。"
+    )
+    lost = ("direct_assessment", "chain_mapping")
+    assert _fulfilled_ids(structural) == {"direct_assessment", "chain_mapping"}
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(True)
+    )._marker_loss_partial_public(
+        frame,
+        structural,
+        lost,
+        judge_issues=("semantic repair removed required output",),
+        correlated_judge=True,
+    )
+
+    assert result.gap_output_ids == lost
+    assert result.status == "partial"
+    assert _fulfilled_ids(result.verified) == set()
+    assert set(result.verified.missing_outputs) >= set(lost)
+    assert result.verified.verified_status == "partial"
+    bindings = {item.output_id: item for item in result.verified.outcome.bindings}
+    for output_id in lost:
+        status = next(
+            item
+            for item in result.verified.completion.outputs
+            if item.output_id == output_id
+        )
+        assert status.status == "missing"
+        assert status.evidence_ids == ()
+        assert status.gap
+        assert bindings[output_id].evidence_hashes == ()
+        assert bindings[output_id].gap
+    # Forbidden conjunction: hashed fulfilled + gap_output_ids + no remaining citeable cell.
+    assert not (_fulfilled_ids(result.verified) & set(lost))
+
+
+def test_marker_loss_keeps_remaining_hashed_cell_on_partial_c6_shape() -> None:
+    frame, structural = _partial_marker_loss_structural(
+        "【当前判断】电网设备当日上涨显著。"
+        "【证据边界】仅覆盖 2026-07-23 日频盘面，未核验一手订单公告。"
+    )
+    assert _fulfilled_ids(structural) == {"direct_assessment", "evidence_boundary"}
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(True)
+    )._marker_loss_partial_public(
+        frame,
+        structural,
+        ("evidence_boundary",),
+        judge_issues=("semantic repair removed required output",),
+        correlated_judge=True,
+    )
+
+    assert result.gap_output_ids == ("evidence_boundary",)
+    assert _fulfilled_ids(result.verified) == {"direct_assessment"}
+    remaining = next(
+        item
+        for item in result.verified.completion.outputs
+        if item.output_id == "direct_assessment"
+    )
+    assert remaining.evidence_ids == ("HASH_C6",)
+    remaining_binding = next(
+        item
+        for item in result.verified.outcome.bindings
+        if item.output_id == "direct_assessment"
+    )
+    assert remaining_binding.evidence_hashes == ("HASH_C6",)
+    lost = next(
+        item
+        for item in result.verified.completion.outputs
+        if item.output_id == "evidence_boundary"
+    )
+    assert lost.status == "missing"
+    assert lost.evidence_ids == ()
+    lost_binding = next(
+        item
+        for item in result.verified.outcome.bindings
+        if item.output_id == "evidence_boundary"
+    )
+    assert lost_binding.evidence_hashes == ()
+    assert lost_binding.gap
+
+
+def test_marker_loss_ignores_output_ids_absent_from_contract() -> None:
+    frame, structural = _structural("市场当前偏弱，成交额观察仍成立。")
+    before = structural.completion.outputs
+
+    result = SemanticEpisodeVerifier(
+        judge_fn=_judge(True)
+    )._marker_loss_partial_public(
+        frame,
+        structural,
+        ("not_in_contract",),
+        judge_issues=("semantic repair removed required output",),
+        correlated_judge=True,
+    )
+
+    assert result.gap_output_ids == ("not_in_contract",)
+    assert result.verified.completion.outputs == before
+    assert _fulfilled_ids(result.verified) == {"direct_assessment"}
+
+
 def test_valuation_marker_loss_gap_keeps_task_context() -> None:
     frame, structural = _structural("瑞华泰当前PB约4.33。")
     valuation_frame = replace(
