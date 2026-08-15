@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +19,8 @@ from intelligence.eval.acceptance_observations import (
     canonical_artifact_hash,
 )
 from intelligence.eval.acceptance_verdict import VERDICT_OVERLAY_PATH
+
+_REAL_PROBE = acceptance.probe_finance_query_data
 
 HEALTHY = {
     "status": "healthy",
@@ -36,9 +39,21 @@ HEALTHY = {
 }
 
 
+def _ok_probe(_finance_root=None, **_kwargs):
+    return {
+        "tool": "finance_query",
+        "status": "ok",
+        "elapsed_ms": 1,
+        "row_count": 1,
+        "served_date": "2026-08-14",
+    }
+
+
 @pytest.fixture(autouse=True)
 def _align_users_dir(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", HEALTHY["runtime"]["users_dir"])
+    # HEALTHY.finance_root 指向本机数据仓；不 stub 会打生产 DuckDB。
+    monkeypatch.setattr(acceptance, "probe_finance_query_data", _ok_probe)
 
 
 def _stub_get(monkeypatch, health: dict, llm: dict) -> None:
@@ -61,6 +76,7 @@ def test_preflight_reads_nested_runtime_fields(monkeypatch):
     assert "17e0b21a" in detail
     assert "sdk_gpt" in detail
     assert "foresight-users-healthy" in detail
+    assert "data_probe: finance_query=ok" in detail
 
 
 def test_preflight_rejects_mismatched_users_dir(monkeypatch, tmp_path):
@@ -94,6 +110,43 @@ def test_preflight_flags_broken_dependency(monkeypatch):
     ok, detail = acceptance.preflight("http://stub")
     assert not ok
     assert "market_snapshot" in detail
+
+
+def test_preflight_probe_failure_does_not_abort(monkeypatch):
+    """R-12：探针失败写死 run_and_flag——preflight 仍过，detail 盖戳。"""
+
+    def failed_probe(_finance_root=None, **_kwargs):
+        return {
+            "tool": "finance_query",
+            "status": "tool_exception",
+            "elapsed_ms": 4,
+            "row_count": 0,
+            "detail": "db_missing",
+        }
+
+    monkeypatch.setattr(acceptance, "probe_finance_query_data", failed_probe)
+    _stub_get(monkeypatch, HEALTHY, {"ready": True})
+    ok, detail = acceptance.preflight("http://stub")
+    assert ok, f"probe failure must not abort preflight, got: {detail}"
+    assert "data_probe: finance_query=tool_exception" in detail
+    assert acceptance._last_data_probe["status"] == "tool_exception"
+    assert acceptance.window_contamination_for(acceptance._last_data_probe) == (
+        "finance_query"
+    )
+
+
+def test_data_probe_on_failure_is_frozen_run_and_flag() -> None:
+    assert acceptance.DATA_PROBE_ON_FAILURE == "run_and_flag"
+
+
+def test_probe_missing_db_is_tool_exception(tmp_path: Path) -> None:
+    probe = _REAL_PROBE(tmp_path)
+    assert probe["status"] == "tool_exception"
+    assert probe["detail"] == "db_missing"
+    assert acceptance.window_contamination_for(probe) == "finance_query"
+    assert acceptance.window_contamination_for({"status": "ok"}) is None
+    assert acceptance.window_contamination_for(None) is None
+    assert acceptance.window_contamination_for({"status": "unset"}) is None
 
 
 def test_preflight_survives_slow_llm_config(monkeypatch):
