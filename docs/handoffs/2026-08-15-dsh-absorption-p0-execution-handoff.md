@@ -359,6 +359,84 @@ $PY -m ruff check intelligence scripts
 - 错误契约、事件名、收据字段都是对外承诺，动之前量爆炸半径。
 - 检阅方复跑一切：你的声明与实测不符会被逐字指出，自己发现自己报比被抓到好。
 
+## 10. 第 5 步设计钉（写码前先读；D3 需检阅裁定）
+
+> 按本仓惯例「开工先把设计点钉进台账再写码」。本节只钉设计与实测约束，**不含实现**。
+> 坐标 @ 本节所在提交。
+
+### 10.1 现状：两个形状不同的事件出口
+
+| 出口 | 形状 | 现状 |
+|---|---|---|
+| `_EpisodeLedger`（`agent_episode.py:220`） | `add(kind, payload) -> EpisodeEvent`，自带 `sequence`、`task_frame_hash`、`at`，落 `self.events` **并**转发 `event_sink` | 现役，Continuous 的唯一事件源 |
+| `EpisodeScope.emit`（`episode_scope.py:267`） | `EventSink.emit(kind, payload)`，**无 sequence** | `event_sink=None`（`agent_episode.py:564-571` 写死认领），发射即丢 |
+
+Scope 侧的三个阶段事件 `tool/pre_execute`、`tool/result`、`tool/error`
+（常量在 `research_tool_registry.py:34-36`，发射点 `:609`/`:649`/`:753`/`:796`）
+携带的是**"runner 真被调起"**这个事实（被去重/预算挡掉的不发）；
+ledger 侧的 `tool_request`/`tool_result`/`tool_error`（`agent_episode.py:336`/`:415`/`:447`）
+是**派发与回收**。两者不是同一件事，这一点决定了 D3。
+
+### 10.2 [实测] 合流的第一道障碍不是接线，是线程安全
+
+- 阶段事件的发射点在**共享线程池**里：`episode_tool_batch.py:72` 的模块级
+  `_SHARED_TOOL_EXECUTOR`（`MAX_GLOBAL_TOOL_WORKERS = 8`，`:37`），`:486`
+  逐候选 `submit`；`scope.emit` 在 `research_tool_registry.py` 的 `fetch()` 闭包内，
+  即 worker 线程里。
+- `_EpisodeLedger.add`（`agent_episode.py:239-258`）是
+  `EpisodeEvent(len(self.events) + 1, ...)` 然后 `append`——**读长度与追加之间没有锁**。
+  并发发射会发出**重复 sequence**。
+- 它会撞两个现役硬断言：`episode_session.py:108-112` 的 resume 前缀不变量
+  （事件只增、前缀逐条相等）、`test_agent_episode.py:1785` 的 `sequence == 1..N`。
+- **今天没暴雷是因为 sink 为 None 时 `emit` 直接返回**（`episode_scope.py:285`），
+  ledger 的现有 `add` 全在主线程。**合流那一刻起才并发。**
+
+> **D1（执行方裁定）**：合流方向是 **Scope sink → `ledger.add`**，不是反向——
+> sequence / `task_frame_hash` / `at` / live 转发四样都只在 ledger 那侧有。
+> **D2（执行方裁定，先做）**：接线之前先给 `_EpisodeLedger.add` 上锁，并补一条
+> **并发序号唯一性**的行为测试（多线程打同一个 ledger，断言 sequence 恰好是 1..N
+> 的排列）。**顺序不能反**：先接线后加锁 = 制造一个随机变红的门禁。
+
+### 10.3 D3【需检阅裁定】阶段事件归 Durable 还是 Live
+
+spec §7.4 的 Durable 名单里有 `tool_call`/`tool_result`，但那指的是本仓已有的
+`tool_request`/`tool_result`。三个 `tool/*` 阶段事件如果也进 Durable：
+
+- **代价 A（双账）**：durable 流里会同时有"派发"和"真调起"两套工具事件，
+  违反本仓元规则「不造第二事实源」——除非同轮把 durable 侧的 `tool_*` 换成阶段事件，
+  那是一次**对外契约翻转**（`continuous_turn_adapter.py:824` 的 `events` 数组、
+  trace normalizer、评测 artifact 都吃它），必须单独开轮。
+- **代价 B（重放日志变长）**：`episode_session.py:108-112` 与
+  `openai_agents_runtime.py:1198`/`:1243`/`:1347` 把 `events` 当重放日志用；
+  每次工具调用多 2–3 条事件会按并发批次成倍放大前缀长度。
+
+**执行方建议：阶段事件先归 Live**（只走 `event_sink` 实时出口，不进 `ledger.events`），
+理由是它当前的用途是可观测性，且 Live/Durable 的分流点放在 `ledger.add` 内部时，
+**对外契约零变化**。§7.1 那条"每次工具调用都有完整阶段事件"的对账，等真要做时再
+决定是否翻转 durable 侧的工具事件契约——那时它是一次有意的、单独成轮的翻转。
+**备选**（阶段事件进 Durable）不是不能做，代价是上面 A+B，请检阅方裁定。
+
+### 10.4 其余落点
+
+- **D4 分类落点**：**不给 `EpisodeEvent` 加字段**（`services/agent_runtime.py:250`
+  的冻结 dataclass，4 个 runtime 共用）。仓内既有先例是把 `task_frame_hash`/`at`
+  放 payload（理由见 `agent_episode.py:242-248` 的注释）。分类用 **kind 命名空间**
+  （`tool/` 已经是）+ services 层一张表。
+- **D5 Projection 落层**：services（`layer_audit` 硬门禁：services 不得 import
+  runtime）。现在事实上的 projection 是 `continuous_turn_adapter.py:824` 的
+  `[item.to_dict() for item in outcome.events]`；第 5 步把它收成一个 services 层函数，
+  adapter / trace / 评测三个消费者共用，**不新建第二个投影口径**。
+- **D6 子研究对账**：§5.3 那三条要求逐条变断言（成对 / cancelled 可区分 /
+  `branch_*` 归属）。其中"cancelled 可区分"必须先给结果循环 payload 加
+  `error`（见 §5.3 第 2 条），那是本步唯一要动 `agent_episode.py` 的地方。
+
+### 10.5 建议的实施顺序（每条可独立成轮）
+
+1. `ledger.add` 上锁 + 并发序号唯一性测试（**无行为改动，可先行**）；
+2. Live/Durable 分类表 + Scope sink 接到 ledger（按 D3 裁定结果决定阶段事件走哪侧）；
+3. Projection 收口到 services 层，三个消费者改读它；
+4. 子研究三条对账断言（含结果循环 payload 补 `error`）。
+
 ---
 
 ## 轮次记录
@@ -642,6 +720,42 @@ main 仍在 `cf86e891`，该事实在当前远程状态下继续有效。
 - 分支状态：仍**未 push、未合 main**，未动生产快照树。
 - **下一步**：第 5 步（Durable/Live + Projection + 事件出口合流，含 §5.3 那三条子研究
   对账要求）。它要动 `agent_episode.py`——现在正是冲突面最小的时刻。
+
+### 执行方小结 · Round「第 5 步开工：三条修正 + 设计钉」（2026-08-15，执行方）
+
+- **两个提交**：`59c53e16`（检阅三条修正）+ 本提交（§10 设计钉）。分支仍**未 push、
+  未合 main**，未动生产快照树。
+- **三条修正逐条落点**（检阅方要求随轮带上）：
+  1. **量词勘误**：§4.1 与 `sub_research.py` docstring 都改了，并留勘误块与教训。
+     全仓 test 侧 4 处 `is_alive()`（`test_sub_research.py:441`、
+     `test_headless_tool_gateway.py:451`/`:551`、`test_rag_worker.py:152`），
+     **没有一处钉协调器排空**，承重结论不动。**这条是我自己的错**：那次 grep 的输出
+     里就有另外三处，我写结论时把"这个文件里唯一"升格成了"仓内唯一"。
+  2. **§3 提交史重盖**（标注 ①）：16 个当前哈希 oldest-first 全列、逐行标旧值，
+     并写明删安全 ref 前先看本节；旧基线「4955 @ `4b23a516`」标注为 rebase 前读数、
+     不在新历史上重测（与新基线差 73 个用例，不可比）。
+  3. **§2.1 自指口径注**（标注 ②）：`rev-list --count gitea/main..HEAD` 数的东西
+     **包含记录它的那次提交**，会一路长下去；验 rebase 请用不自指的
+     `HEAD..gitea/main = 0` 与 range-diff 全 `=`。
+  - 附带：docstring 修正使 `sub_research.py` 行号再下移 2 行，§4.1 的
+    `:307-308`/`:342`/`:354`/`:371-372`/`:409`/`:412-424` 已重测。
+- **第 5 步没有直接写码，先出设计钉 §10**，因为读码量出一条会决定做法的硬约束：
+  - **[实测] 合流的第一道障碍是线程安全，不是接线**。阶段事件的发射点在共享线程池
+    （`episode_tool_batch.py:72`，8 worker）里，而 `_EpisodeLedger.add` 的
+    "读长度 → 追加"没有锁，合流当刻起就会发出重复 sequence，撞
+    `episode_session.py:108-112` 的 resume 前缀不变量和 `test_agent_episode.py:1785`
+    的序号断言。今天不暴雷只是因为 sink 为 None 时 `emit` 直接返回。
+  - 于是 §10.5 把第 5 步拆成四条可独立成轮的实施步，第 1 条（上锁 + 并发序号测试）
+    无行为改动、可先行。
+- **一个需要裁定的点（D3）**：三个 `tool/*` 阶段事件归 Durable 还是 Live。执行方建议
+  **先归 Live**（对外契约零变化）；备选的代价是与 `tool_request/tool_result` 双账 +
+  重放日志按并发批次成倍变长。**裁定前不接线**。
+- **门禁**（跑在 `59c53e16` 之上、含本提交的工作树，`umask 022`，LOADED=工作树路径）：
+  全量 **5055 passed / 4 skipped / 0 failed**（690.9s）——与 `d5fb5452` 基线**逐值相等**，
+  差值 0（两个提交都只动 docs + docstring，无行为改动、无新增用例）；
+  `layer_audit` ERROR 0（自报"对 `59c53e16` 成立"）；可达性 12 声明一致 / 0 够不着；
+  ruff 全绿；pre-commit 随两次提交各跑一次。
+- **未做**：第 5 步的实现（四条实施步一条都没做）；`error` 进事件的收据缺口仍在。
 
 ### 检阅批注 · Round「台账改写轮 + rebase 轮」（2026-08-15，检阅方）
 
