@@ -655,6 +655,121 @@ def test_failed_repair_keeps_the_draft_it_was_meant_to_improve() -> None:
     assert len(model.calls) == 5
 
 
+def test_deadline_after_successful_finalize_keeps_the_just_written_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R-20260817-01：finalize 已返回合法 FINAL_JSON 后，consume 失败也要交卷。
+
+    同题两发 live（``014724_245782`` / ``015340_618752``）``model_turn`` 已写出
+    可解析 draft（897/738），同毫秒 ``finish.carried_draft_chars=0``。禁止调
+    T / ``_REPAIR_SECONDS_CAP`` / 档位。
+    """
+
+    frame = _frame()
+    base = _context(frame, max_steps=2)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=4,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base, root_budget=root)
+    draft = "阶段判断：国产算力已退出主线，不是管道陈旧。"
+    consume_calls = {"n": 0}
+    real_consume = agent_episode_module._consume_root_seconds
+
+    def consume_then_fail(ctx: ResearchRunContext, seconds: float) -> bool:
+        consume_calls["n"] += 1
+        if consume_calls["n"] >= 2:
+            raise_probe = ctx.root_budget
+            assert raise_probe is not None
+            try:
+                raise_probe.consume_seconds(seconds=raise_probe.remaining_seconds + 1.0)
+            except ValueError:
+                return False
+            raise AssertionError("expected consume_seconds to raise ValueError")
+        return real_consume(ctx, seconds)
+
+    monkeypatch.setattr(
+        agent_episode_module, "_consume_root_seconds", consume_then_fail
+    )
+    runner_calls = {"n": 0}
+
+    def counting_runner(query: str, tool_context: AgentToolContext):
+        runner_calls["n"] += 1
+        return _successful_runner(query, tool_context)
+
+    outcome = ContinuousAgentEpisode(
+        ScriptedModel(
+            [
+                _tool_turn("当前市场结构"),
+                _finish_turn(draft=draft),
+            ]
+        )
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(counting_runner),
+    )
+
+    assert runner_calls["n"] == 1
+    assert outcome.stop_reason == "deadline_exhausted"
+    assert outcome.draft == draft
+    assert outcome.bindings
+    assert all(item.output_id == "direct_assessment" for item in outcome.bindings)
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert finish.payload["carried_draft_chars"] == len(draft)
+    assert finish.payload["rejection_code"] == "none"
+
+
+def test_deadline_after_tool_turn_does_not_invent_a_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """工具轮 consume 失败仍停机，不得假装已经交卷，也不得再跑工具。"""
+
+    frame = _frame()
+    base = _context(frame, max_steps=2)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id,
+        initial_calls=4,
+        hard_calls_cap=8,
+        initial_seconds=30.0,
+        hard_seconds_cap=60.0,
+    )
+    context = replace(base, root_budget=root)
+
+    def consume_always_fail(
+        ctx: ResearchRunContext, seconds: float
+    ) -> bool:
+        del ctx, seconds
+        return False
+
+    monkeypatch.setattr(
+        agent_episode_module, "_consume_root_seconds", consume_always_fail
+    )
+    runner_calls = {"n": 0}
+
+    def counting_runner(query: str, tool_context: AgentToolContext):
+        del query, tool_context
+        runner_calls["n"] += 1
+        raise AssertionError("deadline after a tool turn must not execute tools")
+
+    outcome = ContinuousAgentEpisode(
+        ScriptedModel([_tool_turn("不应执行")])
+    ).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(counting_runner),
+    )
+
+    assert runner_calls["n"] == 0
+    assert outcome.stop_reason == "deadline_exhausted"
+    assert outcome.draft == ""
+    finish = next(event for event in outcome.events if event.kind == "finish")
+    assert finish.payload["carried_draft_chars"] == 0
+
+
 def test_repair_retries_transient_model_error_once_then_finishes() -> None:
     """修复轮对超时类错误要有一次 harness 层补救，而不是一击终局。
 

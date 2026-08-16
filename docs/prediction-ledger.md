@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（同题两发 M2：PRIMARY 是首轮 FINAL_JSON 未结转。R-20260817-01 已开。R-16..23 仍 pending）
+- last_updated: 2026-08-17（R-20260817-01 离线结转已绿，未 live，保持 pending。R-16..23 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -51,7 +51,7 @@
 | `R-20260816-21` | 原题 GLM 复跑 `run_20260816_230528_976709` | `HARNESS_FIX` | repair 窗随生效 provider 实测 p90，不再用对 terra 的 30s 常数卡 GLM；同题重跑不再两发整窗 `TimeoutError`。**禁止只把 30 调大** | 须附分档延迟实测 + 全路由影响面；触 `R-20260816-02`/`-07` 绊线即改记那些行 | `pending` |
 | `R-20260816-22` | 工具层追查（`run_20260817_002958_135258`）+ **2026-08-17 用户口径裁定** | `DATA_CONTRACT_FIX` | **按数据类分档，不是放宽门槛**：① DuckDB 硬事实（行情/成交/涨停等）新鲜度**照旧从严**；② 知识库/图谱（`kb_search`/`graph_lookup`）本就不过该门，保持；③ **新增第三种情形**——数据集整体已到 floor、但**被筛子集**停在更早（`fact_mainline_sector_daily` 有到 08-14 的行，而「AI算力」最后一天是 08-07），这不是 stale 而是**该主体退出了集合**，属行业生命周期观察，必须交付而非整批作废。预测：修复后同题重跑，`mainline_sector_daily` 不再返回零证据，答案含「算力于 2026-08-07 后退出主线、其后 N 个交易日未再出现」这一可核验事实；而真正的管道陈旧（数据集整体 max < floor）仍被拒 | 判别变量是**数据集 max 与被筛子集 max 的关系**，不是放宽 floor。离线双夹具：`dataset_max ≥ floor ∧ filtered_max < floor` → 交付退出事实；`dataset_max < floor` → 仍 stale（此条必须保持红线，它是该门禁的原始设计意图）。**变异**：把两个夹具的判据合并成一个即须转红。**实现归工具层执行方**；本行只占号，A 方不改 `_structured_provider_is_stale` | `pending` |
 | `R-20260816-23` | 工具层追查（同上） | `TOOL_DESCRIPTION_FIX` | 模型三次写出不存在的维度名（`strength` / `index_return_pct` / `rank`）。`dataset_field_hint()` **已存在**但未进模型可见面——按本仓「事实投递 > 提醒」模式接进 `finance_query` 工具描述后，同题 3 样本的 `FinanceQueryValidationError`(`invalid_query`) 计数降到 0 | 离线断言工具描述含各 dataset 的合法字段清单；live 用同题 3 样本对照 `invalid_query` 计数。**不得靠加 prompt 训话**——字段表是事实投递不是提醒。**实现归工具层执行方**；本行只占号 | `pending` |
-| `R-20260817-01` | 同题两发 M2（`run_20260817_014724_245782` / `run_20260817_015340_618752`） | `HARNESS_FIX` | `complete()` 已返回 FINAL_JSON 后，即使 `_consume_root_seconds` 失败，first finish `carried_draft_chars>0` 或 `outcome.draft` 含阶段判断；不得再把刚写出的稿当「从没生成过」。**禁止调 T / `_REPAIR_SECONDS_CAP` / 档位** | 离线：finalize 返回合法 JSON 后让 `consume_seconds` 抛 ValueError，断言 draft 仍在。live 同题 first finish `carried_draft_chars>0`。单次 live 不得 confirmed | `pending` |
+| `R-20260817-01` | 同题两发 M2（`run_20260817_014724_245782` / `run_20260817_015340_618752`） | `HARNESS_FIX` | `complete()` 已返回 FINAL_JSON 后，即使 `_consume_root_seconds` 失败，first finish `carried_draft_chars>0` 或 `outcome.draft` 含阶段判断；不得再把刚写出的稿当「从没生成过」。**禁止调 T / `_REPAIR_SECONDS_CAP` / 档位** | **离线已绿**（2026-08-17）：`test_deadline_after_successful_finalize_keeps_the_just_written_draft`（finalize 后 `consume_seconds` 抛 ValueError，draft/bindings/`carried_draft_chars` 仍在）；`test_deadline_after_tool_turn_does_not_invent_a_draft`（工具轮失败不得造稿）。live 同题 first finish `carried_draft_chars>0`。单次 live 不得 confirmed | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -507,11 +507,25 @@ repair 两发 TimeoutError 是传播。R-22/R-23 保持 pending。
 
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
-| `R-20260817-01` | 本 M2 开行。有稿未结转。未实现 | `pending` | 保持 Open |
+| `R-20260817-01` | 离线：finalize 后 consume 抛 ValueError，draft 仍在。未 live | `pending` | 保持 Open。部分验证不得写 confirmed |
 | `R-20260816-22` | 第二发 `mainline_sector_daily`+`sector_name` 0 行；退出探针无 served 不触发。不是 stale 回归 | `pending` | 保持 Open。不得写成 refuted |
 | `R-20260816-23` | 两发均无 `invalid_query` | `pending` | 保持 Open |
 | `R-20260815-04` | 本形是「模型已返回 draft、outcome 仍 0」。`draft_source` 仍缺席 | `pending` | 保持 Open |
 | `R-20260816-07` | 本分诊无 T / 30 / 档位 diff | `pending` | 绊线未触 |
+
+### 2026-08-17 R-20260817-01 离线结转
+
+`run()` 在 `complete()` 已返回后若 `_consume_root_seconds` 失败，先
+`validate_episode_finish` 再停机：合法 FINAL_JSON 结转 draft/bindings；
+工具轮 / 无效稿仍空。未调 T / `_REPAIR_SECONDS_CAP` / 档位。未切 8792。
+R-22/R-23 保持 pending。单次 live 不得 confirmed。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260817-01` | 离线两夹具绿。未 live | `pending` | 保持 Open |
+| `R-20260816-07` | 本 PR 无 T / 30 / 档位 diff | `pending` | 绊线未触 |
+| `R-20260816-22` | 本 PR 不改退出/陈旧分档 | `pending` | 保持 Open |
+| `R-20260816-23` | 本 PR 不改 metric/dimension | `pending` | 保持 Open |
 
 ### Closed
 

@@ -847,6 +847,12 @@ class ContinuousAgentEpisode:
                 },
             )
             if not _consume_root_seconds(context, model_elapsed):
+                carried_draft, carried_bindings = self._carry_just_written_finish(
+                    turn=turn,
+                    context=context,
+                    evidence=tuple(accumulator.evidence),
+                    registry=registry,
+                )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -859,6 +865,8 @@ class ContinuousAgentEpisode:
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
+                    carried_draft=carried_draft,
+                    carried_bindings=carried_bindings,
                 )
             if self._is_cancelled():
                 return self._cancelled_outcome(
@@ -2432,6 +2440,39 @@ class ContinuousAgentEpisode:
         )
 
     @staticmethod
+    def _carry_just_written_finish(
+        *,
+        turn: ModelTurn,
+        context: ResearchRunContext,
+        evidence: tuple[AgentEvidence, ...],
+        registry: ResearchToolRegistry,
+    ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
+        """Salvage a just-written FINAL_JSON when the root clock is already dead.
+
+        ``complete()`` already returned. A failed ``consume_seconds`` must not
+        pretend the model never wrote. Tool-calling, errored, or invalid turns
+        stay empty so this path cannot invent an answer.
+        """
+
+        if turn.error or turn.tool_calls or not str(turn.content or "").strip():
+            return "", ()
+        try:
+            finish = validate_episode_finish(
+                turn.content,
+                context=context,
+                evidence=evidence,
+            )
+        except ValueError:
+            return "", ()
+        bindings = expand_episode_snapshot_bindings(
+            bindings=finish.bindings,
+            evidence=evidence,
+            registry=registry,
+            draft=finish.draft,
+        )
+        return finish.draft, bindings
+
+    @staticmethod
     def _stopped_outcome(
         *,
         task_frame: TaskFrame,
@@ -2452,8 +2493,10 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Stop this episode, optionally carrying an earlier answer forward.
 
-        ``run()`` 停在这里时没有更早的答案可留，两个 carried 参数保持空——
-        行为与本参数加入前逐字相同。
+        ``run()`` 的多数停机路径没有更早的答案可留，两个 carried 参数保持空。
+        例外：``complete()`` 已返回可验证 FINAL_JSON 之后 ``consume_seconds``
+        失败——稿已经写出来了，截止不能把它当成「从没生成过」
+        （R-20260817-01 / 同题两发 ``carried_draft_chars=0``）。
 
         ``resume()`` 不一样：修复轮进来时上一轮**已经**有草稿和绑定了。修复是
         fix-forward，不是重跑；provider 在修复轮超时并不能让上一轮的答案失效。
