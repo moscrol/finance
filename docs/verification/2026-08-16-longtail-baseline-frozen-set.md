@@ -3,8 +3,9 @@
 ## Verdict
 
 - outcome: FREEZE_ONLY
-- live_ab_ran: false
-- failure_criterion: 未开对照窗。本文件只锁题面、分层、触发观察和护栏，不报告剥句率。
+- live_ab_ran: `docs/verification/2026-08-16-longtail-baseline-live-ab.md`（13:19 清污重跑后；progress.jsonl 前 8 行与孤儿不入账）
+- live_ab_in_flight: false
+- failure_criterion: 本文件只锁题面、分层、触发观察和护栏，不报告剥句率。live 对照见 `live_ab_ran`。
 - baseline_tip: `773b3d7e`（质检收尾时 gitea/main；含 outlook #72/#75/#79、长尾注入 #77、perspective #76）
 - fixture: `intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json`
 - loader: `intelligence/eval/longtail_baseline_frozen_set.py`
@@ -75,7 +76,7 @@
 
 T1 在语料里几乎只有三句固定探针在打转。本集用 L04/L09/L11/L15 带上真实金融题的 fallback 观察，不把 schema probe 算进 15。
 
-## 预注册对照（仍未跑）
+## 预注册对照（live 已跑，数字不在本文件）
 
 - 设计：15 × 2 臂 × 3 次 = 90；护栏 5 题只跑注入臂，确认 `【长尾回答骨架】` 不出现。
 - 主度量：非空 `direct_answer` 交付率；judge 剥句率（rejected_sentence/总句数）；`evidence_bound_rate`（**5pp 不放宽**）；token / 墙钟。
