@@ -277,6 +277,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | researcher-valuation | 拍估值、估值带、贵不贵、隐含预期、值多少钱、估值分位、估值怎么看、合理估值 |
 | handoff | handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说"handoff"就执行本流程、不用等会话结束 |
 | perspective-distill | 蒸馏视角、视角蒸馏、KOL蒸馏、学这个博主、喂文章、把这篇文章喂给视角、新建视角、perspective distill |
+| finance-longtail-baseline | （待补：SKILL.md 无触发词字段） |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
