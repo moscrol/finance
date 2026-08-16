@@ -707,6 +707,79 @@ def test_repair_retries_transient_model_error_once_then_finishes() -> None:
     assert updated.usage.llm_calls >= 4
 
 
+def test_finalization_model_turn_records_timeout_asked() -> None:
+    """首轮合成 model_turn 必须带 timeout_asked，才能和墙钟对账。
+
+    2026-08-16 L01（``run_20260816_131941_597875`` seq=12）合成 TimeoutError
+    墙钟 68.3s，payload 没有 asked，分不清 75s 硬墙还是剩余研究窗。修复轮
+    ``repair_reentry`` 已有 timeout_asked / timeout_configured / remaining
+    三字段；主路径 finalize 必须对齐，否则下一份同形 run 仍判不了 H2。
+    """
+
+    frame = _frame()
+    model = ScriptedModel([_tool_turn("最新行情"), _finish_turn()])
+    outcome = ContinuousAgentEpisode(model, llm_timeout=75.0).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    finalization_at = next(
+        index
+        for index, event in enumerate(outcome.events)
+        if event.kind == "finalization"
+    )
+    compose = next(
+        event
+        for event in outcome.events[finalization_at + 1 :]
+        if event.kind == "model_turn"
+    )
+    asked = compose.payload.get("timeout_asked")
+    configured = compose.payload.get("timeout_configured")
+    remaining = compose.payload.get("remaining_seconds_at_entry")
+    assert configured == 75.0
+    assert isinstance(asked, float) and 0.0 < asked <= 75.0
+    assert isinstance(remaining, float) and remaining > 0.0
+    assert asked == pytest.approx(float(model.calls[1]["timeout"]))
+    assert asked <= remaining + 0.001
+
+
+def test_finalization_timeout_error_model_turn_still_records_timeout_asked() -> None:
+    """L01 生产形：合成 TimeoutError 是 turn.error，不是 except。时钟字段仍必须在。"""
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("最新行情"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
+            _finish_turn(),
+        ]
+    )
+    outcome = ContinuousAgentEpisode(model, llm_timeout=75.0).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    finalization_at = next(
+        index
+        for index, event in enumerate(outcome.events)
+        if event.kind == "finalization"
+    )
+    compose = next(
+        event
+        for event in outcome.events[finalization_at + 1 :]
+        if event.kind == "model_turn"
+    )
+    assert compose.payload.get("error") == "LLM 调用失败（TimeoutError）"
+    assert compose.payload.get("timeout_configured") == 75.0
+    asked = compose.payload.get("timeout_asked")
+    assert isinstance(asked, float) and 0.0 < asked <= 75.0
+    assert asked == pytest.approx(float(model.calls[1]["timeout"]))
+    remaining = compose.payload.get("remaining_seconds_at_entry")
+    assert isinstance(remaining, float) and remaining > 0.0
+
+
 def test_repair_does_not_retry_deterministic_model_error() -> None:
     """缺 key/预算拒绝这类确定性失败重试也不会好，必须立即终局省下时钟。"""
 

@@ -2,6 +2,7 @@
 
 > 指针（2026-08-13）：复盘会资产线**代码已收口**，完工快照 `docs/handoffs/2026-08-13-fupanhui-public-assets-and-consume.md`。dragon 双表主库回补已完成（summary 390/390、seats 近 60 日 44932 行），两表已进 `GAP_TABLES` 断档门禁。
 
+更新：2026-08-16 14:00 CST · **8792 已切到 `773b3d7e`**（长尾对照窗现状臂；就地切树，目录名未改）。交接 `docs/handoffs/2026-08-16-deploy-window-773b3d7e.md`。收据 `docs/verification/2026-08-16-8792-773b3d7e-inplace-cut.md`。
 更新：2026-08-16 01:00 CST · **8792 已切到 `437cd5e9`**（R-24 部署窗；当时 main tip）。完工快照 `docs/handoffs/2026-08-16-r24-deploy-window.md`。旧快照 `fdb23114` 保留可回滚。
 更新：2026-08-14 18:45 CST · **8792 已切到 `32f73f53`**（#351/#352/#353/#354 合并后的 tip，一次性追平此前落后的 33 个提交）。完工快照 `docs/handoffs/2026-08-14-cutover-8792.md`。
 更新：2026-08-14 18:00 CST · #343 完工快照补齐：`docs/handoffs/2026-08-14-review-gate-duckdb-lock.md`（夜跑链路已生效，与 8792 无关）。
@@ -17,8 +18,8 @@
 
 ## 当前状态
 
-- **8792 = `437cd5e9`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准）。
-  其后 docs-only main tip 不追切。readiness 缺 `market_data_consistency` 为收盘后日常节奏。
+- **8792 = `773b3d7e`**（观测台 Phase 1 闸对账：live health `source_revision`；历史「更新」行仍可能过期，以本行 + `/api/health` 为准）。
+  目录名仍是 `finance-workspace-437cd5e9aa1a`（12:09 就地切树）。默认其后 tip 不追切；本次是长尾对照窗例外，不是 R-24 窗重开。
 - **R25 判决通过**（#327 缺口镜像 = knevo 接力第一片）：B1 降级 0 证据时
   消息带 3 张「缺口补齐」卡（type=gap，label+full_prompt，契约口径，
   零模型调用），`/api/runs/{id}/followups` 可读。episode 主路径首次接上
