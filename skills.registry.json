@@ -7,7 +7,7 @@
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 33
+      "skills": 34
     },
     {
       "name": "knowledge-base-private",
@@ -155,6 +155,19 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:fff4d9666edde30657c3920efbac8bde8e77a5898f6ecd86af34701f773050d9",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-longtail-baseline": {
+      "name": "finance-longtail-baseline",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-longtail-baseline/SKILL.md",
+      "description": "运行时兜底回答骨架，由 ASK_LONGTAIL_BASELINE 确定性注入，不是可路由工作流。不要手工调用。无触发词。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:b7c07982f0b0ded6d705c17cd929191f33c9022fa5e877cedeeedbf6ac5bc1ff",
       "agentOnly": false,
       "views": []
     },

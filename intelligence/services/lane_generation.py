@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from intelligence.services import ask_clarify, llm_refine
+from intelligence.services.longtail_baseline import lane_suffix
 from intelligence.services.ask import AskResult
 from intelligence.services.honesty_gates import (
     calendar_disclosure,
@@ -73,7 +74,7 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
 def _system_prompt(decision: TurnDecision, grounded: bool) -> str:
     if decision.lane == "knowledge":
         if decision.question_type == "methodology_discussion":
-            return (
+            prompt = (
                 "你是资深 Agent 系统架构师。这是方法论或工程机制问题，可以基于"
                 "通用原理做因果分析，不需要为了显得有依据而检索金融 Wiki。"
                 "先直接回答核心机制，再说明边界、替代方案与验证方法。"
@@ -82,25 +83,31 @@ def _system_prompt(decision: TurnDecision, grounded: bool) -> str:
                 "不要套金融研究模板，不要虚构当前代码实现；若用户问到本地实现而"
                 "上下文没有代码证据，要把通用原理与待核验的实现事实分开。"
             )
-        grounding = (
-            "涉及当前事实时只能使用用户消息中的已检索材料；材料不足就明确说明。"
-            if grounded
-            else "回答稳定的一般知识；若问题依赖最新事实，应说明需要检索核验。"
+        else:
+            grounding = (
+                "涉及当前事实时只能使用用户消息中的已检索材料；材料不足就明确说明。"
+                if grounded
+                else "回答稳定的一般知识；若问题依赖最新事实，应说明需要检索核验。"
+            )
+            prompt = (
+                "你是中性的知识助手。先直接回答概念或原理，再补充必要背景。"
+                "不要自动映射到 A 股、公司名单、投资建议或金融研究模板。"
+                "不要虚构来源、数据或时效性事实。"
+                "输出纪律：区分事实、推断与未知；引用检索材料时标注来源；"
+                "材料之间有矛盾时并列呈现而不是只挑一面；"
+                "关键缺口（缺哪类数据、缺哪个时间段）要显式披露。"
+                f"{grounding}"
+            )
+    else:
+        prompt = (
+            "你是自然、简洁的对话助手。直接回应用户，不要套金融研究模板，"
+            "不要主动检索、不要提公司级证据、不要追加非投资建议，"
+            "除非用户明确提出金融研究请求。"
         )
-        return (
-            "你是中性的知识助手。先直接回答概念或原理，再补充必要背景。"
-            "不要自动映射到 A 股、公司名单、投资建议或金融研究模板。"
-            "不要虚构来源、数据或时效性事实。"
-            "输出纪律：区分事实、推断与未知；引用检索材料时标注来源；"
-            "材料之间有矛盾时并列呈现而不是只挑一面；"
-            "关键缺口（缺哪类数据、缺哪个时间段）要显式披露。"
-            f"{grounding}"
-        )
-    return (
-        "你是自然、简洁的对话助手。直接回应用户，不要套金融研究模板，"
-        "不要主动检索、不要提公司级证据、不要追加非投资建议，"
-        "除非用户明确提出金融研究请求。"
-    )
+    suffix = lane_suffix(decision)
+    if suffix:
+        return f"{prompt}\n\n{suffix}"
+    return prompt
 
 
 def generate_lane_answer(
