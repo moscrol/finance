@@ -1,11 +1,9 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-15
-- updated_by_run: `R-20260815-12` 仪器（`window_contamination` /
-  `episode_fulfilled_hashed`）。前值 `20260815T0302Z-r4-clean-baseline-2`（多条
-  finish 取末条；`evidence_bound` ≠ episode fulfilled）。再前
-  `2026-08-15-trka-r4-evidence-ordinals`——`finish.payload.rejection_code` /
-  `rejection_reason`；模型上下文 `evidence_id=E1..En`，ledger 仍留 `content_hash`
+- last_updated: 2026-08-16
+- updated_by_run: `2026-08-16 outlook 核验预算回归 M1`（L01 空稿 TimeoutError；
+  #84 之后新 run 的 finalize `model_turn` 应有 `timeout_asked`。前值
+  `R-20260815-12` 仪器 / `20260815T0302Z-r4-clean-baseline-2`）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -56,6 +54,12 @@
 | `window_contamination` / `data_probe` | 前置检查过了就是数据层也健康 | 身份盖戳不管数据层。R-12 起 `preflight_detail` 带 `data_probe: finance_query=ok/tool_exception/empty`；失败写死 `run_and_flag`：不中止，顶层 `window_contamination="finance_query"`、`data_probe_ok=false`。未探测时两字段为 `null`，不得当成污染。静默混批即证伪 R-12 | `acceptance.DATA_PROBE_ON_FAILURE`；`probe_finance_query_data` |
 | `semantic_verifier.gap_output_ids` ∩ structural fulfilled | 结构 fulfilled 即公开答案含该格正文，或 `gap_output_ids` 空 | marker-loss 可把已 fulfilled 格写入 `gap_output_ids` 并删公开正文，**不收缩绑定**。B3#2：两格 fulfilled + `gap_output_ids=['direct_assessment','chain_mapping']` + 公开答案只剩 counterpoint → adapter 排除引用 → cites=0。读交付前先对这两栏；只读结构或只读 eb 都会误判 | `run_20260815_111907_054023`；对照 C6#2 只 gap `evidence_boundary` 仍 eb=11；`docs/verification/2026-08-15-trka-r5-e007-split.md` |
 | `tool_error.error=tool_exception` 且 `detail=""` | 没有可诊断的异常信息，或「工具没抛异常」 | **`< R-20260815-25` 的产物** consume 丢掉批次层已格式化的 `TypeName: message`，`detail` 恒为空。A1#2 三连 5–12ms 即此形。R-25 起 `detail` 为类名+首行（剥路径、截断 160）；`error` 仍是分类码。旧 artifact 空串 ≠ 无异常。ProviderTrace.detail 仍是 `tool_exception`，查事件/`tool` 消息的 `detail` | A1 `run_20260815_110258_512040` seq 8/10/22；`docs/verification/2026-08-15-trka-r5-e007-split.md` |
+| `continuous:adapter:verification` running + 「核验已完成」 | judge / 语义核验已经跑过 | 空 draft 时 verification 步仍会发射，随后立刻 `repair_goal`；`judge_status=unavailable` 才是「有没有调用 judge」。L01 `run_20260816_131941_597875`：verification 话术在，judge 未调用 | `docs/verification/2026-08-16-outlook-verification-budget-regression.md` E-008/E-009 |
+| 首轮合成 `model_turn` 的 TimeoutError 墙钟 | 等于 `timeout_configured`（生产 75s）或 2×75 | **L01 当时** payload 没有 `timeout_asked`；修复 asked≈30、configured=75。不得把 153s 读成 2×75。#84 之后新 run 的 finalize `model_turn` 应有 `timeout_asked` / `timeout_configured` / `remaining_seconds_at_entry` | 同上 E-004/E-007；`21dbf6c1`；`repair_coordinator._REPAIR_SECONDS_CAP=30` |
+| episode `model_turn.remaining_seconds_at_entry` | 与 headless 的 `remaining_*_seconds_at_entry` 同义 | 这是 continuous 主循环 `complete()` 入场时的研究窗残余（#84 / R-01）。headless 工具事件仍是 root/research 两只钟，禁止混读 | `agent_episode.py` 主循环 `ledger.add("model_turn")` |
+| `uncheckable_judgment_empty` 未出现 | 第 4 层诚实闸没装上，或判断句还在 | #327 缺口模板「现有证据不足，暂不能可靠回答」会被 `answer_has_non_boundary_substance` 当成非边界正文，探测器不响（`marker_coverage=complete`，`warnings=[]`）。L01 的诚实性在 `report.status=partial` + degrade，不在 marker 警告 | `task_fulfillment.py:448-574`；R-20260816-04 |
+| L04 37s `completed` | 核验路径在预算内跑完的反例 | 该 run `lane=chat`、`needs_retrieval=false`、无 `continuous-episode.json`。是 GRAPH/route 分叉，不是 verification 成功 | `run_20260816_125920_927309` |
+| 长尾 off 臂 151–159s + degraded | 同一机制（核验预算撞墙） | L01 = 空 draft + `repair_model_unavailable` + 「未完成核验绑定」。L05 = draft 279 字 + `repair_model_stop` + 「候选草稿」+ `semantic judge transient provider error`。墙钟相近，机制不同 | L01 `run_20260816_131941_597875`；L05 `run_20260816_132541_309060` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
