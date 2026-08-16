@@ -421,7 +421,7 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 handoff：`docs/handoffs/2026-08-17-two-agent-collision-and-contains-escape.md`。
 对方原 `-12`/`-13` 按 handoff §4 改号为本表 `-22`/`-23`，避免与宽题取证饿死的 `-13` 撞号。
 实现（`_structured_provider_is_stale` 分档、`dataset_field_hint` 接模型可见面）归工具层执行方；A 方不改这两处。
-18 条 `test_continuous_turn_adapter` 红：**漏改夹具**（判断槽 `basis=model_reasoning` + 强制 `market_data`），不是 R-18 投影语义。另开，不挡本行。
+18 条 `test_continuous_turn_adapter` 红：**漏改夹具**（判断槽 `basis=model_reasoning` + 强制 `market_data`），不是 R-18 投影语义。已另开 `fix/adapter-success-fixtures`：默认问句去掉「怎么看」，不再误踩判断槽。
 
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
