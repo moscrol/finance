@@ -453,3 +453,36 @@ def test_marker_coverage_with_no_required_outputs_gives_no_verdict():
     assert coverage["required_output_count"] == 0
     assert coverage["checked_count"] == 0
     assert coverage["marker_coverage"] is None
+
+
+def test_marker_coverage_rejects_uncheckable_direct_answer_when_only_boundary_remains():
+    """direct_answer 无词表被记 uncheckable，只剩证据边界时不得再报 complete。
+
+    生产 run_20260816_103318：present=[evidence_boundary]、
+    uncheckable=[direct_answer]、marker_coverage=complete。判断正文已被剥光，
+    诚实闸却读成检过且通过。
+    """
+
+    coverage = evaluate_marker_coverage(
+        ("direct_answer", "evidence_boundary"),
+        "证据边界：可用最新行情日期为2026-08-14，不构成收益预测或投资建议。",
+    )
+
+    assert coverage["uncheckable"] == ["direct_answer"]
+    assert coverage["present"] == ["evidence_boundary"]
+    assert coverage["marker_coverage"] != "complete"
+    assert coverage["observation_only"] is False
+    assert "uncheckable_judgment_empty" in coverage.get("warnings", [])
+
+
+def test_marker_coverage_keeps_uncheckable_direct_answer_when_judgment_body_remains():
+    coverage = evaluate_marker_coverage(
+        ("direct_answer", "evidence_boundary"),
+        "周一更值得观察有色金属的资金承接。证据边界：数据截至 2026-08-14。",
+    )
+
+    assert coverage["uncheckable"] == ["direct_answer"]
+    assert coverage["present"] == ["evidence_boundary"]
+    assert coverage["marker_coverage"] == "complete"
+    assert coverage["observation_only"] is True
+    assert coverage.get("warnings", []) == []

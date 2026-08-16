@@ -121,6 +121,10 @@ _MAX_SYNTHESIS_BUDGET_FRACTION = 2.0 / 3.0
 _MARKET_CAUSE_REASONING_OUTPUTS = frozenset(
     {"causal_chain", "cause_attribution"}
 )
+_OUTLOOK_JUDGMENT_OUTPUTS = frozenset({"direct_answer", "direct_assessment"})
+_OUTLOOK_JUDGMENT_RE = re.compile(
+    r"(?:你认为|你觉得|怎么看|机会在哪|会怎么走)"
+)
 
 
 def _authorized_capabilities(
@@ -304,6 +308,16 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         frame.question_type == "market_cause"
         and output_id in _MARKET_CAUSE_REASONING_OUTPUTS
     ):
+        return "model_reasoning"
+    if (
+        output_id in _OUTLOOK_JUDGMENT_OUTPUTS
+        and _OUTLOOK_JUDGMENT_RE.search(frame.raw_question)
+    ):
+        # 观点/前瞻题的判断正文不是盘面原文。押进 evidence 硬边界后，semantic
+        # 修复会按句删光「你认为/机会在哪」这类条件化判断，公开答案只剩边界句
+        # 却仍 completed（2026-08-16 两轮生产 run）。只改判断槽：边界槽继续
+        # evidence，整题也不标 evidence-free，检索与硬事实闸门保持。
+        # 不能用 user_goal==「形成条件化判断」当键——那是默认 decision_goal。
         return "model_reasoning"
     return "evidence"
 
