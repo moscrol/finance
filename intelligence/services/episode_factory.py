@@ -69,7 +69,63 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     ),
     "scenario_paths": "给出条件化情景路径",
     "prior_recall": "复述用户此前对该主体的判断或纠偏原则，并说明与当前的差异",
+    "chain_mapping": "产业链层级、角色与关键环节",
+    "financial_assessment": "公司财务表现的直接判断",
+    "metric_evidence": "支撑财务判断的指标证据",
+    "comparison_dimensions": "列出比较维度与各自的观察口径",
+    "key_differences": "说明候选之间的关键差异",
+    "transmission_chain": "说明情景向结果的传导链",
+    "direct_explanation": "解释所问方法或概念的要点",
+    "tradeoffs": "列出方法取舍与适用边界",
+    "event_facts": "列出事件的可核验事实与时间",
+    "impact_transmission": "说明事件向盘面或基本面的传导",
+    "fact_value": "给出所问事实的取值",
+    "as_of_date": "标明事实对应的数据日期",
+    "comparison_conclusion": "给出比较后的主线判断",
+    "verification_conditions": "列出可核验的验证条件",
+    "method": "给出可执行的判断方法",
+    "evidence_hierarchy": "说明证据层级与采用顺序",
+    "failure_modes": "列出方法的失败模式",
+    "verification_path": "给出后续验证路径",
+    "change_summary": "概括相对前次的变化",
+    "tracking_signals": "列出后续跟踪信号",
+    "claim_summary": "概括被评述观点的主张",
+    "evidence_assessment": "评估主张的证据支撑",
+    "biases_and_gaps": "指出偏见与证据缺口",
+    "analog_similarities": "说明类比对象的相似点",
+    "limits_of_analogy": "说明类比的适用边界",
+    "conditional_thesis": "给出条件化投资命题",
+    "cause_attribution": "给出时间对齐的下跌或上涨归因",
+    "scenario_tree": "给出条件化情景树与分支条件",
+    "historical_analogs": "列出可对照的历史相似阶段",
+    "falsification_conditions": "列出可核验的证伪条件",
+    "money_flow": "说明资金流向与结构变化",
+    "comparison": "比较候选并给出差异",
+    "relation_map": "说明主体之间的关系与传导",
+    "company_mapping": "列出主题相关的公司与角色",
+    "market_change": "说明市场相对前一阶段的变化",
+    "customer_validation": "给出客户或订单侧的可核验证据",
+    "valuation_range": "给出估值区间与方法边界",
+    "definition": "解释用户所问概念",
+    "rebound_case": "给出反弹或修复情景及成立条件",
+    "decline_case": "给出走弱或回落情景及成立条件",
+    "invalidation": "列出使当前判断失效的条件",
 }
+
+
+def _require_output_description(output_id: str) -> str:
+    """Fail loud when a required slot has no human description.
+
+    静默 ``.get(output_id, output_id)`` 会把 ``chain_mapping`` 写成裸 id，
+    模型看见同义反复、gap 标签也变成英文蛇形。缺键必须在构造契约时失败。
+    """
+
+    try:
+        return _OUTPUT_DESCRIPTIONS[output_id]
+    except KeyError as exc:
+        raise ValueError(
+            f"missing _OUTPUT_DESCRIPTIONS[{output_id!r}]"
+        ) from exc
 
 # 用户在问题里引用了自己过去的看法。这类问题要回答的不是「现在怎么样」，而是
 # 「跟我上次说的比，变了什么」——后者需要先取回那份先验。
@@ -409,7 +465,7 @@ def build_episode_context(
         required_outputs=tuple(
             RequiredOutput(
                 output_id=output_id,
-                description=_OUTPUT_DESCRIPTIONS.get(output_id, output_id),
+                description=_require_output_description(output_id),
                 evidence_types=_required_output_evidence_types(
                     output_id,
                     capability_tuple,

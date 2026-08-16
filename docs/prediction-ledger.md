@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（#106 R-17 已合；R-21 离线已绿，窗随 p90、`_REPAIR_SECONDS_CAP` 仍 30。R-16..21 仍 pending）
+- last_updated: 2026-08-16（#106 R-17 / #109 R-21 已合；R-20 离线已绿。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -307,7 +307,7 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 
 分档延迟：8795 GLM 成功轮 n=32，p50=17.3 / **p90=34.4** / max=49.4；6/32 >30s。
 中转 terra 2026-08-08 P50≈28s，08-13 收据 30s 窗 5/5。取值：openai=30，zhipu=40（p90+余量），未知=30。
-`_REPAIR_SECONDS_CAP` **仍是 30.0**。未部署 8792。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。#109 已合 `main`。未部署 8792。
 
 全路由影响面：非研究题不走 `admit_repair`（0pp）；中转研究题取值不变；仅 GLM 研究题的 repair / transient retry 单笔上限 30→40。
 
@@ -317,6 +317,18 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触。窗随 p90 不是把 30 调大 |
 | `R-20260816-02` | 动了 repair 授予公式的注入帽，不是 T。live 臂未跑 | `pending` | 保持 Open。条件句「若动预算」部分触发，不得写 confirmed |
 | `R-20260816-16` / `-18` / `-19` / `-20` | 本 PR 不改 status 投影 / 描述表。R-17 已由 #106 合入 | `pending` | 保持 Open |
+
+### 2026-08-16 R-20 描述表：离线回填
+
+18 个 `QUESTION_TYPES` 默认槽位补齐后人话描述；`chain_mapping` 不再同义反复。
+`.get(id, id)` 改为 `_require_output_description`，缺键在 `build_episode_context` 失败。
+删 `chain_mapping` 键的夹具转红。未部署 8792。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-20` | 离线：18 题型无缺键/同义反复；`test_missing_description_key_fails_at_build` 转红。未做 live 契约抽检 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-18` / `-19` | 未做链长结案 / status / 反证。R-17/#106、R-21/#109 已合 | `pending` | 保持 Open |
 
 ### Closed
 
