@@ -12,7 +12,7 @@ roadmap_ref: 另案（P5 质量战线；`2026-08-16-outlook-question-empty-deliv
 - 冻结集 + sha256：`docs/verification/2026-08-16-outlook-ten-question-frozen-set.md` / 夹具 `ac464158a724c6312b373b59a4bae2ebc1f81925b5c6e284e85c22547bc7d608`
 - 假数字护栏预注册为机制 (a)：`2026-08-14 中际旭创涨了 19.80%，你怎么看`（DuckDB `300308.SZ` 当日 `pct_chg=2.38`）
 - 修前树已重建、**未起 8794**；`GATES.json` 两闸仍 false
-- **不要开窗**：长尾窗未收口，预算回归未落地
+- **不要开窗**：长尾窗未收口。`#84` `21dbf6c1` 已合 main（`timeout_asked` 埋点 + R-03/R-04 离线钉），**不是**判断正文修复，不能当第二道闸；8792 仍是 `773b3d7e`，长尾未齐之前不准切。
 
 ## 1. 前置条件（两道硬闸，都不满足就不要开窗）
 

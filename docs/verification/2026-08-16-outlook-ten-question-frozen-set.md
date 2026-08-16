@@ -18,7 +18,8 @@
 - mined_from: `default` + `linxiaoqi5111` 共 540 条 `report.json`；outlook 标记题 20 个唯一题面
 - reused: 长尾冻结集 outlook 档 L01–L05，题面 / as_of / source_runs 逐字不改
 - predicate: 题面含「你认为 / 你觉得 / 怎么看 / 机会在哪 / 会怎么走」；来源是真实 run 的 `report.json`；**最新一次完整 report 的 `question_type` 不是 `market_forecast`**；`as_of` 与题面都不触发休市日闸
-- do_not_open_until: 长尾窗 `all slots processed` 且 95 槽位齐、8793 已停（`ps -p` 验 argv，不用 `pgrep -f`）、预算回归修复已合或书面豁免
+- do_not_open_until: 长尾窗 `all slots processed` 且 95 槽位齐、8793 已停（`ps -p` 验 argv，不用 `pgrep -f`）、预算回归**判断正文**修复已合或书面豁免
+- not_gate_2: `#84` `21dbf6c1` 是 R-01 `timeout_asked` 埋点 + R-03/R-04 离线钉，commit 自书「不切 8792」。它让下一份同形 live 能对账，**不**让原题在生产预算内留下判断正文。把 `#84` 当第二道闸会白烧 10 题窗。
 
 | 臂 | 代码 | 端口 | 开关 |
 |---|---|---|---|
