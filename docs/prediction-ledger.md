@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-06 结案 H9；追加 R-10 standard judge 窗地板。8795=`02fa203e`，8792 仍 `773b3d7e`）
+- last_updated: 2026-08-16（#94 合入后开 R-11：十题窗 post 臂判断槽 0-hash → eb −17.5pp。不复用 R-06）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -37,6 +37,7 @@
 | `R-20260816-02` | outlook 预算回归 M1 F-002 | `HARNESS_FIX` | 若动预算：同题重放要么首轮合成成功，要么 repair 的 `timeout_asked` 不再小于该 run 已观测的首轮合成墙钟；须附 2026-08-08 式延迟实测与全路由影响面 | 禁止只把 T 或 30 调大当修复；非观点题对照不得变慢超 5pp | `pending` |
 | `R-20260816-03` | outlook 预算回归 M1 F-001 | `EVAL_ONLY` | 同题三臂（只 #72 / 只第 4 次查询 / 四层全开）能单独证实或证伪「#72 提示变重」与「stock_high_daily 扩容」 | 45 槽已否证二者作**窗口充分条件**；L01 r1 必要性仍要单变量。8795 只跑 identity。3-tool/#72-off 须另开 hook 树，不停泊 `21dbf6c1` | `pending` |
 | `R-20260816-10` | 2026-08-16 judge transient R-06 T3 F-001 | `HARNESS_FIX` | 处置落地后，下一份 draft>0 的 8795 同形重放：judge 首轮 `timeout_asked` ≥20；H9 形 TimeoutError 率相对 `docs/verification/2026-08-16-judge-transient-r06.md` 11/11 下降 | 只验 standard 窗地板 50 / 首轮 25；工具批仍 70、reserve 仍 20、deep 窗仍 50。PR 若含 T/30/档位上调且无 08-08 式实测 → 改记 R-07 refuted | `pending` |
+| `R-20260816-11` | 十题窗 #94 + 检阅 #96（非 M1） | `EVAL_ONLY` | 下一份分诊须把「修后判断槽 `evidence_hashes=0`、旁槽仍有哈希」立为独立 PRIMARY 候选或显式 REJECT；并进 R-06、或写成 judge 窗地板副作用，即本预测 **refuted** | 冻结样本：`post:L01:r3` `run_20260816_184718_305950`、`post:L03:r2` `run_20260816_185901_871285`、`post:L05:r2` `run_20260816_190657_142513`（均 completed/repaired，避免用兼有 transient 的 L01 r2）。交接 `docs/handoffs/2026-08-16-outlook-eb-judgment-slot.md` | `pending` |
 | `R-20260816-07` | 2026-08-16 有稿 judge 案豁免 | `NO_SYSTEM_FIX` | 本窗关闭后下一份自称「outlook 预算回归修复」的 PR diff **不含** T / `_REPAIR_SECONDS_CAP` / 生产档位上调 | 出现上调且无 08-08 式延迟实测 + 全路由影响面 → refuted | `pending` |
 | `R-20260816-08` | 2026-08-16 有稿 judge 案 F-003 | `EVAL_ONLY` | 若把 G01–G05 degraded 写入长尾开关账，必须先有同题 off 臂；在此之前收据只写「heading 缺席 + 路由仍 theme-research」 | 无 off 基准却写开关因果 → 本预测 refuted | `pending` |
 | `R-20260816-09` | 2026-08-16 有稿 judge 案 F-004 | `HARNESS_FIX` | 若动 `_BALANCED_SYNTHESIS_RESERVE` / 非 finalize `stage_timeout`：改完后非 finalize `timeout_asked` 不再系统等于 `remaining−60`；须附 2026-08-08 式延迟实测 + 全路由影响面 | 只调 T/30 当修复 → 本预测不兑现（T 不改 `min(90,T−40)`）。观点题对照不得变慢超 5pp | `pending` |
@@ -208,6 +209,17 @@
 | `R-20260816-07` | 处置 PR 只地板 standard judge 窗，不含 T/30/档位上调 | `pending` | 保持 Open（绊线，合入后看 diff） |
 | `R-20260816-08` / `-09` / `-01` | G 组只作旁证；未动 reserve；非空稿 finalize | `pending` | 保持 Open |
 
+### 2026-08-16 十题窗 #94 合入：回填
+
+8792=`6cd0756e`；修前臂 8794=`437cd5e9`（已停）。收据 `docs/verification/2026-08-16-outlook-ten-question-ab.md`。F01 勘误后护栏 PARTIAL 3/4。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-11` | 开行。post 臂 eb 0.947→0.772（−17.5pp）；L01 3 槽 −33.3pp。判断槽 hashes=0、旁槽仍 bound。不复用 R-06 | `pending` | 新开 Open。分诊交接 `docs/handoffs/2026-08-16-outlook-eb-judgment-slot.md` |
+| `R-20260816-10` | 本窗 post 唯一 transient asked=12.5（重试半档），不是 8795 同形 12 槽重放；无首轮 asked 独立戳 | `pending` | 保持 Open。不得用 L01 r2 偷结 |
+| `R-20260816-06` | 已 Closed。本窗 H9 残留不重开 | `confirmed` | 不回写 |
+| `R-20260816-07` | #94 无 T/30/档位 | `pending` | 保持 Open（绊线仍看自称预算修复的 PR） |
+
 ### Closed
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
@@ -284,6 +296,7 @@ streak 已归零（0/3）。Round 6 批 #3 将 `R-20260815-09`（`HARNESS_FIX`�
 | `route` 在 codex 侧结构性不存在（episode 不做 skill 分派，backend 由 benchmark 选定、registry 固定） | 已记入 [trace-profile.md](trace-profile.md) §8 | 无需埋点。门槛已由四步收窄为三步——把结构差异写成埋点缺口，会诱导为满足指标而制造事件 |
 | 批 #3 B4 验收 `timeout`/`eb=0`/`run_id` 空，仓外 `run_20260815_182037_434217` 已 `completed` 且三格 hashed | 已记入 `docs/verification/2026-08-15-r6-clean-baseline-3.md` E-008 | R-10 不改口径。是否让验收超时后回填已存在的 run_id 属排期，本轮不修 |
 | 2026-08-16 长尾 off 有稿槽 `semantic judge transient provider error`（22/26）与 G01–G05 同形；零槽 `deadline exhausted` | 已记入 [trace-profile.md](trace-profile.md) §2 | 下一份 asked + 原始异常切开 H8/H9（`R-20260816-06`）。G01–G05 无 off 基准 |
+| 十题窗核心集判断句机器列 0pp（诚实闸仍 uncheckable，公开正文常有「基准判断」） | 已记入 [trace-profile.md](trace-profile.md) §2 | 另案。不并进 R-11 |
 
 ### 溯源说明
 
@@ -357,6 +370,12 @@ outcome=`ROOT_CAUSE_NOT_CONFIRMED`，PRIMARY=`UNCLEAR/synthesize/DEPTH_INSUFFICI
 （书面豁免：禁无实测抬 T/30）、R-08（G0x 无 off 基准）、R-09（60s reserve
 杠杆须 08-08 实测）。R-02 因未动预算保持 pending。R-03 45 槽已否证充分条件，
 单变量仍 pending。8795 identity 收齐后 R-01/R-06 仍 pending（形状未再现 / judge 字段仍缺）。
+
+`R-20260816-11` 来自十题窗收据 #94 + 检阅 #96 的交叉验证，**不是**标准四阶段
+分诊：没有 L0/L1/L2，没有 3 条以上排名假设。只有 `fix_type` 与
+`verification_prediction` 可进 streak，**不能当作已确认根因的 PRIMARY 引用**。
+形状记录：修后判断槽 `evidence_hashes=0`、旁槽仍 bound；42 槽 eb −17.5pp。
+分诊从交接 `docs/handoffs/2026-08-16-outlook-eb-judgment-slot.md` 起做。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。

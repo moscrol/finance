@@ -1,8 +1,8 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-16
-- updated_by_run: `2026-08-16 off 45 槽 + 8795 identity`（judge transient 22/26；
-  非 finalize asked=remaining−60。前值 outlook 核验预算回归 M1）
+- updated_by_run: `2026-08-16 十题窗 #94`（判断槽 0-hash → eb −17.5pp，R-11）。
+  前值：off 45 槽 + 8795 identity（judge transient 22/26）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -62,6 +62,7 @@
 | `semantic judge transient provider error` | provider 挂了，或核验预算耗尽未调用 | 映射仍把 TimeoutError 与 5xx/连接收成同一句。R-06 已用 judge `timeout_asked`+`exc_class` 切开：8795 `02fa203e` 11 槽 asked=5.208 / TimeoutError / remaining≥170 → **H9**；0 槽 H8。standard 导出窗 20.83s、落盘 asked 是末次 5.208。处置是 standard 窗地板 50（首轮 25），见 `R-20260816-10` | `docs/verification/2026-08-16-judge-transient-r06.md`；`docs/verification/2026-08-16-outlook-off-arm-typology-judge-case.md` |
 | off 臂 `judge_status=unavailable` 33/45 | 整窗没跑到 judge | 须拆三元组 `(stop_reason, draft_len, judge_status)`：10 空稿跳过、22 有稿已调用、9 无 episode、3 跑完。score 的 `judge_unavailable=33` 把前两类压扁 | `score.json` + 45 份 episode；对齐键 `slot`+`run_id` |
 | 非 finalize `timeout_asked` ≈ 8–20s | provider 又慢了，或 T 不够 | `asked = remaining − _BALANCED_SYNTHESIS_RESERVE(60)`。opening 才向 reserve 借到 floor=20。finalize 用 `synthesis_timeout=remaining`。调 T 不改 `min(90, T−40)` | identity L01 r2 seq5 8.49；`glm_agent_runtime.py:47` |
+| 十题窗 `evidence_bound_rate` 修后 −17.5pp | 绑得更差所以四层修复无效；或与长尾窗「诚实缺口替换」同一因果 | 先拆判断槽 vs 旁槽。post 臂多格 `direct_answer`/`direct_assessment` `evidence_hashes=0`，旁槽仍 bound。L01 r3 / L03 r2 / L05 r2 是 completed/repaired 样本；L01 r2 兼有 judge transient，不作单样本 PRIMARY。另案 `R-20260816-11`，不并进 R-06 | `docs/verification/2026-08-16-outlook-ten-question-ab.md`；`docs/handoffs/2026-08-16-outlook-eb-judgment-slot.md` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
