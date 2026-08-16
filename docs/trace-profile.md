@@ -1,9 +1,8 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-16
-- updated_by_run: `2026-08-16 outlook 核验预算回归 M1`（L01 空稿 TimeoutError；
-  #84 之后新 run 的 finalize `model_turn` 应有 `timeout_asked`。前值
-  `R-20260815-12` 仪器 / `20260815T0302Z-r4-clean-baseline-2`）
+- updated_by_run: `2026-08-16 off 45 槽 + 8795 identity`（judge transient 22/26；
+  非 finalize asked=remaining−60。前值 outlook 核验预算回归 M1）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -60,6 +59,9 @@
 | `uncheckable_judgment_empty` 未出现 | 第 4 层诚实闸没装上，或判断句还在 | #327 缺口模板「现有证据不足，暂不能可靠回答」会被 `answer_has_non_boundary_substance` 当成非边界正文，探测器不响（`marker_coverage=complete`，`warnings=[]`）。L01 的诚实性在 `report.status=partial` + degrade，不在 marker 警告 | `task_fulfillment.py:448-574`；R-20260816-04 |
 | L04 37s `completed` | 核验路径在预算内跑完的反例 | 该 run `lane=chat`、`needs_retrieval=false`、无 `continuous-episode.json`。是 GRAPH/route 分叉，不是 verification 成功 | `run_20260816_125920_927309` |
 | 长尾 off 臂 151–159s + degraded | 同一机制（核验预算撞墙） | L01 = 空 draft + `repair_model_unavailable` + 「未完成核验绑定」。L05 = draft 279 字 + `repair_model_stop` + 「候选草稿」+ `semantic judge transient provider error`。墙钟相近，机制不同 | L01 `run_20260816_131941_597875`；L05 `run_20260816_132541_309060` |
+| `semantic judge transient provider error` | provider 挂了，或核验预算耗尽未调用 | 映射函数把 TimeoutError **和** 5xx/连接收成同一句。本窗 22 个有稿 off 槽 + G01–G05 均为 `correlated_judge=true`（已调用）；**零** `semantic judge deadline exhausted`。standard 档导出首轮 judge≈10.4s。无 `timeout_asked` 不能在 grant 饿死与真故障之间定夺 | `docs/verification/2026-08-16-outlook-off-arm-typology-judge-case.md`；`episode_semantic_verifier.py:2981-3020` |
+| off 臂 `judge_status=unavailable` 33/45 | 整窗没跑到 judge | 须拆三元组 `(stop_reason, draft_len, judge_status)`：10 空稿跳过、22 有稿已调用、9 无 episode、3 跑完。score 的 `judge_unavailable=33` 把前两类压扁 | `score.json` + 45 份 episode；对齐键 `slot`+`run_id` |
+| 非 finalize `timeout_asked` ≈ 8–20s | provider 又慢了，或 T 不够 | `asked = remaining − _BALANCED_SYNTHESIS_RESERVE(60)`。opening 才向 reserve 借到 floor=20。finalize 用 `synthesis_timeout=remaining`。调 T 不改 `min(90, T−40)` | identity L01 r2 seq5 8.49；`glm_agent_runtime.py:47` |
 
 ## 3. 当前 trace_depth 与盲区清单
 

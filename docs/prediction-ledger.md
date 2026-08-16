@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（#84 已合 `21dbf6c1`：timeout_asked 埋点 + #327 模板钉住。outlook 预算回归 M1 入账 `R-20260816-01..05`；R-04 离线结案。8792 仍 `773b3d7e`，未切 #84。R-24 live 臂与 S10 `R-20260815-26` 维持）
+- last_updated: 2026-08-16（off 45 槽分型 + 8795 identity 收齐：R-05 结案；R-01/06 仍 pending；追加 R-09。8795=`21dbf6c1`，8792 仍 `773b3d7e`）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -35,10 +35,36 @@
 | `R-20260815-26` | S10 Phase A 标准 M1 F-001 | `EVAL_ONLY` | 冻结谓词与 N=5 题写入 `intelligence/eval/cases/s10_branch_eligible_tasks.json` 后：Phase B / S1 A/B 必须引用该夹具，不得改用 08-14「三次现场零调用」当基线。夹具 `frozen_at` 与五题原文保持不变；生产 prompt / 路由 / `episode_semantic_verifier.py` 本行不改 | 夹具存在且五题与报告 Freeze 表逐字相同；S10 报告 `validate-report.sh` RC=0。Phase B 若开，另用 `R-20260815-27` / `-28` 候选行，不把本行当 ROUTING 已确认 | `pending` |
 | `R-20260816-01` | outlook 预算回归 M1 F-001 | `HARNESS_FIX` | 下一次空 draft 超时 run 的首轮 finalize `model_turn` payload 含 `timeout_asked`（及入口剩余秒 / input tokens），能直接比较 asked 与墙钟 | 字段存在性单测已随 #84 绿；用下一份同形 live run 读 seq=首轮合成 `model_turn`，缺字段不得结案。长尾窗收口前不占 8792 | `pending` |
 | `R-20260816-02` | outlook 预算回归 M1 F-002 | `HARNESS_FIX` | 若动预算：同题重放要么首轮合成成功，要么 repair 的 `timeout_asked` 不再小于该 run 已观测的首轮合成墙钟；须附 2026-08-08 式延迟实测与全路由影响面 | 禁止只把 T 或 30 调大当修复；非观点题对照不得变慢超 5pp | `pending` |
-| `R-20260816-03` | outlook 预算回归 M1 F-001 | `EVAL_ONLY` | 同题三臂（只 #72 / 只第 4 次查询 / 四层全开）能单独证实或证伪「#72 提示变重」与「stock_high_daily 扩容」 | 离线量测见 `docs/verification/2026-08-16-outlook-compose-ablation-offline.md`（体积差已记，H2/H3 仍 INCONCLUSIVE）。live 三臂等长尾 95 槽齐；禁止把 L04 chat 臂当对照 | `pending` |
-| `R-20260816-05` | outlook 预算回归 M1 E-012 | `EVAL_ONLY` | 观测台/收据把 L01 空稿 `(repair_model_unavailable, draft_len=0)` 与 L05 候选草稿 `(repair_model_stop, draft_len>0, judge transient)` 分成两行 | 禁止用 151–159s 墙钟合并机制 | `pending` |
+| `R-20260816-03` | outlook 预算回归 M1 F-001 | `EVAL_ONLY` | 同题三臂（只 #72 / 只第 4 次查询 / 四层全开）能单独证实或证伪「#72 提示变重」与「stock_high_daily 扩容」 | 45 槽已否证二者作**窗口充分条件**；L01 r1 必要性仍要单变量。8795 只跑 identity。3-tool/#72-off 须另开 hook 树，不停泊 `21dbf6c1` | `pending` |
+| `R-20260816-06` | 2026-08-16 有稿 judge 案 F-001 | `EVAL_ONLY` | 下一份 draft>0 且 `semantic judge transient provider error` 的 run，judge 调用带 `timeout_asked` 与原始异常类（TimeoutError / HTTP status / 连接） | 8795/#84 树读数；asked≤12 且墙钟≈asked → H9；asked≥20 且 5xx/连接 → H8。缺字段不得结案 | `pending` |
+| `R-20260816-07` | 2026-08-16 有稿 judge 案豁免 | `NO_SYSTEM_FIX` | 本窗关闭后下一份自称「outlook 预算回归修复」的 PR diff **不含** T / `_REPAIR_SECONDS_CAP` / 生产档位上调 | 出现上调且无 08-08 式延迟实测 + 全路由影响面 → refuted | `pending` |
+| `R-20260816-08` | 2026-08-16 有稿 judge 案 F-003 | `EVAL_ONLY` | 若把 G01–G05 degraded 写入长尾开关账，必须先有同题 off 臂；在此之前收据只写「heading 缺席 + 路由仍 theme-research」 | 无 off 基准却写开关因果 → 本预测 refuted | `pending` |
+| `R-20260816-09` | 2026-08-16 有稿 judge 案 F-004 | `HARNESS_FIX` | 若动 `_BALANCED_SYNTHESIS_RESERVE` / 非 finalize `stage_timeout`：改完后非 finalize `timeout_asked` 不再系统等于 `remaining−60`；须附 2026-08-08 式延迟实测 + 全路由影响面 | 只调 T/30 当修复 → 本预测不兑现（T 不改 `min(90,T−40)`）。观点题对照不得变慢超 5pp | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
+
+### 2026-08-16 off 45 槽分型 + judge 全窗案：开工回填
+
+此表冻结在本轮 M1 归因之前。材料 = 长尾 off 45 + G01–G05；对齐键 `slot`+`run_id`。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-05` | 三元组已分型：空稿跳过 judge 10 槽；有稿+transient 22 槽；judge 完成 3；无 episode 9。L01 空稿与 L05 候选草稿不再用 151–159s 合并 | `confirmed` | 从 Open 移到 Closed |
+| `R-20260816-01` | 773b3d7e 窗内产物仍无首轮 `timeout_asked`。8795=`21dbf6c1` 已起，identity 未收齐 | `pending` | 保持 Open |
+
+### 2026-08-16 identity 臂收齐：回填
+
+8795 `21dbf6c1`；user `outlook-r03-0816`；L01×3 + L03×1。不占 8792。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-01` | 四槽合成/修复 `timeout_asked` 均在。空稿超时是 L01 r2 非 finalize asked=8.49，不是预测要的 finalize 空稿。68s finalize 空稿 0/3 | `pending` | 保持 Open。字段在 ≠ 形状结案 |
+| `R-20260816-06` | L01 r3 / L03 已是 draft>0 + transient；`semantic_verifier` 仍无 judge `timeout_asked` / `exc_class` | `pending` | 保持 Open。#84 覆盖不够，须先补 judge 埋点 |
+| `R-20260816-02` | 仍未动 T/30 | `pending` | 保持 Open |
+| `R-20260816-03` | identity 不是单变量三臂 | `pending` | 保持 Open |
+| `R-20260816-02` | 本轮书面豁免调 T/30，条件句「若动预算」未触发 | `pending` | 保持 Open；不写 confirmed/refuted |
+| `R-20260816-03` | 45 槽否证 H2/H3 作充分条件；单变量三臂未跑 | `pending` | 保持 Open |
+| `R-20260815-04` / `R-20260804-10` | 字段/headless 路径未触及 | `pending` | 保持 Open |
 
 ### 2026-08-16 outlook 核验预算回归：开工回填
 
@@ -175,6 +201,7 @@
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
 |---|---|---|---|---|---|
+| `R-20260816-05` | outlook 预算回归 M1 E-012 | `EVAL_ONLY` | 观测台/收据把 L01 空稿 `(repair_model_unavailable, draft_len=0)` 与 L05 候选草稿 `(repair_model_stop, draft_len>0, judge transient)` 分成两行 | `confirmed` | `docs/verification/2026-08-16-outlook-off-arm-typology-judge-case.md` E-001：`(repair_model_unavailable,0,unavailable)=7` 与 `(invalid_repair_finish,0,unavailable)=3` 对 `(repair_model_stop,>0,unavailable)=8` 等有稿行。禁止 151–159s 合并 |
 | `R-20260816-04` | outlook 预算回归 M1 F-003 | `EVAL_ONLY` | 用 `run_20260816_131941_597875/answer.md` 跑 `evaluate_marker_coverage` 仍得 `warnings=[]`、`marker_coverage=complete`（#327 缺口模板不触发 `uncheckable_judgment_empty`） | `confirmed` | 原文夹具 `test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty`（#84 / `21dbf6c1`）。`direct_answer` uncheckable + 模板句被当成非边界正文。改探测器另开观测台 |
 | `R-20260815-23` | 轨道 A Round 4 M1 F-001 | `DATA_CONTRACT_FIX` | 本修复部署到 8792 之后的下一批：主路径 `deadline_exhausted`、修复轮已收集证据的同形 case，修复终局应解析出绑定且 `evidence_bound>0`。该批若再出现 `invalid_action.reason` 含 `unknown evidence hash`（誊抄 16-hex），本预测 **reproduces → refuted**。越界序号 / 歧义拼接仍拒收；不做模糊纠正 | `confirmed` | 批 #3 `sha256=e475f3c889946b2ef87507ca303effa5bf9a1ca153821009f60e6b4edaf1ebf0`。检阅方重扫：hash-reject 0；修复路径验收 eb>0 为 14/15；B8 `no_substantive_answer` 不同形。8792=`fdb23114` pid 70403 |
 | `R-20260815-10` | Round 3 轨道 B（M1 F-002） | `EVAL_ONLY` | B 组结论改报交付率而非单批布尔后：连续 3 批的 B 组读数按题给出 N 次中的交付次数；任一只引用单批「失败成员名单」的结论可被评审据此打回 | `confirmed` | 批 #1 `sha256=b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`；批 #2 `sha256=51e617100b4a72dcd58109c21d685d25b5a4ccae9c0e34507db494ee87304ef4`；批 #3 `sha256=e475f3c889946b2ef87507ca303effa5bf9a1ca153821009f60e6b4edaf1ebf0`。N=3：B1 2/3、B2 3/3、B3 2/3、B4 2/3、B5 2/3、B6 0/3、B7 2/3、B8 2/3。只 `evidence_bound>0`。报告 `docs/verification/2026-08-15-r6-clean-baseline-3.md` E-005 |
@@ -244,6 +271,7 @@ streak 已归零（0/3）。Round 6 批 #3 将 `R-20260815-09`（`HARNESS_FIX`�
 | 收据的 arm 级 `stop_reason` 与事件级 `finish.payload.stop_reason` 在 `ruihuatai-valuation` 上不一致（`semantic_repair` vs `model_finish`） | 已记入 [trace-profile.md](trace-profile.md) §2 | 无需修复，属分层语义差异；跨 harness 比较一律用事件级 |
 | `route` 在 codex 侧结构性不存在（episode 不做 skill 分派，backend 由 benchmark 选定、registry 固定） | 已记入 [trace-profile.md](trace-profile.md) §8 | 无需埋点。门槛已由四步收窄为三步——把结构差异写成埋点缺口，会诱导为满足指标而制造事件 |
 | 批 #3 B4 验收 `timeout`/`eb=0`/`run_id` 空，仓外 `run_20260815_182037_434217` 已 `completed` 且三格 hashed | 已记入 `docs/verification/2026-08-15-r6-clean-baseline-3.md` E-008 | R-10 不改口径。是否让验收超时后回填已存在的 run_id 属排期，本轮不修 |
+| 2026-08-16 长尾 off 有稿槽 `semantic judge transient provider error`（22/26）与 G01–G05 同形；零槽 `deadline exhausted` | 已记入 [trace-profile.md](trace-profile.md) §2 | 下一份 asked + 原始异常切开 H8/H9（`R-20260816-06`）。G01–G05 无 off 基准 |
 
 ### 溯源说明
 
@@ -310,6 +338,13 @@ R-09 用字段在场性 + B8 非空拒收码；R-10 用三批 `evidence_bound>0`
 outcome=`ROOT_CAUSE_NOT_CONFIRMED`，PRIMARY=`UNCLEAR/synthesize/DEPTH_INSUFFICIENT(D4)`。
 它可以作为后续 Prior prediction closure 引用，但不能当作已确认单一刀（#72/#75/#79）的 PRIMARY。
 #84（`21dbf6c1`）落地 R-01 埋点与 R-04 夹具；R-04 已 Closed。R-01 仍等带 `timeout_asked` 的同形 live run。
+
+`R-20260816-05` 在
+[`docs/verification/2026-08-16-outlook-off-arm-typology-judge-case.md`](verification/2026-08-16-outlook-off-arm-typology-judge-case.md)
+按 45 槽三元组收口为 `confirmed`。同报告立 R-06（judge `timeout_asked`）、R-07
+（书面豁免：禁无实测抬 T/30）、R-08（G0x 无 off 基准）、R-09（60s reserve
+杠杆须 08-08 实测）。R-02 因未动预算保持 pending。R-03 45 槽已否证充分条件，
+单变量仍 pending。8795 identity 收齐后 R-01/R-06 仍 pending（形状未再现 / judge 字段仍缺）。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。
