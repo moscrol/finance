@@ -1,8 +1,9 @@
 # handoff: R-20260816-11 十题窗判断槽 0-hash → eb 下跌
 
 - 日期：2026-08-16
-- 接收方：分诊 agent（`agent-run-triage`）
-- 基线：`gitea/main` @ `cfac6ce6`（#94 合入后的 tip）。从它拉分支。
+- 状态：**M2 已交**。报告 `docs/verification/2026-08-16-outlook-eb-judgment-slot.md`（validate RC=0）。R-11 Closed confirmed。量具修复另开 `R-20260816-15`。不切 8792。
+- 接收方：分诊 agent（`agent-run-triage`）→ 已完成；下一接收方=量具修复（R-15）
+- 基线：当时 `gitea/main` @ `cfac6ce6`。本 M2 从后来的 `gitea/main`（含 #98）拉分支。
 - 决策背景：十题窗预注册「eb 修后不降」失败（−17.5pp）。检阅交叉验证：掉分格子是判断槽 hashes=0、旁槽仍 bound。**不复用 R-06**。
 
 ## 失败标准（先冻这个，再归因）
