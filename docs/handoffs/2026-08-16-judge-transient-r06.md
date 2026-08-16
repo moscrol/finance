@@ -100,3 +100,25 @@ judge 调用路径补齐 #84 同款时钟账：`timeout_asked` / `timeout_config
   - 身份三角：8795 health `02fa203e` / dirty=false / `code_root=…/finance-workspace-02fa203e` 与该目录 `git log -1` 一致。8792 `773b3d7e` / dirty=false / 目录名仍 `437cd5e9aa1a`（#88 HOLD）。停泊 `21dbf6c1` porcelain 空。
 - 标注：L03 r2 / L07 r1 无独立 judge 墙钟时间戳；探针 JSON 落盘失败、秒数以 stdout 为准。已写入收据 Limits。
 - 下轮：合 `#93`（可关 `#92`）→ 观测台部署窗 → 眼 agent 翻闸 2。本执行方不代合、不切 8792。
+
+### 检阅批注 · Round 1（2026-08-16，检阅方）
+
+- **判定**：PASS
+- 独立复核（每条为检阅方亲手验，非转录执行方读数）：
+  - validate-report.sh 重跑 RC=0；`.venv-workbench` pytest `test_stage_caps` + `test_episode_semantic_verifier` 159 passed（执行方只报了新增 11 条，全件同绿）。
+  - PRIMARY `run_20260816_173648_145174` 原始 episode 逐字段核：asked=5.208333/configured=30.0/remaining=238.913/`TimeoutError`/http=None/corr=true，与收据摘录一致。
+  - 全称主张换样本：检阅方对全部 12 份 episode 重新计数（含执行方自检未抽的 L07 r2、G01 r1 等）——11×H9 形、0×H8、1×字段空（L05 r1，issues 为结构缺口非 transient 句，不在预注册判据分母）。E-001 各槽 remaining 至小数位一致。
+  - 否定主张 diff 实查：地板仅 `tier=="standard"`；`tool_batch_seconds`/reserve/T/`_REPAIR_SECONDS_CAP`/档位/`_CLAIM_POLICY`/`ANALYTICAL_MARKERS`/ASK_* 零触碰；`llm_refine.py` 零改动，exc 在 verifier except 处于压平前捕获（11 槽落盘 `TimeoutError` 即实证）。停泊树 `21dbf6c1d83f` porcelain 空。
+  - 身份三角：8795=`02fa203e`、8792=`6cd0756e` 各自 health `source_revision`/`code_root`/目录 `git log -1` 三读一致且 dirty=false；8792 目录名=SHA（#88 卫生同窗完成）；回滚锚 `finance-workspace-773b3d7e73d7` 在位、HEAD 精确、clean。
+- 交叉验证（检阅方证据）：十题窗 `score.json`（20:19）post 臂唯一 transient 槽 `post:L01:r2` asked=12.5=地板窗重试档（首轮 25），双臂 asked≤12 命中 0——与 E-002 劈窗算术互证。新发现：post 臂 `evidence_bound_rate` 0.772 vs pre 0.947（−17.5pp）、`empty_shell_rate` 71%，归十题窗收据 owner 说明或立案，不改写 R-06 收据正文。
+- 标注（不影响判定）：
+  1. T2 在 T1 合 main 前于分支快照 `02fa203e` 重放（已申报；该 SHA 现为 main 祖先，实质等价）。
+  2. `timeout_asked` 只留末次 attempt，R-10 的「首轮 ≥20」当前只能算术反推——建议先落 `judge_attempt_index`（收据观测处方第 1 行）再跑 R-10 结案重放。
+  3. 收据 Limits 写探针 JSON「落盘失败」，实际 `judge_latency.json` 已落盘（剔除不可序列化字段），数值与 stdout 一致。
+  4. L05 槽 judge 触达重复数=1（r1 结构跳过），低于「每槽 ≥2」的名义值；F-002 已如实分桶。
+- Round 2 指派（依赖序）：
+  1. 十题窗收据（owner=窗执行方/眼 agent）：judge transient 单列已在 score.json；按 #82 预注册补 F01 假数字护栏与 5pp 对照结论（post 快 ~20s，不触），并处置 evidence_bound −17.5pp / empty_shell 71%（说明成因或开新账本行）。
+  2. R-10 结案重放：8795 先切 ≥`6cd0756e` 的 tip（可选先合 `judge_attempt_index` 小 PR），同 12 槽分层重放，验「首轮 ≥20 / H9 率较 11/11 下降」；缺字段不得结案。
+  3. 观测台薄账（`docs/handoffs/inflight/main.md` 8792 行）由本批注同 PR 对账为 `6cd0756e`。
+  4. 暂缓：#90 三开关（`ASK_LONGTAIL_BASELINE`/`ASK_JUDGE_RECHECK`/`ASK_DEGRADED_FALLBACK`）对照窗仍排本链路之后（交接边界原文）。
+- 升格用户：无待决。T3 非混合形状（0×H8），交接「混合形状回来找用户」条件未触发；无破坏性动作待批。
