@@ -27,7 +27,7 @@ from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.degraded_fallback import gap_transparency
+from intelligence.services.degraded_fallback import gap_opening, gap_transparency
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -1882,7 +1882,8 @@ class SemanticEpisodeVerifier:
         """
 
         question = frame.raw_question.strip() or "当前问题"
-        base = f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+        # 首句成因不跟 ASK_DEGRADED_FALLBACK：模型没服务成时不能写成「证据不足」。
+        base = gap_opening(question, verified)
         contract = verified.contract
         if contract is None:
             return base

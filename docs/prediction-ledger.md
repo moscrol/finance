@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（8792 已切 GLM 主/中转兜底；开 R-16..21。dsh 草稿的 06–11 号作废，不覆盖 main 旧行）
+- last_updated: 2026-08-17（#112 已合并切 8792=`1b678ee9`。同题 live 后 R-21 帽未挂上；接线修复未合。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -292,6 +292,109 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-06` | Closed 的 judge 窗案。本事故不回写、不改原文 | `confirmed` | 不回写 |
 | `R-20260816-11` | Closed 的判断槽 0-hash。本事故不占用此号 | `confirmed` | 不回写 |
 | `R-20260816-07` / `-10` / `-13` / `-14` / `-15` | 未把 30 / T / 档位当本事故修复 | `pending` | 保持 Open |
+
+### 2026-08-16 R-17 成因行：离线回填
+
+夹具在 `intelligence/tests/test_degraded_fallback.py`。#106 已合 `main`。未部署 8792，未重渲染 22:18 / 23:05 生产 run。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-17` | 离线：`repair_model_unavailable` 与三零（`llm_calls=0` / evidence=0 / bindings=0）首句含「模型服务不可用」且不含「现有证据不足」；开关 off 时模型正常结束的中间档逐字节不变 | `pending` | 保持 Open。部分验证不得写 confirmed。live 重渲染未做 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-18` / `-19` / `-20` / `-21` | 未做链长结案 / status 投影 / 反证夹具 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-16 R-21 repair 窗随 p90：离线回填
+
+分档延迟：8795 GLM 成功轮 n=32，p50=17.3 / **p90=34.4** / max=49.4；6/32 >30s。
+中转 terra 2026-08-08 P50≈28s，08-13 收据 30s 窗 5/5。取值：openai=30，zhipu=40（p90+余量），未知=30。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。#109 已合 `main`。未部署 8792。
+
+全路由影响面：非研究题不走 `admit_repair`（0pp）；中转研究题取值不变；仅 GLM 研究题的 repair / transient retry 单笔上限 30→40。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-21` | 离线：`repair_seconds_cap_for("zhipu")>34.4` 且 `!= openai`；不传 cap 的授予仍 30；transient retry 也吃注入帽。未做同题 live 重跑 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触。窗随 p90 不是把 30 调大 |
+| `R-20260816-02` | 动了 repair 授予公式的注入帽，不是 T。live 臂未跑 | `pending` | 保持 Open。条件句「若动预算」部分触发，不得写 confirmed |
+| `R-20260816-16` / `-18` / `-19` / `-20` | 本 PR 不改 status 投影 / 描述表。R-17 已由 #106 合入 | `pending` | 保持 Open |
+
+### 2026-08-16 R-20 描述表：离线回填
+
+18 个 `QUESTION_TYPES` 默认槽位补齐后人话描述；`chain_mapping` 不再同义反复。
+`.get(id, id)` 改为 `_require_output_description`，缺键在 `build_episode_context` 失败。
+删 `chain_mapping` 键的夹具转红。未部署 8792。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-20` | 离线：18 题型无缺键/同义反复；`test_missing_description_key_fails_at_build` 转红。未做 live 契约抽检 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-18` / `-19` | 未做链长结案 / status / 反证。R-17/#106、R-21/#109 已合 | `pending` | 保持 Open |
+
+### 2026-08-16 R-18 status 投影：离线回填
+
+`run.json` / `report.json` / `continuous-episode.json` 走同一函数
+`status_projection.project_artifact_statuses`。合流规则：`outcome.status=failed`
+压过 delivery 的 `degraded`——有缺口文案也不能把 run 写成 completed（22:18 形）。
+真 degraded（artifact 无 failed outcome）仍是 transport complete / business partial。
+夹具是当日两份 run 的 status 切片，不含题面/正文。未动 T / 30 / 档位。未做 live 重跑。
+
+8792 在本 PR 之前已切到 `0df86612`（#106/#109/#110）；本行代码尚未上 8792。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-18` | 离线：22:18 切片投影后 `run=failed` / `report=blocked`；23:05 `partial` 仍可 `run=completed`；orchestrator 夹具钉 `failed∧completed` 消失。未做 live 重跑 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-17` / `-19` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / 反证 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-16 R-19 缺口模板整篇 uncheckable：离线回填
+
+`evaluate_marker_coverage` 认出 `_gap_answer` 整篇后，全部 required output 进
+`uncheckable`，`present=[]`。22:18 形「提供主要反证」不再把 `counterpoint`
+标成 present，与 `structural_verifier` missing 不再静默冲突。
+真反证正文（「主要反证是…」）仍 present。未并完 R-15-03 的 6-run 同判据。
+未动 T / 30 / 档位。未做 live 重跑。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-19` | 离线：22:18 形 `counterpoint` 进 uncheckable 不进 present；真反证反向仍 present；L01 缺口模板不再报 `marker_coverage=complete`，且仍不响 `uncheckable_judgment_empty`。未做 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260815-03` | 本 PR 只收缺口模板这一类冲突，未改成同一判据函数，6-run 夹具未齐 | `pending` | 保持 Open。不得把本行当 R-03 结案 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-17` / `-18` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / status 投影 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-17 同题 live（8792=`1b678ee9`）
+
+`run_20260817_002238_100737` / user `verify-r1621-0817`。墙钟约 110s。
+主路径模型轮成功（timeout_asked 69.5 / 60.0）。repair 两发仍整窗 30.0 TimeoutError。
+未动 T / `_REPAIR_SECONDS_CAP` / 档位。单次 live 不得写 confirmed。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-16` | zhipu、tools=4、llm_calls=4、evidence=15；不是 16×5xx。**draft_len=0**、fulfilled 0/4 | `pending` | 保持 Open。draft 终值 0 不得写 confirmed |
+| `R-20260816-17` | 首句「模型服务不可用，暂不能可靠回答」；无「现有证据不足」 | `pending` | 保持 Open。单次命中 ≠ 结案 |
+| `R-20260816-18` | outcome=`partial`（stop=`repair_model_unavailable`），run=`completed`。禁止对 `failed∧completed` 未出现 | `pending` | 保持 Open。允许对出现，不是结案 |
+| `R-20260816-19` | present=[]；required 四格（含 counterpoint）全部 uncheckable | `pending` | 保持 Open。单次命中 ≠ 结案。R-15-03 6-run 未做 |
+| `R-20260816-20` | 本 run 未做描述表契约抽检 | `pending` | 保持 Open |
+| `R-20260816-21` | **MISS**：`repair_goal.remaining_seconds=30.0`，两发 `granted_seconds=30.0` / `seconds_granted=30.0`。代码在 8792，帽没挂上组合根 | `pending` | 保持 Open。预测「不再两发整窗 TimeoutError」未兑现 |
+| `R-20260816-07` | 本 live 未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-21 帽挂上 GLM 组合根：离线回填
+
+生产装配是 `GLMModelClient → GLMAgentRuntime → ContinuousTurnAdapter`。
+`GLMAgentRuntime` 没有 `_providers` / `model_client` / `_client` / `_model`，
+`provider_name_from(runtime)` 返回 None → `repair_seconds_cap_for(None)=30.0`。
+`provider_name_from` 改为沿 `_episode` / `client` / `_model` 走（带环检测）；
+`app.py` 组合根同时按链首名注入 `repair_seconds_cap`。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。未部署 8792。未做二次 live。
+
+首笔 grant 仍可能是 30：standard 90 − synthesis reserve 60 的剩余。那是另一件事，
+本行不把 30 调大。接线后 **retry** 应吃到 zhipu 帽 40；两发整 30 TimeoutError 仍算 miss。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-21` | 离线：`provider_name_from` 能从 GLM runtime→episode→client 读到 zhipu；组合根 adapter 帽=`repair_seconds_cap_for("zhipu")`。未做二次 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触 |
+| `R-20260816-02` | 仍只修帽的挂载，不是 T。二次 live 未跑 | `pending` | 保持 Open |
+| `R-20260816-16` / `-17` / `-18` / `-19` / `-20` | 本 PR 不改链长 / 成因行 / status / 反证 / 描述表 | `pending` | 保持 Open |
 
 ### Closed
 

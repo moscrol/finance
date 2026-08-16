@@ -10,12 +10,16 @@
    核验；只允许调用计数、中断成因、来源名与 ISO 日期。
 4. 扩展后的 gap 答案不惊动 layer 4 标记闸（对照 #327 缺口模板的既有钉法，
    见 R-20260816-04）。
+5. 成因行不跟 ``ASK_DEGRADED_FALLBACK``：``repair_model_unavailable`` 或
+   ``llm.used=false``（本缝用 ``usage.llm_calls==0``）的首句必须是
+   「模型服务不可用」，不能是「现有证据不足」。开关 off 时其余文案逐字节不变。
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 
+from intelligence.services.agent_runtime import AgentUsage
 from intelligence.services.degraded_fallback import (
     ENV_NAME,
     HEADING,
@@ -31,6 +35,7 @@ from intelligence.services.episode_semantic_verifier import (
     _JUDGE_SYSTEM_PROMPT,
     SemanticEpisodeVerifier,
 )
+from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.longtail_baseline import (
     ANALYTICAL_MARKERS,
     skill_body_is_clean,
@@ -167,6 +172,85 @@ def test_extended_gap_answer_keeps_marker_gate_quiet(monkeypatch) -> None:
         answer,
     )
     assert coverage["warnings"] == []
-    assert coverage["marker_coverage"] == "complete"
-    assert coverage["uncheckable"] == ["direct_answer"]
-    assert "evidence_boundary" in coverage["present"]
+    assert coverage["marker_coverage"] is None
+    assert coverage["present"] == []
+    assert coverage["uncheckable"] == ["direct_answer", "evidence_boundary"]
+
+
+# 中间档在开关 off、模型正常结束时的逐字节形状。成因行拆出后，这条必须
+# 仍一字不差——改的只是「模型没服务」那一类首句，不是整份缺口模板。
+_MIDDLE_TIER_WHEN_MODEL_FINISHED = (
+    "关于“当前市场怎么看？”，现有证据不足，暂不能可靠回答。"
+    "仍需核验：失效条件。"
+    "本轮已核验（供参考，不构成完整结论）：直接判断（2 条证据）。"
+    "证据数据截至 2026-08-12；缺口补齐后可复验。"
+)
+
+# 有证据、零绑定、修复阶段模型不可用：除首句外与既有中间档一致。
+_UNBOUND_EVIDENCE_WHEN_REPAIR_UNAVAILABLE = (
+    "关于“当前市场怎么看？”，模型服务不可用，暂不能可靠回答。"
+    "仍需核验：直接判断、失效条件。"
+    "本轮已取得 2 条证据，但未完成核验绑定，暂不能引用；可直接重试。"
+    "证据数据截至 2026-08-12；缺口补齐后可复验。"
+)
+
+
+def test_model_finished_gap_stays_byte_identical_when_flag_off(monkeypatch) -> None:
+    """开关 off 时，模型正常结束的缺口文案逐字节不变。"""
+
+    monkeypatch.delenv(ENV_NAME, raising=False)
+    frame, verified = _verified()
+    assert (
+        SemanticEpisodeVerifier._gap_answer(frame, verified)
+        == _MIDDLE_TIER_WHEN_MODEL_FINISHED
+    )
+
+
+def test_repair_unavailable_opening_is_not_evidence_shortage(monkeypatch) -> None:
+    """R-17：repair_model_unavailable 首句说模型不可用，不说证据不足。
+
+    其余中间档（仍需核验 / 已取得 N 条 / 截至）在开关 off 时逐字节保留。
+    形状对照 08-12 A5 与 2026-08-16 复跑：有证据、零绑定、修复轮超时。
+    """
+
+    monkeypatch.delenv(ENV_NAME, raising=False)
+    frame, verified = _verified()
+    assert verified.contract is not None
+    no_bindings = verify_episode_outcome(
+        verified.contract,
+        replace(
+            verified.outcome,
+            bindings=(),
+            stop_reason="repair_model_unavailable",
+        ),
+    )
+    answer = SemanticEpisodeVerifier._gap_answer(frame, no_bindings)
+    assert answer == _UNBOUND_EVIDENCE_WHEN_REPAIR_UNAVAILABLE
+    assert answer.split("。", 1)[0].endswith("模型服务不可用，暂不能可靠回答")
+    assert "现有证据不足" not in answer
+
+
+def test_triple_zero_opening_is_not_evidence_shortage(monkeypatch) -> None:
+    """R-17 三零形状：llm.used=false、evidence=0、bindings=0。
+
+    一次检索都没发生时，把缺口写成「现有证据不足」是成因谎。
+    本缝用 ``usage.llm_calls==0`` 代理报告里的 ``llm.used=false``。
+    """
+
+    monkeypatch.delenv(ENV_NAME, raising=False)
+    frame, verified = _verified()
+    triple_zero = replace(
+        verified,
+        outcome=replace(
+            verified.outcome,
+            draft="",
+            evidence=(),
+            bindings=(),
+            usage=AgentUsage(llm_calls=0, tool_calls=0),
+            stop_reason="model_finish",
+        ),
+    )
+    answer = SemanticEpisodeVerifier._gap_answer(frame, triple_zero)
+    first = answer.split("。", 1)[0]
+    assert "模型服务不可用" in first
+    assert "现有证据不足" not in answer
