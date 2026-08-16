@@ -1,0 +1,17 @@
+{
+  "captured_from": "run_20260816_230528_976709",
+  "note": "2026-08-16 GLM 复跑。只留三份 status，不含题面/正文。",
+  "run": {"status": "completed"},
+  "report": {
+    "status": "partial",
+    "transport_status": "completed",
+    "research_status": "partial",
+    "answer_status": "partial",
+    "business_status": "partial"
+  },
+  "episode": {
+    "outcome": {
+      "status": "partial"
+    }
+  }
+}

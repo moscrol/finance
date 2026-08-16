@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（#106 R-17 / #109 R-21 已合；R-20 离线已绿。R-16..21 仍 pending）
+- last_updated: 2026-08-16（#110 R-20 已合；8792 已切 `0df86612`。R-18 离线已绿。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -329,6 +329,22 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-20` | 离线：18 题型无缺键/同义反复；`test_missing_description_key_fails_at_build` 转红。未做 live 契约抽检 | `pending` | 保持 Open。部分验证不得写 confirmed |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-18` / `-19` | 未做链长结案 / status / 反证。R-17/#106、R-21/#109 已合 | `pending` | 保持 Open |
+
+### 2026-08-16 R-18 status 投影：离线回填
+
+`run.json` / `report.json` / `continuous-episode.json` 走同一函数
+`status_projection.project_artifact_statuses`。合流规则：`outcome.status=failed`
+压过 delivery 的 `degraded`——有缺口文案也不能把 run 写成 completed（22:18 形）。
+真 degraded（artifact 无 failed outcome）仍是 transport complete / business partial。
+夹具是当日两份 run 的 status 切片，不含题面/正文。未动 T / 30 / 档位。未做 live 重跑。
+
+8792 在本 PR 之前已切到 `0df86612`（#106/#109/#110）；本行代码尚未上 8792。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-18` | 离线：22:18 切片投影后 `run=failed` / `report=blocked`；23:05 `partial` 仍可 `run=completed`；orchestrator 夹具钉 `failed∧completed` 消失。未做 live 重跑 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-17` / `-19` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / 反证 / 描述表 / p90 窗 | `pending` | 保持 Open |
 
 ### Closed
 

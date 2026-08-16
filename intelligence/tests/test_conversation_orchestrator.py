@@ -1105,6 +1105,83 @@ def test_continuous_degraded_turn_is_transport_complete_but_business_partial(
     ]
 
 
+def test_continuous_failed_outcome_does_not_complete_run_when_gap_answer_exists(
+    tmp_path,
+) -> None:
+    """R-18：22:18 形——delivery 被改写成 degraded，但 outcome 仍是 failed。"""
+
+    query = "国产算力当前处于哪一段"
+    (
+        conversation_store,
+        run_store,
+        conversation,
+        run_id,
+        assistant_message_id,
+        _frame,
+        _intent,
+        controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+
+    class FailedOutcomeDegradedDelivery:
+        def handle(self, *, frame: TaskFrame, control):
+            del frame, control
+            return ContinuousTurnResult(
+                handled=True,
+                status="degraded",
+                answer="模型服务不可用，本轮未完成核验绑定。",
+                as_of=None,
+                citations=(),
+                warnings=("本轮未取得可公开的答案或证据。",),
+                private_artifact={
+                    "outcome": {
+                        "status": "failed",
+                        "stop_reason": "repair_model_unavailable",
+                    }
+                },
+                events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed outcome must not enter legacy synthesis"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed outcome must not route"
+        ),
+        lane_answer_fn=lambda *_args, **_kwargs: pytest.fail(
+            "failed outcome must not use lane generator"
+        ),
+        turn_controller_fn=controller,
+        continuous_turn_adapter=FailedOutcomeDegradedDelivery(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    episode = json.loads(
+        (run_store.run_dir(run_id) / "continuous-episode.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert episode["outcome"]["status"] == "failed"
+    assert run_store.load_run(run_id).status == "failed"
+    assert result.status == "failed"
+    assert assistant.status == "failed"
+    assert report["status"] == "blocked"
+    assert report["transport_status"] == "failed"
+
+
 def test_continuous_verified_partial_is_not_presented_as_degraded(
     tmp_path,
 ) -> None:
