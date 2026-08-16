@@ -295,6 +295,80 @@ def test_episode_factory_projects_task_semantics_into_grounding_modes(
         assert context.contract.evidence_plan.requirements == ()
 
 
+def test_outlook_judgment_direct_answer_uses_model_reasoning() -> None:
+    """观点题的判断槽走 model_reasoning；边界槽与检索保持 evidence。
+
+    生产 run_20260816_102941 / 103318：同一句「你认为周一的机会在哪」被押进
+    evidence 硬边界，judge 按句剥光判断正文后仍 completed。第一刀只改判断槽，
+    不把整题标成 evidence-free（那会清掉本次已经取到的行情检索）。
+    """
+
+    control = TurnControlCore().control(
+        "基于8.15的行情现状，你认为周一的机会在哪",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="outlook-judgment-direct-answer",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert control.task_frame.question_type == "general_finance_qa"
+    assert modes["direct_answer"] == "model_reasoning"
+    assert modes["evidence_boundary"] == "evidence"
+    assert context.contract.allowed_capabilities != ()
+
+
+def test_default_conditional_goal_does_not_flip_fact_or_valuation_slots() -> None:
+    """``形成条件化判断`` 是 query_understanding 的默认 decision_goal，不能当路由键。"""
+
+    for task_id, question, judgment_slot in (
+        ("outlook-guard-limit-up", "2026-08-14涨停家数多少", "fact_value"),
+        ("outlook-guard-valuation", "瑞华泰的合理估值", "valuation_assessment"),
+    ):
+        control = TurnControlCore().control(
+            question,
+            llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+        )
+        context = build_episode_context(
+            control.task_frame,
+            task_id=task_id,
+            capabilities=control.capabilities,
+        )
+        assert control.task_frame.user_goal == "形成条件化判断"
+        modes = {
+            item.output_id: item.grounding_mode
+            for item in context.contract.required_outputs
+        }
+        assert modes[judgment_slot] == "evidence"
+        assert "model_reasoning" not in set(modes.values())
+
+
+def test_outlook_phrasing_on_forecast_only_flips_the_judgment_slot() -> None:
+    control = TurnControlCore().control(
+        "你觉得a股明天会怎么走",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    context = build_episode_context(
+        control.task_frame,
+        task_id="outlook-forecast-judgment-slot",
+        capabilities=control.capabilities,
+    )
+
+    modes = {
+        item.output_id: item.grounding_mode
+        for item in context.contract.required_outputs
+    }
+    assert modes["direct_assessment"] == "model_reasoning"
+    assert modes["evidence_boundary"] == "evidence"
+    assert modes["scenario_paths"] == "evidence"
+    assert context.contract.allowed_capabilities != ()
+
+
 def _prior_recall_context(question: str, task_id: str):
     control = TurnControlCore().control(
         question,

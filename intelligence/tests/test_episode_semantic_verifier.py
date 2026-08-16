@@ -307,6 +307,72 @@ def test_judge_receives_output_grounding_modes() -> None:
     assert "不能仅因缺少证据而拒绝" in system_prompt
 
 
+def test_mixed_answer_grounding_keeps_evidence_judge_prompt() -> None:
+    """判断槽 model_reasoning + 边界槽 evidence = mixed，仍走证据审查器。
+
+    第一刀只改判断槽。若 mixed 被切到方法论审查器，硬事实闸门会松。
+    """
+
+    frame, structural = _structural("基准判断：周一优先观察有色金属的资金承接。")
+    assert structural.contract is not None
+    mixed_contract = replace(
+        structural.contract,
+        required_outputs=(
+            replace(
+                structural.contract.required_outputs[0],
+                output_id="direct_answer",
+                grounding_mode="model_reasoning",
+            ),
+            RequiredOutput(
+                "evidence_boundary",
+                "证据边界",
+                ("market_data",),
+                True,
+                grounding_mode="evidence",
+            ),
+        ),
+    )
+    mixed_structural = replace(
+        structural,
+        contract=mixed_contract,
+        outcome=replace(
+            structural.outcome,
+            bindings=(
+                OutputEvidenceBinding(
+                    "direct_answer",
+                    structural.outcome.bindings[0].evidence_hashes,
+                    basis="model_reasoning",
+                ),
+                OutputEvidenceBinding(
+                    "evidence_boundary",
+                    structural.outcome.bindings[0].evidence_hashes,
+                ),
+            ),
+        ),
+    )
+    model = _RecordingJudgeModel()
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=mixed_structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    request = json.loads(model.calls[0]["messages"][1]["content"])
+    assert request["answer_grounding_mode"] == "mixed"
+    assert {
+        item["output_id"]: item["grounding_mode"]
+        for item in request["required_outputs"]
+    } == {
+        "direct_answer": "model_reasoning",
+        "evidence_boundary": "evidence",
+    }
+    system_prompt = model.calls[0]["messages"][0]["content"]
+    assert "严格的语义证据审查器" in system_prompt
+    assert "方法论与反事实边界审查器" not in system_prompt
+
+
 def test_model_reasoning_numeric_steps_are_not_treated_as_unsupported_facts() -> None:
     draft = "验证路径：若T+1承接走弱则降级，T+2再检查扩散是否恢复。"
     frame, structural = _structural(draft)
