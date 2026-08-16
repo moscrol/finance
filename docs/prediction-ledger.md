@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-24 部署窗已开，8792=`437cd5e9`，outcome 仍 `pending` 等 live 同形批；S10 Phase A：`R-20260815-26` 维持。Round 6 批 #3 检阅 PASS 维持）
+- last_updated: 2026-08-16（#84 已合 `21dbf6c1`：timeout_asked 埋点 + #327 模板钉住。outlook 预算回归 M1 入账 `R-20260816-01..05`；R-04 离线结案。8792 仍 `773b3d7e`，未切 #84。R-24 live 臂与 S10 `R-20260815-26` 维持）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -33,8 +33,24 @@
 | `R-20260815-24` | 轨道 A Round 5 M1 F-001（E-007） | `DATA_CONTRACT_FIX` | marker-loss 删除某 required output 并写入 `gap_output_ids` 时，同步收缩/清空该格绑定或标 structural missing 后：同形 case（hashed fulfilled + 对这些 ID 做 marker-loss）不得再同时出现「结构 fulfilled + `gap_output_ids` 含这些 ID + `citations=0`」。要么剩余 fulfilled 格仍被引用且 `evidence_bound>0`，要么被删格不再 fulfilled。再出现 B3#2 分道即 **reproduces → refuted**。不给已删正文发引用 | **离线已绿**（2026-08-15）：`_shrink_verified_for_marker_loss` 在 `_marker_loss_partial_public` 两条返回路径上收缩 `semantic.verified`（lost 格 `missing`、绑定清空并补 gap）。夹具 `test_marker_loss_shrinks_b3_hashed_cells_and_clears_bindings`、`test_marker_loss_keeps_remaining_hashed_cell_on_partial_c6_shape`、`test_marker_loss_ignores_output_ids_absent_from_contract`。确认口径是 `semantic_verifier.verified.completion`，不是 `episode_fulfilled_hashed`（该仪器仍读 `structural_verifier` + 顶层 `outcome.bindings`，本轮不改 `acceptance.py`）。**部署窗已开**（2026-08-16）：8792=`437cd5e9aa1a` / `source_dirty=false` / `code_matches_repo=true` / 加载树含 `_shrink_verified_for_marker_loss`。live 臂仍等下一批同形 case；**切窗本身不得写 confirmed** | `pending` |
 | `R-20260815-25` | 轨道 A Round 5 F-003 | `HARNESS_FIX` | 本修复部署后：新的 `tool_error` 且 `error=tool_exception` 的事件 `detail` 非空，形如 `ClassName: first line`，且不含 `/Users/` 或 `/home/`。再出现 `detail=""` 即 **reproduces → refuted**。不要求数据层已修；A 组仍可抛 `tool_exception` | **离线已绿**：`test_tool_exception_is_traced_and_model_can_finish_same_episode`、`test_tool_exception_detail_strips_home_path_and_stays_nonempty`、`test_public_tool_exception_detail_keeps_class_and_first_line`；timeout 夹具仍禁止 raw sentinel。live 臂等部署后下一批 | `pending` |
 | `R-20260815-26` | S10 Phase A 标准 M1 F-001 | `EVAL_ONLY` | 冻结谓词与 N=5 题写入 `intelligence/eval/cases/s10_branch_eligible_tasks.json` 后：Phase B / S1 A/B 必须引用该夹具，不得改用 08-14「三次现场零调用」当基线。夹具 `frozen_at` 与五题原文保持不变；生产 prompt / 路由 / `episode_semantic_verifier.py` 本行不改 | 夹具存在且五题与报告 Freeze 表逐字相同；S10 报告 `validate-report.sh` RC=0。Phase B 若开，另用 `R-20260815-27` / `-28` 候选行，不把本行当 ROUTING 已确认 | `pending` |
+| `R-20260816-01` | outlook 预算回归 M1 F-001 | `HARNESS_FIX` | 下一次空 draft 超时 run 的首轮 finalize `model_turn` payload 含 `timeout_asked`（及入口剩余秒 / input tokens），能直接比较 asked 与墙钟 | 字段存在性单测已随 #84 绿；用下一份同形 live run 读 seq=首轮合成 `model_turn`，缺字段不得结案。长尾窗收口前不占 8792 | `pending` |
+| `R-20260816-02` | outlook 预算回归 M1 F-002 | `HARNESS_FIX` | 若动预算：同题重放要么首轮合成成功，要么 repair 的 `timeout_asked` 不再小于该 run 已观测的首轮合成墙钟；须附 2026-08-08 式延迟实测与全路由影响面 | 禁止只把 T 或 30 调大当修复；非观点题对照不得变慢超 5pp | `pending` |
+| `R-20260816-03` | outlook 预算回归 M1 F-001 | `EVAL_ONLY` | 同题三臂（只 #72 / 只第 4 次查询 / 四层全开）能单独证实或证伪「#72 提示变重」与「stock_high_daily 扩容」 | 离线量测见 `docs/verification/2026-08-16-outlook-compose-ablation-offline.md`（体积差已记，H2/H3 仍 INCONCLUSIVE）。live 三臂等长尾 95 槽齐；禁止把 L04 chat 臂当对照 | `pending` |
+| `R-20260816-05` | outlook 预算回归 M1 E-012 | `EVAL_ONLY` | 观测台/收据把 L01 空稿 `(repair_model_unavailable, draft_len=0)` 与 L05 候选草稿 `(repair_model_stop, draft_len>0, judge transient)` 分成两行 | 禁止用 151–159s 墙钟合并机制 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
+
+### 2026-08-16 outlook 核验预算回归：开工回填
+
+此表冻结在本轮 M1 归因之前。被审 runtime = 8792 `773b3d7e`；主样本 `run_20260816_131941_597875`。#84 合入后代码在 `gitea/main` `21dbf6c1`，**尚未切 8792**。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260815-04` | 又一份空 draft：`outcome.draft=""`，`draft_source` 仍为 `None`。区分信号在 `gaps=['LLM 调用失败（TimeoutError）']` 与 `stop_reason=repair_model_unavailable` | `pending` | 保持 Open。字段未落地，不得因「这次能从 gaps 看出来」写 confirmed |
+| `R-20260815-24` / `25` / `26` | 本 run 不是 marker-loss / tool_exception / S10 夹具样本 | `pending` | 保持 Open；本 run 不能回填 |
+| `R-20260804-10` | 本轮是 workbench continuous episode，不是 headless handoff | `pending` | 保持 Open |
+| `R-20260816-04` | L01 `answer.md` 原文过 `evaluate_marker_coverage` → `warnings=[]`、`marker_coverage=complete`。单测 `test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty` 随 #84 合入 | `confirmed` | 从 Open 移到 Closed。改探测器另开观测台 |
+| `R-20260816-01` | #84 离线单测绿；8792 仍是 `773b3d7e`，没有带 `timeout_asked` 的同形 live run | `pending` | 保持 Open。代码落地 ≠ 预测兑现 |
 
 ### 2026-08-15 Round 6 批 #3 回填
 
@@ -159,6 +175,7 @@
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
 |---|---|---|---|---|---|
+| `R-20260816-04` | outlook 预算回归 M1 F-003 | `EVAL_ONLY` | 用 `run_20260816_131941_597875/answer.md` 跑 `evaluate_marker_coverage` 仍得 `warnings=[]`、`marker_coverage=complete`（#327 缺口模板不触发 `uncheckable_judgment_empty`） | `confirmed` | 原文夹具 `test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty`（#84 / `21dbf6c1`）。`direct_answer` uncheckable + 模板句被当成非边界正文。改探测器另开观测台 |
 | `R-20260815-23` | 轨道 A Round 4 M1 F-001 | `DATA_CONTRACT_FIX` | 本修复部署到 8792 之后的下一批：主路径 `deadline_exhausted`、修复轮已收集证据的同形 case，修复终局应解析出绑定且 `evidence_bound>0`。该批若再出现 `invalid_action.reason` 含 `unknown evidence hash`（誊抄 16-hex），本预测 **reproduces → refuted**。越界序号 / 歧义拼接仍拒收；不做模糊纠正 | `confirmed` | 批 #3 `sha256=e475f3c889946b2ef87507ca303effa5bf9a1ca153821009f60e6b4edaf1ebf0`。检阅方重扫：hash-reject 0；修复路径验收 eb>0 为 14/15；B8 `no_substantive_answer` 不同形。8792=`fdb23114` pid 70403 |
 | `R-20260815-10` | Round 3 轨道 B（M1 F-002） | `EVAL_ONLY` | B 组结论改报交付率而非单批布尔后：连续 3 批的 B 组读数按题给出 N 次中的交付次数；任一只引用单批「失败成员名单」的结论可被评审据此打回 | `confirmed` | 批 #1 `sha256=b712bd2ee10fb431dba937416fb5882c6984ac65bb5421b5472f71c7ead8d350`；批 #2 `sha256=51e617100b4a72dcd58109c21d685d25b5a4ccae9c0e34507db494ee87304ef4`；批 #3 `sha256=e475f3c889946b2ef87507ca303effa5bf9a1ca153821009f60e6b4edaf1ebf0`。N=3：B1 2/3、B2 3/3、B3 2/3、B4 2/3、B5 2/3、B6 0/3、B7 2/3、B8 2/3。只 `evidence_bound>0`。报告 `docs/verification/2026-08-15-r6-clean-baseline-3.md` E-005 |
 | `R-20260815-09` | Round 3 轨道 B（M1 F-001） | `HARNESS_FIX` | `invalid_repair_finish` 落盘拒收原因码与被拒 payload 的结构摘要（字段名/计数，不落正文）后：下一个该形状的 turn 其原因码非空，可据以在 REASONING（收尾产出不合法）与 HARNESS（修复轮契约拒收）之间定夺 F-001 的 L0 | `confirmed` | 批 #3 21/21 末条 finish 带 `rejection_code`/`rejection_reason`；B8 `run_20260815_182902_790837` seq 21 `rejection_code=no_substantive_answer` `rejection_reason=required output lacks substantive answer: scenario_range`。报告 E-006 |
@@ -287,6 +304,12 @@ Round 6 批 #3 按预注册判据收口为 `confirmed`（报告
 [`docs/verification/2026-08-15-r6-clean-baseline-3.md`](verification/2026-08-15-r6-clean-baseline-3.md)）。
 R-09 用字段在场性 + B8 非空拒收码；R-10 用三批 `evidence_bound>0` 交付率。
 本轨不回写 R-23 / R-24 / R-25。
+
+`R-20260816-01..05` 来自标准 M1 分诊
+[`docs/verification/2026-08-16-outlook-verification-budget-regression.md`](verification/2026-08-16-outlook-verification-budget-regression.md)，
+outcome=`ROOT_CAUSE_NOT_CONFIRMED`，PRIMARY=`UNCLEAR/synthesize/DEPTH_INSUFFICIENT(D4)`。
+它可以作为后续 Prior prediction closure 引用，但不能当作已确认单一刀（#72/#75/#79）的 PRIMARY。
+#84（`21dbf6c1`）落地 R-01 埋点与 R-04 夹具；R-04 已 Closed。R-01 仍等带 `timeout_asked` 的同形 live run。
 
 首次真正的分诊在回填本账本时，应把这一批视为 `no prior triage report` 的历史遗留
 条目，只做 outcome 回填，不继承其归因。
