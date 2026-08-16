@@ -69,7 +69,7 @@ skill 注入的现状：注册表 ws 33 条 + kb 20 条，episode configure 可�
 
 - 题集：已冻结。权威夹具 `intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json`，收据 `docs/verification/2026-08-16-longtail-baseline-frozen-set.md`。含 8.15 两问：`run_20260816_102941_554059` / `run_20260816_103318_230845`。
 - 分层标注：outlook 形（题面含「你认为/你觉得/怎么看/机会在哪/会怎么走」）vs 真残差（无观点题面）。今天两问是 outlook 形 × 残差置信，两刀都会碰到。已翻成 `market_forecast` 的「明天怎么看」不进本集。
-- 对照基线：gitea/main `ef5c3821`（含 outlook #72/#75 与本刀 #77）。现状臂 = 该 tip + 开关 off；注入臂 = 同一 tip + `ASK_LONGTAIL_BASELINE=on`。不要再用 `268a0605`（缺 #75/#77），也不要拿 8792 快照 `437cd5e9` 当现状臂。今天两问已是 outlook 形，剥句率差的是骨架增量，不是 grounding_mode。真残差档才是本刀独有信号。
+- 对照基线：gitea/main `773b3d7e`（含 outlook #72/#75/#79 与本刀 #77）。现状臂 = 该 tip + 开关 off；注入臂 = 同一 tip + `ASK_LONGTAIL_BASELINE=on`。不要再用 `268a0605` / `ef5c3821`（缺后续 outlook 刀），也不要拿 8792 快照 `437cd5e9` 当现状臂。outlook 档剥句率会叠 #79 比较集绑定；真残差档才是本刀独有信号。
 - 主度量：非空 direct_answer 交付率；judge 剥句率（rejected_sentence/总句数）；evidence_bound_rate（**沿用 5pp 门槛不放宽**）；token/墙钟成本增量。
 - 空壳 vs 诚实缺口：chat 兜底无检索时，正文写「未取得」算合规交付，不算空壳。不要用「看起来有字」当成功。
 - 护栏：高置信路由（confidence≥0.6 且有 `RESEARCH_OWNER_IDS` owner 或专用 skill）行为零变化，取 5 题回归对比字节级 diff；植入含市场数字的假骨架文本必须被 review 拒绝。

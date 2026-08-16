@@ -5,24 +5,24 @@
 - outcome: FREEZE_ONLY
 - live_ab_ran: false
 - failure_criterion: 未开对照窗。本文件只锁题面、分层、触发观察和护栏，不报告剥句率。
-- baseline_tip: `ef5c3821`（gitea/main at freeze；含 outlook #72/#75、长尾注入 #77、perspective #76）
+- baseline_tip: `773b3d7e`（质检收尾时 gitea/main；含 outlook #72/#75/#79、长尾注入 #77、perspective #76）
 - fixture: `intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json`
 - loader: `intelligence/eval/longtail_baseline_frozen_set.py`
 
 ## Freeze
 
 - frozen_at: 2026-08-16T12:01:44+08:00
-- fixture_sha256: `f617c82cbca35aa17c0b88dc2966401ce12ae7988b36d1603e3bfdddcc4264b0`
+- fixture_sha256: `9b43354b2d9af669634d87df6f1e8ae219ebb751156694d0e01dc65a948b3fd8`
 - mined_from: `default` + `linxiaoqi5111` 共 540 条 `report.json`
 - predicate: 最新一次完整 report 仍是 `general_finance_qa` 且 TaskFrame.confidence < 0.6（触发 2）；或历史 trace 出现 `安全降级` / `unparsable_response`（触发 1）
 - do_not_use_as_off_arm: 8792 快照 `437cd5e9`；handoff 初稿里的 `268a0605`（缺 #75/#77）
 
 | 臂 | 代码 | 开关 |
 |---|---|---|
-| 现状 | `ef5c3821` | `ASK_LONGTAIL_BASELINE` 默认 off |
+| 现状 | `773b3d7e` | `ASK_LONGTAIL_BASELINE` 默认 off |
 | 注入 | 同一 tip | `ASK_LONGTAIL_BASELINE=on` |
 
-今天两问已是 outlook 形 × 残差置信。#72/#75 已在 tip 上，剥句率差的是骨架增量，不是 grounding_mode / 「据此判断：」前缀。真残差档（无观点题面）才是本刀独有信号。
+今天两问已是 outlook 形 × 残差置信。#72/#75/#79 已在 tip 上：outlook 档剥句率会叠比较集绑定，不要把那一刀算进骨架。真残差档（无观点题面）才是本刀独有信号。
 
 ## Longtail 15
 
@@ -80,11 +80,11 @@ T1 在语料里几乎只有三句固定探针在打转。本集用 L04/L09/L11/L
 - 设计：15 × 2 臂 × 3 次 = 90；护栏 5 题只跑注入臂，确认 `【长尾回答骨架】` 不出现。
 - 主度量：非空 `direct_answer` 交付率；judge 剥句率（rejected_sentence/总句数）；`evidence_bound_rate`（**5pp 不放宽**）；token / 墙钟。
 - 空壳 vs 诚实缺口：chat 兜底无检索时，正文写「未取得」算合规，不算空壳。
-- 路由吸收：若某题在 `ef5c3821` 上改判成 `market_*` 或 `RESEARCH_OWNER_IDS` owner，单独记 `routing-absorbed`，不并进剥句率。L04 题面尤其不稳定。
+- 路由吸收：若某题在 `773b3d7e` 上改判成 `market_*` 或 `RESEARCH_OWNER_IDS` owner，单独记 `routing-absorbed`，不并进剥句率。L04 题面尤其不稳定。
 - L01 两问的剥句率差是骨架增量，不要归因到 #72/#75。
 - 对照通过前不翻 `ASK_LONGTAIL_BASELINE` 默认值，不部署 8792。
 - 不另开 PR-2：`SKILL.md` §5 已在同一 `prompt_block()` 里。
 
 ## 与交接的差
 
-handoff §3 初稿把现状臂写成 `268a0605`。冻结时 main 已含 #75 与 #77，再用那个 SHA 会把两刀和骨架叠在一起。权威基线以本文件和夹具 `baseline.tip` 为准。
+handoff §3 初稿把现状臂写成 `268a0605`。质检收尾时 main 已含 #75/#77/#79，权威基线以本文件和夹具 `baseline.tip` 为准。

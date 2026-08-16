@@ -9,8 +9,8 @@
     "~/.local/share/finance-workbench/users/linxiaoqi5111/runs"
   ],
   "baseline": {
-    "tip": "ef5c3821",
-    "includes": ["#72", "#75", "#77", "#76"],
+    "tip": "773b3d7e",
+    "includes": ["#72", "#75", "#77", "#76", "#79"],
     "off_arm": "ASK_LONGTAIL_BASELINE unset/off on this tip",
     "on_arm": "ASK_LONGTAIL_BASELINE=on on this tip",
     "do_not_use": ["437cd5e9", "268a0605"]

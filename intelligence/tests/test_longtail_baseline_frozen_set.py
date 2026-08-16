@@ -26,7 +26,7 @@ from intelligence.services.trading_calendar import (
 from intelligence.services.turn_controller import TurnDecision
 
 FROZEN_FIFTEEN_SHA256 = (
-    "f617c82cbca35aa17c0b88dc2966401ce12ae7988b36d1603e3bfdddcc4264b0"
+    "9b43354b2d9af669634d87df6f1e8ae219ebb751156694d0e01dc65a948b3fd8"
 )
 
 
