@@ -1,7 +1,7 @@
 # 进度观测台薄账（L0 / L1）
 
 - 日期:2026-08-16 · 唯一写入者:检阅方 · spec:`docs/superpowers/specs/2026-08-15-progress-observatory.md` · ADR:`docs/adr/0001-observatory-legislative-core.md`
-- **未闭合的最低层:P2**（口径=dsh P0 五步完成数/5；五步+冲突矩阵已收口；Arm A 45× 已跑，对照未开）
+- **未闭合的最低层:P2**（口径=trace_depth 档位 + 盲区清单未清项；五步+冲突矩阵已收口；Arm A 45× 已跑，对照未开）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
 - L1-DSH 实施已合 main（#61）；Arm A 45× 官方窗已跑，30×3 压不住 5pp。对照仍未开。
@@ -39,7 +39,7 @@
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
 | L1-R24 | E-007 修复部署 | done | 独立部署窗落地 | #49 · `2026-08-16-r24-deploy-window.md` | 已切 `437cd5e9`；live 结案仍看账本 |
-| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 docs-only tip 不追切 | `2026-08-16-r24-deploy-window.md` | 8792=`437cd5e9`；旧快照 `fdb23114` 可回滚 |
+| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` | 8792=`437cd5e9`；旧快照 `fdb23114` 可回滚 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
@@ -53,7 +53,7 @@
 | 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
 | 2026-08-16 | dsh 接缝已合 main #61；第 8 步 live A/B 未开 | 已决 | L1-DSH |
-| 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 条件已满足；hook 挡住 agent 删，仍须用户手动 | 用户 | L1-DSH |
+| 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 已删（本地+gitea）；SHA `e21c50bfdbdb` 仍可解引用 | 已决 | L1-DSH |
 | 2026-08-16 | Arm A 校准脚手架已合 #67；live 45× 已跑，对照未开 | 已决 | L1-DSH |
 | 2026-08-16 | S1 时间预算已合 #65；默认注入；live 率未读 | 已决 | L1-S1 |
 | 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
