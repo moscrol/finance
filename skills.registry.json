@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-08-13T16:57:36Z",
+  "generated_at": "2026-08-16T08:26:12Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 34
+      "skills": 35
     },
     {
       "name": "knowledge-base-private",
@@ -155,6 +155,19 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:fff4d9666edde30657c3920efbac8bde8e77a5898f6ecd86af34701f773050d9",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-degraded-fallback": {
+      "name": "finance-degraded-fallback",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-degraded-fallback/SKILL.md",
+      "description": "降级回答章法与输出兜底，由 ASK_DEGRADED_FALLBACK 确定性注入与确定性渲染，蒸馏自 knevo 拒答降级纪律（q13 七项、E-004 诚实降级、缺数三档）。不是可路由工作流，不要手工调用。无触发词。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:d116cedd3d2c343d4ca4d389a940434f9cdac9d675bc9df447d380f43bf47b85",
       "agentOnly": false,
       "views": []
     },
