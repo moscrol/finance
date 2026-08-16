@@ -217,6 +217,25 @@ class RuntimePerspectiveTests(unittest.TestCase):
         # 证据纪律：首选证据缺失必须显式声明，不得降格为通用研究结论
         self.assertIn("首选证据", context.prompt)
         self.assertIn("不得因此把视角输出降格为通用研究结论", context.prompt)
+        # 种子画像无原文 ≠ 视角未知：镜头已在，不能用「未知」把框架冲掉
+        self.assertIn("未召回相关文章", context.prompt)
+        self.assertNotIn("未召回相关文章；该视角未知", context.prompt)
+        self.assertIn("原文未覆盖的问题必须写“该视角未知”", context.prompt)
+
+    def test_empty_blogger_without_articles_stays_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(
+                us, "empty_blogger", display_name="空博主", ptype="blogger"
+            )
+            context = perspective_lab.build_runtime_context(
+                us,
+                mode="single",
+                perspective_ids=["empty_blogger"],
+                query="行情怎么看",
+            )
+
+        self.assertIn("未召回相关文章；该视角未知", context.prompt)
 
     def test_compare_context_keeps_neutral_and_kol_sections_separate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
