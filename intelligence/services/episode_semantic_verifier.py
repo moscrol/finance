@@ -27,6 +27,7 @@ from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.degraded_fallback import gap_transparency
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -1707,6 +1708,11 @@ class SemanticEpisodeVerifier:
         window = _latest_evidence_date(verified.outcome.evidence)
         if window:
             parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")
+        # ASK_DEGRADED_FALLBACK（默认 off）：knevo q13 七项里的「尝试过什么 /
+        # 来源标注不降级」两段，确定性渲染，off 时空串、本函数输出逐字节不变。
+        transparency = gap_transparency(verified)
+        if transparency:
+            parts.append(transparency)
         return "".join(parts)
 
     @staticmethod

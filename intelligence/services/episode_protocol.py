@@ -21,6 +21,9 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.degraded_fallback import (
+    episode_rule as degraded_episode_rule,
+)
 from intelligence.services.longtail_baseline import episode_rule
 from intelligence.services.track_contract import episode_track_rule
 
@@ -133,6 +136,8 @@ def build_episode_instructions(
         task_frame.question_type,
     )
     longtail_rule = episode_rule(task_frame)
+    # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串、指令不变。
+    degraded_rule = degraded_episode_rule(task_frame)
     # prior_recall 槽位专用规则：只在该格出现于契约时注入。
     #
     # 这条规则是**陈述性**的，不指定调用顺序。初版写的是「研究开始时必须优先调用
@@ -229,6 +234,7 @@ def build_episode_instructions(
         f"{valuation_rule}\n"
         f"{track_rule}\n"
         f"{longtail_rule}"
+        f"{degraded_rule}"
         f"任务哈希：{task_frame.task_frame_hash}\n"
         f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
     )
