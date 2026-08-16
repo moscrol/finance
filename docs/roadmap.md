@@ -39,7 +39,7 @@
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
 | L1-R24 | E-007 修复部署 | done | 独立部署窗落地 | #49 · `2026-08-16-r24-deploy-window.md` | 已切 `437cd5e9`；live 结案仍看账本 |
-| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` | 8792=`773b3d7e`（目录名仍 `437cd5e9aa1a`）；#84 不追切 |
+| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` | 8792=`773b3d7e`（目录名仍 `437cd5e9aa1a`）；卫生 HOLD 并进修复+#84 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
@@ -56,7 +56,8 @@
 | 2026-08-16 | 为长尾对照窗切 8792=`773b3d7e`（就地切树，非 R-24 窗重开）；12:09 后 rag_worker 钉死 ~1h，13:08 kickstart 修复 | 已决 | L1-8792 |
 | 2026-08-16 | 回滚梯子已留独立 clone：`finance-workspace-773b3d7e73d7` 与 `finance-workspace-437cd5e9aa1a-rollback`；未启动、未链切。`outlook-pre` 是 10 题修前臂，不作生产回滚 | 已决 | L1-8792 |
 | 2026-08-16 | #84 `21dbf6c1` 已合（`timeout_asked` 埋点）；自书不切 8792，也不是 10 题第二道闸。停泊树 `finance-workspace-21dbf6c1d83f` 未启动，不作生产链切目标 | 已决 | L1-8792 |
-| 2026-08-16 | 长尾收口后：停 8793、8792 先留 `773b3d7e`。目录卫生若做，只 `ln -sfn`→`773b3d7e73d7`（同 SHA）。10 题窗仍等判断正文修复或书面豁免 | 用户 | L1-8792 |
+| 2026-08-16 | 窗间隙 16:09 已确认（#87 已合、8793 停、workers.active=0）。目录卫生 HOLD：并进 B 修复部署（新 SHA 快照消错位 + 顺带 #84），避免两次 kickstart | 已决 | L1-8792 |
+| 2026-08-16 | 10 题窗仍等判断正文修复或书面豁免（#84 埋点不是第二道闸） | 用户 | L1-8792 |
 | 2026-08-16 | prewarm 不抬 timeout（第三次无失败当次延迟）；切后必查 `/api/health/ready`，失败 kickstart 同快照一次 | 已决 | L1-8792 |
 | 2026-08-16 | dsh 接缝已合 main #61；第 8 步 live A/B 未开 | 已决 | L1-DSH |
 | 2026-08-16 | 安全 ref `prerebase/dsh-seams-e21c50bf` 已删（本地+gitea）；SHA `e21c50bfdbdb` 仍可解引用 | 已决 | L1-DSH |
