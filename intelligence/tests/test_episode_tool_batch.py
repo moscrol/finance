@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
+from dataclasses import replace
+from pathlib import Path
 from threading import Barrier, Event, Lock
+import json
 import time
 
 import pytest
@@ -11,7 +14,11 @@ import pytest
 from intelligence.runtime import episode_tool_batch
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
-from intelligence.runtime.episode_tool_batch import ToolBatchExecutor, ToolCallResult
+from intelligence.runtime.episode_tool_batch import (
+    ToolBatchExecutor,
+    ToolCallResult,
+    tool_batch_timeout_seconds,
+)
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,
@@ -1603,3 +1610,147 @@ def test_rejection_carries_the_actionable_reason_not_just_the_code() -> None:
     # 关键断言：具体原因必须在，不能是空串
     assert item.detail
     assert "snapshot tool accepts no arguments" in item.detail
+
+
+_DISPATCH_CLOCK_KEYS = (
+    "batch_grant_asked",
+    "stage_timeout_granted",
+    "episode_remaining_at_dispatch",
+    "remaining_slots_at_dispatch",
+    "turn_elapsed_at_dispatch",
+)
+_R13_FIXTURE = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "r13-evidence-starvation-732198.json"
+)
+
+
+def _standard_context(*, timeout: float) -> ResearchRunContext:
+    """档位用 standard 表（批窗名义 70），deadline 单独控，才能把两闸拆开。"""
+
+    return replace(
+        _context(timeout=timeout),
+        policy=ResearchPolicy.for_tier("standard"),
+        deadline=ResearchDeadline.from_timeout(timeout),
+    )
+
+
+def _clock_payload(item: ToolCallResult) -> dict[str, object]:
+    clock = item.dispatch_clock
+    assert clock is not None
+    return clock.to_payload()
+
+
+def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -> None:
+    """时间闸：名义窗仍是 70，实授 ≤0，工具零执行。"""
+
+    runner_calls = 0
+
+    def runner(query: str, _context: agent_research.AgentToolContext):
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("kb_search", query)
+
+    context = _standard_context(timeout=0.0)
+    result = ToolBatchExecutor().execute(
+        (
+            ModelToolCall("e1", "kb_search", {"query": "医药 催化 1"}),
+            ModelToolCall("e2", "kb_search", {"query": "医药 催化 2"}),
+            ModelToolCall("e3", "kb_search", {"query": "医药 催化 3"}),
+            ModelToolCall("e4", "kb_search", {"query": "医药 催化 4"}),
+        ),
+        registry=_registry(kb_search=runner),
+        context=context,
+        remaining_slots=4,
+        turn_elapsed_at_dispatch=60.0,
+    )
+
+    asked = tool_batch_timeout_seconds(context.policy)
+    assert asked == 70.0
+    assert runner_calls == 0
+    assert result.executed_count == 0
+    assert [item.error for item in result.items] == ["tool_timeout"] * 4
+    for item in result.items:
+        clock = _clock_payload(item)
+        assert set(_DISPATCH_CLOCK_KEYS) <= set(clock)
+        assert clock["batch_grant_asked"] == 70.0
+        assert clock["stage_timeout_granted"] == 0.0
+        assert clock["episode_remaining_at_dispatch"] == 0.0
+        assert clock["remaining_slots_at_dispatch"] == 4
+        assert clock["turn_elapsed_at_dispatch"] == 60.0
+        assert item.queued_ms is None
+        assert item.elapsed_ms is None
+
+
+def test_slot_gate_keeps_count_clock_while_time_window_still_open() -> None:
+    """次数闸：实授 >0，落选者是 slot 耗尽，不是窗关了。"""
+
+    context = _standard_context(timeout=30.0)
+    result = ToolBatchExecutor().execute(
+        (
+            ModelToolCall("keep", "kb_search", {"query": "keep"}),
+            ModelToolCall("drop", "market_data", {"query": "drop"}),
+        ),
+        registry=_registry(),
+        context=context,
+        remaining_slots=1,
+        turn_elapsed_at_dispatch=12.5,
+    )
+
+    assert result.items[0].status == "success"
+    assert result.items[1].error == "tool_budget_exhausted"
+    kept = _clock_payload(result.items[0])
+    dropped = _clock_payload(result.items[1])
+    assert kept["batch_grant_asked"] == 70.0
+    assert kept["stage_timeout_granted"] > 0.0
+    assert kept["remaining_slots_at_dispatch"] == 1
+    assert kept["turn_elapsed_at_dispatch"] == 12.5
+    assert dropped == kept
+
+
+def test_r13_frozen_starvation_shape_replays_two_distinct_gates() -> None:
+    """夹具钉住 732198 的两闸形状；重放后五元组能把时间闸和次数闸分开。"""
+
+    fixture = json.loads(_R13_FIXTURE.read_text())
+    errors = [
+        event["payload"]["error"]
+        for event in fixture["events"]
+        if event["kind"] == "tool_error"
+    ]
+    assert errors == [
+        "tool_timeout",
+        "tool_timeout",
+        "tool_timeout",
+        "tool_timeout",
+        "tool_budget_exhausted",
+    ]
+    assert all(
+        "batch_grant_asked" not in event["payload"]
+        for event in fixture["events"]
+        if event["kind"] in {"tool_request", "tool_error"}
+    )
+
+    context = _standard_context(timeout=0.0)
+    result = ToolBatchExecutor().execute(
+        (
+            ModelToolCall("e1", "kb_search", {"query": "q1"}),
+            ModelToolCall("e2", "kb_search", {"query": "q2"}),
+            ModelToolCall("e3", "kb_search", {"query": "q3"}),
+            ModelToolCall("e4", "kb_search", {"query": "q4"}),
+            ModelToolCall("fq", "market_data", {"query": "q5"}),
+        ),
+        registry=_registry(),
+        context=context,
+        remaining_slots=4,
+        turn_elapsed_at_dispatch=60.0,
+    )
+
+    assert [item.error for item in result.items] == errors
+    time_gate = [item for item in result.items if item.error == "tool_timeout"]
+    slot_gate = [item for item in result.items if item.error == "tool_budget_exhausted"]
+    assert len(time_gate) == 4
+    assert len(slot_gate) == 1
+    assert all(_clock_payload(item)["stage_timeout_granted"] <= 0.0 for item in time_gate)
+    assert _clock_payload(slot_gate[0])["remaining_slots_at_dispatch"] == 4
+    assert _clock_payload(slot_gate[0])["batch_grant_asked"] == 70.0

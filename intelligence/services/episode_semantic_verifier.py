@@ -363,6 +363,7 @@ class SemanticEpisodeOutcome:
     remaining_seconds_at_entry: float | None = None
     exc_class: str | None = None
     http_status: int | None = None
+    judge_attempt_index: int | None = None
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -411,6 +412,7 @@ class SemanticEpisodeOutcome:
             "remaining_seconds_at_entry": self.remaining_seconds_at_entry,
             "exc_class": self.exc_class,
             "http_status": self.http_status,
+            "judge_attempt_index": self.judge_attempt_index,
             "verified": self.verified.to_dict(),
         }
 
@@ -432,6 +434,7 @@ class _JudgeCall:
     remaining_seconds_at_entry: float | None = None
     exc_class: str | None = None
     http_status: int | None = None
+    judge_attempt_index: int | None = None
 
 
 def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
@@ -486,6 +489,7 @@ def _attach_judge_clock(
         remaining_seconds_at_entry=call.remaining_seconds_at_entry,
         exc_class=call.exc_class,
         http_status=call.http_status,
+        judge_attempt_index=call.judge_attempt_index,
     )
 
 
@@ -742,6 +746,7 @@ class SemanticEpisodeVerifier:
                         )
                     ),
                     correlated_judge=first.correlated,
+                    call=first,
                 )
             return self._completed_public(
                 frame,
@@ -752,11 +757,12 @@ class SemanticEpisodeVerifier:
                         (
                             *structural.issues,
                             *preflight_issues,
-                            *first.report.issues,
+                                *first.report.issues,
                         )
                     )
                 ),
                 correlated_judge=first.correlated,
+                call=first,
             )
 
         repaired = self._repair(
@@ -775,13 +781,16 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return SemanticEpisodeOutcome(
-                verified=structural,
-                status="partial",
-                public_answer=self._gap_answer(frame, structural),
-                judge_status="rejected",
-                issues=issues,
-                correlated_judge=first.correlated,
+            return _attach_judge_clock(
+                SemanticEpisodeOutcome(
+                    verified=structural,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, structural),
+                    judge_status="rejected",
+                    issues=issues,
+                    correlated_judge=first.correlated,
+                ),
+                first,
             )
 
         repaired_verified, _repaired_frame = repaired
@@ -810,6 +819,7 @@ class SemanticEpisodeVerifier:
                 marker_loss,
                 judge_issues=issues,
                 correlated_judge=first.correlated,
+                call=first,
             )
         if (
             repaired_verified.verified_status != "completed"
@@ -825,13 +835,16 @@ class SemanticEpisodeVerifier:
                     )
                 )
             )
-            return SemanticEpisodeOutcome(
-                verified=repaired_verified,
-                status="partial",
-                public_answer=self._gap_answer(frame, repaired_verified),
-                judge_status="rejected",
-                issues=issues,
-                correlated_judge=first.correlated,
+            return _attach_judge_clock(
+                SemanticEpisodeOutcome(
+                    verified=repaired_verified,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, repaired_verified),
+                    judge_status="rejected",
+                    issues=issues,
+                    correlated_judge=first.correlated,
+                ),
+                first,
             )
 
         # The re-judge sees the repaired draft but exactly the same evidence.
@@ -863,6 +876,7 @@ class SemanticEpisodeVerifier:
                     )
                 ),
                 correlated_judge=correlated,
+                call=second,
             )
 
         if _optional_rejudge_allows_monotonic_release(second):
@@ -889,6 +903,7 @@ class SemanticEpisodeVerifier:
                     )
                 ),
                 correlated_judge=correlated,
+                call=second,
             )
 
         if (
@@ -925,6 +940,7 @@ class SemanticEpisodeVerifier:
                         second_marker_loss,
                         judge_issues=issues,
                         correlated_judge=correlated,
+                        call=second,
                     )
                 if (
                     twice_verified.verified_status == "completed"
@@ -965,6 +981,7 @@ class SemanticEpisodeVerifier:
                                 )
                             ),
                             correlated_judge=correlated,
+                            call=third,
                         )
                     if _optional_rejudge_allows_monotonic_release(third):
                         # The second completed report reviewed the once-
@@ -991,6 +1008,7 @@ class SemanticEpisodeVerifier:
                                 )
                             ),
                             correlated_judge=correlated,
+                            call=third,
                         )
                     if (
                         third.report is not None
@@ -1040,6 +1058,7 @@ class SemanticEpisodeVerifier:
                                         )
                                     ),
                                     correlated_judge=correlated,
+                                    call=third,
                                 )
                             if not terminal_marker_loss and (
                                 terminal_verified.verified_status == "completed"
@@ -1063,6 +1082,7 @@ class SemanticEpisodeVerifier:
                                         )
                                     ),
                                     correlated_judge=correlated,
+                                    call=third,
                                 )
                     third_issue = (
                         third.issue
@@ -1081,17 +1101,20 @@ class SemanticEpisodeVerifier:
                             )
                         )
                     )
-                    return SemanticEpisodeOutcome(
-                        verified=twice_verified,
-                        status="partial",
-                        public_answer=self._gap_answer(frame, twice_verified),
-                        judge_status=(
-                            "unavailable"
-                            if third.report is None
-                            else "rejected"
+                    return _attach_judge_clock(
+                        SemanticEpisodeOutcome(
+                            verified=twice_verified,
+                            status="partial",
+                            public_answer=self._gap_answer(frame, twice_verified),
+                            judge_status=(
+                                "unavailable"
+                                if third.report is None
+                                else "rejected"
+                            ),
+                            issues=issues,
+                            correlated_judge=correlated,
                         ),
-                        issues=issues,
-                        correlated_judge=correlated,
+                        third,
                     )
 
         final_issue = (
@@ -1110,13 +1133,16 @@ class SemanticEpisodeVerifier:
                 )
             )
         )
-        return SemanticEpisodeOutcome(
-            verified=repaired_verified,
-            status="partial",
-            public_answer=self._gap_answer(frame, repaired_verified),
-            judge_status=("unavailable" if second.report is None else "rejected"),
-            issues=issues,
-            correlated_judge=correlated,
+        return _attach_judge_clock(
+            SemanticEpisodeOutcome(
+                verified=repaired_verified,
+                status="partial",
+                public_answer=self._gap_answer(frame, repaired_verified),
+                judge_status=("unavailable" if second.report is None else "rejected"),
+                issues=issues,
+                correlated_judge=correlated,
+            ),
+            second,
         )
 
     def _transient_failure_candidate(
@@ -1225,6 +1251,7 @@ class SemanticEpisodeVerifier:
         root_deadline_exhausted: bool = False,
         transient_provider_failure: bool = False,
         monotonic_release_safe: bool = False,
+        judge_attempt_index: int | None = None,
     ) -> _JudgeCall:
         exc_class, http_status = (
             _judge_failure_identity(failure) if failure is not None else (None, None)
@@ -1242,6 +1269,7 @@ class SemanticEpisodeVerifier:
             remaining_seconds_at_entry=remaining,
             exc_class=exc_class,
             http_status=http_status,
+            judge_attempt_index=judge_attempt_index,
         )
 
     def _run_judge(
@@ -1287,6 +1315,7 @@ class SemanticEpisodeVerifier:
                     )
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=False,
                         unavailable=True,
@@ -1319,6 +1348,7 @@ class SemanticEpisodeVerifier:
                         continue
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=False,
                         unavailable=True,
@@ -1333,6 +1363,7 @@ class SemanticEpisodeVerifier:
                 if report is not None:
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=False,
                         unavailable=False,
@@ -1354,6 +1385,7 @@ class SemanticEpisodeVerifier:
                     continue
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=False,
                     unavailable=True,
@@ -1424,6 +1456,7 @@ class SemanticEpisodeVerifier:
                 )
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -1453,6 +1486,7 @@ class SemanticEpisodeVerifier:
                     continue
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -1464,6 +1498,7 @@ class SemanticEpisodeVerifier:
             if not isinstance(turn, ModelTurn):
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -1485,6 +1520,7 @@ class SemanticEpisodeVerifier:
                     continue
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -1501,6 +1537,7 @@ class SemanticEpisodeVerifier:
                 if report is None:
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                         remaining=remaining_at_entry,
                         correlated=True,
                         unavailable=True,
@@ -1508,6 +1545,7 @@ class SemanticEpisodeVerifier:
                     )
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=False,
@@ -1518,6 +1556,7 @@ class SemanticEpisodeVerifier:
             if report is None:
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                     remaining=remaining_at_entry,
                     correlated=True,
                     unavailable=True,
@@ -1525,6 +1564,7 @@ class SemanticEpisodeVerifier:
                 )
             return self._clocked_judge_call(
                 asked=attempt_timeout,
+                        judge_attempt_index=attempt,
                 remaining=remaining_at_entry,
                 correlated=True,
                 unavailable=False,
@@ -1581,6 +1621,7 @@ class SemanticEpisodeVerifier:
                 remaining_seconds_at_entry=remaining_seconds_at_entry,
                 exc_class=exc_class,
                 http_status=http_status,
+                judge_attempt_index=0,
             )
         report = SemanticEpisodeVerifier._parse_report(
             value,
@@ -1595,6 +1636,7 @@ class SemanticEpisodeVerifier:
                 timeout_asked=timeout,
                 timeout_configured=configured,
                 remaining_seconds_at_entry=remaining_seconds_at_entry,
+                judge_attempt_index=0,
             )
         return _JudgeCall(
             report,
@@ -1604,6 +1646,7 @@ class SemanticEpisodeVerifier:
             timeout_asked=timeout,
             timeout_configured=configured,
             remaining_seconds_at_entry=remaining_seconds_at_entry,
+            judge_attempt_index=0,
         )
 
     @staticmethod
@@ -1728,6 +1771,7 @@ class SemanticEpisodeVerifier:
         judge_status: Literal["passed", "repaired"],
         judge_issues: tuple[str, ...] = (),
         correlated_judge: bool = False,
+        call: _JudgeCall | None = None,
     ) -> SemanticEpisodeOutcome:
         public = _sanitize_public_answer(
             verified.outcome.draft,
@@ -1735,7 +1779,7 @@ class SemanticEpisodeVerifier:
             verified.outcome.traces,
         )
         if not public:
-            return SemanticEpisodeOutcome(
+            outcome = SemanticEpisodeOutcome(
                 verified=verified,
                 status="partial",
                 public_answer=self._gap_answer(frame, verified),
@@ -1743,18 +1787,20 @@ class SemanticEpisodeVerifier:
                 issues=tuple(dict.fromkeys((*judge_issues, "public projection empty"))),
                 correlated_judge=correlated_judge,
             )
-        return SemanticEpisodeOutcome(
-            verified=verified,
-            status=(
-                "completed"
-                if verified.verified_status == "completed"
-                else "partial"
-            ),
-            public_answer=public,
-            judge_status=judge_status,
-            issues=judge_issues,
-            correlated_judge=correlated_judge,
-        )
+        else:
+            outcome = SemanticEpisodeOutcome(
+                verified=verified,
+                status=(
+                    "completed"
+                    if verified.verified_status == "completed"
+                    else "partial"
+                ),
+                public_answer=public,
+                judge_status=judge_status,
+                issues=judge_issues,
+                correlated_judge=correlated_judge,
+            )
+        return _attach_judge_clock(outcome, call) if call is not None else outcome
 
     def _marker_loss_partial_public(
         self,
@@ -1764,6 +1810,7 @@ class SemanticEpisodeVerifier:
         *,
         judge_issues: tuple[str, ...],
         correlated_judge: bool,
+        call: _JudgeCall | None = None,
     ) -> SemanticEpisodeOutcome:
         """Keep reviewed remainder and expose only the deleted slot as a gap."""
 
@@ -1777,7 +1824,7 @@ class SemanticEpisodeVerifier:
             verified.outcome.traces,
         )
         if not public:
-            return SemanticEpisodeOutcome(
+            outcome = SemanticEpisodeOutcome(
                 verified=verified,
                 status="partial",
                 public_answer=self._gap_answer(frame, verified),
@@ -1786,6 +1833,7 @@ class SemanticEpisodeVerifier:
                 correlated_judge=correlated_judge,
                 gap_output_ids=output_ids,
             )
+            return _attach_judge_clock(outcome, call) if call is not None else outcome
         descriptions = {
             item.output_id: item.description.strip() or item.output_id
             for item in (
@@ -1806,7 +1854,7 @@ class SemanticEpisodeVerifier:
             + "、".join(labels)
             + "中的未核验表述已删除，需补充直接证据后再判断。"
         )
-        return SemanticEpisodeOutcome(
+        outcome = SemanticEpisodeOutcome(
             verified=verified,
             status="partial",
             public_answer=f"{public}\n{gap}",
@@ -1815,6 +1863,7 @@ class SemanticEpisodeVerifier:
             correlated_judge=correlated_judge,
             gap_output_ids=output_ids,
         )
+        return _attach_judge_clock(outcome, call) if call is not None else outcome
 
     @staticmethod
     def _gap_answer(

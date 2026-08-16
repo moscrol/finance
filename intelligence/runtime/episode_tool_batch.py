@@ -64,6 +64,28 @@ _SHARED_TOOL_EXECUTOR = ThreadPoolExecutor(
 
 
 @dataclass(frozen=True)
+class ToolDispatchClock:
+    """工具批派发点的时钟账。时间闸和次数闸共用这份快照，靠 error 码分闸。"""
+
+    batch_grant_asked: float
+    stage_timeout_granted: float
+    episode_remaining_at_dispatch: float
+    remaining_slots_at_dispatch: int
+    turn_elapsed_at_dispatch: float | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "batch_grant_asked": self.batch_grant_asked,
+            "stage_timeout_granted": self.stage_timeout_granted,
+            "episode_remaining_at_dispatch": self.episode_remaining_at_dispatch,
+            "remaining_slots_at_dispatch": self.remaining_slots_at_dispatch,
+        }
+        if self.turn_elapsed_at_dispatch is not None:
+            payload["turn_elapsed_at_dispatch"] = self.turn_elapsed_at_dispatch
+        return payload
+
+
+@dataclass(frozen=True)
 class ToolCallResult:
     call: ModelToolCall
     status: ToolCallStatus
@@ -99,6 +121,7 @@ class ToolCallResult:
     # None = 没测到（在派发之前就被拒/超时的调用，压根没进线程池）。
     queued_ms: float | None = None
     elapsed_ms: float | None = None
+    dispatch_clock: ToolDispatchClock | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, str) or self.status not in _TOOL_CALL_STATUSES:
@@ -208,6 +231,7 @@ class EpisodeToolBatchSession:
         context: ResearchRunContext,
         remaining_slots: int,
         is_cancelled: Callable[[], bool] | None = None,
+        turn_elapsed_at_dispatch: float | None = None,
     ) -> ToolBatchResult:
         with self._lock:
             return self._execute_locked(
@@ -216,6 +240,7 @@ class EpisodeToolBatchSession:
                 context=context,
                 remaining_slots=remaining_slots,
                 is_cancelled=is_cancelled,
+                turn_elapsed_at_dispatch=turn_elapsed_at_dispatch,
             )
 
     def _execute_locked(
@@ -226,9 +251,18 @@ class EpisodeToolBatchSession:
         context: ResearchRunContext,
         remaining_slots: int,
         is_cancelled: Callable[[], bool] | None,
+        turn_elapsed_at_dispatch: float | None,
     ) -> ToolBatchResult:
         ordered_calls = tuple(calls)
         cancelled = is_cancelled or (lambda: False)
+        asked = tool_batch_timeout_seconds(context.policy)
+        clock = ToolDispatchClock(
+            batch_grant_asked=asked,
+            stage_timeout_granted=float(context.deadline.stage_timeout(asked)),
+            episode_remaining_at_dispatch=float(context.deadline.remaining()),
+            remaining_slots_at_dispatch=int(remaining_slots),
+            turn_elapsed_at_dispatch=turn_elapsed_at_dispatch,
+        )
         items: list[ToolCallResult | None] = [None] * len(ordered_calls)
         step_ids = {
             index: f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence + index}"
@@ -247,6 +281,7 @@ class EpisodeToolBatchSession:
                 items,
                 executed_count=0,
                 normalized_queries=(),
+                clock=clock,
             )
         authorized_specs = {
             spec.name: spec
@@ -352,9 +387,7 @@ class EpisodeToolBatchSession:
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
-        timeout = context.deadline.stage_timeout(
-            tool_batch_timeout_seconds(context.policy)
-        )
+        timeout = clock.stage_timeout_granted
         if selected and timeout <= 0.0:
             for candidate in selected:
                 items[candidate.index] = ToolCallResult(
@@ -363,7 +396,12 @@ class EpisodeToolBatchSession:
                     error="tool_timeout",
                     step_id=step_ids[candidate.index],
                 )
-            return self._result(items, executed_count=0, normalized_queries=())
+            return self._result(
+                items,
+                executed_count=0,
+                normalized_queries=(),
+                clock=clock,
+            )
 
         if cancelled():
             for candidate in selected:
@@ -377,6 +415,7 @@ class EpisodeToolBatchSession:
                 items,
                 executed_count=0,
                 normalized_queries=(),
+                clock=clock,
             )
         self._seen_queries.update(candidate.key for candidate in selected)
         normalized_queries = tuple(
@@ -404,6 +443,7 @@ class EpisodeToolBatchSession:
             items,
             executed_count=len(selected),
             normalized_queries=normalized_queries,
+            clock=clock,
         )
 
     @staticmethod
@@ -412,11 +452,18 @@ class EpisodeToolBatchSession:
         *,
         executed_count: int,
         normalized_queries: tuple[tuple[str, str], ...],
+        clock: ToolDispatchClock | None = None,
     ) -> ToolBatchResult:
         if any(item is None for item in items):
             raise RuntimeError("tool batch did not produce one result per call")
+        stamped = tuple(
+            replace(cast(ToolCallResult, item), dispatch_clock=clock)
+            if clock is not None
+            else cast(ToolCallResult, item)
+            for item in items
+        )
         return ToolBatchResult(
-            items=tuple(cast(ToolCallResult, item) for item in items),
+            items=stamped,
             executed_count=executed_count,
             normalized_queries=normalized_queries,
         )
@@ -595,6 +642,7 @@ class ToolBatchExecutor:
         context: ResearchRunContext,
         remaining_slots: int,
         is_cancelled: Callable[[], bool] | None = None,
+        turn_elapsed_at_dispatch: float | None = None,
     ) -> ToolBatchResult:
         """Execute one batch in a fresh ephemeral session.
 
@@ -608,6 +656,7 @@ class ToolBatchExecutor:
             context=context,
             remaining_slots=remaining_slots,
             is_cancelled=is_cancelled,
+            turn_elapsed_at_dispatch=turn_elapsed_at_dispatch,
         )
 
 
@@ -617,4 +666,5 @@ __all__ = [
     "ToolBatchResult",
     "ToolCallResult",
     "ToolCallStatus",
+    "ToolDispatchClock",
 ]

@@ -3936,3 +3936,66 @@ def test_contract_hash_mismatch_fails_closed_without_judge() -> None:
     assert result.status == "partial"
     assert calls == []
     assert any("hash mismatch" in issue for issue in result.issues)
+
+
+def test_passed_judge_records_clock_and_attempt_index() -> None:
+    """R-13 顺路：passed 出口也要带时钟，不能只在 unavailable 上 attach。"""
+
+    frame, structural = _structural("市场当前偏弱。")
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(20.0),
+    )
+    payload = result.to_dict()
+
+    assert result.judge_status == "passed"
+    assert isinstance(payload["timeout_asked"], float)
+    assert payload["timeout_asked"] > 0.0
+    assert payload["timeout_configured"] == DEFAULT_JUDGE_TIMEOUT_SECONDS
+    assert isinstance(payload["remaining_seconds_at_entry"], float)
+    assert payload["judge_attempt_index"] == 0
+
+
+def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
+    monkeypatch,
+) -> None:
+    """活证形：repaired/passed 混过 transient 之后，三元组不能再是 None。"""
+
+    frame, structural = _structural("市场当前偏弱。")
+
+    class FlakyThenPass:
+        def __init__(self) -> None:
+            self.calls: list[float] = []
+
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools
+            self.calls.append(timeout)
+            if len(self.calls) == 1:
+                return ModelTurn(
+                    "",
+                    (),
+                    "glm",
+                    "LLM 调用失败（TimeoutError）",
+                )
+            return ModelTurn(
+                '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+                (),
+                "glm",
+                "",
+            )
+
+    model = FlakyThenPass()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(20.0),
+    )
+    payload = result.to_dict()
+
+    assert result.judge_status == "passed"
+    assert len(model.calls) == 2
+    assert payload["timeout_asked"] == pytest.approx(model.calls[1])
+    assert payload["judge_attempt_index"] == 1
+    assert payload["exc_class"] is None

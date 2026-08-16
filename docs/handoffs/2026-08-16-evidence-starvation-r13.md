@@ -109,4 +109,8 @@ run_20260816_205439_732198（20:54，user=default，standard，8792 @ `6cd0756e`
 
 ## 轮次记录
 
-（执行方小结与检阅批注追加于此）
+### 2026-08-16 执行方 T1（未合、未切 8792）
+
+- 分支 `fix/r13-t1-dispatch-clock`：工具批派发五元组进 `tool_request`/`tool_error`（不进模型消息）；judge `passed`/`repaired` 出口补 `_attach_judge_clock` + `judge_attempt_index`。
+- 夹具 `intelligence/tests/fixtures/r13-evidence-starvation-732198.json` 钉住 732198 两闸形状。未动 T / 批窗 / slot / 档位。
+- 下一步：PR 合 main 后按交接切 8795 做 T2。

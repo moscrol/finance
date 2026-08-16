@@ -315,6 +315,20 @@ def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
     return payload
 
 
+def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
+    """派发点五元组：名义窗 / 实授 / 剩余 / 次数 / 思考耗时。
+
+    时间闸（``tool_timeout`` + ``stage_timeout_granted``≤0）和次数闸
+    （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
+    快照，靠 error 码分闸。没测到的字段不写，避免把缺席伪装成 0。
+    """
+
+    clock = result.dispatch_clock
+    if clock is None:
+        return {}
+    return clock.to_payload()
+
+
 _ABS_PATH_RE = re.compile(
     r"(?:~|/Users|/home|/private/var|/var/folders)[^\s\"'，。]+"
 )
@@ -357,8 +371,9 @@ class _EpisodeToolAccumulator:
         invalid_actions = 0
         for result in batch.items:
             call = result.call
-            timing = _tool_timing_payload(result)
-            self.ledger.add("tool_request", call.to_dict())
+            clock = _tool_dispatch_clock_payload(result)
+            timing = {**_tool_timing_payload(result), **clock}
+            self.ledger.add("tool_request", {**call.to_dict(), **clock})
 
             if result.status == "rejected":
                 invalid_actions += 1
@@ -1045,6 +1060,7 @@ class ContinuousAgentEpisode:
                         tool_calls=tool_calls,
                     ),
                     is_cancelled=self._is_cancelled,
+                    turn_elapsed_at_dispatch=model_elapsed,
                 )
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
