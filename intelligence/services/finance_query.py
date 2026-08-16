@@ -633,7 +633,51 @@ def normalize_spec(
     normalized, notes = _normalize_date_filters(
         _normalize_provider_field_aliases(spec)
     )
-    return normalized, notes
+    normalized, dedupe_notes = _drop_metrics_duplicated_into_dimensions(normalized)
+    return normalized, notes + dedupe_notes
+
+
+def _drop_metrics_duplicated_into_dimensions(
+    spec: FinanceQuerySpec,
+) -> tuple[FinanceQuerySpec, tuple[str, ...]]:
+    """同一字段既在 ``metrics`` 又在 ``dimensions`` 时，从 dimensions 里去掉。
+
+    2026-08-16 实测形状（4/4 个报错请求完全一致）：模型把 ``dimensions`` 当成
+    「要返回的列」而不是「分组键」，于是把每个 metric 又抄了一份进 dimensions：
+
+        dataset=mainline_sector_daily
+        metrics    = [amount, limit_up_count, …, strength, strength_change]
+        dimensions = [amount, cycle_level, …, strength, strength_change, trade_date]
+        → not a dimension: strength
+
+    **字段一个都没错**，全是该 dataset 的合法字段，只是角色放错。整条查询因此
+    被拒、退回零证据，模型拿到重试提示后照样再犯（repairwin-8 连错两次）。
+
+    去重是安全的：该字段**已经**在 ``metrics`` 里声明过，dimensions 里那份是
+    重复而非另一种意图，去掉它不改变查询语义。
+
+    **刻意不做的**：字段只出现在 ``dimensions``（metrics 里没有）时**不动**。
+    那种情况下「想分组」还是「想取值」无法判定，越权猜测会悄悄改掉查询含义；
+    仍交由校验器拒绝并给 ``validation_retry_hint``。这条边界有测试钉住。
+    """
+
+    dataset = _DATASETS.get(spec.dataset)
+    if dataset is None or not spec.dimensions or not spec.metrics:
+        return spec, ()
+    declared_metrics = set(spec.metrics)
+    redundant = tuple(
+        name
+        for name in spec.dimensions
+        if name in declared_metrics and name in dataset.metrics
+    )
+    if not redundant:
+        return spec, ()
+    kept = tuple(name for name in spec.dimensions if name not in set(redundant))
+    note = (
+        "以下字段已在 metrics 中声明，已从 dimensions 移除（它们是度量不是分组键）："
+        + ",".join(redundant)
+    )
+    return replace(spec, dimensions=kept), (note,)
 
 
 _SCALAR_SCHEMA = {
