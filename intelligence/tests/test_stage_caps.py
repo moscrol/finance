@@ -38,6 +38,24 @@ def test_standard_caps_stay_inside_total_and_protect_reserve() -> None:
     assert caps.tool_batch_seconds + policy.synthesis_reserve == policy.total_seconds
 
 
+def test_standard_judge_window_floor_covers_r06_terra_p95() -> None:
+    """R-06 H9: standard first attempt must clear the 08-10 25s band.
+
+    Live asked=5.208 (retry half-window). Judge-shaped terra N=8 p95=10.75.
+    Floor only the standard judge window to deep's 50s; do not steal reserve
+    or raise T / repair cap / quick / deep.
+    """
+
+    standard = derive_stage_caps(ResearchPolicy.for_tier("standard"))
+    quick = derive_stage_caps(ResearchPolicy.for_tier("quick"))
+    deep = derive_stage_caps(ResearchPolicy.for_tier("deep"))
+    assert standard.tool_batch_seconds == 70.0
+    assert standard.judge_window_seconds == 50.0
+    assert min(30.0, standard.judge_window_seconds * 0.5) == 25.0
+    assert quick.judge_window_seconds < 25.0
+    assert deep.judge_window_seconds == 50.0
+
+
 def test_env_ceiling_can_only_lower_derived_cap(monkeypatch) -> None:
     monkeypatch.delenv("ASK_TOOL_BATCH_TIMEOUT", raising=False)
     derived = derive_stage_caps(ResearchPolicy.for_tier("standard")).tool_batch_seconds
