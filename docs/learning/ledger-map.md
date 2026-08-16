@@ -25,6 +25,7 @@
 | 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
+| 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 
 ## 边界约定（去重复）
 

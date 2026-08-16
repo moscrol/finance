@@ -478,6 +478,24 @@ class CliParseabilityTests(unittest.TestCase):
             ["perspective", "init", "--id", "blogger_x"],
             ["perspective", "ingest", "--perspective", "blogger_x", "--input", "a.md", "--title", "t"],
             ["perspective", "profile", "--perspective", "blogger_x"],
+            [
+                "perspective",
+                "exam",
+                "run",
+                "--perspective",
+                "blogger_x",
+            ],
+            [
+                "perspective",
+                "exam",
+                "add",
+                "--perspective",
+                "blogger_x",
+                "--kind",
+                "edge_case",
+                "--question",
+                "可转债怎么定价？",
+            ],
         ):
             parser.parse_args(argv)
 
