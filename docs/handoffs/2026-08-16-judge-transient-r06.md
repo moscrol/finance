@@ -79,3 +79,24 @@ judge 调用路径补齐 #84 同款时钟账：`timeout_asked` / `timeout_config
 - 不翻 `ASK_LONGTAIL_BASELINE` / `ASK_JUDGE_RECHECK` / `ASK_DEGRADED_FALLBACK`
   （#90 已合但默认 off，其对照窗排在本案之后）
 - 观测台薄账不动（写入者=检阅方）；本 handoff 不在 `docs/dsh-absorption-spec` 提交
+
+## 轮次记录
+
+### 执行方小结 · Round 1（2026-08-16）
+
+- T1 `#92` `02fa203e`：judge 三元组 + 压平前 `exc_class`。
+- T2：8795 新快照 `02fa203e`（非停泊 `21dbf6c1`），user `judge-r06-0816`，12 槽。
+- T3：11×H9，0×H8，非混合。R-06 Closed。
+- T4 `#93` `312a4020`：standard `judge_window` 地板 50s。未动 T/30/reserve/档位。R-10 pending。
+- 8792 未切；`budget_regression_landed` 仍 false。
+
+### 质检批注 · Round 1（2026-08-16，执行方自检）
+
+- **判定**：交付可收。不是独立检阅方 PASS。
+- 独立复核：
+  - validate-report.sh 重跑 RC:0；`test_stage_caps` + T1 三条 + 窗两条 11 passed。
+  - PRIMARY `run_20260816_173648_145174` 与换样本 `run_20260816_174950_078185` 亲手重读：asked=5.208 / TimeoutError / corr=true / remaining 238.9 与 170.1，与 E-001 一致。
+  - 否定主张「没动 T/30/reserve」：`2aedcc6d...HEAD` py diff 无这些上调。
+  - 身份三角：8795 health `02fa203e` / dirty=false / `code_root=…/finance-workspace-02fa203e` 与该目录 `git log -1` 一致。8792 `773b3d7e` / dirty=false / 目录名仍 `437cd5e9aa1a`（#88 HOLD）。停泊 `21dbf6c1` porcelain 空。
+- 标注：L03 r2 / L07 r1 无独立 judge 墙钟时间戳；探针 JSON 落盘失败、秒数以 stdout 为准。已写入收据 Limits。
+- 下轮：合 `#93`（可关 `#92`）→ 观测台部署窗 → 眼 agent 翻闸 2。本执行方不代合、不切 8792。

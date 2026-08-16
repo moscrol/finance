@@ -237,6 +237,8 @@ none。L05 r1 是结构缺口跳过 judge，不是本 PRIMARY 的传播。
 
 - 不是混合 H8/H9，不换 judge provider（08-08 terra 先例留给 H8）。
 - L05 r1 不能写成「缺字段不得结案」的反例——judge 没进 `_clocked_judge_call`。
+- 「墙钟≈asked」：L03 r1 / G03 r2 等有 `post_first_finish` 12–21s（≈10.4+5.2）。L03 r2 / L07 r1 的 episode 末事件就是首个 `finish`（post=0），这两槽的墙钟只能从 `TimeoutError` 客户端切线推断，不是独立时间戳。H9 不靠这两槽单独成立。
+- 探针 JSON 落盘曾因 `LLMProvider` 不能序列化失败；p50/p95 以探针 stdout 八个秒数为准（10.34/6.77/9.64/8.67/8.63/10.75/8.94/10.30）。
 - 08-08 compose P50 是 17K 长输出；本探针是短 JSON judge。T4 用 08-10 的 25s 成功带，而不是只比 10.75 多 1s。
 - 抬 standard judge 窗不增加 `synthesis_reserve`，不改变 `tool_batch_seconds=70`。quick/deep 不动。
 - 8792 未切。闸 2 / `budget_regression_landed` 仍 false，等处置 PR 合 main 且观测台部署。
