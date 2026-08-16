@@ -113,4 +113,4 @@ perspective-workbench ingest --perspective sptfei --input <文章.md> --title <�
 
 `_profile_prompt` 原先在无 snippet 时一律写「该视角未知」，会把种子画像的 5 个镜头冲掉。现改为：画像已有认知框架时，只声明「未召回相关文章，本轮用画像框架作镜头」；空 blogger 仍写未知。契约句「原文未覆盖的问题必须写该视角未知」保留。
 
-代码在 `fix/seeded-perspective-unknown`，**尚未切进 8792 runtime**（快照仍是 `437cd5e9`）。要线上生效需另内部署，不在本数据迁移里重启。
+代码在 `fix/seeded-perspective-unknown`（Gitea PR **#76** `http://127.0.0.1:3300/a77/finance-workspace-private/pulls/76`），**尚未切进 8792 runtime**（快照仍是 `437cd5e9`）。要线上生效需合入后再部署，不在本数据迁移里重启。
