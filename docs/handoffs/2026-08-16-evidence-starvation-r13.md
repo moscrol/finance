@@ -122,3 +122,11 @@ run_20260816_205439_732198（20:54，user=default，standard，8792 @ `6cd0756e`
 - 相邻 artifact（serial-phase）：460 份 episode 里成功 `evidence_search` 仅 5 次，墙钟 32.3–58.9s，0 次 ≤10s。这是旁证，不是预注册重放，**不得据此写 H-a/H-c**。
 - 对 R-11 冻结样本：`post:L05:r2` `run_20260816_190657_142513` 有 `evidence_search`/`kb_search` `tool_timeout` 且 `queued_ms` 0.2/1.1（与 732198 同形的零执行时间闸）。R-11 已自结，本案不代结、不回写。
 - 下一步：中转恢复后用同一 8795/`16f2cd47` 重跑 T2；缺字段前 R-13 保持 pending。
+
+### 2026-08-16 执行方 T2 第二窗（GLM Coding Plan，T3 未切开）
+
+- 中转 chat 仍 502。同一 8795/`16f2cd47`（pid 73668）改走 GLM-5.2 Coding Plan。8792 仍 `6cd0756e`。
+- 11/11 计划槽跑完，五元组 `clock_missing=[]`。0 次 `evidence_search`（合同有、模型没发）。0 次 judge。
+- H-a INCONCLUSIVE（缺 branch/judge 秒；D01 `tool+compose` 51/59s <90；墙钟不得代替）。
+- H-c NOT MET（没有 `evidence_search` 自然完成值）。`kb_search` 六次 timeout 均 grant 10.5–20.2s，只作同形旁证。
+- 下一步：要结 H-c 必须有实际发出的 `evidence_search`；要结 H-a 必须有四段自然秒。不得开 T4。R-10 另开。
