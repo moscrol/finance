@@ -67,9 +67,9 @@ skill 注入的现状：注册表 ws 33 条 + kb 20 条，episode configure 可�
 
 ## 3. 预注册验收（S2 对照法）
 
-- 题集：从历史 runs 挖真实长尾 15 题——落过 chat/knowledge 兜底的 + `general_finance_qa` 且 confidence<0.6 的（含 8.15 两问：`run_20260816_102941_554059` / `run_20260816_103318_230845`），冻结成集。
-- 分层标注：outlook 形（题面含「你认为/你觉得/怎么看/机会在哪/会怎么走」）vs 真残差（无观点题面）。今天两问是 outlook 形 × 残差置信，两刀都会碰到。
-- 对照基线：gitea/main `268a0605`（已含 outlook 第一刀 #72：观点题判断槽 `model_reasoning`）。现状臂 = 该 tip；注入臂 = 该 tip + 本开关 on。今天两问已是 outlook 形，剥句率差的是骨架增量，不是 grounding_mode。真残差档（无观点题面）才是本刀独有信号。不要再拿 8792 快照 `437cd5e9` 当现状臂。
+- 题集：已冻结。权威夹具 `intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json`，收据 `docs/verification/2026-08-16-longtail-baseline-frozen-set.md`。含 8.15 两问：`run_20260816_102941_554059` / `run_20260816_103318_230845`。
+- 分层标注：outlook 形（题面含「你认为/你觉得/怎么看/机会在哪/会怎么走」）vs 真残差（无观点题面）。今天两问是 outlook 形 × 残差置信，两刀都会碰到。已翻成 `market_forecast` 的「明天怎么看」不进本集。
+- 对照基线：gitea/main `773b3d7e`（含 outlook #72/#75/#79 与本刀 #77）。现状臂 = 该 tip + 开关 off；注入臂 = 同一 tip + `ASK_LONGTAIL_BASELINE=on`。不要再用 `268a0605` / `ef5c3821`（缺后续 outlook 刀），也不要拿 8792 快照 `437cd5e9` 当现状臂。outlook 档剥句率会叠 #79 比较集绑定；真残差档才是本刀独有信号。
 - 主度量：非空 direct_answer 交付率；judge 剥句率（rejected_sentence/总句数）；evidence_bound_rate（**沿用 5pp 门槛不放宽**）；token/墙钟成本增量。
 - 空壳 vs 诚实缺口：chat 兜底无检索时，正文写「未取得」算合规交付，不算空壳。不要用「看起来有字」当成功。
 - 护栏：高置信路由（confidence≥0.6 且有 `RESEARCH_OWNER_IDS` owner 或专用 skill）行为零变化，取 5 题回归对比字节级 diff；植入含市场数字的假骨架文本必须被 review 拒绝。
@@ -77,7 +77,7 @@ skill 注入的现状：注册表 ws 33 条 + kb 20 条，episode configure 可�
 
 ## 4. 与既有账的关系
 
-- 姊妹刀：`2026-08-16-outlook-question-empty-delivery.md`。第一刀已合 main（#72 @ `268a0605`）。本刀在它之上抬残差地板；共享标记词表仍要抽成常量，避免两处各写一份。
+- 姊妹刀：`2026-08-16-outlook-question-empty-delivery.md`。#72 与层 2 #75 已合 main。本刀在它们之上抬残差地板；共享标记词表仍要抽成常量，避免两处各写一份。
 - knevo：借的是「骨架写成 skill 文件」的思路。README §5「把 Knevo 附录 8 种 prompt 骨架改写成技能文件」（情景推演 / 盘中信号 / 新闻映射 / 横向对比 / 仓位 / 时间轴 / 历史类比 / 复盘回放）**至今没人做**，本交接**不是**那条的字面落地。q6 也说明 Knevo 那 9 条同样是工作流 skill，和我们现有 33 条一类。
 - 血缘：knevo 学习线三棒已全部合 main（#144 → #320 → #331）。本交接可挂第四棒，但正文源是 judge 契约，不是 q1-q11。开新分支从 gitea/main 拉。
 
