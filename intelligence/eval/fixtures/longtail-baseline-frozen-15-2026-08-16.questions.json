@@ -1,0 +1,508 @@
+{
+  "schema_version": 1,
+  "id": "longtail-baseline-frozen-15-v1",
+  "frozen_at": "2026-08-16T12:01:44+08:00",
+  "spec": "docs/handoffs/2026-08-16-longtail-baseline-skill-injection.md",
+  "report": "docs/verification/2026-08-16-longtail-baseline-frozen-set.md",
+  "mined_from": [
+    "~/.local/share/finance-workbench/users/default/runs",
+    "~/.local/share/finance-workbench/users/linxiaoqi5111/runs"
+  ],
+  "baseline": {
+    "tip": "ef5c3821",
+    "includes": ["#72", "#75", "#77", "#76"],
+    "off_arm": "ASK_LONGTAIL_BASELINE unset/off on this tip",
+    "on_arm": "ASK_LONGTAIL_BASELINE=on on this tip",
+    "do_not_use": ["437cd5e9", "268a0605"]
+  },
+  "sample_design": {
+    "longtail_count": 15,
+    "guard_count": 5,
+    "arms": 2,
+    "repeats": 3,
+    "nr_longtail": 90,
+    "threshold_pp": 5.0,
+    "live_ab_ran": false
+  },
+  "outlook_markers": ["你认为", "你觉得", "怎么看", "机会在哪", "会怎么走"],
+  "excluded": [
+    {
+      "question": "2026-07-21 收盘了，明天怎么看",
+      "reason": "latest classification is market_forecast 0.92 after #72; highway, not residual"
+    },
+    {
+      "question": "站在 2026-07-21 收盘，给出对 07-22 的研判",
+      "reason": "latest classification is market_forecast 0.92"
+    },
+    {
+      "question": "明天怎么看",
+      "reason": "latest classification is market_forecast 0.92"
+    },
+    {
+      "question": "查一下 sector_marginal 表里 07-23 的边际量",
+      "reason": "schema probe, not a user finance question"
+    },
+    {
+      "question": "只回复两个字：收到",
+      "reason": "noise"
+    },
+    {
+      "question": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
+      "reason": "attached-material task"
+    }
+  ],
+  "cases": [
+    {
+      "id": "L01",
+      "role": "longtail",
+      "stratum": "outlook",
+      "triggers": ["t2"],
+      "question": "基于8.15的行情现状，你认为周一的机会在哪",
+      "as_of": "2026-08-15",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260816_102941_554059",
+          "user": "default",
+          "role": "live-pair"
+        },
+        {
+          "run_id": "run_20260816_103318_230845",
+          "user": "default",
+          "role": "live-pair"
+        }
+      ],
+      "notes": "handoff-required pair. TaskFrame.confidence=0.4; controller trace may show higher confidence. observed report as_of was 2026-08-14."
+    },
+    {
+      "id": "L02",
+      "role": "longtail",
+      "stratum": "outlook",
+      "triggers": ["t2"],
+      "question": "以 2026-08-04 收盘数据为准，分析当前行情，你认为哪个方向、哪只个股比较有机会？",
+      "as_of": "2026-08-04",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260805_234517_604873",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L03",
+      "role": "longtail",
+      "stratum": "outlook",
+      "triggers": ["t2"],
+      "question": "今天市场的抱团结构怎么看，主线有没有松动迹象？",
+      "as_of": "2026-08-13",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260814_034019_629497",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L04",
+      "role": "longtail",
+      "stratum": "outlook",
+      "triggers": ["t1", "t2"],
+      "question": "立新能源怎么看",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_180819_122294",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2-and-t1"
+        },
+        {
+          "run_id": "run_20260815_032952_680228",
+          "user": "linxiaoqi5111",
+          "role": "t1"
+        }
+      ],
+      "notes": "same text has also been theme-research / stock_deep_dive on other runs. If eval tip absorbs it into RESEARCH_OWNER_IDS or market_*, score as routing-absorbed, not peel-rate."
+    },
+    {
+      "id": "L05",
+      "role": "longtail",
+      "stratum": "outlook",
+      "triggers": ["t2"],
+      "question": "超纯应材你认为合理估值是多少",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260806_153812_267573",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L06",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "2026-07-23 涨停热度前四的题材里，哪些同时也是双红板块",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_182537_751801",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ],
+      "notes": "also S10-B5; different eval, same question text."
+    },
+    {
+      "id": "L07",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "2026-07-23 涨停集中在哪些题材",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_180937_200598",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L08",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "什么是双红题材",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260731_193821_892916",
+          "user": "default",
+          "role": "latest-t2"
+        }
+      ],
+      "notes": "definition residual. observed report as_of was 2026-06-13; eval as_of follows the dual-red window used by sibling residual items."
+    },
+    {
+      "id": "L09",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t1", "t2"],
+      "question": "2026-07-23 连板梯队什么情况，有没有断层",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_181108_139591",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        },
+        {
+          "run_id": "run_20260801_031338_580026",
+          "user": "default",
+          "role": "t1"
+        }
+      ]
+    },
+    {
+      "id": "L10",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "2026-07-25 市场怎么样",
+      "as_of": "2026-07-25",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_183014_288691",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L11",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t1", "t2"],
+      "question": "2026-07-21 的新高家数结构说明什么",
+      "as_of": "2026-07-21",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_181526_643177",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        },
+        {
+          "run_id": "run_20260801_031610_141951",
+          "user": "default",
+          "role": "t1"
+        }
+      ]
+    },
+    {
+      "id": "L12",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "现在最强的方向是什么，为什么",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260805_234632_906886",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ],
+      "notes": "judgmental wording without outlook markers; residual stratum by keyword rule."
+    },
+    {
+      "id": "L13",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "最近哪些板块比较强，双红的那种",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_183554_189780",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L14",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t2"],
+      "question": "2026-07-23 的市场情绪怎么解读",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_181410_204134",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ]
+    },
+    {
+      "id": "L15",
+      "role": "longtail",
+      "stratum": "residual",
+      "triggers": ["t1", "t2"],
+      "question": "立新能源的技术面快照给我看一下",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_answer", "evidence_boundary"],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_183146_885845",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2-and-t1"
+        },
+        {
+          "run_id": "run_20260815_105025_527881",
+          "user": "linxiaoqi5111",
+          "role": "t1"
+        }
+      ]
+    },
+    {
+      "id": "G01",
+      "role": "guard",
+      "stratum": "owner",
+      "triggers": [],
+      "question": "液冷题材现在怎么看？我之前的判断还成立吗",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_assessment", "chain_mapping", "counterpoint"],
+      "observed": {
+        "question_type": "theme_analysis",
+        "confidence": 0.98,
+        "answer_owner": "theme-research"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260808_001411_773938",
+          "user": "default",
+          "role": "latest-owner"
+        }
+      ]
+    },
+    {
+      "id": "G02",
+      "role": "guard",
+      "stratum": "owner",
+      "triggers": [],
+      "question": "固态电池",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_assessment", "chain_mapping", "counterpoint"],
+      "observed": {
+        "question_type": "theme_analysis",
+        "confidence": 0.98,
+        "answer_owner": "theme-research"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_181915_197222",
+          "user": "linxiaoqi5111",
+          "role": "latest-owner"
+        }
+      ]
+    },
+    {
+      "id": "G03",
+      "role": "guard",
+      "stratum": "owner",
+      "triggers": [],
+      "question": "光刻胶",
+      "as_of": "2026-08-14",
+      "required_outputs": ["direct_assessment", "chain_mapping", "counterpoint"],
+      "observed": {
+        "question_type": "theme_analysis",
+        "confidence": 0.98,
+        "answer_owner": "theme-research"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_181626_954956",
+          "user": "linxiaoqi5111",
+          "role": "latest-owner"
+        }
+      ]
+    },
+    {
+      "id": "G04",
+      "role": "guard",
+      "stratum": "owner",
+      "triggers": [],
+      "question": "2026-07-23 电网设备为什么涨，给出证据来源",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_assessment", "chain_mapping", "counterpoint"],
+      "observed": {
+        "question_type": "theme_analysis",
+        "confidence": 0.98,
+        "answer_owner": "theme-research"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_183924_701039",
+          "user": "linxiaoqi5111",
+          "role": "latest-owner"
+        }
+      ],
+      "notes": "also S10-C9."
+    },
+    {
+      "id": "G05",
+      "role": "guard",
+      "stratum": "owner",
+      "triggers": [],
+      "question": "电网设备是怎么发酵到 2026-07-23 双红的，把链路回溯一下",
+      "as_of": "2026-07-23",
+      "required_outputs": ["direct_assessment", "chain_mapping", "counterpoint"],
+      "observed": {
+        "question_type": "theme_analysis",
+        "confidence": 0.98,
+        "answer_owner": "theme-research"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_182037_434217",
+          "user": "linxiaoqi5111",
+          "role": "latest-owner"
+        }
+      ],
+      "notes": "also S10-B4."
+    }
+  ]
+}
