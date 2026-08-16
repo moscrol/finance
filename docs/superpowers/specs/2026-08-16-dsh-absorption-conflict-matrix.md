@@ -26,8 +26,8 @@ roadmap_ref: L1-DSH
 | 5 | 凭证 | `DSH_AB_RELAY_KEY` | 不复用 `OPENAI_API_KEY`；artifact 只记指纹 | 函数已关；注入留给 live 窗 |
 | 6 | live A/B 命令 | 生产 env + terra | 禁止 `--keychain-user` / `localhost:57244` / `gpt-5.6-sol` | `forbidden_copy` 已钉 |
 | 7 | dsh 源码 | pinned sparse checkout | 不复制；路径只经 `DSH_SOURCE_INDEX` | 第 7 步下半已关 |
-| 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 收口时另开观测台 PR | #66 已记 #61/#65 |
-| 9 | 合 main / 删安全 ref | 用户 | #61 已合；删 ref 条件已满足，hook 挡住 agent，须用户手动 | 合 main 已做；ref 仍在 |
+| 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 收口时另开观测台 PR | #66 已记 #61/#65；#69 锁样本待观测台记账 |
+| 9 | 合 main / 删安全 ref | 用户 | #61 已合；安全 ref 已删（本地+gitea 均为空） | 已关 |
 | 10 | 推翻默认立场 | 用户开对照窗 | 先校准，再扩到能压住 5pp 的 n×r，才上 Arm B；不许放宽 5pp（与 step1 收据 §6.1 互为钉死，门槛不是旋钮） | 45× 已跑；锁 30×15=450/臂（v=0.1375）；对照未开 |
 
 ## 2. 第 8 步仍欠什么
