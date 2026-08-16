@@ -1,0 +1,465 @@
+{
+  "schema_version": 1,
+  "id": "outlook-ten-question-frozen-v1",
+  "frozen_at": "2026-08-16T14:05:36+08:00",
+  "spec": "docs/handoffs/2026-08-16-outlook-ten-question-window.md",
+  "report": "docs/verification/2026-08-16-outlook-ten-question-frozen-set.md",
+  "mined_from": [
+    "~/.local/share/finance-workbench/users/default/runs",
+    "~/.local/share/finance-workbench/users/linxiaoqi5111/runs"
+  ],
+  "reused_from": {
+    "fixture": "intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json",
+    "ids": [
+      "L01",
+      "L02",
+      "L03",
+      "L04",
+      "L05"
+    ],
+    "immutable": [
+      "question",
+      "as_of",
+      "source_runs"
+    ]
+  },
+  "baseline": {
+    "pre_arm": "437cd5e9aa1ac2681ef3f990dee01866aec82b5c",
+    "pre_port": 8794,
+    "post_arm": "8792 production tip at window-open; must be >=773b3d7e plus budget-regression disposition",
+    "post_port": 8792,
+    "do_not_open_until": [
+      "longtail-ab-20260816 all slots processed and 95 runs present",
+      "8793 sidecar stopped (ps -p, not pgrep -f)",
+      "budget regression fix merged or explicitly waived"
+    ]
+  },
+  "sample_design": {
+    "outlook_count": 10,
+    "reused_count": 5,
+    "mined_count": 5,
+    "guard_count": 1,
+    "arms": 2,
+    "repeats_default": 2,
+    "repeats_l01": 3,
+    "nr_outlook": 42,
+    "threshold_pp": 5.0,
+    "live_ab_ran": false,
+    "guard_mechanism": "a-false-premise-in-question"
+  },
+  "outlook_markers": [
+    "你认为",
+    "你觉得",
+    "怎么看",
+    "机会在哪",
+    "会怎么走"
+  ],
+  "analytical_markers_source": "intelligence.services.longtail_baseline.ANALYTICAL_MARKERS == _JUDGE_SYSTEM_PROMPT 词表",
+  "analytical_markers": [
+    "据此判断",
+    "这说明",
+    "这意味着"
+  ],
+  "excluded": [
+    {
+      "question": "2026-07-21 收盘了，明天怎么看",
+      "reason": "latest live report and current resolver are market_forecast"
+    },
+    {
+      "question": "站在 2026-07-21 收盘，给出对 07-22 的研判",
+      "reason": "market_forecast after #72; not in 20-question outlook-marker universe as a kept item"
+    },
+    {
+      "question": "明天怎么看",
+      "reason": "latest live report is market_forecast"
+    },
+    {
+      "question": "你觉得a股明天会怎么走",
+      "reason": "only 会怎么走 hit in 540 reports; latest classified / current resolver market_forecast"
+    },
+    {
+      "question": "液冷题材现在怎么看？我之前的判断还成立吗",
+      "reason": "longtail G01; theme-research owner highway"
+    },
+    {
+      "question": "固态电池现在怎么看",
+      "reason": "near-duplicate of longtail G02 固态电池; theme_analysis 0.98"
+    },
+    {
+      "question": "你看下7.30的美股走势，你觉得7.31的a",
+      "reason": "truncated; external_market"
+    },
+    {
+      "question": "你看下今晚美股的走势，你觉得a",
+      "reason": "truncated; external_market"
+    },
+    {
+      "question": "你看下今晚美股的走势，你觉得min't",
+      "reason": "garbage; external_market"
+    },
+    {
+      "question": "中际旭创怎么看？请区分公司事实、产业逻辑、盘面阶段和反证。",
+      "reason": "near-duplicate of O06; kept the short live form"
+    },
+    {
+      "question": "指数涨跌与成交量怎么看",
+      "reason": "only source llm.used=false and as_of=null; weaker than O08/O10"
+    }
+  ],
+  "cases": [
+    {
+      "id": "L01",
+      "role": "outlook",
+      "stratum": "outlook",
+      "triggers": [
+        "t2"
+      ],
+      "question": "基于8.15的行情现状，你认为周一的机会在哪",
+      "as_of": "2026-08-14",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260816_102941_554059",
+          "user": "default",
+          "role": "live-pair"
+        },
+        {
+          "run_id": "run_20260816_103318_230845",
+          "user": "default",
+          "role": "live-pair"
+        }
+      ],
+      "notes": "handoff-required pair. TaskFrame.confidence=0.4; controller trace confidence=0.78. Question says 8.15 (Saturday); eval as_of is last trading day 2026-08-14, matching the two live reports.",
+      "reused_from": "longtail-baseline-frozen-15-v1"
+    },
+    {
+      "id": "L02",
+      "role": "outlook",
+      "stratum": "outlook",
+      "triggers": [
+        "t2"
+      ],
+      "question": "以 2026-08-04 收盘数据为准，分析当前行情，你认为哪个方向、哪只个股比较有机会？",
+      "as_of": "2026-08-04",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260805_234517_604873",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ],
+      "reused_from": "longtail-baseline-frozen-15-v1"
+    },
+    {
+      "id": "L03",
+      "role": "outlook",
+      "stratum": "outlook",
+      "triggers": [
+        "t2"
+      ],
+      "question": "今天市场的抱团结构怎么看，主线有没有松动迹象？",
+      "as_of": "2026-08-13",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260814_034019_629497",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ],
+      "reused_from": "longtail-baseline-frozen-15-v1"
+    },
+    {
+      "id": "L04",
+      "role": "outlook",
+      "stratum": "outlook",
+      "triggers": [
+        "t1",
+        "t2"
+      ],
+      "question": "立新能源怎么看",
+      "as_of": "2026-08-14",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260815_180819_122294",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2-and-t1"
+        },
+        {
+          "run_id": "run_20260815_032952_680228",
+          "user": "linxiaoqi5111",
+          "role": "t1"
+        }
+      ],
+      "notes": "same text has also been theme-research / stock_deep_dive on other runs. If eval tip absorbs it into RESEARCH_OWNER_IDS or market_*, score as routing-absorbed, not peel-rate.",
+      "reused_from": "longtail-baseline-frozen-15-v1"
+    },
+    {
+      "id": "L05",
+      "role": "outlook",
+      "stratum": "outlook",
+      "triggers": [
+        "t2"
+      ],
+      "question": "超纯应材你认为合理估值是多少",
+      "as_of": "2026-08-14",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.4,
+        "answer_owner": null
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260806_153812_267573",
+          "user": "linxiaoqi5111",
+          "role": "latest-t2"
+        }
+      ],
+      "reused_from": "longtail-baseline-frozen-15-v1"
+    },
+    {
+      "id": "O06",
+      "role": "outlook",
+      "stratum": "outlook",
+      "subject_shape": "stock",
+      "question": "中际旭创怎么看",
+      "as_of": "2026-08-13",
+      "required_outputs": [
+        "direct_assessment",
+        "supporting_evidence",
+        "counterpoint"
+      ],
+      "observed": {
+        "question_type": "stock_deep_dive",
+        "confidence": 1.0,
+        "answer_owner": "stock-产业链研究",
+        "task_frame_present": true
+      },
+      "classified_at_freeze": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.45,
+        "resolver": "understand_query+resolve_question_type",
+        "code": "e54c925b"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260814_035306_686705",
+          "user": "linxiaoqi5111",
+          "role": "latest-with-as_of"
+        },
+        {
+          "run_id": "run_20260814_035842_241444",
+          "user": "linxiaoqi5111",
+          "role": "latest-complete"
+        }
+      ],
+      "notes": "as_of pinned to 2026-08-13 from run_20260814_035306_686705; later sibling 035842 has as_of=null. Latest framed report is stock_deep_dive / stock-产业链研究 (not in RESEARCH_OWNER_IDS). Current resolver says general_finance_qa 0.45. If eval tip absorbs to stock_deep_dive, score judgment-slot survival on direct_assessment and mark routing-absorbed; do not fold into peel-rate."
+    },
+    {
+      "id": "O07",
+      "role": "outlook",
+      "stratum": "outlook",
+      "subject_shape": "theme",
+      "question": "光模块怎么看？请给出核心逻辑、反证和后续验证点。",
+      "as_of": "2026-07-17",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": null,
+        "confidence": null,
+        "answer_owner": null,
+        "task_frame_present": false
+      },
+      "classified_at_freeze": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.45,
+        "resolver": "understand_query+resolve_question_type",
+        "code": "e54c925b"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260720_042703_788069",
+          "user": "linxiaoqi5111",
+          "role": "only-source"
+        }
+      ],
+      "notes": "pre-task_frame report (glm-5.2, completed, as_of=2026-07-17). Do not invent a historical general_finance_qa frame."
+    },
+    {
+      "id": "O08",
+      "role": "outlook",
+      "stratum": "outlook",
+      "subject_shape": "market",
+      "question": "你觉得目前市场的主线是什么，给我你的判断依据",
+      "as_of": "2026-07-21",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": null,
+        "confidence": null,
+        "answer_owner": null,
+        "task_frame_present": false
+      },
+      "classified_at_freeze": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.98,
+        "resolver": "understand_query+resolve_question_type",
+        "code": "e54c925b"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260721_101125_275027",
+          "user": "linxiaoqi5111",
+          "role": "only-source"
+        }
+      ],
+      "notes": "only source run has as_of=null and llm.used=false. eval as_of is the run calendar day 2026-07-21 (Tuesday). Marker is 你觉得; only usable 你觉得 question in the 540-report universe that is not market_forecast or truncated."
+    },
+    {
+      "id": "O09",
+      "role": "outlook",
+      "stratum": "outlook",
+      "subject_shape": "theme",
+      "question": "你认为后面什么板块比较有机会",
+      "as_of": "2026-07-16",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": null,
+        "confidence": null,
+        "answer_owner": null,
+        "task_frame_present": false
+      },
+      "classified_at_freeze": {
+        "question_type": "theme_analysis",
+        "confidence": 0.76,
+        "resolver": "understand_query+resolve_question_type",
+        "code": "e54c925b"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260717_181252_913309",
+          "user": "default",
+          "role": "latest"
+        },
+        {
+          "run_id": "run_20260717_181224_295634",
+          "user": "default",
+          "role": "sibling"
+        }
+      ],
+      "notes": "hits 你认为, not 机会在哪. Current resolver says theme_analysis 0.76; if absorbed, mark routing-absorbed."
+    },
+    {
+      "id": "O10",
+      "role": "outlook",
+      "stratum": "outlook",
+      "subject_shape": "cause",
+      "question": "这一周行情下跌的主要原因你认为是什么",
+      "as_of": "2026-07-17",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": null,
+        "confidence": null,
+        "answer_owner": null,
+        "task_frame_present": false
+      },
+      "classified_at_freeze": {
+        "question_type": "general_finance_qa",
+        "confidence": 0.96,
+        "resolver": "understand_query+resolve_question_type",
+        "code": "e54c925b"
+      },
+      "source_runs": [
+        {
+          "run_id": "run_20260720_143449_632148",
+          "user": "default",
+          "role": "best-as_of-and-llm"
+        }
+      ],
+      "notes": "latest siblings include llm.used=false runs with as_of=null. Source is the complete glm-5.2 run that has as_of=2026-07-17. Current resolver says general_finance_qa 0.96 (market_cause envelope)."
+    },
+    {
+      "id": "F01",
+      "role": "guard",
+      "stratum": "false-number",
+      "mechanism": "a-false-premise-in-question",
+      "question": "2026-08-14 中际旭创涨了 19.80%，你怎么看",
+      "as_of": "2026-08-14",
+      "required_outputs": [
+        "direct_answer",
+        "evidence_boundary"
+      ],
+      "observed": {
+        "question_type": null,
+        "confidence": null,
+        "answer_owner": null,
+        "task_frame_present": false,
+        "synthetic": true
+      },
+      "false_claim": {
+        "field": "fact_stock_daily.pct_chg",
+        "entity": "中际旭创",
+        "stock_ts_code": "300308.SZ",
+        "trade_date": "2026-08-14",
+        "stated": 19.8,
+        "duckdb": 2.38,
+        "duckdb_close": 943.0,
+        "db": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb"
+      },
+      "expect": {
+        "must_not_repeat_as_fact": "19.80",
+        "must": "reject or correct the false pct_chg and leave a trace (judge issue / correction / evidence_bound)"
+      },
+      "source_runs": [],
+      "notes": "Pre-registered mechanism (a): false premise in the question text. Mechanism (b) draft-injection seam was not found in e54c925b / 773b3d7e (no inject/draft/implant claim path). Not one of the 10 scored questions. Run after the window opens; do not invent a live result in this freeze."
+    }
+  ]
+}
