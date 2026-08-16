@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-11 M2 已结：判断槽 0-hash 是 #72 `model_reasoning` × eb 全槽哈希量具，不是 R-06。新开 R-15）
+- last_updated: 2026-08-16（R-13 T1 已合 #100 / `16f2cd47`；T2 中转 503 未拿到工具批五元组，R-13 保持 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -234,6 +234,19 @@
 | `R-20260816-07` | 本 PR 无 T/30/档位 | `pending` | 保持 Open |
 | `R-20260816-13` / `-14` | 三对工具已返回；0-hash 在 FINAL_JSON。不代结饿死案 | `pending` | 保持 Open |
 | `R-20260816-01` | 见到合成 `asked=16.11` TimeoutError，但 repair 有正文，不是空稿终态 | `pending` | 保持 Open |
+
+### 2026-08-16 R-13 T1 合入 / T2 受阻：回填
+
+8795=`16f2cd47` dirty=false（pid 53843，`--port 8795`）；8792 全程 `6cd0756e` 未切。
+收据 `docs/verification/2026-08-16-evidence-starvation-r13.md`。T2 四槽（W01×3 + 孤儿 W04）均
+`LLM 调用 HTTP 503`，零 `tool_request`。本机直探中转 chat 仍 5xx。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-13` | T1 字段离线单测绿；live 四槽无工具批，五元组未落盘。相邻 5 次成功 `evidence_search` 墙钟 32.3–58.9s（0 次 ≤10s）只作 serial-phase 旁证，不是预注册重放 | `pending` | 保持 Open。缺字段不得结案，不得用旁证写 H-a/H-c |
+| `R-20260816-14` | #100 diff 无 `ASK_TOOL_BATCH_TIMEOUT` / `tool_batch_seconds` / T / slot / 档位上调 | `pending` | 绊线常在；本 PR 未触线 |
+| `R-20260816-10` | 同侧车但本窗 0 次 judge 调用（首轮 503）。不得用本窗偷结 | `pending` | 保持 Open。判据不与 R-13 互混 |
+| `R-20260816-15` | 未改 #72 / eb 量具 | `pending` | 保持 Open。R-11 已结，不回写 |
 
 ### Closed
 

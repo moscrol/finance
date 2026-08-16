@@ -109,8 +109,16 @@ run_20260816_205439_732198（20:54，user=default，standard，8792 @ `6cd0756e`
 
 ## 轮次记录
 
-### 2026-08-16 执行方 T1（未合、未切 8792）
+### 2026-08-16 执行方 T1（已合 #100 / `16f2cd47`，未切 8792）
 
 - 分支 `fix/r13-t1-dispatch-clock`：工具批派发五元组进 `tool_request`/`tool_error`（不进模型消息）；judge `passed`/`repaired` 出口补 `_attach_judge_clock` + `judge_attempt_index`。
 - 夹具 `intelligence/tests/fixtures/r13-evidence-starvation-732198.json` 钉住 732198 两闸形状。未动 T / 批窗 / slot / 档位。
-- 下一步：PR 合 main 后按交接切 8795 做 T2。
+- Gitea **#100** 已合 `16f2cd47`。
+
+### 2026-08-16 执行方 T2（受阻，未结案）
+
+- 8795 已从 `02fa203e` 一次切到 `16f2cd47`（pid 53843，dirty=false，readiness=ready）。8792 仍 `6cd0756e`。
+- user `r13-starve-0816`：W01 r1–r3 + 孤儿 W04 均首轮 `LLM 调用 HTTP 503`，零工具批，五元组未落盘。本机直探中转 chat 仍 5xx。已停 replay，侧车保持。
+- 相邻 artifact（serial-phase）：460 份 episode 里成功 `evidence_search` 仅 5 次，墙钟 32.3–58.9s，0 次 ≤10s。这是旁证，不是预注册重放，**不得据此写 H-a/H-c**。
+- 对 R-11 冻结样本：`post:L05:r2` `run_20260816_190657_142513` 有 `evidence_search`/`kb_search` `tool_timeout` 且 `queued_ms` 0.2/1.1（与 732198 同形的零执行时间闸）。R-11 已自结，本案不代结、不回写。
+- 下一步：中转恢复后用同一 8795/`16f2cd47` 重跑 T2；缺字段前 R-13 保持 pending。
