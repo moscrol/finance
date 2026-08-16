@@ -7,11 +7,17 @@
 → `build_episode_input`），不碰指纹锁定的指令文本。
 
 测试走 `build_episode_context`（可达性纪律：断言生效值，不断言配置表）。
+
+R-20：18 个 ``question_type`` 的 required outputs 不得静默回落成裸 ``output_id``；
+删表里任一被用到的键必须在 ``build_episode_context`` 转红。
 """
 from __future__ import annotations
 
+import pytest
+
+from intelligence.services.answer_orchestrator import QUESTION_TYPES
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, derive_required_outputs
 
 
 def _frame(question_type: str, required_outputs: tuple[str, ...]) -> TaskFrame:
@@ -82,3 +88,53 @@ def test_non_market_slots_stay_unchanged() -> None:
 
     assert _description(context, "direct_assessment") == "直接回答用户问题并说明判断强度"
     assert _description(context, "risk_signals") == "列出风险信号与观察条件"
+
+
+def test_eighteen_question_types_have_human_descriptions() -> None:
+    """R-20：18 题型 × 默认槽位都有人话描述，chain_mapping 不得同义反复。"""
+
+    missing: list[str] = []
+    tautology: list[str] = []
+    for question_type in sorted(QUESTION_TYPES):
+        outputs = derive_required_outputs(question_type, "占位问题")
+        context = build_episode_context(
+            _frame(question_type, outputs),
+            task_id=f"desc-cover-{question_type}",
+            capabilities=(
+                "market_data",
+                "news_search",
+                "web_search",
+                "financial_data",
+            ),
+        )
+        by_id = {
+            item.output_id: item.description
+            for item in context.contract.required_outputs
+        }
+        for output_id in outputs:
+            description = by_id.get(output_id)
+            if not description:
+                missing.append(f"{question_type}:{output_id}")
+            elif description == output_id:
+                tautology.append(f"{question_type}:{output_id}")
+    assert missing == []
+    assert tautology == []
+
+
+def test_missing_description_key_fails_at_build(monkeypatch) -> None:
+    """删任一被用到的键必须转红，不能再 ``.get(id, id)`` 静默回落。"""
+
+    from intelligence.services import episode_factory as factory
+
+    table = dict(factory._OUTPUT_DESCRIPTIONS)
+    table.pop("chain_mapping", None)
+    monkeypatch.setattr(factory, "_OUTPUT_DESCRIPTIONS", table)
+    with pytest.raises(ValueError, match="chain_mapping"):
+        build_episode_context(
+            _frame(
+                "theme_analysis",
+                ("direct_assessment", "chain_mapping", "counterpoint"),
+            ),
+            task_id="desc-missing-key",
+            capabilities=("market_data",),
+        )

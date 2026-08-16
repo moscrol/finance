@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（8792 已切 GLM 主/中转兜底；开 R-16..21。dsh 草稿的 06–11 号作废，不覆盖 main 旧行）
+- last_updated: 2026-08-16（R-20 离线已绿：18 题型描述无缺键，静默回落改构造期失败。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -292,6 +292,18 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-06` | Closed 的 judge 窗案。本事故不回写、不改原文 | `confirmed` | 不回写 |
 | `R-20260816-11` | Closed 的判断槽 0-hash。本事故不占用此号 | `confirmed` | 不回写 |
 | `R-20260816-07` / `-10` / `-13` / `-14` / `-15` | 未把 30 / T / 档位当本事故修复 | `pending` | 保持 Open |
+
+### 2026-08-16 R-20 描述表：离线回填
+
+18 个 `QUESTION_TYPES` 默认槽位补齐后人话描述；`chain_mapping` 不再同义反复。
+`.get(id, id)` 改为 `_require_output_description`，缺键在 `build_episode_context` 失败。
+删 `chain_mapping` 键的夹具转红。未部署 8792。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-20` | 离线：18 题型无缺键/同义反复；`test_missing_description_key_fails_at_build` 转红。未做 live 契约抽检 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-17` / `-18` / `-19` / `-21` | 未做链长结案 / 成因行 / status / 反证 / p90 窗 | `pending` | 保持 Open |
 
 ### Closed
 
