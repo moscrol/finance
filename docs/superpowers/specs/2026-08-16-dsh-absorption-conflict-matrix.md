@@ -28,15 +28,16 @@ roadmap_ref: L1-DSH
 | 7 | dsh 源码 | pinned sparse checkout | 不复制；路径只经 `DSH_SOURCE_INDEX` | 第 7 步下半已关 |
 | 8 | 观测台薄账 | `gitea/main` 的 `docs/roadmap.md` | 收口时另开观测台 PR | #66 已记 #61/#65 |
 | 9 | 合 main / 删安全 ref | 用户 | #61 已合；删 ref 条件已满足，hook 挡住 agent，须用户手动 | 合 main 已做；ref 仍在 |
-| 10 | 推翻默认立场 | 用户开对照窗 | 先校准，再扩到能压住 5pp 的 n×r，才上 Arm B；不许放宽 5pp | 45× 已跑；30×3 半宽 10.8pp |
+| 10 | 推翻默认立场 | 用户开对照窗 | 先校准，再扩到能压住 5pp 的 n×r，才上 Arm B；不许放宽 5pp（与 step1 收据 §6.1 互为钉死，门槛不是旋钮） | 45× 已跑；锁 30×15=450/臂（v=0.1375）；对照未开 |
 
 ## 2. 第 8 步仍欠什么
 
-Step 1 收据 §3.2 / §6.1 原样有效：
+Step 1 收据 §3.2 / §6.1 原样有效（5pp 门槛不放宽，与本表 row 10 互为钉死）：
 
 1. 冻结九题 × 5 纯 Arm A 校准 σ_d — **已做**（`2026-08-16-dsh-arm-a-calibration-receipt.md`）；
 2. 30 题 × 每臂 3 重复不够：投影半宽 10.8pp，所需 n×r≈423；
-3. bootstrap 95% CI 上界，压不住 5pp 就加题/加重复，**不许放宽门槛**；
-4. 生产对齐 env 本窗已对齐（`credential_source=environment`，terra）。对照仍未开。
+3. 已按真值 v=0.1375 重锁 **30×15=450/臂**。草稿 `feat/dsh-absorption-p0-seams` 本地 4 提交（v=0.125 → 30×13=390）**标 dropped**，禁止回流；
+4. bootstrap 95% CI 上界，压不住 5pp 就加题/加重复，**不许放宽门槛**；
+5. 生产对齐 env 本窗已对齐（`credential_source=environment`，terra）。对照仍未开。
 
-stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。
+两臂 900 arm 串行墙钟约 22.5 小时（45 arm / 4030s 外推），单窗吃不下，开窗须分批。stub 上的取消 / `tool_exception` / Scope 拒工具只证明协议，不代替 §9.2 失败注入集合上的 live 对照。
