@@ -1120,6 +1120,70 @@ class FinanceQuery:
             audit=audit,
         )
 
+    def dataset_max_date(
+        self,
+        spec: FinanceQuerySpec,
+        *,
+        information_cutoff: InformationCutoff,
+        deadline: ResearchDeadline,
+        is_cancelled: Callable[[], bool] | None = None,
+    ) -> str | None:
+        """同一时间窗口内、**去掉 filters** 之后该数据集的最新日期。
+
+        用途只有一个：把「该主体退出了集合」与「整条管道陈旧」分开。
+
+        `FinanceQueryResult.served_date` 取的是**被筛结果**的 max。筛子集停在更早
+        有两种截然不同的成因：
+
+        - `fact_mainline_sector_daily` 整体有到 2026-08-14 的行，而「AI算力」最后
+          一天是 08-07 → **该题材掉出了主线**。这是行业生命周期观察，是答案本身，
+          不该当过期数据丢弃（2026-08-17 用户口径）。
+        - 数据集整体也停在 08-07 → 同步管道真的落后了，仍须拒绝。
+
+        两者在 `served_date` 上完全同码，只有再读一次「不加 filter 的 max」才能分开。
+
+        **只在即将判 stale 时调用**：happy path 一次额外查询都不发。探针本身
+        `limit=1` 且按时间倒序，成本是一行。
+        """
+
+        dataset = _DATASETS.get(spec.dataset)
+        if dataset is None or not dataset.time_field:
+            return None
+        # spec 里的维度名未必等于物理列名（如 sector_code → sector_ts_code），
+        # 故按物理列反查 spec 名，不能直接拿 time_field 当维度名用。
+        time_dimension = next(
+            (
+                name
+                for name, field in dataset.dimensions.items()
+                if field.column == dataset.time_field
+            ),
+            None,
+        )
+        if time_dimension is None:
+            return None
+        probe = replace(
+            spec,
+            filters=(),
+            dimensions=(time_dimension,),
+            metrics=(),
+            group_by=(),
+            order_by=(Order(field=time_dimension, direction="desc"),),
+            limit=1,
+        )
+        try:
+            result = self.run(
+                probe,
+                information_cutoff=information_cutoff,
+                deadline=deadline,
+                is_cancelled=is_cancelled,
+            )
+        except FinanceQueryError:
+            # 探针失败不改变原判定——调用方按原来的 stale 处理。
+            # 这里吞异常是刻意的：探针是为了**放宽**误判，它自己坏掉时
+            # 必须落回更严的那一侧，不能把 stale 洗成通过。
+            return None
+        return result.served_date
+
     def _fetch_rows(
         self,
         cursor: Any,
