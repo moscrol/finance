@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（#110 R-20 已合；8792 已切 `0df86612`。R-18 离线已绿。R-16..21 仍 pending）
+- last_updated: 2026-08-16（#111 R-18 已合。R-19 离线已绿。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -345,6 +345,21 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-18` | 离线：22:18 切片投影后 `run=failed` / `report=blocked`；23:05 `partial` 仍可 `run=completed`；orchestrator 夹具钉 `failed∧completed` 消失。未做 live 重跑 | `pending` | 保持 Open。部分验证不得写 confirmed |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-17` / `-19` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / 反证 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-16 R-19 缺口模板整篇 uncheckable：离线回填
+
+`evaluate_marker_coverage` 认出 `_gap_answer` 整篇后，全部 required output 进
+`uncheckable`，`present=[]`。22:18 形「提供主要反证」不再把 `counterpoint`
+标成 present，与 `structural_verifier` missing 不再静默冲突。
+真反证正文（「主要反证是…」）仍 present。未并完 R-15-03 的 6-run 同判据。
+未动 T / 30 / 档位。未做 live 重跑。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-19` | 离线：22:18 形 `counterpoint` 进 uncheckable 不进 present；真反证反向仍 present；L01 缺口模板不再报 `marker_coverage=complete`，且仍不响 `uncheckable_judgment_empty`。未做 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260815-03` | 本 PR 只收缺口模板这一类冲突，未改成同一判据函数，6-run 夹具未齐 | `pending` | 保持 Open。不得把本行当 R-03 结案 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-17` / `-18` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / status 投影 / 描述表 / p90 窗 | `pending` | 保持 Open |
 
 ### Closed
 

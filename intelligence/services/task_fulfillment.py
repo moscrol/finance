@@ -518,6 +518,27 @@ def render_prompt_constraint(required: RequiredOutput) -> str:
     return f"{required.output_id}：{required.description}{suffix}"
 
 
+_GAP_TEMPLATE_OPENINGS = (
+    "现有证据不足，暂不能可靠回答",
+    "模型服务不可用，暂不能可靠回答",
+    "现有证据不足，暂不能给出可靠结论",
+)
+
+
+def answer_is_gap_template(answer_text: str) -> bool:
+    """Whether the public answer is the runtime gap template, not a real write-up.
+
+    ``_gap_answer`` 会把未履约槽位的描述拼进「仍需核验：…」。描述里的
+    「反证」会被 ``_MARKERS['counterpoint']`` 当成已交付——模板在自证。
+    整篇不可检，才能跟 ``structural_verifier`` 的 missing 对齐（R-19）。
+    """
+
+    text = str(answer_text or "").strip()
+    if not text.startswith("关于"):
+        return False
+    return any(stem in text for stem in _GAP_TEMPLATE_OPENINGS)
+
+
 def evaluate_marker_coverage(
     required_outputs: Iterable[str],
     answer_text: str,
@@ -546,6 +567,17 @@ def evaluate_marker_coverage(
     output_ids = tuple(
         dict.fromkeys(str(item) for item in required_outputs if str(item).strip())
     )
+    if answer_is_gap_template(answer_text):
+        return {
+            "required_output_count": len(output_ids),
+            "checked_count": 0,
+            "present": [],
+            "absent": [],
+            "uncheckable": list(output_ids),
+            "marker_coverage": None,
+            "observation_only": True,
+            "warnings": [],
+        }
     for output_id in output_ids:
         normalized = output_id.casefold()
         if not output_marker_is_checkable(normalized):

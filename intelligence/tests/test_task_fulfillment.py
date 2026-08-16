@@ -489,10 +489,11 @@ def test_marker_coverage_keeps_uncheckable_direct_answer_when_judgment_body_rema
 
 
 def test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty() -> None:
-    """#327 缺口模板被当成非边界正文，layer 4 标记闸不响。
+    """缺口模板整篇 uncheckable（R-19），且仍不响 layer 4 空判断闸。
 
-    原文取自 2026-08-16 L01 ``run_20260816_131941_597875/answer.md``。
-    R-20260816-04 只钉住现状；若要改探测器，另开观测台，不并进本修复。
+    原文形状取自 2026-08-16 L01 ``run_20260816_131941_597875/answer.md``。
+    R-20260816-04 钉的是旧探测器（``marker_coverage=complete``）；改探测器是
+    R-19 观测台，不回写那一行。
     """
 
     answer = (
@@ -506,7 +507,55 @@ def test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty() -> None:
         answer,
     )
     assert coverage["warnings"] == []
-    assert coverage["marker_coverage"] == "complete"
+    assert coverage["marker_coverage"] is None
     assert coverage["observation_only"] is True
-    assert coverage["uncheckable"] == ["direct_answer"]
-    assert "evidence_boundary" in coverage["present"]
+    assert coverage["present"] == []
+    assert coverage["absent"] == []
+    assert coverage["uncheckable"] == ["direct_answer", "evidence_boundary"]
+
+
+def test_gap_template_counterpoint_is_uncheckable_not_present() -> None:
+    """R-19 / R-15-03：缺口模板里的「反证」不得把 counterpoint 标成 present。
+
+    22:18 形：structural 判 counterpoint missing，coverage 却因描述子串
+    「提供主要反证」报 present。整篇 uncheckable 后不再有静默分歧。
+    """
+
+    answer = (
+        "关于“主题题”，现有证据不足，暂不能可靠回答。"
+        "仍需核验：直接回答用户问题并说明判断强度、chain_mapping、"
+        "提供主要反证或竞争性解释。"
+    )
+    coverage = evaluate_marker_coverage(
+        ("direct_assessment", "chain_mapping", "counterpoint"),
+        answer,
+    )
+    structural_missing = {
+        "direct_assessment",
+        "chain_mapping",
+        "counterpoint",
+    }
+    assert coverage["present"] == []
+    assert set(coverage["uncheckable"]) == structural_missing
+    assert not (set(coverage["present"]) & structural_missing)
+    assert coverage["marker_coverage"] is None
+
+
+def test_real_counterpoint_answer_stays_present() -> None:
+    coverage = evaluate_marker_coverage(
+        ("direct_assessment", "counterpoint"),
+        "当前主线是国产算力仍在发酵期。主要反证是出口订单若连续两季下滑则判断失效。",
+    )
+    assert coverage["present"] == ["direct_assessment", "counterpoint"]
+    assert coverage["uncheckable"] == []
+    assert coverage["marker_coverage"] == "complete"
+
+
+def test_model_unavailable_gap_template_is_wholly_uncheckable() -> None:
+    answer = (
+        "关于“主题题”，模型服务不可用，暂不能可靠回答。"
+        "仍需核验：提供主要反证或竞争性解释。"
+    )
+    coverage = evaluate_marker_coverage(("counterpoint",), answer)
+    assert coverage["present"] == []
+    assert coverage["uncheckable"] == ["counterpoint"]
