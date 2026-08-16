@@ -15,6 +15,10 @@
 两侧共用一个开关，默认 off；off 时既有输出逐字节不变。翻默认必须先走
 对照窗（同 ASK_LONGTAIL_BASELINE 的纪律），不得因本文件默认打开。
 
+成因行（「模型服务不可用」）不跟这个开关：``repair_model_unavailable`` 或
+``usage.llm_calls==0``（报告里的 ``llm.used=false``）时，``_gap_answer``
+首句必须说模型不可用，不能说「现有证据不足」。那是成因谎，不是章法开关。
+
 本文件不是观点题核验预算回归（2026-08-16 立案）的修复：它只改「降级之后
 怎么说话」，不改预算、不改核验路径、不改 ``_CLAIM_POLICY``。
 """
@@ -55,6 +59,14 @@ _STOP_REASON_CAUSES = {
     "repair_model_stop": "核验修复轮提前停止",
 }
 
+# 这些终态不是「证据不够」，是模型没服务成。首句必须跟成因走，不跟开关。
+_MODEL_UNAVAILABLE_STOPS = frozenset(
+    {
+        "repair_model_unavailable",
+        "model_unavailable",
+    }
+)
+
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MAX_SOURCE_LABELS = 3
 
@@ -62,6 +74,34 @@ _MAX_SOURCE_LABELS = 3
 def enabled() -> bool:
     raw = os.environ.get(ENV_NAME, "off").strip().lower()
     return raw in {"on", "true", "1", "yes"}
+
+
+def is_model_service_unavailable(verified) -> bool:
+    """Whether the gap opening must blame the model, not the evidence.
+
+    ``llm.used=false`` 在本缝没有报告 metadata，用 ``usage.llm_calls==0``
+    代理——一次模型调用都没有时，缺口不能写成「现有证据不足」。
+    """
+
+    outcome = getattr(verified, "outcome", None)
+    if outcome is None:
+        return False
+    stop = str(getattr(outcome, "stop_reason", "") or "")
+    if stop in _MODEL_UNAVAILABLE_STOPS:
+        return True
+    usage = getattr(outcome, "usage", None)
+    if usage is None:
+        return True
+    return int(getattr(usage, "llm_calls", 0) or 0) == 0
+
+
+def gap_opening(question: str, verified) -> str:
+    """``_gap_answer`` 首句。成因行不跟 ``ASK_DEGRADED_FALLBACK``。"""
+
+    subject = (question or "").strip() or "当前问题"
+    if is_model_service_unavailable(verified):
+        return f"关于“{subject}”，模型服务不可用，暂不能可靠回答。"
+    return f"关于“{subject}”，现有证据不足，暂不能可靠回答。"
 
 
 def skill_path() -> Path:
