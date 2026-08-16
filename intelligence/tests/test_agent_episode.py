@@ -4353,3 +4353,48 @@ def test_whole_round_refused_branches_pair_and_carry_reason() -> None:
     projection = project_durable_events(outcome.events)
     assert not projection.has_anomalies
     assert projection.unpaired_branch_ids == ()
+
+
+def test_tool_ledger_records_dispatch_clock_on_request_and_error_not_model_message() -> None:
+    """#84 同款：五元组进 ledger，不进喂模型的 tool 消息。"""
+
+    def timed_out_runner(_query: str, _context: AgentToolContext):
+        raise TimeoutError("RAW_TIMEOUT_EXCEPTION_SENTINEL")
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            _finish_turn(
+                status="partial",
+                draft="行情工具超时，本轮只能报告证据缺口。",
+                hashes=(),
+                gap="行情工具暂不可用",
+            ),
+        ]
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(timed_out_runner),
+    )
+
+    request = next(event for event in outcome.events if event.kind == "tool_request")
+    error = next(event for event in outcome.events if event.kind == "tool_error")
+    for payload in (request.payload, error.payload):
+        assert payload["batch_grant_asked"] == 30.0
+        assert isinstance(payload["stage_timeout_granted"], float)
+        assert isinstance(payload["episode_remaining_at_dispatch"], float)
+        assert payload["remaining_slots_at_dispatch"] == 3
+        assert isinstance(payload["turn_elapsed_at_dispatch"], float)
+        assert payload["turn_elapsed_at_dispatch"] >= 0.0
+
+    tool_messages = [
+        json.loads(message["content"])
+        for call in model.calls
+        for message in call["messages"]
+        if message.get("role") == "tool"
+    ]
+    assert tool_messages
+    assert all("batch_grant_asked" not in item for item in tool_messages)
+    assert all("turn_elapsed_at_dispatch" not in item for item in tool_messages)
