@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（R-22 离线已绿，待合切。R-23 仍归工具层。8792 仍 `520fc0f8`。R-16..21 仍 pending）
+- last_updated: 2026-08-17（R-22 已合切 8792=`5b0c65e0`。R-23 诊断更正：metric 抄进 dimensions，离线已绿待合切。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -426,7 +426,7 @@ handoff：`docs/handoffs/2026-08-17-two-agent-collision-and-contains-escape.md`�
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
 | `R-20260816-22` | 用户已裁定分档口径；Open 表已占号。离线实现见下节 | `pending` | 保持 Open |
-| `R-20260816-23` | Open 表已占号。`dataset_field_hint()` 仍未进模型可见面 | `pending` | 保持 Open。实现归工具层 |
+| `R-20260816-23` | 原「hint 未进可见面」机制已否证，见下节 | `pending` | 保持 Open。机制更正，不得写 confirmed |
 | `R-20260816-07` | #115 / 本次切窗未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-17` / `-18` / `-19` / `-20` / `-21` | 本窗不改链长 / 成因行 / status / 反证 / 描述表 / p90 窗 | `pending` | 保持 Open |
 
@@ -440,6 +440,23 @@ handoff：`docs/handoffs/2026-08-17-two-agent-collision-and-contains-escape.md`�
 |---|---|---|---|
 | `R-20260816-22` | 离线：`test_subject_exited_universe.py` 双夹具 + 变异（同 served、不同 dataset_max 必须相反）+ fail-closed。未做同题 live | `pending` | 保持 Open。部分验证不得写 confirmed |
 | `R-20260816-23` | 本 PR 不接 `dataset_field_hint` | `pending` | 保持 Open。实现仍归工具层 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-23 诊断更正：metric 抄进 dimensions
+
+原预测「`dataset_field_hint()` 未进模型可见面」**机制否证**：hint 已在
+`episode_tools` 的 finance_query 描述里，列全 13 个 dataset。4/4 生产报错请求
+字段全部合法，只是模型把 metric 又抄进 dimensions（当「要返回的列」）。
+靠 retry hint 纠正已试过且无效（repairwin-8 连错两次）。
+
+修复：`normalize_spec` 把「已在 metrics 声明的字段」从 dimensions 去掉。
+字段只在 dimensions、未在 metrics 声明时**不动**（意图不可判定）。
+夹具逐字取自四个真实报错请求。未做 live。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-23` | 离线：`test_metric_dimension_dedupe.py` 四组 live 夹具 + 真分组键保留 + 未声明 metric 不动（含 metrics 非空变异）+ 干净 spec 无副作用。原 hint 机制否证。未做同题 live | `pending` | 保持 Open。部分验证不得写 confirmed。Open 表原预测作机制更正，不另开号 |
+| `R-20260816-22` | 本 PR 不改退出/陈旧分档 | `pending` | 保持 Open |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 
 ### Closed
