@@ -2309,6 +2309,61 @@ def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
     p_fw.add_argument("--json", action="store_true", help="输出机器可读 JSON（不打印报告正文）")
     p_fw.set_defaults(func=cmd_perspective_framework_daily)
 
+    p_snap = sub.add_parser(
+        "snapshots",
+        help="列出角色画像快照（程序写 profile 前自动留底，新→旧；人工编辑前可跑 profile 存档）",
+    )
+    p_snap.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_snap.add_argument("--perspective", required=True, help="角色 id")
+    p_snap.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_snap.set_defaults(func=cmd_perspective_snapshots)
+
+    p_restore = sub.add_parser(
+        "restore",
+        help="把指定快照写回 profile（写回前当前内容自动再留底，可来回滚）",
+    )
+    p_restore.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_restore.add_argument("--perspective", required=True, help="角色 id")
+    p_restore.add_argument("--snapshot-id", required=True, help="快照 id（形如 ps-xxxxxxxxxx，见 snapshots 子命令）")
+    p_restore.set_defaults(func=cmd_perspective_restore)
+
+    p_hold = sub.add_parser(
+        "holdout",
+        help="留出集管理 + 验收：标记的文章不进蒸馏（extract/propose 双侧排除），"
+        "verify 用确定性回声检验画像对该篇的解释力",
+    )
+    hold_sub = p_hold.add_subparsers(dest="holdout_action", required=True)
+
+    h_add = hold_sub.add_parser("add", help="把已 ingest 的文章标记为留出（幂等）")
+    h_add.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    h_add.add_argument("--perspective", required=True, help="角色 id")
+    h_add.add_argument("--article-id", required=True, help="文章 id（形如 pa-xxxx，见 manifest）")
+    h_add.add_argument("--note", default="", help="备注（如 为何留出这篇）")
+    h_add.set_defaults(func=cmd_perspective_holdout_add)
+
+    h_rm = hold_sub.add_parser("remove", help="取消留出标记（文章回到蒸馏池）")
+    h_rm.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    h_rm.add_argument("--perspective", required=True, help="角色 id")
+    h_rm.add_argument("--article-id", required=True, help="文章 id")
+    h_rm.set_defaults(func=cmd_perspective_holdout_remove)
+
+    h_ls = hold_sub.add_parser("list", help="列出留出文章")
+    h_ls.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    h_ls.add_argument("--perspective", required=True, help="角色 id")
+    h_ls.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    h_ls.set_defaults(func=cmd_perspective_holdout_list)
+
+    h_vf = hold_sub.add_parser(
+        "verify",
+        help="确定性回声检验：画像信号条目在留出文章正文的命中率 ≥ 50% 为 pass；"
+        "退出码 0=pass 1=fail（可作验收门禁）。结果追加落 holdout/<pid>.verify.jsonl",
+    )
+    h_vf.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    h_vf.add_argument("--perspective", required=True, help="角色 id")
+    h_vf.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    h_vf.add_argument("--no-save", action="store_true", help="不写 verify.jsonl（只打印）")
+    h_vf.set_defaults(func=cmd_perspective_holdout_verify)
+
 
 def cmd_perspective_framework_daily(args: argparse.Namespace) -> int:
     from intelligence import userspace
@@ -2399,6 +2454,139 @@ def cmd_perspective_profile(args: argparse.Namespace) -> int:
     else:
         print(perspective_lab.render_profile_text(profile), end="")
     return 0
+
+
+def cmd_perspective_snapshots(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    try:
+        snaps = perspective_lab.list_snapshots(us, args.perspective)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(snaps, ensure_ascii=False, indent=2))
+        return 0
+    if not snaps:
+        print("（无快照——程序首次写 profile 前还没有留底）")
+        return 0
+    for i, snap in enumerate(snaps, 1):
+        marker = " ← 最新" if i == 1 else ""
+        print(
+            f"{i:>2}. {snap['snapshot_id']}  {snap['mtime']}  "
+            f"fw={snap['framework_version']}  样本 {snap['article_count']} 篇{marker}"
+        )
+    print(f"共 {len(snaps)} 份（保留最近 {perspective_lab.SNAPSHOT_KEEP} 份）")
+    return 0
+
+
+def cmd_perspective_restore(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    try:
+        profile = perspective_lab.restore_snapshot(us, args.perspective, args.snapshot_id)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"已回滚 {args.perspective} → {args.snapshot_id}（当前内容已先留底，可再滚回来）")
+    print(f"  display_name={profile.get('display_name')}  updated_at={profile.get('updated_at')}")
+    return 0
+
+
+def cmd_perspective_holdout_add(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        entry = perspective_learning.add_holdout(
+            us, args.perspective, args.article_id, note=args.note
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"已标记留出：{args.article_id}（{entry.get('title')} / {entry.get('date')}）")
+    print("  extract-cards / propose-patches 将跳过该篇；verify 时用它检验画像解释力")
+    return 0
+
+
+def cmd_perspective_holdout_remove(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        removed = perspective_learning.remove_holdout(us, args.perspective, args.article_id)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print("已取消留出，文章回到蒸馏池" if removed else f"本就不在留出集：{args.article_id}")
+    return 0
+
+
+def cmd_perspective_holdout_list(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        items = perspective_learning.list_holdout(us, args.perspective)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(items, ensure_ascii=False, indent=2))
+        return 0
+    if not items:
+        print("（留出集为空——`perspective holdout add --perspective <id> --article-id pa-xxxx` 标记一篇）")
+        return 0
+    for item in items:
+        print(f"- {item['article_id']}  {item.get('date') or '?'}  {item.get('title') or '?'}")
+        if item.get("note"):
+            print(f"    备注：{item['note']}")
+    return 0
+
+
+def cmd_perspective_holdout_verify(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_learning
+
+    us = userspace.user_space(args.user)
+    try:
+        result = perspective_learning.verify_holdout(us, args.perspective, save=not args.no_save)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"[held-out 验收] {result['perspective_id']} fw={result['framework_version']} "
+            f"信号条目 {result['signal_entries']} / 留出 {result['holdout_articles']} 篇 "
+            f"→ {result['status'].upper()}"
+        )
+        for art in result["articles"]:
+            if art.get("status") == "missing_raw":
+                print(f"  - {art['article_id']}: 原文缺失")
+            else:
+                print(
+                    f"  - {art['article_id']}（{art.get('date')} {art.get('title')}）："
+                    f"回声 {art['echo_entries']}/{art['signal_entries']}"
+                    f"（{art['ratio']:.0%}）→ {art['status']}"
+                )
+        if result.get("reason"):
+            print(f"  原因：{result['reason']}")
+    return 0 if result["status"] == "pass" else 1
 
 
 def cmd_perspective_debate(args: argparse.Namespace) -> int:

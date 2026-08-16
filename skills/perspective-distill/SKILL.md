@@ -131,6 +131,31 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 这两个字段���胜率统计联动：已进 `framework_version` 内容哈希，改动后框架版本
 自动换号，旧版本胜率不会污染新版本统计。
 
+**手工编辑前的快照**：程序写 profile 前会自动留底（`perspective snapshots` 可查、
+`perspective restore --perspective <角色id> --snapshot-id ps-xxxx` 可回滚，保留最近
+20 份）；手工编辑 JSON 不被拦截，但改坏了用快照回滚，不用从 git 外捞。
+
+## 第 5.5 步：留出验收（held-out，蒸馏后跑）
+
+留一篇（或几篇）同博主文章**不进蒸馏**，用画像信号条目检验它对该篇的解释力：
+
+```bash
+# 标记留出（article_id 见 manifest；被标记的文章 extract-cards/propose-patches 自动跳过）
+python3 -m intelligence.cli perspective holdout add --user <id> --perspective <角色id> \
+  --article-id pa-xxxx --note "为什么留这篇"
+
+# 确定性回声检验：画像四个白名单字段的条目词元在留出文章正文的命中率 ≥50% 为 pass
+python3 -m intelligence.cli perspective holdout verify --user <id> --perspective <角色id>
+```
+
+- **为什么双侧排除**：留出文章若被抽卡/聚合，verify 测的就是蒸馏的「记忆」而非
+  「解释力」——泄漏会让验收形同虚设（held-out 的第一性原理，RAG 评测同理）。
+- **判读**：pass = 画像信号在该篇有回声；fail 且全零回声 = 画像对该类文章无解释力，
+  回第 4/5 步补信号或收窄 `honest_boundaries`。fail 不代表博主方法错，只代表画像没学到。
+- **边界**：回声检验是必要条件不是充分条件（信号词命中 ≠ 逻辑复现）；要测逻辑复现
+  需 LLM 盲测（画像预测「他会怎么看」再对原文）——目前未实现，需要时再立项。
+- 结果台账：`perspectives/holdout/<pid>.verify.jsonl`（已登记 ledger-map）。
+
 ## 第 6 步：验收
 
 1. `perspective profile --user <id> --perspective <角色id>` 通读一遍，确认没有 episodic 残留；

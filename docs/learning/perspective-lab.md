@@ -105,7 +105,19 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective b
 **独占性**（不是任何分析师都会说的通用废话）。三道闸拦的是坏候选，三门区分的是
 好候选；完整判据表见 `skills/perspective-distill/SKILL.md` 第 4 步。
 
-落点（均本地私有）：卡片 `articles/<id>/cards/pa-*.json`；patch `patches/<id>/pp-*.json`。
+落点（均本地私有）：卡片 `articles/<id>/cards/pa-*.json`；patch `patches/<id>/pp-*.json`；
+快照 `snapshots/<id>/ps-*.json`（程序写 profile 前自动留底，`perspective snapshots/restore`
+可查可回滚，保留最近 20 份）。
+
+### 3.6 留出验收（held-out，2026-08-16 上线）
+
+蒸馏后留 1+ 篇同博主文章做**留出验收**：`perspective holdout add` 标记的文章在
+`extract-cards` / `propose-patches` 双侧被排除（防泄漏——留出文章若进了蒸馏，
+验收测的就是记忆不是解释力）；`perspective holdout verify` 做**确定性回声检验**：
+画像四个白名单字段的条目词元（复用检索分词）在留出文章正文的命中率 ≥50% 为 pass，
+退出码 0/1 可作门禁，无信号条目或留出集为空均判 fail（验收不能空转通过）。
+结果台账 `holdout/<pid>.verify.jsonl`（已登记 ledger-map）。回声是必要非充分条件
+（命中 ≠ 逻辑复现），LLM 盲测未实现、需要时再立项。
 
 ### 4. 多角色合议
 

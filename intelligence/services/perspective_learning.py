@@ -323,10 +323,17 @@ def extract_cards(
     force: bool = False,
     llm_complete: LlmComplete | None = None,
 ) -> dict[str, Any]:
-    """批量抽取：跳过已有卡片（除非 force），单篇失败不阻断后续。"""
+    """批量抽取：跳过已有卡片（除非 force），单篇失败不阻断后续。
+
+    留出集（holdout）文章不抽取——留出文章必须保持「没喂过蒸馏」的状态，
+    否则 verify 测的是记忆不是解释力。
+    """
     profile = perspective_lab.load_profile(us, perspective_id)
     pid = str(profile["id"])
     records = _load_article_records(us, pid)
+    held = load_holdout(us, pid)
+    if held:
+        records = [r for r in records if r.get("article_id") not in held]
     if article_id is not None:
         records = [r for r in records if r.get("article_id") == article_id]
         if not records:
@@ -390,11 +397,17 @@ def propose_patches(us: UserSpace, perspective_id: str) -> dict[str, Any]:
 
     同一 (field, value) 的 patch id 是确定性哈希：重复 propose 命中同一文件，
     已存在（无论何种状态）就跳过，不会把 rejected 的候选复活。
+
+    留出集文章的卡片同样不聚合——即使历史已抽过卡（先 holdout 后改主意的场景），
+    留出证据也不进候选流。
     """
     profile = perspective_lab.load_profile(us, perspective_id)
     pid = str(profile["id"])
+    held = load_holdout(us, pid)
     grouped: dict[str, dict[str, Any]] = {}
     for card in load_cards(us, pid):
+        if held and str(card.get("article_id") or "") in held:
+            continue
         for update in card.get("profile_updates") or []:
             if not isinstance(update, dict) or not update.get("quote_verified"):
                 continue
@@ -522,3 +535,161 @@ def review_patch(
         patch["status"] = "rejected"
     path.write_text(json.dumps(patch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return patch
+
+
+# --------------------------------------------------------------------------- #
+# Held-out 验收：留出文章不进蒸馏（extract/propose 双侧排除），验证画像对该篇解释力
+# --------------------------------------------------------------------------- #
+HOLDOUT_SCHEMA_VERSION = 1
+HOLDOUT_VERIFY_SCHEMA_VERSION = 1
+HOLDOUT_MIN_ECHO_RATIO = 0.5  # 过线：有回声的信号条目 / 信号条目总数
+
+
+def holdout_path(us: UserSpace, perspective_id: str) -> Path:
+    pid = perspective_lab.resolve_perspective_id(perspective_id)
+    return perspective_lab.perspectives_root(us) / "holdout" / f"{pid}.json"
+
+
+def holdout_verify_path(us: UserSpace, perspective_id: str) -> Path:
+    pid = perspective_lab.resolve_perspective_id(perspective_id)
+    return perspective_lab.perspectives_root(us) / "holdout" / f"{pid}.verify.jsonl"
+
+
+def load_holdout(us: UserSpace, perspective_id: str) -> dict[str, dict[str, Any]]:
+    """留出集：article_id -> {title, date, note, added_at}。文件缺失视为空集。"""
+    path = holdout_path(us, perspective_id)
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): v for k, v in data.items() if isinstance(v, dict)}
+
+
+def _write_holdout(us: UserSpace, pid: str, data: dict[str, dict[str, Any]]) -> None:
+    path = holdout_path(us, pid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def add_holdout(
+    us: UserSpace, perspective_id: str, article_id: str, *, note: str = ""
+) -> dict[str, Any]:
+    """把已 ingest 的文章标记为留出（蒸馏侧跳过，verify 侧检验）。幂等。"""
+    profile = perspective_lab.load_profile(us, perspective_id)  # 角色必须存在
+    pid = str(profile["id"])
+    records = {r.get("article_id"): r for r in _load_article_records(us, pid)}
+    if article_id not in records:
+        raise ValueError(f"文章不存在或不在该角色名下：{article_id}")
+    record = records[article_id]
+    data = load_holdout(us, pid)
+    entry = data.get(article_id) or {
+        "title": str(record.get("title") or ""),
+        "date": str(record.get("date") or ""),
+        "added_at": _now_iso(),
+    }
+    entry["note"] = str(note or "").strip() or entry.get("note", "")
+    data[article_id] = entry
+    _write_holdout(us, pid, data)
+    return entry
+
+
+def remove_holdout(us: UserSpace, perspective_id: str, article_id: str) -> bool:
+    profile = perspective_lab.load_profile(us, perspective_id)
+    pid = str(profile["id"])
+    data = load_holdout(us, pid)
+    if article_id not in data:
+        return False
+    del data[article_id]
+    _write_holdout(us, pid, data)
+    return True
+
+
+def list_holdout(us: UserSpace, perspective_id: str) -> list[dict[str, Any]]:
+    profile = perspective_lab.load_profile(us, perspective_id)
+    data = load_holdout(us, str(profile["id"]))
+    return [
+        {"article_id": aid, **entry}
+        for aid, entry in sorted(data.items(), key=lambda kv: str(kv[1].get("added_at") or ""))
+    ]
+
+
+def _signal_entries(profile: dict[str, Any]) -> list[tuple[str, str]]:
+    """画像信号条目（字段, 条目），与 patch 白名单同集合——verify 只检验闭环可写的字段。"""
+    out: list[tuple[str, str]] = []
+    for field in ALLOWED_PATCH_FIELDS:
+        for item in profile.get(field) or []:
+            if isinstance(item, str) and item.strip():
+                out.append((field, item.strip()))
+    return out
+
+
+def _entry_echoes(entry: str, norm_text: str) -> bool:
+    """条目回声：条目词元（复用检索分词）至少 1 个出现在留出文章正文。"""
+    return any(t and t in norm_text for t in perspective_lab._search_terms(entry))
+
+
+def verify_holdout(us: UserSpace, perspective_id: str, *, save: bool = True) -> dict[str, Any]:
+    """确定性回声检验：画像信号条目在留出文章正文的解释力。
+
+    PASS 条件：每篇留出文章的回声条目占比 ≥ HOLDOUT_MIN_ECHO_RATIO。
+    画像无信号条目 / 留出集为空都判 fail——验收不能空转通过。
+    结果追加落 ``holdout/<pid>.verify.jsonl``（schema_version=1）。
+    """
+    from intelligence.services import framework_interpretation
+
+    profile = perspective_lab.load_profile(us, perspective_id)
+    pid = str(profile["id"])
+    entries = _signal_entries(profile)
+    held = load_holdout(us, pid)
+    records = {r.get("article_id"): r for r in _load_article_records(us, pid)}
+
+    articles: list[dict[str, Any]] = []
+    if entries and held:
+        for aid, meta in sorted(held.items()):
+            record = records.get(aid)
+            if record is None:
+                articles.append({"article_id": aid, "status": "missing_raw", "ratio": 0.0})
+                continue
+            norm_text = re.sub(r"\s+", "", Path(str(record["raw_path"])).read_text(encoding="utf-8"))
+            echoed = [entry for _f, entry in entries if _entry_echoes(entry, norm_text)]
+            ratio = round(len(echoed) / len(entries), 4)
+            articles.append(
+                {
+                    "article_id": aid,
+                    "title": str(record.get("title") or meta.get("title") or ""),
+                    "date": str(record.get("date") or meta.get("date") or ""),
+                    "echo_entries": len(echoed),
+                    "signal_entries": len(entries),
+                    "ratio": ratio,
+                    "status": "pass" if ratio >= HOLDOUT_MIN_ECHO_RATIO else "fail",
+                }
+            )
+    status = (
+        "pass"
+        if articles and all(a.get("status") == "pass" for a in articles)
+        else "fail"
+    )
+    result = {
+        "schema_version": HOLDOUT_VERIFY_SCHEMA_VERSION,
+        "perspective_id": pid,
+        "framework_version": framework_interpretation.framework_version(profile),
+        "signal_entries": len(entries),
+        "holdout_articles": len(held),
+        "min_echo_ratio": HOLDOUT_MIN_ECHO_RATIO,
+        "articles": articles,
+        "status": status,
+        "reason": ""
+        if articles
+        else ("画像无信号条目（先蒸馏/编辑四个白名单字段）" if not entries else "留出集为空（先 holdout add 一篇）"),
+        "checked_at": _now_iso(),
+    }
+    if save:
+        vpath = holdout_verify_path(us, pid)
+        vpath.parent.mkdir(parents=True, exist_ok=True)
+        with vpath.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(result, ensure_ascii=False) + "\n")
+    return result

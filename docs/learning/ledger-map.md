@@ -23,6 +23,8 @@
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
 | 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
 | 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
+| 视角画像快照 | `intelligence/users/<id>/perspectives/snapshots/<pid>/ps-*.json` | JSON | `perspective_lab._save_profile`（程序写前自动留底） | 否（用户态） | `perspective snapshots/restore` 子命令 |
+| 视角留出验收 | `intelligence/users/<id>/perspectives/holdout/<pid>.verify.jsonl` + `<pid>.json` | JSON/JSONL | `perspective holdout verify` | 否（用户态） | 同子命令人读输出（exit 0/1 可作门禁） |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
 

@@ -215,6 +215,11 @@ def outcomes_path(us: UserSpace) -> Path:
     return perspectives_root(us) / "outcomes.jsonl"
 
 
+def snapshots_dir(us: UserSpace, perspective_id: str) -> Path:
+    pid = resolve_perspective_id(perspective_id)
+    return perspectives_root(us) / "snapshots" / pid
+
+
 @dataclass(frozen=True)
 class RuntimePerspectiveContext:
     mode: str
@@ -681,9 +686,96 @@ def active_runtime_prompt(
 
 def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:
     path = profile_path(us, str(profile.get("id")))
+    # 写前自动快照：上一份存档可回滚（colleague-skill 的 version_manager 思路，
+    # 但收窄为「程��写前留底」，人工编辑不拦截——用户对 profile JSON 有直接编辑权）。
+    if path.exists():
+        try:
+            _archive_snapshot(us, str(profile.get("id")), path.read_text(encoding="utf-8"))
+        except OSError:
+            pass  # 快照失败不阻塞写入（快照是保险，不是闸门）
     profile["updated_at"] = _now_iso()
     path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+SNAPSHOT_SCHEMA_VERSION = 1
+SNAPSHOT_KEEP = 20  # 每角色最多保留份数（超出删最旧；回滚场景很少需要更早的）
+
+
+def _archive_snapshot(us: UserSpace, perspective_id: str, content: str) -> Path:
+    """把一份 profile 文本存为快照。内容相同则不重复存（幂等）。"""
+    pid = resolve_perspective_id(perspective_id)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()[:10]
+    sdir = snapshots_dir(us, pid)
+    sdir.mkdir(parents=True, exist_ok=True)
+    target = sdir / f"ps-{digest}.json"
+    if target.exists():
+        return target  # 同内容幂等，不更新时间戳
+    target.write_text(content, encoding="utf-8")
+    _prune_snapshots(sdir)
+    return target
+
+
+def _prune_snapshots(sdir: Path) -> None:
+    snaps = sorted(
+        (p for p in sdir.glob("ps-*.json")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for stale in snaps[SNAPSHOT_KEEP:]:
+        stale.unlink(missing_ok=True)
+
+
+def list_snapshots(us: UserSpace, perspective_id: str) -> list[dict[str, Any]]:
+    """列出角色快照（新→旧）。每条含 snapshot_id / 时间 / 框架版本 / 摘要。"""
+    pid = resolve_perspective_id(perspective_id)
+    sdir = snapshots_dir(us, pid)
+    if not sdir.is_dir():
+        return []
+    from intelligence.services import framework_interpretation
+
+    out: list[dict[str, Any]] = []
+    for path in sorted(sdir.glob("ps-*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        out.append(
+            {
+                "snapshot_id": path.stem,
+                "mtime": datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                "framework_version": framework_interpretation.framework_version(data),
+                "updated_at": data.get("updated_at"),
+                "article_count": (data.get("confidence") or {}).get("article_count", 0),
+                "display_name": data.get("display_name"),
+            }
+        )
+    return out
+
+
+def restore_snapshot(us: UserSpace, perspective_id: str, snapshot_id: str) -> dict[str, Any]:
+    """把指定快照写回 profile（写回前对当前内容再存一次快照，可再回滚）。"""
+    pid = resolve_perspective_id(perspective_id)
+    current = profile_path(us, pid)
+    if not current.exists():
+        raise FileNotFoundError(f"角色不存在，无法回滚：{current}")
+    sid = str(snapshot_id or "").strip()
+    if not re.fullmatch(r"ps-[0-9a-f]{10}", sid):
+        raise ValueError(f"非法 snapshot id：{snapshot_id!r}（形如 ps-xxxxxxxxxx）")
+    snap_path = snapshots_dir(us, pid) / f"{sid}.json"
+    if not snap_path.is_file():
+        raise FileNotFoundError(f"快照不存在：{snap_path}")
+    content = snap_path.read_text(encoding="utf-8")
+    data = json.loads(content)
+    if not isinstance(data, dict) or str(data.get("id")) != pid:
+        raise ValueError(f"快照内容与角色不匹配（snapshot id={sid}，profile id={data.get('id')!r}）")
+    _archive_snapshot(us, pid, current.read_text(encoding="utf-8"))  # 当前内容留底
+    current.write_text(content, encoding="utf-8")  # 原文回写，不自动改 updated_at
+    return data
 
 
 def render_profile_text(profile: dict[str, Any]) -> str:

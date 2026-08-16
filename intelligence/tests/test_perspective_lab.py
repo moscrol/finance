@@ -533,5 +533,214 @@ class ContradictionAndBoundaryTests(unittest.TestCase):
         self.assertIn("- 无", text)  # 空 boundaries 显式渲染「无」
 
 
+class HoldoutTests(unittest.TestCase):
+    """留出集：蒸馏侧双侧排除防泄漏；verify 确定性回声检验；空转不通过。"""
+
+    def _setup_two_articles(self, tmp: str) -> tuple[userspace.UserSpace, str, str]:
+        """ingest 两篇同风格文章，返回 (us, id_a, id_b)。"""
+        us = _us(tmp)
+        perspective_lab.init_perspective(us, "blogger_x")
+        ids = []
+        for i, (text, title) in enumerate(
+            [
+                ("核心股缩量回踩关键均线，题材新高扩散，回流机会。", "回流篇"),
+                ("高位后排��量冲高回落，必须降低仓位假设。", "降仓篇"),
+            ]
+        ):
+            p = Path(tmp) / f"a{i}.md"
+            p.write_text(text, encoding="utf-8")
+            res = perspective_lab.ingest_article(us, "blogger_x", p, title=title, date="2026-07-03")
+            ids.append(res["article_id"])
+        return us, ids[0], ids[1]
+
+    def _fill_signals(self, us: userspace.UserSpace) -> None:
+        profile = perspective_lab.load_profile(us, "blogger_x")
+        profile["opportunity_preferences"] = ["核心股缩量回踩关键均线且题材新高扩散"]
+        profile["risk_triggers"] = ["高位后排放量冲高回落时降低仓位假设"]
+        perspective_lab._save_profile(us, profile)
+
+    def test_holdout_add_requires_existing_article(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, _a, _b = self._setup_two_articles(tmp)
+            with self.assertRaises(ValueError):
+                perspective_learning.add_holdout(us, "blogger_x", "pa-notexist")
+
+    def test_extract_skips_holdout(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, a, b = self._setup_two_articles(tmp)
+            perspective_learning.add_holdout(us, "blogger_x", b)
+            # 用假 LLM 抽卡：只有非留出的 a 应被抽
+            payload = {
+                "claims": [],
+                "reasoning_moves": [],
+                "risk_notes": [],
+                "profile_updates": [
+                    {
+                        "field": "risk_triggers",
+                        "value": "高位后排放量冲高回落",
+                        "supporting_quote": "高位后排放量冲高回落",
+                    }
+                ],
+            }
+            fake = lambda messages: (json.dumps(payload, ensure_ascii=False), "fake", "m", "")  # noqa: E731
+            result = perspective_learning.extract_cards(us, "blogger_x", llm_complete=fake)
+            self.assertEqual(result["extracted"], [a])
+            self.assertNotIn(b, result["extracted"])
+
+    def test_propose_skips_holdout_cards(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, a, b = self._setup_two_articles(tmp)
+            # 两篇都先抽卡（b 还没标记留出）
+            payload = {
+                "claims": [],
+                "reasoning_moves": [],
+                "risk_notes": [],
+                "profile_updates": [
+                    {
+                        "field": "risk_triggers",
+                        "value": "高位后排放量冲高回落时降低仓位假设",
+                        "supporting_quote": "高位后排放量冲高回落，必须降低仓位假设",
+                    }
+                ],
+            }
+            fake = lambda messages: (json.dumps(payload, ensure_ascii=False), "fake", "m", "")  # noqa: E731
+            perspective_learning.extract_cards(us, "blogger_x", llm_complete=fake)
+            # 现在把 b 标记留出 → propose 不应聚合它的卡片
+            perspective_learning.add_holdout(us, "blogger_x", b)
+            perspective_learning.propose_patches(us, "blogger_x")
+            # 支持文章只能来自 a
+            for patch in perspective_learning.list_patches(us, "blogger_x"):
+                support_ids = {e["article_id"] for e in patch["evidence"]}
+                self.assertNotIn(b, support_ids)
+                self.assertIn(a, support_ids)
+
+    def test_verify_echo_pass_and_fail(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, a, b = self._setup_two_articles(tmp)
+            self._fill_signals(us)
+            perspective_learning.add_holdout(us, "blogger_x", a)
+            # 两条信号里「缩量回踩/新高扩散」在 a 篇有回声 → 占比 0.5 应过线
+            result = perspective_learning.verify_holdout(us, "blogger_x", save=False)
+            self.assertEqual(result["status"], "pass")
+            self.assertEqual(result["articles"][0]["echo_entries"], 1)
+            self.assertEqual(result["articles"][0]["signal_entries"], 2)
+            # 换成完全无回声的画像 → fail（两个信号都要换：只换一个时 ratio=0.5 恰好过线）
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["opportunity_preferences"] = ["美联储降息驱动全球流动性宽松"]
+            profile["risk_triggers"] = ["美联储加息引发全球流动性危机"]
+            perspective_lab._save_profile(us, profile)
+            result2 = perspective_learning.verify_holdout(us, "blogger_x", save=False)
+            self.assertEqual(result2["status"], "fail")
+
+    def test_verify_empty_does_not_pass(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, a, _b = self._setup_two_articles(tmp)
+            # 无信号、无留出 → 都不能空转通过
+            r1 = perspective_learning.verify_holdout(us, "blogger_x", save=False)
+            self.assertEqual(r1["status"], "fail")
+            self.assertIn("无信号条目", r1["reason"])
+            self._fill_signals(us)
+            r2 = perspective_learning.verify_holdout(us, "blogger_x", save=False)
+            self.assertEqual(r2["status"], "fail")
+            self.assertIn("留出集为空", r2["reason"])
+
+    def test_verify_writes_ledger(self) -> None:
+        from intelligence.services import perspective_learning
+
+        with tempfile.TemporaryDirectory() as tmp:
+            us, a, _b = self._setup_two_articles(tmp)
+            self._fill_signals(us)
+            perspective_learning.add_holdout(us, "blogger_x", a)
+            perspective_learning.verify_holdout(us, "blogger_x", save=True)
+            vpath = perspective_learning.holdout_verify_path(us, "blogger_x")
+            lines = vpath.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(json.loads(lines[0])["schema_version"], 1)
+
+
+class SnapshotTests(unittest.TestCase):
+    """程��写 profile 前自动留底；restore 可回滚且当前内容先留底。"""
+
+    def _ingest_two(self, us: userspace.UserSpace) -> None:
+        import tempfile as _tf
+        with _tf.TemporaryDirectory() as tmp:
+            for i in range(2):
+                p = Path(tmp) / f"a{i}.md"
+                p.write_text(f"第 {i} 篇复盘：缩量分歧看回流。", encoding="utf-8")
+                perspective_lab.ingest_article(us, "blogger_x", p, title=f"t{i}", date="2026-07-03")
+
+    def test_programmatic_write_leaves_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            self._ingest_two(us)  # 每次 ingest 都会 _save_profile
+            snaps = perspective_lab.list_snapshots(us, "blogger_x")
+            # 第一次写前 profile 刚 init（无旧内容可存档）→ 至少第 2 次写前留 1 份
+            self.assertGreaterEqual(len(snaps), 1)
+            self.assertTrue(snaps[0]["snapshot_id"].startswith("ps-"))
+            self.assertEqual(snaps[0]["article_count"], 1)  # 留底的是写前状态
+
+    def test_same_content_snapshot_is_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            content = perspective_lab.profile_path(us, "blogger_x").read_text(encoding="utf-8")
+            perspective_lab._archive_snapshot(us, "blogger_x", content)
+            perspective_lab._archive_snapshot(us, "blogger_x", content)
+            snaps = perspective_lab.list_snapshots(us, "blogger_x")
+            self.assertEqual(len(snaps), 1)  # 同内容哈希同一文件，不重复
+
+    def test_restore_roundtrip_and_re_rollback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            self._ingest_two(us)
+            snaps = perspective_lab.list_snapshots(us, "blogger_x")
+            before_count = perspective_lab.load_profile(us, "blogger_x")["confidence"]["article_count"]
+            self.assertEqual(before_count, 2)
+
+            restored = perspective_lab.restore_snapshot(us, "blogger_x", snaps[0]["snapshot_id"])
+            self.assertEqual(restored["confidence"]["article_count"], snaps[0]["article_count"])
+            # 回滚后当前内容（2 篇状态）也留了底 → 可再滚回来
+            after = perspective_lab.list_snapshots(us, "blogger_x")
+            self.assertGreaterEqual(len(after), len(snaps) + 1)
+
+    def test_restore_rejects_mismatched_and_bad_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            with self.assertRaises(ValueError):
+                perspective_lab.restore_snapshot(us, "blogger_x", "../evil")
+            with self.assertRaises(FileNotFoundError):
+                perspective_lab.restore_snapshot(us, "blogger_x", "ps-0000000000")
+            # 快照内容被换成别的角色 → 校验失败
+            sdir = perspective_lab.snapshots_dir(us, "blogger_x")
+            sdir.mkdir(parents=True, exist_ok=True)
+            forged = {"id": "other_role"}
+            (sdir / "ps-aaaaaaaaaa.json").write_text(json.dumps(forged), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                perspective_lab.restore_snapshot(us, "blogger_x", "ps-aaaaaaaaaa")
+
+    def test_snapshot_prune_keeps_recent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            sdir = perspective_lab.snapshots_dir(us, "blogger_x")
+            sdir.mkdir(parents=True, exist_ok=True)
+            for i in range(perspective_lab.SNAPSHOT_KEEP + 5):
+                (sdir / f"ps-{i:010x}.json").write_text("{}", encoding="utf-8")
+            perspective_lab._prune_snapshots(sdir)
+            self.assertEqual(len(list(sdir.glob("ps-*.json"))), perspective_lab.SNAPSHOT_KEEP)
+
+
 if __name__ == "__main__":
     unittest.main()
