@@ -23,8 +23,8 @@ roadmap_ref: L1-8792；关联 L1-R24
 ## 3. 待办
 
 1. **观测台 PR 更新台账**：**本 PR 已做**。`L1-R24` 行未动（历史准确）。
-2. **快照卫生**：目标目录已在 `~/.finance-runtime/finance-workspace-773b3d7e73d7`。只欠窗关后的 `ln -sfn` + kickstart + 三读数。**现在不要做**（长尾窗 / 10 题窗）。
-3. **回滚梯子**：**已补**。`finance-workspace-773b3d7e73d7` @ `773b3d7e`；`finance-workspace-437cd5e9aa1a-rollback` @ `437cd5e9`。都是独立 clone，未启动。`outlook-pre` 是 10 题修前臂，不要当生产回滚。
+2. **快照卫生**：目标仍是 `~/.finance-runtime/finance-workspace-773b3d7e73d7`（与现行 8792 同 SHA）。`21dbf6c1d83f` 只是 main tip 停泊，**不要**切过去——#84 自书不切 8792，且不是 10 题第二道闸。顺序：长尾收口 → 停 8793、8792 先不动 → 若做卫生则 `ln -sfn` 到 `773b3d7e73d7` + kickstart + 三读数。**现在不要做**。
+3. **回滚梯子**：**已补**。`773b3d7e73d7` @ `773b3d7e`（卫生目标 / 现行锚）；`437cd5e9aa1a-rollback` @ `437cd5e9`（R-24）；`21dbf6c1d83f` @ `21dbf6c1`（停泊，非生产目标）。`outlook-pre` 是 10 题修前臂，不要当生产回滚。
 4. **rag_worker prewarm 第三次撞限**：**已记且已决**。不抬 timeout；切后必查 ready，失败 kickstart 同快照一次。收据 `docs/verification/2026-08-16-8792-773b3d7e-inplace-cut.md`。
 
 ## 4. 边界 / 不做什么
