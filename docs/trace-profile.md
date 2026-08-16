@@ -1,8 +1,8 @@
 # Trace Profile: finance-workspace-private
 
 - last_updated: 2026-08-16
-- updated_by_run: `2026-08-16 十题窗 #94`（判断槽 0-hash → eb −17.5pp，R-11）。
-  前值：off 45 槽 + 8795 identity（judge transient 22/26）
+- updated_by_run: `2026-08-16 R-15 离线分层 eb`（三对 post=1.00；main42 +5.3pp 未入 ±5）。
+  前值：十题窗 #94 / R-11（判断槽 0-hash → 旧口径 −17.5pp）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -63,6 +63,7 @@
 | off 臂 `judge_status=unavailable` 33/45 | 整窗没跑到 judge | 须拆三元组 `(stop_reason, draft_len, judge_status)`：10 空稿跳过、22 有稿已调用、9 无 episode、3 跑完。score 的 `judge_unavailable=33` 把前两类压扁 | `score.json` + 45 份 episode；对齐键 `slot`+`run_id` |
 | 非 finalize `timeout_asked` ≈ 8–20s | provider 又慢了，或 T 不够 | `asked = remaining − _BALANCED_SYNTHESIS_RESERVE(60)`。opening 才向 reserve 借到 floor=20。finalize 用 `synthesis_timeout=remaining`。调 T 不改 `min(90, T−40)` | identity L01 r2 seq5 8.49；`glm_agent_runtime.py:47` |
 | 十题窗 `evidence_bound_rate` 修后 −17.5pp | 绑得更差所以四层修复无效；或与长尾窗「诚实缺口替换」同一因果；或与 R-06 judge 窗地板同因 | 先拆判断槽 vs 旁槽。post 判断槽 `grounding_mode=model_reasoning` 时 `hashes=[]` 是**合法**终态（协议不要求该槽哈希）；`_bindings_rate` 仍按全槽哈希计 → eb 0.50。judge 可 `passed`/`repaired` 且 asked/exc 皆 null。`post:L01:r1` 同合同可有 35 hashes（#72 非充分条件）。workbench-trace compare 看不到 episode bindings（unmapped）。R-11 M2 已结；量具修复走 `R-20260816-15` | `docs/verification/2026-08-16-outlook-eb-judgment-slot.md`；`docs/verification/2026-08-16-outlook-ten-question-ab.md` |
+| 分层 main42 `evidence_bound_pp` | 把 `model_reasoning` 移出分母后窗级回到 ±5pp（或约 0pp） | **+5.3pp，不是带内 0pp**。三对冻结 post 分层=1.00；pre 仍含 `O09:r1` 空 bindings（0.0）所以分层 pre=0.947。L04 必须 `None`，当成 0.0 会造假 +4.8pp。旧口径仍是 −17.5pp。R-15 保持 pending | `docs/verification/2026-08-16-outlook-eb-r15-rescore.md` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
