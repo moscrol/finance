@@ -222,3 +222,25 @@ def test_provider_name_from_reads_runtime_chain_head() -> None:
 
     assert provider_name_from(_Runtime()) == "zhipu"
     assert provider_name_from(object()) is None
+
+
+def test_provider_name_from_walks_glm_runtime_episode_client() -> None:
+    """生产 GLMAgentRuntime 自己没有 _providers，链在 episode.model 上。
+
+    2026-08-17 live ``run_20260817_002238_100737`` 两发 repair 仍是 30.0s：
+    ``provider_name_from(runtime)`` 在组合根上问不到链首，帽落回默认 30。
+    """
+
+    class _Prov:
+        name = "zhipu"
+
+    class _Client:
+        _providers = (_Prov(),)
+
+    class _Episode:
+        _model = _Client()
+
+    class _Runtime:
+        _episode = _Episode()
+
+    assert provider_name_from(_Runtime()) == "zhipu"

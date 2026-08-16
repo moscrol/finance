@@ -46,6 +46,7 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
+from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.runtime.agent_runtime_factory import (
     resolve_runtime_backend,
     runtime_backend_readiness,
@@ -419,6 +420,11 @@ def _build_continuous_turn_adapter(
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
         timeout=timeout,
+        # 组合根这里已经握着生效链。只靠 adapter 问 runtime 会落空：
+        # GLMAgentRuntime 没有 _providers，帽会静默回到 30。
+        repair_seconds_cap=repair_seconds_cap_for(
+            providers[0].name if providers else None
+        ),
         synthesis_reserve_for_task=(
             GLMAgentRuntime.synthesis_reserve_for_task
             if selection.name == "continuous_glm"
