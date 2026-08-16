@@ -55,6 +55,10 @@ from intelligence.services.provider_observability import (
     ProviderTrace,
     provider_trace_tool_name,
 )
+from intelligence.services.provider_latency import (
+    provider_name_from,
+    repair_seconds_cap_for,
+)
 from intelligence.services.repair_coordinator import (
     RepairGoal,
     grant_for_transient_model_retry,
@@ -564,9 +568,15 @@ class ContinuousAgentEpisode:
         mode_signals: Callable[[TaskFrame, ResearchPlan], ModeSignals] | None = None,
         sub_research_coordinator: SubResearchCoordinator | None = None,
         event_sink: Callable[[EpisodeEvent], None] | None = None,
+        repair_seconds_cap: float | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
+        self._repair_seconds_cap = (
+            float(repair_seconds_cap)
+            if repair_seconds_cap is not None
+            else repair_seconds_cap_for(provider_name_from(model))
+        )
         self._tool_executor = (
             tool_executor if tool_executor is not None else ToolBatchExecutor()
         )
@@ -1320,10 +1330,11 @@ class ContinuousAgentEpisode:
                         goal,
                         root_budget=repair_context.root_budget,
                         # 第几次补救：账本按 (goal, attempt) 幂等去重，
-                        # 不同 attempt 各铸各的 30s 窗。
+                        # 不同 attempt 各铸各的满窗（帽随生效 provider p90）。
                         attempt=(
                             _TRANSIENT_RETRY_LIMIT - transient_retries_left + 1
                         ),
+                        seconds_cap=self._repair_seconds_cap,
                     )
                     if retry_grant is not None:
                         budget_alive = True
