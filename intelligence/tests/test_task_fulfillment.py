@@ -486,3 +486,27 @@ def test_marker_coverage_keeps_uncheckable_direct_answer_when_judgment_body_rema
     assert coverage["marker_coverage"] == "complete"
     assert coverage["observation_only"] is True
     assert coverage.get("warnings", []) == []
+
+
+def test_l01_gap_template_does_not_trigger_uncheckable_judgment_empty() -> None:
+    """#327 缺口模板被当成非边界正文，layer 4 标记闸不响。
+
+    原文取自 2026-08-16 L01 ``run_20260816_131941_597875/answer.md``。
+    R-20260816-04 只钉住现状；若要改探测器，另开观测台，不并进本修复。
+    """
+
+    answer = (
+        "关于“基于8.15的行情现状，你认为周一的机会在哪”，现有证据不足，暂不能可靠回答。"
+        "仍需核验：直接回答用户问题、说明证据覆盖范围、数据日期与缺口。"
+        "本轮已取得 60 条证据，但未完成核验绑定，暂不能引用；可直接重试。"
+        "证据数据截至 2026-08-14；缺口补齐后可复验。"
+    )
+    coverage = evaluate_marker_coverage(
+        ("direct_answer", "evidence_boundary"),
+        answer,
+    )
+    assert coverage["warnings"] == []
+    assert coverage["marker_coverage"] == "complete"
+    assert coverage["observation_only"] is True
+    assert coverage["uncheckable"] == ["direct_answer"]
+    assert "evidence_boundary" in coverage["present"]
