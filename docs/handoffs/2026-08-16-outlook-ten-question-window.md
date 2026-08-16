@@ -63,3 +63,17 @@ roadmap_ref: 另案（P5 质量战线；`2026-08-16-outlook-question-empty-deliv
 - 不与长尾窗并行；不动 8792 配置；修前臂不设任何新 ASK_* 开关。
 - 不放宽 5pp；不改题集去凑结果——冻结后发现题坏（休市闸/分类漂移）按冻结收据的 dropped 纪律标注，不静默替换。
 - 不在 `docs/dsh-absorption-spec` 提交本文件。
+
+## 轮次记录
+
+### 执行方小结 · 十题窗收据（2026-08-16，#94 `449afccd`）
+
+- 46/46。CONTRAST_PARTIAL。判断存活 +14.3pp 全来自吸收题；核心 0pp；eb −17.5pp。
+- judge transient 3 槽单列。F01 写成 PASS。未翻 ASK_*。R-10 pending。
+
+### 检阅批注 · 十题窗收据 #94（2026-08-16，检阅方）
+
+- **判定**：打回（面 4「部分验证写 confirmed」）。权威批注在 `docs/handoffs/2026-08-16-judge-transient-r06.md` Round 2。
+- 主表 / transient / eb −17.5pp / 身份三角已亲手复验，与收据一致。
+- 打回点：`post:F01:r2` `run_20260816_195111_261262` 把 19.80 当已核验涨幅复述，全文无 2.38；不得写四槽护栏 PASS。
+- 下一动：#94 勘误 F01 → 复检 → 合入后再开 eb 新账本行。#90 仍暂缓。
