@@ -117,8 +117,11 @@ run_20260816_205439_732198（20:54，user=default，standard，8792 @ `6cd0756e`
 
 ### 2026-08-16 执行方 T2（受阻，未结案）
 
-- 8795 已从 `02fa203e` 一次切到 `16f2cd47`（pid 53843，dirty=false，readiness=ready）。8792 仍 `6cd0756e`。
-- user `r13-starve-0816`：W01 r1–r3 + 孤儿 W04 均首轮 `LLM 调用 HTTP 503`，零工具批，五元组未落盘。本机直探中转 chat 仍 5xx。已停 replay，侧车保持。
-- 相邻 artifact（serial-phase）：460 份 episode 里成功 `evidence_search` 仅 5 次，墙钟 32.3–58.9s，0 次 ≤10s。这是旁证，不是预注册重放，**不得据此写 H-a/H-c**。
-- 对 R-11 冻结样本：`post:L05:r2` `run_20260816_190657_142513` 有 `evidence_search`/`kb_search` `tool_timeout` 且 `queued_ms` 0.2/1.1（与 732198 同形的零执行时间闸）。R-11 已自结，本案不代结、不回写。
-- 下一步：中转恢复后用同一 8795/`16f2cd47` 重跑 T2；缺字段前 R-13 保持 pending。
+- 8795 已从 `02fa203e` 一次切到 `16f2cd47`（当时 pid 53843）。中转 chat 5xx，第一窗作废。
+
+### 2026-08-16 执行方 T2 第二窗（GLM Coding Plan，T3 未切开）
+
+- 用户授权改走 GLM-5.2 Coding Plan。8795 pid **73668** `16f2cd47` dirty=false。8792 仍 `6cd0756e`。
+- 11 槽五元组齐，0 次 `evidence_search`，0 次 judge。D01 两槽合同档仍是 standard（「深挖」未把 `theme_analysis` 升到 deep）。
+- T3：H-a INCONCLUSIVE（缺 deep 四段合计）；H-c NOT MET（缺 `evidence_search` 自然值）。R-13 保持 pending。未调 T / 批窗 / slot / 档位。
+- 收据 `docs/verification/2026-08-16-evidence-starvation-r13.md`。

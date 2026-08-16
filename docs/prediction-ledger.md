@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-15 离线分层已算：三对 post=1.00，main42 +5.3pp 未入 ±5；行仍 pending。R-13 T2 仍堵中转）
+- last_updated: 2026-08-16（R-13 T2 GLM 窗 11 槽五元组已齐；D01 未升 deep、0 次 evidence_search，T3 未切开，R-13 保持 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -259,6 +259,19 @@
 | `R-20260816-15` | 三对 post 分层 eb=1.00；旧口径 main42 −17.5pp → 分层 +5.3pp。±5 带未入（差 0.3pp）。「修后不降」成立。单测钉 0-hash 判断槽 → 旧 0.5 / 分层 1.0 | `pending` | 保持 Open。部分验证不得写 confirmed。收据 `docs/verification/2026-08-16-outlook-eb-r15-rescore.md` |
 | `R-20260816-07` | 本 PR 只动 eval/docs，无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 保持 Open（绊线仍看自称预算修复的 PR） |
 | `R-20260816-10` / `-13` / `-14` | 未触及 8795 同形重放 / 工具批五元组 / 批窗旋钮 | `pending` | 保持 Open。本行不代结 |
+
+### 2026-08-16 R-13 T2 GLM 窗：回填
+
+8795=`16f2cd47` dirty=false（pid 73668，GLM-5.2 Coding Plan）；8792 全程 `6cd0756e` 未切。
+收据 `docs/verification/2026-08-16-evidence-starvation-r13.md`。11 槽五元组齐。
+中转 503 窗已作废。未动 T / 批窗 / slot / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-13` | 11/11 五元组落盘。0 次 `evidence_search`。D01 合同档 standard（「深挖」未升档）。H-a 缺 deep 四段合计；H-c 缺该工具自然值。`asked=30` 来自 reserve=60，不是本窗调参 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-14` | 本窗无 PR 上调 `ASK_TOOL_BATCH_TIMEOUT` / `tool_batch_seconds` / T / slot / 档位 | `pending` | 绊线常在；未触线 |
+| `R-20260816-10` | 本窗 0 次 judge。不得偷结 | `pending` | 保持 Open。判据不与 R-13 互混 |
+| `R-20260816-15` | 未改 #72 / eb 量具 | `pending` | 保持 Open。不并案 |
 
 ### Closed
 
