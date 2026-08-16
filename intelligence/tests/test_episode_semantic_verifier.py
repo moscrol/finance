@@ -2335,6 +2335,103 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     assert "候选草稿" in result.public_answer
 
 
+def test_independent_judge_timeout_records_asked_triplet_and_exc_class(
+    monkeypatch,
+) -> None:
+    """R-06：judge 失败必须留下 #84 同款三元组 + 压平前的原始异常类。
+
+    ``llm_refine._failure_reason`` 会把 TimeoutError 压成 ``timeout``，
+    ``_stable_semantic_judge_error`` 再把 TimeoutError 和 5xx/连接收成同一句
+    transient。缺 ``exc_class`` 就分不开 H8/H9。
+    """
+
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+    seen: dict[str, float] = {}
+
+    def complete(*_args, **kwargs):
+        seen["timeout"] = float(kwargs["timeout"])
+        return None, provider, "LLM 调用失败（TimeoutError）"
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    result = SemanticEpisodeVerifier(judge_timeout=12.0).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(20.0),
+    )
+    payload = result.to_dict()
+
+    assert result.judge_status == "unavailable"
+    assert "semantic judge transient provider error" in result.issues
+    assert payload["timeout_configured"] == 12.0
+    assert payload["timeout_asked"] == pytest.approx(seen["timeout"])
+    assert isinstance(payload["remaining_seconds_at_entry"], float)
+    assert payload["timeout_asked"] <= payload["remaining_seconds_at_entry"] + 0.001
+    assert payload["exc_class"] == "TimeoutError"
+    assert payload.get("http_status") is None
+    assert "TimeoutError" not in result.public_answer
+
+
+def test_independent_judge_http_503_records_status_not_timeout_class(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider(
+        "judge", "secret", "https://judge.invalid", "j"
+    )
+
+    def complete(*_args, **_kwargs):
+        return None, provider, "LLM 调用 HTTP 503"
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: provider)
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    result = SemanticEpisodeVerifier(judge_timeout=12.0).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(20.0),
+    )
+    payload = result.to_dict()
+
+    assert "semantic judge transient provider error" in result.issues
+    assert payload["exc_class"] == "HTTPError"
+    assert payload["http_status"] == 503
+    assert payload["timeout_asked"] > 0.0
+
+
+def test_primary_judge_connection_error_keeps_raw_class_and_hides_message(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+
+    class BoomJudge:
+        def complete(self, *, messages, tools, timeout):
+            del messages, tools, timeout
+            raise ConnectionError("RAW_PROVIDER_SENTINEL")
+
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    result = SemanticEpisodeVerifier(
+        primary_judge=BoomJudge(),
+        judge_timeout=12.0,
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(20.0),
+    )
+    payload = result.to_dict()
+    dumped = json.dumps(payload, ensure_ascii=False)
+
+    assert payload["exc_class"] == "ConnectionError"
+    assert payload["timeout_configured"] == 12.0
+    assert isinstance(payload["timeout_asked"], float)
+    assert "RAW_PROVIDER_SENTINEL" not in dumped
+    assert "RAW_PROVIDER_SENTINEL" not in result.public_answer
+
+
 def test_primary_judge_retries_one_transient_failure_within_shared_deadline(
     monkeypatch,
 ) -> None:
