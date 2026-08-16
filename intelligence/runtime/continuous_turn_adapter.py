@@ -33,6 +33,10 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
+from intelligence.services.provider_latency import (
+    provider_name_from,
+    repair_seconds_cap_for,
+)
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
     admit_repair,
@@ -136,6 +140,7 @@ class ContinuousTurnAdapter:
         is_cancelled: Callable[[], bool] | None = None,
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
+        repair_seconds_cap: float | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -175,6 +180,15 @@ class ContinuousTurnAdapter:
             None if deadline_expires_at is None else float(deadline_expires_at)
         )
         self._progress_sink = progress_sink
+        # 修复轮窗口按生效 provider 的延迟地板取，不用全局常数。
+        # 显式传参优先；未传时向 runtime 问链首——问 runtime 而不是重新
+        # detect_providers()，因为生产在 app.py 注入的才是生效值（BYOK
+        # 与 env 可以不一致）。问不到就落默认帽（= 改动前行为）。
+        self._repair_seconds_cap = (
+            float(repair_seconds_cap)
+            if repair_seconds_cap is not None
+            else repair_seconds_cap_for(provider_name_from(runtime))
+        )
 
     @property
     def mode(self) -> RuntimeMode:
@@ -947,6 +961,7 @@ class ContinuousTurnAdapter:
             delivery_candidate=bool(delivery_candidate),
             cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
+            seconds_cap=self._repair_seconds_cap,
         )
         if admission is None:
             return None
