@@ -89,7 +89,8 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective <
   --patch-id pp-xxxx --approve   # 或 --reject --note "理由"
 ```
 
-评审判据（sptfei 实战沉淀，2026-08-13）：
+评审判据（sptfei 实战沉淀，2026-08-13；positive 三门借鉴 colleague-skill 的
+triple-gate，2026-08-16）：
 
 | 判 | 形状 | 例 |
 |---|---|---|
@@ -98,6 +99,15 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective <
 | ❌ reject | **宏观世界观**：立场表态，不可执行、不可证伪 | 「长期看好中国资产」 |
 | ❌ reject | 与画像已有条目**同义**（幂等闸挡不住换措辞的重复） | — |
 
+approve 前再过 **triple-gate 三门**（排除坏候选≠选对好候选，三门用来区分
+「可执行但平庸」和「真正值得进画像」；三门不满足的拒绝理由写进 --note）：
+
+| 门 | 问什么 | 拦住的失败形状 |
+|---|---|---|
+| 跨语境复现 | 该规则只在本文一个场景出现过吗？ | 单篇孤证被当成方法论 |
+| 生成力 | 能推出博主没写过的**新**判断吗？ | 复述性条目——对了对，没有增量 |
+| 独占性 | 换个普通分析师也会这么说吗？ | 通用教科书废话，谁都能说 |
+
 agent 可以代评并逐条给理由，但要在回复里报告 approve/reject 清单；**最终认定权在用户**，
 画像的 `known_gaps` 里标注「agent 起草待用户复核」，用户过目前不当作已确认的方法论。
 
@@ -105,7 +115,21 @@ agent 可以代评并逐条给理由，但要在回复里报告 approve/reject �
 
 镜头（market_lenses）、证据层级（evidence_hierarchy）、推理模板（reasoning_patterns）
 带顺序/结构语义，「追加」不成立，闭环不碰。做法：对照原文提炼，直接编辑 profile JSON，
-并在 `known_gaps` 写明哪些是 agent 起草。改完 `perspective profile --json` 核对。
+并在 `known_gaps` 写明哪些是 agent 起草��改完 `perspective profile --json` 核对。
+
+同属人工编辑字段的还有两个（2026-08-16 起 schema 原生支持，默认空列表）：
+
+- **`contradictions`（已知矛盾）**：博主前后不一致的判断，格式建议
+  `「<日期A>说 X；<日期B>说 Y（同周期同位置）」`。KOL 牛市喊多熊市喊空是常态，
+  不记矛盾会蒸馏出一个「事后永远正确」的假人。运行时注入 prompt 并要求
+  **使用时声明、不得抹平**。注意它天然是 episodic（带日期），所以永远不进
+  patch 闭环——这正是闭环排除它的原因，不是缺口。
+- **`honest_boundaries`（诚实边界）**：该视角不可靠/无依据的领域
+  （如「样本只覆盖 AI 硬件主线，未覆盖可转债与港股」）。低置信度画像
+  （<3 篇）应有对应的边界条目；运行时模型在这些领域**不得输出该视角观点**。
+
+这两个字段���胜率统计联动：已进 `framework_version` 内容哈希，改动后框架版本
+自动换号，旧版本胜率不会污染新版本统计。
 
 ## 第 6 步：验收
 

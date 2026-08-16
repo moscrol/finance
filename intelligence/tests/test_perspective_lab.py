@@ -482,5 +482,56 @@ class CliParseabilityTests(unittest.TestCase):
             parser.parse_args(argv)
 
 
+class ContradictionAndBoundaryTests(unittest.TestCase):
+    """contradictions / honest_boundaries：人工编辑字段，默认空，注入后才进 prompt。"""
+
+    def test_default_profile_has_empty_meta_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            _, profile = perspective_lab.init_perspective(us, "blogger_x")
+            self.assertEqual(profile["contradictions"], [])
+            self.assertEqual(profile["honest_boundaries"], [])
+
+    def test_prompt_injects_contradictions_and_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x", display_name="某博主")
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["contradictions"] = ["06-30 提示缩量风险；07-15 同位置看多（同日历周期）"]
+            profile["honest_boundaries"] = ["未覆盖可转债与港股题材"]
+            perspective_lab._save_profile(us, profile)
+
+            prompt = perspective_lab._profile_prompt(profile, [])
+
+        self.assertIn("已知矛盾", prompt)
+        self.assertIn("06-30 提示缩量风险", prompt)
+        self.assertIn("不得抹平", prompt)
+        self.assertIn("诚实边界", prompt)
+        self.assertIn("未覆盖可转债与港股题材", prompt)
+        self.assertIn("不得输出其观点", prompt)
+
+    def test_prompt_omits_empty_meta_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            prompt = perspective_lab._profile_prompt(profile, [])
+        self.assertNotIn("已知矛盾", prompt)
+        self.assertNotIn("诚实边界", prompt)
+
+    def test_render_profile_text_lists_meta_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x")
+            profile = perspective_lab.load_profile(us, "blogger_x")
+            profile["contradictions"] = ["前空后多，同周期同位置"]
+            perspective_lab._save_profile(us, profile)
+            text = perspective_lab.render_profile_text(profile)
+        self.assertIn("## 已知矛盾", text)
+        self.assertIn("前空后多，同周期同位置", text)
+        self.assertIn("## 诚实边界", text)
+        self.assertIn("- 无", text)  # 空 boundaries 显式渲染「无」
+
+
 if __name__ == "__main__":
     unittest.main()

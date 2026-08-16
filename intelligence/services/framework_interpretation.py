@@ -54,6 +54,8 @@ def framework_version(profile: dict[str, Any]) -> str:
                 "reasoning_patterns",
                 "anti_patterns",
                 "falsification_style",
+                "contradictions",
+                "honest_boundaries",
             )
         },
         ensure_ascii=False,

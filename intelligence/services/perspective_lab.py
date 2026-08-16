@@ -262,6 +262,11 @@ def default_profile(perspective_id: str, display_name: str, ptype: str, *, ts: s
         "reasoning_patterns": [],
         "anti_patterns": [],
         "falsification_style": [],
+        # 矛盾与诚实边界（人工编辑字段，不进 patch 白名单）：
+        # contradictions 天然是带日期的单次观察（episodic），闭环刻意排除这个形状；
+        # honest_boundaries 是画像级元信息（样本覆盖范围、哪些领域不该用该视角）。
+        "contradictions": [],
+        "honest_boundaries": [],
         "voice_guidance": {"style": "清晰、直接、少口癖", "forbidden": ["复刻私人语气", "冒充本人"]},
         "confidence": {
             "article_count": 0,
@@ -511,8 +516,23 @@ def _profile_prompt(
         "- 反模式（该视角会批评/避免的做法）："
         + "；".join(profile.get("anti_patterns") or []),
         "- 证伪方式：" + "；".join(profile.get("falsification_style") or []),
-        "- 原文召回（观点层，不是事实）：",
     ]
+    # 矛盾记录与诚实边界：让模型知道该视角"哪里自相矛盾、哪里不该用"，
+    # 否则蒸馏出的会是一个事后永远正确的假人（借鉴 colleague-skill 的
+    # contradictions/honest_boundaries 设计，但按本仓"人工编辑字段"纪律落地）。
+    contradictions = profile.get("contradictions") or []
+    if contradictions:
+        lines.append(
+            "- 已知矛盾（该视角前后不一致处，使用时必须声明，不得抹平）："
+            + "；".join(str(item) for item in contradictions)
+        )
+    boundaries = profile.get("honest_boundaries") or []
+    if boundaries:
+        lines.append(
+            "- 诚实边界（以下领域该视角不可靠/无依据，不得输出其观点）："
+            + "；".join(str(item) for item in boundaries)
+        )
+    lines.append("- 原文召回（观点层，不是事实）：")
     if not snippets:
         if _has_cognitive_frame(profile):
             # 种子/已蒸馏画像：无原文只说明 BM25 空，不能把框架冲成「未知」
@@ -684,6 +704,10 @@ def render_profile_text(profile: dict[str, Any]) -> str:
     lines += [f"- {v}" for v in profile.get("risk_triggers") or []]
     lines += ["", "## 证伪风格"]
     lines += [f"- {v}" for v in profile.get("falsification_style") or []]
+    lines += ["", "## 已知矛盾（使用时必须声明，不得抹平）"]
+    lines += [f"- {v}" for v in profile.get("contradictions") or []] or ["- 无"]
+    lines += ["", "## 诚实边界（不可靠领域，不得输出其观点）"]
+    lines += [f"- {v}" for v in profile.get("honest_boundaries") or []] or ["- 无"]
     return "\n".join(lines) + "\n"
 
 

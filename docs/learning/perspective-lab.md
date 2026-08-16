@@ -58,6 +58,10 @@ python3 -m intelligence.cli perspective profile --user <id> --perspective blogge
 
 博主画像的认知字段（market_lenses / risk_triggers / falsification_style 等）P0 由人工编辑
 profile JSON 填写（对照文章原文提炼）；也可走下面的 P1 学习闭环让 LLM 提候选、你来确认。
+另有两个人工编辑字段（2026-08-16 起 schema 原生支持）：
+`contradictions`（博主前后不一致的判断，运行时必须声明、不得抹平——不记矛盾会蒸馏出
+「事后永远正确」的假人）和 `honest_boundaries`（该视角不可靠/无依据的领域，模型在这些
+领域不得输出其观点）。两者均进 `framework_version` 内容哈希，改动自动换框架版本。
 
 > 💡 「用户发原文 → 蒸馏进画像」的端到端固定流程已沉淀为 skill：
 > `skills/perspective-distill/SKILL.md`（触发词：蒸馏视角、学这个博主、喂文章），
@@ -90,9 +94,16 @@ python3 -m intelligence.cli perspective review-patch --user <id> --perspective b
 - **字段白名单**：LLM 候选只能进四个字符串列表字段（opportunity_preferences /
   risk_triggers / anti_patterns / falsification_style）；market_lenses、
   reasoning_patterns、evidence_hierarchy 带结构或顺序语义，仍走人工编辑 JSON；
+  contradictions / honest_boundaries（2026-08-16 新增）同属人工编辑——前者天然是
+  episodic（带日期的矛盾记录），后者是画像级元信息，都不适合 LLM 追加；
 - **人工门禁**：patch 三态 pending/approved/rejected，approve 才写 profile 并在
   `patch_history` 留 patch_id 溯源；同一 (field, value) 的 patch id 是确定性哈希，
   重复 propose 幂等，rejected 不会被重新提出。
+
+评审 positive 判据（triple-gate，2026-08-16 借鉴 colleague-skill）：approve 前过三门
+——**跨语境复现**（不是单篇孤证）、**生成力**（能推出博主没写过的判断，不是复述）、
+**独占性**（不是任何分析师都会说的通用废话）。三道闸拦的是坏候选，三门区分的是
+好候选；完整判据表见 `skills/perspective-distill/SKILL.md` 第 4 步。
 
 落点（均本地私有）：卡片 `articles/<id>/cards/pa-*.json`；patch `patches/<id>/pp-*.json`。
 
