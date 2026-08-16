@@ -1158,6 +1158,7 @@ class OpenAIAgentsRuntime:
             bindings=finish.bindings,
             evidence=snapshot.evidence,
             registry=registry,
+            draft=finish.draft,
         )
         gaps = tuple(dict.fromkeys((*snapshot.gaps, *finish.gaps)))
         execution_gap = next(
@@ -1431,6 +1432,7 @@ class OpenAIAgentsRuntime:
                 bindings=finish.bindings,
                 evidence=snapshot.evidence,
                 registry=state.registry,
+                draft=finish.draft,
             )
             invalid_actions = previous.usage.invalid_actions
         appended.extend(

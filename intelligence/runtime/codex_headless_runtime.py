@@ -1013,6 +1013,7 @@ class CodexHeadlessRuntime:
                 bindings=finish.bindings,
                 evidence=snapshot.evidence,
                 registry=registry,
+                draft=finish.draft,
             )
             status = finish.status
             draft = finish.draft
