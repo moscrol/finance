@@ -467,6 +467,22 @@ def retrieve_article_snippets(
     return [document for _, document in scored[:limit]]
 
 
+def _has_cognitive_frame(profile: dict[str, Any]) -> bool:
+    """画像是否已有可执行的解释镜头。article_count=0 不能用来否定这一点。"""
+    return any(
+        profile.get(key)
+        for key in (
+            "market_lenses",
+            "opportunity_preferences",
+            "risk_triggers",
+            "evidence_hierarchy",
+            "reasoning_patterns",
+            "anti_patterns",
+            "falsification_style",
+        )
+    )
+
+
 def _profile_prompt(
     profile: dict[str, Any],
     snippets: list[dict[str, str]],
@@ -498,7 +514,14 @@ def _profile_prompt(
         "- 原文召回（观点层，不是事实）：",
     ]
     if not snippets:
-        lines.append("  - 未召回相关文章；该视角未知，不得补写其观点。")
+        if _has_cognitive_frame(profile):
+            # 种子/已蒸馏画像：无原文只说明 BM25 空，不能把框架冲成「未知」
+            lines.append(
+                "  - 未召回相关文章；本轮只用上方画像框架作解释镜头，"
+                "不得把框架写成该视角对当前问题的原文观点，也不得编造未收录的原文判断。"
+            )
+        else:
+            lines.append("  - 未召回相关文章；该视角未知，不得补写其观点。")
     for snippet in snippets:
         source = " / ".join(
             item for item in (snippet["date"], snippet["source"], snippet["title"]) if item
