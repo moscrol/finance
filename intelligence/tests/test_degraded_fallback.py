@@ -172,9 +172,9 @@ def test_extended_gap_answer_keeps_marker_gate_quiet(monkeypatch) -> None:
         answer,
     )
     assert coverage["warnings"] == []
-    assert coverage["marker_coverage"] == "complete"
-    assert coverage["uncheckable"] == ["direct_answer"]
-    assert "evidence_boundary" in coverage["present"]
+    assert coverage["marker_coverage"] is None
+    assert coverage["present"] == []
+    assert coverage["uncheckable"] == ["direct_answer", "evidence_boundary"]
 
 
 # 中间档在开关 off、模型正常结束时的逐字节形状。成因行拆出后，这条必须
