@@ -4,7 +4,7 @@ roadmap_ref: 另案（候选新战役，归 P5 质量战线；证据同时挂 20
 
 一句话：前瞻/观点类问题在 evidence 硬边界下，模型写出的条件化判断被 semantic 修复逐句剥光，公开答案只剩证据边界（或残句+边界），却以 `completed`、零 degrade 出厂。规则文本本身给「已标注的分析推导」留了门，问题是路由、标记、绑定、修复四个执行环节没接住。修法按层给出，验收预注册。
 
-证据等级：**[实测]** = 2026-08-16 读过 run 产物/快照代码。快照 = 8792 生产 `437cd5e9`。第一刀 + 层 4 已合 `gitea/main`（#72，`268a0605`）。层 2 已合 #75（`2c40e37b`）。层 3 比较集绑定在 `fix/outlook-comparison-set-binding`。**未部署 8792**。
+证据等级：**[实测]** = 2026-08-16 读过 run 产物/快照代码。快照 = 8792 生产 `437cd5e9`（收尾质检时仍是该快照，`source_dirty=false`）。四层代码已合 `gitea/main`：#72 `268a0605`（路由+诚实闸）、#75 `2c40e37b`（relabel）、#79 `773b3d7e`（比较集绑定）。**未部署 8792**。
 
 ## 1. 症状与复现 [实测]
 
@@ -86,3 +86,20 @@ judge issues 覆盖全部正文判断句 → 修复删被拒句、保留幸存�
 - 不动 S2 回查钩子本体（`ASK_JUDGE_RECHECK` 默认 off 不变）；不碰 dsh 线。
 - 观点题放行的是「已标注、前提可核验」的判断，不是无限制自由发挥——发明外部原因/统计/阈值仍按规则拒。
 - 本文件从脏的 `docs/dsh-absorption-spec` 主 checkout 迁出，落在独立修复分支；不要跟 DSH spec / sptfei 迁移混交。
+
+## 7. 收尾质检（2026-08-16）
+
+对照 §3 / §4 在 `gitea/main` `773b3d7e` 上复检。解释器：`.venv-workbench`。
+
+| 层 | 合入 | 质检 |
+|---|---|---|
+| 0 路由 | #72 | 生产原题判断槽 `model_reasoning`，边界槽 `evidence`，检索不清空。默认 `形成条件化判断` 不翻转涨停家数/估值。mixed 仍走证据审查器。 |
+| 2 标记 | #75 | 裸推断补「据此判断：」；已有标记、边界、纯数字、外部原因不补。不改指纹锁定指令。 |
+| 3 绑定 | #79 | 「均居前」扩同 tool+title+日期兄弟行；不同观察不互扩；无比较词不扩。finish 六处传 draft。 |
+| 4 诚实闸 | #72 | 剥到只剩边界 → `partial` + `gap_output_ids` + `uncheckable_judgment_empty`。`user_premise` 不误触发。 |
+
+单测：`test_episode_factory` / `test_analytical_inference_label` / `test_comparison_set_binding` / `test_task_fulfillment` / `test_episode_protocol` / outlook 两条 semantic / snapshot+query-scoped opt-in / `test_judge_source_recheck` = **104 passed**；`test_episode_semantic_verifier` 全文件 **150 passed**。`_CLAIM_POLICY` 七个闸仍为 True。`ASK_JUDGE_RECHECK` 默认 off。
+
+§4 预注册里**还没跑**的：原题 live 重跑、10 题修前/修后臂、植入假数字的 live 护栏。这些都要部署窗或独立对照窗，本收尾不假装做过。
+
+代码已合、空壳不再假绿；判断句能否在生产留下，要等 8792 切离 `437cd5e9`。改写保留修复、mixed spec、观测台 L1 / B 组第四形状入账，仍是另案。
