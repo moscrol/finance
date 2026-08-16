@@ -18,6 +18,20 @@ from intelligence.services.task_fulfillment import (
 
 JUDGMENT_OUTPUT_IDS = frozenset({"direct_answer", "direct_assessment"})
 
+_SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
+_EXISTING_ANALYSIS_LABEL_RE = re.compile(
+    r"^(?:据此判断|这说明|这意味着|基准判断|直接判断|当前判断|"
+    r"替代判断|验证路径|情景判断)"
+)
+_INFERENCE_CUE_RE = re.compile(
+    r"(?:说明|构成|更偏|不宜|优先观察|若.{0,24}则)"
+)
+_EXTERNAL_CAUSE_RE = re.compile(
+    r"(?:政策|消息|事件|新闻).{0,16}(?:导致|因为)|"
+    r"(?:导致|因为|由于).{0,12}(?:政策|消息|事件|新闻)"
+)
+_LABEL_PREFIX = "据此判断："
+
 
 _SECTION_HEADING_RE = re.compile(
     r"^(?:#{1,6}\s*|【|(?:\d+|[一二三四五六七八九十]+)[、.．）)]\s*)"
@@ -172,8 +186,59 @@ def remove_lost_output_scaffolding(
     return "\n".join(kept).strip()
 
 
+def _should_label_inference(sentence: str) -> bool:
+    text = sentence.strip()
+    if not text:
+        return False
+    if _EXISTING_ANALYSIS_LABEL_RE.match(text):
+        return False
+    if answer_has_output_marker("evidence_boundary", text):
+        return False
+    if _EXTERNAL_CAUSE_RE.search(text):
+        return False
+    return bool(_INFERENCE_CUE_RE.search(text))
+
+
+def label_unlabelled_analytical_inferences(draft: str) -> str:
+    """Prefix bare analytical inferences with the judge's explicit marker.
+
+    Only adds ``据此判断：``. Does not invent facts, does not label boundary
+    sentences, numeric-only observations, or external-cause claims.
+    """
+
+    source = str(draft or "")
+    if not source.strip():
+        return source
+    result = source
+    cursor = 0
+    for raw in _SENTENCE_RE.split(source):
+        text = raw.strip()
+        if not text:
+            continue
+        start = result.find(text, cursor)
+        if start < 0:
+            continue
+        if _should_label_inference(text):
+            labeled = f"{_LABEL_PREFIX}{text}"
+            result = f"{result[:start]}{labeled}{result[start + len(text):]}"
+            cursor = start + len(labeled)
+        else:
+            cursor = start + len(text)
+    return result
+
+
+def contract_has_model_reasoning_judgment(contract: object) -> bool:
+    return any(
+        str(getattr(item, "output_id", "")) in JUDGMENT_OUTPUT_IDS
+        and str(getattr(item, "grounding_mode", "evidence")) == "model_reasoning"
+        for item in getattr(contract, "required_outputs", ())
+    )
+
+
 __all__ = [
     "JUDGMENT_OUTPUT_IDS",
+    "contract_has_model_reasoning_judgment",
+    "label_unlabelled_analytical_inferences",
     "lost_required_output_substance",
     "remove_lost_output_scaffolding",
     "required_output_evidence_floor",

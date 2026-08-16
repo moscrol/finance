@@ -35,6 +35,8 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_output_substance import (
     JUDGMENT_OUTPUT_IDS,
+    contract_has_model_reasoning_judgment,
+    label_unlabelled_analytical_inferences,
     lost_required_output_substance,
     remove_lost_output_scaffolding,
 )
@@ -505,6 +507,14 @@ class SemanticEpisodeVerifier:
             )
 
         draft = structural.outcome.draft
+        if contract_has_model_reasoning_judgment(contract):
+            labeled = label_unlabelled_analytical_inferences(draft)
+            if labeled != draft:
+                structural = replace(
+                    structural,
+                    outcome=replace(structural.outcome, draft=labeled),
+                )
+                draft = labeled
         sentences = _numbered_sentences(draft)
         if not sentences:
             return SemanticEpisodeOutcome(

@@ -4,7 +4,7 @@ roadmap_ref: 另案（候选新战役，归 P5 质量战线；证据同时挂 20
 
 一句话：前瞻/观点类问题在 evidence 硬边界下，模型写出的条件化判断被 semantic 修复逐句剥光，公开答案只剩证据边界（或残句+边界），却以 `completed`、零 degrade 出厂。规则文本本身给「已标注的分析推导」留了门，问题是路由、标记、绑定、修复四个执行环节没接住。修法按层给出，验收预注册。
 
-证据等级：**[实测]** = 2026-08-16 读过 run 产物/快照代码。快照 = 8792 生产 `437cd5e9`；主线 gitea/main 同样存在该缺陷（无相关后续修复）。第一刀（判断槽 `grounding_mode`）在 `fix/outlook-judgment-grounding-mode`，**未部署 8792**。
+证据等级：**[实测]** = 2026-08-16 读过 run 产物/快照代码。快照 = 8792 生产 `437cd5e9`。第一刀 + 层 4 已合 `gitea/main`（#72，`268a0605`）。层 2 relabel 在 `fix/outlook-judgment-relabel`。**未部署 8792**。
 
 ## 1. 症状与复现 [实测]
 
@@ -55,7 +55,7 @@ judge issues 覆盖全部正文判断句 → 修复删被拒句、保留幸存�
    - 整题 `answer_grounding_mode` 会变成已有值 `mixed`。`_judge_system_prompt` 对 mixed 仍走证据审查器（`_JUDGE_SYSTEM_PROMPT`），**这是有意的**：切到方法论审查器会放松硬事实闸。mixed 的专用 spec 另写，本刀不做。
    - 不把观点题标进 `_is_evidence_free_task`（那会清空检索）。
    - 新增 mixed 语义（观察句 evidence 硬校、判断句按已标注推导校前提）是新设计，需先写 spec。
-2. **合成**：合成模板强制判断句自带显式标记（「据此判断」前缀级别的确定性要求）；或 finalize 前加确定性 relabel pass 给裸推断补标记。
+2. **合成（本刀：确定性 relabel，不改指纹锁定指令）**：judge 前对 `model_reasoning` 判断槽草稿做 `label_unlabelled_analytical_inferences`：裸推断句补「据此判断：」。已有标记、证据边界、纯数字观察、外部原因句不补。不改 `episode_protocol` 指令文本（指纹锁）。改写保留的其余部分（删除式修复改成补标记重判）仍未做。
 3. **绑定**：比较类断言自动绑定比较集（整段排序 observation），不许只绑单行。
 4. **修复+观测（本分支已做诚实闸；改写保留仍未做）**：剥后只剩证据边界句时，`lost_required_output_substance` 认出 `direct_answer` 蒸发 → `_lost_grounded_output_substance` 对 `model_reasoning` 判断槽不再过滤 → 走既有 #327 `_marker_loss_partial_public`（`status=partial`、`gap_output_ids`、正文附「未核验表述已删除」）。`evaluate_marker_coverage` 对 uncheckable(`direct_answer`) + 无判断正文 报 `incomplete`、`warnings=[uncheckable_judgment_empty]`、`observation_only=false`。改写保留（补标记而非删除）仍属层 2，本刀不做。适配层把 semantic `partial`+repaired 映成 run `partial`，不是 `degraded`——沿用 #327，不另开状态。
 
