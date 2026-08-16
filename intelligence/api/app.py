@@ -51,6 +51,7 @@ from intelligence.runtime.agent_runtime_factory import (
     resolve_runtime_backend,
     runtime_backend_readiness,
 )
+from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.services.forecast_learning import (
     approve_reflection,
     learning_feedback_projection,
@@ -355,9 +356,19 @@ def _build_continuous_turn_adapter(
         if memory_user
         else build_episode_registry
     )
+    # 修复轮窗口按**生效 provider** 的延迟地板取（provider_latency.py）。
+    # 在这里算而不是让 adapter 反向去掏 runtime：provider 链埋在
+    # GLMAgentRuntime → ContinuousAgentEpisode → GLMModelClient 三层私有属性下，
+    # 从 adapter 摸进去既脆又会随壳的实现漂；而这里 `providers` 就是产品线真正
+    # 注入运行时的那一条（BYOK 与 env 不一致时也以它为准）。
+    # providers 为空时传 None → 落默认帽 = 改动前行为。
+    repair_seconds_cap = (
+        repair_seconds_cap_for(providers[0].name) if providers else None
+    )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
+        repair_seconds_cap=repair_seconds_cap,
         runtime_name=selection.name,
         mode=_continuous_runtime_mode(),
         registry_factory=registry_factory,

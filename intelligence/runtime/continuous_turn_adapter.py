@@ -87,15 +87,18 @@ def _new_task_id() -> str:
 
 
 def _runtime_provider_name(runtime: object) -> str | None:
-    """问 runtime 它实际在用的 provider 链链首名；问不到返回 None。
+    """Best-effort：runtime 自己直接暴露 provider 链时读它的链首名。
 
-    鸭子类型而非 isinstance：``AgentRuntime`` 是协议，壳有多个实现
-    （continuous / sdk_gpt / codex_headless），只有部分持有 provider 链。
-    拿不到就返回 None → 调用方落默认帽，等于改动前行为，不 raise。
+    **这不是生产路径。** 生产由 ``api/app.py:_build_continuous_turn_adapter``
+    显式传 ``repair_seconds_cap``——那里 ``providers`` 就在手边，而在生产的对象图
+    里 provider 链埋在 ``GLMAgentRuntime → ContinuousAgentEpisode → GLMModelClient``
+    三层私有属性之下，从这里摸进去既脆又会随壳的实现漂。
 
-    **为什么不直接 detect_providers()**：那读的是 env（配置值），而生产在
-    ``api/app.py`` 显式注入 ``runtime_providers_for(user_id)`` 的结果（生效值）；
-    BYOK 用户两者不同。窗口要跟着真正在发请求的那个 provider 走。
+    2026-08-16 实测教训：本函数初版试图逐层下钻，结果在生产对象图上一路返回
+    None，窗口静默落回默认帽 30.0s——**单测因为直接注入 seconds_cap 而全绿，
+    live 上那条线其实是断的**。故改为只读直接属性，够不着就老实返回 None。
+
+    返回 None → 调用方落默认帽（= 改动前行为），不 raise。
     """
 
     for attr in ("_providers", "providers"):
@@ -105,9 +108,6 @@ def _runtime_provider_name(runtime: object) -> str | None:
             name = getattr(head, "name", None)
             if name:
                 return str(name)
-    client = getattr(runtime, "model_client", None) or getattr(runtime, "_client", None)
-    if client is not None and client is not runtime:
-        return _runtime_provider_name(client)
     return None
 
 

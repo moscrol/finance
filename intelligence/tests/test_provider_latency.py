@@ -190,3 +190,49 @@ def test_non_positive_cap_falls_back_instead_of_zero_window(bad_cap: float) -> N
     )
     assert grant is not None
     assert grant.seconds_granted == 30.0
+
+
+# --------------------------------------------- 生产接线（这条守的是 live 那次漏接）
+
+def test_production_factory_injects_glm_window_end_to_end() -> None:
+    """真实构造路径必须把 GLM 窗口传到 adapter，而不是落回默认帽。
+
+    **这条测试的存在理由**：初版改动在单测里全绿、live 上却是断的——所有单测
+    都直接注入 ``seconds_cap``，没有一条走真实对象图。生产里 provider 链埋在
+    ``GLMAgentRuntime → ContinuousAgentEpisode → GLMModelClient`` 之下，adapter
+    反向探测一路返回 None，窗口静默落回 30.0s，收据上 ``granted_seconds=30.0``。
+
+    故本条**不注入 seconds_cap**，走 ``_build_continuous_turn_adapter``，
+    断言生效值。断言的是「不等于默认帽」而不是「等于 40」——后者会在调表时
+    连带红掉，而这里要守的不变量是「接线通着」。
+    """
+
+    from intelligence.api.app import _build_continuous_turn_adapter
+    from intelligence.services.llm_refine import LLMProvider
+
+    glm = LLMProvider(
+        name="zhipu",
+        api_key="test-key",
+        base_url="https://open.bigmodel.cn/api/coding/paas/v4",
+        model="glm-5.2",
+    )
+    adapter = _build_continuous_turn_adapter(
+        providers=(glm,),
+        run_id="run-test",
+        assistant_message_id="msg-test",
+    )
+    assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu", env={})
+    assert adapter._repair_seconds_cap != DEFAULT_REPAIR_SECONDS_CAP
+
+
+def test_production_factory_without_providers_falls_back() -> None:
+    """provider 链为空时落默认帽，不 raise（= 改动前行为）。"""
+
+    from intelligence.api.app import _build_continuous_turn_adapter
+
+    adapter = _build_continuous_turn_adapter(
+        providers=(),
+        run_id="run-test",
+        assistant_message_id="msg-test",
+    )
+    assert adapter._repair_seconds_cap == DEFAULT_REPAIR_SECONDS_CAP
