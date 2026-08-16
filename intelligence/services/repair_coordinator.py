@@ -12,13 +12,30 @@ from uuid import uuid4
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
 from intelligence.services.research_contract import RootBudgetLedger
 
-# 修复轮单笔授予帽（秒）。曾按 `min(剩余, 30, 缺口×8)` 计工时——缺口少窗口
-# 就小（1 缺口=8s、3 缺口=24s）。但一次 LLM 调用的成本由**固定延迟地板**
-# 主导（网络 + prompt 处理，生产中转 P50≈28s），与缺口数无关：低于地板的
-# 窗口注定超时，还要白烧掉授予本身。2026-08-13 生产收据（R7/R21）：
-# 16/24s 窗 0/5 全超时，30s 窗 5/5 全成功。故删去按缺口缩放项，一律给满窗
-# （仍受 remaining 与 root ledger 约束，fail closed 不变）。
+# 修复轮单笔授予帽（秒）的**默认值**。曾按 `min(剩余, 30, 缺口×8)` 计工时——
+# 缺口少窗口就小（1 缺口=8s、3 缺口=24s）。但一次 LLM 调用的成本由**固定延迟
+# 地板**主导（网络 + prompt 处理），与缺口数无关：低于地板的窗口注定超时，还要
+# 白烧掉授予本身。2026-08-13 生产收据（R7/R21）：16/24s 窗 0/5 全超时，30s 窗
+# 5/5 全成功。故删去按缺口缩放项，一律给满窗（仍受 remaining 与 root ledger
+# 约束，fail closed 不变）。
+#
+# 2026-08-16：该地板是 **provider 的属性**，不是全局常数——30.0 来自对中转
+# terra 的实测，换到 GLM 后两个修复轮各在整 30.0 秒超时（p90=34.4s）。故各
+# grant 函数改收 `seconds_cap`，由调用方按生效 provider 注入；取值口径与实测
+# 出处见 `provider_latency.py`。本模块保持 provider-neutral：它只消费一个数，
+# 不认识 provider，也不读 env。
+#
+# 本常数仍是 `seconds_cap=None` 时的回退值，故未传参的调用方行为逐字节不变。
 _REPAIR_SECONDS_CAP = 30.0
+
+
+def _resolve_seconds_cap(seconds_cap: float | None) -> float:
+    """None / 非正数 → 默认帽。fail-safe：坏输入不该把窗口静默压成 0。"""
+
+    if seconds_cap is None:
+        return _REPAIR_SECONDS_CAP
+    value = float(seconds_cap)
+    return value if value > 0.0 else _REPAIR_SECONDS_CAP
 
 
 @dataclass(frozen=True)
@@ -263,6 +280,7 @@ def grant_for_progress(
     root_budget: RootBudgetLedger,
     research_tier: str,
     tools_open: bool = True,
+    seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
     if not should_reenter(
         progress,
@@ -278,7 +296,7 @@ def grant_for_progress(
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
     calls = min(work_units, goal.remaining_calls) if tools_open else 0
-    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
+    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
     if tools_open and calls <= 0:
         return None
     if seconds < 1.0:
@@ -298,6 +316,7 @@ def grant_for_cold_restart(
     progress: ProgressSnapshot,
     *,
     root_budget: RootBudgetLedger,
+    seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
     """Grant one tool-open restart turn for an episode starved of evidence.
 
@@ -336,7 +355,7 @@ def grant_for_cold_restart(
         max(1, len(goal.missing_answer_elements) + len(goal.missing_evidence_modes)),
     )
     calls = min(work_units, goal.remaining_calls)
-    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
+    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
     if calls < 1 or seconds < 1.0:
         return None
     grant = BudgetGrant(
@@ -355,6 +374,7 @@ def grant_for_delivery_repair(
     root_budget: RootBudgetLedger,
     research_tier: str,
     evidence_count: int,
+    seconds_cap: float | None = None,
 ) -> BudgetGrant | None:
     """Grant one tool-closed delivery turn from already collected evidence.
 
@@ -376,7 +396,7 @@ def grant_for_delivery_repair(
         return None
     if goal.remaining_seconds < 1.0:
         return None
-    seconds = min(goal.remaining_seconds, _REPAIR_SECONDS_CAP)
+    seconds = min(goal.remaining_seconds, _resolve_seconds_cap(seconds_cap))
     if seconds < 1.0:
         return None
     grant = BudgetGrant(
@@ -451,6 +471,7 @@ def admit_repair(
     delivery_candidate: bool = False,
     cold_restart_candidate: bool = False,
     evidence_count: int = 0,
+    seconds_cap: float | None = None,
 ) -> RepairAdmission | None:
     """Build one goal and admit exactly one budget grant.
 
@@ -480,6 +501,7 @@ def admit_repair(
             root_budget=root_budget,
             research_tier=research_tier,
             tools_open=tools_open,
+            seconds_cap=seconds_cap,
         )
     if (
         grant is None
@@ -493,6 +515,7 @@ def admit_repair(
             root_budget=root_budget,
             research_tier=research_tier,
             evidence_count=evidence_count,
+            seconds_cap=seconds_cap,
         )
         delivery_only = grant is not None
     if (
@@ -506,6 +529,7 @@ def admit_repair(
             goal,
             previous_progress,
             root_budget=root_budget,
+            seconds_cap=seconds_cap,
         )
         cold_restart = grant is not None
     if grant is None:

@@ -32,6 +32,7 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.honesty_gates import with_calendar_disclosure
+from intelligence.services.provider_latency import repair_seconds_cap_for
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.repair_coordinator import (
     admit_repair,
@@ -85,6 +86,31 @@ def _new_task_id() -> str:
     return str(uuid4())
 
 
+def _runtime_provider_name(runtime: object) -> str | None:
+    """问 runtime 它实际在用的 provider 链链首名；问不到返回 None。
+
+    鸭子类型而非 isinstance：``AgentRuntime`` 是协议，壳有多个实现
+    （continuous / sdk_gpt / codex_headless），只有部分持有 provider 链。
+    拿不到就返回 None → 调用方落默认帽，等于改动前行为，不 raise。
+
+    **为什么不直接 detect_providers()**：那读的是 env（配置值），而生产在
+    ``api/app.py`` 显式注入 ``runtime_providers_for(user_id)`` 的结果（生效值）；
+    BYOK 用户两者不同。窗口要跟着真正在发请求的那个 provider 走。
+    """
+
+    for attr in ("_providers", "providers"):
+        chain = getattr(runtime, attr, None)
+        if chain:
+            head = next(iter(chain), None)
+            name = getattr(head, "name", None)
+            if name:
+                return str(name)
+    client = getattr(runtime, "model_client", None) or getattr(runtime, "_client", None)
+    if client is not None and client is not runtime:
+        return _runtime_provider_name(client)
+    return None
+
+
 @dataclass(frozen=True)
 class ContinuousTurnResult:
     handled: bool
@@ -135,6 +161,7 @@ class ContinuousTurnAdapter:
         is_cancelled: Callable[[], bool] | None = None,
         deadline_expires_at: float | None = None,
         progress_sink: Callable[[EpisodeProgress], None] | None = None,
+        repair_seconds_cap: float | None = None,
     ) -> None:
         selected_mode = (
             str(os.environ.get("ASK_CONTINUOUS_RUNTIME") or "off").strip().lower()
@@ -174,6 +201,16 @@ class ContinuousTurnAdapter:
             None if deadline_expires_at is None else float(deadline_expires_at)
         )
         self._progress_sink = progress_sink
+        # 修复轮窗口按**生效 provider** 的延迟地板取，不用全局常数。
+        # 显式传参优先；未传时向 runtime 问它实际在用哪条 provider 链的链首
+        # ——问 runtime 而不是重新读一遍 env，是因为生产在 app.py 显式注入
+        # provider 链（BYOK 场景与 env 可以不一致），重新 detect 得到的是
+        # 「配置值」而不是「生效值」。runtime 答不上来就落默认帽（= 改动前行为）。
+        self._repair_seconds_cap = (
+            float(repair_seconds_cap)
+            if repair_seconds_cap is not None
+            else repair_seconds_cap_for(_runtime_provider_name(runtime))
+        )
 
     @property
     def mode(self) -> RuntimeMode:
@@ -922,6 +959,7 @@ class ContinuousTurnAdapter:
             delivery_candidate=bool(delivery_candidate),
             cold_restart_candidate=cold_restart_candidate,
             evidence_count=len(outcome.evidence),
+            seconds_cap=self._repair_seconds_cap,
         )
         if admission is None:
             return None
