@@ -4,7 +4,7 @@
 - **未闭合的最低层:P2**（口径=trace_depth 档位 + 盲区清单未清项；五步+冲突矩阵已收口；Arm A 45× 已跑，对照未开）
 - 硬顶 120 行。L2 禁止手写。新 handoff 头部必须带 `roadmap_ref: <L1-ID>`。
 - 不是 `docs/layered-rebuild-roadmap.md` / `docs/productization-roadmap.md`（历史长文，禁止往那些文件追加战役状态）。
-- L1-DSH 实施已合 main（#61）；Arm A 45× 官方窗已跑，30×3 压不住 5pp。对照仍未开。
+- L1-DSH 实施已合 main（#61）；#69 已按 0.1375 锁 30×15=450/臂。对照仍未开。
 
 ## L0 阶段线
 
@@ -27,7 +27,7 @@
 
 | ID | 战役 | 状态 | 完成判据 | handoff/spec 指针 | 谁在做 |
 |---|---|---|---|---|---|
-| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | #61 · `2026-08-16-dsh-arm-a-calibration-receipt.md`（45× 已跑；对照未开） | 已合 main |
+| L1-DSH | dsh 吸收 P0 五步 | done | 五步完成且冲突矩阵可画 | #61 · #69 · `2026-08-16-dsh-arm-a-calibration-receipt.md`（锁 450/臂；对照未开） | 已合 main |
 | L1-S1 | 时间预算可见 | done | 状态栏 v1 | #65 · `2026-08-15-bookgap-s1-time-budget-statusline.md` | 已合；默认开；`ASK_EPISODE_BUDGET_STATUS=off` 可关 |
 | L1-S2 | judge 模态切换 | done | 数据源回查钩子 | #60 · `2026-08-15-bookgap-s2-judge-source-recheck.md` | 已合；默认 off；10 题对照实验未跑 |
 | L1-S3 | 超时窗口比例化 | done | reserve 推导窗口 | #63 · `2026-08-15-bookgap-s3-timeout-ratio-derivation.md` | 已合；3 题冒烟未跑；不追切 8792 |
@@ -49,6 +49,7 @@
 | 提出日 | 事项 | 卡在谁 | 关联 |
 |---|---|---|---|
 | 2026-08-16 | 第 8 步先半段 45× Arm A 已跑；30×3 半宽 10.8pp，加题/加重复，不许放宽 5pp | 已决 | L1-DSH |
+| 2026-08-16 | 按官方 v=0.1375 重锁 30×15=450/臂；草稿 0.125/30×13 dropped（#69） | 已决 | L1-DSH |
 | 2026-08-16 | 扩样到 n×r≈423 再上 Arm B，还是先另开窗 | 用户 | L1-DSH |
 | 2026-08-16 | 不切 8792 追 S7；夜跑 sync 已挂 staging | 已决 | L1-S7 |
 | 2026-08-16 | R-24 独立部署窗已开；8792=`437cd5e9`（为 R-24，不是为 S7） | 已决 | L1-R24 |
