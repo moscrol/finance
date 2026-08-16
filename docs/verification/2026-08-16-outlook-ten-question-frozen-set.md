@@ -9,6 +9,7 @@
 - post_arm: 开窗时 8792 生产 tip（须 ≥`773b3d7e` + 预算回归处置）
 - fixture: `intelligence/eval/fixtures/outlook-ten-question-frozen-2026-08-16.questions.json`
 - loader: `intelligence/eval/outlook_ten_question_frozen_set.py`
+- pr: Gitea **#82**（本冻结；不是开窗许可）
 
 ## Freeze
 

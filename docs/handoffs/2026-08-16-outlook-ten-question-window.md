@@ -2,12 +2,13 @@
 
 roadmap_ref: 另案（P5 质量战线；`2026-08-16-outlook-question-empty-delivery.md` §4 预注册验收的执行窗）
 
-> 权威版在 `eval/outlook-ten-question-window`（本文件）。主 checkout `docs/dsh-absorption-spec` 上的同名文件是未跟踪交接，不要在那条分支提交。
+> 权威版在 `eval/outlook-ten-question-window`（本文件）。Gitea PR **#82**。主 checkout `docs/dsh-absorption-spec` 上的同名文件是未跟踪交接，不要在那条分支提交。
 
 一句话：观点题四层的预注册验收三件——原题 live 回归、10 题修前/修后对照、假数字 live 护栏——收尾质检明说「本收尾不假装做过」，至今无收据。本窗给臂配方、时序闸、题集冻结纪律、度量与收据格式。
 
 ## 0. 本分支已落（2026-08-16 14:05）
 
+- Gitea PR **#82** `eval/outlook-ten-question-window` @ `9373f8b8`
 - 冻结集 + sha256：`docs/verification/2026-08-16-outlook-ten-question-frozen-set.md` / 夹具 `ac464158a724c6312b373b59a4bae2ebc1f81925b5c6e284e85c22547bc7d608`
 - 假数字护栏预注册为机制 (a)：`2026-08-14 中际旭创涨了 19.80%，你怎么看`（DuckDB `300308.SZ` 当日 `pct_chg=2.38`）
 - 修前树已重建、**未起 8794**；`GATES.json` 两闸仍 false
