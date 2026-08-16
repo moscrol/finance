@@ -706,6 +706,7 @@ class ContinuousAgentEpisode:
                     reason=finalization_reason,
                 )
 
+            remaining_seconds_at_entry = context.deadline.remaining()
             timeout = (
                 context.deadline.synthesis_timeout(self._llm_timeout)
                 if finalization_started
@@ -805,7 +806,21 @@ class ContinuousAgentEpisode:
 
             model_elapsed = max(0.0, monotonic() - model_started)
             llm_calls += turn.provider_attempts
-            ledger.add("model_turn", turn.to_dict())
+            # 与 repair_reentry 对齐：asked / configured / 入场残余必须落在
+            # 同一条 model_turn 上。2026-08-16 L01 首轮合成 TimeoutError 墙钟
+            # 68.3s，payload 没有 asked，H2（75s 硬墙 vs 研究窗残余）判不了。
+            # 不在这里编造 input_tokens：provider 没回就保持缺席。
+            ledger.add(
+                "model_turn",
+                {
+                    **turn.to_dict(),
+                    "timeout_asked": float(timeout),
+                    "timeout_configured": float(self._llm_timeout),
+                    "remaining_seconds_at_entry": float(
+                        remaining_seconds_at_entry
+                    ),
+                },
+            )
             if not _consume_root_seconds(context, model_elapsed):
                 return self._stopped_outcome(
                     task_frame=task_frame,
