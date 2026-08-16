@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-17 离线已绿，成因行拆出开关。R-16..21 仍 pending。不覆盖 main 旧行）
+- last_updated: 2026-08-16（#106 R-17 已合；R-21 离线已绿，窗随 p90、`_REPAIR_SECONDS_CAP` 仍 30。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -295,13 +295,28 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 
 ### 2026-08-16 R-17 成因行：离线回填
 
-夹具在 `intelligence/tests/test_degraded_fallback.py`。未部署 8792，未重渲染 22:18 / 23:05 生产 run。未动 T / 30 / 档位。
+夹具在 `intelligence/tests/test_degraded_fallback.py`。#106 已合 `main`。未部署 8792，未重渲染 22:18 / 23:05 生产 run。未动 T / 30 / 档位。
 
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
 | `R-20260816-17` | 离线：`repair_model_unavailable` 与三零（`llm_calls=0` / evidence=0 / bindings=0）首句含「模型服务不可用」且不含「现有证据不足」；开关 off 时模型正常结束的中间档逐字节不变 | `pending` | 保持 Open。部分验证不得写 confirmed。live 重渲染未做 |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-18` / `-19` / `-20` / `-21` | 未做链长结案 / status 投影 / 反证夹具 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-16 R-21 repair 窗随 p90：离线回填
+
+分档延迟：8795 GLM 成功轮 n=32，p50=17.3 / **p90=34.4** / max=49.4；6/32 >30s。
+中转 terra 2026-08-08 P50≈28s，08-13 收据 30s 窗 5/5。取值：openai=30，zhipu=40（p90+余量），未知=30。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。未部署 8792。
+
+全路由影响面：非研究题不走 `admit_repair`（0pp）；中转研究题取值不变；仅 GLM 研究题的 repair / transient retry 单笔上限 30→40。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-21` | 离线：`repair_seconds_cap_for("zhipu")>34.4` 且 `!= openai`；不传 cap 的授予仍 30；transient retry 也吃注入帽。未做同题 live 重跑 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触。窗随 p90 不是把 30 调大 |
+| `R-20260816-02` | 动了 repair 授予公式的注入帽，不是 T。live 臂未跑 | `pending` | 保持 Open。条件句「若动预算」部分触发，不得写 confirmed |
+| `R-20260816-16` / `-18` / `-19` / `-20` | 本 PR 不改 status 投影 / 描述表。R-17 已由 #106 合入 | `pending` | 保持 Open |
 
 ### Closed
 
