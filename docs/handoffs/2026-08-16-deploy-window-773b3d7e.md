@@ -23,9 +23,9 @@ roadmap_ref: L1-8792；关联 L1-R24
 ## 3. 待办
 
 1. **观测台 PR 更新台账**：**本 PR 已做**。`L1-R24` 行未动（历史准确）。
-2. **快照卫生（建议）**：按 R-24 原流程重建规范快照——新目录名带 `773b3d7e` 前缀、`ln -sfn` 链切、kickstart、三读数——消掉目录名错位。现成材料：worktree `~/fwp-wt-deploy-main` 已 detached @ `773b3d7e`（干净，untracked 仅 `.venv-workbench`），可评估直接作为新快照目录或作克隆源。**执行时机必须避开长尾窗与 10 题窗**（kickstart 会杀 in-flight run；12:09 那次就中断过一个）。
-3. **回滚梯子**：`437cd5e9` 的工作树已不在磁盘（被就地切走；对象仍可解引用），现存可启动回滚点只剩 `~/.finance-runtime/finance-workspace-fdb231148c0e`（pre-R-24，回滚即丢 R-24 修复）。重建快照时顺带恢复梯子：保留一个 `437cd5e9` 或 `773b3d7e` 的不可变副本作回滚锚。
-4. **rag_worker prewarm 第三次撞限记录**：**收据已落** `docs/verification/2026-08-16-8792-773b3d7e-inplace-cut.md`。处置选项仍待 owner：部署 SOP 里加「切后必查 ready，失败即 kickstart 重试一次」；或再抬 timeout——但要照 launcher 注释的纪律给 prewarm 延迟实测依据，不许拍数。
+2. **快照卫生**：目标目录已在 `~/.finance-runtime/finance-workspace-773b3d7e73d7`。只欠窗关后的 `ln -sfn` + kickstart + 三读数。**现在不要做**（长尾窗 / 10 题窗）。
+3. **回滚梯子**：**已补**。`finance-workspace-773b3d7e73d7` @ `773b3d7e`；`finance-workspace-437cd5e9aa1a-rollback` @ `437cd5e9`。都是独立 clone，未启动。`outlook-pre` 是 10 题修前臂，不要当生产回滚。
+4. **rag_worker prewarm 第三次撞限**：**已记且已决**。不抬 timeout；切后必查 ready，失败 kickstart 同快照一次。收据 `docs/verification/2026-08-16-8792-773b3d7e-inplace-cut.md`。
 
 ## 4. 边界 / 不做什么
 
