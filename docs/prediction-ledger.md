@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（#115 已合切 8792=`520fc0f8`。contains ESCAPE 已上线。R-22/R-23 已占号，实现归工具层执行方。R-16..21 仍 pending）
+- last_updated: 2026-08-17（R-22 离线已绿，待合切。R-23 仍归工具层。8792 仍 `520fc0f8`。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -425,10 +425,22 @@ handoff：`docs/handoffs/2026-08-17-two-agent-collision-and-contains-escape.md`�
 
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
-| `R-20260816-22` | 用户已裁定分档口径；Open 表已占号。代码未动 | `pending` | 保持 Open。实现归工具层 |
+| `R-20260816-22` | 用户已裁定分档口径；Open 表已占号。离线实现见下节 | `pending` | 保持 Open |
 | `R-20260816-23` | Open 表已占号。`dataset_field_hint()` 仍未进模型可见面 | `pending` | 保持 Open。实现归工具层 |
 | `R-20260816-07` | #115 / 本次切窗未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-17` / `-18` / `-19` / `-20` / `-21` | 本窗不改链长 / 成因行 / status / 反证 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-17 R-22 主体退出 vs 管道陈旧：离线回填
+
+`_subject_exited_universe`：`dataset_max ≥ floor ∧ served < dataset_max` → 退出并交付证据；
+`dataset_max < floor` 或读数缺失 → 仍 stale。探针只在即将判 stale 且有 filter 时发。
+未放宽 floor。未动 T / 30 / 档位。未做 live 重跑。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-22` | 离线：`test_subject_exited_universe.py` 双夹具 + 变异（同 served、不同 dataset_max 必须相反）+ fail-closed。未做同题 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-23` | 本 PR 不接 `dataset_field_hint` | `pending` | 保持 Open。实现仍归工具层 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 
 ### Closed
 

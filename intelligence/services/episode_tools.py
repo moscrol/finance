@@ -253,6 +253,88 @@ def _structured_provider_is_stale(
     return served is None or served < floor
 
 
+def _subject_exited_universe(
+    *,
+    served_date: str | None,
+    dataset_max_date: str | None,
+    floor: date,
+) -> bool:
+    """被筛子集停在更早，但数据集本身是新的 → 该主体退出了集合，不是管道陈旧。
+
+    2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
+
+    - DuckDB 硬事实（行情/成交/涨停）→ 照旧从严；
+    - 知识库/图谱 → 关注逻辑的生命周期变化，本就不过这道门；
+    - 本函数只处理第三种情形：**行业构成的变化本身就是要观察的对象**。
+
+    实例：`fact_mainline_sector_daily` 整体有到 2026-08-14 的行，而「AI算力」最后
+    一天是 08-07（08-10 起主线只剩有色金属/医药/消费零售）。「算力掉出主线」正是
+    「发酵/共识/透支」要的那个信号，把它当过期数据整批丢弃等于丢掉答案。
+
+    **红线不动**：判别变量是「数据集 max 与被筛子集 max 的关系」，不是放宽 floor。
+    `dataset_max < floor` 说明整条管道确实落后，仍然照旧拒绝——那是这道门禁的
+    原始设计意图。探针取不到值（None）时同样落回拒绝那一侧，fail-closed。
+    """
+
+    dataset_max = _iso_date(dataset_max_date)
+    served = _iso_date(served_date)
+    if dataset_max is None or served is None:
+        return False
+    # 数据集本身没跟上 → 真陈旧，不是退出。**这一条是唯一的判别闸**，
+    # 抽掉它两种情形就合并了（有测试钉住）。
+    if dataset_max < floor:
+        return False
+    # 子集不早于数据集 → 没退出这回事。
+    #
+    # ⚠️ 这一行在调用方的契约下**可证明冗余**，故变异它不会让测试转红——这是
+    # 等价变异，不是门禁有洞。推导：调用方只在已判 stale（`served < floor`）时
+    # 才调本函数，而上一条已保证 `dataset_max >= floor`，于是
+    # `served < floor <= dataset_max` 恒成立。要构造反例需
+    # `served >= dataset_max >= floor > served`，自相矛盾。
+    # 保留它是防御——本函数若将来被别处直接调用（契约不再成立），它仍正确。
+    return served < dataset_max
+
+
+def _exited_universe_result(
+    result: finance_query.FinanceQueryResult,
+    *,
+    capability: str,
+    provider: str,
+    dataset_label: str,
+    dataset_max_date: str,
+    detail: str,
+) -> ToolRunResult:
+    """交付「退出集合」这一生命周期事实，连同退出前的行。
+
+    与 `_stale_structured_result` 的关键差别：**证据照常交付**。那些行确实早于
+    floor，但它们不是「冒充当前状态的旧数据」——它们是「该主体最后一次出现时
+    长什么样」，配合退出事实一起读才完整。每条证据自带 `source_date`，日期在场，
+    不会被误读成当前盘面。
+    """
+
+    served = str(result.served_date or "未知日期")
+    fact = (
+        f"{dataset_label} 中该筛选条件最后一次出现是 {served}；"
+        f"数据集已更新到 {dataset_max_date}，其后未再出现"
+        "（构成要素退出，非数据陈旧）。"
+    )
+    observation = f"{fact}{result.observation}" if result.observation else fact
+    return ToolRunResult(
+        evidence=result.evidence,
+        observation=observation,
+        trace=ProviderTrace(
+            provider=provider,
+            capability=capability,
+            status="ok",
+            detail=detail,
+            source_trade_date=result.served_date,
+            served_date=result.served_date,
+            result_count=len(result.evidence),
+        ),
+        gaps=(),
+    )
+
+
 def _stale_structured_result(
     *,
     capability: str,
@@ -855,6 +937,30 @@ def build_episode_registry(
                 historical_authorized=historical_authorized,
             ):
                 assert freshness_floor is not None
+                # 判 stale 之前先分一次因：被筛子集停在更早，可能是「该主体退出了
+                # 集合」而不是「管道陈旧」。两者在 served_date 上同码，只有再读一次
+                # 不加 filter 的 max 才分得开。探针只在这条（本就要拒的）路径上发。
+                dataset_max = None
+                if bounded_value.filters:
+                    dataset_max = query_engine.dataset_max_date(
+                        bounded_value,
+                        information_cutoff=context.information_cutoff,
+                        deadline=tool_context.deadline,
+                        is_cancelled=tool_context.is_cancelled,
+                    )
+                if _subject_exited_universe(
+                    served_date=result.served_date,
+                    dataset_max_date=dataset_max,
+                    floor=freshness_floor,
+                ):
+                    return _exited_universe_result(
+                        result,
+                        capability="finance_query",
+                        provider="duckdb_semantic_query",
+                        dataset_label=value.dataset,
+                        dataset_max_date=str(dataset_max),
+                        detail=f"dataset={value.dataset}; subject_exited_universe",
+                    )
                 return _stale_structured_result(
                     capability="finance_query",
                     provider="duckdb_semantic_query",
