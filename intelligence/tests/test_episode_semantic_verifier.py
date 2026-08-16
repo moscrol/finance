@@ -1706,6 +1706,107 @@ def test_terminal_redaction_preserves_reviewed_remainder_when_marker_is_removed(
     assert result.gap_output_ids == ("direct_assessment",)
 
 
+def test_outlook_repair_that_leaves_only_boundary_is_partial_with_gap() -> None:
+    """观点题判断槽被删光、只剩证据边界时，必须走 #327 缺口镜像，不得 completed。
+
+    生产 run_20260816_103318：draft 375 字，公开答案只剩 74 字边界句，
+    judge_status=repaired、gap_output_ids=[]、status=completed。第一刀把
+    direct_answer 标成 model_reasoning 之后，旧的 evidence-only 丢失过滤
+    仍会把这一格漏掉。
+    """
+
+    frame = replace(
+        _frame(),
+        raw_question="基于8.15的行情现状，你认为周一的机会在哪",
+        user_goal="形成条件化判断",
+        question_type="general_finance_qa",
+        required_outputs=("direct_answer", "evidence_boundary"),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="A股市场快照",
+        detail="市场成交额与结构观察",
+        source="行情快照",
+        source_date="2026-08-14",
+        content_hash="outlook-boundary-only",
+    )
+    contract = ResearchTaskContract(
+        task_id="outlook-boundary-only",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput(
+                "direct_answer",
+                "直接回答用户问题",
+                ("market_data",),
+                True,
+                grounding_mode="model_reasoning",
+            ),
+            RequiredOutput(
+                "evidence_boundary",
+                "证据边界",
+                ("market_data",),
+                True,
+                grounding_mode="evidence",
+            ),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    draft = (
+        "基准判断：周一优先观察有色金属的资金承接。\n"
+        "证据边界：可用最新行情日期为2026-08-14，不能把用户所称8月15日当作已验证盘面。"
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_answer",
+                (evidence.content_hash,),
+                basis="model_reasoning",
+            ),
+            OutputEvidenceBinding("evidence_boundary", (evidence.content_hash,)),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    structural = verify_episode_outcome(contract, outcome)
+
+    def judge(request):
+        texts = [str(item["text"]) for item in request["sentences"]]
+        if any("基准判断" in text for text in texts):
+            return {
+                "passed": False,
+                "rejected_sentence_indexes": [1],
+                "issues": ["第1句在 evidence 硬边界下给出周一取舍"],
+            }
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "repaired"
+    assert "基准判断" not in result.public_answer
+    assert "证据缺口" in result.public_answer
+    assert "直接回答" in result.public_answer
+    assert result.gap_output_ids == ("direct_answer",)
+
+
 def test_marker_loss_keeps_gap_audit_when_public_remainder_is_sanitized() -> None:
     frame, structural = _structural("market_data")
 

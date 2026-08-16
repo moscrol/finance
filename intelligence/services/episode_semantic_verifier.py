@@ -34,6 +34,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_output_substance import (
+    JUDGMENT_OUTPUT_IDS,
     lost_required_output_substance,
     remove_lost_output_scaffolding,
 )
@@ -2840,6 +2841,10 @@ def _lost_grounded_output_substance(
         output_id
         for output_id in lost
         if grounding_by_id.get(output_id, "evidence") == "evidence"
+        or (
+            output_id in JUDGMENT_OUTPUT_IDS
+            and grounding_by_id.get(output_id, "evidence") == "model_reasoning"
+        )
     )
 
 

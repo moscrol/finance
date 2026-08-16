@@ -439,6 +439,34 @@ def answer_has_output_marker(output_id: str, answer_text: str) -> bool:
     return _has_output_marker(output_id, answer_text)
 
 
+_DISCLAIMER_MARKERS = (
+    "不构成收益预测",
+    "不构成投资建议",
+)
+
+
+def answer_has_non_boundary_substance(answer_text: str) -> bool:
+    """Return whether any sentence is neither evidence-boundary nor disclaimer.
+
+    ``direct_answer`` has no marker vocabulary, so marker coverage cannot see
+    the judgment body evaporate.  This is the deterministic stand-in used by
+    deletion-only repair and the coverage warning.
+    """
+
+    parts = [
+        part.strip()
+        for part in re.split(r"[。！？\n]+", str(answer_text or ""))
+        if part.strip()
+    ]
+    for part in parts:
+        if _has_output_marker("evidence_boundary", part):
+            continue
+        if any(marker in part for marker in _DISCLAIMER_MARKERS):
+            continue
+        return True
+    return False
+
+
 def output_marker_is_checkable(output_id: str) -> bool:
     """Return whether ``_MARKERS`` can decide this output at all.
 
@@ -527,6 +555,23 @@ def evaluate_marker_coverage(
         else:
             absent.append(output_id)
     checked = len(present) + len(absent)
+    empty_uncheckable_judgment = (
+        any(item.casefold() == "direct_answer" for item in uncheckable)
+        and not answer_has_non_boundary_substance(answer_text)
+    )
+    marker_coverage: str | None = (
+        "complete" if checked and not absent
+        else "incomplete" if absent
+        else None
+    )
+    observation_only = True
+    warnings: list[str] = []
+    if empty_uncheckable_judgment:
+        # 判断槽无词表 + 正文只剩边界/免责：这是生产空壳出厂的观测形状。
+        # 不得再报 complete，并退出 observation_only，让下游当警告而不是静默通过。
+        marker_coverage = "incomplete"
+        observation_only = False
+        warnings.append("uncheckable_judgment_empty")
     return {
         "required_output_count": len(output_ids),
         "checked_count": checked,
@@ -535,12 +580,9 @@ def evaluate_marker_coverage(
         "uncheckable": uncheckable,
         # 只在真的检了东西时才给判定；全 uncheckable 时给 None 而不是 "complete"，
         # 否则「没得检」会被读成「检过且通过」——那正是 answer_status 现在的毛病。
-        "marker_coverage": (
-            "complete" if checked and not absent
-            else "incomplete" if absent
-            else None
-        ),
-        "observation_only": True,
+        "marker_coverage": marker_coverage,
+        "observation_only": observation_only,
+        "warnings": warnings,
     }
 
 

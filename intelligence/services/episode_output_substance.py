@@ -11,7 +11,12 @@ from __future__ import annotations
 import re
 
 from intelligence.services.research_contract import ResearchTaskContract
-from intelligence.services.task_fulfillment import answer_has_output_marker
+from intelligence.services.task_fulfillment import (
+    answer_has_non_boundary_substance,
+    answer_has_output_marker,
+)
+
+JUDGMENT_OUTPUT_IDS = frozenset({"direct_answer", "direct_assessment"})
 
 
 _SECTION_HEADING_RE = re.compile(
@@ -122,6 +127,10 @@ def lost_required_output_substance(
         if item.output_id == "scenario_range":
             before_present = _scenario_range_has_substance(before)
             after_present = _scenario_range_has_substance(after)
+        elif item.output_id == "direct_answer":
+            # 无 marker 词表：只能看判断正文是否被删到只剩边界句。
+            before_present = answer_has_non_boundary_substance(before)
+            after_present = answer_has_non_boundary_substance(after)
         else:
             before_present = answer_has_output_marker(item.output_id, before)
             after_present = answer_has_output_marker(item.output_id, after)
@@ -164,6 +173,7 @@ def remove_lost_output_scaffolding(
 
 
 __all__ = [
+    "JUDGMENT_OUTPUT_IDS",
     "lost_required_output_substance",
     "remove_lost_output_scaffolding",
     "required_output_evidence_floor",

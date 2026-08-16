@@ -57,7 +57,7 @@ judge issues 覆盖全部正文判断句 → 修复删被拒句、保留幸存�
    - 新增 mixed 语义（观察句 evidence 硬校、判断句按已标注推导校前提）是新设计，需先写 spec。
 2. **合成**：合成模板强制判断句自带显式标记（「据此判断」前缀级别的确定性要求）；或 finalize 前加确定性 relabel pass 给裸推断补标记。
 3. **绑定**：比较类断言自动绑定比较集（整段排序 observation），不许只绑单行。
-4. **修复+观测**：修复对「前提可核验的裸推断」执行改写保留（补标记）而非删除；剥后正文为空（只剩边界句）必须 `status=degraded` + 触发缺口镜像（#327 机制现成）；`answer_marker_coverage` 中 uncheckable(direct_answer) + 空正文的组合不得判 complete——至少要出 warning，退出 observation_only。
+4. **修复+观测（本分支已做诚实闸；改写保留仍未做）**：剥后只剩证据边界句时，`lost_required_output_substance` 认出 `direct_answer` 蒸发 → `_lost_grounded_output_substance` 对 `model_reasoning` 判断槽不再过滤 → 走既有 #327 `_marker_loss_partial_public`（`status=partial`、`gap_output_ids`、正文附「未核验表述已删除」）。`evaluate_marker_coverage` 对 uncheckable(`direct_answer`) + 无判断正文 报 `incomplete`、`warnings=[uncheckable_judgment_empty]`、`observation_only=false`。改写保留（补标记而非删除）仍属层 2，本刀不做。适配层把 semantic `partial`+repaired 映成 run `partial`，不是 `degraded`——沿用 #327，不另开状态。
 
 ## 4. 预注册验收
 
@@ -71,7 +71,7 @@ judge issues 覆盖全部正文判断句 → 修复删被拒句、保留幸存�
 
 1. 回归：本文两个 run 的原题重跑，修后判断句存活（公开答案含条件化判断正文），evidence_bound_rate 不降。
 2. 10 题前瞻题对照（修前/修后臂）：主度量如上；收据进 `docs/verification/`。
-3. 反向护栏：植入一条与 DuckDB 不符的数字 claim，修后必须仍被拒；`unsupported_external_cause_rejected` 等 `_CLAIM_POLICY` 行为有单测钉住。本分支已钉：默认 `形成条件化判断` 不翻转事实/估值槽；mixed 仍走证据审查器，不切方法论审查器。
+3. 反向护栏：植入一条与 DuckDB 不符的数字 claim，修后必须仍被拒；`unsupported_external_cause_rejected` 等 `_CLAIM_POLICY` 行为有单测钉住。本分支已钉：默认 `形成条件化判断` 不翻转事实/估值槽；mixed 仍走证据审查器，不切方法论审查器；`user_premise` 判断槽的删除修复不误触发缺口镜像。
 
 ## 5. 与既有账的关系
 
