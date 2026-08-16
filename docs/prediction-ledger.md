@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（8792 已切 GLM 主/中转兜底；开 R-16..21。dsh 草稿的 06–11 号作废，不覆盖 main 旧行）
+- last_updated: 2026-08-16（R-17 离线已绿，成因行拆出开关。R-16..21 仍 pending。不覆盖 main 旧行）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -292,6 +292,16 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260816-06` | Closed 的 judge 窗案。本事故不回写、不改原文 | `confirmed` | 不回写 |
 | `R-20260816-11` | Closed 的判断槽 0-hash。本事故不占用此号 | `confirmed` | 不回写 |
 | `R-20260816-07` / `-10` / `-13` / `-14` / `-15` | 未把 30 / T / 档位当本事故修复 | `pending` | 保持 Open |
+
+### 2026-08-16 R-17 成因行：离线回填
+
+夹具在 `intelligence/tests/test_degraded_fallback.py`。未部署 8792，未重渲染 22:18 / 23:05 生产 run。未动 T / 30 / 档位。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-17` | 离线：`repair_model_unavailable` 与三零（`llm_calls=0` / evidence=0 / bindings=0）首句含「模型服务不可用」且不含「现有证据不足」；开关 off 时模型正常结束的中间档逐字节不变 | `pending` | 保持 Open。部分验证不得写 confirmed。live 重渲染未做 |
+| `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+| `R-20260816-16` / `-18` / `-19` / `-20` / `-21` | 未做链长结案 / status 投影 / 反证夹具 / 描述表 / p90 窗 | `pending` | 保持 Open |
 
 ### Closed
 
