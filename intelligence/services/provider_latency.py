@@ -104,7 +104,11 @@ def known_providers() -> tuple[str, ...]:
     return tuple(sorted(_REPAIR_SECONDS_BY_PROVIDER))
 
 
-def provider_name_from(runtime: object) -> str | None:
+def provider_name_from(
+    runtime: object,
+    *,
+    _seen: frozenset[int] | None = None,
+) -> str | None:
     """问 runtime / model client 它实际在用的 provider 链链首名。
 
     鸭子类型而非 isinstance：``AgentRuntime`` 是协议，壳有多个实现。
@@ -113,7 +117,19 @@ def provider_name_from(runtime: object) -> str | None:
     **为什么不直接 detect_providers()**：那读的是 env（配置值），而生产在
     ``api/app.py`` 显式注入 ``runtime_providers_for(user_id)`` 的结果（生效值）；
     BYOK 用户两者不同。窗口要跟着真正在发请求的那个 provider 走。
+
+    生产组合根是 ``GLMAgentRuntime``：它自己没有 ``_providers``，链在
+    ``_episode._model``（``GLMModelClient``）上。只问一层 client 会落空，
+    修复帽就会静默回到 30——2026-08-17 live 两发 TimeoutError 就是这个洞。
     """
+
+    if runtime is None:
+        return None
+    ident = id(runtime)
+    seen = _seen or frozenset()
+    if ident in seen:
+        return None
+    next_seen = seen | {ident}
 
     for attr in ("_providers", "providers"):
         chain = getattr(runtime, attr, None)
@@ -122,12 +138,13 @@ def provider_name_from(runtime: object) -> str | None:
             name = getattr(head, "name", None)
             if name:
                 return str(name)
-    client = getattr(runtime, "model_client", None) or getattr(runtime, "_client", None)
-    if client is not None and client is not runtime:
-        return provider_name_from(client)
-    model = getattr(runtime, "_model", None)
-    if model is not None and model is not runtime:
-        return provider_name_from(model)
+    for attr in ("model_client", "_client", "client", "_episode", "_model"):
+        inner = getattr(runtime, attr, None)
+        if inner is None or inner is runtime:
+            continue
+        found = provider_name_from(inner, _seen=next_seen)
+        if found:
+            return found
     return None
 
 

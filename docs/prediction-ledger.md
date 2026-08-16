@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（#111 R-18 已合。R-19 离线已绿。R-16..21 仍 pending）
+- last_updated: 2026-08-17（#112 已合并切 8792=`1b678ee9`。同题 live 后 R-21 帽未挂上；接线修复未合。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -360,6 +360,41 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 | `R-20260815-03` | 本 PR 只收缺口模板这一类冲突，未改成同一判据函数，6-run 夹具未齐 | `pending` | 保持 Open。不得把本行当 R-03 结案 |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
 | `R-20260816-16` / `-17` / `-18` / `-20` / `-21` | 本 PR 不改链长 / 成因行 / status 投影 / 描述表 / p90 窗 | `pending` | 保持 Open |
+
+### 2026-08-17 同题 live（8792=`1b678ee9`）
+
+`run_20260817_002238_100737` / user `verify-r1621-0817`。墙钟约 110s。
+主路径模型轮成功（timeout_asked 69.5 / 60.0）。repair 两发仍整窗 30.0 TimeoutError。
+未动 T / `_REPAIR_SECONDS_CAP` / 档位。单次 live 不得写 confirmed。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-16` | zhipu、tools=4、llm_calls=4、evidence=15；不是 16×5xx。**draft_len=0**、fulfilled 0/4 | `pending` | 保持 Open。draft 终值 0 不得写 confirmed |
+| `R-20260816-17` | 首句「模型服务不可用，暂不能可靠回答」；无「现有证据不足」 | `pending` | 保持 Open。单次命中 ≠ 结案 |
+| `R-20260816-18` | outcome=`partial`（stop=`repair_model_unavailable`），run=`completed`。禁止对 `failed∧completed` 未出现 | `pending` | 保持 Open。允许对出现，不是结案 |
+| `R-20260816-19` | present=[]；required 四格（含 counterpoint）全部 uncheckable | `pending` | 保持 Open。单次命中 ≠ 结案。R-15-03 6-run 未做 |
+| `R-20260816-20` | 本 run 未做描述表契约抽检 | `pending` | 保持 Open |
+| `R-20260816-21` | **MISS**：`repair_goal.remaining_seconds=30.0`，两发 `granted_seconds=30.0` / `seconds_granted=30.0`。代码在 8792，帽没挂上组合根 | `pending` | 保持 Open。预测「不再两发整窗 TimeoutError」未兑现 |
+| `R-20260816-07` | 本 live 未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-21 帽挂上 GLM 组合根：离线回填
+
+生产装配是 `GLMModelClient → GLMAgentRuntime → ContinuousTurnAdapter`。
+`GLMAgentRuntime` 没有 `_providers` / `model_client` / `_client` / `_model`，
+`provider_name_from(runtime)` 返回 None → `repair_seconds_cap_for(None)=30.0`。
+`provider_name_from` 改为沿 `_episode` / `client` / `_model` 走（带环检测）；
+`app.py` 组合根同时按链首名注入 `repair_seconds_cap`。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。未部署 8792。未做二次 live。
+
+首笔 grant 仍可能是 30：standard 90 − synthesis reserve 60 的剩余。那是另一件事，
+本行不把 30 调大。接线后 **retry** 应吃到 zhipu 帽 40；两发整 30 TimeoutError 仍算 miss。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-21` | 离线：`provider_name_from` 能从 GLM runtime→episode→client 读到 zhipu；组合根 adapter 帽=`repair_seconds_cap_for("zhipu")`。未做二次 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触 |
+| `R-20260816-02` | 仍只修帽的挂载，不是 T。二次 live 未跑 | `pending` | 保持 Open |
+| `R-20260816-16` / `-17` / `-18` / `-19` / `-20` | 本 PR 不改链长 / 成因行 / status / 反证 / 描述表 | `pending` | 保持 Open |
 
 ### Closed
 

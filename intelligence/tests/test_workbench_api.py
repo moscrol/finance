@@ -639,6 +639,11 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
         )
         == 60.0
     )
+    from intelligence.services.provider_latency import repair_seconds_cap_for
+
+    # 组合根必须把链首帽钉进 adapter。只靠问 GLMAgentRuntime 会落空，
+    # live 就会两发 30.0 TimeoutError（run_20260817_002238_100737）。
+    assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
