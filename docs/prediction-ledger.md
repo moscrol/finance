@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-13 T2 GLM 窗 11 槽五元组已齐；D01 未升 deep、0 次 evidence_search，T3 未切开，R-13 保持 pending）
+- last_updated: 2026-08-16（8792 已切 GLM 主/中转兜底；开 R-16..21。dsh 草稿的 06–11 号作废，不覆盖 main 旧行）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -43,6 +43,12 @@
 | `R-20260816-13` | 宽题取证饿死 M1（`run_20260816_205439_732198`，2026-08-16 20:54 生产首发实测） | `EVAL_ONLY` | 8795 含工具批埋点 tip 重放：每发 `tool_request` 带 `batch_grant_asked`/`stage_timeout_granted`/`episode_remaining_at_dispatch`/`remaining_slots_at_dispatch`/`turn_elapsed_at_dispatch`。**deep 自然完成值合计 > standard 总窗 → H-a**（架构支，不调参）；**evidence_search 自然时长 ≤10s 且失败仅与 dispatch 授予≤0 / slot 耗尽相关 → H-c**（顺序/信号）。缺字段不得结案。工具批读数对 `R-20260816-11` 冻结样本是**移交证据**（其独立 PRIMARY 候选之一），eb 结案权在 R-11，本行不代结 | 判定不得混入 R-10 判据（同侧车不同读数）；`tool_timeout`（时间闸 `episode_tool_batch.py` L355-366）与 `tool_budget_exhausted`（次数闸 L340-352）分开计 | `pending` |
 | `R-20260816-14` | 宽题取证饿死案绊线 | `NO_SYSTEM_FIX` | 下一份自称修「宽题取证饿死」的 PR diff **不含** `ASK_TOOL_BATCH_TIMEOUT` / `tool_batch_seconds` / T / slot 上限 / 档位上调 | 出现上调且无 08-08 式延迟实测 + 全路由影响面 → refuted | `pending` |
 | `R-20260816-15` | 2026-08-16 十题窗判断槽 0-hash M2 F-001 | `DATA_CONTRACT_FIX` | 用冻结三对离线重算：`_bindings_rate` 把 `grounding_mode=model_reasoning` 槽移出分母（或另报 `judgment_hash_rate`）后，`post:L01:r3` / `L03:r2` / `L05:r2` 的 evidence 槽 eb=1.00，窗级 `evidence_bound_pp` 回到 ±5pp 内；生产 episode / #72 / T / 30 / 档位不变 | 夹具=三对 `continuous-episode.json`；单测钉「判断槽 0-hash + 旁槽 hashed → 分层 eb=1.0、旧口径=0.5」。出现 T/30/档位 diff → 改记 R-07 refuted | `pending` |
+| `R-20260816-16` | 中转全站中断 M1（`run_20260816_221823_213588`） | `HARNESS_FIX` | 8792 provider 链长度 ≥2（GLM Coding Plan + 中转）后：中转 5xx 时同题重跑 `usage.tool_calls>0`、可见 `[0]→[1]` 或直接走健康 `[0]`，且不再出现同一死 provider 重试满 16 次 | 启动器含 `FORESIGHT_BUILTIN_*` 三件套；live 单次不独立结案。draft 终值仍 0 不得写 confirmed | `pending` |
+| `R-20260816-17` | 同上 F-002 | `DATA_CONTRACT_FIX` | 成因行从 `ASK_DEGRADED_FALLBACK` 拆出后：`repair_model_unavailable` 或 `llm.used=false` 的重渲染首句含「模型服务不可用」且不含「现有证据不足」 | 单测钉三零形状；开关 off 时其余文案逐字节不变 | `pending` |
+| `R-20260816-18` | 同上 | `DATA_CONTRACT_FIX` | 三份 artifact status 同一投影后，不存在 `outcome=failed ∧ run.json=completed` | 用 2026-08-16 当日 run 目录作离线夹具 | `pending` |
+| `R-20260816-19` | 同上 F-003 | `EVAL_ONLY` | `evaluate_marker_coverage` 对缺口模板整体 `uncheckable` 后，与 `structural_verifier` 不再因「反证」子串冲突 | 并入 `R-20260815-03` 夹具；正常 counterpoint 反向不变 | `pending` |
+| `R-20260816-20` | 同上 F-004 | `DATA_CONTRACT_FIX` | 补齐 `_OUTPUT_DESCRIPTIONS` 10 个缺项，`.get(output_id, output_id)` 改启动期校验：`chain_mapping` 不再同义反复 | 18 个 `question_type` × required outputs 无缺键；删任一键须转红 | `pending` |
+| `R-20260816-21` | 原题 GLM 复跑 `run_20260816_230528_976709` | `HARNESS_FIX` | repair 窗随生效 provider 实测 p90，不再用对 terra 的 30s 常数卡 GLM；同题重跑不再两发整窗 `TimeoutError`。**禁止只把 30 调大** | 须附分档延迟实测 + 全路由影响面；触 `R-20260816-02`/`-07` 绊线即改记那些行 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -273,6 +279,20 @@
 | `R-20260816-10` | 本窗 0 次 judge。不得偷结 | `pending` | 保持 Open。判据不与 R-13 互混 |
 | `R-20260816-15` | 未改 #72 / eb 量具 | `pending` | 保持 Open。不并案 |
 
+### 2026-08-16 中转中断 / GLM 转移：开行
+
+交接 `docs/handoffs/2026-08-16-provider-outage-and-glm-failover.md`。
+8792 pid **90194** 链长=2；原题复跑 `run_20260816_230528_976709` 零 5xx、tools=4，draft 终值 0。
+dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本表作废那份编号**。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-16` | 开行。启动器已加 GLM 三件套；复跑走 zhipu、llm_calls 不再是 16×5xx。draft 终值 0 / fulfilled 0/4 | `pending` | 新开 Open。部分验证不得写 confirmed |
+| `R-20260816-17` / `-18` / `-19` / `-20` / `-21` | 开行。21 是 repair 窗随 p90，不是把 30 调大 | `pending` | 新开 Open。R-02/R-07 绊线仍看自称预算修复的 PR |
+| `R-20260816-06` | Closed 的 judge 窗案。本事故不回写、不改原文 | `confirmed` | 不回写 |
+| `R-20260816-11` | Closed 的判断槽 0-hash。本事故不占用此号 | `confirmed` | 不回写 |
+| `R-20260816-07` / `-10` / `-13` / `-14` / `-15` | 未把 30 / T / 档位当本事故修复 | `pending` | 保持 Open |
+
 ### Closed
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
@@ -432,6 +452,13 @@ outcome=`ROOT_CAUSE_NOT_CONFIRMED`，PRIMARY=`UNCLEAR/synthesize/DEPTH_INSUFFICI
 `R-20260816-15` 是该 M2 的量具修复行。2026-08-16 离线分层已算（三对 post=1.00，
 main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 `docs/verification/2026-08-16-outlook-eb-r15-rescore.md`。该收据不是新 PRIMARY。
+
+`R-20260816-16`..`21` 来自生产线交接
+[`docs/handoffs/2026-08-16-provider-outage-and-glm-failover.md`](handoffs/2026-08-16-provider-outage-and-glm-failover.md)
+（分诊全文 `/tmp/triage-run_20260816_221823.md`，`validate-report.sh` RC:0）。
+本 PR 只开行与重编号。dsh 草稿曾把同一事故写成 `R-06`..`11`——那些号在本账本
+已有含义（R-06/R-11 Closed），**作废那份编号**。这 6 行的 `fix_type` 与
+`verification_prediction` 可进 streak；在本仓四阶段报告合入前，**不能当 PRIMARY 引用**。
 
 对应审计记录：
 - [docs/verification/2026-08-03-cross-harness-shared-layer-audit.md](verification/2026-08-03-cross-harness-shared-layer-audit.md)
