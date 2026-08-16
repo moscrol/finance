@@ -59,8 +59,13 @@ def _frame(
     required_outputs: tuple[str, ...] = ("direct_assessment",),
     clarification_question: str | None = None,
 ) -> TaskFrame:
+    # 默认问句不能带「怎么看 / 你认为 / 机会在哪」：那些会把
+    # direct_assessment 收成 grounding_mode=model_reasoning（#72 判断槽）。
+    # 本文件测的是 adapter 生命周期 / 投影 / 修复再入，不是判断槽语义；
+    # 夹具仍按 evidence 绑定。误踩判断槽会让 structural 变 partial，
+    # 再被 gap-resume 空转打成 degraded（2026-08-17 生产基线 18 红）。
     return TaskFrame(
-        raw_question="目前市场怎么看",
+        raw_question="目前市场结构如何",
         user_goal="判断当前市场结构",
         question_type=question_type,
         subject="A股市场",
@@ -94,6 +99,29 @@ def _control(
         contract_required=terminal_kind == "research",
         clarification_questions=clarification_questions,
     )
+
+
+def test_default_adapter_frame_keeps_assessment_on_evidence_basis() -> None:
+    """默认问句不得踩 #72 判断槽。
+
+    「怎么看」会把 `direct_assessment` 收成 `model_reasoning`。夹具若仍按
+    `evidence` 绑定，structural 变 partial，gap-resume 空转，成功路径整表
+    被打成 degraded（2026-08-17 生产基线 18 红）。本文件测 adapter 管道，
+    判断槽语义不在这里覆盖。
+    """
+
+    context = build_episode_context(
+        _frame(),
+        task_id="adapter-frame-grounding-pin",
+        capabilities=("market_data",),
+        timeout=30.0,
+    )
+    assessment = next(
+        item
+        for item in context.contract.required_outputs
+        if item.output_id == "direct_assessment"
+    )
+    assert assessment.grounding_mode == "evidence"
 
 
 class _RuntimeThatRaises:
