@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（#112 已合并切 8792=`1b678ee9`。同题 live 后 R-21 帽未挂上；接线修复未合。R-16..21 仍 pending）
+- last_updated: 2026-08-17（#113 已合切 8792=`1594394c`。接线后同题 live grant=40、draft>0。R-16..21 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -384,17 +384,34 @@ dsh 草稿曾占用 `R-06`..`11`——**那些号在 main 上已有含义，本�
 `provider_name_from(runtime)` 返回 None → `repair_seconds_cap_for(None)=30.0`。
 `provider_name_from` 改为沿 `_episode` / `client` / `_model` 走（带环检测）；
 `app.py` 组合根同时按链首名注入 `repair_seconds_cap`。
-`_REPAIR_SECONDS_CAP` **仍是 30.0**。未部署 8792。未做二次 live。
+`_REPAIR_SECONDS_CAP` **仍是 30.0**。#113 已合 `main`。二次 live 见下节。
 
 首笔 grant 仍可能是 30：standard 90 − synthesis reserve 60 的剩余。那是另一件事，
 本行不把 30 调大。接线后 **retry** 应吃到 zhipu 帽 40；两发整 30 TimeoutError 仍算 miss。
 
 | ID | 新证据 | outcome | 处理 |
 |---|---|---|---|
-| `R-20260816-21` | 离线：`provider_name_from` 能从 GLM runtime→episode→client 读到 zhipu；组合根 adapter 帽=`repair_seconds_cap_for("zhipu")`。未做二次 live | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-21` | 离线：`provider_name_from` 能从 GLM runtime→episode→client 读到 zhipu；组合根 adapter 帽=`repair_seconds_cap_for("zhipu")`。二次 live 见下节 | `pending` | 保持 Open。部分验证不得写 confirmed |
 | `R-20260816-07` | diff **不含** `_REPAIR_SECONDS_CAP` 上调（常数仍 30.0） | `pending` | 绊线未触 |
-| `R-20260816-02` | 仍只修帽的挂载，不是 T。二次 live 未跑 | `pending` | 保持 Open |
+| `R-20260816-02` | 仍只修帽的挂载，不是 T | `pending` | 保持 Open |
 | `R-20260816-16` / `-17` / `-18` / `-19` / `-20` | 本 PR 不改链长 / 成因行 / status / 反证 / 描述表 | `pending` | 保持 Open |
+
+### 2026-08-17 接线后同题 live（8792=`1594394c`）
+
+`run_20260817_003329_048038` / user `verify-r21-wire-0817`。墙钟约 137s。
+#113 已切：`source_revision=1594394cfbc2` / `source_dirty=false` / `code_matches_repo=true`。
+未动 T / `_REPAIR_SECONDS_CAP` / 档位。单次 live 不得写 confirmed。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-21` | `repair_goal.remaining_seconds=40.0`，`repair_reentry.granted_seconds=40.0` / `timeout_asked≈39.95`。repair 轮 zhipu 成功（约 15s 墙钟），无 30.0 授予，无两发整窗 TimeoutError。stop=`repair_model_stop` | `pending` | 保持 Open。接线命中，单次 ≠ 结案 |
+| `R-20260816-16` | zhipu、tools=4、llm_calls=3、evidence=39、**draft_len=675**；不是 16×5xx | `pending` | 保持 Open。draft>0 仍不得写 confirmed |
+| `R-20260816-17` | 本 run 不是 `repair_model_unavailable` 形。首句是 judge 瞬时不可用的候选草稿提示，不是「模型服务不可用」缺口模板 | `pending` | 保持 Open。形状未再命中，不回写 |
+| `R-20260816-18` | outcome=`partial`（stop=`repair_model_stop`），run=`completed`。禁止对 `failed∧completed` 未出现 | `pending` | 保持 Open |
+| `R-20260816-19` | 本 run 不是缺口模板。`counterpoint` structural fulfilled；`chain_mapping` missing（kb_search `tool_timeout`） | `pending` | 保持 Open。缺口模板形未再命中。R-15-03 未做 |
+| `R-20260816-20` | 本 run 未做描述表契约抽检 | `pending` | 保持 Open |
+| `R-20260816-10` | judge `timeout_asked=12.5` / `exc_class=TimeoutError` / remaining≈171。预测要的首轮 ≥20 未兑现 | `pending` | 保持 Open。旁记，本窗不修 judge 窗 |
+| `R-20260816-07` | 本 live 未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
 
 ### Closed
 
