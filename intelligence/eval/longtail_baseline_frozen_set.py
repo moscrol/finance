@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date
 import json
 from pathlib import Path
 from typing import Any
+
+from intelligence.services.trading_calendar import (
+    non_trading_day_note,
+    question_non_trading_note,
+)
 
 
 FROZEN_FIFTEEN_RELATIVE = (
@@ -23,6 +29,7 @@ FORBIDDEN_QUESTIONS = (
     "明天怎么看",
     "查一下 sector_marginal 表里 07-23 的边际量",
     "只回复两个字：收到",
+    "2026-07-25 市场怎么样",
 )
 LONGTAIL_COUNT = 15
 GUARD_COUNT = 5
@@ -160,6 +167,7 @@ def _check_longtail(cases: list[Any]) -> None:
         outputs = case.get("required_outputs")
         if not isinstance(outputs, list) or not outputs:
             raise LongtailFrozenSetError(f"{case.get('id')} missing required_outputs")
+        _check_trading_day(case)
     if outlook < 1 or residual < 1:
         raise LongtailFrozenSetError("both outlook and residual strata are required")
     if t1 < 1:
@@ -188,6 +196,23 @@ def _check_guards(cases: list[Any]) -> None:
             )
         if case.get("triggers"):
             raise LongtailFrozenSetError(f"{case.get('id')} guard must not declare triggers")
+        _check_trading_day(case)
+
+
+def _check_trading_day(case: Mapping[str, Any]) -> None:
+    case_id = case.get("id")
+    as_of = case.get("as_of")
+    if as_of:
+        value = date.fromisoformat(str(as_of))
+        if non_trading_day_note(value):
+            raise LongtailFrozenSetError(
+                f"{case_id} as_of {as_of} is a non-trading day"
+            )
+    question = _field(case, "question")
+    if question_non_trading_note(question):
+        raise LongtailFrozenSetError(
+            f"{case_id} question hits the non-trading-day guard"
+        )
 
 
 __all__ = [

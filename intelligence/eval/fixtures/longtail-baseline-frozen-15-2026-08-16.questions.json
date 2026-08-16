@@ -49,6 +49,10 @@
     {
       "question": "把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
       "reason": "attached-material task"
+    },
+    {
+      "question": "2026-07-25 市场怎么样",
+      "reason": "2026-07-25 is Saturday; question_non_trading_note fires. Canonical example in trading_calendar.py, not a skeleton-quality residual."
     }
   ],
   "cases": [
@@ -58,7 +62,7 @@
       "stratum": "outlook",
       "triggers": ["t2"],
       "question": "基于8.15的行情现状，你认为周一的机会在哪",
-      "as_of": "2026-08-15",
+      "as_of": "2026-08-14",
       "required_outputs": ["direct_answer", "evidence_boundary"],
       "observed": {
         "question_type": "general_finance_qa",
@@ -77,7 +81,7 @@
           "role": "live-pair"
         }
       ],
-      "notes": "handoff-required pair. TaskFrame.confidence=0.4; controller trace may show higher confidence. observed report as_of was 2026-08-14."
+      "notes": "handoff-required pair. TaskFrame.confidence=0.4; controller trace confidence=0.78. Question says 8.15 (Saturday); eval as_of is last trading day 2026-08-14, matching the two live reports."
     },
     {
       "id": "L02",
@@ -265,8 +269,8 @@
       "role": "longtail",
       "stratum": "residual",
       "triggers": ["t2"],
-      "question": "2026-07-25 市场怎么样",
-      "as_of": "2026-07-25",
+      "question": "2026-07-21 到 07-24 量能和情绪是怎么演化的",
+      "as_of": "2026-07-24",
       "required_outputs": ["direct_answer", "evidence_boundary"],
       "observed": {
         "question_type": "general_finance_qa",
@@ -275,11 +279,12 @@
       },
       "source_runs": [
         {
-          "run_id": "run_20260815_183014_288691",
+          "run_id": "run_20260815_182731_454211",
           "user": "linxiaoqi5111",
           "role": "latest-t2"
         }
-      ]
+      ],
+      "notes": "replaces Saturday question 2026-07-25 市场怎么样. also S10-B7."
     },
     {
       "id": "L11",

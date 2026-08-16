@@ -19,10 +19,14 @@ from intelligence.services.longtail_baseline import (
 )
 from intelligence.services.research_contract import RESEARCH_OWNER_IDS, TurnIntent
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.trading_calendar import (
+    non_trading_day_note,
+    question_non_trading_note,
+)
 from intelligence.services.turn_controller import TurnDecision
 
 FROZEN_FIFTEEN_SHA256 = (
-    "34ed21330e3fed3158a638ee885a167e582fc848ca9c99c28397610b9add9d68"
+    "f617c82cbca35aa17c0b88dc2966401ce12ae7988b36d1603e3bfdddcc4264b0"
 )
 
 
@@ -92,6 +96,10 @@ def test_live_pair_and_exclusions_are_pinned() -> None:
     loaded = load_longtail_frozen_set()
     first = loaded["longtail"][0]
     assert first["question"] == LIVE_PAIR_QUESTION
+    assert first["as_of"] == "2026-08-14"
+    assert loaded["longtail"][9]["question"] == (
+        "2026-07-21 到 07-24 量能和情绪是怎么演化的"
+    )
     run_ids = {item["run_id"] for item in first["source_runs"]}
     assert set(LIVE_PAIR_RUN_IDS) <= run_ids
     questions = {case["question"] for case in loaded["cases"]}
@@ -113,6 +121,15 @@ def test_observed_frames_match_injection_contract(monkeypatch) -> None:
         assert case["observed"]["answer_owner"] in RESEARCH_OWNER_IDS
         assert should_inject_frame(_frame_from_case(case)) is False
         assert should_inject_decision(_decision_from_case(case)) is False
+
+
+def test_set_avoids_non_trading_day_guard() -> None:
+    from datetime import date
+
+    loaded = load_longtail_frozen_set()
+    for case in loaded["cases"]:
+        assert question_non_trading_note(case["question"]) is None
+        assert non_trading_day_note(date.fromisoformat(case["as_of"])) is None
 
 
 def test_flag_still_defaults_off(monkeypatch) -> None:
