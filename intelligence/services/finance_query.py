@@ -1320,7 +1320,18 @@ def _filter_clause(
             "contains filter requires a text field and string value"
         )
     escaped = item.value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"{column} LIKE ? ESCAPE '\\\\'", (f"%{escaped}%",)
+    # ESCAPE 后面必须是**一个字符**。这里曾写 f"... ESCAPE '\\\\'"，在 f-string 里
+    # 求值成 SQL 字面量 `'\\'`——SQL 字符串里反斜杠不是转义符，故那是**两个字符**，
+    # DuckDB 直接抛 `Invalid escape string. Escape string must be empty or one
+    # character.`，整条 `contains` 查询在 SQL 层就炸了。
+    #
+    # 后果不是报错给用户看，而是**静默降级**：episode_tools 把
+    # FinanceQueryExecutionError 归进兜底分支，返回 `ok=true` +「结构化数据源暂
+    # 不可用」+ 零证据。模型看到 ok 以为查过了，实际一行都没拿到。
+    # 2026-08-16 实测：题材题里 `contains` 是模型按主题名筛选的唯一自然写法
+    # （`theme_name contains 算力`），4/4 个样本全部命中此 bug、全部空手而归；
+    # 同表 `eq` / `in` / 无 filter 均正常，故与数据、编码、库路径都无关。
+    return f"{column} LIKE ? ESCAPE '\\'", (f"%{escaped}%",)
 
 
 def _rows_to_evidence(
