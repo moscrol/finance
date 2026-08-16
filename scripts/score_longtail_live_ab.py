@@ -13,12 +13,18 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from intelligence.eval.episode_bindings_rate import legacy_bindings_rate  # noqa: E402
+
 FIXTURE = REPO / (
     "intelligence/eval/fixtures/longtail-baseline-frozen-15-2026-08-16.questions.json"
 )
@@ -143,32 +149,8 @@ def _empty_shell(text: str, honest: bool, delivered: bool, outage: bool) -> bool
 
 
 def _bindings_rate(episode: dict[str, Any] | None) -> float | None:
-    if episode is None:
-        return None
-    bindings: list[Any] = []
-    outcome = episode.get("outcome")
-    if isinstance(outcome, dict):
-        raw = outcome.get("bindings")
-        if isinstance(raw, list):
-            bindings = raw
-    if not bindings:
-        verifier = episode.get("semantic_verifier") or episode.get("structural_verifier")
-        if isinstance(verifier, dict):
-            verified = verifier.get("verified") if isinstance(verifier.get("verified"), dict) else verifier
-            nested = verified.get("outcome") if isinstance(verified, dict) else None
-            if isinstance(nested, dict) and isinstance(nested.get("bindings"), list):
-                bindings = nested["bindings"]
-    if not bindings:
-        return 0.0
-    bound = 0
-    for item in bindings:
-        if not isinstance(item, dict):
-            continue
-        hashes = item.get("evidence_hashes") or ()
-        gap = str(item.get("gap") or "").strip()
-        if hashes and not gap:
-            bound += 1
-    return bound / len(bindings)
+    # 长尾默认仍走旧口径（全槽哈希）。分层口径见 episode_bindings_rate.stratified_evidence_bound_rate。
+    return legacy_bindings_rate(episode)
 
 
 def _judge_peel(episode: dict[str, Any] | None) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-16（R-13 T1 已合 #100 / `16f2cd47`；T2 中转 503 未拿到工具批五元组，R-13 保持 pending）
+- last_updated: 2026-08-16（R-15 离线分层已算：三对 post=1.00，main42 +5.3pp 未入 ±5；行仍 pending。R-13 T2 仍堵中转）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -248,6 +248,18 @@
 | `R-20260816-10` | 同侧车但本窗 0 次 judge 调用（首轮 503）。不得用本窗偷结 | `pending` | 保持 Open。判据不与 R-13 互混 |
 | `R-20260816-15` | 未改 #72 / eb 量具 | `pending` | 保持 Open。R-11 已结，不回写 |
 
+### 2026-08-16 R-15 离线分层重算：回填
+
+材料 = 冻结三对 episode + 冻结 `score.json`（mtime 2026-08-16 20:19:27，未覆写）+
+`intelligence/tests/test_episode_bindings_rate.py`（6 passed）。
+对齐键 `slot`+`run_id`。未改 #72 / 生产 episode / T / 30 / 档位。预测原文未改。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-15` | 三对 post 分层 eb=1.00；旧口径 main42 −17.5pp → 分层 +5.3pp。±5 带未入（差 0.3pp）。「修后不降」成立。单测钉 0-hash 判断槽 → 旧 0.5 / 分层 1.0 | `pending` | 保持 Open。部分验证不得写 confirmed。收据 `docs/verification/2026-08-16-outlook-eb-r15-rescore.md` |
+| `R-20260816-07` | 本 PR 只动 eval/docs，无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 保持 Open（绊线仍看自称预算修复的 PR） |
+| `R-20260816-10` / `-13` / `-14` | 未触及 8795 同形重放 / 工具批五元组 / 批窗旋钮 | `pending` | 保持 Open。本行不代结 |
+
 ### Closed
 
 | ID | 来源 | fix_type | verification_prediction | outcome | evidence |
@@ -404,7 +416,9 @@ outcome=`ROOT_CAUSE_NOT_CONFIRMED`，PRIMARY=`UNCLEAR/synthesize/DEPTH_INSUFFICI
 `R-20260816-11` **开行**来自十题窗收据 #94 + 检阅 #96，当时不是四阶段分诊。
 **结案**来自标准 M2 `docs/verification/2026-08-16-outlook-eb-judgment-slot.md`
 （`validate-report.sh` RC=0）。PRIMARY 可引用该 M2，不可引用 #94/#96 开行文字。
-`R-20260816-15` 是该 M2 的量具修复行。
+`R-20260816-15` 是该 M2 的量具修复行。2026-08-16 离线分层已算（三对 post=1.00，
+main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
+`docs/verification/2026-08-16-outlook-eb-r15-rescore.md`。该收据不是新 PRIMARY。
 
 对应审计记录：
 - [docs/verification/2026-08-03-cross-harness-shared-layer-audit.md](verification/2026-08-03-cross-harness-shared-layer-audit.md)

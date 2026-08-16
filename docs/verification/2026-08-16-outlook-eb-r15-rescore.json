@@ -1,0 +1,146 @@
+{
+  "scored_at": "2026-08-16T14:32:17+00:00",
+  "source_score_json": "~/.finance-runtime/outlook-ab-20260816/score.json",
+  "source_scored_at": "2026-08-16T12:19:27+00:00",
+  "wrote_score_json": false,
+  "frozen_pairs": [
+    {
+      "case_id": "L01",
+      "repeat": "r3",
+      "pre": {
+        "run_id": "run_20260816_184616_575486",
+        "legacy": 1.0,
+        "stratified": 1.0,
+        "judgment_hash_rate": null
+      },
+      "post": {
+        "run_id": "run_20260816_184718_305950",
+        "legacy": 0.5,
+        "stratified": 1.0,
+        "judgment_hash_rate": 0.0
+      }
+    },
+    {
+      "case_id": "L03",
+      "repeat": "r2",
+      "pre": {
+        "run_id": "run_20260816_185728_883724",
+        "legacy": 1.0,
+        "stratified": 1.0,
+        "judgment_hash_rate": null
+      },
+      "post": {
+        "run_id": "run_20260816_185901_871285",
+        "legacy": 0.5,
+        "stratified": 1.0,
+        "judgment_hash_rate": 0.0
+      }
+    },
+    {
+      "case_id": "L05",
+      "repeat": "r2",
+      "pre": {
+        "run_id": "run_20260816_190515_806994",
+        "legacy": 1.0,
+        "stratified": 1.0,
+        "judgment_hash_rate": null
+      },
+      "post": {
+        "run_id": "run_20260816_190657_142513",
+        "legacy": 0.5,
+        "stratified": 1.0,
+        "judgment_hash_rate": 0.0
+      }
+    }
+  ],
+  "triples_stratified_1": true,
+  "layers": {
+    "main42": {
+      "legacy": {
+        "pre": 0.9473684210526315,
+        "post": 0.7719298245614035,
+        "pp": -17.5,
+        "n_pre": 19,
+        "n_post": 19
+      },
+      "stratified": {
+        "pre": 0.9473684210526315,
+        "post": 1.0,
+        "pp": 5.3,
+        "n_pre": 19,
+        "n_post": 19
+      }
+    },
+    "core_unabsorbed": {
+      "legacy": {
+        "pre": 0.9090909090909091,
+        "post": 0.7727272727272727,
+        "pp": -13.6,
+        "n_pre": 11,
+        "n_post": 11
+      },
+      "stratified": {
+        "pre": 0.9090909090909091,
+        "post": 1.0,
+        "pp": 9.1,
+        "n_pre": 11,
+        "n_post": 11
+      }
+    },
+    "l01": {
+      "legacy": {
+        "pre": 1.0,
+        "post": 0.6666666666666666,
+        "pp": -33.3,
+        "n_pre": 3,
+        "n_post": 3
+      },
+      "stratified": {
+        "pre": 1.0,
+        "post": 1.0,
+        "pp": 0.0,
+        "n_pre": 3,
+        "n_post": 3
+      }
+    },
+    "absorbed": {
+      "legacy": {
+        "pre": 1.0,
+        "post": 0.7708333333333333,
+        "pp": -22.9,
+        "n_pre": 8,
+        "n_post": 8
+      },
+      "stratified": {
+        "pre": 1.0,
+        "post": 1.0,
+        "pp": 0.0,
+        "n_pre": 8,
+        "n_post": 8
+      }
+    },
+    "guards": {
+      "legacy": {
+        "pre": 1.0,
+        "post": 0.5,
+        "pp": -50.0,
+        "n_pre": 2,
+        "n_post": 2
+      },
+      "stratified": {
+        "pre": 1.0,
+        "post": 0.5,
+        "pp": -50.0,
+        "n_pre": 2,
+        "n_post": 2
+      }
+    }
+  },
+  "window_main42_stratified_pp": 5.3,
+  "window_within_pm5": false,
+  "r15_prediction": {
+    "triples": "confirmed",
+    "window_pm5": "not_met",
+    "overall": "pending"
+  }
+}
