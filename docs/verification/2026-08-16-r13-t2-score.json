@@ -1,0 +1,929 @@
+{
+  "n": 11,
+  "buckets": {
+    "incomplete": 11
+  },
+  "standard_total_s": 90.0,
+  "slots": [
+    {
+      "slot": "r13_D01_r1",
+      "run_id": "run_20260816_224026_949253",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 129.745,
+      "clock_missing": [],
+      "gates": {
+        "ok": 3,
+        "time-other": 1,
+        "slot": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.6,
+          "elapsed_ms": 78.4,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 12.186997458920814,
+          "episode_remaining_at_dispatch": 72.18699441698845,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 17.715588750084862
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.2,
+          "elapsed_ms": 80.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 12.186997458920814,
+          "episode_remaining_at_dispatch": 72.18699441698845,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 17.715588750084862
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 1.4,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 12.186997458920814,
+          "episode_remaining_at_dispatch": 72.18699441698845,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 17.715588750084862
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 2.6,
+          "elapsed_ms": 1330.4,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 12.186997458920814,
+          "episode_remaining_at_dispatch": 72.18699441698845,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 17.715588750084862
+        },
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_error",
+          "error": "tool_budget_exhausted",
+          "queued_ms": null,
+          "elapsed_ms": null,
+          "gate": "slot",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 12.186997458920814,
+          "episode_remaining_at_dispatch": 72.18699441698845,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 17.715588750084862
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.039,
+        "compose_s": 51.147,
+        "judge_asked_s": null,
+        "episode_s": 129.323,
+        "first_ts": 1786891227.064,
+        "last_ts": 1786891356.387
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_D01_r2",
+      "run_id": "run_20260816_224236_801336",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 173.146,
+      "clock_missing": [],
+      "gates": {
+        "ok": 4,
+        "slot": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 2.3,
+          "elapsed_ms": 55.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.26682250003796,
+          "episode_remaining_at_dispatch": 76.26682179106865,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.647947625024244
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 3.0,
+          "elapsed_ms": 56.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.26682250003796,
+          "episode_remaining_at_dispatch": 76.26682179106865,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.647947625024244
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 3.4,
+          "elapsed_ms": 10102.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.26682250003796,
+          "episode_remaining_at_dispatch": 76.26682179106865,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.647947625024244
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 3.5,
+          "elapsed_ms": 641.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.26682250003796,
+          "episode_remaining_at_dispatch": 76.26682179106865,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.647947625024244
+        },
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_error",
+          "error": "tool_budget_exhausted",
+          "queued_ms": null,
+          "elapsed_ms": null,
+          "gate": "slot",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.26682250003796,
+          "episode_remaining_at_dispatch": 76.26682179106865,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.647947625024244
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.012,
+        "compose_s": 59.47,
+        "judge_asked_s": null,
+        "episode_s": 122.275,
+        "first_ts": 1786891356.9,
+        "last_ts": 1786891479.175
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_N01_r1",
+      "run_id": "run_20260816_223527_625207",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 127.757,
+      "clock_missing": [],
+      "gates": {
+        "ok": 3
+      },
+      "tool_rows": [
+        {
+          "tool": "kb_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.1,
+          "elapsed_ms": 13487.7,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 17.256875290884636,
+          "episode_remaining_at_dispatch": 77.25687479099724,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.720809458987787
+        },
+        {
+          "tool": "web_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.8,
+          "elapsed_ms": 3283.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 17.256875290884636,
+          "episode_remaining_at_dispatch": 77.25687479099724,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.720809458987787
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.9,
+          "elapsed_ms": 39.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 17.256875290884636,
+          "episode_remaining_at_dispatch": 77.25687479099724,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.720809458987787
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.007,
+        "compose_s": 47.89,
+        "judge_asked_s": null,
+        "episode_s": 77.187,
+        "first_ts": 1786890927.659,
+        "last_ts": 1786891004.846
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_N02_r1",
+      "run_id": "run_20260816_223735_473986",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 171.359,
+      "clock_missing": [],
+      "gates": {
+        "ok": 4,
+        "slot": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.1,
+          "elapsed_ms": 1.6,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.06285362492781,
+          "episode_remaining_at_dispatch": 80.06285266694613,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.909552457975224
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.7,
+          "elapsed_ms": 13985.7,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.06285362492781,
+          "episode_remaining_at_dispatch": 80.06285266694613,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.909552457975224
+        },
+        {
+          "tool": "graph_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.8,
+          "elapsed_ms": 341.3,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.06285362492781,
+          "episode_remaining_at_dispatch": 80.06285266694613,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.909552457975224
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 8.1,
+          "elapsed_ms": 80.0,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.06285362492781,
+          "episode_remaining_at_dispatch": 80.06285266694613,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.909552457975224
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_error",
+          "error": "tool_budget_exhausted",
+          "queued_ms": null,
+          "elapsed_ms": null,
+          "gate": "slot",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.06285362492781,
+          "episode_remaining_at_dispatch": 80.06285266694613,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.909552457975224
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.015,
+        "compose_s": 52.161,
+        "judge_asked_s": null,
+        "episode_s": 120.463,
+        "first_ts": 1786891055.514,
+        "last_ts": 1786891175.977
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_R11L03_r1",
+      "run_id": "run_20260816_224530_026545",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 106.031,
+      "clock_missing": [],
+      "gates": {
+        "ok": 4
+      },
+      "tool_rows": [
+        {
+          "tool": "market_data",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.4,
+          "elapsed_ms": 29.7,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 23.82481766701676,
+          "episode_remaining_at_dispatch": 83.82481691706926,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 6.150355416932143
+        },
+        {
+          "tool": "mainline_context",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.0,
+          "elapsed_ms": 41.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 23.82481766701676,
+          "episode_remaining_at_dispatch": 83.82481691706926,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 6.150355416932143
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.2,
+          "elapsed_ms": 28.3,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 11.31476645800285,
+          "episode_remaining_at_dispatch": 71.31476562505122,
+          "remaining_slots_at_dispatch": 4,
+          "turn_elapsed_at_dispatch": 12.463453749893233
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.8,
+          "elapsed_ms": 25.3,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 11.31476645800285,
+          "episode_remaining_at_dispatch": 71.31476562505122,
+          "remaining_slots_at_dispatch": 4,
+          "turn_elapsed_at_dispatch": 12.463453749893233
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 12.502,
+        "compose_s": 11.456,
+        "judge_asked_s": null,
+        "episode_s": 55.417,
+        "first_ts": 1786891530.07,
+        "last_ts": 1786891585.487
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_R11L05_r1",
+      "run_id": "run_20260816_224716_151184",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 160.677,
+      "clock_missing": [],
+      "gates": {
+        "time-other": 1,
+        "ok": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 0.1,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.826411042013206,
+          "episode_remaining_at_dispatch": 76.82640825002454,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.147927916957997
+        },
+        {
+          "tool": "web_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.5,
+          "elapsed_ms": 12160.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.826411042013206,
+          "episode_remaining_at_dispatch": 76.82640825002454,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 13.147927916957997
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.007,
+        "compose_s": 44.892,
+        "judge_asked_s": null,
+        "episode_s": 109.68,
+        "first_ts": 1786891636.192,
+        "last_ts": 1786891745.872
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_W01_r1",
+      "run_id": "run_20260816_222458_854118",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 116.365,
+      "clock_missing": [],
+      "gates": {
+        "ok": 3,
+        "time-other": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.3,
+          "elapsed_ms": 146.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.926034583011642,
+          "episode_remaining_at_dispatch": 76.92603320791386,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.73312624997925
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.1,
+          "elapsed_ms": 145.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.926034583011642,
+          "episode_remaining_at_dispatch": 76.92603320791386,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.73312624997925
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 0.0,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.926034583011642,
+          "episode_remaining_at_dispatch": 76.92603320791386,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.73312624997925
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.6,
+          "elapsed_ms": 1605.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 16.926034583011642,
+          "episode_remaining_at_dispatch": 76.92603320791386,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 12.73312624997925
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.044,
+        "compose_s": 42.575,
+        "judge_asked_s": null,
+        "episode_s": 115.61,
+        "first_ts": 1786890299.322,
+        "last_ts": 1786890414.932
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_W01_r2",
+      "run_id": "run_20260816_222655_447536",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 125.293,
+      "clock_missing": [],
+      "gates": {
+        "ok": 3,
+        "time-other": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.7,
+          "elapsed_ms": 584.3,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.186725249979645,
+          "episode_remaining_at_dispatch": 80.1865807500435,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.634864166961052
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 5.9,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.186725249979645,
+          "episode_remaining_at_dispatch": 80.1865807500435,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.634864166961052
+        },
+        {
+          "tool": "graph_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 7.6,
+          "elapsed_ms": 2585.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.186725249979645,
+          "episode_remaining_at_dispatch": 80.1865807500435,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.634864166961052
+        },
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 9.2,
+          "elapsed_ms": 78.5,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 20.186725249979645,
+          "episode_remaining_at_dispatch": 80.1865807500435,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.634864166961052
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.034,
+        "compose_s": 37.127,
+        "judge_asked_s": null,
+        "episode_s": 74.254,
+        "first_ts": 1786890415.685,
+        "last_ts": 1786890489.939
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_W01_r3",
+      "run_id": "run_20260816_222901_005274",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 148.552,
+      "clock_missing": [],
+      "gates": {
+        "ok": 3,
+        "time-other": 1,
+        "slot": 2
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.4,
+          "elapsed_ms": 89.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 2.1,
+          "elapsed_ms": 78.0,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 2.8,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 3.7,
+          "elapsed_ms": 1605.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        },
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_error",
+          "error": "tool_budget_exhausted",
+          "queued_ms": null,
+          "elapsed_ms": null,
+          "gate": "slot",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        },
+        {
+          "tool": "graph_lookup",
+          "kind": "tool_error",
+          "error": "tool_budget_exhausted",
+          "queued_ms": null,
+          "elapsed_ms": null,
+          "gate": "slot",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 15.088990124990232,
+          "episode_remaining_at_dispatch": 75.08898250001948,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 14.77443383296486
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 0.078,
+        "compose_s": 56.223,
+        "judge_asked_s": null,
+        "episode_s": 97.534,
+        "first_ts": 1786890541.27,
+        "last_ts": 1786890638.804
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_W04_r1",
+      "run_id": "run_20260816_223129_686497",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 130.699,
+      "clock_missing": [],
+      "gates": {
+        "ok": 5,
+        "time-other": 1
+      },
+      "tool_rows": [
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.4,
+          "elapsed_ms": 92.8,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 19.93651862500701,
+          "episode_remaining_at_dispatch": 79.93585454195272,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.961548666935414
+        },
+        {
+          "tool": "graph_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.1,
+          "elapsed_ms": 1018.7,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 19.93651862500701,
+          "episode_remaining_at_dispatch": 79.93585454195272,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.961548666935414
+        },
+        {
+          "tool": "news_search",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 2.0,
+          "elapsed_ms": 739.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 19.93651862500701,
+          "episode_remaining_at_dispatch": 79.93585454195272,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.961548666935414
+        },
+        {
+          "tool": "memory_lookup",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 23.8,
+          "elapsed_ms": 9.1,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 19.93651862500701,
+          "episode_remaining_at_dispatch": 79.93585454195272,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 9.961548666935414
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.6,
+          "elapsed_ms": 49.2,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 10.476992083946243,
+          "episode_remaining_at_dispatch": 70.47698941698764,
+          "remaining_slots_at_dispatch": 2,
+          "turn_elapsed_at_dispatch": 8.420553207979538
+        },
+        {
+          "tool": "kb_search",
+          "kind": "tool_error",
+          "error": "tool_timeout",
+          "queued_ms": 0.8,
+          "elapsed_ms": null,
+          "gate": "time-other",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 10.476992083946243,
+          "episode_remaining_at_dispatch": 70.47698941698764,
+          "remaining_slots_at_dispatch": 2,
+          "turn_elapsed_at_dispatch": 8.420553207979538
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 18.916,
+        "compose_s": 43.88,
+        "judge_asked_s": null,
+        "episode_s": 79.709,
+        "first_ts": 1786890689.789,
+        "last_ts": 1786890769.498
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    },
+    {
+      "slot": "r13_W05_r1",
+      "run_id": "run_20260816_223340_523601",
+      "smoke_outcome": "degraded",
+      "elapsed_seconds": 107.016,
+      "clock_missing": [],
+      "gates": {
+        "ok": 4
+      },
+      "tool_rows": [
+        {
+          "tool": "market_data",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.2,
+          "elapsed_ms": 44.9,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 22.13872695795726,
+          "episode_remaining_at_dispatch": 82.13872141600586,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 7.762110291980207
+        },
+        {
+          "tool": "mainline_context",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 1.6,
+          "elapsed_ms": 54.6,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 22.13872695795726,
+          "episode_remaining_at_dispatch": 82.13872141600586,
+          "remaining_slots_at_dispatch": 6,
+          "turn_elapsed_at_dispatch": 7.762110291980207
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 0.1,
+          "elapsed_ms": 26.0,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 13.718112499918789,
+          "episode_remaining_at_dispatch": 73.71811095799785,
+          "remaining_slots_at_dispatch": 4,
+          "turn_elapsed_at_dispatch": 8.358179625007324
+        },
+        {
+          "tool": "finance_query",
+          "kind": "tool_result",
+          "error": null,
+          "queued_ms": 2.6,
+          "elapsed_ms": 21.8,
+          "gate": "ok",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 13.718112499918789,
+          "episode_remaining_at_dispatch": 73.71811095799785,
+          "remaining_slots_at_dispatch": 4,
+          "turn_elapsed_at_dispatch": 8.358179625007324
+        }
+      ],
+      "phases": {
+        "branch_s": null,
+        "tool_s": 8.393,
+        "compose_s": 13.851,
+        "judge_asked_s": null,
+        "episode_s": 55.979,
+        "first_ts": 1786890820.681,
+        "last_ts": 1786890876.66
+      },
+      "evidence_search_natural_s": [],
+      "judge_status": null,
+      "judge_timeout_asked": null,
+      "judge_attempt_index": null,
+      "judge_exc_class": null
+    }
+  ]
+}
