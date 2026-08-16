@@ -27,6 +27,10 @@ from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
+from intelligence.services.status_projection import (
+    episode_status_from_turn,
+    project_artifact_statuses,
+)
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
@@ -3593,16 +3597,17 @@ class TurnOrchestrator:
             )
 
         answer_text = redact(result.answer).strip()
-        if result.status == "failed" or not answer_text:
+        projected = project_artifact_statuses(episode_status_from_turn(result))
+        if projected.run == rs.STATUS_FAILED or not answer_text:
             failure_text = answer_text or "本轮连续研究未取得可公开答案。"
             report["execution_kind"] = "continuous_episode"
             report["task_frame_hash"] = turn_intent.task_frame_hash
             report["turn_intent"] = turn_intent.to_dict()
-            report["status"] = "blocked"
-            report["transport_status"] = "failed"
-            report["research_status"] = "blocked"
+            report["status"] = projected.report
+            report["transport_status"] = projected.transport
+            report["research_status"] = projected.report_business
             report["answer_status"] = "missing"
-            report["business_status"] = "blocked"
+            report["business_status"] = projected.report_business
             report["as_of"] = result.as_of
             report["warnings"] = warnings
             self._check_cancelled()
@@ -3731,10 +3736,10 @@ class TurnOrchestrator:
             warnings=warnings,
             llm_provider=result.llm_provider,
             llm_model=self.llm_model,
-            business_status=("complete" if result.status == "completed" else "partial"),
+            business_status=projected.report_business,
             # 刻意保持不变：本轮只加观测，不让 coverage 判定影响交付状态。
             # 见 _continuous_answer_coverage 的 docstring 与路线图 Phase 1「先量后改」。
-            answer_status=("complete" if result.status == "completed" else "partial"),
+            answer_status=projected.report_business,
         )
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
@@ -3750,7 +3755,7 @@ class TurnOrchestrator:
             asdict(item) for item in gap_followups.followups
         ]
         self._check_cancelled()
-        self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+        self._claim_terminal_run(run_id, projected.run)
         # claim 一落盘，run 状态对轮询方立即可见——消息终稿必须紧跟着写，
         # 中间不得插入 artifact 落盘（三份 json.dumps 是几百毫秒级 IO）。
         # 否则「run=completed 但消息还没带 citations」的窗口会被读者命中：
@@ -3872,7 +3877,7 @@ class TurnOrchestrator:
             conversation_id,
         )
         return TurnResult(
-            status=rs.STATUS_COMPLETED,
+            status=projected.run,
             content=assistant.content,
             selected_skill_ids=(),
             invoked_skill_ids=(),

@@ -1,0 +1,18 @@
+{
+  "captured_from": "run_20260816_221823_213588",
+  "note": "2026-08-16 中转 503 单。只留三份 status，不含题面/正文。",
+  "run": {"status": "completed"},
+  "report": {
+    "status": "partial",
+    "transport_status": "completed",
+    "research_status": "partial",
+    "answer_status": "partial",
+    "business_status": "partial"
+  },
+  "episode": {
+    "outcome": {
+      "status": "failed",
+      "stop_reason": "repair_model_unavailable"
+    }
+  }
+}
