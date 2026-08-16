@@ -358,6 +358,11 @@ class SemanticEpisodeOutcome:
     gap_output_ids: tuple[str, ...] = ()
     rejected_claim_indexes: tuple[int, ...] = ()
     repair_output_ids: tuple[str, ...] = ()
+    timeout_asked: float | None = None
+    timeout_configured: float | None = None
+    remaining_seconds_at_entry: float | None = None
+    exc_class: str | None = None
+    http_status: int | None = None
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -401,6 +406,11 @@ class SemanticEpisodeOutcome:
             "gap_output_ids": list(self.gap_output_ids),
             "rejected_claim_indexes": list(self.rejected_claim_indexes),
             "repair_output_ids": list(self.repair_output_ids),
+            "timeout_asked": self.timeout_asked,
+            "timeout_configured": self.timeout_configured,
+            "remaining_seconds_at_entry": self.remaining_seconds_at_entry,
+            "exc_class": self.exc_class,
+            "http_status": self.http_status,
             "verified": self.verified.to_dict(),
         }
 
@@ -417,6 +427,66 @@ class _JudgeCall:
     # opt into deletion-only candidate release. Malformed provider output must
     # never inherit release eligibility from a dataclass default.
     monotonic_release_safe: bool = False
+    timeout_asked: float | None = None
+    timeout_configured: float | None = None
+    remaining_seconds_at_entry: float | None = None
+    exc_class: str | None = None
+    http_status: int | None = None
+
+
+def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
+    """Capture the raw failure class before llm_refine flattens it.
+
+    ``_failure_reason`` maps TimeoutError → ``timeout``; this helper keeps
+    TimeoutError / HTTPError / ConnectionError distinguishable for H8/H9.
+    Exception messages are discarded so public artifacts stay sanitized.
+    """
+
+    if isinstance(value, BaseException):
+        status = getattr(value, "code", None)
+        if isinstance(status, int) and 100 <= status <= 599:
+            return type(value).__name__, status
+        return type(value).__name__, None
+    text = str(value or "").strip()
+    if not text:
+        return None, None
+    http = re.search(r"HTTP\s+(\d{3})", text, re.IGNORECASE)
+    if http is not None:
+        return "HTTPError", int(http.group(1))
+    boxed = re.search(r"（([^）]+)）", text)
+    if boxed is not None:
+        name = boxed.group(1).strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]+", name):
+            return name, None
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]+", text):
+        return text, None
+    return None, None
+
+
+def _deadline_remaining_seconds(deadline: object) -> float | None:
+    """Duck-typed remaining(); test stubs may only implement synthesis_timeout."""
+
+    remaining = getattr(deadline, "remaining", None)
+    if not callable(remaining):
+        return None
+    try:
+        return float(remaining())
+    except Exception:
+        return None
+
+
+def _attach_judge_clock(
+    outcome: SemanticEpisodeOutcome,
+    call: _JudgeCall,
+) -> SemanticEpisodeOutcome:
+    return replace(
+        outcome,
+        timeout_asked=call.timeout_asked,
+        timeout_configured=call.timeout_configured,
+        remaining_seconds_at_entry=call.remaining_seconds_at_entry,
+        exc_class=call.exc_class,
+        http_status=call.http_status,
+    )
 
 
 class SemanticEpisodeVerifier:
@@ -613,11 +683,11 @@ class SemanticEpisodeVerifier:
                     or "deadline" in first.issue.casefold()
                 )
             )
-            first = _JudgeCall(
-                None,
-                True,
-                first.correlated,
-                "semantic judge deadline exhausted",
+            first = replace(
+                first,
+                report=None,
+                unavailable=True,
+                issue="semantic judge deadline exhausted",
                 root_deadline_exhausted=True,
                 monotonic_release_safe=deadline_release_safe,
             )
@@ -638,16 +708,19 @@ class SemanticEpisodeVerifier:
                     correlated_judge=first.correlated,
                 )
                 if candidate is not None:
-                    return candidate
-            return SemanticEpisodeOutcome(
-                verified=structural,
-                status="partial",
-                public_answer=self._gap_answer(frame, structural),
-                judge_status="unavailable",
-                issues=tuple(
-                    dict.fromkeys((*structural.issues, *preflight_issues, issue))
+                    return _attach_judge_clock(candidate, first)
+            return _attach_judge_clock(
+                SemanticEpisodeOutcome(
+                    verified=structural,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, structural),
+                    judge_status="unavailable",
+                    issues=tuple(
+                        dict.fromkeys((*structural.issues, *preflight_issues, issue))
+                    ),
+                    correlated_judge=first.correlated,
                 ),
-                correlated_judge=first.correlated,
+                first,
             )
 
         first = _apply_numeric_condition_gate(first, sentences, structural)
@@ -1139,6 +1212,38 @@ class SemanticEpisodeVerifier:
             payload["source_recheck"] = recheck_draft(draft)
         return payload
 
+    def _clocked_judge_call(
+        self,
+        *,
+        asked: float | None,
+        remaining: float | None,
+        correlated: bool,
+        unavailable: bool,
+        issue: str = "",
+        report: answer_model.GroundingJudgeReport | None = None,
+        failure: object | None = None,
+        root_deadline_exhausted: bool = False,
+        transient_provider_failure: bool = False,
+        monotonic_release_safe: bool = False,
+    ) -> _JudgeCall:
+        exc_class, http_status = (
+            _judge_failure_identity(failure) if failure is not None else (None, None)
+        )
+        return _JudgeCall(
+            report,
+            unavailable,
+            correlated,
+            issue,
+            root_deadline_exhausted=root_deadline_exhausted,
+            transient_provider_failure=transient_provider_failure,
+            monotonic_release_safe=monotonic_release_safe,
+            timeout_asked=asked,
+            timeout_configured=self._judge_timeout,
+            remaining_seconds_at_entry=remaining,
+            exc_class=exc_class,
+            http_status=http_status,
+        )
+
     def _run_judge(
         self,
         request: dict[str, object],
@@ -1149,11 +1254,12 @@ class SemanticEpisodeVerifier:
             configured_attempt_timeout=self._judge_timeout,
         )
         if not attempt_timeouts:
-            return _JudgeCall(
-                None,
-                True,
-                False,
-                "semantic judge deadline exhausted",
+            return self._clocked_judge_call(
+                asked=0.0,
+                remaining=_deadline_remaining_seconds(deadline),
+                correlated=False,
+                unavailable=True,
+                issue="semantic judge deadline exhausted",
                 root_deadline_exhausted=True,
                 monotonic_release_safe=True,
             )
@@ -1173,16 +1279,18 @@ class SemanticEpisodeVerifier:
             ]
             prior_failures_release_safe = True
             for attempt, timeout_limit in enumerate(attempt_timeouts):
+                remaining_at_entry = _deadline_remaining_seconds(deadline)
                 attempt_timeout = deadline.synthesis_timeout(timeout_limit)
                 if attempt_timeout <= 0.001:
                     failure_chain_release_safe = (
                         attempt == 0 or prior_failures_release_safe
                     )
-                    return _JudgeCall(
-                        None,
-                        True,
-                        False,
-                        "semantic judge deadline exhausted",
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue="semantic judge deadline exhausted",
                         root_deadline_exhausted=True,
                         monotonic_release_safe=failure_chain_release_safe,
                     )
@@ -1209,11 +1317,13 @@ class SemanticEpisodeVerifier:
                     prior_failures_release_safe &= release_safe
                     if should_retry:
                         continue
-                    return _JudgeCall(
-                        None,
-                        True,
-                        False,
-                        issue,
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=issue,
+                        failure=exc,
                         transient_provider_failure=(
                             prior_failures_release_safe
                         ),
@@ -1221,10 +1331,12 @@ class SemanticEpisodeVerifier:
                     )
                 report = self._parse_report(content, len(request["sentences"]))
                 if report is not None:
-                    return _JudgeCall(
-                        report,
-                        False,
-                        False,
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=False,
+                        report=report,
                         monotonic_release_safe=prior_failures_release_safe,
                     )
                 issue, retryable, release_safe = _stable_semantic_judge_error(
@@ -1240,38 +1352,60 @@ class SemanticEpisodeVerifier:
                 prior_failures_release_safe &= release_safe
                 if should_retry:
                     continue
-                return _JudgeCall(
-                    None,
-                    True,
-                    False,
-                    issue,
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=False,
+                    unavailable=True,
+                    issue=issue,
+                    failure=reason or "invalid semantic judge output",
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
-            return _JudgeCall(None, True, False, "semantic judge unavailable")
+            return self._clocked_judge_call(
+                asked=None,
+                remaining=_deadline_remaining_seconds(deadline),
+                correlated=False,
+                unavailable=True,
+                issue="semantic judge unavailable",
+            )
 
         # Explicit injection is the deterministic test/canary seam only when
         # no independent LLM_JUDGE provider is configured.  It is correlated
         # because it normally shares the primary composer model.
         if self._judge_fn is not None:
+            remaining_at_entry = _deadline_remaining_seconds(deadline)
+            asked = deadline.synthesis_timeout(attempt_timeouts[0])
             return self._invoke_injected(
                 self._judge_fn,
                 request,
-                attempt_timeouts[0],
+                asked,
                 True,
+                timeout_configured=self._judge_timeout,
+                remaining_seconds_at_entry=remaining_at_entry,
             )
 
         primary = self._primary_judge
         if primary is None and self._finalizer is not None:
             primary = getattr(self._finalizer, "_model", None)
         if primary is None:
-            return _JudgeCall(None, True, True, "semantic judge unavailable")
+            return self._clocked_judge_call(
+                asked=None,
+                remaining=_deadline_remaining_seconds(deadline),
+                correlated=True,
+                unavailable=True,
+                issue="semantic judge unavailable",
+            )
         if callable(primary) and not hasattr(primary, "complete"):
+            remaining_at_entry = _deadline_remaining_seconds(deadline)
+            asked = deadline.synthesis_timeout(attempt_timeouts[0])
             return self._invoke_injected(
                 cast(JudgeFn, primary),
                 request,
-                attempt_timeouts[0],
+                asked,
                 True,
+                timeout_configured=self._judge_timeout,
+                remaining_seconds_at_entry=remaining_at_entry,
             )
         messages = [
             {"role": "system", "content": _judge_system_prompt(request)},
@@ -1282,16 +1416,18 @@ class SemanticEpisodeVerifier:
         ]
         prior_failures_release_safe = True
         for attempt, timeout_limit in enumerate(attempt_timeouts):
+            remaining_at_entry = _deadline_remaining_seconds(deadline)
             attempt_timeout = deadline.synthesis_timeout(timeout_limit)
             if attempt_timeout <= 0.001:
                 failure_chain_release_safe = (
                     attempt == 0 or prior_failures_release_safe
                 )
-                return _JudgeCall(
-                    None,
-                    True,
-                    True,
-                    "semantic judge deadline exhausted",
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=True,
+                    issue="semantic judge deadline exhausted",
                     root_deadline_exhausted=True,
                     monotonic_release_safe=failure_chain_release_safe,
                 )
@@ -1315,20 +1451,23 @@ class SemanticEpisodeVerifier:
                 prior_failures_release_safe &= release_safe
                 if should_retry:
                     continue
-                return _JudgeCall(
-                    None,
-                    True,
-                    True,
-                    issue,
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=True,
+                    issue=issue,
+                    failure=exc,
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
             if not isinstance(turn, ModelTurn):
-                return _JudgeCall(
-                    None,
-                    True,
-                    True,
-                    "semantic judge invalid provider response",
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=True,
+                    issue="semantic judge invalid provider response",
                 )
             if turn.error:
                 issue, retryable, release_safe = _stable_semantic_judge_error(
@@ -1344,11 +1483,13 @@ class SemanticEpisodeVerifier:
                 prior_failures_release_safe &= release_safe
                 if should_retry:
                     continue
-                return _JudgeCall(
-                    None,
-                    True,
-                    True,
-                    issue,
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=True,
+                    issue=issue,
+                    failure=turn.error,
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
@@ -1358,28 +1499,45 @@ class SemanticEpisodeVerifier:
                     len(request["sentences"]),
                 )
                 if report is None:
-                    return _JudgeCall(
-                        None,
-                        True,
-                        True,
-                        "semantic judge returned an invalid tool call",
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        remaining=remaining_at_entry,
+                        correlated=True,
+                        unavailable=True,
+                        issue="semantic judge returned an invalid tool call",
                     )
-                return _JudgeCall(
-                    report,
-                    False,
-                    True,
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=False,
+                    report=report,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
             report = self._parse_report(turn.content, len(request["sentences"]))
             if report is None:
-                return _JudgeCall(None, True, True, "invalid semantic judge output")
-            return _JudgeCall(
-                report,
-                False,
-                True,
+                return self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    remaining=remaining_at_entry,
+                    correlated=True,
+                    unavailable=True,
+                    issue="invalid semantic judge output",
+                )
+            return self._clocked_judge_call(
+                asked=attempt_timeout,
+                remaining=remaining_at_entry,
+                correlated=True,
+                unavailable=False,
+                report=report,
                 monotonic_release_safe=prior_failures_release_safe,
             )
-        return _JudgeCall(None, True, True, "semantic judge unavailable")
+        return self._clocked_judge_call(
+            asked=None,
+            remaining=_deadline_remaining_seconds(deadline),
+            correlated=True,
+            unavailable=True,
+            issue="semantic judge unavailable",
+        )
 
     @staticmethod
     def _parse_tool_report(
@@ -1402,27 +1560,50 @@ class SemanticEpisodeVerifier:
         request: dict[str, object],
         timeout: float,
         correlated: bool,
+        *,
+        timeout_configured: float | None = None,
+        remaining_seconds_at_entry: float | None = None,
     ) -> _JudgeCall:
+        configured = (
+            float(timeout_configured) if timeout_configured is not None else float(timeout)
+        )
         try:
             value = _call_flexible(fn, request, timeout)
         except Exception as exc:
+            exc_class, http_status = _judge_failure_identity(exc)
             return _JudgeCall(
                 None,
                 True,
                 correlated,
                 f"semantic judge unavailable: {type(exc).__name__}",
+                timeout_asked=timeout,
+                timeout_configured=configured,
+                remaining_seconds_at_entry=remaining_seconds_at_entry,
+                exc_class=exc_class,
+                http_status=http_status,
             )
         report = SemanticEpisodeVerifier._parse_report(
             value,
             len(cast(list[object], request["sentences"])),
         )
         if report is None:
-            return _JudgeCall(None, True, correlated, "invalid semantic judge output")
+            return _JudgeCall(
+                None,
+                True,
+                correlated,
+                "invalid semantic judge output",
+                timeout_asked=timeout,
+                timeout_configured=configured,
+                remaining_seconds_at_entry=remaining_seconds_at_entry,
+            )
         return _JudgeCall(
             report,
             False,
             correlated,
             monotonic_release_safe=True,
+            timeout_asked=timeout,
+            timeout_configured=configured,
+            remaining_seconds_at_entry=remaining_seconds_at_entry,
         )
 
     @staticmethod
@@ -1948,18 +2129,13 @@ def _apply_numeric_condition_gate(
     if rejected == set(report.rejected_sentence_indexes):
         return call
     issues = tuple(dict.fromkeys((*report.issues, _NUMERIC_CONDITION_ISSUE)))
-    return _JudgeCall(
-        answer_model.GroundingJudgeReport(
+    return replace(
+        call,
+        report=answer_model.GroundingJudgeReport(
             passed=False,
             rejected_sentence_indexes=tuple(sorted(rejected)),
             issues=issues,
         ),
-        call.unavailable,
-        call.correlated,
-        call.issue,
-        call.root_deadline_exhausted,
-        call.transient_provider_failure,
-        call.monotonic_release_safe,
     )
 
 
@@ -1981,13 +2157,12 @@ def _apply_optional_rejudge_deadline(
     if call.report is not None and not call.report.passed:
         return call
     if call.report is not None and call.report.passed:
-        return _JudgeCall(
-            None,
-            True,
-            call.correlated,
-            "semantic judge deadline exhausted",
+        return replace(
+            call,
+            report=None,
+            unavailable=True,
+            issue="semantic judge deadline exhausted",
             root_deadline_exhausted=True,
-            monotonic_release_safe=call.monotonic_release_safe,
         )
     return call
 
