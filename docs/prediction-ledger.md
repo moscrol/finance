@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（R-22 已合切 8792=`5b0c65e0`。R-23 诊断更正：metric 抄进 dimensions，离线已绿待合切。R-16..21 仍 pending）
+- last_updated: 2026-08-17（#119 已合切 8792=`dd28e4d8`。同题 live `run_20260817_014724_245782`：工具层 R-22/R-23 命中，repair 超时未成稿。R-16..23 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -458,6 +458,40 @@ handoff：`docs/handoffs/2026-08-17-two-agent-collision-and-contains-escape.md`�
 | `R-20260816-23` | 离线：`test_metric_dimension_dedupe.py` 四组 live 夹具 + 真分组键保留 + 未声明 metric 不动（含 metrics 非空变异）+ 干净 spec 无副作用。原 hint 机制否证。未做同题 live | `pending` | 保持 Open。部分验证不得写 confirmed。Open 表原预测作机制更正，不另开号 |
 | `R-20260816-22` | 本 PR 不改退出/陈旧分档 | `pending` | 保持 Open |
 | `R-20260816-07` | 本 PR 无 T / `_REPAIR_SECONDS_CAP` / 档位上调 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-22/R-23 同题 live（#119 已切）
+
+8792=`dd28e4d8` / dirty=false / match=true。user=`verify-r22-r23-0817`。
+`run_20260817_014724_245782` ≈136s。run=`completed`，outcome=`partial`，
+stop=`repair_model_unavailable`。tools=4 / llm=4。未动 T / 30 / 档位。
+**单次 live 不得写 confirmed。**
+
+工具层：
+
+- R-22 hit：`finance_query` `mainline_theme_daily` + `contains` 算力 →
+  trace `status=ok` `detail=dataset=mainline_theme_daily; subject_exited_universe`；
+  served=`2026-08-07`，dataset_max=`2026-08-14`，rows=14。不是 stale / 零证据。
+- R-23 hit：同请求 `dimensions` 含 metric `rank`/`sector_count`（亦在 `metrics`）。
+  无 `not a dimension` / `invalid_query`；查询返回行。第一发 `market_daily` 干净
+  spec（`index_return_pct` 只在 metrics）亦成功 20 行。
+- contains ESCAPE 仍通（#115）。
+
+交付层 miss（本窗不修）：
+
+- repair grant=40 后 transient retry=20，两发 `TimeoutError`；draft=0。
+- 答案走「模型服务不可用」缺口模板，40 条证据未绑定（R-17 形命中，不结案）。
+- `kb_search` `tool_timeout`（已知 leftover）。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260816-22` | live：`subject_exited_universe` + 14 行退出前证据。答案层未写出退出事实（repair 死） | `pending` | 保持 Open。工具命中 ≠ 结案 |
+| `R-20260816-23` | live：`rank`/`sector_count` 双边同名未炸 `invalid_query`。原 hint 机制仍否证 | `pending` | 保持 Open。部分验证不得写 confirmed |
+| `R-20260816-17` | 本 run 是 `repair_model_unavailable` + 缺口模板「模型服务不可用」。形命中，不结案 | `pending` | 保持 Open |
+| `R-20260816-16` | zhipu 路径 tools=4，不是 16×5xx。draft=0 | `pending` | 保持 Open。draft 终值 0 不得写 confirmed |
+| `R-20260816-18` | outcome=`partial`，run=`completed`。禁止对 `failed∧completed` 未出现 | `pending` | 保持 Open |
+| `R-20260816-21` | repair 首授 40（帽仍在）。其后 20s retry 仍 TimeoutError。不是两发整窗 30 | `pending` | 保持 Open。帽接线 ≠ 模型按时返回 |
+| `R-20260816-10` | 本 run 未进 judge（repair 先死） | `pending` | 保持 Open。旁记 kb `tool_timeout`，本窗不修 |
+| `R-20260816-07` | 本 live 未上调 T / `_REPAIR_SECONDS_CAP` / 档位 | `pending` | 绊线未触 |
 
 ### Closed
 
