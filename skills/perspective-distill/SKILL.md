@@ -32,10 +32,16 @@ description: 视角蒸馏——用户发来 KOL/博主原文，走固定闭环�
    FORESIGHT_USERS_DIR="<上面查到的值>" python3 -m intelligence.cli perspective ...
    ```
 
+   本机便捷入口（从 launcher 读根，默认 `--user default`）：
+   `~/.local/bin/perspective-workbench <init|ingest|...>`
+
    不设环境变量时默认落 `intelligence/users/<user>/perspectives/`。**在 worktree 里
    跑同样会写出生产读不到的副本**——先确认写的是启动器那份。
-2. **user 是哪个**：路径对了但 user 写错，视角照样不可见。用 Workbench 里实际登录
-   的那个 user（本机生产是 `linxiaoqi5111`，不是 `a77`/`default`）。
+2. **user 是哪个**：路径对了但 user 写错，视角照样不可见。用 Workbench
+   实际登录的那个 user。本机 launcher **不设** `FORESIGHT_USER`，API/UI
+   因此落 `default`（`userspace.resolve_user_id`）。不要用 shell 里的
+   `linxiaoqi5111`（那是共享大脑身份），也不要信本段 08-14 的旧结论。
+   每次先查：`curl -s http://127.0.0.1:8792/api/perspectives` 能列到的就是对的 user。
 3. **角色 id**：已有角色（`perspective profile --perspective <id>` 能读到）就直接
    ingest；新角色先 init。id 用小写下划线（如 `sptfei`），display_name 存中文名。
 4. **文章元信息**：每篇要有 date（发文日期）和 title；`--date` **缺省是今天**，
