@@ -2829,6 +2829,89 @@ def test_query_scoped_evidence_binding_remains_atomically_opt_in() -> None:
     assert outcome.bindings[0].evidence_hashes == ("evidence-1",)
 
 
+def test_comparative_finish_expands_query_scoped_ranking_cohort() -> None:
+    frame = _frame()
+
+    def ranking_runner(query: str, _context: AgentToolContext):
+        del query
+        evidence = (
+            AgentEvidence(
+                tool="finance_query",
+                title="主线板块日频结构（2026-08-14）",
+                detail="稀有金属 强度2544",
+                source="本地行情",
+                source_date="2026-08-14",
+                content_hash="rare",
+            ),
+            AgentEvidence(
+                tool="finance_query",
+                title="主线板块日频结构（2026-08-14）",
+                detail="铜 强度1685",
+                source="本地行情",
+                source_date="2026-08-14",
+                content_hash="cu",
+            ),
+            AgentEvidence(
+                tool="finance_query",
+                title="主线板块日频结构（2026-08-14）",
+                detail="黄金 强度1062",
+                source="本地行情",
+                source_date="2026-08-14",
+                content_hash="au",
+            ),
+            AgentEvidence(
+                tool="finance_query",
+                title="板块日频行情（2026-08-14）",
+                detail="CPO 边际量为负",
+                source="本地行情",
+                source_date="2026-08-14",
+                content_hash="cpo",
+            ),
+        )
+        return (
+            list(evidence),
+            "ranking rows",
+            ProviderTrace(
+                provider="test:finance",
+                capability="market_data",
+                status="success",
+                result_count=4,
+            ),
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                "finance_query",
+                "market_data",
+                "查询型行情",
+                "local",
+                "current",
+                ranking_runner,
+                query_scope="query",
+            ),
+        )
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("主线板块", name="finance_query"),
+            _finish_turn(
+                draft="稀有金属涨幅、强度变化和净流入均居前。",
+                hashes=("rare",),
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=registry,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.bindings[0].evidence_hashes == ("rare", "cu", "au")
+
+
 def test_model_unavailable_before_evidence_fails_honestly() -> None:
     frame = _frame()
     model = ScriptedModel([ModelTurn("", (), "glm", "provider unavailable")])

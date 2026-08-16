@@ -1162,6 +1162,7 @@ class ContinuousAgentEpisode:
                 bindings=bindings,
                 evidence=tuple(accumulator.evidence),
                 registry=registry,
+                draft=draft,
             )
             current_gaps = self._finish_gaps(final_gaps, bindings)
             ledger.record_runtime_result()
@@ -1664,6 +1665,7 @@ class ContinuousAgentEpisode:
             bindings=finish.bindings,
             evidence=tuple(accumulator.evidence),
             registry=registry,
+            draft=finish.draft,
         )
         revised_without_tool = (
             finish.draft.strip() != previous.draft.strip()
@@ -2245,6 +2247,7 @@ class ContinuousAgentEpisode:
             bindings=bindings,
             evidence=tuple(accumulator.evidence),
             registry=registry,
+            draft=draft,
         )
         current_gaps = self._finish_gaps(final_gaps, bindings)
         ledger.add(

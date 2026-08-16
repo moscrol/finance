@@ -724,11 +724,67 @@ def validate_episode_finish(
     )
 
 
+_COMPARISON_SET_CLAIM_RE = re.compile(
+    r"均居前|居前|居首|居后|排名|位列|领先于|落后于|强于|弱于"
+)
+
+
+def _comparison_cohort_key(item: AgentEvidence) -> tuple[str, str, str] | None:
+    title = (item.title or "").strip()
+    if not title or not item.content_hash:
+        return None
+    return (item.tool, title, item.source_date or "")
+
+
+def expand_comparison_set_bindings(
+    *,
+    bindings: tuple[OutputEvidenceBinding, ...],
+    evidence: tuple[AgentEvidence, ...],
+    draft: str = "",
+) -> tuple[OutputEvidenceBinding, ...]:
+    """Expand a comparative claim onto the full same-title ranking observation."""
+
+    if not draft or not _COMPARISON_SET_CLAIM_RE.search(draft):
+        return bindings
+
+    cohorts: dict[tuple[str, str, str], list[str]] = {}
+    key_by_hash: dict[str, tuple[str, str, str]] = {}
+    for item in evidence:
+        key = _comparison_cohort_key(item)
+        if key is None:
+            continue
+        key_by_hash[item.content_hash] = key
+        hashes = cohorts.setdefault(key, [])
+        if item.content_hash not in hashes:
+            hashes.append(item.content_hash)
+
+    expanded: list[OutputEvidenceBinding] = []
+    for binding in bindings:
+        hashes = list(binding.evidence_hashes)
+        for evidence_hash in binding.evidence_hashes:
+            key = key_by_hash.get(evidence_hash)
+            if key is None:
+                continue
+            siblings = cohorts.get(key, ())
+            if len(siblings) >= 2:
+                hashes.extend(siblings)
+        expanded.append(
+            OutputEvidenceBinding(
+                output_id=binding.output_id,
+                evidence_hashes=tuple(dict.fromkeys(hashes)),
+                gap=binding.gap,
+                basis=binding.basis,
+            )
+        )
+    return tuple(expanded)
+
+
 def expand_episode_snapshot_bindings(
     *,
     bindings: tuple[OutputEvidenceBinding, ...],
     evidence: tuple[AgentEvidence, ...],
     registry: ResearchToolRegistry,
+    draft: str = "",
 ) -> tuple[OutputEvidenceBinding, ...]:
     """Expand a selected turn-scoped snapshot into one atomic private binding."""
 
@@ -766,7 +822,11 @@ def expand_episode_snapshot_bindings(
                 basis=binding.basis,
             )
         )
-    return tuple(expanded)
+    return expand_comparison_set_bindings(
+        bindings=tuple(expanded),
+        evidence=evidence,
+        draft=draft,
+    )
 
 
 def _finish_object(value: object) -> dict[str, object] | None:
@@ -853,6 +913,7 @@ __all__ = [
     "RejectionResponse",
     "build_episode_input",
     "build_episode_instructions",
+    "expand_comparison_set_bindings",
     "expand_episode_snapshot_bindings",
     "attach_evidence_ordinals",
     "evidence_ordinal_table",
