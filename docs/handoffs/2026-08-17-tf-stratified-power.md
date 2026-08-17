@@ -1,5 +1,9 @@
 # T-F 分层重算 + 主度量名实（**不开 900，不放宽 5pp**）
 
+> **#136 更正**：§1 按 claim 级 `source_ids` 写「§9.3 算不出 evidence-bound」——字段找错了。
+> 输出级 `diagnostics.bindings` 算得出来，但是阶跃函数、23/45 未定义。
+> 本页 845 的 citations 代理与真口径 12 条命中重合，**数不用重算**。5a 理由见追加③ §0。
+
 - 日期：2026-08-17
 - 指令：`2026-08-17-dispatch-f-addendum-2-stratify.md`（追加②）
 - 前序：追加① `2026-08-17-dispatch-f-addendum-pins-and-power.md`，**须连② §0 一起引**
