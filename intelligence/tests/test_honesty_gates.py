@@ -40,11 +40,37 @@ def test_holiday_quick_fact_is_canned_without_llm() -> None:
 
 
 def test_weekend_review_still_goes_to_research_not_canned_knowledge() -> None:
-    """C1：周末复盘仍走研究链（可引用前一交易日），不是 knowledge 罐头。"""
+    """C1：路由仍是 research（不是 knowledge 车道），但休市日必须罐头短路。"""
 
     decision = decide_turn("2026-07-25 市场怎么样")
     assert decision.lane == "research"
     assert calendar_disclosure(decision.task_frame)
+
+
+def test_weekend_market_review_is_canned_without_llm() -> None:
+    """KC-18 / R15-C1：周六复盘直接答休市，禁止再进检索或问模型。"""
+
+    query = "2026-07-25 市场怎么样"
+    decision = decide_turn(query)
+
+    def boom(_messages):
+        raise AssertionError("weekend market review must not call the LLM")
+
+    answer = generate_lane_answer(query, decision, llm_complete=boom)
+
+    assert decision.lane == "research"
+    assert "休市" in answer.answer
+    assert "2026-07-25" in answer.answer
+    assert "周六" in answer.answer
+
+
+def test_weekday_market_review_is_not_canned() -> None:
+    query = "2026-07-23 市场怎么样"
+    decision = decide_turn(query)
+    from intelligence.services.lane_generation import deterministic_lane_answer
+
+    assert calendar_disclosure(decision.task_frame) is None
+    assert deterministic_lane_answer(query, decision) is None
 
 
 def test_retired_table_is_canned_without_llm() -> None:
@@ -131,6 +157,7 @@ def test_calendar_disclosure_still_prepends_when_model_omits_it() -> None:
     "query",
     (
         "2026-02-17 涨停家数多少",
+        "2026-07-25 市场怎么样",
         "查一下 sector_marginal 表里 07-23 的边际量",
     ),
 )
