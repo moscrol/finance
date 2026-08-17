@@ -26,12 +26,30 @@
 
 ## 2. 两条路径（这就是缺陷）
 
-| 路径 | 位置 | 有没有兜底章法 |
-|---|---|---|
-| A `_gap_answer` / `_generic_gap_answer` | `intelligence/services/episode_semantic_verifier.py` 约 538 / 554 / 578 行 | ✅ 挂了 `gap_opening` / `gap_transparency`（`degraded_fallback.py` 第 30 行 import） |
-| B 瞬时故障投影 | 同文件约 1155–1190 行，docstring `"Keep a safe candidate visible when a transient judge outage occurs."` | ❌ 自己拼一句硬编码 `notice` 后 `return`，**不经过 A** |
+> ⚠ **2026-08-17 更正（T-E 静态形状对照的产出，见
+> `docs/verification/2026-08-17-dsh-static-shape-audit.md` §3）：旁路不是 1 条，是 3 条。**
+> 本节初版只点了瞬时故障投影那一条，**只并掉它，另外两条仍在。**
 
-即：**开关开了也管不到 B。** 这与「开关默认 off」（T-A）是两个独立缺口，别当成一个。
+全仓 `public_answer=` 赋值点共 **16 处**（不含 tests），**全在
+`intelligence/services/episode_semantic_verifier.py` 一个文件里**——文件是收敛的，
+**出口不收敛**：
+
+| 路径 | 数量 | 有没有兜底章法 |
+|---|---|---|
+| A 经 `_gap_answer(...)` / `_generic_gap_answer(...)` | **13 处** | ✅ 挂了 `gap_opening` / `gap_transparency`（`degraded_fallback.py` 第 30 行 import） |
+| B 自己拼串绕过 | **3 处**：`f"{notice}\n\n{public}"`、`public`、`f"{public}\n{gap}"` | ❌ **全部不经过 A** |
+
+自证命令（改完用它验出口收敛）：
+
+```bash
+grep -rn "public_answer=" intelligence/services/*.py intelligence/runtime/*.py | grep -v tests
+```
+
+其中 `f"{notice}\n\n{public}"` 那处就是瞬时故障投影
+（docstring `"Keep a safe candidate visible when a transient judge outage occurs."`）。
+另两处**未逐一分析成因，属本轨范围**。
+
+即：**开关开了也管不到这 3 条。** 这与「开关默认 off」（T-A）是两个独立缺口，别当成一个。
 
 ## 3. 这条路径的决策是对的，错的是归因
 
@@ -57,7 +75,8 @@ docstring 自陈 `"This is deliberately not a semantic pass"`——裁判挂了�
 
 ## 5. 任务
 
-1. 让 B 路径也落到同一条投影出口——**并成一条 `view()`，成因作为输入参数**。
+1. 让**全部 3 条**旁路落到同一条投影出口——**并成一条 `view()`，成因作为输入参数**。
+   先把另两处（`public`、`f"{public}\n{gap}"`）的成因也判出来，别只修瞬时故障那条。
 2. 成因至少分三类：`transient_verifier_outage` / `evidence_gap` / `model_unavailable`（第三类已有判例）。
 3. 落到 dsh 接缝的形状：输入是**冻结的终局事实**，输出是整段公开文本，**无 IO、无模型调用、无订阅**。
    LLM 润色不得进这条函数——进了就撕掉「同步一致性」这个切面。
