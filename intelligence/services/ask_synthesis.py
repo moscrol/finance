@@ -1294,6 +1294,14 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 if issue.code in _BINDING_ISSUE_CODES
             )
             improved = corrected_binding_count < len(binding_warnings)
+            # 只记 accepted 的话，「差一点」和「完全没改」长得一样。修订轮值不值
+            # 那次调用，要看这两个数缩了多少。
+            result.llm_stream_telemetry["claim_binding_issues_before"] = len(
+                binding_warnings
+            )
+            result.llm_stream_telemetry["claim_binding_issues_after"] = (
+                corrected_binding_count
+            )
             accept = not corrected_blocking and (
                 revision_trigger == "error" or improved
             )

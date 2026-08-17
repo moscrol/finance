@@ -44,9 +44,44 @@
 | 修订轮退回「只有 error 才触发」 | `test_binding_warning_triggers_a_revision_round` |
 | 采纳门槛去掉「必须变好」 | `test_revision_that_did_not_improve_is_discarded` |
 
-**未跑 live。** 本轮全是单测 + 变异，没有真实答卷收据。修订轮的实际效果
-（模型收到结构化的绑定错误后能不能把短式 marker 改成完整式）**没有实测过**——
-这是下一任第一件该做的事，一发 `WORKBENCH_GROUNDED_PRESENTER=0` 的 live 就够。
+### 2.1 两发 live：修订轮触发了，但**没改好**
+
+`gpt-5.6-terra` @ `x.ailzd`，`WORKBENCH_GROUNDED_PRESENTER=0`，题目「人形机器人还能追吗」
+（对上 #144 同题基线）。跑法与收据见
+`~/.finance-runtime/claim-tiering-20260817/run_live.py`。
+
+| 发 | 改动 | trigger | accepted | structured / unbound | 输出里的 marker |
+|---|---|---|---|---|---|
+| #144 基线 | — | 不触发 | — | 0 / 6 | 9 处**短式** `claim_id=`，完整式 0 |
+| `live-retrieval` | 修订轮修好 | `warning` ✅ | **false** | 0 / 11 | 0 |
+| `live-retrieval-with-draft` | +草稿回传 | `warning` ✅ | **false** | 0 / 10 | 0 |
+
+机制两项都按设计工作：触发条件修好了（trigger=warning），采纳门槛也挡住了没变好的
+重写（accepted=false，保留初稿）。**但修订本身没产生价值**，每发多花 30.2s。
+n=1，11→10 是噪声不是改善。
+
+### 2.2 根因：这条链的契约从没下达过
+
+- registry 不空：63 条 claim / 9687 字样例块，格式完整 —— 不是没东西可抄。
+- 修订调用原本**不带草稿**（prompt 却写「保留原有自然措辞」）→ 已修（`f913bc5c`）。
+  但带上草稿后第二发仍未改好，所以草稿缺失**不是**主因。
+- **主因**：旧链的 `_SYNTHESIS_SYSTEM_PROMPT`（388 字）只说「事实句必须绑定合法
+  EvidenceAtom」「claim marker 只用于机器核验」，但全文
+  **`claim_id` 0 次、`<!--` 0 次、registry 0 次**；`build_synthesis_messages`
+  也不带 claim registry。**模型被要求绑定，却从没拿到 marker 语法和合法 ID 清单。**
+  #144 那发它写出 9 处短式 `claim_id=`，是在猜语法。
+
+对照：Grounded 那条自洽——`_GROUNDED_COMPOSER_SYSTEM_PROMPT` 明写
+`<!-- claim_ids=id1,id2; evidence_atom_ids=...; ... -->`，正则 `_GROUNDED_CLAIM_MARKER_RE`
+认的正是 `claim_ids=`（复数）。旧链的正则要 `claim_id=`（单数），**两条链的 marker
+方言本来就不同**，而旧链那条方言没有任何 prompt 教过。
+
+**所以 `llm_missing_claim_binding` 在旧链上是在罚一个从没下达过的要求。** 下一步不是
+继续调 severity，二选一：把契约真正下达（prompt 给语法 + 注入 registry），或者承认
+这条链不走 claim 契约、把这道闸撤掉。**这个决定要用户拍，不要顺手改。**
+
+新增遥测 `claim_binding_issues_before/after`：只记 accepted 的话「差一点」和「完全
+没改」长得一样。下一发能看出修订到底缩了多少。
 
 ## 3. 依据
 
