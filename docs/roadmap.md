@@ -71,5 +71,6 @@
 | 2026-08-17 | DRAM 靶 live 复验（落盘上下文级）：query=`DRAM` 时 2 条 stale 边进了 `prepared_synthesis_messages`（`⚠️已被新证据取代` ×4）。建议题「长鑫+DRAM」因精确 target **打不中** DRAM 宿主。证据行 `[:80]` 截掉华西 2776.90。模型把 508 亿标成历史参照，现况用 07-27 上市口径。marker/降桶文案仍 0（prompt 门禁）。读数 `docs/verification/2026-08-17-dram-superseded-live-recheck.md`。① 已满足本靶；② 仍押后 | 已决 | L1-8792 |
 | 2026-08-17 | top-8 截断 × stale 提醒：材料就绪待裁决。推荐 D（`stale_notes` 旁路）；A 正当。不改代码。`docs/superpowers/specs/2026-08-17-stale-evidence-quota-decision.md` | 用户 | L1-8792 |
 | 2026-08-18 | 上行**已决 D**（用户 00:39 拍板）。执行单已派：`docs/handoffs/2026-08-18-stale-notes-bypass-implementation.md`（旁路提醒行；名额/排序/prompt/闸判据全不动；ADR 0003 随实现 PR 补） | 已决 | L1-8792 |
+| 2026-08-18 | 数据根接线错位（「无市场数据」+「盘面快照 07-15」同根）：`data_repo_root()` 把 `WORKBENCH_REPO_ROOT`（launcher 指代码快照做溯源）当数据根首选，DuckDB/exports 全解析进冻结快照。修复单已派：`docs/handoffs/2026-08-18-data-root-wiring-fix.md`（代码修，摘出数据根序列；溯源不动；交付后验收方切 8792） | 已派 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
