@@ -10,6 +10,20 @@
 # 参数可任意组合：sync 2026-07-22 / finalize / 2026-07-22 /（空）
 set -uo pipefail
 
+_HERE="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "${_HERE}/ops_python.sh" ]]; then
+  source "${_HERE}/ops_python.sh"
+elif [[ -f "${_HERE}/lib/ops_python.sh" ]]; then
+  source "${_HERE}/lib/ops_python.sh"
+elif [[ -f "${_HERE}/../../../scripts/lib/ops_python.sh" ]]; then
+  source "${_HERE}/../../../scripts/lib/ops_python.sh"
+elif [[ -f /Users/a77/.local/bin/ops_python.sh ]]; then
+  source /Users/a77/.local/bin/ops_python.sh
+else
+  print -u2 -- "missing ops_python.sh"
+  exit 1
+fi
+
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
 WORKSPACE="$DATA_ROOT"
@@ -19,7 +33,7 @@ export FINANCE_WS="$DATA_ROOT"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
-export FORESIGHT_USERS_DIR="/Users/a77/agent-memory/.foresight"
+export FORESIGHT_USERS_DIR="${FORESIGHT_USERS_DIR:-/Users/a77/.local/share/finance-workbench/users}"
 export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
@@ -50,7 +64,12 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   fi
 fi
 echo "$$" > "$LOCK_DIR/pid"
-trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
+_review_exit() {
+  local rc=$?
+  rm -rf "$LOCK_DIR"
+  ops_health_log "daily-full-review-${PHASE}" "$rc"
+}
+trap _review_exit EXIT INT TERM
 
 # 按目标日期 $D 判周末（不能用 `date +%u`，那是「今天」的星期——
 # 手动跨日补跑时今天可能是周末而 $D 是工作日，会被误跳过）
@@ -68,7 +87,7 @@ echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CO
 # 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
 notify() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  python3 "$WORKSPACE/scripts/notify_feishu.py" "$1" 2>/dev/null || true
+  "$OPS_PYTHON" "$WORKSPACE/scripts/notify_feishu.py" "$1" 2>/dev/null || true
 }
 
 run_moneyflow() {
@@ -76,7 +95,7 @@ run_moneyflow() {
 }
 
 run_sync() {
-  python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
+  "$OPS_PYTHON" skills/daily-full-review/scripts/run_review_sync.py --date "$D"
 }
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
@@ -88,11 +107,11 @@ run_l2_branch() {
     echo "[$(date '+%F %T')] 资金流段失败 rc=$moneyflow_rc"
     # --fail 仅在实际交易日落 failed；非交易日由 write_to_duckdb.py 内部保护跳过，
     # 避免把历史 complete 或空跑降级成失败（8.6 覆写事故根因）。
-    python3 "$CODE_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=$moneyflow_rc" \
+    "$OPS_PYTHON" "$CODE_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=$moneyflow_rc" \
       || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
     notify "❌ 全量复盘 $D 资金流段失败 rc=$moneyflow_rc；日志 logs/daily-full-review.out.log"
   fi
-  python3 scripts/check_daily_review_data.py "$D" --phase l2
+  "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase l2
   l2_rc=$?
   # rc=3：闸门被 duckdb 写锁挡住没跑成，结果未知——与「质量门未通过」是两回事
   if [ "$l2_rc" -eq 3 ]; then
@@ -106,7 +125,7 @@ run_l2_branch() {
 
 # 生成段 + 收尾（双盲回检 / KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
-  python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
+  "$OPS_PYTHON" -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
     --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 
@@ -129,24 +148,24 @@ run_generation_and_finalize() {
   local answers
   answers=$(ls "$LEDGER"/*.answer.*.json 2>/dev/null | tail -12)
   if [ -n "$answers" ]; then
-    /usr/bin/python3 scripts/dual_blind_forecast.py recheck ${=answers} \
-      && /usr/bin/python3 scripts/dual_blind_auto_verdict.py --all-pending \
-      && /usr/bin/python3 scripts/dual_blind_forecast.py index --html \
-      && /usr/bin/python3 scripts/dual_blind_answers_to_md.py \
-      && /usr/bin/python3 scripts/render_dual_blind_pair_html.py \
-      && /usr/bin/python3 scripts/render_dual_blind_qa.py \
+    "$OPS_PYTHON" scripts/dual_blind_forecast.py recheck ${=answers} \
+      && "$OPS_PYTHON" scripts/dual_blind_auto_verdict.py --all-pending \
+      && "$OPS_PYTHON" scripts/dual_blind_forecast.py index --html \
+      && "$OPS_PYTHON" scripts/dual_blind_answers_to_md.py \
+      && "$OPS_PYTHON" scripts/render_dual_blind_pair_html.py \
+      && "$OPS_PYTHON" scripts/render_dual_blind_qa.py \
       || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
   fi
 
   # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
   local kb_msg
-  kb_msg=$(python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
+  kb_msg=$("$OPS_PYTHON" "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
   if [ $? -eq 2 ]; then
     notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
   fi
 
   # 最终硬门：数据/报告/L2 全部通过才允许宣布完成
-  python3 scripts/check_daily_review_data.py "$D" --phase all
+  "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase all
   local all_rc=$?
   if [ "$all_rc" -eq 3 ]; then
     echo "[$(date '+%F %T')] === 最终硬门未能执行 date=$D（duckdb 写锁占用 rc=3，完整性未知）==="
@@ -179,7 +198,7 @@ case "$PHASE" in
 
   finalize)
     # 定时 @20:40。守卫：18:30 sync 必须已通过 same-day-gate，否则不生成报告。
-    python3 scripts/check_daily_review_data.py "$D" --phase data
+    "$OPS_PYTHON" scripts/check_daily_review_data.py "$D" --phase data
     guard_rc=$?
     if [ "$guard_rc" -eq 3 ]; then
       # 闸门被写锁挡住没跑成 ≠ 数据不完整；如实播报，别引导人去补数

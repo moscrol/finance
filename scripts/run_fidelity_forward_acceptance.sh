@@ -1,6 +1,18 @@
 #!/bin/zsh
 set -euo pipefail
 
+_HERE="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "${_HERE}/ops_python.sh" ]]; then
+  source "${_HERE}/ops_python.sh"
+elif [[ -f "${_HERE}/lib/ops_python.sh" ]]; then
+  source "${_HERE}/lib/ops_python.sh"
+elif [[ -f /Users/a77/.local/bin/ops_python.sh ]]; then
+  source /Users/a77/.local/bin/ops_python.sh
+else
+  print -u2 -- "missing ops_python.sh"
+  exit 1
+fi
+
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_WS:-/Users/a77/finance-workspace-private}"
 SNAPSHOT_DIR="${PIT_SNAPSHOT_DIR:-/Users/a77/fidelity-replay/pit-snapshots}"
@@ -8,10 +20,18 @@ STATE_ROOT="${FIDELITY_RUNTIME_ROOT:-/Users/a77/fidelity-runtime}"
 DB="${MARKET_FEATURE_STORE_DB:-${DATA_ROOT}/db/market_feature_store.duckdb}"
 D="${1:-$(date +%F)}"
 
+_ops_exit() {
+  local rc=$?
+  ops_health_log "fidelity-forward-acceptance" "$rc"
+}
+trap _ops_exit EXIT
+
 test -f "${DB}"
+export FINANCE_CODE_ROOT="${CODE_ROOT}"
+export FINANCE_WS="${DATA_ROOT}"
 
 HAS_TRADE_DATE=$(
-  /usr/bin/python3 - "${DB}" "${D}" <<'PY'
+  "$OPS_PYTHON" - "${DB}" "${D}" <<'PY'
 import sys
 
 import duckdb
@@ -29,7 +49,7 @@ if [ "${HAS_TRADE_DATE}" != "1" ]; then
   exit 0
 fi
 
-exec /usr/bin/python3 "${CODE_ROOT}/scripts/fidelity_forward_acceptance.py" \
+"$OPS_PYTHON" "${CODE_ROOT}/scripts/fidelity_forward_acceptance.py" \
   record \
   --code-root "${CODE_ROOT}" \
   --data-root "${DATA_ROOT}" \

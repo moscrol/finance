@@ -1,6 +1,18 @@
 #!/bin/zsh
 set -euo pipefail
 
+_HERE="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "${_HERE}/ops_python.sh" ]]; then
+  source "${_HERE}/ops_python.sh"
+elif [[ -f "${_HERE}/lib/ops_python.sh" ]]; then
+  source "${_HERE}/lib/ops_python.sh"
+elif [[ -f /Users/a77/.local/bin/ops_python.sh ]]; then
+  source /Users/a77/.local/bin/ops_python.sh
+else
+  print -u2 -- "missing ops_python.sh"
+  exit 1
+fi
+
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_WS:-/Users/a77/finance-workspace-private}"
 KB_WIKI="${KNOWLEDGE_WIKI:-/Users/a77/knowledge-base-private/wiki}"
@@ -11,14 +23,23 @@ EXPORTS="${DATA_ROOT}/market_feature_store/exports"
 TMP_JSON="${EXPORTS}/.${D}-theme-candidates.fidelity.$$.json"
 TMP_MD="${EXPORTS}/.${D}-theme-candidates.fidelity.$$.md"
 
+_ops_exit() {
+  local rc=$?
+  rm -f "${TMP_JSON}" "${TMP_MD}"
+  ops_health_log "fidelity-daily-agent" "$rc"
+}
+trap _ops_exit EXIT
+
 test -d "${CODE_ROOT}/intelligence"
 test -d "${EXPORTS}"
 test -f "${DB}"
 
 export MARKET_FEATURE_STORE_DB="${DB}"
+export FINANCE_CODE_ROOT="${CODE_ROOT}"
+export FINANCE_WS="${DATA_ROOT}"
 
 HAS_TRADE_DATE=$(
-  /usr/bin/python3 - "${DB}" "${D}" <<'PY'
+  "$OPS_PYTHON" - "${DB}" "${D}" <<'PY'
 import sys
 
 import duckdb
@@ -38,21 +59,15 @@ fi
 
 cd "${CODE_ROOT}"
 
-cleanup() {
-  rm -f "${TMP_JSON}" "${TMP_MD}"
-}
-trap cleanup EXIT
-
-/usr/bin/python3 -m intelligence.cli theme \
+"$OPS_PYTHON" -m intelligence.cli theme \
   --date "${D}" \
   --market-triggered \
   --out-json "${TMP_JSON}" \
   --out-md "${TMP_MD}"
 
-/usr/bin/python3 - "${TMP_JSON}" <<'PY'
+"$OPS_PYTHON" - "${TMP_JSON}" "${D}" <<'PY'
 import json
 import sys
-from pathlib import Path
 
 from intelligence.services.fidelity_contract import contract_errors
 
@@ -62,7 +77,7 @@ if body.get("lineage_schema_version") != "claim-lineage-v1":
     raise SystemExit("theme candidates missing claim-lineage-v1")
 if body.get("candidate_count", 0) and not body.get("evidence_catalog"):
     raise SystemExit("theme candidates missing evidence catalog")
-if body.get("trade_date") != Path(sys.argv[1]).name[:10]:
+if body.get("trade_date") != sys.argv[2]:
     raise SystemExit("theme candidate trade_date mismatch")
 manifest_payload = {
     "lineage_schema_version": body.get("lineage_schema_version"),
@@ -92,7 +107,7 @@ mv "${TMP_JSON}" "${EXPORTS}/${D}-theme-candidates.json"
 mv "${TMP_MD}" "${EXPORTS}/${D}-theme-candidates.md"
 
 agent_rc=0
-/usr/bin/python3 -m intelligence.cli agent-daily \
+"$OPS_PYTHON" -m intelligence.cli agent-daily \
   --date "${D}" \
   --finance-root "${DATA_ROOT}" \
   --kb-wiki "${KB_WIKI}" \
@@ -112,7 +127,7 @@ else
   RECV="$(dirname "${KB_WIKI}")/scripts/kb_ingest_queue.py"
   QUEUE="${DATA_ROOT}/market_feature_store/exports/${D}-kb-ingest-queue.json"
   if [ -f "${QUEUE}" ] && [ -f "${RECV}" ]; then
-    python3 "${RECV}" receive "${QUEUE}" --wiki-root "${KB_WIKI}" \
+    "$OPS_PYTHON" "${RECV}" receive "${QUEUE}" --wiki-root "${KB_WIKI}" \
       || echo "kb ingest receive 失败（不阻断）"
   fi
 fi
