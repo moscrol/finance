@@ -116,26 +116,67 @@ followup spec §14 对 P0 compose 的要求：
 但**若新 compose 复用 `followups.py`，就会把 LLM 带进 `view()`**。
 这条差距应在 P0 实施计划里显式处理（拆成「纯 view + 可选 LLM 增强」两层，或另写）。
 
-## 7. 待判（本轨未完成，证据不足，**不得进入结论**）
+## 7. 原待判三项 —— **已于同日补完，三条全部落在①档**
 
-| 组件 | 已知 | 缺什么 |
-|---|---|---|
-| foresight → `ctx.jobs` / `ctx.commands` | `services/foresight.py` 有 `rank_questions`/`generate`/`render`＋`load/append_asked_memory`(IO)；**是生成器不是调度器** | 未验证它是否焊进 `ask` s03（用户表里点名「别焊进 ask s03」） |
-| skills 桥 → `ctx.skills` | `skill_tools.SKILL_REGISTRY` 只注册 `serenity-alpha` 一个，**且是刻意设计**（其余会破只读+无外呼红线） | 未验证注册表形状是否等价于 `ctx.skills` 的渐进披露 |
-| 芯片 UI → `ConversationNode` | `episode_projection.DurableEventProjection` / `status_projection` 已在 | 未验证只读投影边界 |
+### 7.1 foresight → `ctx.commands`（＋ `ctx.jobs`）：**挂得上，没焊死**
 
-**下一轮补这三条即可收口。** 本清单其余部分不依赖它们。
+用户表里点名「别焊进 ask s03」。**实测：`intelligence/services/ask.py` 里 `foresight` 命中数 = 0。**
+
+真实调用面只有一处：`intelligence/server.py` `from intelligence.services import foresight, interactions`，
+挂在独立路由 `GET /api/foresight` 后面（`_api_foresight()`）。
+
+排除两个假阳性：`keychain_credentials.py` 命中的是 keychain 服务名字符串
+`com.foresight.workbench.llm`；`followups.py` 命中的是 docstring 里的对比说明，**都不是调用**。
+
+判定：**挂得上，不用改 loop 图**——它已经是「领域计算 + 独立命令入口」，
+对应 `ctx.commands`；`load_asked_memory` / `append_asked_memory` 的 IO 走 `ctx.storage`。
+若日频主动发问要调度，那一半挂 `ctx.jobs`。**[实测]**
+
+### 7.2 skills 桥 → `ctx.skills`：**挂得上，且渐进披露已成立**
+
+`SkillSpec` 字段（解析器读出）：`name` `description` `script` `citation_source`
+`parser` `needs_vault` `limit`。`SKILL_REGISTRY` 注册 **1** 个（`serenity-alpha`）。
+
+这正是 dsh `ctx.skills` 的形状：**声明与执行体分离**——模型上下文里只进 `description`，
+`script` 到调用时才跑，正文不进窗口。**渐进披露在效果上已经成立。[实测]**
+
+⚠ **「只注册 1 个」不是形状缺陷，是刻意的领域约束**（其余 skill 会拉实时数据或写库，
+破 agent 只读 + 无外呼红线，见 CLAUDE.md）。不得据此立整改项——
+这正是 §0 纪律 2 的适用场合。
+
+### 7.3 芯片 UI / 投影 → `ConversationNode`：**挂得上，只读边界干净**
+
+对 `episode_projection.py` 与 `status_projection.py` 扫
+`llm_refine|provider|httpx|requests|subprocess|open(|.write(|execute(|commit()`：
+**两份都是 0 命中**。即两条投影是纯的，满足 `view()` 合同。**[实测]**
+
+> **与 §6 形成对照，值得记**：同样是「投影」，`episode_projection` / `status_projection`
+> 干净，而 `followups.py` 却 import 了 `llm_refine`。**说明本仓不是不会写纯投影，
+> 是追问这条线没按投影写。** 这让 §6 那条差距从「能力问题」降为「这一处没照做」，
+> 修起来是局部的。
 
 ## 8. 总结
 
 | 档 | 数量 | 是不是债 |
 |---|---|---|
-| ① 挂得上（已实测跨桥） | 7 项协议 + 12 工具 | 否 |
+| ① 挂得上 | 7 项协议（已实测跨桥）+ 12 工具 + **foresight / skills 桥 / 两条投影**（§7） | 否 |
 | ② 只能塞 `execute` | 3 类 | 否，可接受 |
 | ③-a **焊死了** | **1 条**（公开答案 3 个旁路出口） | **是，归 T-B** |
 | ③-b 领域真源 | 5 类 | 否，正确结果 |
-| 待判 | 3 项 | — |
+| 待判 | **0**（原 3 项已于 §7 补完） | — |
 
-**Arm B 降级的对价已付**：本轨确实找出了一样 A vs A′ 测不出来的东西——
-公开答案投影的 3 个旁路出口。跑分对照永远发现不了它，因为三条路径**都能出答案**，
-只是出的话不一样。
+**本轨已收口。** 全清单成立于 revision `31ee58ce6c45`；dsh pin 变更须重跑（spec §9.5 末条）。
+
+### 结论：焊点只有一处，其余形状是对的
+
+量完一圈，本仓**只有一个真焊点**——公开答案投影的 3 个旁路出口。其余组件要么挂得上，
+要么是「只能塞 `execute`」（可接受），要么是领域真源（挂不上才对）。
+
+这个结果本身值得记：**说明 §7.1–7.6 那批接缝确实落到位了**，
+不是「合了 PR 但形状没变」。第 8 步 A/A′ 该测的是这批接缝的**收益**，而不是它们**在不在**——
+在不在，本轨已经回答了。
+
+**Arm B 降级的对价已付。** 本轨找出的这一样，A vs A′ 永远测不出来：
+三条旁路**都能出答案**，只是出的话不一样——跑分只看分不看话。
+同理 §6 那条（`followups.py` 把 LLM 带进 `view()`）也是跑分看不见的。
+**两样都不是「谁跑得更好」的问题，是「形状对不对」的问题。**

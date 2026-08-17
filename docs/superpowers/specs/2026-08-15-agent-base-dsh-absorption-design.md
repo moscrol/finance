@@ -163,7 +163,8 @@ git -C "$DSH_INDEX" rev-parse HEAD
 
 - AgentRuntime / ResumableAgentRuntime Protocol；
 - Continuous Episode 的 plan、tool、observe、repair、finish 链路；
-- root budget、deadline、工具批次预算和 repair cycle；
+- root budget、deadline、工具批次预算和 repair cycle
+  （⚠ **2026-08-17 加限定：机制在，分配策略未验证**，见 §4.2 第 6 条）；
 - ToolSpec 的金融能力、成本、新鲜度、查询范围和 produces 声明；
 - EvidenceLedger、ProviderTrace、evidence hash 和 output binding；
 - Structural Verifier 与金融语义 Semantic Verifier；
@@ -182,6 +183,17 @@ git -C "$DSH_INDEX" rev-parse HEAD
 3. 工具能力声明、授权、Prompt 可见性和实际可达性仍需要单一 Scope；
 4. Episode 的关闭、取消、后台分支排空和重启恢复需要统一生命周期对象；
 5. Runtime、工具、Profile 和评测变量仍有一部分依赖环境变量和入口侧组合。
+6. **工具批次预算的分配策略未经验证**（2026-08-17 新增）。§4.1 把「工具批次预算」
+   列为已有能力，那说的是**机制**；2026-08-17 实测该机制会把工具饿死：
+   `run_20260817_094617_943922` 一批 4 个工具，`kb_search` `batch_grant_asked=30.0`
+   但 `stage_timeout_granted=11.955`，前三个工具跑完后它超时（`tool_timeout`），
+   第五个 `news_search` 根本没派发（`tool_budget_exhausted`），
+   `finalization reason=retrieval_deadline_closed`。而 `kb_rag` 热态实测只要 4.25s/5.10s
+   （冷 39.06s，但常驻 worker 已在启动期 prewarm，`prewarm_latency_ms=38516`，
+   冷启动不在请求路径里）。**机制存在 ≠ 分配策略正确**；
+   缺的是「按剩余预算选档位」这一类策略，形状挂 `tools/pre-execute`。
+   立案见 `docs/prediction-ledger.md` 的 `R-20260817-02`，交接见
+   `docs/handoffs/2026-08-17-dispatch-d-retrieval-budget.md`。
 
 这些属于通用底座的可观测性和装配问题，不能通过放宽金融验证门来解决。
 
