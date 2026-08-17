@@ -20,13 +20,18 @@ from intelligence.services.llm_refine import (
 
 
 class DataRepoRootTests(unittest.TestCase):
-    def test_default_exports_dir_uses_workbench_repo_root(self) -> None:
+    def test_default_exports_dir_prefers_finance_ws_over_workbench_repo_root(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
+            code = Path(tmp) / "code-snapshot"
+            data = Path(tmp) / "private-data"
             env = {
                 **os.environ,
-                "WORKBENCH_REPO_ROOT": tmp,
+                "WORKBENCH_REPO_ROOT": str(code),
+                "FINANCE_WS": str(data),
             }
+            env.pop("FINANCE_ROOT", None)
+            env.pop("MARKET_FEATURE_STORE_DB", None)
             completed = subprocess.run(
                 [
                     sys.executable,
@@ -39,8 +44,34 @@ class DataRepoRootTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-            expected = Path(tmp).resolve() / "market_feature_store" / "exports"
+            expected = data / "market_feature_store" / "exports"
             self.assertEqual(completed.stdout.strip(), str(expected))
+
+    def test_default_exports_dir_ignores_workbench_repo_root_when_alone(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "WORKBENCH_REPO_ROOT": tmp,
+            }
+            env.pop("FINANCE_WS", None)
+            env.pop("FINANCE_ROOT", None)
+            env.pop("MARKET_FEATURE_STORE_DB", None)
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from intelligence.services.ask import DEFAULT_EXPORTS_DIR; print(DEFAULT_EXPORTS_DIR)",
+                ],
+                cwd=repo_root,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            expected = repo_root / "market_feature_store" / "exports"
+            self.assertEqual(completed.stdout.strip(), str(expected))
+            self.assertNotIn(str(Path(tmp).resolve()), completed.stdout)
 
 
 def _provider() -> LLMProvider:
