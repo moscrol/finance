@@ -163,6 +163,92 @@ class AnswerOrchestratorTests(unittest.TestCase):
             any("缺少 claim 绑定" in warning for warning in result.warnings)
         )
 
+    def _revision_run(self, corrected_issues):
+        """跑一遍「初稿只有绑定类 warning」的合成，返回 result。
+
+        corrected_issues 决定修订版的成色，用来分别压「改好了」和「没改好」。
+        """
+
+        prepared = self._prepared_answer(public_deltas=[])
+        warn = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="warning",
+            message="LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("未绑定初稿")
+            return SynthesisResult(
+                answer="未绑定初稿",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer="修订稿",
+                        provider="fixture",
+                        model="fixture-model",
+                    ),
+                    "",
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                side_effect=[(warn,), corrected_issues],
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                side_effect=lambda answer, spec: answer,
+            ),
+        ):
+            return synthesize_prepared_answer(prepared)
+
+    def test_binding_warning_triggers_a_revision_round(self) -> None:
+        """绑定类 warning 也要让模型改一轮——格式不对不该「不扔也不改」。"""
+
+        result = self._revision_run(corrected_issues=())
+
+        self.assertEqual(result.synthesis, "修订稿")
+        self.assertEqual(
+            result.llm_stream_telemetry["claim_binding_revision_trigger"],
+            "warning",
+        )
+        self.assertIs(
+            result.llm_stream_telemetry["claim_binding_revision_accepted"],
+            True,
+        )
+
+    def test_revision_that_did_not_improve_is_discarded(self) -> None:
+        """对偶：修订版没把绑定问题改少就不许顶掉初稿。
+
+        warning 触发这轮时初稿本来就能发，采纳门槛必须是「真的变好」，
+        否则一次没改动的重写会白白替换掉能发的稿子。
+        """
+
+        still_unbound = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="warning",
+            message="LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
+        )
+        result = self._revision_run(corrected_issues=(still_unbound,))
+
+        self.assertEqual(result.synthesis, "未绑定初稿")
+        self.assertIs(
+            result.llm_stream_telemetry["claim_binding_revision_accepted"],
+            False,
+        )
+
     def test_presentation_emptied_answer_is_rejected_not_published(self) -> None:
         """展示层把整篇抠空时必须退稿，不能发空白答卷还盖 validated 章。
 

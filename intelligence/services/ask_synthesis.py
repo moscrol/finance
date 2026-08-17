@@ -954,6 +954,20 @@ def _record_synthesis_phase(
     )
 
 
+# 能靠「重写一遍、照 registry 抄对」修好的码。注意**不含**
+# llm_fact_only_superseded_evidence——证据本身已被取代，让模型重绑修不好它，
+# 反而可能逼它去攀附别的证据；那条走展示层降桶标注。
+_BINDING_ISSUE_CODES = frozenset(
+    {
+        "llm_missing_claim_binding",
+        "llm_invalid_claim_id",
+        "llm_invalid_evidence_atom_id",
+        "llm_claim_type_mismatch",
+        "llm_fact_without_evidence_atom",
+    }
+)
+
+
 def _nonblank_line_count(text: str) -> int:
     return sum(1 for line in text.splitlines() if line.strip())
 
@@ -1203,13 +1217,29 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     blocking_issues = [
         issue for issue in gate_issues if issue.severity == "error"
     ]
+    binding_warnings = [
+        issue
+        for issue in gate_issues
+        if issue.severity != "error" and issue.code in _BINDING_ISSUE_CODES
+    ]
+    # 绑定类问题降为 warning 之后，这一轮修订原本再也不触发了——「不扔也不改，
+    # 直接带病放行」。格式不对不代表内容错，正确处置是把问题喂回去让模型改一轮
+    # （ai-agent-book 第 5 章：把错误变成模型的输入，喂回的错误越结构化，自我
+    # 纠正成功率越高），而不是二选一地扔或放。
+    #
     # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
     # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
+    revision_trigger = "error" if blocking_issues else (
+        "warning" if binding_warnings else None
+    )
     if (
-        blocking_issues
+        revision_trigger is not None
         and deadline.remaining() > 0
         and not result.prepared_synthesis_is_market_review
     ):
+        result.llm_stream_telemetry["claim_binding_revision_trigger"] = (
+            revision_trigger
+        )
         correction_started = time.monotonic()
         correction, correction_reason = llm_refine.synthesize_messages(
             [
@@ -1217,7 +1247,10 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 {
                     "role": "user",
                     "content": llm_refine.claim_binding_revision_user_content(
-                        [issue.message for issue in blocking_issues],
+                        [
+                            issue.message
+                            for issue in (blocking_issues or binding_warnings)
+                        ],
                         answer_model.structured_claim_registry_block(
                             result.answer_spec
                         ),
@@ -1246,14 +1279,32 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 for issue in corrected_issues
                 if issue.severity == "error"
             ]
-            if not corrected_blocking:
+            # warning 触发的这轮没有「原稿反正要退」这个保底，所以采纳门槛要更高：
+            # 必须真的**变好**。否则一次没改动甚至改差的重写会白白顶掉能发的初稿。
+            corrected_binding_count = sum(
+                1
+                for issue in corrected_issues
+                if issue.code in _BINDING_ISSUE_CODES
+            )
+            improved = corrected_binding_count < len(binding_warnings)
+            accept = not corrected_blocking and (
+                revision_trigger == "error" or improved
+            )
+            result.llm_stream_telemetry["claim_binding_revision_accepted"] = accept
+            if accept:
                 proposed_synthesis = corrected_synthesis
                 accepted_composition = correction
                 blocking_issues = []
                 gate_issues = corrected_issues
-            else:
+            elif corrected_blocking and revision_trigger == "error":
                 blocking_issues = corrected_blocking
                 gate_issues = corrected_issues
+            elif corrected_blocking:
+                # warning 触发的修订把稿子改出了 error：丢掉修订版、保留初稿，
+                # 不能让「本来能发」因为一次没要求的重写变成退稿。
+                result.warnings.append(
+                    "claim 绑定修订版反而触发了硬门禁，已保留初稿。"
+                )
     structured_claims, unbound_claim_lines = (
         answer_model.parse_structured_claims(proposed_synthesis)
     )
