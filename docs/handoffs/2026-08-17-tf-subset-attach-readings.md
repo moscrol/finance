@@ -58,7 +58,16 @@ durable `outcome.events`：
 | 墙钟 | 每臂 `latency_seconds` min / 中位 / max；`median(臂1)/median(臂0)` | 未采集。n=1 烟测也未跑，没有墙钟可写 |
 | 修复 | 进入 `repair_goal` 的次数；其中末条 finish ∈ {`repair_model_finish`,`repair_model_stop`,`model_finish`} | 未采集。不加跑 |
 
-repair 仍禁止用臂级 `stop_reason`（诚实闸会改写成 `numeric_lineage_gap`）。Trace 对账仍要求**有事件**；空事件是 `None`，不是通过对账。本页没有 10 个 json，不调用 resolver，也不编数字。
+repair 仍禁止用臂级 `stop_reason`（诚实闸会改写成 `numeric_lineage_gap`）。
+
+> **更正（2026-08-17 晚，写于 #144 复核）**：括号里那个理由**即将失效**。
+> #144 的 `2ed2fbb9` 删掉了 `_run_research_arm` 里那段把臂级 `stop_reason` 改写成
+> `numeric_lineage_gap` 的代码（缺口仍记在 `issues`）。**#144 合入 main 之后**，
+> 这一个污染源就没了。
+>
+> 但别据此直接把 repair 行改回读 `stop_reason`：本页写这条禁令时只点名了这一个
+> 污染源，**没有穷举过别的**。要恢复，先自己搜一遍还有谁在改写臂级 `stop_reason`，
+> 并说明结论对哪个 revision 成立。在 #144 合入前，本页正文的写法仍然成立。Trace 对账仍要求**有事件**；空事件是 `None`，不是通过对账。本页没有 10 个 json，不调用 resolver，也不编数字。
 
 ## 3. 判定
 
