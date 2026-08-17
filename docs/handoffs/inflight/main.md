@@ -2,6 +2,7 @@
 
 > 指针（2026-08-13）：复盘会资产线**代码已收口**，完工快照 `docs/handoffs/2026-08-13-fupanhui-public-assets-and-consume.md`。dragon 双表主库回补已完成（summary 390/390、seats 近 60 日 44932 行），两表已进 `GAP_TABLES` 断档门禁。
 
+更新：2026-08-17 09:42 CST · **8792 已切到 `31ee58ce`**（#124 结转；R-22/R-23 已在祖先）。同题 live 未同形，R-17-01/22/23 仍 pending。交接 `docs/handoffs/2026-08-17-r22-r23-carry-draft.md`。文档 tip `45566d65` 不追切。下方「当前状态」段过期，以 `/api/health` + 该交接为准。
 更新：2026-08-16 18:36 CST · **8792 已切到 `6cd0756e`**（闸 2 处置 #93：judge 三元组埋点 + standard judge 窗地板 50s；同窗完成 #88 目录卫生，目录名=SHA `finance-workspace-6cd0756e4a61`；回滚锚 `finance-workspace-773b3d7e73d7` 保留）。GATES `budget_regression_landed=true`（眼 agent 18:36，引用 #93 + R-06 交接/收据）。交接 `docs/handoffs/2026-08-16-judge-transient-r06.md`。收据 `docs/verification/2026-08-16-judge-transient-r06.md`。
 更新：2026-08-16 14:00 CST · **8792 已切到 `773b3d7e`**（长尾对照窗现状臂；就地切树，目录名未改）。交接 `docs/handoffs/2026-08-16-deploy-window-773b3d7e.md`。收据 `docs/verification/2026-08-16-8792-773b3d7e-inplace-cut.md`。
 更新：2026-08-16 01:00 CST · **8792 已切到 `437cd5e9`**（R-24 部署窗；当时 main tip）。完工快照 `docs/handoffs/2026-08-16-r24-deploy-window.md`。旧快照 `fdb23114` 保留可回滚。
