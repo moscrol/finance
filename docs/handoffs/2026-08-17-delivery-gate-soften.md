@@ -19,6 +19,7 @@
 | claim 绑定（`llm_missing_claim_binding` 等 6 个码） | `warning`，合成链不退稿；无效 ID 行展示层丢掉，无 marker 句子留下 |
 | `llm_engineering_term_leak` / `grounded_composer_engineering_term_leak` | `warning`，展示层抠含漏词的行 |
 | 数字血缘（benchmark `_numeric_lineage_projection`） | 只删 `material_numeric` 且无 `source_ids` 的句；删光才用缺口稿；**禁止**把臂级 `stop_reason` 改成 `numeric_lineage_gap`（仍写 `issues`） |
+| **展示层抠空**（复核时补，`dd494133`） | 抠成空串 → 退稿，不发空白稿。旧合成链走 `quality_gate_rejected` + `reason_code=presentation_emptied`；WARN 回灌修订抠空则保留初稿 |
 | `llm_added_number` 等仍是 `error` 的 | 不动，仍整答退稿 |
 | 语义闸、休市/退役表罐头、结构 verifier、层级审计、未读字段 | 不动 |
 | 市场复盘 `grounded_required_fallback` | 不动 |
@@ -43,6 +44,26 @@
 - `~/.finance-runtime/delivery-gate-soften-20260817/live-ask-retrieval.json`
 
 n=1，不读快慢。带检索那发 wiki-rag 有一条「约 2.2s 跳过」警告，W 引用仍出现。
+
+### 2.1 复核补充（2026-08-17，`dd494133`）
+
+两发 live 的 `structured_claim_count` 都是 **0**——模型没出 marker。所以 live 只压到
+三项放松里最轻的一项（未绑定散文照发）；**无效 claim ID 抠行、术语抠行 live 没碰过**，
+那两项只有单测覆盖。别把「两发都没退稿」读成「三个闸都验过了」。
+
+复核发现并已修：展示层抠空能发空白答卷（详见 spec §1.4）。三条守卫都做了变异测试，
+抽掉即红：
+
+| 变异 | 变红的测试 |
+|---|---|
+| `ask_synthesis` 抠空守卫改 `if False` | `test_presentation_emptied_answer_is_rejected_not_published` |
+| `ask.py` 抠空守卫改 `if False` | `test_emptied_revision_keeps_the_draft` |
+| `ask.py` 抠空守卫改 `if True`（假门禁形状） | `test_nonempty_revision_replaces_the_draft` |
+
+收据：`intelligence/tests` 全量 **4766 passed / 11 skipped / 0 failed**
+（`~/.finance-runtime/test-receipts/20260817T072959Z-dd494133.json`，clean tree）。
+另注：交接页原写的「206 绿」那份收据是 `dirty: True @ dd9f10b9`（测的是未提交工作树），
+已在 clean `9ffae56f` 补跑同一目标集 206 绿（`20260817T071658Z-9ffae56f.json`）。
 
 ## 3. 合进去会怎样
 
