@@ -954,6 +954,10 @@ def _record_synthesis_phase(
     )
 
 
+def _nonblank_line_count(text: str) -> int:
+    return sum(1 for line in text.splitlines() if line.strip())
+
+
 def _quality_gate_diagnostic_reason(
     issues: list[answer_model.QualityIssue],
 ) -> tuple[str, str]:
@@ -1246,8 +1250,10 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 proposed_synthesis = corrected_synthesis
                 accepted_composition = correction
                 blocking_issues = []
+                gate_issues = corrected_issues
             else:
                 blocking_issues = corrected_blocking
+                gate_issues = corrected_issues
     structured_claims, unbound_claim_lines = (
         answer_model.parse_structured_claims(proposed_synthesis)
     )
@@ -1286,10 +1292,37 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             detail=diagnostic_detail,
         )
         return result
+    result.warnings.extend(
+        f"LLM 输出未过 {issue.code}：{issue.message}"
+        for issue in gate_issues
+        if issue.severity != "error"
+    )
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
         result.answer_spec,
     )
+    # 绑定/术语闸降为 warning 之后，退稿的决定权移交给了展示层——它会丢掉无效
+    # claim ID 行和含内部术语的行。「marker 全无效」或「唯一那段含内部词」的答卷
+    # 会被抠成空串：那不是宽容，是发一张盖着 validated 章的空白答卷，比整答退稿
+    # 更差（退稿至少还落确定性答卷）。抠空即退稿，走既有 quality_gate 那条出口。
+    presented_line_count = _nonblank_line_count(presented_synthesis)
+    result.llm_stream_telemetry["presented_lines_dropped"] = max(
+        0,
+        _nonblank_line_count(proposed_synthesis) - presented_line_count,
+    )
+    if presented_line_count == 0:
+        result.warnings.append(
+            "LLM 输出经展示层剔除后为空（无效 claim ID 或内部术语占满全文），已退稿。"
+        )
+        result.llm_fallback_reason = "quality_gate_rejected"
+        result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
+        _set_synthesis_diagnostic(
+            result,
+            state="rejected",
+            reason_code="presentation_emptied",
+            detail="presentation layer dropped every line of the synthesis candidate",
+        )
+        return result
     # sections 遥测：降级/修订从“静默”变“可观测”。kept/dropped 对比合成稿与
     # 展示稿的小节集合；revised 统计修订轮改动过正文的小节数。
     proposed_titles = _section_titles(proposed_synthesis)

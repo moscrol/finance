@@ -1116,3 +1116,93 @@ class StyleLooseningTests(unittest.TestCase):
         self.assertEqual(bodies["结论"], "正文一")
         self.assertEqual(bodies["证据链"], "正文二")
         self.assertEqual(bodies["空节"], "")
+
+
+class ReviseSynthesisOnWarnTests(unittest.TestCase):
+    """WARN 回灌修订：修订版覆盖初稿的前提是它展示后还剩东西。
+
+    绑定/术语闸是 warning，拦不住展示层把修订版抠成空串。这里两条测试互为
+    对偶：删掉守卫则「空则保留初稿」变红，守卫写成无条件 return 则「非空才
+    覆盖」变红。
+    """
+
+    def _result_and_options(self):
+        from intelligence.services import output_review
+
+        result = AskResult(
+            query="测试问题",
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        result.synthesis = "初稿全文"
+        result.synthesis_messages = [
+            {"role": "user", "content": "evidence"},
+            {"role": "assistant", "content": "初稿全文"},
+        ]
+        result.answer_spec = mock.Mock()
+        result.review_gate = output_review.OutputReviewGate(
+            checks=[
+                output_review.ReviewCheck(
+                    name="弱证据硬写",
+                    status=output_review.WARN,
+                    note="无 L3 硬证据却出现确定性措辞",
+                )
+            ]
+        )
+        options = AskOptions(query="测试问题", compose=True)
+        return result, options
+
+    def _run(self, presented: str):
+        from intelligence.services.ask import _revise_synthesis_on_warn
+
+        result, options = self._result_and_options()
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer="修订稿",
+                        provider="fixture",
+                        model="fixture-model",
+                    ),
+                    "",
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(
+                    mock.Mock(
+                        code="llm_invalid_claim_id",
+                        severity="warning",
+                        message="无效 claim ID",
+                    ),
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value=presented,
+            ),
+        ):
+            _revise_synthesis_on_warn(result, options)
+        return result
+
+    def test_emptied_revision_keeps_the_draft(self) -> None:
+        result = self._run("  \n\n ")
+
+        self.assertEqual(result.synthesis, "初稿全文")
+        self.assertEqual(len(result.synthesis_messages), 2)
+        self.assertTrue(
+            any("保留初稿" in warning for warning in result.warnings)
+        )
+
+    def test_nonempty_revision_replaces_the_draft(self) -> None:
+        result = self._run("修订后的结论。")
+
+        self.assertEqual(result.synthesis, "修订后的结论。")
+        self.assertEqual(len(result.synthesis_messages), 4)
+        self.assertTrue(
+            any("已回灌定向修订" in warning for warning in result.warnings)
+        )

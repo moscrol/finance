@@ -961,13 +961,30 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("evidence_count", rendered)
 
     def test_llm_gate_rejects_unbound_factual_content(self) -> None:
-        issues = validate_llm_answer(
-            "新增科技未来订单将达到 20 亿元。",
-            self._answer(),
-        )
+        text = "新增科技未来订单将达到 20 亿元。"
+        issues = validate_llm_answer(text, self._answer())
         codes = {issue.code for issue in issues}
 
         self.assertEqual(codes, {"llm_missing_claim_binding"})
+        self.assertTrue(all(issue.severity == "warning" for issue in issues))
+        self.assertIn("20 亿元", present_llm_answer(text, self._answer()))
+
+    def test_engineering_term_leak_is_warning_and_line_is_stripped(self) -> None:
+        spec = self._answer()
+        text = "盘面转强。\nDuckDB 显示主线在算力。\n继续跟踪公告。"
+        issues = validate_llm_answer(text, spec)
+
+        self.assertTrue(
+            any(
+                issue.code == "llm_engineering_term_leak"
+                and issue.severity == "warning"
+                for issue in issues
+            )
+        )
+        presented = present_llm_answer(text, spec)
+        self.assertNotIn("DuckDB", presented)
+        self.assertIn("盘面转强", presented)
+        self.assertIn("继续跟踪公告", presented)
 
     def test_llm_gate_never_repairs_by_deleting_sentences(self) -> None:
         answer = (
@@ -983,7 +1000,13 @@ class PresenterAndLLMGateTests(unittest.TestCase):
 
         repaired = repair_llm_answer(answer, self._answer())
 
-        self.assertIsNone(repaired)
+        self.assertEqual(repaired, answer)
+        self.assertTrue(
+            all(
+                issue.severity == "warning"
+                for issue in validate_llm_answer(answer, self._answer())
+            )
+        )
 
     def test_llm_gate_validates_claim_and_atom_ids_then_renders_registry_claim(
         self,
@@ -1481,11 +1504,18 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             "evidence_atom_ids=atom-does-not-exist; claim_type=fact -->"
         )
 
-        codes = {
-            issue.code for issue in validate_llm_answer(answer, spec)
-        }
+        issues = validate_llm_answer(answer, spec)
+        codes = {issue.code for issue in issues}
 
         self.assertIn("llm_invalid_claim_id", codes)
+        self.assertTrue(
+            all(
+                issue.severity == "warning"
+                for issue in issues
+                if issue.code == "llm_invalid_claim_id"
+            )
+        )
+        self.assertNotIn("任意内容", present_llm_answer(answer, spec))
 
     def test_llm_gate_rejects_invalid_evidence_atom_id(self) -> None:
         spec = self._answer()
@@ -1496,11 +1526,17 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             "evidence_atom_ids=atom-does-not-exist; claim_type=fact -->"
         )
 
-        codes = {
-            issue.code for issue in validate_llm_answer(answer, spec)
-        }
+        issues = validate_llm_answer(answer, spec)
+        codes = {issue.code for issue in issues}
 
         self.assertIn("llm_invalid_evidence_atom_id", codes)
+        self.assertTrue(
+            all(
+                issue.severity == "warning"
+                for issue in issues
+                if issue.code == "llm_invalid_evidence_atom_id"
+            )
+        )
 
     def test_llm_gate_accepts_chinese_evidence_atom_delimiter(self) -> None:
         spec = self._answer()
