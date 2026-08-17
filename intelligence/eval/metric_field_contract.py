@@ -123,12 +123,53 @@ def _trace_reconciled(arm: dict) -> bool | None:
     return kinds.count("tool_request") == kinds.count("tool_result") + kinds.count("tool_error")
 
 
-def _tool_failed(arm: dict) -> bool | None:
-    """只能判「有没有 tool_error」；**denied / invalid 分不开**，见 status=unavailable 那条。"""
+# 工具错误码——invalid / denied / failed 三类**本来就分得开**，
+# 2026-08-17 初版把它记成「分不开」，是只看了事件 kind（都叫 tool_error）
+# 没看事件里的 error 码。这是当天第三次同形误判，前两次是「常驻 worker 不存在」
+# 与「evidence-bound 算不出来」。**判「有没有 X」要看到值那一层，不是类型那一层。**
+TOOL_ERROR_INVALID = frozenset({"invalid_arguments", "duplicate_query", "duplicate_call_id"})
+TOOL_ERROR_DENIED = frozenset({"unknown_or_unauthorized_tool"})
+
+
+def _tool_error_codes(arm: dict) -> tuple[str, ...] | None:
+    """该臂出现过的 tool 错误码。空事件返 None，无错误返空元组。
+
+    分类：``TOOL_ERROR_INVALID`` / ``TOOL_ERROR_DENIED`` / 其余算 failed
+    （``tool_timeout`` / ``tool_budget_exhausted`` / ``cancelled`` …）。
+    """
     ev = _events(arm)
     if not ev:
         return None
-    return any((e.get("kind") or e.get("event")) == "tool_error" for e in ev)
+    out: list[str] = []
+    for e in ev:
+        if (e.get("kind") or e.get("event")) != "tool_error":
+            continue
+        payload = e.get("payload") or e
+        code = payload.get("error")
+        if code:
+            out.append(str(code))
+    return tuple(out)
+
+
+def _stage_durations(arm: dict) -> dict[str, float] | None:
+    """分阶段耗时：事件带 ``at``，工具层另有 ``queued_ms`` / ``elapsed_ms``。
+
+    2026-08-17 初版记成「没有字段，只有总 latency」——错。
+    ``episode_tool_batch`` 的注释早写明「排队时长与执行时长**分开**记」。
+    """
+    ev = _events(arm)
+    if not ev:
+        return None
+    queued = 0.0
+    elapsed = 0.0
+    for e in ev:
+        payload = e.get("payload") or e
+        if isinstance(payload.get("queued_ms"), (int, float)):
+            queued += float(payload["queued_ms"])
+        if isinstance(payload.get("elapsed_ms"), (int, float)):
+            elapsed += float(payload["elapsed_ms"])
+    stamped = sum(1 for e in ev if (e.get("payload") or e).get("at"))
+    return {"queued_ms": queued, "elapsed_ms": elapsed, "events_with_at": float(stamped)}
 
 
 CONTRACT: tuple[MetricField, ...] = (
@@ -162,9 +203,11 @@ CONTRACT: tuple[MetricField, ...] = (
     # ── Runtime 质量 ──
     MetricField(
         "tool invalid/denied/failed rate", "Runtime 质量", "derived_from_events",
-        "events 里 tool_error 计数", _tool_failed,
-        note="⚠ 只有 failed；**denied / invalid 事件里无细分**，要分开须补记录。",
-        blocks_window=True,
+        "events[tool_error].payload.error 的错误码", _tool_error_codes,
+        note="三类分得开：invalid=invalid_arguments/duplicate_*；denied="
+             "unknown_or_unauthorized_tool；其余算 failed。"
+             "⚠ #68 那 45 条只出现过 tool_budget_exhausted(6)/tool_timeout(2)——"
+             "**是那批样本没触发，不是分不开**。",
     ),
     MetricField(
         "first model turn timeout rate", "Runtime 质量", "derived_from_events",
@@ -182,11 +225,12 @@ CONTRACT: tuple[MetricField, ...] = (
         note="45/45 完整，连续量，主检验用。",
     ),
     MetricField(
-        "input/output token 和每个阶段耗时", "Runtime 质量", "top_level",
-        "arm['input_tokens'] / ['output_tokens']",
-        lambda a: a.get("input_tokens"),
-        note="⚠ token 只有 29/45；**每个阶段耗时没有字段**，只有总 latency。",
-        blocks_window=True,
+        "input/output token 和每个阶段耗时", "Runtime 质量", "derived_from_events",
+        "token=arm['input_tokens']；阶段耗时=events 的 at / queued_ms / elapsed_ms",
+        _stage_durations,
+        note="阶段耗时**可推**（272/307 事件带 at，queued_ms 57、elapsed_ms 55，"
+             "排队与执行本就分开记）。⚠ 真正的缺口只有 token：`input_tokens` 仅 29/45，"
+             "缺失机制需说明后才可入功效表。",
     ),
     MetricField(
         "Arm B 的跨语言桥接耗时，单独记录，不并入 Runtime 耗时", "Runtime 质量", "unavailable",
@@ -202,8 +246,10 @@ CONTRACT: tuple[MetricField, ...] = (
     MetricField(
         "Trace 与事件对账完整率", "Runtime 质量", "derived_from_events",
         "tool_request 条数 == tool_result + tool_error", _trace_reconciled,
-        note="⚠ 空事件返 None；按 call_id 配对是另一件事（#68 上 19/45 对不齐）。",
-        blocks_window=True,
+        note="⚠ 空事件返 None。按 call_id 逐一配对是另一件事，#68 上 19/45 对不齐——"
+             "但**工具已存在**：`intelligence/eval/normalize_harness_trace.py` 的 "
+             "`normalize_records` / `compare_sequences`（含 correlation_id / source_event_id）。"
+             "先用它复核那 19 条，再判要不要补记录。",
     ),
     # ── 工程成本（人工统计，不从产物抽）──
     MetricField("Adapter 代码量", "工程成本", "unavailable", "人工统计", None,
