@@ -36,7 +36,10 @@ WB_RUNS = (
 HEADING = "【长尾回答骨架】"
 MARKERS = ("据此判断", "这说明", "这意味着")
 HONEST_MARKERS = ("未取得", "现有证据不足，暂不能可靠回答", "暂不能可靠回答")
-JUDGE_OUTAGE_PREFIX = "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成"
+JUDGE_OUTAGE_PREFIXES = (
+    "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成",
+    "本次未完成独立复核（复核服务超时）",
+)
 CLEAN_AFTER = "run_20260816_131941_597875"
 POLLUTED_PROGRESS_RUN_IDS = (
     "run_20260816_125145_832107",
@@ -136,7 +139,7 @@ def _honest_gap(text: str) -> bool:
 
 
 def _judge_outage_candidate(text: str) -> bool:
-    return JUDGE_OUTAGE_PREFIX in text
+    return any(prefix in text for prefix in JUDGE_OUTAGE_PREFIXES)
 
 
 def _empty_shell(text: str, honest: bool, delivered: bool, outage: bool) -> bool:

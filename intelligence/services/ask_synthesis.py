@@ -23,6 +23,12 @@ from intelligence.services import (
     scenario_tree,
     track_contract,
 )
+from intelligence.services.session_projection import (
+    CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    TerminalFacts,
+    opening_for,
+    view,
+)
 from intelligence.services.answer_quality import (
     AnswerQualityContext,
 )
@@ -1795,9 +1801,7 @@ _INSUFFICIENT_BUDGET_REASON = "本轮剩余预算不足，未发起该段合成"
 # 2026-08-02 那批 23 轮里 15 轮撞的就是它，放行等于把「多数答案没过语义审」写成常态。
 # 代价是可见降级率上升；这是把静默的未核验答案换成显式降级，不是新增故障。
 
-_JUDGE_OUTAGE_NOTICE = (
-    "（本条已通过证据绑定校验，但语义复核因服务瞬时问题未完成。）"
-)
+_JUDGE_OUTAGE_NOTICE = opening_for(CAUSE_TRANSIENT_VERIFIER_OUTAGE)
 
 
 def _judge_outage_release(
@@ -1821,7 +1825,12 @@ def _judge_outage_release(
     )
     if not _strip_empty_grounded_sections(presented).strip():
         return None
-    return f"{_JUDGE_OUTAGE_NOTICE}\n\n{presented}"
+    return view(
+        TerminalFacts(
+            cause=CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+            public=presented,
+        )
+    )
 
 
 def _active_perspective_prompt(options: "AskOptions") -> str:

@@ -2332,7 +2332,7 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is False
-    assert "候选草稿" in result.public_answer
+    assert "本次未完成独立复核（复核服务超时）" in result.public_answer
 
 
 def test_independent_judge_timeout_records_asked_triplet_and_exc_class(

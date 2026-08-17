@@ -27,7 +27,18 @@ from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
 from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.degraded_fallback import gap_opening, gap_transparency
+from intelligence.services.degraded_fallback import (
+    gap_transparency,
+    is_model_service_unavailable,
+)
+from intelligence.services.session_projection import (
+    CAUSE_EVIDENCE_GAP,
+    CAUSE_MODEL_UNAVAILABLE,
+    CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFIED,
+    TerminalFacts,
+    view,
+)
 from intelligence.services.agent_runtime import (
     AgentModelClient,
     AgentOutcome,
@@ -1175,14 +1186,16 @@ class SemanticEpisodeVerifier:
         )
         if not public:
             return None
-        notice = (
-            "结构化证据绑定已通过边界校验，但语义核验因瞬时服务问题未完成；"
-            "以下仅为候选草稿，不视为最终核验结论："
-        )
         return SemanticEpisodeOutcome(
             verified=structural,
             status="partial",
-            public_answer=f"{notice}\n\n{public}",
+            public_answer=view(
+                TerminalFacts(
+                    cause=CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+                    question=frame.raw_question,
+                    public=public,
+                )
+            ),
             judge_status="unavailable",
             issues=issues,
             correlated_judge=correlated_judge,
@@ -1795,7 +1808,9 @@ class SemanticEpisodeVerifier:
                     if verified.verified_status == "completed"
                     else "partial"
                 ),
-                public_answer=public,
+                public_answer=view(
+                    TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                ),
                 judge_status=judge_status,
                 issues=judge_issues,
                 correlated_judge=correlated_judge,
@@ -1857,7 +1872,14 @@ class SemanticEpisodeVerifier:
         outcome = SemanticEpisodeOutcome(
             verified=verified,
             status="partial",
-            public_answer=f"{public}\n{gap}",
+            public_answer=view(
+                TerminalFacts(
+                    cause=CAUSE_EVIDENCE_GAP,
+                    question=frame.raw_question,
+                    public=public,
+                    gap_body=gap,
+                )
+            ),
             judge_status="repaired",
             issues=judge_issues,
             correlated_judge=correlated_judge,
@@ -1883,10 +1905,14 @@ class SemanticEpisodeVerifier:
 
         question = frame.raw_question.strip() or "当前问题"
         # 首句成因不跟 ASK_DEGRADED_FALLBACK：模型没服务成时不能写成「证据不足」。
-        base = gap_opening(question, verified)
+        cause = (
+            CAUSE_MODEL_UNAVAILABLE
+            if is_model_service_unavailable(verified)
+            else CAUSE_EVIDENCE_GAP
+        )
         contract = verified.contract
         if contract is None:
-            return base
+            return view(TerminalFacts(cause=cause, question=question))
         status_by_id = {
             item.output_id: item.status for item in verified.completion.outputs
         }
@@ -1904,7 +1930,7 @@ class SemanticEpisodeVerifier:
                 _gap_label(item) for item in targets if _gap_label(item)
             )
         )
-        parts = [base]
+        parts: list[str] = []
         if labels:
             parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         bound_counts = {
@@ -1944,12 +1970,20 @@ class SemanticEpisodeVerifier:
         transparency = gap_transparency(verified)
         if transparency:
             parts.append(transparency)
-        return "".join(parts)
+        return view(
+            TerminalFacts(
+                cause=cause,
+                question=question,
+                gap_body="".join(parts),
+            )
+        )
 
     @staticmethod
     def _generic_gap_answer(frame: TaskFrame) -> str:
         question = frame.raw_question.strip() or "当前问题"
-        return f"关于“{question}”，现有证据不足，暂不能可靠回答。"
+        return view(
+            TerminalFacts(cause=CAUSE_EVIDENCE_GAP, question=question)
+        )
 
 
 def _gap_label(item) -> str:
