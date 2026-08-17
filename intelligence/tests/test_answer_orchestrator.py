@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import unittest
 import tempfile
@@ -163,7 +164,42 @@ class AnswerOrchestratorTests(unittest.TestCase):
             any("缺少 claim 绑定" in warning for warning in result.warnings)
         )
 
-    def _revision_run(self, corrected_issues):
+    def test_revision_call_carries_the_draft_back_to_the_model(self) -> None:
+        """修订轮必须把上一版发回去——不然「保留原有措辞」无从谈起。
+
+        2026-08-17 实测：不带草稿时模型只能从头重写，绑定问题一个没少，
+        30.2s 白花。这条测试钉住「草稿以 assistant 轮在场」。
+        """
+
+        sent: list[list[dict]] = []
+
+        def capture(messages, **kwargs):
+            del kwargs
+            sent.append(messages)
+            return None, ""
+
+        with mock.patch.object(
+            llm_refine, "synthesize_messages", side_effect=capture
+        ):
+            self._revision_run(corrected_issues=(), synthesize_messages=None)
+
+        self.assertEqual(len(sent), 1)
+        roles = [message["role"] for message in sent[0]]
+        self.assertIn("assistant", roles)
+        assistant_turns = [
+            message["content"]
+            for message in sent[0]
+            if message["role"] == "assistant"
+        ]
+        self.assertIn("未绑定初稿", assistant_turns)
+        # 草稿必须排在修订指令之前，否则指令指向的「上一版」还是不在场。
+        self.assertLess(
+            roles.index("assistant"),
+            len(roles) - 1,
+        )
+        self.assertEqual(roles[-1], "user")
+
+    def _revision_run(self, corrected_issues, synthesize_messages=object()):
         """跑一遍「初稿只有绑定类 warning」的合成，返回 result。
 
         corrected_issues 决定修订版的成色，用来分别压「改好了」和「没改好」。
@@ -185,33 +221,42 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 model="fixture-model",
             ), ""
 
-        with (
-            mock.patch.object(
-                llm_refine,
-                "synthesize_messages_stream",
-                side_effect=fake_stream,
-            ),
-            mock.patch.object(
-                llm_refine,
-                "synthesize_messages",
-                return_value=(
-                    SynthesisResult(
-                        answer="修订稿",
-                        provider="fixture",
-                        model="fixture-model",
-                    ),
-                    "",
-                ),
-            ),
-            mock.patch(
-                "intelligence.services.ask.answer_model.validate_llm_answer",
-                side_effect=[(warn,), corrected_issues],
-            ),
-            mock.patch(
-                "intelligence.services.ask.answer_model.present_llm_answer",
-                side_effect=lambda answer, spec: answer,
-            ),
-        ):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                mock.patch.object(
+                    llm_refine,
+                    "synthesize_messages_stream",
+                    side_effect=fake_stream,
+                )
+            )
+            # synthesize_messages=None 表示调用方已经自己 patch 了它（要看入参）。
+            if synthesize_messages is not None:
+                stack.enter_context(
+                    mock.patch.object(
+                        llm_refine,
+                        "synthesize_messages",
+                        return_value=(
+                            SynthesisResult(
+                                answer="修订稿",
+                                provider="fixture",
+                                model="fixture-model",
+                            ),
+                            "",
+                        ),
+                    )
+                )
+            stack.enter_context(
+                mock.patch(
+                    "intelligence.services.ask.answer_model.validate_llm_answer",
+                    side_effect=[(warn,), corrected_issues],
+                )
+            )
+            stack.enter_context(
+                mock.patch(
+                    "intelligence.services.ask.answer_model.present_llm_answer",
+                    side_effect=lambda answer, spec: answer,
+                )
+            )
             return synthesize_prepared_answer(prepared)
 
     def test_binding_warning_triggers_a_revision_round(self) -> None:

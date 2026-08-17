@@ -1244,6 +1244,13 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         correction, correction_reason = llm_refine.synthesize_messages(
             [
                 *messages,
+                # 上一版必须在场。prompt 写着「保留原有自然措辞，只修复门禁指出的
+                # 绑定」，而 messages 只有最初的 system+证据——不把草稿发回去，
+                # 模型看不见「原有措辞」是什么，只能从头再写一遍，绑定问题自然
+                # 照旧。2026-08-17 一发 live 实测：修订轮触发、跑了 30.2s、绑定
+                # 问题一个没少、被采纳门槛拒掉。ask.py 那条 WARN 回灌走的是
+                # synthesis_messages（含 assistant 草稿），两条修订路本该同形。
+                {"role": "assistant", "content": proposed_synthesis},
                 {
                     "role": "user",
                     "content": llm_refine.claim_binding_revision_user_content(
