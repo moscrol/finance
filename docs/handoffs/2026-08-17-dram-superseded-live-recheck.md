@@ -73,3 +73,12 @@ in-process 探针不落逐步 trace（上一发就是栽在这），所以 B 路
 - 不动 8792（launchd `com.a77.finance-workbench`，快照 `finance-workspace-877e1f721e05`）；探针是进程内/旁路，不经过它。跑前确认 `/tmp/finance-8792-live.lock` 不存在。
 - 若跑 pytest：**umask 022**（077 下 16 个 ceiling 权限位审计假红，环境项非回归）。
 - 密钥全在 Keychain，不落盘。
+
+## 6. 结果（2026-08-17 23:10）
+
+已跑。读数 `docs/verification/2026-08-17-dram-superseded-live-recheck.md`。
+
+- 证据侧：**通过**（落盘上下文级，`⚠️已被新证据取代` 在 `prepared_synthesis_messages`）。
+- 题面改成恰好 `DRAM`：建议的长鑫句因精确 target 打不中 DRAM 宿主。
+- 标注侧：`tier_note_present=false`，marker=0，as-is。
+- 未改代码、未动 8792。
