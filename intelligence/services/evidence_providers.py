@@ -18,6 +18,7 @@ from intelligence.adapters.knowledge import evidence_status
 from intelligence.services import (
     answer_model,
     closed_loop_retrieval,
+    counter_retrieval,
     evidence_judge,
     exposure_selector,
     kb_rag,
@@ -153,6 +154,7 @@ class GraphEvidence:
 class EvidenceIndexBundle:
     lines: list[str] = field(default_factory=list)
     stale_notes: list[str] = field(default_factory=list)
+    counter_disclosure: str | None = None
 
 
 def _company_name_from_official_title(title: str) -> str | None:
@@ -605,6 +607,103 @@ def _append_stale_bypass_notes(
         stale_notes.append(_format_stale_bypass_note(target, outside))
 
 
+def _emit_index_evidence_line(
+    ctx: EvidenceContext,
+    bundle: EvidenceIndexBundle,
+    item: dict[str, Any],
+    company_evidence_concepts: dict[str, str],
+    *,
+    is_counter: bool,
+) -> None:
+    """把一条 evidence_index 行写进窗，并挂 claim / 窗内 stale 备注。"""
+    stale = ctx.is_stale(item)
+    status = evidence_status(item)
+    superseded = status == "superseded"
+    tag = ctx.cite(
+        "R",
+        "knowledge-base · wiki/relations/evidence_index.json",
+        f"target={item.get('target')} source={item.get('source')}",
+    )
+    mark = ""
+    if superseded:
+        # 「被取代」是证据层面的真失效：有更新的同主体证据顶掉了它。
+        mark = " ⚠️已被新证据取代"
+    elif stale:
+        # 旧 ≠ 失效。同一条旧证据在 logic_lifecycle 里可能是「旧逻辑唤醒」
+        # （盘面重新触发，最高价值信号），也可能是「衰退观察」——区分它们
+        # 的是盘面时序，不是日历天数，所以这里报生命周期阶段而非「过期」。
+        #
+        # ⚠️ 这个标记会拼进 line，而 line 紧接着要过下面的
+        # research_brief.classify_evidence_line 做 L1-L4 分层：**文案里
+        # 绝不能出现 _L4_TERMS 里的词**（涨停/新高/成交/盘面/信号/强势股…），
+        # 否则这条知识证据被误判成 L4 盘面证据，audit.has_l4 翻 True，
+        # build_counterevidence_plan 的反证就从「盘面未验证」跳到「拥挤度」。
+        # 初版写「待盘面复核」正好踩中，被 golden answer 快照抓出来。
+        # logic_lifecycle 的七个阶段名都不含这些词，可以直接用。
+        mark = (
+            f" ｜{ctx.lifecycle_stage}"
+            if ctx.lifecycle_stage
+            else " ｜周期待判"
+        )
+    prefix = f"{counter_retrieval.COUNTER_MARK} " if is_counter else ""
+    line = (
+        f"{prefix}{item.get('target')}：{str(item.get('evidence'))[:80]}"
+        f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
+        f"质量 {item.get('confidence') or '?'}{mark}） {tag}"
+    )
+    bundle.lines.append(line)
+    layer_name = research_brief.classify_evidence_line(line, "R")
+    target_name = str(item.get("target") or "").strip()
+    ctx.structured_claims.append(
+        answer_model.make_claim(
+            claim_id=f"evidence:{tag.strip('[]')}",
+            text=line,
+            claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
+            theme=ctx.claim_theme,
+            status=(
+                answer_model.ClaimStatus.VERIFIED
+                if layer_name == "L3" and not stale and not superseded
+                else answer_model.ClaimStatus.CANDIDATE
+            ),
+            evidence_tier=layer_name,
+            company=target_name if target_name in company_evidence_concepts else None,
+            confidence=ctx.confidence_score(item.get("confidence")),
+            freshness=(
+                "superseded"
+                if superseded
+                else "stale"
+                if stale
+                else "current"
+            ),
+        )
+    )
+    if superseded:
+        replacement = str(
+            item.get("superseded_by") or item.get("status_note") or ""
+        ).strip()
+        suffix = f"，新证据：{replacement}" if replacement else ""
+        bundle.stale_notes.append(
+            f"{item.get('target')} 该条证据已被取代{suffix}，只能作历史参照，不能当作当前事实 {tag}"
+        )
+    elif stale:
+        # 旧证据的处置由逻辑生命周期决定，不由天数决定：同样一条旧材料，
+        # 盘面重新触发时它是「旧逻辑唤醒」的依据，盘面走弱时才是衰退信号。
+        # 原文案「需复核是否被新数据证伪」预设了证伪方向，会把唤醒信号
+        # 读成风险提示。
+        if ctx.lifecycle_stage:
+            bundle.stale_notes.append(
+                f"{item.get('target')} 证据 {item.get('source_date')}｜"
+                f"该题材当前逻辑生命周期：{ctx.lifecycle_stage}；"
+                f"按盘面阶段而非天数判断这条是否仍然成立 {tag}"
+            )
+        else:
+            bundle.stale_notes.append(
+                f"{item.get('target')} 证据 {item.get('source_date')}，"
+                f"距今超过 {ctx.options.stale_days} 天且本轮取不到题材盘面历史，"
+                f"需人工判断处于唤醒还是衰退 {tag}"
+            )
+
+
 def collect_evidence_index(
     ctx: EvidenceContext,
     company_evidence_concepts: dict[str, str],
@@ -617,7 +716,9 @@ def collect_evidence_index(
     bundle = EvidenceIndexBundle()
     evidence_lines = bundle.lines
     stale_notes = bundle.stale_notes
-    seen_evidence: set[str] = set()
+    fetched_keys: set[str] = set()
+    support_items: list[dict[str, Any]] = []
+    counter_items: list[dict[str, Any]] = []
     targets: list[str] = []
     if anchor is not None:
         targets.append(anchor.entity)
@@ -626,6 +727,8 @@ def collect_evidence_index(
     targets.append(options.query)
     targets.extend(company_evidence_concepts)
     unique_targets = list(dict.fromkeys(t for t in targets if t))
+    fetch_limit = max(options.max_evidence * 3, 24)
+    reserve = counter_retrieval.COUNTER_SLOT_RESERVE
     for target in unique_targets:
         # 图谱暴露绑的是实体登记概念袋里的一条（如 1.6T CPO），不是这条
         # 证据该用的题材。锚定实体若带这个 concept 去过滤，对不上就
@@ -636,110 +739,55 @@ def collect_evidence_index(
         ev = ctx.knowledge.get_evidence(
             target,
             concept=concept,
-            limit=options.max_evidence,
+            limit=fetch_limit,
         )
         if not ev.get("found"):
             continue
         for item in ev["items"]:
             key = _evidence_row_key(item)
-            if key in seen_evidence:
+            if key in fetched_keys:
                 continue
-            seen_evidence.add(key)
+            fetched_keys.add(key)
             result.found_graph = True
-            stale = ctx.is_stale(item)
-            status = evidence_status(item)
-            superseded = status == "superseded"
-            tag = cite(
-                "R",
-                "knowledge-base · wiki/relations/evidence_index.json",
-                f"target={item.get('target')} source={item.get('source')}",
-            )
-            mark = ""
-            if superseded:
-                # 「被取代」是证据层面的真失效：有更新的同主体证据顶掉了它。
-                mark = " ⚠️已被新证据取代"
-            elif stale:
-                # 旧 ≠ 失效。同一条旧证据在 logic_lifecycle 里可能是「旧逻辑唤醒」
-                # （盘面重新触发，最高价值信号），也可能是「衰退观察」——区分它们
-                # 的是盘面时序，不是日历天数，所以这里报生命周期阶段而非「过期」。
-                #
-                # ⚠️ 这个标记会拼进 line，而 line 紧接着要过下面的
-                # research_brief.classify_evidence_line 做 L1-L4 分层：**文案里
-                # 绝不能出现 _L4_TERMS 里的词**（涨停/新高/成交/盘面/信号/强势股…），
-                # 否则这条知识证据被误判成 L4 盘面证据，audit.has_l4 翻 True，
-                # build_counterevidence_plan 的反证就从「盘面未验证」跳到「拥挤度」。
-                # 初版写「待盘面复核」正好踩中，被 golden answer 快照抓出来。
-                # logic_lifecycle 的七个阶段名都不含这些词，可以直接用。
-                mark = (
-                    f" ｜{ctx.lifecycle_stage}"
-                    if ctx.lifecycle_stage
-                    else " ｜周期待判"
-                )
-            line = (
-                f"{item.get('target')}：{str(item.get('evidence'))[:80]}"
-                f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
-                f"质量 {item.get('confidence') or '?'}{mark}） {tag}"
-            )
-            evidence_lines.append(line)
-            layer_name = research_brief.classify_evidence_line(line, "R")
-            target_name = str(item.get("target") or "").strip()
-            ctx.structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"evidence:{tag.strip('[]')}",
-                    text=line,
-                    claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
-                    theme=ctx.claim_theme,
-                    status=(
-                        answer_model.ClaimStatus.VERIFIED
-                        if layer_name == "L3" and not stale and not superseded
-                        else answer_model.ClaimStatus.CANDIDATE
-                    ),
-                    evidence_tier=layer_name,
-                    company=target_name if target_name in company_evidence_concepts else None,
-                    confidence=ctx.confidence_score(item.get("confidence")),
-                    freshness=(
-                        "superseded"
-                        if superseded
-                        else "stale"
-                        if stale
-                        else "current"
-                    ),
-                )
-            )
-            if superseded:
-                replacement = str(
-                    item.get("superseded_by") or item.get("status_note") or ""
-                ).strip()
-                suffix = f"，新证据：{replacement}" if replacement else ""
-                stale_notes.append(
-                    f"{item.get('target')} 该条证据已被取代{suffix}，只能作历史参照，不能当作当前事实 {tag}"
-                )
-            elif stale:
-                # 旧证据的处置由逻辑生命周期决定，不由天数决定：同样一条旧材料，
-                # 盘面重新触发时它是「旧逻辑唤醒」的依据，盘面走弱时才是衰退信号。
-                # 原文案「需复核是否被新数据证伪」预设了证伪方向，会把唤醒信号
-                # 读成风险提示。
-                if ctx.lifecycle_stage:
-                    stale_notes.append(
-                        f"{item.get('target')} 证据 {item.get('source_date')}｜"
-                        f"该题材当前逻辑生命周期：{ctx.lifecycle_stage}；"
-                        f"按盘面阶段而非天数判断这条是否仍然成立 {tag}"
-                    )
-                else:
-                    stale_notes.append(
-                        f"{item.get('target')} 证据 {item.get('source_date')}，"
-                        f"距今超过 {options.stale_days} 天且本轮取不到题材盘面历史，"
-                        f"需人工判断处于唤醒还是衰退 {tag}"
-                    )
-            if len(evidence_lines) >= options.max_evidence:
+            blob = f"{item.get('evidence') or ''} {item.get('source') or ''}"
+            if counter_retrieval.match_counter_bucket(blob):
+                counter_items.append(item)
+            else:
+                support_items.append(item)
+            if (
+                len(support_items) >= options.max_evidence
+                and len(counter_items) >= reserve
+            ):
                 break
-        if len(evidence_lines) >= options.max_evidence:
+        if (
+            len(support_items) >= options.max_evidence
+            and len(counter_items) >= reserve
+        ):
             break
+
+    selected = counter_retrieval.reserve_counter_slots(
+        support_items,
+        counter_items,
+        max_n=options.max_evidence,
+    )
+    window_keys: set[str] = set()
+    for item, is_counter in selected:
+        window_keys.add(_evidence_row_key(item))
+        _emit_index_evidence_line(
+            ctx,
+            bundle,
+            item,
+            company_evidence_concepts,
+            is_counter=is_counter,
+        )
+    bundle.counter_disclosure = counter_retrieval.counter_disclosure(
+        sum(1 for _item, is_counter in selected if is_counter)
+    )
 
     _append_stale_bypass_notes(
         knowledge=ctx.knowledge,
         targets=unique_targets,
-        seen_evidence=seen_evidence,
+        seen_evidence=window_keys,
         stale_notes=stale_notes,
     )
 
@@ -747,9 +795,9 @@ def collect_evidence_index(
     for ke in (ctx.candidate or {}).get("knowledge_evidence", []) or []:
         src = ke.get("source")
         key = f"{ke.get('target')}|{src}"
-        if not src or key in seen_evidence:
+        if not src or key in window_keys:
             continue
-        seen_evidence.add(key)
+        window_keys.add(key)
         tag = cite("R", f"{ctx.export_name} · knowledge_evidence")
         line = (
             f"{ke.get('target')}：{src}（质量 {ke.get('quality') or '?'}，盘面候选携带） {tag}"
@@ -1011,9 +1059,14 @@ def collect_wiki_rag(
                     index_source_revision=h.index_source_revision,
                     index_freshness=h.index_freshness,
                 )
-                line = f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                line = (
+                    f"{counter_retrieval.COUNTER_MARK} "
+                    f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                )
                 llm_line = (
-                    f"反方线索（待进一步核验）：{h.title}：{h.llm_evidence or h.excerpt} {tag}"
+                    f"{counter_retrieval.COUNTER_MARK} "
+                    f"反方线索（待进一步核验）：{h.title}："
+                    f"{h.llm_evidence or h.excerpt} {tag}"
                 )
                 bundle.counter_lines.append(line)
                 bundle.llm_line_pairs.append((line, llm_line))

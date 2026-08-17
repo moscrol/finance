@@ -1543,7 +1543,19 @@ def test_real_episode_rewrites_typed_query_error_and_repairs_in_same_history(
     wiki_root.mkdir()
 
     def retrieve(query: str, *_args, **_kwargs) -> WikiRagResult:
-        is_counter = "风险" in query or "反方" in query
+        is_counter = any(
+            token in query
+            for token in (
+                "产能过剩",
+                "价格战",
+                "技术替代",
+                "需求不及",
+                "竞争格局恶化",
+                "政策收紧",
+                "风险",
+                "反方",
+            )
+        )
         key = "counter" if is_counter else "support"
         hit = WikiHit(
             page_id=key,

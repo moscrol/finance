@@ -23,7 +23,7 @@
 - [missing] 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据｜证据=无｜层级=未评级
 - [missing] 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。｜证据=无｜层级=未评级
 - [missing] 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立｜证据=R2｜层级=未评级
-- [missing] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。｜证据=W2｜层级=未评级
+- [missing] [反] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。｜证据=W2｜层级=未评级
 - [missing] 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现｜证据=无｜层级=未评级
 ### 候选证据（检索可回查，但未达硬证据门槛，不得写成已确认事实）
 - [candidate] 命中概念：液冷服务器(20)｜证据=G1｜层级=concept_graph
@@ -85,7 +85,7 @@
 - 1 家公司为 仅有概念关联，未发现公司级证据/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据 <!-- claim_id=gap:1; evidence_atom_ids=; claim_type=expectation -->
 - 当前的事实边界是：题材定义和产业链属于研究口径；公司结论必须满足：公告、年报或官网产品资料、客户验证、订单、交付或量产证据、液冷收入、毛利和回款贡献。 <!-- claim_id=gap:2; evidence_atom_ids=; claim_type=expectation -->
 - 川环科技 证据 2026-05-20｜该题材当前逻辑生命周期：新出现·首次进入观察；按盘面阶段而非天数判断这条是否仍然成立 <!-- claim_id=gap:3; evidence_atom_ids=atom-e7f5b7827b85; claim_type=expectation -->
-- 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。 <!-- claim_id=gap:4; evidence_atom_ids=atom-ff977c6da2d1; claim_type=expectation -->
+- [反] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。 <!-- claim_id=gap:4; evidence_atom_ids=atom-ff977c6da2d1; claim_type=expectation -->
 - 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现 <!-- claim_id=gap:5; evidence_atom_ids=; claim_type=expectation -->
 - 涨幅与边际成交同步转强：板块连续两日放量上涨 <!-- claim_id=trigger:1; evidence_atom_ids=atom-6fb7d4961ec5; claim_type=fact -->
 - new_high_mapping：板块内 6 只个股创一年新高 <!-- claim_id=trigger:2; evidence_atom_ids=atom-cb0b304a61b0; claim_type=fact -->

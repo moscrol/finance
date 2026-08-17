@@ -50,7 +50,7 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
             return _response(query, [_hit("液冷服务器", 0.72)])
         if "上下游" in query:
             return _response(query, [_hit("液冷温控设备", 0.62)])
-        if "风险" in query:
+        if "产能过剩" in query or "需求不及" in query:
             return _response(query, [_hit("液冷需求不及预期", 0.12)])
         return _response(query, [])
 
@@ -66,7 +66,8 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
 
     assert queries[0] == "英维克 002837.SZ"
     assert any("液冷服务器" in query and "上下游" in query for query in queries)
-    assert any("风险 证伪 不及预期" in query for query in queries)
+    assert any(query == "英维克 产能过剩" for query in queries)
+    assert not any("风险 证伪 不及预期" in query for query in queries)
     assert [item.hit.title for item in result.conclusion] == [
         "液冷服务器",
         "液冷温控设备",

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal, TypeAlias, TypeVar
 
+from intelligence.services.counter_retrieval import plan_counter_targets
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 from intelligence.services.research_contract import InformationCutoff
@@ -459,22 +460,19 @@ def _query_only_broad_queries(query: str) -> tuple[str, ...]:
 def _counter_queries(
     query: str,
     anchor: EntityAnchor | None,
-    narrow_hits: Sequence[WikiHit],
+    _narrow_hits: Sequence[WikiHit],
 ) -> tuple[str, ...]:
     subject = anchor.entity if anchor is not None else query
-    terms = " ".join(_extract_terms(narrow_hits)[:4])
-    return (
-        f"{subject} {terms} 风险 证伪 不及预期".strip(),
-        f"{subject} {terms} 替代 竞争 受损".strip(),
-        f"{subject} {terms} 反方 下滑 失败".strip(),
+    return tuple(
+        item.query
+        for item in plan_counter_targets(subject)[:MAX_EMPTY_ATTEMPTS]
     )
 
 
 def _query_only_counter_queries(query: str) -> tuple[str, ...]:
-    return (
-        f"{query} 反证 替代解释",
-        f"{query} 市场内部 外部催化 区分",
-        f"{query} 数据不支持 证据不足",
+    return tuple(
+        item.query
+        for item in plan_counter_targets(query)[:MAX_EMPTY_ATTEMPTS]
     )
 
 

@@ -3353,6 +3353,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.extend(wiki_counter_lines)
+    if evidence_index_bundle.counter_disclosure and not wiki_counter_lines:
+        gap_lines.append(evidence_index_bundle.counter_disclosure)
     if agent_loop_result is not None:
         gap_lines.extend(
             f"agent 检索后仍缺：{gap}" for gap in agent_loop_result.gaps
