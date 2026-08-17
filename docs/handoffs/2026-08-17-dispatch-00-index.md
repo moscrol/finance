@@ -32,7 +32,7 @@
 
 | 轨 | 层 | dsh 接缝 | 可并行 | 状态 |
 |---|---|---|---|---|
-| [T-A 兜底对照窗](2026-08-17-dispatch-a-degraded-floor-ab.md) | **领域** | 无（内容是领域真源） | ❌ 等 T-B 落地 | **已派**（#131）。执行 = T-B 合入 main 之后；读数贴最终形态，不重跑 |
+| [T-A 兜底对照窗](2026-08-17-dispatch-a-degraded-floor-ab.md) | **领域** | 无（内容是领域真源） | ❌ 等 T-B 落地 | **已执行**（收据 #135）。建议不翻默认 |
 | [T-B 投影一致性](2026-08-17-dispatch-b-projection-consistency.md) | **通用** | `ctx.sessionProjections` | ✅ | 待派 |
 | [T-C 判据对齐](2026-08-17-dispatch-c-criterion-alignment.md) | 验收工具（既非产品通用也非领域） | 无 | ✅ | 待派 |
 | [T-D 检索预算](2026-08-17-dispatch-d-retrieval-budget.md) | **通用** | `tools/pre-execute` | ❌ 立案不动手 | 触 R-07 绊线 |
