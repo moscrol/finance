@@ -41,7 +41,9 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     if retired is not None:
         return retired
     frame = decision.task_frame
-    if frame is not None and decision.question_type == "quick_fact":
+    if frame is not None:
+        # 休市是日历事实，不限 quick_fact。C2 已走这条；C1「2026-07-25 市场
+        # 怎么样」是 general_finance_qa/research，旧守卫放它进检索后答证据不足。
         disclosure = calendar_disclosure(frame)
         if disclosure:
             return disclosure if disclosure.endswith("。") else f"{disclosure}。"
