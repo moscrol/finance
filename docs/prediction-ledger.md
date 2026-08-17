@@ -52,6 +52,7 @@
 | `R-20260816-22` | 工具层追查（`run_20260817_002958_135258`）+ **2026-08-17 用户口径裁定** | `DATA_CONTRACT_FIX` | **按数据类分档，不是放宽门槛**：① DuckDB 硬事实（行情/成交/涨停等）新鲜度**照旧从严**；② 知识库/图谱（`kb_search`/`graph_lookup`）本就不过该门，保持；③ **新增第三种情形**——数据集整体已到 floor、但**被筛子集**停在更早（`fact_mainline_sector_daily` 有到 08-14 的行，而「AI算力」最后一天是 08-07），这不是 stale 而是**该主体退出了集合**，属行业生命周期观察，必须交付而非整批作废。预测：修复后同题重跑，`mainline_sector_daily` 不再返回零证据，答案含「算力于 2026-08-07 后退出主线、其后 N 个交易日未再出现」这一可核验事实；而真正的管道陈旧（数据集整体 max < floor）仍被拒 | 判别变量是**数据集 max 与被筛子集 max 的关系**，不是放宽 floor。离线双夹具：`dataset_max ≥ floor ∧ filtered_max < floor` → 交付退出事实；`dataset_max < floor` → 仍 stale（此条必须保持红线，它是该门禁的原始设计意图）。**变异**：把两个夹具的判据合并成一个即须转红。**实现归工具层执行方**；本行只占号，A 方不改 `_structured_provider_is_stale` | `pending` |
 | `R-20260816-23` | 工具层追查（同上） | `TOOL_DESCRIPTION_FIX` | 模型三次写出不存在的维度名（`strength` / `index_return_pct` / `rank`）。`dataset_field_hint()` **已存在**但未进模型可见面——按本仓「事实投递 > 提醒」模式接进 `finance_query` 工具描述后，同题 3 样本的 `FinanceQueryValidationError`(`invalid_query`) 计数降到 0 | 离线断言工具描述含各 dataset 的合法字段清单；live 用同题 3 样本对照 `invalid_query` 计数。**不得靠加 prompt 训话**——字段表是事实投递不是提醒。**实现归工具层执行方**；本行只占号 | `pending` |
 | `R-20260817-01` | 同题两发 M2（`run_20260817_014724_245782` / `run_20260817_015340_618752`） | `HARNESS_FIX` | `complete()` 已返回 FINAL_JSON 后，即使 `_consume_root_seconds` 失败，first finish `carried_draft_chars>0` 或 `outcome.draft` 含阶段判断；不得再把刚写出的稿当「从没生成过」。**禁止调 T / `_REPAIR_SECONDS_CAP` / 档位** | **离线已绿**（2026-08-17）：`test_deadline_after_successful_finalize_keeps_the_just_written_draft`；`test_deadline_after_tool_turn_does_not_invent_a_draft`。**#124 已合切** 8792=`31ee58ce`。live `run_20260817_022655_519631` 首轮是 PLAN+工具调用后 `deadline_exhausted`，没有 FINAL_JSON，`carried_draft_chars=0` 是工具轮空稿（夹具 2 的形状），**不是** M2 有稿未结转，不得写成 refuted。第二发 `run_20260817_093755_447794` 走到 finalization，`model_turn` TimeoutError，content 空，仍无 FINAL_JSON。**第三发 `run_20260817_094617_943922` 首次同形**：seq14 `model_turn.content` 1404 字符 `json.loads` 成功、含 `draft`(732)，紧随 first finish `carried_draft_chars=732` / `rejection_code=none`，公开答卷 1901 字节含阶段判断。**这是本预测的正面证据，但单次 live 不得 confirmed**；结案须再有约定次数的同形 hit 且用户另拍 | `pending` |
+| `R-20260817-02` | T-D 立案（`run_20260817_094617_943922` 工具批实测）+ T-E 形状对照 | `HARNESS_FIX` | **检索档位改为按剩余预算选**（形状挂 `tools/pre-execute`）后：同批多工具场景下，剩余窗口不足时 `kb_search` 降到 BM25 档**返回部分结果**，而不是整批 `tool_timeout` + `tool_budget_exhausted` 收场；`finalization reason` 不再是 `retrieval_deadline_closed`。**判别变量是「剩余时间 → 档位」这条新链路**，不是把窗口调大 | 离线夹具：造「剩余 4s / 剩余 20s」两种预算态，断言前者走 BM25 档有结果、后者走 hybrid；**变异**——把档位选择固定成常量即须转红。⛔ **本窗禁止动手**：触 `R-20260816-07` 绊线（`WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS` / `_REPAIR_SECONDS_CAP` / 档位 / `ASK_TOOL_BATCH_TIMEOUT` / `MAX_GLOBAL_TOOL_WORKERS` / `MAX_BATCH_TOOL_CALLS` 一律不许调），且 `R-20260816-21` 已点名禁止「只把数字调大」。动手需用户另拍 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -593,6 +594,43 @@ second finish `repair_model_stop`，4 个 output 槽 `basis=evidence` 全绑上�
 | `R-20260816-22` | **未打到判据点**：本发问的是 `mainline_theme_daily`（题材表）且有行，R-22 预测点名的是 `mainline_sector_daily`（板块表）。答案层出现「8月7日之后退出主线题材名单（构成要素退出，非数据陈旧）」，形状对但数据集不对 | `pending` | 保持 Open。不得据此 confirmed |
 | `R-20260816-23` | 本发无 `invalid_query`（tool_error 仅 `tool_timeout` / `tool_budget_exhausted`） | `pending` | 保持 Open |
 | `R-20260816-07` | 未调 T / 30 / 档位 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-20260817-02 开行：检索预算分配（立案，未动手）
+
+同一个 run `run_20260817_094617_943922` 的工具批读数：
+
+```
+kb_search    batch_grant_asked=30.0  stage_timeout_granted=11.955  queued_ms=2.2  → tool_timeout
+news_search  同一批                                                              → tool_budget_exhausted
+finalization reason=retrieval_deadline_closed
+```
+
+同批还有 `finance_query`×2（有行）与 `memory_lookup`（空），先跑完把窗口吃掉。
+
+`kb_rag` 本体实测：同进程冷调 **39.06s**，之后 **4.25s / 5.10s**（`persistent_worker` 协议）。
+8792 常驻 worker 已在启动期 prewarm（`prewarm_latency_ms=38516`、`lifecycle=startup_prewarm`、
+`model_load_count=1`），**冷启动不在请求路径里**。
+
+**结论：不是检索慢，是一个 4~5 秒的工具排在 12 秒窗口的第四位。**
+
+**已排除、不要再走的两条**（避免下一任重跑）：
+
+1. **不是串行。** `intelligence/runtime/episode_tool_batch.py` 用 `ThreadPoolExecutor`
+   同批**并发**提交，注释原文「一个批次里的工具是并发提交的，**但共享一个 deadline**」。
+2. **subagent 化不解这题。** `intelligence/runtime/sub_research.py` 的 `_BranchBudgetView`
+   docstring 原文：**"A non-minting child view whose consumption debits one parent ledger."**
+   ——子分支**不铸新预算，消耗直接记父账本**。所以缺的**不是** subagent 机制
+   （`SubResearchCoordinator` / `SubResearchWorker` / `BranchRequest` 都在），
+   **缺的是不铸币的那层能铸币**：是预算模型的改动，不是拓扑的改动。
+   （按 ai-agent-book ch10 判据「有没有新信息」，同批工具搬进子 Agent 也没有新信息。）
+
+spec 侧已同步：`2026-08-15-agent-base-dsh-absorption-design.md` §4.1 给「工具批次预算」
+加限定（机制在、分配策略未验证），§4.2 补第 6 条。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260817-02` | 开行。批次预算把 4~5 秒的工具饿死；冷启动与串行均已排除 | `pending` | 立案不动手，触 R-07 绊线 |
+| `R-20260816-07` | 未调 T / 30 / 档位 / 并发度 | `pending` | 绊线未触 |
 
 ### Closed
 
