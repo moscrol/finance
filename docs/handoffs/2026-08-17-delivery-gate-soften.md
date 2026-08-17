@@ -5,7 +5,8 @@
 - 分支：`fix/delivery-gate-soften`
 - 基线：`gitea/main` `dd9f10b9`
 - spec：`docs/superpowers/specs/2026-08-17-delivery-gate-soften-design.md`
-- 代码：`2ed2fbb9`；本页随后提交
+- 代码：`2ed2fbb9`
+- PR：**#144** http://127.0.0.1:3300/a77/finance-workspace-private/pulls/144 （open，mergeable，未合）
 
 ## 0. 一句话
 
@@ -62,4 +63,4 @@ T-F 摘接（Scope+工具阶段）工程门红，结论 **摘不干净**，5×5 
 - 不要把未读字段钩子 `--no-verify` 拿去提交臂 1 摘接。
 - 不要把 n=1 live 写成「更快」或「吸收兑现」。
 
-下一动：批合本 PR；或先审 diff。T-F 下一块仍是 Handle+§9.2 或改判形状价值，别再开 Profile/stub 5×5。
+下一动：批合 **#144**；或先审 diff。T-F 下一块仍是 Handle+§9.2 或改判形状价值，别再开 Profile/stub 5×5。
