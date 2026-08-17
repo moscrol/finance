@@ -142,8 +142,18 @@ class AnswerOrchestratorTests(unittest.TestCase):
         with (
             mock.patch.object(
                 llm_refine,
+                "SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS",
+                True,
+            ),
+            mock.patch.object(
+                llm_refine,
                 "synthesize_messages_stream",
                 side_effect=fake_stream,
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(None, ""),
             ),
             mock.patch(
                 "intelligence.services.ask.answer_model.validate_llm_answer",
@@ -162,6 +172,66 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(public_deltas, ["展示后的结论。"])
         self.assertTrue(
             any("缺少 claim 绑定" in warning for warning in result.warnings)
+        )
+
+    def test_unissued_claim_contract_costs_no_revision_and_no_warning(
+        self,
+    ) -> None:
+        """契约没下达时：不问罪、不喂修订轮、不占用户可见警告。
+
+        2026-08-17 两发 live 的账：旧链 prompt 从没教过 marker 语法，这条码
+        每答必报，还把修订轮拖起来空跑 30.2s、两发都未采纳。事实仍在
+        unbound_claim_line_count 遥测里，只是不再拿它问罪。
+        """
+
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="warning",
+            message="LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
+        )
+        revision_calls: list[object] = []
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("未绑定初稿")
+            return SynthesisResult(
+                answer="未绑定初稿",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                side_effect=lambda *a, **k: revision_calls.append(a) or (None, ""),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(issue,),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                side_effect=lambda answer, spec: answer,
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertFalse(llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS)
+        self.assertEqual(result.synthesis, "未绑定初稿")
+        self.assertEqual(revision_calls, [])
+        self.assertNotIn(
+            "claim_binding_revision_trigger", result.llm_stream_telemetry
+        )
+        self.assertFalse(
+            any("claim 绑定" in warning for warning in result.warnings)
         )
 
     def test_revision_call_carries_the_draft_back_to_the_model(self) -> None:
@@ -222,6 +292,15 @@ class AnswerOrchestratorTests(unittest.TestCase):
             ), ""
 
         with contextlib.ExitStack() as stack:
+            # 这几条测的是「契约已下达」那个世界：模型拿到过 marker 语法，
+            # 没绑定才算它的错。契约没下达时的行为另有一对测试。
+            stack.enter_context(
+                mock.patch.object(
+                    llm_refine,
+                    "SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS",
+                    True,
+                )
+            )
             stack.enter_context(
                 mock.patch.object(
                     llm_refine,

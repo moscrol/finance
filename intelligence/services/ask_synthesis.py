@@ -1217,6 +1217,30 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     blocking_issues = [
         issue for issue in gate_issues if issue.severity == "error"
     ]
+    # 「没绑定」这条码，只有在本链**真的把 marker 契约下达给模型**时才算模型的错。
+    # 2026-08-17 两发 live 挖到底：旧链的 _SYNTHESIS_SYSTEM_PROMPT 只说「事实句必须
+    # 绑定合法 EvidenceAtom」，全文 claim_id 0 次、<!-- 0 次，build_synthesis_messages
+    # 也不注入 claim registry——模型拿不到语法和合法 ID，不可能合规（#144 那发它写出
+    # 的 9 处短式 claim_id 是在猜语法）。此时它每答必报，还把修订轮拖起来空跑 30.2s。
+    #
+    # 契约没下达时：不喂修订轮、不进用户可见警告；事实仍留在
+    # unbound_claim_line_count 遥测里，不是抹掉而是不问罪。判据取自 prompt 自身——
+    # 哪天那段 prompt 开始教语法，问罪自己回来，不需要谁记得改这里。
+    #
+    # 市场复盘散文契约走自己那套（无 registry 可抄），不在此列，行为保持不变。
+    claim_contract_issued = (
+        llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS
+        or result.prepared_synthesis_is_market_review
+    )
+    if not claim_contract_issued:
+        gate_issues = tuple(
+            issue
+            for issue in gate_issues
+            if issue.code != "llm_missing_claim_binding"
+        )
+        blocking_issues = [
+            issue for issue in gate_issues if issue.severity == "error"
+        ]
     binding_warnings = [
         issue
         for issue in gate_issues

@@ -9,7 +9,6 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
-from intelligence.services import llm_refine
 from intelligence.services.research_contract import (
     EvidenceAtom,
     StageArtifact,
@@ -2562,13 +2561,12 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
     structured_claims, unbound_lines = parse_structured_claims(answer)
-    # 契约没下达就不判「没绑定」。这条链的 system prompt 不教 marker 语法、
-    # 也不注入 claim registry（见 llm_refine 那个常量旁的实测记录），此时报
-    # 未绑定等于罚一个从没下达过的要求：每答必报，还把修订轮拖起来空跑。
-    # 判据挂在 prompt 上而不是写死——prompt 开始教语法，这道闸自己回来。
-    # 下面按 marker 逐条查 ID/类型/证据时效的闸**不受影响**：那些只在模型
-    # 真的写出了 marker 时才触发，"写了但写错"始终该报。
-    if unbound_lines and llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS:
+    # 这里保持诚实：文本里确实没有 marker，就照报。**「要不要拿它问罪」不归这层管**
+    # ——本函数有三个消费方（旧合成链、市场复盘散文契约、followup 合并），后两个
+    # 故意钉着这条码当观测信号。契约有没有真的下达给模型，只有调用方知道，
+    # 处置在 ask_synthesis。（一版把判据写成全局标志放在这里，全量测试当场抓出
+    # 另外两个消费方被误伤。）
+    if unbound_lines:
         issues.append(
             QualityIssue(
                 "llm_missing_claim_binding",
