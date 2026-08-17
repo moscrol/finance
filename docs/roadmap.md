@@ -72,5 +72,7 @@
 | 2026-08-17 | top-8 截断 × stale 提醒：材料就绪待裁决。推荐 D（`stale_notes` 旁路）；A 正当。不改代码。`docs/superpowers/specs/2026-08-17-stale-evidence-quota-decision.md` | 用户 | L1-8792 |
 | 2026-08-18 | 上行**已决 D**（用户 00:39 拍板）。执行单已派：`docs/handoffs/2026-08-18-stale-notes-bypass-implementation.md`（旁路提醒行；名额/排序/prompt/闸判据全不动；ADR 0003 随实现 PR 补） | 已决 | L1-8792 |
 | 2026-08-18 | 数据根接线错位（「无市场数据」+「盘面快照 07-15」同根）：`data_repo_root()` 把 `WORKBENCH_REPO_ROOT`（launcher 指代码快照做溯源）当数据根首选，DuckDB/exports 全解析进冻结快照。修复单已派：`docs/handoffs/2026-08-18-data-root-wiring-fix.md`（代码修，摘出数据根序列；溯源不动；交付后验收方切 8792） | 已派 | L1-8792 |
+| 2026-08-18 | stale_notes 旁路 **D 已落地**：#165 合并（`3b01c623`），ADR `docs/adr/0003-stale-notes-bypass.md`。验收方独立复算：四件套全绿（pytest 5378/0/12，webapp 四件套 OK；初跑 16 红为验收侧 umask 077 环境因素，umask 022 后归零）+ live llm_context 提醒行/286.69/359.62 缺席逐项核对。8792 未切（当前 d1be2d0c 不含 #165，追切与否待裁决） | 已落地 | L1-8792 |
+| 2026-08-18 | 数据资产审计（01:10）：四张零消费表（竞价 9107 行/研报目录 458/事件 2455 含 13 条未来/技术特征 200 万行日更）+ 两个死 JSON（catalyst_calendar 07-28 停更、fupanhui_panorama 06-22 一次性）。执行单已派：`docs/handoffs/2026-08-18-dead-assets-consumption-wiring.md`（四表进语义层照 dragon 先例；两 JSON 归档裁决不接线；上游停更另单） | 已派 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
