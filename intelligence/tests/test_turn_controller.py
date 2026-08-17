@@ -62,6 +62,66 @@ def test_controller_resolves_each_turn_once() -> None:
     assert resolver.calls == 1
 
 
+def _theme_lexicon_resolver(tmp_path) -> QueryResolver:
+    relations = tmp_path / "relations"
+    relations.mkdir(exist_ok=True)
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "宁德时代": {
+                        "codes": ["300750.SZ"],
+                        "concepts": {"新能源": {}},
+                    },
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
+
+
+def test_controller_asks_clarify_when_resolver_returns_candidate(tmp_path) -> None:
+    decision = decide_turn(
+        "立新能源怎么看",
+        llm_complete=_no_llm,
+        resolver=_theme_lexicon_resolver(tmp_path),
+    )
+
+    assert decision.lane == "clarify"
+    question = " ".join(decision.clarification_questions)
+    assert "立新能源" in question
+    assert "新能源" in question
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.pending_task_frame is not None
+
+
+def test_controller_resumes_entity_tristate_clarification_as_company(tmp_path) -> None:
+    first = decide_turn(
+        "立新能源怎么看",
+        llm_complete=_no_llm,
+        resolver=_theme_lexicon_resolver(tmp_path),
+    )
+
+    resumed = decide_turn(
+        "立新能源",
+        previous_intent=first.turn_intent,
+        previous_turn_id="msg-kc17",
+        llm_complete=_no_llm,
+        resolver=_theme_lexicon_resolver(tmp_path),
+    )
+
+    assert resumed.lane == "research"
+    assert resumed.question_type == "stock_deep_dive"
+    assert resumed.subject == "立新能源"
+    assert resumed.clarification_questions == ()
+
+
 @pytest.mark.parametrize(
     ("query", "subject_kind"),
     (
