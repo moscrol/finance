@@ -1,8 +1,9 @@
 # Trace Profile: finance-workspace-private
 
-- last_updated: 2026-08-15
-- updated_by_run: `2026-08-15 Round 1 开工前回填`（真 Codex rollout 首次过归一化器；
-  前值 `2026-08-04b-finalization/c-long-capped-t1,t2`；#6 另补 repair_model_stop / semantic_status 两条陷阱）
+- last_updated: 2026-08-16
+- updated_by_run: `2026-08-16 outlook 核验预算回归 M1`（L01 空稿 TimeoutError；
+  前值 `2026-08-15 Round 1 开工前回填`；#8 另补 verification 话术 / 首轮无 timeout_asked /
+  uncheckable_judgment_empty 对 #327 模板失明 / L04 chat / L01≠L05 五条陷阱）
 - 配套账本：[prediction-ledger.md](prediction-ledger.md) —— 分诊**开工第一步**先回填那里的 pending 预测，再开始新归因
 
 ## 1. 产物位置与结构
@@ -42,6 +43,18 @@
 | 同 profile 的单次 live stop/latency | 配置相同即可当稳定回归结论 | 模型路径有随机性：同 profile 从 `59da8acf` 到 T1，`weekly-market-cause` 可由 `headless_protocol_rejected / 144.7s / 4 calls` 翻为 `model_finish / 74.1s / 6 calls`。单次 stop/latency 只能作确认；`finalization` 是否出现、请求是否配对等结构契约才适合作主门 | 两份 `c_long_capped` artifact 的逐 case 事件复算 |
 | episode `stop_reason=repair_model_stop` | 修复轮没产出合法 FINISH，所以交付 0 | stop 只说「无工具且未 completed」。交付 0 的区分变量是**全部** required output 的 `binding.gap` 非空（hashes 会被 verifier 丢掉）。同 stop 但至少一格 gap 为空时 eb>0（R5-A7 / live A7） | `docs/verification/2026-08-15-trka-repair-finish-gap-slip.md` |
 | `semantic_status=unavailable` / 「未完成核验绑定」 | 核验预算不够或模型没走到 FINAL_JSON | 当 structural fulfilled=0 时 judge **根本不会被调用**（`_can_semantically_release_partial`）。模板文案的注释假设「没绑定」，但 R7-A7 的 episode 里 bindings 有 hashes。混槽 + judge 瞬时失败会走另一条「候选草稿」文案且 eb>0 | R7-A7 vs live A7/A10；`episode_semantic_verifier.py:503-522` |
+| `continuous:adapter:verification` running + 「核验已完成」 | judge / 语义核验已经跑过 | 空 draft 时 verification 步仍会发射，随后立刻 `repair_goal`；`judge_status=unavailable` 才是「有没有调用 judge」。L01 `run_20260816_131941_597875`：verification 话术在，judge 未调用 | `docs/verification/2026-08-16-outlook-verification-budget-regression.md` E-008/E-009 |
+| 首轮合成 `model_turn` 的 TimeoutError 墙钟 | 等于 `timeout_configured`（生产 75s）或 2×75 | 修复轮才有 `timeout_asked`/`timeout_configured`。L01 首轮合成 68.3s 超时，payload **没有** `timeout_asked`；修复 asked≈30、configured=75。不得把 153s 读成 2×75 | 同上 E-004/E-007；`repair_coordinator._REPAIR_SECONDS_CAP=30` |
+| `uncheckable_judgment_empty` 未出现 | 第 4 层诚实闸没装上，或判断句还在 | #327 缺口模板「现有证据不足，暂不能可靠回答」会被 `answer_has_non_boundary_substance` 当成非边界正文，探测器不响（`marker_coverage=complete`，`warnings=[]`）。L01 的诚实性在 `report.status=partial` + degrade，不在 marker 警告 | `task_fulfillment.py:448-574`；L01 `answer_marker_coverage` |
+| L04 37s `completed` | 核验路径在预算内跑完的反例 | 该 run `lane=chat`、`needs_retrieval=false`、无 `continuous-episode.json`。是 GRAPH/route 分叉，不是 verification 成功 | `run_20260816_125920_927309` |
+| 长尾 off 臂 151–159s + degraded | 同一机制（核验预算撞墙） | L01 = 空 draft + `repair_model_unavailable` + 「未完成核验绑定」。L05 = draft 279 字 + `repair_model_stop` + 「候选草稿」+ `semantic judge transient provider error`。墙钟相近，机制不同 | L01 `run_20260816_131941_597875`；L05 `run_20260816_132541_309060` |
+| 用户可见「现有证据不足，暂不能可靠回答」 | 检索跑过但证据不够，该补数据或换问法 | **可能一次检索都没发生**。provider 硬故障时 `usage.tool_calls=0`、`evidence=[]`，该句由 `_gap_answer` 兜底渲染，与证据无关。区分变量：`report.json.llm.used`（false=模型没跑过）与 `usage.tool_calls`。`outcome.gaps` 才是真成因（本例 `["LLM 调用 HTTP 503"]`） | `episode_semantic_verifier.py:1836`；`run_20260816_221823_213588` |
+| `draft=0 / tool_calls=0 / llm_calls=16` | 各种失败的巧合组合 | **provider 硬故障的稳定指纹**：16 = 4 轮（首轮 + 3 次 repair）× 4 provider attempt。当日三段中断均为此形（14:42–14:53 `URLError`×9、21:57 `HTTP 503`×4、22:18 本单）。见到 16 就先查出口，别查预算 | 2026-08-16 全天 155 个 episode 聚合 |
+| `run.json.status=completed` | 该 run 成功交付 | 同一次运行在三份产物里有三个 status：`run.json=completed` / `report.json=partial` / `continuous-episode.json outcome=failed`。**做质量统计必须声明取哪一份**；`outcome.status` 最接近运行时真相 | `run_20260816_221823_213588` 三份 artifact |
+| 中转 `GET /v1/models → 200` | 出口健康，可以发请求 | **目录端点与完成端点是两条路**。实测中转目录 200（25 个模型）、鉴权与分组校验正常（`gpt-5.6` 返 403「不在当前 group」），但所有可用模型的 `POST /v1/chat/completions` 全返 502 `upstream_error`。任何基于 `/v1/models` 的 readiness 都会在全站故障时发绿 | 2026-08-16 分诊时点实测 `x.ailzd.com` |
+| `answer_marker_coverage.present` 含某 output | 该 output 的内容真的写进正文了 | **缺口模板会自证**：模板为说明「缺什么」而列出缺失槽位的描述，`counterpoint` 的描述含「反证」，恰为 `_MARKERS["counterpoint"]` 的子串，于是宣告它缺失的那句话被判定为它已交付。凡走缺口模板的 run，`counterpoint` 恒 present，且与 `structural_verifier.issues` 直接矛盾 | `task_fulfillment.py:241,521`；在生效快照 `6cd0756e` 上对 `run_20260816_221823_213588` 重算复现 |
+| `contract.required_outputs[].description` 等于其 `output_id` | 该槽位就叫这个名字/设计如此 | **是 `_OUTPUT_DESCRIPTIONS` 缺键后的静默回落**（`.get(output_id, output_id)`）。裸 id 会同时进模型的约束行（形成同义反复的 `chain_mapping：chain_mapping`）和用户可见的缺口文本。实测 18 个 `question_type` 中 **10 个**存在无描述槽位 | `episode_factory.py:40-72,412`；`task_frame.py:690` |
+| `model_turn` / `model_error` 会被归一化到某个 L1 步 | 事件都能进 L1 空间参与比较 | `_BENCHMARK_STEPS` **没有**这四个键：`model_turn` / `model_error` / `repair_reentry` / `repair_model_retry`。本例 13 个事件 mapped=4、unmapped=9，**承载 provider 故障的事件全部 unmapped**——L1=`tool` 的 provider 故障 finding 在本仓归一化产物里无法表达，A/B `first_divergence` 也看不见它。`trace.jsonl` 侧同样 unmapped=5/10 | `normalize_harness_trace.py:332`；实测 `run_20260816_221823_213588` |
 
 ## 3. 当前 trace_depth 与盲区清单
 
@@ -55,6 +68,9 @@
 | 旧 run 无 phase telemetry | 埋点上线前 artifact 只有合成终态 | 无法可靠重建旧 brief/composer/judge 分布 | 不回填；只用新 run 或受控 replay |
 | phase 没有显式 semantic epoch/censoring type | 同名 `elapsed_ms` 跨 revision 变义 | 历史分类器会把自然完成、retry 倍增和 grant 截断混为一类 | artifact 增加 `phase_semantic_epoch` 与 `elapsed_kind`；现阶段按 revision 映射 |
 | 三段精确 p50/p95 未知 | 只有 brief 单次完成值、composer 下界、judge 无同质样本 | 无法为 root 扩容路线精确 sizing | 只有用户选择 deep-mode 后才做 uncensored profile；当前工程决策不需要再跑 brief-only |
+| 中转 5xx 的上游成因不可判 | `model_turn.payload.error` 只落中文摘要串 `"LLM 调用 HTTP 503"`，丢掉了响应体的 `error.type` | 分不清「供应商侧故障」与「账号/分组被限」，因而不知该等恢复还是该换出口 | 出口异常封装处把响应体 `error.type` 与 HTTP 状态一并落进 payload；判据：`upstream_error` → 供应商侧，`429/quota` → 账号侧 |
+| provider 重试节奏不可见 | 只有 `provider_attempts` 计数，无逐次时间戳 | 无法判定 27s 内烧完 16 次 attempt 的退避策略在 5xx 下是否合理 | 每次 attempt 落 `attempt_index` + `elapsed_ms`；判据：相邻 attempt 间隔 <500ms 即视为无退避 |
+| 模型出口事件不在 L1 空间 | `_BENCHMARK_STEPS` 缺 `model_turn`/`model_error`/`repair_reentry`/`repair_model_retry` | 挡住 provider 故障进入 normalized artifact 与 A/B 分叉判定（本例 9/13 unmapped） | 补这四个键的映射；判据：本 run 重算后 `unmapped_count` 由 9 降至 0 |
 | Codex headless in-flight tool 没有可配对终态 | `tool_request` 现已有 timestamp、request id 与 root/research 两只入口时钟，normalized artifact 也能按 id 计数未配对请求；但缺 response 时仍没有自然完成/取消时刻 | 已能定位第一次缺口及其入口余量；`unpaired_tool_requests=0` 单独仍不能证明迟到结果隔离。`response_path_conflict` 是 mailbox transport 诊断，允许在同 id 的执行终态后另发 `tool_error`，不能混进执行终态基数 | R-10 用 deterministic slow tool 强制得到配对 error；正常成功路径断言恰好一个 `tool_result`，handoff 路径断言恰好一个预期执行层 `tool_error` 且无迟到 `tool_result`；另断言 `unpaired_tool_requests=0`、阈值处仅一次 finalization，且迟到 result 不入 episode |
 
 ## 4. Grounded phase telemetry semantic epochs

@@ -82,6 +82,10 @@
 
 ## [kb] 年报 baseline 入库
 
+- **[2026-08-15] 客户表「单位：万元」串进年报主表；`.ingest-transactions` 把磁盘写满。**
+  根因：抽数扫全文，客户/供应商表的万元当成年报单位；writer 每改一次 relations 就整份备份 20MB JSON，committed 后不删。
+  做法：单位只从「主要会计数据」切片取（`annual_key_data.py`）；写库后跑闸门 9 `check_annual_magnitudes.py`（四处一起核）；越界只补证据、禁止重跑 writer。`file_transaction` committed 后删事务目录，残留跑 `scripts/cleanup_ingest_transactions.py`。
+
 - **[2026-06-23] 批量年报入库共用 batch source note 导致追溯断裂。**
   根因：`entity_baseline_writer.py` 的 `write_updates()` 对整批使用同一个 `source_name`（如 "年报 baseline batch 2026-06-23"），所有公司的 evidence 都指向这个 batch note，但 batch note 的 `company` 字段只记录了最后一家。
   做法：新增 `per_company_source_name()` 函数，年报类型时自动拆为 `<公司> <报告名> baseline <日期>` 独立 source note。batch note 只作批次清单，不作 evidence source。

@@ -256,9 +256,37 @@ def _direct_batch(ts_codes: list, fetch_one, concurrency: int):
 # ── 公开 API 便捷函数 ──────────────────────────────────────
 
 
+def _mainline_public(api_path: str, params: dict) -> dict | list | None:
+    """主线公开接口：audit 未发布时与工作台一致，回退 mode=static 沿用。
+
+    复盘会「每日题材」在 data_status=pending 时请求
+    ``?mode=static``（题材列表再加 ``include_sectors=true``），返回
+    source=carry_forward_live：主线集合沿用上一确认日，指标用当日。
+    默认参数会得到空 items，夜跑/补数会被同一空列表挡住。
+    """
+    data = api_get_public(api_path, params)
+    if _mainline_payload_ready(data):
+        return data
+    static = dict(params)
+    static["mode"] = "static"
+    if api_path.endswith("/mainline-themes"):
+        static["include_sectors"] = "true"
+    return api_get_public(api_path, static)
+
+
+def _mainline_payload_ready(data) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if data.get("items"):
+        return True
+    if data.get("groups"):
+        return True
+    return False
+
+
 def get_mainline_themes(trade_date: str) -> list[dict]:
     """获取每日主线题材列表。返回 [{theme_code, theme_name, sector_count, min_sort}, ...]"""
-    data = api_get_public("/topics/mainline-themes", {"trade_date": trade_date})
+    data = _mainline_public("/topics/mainline-themes", {"trade_date": trade_date})
     if isinstance(data, dict):
         return data.get("items") or []
     return []
@@ -266,7 +294,7 @@ def get_mainline_themes(trade_date: str) -> list[dict]:
 
 def get_mainline_stocks(trade_date: str, theme_code: str) -> dict:
     """获取某主线题材下的个股。"""
-    data = api_get_public(
+    data = _mainline_public(
         "/topics/mainline-stocks",
         {"trade_date": trade_date, "theme_code": theme_code},
     )
@@ -275,7 +303,7 @@ def get_mainline_stocks(trade_date: str, theme_code: str) -> dict:
 
 def get_mainline_sectors(trade_date: str, theme_code: str) -> list[dict]:
     """获取某主线题材对应的板块。"""
-    data = api_get_public(
+    data = _mainline_public(
         "/topics/mainline-sectors",
         {"trade_date": trade_date, "theme_code": theme_code},
     )

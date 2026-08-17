@@ -671,3 +671,73 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 0 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-08-14 | run 2026-08-15 10:52
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| market-daily | ok | 4 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：same-day-gate
+
+## 2026-08-14 | run 2026-08-15 10:52
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| index-daily | fail | 1 |  |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：index-daily, same-day-gate
+
+## 2026-08-14 | run 2026-08-15 11:16
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | ok | 5 |  |
+| market-overview | ok | 11 |  |
+| market-daily | ok | 3 |  |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 156 |  |
+| market-deviation | ok | 13 |  |
+| sector-daily | ok | 151 |  |
+| sector-stocks | ok | 0 | 2026-08-14 snapshot=27569ceb0d11 success=403/403 rel=52800+53/52853 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=- |
+| limit-heat | ok | 81 | heat=214 stock=610 retried=0 still_empty=0 |
+| stock-high | ok | 87 |  |
+| limit-advance | ok | 6 |  |
+| stock-daily | ok | 32 | eastmoney snapshot ok |
+| mainline-daily | fail | 8 | [retry r1] |
+| mainline-sector-daily | fail | 9 | [retry r1] |
+| theme-flow-daily | ok | 6 |  |
+| features | ok | 4 |  |
+| same-day-gate | fail | 2 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：mainline-daily, mainline-sector-daily, same-day-gate
+
+## 2026-08-14 | run 2026-08-15 12:27
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| mainline-daily | ok | 29 |  |
+| mainline-sector-daily | ok | 20 |  |
+| theme-flow-daily | ok | 4 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：cross-day-gate
+
+## 2026-08-14 | run 2026-08-15 12:41
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| public-assets | ok | ~365 | sync-fupanhui-public-assets --trade-date 2026-08-14；fundamentals 撞 QA 读锁失败，不进跨日门 |
+| cross-day-gate | ok | 3 | check-daily PASS |
+| quality-gate | COMPLETE | - | same-day COMPLETE + cross-day PASS |
+
+> 编排器原先漏了 public-assets（monolith 有、run_review_sync 无）。已接到 theme-flow 之后。
