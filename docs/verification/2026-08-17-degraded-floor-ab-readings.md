@@ -170,3 +170,52 @@ on：
 
 未动：开关默认、8792、T / `_REPAIR_SECONDS_CAP` / 档位 / `ASK_TOOL_BATCH_TIMEOUT` / `_CLAIM_POLICY`。
 未写账本 `confirmed`。`R-20260816-17` 保持 pending。
+
+---
+
+## 7. 检阅方复核（主 agent，2026-08-17）
+
+三条承重结论**独立复验通过**：
+
+| 结论 | 复验方式 | 结果 |
+|---|---|---|
+| 开关叠不进 `view()` | AST 扫 `gap_transparency` 调用点 | ✅ 全仓**仅 1 处**，在 `_gap_answer` 内；transient 走 `_transient_failure_candidate → view()`，碰不到它 |
+| `evidence_gap` off 臂 ≡ 金标 | 逐字节比 `_MIDDLE_TIER_WHEN_MODEL_FINISHED` | ✅ 一致 |
+| `model_unavailable` off 臂 ≡ 金标 | 逐字节比 `_UNBOUND_EVIDENCE_WHEN_REPAIR_UNAVAILABLE` | ✅ 一致 |
+
+### 7.1 建议采纳，但理由要换个说法
+
+「不翻默认」**成立**，但不是因为「翻了没收益」——§5 自己写明 `evidence_gap` /
+`model_unavailable` 两臂 on 会多两段透明，**那是正收益**。
+
+真正的理由是：**这个开关太粗，它把一份已测的收益和一份未测的改动绑在一起。**
+`degraded_fallback.py` docstring 明写「两侧共用一个开关」——
+翻它同时打开 ①输出侧确定性透明段（**已测，正收益**）
+与 ②prompt 侧整段章法注入（**未测，改的是所有「还能写」的降级指令**）。
+拿不到前者而不吃后者。
+
+**所以正确的后续不是「永远别翻」，而是二选一：**
+
+- 把开关拆成两个（输出侧 / prompt 侧各一），先翻已测那半；或
+- 补 prompt 侧的 live 样本，再整体翻。
+
+两条都要用户另拍，本轨不做。
+
+### 7.2 ⚠ §6 第 4 条的形状是错的，按本节改
+
+原文：「若要让瞬时复核答卷也带『尝试过什么 / 来源标注』，那是**再挂一层出口**」。
+
+**不要再挂出口。** T-B（#134）刚把公开答案收敛成**一条** `view()`，
+并加了棘轮门禁 `test_view_callers_are_registered`——
+**新增一个未登记的 `view()` 出口会直接把测试打红**（已变异证伪）。
+
+正确形状是**把透明段作为冻结事实喂进现有出口**：给 `TerminalFacts`
+加一个字段（如 `transparency`），由 `view()` 在 `transient_verifier_outage`
+分支决定拼不拼。出口仍是一条，输入变丰富——这才是 dsh
+`ctx.sessionProjections` 的 `view(facts)` 契约。
+
+### 7.3 未解决项（不影响本收据成立）
+
+prompt 侧**零 live 样本**是本轨的已知空白，§5 已如实标注。
+在补上之前，「模型拿到七项章法会不会照写」是未知数，
+不得用章法全文的完整度替代该证据。
