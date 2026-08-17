@@ -5,9 +5,11 @@ import unittest
 
 from intelligence.services.market_financials import (
     QuarterFinancials,
+    _parse_sina_lrb_rows,
     _secucode,
     akshare_available,
     build_financials_block,
+    fetch_quarterly_financials_chain,
     financials_block_for_target,
     parse_financials_intent,
 )
@@ -170,6 +172,133 @@ class FallbackAttemptedDisclosureTests(unittest.TestCase):
 
         self.assertIsInstance(akshare_available(), bool)
         self.assertNotIn("akshare", sys.modules)
+
+
+class ProviderChainTests(unittest.TestCase):
+    def _rows(self) -> list[QuarterFinancials]:
+        return [
+            QuarterFinancials("2026一季报", "2026-03-31", 16.27, 28.9, -0.65, 74.2, 60.3, -3.97),
+        ]
+
+    def test_unplugged_primary_walks_to_sina(self) -> None:
+        result = fetch_quarterly_financials_chain(
+            "300454.SZ",
+            "深信服",
+            today="2026-08-18",
+            primary=lambda *a, **k: [],
+            secondary=lambda *a, **k: self._rows(),
+            tertiary=lambda *a, **k: [],
+        )
+        self.assertEqual(result.status, "degraded")
+        self.assertEqual(result.provider, "新浪利润表")
+        self.assertEqual(result.as_of, "2026-08-18")
+        self.assertEqual(result.attempted, ("东财 F10", "新浪利润表"))
+        self.assertEqual(result.rows[0].revenue_yi, 16.27)
+
+    def test_primary_http_402_walks_to_sina(self) -> None:
+        import urllib.error
+
+        def boom(*a, **k):
+            raise urllib.error.HTTPError(
+                "https://example.test/f10",
+                402,
+                "Payment Required",
+                hdrs={},
+                fp=None,
+            )
+
+        result = fetch_quarterly_financials_chain(
+            "300454.SZ",
+            today="2026-08-18",
+            primary=boom,
+            secondary=lambda *a, **k: self._rows(),
+            tertiary=lambda *a, **k: [],
+        )
+        self.assertEqual(result.status, "degraded")
+        self.assertEqual(result.provider, "新浪利润表")
+        self.assertTrue(any("402" in note for note in result.notes))
+
+    def test_all_sources_empty_is_no_data_not_query_failed(self) -> None:
+        result = fetch_quarterly_financials_chain(
+            "300454.SZ",
+            today="2026-08-18",
+            primary=lambda *a, **k: [],
+            secondary=lambda *a, **k: [],
+            tertiary=lambda *a, **k: [],
+            tertiary_available=True,
+        )
+        self.assertEqual(result.status, "NO_DATA")
+        self.assertEqual(result.rows, ())
+        block = financials_block_for_target(
+            "300454.SZ",
+            "深信服",
+            chain=lambda *a, **k: result,
+        )
+        self.assertIn("状态=NO_DATA", block)
+        self.assertNotIn("查询失败", block)
+        self.assertIn("东财 F10", block)
+        self.assertIn("新浪利润表", block)
+
+    def test_uninstalled_tertiary_is_missing_config(self) -> None:
+        result = fetch_quarterly_financials_chain(
+            "300454.SZ",
+            today="2026-08-18",
+            primary=lambda *a, **k: [],
+            secondary=lambda *a, **k: [],
+            tertiary=lambda *a, **k: [],
+            tertiary_available=False,
+        )
+        self.assertEqual(result.status, "missing_config")
+        block = financials_block_for_target(
+            "300454.SZ",
+            "深信服",
+            chain=lambda *a, **k: result,
+        )
+        self.assertIn("missing_config", block)
+        self.assertIn("未尝试", block)
+        self.assertNotIn("查询失败", block)
+
+    def test_block_cites_provider_and_as_of(self) -> None:
+        result = fetch_quarterly_financials_chain(
+            "300454.SZ",
+            today="2026-08-18",
+            primary=lambda *a, **k: self._rows(),
+            secondary=lambda *a, **k: [],
+            tertiary=lambda *a, **k: [],
+        )
+        self.assertEqual(result.status, "ok")
+        block = financials_block_for_target(
+            "300454.SZ",
+            "深信服",
+            chain=lambda *a, **k: result,
+        )
+        self.assertIn("东财 F10", block)
+        self.assertIn("取数日=2026-08-18", block)
+        self.assertIn("provider=东财 F10", block)
+
+    def test_sina_lrb_maps_income_line_items(self) -> None:
+        rows = _parse_sina_lrb_rows(
+            {
+                "20260331": {
+                    "data": [
+                        {"item_title": "营业总收入", "item_value": "1627000000", "item_tongbi": "28.9"},
+                        {
+                            "item_title": "归属于母公司股东的净利润",
+                            "item_value": "-65000000",
+                            "item_tongbi": "-3.97",
+                        },
+                        {"item_title": "销售毛利率", "item_value": "60.3"},
+                    ]
+                }
+            },
+            periods=6,
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].report_name, "2026一季报")
+        self.assertEqual(rows[0].revenue_yi, 16.27)
+        self.assertEqual(rows[0].revenue_yoy, 28.9)
+        self.assertEqual(rows[0].netprofit_yi, -0.65)
+        self.assertEqual(rows[0].gross_margin, 60.3)
 
 
 if __name__ == "__main__":
