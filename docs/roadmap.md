@@ -39,7 +39,7 @@
 | L1-S9 | KB Hybrid rerank | done | 四臂评测闭环；结论不上线 | #44 · KB PR #12 | 已合；8792 保持 off |
 | L1-S10 | branch_tool 诊断 | done | Phase A 出 PRIMARY | `docs/verification/2026-08-15-s10-branch-activation.md`（零调用未复现；`ROOT_CAUSE_NOT_CONFIRMED`） | Phase A 已交；Phase B 未开 |
 | L1-R24 | E-007 修复部署 | done | 独立部署窗落地 | #49 · `2026-08-16-r24-deploy-window.md` | 已切 `437cd5e9`；live 结案仍看账本 |
-| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` | 8792=`773b3d7e`（目录名仍 `437cd5e9aa1a`）；卫生 HOLD 并进修复+#84 |
+| L1-8792 | 生产追平 | done | 已切含 #49 的干净快照；其后 tip 不追切（含特性合并） | `2026-08-16-r24-deploy-window.md` · `2026-08-16-deploy-window-773b3d7e.md` · `handoffs/inflight/main.md`（08-17 两行） | 8792=`877e1f72`（目录名=SHA，卫生一致；回滚锚 `96446a933491`）。中间切换史：`773b3d7e`→`6cd0756e`(#88 卫生了结)→`31ee58ce`→`96446a93`→现 |
 | L1-OBS-P1 | 观测台 Phase 1 生成器 | done | render+--check+好/坏夹具 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS-P2 | 观测台 Phase 2 趋势曲线 | done | 两条曲线≥3真实历史点 | `scripts/progress_observatory.py` | 检阅方 |
 | L1-OBS | 进度观测台 | in_flight | Phase 2 已合（交付率/命中率≥3真实点）；Phase 3 挂载面另案 | `2026-08-15-progress-observatory.md` | 检阅方 |
@@ -66,5 +66,7 @@
 | 2026-08-16 | S2 回查钩子已合 #60；默认 off；对照实验未跑；不追切 8792 | 已决 | L1-S2 |
 | 2026-08-16 | S3 窗口推导已合 #63；ASK_* 只下压；3 题冒烟未跑；不追切 8792 | 已决 | L1-S3 |
 | 2026-08-16 | 闸 2 三选一（豁免 #89 §3）：用户 16:58 拍板**选 2**——豁免成立但不翻闸，先修 judge transient（`R-20260816-06`：judge 埋点 → 8795 重放 → H8/H9 → 处置 PR），处置部署 8792 后眼 agent 再翻闸开 10 题窗；交接 `2026-08-16-judge-transient-r06.md` | 已决 | L1-8792 |
+| 2026-08-17 | #145/#146 合并（用户授权「可同步的先同步到 8792」；四件套绿，收据 `20260817T135048Z-570fff2c`，预览树=合后树）；21:57 切 8792=`877e1f72`（目录名=SHA；回滚锚 `96446a93`）。16:10 他轨曾切 `96446a93` 未记账，本日补记 | 已决 | L1-8792 |
+| 2026-08-17 | 降桶标注 live 探针（superseded 证据题）：证据进上下文、模型未滥用；模型侧 marker 可达性由 prompt 教学门禁挡住（#146 设计内豁免，prompt 教语法之日自动回闸）。live 压该文案需先给 `_SYNTHESIS_SYSTEM_PROMPT` 教 marker 语法——押后件，与修订轮开关同看台账 | 已决 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。
