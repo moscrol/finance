@@ -503,6 +503,79 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
         },
     ),
+    # ── 复盘会公开资产续集（2026-08-18：零消费表进语义层；两 JSON 归档不接）──
+    "auction_stock_daily": _DatasetDefinition(
+        table="fact_auction_stock_daily",
+        label="竞价表现（昨日涨停/断板梯队）",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "panel_key": _dimension("panel_key", "竞价面板"),
+            "panel_label": _dimension("panel_label", "面板名称"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "leader_plate": _dimension("leader_plate", "所属题材"),
+            "limit_seq": _dimension("limit_seq", "连板高度", "integer"),
+        },
+        metrics={
+            "auction_pct": _metric("auction_pct", "竞价涨幅"),
+            "pct_chg": _metric("pct_chg", "收盘涨跌"),
+            "auction_amount": _metric("auction_amount", "竞价额"),
+            "day_amount": _metric("day_amount", "全天额"),
+        },
+    ),
+    "research_report_catalog": _DatasetDefinition(
+        table="fact_research_report_catalog",
+        label="卖方/产业研报目录",
+        time_field="report_date",
+        dimensions={
+            "report_date": _dimension("report_date", "研报日期", "date"),
+            "report_type": _dimension("report_type", "研报类型"),
+            "is_hot": _dimension("is_hot", "是否热点", "boolean"),
+            "title": _dimension("title", "标题"),
+            # JSON 字符串列：展示可以，过滤请用 report_type / title。
+            # 不要对这两列走 contains——ESCAPE 已知 bug（FINANCEWORKS-2）。
+            "sector_tags": _dimension("sector_tags", "板块标签"),
+            "concept_tags": _dimension("concept_tags", "概念标签"),
+        },
+        metrics={
+            "stock_count": _metric("stock_count", "覆盖个股数", "max", "integer"),
+        },
+    ),
+    "event_daily": _DatasetDefinition(
+        table="fact_event_daily",
+        label="事件/催化日历（is_future=true 即未来催化）",
+        time_field="event_date",
+        dimensions={
+            "event_date": _dimension("event_date", "事件日", "date"),
+            "title": _dimension("title", "事件标题"),
+            "event_type": _dimension("event_type", "事件类型"),
+            "is_future": _dimension("is_future", "是否未来催化", "boolean"),
+            "sectors": _dimension("sectors", "相关板块"),
+        },
+        metrics={
+            # 规格草案把 importance 同时写进 dim/metric；引擎 selected
+            # fields 必须唯一，故只挂 metric（max），过滤走 filters。
+            "importance": _metric("importance", "重要度", "max", "integer"),
+        },
+    ),
+    "stock_technical_daily": _DatasetDefinition(
+        table="feature_stock_technical_daily",
+        label="个股均线通道/乖离",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+        },
+        metrics={
+            "close": _metric("close", "收盘价"),
+            "ma26": _metric("ma26", "26日均线"),
+            "std26": _metric("std26", "26日标准差"),
+            "up_value": _metric("up_value", "上轨"),
+            "deviation_pct": _metric("deviation_pct", "乖离率"),
+        },
+    ),
 }
 
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {
