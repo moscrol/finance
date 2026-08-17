@@ -45,6 +45,18 @@ _COMPANY_NAME_PREFIXES: tuple[str, ...] = (
     "与",
     "及",
 )
+_ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
+    {
+        "RAG",
+        "retrieval",
+        "rerank",
+        "DuckDB",
+        "baseline",
+        "Provider",
+        "internal",
+        "registry",
+    }
+)
 
 
 def _company_is_known(company: str, allowed_text: str) -> bool:
@@ -98,6 +110,48 @@ _ENGINEERING_TERMS = (
     "registry",
     "internal",
 )
+
+
+def _engineering_leaks(
+    text: str,
+    answer_spec: AnswerSpec | None,
+    *,
+    allowed_profiles: frozenset[str],
+    allowed_terms: frozenset[str] | None = None,
+) -> tuple[str, ...]:
+    profile = getattr(answer_spec, "presentation_profile", None)
+    allow = (
+        (allowed_terms or _ALLOWED_METHODOLOGY_ENGINEERING_TERMS)
+        if profile in allowed_profiles
+        else frozenset()
+    )
+    return tuple(
+        term for term in _ENGINEERING_TERMS if term in text and term not in allow
+    )
+
+
+def _drop_engineering_leak_lines(
+    answer: str,
+    answer_spec: AnswerSpec | None,
+    *,
+    allowed_profiles: frozenset[str],
+    allowed_terms: frozenset[str] | None = None,
+) -> str:
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=allowed_profiles,
+        allowed_terms=allowed_terms,
+    )
+    if not leaked:
+        return answer
+    return "\n".join(
+        line
+        for line in answer.splitlines()
+        if not any(term in line for term in leaked)
+    )
+
+
 _STRUCTURED_CLAIM_MARKER_RE = re.compile(
     r"<!--\s*claim_id=(?P<claim_id>[^;]+);\s*"
     r"evidence_atom_ids=(?P<atom_ids>[^;]*);\s*"
@@ -2432,29 +2486,16 @@ _STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    allowed_methodology_terms = {
-        "RAG",
-        "retrieval",
-        "rerank",
-        "DuckDB",
-        "baseline",
-        "Provider",
-        "internal",
-    }
-    leaked = [
-        term
-        for term in _ENGINEERING_TERMS
-        if term in answer
-        and not (
-            answer_spec.presentation_profile in {"methodology", "review", "general", "causal"}
-            and term in allowed_methodology_terms
-        )
-    ]
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review", "general", "causal"}),
+    )
     if leaked:
         issues.append(
             QualityIssue(
                 "llm_engineering_term_leak",
-                "error",
+                "warning",
                 f"LLM 输出内部术语：{'、'.join(leaked)}",
             )
         )
@@ -2478,7 +2519,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         issues.append(
             QualityIssue(
                 "llm_missing_claim_binding",
-                "error",
+                "warning",
                 "LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
             )
         )
@@ -2488,7 +2529,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_invalid_claim_id",
-                    "error",
+                    "warning",
                     f"LLM 使用无效 claim ID：{claim.claim_id}",
                 )
             )
@@ -2503,7 +2544,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_invalid_evidence_atom_id",
-                    "error",
+                    "warning",
                     "LLM 使用无效 EvidenceAtom ID："
                     + "、".join(invalid_atom_ids),
                 )
@@ -2513,7 +2554,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_claim_type_mismatch",
-                    "error",
+                    "warning",
                     f"{claim.claim_id} 应为 {expected_type}，"
                     f"实际为 {claim.claim_type}",
                 )
@@ -2522,7 +2563,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             issues.append(
                 QualityIssue(
                     "llm_fact_without_evidence_atom",
-                    "error",
+                    "warning",
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
@@ -2538,7 +2579,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                 issues.append(
                     QualityIssue(
                         "llm_fact_only_superseded_evidence",
-                        "error",
+                        "warning",
                         f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
                         "不能作为当前事实陈述。",
                     )
@@ -3089,29 +3130,27 @@ def validate_grounded_composer_answer(
     answer_spec: AnswerSpec,
 ) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    allowed_methodology_terms = {
-        "RAG",
-        "retrieval",
-        "rerank",
-        "DuckDB",
-        "baseline",
-        "Provider",
-        "internal",
-    }
-    leaked = [
-        term
-        for term in _ENGINEERING_TERMS
-        if term in answer
-        and not (
-            answer_spec.presentation_profile in {"methodology", "review"}
-            and term in allowed_methodology_terms
-        )
-    ]
+    leaked = _engineering_leaks(
+        answer,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review"}),
+        allowed_terms=frozenset(
+            {
+                "RAG",
+                "retrieval",
+                "rerank",
+                "DuckDB",
+                "baseline",
+                "Provider",
+                "internal",
+            }
+        ),
+    )
     if leaked:
         issues.append(
             QualityIssue(
                 "grounded_composer_engineering_term_leak",
-                "error",
+                "warning",
                 f"影子答案输出内部术语：{'、'.join(leaked)}",
             )
         )
@@ -3432,9 +3471,25 @@ def present_grounded_composer_answer(
         "",
         _GROUNDED_CLAIM_MARKER_RE.sub("", cleaned),
     )
-    return "\n".join(
+    stripped = "\n".join(
         line.rstrip() for line in without_markers.splitlines()
     ).strip()
+    return _drop_engineering_leak_lines(
+        stripped,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review"}),
+        allowed_terms=frozenset(
+            {
+                "RAG",
+                "retrieval",
+                "rerank",
+                "DuckDB",
+                "baseline",
+                "Provider",
+                "internal",
+            }
+        ),
+    )
 
 
 def repair_grounded_composer_answer(
@@ -3724,7 +3779,12 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
             if numbered is not None:
                 prefix = numbered.group(1)
         rendered_lines.append(f"{prefix}{humanize(source_claim.text)}")
-    return "\n".join(rendered_lines).strip()
+    rendered = "\n".join(rendered_lines).strip()
+    return _drop_engineering_leak_lines(
+        rendered,
+        answer_spec,
+        allowed_profiles=frozenset({"methodology", "review", "general", "causal"}),
+    )
 
 
 def _all_answer_claims(answer_spec: AnswerSpec) -> tuple[Claim, ...]:

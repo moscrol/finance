@@ -1246,8 +1246,10 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 proposed_synthesis = corrected_synthesis
                 accepted_composition = correction
                 blocking_issues = []
+                gate_issues = corrected_issues
             else:
                 blocking_issues = corrected_blocking
+                gate_issues = corrected_issues
     structured_claims, unbound_claim_lines = (
         answer_model.parse_structured_claims(proposed_synthesis)
     )
@@ -1286,6 +1288,11 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             detail=diagnostic_detail,
         )
         return result
+    result.warnings.extend(
+        f"LLM 输出未过 {issue.code}：{issue.message}"
+        for issue in gate_issues
+        if issue.severity != "error"
+    )
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
         result.answer_spec,

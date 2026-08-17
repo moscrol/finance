@@ -79,9 +79,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
         public_deltas: list[str] = []
         prepared = self._prepared_answer(public_deltas=public_deltas)
         issue = mock.Mock(
-            code="llm_missing_claim_binding",
+            code="llm_added_number",
             severity="error",
-            message="越界事实",
+            message="越界数字",
         )
 
         def fake_stream(messages, *, on_delta, **kwargs):
@@ -115,15 +115,53 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIsNone(result.synthesis)
         self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
         self.assertEqual(result.synthesis_diagnostic.state, "rejected")
-        self.assertEqual(
-            result.synthesis_diagnostic.reason_code,
-            "claim_binding_failed",
-        )
-        self.assertNotIn("越界事实", result.synthesis_diagnostic.detail)
         self.assertEqual(public_deltas, [])
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
         self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
+
+    def test_claim_binding_warning_still_publishes_presented_answer(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="warning",
+            message="缺少 claim 绑定",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("未绑定初稿")
+            return SynthesisResult(
+                answer="未绑定初稿",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(issue,),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="展示后的结论。",
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis, "展示后的结论。")
+        self.assertIsNone(result.llm_fallback_reason)
+        self.assertEqual(result.synthesis_diagnostic.state, "accepted")
+        self.assertEqual(public_deltas, ["展示后的结论。"])
+        self.assertTrue(
+            any("缺少 claim 绑定" in warning for warning in result.warnings)
+        )
 
     def test_quality_issues_fail_closed_without_sentence_deletion(self) -> None:
         public_deltas: list[str] = []

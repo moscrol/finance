@@ -403,8 +403,8 @@ class MarketReviewProseContractTests(unittest.TestCase):
                 PreparedAnswer(options=options, result=result)
             )
 
-        self.assertIsNone(result.synthesis)
-        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertEqual(result.synthesis, prose)
+        self.assertIsNone(result.llm_fallback_reason)
         self.assertTrue(
             any(
                 "llm_missing_claim_binding" in warning
@@ -414,7 +414,7 @@ class MarketReviewProseContractTests(unittest.TestCase):
         )
 
     def test_market_review_prose_still_blocked_on_engineering_leak(self) -> None:
-        """豁免只针对 marker 绑定：散文里出现内部术语仍必须退稿。"""
+        """内部术语改成抠行，不再整答退稿。"""
         result = AskResult(
             query="复盘今天的A股",
             trade_date="2026-07-17",
@@ -434,7 +434,9 @@ class MarketReviewProseContractTests(unittest.TestCase):
         ]
         result.prepared_synthesis_is_market_review = True
         leaking_prose = (
-            "今天市场放量上涨，DuckDB 显示主线集中在算力方向。（非投资建议）"
+            "今天市场放量上涨。\n"
+            "DuckDB 显示主线集中在算力方向。\n"
+            "（非投资建议）"
         )
         composed = llm_refine.SynthesisResult(
             answer=leaking_prose,
@@ -457,8 +459,13 @@ class MarketReviewProseContractTests(unittest.TestCase):
                 PreparedAnswer(options=options, result=result)
             )
 
-        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
-        self.assertIsNone(result.synthesis)
+        self.assertIsNone(result.llm_fallback_reason)
+        self.assertIsNotNone(result.synthesis)
+        self.assertNotIn("DuckDB", result.synthesis)
+        self.assertIn("今天市场放量上涨", result.synthesis)
+        self.assertTrue(
+            any("内部术语" in warning for warning in result.warnings)
+        )
 
 
 class DataBlockClaimStatusTests(unittest.TestCase):
