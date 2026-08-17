@@ -544,9 +544,15 @@ def collect_evidence_index(
     targets.append(options.query)
     targets.extend(company_evidence_concepts)
     for target in dict.fromkeys(t for t in targets if t):
+        # 图谱暴露绑的是实体登记概念袋里的一条（如 1.6T CPO），不是这条
+        # 证据该用的题材。锚定实体若带这个 concept 去过滤，对不上就
+        # found=False，整包被跳过，名额被盘面候选占满。
+        concept = company_evidence_concepts.get(target)
+        if anchor is not None and target == anchor.entity:
+            concept = None
         ev = ctx.knowledge.get_evidence(
             target,
-            concept=company_evidence_concepts.get(target),
+            concept=concept,
             limit=options.max_evidence,
         )
         if not ev.get("found"):
