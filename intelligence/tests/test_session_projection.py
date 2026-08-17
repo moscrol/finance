@@ -149,3 +149,90 @@ def test_gap_helpers_themselves_call_view() -> None:
     source = _VERIFIER.read_text(encoding="utf-8")
     assert re.search(r"def _gap_answer\([\s\S]*?\bview\(", source)
     assert re.search(r"def _generic_gap_answer\([\s\S]*?\bview\(", source)
+
+
+# ── 出口登记表（棘轮）──────────────────────────────────────────────────
+#
+# 上面两条门禁只盖 ``public_answer=`` 关键字这一个形状。合并前对账时实测：
+# 在 ``ask_synthesis._judge_outage_release`` 里重新塞一条 ``return f"..."``
+# 拼串旁路，370 个测试**全绿**——那正是本轮亲手修掉的形状，却没人拦它回来。
+#
+# 故加两条：① 生产里调 view() 的函数必须在登记表内（新增出口要显式登记）；
+# ② 登记为「产公开文本」的出口，其返回文本必须来自 view()，不许自己拼。
+_VIEW_CALLERS = frozenset(
+    {
+        "services/ask_synthesis.py::_judge_outage_release",
+        "services/episode_semantic_verifier.py::_transient_failure_candidate",
+        "services/episode_semantic_verifier.py::_completed_public",
+        "services/episode_semantic_verifier.py::_marker_loss_partial_public",
+        "services/episode_semantic_verifier.py::_gap_answer",
+        "services/episode_semantic_verifier.py::_generic_gap_answer",
+    }
+)
+
+# 只列**返回公开文本**的出口；其余返回 outcome 对象，由 public_answer= 那条门禁盖。
+_TEXT_OUTLETS = (
+    ("services/ask_synthesis.py", "_judge_outage_release"),
+    ("services/episode_semantic_verifier.py", "_gap_answer"),
+    ("services/episode_semantic_verifier.py", "_generic_gap_answer"),
+)
+
+_INTELLIGENCE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _production_view_callers() -> set[str]:
+    found: set[str] = set()
+    for path in _INTELLIGENCE_ROOT.rglob("*.py"):
+        if "tests" in path.parts or path.name == "session_projection.py":
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError:  # pragma: no cover - 生产文件应当可解析
+            continue
+        rel = path.relative_to(_INTELLIGENCE_ROOT).as_posix()
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "view":
+                    found.add(f"{rel}::{fn.name}")
+                    break
+    return found
+
+
+def test_view_callers_are_registered() -> None:
+    """新增一个公开文本出口，必须登记——不登记即红。"""
+
+    assert _production_view_callers() == set(_VIEW_CALLERS)
+
+
+@pytest.mark.parametrize(("rel", "func"), _TEXT_OUTLETS)
+def test_text_outlets_never_hand_build_their_return(rel: str, func: str) -> None:
+    """登记为产公开文本的出口，返回值只许是 view(...) 或 None。"""
+
+    path = _INTELLIGENCE_ROOT / rel
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    target = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == func
+    )
+    nested = {
+        inner.name
+        for inner in ast.walk(target)
+        if isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and inner is not target
+    }
+    offenders: list[str] = []
+    for node in ast.walk(target):
+        if not isinstance(node, ast.Return) or node.value is None:
+            continue
+        if isinstance(node.value, ast.Constant) and node.value.value is None:
+            continue
+        if isinstance(node.value, ast.Call) and getattr(node.value.func, "id", "") == "view":
+            continue
+        offenders.append(f"{rel}:{node.lineno} {ast.unparse(node.value)[:70]}")
+    assert offenders == [], (
+        f"{func} 自己拼了公开文本，未经 view()（嵌套函数 {sorted(nested)}）：" + "; ".join(offenders)
+    )
