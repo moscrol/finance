@@ -76,9 +76,36 @@ n=1，11→10 是噪声不是改善。
 认的正是 `claim_ids=`（复数）。旧链的正则要 `claim_id=`（单数），**两条链的 marker
 方言本来就不同**，而旧链那条方言没有任何 prompt 教过。
 
-**所以 `llm_missing_claim_binding` 在旧链上是在罚一个从没下达过的要求。** 下一步不是
-继续调 severity，二选一：把契约真正下达（prompt 给语法 + 注入 registry），或者承认
-这条链不走 claim 契约、把这道闸撤掉。**这个决定要用户拍，不要顺手改。**
+**所以 `llm_missing_claim_binding` 在旧链上是在罚一个从没下达过的要求。**
+
+### 2.3 用户拍板：不问罪（`3cbdc245`）
+
+用户选「承认这条链不走 claim 契约」。**没有删掉这道闸**——删了就回不来：
+
+- `validate_llm_answer` **照报**（文本里确实没 marker，这是事实，不粉饰）
+- **「要不要拿它问罪」移到 `ask_synthesis`**——只有调用方知道自己是哪个契约。
+  契约没下达时：不喂修订轮、不进用户可见警告；事实仍留在
+  `unbound_claim_line_count` 遥测里
+- 判据 `llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS` **取自 prompt 自身**：
+  那段 prompt 哪天开始教语法，问罪自己回来，不需要谁记得改回来
+- 市场复盘散文契约显式排除，行为不变
+
+⚠ **踩过一个坑**：第一版把判据做成 `answer_model` 里的全局标志，**全量测试当场抓出
+两个误伤**——市场复盘散文契约（`test_p0_hardening`）和 followup 合并
+（`test_workbench_research_owner_skills`）都故意钉着这条码当观测信号。一个判据替三个
+消费方做决定，正是本轮刚诊断过的那个形状。目标测试没抓到，全量抓到了。
+
+第三发 live 验收（`live-contract-scoped.json`）：
+
+| | 改前 `live-retrieval` | 改后 `live-contract-scoped` |
+|---|---|---|
+| `revision_trigger` | `warning` | **`null`**（不再触发） |
+| `claim_binding_revision_ms` | **30180** | **无**（那次调用没发生） |
+| 绑定类警告 | 1 条 | **0 条** |
+| 答卷 | 1237 字，accepted | 1630 字，accepted，19 引用 |
+
+**不读快慢**：三发总耗时 204.9 / 267.8 / 218.4s，被检索方差主导，n=1 读不出延迟结论。
+能断言的只有结构性事实：那次修订调用**没有发生**。
 
 新增遥测 `claim_binding_issues_before/after`：只记 accepted 的话「差一点」和「完全
 没改」长得一样。下一发能看出修订到底缩了多少。
