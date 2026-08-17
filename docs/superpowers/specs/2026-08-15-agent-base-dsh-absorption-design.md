@@ -415,6 +415,11 @@ final outcome
 
 ## 9. A/B 对比设计
 
+> **2026-08-17 四次更正。** 全量 A vs A′（450/臂、两臂 900）**不开**。
+> 下一对照改为：吸收前底座上只接 EpisodeScope + 工具阶段，1 题 × 每臂 5 次。
+> 权威：`docs/superpowers/specs/2026-08-17-tf-subset-attach-design.md`。
+> §9.1 的整包 A′ 仍是历史定义，本阶段不执行。
+
 ### 9.1 实验臂
 
 > **2026-08-17 口径变更（用户裁定）。** 初版的 Arm B 是「dsh Runtime Adapter」，
