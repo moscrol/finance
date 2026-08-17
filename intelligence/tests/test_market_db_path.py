@@ -68,7 +68,7 @@ def test_falls_back_to_the_code_root_when_nothing_is_configured() -> None:
 
 
 def test_market_modules_share_one_default(monkeypatch, tmp_path) -> None:
-    """六个模块必须解析到同一路径，否则盘面层会各读各的库。"""
+    """盘面模块必须解析到同一路径，否则盘面层会各读各的库。"""
     monkeypatch.setenv("FINANCE_WS", str(tmp_path))
     expected = tmp_path / "db" / "market_feature_store.duckdb"
 
@@ -79,6 +79,7 @@ def test_market_modules_share_one_default(monkeypatch, tmp_path) -> None:
         "intelligence.services.market_analogs",
         "intelligence.services.market_timeseries",
         "intelligence.services.market_moneyflow",
+        "intelligence.services.market_dragon",
         "intelligence.services.market_midterm",
     ):
         module = importlib.reload(importlib.import_module(name))
