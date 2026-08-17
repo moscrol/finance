@@ -1014,12 +1014,33 @@ def _numeric_lineage_projection(
     )
     if not blocked_claim_ids:
         return published_answer, claims, ()
-    gap_claims = _runtime_claims(
-        _NUMERIC_LINEAGE_GAP_ANSWER,
+    blocked = {
+        claim.claim_id: claim
+        for claim in claims
+        if claim.claim_id in blocked_claim_ids
+    }
+    kept_parts: list[str] = []
+    cursor = 0
+    for claim in claims:
+        if claim.claim_id in blocked:
+            kept_parts.append(published_answer[cursor:claim.start])
+            cursor = claim.end
+    kept_parts.append(published_answer[cursor:])
+    kept = re.sub(r"[ \t]+\n", "\n", "".join(kept_parts))
+    kept = re.sub(r"\n{3,}", "\n\n", kept).strip()
+    if not kept:
+        gap_claims = _runtime_claims(
+            _NUMERIC_LINEAGE_GAP_ANSWER,
+            sources=sources,
+            evidence=evidence,
+        )
+        return _NUMERIC_LINEAGE_GAP_ANSWER, gap_claims, blocked_claim_ids
+    remaining_claims = _runtime_claims(
+        kept,
         sources=sources,
         evidence=evidence,
     )
-    return _NUMERIC_LINEAGE_GAP_ANSWER, gap_claims, blocked_claim_ids
+    return kept, remaining_claims, blocked_claim_ids
 
 
 _MATERIAL_NUMERIC_TOKEN_RE = re.compile(
@@ -1325,11 +1346,6 @@ def _run_research_arm(
         stop_reason = final_outcome.stop_reason
         if blocked_claim_ids:
             candidate_answer = turn_result.answer
-            runtime_status = (
-                "failed" if turn_result.status == "failed" else "degraded"
-            )
-            if runtime_status != "failed":
-                stop_reason = "numeric_lineage_gap"
             issues.append(
                 "numeric_lineage_gap:" + ",".join(blocked_claim_ids)
             )
