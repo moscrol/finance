@@ -1394,6 +1394,7 @@ def _run_ask(
     req: CreateRunRequest,
 ) -> None:
     from intelligence.services.ask import AskOptions, answer_query, render_answer
+    from intelligence.services.ask_llm_context import maybe_persist_llm_context
     from intelligence.services.llm_refine import detect_provider
 
     repo_root = req.repo_root or REPO_ROOT
@@ -1585,6 +1586,7 @@ def _run_ask(
         renderer="json",
         title="结构化摘要",
     )
+    maybe_persist_llm_context(store, run_id, result)
     coverage = _ask_answer_coverage(req.question, result, answer_md)
     report["answer_marker_coverage"] = coverage
     store.append_step(
