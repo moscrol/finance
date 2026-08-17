@@ -84,6 +84,7 @@ docstring 自陈 `"This is deliberately not a semantic pass"`——裁判挂了�
 ## 6. 完成定义
 
 - 离线夹具：同一份终局事实，三类成因各自产出**不同**的首句；**变异**——把任意两类合并即须转红。
+- 三类成因 × 开关 off 的终稿夹具留在测试里，供 T-A 原文引用（T-A 不重跑）。
 - 不存在第二条绕过该出口的公开文本路径（用 grep 自证：`public_answer=` 的赋值点全部经过该出口）。
 - 现有 `_gap_answer` 路径的输出**逐字节不变**（除非成因分类本身要求改），否则须在 PR 里列出差异。
 
@@ -93,7 +94,9 @@ docstring 自陈 `"This is deliberately not a semantic pass"`——裁判挂了�
 - 不动 `WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS` / `_REPAIR_SECONDS_CAP` / 生产档位 /
   `ASK_TOOL_BATCH_TIMEOUT`（R-20260816-07 绊线）。
 - 不切 8792。不碰 `ASK_DEGRADED_FALLBACK` 开关默认值（那是 T-A 的活）。
-- ⚠ 与 T-A 共文件，**各开各的分支，不要互相 rebase**，合并前由主 agent 对账。
+- ⚠ T-A **等本轨合入 `gitea/main` 再执行**。落地 PR 把三类成因 × 开关 off 的终稿夹具留在测试里，
+  让 T-A 只叠 on 臂、原文贴进收据，不重跑 live。
+- ⚠ 与 T-A 共文件。T-A 不再为对照窗另开改代码的分支；本轨合入前不必跟 T-A rebase。
 
 ## 8. 环境
 
