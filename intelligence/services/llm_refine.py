@@ -964,6 +964,22 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "不输出买卖指令，结尾以「（非投资建议）」收尾。"
 )
 
+# 这条合成契约有没有真的把 claim marker 语法下达给模型。
+#
+# 2026-08-17 两发 live 挖出来的：上面这段 prompt 只说「事实句必须绑定合法
+# EvidenceAtom」「claim marker 只用于机器核验」，却**从没给过 marker 语法**
+# （`claim_id=` 0 次、`<!--` 0 次），`build_synthesis_messages` 也不注入 claim
+# registry。模型拿不到语法和合法 ID，不可能合规——它在 #144 那发写出的短式
+# `claim_id=` 是在猜。此时 `llm_missing_claim_binding` 罚的是一个从没下达过的
+# 要求：每答必报、把修订轮也拖起来空跑 30 秒。
+#
+# 所以判据取自 prompt 自身，不写死布尔：**哪天这段 prompt 开始教语法，闸自己
+# 回来**，不需要谁记得回来改这一行。对照 Grounded 那条是自洽的
+# （`_GROUNDED_COMPOSER_SYSTEM_PROMPT` 明写 `claim_ids=`），它的闸不受影响。
+SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS = (
+    "claim_id=" in _SYNTHESIS_SYSTEM_PROMPT
+)
+
 
 @dataclass
 class SynthesisResult:

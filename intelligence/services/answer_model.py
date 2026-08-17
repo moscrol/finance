@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
+from intelligence.services import llm_refine
 from intelligence.services.research_contract import (
     EvidenceAtom,
     StageArtifact,
@@ -2561,7 +2562,13 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
     structured_claims, unbound_lines = parse_structured_claims(answer)
-    if unbound_lines:
+    # 契约没下达就不判「没绑定」。这条链的 system prompt 不教 marker 语法、
+    # 也不注入 claim registry（见 llm_refine 那个常量旁的实测记录），此时报
+    # 未绑定等于罚一个从没下达过的要求：每答必报，还把修订轮拖起来空跑。
+    # 判据挂在 prompt 上而不是写死——prompt 开始教语法，这道闸自己回来。
+    # 下面按 marker 逐条查 ID/类型/证据时效的闸**不受影响**：那些只在模型
+    # 真的写出了 marker 时才触发，"写了但写错"始终该报。
+    if unbound_lines and llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS:
         issues.append(
             QualityIssue(
                 "llm_missing_claim_binding",

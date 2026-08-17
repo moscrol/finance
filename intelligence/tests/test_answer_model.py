@@ -960,14 +960,40 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("retrieval", rendered)
         self.assertNotIn("evidence_count", rendered)
 
-    def test_llm_gate_rejects_unbound_factual_content(self) -> None:
+    def test_unbound_content_is_not_flagged_when_contract_was_never_issued(
+        self,
+    ) -> None:
+        """合成 prompt 不教 marker 语法时，不判「没绑定」。
+
+        2026-08-17 两发 live：该 prompt 全文没有 `claim_id=` / `<!--`，也不注入
+        claim registry，模型拿不到语法和合法 ID。此时报未绑定＝罚一个从没下达过
+        的要求：每答必报、还把修订轮拖起来空跑 30 秒。
+        """
+
         text = "新增科技未来订单将达到 20 亿元。"
         issues = validate_llm_answer(text, self._answer())
         codes = {issue.code for issue in issues}
 
+        self.assertFalse(llm_refine.SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS)
+        self.assertNotIn("llm_missing_claim_binding", codes)
+        self.assertIn("20 亿元", present_llm_answer(text, self._answer()))
+
+    def test_unbound_content_is_flagged_once_the_contract_is_issued(
+        self,
+    ) -> None:
+        """对偶：prompt 一旦开始教语法，这道闸自己回来——不是被删了。"""
+
+        text = "新增科技未来订单将达到 20 亿元。"
+        with mock.patch.object(
+            llm_refine,
+            "SYNTHESIS_PROMPT_TEACHES_CLAIM_MARKERS",
+            True,
+        ):
+            issues = validate_llm_answer(text, self._answer())
+
+        codes = {issue.code for issue in issues}
         self.assertEqual(codes, {"llm_missing_claim_binding"})
         self.assertTrue(all(issue.severity == "warning" for issue in issues))
-        self.assertIn("20 亿元", present_llm_answer(text, self._answer()))
 
     def test_engineering_term_leak_is_warning_and_line_is_stripped(self) -> None:
         spec = self._answer()
