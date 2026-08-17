@@ -5,33 +5,104 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
+from intelligence.adapters.knowledge import evidence_status
 from intelligence.services.ask_types import AskOptions, AskResult, Citation
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services import evidence_providers as ep
 
+_CHANGDIAN_BASELINE = (
+    "长电科技|先进封装|2026-04-08|[[长电科技 2025年度报告 baseline 2026-04-08]]|"
+    "XDFOI芯粒高密度多维异构集成系列工艺已进入量产阶段"
+)
+_GUOJU_HIKE = "国巨自7/1起上调全系列电容售价、首次纳入EMS/OEM直接客户"
+
 
 class _CatalogKnowledge:
-    """按 target/concept 精确过滤，复现 adapter 把错位概念绑到锚定实体时的空命中。"""
+    """按 target/concept 精确过滤，复现 adapter 把错位概念绑到锚定实体时的空命中。
+
+    排序/丢弃规则对齐 ``KnowledgeAdapter.get_evidence``：invalidated 默认丢，
+    superseded 排在全部 active 之后。旁路扫描另走 ``get_stale_edges``。
+    """
 
     def __init__(self, catalog: dict[str, list[dict]]) -> None:
         self.catalog = catalog
         self.calls: list[tuple[str, str | None]] = []
+        self.stale_calls: list[str] = []
+        self.stale_concept_args: list[str | None] = []
 
     def get_evidence(self, target, concept=None, limit=20, include_invalidated=False):
         self.calls.append((target, concept))
         items = list(self.catalog.get(target, []))
         if concept:
             items = [item for item in items if item.get("concept") == concept]
-        matched = items[:limit]
+        kept = []
+        for item in items:
+            if evidence_status(item) == "invalidated" and not include_invalidated:
+                continue
+            kept.append(item)
+        kept.sort(key=lambda item: evidence_status(item) == "superseded")
+        matched = kept[:limit]
         return {"found": bool(matched), "items": matched}
 
+    def get_stale_edges(self, target, concept=None):
+        # 故意接收 concept：若生产旁路把概念袋传进来，测试能抓到。
+        self.stale_calls.append(target)
+        self.stale_concept_args.append(concept)
+        items = [
+            item
+            for item in self.catalog.get(target, [])
+            if evidence_status(item) in {"superseded", "invalidated"}
+        ]
+        if concept:
+            items = [item for item in items if item.get("concept") == concept]
+        return {"found": bool(items), "target": target, "items": items}
 
-def _evidence_ctx(*, query: str, knowledge, anchor: EntityAnchor | None = None) -> ep.EvidenceContext:
+
+def _item(
+    target: str,
+    *,
+    evidence: str,
+    source: str = "[[src]]",
+    source_date: str = "2026-03-01",
+    status: str = "active",
+    **extra: object,
+) -> dict:
+    row = {
+        "target": target,
+        "evidence": evidence,
+        "source": source,
+        "source_date": source_date,
+        "confidence": "high",
+        "status": status,
+    }
+    row.update(extra)
+    return row
+
+
+def _actives(target: str, n: int, *, prefix: str = "active") -> list[dict]:
+    return [
+        _item(target, evidence=f"{prefix}-{i:02d}", source=f"[[{prefix}-{i:02d}]]")
+        for i in range(n)
+    ]
+
+
+def _bypass_notes(notes: list[str], target: str) -> list[str]:
+    needle = f"{target} 有 "
+    return [note for note in notes if note.startswith(needle) and "条证据已被取代" in note]
+
+
+def _evidence_ctx(
+    *,
+    query: str,
+    knowledge,
+    anchor: EntityAnchor | None = None,
+    matched_theme: str | None = None,
+) -> ep.EvidenceContext:
     options = AskOptions(query=query, max_evidence=8)
     result = AskResult(
         query=query,
         trade_date=None,
-        matched_theme=None,
+        matched_theme=matched_theme,
         candidate_tier=None,
         priority_score=None,
     )
@@ -156,6 +227,213 @@ class CollectEvidenceIndexAnchorTests(unittest.TestCase):
         self.assertNotIn("286.69", joined)
         self.assertIn(("富信科技", "CPO"), knowledge.calls)
         self.assertIn(("长电科技", "1.6T CPO"), knowledge.calls)
+
+
+class CollectEvidenceIndexStaleBypassTests(unittest.TestCase):
+    """方案 D：top-8 名额不动，截断外旁路扫 superseded/invalidated。"""
+
+    def _collect(self, catalog, *, query, anchor=None, theme=None, concepts=None):
+        knowledge = _CatalogKnowledge(catalog)
+        ctx = _evidence_ctx(
+            query=query,
+            knowledge=knowledge,
+            anchor=anchor,
+            matched_theme=theme,
+        )
+        bundle = ep.collect_evidence_index(ctx, concepts or {})
+        return knowledge, bundle
+
+    def test_changdian_rich_host_gets_one_bypass_note_without_quota_squeeze(self) -> None:
+        catalog = {
+            "长电科技": [
+                *_actives("长电科技", 32),
+                _item(
+                    "长电科技",
+                    evidence="作为全球第三、中国大陆第一的集成电路封测企业，2024 年营收 359.62 亿元。",
+                    source="[[先进封装研报]]",
+                    source_date="2026-01-29",
+                    status="superseded",
+                    concept="先进封装",
+                    superseded_by=_CHANGDIAN_BASELINE,
+                ),
+                _item(
+                    "长电科技",
+                    evidence="2024 年营收 359.61 亿元，同比增长 21.24%。",
+                    source="[[存储芯片研报]]",
+                    source_date="2026-01-29",
+                    status="superseded",
+                    concept="存储芯片",
+                    superseded_by=_CHANGDIAN_BASELINE,
+                ),
+            ]
+        }
+        knowledge, bundle = self._collect(
+            catalog,
+            query="长电科技的营收规模怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+            concepts={"长电科技": "1.6T CPO"},
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertTrue(all("359.62" not in line and "⚠️" not in line for line in bundle.lines))
+        self.assertEqual(
+            [line.split("：", 1)[1][:9] for line in bundle.lines],
+            [f"active-{i:02d}" for i in range(8)],
+        )
+        notes = _bypass_notes(bundle.stale_notes, "长电科技")
+        self.assertEqual(len(notes), 1, bundle.stale_notes)
+        note = notes[0]
+        self.assertIn("有 2 条证据已被取代", note)
+        self.assertIn("2026-04-08", note)
+        self.assertIn("baseline", note)
+        self.assertIn("长电科技", knowledge.stale_calls)
+        self.assertTrue(all(arg is None for arg in knowledge.stale_concept_args))
+
+    def test_dram_sparse_host_keeps_window_markers_and_does_not_repeat_bypass(self) -> None:
+        catalog = {
+            "DRAM": [
+                *_actives("DRAM", 5),
+                _item(
+                    "DRAM",
+                    evidence="长鑫招股书细化：26Q1收入508亿",
+                    source="[[招股书]]",
+                    source_date="2026-05-18",
+                    status="superseded",
+                    superseded_by="DRAM||2026-07-24|[[晚间卖方研报20260724]]|华西深度",
+                ),
+                _item(
+                    "DRAM",
+                    evidence="华西计算机长鑫科技深度：国产DRAM研发设计制造一体化龙头",
+                    source="[[晚间卖方研报20260724]]",
+                    source_date="2026-07-24",
+                    status="superseded",
+                    superseded_by="DRAM||2026-07-27|[[晚间卖方研报20260727]]|长鑫上市",
+                ),
+            ]
+        }
+        _, bundle = self._collect(catalog, query="DRAM")
+        self.assertEqual(sum("⚠️已被新证据取代" in line for line in bundle.lines), 2)
+        self.assertEqual(len(_bypass_notes(bundle.stale_notes, "DRAM")), 0, bundle.stale_notes)
+        self.assertEqual(
+            sum("该条证据已被取代" in note for note in bundle.stale_notes),
+            2,
+        )
+
+    def test_mlcc_seventh_month_hike_stays_eighth_active(self) -> None:
+        actives = _actives("MLCC", 16)
+        actives[7] = _item(
+            "MLCC",
+            evidence=_GUOJU_HIKE,
+            source="[[晚间卖方研报20260701]]",
+            source_date="2026-07-01",
+        )
+        catalog = {
+            "MLCC": [
+                *actives,
+                *[
+                    _item(
+                        "MLCC",
+                        evidence=f"old-usage-{i}",
+                        source=f"[[old-{i}]]",
+                        source_date="2026-02-22",
+                        status="superseded",
+                        superseded_by="MLCC||2026-07-27|[[晚间卖方研报20260727]]|太诱再涨价",
+                    )
+                    for i in range(6)
+                ],
+            ]
+        }
+        _, bundle = self._collect(catalog, query="MLCC")
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertIn(_GUOJU_HIKE, bundle.lines[7])
+        self.assertTrue(all("⚠️" not in line for line in bundle.lines))
+
+    def test_invalidated_overlay_hard_gets_bypass_note(self) -> None:
+        catalog = {
+            "风华高科": [
+                *_actives("风华高科", 6),
+                _item(
+                    "风华高科",
+                    evidence="国内 MLCC 龙头，全球市占率 7%",
+                    source="[[旧研报]]",
+                    source_date="2026-01-29",
+                    status="invalidated",
+                    status_note="回链：2026-06-03 否认（证伪·待人工复核）",
+                ),
+                _item(
+                    "风华高科",
+                    evidence="MLCC现货价上调20%量价齐升",
+                    source="[[0205强势脱水]]",
+                    source_date="2026-02-05",
+                    status="invalidated",
+                    status_note="回链：2026-06-03 否认（证伪·待人工复核）",
+                ),
+            ]
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="风华高科怎么看",
+            anchor=EntityAnchor(entity="风华高科", ticker="000636", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 6)
+        notes = _bypass_notes(bundle.stale_notes, "风华高科")
+        self.assertEqual(len(notes), 1, bundle.stale_notes)
+        self.assertIn("有 2 条证据已被取代", notes[0])
+        self.assertIn("2026-06-03", notes[0])
+
+    def test_theme_bypass_survives_company_quota_fill(self) -> None:
+        catalog = {
+            "长电科技": _actives("长电科技", 10),
+            "电子布": [
+                *_actives("电子布", 3, prefix="cloth"),
+                _item(
+                    "电子布",
+                    evidence="巨石 0 库存",
+                    source="[[电子布旧口径]]",
+                    source_date="2026-06-25",
+                    status="superseded",
+                    superseded_by="电子布||2026-07-20|[[新口径]]|供给缺口",
+                ),
+            ],
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技的电子布封测怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+            theme="电子布",
+            concepts={"长电科技": "先进封装"},
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertTrue(all(line.startswith("长电科技") for line in bundle.lines))
+        notes = _bypass_notes(bundle.stale_notes, "电子布")
+        self.assertEqual(len(notes), 1, bundle.stale_notes)
+        self.assertIn("供给缺口", notes[0])
+
+    def test_bypass_note_char_budget_and_zero_when_no_stale(self) -> None:
+        catalog = {
+            "干净宿主": _actives("干净宿主", 3),
+            "长电科技": [
+                *_actives("长电科技", 9),
+                _item(
+                    "长电科技",
+                    evidence="2024 年营收 359.62 亿元",
+                    source="[[旧]]",
+                    source_date="2026-01-29",
+                    status="superseded",
+                    superseded_by=_CHANGDIAN_BASELINE + ("｜" + "很长指针" * 40),
+                ),
+            ],
+        }
+        _, clean = self._collect(catalog, query="干净宿主")
+        self.assertEqual(_bypass_notes(clean.stale_notes, "干净宿主"), [])
+        _, rich = self._collect(
+            catalog,
+            query="长电科技",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        notes = _bypass_notes(rich.stale_notes, "长电科技")
+        self.assertEqual(len(notes), 1)
+        self.assertLessEqual(len(notes[0]), 180)
+        self.assertGreaterEqual(len(notes[0]), 80)
 
 
 if __name__ == "__main__":
