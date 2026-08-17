@@ -31,3 +31,7 @@
 - 研报 `sector_tags` / `concept_tags` 可展示，过滤请用 `report_type` / `title`，不对 JSON 列走 `contains`。
 - 两个 JSON 文件本体不动，归档动作留给用户裁决。
 - 不铸 EvidenceAtom，不切 8792，不改 launcher，不动检索 top-8 / prompt / #146 闸 / #165 旁路 / #164 数据根。
+
+## live 三问（2026-08-18，#152 sidecar，不硬修）
+
+`POST /api/runs` ask 车道三发均 **0** 次 `finance_query`。路由分别是 `market_forecast` / `theme_analysis` / `general_finance_qa`，吃盘面总览与 wiki，没点到新注册的四表。语义层测试已证明够得着；想得到用另开单。详见 `docs/verification/2026-08-18-dead-assets-live.md`。
