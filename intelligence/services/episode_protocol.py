@@ -845,6 +845,17 @@ def _finish_object(value: object) -> dict[str, object] | None:
     return dict(value)
 
 
+def parse_finish_json(content: str) -> dict[str, object] | None:
+    """Effective finish decoder used by production.
+
+    Accepts a raw ``model_turn.content`` string (bare object or fenced) and
+    returns the envelope dict, including the raw-draft recovery path. This is
+    the parser the acceptance ruler must share — do not copy it.
+    """
+
+    return _parse_json_object(content)
+
+
 def _parse_json_object(content: str) -> dict[str, object] | None:
     raw = str(content or "").strip()
     fenced = _FINAL_JSON_RE.fullmatch(raw)
@@ -926,6 +937,7 @@ __all__ = [
     "finish_json_schema",
     "finish_rejection_fields",
     "parse_evidence_ordinal",
+    "parse_finish_json",
     "rejection_response",
     "resolve_evidence_refs",
     "strip_hashes_for_model",
