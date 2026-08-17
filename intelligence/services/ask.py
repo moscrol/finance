@@ -2645,7 +2645,9 @@ def _revise_synthesis_on_warn(result: AskResult, options: AskOptions) -> None:
     ):
         return
     warn_notes = [
-        f"{c.name}：{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        f"{c.name}：{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
     ]
     revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
     revised, rev_reason = llm_refine.synthesize_messages(
@@ -4283,7 +4285,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(
-        f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        f"输出质检：{c.name}——{c.note}"
+        for c in result.review_gate.checks
+        if c.status == output_review.WARN and not c.advisory_only
     )
     _revise_synthesis_on_warn(result, options)
     result.sections = {
