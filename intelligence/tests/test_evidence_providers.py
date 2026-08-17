@@ -517,5 +517,81 @@ class CollectEvidenceIndexCounterReserveTests(unittest.TestCase):
         self.assertIsNone(bundle.counter_disclosure)
 
 
+class _HopKnowledge(_CatalogKnowledge):
+    def __init__(self, catalog, lexicon: tuple[str, ...]) -> None:
+        super().__init__(catalog)
+        self.lexicon = lexicon
+
+    def get_concept_matches(self, term, limit=5):
+        del term
+        return {
+            "found": True,
+            "items": [{"concept": name} for name in self.lexicon[:limit]],
+        }
+
+    def get_exposure_matches(self, term, limit=12):
+        del term, limit
+        return {"found": False, "items": []}
+
+
+class CollectEvidenceIndexSecondHopTests(unittest.TestCase):
+    """KC-06：窄命中/邻居抽出的第二跳 target，行上标跳数，不加行。"""
+
+    def test_neighbor_second_hop_fills_sparse_first_round(self) -> None:
+        knowledge = _HopKnowledge(
+            {
+                "树脂": [
+                    _item("树脂", evidence="电子级树脂供给偏紧，光刻胶上游涨价")
+                ]
+            },
+            ("树脂", "光引发剂", "单体"),
+        )
+        ctx = _evidence_ctx(
+            query="光刻胶现在处于什么阶段",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        bundle = ep.collect_evidence_index(ctx, {})
+        hop_lines = [line for line in bundle.lines if "〔第2跳〕" in line]
+        self.assertTrue(any("树脂" in line for line in hop_lines), bundle.lines)
+        self.assertIn(("树脂", None), knowledge.calls)
+        self.assertEqual(len(bundle.lines), 1)
+
+    def test_second_hop_target_calls_capped_at_three(self) -> None:
+        lexicon = ("树脂", "光引发剂", "单体", "晶圆厂", "ArF")
+        catalog = {
+            name: [_item(name, evidence=f"{name} 供给")]
+            for name in lexicon
+        }
+        knowledge = _HopKnowledge(catalog, lexicon)
+        ctx = _evidence_ctx(
+            query="光刻胶现在处于什么阶段",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        ep.collect_evidence_index(ctx, {})
+        hop_targets = [target for target, _concept in knowledge.calls if target in lexicon]
+        self.assertEqual(hop_targets, ["树脂", "光引发剂", "单体"])
+
+    def test_second_hop_does_not_add_rows_beyond_max_evidence(self) -> None:
+        knowledge = _HopKnowledge(
+            {
+                "光刻胶": _actives("光刻胶", 8),
+                "树脂": _actives("树脂", 4, prefix="resin"),
+            },
+            ("树脂",),
+        )
+        ctx = _evidence_ctx(
+            query="光刻胶",
+            knowledge=knowledge,
+            matched_theme="光刻胶",
+        )
+        bundle = ep.collect_evidence_index(ctx, {})
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertIn(("树脂", None), knowledge.calls)
+        self.assertEqual(sum("〔第2跳〕" in line for line in bundle.lines), 1)
+        self.assertTrue(any("树脂" in line for line in bundle.lines))
+
+
 if __name__ == "__main__":
     unittest.main()
