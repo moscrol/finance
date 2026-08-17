@@ -961,6 +961,8 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("evidence_count", rendered)
 
     def test_llm_gate_rejects_unbound_factual_content(self) -> None:
+        """本层照报「没绑定」——要不要拿它问罪由调用方决定，见 ask_synthesis。"""
+
         text = "新增科技未来订单将达到 20 亿元。"
         issues = validate_llm_answer(text, self._answer())
         codes = {issue.code for issue in issues}

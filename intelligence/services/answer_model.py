@@ -2483,6 +2483,52 @@ def repair_llm_answer(
 # 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
 _STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 
+# 降桶标注文案。它出现在**正文里**，不是 warnings 里——警告是给工程师看的台账，
+# 用户读到的仍是一句语气笃定的结论。降级要让读答案的人看见才算降级。
+STALE_EVIDENCE_TIER_NOTE = "（待核验：所据证据已被取代或证伪）"
+
+
+def _claim_rests_only_on_stale_evidence(
+    claim: "StructuredClaim",
+    atom_registry: dict[str, "EvidenceAtom"],
+) -> bool:
+    """事实 claim 是否**只**绑了已被取代/已证伪的证据原子。
+
+    这一条不是形式问题：ID 写错、少标 marker 都不代表内容错，而「拿已被推翻的
+    证据当当前事实」本身就是内容错。门禁（``llm_fact_only_superseded_evidence``）
+    与展示层降桶标注共用这一个判据——单一真本源，改判据两处同时变，不会一处
+    报警另一处不标。
+    """
+
+    if claim.claim_type != "fact" or not claim.evidence_atom_ids:
+        return False
+    bound_atoms = [
+        atom_registry[atom_id]
+        for atom_id in claim.evidence_atom_ids
+        if atom_id in atom_registry
+    ]
+    return bool(bound_atoms) and all(
+        atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+    )
+
+
+def stale_evidence_claim_ids(
+    answer: str,
+    answer_spec: AnswerSpec,
+) -> frozenset[str]:
+    """答案里哪些 claim 该被降桶标注（只绑了已取代/已证伪证据的事实）。"""
+
+    atom_registry = {
+        atom.atom_id: atom
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+    structured_claims, _ = parse_structured_claims(answer)
+    return frozenset(
+        claim.claim_id
+        for claim in structured_claims
+        if _claim_rests_only_on_stale_evidence(claim, atom_registry)
+    )
+
 
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
@@ -2515,6 +2561,11 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
     structured_claims, unbound_lines = parse_structured_claims(answer)
+    # 这里保持诚实：文本里确实没有 marker，就照报。**「要不要拿它问罪」不归这层管**
+    # ——本函数有三个消费方（旧合成链、市场复盘散文契约、followup 合并），后两个
+    # 故意钉着这条码当观测信号。契约有没有真的下达给模型，只有调用方知道，
+    # 处置在 ask_synthesis。（一版把判据写成全局标志放在这里，全量测试当场抓出
+    # 另外两个消费方被误伤。）
     if unbound_lines:
         issues.append(
             QualityIssue(
@@ -2567,23 +2618,15 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
-        if claim.claim_type == "fact" and claim.evidence_atom_ids:
-            bound_atoms = [
-                atom_registry[atom_id]
-                for atom_id in claim.evidence_atom_ids
-                if atom_id in atom_registry
-            ]
-            if bound_atoms and all(
-                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
-            ):
-                issues.append(
-                    QualityIssue(
-                        "llm_fact_only_superseded_evidence",
-                        "warning",
-                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
-                        "不能作为当前事实陈述。",
-                    )
+        if _claim_rests_only_on_stale_evidence(claim, atom_registry):
+            issues.append(
+                QualityIssue(
+                    "llm_fact_only_superseded_evidence",
+                    "warning",
+                    f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                    "不能作为当前事实陈述。",
                 )
+            )
     return tuple(issues)
 
 
@@ -3761,13 +3804,17 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
     # 无 marker 的纯散文契约（如市场复盘）不在此约束内，由各自的合成契约治理。
     if _STRUCTURED_CLAIM_MARKER_RE.search(answer):
         answer = _drop_disallowed_headings(answer, answer_spec)
+    # 只绑了已取代/已证伪证据的事实：不退稿，但降桶——在正文里标出来，
+    # 让读答案的人看见它是待核验线索而不是当前结论。
+    stale_claim_ids = stale_evidence_claim_ids(answer, answer_spec)
     rendered_lines: list[str] = []
     for raw_line in answer.splitlines():
         marker = _STRUCTURED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
             rendered_lines.append(raw_line)
             continue
-        source_claim = claim_registry.get(marker.group("claim_id").strip())
+        claim_id = marker.group("claim_id").strip()
+        source_claim = claim_registry.get(claim_id)
         if source_claim is None:
             continue
         prefix = ""
@@ -3778,7 +3825,12 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
             numbered = re.match(r"(\d+[.)]\s+)", stripped)
             if numbered is not None:
                 prefix = numbered.group(1)
-        rendered_lines.append(f"{prefix}{humanize(source_claim.text)}")
+        tier_note = (
+            STALE_EVIDENCE_TIER_NOTE if claim_id in stale_claim_ids else ""
+        )
+        rendered_lines.append(
+            f"{prefix}{humanize(source_claim.text)}{tier_note}"
+        )
     rendered = "\n".join(rendered_lines).strip()
     return _drop_engineering_leak_lines(
         rendered,
