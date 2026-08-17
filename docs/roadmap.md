@@ -69,5 +69,6 @@
 | 2026-08-17 | #145/#146 合并（用户授权「可同步的先同步到 8792」；四件套绿，收据 `20260817T135048Z-570fff2c`，预览树=合后树）；21:57 切 8792=`877e1f72`（目录名=SHA；回滚锚 `96446a93`）。16:10 他轨曾切 `96446a93` 未记账，本日补记 | 已决 | L1-8792 |
 | 2026-08-17 | 降桶标注 live 探针：**更正**——初版误写「证据进上下文、模型未滥用」，复核证明 superseded 边被 `max_evidence=8` 截断**未入上下文**，该发 live 覆盖为零。marker 侧另有 prompt 教学门禁（#146 设计内豁免）。live 压该路径需两件齐：① 选 superseded 能进 top-8 的靶（已扫出 DRAM/mSAP/电子特气）② prompt 教 marker 语法（押后件，与修订轮开关同看台账） | 已决 | L1-8792 |
 | 2026-08-17 | DRAM 靶 live 复验（落盘上下文级）：query=`DRAM` 时 2 条 stale 边进了 `prepared_synthesis_messages`（`⚠️已被新证据取代` ×4）。建议题「长鑫+DRAM」因精确 target **打不中** DRAM 宿主。证据行 `[:80]` 截掉华西 2776.90。模型把 508 亿标成历史参照，现况用 07-27 上市口径。marker/降桶文案仍 0（prompt 门禁）。读数 `docs/verification/2026-08-17-dram-superseded-live-recheck.md`。① 已满足本靶；② 仍押后 | 已决 | L1-8792 |
+| 2026-08-17 | top-8 截断 × stale 提醒：材料就绪待裁决。推荐 D（`stale_notes` 旁路）；A 正当。不改代码。`docs/superpowers/specs/2026-08-17-stale-evidence-quota-decision.md` | 用户 | L1-8792 |
 
 Phase 3 挂载面未入列（等 Phase 1 体感，现在不要裁决）。

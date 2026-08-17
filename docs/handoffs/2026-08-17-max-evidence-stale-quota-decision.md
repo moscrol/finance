@@ -5,6 +5,8 @@ roadmap_ref：L1-8792（决策队列 2026-08-17 更正行）
 前序：#146（降桶标注）→ #149（更正：长电靶 stale 边被截断未入上下文）
 本单性质：**只产出决策材料，不改 `intelligence/` 代码；裁决归用户**
 
+交付（2026-08-17 23:10）：材料已落 `docs/superpowers/specs/2026-08-17-stale-evidence-quota-decision.md`；复算脚本 `docs/verification/2026-08-17-stale-evidence-quota-scan.py`；决策队列已挂「材料就绪待裁决」，owner=`用户`。
+
 ## 0. 一句话
 
 `max_evidence=8` 的 top-8 截断让富证据宿主的「已被取代」提醒机制（⚠️标记、新证据指针、#146 降桶标注、`llm_fact_only_superseded_evidence` 门禁）**结构性够不着**。量化这件事、列出方案与利弊、给推荐——改不改、怎么改由用户拍板。
