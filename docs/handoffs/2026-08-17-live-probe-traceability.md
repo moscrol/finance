@@ -39,3 +39,66 @@ roadmap_ref：L1-8792
 - sidecar 是一次性验证工具：用完停掉，不装 LaunchAgent，不接夜跑。
 - 基线从 `gitea/main` 开分支；`gh` 不可用，PR 走 Gitea API（token：`security find-generic-password -s gitea-local -a a77-token -w`）或网页。
 - 避开 `/tmp/finance-8792-live.lock` 存在的时段起大负载（那是对照批的锁）。
+
+## 5. 交付（2026-08-17）
+
+**选型：A 为主、B 作 sidecar 保底。** 不用纯 B：验收第 1 条要逐步时序；公开 `/api/runs/{id}/trace` 会抽空 `input_summary`、把 step 名投影成话术，不能当一手证据。不用会话口 `POST /api/conversations/.../messages`：那是 continuous/grounded 车道，压不到 #146 的 marker lane。
+
+正式形态：
+
+1. 旁路 sidecar，独立端口（默认扫 8796–8820，避开 8792/8793/8795/8799/8801）。
+2. 只 `grep '^export '` 生产启动器，**不执行**它的 uvicorn。覆盖 `WORKBENCH_GROUNDED_PRESENTER=0`、`WORKBENCH_PERSIST_LLM_CONTEXT=1`、`RAG_WORKER_ENABLED=0`（不跟 8792 抢 RAG 子进程）。
+3. `POST /api/runs` → `_run_ask` → `answer_query`（与旧 in-process 探针同车道）。
+4. 读 **磁盘** run 目录：`trace.jsonl` / `run.json` / `report.json` / `answer.md` / `llm_context.json`。`llm_context.json` 是 internal 产物，生产 8792 默认不写。
+
+### 起停与一发
+
+仓库：`/Users/a77/fwp-wt-live-probe`（或合入后的任意 `gitea/main` 检出）。venv：`/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
+
+```sh
+# 确认 8792 对照锁不在、目标端口空闲
+test ! -e /tmp/finance-8792-live.lock
+lsof -nP -iTCP:8796 -sTCP:LISTEN || true
+
+cd /Users/a77/fwp-wt-live-probe   # 或合入后的工作树
+PYTHONPATH=$PWD /Users/a77/finance-workspace-private/.venv-workbench/bin/python \
+  scripts/live_probe.py ask "DRAM怎么看" \
+  --slug live-sample \
+  --repo-root "$PWD" \
+  --port 8796
+```
+
+默认问完停 sidecar（`ps -p <pid>` 验 argv 含 `--port 8796`，不用 `pkill -f`）。要留着给 DRAM 复验单接着打：`--keep-sidecar`，停用 `scripts/live_probe.py stop-sidecar --out-dir ~/.finance-runtime/live-probe-traceability`。
+
+只起/只停：
+
+```sh
+python scripts/live_probe.py start-sidecar --repo-root "$PWD" --port 8796
+python scripts/live_probe.py stop-sidecar
+python scripts/live_probe.py inspect ~/.finance-runtime/live-probe-traceability/live-sample
+```
+
+### 产物
+
+| 路径 | 内容 |
+|---|---|
+| `~/.finance-runtime/live-probe-traceability/users/live-probe/runs/<run_id>/` | sidecar 写入的 run 目录 |
+| `~/.finance-runtime/live-probe-traceability/<slug>/` | 拷贝的四件 + `llm_context.json` |
+| `~/.finance-runtime/live-probe-traceability/<slug>.json` | 收据：`evidence_grade` / `stale_marker_present` / 逐步 `steps` |
+| `~/.finance-runtime/live-probe-traceability/sidecar.err.log` | sidecar 日志 |
+
+三问怎么答（不靠答案正文反推）：
+
+1. **哪些证据行进了上下文？** `grep '⚠️已被新证据取代' <slug>/llm_context.json`（`evidence_grade=llm_context` 才算一手）。只在 `answer.md` 出现不够——那是上次 #148 的错法。
+2. **模型收到的完整 prompt？** 同文件 `prepared_synthesis_messages`。
+3. **每步何时、调了什么？** 磁盘 `trace.jsonl` 的 `started_at`/`finished_at`/`name`；检索源在 completed `ask_retrieve_compose` 的 `retrieval.sources` / `citation_counts`。不要读公开 `/trace` API。
+
+`FORESIGHT_USERS_DIR` 隔离在 `~/.finance-runtime/live-probe-traceability/users`，不写生产 `~/.local/share/finance-workbench/users`。
+
+### 样例（本单验收第 1 条）
+
+- 题：`DRAM怎么看` · `run_20260817_231105_279692` · 159.8s · sidecar :8796 问完已停 · 8792 pid **91312** 未动（`source_revision=877e1f72`）
+- 一手 prompt：`live-sample/llm_context.json` 56538 字（system 492 + user 25949），`grounded_presenter=0`
+- `grep '⚠️已被新证据取代' live-sample/*` → **不在场**（`evidence_grade=absent`）。这是 grep 结论，不是从答案反推。本发进上下文的是长鑫 R1/R2/R3（20260612/0726/0727），不是 DRAM 靶那两条 superseded 边（20260518/0724）——DRAM 复验单请用它指定的题面。
+- 时序：s01 retrieve+compose 23:11:05–23:13:04（graph+wiki，29 条引用）；s03 followups 至 23:13:44
+- 收据：`~/.finance-runtime/live-probe-traceability/live-sample.json`
