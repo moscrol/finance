@@ -1,6 +1,6 @@
 # Prediction Ledger: finance-workspace-private
 
-- last_updated: 2026-08-17（同题第二发 live 合成 TimeoutError，仍无 FINAL_JSON。R-20260817-01 / R-16..23 仍 pending）
+- last_updated: 2026-08-17（同题第三发 live **首次同形**：FINAL_JSON 可解析 + first finish `carried_draft_chars=732`。单次不结案，R-20260817-01 / R-16..23 仍 pending）
 - 配套文件：[trace-profile.md](trace-profile.md)（同址、同为被审方资产）
 - 消费方：`agent-run-triage` skill 的 `Prior prediction closure` 段
 - 结构依据：skill `references/adapters/prediction-ledger-template.md`（四段结构与列名不自拟）
@@ -51,7 +51,7 @@
 | `R-20260816-21` | 原题 GLM 复跑 `run_20260816_230528_976709` | `HARNESS_FIX` | repair 窗随生效 provider 实测 p90，不再用对 terra 的 30s 常数卡 GLM；同题重跑不再两发整窗 `TimeoutError`。**禁止只把 30 调大** | 须附分档延迟实测 + 全路由影响面；触 `R-20260816-02`/`-07` 绊线即改记那些行 | `pending` |
 | `R-20260816-22` | 工具层追查（`run_20260817_002958_135258`）+ **2026-08-17 用户口径裁定** | `DATA_CONTRACT_FIX` | **按数据类分档，不是放宽门槛**：① DuckDB 硬事实（行情/成交/涨停等）新鲜度**照旧从严**；② 知识库/图谱（`kb_search`/`graph_lookup`）本就不过该门，保持；③ **新增第三种情形**——数据集整体已到 floor、但**被筛子集**停在更早（`fact_mainline_sector_daily` 有到 08-14 的行，而「AI算力」最后一天是 08-07），这不是 stale 而是**该主体退出了集合**，属行业生命周期观察，必须交付而非整批作废。预测：修复后同题重跑，`mainline_sector_daily` 不再返回零证据，答案含「算力于 2026-08-07 后退出主线、其后 N 个交易日未再出现」这一可核验事实；而真正的管道陈旧（数据集整体 max < floor）仍被拒 | 判别变量是**数据集 max 与被筛子集 max 的关系**，不是放宽 floor。离线双夹具：`dataset_max ≥ floor ∧ filtered_max < floor` → 交付退出事实；`dataset_max < floor` → 仍 stale（此条必须保持红线，它是该门禁的原始设计意图）。**变异**：把两个夹具的判据合并成一个即须转红。**实现归工具层执行方**；本行只占号，A 方不改 `_structured_provider_is_stale` | `pending` |
 | `R-20260816-23` | 工具层追查（同上） | `TOOL_DESCRIPTION_FIX` | 模型三次写出不存在的维度名（`strength` / `index_return_pct` / `rank`）。`dataset_field_hint()` **已存在**但未进模型可见面——按本仓「事实投递 > 提醒」模式接进 `finance_query` 工具描述后，同题 3 样本的 `FinanceQueryValidationError`(`invalid_query`) 计数降到 0 | 离线断言工具描述含各 dataset 的合法字段清单；live 用同题 3 样本对照 `invalid_query` 计数。**不得靠加 prompt 训话**——字段表是事实投递不是提醒。**实现归工具层执行方**；本行只占号 | `pending` |
-| `R-20260817-01` | 同题两发 M2（`run_20260817_014724_245782` / `run_20260817_015340_618752`） | `HARNESS_FIX` | `complete()` 已返回 FINAL_JSON 后，即使 `_consume_root_seconds` 失败，first finish `carried_draft_chars>0` 或 `outcome.draft` 含阶段判断；不得再把刚写出的稿当「从没生成过」。**禁止调 T / `_REPAIR_SECONDS_CAP` / 档位** | **离线已绿**（2026-08-17）：`test_deadline_after_successful_finalize_keeps_the_just_written_draft`；`test_deadline_after_tool_turn_does_not_invent_a_draft`。**#124 已合切** 8792=`31ee58ce`。live `run_20260817_022655_519631` 首轮是 PLAN+工具调用后 `deadline_exhausted`，没有 FINAL_JSON，`carried_draft_chars=0` 是工具轮空稿（夹具 2 的形状），**不是** M2 有稿未结转，不得写成 refuted。第二发 `run_20260817_093755_447794` 走到 finalization，`model_turn` TimeoutError，content 空，仍无 FINAL_JSON。要结案仍须同形：finalize 已返回 JSON 后 first finish `carried_draft_chars>0`。单次 live 不得 confirmed | `pending` |
+| `R-20260817-01` | 同题两发 M2（`run_20260817_014724_245782` / `run_20260817_015340_618752`） | `HARNESS_FIX` | `complete()` 已返回 FINAL_JSON 后，即使 `_consume_root_seconds` 失败，first finish `carried_draft_chars>0` 或 `outcome.draft` 含阶段判断；不得再把刚写出的稿当「从没生成过」。**禁止调 T / `_REPAIR_SECONDS_CAP` / 档位** | **离线已绿**（2026-08-17）：`test_deadline_after_successful_finalize_keeps_the_just_written_draft`；`test_deadline_after_tool_turn_does_not_invent_a_draft`。**#124 已合切** 8792=`31ee58ce`。live `run_20260817_022655_519631` 首轮是 PLAN+工具调用后 `deadline_exhausted`，没有 FINAL_JSON，`carried_draft_chars=0` 是工具轮空稿（夹具 2 的形状），**不是** M2 有稿未结转，不得写成 refuted。第二发 `run_20260817_093755_447794` 走到 finalization，`model_turn` TimeoutError，content 空，仍无 FINAL_JSON。**第三发 `run_20260817_094617_943922` 首次同形**：seq14 `model_turn.content` 1404 字符 `json.loads` 成功、含 `draft`(732)，紧随 first finish `carried_draft_chars=732` / `rejection_code=none`，公开答卷 1901 字节含阶段判断。**这是本预测的正面证据，但单次 live 不得 confirmed**；结案须再有约定次数的同形 hit 且用户另拍 | `pending` |
 
 `outcome` 只能是 `pending` / `confirmed` / `refuted`。**部分验证不要写 `confirmed`。**
 
@@ -556,6 +556,42 @@ repair 两发 TimeoutError，`previous_draft_chars=0`，stop=`repair_deadline_ex
 | `R-20260817-01` | 合成超时空稿，不是有稿未结转 | `pending` | 保持 Open。不得 refuted |
 | `R-20260816-22` | `mainline_sector_daily` 0 行，退出探针未触发 | `pending` | 保持 Open |
 | `R-20260816-23` | 无 `invalid_query` | `pending` | 保持 Open |
+| `R-20260816-07` | 未调 T / 30 / 档位 | `pending` | 绊线未触 |
+
+### 2026-08-17 R-20260817-01 同题第三发（**首次同形 hit**）
+
+8792 仍 `31ee58ce` / dirty=false / `code_matches_repo=true` / `workers.active=0`（发起前 `/api/health` 实测）。
+`run_20260817_094617_943922` 墙钟 156.6s。user=`verify-r22-r23-0817`，`skill_mode=auto`，新会话。
+未切 8792、未动 T / `_REPAIR_SECONDS_CAP` / 档位。
+
+**结转判据逐项对表**（handoff §3 的严判据，不放宽）：
+
+| 判据 | 实测 |
+|---|---|
+| 某条 `model_turn.content` 能 `json.loads` 出 `draft` | ✅ seq14，1404 字符，keys=`[bindings,draft,gaps,status]`，`draft`=732 字符 |
+| 紧随 first finish `carried_draft_chars>0` | ✅ seq16 `carried_draft_chars=732` |
+| `rejection_code` | `none`（`stop_reason=deadline_exhausted`） |
+| 交卷带稿 | ✅ `answer.md` 1901 字节，含阶段判断 / 依据 / 反方 / 升级 + 降级信号 |
+
+工具轮：`finance_query`×2 有行（`mainline_theme_daily`、`market_daily`）、`memory_lookup` 空、
+`kb_search` `tool_timeout`、`news_search` `tool_budget_exhausted`；`finalization` reason=`retrieval_deadline_closed`。
+repair cycle 1 `previous_draft_chars=732` / granted 40s，seq19 出 1299 字符，
+second finish `repair_model_stop`，4 个 output 槽 `basis=evidence` 全绑上。
+`structural_verifier` `verified_status=partial`（`factual_grounding` / `task_coverage` 均 fulfilled）；
+`semantic_verifier` `status=partial`，公开答卷带「语义核验因瞬时服务问题未完成」前缀。
+
+⚠ **本发暴露一条判据洞（新，未修，不在本窗动手）**：seq19 的 repair content
+**`json.loads` 失败**——`draft` 字符串里 `"AI算力"` / `"7月中旬即为高点…"` 的双引号未转义。
+但生效解析器把它捞了出来，`outcome.draft`(612) 取自 seq19 而非 seq14 那份 732 字符的合法稿。
+即 **handoff §3 写的严判据与生效解析器不同口径**：照严判据读，seq19 应判「无 FINAL_JSON」，
+而产品实际出了稿。本次结论只依赖 seq14+seq16（两者都过严判据），不依赖 seq19，故 hit 成立。
+但下一任若拿严判据去判 repair 轮，会把出了稿的 run 误记成空稿。
+
+| ID | 新证据 | outcome | 处理 |
+|---|---|---|---|
+| `R-20260817-01` | **首次同形**：seq14 合法 FINAL_JSON + seq16 `carried_draft_chars=732`，答卷带稿 | `pending` | 保持 Open。**单次不结案**，本交接未授权 confirmed |
+| `R-20260816-22` | **未打到判据点**：本发问的是 `mainline_theme_daily`（题材表）且有行，R-22 预测点名的是 `mainline_sector_daily`（板块表）。答案层出现「8月7日之后退出主线题材名单（构成要素退出，非数据陈旧）」，形状对但数据集不对 | `pending` | 保持 Open。不得据此 confirmed |
+| `R-20260816-23` | 本发无 `invalid_query`（tool_error 仅 `tool_timeout` / `tool_budget_exhausted`） | `pending` | 保持 Open |
 | `R-20260816-07` | 未调 T / 30 / 档位 | `pending` | 绊线未触 |
 
 ### Closed
