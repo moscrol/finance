@@ -96,12 +96,24 @@ def is_model_service_unavailable(verified) -> bool:
 
 
 def gap_opening(question: str, verified) -> str:
-    """``_gap_answer`` 首句。成因行不跟 ``ASK_DEGRADED_FALLBACK``。"""
+    """``_gap_answer`` 首句。成因行不跟 ``ASK_DEGRADED_FALLBACK``。
 
-    subject = (question or "").strip() or "当前问题"
-    if is_model_service_unavailable(verified):
-        return f"关于“{subject}”，模型服务不可用，暂不能可靠回答。"
-    return f"关于“{subject}”，现有证据不足，暂不能可靠回答。"
+    开口句的权威在 ``session_projection.opening_for``；这里只负责把
+    ``verified`` 折成成因。
+    """
+
+    from intelligence.services.session_projection import (
+        CAUSE_EVIDENCE_GAP,
+        CAUSE_MODEL_UNAVAILABLE,
+        opening_for,
+    )
+
+    cause = (
+        CAUSE_MODEL_UNAVAILABLE
+        if is_model_service_unavailable(verified)
+        else CAUSE_EVIDENCE_GAP
+    )
+    return opening_for(cause, question)
 
 
 def skill_path() -> Path:

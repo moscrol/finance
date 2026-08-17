@@ -3457,7 +3457,7 @@ def test_transient_semantic_judge_failure_preserves_structural_candidate(
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert "成交收缩导致承接减弱" in result.public_answer
-    assert "语义核验" in result.public_answer
+    assert "本次未完成独立复核（复核服务超时）" in result.public_answer
     assert result.verified.outcome.evidence == (evidence,)
 
 

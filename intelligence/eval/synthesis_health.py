@@ -52,7 +52,11 @@ _LABELS = {
 
 # 语义审缺席时正文自带的告示。修复前的产物里 state 写着 accepted，只有这句话
 # 能把它认出来——所以旧产物的判定必须靠它，不能只看 state。
-_JUDGE_OUTAGE_MARKER = "语义复核因服务瞬时问题未完成"
+_JUDGE_OUTAGE_MARKERS = (
+    "语义复核因服务瞬时问题未完成",
+    "语义核验因瞬时服务问题未完成",
+    "本次未完成独立复核（复核服务超时）",
+)
 
 
 @dataclass(frozen=True)
@@ -112,9 +116,10 @@ def classify_turn(case_id: str, turn: dict[str, Any]) -> TurnHealth:
     elif raw_state == "accepted":
         # 修复前的产物：state 是 accepted，但正文告示说语义审没跑。以正文为准——
         # 状态字段是自述，正文是它当时实际发出去的东西。
-        if _JUDGE_OUTAGE_MARKER in answer or shadow_status == "judge_outage_released":
+        noticed = any(marker in answer for marker in _JUDGE_OUTAGE_MARKERS)
+        if noticed or shadow_status == "judge_outage_released":
             state = RELEASED_UNVERIFIED
-            inferred = _JUDGE_OUTAGE_MARKER in answer and not shadow_status
+            inferred = noticed and not shadow_status
         else:
             state = FULL_PASS
     elif raw_state == "rejected":
