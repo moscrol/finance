@@ -85,3 +85,67 @@ dataset（今天的死资产单就是拍脑袋选了四张表）。书里第 5 �
 ## skill 与工具建议
 
 skill：leila-runtime + tdd。工具：git worktree、pytest、live_probe、Gitea API。
+
+## 执行回执（2026-08-18）
+
+树：`/Users/a77/fwp-wt-tool-hunger` `feat/tool-hunger-telemetry`。未切 8792。
+
+### 两条车道的持久化核实
+
+**Episode（生产 conversation / continuous，12 工具注册表）**
+
+- Durable 仍是 `continuous-episode.json`：`events`（`tool_request` / `tool_result` / `tool_error`）+ `traces[]`。
+- `finance_query` 拒绝：既有 `trace.detail=dataset=<name>; failure=<code>`，**dataset 名完整**；metrics / dimensions / filters 原先不在结构化字段里（observation 截 160 字，retry hint 可能带字段名）。
+- 未知或未授权工具：durable 继续压扁为 `unknown_or_unauthorized_tool`（模型可见文案不变）。`authorize()` 的区分只在 Live `tool/error`，**不进** durable ledger。
+- 本单新增旁路：`run_dir/tool_hunger.jsonl`。`ConversationOrchestrator` 进入 continuous `handle()` 时 `bind_run_hunger`；写入失败吞掉。
+
+**Inline（`runtime/agent.py` 的 7 工具 dispatch）**
+
+- 原先只回 `未知工具「name」。`，无 run 目录、无结构化留痕。
+- 本单在未知分支 `record_unknown_tool`（只记工具名和参数**键**）。没有 sink 时事件丢弃（fail-open）。`intelligence.cli agent` 默认不绑 run 目录。
+
+**`POST /api/runs`（#152 live_probe 默认口）**
+
+- 走 `_run_ask` → `answer_query`，**不进** episode `finance_query`。live 验证若只用 `live_probe.py ask` 将看不到 `finance_query_rejected`。要打到饥饿接缝须走 conversation 口（sidecar 上 `POST /api/conversations/.../messages`）。
+
+### capability_denied 可观测性
+
+- 装配期：未授权工具不进模型 schema，模型默认看不见——「没用某能力」本身不可观测。
+- 模型幻觉点名在册但本轮未授权的工具：batch 门用 `registry.resolve` 区分未注册 vs 未授权。本单分别写 `unknown_tool` / `capability_denied`。wire 仍是 `unknown_or_unauthorized_tool`。
+- 结论：幻觉点名 **可观测**；安静地未选用某能力 **不可观测**（不是拒绝，是未调用）。
+
+### 聚合与复查节奏
+
+```sh
+python -m intelligence.eval.tool_hunger --runs-dir "$FORESIGHT_USERS_DIR/<user>/runs" --since 7d
+# 或
+python -m intelligence.cli tool-hunger --runs-dir "$FORESIGHT_USERS_DIR/<user>/runs" --since 7d
+```
+
+建议每周扫一次，把 count 最高的 dataset/工具名推进「下一批注册什么」决策队列。最终节奏用户定。台账地图已登记。
+
+### live 验证（sidecar :8797，未切 8792）
+
+口：`POST /api/conversations` + `.../messages`（`skill_mode=auto`）。users 根
+`~/.finance-runtime/tool-hunger-live/users/live-probe/runs/`。sidecar 已停。
+
+1. **竞价 dataset 题 miss（schema enum）**：题面要求 `finance_query` 原样传入
+   `auction_stock_daily`。模型承认该名不在 enum，改走 `market_daily` /
+   `stock_daily` 成功查询。run `run_20260818_023904_259785`，无 `tool_hunger.jsonl`。
+   未知 dataset 饥饿在生产上被工具 schema 的 `enum` 挡住，离线单测用
+   `hunger_probe_nonexistent_dataset` 覆盖记录器。
+2. **跨表字段题命中**：`stock_daily` + `metrics=["total_amount"]`（`total_amount`
+   属 `market_daily`，但在公共 metrics enum 里）→ 语义层 `invalid_query`。
+   run `run_20260818_024120_665888`，`tool_hunger.jsonl` 一条
+   `finance_query_rejected`，`dataset=stock_daily` 完整。聚合器扫 2 个 run、事件 1 条。
+   收据 `~/.finance-runtime/tool-hunger-live/receipt-cross-field.json`；
+   汇总 `~/.finance-runtime/tool-hunger-live/aggregate/tool-hunger-live.{json,md}`。
+
+### 四件套
+
+- 本单 10 条 `test_tool_hunger.py` 全绿；ruff 绿。
+- 全量 pytest：5386 passed / 12 skipped / 2 failed（未改这些文件）：
+  `test_fallback_provider_failure_enters_its_own_backoff`（机械检查先写
+  `PROVISIONAL_WRITTEN`）、`test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state`
+  （context id 碰撞，单测重跑已绿）。收据 `~/.finance-runtime/test-receipts/20260817T183800Z-d0bc026b.json`。
+- webapp：`pnpm lint` / `typecheck` / `test`（65）/ `build` 绿。

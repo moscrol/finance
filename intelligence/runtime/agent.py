@@ -625,6 +625,9 @@ class AgentSession:
     def _run_tool(self, name: str, args: dict[str, Any]) -> str:
         fn = self._dispatch.get(name)
         if fn is None:
+            from intelligence.services.tool_hunger import record_unknown_tool
+
+            record_unknown_tool(name, args, lane="inline")
             return f"未知工具「{name}」。"
         try:
             return fn(**args)

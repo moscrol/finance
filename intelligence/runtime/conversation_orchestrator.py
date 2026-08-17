@@ -63,6 +63,7 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
+from intelligence.services.tool_hunger import bind_run_hunger
 from intelligence.services import llm_refine
 from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
@@ -1870,10 +1871,13 @@ class TurnOrchestrator:
                         query=query,
                     ),
                 )
-                continuous_result = self.continuous_turn_adapter.handle(
-                    frame=task_frame,
-                    control=continuous_control,
-                )
+                with bind_run_hunger(
+                    self.run_store.run_dir(run_id), run_id=run_id
+                ):
+                    continuous_result = self.continuous_turn_adapter.handle(
+                        frame=task_frame,
+                        control=continuous_control,
+                    )
                 self._check_cancelled()
                 if continuous_result.handled:
                     return self._complete_continuous_turn(

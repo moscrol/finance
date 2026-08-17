@@ -1198,6 +1198,9 @@ def _finance_query_failure_result(
             f"{finance_query.validation_retry_hint(spec, error)}"
         )
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+        from intelligence.services.tool_hunger import record_finance_query_rejected
+
+        record_finance_query_rejected(spec, failure_code)
     elif isinstance(error, finance_query.FinanceQueryTimedOut):
         failure_code = "timeout"
         status = "request_error"
