@@ -90,6 +90,14 @@ class TestShippedContracts:
         assert "21:30" in contract
         assert "不是数据过期" in contract
 
+    def test_market_data_tells_overnight_forecasts_to_prefer_structured_us_quotes(
+        self,
+    ) -> None:
+        contract = reg._TOOL_CONTRACTS["market_data"]
+
+        assert "结构化报价" in contract
+        assert "新闻标题里的数字不作为精确行情" in contract
+
     def test_l3_lookup_separates_success_from_evidence(self) -> None:
         """实测 degrade：「l3-evidence：company 查询成功但没有解析到可用证据」。
 

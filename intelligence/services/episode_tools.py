@@ -19,7 +19,9 @@ from intelligence.services import (
     agent_research,
     ask_blocks,
     entity_anchor,
+    evidence_capabilities,
     evidence_search,
+    external_market,
     finance_query,
     kb_rag,
     l3_evidence,
@@ -195,6 +197,43 @@ def _structured_freshness_floor(
     if snapshot_date is None:
         return None
     return min(snapshot_date, context.information_cutoff.as_of_date)
+
+
+def _should_attach_overnight_leaders(
+    frame: TaskFrame,
+    fixture_policy: SealedFixturePolicy | None,
+) -> bool:
+    if frame.question_type != "market_forecast":
+        return False
+    if fixture_policy is not None and not fixture_policy.external_search_enabled:
+        return False
+    return evidence_capabilities._has_overnight_external_premise(frame.raw_question)
+
+
+def _overnight_leader_evidence(
+    frame: TaskFrame,
+    *,
+    timeout: float,
+) -> tuple[list[agent_research.AgentEvidence], str | None]:
+    result = external_market.resolve_overnight_leaders(
+        frame.raw_question,
+        timeout=timeout,
+    )
+    evidence: list[agent_research.AgentEvidence] = []
+    for quote in result.quotes:
+        line = external_market.format_quote_line(quote)
+        item = agent_research.AgentEvidence(
+            tool="market_data",
+            title=line[:48],
+            detail=line,
+            source=quote.source,
+            source_date=quote.trade_date,
+            evidence_tier="L4_structured",
+        )
+        evidence.append(
+            replace(item, content_hash=agent_research.evidence_content_hash(item))
+        )
+    return evidence, result.gap
 
 
 def _structured_as_of(context: ResearchRunContext) -> str:
@@ -676,6 +715,21 @@ def build_episode_registry(
             for item in evidence
             if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
         ]
+        if _should_attach_overnight_leaders(frame, fixture_policy):
+            leader_timeout = tool_context.deadline.stage_timeout(15.0)
+            if leader_timeout > 0.001:
+                leader_evidence, leader_gap = _overnight_leader_evidence(
+                    frame,
+                    timeout=leader_timeout,
+                )
+                evidence.extend(leader_evidence)
+                extras = [item.detail for item in leader_evidence]
+                if leader_gap:
+                    extras.append(leader_gap)
+                if extras:
+                    observation = "；".join(
+                        part for part in (observation, *extras) if part
+                    )
         return (
             evidence,
             observation or "结构化行情无可用结果",
