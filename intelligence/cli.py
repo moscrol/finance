@@ -3196,6 +3196,52 @@ def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     approve.set_defaults(func=cmd_self_use_approve)
 
 
+def add_news_alias_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("news-alias", help="W7 中英别名表：从 wiki 提案，人工确认后入表（KC-14）")
+    sub = parser.add_subparsers(dest="action", required=True)
+    p_prop = sub.add_parser("propose", help="从 wiki 概念/实体页确定性抽取中英候选，不写入别名表")
+    p_prop.add_argument("--wiki", default=None, help="wiki 根（含 concepts/ entities）；默认 KNOWLEDGE_WIKI")
+    p_prop.add_argument("--limit", type=int, default=50)
+    p_prop.add_argument("--json", action="store_true")
+    p_prop.set_defaults(func=cmd_news_alias_propose)
+    p_acc = sub.add_parser("accept", help="人工确认一条中英对，写入 news_keyword_aliases.json")
+    p_acc.add_argument("--zh", required=True)
+    p_acc.add_argument("--en", required=True)
+    p_acc.add_argument("--aliases-file", default=None, help="覆盖别名表路径")
+    p_acc.add_argument("--json", action="store_true")
+    p_acc.set_defaults(func=cmd_news_alias_accept)
+
+
+def cmd_news_alias_propose(args: argparse.Namespace) -> int:
+    import json as _json
+    from intelligence.paths import default_paths
+    from intelligence.services.news_alias_propose import propose_alias_candidates
+
+    wiki = Path(args.wiki).expanduser() if args.wiki else default_paths().knowledge_wiki
+    found = propose_alias_candidates(wiki, limit=args.limit)
+    payload = [item.to_dict() for item in found]
+    if args.json:
+        print(_json.dumps({"wiki": str(wiki), "candidates": payload}, ensure_ascii=False, indent=2))
+        return 0
+    print(f"候选 {len(found)} 条（未入表；`news-alias accept --zh … --en …`）")
+    for item in found:
+        print(f"- {item.zh} → {item.en} ｜ {item.source}")
+    return 0
+
+
+def cmd_news_alias_accept(args: argparse.Namespace) -> int:
+    import json as _json
+    from intelligence.services.news_alias_propose import accept_alias
+
+    written = accept_alias(args.zh, args.en, path=args.aliases_file)
+    if args.json:
+        print(_json.dumps(written, ensure_ascii=False, indent=2))
+        return 0
+    zh, en = next(iter(written.items()))
+    print(f"已入表：{zh} → {en}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -3235,6 +3281,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
     add_self_use_parser(subparsers)
+    add_news_alias_parser(subparsers)
     return parser
 
 
