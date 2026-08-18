@@ -372,6 +372,81 @@ def test_fast_path_uses_markdown_safe_range_separator(monkeypatch) -> None:
     assert "~" not in result["answer"]
 
 
+def _fast_path_levels() -> market_technical.TechnicalLevels:
+    return market_technical.TechnicalLevels(
+        subject="科创50",
+        symbol="sh000688",
+        as_of="2026-07-24",
+        close=1787.20,
+        ma={"MA5": 1811.76},
+        supports=(
+            market_technical.SupportLevel(
+                zone_low=1662.65,
+                zone_high=1669.99,
+                basis=("摆动低点",),
+            ),
+        ),
+        resistances=(
+            market_technical.SupportLevel(
+                zone_low=1811.76,
+                zone_high=1823.48,
+                basis=("均线压力",),
+            ),
+        ),
+        invalidation="若收盘跌破 1641.17，当前判断失效。",
+    )
+
+
+def test_fast_path_support_question_leads_with_support_not_rebound(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50的支撑点位在哪").task_frame,
+        timeout=10.0,
+    )
+    answer = str(result["answer"])
+    assert "下方支撑" in answer
+    assert answer.index("下方支撑") < answer.index("压力")
+    assert "反弹空间先看" not in answer
+
+
+def test_fast_path_rebound_question_still_leads_with_resistance(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+    assert "反弹空间先看上方压力区" in str(result["answer"])
+
+
+def test_fast_path_support_and_rebound_answers_differ(monkeypatch) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: _fast_path_levels(),
+    )
+    support = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50的支撑点位在哪").task_frame,
+        timeout=10.0,
+    )
+    rebound = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+    assert support["answer"] != rebound["answer"]
+
+
 # ---------- as_of 截断（派单 #207）----------
 
 

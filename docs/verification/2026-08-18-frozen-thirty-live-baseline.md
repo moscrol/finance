@@ -118,7 +118,7 @@
 
 **这是本轮最贵的一条**：它不是「答得不好」，是**假绿**，而且假在结构、语义、对齐三个轴上同时假。
 
-**后续（2026-08-19）**：② 已根治。`resolve_market_technical(as_of=)` 截断日线，adapter 把 `_latest_data_date` 传下去。两题复跑 `as_of=2026-07-24`、无口径提示。收据 `docs/verification/2026-08-19-market-technical-as-of.md`。①（问支撑位仍套「反弹空间」模板）未在那单处理。
+**后续（2026-08-19）**：② 已根治（#210）。`resolve_market_technical(as_of=)` 截断日线，adapter 把 `_latest_data_date` 传下去。两题复跑 `as_of=2026-07-24`、无口径提示。收据 `docs/verification/2026-08-19-market-technical-as-of.md`。① 已根治：支撑题先报下方支撑，不再套「反弹空间」模板。收据 `docs/verification/2026-08-19-market-technical-fast-path-intent.md`。
 
 > 顺带：第三道 fast-path 是 `C2-non-trading-day`，答案是「该确定性旁路尚未接入本次
 > A/B runner。」（align 0.25）。它至少**如实说了自己没接**，没有假装答对。
