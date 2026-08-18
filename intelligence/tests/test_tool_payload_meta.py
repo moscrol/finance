@@ -103,6 +103,52 @@ def test_failed_fact_is_retrieve_when_dataset_differs() -> None:
     )
 
 
+def test_failed_fact_is_unknown_when_caliber_undeclared_and_column_name_collides() -> None:
+    """A5 as it actually is: the case set declares no caliber (0/28 do).
+
+    Same inputs as ``test_failed_fact_is_retrieve_when_dataset_differs`` minus the
+    declared dataset. The wrong table happens to carry a ``limit_up_count`` column,
+    so a field-name match proves nothing. Answering ``synthesize`` here sends people
+    to the synthesis layer while the bug is in retrieval — fail closed instead.
+    """
+    assert (
+        attribute_failed_fact(
+            expected_field="储能.limit_up_count",
+            expected_dataset=None,
+            tool_results=[
+                {
+                    "dataset": "mainline_sector_daily",
+                    "caliber": "fact_mainline_sector_daily",
+                    "payload_field_names": ["sector_name", "limit_up_count"],
+                }
+            ],
+        )
+        == "unknown"
+    )
+
+
+def test_failed_fact_still_retrieve_when_field_absent_without_caliber() -> None:
+    """No declared caliber, but the column never appeared anywhere: still retrieve.
+
+    This inference does not depend on knowing the table, so it must not be
+    weakened to ``unknown`` — otherwise the function stops saying anything at all.
+    """
+    assert (
+        attribute_failed_fact(
+            expected_field="储能.limit_up_count",
+            expected_dataset=None,
+            tool_results=[
+                {
+                    "dataset": "market_daily",
+                    "caliber": "fact_market_daily",
+                    "payload_field_names": ["trade_date", "total_amount"],
+                }
+            ],
+        )
+        == "retrieve"
+    )
+
+
 def test_failed_fact_is_unknown_without_payload_meta() -> None:
     assert (
         attribute_failed_fact(

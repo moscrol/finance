@@ -19,11 +19,22 @@ def attribute_failed_fact(
     """Return ``retrieve``, ``synthesize``, or ``unknown``.
 
     - ``synthesize``: the field name appeared in some ``payload_field_names``
-      (data was fetched, the answer did not write it).
-    - ``retrieve``: the expected dataset/caliber never showed up, or a different
+      **and** ``expected_dataset`` was declared and matched (data was fetched
+      from the right table, the answer did not write it).
+    - ``retrieve``: the expected dataset/caliber never showed up, a different
       dataset was served (wrong table, including same column names on the wrong
-      table — A5).
-    - ``unknown``: no payload meta on the results (old artifacts).
+      table — A5), or the field name appeared nowhere.
+    - ``unknown``: no payload meta on the results (old artifacts), **or** the
+      field name matched while no ``expected_dataset`` was declared.
+
+    That last ``unknown`` is the point of this function, so do not "simplify" it
+    into ``synthesize``. A column name is not unique to a table: A5 wants
+    ``limit_up_count`` from ``fact_theme_limit_heat_daily`` but the episode
+    fetched ``fact_mainline_sector_daily``, which has a column of the same name.
+    Without a declared caliber this looked exactly like "fetched but not
+    written", and the old code returned a confident ``synthesize`` for what is
+    really a ``retrieve`` miss — pointing effort at the wrong layer. Recognising
+    nothing is the honest answer here; see the repo's "认不出来就 fail closed".
     """
 
     field = str(expected_field or "").strip()
@@ -53,6 +64,8 @@ def attribute_failed_fact(
     if expected and not any(_dataset_matches(expected, value) for value in datasets):
         return "retrieve"
     if field_hits:
+        if not expected:
+            return "unknown"
         return "synthesize"
     return "retrieve"
 
