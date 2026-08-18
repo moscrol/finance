@@ -2,7 +2,7 @@
 
 - 日期：2026-08-18
 - 触发：28 题验收集 trace-first 分诊（`docs/verification/2026-08-18-kc-acceptance-triage.md`）
-- 状态：设计稿，未实施
+- 状态：Phase 1–4 已接线（#199–#202）。28 题 sidecar 重跑尚未出新 artifact，I/J/K/L 与 M/N/O 仍以代码门为准。
 - 前置阅读：`docs/trace-profile.md` §2 新增两条字段陷阱；`docs/prediction-ledger.md` `R-20260818-01..04`
 
 ## 0. 一句话
@@ -140,6 +140,26 @@ Phase 3（埋点）  ──┘        ↓
 
 | 项 | 当前判不了的原因 | 补齐路径 |
 |---|---|---|
-| A5 / A9 / A10 / C4 / C5 是检索侧还是合成侧 | `tool_result` 只落话术摘要 | Phase 3（`dataset` + `caliber` + 字段名） |
-| 其余 11 道失败是否也踩量纲/措辞盲区 | 本次只逐条查了 12 道中的 12 道，但只有 B7/C1 做到 leaf 级 | Phase 1.3 的 `extracted_numbers` 输出一次扫完 |
-| 7 道「不可判」（A2/A4/A6/B4/B5/B8/C9）的成因 | 本次未查 | Phase 1 后重跑，看还剩几道 |
+| A5 / A9 / A10 / C4 / C5 是检索侧还是合成侧 | 旧 artifact 的 `tool_result` 只有话术摘要 | Phase 3 已接线；要等带四字段的新 28 题 run |
+| 其余失败是否也踩量纲/措辞盲区 | Phase 1.3 已在 FAIL 上附抽出数 | 新 run 的 FAIL 理由里直接看 |
+| 7 道「不可判」的成因 | 08-18 旧尺子 | Phase 1 尺子 + 新 run |
+
+## 8. 实施记录（2026-08-18）
+
+四层都已接线，不是「设计稿」。PR 叠栈：#199 Phase 1 判分器 → #200 Phase 2 题集 → #201 Phase 3 埋点 → #202 Phase 4 产品。未合入 main，未切 8792。
+
+| Phase | 落点 | 状态 |
+|---|---|---|
+| 1 审查止血 | `acceptance_verdict` 万亿候选、拒答等价类、FAIL 附证、A7 门禁；B7/C1 overlay→structured | 同一份 `20260818T051630Z` 复算：B7/C1 ❌→✅，其余 26 真值列不变 |
+| 2 题集契约 | 7 题 `date` 进 query；B6 改澄清；A8/C6 出主分母 | 离线 08-18：B6 ❌→✅；可判 7/16。Criterion I（16→≥22）要新 run |
+| 3 观测 | `tool_result` 的 `dataset`/`caliber`/`payload_field_names`/`payload_sha256` | 单测绿。旧 artifact 无这些字段，归因仍是 unknown |
+| 4.1 注册表 | `intelligence/services/metric_spec.py`；判分器并入 aliases | 代码门绿。没有第二份注册表 |
+| 4.2 EvidenceAtom | `bind_measured_value`；中期趋势填 `double_red_days` | 单测：2.96万亿 → 29600 亿元 + provenance |
+| 4.3 C3 | `empty_caliber_disclosure` 罐头空表，不换价格表 | 注入 0 行即短路。复跑待 sidecar |
+| 4.4 C4/C5 | `quick_fact` + `lane=research` | 路由单测绿。不再走 `knowledge_lane_answer` 的路径已封 |
+
+**还没做完、不要写成已绿：**
+
+- 28 题 sidecar（8796）未出新 artifact。Phase 2 I/J/K/L、Phase 3 M/N/O、Phase 4「C3 声明空表 / A5 命中题材热度表 / C4 碰到 MLCC 脏数」都以新 run 为准。
+- A5：`theme_limit_heat_daily` 已注册进 `finance_query`，检索规划器没有强制带 caliber；模型仍可能选错表。那是下一刀，不是本 spec 的第二张注册表。
+- C4 离开 knowledge 车道 ≠ 已经读到 `fact_sector_daily.amount=6112588.6`。
