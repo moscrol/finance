@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from intelligence.services import external_market
@@ -239,6 +239,23 @@ def test_provider_failure_exposes_gap_without_news_substitution(
     assert "新闻标题不会被当作精确涨跌数据" in result.gap
     assert result.provider_traces[-1].provider == external_market.BING_NEWS_PROVIDER
     assert result.provider_traces[-1].status == "not_attempted"
+
+
+def test_overnight_session_date_uses_in_progress_us_session() -> None:
+    beijing_pre_us_close = datetime(
+        2026, 8, 19, 1, 40, tzinfo=ZoneInfo("Asia/Shanghai")
+    )
+    assert external_market.overnight_session_date(now=beijing_pre_us_close) == date(
+        2026, 8, 18
+    )
+    ny_before_open = datetime(2026, 8, 18, 8, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert external_market.overnight_session_date(now=ny_before_open) == date(
+        2026, 8, 17
+    )
+    ny_after_close = datetime(2026, 8, 18, 17, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert external_market.overnight_session_date(now=ny_after_close) == date(
+        2026, 8, 18
+    )
 
 
 def test_overnight_leader_codes_are_sox_and_four_names() -> None:

@@ -69,6 +69,28 @@ class _ProviderQuotes:
 StructuredFetcher = Callable[[str, dict[str, str], int], object]
 
 
+def overnight_session_date(*, now: datetime | None = None) -> date:
+    """US session that '今晚' refers to, including an in-progress tape.
+
+    ``target_trade_date`` waits for 16:15 ET so ask-side closes stay exact.
+    Overnight-hybrid forecasts need tonight's bar while Beijing is still in
+    the 21:30→04:00 window.
+    """
+
+    eastern = now or datetime.now(ZoneInfo("America/New_York"))
+    if eastern.tzinfo is None:
+        eastern = eastern.replace(tzinfo=ZoneInfo("America/New_York"))
+    else:
+        eastern = eastern.astimezone(ZoneInfo("America/New_York"))
+    if eastern.time() < time(9, 30):
+        candidate = eastern.date() - timedelta(days=1)
+    else:
+        candidate = eastern.date()
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return candidate
+
+
 def overnight_leader_codes() -> tuple[str, ...]:
     """Index + current AI/storage sample for overnight-hybrid forecasts.
 
@@ -317,7 +339,7 @@ def resolve_overnight_leaders(
 ) -> ExternalMarketResult:
     """Yahoo-only leader tape. Fupanhui global-market has indices, not NVDA/MU."""
 
-    target = target_trade_date(query, now=now)
+    target = overnight_session_date(now=now)
     wanted = overnight_leader_codes()
     finance = fetch_yahoo_finance_quotes(
         query,
