@@ -78,6 +78,27 @@ def _market_forecast_frame() -> TaskFrame:
     )
 
 
+def _overnight_hybrid_forecast_frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question=(
+            "基于周二的盘面数据，你认为主线是什么。"
+            "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会"
+        ),
+        user_goal="基于当前市场数据形成条件化后市推演",
+        question_type="market_forecast",
+        subject="美股市场",
+        subject_kind="market_pattern",
+        market_scope="美股",
+        timeframe=None,
+        required_outputs=("direct_assessment", "scenario_paths"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.92,
+    )
+
+
 def _market_cause_frame() -> TaskFrame:
     return TaskFrame(
         raw_question="这一周行情下跌的主要原因是什么",
@@ -923,6 +944,169 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
         "2026-07-23",
         "2026-07-23",
     ]
+
+
+def test_overnight_hybrid_market_data_appends_us_leader_quotes(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from intelligence.services import external_market
+
+    frame = _overnight_hybrid_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="overnight-leaders",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-08-18",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "全市场成交额：24006.36 亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-08-18",
+    )
+    called = {"n": 0}
+
+    def fake_leaders(query, **_kwargs):
+        called["n"] += 1
+        quotes = (
+            external_market.ExternalMarketQuote(
+                "SOX",
+                "费城半导体",
+                5000.0,
+                -6.0,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "NVDA",
+                "英伟达",
+                180.0,
+                -2.71,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "MU",
+                "美光",
+                90.0,
+                -7.47,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "HYNIX",
+                "SK海力士",
+                200.0,
+                -8.11,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+            external_market.ExternalMarketQuote(
+                "SNDK",
+                "闪迪",
+                80.0,
+                -8.0,
+                "2026-08-18",
+                external_market.YAHOO_PROVIDER,
+            ),
+        )
+        return external_market.ExternalMarketResult(
+            target_trade_date="2026-08-18",
+            source_trade_date="2026-08-18",
+            selected_provider=external_market.YAHOO_PROVIDER,
+            quotes=quotes,
+            provider_traces=(),
+        )
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        fake_leaders,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="overnight-leaders:1",
+    )
+    blob = " ".join(item.detail for item in observation.evidence)
+    assert called["n"] == 1
+    assert "英伟达" in blob
+    assert "美光" in blob
+    assert "SK海力士" in blob
+    assert "闪迪" in blob
+    assert "-8.00%" in blob
+    assert "-2.71%" in blob
+
+
+def test_local_forecast_market_data_does_not_fetch_us_leaders(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    frame = _market_forecast_frame()
+    context = build_episode_context(
+        frame,
+        task_id="local-no-leaders",
+        capabilities=("market_data",),
+        timeout=30.0,
+        latest_data_date="2026-07-23",
+    )
+    monkeypatch.setattr(
+        episode_tools,
+        "_market_block",
+        lambda *_args: (
+            "当前成交额21949亿元",
+            "本地 DuckDB · 预测盘面窗口",
+            "market_forecast_window",
+        ),
+    )
+    monkeypatch.setattr(
+        episode_tools.ask_blocks,
+        "_market_data_asof",
+        lambda *_args, **_kwargs: "2026-07-23",
+    )
+
+    def fail_leaders(*_args, **_kwargs):
+        raise AssertionError("local forecast must not fetch US leaders")
+
+    monkeypatch.setattr(
+        episode_tools.external_market,
+        "resolve_overnight_leaders",
+        fail_leaders,
+    )
+    registry = build_episode_registry(
+        frame,
+        context,
+        finance_root=tmp_path / "finance",
+        knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None,
+    )
+    observation = registry.execute(
+        "market_data",
+        {},
+        context=context,
+        step_id="local-no-leaders:1",
+    )
+    blob = " ".join(item.detail for item in observation.evidence)
+    assert "英伟达" not in blob
+    assert "闪迪" not in blob
 
 
 def test_episode_registry_exposes_and_executes_model_owned_research_tools(
