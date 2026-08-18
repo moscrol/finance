@@ -812,6 +812,13 @@ def dataset_field_hint(dataset: str | None = None) -> str:
     return "；".join(parts)
 
 
+def dataset_physical_table(dataset: str) -> str:
+    """Physical table behind a semantic dataset. Empty string if unregistered."""
+
+    definition = _DATASETS.get(str(dataset or "").strip())
+    return definition.table if definition else ""
+
+
 def validation_retry_hint(
     spec: FinanceQuerySpec,
     error: FinanceQueryValidationError,
