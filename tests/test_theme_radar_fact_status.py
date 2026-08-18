@@ -127,3 +127,62 @@ class IntentIsNotDeltaTests(unittest.TestCase):
             [CONCEPT],
         )
         self.assertTrue(company["evidence_buckets"].get("delta"))
+
+
+class IntentBucketTests(unittest.TestCase):
+    """意向证据要有自己的桶——不加分，但不等于「没有证据」。
+
+    上一版把 delta 拦掉后没给去处，意向证据落空→掉进 missing（权重 −1），
+    于是「一条拟投资公告」和「一条证据都没有」同分同档；
+    evidence_index 那条路更狠，兜底是 continue，整条证据连 evidence /
+    evidence_layer / source_quality 都不记，凭空消失。
+    """
+
+    def test_intent_exposure_lands_in_intent_bucket_not_missing(self) -> None:
+        buckets = radar.buckets_for_exposure(
+            {
+                "update_type": "",
+                "sources": ["市场逻辑"],
+                "evidence": "拟投资 A 项目",
+                "fact_status": "planned",
+            }
+        )
+        self.assertEqual(buckets, ["intent"])
+        self.assertNotIn("missing", buckets)
+        self.assertNotIn("delta", buckets)
+
+    def test_intent_bucket_weight_is_zero_not_negative(self) -> None:
+        """不加分，也不倒扣——倒扣等于把「未落地」当成「没有」。"""
+        self.assertEqual(radar.EVIDENCE_WEIGHTS["intent"], 0)
+        self.assertEqual(radar.EVIDENCE_WEIGHTS["missing"], -1)
+
+    def test_realized_still_scores_delta(self) -> None:
+        """反方向：落地证据不得被这道闸误伤。"""
+        buckets = radar.buckets_for_exposure(
+            {
+                "update_type": "",
+                "sources": ["市场逻辑"],
+                "evidence": "已签合同",
+                "fact_status": "realized",
+            }
+        )
+        self.assertIn("delta", buckets)
+
+    def test_intent_evidence_survives_the_evidence_index_path(self) -> None:
+        """那条路的兜底是 continue，没有 intent 桶时整条证据会消失。"""
+        company = _company()
+        radar.enrich_companies_from_evidence_index(
+            [company],
+            {"items": [_item(fact_status="planned")]},
+            [CONCEPT],
+        )
+        buckets = company.get("evidence_buckets", {}) or {}
+        self.assertTrue(buckets.get("intent"), "意向证据应留在 intent 桶里，不该被 continue 丢掉")
+        self.assertFalse(buckets.get("delta"), "意向证据不得进 delta")
+
+    def test_intent_bucket_has_a_display_label(self) -> None:
+        """没有标签会在 evidence_bucket_summary 里 KeyError。"""
+        summary = radar.evidence_bucket_summary(
+            {"evidence_buckets": {"intent": ["拟投资 A 项目"]}}
+        )
+        self.assertIn("意向", summary)

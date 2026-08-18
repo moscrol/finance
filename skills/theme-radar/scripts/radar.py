@@ -104,9 +104,43 @@ def is_weak_exposure(exp: dict) -> bool:
     return confidence == "low"
 
 
-EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "graph_only", "missing")
-EVIDENCE_WEIGHTS = {"delta": 4, "curated_research": 3, "baseline": 2, "graph_only": 1, "missing": -1}
+EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "intent", "graph_only", "missing")
+# ``intent`` 权重 0：**未落地不加分，但它不是「没有证据」**。
+#
+# 上一版把意向证据的 delta 拦掉之后没给它去处，于是它落空→掉进 ``missing``（−1）。
+# 实测（2026-08-19，`fact_status=planned` + 来源含「市场逻辑」）：
+#   realized → ['delta'] +4   /   planned → ['missing'] −1   ← 摆动 5 分，不是「少加 4 分」
+# 两处后果，只有第一处是想要的：
+#   ① 不再当落地增量加分 ✅
+#   ② 「拟投资」和「压根没有证据」变成同一件事——同分同档，``missing`` 还喂
+#      ``bucket_score`` 的 ``weak_ratio`` 与报告里的「待补」
+# 更糟的是 ``enrich_companies_from_evidence_index`` 那条路的兜底是 ``continue``，
+# 意向证据在那里连 evidence / evidence_layer / source_quality 都不记，**凭空消失**。
+#
+# 独立成桶让三件事同时成立：不加分（权重 0）、不等于没证据（自己的桶与标签）、
+# 证据留在列表里。
+#
+# ⚠️ **不要顺手把 intent 加进 ``has_direct_signal``**：意向本来就不是直接信号。
+# 实测（2026-08-19）加桶前后 ``company_subtype`` 结果一致——强 role（核心标的 /
+# 主营产品直接受益）在意向证据下都保持 ``unknown``，只有本来就写着「弱相关，待验证」
+# 的 role 才落 ``weak_graph``，而它在旧的 ``missing`` 版里同样会落（两个桶都不在
+# ``has_direct_signal`` / ``has_non_graph_evidence`` 里）。那不是本改动的副作用。
+EVIDENCE_WEIGHTS = {
+    "delta": 4,
+    "curated_research": 3,
+    "baseline": 2,
+    "graph_only": 1,
+    "intent": 0,
+    "missing": -1,
+}
 # 检索侧：这些 fact_status 是意向/未落地，不得进 delta。缺字段不是意向——存量未回填。
+#
+# ⚠️ ``disclosed`` 的规范定义是「已披露但需验证」（例：公告说了产能规划但还没投产，
+# 见知识库 `skills/disclosure-archive/references/evidence-classification-rules.md`），
+# 所以收它是对的。但**全库现存 2 条 `disclosed` 里有一条是「关于收到中标通知书的公告」**，
+# 而本仓硬事实规则明列「公告/订单/合同/**中标**/认证/量产/投产」属硬事实。
+# 那条是写入侧标错了，应改 `realized`；在它被清洗前会被本表拦进 intent 桶。
+# 已知、量小（n=2）、不静默——留档在此，别当没这回事。
 INTENT_FACT_STATUSES = frozenset({
     "planned",
     "framework",
@@ -584,6 +618,10 @@ def buckets_for_exposure(exp: dict) -> list[str]:
         buckets.append("delta")
     if not intent and not is_explicit_weak_graph_only(exp) and has_ima_logic_card_source_text(sources):
         buckets.append("delta")
+    if not buckets and intent:
+        # 意向证据被上面各条拦光了，但它**确实存在**。给它自己的桶，
+        # 不要落到 ``missing``——那会让「有一条拟投资公告」和「一条证据都没有」同分同档。
+        buckets.append("intent")
     if not buckets:
         buckets.append("missing")
     return unique(buckets)
@@ -830,7 +868,9 @@ def should_force_peripheral(company: dict) -> bool:
     has_strong = any(buckets.get(key) for key in ("baseline", "curated_research"))
     if has_strong:
         return False
-    if not (buckets.get("delta") or buckets.get("missing")):
+    # ``intent`` 与 delta/missing 同列：意向公司也该继续走下面的弱信号检查，
+    # 否则它会在这里提前 return False，反而比有 delta 时更不容易被降级。
+    if not (buckets.get("delta") or buckets.get("intent") or buckets.get("missing")):
         return False
     weak_rebuilt = any("从既有" in str(item) and "重建" in str(item) for item in company.get("evidence", []))
     low_confidence = "low" in [str(x).lower() for x in company.get("confidence", [])] if isinstance(company.get("confidence"), list) else False
@@ -936,6 +976,12 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
             chosen_buckets.append("delta")
         if any(token in source for token in research_source_tokens) and "重建" not in evidence:
             chosen_buckets.append("curated_research")
+        if not chosen_buckets and intent:
+            # 这条路的兜底是 ``continue``（**整条证据连 evidence / evidence_layer /
+            # source_quality 都不记**），不是 ``missing``。所以意向证据在这里不是「降权」
+            # 而是**凭空消失**——与「来源仍可出现在证据列表里，只是不再当落地增量加分」
+            # 正好相反。给它 intent 桶，权重 0，证据留在列表里。
+            chosen_buckets.append("intent")
         if not chosen_buckets:
             continue
         for bucket in unique(chosen_buckets):
@@ -1174,6 +1220,7 @@ def evidence_bucket_summary(company: dict) -> str:
         "baseline": "baseline",
         "curated_research": "高信度",
         "delta": "边际",
+        "intent": "意向未落地",
         "graph_only": "图谱",
         "missing": "待补",
     }
