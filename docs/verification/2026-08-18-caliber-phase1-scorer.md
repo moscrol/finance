@@ -26,6 +26,18 @@
 | G. A7 门禁 | `test_a7_pass_rule_or_vs_two_facts_is_a_contract_diagnostic` 绿 |
 
 artifact：`20260818T051630Z.json`（#198 入库）、`20260815T1005Z-r5-clean-baseline-3.json`（本树已有）。
-复算输出：`/tmp/caliber-p1/after-0818.txt`、`/tmp/caliber-p1/after-0815.txt`。
+
+复算输出（**已入库，不再指 `/tmp`**）：
+
+| 用途 | 路径 |
+|---|---|
+| 判据 A–C 复算（08-18） | `docs/verification/2026-08-18-caliber-phase1-recheck-board-0818.txt`（#198 入库） |
+| 判据 D 复算（08-15） | `docs/verification/2026-08-18-caliber-phase1-recheck-board-0815.txt`（#198 入库） |
+| **判据 F 变异测试** | `docs/verification/2026-08-18-caliber-phase1-mutation-f-board.txt`（本 PR 入库） |
+
+上表前两份由**独立验收方**（非本 Phase 实施方）重跑生成，与本树 `/tmp` 下的原始输出
+**逐字节相同**；两次独立复算同结果，故只入库一份，不留第二事实源。
+变异测试那份是唯一副本：注释掉 1.1 的万亿展开后 B7 回到 `❌ 失败`（`total_amount=29569.03
+not observed`），C1 仍 `✅ 通过`——变异只打中 1.1，没连带打中 1.2 的拒答等价类，符合预期。
 
 pytest：`test_acceptance_verdict` 42；acceptance 相关 160 passed。
