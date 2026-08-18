@@ -1689,8 +1689,9 @@ def _financials_block_for_llm(
 ) -> str:
     """Build the D7 quarterly-financials block for a single target stock.
 
-    目标股从本地 DuckDB 解析（代码/名称），逐季财务走东财免费 F10（market_financials）；
-    解析不到目标股时返回空串（不追加块），网络/库不可用时返回带显式缺口的块。
+    目标股从本地 DuckDB 解析（代码/名称），逐季财务走 D7 provider 链
+    （东财 F10 → 新浪利润表 → AKShare）；解析不到目标股时返回空串（不追加块），
+    网络/库不可用时返回带显式缺口的块。
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)

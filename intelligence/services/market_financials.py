@@ -2,8 +2,10 @@
 
 - 取数走东财免费接口 `RPT_F10_FINANCE_MAINFINADATA`，不依赖 iFinD / 问财 key；
   与 D5 估值块（valuation_estimate）同一条东财免费路线。
-- 东财失败时 fallback 到 AKShare `stock_financial_abstract`（新浪财务摘要，同为累计口径），
-  块内标注实际数据源；两源都失败才写缺口。
+- Provider 链：东财 F10 → 新浪利润表（a-stock-data 自包含 HTTP，不依赖 akshare）
+  → AKShare `stock_financial_abstract`。任一成功即返回，引用行标实际 provider + 取数日。
+- 全败输出结构化状态（ok / degraded / missing_config / NO_DATA），不落「查询失败」。
+  备源未安装仍单独披露「未尝试」，不得谎称两源都试过。
 - 口径为**累计值**（中报=H1、三季报=前三季累计），同比字段 `*TZ` 为东财原始累计同比，
   是卖方读「业绩兑现节奏」的主流口径；本块不做单季还原，避免引入推算误差。
 - 补的缺口：brief/D4/D5 只有当日盘面与当前估值快照，无逐季营收/净利/毛利率序列，
@@ -18,10 +20,12 @@ import importlib.util
 import json
 import os
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Callable
+from datetime import date
+from typing import Any, Callable, Literal
 
 FETCH_ENV_FLAG = "FINANCE_FINANCIALS_FETCH"
 _F10_URL = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
@@ -50,6 +54,12 @@ _FINANCIALS_TERMS = (
 )
 
 
+ProviderStatus = Literal["ok", "degraded", "missing_config", "NO_DATA"]
+PRIMARY_PROVIDER = "东财 F10"
+SINA_PROVIDER = "新浪利润表"
+AKSHARE_PROVIDER = "AKShare·新浪财务摘要"
+
+
 @dataclass
 class QuarterFinancials:
     report_name: str  # e.g. "2026一季报"
@@ -60,6 +70,16 @@ class QuarterFinancials:
     netprofit_yoy: float | None = None  # 归母净利同比（%，累计）
     gross_margin: float | None = None  # 销售毛利率（%）
     net_margin: float | None = None  # 销售净利率（%）
+
+
+@dataclass(frozen=True)
+class FinancialsFetchResult:
+    rows: tuple[QuarterFinancials, ...]
+    provider: str
+    status: ProviderStatus
+    as_of: str
+    attempted: tuple[str, ...]
+    notes: tuple[str, ...] = ()
 
 
 def fetch_enabled() -> bool:
@@ -92,6 +112,14 @@ def _secucode(ts_code: str) -> str | None:
 
 
 def _num(value: Any, scale: float = 1.0) -> float | None:
+    if isinstance(value, str):
+        cleaned = value.replace(",", "").replace("%", "").strip()
+        if not cleaned or cleaned in {"--", "-", "None"}:
+            return None
+        try:
+            value = float(cleaned)
+        except ValueError:
+            return None
     if not isinstance(value, (int, float)) or value != value:  # 非数值或 NaN
         return None
     return round(float(value) / scale, 2)
@@ -125,6 +153,8 @@ def fetch_quarterly_financials(
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError:
+        raise
     except Exception:
         return []
     if payload.get("code") != 0:
@@ -232,10 +262,220 @@ def fetch_quarterly_financials_akshare(
     return out
 
 
+def _sina_paper_code(ts_code: str) -> str | None:
+    secucode = _secucode(ts_code)
+    if secucode is None:
+        return None
+    code, suffix = secucode.split(".")
+    if suffix == "SH":
+        return f"sh{code}"
+    if suffix == "BJ":
+        return f"bj{code}"
+    return f"sz{code}"
+
+
+def _first_num(row: dict[str, Any], keys: tuple[str, ...], scale: float = 1.0) -> float | None:
+    for key in keys:
+        value = _num(row.get(key), scale)
+        if value is not None:
+            return value
+    return None
+
+
+def _parse_sina_lrb_rows(report_list: dict[str, Any], periods: int) -> list[QuarterFinancials]:
+    rows: list[QuarterFinancials] = []
+    for period_key in sorted(report_list.keys(), reverse=True)[: max(1, int(periods))]:
+        obj = report_list[period_key] or {}
+        rec: dict[str, Any] = {}
+        for item in obj.get("data", []) or []:
+            title = str(item.get("item_title") or "").strip()
+            if not title or item.get("item_value") is None:
+                continue
+            rec[title] = item.get("item_value")
+            tongbi = item.get("item_tongbi")
+            if tongbi not in (None, ""):
+                rec[title + "_同比"] = tongbi
+        report_date = f"{period_key[:4]}-{period_key[4:6]}-{period_key[6:8]}"
+        q = QuarterFinancials(
+            report_name=_report_name(report_date),
+            report_date=report_date,
+            revenue_yi=_first_num(rec, ("营业总收入", "营业收入"), 1e8),
+            revenue_yoy=_first_num(rec, ("营业总收入_同比", "营业收入_同比")),
+            netprofit_yi=_first_num(
+                rec,
+                ("归属于母公司股东的净利润", "归属于母公司所有者的净利润", "净利润"),
+                1e8,
+            ),
+            netprofit_yoy=_first_num(
+                rec,
+                (
+                    "归属于母公司股东的净利润_同比",
+                    "归属于母公司所有者的净利润_同比",
+                    "净利润_同比",
+                ),
+            ),
+            gross_margin=_first_num(rec, ("销售毛利率", "毛利率")),
+            net_margin=_first_num(rec, ("销售净利率", "净利率")),
+        )
+        if any(
+            x is not None
+            for x in (q.revenue_yi, q.netprofit_yi, q.gross_margin, q.net_margin)
+        ):
+            rows.append(q)
+    return rows
+
+
+def fetch_quarterly_financials_sina(
+    ts_code: str,
+    name: str = "",
+    periods: int = DEFAULT_PERIODS,
+    timeout: float = 8.0,
+) -> list[QuarterFinancials]:
+    """a-stock-data 中间源：新浪利润表 HTTP，不依赖 akshare / mootdx。"""
+    del name
+    paper_code = _sina_paper_code(ts_code)
+    if paper_code is None:
+        return []
+    params = urllib.parse.urlencode(
+        {
+            "paperCode": paper_code,
+            "source": "lrb",
+            "type": "0",
+            "page": "1",
+            "num": str(max(1, int(periods))),
+        }
+    )
+    url = (
+        "https://quotes.sina.cn/cn/api/openapi.php/"
+        f"CompanyFinanceService.getFinanceReport2022?{params}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return []
+    report_list = ((payload.get("result") or {}).get("data") or {}).get("report_list") or {}
+    if not isinstance(report_list, dict):
+        return []
+    return _parse_sina_lrb_rows(report_list, periods)
+
+
+def _invoke_provider(
+    fetcher: Callable[..., list[QuarterFinancials]],
+    ts_code: str,
+    name: str,
+    periods: int,
+    timeout: float,
+) -> tuple[list[QuarterFinancials], str | None]:
+    try:
+        try:
+            rows = fetcher(ts_code, name, periods, timeout)
+        except TypeError:
+            rows = fetcher(ts_code, name, periods)
+        return list(rows or []), None
+    except urllib.error.HTTPError as exc:
+        return [], f"HTTP {exc.code}"
+    except Exception as exc:
+        return [], type(exc).__name__
+
+
+def fetch_quarterly_financials_chain(
+    ts_code: str,
+    name: str = "",
+    periods: int = DEFAULT_PERIODS,
+    timeout: float = 8.0,
+    *,
+    today: str | None = None,
+    primary: Callable[..., list[QuarterFinancials]] | None = None,
+    secondary: Callable[..., list[QuarterFinancials]] | None = None,
+    tertiary: Callable[..., list[QuarterFinancials]] | None = None,
+    tertiary_available: bool | None = None,
+) -> FinancialsFetchResult:
+    """东财 F10 → 新浪利润表 → AKShare。状态分列，不混成 failed。"""
+    as_of = today or date.today().isoformat()
+    attempted: list[str] = []
+    notes: list[str] = []
+    steps: list[tuple[str, Callable[..., list[QuarterFinancials]]]] = [
+        (PRIMARY_PROVIDER, primary or fetch_quarterly_financials),
+        (SINA_PROVIDER, secondary or fetch_quarterly_financials_sina),
+    ]
+    for index, (label, fetcher) in enumerate(steps):
+        attempted.append(label)
+        rows, error = _invoke_provider(fetcher, ts_code, name, periods, timeout)
+        if error:
+            notes.append(f"{label} {error}")
+        if rows:
+            status: ProviderStatus = "ok" if index == 0 else "degraded"
+            return FinancialsFetchResult(
+                rows=tuple(rows),
+                provider=label,
+                status=status,
+                as_of=as_of,
+                attempted=tuple(attempted),
+                notes=tuple(notes),
+            )
+
+    akshare_on = akshare_available() if tertiary_available is None else tertiary_available
+    if not akshare_on:
+        notes.append(f"{AKSHARE_PROVIDER} 未安装，本次未尝试")
+        return FinancialsFetchResult(
+            rows=(),
+            provider="",
+            status="missing_config",
+            as_of=as_of,
+            attempted=tuple(attempted),
+            notes=tuple(notes),
+        )
+
+    attempted.append(AKSHARE_PROVIDER)
+    rows, error = _invoke_provider(
+        tertiary or fetch_quarterly_financials_akshare,
+        ts_code,
+        name,
+        periods,
+        timeout,
+    )
+    if error:
+        notes.append(f"{AKSHARE_PROVIDER} {error}")
+    if rows:
+        return FinancialsFetchResult(
+            rows=tuple(rows),
+            provider=AKSHARE_PROVIDER,
+            status="degraded",
+            as_of=as_of,
+            attempted=tuple(attempted),
+            notes=tuple(notes),
+        )
+    return FinancialsFetchResult(
+        rows=(),
+        provider="",
+        status="NO_DATA",
+        as_of=as_of,
+        attempted=tuple(attempted),
+        notes=tuple(notes),
+    )
+
+
 def _fmt(value: float | None, unit: str = "") -> str:
     if value is None:
         return "缺"
     return f"{value}{unit}"
+
+
+def _gap_from_result(result: FinancialsFetchResult) -> str:
+    attempted = " / ".join(result.attempted) or "无"
+    notes = "；".join(result.notes)
+    if result.status == "missing_config":
+        extra = notes or f"{AKSHARE_PROVIDER} 未安装，本次未尝试"
+        return (
+            f"- ⚠缺逐季财报：已尝试 {attempted}，状态=missing_config；{extra}。"
+            "业绩兑现节奏按缺口处理，不得编造。"
+        )
+    return (
+        f"- ⚠缺逐季财报：已尝试 {attempted}，状态={result.status}，"
+        "业绩兑现节奏按缺口处理，不得编造。"
+    )
 
 
 def build_financials_block(
@@ -245,6 +485,7 @@ def build_financials_block(
     fetch_disabled: bool = False,
     data_source: str = "东财 F10",
     fallback_attempted: bool | None = None,
+    fetch_result: FinancialsFetchResult | None = None,
 ) -> str:
     """生成 D7 逐季财报数据块（注入 compose）；缺数时仍返回带显式缺口的块或空串。
 
@@ -253,11 +494,15 @@ def build_financials_block(
     把「这家公司查不到数据」与「备源不可用」分开，理由见 ``akshare_available``。
     """
 
-    lines = [f"## 逐季财报数据块 [D7]（{data_source} 主要财务指标，硬数据；口径=累计值）"]
+    source = fetch_result.provider or data_source if fetch_result is not None else data_source
+    lines = [f"## 逐季财报数据块 [D7]（{source} 主要财务指标，硬数据；口径=累计值）"]
     if fetch_disabled:
         lines.append(f"- ⚠财报取数已被 {FETCH_ENV_FLAG}=0 关闭：逐季营收/净利/毛利率全部为缺口，需说明数据不可得。")
         return "\n".join(lines)
     if not rows:
+        if fetch_result is not None:
+            lines.append(_gap_from_result(fetch_result))
+            return "\n".join(lines)
         attempted = (
             akshare_available() if fallback_attempted is None else fallback_attempted
         )
@@ -276,6 +521,8 @@ def build_financials_block(
             )
         return "\n".join(lines)
     lines.append(f"- 目标：{target_name}（{ts_code}），近 {len(rows)} 期累计口径（新→旧）：")
+    if fetch_result is not None:
+        lines.append(f"- 引用：provider={fetch_result.provider} 取数日={fetch_result.as_of}")
     lines.append("- | 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率% | 销售净利率% |")
     lines.append("- |---|---|---|---|---|---|---|")
     for r in rows:
@@ -302,11 +549,29 @@ def financials_block_for_target(
     fetcher: Callable[..., list[QuarterFinancials]] | None = None,
     fallback_fetcher: Callable[..., list[QuarterFinancials]] | None = None,
     timeout: float = 8.0,
+    chain: Callable[..., FinancialsFetchResult] | None = None,
 ) -> str:
-    """给定目标股，取数并渲染 D7 块；主源（东财 F10）失败时 fallback 到 AKShare，
-    块头标注实际数据源；两源都失败才写缺口。"""
+    """给定目标股，取数并渲染 D7 块。
+
+    默认走三级链（东财 F10 → 新浪利润表 → AKShare）。显式注入
+    ``fetcher`` / ``fallback_fetcher`` 时保留两级路径，以免改写既有测试语义。
+    """
     if not fetch_enabled():
         return build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True)
+    if chain is not None or (fetcher is None and fallback_fetcher is None):
+        result = (chain or fetch_quarterly_financials_chain)(
+            ts_code, name, periods, timeout
+        )
+        source = result.provider or PRIMARY_PROVIDER
+        if result.status == "degraded" and result.provider:
+            source = f"{result.provider}（{PRIMARY_PROVIDER} 不可用，已降级）"
+        return build_financials_block(
+            name or ts_code,
+            ts_code,
+            list(result.rows),
+            data_source=source,
+            fetch_result=result,
+        )
     fetch = fetcher or fetch_quarterly_financials
     rows = (
         fetch(ts_code, name, periods, timeout)
