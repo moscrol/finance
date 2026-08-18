@@ -305,6 +305,40 @@ def test_progress_sink_observes_append_only_events_before_and_during_model_work(
     )
 
 
+def test_tool_result_ledger_persists_payload_meta_without_row_bodies() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _plan_turn(),
+            _tool_turn("当前市场结构"),
+            _finish_turn(),
+        ]
+    )
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+    results = [event for event in outcome.events if event.kind == "tool_result"]
+    assert len(results) == 1
+    payload = results[0].payload
+    assert payload["dataset"] == "unknown"
+    assert tuple(payload["payload_field_names"]) == ("unknown",)
+    assert payload["payload_sha256"]
+    assert "observation" in payload
+    persisted = json.dumps(
+        {
+            "dataset": payload["dataset"],
+            "caliber": payload["caliber"],
+            "payload_field_names": list(payload["payload_field_names"]),
+            "payload_sha256": payload["payload_sha256"],
+        },
+        ensure_ascii=False,
+    )
+    assert "/Users/" not in persisted
+    assert "/home/" not in persisted
+
+
 def test_glm_episode_session_resume_keeps_original_model_history() -> None:
     frame = _frame()
     context = _context(frame, max_steps=1, allowed_capabilities=())

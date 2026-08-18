@@ -13,6 +13,8 @@ import json
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
+from intelligence.services.tool_payload import tool_payload_meta
+
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
@@ -330,6 +332,10 @@ class ToolRunResult:
     observation: str
     trace: ProviderTrace
     gaps: tuple[str, ...] = ()
+    dataset: str = "unknown"
+    caliber: str = ""
+    payload_field_names: tuple[str, ...] = ()
+    payload_sha256: str = ""
 
     def __post_init__(self) -> None:
         evidence = tuple(self.evidence)
@@ -348,6 +354,15 @@ class ToolRunResult:
                 )
             ),
         )
+        dataset, caliber, names, digest = tool_payload_meta(
+            dataset=self.dataset,
+            caliber=self.caliber,
+            field_names=self.payload_field_names,
+        )
+        object.__setattr__(self, "dataset", dataset)
+        object.__setattr__(self, "caliber", caliber)
+        object.__setattr__(self, "payload_field_names", names)
+        object.__setattr__(self, "payload_sha256", digest)
 
 
 class ToolRunnerAdapter:
@@ -418,6 +433,10 @@ class ToolObservation:
     trace: ProviderTrace
     gaps: tuple[str, ...] = ()
     evidence_hashes: tuple[str, ...] = ()
+    dataset: str = "unknown"
+    caliber: str = ""
+    payload_field_names: tuple[str, ...] = ()
+    payload_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -762,6 +781,10 @@ class ResearchToolRegistry:
                         # 事件里带上它，Trace/UI/评测三者才对得上账。
                         "evidence_hashes": list(hashes),
                         "gaps": list(gaps),
+                        "dataset": run_result.dataset,
+                        "caliber": run_result.caliber,
+                        "payload_field_names": list(run_result.payload_field_names),
+                        "payload_sha256": run_result.payload_sha256,
                     },
                 )
             return ToolObservation(
@@ -772,6 +795,10 @@ class ResearchToolRegistry:
                 trace=trace,
                 gaps=gaps,
                 evidence_hashes=hashes,
+                dataset=run_result.dataset,
+                caliber=run_result.caliber,
+                payload_field_names=run_result.payload_field_names,
+                payload_sha256=run_result.payload_sha256,
             )
 
         ledger_call = partial(

@@ -453,6 +453,10 @@ class _EpisodeToolAccumulator:
                     if digest in ordinals
                 ],
                 "gaps": list(observation.gaps),
+                "dataset": observation.dataset,
+                "caliber": observation.caliber,
+                "payload_field_names": list(observation.payload_field_names),
+                "payload_sha256": observation.payload_sha256,
             }
             # 审计留档拿全量（含 hash），模型上下文拿预算后的副本并去掉 hash，
             # 只留 E1..En——誊抄 16-hex 是 B1/B7 零绑定的根因。
