@@ -62,6 +62,7 @@ _KNOWN_OVERLAY_FIELDS = frozenset(
         "fact_aliases",
         "phrase_equivalents",
         "phrase_discharged_by",
+        "cohort",
     }
 )
 
@@ -196,8 +197,13 @@ class CaseContract:
     case: Mapping[str, Any]
     phrase_equivalents: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     phrase_discharged_by: Mapping[str, str] = field(default_factory=dict)
+    cohort: str = ""
     reproducible: bool = True
     diagnostics: tuple[str, ...] = ()
+
+    def in_main_truth_denominator(self) -> bool:
+        """相对时间题单独分组，不进主判定分母。"""
+        return self.cohort != "relative_time"
 
     def phrase_observed(self, phrase: str, text: str) -> bool:
         """措辞断言：正典短语或它的等价表达任一在场即算命中。
@@ -258,8 +264,9 @@ def _pass_rule_expect_facts_diagnostics(case: Mapping[str, Any]) -> list[str]:
 def _reproducibility_diagnostics(case: Mapping[str, Any]) -> list[str]:
     """题目问「现在」、期望值却冻结在某一天 —— 这种红永远不会变绿。
 
-    runner 只把 `case["query"]` 发给产品（`acceptance.py`），`date` 字段仅供判官
-    做 cutoff。所以问题正文里没有日期锚时，产品答的是真实今天。
+    runner 现在用 `effective_query` 把 `date` 前缀进发送题面；但正典 `query`
+    正文若仍是「现在 / 最近」且期望值冻在某一天，题目本身仍不可复现——
+    发送层补日期不能把正典题面改写成已锚定。
 
     A8 实测：query「现在市场处于什么阶段，第几天了」，产品答「截至 2026-07-30，
     底部横盘阶段，第 2 个交易日」——完全正确；而 expect_facts 冻结的是
@@ -289,7 +296,7 @@ def _reproducibility_diagnostics(case: Mapping[str, Any]) -> list[str]:
     return [
         "case is not reproducible: query is relative-time "
         f"({', '.join(marks)}) but {', '.join(dated_expectations)} is frozen to "
-        f"{cutoff or 'an unstated date'}; the date anchor never reaches the product"
+        f"{cutoff or 'an unstated date'}; canonical query remains relative-time"
     ]
 
 
@@ -390,6 +397,7 @@ def compile_case_contract(
         case=dict(case),
         phrase_equivalents=equivalents,
         phrase_discharged_by=discharged_by,
+        cohort=str(overlay.get("cohort") or ""),
         reproducible=not reproducibility,
         diagnostics=tuple(diagnostics),
     )

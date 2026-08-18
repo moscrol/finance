@@ -17,7 +17,7 @@ from intelligence.eval.acceptance_verdict import (
 ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = ROOT / "intelligence/eval/cases/acceptance_cases.json"
 SNAPSHOT_DIR = ROOT / "intelligence/eval/cases/reference_snapshots"
-CANONICAL_CASES_SHA256 = "a25c68253a92be536b94d2403ffa010b6cd15a20b7eea581450159cb6444a1c6"
+CANONICAL_CASES_SHA256 = "d98a65573862fc461da9b76857a2343187bdf4902dae4b976b849f5f9348abfc"
 
 
 def test_missing_run_is_not_run_on_operational_and_truth_axes() -> None:
@@ -757,8 +757,8 @@ def test_relative_time_question_with_frozen_facts_is_flagged() -> None:
     """问「现在」而期望值冻在某一天 —— 判官必须报出来，不能当产品失败。
 
     A8 实测：产品答「截至 2026-07-30，底部横盘阶段，第 2 个交易日」，完全正确；
-    expect_facts 冻的是 2026-07-23 的「反弹阶段 / 第 3 天」。runner 只发
-    case["query"]，date 字段根本到不了产品手上。
+    expect_facts 冻的是 2026-07-23 的「反弹阶段 / 第 3 天」。正典 query
+    仍是相对时间；发送层补日期不能把题目改写成已锚定。
     """
     contract = compile_case_contract(
         {
@@ -958,3 +958,33 @@ def test_a7_pass_rule_or_vs_two_facts_is_a_contract_diagnostic() -> None:
         "之一" in item or "contradict" in item or "自洽" in item or "自相矛盾" in item
         for item in contract.diagnostics
     )
+
+
+def test_b6_clarification_answer_is_structured_pass() -> None:
+    """08-18 B6 已在要澄清。题面未附材料时，这是正确产品行为，不是失败。"""
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "B6-sellside-distillation")
+    contract = compile_case_contract(case, overlay["B6-sellside-distillation"])
+    verdict = evaluate_case(
+        contract,
+        _completed("我还缺少一点信息：\n1. 你指的是哪家公司、题材或上一条研究逻辑？"),
+    )
+    assert contract.coverage == "structured"
+    assert verdict.truth.state is VerdictState.PASS
+    assert _rule(verdict, "required_any_phrases").state is VerdictState.PASS
+
+
+def test_relative_time_cohort_is_outside_main_truth_denominator() -> None:
+    """A8/C6 仍上板，但不进主判定分母。"""
+    overlay = load_verdict_overlay()
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    by_id = {item["id"]: item for item in doc["cases"]}
+    a8 = compile_case_contract(by_id["A8-market-stage"], overlay["A8-market-stage"])
+    c6 = compile_case_contract(by_id["C6-strict-definition"], overlay["C6-strict-definition"])
+    a1 = compile_case_contract(by_id["A1-market-overview"], overlay["A1-market-overview"])
+    assert a8.cohort == "relative_time"
+    assert c6.cohort == "relative_time"
+    assert not a8.in_main_truth_denominator()
+    assert not c6.in_main_truth_denominator()
+    assert a1.in_main_truth_denominator()
