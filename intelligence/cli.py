@@ -2126,6 +2126,21 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_acc.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_acc.set_defaults(func=cmd_checkpoint_accept)
 
+    p_adj = sub.add_parser(
+        "adjudicate",
+        help="KC-10 到期裁决 job：可机读写 verdicts，不可机读入人工队列，不改判断原文",
+    )
+    p_adj.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_adj.add_argument("--date", default=None, help="判定到期的基准日 YYYY-MM-DD（默认今天）")
+    p_adj.add_argument("--apply", action="store_true", help="把可机读终态 verdict 落盘（缺省只预览）")
+    p_adj.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_adj.add_argument("--checkpoints-file", default=None, help="覆盖 checkpoints.jsonl 路径")
+    p_adj.add_argument("--verdicts-file", default=None, help="覆盖 verdicts.jsonl 路径")
+    p_adj.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    p_adj.add_argument("--kb-wiki", default=None, help="知识库 wiki 根")
+    p_adj.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_adj.set_defaults(func=cmd_checkpoint_adjudicate)
+
 
 def add_red_team_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
@@ -2631,6 +2646,48 @@ def cmd_checkpoint_accept(args: argparse.Namespace) -> int:
     print(f"已入账 {len(accepted)} 条，并登记 checkpoint")
     for row in accepted:
         print(f"- {row.get('id')} ｜ {row.get('claim')}")
+    return 0
+
+
+def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services.judgment_adjudicate import run_adjudication_job
+
+    jpath = _judgments_path(args)
+    cpath, vpath = _checkpoint_paths(args)
+    report = run_adjudication_job(
+        judgments_path=jpath,
+        checkpoints_path=cpath,
+        verdicts_path=vpath,
+        today=args.date,
+        apply=bool(args.apply),
+        db_path=args.db_path,
+        wiki_root=args.kb_wiki,
+    )
+    payload = report.to_dict()
+    payload["applied"] = bool(args.apply)
+    payload["judgments"] = str(jpath)
+    payload["checkpoints"] = str(cpath)
+    payload["verdicts"] = str(vpath)
+    if args.json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    verb = "裁决并落盘" if args.apply else "裁决（预览，未落盘；加 --apply 落盘）"
+    print(
+        f"{verb} 自动 {len(report.auto)} 条 · 人工队列 {len(report.queued)} 条 · "
+        f"延期 {len(report.deferred)} 条"
+    )
+    for item in report.auto:
+        print(f"- 自动 {item.id}｜{item.verdict}：{item.reason}")
+    for item in report.queued:
+        print(f"- 人工 {item.id}：{item.reason}")
+    for item in report.deferred:
+        print(f"- 延期 {item.id}｜{item.verdict}：{item.reason}")
+    if report.judgments_unchanged:
+        print("判断原文未动")
+    if not args.apply and (report.auto or report.queued or report.deferred):
+        print("加 --apply 把可机读终态写入 verdicts.jsonl；人工项请 `checkpoint score`")
     return 0
 
 
