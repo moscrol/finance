@@ -20,6 +20,7 @@ from intelligence.services import (
     closed_loop_retrieval,
     counter_retrieval,
     evidence_judge,
+    hop_retrieval,
     exposure_selector,
     kb_rag,
     l3_evidence,
@@ -646,8 +647,13 @@ def _emit_index_evidence_line(
             else " ｜周期待判"
         )
     prefix = f"{counter_retrieval.COUNTER_MARK} " if is_counter else ""
+    hop_prefix = (
+        f"{hop_retrieval.SECOND_HOP_MARK} "
+        if item.get(hop_retrieval.RETRIEVAL_HOP_KEY) == 2
+        else ""
+    )
     line = (
-        f"{prefix}{item.get('target')}：{str(item.get('evidence'))[:80]}"
+        f"{prefix}{hop_prefix}{item.get('target')}：{str(item.get('evidence'))[:80]}"
         f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
         f"质量 {item.get('confidence') or '?'}{mark}） {tag}"
     )
@@ -702,6 +708,38 @@ def _emit_index_evidence_line(
                 f"距今超过 {ctx.options.stale_days} 天且本轮取不到题材盘面历史，"
                 f"需人工判断处于唤醒还是衰退 {tag}"
             )
+
+
+def _hop_graph_names(knowledge: Any, seed: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """从图谱概念/暴露接口抽邻居名；接口不存在时两路都空。"""
+    concepts: list[str] = []
+    companies: list[str] = []
+    if not seed:
+        return (), ()
+    matches = getattr(knowledge, "get_concept_matches", None)
+    if callable(matches):
+        payload = matches(seed, limit=12)
+        for item in payload.get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("concept") or "").strip()
+            if name:
+                concepts.append(name)
+    exposures = getattr(knowledge, "get_exposure_matches", None)
+    if callable(exposures):
+        payload = exposures(seed, limit=12)
+        for item in payload.get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            concept = str(item.get("concept") or "").strip()
+            company = str(
+                item.get("company") or item.get("entity") or ""
+            ).strip()
+            if concept:
+                concepts.append(concept)
+            if company:
+                companies.append(company)
+    return tuple(dict.fromkeys(concepts)), tuple(dict.fromkeys(companies))
 
 
 def collect_evidence_index(
@@ -765,8 +803,82 @@ def collect_evidence_index(
         ):
             break
 
+    hop_targets: tuple[str, ...] = ()
+    # 无锚、无题材、第一跳又空时不准开第二跳：图谱弱匹配会把无关概念
+    # 当成新 target，general 车道的 Web 兜底就被「本地已有证据」短路。
+    if (
+        support_items
+        or counter_items
+        or result.matched_theme
+        or anchor is not None
+    ):
+        hop_seed = (
+            result.matched_theme
+            or (anchor.entity if anchor is not None else "")
+            or options.query
+        )
+        neighbor_names, company_names = _hop_graph_names(ctx.knowledge, hop_seed)
+        hop_targets = hop_retrieval.extract_second_hop_targets(
+            [
+                f"{item.get('evidence') or ''} {item.get('source') or ''}"
+                for item in (*support_items, *counter_items)
+            ],
+            hop_retrieval.hop_lexicon(
+                theme=result.matched_theme,
+                company_evidence_concepts=company_evidence_concepts,
+                concept_names=neighbor_names,
+                company_names=company_names,
+            ),
+            neighbors=(*neighbor_names, *company_names),
+            exclude=unique_targets,
+        )
+    for target in hop_targets:
+        ev = ctx.knowledge.get_evidence(
+            target,
+            concept=None,
+            limit=fetch_limit,
+        )
+        if not ev.get("found"):
+            continue
+        for raw in ev["items"]:
+            key = _evidence_row_key(raw)
+            if key in fetched_keys:
+                continue
+            fetched_keys.add(key)
+            result.found_graph = True
+            item = {**raw, hop_retrieval.RETRIEVAL_HOP_KEY: 2}
+            blob = f"{item.get('evidence') or ''} {item.get('source') or ''}"
+            if counter_retrieval.match_counter_bucket(blob):
+                counter_items.append(item)
+            else:
+                support_items.append(item)
+
+    hop1_support = [
+        item
+        for item in support_items
+        if item.get(hop_retrieval.RETRIEVAL_HOP_KEY) != 2
+    ]
+    hop2_support = [
+        item
+        for item in support_items
+        if item.get(hop_retrieval.RETRIEVAL_HOP_KEY) == 2
+    ]
+    support_budget = max(
+        0,
+        options.max_evidence
+        - min(
+            len(counter_items),
+            counter_retrieval.COUNTER_SLOT_RESERVE,
+            options.max_evidence,
+        ),
+    )
+    merged_support = hop_retrieval.reserve_second_hop_slots(
+        hop1_support,
+        hop2_support,
+        room=support_budget,
+    )
     selected = counter_retrieval.reserve_counter_slots(
-        support_items,
+        merged_support,
         counter_items,
         max_n=options.max_evidence,
     )
