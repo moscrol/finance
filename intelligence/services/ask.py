@@ -60,6 +60,7 @@ from intelligence.services import (
     market_midterm,
     market_moneyflow,
     market_news,
+    overnight_map,
     market_technical,
     market_timeseries,
     perspective_lab,
@@ -4020,6 +4021,25 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("W7", "web 事件检索", _w7_applies, _build_w7))
+
+        def _d17_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D17") and bool(
+                overnight_map.parse_overnight_intent(options.query)
+            )
+
+        def _build_d17():
+            block = overnight_map.overnight_block_for_llm(
+                finance_db_path=options.market_db_path,
+            )
+            return block, Citation(
+                "D17",
+                "fph2026 隔夜美股→A 股映射数据块",
+                "美股主题热度/涨跌 → 对照表 A 股板块 → 当日 A 股温度计与涨跌（只列映射事实，不表示必然跟涨）",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider("D17", "隔夜美股映射", _d17_applies, _build_d17)
+        )
 
         def _build_m():
             block = user_memory.memory_block_for_query(
