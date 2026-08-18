@@ -1,0 +1,457 @@
+{
+  "budget_ablation_validity": null,
+  "canonical_runtime_port": 8792,
+  "canonical_runtime_touched": false,
+  "case_count": 3,
+  "cases": [
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "valuation_assessment",
+        "scenario_range",
+        "evidence_boundary"
+      ],
+      "arms": [
+        {
+          "answer": "",
+          "artifact_sha256": "c80a1ea983e7f53e0b7db2f2f04d7a40e7837cf83e8e407e8230b971c6a02948",
+          "backend": "continuous_glm",
+          "blind_projection": {
+            "claims": [],
+            "published_answer": "",
+            "sources": []
+          },
+          "blind_projection_json_pointer": "/cases/0/arms/0/blind_projection",
+          "blind_projection_sha256": "406b823c22f7e3f449d7d0f1de82d935d8b380bd9bfff879e2d99a9427a0381c",
+          "candidate_answer": "",
+          "case_id": "ruihuatai-valuation",
+          "citations": [],
+          "claims": [],
+          "data_cutoff": null,
+          "diagnostics": {
+            "bindings": [],
+            "events": [],
+            "future_of_cutoff": [],
+            "gaps": [],
+            "mandatory_missing_capabilities": [],
+            "missing_outputs": [],
+            "provider_traces": [],
+            "root_budget": null
+          },
+          "duplicate_queries": 0,
+          "effective_timeout_seconds": 180.0,
+          "input_tokens": null,
+          "latency_seconds": 72.33799558389,
+          "llm_calls": 0,
+          "model": "glm-5.2",
+          "output_tokens": null,
+          "protocol_issues": [
+            "ValueError:runtime source_date must be ISO date"
+          ],
+          "provider_attempts": 0,
+          "published_answer": "",
+          "semantic_status": "unavailable",
+          "sources": [],
+          "status": "failed",
+          "stop_reason": "runner_exception",
+          "structural_status": "failed",
+          "task_alignment_score": 0.0,
+          "tool_calls": 0
+        }
+      ],
+      "as_of": "2026-07-24",
+      "contract": null,
+      "control": {
+        "capabilities": [
+          "market_data",
+          "financial_data",
+          "kb_search",
+          "evidence_lookup",
+          "web_search"
+        ],
+        "execution_route": "valuation_estimate",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "completed",
+      "id": "ruihuatai-valuation",
+      "question": "瑞华泰的合理估值",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解"
+        ],
+        "clarification_question": null,
+        "confidence": 1.0,
+        "evidence_policy": "company_valuation_evidence",
+        "market_scope": "A股",
+        "question_type": "valuation_estimate",
+        "raw_question": "瑞华泰的合理估值",
+        "required_outputs": [
+          "valuation_assessment",
+          "scenario_range",
+          "evidence_boundary"
+        ],
+        "subject": "瑞华泰",
+        "subject_kind": "company",
+        "task_frame_hash": "0e584311fc1c999d24e938ade5fe5b627e8d4f695f6501af67b64ada4ddbec15",
+        "timeframe": null,
+        "user_goal": "形成条件化判断"
+      },
+      "task_frame_hash": "0e584311fc1c999d24e938ade5fe5b627e8d4f695f6501af67b64ada4ddbec15",
+      "tier": "standard",
+      "timeout": 180.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "valuation_assessment",
+        "scenario_range",
+        "evidence_boundary"
+      ],
+      "arms": [
+        {
+          "answer": "",
+          "artifact_sha256": "6531a9481aec87574252f57f132b94e03d93f1ddc019d87a08dfbcd73cf763a2",
+          "backend": "continuous_glm",
+          "blind_projection": {
+            "claims": [],
+            "published_answer": "",
+            "sources": []
+          },
+          "blind_projection_json_pointer": "/cases/1/arms/0/blind_projection",
+          "blind_projection_sha256": "406b823c22f7e3f449d7d0f1de82d935d8b380bd9bfff879e2d99a9427a0381c",
+          "candidate_answer": "",
+          "case_id": "B8-valuation-band",
+          "citations": [],
+          "claims": [],
+          "data_cutoff": null,
+          "diagnostics": {
+            "bindings": [],
+            "events": [],
+            "future_of_cutoff": [],
+            "gaps": [],
+            "mandatory_missing_capabilities": [],
+            "missing_outputs": [],
+            "provider_traces": [],
+            "root_budget": null
+          },
+          "duplicate_queries": 0,
+          "effective_timeout_seconds": 240.0,
+          "input_tokens": null,
+          "latency_seconds": 99.33772845799103,
+          "llm_calls": 0,
+          "model": "glm-5.2",
+          "output_tokens": null,
+          "protocol_issues": [
+            "ValueError:runtime source_date must be ISO date"
+          ],
+          "provider_attempts": 0,
+          "published_answer": "",
+          "semantic_status": "unavailable",
+          "sources": [],
+          "status": "failed",
+          "stop_reason": "runner_exception",
+          "structural_status": "failed",
+          "task_alignment_score": 0.0,
+          "tool_calls": 0
+        }
+      ],
+      "as_of": "2026-07-23",
+      "contract": null,
+      "control": {
+        "capabilities": [
+          "market_data",
+          "financial_data",
+          "kb_search",
+          "evidence_lookup",
+          "web_search"
+        ],
+        "execution_route": "valuation_estimate",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "completed",
+      "id": "B8-valuation-band",
+      "question": "立新能源现在贵不贵，隐含了什么预期",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [
+          "用户未明确市场范围，按A股市场理解"
+        ],
+        "clarification_question": null,
+        "confidence": 1.0,
+        "evidence_policy": "company_valuation_evidence",
+        "market_scope": "A股",
+        "question_type": "valuation_estimate",
+        "raw_question": "立新能源现在贵不贵，隐含了什么预期",
+        "required_outputs": [
+          "valuation_assessment",
+          "scenario_range",
+          "evidence_boundary"
+        ],
+        "subject": "立新能源",
+        "subject_kind": "company",
+        "task_frame_hash": "a6bf57aea35aa2faf76f108236a22d83eae5e0448aceb9c8d22be08907c4c3b7",
+        "timeframe": null,
+        "user_goal": "形成条件化判断"
+      },
+      "task_frame_hash": "a6bf57aea35aa2faf76f108236a22d83eae5e0448aceb9c8d22be08907c4c3b7",
+      "tier": "deep",
+      "timeout": 240.0
+    },
+    {
+      "acceptance_contract_gaps": [],
+      "acceptance_outputs": [
+        "scenario_paths",
+        "transmission_chain",
+        "invalidation_conditions",
+        "falsification_conditions"
+      ],
+      "arms": [
+        {
+          "answer": "",
+          "artifact_sha256": "01112bd58df2d09fd0ac240b60ac43e7e46b149435cb40c122886719bbe6d27e",
+          "backend": "continuous_glm",
+          "blind_projection": {
+            "claims": [],
+            "published_answer": "",
+            "sources": []
+          },
+          "blind_projection_json_pointer": "/cases/2/arms/0/blind_projection",
+          "blind_projection_sha256": "406b823c22f7e3f449d7d0f1de82d935d8b380bd9bfff879e2d99a9427a0381c",
+          "candidate_answer": "",
+          "case_id": "open-event-fed",
+          "citations": [],
+          "claims": [],
+          "data_cutoff": null,
+          "diagnostics": {
+            "bindings": [],
+            "events": [],
+            "future_of_cutoff": [],
+            "gaps": [],
+            "mandatory_missing_capabilities": [],
+            "missing_outputs": [],
+            "provider_traces": [],
+            "root_budget": null
+          },
+          "duplicate_queries": 0,
+          "effective_timeout_seconds": 240.0,
+          "input_tokens": null,
+          "latency_seconds": 87.34869050001726,
+          "llm_calls": 0,
+          "model": "glm-5.2",
+          "output_tokens": null,
+          "protocol_issues": [
+            "ValueError:runtime source_date must be ISO date"
+          ],
+          "provider_attempts": 0,
+          "published_answer": "",
+          "semantic_status": "unavailable",
+          "sources": [],
+          "status": "failed",
+          "stop_reason": "runner_exception",
+          "structural_status": "failed",
+          "task_alignment_score": 0.0,
+          "tool_calls": 0
+        }
+      ],
+      "as_of": "2026-07-24",
+      "contract": null,
+      "control": {
+        "capabilities": [
+          "graph_lookup",
+          "news_search",
+          "web_search"
+        ],
+        "execution_route": "event_forecast",
+        "terminal_kind": "research"
+      },
+      "conversation_context": [],
+      "execution_status": "completed",
+      "id": "open-event-fed",
+      "question": "如果美联储下次降息，A股哪些方向可能受益，哪些证据会证伪？",
+      "task_frame": {
+        "ambiguities": [],
+        "assumptions": [],
+        "clarification_question": null,
+        "confidence": 0.88,
+        "evidence_policy": "event_scenario_evidence",
+        "market_scope": "A股",
+        "question_type": "event_forecast",
+        "raw_question": "如果美联储下次降息，A股哪些方向可能受益，哪些证据会证伪？",
+        "required_outputs": [
+          "scenario_paths",
+          "transmission_chain",
+          "invalidation_conditions",
+          "falsification_conditions"
+        ],
+        "subject": null,
+        "subject_kind": "unknown",
+        "task_frame_hash": "e29f480e35f69d5d784f6414b62a56d5b5edfaf74ce029b290e07e24845baf51",
+        "timeframe": null,
+        "user_goal": "围绕未发生事件形成条件化影响推演与证伪路径"
+      },
+      "task_frame_hash": "e29f480e35f69d5d784f6414b62a56d5b5edfaf74ce029b290e07e24845baf51",
+      "tier": "deep",
+      "timeout": 240.0
+    }
+  ],
+  "credential_source": "environment",
+  "expected_backends": [
+    "continuous_glm"
+  ],
+  "finance_root": "/Users/a77/finance-workspace-private",
+  "generated_at": "2026-08-18",
+  "headless_budget_profile": null,
+  "knowledge_wiki": "/Users/a77/knowledge-base-private/wiki",
+  "market_data_date": "2026-08-18",
+  "mode": "live",
+  "runtime_switched": false,
+  "schema_version": 1,
+  "source_dirty": false,
+  "source_revision": "34a1f54bea93fd90a40915a5d872aae671d11ec8",
+  "summary": {
+    "arm_count": 3,
+    "backends": {
+      "continuous_glm": {
+        "case_count": 3,
+        "duplicate_queries": 0,
+        "input_tokens": null,
+        "llm_calls": 0,
+        "median_latency_seconds": 87.34869050001726,
+        "output_tokens": null,
+        "protocol_issue_count": 6,
+        "provider_attempts": 0,
+        "tool_calls": 0
+      }
+    },
+    "case_count": 3,
+    "expected_backends": [
+      "continuous_glm"
+    ],
+    "gate": "runtime_backend_benchmark",
+    "passed": false,
+    "protocol_failure_count": 3,
+    "results": [
+      {
+        "answer": "",
+        "artifact_sha256": "c80a1ea983e7f53e0b7db2f2f04d7a40e7837cf83e8e407e8230b971c6a02948",
+        "backend": "continuous_glm",
+        "candidate_answer": "",
+        "case_id": "ruihuatai-valuation",
+        "citations": [],
+        "claims": [],
+        "data_cutoff": null,
+        "diagnostics": {
+          "bindings": [],
+          "events": [],
+          "future_of_cutoff": [],
+          "gaps": [],
+          "mandatory_missing_capabilities": [],
+          "missing_outputs": [],
+          "provider_traces": [],
+          "root_budget": null
+        },
+        "duplicate_queries": 0,
+        "effective_timeout_seconds": 180.0,
+        "input_tokens": null,
+        "latency_seconds": 72.33799558389,
+        "llm_calls": 0,
+        "model": "glm-5.2",
+        "output_tokens": null,
+        "protocol_issues": [
+          "ValueError:runtime source_date must be ISO date"
+        ],
+        "provider_attempts": 0,
+        "published_answer": "",
+        "semantic_status": "unavailable",
+        "sources": [],
+        "status": "failed",
+        "stop_reason": "runner_exception",
+        "structural_status": "failed",
+        "task_alignment_score": 0.0,
+        "tool_calls": 0
+      },
+      {
+        "answer": "",
+        "artifact_sha256": "6531a9481aec87574252f57f132b94e03d93f1ddc019d87a08dfbcd73cf763a2",
+        "backend": "continuous_glm",
+        "candidate_answer": "",
+        "case_id": "B8-valuation-band",
+        "citations": [],
+        "claims": [],
+        "data_cutoff": null,
+        "diagnostics": {
+          "bindings": [],
+          "events": [],
+          "future_of_cutoff": [],
+          "gaps": [],
+          "mandatory_missing_capabilities": [],
+          "missing_outputs": [],
+          "provider_traces": [],
+          "root_budget": null
+        },
+        "duplicate_queries": 0,
+        "effective_timeout_seconds": 240.0,
+        "input_tokens": null,
+        "latency_seconds": 99.33772845799103,
+        "llm_calls": 0,
+        "model": "glm-5.2",
+        "output_tokens": null,
+        "protocol_issues": [
+          "ValueError:runtime source_date must be ISO date"
+        ],
+        "provider_attempts": 0,
+        "published_answer": "",
+        "semantic_status": "unavailable",
+        "sources": [],
+        "status": "failed",
+        "stop_reason": "runner_exception",
+        "structural_status": "failed",
+        "task_alignment_score": 0.0,
+        "tool_calls": 0
+      },
+      {
+        "answer": "",
+        "artifact_sha256": "01112bd58df2d09fd0ac240b60ac43e7e46b149435cb40c122886719bbe6d27e",
+        "backend": "continuous_glm",
+        "candidate_answer": "",
+        "case_id": "open-event-fed",
+        "citations": [],
+        "claims": [],
+        "data_cutoff": null,
+        "diagnostics": {
+          "bindings": [],
+          "events": [],
+          "future_of_cutoff": [],
+          "gaps": [],
+          "mandatory_missing_capabilities": [],
+          "missing_outputs": [],
+          "provider_traces": [],
+          "root_budget": null
+        },
+        "duplicate_queries": 0,
+        "effective_timeout_seconds": 240.0,
+        "input_tokens": null,
+        "latency_seconds": 87.34869050001726,
+        "llm_calls": 0,
+        "model": "glm-5.2",
+        "output_tokens": null,
+        "protocol_issues": [
+          "ValueError:runtime source_date must be ISO date"
+        ],
+        "provider_attempts": 0,
+        "published_answer": "",
+        "semantic_status": "unavailable",
+        "sources": [],
+        "status": "failed",
+        "stop_reason": "runner_exception",
+        "structural_status": "failed",
+        "task_alignment_score": 0.0,
+        "tool_calls": 0
+      }
+    ],
+    "schema_version": 1
+  }
+}
