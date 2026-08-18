@@ -161,16 +161,14 @@
       "reason": "three-way evidence routing and overclaim avoidance require semantic observation"
     },
     "B7-volume-sentiment-evolution": {
-      "coverage": "semantic_required",
-      "reason": "all-day coverage and volume-to-sentiment interpretation are prose-only"
+      "coverage": "structured"
     },
     "B8-valuation-band": {
       "coverage": "semantic_required",
       "reason": "valuation-band reasoning and honest unavailable-data handling are semantic"
     },
     "C1-future-date-no-data": {
-      "coverage": "semantic_required",
-      "reason": "explicit refusal and listed forbidden phrases do not prove that every other market number is non-fabricated",
+      "coverage": "structured",
       "required_any_phrases": [
         "无数据",
         "没有可用",

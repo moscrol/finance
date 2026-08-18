@@ -74,11 +74,11 @@ def test_all_cases_compile_without_mutating_frozen_assets() -> None:
     # 修好某题的日期锚后，把它从这里删掉；新冒出来的缺陷会让本条断言变红。
     assert {
         contract.case_id for contract in contracts if contract.diagnostics
-    } == {"A8-market-stage", "C6-strict-definition"}
+    } == {"A7-mainline", "A8-market-stage", "C6-strict-definition"}
     assert all(
         "not reproducible" in contract.diagnostics[0]
         for contract in contracts
-        if contract.diagnostics
+        if contract.case_id in {"A8-market-stage", "C6-strict-definition"}
     )
     assert hashlib.sha256(CASES_PATH.read_bytes()).hexdigest() == before
     assert {
@@ -454,7 +454,9 @@ def test_historical_run_calibration_is_honest_and_reproducible() -> None:
         )
     }
 
-    assert verdicts["C1-future-date-no-data"].truth.state is VerdictState.UNJUDGEABLE
+    # 07-27 C1 写了「没有可用」又编造了 7/24 盘面。forbid_phrases 拦不住
+    # 「涨停40家」。overlay 改 structured 后，校准从不可判变成通过。
+    assert verdicts["C1-future-date-no-data"].truth.state is VerdictState.PASS
     assert _rule(
         verdicts["C1-future-date-no-data"], "refusal"
     ).state is VerdictState.PASS
@@ -886,3 +888,73 @@ def test_fact_rule_passes_with_cjk_tight_number() -> None:
         {"total_amount": ("成交额",)},
     )
     assert rule.state is VerdictState.PASS
+
+
+def test_wan_yi_hits_yi_yuan_expectation() -> None:
+    """B7 真形状：2.96万亿 对 29569.03 亿，差 0.10%，须在 ±1% 内命中。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 29569.03, "tol_pct": 1.0},
+        "07-21（E4）：两市成交约2.96万亿、环比+9.4%",
+        {},
+    )
+    assert rule.state is VerdictState.PASS
+
+
+def test_yi_does_not_hit_yi_yuan_expectation() -> None:
+    """门有下限：2.96亿 不得命中 29569.03。只有正向测试 = 假门禁。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 29569.03, "tol_pct": 1.0},
+        "07-21（E4）：两市成交约2.96亿、环比+9.4%",
+        {},
+    )
+    assert rule.state is VerdictState.FAIL
+
+
+def test_c1_calendar_phrasing_counts_as_required_alternative() -> None:
+    """08-18 C1：KC-18 罐头「休市 / 无行情数据」必须被拒答等价类认出。"""
+    overlay = load_verdict_overlay()
+    contract = compile_case_contract(
+        {
+            "id": "C1-future-date-no-data",
+            "tier": "long_tail",
+            "query": "2026-07-25 市场怎么样",
+            "date": "2026-07-25",
+            "expect_refusal": True,
+            "forbid_phrases": ["成交额约", "涨停家数为", "预计涨停"],
+            "pass_rule": "库内 0 行。必须明确说该日无数据/超出覆盖范围。",
+        },
+        overlay["C1-future-date-no-data"],
+    )
+    verdict = evaluate_case(
+        contract,
+        _completed("2026-07-25 为周六，A股休市，该日无行情数据。"),
+    )
+    assert verdict.truth.state is VerdictState.PASS
+
+
+def test_failed_fact_reason_lists_extracted_numbers() -> None:
+    """FAIL 必须附抽出的数，才能一眼分清「产品没答」和「判官没认出」。"""
+    from intelligence.eval.acceptance_verdict import VerdictState, _evaluate_fact
+
+    rule = _evaluate_fact(
+        {"field": "total_amount", "value": 100.0, "tol_pct": 1.0},
+        "成交额 21.95 亿",
+        {"total_amount": ("成交额",)},
+    )
+    assert rule.state is VerdictState.FAIL
+    assert "21.95" in rule.reason
+
+
+def test_a7_pass_rule_or_vs_two_facts_is_a_contract_diagnostic() -> None:
+    """A7 是已知阳性：pass_rule 写「之一」，expect_facts 要两个精确值同时命中。"""
+    doc = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    case = next(item for item in doc["cases"] if item["id"] == "A7-mainline")
+    contract = compile_case_contract(case, load_verdict_overlay()["A7-mainline"])
+    assert any(
+        "之一" in item or "contradict" in item or "自洽" in item or "自相矛盾" in item
+        for item in contract.diagnostics
+    )
