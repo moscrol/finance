@@ -43,10 +43,10 @@
 | `R-20260816-13` | 宽题取证饿死 M1（`run_20260816_205439_732198`，2026-08-16 20:54 生产首发实测） | `EVAL_ONLY` | 8795 含工具批埋点 tip 重放：每发 `tool_request` 带 `batch_grant_asked`/`stage_timeout_granted`/`episode_remaining_at_dispatch`/`remaining_slots_at_dispatch`/`turn_elapsed_at_dispatch`。**deep 自然完成值合计 > standard 总窗 → H-a**（架构支，不调参）；**evidence_search 自然时长 ≤10s 且失败仅与 dispatch 授予≤0 / slot 耗尽相关 → H-c**（顺序/信号）。缺字段不得结案。工具批读数对 `R-20260816-11` 冻结样本是**移交证据**（其独立 PRIMARY 候选之一），eb 结案权在 R-11，本行不代结 | 判定不得混入 R-10 判据（同侧车不同读数）；`tool_timeout`（时间闸 `episode_tool_batch.py` L355-366）与 `tool_budget_exhausted`（次数闸 L340-352）分开计 | `pending` |
 | `R-20260816-14` | 宽题取证饿死案绊线 | `NO_SYSTEM_FIX` | 下一份自称修「宽题取证饿死」的 PR diff **不含** `ASK_TOOL_BATCH_TIMEOUT` / `tool_batch_seconds` / T / slot 上限 / 档位上调 | 出现上调且无 08-08 式延迟实测 + 全路由影响面 → refuted | `pending` |
 | `R-20260816-15` | 2026-08-16 十题窗判断槽 0-hash M2 F-001 | `DATA_CONTRACT_FIX` | 用冻结三对离线重算：`_bindings_rate` 把 `grounding_mode=model_reasoning` 槽移出分母（或另报 `judgment_hash_rate`）后，`post:L01:r3` / `L03:r2` / `L05:r2` 的 evidence 槽 eb=1.00，窗级 `evidence_bound_pp` 回到 ±5pp 内；生产 episode / #72 / T / 30 / 档位不变 | 夹具=三对 `continuous-episode.json`；单测钉「判断槽 0-hash + 旁槽 hashed → 分层 eb=1.0、旧口径=0.5」。出现 T/30/档位 diff → 改记 R-07 refuted | `pending` |
-| `R-20260818-01` | 2026-08-18 KC 验收 M1 F-001 | `EVAL_ONLY` | `_extract_numbers` 后补中文数量级归一（万亿/亿/万 → 同量纲候选，只加候选不改原值）；用**同一份** `20260818T051630Z.json` 重跑 board 后，B7 两条 fact 由 FAIL 转 PASS，且 A1（原生「亿」表述）保持 PASS | 单测钉「2.96万亿 命中 29569.03±1%」与「2.96亿 不得命中 29569.03」；08-15 / 08-18 两份 artifact 各跑一次，除 B7 外真值列逐题不变 | `pending` |
-| `R-20260818-02` | 2026-08-18 KC 验收 M1 F-002 | `EVAL_ONLY` | 给 9 道无日期锚题补日期（拼进 query 或 runner 显式下达 `date`，两种都不改产品）后重跑：至少 A3 的 `close=12.11` 出现在答案（A6 已证同数据可得） | 冻结题面 sha256，改动前后逐字 diff 入台账；带日期的 19 题真值不得变差 | `pending` |
-| `R-20260818-03` | 2026-08-18 KC 验收 M1 F-003 | `HARNESS_FIX` | `episode_tool_batch` 的 `tool_result` 落盘增加 `payload_field_names`（非空字符串数组）与 `payload_sha256`，不落正文；补后可对每条 fact 失败判定期望字段名是否出现在工具返回字段集 | 断言字段名列表非空且不含正文、无 `/Users/`；artifact 体积增幅 <5% | `pending` |
-| `R-20260818-04` | 2026-08-18 KC 验收 M1 F-001 绊线 | `NO_SYSTEM_FIX` | 在 `R-20260818-01` 落地前，下一份自称修「B7 回归」的 PR diff **不含**产品侧（`ask*.py` / `episode*.py`）改动 | 出现产品侧改动且无新证据 → refuted | `pending` |
+| `R-20260818-01` | 2026-08-18 KC 验收 M1 F-001 | `EVAL_ONLY` | `_extract_numbers` 后补中文数量级归一（万亿/亿/万 → 同量纲候选，只加候选不改原值）；用**同一份** `20260818T051630Z.json` 重跑 board 后，B7 两条 fact 由 FAIL 转 PASS，且 A1（原生「亿」表述）保持 PASS | 单测钉「2.96万亿 命中 29569.03±1%」与「2.96亿 不得命中 29569.03」；08-15 / 08-18 两份 artifact 各跑一次，除 B7 外真值列逐题不变 | **`confirmed`** |
+| `R-20260818-02` | 2026-08-18 KC 验收 M1 F-002 | `EVAL_ONLY` | 给 9 道无日期锚题补日期（拼进 query 或 runner 显式下达 `date`，两种都不改产品）后重跑：至少 A3 的 `close=12.11` 出现在答案（A6 已证同数据可得） | 冻结题面 sha256，改动前后逐字 diff 入台账；带日期的 19 题真值不得变差 | **`partially_confirmed`** |
+| `R-20260818-03` | 2026-08-18 KC 验收 M1 F-003 | `HARNESS_FIX` | `episode_tool_batch` 的 `tool_result` 落盘增加 `payload_field_names`（非空字符串数组）与 `payload_sha256`，不落正文；补后可对每条 fact 失败判定期望字段名是否出现在工具返回字段集 | 断言字段名列表非空且不含正文、无 `/Users/`；artifact 体积增幅 <5% | **`partially_confirmed`** |
+| `R-20260818-04` | 2026-08-18 KC 验收 M1 F-001 绊线 | `NO_SYSTEM_FIX` | 在 `R-20260818-01` 落地前，下一份自称修「B7 回归」的 PR diff **不含**产品侧（`ask*.py` / `episode*.py`）改动 | 出现产品侧改动且无新证据 → refuted | **`held`** |
 | `R-20260816-16` | 中转全站中断 M1（`run_20260816_221823_213588`） | `HARNESS_FIX` | 8792 provider 链长度 ≥2（GLM Coding Plan + 中转）后：中转 5xx 时同题重跑 `usage.tool_calls>0`、可见 `[0]→[1]` 或直接走健康 `[0]`，且不再出现同一死 provider 重试满 16 次 | 启动器含 `FORESIGHT_BUILTIN_*` 三件套；live 单次不独立结案。draft 终值仍 0 不得写 confirmed | `pending` |
 | `R-20260816-17` | 同上 F-002 | `DATA_CONTRACT_FIX` | 成因行从 `ASK_DEGRADED_FALLBACK` 拆出后：`repair_model_unavailable` 或 `llm.used=false` 的重渲染首句含「模型服务不可用」且不含「现有证据不足」 | 单测钉三零形状；开关 off 时其余文案逐字节不变 | `pending` |
 | `R-20260816-18` | 同上 | `DATA_CONTRACT_FIX` | 三份 artifact status 同一投影后，不存在 `outcome=failed ∧ run.json=completed` | 用 2026-08-16 当日 run 目录作离线夹具 | `pending` |
@@ -813,6 +813,29 @@ main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 本 PR 只开行与重编号。dsh 草稿曾把同一事故写成 `R-06`..`11`——那些号在本账本
 已有含义（R-06/R-11 Closed），**作废那份编号**。这 6 行的 `fix_type` 与
 `verification_prediction` 可进 streak；在本仓四阶段报告合入前，**不能当 PRIMARY 引用**。
+
+`R-20260818-01`..`04` 于 2026-08-18 收口，收据见
+[`docs/verification/2026-08-18-caliber-pure-ruler-28q.md`](verification/2026-08-18-caliber-pure-ruler-28q.md)
+与各 Phase 收据 `docs/verification/2026-08-18-caliber-phase*.md`。
+
+- **R-01 `confirmed`**：由**独立验收方**（非实施方）复算，不是抄实施方收据。同一份
+  `20260818T051630Z` 与 `20260815T1005Z` 各重算一次，**变化题数均 = 2 且只有 B7 / C1**
+  （08-18 ❌❌→✅✅；08-15 ❔❌→✅✅），A1 保持 ✅；正反单测与变异测试（注释掉万亿展开
+  → B7 回到 ❌）均绿。两份复算与实施方 `/tmp` 下原始输出**逐字节相同**。
+  自证：两份基线各解析 28 题、真值列非空 28。
+- **R-02 `partially_confirmed`**：预测正文（A3 的 `close=12.11` 出现在答案）**兑现**；
+  同行判据里的「可判分母 ≥22」**未兑现**（纯尺子实跑 18/28），该判据已按
+  spec §8.1 裁决一改判为观察项。**不整条写 confirmed。**
+- **R-03 `partially_confirmed`**：字段非空、脱敏（`tool_result` 载荷内绝对路径 0 处）、
+  体积（184 KB vs 旧 264 KB）三项兑现；「每条 fact 失败能二选一」**只部分兑现**——
+  A5 能标 retrieve、A10 能标 synthesize，但 C4/C5 走的路径**没有 episode `tool_result`**，
+  仍是 unknown。
+- **R-04 `held`**（不是 refuted）：#202/#203 确有产品侧改动，但本绊线的措辞只管
+  「**自称修「B7 回归」**的 PR」，两张都不自称修 B7。产品侧改动的授权补记见 spec §8.1 裁决二。
+
+> 本批留下一条方法论：**看板自带的「fact 层 0% 翻转」方差校准被实测证伪**
+> （同尺子下 A4 / A6 / B6 在两份 run 间翻转）。此后 `n=1` 的真值差异不得直接写成归因；
+> 本批只有 C3 因走确定性罐头短路才敢归给产品。
 
 对应审计记录：
 - [docs/verification/2026-08-03-cross-harness-shared-layer-audit.md](verification/2026-08-03-cross-harness-shared-layer-audit.md)
