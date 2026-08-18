@@ -73,6 +73,15 @@ def load_cases() -> dict[str, Any]:
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
 
 
+def effective_query(case: Mapping[str, Any]) -> str:
+    """把 case.date 下达给产品。date 已在题面里则原样发送，避免叠两个日期。"""
+    query = str(case.get("query") or "").strip()
+    cutoff = str(case.get("date") or "").strip()
+    if cutoff and cutoff not in query:
+        return f"{cutoff} {query}"
+    return query
+
+
 def _rel(path: Path) -> str:
     """相对仓库根显示；路径在仓库外时退回绝对路径而不是抛异常。"""
     try:
@@ -896,7 +905,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     for i, case in enumerate(selected, 1):
         cr = CaseRun(case_id=case["id"], tier=case["tier"])
         print(f"[{i}/{len(selected)}] {case['id']} … ", end="", flush=True)
-        questions = [case["query"], *case.get("followups", [])]
+        questions = [effective_query(case), *case.get("followups", [])]
         for q in questions:
             try:
                 t = ask_once(args.base, args.user, q, args.timeout)
@@ -1032,6 +1041,7 @@ def cmd_board(args: argparse.Namespace) -> int:
     print("|---|---|---|---|---|---|---|---|---|---:|---:|---|")
     operational_tally = {state: 0 for state in OperationalState}
     truth_tally = {state: 0 for state in VerdictState}
+    main_truth_tally = {state: 0 for state in VerdictState}
     experience_tally = {state: 0 for state in ExperienceState}
     delivery_tally = {state: 0 for state in AxisState}
     information_tally = {state: 0 for state in AxisState}
@@ -1086,6 +1096,8 @@ def cmd_board(args: argparse.Namespace) -> int:
         )
         operational_tally[verdict.operational.state] += 1
         truth_tally[verdict.truth.state] += 1
+        if contract.in_main_truth_denominator():
+            main_truth_tally[verdict.truth.state] += 1
         experience_tally[verdict.experience.state] += 1
         delivery_tally[axes.delivery.state] += 1
         information_tally[axes.information.state] += 1
@@ -1163,9 +1175,11 @@ def cmd_board(args: argparse.Namespace) -> int:
         f"{operational_tally[OperationalState.DEGRADED]}、正常完成 "
         f"{operational_tally[OperationalState.COMPLETED]}（完成合计 {completed_count}）。"
     )
-    judged = truth_tally[VerdictState.PASS] + truth_tally[VerdictState.FAIL]
+    judged = (
+        main_truth_tally[VerdictState.PASS] + main_truth_tally[VerdictState.FAIL]
+    )
     rate_note = (
-        f"可判子集通过率 {truth_tally[VerdictState.PASS]}/{judged}"
+        f"可判子集通过率 {main_truth_tally[VerdictState.PASS]}/{judged}"
         if judged
         else "尚无可判子集通过率"
     )
