@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from hashlib import sha256
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -2092,7 +2093,7 @@ def render_decision_brief_fallback(
     if not unknowns and answer_spec is not None:
         unknowns = [
             _fallback_claim_text(claim.text)
-            for claim in answer_spec.gaps[:3]
+            for claim in _pin_recall_audit_claims(answer_spec.gaps[:3], answer_spec)
             if _fallback_claim_text(claim.text)
         ]
     if unknowns:
@@ -2325,7 +2326,7 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     lines.extend(["", "## 反证与缺口"])
     lines.append("目前最需要警惕的是以下反证和证据缺口：")
     risk_claims = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
-    for claim in risk_claims[:4]:
+    for claim in _pin_recall_audit_claims(risk_claims[:4], answer_spec):
         lines.append(f"- {_present_claim(claim)}")
     lines.extend(["", "## 下一步如何验证"])
     verified_keys = {
@@ -4135,6 +4136,24 @@ def _normalize(text: str) -> str:
     return re.sub(r"[\W_]+", "", humanize(text).lower())
 
 
+def _pin_recall_audit_claims(
+    shown: Sequence[Claim],
+    answer_spec: AnswerSpec,
+) -> tuple[Claim, ...]:
+    """前窗截断后仍把召回自评四问缺口钉进答案，避免被风险句挤掉。"""
+    pinned = list(shown)
+    seen = {_normalize(claim.text) for claim in pinned}
+    for claim in answer_spec.gaps:
+        if not claim.text.startswith("召回自评："):
+            continue
+        key = _normalize(claim.text)
+        if key in seen:
+            continue
+        pinned.append(claim)
+        seen.add(key)
+    return tuple(pinned)
+
+
 def _prompt_claim(claim: Claim) -> str:
     evidence = ",".join(claim.evidence_ids) or "无"
     company = f"｜公司={claim.company}" if claim.company else ""
@@ -4145,6 +4164,9 @@ def _prompt_claim(claim: Claim) -> str:
 
 
 def _present_claim(claim: Claim) -> str:
+    rendered = humanize(claim.text)
+    if rendered.startswith("召回自评："):
+        return rendered
     prefix = {
         ClaimStatus.VERIFIED: "",
         ClaimStatus.CANDIDATE: "当前判断（待验证）：",
@@ -4152,7 +4174,7 @@ def _present_claim(claim: Claim) -> str:
         ClaimStatus.MISSING: "还缺：",
         ClaimStatus.CONFLICT: "风险：",
     }[claim.status]
-    return prefix + humanize(claim.text)
+    return prefix + rendered
 
 
 def _present_summary_claim(claim: Claim) -> str:
