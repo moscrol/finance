@@ -64,10 +64,15 @@ def vector_index_dir_for(knowledge_wiki: str | Path) -> Path:
 def data_repo_root() -> Path:
     """盘面/exports/DuckDB 等数据根目录。
 
-    双根架构：PYTHONPATH 指向 runtime 代码快照，真实数据在 private 仓。
-    未设置任何变量时回退代码根（intelligence 的父目录）。
+    双根架构：PYTHONPATH / ``WORKBENCH_REPO_ROOT`` 指向 runtime 代码快照，
+    真实数据在 ``FINANCE_WS``（private 仓）。``WORKBENCH_REPO_ROOT`` 是代码根
+    概念（``runtime_provenance`` 用它读 git HEAD），不得参与数据根解析——
+    启动器把两者同时导出时，旧查找序会把盘面库和 exports 解析进没有 ``db/``
+    的快照树，盘面证据层静默消失。
+
+    查找序：``FINANCE_WS`` → ``FINANCE_ROOT`` → 代码根（intelligence 的父目录）。
     """
-    return _env_path("WORKBENCH_REPO_ROOT", "FINANCE_WS", "FINANCE_ROOT") or (
+    return _env_path("FINANCE_WS", "FINANCE_ROOT") or (
         Path(__file__).resolve().parents[1]
     )
 

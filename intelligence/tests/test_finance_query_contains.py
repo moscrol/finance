@@ -21,11 +21,9 @@ from intelligence.services.research_contract import (
     ResearchDeadline,
 )
 
-# 走 paths.py（路径真本源）而不是写死家目录。这里刻意用 `finance_root`（数据根）
-# 而不是 `default_market_db_path()`：后者走 `data_repo_root()`，而它优先读
-# WORKBENCH_REPO_ROOT——生产把该变量指向**代码快照根**，于是解析出一个不存在的
-# 库路径。两处对「库在哪」的认知不一致本身是个待办，见 handoff；本测试要打的是
-# 真实数据根下那一个库。
+# 走 paths.py（路径真本源）而不是写死家目录。finance_root 与
+# default_market_db_path() 现已同源（data_repo_root 不再读 WORKBENCH_REPO_ROOT）。
+# 这里仍用 finance_root：本测试要打的是真实数据根下那一个库。
 _DB: Path = default_paths().finance_root / "db" / "market_feature_store.duckdb"
 
 pytestmark = pytest.mark.skipif(
