@@ -11,6 +11,7 @@ import copy
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from pathlib import Path
+import re
 import time
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -47,6 +48,18 @@ from intelligence.services.tool_payload import field_names_from_rows
 _FAST_PATH_TYPES = frozenset(
     {"market_technical", "external_market", "quick_fact", "dated_market_review"}
 )
+_SUPPORT_FOCUS_RE = re.compile(r"支撑")
+_RESISTANCE_FOCUS_RE = re.compile(r"反弹|上涨空间|压力|阻力")
+
+
+def _market_technical_focus(question: str) -> str:
+    """快路径出文焦点：支撑题先报支撑，其余保持反弹/压力口径。"""
+    text = re.sub(r"\s+", "", str(question or ""))
+    if _SUPPORT_FOCUS_RE.search(text) and not _RESISTANCE_FOCUS_RE.search(text):
+        return "support"
+    return "resistance"
+
+
 _NON_EVIDENCE_PREFIXES = (
     "使用边界：",
     "因果使用要求：",
@@ -1356,13 +1369,24 @@ def run_deterministic_fast_path(
         )
         for level in outcome.supports
     ]
-    answer = (
+    resistance_text = "；".join(resistance_parts) or "当前没有高于收盘的可靠压力候选"
+    support_text = "；".join(support_parts) or "暂无可靠支撑候选"
+    header = (
         f"截至 {outcome.as_of}，{outcome.subject}收盘 {outcome.close:.2f}。"
-        f"按近期日线结构，反弹空间先看上方压力区："
-        f"{'；'.join(resistance_parts) or '当前没有高于收盘的可靠压力候选'}。"
-        f"下方支撑为：{'；'.join(support_parts) or '暂无可靠支撑候选'}。"
-        f"{outcome.invalidation}"
+        "按近期日线结构，"
     )
+    if _market_technical_focus(frame.raw_question) == "support":
+        answer = (
+            f"{header}下方支撑为：{support_text}。"
+            f"上方压力区：{resistance_text}。"
+            f"{outcome.invalidation}"
+        )
+    else:
+        answer = (
+            f"{header}反弹空间先看上方压力区：{resistance_text}。"
+            f"下方支撑为：{support_text}。"
+            f"{outcome.invalidation}"
+        )
     return {
         "execution_kind": "deterministic_fast_path",
         "status": "completed",
