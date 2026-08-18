@@ -4,6 +4,8 @@
 
 **Goal:** When a `market_forecast` question names overnight / US / overseas markets, authorize `news_search` and `web_search` so the continuous episode can verify the user premise. Pure A-share forecasts stay local-only.
 
+**Live (2026-08-19):** sidecar `:8796` `run_20260819_011622_893108` — P0-A pass. Readings: `docs/verification/2026-08-19-overnight-forecast-auth-live.md`.
+
 **Architecture:** Add overnight-external markers inside `resolve_evidence_plan`. `runtime_capabilities_for_frame` already unions the evidence-plan capabilities with the policy floor, so the existing `current_market_scenarios` floor stays `market_data + mainline_context`. Do not re-register tools, do not change verification, do not change `memory_gate`, do not open news/web for every forecast.
 
 **Tech Stack:** Python, pytest, existing `TurnControlCore` + `evidence_capabilities` seams.
