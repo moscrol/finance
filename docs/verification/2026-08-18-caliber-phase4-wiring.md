@@ -23,9 +23,18 @@
 | C4/C5 车道 | `route_id=quick_fact` 且 `lane=research`。`茅台现在股价多少` / `300750是哪家公司` 仍 `lane=knowledge` |
 | A5 表可查 | `_DATASETS["theme_limit_heat_daily"].table == fact_theme_limit_heat_daily` |
 
-## 仍待 28 题 sidecar 才能写的格子
+## 28 题 sidecar 读数（8796，`20260818T1749Z-caliber-p4`）
 
-Phase 2 I/J/K/L、Phase 3 M/N/O、Phase 4 的「C3 复跑出现空表声明 / A5 命中题材口径 / C4 C5 不再 `knowledge_lane_answer`」都要新 artifact。本 PR 只证明接线，不假装已经跑过。
+前置：`revision=69eef65a backend=continuous_glm`，未 `--force`。8792 未切。跑完已停 8796。
+artifact：`intelligence/eval/runs/20260818T1749Z-caliber-p4.json`（工作树未入 git，约 184KB）
+看板：`docs/verification/2026-08-18-caliber-p4-board.txt`
+
+| 判据 | 读数 |
+|---|---|
+| 真值 | 通过 6 / 失败 9 / 不可判 13；可判 **6/15** |
+| C3 | ✅ 通过。答案原文：`fact_stock_technical_snapshot 当前是空表（0 行），该技术面快照数据不可用。不会用价格表或其他口径替代。` |
+| C4/C5 车道 | 不再 `knowledge_lane_answer`。C4 controller `lane=research` `question_type=quick_fact`；合成 `reason_code=validated`。两题仍 ❌（未标单位异常 / 未标数据矛盾），且降级：generic owner 取了 08-17 全市总览 + web，没有 `fact_sector_daily.amount=6112588.6` |
+| A5 题材口径 | ❌。`finance_query` 实际 dataset=`mainline_sector_daily` / `mainline_theme_daily`；提示里出现过 `theme_limit_heat_daily` 但查询没改过去。答案是电力/锌/医药板块家数，不是储能 40 |
 
 ## 故意留下的产品缝
 

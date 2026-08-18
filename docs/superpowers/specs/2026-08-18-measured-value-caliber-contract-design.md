@@ -2,7 +2,7 @@
 
 - 日期：2026-08-18
 - 触发：28 题验收集 trace-first 分诊（`docs/verification/2026-08-18-kc-acceptance-triage.md`）
-- 状态：Phase 1–4 已接线（#199–#202）。28 题 sidecar 重跑尚未出新 artifact，I/J/K/L 与 M/N/O 仍以代码门为准。
+- 状态：Phase 1–4 已接线（#199–#202）。28 题 sidecar `20260818T1749Z-caliber-p4` 已出板：C3 ✅；C4/C5 离开 knowledge 车道但仍失败；可判 6/15，I 未过。
 - 前置阅读：`docs/trace-profile.md` §2 新增两条字段陷阱；`docs/prediction-ledger.md` `R-20260818-01..04`
 
 ## 0. 一句话
@@ -151,15 +151,16 @@ Phase 3（埋点）  ──┘        ↓
 | Phase | 落点 | 状态 |
 |---|---|---|
 | 1 审查止血 | `acceptance_verdict` 万亿候选、拒答等价类、FAIL 附证、A7 门禁；B7/C1 overlay→structured | 同一份 `20260818T051630Z` 复算：B7/C1 ❌→✅，其余 26 真值列不变 |
-| 2 题集契约 | 7 题 `date` 进 query；B6 改澄清；A8/C6 出主分母 | 离线 08-18：B6 ❌→✅；可判 7/16。Criterion I（16→≥22）要新 run |
-| 3 观测 | `tool_result` 的 `dataset`/`caliber`/`payload_field_names`/`payload_sha256` | 单测绿。旧 artifact 无这些字段，归因仍是 unknown |
+| 2 题集契约 | 7 题 `date` 进 query；B6 改澄清；A8/C6 出主分母 | 新 run 可判 6/15，I 未过（分母到不了 22）。J 过（A3 有 12.11）。K 过（原 19 题不下降）。L 过 |
+| 3 观测 | `tool_result` 的 `dataset`/`caliber`/`payload_field_names`/`payload_sha256` | episode 账本里 tool_result 四字段齐全、无路径。A5 能标 retrieve（主线表 ≠ 题材热度表）。C4/C5 无 episode tool_result |
 | 4.1 注册表 | `intelligence/services/metric_spec.py`；判分器并入 aliases | 代码门绿。没有第二份注册表 |
 | 4.2 EvidenceAtom | `bind_measured_value`；中期趋势填 `double_red_days` | 单测：2.96万亿 → 29600 亿元 + provenance |
-| 4.3 C3 | `empty_caliber_disclosure` 罐头空表，不换价格表 | 注入 0 行即短路。复跑待 sidecar |
-| 4.4 C4/C5 | `quick_fact` + `lane=research` | 路由单测绿。不再走 `knowledge_lane_answer` 的路径已封 |
+| 4.3 C3 | `empty_caliber_disclosure` 罐头空表，不换价格表 | **新 run ✅**。原文声明 0 行 / 数据不可用，不用价格表 |
+| 4.4 C4/C5 | `quick_fact` + `lane=research` | **不再 knowledge_lane_answer**（C4 controller `lane=research`，合成 `validated`）。两题仍 ❌：没取到板块成交额/没标矛盾 |
 
 **还没做完、不要写成已绿：**
 
-- 28 题 sidecar（8796）未出新 artifact。Phase 2 I/J/K/L、Phase 3 M/N/O、Phase 4「C3 声明空表 / A5 命中题材热度表 / C4 碰到 MLCC 脏数」都以新 run 为准。
-- A5：`theme_limit_heat_daily` 已注册进 `finance_query`，检索规划器没有强制带 caliber；模型仍可能选错表。那是下一刀，不是本 spec 的第二张注册表。
-- C4 离开 knowledge 车道 ≠ 已经读到 `fact_sector_daily.amount=6112588.6`。
+- Criterion I（可判分母 ≥22）未过：6/15。剩下的不可判主要是 semantic_required / 缺 observation。
+- A5：`theme_limit_heat_daily` 已注册，本跑仍查 `mainline_sector_daily`。提示文案提到了热度表，查询没改过去。
+- C4 离开 knowledge 车道 ≠ 读到 `fact_sector_daily.amount=6112588.6`。本跑取的是 08-17 全市总览 + 网页。
+- B6 本跑 ❌：要材料的澄清没打中 overlay 短语。
