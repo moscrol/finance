@@ -146,7 +146,7 @@ Phase 3（埋点）  ──┘        ↓
 
 ## 8. 实施记录（2026-08-18）
 
-四层都已接线，不是「设计稿」。PR 叠栈：#199 Phase 1 判分器 → #200 Phase 2 题集 → #201 Phase 3 埋点 → `feat/caliber-phase4-wiring` Phase 4 产品。未合入 main，未切 8792。
+四层都已接线，不是「设计稿」。PR 叠栈：#199 Phase 1 判分器 → #200 Phase 2 题集 → #201 Phase 3 埋点 → #202 Phase 4 产品。未合入 main，未切 8792。
 
 | Phase | 落点 | 状态 |
 |---|---|---|
