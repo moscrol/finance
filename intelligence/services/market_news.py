@@ -8,6 +8,8 @@
   意图词且能拿到关键词才追加本块，否则行为不变。
 - 双 provider：东财（中文财媒聚合）+ web-access CDP proxy（Bing News 全网/海外源，#2b）；
   proxy 不可达或 FINANCE_NEWS_WEB_FETCH=0 时静默降级为单源东财，行为不变。
+- 海外第二梯队：白名单 RSS（NIST/CNBC/EE Times）。失败降级为空，不编造。
+- 条目带来源可信度分级：权威机构 / 公司公告 / 媒体 / 自披露。
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from intelligence.services import query_ledger
+from intelligence.services.news_credibility import classify_news_credibility
 from intelligence.services.provider_observability import ProviderTrace
 
 FETCH_ENV_FLAG = "FINANCE_NEWS_FETCH"
@@ -39,6 +42,7 @@ PROVIDER_WEB = "web"
 
 # 中→英关键词别名表：Bing News 对中文题材词命中极差，web 通道检索前先查表换英文词。
 _ALIAS_PATH = Path(__file__).resolve().parents[1] / "data" / "news_keyword_aliases.json"
+ALIAS_TABLE_PATH = _ALIAS_PATH
 
 DEFAULT_PAGE_SIZE = 8
 DEFAULT_WITHIN_DAYS = 90
@@ -78,7 +82,12 @@ class NewsItem:
     source: str  # 媒体名
     title: str
     url: str
-    provider: str = PROVIDER_EASTMONEY  # 取数通道：东财 / web（web-access 全网检索）
+    provider: str = PROVIDER_EASTMONEY  # 取数通道：东财 / web / rss
+    credibility: str = ""
+
+    def __post_init__(self) -> None:
+        if not str(self.credibility or "").strip():
+            self.credibility = classify_news_credibility(self.source, self.url)
 
 
 @dataclass(frozen=True)
@@ -966,29 +975,35 @@ def build_news_block(
     web_keyword: str | None = None,
 ) -> str:
     """生成 W7 web 事件检索块（注入 compose）；缺数时仍返回带显式缺口的块。"""
-    lines = ["## web 事件检索块 [W7]（东财资讯 + web-access 全网检索，可溯源；只列标题/来源/链接，不代为解读）"]
+    lines = ["## web 事件检索块 [W7]（东财资讯 + web-access 全网检索 + 白名单 RSS，可溯源；只列标题/来源/链接，不代为解读）"]
     if fetch_disabled:
         lines.append(f"- ⚠事件取数已被 {FETCH_ENV_FLAG}=0 关闭：消息面按缺口处理，需说明数据不可得。")
         return "\n".join(lines)
     if not items:
         lines.append(
-            f"- ⚠缺消息面：东财资讯与 web-access 全网检索均未取到「{keyword}」近 {within_days} 天内相关资讯，"
+            f"- ⚠缺消息面：东财资讯、web-access 与白名单 RSS 均未取到「{keyword}」近 {within_days} 天内相关资讯，"
             "事件/催化按缺口处理，不得编造。"
         )
         return "\n".join(lines)
     n_web = sum(1 for it in items if it.provider == PROVIDER_WEB)
+    n_rss = sum(1 for it in items if it.provider == "rss")
+    n_em = len(items) - n_web - n_rss
     web_note = f"，web 检索词「{web_keyword}」" if web_keyword and web_keyword != keyword else ""
     lines.append(
         f"- 检索词「{keyword}」{web_note}，近 {within_days} 天资讯 {len(items)} 条"
-        f"（东财 {len(items) - n_web} + web {n_web}，按时间新→旧）："
+        f"（东财 {n_em} + web {n_web} + rss {n_rss}，按时间新→旧）："
+    )
+    lines.append(
+        "- 来源可信度分级：权威机构 / 公司公告 / 媒体 / 自披露。分级只声明出处硬度，不把标题当结论。"
     )
     for it in items:
         url = f"（{it.url}）" if it.url else ""
-        lines.append(f"- [{it.provider}] | {it.date} | {it.source} | {it.title} |{url}")
+        cred = f"|{it.credibility}" if it.credibility else ""
+        lines.append(f"- [{it.provider}{cred}] | {it.date} | {it.source} | {it.title} |{url}")
     lines.append(
         "- 使用要求：仅可引用上列标题/来源/时间作为消息面存在性证据；事件影响/因果/概率须条件化表述，"
         "禁止把标题当结论或编造未列出的事件。[web] 条目来自搜索引擎相关性排序（含海外/英文源），"
-        "相关性弱于标题命中的 [东财] 条目，引用时须注意甄别。"
+        "[rss] 来自白名单源；相关性弱于标题命中的 [东财] 条目，引用时须注意甄别。"
     )
     return "\n".join(lines)
 
@@ -999,6 +1014,7 @@ def news_block_for_keyword(
     within_days: int = DEFAULT_WITHIN_DAYS,
     fetcher: Callable[..., list[NewsItem]] | None = None,
     web_fetcher: Callable[..., list[NewsItem]] | None = None,
+    rss_fetcher: Callable[..., list[NewsItem]] | None = None,
 ) -> str:
     """给定关键词，双 provider 取数合并后渲染 W7 块；关键词为空返回空串（不追加块）。"""
     return news_block_result_for_keyword(
@@ -1007,6 +1023,7 @@ def news_block_for_keyword(
         within_days,
         fetcher,
         web_fetcher,
+        rss_fetcher,
     ).block
 
 
@@ -1016,6 +1033,7 @@ def news_block_result_for_keyword(
     within_days: int = DEFAULT_WITHIN_DAYS,
     fetcher: Callable[..., list[NewsItem]] | None = None,
     web_fetcher: Callable[..., list[NewsItem]] | None = None,
+    rss_fetcher: Callable[..., list[NewsItem]] | None = None,
     timeout: float = 20.0,
 ) -> NewsBlockResult:
     kw = (keyword or "").strip()
@@ -1116,6 +1134,39 @@ def news_block_result_for_keyword(
                 detail=f"{WEB_FETCH_ENV_FLAG}=0",
             )
         )
+    injected = fetcher is not None or web_fetcher is not None
+    from intelligence.services.news_rss import PROVIDER_RSS, fetch_rss_news_result, rss_fetch_enabled
+
+    if rss_fetch_enabled() and (rss_fetcher is not None or not injected):
+        rss_kw = web_kw or english_alias(kw) or kw
+        if rss_fetcher is None:
+            rss_result = fetch_rss_news_result(rss_kw, page_size=page_size, within_days=within_days)
+            rss_items = list(rss_result.items)
+            traces.append(rss_result.trace)
+        else:
+            try:
+                rss_items = rss_fetcher(rss_kw, page_size, within_days)
+            except Exception as exc:  # noqa: BLE001
+                rss_items = []
+                traces.append(
+                    ProviderTrace(
+                        provider=PROVIDER_RSS,
+                        capability="directional_news",
+                        status="request_error",
+                        detail=type(exc).__name__,
+                    )
+                )
+            else:
+                traces.append(
+                    ProviderTrace(
+                        provider=PROVIDER_RSS,
+                        capability="directional_news",
+                        status="success" if rss_items else "empty",
+                        detail="injected rss news fetcher",
+                        result_count=len(rss_items),
+                    )
+                )
+        items = merge_news_items(items, rss_items)
     return NewsBlockResult(
         build_news_block(kw, items, within_days, web_keyword=web_kw),
         tuple(traces),
