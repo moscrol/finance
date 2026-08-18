@@ -16,7 +16,7 @@
 - 解释器只用 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（宿主 python3 无依赖）。
 - 测试壳：`env -i PATH="$PATH" HOME="$HOME" KNOWLEDGE_WIKI="$KNOWLEDGE_WIKI"` + `umask 022`。继承 launcher 变量 → 31 假红；umask 077 → 16 假红（2026-08-18 台账 02:25 行⑤实测）。
 - 每批用独立 worktree 验；`/Users/a77/fwp-wt-167-merge` 是现成验收树（webapp node_modules 已装）。
-- Gitea API token 在 Keychain：`security find-generic-password -s gitea-local -w`。
+- Gitea API token 在 Keychain：`security find-generic-password -s gitea-local -a a77-token -w`。scope 最小集 `write:issue,write:repository,write:user`（2026-08-18 已补；缺 `write:issue` 时评论 403）。
 
 **完成判据**：pytest 收据（`~/.finance-runtime/test-receipts/<ts>-<treesha>.json`）文件名里的树 SHA == 你正在验的树。
 
@@ -25,8 +25,8 @@
 1. 有效增量看三点 diff；怀疑改动已被别的 PR 抢先合入时用**树对树**：`git diff <branch> gitea/main -- <files>` 逐文件零差 = superseded，关闭并留裁决（#120 先例）。
 2. 定向测试：只跑该单触碰模块的 tests；全量留给批次门禁。
 3. handoff 写了 live 判据的，**独立复算读数**，不抄执行方数字。
-4. 合并走 API：`POST /repos/a77/finance-workspace-private/pulls/{n}/merge` body `{"Do":"merge"}`。`mergeable` 卡 CHECKING 不动 → 读 `docs/handoffs/2026-08-18-acceptance-followups.md` §1，那里有应急面和已被否的路。
-5. 裁决全文落 PR（评论；token 缺 `write:issue` 时追加进 PR 描述），台账只留一行。
+4. 合并走 API：`POST /repos/a77/finance-workspace-private/pulls/{n}/merge` body `{"Do":"merge"}`。`mergeable` 卡 CHECKING 不动 → 读 `docs/handoffs/2026-08-18-acceptance-followups.md` §1 与 `docs/verification/2026-08-18-acceptance-followups-closeout.md` §1（应急面、已清队列、被否的路）。`mergeable=false` 且 `conflicted_files` 有台账路径 = 真冲突，提醒对方 rebase，不代解。
+5. 裁决全文落 PR 评论。台账只留一行。
 
 **完成判据**：该单验收标准每一条都有你自己复算的读数；PR 状态 = merged，或带裁决关闭。
 
