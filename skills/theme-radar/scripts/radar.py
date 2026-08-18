@@ -106,6 +106,14 @@ def is_weak_exposure(exp: dict) -> bool:
 
 EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "graph_only", "missing")
 EVIDENCE_WEIGHTS = {"delta": 4, "curated_research": 3, "baseline": 2, "graph_only": 1, "missing": -1}
+# 检索侧：这些 fact_status 是意向/未落地，不得进 delta。缺字段不是意向——存量未回填。
+INTENT_FACT_STATUSES = frozenset({
+    "planned",
+    "framework",
+    "disclosed",
+    "under_validation",
+    "rumored",
+})
 IMA_LOGIC_CARD_SOURCE_TOKENS = ("个股逻辑卡", "最新逻辑卡", "最新逻辑跟踪", "研究素材", "素材整理")
 SUBTYPE_RANK = {
     "core_subject": 0,
@@ -546,21 +554,35 @@ def is_company_baseline_source(text: str) -> bool:
     return any(token in text for token in ("iFinD baseline", "AkShare baseline", "a-stock baseline", "Baseline"))
 
 
+def is_intent_evidence(item: dict) -> bool:
+    """陈述未落地。缺 fact_status 返回 False，避免把 1.7 万条存量当意向丢掉。"""
+    status = str(item.get("fact_status") or "").strip().lower()
+    return status in INTENT_FACT_STATUSES
+
+
 def buckets_for_exposure(exp: dict) -> list[str]:
     buckets = []
+    intent = is_intent_evidence(exp)
     update_type = str(exp.get("update_type") or "").strip()
-    if update_type == "hard_delta":
-        buckets.append("delta")
-    if update_type in EVIDENCE_BUCKETS:
+    if not intent:
+        if update_type == "hard_delta":
+            buckets.append("delta")
+        if update_type in EVIDENCE_BUCKETS:
+            buckets.append(update_type)
+        if update_type == "baseline":
+            buckets.append("baseline")
+    elif update_type in EVIDENCE_BUCKETS and update_type != "delta":
         buckets.append(update_type)
-    if update_type == "baseline":
-        buckets.append("baseline")
     sources = " ".join(str(x) for x in exp.get("sources", []) or [])
-    if is_company_baseline_source(sources):
+    if not intent and is_company_baseline_source(sources):
         buckets.append("baseline")
-    if not is_explicit_weak_graph_only(exp) and any(token in sources for token in ("市场逻辑", "强势股", "评级日报", "复盘", "脱水")):
+    if (
+        not intent
+        and not is_explicit_weak_graph_only(exp)
+        and any(token in sources for token in ("市场逻辑", "强势股", "评级日报", "复盘", "脱水"))
+    ):
         buckets.append("delta")
-    if not is_explicit_weak_graph_only(exp) and has_ima_logic_card_source_text(sources):
+    if not intent and not is_explicit_weak_graph_only(exp) and has_ima_logic_card_source_text(sources):
         buckets.append("delta")
     if not buckets:
         buckets.append("missing")
@@ -900,12 +922,17 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
         is_company_baseline = is_company_baseline_source(source)
         if concept and concept_set and concept not in concept_set and not is_company_baseline:
             continue
+        intent = is_intent_evidence(item)
         chosen_buckets = []
-        if update_type in EVIDENCE_BUCKETS:
+        if update_type in EVIDENCE_BUCKETS and not (intent and update_type == "delta"):
             chosen_buckets.append(update_type)
-        if is_company_baseline:
+        if is_company_baseline and not intent:
             chosen_buckets.append("baseline")
-        if not is_explicit_weak_graph_only(item) and any(token in source for token in delta_source_tokens):
+        if (
+            not intent
+            and not is_explicit_weak_graph_only(item)
+            and any(token in source for token in delta_source_tokens)
+        ):
             chosen_buckets.append("delta")
         if any(token in source for token in research_source_tokens) and "重建" not in evidence:
             chosen_buckets.append("curated_research")
@@ -916,7 +943,11 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
         layer = item.get("evidence_layer")
         if layer and layer not in company.setdefault("evidence_layers", []):
             company["evidence_layers"].append(layer)
-        if update_type and update_type not in company.setdefault("update_types", []):
+        if (
+            update_type
+            and not (intent and update_type in {"delta", "hard_delta"})
+            and update_type not in company.setdefault("update_types", [])
+        ):
             company["update_types"].append(update_type)
         source_quality = item.get("source_quality")
         if source_quality and source_quality not in company.setdefault("source_quality", []):
