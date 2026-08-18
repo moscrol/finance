@@ -41,6 +41,7 @@ from intelligence.services.research_tool_registry import (
     default_registry,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.tool_payload import field_names_from_rows
 
 
 _FAST_PATH_TYPES = frozenset(
@@ -53,6 +54,25 @@ _NON_EVIDENCE_PREFIXES = (
     "⚠",
 )
 _OFFICIAL_L3_RUNNER = object()
+
+
+def _finance_payload_kwargs(
+    spec: finance_query.FinanceQuerySpec,
+    result: finance_query.FinanceQueryResult | None = None,
+) -> dict[str, object]:
+    """Attach dataset/caliber/field names for a finance_query return. Never row values."""
+
+    requested = (*(spec.dimensions or ()), *(spec.metrics or ()))
+    names = field_names_from_rows(
+        None if result is None else result.rows,
+        requested=requested,
+    )
+    table = finance_query.dataset_physical_table(spec.dataset)
+    return {
+        "dataset": spec.dataset,
+        "caliber": table or spec.dataset,
+        "payload_field_names": names,
+    }
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
 _AGENT_FINANCE_QUERY_MAX_ROWS = 25
 
@@ -303,6 +323,7 @@ def _exited_universe_result(
     dataset_label: str,
     dataset_max_date: str,
     detail: str,
+    spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
     """交付「退出集合」这一生命周期事实，连同退出前的行。
 
@@ -319,6 +340,7 @@ def _exited_universe_result(
         "（构成要素退出，非数据陈旧）。"
     )
     observation = f"{fact}{result.observation}" if result.observation else fact
+    payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
     return ToolRunResult(
         evidence=result.evidence,
         observation=observation,
@@ -332,6 +354,7 @@ def _exited_universe_result(
             result_count=len(result.evidence),
         ),
         gaps=(),
+        **payload,
     )
 
 
@@ -342,6 +365,7 @@ def _stale_structured_result(
     served_date: str | None,
     floor: date,
     detail: str,
+    spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
     served = str(served_date or "未知日期")
     required = floor.isoformat()
@@ -349,6 +373,7 @@ def _stale_structured_result(
         f"结构化市场数据仅更新到 {served}，早于当前所需 {required}；"
         "旧数据未用于当前判断"
     )
+    payload = _finance_payload_kwargs(spec) if spec is not None else {}
     return ToolRunResult(
         evidence=(),
         observation=gap,
@@ -363,6 +388,7 @@ def _stale_structured_result(
             result_count=0,
         ),
         gaps=(gap,),
+        **payload,
     )
 
 
@@ -917,6 +943,7 @@ def build_episode_registry(
                     gaps=(
                         "当前问题需要截止日附近的结构化数据；模型选择的旧历史窗口未执行",
                     ),
+                    **_finance_payload_kwargs(bounded_value),
                 )
             try:
                 result = query_engine.run(
@@ -960,6 +987,7 @@ def build_episode_registry(
                         dataset_label=value.dataset,
                         dataset_max_date=str(dataset_max),
                         detail=f"dataset={value.dataset}; subject_exited_universe",
+                        spec=bounded_value,
                     )
                 return _stale_structured_result(
                     capability="finance_query",
@@ -967,6 +995,7 @@ def build_episode_registry(
                     served_date=result.served_date,
                     floor=freshness_floor,
                     detail=f"dataset={value.dataset}; stale_current_data",
+                    spec=bounded_value,
                 )
             gaps = (
                 ()
@@ -987,6 +1016,13 @@ def build_episode_registry(
             # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
             if normalization_notes:
                 observation = "；".join((observation, *normalization_notes))
+            # 覆盖面提示同理，但它拦的是**校验器够不着的那一半**：在子集表上排名次，
+            # 查询完全合法、数值也对，错的是分母。A5 实测（2026-08-18）就是在只有
+            # 十余行的 mainline_sector_daily 上按 limit_up_count 取 top15，
+            # 去回答「全市涨停集中在哪些题材」。空串表示无话可说。
+            advisory = finance_query.coverage_advisory(bounded_value)
+            if advisory:
+                observation = "；".join((observation, advisory))
             return ToolRunResult(
                 evidence=tuple(result.evidence),
                 observation=observation,
@@ -1002,6 +1038,7 @@ def build_episode_registry(
                     result_count=len(result.evidence),
                 ),
                 gaps=gaps,
+                **_finance_payload_kwargs(bounded_value, result),
             )
 
         specs.append(
@@ -1236,6 +1273,7 @@ def _finance_query_failure_result(
             result_count=0,
         ),
         gaps=(gap,),
+        **_finance_payload_kwargs(spec),
     )
 
 

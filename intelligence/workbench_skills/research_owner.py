@@ -1998,8 +1998,16 @@ class ResearchOwnerSkill:
                             ),
                             entity_id=str(row.get("theme") or "") or None,
                             metric="midterm_trend",
-                            value=None,
-                            unit=None,
+                            value=(
+                                row.get("double_red_days")
+                                if isinstance(row.get("double_red_days"), (int, float))
+                                else None
+                            ),
+                            unit=(
+                                "天"
+                                if isinstance(row.get("double_red_days"), (int, float))
+                                else None
+                            ),
                             period=str(row.get("end_date") or "") or None,
                             evidence_tier="L4",
                             source_id="D6",

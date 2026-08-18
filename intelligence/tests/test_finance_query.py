@@ -335,6 +335,18 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
         assert _DATASETS[name].table == table
 
 
+def test_theme_limit_heat_and_empty_snapshot_are_registered() -> None:
+    """A5 要能查题材热度表；C3 空快照也必须作为可查询口径存在。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    heat = _DATASETS["theme_limit_heat_daily"]
+    assert heat.table == "fact_theme_limit_heat_daily"
+    assert "limit_up_count" in heat.metrics
+    snapshot = _DATASETS["stock_technical_snapshot"]
+    assert snapshot.table == "fact_stock_technical_snapshot"
+    assert "deviation_pct" in snapshot.metrics
+
+
 def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     """席位 dataset 端到端：谁买了某股，按净买入排序。"""
     import duckdb
@@ -731,3 +743,89 @@ class TestSchemaExamplesAreRunnable:
 
         for endpoint in ("start", "end"):
             assert "2026-07-23" in properties[endpoint]["description"]
+
+
+def test_dataset_catalog_covers_every_dataset() -> None:
+    """schema 里的目录必须逐张覆盖注册表，否则手抄的那份会悄悄漂。
+
+    钉的是「生成」这件事本身：新增 dataset 却忘了写 coverage，这条会红。
+    """
+    from intelligence.services.finance_query import (
+        _DATASETS,
+        FINANCE_QUERY_PARAMETERS,
+    )
+
+    description = FINANCE_QUERY_PARAMETERS["properties"]["dataset"]["description"]
+    for name, definition in _DATASETS.items():
+        assert f"- {name}（" in description, f"{name} 不在 schema 目录里"
+        assert definition.coverage, f"{name} 没写 coverage"
+
+
+def test_coverage_advisory_fires_on_the_real_a5_query() -> None:
+    """A5 现场那条逐字复刻：子集表上按 limit_up_count 取 top15。
+
+    参数取自 2026-08-18 纯尺子跑的 episode 账本，不是构造的。
+    """
+    from intelligence.services.finance_query import (
+        FinanceQuerySpec,
+        Order,
+        coverage_advisory,
+    )
+
+    advisory = coverage_advisory(
+        FinanceQuerySpec(
+            dataset="mainline_sector_daily",
+            dimensions=("theme_name", "sector_name"),
+            metrics=("limit_up_count", "return_pct", "strength"),
+            order_by=(Order("limit_up_count", "desc"),),
+            limit=15,
+        )
+    )
+    assert "theme_limit_heat_daily" in advisory
+    # 只对排序字段提示：return_pct 六张表都有，列出来会把真信号淹掉。
+    assert "return_pct" not in advisory
+
+
+def test_coverage_advisory_is_silent_on_legitimate_subset_use() -> None:
+    """取某个具体标的在子集表里的值是正当用法，不排序就不该出声。
+
+    反向断言：没有这条，提示会挂在每一次子集查询上变成噪声。
+    """
+    from intelligence.services.finance_query import (
+        FinanceQuerySpec,
+        QueryFilter,
+        coverage_advisory,
+    )
+
+    assert (
+        coverage_advisory(
+            FinanceQuerySpec(
+                dataset="mainline_sector_daily",
+                dimensions=("sector_name",),
+                metrics=("limit_up_count",),
+                filters=(QueryFilter("sector_name", "eq", "储能"),),
+            )
+        )
+        == ""
+    )
+
+
+def test_coverage_advisory_is_silent_on_full_population_dataset() -> None:
+    from intelligence.services.finance_query import (
+        FinanceQuerySpec,
+        Order,
+        coverage_advisory,
+    )
+
+    assert (
+        coverage_advisory(
+            FinanceQuerySpec(
+                dataset="theme_limit_heat_daily",
+                dimensions=("sector_name",),
+                metrics=("limit_up_count",),
+                order_by=(Order("limit_up_count", "desc"),),
+                limit=10,
+            )
+        )
+        == ""
+    )

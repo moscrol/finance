@@ -1463,6 +1463,12 @@ def test_agent_finance_query_bounds_broad_result_before_model_observation(
     assert len(observation.evidence) == 25
     assert observation.trace.result_count == 25
     assert "已按 Agent 上下文预算截断至 25 条" in observation.observation
+    assert observation.dataset == "sector_daily"
+    assert observation.caliber == "fact_sector_daily"
+    assert "amount" in observation.payload_field_names
+    assert observation.payload_sha256
+    assert "/Users/" not in observation.dataset
+    assert "/home/" not in "".join(observation.payload_field_names)
 
 
 def test_finance_query_invalid_semantic_field_returns_repairable_gap(
@@ -1510,6 +1516,10 @@ def test_finance_query_invalid_semantic_field_returns_repairable_gap(
     assert observation.gaps == (
         "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试",
     )
+    assert observation.dataset == "market_daily"
+    assert observation.caliber == "fact_market_daily"
+    assert "trade_date" in observation.payload_field_names
+    assert "not_a_public_metric" in observation.payload_field_names
 
 
 def test_finance_query_wrong_dataset_points_to_the_field_owner(

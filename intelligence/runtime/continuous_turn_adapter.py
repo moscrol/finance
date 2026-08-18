@@ -370,16 +370,47 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
+        fast_as_of = _fast_path_as_of(raw)
+        # **快路径不消费本轮的参考日，必须当场对账。**
+        #
+        # 这条路径直接调 ``market_technical.resolve_market_technical(raw_question)``，
+        # 那个函数**没有日期参数**，只会拉「最近 N 根日线」——也就是永远按今天算。
+        # 而本轮的锚点其实一直在手边（``self._latest_data_date``，由上游按题目
+        # ``as_of`` 注入），只是从没人拿它比过。
+        #
+        # 2026-08-18 冻结 30 题实测后果：``index-rebound-space`` 与
+        # ``sci-tech-support`` 两题锚在 2026-07-24，快路径按 2026-08-18 算完
+        # 交付，**判分器还给了 completed / passed / task_alignment 1.0**——
+        # 0 次模型调用、0.8 秒、用错日期的数，三个轴全绿。这是假绿不是低分。
+        #
+        # 修法不是丢掉结果（数是真的，只是日期不对），而是**当场声明口径不符**
+        # 并从 completed 降到 degraded，让下游看得见、判分器不再当满分。
+        # 这与 C3 空表披露同一条纪律：宁可明说不可得，不静默换口径交付。
+        anchor = (self._latest_data_date or "").strip()
+        caliber_warnings: tuple[str, ...] = ()
+        if status == "completed" and anchor and fast_as_of and fast_as_of != anchor:
+            status = "degraded"
+            caliber_warnings = (
+                f"技术位按 {fast_as_of} 的日线计算，但本轮口径基准是 {anchor}；"
+                "该确定性旁路取的是最新行情、不支持指定历史日期，结论不适用于基准日。",
+            )
+            answer = (
+                f"（口径提示：以下结论按 {fast_as_of} 计算，非基准日 {anchor}。）{answer}"
+            )
         return ContinuousTurnResult(
             handled=True,
             status=status,
             answer=answer,
-            as_of=_fast_path_as_of(raw),
+            as_of=fast_as_of,
             citations=(),
             warnings=(
-                ()
-                if status == "completed"
-                else ("结构化行情不足，技术位结论已按数据边界降级。",)
+                caliber_warnings
+                if caliber_warnings
+                else (
+                    ()
+                    if status == "completed"
+                    else ("结构化行情不足，技术位结论已按数据边界降级。",)
+                )
             ),
             private_artifact=cast(
                 dict[str, object],

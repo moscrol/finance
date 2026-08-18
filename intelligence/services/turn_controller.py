@@ -31,6 +31,7 @@ from intelligence.services.route_table import (
     RouteRow,
     is_quick_fact_query,
     render_route_table_prompt,
+    research_lane_for_dated_quick_fact,
     route_by_id,
 )
 from intelligence.services.research_contract import (
@@ -360,8 +361,11 @@ def _deterministic_decision(
     # 不存在时不会退到 DuckDB 单指标查询，而是落进通用题材研究、甚至把问题文本
     # 当成题材名——而 fact_market_daily.limit_up 这个标准口径一直在 METRICS 里。
     if market_review_requested_date(cleaned) and parse_single_metric_intent(cleaned):
+        row = route_by_id("quick_fact")
+        if row is None:
+            raise RuntimeError("quick_fact route is missing from ROUTE_TABLE")
         return _decision_from_route_row(
-            route_by_id("quick_fact"),
+            replace(row, lane="research"),
             query=cleaned,
             subject=envelope.subject,
             timeframe=envelope.timeframe,
@@ -551,7 +555,19 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
         route_id = "theme_track"
     elif is_quick_fact_query(query):
         route_id = "quick_fact"
-    return route_by_id(route_id) if route_id is not None else None
+    row = route_by_id(route_id) if route_id is not None else None
+    row = research_lane_for_dated_quick_fact(row, query)
+    if (
+        row is not None
+        and row.route_id == "quick_fact"
+        and row.lane == "knowledge"
+        and market_review_requested_date(query)
+        and parse_single_metric_intent(query) is not None
+    ):
+        # 年缺省日期（「07-21 全市成交额多少」）进了 quick_fact 词面，
+        # 但仍是指定日 + 白名单指标，不得停在 knowledge 车道。
+        return replace(row, lane="research")
+    return row
 
 
 _MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")

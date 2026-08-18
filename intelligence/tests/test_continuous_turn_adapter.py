@@ -4701,3 +4701,67 @@ def test_adapter_closes_session_on_exception_path() -> None:
     handle = session.runtime_handle
     assert handle is not None
     assert handle.is_closed()
+
+
+def _fast_path_frame() -> TaskFrame:
+    return replace(_frame(), question_type="market_technical")
+
+
+def _run_fast_path_with_anchor(*, fast_as_of: str, anchor: str | None):
+    def runner(frame, *, timeout):
+        del frame, timeout
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "completed",
+            "answer": f"截至 {fast_as_of}，科创50收盘 1790.87。下方支撑为：1750.43。",
+            "as_of": fast_as_of,
+            "gaps": [],
+            "traces": [],
+            "latency": 0.8,
+            "llm_calls": 0,
+            "tool_calls": 1,
+        }
+
+    frame = _fast_path_frame()
+
+    class _Semantic:
+        def verify(self, *_args, **_kwargs):
+            raise AssertionError("fast path must not reach the semantic verifier")
+
+    return ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        mode="on",
+        latest_data_date=anchor,
+        fast_path_runner=runner,
+        context_factory=lambda *_a, **_k: object(),
+        registry_factory=lambda *_a, **_k: "registry",
+        semantic_verifier=_Semantic(),
+    ).handle(frame=frame, control=_control(frame, terminal_kind="research"))
+
+
+def test_fast_path_discloses_when_its_date_differs_from_the_round_anchor() -> None:
+    """快路径按最新行情算，锚点却是历史日 —— 必须降级并声明，不得报 completed。
+
+    2026-08-18 冻结 30 题实测：index-rebound-space / sci-tech-support 锚在
+    2026-07-24，快路径按 08-18 算完交付，判分器给了 completed/passed/1.0。
+    0 次模型调用、0.8 秒、用错日期的数，三个轴全绿——假绿不是低分。
+    """
+    result = _run_fast_path_with_anchor(fast_as_of="2026-08-18", anchor="2026-07-24")
+    assert result.status == "degraded"
+    assert any("2026-07-24" in w and "2026-08-18" in w for w in result.warnings)
+    assert "口径提示" in result.answer
+
+
+def test_fast_path_stays_completed_when_its_date_matches_the_anchor() -> None:
+    """反方向：日期对得上就不该唠叨，否则这道闸等于把快路径永久降级。"""
+    result = _run_fast_path_with_anchor(fast_as_of="2026-07-24", anchor="2026-07-24")
+    assert result.status == "completed"
+    assert result.warnings == ()
+    assert "口径提示" not in result.answer
+
+
+def test_fast_path_stays_completed_when_no_anchor_was_injected() -> None:
+    """没有注入基准日时无从对账，保持原行为，不得凭空降级。"""
+    result = _run_fast_path_with_anchor(fast_as_of="2026-08-18", anchor=None)
+    assert result.status == "completed"
+    assert result.warnings == ()
