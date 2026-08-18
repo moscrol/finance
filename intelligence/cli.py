@@ -2111,6 +2111,21 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_st.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_st.set_defaults(func=cmd_checkpoint_status)
 
+    p_pend = sub.add_parser("pending", help="列出尚未批处理入账的前瞻判断候选（KC-09）")
+    p_pend.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_pend.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_pend.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_pend.set_defaults(func=cmd_checkpoint_pending)
+
+    p_acc = sub.add_parser("accept", help="批处理入账 pending 前瞻判断，并登记 checkpoint（不做 -i）")
+    p_acc.add_argument("--user", default=None, help="用户 id（默认 FORESIGHT_USER 或 default）")
+    p_acc.add_argument("--id", dest="ids", action="append", default=[], help="指定 pending id（可多次）")
+    p_acc.add_argument("--all", action="store_true", help="入账当前全部 pending")
+    p_acc.add_argument("--judgments-file", default=None, help="覆盖 judgments.jsonl 路径")
+    p_acc.add_argument("--checkpoints-file", default=None, help="覆盖 checkpoints.jsonl 路径")
+    p_acc.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_acc.set_defaults(func=cmd_checkpoint_accept)
+
 
 def add_red_team_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
@@ -2554,6 +2569,69 @@ def _checkpoint_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     cpath = Path(args.checkpoints_file).expanduser() if getattr(args, "checkpoints_file", None) else us.checkpoints_path
     vpath = Path(args.verdicts_file).expanduser() if getattr(args, "verdicts_file", None) else us.verdicts_path
     return cpath, vpath
+
+
+def _judgments_path(args: argparse.Namespace) -> Path:
+    from intelligence import userspace
+
+    if getattr(args, "judgments_file", None):
+        return Path(args.judgments_file).expanduser()
+    return userspace.user_space(args.user).judgments_path
+
+
+def cmd_checkpoint_pending(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import judgment_extract
+
+    path = _judgments_path(args)
+    pending = judgment_extract.list_pending(path)
+    if args.json:
+        print(_json.dumps({"path": str(path), "pending": pending}, ensure_ascii=False, indent=2))
+        return 0
+    if not pending:
+        print(f"没有 pending 前瞻判断（{path}）")
+        return 0
+    print(f"pending {len(pending)} 条（{path}）")
+    for row in pending:
+        due = (row.get("verify_by") or {}).get("due") or "?"
+        print(f"- {row.get('id')} 到期 {due} ｜ {row.get('claim')}")
+    print("入账：`checkpoint accept --all` 或 `--id <id>`（可多次）")
+    return 0
+
+
+def cmd_checkpoint_accept(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import judgment_extract
+
+    if not args.all and not args.ids:
+        print("需要 --all 或至少一个 --id")
+        return 2
+    jpath = _judgments_path(args)
+    cpath, _ = _checkpoint_paths(args)
+    accepted = judgment_extract.accept_judgments(
+        jpath,
+        cpath,
+        ids=args.ids,
+        accept_all=bool(args.all),
+    )
+    if args.json:
+        print(
+            _json.dumps(
+                {"judgments": str(jpath), "checkpoints": str(cpath), "accepted": accepted},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    if not accepted:
+        print("没有新入账的前瞻判断（可能已 accept 过）")
+        return 0
+    print(f"已入账 {len(accepted)} 条，并登记 checkpoint")
+    for row in accepted:
+        print(f"- {row.get('id')} ｜ {row.get('claim')}")
+    return 0
 
 
 def cmd_checkpoint_register(args: argparse.Namespace) -> int:

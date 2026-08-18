@@ -4328,7 +4328,40 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         "引用来源": _unique_citation_sources(citations),
     }
     result.citations = citations
+    _propose_foresight_judgments(options, result)
     return result
+
+
+def _should_propose_foresight_judgments(options: AskOptions) -> bool:
+    """测试用户和 default 不写台账；生产身份才提案。"""
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return False
+    user = options.user or os.environ.get("FORESIGHT_USER") or ""
+    return bool(user) and user not in {"golden-test", "tester", "default"}
+
+
+def _propose_foresight_judgments(options: AskOptions, result: AskResult) -> None:
+    if not _should_propose_foresight_judgments(options):
+        return
+    try:
+        from intelligence.services import judgment_extract
+
+        written = judgment_extract.propose_from_answer(
+            judgments_path=userspace.user_space(options.user).judgments_path,
+            query=options.query,
+            answer=render_answer(result),
+            as_of=result.trade_date or options.date,
+            theme=result.matched_theme,
+            citations=result.citations,
+        )
+        if written:
+            result.warnings.append(
+                f"前瞻判断已提案 {len(written)} 条（pending，checkpoint accept 后入账）"
+            )
+    except Exception as exc:
+        result.warnings.append(f"前瞻判断抽取未入账：{exc}")
 
 
 def _deadline_partial_result(query: str) -> AskResult:
