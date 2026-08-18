@@ -61,7 +61,35 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 
 1. `GET :8792/api/readiness` checks 全 true（预热冷启最长约 3 分钟，热缓存 ~1 分钟内）。
 2. `GET :8792/api/health` **三读**：`source_revision` == 新 sha12、`source_dirty=false`、`code_matches_repo=true`。
-3. grounded 探针：长电题、`use_llm=False`、生产 env 形状（`cwd` 与 `PYTHONPATH`、`WORKBENCH_REPO_ROOT` 都指 `/Users/a77/finance-workspace-runtime`，`FINANCE_WS=/Users/a77/finance-workspace-private`），判据 `market_data_source=duckdb`、`snapshot_date` 新鲜、无「本轮没有连接本地市场数据」；收据落 `~/.finance-runtime/live-probe-traceability/`。
+3. grounded 探针：长电题、生产 env 形状（`cwd` 与 `PYTHONPATH`、`WORKBENCH_REPO_ROOT` 都指 `/Users/a77/finance-workspace-runtime`，`FINANCE_WS=/Users/a77/finance-workspace-private`），收据落 `~/.finance-runtime/live-probe-traceability/`。
+
+   ⚠️ **判据已更新（2026-08-19）**：原文写「判据 `market_data_source=duckdb`、`snapshot_date` 新鲜」，
+   但这两个字段名在当前收据 schema 里**都不存在**——`smoke_workbench_self_use.py` 的输出与
+   run 目录的 `report.json` 都没有它们。照旧抄会得到「字段找不到 = 判据不过」的假红，
+   或者更糟：以为查过了其实没查。改用**本仓 Phase 3 埋点**验同一件事（口径就在证据里）：
+
+   ```bash
+   R=<FORESIGHT_USERS_DIR>/<user>/runs/<run_id>      # 生产 8792 的是
+                                                     # ~/.local/share/finance-workbench/users
+   python3 - <<'PY'
+   import json, collections
+   ep = json.load(open(f"{R}/continuous-episode.json", encoding="utf-8"))
+   cal = collections.Counter()
+   def walk(o):
+       if isinstance(o, dict):
+           if o.get("caliber"): cal[o["caliber"]] += 1
+           for v in o.values(): walk(v)
+       elif isinstance(o, list):
+           for v in o: walk(v)
+   walk(ep); print(dict(cal))
+   PY
+   ```
+
+   通过读数：出现 `fact_*` 口径（个股题应见 `fact_stock_daily`）、`payload_field_names`
+   含真实列名、数据日 == 库内 `max(trade_date)`、答案里无「本轮没有连接本地市场数据」、
+   `degrade_count=0`、`secret_scan.hit_count=0`。
+   2026-08-19 切 `8bbfc4e41a5a` 时的实测读数：`dataset=stock_daily`×12 /
+   `caliber=fact_stock_daily`×4，数据日 2026-08-18 == 库内最新。
 
 回滚 = 反向 `ln -sfh` 到上一快照目录（历史快照都保留在 `~/.finance-runtime/`）+ bootstrap。
 
