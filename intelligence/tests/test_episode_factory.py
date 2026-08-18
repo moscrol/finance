@@ -138,6 +138,44 @@ def test_market_cause_requires_time_aligned_news_evidence() -> None:
     }
 
 
+def test_overnight_hybrid_forecast_episode_authorizes_news_and_web() -> None:
+    control = TurnControlCore().control(
+        "基于周二的盘面数据，你认为主线是什么。"
+        "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="overnight-hybrid-forecast",
+        capabilities=control.capabilities,
+    )
+
+    assert control.task_frame.question_type == "market_forecast"
+    assert {
+        "market_data",
+        "mainline_context",
+        "news_search",
+        "web_search",
+    }.issubset(context.contract.allowed_capabilities)
+
+
+def test_local_forecast_episode_does_not_authorize_news_or_web() -> None:
+    control = TurnControlCore().control(
+        "昨天的反弹能持续多久",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="local-forecast",
+        capabilities=control.capabilities,
+    )
+
+    assert "news_search" not in context.contract.allowed_capabilities
+    assert "web_search" not in context.contract.allowed_capabilities
+
+
 def test_market_cause_uses_output_level_grounding_modes() -> None:
     control = TurnControlCore().control(
         "这一周行情下跌的主要原因是什么",

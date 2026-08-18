@@ -94,6 +94,34 @@ def test_market_forecast_has_current_market_requirement():
     assert plan.mandatory_provider_names == ("MARKET_DAILY",)
 
 
+_FIFTH_ROUND_OVERNIGHT = (
+    "基于周二的盘面数据，你认为主线是什么。"
+    "今晚美股科技调整较多，你认为明天盘面会怎么走，哪个方向可能有机会"
+)
+
+
+def test_overnight_hybrid_forecast_adds_news_and_web_requirements():
+    plan = resolve_evidence_plan(
+        _FIFTH_ROUND_OVERNIGHT,
+        question_type="market_forecast",
+    )
+    capabilities = {item.capability for item in plan.requirements}
+    assert plan.profile == "market_forecast"
+    assert plan.mandatory_provider_names == ("MARKET_DAILY",)
+    assert capabilities >= {"market_data", "mainline_context", "news_search", "web_search"}
+
+
+def test_tonight_review_without_external_marker_stays_local_forecast():
+    plan = resolve_evidence_plan(
+        "今晚复盘，你认为明天盘面会怎么走",
+        question_type="market_forecast",
+    )
+    assert {item.capability for item in plan.requirements} == {
+        "market_data",
+        "mainline_context",
+    }
+
+
 def test_methodology_query_does_not_inherit_market_capabilities():
     plan = resolve_evidence_plan(
         "市场主线判断的 agent 架构怎么实现？",

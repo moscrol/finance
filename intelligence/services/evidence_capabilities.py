@@ -91,6 +91,23 @@ _HISTORICAL_MARKERS = ("2025", "2024", "历史上", "过去几年", "去年")
 _DECISION_METHOD_RE = re.compile(
     r"(?:应该|应当|该|如何|怎么|怎样).{0,20}(?:判断|区分|识别|设计|实现|构造)"
 )
+# 隔夜 / 外盘前提。只用市场专名，不用单独的「今晚」——「今晚复盘」仍是纯 A 股预测。
+# 与 query_understanding._EXTERNAL_MARKET_TERMS 对齐，并补上外盘/隔夜（那边把隔夜
+# 放在报价词里，单独不够把混合预测改道到 external_market）。
+_OVERNIGHT_EXTERNAL_MARKERS = (
+    "美股",
+    "纳指",
+    "纳斯达克",
+    "费半",
+    "费城半导体",
+    "道指",
+    "标普",
+    "外盘",
+    "隔夜",
+    "soxx",
+    "qqq",
+    "海外",
+)
 
 _RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
     "current_a_share_market": ("market_data", "mainline_context"),
@@ -207,6 +224,11 @@ _PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
 }
 
 
+def _has_overnight_external_premise(query: str) -> bool:
+    normalized = re.sub(r"\s+", "", str(query or "")).casefold()
+    return any(marker.casefold() in normalized for marker in _OVERNIGHT_EXTERNAL_MARKERS)
+
+
 def is_current_market_query(query: str) -> bool:
     """识别需要同日市场事实的问题，不改变粗粒度 question_type。
 
@@ -273,12 +295,31 @@ def resolve_evidence_plan(
     if question_type in {"methodology_discussion", "answer_review", "concept_definition"}:
         return EvidencePlan("general", (), freshness)
     if question_type == "market_forecast":
+        requirements = (
+            EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "最新市场总览"),
+            EvidenceRequirement("D4", "mainline_context", False, "current", "主线结构补充"),
+        )
+        if _has_overnight_external_premise(query):
+            requirements = (
+                *requirements,
+                EvidenceRequirement(
+                    "W7",
+                    "news_search",
+                    False,
+                    "current",
+                    "核验隔夜/外盘前提",
+                ),
+                EvidenceRequirement(
+                    "WEB",
+                    "web_search",
+                    False,
+                    "current",
+                    "外盘结构与海外来源",
+                ),
+            )
         return EvidencePlan(
             "market_forecast",
-            (
-                EvidenceRequirement("MARKET_DAILY", "market_data", True, "current", "最新市场总览"),
-                EvidenceRequirement("D4", "mainline_context", False, "current", "主线结构补充"),
-            ),
+            requirements,
             "current",
         )
     if freshness == "current" and is_current_market_query(query):
