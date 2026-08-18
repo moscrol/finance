@@ -105,6 +105,8 @@ cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 - 教训在案：2026-07-18 → 08-13 main 曾 142 次连红仍照常合并，E2E 被 fail-fast 掩盖 26 天，期间合入的门禁回退零信号（#337/#339 修复、#342 根治步骤掩红、本文件把串行单 job 拆成并行叶子）。
 - 若 GitHub 解封且升级 Pro / 转公开仓，第一时间把本条固化为真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开），并更新本节。
 
+> 📋 **验收/质检 session**（对执行方交付的 PR 批次做独立验收→合并→切 8792→回写台账）：规程 `docs/workflows/acceptance-workflow.md`。
+
 ### 🟢 PR 关闭纪律（强制）
 
 关闭 PR 必须留下接替指针（替代 PR / 提交 / 文档路径）或废弃理由。禁止静默关闭。合入后由托管端删除已合并分支。
