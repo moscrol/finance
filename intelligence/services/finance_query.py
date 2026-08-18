@@ -205,10 +205,29 @@ class _DatasetDefinition:
     dimensions: Mapping[str, _FieldDefinition]
     metrics: Mapping[str, _FieldDefinition]
     evidence_tier: str = "L4_structured"
+    population: Literal["full", "subset", "single"] = "full"
+    coverage: str = ""
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
         return {**self.dimensions, **self.metrics}
+
+
+# ``population`` 是**机器可读的覆盖面**，``coverage`` 是给模型看的同一件事的散文。
+#
+# 为什么需要它：A5 实测（2026-08-18）问「涨停集中在哪些题材」，模型选了
+# ``mainline_sector_daily``。那张表**结构上完全合法**——它确实有 ``limit_up_count``
+# 这一列，数值也和权威表逐行相等（07-23 重叠的 7 个板块 7/7 相同）。错的不是数值，
+# 是**分母**：它只收当日「主线」板块（十余行），而问题问的是全量榜（两百余行）。
+# 在十余行的子集里取 top-N，答案结构性地不可能对，而校验器一声不吭——因为
+# 「字段属不属于这张表」这个维度上它没毛病。
+#
+# 所以覆盖面必须和字段归属一样，是**模型下单前**就能看到的信息，不能只在
+# 事后 observation 里补。这与 ``_agent_finance_parameters`` 里把行数上限写进 schema
+# 是同一条理由：模型感知到的世界与工具操作的世界之间不能存在系统性偏差。
+#
+# **刻意不写具体行数**：行数天天变，写进源码就是手抄第二事实源，漂了没人知道。
+# 这里只声明**性质**（全量 / 子集 / 单行），性质是稳定的。要精确行数就去查库。
 
 
 def _dimension(
@@ -233,6 +252,11 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "market_daily": _DatasetDefinition(
         table="fact_market_daily",
         label="市场日频总览",
+        population="single",
+        coverage=(
+            "全市场每天 1 行的总量口径。涨停家数在这里是**全市合计**，不按板块拆——要板块分布用 "
+            "theme_limit_heat_daily。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -262,6 +286,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "stock_daily": _DatasetDefinition(
         table="fact_stock_daily",
         label="个股日频行情",
+        population="full",
+        coverage=(
+            "全市个股全集，每股每日一行。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -279,6 +307,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "sector_daily": _DatasetDefinition(
         table="fact_sector_daily",
         label="板块日频行情",
+        population="full",
+        coverage=(
+            "全量板块全集（涨幅 / 成交额 / 边际量 diff_ratio），双红判断主表。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -299,6 +331,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "sector_stock_daily": _DatasetDefinition(
         table="fact_sector_stock_daily",
         label="板块成分股日频行情",
+        population="full",
+        coverage=(
+            "板块×成分股全集，本库行数最大的一张，务必先加筛选再查。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -330,6 +366,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "stock_high_daily": _DatasetDefinition(
         table="fact_stock_high_daily",
         label="个股新高日频记录",
+        population="full",
+        coverage=(
+            "**表内只含当日创新高的个股**；按 high_period / sw_l1 分组计数即新高结构。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -358,6 +398,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "mainline_theme_daily": _DatasetDefinition(
         table="fact_mainline_theme_daily",
         label="主线题材日频结构",
+        population="subset",
+        coverage=(
+            "**只含当日被判为「主线」的题材，是个位数量级的子集**，不是题材全集。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -372,6 +416,12 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "mainline_sector_daily": _DatasetDefinition(
         table="fact_mainline_sector_daily",
         label="主线板块日频结构",
+        population="subset",
+        coverage=(
+            "**只含当日「主线」板块，十余行的人工筛选子集，不是全市板块全集**。它也有 limit_up_count "
+            "且数值与权威表一致，但在这张表里排序只能得到「主线内部的 top」，**回答不了「全市涨停集中在哪些板块」**——那个要 "
+            "theme_limit_heat_daily。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -401,6 +451,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "dragon_summary_daily": _DatasetDefinition(
         table="fact_dragon_summary_daily",
         label="龙虎榜全市场日汇总（机构/游资净买入）",
+        population="single",
+        coverage=(
+            "龙虎榜每日 1 行的全市场汇总。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -415,6 +469,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "dragon_seat_daily": _DatasetDefinition(
         table="fact_dragon_seat_daily",
         label="龙虎榜席位级明细（谁买谁卖）",
+        population="full",
+        coverage=(
+            "龙虎榜席位级明细全集。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -435,6 +493,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "dragon_tiger_daily": _DatasetDefinition(
         table="fact_dragon_tiger_daily",
         label="龙虎榜个股汇总",
+        population="full",
+        coverage=(
+            "当日上榜个股全集；未上榜的个股不在表内。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -454,6 +516,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "core_stock_daily": _DatasetDefinition(
         table="fact_core_stock_daily",
         label="市场核心个股 TOP50",
+        population="subset",
+        coverage=(
+            "**固定 50 只的核心股池**，不是全市个股——不要在这张表上写「全市最…」。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -476,6 +542,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "leader_height_daily": _DatasetDefinition(
         table="fact_leader_height_daily",
         label="连板龙头高度日频",
+        population="single",
+        coverage=(
+            "每日 1 行的连板高度。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -491,6 +561,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "global_index_daily": _DatasetDefinition(
         table="fact_global_index_daily",
         label="海外指数日频（隔夜外盘）",
+        population="full",
+        coverage=(
+            "隔夜外盘指数全集，数量个位数。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -508,6 +582,11 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "theme_limit_heat_daily": _DatasetDefinition(
         table="fact_theme_limit_heat_daily",
         label="题材涨停热度日频",
+        population="full",
+        coverage=(
+            "**全量板块的涨停热度榜**（每板块涨停家数 / 占比 / "
+            "排名）。「涨停集中在哪些题材」「哪个板块涨停最多」这类**全市分布**问题用这张。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -532,6 +611,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     "stock_technical_snapshot": _DatasetDefinition(
         table="fact_stock_technical_snapshot",
         label="个股技术面快照",
+        population="full",
+        coverage=(
+            "个股技术面快照。**当前是空表（0 行）**——取不到不是查询写错，是该口径暂无数据，应如实声明不可得。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -830,6 +913,41 @@ def _dataset_query_schema(
 
 
 _PUBLIC_DATASETS = sorted(_DATASETS)
+
+_POPULATION_LABEL = {
+    "full": "全集",
+    "subset": "子集",
+    "single": "单行",
+}
+
+
+def _dataset_catalog_text() -> str:
+    """把 15 张表各自**覆盖多大人群**写进 schema，从注册表生成，不手抄。
+
+    改这段之前先读 ``_DatasetDefinition.population`` 上方那段注释：模型此前
+    看到的是 15 个**光秃秃的表名**，没有任何一句说明它们覆盖面差着两三个数量级
+    （单行 / 十余行的主线子集 / 两百余行的全量榜）。A5 就是在这个条件下选了
+    子集表回答全市问题——**它不是不知道有那张表（热度表一直在 enum 里），
+    是没人告诉它两张表的分母不一样。**
+
+    生成而非手写，理由同 ``_agent_finance_parameters``：手抄的目录会和注册表
+    分叉，而分叉时没有任何门禁会发红。
+    ``test_dataset_catalog_covers_every_dataset`` 钉住「每张表都在目录里」。
+    """
+
+    lines = [
+        "先选表。**先看覆盖面再选**：下面每行是「表名（覆盖面）：它收哪些行」。",
+        "问全市分布类问题（最多/集中在哪/排名）必须选覆盖面为「全集」的表；"
+        "在「子集」表上排序只能得到子集内部的名次，那回答不了全市问题。",
+        "字段必须属于所选 dataset，跨表混用会被拒绝："
+        "成交额在 market_daily 叫 total_amount，在 sector_daily / stock_daily 叫 amount。",
+        "",
+    ]
+    for name in _PUBLIC_DATASETS:
+        definition = _DATASETS[name]
+        scope = _POPULATION_LABEL[definition.population]
+        lines.append(f"- {name}（{scope}）：{definition.coverage}")
+    return "\n".join(lines)
 _PUBLIC_DIMENSIONS = sorted(
     {field for dataset in _DATASETS.values() for field in dataset.dimensions}
 )
@@ -922,6 +1040,58 @@ def validation_retry_hint(
     return "；".join(parts)
 
 
+def coverage_advisory(spec: FinanceQuerySpec) -> str:
+    """在**子集**表上做排序/取名次时，指出同一字段还有**全集**表可用。
+
+    这是 ``validation_retry_hint`` 够不着的那一半。那个函数只在查询**被拒**时
+    说话，判据是「字段属不属于这张表」；而 A5 那次查询**完全合法**——
+    ``mainline_sector_daily`` 确实有 ``limit_up_count``，数值也和权威表逐行相等。
+    错的是分母：十余行的主线子集 vs 两百余行的全量榜。结构性校验原理上抓不到
+    这类错，因为错表在结构上没毛病。
+
+    **只在真的会被分母影响时才出声**：有 ``order_by``（即在做「最多 / 前几名」）
+    才提示。纯粹取某个具体标的在子集表里的值是正当用法，对它唠叨就是噪声，
+    会把真提示淹掉。
+
+    判据**不看 ``limit``**：它有默认值 50，恒为真，拿它当信号等于没有信号。
+    A5 现场那条查询是 ``order_by=limit_up_count desc, limit=15``——在一张
+    当日只有十余行的表上要 top15，正是本函数要拦的形状。
+
+    返回空串表示无话可说——**调用方据此决定要不要把这句挂到 observation 上**，
+    本函数不自己决定交付形态。
+    """
+
+    definition = _DATASETS.get(spec.dataset)
+    if definition is None or definition.population != "subset":
+        return ""
+    if not spec.order_by:
+        return ""
+
+    # **只看排序字段**，不看 metrics 里搭车的那些列。决定名次的只有排序字段，
+    # 分母换了只影响它；把每个 metric 都列一遍会让 return_pct 这种六张表都有的
+    # 通用列刷满整条提示，真信号（limit_up_count→theme_limit_heat_daily）被淹掉。
+    # 实测过：不收窄时这条提示有 8 项，收窄后 1 项。
+    wanted = tuple(dict.fromkeys(item.field for item in spec.order_by))
+    alternatives: list[str] = []
+    for field in wanted:
+        for name in _PUBLIC_DATASETS:
+            other = _DATASETS[name]
+            if other.population != "full" or field not in other.fields:
+                continue
+            entry = f"{field}→{name}"
+            if entry not in alternatives:
+                alternatives.append(entry)
+    if not alternatives:
+        return ""
+    return (
+        f"覆盖面提示：dataset={spec.dataset} 只收当日子集，"
+        "在它上面排序得到的是**子集内部的名次**，不是全市名次。"
+        "若问的是全市分布（最多/集中在哪/排名），改用全集表："
+        + "，".join(alternatives)
+        + "。若确实只要子集内部的名次，忽略本提示。"
+    )
+
+
 # Keep the provider-facing schema orthogonal and shallow.  Dataset-specific
 # field compatibility remains a code-owned invariant in ``FinanceQuerySpec``
 # and ``_compile_query``; duplicating every dataset as a top-level ``oneOf``
@@ -933,11 +1103,7 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
         "dataset": {
             "type": "string",
             "enum": _PUBLIC_DATASETS,
-            "description": (
-                "先选表。字段必须属于所选 dataset，跨表混用会被拒绝："
-                "成交额在 market_daily 叫 total_amount，"
-                "在 sector_daily / stock_daily 叫 amount。"
-            ),
+            "description": _dataset_catalog_text(),
         },
         "metrics": {
             "type": "array",

@@ -1016,6 +1016,13 @@ def build_episode_registry(
             # 放在结论之后、和截断提示同层——都是「结果可用，但有一条关于写法的话」。
             if normalization_notes:
                 observation = "；".join((observation, *normalization_notes))
+            # 覆盖面提示同理，但它拦的是**校验器够不着的那一半**：在子集表上排名次，
+            # 查询完全合法、数值也对，错的是分母。A5 实测（2026-08-18）就是在只有
+            # 十余行的 mainline_sector_daily 上按 limit_up_count 取 top15，
+            # 去回答「全市涨停集中在哪些题材」。空串表示无话可说。
+            advisory = finance_query.coverage_advisory(bounded_value)
+            if advisory:
+                observation = "；".join((observation, advisory))
             return ToolRunResult(
                 evidence=tuple(result.evidence),
                 observation=observation,
