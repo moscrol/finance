@@ -6,6 +6,8 @@
   → AKShare `stock_financial_abstract`。任一成功即返回，引用行标实际 provider + 取数日。
 - 全败输出结构化状态（ok / degraded / missing_config / NO_DATA），不落「查询失败」。
   备源未安装仍单独披露「未尝试」，不得谎称两源都试过。
+- 含金量科目：经营现金流 / 合同负债 / 存货 / 股东户数。毛利率同比改善但经营现金流反向
+  时块内自动出「利润质量待核」（只报数字与方向，不下结论）。
 - 口径为**累计值**（中报=H1、三季报=前三季累计），同比字段 `*TZ` 为东财原始累计同比，
   是卖方读「业绩兑现节奏」的主流口径；本块不做单季还原，避免引入推算误差。
 - 补的缺口：brief/D4/D5 只有当日盘面与当前估值快照，无逐季营收/净利/毛利率序列，
@@ -23,7 +25,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Callable, Literal
 
@@ -70,6 +72,11 @@ class QuarterFinancials:
     netprofit_yoy: float | None = None  # 归母净利同比（%，累计）
     gross_margin: float | None = None  # 销售毛利率（%）
     net_margin: float | None = None  # 销售净利率（%）
+    ocf_yi: float | None = None  # 经营活动现金流量净额（亿元，累计）
+    contract_liability_yi: float | None = None  # 合同负债（亿元）
+    inventory_yi: float | None = None  # 存货（亿元）
+    holder_num: int | None = None  # 股东户数
+    holder_change_pct: float | None = None  # 股东户数环比（%）
 
 
 @dataclass(frozen=True)
@@ -173,6 +180,7 @@ def fetch_quarterly_financials(
                 netprofit_yoy=_num(r.get("PARENTNETPROFITTZ")),
                 gross_margin=_num(r.get("XSMLL")),
                 net_margin=_num(r.get("XSJLL")),
+                ocf_yi=_num(r.get("NETCASH_OPERATE_PK"), 1e8),
             )
         )
     return out
@@ -457,6 +465,207 @@ def fetch_quarterly_financials_chain(
     )
 
 
+def _sina_period_items(report_list: dict[str, Any], periods: int) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for period_key in sorted(report_list.keys(), reverse=True)[: max(1, int(periods))]:
+        rec: dict[str, Any] = {}
+        obj = report_list[period_key] or {}
+        for item in obj.get("data", []) or []:
+            title = str(item.get("item_title") or "").strip()
+            if not title or item.get("item_value") is None:
+                continue
+            rec[title] = item.get("item_value")
+            tongbi = item.get("item_tongbi")
+            if tongbi not in (None, ""):
+                rec[title + "_同比"] = tongbi
+        out[f"{period_key[:4]}-{period_key[4:6]}-{period_key[6:8]}"] = rec
+    return out
+
+
+def _fetch_sina_report_list(
+    ts_code: str,
+    source: str,
+    periods: int,
+    timeout: float,
+) -> dict[str, Any]:
+    paper_code = _sina_paper_code(ts_code)
+    if paper_code is None:
+        return {}
+    params = urllib.parse.urlencode(
+        {
+            "paperCode": paper_code,
+            "source": source,
+            "type": "0",
+            "page": "1",
+            "num": str(max(1, int(periods))),
+        }
+    )
+    url = (
+        "https://quotes.sina.cn/cn/api/openapi.php/"
+        f"CompanyFinanceService.getFinanceReport2022?{params}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return {}
+    report_list = ((payload.get("result") or {}).get("data") or {}).get("report_list") or {}
+    return report_list if isinstance(report_list, dict) else {}
+
+
+def fetch_sina_llb_map(
+    ts_code: str, periods: int = DEFAULT_PERIODS, timeout: float = 8.0
+) -> dict[str, dict[str, float]]:
+    items = _sina_period_items(_fetch_sina_report_list(ts_code, "llb", periods, timeout), periods)
+    out: dict[str, dict[str, float]] = {}
+    for report_date, rec in items.items():
+        ocf = _first_num(rec, ("经营活动产生的现金流量净额",), 1e8)
+        if ocf is not None:
+            out[report_date] = {"ocf_yi": ocf}
+    return out
+
+
+def fetch_sina_fzb_map(
+    ts_code: str, periods: int = DEFAULT_PERIODS, timeout: float = 8.0
+) -> dict[str, dict[str, float]]:
+    items = _sina_period_items(_fetch_sina_report_list(ts_code, "fzb", periods, timeout), periods)
+    out: dict[str, dict[str, float]] = {}
+    for report_date, rec in items.items():
+        mapped: dict[str, float] = {}
+        contract = _first_num(rec, ("合同负债",), 1e8)
+        inventory = _first_num(rec, ("存货", "存货合计"), 1e8)
+        if contract is not None:
+            mapped["contract_liability_yi"] = contract
+        if inventory is not None:
+            mapped["inventory_yi"] = inventory
+        if mapped:
+            out[report_date] = mapped
+    return out
+
+
+def fetch_holder_map(ts_code: str, timeout: float = 8.0) -> dict[str, tuple[int, float | None]]:
+    secucode = _secucode(ts_code)
+    if secucode is None:
+        return {}
+    code = secucode.split(".")[0]
+    params = urllib.parse.urlencode(
+        {
+            "reportName": "RPT_HOLDERNUMLATEST",
+            "columns": "ALL",
+            "filter": f'(SECURITY_CODE="{code}")',
+            "pageNumber": "1",
+            "pageSize": "12",
+            "sortColumns": "END_DATE",
+            "sortTypes": "-1",
+            "source": "WEB",
+            "client": "WEB",
+        }
+    )
+    url = f"https://datacenter-web.eastmoney.com/api/data/v1/get?{params}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return {}
+    rows = ((payload.get("result") or {}).get("data")) or []
+    out: dict[str, tuple[int, float | None]] = {}
+    for row in rows:
+        report_date = str(row.get("END_DATE") or "")[:10]
+        raw_num = row.get("HOLDER_NUM")
+        if not report_date or not isinstance(raw_num, (int, float)):
+            continue
+        out[report_date] = (int(raw_num), _num(row.get("HOLDER_NUM_RATIO")))
+    return out
+
+
+def enrich_quality_fields(
+    ts_code: str,
+    rows: list[QuarterFinancials],
+    *,
+    llb: dict[str, dict[str, float]] | None = None,
+    fzb: dict[str, dict[str, float]] | None = None,
+    holders: dict[str, tuple[int, float | None]] | None = None,
+    timeout: float = 8.0,
+    fetch_missing: bool = False,
+    periods: int = DEFAULT_PERIODS,
+) -> list[QuarterFinancials]:
+    """把经营现金流/合同负债/存货/股东户数补进已有逐季行；缺源保持缺口，不编造。"""
+    if not rows:
+        return rows
+    if fetch_missing:
+        if llb is None and any(row.ocf_yi is None for row in rows):
+            llb = fetch_sina_llb_map(ts_code, periods=periods, timeout=timeout)
+        if fzb is None and any(
+            row.contract_liability_yi is None or row.inventory_yi is None for row in rows
+        ):
+            fzb = fetch_sina_fzb_map(ts_code, periods=periods, timeout=timeout)
+        if holders is None and any(row.holder_num is None for row in rows):
+            holders = fetch_holder_map(ts_code, timeout=timeout)
+    llb = llb or {}
+    fzb = fzb or {}
+    holders = holders or {}
+    enriched: list[QuarterFinancials] = []
+    for row in rows:
+        cash = llb.get(row.report_date) or {}
+        balance = fzb.get(row.report_date) or {}
+        holder = holders.get(row.report_date)
+        enriched.append(
+            replace(
+                row,
+                ocf_yi=row.ocf_yi if row.ocf_yi is not None else cash.get("ocf_yi"),
+                contract_liability_yi=(
+                    row.contract_liability_yi
+                    if row.contract_liability_yi is not None
+                    else balance.get("contract_liability_yi")
+                ),
+                inventory_yi=(
+                    row.inventory_yi if row.inventory_yi is not None else balance.get("inventory_yi")
+                ),
+                holder_num=row.holder_num if row.holder_num is not None else (holder[0] if holder else None),
+                holder_change_pct=(
+                    row.holder_change_pct
+                    if row.holder_change_pct is not None
+                    else (holder[1] if holder else None)
+                ),
+            )
+        )
+    return enriched
+
+
+def _yoy_peer(
+    rows: list[QuarterFinancials], current: QuarterFinancials
+) -> QuarterFinancials | None:
+    if len(current.report_date) < 10:
+        return None
+    peer_date = f"{int(current.report_date[:4]) - 1}-{current.report_date[5:10]}"
+    for row in rows:
+        if row.report_date[:10] == peer_date:
+            return row
+    return None
+
+
+def profit_quality_watch(rows: list[QuarterFinancials]) -> str | None:
+    """毛利率同比改善但经营现金流反向 → 待核行。只报数字与方向，不下结论。"""
+    if not rows:
+        return None
+    latest = rows[0]
+    peer = _yoy_peer(rows, latest)
+    if peer is None:
+        return None
+    if latest.gross_margin is None or peer.gross_margin is None:
+        return None
+    if latest.ocf_yi is None or peer.ocf_yi is None:
+        return None
+    if latest.gross_margin <= peer.gross_margin or latest.ocf_yi >= peer.ocf_yi:
+        return None
+    return (
+        f"- 利润质量待核：销售毛利率 {peer.gross_margin}%→{latest.gross_margin}%（改善）"
+        f"但经营现金流 {peer.ocf_yi}亿→{latest.ocf_yi}亿（反向）；不下结论。"
+    )
+
+
 def _fmt(value: float | None, unit: str = "") -> str:
     if value is None:
         return "缺"
@@ -531,8 +740,20 @@ def build_financials_block(
             f"{_fmt(r.netprofit_yi)} | {_fmt(r.netprofit_yoy)} | "
             f"{_fmt(r.gross_margin)} | {_fmt(r.net_margin)} |"
         )
+    lines.append("- | 报告期 | 经营现金流(亿) | 合同负债(亿) | 存货(亿) | 股东户数 | 户数环比% |")
+    lines.append("- |---|---|---|---|---|---|")
+    for r in rows:
+        holder = "缺" if r.holder_num is None else str(r.holder_num)
+        lines.append(
+            f"- | {r.report_name} | {_fmt(r.ocf_yi)} | {_fmt(r.contract_liability_yi)} | "
+            f"{_fmt(r.inventory_yi)} | {holder} | {_fmt(r.holder_change_pct)} |"
+        )
+    watch = profit_quality_watch(rows)
+    if watch:
+        lines.append(watch)
     lines.append(
         "- 口径说明：均为**累计值**（中报=上半年累计、三季报=前三季累计），同比为东财原始累计同比；"
+        "含金量对照只比上年同期（同报告期），不把一季报和年报横比。"
         "本块不做单季还原，如需单季请显式声明推算。"
     )
     lines.append(
@@ -558,17 +779,23 @@ def financials_block_for_target(
     """
     if not fetch_enabled():
         return build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True)
-    if chain is not None or (fetcher is None and fallback_fetcher is None):
+    use_default_chain = chain is None and fetcher is None and fallback_fetcher is None
+    if chain is not None or use_default_chain:
         result = (chain or fetch_quarterly_financials_chain)(
             ts_code, name, periods, timeout
         )
+        rows = list(result.rows)
+        if use_default_chain:
+            rows = enrich_quality_fields(
+                ts_code, rows, timeout=timeout, fetch_missing=True, periods=periods
+            )
         source = result.provider or PRIMARY_PROVIDER
         if result.status == "degraded" and result.provider:
             source = f"{result.provider}（{PRIMARY_PROVIDER} 不可用，已降级）"
         return build_financials_block(
             name or ts_code,
             ts_code,
-            list(result.rows),
+            rows,
             data_source=source,
             fetch_result=result,
         )

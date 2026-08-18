@@ -37,7 +37,7 @@ REGISTRY: tuple[ProviderSpec, ...] = (
     ProviderSpec("D8", "历史类比检索", "题材自身历史相似形态窗口及后续实际走法（小样本历史事实）", "include_analog_block"),
     ProviderSpec("D10", "市场情绪环境类比", "市场级情绪向量（涨停/连板/双红/量能等）历史相似窗口及后续实际走法（小样本历史事实）", "include_regime_block"),
     ProviderSpec("D11", "个股走势类比", "个股自身历史相似量价结构窗口及后续多窗口实际走法（小样本历史事实）", "include_stock_analog_block"),
-    ProviderSpec("D7", "逐季财报", "东财 F10 / 新浪利润表 / AKShare 逐季营收/归母净利/毛利率/净利率（+同比）", "include_financials_block"),
+    ProviderSpec("D7", "逐季财报", "东财 F10 / 新浪三表 / AKShare 逐季营收/净利/毛利率 + 现金流/合同负债/存货/股东户数", "include_financials_block"),
     ProviderSpec("W7", "web 事件检索", "东财资讯 + web 全网近 N 天新闻（只列不编，消息面存在性证据）", "include_news_block"),
     ProviderSpec("M", "用户记忆检索", "相关性召回的用户既有核心判断/纠偏原则/回检胜率", "include_memory_block"),
     # 与 M（用户记忆）严格区分：MARKET_DAILY 是同日结构化市场总览。

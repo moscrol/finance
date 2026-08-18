@@ -9,9 +9,11 @@ from intelligence.services.market_financials import (
     _secucode,
     akshare_available,
     build_financials_block,
+    enrich_quality_fields,
     fetch_quarterly_financials_chain,
     financials_block_for_target,
     parse_financials_intent,
+    profit_quality_watch,
 )
 
 
@@ -299,6 +301,117 @@ class ProviderChainTests(unittest.TestCase):
         self.assertEqual(rows[0].revenue_yoy, 28.9)
         self.assertEqual(rows[0].netprofit_yi, -0.65)
         self.assertEqual(rows[0].gross_margin, 60.3)
+
+
+class ProfitQualityWatchTests(unittest.TestCase):
+    def test_margin_up_ocf_down_triggers(self) -> None:
+        rows = [
+            QuarterFinancials(
+                "2026一季报", "2026-03-31", gross_margin=21.0, ocf_yi=-25.7
+            ),
+            QuarterFinancials(
+                "2025一季报", "2025-03-31", gross_margin=16.46, ocf_yi=-3.94
+            ),
+        ]
+        line = profit_quality_watch(rows)
+        self.assertIsNotNone(line)
+        assert line is not None
+        self.assertIn("利润质量待核", line)
+        self.assertIn("16.46", line)
+        self.assertIn("21.0", line)
+        self.assertIn("-3.94", line)
+        self.assertIn("-25.7", line)
+        self.assertIn("改善", line)
+        self.assertIn("反向", line)
+        self.assertIn("不下结论", line)
+
+    def test_both_improve_does_not_trigger(self) -> None:
+        rows = [
+            QuarterFinancials(
+                "2026一季报", "2026-03-31", gross_margin=21.0, ocf_yi=2.0
+            ),
+            QuarterFinancials(
+                "2025一季报", "2025-03-31", gross_margin=16.46, ocf_yi=1.0
+            ),
+        ]
+        self.assertIsNone(profit_quality_watch(rows))
+
+    def test_adjacent_different_period_is_not_yoy_peer(self) -> None:
+        rows = [
+            QuarterFinancials(
+                "2026一季报", "2026-03-31", gross_margin=21.0, ocf_yi=-25.7
+            ),
+            QuarterFinancials(
+                "2025年报", "2025-12-31", gross_margin=17.9, ocf_yi=29.71
+            ),
+        ]
+        self.assertIsNone(profit_quality_watch(rows))
+
+
+class XiamenTungstenReplayTests(unittest.TestCase):
+    """厦钨 2026Q1 实数回放。来源：新浪三表 + 东财 F10 / RPT_HOLDERNUMLATEST，取数日 2026-08-18。"""
+
+    def _rows(self) -> list[QuarterFinancials]:
+        return [
+            QuarterFinancials(
+                "2026一季报",
+                "2026-03-31",
+                revenue_yi=157.43,
+                netprofit_yi=11.07,
+                gross_margin=21.0,
+                ocf_yi=-25.7,
+                contract_liability_yi=7.28,
+                inventory_yi=197.31,
+                holder_num=161907,
+                holder_change_pct=67.94,
+            ),
+            QuarterFinancials(
+                "2025一季报",
+                "2025-03-31",
+                revenue_yi=84.19,
+                netprofit_yi=3.83,
+                gross_margin=16.46,
+                ocf_yi=-3.94,
+                contract_liability_yi=5.63,
+                inventory_yi=90.03,
+            ),
+        ]
+
+    def test_replay_same_direction_as_knevo(self) -> None:
+        block = build_financials_block("厦门钨业", "600549.SH", self._rows())
+        self.assertIn("经营现金流", block)
+        self.assertIn("合同负债", block)
+        self.assertIn("存货", block)
+        self.assertIn("股东户数", block)
+        self.assertIn("161907", block)
+        self.assertIn("67.94", block)
+        self.assertIn("利润质量待核", block)
+        self.assertIn("改善", block)
+        self.assertIn("反向", block)
+        self.assertNotIn("查询失败", block)
+
+    def test_enrich_merges_sina_and_holders(self) -> None:
+        base = [
+            QuarterFinancials("2026一季报", "2026-03-31", revenue_yi=157.43, gross_margin=21.0),
+            QuarterFinancials("2025一季报", "2025-03-31", revenue_yi=84.19, gross_margin=16.46),
+        ]
+        enriched = enrich_quality_fields(
+            "600549.SH",
+            base,
+            llb={
+                "2026-03-31": {"ocf_yi": -25.7},
+                "2025-03-31": {"ocf_yi": -3.94},
+            },
+            fzb={
+                "2026-03-31": {"contract_liability_yi": 7.28, "inventory_yi": 197.31},
+                "2025-03-31": {"contract_liability_yi": 5.63, "inventory_yi": 90.03},
+            },
+            holders={"2026-03-31": (161907, 67.94)},
+        )
+        self.assertEqual(enriched[0].ocf_yi, -25.7)
+        self.assertEqual(enriched[0].inventory_yi, 197.31)
+        self.assertEqual(enriched[0].holder_num, 161907)
+        self.assertIn("利润质量待核", profit_quality_watch(enriched) or "")
 
 
 if __name__ == "__main__":
