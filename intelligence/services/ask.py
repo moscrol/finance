@@ -96,7 +96,7 @@ from intelligence.services.answer_orchestrator import (
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.query_understanding import market_review_requested_date
 from intelligence.services.research_state import ResearchGap
-from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
+from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, recall_audit, theme_lifecycle, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
     trading_day_prompt_block,
@@ -3359,6 +3359,26 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     gap_lines.extend(wiki_counter_lines)
     if evidence_index_bundle.counter_disclosure and not wiki_counter_lines:
         gap_lines.append(evidence_index_bundle.counter_disclosure)
+    # KC-07：装配完成后跑召回自评四问，只披露不补搜。只看检索窗
+    # （R/W/G/外部/agent），不扫 framing/缺口/D 块，避免本体页里的「产业链」
+    # 冒充关系命中。
+    recall_as_of = recall_audit.parse_as_of(
+        result.trade_date, options.date, _market_today()
+    ) or date_cls.today()
+    gap_lines.extend(
+        recall_audit.audit_recall(
+            [
+                *evidence_lines,
+                *wiki_lines,
+                *wiki_counter_lines,
+                *graph_concept_lines,
+                *company_lines,
+                *web_fallback_lines,
+                *agent_loop_lines,
+            ],
+            as_of=recall_as_of,
+        ).disclosure_lines()
+    )
     if agent_loop_result is not None:
         gap_lines.extend(
             f"agent 检索后仍缺：{gap}" for gap in agent_loop_result.gaps
