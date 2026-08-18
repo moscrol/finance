@@ -717,6 +717,7 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
     assert {item["path"] for item in run.artifacts} == {
         "answer.md",
         "continuous-episode.json",
+        "followups.json",
         "report.json",
     }
     private_artifact = next(

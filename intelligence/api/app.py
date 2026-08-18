@@ -1653,6 +1653,21 @@ def _run_ask(
         started_at=followup_started_at,
     )
     try:
+        if result.clarify is not None:
+            store.append_step(
+                run_id,
+                step_id="s03",
+                name="foresight_followups",
+                status="completed",
+                input_summary=req.question,
+                started_at=followup_started_at,
+                finished_at=rs._now_iso(),
+                output_summary="澄清轮不生成追问",
+            )
+            if _run_terminal(store, run_id):
+                return
+            store.finish_run(run_id, rs.STATUS_COMPLETED)
+            return
         followups = followups_svc.generate_followups(
             req.question,
             matched_theme=result.matched_theme,

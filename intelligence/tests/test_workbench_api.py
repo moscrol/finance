@@ -2939,7 +2939,7 @@ def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> 
     _wait_terminal(client, parent_id)
 
     document = client.get(f"/api/runs/{parent_id}/followups").json()
-    assert len(document["followups"]) == 5
+    assert 2 <= len(document["followups"]) <= 4
     first = document["followups"][0]
     assert first["type"] == "evidence"
     assert "液冷" in first["question"]

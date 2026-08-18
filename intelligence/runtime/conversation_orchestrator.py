@@ -3747,10 +3747,26 @@ class TurnOrchestrator:
         # 缺口镜像（knevo 接力第一片）：契约里未满足的必需输出确定性变成
         # 「猜你想问」。缺口不该是句号——R15 对照的失分形状是追问负担全在
         # 用户。零模型调用，文案与公开降级声明同一口径。
-        gap_followups = followups_svc.gap_mirror_followups(
-            str(task_frame.subject or ""),
-            result.open_gaps,
-        )
+        try:
+            followup_state = followups_svc.project_continuous_state(
+                subject=str(task_frame.subject or ""),
+                question=query,
+                open_gaps=result.open_gaps,
+                status=result.status,
+                subject_kind=str(task_frame.subject_kind or ""),
+            )
+            gap_followups = followups_svc.active_composer().compose(
+                followup_state,
+                polish=False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            warning = f"followup_compose_failed:{type(exc).__name__}"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+            gap_followups = followups_svc.gap_mirror_followups(
+                str(task_frame.subject or ""),
+                result.open_gaps,
+            )
         continuous_followup_payload = [
             asdict(item) for item in gap_followups.followups
         ]
