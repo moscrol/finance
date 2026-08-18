@@ -296,6 +296,7 @@ def _parse_two_day_stock_query(query: str) -> tuple[str, str, str] | None:
     if match is None:
         return None
     name = match.group("name").strip()
+    name = re.sub(r"^(?:\d{4}-\d{2}-\d{2}\s+)+", "", name).strip()
     first = match.group("d1")
     second = _complete_iso_date(match.group("d2"), first)
     if not name or second is None:

@@ -311,7 +311,29 @@ def test_two_day_identical_close_flags_contradiction(monkeypatch) -> None:
     assert "不一致" in answer.answer
 
 
-def test_two_day_different_close_reports_without_copy_flag() -> None:
+def test_two_day_query_strips_runner_date_prefix(monkeypatch) -> None:
+    """Phase 2 runner 会把 case.date 前缀到题面；C5 不能把日期当成股票名。"""
+
+    query = "2026-07-21 立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少"
+    rows = (
+        StockDailyRow("立新能源", "2026-07-20", 10.01, 10.0),
+        StockDailyRow("立新能源", "2026-07-21", 10.01, 10.0),
+    )
+    canned = bound_caliber_disclosure(query, stock_rows=rows)
+    assert canned is not None
+    assert "立新能源" in canned
+    assert "不一致" in canned
+
+    monkeypatch.setattr(
+        "intelligence.services.lane_generation.bound_caliber_disclosure",
+        lambda q, **_kwargs: bound_caliber_disclosure(q, stock_rows=rows),
+    )
+
+    def boom(_messages):
+        raise AssertionError("prefixed C5 query must still be canned")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+    assert "不一致" in answer.answer
     query = "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少"
     canned = bound_caliber_disclosure(
         query,
