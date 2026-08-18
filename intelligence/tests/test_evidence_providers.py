@@ -436,5 +436,86 @@ class CollectEvidenceIndexStaleBypassTests(unittest.TestCase):
         self.assertGreaterEqual(len(notes[0]), 80)
 
 
+class CollectEvidenceIndexCounterReserveTests(unittest.TestCase):
+    """KC-05：top-8 里保底反方槽；无命中显式披露，不空占。"""
+
+    def _collect(self, catalog, *, query, anchor=None, theme=None, concepts=None):
+        knowledge = _CatalogKnowledge(catalog)
+        ctx = _evidence_ctx(
+            query=query,
+            knowledge=knowledge,
+            anchor=anchor,
+            matched_theme=theme,
+        )
+        bundle = ep.collect_evidence_index(ctx, concepts or {})
+        return knowledge, bundle
+
+    def test_buried_counter_keeps_reserved_slot_and_mark(self) -> None:
+        catalog = {
+            "长电科技": [
+                *_actives("长电科技", 8),
+                _item(
+                    "长电科技",
+                    evidence="封测同行扩产过快，供给过剩压力上升",
+                    source="[[反方研报]]",
+                ),
+                _item(
+                    "长电科技",
+                    evidence="部分客户需求不及预期，订单下滑",
+                    source="[[反方纪要]]",
+                ),
+                _item(
+                    "长电科技",
+                    evidence="第三条反方不应挤进保底槽",
+                    source="[[多余]]",
+                ),
+            ]
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        counter_lines = [line for line in bundle.lines if line.startswith("[反]")]
+        self.assertEqual(len(counter_lines), 2, bundle.lines)
+        self.assertTrue(all("长电科技：" in line for line in counter_lines))
+        self.assertTrue(any("供给过剩" in line for line in counter_lines))
+        self.assertTrue(any("需求不及预期" in line for line in counter_lines))
+        self.assertFalse(any("第三条反方" in line for line in bundle.lines))
+        support_lines = [line for line in bundle.lines if not line.startswith("[反]")]
+        self.assertEqual(len(support_lines), 6)
+        self.assertIsNone(bundle.counter_disclosure)
+
+    def test_no_counter_hit_discloses_instead_of_silence(self) -> None:
+        catalog = {"长电科技": _actives("长电科技", 8)}
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 8)
+        self.assertTrue(all(not line.startswith("[反]") for line in bundle.lines))
+        self.assertEqual(bundle.counter_disclosure, "未检索到反方证据")
+
+    def test_single_counter_does_not_empty_occupy(self) -> None:
+        catalog = {
+            "长电科技": [
+                _item("长电科技", evidence="营收同比增长 18%"),
+                _item("长电科技", evidence="同行打价格战，毛利率承压"),
+            ]
+        }
+        _, bundle = self._collect(
+            catalog,
+            query="长电科技怎么看",
+            anchor=EntityAnchor(entity="长电科技", ticker="600584", matched_by="name"),
+        )
+        self.assertEqual(len(bundle.lines), 2)
+        self.assertTrue(bundle.lines[0].startswith("长电科技："))
+        self.assertTrue(bundle.lines[1].startswith("[反]"))
+        self.assertIn("价格战", bundle.lines[1])
+        self.assertIsNone(bundle.counter_disclosure)
+
+
 if __name__ == "__main__":
     unittest.main()

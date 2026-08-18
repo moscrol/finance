@@ -4052,7 +4052,8 @@ def _expanded_date_text(text: str) -> str:
 
 def humanize(text: str) -> str:
     rendered = str(text or "")
-    rendered = re.sub(r"^\[[^\]]+\]\s*", "", rendered)
+    # 丢掉呈现层状态前缀（[missing]），但保留 KC-05 反方标记 [反]。
+    rendered = re.sub(r"^\[(?!反\])[^\]]+\]\s*", "", rendered)
     rendered = re.sub(
         r"\b(20\d{2}-\d{2}-\d{2})-theme-candidates\.json\b",
         r"\1 题材候选快照",
