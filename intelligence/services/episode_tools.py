@@ -1107,10 +1107,17 @@ def build_episode_registry(
             )
             tool_context.check_cancelled()
             evidence: list[agent_research.AgentEvidence] = []
-            for record in recall.judgments:
+            peer_lines = user_memory.judgment_peer_hits(
+                list(recall.judgments),
+                user=memory_user,
+                users_root=memory_users_root,
+            )
+            for record, peer in zip(recall.judgments, peer_lines, strict=False):
                 memo = str(record.get("memo") or "").strip()
                 if not memo:
                     continue
+                if peer:
+                    memo = f"{memo}\n{peer}"
                 tags = [
                     str(tag).strip()
                     for key in ("themes", "stocks")
