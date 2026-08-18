@@ -130,6 +130,7 @@ def test_market_modules_share_one_default(monkeypatch, tmp_path) -> None:
         "intelligence.services.market_analogs",
         "intelligence.services.market_timeseries",
         "intelligence.services.market_moneyflow",
+        "intelligence.services.market_capital",
         "intelligence.services.market_dragon",
         "intelligence.services.market_midterm",
     ):

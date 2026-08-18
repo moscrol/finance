@@ -59,6 +59,7 @@ from intelligence.services import (
     task_fulfillment,
     market_midterm,
     market_moneyflow,
+    market_capital,
     market_dragon,
     market_news,
     market_technical,
@@ -3895,6 +3896,26 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         providers.append(ask_planner.DataBlockProvider("D9", "L2 大单资金流", _d9_applies, _build_d9))
+
+        def _d12_applies() -> bool:
+            return evidence_registry.provider_enabled(options, "D12") and bool(
+                market_capital.parse_capital_intent(options.query)
+            )
+
+        def _build_d12():
+            block = market_capital.capital_block_for_llm(
+                options.query,
+                options.market_db_path,
+                as_of=options.date,
+                timeout=_stage_timeout(options, 8),
+            )
+            return block, Citation(
+                "D12",
+                "东财资金面三件套数据块",
+                "个股两融/大宗/未来90天解禁时间表（只列事实，解禁是待验证时点）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D12", "资金面三件套", _d12_applies, _build_d12))
 
         def _d13_applies() -> bool:
             return evidence_registry.provider_enabled(options, "D13") and bool(
