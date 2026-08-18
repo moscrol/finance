@@ -10,6 +10,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
+from intelligence.services.recall_audit import count_independent_sources
 from intelligence.services.research_contract import (
     EvidenceAtom,
     StageArtifact,
@@ -347,6 +348,7 @@ class Claim:
     counter_evidence: tuple[str, ...] = ()
     status: ClaimStatus = ClaimStatus.CANDIDATE
     company: str | None = None
+    independent_source_count: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -361,6 +363,7 @@ class Claim:
             "counter_evidence": list(self.counter_evidence),
             "status": self.status.value,
             "company": self.company,
+            "independent_source_count": self.independent_source_count,
         }
 
 
@@ -939,6 +942,7 @@ def make_claim(
         confidence=confidence,
         status=status,
         company=company,
+        independent_source_count=count_independent_sources((cleaned,)),
     )
 
 
@@ -2487,6 +2491,21 @@ _STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 # 降桶标注文案。它出现在**正文里**，不是 warnings 里——警告是给工程师看的台账，
 # 用户读到的仍是一句语气笃定的结论。降级要让读答案的人看见才算降级。
 STALE_EVIDENCE_TIER_NOTE = "（待核验：所据证据已被取代或证伪）"
+SINGLE_SOURCE_NOTE = "（单源）"
+_CONCLUSIVE_SINGLE_SOURCE_TYPES = frozenset({"company_evidence", "theme_evidence"})
+
+
+def _is_conclusive_single_source(claim: Claim) -> bool:
+    """结论性 claim 且独立来源恰好 1。抽不出文档名（0）不算单源。"""
+    return (
+        claim.status == ClaimStatus.VERIFIED
+        and claim.claim_type in _CONCLUSIVE_SINGLE_SOURCE_TYPES
+        and claim.independent_source_count == 1
+    )
+
+
+def _single_source_note(claim: Claim) -> str:
+    return SINGLE_SOURCE_NOTE if _is_conclusive_single_source(claim) else ""
 
 
 def _claim_rests_only_on_stale_evidence(
@@ -3831,6 +3850,7 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
         )
         rendered_lines.append(
             f"{prefix}{humanize(source_claim.text)}{tier_note}"
+            f"{_single_source_note(source_claim)}"
         )
     rendered = "\n".join(rendered_lines).strip()
     return _drop_engineering_leak_lines(
@@ -4220,7 +4240,11 @@ def _present_supporting_fact(claim: Claim) -> str:
             if interpretation.startswith("说明")
             else f"。{interpretation}"
         )
-    return statement.rstrip("。") + "。"
+    statement = statement.rstrip("。") + "。"
+    note = _single_source_note(claim)
+    if note:
+        statement = statement.rstrip("。") + note + "。"
+    return statement
 
 
 def _company_tier_label(tier: CompanyTier) -> str:
