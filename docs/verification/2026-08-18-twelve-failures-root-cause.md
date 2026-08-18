@@ -109,8 +109,15 @@ Phase 3 把 **答案侧**的 `dataset`/`caliber` 做出来了（现在每条 `to
 | 派单 | `docs/handoffs/2026-08-18-frozen-thirty-live-baseline.md` | **已派，先决已齐** |
 | live 读数 | `intelligence/eval/runs/*frozen*` | **零**——从没跑过 |
 
-题号与 28 题**完全不重叠**（`rebound-duration` / `index-rebound-space` / `ruihuatai-valuation` …
-vs `A1-market-overview` …）。**这就是现成的 holdout。**
+> **⚠️ 本段已被证伪，2026-08-18 晚更正。** 原文写「题号与 28 题**完全不重叠**，这就是现成的
+> holdout」——**错的，当时只看了前 6 个 id 就下了断言**。逐 id 求交集：**30 题里 19 道与 28 题
+> 重叠，真正没见过的只有 11 道**。而且 fixture 自己的 `note` 就写着「前九题与 07-25 九题
+> 逐字相同；其余 21 题只搬已有验收/long_tail 题面」——**它是为方差分辨力设计的回归集，
+> 从来不是泛化集**。
+>
+> **本仓与 28 题零重叠的题集是 `intelligence/eval/cases/uq15_questions.jsonl`（15 题，
+> 实测交集 0）**，那个才是泛化读数的候选。30 题的实跑读数见
+> [`2026-08-18-frozen-thirty-live-baseline.md`](2026-08-18-frozen-thirty-live-baseline.md)。
 
 ## 5. 建议的下一步（按性价比排序）
 
