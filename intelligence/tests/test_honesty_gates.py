@@ -12,6 +12,11 @@ import pytest
 
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.honesty_gates import (
+    UNREADABLE,
+    SectorAmountRow,
+    StockDailyRow,
+    ThemeHeatRow,
+    bound_caliber_disclosure,
     calendar_disclosure,
     empty_caliber_disclosure,
     requested_information_cutoff,
@@ -212,3 +217,181 @@ def test_honesty_canned_answers_do_not_need_retrieval(query: str) -> None:
 
     decision = decide_turn(query)
     assert deterministic_lane_answer(query, decision)
+
+
+def test_mlcc_sector_amount_flags_unit_anomaly_without_llm(monkeypatch) -> None:
+    """C4：板块成交额必须取出 fact_sector_daily 原值并质疑单位，禁止换全市口径。"""
+
+    query = "2026-07-21 MLCC 板块成交额多少"
+    row = SectorAmountRow(
+        sector_name="MLCC",
+        trade_date="2026-07-21",
+        amount=6112588.6,
+        median_amount=405.0,
+    )
+    canned = bound_caliber_disclosure(query, sector_row=row)
+    assert canned is not None
+    assert "6112588.6" in canned
+    assert "fact_sector_daily" in canned
+    assert "单位异常" in canned
+    assert "611万亿" not in canned
+    assert "6112588亿" not in canned
+
+    monkeypatch.setattr(
+        "intelligence.services.lane_generation.bound_caliber_disclosure",
+        lambda q, **_kwargs: bound_caliber_disclosure(q, sector_row=row),
+    )
+
+    def boom(_messages):
+        raise AssertionError("sector unit-anomaly must not call the LLM")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+    assert "6112588.6" in answer.answer
+    assert "fact_sector_daily" in answer.answer
+
+
+def test_citywide_amount_is_not_sector_caliber_canned() -> None:
+    query = "2026-07-21 全市成交额多少"
+    assert bound_caliber_disclosure(
+        query,
+        sector_row=SectorAmountRow(
+            sector_name="全市",
+            trade_date="2026-07-21",
+            amount=29569.03,
+            median_amount=405.0,
+        ),
+    ) is None
+
+
+def test_normal_sector_amount_reports_raw_without_anomaly() -> None:
+    query = "2026-07-21 电子 板块成交额多少"
+    canned = bound_caliber_disclosure(
+        query,
+        sector_row=SectorAmountRow(
+            sector_name="电子",
+            trade_date="2026-07-21",
+            amount=380.2,
+            median_amount=405.0,
+        ),
+    )
+    assert canned is not None
+    assert "380.2" in canned
+    assert "fact_sector_daily" in canned
+    assert "单位" not in canned
+
+
+def test_sector_amount_fail_open_when_unreadable() -> None:
+    query = "2026-07-21 MLCC 板块成交额多少"
+    assert bound_caliber_disclosure(query, sector_row=UNREADABLE) is None
+
+
+def test_two_day_identical_close_flags_contradiction(monkeypatch) -> None:
+    """C5：两日 close/涨幅完全相同必须指出口径内部不一致。"""
+
+    query = "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少"
+    rows = (
+        StockDailyRow("立新能源", "2026-07-20", 10.01, 10.0),
+        StockDailyRow("立新能源", "2026-07-21", 10.01, 10.0),
+    )
+    canned = bound_caliber_disclosure(query, stock_rows=rows)
+    assert canned is not None
+    assert "10.01" in canned
+    assert "fact_stock_daily" in canned
+    assert "不一致" in canned
+
+    monkeypatch.setattr(
+        "intelligence.services.lane_generation.bound_caliber_disclosure",
+        lambda q, **_kwargs: bound_caliber_disclosure(q, stock_rows=rows),
+    )
+
+    def boom(_messages):
+        raise AssertionError("copied stock rows must not call the LLM")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+    assert "不一致" in answer.answer
+
+
+def test_two_day_query_strips_runner_date_prefix(monkeypatch) -> None:
+    """Phase 2 runner 会把 case.date 前缀到题面；C5 不能把日期当成股票名。"""
+
+    query = "2026-07-21 立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少"
+    rows = (
+        StockDailyRow("立新能源", "2026-07-20", 10.01, 10.0),
+        StockDailyRow("立新能源", "2026-07-21", 10.01, 10.0),
+    )
+    canned = bound_caliber_disclosure(query, stock_rows=rows)
+    assert canned is not None
+    assert "立新能源" in canned
+    assert "不一致" in canned
+
+    monkeypatch.setattr(
+        "intelligence.services.lane_generation.bound_caliber_disclosure",
+        lambda q, **_kwargs: bound_caliber_disclosure(q, stock_rows=rows),
+    )
+
+    def boom(_messages):
+        raise AssertionError("prefixed C5 query must still be canned")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+    assert "不一致" in answer.answer
+    query = "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少"
+    canned = bound_caliber_disclosure(
+        query,
+        stock_rows=(
+            StockDailyRow("立新能源", "2026-07-20", 9.10, 10.0),
+            StockDailyRow("立新能源", "2026-07-21", 10.01, 10.0),
+        ),
+    )
+    assert canned is not None
+    assert "9.1" in canned or "9.10" in canned
+    assert "10.01" in canned
+    assert "不一致" not in canned
+
+
+def test_stock_judgment_query_is_not_canned() -> None:
+    assert bound_caliber_disclosure("立新能源怎么看") is None
+    assert bound_caliber_disclosure("茅台现在股价多少") is None
+
+
+def test_theme_limit_heat_uses_theme_caliber_not_mainline(monkeypatch) -> None:
+    """A5：涨停集中必须来自 fact_theme_limit_heat_daily，不能借道主线表。"""
+
+    query = "2026-07-23 涨停集中在哪些题材"
+    rows = (
+        ThemeHeatRow("储能", 40, "2026-07-23"),
+        ThemeHeatRow("风电", 29, "2026-07-23"),
+        ThemeHeatRow("电网设备", 18, "2026-07-23"),
+        ThemeHeatRow("光伏概念", 15, "2026-07-23"),
+    )
+    canned = bound_caliber_disclosure(query, heat_rows=rows)
+    assert canned is not None
+    assert "fact_theme_limit_heat_daily" in canned
+    assert "储能 40" in canned
+    assert "风电 29" in canned
+    assert "主线" not in canned
+
+    monkeypatch.setattr(
+        "intelligence.services.lane_generation.bound_caliber_disclosure",
+        lambda q, **_kwargs: bound_caliber_disclosure(q, heat_rows=rows),
+    )
+
+    def boom(_messages):
+        raise AssertionError("theme heat must not call the LLM")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+    assert "储能 40" in answer.answer
+
+
+def test_limit_up_count_without_theme_is_not_heat_canned() -> None:
+    assert bound_caliber_disclosure("2026-02-17 涨停家数多少") is None
+    assert bound_caliber_disclosure("2026-07-23 今天市场怎么样") is None
+
+
+def test_theme_heat_fail_open_when_unreadable() -> None:
+    assert (
+        bound_caliber_disclosure(
+            "2026-07-23 涨停集中在哪些题材",
+            heat_rows=UNREADABLE,
+        )
+        is None
+    )
