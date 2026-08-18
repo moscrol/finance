@@ -413,6 +413,17 @@ def _cluster(
     return levels
 
 
+def bars_at_or_before(
+    bars: list[DailyBar] | tuple[DailyBar, ...],
+    as_of: str,
+) -> list[DailyBar]:
+    """保留 `bar.date <= as_of` 的已完成日线。ISO 日期可直接按字符串比较。"""
+    cutoff = str(as_of or "").strip()
+    if not cutoff:
+        return list(bars)
+    return [bar for bar in bars if bar.date <= cutoff]
+
+
 def compute_technical_levels(
     subject: str,
     symbol: str,
@@ -498,11 +509,16 @@ def compute_technical_levels(
 def resolve_market_technical(
     query: str,
     *,
+    as_of: str | None = None,
     count: int = DEFAULT_BARS,
     timeout: float = _TIMEOUT_SECONDS,
     opener=None,
 ) -> TechnicalLevels | TechnicalGap:
-    """入口：解析主体 → 拉日线 → 确定性计算。失败返回 TechnicalGap。"""
+    """入口：解析主体 → 拉日线 → 确定性计算。失败返回 TechnicalGap。
+
+    ``as_of`` 非空时把已完成日线截断到该日（含）再算；早于窗口或截断后
+    样本不足则 fail closed，不得回落到最新一根。
+    """
     index_hit = match_index_subject(query)
     instrument = resolve_market_instrument(query)
     if index_hit is not None and instrument is None:
@@ -530,20 +546,34 @@ def resolve_market_technical(
             reason=error,
         )
     assert series is not None
-    if len(series.completed_bars) < 60:
+    bars = list(series.completed_bars)
+    live_quote = series.live_quote
+    requested = str(as_of or "").strip() or None
+    if requested:
+        earliest = bars[0].date if bars else "无"
+        bars = bars_at_or_before(bars, requested)
+        if not bars:
+            return TechnicalGap(
+                subject=instrument.display_name,
+                symbol=instrument.provider_symbol,
+                reason=f"窗口不足，最早可得 {earliest}",
+            )
+        if series.completed_bars and bars[-1].date != series.completed_bars[-1].date:
+            live_quote = None
+    if len(bars) < 60:
         return TechnicalGap(
             subject=instrument.display_name,
             symbol=instrument.provider_symbol,
             reason=(
-                f"已完成日线不足（仅 {len(series.completed_bars)} 根，需要 ≥60 根；"
+                f"已完成日线不足（仅 {len(bars)} 根，需要 ≥60 根；"
                 f"最新行 {series.live_bar.date if series.live_bar else '无'} 未确认）"
             ),
         )
     return compute_technical_levels(
         instrument.display_name,
         instrument.provider_symbol,
-        list(series.completed_bars),
-        live_quote=series.live_quote,
+        bars,
+        live_quote=live_quote,
     )
 
 

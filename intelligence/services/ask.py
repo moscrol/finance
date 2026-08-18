@@ -909,6 +909,7 @@ def _answer_market_technical(
     outcome = market_technical.resolve_market_technical(
         options.query,
         timeout=_stage_timeout(options, 15),
+        as_of=options.date,
     )
     subject = outcome.subject
     result = AskResult(

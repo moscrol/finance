@@ -2747,8 +2747,8 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     )
     calls: list[str] = []
 
-    def run_fast_path(_frame, *, timeout):
-        del timeout
+    def run_fast_path(_frame, *, timeout, as_of=None):
+        del timeout, as_of
         calls.append("fast_path")
         assert _frame is frame
         return {
@@ -4708,8 +4708,8 @@ def _fast_path_frame() -> TaskFrame:
 
 
 def _run_fast_path_with_anchor(*, fast_as_of: str, anchor: str | None):
-    def runner(frame, *, timeout):
-        del frame, timeout
+    def runner(frame, *, timeout, as_of=None):
+        del frame, timeout, as_of
         return {
             "execution_kind": "deterministic_fast_path",
             "status": "completed",
@@ -4765,3 +4765,38 @@ def test_fast_path_stays_completed_when_no_anchor_was_injected() -> None:
     result = _run_fast_path_with_anchor(fast_as_of="2026-08-18", anchor=None)
     assert result.status == "completed"
     assert result.warnings == ()
+
+
+def test_fast_path_forwards_round_anchor_to_runner() -> None:
+    seen: dict[str, object] = {}
+
+    def runner(frame, *, timeout, as_of=None):
+        del frame, timeout
+        seen["as_of"] = as_of
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "completed",
+            "answer": "截至 2026-07-24，科创50收盘 1790.87。",
+            "as_of": "2026-07-24",
+            "gaps": [],
+            "traces": [],
+            "latency": 0.8,
+            "llm_calls": 0,
+            "tool_calls": 1,
+        }
+
+    class _Semantic:
+        def verify(self, *_args, **_kwargs):
+            raise AssertionError("fast path must not reach the semantic verifier")
+
+    frame = _fast_path_frame()
+    ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        mode="on",
+        latest_data_date="2026-07-24",
+        fast_path_runner=runner,
+        context_factory=lambda *_a, **_k: object(),
+        registry_factory=lambda *_a, **_k: "registry",
+        semantic_verifier=_Semantic(),
+    ).handle(frame=frame, control=_control(frame, terminal_kind="research"))
+    assert seen.get("as_of") == "2026-07-24"

@@ -310,6 +310,7 @@ class ContinuousTurnAdapter:
             raw = self._fast_path_runner(
                 frame,
                 timeout=self._remaining_timeout(),
+                as_of=self._latest_data_date,
             )
             if self._is_cancelled():
                 return _cancelled_result()
@@ -371,21 +372,9 @@ class ContinuousTurnAdapter:
         else:
             status = "failed"
         fast_as_of = _fast_path_as_of(raw)
-        # **快路径不消费本轮的参考日，必须当场对账。**
-        #
-        # 这条路径直接调 ``market_technical.resolve_market_technical(raw_question)``，
-        # 那个函数**没有日期参数**，只会拉「最近 N 根日线」——也就是永远按今天算。
-        # 而本轮的锚点其实一直在手边（``self._latest_data_date``，由上游按题目
-        # ``as_of`` 注入），只是从没人拿它比过。
-        #
-        # 2026-08-18 冻结 30 题实测后果：``index-rebound-space`` 与
-        # ``sci-tech-support`` 两题锚在 2026-07-24，快路径按 2026-08-18 算完
-        # 交付，**判分器还给了 completed / passed / task_alignment 1.0**——
-        # 0 次模型调用、0.8 秒、用错日期的数，三个轴全绿。这是假绿不是低分。
-        #
-        # 修法不是丢掉结果（数是真的，只是日期不对），而是**当场声明口径不符**
-        # 并从 completed 降到 degraded，让下游看得见、判分器不再当满分。
-        # 这与 C3 空表披露同一条纪律：宁可明说不可得，不静默换口径交付。
+        # 快路径现在把本轮锚点传进 resolve_market_technical(as_of=...)。
+        # 对账仍留下作兜底：窗口不足等残余情形会继续算最新一根，必须当场声明，
+        # 不得再静默以 completed 交付错日期。锚点对得上时不应再触发。
         anchor = (self._latest_data_date or "").strip()
         caliber_warnings: tuple[str, ...] = ()
         if status == "completed" and anchor and fast_as_of and fast_as_of != anchor:
