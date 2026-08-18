@@ -335,6 +335,18 @@ def test_fupanhui_assets_registered_as_datasets() -> None:
         assert _DATASETS[name].table == table
 
 
+def test_theme_limit_heat_and_empty_snapshot_are_registered() -> None:
+    """A5 要能查题材热度表；C3 空快照也必须作为可查询口径存在。"""
+    from intelligence.services.finance_query import _DATASETS
+
+    heat = _DATASETS["theme_limit_heat_daily"]
+    assert heat.table == "fact_theme_limit_heat_daily"
+    assert "limit_up_count" in heat.metrics
+    snapshot = _DATASETS["stock_technical_snapshot"]
+    assert snapshot.table == "fact_stock_technical_snapshot"
+    assert "deviation_pct" in snapshot.metrics
+
+
 def test_dragon_seat_query_binds_and_executes(tmp_path: Path) -> None:
     """席位 dataset 端到端：谁买了某股，按净买入排序。"""
     import duckdb

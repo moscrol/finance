@@ -503,6 +503,47 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
         },
     ),
+    # A5：涨停集中题材的 canonical 表。未注册时模型只能借道主线/板块表，
+    # 给出电力 8 家而不是储能 40 家（2026-08-18 实测）。
+    "theme_limit_heat_daily": _DatasetDefinition(
+        table="fact_theme_limit_heat_daily",
+        label="题材涨停热度日频",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "sector_code": _dimension("sector_ts_code", "板块代码"),
+            "sector_name": _dimension("sector_name", "板块名称"),
+            "dimension": _dimension("dimension", "热度维度"),
+            "scope": _dimension("scope", "统计范围"),
+        },
+        metrics={
+            "limit_up_count": _metric("limit_up_count", "涨停家数", "sum", "integer"),
+            "market_limit_up_count": _metric(
+                "market_limit_up_count", "全市场涨停家数", "max", "integer"
+            ),
+            "total_count": _metric("total_count", "题材家数", "max", "integer"),
+            "limit_up_ratio": _metric("limit_up_ratio", "涨停占比"),
+            "market_share": _metric("market_share", "市场占比"),
+            "rank": _metric("rank", "热度排名", "min", "integer"),
+        },
+    ),
+    # C3：技术面快照口径。当前常年 0 行，注册后查询路径诚实返回空，
+    # 不得改走价格表。空表披露由 honesty_gates.empty_caliber_disclosure 短路。
+    "stock_technical_snapshot": _DatasetDefinition(
+        table="fact_stock_technical_snapshot",
+        label="个股技术面快照",
+        time_field="trade_date",
+        dimensions={
+            "trade_date": _dimension("trade_date", "交易日", "date"),
+            "stock_code": _dimension("stock_ts_code", "股票代码"),
+            "stock_name": _dimension("stock_name", "股票名称"),
+            "source_table": _dimension("source_table", "来源表"),
+        },
+        metrics={
+            "up_value": _metric("up_value", "UP 线"),
+            "deviation_pct": _metric("deviation_pct", "乖离率"),
+        },
+    ),
 }
 
 _PROVIDER_FIELD_ALIASES: dict[str, dict[str, str]] = {

@@ -13,6 +13,7 @@ import pytest
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.honesty_gates import (
     calendar_disclosure,
+    empty_caliber_disclosure,
     requested_information_cutoff,
     retired_table_disclosure,
     with_calendar_disclosure,
@@ -91,6 +92,49 @@ def test_retired_table_is_canned_without_llm() -> None:
 def test_retired_table_does_not_false_positive_on_substring() -> None:
     assert retired_table_disclosure("板块边际量怎么看") is None
     assert retired_table_disclosure("advancers-chart 怎么用") is None
+
+
+def test_empty_technical_snapshot_is_canned_without_llm(monkeypatch) -> None:
+    """C3：目标口径 0 行必须声明空表，禁止换价格表，也禁止再问模型。"""
+
+    monkeypatch.setattr(
+        "intelligence.services.honesty_gates._count_table_rows",
+        lambda _table: 0,
+    )
+    query = "2026-07-23 立新能源的技术面快照给我看一下"
+
+    def boom(_messages):
+        raise AssertionError("empty technical snapshot must not call the LLM")
+
+    answer = generate_lane_answer(query, decide_turn(query), llm_complete=boom)
+
+    assert "fact_stock_technical_snapshot" in answer.answer
+    assert "空表" in answer.answer
+    assert "0 行" in answer.answer
+    assert "数据不可用" in answer.answer
+    assert "表不存在" not in answer.answer
+    assert "收盘" not in answer.answer
+
+
+def test_empty_caliber_disclosure_is_injectable() -> None:
+    query = "2026-07-23 立新能源的技术面快照给我看一下"
+    hit = empty_caliber_disclosure(query, row_count=0)
+    assert hit is not None and "0 行" in hit
+    assert empty_caliber_disclosure(query, row_count=12) is None
+    assert empty_caliber_disclosure("立新能源怎么看", row_count=0) is None
+
+
+def test_empty_caliber_fail_open_when_db_unreadable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "intelligence.services.honesty_gates._count_table_rows",
+        lambda _table: None,
+    )
+    from intelligence.services.lane_generation import deterministic_lane_answer
+
+    query = "2026-07-23 立新能源的技术面快照给我看一下"
+    assert empty_caliber_disclosure(query) is None
+    canned = deterministic_lane_answer(query, decide_turn(query))
+    assert canned is None or "fact_stock_technical_snapshot" not in canned
 
 
 def test_standing_date_becomes_requested_cutoff() -> None:

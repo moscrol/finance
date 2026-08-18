@@ -2,7 +2,8 @@
 
 The module is deliberately pure: callers provide a compiled case contract and a
 serialized run, and receive immutable operational/truth/experience verdicts. It
-does not call a model, database, knowledge base, or product runtime.
+does not call a model, database, knowledge base, or product runtime. It does
+read the frozen ``MetricSpec`` alias table so scorer and D0 share one registry.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
+
+from intelligence.services.metric_spec import metric_aliases_for_field
 
 
 REPO = Path(__file__).resolve().parents[2]
@@ -327,6 +330,13 @@ def compile_case_contract(
         str(field_name): tuple(str(item) for item in values)
         for field_name, values in aliases_raw.items()
     }
+    for item in case.get("expect_facts") or []:
+        field_name = str((item or {}).get("field") or "")
+        extras = metric_aliases_for_field(field_name)
+        if not extras:
+            continue
+        current = aliases.get(field_name, ())
+        aliases[field_name] = tuple(dict.fromkeys([*current, *extras]))
     equivalents_raw = overlay.get("phrase_equivalents") or {}
     equivalents: dict[str, tuple[str, ...]] = {}
     for phrase_raw, variants_raw in equivalents_raw.items():

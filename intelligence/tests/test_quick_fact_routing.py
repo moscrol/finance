@@ -20,7 +20,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.route_table import is_quick_fact_query
-from intelligence.services.turn_controller import _fine_grained_route_row
+from intelligence.services.turn_controller import _fine_grained_route_row, decide_turn
 
 QUICK_FACT_QUERIES = [
     "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
@@ -93,3 +93,31 @@ def test_quick_fact_is_not_scored_on_inapplicable_dimensions() -> None:
 
     vague = score_answer("立新能源收盘价多少", "走势不错，可以关注。", question_type=QUESTION_QUICK_FACT)
     assert vague.total_score < scored.total_score
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "2026-07-21 MLCC 板块成交额多少",
+        "立新能源 2026-07-20 和 07-21 分别涨了多少、收盘价多少",
+    ),
+)
+def test_dated_metric_quick_fact_uses_research_lane(query: str) -> None:
+    """C4/C5：取值题仍是 quick_fact，但不得落 knowledge_lane_answer。"""
+
+    assert is_quick_fact_query(query) is True
+    row = _fine_grained_route_row(query)
+    assert row is not None
+    assert row.route_id == "quick_fact"
+    assert row.lane == "research"
+    decision = decide_turn(query)
+    assert decision.question_type == "quick_fact"
+    assert decision.lane == "research"
+
+
+def test_undated_quick_fact_stays_on_knowledge_lane() -> None:
+    for query in ("茅台现在股价多少", "300750是哪家公司"):
+        row = _fine_grained_route_row(query)
+        assert row is not None
+        assert row.route_id == "quick_fact"
+        assert row.lane == "knowledge"
