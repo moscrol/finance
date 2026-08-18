@@ -5762,3 +5762,30 @@ class TestEarlierMessagesDiscloseWhatWasDropped:
         text = conversation_orchestrator._summarize_messages(messages)
 
         assert len(text) <= SUMMARY_CHAR_LIMIT
+
+
+def test_readable_replacement_does_not_split_a_longer_identifier() -> None:
+    """术语替换不得把表名切开——2026-08-18 A5 实测原文。
+
+    ``limit_heat`` 这条规则曾把 ``fact_theme_limit_heat_daily`` 改成
+    ``fact_theme_涨停热度_daily``，一个不存在的表。产品刚声明完取数口径，
+    展示层就把口径改成了查不到的东西，而两侧门禁都不会报错。
+    """
+    from intelligence.runtime.conversation_orchestrator import (
+        sanitize_conversation_answer,
+    )
+
+    cleaned = sanitize_conversation_answer(
+        "fact_theme_limit_heat_daily 2026-07-23 涨停集中：储能 40 家。"
+    )
+    assert "fact_theme_limit_heat_daily" in cleaned
+    assert "涨停热度_daily" not in cleaned
+
+
+def test_readable_replacement_still_translates_a_standalone_term() -> None:
+    """反方向：独立出现的内部术语仍要翻译，否则这道闸就是把功能关掉了。"""
+    from intelligence.runtime.conversation_orchestrator import (
+        sanitize_conversation_answer,
+    )
+
+    assert "涨停热度" in sanitize_conversation_answer("信号 limit_heat 命中三个题材。")

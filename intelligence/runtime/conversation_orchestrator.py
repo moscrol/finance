@@ -1352,9 +1352,39 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
         return "研究过程中出现内部错误；相关结果未纳入结论。"
     cleaned = sanitize_conversation_answer(cleaned)
     cleaned = _CREDENTIAL_IDENTIFIER_PATTERN.sub("模型服务凭据", cleaned)
-    for internal, readable in _PUBLIC_REPORT_REPLACEMENTS:
-        cleaned = cleaned.replace(internal, readable)
+    cleaned = _apply_readable_replacements(cleaned, _PUBLIC_REPORT_REPLACEMENTS)
     return cleaned
+
+
+def _apply_readable_replacements(
+    text: str,
+    replacements: Sequence[tuple[str, str]],
+) -> str:
+    """术语替换，但**不切开更长的标识符**。
+
+    裸 ``str.replace`` 会把 ``limit_heat`` 这条规则作用到
+    ``fact_theme_limit_heat_daily`` 上，产出 ``fact_theme_涨停热度_daily``——
+    一个**不存在的表名**。2026-08-18 A5 实测到的原文就是它。
+
+    这条 bug 特别贵，因为它精确地打掉了「让数值携带成立条件」这件事本身：
+    产品好不容易在答案里声明了自己的取数口径，展示层把那个口径改成了查不到的
+    东西，用户照着抄一无所获，而上游任何门禁都不会报错——两边各自都"对"。
+
+    规则：仅当匹配点的**左右都不是标识符字符**（ASCII 字母/数字/下划线）时才替换。
+    只对纯 ASCII 的内部术语设这道闸；含中文的规则（如「模块路由」）不受影响，
+    因为中文本来就不会嵌在 snake_case 标识符里。
+    """
+
+    for internal, readable in replacements:
+        if not internal.isascii():
+            text = text.replace(internal, readable)
+            continue
+        text = re.sub(
+            rf"(?<![A-Za-z0-9_]){re.escape(internal)}(?![A-Za-z0-9_])",
+            readable.replace("\\", r"\\"),
+            text,
+        )
+    return text
 
 
 def sanitize_conversation_answer(text: str) -> str:
@@ -1405,8 +1435,7 @@ def sanitize_conversation_answer(text: str) -> str:
         "本地盘面数据",
         cleaned,
     )
-    for internal, readable in _HUMAN_READABLE_REPLACEMENTS:
-        cleaned = cleaned.replace(internal, readable)
+    cleaned = _apply_readable_replacements(cleaned, _HUMAN_READABLE_REPLACEMENTS)
     cleaned = re.sub(
         r"\b(?:True|False)\b",
         lambda match: "是" if match.group(0) == "True" else "否",
