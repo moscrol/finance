@@ -919,6 +919,107 @@ def _explicit_theme(text: str, timeframe: str | None) -> str | None:
     return None
 
 
+_CJK_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+_LEFT_FUNCTION_PREFIXES = (
+    "最近",
+    "近期",
+    "最新",
+    "今日",
+    "今天",
+    "昨天",
+    "目前",
+    "当前",
+    "关于",
+    "国内",
+    "海外",
+    "中国",
+    "以及",
+    "还有",
+    "或者",
+    "如果",
+    "对于",
+    "围绕",
+    "包括",
+    "看看",
+    "分析",
+    "研究",
+    "关注",
+    "提到",
+    "涉及",
+    "相关",
+    "美股",
+    "港股",
+    "A股",
+    "a股",
+    "沪深",
+    "大盘",
+)
+
+
+def has_clean_theme_occurrence(folded_query: str, folded_term: str) -> bool:
+    """主题词在问句里是否有一次非后缀嵌入的出现（左邻不是 CJK 字符）。
+
+    生产事故（2026-08-13 R13-A3）：「立新能源怎么看」问的是个股 001258，
+    实体锚定因 wiki 未登记而落空后，主题词典把「新能源」从「立新能源」
+    肚子里抠了出来——theme_analysis 路由、theme-research owner、零证据终局。
+    同形状地雷不止一颗：国新能源、宝新能源、华润新能源全是「X+新能源」
+    后缀嵌入。
+
+    规则刻意不对称：只 veto **左邻 CJK**（后缀嵌入是公司名的形状），
+    不 veto 右邻延伸（「新能源汽车」是主题短语的形状，且更长的别名按
+    长度降序先匹配）。
+    """
+
+    if not folded_term:
+        return False
+    start = 0
+    while True:
+        index = folded_query.find(folded_term, start)
+        if index < 0:
+            return False
+        if index == 0 or not _CJK_CHAR_RE.match(folded_query[index - 1]):
+            return True
+        start = index + 1
+
+
+def cjk_span_embedding_term(query: str, term: str) -> str | None:
+    """若 ``term`` 只作为更长 CJK 片段的后缀出现，返回该前缀+词片段。
+
+    只向左扩张：公司名形状是「X+主题」；右边常是「怎么看」这类问句成分，
+    不能并进候选名。
+    """
+
+    if not term:
+        return None
+    start = 0
+    while True:
+        index = query.find(term, start)
+        if index < 0:
+            return None
+        if index > 0 and _CJK_CHAR_RE.match(query[index - 1]):
+            left = index
+            while left > 0 and _CJK_CHAR_RE.match(query[left - 1]):
+                left -= 1
+            token = _strip_function_prefix(query[left : index + len(term)])
+            if token != term:
+                return token
+        start = index + 1
+    return None
+
+
+def _strip_function_prefix(text: str) -> str:
+    remaining = text
+    changed = True
+    while changed and remaining:
+        changed = False
+        for prefix in _LEFT_FUNCTION_PREFIXES:
+            if remaining.startswith(prefix):
+                remaining = remaining[len(prefix) :]
+                changed = True
+                break
+    return remaining
+
+
 def understand_query(
     query: str,
     *,
