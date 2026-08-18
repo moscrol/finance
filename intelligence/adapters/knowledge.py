@@ -371,6 +371,34 @@ class KnowledgeAdapter:
             "errors": [],
         }
 
+    def get_stale_edges(self, target: str, concept: str | None = None) -> dict[str, Any]:
+        """只读旁路：该 target 上已被取代 / 已证伪的边，不占检索名额。
+
+        ``concept`` 即使传入也忽略——旁路按 target 名直查账本，不把概念袋
+        当过滤键（#153/#157）。overlay 硬回链在这里可见；默认 ``get_evidence``
+        仍丢 ``invalidated``。
+        """
+        del concept
+        payload = self.get_evidence(
+            target,
+            concept=None,
+            limit=10_000,
+            include_invalidated=True,
+        )
+        items = [
+            item
+            for item in payload.get("items") or []
+            if evidence_status(item) in {"superseded", "invalidated"}
+        ]
+        return {
+            "found": bool(items),
+            "target": target,
+            "concept": None,
+            "items": items,
+            "warnings": list(payload.get("warnings") or []),
+            "errors": list(payload.get("errors") or []),
+        }
+
     def get_concept_matches(self, term: str, limit: int = 5) -> dict[str, Any]:
         relation = self.load_relation("concept_graph")
         if not relation["found"]:

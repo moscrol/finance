@@ -42,6 +42,9 @@ if TYPE_CHECKING:
 # 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
 # W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
 _PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
+_STALE_BYPASS_NOTE_MAX_CHARS = 180
+_STALE_EDGE_STATUSES = frozenset({"superseded", "invalidated"})
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _L3_GAP_TERMS = (
     "客户",
     "合作",
@@ -523,6 +526,85 @@ def collect_graph(ctx: EvidenceContext) -> GraphEvidence:
     return bundle
 
 
+def _evidence_row_key(item: dict[str, Any]) -> str:
+    return f"{item.get('target')}|{item.get('source')}|{item.get('evidence')}"
+
+
+def _stale_replacement_pointer(item: dict[str, Any]) -> str:
+    return str(item.get("superseded_by") or item.get("status_note") or "").strip()
+
+
+def _stale_pointer_recency(item: dict[str, Any]) -> str:
+    pointer = _stale_replacement_pointer(item)
+    dates = _ISO_DATE.findall(pointer)
+    if dates:
+        return max(dates)
+    return str(item.get("source_date") or "")
+
+
+def _format_stale_bypass_note(target: str, items: list[dict[str, Any]]) -> str:
+    newest = max(
+        items,
+        key=lambda item: (_stale_pointer_recency(item), _stale_replacement_pointer(item)),
+    )
+    pointer = _stale_replacement_pointer(newest)
+    prefix = f"{target} 有 {len(items)} 条证据已被取代"
+    if not pointer:
+        return prefix[:_STALE_BYPASS_NOTE_MAX_CHARS]
+    glue = "；最近新证据："
+    room = _STALE_BYPASS_NOTE_MAX_CHARS - len(prefix) - len(glue)
+    if room <= 1:
+        return prefix[:_STALE_BYPASS_NOTE_MAX_CHARS]
+    if len(pointer) > room:
+        pointer = pointer[: room - 1] + "…"
+    return prefix + glue + pointer
+
+
+def _stale_edges_for_target(knowledge: Any, target: str) -> list[dict[str, Any]]:
+    getter = getattr(knowledge, "get_stale_edges", None)
+    if callable(getter):
+        payload = getter(target)
+        if isinstance(payload, dict):
+            raw_items = payload.get("items") or []
+        else:
+            raw_items = payload or []
+        return [item for item in raw_items if isinstance(item, dict)]
+    try:
+        payload = knowledge.get_evidence(
+            target,
+            concept=None,
+            limit=10_000,
+            include_invalidated=True,
+        )
+    except TypeError:
+        payload = knowledge.get_evidence(target, limit=10_000)
+    return [
+        item
+        for item in list((payload or {}).get("items") or [])
+        if isinstance(item, dict) and evidence_status(item) in _STALE_EDGE_STATUSES
+    ]
+
+
+def _append_stale_bypass_notes(
+    *,
+    knowledge: Any,
+    targets: list[str],
+    seen_evidence: set[str],
+    stale_notes: list[str],
+) -> None:
+    """每个 target 至多一行提醒；只计 top-8 窗外的 superseded/invalidated。"""
+    for target in targets:
+        outside = [
+            item
+            for item in _stale_edges_for_target(knowledge, target)
+            if evidence_status(item) in _STALE_EDGE_STATUSES
+            and _evidence_row_key(item) not in seen_evidence
+        ]
+        if not outside:
+            continue
+        stale_notes.append(_format_stale_bypass_note(target, outside))
+
+
 def collect_evidence_index(
     ctx: EvidenceContext,
     company_evidence_concepts: dict[str, str],
@@ -543,7 +625,8 @@ def collect_evidence_index(
         targets.append(result.matched_theme)
     targets.append(options.query)
     targets.extend(company_evidence_concepts)
-    for target in dict.fromkeys(t for t in targets if t):
+    unique_targets = list(dict.fromkeys(t for t in targets if t))
+    for target in unique_targets:
         # 图谱暴露绑的是实体登记概念袋里的一条（如 1.6T CPO），不是这条
         # 证据该用的题材。锚定实体若带这个 concept 去过滤，对不上就
         # found=False，整包被跳过，名额被盘面候选占满。
@@ -558,7 +641,7 @@ def collect_evidence_index(
         if not ev.get("found"):
             continue
         for item in ev["items"]:
-            key = f"{item.get('target')}|{item.get('source')}|{item.get('evidence')}"
+            key = _evidence_row_key(item)
             if key in seen_evidence:
                 continue
             seen_evidence.add(key)
@@ -652,6 +735,13 @@ def collect_evidence_index(
                 break
         if len(evidence_lines) >= options.max_evidence:
             break
+
+    _append_stale_bypass_notes(
+        knowledge=ctx.knowledge,
+        targets=unique_targets,
+        seen_evidence=seen_evidence,
+        stale_notes=stale_notes,
+    )
 
     # candidate-embedded knowledge_evidence as cross-check
     for ke in (ctx.candidate or {}).get("knowledge_evidence", []) or []:
